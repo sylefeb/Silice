@@ -1,0 +1,14 @@
+
+algorithm test(input int8 a,input int8 b,output int8 v)
+{
+
+}
+
+algorithm main(output int8 led)
+{
+  int8 x = 1;
+  int8 y = 2;
+  test t1;
+
+  (led,y) <- t1 <- (x,y); // error reading back output
+}

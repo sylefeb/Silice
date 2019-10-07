@@ -1,0 +1,492 @@
+\documentclass[a4]{article}
+
+\usepackage{a4wide}
+\usepackage{minted}
+\usepackage{xcolor}
+
+\newcommand\todo[1]{{\color{magenta}\textbf{TODO:} #1}}
+\newcommand\verilog{Verilog}
+\newcommand\silice{Silice}
+
+% enamel
+
+\title{\silice{} - mixing low and high level FPGA programming}
+
+\begin{document}
+
+\maketitle
+
+\silice{} aims at simplifying writing code for FPGAs. It compiles to and inter-operates with \verilog{}. \silice{} is not meant to \textit{hide} the HDL complexity, but rather to complement it, making it more enjoyable to write parallel code and algorithms utilizing the FPGA architecture. A basic understanding of \verilog{} is highly recommended as a pre-requisite to using \silice{}.
+
+\silice{} is reminiscent of high performance programming in the late 90s (in the demo scene in particular): the then considered high-level C language was commonly interfaced with time-critical ASM routines. This enabled a best-of-both-worlds situation, with C being used for the overall program flow and ASM used only on carefully optimized hardware dependent routines.
+%
+\silice{} does the same, providing a programmer friendly C-inspired layer on top of \verilog{}, while allowing to call low level \verilog{} modules whenever needed. 
+\silice{} also favors parallelism and performance everywhere, allowing to fully benefits from the specificities of FPGA architectures.
+
+The main design principles are:
+\begin{itemize}
+\item Prioritize combinational over sequential execution. Parallelism comes first!
+\item Clearly defined rules regarding clock cycle consumption.
+\item Explicit clock domains and reset signals.
+\item Inter-operates easily with \verilog{}, allowing to import and reuse existing modules.
+\item Familiar C-like syntax.
+\item Powerful LUA-based pre-processor.
+\end{itemize}
+
+\noindent While I developped \silice{} for my own needs, I hope you'll find it useful for your projects!
+
+% ==============================================
+	
+\section{A first example}
+
+This first example assumes two signals: a 'button' input (high when pressed) and a 'led' output, each one bit.
+
+The \textit{main} algorithm -- the one expected as top level -- simply asks the led to turn on when the button is pressed. We will consider several versions -- all working -- to demonstrate basic features of \silice{}.
+
+Perhaps the most natural for a programmer not used to FPGAs would be:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main(input uint1 button,output uint1 led) {  
+  while (1) {
+    led = button;
+  }
+}
+\end{minted}
+
+However, we could instead specify a \textit{continuous assignment} between led and button:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main(input uint1 button,output uint1 led) {  
+  led <: button;
+}
+\end{minted}
+
+This requires led to constantly track the value of button. Note, however, that the continuous assignement can be overridden at some clock steps, for instance:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main(input uint1 button,output uint1 led) {  
+  led <: 0;
+  while (1) {
+    if (button == 1) {
+      led = 1;
+    }
+  }  
+}
+\end{minted}
+
+Of course this last version is needlessly complicated, but it shows the principle: led is continuously assigned 0, but this will be overridden whenever the button is pressed. This is useful to maintain an output to a value that must change only on some specific event (eg. producing a pulse).
+
+% ==============================================
+
+\section{Terminology}
+
+\begin{itemize}
+\item \textbf{VIO}: Variable, Input or Output.
+\item \textbf{Host hardware framework}: The \verilog{} glue to the hardware meant to run the design.
+\end{itemize}
+
+% ==============================================
+
+\section{Basic language constructs}
+
+\subsection{Types}
+\label{sec:types}
+
+\silice{} supports signed and unsigned integers with a specified bit width:
+
+\begin{itemize}
+	\item \texttt{int}N with N the bit-width, e.g. \texttt{int8}: signed integer.
+	\item \texttt{uint}N with N the bit-width, e.g. \texttt{uint8}: unsigned integer.
+\end{itemize}
+
+\subsection{Constants}
+\label{sec:csts}
+
+Constants may be given directly as decimal based numbers (eg. \texttt{1234}), or
+can be given with a specified bit width and base:
+\begin{itemize}
+	\item \texttt{3b0101}, 3 bits wide value 5.
+	\item \texttt{32hffff}, 32 bits wide value 65535.
+	\item \texttt{4d10}, 4 bits wide value 10.
+\end{itemize}
+
+Supported base identifiers are: \texttt{b} for binary, \texttt{h} for hexadecimal, \texttt{d} for decimal. If the value does not fit the bit width, it is clamped.
+
+\subsection{Variables}
+
+Variables are declared with the following pattern:
+
+\texttt{TYPE ID = VALUE;}
+
+\noindent where \texttt{TYPE} is a type definition (Section~\ref{sec:types}), \texttt{ID} a variable identifier (starting with a letter followed by alphanumeric or underscores) and \texttt{VALUE} a constant (Section~\ref{sec:csts}).
+
+The initializer is mandatory.
+
+\subsection{Tables}
+
+\texttt{intN tbl[M] = \{...\} }
+
+\noindent Example:  \texttt{int6 tbl[4] = \{0,0,0,0\};}
+
+\noindent Table sizes have to be constant at compile time. The initializer is mandatory and can be a string, in which case each letter becomes its ASCII value, and the string is null terminated. The table size \texttt{M} is optional (eg. \texttt{int4 tbl[]=\{1,2,3\};} ) in which case the size is automatically derived from the initializer (strings have one additional implicit character: the null terminator).
+
+\subsection{Operators}
+
+\subsubsection{Swizzling}
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+int6 a = 0;
+int1 b = a[1,1]; // second bit
+int2 c = a[1,2]; // int2 with second and third bits
+int3 d = a[2,3]; // int3 with third, fourth and fifth bits
+\end{minted}
+
+The first entry may be an expression, the second has to be a constant.
+
+\subsubsection{Concatenation}
+
+\todo{concatenation operators...}
+
+\subsubsection{Integer}
+
+All standard operators are supported: \texttt{+,-,*,\&,|,\^,<<,>>,<,>,==,!=}.
+
+\todo{unary version?}
+
+\subsubsection{Continuous assignment}
+\label{sec:contassign}
+
+\silice{} defines special operators for continuous assignment and input/output
+bindings:
+\begin{itemize}
+\item \texttt{<:} binds right to left
+\item \texttt{:>} binds left to right
+\item \texttt{<:>} binds both ways % \todo{not yet implemented}
+\end{itemize}
+
+The bound side (eg. left side if using \texttt{<:}) has to be a VIO identifier, while the other side can be an expression.
+Once bound, a VIO is constantly tracking the value of the expression.
+
+% ==============================================
+
+\section{Algorithms}
+
+Algorithms are the main elements of a \silice{} design. An algorithm is a specification of a circuit implementation. Thus, like modules in \verilog{}, algorithms have to be instanced before being used. Each instance becomes an actual physical layout on the final design.
+An algorithm can instance other algorithms and \verilog{} modules. 
+
+Instanced algorithms \textit{always run in parallel}. However they can be called synchronously (implying a wait state in the caller). They may run forever and start automatically. Each may be driven from a specific clock and reset signal.
+
+\paragraph{main (entry point).}
+The top level algorithm is called \textit{main} and has to be defined. It is automatically instanced by the \textit{host hardware framework}, see Section~\ref{sec:host}.
+
+% -----------------------
+
+\subsection{Declaration}
+
+An algorithm is declared as follows:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{verilog}
+algorithm ID (
+input TYPE ID
+...
+output TYPE ID
+...
+) <MODS> {
+  DECLARATIONS
+  SUBROUTINES
+  CONTINUOUS_ASSIGNMENTS
+  INSTRUCTIONS
+}
+\end{minted}
+
+Most elements are optional: the number of inputs and outputs can vary, the modifiers may be empty (in which case the \texttt{'<>'} is not necessary) and declarations, bindings and instructions may all be empty.
+
+Here is a simple example:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm adder(intput uint8 a,intput uint8 b,output uint8 v)
+{
+  v = a + b;
+}
+\end{minted}
+
+\noindent Let us now discuss each element of the declaration.
+
+% -----------------------
+
+\paragraph{Inputs and outputs.}
+
+Inputs and outputs may be declared in any order. They can be single variables or tables.
+A third type \texttt{inout} exists for compatibility with \verilog{} modules, however these can only be passed and bound to imported modules (ie. they cannot be used in expressions and instructions for now).
+
+% -----------------------
+
+\paragraph{Declarations.} Variables, instanced algorithms and instanced modules have to be declared first (in any order). A simple example:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main(output uint8 led)
+{
+  uint8 r = 0;
+  adder ad1;
+  
+  // ... btw this is a comment
+}
+\end{minted}
+
+% -----------------------
+
+\paragraph{Subroutines.}
+
+Algorithms can contain subroutines. These are local routines that can be called by the algorithm multiple times. A subroutine has access to the variables, instanced algorithms and instanced modules of the parent algorithm. Subroutines do not take parameters and do not explicitly return values: the parent algorithm variables can be directly manipulated.
+
+Subroutines offer a simple mechanism to allow for the equivalent of local functions, without having to wire all the parent algorithm context into another module/algorithm.
+
+A subroutine is declared as:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{verilog}
+subroutine ID:
+  INSTRUCTIONS
+  return;
+\end{minted}
+
+An example:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main(output uint8 led)
+{
+  uint20 counter = 0;
+  uint8  a       = 1;
+
+  subroutine shift_led:
+    a = a << 1;
+    if (a == 0) {
+      a = 1;
+    }
+    return;
+
+  subroutine wait:
+    counter = 0;
+    while (counter != 0) {
+      counter = counter + 1;
+    }
+    return;
+    
+  led <: a;
+  
+  while(1) {
+    call wait;
+    call shift_led;
+  }
+}
+\end{minted}
+
+% -----------------------
+
+\paragraph{Continuous assignments.}
+
+After declarations, optional continuous assignments can be specified.
+These use the operators defined in Section~\ref{sec:contassign}.
+%
+Continuous assignments allow to bind the value of an expression
+to a variable, an output, or instanced algorithm input or output.
+
+Example:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main(output uint8 led)
+{
+  uint8 r = 0;
+  adder ad1;
+
+  led   <: r;
+  ad1.a <: 1;
+}
+\end{minted}
+
+These assignments are performed at each clock cycle and are order dependent. For instance:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+b <: a;
+c <: b;
+\end{minted}
+is not the same as:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+c <: b;
+b <: a;
+\end{minted}
+In the first case, c will immediately take the value of a, while in the second case
+c will take the value of a after one clock cycle. This is useful, for instance, when
+crossing a clock domain as it allows to implement a double flip-flop.
+
+% -----------------------
+
+\paragraph{Clock and reset.}
+
+All algorithms receive a \texttt{clock} and \texttt{reset} signal from their
+parent algorithm. These are intrinsic variables, are always defined within
+the scope of an algorithm and have type \texttt{int1}. The clock and reset
+can be explicitly specified when an algorithm is instanced (Section~\ref{sec:instantiation}).
+
+% -----------------------
+
+\paragraph{Modifiers.}
+
+Upon declaration, modifiers can be specified (see \texttt{<MODS>}) in the declaration). This is a comma separated list of any of the following:
+
+\begin{itemize}
+	\item \textbf{Autorun.} Adding the \texttt{autorun} keyword will ask the compiler to run the algorithm upon instantiation, without waiting for an explicit call.
+	\item \textbf{Internal clock.} Adding a \texttt{@ID} specifies the use of an internally generated clock signal. It is then expected that the algorithm contains a \texttt{int1 ID = 0;} variable declaration, which is bound to the output of a module producing a clock signal. This is meant to be used together with \verilog{} PLLs, to produce new clock signals. The module producing the new clock will typically take \texttt{clock} as input and \texttt{ID}
+	as output.
+	\item \textbf{Internal reset.} Adding a \texttt{!ID} specifies the use of an internally generated reset signal. It is then expected that the algorithm contains a \texttt{int1 ID = 0;} variable declaration, which is bound to the output of a module producing a reset signal. This may be used, for instance, to filter the signal from a physical reset button.
+\end{itemize}
+
+Here is an example:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  algorithm main(output int1 b) <autorun,@new_clock>
+  {
+    int1 new_clock = 0;
+
+    my_pll pll(
+      base_clock <: clock,
+      gen_clock :> new_clock
+    );
+
+    // the main algorithm is sequenced by new_clock
+    // ...
+  }
+\end{minted}
+
+Which signals are allowed as clocks and resets depends on the FPGA architecture
+and vendor toolchain.
+
+% ----------------------------------------------
+
+\subsection{Instantiation}
+\label{sec:instantiation}
+
+Algorithms and modules can be instanced from within a parent algorithm. Parameters
+are passed through \textit{bindings}. In terms of hardware, these are the wires
+connecting the parent algorithm implementation to the instances.
+%
+Instantiation uses the following syntax:
+%
+\begin{minted}[linenos,frame=lines,framesep=2mm]{verilog}
+MOD_ALG ID (
+  BINDINGS
+  (<:auto:>)
+);
+\end{minted}
+%
+where \texttt{MOD\_ALG} is the name of the module/algorithm, \texttt{ID} an
+identifier for the instance, and \texttt{BINDINGS} a comma separated list of 
+bindings between the instance inputs/outputs and the parent algorithm variables.
+
+Each binding is defined as:
+\texttt{ID\_left OP ID\_right} 
+where \texttt{ID\_left}
+is the identifier of an instance input or output, \texttt{OP} a continuous
+assignment operator (Section~\ref{sec:contassign}) and \texttt{ID\_right} a variable
+identifier.
+%
+Here is an example:
+%
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm blink(output int1 b_fast,output int1 b_slow) <autorun>
+{
+  uint20 counter = 0;
+  while (1) {
+    counter = counter + 1;
+    if (counter[0,8] == 0) {
+      b_fast = !b_fast;
+    }
+    if (counter == 0) {
+      b_slow = !b_slow;
+    }
+  }
+}
+
+algorithm main(output int8 led)
+{
+  int1 a = 0;
+  int1 b = 0;
+  blink b0(
+    b_slow :> a,
+    b_fast :> b
+  );
+  
+  led <: 0;      // turn off all eight LEDs
+  led[0,1] <: a; // first LED tracks slow blink
+  led[1,1] <: b; // second LED tracks fast blink
+  
+  while (1) { } // inifinite loop, blink runs in parallel
+}
+\end{minted}
+%
+This example reveals some interesting possibilities, and a constraint.
+As algorithm \texttt{blink} is instanced as \texttt{b0}, it starts running immediately (due to the \texttt{autorun} modifier in the declaration of \texttt{blink}). Hence, the variables \texttt{a} and \texttt{b}
+are immediately tracking the \texttt{b\_slow} and \texttt{b\_fast} outputs of \texttt{b0}. The continuous assignments to \texttt{led} then use \texttt{a} and \texttt{b} to output to the \texttt{led} 8-bit variable, which we assume is physically connected to LEDs. The first assignment sets \texttt{led} to zero, and then its two first bits to \texttt{a} and \texttt{b}. As the continuous assignments are order dependent, this behaves properly with the two first bits always assigned at each clock cycle. Since all updates in \texttt{main} are done through bindings and continuous assignments, and because \textit{algorithms always run in parallel}, there is nothing else to do, and \texttt{main} enters an infinite loop.
+
+The constraint, however, is that \texttt{a} and \texttt{b} are necessary. This is due to the fact that we cannot directly bind \texttt{led[0,1]} and \texttt{led[1,1]} to the instance of \texttt{blink}. Only identifiers can be specified during binding.
+
+\paragraph{Automatic binding.}
+The optional \texttt{<:auto:>} tag allows to automatically bind matching identifiers:
+the compiler finds all valid left/right identifier pairs having the same name and
+binds them directly. This is convenient when many bindings are repeated and passed
+around. 
+
+% ----------------------------------------------
+
+\subsection{Execution}
+
+% https://www.xilinx.com/support/documentation/sw_manuals/xilinx2015_2/sdsoc_doc/topics/calling-coding-guidelines/concept_pipelining_loop_unrolling.html
+%
+% pipelining
+%
+% for (...) {
+%   A(i)   what if A(i) uses C(i-1) ?? => cannot pipeline ...
+%   ++:
+%   B(i)   written by A, read by B => preserve
+%   ++:
+%   C(i)   written by A or B, read by C => preserve
+% }
+%
+% for (...) {
+%   A(i) [write for B(i),C(i)], B(i-1) [write for C(i-1)], C(i-2) [write for A(i+1)]
+%   ++:
+% }
+%
+% unrolling
+% 
+
+% ----------------------------------------------
+
+\subsection{Sequencing}
+
+
+% ----------------------------------------------
+
+\subsection{Control flow}
+
+
+
+% ----------------------------------------------
+
+\subsection{Importing \verilog{} modules}
+
+
+
+% ==============================================
+
+\section{Host hardware framework}
+\label{sec:host}
+
+The host hardware framework typically consists in a \verilog{} glue file. The framework is appended to the compiled \silice{} design (in \verilog{}). The framework instantiates the \textit{main} algorithm. The resulting file can then be processed by the vendor or open source FPGA toolchain (often accompanied by a hardware constraint file).
+
+\silice{} comes with the following host hardware frameworks:
+\begin{itemize}
+	\item \textbf{mojo\_basic} : framework to compile for the Alchitry Mojo 3 FPGA board.
+	\item \textbf{mojo\_hdmi\_sdram} : framework to compile for the Alchitry Mojo 3 FPGA board equipped with the HDMI shield.
+	\item \textbf{icestick} : framework for the Lattice ice40 icestick board.
+\end{itemize}
+
+For practical usage examples please refer to the \textit{Getting started} guide. \todo{ + guide url}
+
+% ==============================================
+	
+\end{document}

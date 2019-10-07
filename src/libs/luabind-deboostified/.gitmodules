@@ -1,0 +1,3 @@
+[submodule "test/jenkins-ctest-plugin"]
+	path = test/jenkins-ctest-plugin
+	url = https://rpavlik@github.com/rpavlik/jenkins-ctest-plugin.git
