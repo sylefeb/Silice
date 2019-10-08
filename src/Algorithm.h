@@ -897,7 +897,7 @@ private:
         if (alw->ALWSASSIGNDBL() != nullptr) {
           // insert temporary variable
           t_var_nfo var;
-          var.name = "_delayed_" + std::to_string(alw->getStart()->getLine());
+          var.name = "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
           std::pair<e_Type,int> type_width = determineAccessTypeAndWidth(alw->access(), alw->IDENTIFIER());
           var.table_size = 0;
           var.base_type = type_width.first;
@@ -1433,9 +1433,9 @@ private:
             std::size_t pos    = ostr.str().find('=');
             std::string lvalue = ostr.str().substr(0, pos - 1);
             std::string rvalue = ostr.str().substr(pos + 1);
-            std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine());
-            out << lvalue << " = " << tmpvar << ';' << std::endl;
-            out << tmpvar << " = " << rvalue; // rvalue contains ";\n"
+            std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
+            out << lvalue << " = " << FF_D << tmpvar << ';' << std::endl;
+            out << FF_D << tmpvar << " = " << rvalue; // rvalue contains ";\n"
           } else {
             writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
           }
@@ -1543,7 +1543,7 @@ private:
             }
             if (alw->ALWSASSIGNDBL() != nullptr) { // delayed flip-flop
               // update temp var usage
-              std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine());
+              std::string tmpvar = "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
               _read   .insert(tmpvar);
               _written.insert(tmpvar);
             }
