@@ -897,7 +897,7 @@ private:
         if (alw->ALWSASSIGNDBL() != nullptr) {
           // insert temporary variable
           t_var_nfo var;
-          var.name = "__delayed_" + std::to_string(alws->getStart()->getLine());
+          var.name = "_delayed_" + std::to_string(alw->getStart()->getLine());
           std::pair<e_Type,int> type_width = determineAccessTypeAndWidth(alw->access(), alw->IDENTIFIER());
           var.table_size = 0;
           var.base_type = type_width.first;
@@ -905,7 +905,6 @@ private:
           var.init_values.push_back("0");
           m_Vars.emplace_back(var);
           m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
-
         }
 
       }
@@ -1305,7 +1304,7 @@ private:
       }
     } else {
       // identifier
-      return determineIdentifierTypeAndWidth(identifier, (int)access->getStart()->getLine());
+      return determineIdentifierTypeAndWidth(identifier, (int)identifier->getSymbol()->getLine());
     }
     sl_assert(false);
     return std::make_pair(Int,0);
@@ -1427,7 +1426,19 @@ private:
       } {
         auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(a.instr);
         if (alw) {
-          writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
+          if (alw->ALWSASSIGNDBL() != nullptr) {
+            ostringstream ostr;
+            writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
+            // modify assignement to insert temporary var
+            std::size_t pos    = ostr.str().find('=');
+            std::string lvalue = ostr.str().substr(0, pos - 1);
+            std::string rvalue = ostr.str().substr(pos + 1);
+            std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine());
+            out << lvalue << " = " << tmpvar << ';' << std::endl;
+            out << tmpvar << " = " << rvalue; // rvalue contains ";\n"
+          } else {
+            writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
+          }
         }
       } {
         auto async = dynamic_cast<siliceParser::AlgoAsyncCallContext*>(a.instr);
@@ -1529,6 +1540,12 @@ private:
             }
             if (vios.find(var) != vios.end()) {
               _written.insert(var);
+            }
+            if (alw->ALWSASSIGNDBL() != nullptr) { // delayed flip-flop
+              // update temp var usage
+              std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine());
+              _read   .insert(tmpvar);
+              _written.insert(tmpvar);
             }
             determineVIOAccess(alw->expression_0(), vios, _read, _written);
             recurse = false;
