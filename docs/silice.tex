@@ -33,7 +33,7 @@ The main design principles are:
 \item Powerful LUA-based pre-processor.
 \end{itemize}
 
-\noindent While I developped \silice{} for my own needs, I hope you'll find it useful for your projects!
+\noindent While I developed \silice{} for my own needs, I hope you'll find it useful for your projects!
 
 % ==============================================
 	
@@ -57,15 +57,15 @@ However, we could instead specify a \textit{continuous assignment} between led a
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 algorithm main(input uint1 button,output uint1 led) {  
-  led <: button;
+  led := button;
 }
 \end{minted}
 
-This requires led to constantly track the value of button. Note, however, that the continuous assignement can be overridden at some clock steps, for instance:
+This makes led constantly track the value of button. Note, however, that the continuous assignment can be overridden at some clock steps, for instance:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 algorithm main(input uint1 button,output uint1 led) {  
-  led <: 0;
+  led := 0;
   while (1) {
     if (button == 1) {
       led = 1;
@@ -153,19 +153,35 @@ All standard operators are supported: \texttt{+,-,*,\&,|,\^,<<,>>,<,>,==,!=}.
 
 \todo{unary version?}
 
+\subsubsection{Bindings}
+\label{sec:bindings}
+
+\silice{} defines operators for bindings the input/output of algorithms and modules:
+\begin{itemize}
+	\item \texttt{<:} binds right to left
+	\item \texttt{:>} binds left to right
+	\item \texttt{<:>} binds both ways % \todo{not yet implemented}
+\end{itemize}
+
+The bound sides have to be VIO identifiers. 
+Bound VIOs are connected and immediately track each others values.
+A good way to think of this is as a physical wire between IC pins, where each VIO is a pin.
+
+Bindings are specified when instantiating algorithms and modules.
+
 \subsubsection{Continuous assignment}
 \label{sec:contassign}
 
-\silice{} defines special operators for continuous assignment and input/output
-bindings:
+\silice{} defines operators for continuous assignment of VIOs.
+A continuous assignment is performed at each clock rising edge, regardless of the 
+execution state of the algorithm. The left side of the assignment has to be a VIO identifier,
+while the right side may be an expression.
 \begin{itemize}
-\item \texttt{<:} binds right to left
-\item \texttt{:>} binds left to right
-\item \texttt{<:>} binds both ways % \todo{not yet implemented}
+\item \texttt{:=} assign right to left at each rising clock.
+\item \texttt{::=} assign right to left with a one clock cycle delay (two stages flip-flop).
 \end{itemize}
 
-The bound side (eg. left side if using \texttt{<:}) has to be a VIO identifier, while the other side can be an expression.
-Once bound, a VIO is constantly tracking the value of the expression.
+Continuous assignments are specified just after variable declarations and algorithms/modules instantiations.
 
 % ==============================================
 
@@ -269,7 +285,7 @@ algorithm main(output uint8 led)
     }
     return;
     
-  led <: a;
+  led := a;
   
   while(1) {
     call wait;
@@ -285,34 +301,39 @@ algorithm main(output uint8 led)
 After declarations, optional continuous assignments can be specified.
 These use the operators defined in Section~\ref{sec:contassign}.
 %
-Continuous assignments allow to bind the value of an expression
-to a variable, an output, or instanced algorithm input or output.
+Continuous assignments allow to track the value of an expression
+in a variable, output, or instanced algorithm input or output.
 
-Example:
+\noindent Example:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 algorithm main(output uint8 led)
 {
   uint8 r = 0;
   adder ad1;
 
-  led   <: r;
-  ad1.a <: 1;
+  led   := r;
+  ad1.a := 1;
 }
 \end{minted}
 
-These assignments are performed at each clock cycle and are order dependent. For instance:
+\noindent These assignments are performed at each clock cycle and are order dependent. For instance:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
-b <: a;
-c <: b;
+b := a;
+c := b;
 \end{minted}
 is not the same as:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
-c <: b;
-b <: a;
+c := b;
+b := a;
 \end{minted}
 In the first case, c will immediately take the value of a, while in the second case
 c will take the value of a after one clock cycle. This is useful, for instance, when
-crossing a clock domain as it allows to implement a double flip-flop.
+crossing a clock domain as it allows to implement a two stages flip-flop. In fact,
+\silice{} provides a shortcut for exactly this purpose, making the temporary variable b unnecessary:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+c ::= a;
+\end{minted}
 
 % -----------------------
 
@@ -410,9 +431,9 @@ algorithm main(output int8 led)
     b_fast :> b
   );
   
-  led <: 0;      // turn off all eight LEDs
-  led[0,1] <: a; // first LED tracks slow blink
-  led[1,1] <: b; // second LED tracks fast blink
+  led := 0;      // turn off all eight LEDs
+  led[0,1] := a; // first LED tracks slow blink
+  led[1,1] := b; // second LED tracks fast blink
   
   while (1) { } // inifinite loop, blink runs in parallel
 }
@@ -483,6 +504,7 @@ The host hardware framework typically consists in a \verilog{} glue file. The fr
 	\item \textbf{mojo\_basic} : framework to compile for the Alchitry Mojo 3 FPGA board.
 	\item \textbf{mojo\_hdmi\_sdram} : framework to compile for the Alchitry Mojo 3 FPGA board equipped with the HDMI shield.
 	\item \textbf{icestick} : framework for the Lattice ice40 icestick board.
+	\item \textbf{verilator\_vga} : framework for use with \textit{verilator}, including a vga screen emulation.
 \end{itemize}
 
 For practical usage examples please refer to the \textit{Getting started} guide. \todo{ + guide url}
