@@ -54,6 +54,7 @@ RARROW              : '->' ;
 LDEFINE             : '<:' ;
 RDEFINE             : ':>' ;
 BDEFINE             : '<:>';
+ALWSASSIGNDBL       : '::=' ;
 ALWSASSIGN          : ':=' ;
 
 STRING              : '"' ~[\r\n"]* '"' ;
@@ -101,8 +102,10 @@ atom                : CONSTANT
 assignment          : IDENTIFIER  '=' expression_0
                     | access      '=' expression_0 ;
 
-alwaysAssigned      : IDENTIFIER   ALWSASSIGN expression_0
-                    | access       ALWSASSIGN expression_0
+alwaysAssigned      : IDENTIFIER   ALWSASSIGN    expression_0
+                    | access       ALWSASSIGN    expression_0
+                    | IDENTIFIER   ALWSASSIGNDBL expression_0
+                    | access       ALWSASSIGNDBL expression_0
                     ;
 
 alwaysAssignedList  : alwaysAssigned ';' alwaysAssignedList | ;

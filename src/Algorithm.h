@@ -1180,6 +1180,81 @@ private:
     }
   }
 
+  /// \brief determines identifier bit width and (if applicable) table size
+  pair<int, int> determineIndentifierWidthAndTableSize(tree::TerminalNode *identifier,int line) const
+  {
+    sl_assert(identifier != nullptr);
+    std::string vname = identifier->getText();
+    // get width
+    int width      = -1;
+    int table_size = 0;
+    // test if variable
+    if (m_VarNames.find(vname) != m_VarNames.end()) {
+      width      = m_Vars[m_VarNames.at(vname)].width;
+      table_size = m_Vars[m_VarNames.at(vname)].table_size;
+    } else if (m_InputNames.find(vname) != m_InputNames.end()) {
+      width      = m_Inputs[m_InputNames.at(vname)].width;
+      table_size = m_Inputs[m_InputNames.at(vname)].table_size;
+    } else if (m_OutputNames.find(vname) != m_OutputNames.end()) {
+      width      = m_Outputs[m_OutputNames.at(vname)].width;
+      table_size = m_Outputs[m_OutputNames.at(vname)].table_size;
+    } else {
+      throw Fatal("variable '%s' was never declared (line %d)", vname.c_str(), line);
+    }
+    return std::make_pair(width, table_size);
+  }
+
+  /// \brief determines IO access bit width
+  uint determineIOAccessWidth(siliceParser::IoAccessContext *ioaccess) const
+  {
+    std::string algo = ioaccess->algo->getText();
+    std::string io   = ioaccess->io->getText();
+    // find algorithm
+    auto A = m_InstancedAlgorithms.find(algo);
+    if (A == m_InstancedAlgorithms.end()) {
+      throw Fatal("cannot find algorithm instance '%s' (line %d)", algo.c_str(), ioaccess->getStart()->getLine());
+    } else {
+      if (!A->second.algo->isInput(io) && !A->second.algo->isOutput(io)) {
+        throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
+      }
+      if (A->second.algo->isInput(io)) {
+        if (A->second.boundinputs.count(io) > 0) {
+          throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
+        }
+        return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)].width;
+      } else if (A->second.algo->isOutput(io)) {
+        return A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(io)].width;
+      } else {
+        sl_assert(false);
+      }
+    }
+    return 0;
+  }
+
+  /// \brief determines access bit width
+  int determineAccessWidth(siliceParser::AccessContext *access, tree::TerminalNode *identifier) const
+  {
+    if (access) {
+      // table, output or bits
+      if (access->ioAccess() != nullptr) {
+        return determineIOAccessWidth(access->ioAccess());
+      } else if (access->tableAccess() != nullptr) {
+        if (access->tableAccess()->IDENTIFIER() != nullptr) {
+          return determineIndentifierWidthAndTableSize(access->tableAccess()->IDENTIFIER(), (int)access->getStart()->getLine()).first;
+        } else {
+          return determineIOAccessWidth(access->tableAccess()->ioAccess());
+        }
+      } else if (access->bitAccess() != nullptr) {
+        return atoi(access->bitAccess()->num->getText().c_str());
+      }
+    } else {
+      // identifier
+      sl_assert(identifier != nullptr);
+      return determineIndentifierWidthAndTableSize(identifier, (int)access->getStart()->getLine()).first;
+    }
+    return 0;
+  }
+
   /// \brief writes access to an algorithm in/out
   t_inout_nfo writeIOAccess(std::string prefix, ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess) const
   {
@@ -1226,27 +1301,9 @@ private:
       std::string vname = tblaccess->IDENTIFIER()->getText();
       out << prefixIdentifier(prefix, vname);
       // get width
-      int width      = -1;
-      int table_size = 0;
-      // test if variable
-      if (m_VarNames.find(vname) != m_VarNames.end()) {
-        width      = m_Vars[m_VarNames.at(vname)].width;
-        table_size = m_Vars[m_VarNames.at(vname)].table_size;
-      } else {
-        if (m_InputNames.find(vname) != m_InputNames.end()) {
-          width      = m_Inputs[m_InputNames.at(vname)].width;
-          table_size = m_Inputs[m_InputNames.at(vname)].table_size;
-        } else {
-          if (m_OutputNames.find(vname) != m_OutputNames.end()) {
-            width      = m_Outputs[m_OutputNames.at(vname)].width;
-            table_size = m_Outputs[m_OutputNames.at(vname)].table_size;
-          } else {
-            throw Fatal("variable '%s' was never declared (line %d)",vname.c_str(),tblaccess->getStart()->getLine());
-          }
-        }
-      }    
-      // TODO: if the expression can be evaluated at compile time, we could check for access validity
-      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id) << ")*" << width << "+:" << width << ']';
+      std::pair<int,int> width_tblsz = determineIndentifierWidthAndTableSize(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
+      // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
+      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id) << ")*" << width_tblsz.first << "+:" << width_tblsz.first << ']';
     }
   }
 

@@ -107,6 +107,8 @@ void Algorithm::checkAlgorithmsBindings() const
 void Algorithm::writeAsModule(ostream& out) const
 {
   out << endl;
+  
+  // module header
   out << "module M_" << m_Name << '(' << endl;
   out << "input " ALG_CLOCK "," << endl;
   out << "input " ALG_RESET "," << endl;
