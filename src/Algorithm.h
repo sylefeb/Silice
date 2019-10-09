@@ -1,3 +1,18 @@
+/*
+
+    Silice FPGA language and compiler
+    (c) Sylvain Lefebvre - @sylefeb
+
+This work and all associated files are under the
+
+     GNU AFFERO GENERAL PUBLIC LICENSE
+        Version 3, 19 November 2007
+        
+A copy of the license full text is included in 
+the distribution, please refer to it for details.
+
+(header_1_0)
+*/
 #pragma once
 // -------------------------------------------------
 //
@@ -24,11 +39,6 @@
 #include <LibSL/LibSL.h>
 
 #include "path.h"
-
-// -------------------------------------------------
-
-using namespace antlr4;
-using namespace std;
 
 // -------------------------------------------------
 
@@ -115,7 +125,7 @@ private:
   std::map<std::string, int > m_InOutNames;
 
   /// \brief VIO (variable-or-input-or-output) bound to module/algorithms outputs (wires) (name => wire name)
-  std::map<string, string> m_VIOBoundToModAlgOutputs;
+  std::map<std::string, std::string> m_VIOBoundToModAlgOutputs;
 
   /// \brief declared variables
   std::vector< t_var_nfo > m_Vars;
@@ -168,9 +178,9 @@ private:
   /// \brief stores info for single instructions
   class t_instr_nfo {
   public:
-    tree::ParseTree *instr = nullptr;
-    int               __id = -1;
-    t_instr_nfo(tree::ParseTree *instr_, int __id_) : instr(instr_), __id(__id_) {}
+    antlr4::tree::ParseTree *instr = nullptr;
+    int                       __id = -1;
+    t_instr_nfo(antlr4::tree::ParseTree *instr_, int __id_) : instr(instr_), __id(__id_) {}
   };
 
   // forward definition
@@ -394,8 +404,8 @@ private:
   /// \brief splits a type between base type and width
   void splitType(std::string type, e_Type& _type, int& _width)
   {
-    std::regex rx_type("([[:alpha:]]+)([[:digit:]]+)");
-    smatch sm_type;
+    std::regex  rx_type("([[:alpha:]]+)([[:digit:]]+)");
+    std::smatch sm_type;
     bool ok = std::regex_search(type, sm_type, rx_type);
     sl_assert(ok);
     // type
@@ -409,8 +419,8 @@ private:
   /// \brief splits a constant between width, base and value
   void splitConstant(std::string cst, int& _width, char& _base, std::string& _value, bool& _negative) const
   {
-    std::regex rx_type("(-?)([[:digit:]]+)([bdh])([[:digit:]a-fA-Fxz]+)");
-    smatch sm_type;
+    std::regex  rx_type("(-?)([[:digit:]]+)([bdh])([[:digit:]a-fA-Fxz]+)");
+    std::smatch sm_type;
     bool ok = std::regex_search(cst, sm_type, rx_type);
     sl_assert(ok);
     _width = atoi(sm_type[2].str().c_str());
@@ -464,7 +474,7 @@ private:
   }
 
   /// \brief gather all values from an init list
-  void gatherInitList(siliceParser::InitListContext* ilist, vector<string>& _values_str)
+  void gatherInitList(siliceParser::InitListContext* ilist, std::vector<std::string>& _values_str)
   {
     for (auto i : ilist->initValue()) {
       _values_str.push_back(gatherInitValue(i));
@@ -487,7 +497,7 @@ private:
       var.table_size = 0; // autosize from init
     }
     // read init list
-    vector<string> values_str;
+    std::vector<std::string> values_str;
     if (decl->initList() != nullptr) {
       gatherInitList(decl->initList(), values_str);
     } else {
@@ -495,7 +505,7 @@ private:
       initstr = initstr.substr(1, initstr.length() - 2); // remove '"' and '"'
       values_str.resize(initstr.length()+1/*null terminated*/);
       ForIndex(i, (int)initstr.length()) {
-        values_str[i] = to_string((int)(initstr[i]));
+        values_str[i] = std::to_string((int)(initstr[i]));
       }
       values_str.back() = "0"; // null terminated
     }
@@ -508,7 +518,7 @@ private:
       throw Fatal("incorrect number of values in table initialization (line %d)",decl->getStart()->getLine());
     }
     ForIndex(i, values_str.size()) {
-      if (values_str[i].find_first_of("hbd") != string::npos) {
+      if (values_str[i].find_first_of("hbd") != std::string::npos) {
         var.init_values[i] = rewriteConstant(values_str[i]);
       } else {
         var.init_values[i] = values_str[i];
@@ -629,11 +639,11 @@ private:
   }
 
   /// \brief rewrite an expression, renaming identifiers
-  std::string rewriteExpression(std::string prefix, tree::ParseTree *expr, int __id) const
+  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id) const
   {
     std::string result;
     if (expr->children.empty()) {
-      auto term = dynamic_cast<tree::TerminalNode*>(expr);
+      auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
       if (term) {
         if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
           return prefixIdentifier(prefix, expr->getText(), term->getSymbol()->getLine());
@@ -851,7 +861,7 @@ private:
         return false; // not stateless
       }
       // recurse
-      vector< t_combinational_block* > children;
+      std::vector< t_combinational_block* > children;
       cur->getChildren(children);
       for (auto c : children) {
         q.push(c);
@@ -965,7 +975,7 @@ private:
   }
 
   /// \brief sematic parsing, first discovery pass
-  t_combinational_block *gather(tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context)
+  t_combinational_block *gather(antlr4::tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context)
   {
     if (tree == nullptr) {
       return _current;
@@ -1073,7 +1083,7 @@ private:
         cur->state_id = m_MaxState++;
       }
       // recurse
-      vector< t_combinational_block* > children;
+      std::vector< t_combinational_block* > children;
       cur->getChildren(children);
       for (auto c : children) {
         if (visited.find(c) == visited.end()) {
@@ -1205,7 +1215,7 @@ private:
 private:
 
   /// \brief writes a call to an algorithm
-  void writeCall(std::string prefix, ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist) const
+  void writeCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist) const
   {
     std::vector<std::string> params;
     getParams(plist, params);
@@ -1222,15 +1232,15 @@ private:
           throw Fatal("instance '%s' cannot be called as its input '%s' is bound.", 
             a.instance_name.c_str(), ins.name.c_str());
         }
-        out << REG_INPUT << a.instance_prefix << "_" << ins.name << " = " << prefixIdentifier(prefix, params[p++]) << ";" << endl;
+        out << REG_INPUT << a.instance_prefix << "_" << ins.name << " = " << prefixIdentifier(prefix, params[p++]) << ";" << std::endl;
       }
     }
     // start algorithm
-    out << FF_D << a.instance_prefix << "_" << ALG_RUN << " = 1;" << endl;
+    out << FF_D << a.instance_prefix << "_" << ALG_RUN << " = 1;" << std::endl;
   }
 
   /// \brief writes reading back the results of an algorithm
-  void writeReadback(std::string prefix, ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist) const
+  void writeReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist) const
   {
     std::vector<std::string> params;
     getParams(plist, params);
@@ -1242,13 +1252,13 @@ private:
       // read outputs
       int p = 0;
       for (const auto& outs : a.algo->m_Outputs) {
-        out << prefixIdentifier(prefix, params[p++]) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << endl;
+        out << prefixIdentifier(prefix, params[p++]) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
       }
     }
   }
 
   /// \brief determines identifier bit width and (if applicable) table size
-  std::tuple<e_Type, int, int> determineIdentifierTypeWidthAndTableSize(tree::TerminalNode *identifier,int line) const
+  std::tuple<e_Type, int, int> determineIdentifierTypeWidthAndTableSize(antlr4::tree::TerminalNode *identifier,int line) const
   {
     sl_assert(identifier != nullptr);
     std::string vname = identifier->getText();
@@ -1276,7 +1286,7 @@ private:
   }
 
   /// \brief determines identifier type and width
-  std::pair<e_Type, int> determineIdentifierTypeAndWidth(tree::TerminalNode *identifier, int line) const
+  std::pair<e_Type, int> determineIdentifierTypeAndWidth(antlr4::tree::TerminalNode *identifier, int line) const
   {
     sl_assert(identifier != nullptr);
     auto tws = determineIdentifierTypeWidthAndTableSize(identifier, line);
@@ -1343,7 +1353,7 @@ private:
   }
 
   /// \brief determines access type/width
-  std::pair<e_Type,int> determineAccessTypeAndWidth(siliceParser::AccessContext *access, tree::TerminalNode *identifier) const
+  std::pair<e_Type,int> determineAccessTypeAndWidth(siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const
   {
     if (access) {
       // table, output or bits
@@ -1363,7 +1373,7 @@ private:
   }
 
   /// \brief writes access to an algorithm in/out
-  t_inout_nfo writeIOAccess(std::string prefix, ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess) const
+  t_inout_nfo writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess) const
   {
     std::string algo = ioaccess->algo->getText();
     std::string io   = ioaccess->io->getText();
@@ -1398,7 +1408,7 @@ private:
   }
 
   /// \brief writes access to a table in/out
-  void writeTableAccess(std::string prefix, ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id) const
+  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id) const
   {
     if (tblaccess->ioAccess() != nullptr) {
       t_inout_nfo nfo = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess());
@@ -1415,7 +1425,7 @@ private:
   }
 
   /// \brief writes access to bits
-  void writeBitAccess(std::string prefix, ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id) const
+  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id) const
   {
     // TODO: check access validity
     if (bitaccess->ioAccess() != nullptr) {
@@ -1430,7 +1440,7 @@ private:
   }
 
   /// \brief writes access to an identfier
-  void writeAccess(std::string prefix, ostream& out, bool assigning, siliceParser::AccessContext* access, int __id) const
+  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id) const
   {
     if (access->ioAccess() != nullptr) {
       writeIOAccess(prefix, out, assigning, access->ioAccess());
@@ -1442,10 +1452,10 @@ private:
   }
 
   /// \brief writes an assignment
-  void writeAssignement(std::string prefix, ostream& out, 
+  void writeAssignement(std::string prefix, std::ostream& out,
     const t_instr_nfo& a, 
     siliceParser::AccessContext *access,
-    tree::TerminalNode* identifier,
+    antlr4::tree::TerminalNode* identifier,
     siliceParser::Expression_0Context *expression_0) const
   {
     if (access) {
@@ -1461,14 +1471,14 @@ private:
       out << prefixIdentifier(prefix, identifier->getText());
     }
     out << " = " + rewriteExpression(prefix, expression_0, a.__id);
-    out << ';' << endl;
+    out << ';' << std::endl;
 
   }
 
   /// \brief writes a single block to the output
-  void writeBlock(std::string prefix, ostream& out, const t_combinational_block* block) const
+  void writeBlock(std::string prefix, std::ostream& out, const t_combinational_block* block) const
   {
-    // out << "// block " << block->block_name << endl;
+    // out << "// block " << block->block_name << std::endl;
     for (const auto& a : block->instructions) {
       {
         auto assign = dynamic_cast<siliceParser::AssignmentContext*>(a.instr);
@@ -1479,7 +1489,7 @@ private:
         auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(a.instr);
         if (alw) {
           if (alw->ALWSASSIGNDBL() != nullptr) {
-            ostringstream ostr;
+            std::ostringstream ostr;
             writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
             // modify assignement to insert temporary var
             std::size_t pos    = ostr.str().find('=');
@@ -1536,13 +1546,13 @@ private:
 
     /// \brief determine variables/inputs/outputs access within an instruction (from its tree)
     void determineVIOAccess(
-      tree::ParseTree* node,
+      antlr4::tree::ParseTree* node,
       const std::map<std::string,int>& vios,
       std::set<std::string>& _read, std::set<std::string>& _written)
     {
       if (node->children.empty()) {
         // deal with all read access
-        auto term = dynamic_cast<tree::TerminalNode*>(node);
+        auto term = dynamic_cast<antlr4::tree::TerminalNode*>(node);
         if (term) {
           if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
             std::string var = term->getText();
@@ -1728,41 +1738,41 @@ private:
       auto blocks = m_Blocks;
       blocks.push_front(&m_Always);
       // merge all in_reads and out_written
-      set<std::string> global_in_read;
-      set<std::string> global_out_written;
+      std::set<std::string> global_in_read;
+      std::set<std::string> global_out_written;
       for (const auto& b : blocks) {
         global_in_read    .insert(b->in_vars_read.begin(),     b->in_vars_read.end());
         global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
       }
-      cerr << "---< variables >---" << endl;
+      std::cerr << "---< variables >---" << std::endl;
       for (auto& v : m_Vars) {
         if (v.access == e_ReadOnly) {
-          cerr << v.name << " => const ";
+          std::cerr << v.name << " => const ";
           v.usage = e_Const;
         } else if (v.access == e_WriteOnly) {
-          cerr << v.name << " => written but not used ";
+          std::cerr << v.name << " => written but not used ";
           v.usage = e_Temporary; // e_NotUsed;
         } else if (v.access == e_ReadWrite) {
           if (global_in_read.find(v.name) == global_in_read.end()) {
-            cerr << v.name << " => temp ";
+            std::cerr << v.name << " => temp ";
             v.usage = e_Temporary;
           } else {
-            cerr << v.name << " => flip-flop ";
+            std::cerr << v.name << " => flip-flop ";
             v.usage = e_FlipFlop;
           }
         } else if (v.access == (e_WriteBinded | e_ReadOnly)) {
-          cerr << v.name << " => write-binded ";
+          std::cerr << v.name << " => write-binded ";
           v.usage = e_Wire;
         } else if (v.access == (e_WriteBinded)) {
-          cerr << v.name << " => write-binded but not used ";
+          std::cerr << v.name << " => write-binded but not used ";
           v.usage = e_Wire;
         } else if (v.access == e_NotAccessed) {
+          std::cerr << v.name << " => unused ";
           v.usage = e_NotUsed;
-          cerr << v.name << " => unused ";
         } else {
-          cerr << Console::yellow << "warning: " << v.name << " unexpected usage." << Console::gray << endl;
+          std::cerr << Console::yellow << "warning: " << v.name << " unexpected usage." << Console::gray << std::endl;
         }
-        cerr << endl;
+        std::cerr << std::endl;
       }
 
 #if 0
@@ -1771,20 +1781,20 @@ private:
         cerr << v.name << " access: ";
         if (v.access & e_ReadOnly) cerr << 'R';
         if (v.access & e_WriteOnly) cerr << 'W';
-        cerr << endl;
+        std::cerr << std::endl;
       }
       for (const auto& b : blocks) {
-        cerr << "== block " << b->block_name << "==" << endl;
-        cerr << "   read from before: ";
+        std::cerr << "== block " << b->block_name << "==" << std::endl;
+        std::cerr << "   read from before: ";
         for (auto i : b->in_vars_read) {
-          cerr << i << ' ';
+          std::cerr << i << ' ';
         }
-        cerr << endl;
-        cerr << "   changed within: ";
+        std::cerr << std::endl;
+        std::cerr << "   changed within: ";
         for (auto i : b->out_vars_written) {
-          cerr << i << ' ';
+          std::cerr << i << ' ';
         }
-        cerr << endl;
+        std::cerr << std::endl;
       }
       /////////////////
 #endif
@@ -1833,8 +1843,8 @@ private:
     void analyzeOutputsAccess()
     {
       // go through all instructions and determine output access
-      set<std::string> global_read;
-      set<std::string> global_written;
+      std::set<std::string> global_read;
+      std::set<std::string> global_written;
       for (const auto& b : m_Blocks) {
         for (const auto& i : b->instructions) {
           std::set<std::string> read;
@@ -1845,8 +1855,8 @@ private:
         }
       }
       // always block
-      set<std::string> always_read;
-      set<std::string> always_written;
+      std::set<std::string> always_read;
+      std::set<std::string> always_written;
       for (const auto& i : m_Always.instructions) {
         std::set<std::string> read;
         std::set<std::string> written;
@@ -1855,7 +1865,7 @@ private:
         always_written.insert(written.begin(), written.end());
       }
       // analyze access and usage
-      cerr << "---< outputs >---" << endl;
+      std::cerr << "---< outputs >---" << std::endl;
       for (auto& o : m_Outputs) {
         auto W = m_VIOBoundToModAlgOutputs.find(o.name);
         if (W != m_VIOBoundToModAlgOutputs.end()) {
@@ -1869,7 +1879,7 @@ private:
             throw Fatal((std::string("cannot write to an output bound to a module/algorithm (") + o.name + ")").c_str());
           }
           o.usage = e_Wire;
-          cerr << o.name << " => wire" << endl;
+          std::cerr << o.name << " => wire" << std::endl;
         } else if (
              global_written.find(o.name) == global_written.end()
           && global_read.find(o.name)    == global_read.end()
@@ -1881,14 +1891,14 @@ private:
           // only assigned (either way)
           // o.usage = e_Assigned; /////// TODO
           o.usage = e_FlipFlop;
-          cerr << o.name << " => assigned" << endl;
+          std::cerr << o.name << " => assigned" << std::endl;
         } else {
           // any other case: flip-flop
           // NOTE: outputs are always considered used externally (read)
           //       they also have to be set at each step of the algorithm (avoiding latches)
           //       thus as soon as used in a block != always, they become flip-flops
           o.usage = e_FlipFlop;
-          cerr << o.name << " => flip-flop" << endl;
+          std::cerr << o.name << " => flip-flop" << std::endl;
         }
       }
     }
@@ -1911,7 +1921,7 @@ public:
   }
 
   /// \brief sets the input parsed tree
-  void gather(siliceParser::InOutListContext *inout, tree::ParseTree *declAndInstr)
+  void gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *declAndInstr)
   {
     // gather elements from source code
     t_combinational_block *main = addBlock("_top",(int)inout->getStart()->getLine());
@@ -1996,21 +2006,21 @@ public:
 private:
 
   /// \brief writes input register init
-  void writeInputRegInit(std::string prefix, ostream& out, const t_var_nfo& v) const
+  void writeInputRegInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
   {
-    out << REG_INPUT << prefix << v.name << " <= " << v.init_values[0] << ';' << endl;
+    out << REG_INPUT << prefix << v.name << " <= " << v.init_values[0] << ';' << std::endl;
   }
 
   /// \brief writes flip-flop value init for a variable
-  void writeVarFlipFlopInit(std::string prefix, ostream& out, const t_var_nfo& v) const
+  void writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
   {
-    out << FF_Q << prefix << v.name << " <= " << v.init_values[0] << ';' << endl;
+    out << FF_Q << prefix << v.name << " <= " << v.init_values[0] << ';' << std::endl;
   }
 
   /// \brief writes flip-flop value update for a variable
-  void writeVarFlipFlopUpdate(std::string prefix, ostream& out, const t_var_nfo& v) const
+  void writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const
   {
-    out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << endl;
+    out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << std::endl;
   }
 
   /// \brief computes variable bit depdth
@@ -2026,17 +2036,17 @@ private:
 private:
 
   /// \brief writes the const declarations
-  void writeConstDeclarations(std::string prefix, ostream& out) const
+  void writeConstDeclarations(std::string prefix, std::ostream& out) const
   {
     for (const auto& v : m_Vars) {
       if (v.usage != e_Const) continue;
-      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_D << prefix << v.name << ';' << endl;
+      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_D << prefix << v.name << ';' << std::endl;
       if (v.table_size == 0) {
-        out << "assign " << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << endl;
+        out << "assign " << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
       } else {
         int width = v.width;
         ForIndex(i, v.table_size) {
-          out << "assign " << FF_D << prefix << v.name << '[' << (i*width) << "+:" << width << ']' << " = " << v.init_values[i] << ';' << endl;
+          out << "assign " << FF_D << prefix << v.name << '[' << (i*width) << "+:" << width << ']' << " = " << v.init_values[i] << ';' << std::endl;
         }
       }
     }
@@ -2052,57 +2062,57 @@ private:
   }
 
   /// \brief writes the temporary declarations
-  void writeTempDeclarations(std::string prefix, ostream& out) const
+  void writeTempDeclarations(std::string prefix, std::ostream& out) const
   {
     for (const auto& v : m_Vars) {
       if (v.usage != e_Temporary) continue;
-      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_D << prefix << v.name << ';' << endl;
+      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_D << prefix << v.name << ';' << std::endl;
     }
   }
 
   /// \brief writes the flip-flop declarations
-  void writeFlipFlopDeclarations(std::string prefix, ostream& out) const
+  void writeFlipFlopDeclarations(std::string prefix, std::ostream& out) const
   {
-    out << endl;
+    out << std::endl;
     // flip-flops for internal vars
     for (const auto& v : m_Vars) {
       if (v.usage != e_FlipFlop) continue;
       out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
-      out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << endl;
+      out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << std::endl;
     }
     // flip-flops for outputs
     for (const auto& v : m_Outputs) {
       if (v.usage == e_FlipFlop) {
         out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
-        out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << endl;
+        out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << std::endl;
       }
     }
     // state machine index
-    out << "reg [" << stateWidth() << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << endl;
+    out << "reg [" << stateWidth() << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
     // state machine done
-    out << "reg " FF_D << prefix << ALG_DONE "," FF_Q << prefix << ALG_DONE << ';' << endl;
+    out << "reg " FF_D << prefix << ALG_DONE "," FF_Q << prefix << ALG_DONE << ';' << std::endl;
     // state machine return (subroutine)
-    out << "reg[" << stateWidth() << ":0] " FF_D << prefix << ALG_RETURN "," FF_Q << prefix << ALG_RETURN << ';' << endl;
+    out << "reg[" << stateWidth() << ":0] " FF_D << prefix << ALG_RETURN "," FF_Q << prefix << ALG_RETURN << ';' << std::endl;
     // state machine run for instanced algorithms
     for (const auto& ia : m_InstancedAlgorithms) {
-      out << "reg " FF_D << ia.second.instance_prefix + "_" ALG_RUN << ',' << FF_Q << ia.second.instance_prefix + "_" ALG_RUN << ';' << endl;
+      out << "reg " FF_D << ia.second.instance_prefix + "_" ALG_RUN << ',' << FF_Q << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
     }
     // registers for instanced algorithms inputs
     for (const auto& ia : m_InstancedAlgorithms) {
       for (const auto& inp : ia.second.algo->m_Inputs) {
         if (ia.second.boundinputs.count(inp.name) == 0) { // not bound directly
           out << "reg " << typeString(inp) << " [" << varBitDepth(inp) - 1 << ":0] ";
-          out << REG_INPUT << ia.second.instance_prefix << '_' << inp.name << ';' << endl;
+          out << REG_INPUT << ia.second.instance_prefix << '_' << inp.name << ';' << std::endl;
         }
       }
     }    
   }
 
   /// \brief writes the flip-flops
-  void writeFlipFlops(std::string prefix, ostream& out) const
+  void writeFlipFlops(std::string prefix, std::ostream& out) const
   {
     // output flip-flop init and update on clock
-    out << endl;
+    out << std::endl;
     std::string clock = m_Clock;
     if (m_Clock != ALG_CLOCK) {
       // in this case, clock has to be bound to a module output
@@ -2112,7 +2122,7 @@ private:
       }
       clock = C->second;
     }
-    out << "always @(posedge " << clock << ") begin" << endl;
+    out << "always @(posedge " << clock << ") begin" << std::endl;
     // init on hardware reset
     std::string reset = m_Reset;
     if (m_Reset != ALG_RESET) {
@@ -2123,7 +2133,7 @@ private:
       }
       reset = R->second;
     }
-    out << "  if (" << reset << ") begin" << endl;
+    out << "  if (" << reset << ") begin" << std::endl;
     for (const auto& v : m_Vars) {
       if (v.usage != e_FlipFlop) continue;
       writeVarFlipFlopInit(prefix, out, v);
@@ -2135,18 +2145,18 @@ private:
     }
     // state machine run for instanced algorithms
     for (const auto& ia : m_InstancedAlgorithms) {
-      out << FF_Q << ia.second.instance_prefix + "_" ALG_RUN << " <= 0;" << endl;
+      out << FF_Q << ia.second.instance_prefix + "_" ALG_RUN << " <= 0;" << std::endl;
     }
     // state machine 
     if (!m_AutoRun) {
-      out << FF_Q << prefix << ALG_IDX   " <= " << waitToRunState() << ";" << endl;
+      out << FF_Q << prefix << ALG_IDX   " <= " << waitToRunState() << ";" << std::endl;
     } else {
-      out << FF_Q << prefix << ALG_IDX   " <= 0;" << endl;
+      out << FF_Q << prefix << ALG_IDX   " <= 0;" << std::endl;
     }
-    out << FF_Q << prefix << ALG_DONE " <= 0;" << endl;
-    out << FF_Q << prefix << ALG_RETURN " <= 0;" << endl;
+    out << FF_Q << prefix << ALG_DONE " <= 0;" << std::endl;
+    out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
     // updates on clockpos
-    out << "  end else begin" << endl;
+    out << "  end else begin" << std::endl;
     for (const auto& v : m_Vars) {
       if (v.usage != e_FlipFlop) continue;
       writeVarFlipFlopUpdate(prefix, out, v);
@@ -2159,27 +2169,27 @@ private:
     // state machine run for instanced algorithms
     for (const auto& ia : m_InstancedAlgorithms) {
       out << FF_Q << ia.second.instance_prefix + "_" ALG_RUN << " <= " 
-          << FF_D << ia.second.instance_prefix + "_" ALG_RUN << ';' << endl;
+          << FF_D << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
     }
     // state machine index
-    out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << endl;
+    out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << std::endl;
     // state machine done
-    out << FF_Q << prefix << ALG_DONE " <= " FF_D << prefix << ALG_DONE << ';' << endl;
+    out << FF_Q << prefix << ALG_DONE " <= " FF_D << prefix << ALG_DONE << ';' << std::endl;
     // state machine return
-    out << FF_Q << prefix << ALG_RETURN " <= " FF_D << prefix << ALG_RETURN << ';' << endl;
-    out << "  end" << endl;
-    out << "end" << endl;
+    out << FF_Q << prefix << ALG_RETURN " <= " FF_D << prefix << ALG_RETURN << ';' << std::endl;
+    out << "  end" << std::endl;
+    out << "end" << std::endl;
   }
 
 private:
 
   /// \brief writes flip-flop combinational value update for a variable
-  void writeVarFlipFlopCombinationalUpdate(std::string prefix, ostream& out, const t_var_nfo& v) const
+  void writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const
   {
-    out << FF_D << prefix << v.name << " = " << FF_Q << prefix << v.name << ';' << endl;
+    out << FF_D << prefix << v.name << " = " << FF_Q << prefix << v.name << ';' << std::endl;
   }
 
-  void writeCombinationalAlways(std::string prefix, ostream& out) const
+  void writeCombinationalAlways(std::string prefix, std::ostream& out) const
   {
     // flip-flops
     for (const auto& v : m_Vars) {
@@ -2192,14 +2202,14 @@ private:
       }
     }
     // state machine index
-    out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << endl;
+    out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << std::endl;
     // state machine done
-    out << FF_D << prefix << ALG_DONE " = " FF_Q << prefix << ALG_DONE << ';' << endl;
+    out << FF_D << prefix << ALG_DONE " = " FF_Q << prefix << ALG_DONE << ';' << std::endl;
     // state machine index
-    out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN << ';' << endl;
+    out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN << ';' << std::endl;
     // instanced algorithms reset
     for (auto ia : m_InstancedAlgorithms) {
-      out << FF_D << ia.second.instance_prefix + "_" ALG_RUN " = " FF_Q << ia.second.instance_prefix + "_" ALG_RUN << ';' << endl;
+      out << FF_D << ia.second.instance_prefix + "_" ALG_RUN " = " FF_Q << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
     }
     // instanced modules output bindings with wires
     // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
@@ -2212,7 +2222,7 @@ private:
           } else if (m_OutputNames.find(b.right) != m_OutputNames.end()) {
             auto usage = m_Outputs.at(m_OutputNames.at(b.right)).usage;
             if (usage == e_FlipFlop) {
-              out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << endl;
+              out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
             }
           }
         }
@@ -2229,7 +2239,7 @@ private:
           } else if (m_OutputNames.find(b.right) != m_OutputNames.end()) {
             auto usage = m_Outputs.at(m_OutputNames.at(b.right)).usage;
             if (usage == e_FlipFlop) {
-              out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << endl;
+              out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
             }
           }
         }
@@ -2242,7 +2252,7 @@ private:
   }
 
   /// \brief add a state to the queue
-  void pushState(const t_combinational_block* b, queue<size_t>& _q) const
+  void pushState(const t_combinational_block* b, std::queue<size_t>& _q) const
   {
     if (b->is_state) {
       size_t rn = fastForward(b)->id;
@@ -2251,14 +2261,14 @@ private:
   }
 
   /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
-  void writeStatelessBlockGraph(std::string prefix, ostream& out,const t_combinational_block* block, const t_combinational_block* stop_at, queue<size_t>& _q) const
+  void writeStatelessBlockGraph(std::string prefix, std::ostream& out,const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q) const
   {
     // recursive call?
     if (stop_at != nullptr) {
       // if called is a state, index state and stop there
       if (block->is_state) {
         // yes: index the state directly
-        out << FF_D << prefix << ALG_IDX " = " << fastForward(block)->state_id << ";" << endl;
+        out << FF_D << prefix << ALG_IDX " = " << fastForward(block)->state_id << ";" << std::endl;
         pushState(block, _q);
         // return
         return;
@@ -2273,13 +2283,13 @@ private:
       if (current->next()) {
         current = current->next()->next;
       } else if (current->if_then_else()) {
-        out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id) << ") begin" << endl;
+        out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id) << ") begin" << std::endl;
         // recurse if
         writeStatelessBlockGraph(prefix, out, current->if_then_else()->if_next, current->if_then_else()->after, _q);
-        out << "end else begin" << endl;
+        out << "end else begin" << std::endl;
         // recurse else
         writeStatelessBlockGraph(prefix, out, current->if_then_else()->else_next, current->if_then_else()->after, _q);
-        out << "end" << endl;
+        out << "end" << std::endl;
         // follow after?
         if (current->if_then_else()->after->is_state) {
           return; // no: already indexed by recursive calls
@@ -2288,23 +2298,23 @@ private:
         }
       } else if (current->while_loop()) {
         // while
-        out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id) << ") begin" << endl;
+        out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id) << ") begin" << std::endl;
         writeStatelessBlockGraph(prefix, out, current->while_loop()->iteration, current->while_loop()->after, _q);
-        out << "end else begin" << endl;
-        out << FF_D << prefix << ALG_IDX " = " << fastForward(current->while_loop()->after)->state_id << ";" << endl;
+        out << "end else begin" << std::endl;
+        out << FF_D << prefix << ALG_IDX " = " << fastForward(current->while_loop()->after)->state_id << ";" << std::endl;
         pushState(current->while_loop()->after, _q);
-        out << "end" << endl;      
+        out << "end" << std::endl;
         return;
       } else if (current->return_from()) {
         // return to caller
-        out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN << ";" << endl;
+        out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN << ";" << std::endl;
         return;
       } else if (current->next_and_return_to()) {
         // goto subroutine
-        out << FF_D << prefix << ALG_IDX " = " << fastForward(current->next_and_return_to()->next)->state_id << ";" << endl;
+        out << FF_D << prefix << ALG_IDX " = " << fastForward(current->next_and_return_to()->next)->state_id << ";" << std::endl;
         pushState(current->next_and_return_to()->next, _q);
         // set return index
-        out << FF_D << prefix << ALG_RETURN " = " << fastForward(current->next_and_return_to()->return_to)->state_id << ";" << endl;
+        out << FF_D << prefix << ALG_RETURN " = " << fastForward(current->next_and_return_to()->return_to)->state_id << ";" << std::endl;
         pushState(current->next_and_return_to()->return_to, _q);
         return;
       } else if (current->wait()) {
@@ -2316,30 +2326,30 @@ private:
             current->wait()->line);
         } else {
           // test if algorithm is done
-          out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << endl;
+          out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << std::endl;
           // yes!
           // -> stop running
-          out << FF_D << A->second.instance_prefix << "_" << ALG_RUN << " = 0;" << endl;
+          out << FF_D << A->second.instance_prefix << "_" << ALG_RUN << " = 0;" << std::endl;
           // -> goto next
-          out << FF_D << prefix << ALG_IDX " = " << fastForward(current->wait()->next)->state_id << ";" << endl;
+          out << FF_D << prefix << ALG_IDX " = " << fastForward(current->wait()->next)->state_id << ";" << std::endl;
           pushState(current->wait()->next, _q);
-          out << "end else begin" << endl;
+          out << "end else begin" << std::endl;
           // no!
           // -> wait
-          out << FF_D << prefix << ALG_IDX " = " << fastForward(current->wait()->waiting)->state_id << ";" << endl;
+          out << FF_D << prefix << ALG_IDX " = " << fastForward(current->wait()->waiting)->state_id << ";" << std::endl;
           pushState(current->wait()->waiting, _q);
-          out << "end" << endl;
+          out << "end" << std::endl;
         }
         return;
       } else {
         // no action: jump to terminal state
-        out << FF_D << prefix << ALG_IDX " = " << terminationState() << ";" << endl;
+        out << FF_D << prefix << ALG_IDX " = " << terminationState() << ";" << std::endl;
         return;
       }
       // check whether next is a state
       if (current->is_state) {
         // yes: index and stop
-        out << FF_D << prefix << ALG_IDX " = " << fastForward(current)->state_id << ";" << endl;
+        out << FF_D << prefix << ALG_IDX " = " << fastForward(current)->state_id << ";" << std::endl;
         pushState(current, _q);
         return;
       }
@@ -2352,13 +2362,13 @@ private:
   }
 
   /// \brief writes all states in the output
-  void writeCombinationalStates(std::string prefix, ostream& out) const
+  void writeCombinationalStates(std::string prefix, std::ostream& out) const
   {
-    set<size_t>   produced;
-    queue<size_t> q;
+    std::set<size_t>   produced;
+    std::queue<size_t> q;
     q.push(0); // starts at 0
     // states
-    out << "case (" << FF_D << prefix << ALG_IDX << ")" << endl;
+    out << "case (" << FF_D << prefix << ALG_IDX << ")" << std::endl;
     while (!q.empty()) {
       size_t bid = q.front();
       const t_combinational_block *b = m_Id2Block.at(bid);
@@ -2372,15 +2382,15 @@ private:
         continue;
       }
       // begin state
-      out << b->state_id << ": begin" << " // " << b->block_name << endl;
+      out << b->state_id << ": begin" << " // " << b->block_name << std::endl;
       if (bid == 0) { // first block starts by variable initialization
         for (const auto& v : m_Vars) {
           if (v.usage != e_FlipFlop) continue;
           if (v.table_size == 0) {
-            out << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << endl;
+            out << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
           } else {
             ForIndex(i, v.table_size) {
-              out << FF_D << prefix << v.name << "[(" << i << ")*" << v.width << "+:" << v.width << ']' << " = " << v.init_values[i] << ';' << endl;
+              out << FF_D << prefix << v.name << "[(" << i << ")*" << v.width << "+:" << v.width << ']' << " = " << v.init_values[i] << ';' << std::endl;
             }
           }
         }
@@ -2388,39 +2398,39 @@ private:
       // write block instructions
       writeStatelessBlockGraph(prefix, out, b, nullptr, q);
       // end of state
-      out << "end" << endl;
+      out << "end" << std::endl;
     }
     // initiate termination sequence
     // -> termination state
     {
-      out << terminationState() << ": begin // end of " << m_Name << endl;
+      out << terminationState() << ": begin // end of " << m_Name << std::endl;
       // set done
-      out << FF_D << prefix << ALG_DONE " = 1;" << endl;
+      out << FF_D << prefix << ALG_DONE " = 1;" << std::endl;
       // now wait for reset to go down
-      out << "if (" << ALG_INPUT << "_" << ALG_RUN << " == 0) begin" << endl;
-      out << FF_D << prefix << ALG_IDX " = " << waitToRunState() << ";" << endl;
-      out << "end" << endl;
-      out << "end" << endl;
+      out << "if (" << ALG_INPUT << "_" << ALG_RUN << " == 0) begin" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << waitToRunState() << ";" << std::endl;
+      out << "end" << std::endl;
+      out << "end" << std::endl;
     }
     // -> wait to run state
     {
-      out << waitToRunState() << ": begin // waiting to run " << m_Name << endl;
+      out << waitToRunState() << ": begin // waiting to run " << m_Name << std::endl;
       // wait for reset to go up
-      out << "if (" << ALG_INPUT << "_" << ALG_RUN << " == 1) begin" << endl;
+      out << "if (" << ALG_INPUT << "_" << ALG_RUN << " == 1) begin" << std::endl;
       // -> set not done
-      out << FF_D << prefix << ALG_DONE " = 0;" << endl;
+      out << FF_D << prefix << ALG_DONE " = 0;" << std::endl;
       // -> jump to init
-      out << FF_D << prefix << ALG_IDX " = " << 0 << ";" << endl;
-      out << "end" << endl;
-      out << "end" << endl;
+      out << FF_D << prefix << ALG_IDX " = " << 0 << ";" << std::endl;
+      out << "end" << std::endl;
+      out << "end" << std::endl;
     }
     // default: internal error, should never happen
     {
-      out << "default: begin " << endl;
-      out << FF_D << prefix << ALG_IDX " = " << waitToRunState() << ";" << endl;
-      out << " end" << endl;
+      out << "default: begin " << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << waitToRunState() << ";" << std::endl;
+      out << " end" << std::endl;
     }
-    out << "endcase" << endl;
+    out << "endcase" << std::endl;
   }
 
   /// \brief generates the proper string for a binding source (fed to the input of a module/algorithm)
@@ -2428,7 +2438,7 @@ private:
 
 public:
 
-  void writeAsModule(ostream& out) const;
+  void writeAsModule(std::ostream& out) const;
 };
 
 // -------------------------------------------------

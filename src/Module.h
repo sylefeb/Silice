@@ -1,15 +1,22 @@
-#pragma once
-// -------------------------------------------------
-//
-// FPGA Simple Language
-//
-// (c) Sylvain Lefebvre 2019
-//
-//                                ... hardcoding ...
-// -------------------------------------------------
 /*
 
+    Silice FPGA language and compiler
+    (c) Sylvain Lefebvre - @sylefeb
+
+This work and all associated files are under the
+
+     GNU AFFERO GENERAL PUBLIC LICENSE
+        Version 3, 19 November 2007
+        
+A copy of the license full text is included in 
+the distribution, please refer to it for details.
+
+(header_1_0)
 */
+#pragma once
+// -------------------------------------------------
+//                                ... hardcoding ...
+// -------------------------------------------------
 
 #include "vmoduleLexer.h"
 #include "vmoduleParser.h"
@@ -23,11 +30,6 @@
 #include <LibSL/LibSL.h>
 
 #include "path.h"
-
-// -------------------------------------------------
-
-using namespace antlr4;
-using namespace std;
 
 // -------------------------------------------------
 
@@ -97,30 +99,30 @@ public:
   /// \brief constructor
   Module(std::string fname) : m_FileName(fname)
   {
-    cerr << "importing " << fname << '.' << endl;
+    std::cerr << "importing " << fname << '.' << std::endl;
     if (!LibSL::System::File::exists(fname.c_str())) {
       throw std::runtime_error("cannot find module file");
     }
-    ifstream          file(fname);
+    std::ifstream             file(fname);
 
-    ANTLRInputStream  input(file);
-    vmoduleLexer      lexer(&input);
-    CommonTokenStream tokens(&lexer);
-    vmoduleParser     parser(&tokens);
+    antlr4::ANTLRInputStream  input(file);
+    vmoduleLexer              lexer(&input);
+    antlr4::CommonTokenStream tokens(&lexer);
+    vmoduleParser             parser(&tokens);
 
     gather(parser.vmodule());
   }
 
   std::string name() const { return m_Name; }
 
-  void writeModule(ostream& out) const
+  void writeModule(std::ostream& out) const
   {
     if (!LibSL::System::File::exists(m_FileName.c_str())) {
       throw Fatal("cannot find imported module file '%s'",m_FileName.c_str());
     }
-    out << endl;
+    out << std::endl;
     out << loadFileIntoString(m_FileName.c_str());
-    out << endl;
+    out << std::endl;
   }
 
   const t_binding_point_nfo& output(std::string name) const

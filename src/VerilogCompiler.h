@@ -1,16 +1,21 @@
-#pragma once
-// -------------------------------------------------
-//
-// FPGA Simple Language
-//
-// (c) Sylvain Lefebvre 2019
-// 
-//                                ... hardcoding ...
-// -------------------------------------------------
 /*
 
-*/
+    Silice FPGA language and compiler
+    (c) Sylvain Lefebvre - @sylefeb
 
+This work and all associated files are under the
+
+     GNU AFFERO GENERAL PUBLIC LICENSE
+        Version 3, 19 November 2007
+        
+A copy of the license full text is included in 
+the distribution, please refer to it for details.
+
+(header_1_0)
+*/
+#pragma once
+// -------------------------------------------------
+//                                ... hardcoding ...
 // -------------------------------------------------
 
 #include "Algorithm.h"
@@ -31,11 +36,6 @@
 
 // -------------------------------------------------
 
-using namespace antlr4;
-using namespace std;
-
-// -------------------------------------------------
-
 class VerilogCompiler
 {
 private:
@@ -44,7 +44,7 @@ private:
   std::map<std::string, AutoPtr<Module> >          m_Modules;
   std::set<std::string>                            m_Appends;
 
-  void gatherAlgorithms(tree::ParseTree *tree)
+  void gatherAlgorithms(antlr4::tree::ParseTree *tree)
   {
     if (tree == nullptr) {
       return;
@@ -63,7 +63,7 @@ private:
     } else if (alg) {
       // algorithm
       std::string name  = alg->IDENTIFIER()->getText();
-      cerr << "parsing algorithm " << name << std::endl;
+      std::cerr << "parsing algorithm " << name << std::endl;
       bool autorun      = (name == "main");
       std::string clock = ALG_CLOCK;
       std::string reset = ALG_RESET;
@@ -94,7 +94,7 @@ private:
       if (m_Modules.find(fname) != m_Modules.end()) {
         throw std::runtime_error("verilog module already imported!");
       }
-      cerr << "parsing module " << vmodule->name() << std::endl;
+      std::cerr << "parsing module " << vmodule->name() << std::endl;
       m_Modules.insert(std::make_pair(vmodule->name(), vmodule));
     } else if (app) {
       // file include
@@ -106,32 +106,32 @@ private:
 
 private:
 
-  class LexerErrorListener : public BaseErrorListener {
+  class LexerErrorListener : public antlr4::BaseErrorListener {
   public:
     LexerErrorListener() {}
     virtual void syntaxError(
-      Recognizer *recognizer,
-      Token *offendingSymbol,
+      antlr4::Recognizer *recognizer,
+      antlr4::Token *offendingSymbol,
       size_t line,
       size_t charPositionInLine,
       const std::string &msg, std::exception_ptr e) override
     {
-      cerr << Console::red <<
+      std::cerr << Console::red <<
         "[syntax error] line " << line << " : " << msg
-        << Console::gray << endl;
+        << Console::gray << std::endl;
       throw Fatal(msg.c_str());
     }
   };
 
-  class ParserErrorListener : public BaseErrorListener {
+  class ParserErrorListener : public antlr4::BaseErrorListener {
   public:
     ParserErrorListener() {}
-    virtual void syntaxError(Recognizer *recognizer, Token *offendingSymbol, size_t line, size_t charPositionInLine,
+    virtual void syntaxError(antlr4::Recognizer *recognizer, antlr4::Token *offendingSymbol, size_t line, size_t charPositionInLine,
       const std::string &msg, std::exception_ptr e) override
     {
-      cerr << Console::red <<
+      std::cerr << Console::red <<
         "[parse error] line " << line << " : " << msg
-        << Console::gray << endl;
+        << Console::gray << std::endl;
       throw Fatal(msg.c_str());
     }
   };
@@ -149,15 +149,15 @@ public:
     std::string preprocessed = std::string(fsource) + ".lpp";
     lpp.execute(fsource, preprocessed);
     // parse the preprocessed source
-    ifstream file(preprocessed);
+    std::ifstream file(preprocessed);
     if (file) {
       // initiate parsing
-      LexerErrorListener  lexerErrorListener;
-      ParserErrorListener parserErrorListener;
-      ANTLRInputStream    input(file);
-      siliceLexer         lexer(&input);
-      CommonTokenStream   tokens(&lexer);
-      siliceParser        parser(&tokens);
+      LexerErrorListener          lexerErrorListener;
+      ParserErrorListener         parserErrorListener;
+      antlr4::ANTLRInputStream    input(file);
+      siliceLexer                 lexer(&input);
+      antlr4::CommonTokenStream   tokens(&lexer);
+      siliceParser                parser(&tokens);
       file.close();
 
       lexer .removeErrorListeners();
@@ -181,11 +181,11 @@ public:
 
       // save the result
       {
-        ofstream out(fresult);
+        std::ofstream out(fresult);
         // write includes
         for (auto i : m_Appends) {
           std::string fname = std::string(SRC_PATH "/tests/") + i;
-          out << loadFileIntoString(fname.c_str()) << endl;
+          out << loadFileIntoString(fname.c_str()) << std::endl;
         }
         // write imported modules
         for (auto m : m_Modules) {

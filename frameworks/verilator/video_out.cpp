@@ -1,8 +1,21 @@
+/*
+
+    Silice FPGA language and compiler
+    (c) Sylvain Lefebvre - @sylefeb
+
+This work and all associated files are under the
+
+     GNU AFFERO GENERAL PUBLIC LICENSE
+        Version 3, 19 November 2007
+        
+A copy of the license full text is included in 
+the distribution, please refer to it for details.
+
+(header_1_0)
+*/
 //
-// 2019-09-26 Sylvain Lefebvre
-// 
 // Based on code from the MCC216 project (https://github.com/fredrequin/fpga_1943)
-// 2013 (c) Frederic Requin, GPL v3 licence
+// (c) Frederic Requin, GPL v3 license
 //
 
 #include "verilated.h"
