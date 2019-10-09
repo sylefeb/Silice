@@ -16,7 +16,7 @@
 
 \maketitle
 
-\silice{} aims at simplifying writing code for FPGAs. It compiles to and inter-operates with \verilog{}. \silice{} is not meant to \textit{hide} the HDL complexity, but rather to complement it, making it more enjoyable to write parallel code and algorithms utilizing the FPGA architecture. A basic understanding of \verilog{} is highly recommended as a pre-requisite to using \silice{}.
+\silice{} aims at simplifying writing code for FPGAs. It compiles to and inter-operates with \verilog{}. \silice{} is not meant to \textit{hide} the HDL complexity, but rather to complement it, making it more enjoyable to write parallel code and algorithms utilizing the FPGA architecture.
 
 \silice{} does not attempt to abstract away the hardware: the programmer remains in control and very close to hardware features. However, \silice{} makes it much easier to reason in terms of execution flow and operation sequences than when using vanilla \verilog{}. But when \verilog{} makes more sense, simply import Verilog directly into Silice!
 
@@ -76,7 +76,7 @@ algorithm main(input uint1 button,output uint1 led) {
 }
 \end{minted}
 
-Of course this last version is needlessly complicated, but it shows the principle: led is continuously assigned 0, but this will be overridden whenever the button is pressed. This is useful to maintain an output to a value that must change only on some specific event (eg. producing a pulse).
+Of course this last version is needlessly complicated (the previous one was minimal), but it shows the principle: led is continuously assigned 0, but this will be overridden whenever the button is pressed. This is useful to maintain an output to a value that must change only on some specific event (eg. producing a pulse).
 
 % ==============================================
 

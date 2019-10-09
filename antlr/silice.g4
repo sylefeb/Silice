@@ -16,6 +16,10 @@ GOTO                : 'goto' ;
 
 AUTORUN             : 'autorun' ;
 
+READ                : 'reads' ;
+WRITE               : 'writes' ;
+READWRITE           : 'readwrites' ;
+
 FILENAME            : '\'' (DIGIT|LETTERU|'.')* '\'' ;
 
 REPEATCNT           : NUMBER 'x' ;
@@ -181,7 +185,9 @@ instructionList     :
                     | whileLoop   instructionList
 					| ;
 
-subroutine          : SUB STATE instructionList RETURN ';' ;
+subroutinePerm      : (READ | WRITE | READWRITE ) IDENTIFIER ;
+subroutinePermList  : '(' (subroutinePerm ',')* subroutinePerm ')' ;
+subroutine          : SUB STATE subroutinePermList? instructionList RETURN ';' ;
 subroutineList      : subroutine * ;
                     
 declAndInstrList    : declarationList 

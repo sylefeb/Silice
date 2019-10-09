@@ -318,6 +318,9 @@ private:
   {
     int                    __id;
     t_combinational_block *break_to;
+    bool                   has_access_constraints = false;
+    std::set<std::string>  allowed_reads;
+    std::set<std::string>  allowed_writes;
   } t_gather_context;
 
   ///brief information about a forward jump
@@ -764,8 +767,27 @@ private:
     std::string txt  = sub->STATE()->getText();
     std::string name = txt.substr(0, txt.length() - 1);
     t_combinational_block *subb = addBlock("__sub_" + name,(int)sub->getStart()->getLine());
+    // check for constraints
+    if (sub->subroutinePermList() != nullptr) {
+      _context->has_access_constraints = true;
+      for (auto P : sub->subroutinePermList()->subroutinePerm()) {
+        if (P->READ() != nullptr) {
+          _context->allowed_reads.insert(P->IDENTIFIER()->getText());
+        } else if (P->WRITE() != nullptr) {
+          _context->allowed_writes.insert(P->IDENTIFIER()->getText());
+        } else {
+          sl_assert(P->READWRITE() != nullptr);
+          _context->allowed_reads.insert(P->IDENTIFIER()->getText());
+          _context->allowed_writes.insert(P->IDENTIFIER()->getText());
+        }
+      }
+    }
     // parse the subroutine
     t_combinational_block *sub_last = gather(sub->instructionList(), subb, _context);
+    // clear any access constraints
+    _context->has_access_constraints = false;
+    _context->allowed_reads.clear();
+    _context->allowed_writes.clear();
     // add return from last
     sub_last->return_from();
     // subroutine has to be a state
@@ -899,7 +921,6 @@ private:
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(alws->alwaysAssigned());
       if (alw) {
         m_Always.instructions.push_back(t_instr_nfo(alw, -1));
-
         // check for double flip-flop
         if (alw->ALWSASSIGNDBL() != nullptr) {
           // insert temporary variable
@@ -913,9 +934,33 @@ private:
           m_Vars.emplace_back(var);
           m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
         }
-
       }
       alws = alws->alwaysAssignedList();
+    }
+  }
+
+  /// \brief check the access permissions on assignements
+  void checkAssignPermissions(siliceParser::AssignmentContext *assign, t_gather_context *_context)
+  {
+    // any checks to perform?
+    if (!_context->has_access_constraints) {
+      return; // no, return
+    }
+    // yes: go ahead with checks
+    std::set<std::string> read, written;
+    determineVIOAccess(assign, m_VarNames, read, written);
+    determineVIOAccess(assign, m_OutputNames, read, written);
+    determineVIOAccess(assign, m_InputNames, read, written);
+    // now verify all permissions are granted
+    for (auto R : read) {
+      if (_context->allowed_reads.count(R) == 0) {
+        throw Fatal("variable '%s' is read by subroutine without explicit permission (line %d)",R.c_str(),assign->getStart()->getLine());
+      }
+    }
+    for (auto W : written) {
+      if (_context->allowed_writes.count(W) == 0) {
+        throw Fatal("variable '%s' is written by subroutine without explicit permission (line %d)", W.c_str(), assign->getStart()->getLine());
+      }
     }
   }
 
@@ -966,7 +1011,7 @@ private:
     else if (jump)    { _current = gatherJump(jump, _current, _context); }
     else if (breakL)  { _current = gatherBreakLoop(breakL, _current, _context); }
     else if (join)    { _current = gatherJoinCall(join, _current, _context); }
-    else if (assign)  { _current->instructions.push_back(t_instr_nfo(assign, _context->__id)); }
+    else if (assign)  { checkAssignPermissions(assign,_context);  _current->instructions.push_back(t_instr_nfo(assign, _context->__id)); }
     else if (sync)    {
       _current->instructions.push_back(t_instr_nfo(sync, _context->__id));
       _current = gather(sync->algoJoin(), _current, _context);
