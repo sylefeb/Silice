@@ -14,6 +14,8 @@ the distribution, please refer to it for details.
 (header_1_0)
 */
 // -------------------------------------------------
+//                                ... hardcoding ...
+// -------------------------------------------------
 #include "lppLexer.h"
 #include "lppParser.h"
 // -------------------------------------------------

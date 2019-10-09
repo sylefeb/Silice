@@ -14,19 +14,7 @@ the distribution, please refer to it for details.
 (header_1_0)
 */
 // -------------------------------------------------
-//
-// Silice FPGA language
-//
-// (c) Sylvain Lefebvre 2019
-// 
-//                                ... code hard! ...
-// -------------------------------------------------
-/*
-
-Algorithm, implementation
-
-*/
-
+//                                ... hardcoding ...
 // -------------------------------------------------
 
 #include "Algorithm.h"

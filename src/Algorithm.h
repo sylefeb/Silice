@@ -15,17 +15,8 @@ the distribution, please refer to it for details.
 */
 #pragma once
 // -------------------------------------------------
-//
-// Silice FPGA language
-//
-// (c) Sylvain Lefebvre 2019
-// 
-//                                ... code hard! ...
+//                                ... hardcoding ...
 // -------------------------------------------------
-/*
-
-*/
-#pragma once
 
 #include "siliceLexer.h"
 #include "siliceParser.h"
