@@ -449,6 +449,13 @@ private:
     splitType(decl->TYPE()->getText(), var.base_type, var.width);
     var.init_values.push_back("0");
     var.init_values[0] = gatherInitValue(decl->initValue());
+    // verify the varaible does not shadow an input or output
+    if (isInput(var.name)) {
+      throw Fatal("variable '%s' is shadowing input of same name (line %d)", var.name.c_str(), decl->getStart()->getLine());
+    } else if (isOutput(var.name)) {
+      throw Fatal("variable '%s' is shadowing output of same name (line %d)", var.name.c_str(), decl->getStart()->getLine());
+    }
+    // ok!
     m_Vars.emplace_back(var);
     m_VarNames.insert(std::make_pair(var.name,(int)m_Vars.size()-1));
   }
