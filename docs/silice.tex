@@ -120,7 +120,7 @@ Variables are declared with the following pattern:
 
 \noindent where \texttt{TYPE} is a type definition (Section~\ref{sec:types}), \texttt{ID} a variable identifier (starting with a letter followed by alphanumeric or underscores) and \texttt{VALUE} a constant (Section~\ref{sec:csts}).
 
-The initializer is mandatory.
+The initializer is mandatory, and is always a simple constant (no expressions).
 
 \subsection{Tables}
 
@@ -143,15 +143,22 @@ int3 d = a[2,3]; // int3 with third, fourth and fifth bits
 
 The first entry may be an expression, the second has to be a constant.
 
+\subsubsection{Arithmetic, comparison, bit-wise, reduction, shift}
+
+All standard verilog operators are supported, binary and unary.
+
 \subsubsection{Concatenation}
 
-\todo{concatenation operators...}
+Concatenation allows to combine expressions to form expressions having larger bit-width.
+The syntax is to form a comma separated list enclosed by braces.  Example:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+	int6  a = 6b111000;
+	int2  b = 2b10;
+	int10 c = 0;
+	c := {b,a,2b11};
+\end{minted}
 
-\subsubsection{Integer}
-
-All standard operators are supported: \texttt{+,-,*,\&,|,\^,<<,>>,<,>,==,!=}.
-
-\todo{unary version?}
+Here c is obtained by concatenating a,b and the constant 2b11 to form a ten bits wide integer.
 
 \subsubsection{Bindings}
 \label{sec:bindings}
