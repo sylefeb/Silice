@@ -10,7 +10,7 @@
 
 % enamel
 
-\title{\silice{} - mixing low and high level FPGA programming}
+\title{\silice{}\\ \textit{\normalsize A not too high-level programming language for FPGA}}
 
 \begin{document}
 
@@ -18,9 +18,11 @@
 
 \silice{} aims at simplifying writing code for FPGAs. It compiles to and inter-operates with \verilog{}. \silice{} is not meant to \textit{hide} the HDL complexity, but rather to complement it, making it more enjoyable to write parallel code and algorithms utilizing the FPGA architecture. A basic understanding of \verilog{} is highly recommended as a pre-requisite to using \silice{}.
 
+\silice{} does not attempt to abstract away the hardware: the programmer remains in control and very close to hardware features. However, \silice{} makes it much easier to reason in terms of execution flow and operation sequences than when using vanilla \verilog{}. But when \verilog{} makes more sense, simply import Verilog directly into Silice!
+
 \silice{} is reminiscent of high performance programming in the late 90s (in the demo scene in particular): the then considered high-level C language was commonly interfaced with time-critical ASM routines. This enabled a best-of-both-worlds situation, with C being used for the overall program flow and ASM used only on carefully optimized hardware dependent routines.
 %
-\silice{} does the same, providing a programmer friendly C-inspired layer on top of \verilog{}, while allowing to call low level \verilog{} modules whenever needed. 
+\silice{} does the same, providing a programmer friendly C-inspired layer on top of \verilog{}, while allowing to call low level \verilog{} modules whenever needed.
 \silice{} also favors parallelism and performance everywhere, allowing to fully benefits from the specificities of FPGA architectures.
 
 The main design principles are:
@@ -461,6 +463,10 @@ around.
 % ----------------------------------------------
 
 \subsection{Execution}
+
+Things are about to get interesting! 
+
+
 
 % https://www.xilinx.com/support/documentation/sw_manuals/xilinx2015_2/sdsoc_doc/topics/calling-coding-guidelines/concept_pipelining_loop_unrolling.html
 %
