@@ -201,17 +201,12 @@ algorithm frame_buffer_row_updater(
   uint8  row   = 1; // 1 .. 199 .. 0 (start with 1, 0 loads after 199)
   uint1  working_row = 1;
   
-  // filtering cross domain (double flip-flop)
-  uint1 row_busy_filtered_tmp = 0;
+  // filtered cross domain (double flip-flop)
   uint1 row_busy_filtered     = 0;
-  uint1 vsync_tmp             = 0;
   uint1 vsync_filtered        = 0;
-    
-  // filtering cross domain
-  row_busy_filtered     := row_busy_filtered_tmp;
-  row_busy_filtered_tmp := row_busy;  
-  vsync_filtered        := vsync_tmp;
-  vsync_tmp             := vsync;  
+
+  row_busy_filtered     ::= row_busy; 
+  vsync_filtered        ::= vsync;
 
   // keep sin_valid low by default
   sin_valid := 0;

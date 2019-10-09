@@ -449,6 +449,13 @@ private:
     splitType(decl->TYPE()->getText(), var.base_type, var.width);
     var.init_values.push_back("0");
     var.init_values[0] = gatherInitValue(decl->initValue());
+    // verify the varaible does not shadow an input or output
+    if (isInput(var.name)) {
+      throw Fatal("variable '%s' is shadowing input of same name (line %d)", var.name.c_str(), decl->getStart()->getLine());
+    } else if (isOutput(var.name)) {
+      throw Fatal("variable '%s' is shadowing output of same name (line %d)", var.name.c_str(), decl->getStart()->getLine());
+    }
+    // ok!
     m_Vars.emplace_back(var);
     m_VarNames.insert(std::make_pair(var.name,(int)m_Vars.size()-1));
   }
@@ -897,7 +904,7 @@ private:
         if (alw->ALWSASSIGNDBL() != nullptr) {
           // insert temporary variable
           t_var_nfo var;
-          var.name = "__delayed_" + std::to_string(alws->getStart()->getLine());
+          var.name = "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
           std::pair<e_Type,int> type_width = determineAccessTypeAndWidth(alw->access(), alw->IDENTIFIER());
           var.table_size = 0;
           var.base_type = type_width.first;
@@ -905,7 +912,6 @@ private:
           var.init_values.push_back("0");
           m_Vars.emplace_back(var);
           m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
-
         }
 
       }
@@ -1305,7 +1311,7 @@ private:
       }
     } else {
       // identifier
-      return determineIdentifierTypeAndWidth(identifier, (int)access->getStart()->getLine());
+      return determineIdentifierTypeAndWidth(identifier, (int)identifier->getSymbol()->getLine());
     }
     sl_assert(false);
     return std::make_pair(Int,0);
@@ -1427,7 +1433,19 @@ private:
       } {
         auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(a.instr);
         if (alw) {
-          writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
+          if (alw->ALWSASSIGNDBL() != nullptr) {
+            ostringstream ostr;
+            writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
+            // modify assignement to insert temporary var
+            std::size_t pos    = ostr.str().find('=');
+            std::string lvalue = ostr.str().substr(0, pos - 1);
+            std::string rvalue = ostr.str().substr(pos + 1);
+            std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
+            out << lvalue << " = " << FF_D << tmpvar << ';' << std::endl;
+            out << FF_D << tmpvar << " = " << rvalue; // rvalue contains ";\n"
+          } else {
+            writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
+          }
         }
       } {
         auto async = dynamic_cast<siliceParser::AlgoAsyncCallContext*>(a.instr);
@@ -1529,6 +1547,12 @@ private:
             }
             if (vios.find(var) != vios.end()) {
               _written.insert(var);
+            }
+            if (alw->ALWSASSIGNDBL() != nullptr) { // delayed flip-flop
+              // update temp var usage
+              std::string tmpvar = "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
+              _read   .insert(tmpvar);
+              _written.insert(tmpvar);
             }
             determineVIOAccess(alw->expression_0(), vios, _read, _written);
             recurse = false;
