@@ -19,6 +19,45 @@ CONFIGURE_FILE(
   "${CMAKE_CURRENT_SOURCE_DIR}/src/path.h"
   )
 
+if (WIN32)
+SET(ANTLR_COMPILER ${PROJECT_SOURCE_DIR}/antlr/compile.bat)
+else ()
+SET(ANTLR_COMPILER ${PROJECT_SOURCE_DIR}/antlr/compile.sh)
+endif()
+
+add_custom_command(
+  OUTPUT 
+	${PROJECT_SOURCE_DIR}/antlr/siliceParser.cpp 
+	${PROJECT_SOURCE_DIR}/antlr/siliceParser.h
+	${PROJECT_SOURCE_DIR}/antlr/siliceLexer.cpp 
+	${PROJECT_SOURCE_DIR}/antlr/siliceLexer.h
+  COMMAND ${ANTLR_COMPILER} silice
+  MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/antlr/silice.g4
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/antlr/
+)
+
+add_custom_command(
+  OUTPUT 
+	${PROJECT_SOURCE_DIR}/antlr/vmoduleParser.cpp 
+	${PROJECT_SOURCE_DIR}/antlr/vmoduleParser.h
+	${PROJECT_SOURCE_DIR}/antlr/vmoduleLexer.cpp 
+	${PROJECT_SOURCE_DIR}/antlr/vmoduleLexer.h
+  COMMAND ${ANTLR_COMPILER} vmodule
+  MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/antlr/vmodule.g4
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/antlr/
+)
+
+add_custom_command(
+  OUTPUT 
+	${PROJECT_SOURCE_DIR}/antlr/lppParser.cpp 
+	${PROJECT_SOURCE_DIR}/antlr/lppParser.h
+	${PROJECT_SOURCE_DIR}/antlr/lppLexer.cpp 
+	${PROJECT_SOURCE_DIR}/antlr/lppLexer.h
+  COMMAND ${ANTLR_COMPILER} lpp
+  MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/antlr/lpp.g4
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/antlr/
+)
+
 ADD_EXECUTABLE(silice
   src/silice.cpp
   src/Algorithm.cpp
