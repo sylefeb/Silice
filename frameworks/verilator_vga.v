@@ -1,6 +1,6 @@
 `default_nettype none
 
-module top(
+module vga(
   input  clk,
   output reg [3:0] vga_r,
   output reg [3:0] vga_g,

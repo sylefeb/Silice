@@ -1,14 +1,8 @@
 algorithm main(output int8 led)
 {
-  int8 a = 0;
-  int8 b = 1;
-  int8 c = 2;
 
-  int6  e = 6b111000;
-  int2  f = 2b10;
-  int10 g = 0;
-  
-  g := {b,a,2b11};
+  if (!r0 && !r1 && !r2 && !r3 && !r4 && !r5 && !r6) {
+  }
 
   if (a === b) {    
   } else { if (a == b) {    
@@ -44,4 +38,5 @@ algorithm main(output int8 led)
   b = b >>> 3;
   
   a = {1b1,3b101,2hFF} + 53;
+
 }

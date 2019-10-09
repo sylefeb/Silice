@@ -36,7 +36,7 @@ READ                : 'reads' ;
 WRITE               : 'writes' ;
 READWRITE           : 'readwrites' ;
 
-FILENAME            : '\'' (DIGIT|LETTERU|'.')* '\'' ;
+FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/')* '\'' ;
 
 REPEATCNT           : NUMBER 'x' ;
 
@@ -116,9 +116,15 @@ expression_0        : expression_1 (
                       '+' | '-' | '||' | '|' | '===' | '==' | '!==' | '!='  | '<<<' | '>>>' | '<<' | '>>' | '<' | '>' | '<=' | '>='
 					  ) expression_1 
                     | expression_1;
+
 expression_1        : unaryExpression (
                     '*' | '&&' | '&' | '^~'| '~^' | '~' | '^'
-					) unaryExpression | unaryExpression ;
+					) unaryExpression 
+		    | expression_1 (
+                    '*' | '&&' | '&' | '^~'| '~^' | '~' | '^'
+					) unaryExpression
+                    | unaryExpression ;
+
 unaryExpression     : (
                     '-' | '!' | '~&' | '~|' | '&' | '|' | '^~'| '~^' | '~'
 					) atom | atom ;
