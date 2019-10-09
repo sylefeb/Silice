@@ -4,12 +4,11 @@ Silice aims at simplifying writing code for FPGAs. It compiles to and inter-oper
 
 Example:
 ```c
-algorithm main(input uint1 button,output uint1 led) {  
-  led := 0;
-  while (1) {
-    if (button == 1) {
-      led = 1;
-    }
+algorithm main(output uint8 led) {   
+  uint20 counter = 0; // a 20 bits unsigned integer
+  led := counter;     // LEDs track the 8 least significant bits  
+  while (1) {         // forever
+    counter ++;       // count
   }  
 }
 ```
