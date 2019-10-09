@@ -37,7 +37,7 @@ directly follow variable declarations in an algorithm.
 Finally, lines 4-6 define the infinite loop that increments the counter. Of course the
 28 bit counter will ultimately overflow and go back to 0, hence the cyclic LED light pattern.
 In this case, the loop takes exactly one cycle to execute: we have one increment per cycle 
-at 100 MHz (the clock frequency of the Mojo v3).
+at 50 MHz (the clock frequency of the Mojo v3).
 
 We then compile with silice. The -f parameter indicates which framework to use: this is a
 FPGA plateform dependent wrapper code. Here we are using the Mojo framework with LEDs only.
