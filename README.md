@@ -22,6 +22,7 @@ silice first_example.ice -f frameworks/mojo_led.v -o Mojo-Project/src/mojo_top.v
 
 Enjoy!
 
+![First example in action on a Mojo v3](docs/figures/first_example.gif "First example in action on a Mojo v3")
 
 ## Principle
 
