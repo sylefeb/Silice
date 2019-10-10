@@ -1103,12 +1103,6 @@ private:
     return m_MaxState - 1;
   }
 
-  /// \brief returns the index to jump when waiting to run
-  int waitToRunState() const
-  {
-    return m_MaxState;
-  }
-
   /// \brief returns the state bit-width for the algorithm
   int stateWidth() const
   {
@@ -2099,7 +2093,7 @@ private:
     out << "reg[" << stateWidth() << ":0] " FF_D << prefix << ALG_RETURN "," FF_Q << prefix << ALG_RETURN << ';' << std::endl;
     // state machine run for instanced algorithms
     for (const auto& ia : m_InstancedAlgorithms) {
-      out << "reg " FF_D << ia.second.instance_prefix + "_" ALG_RUN << ',' << FF_Q << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
+      out << "reg " << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
     }
     // registers for instanced algorithms inputs
     for (const auto& ia : m_InstancedAlgorithms) {
@@ -2137,7 +2131,7 @@ private:
       }
       reset = R->second;
     }
-    out << "  if (" << reset << ") begin" << std::endl;
+    out << "  if (" << reset << " || in_run) begin" << std::endl;
     for (const auto& v : m_Vars) {
       if (v.usage != e_FlipFlop) continue;
       writeVarFlipFlopInit(prefix, out, v);
@@ -2147,17 +2141,23 @@ private:
         writeVarFlipFlopInit(prefix, out, v);
       }
     }
-    // state machine run for instanced algorithms
-    for (const auto& ia : m_InstancedAlgorithms) {
-      out << FF_Q << ia.second.instance_prefix + "_" ALG_RUN << " <= 0;" << std::endl;
-    }
     // state machine 
+    // -> on reset
+    out << "  if (" << reset << ") begin" << std::endl;
     if (!m_AutoRun) {
-      out << FF_Q << prefix << ALG_IDX   " <= " << waitToRunState() << ";" << std::endl;
+      // no autorun: jump to halt state
+      out << FF_Q << prefix << ALG_IDX   " <= " << terminationState() << ";" << std::endl;
     } else {
+      // autorun: jump to first state
       out << FF_Q << prefix << ALG_IDX   " <= 0;" << std::endl;
     }
+    out << "end else begin" << std::endl;
+    // -> on restart, jump to first state
+    out << FF_Q << prefix << ALG_IDX   " <= 0;" << std::endl;
+    out << "end" << std::endl;
+    // done flag
     out << FF_Q << prefix << ALG_DONE " <= 0;" << std::endl;
+    // return index for subroutines
     out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
     // updates on clockpos
     out << "  end else begin" << std::endl;
@@ -2169,11 +2169,6 @@ private:
       if (v.usage == e_FlipFlop) {
         writeVarFlipFlopUpdate(prefix, out, v);
       }
-    }
-    // state machine run for instanced algorithms
-    for (const auto& ia : m_InstancedAlgorithms) {
-      out << FF_Q << ia.second.instance_prefix + "_" ALG_RUN << " <= " 
-          << FF_D << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
     }
     // state machine index
     out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << std::endl;
@@ -2211,9 +2206,9 @@ private:
     out << FF_D << prefix << ALG_DONE " = " FF_Q << prefix << ALG_DONE << ';' << std::endl;
     // state machine index
     out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN << ';' << std::endl;
-    // instanced algorithms reset
+    // instanced algorithms restart, maintain low
     for (auto ia : m_InstancedAlgorithms) {
-      out << FF_D << ia.second.instance_prefix + "_" ALG_RUN " = " FF_Q << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
+      out << ia.second.instance_prefix + "_" ALG_RUN " = 0;" << std::endl;
     }
     // instanced modules output bindings with wires
     // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
@@ -2332,8 +2327,6 @@ private:
           // test if algorithm is done
           out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << std::endl;
           // yes!
-          // -> stop running
-          out << FF_D << A->second.instance_prefix << "_" << ALG_RUN << " = 0;" << std::endl;
           // -> goto next
           out << FF_D << prefix << ALG_IDX " = " << fastForward(current->wait()->next)->state_id << ";" << std::endl;
           pushState(current->wait()->next, _q);
@@ -2410,28 +2403,12 @@ private:
       out << terminationState() << ": begin // end of " << m_Name << std::endl;
       // set done
       out << FF_D << prefix << ALG_DONE " = 1;" << std::endl;
-      // now wait for reset to go down
-      out << "if (" << ALG_INPUT << "_" << ALG_RUN << " == 0) begin" << std::endl;
-      out << FF_D << prefix << ALG_IDX " = " << waitToRunState() << ";" << std::endl;
-      out << "end" << std::endl;
-      out << "end" << std::endl;
-    }
-    // -> wait to run state
-    {
-      out << waitToRunState() << ": begin // waiting to run " << m_Name << std::endl;
-      // wait for reset to go up
-      out << "if (" << ALG_INPUT << "_" << ALG_RUN << " == 1) begin" << std::endl;
-      // -> set not done
-      out << FF_D << prefix << ALG_DONE " = 0;" << std::endl;
-      // -> jump to init
-      out << FF_D << prefix << ALG_IDX " = " << 0 << ";" << std::endl;
-      out << "end" << std::endl;
       out << "end" << std::endl;
     }
     // default: internal error, should never happen
     {
       out << "default: begin " << std::endl;
-      out << FF_D << prefix << ALG_IDX " = " << waitToRunState() << ";" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << terminationState() << ";" << std::endl;
       out << " end" << std::endl;
     }
     out << "endcase" << std::endl;
