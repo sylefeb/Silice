@@ -19,6 +19,7 @@ algorithm main()
   
   div div0;
   (res) <- div0 <- (num);
+//  div0 <- (num);
 
 /*
   while (res < 5) {

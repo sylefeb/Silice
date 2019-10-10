@@ -174,7 +174,7 @@ void Algorithm::writeAsModule(ostream& out) const
       out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << endl;
     }
   }
-  out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = " << FF_D << "_" << ALG_DONE << ';' << endl;
+  out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_D << "_" << ALG_IDX << " == " << terminationState() << ");" << endl;
   
   // flip-flop blocks
   writeFlipFlops("_", out);
@@ -241,7 +241,7 @@ void Algorithm::writeAsModule(ostream& out) const
     out << ',' << endl;
     // run
     out << '.' << ALG_INPUT << '_' << ALG_RUN
-      << '(' << FF_D << nfo.second.instance_prefix << '_' << ALG_RUN << ')';
+      << '(' << nfo.second.instance_prefix << '_' << ALG_RUN << ')';
     out << endl;
     // end of instantiation      
     out << ");" << endl;

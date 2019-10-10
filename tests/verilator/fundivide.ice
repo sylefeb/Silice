@@ -27,7 +27,7 @@ algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 abo
   den9 = den;
   k9   = k;
 
-  $display("k=%d num=%d",k,num);
+  $display("*************************** k=%d num=%d",k,num);
 
   if (den9 > (1<<(8-k9))) {
     above = 1;
@@ -97,7 +97,7 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
 
 ++:
 
-    $display("iter %d] %b%b%b%b%b%b%b reminder %d",iter,r0,r1,r2,r3,r4,r5,r6, reminder);
+    $display("********** iter %d] %b%b%b%b%b%b%b reminder %d",iter,r0,r1,r2,r3,r4,r5,r6, reminder);
 
     // perform all compare assign in parallel
     // only one can be true; note the use of ret_tmp/reminder_tmp
@@ -153,7 +153,7 @@ algorithm main()
   div div0;
   (res) <- div0 <- (num,den);
 
-  $display("result = %d",res);
+  $display("*************** result = %d",res);
 
 }
 

@@ -1222,8 +1222,8 @@ private:
         out << REG_INPUT << a.instance_prefix << "_" << ins.name << " = " << prefixIdentifier(prefix, params[p++]) << ";" << std::endl;
       }
     }
-    // start algorithm
-    out << FF_D << a.instance_prefix << "_" << ALG_RUN << " = 1;" << std::endl;
+    // restart algorithm (pulse run low)
+    out << a.instance_prefix << "_" << ALG_RUN << " = 0;" << std::endl;
   }
 
   /// \brief writes reading back the results of an algorithm
@@ -2087,8 +2087,6 @@ private:
     }
     // state machine index
     out << "reg [" << stateWidth() << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
-    // state machine done
-    out << "reg " FF_D << prefix << ALG_DONE "," FF_Q << prefix << ALG_DONE << ';' << std::endl;
     // state machine return (subroutine)
     out << "reg[" << stateWidth() << ":0] " FF_D << prefix << ALG_RETURN "," FF_Q << prefix << ALG_RETURN << ';' << std::endl;
     // state machine run for instanced algorithms
@@ -2131,7 +2129,7 @@ private:
       }
       reset = R->second;
     }
-    out << "  if (" << reset << " || in_run) begin" << std::endl;
+    out << "  if (" << reset << " || !in_run) begin" << std::endl;
     for (const auto& v : m_Vars) {
       if (v.usage != e_FlipFlop) continue;
       writeVarFlipFlopInit(prefix, out, v);
@@ -2155,8 +2153,6 @@ private:
     // -> on restart, jump to first state
     out << FF_Q << prefix << ALG_IDX   " <= 0;" << std::endl;
     out << "end" << std::endl;
-    // done flag
-    out << FF_Q << prefix << ALG_DONE " <= 0;" << std::endl;
     // return index for subroutines
     out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
     // updates on clockpos
@@ -2172,8 +2168,6 @@ private:
     }
     // state machine index
     out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << std::endl;
-    // state machine done
-    out << FF_Q << prefix << ALG_DONE " <= " FF_D << prefix << ALG_DONE << ';' << std::endl;
     // state machine return
     out << FF_Q << prefix << ALG_RETURN " <= " FF_D << prefix << ALG_RETURN << ';' << std::endl;
     out << "  end" << std::endl;
@@ -2202,13 +2196,11 @@ private:
     }
     // state machine index
     out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << std::endl;
-    // state machine done
-    out << FF_D << prefix << ALG_DONE " = " FF_Q << prefix << ALG_DONE << ';' << std::endl;
     // state machine index
     out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN << ';' << std::endl;
-    // instanced algorithms restart, maintain low
+    // instanced algorithms run, maintain high
     for (auto ia : m_InstancedAlgorithms) {
-      out << ia.second.instance_prefix + "_" ALG_RUN " = 0;" << std::endl;
+      out << ia.second.instance_prefix + "_" ALG_RUN " = 1;" << std::endl;
     }
     // instanced modules output bindings with wires
     // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
@@ -2401,8 +2393,6 @@ private:
     // -> termination state
     {
       out << terminationState() << ": begin // end of " << m_Name << std::endl;
-      // set done
-      out << FF_D << prefix << ALG_DONE " = 1;" << std::endl;
       out << "end" << std::endl;
     }
     // default: internal error, should never happen
