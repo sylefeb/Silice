@@ -1,11 +1,8 @@
 `default_nettype none
 
 module bare(
-  input  clk,
-  output reg[7:0] outv
-  );
-
-wire [7:0] __main_outv;
+  input  clk
+);
 
 reg ready = 0;
 reg [3:0] RST_d;
@@ -30,11 +27,8 @@ assign run_main = 1'b1;
 M_main __main(
   .clock(clk),
   .reset(RST_d[0]),
-  .in_run(run_main),
-  .out_outv(__main_outv),
+  .in_run(run_main)
 );
-
-assign outv  = __main_outv;
 
 endmodule
 

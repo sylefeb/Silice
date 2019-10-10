@@ -81,6 +81,8 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret) <autorun>
   while (iter != 2) {
     iter = iter + 1;
 
+    $display("r0 %b r1 %b r2 %b r3 %b r4 %b r5 %b r6 %b",r0,r1,r2,r3,r4,r5,r6);
+
     // perform all compare assign in parallel
     // only one can be true; note the use of ret_tmp/reminder_tmp
     // to guarantee the verilog compiler does not serialize
@@ -117,6 +119,8 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret) <autorun>
     ret      = ret_tmp;
     reminder = reminder_tmp;
 
+    $display("reminder %d",reminder);
+
   }
 
   ret = reminder; /// DEBUG
@@ -125,7 +129,7 @@ done:
 
 }
 
-algorithm main(output uint8 outv)
+algorithm main()
 {
 
   uint8 num = 231;
