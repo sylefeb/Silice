@@ -21,6 +21,8 @@ grammar lpp;
 fragment LETTER     : [a-zA-Z_] ;
 fragment DIGIT      : [0-9] ;
 
+DISPLAY             : (' ' | '\t')* '$display' ~[\r\n]* ;
+
 WHITESPACE          : (' ' | '\t') -> skip ;
 
 NEWLINE             : ('\r'? '\n' | '\r') ;
@@ -33,7 +35,7 @@ lualine     : '$$' code=ANY ;
 
 luacode     : '$' code=ANY '$' ;
 
-silicecode  : ANY ;
+silicecode  : ANY | DISPLAY;
 
 siliceline  : silicecode? (luacode silicecode?) * ;
 

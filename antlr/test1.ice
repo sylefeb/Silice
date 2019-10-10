@@ -1,6 +1,8 @@
 algorithm main(output int8 led)
 {
 
+  $display("hello world",a,b,c);
+/*
   if (!r0 && !r1 && !r2 && !r3 && !r4 && !r5 && !r6) {
   }
 
@@ -38,5 +40,5 @@ algorithm main(output int8 led)
   b = b >>> 3;
   
   a = {1b1,3b101,2hFF} + 53;
-
+*/
 }

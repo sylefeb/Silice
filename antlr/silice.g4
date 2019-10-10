@@ -50,6 +50,8 @@ BREAK               : 'break' ;
 
 DELAYED             : 'delayed' ;
 
+DISPLAY             : '$display' ;
+
 IDENTIFIER          : LETTER+ (DIGIT|LETTERU)* ;
 
 CONSTANT            : '-'? DIGIT+ ('b'|'h'|'d') (DIGIT|[a-fA-Fxz])+ ;
@@ -183,6 +185,9 @@ ifThen              : 'if' '(' expression_0 ')' if_block=block ;
 ifThenElse          : 'if' '(' expression_0 ')' if_block=block 'else' else_block=block ;
 whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 
+displayParams       : (IDENTIFIER ',') * IDENTIFIER ;
+display             : DISPLAY '(' STRING ( ',' displayParams )? ')';
+
 instruction         : assignment 
                     | algoSyncCall
                     | algoAsyncCall
@@ -190,6 +195,7 @@ instruction         : assignment
                     | jump
                     | subCall
                     | breakLoop
+					| display
                     ;
 
 repeatBlock         : REPEATCNT '{' instructionList '}' ;

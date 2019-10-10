@@ -982,6 +982,7 @@ private:
     auto jump    = dynamic_cast<siliceParser::JumpContext*>(tree);
     auto modalg  = dynamic_cast<siliceParser::DeclarationModAlgContext*>(tree);
     auto assign  = dynamic_cast<siliceParser::AssignmentContext*>(tree);
+    auto display = dynamic_cast<siliceParser::DisplayContext *>(tree);
     auto async   = dynamic_cast<siliceParser::AlgoAsyncCallContext*>(tree);
     auto join    = dynamic_cast<siliceParser::AlgoJoinContext*>(tree);
     auto sync    = dynamic_cast<siliceParser::AlgoSyncCallContext*>(tree);
@@ -1013,6 +1014,7 @@ private:
     else if (breakL)  { _current = gatherBreakLoop(breakL, _current, _context); }
     else if (join)    { _current = gatherJoinCall(join, _current, _context); }
     else if (assign)  { checkAssignPermissions(assign,_context);  _current->instructions.push_back(t_instr_nfo(assign, _context->__id)); }
+    else if (display) { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); }
     else if (sync)    {
       _current->instructions.push_back(t_instr_nfo(sync, _context->__id));
       _current = gather(sync->algoJoin(), _current, _context);
@@ -1492,6 +1494,17 @@ private:
           } else {
             writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
           }
+        }
+      } {
+        auto display = dynamic_cast<siliceParser::DisplayContext *>(a.instr);
+        if (display) {
+          out << "$display(" << display->STRING()->getText();
+          if (display->displayParams() != nullptr) {
+            for (auto p : display->displayParams()->IDENTIFIER()) {
+              out << "," << prefixIdentifier(prefix, p->getText(), display->getStart()->getLine());
+            }
+          }
+          out << ");" << std::endl;
         }
       } {
         auto async = dynamic_cast<siliceParser::AlgoAsyncCallContext*>(a.instr);
