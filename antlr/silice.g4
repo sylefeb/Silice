@@ -36,7 +36,7 @@ READ                : 'reads' ;
 WRITE               : 'writes' ;
 READWRITE           : 'readwrites' ;
 
-FILENAME            : '\'' (DIGIT|LETTERU|'.')* '\'' ;
+FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/')* '\'' ;
 
 REPEATCNT           : NUMBER 'x' ;
 
