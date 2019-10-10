@@ -19,9 +19,7 @@
 //
 // done!  231/17 = 13
 
-import('../display_value.v')
-
-algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 above)
+algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 above) <autorun>
 {
   uint9 den9 = 0;
   uint9 k9   = 0;
@@ -34,7 +32,7 @@ algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 abo
   }
 }
 
-algorithm div(input uint8 num,input uint8 den,output uint8 ret)
+algorithm div(input uint8 num,input uint8 den,output uint8 ret) <autorun>
 {
 
   uint8 k0 = 0;
@@ -54,6 +52,8 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
   uint1 r6 = 0;
 
   uint8 reminder = 0;
+
+  uint8 iter = 0;
 
   uint8 reminder_tmp = 0;
   uint8 ret_tmp = 0;
@@ -77,20 +77,9 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
 
   reminder = num;
 
-  ret = 133;
-
-  while (reminder >= den) {
-
-    // launch all mul_cmp in parallel
-    mc0 <- ();
-    mc1 <- ();
-    mc2 <- ();
-    mc3 <- ();
-    mc4 <- ();
-    mc5 <- ();
-    mc6 <- ();
-
-++: // wait one cycle
+//  while (reminder >= den) {
+  while (iter != 2) {
+    iter = iter + 1;
 
     // perform all compare assign in parallel
     // only one can be true; note the use of ret_tmp/reminder_tmp
@@ -122,30 +111,32 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
     if (!r0 && !r1 && !r2 && !r3 && !r4 && !r5 && !r6) {
       ret_tmp = ret + (1<<k6);
       reminder_tmp = reminder - (1<<k6)*den;
-    } 
+    }
+
     // now assign ret/reminder
-    ret = ret_tmp;
+    ret      = ret_tmp;
     reminder = reminder_tmp;
 
   }
+
+  ret = reminder; /// DEBUG
 
 done:
 
 }
 
-algorithm main()
+algorithm main(output uint8 outv)
 {
 
   uint8 num = 231;
   uint8 den = 17;
-  uint8 res = 0;
 
-  div div0;
-  display_value disp(value <: res);
+  div div0(num <: num, den <: den, ret :> outv);
 
-  res := div0.ret;
+  // div div0;
+  // (outv) <- div0 <- (num,den);
 
-  div0 <- (num,den);
+  while (1) {}
 
 }
 

@@ -6,7 +6,7 @@ else
 mkdir $1
 ../../bin/silice -f ../../frameworks/verilator_bare.v -o $1/bare.v $1.ice 
 cd $1
-verilator -Wno-PINMISSING -Wno-WIDTH -cc bare.v --profile-cfuncs --top-module bare # -Wno-fatal 
+verilator -Wno-PINMISSING -Wno-WIDTH -cc bare.v --profile-cfuncs --top-module bare -Wno-fatal 
 cd obj_dir
 make -f Vbare.mk
 make -f Vbare.mk ../../../../frameworks/verilator/verilator_bare.o verilated.o

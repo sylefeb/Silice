@@ -35,6 +35,8 @@ int main(int argc,char **argv)
 
     bare_test->eval();
 
+    std::cerr << "output value: " << (int)bare_test->outv << std::endl;
+
   }
 
   return 0;
