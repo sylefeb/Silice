@@ -13,38 +13,27 @@ the distribution, please refer to it for details.
 
 (header_1_0)
 */
-// SL 2019-09-23
+// SL 2019-10-09
 
-#include "Vvga.h"
+#include "Vbare.h"
 #include <iostream>
-
-#include "VgaChip.h"
 
 int main(int argc,char **argv)
 {
 
   Verilated::commandArgs(argc,argv);
 
-  Vvga    *vga_test = new Vvga();
-  VgaChip *vga_chip = new VgaChip();
-
-  vluint64_t cycle = 0;
+  Vbare    *bare_test = new Vbare();
 
   while (!Verilated::gotFinish()) {
 
-    vga_test->clk = 1;
+    bare_test->clk = 1;
 
-    vga_test->eval();
+    bare_test->eval();
 
-    vga_chip->eval(cycle,1,vga_test->vga_vs,vga_test->vga_hs,vga_test->vga_r,vga_test->vga_g,vga_test->vga_b);
+    bare_test->clk = 0;
 
-    vga_test->clk = 0;
-
-    vga_test->eval();
-
-    vga_chip->eval(cycle,0,vga_test->vga_vs,vga_test->vga_hs,vga_test->vga_r,vga_test->vga_g,vga_test->vga_b);
-
-    cycle ++;
+    bare_test->eval();
 
   }
 
