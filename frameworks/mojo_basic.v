@@ -57,9 +57,13 @@ wire __main_spi_miso;
 wire __main_out_avr_rx;
 wire [3:0] __main_out_spi_channel;
 
+wire run_main;
+assign run_main = 1'b1;
+
 M_main __main(
   .clock(clk),
   .reset(clean_reset),
+  .in_run(run_main),
   .in_cclk(cclk),
   .in_spi_ss(spi_ss),
   .in_spi_sck(spi_sck),
