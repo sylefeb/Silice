@@ -77,7 +77,7 @@ void Algorithm::checkAlgorithmsBindings() const
 void Algorithm::writeAsModule(ostream& out) const
 {
   out << endl;
-  
+
   // module header
   out << "module M_" << m_Name << '(' << endl;
   out << "input " ALG_CLOCK "," << endl;
@@ -96,10 +96,9 @@ void Algorithm::writeAsModule(ostream& out) const
   out << ");" << endl;
 
   // module instantiations (1/2)
-  // -> required regs/wires to hold inputs/outputs
+  // -> required wires to hold outputs
   for (auto& nfo : m_InstancedModules) {
     std::string  wire_prefix = WIRE + nfo.second.instance_prefix;
-    std::string  reg_prefix  = REG_ + nfo.second.instance_prefix;
     for (auto b : nfo.second.bindings) {
       if (b.dir == e_Right) {
         auto O = nfo.second.mod->output(b.left);
@@ -109,27 +108,12 @@ void Algorithm::writeAsModule(ostream& out) const
           out << "wire[" << O.first << ':' << O.second << "] " << wire_prefix + "_" + b.left;
         }
         out << ';' << endl;
-      } else if (b.dir == e_Left) {
-        auto I = nfo.second.mod->input(b.left);
-        if (I.first == 0 && I.second == 0) {
-          out << "reg " << reg_prefix + "_" + b.left;
-        } else {
-          out << "reg[" << I.first << ':' << I.second << "] " << reg_prefix + "_" + b.left;
-        }
-        out << ';' << endl;
       }
-
     }
   }
   // algorithm instantiations (1/2) 
-  // -> required regs/wires to hold inputs/outputs
+  // -> required wires to hold outputs
   for (auto& nfo : m_InstancedAlgorithms) {
-    // input regs
-    for (const auto &is : nfo.second.algo->m_Inputs) {
-      if (nfo.second.boundinputs.count(is.name) > 0) { // only if bound, otherwise its flip-flop is created in writeFlipFlopDeclarations
-        out << "reg " << typeString(is) << " [" << varBitDepth(is) - 1 << ":0] " << REG_ << nfo.second.instance_prefix << '_' << is.name << ';' << endl;
-      }
-    }
     // output wires
     for (const auto& os : nfo.second.algo->m_Outputs) {
       out << "wire " << typeString(os) << " [" << varBitDepth(os) - 1 << ":0] " << WIRE << nfo.second.instance_prefix << '_' << os.name << ';' << endl;
@@ -152,11 +136,11 @@ void Algorithm::writeAsModule(ostream& out) const
     if (v.usage == e_FlipFlop) {
       out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << FF_D << "_" << v.name << ';' << endl;
     } else if (v.usage == e_Bound) {
-      out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgInOuts.at(v.name) << ';' << endl;
+      out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << endl;
     }
   }
   out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_D << "_" << ALG_IDX << " == " << terminationState() << ");" << endl;
-  
+
   // flip-flop blocks
   writeFlipFlops("_", out);
 
@@ -166,7 +150,6 @@ void Algorithm::writeAsModule(ostream& out) const
   // -> module instances
   for (auto& nfo : m_InstancedModules) {
     std::string  wire_prefix = WIRE + nfo.second.instance_prefix;
-    std::string  reg_prefix  = REG_ + nfo.second.instance_prefix;
     // write module instantiation
     out << endl;
     out << nfo.second.module_name << ' ' << nfo.second.instance_prefix << " (" << endl;
@@ -175,7 +158,9 @@ void Algorithm::writeAsModule(ostream& out) const
       if (!first) out << ',' << endl;
       first = false;
       if (b.dir == e_Left) {
-        out << '.' << b.left << '(' << reg_prefix + "_" + b.left << ")";
+        out << '.' << b.left << '(' 
+          << prefixIdentifier(nfo.second.instance_prefix + "_", b.right, nfo.second.instance_line) 
+          << ")";
       } else if (b.dir == e_Right) {
         out << '.' << b.left << '(' << wire_prefix + "_" + b.left << ")";
       } else {
@@ -198,21 +183,21 @@ void Algorithm::writeAsModule(ostream& out) const
     for (const auto &is : nfo.second.algo->m_Inputs) {
       out << '.' << ALG_INPUT << '_' << is.name << '(';
       if (nfo.second.boundinputs.count(is.name) > 0) {
-        // input is bound and continuously assigned, input is a register
-        out << REG_; 
-      } else { 
+        // input is bound, directly map bound VIO
+        out << prefixIdentifier("_", nfo.second.boundinputs.at(is.name), nfo.second.instance_line);
+      } else {
         // input is not bound and assigned in logic, input is a flip-flop
-        out << FF_D; 
+        out << FF_D;
+        out << nfo.second.instance_prefix << "_" << is.name;
       }
-      out << nfo.second.instance_prefix << "_" << is.name << ')';
-      out << ',' << endl;
+      out << ')' << ',' << endl;
     }
     // outputs
     for (const auto& os : nfo.second.algo->m_Outputs) {
-        out << '.'
-          << ALG_OUTPUT << '_' << os.name
-          << '(' << WIRE << nfo.second.instance_prefix << '_' << os.name << ')';
-        out << ',' << endl;
+      out << '.'
+        << ALG_OUTPUT << '_' << os.name
+        << '(' << WIRE << nfo.second.instance_prefix << '_' << os.name << ')';
+      out << ',' << endl;
     }
     // done
     out << '.' << ALG_OUTPUT << '_' << ALG_DONE

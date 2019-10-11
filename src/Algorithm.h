@@ -116,7 +116,7 @@ private:
   std::map<std::string, int > m_InOutNames;
 
   /// \brief VIO (variable-or-input-or-output) bound to module/algorithms inputs (regs) or outputs (wires) (name => reg/wire name)
-  std::map<std::string, std::string> m_VIOBoundToModAlgInOuts;
+  std::map<std::string, std::string> m_VIOBoundToModAlgOutputs;
 
   /// \brief declared variables
   std::vector< t_var_nfo > m_Vars;
@@ -146,7 +146,7 @@ private:
     AutoPtr<Algorithm>         algo;
     std::vector<t_binding_nfo> bindings;
     bool                       autobind;
-    std::set<std::string>      boundinputs;
+    std::map<std::string,std::string> boundinputs;
   } t_algo_nfo;
 
   /// \brief instanced algorithms
@@ -605,15 +605,15 @@ private:
     if (var == ALG_RESET || var == ALG_CLOCK) {
       return var;
     } else if (var == m_Reset) { // cannot be ALG_RESET
-      if (m_VIOBoundToModAlgInOuts.find(var) == m_VIOBoundToModAlgInOuts.end()) {
+      if (m_VIOBoundToModAlgOutputs.find(var) == m_VIOBoundToModAlgOutputs.end()) {
         throw Fatal("custom reset signal has to be bound to a module output (line %d)",line);
       }
-      return m_VIOBoundToModAlgInOuts.at(var);
+      return m_VIOBoundToModAlgOutputs.at(var);
     } else if (var == m_Clock) { // cannot be ALG_CLOCK
-      if (m_VIOBoundToModAlgInOuts.find(var) == m_VIOBoundToModAlgInOuts.end()) {
+      if (m_VIOBoundToModAlgOutputs.find(var) == m_VIOBoundToModAlgOutputs.end()) {
         throw Fatal("custom clock signal has to be bound to a module output (line %d)", line);
       }
-      return m_VIOBoundToModAlgInOuts.at(var);
+      return m_VIOBoundToModAlgOutputs.at(var);
     } else if (isInput(var)) {
       return ALG_INPUT + prefix + var;
     } else if (isOutput(var)) {
@@ -621,7 +621,7 @@ private:
       if (usage == e_FlipFlop) {
         return ff + prefix + var;
       } else if (usage == e_Bound) {
-        return m_VIOBoundToModAlgInOuts.at(var);
+        return m_VIOBoundToModAlgOutputs.at(var);
       } else {
         // should be e_Assigned ; currently replaced by a flip-flop but could be avoided
         throw Fatal("assigned outputs: not yet implemented");
@@ -633,7 +633,7 @@ private:
       }
       if (m_Vars.at(V->second).usage == e_Bound) {
         // bound to an input/output
-        return m_VIOBoundToModAlgInOuts.at(var);
+        return m_VIOBoundToModAlgOutputs.at(var);
       } else {
         // flip-flop
         return ff + prefix + var;
@@ -1394,7 +1394,7 @@ private:
         if (A->second.boundinputs.count(io) > 0) {
           throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
         }
-        out << REG_ << A->second.instance_prefix << "_" << io;
+        out << FF_D << A->second.instance_prefix << "_" << io;
         return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)];
       } else if (A->second.algo->isOutput(io)) {
         out << WIRE << A->second.instance_prefix << "_" << io;
@@ -1816,15 +1816,12 @@ private:
     void determineModAlgBoundVIO()
     {
       // find out vio bound to a module input/output
-      m_VIOBoundToModAlgInOuts.clear();
+      m_VIOBoundToModAlgOutputs.clear();
       for (const auto& im : m_InstancedModules) {
         for (const auto& bi : im.second.bindings) {
           if (bi.dir == e_Right) {
             // record wire name for this output
-            m_VIOBoundToModAlgInOuts[bi.right] = WIRE + im.second.instance_prefix + "_" + bi.left;
-          } else if (bi.dir == e_Left) {
-            // record register name of this input
-            m_VIOBoundToModAlgInOuts[bi.left]  = REG_ + im.second.instance_prefix + "_" + bi.right;
+            m_VIOBoundToModAlgOutputs[bi.right] = WIRE + im.second.instance_prefix + "_" + bi.left;
           }
         }
       }
@@ -1833,10 +1830,7 @@ private:
         for (const auto& bi : ia.second.bindings) {
           if (bi.dir == e_Right) {
             // record wire name for this output
-            m_VIOBoundToModAlgInOuts[bi.right] = WIRE + ia.second.instance_prefix + "_" + bi.left;
-          } else if (bi.dir == e_Left) {
-            // record register name of this input
-            m_VIOBoundToModAlgInOuts[bi.left]  = REG_ + ia.second.instance_prefix + "_" + bi.right;
+            m_VIOBoundToModAlgOutputs[bi.right] = WIRE + ia.second.instance_prefix + "_" + bi.left;
           }
         }
       }
@@ -1849,7 +1843,7 @@ private:
         for (const auto& b : ia.second.bindings) {
           if (b.dir == e_Left) { // setting input
             // input is bound directly
-            ia.second.boundinputs.insert(b.left);
+            ia.second.boundinputs.insert(std::make_pair(b.left,b.right));
           }
         }
       }
@@ -1883,8 +1877,8 @@ private:
       // analyze access and usage
       std::cerr << "---< outputs >---" << std::endl;
       for (auto& o : m_Outputs) {
-        auto W = m_VIOBoundToModAlgInOuts.find(o.name);
-        if (W != m_VIOBoundToModAlgInOuts.end()) {
+        auto W = m_VIOBoundToModAlgOutputs.find(o.name);
+        if (W != m_VIOBoundToModAlgOutputs.end()) {
           // bound to a wire
           if (global_written.find(o.name) != global_written.end()) {
             // NOTE: always caught before? (see determineVariablesAccess)
@@ -2021,12 +2015,6 @@ public:
 
 private:
 
-  /// \brief writes input register init
-  void writeInputRegInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
-  {
-    out << REG_ << prefix << v.name << " <= " << v.init_values[0] << ';' << std::endl;
-  }
-
   /// \brief writes flip-flop value init for a variable
   void writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
   {
@@ -2130,8 +2118,8 @@ private:
     std::string clock = m_Clock;
     if (m_Clock != ALG_CLOCK) {
       // in this case, clock has to be bound to a module output
-      auto C = m_VIOBoundToModAlgInOuts.find(m_Clock);
-      if (C == m_VIOBoundToModAlgInOuts.end()) {
+      auto C = m_VIOBoundToModAlgOutputs.find(m_Clock);
+      if (C == m_VIOBoundToModAlgOutputs.end()) {
         throw std::runtime_error("clock is not bound to any module output");
       }
       clock = C->second;
@@ -2143,8 +2131,8 @@ private:
     std::string reset = m_Reset;
     if (m_Reset != ALG_RESET) {
       // in this case, clock has to be bound to a module output
-      auto R = m_VIOBoundToModAlgInOuts.find(m_Reset);
-      if (R == m_VIOBoundToModAlgInOuts.end()) {
+      auto R = m_VIOBoundToModAlgOutputs.find(m_Reset);
+      if (R == m_VIOBoundToModAlgOutputs.end()) {
         throw std::runtime_error("reset is not bound to any module output");
       }
       reset = R->second;
@@ -2257,16 +2245,9 @@ private:
             // bound to an algorithm output
             auto usage = m_Outputs.at(m_OutputNames.at(b.right)).usage;
             if (usage == e_FlipFlop) {
-              if (b.dir == e_Right) {
-                out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
-              } else {
-                out << REG_ + im.second.instance_prefix + "_" + b.left + " = " << prefixIdentifier(prefix, b.right, im.second.instance_line) << ';' << std::endl;
-              }
+              out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
             }
           }
-        } else if (b.dir == e_Left) { // input
-          // copy the variable into the input register
-          out << REG_ + im.second.instance_prefix + "_" + b.left + " = " << prefixIdentifier(prefix, b.right, im.second.instance_line) << ';' << std::endl;
         }
       }
     }
@@ -2288,10 +2269,7 @@ private:
             }
             // else, the output is replaced by the wire
           }
-        } else if (b.dir == e_Left) { // input
-          // copy the variable into the input register
-          out << REG_ + ia.second.instance_prefix + "_" + b.left + " = " << prefixIdentifier(prefix,b.right, ia.second.instance_line) << ';' << std::endl;
-        }
+        } 
       }
     }
     // always block (if not empty)
