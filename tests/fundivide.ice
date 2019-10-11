@@ -99,32 +99,34 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
     // to guarantee the verilog compiler does not serialize
     if (r1 && !r0) {
       ret_tmp = ret + (1<<k0);
-      reminder_tmp = reminder - (1<<k0)*den;
+      reminder_tmp = reminder - (den<<k0);
     }
     if (r2 && !r1) {
       ret_tmp = ret + (1<<k1);
-      reminder_tmp = reminder - (1<<k1)*den;
+      reminder_tmp = reminder - (den<<k1);
     }    
     if (r3 && !r2) {
       ret_tmp = ret + (1<<k2);
-      reminder_tmp = reminder - (1<<k2)*den;
+      reminder_tmp = reminder - (den<<k2);
     }    
     if (r4 && !r3) {
       ret_tmp = ret + (1<<k3);
-      reminder_tmp = reminder - (1<<k3)*den;
+      reminder_tmp = reminder - (den<<k3);
     }    
     if (r5 && !r4) {
       ret_tmp = ret + (1<<k4);
-      reminder_tmp = reminder - (1<<k4)*den;
+      reminder_tmp = reminder - (den<<k4);
     }    
     if (r6 && !r5) {
       ret_tmp = ret + (1<<k5);
-      reminder_tmp = reminder - (1<<k5)*den;
+      reminder_tmp = reminder - (den<<k5);
     }
     if (!r0 && !r1 && !r2 && !r3 && !r4 && !r5 && !r6) {
       ret_tmp = ret + (1<<k6);
-      reminder_tmp = reminder - (1<<k6)*den;
+      reminder_tmp = reminder - (den<<k6);
     }
+    
+++:
 
     // now assign ret/reminder
     ret      = ret_tmp;

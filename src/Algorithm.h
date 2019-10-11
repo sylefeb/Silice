@@ -266,6 +266,7 @@ private:
     size_t                        id;                   // internal block id
     std::string                   block_name;           // internal block name (state name from source when applicable)
     bool                          is_state = false;     // true if block has to be a state, false otherwise
+    bool                          no_skip = false;      // true the state cannot be skipped, even if empty
     int                           state_id = -1;        // state id, when assigned, -1 otherwise
     std::vector<t_instr_nfo>      instructions;         // list of instructions within block
     t_end_action                 *end_action = nullptr; // end action to perform
@@ -704,6 +705,7 @@ private:
       }
       t_combinational_block *block = addBlock(name,(int)ilist->state()->getStart()->getLine());
       block->is_state = true; // block explicitely required to be a state
+      block->no_skip = (name == "++");
       _current->next(block);
       return block;
     } else {
@@ -1133,6 +1135,10 @@ private:
     const t_combinational_block *current = block;
     const t_combinational_block *last_state = block;
     while (true) {
+      if (current->no_skip) {
+        // no skip, stop here
+        return last_state;
+      }
       if (!current->instructions.empty()) {
         // non-empty, stop here
         return last_state;
