@@ -128,7 +128,7 @@ public:
   const t_binding_point_nfo& output(std::string name) const
   {
     if (m_Outputs.find(name) == m_Outputs.end()) {
-      throw Fatal("cannot find output in imported module '%s'",m_FileName.c_str());
+      throw Fatal("cannot find output '%s' in imported module '%s'",name.c_str(),m_FileName.c_str());
     }
     return m_Outputs.at(name);
   }
