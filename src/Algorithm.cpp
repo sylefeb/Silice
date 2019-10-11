@@ -159,7 +159,7 @@ void Algorithm::writeAsModule(ostream& out) const
       first = false;
       if (b.dir == e_Left) {
         out << '.' << b.left << '(' 
-          << prefixIdentifier(nfo.second.instance_prefix + "_", b.right, nfo.second.instance_line) 
+          << prefixIdentifier("_", b.right, nfo.second.instance_line) 
           << ")";
       } else if (b.dir == e_Right) {
         out << '.' << b.left << '(' << wire_prefix + "_" + b.left << ")";
