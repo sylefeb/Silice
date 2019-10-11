@@ -2248,11 +2248,13 @@ private:
     // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
     for (auto im : m_InstancedModules) {
       for (auto b : im.second.bindings) {
-        if (b.dir == e_Left || b.dir == e_Right) {
+        if (b.dir == e_Right) { // output
           if (m_VarNames.find(b.right) != m_VarNames.end()) {
+            // bound to variable, the variable is replaced by the output wire
             auto usage = m_Vars.at(m_VarNames.at(b.right)).usage;
             sl_assert(usage == e_Bound);
           } else if (m_OutputNames.find(b.right) != m_OutputNames.end()) {
+            // bound to an algorithm output
             auto usage = m_Outputs.at(m_OutputNames.at(b.right)).usage;
             if (usage == e_FlipFlop) {
               if (b.dir == e_Right) {
@@ -2262,6 +2264,9 @@ private:
               }
             }
           }
+        } else if (b.dir == e_Left) { // input
+          // copy the variable into the input register
+          out << REG_ + im.second.instance_prefix + "_" + b.left + " = " << prefixIdentifier(prefix, b.right, im.second.instance_line) << ';' << std::endl;
         }
       }
     }
