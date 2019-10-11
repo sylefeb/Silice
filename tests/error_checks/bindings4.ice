@@ -21,10 +21,8 @@ algorithm main(
   uint8 num = 231;
   uint8 res = 0;
 
-  alg alg0;
-//  alg alg0(num <: num);
+  alg alg0(num <: num);
 //  alg alg0(ret :> res);
-//  alg alg0(num <: num,ret :> res);
 
   spi_miso    := 1bz;
   avr_rx      := 1bz;
@@ -33,8 +31,7 @@ algorithm main(
   led := res;
 
   (res) <- alg0 <- (num);
-//  (res) <- alg0 <- ();
-//  alg0 <- (num);
-//  alg0 <- ();
+  alg0 <- (num);
+  
 }
 

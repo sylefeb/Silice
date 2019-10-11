@@ -45,9 +45,13 @@ wire [12:0] __main_out_sdram_a;
 wire [3:0]  __main_out_hdmi1_tmds;
 wire [3:0]  __main_out_hdmi1_tmdsb;
 
+wire run_main;
+assign run_main = 1'b1;
+
 M_main __main(
   .clock(clk),
   .reset(~rst_n),
+  .in_run(run_main),
   .inout_sdram_dq(sdram_dq),
   .in_spi_ss(spi_ss),
   .in_spi_sck(spi_sck),

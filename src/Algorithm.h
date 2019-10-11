@@ -35,7 +35,7 @@ the distribution, please refer to it for details.
 
 #define FF_D      "_d"
 #define FF_Q      "_q"
-#define REG_INPUT "_r"
+#define REG_      "_r"
 #define WIRE      "_w"
 
 #define ALG_INPUT  "in"
@@ -82,7 +82,7 @@ private:
   enum e_Access { e_NotAccessed = 0, e_ReadOnly = 1, e_WriteOnly = 2, e_ReadWrite = 3, e_WriteBinded = 4 };
 
   /// \brief enum for variable type
-  enum e_VarUsage { e_Undetermined = 0, e_NotUsed = 1, e_Const = 2, e_Temporary = 3, e_FlipFlop = 4, e_Wire = 5, e_Assigned = 6 };
+  enum e_VarUsage { e_Undetermined = 0, e_NotUsed = 1, e_Const = 2, e_Temporary = 3, e_FlipFlop = 4, e_Bound = 5, e_Assigned = 6 };
 
   /// \brief enum for IO types
   enum e_IOType { e_Input, e_Output, e_InOut };
@@ -115,8 +115,8 @@ private:
   /// \brief all inout names, map contains index in m_InOuts
   std::map<std::string, int > m_InOutNames;
 
-  /// \brief VIO (variable-or-input-or-output) bound to module/algorithms outputs (wires) (name => wire name)
-  std::map<std::string, std::string> m_VIOBoundToModAlgOutputs;
+  /// \brief VIO (variable-or-input-or-output) bound to module/algorithms inputs (regs) or outputs (wires) (name => reg/wire name)
+  std::map<std::string, std::string> m_VIOBoundToModAlgInOuts;
 
   /// \brief declared variables
   std::vector< t_var_nfo > m_Vars;
@@ -600,16 +600,28 @@ private:
   }
 
   /// \brief returns an identifier with proper prefix
-  std::string prefixIdentifier(std::string prefix, std::string var,size_t line = 0) const
+  std::string prefixIdentifier(std::string prefix, std::string var,size_t line = 0, std::string ff = FF_D) const
   {
-    if (isInput(var)) {
+    if (var == ALG_RESET || var == ALG_CLOCK) {
+      return var;
+    } else if (var == m_Reset) { // cannot be ALG_RESET
+      if (m_VIOBoundToModAlgInOuts.find(var) == m_VIOBoundToModAlgInOuts.end()) {
+        throw Fatal("custom reset signal has to be bound to a module output (line %d)",line);
+      }
+      return m_VIOBoundToModAlgInOuts.at(var);
+    } else if (var == m_Clock) { // cannot be ALG_CLOCK
+      if (m_VIOBoundToModAlgInOuts.find(var) == m_VIOBoundToModAlgInOuts.end()) {
+        throw Fatal("custom clock signal has to be bound to a module output (line %d)", line);
+      }
+      return m_VIOBoundToModAlgInOuts.at(var);
+    } else if (isInput(var)) {
       return ALG_INPUT + prefix + var;
     } else if (isOutput(var)) {
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_FlipFlop) {
-        return FF_D + prefix + var;
-      } else if (usage == e_Wire) {
-        return m_VIOBoundToModAlgOutputs.at(var);
+        return ff + prefix + var;
+      } else if (usage == e_Bound) {
+        return m_VIOBoundToModAlgInOuts.at(var);
       } else {
         // should be e_Assigned ; currently replaced by a flip-flop but could be avoided
         throw Fatal("assigned outputs: not yet implemented");
@@ -619,12 +631,12 @@ private:
       if (V == m_VarNames.end()) {
         throw Fatal("variable '%s' was never declared (line %d)",var.c_str(),line);
       }
-      if (m_Vars.at(V->second).usage == e_Wire) {
-        // bound to an output
-        return m_VIOBoundToModAlgOutputs.at(var);
+      if (m_Vars.at(V->second).usage == e_Bound) {
+        // bound to an input/output
+        return m_VIOBoundToModAlgInOuts.at(var);
       } else {
         // flip-flop
-        return FF_D + prefix + var;
+        return ff + prefix + var;
       }
     }
   }
@@ -1216,10 +1228,10 @@ private:
       int p = 0;
       for (const auto& ins : a.algo->m_Inputs) {
         if (a.boundinputs.count(ins.name) > 0) {
-          throw Fatal("instance '%s' cannot be called as its input '%s' is bound.", 
-            a.instance_name.c_str(), ins.name.c_str());
+          throw Fatal("instance '%s' cannot be called as its input '%s' is bound (line %d)", 
+            a.instance_name.c_str(), ins.name.c_str(), plist->getStart()->getLine());
         }
-        out << REG_INPUT << a.instance_prefix << "_" << ins.name << " = " << prefixIdentifier(prefix, params[p++]) << ";" << std::endl;
+        out << FF_D << a.instance_prefix << "_" << ins.name << " = " << prefixIdentifier(prefix, params[p++]) << ";" << std::endl;
       }
     }
     // restart algorithm (pulse run low)
@@ -1382,7 +1394,7 @@ private:
         if (A->second.boundinputs.count(io) > 0) {
           throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
         }
-        out << REG_INPUT << A->second.instance_prefix << "_" << io;
+        out << REG_ << A->second.instance_prefix << "_" << io;
         return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)];
       } else if (A->second.algo->isOutput(io)) {
         out << WIRE << A->second.instance_prefix << "_" << io;
@@ -1760,10 +1772,10 @@ private:
           }
         } else if (v.access == (e_WriteBinded | e_ReadOnly)) {
           std::cerr << v.name << " => write-binded ";
-          v.usage = e_Wire;
+          v.usage = e_Bound;
         } else if (v.access == (e_WriteBinded)) {
           std::cerr << v.name << " => write-binded but not used ";
-          v.usage = e_Wire;
+          v.usage = e_Bound;
         } else if (v.access == e_NotAccessed) {
           std::cerr << v.name << " => unused ";
           v.usage = e_NotUsed;
@@ -1801,15 +1813,18 @@ private:
 
     /// \brief determines the list of bound VIO
 
-    void determineModAlgOutputBoundVIO()
+    void determineModAlgBoundVIO()
     {
-      // find out vio bound to a module output
-      m_VIOBoundToModAlgOutputs.clear();
+      // find out vio bound to a module input/output
+      m_VIOBoundToModAlgInOuts.clear();
       for (const auto& im : m_InstancedModules) {
         for (const auto& bi : im.second.bindings) {
           if (bi.dir == e_Right) {
             // record wire name for this output
-            m_VIOBoundToModAlgOutputs[bi.right] = WIRE + im.second.instance_prefix + "_" + bi.left;
+            m_VIOBoundToModAlgInOuts[bi.right] = WIRE + im.second.instance_prefix + "_" + bi.left;
+          } else if (bi.dir == e_Left) {
+            // record register name of this input
+            m_VIOBoundToModAlgInOuts[bi.left]  = REG_ + im.second.instance_prefix + "_" + bi.right;
           }
         }
       }
@@ -1818,7 +1833,10 @@ private:
         for (const auto& bi : ia.second.bindings) {
           if (bi.dir == e_Right) {
             // record wire name for this output
-            m_VIOBoundToModAlgOutputs[bi.right] = WIRE + ia.second.instance_prefix + "_" + bi.left;
+            m_VIOBoundToModAlgInOuts[bi.right] = WIRE + ia.second.instance_prefix + "_" + bi.left;
+          } else if (bi.dir == e_Left) {
+            // record register name of this input
+            m_VIOBoundToModAlgInOuts[bi.left]  = REG_ + ia.second.instance_prefix + "_" + bi.right;
           }
         }
       }
@@ -1837,10 +1855,10 @@ private:
       }
     }
 
-    /// \brief analyze output access and classifies outputs
+    /// \brief analyze output accesses and classifies them
     void analyzeOutputsAccess()
     {
-      // go through all instructions and determine output access
+      // go through all instructions and determine access
       std::set<std::string> global_read;
       std::set<std::string> global_written;
       for (const auto& b : m_Blocks) {
@@ -1865,8 +1883,8 @@ private:
       // analyze access and usage
       std::cerr << "---< outputs >---" << std::endl;
       for (auto& o : m_Outputs) {
-        auto W = m_VIOBoundToModAlgOutputs.find(o.name);
-        if (W != m_VIOBoundToModAlgOutputs.end()) {
+        auto W = m_VIOBoundToModAlgInOuts.find(o.name);
+        if (W != m_VIOBoundToModAlgInOuts.end()) {
           // bound to a wire
           if (global_written.find(o.name) != global_written.end()) {
             // NOTE: always caught before? (see determineVariablesAccess)
@@ -1876,7 +1894,7 @@ private:
             // NOTE: always caught before? (see determineVariablesAccess)
             throw Fatal((std::string("cannot write to an output bound to a module/algorithm (") + o.name + ")").c_str());
           }
-          o.usage = e_Wire;
+          o.usage = e_Bound;
           std::cerr << o.name << " => wire" << std::endl;
         } else if (
              global_written.find(o.name) == global_written.end()
@@ -1992,7 +2010,7 @@ public:
     checkModulesBindings();
     checkAlgorithmsBindings();
     // determine which VIO are assigned to wires
-    determineModAlgOutputBoundVIO();
+    determineModAlgBoundVIO();
     // analyze variables access 
     analyzeVariablesAccess();
     // analyze outputs access
@@ -2006,7 +2024,7 @@ private:
   /// \brief writes input register init
   void writeInputRegInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
   {
-    out << REG_INPUT << prefix << v.name << " <= " << v.init_values[0] << ';' << std::endl;
+    out << REG_ << prefix << v.name << " <= " << v.init_values[0] << ';' << std::endl;
   }
 
   /// \brief writes flip-flop value init for a variable
@@ -2085,6 +2103,15 @@ private:
         out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << std::endl;
       }
     }
+    // flip-flops for algorithm inputs that are not bound
+    for (const auto &ia : m_InstancedAlgorithms) {
+      for (const auto &is : ia.second.algo->m_Inputs) {
+        if (ia.second.boundinputs.count(is.name) == 0) {
+          out << "reg " << typeString(is) << " [" << varBitDepth(is) - 1 << ":0] ";
+          out << FF_D << ia.second.instance_prefix << '_' << is.name << ',' << FF_Q << ia.second.instance_prefix << '_' << is.name << ';' << std::endl;
+        }
+      }
+    }
     // state machine index
     out << "reg [" << stateWidth() << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
     // state machine return (subroutine)
@@ -2093,15 +2120,6 @@ private:
     for (const auto& ia : m_InstancedAlgorithms) {
       out << "reg " << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
     }
-    // registers for instanced algorithms inputs
-    for (const auto& ia : m_InstancedAlgorithms) {
-      for (const auto& inp : ia.second.algo->m_Inputs) {
-        if (ia.second.boundinputs.count(inp.name) == 0) { // not bound directly
-          out << "reg " << typeString(inp) << " [" << varBitDepth(inp) - 1 << ":0] ";
-          out << REG_INPUT << ia.second.instance_prefix << '_' << inp.name << ';' << std::endl;
-        }
-      }
-    }    
   }
 
   /// \brief writes the flip-flops
@@ -2112,19 +2130,21 @@ private:
     std::string clock = m_Clock;
     if (m_Clock != ALG_CLOCK) {
       // in this case, clock has to be bound to a module output
-      auto C = m_VIOBoundToModAlgOutputs.find(m_Clock);
-      if (C == m_VIOBoundToModAlgOutputs.end()) {
+      auto C = m_VIOBoundToModAlgInOuts.find(m_Clock);
+      if (C == m_VIOBoundToModAlgInOuts.end()) {
         throw std::runtime_error("clock is not bound to any module output");
       }
       clock = C->second;
     }
+    
     out << "always @(posedge " << clock << ") begin" << std::endl;
-    // init on hardware reset
+    
+    /// init on hardware reset
     std::string reset = m_Reset;
     if (m_Reset != ALG_RESET) {
       // in this case, clock has to be bound to a module output
-      auto R = m_VIOBoundToModAlgOutputs.find(m_Reset);
-      if (R == m_VIOBoundToModAlgOutputs.end()) {
+      auto R = m_VIOBoundToModAlgInOuts.find(m_Reset);
+      if (R == m_VIOBoundToModAlgInOuts.end()) {
         throw std::runtime_error("reset is not bound to any module output");
       }
       reset = R->second;
@@ -2137,6 +2157,13 @@ private:
     for (const auto& v : m_Outputs) {
       if (v.usage == e_FlipFlop) {
         writeVarFlipFlopInit(prefix, out, v);
+      }
+    }
+    for (const auto &ia : m_InstancedAlgorithms) {
+      for (const auto &is : ia.second.algo->m_Inputs) {
+        if (ia.second.boundinputs.count(is.name) == 0) {
+          writeVarFlipFlopInit(ia.second.instance_prefix + '_', out, is);
+        }
       }
     }
     // state machine 
@@ -2155,7 +2182,8 @@ private:
     out << "end" << std::endl;
     // return index for subroutines
     out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
-    // updates on clockpos
+    
+    /// updates on clockpos
     out << "  end else begin" << std::endl;
     for (const auto& v : m_Vars) {
       if (v.usage != e_FlipFlop) continue;
@@ -2164,6 +2192,13 @@ private:
     for (const auto& v : m_Outputs) {
       if (v.usage == e_FlipFlop) {
         writeVarFlipFlopUpdate(prefix, out, v);
+      }
+    }
+    for (const auto &ia : m_InstancedAlgorithms) {
+      for (const auto &is : ia.second.algo->m_Inputs) {
+        if (ia.second.boundinputs.count(is.name) == 0) {
+          writeVarFlipFlopUpdate(ia.second.instance_prefix + '_', out, is);
+        }
       }
     }
     // state machine index
@@ -2202,37 +2237,48 @@ private:
     for (auto ia : m_InstancedAlgorithms) {
       out << ia.second.instance_prefix + "_" ALG_RUN " = 1;" << std::endl;
     }
-    // instanced modules output bindings with wires
+    // instanced modules input/output bindings with wires
     // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
     for (auto im : m_InstancedModules) {
       for (auto b : im.second.bindings) {
-        if (b.dir == e_Right) {
+        if (b.dir == e_Left || b.dir == e_Right) {
           if (m_VarNames.find(b.right) != m_VarNames.end()) {
             auto usage = m_Vars.at(m_VarNames.at(b.right)).usage;
-            sl_assert(usage == e_Wire);
+            sl_assert(usage == e_Bound);
           } else if (m_OutputNames.find(b.right) != m_OutputNames.end()) {
             auto usage = m_Outputs.at(m_OutputNames.at(b.right)).usage;
             if (usage == e_FlipFlop) {
-              out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
+              if (b.dir == e_Right) {
+                out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
+              } else {
+                out << REG_ + im.second.instance_prefix + "_" + b.left + " = " << FF_D << prefix + b.right << ';' << std::endl;
+              }
             }
           }
         }
       }
     }
-    // instanced algorithms output bindings with wires
+    // instanced algorithms input/output bindings with wires
     // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
     for (auto im : m_InstancedAlgorithms) {
-      for (auto b : im.second.bindings) {
-        if (b.dir == e_Right) {
+      for (auto b : im.second.bindings) {        
+        if (b.dir == e_Right) { // output
           if (m_VarNames.find(b.right) != m_VarNames.end()) {
+            // bound to variable, the variable is replaced by the output wire
             auto usage = m_Vars.at(m_VarNames.at(b.right)).usage;
-            sl_assert(usage == e_Wire);
+            sl_assert(usage == e_Bound);
           } else if (m_OutputNames.find(b.right) != m_OutputNames.end()) {
+            // bound to an algorithm output
             auto usage = m_Outputs.at(m_OutputNames.at(b.right)).usage;
             if (usage == e_FlipFlop) {
+              // the output is a flip-flop, copy from the wire
               out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
             }
+            // else, the output is replaced by the wire
           }
+        } else if (b.dir == e_Left) { // input
+          // copy the variable into the input register
+          out << REG_ + im.second.instance_prefix + "_" + b.left + " = " << prefixIdentifier(prefix,b.right,im.second.instance_line) << ';' << std::endl;
         }
       }
     }
@@ -2403,9 +2449,6 @@ private:
     }
     out << "endcase" << std::endl;
   }
-
-  /// \brief generates the proper string for a binding source (fed to the input of a module/algorithm)
-  std::string bindingSourceString(std::string source,int decl_line,std::string ff = FF_D) const;
 
 public:
 
