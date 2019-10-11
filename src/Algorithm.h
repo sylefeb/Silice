@@ -700,12 +700,14 @@ private:
       // start a new block
       std::string txt = ilist->state()->getText();
       std::string name = txt.substr(0, txt.length() - 1);
+      bool no_skip = false;
       if (name == "++") {
         name = generateBlockName();
+        no_skip = true;
       }
       t_combinational_block *block = addBlock(name,(int)ilist->state()->getStart()->getLine());
       block->is_state = true; // block explicitely required to be a state
-      block->no_skip = (name == "++");
+      block->no_skip = no_skip;
       _current->next(block);
       return block;
     } else {
