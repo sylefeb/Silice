@@ -2229,6 +2229,13 @@ private:
         writeVarFlipFlopCombinationalUpdate(prefix, out, v);
       }
     }
+    for (const auto &ia : m_InstancedAlgorithms) {
+      for (const auto &is : ia.second.algo->m_Inputs) {
+        if (ia.second.boundinputs.count(is.name) == 0) {
+          writeVarFlipFlopCombinationalUpdate(ia.second.instance_prefix + '_', out, is);
+        }
+      }
+    }
     // state machine index
     out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << std::endl;
     // state machine index
@@ -2251,7 +2258,7 @@ private:
               if (b.dir == e_Right) {
                 out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
               } else {
-                out << REG_ + im.second.instance_prefix + "_" + b.left + " = " << FF_D << prefix + b.right << ';' << std::endl;
+                out << REG_ + im.second.instance_prefix + "_" + b.left + " = " << prefixIdentifier(prefix, b.right, im.second.instance_line) << ';' << std::endl;
               }
             }
           }
@@ -2260,8 +2267,8 @@ private:
     }
     // instanced algorithms input/output bindings with wires
     // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
-    for (auto im : m_InstancedAlgorithms) {
-      for (auto b : im.second.bindings) {        
+    for (auto ia : m_InstancedAlgorithms) {
+      for (auto b : ia.second.bindings) {
         if (b.dir == e_Right) { // output
           if (m_VarNames.find(b.right) != m_VarNames.end()) {
             // bound to variable, the variable is replaced by the output wire
@@ -2272,13 +2279,13 @@ private:
             auto usage = m_Outputs.at(m_OutputNames.at(b.right)).usage;
             if (usage == e_FlipFlop) {
               // the output is a flip-flop, copy from the wire
-              out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
+              out << FF_D << prefix + b.right + " = " + WIRE + ia.second.instance_prefix + "_" + b.left << ';' << std::endl;
             }
             // else, the output is replaced by the wire
           }
         } else if (b.dir == e_Left) { // input
           // copy the variable into the input register
-          out << REG_ + im.second.instance_prefix + "_" + b.left + " = " << prefixIdentifier(prefix,b.right,im.second.instance_line) << ';' << std::endl;
+          out << REG_ + ia.second.instance_prefix + "_" + b.left + " = " << prefixIdentifier(prefix,b.right, ia.second.instance_line) << ';' << std::endl;
         }
       }
     }
