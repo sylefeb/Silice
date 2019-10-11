@@ -133,6 +133,14 @@ public:
     return m_Outputs.at(name);
   }
 
+  const t_binding_point_nfo& input(std::string name) const
+  {
+    if (m_Inputs.find(name) == m_Inputs.end()) {
+      throw Fatal("cannot find input '%s' in imported module '%s'", name.c_str(), m_FileName.c_str());
+    }
+    return m_Inputs.at(name);
+  }
+
   const std::map<std::string, t_binding_point_nfo>& inputs()  const { return m_Inputs;  }
   const std::map<std::string, t_binding_point_nfo>& outputs() const { return m_Outputs; }
   const std::map<std::string, t_binding_point_nfo>& inouts()  const { return m_InOuts;  }

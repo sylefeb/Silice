@@ -110,11 +110,11 @@ void Algorithm::writeAsModule(ostream& out) const
         }
         out << ';' << endl;
       } else if (b.dir == e_Left) {
-        auto O = nfo.second.mod->output(b.left);
-        if (O.first == 0 && O.second == 0) {
+        auto I = nfo.second.mod->input(b.left);
+        if (I.first == 0 && I.second == 0) {
           out << "reg " << reg_prefix + "_" + b.left;
         } else {
-          out << "reg[" << O.first << ':' << O.second << "] " << reg_prefix + "_" + b.left;
+          out << "reg[" << I.first << ':' << I.second << "] " << reg_prefix + "_" + b.left;
         }
         out << ';' << endl;
       }
