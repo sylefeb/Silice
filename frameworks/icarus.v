@@ -7,9 +7,11 @@ initial begin
   clk = 1'b0;
   rst_n = 1'b0;
   $display("icarus framework started");
+  $dumpfile("icarus.vcd");
+  $dumpvars(0,top);
   repeat(4) #5 clk = ~clk;
   rst_n = 1'b1;
-  repeat(20) #5 clk = ~clk; // generate a clock
+  repeat(50) #5 clk = ~clk; // generate a clock
 end
 
 reg ready = 0;

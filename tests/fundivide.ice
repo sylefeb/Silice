@@ -21,17 +21,19 @@
 
 algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 above)
 {
-  uint9 den9 = 0;
-  uint9 k9   = 0;
+  uint9 th   = 0;
+  uint9 dk   = 0;
 
-  den9 = den;
-  k9   = k;
+  th = (1<<(8-k));
+  dk = (den << k);
 
-  if (den9 > (1<<(8-k9))) {
+  if (den > th) {
     above = 1;
   } else {
-    above = (num > (den << k));
+    above = (num < dk);
   }
+
+  // display("*************************** k=%d 1<<(8-k)=%d den=%d (den<<k)=%d num=%d => %b",k,th,den,dk,num,above);
 
 }
 
@@ -55,8 +57,6 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
   uint1 r6 = 0;
 
   uint8 reminder = 0;
-
-  uint8 iter = 0;
 
   uint8 reminder_tmp = 0;
   uint8 ret_tmp = 0;
@@ -82,8 +82,6 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
 
   while (reminder >= den) {
 
-    iter = iter + 1;
-
     mc0 <- ();
     mc1 <- ();
     mc2 <- ();
@@ -99,33 +97,33 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
     // to guarantee the verilog compiler does not serialize
     if (r1 && !r0) {
       ret_tmp = ret + (1<<k0);
-      reminder_tmp = reminder - (den<<k0);
+      reminder_tmp = reminder - (1<<k0)*den;
     }
     if (r2 && !r1) {
       ret_tmp = ret + (1<<k1);
-      reminder_tmp = reminder - (den<<k1);
+      reminder_tmp = reminder - (1<<k1)*den;
     }    
     if (r3 && !r2) {
       ret_tmp = ret + (1<<k2);
-      reminder_tmp = reminder - (den<<k2);
+      reminder_tmp = reminder - (1<<k2)*den;
     }    
     if (r4 && !r3) {
       ret_tmp = ret + (1<<k3);
-      reminder_tmp = reminder - (den<<k3);
+      reminder_tmp = reminder - (1<<k3)*den;
     }    
     if (r5 && !r4) {
       ret_tmp = ret + (1<<k4);
-      reminder_tmp = reminder - (den<<k4);
+      reminder_tmp = reminder - (1<<k4)*den;
     }    
     if (r6 && !r5) {
       ret_tmp = ret + (1<<k5);
-      reminder_tmp = reminder - (den<<k5);
+      reminder_tmp = reminder - (1<<k5)*den;
     }
     if (!r0 && !r1 && !r2 && !r3 && !r4 && !r5 && !r6) {
       ret_tmp = ret + (1<<k6);
-      reminder_tmp = reminder - (den<<k6);
+      reminder_tmp = reminder - (1<<k6)*den;
     }
-    
+
 ++:
 
     // now assign ret/reminder
@@ -133,8 +131,6 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
     reminder = reminder_tmp;
 
   }
-
-  //ret = reminder; /// DEBUG
 
 done:
 

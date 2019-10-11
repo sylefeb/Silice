@@ -21,19 +21,19 @@
 
 algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 above)
 {
-  uint9 den9 = 0;
-  uint9 k9   = 0;
+  uint9 th   = 0;
+  uint9 dk   = 0;
 
-  den9 = den;
-  k9   = k;
+  th = (1<<(8-k));
+  dk = (den << k);
 
-  $display("*************************** k=%d num=%d",k,num);
-
-  if (den9 > (1<<(8-k9))) {
+  if (den > th) {
     above = 1;
   } else {
-    above = (num > (den << k));
+    above = (num < dk);
   }
+
+  // display("*************************** k=%d 1<<(8-k)=%d den=%d (den<<k)=%d num=%d => %b",k,th,den,dk,num,above);
 
 }
 
@@ -58,8 +58,6 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
 
   uint8 reminder = 0;
 
-  uint8 iter = 0;
-
   uint8 reminder_tmp = 0;
   uint8 ret_tmp = 0;
 
@@ -82,10 +80,7 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
 
   reminder = num;
 
-//  while (reminder >= den) {
-  while (iter != 2) {
-
-    iter = iter + 1;
+  while (reminder >= den) {
 
     mc0 <- ();
     mc1 <- ();
@@ -96,8 +91,6 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
     mc6 <- ();
 
 ++:
-
-    $display("********** iter %d] %b%b%b%b%b%b%b reminder %d",iter,r0,r1,r2,r3,r4,r5,r6, reminder);
 
     // perform all compare assign in parallel
     // only one can be true; note the use of ret_tmp/reminder_tmp
@@ -131,13 +124,13 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
       reminder_tmp = reminder - (1<<k6)*den;
     }
 
+++:
+
     // now assign ret/reminder
     ret      = ret_tmp;
     reminder = reminder_tmp;
 
   }
-
-  //ret = reminder; /// DEBUG
 
 done:
 
@@ -153,7 +146,7 @@ algorithm main()
   div div0;
   (res) <- div0 <- (num,den);
 
-  $display("*************** result = %d",res);
+  $display("result = %d",res);
 
 }
 
