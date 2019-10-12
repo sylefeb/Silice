@@ -1,5 +1,11 @@
 // Sylvain Lefebvre; naive parallel division; 2019-10-09
 //
+// 2019-10-12 Seems like I reinvented the division algorithm in:
+//   Novel Methods of Integer Multiplication and Division 
+//   1983 (!) https://archive.org/details/byte-magazine-1983-06/page/n363
+//   see also http://techref.massmind.org/techref/method/math/muldiv.htm
+// but with multiply-compare done in parallel :-)
+//
 // 231 / 17
 // 
 // 1*17=1 2*17=34 4*17=68 8*17=136 16*17=272 32*17=544 64*17=1088

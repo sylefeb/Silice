@@ -1,13 +1,4 @@
 
-// HDMI
-append('verilog/serdes_n_to_1.v')
-append('verilog/simple_dual_ram.v')
-append('verilog/tmds_encoder.v')
-append('verilog/async_fifo.v')
-append('verilog/fifo_2x_reducer.v')
-append('verilog/dvi_encoder.v')
-import('verilog/hdmi_encoder.v')
-
 // Text buffer
 import('verilog/text_buffer.v')
 
@@ -400,6 +391,10 @@ text_buffer txtbuf (
   uint11 str_x    = 64;
   uint10 str_y    = 39;
   
+  uint8   dividend = 243;
+  uint8   divisor  = 13;
+  div     div0;
+  
   int32   numb     = -32h1234;
   uint32  numb_tmp = 0;
   uint8   numb_cnt = 0;
@@ -468,8 +463,18 @@ text_buffer txtbuf (
   } // takes two cycles to loop, write occurs on first
 
   // print number
+
+  numb = dividend;
   call print_number;
-  str_y = str_y + 2;
+  str_y = str_y + 1;
+
+  numb = divisor;
+  call print_number;
+  str_y = str_y + 1;
+
+  (numb) <- div0 <- (dividend,divisor);
+  call print_number;
+  str_y = str_y + 1;
   
   // print string
   call print_string;

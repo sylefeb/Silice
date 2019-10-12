@@ -1,14 +1,3 @@
-// UART
-append('verilog/uart_rx.v')
-append('verilog/uart_tx.v')
-append('verilog/spi_slave.v')
-append('verilog/cclk_detector.v')
-
-// Mojo AVR
-import ('verilog/avr_interface.v')
-
-// SDRAM
-import('verilog/sdram.v')
 
 // reset
 import('verilog/reset_conditioner.v')
@@ -16,10 +5,20 @@ import('verilog/reset_conditioner.v')
 // clock
 import('verilog/clk_wiz_v3_6.v')
 
+// HDMI
+append('verilog/serdes_n_to_1.v')
+append('verilog/simple_dual_ram.v')
+append('verilog/tmds_encoder.v')
+append('verilog/async_fifo.v')
+append('verilog/fifo_2x_reducer.v')
+append('verilog/dvi_encoder.v')
+import('verilog/hdmi_encoder.v')
 
+// unsigned integer division
 $include('divint.ice')
-$include('display.ice')
 
+// display
+$include('display.ice')
 
 algorithm main(
     output uint8 led,
