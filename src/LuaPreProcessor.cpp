@@ -48,14 +48,14 @@ extern "C" {
 
 // -------------------------------------------------
 
-LppPreProcessor::LppPreProcessor()
+LuaPreProcessor::LuaPreProcessor()
 {
 
 }
 
 // -------------------------------------------------
 
-LppPreProcessor::~LppPreProcessor()
+LuaPreProcessor::~LuaPreProcessor()
 {
 
 }
@@ -107,7 +107,7 @@ static std::string luaProtectString(std::string str)
 
 // -------------------------------------------------
 
-std::string LppPreProcessor::processCode(std::string src_file) const
+std::string LuaPreProcessor::processCode(std::string src_file) const
 {
   cerr << "preprocessing " << src_file << '.' << endl;
   if (!LibSL::System::File::exists(src_file.c_str())) {
@@ -138,6 +138,16 @@ std::string LppPreProcessor::processCode(std::string src_file) const
         }
       }
       code += "\\n')\n";
+    } else if (l->siliceincl() != nullptr) {
+      std::string filename = l->siliceincl()->filename->getText();
+      std::regex  lfname_regex("\\s*\\(\\s*\\'([a-zA-Z_\\./]+)\\'\\s*\\)\\s*");
+      std::smatch matches;
+      if (std::regex_match(filename, matches, lfname_regex)) {
+        std::string fname = matches.str(1).c_str();
+        // recurse
+        code += "\n" + processCode(fname) + "\n";
+      }
+
     }
   }
 
@@ -146,7 +156,7 @@ std::string LppPreProcessor::processCode(std::string src_file) const
 
 // -------------------------------------------------
 
-void LppPreProcessor::execute(std::string src_file, std::string dst_file) const
+void LuaPreProcessor::execute(std::string src_file, std::string dst_file) const
 {
   lua_State *L = luaL_newstate();
 

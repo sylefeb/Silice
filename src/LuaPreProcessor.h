@@ -23,7 +23,7 @@ the distribution, please refer to it for details.
 // -------------------------------------------------
 
 /// \brief LUA based Pre-processor 
-class LppPreProcessor
+class LuaPreProcessor
 {
 private:
 
@@ -31,8 +31,8 @@ private:
 
 public:
 
-  LppPreProcessor();
-  virtual ~LppPreProcessor();
+  LuaPreProcessor();
+  virtual ~LuaPreProcessor();
 
   void execute(std::string src_file, std::string dst_file) const;
 

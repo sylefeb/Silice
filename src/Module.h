@@ -100,9 +100,6 @@ public:
   Module(std::string fname) : m_FileName(fname)
   {
     std::cerr << "importing " << fname << '.' << std::endl;
-    if (!LibSL::System::File::exists(fname.c_str())) {
-      throw std::runtime_error("cannot find module file");
-    }
     std::ifstream             file(fname);
 
     antlr4::ANTLRInputStream  input(file);

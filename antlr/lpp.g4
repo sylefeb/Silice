@@ -19,9 +19,12 @@ grammar lpp;
 /* ======== Lexer ======== */
 
 fragment LETTER     : [a-zA-Z_] ;
+fragment LETTERU    : [a-zA-Z_] ;
 fragment DIGIT      : [0-9] ;
 
 DISPLAY             : (' ' | '\t')* '$display' ~[\r\n]* ;
+
+INCLUDE             : (' ' | '\t')* '$include' ;
 
 WHITESPACE          : (' ' | '\t') -> skip ;
 
@@ -29,16 +32,20 @@ NEWLINE             : ('\r'? '\n' | '\r') ;
 
 ANY                 : ~[\r\n$]+ ;
 
+FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/')* '\'' ;
+
 /* ======== Parser ======== */
 
 lualine     : '$$' code=ANY ;
 
 luacode     : '$' code=ANY '$' ;
 
+siliceincl  : INCLUDE filename=ANY; 
+
 silicecode  : ANY | DISPLAY;
 
 siliceline  : silicecode? (luacode silicecode?) * ;
 
-line  : lualine | siliceline;
+line  : lualine | siliceline | siliceincl;
 
 root  : (line NEWLINE) * line ;

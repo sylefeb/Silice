@@ -90,6 +90,9 @@ private:
       // verilog import
       std::string fname = imprt->FILENAME()->getText();
       fname = fname.substr(1, fname.length() - 2);
+      if (!LibSL::System::File::exists(fname.c_str())) {
+        throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), imprt->getStart()->getLine());
+      }
       AutoPtr<Module> vmodule(new Module(fname));
       if (m_Modules.find(fname) != m_Modules.end()) {
         throw std::runtime_error("verilog module already imported!");
@@ -100,6 +103,9 @@ private:
       // file include
       std::string fname = app->FILENAME()->getText();
       fname = fname.substr(1, fname.length() - 2);
+      if (!LibSL::System::File::exists(fname.c_str())) {
+        throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), app->getStart()->getLine());
+      }
       m_Appends.insert(fname);
     }
   }
@@ -145,7 +151,7 @@ public:
     const char *fframework)
   {
     // preprocessor
-    LppPreProcessor lpp;
+    LuaPreProcessor lpp;
     std::string preprocessed = std::string(fsource) + ".lpp";
     lpp.execute(fsource, preprocessed);
     // parse the preprocessed source
@@ -183,8 +189,7 @@ public:
       {
         std::ofstream out(fresult);
         // write includes
-        for (auto i : m_Appends) {
-          std::string fname = std::string(SRC_PATH "/tests/") + i;
+        for (auto fname : m_Appends) {
           out << loadFileIntoString(fname.c_str()) << std::endl;
         }
         // write imported modules

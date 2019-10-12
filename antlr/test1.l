@@ -1,4 +1,6 @@
 
+  $include('test.ice')
+
 algorithm test(
   input int8 a,
   input int8 b
