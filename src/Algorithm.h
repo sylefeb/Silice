@@ -2389,10 +2389,10 @@ private:
         for (auto cb : current->switch_case()->case_blocks) {
           out << "  " << cb.first << ": begin" << std::endl;
           writeStatelessBlockGraph(prefix, out, cb.second, current->switch_case()->after, _q);
-          out << "  endcase" << std::endl;
+          out << "  end" << std::endl;
         }
-        // end of switch
-        out << "end" << std::endl;
+        // end of case
+        out << "endcase" << std::endl;
         // follow after?
         if (current->switch_case()->after->is_state) {
           return; // no: already indexed by recursive calls
