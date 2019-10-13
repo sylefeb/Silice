@@ -102,33 +102,40 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
     // perform all compare assign in parallel
     // only one can be true; note the use of ret_tmp/reminder_tmp
     // to guarantee the verilog compiler does not serialize
-    if (r1 && !r0) {
-      ret_tmp = ret + (1<<k0);
-      reminder_tmp = reminder - (1<<k0)*den;
-    }
-    if (r2 && !r1) {
-      ret_tmp = ret + (1<<k1);
-      reminder_tmp = reminder - (1<<k1)*den;
-    }    
-    if (r3 && !r2) {
-      ret_tmp = ret + (1<<k2);
-      reminder_tmp = reminder - (1<<k2)*den;
-    }    
-    if (r4 && !r3) {
-      ret_tmp = ret + (1<<k3);
-      reminder_tmp = reminder - (1<<k3)*den;
-    }    
-    if (r5 && !r4) {
-      ret_tmp = ret + (1<<k4);
-      reminder_tmp = reminder - (1<<k4)*den;
-    }    
-    if (r6 && !r5) {
-      ret_tmp = ret + (1<<k5);
-      reminder_tmp = reminder - (1<<k5)*den;
-    }
-    if (!r0 && !r1 && !r2 && !r3 && !r4 && !r5 && !r6) {
-      ret_tmp = ret + (1<<k6);
-      reminder_tmp = reminder - (1<<k6)*den;
+    switch({r6,r5,r4,r3,r2,r1,r0}) {
+      case 7b0000000: {
+        ret_tmp = ret + (1<<k6);
+        reminder_tmp = reminder - (1<<k6)*den;
+      }
+      case 7b1000000: {
+        ret_tmp = ret + (1<<k5);
+        reminder_tmp = reminder - (1<<k5)*den;
+      }
+      case 7b1100000: {
+        ret_tmp = ret + (1<<k4);
+        reminder_tmp = reminder - (1<<k4)*den;
+      }
+      case 7b1110000: {
+        ret_tmp = ret + (1<<k3);
+        reminder_tmp = reminder - (1<<k3)*den;
+      }
+      case 7b1111000: {
+        ret_tmp = ret + (1<<k2);
+        reminder_tmp = reminder - (1<<k2)*den;
+      }
+      case 7b1111100: {
+        ret_tmp = ret + (1<<k1);
+        reminder_tmp = reminder - (1<<k1)*den;
+      }
+      case 7b1111110: {
+        ret_tmp = ret + (1<<k0);
+        reminder_tmp = reminder - (1<<k0)*den;
+      }
+      default: {
+        // should never happen
+        ret_tmp = ret;
+        reminder_tmp = reminder;
+      }
     }
 
 ++:
@@ -169,6 +176,8 @@ algorithm main(
   (res) <- div0 <- (num,den);
 
   led = res;
+
+$display("result = %d",res);
 
 }
 
