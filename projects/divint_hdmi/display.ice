@@ -487,14 +487,14 @@ text_buffer txtbuf (
   numb      = dividend;
   call print_number;
 
-  str_start = 21;  // div by
+  str_start = 20;  // div by
   str_len   = 8;
   call print_string;
 
   numb = divisor;
   call print_number;
 
-  str_start = 14;  // equals
+  str_start = 13;  // equals
   str_len   = 7;
   call print_string;
 
