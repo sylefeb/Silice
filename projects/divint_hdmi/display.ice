@@ -450,7 +450,7 @@ text_buffer txtbuf (
     while (numb_tmp > 0) {
       mulr10    = numb_tmp * recip10;
 ++:
-      lttr      = numb_tmp - (mulr10 >> 16);
+      lttr      = numb_tmp - 10 * (mulr10 >> 16);
       numb_tmp  = (mulr10 >> 16);
       txtaddr   = numb_cnt - 1 - col + str_x + str_y * 160;    
       txtdata_w = lttr[0,6];
