@@ -48,14 +48,14 @@ algorithm main(output int8 led)
  done2 :
   goto done2;
 
-  switch (a) {
-    case 0: {
+  switch ({r0,r1}) {
+    case 2b00: {
 	
 	}
-    case 1: {
+    case 2b01: {
 	
 	}
-	case 2: {
+	case 2b10: {
 	
 	}
 	default: {
