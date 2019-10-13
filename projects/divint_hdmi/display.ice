@@ -391,6 +391,9 @@ text_buffer txtbuf (
   uint11 str_x    = 64;
   uint10 str_y    = 39;
 
+  uint8  str_start = 0;
+  uint8  str_len   = 0;
+
   uint16 recip10  = 16h199A;
   uint32 mulr10   = 0;
  
@@ -404,15 +407,16 @@ text_buffer txtbuf (
   
   // ---------- string
   
-  uint8  str[] = "HELLO WORLD FROM FPGA"; 
+  uint8  str[] = "DIVISION TEST EQUALS DIV BY  "; 
   uint8  tmp   = 0;
   uint8  step  = 0;
-  
+
   // --------- print string 
+
   subroutine print_string:
     col  = 0;
-    lttr = str[col];
-    while (lttr != 0) {
+    lttr = str[str_start];
+    while (lttr != 0 && col < str_len) {
       if (lttr == 32) {
         lttr = 36;
       } else {
@@ -421,8 +425,10 @@ text_buffer txtbuf (
       txtaddr   = col + str_x + str_y * 160;    
       txtdata_w = lttr[0,6];
       col       = col + 1;  
-      lttr      = str[col];
+      str_start = str_start + 1;
+      lttr      = str[str_start];
     }
+    str_x = str_x + col;
   return;
 
   // --------- print number 
@@ -449,13 +455,13 @@ text_buffer txtbuf (
     }
     while (numb_tmp > 0) {
       mulr10    = numb_tmp * recip10;
-++:
       lttr      = numb_tmp - 10 * (mulr10 >> 16);
       numb_tmp  = (mulr10 >> 16);
-      txtaddr   = numb_cnt - 1 - col + str_x + str_y * 160;    
+      txtaddr   = numb_cnt - col + str_x + str_y * 160;    
       txtdata_w = lttr[0,6];
       col       = col + 1;
     }
+    str_x = str_x + col;
   return;
 
   // fill buffer with spaces
@@ -467,33 +473,34 @@ text_buffer txtbuf (
     next    = next + 1; // next
   } // takes two cycles to loop, write occurs on first
 
-  // print number
+  // print title string
 
-  numb = dividend;
+  str_x     = 64;
+  str_start = 0;
+  str_len   = 13;
+  call print_string;
+  str_y     = str_y + 2;
+
+  // print division
+
+  str_x     = 64;
+  numb      = dividend;
   call print_number;
-  str_y = str_y + 1;
+
+  str_start = 21;  // div by
+  str_len   = 8;
+  call print_string;
 
   numb = divisor;
   call print_number;
-  str_y = str_y + 1;
+
+  str_start = 14;  // equals
+  str_len   = 7;
+  call print_string;
 
   (numb) <- div0 <- (dividend,divisor);
   call print_number;
   str_y = str_y + 1;
-  
-  // print string
-  call print_string;
-  str_y = str_y + 2;
-
-  // ---------- 
-
-  // print string again, below
-  call print_string;
-  str_y = str_y + 2;
-  
-  // and again, to test
-  call print_string;
-  str_y = str_y + 2;
   
   // ---------- show time!
 
