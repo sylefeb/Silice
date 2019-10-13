@@ -3,7 +3,7 @@ algorithm main()
 {
 
   uint16 val        = 231;
-  uint16 reciprocal = 199Ah
+  uint16 reciprocal = 16h199A;
   uint32 tmp = 0;
   uint16 res = 0;
   
