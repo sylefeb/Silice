@@ -2384,12 +2384,12 @@ private:
           current = current->if_then_else()->after; // yes!
         }
       } else if (current->switch_case()) {
-        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id) << ") begin" << std::endl;
+        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id) << ")" << std::endl;
         // recurse block
         for (auto cb : current->switch_case()->case_blocks) {
           out << "  " << cb.first << ": begin" << std::endl;
           writeStatelessBlockGraph(prefix, out, cb.second, current->switch_case()->after, _q);
-          out << "  end" << std::endl;
+          out << "  endcase" << std::endl;
         }
         // end of switch
         out << "end" << std::endl;
