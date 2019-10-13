@@ -52,6 +52,8 @@ DELAYED             : 'delayed' ;
 
 DISPLAY             : '$display' ;
 
+DEFAULT             : 'default' (' ' | '\t')* ':';
+
 IDENTIFIER          : LETTER+ (DIGIT|LETTERU)* ;
 
 CONSTANT            : '-'? DIGIT+ ('b'|'h'|'d') (DIGIT|[a-fA-Fxz])+ ;
@@ -68,7 +70,7 @@ COMMENTBLOCK        : '/*' .*? '*/' -> skip ;
 
 COMMENT             : '//' ~[\r\n]* NEWLINE -> skip ;
 
-STATE               : IDENTIFIER ':' ;
+STATE               : IDENTIFIER (' ' | '\t')* ':' ;
 NEXT                : '++:' ;
 
 LARROW              : '<-' ;
@@ -85,7 +87,7 @@ STRING              : '"' ~[\r\n"]* '"' ;
 
 /* -- Declarations, init and bindings -- */
 
-initValue           : NUMBER | CONSTANT ;
+value               : NUMBER | CONSTANT ;
 
 sclock              :  '@' IDENTIFIER ;
 sreset              :  '!' IDENTIFIER ;
@@ -95,9 +97,9 @@ algModifier         : sclock | sreset | sautorun ;
 
 algModifiers        : '<' (algModifier ',') * algModifier '>' ;
 
-initList            : '{' (initValue ',')* initValue? '}';
+initList            : '{' (value ',')* value? '}';
 
-declarationVar      : DELAYED? TYPE IDENTIFIER '=' initValue ;
+declarationVar      : DELAYED? TYPE IDENTIFIER '=' value ;
 declarationTable    : TYPE IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);
 declarationModAlg   : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
 declaration         : declarationVar | declarationModAlg | declarationTable ; 
@@ -183,6 +185,8 @@ breakLoop           : BREAK ;
 block               : '{' instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
 ifThenElse          : 'if' '(' expression_0 ')' if_block=block 'else' else_block=block ;
+switchCase          : 'switch' '(' expression_0 ')' '{' caseBlock * '}' ;
+caseBlock           : ('case' case_value=value ':' | DEFAULT ) case_block=block;
 whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 
 displayParams       : (IDENTIFIER ',') * IDENTIFIER ;
@@ -211,6 +215,7 @@ instructionList     :
                     | ifThenElse  instructionList
                     | ifThen      instructionList
                     | whileLoop   instructionList
+					| switchCase  instructionList
 					| ;
 
 subroutinePerm      : (READ | WRITE | READWRITE ) IDENTIFIER ;

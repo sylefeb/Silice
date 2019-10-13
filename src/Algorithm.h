@@ -211,6 +211,19 @@ private:
     void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(if_next); _ch.push_back(else_next); _ch.push_back(after); }
   };
 
+  /// \brief switch case at the end
+  class end_action_switch_case : public t_end_action
+  {
+  public:
+    t_instr_nfo                                                  test;
+    std::vector<std::pair<std::string, t_combinational_block*> > case_blocks;
+    t_combinational_block*                                       after;
+    end_action_switch_case(t_instr_nfo test_, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks_, t_combinational_block* after_)
+      : test(test_), case_blocks(case_blocks_), after(after_) {}
+    void getRefs(std::vector<size_t>& _refs) const override { for (auto b : case_blocks) { _refs.push_back(b.second->id); } _refs.push_back(after->id); }
+    void getChildren(std::vector<t_combinational_block*>& _ch) const override { for (auto b : case_blocks) { _ch.push_back(b.second); } _ch.push_back(after); }
+  }; 
+
   /// \brief while loop at the end
   class end_action_while : public t_end_action
   {
@@ -286,6 +299,12 @@ private:
       swap_end(new end_action_if_else(test, if_next, else_next, after));
     }
     const end_action_if_else *if_then_else() const { return dynamic_cast<const end_action_if_else*>(end_action); }
+
+    void switch_case(t_instr_nfo test, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks, t_combinational_block* after)
+    {
+      swap_end(new end_action_switch_case(test, case_blocks, after));
+    }
+    const end_action_switch_case* switch_case() const { return dynamic_cast<const end_action_switch_case*>(end_action); }
 
     void wait(int line, std::string algo_name, t_combinational_block *waiting, t_combinational_block *next)
     {
@@ -432,8 +451,8 @@ private:
     return (negative?"-":"") + std::to_string(width) + "'" + base + value;
   }
 
-  /// \brief gather an init value
-  std::string gatherInitValue(siliceParser::InitValueContext* ival)
+  /// \brief gather a value
+  std::string gatherValue(siliceParser::ValueContext* ival)
   {
     if (ival->CONSTANT() != nullptr) {
       return rewriteConstant(ival->CONSTANT()->getText());
@@ -453,7 +472,7 @@ private:
     var.table_size = 0;
     splitType(decl->TYPE()->getText(), var.base_type, var.width);
     var.init_values.push_back("0");
-    var.init_values[0] = gatherInitValue(decl->initValue());
+    var.init_values[0] = gatherValue(decl->value());
     // verify the varaible does not shadow an input or output
     if (isInput(var.name)) {
       throw Fatal("variable '%s' is shadowing input of same name (line %d)", var.name.c_str(), decl->getStart()->getLine());
@@ -468,8 +487,8 @@ private:
   /// \brief gather all values from an init list
   void gatherInitList(siliceParser::InitListContext* ilist, std::vector<std::string>& _values_str)
   {
-    for (auto i : ilist->initValue()) {
-      _values_str.push_back(gatherInitValue(i));
+    for (auto i : ilist->value()) {
+      _values_str.push_back(gatherValue(i));
     }
   }
 
@@ -877,7 +896,7 @@ private:
     return true;
   }
 
-  /// \brief gather an if-then-else block
+  /// \brief gather an if-then-else
   t_combinational_block *gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context)
   {
     t_combinational_block *if_block   = addBlock(generateBlockName());
@@ -896,7 +915,7 @@ private:
     return after;
   }
 
-  /// \brief gather an if-then block
+  /// \brief gather an if-then
   t_combinational_block *gatherIfThen(siliceParser::IfThenContext* ifthen, t_combinational_block *_current, t_gather_context *_context)
   {
     t_combinational_block *if_block   = addBlock(generateBlockName());
@@ -911,6 +930,34 @@ private:
     _current->if_then_else(t_instr_nfo(ifthen->expression_0(), _context->__id), if_block, else_block, after);
     // checks whether after has to be a state
     after->is_state = !isStateLessGraph(if_block);
+    return after;
+  }
+
+  /// \brief gather a switch-case
+  t_combinational_block* gatherSwitchCase(siliceParser::SwitchCaseContext* switchCase, t_combinational_block* _current, t_gather_context* _context)
+  {
+    // create a block for after the switch-case
+    t_combinational_block* after = addBlock(generateBlockName());
+    // create a block per case statement
+    std::vector<std::pair<std::string,t_combinational_block*> > case_blocks;
+    for (auto cb : switchCase->caseBlock()) {
+      t_combinational_block* case_block       = addBlock(generateBlockName() + "_case");
+      std::string            value            = "default";
+      if (cb->case_value != nullptr) {
+        value = gatherValue(cb->case_value);
+      }
+      case_blocks.push_back(std::make_pair(value,case_block));
+      t_combinational_block* case_block_after = gather(cb->case_block, case_block, _context);
+      case_block_after->next(after);
+    }    
+    // add switch-case to current
+    _current->switch_case(t_instr_nfo(switchCase->expression_0(), _context->__id), case_blocks, after);
+    // checks whether after has to be a state
+    bool is_state = false;
+    for (auto b : case_blocks) {
+      is_state = is_state || !isStateLessGraph(b.second);
+    }
+    after->is_state = is_state;
     return after;
   }
 
@@ -994,6 +1041,7 @@ private:
     auto ilist   = dynamic_cast<siliceParser::InstructionListContext*>(tree);
     auto ifelse  = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
     auto ifthen  = dynamic_cast<siliceParser::IfThenContext*>(tree);
+    auto switchC = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
     auto loop    = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
     auto jump    = dynamic_cast<siliceParser::JumpContext*>(tree);
     auto modalg  = dynamic_cast<siliceParser::DeclarationModAlgContext*>(tree);
@@ -1021,6 +1069,7 @@ private:
     }
     else if (ifelse)  { _current = gatherIfElse(ifelse, _current, _context);      recurse = false; }
     else if (ifthen)  { _current = gatherIfThen(ifthen, _current, _context);      recurse = false; }
+    else if (switchC) { _current = gatherSwitchCase(switchC, _current, _context); recurse = false; }
     else if (loop)    { _current = gatherWhile(loop, _current, _context);         recurse = false; }
     else if (always)  { gatherAlwaysAssigned(always);                             recurse = false; }
     else if (repeat)  { _current = gatherRepeatBlock(repeat, _current, _context); recurse = false; } 
@@ -1661,6 +1710,9 @@ private:
       std::vector<t_instr_nfo> instr = block->instructions;
       if (block->if_then_else()) {
         instr.push_back(block->if_then_else()->test);
+      }
+      if (block->switch_case()) {
+        instr.push_back(block->switch_case()->test);
       }
       if (block->while_loop()) {
         instr.push_back(block->while_loop()->test);
@@ -2330,6 +2382,22 @@ private:
           return; // no: already indexed by recursive calls
         } else {
           current = current->if_then_else()->after; // yes!
+        }
+      } else if (current->switch_case()) {
+        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id) << ") begin" << std::endl;
+        // recurse block
+        for (auto cb : current->switch_case()->case_blocks) {
+          out << "  " << cb.first << ": begin" << std::endl;
+          writeStatelessBlockGraph(prefix, out, cb.second, current->switch_case()->after, _q);
+          out << "  end" << std::endl;
+        }
+        // end of switch
+        out << "end" << std::endl;
+        // follow after?
+        if (current->switch_case()->after->is_state) {
+          return; // no: already indexed by recursive calls
+        } else {
+          current = current->switch_case()->after; // yes!
         }
       } else if (current->while_loop()) {
         // while
