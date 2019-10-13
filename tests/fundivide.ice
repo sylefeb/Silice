@@ -39,7 +39,6 @@ algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 abo
   } else {
     above = (num < dk);
   }
-
 }
 
 algorithm div(input uint8 num,input uint8 den,output uint8 ret)
@@ -62,9 +61,7 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
   uint1 r6 = 0;
 
   uint8 reminder = 0;
-
   uint8 reminder_tmp = 0;
-  uint8 ret_tmp = 0;
 
   mul_cmp mc0(num <: reminder, den <: den, k <: k0, above :> r0);
   mul_cmp mc1(num <: reminder, den <: den, k <: k1, above :> r1);
@@ -83,13 +80,11 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
     goto done;
   }
 
-  ret_tmp = 0;
   reminder_tmp = num;
 
   while (reminder_tmp >= den) {
 
     // assign ret/reminder from previous iteration
-    ret      = ret_tmp;
     reminder = reminder_tmp;
 
     // run all multiply-compare in parallel
@@ -103,40 +98,39 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
 
 ++:
 
-    // perform assignment in ret_tmp/reminder_tmp
-    // (cannot use diectily ret/reminder as a combinational loop would be created)
+    // perform assignment based on occuring case
     switch({r6,r5,r4,r3,r2,r1,r0}) {
+      // NOTE: cannot use reminder directly, a combinational loop would be created
       case 7b0000000: {
-        ret_tmp = ret + (1<<k6);
+        ret = ret + (1<<k6);
         reminder_tmp = reminder - (1<<k6)*den;
       }
       case 7b1000000: {
-        ret_tmp = ret + (1<<k5);
+        ret = ret + (1<<k5);
         reminder_tmp = reminder - (1<<k5)*den;
       }
       case 7b1100000: {
-        ret_tmp = ret + (1<<k4);
+        ret = ret + (1<<k4);
         reminder_tmp = reminder - (1<<k4)*den;
       }
       case 7b1110000: {
-        ret_tmp = ret + (1<<k3);
+        ret = ret + (1<<k3);
         reminder_tmp = reminder - (1<<k3)*den;
       }
       case 7b1111000: {
-        ret_tmp = ret + (1<<k2);
+        ret = ret + (1<<k2);
         reminder_tmp = reminder - (1<<k2)*den;
       }
       case 7b1111100: {
-        ret_tmp = ret + (1<<k1);
+        ret = ret + (1<<k1);
         reminder_tmp = reminder - (1<<k1)*den;
       }
       case 7b1111110: {
-        ret_tmp = ret + (1<<k0);
+        ret = ret + (1<<k0);
         reminder_tmp = reminder - (1<<k0)*den;
       }
       default: {
         // should never happen
-        ret_tmp = ret;
         reminder_tmp = reminder;
       }
     }
@@ -144,9 +138,6 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
   }
 
 done:
-
-  // make sure to use latest value
-  ret = ret_tmp;
 
 }
 

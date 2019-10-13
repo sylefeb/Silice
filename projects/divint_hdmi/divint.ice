@@ -39,7 +39,6 @@ algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 abo
   } else {
     above = (num < dk);
   }
-
 }
 
 algorithm div(input uint8 num,input uint8 den,output uint8 ret)
@@ -99,7 +98,7 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
 
 ++:
 
-    // perform assignment in reminder_tmp
+    // perform assignment based on occuring case
     switch({r6,r5,r4,r3,r2,r1,r0}) {
       // NOTE: cannot use reminder directly, a combinational loop would be created
       case 7b0000000: {

@@ -390,14 +390,17 @@ text_buffer txtbuf (
   uint11 col      = 0;
   uint11 str_x    = 64;
   uint10 str_y    = 39;
+
+  uint16 recip10  = 16h199A;
+  uint32 mulr10   = 0;
+ 
+  uint8  dividend = 243;
+  uint8  divisor  = 13;
+  div    div0;
   
-  uint8   dividend = 243;
-  uint8   divisor  = 13;
-  div     div0;
-  
-  int32   numb     = -32h1234;
-  uint32  numb_tmp = 0;
-  uint8   numb_cnt = 0;
+  int16  numb     = 0;
+  uint16 numb_tmp = 0;
+  uint8  numb_cnt = 0;
   
   // ---------- string
   
@@ -445,11 +448,13 @@ text_buffer txtbuf (
       numb_tmp = numb;
     }
     while (numb_tmp > 0) {
-      lttr      = (numb_tmp & 15);
+      mulr10    = numb_tmp * recip10;
+++:
+      lttr      = numb_tmp - (mulr10 >> 16);
+      numb_tmp  = (mulr10 >> 16);
       txtaddr   = numb_cnt - 1 - col + str_x + str_y * 160;    
       txtdata_w = lttr[0,6];
-      col       = col + 1;  
-      numb_tmp  = numb_tmp >> 4;
+      col       = col + 1;
     }
   return;
 
