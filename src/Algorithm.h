@@ -717,8 +717,10 @@ private:
   {
     if (ilist->state() != nullptr) {
       // start a new block
-      std::string txt = ilist->state()->getText();
-      std::string name = txt.substr(0, txt.length() - 1);
+      std::string name = "++";
+      if (ilist->state()->state_name != nullptr) {
+        name = ilist->state()->state_name->getText();
+      }
       bool no_skip = false;
       if (name == "++") {
         name = generateBlockName();
@@ -800,8 +802,7 @@ private:
   t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context)
   {
     // subroutine block
-    std::string txt  = sub->STATE()->getText();
-    std::string name = txt.substr(0, txt.length() - 1);
+    std::string name = sub->IDENTIFIER()->getText();
     t_combinational_block *subb = addBlock("__sub_" + name,(int)sub->getStart()->getLine());
     // check for constraints
     if (sub->subroutinePermList() != nullptr) {

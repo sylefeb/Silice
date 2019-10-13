@@ -48,19 +48,26 @@ CALL                : 'call' ;
 
 BREAK               : 'break' ;
 
-DELAYED             : 'delayed' ;
-
 DISPLAY             : '$display' ;
 
 DEFAULT             : 'default' (' ' | '\t')* ':';
+
+LARROW              : '<-' ;
+RARROW              : '->' ;
+
+LDEFINE             : '<:' ;
+RDEFINE             : ':>' ;
+BDEFINE             : '<:>';
+AUTO                : '<:auto:>' ;
+
+ALWSASSIGNDBL       : '::=' ;
+ALWSASSIGN          : ':=' ;
 
 IDENTIFIER          : LETTER+ (DIGIT|LETTERU)* ;
 
 CONSTANT            : '-'? DIGIT+ ('b'|'h'|'d') (DIGIT|[a-fA-Fxz])+ ;
 
 REPEATID            : '__id' ;
-
-AUTO                : '<:auto:>' ;
 
 WHITESPACE          : (' ' | '\t') -> skip;
 
@@ -70,16 +77,7 @@ COMMENTBLOCK        : '/*' .*? '*/' -> skip ;
 
 COMMENT             : '//' ~[\r\n]* NEWLINE -> skip ;
 
-STATE               : IDENTIFIER (' ' | '\t')* ':' ;
 NEXT                : '++:' ;
-
-LARROW              : '<-' ;
-RARROW              : '->' ;
-LDEFINE             : '<:' ;
-RDEFINE             : ':>' ;
-BDEFINE             : '<:>';
-ALWSASSIGNDBL       : '::=' ;
-ALWSASSIGN          : ':=' ;
 
 STRING              : '"' ~[\r\n"]* '"' ;
 
@@ -99,7 +97,7 @@ algModifiers        : '<' (algModifier ',') * algModifier '>' ;
 
 initList            : '{' (value ',')* value? '}';
 
-declarationVar      : DELAYED? TYPE IDENTIFIER '=' value ;
+declarationVar      : TYPE IDENTIFIER '=' value ;
 declarationTable    : TYPE IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);
 declarationModAlg   : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
 declaration         : declarationVar | declarationModAlg | declarationTable ; 
@@ -177,7 +175,7 @@ algoSyncCall        : algoJoin LARROW '(' paramList ')' ;
 
 /* -- Control flow -- */
 
-state               : STATE | NEXT ;
+state               : state_name=IDENTIFIER ':' | NEXT ;
 jump                : GOTO IDENTIFIER ;
 subCall             : CALL IDENTIFIER ;
 breakLoop           : BREAK ;
@@ -220,7 +218,7 @@ instructionList     :
 
 subroutinePerm      : (READ | WRITE | READWRITE ) IDENTIFIER ;
 subroutinePermList  : '(' (subroutinePerm ',')* subroutinePerm ')' ;
-subroutine          : SUB STATE subroutinePermList? instructionList RETURN ';' ;
+subroutine          : SUB IDENTIFIER ':' subroutinePermList? instructionList RETURN ';' ;
 subroutineList      : subroutine * ;
                     
 declAndInstrList    : declarationList 
