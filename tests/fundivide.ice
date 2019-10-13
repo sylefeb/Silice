@@ -1,4 +1,4 @@
-// Sylvain Lefebvre; naive parallel division; 2019-10-09
+// Sylvain Lefebvre; simple parallel division; 2019-10-09
 //
 // 2019-10-12 Seems like I reinvented the division algorithm in:
 //   Novel Methods of Integer Multiplication and Division 
@@ -39,8 +39,6 @@ algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 abo
   } else {
     above = (num < dk);
   }
-
-  // display("*************************** k=%d 1<<(8-k)=%d den=%d (den<<k)=%d num=%d => %b",k,th,den,dk,num,above);
 
 }
 
@@ -85,10 +83,16 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
     goto done;
   }
 
-  reminder = num;
+  ret_tmp = 0;
+  reminder_tmp = num;
 
-  while (reminder >= den) {
+  while (reminder_tmp >= den) {
 
+    // assign ret/reminder from previous iteration
+    ret      = ret_tmp;
+    reminder = reminder_tmp;
+
+    // run all multiply-compare in parallel
     mc0 <- ();
     mc1 <- ();
     mc2 <- ();
@@ -99,49 +103,54 @@ algorithm div(input uint8 num,input uint8 den,output uint8 ret)
 
 ++:
 
-    // perform all compare assign in parallel
-    // only one can be true; note the use of ret_tmp/reminder_tmp
-    // to guarantee the verilog compiler does not serialize
-    if (r1 && !r0) {
-      ret_tmp = ret + (1<<k0);
-      reminder_tmp = reminder - (1<<k0)*den;
+    // perform assignment in ret_tmp/reminder_tmp
+    // (cannot use diectily ret/reminder as a combinational loop would be created)
+    switch({r6,r5,r4,r3,r2,r1,r0}) {
+      case 7b0000000: {
+        ret_tmp = ret + (1<<k6);
+        reminder_tmp = reminder - (1<<k6)*den;
+      }
+      case 7b1000000: {
+        ret_tmp = ret + (1<<k5);
+        reminder_tmp = reminder - (1<<k5)*den;
+      }
+      case 7b1100000: {
+        ret_tmp = ret + (1<<k4);
+        reminder_tmp = reminder - (1<<k4)*den;
+      }
+      case 7b1110000: {
+        ret_tmp = ret + (1<<k3);
+        reminder_tmp = reminder - (1<<k3)*den;
+      }
+      case 7b1111000: {
+        ret_tmp = ret + (1<<k2);
+        reminder_tmp = reminder - (1<<k2)*den;
+      }
+      case 7b1111100: {
+        ret_tmp = ret + (1<<k1);
+        reminder_tmp = reminder - (1<<k1)*den;
+      }
+      case 7b1111110: {
+        ret_tmp = ret + (1<<k0);
+        reminder_tmp = reminder - (1<<k0)*den;
+      }
+      default: {
+        // should never happen
+        ret_tmp = ret;
+        reminder_tmp = reminder;
+      }
     }
-    if (r2 && !r1) {
-      ret_tmp = ret + (1<<k1);
-      reminder_tmp = reminder - (1<<k1)*den;
-    }    
-    if (r3 && !r2) {
-      ret_tmp = ret + (1<<k2);
-      reminder_tmp = reminder - (1<<k2)*den;
-    }    
-    if (r4 && !r3) {
-      ret_tmp = ret + (1<<k3);
-      reminder_tmp = reminder - (1<<k3)*den;
-    }    
-    if (r5 && !r4) {
-      ret_tmp = ret + (1<<k4);
-      reminder_tmp = reminder - (1<<k4)*den;
-    }    
-    if (r6 && !r5) {
-      ret_tmp = ret + (1<<k5);
-      reminder_tmp = reminder - (1<<k5)*den;
-    }
-    if (!r0 && !r1 && !r2 && !r3 && !r4 && !r5 && !r6) {
-      ret_tmp = ret + (1<<k6);
-      reminder_tmp = reminder - (1<<k6)*den;
-    }
-
-++:
-
-    // now assign ret/reminder
-    ret      = ret_tmp;
-    reminder = reminder_tmp;
 
   }
 
 done:
 
+  // make sure to use latest value
+  ret = ret_tmp;
+
 }
+
+// ----------------------------------------------
 
 algorithm main(
   input  int1 cclk,
@@ -166,7 +175,25 @@ algorithm main(
   avr_rx      := 1bz;
   spi_channel := 4bzzzz;
   
+  num = 171;
+  den = 23;
   (res) <- div0 <- (num,den);
+  $display("%d / %d = %d",num,den,res);
+
+  num = 194;
+  den = 97;
+  (res) <- div0 <- (num,den);
+  $display("%d / %d = %d",num,den,res);
+
+  num = 193;
+  den = 97;
+  (res) <- div0 <- (num,den);
+  $display("%d / %d = %d",num,den,res);
+
+  num = 231;
+  den = 17;
+  (res) <- div0 <- (num,den);
+  $display("%d / %d = %d",num,den,res);
 
   led = res;
 

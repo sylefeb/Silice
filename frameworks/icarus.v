@@ -11,7 +11,7 @@ initial begin
   $dumpvars(0,top);
   repeat(4) #5 clk = ~clk;
   rst_n = 1'b1;
-  repeat(50) #5 clk = ~clk; // generate a clock
+  forever #5 clk = ~clk; // generate a clock
 end
 
 reg ready = 0;
@@ -33,12 +33,18 @@ end
 
 wire run_main;
 assign run_main = 1'b1;
+wire done_main;
 
 M_main __main(
   .clock(clk),
   .reset(RST_d[0]),
-  .in_run(run_main)
+  .in_run(run_main),
+  .out_done(done_main)
 );
+
+always @* begin
+  if (done_main && !RST_d[0]) $finish;
+end
 
 endmodule
 

@@ -25,8 +25,8 @@ int main(int argc,char **argv)
 
   Verilated::commandArgs(argc,argv);
 
-  Vvga    *vga_test = new Vvga();
   VgaChip *vga_chip = new VgaChip();
+  Vvga    *vga_test = new Vvga();
 
   vluint64_t cycle = 0;
 

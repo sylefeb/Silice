@@ -2,7 +2,7 @@
 algorithm main()
 {
 
-  uint8 num = 0;
+  uint8 num = 1;
   uint8 res = 0;
 
   switch (num) {
