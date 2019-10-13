@@ -407,7 +407,7 @@ text_buffer txtbuf (
   
   // ---------- string
   
-  uint8  str[] = "DIVISION TEST EQUALS DIV BY  "; 
+  uint8  str[] = "DIVISION TEST EQUALS DIV BY "; 
   uint8  tmp   = 0;
   uint8  step  = 0;
 
