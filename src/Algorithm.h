@@ -665,7 +665,7 @@ private:
     } else {
       auto V = m_VarNames.find(var);
       if (V == m_VarNames.end()) {
-        // if in subroutine, check for inputs, outputs
+        // if in subroutine, translate name
         if (sub != nullptr) {
           auto Vsub = sub->vios.find(var);
           if (Vsub == sub->vios.end()) {
@@ -1386,7 +1386,7 @@ private:
     if (params == nullptr) return;
     while (params->IDENTIFIER() != nullptr) {
       std::string var = params->IDENTIFIER()->getText();
-      if (sub) { // if in subroutine overwrite variable names
+      if (sub) { // if in subroutine translate variable names
         auto V = sub->vios.find(var);
         if (V != sub->vios.end()) {
           var = V->second;
@@ -1818,7 +1818,7 @@ private:
         if (term) {
           if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
             std::string var = term->getText();
-            if (sub) { // override name if in subroutine
+            if (sub) { // translate name if in subroutine
               auto V = sub->vios.find(var);
               if (V != sub->vios.end()) {
                 var = V->second;
@@ -1847,7 +1847,7 @@ private:
             } else {
               var = assign->IDENTIFIER()->getText();
             }
-            if (sub) { // override name if in subroutine
+            if (sub) { // translate name if in subroutine
               auto V = sub->vios.find(var);
               if (V != sub->vios.end()) {
                 var = V->second;
@@ -1874,7 +1874,7 @@ private:
             } else {
               var = alw->IDENTIFIER()->getText();
             }
-            if (sub) { // override name if in subroutine
+            if (sub) { // translate name if in subroutine
               auto V = sub->vios.find(var);
               if (V != sub->vios.end()) {
                 var = V->second;
