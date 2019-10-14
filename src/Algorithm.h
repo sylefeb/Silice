@@ -1902,19 +1902,28 @@ private:
                 _written.insert(S->second->vios.at(i));
               }
             }
-            recurse = true; // detect reads
+            recurse = true; // recurse to detect reads on parameters
           }
         } {
           auto join = dynamic_cast<siliceParser::JoinExecContext*>(node);
           if (join) {
+            // track writes when reading back
+            std::vector<std::string> params;
+            getParams(join->paramList(), params, sub);
+            for (const auto& var : params) {
+              if (vios.find(var) != vios.end()) {
+                _written.insert(var);
+              }
+            }
             // readback results from a subroutine?
             auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
             if (S != m_Subroutines.end()) {
+              // track reads of subroutine outputs
               for (const auto& o : S->second->outputs) {
                 _read.insert(S->second->vios.at(o));
               }
             }
-            recurse = true; // detect reads
+            recurse = false;
           }
         }
         // recurse
