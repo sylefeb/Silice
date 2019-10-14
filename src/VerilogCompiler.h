@@ -40,9 +40,9 @@ class VerilogCompiler
 {
 private:
 
-  std::map<std::string, AutoPtr<Algorithm> >       m_Algorithms;
-  std::map<std::string, AutoPtr<Module> >          m_Modules;
-  std::set<std::string>                            m_Appends;
+  std::unordered_map<std::string, AutoPtr<Algorithm> >       m_Algorithms;
+  std::unordered_map<std::string, AutoPtr<Module> >          m_Modules;
+  std::unordered_set<std::string>                            m_Appends;
 
   void gatherAlgorithms(antlr4::tree::ParseTree *tree)
   {

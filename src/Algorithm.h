@@ -26,6 +26,8 @@ the distribution, please refer to it for details.
 #include <fstream>
 #include <regex>
 #include <queue>
+#include <unordered_set>
+#include <unordered_map>
 
 #include <LibSL/LibSL.h>
 
@@ -75,7 +77,7 @@ private:
   bool m_AutoRun = false;
 
   /// \brief Set of known modules so far
-  const std::map<std::string, AutoPtr<Module> >& m_KnownModules;
+  const std::unordered_map<std::string, AutoPtr<Module> >& m_KnownModules;
 
   /// \brief enum for variable access
   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
@@ -109,19 +111,19 @@ private:
   std::vector< t_inout_nfo > m_InOuts;
 
   /// \brief all input names, map contains index in m_Inputs
-  std::map<std::string, int > m_InputNames;
+  std::unordered_map<std::string, int > m_InputNames;
   /// \brief all output names, map contains index in m_Outputs
-  std::map<std::string, int > m_OutputNames;
+  std::unordered_map<std::string, int > m_OutputNames;
   /// \brief all inout names, map contains index in m_InOuts
-  std::map<std::string, int > m_InOutNames;
+  std::unordered_map<std::string, int > m_InOutNames;
 
   /// \brief VIO (variable-or-input-or-output) bound to module/algorithms inputs (regs) or outputs (wires) (name => reg/wire name)
-  std::map<std::string, std::string> m_VIOBoundToModAlgOutputs;
+  std::unordered_map<std::string, std::string> m_VIOBoundToModAlgOutputs;
 
   /// \brief declared variables
-  std::vector< t_var_nfo > m_Vars;
+  std::vector< t_var_nfo >    m_Vars;
   /// \brief all varnames, map contains index in m_Vars
-  std::map<std::string, int > m_VarNames;
+  std::unordered_map<std::string, int > m_VarNames;
 
   /// \brief enum binding direction
   enum e_BindingDir { e_Left, e_Right, e_BiDir };
@@ -146,11 +148,11 @@ private:
     AutoPtr<Algorithm>         algo;
     std::vector<t_binding_nfo> bindings;
     bool                       autobind;
-    std::map<std::string,std::string> boundinputs;
+    std::unordered_map<std::string,std::string> boundinputs;
   } t_algo_nfo;
 
   /// \brief instanced algorithms
-  std::map< std::string, t_algo_nfo > m_InstancedAlgorithms;
+  std::unordered_map< std::string, t_algo_nfo > m_InstancedAlgorithms;
 
   /// \brief info about an instanced module
   typedef struct {
@@ -164,7 +166,7 @@ private:
   } t_module_nfo;
 
   /// \brief instanced modules
-  std::map< std::string, t_module_nfo > m_InstancedModules;
+  std::unordered_map< std::string, t_module_nfo > m_InstancedModules;
 
   /// \brief stores info for single instructions
   class t_instr_nfo {
@@ -178,7 +180,15 @@ private:
   class t_combinational_block;
 
   /// \brief subroutines
-  std::map< std::string, t_combinational_block* > m_Subroutines;
+  class t_subroutine_nfo {
+  public:
+    t_combinational_block                          *top_block;
+    std::unordered_set<std::string>                 allowed_reads;
+    std::unordered_set<std::string>                 allowed_writes;
+    std::unordered_map< std::string, std::string >  inputs;  // [name => var] will be variables in host algorithm
+    std::unordered_map< std::string, std::string >  outputs; // [name => var] will be variables in host algorithm
+  };
+  std::unordered_map< std::string, t_subroutine_nfo > m_Subroutines;
 
   /// \brief ending actions for blocks
   class t_end_action {
@@ -276,15 +286,15 @@ private:
   private:
     void swap_end(t_end_action *end) { if (end_action != nullptr) delete (end_action); end_action = end; }
   public:
-    size_t                        id;                   // internal block id
-    std::string                   block_name;           // internal block name (state name from source when applicable)
-    bool                          is_state = false;     // true if block has to be a state, false otherwise
-    bool                          no_skip = false;      // true the state cannot be skipped, even if empty
-    int                           state_id = -1;        // state id, when assigned, -1 otherwise
-    std::vector<t_instr_nfo>      instructions;         // list of instructions within block
-    t_end_action                 *end_action = nullptr; // end action to perform
-    std::set<std::string>         in_vars_read;         // which variables are read from before
-    std::set<std::string>         out_vars_written;     // which variables have been written after
+    size_t                           id;                   // internal block id
+    std::string                      block_name;           // internal block name (state name from source when applicable)
+    bool                             is_state = false;     // true if block has to be a state, false otherwise
+    bool                             no_skip = false;      // true the state cannot be skipped, even if empty
+    int                              state_id = -1;        // state id, when assigned, -1 otherwise
+    std::vector<t_instr_nfo>         instructions;         // list of instructions within block
+    t_end_action                    *end_action = nullptr; // end action to perform
+    std::unordered_set<std::string>  in_vars_read;         // which variables are read from before
+    std::unordered_set<std::string>  out_vars_written;     // which variables have been written after
     ~t_combinational_block() { swap_end(nullptr); }
 
     void next(t_combinational_block *next)
@@ -339,9 +349,8 @@ private:
   {
     int                    __id;
     t_combinational_block *break_to;
-    bool                   has_access_constraints = false;
-    std::set<std::string>  allowed_reads;
-    std::set<std::string>  allowed_writes;
+    // when in subroutine
+    t_subroutine_nfo      *subroutine = nullptr;
   } t_gather_context;
 
   ///brief information about a forward jump
@@ -351,15 +360,15 @@ private:
   } t_forward_jump;
 
   /// \brief always block
-  t_combinational_block                                         m_Always;
+  t_combinational_block                                             m_Always;
   /// \brief all combinational blocks
-  std::list< t_combinational_block* >                           m_Blocks;
+  std::list< t_combinational_block* >                               m_Blocks;
   /// \brief state name to combination block
-  std::map< std::string, t_combinational_block* >               m_State2Block;
+  std::unordered_map< std::string, t_combinational_block* >         m_State2Block;
   /// \brief id to combination block
-  std::map< size_t, t_combinational_block* >                    m_Id2Block;
+  std::unordered_map< size_t, t_combinational_block* >              m_Id2Block;
   /// \brief stores encountered forwards refs for later resolution
-  std::map< std::string, std::vector< t_forward_jump > >        m_JumpForwardRefs;
+  std::unordered_map< std::string, std::vector< t_forward_jump > >  m_JumpForwardRefs;
   /// \brief maximum state value of the algorithm
   int m_MaxState = -1;
 
@@ -535,7 +544,6 @@ private:
         var.init_values[i] = values_str[i];
       }     
     }
-
     m_Vars.emplace_back(var);
     m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
   }
@@ -619,8 +627,8 @@ private:
     m_InstancedModules[nfo.instance_name] = nfo;
   }
 
-  /// \brief returns an identifier with proper prefix
-  std::string prefixIdentifier(std::string prefix, std::string var,size_t line = 0, std::string ff = FF_D) const
+  /// \brief returns the rewritten indentifier, taking into account bindings, inputs/outputs, custom clocks and resets
+  std::string rewriteIdentifier(std::string prefix, std::string var,size_t line = 0, std::string ff = FF_D) const
   {
     if (var == ALG_RESET || var == ALG_CLOCK) {
       return var;
@@ -669,7 +677,7 @@ private:
       auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
       if (term) {
         if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-          return prefixIdentifier(prefix, expr->getText(), term->getSymbol()->getLine());
+          return rewriteIdentifier(prefix, expr->getText(), term->getSymbol()->getLine());
         } else if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
           return rewriteConstant(expr->getText());
         } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
@@ -801,36 +809,77 @@ private:
   /// \brief gather a subroutine
   t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context)
   {
+    t_subroutine_nfo nfo;
     // subroutine block
     std::string name = sub->IDENTIFIER()->getText();
     t_combinational_block *subb = addBlock("__sub_" + name,(int)sub->getStart()->getLine());
-    // check for constraints
-    if (sub->subroutinePermList() != nullptr) {
-      _context->has_access_constraints = true;
-      for (auto P : sub->subroutinePermList()->subroutinePerm()) {
-        if (P->READ() != nullptr) {
-          _context->allowed_reads.insert(P->IDENTIFIER()->getText());
-        } else if (P->WRITE() != nullptr) {
-          _context->allowed_writes.insert(P->IDENTIFIER()->getText());
+    nfo.top_block = subb;
+    // gather inputs/outputs and access constraints
+    sl_assert(sub->subroutineParamList() != nullptr);
+      // constraint?
+    for (auto P : sub->subroutineParamList()->subroutineParam()) {
+      if (P->READ() != nullptr) {
+        nfo.allowed_reads.insert(P->IDENTIFIER()->getText());
+      } else if (P->WRITE() != nullptr) {
+        nfo.allowed_writes.insert(P->IDENTIFIER()->getText());
+      } else {
+        sl_assert(P->READWRITE() != nullptr);
+        nfo.allowed_reads.insert(P->IDENTIFIER()->getText());
+        nfo.allowed_writes.insert(P->IDENTIFIER()->getText());
+      }
+      // input or output?
+      if (P->input() != nullptr || P->output() != nullptr) {
+        char in_or_out;
+        std::string ioname;
+        std::string strtype;
+        int tbl_size = 0;
+        if (P->input() != nullptr) {
+          in_or_out = 'i';
+          ioname  = P->input()->IDENTIFIER()->getText();
+          strtype = P->input()->TYPE()->getText();
+          if (P->input()->NUMBER() != nullptr) {
+            tbl_size = atoi(P->input()->NUMBER()->getText().c_str());
+          }
         } else {
-          sl_assert(P->READWRITE() != nullptr);
-          _context->allowed_reads.insert(P->IDENTIFIER()->getText());
-          _context->allowed_writes.insert(P->IDENTIFIER()->getText());
+          in_or_out = 'o';
+          ioname = P->output()->IDENTIFIER()->getText();
+          strtype = P->output()->TYPE()->getText();
+          if (P->output()->NUMBER() != nullptr) {
+            tbl_size = atoi(P->output()->NUMBER()->getText().c_str());
+          }
+        }
+        // check for name collisions
+        if ( m_InputNames.count(ioname) > 0
+          || m_OutputNames.count(ioname) > 0
+          || m_VarNames.count(ioname) > 0) {
+          throw Fatal("subroutine '%s' input/output '%s' is using the same name as a host VIO (line %d)",
+            name.c_str(),ioname.c_str(),sub->getStart()->getLine());
+        }
+        // insert temporary variable in host
+        t_var_nfo var;
+        var.name = in_or_out + "_" + ioname;
+        var.table_size = tbl_size;
+        splitType(strtype, var.base_type, var.width);
+        var.init_values.resize(max(var.table_size, 1), "0");
+        m_Vars.emplace_back(var);
+        m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
+        if (P->input() != nullptr) {
+          nfo.inputs.insert(std::make_pair(ioname, var.name));
+        } else {
+          nfo.outputs.insert(std::make_pair(ioname, var.name));
         }
       }
     }
     // parse the subroutine
+    _context->subroutine = &nfo;
     t_combinational_block *sub_last = gather(sub->instructionList(), subb, _context);
-    // clear any access constraints
-    _context->has_access_constraints = false;
-    _context->allowed_reads.clear();
-    _context->allowed_writes.clear();
+    _context->subroutine = nullptr;
     // add return from last
     sub_last->return_from();
     // subroutine has to be a state
     subb ->is_state = true;
     // record as a know subroutine
-    m_Subroutines.insert(std::make_pair(name,subb));
+    m_Subroutines.insert(std::make_pair(name,nfo));
     // keep going with current
     return _current;
   }
@@ -848,7 +897,7 @@ private:
     // has to be a state to return to
     block->is_state = true;
     // current goes to subroutine and return on next
-    _current->next_and_return_to(S->second, block);
+    _current->next_and_return_to(S->second.top_block, block);
     // return block after jump
     return block;
   }
@@ -1007,23 +1056,23 @@ private:
   /// \brief check the access permissions on assignements
   void checkAssignPermissions(siliceParser::AssignmentContext *assign, t_gather_context *_context)
   {
-    // any checks to perform?
-    if (!_context->has_access_constraints) {
-      return; // no, return
+    // in subroutine
+    if (_context->subroutine == nullptr) {
+      return; // no, return, no checks required
     }
     // yes: go ahead with checks
-    std::set<std::string> read, written;
-    determineVIOAccess(assign, m_VarNames, read, written);
+    std::unordered_set<std::string> read, written;
+    determineVIOAccess(assign, m_VarNames,    read, written);
     determineVIOAccess(assign, m_OutputNames, read, written);
-    determineVIOAccess(assign, m_InputNames, read, written);
+    determineVIOAccess(assign, m_InputNames,  read, written);
     // now verify all permissions are granted
     for (auto R : read) {
-      if (_context->allowed_reads.count(R) == 0) {
+      if (_context->subroutine->allowed_reads.count(R) == 0) {
         throw Fatal("variable '%s' is read by subroutine without explicit permission (line %d)",R.c_str(),assign->getStart()->getLine());
       }
     }
     for (auto W : written) {
-      if (_context->allowed_writes.count(W) == 0) {
+      if (_context->subroutine->allowed_writes.count(W) == 0) {
         throw Fatal("variable '%s' is written by subroutine without explicit permission (line %d)", W.c_str(), assign->getStart()->getLine());
       }
     }
@@ -1130,7 +1179,7 @@ private:
   void generateStates()
   {
     m_MaxState = 0;
-    std::set< t_combinational_block* > visited;
+    std::unordered_set< t_combinational_block* > visited;
     std::queue< t_combinational_block* > q;
     q.push(m_Blocks.front()); // start from main
     while (!q.empty()) {
@@ -1289,7 +1338,7 @@ private:
           throw Fatal("instance '%s' cannot be called as its input '%s' is bound (line %d)", 
             a.instance_name.c_str(), ins.name.c_str(), plist->getStart()->getLine());
         }
-        out << FF_D << a.instance_prefix << "_" << ins.name << " = " << prefixIdentifier(prefix, params[p++]) << ";" << std::endl;
+        out << FF_D << a.instance_prefix << "_" << ins.name << " = " << rewriteIdentifier(prefix, params[p++]) << ";" << std::endl;
       }
     }
     // restart algorithm (pulse run low)
@@ -1309,7 +1358,7 @@ private:
       // read outputs
       int p = 0;
       for (const auto& outs : a.algo->m_Outputs) {
-        out << prefixIdentifier(prefix, params[p++]) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
+        out << rewriteIdentifier(prefix, params[p++]) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
       }
     }
   }
@@ -1473,7 +1522,7 @@ private:
     } else {
       sl_assert(tblaccess->IDENTIFIER() != nullptr);
       std::string vname = tblaccess->IDENTIFIER()->getText();
-      out << prefixIdentifier(prefix, vname);
+      out << rewriteIdentifier(prefix, vname);
       // get width
       auto tws = determineIdentifierTypeWidthAndTableSize(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
       // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
@@ -1491,7 +1540,7 @@ private:
       writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id);
     } else {
       sl_assert(bitaccess->IDENTIFIER() != nullptr);
-      out << prefixIdentifier(prefix, bitaccess->IDENTIFIER()->getText());
+      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText());
     }
     out << '[' << rewriteExpression(prefix, bitaccess->first, __id) << "+:" << bitaccess->num->getText() << ']';
   }
@@ -1525,7 +1574,7 @@ private:
         throw Fatal("cannot assign a value to an input of the algorithm, input '%s' (line %d)", 
           identifier->getText().c_str(), identifier->getSymbol()->getLine());
       }
-      out << prefixIdentifier(prefix, identifier->getText());
+      out << rewriteIdentifier(prefix, identifier->getText());
     }
     out << " = " + rewriteExpression(prefix, expression_0, a.__id);
     out << ';' << std::endl;
@@ -1565,7 +1614,7 @@ private:
           out << "$display(" << display->STRING()->getText();
           if (display->displayParams() != nullptr) {
             for (auto p : display->displayParams()->IDENTIFIER()) {
-              out << "," << prefixIdentifier(prefix, p->getText(), display->getStart()->getLine());
+              out << "," << rewriteIdentifier(prefix, p->getText(), display->getStart()->getLine());
             }
           }
           out << ");" << std::endl;
@@ -1615,8 +1664,8 @@ private:
     /// \brief determine variables/inputs/outputs access within an instruction (from its tree)
     void determineVIOAccess(
       antlr4::tree::ParseTree* node,
-      const std::map<std::string,int>& vios,
-      std::set<std::string>& _read, std::set<std::string>& _written)
+      const std::unordered_map<std::string,int>& vios,
+      std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written)
     {
       if (node->children.empty()) {
         // deal with all read access
@@ -1706,8 +1755,8 @@ private:
     void determineVariablesAccess(t_combinational_block *block)
     {
       // determine variable access
-      std::set<std::string> already_read;
-      std::set<std::string> already_written;
+      std::unordered_set<std::string> already_read;
+      std::unordered_set<std::string> already_written;
       std::vector<t_instr_nfo> instr = block->instructions;
       if (block->if_then_else()) {
         instr.push_back(block->if_then_else()->test);
@@ -1719,8 +1768,8 @@ private:
         instr.push_back(block->while_loop()->test);
       }
       for (const auto& i : instr) {
-        std::set<std::string> read;
-        std::set<std::string> written;
+        std::unordered_set<std::string> read;
+        std::unordered_set<std::string> written;
         determineVIOAccess(i.instr,m_VarNames,read,written);
         // record which are read from outside
         for (auto r : read) {
@@ -1809,8 +1858,8 @@ private:
       auto blocks = m_Blocks;
       blocks.push_front(&m_Always);
       // merge all in_reads and out_written
-      std::set<std::string> global_in_read;
-      std::set<std::string> global_out_written;
+      std::unordered_set<std::string> global_in_read;
+      std::unordered_set<std::string> global_out_written;
       for (const auto& b : blocks) {
         global_in_read    .insert(b->in_vars_read.begin(),     b->in_vars_read.end());
         global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
@@ -1914,23 +1963,23 @@ private:
     void analyzeOutputsAccess()
     {
       // go through all instructions and determine access
-      std::set<std::string> global_read;
-      std::set<std::string> global_written;
+      std::unordered_set<std::string> global_read;
+      std::unordered_set<std::string> global_written;
       for (const auto& b : m_Blocks) {
         for (const auto& i : b->instructions) {
-          std::set<std::string> read;
-          std::set<std::string> written;
+          std::unordered_set<std::string> read;
+          std::unordered_set<std::string> written;
           determineVIOAccess(i.instr, m_OutputNames, read, written);
           global_read   .insert(read.begin(),    read.end());
           global_written.insert(written.begin(), written.end());
         }
       }
       // always block
-      std::set<std::string> always_read;
-      std::set<std::string> always_written;
+      std::unordered_set<std::string> always_read;
+      std::unordered_set<std::string> always_written;
       for (const auto& i : m_Always.instructions) {
-        std::set<std::string> read;
-        std::set<std::string> written;
+        std::unordered_set<std::string> read;
+        std::unordered_set<std::string> written;
         determineVIOAccess(i.instr, m_OutputNames, read, written);
         always_read   .insert(read.begin(), read.end());
         always_written.insert(written.begin(), written.end());
@@ -1983,7 +2032,7 @@ private:
 public:
 
   /// \brief constructor
-  Algorithm(std::string name, std::string clock, std::string reset, bool autorun, const std::map<std::string, AutoPtr<Module> >& known_modules)
+  Algorithm(std::string name, std::string clock, std::string reset, bool autorun, const std::unordered_map<std::string, AutoPtr<Module> >& known_modules)
     : m_Name(name), m_Clock(clock), m_Reset(reset), m_AutoRun(autorun), m_KnownModules(known_modules)
   {
     // init with empty always block
@@ -2018,7 +2067,7 @@ public:
   void autobindInstancedAlgorithm(t_algo_nfo& _alg);
 
   /// \brief resolve instanced algorithms refs
-  void resolveAlgorithmRefs(const std::map<std::string, AutoPtr<Algorithm> >& algorithms)
+  void resolveAlgorithmRefs(const std::unordered_map<std::string, AutoPtr<Algorithm> >& algorithms)
   {
     for (auto& nfo : m_InstancedAlgorithms) {
       const auto& A = algorithms.find(nfo.second.algo_name);
@@ -2040,7 +2089,7 @@ public:
   void autobindInstancedModule(t_module_nfo& _mod);
 
   /// \brief resolve instanced modules refs
-  void resolveModuleRefs(const std::map<std::string, AutoPtr<Module> >& modules)
+  void resolveModuleRefs(const std::unordered_map<std::string, AutoPtr<Module> >& modules)
   {
     for (auto& nfo : m_InstancedModules) {
       const auto& M = modules.find(nfo.second.module_name);
@@ -2466,8 +2515,8 @@ private:
   /// \brief writes all states in the output
   void writeCombinationalStates(std::string prefix, std::ostream& out) const
   {
-    std::set<size_t>   produced;
-    std::queue<size_t> q;
+    std::unordered_set<size_t> produced;
+    std::queue<size_t>         q;
     q.push(0); // starts at 0
     // states
     out << "case (" << FF_D << prefix << ALG_IDX << ")" << std::endl;

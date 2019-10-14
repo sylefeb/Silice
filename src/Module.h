@@ -26,6 +26,7 @@ the distribution, please refer to it for details.
 #include <fstream>
 #include <regex>
 #include <queue>
+#include <unordered_map>
 
 #include <LibSL/LibSL.h>
 
@@ -49,9 +50,9 @@ private:
 
   std::string m_Name;
 
-  std::map<std::string, t_binding_point_nfo> m_Inputs;
-  std::map<std::string, t_binding_point_nfo> m_Outputs;
-  std::map<std::string, t_binding_point_nfo> m_InOuts;
+  std::unordered_map<std::string, t_binding_point_nfo> m_Inputs;
+  std::unordered_map<std::string, t_binding_point_nfo> m_Outputs;
+  std::unordered_map<std::string, t_binding_point_nfo> m_InOuts;
 
   void gather(vmoduleParser::VmoduleContext *vmodule)
   {
@@ -138,9 +139,9 @@ public:
     return m_Inputs.at(name);
   }
 
-  const std::map<std::string, t_binding_point_nfo>& inputs()  const { return m_Inputs;  }
-  const std::map<std::string, t_binding_point_nfo>& outputs() const { return m_Outputs; }
-  const std::map<std::string, t_binding_point_nfo>& inouts()  const { return m_InOuts;  }
+  const std::unordered_map<std::string, t_binding_point_nfo>& inputs()  const { return m_Inputs;  }
+  const std::unordered_map<std::string, t_binding_point_nfo>& outputs() const { return m_Outputs; }
+  const std::unordered_map<std::string, t_binding_point_nfo>& inouts()  const { return m_InOuts;  }
 };
 
 // -------------------------------------------------

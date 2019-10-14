@@ -227,10 +227,10 @@ instructionList     :
 					| switchCase  instructionList
 					| ;
 
-subParam            : ( READ | WRITE | READWRITE ) IDENTIFIER
+subroutineParam     : ( READ | WRITE | READWRITE ) IDENTIFIER
 					| input | output ;
-subParamList        : (subParam ',')* subParam;
-subroutine          : SUB IDENTIFIER '(' subParamList ')' ':' declarationList instructionList RETURN ';' ;
+subroutineParamList : (subroutineParam ',')* subroutineParam;
+subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' ':' declarationList instructionList RETURN ';' ;
 subroutineList      : subroutine * ;
                     
 declAndInstrList    : declarationList 
