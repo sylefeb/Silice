@@ -87,7 +87,7 @@ private:
   enum e_VarUsage { e_Undetermined = 0, e_NotUsed = 1, e_Const = 2, e_Temporary = 3, e_FlipFlop = 4, e_Bound = 5, e_Assigned = 6 };
 
   /// \brief enum for IO types
-  enum e_IOType { e_Input, e_Output, e_InOut };
+  enum e_IOType { e_Input, e_Output, e_InOut, e_NotIO };
 
   /// \brief info about variables, inputs, outputs
   typedef struct {
@@ -185,10 +185,11 @@ private:
     t_combinational_block                          *top_block;
     std::unordered_set<std::string>                 allowed_reads;
     std::unordered_set<std::string>                 allowed_writes;
-    std::unordered_map< std::string, std::string >  inputs;  // [name => var] will be variables in host algorithm
-    std::unordered_map< std::string, std::string >  outputs; // [name => var] will be variables in host algorithm
+    std::unordered_map< std::string, std::pair<e_IOType, std::string> > vios;  // [name in subroutine => var in host]
+    std::vector<std::string>                        inputs;  // order list of input names
+    std::vector<std::string>                        outputs; // order list of output names
   };
-  std::unordered_map< std::string, t_subroutine_nfo > m_Subroutines;
+  std::unordered_map< std::string, t_subroutine_nfo* > m_Subroutines;
 
   /// \brief ending actions for blocks
   class t_end_action {
@@ -270,14 +271,15 @@ private:
   };
 
   /// \brief goto next with return
-  class end_action_next_and_return_to : public t_end_action
+  class end_action_call_subroutine_and_return_to : public t_end_action
   {
   public:
-    t_combinational_block        *next;
-    t_combinational_block        *return_to;
-    end_action_next_and_return_to(t_combinational_block *next_, t_combinational_block *return_to_) : next(next_), return_to(return_to_) {  }
-    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(next->id); _refs.push_back(return_to->id); }
-    void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); _ch.push_back(return_to); }
+    t_subroutine_nfo               *subroutine;
+    siliceParser::ParamListContext *params;
+    t_combinational_block          *return_to;
+    end_action_call_subroutine_and_return_to(t_subroutine_nfo *subroutine_, siliceParser::ParamListContext *params_, t_combinational_block *return_to_) : subroutine(subroutine_), params(params_), return_to(return_to_) {  }
+    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(subroutine->top_block->id); _refs.push_back(return_to->id); }
+    void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(subroutine->top_block); _ch.push_back(return_to); }
   };
 
   /// \brief a combinational block of code
@@ -293,6 +295,7 @@ private:
     int                              state_id = -1;        // state id, when assigned, -1 otherwise
     std::vector<t_instr_nfo>         instructions;         // list of instructions within block
     t_end_action                    *end_action = nullptr; // end action to perform
+    t_subroutine_nfo                *subroutine = nullptr; // if block belongs to a subroutine
     std::unordered_set<std::string>  in_vars_read;         // which variables are read from before
     std::unordered_set<std::string>  out_vars_written;     // which variables have been written after
     ~t_combinational_block() { swap_end(nullptr); }
@@ -334,11 +337,11 @@ private:
     }
     const end_action_return_from *return_from() const { return dynamic_cast<const end_action_return_from*>(end_action); }
 
-    void next_and_return_to(t_combinational_block *next, t_combinational_block *return_to)
+    void call_subroutine_and_return_to(t_subroutine_nfo *sub, siliceParser::ParamListContext *params, t_combinational_block *return_to)
     {
-      swap_end(new end_action_next_and_return_to(next, return_to));
+      swap_end(new end_action_call_subroutine_and_return_to(sub, params, return_to));
     }
-    const end_action_next_and_return_to *next_and_return_to() const { return dynamic_cast<const end_action_next_and_return_to*>(end_action); }
+    const end_action_call_subroutine_and_return_to *call_subroutine_and_return_to() const { return dynamic_cast<const end_action_call_subroutine_and_return_to*>(end_action); }
 
     void getRefs(std::vector<size_t>& _refs) const { if (end_action != nullptr) end_action->getRefs(_refs); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const { if (end_action != nullptr) end_action->getChildren(_ch); }
@@ -381,6 +384,11 @@ public:
       delete (B);
     }
     m_Blocks.clear();
+    // delete all subroutines
+    for (auto S : m_Subroutines) {
+      delete (S.second);
+    }
+    m_Subroutines.clear();
   }
 
 private:
@@ -628,7 +636,7 @@ private:
   }
 
   /// \brief returns the rewritten indentifier, taking into account bindings, inputs/outputs, custom clocks and resets
-  std::string rewriteIdentifier(std::string prefix, std::string var,size_t line = 0, std::string ff = FF_D) const
+  std::string rewriteIdentifier(std::string prefix, std::string var,const t_subroutine_nfo *sub,size_t line = 0, std::string ff = FF_D) const
   {
     if (var == ALG_RESET || var == ALG_CLOCK) {
       return var;
@@ -657,7 +665,17 @@ private:
     } else {
       auto V = m_VarNames.find(var);
       if (V == m_VarNames.end()) {
-        throw Fatal("variable '%s' was never declared (line %d)",var.c_str(),line);
+        // if in subroutine, check for inputs, outputs
+        if (sub != nullptr) {
+          auto Vsub = sub->vios.find(var);
+          if (Vsub == sub->vios.end()) {
+            throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
+          } else {
+            return ff + prefix + Vsub->second.second;
+          }
+        } else {
+          throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
+        }
       }
       if (m_Vars.at(V->second).usage == e_Bound) {
         // bound to an input/output
@@ -670,14 +688,14 @@ private:
   }
 
   /// \brief rewrite an expression, renaming identifiers
-  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id) const
+  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_subroutine_nfo* sub) const
   {
     std::string result;
     if (expr->children.empty()) {
       auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
       if (term) {
         if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-          return rewriteIdentifier(prefix, expr->getText(), term->getSymbol()->getLine());
+          return rewriteIdentifier(prefix, expr->getText(), sub, term->getSymbol()->getLine());
         } else if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
           return rewriteConstant(expr->getText());
         } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
@@ -695,12 +713,12 @@ private:
       auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
       if (access) {
         std::ostringstream ostr;
-        writeAccess(prefix, ostr, false, access, __id);
+        writeAccess(prefix, ostr, false, access, __id, sub);
         result = result + ostr.str();
       } else {
         // recurse
         for (auto c : expr->children) {
-          result = result + rewriteExpression(prefix, c, __id);
+          result = result + rewriteExpression(prefix, c, __id, sub);
         }
       }
     }
@@ -809,69 +827,70 @@ private:
   /// \brief gather a subroutine
   t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context)
   {
-    t_subroutine_nfo nfo;
+    t_subroutine_nfo *nfo = new t_subroutine_nfo;
     // subroutine block
     std::string name = sub->IDENTIFIER()->getText();
     t_combinational_block *subb = addBlock("__sub_" + name,(int)sub->getStart()->getLine());
-    nfo.top_block = subb;
+    subb->subroutine = nfo;
+    nfo ->top_block  = subb;
     // gather inputs/outputs and access constraints
     sl_assert(sub->subroutineParamList() != nullptr);
       // constraint?
     for (auto P : sub->subroutineParamList()->subroutineParam()) {
       if (P->READ() != nullptr) {
-        nfo.allowed_reads.insert(P->IDENTIFIER()->getText());
+        nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
       } else if (P->WRITE() != nullptr) {
-        nfo.allowed_writes.insert(P->IDENTIFIER()->getText());
-      } else {
-        sl_assert(P->READWRITE() != nullptr);
-        nfo.allowed_reads.insert(P->IDENTIFIER()->getText());
-        nfo.allowed_writes.insert(P->IDENTIFIER()->getText());
+        nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
+      } else if (P->READWRITE() != nullptr) {
+        nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
+        nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
       }
       // input or output?
       if (P->input() != nullptr || P->output() != nullptr) {
-        char in_or_out;
+        std::string in_or_out;
         std::string ioname;
         std::string strtype;
         int tbl_size = 0;
         if (P->input() != nullptr) {
-          in_or_out = 'i';
+          in_or_out = "i";
           ioname  = P->input()->IDENTIFIER()->getText();
           strtype = P->input()->TYPE()->getText();
           if (P->input()->NUMBER() != nullptr) {
             tbl_size = atoi(P->input()->NUMBER()->getText().c_str());
           }
+          nfo->inputs.push_back(ioname);
         } else {
-          in_or_out = 'o';
+          in_or_out = "o";
           ioname = P->output()->IDENTIFIER()->getText();
           strtype = P->output()->TYPE()->getText();
           if (P->output()->NUMBER() != nullptr) {
             tbl_size = atoi(P->output()->NUMBER()->getText().c_str());
           }
+          nfo->outputs.push_back(ioname);
         }
         // check for name collisions
-        if ( m_InputNames.count(ioname) > 0
+        if ( m_InputNames .count(ioname) > 0
           || m_OutputNames.count(ioname) > 0
-          || m_VarNames.count(ioname) > 0) {
-          throw Fatal("subroutine '%s' input/output '%s' is using the same name as a host VIO (line %d)",
+          || m_VarNames   .count(ioname) > 0
+          || ioname == m_Clock || ioname == m_Reset) {
+          throw Fatal("subroutine '%s' input/output '%s' is using the same name as a host VIO, clock or reset (line %d)",
             name.c_str(),ioname.c_str(),sub->getStart()->getLine());
         }
         // insert temporary variable in host
         t_var_nfo var;
-        var.name = in_or_out + "_" + ioname;
+        var.name = in_or_out + "_" + name  + "_" + ioname;
         var.table_size = tbl_size;
         splitType(strtype, var.base_type, var.width);
         var.init_values.resize(max(var.table_size, 1), "0");
         m_Vars.emplace_back(var);
         m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
-        if (P->input() != nullptr) {
-          nfo.inputs.insert(std::make_pair(ioname, var.name));
-        } else {
-          nfo.outputs.insert(std::make_pair(ioname, var.name));
-        }
+        nfo->vios.insert(std::make_pair(ioname, 
+          std::make_pair((P->input() != nullptr) ? e_Input : e_Output, var.name)
+        ));
       }
     }
     // parse the subroutine
-    _context->subroutine = &nfo;
+    _context->subroutine = nfo;
     t_combinational_block *sub_last = gather(sub->instructionList(), subb, _context);
     _context->subroutine = nullptr;
     // add return from last
@@ -885,19 +904,22 @@ private:
   }
 
   /// \brief gather a subroutine call
-  t_combinational_block *gatherSubroutineCall(siliceParser::SubCallContext* subcall, t_combinational_block *_current, t_gather_context *_context)
+  t_combinational_block *gatherSubroutineCall(siliceParser::SubroutineCallContext* subcall, t_combinational_block *_current, t_gather_context *_context)
   {
     // check subroutine is known
     auto S = m_Subroutines.find(subcall->IDENTIFIER()->getText());
     if (S == m_Subroutines.end()) {
       throw Fatal("subroutine '%s' not found (line %d)", subcall->IDENTIFIER()->getText().c_str(),subcall->getStart()->getLine());
     }
+    if (_context->subroutine) {
+      throw Fatal("cannot call a subroutine from another (line %d)", subcall->IDENTIFIER()->getText().c_str(), subcall->getStart()->getLine());
+    }
     // start a new block for after the subroutine call
     t_combinational_block *block = addBlock(generateBlockName());
     // has to be a state to return to
     block->is_state = true;
     // current goes to subroutine and return on next
-    _current->next_and_return_to(S->second.top_block, block);
+    _current->call_subroutine_and_return_to(S->second, subcall->paramList(), block);
     // return block after jump
     return block;
   }
@@ -1062,9 +1084,9 @@ private:
     }
     // yes: go ahead with checks
     std::unordered_set<std::string> read, written;
-    determineVIOAccess(assign, m_VarNames,    read, written);
-    determineVIOAccess(assign, m_OutputNames, read, written);
-    determineVIOAccess(assign, m_InputNames,  read, written);
+    determineVIOAccess(assign, m_VarNames,    nullptr, read, written);
+    determineVIOAccess(assign, m_OutputNames, nullptr, read, written);
+    determineVIOAccess(assign, m_InputNames,  nullptr, read, written);
     // now verify all permissions are granted
     for (auto R : read) {
       if (_context->subroutine->allowed_reads.count(R) == 0) {
@@ -1102,7 +1124,7 @@ private:
     auto sync    = dynamic_cast<siliceParser::AlgoSyncCallContext*>(tree);
     auto repeat  = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
     auto sub     = dynamic_cast<siliceParser::SubroutineContext*>(tree);
-    auto subcall = dynamic_cast<siliceParser::SubCallContext*>(tree);
+    auto subcall = dynamic_cast<siliceParser::SubroutineCallContext*>(tree);
     auto breakL  = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
 
     bool recurse = true;
@@ -1308,11 +1330,18 @@ private:
   }
 
   /// \brief extract the ordered list of parameters
-  void getParams(siliceParser::ParamListContext *params, std::vector<std::string>& _vec_params) const
+  void getParams(siliceParser::ParamListContext *params, std::vector<std::string>& _vec_params, const t_subroutine_nfo *sub) const
   {
     if (params == nullptr) return;
     while (params->IDENTIFIER() != nullptr) {
-      _vec_params.push_back(params->IDENTIFIER()->getText());
+      std::string var = params->IDENTIFIER()->getText();
+      if (sub) { // if in subroutine overwrite variable names
+        auto V = sub->vios.find(var);
+        if (V != sub->vios.end()) {
+          var = V->second.second;
+        }
+      }
+      _vec_params.push_back(var);
       params = params->paramList();
       if (params == nullptr) return;
     }
@@ -1321,10 +1350,10 @@ private:
 private:
 
   /// \brief writes a call to an algorithm
-  void writeCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist) const
+  void writeCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub) const
   {
     std::vector<std::string> params;
-    getParams(plist, params);
+    getParams(plist, params, sub);
     // if params are empty we simply call, otherwise we set the inputs
     if (!params.empty()) {
       if (a.algo->m_Inputs.size() != params.size()) {
@@ -1338,7 +1367,7 @@ private:
           throw Fatal("instance '%s' cannot be called as its input '%s' is bound (line %d)", 
             a.instance_name.c_str(), ins.name.c_str(), plist->getStart()->getLine());
         }
-        out << FF_D << a.instance_prefix << "_" << ins.name << " = " << rewriteIdentifier(prefix, params[p++]) << ";" << std::endl;
+        out << FF_D << a.instance_prefix << "_" << ins.name << " = " << rewriteIdentifier(prefix, params[p++], sub) << ";" << std::endl;
       }
     }
     // restart algorithm (pulse run low)
@@ -1346,10 +1375,10 @@ private:
   }
 
   /// \brief writes reading back the results of an algorithm
-  void writeReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist) const
+  void writeReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub) const
   {
     std::vector<std::string> params;
-    getParams(plist, params);
+    getParams(plist, params, sub);
     // if params are empty we simply wait, otherwise we set the outputs
     if (!params.empty()) {
       if (a.algo->m_Outputs.size() != params.size()) {
@@ -1358,7 +1387,7 @@ private:
       // read outputs
       int p = 0;
       for (const auto& outs : a.algo->m_Outputs) {
-        out << rewriteIdentifier(prefix, params[p++]) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
+        out << rewriteIdentifier(prefix, params[p++], sub) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
       }
     }
   }
@@ -1514,46 +1543,46 @@ private:
   }
 
   /// \brief writes access to a table in/out
-  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id) const
+  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_subroutine_nfo* sub) const
   {
     if (tblaccess->ioAccess() != nullptr) {
       t_inout_nfo nfo = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess());
-      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id) << ")*" << nfo.width << "+:" << nfo.width << ']';
+      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub) << ")*" << nfo.width << "+:" << nfo.width << ']';
     } else {
       sl_assert(tblaccess->IDENTIFIER() != nullptr);
       std::string vname = tblaccess->IDENTIFIER()->getText();
-      out << rewriteIdentifier(prefix, vname);
+      out << rewriteIdentifier(prefix, vname, sub);
       // get width
       auto tws = determineIdentifierTypeWidthAndTableSize(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
       // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
-      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id) << ")*" << std::get<1>(tws) << "+:" << std::get<1>(tws) << ']';
+      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub) << ")*" << std::get<1>(tws) << "+:" << std::get<1>(tws) << ']';
     }
   }
 
   /// \brief writes access to bits
-  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id) const
+  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_subroutine_nfo* sub) const
   {
     // TODO: check access validity
     if (bitaccess->ioAccess() != nullptr) {
       writeIOAccess(prefix, out, assigning, bitaccess->ioAccess());
     } else if (bitaccess->tableAccess() != nullptr) {
-      writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id);
+      writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, sub);
     } else {
       sl_assert(bitaccess->IDENTIFIER() != nullptr);
-      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText());
+      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub);
     }
-    out << '[' << rewriteExpression(prefix, bitaccess->first, __id) << "+:" << bitaccess->num->getText() << ']';
+    out << '[' << rewriteExpression(prefix, bitaccess->first, __id, sub) << "+:" << bitaccess->num->getText() << ']';
   }
 
   /// \brief writes access to an identfier
-  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id) const
+  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_subroutine_nfo* sub) const
   {
     if (access->ioAccess() != nullptr) {
       writeIOAccess(prefix, out, assigning, access->ioAccess());
     } else if (access->tableAccess() != nullptr) {
-      writeTableAccess(prefix, out, assigning, access->tableAccess(), __id);
+      writeTableAccess(prefix, out, assigning, access->tableAccess(), __id, sub);
     } else if (access->bitAccess() != nullptr) {
-      writeBitAccess(prefix, out, assigning, access->bitAccess(), __id);
+      writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, sub);
     }
   }
 
@@ -1562,11 +1591,12 @@ private:
     const t_instr_nfo& a, 
     siliceParser::AccessContext *access,
     antlr4::tree::TerminalNode* identifier,
-    siliceParser::Expression_0Context *expression_0) const
+    siliceParser::Expression_0Context *expression_0,
+    const t_subroutine_nfo* sub) const
   {
     if (access) {
       // table, output or bits
-      writeAccess(prefix, out, true, access, a.__id);
+      writeAccess(prefix, out, true, access, a.__id, sub);
     } else {
       sl_assert(identifier != nullptr);
       // variable
@@ -1574,9 +1604,9 @@ private:
         throw Fatal("cannot assign a value to an input of the algorithm, input '%s' (line %d)", 
           identifier->getText().c_str(), identifier->getSymbol()->getLine());
       }
-      out << rewriteIdentifier(prefix, identifier->getText());
+      out << rewriteIdentifier(prefix, identifier->getText(), sub);
     }
-    out << " = " + rewriteExpression(prefix, expression_0, a.__id);
+    out << " = " + rewriteExpression(prefix, expression_0, a.__id, sub);
     out << ';' << std::endl;
 
   }
@@ -1589,14 +1619,14 @@ private:
       {
         auto assign = dynamic_cast<siliceParser::AssignmentContext*>(a.instr);
         if (assign) {
-          writeAssignement(prefix, out, a, assign->access(), assign->IDENTIFIER(), assign->expression_0());
+          writeAssignement(prefix, out, a, assign->access(), assign->IDENTIFIER(), assign->expression_0(), block->subroutine);
         }
       } {
         auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(a.instr);
         if (alw) {
           if (alw->ALWSASSIGNDBL() != nullptr) {
             std::ostringstream ostr;
-            writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
+            writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine);
             // modify assignement to insert temporary var
             std::size_t pos    = ostr.str().find('=');
             std::string lvalue = ostr.str().substr(0, pos - 1);
@@ -1605,7 +1635,7 @@ private:
             out << lvalue << " = " << FF_D << tmpvar << ';' << std::endl;
             out << FF_D << tmpvar << " = " << rvalue; // rvalue contains ";\n"
           } else {
-            writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0());
+            writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine);
           }
         }
       } {
@@ -1614,7 +1644,7 @@ private:
           out << "$display(" << display->STRING()->getText();
           if (display->displayParams() != nullptr) {
             for (auto p : display->displayParams()->IDENTIFIER()) {
-              out << "," << rewriteIdentifier(prefix, p->getText(), display->getStart()->getLine());
+              out << "," << rewriteIdentifier(prefix, p->getText(), block->subroutine, display->getStart()->getLine());
             }
           }
           out << ");" << std::endl;
@@ -1628,7 +1658,7 @@ private:
             throw Fatal("cannot find algorithm '%s' on asynchronous call (line %d)",
               async->IDENTIFIER()->getText().c_str(),async->getStart()->getLine());
           } else {
-            writeCall(prefix, out, A->second, async->paramList());
+            writeCall(prefix, out, A->second, async->paramList(), block->subroutine);
           }
         }
       } {
@@ -1640,7 +1670,7 @@ private:
             throw Fatal("cannot find algorithm '%s' on synchronous call (line %d)",
               sync->algoJoin()->IDENTIFIER()->getText().c_str(), sync->getStart()->getLine());
           } else {
-            writeCall(prefix, out, A->second, sync->paramList());
+            writeCall(prefix, out, A->second, sync->paramList(), block->subroutine);
           }
         }
       } {
@@ -1652,7 +1682,7 @@ private:
             throw Fatal("cannot find algorithm '%s' to join with (line %d)",
               join->IDENTIFIER()->getText().c_str(), join->getStart()->getLine());
           } else {
-            writeReadback(prefix, out, A->second, join->paramList());
+            writeReadback(prefix, out, A->second, join->paramList(), block->subroutine);
           }
         }
       }
@@ -1663,23 +1693,30 @@ private:
 
     /// \brief determine variables/inputs/outputs access within an instruction (from its tree)
     void determineVIOAccess(
-      antlr4::tree::ParseTree* node,
+      antlr4::tree::ParseTree*                   node,
       const std::unordered_map<std::string,int>& vios,
+      t_subroutine_nfo                          *sub,
       std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written)
     {
       if (node->children.empty()) {
-        // deal with all read access
+        // read accesses are children
         auto term = dynamic_cast<antlr4::tree::TerminalNode*>(node);
         if (term) {
           if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
             std::string var = term->getText();
+            if (sub) { // override name if in subroutine
+              auto V = sub->vios.find(var);
+              if (V != sub->vios.end()) {
+                var = V->second.second;
+              }
+            }
             if (vios.find(var) != vios.end()) {
               _read.insert(var);
             }
           }
         }
       } else {
-        // explicitely track writes
+        // track writes explicitely
         bool recurse = true;
         {
           auto assign = dynamic_cast<siliceParser::AssignmentContext*>(node);
@@ -1696,10 +1733,16 @@ private:
             } else {
               var = assign->IDENTIFIER()->getText();
             }
+            if (sub) { // override name if in subroutine
+              auto V = sub->vios.find(var);
+              if (V != sub->vios.end()) {
+                var = V->second.second;
+              }
+            }
             if (!var.empty() && vios.find(var) != vios.end()) {
               _written.insert(var);
             }
-            determineVIOAccess(assign->expression_0(), vios, _read,_written);
+            determineVIOAccess(assign->expression_0(), vios, sub, _read,_written);
             recurse = false;
           }
         } {
@@ -1717,6 +1760,12 @@ private:
             } else {
               var = alw->IDENTIFIER()->getText();
             }
+            if (sub) { // override name if in subroutine
+              auto V = sub->vios.find(var);
+              if (V != sub->vios.end()) {
+                var = V->second.second;
+              }
+            }
             if (vios.find(var) != vios.end()) {
               _written.insert(var);
             }
@@ -1726,14 +1775,14 @@ private:
               _read   .insert(tmpvar);
               _written.insert(tmpvar);
             }
-            determineVIOAccess(alw->expression_0(), vios, _read, _written);
+            determineVIOAccess(alw->expression_0(), vios, sub, _read, _written);
             recurse = false;
           }
         } {
           auto join = dynamic_cast<siliceParser::AlgoJoinContext*>(node);
           if (join) {
             std::vector<std::string> params;
-            getParams(join->paramList(), params);
+            getParams(join->paramList(), params, sub);
             for (const auto& var : params) {
               if (vios.find(var) != vios.end()) {
                 _written.insert(var);
@@ -1745,7 +1794,7 @@ private:
         // recurse
         if (recurse) {
           for (auto c : node->children) {
-            determineVIOAccess(c, vios, _read, _written);
+            determineVIOAccess(c, vios, sub, _read, _written);
           }
         }
       }
@@ -1770,7 +1819,7 @@ private:
       for (const auto& i : instr) {
         std::unordered_set<std::string> read;
         std::unordered_set<std::string> written;
-        determineVIOAccess(i.instr,m_VarNames,read,written);
+        determineVIOAccess(i.instr, m_VarNames, block->subroutine, read, written);
         // record which are read from outside
         for (auto r : read) {
           // if read and not written before in block
@@ -1969,7 +2018,7 @@ private:
         for (const auto& i : b->instructions) {
           std::unordered_set<std::string> read;
           std::unordered_set<std::string> written;
-          determineVIOAccess(i.instr, m_OutputNames, read, written);
+          determineVIOAccess(i.instr, m_OutputNames, b->subroutine, read, written);
           global_read   .insert(read.begin(),    read.end());
           global_written.insert(written.begin(), written.end());
         }
@@ -1980,7 +2029,7 @@ private:
       for (const auto& i : m_Always.instructions) {
         std::unordered_set<std::string> read;
         std::unordered_set<std::string> written;
-        determineVIOAccess(i.instr, m_OutputNames, read, written);
+        determineVIOAccess(i.instr, m_OutputNames, nullptr, read, written);
         always_read   .insert(read.begin(), read.end());
         always_written.insert(written.begin(), written.end());
       }
@@ -2420,7 +2469,7 @@ private:
       if (current->next()) {
         current = current->next()->next;
       } else if (current->if_then_else()) {
-        out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id) << ") begin" << std::endl;
+        out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, current->subroutine) << ") begin" << std::endl;
         // recurse if
         writeStatelessBlockGraph(prefix, out, current->if_then_else()->if_next, current->if_then_else()->after, _q);
         out << "end else begin" << std::endl;
@@ -2434,7 +2483,7 @@ private:
           current = current->if_then_else()->after; // yes!
         }
       } else if (current->switch_case()) {
-        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id) << ")" << std::endl;
+        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, current->subroutine) << ")" << std::endl;
         // recurse block
         for (auto cb : current->switch_case()->case_blocks) {
           out << "  " << cb.first << ": begin" << std::endl;
@@ -2451,7 +2500,7 @@ private:
         }
       } else if (current->while_loop()) {
         // while
-        out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id) << ") begin" << std::endl;
+        out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, current->subroutine) << ") begin" << std::endl;
         writeStatelessBlockGraph(prefix, out, current->while_loop()->iteration, current->while_loop()->after, _q);
         out << "end else begin" << std::endl;
         out << FF_D << prefix << ALG_IDX " = " << fastForward(current->while_loop()->after)->state_id << ";" << std::endl;
@@ -2462,13 +2511,28 @@ private:
         // return to caller
         out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN << ";" << std::endl;
         return;
-      } else if (current->next_and_return_to()) {
+      } else if (current->call_subroutine_and_return_to()) {
+        // write parameters
+        std::vector<std::string> params;
+        getParams(current->call_subroutine_and_return_to()->params, params, nullptr /*subroutines cannot call other subroutines: the call is necessarily in an algorithm block*/);
+        // check number of params
+        if (params.size() != current->call_subroutine_and_return_to()->subroutine->inputs.size()) {
+          throw Fatal("incorrect number of parameters in subroutine call (line %d)",
+            current->call_subroutine_and_return_to()->params->getStart()->getLine());
+        }
+        // copy inputs
+        int p = 0;
+        auto vios = current->call_subroutine_and_return_to()->subroutine->vios;
+        for (auto i : current->call_subroutine_and_return_to()->subroutine->inputs) {
+          auto vio = vios.at(i);
+          out << FF_D << "_" << vio.second << " = " << rewriteIdentifier(prefix,params[p++],nullptr) << std::endl;
+        }
         // goto subroutine
-        out << FF_D << prefix << ALG_IDX " = " << fastForward(current->next_and_return_to()->next)->state_id << ";" << std::endl;
-        pushState(current->next_and_return_to()->next, _q);
+        out << FF_D << prefix << ALG_IDX " = " << fastForward(current->call_subroutine_and_return_to()->subroutine->top_block)->state_id << ";" << std::endl;
+        pushState(current->call_subroutine_and_return_to()->subroutine->top_block, _q);
         // set return index
-        out << FF_D << prefix << ALG_RETURN " = " << fastForward(current->next_and_return_to()->return_to)->state_id << ";" << std::endl;
-        pushState(current->next_and_return_to()->return_to, _q);
+        out << FF_D << prefix << ALG_RETURN " = " << fastForward(current->call_subroutine_and_return_to()->return_to)->state_id << ";" << std::endl;
+        pushState(current->call_subroutine_and_return_to()->return_to, _q);
         return;
       } else if (current->wait()) {
         // wait for algorithm

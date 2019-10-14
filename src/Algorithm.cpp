@@ -159,7 +159,7 @@ void Algorithm::writeAsModule(ostream& out) const
       first = false;
       if (b.dir == e_Left) {
         out << '.' << b.left << '(' 
-          << rewriteIdentifier("_", b.right, nfo.second.instance_line)
+          << rewriteIdentifier("_", b.right, nullptr, nfo.second.instance_line)
           << ")";
       } else if (b.dir == e_Right) {
         out << '.' << b.left << '(' << wire_prefix + "_" + b.left << ")";
@@ -176,15 +176,15 @@ void Algorithm::writeAsModule(ostream& out) const
     // algorithm module
     out << "M_" << nfo.second.algo_name << ' ' << nfo.second.instance_name << '(' << endl;
     // clock
-    out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.second.instance_clock, nfo.second.instance_line, FF_Q) << ")," << endl;
+    out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.second.instance_clock, nullptr, nfo.second.instance_line, FF_Q) << ")," << endl;
     // reset
-    out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.second.instance_reset, nfo.second.instance_line, FF_Q) << ")," << endl;
+    out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.second.instance_reset, nullptr, nfo.second.instance_line, FF_Q) << ")," << endl;
     // inputs
     for (const auto &is : nfo.second.algo->m_Inputs) {
       out << '.' << ALG_INPUT << '_' << is.name << '(';
       if (nfo.second.boundinputs.count(is.name) > 0) {
         // input is bound, directly map bound VIO
-        out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name), nfo.second.instance_line);
+        out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name), nullptr, nfo.second.instance_line);
       } else {
         // input is not bound and assigned in logic, input is a flip-flop
         out << FF_D;

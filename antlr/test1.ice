@@ -6,6 +6,8 @@ algorithm main(output int8 led)
     c = a + d;
   return;
 
+  call test(b,d);
+
 /*
   alg test(a:> b,c :> d, <:auto:> );
 
