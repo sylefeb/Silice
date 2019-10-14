@@ -4,9 +4,7 @@ algorithm main(output int8 led)
   
   subroutine test(output uint8 c,input uint8 d,reads a):
     c = a + d;
-  return;
-
-  call test(b,d);
+    return;
 
 /*
   alg test(a:> b,c :> d, <:auto:> );

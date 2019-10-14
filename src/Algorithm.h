@@ -271,15 +271,14 @@ private:
   };
 
   /// \brief goto next with return
-  class end_action_call_subroutine_and_return_to : public t_end_action
+  class end_action_goto_and_return_to : public t_end_action
   {
   public:
-    t_subroutine_nfo               *subroutine;
-    siliceParser::ParamListContext *params;
+    t_combinational_block          *go_to;
     t_combinational_block          *return_to;
-    end_action_call_subroutine_and_return_to(t_subroutine_nfo *subroutine_, siliceParser::ParamListContext *params_, t_combinational_block *return_to_) : subroutine(subroutine_), params(params_), return_to(return_to_) {  }
-    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(subroutine->top_block->id); _refs.push_back(return_to->id); }
-    void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(subroutine->top_block); _ch.push_back(return_to); }
+    end_action_goto_and_return_to(t_combinational_block* go_to_, t_combinational_block *return_to_) : go_to(go_to_), return_to(return_to_) {  }
+    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(go_to->id); _refs.push_back(return_to->id); }
+    void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(go_to); _ch.push_back(return_to); }
   };
 
   /// \brief a combinational block of code
@@ -337,11 +336,11 @@ private:
     }
     const end_action_return_from *return_from() const { return dynamic_cast<const end_action_return_from*>(end_action); }
 
-    void call_subroutine_and_return_to(t_subroutine_nfo *sub, siliceParser::ParamListContext *params, t_combinational_block *return_to)
+    void goto_and_return_to(t_combinational_block* go_to,t_combinational_block *return_to)
     {
-      swap_end(new end_action_call_subroutine_and_return_to(sub, params, return_to));
+      swap_end(new end_action_goto_and_return_to(go_to, return_to));
     }
-    const end_action_call_subroutine_and_return_to *call_subroutine_and_return_to() const { return dynamic_cast<const end_action_call_subroutine_and_return_to*>(end_action); }
+    const end_action_goto_and_return_to * goto_and_return_to() const { return dynamic_cast<const end_action_goto_and_return_to*>(end_action); }
 
     void getRefs(std::vector<size_t>& _refs) const { if (end_action != nullptr) end_action->getRefs(_refs); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const { if (end_action != nullptr) end_action->getChildren(_ch); }
@@ -359,7 +358,7 @@ private:
   ///brief information about a forward jump
   typedef struct {
     t_combinational_block     *from;
-    siliceParser::JumpContext *jump;
+    antlr4::ParserRuleContext *jump;
   } t_forward_jump;
 
   /// \brief always block
@@ -762,28 +761,6 @@ private:
     }
   }
 
-  /// \brief gather info about jumps
-  t_combinational_block *gatherJump(siliceParser::JumpContext* jump, t_combinational_block *_current, t_gather_context *_context)
-  {
-    std::string name = jump->IDENTIFIER()->getText();
-    auto B = m_State2Block.find(name);
-    if (B == m_State2Block.end()) {
-      // forward reference
-      _current->next(nullptr);
-      t_forward_jump j;
-      j.from = _current;
-      j.jump = jump;
-      m_JumpForwardRefs[name].push_back(j);
-    } else {
-      _current->next(B->second);
-      B->second->is_state = true; // destination has to be a state
-    }
-    // start a new block just after the jump
-    t_combinational_block *block = addBlock(generateBlockName());
-    // return block after jump
-    return block;
-  }
-
   /// \brief gather a break from loop
   t_combinational_block *gatherBreakLoop(siliceParser::BreakLoopContext* subcall, t_combinational_block *_current, t_gather_context *_context)
   {
@@ -903,24 +880,61 @@ private:
     return _current;
   }
 
-  /// \brief gather a subroutine call
-  t_combinational_block *gatherSubroutineCall(siliceParser::SubroutineCallContext* subcall, t_combinational_block *_current, t_gather_context *_context)
+  /// \brief gather a jump
+  t_combinational_block* gatherJump(siliceParser::JumpContext* jump, t_combinational_block* _current, t_gather_context* _context)
   {
-    // check subroutine is known
-    auto S = m_Subroutines.find(subcall->IDENTIFIER()->getText());
-    if (S == m_Subroutines.end()) {
-      throw Fatal("subroutine '%s' not found (line %d)", subcall->IDENTIFIER()->getText().c_str(),subcall->getStart()->getLine());
+    std::string name = jump->IDENTIFIER()->getText();
+    auto B = m_State2Block.find(name);
+    if (B == m_State2Block.end()) {
+      // forward reference
+      _current->next(nullptr);
+      t_forward_jump j;
+      j.from = _current;
+      j.jump = jump;
+      m_JumpForwardRefs[name].push_back(j);
+    } else {
+      _current->next(B->second);
+      B->second->is_state = true; // destination has to be a state
     }
-    if (_context->subroutine) {
-      throw Fatal("cannot call a subroutine from another (line %d)", subcall->IDENTIFIER()->getText().c_str(), subcall->getStart()->getLine());
-    }
-    // start a new block for after the subroutine call
-    t_combinational_block *block = addBlock(generateBlockName());
-    // has to be a state to return to
-    block->is_state = true;
-    // current goes to subroutine and return on next
-    _current->call_subroutine_and_return_to(S->second, subcall->paramList(), block);
+    // start a new block just after the jump
+    t_combinational_block* after = addBlock(generateBlockName());
     // return block after jump
+    return after;
+  }
+
+  /// \brief gather a call
+  t_combinational_block *gatherCall(siliceParser::CallContext* call, t_combinational_block *_current, t_gather_context *_context)
+  {
+    // start a new block just after the call
+    t_combinational_block* after = addBlock(generateBlockName());
+    // has to be a state to return to
+    after->is_state = true;
+    // find the destination
+    std::string name = call->IDENTIFIER()->getText();
+    auto B = m_State2Block.find(name);
+    if (B == m_State2Block.end()) {
+      // forward reference
+      _current->goto_and_return_to(nullptr, after);
+      t_forward_jump j;
+      j.from = _current;
+      j.jump = call;
+      m_JumpForwardRefs[name].push_back(j);
+    } else {
+      // current goes there and return on next
+      _current->goto_and_return_to(B->second, after);
+      B->second->is_state = true; // destination has to be a state
+    }
+    // return block after call
+    return after;
+  }
+
+  /// \brief gather a return
+  t_combinational_block* gatherReturnFrom(siliceParser::ReturnFromContext* ret, t_combinational_block* _current, t_gather_context* _context)
+  {
+    // add return at end of current
+    _current->return_from();
+    // start a new block
+    t_combinational_block* block = addBlock(generateBlockName());
     return block;
   }
 
@@ -1124,7 +1138,8 @@ private:
     auto sync    = dynamic_cast<siliceParser::AlgoSyncCallContext*>(tree);
     auto repeat  = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
     auto sub     = dynamic_cast<siliceParser::SubroutineContext*>(tree);
-    auto subcall = dynamic_cast<siliceParser::SubroutineCallContext*>(tree);
+    auto call    = dynamic_cast<siliceParser::CallContext*>(tree);
+    auto ret     = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
     auto breakL  = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
 
     bool recurse = true;
@@ -1146,8 +1161,9 @@ private:
     else if (always)  { gatherAlwaysAssigned(always);                             recurse = false; }
     else if (repeat)  { _current = gatherRepeatBlock(repeat, _current, _context); recurse = false; } 
     else if (sub)     { _current = gatherSubroutine(sub, _current, _context);     recurse = false; }
-    else if (subcall) { _current = gatherSubroutineCall(subcall, _current, _context); }
+    else if (call)    { _current = gatherCall(call, _current, _context); }
     else if (jump)    { _current = gatherJump(jump, _current, _context); }
+    else if (ret)     { _current = gatherReturnFrom(ret, _current, _context); }
     else if (breakL)  { _current = gatherBreakLoop(breakL, _current, _context); }
     else if (join)    { _current = gatherJoinCall(join, _current, _context); }
     else if (assign)  { checkAssignPermissions(assign,_context);  _current->instructions.push_back(t_instr_nfo(assign, _context->__id)); }
@@ -1190,7 +1206,16 @@ private:
         throw Fatal("%s",msg.c_str());
       } else {
         for (auto& j : refs.second) {
-          j.from->next(B->second);
+          if (dynamic_cast<siliceParser::JumpContext*>(j.jump)) {
+            // update jump
+            j.from->next(B->second);
+          } else if (dynamic_cast<siliceParser::CallContext*>(j.jump)) {
+            // update call
+            const end_action_goto_and_return_to* gaf = j.from->goto_and_return_to();
+            j.from->goto_and_return_to(B->second,gaf->return_to);
+          } else {
+            sl_assert(false);
+          }
           B->second->is_state = true; // destination has to be a state
         }
       }
@@ -1350,7 +1375,7 @@ private:
 private:
 
   /// \brief writes a call to an algorithm
-  void writeCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub) const
+  void writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub) const
   {
     std::vector<std::string> params;
     getParams(plist, params, sub);
@@ -1658,7 +1683,7 @@ private:
             throw Fatal("cannot find algorithm '%s' on asynchronous call (line %d)",
               async->IDENTIFIER()->getText().c_str(),async->getStart()->getLine());
           } else {
-            writeCall(prefix, out, A->second, async->paramList(), block->subroutine);
+            writeAlgorithmCall(prefix, out, A->second, async->paramList(), block->subroutine);
           }
         }
       } {
@@ -1670,7 +1695,7 @@ private:
             throw Fatal("cannot find algorithm '%s' on synchronous call (line %d)",
               sync->algoJoin()->IDENTIFIER()->getText().c_str(), sync->getStart()->getLine());
           } else {
-            writeCall(prefix, out, A->second, sync->paramList(), block->subroutine);
+            writeAlgorithmCall(prefix, out, A->second, sync->paramList(), block->subroutine);
           }
         }
       } {
@@ -2321,14 +2346,14 @@ private:
       out << FF_Q << prefix << ALG_IDX   " <= " << terminationState() << ";" << std::endl;
     } else {
       // autorun: jump to first state
-      out << FF_Q << prefix << ALG_IDX   " <= 0;" << std::endl;
+      out << FF_Q << prefix << ALG_IDX   " <= " << fastForward(m_Blocks.front())->state_id << ";" << std::endl;
     }
     out << "end else begin" << std::endl;
     // -> on restart, jump to first state
-    out << FF_Q << prefix << ALG_IDX   " <= 0;" << std::endl;
+    out << FF_Q << prefix << ALG_IDX   " <= " << fastForward(m_Blocks.front())->state_id << ";" << std::endl;
     out << "end" << std::endl;
     // return index for subroutines
-    out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
+    out << FF_Q << prefix << ALG_RETURN " <= " << terminationState() << ";" << std::endl;
     
     /// updates on clockpos
     out << "  end else begin" << std::endl;
@@ -2508,31 +2533,18 @@ private:
         out << "end" << std::endl;
         return;
       } else if (current->return_from()) {
-        // return to caller
+        // return to caller (goes to termination of algorithm is not set)
         out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN << ";" << std::endl;
+        // reset return index
+        out << FF_D << prefix << ALG_RETURN " = " << terminationState() << ";" << std::endl;
         return;
-      } else if (current->call_subroutine_and_return_to()) {
-        // write parameters
-        std::vector<std::string> params;
-        getParams(current->call_subroutine_and_return_to()->params, params, nullptr /*subroutines cannot call other subroutines: the call is necessarily in an algorithm block*/);
-        // check number of params
-        if (params.size() != current->call_subroutine_and_return_to()->subroutine->inputs.size()) {
-          throw Fatal("incorrect number of parameters in subroutine call (line %d)",
-            current->call_subroutine_and_return_to()->params->getStart()->getLine());
-        }
-        // copy inputs
-        int p = 0;
-        auto vios = current->call_subroutine_and_return_to()->subroutine->vios;
-        for (auto i : current->call_subroutine_and_return_to()->subroutine->inputs) {
-          auto vio = vios.at(i);
-          out << FF_D << "_" << vio.second << " = " << rewriteIdentifier(prefix,params[p++],nullptr) << std::endl;
-        }
+      } else if (current->goto_and_return_to()) {
         // goto subroutine
-        out << FF_D << prefix << ALG_IDX " = " << fastForward(current->call_subroutine_and_return_to()->subroutine->top_block)->state_id << ";" << std::endl;
-        pushState(current->call_subroutine_and_return_to()->subroutine->top_block, _q);
+        out << FF_D << prefix << ALG_IDX " = " << fastForward(current->goto_and_return_to()->go_to)->state_id << ";" << std::endl;
+        pushState(current->goto_and_return_to()->go_to, _q);
         // set return index
-        out << FF_D << prefix << ALG_RETURN " = " << fastForward(current->call_subroutine_and_return_to()->return_to)->state_id << ";" << std::endl;
-        pushState(current->call_subroutine_and_return_to()->return_to, _q);
+        out << FF_D << prefix << ALG_RETURN " = " << fastForward(current->goto_and_return_to()->return_to)->state_id << ";" << std::endl;
+        pushState(current->goto_and_return_to()->return_to, _q);
         return;
       } else if (current->wait()) {
         // wait for algorithm

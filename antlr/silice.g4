@@ -177,7 +177,8 @@ algoSyncCall        : algoJoin LARROW '(' paramList ')' ;
 
 state               : state_name=IDENTIFIER ':' | NEXT ;
 jump                : GOTO IDENTIFIER ;
-subroutineCall      : CALL IDENTIFIER '(' paramList ')' ;
+call                : CALL IDENTIFIER ;
+returnFrom          : RETURN ;
 breakLoop           : BREAK ;
 
 block               : '{' instructionList '}';
@@ -195,7 +196,8 @@ instruction         : assignment
                     | algoAsyncCall
                     | algoJoin
                     | jump
-                    | subroutineCall
+                    | call
+					| returnFrom
                     | breakLoop
 					| display
                     ;
