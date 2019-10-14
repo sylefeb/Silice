@@ -202,6 +202,17 @@ instruction         : assignment
 
 repeatBlock         : REPEATCNT '{' instructionList '}' ;
 
+/* -- Inputs/outputs -- */
+
+inout               : 'inout' TYPE IDENTIFIER 
+                    | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
+input               : 'input' TYPE IDENTIFIER 
+                    | 'input' TYPE IDENTIFIER '[' NUMBER ']';
+output              : 'output' TYPE IDENTIFIER
+                    | 'output' TYPE IDENTIFIER '[' NUMBER ']';
+inOrOut             :  input | output | inout ;
+inOutList           :  (inOrOut ',') * inOrOut | ;
+
 /* -- Declarations, subroutines, instruction lists -- */
 
 declarationList     : declaration ';' declarationList | ;
@@ -216,9 +227,10 @@ instructionList     :
 					| switchCase  instructionList
 					| ;
 
-subroutinePerm      : (READ | WRITE | READWRITE ) IDENTIFIER ;
-subroutinePermList  : '(' (subroutinePerm ',')* subroutinePerm ')' ;
-subroutine          : SUB IDENTIFIER ':' subroutinePermList? instructionList RETURN ';' ;
+subParam            : ( READ | WRITE | READWRITE ) IDENTIFIER
+					| input | output ;
+subParamList        : (subParam ',')* subParam;
+subroutine          : SUB IDENTIFIER '(' subParamList ')' ':' declarationList instructionList RETURN ';' ;
 subroutineList      : subroutine * ;
                     
 declAndInstrList    : declarationList 
@@ -231,17 +243,6 @@ declAndInstrList    : declarationList
 importv             : 'import' '(' FILENAME ')' ;
 
 appendv             : 'append' '(' FILENAME ')' ;
-
-/* -- Inputs/outputs -- */
-
-inout               : 'inout' TYPE IDENTIFIER 
-                    | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
-input               : 'input' TYPE IDENTIFIER 
-                    | 'input' TYPE IDENTIFIER '[' NUMBER ']';
-output              : 'output' TYPE IDENTIFIER
-                    | 'output' TYPE IDENTIFIER '[' NUMBER ']';
-inOrOut             :  input | output | inout ;
-inOutList           :  (inOrOut ',') * inOrOut | ;
 
 /* -- Overall structure -- */
 
