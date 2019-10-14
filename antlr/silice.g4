@@ -169,9 +169,9 @@ paramList           : IDENTIFIER ',' paramList
                     | IDENTIFIER '[' NUMBER ']'
                     | ;
 
-algoAsyncCall       : IDENTIFIER LARROW '(' paramList ')' ;
-algoJoin            : '(' paramList ')' LARROW IDENTIFIER ;
-algoSyncCall        : algoJoin LARROW '(' paramList ')' ;
+asyncExec           : IDENTIFIER LARROW '(' paramList ')' ;
+joinExec            : '(' paramList ')' LARROW IDENTIFIER ;
+syncExec            : joinExec LARROW '(' paramList ')' ;
 
 /* -- Control flow -- */
 
@@ -192,9 +192,9 @@ displayParams       : (IDENTIFIER ',') * IDENTIFIER ;
 display             : DISPLAY '(' STRING ( ',' displayParams )? ')';
 
 instruction         : assignment 
-                    | algoSyncCall
-                    | algoAsyncCall
-                    | algoJoin
+                    | syncExec
+                    | asyncExec
+                    | joinExec
                     | jump
                     | call
 					| returnFrom

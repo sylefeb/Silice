@@ -182,10 +182,11 @@ private:
   /// \brief subroutines
   class t_subroutine_nfo {
   public:
+    std::string                                     name;
     t_combinational_block                          *top_block;
     std::unordered_set<std::string>                 allowed_reads;
     std::unordered_set<std::string>                 allowed_writes;
-    std::unordered_map< std::string, std::pair<e_IOType, std::string> > vios;  // [name in subroutine => var in host]
+    std::unordered_map< std::string, std::string>   vios;  // [name in subroutine => var in host]
     std::vector<std::string>                        inputs;  // order list of input names
     std::vector<std::string>                        outputs; // order list of output names
   };
@@ -670,7 +671,7 @@ private:
           if (Vsub == sub->vios.end()) {
             throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
           } else {
-            return ff + prefix + Vsub->second.second;
+            return ff + prefix + Vsub->second;
           }
         } else {
           throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
@@ -762,11 +763,11 @@ private:
   }
 
   /// \brief gather a break from loop
-  t_combinational_block *gatherBreakLoop(siliceParser::BreakLoopContext* subcall, t_combinational_block *_current, t_gather_context *_context)
+  t_combinational_block *gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context)
   {
     // current goes to after while
     if (_context->break_to == nullptr) {
-      throw Fatal("cannot break outside of a loop (line %d)",subcall->getStart()->getLine());
+      throw Fatal("cannot break outside of a loop (line %d)", brk->getStart()->getLine());
     }
     _current->next(_context->break_to);
     _context->break_to->is_state = true;
@@ -805,14 +806,16 @@ private:
   t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context)
   {
     t_subroutine_nfo *nfo = new t_subroutine_nfo;
+    // subroutine name
+    nfo->name = sub->IDENTIFIER()->getText();
     // subroutine block
-    std::string name = sub->IDENTIFIER()->getText();
-    t_combinational_block *subb = addBlock("__sub_" + name,(int)sub->getStart()->getLine());
+    t_combinational_block *subb = addBlock("__sub_" + nfo->name,(int)sub->getStart()->getLine());
+    // cross ref between block and subroutine
     subb->subroutine = nfo;
     nfo ->top_block  = subb;
     // gather inputs/outputs and access constraints
     sl_assert(sub->subroutineParamList() != nullptr);
-      // constraint?
+    // constraint?
     for (auto P : sub->subroutineParamList()->subroutineParam()) {
       if (P->READ() != nullptr) {
         nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
@@ -851,19 +854,17 @@ private:
           || m_VarNames   .count(ioname) > 0
           || ioname == m_Clock || ioname == m_Reset) {
           throw Fatal("subroutine '%s' input/output '%s' is using the same name as a host VIO, clock or reset (line %d)",
-            name.c_str(),ioname.c_str(),sub->getStart()->getLine());
+            nfo->name.c_str(),ioname.c_str(),sub->getStart()->getLine());
         }
-        // insert temporary variable in host
+        // insert variable in host for each input/output
         t_var_nfo var;
-        var.name = in_or_out + "_" + name  + "_" + ioname;
+        var.name = in_or_out + "_" + nfo->name  + "_" + ioname;
         var.table_size = tbl_size;
         splitType(strtype, var.base_type, var.width);
         var.init_values.resize(max(var.table_size, 1), "0");
         m_Vars.emplace_back(var);
         m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
-        nfo->vios.insert(std::make_pair(ioname, 
-          std::make_pair((P->input() != nullptr) ? e_Input : e_Output, var.name)
-        ));
+        nfo->vios.insert(std::make_pair(ioname,var.name));
       }
     }
     // parse the subroutine
@@ -875,7 +876,7 @@ private:
     // subroutine has to be a state
     subb ->is_state = true;
     // record as a know subroutine
-    m_Subroutines.insert(std::make_pair(name,nfo));
+    m_Subroutines.insert(std::make_pair(nfo->name,nfo));
     // keep going with current
     return _current;
   }
@@ -938,23 +939,52 @@ private:
     return block;
   }
 
-  /// \brief gather a join call algorithms
-  t_combinational_block *gatherJoinCall(siliceParser::AlgoJoinContext* join, t_combinational_block *_current, t_gather_context *_context)
+  /// \brief gather a synchronous execution
+  t_combinational_block* gatherSyncExec(siliceParser::SyncExecContext* sync, t_combinational_block* _current, t_gather_context* _context)
   {
-    // block for the wait
-    t_combinational_block *waiting_block = addBlock(generateBlockName());
-    waiting_block->is_state = true; // state for waiting
-    // enter wait after current
-    _current->next(waiting_block);
-    // block for after the wait
-    t_combinational_block *next_block = addBlock(generateBlockName());
-    next_block->is_state = true; // state to goto after the wait
-    // ask current block to wait the algorithm termination
-    waiting_block->wait((int)join->getStart()->getLine(), join->IDENTIFIER()->getText(), waiting_block, next_block);
-    // first instruction in next block will read result
-    next_block->instructions.push_back(t_instr_nfo(join, _context->__id));
-    // use this next block now
-    return next_block;
+    // add sync as instruction, will perform the call
+    _current->instructions.push_back(t_instr_nfo(sync, _context->__id));
+    // are we calling a subroutine?
+    auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
+    if (S != m_Subroutines.end()) {
+      // yes! create a new block, call subroutine
+      t_combinational_block* after = addBlock(generateBlockName());
+      // has to be a state to return to
+      after->is_state = true;
+      // call subroutine
+      _current->goto_and_return_to(S->second->top_block, after);
+      // after is new current
+      _current = after;
+    }
+    // gather the join exec, will perform the readback
+    _current = gather(sync->joinExec(), _current, _context);
+    return _current;
+  }
+  /// \brief gather a join execution
+  t_combinational_block *gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context)
+  {
+    // are we calling a subroutine?
+    auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
+    if (S == m_Subroutines.end()) { // no, waiting for algorithm
+      // block for the wait
+      t_combinational_block* waiting_block = addBlock(generateBlockName());
+      waiting_block->is_state = true; // state for waiting
+      // enter wait after current
+      _current->next(waiting_block);
+      // block for after the wait
+      t_combinational_block* next_block = addBlock(generateBlockName());
+      next_block->is_state = true; // state to goto after the wait
+      // ask current block to wait the algorithm termination
+      waiting_block->wait((int)join->getStart()->getLine(), join->IDENTIFIER()->getText(), waiting_block, next_block);
+      // first instruction in next block will read result
+      next_block->instructions.push_back(t_instr_nfo(join, _context->__id));
+      // use this next block now
+      return next_block;
+    } else {
+      // subroutine, simply readback results
+      _current->instructions.push_back(t_instr_nfo(join, _context->__id));
+      return _current;
+    }
   }
 
   /// \brief tests whether a graph of block is stateless
@@ -1133,9 +1163,9 @@ private:
     auto modalg  = dynamic_cast<siliceParser::DeclarationModAlgContext*>(tree);
     auto assign  = dynamic_cast<siliceParser::AssignmentContext*>(tree);
     auto display = dynamic_cast<siliceParser::DisplayContext *>(tree);
-    auto async   = dynamic_cast<siliceParser::AlgoAsyncCallContext*>(tree);
-    auto join    = dynamic_cast<siliceParser::AlgoJoinContext*>(tree);
-    auto sync    = dynamic_cast<siliceParser::AlgoSyncCallContext*>(tree);
+    auto async   = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
+    auto join    = dynamic_cast<siliceParser::JoinExecContext*>(tree);
+    auto sync    = dynamic_cast<siliceParser::SyncExecContext*>(tree);
     auto repeat  = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
     auto sub     = dynamic_cast<siliceParser::SubroutineContext*>(tree);
     auto call    = dynamic_cast<siliceParser::CallContext*>(tree);
@@ -1161,19 +1191,15 @@ private:
     else if (always)  { gatherAlwaysAssigned(always);                             recurse = false; }
     else if (repeat)  { _current = gatherRepeatBlock(repeat, _current, _context); recurse = false; } 
     else if (sub)     { _current = gatherSubroutine(sub, _current, _context);     recurse = false; }
+    else if (sync)    { _current = gatherSyncExec(sync, _current, _context);      recurse = false; }
+    else if (async)   { _current->instructions.push_back(t_instr_nfo(async, _context->__id)); }
     else if (call)    { _current = gatherCall(call, _current, _context); }
     else if (jump)    { _current = gatherJump(jump, _current, _context); }
     else if (ret)     { _current = gatherReturnFrom(ret, _current, _context); }
     else if (breakL)  { _current = gatherBreakLoop(breakL, _current, _context); }
-    else if (join)    { _current = gatherJoinCall(join, _current, _context); }
+    else if (join)    { _current = gatherJoinExec(join, _current, _context); }
     else if (assign)  { checkAssignPermissions(assign,_context);  _current->instructions.push_back(t_instr_nfo(assign, _context->__id)); }
     else if (display) { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); }
-    else if (sync)    {
-      _current->instructions.push_back(t_instr_nfo(sync, _context->__id));
-      _current = gather(sync->algoJoin(), _current, _context);
-      recurse = false;
-    }
-    else if (async)   { _current->instructions.push_back(t_instr_nfo(async, _context->__id)); }
     else if (ilist)   { _current = updateBlock(ilist, _current, _context); }
 
     // recurse
@@ -1363,7 +1389,7 @@ private:
       if (sub) { // if in subroutine overwrite variable names
         auto V = sub->vios.find(var);
         if (V != sub->vios.end()) {
-          var = V->second.second;
+          var = V->second;
         }
       }
       _vec_params.push_back(var);
@@ -1382,14 +1408,14 @@ private:
     // if params are empty we simply call, otherwise we set the inputs
     if (!params.empty()) {
       if (a.algo->m_Inputs.size() != params.size()) {
-        throw Fatal("incorrect number of input parameters in call to '%s' (line %d)", 
+        throw Fatal("incorrect number of input parameters in call to algorithm instance '%s' (line %d)", 
           a.instance_name.c_str(), plist->getStart()->getLine());
       }
       // set inputs
       int p = 0;
       for (const auto& ins : a.algo->m_Inputs) {
         if (a.boundinputs.count(ins.name) > 0) {
-          throw Fatal("instance '%s' cannot be called as its input '%s' is bound (line %d)", 
+          throw Fatal("algorithm instance '%s' cannot be called as its input '%s' is bound (line %d)", 
             a.instance_name.c_str(), ins.name.c_str(), plist->getStart()->getLine());
         }
         out << FF_D << a.instance_prefix << "_" << ins.name << " = " << rewriteIdentifier(prefix, params[p++], sub) << ";" << std::endl;
@@ -1400,20 +1426,55 @@ private:
   }
 
   /// \brief writes reading back the results of an algorithm
-  void writeReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub) const
+  void writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub) const
   {
     std::vector<std::string> params;
     getParams(plist, params, sub);
     // if params are empty we simply wait, otherwise we set the outputs
     if (!params.empty()) {
       if (a.algo->m_Outputs.size() != params.size()) {
-        throw Fatal("incorrect number of output parameters reading back result from instance '%s' (line %d)",a.instance_name.c_str(),a.instance_line);
+        throw Fatal("incorrect number of output parameters reading back result from algorithm instance '%s' (line %d)",
+          a.instance_name.c_str(), plist->getStart()->getLine());
       }
       // read outputs
       int p = 0;
       for (const auto& outs : a.algo->m_Outputs) {
         out << rewriteIdentifier(prefix, params[p++], sub) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
       }
+    }
+  }
+
+  /// \brief writes a call to a subroutine
+  void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, siliceParser::ParamListContext* plist) const
+  {
+    std::vector<std::string> params;
+    getParams(plist, params, nullptr);
+    // check num parameters
+    if (s->inputs.size() != params.size()) {
+      throw Fatal("incorrect number of input parameters in call to subroutine '%s' (line %d)",
+        s->name.c_str(), plist->getStart()->getLine());
+    }
+    // set inputs
+    int p = 0;
+    for (const auto& ins : s->inputs) {
+      out << FF_D << prefix << s->vios.at(ins) << " = " << rewriteIdentifier(prefix, params[p++], nullptr) << ";" << std::endl;
+    }
+  }
+
+  /// \brief writes reading back the results of a subroutine
+  void writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, siliceParser::ParamListContext* plist) const
+  {
+    std::vector<std::string> params;
+    getParams(plist, params, nullptr);
+    // if params are empty we simply wait, otherwise we set the outputs
+    if (s->outputs.size() != params.size()) {
+      throw Fatal("incorrect number of output parameters reading back result from subroutine '%s' (line %d)",
+        s->name.c_str(), plist->getStart()->getLine());
+    }
+    // read outputs
+    int p = 0;
+    for (const auto& outs : s->outputs) {
+      out << rewriteIdentifier(prefix, params[p++], nullptr) << " = " << FF_D << prefix << s->vios.at(outs) << std::endl;
     }
   }
 
@@ -1675,39 +1736,67 @@ private:
           out << ");" << std::endl;
         }
       } {
-        auto async = dynamic_cast<siliceParser::AlgoAsyncCallContext*>(a.instr);
+        auto async = dynamic_cast<siliceParser::AsyncExecContext*>(a.instr);
         if (async) {
           // find algorithm
           auto A = m_InstancedAlgorithms.find(async->IDENTIFIER()->getText());
           if (A == m_InstancedAlgorithms.end()) {
-            throw Fatal("cannot find algorithm '%s' on asynchronous call (line %d)",
-              async->IDENTIFIER()->getText().c_str(),async->getStart()->getLine());
+            // check if this is an erronous call to a subroutine
+            auto S = m_Subroutines.find(async->IDENTIFIER()->getText());
+            if (S == m_Subroutines.end()) {
+              throw Fatal("cannot find algorithm '%s' on asynchronous call (line %d)",
+                async->IDENTIFIER()->getText().c_str(), async->getStart()->getLine());
+            } else {
+              throw Fatal("cannot perform an asynchronous call on subroutine '%s' (line %d)",
+                async->IDENTIFIER()->getText().c_str(), async->getStart()->getLine());
+            }
           } else {
             writeAlgorithmCall(prefix, out, A->second, async->paramList(), block->subroutine);
           }
         }
       } {
-        auto sync = dynamic_cast<siliceParser::AlgoSyncCallContext*>(a.instr);
+        auto sync = dynamic_cast<siliceParser::SyncExecContext*>(a.instr);
         if (sync) {
           // find algorithm
-          auto A = m_InstancedAlgorithms.find(sync->algoJoin()->IDENTIFIER()->getText());
+          auto A = m_InstancedAlgorithms.find(sync->joinExec()->IDENTIFIER()->getText());
           if (A == m_InstancedAlgorithms.end()) {
-            throw Fatal("cannot find algorithm '%s' on synchronous call (line %d)",
-              sync->algoJoin()->IDENTIFIER()->getText().c_str(), sync->getStart()->getLine());
+            // call to a subroutine?
+            auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
+            if (S == m_Subroutines.end()) {
+              throw Fatal("cannot find algorithm '%s' on synchronous call (line %d)",
+                sync->joinExec()->IDENTIFIER()->getText().c_str(), sync->getStart()->getLine());
+            } else {
+              // check not already in subrountine
+              if (block->subroutine != nullptr) {
+                throw Fatal("cannot call a subrountine from another one (line %d)",sync->getStart()->getLine());
+              }
+              writeSubroutineCall(prefix, out, S->second, sync->paramList());
+            }
           } else {
             writeAlgorithmCall(prefix, out, A->second, sync->paramList(), block->subroutine);
           }
         }
       } {
-        auto join = dynamic_cast<siliceParser::AlgoJoinContext*>(a.instr);
+        auto join = dynamic_cast<siliceParser::JoinExecContext*>(a.instr);
         if (join) {
           // find algorithm
           auto A = m_InstancedAlgorithms.find(join->IDENTIFIER()->getText());
           if (A == m_InstancedAlgorithms.end()) {
-            throw Fatal("cannot find algorithm '%s' to join with (line %d)",
-              join->IDENTIFIER()->getText().c_str(), join->getStart()->getLine());
+            // return of subroutine?
+            auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
+            if (S == m_Subroutines.end()) {
+              throw Fatal("cannot find algorithm '%s' to join with (line %d)",
+                join->IDENTIFIER()->getText().c_str(), join->getStart()->getLine());
+            } else {
+              // check not already in subrountine
+              if (block->subroutine != nullptr) {
+                throw Fatal("cannot call a subrountine from another one (line %d)", join->getStart()->getLine());
+              }
+              writeSubroutineReadback(prefix, out, S->second, join->paramList());
+            }
+
           } else {
-            writeReadback(prefix, out, A->second, join->paramList(), block->subroutine);
+            writeAlgorithmReadback(prefix, out, A->second, join->paramList(), block->subroutine);
           }
         }
       }
@@ -1732,7 +1821,7 @@ private:
             if (sub) { // override name if in subroutine
               auto V = sub->vios.find(var);
               if (V != sub->vios.end()) {
-                var = V->second.second;
+                var = V->second;
               }
             }
             if (vios.find(var) != vios.end()) {
@@ -1761,7 +1850,7 @@ private:
             if (sub) { // override name if in subroutine
               auto V = sub->vios.find(var);
               if (V != sub->vios.end()) {
-                var = V->second.second;
+                var = V->second;
               }
             }
             if (!var.empty() && vios.find(var) != vios.end()) {
@@ -1788,7 +1877,7 @@ private:
             if (sub) { // override name if in subroutine
               auto V = sub->vios.find(var);
               if (V != sub->vios.end()) {
-                var = V->second.second;
+                var = V->second;
               }
             }
             if (vios.find(var) != vios.end()) {
@@ -1804,16 +1893,28 @@ private:
             recurse = false;
           }
         } {
-          auto join = dynamic_cast<siliceParser::AlgoJoinContext*>(node);
-          if (join) {
-            std::vector<std::string> params;
-            getParams(join->paramList(), params, sub);
-            for (const auto& var : params) {
-              if (vios.find(var) != vios.end()) {
-                _written.insert(var);
+          auto sync = dynamic_cast<siliceParser::SyncExecContext*>(node);
+          if (sync) {
+            // calling a subroutine?
+            auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
+            if (S != m_Subroutines.end()) {
+              for (const auto& i : S->second->inputs) {
+                _written.insert(S->second->vios.at(i));
               }
             }
-            recurse = false;
+            recurse = true; // detect reads
+          }
+        } {
+          auto join = dynamic_cast<siliceParser::JoinExecContext*>(node);
+          if (join) {
+            // readback results from a subroutine?
+            auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
+            if (S != m_Subroutines.end()) {
+              for (const auto& o : S->second->outputs) {
+                _read.insert(S->second->vios.at(o));
+              }
+            }
+            recurse = true; // detect reads
           }
         }
         // recurse
