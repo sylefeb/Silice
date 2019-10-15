@@ -808,6 +808,13 @@ private:
     t_subroutine_nfo *nfo = new t_subroutine_nfo;
     // subroutine name
     nfo->name = sub->IDENTIFIER()->getText();
+    // check for duplicates
+    if (m_Subroutines.count(nfo->name) > 0) {
+      throw Fatal("subroutine '%s': a subroutine of the same name is already declared (line %d)", nfo->name.c_str(), sub->getStart()->getLine());
+    }
+    if (m_InstancedAlgorithms.count(nfo->name) > 0) {
+      throw Fatal("subroutine '%s': an instanced algorithm of the same name is already declared (line %d)", nfo->name.c_str(), sub->getStart()->getLine());
+    }
     // subroutine block
     t_combinational_block *subb = addBlock("__sub_" + nfo->name,(int)sub->getStart()->getLine());
     // cross ref between block and subroutine
