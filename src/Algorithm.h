@@ -635,6 +635,18 @@ private:
     m_InstancedModules[nfo.instance_name] = nfo;
   }
 
+  /// \brief translate a variable name, taking into account subroutines
+  std::string translateVIOName(std::string vio, const t_subroutine_nfo *sub) const
+  {
+    if (sub != nullptr) {
+      const auto& Vsub = sub->vios.find(vio);
+      if (Vsub != sub->vios.end()) {
+        return Vsub->second;
+      }
+    }
+    return vio;
+  }
+
   /// \brief returns the rewritten indentifier, taking into account bindings, inputs/outputs, custom clocks and resets
   std::string rewriteIdentifier(std::string prefix, std::string var,const t_subroutine_nfo *sub,size_t line = 0, std::string ff = FF_D) const
   {
@@ -663,19 +675,10 @@ private:
         throw Fatal("assigned outputs: not yet implemented");
       }
     } else {
+      var = translateVIOName(var, sub);
       auto V = m_VarNames.find(var);
       if (V == m_VarNames.end()) {
-        // if in subroutine, translate name
-        if (sub != nullptr) {
-          auto Vsub = sub->vios.find(var);
-          if (Vsub == sub->vios.end()) {
-            throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
-          } else {
-            return ff + prefix + Vsub->second;
-          }
-        } else {
-          throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
-        }
+        throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
       }
       if (m_Vars.at(V->second).usage == e_Bound) {
         // bound to an input/output
@@ -1393,12 +1396,7 @@ private:
     if (params == nullptr) return;
     while (params->IDENTIFIER() != nullptr) {
       std::string var = params->IDENTIFIER()->getText();
-      if (sub) { // if in subroutine translate variable names
-        auto V = sub->vios.find(var);
-        if (V != sub->vios.end()) {
-          var = V->second;
-        }
-      }
+      var = translateVIOName(var,sub);
       _vec_params.push_back(var);
       params = params->paramList();
       if (params == nullptr) return;
@@ -1825,12 +1823,7 @@ private:
         if (term) {
           if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
             std::string var = term->getText();
-            if (sub) { // translate name if in subroutine
-              auto V = sub->vios.find(var);
-              if (V != sub->vios.end()) {
-                var = V->second;
-              }
-            }
+            var = translateVIOName(var, sub);
             if (vios.find(var) != vios.end()) {
               _read.insert(var);
             }
@@ -1854,12 +1847,7 @@ private:
             } else {
               var = assign->IDENTIFIER()->getText();
             }
-            if (sub) { // translate name if in subroutine
-              auto V = sub->vios.find(var);
-              if (V != sub->vios.end()) {
-                var = V->second;
-              }
-            }
+            var = translateVIOName(var, sub);
             if (!var.empty() && vios.find(var) != vios.end()) {
               _written.insert(var);
             }
@@ -1881,12 +1869,7 @@ private:
             } else {
               var = alw->IDENTIFIER()->getText();
             }
-            if (sub) { // translate name if in subroutine
-              auto V = sub->vios.find(var);
-              if (V != sub->vios.end()) {
-                var = V->second;
-              }
-            }
+            var = translateVIOName(var, sub);
             if (vios.find(var) != vios.end()) {
               _written.insert(var);
             }

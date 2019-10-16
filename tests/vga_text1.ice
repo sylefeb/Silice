@@ -404,7 +404,15 @@ text_buffer txtbuf (
   uint8  step  = 0;
 
   // --------- print string
-  subroutine print_string:
+  subroutine print_string(  
+      readwrites col,
+	  readwrites lttr,
+	  reads      str,
+	  reads      str_x,
+	  reads      str_y,
+	  writes     txtaddr,
+	  writes     txtdata_w
+	  ):
     col  = 0;
     lttr = str[col];
     while (lttr != 0) {
@@ -421,7 +429,18 @@ text_buffer txtbuf (
   return;
 
   // --------- print number
-  subroutine print_number:
+  subroutine print_number(
+      readwrites col,
+	  readwrites lttr,
+	  readwrites numb_cnt,
+	  readwrites numb_tmp,
+	  reads      numb,
+	  reads      str,
+	  reads      str_x,
+	  reads      str_y,
+	  writes     txtaddr,
+	  writes     txtdata_w  
+  ):
     if (numb < 0) {
       numb_cnt = 1;
       numb_tmp = -numb;
@@ -461,15 +480,15 @@ text_buffer txtbuf (
   } // takes two cycles to loop, write occurs on first
 
   // print number
-  call print_number;
+  () <- print_number <- ();
   str_y = str_y + 2;
 
   // print string
-  call print_string;
+  () <- print_string <- ();
   str_y = str_y + 2;
 
   // again, to test
-  call print_string;
+  () <- print_string <- ();
   str_y = str_y + 2;
 
   // ---------- show time!
@@ -529,7 +548,7 @@ text_buffer txtbuf (
 
   // prepare next frame
   txtwrite = 1;
-  call print_string;
+  () <- print_string <- ();
   str_y = str_y + 2;
   txtwrite = 0;
 
