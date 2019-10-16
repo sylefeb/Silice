@@ -10,6 +10,8 @@ INCLUDE_DIRECTORIES(
 
 ADD_EXECUTABLE(silicehe
   src/main.cpp
+  src/VCDParser.cpp
+  src/VCDParser.h
   src/video_out.cpp
   src/video_out.h
   src/VgaChip.cpp
@@ -17,4 +19,3 @@ ADD_EXECUTABLE(silicehe
 )
 
 TARGET_LINK_LIBRARIES(silicehe LibSL LibSL_gl)
-
