@@ -35,7 +35,7 @@ public:
   VgaChip();
   ~VgaChip();
   
-  void eval(uint8_t  clk,
+  void step(uint8_t  clk,
             uint8_t  vs,   
             uint8_t  hs,   
             uint8_t  red,  

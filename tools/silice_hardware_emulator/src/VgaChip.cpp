@@ -34,7 +34,7 @@ VgaChip::~VgaChip()
   delete (m_VideoOut);
 }
 
-void VgaChip::eval(
+void VgaChip::step(
             uint8_t  clk,
             uint8_t  vs,
             uint8_t  hs,
