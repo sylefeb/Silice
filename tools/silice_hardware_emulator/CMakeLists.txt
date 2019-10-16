@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 project(silice_hardware_emulator)
 
-ADD_SUBDIRECTORY(libs/verilog-vcd-parser)
 ADD_SUBDIRECTORY(libs/LibSL)
 
 INCLUDE_DIRECTORIES(
@@ -17,5 +16,5 @@ ADD_EXECUTABLE(silicehe
   src/VgaChip.h
 )
 
-TARGET_LINK_LIBRARIES(silicehe verilog-vcd-parser LibSL LibSL_gl)
+TARGET_LINK_LIBRARIES(silicehe LibSL LibSL_gl)
 
