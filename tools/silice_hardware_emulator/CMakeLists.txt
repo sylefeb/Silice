@@ -9,6 +9,8 @@ INCLUDE_DIRECTORIES(
   ${PROJECT_SOURCE_DIR}/libs/fstapi/
 )
 
+FIND_PACKAGE(Threads REQUIRED)
+
 ADD_EXECUTABLE(silicehe
   src/main.cpp
   src/VCDParser.cpp
@@ -19,4 +21,6 @@ ADD_EXECUTABLE(silicehe
   src/VgaChip.h
 )
 
-TARGET_LINK_LIBRARIES(silicehe LibSL LibSL_gl fstapi)
+TARGET_LINK_LIBRARIES(silicehe LibSL LibSL_gl fstapi Threads::Threads)
+
+

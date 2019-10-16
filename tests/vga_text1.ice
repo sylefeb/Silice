@@ -404,8 +404,8 @@ text_buffer txtbuf (
   uint8  step  = 0;
 
   // --------- print string
-  subroutine print_string(  
-      readwrites col,
+  subroutine print_string( 
+          readwrites col,
 	  readwrites lttr,
 	  reads      str,
 	  reads      str_x,
@@ -430,7 +430,7 @@ text_buffer txtbuf (
 
   // --------- print number
   subroutine print_number(
-      readwrites col,
+          readwrites col,
 	  readwrites lttr,
 	  readwrites numb_cnt,
 	  readwrites numb_tmp,
@@ -586,6 +586,8 @@ algorithm main(
   uint10 VA_START = 0;
   uint10 V_END    = 0;
 
+  uint8 iter    = 0;
+
   uint10 xcount = 0;
   uint10 ycount = 0;
 
@@ -624,7 +626,7 @@ algorithm main(
   xcount = H_END;
   ycount = V_END;
 
-  while (1) {
+  while (iter < 3) {
 
     if (active) {
       pix_x = xcount - HA_START;
@@ -639,6 +641,7 @@ algorithm main(
     if (ycount == V_END) {
       xcount = 0;
       ycount = 0;
+      iter   = iter + 1;
     }
 
   }
