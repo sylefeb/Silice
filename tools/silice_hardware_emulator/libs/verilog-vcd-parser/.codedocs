@@ -1,0 +1,11 @@
+#---------------------------------------------------------------------------
+# CodeDocs Configuration
+#---------------------------------------------------------------------------
+
+# Include the Doxygen configuration from another file.
+
+DOXYFILE = .doxygen
+
+# Specify external repository to link documentation with.
+
+TAGLINKS =

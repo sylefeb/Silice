@@ -2,11 +2,6 @@ module top;
 
 reg clk;
 reg rst_n;
-reg [3:0] vga_r;
-reg [3:0] vga_g;
-reg [3:0] vga_b;
-reg vga_hs;
-reg vga_vs;
 
 wire [3:0] __main_vga_r;
 wire [3:0] __main_vga_g;
@@ -57,12 +52,6 @@ M_main __main(
   .in_run(run_main),
   .out_done(done_main)
 );
-
-assign vga_r  = __main_vga_r;
-assign vga_g  = __main_vga_g;
-assign vga_b  = __main_vga_b;
-assign vga_hs = __main_vga_hs;
-assign vga_vs = __main_vga_vs;
 
 always @* begin
   if (done_main && !RST_d[0]) $finish;
