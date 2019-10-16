@@ -1,9 +1,6 @@
 [submodule "src/libs/LibSL-small"]
 	path = src/libs/LibSL-small
 	url = https://github.com/sylefeb/LibSL-small.git
-[submodule "tools/silice_hardware_emulator/libs/verilog-vcd-parser"]
-	path = tools/silice_hardware_emulator/libs/verilog-vcd-parser
-	url = https://github.com/ben-marshall/verilog-vcd-parser.git
 [submodule "tools/silice_hardware_emulator/libs/LibSL"]
 	path = tools/silice_hardware_emulator/libs/LibSL
 	url = https://github.com/sylefeb/LibSL.git
