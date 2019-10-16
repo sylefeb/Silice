@@ -29,6 +29,8 @@ algorithm main(
   uint10 xcount = 0;
   uint10 ycount = 0;
 
+  uint8  iter = 0;
+
   uint1  active = 0;
   uint10 pix_x  = 0;
   uint10 pix_y  = 0;
@@ -56,7 +58,7 @@ algorithm main(
   xcount = H_END;
   ycount = V_END;
 
-  while (1) {
+  while (iter < 3) {
 
     if (active) {
 
@@ -76,6 +78,7 @@ algorithm main(
     if (ycount == V_END) {
       xcount = 0;
       ycount = 0;
+      iter = iter + 1;
     }
 
   }
