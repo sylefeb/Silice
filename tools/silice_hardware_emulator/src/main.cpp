@@ -1,6 +1,8 @@
 
 #include <LibSL/LibSL.h>
 #include <LibSL/LibSL_gl.h>
+
+#include <thread>
 #include <mutex>
 
 #include "VgaChip.h"
@@ -35,7 +37,7 @@ void main_render()
 
     glBindTexture(GL_TEXTURE_2D, g_Tex->handle());
     glEnable(GL_TEXTURE_2D);
-    LibSL::GPUHelpers::Transform::ortho2D(LIBSL_PROJECTION_MATRIX, 0.0f, 1.0f, 0.0f, 1.0f);
+    LibSL::GPUHelpers::Transform::ortho2D(LIBSL_PROJECTION_MATRIX, 0.0f, 1.0f, 1.0f, 0.0f);
     LibSL::GPUHelpers::Transform::identity(LIBSL_MODELVIEW_MATRIX);
     glColor3f(1, 1, 1);
     glBegin(GL_QUADS);
