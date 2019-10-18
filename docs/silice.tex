@@ -10,30 +10,31 @@
 
 % enamel
 
-\title{\silice{}\\ \textit{\normalsize A not too high-level programming language for FPGA}}
+\title{\silice{}\\ \textit{\normalsize A low-level procedural programming language for FPGA}}
 
 \begin{document}
 
 \maketitle
 
-\silice{} aims at simplifying writing code for FPGAs. It compiles to and inter-operates with \verilog{}. \silice{} is not meant to \textit{hide} the HDL complexity, but rather to complement it, making it more enjoyable to write parallel code and algorithms utilizing the FPGA architecture.
-
-\silice{} does not attempt to abstract away the hardware: the programmer remains in control and very close to hardware features. However, \silice{} makes it much easier to reason in terms of execution flow and operation sequences than when using vanilla \verilog{}. But when \verilog{} makes more sense, simply import Verilog directly into Silice!
+\silice{} lets you write algorithms on FPGAs in the way most programmers are familiar with: defining sequences of operations, subroutines you can call, and even using good old \texttt{goto}s (fear not, \texttt{while} and \texttt{break} statements are also available!). 
+At the same time, \silice{} \textit{remains low level}. Everything an algorithm does is precisely timed, you can fully exploit the parallelism and niceties of FPGA architectures, clock domains are exposed. You remain only a thin layer above the hardware: nothing gets obfuscated away. In fact, \silice{} compiles to and inter-operates with \verilog{}: you can directly instantiate and bind with existing modules. When \verilog{} makes more sense, use it!
 
 \silice{} is reminiscent of high performance programming in the late 90s (in the demo scene in particular): the then considered high-level C language was commonly interfaced with time-critical ASM routines. This enabled a best-of-both-worlds situation, with C being used for the overall program flow and ASM used only on carefully optimized hardware dependent routines.
 %
-\silice{} does the same, providing a programmer friendly C-inspired layer on top of \verilog{}, while allowing to call low level \verilog{} modules whenever needed.
-\silice{} also favors parallelism and performance everywhere, allowing to fully benefits from the specificities of FPGA architectures.
+\silice{} aims to do the same, providing a thin programmer friendly layer on top of \verilog{}, while allowing to call low level \verilog{} modules whenever needed.
+\silice{} also favors and exposes parallelism, so as to fully utilize the FPGA architecture.\\
 
-The main design principles are:
-\begin{itemize}
-\item Prioritize combinational over sequential execution. Parallelism comes first!
-\item Clearly defined rules regarding clock cycle consumption.
-\item Explicit clock domains and reset signals.
-\item Inter-operates easily with \verilog{}, allowing to import and reuse existing modules.
-\item Familiar C-like syntax.
-\item Powerful LUA-based pre-processor.
-\end{itemize}
+Oh, and it features a powerful LUA-based pre-processor.\\
+
+%The main design principles are:
+%\begin{itemize}
+%\item Prioritize combinational over sequential execution. Parallelism comes first!
+%\item Clearly defined rules regarding clock cycle consumption.
+%\item Explicit clock domains and reset signals.
+%\item Inter-operates easily with \verilog{}, allowing to import and reuse existing modules.
+%\item Familiar C-like syntax.
+%\item Powerful LUA-based pre-processor.
+%\end{itemize}
 
 \noindent While I developed \silice{} for my own needs, I hope you'll find it useful for your projects!
 
@@ -45,7 +46,7 @@ This first example assumes two signals: a 'button' input (high when pressed) and
 
 The \textit{main} algorithm -- the one expected as top level -- simply asks the led to turn on when the button is pressed. We will consider several versions -- all working -- to demonstrate basic features of \silice{}.
 
-Perhaps the most natural for a programmer not used to FPGAs would be:
+Perhaps the most natural version for a programmer not used to FPGAs would be:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 algorithm main(input uint1 button,output uint1 led) {  
@@ -54,7 +55,8 @@ algorithm main(input uint1 button,output uint1 led) {
   }
 }
 \end{minted}
-
+This sets 'led' to the value of 'button' every clock cycle.
+%
 However, we could instead specify a \textit{continuous assignment} between led and button:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
@@ -63,7 +65,7 @@ algorithm main(input uint1 button,output uint1 led) {
 }
 \end{minted}
 
-This makes led constantly track the value of button. Note, however, that the continuous assignment can be overridden at some clock steps, for instance:
+This makes 'led' constantly track the value of 'button'. A very convenient feature is that the continuous assignment can be overridden at some clock steps, for instance:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 algorithm main(input uint1 button,output uint1 led) {  
@@ -76,15 +78,15 @@ algorithm main(input uint1 button,output uint1 led) {
 }
 \end{minted}
 
-Of course this last version is needlessly complicated (the previous one was minimal), but it shows the principle: led is continuously assigned 0, but this will be overridden whenever the button is pressed. This is useful to maintain an output to a value that must change only on some specific event (eg. producing a pulse).
+Of course this last version is needlessly complicated (the previous one was minimal), but it shows the principle: 'led' is continuously assigned 0, but this will be overridden whenever the button is pressed. This is useful to maintain an output to a value that must change only on some specific event (e.g. producing a pulse).
 
 % ==============================================
 
 \section{Terminology}
-
+Some terminology we use next:
 \begin{itemize}
-\item \textbf{VIO}: Variable, Input or Output.
-\item \textbf{Host hardware framework}: The \verilog{} glue to the hardware meant to run the design.
+\item \textbf{VIO}: a Variable, Input or Output.
+\item \textbf{Host hardware framework}: The \verilog{} glue to the hardware meant to run the design. This can also be a glue to Icarus\footnote{http://iverilog.icarus.com/} or Verilator\footnote{https://www.veripool.org/wiki/verilator}, both frameworks are provided.
 \end{itemize}
 
 % ==============================================
@@ -154,10 +156,10 @@ All standard verilog operators are supported, binary and unary.
 Concatenation allows to combine expressions to form expressions having larger bit-width.
 The syntax is to form a comma separated list enclosed by braces.  Example:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
-	int6  a = 6b111000;
-	int2  b = 2b10;
-	int10 c = 0;
-	c := {b,a,2b11};
+  int6  a = 6b111000;
+  int2  b = 2b10;
+  int10 c = 0;
+  c := {b,a,2b11};
 \end{minted}
 
 Here c is obtained by concatenating a,b and the constant 2b11 to form a ten bits wide integer.
@@ -240,7 +242,7 @@ algorithm adder(intput uint8 a,intput uint8 b,output uint8 v)
 \paragraph{Inputs and outputs.}
 
 Inputs and outputs may be declared in any order. They can be single variables or tables.
-A third type \texttt{inout} exists for compatibility with \verilog{} modules, however these can only be passed and bound to imported modules (ie. they cannot be used in expressions and instructions for now).
+A third type \texttt{inout} exists for compatibility with \verilog{} modules, however these can only be passed and bound to imported modules (i.e. they cannot be used in expressions and instructions for now).
 
 % -----------------------
 
@@ -260,8 +262,8 @@ algorithm main(output uint8 led)
 
 \paragraph{Subroutines.}
 
-Algorithms can contain subroutines. These are local routines that can be called by the algorithm multiple times. A subroutine has access to the variables, instanced algorithms and instanced modules of the parent algorithm. Subroutines do not take parameters and do not explicitly return values: the parent algorithm variables can be directly manipulated.
-
+Algorithms can contain subroutines. These are local routines that can be called by the algorithm multiple times. A subroutine takes parameters, and has access to the variables, instanced algorithms and instanced modules of the parent algorithm -- however access permission has to be explicitly given. 
+%
 Subroutines offer a simple mechanism to allow for the equivalent of local functions, without having to wire all the parent algorithm context into another module/algorithm.
 
 A subroutine is declared as:
