@@ -22,5 +22,3 @@ ADD_EXECUTABLE(silicehe
 )
 
 TARGET_LINK_LIBRARIES(silicehe LibSL LibSL_gl fstapi Threads::Threads)
-
-

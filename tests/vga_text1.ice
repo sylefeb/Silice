@@ -412,7 +412,7 @@ text_buffer txtbuf (
 	  reads      str_y,
 	  writes     txtaddr,
 	  writes     txtdata_w
-	  ):
+	  )
     col  = 0;
     lttr = str[col];
     while (lttr != 0) {
@@ -440,7 +440,7 @@ text_buffer txtbuf (
 	  reads      str_y,
 	  writes     txtaddr,
 	  writes     txtdata_w  
-  ):
+  )
     if (numb < 0) {
       numb_cnt = 1;
       numb_tmp = -numb;

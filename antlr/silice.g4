@@ -232,7 +232,7 @@ instructionList     :
 subroutineParam     : ( READ | WRITE | READWRITE ) IDENTIFIER
 					| input | output ;
 subroutineParamList : (subroutineParam ',')* subroutineParam;
-subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' ':' declarationList instructionList RETURN ';' ;
+subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' declarationList instructionList RETURN ';' ;
 subroutineList      : subroutine * ;
                     
 declAndInstrList    : declarationList 
