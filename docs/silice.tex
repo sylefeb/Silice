@@ -269,7 +269,18 @@ Subroutines offer a simple mechanism to allow for the equivalent of local functi
 A subroutine is declared as:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{verilog}
-subroutine ID: (PERMISSIONS)
+subroutine ID(
+input TYPE ID
+...
+output TYPE ID
+...
+reads ID
+...
+writes ID
+...
+readwrites ID
+...
+) :
   INSTRUCTIONS
   return;
 \end{minted}
@@ -282,14 +293,14 @@ algorithm main(output uint8 led)
   uint20 counter = 0;
   uint8  a       = 1;
 
-  subroutine shift_led: (readwrites a)
+  subroutine shift_led(readwrites a) :
     a = a << 1;
     if (a == 0) {
       a = 1;
     }
     return;
 
-  subroutine wait:
+  subroutine wait(readwrites counter) :
     counter = 0;
     while (counter != 0) {
       counter = counter + 1;
@@ -299,8 +310,8 @@ algorithm main(output uint8 led)
   led := a;
   
   while(1) {
-    call wait;
-    call shift_led;
+    () <- wait <- ();
+    () <- shift_led <- ();
   }
 }
 \end{minted}
