@@ -479,7 +479,7 @@ text_buffer txtbuf (
   while (next < 12800) {
     txtaddr = next;     // address to write
     next    = next + 1; // next
-  } // takes two cycles to loop, write occurs on first
+  }
 
   // print number
   call print_number;

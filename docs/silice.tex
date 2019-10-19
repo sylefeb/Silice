@@ -280,7 +280,7 @@ writes ID
 ...
 readwrites ID
 ...
-) :
+)
   INSTRUCTIONS
   return;
 \end{minted}
@@ -293,14 +293,14 @@ algorithm main(output uint8 led)
   uint20 counter = 0;
   uint8  a       = 1;
 
-  subroutine shift_led(readwrites a) :
+  subroutine shift_led(readwrites a)
     a = a << 1;
     if (a == 0) {
       a = 1;
     }
     return;
 
-  subroutine wait(readwrites counter) :
+  subroutine wait(readwrites counter)
     counter = 0;
     while (counter != 0) {
       counter = counter + 1;
@@ -316,14 +316,13 @@ algorithm main(output uint8 led)
 }
 \end{minted}
 
-\noindent \textit{Subroutines permissions.} A drawback of subroutines is that they manipulate the algorithm 'global' 
-variables. To mitigate this, subroutines can be enriched with compile-time constraints, ensuring only those variables 
-that are tagged are indeed manipulated. This allows better isolation and a clear contract as to which subroutine 
-manipulates which variables. It is recommended to always specify this contract.
-The format for the permissions is a comma separated list using keywords \texttt{reads}, \texttt{writes}, \texttt{readwrites} \\
+\noindent \textit{Subroutines permissions.} Subroutine permissions ensuring only those variables given read/write
+permission can be manipulated. This mitigates the fact that a subroutine may directly manipulate variables in the 
+parent algorithm. The format for the permissions is a comma separated list using keywords \texttt{reads}, \texttt{writes}, \texttt{readwrites} \\
 
 \noindent \textit{Why subroutines?} There is a fundamental difference between a subroutine and an algorithm called from 
-a host: the subroutine never executes in parallel, while a child algorithm could. However, if this parallelism is not necessary, subroutines offer a simple mechanism to repeat internal tasks.
+a host: the subroutine never executes in parallel, while a child algorithm could. However, if this parallelism is not necessary, 
+subroutines offer a simple mechanism to repeat internal tasks.
 
 % -----------------------
 

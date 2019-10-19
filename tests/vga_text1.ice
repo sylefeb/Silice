@@ -411,10 +411,12 @@ text_buffer txtbuf (
 	  reads      str_x,
 	  reads      str_y,
 	  writes     txtaddr,
-	  writes     txtdata_w
+	  writes     txtdata_w,
+	  writes     txtwrite
 	  )
     col  = 0;
     lttr = str[col];
+	txtwrite = 1;
     while (lttr != 0) {
       if (lttr == 32) {
         lttr = 36;
@@ -426,6 +428,7 @@ text_buffer txtbuf (
       col       = col + 1;
       lttr      = str[col];
     }
+	txtwrite = 0;
   return;
 
   // --------- print number
@@ -439,8 +442,9 @@ text_buffer txtbuf (
 	  reads      str_x,
 	  reads      str_y,
 	  writes     txtaddr,
-	  writes     txtdata_w  
-  )
+	  writes     txtdata_w,
+	  writes     txtwrite  
+  )  
     if (numb < 0) {
       numb_cnt = 1;
       numb_tmp = -numb;
@@ -453,6 +457,7 @@ text_buffer txtbuf (
       numb_tmp = numb_tmp >> 4;
     }
     col = 0;
+	txtwrite = 1;
     if (numb < 0) {
       numb_tmp = -numb;
       // output sign
@@ -468,7 +473,13 @@ text_buffer txtbuf (
       col       = col + 1;
       numb_tmp  = numb_tmp >> 4;
     }
+	txtwrite = 0;
   return;
+
+  // by default r,g,b are set to zero
+  vga_red   := 0;
+  vga_green := 0;
+  vga_blue  := 0;
 
   // fill buffer with spaces
   txtwrite  = 1;
@@ -477,7 +488,8 @@ text_buffer txtbuf (
   while (next < 4800) {
     txtaddr = next;     // address to write
     next    = next + 1; // next
-  } // takes two cycles to loop, write occurs on first
+  }
+  txtwrite = 0;
 
   // print number
   () <- print_number <- ();
@@ -499,59 +511,52 @@ text_buffer txtbuf (
 
   while (1) {
 
-  while (vga_swap == 1) { }
-  // skipping over first pixel?
+	  while (vga_swap == 1) { }
+	  // skipping over first pixel?
 
-  // display frame
-  while (vga_swap == 0) {
+	  // display frame
+	  while (vga_swap == 0) {
 
-    vga_red   = 0;
-    vga_green = 0;
-    vga_blue  = 0;
+		if (letter_j < 8) {
+		  letter_i = vga_x & 7;
+		  addr     = letter_i + (letter_j << 3) + (txtdata_r << 6);
+		  pixel    = letters[ addr ];
+		  if (pixel == 1) {
+			vga_red   = 15;
+			vga_green = 15;
+			vga_blue  = 15;
+		  }
+		}
 
-    if (letter_j < 8) {
-      letter_i = vga_x & 7;
-      addr     = letter_i + (letter_j << 3) + (txtdata_r << 6);
-      pixel    = letters[ addr ];
-      if (pixel == 1) {
-        vga_red   = 15;
-        vga_green = 15;
-        vga_blue  = 15;
-      }
-    }
+		if (vga_active && (vga_x & 7) == 7) {   // end of letter
+		  text_i = text_i + 1;
+		  if (vga_x == 639) {  // end of line
+			// back to first column
+			text_i   = 0;
+			// next letter line
+			if (letter_j < 8) {
+			  letter_j = letter_j + 1;
+			} else {
+			  // next row
+			  letter_j = 0;
+			  text_j   = text_j + 1;
+			}
+			if (vga_y == 479) {
+			  // end of frame
+			  text_i   = 0;
+			  text_j   = 0;
+			  letter_j = 0;
+			}
+		  }
+		}
 
-    if (vga_active && (vga_x & 7) == 7) {   // end of letter
-      text_i = text_i + 1;
-      if (vga_x == 639) {  // end of line
-        // back to first column
-        text_i   = 0;
-        // next letter line
-        if (letter_j < 8) {
-          letter_j = letter_j + 1;
-        } else {
-          // next row
-          letter_j = 0;
-          text_j   = text_j + 1;
-        }
-        if (vga_y == 479) {
-          // end of frame
-          text_i   = 0;
-          text_j   = 0;
-          letter_j = 0;
-        }
-      }
-    }
+		txtaddr  = text_i + text_j * 80;
 
-    txtaddr  = text_i + text_j * 80;
+	  }
 
-  }
-
-  // prepare next frame
-  txtwrite = 1;
-  () <- print_string <- ();
-  str_y = str_y + 2;
-  txtwrite = 0;
-
+	  // prepare next frame
+	  () <- print_string <- ();
+	  str_y = str_y + 2;
 
   }
 }
