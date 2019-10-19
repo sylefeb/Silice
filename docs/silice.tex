@@ -16,7 +16,7 @@
 
 \maketitle
 
-\silice{} makes it possible to write algorithms for FPGAs in the same way we write them for processors: by defining sequences of operations, subroutines you can call, and using loop statements such as \texttt{while} (even good old \texttt{goto}s are available!). 
+\silice{} makes it possible to write algorithms for FPGAs in the same way we write them for processors: defining sequences of operations, subroutines that can be called, and using control flow statements such as \texttt{while} and \texttt{break} (even good old \texttt{goto}s are available!). 
 At the same time, \silice{} \textit{remains low level}. Everything an algorithm does is precisely timed, you can fully exploit the parallelism and niceties of FPGA architectures, clock domains are exposed. \silice{} is only a thin layer above the hardware: nothing gets obfuscated away. In fact, \silice{} compiles to and inter-operates with \verilog{}: you can directly instantiate and bind with existing modules. When \verilog{} makes more sense, use it!
 
 \silice{} is reminiscent of high performance programming in the late 90s (in the demo scene in particular): the then considered high-level C language was commonly interfaced with time-critical ASM routines. This enabled a best-of-both-worlds situation, with C being used for the overall program flow and ASM used only on carefully optimized hardware dependent routines.

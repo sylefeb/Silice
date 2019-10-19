@@ -40,9 +40,22 @@ class VerilogCompiler
 {
 private:
 
+  std::string                                                m_Path;
   std::unordered_map<std::string, AutoPtr<Algorithm> >       m_Algorithms;
   std::unordered_map<std::string, AutoPtr<Module> >          m_Modules;
   std::unordered_set<std::string>                            m_Appends;
+
+  std::string findFile(std::string fname)
+  {
+    if (LibSL::System::File::exists(fname.c_str())) {
+      return fname;
+    }
+    std::string tmp_fname = m_Path + "/" + extractFileName(fname);
+    if (LibSL::System::File::exists(tmp_fname.c_str())) {
+      return tmp_fname;
+    }
+    return fname;
+  }
 
   void gatherAlgorithms(antlr4::tree::ParseTree *tree)
   {
@@ -61,7 +74,8 @@ private:
         gatherAlgorithms(c);
       }
     } else if (alg) {
-      // algorithm
+
+      /// algorithm
       std::string name  = alg->IDENTIFIER()->getText();
       std::cerr << "parsing algorithm " << name << std::endl;
       bool autorun      = (name == "main");
@@ -86,10 +100,13 @@ private:
       }
       algorithm->gather(alg->inOutList(),alg->declAndInstrList());
       m_Algorithms.insert(std::make_pair(name,algorithm));
+
     } else if (imprt) {
-      // verilog import
+
+      /// verilog import
       std::string fname = imprt->FILENAME()->getText();
       fname = fname.substr(1, fname.length() - 2);
+      fname = findFile(fname);
       if (!LibSL::System::File::exists(fname.c_str())) {
         throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), imprt->getStart()->getLine());
       }
@@ -99,10 +116,13 @@ private:
       }
       std::cerr << "parsing module " << vmodule->name() << std::endl;
       m_Modules.insert(std::make_pair(vmodule->name(), vmodule));
+
     } else if (app) {
-      // file include
+
+      /// file include
       std::string fname = app->FILENAME()->getText();
       fname = fname.substr(1, fname.length() - 2);
+      fname = findFile(fname);
       if (!LibSL::System::File::exists(fname.c_str())) {
         throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), app->getStart()->getLine());
       }
@@ -154,6 +174,8 @@ public:
     LuaPreProcessor lpp;
     std::string preprocessed = std::string(fsource) + ".lpp";
     lpp.execute(fsource, preprocessed);
+    // extract path
+    m_Path = extractPath(fsource);
     // parse the preprocessed source
     std::ifstream file(preprocessed);
     if (file) {

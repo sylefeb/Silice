@@ -7,7 +7,7 @@ initial begin
   clk = 1'b0;
   rst_n = 1'b0;
   $display("icarus framework started");
-  $dumpfile("icarus.vcd");
+  $dumpfile("icarus.fst");
   $dumpvars(0,top);
   repeat(4) #5 clk = ~clk;
   rst_n = 1'b1;
