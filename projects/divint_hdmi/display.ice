@@ -413,7 +413,17 @@ text_buffer txtbuf (
 
   // --------- print string 
 
-  subroutine print_string:
+  subroutine print_string(
+    readwrites col,
+	reads      str,
+	reads      str_len,
+	reads      str_y,
+	readwrites lttr,
+	readwrites str_x,
+	readwrites str_start,
+	writes     txtaddr,
+	writes     txtdata_w	
+    )
     col  = 0;
     lttr = str[str_start];
     while (lttr != 0 && col < str_len) {
@@ -432,7 +442,19 @@ text_buffer txtbuf (
   return;
 
   // --------- print number 
-  subroutine print_number:
+  subroutine print_number(
+    reads      numb,
+    readwrites numb_cnt,	
+	readwrites numb_tmp,
+	writes     txtaddr,
+	writes     txtdata_w,
+    readwrites mulr10,
+	reads      recip10,
+	reads      str_y,
+	readwrites lttr,
+	readwrites str_x,
+	readwrites col
+  )
     if (numb < 0) {
       numb_cnt = 1;
       numb_tmp = -numb;
@@ -478,28 +500,28 @@ text_buffer txtbuf (
   str_x     = 64;
   str_start = 0;
   str_len   = 13;
-  call print_string;
+  () <- print_string <- ();
   str_y     = str_y + 2;
 
   // print division
 
   str_x     = 64;
   numb      = dividend;
-  call print_number;
+  () <- print_number <- ();
 
   str_start = 20;  // div by
   str_len   = 8;
-  call print_string;
+  () <- print_string <- ();
 
   numb = divisor;
-  call print_number;
+  () <- print_number <- ();
 
   str_start = 13;  // equals
   str_len   = 7;
-  call print_string;
+  () <- print_string <- ();
 
   (numb) <- div0 <- (dividend,divisor);
-  call print_number;
+  () <- print_number <- ();
   str_y = str_y + 1;
   
   // ---------- show time!
@@ -508,7 +530,7 @@ text_buffer txtbuf (
   txtwrite = 0;
   txtaddr  = 0;   
 
-  loop:
+  while (1) {
     
     hdmi_red   = 0;
     hdmi_green = 0;
@@ -549,7 +571,7 @@ text_buffer txtbuf (
 
     txtaddr  = text_i + text_j * 160;
 
-  goto loop;
+  }
 }
 
 // ------------------------- 

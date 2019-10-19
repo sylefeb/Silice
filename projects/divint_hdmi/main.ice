@@ -109,16 +109,16 @@ hdmi_encoder hdmi (
   // on-board LED output (I am alive!)
   led := myled;
   
-loop: 
+  while (1) {
 
-  counter = counter + 1;
-  if (counter == 0) {
-    myled = myled << 1;
-    if (myled == 0) {
-      myled = 1;
+    counter = counter + 1;
+    if (counter == 0) {
+      myled = myled << 1;
+      if (myled == 0) {
+        myled = 1;
+      }
     }
-  }
 
-goto loop;
+  }
 
 }
