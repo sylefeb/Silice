@@ -11,13 +11,13 @@ algorithm main(output uint8 led)
 
   passthrough p0;
 
-  subroutine test: (reads a)
+  subroutine test(reads a)
 	p0.i = a + 2;
     return;
 
   a = 1;
   b = 2;
-  call test;
+  () <- test <- ();
   a = a + 5;
-  call test;
+  () <- test <- ();
 }

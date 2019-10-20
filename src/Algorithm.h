@@ -413,7 +413,7 @@ private:
 
   /// \brief adds a combinational block to the list of blocks, performs book keeping
   template<class T_Block = t_combinational_block>
-  t_combinational_block *addBlock(std::string name,int line=-1)
+  t_combinational_block *addBlock(std::string name,t_subroutine_nfo *sub,int line=-1)
   {
     auto B = m_State2Block.find(name);
     if (B != m_State2Block.end()) {
@@ -424,6 +424,7 @@ private:
     m_Blocks.back()->block_name = name;
     m_Blocks.back()->id = next_id;
     m_Blocks.back()->end_action = nullptr;
+    m_Blocks.back()->subroutine = sub;
     m_Id2Block[next_id] = m_Blocks.back();
     m_State2Block[name] = m_Blocks.back();
     return m_Blocks.back();
@@ -482,10 +483,15 @@ private:
   }
 
   /// \brief gather variable declaration
-  void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl)
+  void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub)
   {
     t_var_nfo var;
-    var.name = decl->IDENTIFIER()->getText();
+    if (sub == nullptr) {
+      var.name = decl->IDENTIFIER()->getText();
+    } else {
+      var.name = "v_" + sub->name + "_" + decl->IDENTIFIER()->getText();
+      sub->vios.insert(std::make_pair(decl->IDENTIFIER()->getText(), var.name));
+    }
     var.table_size = 0;
     splitType(decl->TYPE()->getText(), var.base_type, var.width);
     var.init_values.push_back("0");
@@ -497,7 +503,7 @@ private:
       throw Fatal("variable '%s' is shadowing output of same name (line %d)", var.name.c_str(), decl->getStart()->getLine());
     }
     // ok!
-    m_Vars.emplace_back(var);
+    m_Vars    .emplace_back(var);
     m_VarNames.insert(std::make_pair(var.name,(int)m_Vars.size()-1));
   }
 
@@ -510,10 +516,15 @@ private:
   }
 
   /// \brief gather variable declaration
-  void gatherDeclarationTable(siliceParser::DeclarationTableContext* decl)
+  void gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_subroutine_nfo* sub)
   {
     t_var_nfo var;
-    var.name = decl->IDENTIFIER()->getText();
+    if (sub == nullptr) {
+      var.name = decl->IDENTIFIER()->getText();
+    } else {
+      var.name = "v_" + sub->name + "_" + decl->IDENTIFIER()->getText();
+      sub->vios.insert(std::make_pair(decl->IDENTIFIER()->getText(), var.name));
+    }
     splitType(decl->TYPE()->getText(), var.base_type, var.width);
     if (decl->NUMBER() != nullptr) {
       var.table_size = atoi(decl->NUMBER()->getText().c_str());
@@ -589,8 +600,11 @@ private:
   }
 
   /// \brief gather algorithm declaration
-  void gatherDeclarationAlgo(siliceParser::DeclarationModAlgContext* alg)
+  void gatherDeclarationAlgo(siliceParser::DeclarationModAlgContext* alg, const t_subroutine_nfo* sub)
   {
+    if (sub != nullptr) {
+      throw Fatal("subroutine '%s': algorithms cannot be instanced within subroutines (line %d)", sub->name.c_str(), alg->name->getLine());
+    }
     t_algo_nfo nfo;
     nfo.algo_name       = alg->modalg->getText();
     nfo.instance_name   = alg->name->getText();
@@ -620,8 +634,11 @@ private:
   }
 
   /// \brief gather module declaration
-  void gatherDeclarationModule(siliceParser::DeclarationModAlgContext* mod)
+  void gatherDeclarationModule(siliceParser::DeclarationModAlgContext* mod, const t_subroutine_nfo* sub)
   {
+    if (sub != nullptr) {
+      throw Fatal("subroutine '%s': modules cannot be instanced within subroutines (line %d)", sub->name.c_str(), mod->name->getLine());
+    }
     t_module_nfo nfo;
     nfo.module_name = mod->modalg->getText();
     nfo.instance_name = mod->name->getText();
@@ -755,7 +772,7 @@ private:
         name = generateBlockName();
         no_skip = true;
       }
-      t_combinational_block *block = addBlock(name,(int)ilist->state()->getStart()->getLine());
+      t_combinational_block *block = addBlock(name,_current->subroutine,(int)ilist->state()->getStart()->getLine());
       block->is_state = true; // block explicitely required to be a state
       block->no_skip = no_skip;
       _current->next(block);
@@ -775,7 +792,7 @@ private:
     _current->next(_context->break_to);
     _context->break_to->is_state = true;
     // start a new block after the break
-    t_combinational_block *block = addBlock(generateBlockName());
+    t_combinational_block *block = addBlock(generateBlockName(), _current->subroutine);
     // return block
     return block;
   }
@@ -784,12 +801,12 @@ private:
   t_combinational_block *gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context)
   {
     // while header block
-    t_combinational_block *while_header = addBlock("__while" + generateBlockName());
+    t_combinational_block *while_header = addBlock("__while" + generateBlockName(), _current->subroutine);
     _current->next(while_header);
     // iteration block
-    t_combinational_block *iter = addBlock(generateBlockName());
+    t_combinational_block *iter = addBlock(generateBlockName(), _current->subroutine);
     // block for after the while
-    t_combinational_block *after = addBlock(generateBlockName());
+    t_combinational_block *after = addBlock(generateBlockName(), _current->subroutine);
     // parse the iteration block
     t_combinational_block *previous  = _context->break_to;
     _context->break_to               = after;
@@ -805,9 +822,37 @@ private:
     return after;
   }
 
+  /// \brief gather declaration list
+  void gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub)
+  {
+    if (decllist == nullptr) {
+      return;
+    }
+    siliceParser::DeclarationListContext *cur_decllist = decllist;
+    while (cur_decllist->declaration() != nullptr) {
+      siliceParser::DeclarationContext* decl = cur_decllist->declaration();
+      auto declvar = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
+      auto decltbl = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
+      auto modalg  = dynamic_cast<siliceParser::DeclarationModAlgContext*>(decl->declarationModAlg());
+      if (declvar) { gatherDeclarationVar(declvar, sub); }
+      else if (decltbl) { gatherDeclarationTable(decltbl, sub); }
+      else if (modalg) {
+        std::string name = modalg->modalg->getText();
+        if (m_KnownModules.find(name) != m_KnownModules.end()) {
+          gatherDeclarationModule(modalg, sub);
+        } else {
+          gatherDeclarationAlgo(modalg, sub);
+        }
+      }
+      cur_decllist = cur_decllist->declarationList();
+    }
+  }
+
   /// \brief gather a subroutine
   t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context)
   {
+    sl_assert(_current->subroutine == nullptr);
+
     t_subroutine_nfo *nfo = new t_subroutine_nfo;
     // subroutine name
     nfo->name = sub->IDENTIFIER()->getText();
@@ -818,8 +863,10 @@ private:
     if (m_InstancedAlgorithms.count(nfo->name) > 0) {
       throw Fatal("subroutine '%s': an instanced algorithm of the same name is already declared (line %d)", nfo->name.c_str(), sub->getStart()->getLine());
     }
+    // subroutine local declarations
+    gatherDeclarationList(sub->declarationList(), nfo);
     // subroutine block
-    t_combinational_block *subb = addBlock("__sub_" + nfo->name,(int)sub->getStart()->getLine());
+    t_combinational_block *subb = addBlock("__sub_" + nfo->name, nullptr,(int)sub->getStart()->getLine());
     // cross ref between block and subroutine
     subb->subroutine = nfo;
     nfo ->top_block  = subb;
@@ -868,13 +915,13 @@ private:
         }
         // insert variable in host for each input/output
         t_var_nfo var;
-        var.name = in_or_out + "_" + nfo->name  + "_" + ioname;
+        var.name       = in_or_out + "_" + nfo->name  + "_" + ioname;
         var.table_size = tbl_size;
         splitType(strtype, var.base_type, var.width);
         var.init_values.resize(max(var.table_size, 1), "0");
-        m_Vars.emplace_back(var);
+        m_Vars    .emplace_back(var);
         m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
-        nfo->vios.insert(std::make_pair(ioname,var.name));
+        nfo->vios .insert(std::make_pair(ioname,var.name));
       }
     }
     // parse the subroutine
@@ -908,7 +955,7 @@ private:
       B->second->is_state = true; // destination has to be a state
     }
     // start a new block just after the jump
-    t_combinational_block* after = addBlock(generateBlockName());
+    t_combinational_block* after = addBlock(generateBlockName(), _current->subroutine);
     // return block after jump
     return after;
   }
@@ -917,7 +964,7 @@ private:
   t_combinational_block *gatherCall(siliceParser::CallContext* call, t_combinational_block *_current, t_gather_context *_context)
   {
     // start a new block just after the call
-    t_combinational_block* after = addBlock(generateBlockName());
+    t_combinational_block* after = addBlock(generateBlockName(), _current->subroutine);
     // has to be a state to return to
     after->is_state = true;
     // find the destination
@@ -945,7 +992,7 @@ private:
     // add return at end of current
     _current->return_from();
     // start a new block
-    t_combinational_block* block = addBlock(generateBlockName());
+    t_combinational_block* block = addBlock(generateBlockName(), _current->subroutine);
     return block;
   }
 
@@ -958,7 +1005,7 @@ private:
     auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
     if (S != m_Subroutines.end()) {
       // yes! create a new block, call subroutine
-      t_combinational_block* after = addBlock(generateBlockName());
+      t_combinational_block* after = addBlock(generateBlockName(), _current->subroutine);
       // has to be a state to return to
       after->is_state = true;
       // call subroutine
@@ -977,12 +1024,12 @@ private:
     auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
     if (S == m_Subroutines.end()) { // no, waiting for algorithm
       // block for the wait
-      t_combinational_block* waiting_block = addBlock(generateBlockName());
+      t_combinational_block* waiting_block = addBlock(generateBlockName(), _current->subroutine);
       waiting_block->is_state = true; // state for waiting
       // enter wait after current
       _current->next(waiting_block);
       // block for after the wait
-      t_combinational_block* next_block = addBlock(generateBlockName());
+      t_combinational_block* next_block = addBlock(generateBlockName(), _current->subroutine);
       next_block->is_state = true; // state to goto after the wait
       // ask current block to wait the algorithm termination
       waiting_block->wait((int)join->getStart()->getLine(), join->IDENTIFIER()->getText(), waiting_block, next_block);
@@ -1025,13 +1072,13 @@ private:
   /// \brief gather an if-then-else
   t_combinational_block *gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context)
   {
-    t_combinational_block *if_block   = addBlock(generateBlockName());
-    t_combinational_block *else_block = addBlock(generateBlockName());
+    t_combinational_block *if_block   = addBlock(generateBlockName(), _current->subroutine);
+    t_combinational_block *else_block = addBlock(generateBlockName(), _current->subroutine);
     // parse the blocks
     t_combinational_block *if_block_after   = gather(ifelse->if_block, if_block, _context);
     t_combinational_block *else_block_after = gather(ifelse->else_block, else_block, _context);
     // create a block for after the if-then-else
-    t_combinational_block *after = addBlock(generateBlockName());
+    t_combinational_block *after = addBlock(generateBlockName(), _current->subroutine);
     if_block_after  ->next(after);
     else_block_after->next(after);
     // add if_then_else to current
@@ -1044,12 +1091,12 @@ private:
   /// \brief gather an if-then
   t_combinational_block *gatherIfThen(siliceParser::IfThenContext* ifthen, t_combinational_block *_current, t_gather_context *_context)
   {
-    t_combinational_block *if_block   = addBlock(generateBlockName());
-    t_combinational_block *else_block = addBlock(generateBlockName());
+    t_combinational_block *if_block   = addBlock(generateBlockName(), _current->subroutine);
+    t_combinational_block *else_block = addBlock(generateBlockName(), _current->subroutine);
     // parse the blocks
     t_combinational_block *if_block_after = gather(ifthen->if_block, if_block, _context);
     // create a block for after the if-then-else
-    t_combinational_block *after = addBlock(generateBlockName());
+    t_combinational_block *after = addBlock(generateBlockName(), _current->subroutine);
     if_block_after->next(after);
     else_block    ->next(after);
     // add if_then_else to current
@@ -1063,11 +1110,11 @@ private:
   t_combinational_block* gatherSwitchCase(siliceParser::SwitchCaseContext* switchCase, t_combinational_block* _current, t_gather_context* _context)
   {
     // create a block for after the switch-case
-    t_combinational_block* after = addBlock(generateBlockName());
+    t_combinational_block* after = addBlock(generateBlockName(), _current->subroutine);
     // create a block per case statement
     std::vector<std::pair<std::string,t_combinational_block*> > case_blocks;
     for (auto cb : switchCase->caseBlock()) {
-      t_combinational_block* case_block       = addBlock(generateBlockName() + "_case");
+      t_combinational_block* case_block       = addBlock(generateBlockName() + "_case", _current->subroutine);
       std::string            value            = "default";
       if (cb->case_value != nullptr) {
         value = gatherValue(cb->case_value);
@@ -1129,8 +1176,8 @@ private:
     }
   }
 
-  /// \brief check the access permissions on assignements
-  void checkAssignPermissions(siliceParser::AssignmentContext *assign, t_gather_context *_context)
+  /// \brief check access permissions
+  void checkPermissions(antlr4::tree::ParseTree *node, t_gather_context *_context)
   {
     // in subroutine
     if (_context->subroutine == nullptr) {
@@ -1138,22 +1185,22 @@ private:
     }
     // yes: go ahead with checks
     std::unordered_set<std::string> read, written;
-    determineVIOAccess(assign, m_VarNames,    nullptr, read, written);
-    determineVIOAccess(assign, m_OutputNames, nullptr, read, written);
-    determineVIOAccess(assign, m_InputNames,  nullptr, read, written);
+    determineVIOAccess(node, m_VarNames,    nullptr, read, written);
+    determineVIOAccess(node, m_OutputNames, nullptr, read, written);
+    determineVIOAccess(node, m_InputNames,  nullptr, read, written);
     // now verify all permissions are granted
     for (auto R : read) {
       if (_context->subroutine->allowed_reads.count(R) == 0) {
-        throw Fatal("variable '%s' is read by subroutine without explicit permission (line %d)",R.c_str(),assign->getStart()->getLine());
+        throw Fatal("variable '%s' is read by subroutine '%s' without explicit permission", R.c_str(), _context->subroutine->name.c_str());
       }
     }
     for (auto W : written) {
       if (_context->subroutine->allowed_writes.count(W) == 0) {
-        throw Fatal("variable '%s' is written by subroutine without explicit permission (line %d)", W.c_str(), assign->getStart()->getLine());
+        throw Fatal("variable '%s' is written by subroutine '%s' without explicit permission", W.c_str(), _context->subroutine->name.c_str());
       }
     }
   }
-
+  
   /// \brief sematic parsing, first discovery pass
   t_combinational_block *gather(antlr4::tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context)
   {
@@ -1161,8 +1208,7 @@ private:
       return _current;
     }
 
-    auto declvar = dynamic_cast<siliceParser::DeclarationVarContext*>(tree);
-    auto decltbl = dynamic_cast<siliceParser::DeclarationTableContext*>(tree);
+    auto decllist = dynamic_cast<siliceParser::DeclarationListContext*>(tree);
     auto always  = dynamic_cast<siliceParser::AlwaysAssignedListContext*>(tree);
     auto ilist   = dynamic_cast<siliceParser::InstructionListContext*>(tree);
     auto ifelse  = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
@@ -1170,7 +1216,6 @@ private:
     auto switchC = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
     auto loop    = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
     auto jump    = dynamic_cast<siliceParser::JumpContext*>(tree);
-    auto modalg  = dynamic_cast<siliceParser::DeclarationModAlgContext*>(tree);
     auto assign  = dynamic_cast<siliceParser::AssignmentContext*>(tree);
     auto display = dynamic_cast<siliceParser::DisplayContext *>(tree);
     auto async   = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
@@ -1184,33 +1229,26 @@ private:
 
     bool recurse = true;
 
-    if      (declvar) { gatherDeclarationVar(declvar); } 
-    else if (decltbl) { gatherDeclarationTable(decltbl); } 
-    else if (modalg)  {
-      std::string name = modalg->modalg->getText();      
-      if (m_KnownModules.find(name) != m_KnownModules.end()) {
-        gatherDeclarationModule(modalg);
-      } else {
-        gatherDeclarationAlgo(modalg);
-      }
-    }
-    else if (ifelse)  { _current = gatherIfElse(ifelse, _current, _context);      recurse = false; }
-    else if (ifthen)  { _current = gatherIfThen(ifthen, _current, _context);      recurse = false; }
-    else if (switchC) { _current = gatherSwitchCase(switchC, _current, _context); recurse = false; }
-    else if (loop)    { _current = gatherWhile(loop, _current, _context);         recurse = false; }
-    else if (always)  { gatherAlwaysAssigned(always);                             recurse = false; }
-    else if (repeat)  { _current = gatherRepeatBlock(repeat, _current, _context); recurse = false; } 
-    else if (sub)     { _current = gatherSubroutine(sub, _current, _context);     recurse = false; }
-    else if (sync)    { _current = gatherSyncExec(sync, _current, _context);      recurse = false; }
-    else if (async)   { _current->instructions.push_back(t_instr_nfo(async, _context->__id)); }
-    else if (call)    { _current = gatherCall(call, _current, _context); }
-    else if (jump)    { _current = gatherJump(jump, _current, _context); }
-    else if (ret)     { _current = gatherReturnFrom(ret, _current, _context); }
-    else if (breakL)  { _current = gatherBreakLoop(breakL, _current, _context); }
-    else if (join)    { _current = gatherJoinExec(join, _current, _context); }
-    else if (assign)  { checkAssignPermissions(assign,_context);  _current->instructions.push_back(t_instr_nfo(assign, _context->__id)); }
-    else if (display) { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); }
-    else if (ilist)   { _current = updateBlock(ilist, _current, _context); }
+    checkPermissions(tree, _context);
+
+    if      (decllist) { gatherDeclarationList(decllist, nullptr);                 recurse = false; }
+    else if (ifelse)   { _current = gatherIfElse(ifelse, _current, _context);      recurse = false; }
+    else if (ifthen)   { _current = gatherIfThen(ifthen, _current, _context);      recurse = false; }
+    else if (switchC)  { _current = gatherSwitchCase(switchC, _current, _context); recurse = false; }
+    else if (loop)     { _current = gatherWhile(loop, _current, _context);         recurse = false; }
+    else if (always)   { gatherAlwaysAssigned(always);                             recurse = false; }
+    else if (repeat)   { _current = gatherRepeatBlock(repeat, _current, _context); recurse = false; } 
+    else if (sub)      { _current = gatherSubroutine(sub, _current, _context);     recurse = false; }
+    else if (sync)     { _current = gatherSyncExec(sync, _current, _context);      recurse = false; }
+    else if (join)     { _current = gatherJoinExec(join, _current, _context);      recurse = false; } 
+    else if (call)     { _current = gatherCall(call, _current, _context);          recurse = false; }
+    else if (jump)     { _current = gatherJump(jump, _current, _context);          recurse = false; }
+    else if (ret)      { _current = gatherReturnFrom(ret, _current, _context);     recurse = false; }
+    else if (breakL)   { _current = gatherBreakLoop(breakL, _current, _context);   recurse = false; }
+    else if (async)    { _current->instructions.push_back(t_instr_nfo(async, _context->__id));   recurse = false; } 
+    else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _context->__id));  recurse = false; }
+    else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); recurse = false; }
+    else if (ilist)    { _current = updateBlock(ilist, _current, _context); }
 
     // recurse
     if (recurse) {
@@ -2218,7 +2256,7 @@ public:
   void gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *declAndInstr)
   {
     // gather elements from source code
-    t_combinational_block *main = addBlock("_top",(int)inout->getStart()->getLine());
+    t_combinational_block *main = addBlock("_top", nullptr, (int)inout->getStart()->getLine());
     main->is_state = true;
 
     // gather input and outputs

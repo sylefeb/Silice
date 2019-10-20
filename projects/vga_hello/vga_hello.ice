@@ -46,7 +46,6 @@ text_buffer txtbuf (
   uint16 next     = 0;
 
   uint8  lttr     = 0;
-  uint11 col      = 0;
   uint11 str_x    = 10;
   uint10 str_y    = 10;
 
@@ -62,7 +61,6 @@ text_buffer txtbuf (
 
   // --------- print string
   subroutine print_string( 
-      readwrites col,
 	  readwrites lttr,
 	  reads      str,
 	  reads      str_x,
@@ -71,7 +69,7 @@ text_buffer txtbuf (
 	  writes     txtdata_w,
 	  writes     txtwrite
 	  )
-    col  = 0;
+    uint11 col = 0;
     lttr = str[col];
     while (lttr != 0) {
       if (lttr == 32) {
