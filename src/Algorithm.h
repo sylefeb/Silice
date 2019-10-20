@@ -186,9 +186,10 @@ private:
     t_combinational_block                          *top_block;
     std::unordered_set<std::string>                 allowed_reads;
     std::unordered_set<std::string>                 allowed_writes;
-    std::unordered_map< std::string, std::string>   vios;  // [name in subroutine => var in host]
-    std::vector<std::string>                        inputs;  // order list of input names
-    std::vector<std::string>                        outputs; // order list of output names
+    std::unordered_map< std::string, std::string>   vios;     // [name in subroutine => var in host]
+    std::vector<std::string>                        inputs;   // ordered list of input names
+    std::vector<std::string>                        outputs;  // ordered list of output names
+    std::unordered_map<std::string, int >           varnames; // internal var names
   };
   std::unordered_map< std::string, t_subroutine_nfo* > m_Subroutines;
 
@@ -504,7 +505,10 @@ private:
     }
     // ok!
     m_Vars    .emplace_back(var);
-    m_VarNames.insert(std::make_pair(var.name,(int)m_Vars.size()-1));
+    m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
+    if (sub != nullptr) {
+      sub->varnames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
+    }
   }
 
   /// \brief gather all values from an init list
@@ -565,6 +569,9 @@ private:
     }
     m_Vars.emplace_back(var);
     m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
+    if (sub != nullptr) {
+      sub->varnames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
+    }
   }
 
   /// \brief extract the list of bindings
@@ -898,7 +905,7 @@ private:
           nfo->inputs.push_back(ioname);
         } else {
           in_or_out = "o";
-          ioname = P->output()->IDENTIFIER()->getText();
+          ioname  = P->output()->IDENTIFIER()->getText();
           strtype = P->output()->TYPE()->getText();
           if (P->output()->NUMBER() != nullptr) {
             tbl_size = atoi(P->output()->NUMBER()->getText().c_str());
@@ -1497,6 +1504,8 @@ private:
       throw Fatal("incorrect number of input parameters in call to subroutine '%s' (line %d)",
         s->name.c_str(), plist->getStart()->getLine());
     }
+    // write var inits
+    writeVarInits(prefix, out, s->varnames);
     // set inputs
     int p = 0;
     for (const auto& ins : s->inputs) {
@@ -2726,6 +2735,22 @@ private:
     }
   }
 
+  /// \brief writes variable inits
+  void writeVarInits(std::string prefix, std::ostream& out, const std::unordered_map<std::string, int >& varnames) const
+  {
+    for (const auto& vn : varnames) {
+      const auto& v = m_Vars.at(vn.second);
+      if (v.usage != e_FlipFlop) continue;
+      if (v.table_size == 0) {
+        out << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
+      } else {
+        ForIndex(i, v.table_size) {
+          out << FF_D << prefix << v.name << "[(" << i << ")*" << v.width << "+:" << v.width << ']' << " = " << v.init_values[i] << ';' << std::endl;
+        }
+      }
+    }
+  }
+
   /// \brief writes all states in the output
   void writeCombinationalStates(std::string prefix, std::ostream& out) const
   {
@@ -2748,17 +2773,9 @@ private:
       }
       // begin state
       out << b->state_id << ": begin" << " // " << b->block_name << std::endl;
-      if (bid == 0) { // first block starts by variable initialization
-        for (const auto& v : m_Vars) {
-          if (v.usage != e_FlipFlop) continue;
-          if (v.table_size == 0) {
-            out << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
-          } else {
-            ForIndex(i, v.table_size) {
-              out << FF_D << prefix << v.name << "[(" << i << ")*" << v.width << "+:" << v.width << ']' << " = " << v.init_values[i] << ';' << std::endl;
-            }
-          }
-        }
+      if (b->state_id == fastForward(m_Blocks.front())->state_id) { 
+        // entry block starts by variable initialization
+        writeVarInits(prefix,out,m_VarNames);
       }
       // write block instructions
       writeStatelessBlockGraph(prefix, out, b, nullptr, q);
@@ -2783,6 +2800,7 @@ private:
 public:
 
   void writeAsModule(std::ostream& out) const;
+
 };
 
 // -------------------------------------------------
