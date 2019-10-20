@@ -1340,6 +1340,16 @@ private:
     return m_MaxState;
   }
 
+  /// \brief returns the index of the entry state
+  int entryState() const
+  {
+    // TODO: but not so simple, can lead to trouble with var inits, 
+    // for instance if the entry state becomes the first in a lopp
+    // fastForward(m_Blocks.front())->state_id 
+
+    return 0;
+  }
+
   /// \brief returns the index to jump to to intitate the termination sequence
   int terminationState() const
   {
@@ -2493,11 +2503,11 @@ private:
       out << FF_Q << prefix << ALG_IDX   " <= " << terminationState() << ";" << std::endl;
     } else {
       // autorun: jump to first state
-      out << FF_Q << prefix << ALG_IDX   " <= " << fastForward(m_Blocks.front())->state_id << ";" << std::endl;
+      out << FF_Q << prefix << ALG_IDX   " <= " << entryState() << ";" << std::endl;
     }
     out << "end else begin" << std::endl;
     // -> on restart, jump to first state
-    out << FF_Q << prefix << ALG_IDX   " <= " << fastForward(m_Blocks.front())->state_id << ";" << std::endl;
+    out << FF_Q << prefix << ALG_IDX   " <= " << entryState() << ";" << std::endl;
     out << "end" << std::endl;
     // return index for subroutines
     out << FF_Q << prefix << ALG_RETURN " <= " << terminationState() << ";" << std::endl;
@@ -2773,7 +2783,7 @@ private:
       }
       // begin state
       out << b->state_id << ": begin" << " // " << b->block_name << std::endl;
-      if (b->state_id == fastForward(m_Blocks.front())->state_id) { 
+      if (b->state_id == entryState()) {
         // entry block starts by variable initialization
         writeVarInits(prefix,out,m_VarNames);
       }

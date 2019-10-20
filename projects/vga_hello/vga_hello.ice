@@ -279,9 +279,9 @@ algorithm main(
   while (frame < 2) {
   
     while (vblank == 1) { }
-
+	$display("vblank off");
     while (vblank == 0) { }
-  
+    $display("vblank on");
     frame = frame + 1;
 
   }
