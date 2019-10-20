@@ -181,7 +181,7 @@ void VideoOut::eval_RGB_HV
                     vcount = 0;
                     v_sync_stage = e_Done;
                     v_sync_count = 0;
-                    {
+                    if (0) {
                         char tmp[264];
                         sprintf(tmp, "%s_%04d.tga", filename, dump_ctr);
                         printf(" Save snapshot in file \"%s\"\n", tmp);

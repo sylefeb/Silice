@@ -28,6 +28,7 @@ class LuaPreProcessor
 private:
 
   std::string processCode(std::string src_file) const;
+  std::string findFile(std::string path,std::string fname) const;
 
 public:
 

@@ -45,12 +45,18 @@ private:
   std::unordered_map<std::string, AutoPtr<Module> >          m_Modules;
   std::unordered_set<std::string>                            m_Appends;
 
-  std::string findFile(std::string fname)
+  std::string findFile(std::string fname) const
   {
+    std::string tmp_fname;
+
     if (LibSL::System::File::exists(fname.c_str())) {
       return fname;
     }
-    std::string tmp_fname = m_Path + "/" + extractFileName(fname);
+    tmp_fname = m_Path + "/" + extractFileName(fname);
+    if (LibSL::System::File::exists(tmp_fname.c_str())) {
+      return tmp_fname;
+    }
+    tmp_fname = m_Path + "/" + fname;
     if (LibSL::System::File::exists(tmp_fname.c_str())) {
       return tmp_fname;
     }

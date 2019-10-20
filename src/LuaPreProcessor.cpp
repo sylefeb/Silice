@@ -62,6 +62,26 @@ LuaPreProcessor::~LuaPreProcessor()
 
 // -------------------------------------------------
 
+std::string LuaPreProcessor::findFile(std::string path, std::string fname) const
+{
+  std::string tmp_fname;
+
+  if (LibSL::System::File::exists(fname.c_str())) {
+    return fname;
+  }
+  tmp_fname = path + "/" + extractFileName(fname);
+  if (LibSL::System::File::exists(tmp_fname.c_str())) {
+    return tmp_fname;
+  }
+  tmp_fname = path + "/" + fname;
+  if (LibSL::System::File::exists(tmp_fname.c_str())) {
+    return tmp_fname;
+  }
+  return fname;
+}
+
+// -------------------------------------------------
+
 std::map<lua_State*, std::ofstream> g_LuaOutputs;
 
 static void lua_output(lua_State *L,std::string str)
@@ -113,6 +133,10 @@ std::string LuaPreProcessor::processCode(std::string src_file) const
   if (!LibSL::System::File::exists(src_file.c_str())) {
     throw Fatal("cannot find source file '%s'", src_file.c_str());
   }
+  
+  // extract path
+  std::string path = extractPath(src_file);
+
   ifstream          file(src_file);
 
   ANTLRInputStream  input(file);
@@ -144,6 +168,7 @@ std::string LuaPreProcessor::processCode(std::string src_file) const
       std::smatch matches;
       if (std::regex_match(filename, matches, lfname_regex)) {
         std::string fname = matches.str(1).c_str();
+        fname             = findFile(path, fname);
         // recurse
         code += "\n" + processCode(fname) + "\n";
       }
