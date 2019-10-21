@@ -119,7 +119,7 @@ public:
       throw Fatal("cannot find imported module file '%s'",m_FileName.c_str());
     }
     out << std::endl;
-    out << loadFileIntoString(m_FileName.c_str());
+    out << fileToString(m_FileName.c_str());
     out << std::endl;
   }
 
@@ -139,9 +139,34 @@ public:
     return m_Inputs.at(name);
   }
 
+  const t_binding_point_nfo& inout(std::string name) const
+  {
+    if (m_InOuts.find(name) == m_InOuts.end()) {
+      throw Fatal("cannot find inout '%s' in imported module '%s'", name.c_str(), m_FileName.c_str());
+    }
+    return m_InOuts.at(name);
+  }
+
   const std::unordered_map<std::string, t_binding_point_nfo>& inputs()  const { return m_Inputs;  }
   const std::unordered_map<std::string, t_binding_point_nfo>& outputs() const { return m_Outputs; }
   const std::unordered_map<std::string, t_binding_point_nfo>& inouts()  const { return m_InOuts;  }
+
+  static std::string fileToString(const char* file)
+  {
+    std::ifstream infile(file);
+    if (!infile) {
+      throw LibSL::Errors::Fatal("[loadFileIntoString] - file '%s' not found", file);
+    }
+    std::ostringstream strstream;
+    while (infile) { // TODO: improve efficienty
+      std::ifstream::int_type c = infile.get();
+      if (c != (-1)) // EOF
+        strstream << char(c);
+      else
+        break;
+    }
+    return strstream.str();
+  }
 };
 
 // -------------------------------------------------

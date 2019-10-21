@@ -81,10 +81,17 @@ private:
 
   /// \brief enum for variable access
   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
-  enum e_Access { e_NotAccessed = 0, e_ReadOnly = 1, e_WriteOnly = 2, e_ReadWrite = 3, e_WriteBinded = 4 };
+  enum e_Access { 
+    e_NotAccessed = 0, 
+    e_ReadOnly    = 1, e_WriteOnly  = 2, e_ReadWrite       = 3, 
+    e_WriteBinded = 4, e_ReadWriteBinded = 8,
+  };
 
   /// \brief enum for variable type
-  enum e_VarUsage { e_Undetermined = 0, e_NotUsed = 1, e_Const = 2, e_Temporary = 3, e_FlipFlop = 4, e_Bound = 5, e_Assigned = 6 };
+  enum e_VarUsage { 
+    e_Undetermined = 0, e_NotUsed = 1, 
+    e_Const = 2, e_Temporary = 3, 
+    e_FlipFlop = 4, e_Bound = 5, e_Assigned = 6 };
 
   /// \brief enum for IO types
   enum e_IOType { e_Input, e_Output, e_InOut, e_NotIO };
@@ -117,8 +124,10 @@ private:
   /// \brief all inout names, map contains index in m_InOuts
   std::unordered_map<std::string, int > m_InOutNames;
 
-  /// \brief VIO (variable-or-input-or-output) bound to module/algorithms inputs (regs) or outputs (wires) (name => reg/wire name)
-  std::unordered_map<std::string, std::string> m_VIOBoundToModAlgOutputs;
+  /// \brief VIO (variable-or-input-or-output) bound to module/algorithms outputs (wires) (vio name => wire name)
+  std::unordered_map<std::string, std::string>  m_VIOBoundToModAlgOutputs;
+  /// \brief module/algorithms inouts bound to VIO (inout => vio name)
+  std::unordered_map<std::string, std::string > m_ModAlgInOutsBoundToVIO;
 
   /// \brief declared variables
   std::vector< t_var_nfo >    m_Vars;
@@ -406,6 +415,12 @@ private:
     return (m_OutputNames.find(var) != m_OutputNames.end());
   }
 
+  /// \brief returns true if belongs to inouts
+  bool isInOut(std::string var) const
+  {
+    return (m_InOutNames.find(var) != m_InOutNames.end());
+  }
+
   /// \brief checks whether an identifier is an input or output
   bool isInputOrOutput(std::string var) const
   {
@@ -688,6 +703,9 @@ private:
       return m_VIOBoundToModAlgOutputs.at(var);
     } else if (isInput(var)) {
       return ALG_INPUT + prefix + var;
+    } else if (isInOut(var)) {
+      throw Fatal("cannot use inouts directly in expressions (line %d)", line);
+      //return ALG_INOUT + prefix + var;
     } else if (isOutput(var)) {
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_FlipFlop) {
@@ -705,8 +723,12 @@ private:
         throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
       }
       if (m_Vars.at(V->second).usage == e_Bound) {
-        // bound to an input/output
-        return m_VIOBoundToModAlgOutputs.at(var);
+        // bound to an output?
+        auto Bo = m_VIOBoundToModAlgOutputs.find(var);
+        if (Bo != m_VIOBoundToModAlgOutputs.end()) {
+          return Bo->second;
+        }
+        throw Fatal("internal error (line %d) [%s, %d]", line, __FILE__,__LINE__);
       } else {
         // flip-flop
         return ff + prefix + var;
@@ -2058,8 +2080,16 @@ private:
             }
             // -> mark as write-binded
             m_Vars[m_VarNames[b.right]].access = (e_Access)(m_Vars[m_VarNames[b.right]].access | e_WriteBinded);
-          } else {
-            throw Fatal("cannot access inout variable '%s' (line %d) [inouts are only supported as pass-through to/from Verilog modules]", b.right.c_str(), b.line);
+          } else { // e_BiDir
+            // -> check prior access
+            if ((m_Vars[m_VarNames[b.right]].access & (~e_ReadWriteBinded)) != 0) {
+              throw Fatal("cannot bind variable '%s' on an inout port, it is used elsewhere (line %d)", b.right.c_str(), b.line);
+            }
+            // add to always block dependency
+            m_Always.in_vars_read    .insert(b.right);
+            m_Always.out_vars_written.insert(b.right);
+            // set global access
+            m_Vars[m_VarNames[b.right]].access = (e_Access)(m_Vars[m_VarNames[b.right]].access | e_ReadWriteBinded);
           }
         }
       }
@@ -2081,7 +2111,7 @@ private:
     }
 
     /// \brief analyze variables access and classifies variables
-    void analyzeVariablesAccess()
+    void determineVariablesUsage()
     {
       // determine variables access
       determineVariablesAccess();
@@ -2120,8 +2150,12 @@ private:
         } else if (v.access == e_NotAccessed) {
           std::cerr << v.name << " => unused ";
           v.usage = e_NotUsed;
+        } else if (v.access == e_ReadWriteBinded) {
+          std::cerr << v.name << " => bound to inout ";
+          v.usage = e_Bound;
         } else {
           std::cerr << Console::yellow << "warning: " << v.name << " unexpected usage." << Console::gray << std::endl;
+          v.usage = e_FlipFlop;
         }
         std::cerr << std::endl;
       }
@@ -2153,7 +2187,6 @@ private:
     }
 
     /// \brief determines the list of bound VIO
-
     void determineModAlgBoundVIO()
     {
       // find out vio bound to a module input/output
@@ -2163,6 +2196,10 @@ private:
           if (bi.dir == e_Right) {
             // record wire name for this output
             m_VIOBoundToModAlgOutputs[bi.right] = WIRE + im.second.instance_prefix + "_" + bi.left;
+          } else if (bi.dir == e_BiDir) {
+            // record wire name for this inout
+            std::string bindpoint = im.second.instance_prefix + "_" + bi.left;
+            m_ModAlgInOutsBoundToVIO[bindpoint] = bi.right;
           }
         }
       }
@@ -2172,6 +2209,10 @@ private:
           if (bi.dir == e_Right) {
             // record wire name for this output
             m_VIOBoundToModAlgOutputs[bi.right] = WIRE + ia.second.instance_prefix + "_" + bi.left;
+          } else if (bi.dir == e_BiDir) {
+            // record wire name for this inout
+            std::string bindpoint = ia.second.instance_prefix + "_" + bi.left;
+            m_ModAlgInOutsBoundToVIO[bindpoint] = bi.right;
           }
         }
       }
@@ -2347,7 +2388,7 @@ public:
     // determine which VIO are assigned to wires
     determineModAlgBoundVIO();
     // analyze variables access 
-    analyzeVariablesAccess();
+    determineVariablesUsage();
     // analyze outputs access
     analyzeOutputsAccess();
     // analyze instanced algorithms inputs
@@ -2380,11 +2421,22 @@ private:
 
 private:
 
+  /// \brief returns a type dependent string for resource declaration
+  std::string typeString(const t_var_nfo& v) const
+  {
+    if (v.base_type == Int) {
+      return "signed";
+    }
+    return "";
+  }
+
   /// \brief writes the const declarations
   void writeConstDeclarations(std::string prefix, std::ostream& out) const
   {
     for (const auto& v : m_Vars) {
-      if (v.usage != e_Const) continue;
+      if (v.usage != e_Const) {
+        continue;
+      }
       out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_D << prefix << v.name << ';' << std::endl;
       if (v.table_size == 0) {
         out << "assign " << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
@@ -2397,15 +2449,6 @@ private:
     }
   }
 
-  /// \brief returns a type dependent string for resource declaration
-  std::string typeString(const t_var_nfo& v) const 
-  {
-    if (v.base_type == Int) {
-      return "signed";
-    }
-    return "";
-  }
-
   /// \brief writes the temporary declarations
   void writeTempDeclarations(std::string prefix, std::ostream& out) const
   {
@@ -2415,11 +2458,20 @@ private:
     }
   }
 
+  /// \brief writes the wire declarations
+  void writeWireDeclarations(std::string prefix, std::ostream& out) const
+  {
+    for (const auto& v : m_Vars) {
+      if (v.usage != e_Bound || v.access != e_ReadWriteBinded) continue;
+      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << WIRE << prefix << v.name << ';' << std::endl;
+    }
+  }
+
   /// \brief writes the flip-flop declarations
   void writeFlipFlopDeclarations(std::string prefix, std::ostream& out) const
   {
     out << std::endl;
-    // flip-flops for internal vars
+    // flip-flops for vars
     for (const auto& v : m_Vars) {
       if (v.usage != e_FlipFlop) continue;
       out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";

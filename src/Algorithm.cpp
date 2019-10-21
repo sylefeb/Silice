@@ -116,7 +116,8 @@ void Algorithm::writeAsModule(ostream& out) const
   for (auto& nfo : m_InstancedAlgorithms) {
     // output wires
     for (const auto& os : nfo.second.algo->m_Outputs) {
-      out << "wire " << typeString(os) << " [" << varBitDepth(os) - 1 << ":0] " << WIRE << nfo.second.instance_prefix << '_' << os.name << ';' << endl;
+      out << "wire " << typeString(os) << " [" << varBitDepth(os) - 1 << ":0] " 
+          << WIRE << nfo.second.instance_prefix << '_' << os.name << ';' << endl;
     }
     // algorithm done
     out << "wire " << WIRE << nfo.second.instance_prefix << '_' << ALG_DONE << ';' << endl;
@@ -127,6 +128,9 @@ void Algorithm::writeAsModule(ostream& out) const
 
   // temporary vars declarations
   writeTempDeclarations("_", out);
+
+  // wire declaration (vars bound to inouts)
+  writeWireDeclarations("_", out);
 
   // flip-flops declarations
   writeFlipFlopDeclarations("_", out);
@@ -139,9 +143,11 @@ void Algorithm::writeAsModule(ostream& out) const
       out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << endl;
     }
   }
+
+  // algorithm done
   out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_D << "_" << ALG_IDX << " == " << terminationState() << ");" << endl;
 
-  // flip-flop blocks
+  // flip-flops update
   writeFlipFlops("_", out);
 
   out << endl;
@@ -158,14 +164,27 @@ void Algorithm::writeAsModule(ostream& out) const
       if (!first) out << ',' << endl;
       first = false;
       if (b.dir == e_Left) {
+        // input
         out << '.' << b.left << '(' 
           << rewriteIdentifier("_", b.right, nullptr, nfo.second.instance_line)
           << ")";
       } else if (b.dir == e_Right) {
+        // output (wire)
         out << '.' << b.left << '(' << wire_prefix + "_" + b.left << ")";
       } else {
+        // inout (host algorithm inout or wire)
         sl_assert(b.dir == e_BiDir);
-        out << '.' << b.left << '(' << ALG_INOUT "_" << b.left << ")";
+        std::string bindpoint = nfo.second.instance_prefix + "_" + b.left;
+        const auto& vio       = m_ModAlgInOutsBoundToVIO.find(bindpoint);
+        if (vio != m_ModAlgInOutsBoundToVIO.end()) {
+          if (isInOut(b.right)) {
+            out << '.' << b.left << '(' << ALG_INOUT << "_" << b.right << ")";
+          } else {
+            out << '.' << b.left << '(' << WIRE << "_" << b.right << ")";
+          }
+        } else {
+          throw Fatal("cannot find module inout binding '%s' (line %d)", b.left.c_str(), b.line);
+        }
       }
     }
     out << endl << ");" << endl;
@@ -187,17 +206,30 @@ void Algorithm::writeAsModule(ostream& out) const
         out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name), nullptr, nfo.second.instance_line);
       } else {
         // input is not bound and assigned in logic, input is a flip-flop
-        out << FF_D;
-        out << nfo.second.instance_prefix << "_" << is.name;
+        out << FF_D << nfo.second.instance_prefix << "_" << is.name;
       }
       out << ')' << ',' << endl;
     }
-    // outputs
+    // outputs (wire)
     for (const auto& os : nfo.second.algo->m_Outputs) {
       out << '.'
         << ALG_OUTPUT << '_' << os.name
         << '(' << WIRE << nfo.second.instance_prefix << '_' << os.name << ')';
       out << ',' << endl;
+    }
+    // inouts (host algorithm inout or wire)
+    for (const auto& os : nfo.second.algo->m_InOuts) {
+      std::string bindpoint = nfo.second.instance_prefix + "_" + os.name;
+      const auto& vio = m_ModAlgInOutsBoundToVIO.find(bindpoint);
+      if (vio != m_ModAlgInOutsBoundToVIO.end()) {
+        if (isInOut(vio->second)) {
+          out << '.' << os.name << '(' << ALG_INOUT << "_" << vio->second << ")";
+        } else {
+          out << '.' << os.name << '(' << WIRE << "_" << vio->second << ")";
+        }
+      } else {
+        throw Fatal("cannot find algorithm inout binding '%s' (line %d)", os.name.c_str(), nfo.second.instance_line);
+      }
     }
     // done
     out << '.' << ALG_OUTPUT << '_' << ALG_DONE
@@ -245,7 +277,9 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
         bnfo.right = io.first;
         bnfo.dir   = e_Left;
         _mod.bindings.push_back(bnfo);
-      } else // check if algorithm has a var with same name
+      } 
+      // check if algorithm has a var with same name
+      else {
         if (m_VarNames.find(io.first) != m_VarNames.end()) {
           // yes: autobind
           t_binding_nfo bnfo;
@@ -254,6 +288,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
           bnfo.right = io.first;
           bnfo.dir   = e_Left;
           _mod.bindings.push_back(bnfo);
+        }
       }
     }
   }
@@ -287,22 +322,26 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
         bnfo.right = io.first;
         bnfo.dir   = e_Right;
         _mod.bindings.push_back(bnfo);
-      } else // check if algorithm has a var with same name
+      } 
+      // check if algorithm has a var with same name
+      else {
         if (m_VarNames.find(io.first) != m_VarNames.end()) {
-        // yes: autobind
-        t_binding_nfo bnfo;
-        bnfo.line  = _mod.instance_line;
-        bnfo.left  = io.first;
-        bnfo.right = io.first;
-        bnfo.dir   = e_Right;
-        _mod.bindings.push_back(bnfo);
+          // yes: autobind
+          t_binding_nfo bnfo;
+          bnfo.line  = _mod.instance_line;
+          bnfo.left  = io.first;
+          bnfo.right = io.first;
+          bnfo.dir   = e_Right;
+          _mod.bindings.push_back(bnfo);
+        }
       }
     }
   }
   // -> for each module inout
   for (auto io : _mod.mod->inouts()) {
     if (defined.find(io.first) == defined.end()) {
-      // not bound, check if algorithm has an inout with same name
+      // not bound
+      // check if algorithm has an inout with same name
       if (m_InOutNames.find(io.first) != m_InOutNames.end()) {
         // yes: autobind
         t_binding_nfo bnfo;
@@ -311,6 +350,18 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
         bnfo.right = io.first;
         bnfo.dir   = e_BiDir;
         _mod.bindings.push_back(bnfo);
+      } 
+      // check if algorithm has a var with same name
+      else {
+        if (m_VarNames.find(io.first) != m_VarNames.end()) {
+          // yes: autobind
+          t_binding_nfo bnfo;
+          bnfo.line  = _mod.instance_line;
+          bnfo.left  = io.first;
+          bnfo.right = io.first;
+          bnfo.dir   = e_BiDir;
+          _mod.bindings.push_back(bnfo);
+        }
       }
     }
   }

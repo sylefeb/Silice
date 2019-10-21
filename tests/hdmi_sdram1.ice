@@ -485,7 +485,18 @@ algorithm sdram_draw_frame(
   
   wait delay;
   
-  subroutine print_string:
+  subroutine print_string(
+       readwrites col,
+	   reads      str,
+	   readwrites lttr,
+	   writes sdata_in,
+	   writes saddr,
+	   writes sin_valid,
+	   writes srw,
+	   reads  sbusy,
+	   reads  str_x,
+	   reads  str_y
+	   )
     col  = 0;
     lttr = str[col];
     srw  = 1;  // write
@@ -511,7 +522,14 @@ algorithm sdram_draw_frame(
     srw = 0;
     return;
 
-  subroutine clear:
+  subroutine clear(
+       readwrites next,
+	   writes sdata_in,
+	   writes saddr,
+	   writes sin_valid,
+	   reads  sbusy,
+	   writes srw
+	   )
     // fill buffer with character table (90x160)
     next = 0;
     srw  = 1;  // write
@@ -526,7 +544,18 @@ algorithm sdram_draw_frame(
     srw = 0;
     return;
 
-  subroutine swap:  
+  subroutine swap(
+       readwrites next,
+	   writes  saddr,
+	   writes  sin_valid,
+	   reads   sout_valid,
+	   writes  srw,
+	   reads   sdata_out,
+	   reads   sbusy,
+	   writes  wdata,
+	   writes  wenable,
+	   writes  waddr
+	   )  
     // now read back sdram and write to text buffer
     next = 0;
     srw  = 0;  // read
@@ -555,9 +584,9 @@ algorithm sdram_draw_frame(
   
   while (1) {
   
-    call clear;
-    call print_string;
-    call swap;
+    () <- clear <- ();
+    () <- print_string <- ();
+    () <- swap <- ();
     
     rand_x = rand_x * 31421 + 6927;
     rand_y = rand_y * 6927 + 31421;
@@ -739,7 +768,7 @@ dual_text_buffer txtbuf (
   sdram_draw <- ();
   
   // alive LED  
-  while (1==1) {
+  while (1) {
     
     // myled = sbusy;
     

@@ -218,7 +218,7 @@ public:
         std::ofstream out(fresult);
         // write includes
         for (auto fname : m_Appends) {
-          out << loadFileIntoString(fname.c_str()) << std::endl;
+          out << Module::fileToString(fname.c_str()) << std::endl;
         }
         // write imported modules
         for (auto m : m_Modules) {
@@ -229,7 +229,7 @@ public:
           a.second->writeAsModule(out);
         }
         // write top module
-        out << loadFileIntoString(fframework);
+        out << Module::fileToString(fframework);
       }
 
     } else {

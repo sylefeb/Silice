@@ -6,13 +6,13 @@ import('../common/text_buffer.v')
 // -------------------------
 
 algorithm text_display(
-  input  uint10 vga_x,
-  input  uint10 vga_y,
-  input  uint1  vga_active,
-  input  uint1  vga_vblank,
-  output uint4  vga_red,
-  output uint4  vga_green,
-  output uint4  vga_blue
+  input  uint10 pix_x,
+  input  uint10 pix_y,
+  input  uint1  pix_active,
+  input  uint1  pix_vblank,
+  output uint4  pix_red,
+  output uint4  pix_green,
+  output uint4  pix_blue
 ) <autorun> {
 
 // Text buffer
@@ -87,9 +87,9 @@ text_buffer txtbuf (
   return;
 
   // by default r,g,b are set to zero
-  vga_red   := 0;
-  vga_green := 0;
-  vga_blue  := 0;
+  pix_red   := 0;
+  pix_green := 0;
+  pix_blue  := 0;
 
   // fill buffer with spaces
   txtwrite  = 1;
@@ -106,27 +106,27 @@ text_buffer txtbuf (
   while (1) {
 
       // wait until vblank is over
-	  while (vga_vblank == 1) { }
+	  while (pix_vblank == 1) { }
 
 	  // display frame
-	  while (vga_vblank == 0) {
+	  while (pix_vblank == 0) {
 
-        vga_blue = vga_y;
+        pix_blue = pix_y;
 
 		if (letter_j < 8) {
-		  letter_i = vga_x & 7;
+		  letter_i = pix_x & 7;
 		  addr     = letter_i + (letter_j << 3) + (txtdata_r << 6);
 		  pixel    = letters[ addr ];
 		  if (pixel == 1) {
-			vga_red   = 15;
-			vga_green = 15;
-			vga_blue  = 15;
+			pix_red   = 15;
+			pix_green = 15;
+			pix_blue  = 15;
 		  }
 		}
 
-		if (vga_active && (vga_x & 7) == 7) {   // end of letter
+		if (pix_active && (pix_x & 7) == 7) {   // end of letter
 		  text_i = text_i + 1;
-		  if (vga_x == 639) {  // end of line
+		  if (pix_x == 639) {  // end of line
 			// back to first column
 			text_i   = 0;
 			// next letter line
@@ -137,7 +137,7 @@ text_buffer txtbuf (
 			  letter_j = 0;
 			  text_j   = text_j + 1;
 			}
-			if (vga_y == 479) {
+			if (pix_y == 479) {
 			  // end of frame
 			  text_i   = 0;
 			  text_j   = 0;
@@ -167,8 +167,8 @@ algorithm vga(
   output uint1  vga_vs,
   output uint1  active,
   output uint1  vblank,
-  output uint10 pix_x,
-  output uint10 pix_y
+  output uint10 vga_x,
+  output uint10 vga_y
 ) <autorun> {
 
   uint10 H_FRT_PORCH = 16;
@@ -217,8 +217,8 @@ algorithm vga(
   while (1) {
 
     if (active) {
-      pix_x = xcount - HA_START;
-      pix_y = ycount - VA_START;
+      vga_x = xcount - HA_START;
+      vga_y = ycount - VA_START;
     }
 
     xcount = xcount + 1;
@@ -258,25 +258,25 @@ algorithm main(
 	vga_vs :> vga_vs,
 	active :> active,
 	vblank :> vblank,
-	pix_x  :> pix_x,
-	pix_y  :> pix_y
+	vga_x  :> pix_x,
+	vga_y  :> pix_y
   );
 
   text_display display(
-      vga_x      <: pix_x,
-      vga_y      <: pix_y,
-      vga_active <: active,
-      vga_vblank <: vblank,
-      vga_red    :> vga_r,
-      vga_green  :> vga_g,
-      vga_blue   :> vga_b
+	pix_x      <: pix_x,
+	pix_y      <: pix_y,
+	pix_active <: active,
+	pix_vblank <: vblank,
+	pix_red    :> vga_r,
+	pix_green  :> vga_g,
+	pix_blue   :> vga_b
   );
 
   // we count a number of frames and stop
 
   uint8 frame  = 0;
 
-  while (frame < 2) {
+  while (frame < 5) {
   
     while (vblank == 1) { }
 	$display("vblank off");
