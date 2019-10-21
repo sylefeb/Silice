@@ -190,11 +190,6 @@ algorithm frame_buffer_row_updater(
   input  uint1  vsync
 )
 {
-  // for subroutine bands    TODO: allow variable declarations in subroutine?
-  uint9  pix_x = 0;
-  uint8  pix_y = 0;  
-  uint16 shift = 0;
-  
   // frame update counters
   uint10 next  = 0;
   uint10 count = 0;
@@ -276,12 +271,19 @@ algorithm frame_drawer(
   input  uint1  vsync
 ) {
 
-  // for subroutine bands
-  uint9  pix_x = 0;
-  uint8  pix_y = 0;  
   uint16 shift = 0;
+  uint1  vsync_filtered = 0;
 
-  subroutine bands:
+  subroutine bands(
+    reads   shift,
+    reads   sbusy,
+    writes  sdata_in,
+    writes  saddr,
+    writes  sin_valid
+  )
+    uint9  pix_x = 0;
+    uint8  pix_y = 0;  
+    
     pix_y = 0;  
     while (pix_y < 200) {
       pix_x  = 0;
@@ -303,16 +305,27 @@ algorithm frame_drawer(
     }
   return;
 
+  // cross domain vsync
+  vsync_filtered ::= vsync;
+
   // keep sin_valid low by default
   sin_valid := 0;
   
   srw   = 1;  // write
 
   while (1) {
+
+    // wait for vsync
+    while (vsync_filtered) {}
+
+    /// TODO NOTE: while (!vsync_filtered) {} should work here ...? to investigate
+    
     // draw a frame
-    call bands;  
-    // increment shift
+    () <- bands <- ();
+    
+    // increment shift    
     shift = shift + 1;
+    
   }
   
 }
