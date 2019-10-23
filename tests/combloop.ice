@@ -1,0 +1,47 @@
+
+algorithm alg1(
+  input  uint1  a,
+  input  uint1  c,
+  output uint1  b
+) {
+	
+  b := a;
+  
+  if (c) {
+
+  }
+
+}
+
+algorithm alg2(
+  input  uint1  b,
+  output uint1  c
+) {
+
+  c := 0;
+
+  if (b) {
+
+  }
+    
+}
+
+algorithm main( ) {
+
+uint1  a = 0;
+uint1  b = 0;
+uint1  c = 0;
+
+alg1 a1(
+  a <: a,
+  b :> b,
+  c <: c
+);
+
+alg2 a2(
+  b <: b,
+  c :> c
+);
+
+}
+

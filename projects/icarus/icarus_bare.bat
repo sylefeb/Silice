@@ -1,3 +1,4 @@
-..\..\bin\silice -f ..\..\frameworks\icarus_bare.v %1 -o testicarus.v
-iverilog -o testicarus testicarus.v
+REM ..\..\bin\silice -f ..\..\frameworks\icarus_bare.v %1 -o testicarus.v
+iverilog -pfileline=1 -Wall -Winfloop -o testicarus testicarus.v
+REM iverilog -o testicarus testicarus.v
 vvp testicarus -fst

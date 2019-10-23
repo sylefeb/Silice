@@ -1,4 +1,4 @@
-// SDRAM
+// SDRAM controller
 import('verilog/sdram.v')
 
 // SDRAM simulator
