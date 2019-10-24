@@ -237,8 +237,9 @@ subroutineList      : subroutine * ;
                     
 declAndInstrList    : declarationList 
                       subroutineList 
-                      alwaysAssignedList 
-                      instructionList;
+                      alwaysPre  = alwaysAssignedList 
+                      instructionList
+					  alwaysPost = alwaysAssignedList;
 
 /* -- Import -- */
 

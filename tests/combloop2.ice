@@ -6,8 +6,6 @@ algorithm alg1(
 
   uint1 tmp_c = 0;
 
-  tmp_c := c;
-   
   while (1) {
   $display("[1] b=%d c=%d",b,c);
     if (tmp_c == 1) {
@@ -15,6 +13,8 @@ algorithm alg1(
     }
   }
 
+  tmp_c := c;
+   
 }
 
 algorithm alg2(
@@ -23,15 +23,15 @@ algorithm alg2(
 ) <autorun> {
 
   uint1 tmp_b = 0;
-
-  tmp_b := b;
-   
+  
   while (1) {
   $display("[2] b=%d c=%d",b,c);
     if (tmp_b == 0) {
       c = 1;
     }
   }
+
+  tmp_b := b;
   
 }
 

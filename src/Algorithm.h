@@ -372,8 +372,9 @@ private:
     antlr4::ParserRuleContext *jump;
   } t_forward_jump;
 
-  /// \brief always block
-  t_combinational_block                                             m_Always;
+  /// \brief always blocks
+  t_combinational_block                                             m_AlwaysPre;
+  t_combinational_block                                             m_AlwaysPost;
   /// \brief all combinational blocks
   std::list< t_combinational_block* >                               m_Blocks;
   /// \brief state name to combination block
@@ -1181,12 +1182,12 @@ private:
   }
 
   /// \brief gather always assigned
-  void gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws)
+  void gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always)
   {
     while (alws) {
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(alws->alwaysAssigned());
       if (alw) {
-        m_Always.instructions.push_back(t_instr_nfo(alw, -1));
+        always->instructions.push_back(t_instr_nfo(alw, -1));
         // check for double flip-flop
         if (alw->ALWSASSIGNDBL() != nullptr) {
           // insert temporary variable
@@ -1237,24 +1238,24 @@ private:
       return _current;
     }
 
+    auto algbody  = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
     auto decllist = dynamic_cast<siliceParser::DeclarationListContext*>(tree);
-    auto always  = dynamic_cast<siliceParser::AlwaysAssignedListContext*>(tree);
-    auto ilist   = dynamic_cast<siliceParser::InstructionListContext*>(tree);
-    auto ifelse  = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
-    auto ifthen  = dynamic_cast<siliceParser::IfThenContext*>(tree);
-    auto switchC = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
-    auto loop    = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
-    auto jump    = dynamic_cast<siliceParser::JumpContext*>(tree);
-    auto assign  = dynamic_cast<siliceParser::AssignmentContext*>(tree);
-    auto display = dynamic_cast<siliceParser::DisplayContext *>(tree);
-    auto async   = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
-    auto join    = dynamic_cast<siliceParser::JoinExecContext*>(tree);
-    auto sync    = dynamic_cast<siliceParser::SyncExecContext*>(tree);
-    auto repeat  = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
-    auto sub     = dynamic_cast<siliceParser::SubroutineContext*>(tree);
-    auto call    = dynamic_cast<siliceParser::CallContext*>(tree);
-    auto ret     = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
-    auto breakL  = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
+    auto ilist    = dynamic_cast<siliceParser::InstructionListContext*>(tree);
+    auto ifelse   = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
+    auto ifthen   = dynamic_cast<siliceParser::IfThenContext*>(tree);
+    auto switchC  = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
+    auto loop     = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
+    auto jump     = dynamic_cast<siliceParser::JumpContext*>(tree);
+    auto assign   = dynamic_cast<siliceParser::AssignmentContext*>(tree);
+    auto display  = dynamic_cast<siliceParser::DisplayContext *>(tree);
+    auto async    = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
+    auto join     = dynamic_cast<siliceParser::JoinExecContext*>(tree);
+    auto sync     = dynamic_cast<siliceParser::SyncExecContext*>(tree);
+    auto repeat   = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
+    auto sub      = dynamic_cast<siliceParser::SubroutineContext*>(tree);
+    auto call     = dynamic_cast<siliceParser::CallContext*>(tree);
+    auto ret      = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
+    auto breakL   = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
 
     bool recurse = true;
 
@@ -1265,7 +1266,6 @@ private:
     else if (ifthen)   { _current = gatherIfThen(ifthen, _current, _context);      recurse = false; }
     else if (switchC)  { _current = gatherSwitchCase(switchC, _current, _context); recurse = false; }
     else if (loop)     { _current = gatherWhile(loop, _current, _context);         recurse = false; }
-    else if (always)   { gatherAlwaysAssigned(always);                             recurse = false; }
     else if (repeat)   { _current = gatherRepeatBlock(repeat, _current, _context); recurse = false; } 
     else if (sub)      { _current = gatherSubroutine(sub, _current, _context);     recurse = false; }
     else if (sync)     { _current = gatherSyncExec(sync, _current, _context);      recurse = false; }
@@ -1277,6 +1277,7 @@ private:
     else if (async)    { _current->instructions.push_back(t_instr_nfo(async, _context->__id));   recurse = false; } 
     else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _context->__id));  recurse = false; }
     else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); recurse = false; }
+    else if (algbody)  { gatherAlwaysAssigned(algbody->alwaysPre,&m_AlwaysPre); gatherAlwaysAssigned(algbody->alwaysPost,&m_AlwaysPost); }
     else if (ilist)    { _current = updateBlock(ilist, _current, _context); }
 
     // recurse
@@ -2052,10 +2053,11 @@ private:
       for (auto& b : m_Blocks) {
         determineVariablesAccess(b);
       }
-      // determine variable access for always block
-      determineVariablesAccess(&m_Always);
+      // determine variable access for always blocks
+      determineVariablesAccess(&m_AlwaysPre);
+      determineVariablesAccess(&m_AlwaysPost);
       // determine variable access due to algorithm and module instances
-      // bindings are considered as belonging to the always block
+      // bindings are considered as belonging to the always pre block
       std::vector<t_binding_nfo> all_bindings;
       for (const auto& m : m_InstancedModules) {
         all_bindings.insert(all_bindings.end(), m.second.bindings.begin(), m.second.bindings.end());
@@ -2068,12 +2070,12 @@ private:
         if (m_VarNames.find(b.right) != m_VarNames.end()) {
           if (b.dir == e_Left) {
             // add to always block dependency
-            m_Always.in_vars_read.insert(b.right);
+            m_AlwaysPre.in_vars_read.insert(b.right);
             // set global access
             m_Vars[m_VarNames[b.right]].access = (e_Access)(m_Vars[m_VarNames[b.right]].access | e_ReadOnly);
           } else if (b.dir == e_Right) {
             // add to always block dependency
-            m_Always.out_vars_written.insert(b.right);
+            m_AlwaysPre.out_vars_written.insert(b.right);
             // set global access
             // -> check prior access
             if (m_Vars[m_VarNames[b.right]].access & e_WriteOnly) {
@@ -2087,8 +2089,8 @@ private:
               throw Fatal("cannot bind variable '%s' on an inout port, it is used elsewhere (line %d)", b.right.c_str(), b.line);
             }
             // add to always block dependency
-            m_Always.in_vars_read    .insert(b.right);
-            m_Always.out_vars_written.insert(b.right);
+            m_AlwaysPre.in_vars_read    .insert(b.right);
+            m_AlwaysPre.out_vars_written.insert(b.right);
             // set global access
             m_Vars[m_VarNames[b.right]].access = (e_Access)(m_Vars[m_VarNames[b.right]].access | e_ReadWriteBinded);
           }
@@ -2103,7 +2105,7 @@ private:
           // variables are always on the right
           if (m_VarNames.find(v) != m_VarNames.end()) {
             // add to always block dependency
-            m_Always.in_vars_read.insert(v);
+            m_AlwaysPre.in_vars_read.insert(v);
             // set global access
             m_Vars[m_VarNames[v]].access = (e_Access)(m_Vars[m_VarNames[v]].access | e_ReadOnly);
           }
@@ -2118,7 +2120,8 @@ private:
       determineVariablesAccess();
       // analyze usage
       auto blocks = m_Blocks;
-      blocks.push_front(&m_Always);
+      blocks.push_front(&m_AlwaysPre);
+      blocks.push_front(&m_AlwaysPost);
       // merge all in_reads and out_written
       std::unordered_set<std::string> global_in_read;
       std::unordered_set<std::string> global_out_written;
@@ -2250,12 +2253,17 @@ private:
       // always block
       std::unordered_set<std::string> always_read;
       std::unordered_set<std::string> always_written;
-      for (const auto& i : m_Always.instructions) {
-        std::unordered_set<std::string> read;
-        std::unordered_set<std::string> written;
-        determineVIOAccess(i.instr, m_OutputNames, nullptr, read, written);
-        always_read   .insert(read.begin(), read.end());
-        always_written.insert(written.begin(), written.end());
+      std::vector<t_combinational_block*> ablocks;
+      ablocks.push_back(&m_AlwaysPre);
+      ablocks.push_back(&m_AlwaysPost);
+      for (const auto& b : ablocks) {
+        for (const auto& i : b->instructions) {
+          std::unordered_set<std::string> read;
+          std::unordered_set<std::string> written;
+          determineVIOAccess(i.instr, m_OutputNames, nullptr, read, written);
+          always_read.insert(read.begin(), read.end());
+          always_written.insert(written.begin(), written.end());
+        }
       }
       // analyze access and usage
       std::cerr << "---< outputs >---" << std::endl;
@@ -2308,9 +2316,11 @@ public:
   Algorithm(std::string name, std::string clock, std::string reset, bool autorun, const std::unordered_map<std::string, AutoPtr<Module> >& known_modules)
     : m_Name(name), m_Clock(clock), m_Reset(reset), m_AutoRun(autorun), m_KnownModules(known_modules)
   {
-    // init with empty always block
-    m_Always.id = 0;
-    m_Always.block_name = "_always";
+    // init with empty always blocks
+    m_AlwaysPre.id  = 0;
+    m_AlwaysPre.block_name = "_always_pre";
+    m_AlwaysPost.id = std::numeric_limits<size_t>::max();
+    m_AlwaysPost.block_name = "_always_post";
   }
 
   /// \brief sets the input parsed tree
@@ -2599,7 +2609,8 @@ private:
     out << FF_D << prefix << v.name << " = " << FF_Q << prefix << v.name << ';' << std::endl;
   }
 
-  void writeCombinationalAlways(std::string prefix, std::ostream& out) const
+  /// \brief writes combinational steps that are always performed /before/ the state machine
+  void writeCombinationalAlwaysPre(std::string prefix, std::ostream& out) const
   {
     // flip-flops
     for (const auto& v : m_Vars) {
@@ -2667,8 +2678,17 @@ private:
       }
     }
     // always block (if not empty)
-    if (!m_Always.instructions.empty()) {
-      writeBlock(prefix, out, &m_Always);
+    if (!m_AlwaysPre.instructions.empty()) {
+      writeBlock(prefix, out, &m_AlwaysPre);
+    }
+  }
+
+  /// \brief writes combinational steps that are always performed /after/ the state machine
+  void writeCombinationalAlwaysPost(std::string prefix, std::ostream& out) const
+  {
+    // always block (if not empty)
+    if (!m_AlwaysPost.instructions.empty()) {
+      writeBlock(prefix, out, &m_AlwaysPost);
     }
   }
 
