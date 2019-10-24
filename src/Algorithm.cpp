@@ -166,7 +166,7 @@ void Algorithm::writeAsModule(ostream& out) const
       if (b.dir == e_Left) {
         // input
         out << '.' << b.left << '(' 
-          << rewriteIdentifier("_", b.right, nullptr, nfo.second.instance_line)
+          << rewriteIdentifier("_", b.right, nullptr, nfo.second.instance_line, FF_Q)
           << ")";
       } else if (b.dir == e_Right) {
         // output (wire)
@@ -203,7 +203,7 @@ void Algorithm::writeAsModule(ostream& out) const
       out << '.' << ALG_INPUT << '_' << is.name << '(';
       if (nfo.second.boundinputs.count(is.name) > 0) {
         // input is bound, directly map bound VIO
-        out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name), nullptr, nfo.second.instance_line);
+        out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name), nullptr, nfo.second.instance_line, FF_Q);
       } else {
         // input is not bound and assigned in logic, input is a flip-flop
         out << FF_Q << nfo.second.instance_prefix << "_" << is.name;

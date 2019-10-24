@@ -38,6 +38,7 @@ the distribution, please refer to it for details.
 #define FF_D      "_d"
 #define FF_Q      "_q"
 #define FF_TMP    "_t"
+#define FF_CST    "_c"
 #define REG_      "_r"
 #define WIRE      "_w"
 
@@ -689,7 +690,7 @@ private:
   }
 
   /// \brief returns the rewritten indentifier, taking into account bindings, inputs/outputs, custom clocks and resets
-  std::string rewriteIdentifier(std::string prefix, std::string var,const t_subroutine_nfo *sub,size_t line = 0, std::string ff = FF_Q) const
+  std::string rewriteIdentifier(std::string prefix, std::string var,const t_subroutine_nfo *sub,size_t line, std::string ff) const
   {
     if (var == ALG_RESET || var == ALG_CLOCK) {
       return var;
@@ -735,6 +736,9 @@ private:
         if (m_Vars.at(V->second).usage == e_Temporary) {
           // temporary
           return FF_TMP + prefix + var;
+        } else if (m_Vars.at(V->second).usage == e_Const) {
+          // const
+          return FF_CST + prefix + var;
         } else {
           // flip-flop
           return ff + prefix + var;
@@ -751,7 +755,7 @@ private:
       auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
       if (term) {
         if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-          return rewriteIdentifier(prefix, expr->getText(), sub, term->getSymbol()->getLine());
+          return rewriteIdentifier(prefix, expr->getText(), sub, term->getSymbol()->getLine(), FF_D);
         } else if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
           return rewriteConstant(expr->getText());
         } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
@@ -1507,7 +1511,7 @@ private:
           throw Fatal("algorithm instance '%s' cannot be called as its input '%s' is bound (line %d)", 
             a.instance_name.c_str(), ins.name.c_str(), plist->getStart()->getLine());
         }
-        out << FF_D << a.instance_prefix << "_" << ins.name << " = " << rewriteIdentifier(prefix, params[p++], sub) << ";" << std::endl;
+        out << FF_D << a.instance_prefix << "_" << ins.name << " = " << rewriteIdentifier(prefix, params[p++], sub, plist->getStart()->getLine(), FF_D) << ";" << std::endl;
       }
     }
     // restart algorithm (pulse run low)
@@ -1548,7 +1552,7 @@ private:
     // set inputs
     int p = 0;
     for (const auto& ins : s->inputs) {
-      out << FF_D << prefix << s->vios.at(ins) << " = " << rewriteIdentifier(prefix, params[p++], nullptr) << ";" << std::endl;
+      out << FF_D << prefix << s->vios.at(ins) << " = " << rewriteIdentifier(prefix, params[p++], nullptr, plist->getStart()->getLine(), FF_D) << ";" << std::endl;
     }
   }
 
@@ -1565,7 +1569,7 @@ private:
     // read outputs
     int p = 0;
     for (const auto& outs : s->outputs) {
-      out << rewriteIdentifier(prefix, params[p++], nullptr, plist->getStart()->getLine(), FF_D) << " = " << FF_Q << prefix << s->vios.at(outs) << std::endl;
+      out << rewriteIdentifier(prefix, params[p++], nullptr, plist->getStart()->getLine(), FF_D) << " = " << FF_D << prefix << s->vios.at(outs) << std::endl;
     }
   }
 
@@ -1707,12 +1711,7 @@ private:
         if (A->second.boundinputs.count(io) > 0) {
           throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
         }
-        if (assigning) {
-          out << FF_D;
-        } else {
-          out << FF_Q;
-        }
-        out << A->second.instance_prefix << "_" << io;
+        out << FF_D << A->second.instance_prefix << "_" << io;
         return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)];
       } else if (A->second.algo->isOutput(io)) {
         out << WIRE << A->second.instance_prefix << "_" << io;
@@ -1733,7 +1732,7 @@ private:
     } else {
       sl_assert(tblaccess->IDENTIFIER() != nullptr);
       std::string vname = tblaccess->IDENTIFIER()->getText();
-      out << rewriteIdentifier(prefix, vname, sub, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q);
+      out << rewriteIdentifier(prefix, vname, sub, tblaccess->getStart()->getLine(), FF_D);
       // get width
       auto tws = determineIdentifierTypeWidthAndTableSize(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
       // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
@@ -1751,7 +1750,7 @@ private:
       writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, sub);
     } else {
       sl_assert(bitaccess->IDENTIFIER() != nullptr);
-      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q);
+      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub, bitaccess->getStart()->getLine(), FF_D);
     }
     out << '[' << rewriteExpression(prefix, bitaccess->first, __id, sub) << "+:" << bitaccess->num->getText() << ']';
   }
@@ -1826,7 +1825,7 @@ private:
           out << "$display(" << display->STRING()->getText();
           if (display->displayParams() != nullptr) {
             for (auto p : display->displayParams()->IDENTIFIER()) {
-              out << "," << rewriteIdentifier(prefix, p->getText(), block->subroutine, display->getStart()->getLine());
+              out << "," << rewriteIdentifier(prefix, p->getText(), block->subroutine, display->getStart()->getLine(), FF_D);
             }
           }
           out << ");" << std::endl;
@@ -2459,13 +2458,13 @@ private:
       if (v.usage != e_Const) {
         continue;
       }
-      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_Q << prefix << v.name << ';' << std::endl;
+      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_CST << prefix << v.name << ';' << std::endl;
       if (v.table_size == 0) {
-        out << "assign " << FF_Q << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
+        out << "assign " << FF_CST << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
       } else {
         int width = v.width;
         ForIndex(i, v.table_size) {
-          out << "assign " << FF_Q << prefix << v.name << '[' << (i*width) << "+:" << width << ']' << " = " << v.init_values[i] << ';' << std::endl;
+          out << "assign " << FF_CST << prefix << v.name << '[' << (i*width) << "+:" << width << ']' << " = " << v.init_values[i] << ';' << std::endl;
         }
       }
     }
@@ -2691,6 +2690,11 @@ private:
     // always block (if not empty)
     if (!m_AlwaysPre.instructions.empty()) {
       writeBlock(prefix, out, &m_AlwaysPre);
+    }
+    // reset temp variables (to ensure no latch is created)
+    for (const auto& v : m_Vars) {
+      if (v.usage != e_Temporary) continue;
+      out << FF_TMP << prefix << v.name << " = 0;" << std::endl;
     }
   }
 

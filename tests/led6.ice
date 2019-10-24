@@ -33,8 +33,15 @@ algorithm main()
   
 loop:
   
-  tmp = 5;
-  myled = tmp + {b5.v,b6.v,b7.v,b8.v,b8.v,b7.v,b6.v,b5.v};
+  myled = 0;
+  myled = myled | (b5.v<<0);
+  myled = myled | (b6.v<<1);
+  myled = myled | (b7.v<<2);
+  myled = myled | (b8.v<<3);
+  myled = myled | (b8.v<<4);
+  myled = myled | (b7.v<<5);
+  myled = myled | (b6.v<<6);
+  myled = myled | (b5.v<<7);
 
   $display("%b",myled);
   
