@@ -119,6 +119,20 @@ algorithm sdram_switcher(
   input  uint1  sout_valid
 ) {
 	
+  uint23 i_saddr0 = 0;
+  uint1  i_srw0 = 0;
+  uint32 i_sd_in0 = 0;
+  uint1  i_sin_valid0 = 0;
+  
+  uint23 i_saddr1 = 0;
+  uint1  i_srw1 = 0;
+  uint32 i_sd_in1 = 0;
+  uint1  i_sin_valid1 = 0;
+
+  uint32 i_sd_out = 0;
+  uint1  i_sbusy = 0;
+  uint1  i_sout_valid = 0;
+	
   // defaults
   /*
   sin_valid   := 0;
@@ -133,41 +147,55 @@ algorithm sdram_switcher(
     // if output available, transmit
     // (it does not matter who requested it,
     //  they cannot both be waiting for it)
-    if (sout_valid) {
+    if (i_sout_valid) {
       sout_valid0 = 1;
       sout_valid1 = 1;
-      sd_out0     = sd_out;
-      sd_out1     = sd_out;
+      sd_out0     = i_sd_out;
+      sd_out1     = i_sd_out;
     } else {
       sout_valid0 = 0;
       sout_valid1 = 0;
 	}
 
     // check 0 first (higher priority)
-    if (sin_valid0) {
+    if (i_sin_valid0) {
       sbusy1     = 1; // other is busy
       // set read/write
       sin_valid  = 1;
-      saddr      = saddr0;
-      srw        = srw0;
-      sd_in      = sd_in0;
+      saddr      = i_saddr0;
+      srw        = i_srw0;
+      sd_in      = i_sd_in0;
     } else {   
-	  sbusy1     = sbusy;
+	  sbusy1     = i_sbusy;
       // check 1 next, if not set to busy
-      if (sin_valid1) {
+      if (i_sin_valid1) {
         sbusy0     = 1; // other is busy
         // set read/write
         sin_valid  = 1;
-        saddr      = saddr1;
-        srw        = srw1;
-        sd_in      = sd_in1;
+        saddr      = i_saddr1;
+        srw        = i_srw1;
+        sd_in      = i_sd_in1;
       } else {
 		sin_valid   = 0;
-        sbusy0      = sbusy;
+        sbusy0      = i_sbusy;
 	  }
     }
 
   } // end of while
+
+  i_saddr0 := saddr0;
+  i_srw0 := srw0;
+  i_sd_in0 := sd_in0;
+  i_sin_valid0 := sin_valid0;
+  
+  i_saddr1 := saddr1;
+  i_srw1 := srw1;
+  i_sd_in1 := sd_in1;
+  i_sin_valid1 := sin_valid1;
+
+  i_sd_out := sd_out;
+  i_sbusy := sbusy;
+  i_sout_valid := sout_valid;
 
 }
 
@@ -188,6 +216,12 @@ algorithm frame_buffer_row_updater(
   input  uint1  vsync
 )
 {
+  uint1  i_sout_valid = 0;
+  uint1  i_sbusy      = 0;
+  uint32 i_sdata_out  = 0;
+  uint1  i_vsync      = 0;
+  uint1  i_row_busy   = 0;
+
   // frame update counters
   uint10 next  = 0;
   uint10 count = 0;
@@ -199,12 +233,12 @@ algorithm frame_buffer_row_updater(
   while(1) {
 
     // wait during vsync
-    while (vsync) { }
+    while (i_vsync) { }
     row         = 1;
     working_row = 1;
   
     // wait while the busy row is the working row
-    while (working_row == row_busy) { }
+    while (working_row == i_row_busy) { }
 
     // read row from SDRAM to frame buffer
     //    
@@ -219,14 +253,14 @@ algorithm frame_buffer_row_updater(
     count = 0;
     while (count < 320) {
 	
-      if (sbusy == 0) {        // not busy?
+      if (i_sbusy == 0) {        // not busy?
         saddr       = count + (row << 8) + (row << 6); // address to read from (count + row * 320)
         sin_valid   = 1;         // go ahead!      
      ++:
 	    sin_valid   = 0;
-        while (sout_valid == 0) {  } // wait for value
+        while (i_sout_valid == 0) {  } // wait for value
         // write to selected frame buffer row
-        pixdata_w   = sdata_out; // data to write
+        pixdata_w   = i_sdata_out; // data to write
         pixwenable  = 1;
         pixaddr     = next;     // address to write
      ++: // wait one cycle
@@ -246,6 +280,12 @@ algorithm frame_buffer_row_updater(
     }
   }
 
+  i_sout_valid := sout_valid;
+  i_sbusy      := sbusy;
+  i_sdata_out  := sdata_out;
+  i_vsync      := vsync;
+  i_row_busy   := row_busy;
+  
 }
 
 // ------------------------- 
@@ -254,18 +294,23 @@ algorithm frame_drawer(
   output uint23 saddr,
   output uint1  srw,
   output uint32 sdata_in,
+  output uint1  sin_valid,
   input  uint32 sdata_out,
   input  uint1  sbusy,
-  output uint1  sin_valid,
   input  uint1  sout_valid,
   input  uint1  vsync
 ) {
 
-  uint16 shift = 0;
+  uint1  i_sout_valid = 0;
+  uint1  i_sbusy      = 0;
+  uint32 i_sdata_out  = 0;
+  uint1  i_vsync      = 0;
 
+  uint16 shift = 0;
+  
   subroutine bands(
     reads   shift,
-    reads   sbusy,
+    reads   i_sbusy,
     writes  sdata_in,
     writes  saddr,
     writes  sin_valid
@@ -279,7 +324,7 @@ algorithm frame_drawer(
       while (pix_x < 320) {
         // write to sdram
         while (1) {          
-          if (sbusy == 0) {        // not busy?
+          if (i_sbusy == 0) {        // not busy?
             sdata_in  = ((pix_x + shift) & 255) + (pix_y << 8);
             saddr     = pix_x + (pix_y << 8) + (pix_y << 6); // * 320
             sin_valid = 1; // go ahead!
@@ -299,7 +344,7 @@ algorithm frame_drawer(
   while (1) {
 
     // wait for vsync
-    while (vsync) {}
+    while (i_vsync) {}
 
     /// TODO NOTE: while (!vsync) {} should work here ...? to investigate
     
@@ -310,6 +355,11 @@ algorithm frame_drawer(
     shift = shift + 1;
     
   }
+
+  i_sout_valid := sout_valid;
+  i_sbusy      := sbusy;
+  i_sdata_out  := sdata_out;
+  i_vsync      := vsync;
 
 }
 

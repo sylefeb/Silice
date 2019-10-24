@@ -1,7 +1,7 @@
 
 algorithm alg1(
   input  uint1  c,
-  output uint1  b  // DEFAULT VALUE!!!!!
+  output uint1  b  // TODO: default value (pull from parent? may cascade...)
 ) <autorun> {
 
   uint1 tmp_c = 0;
@@ -13,7 +13,7 @@ algorithm alg1(
     }
   }
 
-  tmp_c := c;
+  tmp_c := c; // necessary to break combinational loop
    
 }
 
@@ -31,7 +31,7 @@ algorithm alg2(
     }
   }
 
-  tmp_b := b;
+  tmp_b := b; // necessary to break combinational loop
   
 }
 
