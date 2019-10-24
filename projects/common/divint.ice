@@ -26,7 +26,11 @@
 // done!  231/17 = 13
 //
 
-algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 above)
+algorithm mul_cmp(
+   input   uint8 num,
+   input   uint8 den,
+   input   uint8 k,
+   output! uint1 above)
 {
   uint9 th   = 0;
   uint9 dk   = 0;
@@ -41,7 +45,7 @@ algorithm mul_cmp(input uint8 num,input uint8 den,input uint8 k,output uint1 abo
   }
 }
 
-algorithm div(input uint8 num,input uint8 den,output uint8 ret)
+algorithm div(input uint8 num,input uint8 den,output! uint8 ret)
 {
 
   uint8 k0 = 0;

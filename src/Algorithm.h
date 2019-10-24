@@ -98,8 +98,9 @@ private:
   /// \brief enum for IO types
   enum e_IOType { e_Input, e_Output, e_InOut, e_NotIO };
 
-  /// \brief info about variables, inputs, outputs
-  typedef struct {
+  /// \brief base info about variables, inputs, outputs
+  class t_var_nfo {
+  public:
     std::string name;
     e_Type      base_type;
     int         width;
@@ -107,17 +108,23 @@ private:
     int         table_size; // 0: not a table, otherwise size
     e_Access    access = e_NotAccessed;
     e_VarUsage  usage  = e_Undetermined;
-  } t_var_nfo;
+  };
 
   /// \brief typedef to distinguish vars from ios
   typedef t_var_nfo t_inout_nfo;
 
+  /// \brief specialized info class for outputs
+  class t_output_nfo : public t_inout_nfo {
+  public:
+    bool combinational = false;
+  };
+
   /// \brief inputs
-  std::vector< t_inout_nfo > m_Inputs;
+  std::vector< t_inout_nfo  > m_Inputs;
   /// \brief outputs
-  std::vector< t_inout_nfo > m_Outputs;
+  std::vector< t_output_nfo > m_Outputs;
   /// \brief inouts NOTE: for now can only be passed to verilog modules
-  std::vector< t_inout_nfo > m_InOuts;
+  std::vector< t_inout_nfo >  m_InOuts;
 
   /// \brief all input names, map contains index in m_Inputs
   std::unordered_map<std::string, int > m_InputNames;
@@ -145,7 +152,7 @@ private:
     std::string  left;
     std::string  right;
     e_BindingDir dir;
-    int          line; // for error reporting
+    int          line;      // for error reporting
   } t_binding_nfo;
 
   /// \brief info about an instanced algorithm
@@ -604,7 +611,7 @@ private:
         if (bindings->modalgBinding()->AUTO() != nullptr) {
           _autobind = true;
         } else {
-          t_binding_nfo nfo;          
+          t_binding_nfo nfo;
           nfo.line  = -1;
           nfo.left  = bindings->modalgBinding()->left->getText();
           nfo.right = bindings->modalgBinding()->right->getText();
@@ -1451,7 +1458,7 @@ private:
         m_Inputs .emplace_back(io);
         m_InputNames.insert(make_pair(io.name, (int)m_Inputs.size() - 1));
       } else if (output) {
-        t_inout_nfo io;
+        t_output_nfo io;
         io.name = output->IDENTIFIER()->getText();
         io.table_size = 0;
         splitType(output->TYPE()->getText(), io.base_type, io.width);
@@ -1459,6 +1466,7 @@ private:
           io.table_size = atoi(output->NUMBER()->getText().c_str());
         }
         io.init_values.resize(max(io.table_size, 1), "0");
+        io.combinational = (output->combinational != nullptr);
         m_Outputs.emplace_back(io);
         m_OutputNames.insert(make_pair(io.name, (int)m_Outputs.size() - 1));
       } else if (inout) {
@@ -1566,7 +1574,7 @@ private:
       throw Fatal("incorrect number of output parameters reading back result from subroutine '%s' (line %d)",
         s->name.c_str(), plist->getStart()->getLine());
     }
-    // read outputs
+    // read outputs (reading from FF_D or FF_Q should be equivalent since we just cycled the state machine)
     int p = 0;
     for (const auto& outs : s->outputs) {
       out << rewriteIdentifier(prefix, params[p++], nullptr, plist->getStart()->getLine(), FF_D) << " = " << FF_D << prefix << s->vios.at(outs) << std::endl;
@@ -1813,8 +1821,8 @@ private:
             std::string lvalue = ostr.str().substr(0, pos - 1);
             std::string rvalue = ostr.str().substr(pos + 1);
             std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
-            out << lvalue         << " = " << FF_Q << tmpvar << ';' << std::endl;
-            out << FF_D << tmpvar << " = " << rvalue; // rvalue contains ";\n"
+            out << lvalue         << " = " << FF_D << tmpvar << ';' << std::endl;
+            out << FF_D << tmpvar << " = " << rvalue; // rvalue includes the line end ";\n"
           } else {
             writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine);
           }

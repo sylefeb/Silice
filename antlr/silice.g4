@@ -210,8 +210,8 @@ inout               : 'inout' TYPE IDENTIFIER
                     | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
 input               : 'input' TYPE IDENTIFIER 
                     | 'input' TYPE IDENTIFIER '[' NUMBER ']';
-output              : 'output' TYPE IDENTIFIER
-                    | 'output' TYPE IDENTIFIER '[' NUMBER ']';
+output              : 'output' combinational='!'? TYPE IDENTIFIER
+                    | 'output' combinational='!'? TYPE IDENTIFIER '[' NUMBER ']';
 inOrOut             :  input | output | inout ;
 inOutList           :  (inOrOut ',') * inOrOut | ;
 

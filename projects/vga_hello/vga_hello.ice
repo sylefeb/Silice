@@ -9,13 +9,13 @@ $include('../common/vga.ice')
 // -------------------------
 
 algorithm text_display(
-  input  uint10 pix_x,
-  input  uint10 pix_y,
-  input  uint1  pix_active,
-  input  uint1  pix_vblank,
-  output uint4  pix_red,
-  output uint4  pix_green,
-  output uint4  pix_blue
+  input   uint10 pix_x,
+  input   uint10 pix_y,
+  input   uint1  pix_active,
+  input   uint1  pix_vblank,
+  output! uint4  pix_red,
+  output! uint4  pix_green,
+  output! uint4  pix_blue
 ) <autorun> {
 
 // Text buffer
@@ -108,13 +108,17 @@ text_buffer txtbuf (
 
   while (1) {
 
+	  // prepare next frame
+	  () <- print_string <- ();
+	  str_y = str_y + 2;
+
       // wait until vblank is over
 	  while (pix_vblank == 1) { }
 
 	  // display frame
 	  while (pix_vblank == 0) {
 
-        pix_blue = pix_y;
+        pix_green = pix_y;
 
 		if (letter_j < 8) {
 		  letter_i = pix_x & 7;
@@ -150,12 +154,8 @@ text_buffer txtbuf (
 		}
 
 		txtaddr  = text_i + text_j * 80;
-
+		
 	  }
-
-	  // prepare next frame
-	  () <- print_string <- ();
-	  str_y = str_y + 2;
 
   }
 }
@@ -176,9 +176,6 @@ algorithm main(
   uint10 pix_y  = 0;
 
   vga vga_driver(
-	vga_r  <: vga_r,
-	vga_g  <: vga_g,
-	vga_b  <: vga_b,
     vga_hs :> vga_hs,
 	vga_vs :> vga_vs,
 	active :> active,
@@ -201,7 +198,7 @@ algorithm main(
 
   uint8 frame  = 0;
 
-  while (frame < 5) {
+  while (frame < 2) {
   
     while (vblank == 1) { }
 	$display("vblank off");

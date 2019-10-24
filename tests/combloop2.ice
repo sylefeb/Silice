@@ -4,16 +4,13 @@ algorithm alg1(
   output uint1  b  // TODO: default value (pull from parent? may cascade...)
 ) <autorun> {
 
-  uint1 tmp_c = 0;
-
   while (1) {
   $display("[1] b=%d c=%d",b,c);
-    if (tmp_c == 1) {
+    if (c == 1) {
       b = 1;
     }
   }
 
-  tmp_c := c; // necessary to break combinational loop
    
 }
 
@@ -22,17 +19,13 @@ algorithm alg2(
   output uint1  c
 ) <autorun> {
 
-  uint1 tmp_b = 0;
-  
   while (1) {
   $display("[2] b=%d c=%d",b,c);
-    if (tmp_b == 0) {
+    if (b == 0) {
       c = 1;
     }
   }
-
-  tmp_b := b; // necessary to break combinational loop
-  
+ 
 }
 
 algorithm main( ) {

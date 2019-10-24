@@ -138,14 +138,21 @@ void Algorithm::writeAsModule(ostream& out) const
   // output assignments
   for (const auto& v : m_Outputs) {
     if (v.usage == e_FlipFlop) {
-      out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << FF_Q << "_" << v.name << ';' << endl;
+
+      out << "assign " << ALG_OUTPUT << "_" << v.name << " = ";
+      if (v.combinational) {
+        out << FF_D;
+      } else {
+        out << FF_Q;
+      }
+      out << "_" << v.name << ';' << endl;
     } else if (v.usage == e_Bound) {
       out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << endl;
     }
   }
 
   // algorithm done
-  out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << terminationState() << ");" << endl;
+  out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_D << "_" << ALG_IDX << " == " << terminationState() << ");" << endl;
 
   // flip-flops update
   writeFlipFlops("_", out);
@@ -166,7 +173,7 @@ void Algorithm::writeAsModule(ostream& out) const
       if (b.dir == e_Left) {
         // input
         out << '.' << b.left << '(' 
-          << rewriteIdentifier("_", b.right, nullptr, nfo.second.instance_line, FF_Q)
+          << rewriteIdentifier("_", b.right, nullptr, nfo.second.instance_line, FF_D)
           << ")";
       } else if (b.dir == e_Right) {
         // output (wire)
@@ -203,10 +210,10 @@ void Algorithm::writeAsModule(ostream& out) const
       out << '.' << ALG_INPUT << '_' << is.name << '(';
       if (nfo.second.boundinputs.count(is.name) > 0) {
         // input is bound, directly map bound VIO
-        out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name), nullptr, nfo.second.instance_line, FF_Q);
+        out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name), nullptr, nfo.second.instance_line, FF_D);
       } else {
         // input is not bound and assigned in logic, input is a flip-flop
-        out << FF_Q << nfo.second.instance_prefix << "_" << is.name;
+        out << FF_D << nfo.second.instance_prefix << "_" << is.name;
       }
       out << ')' << ',' << endl;
     }

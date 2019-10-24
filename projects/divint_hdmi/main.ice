@@ -15,7 +15,7 @@ append('verilog/dvi_encoder.v')
 import('verilog/hdmi_encoder.v')
 
 // unsigned integer division
-$include('divint.ice')
+$include('../common/divint.ice')
 
 // display
 $include('display.ice')

@@ -2,15 +2,12 @@
 // -------------------------
 
 algorithm vga(
-  input  uint4  vga_r,
-  input  uint4  vga_g,
-  input  uint4  vga_b,
-  output uint1  vga_hs,
-  output uint1  vga_vs,
-  output uint1  active,
-  output uint1  vblank,
-  output uint10 vga_x,
-  output uint10 vga_y
+  output! uint1  vga_hs,
+  output! uint1  vga_vs,
+  output! uint1  active,
+  output! uint1  vblank,
+  output! uint10 vga_x,
+  output! uint10 vga_y
 ) <autorun> {
 
   uint10 H_FRT_PORCH = 16;
