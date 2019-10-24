@@ -37,6 +37,7 @@ the distribution, please refer to it for details.
 
 #define FF_D      "_d"
 #define FF_Q      "_q"
+#define FF_TMP    "_t"
 #define REG_      "_r"
 #define WIRE      "_w"
 
@@ -688,7 +689,7 @@ private:
   }
 
   /// \brief returns the rewritten indentifier, taking into account bindings, inputs/outputs, custom clocks and resets
-  std::string rewriteIdentifier(std::string prefix, std::string var,const t_subroutine_nfo *sub,size_t line = 0, std::string ff = FF_D) const
+  std::string rewriteIdentifier(std::string prefix, std::string var,const t_subroutine_nfo *sub,size_t line = 0, std::string ff = FF_Q) const
   {
     if (var == ALG_RESET || var == ALG_CLOCK) {
       return var;
@@ -731,8 +732,13 @@ private:
         }
         throw Fatal("internal error (line %d) [%s, %d]", line, __FILE__,__LINE__);
       } else {
-        // flip-flop
-        return ff + prefix + var;
+        if (m_Vars.at(V->second).usage == e_Temporary) {
+          // temporary
+          return FF_TMP + prefix + var;
+        } else {
+          // flip-flop
+          return ff + prefix + var;
+        }
       }
     }
   }
@@ -1522,7 +1528,7 @@ private:
       // read outputs
       int p = 0;
       for (const auto& outs : a.algo->m_Outputs) {
-        out << rewriteIdentifier(prefix, params[p++], sub) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
+        out << rewriteIdentifier(prefix, params[p++], sub, plist->getStart()->getLine(), FF_D) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
       }
     }
   }
@@ -1559,7 +1565,7 @@ private:
     // read outputs
     int p = 0;
     for (const auto& outs : s->outputs) {
-      out << rewriteIdentifier(prefix, params[p++], nullptr) << " = " << FF_D << prefix << s->vios.at(outs) << std::endl;
+      out << rewriteIdentifier(prefix, params[p++], nullptr, plist->getStart()->getLine(), FF_D) << " = " << FF_Q << prefix << s->vios.at(outs) << std::endl;
     }
   }
 
@@ -1701,7 +1707,12 @@ private:
         if (A->second.boundinputs.count(io) > 0) {
           throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
         }
-        out << FF_D << A->second.instance_prefix << "_" << io;
+        if (assigning) {
+          out << FF_D;
+        } else {
+          out << FF_Q;
+        }
+        out << A->second.instance_prefix << "_" << io;
         return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)];
       } else if (A->second.algo->isOutput(io)) {
         out << WIRE << A->second.instance_prefix << "_" << io;
@@ -1722,7 +1733,7 @@ private:
     } else {
       sl_assert(tblaccess->IDENTIFIER() != nullptr);
       std::string vname = tblaccess->IDENTIFIER()->getText();
-      out << rewriteIdentifier(prefix, vname, sub);
+      out << rewriteIdentifier(prefix, vname, sub, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q);
       // get width
       auto tws = determineIdentifierTypeWidthAndTableSize(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
       // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
@@ -1740,7 +1751,7 @@ private:
       writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, sub);
     } else {
       sl_assert(bitaccess->IDENTIFIER() != nullptr);
-      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub);
+      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q);
     }
     out << '[' << rewriteExpression(prefix, bitaccess->first, __id, sub) << "+:" << bitaccess->num->getText() << ']';
   }
@@ -1775,7 +1786,7 @@ private:
         throw Fatal("cannot assign a value to an input of the algorithm, input '%s' (line %d)", 
           identifier->getText().c_str(), identifier->getSymbol()->getLine());
       }
-      out << rewriteIdentifier(prefix, identifier->getText(), sub);
+      out << rewriteIdentifier(prefix, identifier->getText(), sub, identifier->getSymbol()->getLine(), FF_D);
     }
     out << " = " + rewriteExpression(prefix, expression_0, a.__id, sub);
     out << ';' << std::endl;
@@ -1803,7 +1814,7 @@ private:
             std::string lvalue = ostr.str().substr(0, pos - 1);
             std::string rvalue = ostr.str().substr(pos + 1);
             std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
-            out << lvalue << " = " << FF_D << tmpvar << ';' << std::endl;
+            out << lvalue         << " = " << FF_Q << tmpvar << ';' << std::endl;
             out << FF_D << tmpvar << " = " << rvalue; // rvalue contains ";\n"
           } else {
             writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine);
@@ -2448,13 +2459,13 @@ private:
       if (v.usage != e_Const) {
         continue;
       }
-      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_D << prefix << v.name << ';' << std::endl;
+      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_Q << prefix << v.name << ';' << std::endl;
       if (v.table_size == 0) {
-        out << "assign " << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
+        out << "assign " << FF_Q << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
       } else {
         int width = v.width;
         ForIndex(i, v.table_size) {
-          out << "assign " << FF_D << prefix << v.name << '[' << (i*width) << "+:" << width << ']' << " = " << v.init_values[i] << ';' << std::endl;
+          out << "assign " << FF_Q << prefix << v.name << '[' << (i*width) << "+:" << width << ']' << " = " << v.init_values[i] << ';' << std::endl;
         }
       }
     }
@@ -2465,7 +2476,7 @@ private:
   {
     for (const auto& v : m_Vars) {
       if (v.usage != e_Temporary) continue;
-      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_D << prefix << v.name << ';' << std::endl;
+      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_TMP << prefix << v.name << ';' << std::endl;
     }
   }
 
@@ -2841,7 +2852,7 @@ private:
     std::queue<size_t>         q;
     q.push(0); // starts at 0
     // states
-    out << "case (" << FF_D << prefix << ALG_IDX << ")" << std::endl;
+    out << "case (" << FF_Q << prefix << ALG_IDX << ")" << std::endl;
     while (!q.empty()) {
       size_t bid = q.front();
       const t_combinational_block *b = m_Id2Block.at(bid);

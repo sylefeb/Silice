@@ -138,14 +138,14 @@ void Algorithm::writeAsModule(ostream& out) const
   // output assignments
   for (const auto& v : m_Outputs) {
     if (v.usage == e_FlipFlop) {
-      out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << FF_D << "_" << v.name << ';' << endl;
+      out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << FF_Q << "_" << v.name << ';' << endl;
     } else if (v.usage == e_Bound) {
       out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << endl;
     }
   }
 
   // algorithm done
-  out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_D << "_" << ALG_IDX << " == " << terminationState() << ");" << endl;
+  out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << terminationState() << ");" << endl;
 
   // flip-flops update
   writeFlipFlops("_", out);
@@ -206,7 +206,7 @@ void Algorithm::writeAsModule(ostream& out) const
         out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name), nullptr, nfo.second.instance_line);
       } else {
         // input is not bound and assigned in logic, input is a flip-flop
-        out << FF_D << nfo.second.instance_prefix << "_" << is.name;
+        out << FF_Q << nfo.second.instance_prefix << "_" << is.name;
       }
       out << ')' << ',' << endl;
     }
