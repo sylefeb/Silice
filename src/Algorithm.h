@@ -2055,6 +2055,7 @@ private:
       // determine variable access for always block
       determineVariablesAccess(&m_Always);
       // determine variable access due to algorithm and module instances
+      // bindings are considered as belonging to the always block
       std::vector<t_binding_nfo> all_bindings;
       for (const auto& m : m_InstancedModules) {
         all_bindings.insert(all_bindings.end(), m.second.bindings.begin(), m.second.bindings.end());
@@ -2494,12 +2495,12 @@ private:
       }
     }
     // state machine index
-    out << "reg [" << stateWidth() << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
+    out << "reg  [" << stateWidth() << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
     // state machine return (subroutine)
-    out << "reg[" << stateWidth() << ":0] " FF_D << prefix << ALG_RETURN "," FF_Q << prefix << ALG_RETURN << ';' << std::endl;
+    out << "reg  [" << stateWidth() << ":0] " FF_D << prefix << ALG_RETURN "," FF_Q << prefix << ALG_RETURN << ';' << std::endl;
     // state machine run for instanced algorithms
     for (const auto& ia : m_InstancedAlgorithms) {
-      out << "reg " << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
+      out << "reg  " << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
     }
   }
 

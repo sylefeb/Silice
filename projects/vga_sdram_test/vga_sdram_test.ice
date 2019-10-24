@@ -120,11 +120,13 @@ algorithm sdram_switcher(
 ) {
 	
   // defaults
+  /*
   sin_valid   := 0;
   sout_valid0 := 0;
   sout_valid1 := 0;
   sbusy0      := sbusy;
   sbusy1      := sbusy;
+  */
   
   while (1) {
 
@@ -136,7 +138,10 @@ algorithm sdram_switcher(
       sout_valid1 = 1;
       sd_out0     = sd_out;
       sd_out1     = sd_out;
-    }
+    } else {
+      sout_valid0 = 0;
+      sout_valid1 = 0;
+	}
 
     // check 0 first (higher priority)
     if (sin_valid0) {
@@ -147,6 +152,7 @@ algorithm sdram_switcher(
       srw        = srw0;
       sd_in      = sd_in0;
     } else {   
+	  sbusy1     = sbusy;
       // check 1 next, if not set to busy
       if (sin_valid1) {
         sbusy0     = 1; // other is busy
@@ -155,7 +161,10 @@ algorithm sdram_switcher(
         saddr      = saddr1;
         srw        = srw1;
         sd_in      = sd_in1;
-      }      
+      } else {
+		sin_valid   = 0;
+        sbusy0      = sbusy;
+	  }
     }
 
   } // end of while
@@ -185,30 +194,17 @@ algorithm frame_buffer_row_updater(
   uint8  row   = 1; // 1 .. 199 .. 0 (start with 1, 0 loads after 199)
   uint1  working_row = 1;
   
-  // filtered cross domain (double flip-flop)
-  uint1 row_busy_filtered     = 0;
-  uint1 vsync_filtered        = 0;
-
-  row_busy_filtered     ::= row_busy; 
-  vsync_filtered        ::= vsync;
-
-  // keep sin_valid low by default
-  sin_valid := 0;
-  
   srw = 0;  // read
 
   while(1) {
 
     // wait during vsync
-    while (vsync_filtered) {
-      row         = 1;
-      working_row = 1;
-    }    
+    while (vsync) { }
+    row         = 1;
+    working_row = 1;
   
     // wait while the busy row is the working row
-    while (working_row == row_busy_filtered) {
-      
-    }
+    while (working_row == row_busy) { }
 
     // read row from SDRAM to frame buffer
     //    
@@ -226,7 +222,9 @@ algorithm frame_buffer_row_updater(
       if (sbusy == 0) {        // not busy?
         saddr       = count + (row << 8) + (row << 6); // address to read from (count + row * 320)
         sin_valid   = 1;         // go ahead!      
-        while (sout_valid == 0) { } // wait for value
+     ++:
+	    sin_valid   = 0;
+        while (sout_valid == 0) {  } // wait for value
         // write to selected frame buffer row
         pixdata_w   = sdata_out; // data to write
         pixwenable  = 1;
@@ -264,7 +262,6 @@ algorithm frame_drawer(
 ) {
 
   uint16 shift = 0;
-  uint1  vsync_filtered = 0;
 
   subroutine bands(
     reads   shift,
@@ -281,14 +278,15 @@ algorithm frame_drawer(
       pix_x  = 0;
       while (pix_x < 320) {
         // write to sdram
-        while (1) {
+        while (1) {          
           if (sbusy == 0) {        // not busy?
-            
             sdata_in  = ((pix_x + shift) & 255) + (pix_y << 8);
             saddr     = pix_x + (pix_y << 8) + (pix_y << 6); // * 320
             sin_valid = 1; // go ahead!
+		++:
+		    sin_valid = 0;
             break;
-         }
+          }
         } // write occurs during loop cycle      
         pix_x = pix_x + 1;
       }
@@ -296,20 +294,14 @@ algorithm frame_drawer(
     }
   return;
   
-  // cross domain vsync
-  vsync_filtered ::= vsync;
-
-  // keep sin_valid low by default
-  sin_valid := 0;
-
-  //srw   = 1;  // write
+  srw   = 1;  // write
 
   while (1) {
 
     // wait for vsync
-    while (vsync_filtered) {}
+    while (vsync) {}
 
-    /// TODO NOTE: while (!vsync_filtered) {} should work here ...? to investigate
+    /// TODO NOTE: while (!vsync) {} should work here ...? to investigate
     
     // draw a frame
     () <- bands <- ();
@@ -511,8 +503,10 @@ sdram_switcher sd_switcher(
   
     while (vga_vblank == 1) { }
 	$display("vblank off");
-    while (vga_vblank == 0) { }
+    
+	while (vga_vblank == 0) { }
     $display("vblank on");
+	
     frame = frame + 1;
 
   }
