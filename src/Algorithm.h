@@ -1524,6 +1524,7 @@ private:
     }
     // restart algorithm (pulse run low)
     out << a.instance_prefix << "_" << ALG_RUN << " = 0;" << std::endl;
+    /// WARNING: this does not work across clock domains!
   }
 
   /// \brief writes reading back the results of an algorithm
