@@ -697,7 +697,10 @@ private:
   }
 
   /// \brief returns the rewritten indentifier, taking into account bindings, inputs/outputs, custom clocks and resets
-  std::string rewriteIdentifier(std::string prefix, std::string var,const t_subroutine_nfo *sub,size_t line, std::string ff) const
+  std::string rewriteIdentifier(
+    std::string prefix, std::string var,
+    const t_subroutine_nfo *sub,size_t line, 
+    std::string ff, const std::unordered_set<std::string>& written_before = std::unordered_set<std::string>()) const
   {
     if (var == ALG_RESET || var == ALG_CLOCK) {
       return var;
@@ -719,6 +722,11 @@ private:
     } else if (isOutput(var)) {
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_FlipFlop) {
+        if (ff == FF_Q) {
+          if (written_before.count(var) > 0) {
+            return FF_D + prefix + var;
+          }
+        }
         return ff + prefix + var;
       } else if (usage == e_Bound) {
         return m_VIOBoundToModAlgOutputs.at(var);
@@ -748,6 +756,11 @@ private:
           return FF_CST + prefix + var;
         } else {
           // flip-flop
+          if (ff == FF_Q) {
+            if (written_before.count(var) > 0) {
+              return FF_D + prefix + var;
+            }
+          }
           return ff + prefix + var;
         }
       }
@@ -755,14 +768,14 @@ private:
   }
 
   /// \brief rewrite an expression, renaming identifiers
-  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_subroutine_nfo* sub) const
+  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_subroutine_nfo* sub, const std::unordered_set<std::string>& written_before) const
   {
     std::string result;
     if (expr->children.empty()) {
       auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
       if (term) {
         if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-          return rewriteIdentifier(prefix, expr->getText(), sub, term->getSymbol()->getLine(), FF_Q);
+          return rewriteIdentifier(prefix, expr->getText(), sub, term->getSymbol()->getLine(), FF_Q, written_before);
         } else if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
           return rewriteConstant(expr->getText());
         } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
@@ -780,12 +793,12 @@ private:
       auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
       if (access) {
         std::ostringstream ostr;
-        writeAccess(prefix, ostr, false, access, __id, sub);
+        writeAccess(prefix, ostr, false, access, __id, sub, written_before);
         result = result + ostr.str();
       } else {
         // recurse
         for (auto c : expr->children) {
-          result = result + rewriteExpression(prefix, c, __id, sub);
+          result = result + rewriteExpression(prefix, c, __id, sub, written_before);
         }
       }
     }
@@ -1502,7 +1515,7 @@ private:
 private:
 
   /// \brief writes a call to an algorithm
-  void writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub) const
+  void writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const std::unordered_set<std::string>& written_before) const
   {
     std::vector<std::string> params;
     getParams(plist, params, sub);
@@ -1519,7 +1532,8 @@ private:
           throw Fatal("algorithm instance '%s' cannot be called as its input '%s' is bound (line %d)", 
             a.instance_name.c_str(), ins.name.c_str(), plist->getStart()->getLine());
         }
-        out << FF_D << a.instance_prefix << "_" << ins.name << " = " << rewriteIdentifier(prefix, params[p++], sub, plist->getStart()->getLine(), FF_D) << ";" << std::endl;
+        out << FF_D << a.instance_prefix << "_" << ins.name 
+            << " = " << rewriteIdentifier(prefix, params[p++], sub, plist->getStart()->getLine(), FF_Q, written_before) << ";" << std::endl;
       }
     }
     // restart algorithm (pulse run low)
@@ -1547,7 +1561,7 @@ private:
   }
 
   /// \brief writes a call to a subroutine
-  void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, siliceParser::ParamListContext* plist) const
+  void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, siliceParser::ParamListContext* plist, const std::unordered_set<std::string>& written_before) const
   {
     std::vector<std::string> params;
     getParams(plist, params, nullptr);
@@ -1561,7 +1575,8 @@ private:
     // set inputs
     int p = 0;
     for (const auto& ins : s->inputs) {
-      out << FF_D << prefix << s->vios.at(ins) << " = " << rewriteIdentifier(prefix, params[p++], nullptr, plist->getStart()->getLine(), FF_D) << ";" << std::endl;
+      out << FF_D << prefix << s->vios.at(ins) 
+          << " = " << rewriteIdentifier(prefix, params[p++], nullptr, plist->getStart()->getLine(), FF_Q, written_before) << ";" << std::endl;
     }
   }
 
@@ -1738,46 +1753,46 @@ private:
   }
 
   /// \brief writes access to a table in/out
-  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_subroutine_nfo* sub) const
+  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_subroutine_nfo* sub, const std::unordered_set<std::string>& written_before) const
   {
     if (tblaccess->ioAccess() != nullptr) {
       t_inout_nfo nfo = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess());
-      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub) << ")*" << nfo.width << "+:" << nfo.width << ']';
+      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub, written_before) << ")*" << nfo.width << "+:" << nfo.width << ']';
     } else {
       sl_assert(tblaccess->IDENTIFIER() != nullptr);
       std::string vname = tblaccess->IDENTIFIER()->getText();
-      out << rewriteIdentifier(prefix, vname, sub, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q);
+      out << rewriteIdentifier(prefix, vname, sub, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, written_before);
       // get width
       auto tws = determineIdentifierTypeWidthAndTableSize(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
       // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
-      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub) << ")*" << std::get<1>(tws) << "+:" << std::get<1>(tws) << ']';
+      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub, written_before) << ")*" << std::get<1>(tws) << "+:" << std::get<1>(tws) << ']';
     }
   }
 
   /// \brief writes access to bits
-  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_subroutine_nfo* sub) const
+  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_subroutine_nfo* sub, const std::unordered_set<std::string>& written_before) const
   {
     // TODO: check access validity
     if (bitaccess->ioAccess() != nullptr) {
       writeIOAccess(prefix, out, assigning, bitaccess->ioAccess());
     } else if (bitaccess->tableAccess() != nullptr) {
-      writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, sub);
+      writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, sub, written_before);
     } else {
       sl_assert(bitaccess->IDENTIFIER() != nullptr);
       out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q);
     }
-    out << '[' << rewriteExpression(prefix, bitaccess->first, __id, sub) << "+:" << bitaccess->num->getText() << ']';
+    out << '[' << rewriteExpression(prefix, bitaccess->first, __id, sub, written_before) << "+:" << bitaccess->num->getText() << ']';
   }
 
   /// \brief writes access to an identfier
-  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_subroutine_nfo* sub) const
+  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_subroutine_nfo* sub, const std::unordered_set<std::string>& written_before) const
   {
     if (access->ioAccess() != nullptr) {
       writeIOAccess(prefix, out, assigning, access->ioAccess());
     } else if (access->tableAccess() != nullptr) {
-      writeTableAccess(prefix, out, assigning, access->tableAccess(), __id, sub);
+      writeTableAccess(prefix, out, assigning, access->tableAccess(), __id, sub, written_before);
     } else if (access->bitAccess() != nullptr) {
-      writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, sub);
+      writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, sub, written_before);
     }
   }
 
@@ -1787,11 +1802,12 @@ private:
     siliceParser::AccessContext *access,
     antlr4::tree::TerminalNode* identifier,
     siliceParser::Expression_0Context *expression_0,
-    const t_subroutine_nfo* sub) const
+    const t_subroutine_nfo* sub,
+    const std::unordered_set<std::string>& written_before) const
   {
     if (access) {
       // table, output or bits
-      writeAccess(prefix, out, true, access, a.__id, sub);
+      writeAccess(prefix, out, true, access, a.__id, sub, written_before);
     } else {
       sl_assert(identifier != nullptr);
       // variable
@@ -1801,27 +1817,47 @@ private:
       }
       out << rewriteIdentifier(prefix, identifier->getText(), sub, identifier->getSymbol()->getLine(), FF_D);
     }
-    out << " = " + rewriteExpression(prefix, expression_0, a.__id, sub);
+    out << " = " + rewriteExpression(prefix, expression_0, a.__id, sub, written_before);
     out << ';' << std::endl;
 
   }
 
   /// \brief writes a single block to the output
-  void writeBlock(std::string prefix, std::ostream& out, const t_combinational_block* block) const
+  void writeBlock(std::string prefix, std::ostream& out, const t_combinational_block* block, std::unordered_set<std::string>& _written_so_far) const
   {
     // out << "// block " << block->block_name << std::endl;
     for (const auto& a : block->instructions) {
+      // determine usage        
+      std::unordered_set<std::string> read;
+      std::unordered_set<std::string> written;
+      determineVIOAccess(a.instr, m_VarNames   , block->subroutine, read, written);
+      determineVIOAccess(a.instr, m_OutputNames, block->subroutine, read, written);
+      // checks for double write
+      std::unordered_set<std::string> intersect;
+      std::set_intersection(
+        written.begin(), written.end(),
+        _written_so_far.begin(), _written_so_far.end(),
+        std::inserter(intersect, intersect.begin()));
+      if (!intersect.empty()) {
+        std::string vars;
+        for (auto v : intersect) {
+          vars = vars + v + " ";
+        }
+        auto prc = dynamic_cast<antlr4::ParserRuleContext*>(a.instr);
+        throw Fatal("cannot write twice to a same variable in a combinational chain (variable%c: %s, line %d)\n       consider inserting a sequential split with '++:'", intersect.size()>1?'s':' ', vars.c_str(), prc->getStart()->getLine());
+      }
+      // write instruction
       {
         auto assign = dynamic_cast<siliceParser::AssignmentContext*>(a.instr);
         if (assign) {
-          writeAssignement(prefix, out, a, assign->access(), assign->IDENTIFIER(), assign->expression_0(), block->subroutine);
+          writeAssignement(prefix, out, a, assign->access(), assign->IDENTIFIER(), assign->expression_0(), block->subroutine, _written_so_far);
         }
       } {
         auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(a.instr);
         if (alw) {
           if (alw->ALWSASSIGNDBL() != nullptr) {
             std::ostringstream ostr;
-            writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine);
+            writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine, _written_so_far);
             // modify assignement to insert temporary var
             std::size_t pos    = ostr.str().find('=');
             std::string lvalue = ostr.str().substr(0, pos - 1);
@@ -1830,7 +1866,7 @@ private:
             out << lvalue         << " = " << FF_D << tmpvar << ';' << std::endl;
             out << FF_D << tmpvar << " = " << rvalue; // rvalue includes the line end ";\n"
           } else {
-            writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine);
+            writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine, _written_so_far);
           }
         }
       } {
@@ -1860,7 +1896,7 @@ private:
                 async->IDENTIFIER()->getText().c_str(), async->getStart()->getLine());
             }
           } else {
-            writeAlgorithmCall(prefix, out, A->second, async->paramList(), block->subroutine);
+            writeAlgorithmCall(prefix, out, A->second, async->paramList(), block->subroutine, _written_so_far);
           }
         }
       } {
@@ -1879,10 +1915,10 @@ private:
               if (block->subroutine != nullptr) {
                 throw Fatal("cannot call a subrountine from another one (line %d)",sync->getStart()->getLine());
               }
-              writeSubroutineCall(prefix, out, S->second, sync->paramList());
+              writeSubroutineCall(prefix, out, S->second, sync->paramList(), _written_so_far);
             }
           } else {
-            writeAlgorithmCall(prefix, out, A->second, sync->paramList(), block->subroutine);
+            writeAlgorithmCall(prefix, out, A->second, sync->paramList(), block->subroutine, _written_so_far);
           }
         }
       } {
@@ -1909,6 +1945,8 @@ private:
           }
         }
       }
+      // update sets
+      _written_so_far.insert(written.begin(), written.end());
     }
   }
 
@@ -1919,7 +1957,7 @@ private:
       antlr4::tree::ParseTree*                   node,
       const std::unordered_map<std::string,int>& vios,
       t_subroutine_nfo                          *sub,
-      std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written)
+      std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const
     {
       if (node->children.empty()) {
         // read accesses are children
@@ -2703,7 +2741,8 @@ private:
     }
     // always block (if not empty)
     if (!m_AlwaysPre.instructions.empty()) {
-      writeBlock(prefix, out, &m_AlwaysPre);
+      std::unordered_set<std::string> written;
+      writeBlock(prefix, out, &m_AlwaysPre, written);
     }
     // reset temp variables (to ensure no latch is created)
     for (const auto& v : m_Vars) {
@@ -2717,7 +2756,8 @@ private:
   {
     // always block (if not empty)
     if (!m_AlwaysPost.instructions.empty()) {
-      writeBlock(prefix, out, &m_AlwaysPost);
+      std::unordered_set<std::string> written;
+      writeBlock(prefix, out, &m_AlwaysPost, written);
     }
   }
 
@@ -2744,16 +2784,18 @@ private:
         return;
       }
     }
+    // track written vars/outputs
+    std::unordered_set<std::string> written_so_far;
     // follow the chain
     const t_combinational_block *current = block;
     while (true) {
       // write current block
-      writeBlock(prefix, out, current);
+      writeBlock(prefix, out, current, written_so_far);
       // goto next in chain
       if (current->next()) {
         current = current->next()->next;
       } else if (current->if_then_else()) {
-        out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, current->subroutine) << ") begin" << std::endl;
+        out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, current->subroutine, written_so_far) << ") begin" << std::endl;
         // recurse if
         writeStatelessBlockGraph(prefix, out, current->if_then_else()->if_next, current->if_then_else()->after, _q);
         out << "end else begin" << std::endl;
@@ -2767,7 +2809,7 @@ private:
           current = current->if_then_else()->after; // yes!
         }
       } else if (current->switch_case()) {
-        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, current->subroutine) << ")" << std::endl;
+        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, current->subroutine, written_so_far) << ")" << std::endl;
         // recurse block
         for (auto cb : current->switch_case()->case_blocks) {
           out << "  " << cb.first << ": begin" << std::endl;
@@ -2784,7 +2826,7 @@ private:
         }
       } else if (current->while_loop()) {
         // while
-        out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, current->subroutine) << ") begin" << std::endl;
+        out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, current->subroutine, written_so_far) << ") begin" << std::endl;
         writeStatelessBlockGraph(prefix, out, current->while_loop()->iteration, current->while_loop()->after, _q);
         out << "end else begin" << std::endl;
         out << FF_D << prefix << ALG_IDX " = " << fastForward(current->while_loop()->after)->state_id << ";" << std::endl;
