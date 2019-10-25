@@ -343,9 +343,14 @@ algorithm frame_drawer(
 // ------------------------- 
 
 // PLL for simulation
+/*
+NOTE: all outputs would normally be using output! but there seems to be
+      something that I do not understand about iverilog, making this fail
+	  with a wierd issue on posedge.
+*/
 algorithm pll(
-  output! uint1 vga_clock,
-  output! uint1 vga_reset,
+  output  uint1 vga_clock,
+  output  uint1 vga_reset,
   output! uint1 sdram_clock,
   output! uint1 sdram_reset
 ) <autorun>
@@ -355,6 +360,7 @@ algorithm pll(
   
   sdram_clock   := clock;
   sdram_reset   := reset;
+  
   vga_clock     := counter[2,1];
   vga_reset     := (trigger > 0);
   
@@ -582,7 +588,6 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   }
 
   // we count a number of frames and stop
-
   while (frame < 5) {
   
     while (vga_vblank == 1) { }

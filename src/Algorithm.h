@@ -762,7 +762,7 @@ private:
       auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
       if (term) {
         if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-          return rewriteIdentifier(prefix, expr->getText(), sub, term->getSymbol()->getLine(), FF_D);
+          return rewriteIdentifier(prefix, expr->getText(), sub, term->getSymbol()->getLine(), FF_Q);
         } else if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
           return rewriteConstant(expr->getText());
         } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
@@ -1720,7 +1720,12 @@ private:
         if (A->second.boundinputs.count(io) > 0) {
           throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
         }
-        out << FF_D << A->second.instance_prefix << "_" << io;
+        if (assigning) {
+          out << FF_D;
+        } else {
+          out << FF_Q;
+        }
+        out << A->second.instance_prefix << "_" << io;
         return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)];
       } else if (A->second.algo->isOutput(io)) {
         out << WIRE << A->second.instance_prefix << "_" << io;
@@ -1741,7 +1746,7 @@ private:
     } else {
       sl_assert(tblaccess->IDENTIFIER() != nullptr);
       std::string vname = tblaccess->IDENTIFIER()->getText();
-      out << rewriteIdentifier(prefix, vname, sub, tblaccess->getStart()->getLine(), FF_D);
+      out << rewriteIdentifier(prefix, vname, sub, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q);
       // get width
       auto tws = determineIdentifierTypeWidthAndTableSize(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
       // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
@@ -1759,7 +1764,7 @@ private:
       writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, sub);
     } else {
       sl_assert(bitaccess->IDENTIFIER() != nullptr);
-      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub, bitaccess->getStart()->getLine(), FF_D);
+      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q);
     }
     out << '[' << rewriteExpression(prefix, bitaccess->first, __id, sub) << "+:" << bitaccess->num->getText() << ']';
   }

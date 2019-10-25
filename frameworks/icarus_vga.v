@@ -14,7 +14,7 @@ initial begin
   rst_n = 1'b0;
   $display("icarus framework started");
   $dumpfile("icarus.fst");
-  $dumpvars(0,top);
+  $dumpvars(1,top);
   repeat(4) #5 clk = ~clk;
   rst_n = 1'b1;
   forever #5 clk = ~clk; // generate a clock
