@@ -1736,9 +1736,9 @@ private:
           throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
         }
         if (assigning) {
-          out << FF_D;
+          out << FF_D; // algorithm input
         } else {
-          out << FF_Q;
+          sl_assert(false); // cannot read from input
         }
         out << A->second.instance_prefix << "_" << io;
         return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)];
@@ -1779,7 +1779,7 @@ private:
       writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, sub, written_before);
     } else {
       sl_assert(bitaccess->IDENTIFIER() != nullptr);
-      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q);
+      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, written_before);
     }
     out << '[' << rewriteExpression(prefix, bitaccess->first, __id, sub, written_before) << "+:" << bitaccess->num->getText() << ']';
   }
@@ -2771,11 +2771,11 @@ private:
   }
 
   /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
-  void writeStatelessBlockGraph(std::string prefix, std::ostream& out,const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q) const
+  void writeStatelessBlockGraph(std::string prefix, std::ostream& out,const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, std::unordered_set<std::string>& _written_before) const
   {
     // recursive call?
     if (stop_at != nullptr) {
-      // if called is a state, index state and stop there
+      // if called on a state, index state and stop there
       if (block->is_state) {
         // yes: index the state directly
         out << FF_D << prefix << ALG_IDX " = " << fastForward(block)->state_id << ";" << std::endl;
@@ -2784,24 +2784,27 @@ private:
         return;
       }
     }
-    // track written vars/outputs
-    std::unordered_set<std::string> written_so_far;
     // follow the chain
     const t_combinational_block *current = block;
     while (true) {
       // write current block
-      writeBlock(prefix, out, current, written_so_far);
+      writeBlock(prefix, out, current, _written_before);
       // goto next in chain
       if (current->next()) {
         current = current->next()->next;
       } else if (current->if_then_else()) {
-        out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, current->subroutine, written_so_far) << ") begin" << std::endl;
+        out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, current->subroutine, _written_before) << ") begin" << std::endl;
         // recurse if
-        writeStatelessBlockGraph(prefix, out, current->if_then_else()->if_next, current->if_then_else()->after, _q);
+        std::unordered_set<std::string> written_if = _written_before;
+        writeStatelessBlockGraph(prefix, out, current->if_then_else()->if_next, current->if_then_else()->after, _q, written_if);
         out << "end else begin" << std::endl;
         // recurse else
-        writeStatelessBlockGraph(prefix, out, current->if_then_else()->else_next, current->if_then_else()->after, _q);
+        std::unordered_set<std::string> written_else = _written_before;
+        writeStatelessBlockGraph(prefix, out, current->if_then_else()->else_next, current->if_then_else()->after, _q, written_else);
         out << "end" << std::endl;
+        // merge sets of written vars
+        _written_before.insert(written_if.begin(),   written_if.end());
+        _written_before.insert(written_else.begin(), written_else.end());
         // follow after?
         if (current->if_then_else()->after->is_state) {
           return; // no: already indexed by recursive calls
@@ -2809,11 +2812,16 @@ private:
           current = current->if_then_else()->after; // yes!
         }
       } else if (current->switch_case()) {
-        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, current->subroutine, written_so_far) << ")" << std::endl;
+        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, current->subroutine, _written_before) << ")" << std::endl;
         // recurse block
+        std::unordered_set<std::string> written_before_case = _written_before;
         for (auto cb : current->switch_case()->case_blocks) {
           out << "  " << cb.first << ": begin" << std::endl;
-          writeStatelessBlockGraph(prefix, out, cb.second, current->switch_case()->after, _q);
+          // recurse case
+          std::unordered_set<std::string> written = written_before_case;
+          writeStatelessBlockGraph(prefix, out, cb.second, current->switch_case()->after, _q, written);
+          // merge sets of written vars
+          _written_before.insert(written.begin(), written.end());
           out << "  end" << std::endl;
         }
         // end of case
@@ -2826,8 +2834,8 @@ private:
         }
       } else if (current->while_loop()) {
         // while
-        out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, current->subroutine, written_so_far) << ") begin" << std::endl;
-        writeStatelessBlockGraph(prefix, out, current->while_loop()->iteration, current->while_loop()->after, _q);
+        out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, current->subroutine, _written_before) << ") begin" << std::endl;
+        writeStatelessBlockGraph(prefix, out, current->while_loop()->iteration, current->while_loop()->after, _q, _written_before);
         out << "end else begin" << std::endl;
         out << FF_D << prefix << ALG_IDX " = " << fastForward(current->while_loop()->after)->state_id << ";" << std::endl;
         pushState(current->while_loop()->after, _q);
@@ -2932,7 +2940,8 @@ private:
         writeVarInits(prefix,out,m_VarNames);
       }
       // write block instructions
-      writeStatelessBlockGraph(prefix, out, b, nullptr, q);
+      std::unordered_set<std::string> written;
+      writeStatelessBlockGraph(prefix, out, b, nullptr, q, written);
       // end of state
       out << "end" << std::endl;
     }

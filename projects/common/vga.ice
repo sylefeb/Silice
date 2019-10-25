@@ -60,16 +60,16 @@ algorithm vga(
       vga_y = ycount - VA_START;
     }
 
-    xcount = xcount + 1;
-    if (xcount == H_END) {
+    if (xcount == H_END-1) {
       xcount = 0;
-      ycount = ycount + 1;
-    }
-    if (ycount == V_END) {
-      xcount = 0;
-      ycount = 0;
-    }
-
+      if (ycount == V_END-1) {
+        ycount = 0;
+      } else {
+        ycount = ycount + 1;
+	  }
+    } else {
+      xcount = xcount + 1;
+	}
   }
 
 }

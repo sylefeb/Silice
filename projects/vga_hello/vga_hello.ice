@@ -48,7 +48,6 @@ text_buffer txtbuf (
 
   uint16 next     = 0;
 
-  uint8  lttr     = 0;
   uint11 str_x    = 10;
   uint10 str_y    = 10;
 
@@ -64,7 +63,6 @@ text_buffer txtbuf (
 
   // --------- print string
   subroutine print_string( 
-	  readwrites lttr,
 	  reads      str,
 	  reads      str_x,
 	  reads      str_y,
@@ -72,19 +70,19 @@ text_buffer txtbuf (
 	  writes     txtdata_w,
 	  writes     txtwrite
 	  )
-    uint11 col = 0;
-    lttr = str[col];
-    while (lttr != 0) {
-      if (lttr == 32) {
+    uint11 col  = 0;
+    uint8  lttr = 0;
+	
+    while (str[col] != 0) {
+      if (str[col] == 32) {
         lttr = 36;
       } else {
-        lttr = lttr - 55;
+        lttr = str[col] - 55;
       }
       txtaddr   = col + str_x + str_y * 80;
       txtdata_w = lttr[0,6];
       txtwrite  = 1;
       col       = col + 1;
-      lttr      = str[col];
     }
 	txtwrite = 0;
   return;
@@ -132,24 +130,26 @@ text_buffer txtbuf (
 		}
 
 		if (pix_active && (pix_x & 7) == 7) {   // end of letter
-		  text_i = text_i + 1;
 		  if (pix_x == 639) {  // end of line
-			// back to first column
-			text_i   = 0;
-			// next letter line
-			if (letter_j < 8) {
-			  letter_j = letter_j + 1;
-			} else {
-			  // next row
-			  letter_j = 0;
-			  text_j   = text_j + 1;
-			}
+	        // back to first column
+        	text_i   = 0;
+			// end of frame ?
 			if (pix_y == 479) {
-			  // end of frame
-			  text_i   = 0;
+			  // yes
 			  text_j   = 0;
 			  letter_j = 0;
+			} else {
+  			  // no: next letter line
+			  if (letter_j < 8) {
+			    letter_j = letter_j + 1;
+			  } else {
+			    // next row
+			    letter_j = 0;
+			    text_j   = text_j + 1;
+			  }
 			}
+		  } else {
+		    text_i = text_i + 1;		  
 		  }
 		}
 
