@@ -344,9 +344,10 @@ algorithm frame_drawer(
 
 // PLL for simulation
 /*
-NOTE: all outputs would normally be using output! but there seems to be
-      something that I do not understand about iverilog, making this fail
-	  with a wierd issue on posedge.
+NOTE: sdram_clock cannot use a normal output as this would mean sampling
+      a register tracking clock using clock itself; this lead to a race
+	  condition, see https://stackoverflow.com/questions/58563770/unexpected-simulation-behavior-in-iverilog-on-flip-flop-replicating-clock-signal
+	  
 */
 algorithm pll(
   output  uint1 vga_clock,
