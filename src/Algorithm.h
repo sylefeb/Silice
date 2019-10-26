@@ -28,6 +28,7 @@ the distribution, please refer to it for details.
 #include <queue>
 #include <unordered_set>
 #include <unordered_map>
+#include <numeric>
 
 #include <LibSL/LibSL.h>
 
@@ -204,12 +205,20 @@ private:
     t_combinational_block                          *top_block;
     std::unordered_set<std::string>                 allowed_reads;
     std::unordered_set<std::string>                 allowed_writes;
-    std::unordered_map< std::string, std::string>   vios;     // [name in subroutine => var in host]
-    std::vector<std::string>                        inputs;   // ordered list of input names
-    std::vector<std::string>                        outputs;  // ordered list of output names
-    std::unordered_map<std::string, int >           varnames; // internal var names
+    std::unordered_map< std::string, std::string>   vios;     // [subroutine space => translated var name in host]
+    std::vector<std::string>                        inputs;   // ordered list of input names (subroutine space)
+    std::vector<std::string>                        outputs;  // ordered list of output names (subroutine space)
+    std::vector<std::string>                        vars;     // ordered list of internal var names (subroutine space)
+    std::unordered_map<std::string, int >           varnames; // internal var names (translated), for use with host m_Vars
   };
   std::unordered_map< std::string, t_subroutine_nfo* > m_Subroutines;
+
+  /// \brief variable dependencies within combinational sequences
+  class t_vio_dependencies {
+  public:
+    // records for each written variable so far, each variable it depends on (throughout all computations leading to it)
+    std::unordered_map< std::string, std::unordered_set < std::string > > dependencies;
+  };
 
   /// \brief ending actions for blocks
   class t_end_action {
@@ -517,6 +526,7 @@ private:
     } else {
       var.name = "v_" + sub->name + "_" + decl->IDENTIFIER()->getText();
       sub->vios.insert(std::make_pair(decl->IDENTIFIER()->getText(), var.name));
+      sub->vars.push_back(decl->IDENTIFIER()->getText());
     }
     var.table_size = 0;
     splitType(decl->TYPE()->getText(), var.base_type, var.width);
@@ -553,6 +563,7 @@ private:
     } else {
       var.name = "v_" + sub->name + "_" + decl->IDENTIFIER()->getText();
       sub->vios.insert(std::make_pair(decl->IDENTIFIER()->getText(), var.name));
+      sub->vars.push_back(decl->IDENTIFIER()->getText());
     }
     splitType(decl->TYPE()->getText(), var.base_type, var.width);
     if (decl->NUMBER() != nullptr) {
@@ -700,7 +711,7 @@ private:
   std::string rewriteIdentifier(
     std::string prefix, std::string var,
     const t_subroutine_nfo *sub,size_t line, 
-    std::string ff, const std::unordered_set<std::string>& written_before = std::unordered_set<std::string>()) const
+    std::string ff, const t_vio_dependencies& dependencies = t_vio_dependencies()) const
   {
     if (var == ALG_RESET || var == ALG_CLOCK) {
       return var;
@@ -723,7 +734,7 @@ private:
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_FlipFlop) {
         if (ff == FF_Q) {
-          if (written_before.count(var) > 0) {
+          if (dependencies.dependencies.count(var) > 0) {
             return FF_D + prefix + var;
           }
         }
@@ -757,7 +768,7 @@ private:
         } else {
           // flip-flop
           if (ff == FF_Q) {
-            if (written_before.count(var) > 0) {
+            if (dependencies.dependencies.count(var) > 0) {
               return FF_D + prefix + var;
             }
           }
@@ -768,14 +779,14 @@ private:
   }
 
   /// \brief rewrite an expression, renaming identifiers
-  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_subroutine_nfo* sub, const std::unordered_set<std::string>& written_before) const
+  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_subroutine_nfo* sub, const t_vio_dependencies& dependencies) const
   {
     std::string result;
     if (expr->children.empty()) {
       auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
       if (term) {
         if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-          return rewriteIdentifier(prefix, expr->getText(), sub, term->getSymbol()->getLine(), FF_Q, written_before);
+          return rewriteIdentifier(prefix, expr->getText(), sub, term->getSymbol()->getLine(), FF_Q, dependencies);
         } else if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
           return rewriteConstant(expr->getText());
         } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
@@ -793,12 +804,12 @@ private:
       auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
       if (access) {
         std::ostringstream ostr;
-        writeAccess(prefix, ostr, false, access, __id, sub, written_before);
+        writeAccess(prefix, ostr, false, access, __id, sub, dependencies);
         result = result + ostr.str();
       } else {
         // recurse
         for (auto c : expr->children) {
-          result = result + rewriteExpression(prefix, c, __id, sub, written_before);
+          result = result + rewriteExpression(prefix, c, __id, sub, dependencies);
         }
       }
     }
@@ -1261,6 +1272,69 @@ private:
     }
   }
   
+  /// \brief gather inputs and outputs
+  void gatherIOs(siliceParser::InOutListContext* inout)
+  {
+    if (inout == nullptr) {
+      return;
+    }
+    for (auto io : inout->inOrOut()) {
+      auto input = dynamic_cast<siliceParser::InputContext*>(io->input());
+      auto output = dynamic_cast<siliceParser::OutputContext*>(io->output());
+      auto inout = dynamic_cast<siliceParser::InoutContext*>(io->inout());
+      if (input) {
+        t_inout_nfo io;
+        io.name = input->IDENTIFIER()->getText();
+        io.table_size = 0;
+        splitType(input->TYPE()->getText(), io.base_type, io.width);
+        if (input->NUMBER() != nullptr) {
+          io.table_size = atoi(input->NUMBER()->getText().c_str());
+        }
+        io.init_values.resize(max(io.table_size, 1), "0");
+        m_Inputs.emplace_back(io);
+        m_InputNames.insert(make_pair(io.name, (int)m_Inputs.size() - 1));
+      } else if (output) {
+        t_output_nfo io;
+        io.name = output->IDENTIFIER()->getText();
+        io.table_size = 0;
+        splitType(output->TYPE()->getText(), io.base_type, io.width);
+        if (output->NUMBER() != nullptr) {
+          io.table_size = atoi(output->NUMBER()->getText().c_str());
+        }
+        io.init_values.resize(max(io.table_size, 1), "0");
+        io.combinational = (output->combinational != nullptr);
+        m_Outputs.emplace_back(io);
+        m_OutputNames.insert(make_pair(io.name, (int)m_Outputs.size() - 1));
+      } else if (inout) {
+        t_inout_nfo io;
+        io.name = inout->IDENTIFIER()->getText();
+        io.table_size = 0;
+        splitType(inout->TYPE()->getText(), io.base_type, io.width);
+        if (inout->NUMBER() != nullptr) {
+          io.table_size = atoi(inout->NUMBER()->getText().c_str());
+        }
+        io.init_values.resize(max(io.table_size, 1), "0");
+        m_InOuts.emplace_back(io);
+        m_InOutNames.insert(make_pair(io.name, (int)m_InOuts.size() - 1));
+      } else {
+        // symbol, ignore
+      }
+    }
+  }
+
+  /// \brief extract the ordered list of parameters
+  void getParams(siliceParser::ParamListContext* params, std::vector<std::string>& _vec_params, const t_subroutine_nfo* sub) const
+  {
+    if (params == nullptr) return;
+    while (params->IDENTIFIER() != nullptr) {
+      std::string var = params->IDENTIFIER()->getText();
+      var = translateVIOName(var, sub);
+      _vec_params.push_back(var);
+      params = params->paramList();
+      if (params == nullptr) return;
+    }
+  }
+
   /// \brief sematic parsing, first discovery pass
   t_combinational_block *gather(antlr4::tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context)
   {
@@ -1449,73 +1523,82 @@ private:
     return nullptr;
   }
 
-  /// \brief gather inputs and outputs
-  void gatherIOs(siliceParser::InOutListContext *inout)
+  
+private:
+
+  /// \brief update variable dependencies for an instruction
+  void updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_subroutine_nfo* sub) const
   {
-    if (inout == nullptr) {
-      return;
+    if (instr == nullptr) return;
+    // record which vars were written before
+    std::unordered_set<std::string> written_before;
+    for (const auto& d : _depds.dependencies) {
+      written_before.insert(d.first);
     }
-    for (auto io : inout->inOrOut()) {
-      auto input  = dynamic_cast<siliceParser::InputContext*>(io->input());
-      auto output = dynamic_cast<siliceParser::OutputContext*>(io->output());
-      auto inout  = dynamic_cast<siliceParser::InoutContext*>(io->inout());
-      if (input) {
-        t_inout_nfo io;
-        io.name = input->IDENTIFIER()->getText();
-        io.table_size = 0;
-        splitType(input->TYPE()->getText(), io.base_type, io.width);
-        if (input->NUMBER() != nullptr) {
-          io.table_size = atoi(input->NUMBER()->getText().c_str());
+    // determine VIOs accesses for instruction
+    std::unordered_set<std::string> read;
+    std::unordered_set<std::string> written;
+    determineVIOAccess(instr, m_VarNames,    sub, read, written);
+    determineVIOAccess(instr, m_InputNames,  sub, read, written);
+    determineVIOAccess(instr, m_OutputNames, sub, read, written);
+    // for each written var, collapse dependencies
+    // -> union dependencies of all read vars
+    std::unordered_set<std::string> upstream;
+    for (const auto& r : read) {
+      // insert r in dependencies
+      upstream.insert(r);
+      // add its dependencies
+      auto D = _depds.dependencies.find(r);
+      if (D != _depds.dependencies.end()) {
+        for (auto d : D->second) {
+          upstream.insert(d);
         }
-        io.init_values.resize(max(io.table_size, 1), "0");
-        m_Inputs .emplace_back(io);
-        m_InputNames.insert(make_pair(io.name, (int)m_Inputs.size() - 1));
-      } else if (output) {
-        t_output_nfo io;
-        io.name = output->IDENTIFIER()->getText();
-        io.table_size = 0;
-        splitType(output->TYPE()->getText(), io.base_type, io.width);
-        if (output->NUMBER() != nullptr) {
-          io.table_size = atoi(output->NUMBER()->getText().c_str());
+      }
+    }
+    // -> replace dependencies of written vars
+    for (const auto& w : written) {
+      _depds.dependencies[w] = upstream;
+    }
+
+    /// DEBUG
+    std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << std::endl;
+    for (auto w : _depds.dependencies) {
+      std::cerr << "var " << w.first << " depds on ";
+      for (auto r : w.second) {
+        std::cerr << r << ' ';
+      }
+      std::cerr << std::endl;
+    }
+    std::cerr << std::endl;
+
+    // check if everything is legit
+    // for each written variable
+    for (const auto& w : written) {
+      // check if the variable was written before
+      if (written_before.count(w) > 0) {
+        // yes: does it depend on itself?
+        const auto& d = _depds.dependencies.at(w);
+        if (d.count(w) > 0) {
+          // yes: this would produce a combinational cycle, error!
+          throw Fatal("variable assignement leads to a combinational cycle (variable: %s, line %d)\n       consider inserting a sequential split with '++:'", 
+            w.c_str(), dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine());
         }
-        io.init_values.resize(max(io.table_size, 1), "0");
-        io.combinational = (output->combinational != nullptr);
-        m_Outputs.emplace_back(io);
-        m_OutputNames.insert(make_pair(io.name, (int)m_Outputs.size() - 1));
-      } else if (inout) {
-        t_inout_nfo io;
-        io.name = inout->IDENTIFIER()->getText();
-        io.table_size = 0;
-        splitType(inout->TYPE()->getText(), io.base_type, io.width);
-        if (inout->NUMBER() != nullptr) {
-          io.table_size = atoi(inout->NUMBER()->getText().c_str());
-        }
-        io.init_values.resize(max(io.table_size, 1), "0");
-        m_InOuts.emplace_back(io);
-        m_InOutNames.insert(make_pair(io.name, (int)m_InOuts.size() - 1));
-      } else {
-        // symbol, ignore
       }
     }
   }
 
-  /// \brief extract the ordered list of parameters
-  void getParams(siliceParser::ParamListContext *params, std::vector<std::string>& _vec_params, const t_subroutine_nfo *sub) const
+  /// \brief merge variable dependencies
+  void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const
   {
-    if (params == nullptr) return;
-    while (params->IDENTIFIER() != nullptr) {
-      std::string var = params->IDENTIFIER()->getText();
-      var = translateVIOName(var,sub);
-      _vec_params.push_back(var);
-      params = params->paramList();
-      if (params == nullptr) return;
+    for (const auto& d : _depds0.dependencies) {
+      for (const auto& p : d.second) {
+        _depds.dependencies[d.first].insert(p);
+      }
     }
   }
 
-private:
-
   /// \brief writes a call to an algorithm
-  void writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const std::unordered_set<std::string>& written_before) const
+  void writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_vio_dependencies& dependencies) const
   {
     std::vector<std::string> params;
     getParams(plist, params, sub);
@@ -1533,7 +1616,7 @@ private:
             a.instance_name.c_str(), ins.name.c_str(), plist->getStart()->getLine());
         }
         out << FF_D << a.instance_prefix << "_" << ins.name 
-            << " = " << rewriteIdentifier(prefix, params[p++], sub, plist->getStart()->getLine(), FF_Q, written_before) << ";" << std::endl;
+            << " = " << rewriteIdentifier(prefix, params[p++], sub, plist->getStart()->getLine(), FF_Q, dependencies) << ";" << std::endl;
       }
     }
     // restart algorithm (pulse run low)
@@ -1561,7 +1644,7 @@ private:
   }
 
   /// \brief writes a call to a subroutine
-  void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, siliceParser::ParamListContext* plist, const std::unordered_set<std::string>& written_before) const
+  void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const
   {
     std::vector<std::string> params;
     getParams(plist, params, nullptr);
@@ -1571,12 +1654,12 @@ private:
         s->name.c_str(), plist->getStart()->getLine());
     }
     // write var inits
-    writeVarInits(prefix, out, s->varnames);
+    writeVarInits(prefix, out, s->varnames, t_vio_dependencies());
     // set inputs
     int p = 0;
     for (const auto& ins : s->inputs) {
       out << FF_D << prefix << s->vios.at(ins) 
-          << " = " << rewriteIdentifier(prefix, params[p++], nullptr, plist->getStart()->getLine(), FF_Q, written_before) << ";" << std::endl;
+          << " = " << rewriteIdentifier(prefix, params[p++], nullptr, plist->getStart()->getLine(), FF_Q, dependencies) << ";" << std::endl;
     }
   }
 
@@ -1753,46 +1836,46 @@ private:
   }
 
   /// \brief writes access to a table in/out
-  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_subroutine_nfo* sub, const std::unordered_set<std::string>& written_before) const
+  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_subroutine_nfo* sub, const t_vio_dependencies& dependencies) const
   {
     if (tblaccess->ioAccess() != nullptr) {
       t_inout_nfo nfo = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess());
-      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub, written_before) << ")*" << nfo.width << "+:" << nfo.width << ']';
+      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub, dependencies) << ")*" << nfo.width << "+:" << nfo.width << ']';
     } else {
       sl_assert(tblaccess->IDENTIFIER() != nullptr);
       std::string vname = tblaccess->IDENTIFIER()->getText();
-      out << rewriteIdentifier(prefix, vname, sub, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, written_before);
+      out << rewriteIdentifier(prefix, vname, sub, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
       // get width
       auto tws = determineIdentifierTypeWidthAndTableSize(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
       // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
-      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub, written_before) << ")*" << std::get<1>(tws) << "+:" << std::get<1>(tws) << ']';
+      out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub, dependencies) << ")*" << std::get<1>(tws) << "+:" << std::get<1>(tws) << ']';
     }
   }
 
   /// \brief writes access to bits
-  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_subroutine_nfo* sub, const std::unordered_set<std::string>& written_before) const
+  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_subroutine_nfo* sub, const t_vio_dependencies& dependencies) const
   {
     // TODO: check access validity
     if (bitaccess->ioAccess() != nullptr) {
       writeIOAccess(prefix, out, assigning, bitaccess->ioAccess());
     } else if (bitaccess->tableAccess() != nullptr) {
-      writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, sub, written_before);
+      writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, sub, dependencies);
     } else {
       sl_assert(bitaccess->IDENTIFIER() != nullptr);
-      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, written_before);
+      out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), sub, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
     }
-    out << '[' << rewriteExpression(prefix, bitaccess->first, __id, sub, written_before) << "+:" << bitaccess->num->getText() << ']';
+    out << '[' << rewriteExpression(prefix, bitaccess->first, __id, sub, dependencies) << "+:" << bitaccess->num->getText() << ']';
   }
 
   /// \brief writes access to an identfier
-  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_subroutine_nfo* sub, const std::unordered_set<std::string>& written_before) const
+  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_subroutine_nfo* sub, const t_vio_dependencies& dependencies) const
   {
     if (access->ioAccess() != nullptr) {
       writeIOAccess(prefix, out, assigning, access->ioAccess());
     } else if (access->tableAccess() != nullptr) {
-      writeTableAccess(prefix, out, assigning, access->tableAccess(), __id, sub, written_before);
+      writeTableAccess(prefix, out, assigning, access->tableAccess(), __id, sub, dependencies);
     } else if (access->bitAccess() != nullptr) {
-      writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, sub, written_before);
+      writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, sub, dependencies);
     }
   }
 
@@ -1803,11 +1886,11 @@ private:
     antlr4::tree::TerminalNode* identifier,
     siliceParser::Expression_0Context *expression_0,
     const t_subroutine_nfo* sub,
-    const std::unordered_set<std::string>& written_before) const
+    const t_vio_dependencies& dependencies) const
   {
     if (access) {
       // table, output or bits
-      writeAccess(prefix, out, true, access, a.__id, sub, written_before);
+      writeAccess(prefix, out, true, access, a.__id, sub, dependencies);
     } else {
       sl_assert(identifier != nullptr);
       // variable
@@ -1817,47 +1900,28 @@ private:
       }
       out << rewriteIdentifier(prefix, identifier->getText(), sub, identifier->getSymbol()->getLine(), FF_D);
     }
-    out << " = " + rewriteExpression(prefix, expression_0, a.__id, sub, written_before);
+    out << " = " + rewriteExpression(prefix, expression_0, a.__id, sub, dependencies);
     out << ';' << std::endl;
 
   }
 
   /// \brief writes a single block to the output
-  void writeBlock(std::string prefix, std::ostream& out, const t_combinational_block* block, std::unordered_set<std::string>& _written_so_far) const
+  void writeBlock(std::string prefix, std::ostream& out, const t_combinational_block* block, t_vio_dependencies& _dependencies) const
   {
     // out << "// block " << block->block_name << std::endl;
     for (const auto& a : block->instructions) {
-      // determine usage        
-      std::unordered_set<std::string> read;
-      std::unordered_set<std::string> written;
-      determineVIOAccess(a.instr, m_VarNames   , block->subroutine, read, written);
-      determineVIOAccess(a.instr, m_OutputNames, block->subroutine, read, written);
-      // checks for double write
-      std::unordered_set<std::string> intersect;
-      std::set_intersection(
-        written.begin(), written.end(),
-        _written_so_far.begin(), _written_so_far.end(),
-        std::inserter(intersect, intersect.begin()));
-      if (!intersect.empty()) {
-        std::string vars;
-        for (auto v : intersect) {
-          vars = vars + v + " ";
-        }
-        auto prc = dynamic_cast<antlr4::ParserRuleContext*>(a.instr);
-        throw Fatal("cannot write twice to a same variable in a combinational chain (variable%c: %s, line %d)\n       consider inserting a sequential split with '++:'", intersect.size()>1?'s':' ', vars.c_str(), prc->getStart()->getLine());
-      }
       // write instruction
       {
         auto assign = dynamic_cast<siliceParser::AssignmentContext*>(a.instr);
         if (assign) {
-          writeAssignement(prefix, out, a, assign->access(), assign->IDENTIFIER(), assign->expression_0(), block->subroutine, _written_so_far);
+          writeAssignement(prefix, out, a, assign->access(), assign->IDENTIFIER(), assign->expression_0(), block->subroutine, _dependencies);
         }
       } {
         auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(a.instr);
         if (alw) {
           if (alw->ALWSASSIGNDBL() != nullptr) {
             std::ostringstream ostr;
-            writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine, _written_so_far);
+            writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine, _dependencies);
             // modify assignement to insert temporary var
             std::size_t pos    = ostr.str().find('=');
             std::string lvalue = ostr.str().substr(0, pos - 1);
@@ -1866,7 +1930,7 @@ private:
             out << lvalue         << " = " << FF_D << tmpvar << ';' << std::endl;
             out << FF_D << tmpvar << " = " << rvalue; // rvalue includes the line end ";\n"
           } else {
-            writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine, _written_so_far);
+            writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), block->subroutine, _dependencies);
           }
         }
       } {
@@ -1896,7 +1960,7 @@ private:
                 async->IDENTIFIER()->getText().c_str(), async->getStart()->getLine());
             }
           } else {
-            writeAlgorithmCall(prefix, out, A->second, async->paramList(), block->subroutine, _written_so_far);
+            writeAlgorithmCall(prefix, out, A->second, async->paramList(), block->subroutine, _dependencies);
           }
         }
       } {
@@ -1915,10 +1979,10 @@ private:
               if (block->subroutine != nullptr) {
                 throw Fatal("cannot call a subrountine from another one (line %d)",sync->getStart()->getLine());
               }
-              writeSubroutineCall(prefix, out, S->second, sync->paramList(), _written_so_far);
+              writeSubroutineCall(prefix, out, S->second, sync->paramList(), _dependencies);
             }
           } else {
-            writeAlgorithmCall(prefix, out, A->second, sync->paramList(), block->subroutine, _written_so_far);
+            writeAlgorithmCall(prefix, out, A->second, sync->paramList(), block->subroutine, _dependencies);
           }
         }
       } {
@@ -1945,8 +2009,8 @@ private:
           }
         }
       }
-      // update sets
-      _written_so_far.insert(written.begin(), written.end());
+      // update dependencies
+      updateDependencies(_dependencies, a.instr, block->subroutine);
     }
   }
 
@@ -1956,7 +2020,7 @@ private:
     void determineVIOAccess(
       antlr4::tree::ParseTree*                   node,
       const std::unordered_map<std::string,int>& vios,
-      t_subroutine_nfo                          *sub,
+      const t_subroutine_nfo                    *sub,
       std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const
     {
       if (node->children.empty()) {
@@ -2030,8 +2094,16 @@ private:
             // calling a subroutine?
             auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
             if (S != m_Subroutines.end()) {
+              // inputs
               for (const auto& i : S->second->inputs) {
                 _written.insert(S->second->vios.at(i));
+              }
+              // internal vars init
+              for (const auto& vn : S->second->vars) {
+                std::string varname = S->second->vios.at(vn);
+                const auto& v = m_Vars.at(m_VarNames.at(varname));
+                if (v.usage != e_FlipFlop) continue;
+                _written.insert(varname);
               }
             }
             recurse = true; // recurse to detect reads on parameters
@@ -2672,7 +2744,7 @@ private:
   }
 
   /// \brief writes combinational steps that are always performed /before/ the state machine
-  void writeCombinationalAlwaysPre(std::string prefix, std::ostream& out) const
+  void writeCombinationalAlwaysPre(std::string prefix, std::ostream& out, t_vio_dependencies& _always_dependencies) const
   {
     // flip-flops
     for (const auto& v : m_Vars) {
@@ -2741,8 +2813,7 @@ private:
     }
     // always block (if not empty)
     if (!m_AlwaysPre.instructions.empty()) {
-      std::unordered_set<std::string> written;
-      writeBlock(prefix, out, &m_AlwaysPre, written);
+      writeBlock(prefix, out, &m_AlwaysPre, _always_dependencies);
     }
     // reset temp variables (to ensure no latch is created)
     for (const auto& v : m_Vars) {
@@ -2756,8 +2827,8 @@ private:
   {
     // always block (if not empty)
     if (!m_AlwaysPost.instructions.empty()) {
-      std::unordered_set<std::string> written;
-      writeBlock(prefix, out, &m_AlwaysPost, written);
+      t_vio_dependencies depds;
+      writeBlock(prefix, out, &m_AlwaysPost, depds);
     }
   }
 
@@ -2771,7 +2842,7 @@ private:
   }
 
   /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
-  void writeStatelessBlockGraph(std::string prefix, std::ostream& out,const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, std::unordered_set<std::string>& _written_before) const
+  void writeStatelessBlockGraph(std::string prefix, std::ostream& out,const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies) const
   {
     // recursive call?
     if (stop_at != nullptr) {
@@ -2788,23 +2859,23 @@ private:
     const t_combinational_block *current = block;
     while (true) {
       // write current block
-      writeBlock(prefix, out, current, _written_before);
+      writeBlock(prefix, out, current, _dependencies);
       // goto next in chain
       if (current->next()) {
         current = current->next()->next;
       } else if (current->if_then_else()) {
-        out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, current->subroutine, _written_before) << ") begin" << std::endl;
+        out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, current->subroutine, _dependencies) << ") begin" << std::endl;
         // recurse if
-        std::unordered_set<std::string> written_if = _written_before;
-        writeStatelessBlockGraph(prefix, out, current->if_then_else()->if_next, current->if_then_else()->after, _q, written_if);
+        t_vio_dependencies depds_if = _dependencies;
+        writeStatelessBlockGraph(prefix, out, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if);
         out << "end else begin" << std::endl;
         // recurse else
-        std::unordered_set<std::string> written_else = _written_before;
-        writeStatelessBlockGraph(prefix, out, current->if_then_else()->else_next, current->if_then_else()->after, _q, written_else);
+        t_vio_dependencies depds_else = _dependencies;
+        writeStatelessBlockGraph(prefix, out, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else);
         out << "end" << std::endl;
-        // merge sets of written vars
-        _written_before.insert(written_if.begin(),   written_if.end());
-        _written_before.insert(written_else.begin(), written_else.end());
+        // merge dependencies
+        mergeDependenciesInto(depds_if,   _dependencies);
+        mergeDependenciesInto(depds_else, _dependencies);
         // follow after?
         if (current->if_then_else()->after->is_state) {
           return; // no: already indexed by recursive calls
@@ -2812,16 +2883,16 @@ private:
           current = current->if_then_else()->after; // yes!
         }
       } else if (current->switch_case()) {
-        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, current->subroutine, _written_before) << ")" << std::endl;
+        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, current->subroutine, _dependencies) << ")" << std::endl;
         // recurse block
-        std::unordered_set<std::string> written_before_case = _written_before;
+        t_vio_dependencies depds_before_case = _dependencies;
         for (auto cb : current->switch_case()->case_blocks) {
           out << "  " << cb.first << ": begin" << std::endl;
           // recurse case
-          std::unordered_set<std::string> written = written_before_case;
-          writeStatelessBlockGraph(prefix, out, cb.second, current->switch_case()->after, _q, written);
+          t_vio_dependencies depds_case = depds_before_case;
+          writeStatelessBlockGraph(prefix, out, cb.second, current->switch_case()->after, _q, depds_case);
           // merge sets of written vars
-          _written_before.insert(written.begin(), written.end());
+          mergeDependenciesInto(depds_case, _dependencies);
           out << "  end" << std::endl;
         }
         // end of case
@@ -2834,8 +2905,8 @@ private:
         }
       } else if (current->while_loop()) {
         // while
-        out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, current->subroutine, _written_before) << ") begin" << std::endl;
-        writeStatelessBlockGraph(prefix, out, current->while_loop()->iteration, current->while_loop()->after, _q, _written_before);
+        out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, current->subroutine, _dependencies) << ") begin" << std::endl;
+        writeStatelessBlockGraph(prefix, out, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies);
         out << "end else begin" << std::endl;
         out << FF_D << prefix << ALG_IDX " = " << fastForward(current->while_loop()->after)->state_id << ";" << std::endl;
         pushState(current->while_loop()->after, _q);
@@ -2898,11 +2969,12 @@ private:
   }
 
   /// \brief writes variable inits
-  void writeVarInits(std::string prefix, std::ostream& out, const std::unordered_map<std::string, int >& varnames) const
+  void writeVarInits(std::string prefix, std::ostream& out, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies) const
   {
     for (const auto& vn : varnames) {
       const auto& v = m_Vars.at(vn.second);
       if (v.usage != e_FlipFlop) continue;
+      _dependencies.dependencies.insert(std::make_pair(v.name,0));
       if (v.table_size == 0) {
         out << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
       } else {
@@ -2914,7 +2986,7 @@ private:
   }
 
   /// \brief writes all states in the output
-  void writeCombinationalStates(std::string prefix, std::ostream& out) const
+  void writeCombinationalStates(std::string prefix, std::ostream& out, const t_vio_dependencies& always_dependencies) const
   {
     std::unordered_set<size_t> produced;
     std::queue<size_t>         q;
@@ -2935,13 +3007,14 @@ private:
       }
       // begin state
       out << b->state_id << ": begin" << " // " << b->block_name << std::endl;
+      // track dependencies, starting with those of always block
+      t_vio_dependencies depds = always_dependencies;
       if (b->state_id == entryState()) {
         // entry block starts by variable initialization
-        writeVarInits(prefix,out,m_VarNames);
+        writeVarInits(prefix,out,m_VarNames,depds);
       }
       // write block instructions
-      std::unordered_set<std::string> written;
-      writeStatelessBlockGraph(prefix, out, b, nullptr, q, written);
+      writeStatelessBlockGraph(prefix, out, b, nullptr, q, depds);
       // end of state
       out << "end" << std::endl;
     }

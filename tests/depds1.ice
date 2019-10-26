@@ -1,0 +1,46 @@
+
+algorithm test(input uint8 i,output uint8 o)
+{
+  o = i;
+}
+
+algorithm main()
+{
+  uint8 a = 0;
+  uint8 b = 0;
+  uint8 c = 0;
+  uint8 d = 0;
+
+  test tst;
+  
+  subroutine sub(reads d,readwrites c)
+    uint2 ivar = 1;
+	ivar = ivar + c;
+	c = d + ivar;
+  return;
+  
+  b := 3;    // this means b will always be _d_b in rvalues
+             //  and we cannot write b = b + 1 anymore
+			 // comment to resolve [3]
+  
+// ++: // uncomment to resolve [1]
+  b = a + 1;
+  c = b + 2;
+  a = c; /// [1] should trigger an error (init of a before, b depends on a)
+  tst <- (b);
+  d = c;
+  (a) <- tst;
+  c = b;
+  d = a;
+  if (a == 2) {
+    $display("a == 2");  
+  }
+// ++: // uncomment to resolve [2]
+  d = d + 1; /// [2] should trigger an error
+  () <- sub <- ();
+++:
+  a = a + 1;
+++:
+  b = b + 1; /// [3] should trigger an error if b := 3 is uncommented
+
+}

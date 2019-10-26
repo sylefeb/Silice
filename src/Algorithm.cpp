@@ -254,8 +254,9 @@ void Algorithm::writeAsModule(ostream& out) const
 
   // combinational
   out << "always @* begin" << endl;
-  writeCombinationalAlwaysPre("_", out);
-  writeCombinationalStates("_", out);
+  t_vio_dependencies always_dependencies;
+  writeCombinationalAlwaysPre("_", out, always_dependencies);
+  writeCombinationalStates("_", out, always_dependencies);
   writeCombinationalAlwaysPost("_", out);
   out << "end" << endl;
 
