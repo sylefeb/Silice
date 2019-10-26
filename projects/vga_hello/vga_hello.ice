@@ -163,11 +163,12 @@ text_buffer txtbuf (
 // -------------------------
 
 algorithm main(
-  output uint4 vga_r,
-  output uint4 vga_g,
-  output uint4 vga_b,
-  output uint1 vga_hs,
-  output uint1 vga_vs
+  output! uint1 vga_clock,
+  output! uint4 vga_r,
+  output! uint4 vga_g,
+  output! uint4 vga_b,
+  output! uint1 vga_hs,
+  output! uint1 vga_vs
 ) {
 
   uint1  active = 0;
@@ -194,10 +195,13 @@ algorithm main(
 	pix_blue   :> vga_b
   );
 
-  // we count a number of frames and stop
 
   uint8 frame  = 0;
 
+  // vga clock is directly the input clock
+  vga_clock := clock;
+
+  // we count a number of frames and stop
   while (frame < 2) {
   
     while (vblank == 1) { }

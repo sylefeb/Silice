@@ -81,10 +81,11 @@ algorithm frame_display(
     display_row_busy = (pix_j & 1);
 
     // next address to read in row is pix_i
-    pixaddr = pix_i;
     if (display_row_busy) {
-      pixaddr = pixaddr + 320;
-    }
+      pixaddr = pix_i + 320;
+    } else {
+      pixaddr = pix_i;
+	}
 
   }
 }
@@ -374,16 +375,16 @@ algorithm pll(
 // ------------------------- 
 
 algorithm main(
-  output uint4 vga_r,
-  output uint4 vga_g,
-  output uint4 vga_b,
-  output uint1 vga_hs,
-  output uint1 vga_vs
+  output! uint1 vga_clock,
+  output! uint4 vga_r,
+  output! uint4 vga_g,
+  output! uint4 vga_b,
+  output! uint1 vga_hs,
+  output! uint1 vga_vs
 ) <@sdram_clock> {
 
 // --- PLL
 
-uint1 vga_clock   = 0;
 uint1 vga_reset   = 0;
 uint1 sdram_clock = 0;
 uint1 sdram_reset = 0;

@@ -72,7 +72,7 @@ void value_change_callback(void* user_callback_data_pointer, uint64_t time, fstH
   g_Values[g_HandleToName[facidx]] = decodeValue((const char*)value);
 
   static bool prev_clk = false;
-  bool clk = g_Values["clk"];
+  bool clk = g_Values["__main_vga_clock"];
   if (clk != prev_clk) {
     prev_clk = clk;
     g_VGA.step(

@@ -1561,15 +1561,17 @@ private:
     }
 
     /// DEBUG
-    std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << std::endl;
-    for (auto w : _depds.dependencies) {
-      std::cerr << "var " << w.first << " depds on ";
-      for (auto r : w.second) {
-        std::cerr << r << ' ';
+    if (0) {
+      std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << std::endl;
+      for (auto w : _depds.dependencies) {
+        std::cerr << "var " << w.first << " depds on ";
+        for (auto r : w.second) {
+          std::cerr << r << ' ';
+        }
+        std::cerr << std::endl;
       }
       std::cerr << std::endl;
     }
-    std::cerr << std::endl;
 
     // check if everything is legit
     // for each written variable

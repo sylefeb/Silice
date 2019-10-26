@@ -3,18 +3,19 @@ module top;
 reg clk;
 reg rst_n;
 
+wire __main_vga_clock;
+wire __main_vga_hs;
+wire __main_vga_vs;
 wire [3:0] __main_vga_r;
 wire [3:0] __main_vga_g;
 wire [3:0] __main_vga_b;
-wire __main_vga_hs;
-wire __main_vga_vs;
 
 initial begin
   clk = 1'b0;
   rst_n = 1'b0;
   $display("icarus framework started");
   $dumpfile("icarus.fst");
-  $dumpvars(0,top);
+  $dumpvars(1,top);
   repeat(4) #5 clk = ~clk;
   rst_n = 1'b1;
   forever #5 clk = ~clk; // generate a clock
@@ -44,6 +45,7 @@ wire done_main;
 M_main __main(
   .clock(clk),
   .reset(RST_d[0]),
+  .out_vga_clock(__main_vga_clock),
   .out_vga_r(__main_vga_r),
   .out_vga_g(__main_vga_g),
   .out_vga_b(__main_vga_b),
