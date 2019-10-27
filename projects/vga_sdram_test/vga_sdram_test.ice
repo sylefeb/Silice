@@ -25,11 +25,10 @@ algorithm frame_display(
   input   uint32 pixdata_r,
   output! uint1  display_row_busy
 ) {
-  uint32 fourpixels = 0;
   uint8  palidx = 0;
-  uint9  pix_i  = 0;
   uint8  pix_j  = 0;
   uint2  sub_j  = 0;
+  uint9  pix_a  = 0;
  
   // ---------- show time!
 
@@ -49,24 +48,14 @@ algorithm frame_display(
 
     if (vga_active) {
 
-      // read four pixels
-      fourpixels = pixdata_r;
-
       // display
       if (pix_j < 200) {
 		
-		palidx = fourpixels >> ((pix_i&3)<<3);
+		palidx = pixdata_r >> (((vga_x >> 1)&3)<<3);
         vga_r  = palidx;
         vga_g  = palidx;
         vga_b  = palidx;
       }
-      
-      // compute pix_i
-	  if (vga_x < 639) {
-        pix_i = vga_x >> 1;
-	  } else {
-		pix_i = 0;
-	  }
       
       if (vga_x == 639) { // end of row
         
@@ -92,11 +81,19 @@ algorithm frame_display(
     // busy row
     display_row_busy = (pix_j&1);
 
-    // next address to read in row is pix_i
+    // prepare next read
+    // note the use of vga_x + 1 to trigger 
+	// read one clock step ahead so that result 
+    // is avail right on time
+    if (vga_x < 639) {
+      pix_a = ((vga_x+1) >> 1);
+	} else {
+	  pix_a = 0;
+	}
     if (display_row_busy) {
-      pixaddr = (pix_i + 320) >> 2;
+      pixaddr = ((pix_a) + 320) >> 2;  
     } else {
-      pixaddr = (pix_i) >> 2;
+      pixaddr =  (pix_a) >> 2;
 	}
 
   }
