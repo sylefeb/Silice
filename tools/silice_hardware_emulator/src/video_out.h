@@ -54,7 +54,8 @@ class VideoOut
         uint16_t get_hcount();
         uint16_t get_vcount();
 
-        LibSL::Image::ImageRGBA_Ptr frameBuffer() { return image; }
+        bool                        frameBufferChanged() const { return image_changed; }
+        LibSL::Image::ImageRGBA_Ptr frameBuffer()              { image_changed = false; return image; }
 
     private:
         RGBApixel yuv2rgb(int lum, int cb, int cr);
@@ -78,6 +79,7 @@ class VideoOut
         uint16_t hor_size;
         uint16_t ver_size;
         // Image file
+        bool                        image_changed = true;
         LibSL::Image::ImageRGBA_Ptr image;
         // Image file name
         char       filename[256];

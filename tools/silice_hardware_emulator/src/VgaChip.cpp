@@ -50,3 +50,8 @@ LibSL::Image::ImageRGBA_Ptr VgaChip::frameBuffer()
   return m_VideoOut->frameBuffer(); 
 }
 
+bool VgaChip::frameBufferChanged() const
+{
+  return m_VideoOut->frameBufferChanged();
+}
+

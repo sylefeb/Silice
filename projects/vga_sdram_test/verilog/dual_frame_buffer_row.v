@@ -1,14 +1,14 @@
 module dual_frame_buffer_row(
     input             rclk,
     input [9:0]       raddr,
-    output reg [23:0] rdata,
+    output reg [31:0] rdata,
     input             wclk,
     input [9:0]       waddr,
-    input [23:0]      wdata,
+    input [31:0]      wdata,
     input             wenable
   );
   
-  reg [23:0] buffer [639:0]; // 320 * 2, RGB
+  reg [31:0] buffer [159:0]; // 320 * 2 / 4, RGB
   
   always @(posedge rclk) begin
     rdata <= buffer[raddr];

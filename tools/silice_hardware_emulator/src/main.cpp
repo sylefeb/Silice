@@ -30,25 +30,29 @@ void main_render()
   {
     std::unique_lock<std::mutex> lock(g_Mutex);
 
-    glClearColor(0, 0, 1, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
+    if (g_VGA.frameBufferChanged()) {
+      glClearColor(0, 0, 1, 0);
+      glClear(GL_COLOR_BUFFER_BIT);
 
-    g_Tex = Tex2DRGBA_Ptr(new Tex2DRGBA(g_VGA.frameBuffer()->pixels(),GPUTEX_AUTOGEN_MIPMAP));
+      g_Tex = Tex2DRGBA_Ptr(new Tex2DRGBA(g_VGA.frameBuffer()->pixels(), GPUTEX_AUTOGEN_MIPMAP));
 
-    glBindTexture(GL_TEXTURE_2D, g_Tex->handle());
-    glEnable(GL_TEXTURE_2D);
-    LibSL::GPUHelpers::Transform::ortho2D(LIBSL_PROJECTION_MATRIX, 0.0f, 1.0f, 1.0f, 0.0f);
-    LibSL::GPUHelpers::Transform::identity(LIBSL_MODELVIEW_MATRIX);
-    glColor3f(1, 1, 1);
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
-    glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, 0.0f);
-    glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, 1.0f);
-    glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 1.0f);
-    glEnd();
+      glBindTexture(GL_TEXTURE_2D, g_Tex->handle());
+      glEnable(GL_TEXTURE_2D);
+      LibSL::GPUHelpers::Transform::ortho2D(LIBSL_PROJECTION_MATRIX, 0.0f, 1.0f, 1.0f, 0.0f);
+      LibSL::GPUHelpers::Transform::identity(LIBSL_MODELVIEW_MATRIX);
+      glColor3f(1, 1, 1);
+      glBegin(GL_QUADS);
+      glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
+      glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, 0.0f);
+      glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, 1.0f);
+      glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 1.0f);
+      glEnd();
+    }
   }
 
-  std::this_thread::yield();
+  // std::this_thread::yield();
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  
 }
 
 // ---------------------------------------------------------------------

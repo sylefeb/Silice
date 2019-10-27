@@ -224,6 +224,7 @@ void VideoOut::eval_RGB_HV
                     pixel.Blue  = (blue  & bit_mask) << bit_shift;
 
                     image->pixel((int)(hcount), (int)(vcount)) = v4b(pixel.Red,pixel.Green,pixel.Blue,255);
+                    image_changed = true;
 //                    printf("*** [pixel write at %d,%d]\n",hcount,vcount);
                 }
             }

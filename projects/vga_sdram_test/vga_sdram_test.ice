@@ -22,20 +22,24 @@ algorithm frame_display(
   output! uint4  vga_g,
   output! uint4  vga_b,
   output! uint10 pixaddr,
-  input   uint24 pixdata_r,
+  input   uint32 pixdata_r,
   output! uint1  display_row_busy
 ) {
-
-  uint24 pixel = 0;
-  uint9  pix_i = 0;
-  uint8  pix_j = 0;
-  uint2  sub_j = 0;
+  uint32 fourpixels = 0;
+  uint8  palidx = 0;
+  uint9  pix_i  = 0;
+  uint8  pix_j  = 0;
+  uint2  sub_j  = 0;
  
   // ---------- show time!
 
   display_row_busy = 0;
   
-  pixaddr = 0;
+  if (display_row_busy) {
+    pixaddr = (320) >> 2;
+  } else {
+    pixaddr = (  0) >> 2;
+  }
   
   while (1) {
     
@@ -45,16 +49,24 @@ algorithm frame_display(
 
     if (vga_active) {
 
+      // read four pixels
+      fourpixels = pixdata_r;
+
       // display
       if (pix_j < 200) {
-        pixel = pixdata_r;
-        vga_r = pixel;
-        vga_g = pixel >> 8;
-        vga_b = pixel >> 16;
+		
+		palidx = fourpixels >> ((pix_i&3)<<3);
+        vga_r  = palidx;
+        vga_g  = palidx;
+        vga_b  = palidx;
       }
       
       // compute pix_i
-      pix_i = vga_x >> 1;
+	  if (vga_x < 639) {
+        pix_i = vga_x >> 1;
+	  } else {
+		pix_i = 0;
+	  }
       
       if (vga_x == 639) { // end of row
         
@@ -78,13 +90,13 @@ algorithm frame_display(
     } 
 
     // busy row
-    display_row_busy = (pix_j & 1);
+    display_row_busy = (pix_j&1);
 
     // next address to read in row is pix_i
     if (display_row_busy) {
-      pixaddr = pix_i + 320;
+      pixaddr = (pix_i + 320) >> 2;
     } else {
-      pixaddr = pix_i;
+      pixaddr = (pix_i) >> 2;
 	}
 
   }
@@ -95,29 +107,29 @@ algorithm frame_display(
 algorithm sdram_switcher(
   input uint1   select,
 
-  input  uint23 saddr0,
-  input  uint1  srw0,
-  input  uint32 sd_in0,
-  output uint32 sd_out0,
-  output uint1  sbusy0,
-  input  uint1  sin_valid0,
-  output uint1  sout_valid0,
+  input   uint23 saddr0,
+  input   uint1  srw0,
+  input   uint32 sd_in0,
+  output! uint32 sd_out0,
+  output! uint1  sbusy0,
+  input   uint1  sin_valid0,
+  output! uint1  sout_valid0,
   
-  input  uint23 saddr1,
-  input  uint1  srw1,
-  input  uint32 sd_in1,
-  output uint32 sd_out1,
-  output uint1  sbusy1,
-  input  uint1  sin_valid1,
-  output uint1  sout_valid1,
+  input   uint23 saddr1,
+  input   uint1  srw1,
+  input   uint32 sd_in1,
+  output! uint32 sd_out1,
+  output! uint1  sbusy1,
+  input   uint1  sin_valid1,
+  output! uint1  sout_valid1,
 
-  output uint23 saddr,
-  output uint1  srw,
-  output uint32 sd_in,
-  input  uint32 sd_out,
-  input  uint1  sbusy,
-  output uint1  sin_valid,
-  input  uint1  sout_valid
+  output! uint23 saddr,
+  output! uint1  srw,
+  output! uint32 sd_in,
+  input   uint32 sd_out,
+  input   uint1  sbusy,
+  output! uint1  sin_valid,
+  input   uint1  sout_valid
 ) {
 	
 while (1) {
@@ -206,7 +218,7 @@ algorithm frame_buffer_row_updater(
   output  uint1  sin_valid,
   input   uint1  sout_valid,
   output! uint10 pixaddr,
-  output! uint24 pixdata_w,
+  output! uint32 pixdata_w,
   output! uint1  pixwenable,
   input   uint1  row_busy,
   input   uint1  vsync
@@ -225,10 +237,11 @@ algorithm frame_buffer_row_updater(
   while(1) {
 
     // wait during vsync
-    while (vsync) { }
-    row         = 1;
-    working_row = 1;
-  
+    while (vsync) { 
+      row         = 1;
+      working_row = 1;
+	}
+ 
     // wait while the busy row is the working row
     while (working_row == row_busy) { }
 
@@ -240,31 +253,30 @@ algorithm frame_buffer_row_updater(
     //       detection there is no need for a sync mechanism
     next = 0;
     if (working_row) {
-      next = 320;
+      next = (320 >> 2);
     }
     count = 0;
-    while (count < 320) {
+    pixwenable  = 1;
+    while (count < (320 >> 2)) {
 	
       if (sbusy == 0) {        // not busy?
-        saddr       = count + (row << 8) + (row << 6); // address to read from (count + row * 320)
+        saddr       = count + (((row << 8) + (row << 6)) >> 2); // address to read from (count + row * 320 / 4)
         sin_valid   = 1;         // go ahead!      
         while (sout_valid == 0) {  } // wait for value
         // write to selected frame buffer row
         pixdata_w   = sdata_out; // data to write
-        pixwenable  = 1;
         pixaddr     = next;     // address to write
-     ++: // wait one cycle
-        pixwenable  = 0; // write done
         // next
         next        = next  + 1;
         count       = count + 1;
       }
 
     }
+    pixwenable  = 0; // write done
     // change working row
-    working_row = 1 - working_row;
+    working_row = ~ working_row;
     row = row + 1;
-	  // wrap back to 0 after 199
+	// wrap back to 0 after 199
     if (row == 200) {
       row = 0;
     }
@@ -294,22 +306,34 @@ algorithm frame_drawer(
     writes  saddr,
     writes  sin_valid
   )
-    uint9  pix_x = 0;
-    uint8  pix_y = 0;  
-    
+    uint9  pix_x   = 0;
+    uint8  pix_y   = 0;
+    uint8  pix_palidx = 0;
+    uint32 fourpix = 0; // accumulate four 8 bit pixels in 32 bits word
+	
     pix_y = 0;  
     while (pix_y < 200) {
       pix_x  = 0;
       while (pix_x < 320) {
-        // write to sdram
-        while (1) {          
-          if (sbusy == 0) {        // not busy?
-            sdata_in  = ((pix_x + shift) & 255) + (pix_y << 8);
-            saddr     = pix_x + (pix_y << 8) + (pix_y << 6); // * 320
-            sin_valid = 1; // go ahead!
-            break;
+		
+		// compute pixel palette index
+		pix_palidx = pix_x;
+		fourpix    = fourpix | (pix_palidx << ((pix_x&3)<<3));
+		
+		if ((pix_x&3) == 3) {
+          // write to sdram
+          while (1) {          
+            if (sbusy == 0) {        // not busy?
+              sdata_in  = fourpix;
+              saddr     = (pix_x + (pix_y << 8) + (pix_y << 6)) >> 2; // * 320 / 4
+              sin_valid = 1; // go ahead!
+              break;
+            }
           }
-        } // write occurs during loop cycle      
+		  // reset accumulator
+		  fourpix = 0;		  
+		}
+		
         pix_x = pix_x + 1;
       }
       pix_y = pix_y + 1;
@@ -503,8 +527,8 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 
   uint16 pixaddr_r = 0;
   uint16 pixaddr_w = 0;
-  uint4  pixdata_r = 0;
-  uint4  pixdata_w = 0;
+  uint32 pixdata_r = 0;
+  uint32 pixdata_w = 0;
   uint1  pixwenable  = 0;
 
   dual_frame_buffer_row fbr(
@@ -525,6 +549,8 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
     pixaddr   :> pixaddr_r,
     pixdata_r <: pixdata_r,
     display_row_busy :> display_row_busy,
+	vga_x <: vga_x,
+	vga_y <: vga_y,
     <:auto:>
   );
 
@@ -582,9 +608,8 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   fbrupd <- ();
  
   // start the display driver
-  
   iter = 0;
-  while (iter < 4) { // we lengthen the call, due to multiple clock domains
+  while (iter < 8) { // we lengthen the call, due to multiple clock domains
     display <- ();
 	iter = iter + 1;
   }

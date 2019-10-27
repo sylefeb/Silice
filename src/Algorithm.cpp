@@ -7,9 +7,10 @@ This work and all associated files are under the
 
      GNU AFFERO GENERAL PUBLIC LICENSE
         Version 3, 19 November 2007
-        
-A copy of the license full text is included in 
-the distribution, please refer to it for details.
+
+With the additional clause that the copyright notice
+above, identitfying the author and original copyright
+holder must remain included in all distributions.
 
 (header_1_0)
 */

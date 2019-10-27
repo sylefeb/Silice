@@ -45,6 +45,7 @@ public:
   int          w() const { return m_W; }
   int          h() const { return m_H; }
 
+  bool                        frameBufferChanged() const;
   LibSL::Image::ImageRGBA_Ptr frameBuffer();
 
 };
