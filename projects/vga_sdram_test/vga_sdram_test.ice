@@ -102,7 +102,8 @@ algorithm frame_display(
 // ------------------------- 
 
 algorithm sdram_switcher(
-  input uint1   select,
+  
+  input uint1    select,
 
   input   uint23 saddr0,
   input   uint1  srw0,
@@ -127,81 +128,31 @@ algorithm sdram_switcher(
   input   uint1  sbusy,
   output! uint1  sin_valid,
   input   uint1  sout_valid
+  
 ) {
 	
-while (1) {
-  if (select) {
-	saddr       = saddr1;
-	srw         = srw1;
-	sd_in       = sd_in1;
-	sd_out1     = sd_out;
-	sbusy1      = sbusy;
-	sin_valid   = sin_valid1;
-	sout_valid1 = sout_valid;
-	sbusy0      = 1;
-  } else {
-	saddr       = saddr0;
-	srw         = srw0;
-	sd_in       = sd_in0;
-	sd_out0     = sd_out;
-	sbusy0      = sbusy;
-	sin_valid   = sin_valid0;
-	sout_valid0 = sout_valid;
-	sbusy1      = 1;	  
-  }
-}
-  
-/*
-  // defaults
-  sin_valid   := 0;
-  sout_valid0 := sout_valid;
-  sout_valid1 := sout_valid;
-  sd_out0     := sd_out;
-  sd_out1     := sd_out;
-  
   while (1) {
-
-	if (sbusy == 0) {
-		sbusy0 = 0;
-        sbusy1 = 0;
-     	// check 0 first (higher priority)
-		if (sin_valid0) {
-		  sbusy1     = 1; // other is busy
-		  // set read/write
-		  sin_valid  = 1;
-		  saddr      = saddr0;
-		  srw        = srw0;
-		  sd_in      = sd_in0;
-		  
-		  if (srw0 == 0) {
-			// wait for answer
-			while (sout_valid == 0) {}
-		  }
-		  
-		} else {   
-		  // check 1 next, if not set to busy
-		  if (sin_valid1) {
-			sbusy0     = 1; // other is busy
-			// set read/write
-			sin_valid  = 1;
-			saddr      = saddr1;
-			srw        = srw1;
-			sd_in      = sd_in1;
-
-		    if (srw1 == 0) {
-			  // wait for answer
-			  while (sout_valid == 0) {}
-		    }
-
-		  }      
-		}
-	} else {
-		sbusy0 = 1; 
-	    sbusy1 = 1; 	
-	}
-    
-  } // end of while
-*/
+    if (select) {
+	  saddr       = saddr0;
+	  srw         = srw0;
+	  sd_in       = sd_in0;
+	  sd_out0     = sd_out;
+	  sbusy0      = sbusy;
+	  sin_valid   = sin_valid0;
+	  sout_valid0 = sout_valid;
+	  sbusy1      = 1;	  
+    } else {
+	  saddr       = saddr1;
+	  srw         = srw1;
+	  sd_in       = sd_in1;
+	  sd_out1     = sd_out;
+	  sbusy1      = sbusy;
+	  sin_valid   = sin_valid1;
+	  sout_valid1 = sout_valid;
+	  sbusy0      = 1;
+    }
+  }
+  
 }
 
 // ------------------------- 
@@ -218,7 +169,8 @@ algorithm frame_buffer_row_updater(
   output! uint32 pixdata_w,
   output! uint1  pixwenable,
   input   uint1  row_busy,
-  input   uint1  vsync
+  input   uint1  vsync,
+  output  uint1  working
 )
 {
   // frame update counters
@@ -229,9 +181,13 @@ algorithm frame_buffer_row_updater(
 
   sin_valid   := 0; // maintain low (pulses high when needed)
   
-  srw = 0;  // read
+  working = 0;  // not working yet  
+  srw     = 0;  // read
 
   while(1) {
+
+    // not working for now
+    working       = 0;
 
     // wait during vsync
     while (vsync) { 
@@ -241,6 +197,9 @@ algorithm frame_buffer_row_updater(
  
     // wait while the busy row is the working row
     while (working_row == row_busy) { }
+
+    // working again!
+	working = 1;
 
     // read row from SDRAM to frame buffer
     //    
@@ -314,7 +273,7 @@ algorithm frame_drawer(
       while (pix_x < 320) {
 		
 		// compute pixel palette index
-		pix_palidx = pix_x;
+		pix_palidx = pix_x + shift;
 		fourpix    = fourpix | (pix_palidx << ((pix_x&3)<<3));
 		
 		if ((pix_x&3) == 3) {
@@ -341,25 +300,21 @@ algorithm frame_drawer(
 
   srw   = 1;  // write
 
-  // draw a frame
-  () <- bands <- ();
-
-/*
   while (1) {
 
-    // wait for vsync
-    while (vsync) {}
-
-    /// TODO NOTE: while (!vsync) {} should work here ...? to investigate
-    
     // draw a frame
+	$display("drawing ...");
     () <- bands <- ();
+	$display("done.");
 	
     // increment shift    
     shift = shift + 1;
     
+    // wait for vsync
+    while (vsync == 1) {}
+    while (vsync == 0) {}
+
   }
-*/
 }
 
 // ------------------------- 
@@ -553,6 +508,7 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 
 // --- Frame buffer row updater
   frame_buffer_row_updater fbrupd<@sdram_clock,!sdram_reset>(
+    working    :> select,
     pixaddr    :> pixaddr_w,
     pixdata_w  :> pixdata_w,
     pixwenable :> pixwenable,
@@ -584,29 +540,24 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 
   // ---------- let's go
 
+  // -> wait for vga_reset
+  while (vga_reset == 0) {}
+  while (vga_reset == 1) {}
+
   // start the switcher
   sd_switcher <- ();
   
-  select = 1;
-
-  $display("drawer started");
-  
   // start the frame drawer
   drawer <- ();
-  
-  // DEBUG wait for drawer to be done
-  () <- drawer; 
-  
-  select = 0;
-
-  $display("drawer done");
    
   // start the frame buffer row updater
   fbrupd <- ();
  
   // start the display driver
+  // -> call
+  // we lengthen the call, due to it running on a slower clock domains
   iter = 0;
-  while (iter < 8) { // we lengthen the call, due to multiple clock domains
+  while (iter < 8) { 
     display <- ();
 	iter = iter + 1;
   }
