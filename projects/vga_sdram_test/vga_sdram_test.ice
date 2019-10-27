@@ -217,14 +217,13 @@ algorithm frame_buffer_row_updater(
     // not working for now
     working       = 0;
 
-    // wait during vsync
-    while (vsync) { 
-      row         = 0;
-      working_row = 0;
+    // wait during vsync or while the busy row is the working row
+    while (vsync || (working_row == row_busy)) { 
+		if (vsync) { // vsync implies restarting the row counter
+			row         = 0;
+			working_row = 0;
+		}
 	}
- 
-    // wait while the busy row is the working row
-    while (working_row == row_busy) { }
 
     // working again!
 	working = 1;
@@ -262,10 +261,7 @@ algorithm frame_buffer_row_updater(
       // change working row
       working_row = ~working_row;
       row = row + 1;
-	} else {
-      // wrap back to 0 after 200
-      row = 0;
-    }
+	}
   }
 
 }
