@@ -40,7 +40,7 @@ class VerilogCompiler
 {
 private:
 
-  std::string                                                m_Path;
+  std::vector<std::string>                                   m_Paths;
   std::unordered_map<std::string, AutoPtr<Algorithm> >       m_Algorithms;
   std::unordered_map<std::string, AutoPtr<Module> >          m_Modules;
   std::unordered_set<std::string>                            m_Appends;
@@ -52,13 +52,17 @@ private:
     if (LibSL::System::File::exists(fname.c_str())) {
       return fname;
     }
-    tmp_fname = m_Path + "/" + extractFileName(fname);
-    if (LibSL::System::File::exists(tmp_fname.c_str())) {
-      return tmp_fname;
+    for (auto path : m_Paths) {
+      tmp_fname = path + "/" + extractFileName(fname);
+      if (LibSL::System::File::exists(tmp_fname.c_str())) {
+        return tmp_fname;
+      }
     }
-    tmp_fname = m_Path + "/" + fname;
-    if (LibSL::System::File::exists(tmp_fname.c_str())) {
-      return tmp_fname;
+    for (auto path : m_Paths) {
+      tmp_fname = path + "/" + fname;
+      if (LibSL::System::File::exists(tmp_fname.c_str())) {
+        return tmp_fname;
+      }
     }
     return fname;
   }
@@ -181,7 +185,7 @@ public:
     std::string preprocessed = std::string(fsource) + ".lpp";
     lpp.execute(fsource, preprocessed);
     // extract path
-    m_Path = extractPath(fsource);
+    m_Paths = lpp.searchPaths();
     // parse the preprocessed source
     std::ifstream file(preprocessed);
     if (file) {

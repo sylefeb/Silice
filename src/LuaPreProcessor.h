@@ -27,15 +27,19 @@ class LuaPreProcessor
 {
 private:
 
-  std::string processCode(std::string src_file) const;
+  std::string processCode(std::string parent_path, std::string src_file);
   std::string findFile(std::string path,std::string fname) const;
+
+  std::vector<std::string> m_SearchPaths;
 
 public:
 
   LuaPreProcessor();
   virtual ~LuaPreProcessor();
 
-  void execute(std::string src_file, std::string dst_file) const;
+  void execute(std::string src_file, std::string dst_file);
+
+  std::vector<std::string> searchPaths() const { return m_SearchPaths; }
 
 };
 

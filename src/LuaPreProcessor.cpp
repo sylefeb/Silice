@@ -127,7 +127,7 @@ static std::string luaProtectString(std::string str)
 
 // -------------------------------------------------
 
-std::string LuaPreProcessor::processCode(std::string src_file) const
+std::string LuaPreProcessor::processCode(std::string parent_path,std::string src_file)
 {
   cerr << "preprocessing " << src_file << '.' << endl;
   if (!LibSL::System::File::exists(src_file.c_str())) {
@@ -135,7 +135,10 @@ std::string LuaPreProcessor::processCode(std::string src_file) const
   }
   
   // extract path
-  std::string path = extractPath(src_file);
+  std::string path = parent_path + extractPath(src_file);
+  // cerr << "path: " << path << endl;
+
+  m_SearchPaths.push_back(path);
 
   ifstream          file(src_file);
 
@@ -170,7 +173,7 @@ std::string LuaPreProcessor::processCode(std::string src_file) const
         std::string fname = matches.str(1).c_str();
         fname             = findFile(path, fname);
         // recurse
-        code += "\n" + processCode(fname) + "\n";
+        code += "\n" + processCode(path + "/",fname) + "\n";
       }
 
     }
@@ -181,7 +184,7 @@ std::string LuaPreProcessor::processCode(std::string src_file) const
 
 // -------------------------------------------------
 
-void LuaPreProcessor::execute(std::string src_file, std::string dst_file) const
+void LuaPreProcessor::execute(std::string src_file, std::string dst_file) 
 {
   lua_State *L = luaL_newstate();
 
@@ -189,7 +192,7 @@ void LuaPreProcessor::execute(std::string src_file, std::string dst_file) const
 
   bindScript(L);
 
-  std::string code = processCode(src_file);
+  std::string code = processCode("",src_file);
 
   int ret = luaL_dostring(L, code.c_str());
   if (ret) {
