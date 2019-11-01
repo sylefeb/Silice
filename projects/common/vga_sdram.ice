@@ -17,20 +17,20 @@ algorithm frame_display(
   output! uint10 pixaddr,
   input   uint32 pixdata_r,
   output! uint1  row_busy
-) {
+) <autorun> {
   uint8  palidx = 0;
   uint8  pix_j  = 0;
   uint2  sub_j  = 0;
   uint9  pix_a  = 0;
+
+  vga_r := 0;
+  vga_g := 0;
+  vga_b := 0;
  
   // ---------- show time!
 
   while (1) {
     
-    vga_r = 0;
-    vga_g = 0;
-    vga_b = 0;
-
     row_busy = 1;
   
     if (row_busy) {
@@ -42,34 +42,39 @@ algorithm frame_display(
     if (vga_active) {
 
       // display
-	  // -> screen row 0 is skipped as we preload row 0, we draw rows 1-200
-	  //    the row loader loads row   0 for display in screen row   1
-	  //    ...            loads row 199 for display in screen row 200
+	    // -> screen row 0 is skipped as we preload row 0, we draw rows 1-200
+	    //    the row loader loads row   0 for display in screen row   1
+	    //    ...            loads row 199 for display in screen row 200
       if (pix_j > 0 && pix_j <= 200) {		
-		palidx = pixdata_r >> (((vga_x >> 1)&3)<<3);
-		if (palidx < 16) {
-          vga_r  = palidx;
+		    palidx = pixdata_r >> (((vga_x >> 1)&3)<<3);
+		    switch (palidx) {
+        case 0: {
+          vga_r  = 0;
           vga_g  = 0;
           vga_b  = 0;
-		} else {
+		    }
+        case 1: {
+          vga_r  = 15;
+          vga_g  = 0;
+          vga_b  = 0;
+		    }
+        case 2: {
+          vga_r  = 0;
+          vga_g  = 15;
+          vga_b  = 0;
+		    }
+        case 3: {
+          vga_r  = 0;
+          vga_g  = 0;
+          vga_b  = 15;
+		    }
+        default: {
           vga_r  = palidx;
           vga_g  = palidx;
           vga_b  = palidx;
-		}
-		/*switch (palidx) {
-		case 0: {
-        vga_r  = 15;
-        vga_g  = 0;
-        vga_b  = 0;
-		}
-		default: {
-        vga_r  = palidx;
-        vga_g  = palidx;
-        vga_b  = palidx;
-		}
-		}*/
+		    }
+        }
       }
-      
       if (vga_x == 639) { // end of row
         
         // increment pix_j
@@ -80,8 +85,8 @@ algorithm frame_display(
             // increment row
             pix_j = pix_j + 1;
           } else {
-			pix_j = 201;
-		  }
+			      pix_j = 201;
+		      }
         }
 		
         if (vga_y == 479) {
@@ -100,18 +105,18 @@ algorithm frame_display(
 
     // prepare next read
     // note the use of vga_x + 1 to trigger 
-	// read one clock step ahead so that result 
+	  // read one clock step ahead so that result 
     // is avail right on time
     if (vga_x < 639) {
       pix_a = ((vga_x+1) >> 1);
-	} else {
-	  pix_a = 0;
-	}
+	  } else {
+	    pix_a = 0;
+	  }
     if (row_busy) {
       pixaddr = ((pix_a) + 320) >> 2;  
     } else {
       pixaddr =  (pix_a) >> 2;
-	}
+	  }
 
   }
 }
@@ -195,8 +200,12 @@ algorithm frame_buffer_row_updater(
   uint10 count = 0;
   uint8  row   = 0; // 0 .. 200 (0 loads 1, but 0 is not displayed, we display 1 - 200)
   uint1  working_row = 0;
+  uint1  row_busy_filtered = 0;
+  uint1  vsync_filtered    = 0;
 
   sin_valid   := 0; // maintain low (pulses high when needed)
+  row_busy_filtered ::= row_busy;
+  vsync_filtered    ::= vsync;
   
   working = 0;  // not working yet  
   srw     = 0;  // read
@@ -207,8 +216,8 @@ algorithm frame_buffer_row_updater(
     working       = 0;
 
     // wait during vsync or while the busy row is the working row
-    while (vsync || (working_row == row_busy)) { 
-		if (vsync) { // vsync implies restarting the row counter
+    while (vsync_filtered || (working_row == row_busy_filtered)) { 
+		if (vsync_filtered) { // vsync implies restarting the row counter
 			row         = 0;
 			working_row = 0;
 		}

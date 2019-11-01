@@ -1,12 +1,16 @@
 algorithm main(output int8 led)
 {
-  // uint a = 0;
+  uint8 a = 0;
+
+  a ::= 1;  
+
+  a = 2;
   
+/*
   subroutine test(output uint8 c,input uint8 d,reads a):
     c = a + d;
     return;
 
-/*
   alg test(a:> b,c :> d, <:auto:> );
 
   $display("hello world",a,b,c);

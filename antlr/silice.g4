@@ -232,14 +232,14 @@ instructionList     :
 subroutineParam     : ( READ | WRITE | READWRITE ) IDENTIFIER
 					| input | output ;
 subroutineParamList : (subroutineParam ',')* subroutineParam;
-subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' declarationList instructionList RETURN ';' ;
+subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' declList = declarationList instructionList RETURN ';' ;
 subroutineList      : subroutine * ;
                     
-declAndInstrList    : declarationList 
+declAndInstrList    : declList = declarationList 
                       subroutineList 
                       alwaysPre  = alwaysAssignedList 
                       instructionList
-					  alwaysPost = alwaysAssignedList;
+					            alwaysPost = alwaysAssignedList;
 
 /* -- Import -- */
 

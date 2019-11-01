@@ -1,4 +1,4 @@
-// -------------------------
+// SL 2019-10
 
 // Text buffer
 import('../common/text_buffer.v')
@@ -7,7 +7,7 @@ import('../common/text_buffer.v')
 $include('../common/vga.ice')
 
 // Clock
-import('clk_100_25.v')
+import('../common/mojo_clk_100_25.v')
 
 // Reset
 import('../common/reset_conditioner.v')
@@ -55,7 +55,7 @@ text_buffer txtbuf (
   uint16 next     = 0;
 
   uint11 str_x    = 30;
-  uint10 str_y    = 2;
+  uint10 str_y    = 0;
 
   int32   numb     = -32h1234;
   uint32  numb_tmp = 0;
@@ -114,10 +114,10 @@ text_buffer txtbuf (
 
 	  // prepare next frame
 	  () <- print_string <- ();
-    if (str_y < 50) {   
-	    str_y = str_y + 2;
+    if (str_y < 52) {   
+	    str_y = str_y + 1;
     } else {
-      str_y = 2;
+      str_y = 0;
     }
     
       // wait until vblank is over
@@ -126,7 +126,11 @@ text_buffer txtbuf (
 	  // display frame
 	  while (pix_vblank == 0) {
 
-    pix_blue = pix_y[4,1];
+    if (pix_active) { // when not active pixels *have* to be blank, otherwise the monitor gets confused
+      pix_blue  = pix_x[4,1];
+      pix_green = pix_y[4,1];
+      pix_red   = 0;
+    }
     
 		if (letter_j < 8) {
 		  letter_i = pix_x & 7;
@@ -257,7 +261,7 @@ algorithm main(
   avr_rx := 1bz;
   spi_channel := 4bzzzz;
 
-  // we count a number of frames and stop
+  // forever
   while (1) {
   
     while (vblank == 1) { }

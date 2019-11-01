@@ -1,6 +1,6 @@
 // ------------------------- 
 
-$include('../common/vga_sdram_main_icarus.ice')
+$include('../common/vga_sdram_main_mojo.ice')
 
 // ------------------------- 
 
@@ -16,7 +16,8 @@ algorithm frame_drawer(
 ) {
 
   uint16 shift = 0;
-   
+  uint1  vsync_filtered = 0;
+
   subroutine bands(
     reads   shift,
     reads   sbusy,
@@ -33,16 +34,14 @@ algorithm frame_drawer(
     while (pix_y < 200) {
       pix_x  = 0;
       while (pix_x < 320) {
-		
-		// compute pixel palette index
-		if (pix_y == 0) { // first row red
-		  pix_palidx = (pix_x + shift) & 15;
-		} else {
-  		pix_palidx = pix_x + shift;
-		}
-		fourpix    = fourpix | (pix_palidx << ((pix_x&3)<<3));
-		
-		if ((pix_x&3) == 3) {
+		    // compute pixel palette index
+		    if (pix_y == 0) { // first row red
+		      pix_palidx = (pix_x + shift) & 15;
+		    } else {
+  		    pix_palidx = pix_x + shift;
+		    }
+		    fourpix    = fourpix | (pix_palidx << ((pix_x&3)<<3));		
+		    if ((pix_x&3) == 3) {
           // write to sdram
           while (1) {          
             if (sbusy == 0) {        // not busy?
@@ -52,33 +51,32 @@ algorithm frame_drawer(
               break;
             }
           }
-		  // reset accumulator
-		  fourpix = 0;		  
-		}
-		
+		      // reset accumulator
+		      fourpix = 0;		  
+		    }		
         pix_x = pix_x + 1;
       }
       pix_y = pix_y + 1;
     }
   return;
   
-  sin_valid   := 0; // maintain low (pulses high when needed)
+  vsync_filtered ::= vsync;
+
+  sin_valid      := 0; // maintain low (pulses high when needed)
 
   srw   = 1;  // write
 
   while (1) {
 
     // draw a frame
-	$display("drawing ...");
     () <- bands <- ();
-	$display("done.");
 	
     // increment shift    
     shift = shift + 1;
     
     // wait for vsync
-    while (vsync == 1) {}
-    while (vsync == 0) {}
+    while (vsync_filtered == 1) {}
+    while (vsync_filtered == 0) {}
 
   }
 }

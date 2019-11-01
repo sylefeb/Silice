@@ -51,7 +51,7 @@ void main_render()
   }
 
   // std::this_thread::yield();
-  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  std::this_thread::sleep_for(std::chrono::milliseconds(150));
   
 }
 
@@ -100,7 +100,7 @@ int main(int argc,char **argv)
 {
   try {
     if (argc < 2) {
-      std::cerr << "Please provide vcd file as argument" << std::endl;
+      std::cerr << "Please provide fst wave file as argument" << std::endl;
       return -1;
     }
 

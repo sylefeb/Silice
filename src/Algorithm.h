@@ -1374,7 +1374,10 @@ private:
 
     checkPermissions(tree, _context);
 
-    if      (decllist) { gatherDeclarationList(decllist, nullptr);                 recurse = false; }
+    if (algbody) { 
+      gatherDeclarationList(algbody->declList, nullptr); 
+      gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
+      gatherAlwaysAssigned(algbody->alwaysPost, &m_AlwaysPost); }
     else if (ifelse)   { _current = gatherIfElse(ifelse, _current, _context);      recurse = false; }
     else if (ifthen)   { _current = gatherIfThen(ifthen, _current, _context);      recurse = false; }
     else if (switchC)  { _current = gatherSwitchCase(switchC, _current, _context); recurse = false; }
@@ -1390,7 +1393,6 @@ private:
     else if (async)    { _current->instructions.push_back(t_instr_nfo(async, _context->__id));   recurse = false; } 
     else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _context->__id));  recurse = false; }
     else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); recurse = false; }
-    else if (algbody)  { gatherAlwaysAssigned(algbody->alwaysPre,&m_AlwaysPre); gatherAlwaysAssigned(algbody->alwaysPost,&m_AlwaysPost); }
     else if (ilist)    { _current = updateBlock(ilist, _current, _context); }
 
     // recurse

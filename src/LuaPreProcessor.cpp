@@ -135,8 +135,13 @@ std::string LuaPreProcessor::processCode(std::string parent_path,std::string src
   }
   
   // extract path
-  std::string path = parent_path + extractPath(src_file);
-  // cerr << "path: " << path << endl;
+  std::string fpath = extractPath(src_file);
+  if (fpath == src_file) {
+    fpath = ".";
+  }
+  std::string path  = parent_path + fpath;
+  //cerr << "parent_path: " << parent_path << endl;
+  //cerr << "path:        " << path << endl;
 
   m_SearchPaths.push_back(path);
 

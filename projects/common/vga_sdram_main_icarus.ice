@@ -1,7 +1,7 @@
 // SL 2019-10
 
 // SDRAM controller
-import('sdram.v')
+import('sdram_icarus.v')
 
 // SDRAM simulator
 append('mt48lc32m8a2.v')
@@ -237,10 +237,6 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 
   // ---------- let's go
 
-  // -> wait for vga_reset
-  while (vga_reset == 0) {}
-  while (vga_reset == 1) {}
-
   // start the switcher
   sd_switcher <- ();
   
@@ -250,22 +246,13 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   // start the frame buffer row updater
   fbrupd <- ();
  
-  // start the display driver
-  // -> call
-  // we lengthen the call, due to it running on a slower clock domains
-  iter = 0;
-  while (iter < 8) { 
-    display <- ();
-	iter = iter + 1;
-  }
-
   // we count a number of frames and stop
   while (frame < 5) {
   
     while (vga_vblank == 1) { }
-	$display("vblank off");
+	  $display("vblank off");
     
-	while (vga_vblank == 0) { }
+	  while (vga_vblank == 0) { }
     $display("vblank on");
 	
     frame = frame + 1;
