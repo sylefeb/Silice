@@ -6,6 +6,7 @@ $include('../common/vga_sdram_main_icarus.ice')
 
 algorithm frame_drawer(
   output uint23 saddr,
+  output uint2  swbyte_addr,
   output uint1  srw,
   output uint32 sdata_in,
   output uint1  sin_valid,
@@ -22,13 +23,13 @@ algorithm frame_drawer(
     reads   sbusy,
     writes  sdata_in,
     writes  saddr,
+    writes  swbyte_addr,
     writes  sin_valid
   )
     uint9  pix_x   = 0;
     uint8  pix_y   = 0;
     uint8  pix_palidx = 0;
-    uint32 fourpix = 0; // accumulate four 8 bit pixels in 32 bits word
-	
+    	
     pix_y = 0;  
     while (pix_y < 200) {
       pix_x  = 0;
@@ -40,21 +41,17 @@ algorithm frame_drawer(
 		} else {
   		pix_palidx = pix_x + shift;
 		}
-		fourpix    = fourpix | (pix_palidx << ((pix_x&3)<<3));
 		
-		if ((pix_x&3) == 3) {
           // write to sdram
           while (1) {          
             if (sbusy == 0) {        // not busy?
-              sdata_in  = fourpix;
+              sdata_in  = pix_palidx;
+              swbyte_addr = pix_x & 3;
               saddr     = (pix_x + (pix_y << 8) + (pix_y << 6)) >> 2; // * 320 / 4
               sin_valid = 1; // go ahead!
               break;
             }
           }
-		  // reset accumulator
-		  fourpix = 0;		  
-		}
 		
         pix_x = pix_x + 1;
       }

@@ -128,6 +128,7 @@ algorithm sdram_switcher(
   input uint1    select,
 
   input   uint23 saddr0,
+  input   uint2  swbyte_addr0,
   input   uint1  srw0,
   input   uint32 sd_in0,
   output! uint32 sd_out0,
@@ -136,6 +137,7 @@ algorithm sdram_switcher(
   output! uint1  sout_valid0,
   
   input   uint23 saddr1,
+  input   uint2  swbyte_addr1,
   input   uint1  srw1,
   input   uint32 sd_in1,
   output! uint32 sd_out1,
@@ -144,6 +146,7 @@ algorithm sdram_switcher(
   output! uint1  sout_valid1,
 
   output! uint23 saddr,
+  output! uint2  swbyte_addr,
   output! uint1  srw,
   output! uint32 sd_in,
   input   uint32 sd_out,
@@ -156,6 +159,7 @@ algorithm sdram_switcher(
   while (1) {
     if (select) {
 	  saddr       = saddr0;
+    swbyte_addr = swbyte_addr0;
 	  srw         = srw0;
 	  sd_in       = sd_in0;
 	  sd_out0     = sd_out;
@@ -165,6 +169,7 @@ algorithm sdram_switcher(
 	  sbusy1      = 1;	  
     } else {
 	  saddr       = saddr1;
+    swbyte_addr = swbyte_addr1;
 	  srw         = srw1;
 	  sd_in       = sd_in1;
 	  sd_out1     = sd_out;

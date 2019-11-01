@@ -28,15 +28,15 @@ algorithm main(
   output! uint1  avr_rx,
   input   uint1  avr_rx_busy,
   // SDRAM
-  output uint1  sdram_clk,
-  output uint1  sdram_cle,
-  output uint1  sdram_dqm,
-  output uint1  sdram_cs,
-  output uint1  sdram_we,
-  output uint1  sdram_cas,
-  output uint1  sdram_ras,
-  output uint2  sdram_ba,
-  output uint13 sdram_a,
+  output! uint1  sdram_clk,
+  output! uint1  sdram_cle,
+  output! uint1  sdram_dqm,
+  output! uint1  sdram_cs,
+  output! uint1  sdram_we,
+  output! uint1  sdram_cas,
+  output! uint1  sdram_ras,
+  output! uint2  sdram_ba,
+  output! uint13 sdram_a,
   inout   uint8  sdram_dq,
   // VGA
   output! uint1  vga_r,
@@ -92,6 +92,7 @@ vga vga_driver<@vga_clock,!vga_reset>(
 // --- SDRAM
 
 uint23 saddr       = 0;
+uint2  swbyte_addr = 0;
 uint1  srw         = 0;
 uint32 sdata_in    = 0;
 uint32 sdata_out   = 0;
@@ -100,64 +101,70 @@ uint1  sin_valid   = 0;
 uint1  sout_valid  = 0;
 
 sdram memory(
-  clk       <: sdram_clock,
-  rst       <: sdram_reset,
-  addr      <: saddr,
-  rw        <: srw,
-  data_in   <: sdata_in,
-  data_out  :> sdata_out,
-  busy      :> sbusy,
-  in_valid  <: sin_valid,
-  out_valid :> sout_valid,
+  clk         <: sdram_clock,
+  rst         <: sdram_reset,
+  addr        <: saddr,
+  wbyte_addr  <: swbyte_addr,
+  rw          <: srw,
+  data_in     <: sdata_in,
+  data_out    :> sdata_out,
+  busy        :> sbusy,
+  in_valid    <: sin_valid,
+  out_valid   :> sout_valid,
   <:auto:>
 );
 
 // --- SDRAM switcher
 
-uint23 saddr0      = 0;
-uint1  srw0        = 0;
-uint32 sd_in0      = 0;
-uint32 sd_out0     = 0;
-uint1  sbusy0      = 0;
-uint1  sin_valid0  = 0;
-uint1  sout_valid0 = 0;
+uint23 saddr0       = 0;
+uint2  swbyte_addr0 = 0;
+uint1  srw0         = 0;
+uint32 sd_in0       = 0;
+uint32 sd_out0      = 0;
+uint1  sbusy0       = 0;
+uint1  sin_valid0   = 0;
+uint1  sout_valid0  = 0;
 
-uint23 saddr1      = 0;
-uint1  srw1        = 0;
-uint32 sd_in1      = 0;
-uint32 sd_out1     = 0;
-uint1  sbusy1      = 0;
-uint1  sin_valid1  = 0;
-uint1  sout_valid1 = 0;
+uint23 saddr1       = 0;
+uint2  swbyte_addr1 = 0;
+uint1  srw1         = 0;
+uint32 sd_in1       = 0;
+uint32 sd_out1      = 0;
+uint1  sbusy1       = 0;
+uint1  sin_valid1   = 0;
+uint1  sout_valid1  = 0;
 
-uint1  select      = 0;
+uint1  select       = 0;
 
 sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
-  select     <: select,
+  select       <: select,
 
-  saddr      :> saddr,
-  srw        :> srw,
-  sd_in      :> sdata_in,
-  sd_out     <: sdata_out,
-  sbusy      <: sbusy,
-  sin_valid  :> sin_valid,
-  sout_valid <: sout_valid,
+  saddr        :> saddr,
+  swbyte_addr  :> swbyte_addr,
+  srw          :> srw,
+  sd_in        :> sdata_in,
+  sd_out       <: sdata_out,
+  sbusy        <: sbusy,
+  sin_valid    :> sin_valid,
+  sout_valid   <: sout_valid,
 
-  saddr0      <: saddr0,
-  srw0        <: srw0,
-  sd_in0      <: sd_in0,
-  sd_out0     :> sd_out0,
-  sbusy0      :> sbusy0,
-  sin_valid0  <: sin_valid0,
-  sout_valid0 :> sout_valid0,
+  saddr0       <: saddr0,
+  swbyte_addr0 <: swbyte_addr0,
+  srw0         <: srw0,
+  sd_in0       <: sd_in0,
+  sd_out0      :> sd_out0,
+  sbusy0       :> sbusy0,
+  sin_valid0   <: sin_valid0,
+  sout_valid0  :> sout_valid0,
 
-  saddr1      <: saddr1,
-  srw1        <: srw1,
-  sd_in1      <: sd_in1,
-  sd_out1     :> sd_out1,
-  sbusy1      :> sbusy1,
-  sin_valid1  <: sin_valid1,
-  sout_valid1 :> sout_valid1
+  saddr1       <: saddr1,
+  swbyte_addr1 <: swbyte_addr1,
+  srw1         <: srw1,
+  sd_in1       <: sd_in1,
+  sd_out1      :> sd_out1,
+  sbusy1       :> sbusy1,
+  sin_valid1   <: sin_valid1,
+  sout_valid1  :> sout_valid1
 );
 
 // --- Frame buffer row memory
@@ -213,6 +220,7 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   frame_drawer drawer<@sdram_clock,!sdram_reset>(
     vsync      <: vga_vblank,
     saddr      :> saddr1,
+    swbyte_addr:> swbyte_addr1,
     srw        :> srw1,
     sdata_in   :> sd_in1,
     sdata_out  <: sd_out1,

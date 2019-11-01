@@ -26,13 +26,14 @@ module sdram (
         inout [7:0] sdram_dq,
 
         // User interface
-        input [22:0] addr,      // address to read/write
-        input rw,               // 1 = write, 0 = read
-        input [31:0] data_in,   // data from a read
-        output [31:0] data_out, // data for a write
-        output busy,            // controller is busy when high
-        input in_valid,         // pulse high to initiate a read/write
-        output out_valid        // pulses high when data from read is valid
+        input  [22:0] addr,       // address to read/write
+        input  [1:0]  wbyte_addr, // write byte address with 32-bit word at addr
+        input  rw,                // 1 = write, 0 = read
+        input  [31:0] data_in,    // data from a read
+        output [31:0] data_out,   // data for a write
+        output busy,              // controller is busy when high
+        input  in_valid,          // pulse high to initiate a read/write
+        output out_valid          // pulses high when data from read is valid
     );
 
     // Commands for the SDRAM
@@ -64,8 +65,10 @@ module sdram (
     wire sdram_clk_ddr;
 
     // This is used to drive the SDRAM clock
-	assign sdram_clk_ddr = sdram_clk;
-	/*
+    
+    // for simulation: uncomment this and comment below
+    assign sdram_clk_ddr = sdram_clk;
+    /*
     ODDR2 #(
         .DDR_ALIGNMENT("NONE"),
         .INIT(1'b0),
@@ -106,7 +109,7 @@ module sdram (
         .DOUT(sdram_clk)
     );
     */
-	
+    
     // registers for SDRAM signals
     reg cle_d, dqm_d;
     reg [3:0] cmd_d;
@@ -147,6 +150,7 @@ module sdram (
     reg [STATE_SIZE-1:0] next_state_d, next_state_q;
 
     reg [22:0] addr_d, addr_q;
+    reg [1:0]  wbyte_addr_d, wbyte_addr_q;
     reg [31:0] data_d, data_q;
     reg out_valid_d, out_valid_q;
 
@@ -163,6 +167,7 @@ module sdram (
     reg ready_d, ready_q;
     reg saved_rw_d, saved_rw_q;
     reg [22:0] saved_addr_d, saved_addr_q;
+    reg [1:0]  saved_wbyte_addr_d, saved_wbyte_addr_q;
     reg [31:0] saved_data_d, saved_data_q;
 
     reg rw_op_d, rw_op_q;
@@ -187,6 +192,7 @@ module sdram (
         next_state_d = next_state_q;
         delay_ctr_d = delay_ctr_q;
         addr_d = addr_q;
+        wbyte_addr_d = wbyte_addr_q;
         data_d = data_q;
         out_valid_d = 1'b0;
         precharge_bank_d = precharge_bank_q;
@@ -211,6 +217,7 @@ module sdram (
         saved_rw_d = saved_rw_q;
         saved_data_d = saved_data_q;
         saved_addr_d = saved_addr_q;
+        saved_wbyte_addr_d = saved_wbyte_addr_q;
         ready_d = ready_q;
 
         // This is a queue of 1 for read/write operations.
@@ -220,6 +227,7 @@ module sdram (
             saved_rw_d = rw;
             saved_data_d = data_in;
             saved_addr_d = addr;
+            saved_wbyte_addr_d = wbyte_addr;
             ready_d = 1'b0;
         end
 
@@ -270,8 +278,8 @@ module sdram (
             LOAD_MODE_REG: begin
                 cmd_d = CMD_LOAD_MODE_REG;
                 ba_d = 2'b0;
-                // Reserved, Burst Access, Standard Op, CAS = 2, Sequential, Burst = 4
-                a_d = {3'b000, 1'b0, 2'b00, 3'b010, 1'b0, 3'b010}; //010
+                // Reserved, Read-Burst Write-Byte, Standard Op, CAS = 2, Sequential, Burst = 4
+                a_d = {3'b000, 1'b1, 2'b00, 3'b010, 1'b0, 3'b010}; //010
                 state_d = WAIT;
                 delay_ctr_d = 13'd1;
                 next_state_d = IDLE;
@@ -291,6 +299,7 @@ module sdram (
                     ready_d = 1'b1; // clear the queue
                     rw_op_d = saved_rw_q; // save the values we'll need later
                     addr_d = saved_addr_q;
+                    wbyte_addr_d = saved_wbyte_addr_q;
 
                     if (saved_rw_q) // Write
                         data_d = saved_data_q;
@@ -362,20 +371,19 @@ module sdram (
 
             ///// WRITE /////
             WRITE: begin
-                byte_ctr_d = byte_ctr_q + 1'b1; // send out 4 bytes
-
-                if (byte_ctr_q == 2'd0) // first byte send write command
-                    cmd_d = CMD_WRITE;
+                //byte_ctr_d = byte_ctr_q + 1'b1;
+                //if (byte_ctr_q == 2'd0) // first byte send write command
+                cmd_d = CMD_WRITE;
 
                 dq_d = data_q[7:0];
-                data_d = {8'h00, data_q[31:8]}; // shift the data out
+                // data_d = {8'h00, data_q[31:8]}; // shift the data out
                 dq_en_d = 1'b1; // enable out bus
-                a_d = {2'b0, 1'b0, addr_q[7:0], 2'b00};
+                a_d = {2'b0, 1'b0, addr_q[7:0], wbyte_addr_q};
                 ba_d = addr_q[9:8];
 
-                if (byte_ctr_q == 2'd3) begin
-                    state_d = IDLE;
-                end
+                //if (byte_ctr_q == 2'd3) begin
+                state_d = IDLE;
+                //end
             end
 
             ///// PRECHARGE /////
@@ -414,6 +422,7 @@ module sdram (
         saved_rw_q <= saved_rw_d;
         saved_data_q <= saved_data_d;
         saved_addr_q <= saved_addr_d;
+        saved_wbyte_addr_q <= saved_wbyte_addr_d;
 
         cmd_q <= cmd_d;
         dqm_q <= dqm_d;
@@ -427,6 +436,7 @@ module sdram (
         refresh_ctr_q <= refresh_ctr_d;
         data_q <= data_d;
         addr_q <= addr_d;
+        wbyte_addr_q <= wbyte_addr_d;
         out_valid_q <= out_valid_d;
         row_open_q <= row_open_d;
         for (i = 0; i < 4; i = i + 1)
