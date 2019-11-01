@@ -519,7 +519,8 @@ private:
     if (ival->CONSTANT() != nullptr) {
       return rewriteConstant(ival->CONSTANT()->getText());
     } else if (ival->NUMBER() != nullptr) {
-      return ival->NUMBER()->getText();
+      std::string sign = ival->minus != nullptr ? "-" : "";
+      return sign + ival->NUMBER()->getText();
     } else {
       sl_assert(false);
     }
@@ -601,7 +602,7 @@ private:
       var.table_size = (int)values_str.size();
       var.init_values.resize(var.table_size, "0");
     } else if (values_str.empty()) {
-      // this is ok: auto init to zero
+      // auto init table to 0
     } else if (values_str.size() != var.table_size) {
       throw Fatal("incorrect number of values in table initialization (line %d)",decl->getStart()->getLine());
     }

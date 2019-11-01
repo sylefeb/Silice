@@ -1,14 +1,14 @@
 
 // unsigned integer division
-$include('../common/divint.ice')
+$include('../common/divint16.ice')
 
 algorithm main()
 {
-  uint8  dividend = 243;
-  uint8  divisor  = 13;
-  uint8  result   = 0;
+  int16  dividend = 20043;
+  int16  divisor  = -817;
+  int16  result   =  0;
   
-  div div0;
+  div16 div0;
   
   (result) <- div0 <- (dividend,divisor);
 

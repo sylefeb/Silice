@@ -85,7 +85,7 @@ STRING              : '"' ~[\r\n"]* '"' ;
 
 /* -- Declarations, init and bindings -- */
 
-value               : NUMBER | CONSTANT ;
+value               : minus='-'? NUMBER | CONSTANT ;
 
 sclock              :  '@' IDENTIFIER ;
 sreset              :  '!' IDENTIFIER ;

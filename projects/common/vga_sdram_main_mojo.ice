@@ -244,15 +244,6 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   // start the frame buffer row updater
   fbrupd <- ();
  
-  // start the display driver
-  // -> call
-  // we lengthen the call, due to it running on a slower clock domains
-  //iter = 0;
-  //while (iter < 8) { 
-  //  display <- ();
-  //  iter = iter + 1;
-  //}
-
   // forever
   while (1) {
   

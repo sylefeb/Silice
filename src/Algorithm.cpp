@@ -84,13 +84,13 @@ void Algorithm::writeAsModule(ostream& out) const
   out << "input " ALG_CLOCK "," << endl;
   out << "input " ALG_RESET "," << endl;
   for (const auto& v : m_Inputs) {
-    out << "input [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
+    out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
   }
   for (const auto& v : m_Outputs) {
-    out << "output [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
+    out << "output " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
   }
   for (const auto& v : m_InOuts) {
-    out << "inout [" << varBitDepth(v) - 1 << ":0] " << ALG_INOUT << '_' << v.name << ',' << endl;
+    out << "inout " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INOUT << '_' << v.name << ',' << endl;
   }
   out << "input " << ALG_INPUT << "_" << ALG_RUN << ',' << endl;
   out << "output " << ALG_OUTPUT << "_" << ALG_DONE << endl;

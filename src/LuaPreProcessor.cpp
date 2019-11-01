@@ -172,7 +172,7 @@ std::string LuaPreProcessor::processCode(std::string parent_path,std::string src
       code += "\\n')\n";
     } else if (l->siliceincl() != nullptr) {
       std::string filename = l->siliceincl()->filename->getText();
-      std::regex  lfname_regex("\\s*\\(\\s*\\'([a-zA-Z_\\./]+)\\'\\s*\\)\\s*");
+      std::regex  lfname_regex("\\s*\\(\\s*\\'([a-zA-Z_0-9\\./]+)\\'\\s*\\)\\s*");
       std::smatch matches;
       if (std::regex_match(filename, matches, lfname_regex)) {
         std::string fname = matches.str(1).c_str();
