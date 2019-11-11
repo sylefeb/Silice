@@ -177,8 +177,10 @@ Here c is obtained by concatenating a,b and the constant 2b11 to form a ten bits
 The bound sides have to be VIO identifiers. 
 Bound VIOs are connected and immediately track each others values.
 A good way to think of this is as a physical wire between IC pins, where each VIO is a pin.
+Bindings are specified when instantiating algorithms and modules. 
 
-Bindings are specified when instantiating algorithms and modules.
+The bidirectional binding is reserved for \texttt{inout} variables, which currently can only be
+passed through \silice{} to \verilog{} modules.
 
 \subsubsection{Continuous assignment}
 \label{sec:contassign}
@@ -217,6 +219,8 @@ input TYPE ID
 ...
 output TYPE ID
 ...
+output! TYPE ID
+...
 ) <MODS> {
   DECLARATIONS
   SUBROUTINES
@@ -241,8 +245,10 @@ algorithm adder(intput uint8 a,intput uint8 b,output uint8 v)
 
 \paragraph{Inputs and outputs.}
 
-Inputs and outputs may be declared in any order. They can be single variables or tables.
+Inputs and outputs may be declared in any order, however the order matters when calling the algorithms. Input and outputs can be single variables or tables.
 A third type \texttt{inout} exists for compatibility with \verilog{} modules, however these can only be passed and bound to imported modules (i.e. they cannot be used in expressions and instructions for now).
+
+Note that there are two types of output: \texttt{output} and \texttt{output!}. These distinguish between a standard and a combinational output (exclamation mark). A standard output sees its value updated at the next clock cycle. A combinational output ensures that callers sees the results within the same combinational chain. This is for instance important when implementing a video driver; e.g. a HDMI module generates a pixel coordinate on its output and expects to see the corresponding color on its input within the same clock step. Thus, the algorithm outputting the color to the HDMI driver will input the coordinate and use \texttt{output!} for the color. However, using only \texttt{output!} will in some cases result in combinational loops, leading to unstable circuits.
 
 % -----------------------
 
@@ -262,9 +268,9 @@ algorithm main(output uint8 led)
 
 \paragraph{Subroutines.}
 
-Algorithms can contain subroutines. These are local routines that can be called by the algorithm multiple times. A subroutine takes parameters, and has access to the variables, instanced algorithms and instanced modules of the parent algorithm -- however access permission has to be explicitly given. 
+Algorithms can contain subroutines. These are local routines that can be called by the algorithm multiple times. A subroutine takes parameters, and has access to the variables, instanced algorithms and instanced modules of the parent algorithm -- however access permissions have to be explicitly given. 
 %
-Subroutines offer a simple mechanism to allow for the equivalent of local functions, without having to wire all the parent algorithm context into another module/algorithm.
+Subroutines offer a simple mechanism to allow for the equivalent of local functions, without having to wire all the parent algorithm context into another module/algorithm. Subroutines can also declare local variables, visible only to their scope.
 
 A subroutine is declared as:
 
@@ -281,16 +287,16 @@ writes ID
 readwrites ID
 ...
 )
+  DECLARATIONS
   INSTRUCTIONS
   return;
 \end{minted}
 
-The permissions are optional. An example:
+An example:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 algorithm main(output uint8 led)
 {
-  uint20 counter = 0;
   uint8  a       = 1;
 
   subroutine shift_led(readwrites a)
@@ -300,8 +306,8 @@ algorithm main(output uint8 led)
     }
     return;
 
-  subroutine wait(readwrites counter)
-    counter = 0;
+  subroutine wait()
+    uint20 counter = 0;
     while (counter != 0) {
       counter = counter + 1;
     }
@@ -316,7 +322,7 @@ algorithm main(output uint8 led)
 }
 \end{minted}
 
-\noindent \textit{Subroutines permissions.} Subroutine permissions ensuring only those variables given read/write
+\noindent \textit{Subroutines permissions.} Subroutine permissions ensure only those variables given read/write
 permission can be manipulated. This mitigates the fact that a subroutine may directly manipulate variables in the 
 parent algorithm. The format for the permissions is a comma separated list using keywords \texttt{reads}, \texttt{writes}, \texttt{readwrites} \\
 
