@@ -40,10 +40,11 @@ class VerilogCompiler
 {
 private:
 
-  std::vector<std::string>                                   m_Paths;
-  std::unordered_map<std::string, AutoPtr<Algorithm> >       m_Algorithms;
-  std::unordered_map<std::string, AutoPtr<Module> >          m_Modules;
-  std::unordered_set<std::string>                            m_Appends;
+  std::vector<std::string>                                           m_Paths;
+  std::unordered_map<std::string, AutoPtr<Algorithm> >               m_Algorithms;
+  std::unordered_map<std::string, AutoPtr<Module> >                  m_Modules;
+  std::unordered_map<std::string, siliceParser::SubroutineContext* > m_Subroutines;
+  std::unordered_set<std::string>                                    m_Appends;
 
   std::string findFile(std::string fname) const
   {
@@ -67,21 +68,22 @@ private:
     return fname;
   }
 
-  void gatherAlgorithms(antlr4::tree::ParseTree *tree)
+  void gatherAll(antlr4::tree::ParseTree *tree)
   {
     if (tree == nullptr) {
       return;
     }
 
-    auto alglist = dynamic_cast<siliceParser::AlgorithmListContext*>(tree);
+    auto toplist = dynamic_cast<siliceParser::TopListContext*>(tree);
     auto alg     = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
     auto imprt   = dynamic_cast<siliceParser::ImportvContext*>(tree);
     auto app     = dynamic_cast<siliceParser::AppendvContext*>(tree);
+    auto sub     = dynamic_cast<siliceParser::SubroutineContext*>(tree);
 
-    if (alglist) {
+    if (toplist) {
       // keep going
       for (auto c : tree->children) {
-        gatherAlgorithms(c);
+        gatherAll(c);
       }
     } else if (alg) {
 
@@ -104,7 +106,7 @@ private:
           }
         }
       }
-      AutoPtr<Algorithm> algorithm(new Algorithm(name, clock, reset, autorun, m_Modules));
+      AutoPtr<Algorithm> algorithm(new Algorithm(name, clock, reset, autorun, m_Modules, m_Subroutines));
       if (m_Algorithms.find(name) != m_Algorithms.end()) {
         throw std::runtime_error("algorithm with same name already exists!");
       }
@@ -137,6 +139,8 @@ private:
         throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), app->getStart()->getLine());
       }
       m_Appends.insert(fname);
+    } else if (sub) {
+      m_Subroutines.insert(std::make_pair(sub->IDENTIFIER()->getText(), sub));
     }
   }
 
@@ -204,7 +208,7 @@ public:
       parser.addErrorListener(&parserErrorListener);
 
       // analyze
-      gatherAlgorithms(parser.algorithmList());
+      gatherAll(parser.topList());
 
       // resolve refs between algorithms and modules
       for (const auto& alg : m_Algorithms) {

@@ -90,8 +90,11 @@ private:
   /// \brief whether algorithm autorun at startup
   bool m_AutoRun = false;
 
-  /// \brief Set of known modules so far
+  /// \brief Set of known modules
   const std::unordered_map<std::string, AutoPtr<Module> >& m_KnownModules;
+
+  /// \brief Set of known subroutines
+  const std::unordered_map<std::string, siliceParser::SubroutineContext*>& m_KnownSubroutines;
 
   /// \brief enum for variable access
   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
@@ -558,7 +561,11 @@ private:
 public:
 
   /// \brief constructor
-  Algorithm(std::string name, std::string clock, std::string reset, bool autorun, const std::unordered_map<std::string, AutoPtr<Module> >& known_modules);
+  Algorithm(
+    std::string name, 
+    std::string clock, std::string reset, bool autorun, 
+    const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
+    const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines);
   /// \brief destructor
   virtual ~Algorithm();
 

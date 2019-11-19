@@ -1263,6 +1263,10 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
     gatherDeclarationList(algbody->declList, nullptr);
     gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
     gatherAlwaysAssigned(algbody->alwaysPost, &m_AlwaysPost);
+    // parse global subroutines now
+    for (const auto& s : m_KnownSubroutines) {
+      gatherSubroutine(s.second, _current, _context);
+    }
   } else if (ifelse) { 
     _current = gatherIfElse(ifelse, _current, _context);                          recurse = false; 
   } else if (ifthen)  { _current = gatherIfThen(ifthen, _current, _context);      recurse = false; 
@@ -1944,8 +1948,14 @@ void Algorithm::analyzeOutputsAccess()
 
 // -------------------------------------------------
 
-Algorithm::Algorithm(std::string name, std::string clock, std::string reset, bool autorun, const std::unordered_map<std::string, AutoPtr<Module> >& known_modules)
-  : m_Name(name), m_Clock(clock), m_Reset(reset), m_AutoRun(autorun), m_KnownModules(known_modules)
+Algorithm::Algorithm(
+  std::string name, 
+  std::string clock, std::string reset, bool autorun, 
+  const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
+  const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines)
+  : m_Name(name), m_Clock(clock), 
+  m_Reset(reset), m_AutoRun(autorun), 
+  m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines)
 {
   // init with empty always blocks
   m_AlwaysPre.id = 0;

@@ -247,9 +247,12 @@ importv             : 'import' '(' FILENAME ')' ;
 
 appendv             : 'append' '(' FILENAME ')' ;
 
-/* -- Overall structure -- */
+/* -- Algorithm -- */
 
 algorithm           : 'algorithm' IDENTIFIER '(' inOutList ')' algModifiers? '{' declAndInstrList '}' ;
-algorithmList       :  (algorithm | importv | appendv | subroutine) algorithmList | ;
 
-root                : algorithmList ;
+/* -- Overall structure -- */
+
+topList       :  (algorithm | importv | appendv | subroutine) topList | ;
+
+root                : topList ;
