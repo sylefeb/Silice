@@ -478,7 +478,9 @@ parent algorithm. The format for the permissions is a comma separated list using
 
 \noindent \textit{Why subroutines?} There is a fundamental difference between a subroutine and an algorithm called from 
 a host: the subroutine never executes in parallel, while a child algorithm could. However, if this parallelism is not necessary, 
-subroutines offer a simple mechanism to repeat internal tasks.
+subroutines offer a simple mechanism to repeat internal tasks.\\~
+
+\noindent \textit{Global subroutines} Subroutines may be declared outside of an algorithm. Such subroutines are called \textit{global} and may be called from any algorithm. This is convenient to share subroutines across algorithms. If a global subroutine requests access to parent algorithm variables (read/write permissions), an algorithm calling the subroutine has to have a matching set of variables in its scope. Note that global subroutines are not technically shared, but rather copied in each calling algorithm's scope at compile time.
 
 % ----------------------------------------------
 
