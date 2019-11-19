@@ -250,6 +250,6 @@ appendv             : 'append' '(' FILENAME ')' ;
 /* -- Overall structure -- */
 
 algorithm           : 'algorithm' IDENTIFIER '(' inOutList ')' algModifiers? '{' declAndInstrList '}' ;
-algorithmList       :  (algorithm | importv | appendv) algorithmList | ;
+algorithmList       :  (algorithm | importv | appendv | subroutine) algorithmList | ;
 
 root                : algorithmList ;

@@ -447,19 +447,21 @@ algorithm main(output uint8 led)
 {
   uint8  a       = 1;
 
-  subroutine shift_led(readwrites a)
+  subroutine shift_led(readwrites a) {
     a = a << 1;
     if (a == 0) {
       a = 1;
     }
     return;
+  }
 
-  subroutine wait()
+  subroutine wait() {
     uint20 counter = 0;
     while (counter != 0) {
       counter = counter + 1;
     }
     return;
+  }
     
   led := a;
   
@@ -671,7 +673,7 @@ When the \texttt{if-then-else} contains additional control flow (e.g. a subrouti
 
 \subsection{Cycle costs of calls to algorithms and subroutines}
 
-
+\todo{subroutine: one cycle to jump to, one cycle to return from}
 
 % ----------------------------------------------
 

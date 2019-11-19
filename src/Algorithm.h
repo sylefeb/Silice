@@ -26,6 +26,7 @@ NOTES:
 - SL: how (and whether?) to initialize outputs?
 - SL: warning if an algorithm input is not bound + not used
 - SL: global scope subroutines (simply add them to all algorithm before gather?)
+- SL: inline combinational subroutines? [low priority]
 */
 
 #include "siliceLexer.h"

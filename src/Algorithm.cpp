@@ -1431,7 +1431,9 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
 
 void Algorithm::updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_subroutine_nfo* sub) const
 {
-  if (instr == nullptr) return;
+  if (instr == nullptr) {
+    return;
+  }
   // record which vars were written before
   std::unordered_set<std::string> written_before;
   for (const auto& d : _depds.dependencies) {
@@ -1593,7 +1595,16 @@ void Algorithm::determineVIOAccess(
             _written.insert(varname);
           }
         }
-        recurse = true; // recurse to detect reads on parameters
+        // do not blindly recurse otherwise the child 'join' is reached
+        recurse = false;
+        // detect reads on parameters
+        for (auto c : node->children) {
+          if (dynamic_cast<siliceParser::JoinExecContext*>(c) != nullptr) {
+            // skip join, taken into account in return block
+            continue;
+          }
+          determineVIOAccess(c, vios, sub, _read, _written);
+        }
       }
     } {
       auto join = dynamic_cast<siliceParser::JoinExecContext*>(node);

@@ -1,0 +1,14 @@
+subroutine inc(input uint8 i,output uint8 o)
+{
+  o = i + 1;
+  return;
+}
+
+algorithm main()
+{
+  uint8 a = 0;
+
+  (a) <- inc <- (a);
+
+  $display("a = %d",a);
+}
