@@ -26,7 +26,7 @@ algorithm frame_drawer(
     writes  saddr,
     writes  swbyte_addr,
     writes  sin_valid
-  )
+  ) {
     uint9  pix_x   = 0;
     uint8  pix_y   = 0;
     uint8  pix_palidx = 0;
@@ -57,7 +57,8 @@ algorithm frame_drawer(
       }
       pix_y = pix_y + 1;
     }
-  return;
+    return;
+  }
   
   vsync_filtered ::= vsync;
 

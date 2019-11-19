@@ -496,7 +496,7 @@ algorithm sdram_draw_frame(
 	   reads  sbusy,
 	   reads  str_x,
 	   reads  str_y
-	   )
+	   ) {
     col  = 0;
     lttr = str[col];
     srw  = 1;  // write
@@ -521,6 +521,7 @@ algorithm sdram_draw_frame(
     }
     srw = 0;
     return;
+  }
 
   subroutine clear(
        readwrites next,
@@ -529,7 +530,7 @@ algorithm sdram_draw_frame(
 	   writes sin_valid,
 	   reads  sbusy,
 	   writes srw
-	   )
+	   ) {
     // fill buffer with character table (90x160)
     next = 0;
     srw  = 1;  // write
@@ -543,7 +544,8 @@ algorithm sdram_draw_frame(
     } // write occurs during loop cycle
     srw = 0;
     return;
-
+  }
+  
   subroutine swap(
        readwrites next,
 	   writes  saddr,
@@ -555,7 +557,7 @@ algorithm sdram_draw_frame(
 	   writes  wdata,
 	   writes  wenable,
 	   writes  waddr
-	   )  
+	   )  {
     // now read back sdram and write to text buffer
     next = 0;
     srw  = 0;  // read
@@ -577,6 +579,7 @@ algorithm sdram_draw_frame(
     }
     srw = 0;
     return;
+  }
   
   // maintain in_valid to zero, unless otherwise changed
   sin_valid := 0;

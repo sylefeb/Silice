@@ -93,10 +93,11 @@ algorithm frame_display(
     display_row_busy = (pix_j & 1);
 
     // next address to read in row is pix_i
-    pixaddr = pix_i;
     if (display_row_busy) {
       pixaddr = pixaddr + 320;
-    }
+    } else {
+      pixaddr = pix_i;	
+	}
 
   }
 }
@@ -280,7 +281,7 @@ algorithm frame_drawer(
     writes  sdata_in,
     writes  saddr,
     writes  sin_valid
-  )
+  ) {
     uint9  pix_x = 0;
     uint8  pix_y = 0;  
     
@@ -303,8 +304,9 @@ algorithm frame_drawer(
       }
       pix_y = pix_y + 1;
     }
-  return;
-
+    return;
+  }
+  
   // cross domain vsync
   vsync_filtered ::= vsync;
 

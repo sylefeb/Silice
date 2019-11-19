@@ -75,7 +75,7 @@ text_buffer txtbuf (
 	  writes     txtaddr,
 	  writes     txtdata_w,
 	  writes     txtwrite
-	  )
+	  ) {
     uint11 col  = 0;
     uint8  lttr = 0;
 	
@@ -91,7 +91,8 @@ text_buffer txtbuf (
       col       = col + 1;
     }
 	txtwrite = 0;
-  return;
+    return;
+  }
 
   // by default r,g,b are set to zero
   pix_red   := 0;

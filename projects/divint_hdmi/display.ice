@@ -80,7 +80,7 @@ $include('../common/font.ice')
 	readwrites str_start,
 	writes     txtaddr,
 	writes     txtdata_w	
-    )
+    ) {
     col  = 0;
     lttr = str[str_start];
     while (lttr != 0 && col < str_len) {
@@ -96,8 +96,9 @@ $include('../common/font.ice')
       lttr      = str[str_start];
     }
     str_x = str_x + col;
-  return;
-
+    return;
+  }
+  
   // --------- print number 
   subroutine print_number(
     reads      numb,
@@ -111,7 +112,7 @@ $include('../common/font.ice')
 	readwrites lttr,
 	readwrites str_x,
 	readwrites col
-  )
+  ) {
     if (numb < 0) {
       numb_cnt = 1;
       numb_tmp = -numb;
@@ -141,7 +142,8 @@ $include('../common/font.ice')
       col       = col + 1;
     }
     str_x = str_x + col;
-  return;
+    return;
+  }
 
   // fill buffer with spaces
   txtwrite  = 1;

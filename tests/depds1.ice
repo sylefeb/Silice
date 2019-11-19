@@ -13,11 +13,12 @@ algorithm main()
 
   test tst;
   
-  subroutine sub(reads d,readwrites c)
+  subroutine sub(reads d,readwrites c) {
     uint2 ivar = 1;
 	ivar = ivar + c;
 	c = d + ivar;
-  return;
+    return;
+  }
   
   b := 3;    // this means b will always be _d_b in rvalues
              //  and we cannot write b = b + 1 anymore
