@@ -407,7 +407,6 @@ private:
 
   /// \brief always blocks
   t_combinational_block                                             m_AlwaysPre;
-  t_combinational_block                                             m_AlwaysPost;
   /// \brief all combinational blocks
   std::list< t_combinational_block* >                               m_Blocks;
   /// \brief state name to combination block
@@ -641,8 +640,6 @@ private:
   void writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
   /// \brief writes combinational steps that are always performed /before/ the state machine
   void writeCombinationalAlwaysPre(std::string prefix, std::ostream& out, t_vio_dependencies& _always_dependencies) const;
-  /// \brief writes combinational steps that are always performed /after/ the state machine
-  void writeCombinationalAlwaysPost(std::string prefix, std::ostream& out) const;
   /// \brief add a state to the queue
   void pushState(const t_combinational_block* b, std::queue<size_t>& _q) const;
   /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached

@@ -1262,7 +1262,6 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
   if (algbody) {
     gatherDeclarationList(algbody->declList, nullptr);
     gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
-    gatherAlwaysAssigned(algbody->alwaysPost, &m_AlwaysPost);
     // parse global subroutines now
     for (const auto& s : m_KnownSubroutines) {
       gatherSubroutine(s.second, _current, _context);
@@ -1693,7 +1692,6 @@ void Algorithm::determineVariablesAccess()
   }
   // determine variable access for always blocks
   determineVariablesAccess(&m_AlwaysPre);
-  determineVariablesAccess(&m_AlwaysPost);
   // determine variable access due to algorithm and module instances
   // bindings are considered as belonging to the always pre block
   std::vector<t_binding_nfo> all_bindings;
@@ -1760,7 +1758,6 @@ void Algorithm::determineVariablesUsage()
   // analyze usage
   auto blocks = m_Blocks;
   blocks.push_front(&m_AlwaysPre);
-  blocks.push_front(&m_AlwaysPost);
   // merge all in_reads and out_written
   std::unordered_set<std::string> global_in_read;
   std::unordered_set<std::string> global_out_written;
@@ -1897,7 +1894,6 @@ void Algorithm::analyzeOutputsAccess()
   std::unordered_set<std::string> always_written;
   std::vector<t_combinational_block*> ablocks;
   ablocks.push_back(&m_AlwaysPre);
-  ablocks.push_back(&m_AlwaysPost);
   for (const auto& b : ablocks) {
     for (const auto& i : b->instructions) {
       std::unordered_set<std::string> read;
@@ -1960,8 +1956,6 @@ Algorithm::Algorithm(
   // init with empty always blocks
   m_AlwaysPre.id = 0;
   m_AlwaysPre.block_name = "_always_pre";
-  m_AlwaysPost.id = std::numeric_limits<size_t>::max();
-  m_AlwaysPost.block_name = "_always_post";
 }
 
 // -------------------------------------------------
@@ -2767,17 +2761,6 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
 
 // -------------------------------------------------
 
-void Algorithm::writeCombinationalAlwaysPost(std::string prefix, std::ostream& out) const
-{
-  // always block (if not empty)
-  if (!m_AlwaysPost.instructions.empty()) {
-    t_vio_dependencies depds;
-    writeBlock(prefix, out, &m_AlwaysPost, depds);
-  }
-}
-
-// -------------------------------------------------
-
 void Algorithm::pushState(const t_combinational_block* b, std::queue<size_t>& _q) const
 {
   if (b->is_state) {
@@ -3166,7 +3149,6 @@ void Algorithm::writeAsModule(ostream& out) const
   t_vio_dependencies always_dependencies;
   writeCombinationalAlwaysPre("_", out, always_dependencies);
   writeCombinationalStates("_", out, always_dependencies);
-  writeCombinationalAlwaysPost("_", out);
   out << "end" << endl;
 
   out << "endmodule" << endl;

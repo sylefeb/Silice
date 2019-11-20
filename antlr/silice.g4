@@ -239,7 +239,7 @@ declAndInstrList    : declList = declarationList
                       subroutineList 
                       alwaysPre  = alwaysAssignedList 
                       instructionList
-					            alwaysPost = alwaysAssignedList;
+					  ;
 
 /* -- Import -- */
 
