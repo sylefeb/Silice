@@ -204,6 +204,8 @@ instruction         : assignment
 
 repeatBlock         : REPEATCNT '{' instructionList '}' ;
 
+pipeline            : block ('->' block) +;
+
 /* -- Inputs/outputs -- */
 
 inout               : 'inout' TYPE IDENTIFIER 
@@ -227,6 +229,7 @@ instructionList     :
                     | ifThen      instructionList
                     | whileLoop   instructionList
 					| switchCase  instructionList
+					| pipeline    instructionList
 					| ;
 
 subroutineParam     : ( READ | WRITE | READWRITE ) IDENTIFIER

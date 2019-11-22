@@ -24,6 +24,7 @@ holder must remain included in all distributions.
 NOTES:
 - SL: could we identify combinational loops through binded algorithms?
 - SL: how (and whether?) to initialize outputs?
+- SL: recheck repeat blocks ...
 - SL: warning if an algorithm input is not bound + not used
 - SL: global scope subroutines (simply add them to all algorithm before gather?)
 - SL: inline combinational subroutines? [low priority]
@@ -325,6 +326,16 @@ private:
     void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(go_to); _ch.push_back(return_to); }
   };
 
+  /// \brief pipeline with next
+  class end_action_pipeline_next : public t_end_action
+  {
+  public:
+    t_combinational_block        *next;
+    end_action_pipeline_next(t_combinational_block *next_) : next(next_) {}
+    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(next->id); }
+    void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); }
+  };
+
   /// \brief a combinational block of code
   class t_combinational_block
   {
@@ -385,6 +396,12 @@ private:
       swap_end(new end_action_goto_and_return_to(go_to, return_to));
     }
     const end_action_goto_and_return_to * goto_and_return_to() const { return dynamic_cast<const end_action_goto_and_return_to*>(end_action); }
+
+    void pipeline_next(t_combinational_block *next)
+    {
+      swap_end(new end_action_pipeline_next(next));
+    }
+    const end_action_pipeline_next *pipeline_next() const { return dynamic_cast<const end_action_pipeline_next*>(end_action); }
 
     void getRefs(std::vector<size_t>& _refs) const { if (end_action != nullptr) end_action->getRefs(_refs); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const { if (end_action != nullptr) end_action->getChildren(_ch); }
@@ -479,6 +496,8 @@ private:
   void gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub);
   /// \brief gather a subroutine
   t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context);
+  /// \brief gather a pipeline
+  t_combinational_block *gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather a jump
   t_combinational_block* gatherJump(siliceParser::JumpContext* jump, t_combinational_block* _current, t_gather_context* _context);
   /// \brief gather a call
@@ -544,6 +563,8 @@ private:
   void determineVariablesUsage();
   /// \brief determines the list of bound VIO
   void determineModAlgBoundVIO();
+  /// \brief determine block dependencies
+  void determineBlockDependencies(const t_combinational_block* block, t_vio_dependencies& _dependencies) const;
   /// \brief analyze usage of inputs of instanced algorithms
   void analyzeInstancedAlgorithmsInputs();
   /// \brief analyze output accesses and classifies them

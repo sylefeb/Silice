@@ -889,6 +889,27 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
 
 // -------------------------------------------------
 
+Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
+{
+  t_combinational_block *prev = nullptr;
+  for (auto b : pip->block()) {
+    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), nullptr, (int)b->getStart()->getLine());
+    t_combinational_block *stage_end   = gather(b, stage_start, _context);
+    if (!isStateLessGraph(stage_start)) {
+      throw Fatal("pipeline stages have to be combinational only (line %d)", (int)b->getStart()->getLine());
+    }
+    if (prev == nullptr) {
+      _current->next(stage_start);
+    } else {
+      prev->pipeline_next(stage_start);
+    }
+    prev = stage_end;
+  }
+  return prev;
+}
+
+// -------------------------------------------------
+
 Algorithm::t_combinational_block* Algorithm::gatherJump(siliceParser::JumpContext* jump, t_combinational_block* _current, t_gather_context* _context)
 {
   std::string name = jump->IDENTIFIER()->getText();
@@ -1251,6 +1272,7 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
   auto sync     = dynamic_cast<siliceParser::SyncExecContext*>(tree);
   auto repeat   = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
   auto sub      = dynamic_cast<siliceParser::SubroutineContext*>(tree);
+  auto pip      = dynamic_cast<siliceParser::PipelineContext*>(tree);
   auto call     = dynamic_cast<siliceParser::CallContext*>(tree);
   auto ret      = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
   auto breakL   = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
@@ -1273,6 +1295,7 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
   } else if (loop)    { _current = gatherWhile(loop, _current, _context);         recurse = false; 
   } else if (repeat)  { _current = gatherRepeatBlock(repeat, _current, _context); recurse = false; 
   } else if (sub)     { _current = gatherSubroutine(sub, _current, _context);     recurse = false; 
+  } else if (pip)     { _current = gatherPipeline(pip, _current, _context);       recurse = false; 
   } else if (sync)    { _current = gatherSyncExec(sync, _current, _context);      recurse = false; 
   } else if (join)    { _current = gatherJoinExec(join, _current, _context);      recurse = false; 
   } else if (call)    { _current = gatherCall(call, _current, _context);          recurse = false; 
@@ -1856,6 +1879,16 @@ void Algorithm::determineModAlgBoundVIO()
         m_ModAlgInOutsBoundToVIO[bindpoint] = bi.right;
       }
     }
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::determineBlockDependencies(const t_combinational_block* block, t_vio_dependencies& _dependencies) const
+{
+  for (const auto& a : block->instructions) {
+    // update dependencies
+    updateDependencies(_dependencies, a.instr, block->subroutine);
   }
 }
 
@@ -2877,6 +2910,14 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
         out << "end" << std::endl;
       }
       return;
+    } else if (current->pipeline_next()) {
+      /*
+      // checks
+      // TODO
+      */
+      // clear depedencies and write next stage
+      _dependencies.dependencies.clear();
+      current = current->pipeline_next()->next;
     } else {
       // no action: jump to terminal state
       out << FF_D << prefix << ALG_IDX " = " << terminationState() << ";" << std::endl;
