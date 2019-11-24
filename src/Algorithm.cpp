@@ -891,21 +891,97 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
 
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
-  t_combinational_block *prev = nullptr;
+  // add a block for after pipeline
+  t_combinational_block *after = addBlock(generateBlockName(), nullptr);
+  // name of the first block
+  std::string stage_blockname = "__stage_" + generateBlockName();
+  // insert variable to enable pipeline stages
+  t_var_nfo var;
+  var.name = "__pip" + stage_blockname + "_stage_enable";
+  var.table_size = 0;
+  var.init_values.resize(1, "0");
+  var.access = e_InternalFlipFlop;
+  m_Vars.emplace_back(var);
+  m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
+  // go through the pipeline
+  // -> track read/written
+  std::unordered_map<std::string,std::vector<int> > read_at, written_at;
+  // -> for each stage block
+  t_combinational_block *prev = _current;
+  int stage = 0;
   for (auto b : pip->block()) {
-    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), nullptr, (int)b->getStart()->getLine());
+    t_combinational_block *stage_start = addBlock(stage_blockname, nullptr, (int)b->getStart()->getLine());
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
+    // check this is a combinational chain
     if (!isStateLessGraph(stage_start)) {
       throw Fatal("pipeline stages have to be combinational only (line %d)", (int)b->getStart()->getLine());
     }
-    if (prev == nullptr) {
-      _current->next(stage_start);
-    } else {
-      prev->pipeline_next(stage_start);
+    // check VIO access
+    // -> gather read/written for block
+    std::unordered_set<std::string> read, written;
+    determineVIOAccess(b, m_VarNames,    nullptr, read, written);
+    determineVIOAccess(b, m_OutputNames, nullptr, read, written);
+    determineVIOAccess(b, m_InputNames,  nullptr, read, written);
+    // -> check for anything wrong: no stage should *read* a value *written* by a later stage
+    for (auto w : written) {
+      if (read_at.count(w) > 0) {
+        throw Fatal("pipeline inconsistency.\n       stage reads a value written by a later stage (write on %s, stage line %d)",w.c_str(), (int)b->getStart()->getLine());
+      }
     }
+    // -> merge
+    for (auto r : read) {
+      read_at[r].push_back(stage);
+    }
+    for (auto w : written) {
+      written_at[w].push_back(stage);
+    }
+    // set next stage
+    prev->pipeline_next(stage_start, stage_end);
+    // advance
+    stage_blockname = "__stage_" + generateBlockName();
     prev = stage_end;
+    stage++;
   }
-  return prev;
+  // set next of last stage
+  prev->next(after);
+  // report on read variables
+  for (auto r : read_at) {
+    // trickling?
+    bool trickling = false;
+    if (r.second.size() > 1) {
+      trickling = true;
+    } else {
+      sl_assert(!r.second.empty());
+      int read_stage = r.second[0]; // only one if here
+      // search max write
+      int last_write = -1;
+      if (written_at.count(r.first)) {
+        // has been written
+        for (auto ws : written_at[r.first]) {
+          if (ws < read_stage) { // ignore write at same stage    SL: check, is it sane/safe to read/write at same stage?
+            last_write = max(last_write, ws);
+          }
+        }
+      }
+      if (read_stage - last_write > 1) {
+        trickling = true;
+      }
+    }
+    for (auto s : r.second) {
+      std::cerr << "vio " << r.first << " read at stage " << s;
+      if (trickling) std::cerr << "(trickling)";
+      std::cerr << std::endl;
+    }
+  }
+  // report on written variables
+  for (auto w : written_at) {
+    for (auto s : w.second) {
+      std::cerr << "vio " << w.first << " written at stage " << s;
+      std::cerr << std::endl;
+    }
+  }
+  // done
+  return after;
 }
 
 // -------------------------------------------------
@@ -1560,8 +1636,10 @@ void Algorithm::determineVIOAccess(
         if (assign->access() != nullptr) {
           if (assign->access()->tableAccess() != nullptr) {
             var = assign->access()->tableAccess()->IDENTIFIER()->getText();
+            determineVIOAccess(assign->access()->tableAccess()->expression_0(), vios, sub, _read, _written);
           } else if (assign->access()->bitAccess() != nullptr) {
             var = assign->access()->bitAccess()->IDENTIFIER()->getText();
+            determineVIOAccess(assign->access()->bitAccess()->expression_0(), vios, sub, _read, _written);
           } else {
             // instanced algorithm input
           }
@@ -1816,6 +1894,9 @@ void Algorithm::determineVariablesUsage()
     } else if (v.access == e_ReadWriteBinded) {
       std::cerr << v.name << " => bound to inout ";
       v.usage = e_Bound;
+    } else if (v.access == e_InternalFlipFlop) {
+      std::cerr << v.name << " => internal flip-flop ";
+      v.usage = e_FlipFlop;
     } else {
       std::cerr << Console::yellow << "warning: " << v.name << " unexpected usage." << Console::gray << std::endl;
       v.usage = e_FlipFlop;
@@ -2399,7 +2480,7 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
 
 void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combinational_block* block, t_vio_dependencies& _dependencies) const
 {
-  // out << "// block " << block->block_name << std::endl;
+  out << "// block " << block->block_name << std::endl;
   for (const auto& a : block->instructions) {
     // write instruction
     {
@@ -2430,7 +2511,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
         out << "$display(" << display->STRING()->getText();
         if (display->displayParams() != nullptr) {
           for (auto p : display->displayParams()->IDENTIFIER()) {
-            out << "," << rewriteIdentifier(prefix, p->getText(), block->subroutine, display->getStart()->getLine(), FF_D);
+            out << "," << rewriteIdentifier(prefix, p->getText(), block->subroutine, display->getStart()->getLine(), FF_Q, _dependencies);
           }
         }
         out << ");" << std::endl;
@@ -2911,13 +2992,8 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       }
       return;
     } else if (current->pipeline_next()) {
-      /*
-      // checks
-      // TODO
-      */
-      // clear depedencies and write next stage
-      _dependencies.dependencies.clear();
-      current = current->pipeline_next()->next;
+      // write pipeline
+      current = writeStatelessPipeline(prefix,out,current, _q,_dependencies);
     } else {
       // no action: jump to terminal state
       out << FF_D << prefix << ALG_IDX " = " << terminationState() << ";" << std::endl;
@@ -2936,6 +3012,44 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
     }
     // keep going
   }
+}
+
+// -------------------------------------------------
+
+const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
+  std::string prefix, std::ostream& out, 
+  const t_combinational_block* block_before, 
+  std::queue<size_t>& _q, t_vio_dependencies& _dependencies) const
+{
+  int stage = 0;
+  // follow the chain
+  out << "// pipeline" << std::endl;
+  const t_combinational_block *current = block_before->pipeline_next()->next;
+  const t_combinational_block *after   = block_before->pipeline_next()->after;
+  // name of stage enable
+  std::string var = "__pip" + current->block_name + "_stage_enable";
+  out << "// " << var << endl;
+  while (true) {
+    // write stage
+    out << "// stage " << stage << std::endl;
+    t_vio_dependencies deps;
+    if (current != after) { // this is the more complex case of multiple blocks in stage
+      writeStatelessBlockGraph(prefix, out, current, after, _q, deps); // NOTE: q will not be changed since this is a combinational block
+      current = after;
+    } else {
+      writeBlock(prefix, out, current, deps);
+    }
+    // advance
+    stage++;
+    if (current->pipeline_next()) {
+      after   = current->pipeline_next()->after;
+      current = current->pipeline_next()->next;
+    } else {
+      sl_assert(current->next() != nullptr);
+      return current->next()->next;
+    }
+  }
+  return current;
 }
 
 // -------------------------------------------------

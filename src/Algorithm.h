@@ -103,6 +103,7 @@ private:
     e_NotAccessed = 0,
     e_ReadOnly = 1, e_WriteOnly = 2, e_ReadWrite = 3,
     e_WriteBinded = 4, e_ReadWriteBinded = 8,
+    e_InternalFlipFlop = 16
   };
 
   /// \brief enum for variable type
@@ -331,9 +332,10 @@ private:
   {
   public:
     t_combinational_block        *next;
-    end_action_pipeline_next(t_combinational_block *next_) : next(next_) {}
-    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(next->id); }
-    void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); }
+    t_combinational_block        *after;
+    end_action_pipeline_next(t_combinational_block *next_, t_combinational_block *after_) : next(next_), after(after_) {}
+    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(next->id);_refs.push_back(after->id); }
+    void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next);_ch.push_back(after); }
   };
 
   /// \brief a combinational block of code
@@ -397,9 +399,9 @@ private:
     }
     const end_action_goto_and_return_to * goto_and_return_to() const { return dynamic_cast<const end_action_goto_and_return_to*>(end_action); }
 
-    void pipeline_next(t_combinational_block *next)
+    void pipeline_next(t_combinational_block *next, t_combinational_block *after)
     {
-      swap_end(new end_action_pipeline_next(next));
+      swap_end(new end_action_pipeline_next(next,after));
     }
     const end_action_pipeline_next *pipeline_next() const { return dynamic_cast<const end_action_pipeline_next*>(end_action); }
 
@@ -665,6 +667,8 @@ private:
   void pushState(const t_combinational_block* b, std::queue<size_t>& _q) const;
   /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
   void writeStatelessBlockGraph(std::string prefix, std::ostream& out, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies) const;
+  /// \brief writes a stateless pipeline to the output, returns zhere to resume from
+  const t_combinational_block *writeStatelessPipeline(std::string prefix, std::ostream& out, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies) const;
   /// \brief writes variable inits
   void writeVarInits(std::string prefix, std::ostream& out, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies) const;
   /// \brief writes all states in the output
