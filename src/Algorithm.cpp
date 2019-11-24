@@ -893,11 +893,13 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
 {
   // add a block for after pipeline
   t_combinational_block *after = addBlock(generateBlockName(), nullptr);
-  // name of the first block
-  std::string stage_blockname = "__stage_" + generateBlockName();
+  // name of the pipeline
+  std::string pipeline_name = "__pip" + generateBlockName();
   // insert variable to enable pipeline stages
   t_var_nfo var;
-  var.name = "__pip" + stage_blockname + "_stage_enable";
+  var.name = pipeline_name + "_stage_enable";
+  var.base_type = UInt;
+  var.width = 1;
   var.table_size = 0;
   var.init_values.resize(1, "0");
   var.access = e_InternalFlipFlop;
@@ -908,6 +910,9 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   std::unordered_map<std::string,std::vector<int> > read_at, written_at;
   // -> for each stage block
   t_combinational_block *prev = _current;
+  // -> name of the first block is the pipeline name
+  std::string stage_blockname = pipeline_name;
+  // -> stage number
   int stage = 0;
   for (auto b : pip->block()) {
     t_combinational_block *stage_start = addBlock(stage_blockname, nullptr, (int)b->getStart()->getLine());
@@ -944,6 +949,8 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   }
   // set next of last stage
   prev->next(after);
+  // set of trickling variable
+  std::set<std::string> trickling_vios;
   // report on read variables
   for (auto r : read_at) {
     // trickling?
@@ -958,7 +965,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       if (written_at.count(r.first)) {
         // has been written
         for (auto ws : written_at[r.first]) {
-          if (ws < read_stage) { // ignore write at same stage    SL: check, is it sane/safe to read/write at same stage?
+          if (ws < read_stage) { // ignore write at same stage
             last_write = max(last_write, ws);
           }
         }
@@ -966,6 +973,9 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       if (read_stage - last_write > 1) {
         trickling = true;
       }
+    }
+    if (trickling) {
+      trickling_vios.insert(r.first);
     }
     for (auto s : r.second) {
       std::cerr << "vio " << r.first << " read at stage " << s;
@@ -978,6 +988,28 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     for (auto s : w.second) {
       std::cerr << "vio " << w.first << " written at stage " << s;
       std::cerr << std::endl;
+    }
+  }
+  // create trickling variables
+  for (auto tv : trickling_vios) {
+    // the 'deepest' stage it is read
+    int last_read = -1;
+    for (auto rs : read_at[tv]) {
+      last_read = max(last_read, rs);
+    }
+    // info from source var
+    auto tws = determineVIOTypeWidthAndTableSize(tv, (int)pip->getStart()->getLine());
+    // generate one flip-flop per stage
+    ForIndex(s, last_read) {
+      t_var_nfo var;
+      var.name = pipeline_name + "_" + std::to_string(s) + "_" + tv;
+      var.base_type = get<0>(tws);
+      var.width = get<1>(tws);
+      var.table_size = get<2>(tws);
+      var.init_values.resize(var.table_size > 0 ? var.table_size : 1, "0");
+      var.access = e_InternalFlipFlop;
+      m_Vars.emplace_back(var);
+      m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
     }
   }
   // done
@@ -2155,10 +2187,8 @@ void Algorithm::optimize()
 
 // -------------------------------------------------
 
-std::tuple<Algorithm::e_Type, int, int> Algorithm::determineIdentifierTypeWidthAndTableSize(antlr4::tree::TerminalNode *identifier, int line) const
+std::tuple<Algorithm::e_Type, int, int> Algorithm::determineVIOTypeWidthAndTableSize(std::string vname,int line) const
 {
-  sl_assert(identifier != nullptr);
-  std::string vname = identifier->getText();
   // get width
   e_Type type = Int;
   int width = -1;
@@ -2180,6 +2210,15 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::determineIdentifierTypeWidthA
     throw Fatal("variable '%s' not yet declared (line %d)", vname.c_str(), line);
   }
   return std::make_tuple(type, width, table_size);
+}
+
+// -------------------------------------------------
+
+std::tuple<Algorithm::e_Type, int, int> Algorithm::determineIdentifierTypeWidthAndTableSize(antlr4::tree::TerminalNode *identifier, int line) const
+{
+  sl_assert(identifier != nullptr);
+  std::string vname = identifier->getText();
+  return determineVIOTypeWidthAndTableSize(vname, line);
 }
 
 // -------------------------------------------------
@@ -3027,7 +3066,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   const t_combinational_block *current = block_before->pipeline_next()->next;
   const t_combinational_block *after   = block_before->pipeline_next()->after;
   // name of stage enable
-  std::string var = "__pip" + current->block_name + "_stage_enable";
+  std::string var = current->block_name + "_stage_enable";
   out << "// " << var << endl;
   while (true) {
     // write stage

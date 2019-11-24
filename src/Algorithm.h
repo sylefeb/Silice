@@ -607,6 +607,8 @@ private:
   int varBitDepth(const t_var_nfo& v) const;
   /// \brief returns a type dependent string for resource declaration
   std::string typeString(const t_var_nfo& v) const;
+  /// \brief determines vio bit width and (if applicable) table size
+  std::tuple<Algorithm::e_Type, int, int> Algorithm::determineVIOTypeWidthAndTableSize(std::string vname, int line) const;
   /// \brief determines identifier bit width and (if applicable) table size
   std::tuple<e_Type, int, int> determineIdentifierTypeWidthAndTableSize(antlr4::tree::TerminalNode *identifier, int line) const;
   /// \brief determines identifier type and width
