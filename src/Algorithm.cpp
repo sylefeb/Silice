@@ -277,6 +277,9 @@ Algorithm::~Algorithm()
   m_Subroutines.clear();
   // delete all pipelines
   for (auto p : m_Pipelines) {
+    for (auto s : p->stages) {
+      delete (s);
+    }
     delete (p);
   }
   m_Pipelines.clear();
@@ -313,7 +316,7 @@ bool Algorithm::isInputOrOutput(std::string var) const
 // -------------------------------------------------
 
 template<class T_Block>
-Algorithm::t_combinational_block *Algorithm::addBlock(std::string name, t_subroutine_nfo *sub, t_pipeline_nfo *pip, int line)
+Algorithm::t_combinational_block *Algorithm::addBlock(std::string name, t_subroutine_nfo *sub, t_pipeline_stage_nfo *pip, int line)
 {
   auto B = m_State2Block.find(name);
   if (B != m_State2Block.end()) {
@@ -576,13 +579,19 @@ void Algorithm::gatherDeclarationModule(siliceParser::DeclarationModAlgContext* 
 
 std::string Algorithm::translateVIOName(
   std::string vio, 
-  const t_subroutine_nfo *sub,
-  const t_pipeline_nfo   *pip) const
+  const t_subroutine_nfo     *sub,
+  const t_pipeline_stage_nfo *pip) const
 {
   if (sub != nullptr) {
     const auto& Vsub = sub->vios.find(vio);
     if (Vsub != sub->vios.end()) {
-      return Vsub->second;
+      vio = Vsub->second;
+    }
+  }
+  if (pip != nullptr) {
+    const auto& Vpip = pip->pipeline->trickling_vios.find(vio);
+    if (Vpip != pip->pipeline->trickling_vios.end()) {
+      vio = tricklingVIOName(vio, pip);
     }
   }
   return vio;
@@ -592,7 +601,7 @@ std::string Algorithm::translateVIOName(
 
 std::string Algorithm::rewriteIdentifier(
   std::string prefix, std::string var,
-  const t_subroutine_nfo *sub, const t_pipeline_nfo *pip,size_t line,
+  const t_subroutine_nfo *sub, const t_pipeline_stage_nfo *pip,size_t line,
   std::string ff, const t_vio_dependencies& dependencies) const
 {
   if (var == ALG_RESET || var == ALG_CLOCK) {
@@ -662,7 +671,7 @@ std::string Algorithm::rewriteIdentifier(
 
 // -------------------------------------------------
 
-std::string Algorithm::rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip, const t_vio_dependencies& dependencies) const
+std::string Algorithm::rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const
 {
   std::string result;
   if (expr->children.empty()) {
@@ -905,9 +914,16 @@ std::string Algorithm::subroutineVIOName(std::string vio, const t_subroutine_nfo
 
 // -------------------------------------------------
 
-std::string Algorithm::tricklingVIOName(std::string vio, const t_pipeline_nfo *nfo, int stage)
+std::string Algorithm::tricklingVIOName(std::string vio, const t_pipeline_nfo *nfo, int stage) const
 {
   return nfo->name + "_" + std::to_string(stage) + "_" + vio;
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::tricklingVIOName(std::string vio, const t_pipeline_stage_nfo *nfo) const
+{
+  return tricklingVIOName(vio, nfo->pipeline, nfo->stage_id);
 }
 
 // -------------------------------------------------
@@ -918,7 +934,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     throw Fatal("pipelines cannot be nested (line %d)", pip->getStart()->getLine());
   }
   const t_subroutine_nfo *sub = _current->subroutine;
-  t_pipeline_nfo         *nfo = new t_pipeline_nfo();
+  t_pipeline_nfo   *nfo = new t_pipeline_nfo();
   m_Pipelines.push_back(nfo);
   // name of the pipeline
   nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine());
@@ -932,7 +948,13 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   // -> stage number
   int stage = 0;
   for (auto b : pip->block()) {
-    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current->subroutine, nfo, (int)b->getStart()->getLine());
+    // stage info
+    t_pipeline_stage_nfo *snfo = new t_pipeline_stage_nfo();
+    nfo->stages.push_back(snfo);
+    snfo->pipeline = nfo;
+    snfo->stage_id = stage;
+    // blocks
+    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current->subroutine, snfo, (int)b->getStart()->getLine());
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
     // check this is a combinational chain
     if (!isStateLessGraph(stage_start)) {
@@ -1020,7 +1042,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // info from source var
     auto tws = determineVIOTypeWidthAndTableSize(tv, (int)pip->getStart()->getLine());
     // generate one flip-flop per stage
-    ForIndex(s, last_read) {
+    ForRange(s, 0, last_read) {
       // -> add variable
       t_var_nfo var;
       var.name = tricklingVIOName(tv,nfo,s);
@@ -1366,7 +1388,7 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
 
 // -------------------------------------------------
 
-void Algorithm::getParams(siliceParser::ParamListContext* params, std::vector<std::string>& _vec_params, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip) const
+void Algorithm::getParams(siliceParser::ParamListContext* params, std::vector<std::string>& _vec_params, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const
 {
   if (params == nullptr) return;
   while (params->IDENTIFIER() != nullptr) {
@@ -1584,7 +1606,7 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
 
 // -------------------------------------------------
 
-void Algorithm::updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip) const
+void Algorithm::updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const
 {
   if (instr == nullptr) {
     return;
@@ -1665,7 +1687,7 @@ void Algorithm::determineVIOAccess(
   antlr4::tree::ParseTree*                   node,
   const std::unordered_map<std::string, int>& vios,
   const t_subroutine_nfo                    *sub,
-  const t_pipeline_nfo                      *pip,
+  const t_pipeline_stage_nfo                *pip,
   std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const
 {
   if (node->children.empty()) {
@@ -1847,6 +1869,14 @@ void Algorithm::determineVariablesAccess()
   }
   // determine variable access for always blocks
   determineVariablesAccess(&m_AlwaysPre);
+  // take trickling into account (we are reading in always block)
+  for (auto p : m_Pipelines) {
+    for (auto tv : p->trickling_vios) {
+      if (m_VarNames.count(tv.first) > 0) {
+        m_Vars[m_VarNames[tv.first]].access = (e_Access)(m_Vars[m_VarNames[tv.first]].access | e_ReadOnly);
+      }
+    }
+  }
   // determine variable access due to algorithm and module instances
   // bindings are considered as belonging to the always pre block
   std::vector<t_binding_nfo> all_bindings;
@@ -1920,6 +1950,13 @@ void Algorithm::determineVariablesUsage()
     global_in_read.insert(b->in_vars_read.begin(), b->in_vars_read.end());
     global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
   }
+  // take trickling into account (we are reading in always block)
+  for (auto p : m_Pipelines) {
+    for (auto tv : p->trickling_vios) {
+      global_in_read.insert(tv.first);
+    }
+  }
+  // report
   std::cerr << "---< variables >---" << std::endl;
   for (auto& v : m_Vars) {
     if (v.access == e_ReadOnly) {
@@ -1948,7 +1985,7 @@ void Algorithm::determineVariablesUsage()
     } else if (v.access == e_ReadWriteBinded) {
       std::cerr << v.name << " => bound to inout ";
       v.usage = e_Bound;
-    } else if (v.access == e_InternalFlipFlop) {
+    } else if ((v.access & e_InternalFlipFlop) == e_InternalFlipFlop) {
       std::cerr << v.name << " => internal flip-flop ";
       v.usage = e_FlipFlop;
     } else {
@@ -2337,7 +2374,7 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineAccessTypeAndWidth(siliceP
 
 // -------------------------------------------------
 
-void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo *sub, const t_pipeline_nfo *pip,const t_vio_dependencies& dependencies) const
+void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo *sub, const t_pipeline_stage_nfo *pip,const t_vio_dependencies& dependencies) const
 {
   std::vector<std::string> params;
   getParams(plist, params, sub, pip);
@@ -2365,7 +2402,7 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
 
 // -------------------------------------------------
 
-void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip) const
+void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const
 {
   if (pip != nullptr) {
     throw Fatal("cannot join algorithm instance from a pipeline (line %d)", plist->getStart()->getLine());
@@ -2388,7 +2425,7 @@ void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, co
 
 // -------------------------------------------------
 
-void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, const t_pipeline_nfo *pip, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const
+void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, const t_pipeline_stage_nfo *pip, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const
 {
   if (pip != nullptr) {
     throw Fatal("cannot call a subroutine from a pipeline (line %d)",plist->getStart()->getLine());
@@ -2412,7 +2449,7 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
 
 // -------------------------------------------------
 
-void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, const t_pipeline_nfo *pip, siliceParser::ParamListContext* plist) const
+void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, const t_pipeline_stage_nfo *pip, siliceParser::ParamListContext* plist) const
 {
   if (pip != nullptr) {
     throw Fatal("cannot join a subroutine from a pipeline (line %d)", plist->getStart()->getLine());
@@ -2478,7 +2515,7 @@ void Algorithm::writeTableAccess(
   std::string prefix, std::ostream& out, bool assigning,
   siliceParser::TableAccessContext* tblaccess, 
   int __id, 
-  const t_subroutine_nfo* sub, const t_pipeline_nfo *pip, const t_vio_dependencies& dependencies) const
+  const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const
 {
   if (tblaccess->ioAccess() != nullptr) {
     t_inout_nfo nfo = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess());
@@ -2496,7 +2533,7 @@ void Algorithm::writeTableAccess(
 
 // -------------------------------------------------
 
-void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip, const t_vio_dependencies& dependencies) const
+void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const
 {
   // TODO: check access validity
   if (bitaccess->ioAccess() != nullptr) {
@@ -2512,7 +2549,7 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
 
 // -------------------------------------------------
 
-void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip, const t_vio_dependencies& dependencies) const
+void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const
 {
   if (access->ioAccess() != nullptr) {
     writeIOAccess(prefix, out, assigning, access->ioAccess());
@@ -2530,7 +2567,7 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
   siliceParser::AccessContext *access,
   antlr4::tree::TerminalNode* identifier,
   siliceParser::Expression_0Context *expression_0,
-  const t_subroutine_nfo* sub, const t_pipeline_nfo *pip,
+  const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip,
   const t_vio_dependencies& dependencies) const
 {
   if (access) {
@@ -2945,6 +2982,12 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
     if (v.usage != e_Temporary) continue;
     out << FF_TMP << prefix << v.name << " = 0;" << std::endl;
   }
+  // pipeline stage 0 trickling vars tracking
+  for (auto p : m_Pipelines) {
+    for (auto tv : p->trickling_vios) {
+      out << FF_D << prefix << tricklingVIOName(tv.first, p, 0) << " = " << rewriteIdentifier(prefix, tv.first, nullptr, nullptr, -1, FF_D) << ';' << std::endl;
+    }
+  }
 }
 
 // -------------------------------------------------
@@ -3095,17 +3138,18 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   const t_combinational_block* block_before, 
   std::queue<size_t>& _q, t_vio_dependencies& _dependencies) const
 {
-  int stage = 0;
   // follow the chain
   out << "// pipeline" << std::endl;
   const t_combinational_block *current = block_before->pipeline_next()->next;
   const t_combinational_block *after   = block_before->pipeline_next()->after;
-  const t_pipeline_nfo *pip            = current->pipeline;
+  const t_pipeline_nfo        *pip     = current->pipeline->pipeline;
   sl_assert(pip != nullptr);
   while (true) {
-    sl_assert(pip == current->pipeline);
+    sl_assert(pip == current->pipeline->pipeline);
     // write stage
+    int stage = current->pipeline->stage_id;
     out << "// stage " << stage << std::endl;
+    // write code
     t_vio_dependencies deps;
     if (current != after) { // this is the more complex case of multiple blocks in stage
       writeStatelessBlockGraph(prefix, out, current, after, _q, deps); // NOTE: q will not be changed since this is a combinational block
@@ -3113,8 +3157,21 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     } else {
       writeBlock(prefix, out, current, deps);
     }
+    // trickle vars
+    for (auto tv : pip->trickling_vios) {
+      if (stage < tv.second) {
+        out << FF_D << prefix << tricklingVIOName(tv.first, pip, stage + 1)
+          << " = ";
+        std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage);
+        if (deps.dependencies.count(tricklingsrc) > 0) {
+          // source has been written to, take change into account
+          out << FF_D << prefix << tricklingsrc << ';' << std::endl;
+        } else {
+          out << FF_Q << prefix << tricklingsrc << ';' << std::endl;
+        }
+      }
+    }
     // advance
-    stage++;
     if (current->pipeline_next()) {
       after   = current->pipeline_next()->after;
       current = current->pipeline_next()->next;

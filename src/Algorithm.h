@@ -230,11 +230,21 @@ private:
   };
   std::unordered_map< std::string, t_subroutine_nfo* > m_Subroutines;
 
+  /// \brief forward declaration of a pipeline stage
+  struct s_pipeline_stage_nfo;
+
   /// \brief info about a pipeline
   typedef struct {
     std::string                          name;
     std::unordered_map<std::string, int> trickling_vios;
+    std::vector<struct s_pipeline_stage_nfo*>   stages;
   } t_pipeline_nfo;
+
+  /// \brief info about a pipeline stage
+  typedef struct s_pipeline_stage_nfo {
+    t_pipeline_nfo *pipeline;
+    int             stage_id;
+  } t_pipeline_stage_nfo;
 
   /// \brief vector of all pipelines
   std::vector< t_pipeline_nfo* > m_Pipelines;
@@ -361,7 +371,7 @@ private:
     std::vector<t_instr_nfo>         instructions;         // list of instructions within block
     t_end_action                    *end_action = nullptr; // end action to perform
     t_subroutine_nfo                *subroutine = nullptr; // if block belongs to a subroutine
-    t_pipeline_nfo                  *pipeline   = nullptr; // if block belongs to a pipeline
+    t_pipeline_stage_nfo            *pipeline   = nullptr; // if block belongs to a pipeline
     std::unordered_set<std::string>  in_vars_read;         // which variables are read from before
     std::unordered_set<std::string>  out_vars_written;     // which variables have been written after
     ~t_combinational_block() { swap_end(nullptr); }
@@ -465,7 +475,7 @@ private:
   std::string rewriteConstant(std::string cst) const;
   /// \brief adds a combinational block to the list of blocks, performs book keeping
   template<class T_Block = t_combinational_block>
-  t_combinational_block *addBlock(std::string name, t_subroutine_nfo *sub, t_pipeline_nfo *pip, int line = -1);
+  t_combinational_block *addBlock(std::string name, t_subroutine_nfo *sub, t_pipeline_stage_nfo *pip, int line = -1);
   /// \brief resets the block name generator
   void resetBlockName();
   /// \brief generate the next block name
@@ -490,16 +500,18 @@ private:
   /// \brief returns the name of a subroutine vio
   std::string subroutineVIOName(std::string vio, const t_subroutine_nfo *sub);
   /// \brief returns the name of a trickling vio for a stage of a piepline
-  std::string tricklingVIOName(std::string vio,const t_pipeline_nfo *nfo,int stage);
+  std::string tricklingVIOName(std::string vio,const t_pipeline_nfo *nfo,int stage) const;
+  /// \brief returns the name of a trickling vio for a stage of a piepline
+  std::string tricklingVIOName(std::string vio, const t_pipeline_stage_nfo *nfo) const;
   /// \brief translate a variable name using subroutine/pipeline info
-  std::string translateVIOName(std::string vio, const t_subroutine_nfo *sub, const t_pipeline_nfo *pip) const;
+  std::string translateVIOName(std::string vio, const t_subroutine_nfo *sub, const t_pipeline_stage_nfo *pip) const;
   /// \brief returns the rewritten indentifier, taking into account bindings, inputs/outputs, custom clocks and resets
   std::string rewriteIdentifier(
     std::string prefix, std::string var,
-    const t_subroutine_nfo *sub, const t_pipeline_nfo *pip, size_t line,
+    const t_subroutine_nfo *sub, const t_pipeline_stage_nfo *pip, size_t line,
     std::string ff, const t_vio_dependencies& dependencies = t_vio_dependencies()) const;
   /// \brief rewrite an expression, renaming identifiers
-  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip, const t_vio_dependencies& dependencies) const;
+  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const;
   /// \brief update current block based on the next instruction list
   t_combinational_block *updateBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather a break from loop
@@ -539,7 +551,7 @@ private:
   /// \brief gather inputs and outputs
   void gatherIOs(siliceParser::InOutListContext* inout);
   /// \brief extract the ordered list of parameters
-  void getParams(siliceParser::ParamListContext* params, std::vector<std::string>& _vec_params, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip) const;
+  void getParams(siliceParser::ParamListContext* params, std::vector<std::string>& _vec_params, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const;
   /// \brief sematic parsing, first discovery pass
   t_combinational_block *gather(antlr4::tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context);
   /// \brief resolves forward references for jumps
@@ -560,7 +572,7 @@ private:
 private:
 
   /// \brief update variable dependencies for an instruction
-  void updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip) const;
+  void updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const;
   /// \brief merge variable dependencies
   void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
   /// \brief determine variables/inputs/outputs access within an instruction (from its tree)
@@ -568,7 +580,7 @@ private:
     antlr4::tree::ParseTree*                    node,
     const std::unordered_map<std::string, int>& vios,
     const t_subroutine_nfo                     *sub,
-    const t_pipeline_nfo                       *pip,
+    const t_pipeline_stage_nfo                 *pip,
     std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const;
   /// \brief determines variable access within a block
   void determineVariablesAccess(t_combinational_block *block);
@@ -635,28 +647,28 @@ private:
   /// \brief determines access type/width
   std::pair<e_Type, int> determineAccessTypeAndWidth(siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const;
   /// \brief writes a call to an algorithm
-  void writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip, const t_vio_dependencies& dependencies) const;
+  void writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of an algorithm
-  void writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip) const;
+  void writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const;
   /// \brief writes a call to a subroutine
-  void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, const t_pipeline_nfo *pip, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const;
+  void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, const t_pipeline_stage_nfo *pip, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of a subroutine
-  void writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, const t_pipeline_nfo *pip, siliceParser::ParamListContext* plist) const;
+  void writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, const t_pipeline_stage_nfo *pip, siliceParser::ParamListContext* plist) const;
   /// \brief writes access to an algorithm in/out
   t_inout_nfo writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess) const;
   /// \brief writes access to a table in/out
-  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip, const t_vio_dependencies& dependencies) const;
+  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to bits
-  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip, const t_vio_dependencies& dependencies) const;
+  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to an identfier
-  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_subroutine_nfo* sub, const t_pipeline_nfo *pip, const t_vio_dependencies& dependencies) const;
+  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const;
   /// \brief writes an assignment
   void writeAssignement(std::string prefix, std::ostream& out,
     const t_instr_nfo& a,
     siliceParser::AccessContext *access,
     antlr4::tree::TerminalNode* identifier,
     siliceParser::Expression_0Context *expression_0,
-    const t_subroutine_nfo* sub, const t_pipeline_nfo *pip,
+    const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip,
     const t_vio_dependencies& dependencies) const;
   /// \brief writes a single block to the output
   void writeBlock(std::string prefix, std::ostream& out, const t_combinational_block* block, t_vio_dependencies& _dependencies) const;
