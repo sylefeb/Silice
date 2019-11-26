@@ -7,7 +7,7 @@ algorithm main()
   uint64 o = 0;
 
   a = 0;
-  while (i < 8) { // the while will stop too early
+  while (i < 8 + 4) { // the while will stop too early
   
 	// NOTE: always assign trickling for stage 0?
     // NOTE: write to trickling and set value at the end (last stage)?

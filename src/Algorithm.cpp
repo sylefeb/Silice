@@ -591,7 +591,9 @@ std::string Algorithm::translateVIOName(
   if (pip != nullptr) {
     const auto& Vpip = pip->pipeline->trickling_vios.find(vio);
     if (Vpip != pip->pipeline->trickling_vios.end()) {
-      vio = tricklingVIOName(vio, pip);
+      if (pip->stage_id > Vpip->second[0]) {
+        vio = tricklingVIOName(vio, pip);
+      }
     }
   }
   return vio;
@@ -999,6 +1001,9 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       sl_assert(!r.second.empty());
       int read_stage = r.second[0]; // only one if here
       // search max write
+      // (there can be multiple successive writes ... but no read in between
+      //  otherwise the constraint no stage should *read* a value *written* by a later stage
+      //  is violated)
       int last_write = -1;
       if (written_at.count(r.first)) {
         // has been written
@@ -1018,9 +1023,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       trickling_vios.insert(r.first);
     }
     for (auto s : r.second) {
-      std::cerr << "vio " << r.first << " read at stage " << s;
-      if (trickling) std::cerr << " (trickling)";
-      std::cerr << std::endl;
+      std::cerr << "vio " << r.first << " read at stage " << s << std::endl;
     }
   }
   // report on written variables
@@ -1033,16 +1036,25 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   // create trickling variables
   for (auto tv : trickling_vios) {
     // the 'deepest' stage it is read
-    int last_read = -1;
+    int last_read = 0;
     for (auto rs : read_at[tv]) {
       last_read = max(last_read, rs);
     }
+    // the 'deepest' stage it is written
+    int last_write = 0;
+    if (written_at.count(tv)) {
+      for (auto ws : written_at[tv]) {
+        last_write = max(last_write, ws);
+      }
+    }
     // register in pipeline info
-    nfo->trickling_vios.insert(std::make_pair(tv, last_read));
+    nfo->trickling_vios.insert(std::make_pair(tv, v2i(last_write,last_read)));
+    // report
+    std::cerr << tv << " trickling from " << last_write << " to " << last_read << std::endl;
     // info from source var
     auto tws = determineVIOTypeWidthAndTableSize(tv, (int)pip->getStart()->getLine());
     // generate one flip-flop per stage
-    ForRange(s, 0, last_read) {
+    ForRange(s, last_write+1, last_read) {
       // -> add variable
       t_var_nfo var;
       var.name = tricklingVIOName(tv,nfo,s);
@@ -1869,14 +1881,6 @@ void Algorithm::determineVariablesAccess()
   }
   // determine variable access for always blocks
   determineVariablesAccess(&m_AlwaysPre);
-  // take trickling into account (we are reading in always block)
-  for (auto p : m_Pipelines) {
-    for (auto tv : p->trickling_vios) {
-      if (m_VarNames.count(tv.first) > 0) {
-        m_Vars[m_VarNames[tv.first]].access = (e_Access)(m_Vars[m_VarNames[tv.first]].access | e_ReadOnly);
-      }
-    }
-  }
   // determine variable access due to algorithm and module instances
   // bindings are considered as belonging to the always pre block
   std::vector<t_binding_nfo> all_bindings;
@@ -1949,12 +1953,6 @@ void Algorithm::determineVariablesUsage()
   for (const auto& b : blocks) {
     global_in_read.insert(b->in_vars_read.begin(), b->in_vars_read.end());
     global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
-  }
-  // take trickling into account (we are reading in always block)
-  for (auto p : m_Pipelines) {
-    for (auto tv : p->trickling_vios) {
-      global_in_read.insert(tv.first);
-    }
   }
   // report
   std::cerr << "---< variables >---" << std::endl;
@@ -2982,12 +2980,6 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
     if (v.usage != e_Temporary) continue;
     out << FF_TMP << prefix << v.name << " = 0;" << std::endl;
   }
-  // pipeline stage 0 trickling vars tracking
-  for (auto p : m_Pipelines) {
-    for (auto tv : p->trickling_vios) {
-      out << FF_D << prefix << tricklingVIOName(tv.first, p, 0) << " = " << rewriteIdentifier(prefix, tv.first, nullptr, nullptr, -1, FF_D) << ';' << std::endl;
-    }
-  }
 }
 
 // -------------------------------------------------
@@ -3159,16 +3151,16 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     }
     // trickle vars
     for (auto tv : pip->trickling_vios) {
-      if (stage < tv.second) {
+      if (stage >= tv.second[0] && stage < tv.second[1]) {
         out << FF_D << prefix << tricklingVIOName(tv.first, pip, stage + 1)
           << " = ";
         std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage);
-        if (deps.dependencies.count(tricklingsrc) > 0) {
-          // source has been written to, take change into account
-          out << FF_D << prefix << tricklingsrc << ';' << std::endl;
+        if (stage == tv.second[0]) {
+          out << rewriteIdentifier(prefix,tv.first,current->subroutine,current->pipeline,-1,FF_D);
         } else {
-          out << FF_Q << prefix << tricklingsrc << ';' << std::endl;
+          out << FF_Q << prefix << tricklingsrc;
         }
+        out << ';' << std::endl;
       }
     }
     // advance
