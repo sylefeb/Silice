@@ -2374,6 +2374,12 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineAccessTypeAndWidth(siliceP
 
 void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo *sub, const t_pipeline_stage_nfo *pip,const t_vio_dependencies& dependencies) const
 {
+  // check for clock domain crossing
+  if (a.instance_clock != ALG_CLOCK) {
+    throw Fatal("algorithm instance '%s' called accross clock-domain -- not yet supported (line %d)",
+      a.instance_name.c_str(), plist->getStart()->getLine());
+  }
+  // get params
   std::vector<std::string> params;
   getParams(plist, params, sub, pip);
   // if params are empty we simply call, otherwise we set the inputs
@@ -2402,9 +2408,16 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
 
 void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const
 {
+  // check for pipeline
   if (pip != nullptr) {
     throw Fatal("cannot join algorithm instance from a pipeline (line %d)", plist->getStart()->getLine());
   }
+  // check for clock domain crossing
+  if (a.instance_clock != ALG_CLOCK) {
+    throw Fatal("algorithm instance '%s' joined accross clock-domain -- not yet supported (line %d)",
+      a.instance_name.c_str(), plist->getStart()->getLine());
+  }
+  // get params
   std::vector<std::string> params;
   getParams(plist, params, sub, pip);
   // if params are empty we simply wait, otherwise we set the outputs
