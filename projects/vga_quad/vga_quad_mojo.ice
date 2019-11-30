@@ -24,6 +24,43 @@ algorithm frame_drawer(
   int16 qp1x =  400;
   int16 qp1y =   70;
 
+  subroutine clear_screen(
+  	// sdram
+    reads   sbusy,
+    writes  sdata_in,
+    writes  saddr,
+    writes  swbyte_addr,
+    writes  sin_valid
+  )
+  {
+    uint9  pix_x      = 0;
+    uint8  pix_y      = 0;
+	  
+    pix_x  = 0;
+    while (pix_x < 320) {
+	
+	  // clear column
+	  pix_y = 0;
+      while (pix_y < 200) {
+        // write to sdram
+        while (1) {
+          if (sbusy == 0) {        // not busy?
+            sdata_in    = 0;
+            saddr       = (pix_x + (pix_y << 8) + (pix_y << 6)) >> 2; // * 320 / 4
+            swbyte_addr = pix_x & 3;
+            sin_valid   = 1; // go ahead!
+            break;
+          }
+        }          
+      }
+	  
+	  pix_x = pix_x + 1;
+	  
+	}
+	
+	return;
+  }
+
   subroutine draw_quad(
     // quad
     input  int16 p0x,
@@ -61,21 +98,6 @@ algorithm frame_drawer(
  	
     pix_x  = 0;
     while (pix_x < 320) {
-	
-	  // clear column
-	  pix_y = 0;
-      while (pix_y < 200) {
-        // write to sdram
-        while (1) {
-          if (sbusy == 0) {        // not busy?
-            sdata_in    = 0;
-            saddr       = (pix_x + (pix_y << 8) + (pix_y << 6)) >> 2; // * 320 / 4
-            swbyte_addr = pix_x & 3;
-            sin_valid   = 1; // go ahead!
-            break;
-          }
-        }          
-      }
 	
 	  // draw quad column
 	  scrix = pix_x - 160;
@@ -119,6 +141,8 @@ algorithm frame_drawer(
 
   while (1) {
 
+    // clear
+	() <- clear_screen <- ();
     // draw
     () <- draw_quad <- (qp0x,qp0y, qp1x,qp1y);
 	
