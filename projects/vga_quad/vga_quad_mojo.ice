@@ -6,7 +6,7 @@ $include('../common/vga_sdram_main_mojo.ice')
 
 algorithm frame_drawer(
   output uint23 saddr,
-  output uint2  swbyte_saddr,
+  output uint2  swbyte_addr,
   output uint1  srw,
   output uint32 sdata_in,
   output uint1  sin_valid,
@@ -108,7 +108,7 @@ algorithm frame_drawer(
 	  
 	}
 	
-	// return;
+	return;
   }  
   
   vsync_filtered ::= vsync;
