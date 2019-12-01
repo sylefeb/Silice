@@ -25,7 +25,8 @@ algorithm frame_drawer(
   int32 qp0y =   40;
   int32 qp1x =  400;
   int32 qp1y =   40;
-  uint1 dir  =   0;
+  uint1 dir0 =   0;
+  uint1 dir1 =   0;
 
   subroutine clear_screen(
   	// sdram
@@ -120,9 +121,14 @@ algorithm frame_drawer(
 	    // draw quad column  
 	    //hscr = h * (scrix * d10y - ynear * d10x);
 
+      // interpolator
+      // interp = (scrix * d10y - ynear * d10x)
+      
+      // TODO this is useless: add gradient!
  		  hscr = scrix * hscr_tmp1 - hscr_tmp0;
 ++:
 		  (hscr) <- div <- (hscr,dscr);	
+      
 		  if (hscr < 0) {
 		    hscr = 0; // wtf? overflow?
 		  }
@@ -135,7 +141,7 @@ algorithm frame_drawer(
         pix_x = scrix + 160;
         while (1) {
           if (sbusy == 0) {        // not busy?
-            sdata_in    = 1;
+            sdata_in    = 5; // palette id
             saddr       = (pix_x + (pix_y << 8) + (pix_y << 6)) >> 2; // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
@@ -167,18 +173,30 @@ algorithm frame_drawer(
     while (vsync_filtered == 1) {}
     while (vsync_filtered == 0) {}
 
-    if (dir == 0) {
+    if (dir0 == 0) {
       qp0y = qp0y + 1;
       if (qp0y > 80) {
-        dir = 1;
+        dir0 = 1;
       }
     } else {
       qp0y = qp0y - 1;
       if (qp0y < 20) {
-        dir = 0;
+        dir0 = 0;
       }
     }
     
+    if (dir1 == 0) {
+      qp1y = qp1y + 2;
+      if (qp1y > 80) {
+        dir1 = 1;
+      }
+    } else {
+      qp1y = qp1y - 2;
+      if (qp1y < 20) {
+        dir1 = 0;
+      }
+    }
+
   }
 }
 
