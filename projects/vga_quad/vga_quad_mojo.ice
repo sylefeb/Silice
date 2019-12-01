@@ -187,6 +187,10 @@ algorithm frame_drawer(
     while (vsync_filtered == 1) {}
     while (vsync_filtered == 0) {}
 
+    // wait for vsync
+    while (vsync_filtered == 1) {}
+    while (vsync_filtered == 0) {}
+
     if (dir0 == 0) {
       qp0y = qp0y + 1;
       if (qp0y > 80) {
