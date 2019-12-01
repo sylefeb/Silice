@@ -19,7 +19,8 @@ algorithm frame_drawer(
 ) {
 
   uint1  vsync_filtered = 0;
-  div32  div;
+  div32  divA;
+  div32  divB;
 
   int32 qp0x = -400;
   int32 qp0y =   40;
@@ -80,7 +81,7 @@ algorithm frame_drawer(
     uint8  pix_y      = 0;
 
     int32 h     = 100;
-    int32 ynear = 3;
+    int32 ynear = 4;
     
 	  int32 scr0x = 0;
 	  int32 scr0y = 0;
@@ -89,52 +90,80 @@ algorithm frame_drawer(
 	  int32 scrix = 0;
 	  int32 d10x  = 0;
 	  int32 d10y  = 0;
-    
-    int32 hscr  = 0;
-    int32 dscr  = 0;
-	
+   
+    int32 hscr    = 0;
+    int32 hscr_fp = 0;
+    int32 dscr    = 0;
+    int32 hscr0   = 0;
+    int32 hscr1   = 0;
+    int32 hscr_delta = 0;
+	  int32 scr_deltax = 0;
+       
     int32 hscr_tmp0 = 0;
     int32 hscr_tmp1 = 0;
+    int32 hscr_tmp2 = 0;
     int32 dscr_tmp  = 0;
   
+    int32 alpha = 0;
+
     scr0x = ynear * p0x;
     scr1x = ynear * p1x;
 
-	  (scr0x) <- div <- (scr0x,p0y);
-	  (scr1x) <- div <- (scr1x,p1y);
+	  divA <- (scr0x,p0y);
+	  divB <- (scr1x,p1y);
+    // join
+    (scr0x) <- divA;
+    (scr1x) <- divB;
 
 	  d10x  = p1x - p0x;
 	  d10y  = p1y - p0y;
  	
-    //dscr = p0x * d10y - p0y * d10x;
+    // dscr = p0x * d10y - p0y * d10x;
+    // hscr = h * (scrix * d10y - ynear * d10x) / dscr;
 
-    dscr      = p0x * d10y;   
+    // compute divisor (dscr) as well as left/right heights
+    dscr      =   p0x * d10y;   
     hscr_tmp0 = ynear * d10x;
 ++:
     dscr      = dscr - p0y * d10x;
-    hscr_tmp0 = h * hscr_tmp0;
-    hscr_tmp1 = h * d10y;
+    hscr_tmp1 = scr0x * d10y;
+    hscr_tmp2 = scr1x * d10y;
+++:
+    hscr0 = h * (hscr_tmp1 - hscr_tmp0);
+    hscr1 = h * (hscr_tmp2 - hscr_tmp0);
+++:
+    divA <- (hscr0,dscr);	
+    divB <- (hscr1,dscr);	
+    // join
+    (hscr0) <- divA;
+    (hscr1) <- divB;
+++:    
 
-    scrix = scr0x;
+    // prepare interpolation of height
+    hscr_fp    = hscr0 << 16;   
+    hscr_delta = (hscr1 - hscr0) << 16;
+    scr_deltax = scr1x - scr0x;
+    (hscr_delta) <- divA <- (hscr_delta,scr_deltax);
+
+    // for each column
+    scrix   = scr0x;
     while (scrix < scr1x) {
 	
-	    // draw quad column  
-	    //hscr = h * (scrix * d10y - ynear * d10x);
-
       // interpolator
-      // interp = (scrix * d10y - ynear * d10x)
+      // interp = (scrix * d10y - ynear * d10x) / (p0x * d10y - p0y * d10x)      
+      //interp = (scrix * d10y - hscr_tmp0) << 12;
+		  //(interp) <- div <- (interp,dscr);	
       
-      // TODO this is useless: add gradient!
- 		  hscr = scrix * hscr_tmp1 - hscr_tmp0;
-++:
-		  (hscr) <- div <- (hscr,dscr);	
-      
-		  if (hscr < 0) {
-		    hscr = 0; // wtf? overflow?
+      // current height to integer
+      hscr = hscr_fp >> 16;
+      // clamp      
+      if (hscr < 0) {
+		    hscr = 0;  // should not happen: overflow...
 		  }
 		  if (hscr > 99) {
-		    hscr = 99;
+		    hscr = 99; // max height
 		  }
+      // draw column in framebuffer
 		  pix_y = 100 - hscr;
       while (pix_y < 100 + hscr) {
         // write to sdram
@@ -151,6 +180,7 @@ algorithm frame_drawer(
         pix_y = pix_y + 1;
       }		
       
+      hscr_fp = hscr_fp + hscr_delta;
       scrix = scrix + 1;	  
 	  }	
 	  return;
