@@ -115,7 +115,7 @@ algorithm frame_display(
     if (row_busy) {
       pixaddr = ((pix_a) + 320) >> 2;  
     } else {
-      pixaddr =  (pix_a) >> 2;
+      pixaddr = (pix_a) >> 2;
 	  }
 
   }
@@ -156,30 +156,40 @@ algorithm sdram_switcher(
   
 ) {
 	
-  while (1) {
-    if (select) {
-	  saddr       = saddr0;
-    swbyte_addr = swbyte_addr0;
-	  srw         = srw0;
-	  sd_in       = sd_in0;
-	  sd_out0     = sd_out;
-	  sbusy0      = sbusy;
-	  sin_valid   = sin_valid0;
-	  sout_valid0 = sout_valid;
-	  sbusy1      = 1;	  
-    } else {
-	  saddr       = saddr1;
-    swbyte_addr = swbyte_addr1;
-	  srw         = srw1;
-	  sd_in       = sd_in1;
-	  sd_out1     = sd_out;
-	  sbusy1      = sbusy;
-	  sin_valid   = sin_valid1;
-	  sout_valid1 = sout_valid;
-	  sbusy0      = 1;
-    }
-  }
+  uint1 active = 0;
   
+  while (1) {
+  
+    // switch only when there is no activity
+    if (  sbusy      == 0 
+       && select     != active
+       && sin_valid0 == 0
+       && sin_valid1 == 0) {
+      active = select;
+    }  
+
+    if (active) {
+	    saddr       = saddr0;
+      swbyte_addr = swbyte_addr0;
+	    srw         = srw0;
+	    sd_in       = sd_in0;
+	    sd_out0     = sd_out;
+	    sbusy0      = sbusy;
+	    sin_valid   = sin_valid0;
+	    sout_valid0 = sout_valid;
+	    sbusy1      = 1;
+    } else {
+	    saddr       = saddr1;
+      swbyte_addr = swbyte_addr1;
+	    srw         = srw1;
+	    sd_in       = sd_in1;
+	    sd_out1     = sd_out;
+	    sbusy1      = sbusy;
+	    sin_valid   = sin_valid1;
+	    sout_valid1 = sout_valid;
+	    sbusy0      = 1;
+    }
+  }  
 }
 
 // ------------------------- 
@@ -222,14 +232,14 @@ algorithm frame_buffer_row_updater(
 
     // wait during vsync or while the busy row is the working row
     while (vsync_filtered || (working_row == row_busy_filtered)) { 
-		if (vsync_filtered) { // vsync implies restarting the row counter
-			row         = 0;
-			working_row = 0;
-		}
-	}
+		  if (vsync_filtered) { // vsync implies restarting the row counter
+			  row         = 0;
+			  working_row = 0;
+		  }
+	  }
 
     // working again!
-	working = 1;
+	  working = 1;
 
     // read row from SDRAM to frame buffer
     //    
@@ -240,8 +250,8 @@ algorithm frame_buffer_row_updater(
     if (working_row) {
       next = (320 >> 2);
     } else {
-	  next = 0;
-	}
+	    next = 0;
+	  }
     count = 0;
     pixwenable  = 1;
     while (count < (320 >> 2)) {
@@ -259,12 +269,13 @@ algorithm frame_buffer_row_updater(
       }
 
     }
+    
     pixwenable  = 0; // write done
-	if (row < 199) {
+	  if (row < 199) {
       // change working row
       working_row = ~working_row;
       row = row + 1;
-	}
+	  }
   }
 
 }

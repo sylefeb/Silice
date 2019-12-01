@@ -11,7 +11,7 @@ $include('vga.ice')
 $include('vga_sdram.ice')
 
 // Clock
-import('mojo_clk_100_25.v')
+import('mojo_clk_50_25.v')
 // Reset
 import('reset_conditioner.v')
 
@@ -53,7 +53,7 @@ algorithm main(
 
   // --- clock
 
-  clk_100_25 clk_gen (
+  clk_50_25 clk_gen (
     CLK_IN1  <: clock,
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> vga_clock

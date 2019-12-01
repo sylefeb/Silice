@@ -4,9 +4,12 @@
     assumption that the click rate is 100MHz. Timing values would
     need to be re-evaluated under different clock rates.
 
-    This controller features two baisc improvements over the most
+    This controller features two basic improvements over the most
     basic of controllers. It does burst reads and writes of 4 bytes,
     and it only closes a row when it has to.
+
+// SL: 2019-11 modified to write 8-bit, read 32-bit (burst)
+// SL: 2019-12 modified to run at 50MHz    
 */
 
 module sdram (
@@ -87,7 +90,7 @@ module sdram (
     IODELAY2 #(
         .IDELAY_VALUE(0),
         .IDELAY_MODE("NORMAL"),
-        .ODELAY_VALUE(100), // value of 100 seems to work at 100MHz
+        .ODELAY_VALUE(100), // value of 100 seems to work at 100MHz and 50MHz
         .IDELAY_TYPE("FIXED"),
         .DELAY_SRC("ODATAIN"),
         .DATA_RATE("SDR")
@@ -200,19 +203,19 @@ module sdram (
 
         row_open_d = row_open_q;
 
-        // row_addr is a 2d array and must be coppied this way
+        // row_addr is a 2d array and must be copied this way
         for (i = 0; i < 4; i = i + 1)
             row_addr_d[i] = row_addr_q[i];
 
         // The data in the SDRAM must be refreshed periodically.
-        // This conter ensures that the data remains intact.
+        // This counter ensures that the data remains intact.
         refresh_flag_d = refresh_flag_q;
         refresh_ctr_d = refresh_ctr_q + 1'b1;
-        if (refresh_ctr_q > 10'd750) begin
+        // if (refresh_ctr_q > 10'd750) begin // 100Mhz
+        if (refresh_ctr_q > 10'd325) begin // 50Mhz
             refresh_ctr_d = 10'd0;
             refresh_flag_d = 1'b1;
         end
-
         saved_rw_d = saved_rw_q;
         saved_data_d = saved_data_q;
         saved_addr_d = saved_addr_q;
@@ -240,7 +243,7 @@ module sdram (
                 ba_d = 2'b0;
                 cle_d = 1'b1;
                 state_d = WAIT;
-                delay_ctr_d = 16'd10100; // wait for 101us
+                delay_ctr_d = 16'd5100; //16'd10100; // wait for > 101us
                 next_state_d = PRECHARGE_INIT;
                 dq_en_d = 1'b0;
             end
@@ -265,13 +268,13 @@ module sdram (
             REFRESH_INIT_1: begin
                 cmd_d = CMD_REFRESH;
                 state_d = WAIT;
-                delay_ctr_d = 13'd7;
+                delay_ctr_d = 13'd4; //13'd7; @100MHz
                 next_state_d = REFRESH_INIT_2;
             end
             REFRESH_INIT_2: begin
                 cmd_d = CMD_REFRESH;
                 state_d = WAIT;
-                delay_ctr_d = 13'd7;
+                delay_ctr_d = 13'd4; //13'd7; @100MHz
                 next_state_d = LOAD_MODE_REG;
             end
             LOAD_MODE_REG: begin
@@ -328,7 +331,7 @@ module sdram (
             REFRESH: begin
                 cmd_d = CMD_REFRESH;
                 state_d = WAIT;
-                delay_ctr_d = 13'd6; // gotta wait 7 clocks (66ns)
+                delay_ctr_d = 13'd3; //13'd6; // gotta wait 7 clocks (>66ns)
                 next_state_d = IDLE;
             end
 
