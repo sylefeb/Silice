@@ -130,7 +130,7 @@ algorithm frame_drawer(
     if (scr1x > 159) {
       scr1x = 159;
     }
-    
+++:   
     (dscr_inv) <- div <- (fp,dscr);
     
     scrix = scr0x;
@@ -142,7 +142,7 @@ algorithm frame_drawer(
 ++:
       //(hscr) <- div <- (hscr,dscr);	// TODO replace by FP mul inverse
       hscr = (hscr * dscr_inv) >> 32d20;
-++:
+
 		  if (hscr < 32d0) {
 		    hscr = 32d0; // wtf? overflow?
 		  }
