@@ -1,5 +1,5 @@
 
-// unsigned integer division
+// integer division
 $include('../common/divint16.ice')
 
 algorithm main()
