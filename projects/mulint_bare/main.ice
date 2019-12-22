@@ -1,12 +1,12 @@
 
 // integer multiplication
-$$ mul_width = 8
+$$ mul_width = 16
 $include('../common/mulint_any.ice')
 
 algorithm main()
 {
-  int16  m0      = 17;
-  int16  m1      = 12;
+  int16  m0      = -170;
+  int16  m1      =  121;
   int16  result  =  0;
   
   mul mul0;
