@@ -1,6 +1,7 @@
 
 // integer multiplication
-$include('../common/mulint.ice')
+$$ mul_width = 8
+$include('../common/mulint_any.ice')
 
 algorithm main()
 {

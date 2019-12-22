@@ -91,6 +91,21 @@ static void lua_output(lua_State *L,std::string str)
 
 // -------------------------------------------------
 
+static void lua_preproc_error(lua_State *L, std::string str)
+{
+  // std::cerr << Console::yellow << str << Console::gray << endl;
+  lua_error(L);
+}
+
+// -------------------------------------------------
+
+static void lua_print(lua_State *L, std::string str)
+{
+  cerr << "[preprocessor] " << Console::white << str << Console::gray << endl;
+}
+
+// -------------------------------------------------
+
 static void bindScript(lua_State *L)
 {
   luabind::open(L);
@@ -113,6 +128,8 @@ static void bindScript(lua_State *L)
 
   luabind::module(L)
     [
+      luabind::def("print",  &lua_print),
+      luabind::def("error",  &lua_preproc_error),
       luabind::def("output", &lua_output)
     ];
 }
@@ -189,7 +206,7 @@ std::string LuaPreProcessor::processCode(std::string parent_path,std::string src
 
 // -------------------------------------------------
 
-void LuaPreProcessor::execute(std::string src_file, std::string dst_file) 
+void LuaPreProcessor::execute(std::string src_file, std::string dst_file)
 {
   lua_State *L = luaL_newstate();
 
@@ -197,7 +214,7 @@ void LuaPreProcessor::execute(std::string src_file, std::string dst_file)
 
   bindScript(L);
 
-  std::string code = processCode("",src_file);
+  std::string code = processCode("", src_file);
 
   int ret = luaL_dostring(L, code.c_str());
   if (ret) {
@@ -209,10 +226,15 @@ void LuaPreProcessor::execute(std::string src_file, std::string dst_file)
     std::smatch matches;
     if (std::regex_match(errmsg, matches, lnum_regex)) {
       errline = atoi(matches.str(1).c_str());
-      errmsg = matches.str(2).c_str();
+      errmsg  = matches.str(2).c_str();
     }
+    cerr << "[preprocessor] ";
     cerr << Console::yellow;
-    cerr << errline << "] " << errmsg << endl;
+    if (errline > -1) {
+      cerr << errline << "] " << errmsg << endl;
+    } else {
+      cerr << errmsg << endl;
+    }
     cerr << Console::gray;
   }
 
@@ -220,6 +242,7 @@ void LuaPreProcessor::execute(std::string src_file, std::string dst_file)
   g_LuaOutputs.erase(L);
 
   lua_close(L);
+
 }
 
 // -------------------------------------------------
