@@ -1,5 +1,6 @@
 \documentclass[a4]{article}
 
+\usepackage{hyperref}
 \usepackage{a4wide}
 \usepackage{minted}
 \usepackage{xcolor}
@@ -410,7 +411,6 @@ When an asynchronous call is made, the instanced algorithm will start processing
 \noindent
 \framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
 \textbf{Note:} Calling algorithms across clock domains is not yet supported. For such cases, autorun with bindings is recommended.}}
-\todo{Trigger error on such calls}
 
 % ----------------------------------------------
 
@@ -681,9 +681,92 @@ When the \texttt{if-then-else} contains additional control flow (e.g. a subrouti
 
 \section{Lua preprocessor}
 
-\subsection{Syntax}
+A preprocessor allows to change the way the source code is seen by the compiler.
+It sits between the input source code and the compiler, and basically rewrites the
+original source code in a different way, before it is input to the compiler.
+This allows compile-time behaviors, such as adapting the code to a target platform.
 
-\subsection{Examples}
+Having a strong preprocessor is important for hardware design. For instance,
+designing a sort network of some size $N$ is best done by generating the code 
+automatically from a preprocessor, so that one can easily reuse the
+same code for different values of $N$. The same is true of a division 
+algorithm for some bit width, or for the pre-computations of lookup tables.
+
+The \silice{} preprocessor is built above the Lua language~\url{https://lua.org}. Lua is an amazing powerful, lightweight scripting language that originated in the Computer Graphics community. The preprocessor is thus not just a macro system, but a fully fledged programming language.
+
+\subsection{Principle and syntax}
+
+Preprocessor code is directly interleaved with Silice code. At any point, the source code can be escaped to the preprocessor by starting a line with \$\$. The full line is then considered as preprocessor Lua code. 
+
+The pre-processor sees Silice source lines as strings to be output. 
+Thus, it outputs to the compiler any line that is met during the execution
+of the preprocessor. This means it does not output those that are not reached, and
+it outputs multiple times those that appear in a loop.
+
+Let's make a quick example:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main()
+{
+
+$$if true then
+  uint8 a=0;
+  uint8 b=0;
+$$end
+
+$$if false then
+uint8 c=0;
+$$end
+
+$$for i=0,1 do
+b = a + 1;
+$$end
+}
+\end{minted}
+
+The code output by the preprocessor is:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main()
+{
+
+uint8 a=0;
+uint8 b=0;
+
+b = a + 1;
+b = a + 1;
+
+}
+\end{minted}
+
+Note that source code lines are either fully Silice, of fully preprocessor (starting with \$\$). A second syntax allows to use preprocessor variables directly in Silice source code, simply doing \$\texttt{varname}\$ with \texttt{varname} the variable from the preprocessor context. In fact, a full Lua expression can be used in between the \$ signs; this expression is simply concatenated to the surrounding Silice code.
+
+Here is an example:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main()
+{
+$$for i=0,3 do
+uint8 a_$i$ = $100+i$;
+$$end
+}
+\end{minted}
+
+The code output by the preprocessor is:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main()
+{
+
+uint8 a_0 = 101;
+uint8 a_1 = 102;
+uint8 a_2 = 103;
+uint8 a_3 = 104;
+
+}
+\end{minted}
+
+% \subsection{Examples}
 
 
 
