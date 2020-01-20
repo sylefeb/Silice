@@ -150,7 +150,13 @@ std::string LuaPreProcessor::processCode(std::string parent_path,std::string src
   if (!LibSL::System::File::exists(src_file.c_str())) {
     throw Fatal("cannot find source file '%s'", src_file.c_str());
   }
-  
+  if (m_AlreadyIncluded.find(src_file) != m_AlreadyIncluded.end()) {
+    throw Fatal("source file '%s' already included (cyclic dependency)", src_file.c_str());
+  }
+
+  // add to already included
+  m_AlreadyIncluded.insert(src_file);
+
   // extract path
   std::string fpath = extractPath(src_file);
   if (fpath == src_file) {

@@ -19,6 +19,7 @@ the distribution, please refer to it for details.
 // -------------------------------------------------
 
 #include <string>
+#include <unordered_set>
 
 // -------------------------------------------------
 
@@ -30,7 +31,8 @@ private:
   std::string processCode(std::string parent_path, std::string src_file);
   std::string findFile(std::string path,std::string fname) const;
 
-  std::vector<std::string> m_SearchPaths;
+  std::vector<std::string>        m_SearchPaths;
+  std::unordered_set<std::string> m_AlreadyIncluded;
 
 public:
 

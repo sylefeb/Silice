@@ -764,9 +764,12 @@ uint8 a_3 = 103;
 }
 \end{minted}
 
-% \subsection{Examples}
 
+\subsection{Includes}
 
+The preprocessor is also in charge of including other Silice source code files,
+using the syntax \texttt{\$include('source.ice')}. This loads the entire file
+(and recursively its own dependencies files) into the preprocessor execution context.
 
 % ----------------------------------------------
 
