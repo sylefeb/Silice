@@ -679,6 +679,12 @@ When the \texttt{if-then-else} contains additional control flow (e.g. a subrouti
 
 % ----------------------------------------------
 
+\subsection{Pipelining}
+
+
+
+% ----------------------------------------------
+
 \section{Lua preprocessor}
 
 A preprocessor allows to change the way the source code is seen by the compiler.
@@ -769,15 +775,27 @@ uint8 a_3 = 103;
 
 The preprocessor is also in charge of including other Silice source code files,
 using the syntax \texttt{\$include('source.ice')}. This loads the entire file
-(and recursively its own dependencies files) into the preprocessor execution context.
+(and recursively its own included files) into the preprocessor execution context.
 
 % ----------------------------------------------
 
 \section{Interoperability with \verilog{} modules}
 
-\subsection{Import}
+\silice{} can inter-operate with \verilog{}.
+
+\verilog{} source code can be included in two different ways: \texttt{append('code.v')} and \texttt{import('code.v')} where \texttt{code.v} is a \verilog{} source code file.
 
 \subsection{Append}
+
+Append is very simple: the \verilog{} source code is directly appended to the output of the compiler (which is a \verilog{} source code) without any processing. This makes this \verilog{} code available for other \verilog{} modules, in particular those that are imported (see next). The reason for \texttt{append} is that \silice{} is currently not able to fully parse \verilog{} when importing. 
+
+\subsection{Import}
+
+Import is the most interesting way to inter-operate with \verilog{}.
+Once imported, all \verilog{} modules from the \verilog{} source file 
+will be available for inclusion in algorithms.
+
+The modules are instantiated in a very similar way as algorithms, with bindings to variables. However, modules cannot be called like algorithms, and the 'dot' syntax to read/write outputs and inputs is not available for modules.
 
 \subsection{Wrapping}
 
@@ -793,7 +811,8 @@ The host hardware framework typically consists in a \verilog{} glue file. The fr
 	\item \textbf{mojo\_basic} : framework to compile for the Alchitry Mojo 3 FPGA board.
 	\item \textbf{mojo\_hdmi\_sdram} : framework to compile for the Alchitry Mojo 3 FPGA board equipped with the HDMI shield.
 	\item \textbf{icestick} : framework for the Lattice ice40 icestick board.
-	\item \textbf{verilator\_vga} : framework for use with \textit{verilator}, including a vga screen emulation.
+	\item \textbf{verilator\_vga} : framework for use with \textit{verilator}
+	\item \todo{update with icarus, as well as bare versions, mention sdram emulator}
 \end{itemize}
 
 For practical usage examples please refer to the \textit{Getting started} guide. \todo{ + guide url}
