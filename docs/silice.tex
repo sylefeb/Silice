@@ -799,6 +799,12 @@ The modules are instantiated in a very similar way as algorithms, with bindings 
 
 \subsection{Wrapping}
 
+Due to the fact that \silice{} only understands a subset of \verilog{}, there
+are cases where a module cannot be imported directly. In such cases, wrapping
+offers a solution. The idea is to write a simpler \verilog{} module that can be imported by \silice{} and wraps the instantiation of the more complex one.
+
+Then the complex module is included with \texttt{append} and the wrapper with \texttt{import}.
+
 % ==============================================
 
 \section{Host hardware frameworks}
