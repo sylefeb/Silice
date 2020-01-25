@@ -817,11 +817,20 @@ The host hardware framework typically consists in a \verilog{} glue file. The fr
 	\item \textbf{mojo\_basic} : framework to compile for the Alchitry Mojo 3 FPGA board.
 	\item \textbf{mojo\_hdmi\_sdram} : framework to compile for the Alchitry Mojo 3 FPGA board equipped with the HDMI shield.
 	\item \textbf{icestick} : framework for the Lattice ice40 icestick board.
-	\item \textbf{verilator\_vga} : framework for use with \textit{verilator}
-	\item \todo{update with icarus, as well as bare versions, mention sdram emulator}
+	\item \textbf{verilator\_bare} : framework for use with the \textit{verilator} hardware simulator
+	\item \textbf{verilator\_vga} : framework for use with the \textit{verilator} hardware simulator, with vga emulation
+	\item \textbf{icarus\_bare} : framework for use with the \textit{icarus}
+	\item \textbf{icarus\_vga} : framework for use with the \textit{icarus} hardware simulator, with vga emulation
+%	\item \todo{update with icarus, as well as bare versions, mention sdram emulator}
 \end{itemize}
 
 For practical usage examples please refer to the \textit{Getting started} guide. \todo{ + guide url}
+
+\subsection{VGA emulation}
+
+Silice comes with a tool called \texttt{silicehe} for \textit{\silice{} hardware emulation}. This tool will read the output of the \texttt{icarus\_vga} simulator (the fst file storing signals) and produce a sequence of images from the stored VGA signals.
+
+\todo{file format, etc.}
 
 % ==============================================
 	
