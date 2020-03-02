@@ -28,23 +28,15 @@ int main(int argc,char **argv)
   VgaChip *vga_chip = new VgaChip();
   Vvga    *vga_test = new Vvga();
 
-  vluint64_t cycle = 0;
+  vga_test->clk = 0;
 
   while (!Verilated::gotFinish()) {
 
-    vga_test->clk = 1;
+    vga_test->clk = 1 - vga_test->clk;
 
     vga_test->eval();
 
-    vga_chip->eval(cycle,1,vga_test->vga_vs,vga_test->vga_hs,vga_test->vga_r,vga_test->vga_g,vga_test->vga_b);
-
-    vga_test->clk = 0;
-
-    vga_test->eval();
-
-    vga_chip->eval(cycle,0,vga_test->vga_vs,vga_test->vga_hs,vga_test->vga_r,vga_test->vga_g,vga_test->vga_b);
-
-    cycle ++;
+    vga_chip->eval(vga_test->vga_clock,vga_test->vga_vs,vga_test->vga_hs,vga_test->vga_r,vga_test->vga_g,vga_test->vga_b);
 
   }
 

@@ -85,10 +85,9 @@ VideoOut::~VideoOut()
 
 }
 
-// Cycle evaluate : RGB with synchros
+// evaluate : RGB with synchros
 void VideoOut::eval_RGB_HV
 (
-    vluint64_t cycle,
     // Clock
     vluint8_t  clk,
     // Synchros
@@ -121,7 +120,7 @@ void VideoOut::eval_RGB_HV
             if ((hs == hs_pol) && (prev_hs != hs_pol)) {
                 // raising edge on hs
                 h_sync_stage = e_SynchPulseDown;
-                if (dbg_on) printf(" Rising edge on HS @ cycle #%llu\n", cycle);
+                if (dbg_on) printf(" Rising edge on HS");
             }
             break;
         case e_SynchPulseDown:
@@ -166,7 +165,7 @@ void VideoOut::eval_RGB_HV
                 if ((vs == vs_pol) && (prev_vs != vs_pol)) {
                     // raising edge on vs
                     v_sync_stage = e_SynchPulseDown;
-                    if (dbg_on) printf(" Rising edge on VS @ cycle #%llu\n", cycle);
+                    if (dbg_on) printf(" Rising edge on VS");
                 }
                 break;
             case e_SynchPulseDown:

@@ -32,7 +32,7 @@ VgaChip::~VgaChip()
   delete (m_VideoOut);
 }
 
-void VgaChip::eval(vluint64_t cycle,
+void VgaChip::eval(
             vluint8_t  clk,
             vluint8_t  vs,
             vluint8_t  hs,
@@ -40,6 +40,6 @@ void VgaChip::eval(vluint64_t cycle,
             vluint8_t  green,
             vluint8_t  blue)
 {
-  m_VideoOut->eval_RGB_HV(cycle,clk,vs,hs,red,green,blue);
+  m_VideoOut->eval_RGB_HV(clk,vs,hs,red,green,blue);
 }
 

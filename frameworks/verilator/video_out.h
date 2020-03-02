@@ -51,7 +51,7 @@ class VideoOut
           const char *file);
         ~VideoOut();
         // Methods
-        void eval_RGB_HV(vluint64_t cycle, vluint8_t clk, vluint8_t vs,   vluint8_t hs,   vluint8_t red,  vluint8_t green, vluint8_t blue);
+        void eval_RGB_HV(vluint8_t clk, vluint8_t vs,   vluint8_t hs,   vluint8_t red,  vluint8_t green, vluint8_t blue);
         vluint16_t get_hcount();
         vluint16_t get_vcount();
     private:

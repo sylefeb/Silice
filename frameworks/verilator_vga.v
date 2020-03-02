@@ -2,6 +2,7 @@
 
 module vga(
   input  clk,
+  output vga_clock,
   output reg [3:0] vga_r,
   output reg [3:0] vga_g,
   output reg [3:0] vga_b,
@@ -9,6 +10,7 @@ module vga(
   output vga_vs
   );
 
+wire __main_vga_clock;
 wire [3:0] __main_vga_r;
 wire [3:0] __main_vga_g;
 wire [3:0] __main_vga_b;
@@ -38,6 +40,7 @@ assign run_main = 1'b1;
 M_main __main(
   .clock(clk),
   .reset(RST_d[0]),
+  .out_vga_clock(__main_vga_clock),
   .out_vga_r(__main_vga_r),
   .out_vga_g(__main_vga_g),
   .out_vga_b(__main_vga_b),
@@ -46,10 +49,11 @@ M_main __main(
   .in_run(run_main)
 );
 
-assign vga_r  = __main_vga_r;
-assign vga_g  = __main_vga_g;
-assign vga_b  = __main_vga_b;
-assign vga_hs = __main_vga_hs;
-assign vga_vs = __main_vga_vs;
+assign vga_clock = __main_vga_clock;
+assign vga_r     = __main_vga_r;
+assign vga_g     = __main_vga_g;
+assign vga_b     = __main_vga_b;
+assign vga_hs    = __main_vga_hs;
+assign vga_vs    = __main_vga_vs;
 
 endmodule

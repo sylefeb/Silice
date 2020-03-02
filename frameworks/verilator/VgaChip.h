@@ -33,8 +33,7 @@ public:
   VgaChip();
   ~VgaChip();
   
-  void eval(vluint64_t cycle, 
-            vluint8_t  clk,
+  void eval(vluint8_t  clk,
             vluint8_t  vs,   
             vluint8_t  hs,   
             vluint8_t  red,  
