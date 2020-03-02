@@ -20,6 +20,12 @@ the distribution, please refer to it for details.
 
 #include "VgaChip.h"
 
+unsigned int main_time = 0;
+double sc_time_stamp()
+{
+  return main_time;
+}
+
 int main(int argc,char **argv)
 {
 
@@ -38,6 +44,7 @@ int main(int argc,char **argv)
 
     vga_chip->eval(vga_test->vga_clock,vga_test->vga_vs,vga_test->vga_hs,vga_test->vga_r,vga_test->vga_g,vga_test->vga_b);
 
+    main_time ++;
   }
 
   return 0;
