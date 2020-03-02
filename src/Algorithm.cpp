@@ -2449,7 +2449,8 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
       s->name.c_str(), plist->getStart()->getLine());
   }
   // write var inits
-  writeVarInits(prefix, out, s->varnames, t_vio_dependencies());
+  t_vio_dependencies _;
+  writeVarInits(prefix, out, s->varnames, _);
   // set inputs
   int p = 0;
   for (const auto& ins : s->inputs) {
