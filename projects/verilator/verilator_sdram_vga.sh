@@ -4,7 +4,7 @@ then
 else
 
 mkdir $1
-../../bin/silice -f ../../frameworks/verilator_vga.v -o $1/vga.v $1.ice 
+../../bin/silice -f ../../frameworks/verilator_sdram_vga.v -o $1/vga.v $1.ice 
 cd $1
 verilator -Wno-PINMISSING -Wno-WIDTH -cc vga.v --profile-cfuncs --top-module vga
 cd obj_dir

@@ -17,7 +17,7 @@
 //
 // SDRAM C++ model:
 // ----------------
-//  - Based on the verilog model from Micron : "mt48lc8m16a2.v"
+//  - Based on the verilog model from Micron : "mt48lc8m16a2.v" // 2 meg x 16 x 4 banks
 //  - Designed to work with "Verilator" tool (www.veripool.org)
 //  - 8/16/32-bit data bus supported
 //  - 4 banks only
@@ -29,6 +29,8 @@
 //
 // TODO:
 //  - Add interleaved burst support
+//
+// 2020-03-03 - included in silice project, Sylvain Lefebvre, @sylefeb
 
 #ifndef _SDR_SDRAM_H_
 #define _SDR_SDRAM_H_

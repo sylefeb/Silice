@@ -16,6 +16,8 @@ add_definitions(-Wfatal-errors)
 ADD_LIBRARY(verilator_silice
   video_out.cpp
   video_out.h
+  sdr_sdram.cpp
+  sdr_sdram.h
   VgaChip.cpp
   VgaChip.h
   ../../src/libs/LibSL-small/src/LibSL/System/System.cpp

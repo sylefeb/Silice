@@ -45,6 +45,7 @@ wire        __main_out_sdram_cas;
 wire        __main_out_sdram_ras;
 wire [1:0]  __main_out_sdram_ba;
 wire [12:0] __main_out_sdram_a;
+  
 wire        __main_out_vga_hs;
 wire        __main_out_vga_vs;
 wire        __main_out_vga_r;
