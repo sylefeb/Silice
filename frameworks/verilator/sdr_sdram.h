@@ -133,6 +133,7 @@ class SDRAM
         int        col;                          // Current column during read/write
         int        bst_ctr_rd;                   // Burst counter (read)
         int        bst_ctr_wr;                   // Burst counter (write)
+public:
         // Log file
         FILE      *fh_log;
         char      *log_buf;

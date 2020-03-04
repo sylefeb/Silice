@@ -39,8 +39,8 @@ int main(int argc,char **argv)
   // 67,108,864-bit banks is organized as 8192 rows by 1024 columns by 8 bits
   // this matches the Mojo Alchitry board with SDRAM shield
   vluint8_t sdram_flags = FLAG_DATA_WIDTH_8; // | FLAG_BANK_INTERLEAVING | FLAG_BIG_ENDIAN;
-  SDRAM* sdr  = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, "sdram.txt");
-  vluint64_t sdram_dq_i = 0,sdram_dq_o = 0;
+  SDRAM* sdr  = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); //, "sdram.txt");
+  vluint64_t sdram_dq = 0;
   
   vga_test->clk = 0;
 
@@ -54,8 +54,8 @@ int main(int argc,char **argv)
               vga_test->sdram_clock, 1,
               vga_test->sdram_cs,  vga_test->sdram_ras, vga_test->sdram_cas, vga_test->sdram_we,
               vga_test->sdram_ba,  vga_test->sdram_a,
-              vga_test->sdram_dqm, sdram_dq_i, sdram_dq_o);
-    vga_test->sdram_dq = (vga_test->sdram_dq_en) ? sdram_dq_i : sdram_dq_o;
+              vga_test->sdram_dqm, (vluint64_t)vga_test->sdram_dq_o, sdram_dq);
+    vga_test->sdram_dq_i = (vga_test->sdram_dq_en) ? vga_test->sdram_dq_o : sdram_dq;
     
     vga_chip->eval(vga_test->vga_clock,vga_test->vga_vs,vga_test->vga_hs,vga_test->vga_r,vga_test->vga_g,vga_test->vga_b);
 

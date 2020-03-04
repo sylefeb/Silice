@@ -10,9 +10,10 @@ module vga(
   output reg  sdram_we,
   output reg  sdram_cas,
   output reg  sdram_ras,
-  output reg [1:0] sdram_ba,
+  output reg [1:0]  sdram_ba,
   output reg [12:0] sdram_a,
-  inout [7:0] sdram_dq,
+  input      [7:0]  sdram_dq_i,
+  output reg [7:0]  sdram_dq_o,
   output reg  sdram_dq_en,
   // VGA
   output vga_clock,
@@ -32,6 +33,7 @@ wire        __main_sdram_cas;
 wire        __main_sdram_ras;
 wire [1:0]  __main_sdram_ba;
 wire [12:0] __main_sdram_a;
+wire [7:0]  __main_sdram_dq_o;
 wire        __main_sdram_dq_en;
 
 wire        __main_vga_clock;
@@ -73,6 +75,8 @@ M_main __main(
   .out_sdram_ras(__main_sdram_ras),
   .out_sdram_ba(__main_sdram_ba),
   .out_sdram_a(__main_sdram_a),
+  .in_sdram_dq_i(sdram_dq_i),
+  .out_sdram_dq_o(__main_sdram_dq_o),
   .out_sdram_dq_en(__main_sdram_dq_en),
   .out_vga_clock(__main_vga_clock),
   .out_vga_r(__main_vga_r),
@@ -92,6 +96,7 @@ assign sdram_cas    = __main_sdram_cas;
 assign sdram_ras    = __main_sdram_ras;
 assign sdram_ba     = __main_sdram_ba;
 assign sdram_a      = __main_sdram_a;
+assign sdram_dq_o   = __main_sdram_dq_o;
 assign sdram_dq_en  = __main_sdram_dq_en;
 
 assign vga_clock = __main_vga_clock;

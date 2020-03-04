@@ -23,7 +23,8 @@ module sdram (
         output sdram_dqm,
         output [1:0] sdram_ba,
         output [12:0] sdram_a,
-        inout [7:0] sdram_dq,
+        input  [7:0] sdram_dq_i,
+        output [7:0] sdram_dq_o,
         output sdram_dq_en,
         // User interface
         input  [22:0] addr,       // address to read/write
@@ -66,50 +67,8 @@ module sdram (
 
     // This is used to drive the SDRAM clock
     
-    // for simulation: uncomment this and comment below
     assign sdram_clk_ddr = sdram_clk;
-    /*
-    ODDR2 #(
-        .DDR_ALIGNMENT("NONE"),
-        .INIT(1'b0),
-        .SRTYPE("SYNC")
-    ) ODDR2_inst (
-        .Q(sdram_clk_ddr), // 1-bit DDR output data
-        .C0(clk), // 1-bit clock input
-        .C1(~clk), // 1-bit clock input
-        .CE(1'b1), // 1-bit clock enable input
-        .D0(1'b0), // 1-bit data input (associated with C0)
-        .D1(1'b1), // 1-bit data input (associated with C1)
-        .R(1'b0), // 1-bit reset input
-        .S(1'b0) // 1-bit set input
-    );
-    
-    IODELAY2 #(
-        .IDELAY_VALUE(0),
-        .IDELAY_MODE("NORMAL"),
-        .ODELAY_VALUE(100), // value of 100 seems to work at 100MHz
-        .IDELAY_TYPE("FIXED"),
-        .DELAY_SRC("ODATAIN"),
-        .DATA_RATE("SDR")
-    ) IODELAY_inst (
-        .IDATAIN(1'b0),
-        .T(1'b0),
-        .ODATAIN(sdram_clk_ddr),
-        .CAL(1'b0),
-        .IOCLK0(1'b0),
-        .IOCLK1(1'b0),
-        .CLK(1'b0),
-        .INC(1'b0),
-        .CE(1'b0),
-        .RST(1'b0),
-        .BUSY(),
-        .DATAOUT(),
-        .DATAOUT2(),
-        .TOUT(),
-        .DOUT(sdram_clk)
-    );
-    */
-    
+  
     // registers for SDRAM signals
     reg cle_d, dqm_d;
     reg [3:0] cmd_d;
@@ -144,7 +103,7 @@ module sdram (
     assign sdram_dqm = dqm_q;
     assign sdram_ba = ba_q;
     assign sdram_a = a_q;
-    assign sdram_dq = dq_en_q ? dq_q : 8'hZZ; // only drive when dq_en_q is 1
+    assign sdram_dq_o  = dq_en_q ? dq_q : sdram_dq_i; // only drive when dq_en_q is 1
     assign sdram_dq_en = dq_en_q;
 
     reg [STATE_SIZE-1:0] state_d, state_q = INIT;
@@ -182,7 +141,7 @@ module sdram (
     always @* begin
         // Default values
         dq_d = dq_q;
-        dqi_d = sdram_dq;
+        dqi_d = sdram_dq_i;
         dq_en_d = 1'b0; // normally keep the bus in high-Z
         cle_d = cle_q;
         cmd_d = CMD_NOP; // default to NOP

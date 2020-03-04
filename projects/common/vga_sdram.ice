@@ -261,6 +261,7 @@ algorithm frame_buffer_row_updater(
         sin_valid   = 1;         // go ahead!      
         while (sout_valid == 0) {  } // wait for value
         // write to selected frame buffer row
+        // display("pix value %b",sdata_out);
         pixdata_w   = sdata_out; // data to write
         pixaddr     = next;     // address to write
         // next

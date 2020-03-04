@@ -54,13 +54,14 @@ algorithm main(
   output! uint1  sdram_ras,
   output! uint2  sdram_ba,
   output! uint13 sdram_a,
-  inout   uint8  sdram_dq,
+  input   uint8  sdram_dq_i,
+  output! uint8  sdram_dq_o,
   output! uint1  sdram_dq_en,
   // VGA
   output! uint1  vga_clock,
-  output! uint1  vga_r,
-  output! uint1  vga_g,
-  output! uint1  vga_b,
+  output! uint4  vga_r,
+  output! uint4  vga_g,
+  output! uint4  vga_b,
   output! uint1  vga_hs,
   output! uint1  vga_vs
 ) <@sdram_clock,!sdram_reset> {

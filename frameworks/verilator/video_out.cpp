@@ -220,12 +220,12 @@ void VideoOut::eval_RGB_HV
                 if (hcount < hor_size) {
                     RGBApixel pixel;
 
-                    pixel.Red   = (red   & bit_mask) << bit_shift;
-                    pixel.Green = (green & bit_mask) << bit_shift;
-                    pixel.Blue  = (blue  & bit_mask) << bit_shift;
+                    pixel.Red   = (red   & bit_mask) << (bit_shift);
+                    pixel.Green = (green & bit_mask) << (bit_shift);
+                    pixel.Blue  = (blue  & bit_mask) << (bit_shift);
 
                     image->pixel((int)(hcount), (int)(vcount)) = v3b(pixel.Red,pixel.Green,pixel.Blue);
-                    // printf("*** [pixel write at %d,%d]\n",hcount,vcount);
+                    // printf("*** [pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)pixel.Red,(int)pixel.Green,(int)pixel.Blue);
                 }
             }
         }
