@@ -1,6 +1,12 @@
 // ------------------------- 
 
+$$if FRAMEWORK=='verilator_sdram_vga.v' do
 $include('../common/vga_sdram_main_verilator.ice')
+$$elsif FRAMEWORK=='icarus_sdram_vga.v' do
+$include('../common/vga_sdram_main_icarus.ice')
+$$elsif FRAMEWORK=='mojo_sdram_vga.v' do
+$include('../common/vga_sdram_main_mojo.ice')
+$$end
 
 // ------------------------- 
 
