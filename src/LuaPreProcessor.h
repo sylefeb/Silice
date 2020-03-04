@@ -31,17 +31,20 @@ private:
   std::string processCode(std::string parent_path, std::string src_file);
   std::string findFile(std::string path,std::string fname) const;
 
-  std::vector<std::string>        m_SearchPaths;
-  std::unordered_set<std::string> m_AlreadyIncluded;
+  std::vector<std::string>           m_SearchPaths;
+  std::unordered_set<std::string>    m_AlreadyIncluded;
+  std::map<std::string, std::string> m_Definitions;
 
 public:
 
   LuaPreProcessor();
   virtual ~LuaPreProcessor();
 
-  void execute(std::string src_file, std::string dst_file);
+  void run(std::string src_file, std::string dst_file);
 
   std::vector<std::string> searchPaths() const { return m_SearchPaths; }
+  
+  void addDefinition(std::string def, std::string value) { m_Definitions[def] = value; }
 
 };
 

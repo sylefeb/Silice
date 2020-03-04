@@ -187,7 +187,8 @@ public:
     // preprocessor
     LuaPreProcessor lpp;
     std::string preprocessed = std::string(fsource) + ".lpp";
-    lpp.execute(fsource, preprocessed);
+    lpp.addDefinition("FRAMEWORK", fframework);
+    lpp.run(fsource, preprocessed);
     // extract path
     m_Paths = lpp.searchPaths();
     // parse the preprocessed source

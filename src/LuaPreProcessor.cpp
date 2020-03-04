@@ -212,13 +212,19 @@ std::string LuaPreProcessor::processCode(std::string parent_path,std::string src
 
 // -------------------------------------------------
 
-void LuaPreProcessor::execute(std::string src_file, std::string dst_file)
+void LuaPreProcessor::run(std::string src_file, std::string dst_file)
 {
   lua_State *L = luaL_newstate();
 
   g_LuaOutputs.insert(std::make_pair(L, ofstream(dst_file)));
 
+  // bind intrisics
   bindScript(L);
+
+  // bind definitions
+  for (auto dv : m_Definitions) {
+    luabind::globals(L)[dv.first] = dv.second;
+  }
 
   std::string code = processCode("", src_file);
 

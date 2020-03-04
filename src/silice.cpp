@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     cmd.add(source);
     TCLAP::ValueArg<std::string> output("o", "output", "Output compiled file (.v)", false, "out.v", "string");
     cmd.add(output);
-    TCLAP::ValueArg<std::string> framework("f", "framework", "Input framework file (.v)", false, "../frameworks/mojo_basic.v", "string");
+    TCLAP::ValueArg<std::string> framework("f", "framework", "Input framework file (.v)", false, "../frameworks/icarus_bare.v", "string");
     cmd.add(framework);
 
     cmd.parse(argc, argv);
