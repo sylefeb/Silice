@@ -29,6 +29,7 @@ the distribution, please refer to it for details.
 #include <fstream>
 #include <regex>
 #include <queue>
+#include <cstdio>
 
 #include <LibSL/LibSL.h>
 
@@ -144,6 +145,25 @@ private:
     }
   }
 
+  void prepareFramework(const char *fframework,std::string& _lpp,std::string& _verilog)
+  {
+    // gather 
+    // - pre-processor header (all lines starting with $$)
+    // - verilog code (all other lines)
+    std::ifstream infile(fframework);
+    if (!infile) {
+      throw Fatal("Cannot open framework file '%s'",fframework);
+    }
+    std::string line;
+    while (std::getline(infile, line)) {
+      if (line.substr(0, 2) == "$$") {
+        _lpp += line.substr(2) + "\n";
+      } else {
+        _verilog += line + "\n";
+      }
+    }
+  }
+
 private:
 
   class LexerErrorListener : public antlr4::BaseErrorListener {
@@ -184,11 +204,14 @@ public:
     const char *fresult,
     const char *fframework)
   {
+    // extract pre-processor header from framework
+    std::string framework_lpp, framework_verilog;
+    prepareFramework(fframework, framework_lpp, framework_verilog);
     // preprocessor
     LuaPreProcessor lpp;
     std::string preprocessed = std::string(fsource) + ".lpp";
     lpp.addDefinition("FRAMEWORK", fframework);
-    lpp.run(fsource, preprocessed);
+    lpp.run(fsource, framework_lpp, preprocessed);
     // extract path
     m_Paths = lpp.searchPaths();
     // parse the preprocessed source
@@ -225,6 +248,8 @@ public:
       // save the result
       {
         std::ofstream out(fresult);
+        // write framework (top) module
+        out << framework_verilog;
         // write includes
         for (auto fname : m_Appends) {
           out << Module::fileToString(fname.c_str()) << std::endl;
@@ -237,8 +262,6 @@ public:
         for (auto a : m_Algorithms) {
           a.second->writeAsModule(out);
         }
-        // write top module
-        out << Module::fileToString(fframework);
       }
 
     } else {

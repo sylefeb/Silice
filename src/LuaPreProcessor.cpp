@@ -144,18 +144,21 @@ static std::string luaProtectString(std::string str)
 
 // -------------------------------------------------
 
-std::string LuaPreProcessor::processCode(std::string parent_path,std::string src_file)
+std::string LuaPreProcessor::processCode(
+  std::string parent_path,
+  std::string src_file,
+  std::unordered_set<std::string> alreadyIncluded)
 {
   cerr << "preprocessing " << src_file << '.' << endl;
   if (!LibSL::System::File::exists(src_file.c_str())) {
     throw Fatal("cannot find source file '%s'", src_file.c_str());
   }
-  if (m_AlreadyIncluded.find(src_file) != m_AlreadyIncluded.end()) {
+  if (alreadyIncluded.find(src_file) != alreadyIncluded.end()) {
     throw Fatal("source file '%s' already included (cyclic dependency)", src_file.c_str());
   }
 
   // add to already included
-  m_AlreadyIncluded.insert(src_file);
+  alreadyIncluded.insert(src_file);
 
   // extract path
   std::string fpath = extractPath(src_file);
@@ -201,7 +204,7 @@ std::string LuaPreProcessor::processCode(std::string parent_path,std::string src
         std::string fname = matches.str(1).c_str();
         fname             = findFile(path, fname);
         // recurse
-        code += "\n" + processCode(path + "/",fname) + "\n";
+        code += "\n" + processCode(path + "/",fname, alreadyIncluded) + "\n";
       }
 
     }
@@ -212,7 +215,7 @@ std::string LuaPreProcessor::processCode(std::string parent_path,std::string src
 
 // -------------------------------------------------
 
-void LuaPreProcessor::run(std::string src_file, std::string dst_file)
+void LuaPreProcessor::run(std::string src_file, std::string header_code, std::string dst_file)
 {
   lua_State *L = luaL_newstate();
 
@@ -226,7 +229,11 @@ void LuaPreProcessor::run(std::string src_file, std::string dst_file)
     luabind::globals(L)[dv.first] = dv.second;
   }
 
-  std::string code = processCode("", src_file);
+  // get code
+  std::unordered_set<std::string> inclusions;
+  std::string code = 
+    header_code +
+    processCode("", src_file, inclusions);
 
   int ret = luaL_dostring(L, code.c_str());
   if (ret) {

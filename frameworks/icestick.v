@@ -1,3 +1,5 @@
+$$ICESTICK=1
+`define ICESTICK 1
 `default_nettype none
 
 module top(

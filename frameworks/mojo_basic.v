@@ -1,3 +1,6 @@
+$$MOJO=1
+`define MOJO 1
+
 module reset_conditioner (
     input rcclk,
     input in,

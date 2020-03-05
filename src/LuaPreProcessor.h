@@ -28,11 +28,10 @@ class LuaPreProcessor
 {
 private:
 
-  std::string processCode(std::string parent_path, std::string src_file);
+  std::string processCode(std::string parent_path, std::string src_file, std::unordered_set<std::string> alreadyIncluded);
   std::string findFile(std::string path,std::string fname) const;
 
-  std::vector<std::string>           m_SearchPaths;
-  std::unordered_set<std::string>    m_AlreadyIncluded;
+  std::vector<std::string>           m_SearchPaths;  
   std::map<std::string, std::string> m_Definitions;
 
 public:
@@ -40,7 +39,7 @@ public:
   LuaPreProcessor();
   virtual ~LuaPreProcessor();
 
-  void run(std::string src_file, std::string dst_file);
+  void run(std::string src_file, std::string header_code, std::string dst_file);
 
   std::vector<std::string> searchPaths() const { return m_SearchPaths; }
   

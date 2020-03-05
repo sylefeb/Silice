@@ -28,7 +28,7 @@ algorithm main(
   output! uint1  avr_rx,
   input   uint1  avr_rx_busy,
   // SDRAM
-  output! uint1  sdram_clk,
+  output! uint1  sdram_clock,
   output! uint1  sdram_cle,
   output! uint1  sdram_dqm,
   output! uint1  sdram_cs,

@@ -1,3 +1,6 @@
+$$ICARUS=1
+`define ICARUS 1
+
 module top;
 
 reg clk;

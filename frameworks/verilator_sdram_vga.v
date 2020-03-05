@@ -1,3 +1,6 @@
+$$VERILATOR=1
+`define VERILATOR 1
+
 `default_nettype none
 
 module vga(
