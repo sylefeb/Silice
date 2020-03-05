@@ -103,7 +103,6 @@ algorithm frame_drawer(
     int32 yn_d10x   = 0;
     int32 h_yn_d10x = 0;
     int32 h_d10y    = 0;
-    int32 dscr_tmp  = 0;
   
     scr0x = ynear * p0x;
     scr1x = ynear * p1x;
@@ -143,12 +142,13 @@ algorithm frame_drawer(
 	
 	    // draw quad column  
 	    // hscr = h * (scrix * d10y - ynear * d10x); 	    
-      // hscr = scrix * h_d10y - h_yn_d10x;
+      
+      // hscr = scrix * h_d10y - h_yn_d10x;      
       (hscr_tmp) <- mul <- (scrix,h_d10y);
       hscr = hscr_tmp - h_yn_d10x;
-//++:
-      //(hscr) <- div <- (hscr,dscr);	
-      // hscr = (hscr * dscr_inv) >> 20; // FP mul inverse
+      
+++:
+      //hscr = (hscr * dscr_inv) >> 20; // FP mul inverse, computes (hscr) <- div <- (hscr,dscr);      
       (hscr_tmp) <- mul <- (hscr,dscr_inv);
       hscr = hscr_tmp >> 20;
 
