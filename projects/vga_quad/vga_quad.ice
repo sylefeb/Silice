@@ -2,6 +2,8 @@
 
 $$div_width=32
 $include('../common/divint_any.ice')
+$$mul_width=32
+$include('../common/mulint_any.ice')
 
 $include('../common/vga_sdram_main.ice')
 
@@ -21,6 +23,7 @@ algorithm frame_drawer(
 
   uint1  vsync_filtered = 0;
   div32  div;
+  mul32  mul;
 
   int32 qp0x = -400;
   int32 qp0y =   20;
@@ -92,6 +95,7 @@ algorithm frame_drawer(
 	  int32 d10y  = 0;
     
     int32 hscr      = 0;
+    int32 hscr_tmp  = 0;
     int32 dscr      = 0;
     int32 dscr_inv  = 0;
     int32 fp        = 32d1048576;
@@ -138,11 +142,15 @@ algorithm frame_drawer(
     while (scrix < scr1x) {
 	
 	    // draw quad column  
-	    // hscr = h * (scrix * d10y - ynear * d10x);
- 	    hscr = scrix * h_d10y - h_yn_d10x;
-++:
-      //(hscr) <- div <- (hscr,dscr);	// TODO replace by FP mul inverse
-      hscr = (hscr * dscr_inv) >> 20;
+	    // hscr = h * (scrix * d10y - ynear * d10x); 	    
+      // hscr = scrix * h_d10y - h_yn_d10x;
+      (hscr_tmp) <- mul <- (scrix,h_d10y);
+      hscr = hscr_tmp - h_yn_d10x;
+//++:
+      //(hscr) <- div <- (hscr,dscr);	
+      // hscr = (hscr * dscr_inv) >> 20; // FP mul inverse
+      (hscr_tmp) <- mul <- (hscr,dscr_inv);
+      hscr = hscr_tmp >> 20;
 
       if (hscr < 0) {
         hscr = 0; // wtf? overflow?
@@ -157,7 +165,7 @@ algorithm frame_drawer(
         pix_x = scrix + 160;
         while (1) {
           if (sbusy == 0) {        // not busy?
-            sdata_in    = 5; // palette id
+            sdata_in    = 15; // palette id
             saddr       = (pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2; // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!

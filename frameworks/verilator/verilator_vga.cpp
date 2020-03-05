@@ -29,9 +29,7 @@ double sc_time_stamp()
 
 int main(int argc,char **argv)
 {
-
   Verilated::commandArgs(argc,argv);
-
   VgaChip *vga_chip = new VgaChip();
   Vvga    *vga_test = new Vvga();
 

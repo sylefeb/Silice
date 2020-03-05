@@ -6,11 +6,11 @@ else
 mkdir $1
 ../../bin/silice -f ../../frameworks/verilator_sdram_vga.v -o $1/vga.v $1.ice 
 cd $1
-verilator -Wno-PINMISSING -Wno-WIDTH -cc vga.v --profile-cfuncs --top-module vga
+verilator -Wno-PINMISSING -Wno-WIDTH -cc vga.v --top-module vga
 cd obj_dir
 make -f Vvga.mk
 make -f Vvga.mk ../../../../frameworks/verilator/verilator_vga.o verilated.o
-g++ -O2 ../../../../frameworks/verilator/verilator_vga.o verilated.o Vvga__ALL.a ../../../../frameworks/verilator/libverilator_silice.a -o ../../test_$1
+g++ -g ../../../../frameworks/verilator/verilator_vga.o verilated.o Vvga__ALL.a ../../../../frameworks/verilator/libverilator_silice.a -o ../../test_$1
 cd ..
 cd ..
 

@@ -9,7 +9,7 @@ algorithm main()
   int16  m1      =  121;
   int16  result  =  0;
   
-  mul mul0;
+  mul16 mul0;
   
   (result) <- mul0 <- (m0,m1);
 

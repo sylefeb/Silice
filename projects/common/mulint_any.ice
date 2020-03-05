@@ -16,7 +16,10 @@ $$  error('mul_width is not a power of 2')
 $$end
 $$ print('generating multiplier for width ' .. 2^mul_width_pow2)
 
-algorithm mul(input int$mul_width$ im0,input int$mul_width$ im1,output! int$mul_width$ ret)
+algorithm mul$mul_width$(
+  input  int$mul_width$ im0,
+  input  int$mul_width$ im1,
+  output int$mul_width$ ret)
 {
 $$for l = 1,mul_width_pow2 do
 $$  n = 2^(l-1)
