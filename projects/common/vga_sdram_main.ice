@@ -4,17 +4,9 @@ $$if ICARUS then
   // SDRAM simulator
   append('mt48lc32m8a2.v')
   import('simul_sdram.v')
-  // SDRAM controller
-  import('sdram_icarus.v')
 $$end
 
-$$if VERILATOR then
-  import('sdram_verilator.v')
-$$end
-
-$$if MOJO then
-  import('sdram_mojo.v')
-$$end
+import('sdram.v')
 
 // Frame buffer row
 import('dual_frame_buffer_row.v')

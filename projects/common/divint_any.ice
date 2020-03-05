@@ -5,7 +5,7 @@ algorithm mul_cmp$div_width$(
    input   uint$div_width$ num,
    input   uint$div_width$ den,
    input   uint$div_width$ k,
-   output! uint1 above)
+   output  uint1 above)
 {
   uint$div_width+1$ th   = 0;
   uint$div_width+1$ dk   = 0;
@@ -20,7 +20,10 @@ algorithm mul_cmp$div_width$(
   }
 }
 
-algorithm div$div_width$(input int$div_width$ inum,input int$div_width$ iden,output! int$div_width$ ret)
+algorithm div$div_width$(
+  input  int$div_width$ inum,
+  input  int$div_width$ iden,
+  output int$div_width$ ret)
 {
 $$for i = 0,div_width-2 do
   uint$div_width$ k$i$ = 0;

@@ -1,8 +1,9 @@
+// ------------------------- 
 
 $$div_width=32
 $include('../common/divint_any.ice')
 
-$include('../common/vga_sdram_main_mojo.ice')
+$include('../common/vga_sdram_main.ice')
 
 // ------------------------- 
 
@@ -141,15 +142,16 @@ algorithm frame_drawer(
  	    hscr = scrix * h_d10y - h_yn_d10x;
 ++:
       //(hscr) <- div <- (hscr,dscr);	// TODO replace by FP mul inverse
-      hscr = (hscr * dscr_inv) >> 32d20;
+      hscr = (hscr * dscr_inv) >> 20;
 
-		  if (hscr < 32d0) {
-		    hscr = 32d0; // wtf? overflow?
-		  }
-		  if (hscr > 32d99) {
-		    hscr = 32d99;
-		  }
-		  pix_y = 32d100 - hscr;
+      if (hscr < 0) {
+        hscr = 0; // wtf? overflow?
+      }
+      if (hscr > 99) {
+        hscr = 99;
+      }
+      pix_y = 100 - hscr;
+      
       while (pix_y < 32d100 + hscr) {
         // write to sdram
         pix_x = scrix + 160;
