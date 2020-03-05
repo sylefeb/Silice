@@ -95,26 +95,33 @@ algorithm frame_drawer(
 	  int32 d10y  = 0;
     
     int32 hscr      = 0;
-    int32 hscr_tmp  = 0;
+    int32 h_sxdy_yndx = 0;
     int32 dscr      = 0;
     int32 dscr_inv  = 0;
     int32 fp        = 32d1048576;
-	
+    int32 pxlen_inv = 0;
+
+    int32 tmp1  = 0;
+    int32 tmp2  = 0;
+
     int32 yn_d10x   = 0;
     int32 h_yn_d10x = 0;
     int32 h_d10y    = 0;
+  
+    int32 x         = 0;
+    int32 u         = 0;
   
     scr0x = ynear * p0x;
     scr1x = ynear * p1x;
 
 	  (scr0x) <- div <- (scr0x,p0y);
 	  (scr1x) <- div <- (scr1x,p1y);
+//    (pxlen_inv) <- div <- (fp,d10x);
 
 	  d10x  = p1x - p0x;
 	  d10y  = p1y - p0y;
 
-    // dscr = p0x * d10y - p0y * d10x;
-
+    /// dscr = p0x * d10y - p0y * d10x;
     dscr      =   p0x * d10y;   
     yn_d10x   = ynear * d10x;
 ++:
@@ -122,6 +129,7 @@ algorithm frame_drawer(
     h_yn_d10x = h * yn_d10x;
     h_d10y    = h * d10y;
 
+    /// bounds
     if (scr0x < -160) {
       scr0x = -160;
     }
@@ -134,38 +142,40 @@ algorithm frame_drawer(
     if (scr1x > 159) {
       scr1x = 159;
     }
-++:   
+
+    /// dscr_inv = 1.0 / dscr
     (dscr_inv) <- div <- (fp,dscr);
     
+    /// draw columns
     scrix = scr0x;
     while (scrix < scr1x) {
 	
-	    // draw quad column  
-	    // hscr = h * (scrix * d10y - ynear * d10x); 	    
-      
-      // hscr = scrix * h_d10y - h_yn_d10x;      
-      (hscr_tmp) <- mul <- (scrix,h_d10y);
-      hscr = hscr_tmp - h_yn_d10x;
-      
-++:
-      //hscr = (hscr * dscr_inv) >> 20; // FP mul inverse, computes (hscr) <- div <- (hscr,dscr);      
-      (hscr_tmp) <- mul <- (hscr,dscr_inv);
-      hscr = hscr_tmp >> 20;
+	    /// hscr = h * (scrix * d10y - ynear * d10x) * dscr_inv; 	    
+      (tmp1) <- mul <- (scrix,h_d10y);
+      h_sxdy_yndx = tmp1 - h_yn_d10x;
+      (tmp1) <- mul <- (h_sxdy_yndx,dscr_inv);
+      hscr = tmp1 >> 20;
 
+	    /// x = scrix * dscr / (scrix * d10y - ynear * d10x);
+      (tmp1) <- mul <- (scrix,dscr);
+      (x) <- div <- (tmp1,h_sxdy_yndx); // includes a const factor h
+      
+      /// bounds
       if (hscr < 0) {
         hscr = 0; // wtf? overflow?
       }
       if (hscr > 99) {
         hscr = 99;
       }
-      pix_y = 100 - hscr;
       
+      /// draw to framebuffer
+      pix_y = 100 - hscr;      
       while (pix_y < 32d100 + hscr) {
         // write to sdram
         pix_x = scrix + 160;
         while (1) {
           if (sbusy == 0) {        // not busy?
-            sdata_in    = 15; // palette id
+            sdata_in    = x; // palette id
             saddr       = (pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2; // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
