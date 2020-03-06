@@ -121,7 +121,7 @@ algorithm frame_drawer(
 	  d10x  = p1x - p0x;
 	  d10y  = p1y - p0y;
 
-    /// dscr = p0x * d10y - p0y * d10x;
+    /// dscr  = p0x * d10y - p0y * d10x;
     dscr      =   p0x * d10y;   
     yn_d10x   = ynear * d10x;
 ++:
