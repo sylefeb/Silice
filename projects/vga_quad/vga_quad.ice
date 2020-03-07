@@ -96,10 +96,11 @@ algorithm frame_drawer(
     
     int32 hscr      = 0;
     int32 h_sxdy_yndx = 0;
+    int32 h_loop    = 0;
+    int32 h_incr    = 0;
     int32 dscr      = 0;
     int32 dscr_inv  = 0;
     int32 fp        = 32d1048576;
-    int32 pxlen_inv = 0;
 
     int32 tmp1  = 0;
     int32 tmp2  = 0;
@@ -111,21 +112,33 @@ algorithm frame_drawer(
     int32 x         = 0;
     int32 u         = 0;
   
-    scr0x = ynear * p0x;
-    scr1x = ynear * p1x;
-
+    // project extremities on screen
+    (scr0x) <- mul <- (ynear,p0x);
+    (scr1x) <- mul <- (ynear,p1x);
 	  (scr0x) <- div <- (scr0x,p0y);
 	  (scr1x) <- div <- (scr1x,p1y);
-//    (pxlen_inv) <- div <- (fp,d10x);
 
 	  d10x  = p1x - p0x;
 	  d10y  = p1y - p0y;
 
-    /// dscr  = p0x * d10y - p0y * d10x;
-    dscr      =   p0x * d10y;   
-    yn_d10x   = ynear * d10x;
-++:
-    dscr      = dscr - p0y * d10x;
+    // alpha = (ynear * p0x - scrix * p0y) / (scrix * d10y - ynear * d10x);
+    // ^^^^^ interpolant between p0, p1 from scrix
+
+    // yi   = p0y + d10y * alpha;
+    // yi   = ynear * ( p0x * d10y - p0y * d10x ) / (scrix * d10y - ynear * d10x);
+    // hscr = ynear * h / yi;
+    // dscr = p0x * d10y - p0y * d10x;
+    // dscr_inv = 1 / dscr = 1 / (p0x * d10y - p0y * d10x)
+    // hscr = h * (scrix * d10y - ynear * d10x) * dscr_inv;
+
+    (dscr)    <- mul <- (p0x,d10y);
+    (yn_d10x) <- mul <- (ynear,d10x);
+    (tmp1)    <- mul <- (p0y,d10x);
+    dscr      = dscr - tmp1;
+
+    (dscr_inv) <- div <- (fp,dscr);   
+
+    // premult by h
     h_yn_d10x = h * yn_d10x;
     h_d10y    = h * d10y;
 
@@ -143,22 +156,28 @@ algorithm frame_drawer(
       scr1x = 159;
     }
 
-    /// dscr_inv = 1.0 / dscr
-    (dscr_inv) <- div <- (fp,dscr);
-    
+    /// precomp interpolation quantities
+    //   h * (scrix * d10y - ynear * d10x) * dscr_inv;
+    //   scrix = (scr0x + incx)
+    //   (h * scr0x * d10y - h * ynear * d10x) * dscr_inv + h * incx * d10y * dscr_inv;
+    //      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ loop   ^^^^^^^^^^^^^^^^^^^^^^^^ inc
+    (tmp1) <- mul <- (scr0x,h_d10y);
+    h_sxdy_yndx = tmp1 - h_yn_d10x;    
+    (tmp1) <- mul <- (h_sxdy_yndx,dscr_inv);
+    h_loop = tmp1;
+
+    (tmp1) <- mul <- (h_d10y,dscr_inv);
+    h_incr = tmp1;
+   
     /// draw columns
     scrix = scr0x;
     while (scrix < scr1x) {
 	
 	    /// hscr = h * (scrix * d10y - ynear * d10x) * dscr_inv; 	    
-      (tmp1) <- mul <- (scrix,h_d10y);
-      h_sxdy_yndx = tmp1 - h_yn_d10x;
-      (tmp1) <- mul <- (h_sxdy_yndx,dscr_inv);
-      hscr = tmp1 >> 20;
+      hscr   = h_loop >> 20; // remove fract part
+      h_loop = h_loop + h_incr;
 
-	    /// x = scrix * dscr / (scrix * d10y - ynear * d10x);
-      (tmp1) <- mul <- (scrix,dscr);
-      (x) <- div <- (tmp1,h_sxdy_yndx); // includes a const factor h
+	    // [alpha]  u = (ynear * p0x - scrix * p0y) / (scrix * d10y - ynear * d10x);
       
       /// bounds
       if (hscr < 0) {
@@ -175,7 +194,7 @@ algorithm frame_drawer(
         pix_x = scrix + 160;
         while (1) {
           if (sbusy == 0) {        // not busy?
-            sdata_in    = x; // palette id
+            sdata_in    = 15; // palette id
             saddr       = (pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2; // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
@@ -208,8 +227,8 @@ algorithm frame_drawer(
     while (vsync_filtered == 0) {}
 
     // wait for vsync
-    while (vsync_filtered == 1) {}
-    while (vsync_filtered == 0) {}
+    //while (vsync_filtered == 1) {}
+    //while (vsync_filtered == 0) {}
 
     if (dir0 == 0) {
       qp0y = qp0y + 1;
