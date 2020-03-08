@@ -78,7 +78,7 @@ class VideoOut
         // Pixel array
         LibSL::Memory::Array::Array2D<LibSL::Math::v3b> pixels;
         // Image file name
-        char       filename[256];
+        std::string filename;
         // Internal variable
         vluint16_t hcount;
         vluint16_t vcount;

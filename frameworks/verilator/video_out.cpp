@@ -62,9 +62,10 @@ VideoOut::VideoOut(vluint8_t debug, vluint8_t depth, vluint8_t polarity,
     // debug mode
     dbg_on      = debug;
     // allocate the pixels
+    std::cerr << hactive << " x " << vactive << std::endl;
     pixels.allocate((int)hactive, (int)vactive);
     // copy the filename
-    strncpy(filename, file, 255);
+    filename    = std::string(file);
     // internal variables cleared
     hcount      = (vluint16_t)hor_size;
     vcount      = (vluint16_t)ver_size;
@@ -183,8 +184,8 @@ void VideoOut::eval_RGB_HV
                     v_sync_stage = e_Done;
                     v_sync_count = 0;
                     {
-                        char tmp[264];
-                        sprintf(tmp, "%s_%04d.tga", filename, dump_ctr);
+                        char tmp[1024];
+                        sprintf(tmp, "%s_%04d.tga", filename.c_str(), dump_ctr);
                         printf(" Save snapshot in file \"%s\"\n", tmp);
                         {
                           ImageRGB img;
@@ -228,6 +229,10 @@ void VideoOut::eval_RGB_HV
                     pixel.Green = (green & bit_mask) << (bit_shift);
                     pixel.Blue  = (blue  & bit_mask) << (bit_shift);
 
+                    if (hcount < 0 || vcount < 0 || hcount >= pixels.xsize() || vcount >= pixels.ysize()) {
+                      printf("*** illegal pixel access (access violation)");
+                      exit (-1);
+                    }
                     pixels.at((int)(hcount), (int)(vcount)) = v3b(pixel.Red,pixel.Green,pixel.Blue);
                     // printf("*** [pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)pixel.Red,(int)pixel.Green,(int)pixel.Blue);
                 }
