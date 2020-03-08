@@ -32,6 +32,10 @@ algorithm frame_drawer(
   uint1 dir0 =   0;
   uint1 dir1 =   0;
 
+  uint4 texture[] = {
+$$image_table('wall.tga')  
+  };
+
   // pre-compute table for vertical interpolation (beta)  
   int32 hscr_inv[100]={
     1, // 0: unused
@@ -86,8 +90,9 @@ $$end
     writes  saddr,
     writes  swbyte_addr,
     writes  sin_valid,
-    // table
-    reads   hscr_inv
+    // tables
+    reads   hscr_inv,
+    reads   texture
   )
   {
   
@@ -236,8 +241,9 @@ $$end
         pix_x = scrix + 160;
         while (1) {
           if (sbusy == 0) {        // not busy?
-            // sdata_in    = (alpha >> 32d6); // palette id
-            sdata_in    = (beta >> 32d16); // palette id
+            // sdata_in    = (alpha >> 6); // palette id
+            // sdata_in    = (beta >> 16); // palette id
+            sdata_in    = texture[ (alpha >> 6) + ((beta >> 16) << 6) ];
             saddr       = (pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2; // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!

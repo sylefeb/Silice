@@ -29,7 +29,7 @@ class LuaPreProcessor
 private:
 
   std::string processCode(std::string parent_path, std::string src_file, std::unordered_set<std::string> alreadyIncluded);
-  std::string findFile(std::string path,std::string fname) const;
+  std::string findFile(std::string path, std::string fname) const;
 
   std::vector<std::string>           m_SearchPaths;  
   std::map<std::string, std::string> m_Definitions;
@@ -44,6 +44,8 @@ public:
   std::vector<std::string> searchPaths() const { return m_SearchPaths; }
   
   void addDefinition(std::string def, std::string value) { m_Definitions[def] = value; }
+
+  std::string findFile(std::string fname) const;
 
 };
 

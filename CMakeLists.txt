@@ -81,6 +81,8 @@ ADD_EXECUTABLE(silice
   src/libs/LibSL-small/src/LibSL/System/System.cpp
   src/libs/LibSL-small/src/LibSL/CppHelpers/CppHelpers.cpp
   src/libs/LibSL-small/src/LibSL/StlHelpers/StlHelpers.cpp
+  src/tga.cpp
+  src/tga.h
 )
 
 add_definitions(-DANTLR4CPP_STATIC)

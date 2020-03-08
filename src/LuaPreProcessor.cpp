@@ -36,6 +36,10 @@ using namespace antlr4;
 
 // -------------------------------------------------
 
+#include "tga.h"
+
+// -------------------------------------------------
+
 extern "C" {
 #include <lua.h>
 #include <lualib.h>
@@ -82,7 +86,20 @@ std::string LuaPreProcessor::findFile(std::string path, std::string fname) const
 
 // -------------------------------------------------
 
-std::map<lua_State*, std::ofstream> g_LuaOutputs;
+std::string LuaPreProcessor::findFile(std::string fname) const
+{
+  for (const auto& path : m_SearchPaths) {
+    fname = findFile(path, fname);
+  }
+  return fname;
+}
+
+// -------------------------------------------------
+
+std::map<lua_State*, std::ofstream>    g_LuaOutputs;
+std::map<lua_State*, LuaPreProcessor*> g_LuaPreProcessors;
+
+// -------------------------------------------------
 
 static void lua_output(lua_State *L,std::string str)
 {
@@ -102,6 +119,42 @@ static void lua_preproc_error(lua_State *L, std::string str)
 static void lua_print(lua_State *L, std::string str)
 {
   cerr << "[preprocessor] " << Console::white << str << Console::gray << endl;
+}
+
+// -------------------------------------------------
+
+
+
+// -------------------------------------------------
+
+static void lua_image_table(lua_State* L, std::string str)
+{
+  auto P = g_LuaPreProcessors.find(L);
+  if (P == g_LuaPreProcessors.end()) {
+    throw Fatal("internal error (lua_image_table)");
+  }
+  LuaPreProcessor *lpp   = P->second;
+  std::string      fname = lpp->findFile(str);
+  t_image_nfo* nfo = ReadTGAFile(fname.c_str());
+  if (nfo == NULL) {
+    throw Fatal("cannot load image file '%s'",fname.c_str());
+  }
+  int    nc  = nfo->depth/8;
+  uchar* ptr = nfo->pixels;
+  ForIndex(j, nfo->height) {
+    ForIndex(i, nfo->width) {
+      uint32_t v = 0;
+      ForIndex(c, nc) {
+        v = (v << 8) | *(uint8_t*)(ptr++);
+      }
+      g_LuaOutputs[L] << std::to_string(v) << ",";
+    }
+  }
+  delete[](nfo->pixels);
+  if (nfo->colormap) {
+    delete[](nfo->colormap);
+  }
+  delete (nfo);
 }
 
 // -------------------------------------------------
@@ -130,7 +183,8 @@ static void bindScript(lua_State *L)
     [
       luabind::def("print",  &lua_print),
       luabind::def("error",  &lua_preproc_error),
-      luabind::def("output", &lua_output)
+      luabind::def("output", &lua_output),
+      luabind::def("image_table", &lua_image_table)
     ];
 }
 
@@ -220,6 +274,7 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
   lua_State *L = luaL_newstate();
 
   g_LuaOutputs.insert(std::make_pair(L, ofstream(dst_file)));
+  g_LuaPreProcessors.insert(std::make_pair(L, this));
 
   // bind intrisics
   bindScript(L);
@@ -259,6 +314,7 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
 
   g_LuaOutputs.at(L).close();
   g_LuaOutputs.erase(L);
+  g_LuaPreProcessors.erase(L);
 
   lua_close(L);
 
