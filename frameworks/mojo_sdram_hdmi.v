@@ -15,7 +15,7 @@ module mojo_top(
     output reg avr_rx,
     input avr_rx_busy,
     // SDRAM
-    output reg sdram_clock,
+    output reg sdram_clk,
     output reg sdram_cle,
     output reg sdram_dqm,
     output reg sdram_cs,
@@ -36,7 +36,7 @@ wire        __main_spi_miso;
 wire        __main_out_avr_rx;
 wire [3:0]  __main_out_spi_channel;
 
-wire        __main_out_sdram_clock;
+wire        __main_out_sdram_clk;
 wire        __main_out_sdram_cle;
 wire        __main_out_sdram_dqm;
 wire        __main_out_sdram_cs;
@@ -65,7 +65,7 @@ M_main __main(
   .out_avr_rx(__main_out_avr_rx),
   .out_spi_channel(__main_out_spi_channel),
   .out_led(__main_out_led),
-  .out_sdram_clock(__main_out_sdram_clock),
+  .out_sdram_clk(__main_out_sdram_clk),
   .out_sdram_cle(__main_out_sdram_cle),
   .out_sdram_dqm(__main_out_sdram_dqm),
   .out_sdram_cs(__main_out_sdram_cs),
@@ -86,7 +86,7 @@ always @* begin
   
   led          = __main_out_led;
   
-  sdram_clock  = __main_out_sdram_clock;
+  sdram_clk    = __main_out_sdram_clk;
   sdram_cle    = __main_out_sdram_cle;
   sdram_dqm    = __main_out_sdram_dqm;
   sdram_cs     = __main_out_sdram_cs;

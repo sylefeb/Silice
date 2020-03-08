@@ -33,7 +33,11 @@ algorithm frame_drawer(
   uint1 dir1 =   0;
 
   uint4 texture[] = {   // texture from https://github.com/freedoom/freedoom
+$$if MOJO then
+$$image_table('wallbin.tga')
+$$else
 $$image_table('wall.tga')
+$$end
   };
 
   // pre-compute table for vertical interpolation (beta)  
@@ -164,8 +168,8 @@ $$end
     (dscr_inv) <- div <- (fp,dscr);   
 
     // premult by h
-    h_yn_d10x = h * yn_d10x;
-    h_d10y    = h * d10y;
+    (h_yn_d10x) <- mul <-  (h,yn_d10x);
+    (h_d10y)    <- mul <- (h,d10y);
 
     /// precomp interpolation quantities
     //   h * (scrix * d10y - ynear * d10x) * dscr_inv;
@@ -243,7 +247,7 @@ $$end
           if (sbusy == 0) {        // not busy?
             // sdata_in    = (alpha >> 6); // palette id
             // sdata_in    = (beta >> 16); // palette id
-            sdata_in    = texture[ ((alpha >> 2)&63) + (((beta >> 15)&63) << 6) ];
+            sdata_in    = ~texture[ ((alpha >> 2)&63) + (((beta >> 15)&63) << 6) ];
             saddr       = (pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2; // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
@@ -286,7 +290,7 @@ $$end
       }
     } else {
       qp0y = qp0y - 1;
-      if (qp0y < 10) {
+      if (qp0y < 20) {
         dir0 = 0;
       }
     }
@@ -298,12 +302,13 @@ $$end
       }
     } else {
       qp1y = qp1y - 1;
-      if (qp1y < 10) {
+      if (qp1y < 20) {
         dir1 = 0;
       }
     }
 
   }
+
 }
 
 // ------------------------- 

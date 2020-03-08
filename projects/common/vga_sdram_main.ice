@@ -52,7 +52,7 @@ $$end
 
 $$if MOJO then
 // clock
-import('mojo_clk_50_25.v')
+import('mojo_clk_100_25.v')
 // reset
 import('reset_conditioner.v')
 $$end
@@ -62,7 +62,6 @@ $$end
 algorithm main(
 $$if not ICARUS then
   // SDRAM
-  output! uint1  sdram_clock,
   output! uint1  sdram_cle,
   output! uint1  sdram_dqm,
   output! uint1  sdram_cs,
@@ -72,10 +71,12 @@ $$if not ICARUS then
   output! uint2  sdram_ba,
   output! uint13 sdram_a,
 $$if VERILATOR then
+  output! uint1  sdram_clock,
   input   uint8  sdram_dq_i,
   output! uint8  sdram_dq_o,
   output! uint1  sdram_dq_en,
 $$elseif MOJO then
+  output! uint1  sdram_clk, // sdram chip clock != internal sdram_clock
   inout   uint8  sdram_dq,
 $$end
 $$end
@@ -109,7 +110,7 @@ $$if ICARUS or VERILATOR then
 // --- PLL
 
 $$if ICARUS then
-uint1 sdram_clock = 0;
+  uint1 sdram_clock = 0;
 $$end
 
 pll clockgen<@clock,!reset>(
@@ -122,10 +123,9 @@ pll clockgen<@clock,!reset>(
 $$elseif MOJO then
 	
   uint1 vga_clock   = 0;
-  uint1 vga_reset   = 0;
 
   // --- clock
-  clk_50_25 clk_gen (
+  clk_100_25 clk_gen (
     CLK_IN1  <: clock,
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> vga_clock
@@ -188,9 +188,9 @@ uint1  sbusy       = 0;
 uint1  sin_valid   = 0;
 uint1  sout_valid  = 0;
 
-sdram memory<@sdram_clock,!sdram_reset>(
-  clk        <: clock,
-  rst        <: reset,
+sdram memory(
+  clk        <: sdram_clock,
+  rst        <: sdram_reset,
   addr       <: saddr,
   wbyte_addr <: swbyte_addr,
   rw         <: srw,
