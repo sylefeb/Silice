@@ -7,13 +7,13 @@
         <KeywordLists>
             <Keywords name="Comments">00// 01 02 03/* 04*/</Keywords>
             <Keywords name="Numbers, prefix1"></Keywords>
-            <Keywords name="Numbers, prefix2"></Keywords>
-            <Keywords name="Numbers, extras1"></Keywords>
-            <Keywords name="Numbers, extras2"></Keywords>
-            <Keywords name="Numbers, suffix1">;</Keywords>
+            <Keywords name="Numbers, prefix2">d b h</Keywords>
+            <Keywords name="Numbers, extras1">A B C D E F a b c d e f</Keywords>
+            <Keywords name="Numbers, extras2">A B C D E F a b c d e f</Keywords>
+            <Keywords name="Numbers, suffix1"></Keywords>
             <Keywords name="Numbers, suffix2"></Keywords>
             <Keywords name="Numbers, range"></Keywords>
-            <Keywords name="Operators1">&lt;&lt; &gt;&gt; + - * &amp; &amp;&amp; | || ^ ^^ == = := ::= &gt; &lt; ~</Keywords>
+            <Keywords name="Operators1">&lt;&lt; &gt;&gt; + - * &amp; &amp;&amp; | || ^ ^^ == = := ::= &gt; &lt; ~ ; ( ) { }</Keywords>
             <Keywords name="Operators2"></Keywords>
             <Keywords name="Folders in code1, open"></Keywords>
             <Keywords name="Folders in code1, middle"></Keywords>

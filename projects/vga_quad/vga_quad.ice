@@ -106,12 +106,18 @@ algorithm frame_drawer(
     int32 tmp2  = 0;
 
     int32 yn_d10x   = 0;
+    int32 yn_p0x    = 0;
     int32 h_yn_d10x = 0;
     int32 h_d10y    = 0;
   
-    int32 x         = 0;
-    int32 u         = 0;
-  
+    int32 anum_loop = 0;
+    int32 anum_incr = 0;
+    int32 aden_loop = 0;
+    int32 aden_incr = 0;
+    int32 alpha = 0;
+    
+    int32 beta  = 0;
+
     // project extremities on screen
     (scr0x) <- mul <- (ynear,p0x);
     (scr1x) <- mul <- (ynear,p1x);
@@ -133,6 +139,7 @@ algorithm frame_drawer(
 
     (dscr)    <- mul <- (p0x,d10y);
     (yn_d10x) <- mul <- (ynear,d10x);
+    (yn_p0x)  <- mul <- (ynear,p0x);
     (tmp1)    <- mul <- (p0y,d10x);
     dscr      = dscr - tmp1;
 
@@ -141,20 +148,6 @@ algorithm frame_drawer(
     // premult by h
     h_yn_d10x = h * yn_d10x;
     h_d10y    = h * d10y;
-
-    /// bounds
-    if (scr0x < -160) {
-      scr0x = -160;
-    }
-    if (scr0x > 159) {
-      scr0x = 159;
-    }
-    if (scr1x < -160) {
-      scr1x = -160;
-    }
-    if (scr1x > 159) {
-      scr1x = 159;
-    }
 
     /// precomp interpolation quantities
     //   h * (scrix * d10y - ynear * d10x) * dscr_inv;
@@ -168,8 +161,31 @@ algorithm frame_drawer(
 
     (tmp1) <- mul <- (h_d10y,dscr_inv);
     h_incr = tmp1;
-   
-    /// draw columns
+
+    // alpha
+    //    alpha = (ynear * p0x - scrix * p0y) / (scrix * d10y - ynear * d10x);    
+    (tmp1) <- mul <- (scr0x,p0y);
+    anum_loop = (yn_p0x - tmp1) << 32d10;
+    anum_incr = (- p0y)         << 32d10;
+    (tmp1) <- mul <- (scr0x,d10y);
+    aden_loop = tmp1 - yn_d10x;
+    aden_incr = d10y;
+    
+    /// clamp loop bounds
+    if (scr0x < -160) {
+      scr0x = -160;
+    }
+    if (scr0x > 159) {
+      scr0x = 159;
+    }
+    if (scr1x < -160) {
+      scr1x = -160;
+    }
+    if (scr1x > 159) {
+      scr1x = 159;
+    }
+
+    /// draw columns loop
     scrix = scr0x;
     while (scrix < scr1x) {
 	
@@ -177,7 +193,10 @@ algorithm frame_drawer(
       hscr   = h_loop >> 20; // remove fract part
       h_loop = h_loop + h_incr;
 
-	    // [alpha]  u = (ynear * p0x - scrix * p0y) / (scrix * d10y - ynear * d10x);
+      /// alpha (u tex coord)
+      (alpha) <- div <- (anum_loop,aden_loop);       // TODO: pipeline!
+      anum_loop = anum_loop + anum_incr;
+      aden_loop = aden_loop + aden_incr;
       
       /// bounds
       if (hscr < 0) {
@@ -189,12 +208,17 @@ algorithm frame_drawer(
       
       /// draw to framebuffer
       pix_y = 100 - hscr;      
-      while (pix_y < 32d100 + hscr) {
+      while (pix_y < 100 + hscr) {
+
+        // beta (v tex coord)
+        // beta = (pix_y - (100-hscr)) / (2 * hscr)
+        
+      
         // write to sdram
         pix_x = scrix + 160;
         while (1) {
           if (sbusy == 0) {        // not busy?
-            sdata_in    = 15; // palette id
+            sdata_in    = (alpha >> 32d6); // palette id
             saddr       = (pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2; // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
