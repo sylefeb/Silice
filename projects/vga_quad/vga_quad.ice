@@ -229,7 +229,7 @@ $$end
 
         // beta (v tex coord)
         // beta = (pix_y - (100-hscr)) / (2 * hscr)
-        beta      = (beta_loop >> 20);
+        beta      = beta_loop;
         beta_loop = beta_loop + beta_incr;        
       
         // write to sdram
