@@ -123,10 +123,6 @@ static void lua_print(lua_State *L, std::string str)
 
 // -------------------------------------------------
 
-
-
-// -------------------------------------------------
-
 static void lua_image_table(lua_State* L, std::string str)
 {
   auto P = g_LuaPreProcessors.find(L);

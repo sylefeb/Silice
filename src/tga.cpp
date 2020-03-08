@@ -196,7 +196,7 @@ ReadTGA8bitsRLE (FILE *fp, t_image_nfo *texinfo)
   uchar packet_header;
   uchar *ptr = texinfo->pixels;
 
-  while (ptr < texinfo->pixels + (texinfo->width * texinfo->height) * 3)
+  while (ptr < texinfo->pixels + (texinfo->width * texinfo->height))
   {
     /* Read first byte */
     packet_header = (uchar)fgetc (fp);
@@ -522,6 +522,7 @@ t_image_nfo *ReadTGAFile(const char *filename)
     /* Image type is not correct */
     fprintf (stderr, "error: unknown TGA image type %i!\n", header.image_type);
     delete[] (texinfo->pixels);
+    if (texinfo->colormap) delete[](texinfo->colormap);
     delete   (texinfo);
     texinfo = NULL;
     break;
