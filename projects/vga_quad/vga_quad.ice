@@ -32,6 +32,14 @@ algorithm frame_drawer(
   uint1 dir0 =   0;
   uint1 dir1 =   0;
 
+  // pre-compute table for vertical interpolation (beta)  
+  int32 hscr_inv[100]={
+    1, // 0: unused
+$$for hscr=1,99 do
+    $math.floor(0.5 + 1048576/hscr)$,
+$$end
+  };
+
   subroutine clear_screen(
   	// sdram
     reads   sbusy,
@@ -77,9 +85,12 @@ algorithm frame_drawer(
     writes  sdata_in,
     writes  saddr,
     writes  swbyte_addr,
-    writes  sin_valid
+    writes  sin_valid,
+    // table
+    reads   hscr_inv
   )
   {
+  
     int32 pix_x = 0;
     int32 pix_y = 0;
 
@@ -114,9 +125,11 @@ algorithm frame_drawer(
     int32 anum_incr = 0;
     int32 aden_loop = 0;
     int32 aden_incr = 0;
-    int32 alpha = 0;
+    int32 alpha     = 0;
     
-    int32 beta  = 0;
+    int32 beta_loop = 0;
+    int32 beta_incr = 0;
+    int32 beta      = 0;
 
     // project extremities on screen
     (scr0x) <- mul <- (ynear,p0x);
@@ -208,17 +221,23 @@ algorithm frame_drawer(
       
       /// draw to framebuffer
       pix_y = 100 - hscr;      
+      
+      beta_loop = 0;
+      beta_incr = hscr_inv[hscr];
+      
       while (pix_y < 100 + hscr) {
 
         // beta (v tex coord)
         // beta = (pix_y - (100-hscr)) / (2 * hscr)
-        
+        beta      = (beta_loop >> 20);
+        beta_loop = beta_loop + beta_incr;        
       
         // write to sdram
         pix_x = scrix + 160;
         while (1) {
           if (sbusy == 0) {        // not busy?
-            sdata_in    = (alpha >> 32d6); // palette id
+            // sdata_in    = (alpha >> 32d6); // palette id
+            sdata_in    = (beta >> 32d16); // palette id
             saddr       = (pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2; // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
