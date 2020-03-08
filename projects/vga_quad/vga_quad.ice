@@ -243,7 +243,7 @@ $$end
           if (sbusy == 0) {        // not busy?
             // sdata_in    = (alpha >> 6); // palette id
             // sdata_in    = (beta >> 16); // palette id
-            sdata_in    = texture[ (alpha >> 6) + ((beta >> 16) << 6) ];
+            sdata_in    = texture[ ((alpha >> 2)&63) + (((beta >> 15)&63) << 6) ];
             saddr       = (pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2; // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!

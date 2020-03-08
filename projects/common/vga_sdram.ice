@@ -47,7 +47,7 @@ algorithm frame_display(
 	    //    ...            loads row 199 for display in screen row 200
       if (pix_j > 0 && pix_j <= 200) {		
 		    palidx = pixdata_r >> (((vga_x >> 1)&3)<<3);
-		    switch (palidx) {
+		    /*switch (palidx) {
         case 0: {
           vga_r  = 0;
           vga_g  = 0;
@@ -73,7 +73,10 @@ algorithm frame_display(
           vga_g  = palidx;
           vga_b  = palidx;
 		    }
-        }
+        }*/
+          vga_r  = palidx;
+          vga_g  = palidx;
+          vga_b  = palidx;
       }
       if (vga_x == 639) { // end of row
         
