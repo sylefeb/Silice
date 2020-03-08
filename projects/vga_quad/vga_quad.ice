@@ -32,8 +32,8 @@ algorithm frame_drawer(
   uint1 dir0 =   0;
   uint1 dir1 =   0;
 
-  uint4 texture[] = {
-$$image_table('wall.tga')  
+  uint4 texture[] = {   // texture from https://github.com/freedoom/freedoom
+$$image_table('wall.tga')
   };
 
   // pre-compute table for vertical interpolation (beta)  
