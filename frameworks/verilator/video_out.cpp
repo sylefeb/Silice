@@ -61,8 +61,8 @@ VideoOut::VideoOut(vluint8_t debug, vluint8_t depth, vluint8_t polarity,
     vbporch = vbporch_;
     // debug mode
     dbg_on      = debug;
-    // create the image
-    image       = ImageRGB_Ptr(new ImageRGB((int)hactive, (int)vactive));
+    // allocate the pixels
+    pixels.allocate((int)hactive, (int)vactive);
     // copy the filename
     strncpy(filename, file, 255);
     // internal variables cleared
@@ -186,7 +186,11 @@ void VideoOut::eval_RGB_HV
                         char tmp[264];
                         sprintf(tmp, "%s_%04d.tga", filename, dump_ctr);
                         printf(" Save snapshot in file \"%s\"\n", tmp);
-                        saveImage(tmp,image);
+                        {
+                          ImageRGB img;
+                          img.pixels() = pixels;
+                          saveImage(tmp,&img);                        
+                        }
                         dump_ctr++;
                     }
                 }
@@ -224,7 +228,7 @@ void VideoOut::eval_RGB_HV
                     pixel.Green = (green & bit_mask) << (bit_shift);
                     pixel.Blue  = (blue  & bit_mask) << (bit_shift);
 
-                    image->pixel((int)(hcount), (int)(vcount)) = v3b(pixel.Red,pixel.Green,pixel.Blue);
+                    pixels.at((int)(hcount), (int)(vcount)) = v3b(pixel.Red,pixel.Green,pixel.Blue);
                     // printf("*** [pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)pixel.Red,(int)pixel.Green,(int)pixel.Blue);
                 }
             }

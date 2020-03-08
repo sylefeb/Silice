@@ -75,8 +75,8 @@ class VideoOut
         // Image format
         vluint16_t hor_size;
         vluint16_t ver_size;
-        // Image file
-        LibSL::Image::ImageRGB_Ptr image;
+        // Pixel array
+        LibSL::Memory::Array::Array2D<LibSL::Math::v3b> pixels;
         // Image file name
         char       filename[256];
         // Internal variable
