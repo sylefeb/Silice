@@ -47,6 +47,10 @@ $$end
     m1 = im1;
   }
 
+$$if MOJO and mul_width == 32 then
+++: // add step to fit the Mojo 100MHz timing at 32 bits
+$$end
+
 // generate leaves (shifts)
 $$l = mul_width_pow2
 $$n = 2^(l-1)

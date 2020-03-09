@@ -1,3 +1,4 @@
+#!/bin/bash
 if test -z "$1"
 then
   echo "please provide source file name"

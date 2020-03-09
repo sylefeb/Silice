@@ -30,7 +30,7 @@ algorithm mul_cmp(
    input   uint8 num,
    input   uint8 den,
    input   uint8 k,
-   output! uint1 above)
+   output  uint1 above)
 {
   uint9 th   = 0;
   uint9 dk   = 0;
@@ -45,7 +45,7 @@ algorithm mul_cmp(
   }
 }
 
-algorithm div(input uint8 num,input uint8 den,output! uint8 ret)
+algorithm div(input uint8 num,input uint8 den,output uint8 ret)
 {
 
   uint8 k0 = 0;
@@ -107,31 +107,31 @@ algorithm div(input uint8 num,input uint8 den,output! uint8 ret)
       // NOTE: cannot use reminder directly, a combinational loop would be created
       case 7b0000000: {
         ret = ret + (1<<k6);
-        reminder_tmp = reminder - (1<<k6)*den;
+        reminder_tmp = reminder - (den<<k6);
       }
       case 7b1000000: {
         ret = ret + (1<<k5);
-        reminder_tmp = reminder - (1<<k5)*den;
+        reminder_tmp = reminder - (den<<k5);
       }
       case 7b1100000: {
         ret = ret + (1<<k4);
-        reminder_tmp = reminder - (1<<k4)*den;
+        reminder_tmp = reminder - (den<<k4);
       }
       case 7b1110000: {
         ret = ret + (1<<k3);
-        reminder_tmp = reminder - (1<<k3)*den;
+        reminder_tmp = reminder - (den<<k3);
       }
       case 7b1111000: {
         ret = ret + (1<<k2);
-        reminder_tmp = reminder - (1<<k2)*den;
+        reminder_tmp = reminder - (den<<k2);
       }
       case 7b1111100: {
         ret = ret + (1<<k1);
-        reminder_tmp = reminder - (1<<k1)*den;
+        reminder_tmp = reminder - (den<<k1);
       }
       case 7b1111110: {
         ret = ret + (1<<k0);
-        reminder_tmp = reminder - (1<<k0)*den;
+        reminder_tmp = reminder - (den<<k0);
       }
       default: {
         // should never happen

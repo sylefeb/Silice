@@ -152,7 +152,7 @@ uint10 vga_x  = 0;
 uint10 vga_y  = 0;
 
 vga vga_driver<@vga_clock,!vga_reset>(
-    vga_hs :> vga_hs,
+  vga_hs :> vga_hs,
 	vga_vs :> vga_vs,
 	active :> vga_active,
 	vblank :> vga_vblank,
@@ -282,8 +282,8 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
     pixaddr   :> pixaddr_r,
     pixdata_r <: pixdata_r,
     row_busy :> row_busy,
-	vga_x <: vga_x,
-	vga_y <: vga_y,
+	  vga_x <: vga_x,
+	  vga_y <: vga_y,
     <:auto:>
   );
 

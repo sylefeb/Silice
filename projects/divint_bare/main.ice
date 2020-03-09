@@ -13,4 +13,5 @@ algorithm main()
   (result) <- div0 <- (dividend,divisor);
 
   $display("%d / %d = %d",dividend,divisor,result);  
+  
 }

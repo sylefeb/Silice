@@ -57,6 +57,10 @@ $$end
     num = inum;
   }
 
+$$if MOJO and div_width == 32 then
+++: // add step to fit the Mojo 100MHz timing at 32 bits
+$$end
+
   if (den > num) {
     ret = 0;
     goto done;
@@ -91,7 +95,7 @@ $$ s='' .. (div_width-1) .. 'b'
 $$ for i = 0,div_width-2 do if i<c then s=s..'1' else s=s..'0' end end      
       case $s$: {
         ret = ret + (1<<k$div_width-2-c$);
-        reminder_tmp = reminder - (1<<k$div_width-2-c$)*den;
+        reminder_tmp = reminder - (den << k$div_width-2-c$);
       }
 $$end      
       default: {
