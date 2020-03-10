@@ -1,4 +1,5 @@
 $$VERILATOR=1
+$$VGA=1
 `define VERILATOR 1
 
 `default_nettype none
@@ -19,12 +20,12 @@ module vga(
   output reg [7:0]  sdram_dq_o,
   output reg  sdram_dq_en,
   // VGA
-  output vga_clock,
-  output reg [3:0] vga_r,
-  output reg [3:0] vga_g,
-  output reg [3:0] vga_b,
-  output vga_hs,
-  output vga_vs
+  output video_clock,
+  output reg [3:0] video_r,
+  output reg [3:0] video_g,
+  output reg [3:0] video_b,
+  output video_hs,
+  output video_vs
   );
 
 wire        __main_sdram_clock;
@@ -39,12 +40,12 @@ wire [12:0] __main_sdram_a;
 wire [7:0]  __main_sdram_dq_o;
 wire        __main_sdram_dq_en;
 
-wire        __main_vga_clock;
-wire [3:0]  __main_vga_r;
-wire [3:0]  __main_vga_g;
-wire [3:0]  __main_vga_b;
-wire        __main_vga_hs;
-wire        __main_vga_vs;
+wire        __main_video_clock;
+wire [3:0]  __main_video_r;
+wire [3:0]  __main_video_g;
+wire [3:0]  __main_video_b;
+wire        __main_video_hs;
+wire        __main_video_vs;
 
 reg ready = 0;
 reg [3:0] RST_d;
@@ -81,12 +82,12 @@ M_main __main(
   .in_sdram_dq_i(sdram_dq_i),
   .out_sdram_dq_o(__main_sdram_dq_o),
   .out_sdram_dq_en(__main_sdram_dq_en),
-  .out_vga_clock(__main_vga_clock),
-  .out_vga_r(__main_vga_r),
-  .out_vga_g(__main_vga_g),
-  .out_vga_b(__main_vga_b),
-  .out_vga_hs(__main_vga_hs),
-  .out_vga_vs(__main_vga_vs),
+  .out_video_clock(__main_video_clock),
+  .out_video_r(__main_video_r),
+  .out_video_g(__main_video_g),
+  .out_video_b(__main_video_b),
+  .out_video_hs(__main_video_hs),
+  .out_video_vs(__main_video_vs),
   .in_run(run_main)
 );
 
@@ -102,11 +103,11 @@ assign sdram_a      = __main_sdram_a;
 assign sdram_dq_o   = __main_sdram_dq_o;
 assign sdram_dq_en  = __main_sdram_dq_en;
 
-assign vga_clock = __main_vga_clock;
-assign vga_r     = __main_vga_r;
-assign vga_g     = __main_vga_g;
-assign vga_b     = __main_vga_b;
-assign vga_hs    = __main_vga_hs;
-assign vga_vs    = __main_vga_vs;
+assign video_clock = __main_video_clock;
+assign video_r     = __main_video_r;
+assign video_g     = __main_video_g;
+assign video_b     = __main_video_b;
+assign video_hs    = __main_video_hs;
+assign video_vs    = __main_video_vs;
 
 endmodule

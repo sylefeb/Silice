@@ -1,4 +1,5 @@
 $$MOJO=1
+$$HDMI=1
 `define MOJO 1
 
 module mojo_top(

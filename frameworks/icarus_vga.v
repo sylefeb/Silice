@@ -6,12 +6,12 @@ module top;
 reg clk;
 reg rst_n;
 
-wire __main_vga_clock;
-wire __main_vga_hs;
-wire __main_vga_vs;
-wire [3:0] __main_vga_r;
-wire [3:0] __main_vga_g;
-wire [3:0] __main_vga_b;
+wire __main_video_clock;
+wire __main_video_hs;
+wire __main_video_vs;
+wire [3:0] __main_video_r;
+wire [3:0] __main_video_g;
+wire [3:0] __main_video_b;
 
 initial begin
   clk = 1'b0;
@@ -48,12 +48,12 @@ wire done_main;
 M_main __main(
   .clock(clk),
   .reset(RST_d[0]),
-  .out_vga_clock(__main_vga_clock),
-  .out_vga_r(__main_vga_r),
-  .out_vga_g(__main_vga_g),
-  .out_vga_b(__main_vga_b),
-  .out_vga_hs(__main_vga_hs),
-  .out_vga_vs(__main_vga_vs),  
+  .out_video_clock(__main_video_clock),
+  .out_video_r(__main_video_r),
+  .out_video_g(__main_video_g),
+  .out_video_b(__main_video_b),
+  .out_video_hs(__main_video_hs),
+  .out_video_vs(__main_video_vs),  
   .in_run(run_main),
   .out_done(done_main)
 );

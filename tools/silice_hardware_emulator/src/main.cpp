@@ -76,16 +76,16 @@ void value_change_callback(void* user_callback_data_pointer, uint64_t time, fstH
   g_Values[g_HandleToName[facidx]] = decodeValue((const char*)value);
 
   static bool prev_clk = false;
-  bool clk = g_Values["__main_vga_clock"];
+  bool clk = g_Values["__main_video_clock"];
   if (clk != prev_clk) {
     prev_clk = clk;
     g_VGA.step(
       clk,
-      g_Values["__main_vga_vs"],
-      g_Values["__main_vga_hs"],
-      g_Values["__main_vga_r [3:0]"],
-      g_Values["__main_vga_g [3:0]"],
-      g_Values["__main_vga_b [3:0]"]
+      g_Values["__main_video_vs"],
+      g_Values["__main_video_hs"],
+      g_Values["__main_video_r [3:0]"],
+      g_Values["__main_video_g [3:0]"],
+      g_Values["__main_video_b [3:0]"]
     );
 
     std::this_thread::yield();

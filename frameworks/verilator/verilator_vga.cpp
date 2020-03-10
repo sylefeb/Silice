@@ -55,7 +55,7 @@ int main(int argc,char **argv)
               vga_test->sdram_dqm, (vluint64_t)vga_test->sdram_dq_o, sdram_dq);
     vga_test->sdram_dq_i = (vga_test->sdram_dq_en) ? vga_test->sdram_dq_o : sdram_dq;
     
-    vga_chip->eval(vga_test->vga_clock,vga_test->vga_vs,vga_test->vga_hs,vga_test->vga_r,vga_test->vga_g,vga_test->vga_b);
+    vga_chip->eval(vga_test->video_clock,vga_test->video_vs,vga_test->video_hs,vga_test->video_r,vga_test->video_g,vga_test->video_b);
 
     main_time ++;
   }

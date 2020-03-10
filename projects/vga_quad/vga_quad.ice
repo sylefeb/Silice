@@ -5,7 +5,7 @@ $include('../common/divint_any.ice')
 $$mul_width=32
 $include('../common/mulint_any.ice')
 
-$include('../common/vga_sdram_main.ice')
+$include('../common/video_sdram_main.ice')
 
 // ------------------------- 
 
