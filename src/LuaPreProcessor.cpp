@@ -155,6 +155,41 @@ static void lua_image_table(lua_State* L, std::string str)
 
 // -------------------------------------------------
 
+static void lua_palette_table(lua_State* L, std::string str)
+{
+  auto P = g_LuaPreProcessors.find(L);
+  if (P == g_LuaPreProcessors.end()) {
+    throw Fatal("internal error (lua_image_table)");
+  }
+  LuaPreProcessor *lpp = P->second;
+  std::string      fname = lpp->findFile(str);
+  t_image_nfo* nfo = ReadTGAFile(fname.c_str());
+  if (nfo == NULL) {
+    throw Fatal("cannot load image file '%s'", fname.c_str());
+  }
+  if (nfo->colormap == NULL) {
+    throw Fatal("image file '%s' has no palette", fname.c_str());
+  }
+  if (nfo->depth != 8) {
+    throw Fatal("image file '%s' palette is not 8 bits", fname.c_str());
+  }
+  uchar* ptr = nfo->colormap;
+  ForIndex(idx, 256) {
+      uint32_t v = 0;
+      ForIndex(c, 3) {
+        v = (v << 8) | *(uint8_t*)(ptr++);
+      }
+      g_LuaOutputs[L] << std::to_string(v) << ",";
+  }
+  delete[](nfo->pixels);
+  if (nfo->colormap) {
+    delete[](nfo->colormap);
+  }
+  delete (nfo);
+}
+
+// -------------------------------------------------
+
 static void bindScript(lua_State *L)
 {
   luabind::open(L);
@@ -177,10 +212,11 @@ static void bindScript(lua_State *L)
 
   luabind::module(L)
     [
-      luabind::def("print",  &lua_print),
-      luabind::def("error",  &lua_preproc_error),
-      luabind::def("output", &lua_output),
-      luabind::def("image_table", &lua_image_table)
+      luabind::def("print",         &lua_print),
+      luabind::def("error",         &lua_preproc_error),
+      luabind::def("output",        &lua_output),
+      luabind::def("image_table",   &lua_image_table),
+      luabind::def("palette_table", &lua_palette_table)
     ];
 }
 

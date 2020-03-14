@@ -5,6 +5,19 @@ $include('../common/divint_any.ice')
 $$mul_width=32
 $include('../common/mulint_any.ice')
 
+// ------------------------- 
+
+$$texture = ''
+$$if MOJO and VGA then
+$$texture='wallbin.tga'
+$$elseif MOJO and HDMI then
+$$texture='wall_ui8.tga'
+$$else
+$$texture='wall.tga'
+$$end
+
+// ------------------------- 
+
 $include('../common/video_sdram_main.ice')
 
 // ------------------------- 
@@ -32,12 +45,8 @@ algorithm frame_drawer(
   uint1 dir0 =   0;
   uint1 dir1 =   0;
 
-  uint4 texture[] = {   // texture from https://github.com/freedoom/freedoom
-$$if MOJO then
-$$image_table('wallbin.tga')
-$$else
-$$image_table('wall.tga')
-$$end
+  uint8 texture[] = {   // texture from https://github.com/freedoom/freedoom
+$$image_table(texture)
   };
 
   // pre-compute table for vertical interpolation (beta)  
@@ -104,7 +113,7 @@ $$end
     int32 pix_y = 0;
 
     int32 h     = 100;
-    int32 ynear = 4;
+    int32 ynear = 6;
     
 	  int32 scr0x = 0;
 	  int32 scr0y = 0;
@@ -247,7 +256,7 @@ $$end
           if (sbusy == 0) {        // not busy?
             // sdata_in    = (alpha >> 6); // palette id
             // sdata_in    = (beta >> 16); // palette id
-            sdata_in    = ~texture[ ((alpha >> 2)&63) + (((beta >> 15)&63) << 6) ];
+            sdata_in    = texture[ ((alpha >> 2)&63) + (((beta >> 15)&63) << 6) ];
             saddr       = (pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2; // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
