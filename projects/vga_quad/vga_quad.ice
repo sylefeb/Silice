@@ -216,6 +216,9 @@ $$end
       scr1x = 159;
     }
 
+    /// first alpha (start division)
+    div <- (anum_loop,aden_loop);
+        
     /// draw columns loop
     scrix = scr0x;
     while (scrix < scr1x) {
@@ -225,9 +228,10 @@ $$end
       h_loop = h_loop + h_incr;
 
       /// alpha (u tex coord)
-      (alpha) <- div <- (anum_loop,aden_loop);       // TODO: pipeline!
+      (alpha) <- div; // get result
       anum_loop = anum_loop + anum_incr;
       aden_loop = aden_loop + aden_incr;
+      div <- (anum_loop,aden_loop); // start div for next 
       
       /// bounds
       if (hscr < 0) {
