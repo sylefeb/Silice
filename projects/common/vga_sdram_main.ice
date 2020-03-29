@@ -6,6 +6,7 @@ $$if ICARUS then
   import('simul_sdram.v')
 $$end
 
+import('sdram_clock.v')
 import('sdram.v')
 
 // Frame buffer row

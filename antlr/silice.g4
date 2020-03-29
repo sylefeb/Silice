@@ -79,6 +79,8 @@ COMMENT             : '//' ~[\r\n]* NEWLINE -> skip ;
 
 NEXT                : '++:' ;
 
+ATTRIBS             : '(*' ~[\r\n]* '*)' ;
+
 STRING              : '"' ~[\r\n"]* '"' ;
 
 /* ======== Parser ======== */
@@ -97,7 +99,7 @@ algModifiers        : '<' (algModifier ',') * algModifier '>' ;
 
 initList            : '{' (value ',')* value? '}';
 
-declarationVar      : TYPE IDENTIFIER '=' value ;
+declarationVar      : TYPE IDENTIFIER '=' value ATTRIBS?;
 declarationTable    : TYPE IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);
 declarationModAlg   : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
 declaration         : declarationVar | declarationModAlg | declarationTable ; 
