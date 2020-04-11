@@ -407,7 +407,9 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
   splitType(decl->TYPE()->getText(), var.base_type, var.width);
   var.init_values.push_back("0");
   var.init_values[0] = gatherValue(decl->value());
-  var.attribs = decl->ATTRIBS()->getText();
+  if (decl->ATTRIBS() != nullptr) {
+    var.attribs = decl->ATTRIBS()->getText();
+  }
   // verify the varaible does not shadow an input or output
   if (isInput(var.name)) {
     throw Fatal("variable '%s' is shadowing input of same name (line %d)", var.name.c_str(), decl->getStart()->getLine());
