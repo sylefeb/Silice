@@ -1,4 +1,5 @@
 $$ICARUS=1
+$$VGA=1
 `define ICARUS 1
 
 module top;
@@ -18,7 +19,8 @@ initial begin
   rst_n = 1'b0;
   $display("icarus framework started");
   $dumpfile("icarus.fst");
-  $dumpvars(1,top);
+  $dumpvars(0,top); // dump all (for full debugging)
+  // $dumpvars(1,top); // dump only top (much faster and smaller)
   repeat(4) #5 clk = ~clk;
   rst_n = 1'b1;
   forever #5 clk = ~clk; // generate a clock

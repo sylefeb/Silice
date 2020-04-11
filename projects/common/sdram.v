@@ -11,6 +11,11 @@
 	[SL] 2019 modified for the silice demo projects
 	- read 4 bytes in burst
 	- compatible with icarus, verilator and mojo
+  - banks are determined by most significant bits
+    addr is 23 bits
+    [22:21] => bank  
+    [20:8]  => row
+    [7:0]   => column
 */
 
 module sdram (
@@ -36,7 +41,7 @@ module sdram (
 `endif
         // User interface
         input  [22:0] addr,       // address to read/write
-        input  [1:0]  wbyte_addr, // write byte address with 32-bit word at addr
+        input  [1:0]  wbyte_addr, // write byte address within 32-bit word at addr
         input  rw,                // 1 = write, 0 = read
         input  [31:0] data_in,    // data from a read
         output [31:0] data_out,   // data for a write
@@ -325,8 +330,8 @@ module sdram (
                         data_d = saved_data_q;
 
                     // if the row is open we don't have to activate it
-                    if (row_open_q[saved_addr_q[9:8]]) begin
-                        if (row_addr_q[saved_addr_q[9:8]] == saved_addr_q[22:10]) begin
+                    if (row_open_q[saved_addr_q[22:21]]) begin
+                        if (row_addr_q[saved_addr_q[22:21]] == saved_addr_q[20:8]) begin
                             // Row is already open
                             if (saved_rw_q)
                                 state_d = WRITE;
@@ -335,7 +340,7 @@ module sdram (
                         end else begin
                             // A different row in the bank is open
                             state_d = PRECHARGE; // precharge open row
-                            precharge_bank_d = {1'b0, saved_addr_q[9:8]};
+                            precharge_bank_d = {1'b0, saved_addr_q[22:21]};
                             next_state_d = ACTIVATE; // open current row
                         end
                     end else begin
@@ -356,8 +361,8 @@ module sdram (
             ///// ACTIVATE /////
             ACTIVATE: begin
                 cmd_d = CMD_ACTIVE;
-                a_d = addr_q[22:10];
-                ba_d = addr_q[9:8];
+                a_d = addr_q[20:8];
+                ba_d = addr_q[22:21];
                 delay_ctr_d = 13'd0;
                 state_d = WAIT;
 
@@ -366,15 +371,15 @@ module sdram (
                 else
                     next_state_d = READ;
 
-                row_open_d[addr_q[9:8]] = 1'b1; // row is now open
-                row_addr_d[addr_q[9:8]] = addr_q[22:10];
+                row_open_d[addr_q[22:21]] = 1'b1; // row is now open
+                row_addr_d[addr_q[22:21]] = addr_q[20:8];
             end
 
             ///// READ /////
             READ: begin
                 cmd_d = CMD_READ;
                 a_d = {2'b0, 1'b0, addr_q[7:0], 2'b0};
-                ba_d = addr_q[9:8];
+                ba_d = addr_q[22:21];
                 state_d = WAIT;
                 delay_ctr_d = 13'd2; // wait for the data to show up
                 next_state_d = READ_RES;
@@ -399,7 +404,7 @@ module sdram (
                 // data_d = {8'h00, data_q[31:8]}; // shift the data out
                 dq_en_d = 1'b1; // enable out bus
                 a_d = {2'b0, 1'b0, addr_q[7:0], wbyte_addr_q};
-                ba_d = addr_q[9:8];
+                ba_d = addr_q[22:21];
 
                 //if (byte_ctr_q == 2'd3) begin
                 state_d = IDLE;

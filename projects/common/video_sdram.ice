@@ -267,7 +267,8 @@ algorithm frame_buffer_row_updater(
     while (count < (320 >> 2)) {
 	
       if (sbusy == 0) {        // not busy?
-        saddr       = count + (((row << 8) + (row << 6)) >> 2); // address to read from (count + row * 320 / 4)
+        // address to read from (count + row * 320 / 4)
+        saddr       = count + (((row << 8) + (row << 6)) >> 2); 
         sin_valid   = 1;         // go ahead!      
         while (sout_valid == 0) {  } // wait for value
         // write to selected frame buffer row
