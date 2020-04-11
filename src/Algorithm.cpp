@@ -407,6 +407,7 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
   splitType(decl->TYPE()->getText(), var.base_type, var.width);
   var.init_values.push_back("0");
   var.init_values[0] = gatherValue(decl->value());
+  var.attribs = decl->ATTRIBS()->getText();
   // verify the varaible does not shadow an input or output
   if (isInput(var.name)) {
     throw Fatal("variable '%s' is shadowing input of same name (line %d)", var.name.c_str(), decl->getStart()->getLine());
@@ -2793,7 +2794,12 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
   for (const auto& v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
     out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
-    out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << std::endl;
+    out << FF_D << prefix << v.name << ';' << std::endl;
+    if (!v.attribs.empty()) {
+      out << v.attribs << std::endl;
+    }
+    out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
+    out << FF_Q << prefix << v.name << ';' << std::endl;
   }
   // flip-flops for outputs
   for (const auto& v : m_Outputs) {

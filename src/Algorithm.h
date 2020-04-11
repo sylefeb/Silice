@@ -28,6 +28,7 @@ NOTES:
 - SL: warning if an algorithm input is not bound + not used
 - SL: global scope subroutines (simply add them to all algorithm before gather?)
 - SL: inline combinational subroutines? [low priority]
+
 */
 
 #include "siliceLexer.h"
@@ -126,6 +127,7 @@ private:
     int         table_size; // 0: not a table, otherwise size
     e_Access    access = e_NotAccessed;
     e_VarUsage  usage = e_Undetermined;
+    std::string attribs;
   };
 
   /// \brief typedef to distinguish vars from ios

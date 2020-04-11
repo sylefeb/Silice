@@ -1,9 +1,9 @@
 // SDRAM controller
-import('verilog/sdram.v')
+$include('../common/sdramctrl.ice')
 
 // SDRAM simulator
-append('verilog/mt48lc32m8a2.v')
-import('verilog/simul_sdram.v')
+append('../common/mt48lc32m8a2.v')
+import('../common/simul_sdram.v')
 
 // ------------------------- 
 
@@ -35,7 +35,7 @@ simul_sdram simul(
   <:auto:>
 );
 
-sdram memory(
+sdramctrl memory(
   clk       <: clock,
   rst       <: reset,
   addr      <: saddr,
