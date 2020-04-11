@@ -16,7 +16,6 @@
 module sdram (
         input clk,
         input rst,
-
         // these signals go directly to the IO pins
         output sdram_clk,
         output sdram_cle,
