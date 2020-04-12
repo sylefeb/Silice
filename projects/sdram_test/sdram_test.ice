@@ -59,7 +59,7 @@ sdramctrl memory(
 	// write to sdram
 	while (1) {
 	  if (sbusy == 0) {        // not busy?            
-		sdata_in  = 33;            
+		sdata_in  = count;            
 		saddr     = count;
 		sin_valid = 1; // go ahead!
 		break;

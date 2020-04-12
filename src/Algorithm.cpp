@@ -55,9 +55,10 @@ void Algorithm::checkAlgorithmsBindings() const
 {
   for (auto& ia : m_InstancedAlgorithms) {
     for (const auto& b : ia.second.bindings) {
-      bool is_input = ia.second.algo->isInput(b.left);
+      bool is_input  = ia.second.algo->isInput (b.left);
       bool is_output = ia.second.algo->isOutput(b.left);
-      if (!is_input && !is_output) {
+      bool is_inout  = ia.second.algo->isInOut (b.left);
+      if (!is_input && !is_output && !is_inout) {
         throw Fatal("wrong binding point (neither input nor output), instanced module '%s', binding '%s' (line %d)",
           ia.first.c_str(), b.left.c_str(), b.line);
       }
@@ -67,6 +68,10 @@ void Algorithm::checkAlgorithmsBindings() const
       }
       if (b.dir == e_Right && !is_output) { // output
         throw Fatal("wrong binding direction, instanced module '%s', binding input '%s' (line %d)",
+          ia.first.c_str(), b.left.c_str(), b.line);
+      }
+      if (b.dir == e_BiDir && !is_inout) { // inout
+        throw Fatal("wrong binding direction, instanced module '%s', binding inout '%s' (line %d)",
           ia.first.c_str(), b.left.c_str(), b.line);
       }
     }
@@ -235,7 +240,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
       }
     }
   }
-  // -> for each module output
+  // -> for each algorithm output
   for (auto io : _alg.algo->m_Outputs) {
     if (defined.find(io.name) == defined.end()) {
       // not bound, check if host algorithm has an output with same name
@@ -257,6 +262,34 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
           bnfo.dir = e_Right;
           _alg.bindings.push_back(bnfo);
         }
+    }
+  }
+  // -> for each algorithm inout
+  for (auto io : _alg.algo->m_InOuts) {
+    if (defined.find(io.name) == defined.end()) {
+      // not bound
+      // check if algorithm has an inout with same name
+      if (m_InOutNames.find(io.name) != m_InOutNames.end()) {
+        // yes: autobind
+        t_binding_nfo bnfo;
+        bnfo.line = _alg.instance_line;
+        bnfo.left = io.name;
+        bnfo.right = io.name;
+        bnfo.dir = e_BiDir;
+        _alg.bindings.push_back(bnfo);
+      }
+      // check if algorithm has a var with same name
+      else {
+        if (m_VarNames.find(io.name) != m_VarNames.end()) {
+          // yes: autobind
+          t_binding_nfo bnfo;
+          bnfo.line = _alg.instance_line;
+          bnfo.left = io.name;
+          bnfo.right = io.name;
+          bnfo.dir = e_BiDir;
+          _alg.bindings.push_back(bnfo);
+        }
+      }
     }
   }
 }
@@ -3422,10 +3455,11 @@ void Algorithm::writeAsModule(ostream& out) const
       const auto& vio = m_ModAlgInOutsBoundToVIO.find(bindpoint);
       if (vio != m_ModAlgInOutsBoundToVIO.end()) {
         if (isInOut(vio->second)) {
-          out << '.' << os.name << '(' << ALG_INOUT << "_" << vio->second << ")";
+          out << '.' << ALG_INOUT << '_' << os.name << '(' << ALG_INOUT << "_" << vio->second << ")";
         } else {
-          out << '.' << os.name << '(' << WIRE << "_" << vio->second << ")";
+          out << '.' << ALG_INOUT << '_' << os.name << '(' << WIRE << "_" << vio->second << ")";
         }
+        out << ',' << endl;
       } else {
         throw Fatal("cannot find algorithm inout binding '%s' (line %d)", os.name.c_str(), nfo.second.instance_line);
       }

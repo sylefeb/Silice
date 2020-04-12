@@ -8,7 +8,7 @@ module simul_sdram(
     input sdram_ras,
     input [1:0]  sdram_ba,
     input [12:0] sdram_a,
-	inout [7:0]  sdram_dq);
+	  inout [7:0]  sdram_dq);
 
 mt48lc32m8a2 simulator(
   .Dq(sdram_dq),

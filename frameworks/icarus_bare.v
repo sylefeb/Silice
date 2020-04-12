@@ -1,6 +1,8 @@
 $$ICARUS=1
 `define ICARUS 1
 
+`timescale 1ns / 1ps
+
 module top;
 
 reg clk;
@@ -14,7 +16,7 @@ initial begin
   $dumpvars(0,top);
   repeat(4) #5 clk = ~clk;
   rst_n = 1'b1;
-  forever #5 clk = ~clk; // generate a clock
+  forever #5 clk = ~clk; // generate a 100MHz clock
 end
 
 reg ready = 0;

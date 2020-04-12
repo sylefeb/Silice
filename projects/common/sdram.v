@@ -116,7 +116,7 @@ module sdram (
 	// only drive sdram_dq when dq_en_q is 1
 `ifdef VERILATOR
     assign sdram_dq_o  = dq_en_q ? dq_q : sdram_dq_i; 
-	assign sdram_dq_en = dq_en_q;
+	  assign sdram_dq_en = dq_en_q;
 `else
     assign sdram_dq = dq_en_q ? dq_q : 8'hZZ;
 `endif
