@@ -1481,8 +1481,17 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
   checkPermissions(tree, _current);
 
   if (algbody) {
+    // gather declarations
     gatherDeclarationList(algbody->declList, nullptr);
+    // gather always assigned
     gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
+    // gather always block if defined
+    if (algbody->alwaysBlock() != nullptr) {
+      gather(algbody->alwaysBlock(),&m_AlwaysPre,_context);
+      if (!isStateLessGraph(&m_AlwaysPre)) {
+        throw Fatal("always block can only be combinational (line %d)", algbody->alwaysBlock()->getStart()->getLine());
+      }
+    }
     // add global subroutines now (reparse them as if defined in algorithm)
     for (const auto& s : m_KnownSubroutines) {
       gatherSubroutine(s.second, _current, _context);

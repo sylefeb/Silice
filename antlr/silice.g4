@@ -50,6 +50,8 @@ BREAK               : 'break' ;
 
 DISPLAY             : '$display' ;
 
+ALWAYS              : 'always' ;
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -204,6 +206,7 @@ instruction         : assignment
                     | display
                     ;
 
+alwaysBlock         : ALWAYS '{' instructionList '}';
 repeatBlock         : REPEATCNT '{' instructionList '}' ;
 
 pipeline            : block ('->' block) +;
@@ -240,9 +243,10 @@ subroutineParamList : (subroutineParam ',')* subroutineParam;
 subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList RETURN ';' '}' ;
 subroutineList      : subroutine * ;
                     
-declAndInstrList    : declList = declarationList 
-                      subroutineList 
-                      alwaysPre  = alwaysAssignedList 
+declAndInstrList    : declList  = declarationList 
+                      subroutineList                       
+                      alwaysPre = alwaysAssignedList 
+                      alwaysBlock?
                       instructionList
 					  ;
 
