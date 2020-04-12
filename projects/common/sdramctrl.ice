@@ -80,6 +80,7 @@ $$refresh_cycles = 750
 $$refresh_wait   = 6
 
   uint24 refresh_count = $refresh_cycles$;
+  uint1  refresh_asap  = 0;
   
   // wait for incount cycles, incount >= 3
   subroutine wait(input uint16 incount)
@@ -152,6 +153,13 @@ $$refresh_wait   = 6
     // can accept work
     busy     = 0;
     
+    // refresh?
+    refresh_count = refresh_count - 1;
+    if (refresh_count == 0) {
+      // -> refresh asap
+      refresh_asap  = 1;
+    }
+
     if (in_valid) { // NOTE: works only as long  as
                     // the while loops every cycle.
                     // Otherwise an in_valid pulse could be lost.
@@ -225,14 +233,14 @@ $$refresh_wait   = 6
         data_out[0,8]  = dq_i;
         out_valid  = 1;
       }
+      
     } else { // no input
+    
       // refresh?
-      refresh_count = refresh_count - 1;
-      if (refresh_count == 0) {
+      if (refresh_asap) {
+        refresh_asap = 0;
         // -> now busy!
         busy     = 1;
-        // -> reset count
-        refresh_count = $refresh_cycles$;
         // -> precharge all
         cmd      = CMD_PRECHARGE;
         a[10,1]  = 1;
@@ -244,7 +252,10 @@ $$refresh_wait   = 6
         cmd      = CMD_REFRESH;
         delay    = $refresh_wait$;
         () <- wait <- (delay);      
+        // -> reset count
+        refresh_count = $refresh_cycles$;
       }    
+      
     }
         
   }
