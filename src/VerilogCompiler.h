@@ -116,7 +116,7 @@ private:
 
     } else if (imprt) {
 
-      /// verilog import
+      /// verilog module import
       std::string fname = imprt->FILENAME()->getText();
       fname = fname.substr(1, fname.length() - 2);
       fname = findFile(fname);
@@ -132,7 +132,7 @@ private:
 
     } else if (app) {
 
-      /// file include
+      /// verilog module append
       std::string fname = app->FILENAME()->getText();
       fname = fname.substr(1, fname.length() - 2);
       fname = findFile(fname);
@@ -140,8 +140,12 @@ private:
         throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), app->getStart()->getLine());
       }
       m_Appends.insert(fname);
+
     } else if (sub) {
+
+      /// global subroutine
       m_Subroutines.insert(std::make_pair(sub->IDENTIFIER()->getText(), sub));
+
     }
   }
 

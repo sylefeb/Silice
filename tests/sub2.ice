@@ -12,7 +12,7 @@ algorithm main(output uint8 led)
   passthrough p0;
 
   subroutine test(reads a) {
-	p0.i = a + 2;
+	  p0.i = a + 2;
     return;
   }
 

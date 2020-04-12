@@ -74,17 +74,22 @@ algorithm sdramctrl(
   uint2  bank        = 0;
   uint8  col         = 0;
   uint32 data        = 0;
+  uint1  do_rw       = 0;
 
 $$refresh_cycles = 750
+$$refresh_wait   = 6
 
   uint24 refresh_count = $refresh_cycles$;
   
+  // wait for incount cycles, incount >= 3
   subroutine wait(input uint16 incount)
   {
     uint16 count = 0;
-    count = incount;
+    count = incount - 3; // -1 for startup,
+                         // -1 for exit,
+                         // -1 for proper loop length
     while (count > 0) {
-      count = count - 1;
+      count = count - 1;      
     }
     return;
   }
@@ -101,7 +106,7 @@ $$refresh_cycles = 750
   cmd       := CMD_NOP;
   out_valid := 0;
  
-  busy  = 1;
+  busy       = 1;
  
   // init
   $display("init");
@@ -123,13 +128,13 @@ $$refresh_cycles = 750
   // refresh 1
   $display("refresh 1");
   cmd     = CMD_REFRESH;
-  delay   = 7;
+  delay   = $refresh_wait$;
   () <- wait <- (delay);
   
   // refresh 2
   $display("refresh 2");
   cmd     = CMD_REFRESH;
-  delay   = 7;
+  delay   = $refresh_wait$;
   () <- wait <- (delay);
   
   // load mod reg
@@ -140,41 +145,27 @@ $$refresh_cycles = 750
   delay   = 2;
   () <- wait <- (delay);
 
-  busy    = 0;
   $display("main loop");
 
   while (1) {
+
+    // can accept work
+    busy     = 0;
     
-    refresh_count = refresh_count - 1;
-    if (refresh_count == 0) {
+    if (in_valid) { // NOTE: works only as long  as
+                    // the while loops every cycle.
+                    // Otherwise an in_valid pulse could be lost.
+                    // A single top level if-else with
+                    // nothing after it ensures this.
+      // -> now busy!
       busy     = 1;
-      // reset count
-      refresh_count = $refresh_cycles$;
-      // precharge all
-      cmd      = CMD_PRECHARGE;
-      a[10,1]  = 1;
-      ba       = 0;
-      row_open = 0;
-      //delay    = 0; /// ????????????
-      //() <- wait <- (delay);      
-++:
-++:
-      // refresh
-      cmd      = CMD_REFRESH;
-      delay    = 7;
-      () <- wait <- (delay);      
-      busy     = 0;
-    }
-    
-    if (in_valid) {
       // -> copy inputs
-      bank = addr[21,2];
-      row  = addr[8,13];
-      col  = addr[0,8];
-      data = data_in;
-      // busy
-      busy = 1;
-      // row management
+      bank     = addr[21,2];
+      row      = addr[8,13];
+      col      = addr[0,8];
+      data     = data_in;
+      do_rw    = rw;
+      // -> row management
       if (row_open[bank]) {      
         // a row is open
         if (row_addr[bank] == row) {
@@ -186,8 +177,6 @@ $$refresh_cycles = 750
           a[10,1]      = 0;
           ba           = bank;
           row_open[ba] = 0;
-          //delay        = 0; /// ????????????
-          //() <- wait <- (delay);      
 ++:
 ++:          
           // -> activate
@@ -208,14 +197,14 @@ $$refresh_cycles = 750
 ++:          
       }
       // write or read?
-      if (rw) {
+      if (do_rw) {
         // write
         cmd   = CMD_WRITE;
         dq_o  = data;
         dq_en = 1;
         a     = {2b0, 1b0, col, wbyte_addr};
         ba    = bank;
-  ++:
+++:
       } else {
         // read
         cmd   = CMD_READ;        
@@ -224,19 +213,39 @@ $$refresh_cycles = 750
         ba    = bank;
         // wait for data
 ++:
-        cmd   = CMD_NOP;
+++:
 ++:
         // burst 4 bytes
-        data[24,8] = dq_i;
+        data_out[24,8] = dq_i;
 ++:        
-        data[16,8] = dq_i;
+        data_out[16,8] = dq_i;
 ++:        
-        data[8,8]  = dq_i;
+        data_out[8,8]  = dq_i;
 ++:        
-        data[0,8]  = dq_i;
+        data_out[0,8]  = dq_i;
         out_valid  = 1;
       }
-      busy  = 0;
+    } else { // no input
+      // refresh?
+      refresh_count = refresh_count - 1;
+      if (refresh_count == 0) {
+        // -> now busy!
+        busy     = 1;
+        // -> reset count
+        refresh_count = $refresh_cycles$;
+        // -> precharge all
+        cmd      = CMD_PRECHARGE;
+        a[10,1]  = 1;
+        ba       = 0;
+        row_open = 0;
+++:
+++:
+        // refresh
+        cmd      = CMD_REFRESH;
+        delay    = $refresh_wait$;
+        () <- wait <- (delay);      
+      }    
     }
+        
   }
 }

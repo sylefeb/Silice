@@ -1483,7 +1483,7 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
   if (algbody) {
     gatherDeclarationList(algbody->declList, nullptr);
     gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
-    // parse global subroutines now
+    // add global subroutines now (reparse them as if defined in algorithm)
     for (const auto& s : m_KnownSubroutines) {
       gatherSubroutine(s.second, _current, _context);
     }

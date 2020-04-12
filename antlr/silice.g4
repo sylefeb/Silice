@@ -199,9 +199,9 @@ instruction         : assignment
                     | joinExec
                     | jump
                     | call
-					| returnFrom
+                    | returnFrom
                     | breakLoop
-					| display
+                    | display
                     ;
 
 repeatBlock         : REPEATCNT '{' instructionList '}' ;
