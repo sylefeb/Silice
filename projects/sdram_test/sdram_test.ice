@@ -67,7 +67,7 @@ sdramctrl memory(
 	} // write occurs during loop cycle      
 	count = count + 1;
   }
-  
+$display("=== readback ===");
   count = 0;
   // read back
   srw = 0;

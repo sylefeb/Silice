@@ -99,6 +99,7 @@ $$refresh_cycles = 750
   sdram_cle := 1;
  
   cmd       := CMD_NOP;
+  out_valid := 0;
  
   busy  = 1;
  
@@ -117,18 +118,22 @@ $$refresh_cycles = 750
   ba       = 0;
   row_open = 0;
 ++:
+++:
   
   // refresh 1
+  $display("refresh 1");
   cmd     = CMD_REFRESH;
   delay   = 7;
   () <- wait <- (delay);
   
   // refresh 2
+  $display("refresh 2");
   cmd     = CMD_REFRESH;
   delay   = 7;
   () <- wait <- (delay);
   
   // load mod reg
+  $display("load mode reg");
   cmd     = CMD_LOAD_MODE_REG;
   ba      = 0;
   a       = {3b000, 1b1, 2b00, 3b010, 1b0, 3b010};
@@ -136,6 +141,7 @@ $$refresh_cycles = 750
   () <- wait <- (delay);
 
   busy    = 0;
+  $display("main loop");
 
   while (1) {
     
@@ -149,8 +155,10 @@ $$refresh_cycles = 750
       a[10,1]  = 1;
       ba       = 0;
       row_open = 0;
-      delay    = 0; /// ????????????
-      () <- wait <- (delay);      
+      //delay    = 0; /// ????????????
+      //() <- wait <- (delay);      
+++:
+++:
       // refresh
       cmd      = CMD_REFRESH;
       delay    = 7;
@@ -158,16 +166,15 @@ $$refresh_cycles = 750
       busy     = 0;
     }
     
-    // write or read?
-    if (rw) {
-      busy = 1;
-      // write
+    if (in_valid) {
       // -> copy inputs
       bank = addr[21,2];
       row  = addr[8,13];
       col  = addr[0,8];
       data = data_in;
-      // -> start the write process
+      // busy
+      busy = 1;
+      // row management
       if (row_open[bank]) {      
         // a row is open
         if (row_addr[bank] == row) {
@@ -179,15 +186,16 @@ $$refresh_cycles = 750
           a[10,1]      = 0;
           ba           = bank;
           row_open[ba] = 0;
-          delay        = 0; /// ????????????
-          () <- wait <- (delay);      
+          //delay        = 0; /// ????????????
+          //() <- wait <- (delay);      
+++:
+++:          
           // -> activate
           cmd = CMD_ACTIVE;
           ba  = bank;
           a   = row;
           row_open[ba] = 1;
           row_addr[ba] = row;
-++:          
 ++:          
         }
       } else {
@@ -199,19 +207,36 @@ $$refresh_cycles = 750
           row_addr[ba] = row;
 ++:          
       }
-      // write
-      cmd   = CMD_WRITE;
-      dq_o  = data;
-      dq_en = 1;
-      a     = {2b0, 1b0, col, wbyte_addr};
-      ba    = bank;
+      // write or read?
+      if (rw) {
+        // write
+        cmd   = CMD_WRITE;
+        dq_o  = data;
+        dq_en = 1;
+        a     = {2b0, 1b0, col, wbyte_addr};
+        ba    = bank;
+  ++:
+      } else {
+        // read
+        cmd   = CMD_READ;        
+        dq_en = 0;
+        a     = {2b0, 1b0, col, 2b0};
+        ba    = bank;
+        // wait for data
 ++:
+        cmd   = CMD_NOP;
+++:
+        // burst 4 bytes
+        data[24,8] = dq_i;
+++:        
+        data[16,8] = dq_i;
+++:        
+        data[8,8]  = dq_i;
+++:        
+        data[0,8]  = dq_i;
+        out_valid  = 1;
+      }
       busy  = 0;
-    } else {
-      // read
-      
-    
     }
-     
   }
 }
