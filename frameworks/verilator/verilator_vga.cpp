@@ -37,7 +37,7 @@ int main(int argc,char **argv)
   // 67,108,864-bit banks is organized as 8192 rows by 1024 columns by 8 bits
   // this matches the Mojo Alchitry board with SDRAM shield
   vluint8_t sdram_flags = FLAG_DATA_WIDTH_8; // | FLAG_BANK_INTERLEAVING | FLAG_BIG_ENDIAN;
-  SDRAM* sdr  = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); //, "sdram.txt");
+  SDRAM* sdr  = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); // "sdram.txt");
   vluint64_t sdram_dq = 0;
   
   vga_test->clk = 0;

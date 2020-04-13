@@ -1,13 +1,45 @@
+// ------------------------- 
+
 // SDRAM controller
 $include('../common/sdramctrl.ice')
 
+$$if ICARUS then
 // SDRAM simulator
 append('../common/mt48lc32m8a2.v')
 import('../common/simul_sdram.v')
+$$end
 
 // ------------------------- 
 
-algorithm main() 
+algorithm main(
+$$if not ICARUS then
+  // SDRAM
+  output! uint1  sdram_cle,
+  output! uint1  sdram_dqm,
+  output! uint1  sdram_cs,
+  output! uint1  sdram_we,
+  output! uint1  sdram_cas,
+  output! uint1  sdram_ras,
+  output! uint2  sdram_ba,
+  output! uint13 sdram_a,
+$$if VERILATOR then
+  output! uint1  sdram_clock,
+  input   uint8  sdram_dq_i,
+  output! uint8  sdram_dq_o,
+  output! uint1  sdram_dq_en,
+  // VGA (to be compiled with sdram_vga framework
+  output! uint1  video_clock,
+  output! uint4  video_r,
+  output! uint4  video_g,
+  output! uint4  video_b,
+  output! uint1  video_hs,
+  output! uint1  video_vs
+$$elseif MOJO then
+  output! uint1  sdram_clk, // sdram chip clock != internal sdram_clock
+  inout   uint8  sdram_dq
+$$end
+$$end
+)
 {
 
 // --- SDRAM
@@ -20,6 +52,8 @@ uint32 sdata_out   = 0;
 uint1  sbusy       = 0;
 uint1  sin_valid   = 0;
 uint1  sout_valid  = 0;
+
+$$if ICARUS then
 
 uint1  sdram_cle   = 0;
 uint1  sdram_dqm   = 0;
@@ -36,6 +70,8 @@ simul_sdram simul(
   <:auto:>
 );
 
+$$end
+
 sdramctrl memory(
   clk       <: clock,
   rst       <: reset,
@@ -47,11 +83,20 @@ sdramctrl memory(
   busy      :> sbusy,
   in_valid  <: sin_valid,
   out_valid :> sout_valid,
+$$if VERILATOR then
+  dq_i      <: sdram_dq_i,
+  dq_o      :> sdram_dq_o,
+  dq_en     :> sdram_dq_en,
+$$end
   <:auto:>
 );
 
   uint9  count = 0;
 
+$$if VERILATOR then
+  // sdram clock for verilator simulation
+  sdram_clock := clock;
+$$end
   // maintain low (pulse up when ready)
   sin_valid := 0;
 

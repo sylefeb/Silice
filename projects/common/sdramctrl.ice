@@ -22,7 +22,13 @@ algorithm sdramctrl(
         output! uint2   sdram_ba,
         output! uint13  sdram_a,
         // data bus
+$$if VERILATOR then
+        input   uint8   dq_i,
+        output! uint8   dq_o,
+        output! uint1   dq_en,
+$$else
         inout   uint8   sdram_dq,
+$$end
         // interface
         input   uint23  addr,       // address to read/write
         input   uint2   wbyte_addr, // write byte address with 32-bit word at addr
@@ -50,6 +56,8 @@ algorithm sdramctrl(
     sdram_clk :> sdram_clk
   );
 
+$$if not VERILATOR then
+
   uint8  dq_i  = 0 (* IOB = "TRUE" *);
   uint8  dq_o  = 0 (* IOB = "TRUE" *);
   uint1  dq_en = 0;
@@ -60,6 +68,8 @@ algorithm sdramctrl(
     io_read  :> dq_i,
     io_write_enable <: dq_en
   );
+
+$$end
 
   uint4  cmd = 7 (* IOB = "TRUE" *);
   uint1  dqm = 0 (* IOB = "TRUE" *);
