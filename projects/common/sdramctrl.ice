@@ -203,7 +203,7 @@ $$refresh_wait   = 6
           a   = row;
           row_open[ba] = 1;
           row_addr[ba] = row;
-++:          
+++:
         }
       } else {
           // -> activate
@@ -212,7 +212,7 @@ $$refresh_wait   = 6
           a   = row;
           row_open[ba] = 1;
           row_addr[ba] = row;
-++:          
+++:
       }
       // write or read?
       if (do_rw) {
@@ -229,8 +229,9 @@ $$refresh_wait   = 6
         dq_en = 0;
         a     = {2b0, 1b0, col, 2b0};
         ba    = bank;
-        // wait for data
+        // wait for data (CAS)
 ++:
+		cmd   = CMD_NOP;
 ++:
 ++:
         // burst 4 bytes
