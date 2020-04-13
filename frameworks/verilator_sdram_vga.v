@@ -66,6 +66,7 @@ end
 
 wire   run_main;
 assign run_main = 1'b1;
+wire done_main;
 
 M_main __main(
   .clock(clk),
@@ -88,7 +89,8 @@ M_main __main(
   .out_video_b(__main_video_b),
   .out_video_hs(__main_video_hs),
   .out_video_vs(__main_video_vs),
-  .in_run(run_main)
+  .in_run(run_main),
+  .out_done(done_main)
 );
 
 assign sdram_clock  = __main_sdram_clock;
@@ -109,5 +111,9 @@ assign video_g     = __main_video_g;
 assign video_b     = __main_video_b;
 assign video_hs    = __main_video_hs;
 assign video_vs    = __main_video_vs;
+
+always @* begin
+  if (done_main && !RST_d[0]) $finish;
+end
 
 endmodule
