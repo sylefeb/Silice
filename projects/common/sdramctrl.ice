@@ -41,6 +41,7 @@ $$end
 ) <autorun>
 {
 
+  // SDRAM commands
   uint4 CMD_UNSELECTED    = 4b1000;
   uint4 CMD_NOP           = 4b0111;
   uint4 CMD_ACTIVE        = 4b0011;
@@ -71,8 +72,8 @@ $$if not VERILATOR then
 
 $$end
 
-  uint4  cmd = 7 (* IOB = "TRUE" *);
-  uint1  dqm = 0 (* IOB = "TRUE" *);
+  uint4  cmd = 7 (* IOB = "TRUE" *); // attribute for Xilinx synthesis
+  uint1  dqm = 0 (* IOB = "TRUE" *); // ensures flip-flop is on io pin
   uint2  ba  = 0 (* IOB = "TRUE" *);
   uint13 a   = 0 (* IOB = "TRUE" *);
   
@@ -175,6 +176,7 @@ $$refresh_wait   = 6
                     // Otherwise an in_valid pulse could be lost.
                     // A single top level if-else with
                     // nothing after it ensures this.
+                    // Otherwise an 'always block' could be used.
       // -> now busy!
       busy     = 1;
       // -> copy inputs
@@ -194,25 +196,27 @@ $$refresh_wait   = 6
           cmd          = CMD_PRECHARGE;
           a[10,1]      = 0;
           ba           = bank;
-          row_open[ba] = 0;
+          row_open[ba] = 0; //row closed
 ++:
 ++:          
           // -> activate
           cmd = CMD_ACTIVE;
           ba  = bank;
           a   = row;
-          row_open[ba] = 1;
-          row_addr[ba] = row;
 ++:
+          // row opened
+          row_open[ba] = 1; 
+          row_addr[ba] = row;
         }
       } else {
           // -> activate
           cmd = CMD_ACTIVE;
           ba  = bank;
           a   = row;
-          row_open[ba] = 1;
-          row_addr[ba] = row;
 ++:
+          // row opened
+          row_open[ba] = 1;
+          row_addr[ba] = row; 
       }
       // write or read?
       if (do_rw) {

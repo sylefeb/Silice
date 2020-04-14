@@ -124,9 +124,9 @@ text_buffer txtbuf (
 		  addr     = letter_i + (letter_j << 3) + (txtdata_r << 6);
 		  pixel    = letters[ addr ];
 		  if (pixel == 1) {
-			pix_red   = 15;
-			pix_green = 15;
-			pix_blue  = 15;
+        pix_red   = 15;
+        pix_green = 15;
+        pix_blue  = 15;
 		  }
 		}
 
@@ -164,12 +164,12 @@ text_buffer txtbuf (
 // -------------------------
 
 algorithm main(
-  output! uint1 vga_clock,
-  output! uint4 vga_r,
-  output! uint4 vga_g,
-  output! uint4 vga_b,
-  output! uint1 vga_hs,
-  output! uint1 vga_vs
+  output! uint1 video_clock,
+  output! uint4 video_r,
+  output! uint4 video_g,
+  output! uint4 video_b,
+  output! uint1 video_hs,
+  output! uint1 video_vs
 ) {
 
   uint1  active = 0;
@@ -178,35 +178,35 @@ algorithm main(
   uint10 pix_y  = 0;
 
   vga vga_driver(
-    vga_hs :> vga_hs,
-	vga_vs :> vga_vs,
-	active :> active,
-	vblank :> vblank,
-	vga_x  :> pix_x,
-	vga_y  :> pix_y
+    vga_hs :> video_hs,
+	  vga_vs :> video_vs,
+	  active :> active,
+	  vblank :> vblank,
+	  vga_x  :> pix_x,
+	  vga_y  :> pix_y
   );
 
   text_display display(
-	pix_x      <: pix_x,
-	pix_y      <: pix_y,
-	pix_active <: active,
-	pix_vblank <: vblank,
-	pix_red    :> vga_r,
-	pix_green  :> vga_g,
-	pix_blue   :> vga_b
+	  pix_x      <: pix_x,
+	  pix_y      <: pix_y,
+	  pix_active <: active,
+	  pix_vblank <: vblank,
+	  pix_red    :> video_r,
+	  pix_green  :> video_g,
+	  pix_blue   :> video_b
   );
 
 
   uint8 frame  = 0;
 
   // vga clock is directly the input clock
-  vga_clock := clock;
+  video_clock := clock;
 
   // we count a number of frames and stop
   while (frame < 2) {
   
     while (vblank == 1) { }
-	$display("vblank off");
+	  $display("vblank off");
     while (vblank == 0) { }
     $display("vblank on");
     frame = frame + 1;

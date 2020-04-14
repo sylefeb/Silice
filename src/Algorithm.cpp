@@ -30,9 +30,9 @@ void Algorithm::checkModulesBindings() const
 {
   for (auto& im : m_InstancedModules) {
     for (const auto& b : im.second.bindings) {
-      bool is_input = (im.second.mod->inputs().find(b.left) != im.second.mod->inputs().end());
+      bool is_input = (im.second.mod->inputs()  .find(b.left) != im.second.mod->inputs().end());
       bool is_output = (im.second.mod->outputs().find(b.left) != im.second.mod->outputs().end());
-      bool is_inout = (im.second.mod->inouts().find(b.left) != im.second.mod->inouts().end());
+      bool is_inout = (im.second.mod->inouts()  .find(b.left) != im.second.mod->inouts().end());
       if (!is_input && !is_output && !is_inout) {
         throw Fatal("wrong binding point (neither input nor output), instanced module '%s', binding '%s' (line %d)",
           im.first.c_str(), b.left.c_str(), b.line);
@@ -44,6 +44,11 @@ void Algorithm::checkModulesBindings() const
       if (b.dir == e_Right && !is_output) { // output
         throw Fatal("wrong binding direction, instanced module '%s', binding input '%s' (line %d)",
           im.first.c_str(), b.left.c_str(), b.line);
+      }
+      // check right side
+      if (!isOutput(b.right) && m_VarNames.count(b.right) == 0 && b.right != m_Clock && b.right != m_Reset) {
+        throw Fatal("wrong binding point, instanced module '%s', binding to '%s' (line %d)",
+          im.first.c_str(), b.right.c_str(), b.line);
       }
     }
   }
@@ -55,24 +60,30 @@ void Algorithm::checkAlgorithmsBindings() const
 {
   for (auto& ia : m_InstancedAlgorithms) {
     for (const auto& b : ia.second.bindings) {
+      // check left side
       bool is_input  = ia.second.algo->isInput (b.left);
       bool is_output = ia.second.algo->isOutput(b.left);
       bool is_inout  = ia.second.algo->isInOut (b.left);
       if (!is_input && !is_output && !is_inout) {
-        throw Fatal("wrong binding point (neither input nor output), instanced module '%s', binding '%s' (line %d)",
+        throw Fatal("wrong binding point (neither input nor output), instanced algorithm '%s', binding '%s' (line %d)",
           ia.first.c_str(), b.left.c_str(), b.line);
       }
       if (b.dir == e_Left && !is_input) { // input
-        throw Fatal("wrong binding direction, instanced module '%s', binding output '%s' (line %d)",
+        throw Fatal("wrong binding direction, instanced algorithm '%s', binding output '%s' (line %d)",
           ia.first.c_str(), b.left.c_str(), b.line);
       }
       if (b.dir == e_Right && !is_output) { // output
-        throw Fatal("wrong binding direction, instanced module '%s', binding input '%s' (line %d)",
+        throw Fatal("wrong binding direction, instanced algorithm '%s', binding input '%s' (line %d)",
           ia.first.c_str(), b.left.c_str(), b.line);
       }
       if (b.dir == e_BiDir && !is_inout) { // inout
-        throw Fatal("wrong binding direction, instanced module '%s', binding inout '%s' (line %d)",
+        throw Fatal("wrong binding direction, instanced algorithm '%s', binding inout '%s' (line %d)",
           ia.first.c_str(), b.left.c_str(), b.line);
+      }
+      // check right side
+      if (!isOutput(b.right) && m_VarNames.count(b.right) == 0 && b.right != m_Clock && b.right != m_Reset) {
+        throw Fatal("wrong binding point, instanced algorithm '%s', binding to '%s' (line %d)",
+          ia.first.c_str(), b.right.c_str(), b.line);
       }
     }
   }
@@ -537,10 +548,10 @@ void Algorithm::getBindings(
         _autobind = true;
       } else {
         t_binding_nfo nfo;
-        nfo.line = -1;
-        nfo.left = bindings->modalgBinding()->left->getText();
+        nfo.line  = -1;
+        nfo.left  = bindings->modalgBinding()->left->getText();
         nfo.right = bindings->modalgBinding()->right->getText();
-        nfo.line = (int)bindings->modalgBinding()->getStart()->getLine();
+        nfo.line  = (int)bindings->modalgBinding()->getStart()->getLine();
         if (bindings->modalgBinding()->LDEFINE() != nullptr) {
           nfo.dir = e_Left;
         } else if (bindings->modalgBinding()->RDEFINE() != nullptr) {
