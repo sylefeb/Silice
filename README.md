@@ -59,7 +59,7 @@ The main features are:
 - Prioritize combinational over sequential execution. Parallelism comes first!
 - Clearly defined rules regarding clock cycle consumption.
 - Explicit clock domains and reset signals.
-- Inter-operates easily with \verilog{}, allowing to import and reuse existing modules.
+- Inter-operates easily with Verilog, allowing to import and reuse existing modules.
 - Familiar C-like syntax.
 - Powerful LUA-based pre-processor.
 
