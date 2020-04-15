@@ -2890,10 +2890,11 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
   out << std::endl;
   std::string clock = m_Clock;
   if (m_Clock != ALG_CLOCK) {
-    // in this case, clock has to be bound to a module output
+    // in this case, clock has to be bound to a module/algorithm output
+    /// TODO: is this over-constrained? could it also be a variable?
     auto C = m_VIOBoundToModAlgOutputs.find(m_Clock);
     if (C == m_VIOBoundToModAlgOutputs.end()) {
-      throw std::runtime_error("clock is not bound to any module output");
+      throw Fatal("clock is not bound to a module or algorithm output");
     }
     clock = C->second;
   }
@@ -2903,10 +2904,11 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
   /// init on hardware reset
   std::string reset = m_Reset;
   if (m_Reset != ALG_RESET) {
-    // in this case, clock has to be bound to a module output
+    // in this case, reset has to be bound to a module/algorithm output
+    /// TODO: is this over-constrained? could it also be a variable?
     auto R = m_VIOBoundToModAlgOutputs.find(m_Reset);
     if (R == m_VIOBoundToModAlgOutputs.end()) {
-      throw std::runtime_error("reset is not bound to any module output");
+      throw Fatal("reset is not bound to a module or algorithm output");
     }
     reset = R->second;
   }
