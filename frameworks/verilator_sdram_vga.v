@@ -1,6 +1,7 @@
+`define VERILATOR 1
 $$VERILATOR=1
 $$VGA=1
-`define VERILATOR 1
+$$SIMULATION=1
 
 `default_nettype none
 

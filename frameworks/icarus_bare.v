@@ -1,5 +1,6 @@
-$$ICARUS=1
 `define ICARUS 1
+$$ICARUS=1
+$$SIMULATION=1
 
 `timescale 1ns / 1ps
 

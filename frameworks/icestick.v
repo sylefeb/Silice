@@ -1,6 +1,7 @@
-$$ICESTICK=1
 `define ICESTICK 1
 `default_nettype none
+$$ICESTICK=1
+$$HARDWARE=1
 
 module top(
   input  CLK,

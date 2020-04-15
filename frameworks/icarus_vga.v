@@ -1,6 +1,7 @@
+`define ICARUS 1
 $$ICARUS=1
 $$VGA=1
-`define ICARUS 1
+$$SIMULATION=1
 
 module top;
 

@@ -1,5 +1,6 @@
-$$VERILATOR=1
 `define VERILATOR 1
+$$VERILATOR=1
+$$SIMULATION=1
 
 `default_nettype none
 

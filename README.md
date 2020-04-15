@@ -63,5 +63,35 @@ The main features are:
 - Familiar C-like syntax.
 - Powerful LUA-based pre-processor.
 
+## Getting Silice
+
+### Compile from source
+
+Silice should compile from source easily on most platforms. The build system relies
+on CMake. However, the compilation process requires the Java dev kit ( https://jdk.java.net/ ) 
+to be in the path, as java and javac are called.
+
+### Binary release
+
+We provide binary releases with an extensive toolset for Windows.
+Under Linux we recommend building from source and using the package manager to get the tools.
+
+### Toolset
+
+We recommend using Silice in conjunction with
+- Icarus Verilog (iverilog)
+- Verilator
+- gtkwave
+- Yosys
+- IceStorm and nextpnr for Ice40 open source development
+
+The demos included with Silice make use of these tools.
+
+### Verilator
+
+To use Silice with Verilator, please compile the project in silice/frameworks/verilator, using CMake,
+and installing it (eg. make install).
+
+Under Windows we recommend using MSYS2, with the MinGW32 toolchain. Cygwin works great as well.
 
 

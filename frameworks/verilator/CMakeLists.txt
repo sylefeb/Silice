@@ -9,6 +9,7 @@ INCLUDE_DIRECTORIES(
   ${PROJECT_SOURCE_DIR}/../../src/libs/LibSL-small/src/LibSL  
   /usr/local/share/verilator/include/
   /usr/share/verilator/include/
+  ${PROJECT_SOURCE_DIR}/include/
 )
 
 add_definitions(-Wfatal-errors)

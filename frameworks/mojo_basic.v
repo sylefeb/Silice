@@ -1,5 +1,6 @@
-$$MOJO=1
 `define MOJO 1
+$$MOJO=1
+$$HARDWARE=1
 
 module reset_conditioner (
     input rcclk,
