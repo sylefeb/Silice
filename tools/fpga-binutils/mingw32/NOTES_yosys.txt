@@ -1,0 +1,28 @@
+MINGW32
+
+depends=("${MINGW_PACKAGE_PREFIX}-gcc-libs"
+         "${MINGW_PACKAGE_PREFIX}-readline"
+		 "${MINGW_PACKAGE_PREFIX}-libffi"
+		 "${MINGW_PACKAGE_PREFIX}-tcl")
+makedepends=("git"
+             "bison"
+             "flex"
+             "${MINGW_PACKAGE_PREFIX}-python3"
+             "${MINGW_PACKAGE_PREFIX}-tcl"
+             "${MINGW_PACKAGE_PREFIX}-gcc"
+             "${MINGW_PACKAGE_PREFIX}-make"
+             "${MINGW_PACKAGE_PREFIX}-pkg-config"
+             "${MINGW_PACKAGE_PREFIX}-dlfcn"
+
+
+make config-msys2
+in Makefile => ENABLE_PLUGINS := 0
+in constids.inc => #undef TRANSPARENT (top)
+in Makefile, l119,120, => # LDFLAGS += -rdynamic
+                          # LDLIBS += -lrt
+in abc/Makefile => CFLAGS    += -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC
+
+in abc/Makefile =>   l139 #  LIBS += -ldl
+                     l143 #   LIBS += -lrt
+
+in Makefile => l136, ABCREV = default

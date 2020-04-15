@@ -1,0 +1,21 @@
+MINGW32
+
+depends=("${MINGW_PACKAGE_PREFIX}-gcc-libs"
+         "${MINGW_PACKAGE_PREFIX}-readline")
+makedepends=("git"
+             "bison"
+             "flex"
+             "autoconf"
+             "${MINGW_PACKAGE_PREFIX}-gcc"
+             "${MINGW_PACKAGE_PREFIX}-make"
+             "${MINGW_PACKAGE_PREFIX}-pkg-config"
+             "${MINGW_PACKAGE_PREFIX}-termcap"
+             "${MINGW_PACKAGE_PREFIX}-gperf"
+             )
+
+./autoconf.sh
+./configure --prefix=/mingw32
+make -j16
+
+in ivl.def => add ivl_path_is_parallel line 184
+

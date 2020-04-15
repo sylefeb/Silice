@@ -1,0 +1,19 @@
+MINGW32
+
+depends=("${MINGW_PACKAGE_PREFIX}-eigen3"
+         "${MINGW_PACKAGE_PREFIX}-python3"
+         "${MINGW_PACKAGE_PREFIX}-gcc-libs"
+		 "${MINGW_PACKAGE_PREFIX}-icestorm"
+		 "${MINGW_PACKAGE_PREFIX}-qt5")
+makedepends=("git"
+             "gawk"
+             "${MINGW_PACKAGE_PREFIX}-gcc"
+             "${MINGW_PACKAGE_PREFIX}-make"
+             "${MINGW_PACKAGE_PREFIX}-pkg-config"
+			 "${MINGW_PACKAGE_PREFIX}-boost"
+			 "${MINGW_PACKAGE_PREFIX}-cmake"
+
+mkdir build
+cd build
+cmake -DARCH=ice40 -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/mingw32 ..
+make

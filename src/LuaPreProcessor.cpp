@@ -230,6 +230,28 @@ static std::string luaProtectString(std::string str)
 
 // -------------------------------------------------
 
+std::string robustExtractPath(const std::string& path)
+{
+  // search for last '\\' or '/'
+  size_t pos0 = path.rfind("\\");
+  size_t pos1 = path.rfind("/");
+  size_t pos;
+  if (pos0 == string::npos) {
+    pos = pos1;
+  } else if (pos1 == string::npos) {
+    pos = pos0;
+  } else {
+    pos = max(pos0, pos1);
+  }
+  if (pos == string::npos) {
+    return path;
+  }
+  string dname = path.substr(0, pos);
+  return dname;
+}
+
+// -------------------------------------------------
+
 std::string LuaPreProcessor::processCode(
   std::string parent_path,
   std::string src_file,
@@ -247,11 +269,12 @@ std::string LuaPreProcessor::processCode(
   alreadyIncluded.insert(src_file);
 
   // extract path
-  std::string fpath = extractPath(src_file);
+  std::string fpath = robustExtractPath(src_file);
   if (fpath == src_file) {
     fpath = ".";
   }
-  std::string path  = parent_path + fpath;
+  // std::string path  = parent_path + fpath;
+  std::string path = fpath;
   //cerr << "parent_path: " << parent_path << endl;
   //cerr << "path:        " << path << endl;
 
@@ -289,6 +312,7 @@ std::string LuaPreProcessor::processCode(
       if (std::regex_match(filename, matches, lfname_regex)) {
         std::string fname = matches.str(1).c_str();
         fname             = findFile(path, fname);
+        fname             = findFile(fname);
         // recurse
         code += "\n" + processCode(path + "/",fname, alreadyIncluded) + "\n";
       }
