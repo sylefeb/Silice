@@ -77,11 +77,11 @@ text_buffer txtbuf (
 
   int10  frame    = 0;
   uint4  line     = 0;
-$$if SIMULATION then
+//if SIMULATION then
   uint1  delay    = 0;
-$$else
-  uint23 delay    = 0;
-$$end
+//else
+//  uint23 delay    = 0;
+//end
 
   // snow
   int10 dotpos = 0;
@@ -90,8 +90,7 @@ $$end
   int12 rand_x = 0;
 
   // ---------- string
-
-  uint8  str[] = "   HELLO WORLD FROM FPGA #   THIS IS WRITTEN FROM #       -- SILICE -- # A LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL###THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK##FULLY IMPLEMENTED IN SILICE#VGA TEXT AND EFFECTS";
+  uint8  str[] = "   HELLO WORLD FROM FPGA #   THIS IS WRITTEN IN #       -- SILICE -- # A LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL###THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK##FULLY IMPLEMENTED IN SILICE#VGA TEXT AND EFFECTS";
 
   // --------- print string
   subroutine print_string( 
@@ -138,8 +137,8 @@ $$end
 
   // fill buffer with spaces
   txtwrite  = 1;
-  next      = 0;
   txtdata_w = 36; // data to write
+  next      = 0;
   while (next < 1024) {
     txtaddr = next;     // address to write
     next    = next + 1; // next
@@ -199,29 +198,29 @@ $$end
             switch (text_j)
             {
             case 0: {
-              pix_red   = $max_color$ >> 1;
+              pix_red   = 0;
               pix_green = $max_color$;
-              pix_blue  = $max_color$ >> 1;
+              pix_blue  = 0;
             }
-            case 2: {
-              pix_red   = $max_color$ >> 1;
-              pix_green = $max_color$ >> 1;
+            case 1: {
+              pix_red   = 0;
+              pix_green = 0;
               pix_blue  = $max_color$;
             }
-            case 6: {
-              pix_red   = $max_color$ >> 1;
-              pix_green = $max_color$ >> 1;
+            case 3: {
+              pix_red   = 0;
+              pix_green = 0;
               pix_blue  = $max_color$;
             }
-            case 8: {
-              pix_red   = $max_color$ >> 1;
-              pix_green = $max_color$ >> 1;
+            case 4: {
+              pix_red   = 0;
+              pix_green = 0;
               pix_blue  = $max_color$;
             }
-            case 14: {
+            case 7: {
               pix_red   = $max_color$;
-              pix_green = $max_color$ >> 1;
-              pix_blue  = $max_color$ >> 1;
+              pix_green = 0;
+              pix_blue  = 0;
             }
             default: {
               pix_red   = $max_color$;
@@ -406,17 +405,16 @@ $$end
 $$if SIMULATION then
   // we count a number of frames and stop
   while (frame < 40) {
-$$else
-  // forever
-  while (1) {
-$$end
-  
     while (vblank == 1) { }
 	  $display("vblank off");
     while (vblank == 0) { }
     $display("vblank on");
     frame = frame + 1;
-
   }
+$$else
+  // forever
+  while (1) { }
+$$end
+  
 }
 

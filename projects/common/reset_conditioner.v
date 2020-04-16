@@ -3,19 +3,21 @@ module reset_conditioner (
     input in,
     output reg out
   );  
-  localparam STAGES = 3'h4;  
-  reg [3:0] M_stage_d, M_stage_q = 4'hf;  
+  reg [7:0] counter_d,counter_q;
   always @* begin
-    M_stage_d = M_stage_q;
-    
-    M_stage_d = {M_stage_q[0+2-:3], 1'h0};
-    out = M_stage_q[3+0-:1];
+    counter_d = counter_q;
+    if (counter_q == 0) begin
+      out = 0;
+    end else begin
+      out = 1;
+      counter_d = counter_q + 1;
+    end
   end  
   always @(posedge rcclk) begin
     if (in == 1'b1) begin
-      M_stage_q <= 4'hf;
+      counter_q <= 1;
     end else begin
-      M_stage_q <= M_stage_d;
+      counter_q <= counter_d;
     end
   end 
 endmodule
