@@ -1,4 +1,9 @@
-uint1 letters[2432] = {
+
+$$letter_w_pow2 = 3
+$$letter_w = 8
+$$letter_h = 8
+
+uint1 letters[2432] = { // 8x8 letters
   //[0] 0
   0,0,1,1,1,1,0,0,
   0,1,0,0,0,1,1,0,

@@ -1,7 +1,8 @@
 // -------------------------
 
-// Text buffer
-import('../common/text_buffer.v')
+// Text buffer (small 80x40)
+import('../common/text_buffer_small.v')
+
 // VGA driver
 $include('../common/vga.ice')
 
@@ -55,53 +56,66 @@ text_buffer txtbuf (
   // ---------- font
   
   $include('../common/font.ice')
-   
+  //include('../common/font_small.ice')
+
   // ---------- text display
 
   uint8  text_i   = 0;
   uint7  text_j   = 0;
-  uint3  letter_i = 0;
+  uint4  letter_i = 0;
   uint4  letter_j = 0;
   uint1  pixel    = 0;
   uint12 addr     = 0;
 
   uint16 next     = 0;
 
-  uint11 str_x    = 30;
-  uint10 str_y    = 20;
+  uint11 str_x    = 27;
+  uint10 str_y    = 16;
 
-  int32   numb     = -32h1234;
-  uint32  numb_tmp = 0;
-  uint8   numb_cnt = 0;
+  uint4  line     = 0;
+$$if SIMULATION then
+  uint1  delay    = 0;
+$$else
+  uint23 delay    = 0;
+$$end
 
   // ---------- string
 
-  uint8  str[] = "HELLO WORLD FROM FPGA";
-  uint8  tmp   = 0;
-  uint8  step  = 0;
+  uint8  str[] = "   HELLO WORLD FROM FPGA #   THIS IS WRITTEN FROM #       -- SILICE -- # A LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL###THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#";
 
   // --------- print string
   subroutine print_string( 
 	  reads      str,
 	  reads      str_x,
 	  reads      str_y,
+    reads      line,
 	  writes     txtaddr,
 	  writes     txtdata_w,
 	  writes     txtwrite
 	  ) {
-    uint11 col  = 0;
+    uint12 col  = 0;
     uint8  lttr = 0;
-	
-    while (str[col] != 0) {
-      if (str[col] == 32) {
-        lttr = 36;
-      } else {
-        lttr = str[col] - 55;
+    uint8  numl = 0;
+    uint12 offs = 0;
+	  // count lines
+    while (str[col] != 0 && numl != line) {
+      if (str[col] == 35) {
+        numl    = numl + 1;
       }
-      txtaddr   = col + str_x + str_y * 80;
+      col       = col + 1;
+    }
+    // print line
+    while (str[col] != 0 && str[col] != 35) {
+      switch (str[col]) {
+        case 32: {lttr = 36;}
+        case 45: {lttr = 37;}
+        default: {lttr = str[col] - 55;}
+      }
+      txtaddr   = offs + str_x + str_y * 80;
       txtdata_w = lttr[0,6];
       txtwrite  = 1;
       col       = col + 1;
+      offs      = offs + 1;
     }
     txtwrite = 0;
     return;
@@ -123,18 +137,24 @@ text_buffer txtbuf (
   txtwrite = 0;
 
   // ---------- show time!
-
+  
+  letter_i = 0;
+  
   while (1) {
 
-	  // prepare next frame
-	  () <- print_string <- ();
-    if (str_y < 52) {   
-	    str_y = str_y + 1;
-    } else {
-      str_y = 0;
+	  // write next line in buffer
+    if (delay == 0) {
+      if (line < 14) {
+        () <- print_string <- ();
+        line  = line + 1;
+        str_y = str_y + 2;
+      } else {
+        str_y = 0;
+      }
     }
+    delay = delay + 1;
     
-      // wait until vblank is over
+    // wait until vblank is over
 	  while (pix_vblank == 1) { }
 
 	  // display frame
@@ -146,42 +166,73 @@ text_buffer txtbuf (
         pix_red   = 0;
       }
       
-      if (letter_j < 8) {
-        letter_i = pix_x & 7;
-        addr     = letter_i + (letter_j << 3) + (txtdata_r << 6);
+      if (letter_j < $letter_h$ && letter_i < $letter_w$) {
+        addr     = letter_i + (letter_j << $letter_w_pow2$) 
+                 + (txtdata_r * $letter_w*letter_h$);
         pixel    = letters[ addr ];
         if (pixel == 1) {
-          pix_red   = $max_color$;
-          pix_green = $max_color$;
-          pix_blue  = $max_color$;
-        }
-      }
-
-      if (pix_active && (pix_x & 7) == 7) {   // end of letter
-        if (pix_x == 639) {  // end of line
-          // back to first column
-          text_i   = 0;
-          // end of frame ?
-          if (pix_y == 479) {
-            // yes
-            text_j   = 0;
-            letter_j = 0;
-          } else {
-              // no: next letter line
-            if (letter_j < 8) {
-              letter_j = letter_j + 1;
-            } else {
-              // next row
-              letter_j = 0;
-              text_j   = text_j + 1;
-            }
+          switch (text_j)
+          {
+          case 16: {
+            pix_red   = $max_color$ >> 1;
+            pix_green = $max_color$;
+            pix_blue  = $max_color$ >> 1;
           }
-        } else {
-          text_i = text_i + 1;		  
+          case 18: {
+            pix_red   = $max_color$ >> 1;
+            pix_green = $max_color$ >> 1;
+            pix_blue  = $max_color$;
+          }
+          case 22: {
+            pix_red   = $max_color$;
+            pix_green = $max_color$ >> 1;
+            pix_blue  = $max_color$ >> 1;
+          }
+          case 24: {
+            pix_red   = $max_color$ >> 1;
+            pix_green = $max_color$ >> 1;
+            pix_blue  = $max_color$;
+          }
+          default: {
+            pix_red   = $max_color$;
+            pix_green = $max_color$;
+            pix_blue  = $max_color$;
+          }
+          }
         }
       }
 
-      txtaddr  = text_i + text_j * 80;
+      if (pix_active) {
+        letter_i = letter_i + 1;
+        if (letter_i == $letter_h$) {   // end of letter
+          letter_i = 0;
+          if (pix_x == 639) {  // end of line
+            // back to first column
+            text_i   = 0;
+            // end of frame ?
+            if (pix_y == 479) {
+              // yes
+              text_j   = 0;
+              letter_j = 0;
+            } else {
+                // no: next letter line
+              if (letter_j < $letter_h$) {
+                letter_j = letter_j + 1;
+              } else {
+                // next row
+                letter_j = 0;
+                text_j   = text_j + 1;
+              }
+            }
+          } else {
+            text_i = text_i + 1;		  
+          }
+        }
+      }
+      
+      if (text_i < 80 && text_j < 40) {
+        txtaddr  = text_i + text_j * 80;
+      }
 		
 	  }
 
@@ -325,7 +376,7 @@ $$end
 
 $$if SIMULATION then
   // we count a number of frames and stop
-  while (frame < 2) {
+  while (frame < 32) {
 $$else
   // forever
   while (1) {
