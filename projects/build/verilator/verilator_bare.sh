@@ -4,6 +4,10 @@ then
   echo "please provide source file name"
 else
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+export PATH=$PATH:$DIR/../../../tools/fpga-binutils/mingw32/bin/
+export VERILATOR_ROOT=$DIR/../../../tools/fpga-binutils/mingw32/
+
 u=$(echo "$1" | sed s:/:__:g | tr -d ".")
 
 echo "using directory $u"
