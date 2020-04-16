@@ -77,54 +77,54 @@ text_buffer txtbuf (
 
   int10  frame    = 0;
   uint4  line     = 0;
-//if SIMULATION then
-  uint1  delay    = 0;
-//else
-//  uint23 delay    = 0;
-//end
+  
+  uint4  stride   = 0;
 
-  // snow
+  // ---------- table for text swim
+  uint4 wave[64] = {
+$$for i=0,63 do
+    $math.floor(15.0 * (0.5+0.5*math.sin(2*math.pi*i/63)))$,
+$$end
+  };
+  
+  // ---------- snow
   int10 dotpos = 0;
   int2  speed  = 0;
   int2  inv_speed = 0;
   int12 rand_x = 0;
 
   // ---------- string
-  uint8  str[] = "   HELLO WORLD FROM FPGA #   THIS IS WRITTEN IN #       -- SILICE -- # A LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL###THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK##FULLY IMPLEMENTED IN SILICE#VGA TEXT AND EFFECTS";
+  uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- COMING SOON --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK##HERE ON ICESTICK#WITH OPEN-SOURCE TOOLS";
 
   // --------- print string
   subroutine print_string( 
 	  reads      str,
 	  reads      str_x,
-	  reads      str_y,
-    reads      line,
-	  writes     txtaddr,
+	  readwrites str_y,
+    writes     txtaddr,
 	  writes     txtdata_w,
 	  writes     txtwrite
 	  ) {
-    uint12 col  = 0;
+    uint10 col  = 0;
     uint8  lttr = 0;
-    uint8  numl = 0;
-    uint12 offs = 0;
-	  // count lines
-    while (str[col] != 0 && numl != line) {
-      if (str[col] == 35) {
-        numl    = numl + 1;
-      }
-      col       = col + 1;
-    }
+    uint5  offs = 0;
     // print line
-    while (str[col] != 0 && str[col] != 35) {
-      switch (str[col]) {
-        case 32: {lttr = 36;}
-        case 45: {lttr = 37;}
-        default: {lttr = str[col] - 55;}
+    while (str[col] != 0) {
+      if (str[col] == 35) {
+        str_y = str_y + 1;
+        offs  = 0;
+      } else {
+        switch (str[col]) {
+          case 32: {lttr = 36;}
+          case 45: {lttr = 37;}
+          default: {lttr = str[col] - 55;}
+        }
+        txtaddr   = offs + str_x + (str_y << 5);
+        txtdata_w = lttr[0,6];
+        txtwrite  = 1;
+        offs      = offs + 1;
       }
-      txtaddr   = offs + str_x + (str_y << 5);
-      txtdata_w = lttr[0,6];
-      txtwrite  = 1;
       col       = col + 1;
-      offs      = offs + 1;
     }
     txtwrite = 0;
     return;
@@ -147,27 +147,25 @@ text_buffer txtbuf (
 
   // ---------- show time!
   
-  letter_i = 0;
-  
   while (1) {
 
-	  // write next line in buffer
-    if (delay == 0) {
-      if (line < 15) {
-        () <- print_string <- ();
-        line  = line  + 1;
-        str_y = str_y + 1;
-      } else {
-        str_y = 0;
-      }
-    }
-    delay = delay + 1;
+	  // write lines in buffer
+    
+    str_y = 0;
+    () <- print_string <- ();
     
     // wait until vblank is over
+    
 	  while (pix_vblank == 1) { }
     frame = frame + 1;
 
 	  // display frame
+    
+    text_i   = 0;  
+    text_j   = 0;
+    letter_i = 0;
+    letter_j = 0;
+    
 	  while (pix_vblank == 0) {
 
       if (pix_active) {
@@ -188,80 +186,69 @@ text_buffer txtbuf (
           pix_blue  = ($max_color$);
         }        
         
-        // text 
+        // text
+        stride = wave[pix_y[2,6] + frame[0,6]];
+        if (pix_x >= 192 + stride && pix_y > 64) {        
         
-        if (letter_j < $letter_h$ && letter_i < $letter_w$) {
-          addr     = letter_i + (letter_j << $letter_w_pow2$) 
-                    + (txtdata_r * $letter_w*letter_h$);
-          pixel    = letters[ addr ];
-          if (pixel == 1) {
-            switch (text_j)
-            {
-            case 0: {
-              pix_red   = 0;
-              pix_green = $max_color$;
-              pix_blue  = 0;
-            }
-            case 1: {
-              pix_red   = 0;
-              pix_green = 0;
-              pix_blue  = $max_color$;
-            }
-            case 3: {
-              pix_red   = 0;
-              pix_green = 0;
-              pix_blue  = $max_color$;
-            }
-            case 4: {
-              pix_red   = 0;
-              pix_green = 0;
-              pix_blue  = $max_color$;
-            }
-            case 7: {
-              pix_red   = $max_color$;
-              pix_green = 0;
-              pix_blue  = 0;
-            }
-            default: {
-              pix_red   = $max_color$;
-              pix_green = $max_color$;
-              pix_blue  = $max_color$;
-            }
-            }
-          }
-        }
-        
-        letter_i = letter_i + 1;
-        if (letter_i == $letter_w_sp$) { // end of letter
-          letter_i = 0;
-          if (pix_x == 639) {  // end of line
-            // back to first column
-            text_i   = 0;
-            // end of frame ?
-            if (pix_y == 479) {
-              // yes
-              text_j   = 0;
-              letter_j = 0;
-            } else {
-                // next letter line
-              if (letter_j < $2*letter_h$) {
-                letter_j = letter_j + 1;
-              } else {
-                // next text row
-                text_j   = text_j + 1;
-                letter_j = 0; // back to first letter line
+          if (letter_j < $letter_h$ && letter_i < $letter_w$) {
+            addr     = letter_i + (letter_j << $letter_w_pow2$) 
+                      + (txtdata_r * $letter_w*letter_h$);
+            pixel    = letters[ addr ];
+            if (pixel == 1) {
+              switch (text_j)
+              {
+              case 0: {
+                pix_red   = 0;
+                pix_green = $max_color$;
+                pix_blue  = 0;
+              }
+              case 4: {
+                pix_red   = 0;
+                pix_green = 0;
+                pix_blue  = $max_color$;
+              }
+              case 6: {
+                pix_red   = $max_color$;
+                pix_green = 0;
+                pix_blue  = 0;
+              }
+              default: {
+                pix_red   = $max_color$;
+                pix_green = $max_color$;
+                pix_blue  = $max_color$;
+              }
               }
             }
-          } else {
+          }
+          
+          letter_i = letter_i + 1;
+          if (letter_i == $letter_w_sp$) { // end of letter
+            letter_i = 0;
             if (text_i < 31) {
               text_i = text_i + 1;
             }
           }
-        }
-      }      
+          
+          if (pix_x == 639) {  // end of line
+            // back to first column
+            text_i   = 0;
+            letter_i = 0;
+            // next letter line
+            if (letter_j < $2*letter_h$) {
+              letter_j = letter_j + 1;
+            } else {
+              // next text row
+              text_j   = text_j + 1;
+              letter_j = 0; // back to first letter line
+            }
+          }
 
-      txtaddr  = text_i + (text_j << 5);
-		
+          txtaddr  = text_i + (text_j << 5);
+
+        }      
+
+
+      }		
 	  }
 
   }
