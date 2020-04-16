@@ -63,15 +63,16 @@ text_buffer txtbuf (
   uint8  text_i   = 0;
   uint7  text_j   = 0;
   uint4  letter_i = 0;
-  uint4  letter_j = 0;
+  uint7  letter_j = 0;
   uint1  pixel    = 0;
   uint12 addr     = 0;
 
   uint16 next     = 0;
 
   uint11 str_x    = 27;
-  uint10 str_y    = 16;
+  uint10 str_y    = 10;
 
+  int10  frame    = 0;
   uint4  line     = 0;
 $$if SIMULATION then
   uint1  delay    = 0;
@@ -79,9 +80,15 @@ $$else
   uint23 delay    = 0;
 $$end
 
+  // snow
+  int10 dotpos = 0;
+  int2  speed  = 0;
+  int2  inv_speed = 0;
+  int12 rand_x = 0;
+
   // ---------- string
 
-  uint8  str[] = "   HELLO WORLD FROM FPGA #   THIS IS WRITTEN FROM #       -- SILICE -- # A LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL###THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#";
+  uint8  str[] = "   HELLO WORLD FROM FPGA #   THIS IS WRITTEN FROM #       -- SILICE -- # A LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL###THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK##FULLY IMPLEMENTED IN SILICE#VGA TEXT AND EFFECTS";
 
   // --------- print string
   subroutine print_string( 
@@ -111,7 +118,7 @@ $$end
         case 45: {lttr = 37;}
         default: {lttr = str[col] - 55;}
       }
-      txtaddr   = offs + str_x + str_y * 80;
+      txtaddr   = offs + str_x + (str_y << 6) + (str_y << 4); // str_y * 80;
       txtdata_w = lttr[0,6];
       txtwrite  = 1;
       col       = col + 1;
@@ -130,7 +137,7 @@ $$end
   txtwrite  = 1;
   next      = 0;
   txtdata_w = 36; // data to write
-  while (next < 4800) {
+  while (next < 3200) {
     txtaddr = next;     // address to write
     next    = next + 1; // next
   }
@@ -144,9 +151,9 @@ $$end
 
 	  // write next line in buffer
     if (delay == 0) {
-      if (line < 14) {
+      if (line < 20) {
         () <- print_string <- ();
-        line  = line + 1;
+        line  = line  + 1;
         str_y = str_y + 2;
       } else {
         str_y = 0;
@@ -156,53 +163,72 @@ $$end
     
     // wait until vblank is over
 	  while (pix_vblank == 1) { }
+    frame = frame + 1;
 
 	  // display frame
 	  while (pix_vblank == 0) {
 
-      if (pix_active) { // when not active pixels *have* to be blank, otherwise the monitor gets confused
-        pix_blue  = pix_x[4,1];
-        pix_green = pix_y[4,1];
-        pix_red   = 0;
-      }
-      
-      if (letter_j < $letter_h$ && letter_i < $letter_w$) {
-        addr     = letter_i + (letter_j << $letter_w_pow2$) 
-                 + (txtdata_r * $letter_w*letter_h$);
-        pixel    = letters[ addr ];
-        if (pixel == 1) {
-          switch (text_j)
-          {
-          case 16: {
-            pix_red   = $max_color$ >> 1;
-            pix_green = $max_color$;
-            pix_blue  = $max_color$ >> 1;
-          }
-          case 18: {
-            pix_red   = $max_color$ >> 1;
-            pix_green = $max_color$ >> 1;
-            pix_blue  = $max_color$;
-          }
-          case 22: {
-            pix_red   = $max_color$;
-            pix_green = $max_color$ >> 1;
-            pix_blue  = $max_color$ >> 1;
-          }
-          case 24: {
-            pix_red   = $max_color$ >> 1;
-            pix_green = $max_color$ >> 1;
-            pix_blue  = $max_color$;
-          }
-          default: {
-            pix_red   = $max_color$;
-            pix_green = $max_color$;
-            pix_blue  = $max_color$;
-          }
+      if (pix_active) {
+
+        // background snow effect 
+        
+        if (pix_x == 0) {
+          rand_x = 1;
+        } else {
+          rand_x = rand_x * 31421 + 6927;
+        }
+        speed  = rand_x[10,2];
+        dotpos = (frame >> speed) + rand_x;
+
+        if (pix_y == dotpos) {
+          pix_red   = ($max_color$);
+          pix_green = ($max_color$);
+          pix_blue  = ($max_color$);
+        }        
+        
+        // text 
+        
+        if (letter_j < $letter_w*letter_h$ && letter_i < $letter_w$) {
+          addr     = letter_i + letter_j 
+                   + (txtdata_r * $letter_w*letter_h$);
+          pixel    = letters[ addr ];
+          if (pixel == 1) {
+            switch (text_j)
+            {
+            case 10: {
+              pix_red   = $max_color$ >> 1;
+              pix_green = $max_color$;
+              pix_blue  = $max_color$ >> 1;
+            }
+            case 12: {
+              pix_red   = $max_color$ >> 1;
+              pix_green = $max_color$ >> 1;
+              pix_blue  = $max_color$;
+            }
+            case 16: {
+              pix_red   = $max_color$ >> 1;
+              pix_green = $max_color$ >> 1;
+              pix_blue  = $max_color$;
+            }
+            case 18: {
+              pix_red   = $max_color$ >> 1;
+              pix_green = $max_color$ >> 1;
+              pix_blue  = $max_color$;
+            }
+            case 24: {
+              pix_red   = $max_color$;
+              pix_green = $max_color$ >> 1;
+              pix_blue  = $max_color$ >> 1;
+            }
+            default: {
+              pix_red   = $max_color$;
+              pix_green = $max_color$;
+              pix_blue  = $max_color$;
+            }
+            }
           }
         }
-      }
-
-      if (pix_active) {
+      
         letter_i = letter_i + 1;
         if (letter_i == $letter_h$) {   // end of letter
           letter_i = 0;
@@ -216,8 +242,8 @@ $$end
               letter_j = 0;
             } else {
                 // no: next letter line
-              if (letter_j < $letter_h$) {
-                letter_j = letter_j + 1;
+              if (letter_j < $letter_w*letter_h$) {
+                letter_j = letter_j + $letter_w$;
               } else {
                 // next row
                 letter_j = 0;
@@ -228,10 +254,9 @@ $$end
             text_i = text_i + 1;		  
           }
         }
-      }
-      
+      }      
       if (text_i < 80 && text_j < 40) {
-        txtaddr  = text_i + text_j * 80;
+        txtaddr  = text_i + (text_j << 6) + (text_j << 4); // text_j * 80;
       }
 		
 	  }
@@ -376,7 +401,7 @@ $$end
 
 $$if SIMULATION then
   // we count a number of frames and stop
-  while (frame < 32) {
+  while (frame < 40) {
 $$else
   // forever
   while (1) {
