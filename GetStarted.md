@@ -1,3 +1,4 @@
+# Getting started with Silice
 
 ## Windows
 
