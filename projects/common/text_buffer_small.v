@@ -6,7 +6,7 @@ module text_buffer(
     output reg [5:0] rdata
   );
   
-  reg [5:0] buffer [3199:0]; // 80x40 letter indices
+  reg [5:0] buffer [1023:0]; // 32x32 letter indices
   
   always @(posedge clk) begin
     rdata <= buffer[addr];

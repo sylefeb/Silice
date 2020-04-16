@@ -1,7 +1,8 @@
 
 $$letter_w_pow2 = 3
-$$letter_w = 8
-$$letter_h = 8
+$$letter_w      = 8
+$$letter_h      = 8
+$$letter_w_sp   = 8
 
 uint1 letters[2432] = { // 8x8 letters
   //[0] 0

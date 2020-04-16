@@ -1,6 +1,6 @@
 // -------------------------
 
-// Text buffer (small 80x40)
+// Text buffer (small 32x32)
 import('../common/text_buffer_small.v')
 
 // VGA driver
@@ -54,23 +54,26 @@ text_buffer txtbuf (
 );
 
   // ---------- font
+  // assumes letter_w_sp (defined in font) is an integer divider of 640
   
   $include('../common/font.ice')
-  //include('../common/font_small.ice')
+  // include('../common/font_small.ice')
 
   // ---------- text display
 
-  uint8  text_i   = 0;
-  uint7  text_j   = 0;
+  uint5  text_i   = 0;
+  uint5  text_j   = 0;
   uint4  letter_i = 0;
-  uint7  letter_j = 0;
+  uint5  letter_j = 0;
   uint1  pixel    = 0;
   uint12 addr     = 0;
 
-  uint16 next     = 0;
+  uint10 shf_x    = 0;
 
-  uint11 str_x    = 27;
-  uint10 str_y    = 10;
+  uint11 next     = 0;
+
+  uint11 str_x    = 0;
+  uint10 str_y    = 0;
 
   int10  frame    = 0;
   uint4  line     = 0;
@@ -118,7 +121,7 @@ $$end
         case 45: {lttr = 37;}
         default: {lttr = str[col] - 55;}
       }
-      txtaddr   = offs + str_x + (str_y << 6) + (str_y << 4); // str_y * 80;
+      txtaddr   = offs + str_x + (str_y << 5);
       txtdata_w = lttr[0,6];
       txtwrite  = 1;
       col       = col + 1;
@@ -137,7 +140,7 @@ $$end
   txtwrite  = 1;
   next      = 0;
   txtdata_w = 36; // data to write
-  while (next < 3200) {
+  while (next < 1024) {
     txtaddr = next;     // address to write
     next    = next + 1; // next
   }
@@ -151,10 +154,10 @@ $$end
 
 	  // write next line in buffer
     if (delay == 0) {
-      if (line < 20) {
+      if (line < 15) {
         () <- print_string <- ();
         line  = line  + 1;
-        str_y = str_y + 2;
+        str_y = str_y + 1;
       } else {
         str_y = 0;
       }
@@ -188,34 +191,34 @@ $$end
         
         // text 
         
-        if (letter_j < $letter_w*letter_h$ && letter_i < $letter_w$) {
-          addr     = letter_i + letter_j 
-                   + (txtdata_r * $letter_w*letter_h$);
+        if (letter_j < $letter_h$ && letter_i < $letter_w$) {
+          addr     = letter_i + (letter_j << $letter_w_pow2$) 
+                    + (txtdata_r * $letter_w*letter_h$);
           pixel    = letters[ addr ];
           if (pixel == 1) {
             switch (text_j)
             {
-            case 10: {
+            case 0: {
               pix_red   = $max_color$ >> 1;
               pix_green = $max_color$;
               pix_blue  = $max_color$ >> 1;
             }
-            case 12: {
+            case 2: {
               pix_red   = $max_color$ >> 1;
               pix_green = $max_color$ >> 1;
               pix_blue  = $max_color$;
             }
-            case 16: {
+            case 6: {
               pix_red   = $max_color$ >> 1;
               pix_green = $max_color$ >> 1;
               pix_blue  = $max_color$;
             }
-            case 18: {
+            case 8: {
               pix_red   = $max_color$ >> 1;
               pix_green = $max_color$ >> 1;
               pix_blue  = $max_color$;
             }
-            case 24: {
+            case 14: {
               pix_red   = $max_color$;
               pix_green = $max_color$ >> 1;
               pix_blue  = $max_color$ >> 1;
@@ -228,9 +231,9 @@ $$end
             }
           }
         }
-      
+        
         letter_i = letter_i + 1;
-        if (letter_i == $letter_h$) {   // end of letter
+        if (letter_i == $letter_w_sp$) { // end of letter
           letter_i = 0;
           if (pix_x == 639) {  // end of line
             // back to first column
@@ -241,23 +244,24 @@ $$end
               text_j   = 0;
               letter_j = 0;
             } else {
-                // no: next letter line
-              if (letter_j < $letter_w*letter_h$) {
-                letter_j = letter_j + $letter_w$;
+                // next letter line
+              if (letter_j < $2*letter_h$) {
+                letter_j = letter_j + 1;
               } else {
-                // next row
-                letter_j = 0;
+                // next text row
                 text_j   = text_j + 1;
+                letter_j = 0; // back to first letter line
               }
             }
           } else {
-            text_i = text_i + 1;		  
+            if (text_i < 31) {
+              text_i = text_i + 1;
+            }
           }
         }
       }      
-      if (text_i < 80 && text_j < 40) {
-        txtaddr  = text_i + (text_j << 6) + (text_j << 4); // text_j * 80;
-      }
+
+      txtaddr  = text_i + (text_j << 5);
 		
 	  }
 

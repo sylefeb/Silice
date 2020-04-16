@@ -1,7 +1,8 @@
 
 $$letter_w_pow2 = 2
-$$letter_w = 4
-$$letter_h = 5
+$$letter_w      = 4
+$$letter_h      = 5
+$$letter_w_sp   = 5
 
 uint1 letters[760] = { // 4x5 letters
   //[0] 0
