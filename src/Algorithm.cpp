@@ -46,7 +46,10 @@ void Algorithm::checkModulesBindings() const
           im.first.c_str(), b.left.c_str(), b.line);
       }
       // check right side
-      if (!isInputOrOutput(b.right) && m_VarNames.count(b.right) == 0 && b.right != m_Clock && b.right != m_Reset) {
+      if (!isInputOrOutput(b.right) 
+        && m_VarNames.count(b.right) == 0 
+        && b.right != m_Clock && b.right != ALG_CLOCK
+        && b.right != m_Reset && b.right != ALG_RESET) {
         throw Fatal("wrong binding point, instanced module '%s', binding to '%s' (line %d)",
           im.first.c_str(), b.right.c_str(), b.line);
       }
@@ -81,7 +84,10 @@ void Algorithm::checkAlgorithmsBindings() const
           ia.first.c_str(), b.left.c_str(), b.line);
       }
       // check right side
-      if (!isInputOrOutput(b.right) && m_VarNames.count(b.right) == 0 && b.right != m_Clock && b.right != m_Reset) {
+      if (!isInputOrOutput(b.right)
+        && m_VarNames.count(b.right) == 0
+        && b.right != m_Clock && b.right != ALG_CLOCK
+        && b.right != m_Reset && b.right != ALG_RESET) {
         throw Fatal("wrong binding point, instanced algorithm '%s', binding to '%s' (line %d)",
           ia.first.c_str(), b.right.c_str(), b.line);
       }

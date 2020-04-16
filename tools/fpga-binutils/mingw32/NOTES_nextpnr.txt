@@ -16,7 +16,7 @@ makedepends=("git"
 mkdir build
 cd build
 
-cmake .. -G"MSYS Makefiles" -DARCH=ice40 -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/mingw32
+cmake .. -G"MSYS Makefiles" -DARCH=ice40 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/mingw32
 
 OR
 

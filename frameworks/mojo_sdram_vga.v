@@ -83,11 +83,11 @@ M_main __main(
   .out_sdram_ras(__main_out_sdram_ras),
   .out_sdram_ba(__main_out_sdram_ba),
   .out_sdram_a(__main_out_sdram_a),
-  .out_vga_hs(__main_out_vga_hs),
-  .out_vga_vs(__main_out_vga_vs),
-  .out_vga_r(__main_out_vga_r),
-  .out_vga_g(__main_out_vga_g),
-  .out_vga_b(__main_out_vga_b)
+  .out_video_hs(__main_out_vga_hs),
+  .out_video_vs(__main_out_vga_vs),
+  .out_video_r(__main_out_vga_r),
+  .out_video_g(__main_out_vga_g),
+  .out_video_b(__main_out_vga_b)
 );
 
 always @* begin
