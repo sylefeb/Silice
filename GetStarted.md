@@ -1,3 +1,4 @@
+# Getting started with Silice
 
 ## Windows
 
@@ -6,9 +7,9 @@ Download the pre-compiled fpga-binutils from XXX.
 Uncompress in silice/tools/fpga-binutils/mingw32/
 
 After this step you should see three new directories:
-silice/tools/fpga-binutils/mingw32/bin
-silice/tools/fpga-binutils/mingw32/include
-silice/tools/fpga-binutils/mingw32/lib
+- silice/tools/fpga-binutils/mingw32/bin
+- silice/tools/fpga-binutils/mingw32/include
+- silice/tools/fpga-binutils/mingw32/lib
 
 For use with Verilator:
 

@@ -170,8 +170,7 @@ $$end
 
       if (pix_active) {
 
-        // background snow effect 
-        
+        // background snow effect        
         if (pix_x == 0) {
           rand_x = 1;
         } else {
@@ -179,7 +178,6 @@ $$end
         }
         speed  = rand_x[10,2];
         dotpos = (frame >> speed) + rand_x;
-
         if (pix_y == dotpos) {
           pix_red   = ($max_color$);
           pix_green = ($max_color$);
