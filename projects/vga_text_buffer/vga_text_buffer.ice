@@ -374,14 +374,14 @@ $$end
 	  pix_blue   :> video_b
   );
 
+  uint8 frame  = 0;
+
 $$if MOJO then
   // unused pins
   spi_miso := 1bz;
   avr_rx := 1bz;
   spi_channel := 4bzzzz;
 $$end
-
-  uint8 frame  = 0;
 
 $$if SIMULATION then
   video_clock := clock;
