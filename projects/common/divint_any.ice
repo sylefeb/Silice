@@ -1,6 +1,11 @@
 // Sylvain Lefebvre; simple parallel division; 2019-10-09
 // any width version; see divint.ice for more info
 
+// Expects:
+// div_width to be set
+// Options:
+// div_unsigned : unsigned only
+
 algorithm mul_cmp$div_width$(
    input   uint$div_width$ num,
    input   uint$div_width$ den,
@@ -43,19 +48,29 @@ $$for i = 0,div_width-2 do
   mul_cmp$div_width$ mc$i$(num <: reminder, den <: den, k <: k$i$, above :> r$i$);
 $$end
 
+$$if not div_unsigned then
   if (iden < 0) {
     den_neg = 1;
     den = - iden;
-  } else {
+  } else  {
+$$else
     den = iden;
+$$end
+$$if not div_unsigned then
   }
-  
+$$end
+
+$$if not div_unsigned then
   if (inum < 0) {
     num_neg = 1;
     num = - inum;
-  } else {
+  } else  }
+$$else
     num = inum;
+$$end
+$$if not div_unsigned then
   }
+$$end
 
 $$if MOJO and div_width == 32 then
 ++: // add step to fit the Mojo 100MHz timing at 32 bits
@@ -82,8 +97,6 @@ $$for i = 0,div_width-2 do
     mc$i$ <- ();
 $$end
 
-++:
-
     // perform assignment based on occuring case
 $$concat='{'
 $$for i = 0,div_width-3 do concat=concat..'r'..(div_width-2-i)..',' end
@@ -108,8 +121,11 @@ $$end
 
 done:
 
+$$if not div_unsigned then
   if (num_neg ^ den_neg) {
     ret = - ret;
   }
+$$end
+  
 }
 

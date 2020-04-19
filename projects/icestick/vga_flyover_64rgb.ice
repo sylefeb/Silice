@@ -11,7 +11,8 @@ import('../../common/reset_conditioner.v')
 $$end
 
 // Divider
-$$div_width=10
+$$div_width    = 16
+$$div_unsigned = true
 $include('../../common/divint_any.ice')
 
 $$max_color   = 63
@@ -29,38 +30,95 @@ algorithm frame_display(
   output! uint6  pix_b
 ) <autorun> {
 
-  uint8  frame  = 0;  
-  int10 inv_y  = 63;  
-  int10 maxv   = 511;
-  
-  int10 a = 250;
-  int10 b = 5;
-  
-  div10 div; /*(
-    inum <: maxv,
-    iden <: pix_y,
-    ret  :> inv_y
-  );*/
+  uint$div_width$ inv_y     = 0;  
+  uint$div_width$ cur_inv_y = 0;  
+  uint$div_width$ maxv      = 22000;
 
-  pix_r := 0; pix_g := 0; pix_b := 0;
-  
-  (inv_y) <- div <- (a,b);
+  uint9 offs_y = 0;
+  uint8 u      = 0;
+  uint8 v      = 0;
 
+  uint16 pos_u  = 1024;
+  uint16 pos_v  = 1024;
+
+  uint7 lum    = 0;
+  uint1 floor  = 0;
+
+  div$div_width$ div(
+    ret :> inv_y
+  );
+
+  pix_r  := 0; pix_g := 0; pix_b := 0;
+  
   // ---------- show time!
   while (1) {
 
 	  // display frame
 	  while (pix_vblank == 0) {
+
       if (pix_active) {
-        //pix_g = inv_y >> 3;
-        pix_b = inv_y;
-        pix_r = inv_y;
-        pix_g = inv_y;
-        //pix_b = pix_y[1,6];
+      
+        if (pix_y < 240) {
+          offs_y = $240 + 32$ - pix_y;
+          floor  = 0;
+        } else {
+          offs_y = pix_y - $240 - 32$;
+          floor  = 1;
+        }
+        
+        if (offs_y >= $32 + 3$ && offs_y < 200) {
+        
+          if (pix_x == 0) {
+            // read result from previous
+            cur_inv_y = inv_y;
+            if (cur_inv_y[3,7] <= 70) {
+              lum = 70 - cur_inv_y[3,7];
+              if (lum > 63) {
+                lum = 63;
+              }
+            } else {
+              lum = 0;
+            }
+            // divide for next line
+            div <- (maxv,offs_y);
+          }
+
+          u = pos_u + ((pix_x - 320) * cur_inv_y) >> 8;
+          v = pos_v + cur_inv_y[0,6];
+          
+          if (u[5,1] ^ v[5,1]) {
+            if (u[4,1] ^ v[4,1]) {
+              pix_r = lum;
+              pix_g = lum;
+              pix_b = lum;
+            } else {
+              pix_r = lum[1,6];
+              pix_g = lum[1,6];
+              pix_b = lum[1,6];
+            }
+          } else {
+            if (u[4,1] ^ v[4,1]) {
+              if (floor) {
+                pix_g = lum;
+              } else {
+                pix_b = lum;
+              }
+            } else {
+              if (floor) {
+                pix_g = lum[1,6];
+              } else {
+                pix_b = lum[1,6];
+              }
+            }
+          }          
+        }
+      
       }
-    }    
-    // prepare next
-    frame = frame + 1;    
+        
+    }
+    // prepare next    
+    pos_u = pos_u + 1024;
+    pos_v = pos_v + 1;    
     // wait for sync
     while (pix_vblank == 1) {} 
   }
