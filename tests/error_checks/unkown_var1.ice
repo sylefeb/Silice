@@ -9,8 +9,8 @@ algorithm main(
   
   reset_conditioner rstcond(
     rcclk <: clk,
-    in  <: rst_n,
-    out :> rst
+    in    <: rst_n,
+    out  :> rst
   );
   
   int8 myled = 0;

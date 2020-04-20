@@ -43,3 +43,37 @@ cd verilator
 => This executes the simulation, which output 40 image files (tga format)
 Look at them in sequence :-)
 
+## Linux
+
+Install the following dependencies (this was tested on Ubuntu, you may have to adapt package names and package manager to your Linux distribution):
+```
+sudo apt install default-jre
+sudo apt install default-jdk
+sudo apt install iverilog
+sudo apt install verilator
+sudo apt install fpga-icestorm
+sudo apt install arachne-pnr
+sudo apt install yosys
+sudo apt install gtkwave
+sudo apt install git
+sudo apt install gcc
+sudo apt install g++
+sudo apt install make
+sudo apt install cmake
+sudo apt install pkg-config
+sudo apt install uuid
+sudo apt install uuid-dev
+git clone --recurse-submodules https://github.com/sylefeb/Silice.git
+cd Silice
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make
+make install
+cd ..
+```
+
+Done! This compiled and install the Silice executable in silice/bin/
+
+(Note: the Java jre/jdk is only used during compilation)
+

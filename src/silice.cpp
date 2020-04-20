@@ -61,11 +61,15 @@ int main(int argc, char **argv)
 
   } catch (TCLAP::ArgException& err) {
     std::cerr << "command line error: " << err.what() << std::endl;
+    return -1;
   } catch (Fatal& err) {
     std::cerr << Console::red << "error: " << err.message() << Console::gray << std::endl;
+    return -2;
   } catch (std::exception& err) {
     std::cerr << "error: " << err.what() << std::endl;
+    return -3;
   }
+  return 0;
 }
 
 // -------------------------------------------------
