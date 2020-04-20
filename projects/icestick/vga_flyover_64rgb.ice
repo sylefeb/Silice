@@ -13,6 +13,7 @@ $$end
 // Divider
 $$div_width    = 16
 $$div_unsigned = true
+$$div_shrink   = 3
 $include('../../common/divint_any.ice')
 
 $$max_color   = 63
@@ -38,8 +39,8 @@ algorithm frame_display(
   uint8 u      = 0;
   uint8 v      = 0;
 
-  uint16 pos_u  = 1024;
-  uint16 pos_v  = 1024;
+  uint16 pos_u  = 0;
+  uint16 pos_v  = 0;
 
   uint7 lum    = 0;
   uint1 floor  = 0;
@@ -118,7 +119,7 @@ algorithm frame_display(
     }
     // prepare next    
     pos_u = pos_u + 1024;
-    pos_v = pos_v + 1;    
+    pos_v = pos_v + 3;    
     // wait for sync
     while (pix_vblank == 1) {} 
   }

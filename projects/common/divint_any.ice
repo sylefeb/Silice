@@ -1,10 +1,20 @@
 // Sylvain Lefebvre; simple parallel division; 2019-10-09
 // any width version; see divint.ice for more info
 
-// Expects:
-// div_width to be set
-// Options:
+// == Requires ==
+// div_width to be set to the desired bitwidth.
+// for div_width = W the algorithm is named divW,
+// e.g. div_width = 16 produces algorithm div16
+// == Options ==
 // div_unsigned : unsigned only
+// div_shrink   : allows to reduce size at the expense of perf.
+//    0 => default, use all stages
+//    1 => default, one stage every two
+//    2 => default, one stage every four
+// ...
+// at worst the algorithm because a loop adding
+// den until it exceed num, resulting in worst performance
+// but smallest synthesized size
 
 algorithm mul_cmp$div_width$(
    input   uint$div_width$ num,
@@ -33,8 +43,15 @@ algorithm div$div_width$(
   input  int$div_width$ iden,
   output int$div_width$ ret)
 {
+$$prev = 0
 $$for i = 0,div_width-2 do
-  uint$div_width$ k$i$ = $i$;
+  uint$div_width$ k$i$ =
+$$if (i % math.pow(2,div_shrink)) == 0 then 
+$$prev = i
+   $i$;
+$$else
+  $prev$;
+$$end
   uint1 r$i$ = 0;
 $$end
 
