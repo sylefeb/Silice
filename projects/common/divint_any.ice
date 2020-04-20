@@ -10,7 +10,7 @@ algorithm mul_cmp$div_width$(
    input   uint$div_width$ num,
    input   uint$div_width$ den,
    input   uint$div_width$ k,
-   output uint1 above)
+   output  uint1 above)
 <autorun>   
 {
   uint$div_width+1$ th   = 0;
@@ -39,7 +39,6 @@ $$for i = 0,div_width-2 do
 $$end
 
   uint$div_width$ reminder = 0;
-  uint$div_width$ reminder_tmp = 0;
 
   uint1 num_neg = 0;
   uint1 den_neg = 0;
@@ -86,15 +85,15 @@ $$end
     goto done;
   }
 
-  reminder_tmp = num;
+  reminder = num;
 
-  while (reminder_tmp >= den) {
+  while (reminder >= den) {
 
     // assign ret/reminder from previous iteration
-    reminder = reminder_tmp;
+//    reminder = reminder_tmp;
 
     // wait for all multiply-compare in parallel
-++:
+// ++:
 
     // perform assignment based on occuring case
 $$concat='{'
@@ -107,12 +106,12 @@ $$ s='' .. (div_width-1) .. 'b'
 $$ for i = 0,div_width-2 do if i<c then s=s..'1' else s=s..'0' end end      
       case $s$: {
         ret = ret + (1<<k$div_width-2-c$);
-        reminder_tmp = reminder - (den << k$div_width-2-c$);
+        reminder = reminder - (den << k$div_width-2-c$);
       }
 $$end      
       default: {
         // should never happen
-        reminder_tmp = reminder;
+        reminder = 0;
       }
     }
 
