@@ -1,8 +1,5 @@
 // -------------------------
 
-// Text buffer (small 32x32)
-import('../common/text_buffer_small.v')
-
 // VGA driver
 $include('../common/vga.ice')
 
@@ -38,20 +35,8 @@ algorithm text_display(
   output! uint4  pix_blue
 ) <autorun> {
 
-// Text buffer
-
-uint14 txtaddr   = 0;
-uint6  txtdata_r = 0;
-uint6  txtdata_w = 0;
-uint1  txtwrite  = 0;
-
-text_buffer txtbuf (
-  clk     <: clock,
-  addr    <: txtaddr,
-  wdata   <: txtdata_w,
-  rdata   :> txtdata_r,
-  wenable <: txtwrite
-);
+  // Text buffer
+  bram uint6 txt[1024] = {};
 
   // ---------- font
   // assumes letter_w_sp (defined in font) is an integer divider of 640
@@ -101,9 +86,9 @@ $$end
 	  reads      str,
 	  reads      str_x,
 	  readwrites str_y,
-    writes     txtaddr,
-	  writes     txtdata_w,
-	  writes     txtwrite
+    writes     txt_addr,
+	  writes     txt_wdata,
+	  writes     txt_wenable
 	  ) {
     uint10 col  = 0;
     uint8  lttr = 0;
@@ -119,14 +104,14 @@ $$end
           case 45: {lttr = 37;}
           default: {lttr = str[col] - 55;}
         }
-        txtaddr   = offs + str_x + (str_y << 5);
-        txtdata_w = lttr[0,6];
-        txtwrite  = 1;
-        offs      = offs + 1;
+        txt_addr    = offs + str_x + (str_y << 5);
+        txt_wdata   = lttr[0,6];
+        txt_wenable = 1;
+        offs        = offs + 1;
       }
       col       = col + 1;
     }
-    txtwrite = 0;
+    txt_wenable = 0;
     return;
   }
 
@@ -136,14 +121,14 @@ $$end
   pix_blue  := 0;
 
   // fill buffer with spaces
-  txtwrite  = 1;
-  txtdata_w = 36; // data to write
-  next      = 0;
+  txt_wenable  = 1;
+  txt_wdata    = 36; // data to write
+  next         = 0;
   while (next < 1024) {
-    txtaddr = next;     // address to write
-    next    = next + 1; // next
+    txt_addr  = next;     // address to write
+    next      = next + 1; // next
   }
-  txtwrite = 0;
+  txt_wenable = 0;
 
   // ---------- show time!
   
@@ -190,7 +175,7 @@ $$end
         
           if (letter_j < $letter_h$ && letter_i < $letter_w$) {
             addr     = letter_i + (letter_j << $letter_w_pow2$) 
-                      + (txtdata_r * $letter_w*letter_h$);
+                      + (txt_rdata * $letter_w*letter_h$);
             pixel    = letters[ addr ];
             if (pixel == 1) {
               switch (text_j)
@@ -241,7 +226,7 @@ $$end
             }
           }
 
-          txtaddr  = text_i + (text_j << 5);
+          txt_addr = text_i + (text_j << 5);
 
         }      
 
