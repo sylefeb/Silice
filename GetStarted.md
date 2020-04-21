@@ -24,13 +24,13 @@ For use with Verilator:
 Now we will compile the silice framework for verilator
 - Go into the silice folder and type 
 
-mkdir build
-cd build
+mkdir BUILD
+cd BUILD
 export VERILATOR_ROOT=silice/tools/fpga-binutils/mingw32/
 cmake ../frameworks/verilator/
 make install
 cd ..
-rm -rf build
+rm -rf BUILD
 
 - Now we are ready to test!
 
@@ -65,12 +65,13 @@ sudo apt install uuid
 sudo apt install uuid-dev
 git clone --recurse-submodules https://github.com/sylefeb/Silice.git
 cd Silice
-mkdir build
-cd build
+mkdir BUILD
+cd BUILD
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make
 make install
 cd ..
+rm -rf BUILD
 ```
 
 Done! This compiled and install the Silice executable in silice/bin/

@@ -1189,7 +1189,7 @@ Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::Retu
 
 Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncExecContext* sync, t_combinational_block* _current, t_gather_context* _context)
 {
-  if (_context->__id == -1) {
+  if (_context->__id != -1) {
     throw Fatal("repeat blocks cannot wait for a parallel execution (line %d)", sync->getStart()->getLine());
   }
   // add sync as instruction, will perform the call
@@ -1215,7 +1215,7 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
 
 Algorithm::t_combinational_block *Algorithm::gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context)
 {
-  if (_context->__id == -1) {
+  if (_context->__id != -1) {
     throw Fatal("repeat blocks cannot wait a parallel execution (line %d)", join->getStart()->getLine());
   }
   // are we calling a subroutine?

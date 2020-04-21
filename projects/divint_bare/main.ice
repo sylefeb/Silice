@@ -14,7 +14,7 @@ algorithm main()
 
 $$if not VERILATOR then
 
-  display("%d / %d = %d",dividend,divisor,result);  
+  __display("%d / %d = %d",dividend,divisor,result);  
   
 $$end
 
