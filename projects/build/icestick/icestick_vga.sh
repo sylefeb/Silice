@@ -5,7 +5,8 @@ export PATH=$PATH:$DIR/../../../tools/fpga-binutils/mingw32/bin/
 
 if ! type "nextpnr-ice40" > /dev/null; then
   # try arachne-pnr instead
-  echo "nextpnr not found, trying arachnepnr instead"
+  echo "next-pnr not found, trying arachne-pnr instead"
+  yosys -q -p "synth_ice40 -blif build.blif" build.v
   arachne-pnr -p ../../../frameworks/icestick.pcf build.blif -o build.txt
   icepack build.txt build.bin
 else
