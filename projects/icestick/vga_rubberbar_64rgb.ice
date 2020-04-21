@@ -31,25 +31,26 @@ algorithm frame_display(
   output! uint6  pix_b
 ) <autorun> {
 
-  uint$div_width$ inv_y     = 0;  
-  uint$div_width$ cur_inv_y = 0;  
+  uint7 wave[128] = {
+$$for i=0,127 do
+    $math.floor(127.0 * (0.5+0.5*math.sin(2*math.pi*i/127)))$,
+$$end
+  };
 
-  uint9 offs_y = 0;
-  uint8 u      = 0;
-  uint8 v      = 0;
-
-  uint16 pos_u  = 0;
-  uint16 pos_v  = 0;
-
-  uint7 lum    = 0;
-  uint1 floor  = 0;
-
-  div$div_width$ div(
-    ret :> inv_y
-  );
-
-  pix_r  := 0; pix_g := 0; pix_b := 0;
+  uint7  frame = 0;
   
+  uint10 pos0 = 320;
+  uint10 pos1 = 160;
+  uint10 pos2 = 240;
+  uint10 pos3 = 480;
+  uint10 ampl = 0;
+  uint10 bar0 = 320;
+  uint10 bar1 = 160;
+  uint10 bar2 = 240;
+  uint10 bar3 = 480;
+  
+  pix_r  := 0; pix_g := 0; pix_b := 0;
+
   // ---------- show time!
   while (1) {
 
@@ -57,68 +58,34 @@ algorithm frame_display(
 	  while (pix_vblank == 0) {
 
       if (pix_active) {
-      
-        if (pix_y < 240) {
-          offs_y = $240 + 32$ - pix_y;
-          floor  = 0;
-        } else {
-          offs_y = pix_y - $240 - 32$;
-          floor  = 1;
+        ampl = wave[pix_y[2,7]];
+        bar0 = pos0 + ampl;
+        bar1 = pos1 + ampl;
+        bar2 = pos2 + ampl;
+        bar3 = pos3 + ampl;
+        if (pix_x >= bar0 && pix_x < bar1) {
+          pix_r = 63;
         }
-        
-        if (offs_y >= $32 + 3$ && offs_y < 200) {
-        
-          if (pix_x == 0) {
-            // read result from previous
-            cur_inv_y = inv_y;
-            if (cur_inv_y[3,7] <= 70) {
-              lum = 70 - cur_inv_y[3,7];
-              if (lum > 63) {
-                lum = 63;
-              }
-            } else {
-              lum = 0;
-            }
-            // divide for next line
-            div <- (22000,offs_y);
-          }
-
-          u = pos_u + ((pix_x - 320) * cur_inv_y) >> 8;
-          v = pos_v + cur_inv_y[0,6];
-          
-          if (u[5,1] ^ v[5,1]) {
-            if (u[4,1] ^ v[4,1]) {
-              pix_r = lum;
-              pix_g = lum;
-              pix_b = lum;
-            } else {
-              pix_r = lum[1,6];
-              pix_g = lum[1,6];
-              pix_b = lum[1,6];
-            }
-          } else {
-            if (u[4,1] ^ v[4,1]) {
-              if (floor) {
-                pix_g = lum;
-              } else {
-                pix_b = lum;
-              }
-            } else {
-              if (floor) {
-                pix_g = lum[1,6];
-              } else {
-                pix_b = lum[1,6];
-              }
-            }
-          }          
+        if (pix_x >= bar1 && pix_x < bar2) {
+          pix_g = 63;
         }
-      
+        if (pix_x >= bar2 && pix_x < bar3) {
+          pix_b = 63;
+        }
+        if (pix_x >= bar3 && pix_x < bar0) {
+          pix_r = 63;
+          pix_g = 63;
+          pix_b = 63;
+        }
       }
-        
+
     }
-    // prepare next    
-    pos_u = pos_u + 1024;
-    pos_v = pos_v + 3;    
+    // prepare next
+    frame = frame + 1;
+    pos0  = $320-128$ + wave[frame];
+    pos1  = $320-128$ + wave[(frame + 32)&127];
+    pos2  = $320-128$ + wave[(frame + 64)&127];
+    pos3  = $320-128$ + wave[(frame + 96)&127];
     // wait for sync
     while (pix_vblank == 1) {} 
   }

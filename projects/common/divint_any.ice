@@ -1,16 +1,26 @@
 // Sylvain Lefebvre; simple parallel division; 2019-10-09
 // any width version; see divint.ice for more info
 
-// Expects:
-// div_width to be set
-// Options:
+// == Requires ==
+// div_width to be set to the desired bitwidth.
+// for div_width = W the algorithm is named divW,
+// e.g. div_width = 16 produces algorithm div16
+// == Options ==
 // div_unsigned : unsigned only
+// div_shrink   : allows to reduce size at the expense of perf.
+//    0 => default, use all stages
+//    1 => default, one stage every two
+//    2 => default, one stage every four
+// ...
+// at worst the algorithm because a loop adding
+// den until it exceed num, resulting in worst performance
+// but smallest synthesized size
 
 algorithm mul_cmp$div_width$(
    input   uint$div_width$ num,
    input   uint$div_width$ den,
    input   uint$div_width$ k,
-   output uint1 above)
+   output  uint1 above)
 <autorun>   
 {
   uint$div_width+1$ th   = 0;
@@ -33,13 +43,19 @@ algorithm div$div_width$(
   input  int$div_width$ iden,
   output int$div_width$ ret)
 {
+$$prev = 0
 $$for i = 0,div_width-2 do
-  uint$div_width$ k$i$ = $i$;
+  uint$div_width$ k$i$ =
+$$if (i % math.pow(2,div_shrink)) == 0 then 
+$$prev = i
+   $i$;
+$$else
+  $prev$;
+$$end
   uint1 r$i$ = 0;
 $$end
 
   uint$div_width$ reminder = 0;
-  uint$div_width$ reminder_tmp = 0;
 
   uint1 num_neg = 0;
   uint1 den_neg = 0;
@@ -86,15 +102,15 @@ $$end
     goto done;
   }
 
-  reminder_tmp = num;
+  reminder = num;
 
-  while (reminder_tmp >= den) {
+  while (reminder >= den) {
 
     // assign ret/reminder from previous iteration
-    reminder = reminder_tmp;
+//    reminder = reminder_tmp;
 
     // wait for all multiply-compare in parallel
-++:
+// ++:
 
     // perform assignment based on occuring case
 $$concat='{'
@@ -107,12 +123,12 @@ $$ s='' .. (div_width-1) .. 'b'
 $$ for i = 0,div_width-2 do if i<c then s=s..'1' else s=s..'0' end end      
       case $s$: {
         ret = ret + (1<<k$div_width-2-c$);
-        reminder_tmp = reminder - (den << k$div_width-2-c$);
+        reminder = reminder - (den << k$div_width-2-c$);
       }
 $$end      
       default: {
         // should never happen
-        reminder_tmp = reminder;
+        reminder = 0;
       }
     }
 

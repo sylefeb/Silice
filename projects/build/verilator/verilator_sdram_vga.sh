@@ -6,7 +6,12 @@ else
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 export PATH=$PATH:$DIR/../../../tools/fpga-binutils/mingw32/bin/
+
+if [[ -z "${VERILATOR_ROOT}" ]]; then
 export VERILATOR_ROOT=$DIR/../../../tools/fpga-binutils/mingw32/
+else
+echo "VERILATOR_ROOT already defined, using its value"
+fi
 
 u=$(echo "$1" | sed s:/:__:g | tr -d ".")
 

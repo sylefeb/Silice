@@ -48,7 +48,7 @@ CALL                : 'call' ;
 
 BREAK               : 'break' ;
 
-DISPLAY             : '$display' ;
+DISPLAY             : '$display' | 'display' ;
 
 ALWAYS              : 'always' ;
 
