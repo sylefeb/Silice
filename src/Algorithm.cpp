@@ -462,9 +462,9 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
   }
   // verify the varaible does not shadow an input or output
   if (isInput(var.name)) {
-    throw Fatal("variable '%s' is shadowing input of same name (line %d)", var.name.c_str(), decl->getStart()->getLine());
+    throw Fatal("variable '%s' is shadowing input of same name (line %d)", var.name.c_str(), (int)decl->getStart()->getLine());
   } else if (isOutput(var.name)) {
-    throw Fatal("variable '%s' is shadowing output of same name (line %d)", var.name.c_str(), decl->getStart()->getLine());
+    throw Fatal("variable '%s' is shadowing output of same name (line %d)", var.name.c_str(), (int)decl->getStart()->getLine());
   }
   // ok!
   m_Vars.emplace_back(var);
@@ -485,26 +485,9 @@ void Algorithm::gatherInitList(siliceParser::InitListContext* ilist, std::vector
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_subroutine_nfo* sub)
+template<typename D, typename T>
+void readInitList(D* decl,T& var)
 {
-  t_var_nfo var;
-  if (sub == nullptr) {
-    var.name = decl->IDENTIFIER()->getText();
-  } else {
-    var.name = subroutineVIOName(decl->IDENTIFIER()->getText(),sub);
-    sub->vios.insert(std::make_pair(decl->IDENTIFIER()->getText(), var.name));
-    sub->vars.push_back(decl->IDENTIFIER()->getText());
-  }
-  splitType(decl->TYPE()->getText(), var.base_type, var.width);
-  if (decl->NUMBER() != nullptr) {
-    var.table_size = atoi(decl->NUMBER()->getText().c_str());
-    if (var.table_size <= 0) {
-      throw Fatal("table has zero or negative size (line %d)", decl->getStart()->getLine());
-    }
-    var.init_values.resize(var.table_size, "0");
-  } else {
-    var.table_size = 0; // autosize from init
-  }
   // read init list
   std::vector<std::string> values_str;
   if (decl->initList() != nullptr) {
@@ -524,7 +507,7 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* de
   } else if (values_str.empty()) {
     // auto init table to 0
   } else if (values_str.size() != var.table_size) {
-    throw Fatal("incorrect number of values in table initialization (line %d)", decl->getStart()->getLine());
+    throw Fatal("incorrect number of values in table initialization (line %d)", (int)decl->getStart()->getLine());
   }
   ForIndex(i, values_str.size()) {
     if (values_str[i].find_first_of("hbd") != std::string::npos) {
@@ -533,11 +516,69 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* de
       var.init_values[i] = values_str[i];
     }
   }
+}
+
+// -------------------------------------------------
+
+void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_subroutine_nfo* sub)
+{
+  t_var_nfo var;
+  if (sub == nullptr) {
+    var.name = decl->IDENTIFIER()->getText();
+  } else {
+    var.name = subroutineVIOName(decl->IDENTIFIER()->getText(), sub);
+    sub->vios.insert(std::make_pair(decl->IDENTIFIER()->getText(), var.name));
+    sub->vars.push_back(decl->IDENTIFIER()->getText());
+  }
+  splitType(decl->TYPE()->getText(), var.base_type, var.width);
+  if (decl->NUMBER() != nullptr) {
+    var.table_size = atoi(decl->NUMBER()->getText().c_str());
+    if (var.table_size <= 0) {
+      throw Fatal("table has zero or negative size (line %d)", (int)decl->getStart()->getLine());
+    }
+    var.init_values.resize(var.table_size, "0");
+  } else {
+    var.table_size = 0; // autosize from init
+  }
+  readInitList(decl, var);
+
   m_Vars.emplace_back(var);
   m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
   if (sub != nullptr) {
     sub->varnames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
   }
+}
+
+// -------------------------------------------------
+
+void Algorithm::gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl, const t_subroutine_nfo* sub)
+{
+  if (sub != nullptr) {
+    throw Fatal("subroutine '%s': BRAMs cannot be instanced within subroutines (line %d)", sub->name.c_str(), (int)decl->name->getLine());
+  }
+  // gather BRAM nfo
+  t_bram_nfo bram;
+  bram.name = "_bram_" + decl->name->getText();
+  splitType(decl->TYPE()->getText(), bram.base_type, bram.width);
+  bram.table_size = atoi(decl->NUMBER()->getText().c_str());
+  if (bram.table_size <= 0) {
+    throw Fatal("BRAM has zero or negative size (line %d)", (int)decl->getStart()->getLine());
+  }
+  bram.init_values.resize(bram.table_size, "0");
+  readInitList(decl, bram);
+  // create 'fake' algorithm for BRAM access
+  t_algo_nfo nfo;
+  nfo.algo_name       = bram.name;
+  nfo.instance_name   = bram.name;
+  nfo.instance_clock  = m_Clock;
+  nfo.instance_reset  = m_Reset;
+  nfo.instance_prefix = "_" + nfo.instance_name;
+  nfo.instance_line   = (int)decl->getStart()->getLine();
+  if (m_InstancedAlgorithms.find(nfo.instance_name) != m_InstancedAlgorithms.end()) {
+    throw Fatal("an algorithm was already instantiated with the same name (line %d)", (int)decl->name->getLine());
+  }
+  nfo.autobind = false;
+  m_InstancedAlgorithms[nfo.instance_name] = nfo;
 }
 
 // -------------------------------------------------
@@ -578,11 +619,11 @@ void Algorithm::getBindings(
 void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationModAlgContext* alg, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
-    throw Fatal("subroutine '%s': algorithms cannot be instanced within subroutines (line %d)", sub->name.c_str(), alg->name->getLine());
+    throw Fatal("subroutine '%s': algorithms cannot be instanced within subroutines (line %d)", sub->name.c_str(), (int)alg->name->getLine());
   }
   t_algo_nfo nfo;
-  nfo.algo_name = alg->modalg->getText();
-  nfo.instance_name = alg->name->getText();
+  nfo.algo_name      = alg->modalg->getText();
+  nfo.instance_name  = alg->name->getText();
   nfo.instance_clock = m_Clock;
   nfo.instance_reset = m_Reset;
   if (alg->algModifiers() != nullptr) {
@@ -594,14 +635,14 @@ void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationModAlgContext* al
         nfo.instance_reset = m->sreset()->IDENTIFIER()->getText();
       }
       if (m->sautorun() != nullptr) {
-        throw Fatal("autorun not allowed when instantiating algorithms (line %d)", m->sautorun()->getStart()->getLine());
+        throw Fatal("autorun not allowed when instantiating algorithms (line %d)", (int)m->sautorun()->getStart()->getLine());
       }
     }
   }
   nfo.instance_prefix = "_" + alg->name->getText();
-  nfo.instance_line = (int)alg->getStart()->getLine();
+  nfo.instance_line   = (int)alg->getStart()->getLine();
   if (m_InstancedAlgorithms.find(nfo.instance_name) != m_InstancedAlgorithms.end()) {
-    throw Fatal("an algorithm was already instantiated with the same name (line %d)", alg->name->getLine());
+    throw Fatal("an algorithm was already instantiated with the same name (line %d)", (int)alg->name->getLine());
   }
   nfo.autobind = false;
   getBindings(alg->modalgBindingList(), nfo.bindings, nfo.autobind);
@@ -613,7 +654,7 @@ void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationModAlgContext* al
 void Algorithm::gatherDeclarationModule(siliceParser::DeclarationModAlgContext* mod, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
-    throw Fatal("subroutine '%s': modules cannot be instanced within subroutines (line %d)", sub->name.c_str(), mod->name->getLine());
+    throw Fatal("subroutine '%s': modules cannot be instanced within subroutines (line %d)", sub->name.c_str(), (int)mod->name->getLine());
   }
   t_module_nfo nfo;
   nfo.module_name = mod->modalg->getText();
@@ -621,7 +662,7 @@ void Algorithm::gatherDeclarationModule(siliceParser::DeclarationModAlgContext* 
   nfo.instance_prefix = "_" + mod->name->getText();
   nfo.instance_line = (int)mod->getStart()->getLine();
   if (m_InstancedModules.find(nfo.instance_name) != m_InstancedModules.end()) {
-    throw Fatal("a module was already instantiated with the same name (line %d)", mod->name->getLine());
+    throw Fatal("a module was already instantiated with the same name (line %d)", (int)mod->name->getLine());
   }
   nfo.autobind = false;
   getBindings(mod->modalgBindingList(), nfo.bindings, nfo.autobind);
@@ -808,7 +849,7 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
 {
   // current goes to after while
   if (_context->break_to == nullptr) {
-    throw Fatal("cannot break outside of a loop (line %d)", brk->getStart()->getLine());
+    throw Fatal("cannot break outside of a loop (line %d)", (int)brk->getStart()->getLine());
   }
   _current->next(_context->break_to);
   _context->break_to->is_state = true;
@@ -854,12 +895,14 @@ void Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decl
   siliceParser::DeclarationListContext *cur_decllist = decllist;
   while (cur_decllist->declaration() != nullptr) {
     siliceParser::DeclarationContext* decl = cur_decllist->declaration();
-    auto declvar = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
-    auto decltbl = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
-    auto modalg = dynamic_cast<siliceParser::DeclarationModAlgContext*>(decl->declarationModAlg());
-    if (declvar)      { gatherDeclarationVar(declvar, sub); } 
-    else if (decltbl) { gatherDeclarationTable(decltbl, sub); } 
-    else if (modalg)  {
+    auto declvar  = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
+    auto decltbl  = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
+    auto modalg   = dynamic_cast<siliceParser::DeclarationModAlgContext*>(decl->declarationModAlg());
+    auto declbram = dynamic_cast<siliceParser::DeclarationBRAMContext*>(decl->declarationBRAM());
+    if (declvar)       { gatherDeclarationVar(declvar, sub); }
+    else if (decltbl)  { gatherDeclarationTable(decltbl, sub); } 
+    else if (declbram) { gatherDeclarationBRAM(declbram, sub); }
+    else if (modalg)   {
       std::string name = modalg->modalg->getText();
       if (m_KnownModules.find(name) != m_KnownModules.end()) {
         gatherDeclarationModule(modalg, sub);
@@ -882,10 +925,10 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   nfo->name = sub->IDENTIFIER()->getText();
   // check for duplicates
   if (m_Subroutines.count(nfo->name) > 0) {
-    throw Fatal("subroutine '%s': a subroutine of the same name is already declared (line %d)", nfo->name.c_str(), sub->getStart()->getLine());
+    throw Fatal("subroutine '%s': a subroutine of the same name is already declared (line %d)", nfo->name.c_str(), (int)sub->getStart()->getLine());
   }
   if (m_InstancedAlgorithms.count(nfo->name) > 0) {
-    throw Fatal("subroutine '%s': an instanced algorithm of the same name is already declared (line %d)", nfo->name.c_str(), sub->getStart()->getLine());
+    throw Fatal("subroutine '%s': an instanced algorithm of the same name is already declared (line %d)", nfo->name.c_str(), (int)sub->getStart()->getLine());
   }
   // subroutine local declarations
   gatherDeclarationList(sub->declarationList(), nfo);
@@ -935,7 +978,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         || m_VarNames.count(ioname) > 0
         || ioname == m_Clock || ioname == m_Reset) {
         throw Fatal("subroutine '%s' input/output '%s' is using the same name as a host VIO, clock or reset (line %d)",
-          nfo->name.c_str(), ioname.c_str(), sub->getStart()->getLine());
+          nfo->name.c_str(), ioname.c_str(), (int)sub->getStart()->getLine());
       }
       // insert variable in host for each input/output
       t_var_nfo var;
@@ -986,7 +1029,7 @@ std::string Algorithm::tricklingVIOName(std::string vio, const t_pipeline_stage_
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
   if (_current->pipeline != nullptr) {
-    throw Fatal("pipelines cannot be nested (line %d)", pip->getStart()->getLine());
+    throw Fatal("pipelines cannot be nested (line %d)", (int)pip->getStart()->getLine());
   }
   const t_subroutine_nfo *sub = _current->subroutine;
   t_pipeline_nfo   *nfo = new t_pipeline_nfo();
@@ -1190,7 +1233,7 @@ Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::Retu
 Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncExecContext* sync, t_combinational_block* _current, t_gather_context* _context)
 {
   if (_context->__id != -1) {
-    throw Fatal("repeat blocks cannot wait for a parallel execution (line %d)", sync->getStart()->getLine());
+    throw Fatal("repeat blocks cannot wait for a parallel execution (line %d)", (int)sync->getStart()->getLine());
   }
   // add sync as instruction, will perform the call
   _current->instructions.push_back(t_instr_nfo(sync, _context->__id));
@@ -1216,7 +1259,7 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
 Algorithm::t_combinational_block *Algorithm::gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context)
 {
   if (_context->__id != -1) {
-    throw Fatal("repeat blocks cannot wait a parallel execution (line %d)", join->getStart()->getLine());
+    throw Fatal("repeat blocks cannot wait a parallel execution (line %d)", (int)join->getStart()->getLine());
   }
   // are we calling a subroutine?
   auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
@@ -1341,7 +1384,7 @@ Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::Swit
 Algorithm::t_combinational_block *Algorithm::gatherRepeatBlock(siliceParser::RepeatBlockContext* repeat, t_combinational_block *_current, t_gather_context *_context)
 {
   if (_context->__id != -1) {
-    throw Fatal("repeat blocks cannot be nested (line %d)", repeat->getStart()->getLine());
+    throw Fatal("repeat blocks cannot be nested (line %d)", (int)repeat->getStart()->getLine());
   } else {
     std::string rcnt = repeat->REPEATCNT()->getText();
     int num = atoi(rcnt.substr(0, rcnt.length() - 1).c_str());
@@ -1523,7 +1566,7 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
     if (algbody->alwaysBlock() != nullptr) {
       gather(algbody->alwaysBlock(),&m_AlwaysPre,_context);
       if (!isStateLessGraph(&m_AlwaysPre)) {
-        throw Fatal("always block can only be combinational (line %d)", algbody->alwaysBlock()->getStart()->getLine());
+        throw Fatal("always block can only be combinational (line %d)", (int)algbody->alwaysBlock()->getStart()->getLine());
       }
     }
     // add global subroutines now (reparse them as if defined in algorithm)
@@ -2376,14 +2419,14 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(silic
   // find algorithm
   auto A = m_InstancedAlgorithms.find(algo);
   if (A == m_InstancedAlgorithms.end()) {
-    throw Fatal("cannot find algorithm instance '%s' (line %d)", algo.c_str(), ioaccess->getStart()->getLine());
+    throw Fatal("cannot find algorithm instance '%s' (line %d)", algo.c_str(), (int)ioaccess->getStart()->getLine());
   } else {
     if (!A->second.algo->isInput(io) && !A->second.algo->isOutput(io)) {
-      throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
+      throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
     }
     if (A->second.algo->isInput(io)) {
       if (A->second.boundinputs.count(io) > 0) {
-        throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
+        throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
       }
       return std::make_pair(
         A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)].base_type,
@@ -2456,7 +2499,7 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
   // check for clock domain crossing
   if (a.instance_clock != m_Clock) {
     throw Fatal("algorithm instance '%s' called accross clock-domain -- not yet supported (line %d)",
-      a.instance_name.c_str(), plist->getStart()->getLine());
+      a.instance_name.c_str(), (int)plist->getStart()->getLine());
   }
   // get params
   std::vector<antlr4::tree::ParseTree*> params;
@@ -2465,14 +2508,14 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
   if (!params.empty()) {
     if (a.algo->m_Inputs.size() != params.size()) {
       throw Fatal("incorrect number of input parameters in call to algorithm instance '%s' (line %d)",
-        a.instance_name.c_str(), plist->getStart()->getLine());
+        a.instance_name.c_str(), (int)plist->getStart()->getLine());
     }
     // set inputs
     int p = 0;
     for (const auto& ins : a.algo->m_Inputs) {
       if (a.boundinputs.count(ins.name) > 0) {
         throw Fatal("algorithm instance '%s' cannot be called as its input '%s' is bound (line %d)",
-          a.instance_name.c_str(), ins.name.c_str(), plist->getStart()->getLine());
+          a.instance_name.c_str(), ins.name.c_str(), (int)plist->getStart()->getLine());
       }
       out << FF_D << a.instance_prefix << "_" << ins.name
         << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, nullptr /*not in a subroutine*/, pip, dependencies) 
@@ -2490,12 +2533,12 @@ void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, co
 {
   // check for pipeline
   if (pip != nullptr) {
-    throw Fatal("cannot join algorithm instance from a pipeline (line %d)", plist->getStart()->getLine());
+    throw Fatal("cannot join algorithm instance from a pipeline (line %d)", (int)plist->getStart()->getLine());
   }
   // check for clock domain crossing
   if (a.instance_clock != m_Clock) {
     throw Fatal("algorithm instance '%s' joined accross clock-domain -- not yet supported (line %d)",
-      a.instance_name.c_str(), plist->getStart()->getLine());
+      a.instance_name.c_str(), (int)plist->getStart()->getLine());
   }
   // get receiving identifiers
   std::vector<std::string> idents;
@@ -2504,7 +2547,7 @@ void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, co
   if (!idents.empty()) {
     if (a.algo->m_Outputs.size() != idents.size()) {
       throw Fatal("incorrect number of output parameters reading back result from algorithm instance '%s' (line %d)",
-        a.instance_name.c_str(), plist->getStart()->getLine());
+        a.instance_name.c_str(), (int)plist->getStart()->getLine());
     }
     // read outputs
     int p = 0;
@@ -2519,14 +2562,14 @@ void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, co
 void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, const t_pipeline_stage_nfo *pip, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const
 {
   if (pip != nullptr) {
-    throw Fatal("cannot call a subroutine from a pipeline (line %d)",plist->getStart()->getLine());
+    throw Fatal("cannot call a subroutine from a pipeline (line %d)", (int)plist->getStart()->getLine());
   }
   std::vector<antlr4::tree::ParseTree*> params;
   getParams(plist, params, nullptr, pip);
   // check num parameters
   if (s->inputs.size() != params.size()) {
     throw Fatal("incorrect number of input parameters in call to subroutine '%s' (line %d)",
-      s->name.c_str(), plist->getStart()->getLine());
+      s->name.c_str(), (int)plist->getStart()->getLine());
   }
   // write var inits
   t_vio_dependencies _;
@@ -2545,7 +2588,7 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
 void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, const t_pipeline_stage_nfo *pip, siliceParser::IdentifierListContext* plist) const
 {
   if (pip != nullptr) {
-    throw Fatal("cannot join a subroutine from a pipeline (line %d)", plist->getStart()->getLine());
+    throw Fatal("cannot join a subroutine from a pipeline (line %d)", (int)plist->getStart()->getLine());
   }
   // get receiving identifiers
   std::vector<std::string> idents;
@@ -2553,7 +2596,7 @@ void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, c
   // if params are empty we simply wait, otherwise we set the outputs
   if (s->outputs.size() != idents.size()) {
     throw Fatal("incorrect number of output parameters reading back result from subroutine '%s' (line %d)",
-      s->name.c_str(), plist->getStart()->getLine());
+      s->name.c_str(), (int)plist->getStart()->getLine());
   }
   // read outputs (reading from FF_D or FF_Q should be equivalent since we just cycled the state machine)
   int p = 0;
@@ -2571,20 +2614,20 @@ Algorithm::t_inout_nfo Algorithm::writeIOAccess(std::string prefix, std::ostream
   // find algorithm
   auto A = m_InstancedAlgorithms.find(algo);
   if (A == m_InstancedAlgorithms.end()) {
-    throw Fatal("cannot find algorithm instance '%s' (line %d)", algo.c_str(), ioaccess->getStart()->getLine());
+    throw Fatal("cannot find algorithm instance '%s' (line %d)", algo.c_str(), (int)ioaccess->getStart()->getLine());
   } else {
     if (!A->second.algo->isInput(io) && !A->second.algo->isOutput(io)) {
-      throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
+      throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
     }
     if (assigning && !A->second.algo->isInput(io)) {
-      throw Fatal("cannot write to algorithm output '%s', instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
+      throw Fatal("cannot write to algorithm output '%s', instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
     }
     if (!assigning && !A->second.algo->isOutput(io)) {
-      throw Fatal("cannot read from algorithm input '%s', instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
+      throw Fatal("cannot read from algorithm input '%s', instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
     }
     if (A->second.algo->isInput(io)) {
       if (A->second.boundinputs.count(io) > 0) {
-        throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), ioaccess->getStart()->getLine());
+        throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
       }
       if (assigning) {
         out << FF_D; // algorithm input
@@ -2672,7 +2715,7 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
     // variable
     if (isInput(identifier->getText())) {
       throw Fatal("cannot assign a value to an input of the algorithm, input '%s' (line %d)",
-        identifier->getText().c_str(), identifier->getSymbol()->getLine());
+        identifier->getText().c_str(), (int)identifier->getSymbol()->getLine());
     }
     out << rewriteIdentifier(prefix, identifier->getText(), sub, pip, identifier->getSymbol()->getLine(), FF_D);
   }
@@ -2731,10 +2774,10 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
           auto S = m_Subroutines.find(async->IDENTIFIER()->getText());
           if (S == m_Subroutines.end()) {
             throw Fatal("cannot find algorithm '%s' on asynchronous call (line %d)",
-              async->IDENTIFIER()->getText().c_str(), async->getStart()->getLine());
+              async->IDENTIFIER()->getText().c_str(), (int)async->getStart()->getLine());
           } else {
             throw Fatal("cannot perform an asynchronous call on subroutine '%s' (line %d)",
-              async->IDENTIFIER()->getText().c_str(), async->getStart()->getLine());
+              async->IDENTIFIER()->getText().c_str(), (int)async->getStart()->getLine());
           }
         } else {
           writeAlgorithmCall(prefix, out, A->second, async->paramList(), block->subroutine, block->pipeline, _dependencies);
@@ -2750,11 +2793,11 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
           auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
           if (S == m_Subroutines.end()) {
             throw Fatal("cannot find algorithm '%s' on synchronous call (line %d)",
-              sync->joinExec()->IDENTIFIER()->getText().c_str(), sync->getStart()->getLine());
+              sync->joinExec()->IDENTIFIER()->getText().c_str(), (int)sync->getStart()->getLine());
           } else {
             // check not already in subrountine
             if (block->subroutine != nullptr) {
-              throw Fatal("cannot call a subrountine from another one (line %d)", sync->getStart()->getLine());
+              throw Fatal("cannot call a subrountine from another one (line %d)", (int)sync->getStart()->getLine());
             }
             writeSubroutineCall(prefix, out, S->second, block->pipeline, sync->paramList(), _dependencies);
           }
@@ -2772,11 +2815,11 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
           auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
           if (S == m_Subroutines.end()) {
             throw Fatal("cannot find algorithm '%s' to join with (line %d)",
-              join->IDENTIFIER()->getText().c_str(), join->getStart()->getLine());
+              join->IDENTIFIER()->getText().c_str(), (int)join->getStart()->getLine());
           } else {
             // check not already in subrountine
             if (block->subroutine != nullptr) {
-              throw Fatal("cannot call a subrountine from another one (line %d)", join->getStart()->getLine());
+              throw Fatal("cannot call a subrountine from another one (line %d)", (int)join->getStart()->getLine());
             }
             writeSubroutineReadback(prefix, out, S->second, block->pipeline, join->identifierList());
           }

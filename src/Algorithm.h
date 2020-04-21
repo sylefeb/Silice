@@ -139,7 +139,16 @@ private:
     bool combinational = false;
   };
 
-  /// \brief inputs
+  /// \brief base info about BRAMs
+  class t_bram_nfo {
+  public:
+    std::string name;
+    e_Type      base_type;
+    int         width;
+    int         table_size;
+    std::vector<std::string> init_values;
+  };
+   /// \brief inputs
   std::vector< t_inout_nfo  > m_Inputs;
   /// \brief outputs
   std::vector< t_output_nfo > m_Outputs;
@@ -493,6 +502,8 @@ private:
   void gatherInitList(siliceParser::InitListContext* ilist, std::vector<std::string>& _values_str);
   /// \brief gather variable declaration
   void gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_subroutine_nfo* sub);
+  /// \brief gather bram declaration
+  void gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl, t_subroutine_nfo* sub);
   /// \brief extract the list of bindings
   void getBindings(
     siliceParser::ModalgBindingListContext *bindings,
