@@ -105,7 +105,7 @@ initList            : '{' (value ',')* value? '}';
 
 declarationVar      : TYPE IDENTIFIER '=' value ATTRIBS?;
 declarationTable    : TYPE IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);
-declarationBRAM     : BRAM TYPE name=IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);
+declarationBRAM     : BRAM TYPE name=IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING))?;
 declarationModAlg   : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
 declaration         : declarationVar | declarationModAlg | declarationTable | declarationBRAM; 
 

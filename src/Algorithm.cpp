@@ -499,7 +499,7 @@ void Algorithm::readInitList(D* decl,T& var)
   std::vector<std::string> values_str;
   if (decl->initList() != nullptr) {
     gatherInitList(decl->initList(), values_str);
-  } else {
+  } else if (decl->STRING() != nullptr) {
     std::string initstr = decl->STRING()->getText();
     initstr = initstr.substr(1, initstr.length() - 2); // remove '"' and '"'
     values_str.resize(initstr.length() + 1/*null terminated*/);
@@ -507,15 +507,20 @@ void Algorithm::readInitList(D* decl,T& var)
       values_str[i] = std::to_string((int)(initstr[i]));
     }
     values_str.back() = "0"; // null terminated
+  } else {
+    if (var.table_size == 0) {
+      throw Fatal("cannot deduce table size: no size and no initialization given (line %d)", (int)decl->getStart()->getLine());
+    }
+    return; // no init list
   }
   if (var.table_size == 0) { // autosize
     var.table_size = (int)values_str.size();
-    var.init_values.resize(var.table_size, "0");
   } else if (values_str.empty()) {
     // auto init table to 0
   } else if (values_str.size() != var.table_size) {
     throw Fatal("incorrect number of values in table initialization (line %d)", (int)decl->getStart()->getLine());
   }
+  var.init_values.resize(var.table_size, "0");
   ForIndex(i, values_str.size()) {
     if (values_str[i].find_first_of("hbd") != std::string::npos) {
       var.init_values[i] = rewriteConstant(values_str[i]);
@@ -583,7 +588,6 @@ void Algorithm::gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl
   if (bram.table_size <= 0) {
     throw Fatal("BRAM has zero or negative size (line %d)", (int)decl->getStart()->getLine());
   }
-  bram.init_values.resize(bram.table_size, "0");
   readInitList(decl, bram);
   bram.line = (int)decl->getStart()->getLine();
   // create bound variables for access (addr, wenable, rdata, wdata)
@@ -3494,12 +3498,17 @@ void Algorithm::writeModuleBRAM(std::ostream& out, const t_bram_nfo& bram) const
 
   out << "reg " << typeString(bram.base_type) << " [" << bram.width - 1 << ":0] buffer[" << bram.table_size - 1 << ":0];" << endl;
   out << "always @(posedge " ALG_CLOCK ") begin" << endl;
-  out << "  " << ALG_OUTPUT << "_" << bram.name << "_rdata" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr" << "];" << endl;
   out << "  if (" << ALG_INPUT << "_" << bram.name << "_wenable" << ") begin" << endl;
   out << "    buffer[" << ALG_INPUT << "_" << bram.name << "_addr" << "] <= " ALG_INPUT << "_" << bram.name << "_wdata" ";" << endl;
+  out << "  end else begin" << endl;
+  out << "    " << ALG_OUTPUT << "_" << bram.name << "_rdata" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr" << "];" << endl;
   out << "  end" << endl;
   out << "end" << endl;
-
+  out << "initial begin" << endl;
+  ForIndex(v, bram.init_values.size()) {
+    out << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
+  }
+  out << "end" << endl;
   out << "endmodule" << endl;
   out << endl;
 }
