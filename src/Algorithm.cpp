@@ -2162,13 +2162,8 @@ void Algorithm::determineVariablesUsage()
   std::cerr << "---< variables >---" << std::endl;
   for (auto& v : m_Vars) {
     if (v.access == e_ReadOnly) {
-      if (global_in_read.find(v.name) == global_in_read.end()) {
-        std::cerr << v.name << " => const ";
-        v.usage = e_Const;
-      } else {
-        std::cerr << v.name << " => flip-flop ";
-        v.usage = e_FlipFlop;
-      }
+      std::cerr << v.name << " => const ";
+      v.usage = e_Const;
     } else if (v.access == e_WriteOnly) {
       std::cerr << v.name << " => written but not used ";
       v.usage = e_Temporary; // e_NotUsed;
@@ -3664,8 +3659,8 @@ void Algorithm::writeAsModule(ostream& out) const
         // input is bound, directly map bound VIO
         out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name), nullptr, nullptr, nfo.second.instance_line, FF_D);
       } else {
-        // input is not bound and assigned in logic, input is a flip-flop
-        out << FF_D << nfo.second.instance_prefix << "_" << is.name;
+        // input is not bound and assigned in logic
+        out << rewriteIdentifier("_", is.name, nullptr, nullptr, nfo.second.instance_line, FF_D);
       }
       out << ')' << ',' << endl;
     }
@@ -3712,7 +3707,7 @@ void Algorithm::writeAsModule(ostream& out) const
     out << '.' << ALG_CLOCK << '(' << m_Clock << ")," << endl;
     // inputs
     for (const auto& inv : bram.in_vars) {
-      out << '.' << ALG_INPUT << '_' << inv << '(' << FF_D << '_' << inv << ")," << endl;
+      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, nullptr, nullptr, bram.line, FF_D)  << ")," << endl;
     }
     // output wires
     for (const auto& ouv : bram.out_vars) {
