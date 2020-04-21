@@ -32,7 +32,6 @@ algorithm frame_display(
 
   uint$div_width$ inv_y     = 0;  
   uint$div_width$ cur_inv_y = 0;  
-  uint$div_width$ maxv      = 22000;
 
   uint9 offs_y = 0;
   uint8 u      = 0;
@@ -80,7 +79,7 @@ algorithm frame_display(
               lum = 0;
             }
             // divide for next line
-            div <- (maxv,offs_y);
+            div <- (22000,offs_y);
           }
 
           u = pos_u + ((pix_x - 320) * cur_inv_y) >> 8;

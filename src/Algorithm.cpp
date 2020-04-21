@@ -1189,6 +1189,9 @@ Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::Retu
 
 Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncExecContext* sync, t_combinational_block* _current, t_gather_context* _context)
 {
+  if (_context->__id == -1) {
+    throw Fatal("repeat blocks cannot wait for a parallel execution (line %d)", sync->getStart()->getLine());
+  }
   // add sync as instruction, will perform the call
   _current->instructions.push_back(t_instr_nfo(sync, _context->__id));
   // are we calling a subroutine?
@@ -1212,6 +1215,9 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
 
 Algorithm::t_combinational_block *Algorithm::gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context)
 {
+  if (_context->__id == -1) {
+    throw Fatal("repeat blocks cannot wait a parallel execution (line %d)", join->getStart()->getLine());
+  }
   // are we calling a subroutine?
   auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
   if (S == m_Subroutines.end()) { // no, waiting for algorithm
@@ -1453,15 +1459,26 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
 
 // -------------------------------------------------
 
-void Algorithm::getParams(siliceParser::ParamListContext* params, std::vector<std::string>& _vec_params, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const
+void Algorithm::getParams(siliceParser::ParamListContext* params, std::vector<antlr4::tree::ParseTree*>& _vec_params, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const
 {
   if (params == nullptr) return;
-  while (params->IDENTIFIER() != nullptr) {
-    std::string var = params->IDENTIFIER()->getText();
-    var = translateVIOName(var, sub, pip);
-    _vec_params.push_back(var);
+  while (params->expression_0() != nullptr) {
+    _vec_params.push_back(params->expression_0());
     params = params->paramList();
     if (params == nullptr) return;
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::getIdentifiers(siliceParser::IdentifierListContext* idents, std::vector<std::string>& _vec_params, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo* pip) const
+{
+  while (idents->IDENTIFIER() != nullptr) {
+    std::string var = idents->IDENTIFIER()->getText();
+    var = translateVIOName(var, sub, pip);
+    _vec_params.push_back(var);
+    idents = idents->identifierList();
+    if (idents == nullptr) return;
   }
 }
 
@@ -1864,9 +1881,9 @@ void Algorithm::determineVIOAccess(
       auto join = dynamic_cast<siliceParser::JoinExecContext*>(node);
       if (join) {
         // track writes when reading back
-        std::vector<std::string> params;
-        getParams(join->paramList(), params, sub, pip);
-        for (const auto& var : params) {
+        std::vector<std::string> idents;
+        getIdentifiers(join->identifierList(), idents, sub, pip);
+        for (const auto& var : idents) {
           if (vios.find(var) != vios.end()) {
             _written.insert(var);
           }
@@ -2442,7 +2459,7 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
       a.instance_name.c_str(), plist->getStart()->getLine());
   }
   // get params
-  std::vector<std::string> params;
+  std::vector<antlr4::tree::ParseTree*> params;
   getParams(plist, params, sub, pip);
   // if params are empty we simply call, otherwise we set the inputs
   if (!params.empty()) {
@@ -2458,17 +2475,18 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
           a.instance_name.c_str(), ins.name.c_str(), plist->getStart()->getLine());
       }
       out << FF_D << a.instance_prefix << "_" << ins.name
-        << " = " << rewriteIdentifier(prefix, params[p++], sub, pip, plist->getStart()->getLine(), FF_Q, dependencies) << ";" << std::endl;
+        << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, nullptr /*not in a subroutine*/, pip, dependencies) 
+        << ";" << std::endl;
     }
   }
   // restart algorithm (pulse run low)
   out << a.instance_prefix << "_" << ALG_RUN << " = 0;" << std::endl;
-  /// TODO WARNING: this does not work across clock domains!
+  /// WARNING: this does not work across clock domains!
 }
 
 // -------------------------------------------------
 
-void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const
+void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::IdentifierListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const
 {
   // check for pipeline
   if (pip != nullptr) {
@@ -2479,19 +2497,19 @@ void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, co
     throw Fatal("algorithm instance '%s' joined accross clock-domain -- not yet supported (line %d)",
       a.instance_name.c_str(), plist->getStart()->getLine());
   }
-  // get params
-  std::vector<std::string> params;
-  getParams(plist, params, sub, pip);
+  // get receiving identifiers
+  std::vector<std::string> idents;
+  getIdentifiers(plist, idents, sub, pip);
   // if params are empty we simply wait, otherwise we set the outputs
-  if (!params.empty()) {
-    if (a.algo->m_Outputs.size() != params.size()) {
+  if (!idents.empty()) {
+    if (a.algo->m_Outputs.size() != idents.size()) {
       throw Fatal("incorrect number of output parameters reading back result from algorithm instance '%s' (line %d)",
         a.instance_name.c_str(), plist->getStart()->getLine());
     }
     // read outputs
     int p = 0;
     for (const auto& outs : a.algo->m_Outputs) {
-      out << rewriteIdentifier(prefix, params[p++], sub, nullptr, plist->getStart()->getLine(), FF_D) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
+      out << rewriteIdentifier(prefix, idents[p++], sub, nullptr, plist->getStart()->getLine(), FF_D) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
     }
   }
 }
@@ -2503,7 +2521,7 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
   if (pip != nullptr) {
     throw Fatal("cannot call a subroutine from a pipeline (line %d)",plist->getStart()->getLine());
   }
-  std::vector<std::string> params;
+  std::vector<antlr4::tree::ParseTree*> params;
   getParams(plist, params, nullptr, pip);
   // check num parameters
   if (s->inputs.size() != params.size()) {
@@ -2517,28 +2535,30 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
   int p = 0;
   for (const auto& ins : s->inputs) {
     out << FF_D << prefix << s->vios.at(ins)
-      << " = " << rewriteIdentifier(prefix, params[p++], nullptr, nullptr, plist->getStart()->getLine(), FF_Q, dependencies) << ";" << std::endl;
+      << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, nullptr /*not in a subroutine*/, pip, dependencies) 
+      << ";" << std::endl;
   }
 }
 
 // -------------------------------------------------
 
-void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, const t_pipeline_stage_nfo *pip, siliceParser::ParamListContext* plist) const
+void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, const t_pipeline_stage_nfo *pip, siliceParser::IdentifierListContext* plist) const
 {
   if (pip != nullptr) {
     throw Fatal("cannot join a subroutine from a pipeline (line %d)", plist->getStart()->getLine());
   }
-  std::vector<std::string> params;
-  getParams(plist, params, nullptr, nullptr);
+  // get receiving identifiers
+  std::vector<std::string> idents;
+  getIdentifiers(plist, idents, nullptr, nullptr);
   // if params are empty we simply wait, otherwise we set the outputs
-  if (s->outputs.size() != params.size()) {
+  if (s->outputs.size() != idents.size()) {
     throw Fatal("incorrect number of output parameters reading back result from subroutine '%s' (line %d)",
       s->name.c_str(), plist->getStart()->getLine());
   }
   // read outputs (reading from FF_D or FF_Q should be equivalent since we just cycled the state machine)
   int p = 0;
   for (const auto& outs : s->outputs) {
-    out << rewriteIdentifier(prefix, params[p++], nullptr, nullptr, plist->getStart()->getLine(), FF_D) << " = " << FF_D << prefix << s->vios.at(outs) << std::endl;
+    out << rewriteIdentifier(prefix, idents[p++], nullptr, nullptr, plist->getStart()->getLine(), FF_D) << " = " << FF_D << prefix << s->vios.at(outs) << std::endl;
   }
 }
 
@@ -2758,11 +2778,11 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
             if (block->subroutine != nullptr) {
               throw Fatal("cannot call a subrountine from another one (line %d)", join->getStart()->getLine());
             }
-            writeSubroutineReadback(prefix, out, S->second, block->pipeline, join->paramList());
+            writeSubroutineReadback(prefix, out, S->second, block->pipeline, join->identifierList());
           }
 
         } else {
-          writeAlgorithmReadback(prefix, out, A->second, join->paramList(), block->subroutine, block->pipeline);
+          writeAlgorithmReadback(prefix, out, A->second, join->identifierList(), block->subroutine, block->pipeline);
         }
       }
     }

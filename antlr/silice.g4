@@ -117,18 +117,18 @@ outputs expressions as-is to Verilog, which then applies operator precedences.
 
 expression_0        : expression_1 (
                       '+' | '-' | '||' | '|' | '===' | '==' | '!==' | '!='  | '<<<' | '>>>' | '<<' | '>>' | '<' | '>' | '<=' | '>='
-					  ) expression_1 
+                      ) expression_1 
                     | expression_0 (
                       '+' | '-' | '||' | '|' | '===' | '==' | '!==' | '!='  | '<<<' | '>>>' | '<<' | '>>' | '<' | '>' | '<=' | '>='
-					  ) expression_1 
+                      ) expression_1 
                     | expression_1;
 
 expression_1        : unaryExpression (
                     '*' | '&&' | '&' | '^~'| '~^' | '~' | '^'
-					) unaryExpression 
-		    | expression_1 (
+                    ) unaryExpression 
+                    | expression_1 (
                     '*' | '&&' | '&' | '^~'| '~^' | '~' | '^'
-					) unaryExpression
+                    ) unaryExpression
                     | unaryExpression ;
 
 unaryExpression     : (
@@ -143,7 +143,7 @@ atom                : CONSTANT
                     | REPEATID
                     | access
                     | '(' expression_0 ')'
-					| concatenation ;
+                    | concatenation ;
 
 /* -- Accesses to VIO -- */
 
@@ -167,14 +167,18 @@ alwaysAssignedList  : alwaysAssigned ';' alwaysAssignedList | ;
 
 /* -- Algorithm calls -- */
 
-paramList           : IDENTIFIER ',' paramList 
+paramList           : expression_0 ',' paramList 
+                    | expression_0 
+                    | ;
+
+identifierList      : IDENTIFIER ',' identifierList 
                     | IDENTIFIER 
-                    | IDENTIFIER '[' NUMBER ']' ',' paramList 
+                    | IDENTIFIER '[' NUMBER ']' ',' identifierList 
                     | IDENTIFIER '[' NUMBER ']'
                     | ;
 
 asyncExec           : IDENTIFIER LARROW '(' paramList ')' ;
-joinExec            : '(' paramList ')' LARROW IDENTIFIER ;
+joinExec            : '(' identifierList ')' LARROW IDENTIFIER ;
 syncExec            : joinExec LARROW '(' paramList ')' ;
 
 /* -- Control flow -- */

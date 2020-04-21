@@ -556,7 +556,9 @@ private:
   /// \brief gather inputs and outputs
   void gatherIOs(siliceParser::InOutListContext* inout);
   /// \brief extract the ordered list of parameters
-  void getParams(siliceParser::ParamListContext* params, std::vector<std::string>& _vec_params, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const;
+  void getParams(siliceParser::ParamListContext* params, std::vector<antlr4::tree::ParseTree*>& _vec_params, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const;
+  /// \brief extract the ordered list of identifiers
+  void getIdentifiers(siliceParser::IdentifierListContext* idents, std::vector<std::string>& _vec_params, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo* pip) const;
   /// \brief sematic parsing, first discovery pass
   t_combinational_block *gather(antlr4::tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context);
   /// \brief resolves forward references for jumps
@@ -654,11 +656,11 @@ private:
   /// \brief writes a call to an algorithm
   void writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of an algorithm
-  void writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const;
+  void writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::IdentifierListContext* plist, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const;
   /// \brief writes a call to a subroutine
   void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, const t_pipeline_stage_nfo *pip, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of a subroutine
-  void writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, const t_pipeline_stage_nfo *pip, siliceParser::ParamListContext* plist) const;
+  void writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, const t_pipeline_stage_nfo *pip, siliceParser::IdentifierListContext* plist) const;
   /// \brief writes access to an algorithm in/out
   t_inout_nfo writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess) const;
   /// \brief writes access to a table in/out
