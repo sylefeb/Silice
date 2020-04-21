@@ -486,7 +486,7 @@ void Algorithm::gatherInitList(siliceParser::InitListContext* ilist, std::vector
 // -------------------------------------------------
 
 template<typename D, typename T>
-void readInitList(D* decl,T& var)
+void Algorithm::readInitList(D* decl,T& var)
 {
   // read init list
   std::vector<std::string> values_str;

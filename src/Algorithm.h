@@ -500,6 +500,8 @@ private:
   void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub);
   /// \brief gather all values from an init list
   void gatherInitList(siliceParser::InitListContext* ilist, std::vector<std::string>& _values_str);
+  /// \bried read initializer list
+  template<typename D, typename T> void readInitList(D* decl, T& var);
   /// \brief gather variable declaration
   void gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_subroutine_nfo* sub);
   /// \brief gather bram declaration
