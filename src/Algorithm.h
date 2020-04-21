@@ -146,9 +146,13 @@ private:
     e_Type      base_type;
     int         width;
     int         table_size;
+    int         line;
+    std::vector<std::string> in_vars;
+    std::vector<std::string> out_vars;
     std::vector<std::string> init_values;
   };
-   /// \brief inputs
+
+  /// \brief inputs
   std::vector< t_inout_nfo  > m_Inputs;
   /// \brief outputs
   std::vector< t_output_nfo > m_Outputs;
@@ -167,10 +171,13 @@ private:
   /// \brief module/algorithms inouts bound to VIO (inout => vio name)
   std::unordered_map<std::string, std::string > m_ModAlgInOutsBoundToVIO;
 
-  /// \brief declared variables
+  /// \brief all variables
   std::vector< t_var_nfo >    m_Vars;
   /// \brief all varnames, map contains index in m_Vars
   std::unordered_map<std::string, int > m_VarNames;
+
+  /// \brief all BRAMs
+  std::vector< t_bram_nfo >   m_BRAMs;
 
   /// \brief enum binding direction
   enum e_BindingDir { e_Left, e_Right, e_BiDir };
@@ -496,6 +503,8 @@ private:
   std::string generateBlockName();
   /// \brief gather a value
   std::string gatherValue(siliceParser::ValueContext* ival);
+  /// \brief add a variable from its definition (_var may be modified with an updated name)
+  void addVar(t_var_nfo& _var, t_subroutine_nfo* sub, int line);
   /// \brief gather variable declaration
   void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub);
   /// \brief gather all values from an init list
@@ -505,7 +514,7 @@ private:
   /// \brief gather variable declaration
   void gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_subroutine_nfo* sub);
   /// \brief gather bram declaration
-  void gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl, t_subroutine_nfo* sub);
+  void gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl, const t_subroutine_nfo* sub);
   /// \brief extract the list of bindings
   void getBindings(
     siliceParser::ModalgBindingListContext *bindings,
@@ -652,6 +661,7 @@ private:
   int varBitDepth(const t_var_nfo& v) const;
   /// \brief returns a type dependent string for resource declaration
   std::string typeString(const t_var_nfo& v) const;
+  std::string typeString(e_Type type) const;
   /// \brief determines vio bit width and (if applicable) table size
   std::tuple<e_Type, int, int> determineVIOTypeWidthAndTableSize(std::string vname, int line) const;
   /// \brief determines identifier bit width and (if applicable) table size
@@ -720,6 +730,8 @@ private:
   void writeVarInits(std::string prefix, std::ostream& out, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies) const;
   /// \brief writes all states in the output
   void writeCombinationalStates(std::string prefix, std::ostream& out, const t_vio_dependencies& always_dependencies) const;
+  /// \brief writes a BRAM module
+  void writeModuleBRAM(std::ostream& out, const t_bram_nfo& bram) const;
 
 public:
 

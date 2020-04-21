@@ -443,16 +443,34 @@ std::string Algorithm::gatherValue(siliceParser::ValueContext* ival)
 
 // -------------------------------------------------
 
+void Algorithm::addVar(t_var_nfo& _var, t_subroutine_nfo* sub,int line)
+{
+  if (sub != nullptr) {
+    std::string base_name = _var.name;
+    _var.name = subroutineVIOName(base_name, sub);
+    sub->vios.insert(std::make_pair(base_name, _var.name));
+    sub->vars.push_back(base_name);
+  }
+  // verify the variable does not shadow an input or output
+  if (isInput(_var.name)) {
+    throw Fatal("variable '%s' is shadowing input of same name (line %d)", _var.name.c_str(), line);
+  } else if (isOutput(_var.name)) {
+    throw Fatal("variable '%s' is shadowing output of same name (line %d)", _var.name.c_str(), line);
+  }
+  // ok!
+  m_Vars.emplace_back(_var);
+  m_VarNames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
+  if (sub != nullptr) {
+    sub->varnames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub)
 {
   t_var_nfo var;
-  if (sub == nullptr) {
-    var.name = decl->IDENTIFIER()->getText();
-  } else {
-    var.name = subroutineVIOName(decl->IDENTIFIER()->getText(),sub);
-    sub->vios.insert(std::make_pair(decl->IDENTIFIER()->getText(), var.name));
-    sub->vars.push_back(decl->IDENTIFIER()->getText());
-  }
+  var.name       = decl->IDENTIFIER()->getText();
   var.table_size = 0;
   splitType(decl->TYPE()->getText(), var.base_type, var.width);
   var.init_values.push_back("0");
@@ -460,18 +478,7 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
   if (decl->ATTRIBS() != nullptr) {
     var.attribs = decl->ATTRIBS()->getText();
   }
-  // verify the varaible does not shadow an input or output
-  if (isInput(var.name)) {
-    throw Fatal("variable '%s' is shadowing input of same name (line %d)", var.name.c_str(), (int)decl->getStart()->getLine());
-  } else if (isOutput(var.name)) {
-    throw Fatal("variable '%s' is shadowing output of same name (line %d)", var.name.c_str(), (int)decl->getStart()->getLine());
-  }
-  // ok!
-  m_Vars.emplace_back(var);
-  m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
-  if (sub != nullptr) {
-    sub->varnames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
-  }
+  addVar(var, sub, (int)decl->getStart()->getLine());
 }
 
 // -------------------------------------------------
@@ -551,6 +558,18 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* de
 
 // -------------------------------------------------
 
+static int justHigherPow2(int n)
+{
+  int p2 = 0;
+  while (n > 0) {
+    p2++;
+    n = n >> 1;
+  }
+  return p2;
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
@@ -558,7 +577,7 @@ void Algorithm::gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl
   }
   // gather BRAM nfo
   t_bram_nfo bram;
-  bram.name = "_bram_" + decl->name->getText();
+  bram.name = decl->name->getText();
   splitType(decl->TYPE()->getText(), bram.base_type, bram.width);
   bram.table_size = atoi(decl->NUMBER()->getText().c_str());
   if (bram.table_size <= 0) {
@@ -566,19 +585,62 @@ void Algorithm::gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl
   }
   bram.init_values.resize(bram.table_size, "0");
   readInitList(decl, bram);
-  // create 'fake' algorithm for BRAM access
-  t_algo_nfo nfo;
-  nfo.algo_name       = bram.name;
-  nfo.instance_name   = bram.name;
-  nfo.instance_clock  = m_Clock;
-  nfo.instance_reset  = m_Reset;
-  nfo.instance_prefix = "_" + nfo.instance_name;
-  nfo.instance_line   = (int)decl->getStart()->getLine();
-  if (m_InstancedAlgorithms.find(nfo.instance_name) != m_InstancedAlgorithms.end()) {
-    throw Fatal("an algorithm was already instantiated with the same name (line %d)", (int)decl->name->getLine());
+  bram.line = (int)decl->getStart()->getLine();
+  // create bound variables for access (addr, wenable, rdata, wdata)
+  // -> create var for address
+  {
+    t_var_nfo v;
+    v.name = bram.name + "_addr";
+    v.base_type = UInt;
+    v.width = justHigherPow2(bram.table_size);
+    v.table_size = 0;
+    v.init_values.push_back("0");
+    v.usage = e_Bound;
+    addVar(v, nullptr, (int)decl->getStart()->getLine());
+    bram.in_vars.push_back(v.name);
+    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_bram_" + v.name;
   }
-  nfo.autobind = false;
-  m_InstancedAlgorithms[nfo.instance_name] = nfo;
+  // -> create var for wenable
+  {
+    t_var_nfo v;
+    v.name = bram.name + "_wenable";
+    v.base_type = UInt;
+    v.width = 1;
+    v.table_size = 0;
+    v.init_values.push_back("0");
+    v.usage = e_Bound;
+    addVar(v, nullptr, (int)decl->getStart()->getLine());
+    bram.in_vars.push_back(v.name);
+    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_bram_" + v.name;
+  }
+  // -> create var for wdata
+  {
+    t_var_nfo v;
+    v.name = bram.name + "_wdata";
+    v.base_type = bram.base_type;
+    v.width = bram.width;
+    v.table_size = 0;
+    v.init_values.push_back("0");
+    v.usage = e_Bound;
+    addVar(v, nullptr, (int)decl->getStart()->getLine());
+    bram.in_vars.push_back(v.name);
+    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_bram_" + v.name;
+  }
+  // -> create var for rdata
+  {
+    t_var_nfo v;
+    v.name = bram.name + "_rdata";
+    v.base_type = bram.base_type;
+    v.width = bram.width;
+    v.table_size = 0;
+    v.init_values.push_back("0");
+    v.usage = e_Bound;
+    addVar(v, nullptr, (int)decl->getStart()->getLine());
+    bram.out_vars.push_back(v.name);
+    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_bram_" + v.name;
+  }
+  // add bram
+  m_BRAMs.emplace_back(bram);
 }
 
 // -------------------------------------------------
@@ -2058,6 +2120,26 @@ void Algorithm::determineVariablesAccess()
       }
     }
   }
+  // determine variable access due to BRAMs
+  for (auto& bram : m_BRAMs) {
+    for (auto& inv : bram.in_vars) {
+      // add to always block dependency
+      m_AlwaysPre.in_vars_read.insert(inv);
+      // set global access
+      m_Vars[m_VarNames[inv]].access = (e_Access)(m_Vars[m_VarNames[inv]].access | e_ReadOnly);
+    }
+    for (auto& ouv : bram.out_vars) {
+      // add to always block dependency
+      m_AlwaysPre.out_vars_written.insert(ouv);
+      // -> check prior access
+      if (m_Vars[m_VarNames[ouv]].access & e_WriteOnly) {
+        throw Fatal("cannot write to variable '%s' bound to a BRAM output (line %d)", ouv.c_str(), bram.line);
+      }
+      // set global access
+      m_Vars[m_VarNames[ouv]].access = (e_Access)(m_Vars[m_VarNames[ouv]].access | e_WriteBinded);
+    }
+  }
+
 }
 
 // -------------------------------------------------
@@ -2073,15 +2155,20 @@ void Algorithm::determineVariablesUsage()
   std::unordered_set<std::string> global_in_read;
   std::unordered_set<std::string> global_out_written;
   for (const auto& b : blocks) {
-    global_in_read.insert(b->in_vars_read.begin(), b->in_vars_read.end());
+    global_in_read    .insert(b->in_vars_read.begin(), b->in_vars_read.end());
     global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
   }
   // report
   std::cerr << "---< variables >---" << std::endl;
   for (auto& v : m_Vars) {
     if (v.access == e_ReadOnly) {
-      std::cerr << v.name << " => const ";
-      v.usage = e_Const;
+      if (global_in_read.find(v.name) == global_in_read.end()) {
+        std::cerr << v.name << " => const ";
+        v.usage = e_Const;
+      } else {
+        std::cerr << v.name << " => flip-flop ";
+        v.usage = e_FlipFlop;
+      }
     } else if (v.access == e_WriteOnly) {
       std::cerr << v.name << " => written but not used ";
       v.usage = e_Temporary; // e_NotUsed;
@@ -2146,7 +2233,6 @@ void Algorithm::determineVariablesUsage()
 void Algorithm::determineModAlgBoundVIO()
 {
   // find out vio bound to a module input/output
-  m_VIOBoundToModAlgOutputs.clear();
   for (const auto& im : m_InstancedModules) {
     for (const auto& bi : im.second.bindings) {
       if (bi.dir == e_Right) {
@@ -2863,7 +2949,14 @@ int Algorithm::varBitDepth(const t_var_nfo& v) const
 
 std::string Algorithm::typeString(const t_var_nfo& v) const
 {
-  if (v.base_type == Int) {
+  return typeString(v.base_type);
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::typeString(e_Type type) const
+{
+  if (type == Int) {
     return "signed";
   }
   return "";
@@ -3390,9 +3483,43 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream& out, 
 
 // -------------------------------------------------
 
+void Algorithm::writeModuleBRAM(std::ostream& out, const t_bram_nfo& bram) const
+{
+  out << "module M_" << m_Name << "_bram_" << bram.name << '(' << endl;
+  for (const auto& inv : bram.in_vars) {
+    const auto& v = m_Vars[m_VarNames.at(inv)];
+    out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
+  }
+  for (const auto& ouv : bram.out_vars) {
+    const auto& v = m_Vars[m_VarNames.at(ouv)];
+    out << "output " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
+  }
+  out << "input " ALG_CLOCK << endl;
+  out << ");" << endl;
+
+  out << "reg " << typeString(bram.base_type) << " [" << bram.width - 1 << ":0] buffer[" << bram.table_size - 1 << ":0];" << endl;
+  out << "always @(posedge " ALG_CLOCK ") begin" << endl;
+  out << "  " << ALG_OUTPUT << "_" << bram.name << "_rdata" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr" << "];" << endl;
+  out << "  if (" << ALG_INPUT << "_" << bram.name << "_wenable" << ") begin" << endl;
+  out << "    buffer[" << ALG_INPUT << "_" << bram.name << "_addr" << "] <= " ALG_INPUT << "_" << bram.name << "_wdata" ";" << endl;
+  out << "  end" << endl;
+  out << "end" << endl;
+
+  out << "endmodule" << endl;
+  out << endl;
+}
+
+// -------------------------------------------------
+
+
 void Algorithm::writeAsModule(ostream& out) const
 {
   out << endl;
+
+  // write BRAM modules
+  for (const auto& bram : m_BRAMs) {
+    writeModuleBRAM(out, bram);
+  }
 
   // module header
   out << "module M_" << m_Name << '(' << endl;
@@ -3437,6 +3564,15 @@ void Algorithm::writeAsModule(ostream& out) const
     }
     // algorithm done
     out << "wire " << WIRE << nfo.second.instance_prefix << '_' << ALG_DONE << ';' << endl;
+  }
+  // BRAM instantiations (1/2)
+  for (const auto& bram : m_BRAMs) {
+    // output wires
+    for (const auto& ouv : bram.out_vars) {
+      const auto& os = m_Vars[m_VarNames.at(ouv)];
+      out << "wire " << typeString(os) << " [" << varBitDepth(os) - 1 << ":0] "
+        << WIRE << "_bram_" << os.name << ';' << endl;
+    }
   }
 
   // const declarations
@@ -3566,7 +3702,25 @@ void Algorithm::writeAsModule(ostream& out) const
     // end of instantiation      
     out << ");" << endl;
   }
+  out << endl;
 
+  // BRAM instantiations (2/2)
+  for (const auto& bram : m_BRAMs) {
+    // module
+    out << "M_" << m_Name << "_bram_" << bram.name << ' ' << bram.name << '(' << endl;
+    // clock
+    out << '.' << ALG_CLOCK << '(' << m_Clock << ")," << endl;
+    // inputs
+    for (const auto& inv : bram.in_vars) {
+      out << '.' << ALG_INPUT << '_' << inv << '(' << FF_D << '_' << inv << ")," << endl;
+    }
+    // output wires
+    for (const auto& ouv : bram.out_vars) {
+      out << '.' << ALG_OUTPUT << '_' << ouv << '(' << WIRE << "_bram_" << ouv << ')' << endl;
+    }
+    // end of instantiation      
+    out << ");" << endl;
+  }
   out << endl;
 
   // combinational
