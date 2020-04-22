@@ -41,18 +41,18 @@ $$end
   pix_b := 0;
   
   // ---------- show time!
-  table_wenable = 0;
-  table_addr = 0;
+  table.wenable = 0;
+  table.addr = 0;
   while (1) {
 	  // display frame
 	  while (pix_vblank == 0) {
       if (pix_active) {
       
-        pix_r = table_rdata;
-        pix_g = table_rdata;
-        pix_b = table_rdata;
+        pix_r = table.rdata;
+        pix_g = table.rdata;
+        pix_b = table.rdata;
   
-        table_addr = pix_x[0,5] + (pix_y[0,5]<<5);
+        table.addr = pix_x[0,5] + (pix_y[0,5]<<5);
       }
     }
     while (pix_vblank == 1) {} // wait for sync

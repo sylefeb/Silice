@@ -150,7 +150,7 @@ atom                : CONSTANT
 
 /* -- Accesses to VIO -- */
 
-ioAccess            : algo=IDENTIFIER '.' io=IDENTIFIER ;
+ioAccess            : base=IDENTIFIER ('.' IDENTIFIER)+ ;
 bitAccess           : (ioAccess | tableAccess | IDENTIFIER) '[' first=expression_0 ',' num=NUMBER ']' ;
 tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;
 access              : (ioAccess | tableAccess | bitAccess) ; 

@@ -173,11 +173,13 @@ private:
 
   /// \brief all variables
   std::vector< t_var_nfo >    m_Vars;
-  /// \brief all varnames, map contains index in m_Vars
+  /// \brief all var names, map contains index in m_Vars
   std::unordered_map<std::string, int > m_VarNames;
 
   /// \brief all BRAMs
   std::vector< t_bram_nfo >   m_BRAMs;
+  /// \brief all bram names, map contains index in m_BRAMs
+  std::unordered_map<std::string, int > m_BRAMNames;
 
   /// \brief enum binding direction
   enum e_BindingDir { e_Left, e_Right, e_BiDir };
@@ -597,6 +599,8 @@ private:
   int stateWidth() const;
   /// \brief fast-forward to the next non empty state
   const t_combinational_block *fastForward(const t_combinational_block *block) const;
+  /// \brief verify BRAM member
+  void verifyMemberBRAM(const t_bram_nfo& bram,std::string member,int line) const;
 
 private:
 
@@ -604,6 +608,11 @@ private:
   void updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip) const;
   /// \brief merge variable dependencies
   void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
+  /// \breif determine accessed variable
+  std::string determineAccessedVar(siliceParser::AccessContext* access) const;
+  std::string determineAccessedVar(siliceParser::IoAccessContext* access) const;
+  std::string determineAccessedVar(siliceParser::BitAccessContext* access) const;
+  std::string determineAccessedVar(siliceParser::TableAccessContext* access) const;
   /// \brief determine variables/inputs/outputs access within an instruction (from its tree)
   void determineVIOAccess(
     antlr4::tree::ParseTree*                    node,
@@ -684,8 +693,8 @@ private:
   void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *s, const t_pipeline_stage_nfo *pip, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of a subroutine
   void writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* s, const t_pipeline_stage_nfo *pip, siliceParser::IdentifierListContext* plist) const;
-  /// \brief writes access to an algorithm in/out
-  t_inout_nfo writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess) const;
+  /// \brief writes access to an algorithm in/out, return width of accessed member
+  int writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess, int __id, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo* pip, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to a table in/out
   void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to bits

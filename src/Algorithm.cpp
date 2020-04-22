@@ -645,6 +645,7 @@ void Algorithm::gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl
   }
   // add bram
   m_BRAMs.emplace_back(bram);
+  m_BRAMNames.insert(make_pair(bram.name, (int)m_BRAMs.size()-1));
 }
 
 // -------------------------------------------------
@@ -1883,11 +1884,97 @@ void Algorithm::mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_d
 
 // -------------------------------------------------
 
+void Algorithm::verifyMemberBRAM(const t_bram_nfo& bram, std::string member, int line) const
+{
+  bool found = false;
+  for (const auto& v : bram.in_vars) {
+    if (v == bram.name + "_" + member) {
+      found = true; break;
+    }
+  }
+  for (const auto& v : bram.out_vars) {
+    if (v == bram.name + "_" + member) {
+      found = true; break;
+    }
+  }
+  if (!found) {
+    throw Fatal("bram '%s' has no member '%s' (line %d)", bram.name.c_str(), member.c_str(), line);
+  }
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* access) const
+{
+  std::string base = access->base->getText();
+  if (access->IDENTIFIER().size() != 2) {
+    throw Fatal("'.' access depth limited to one in current version '%s' (line %d)", base.c_str(), (int)access->getStart()->getLine());
+  }
+  std::string member = access->IDENTIFIER()[1]->getText();
+  // find algorithm
+  auto A = m_InstancedAlgorithms.find(base);
+  if (A != m_InstancedAlgorithms.end()) {
+    return ""; // no var accessed in this case
+  } else {
+    auto B = m_BRAMNames.find(base);
+    if (B != m_BRAMNames.end()) {
+      const auto& bram = m_BRAMs[B->second];
+      verifyMemberBRAM(bram, member, (int)access->getStart()->getLine());
+      // return the variable name
+      return base + "_" + member;
+    } else {
+      throw Fatal("cannot find accessed member '%s' (line %d)", base.c_str(), (int)access->getStart()->getLine());
+    }
+  }
+  return "";
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::determineAccessedVar(siliceParser::BitAccessContext* access) const
+{
+  if (access->ioAccess() != nullptr) {
+    return determineAccessedVar(access->ioAccess());
+  } else if (access->tableAccess() != nullptr) {
+    return determineAccessedVar(access->tableAccess());
+  } else {
+    return access->IDENTIFIER()->getText();
+  }
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::determineAccessedVar(siliceParser::TableAccessContext* access) const
+{
+  if (access->ioAccess() != nullptr) {
+    return determineAccessedVar(access->ioAccess());
+  } else {
+    return access->IDENTIFIER()->getText();
+  }
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::determineAccessedVar(siliceParser::AccessContext* access) const
+{
+  sl_assert(access != nullptr);
+  if (access->ioAccess() != nullptr) {
+    return determineAccessedVar(access->ioAccess());
+  } else if (access->tableAccess() != nullptr) {
+    return determineAccessedVar(access->tableAccess());
+  } else if (access->bitAccess() != nullptr) {
+    return determineAccessedVar(access->bitAccess());
+  }
+  throw Fatal("internal error (line %d) [%s, %d]", access->getStart()->getLine(), __FILE__, __LINE__);
+}
+
+// -------------------------------------------------
+
 void Algorithm::determineVIOAccess(
-  antlr4::tree::ParseTree*                   node,
+  antlr4::tree::ParseTree*                    node,
   const std::unordered_map<std::string, int>& vios,
-  const t_subroutine_nfo                    *sub,
-  const t_pipeline_stage_nfo                *pip,
+  const t_subroutine_nfo                     *sub,
+  const t_pipeline_stage_nfo                 *pip,
   std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const
 {
   if (node->children.empty()) {
@@ -1910,23 +1997,26 @@ void Algorithm::determineVIOAccess(
       if (assign) {
         std::string var;
         if (assign->access() != nullptr) {
-          if (assign->access()->tableAccess() != nullptr) {
-            var = assign->access()->tableAccess()->IDENTIFIER()->getText();
-            determineVIOAccess(assign->access()->tableAccess()->expression_0(), vios, sub, pip, _read, _written);
-          } else if (assign->access()->bitAccess() != nullptr) {
-            var = assign->access()->bitAccess()->IDENTIFIER()->getText();
-            determineVIOAccess(assign->access()->bitAccess()->expression_0(), vios, sub, pip, _read, _written);
-          } else {
-            // instanced algorithm input
-          }
+          var = determineAccessedVar(assign->access());
         } else {
           var = assign->IDENTIFIER()->getText();
         }
-        var = translateVIOName(var, sub, pip);
-        if (!var.empty() && vios.find(var) != vios.end()) {
-          _written.insert(var);
+        if (!var.empty()) {
+          var = translateVIOName(var, sub, pip);
+          if (!var.empty() && vios.find(var) != vios.end()) {
+            _written.insert(var);
+          }
         }
+        // recurse on rhs expression
         determineVIOAccess(assign->expression_0(), vios, sub, pip, _read, _written);
+        // recurse on lhs expression, if any
+        if (assign->access() != nullptr) {
+          if (assign->access()->tableAccess() != nullptr) {
+            determineVIOAccess(assign->access()->tableAccess()->expression_0(), vios, sub, pip, _read, _written);
+          } else if (assign->access()->bitAccess() != nullptr) {
+            determineVIOAccess(assign->access()->bitAccess()->expression_0(), vios, sub, pip, _read, _written);
+          }
+        }
         recurse = false;
       }
     } {
@@ -2496,34 +2586,48 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIdentifierTypeAndWidth(ant
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(siliceParser::IoAccessContext *ioaccess) const
+std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(siliceParser::IoAccessContext* ioaccess) const
 {
   sl_assert(ioaccess != nullptr);
-  std::string algo = ioaccess->algo->getText();
-  std::string io = ioaccess->io->getText();
-  // find algorithm
-  auto A = m_InstancedAlgorithms.find(algo);
-  if (A == m_InstancedAlgorithms.end()) {
-    throw Fatal("cannot find algorithm instance '%s' (line %d)", algo.c_str(), (int)ioaccess->getStart()->getLine());
-  } else {
-    if (!A->second.algo->isInput(io) && !A->second.algo->isOutput(io)) {
-      throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
+  std::string base = ioaccess->base->getText();
+  if (ioaccess->IDENTIFIER().size() != 2) {
+    throw Fatal("'.' access depth limited to one in current version '%s' (line %d)", base.c_str(), (int)ioaccess->getStart()->getLine());
+  }
+  std::string member = ioaccess->IDENTIFIER()[1]->getText();
+  // accessing an algorithm?
+  auto A = m_InstancedAlgorithms.find(base);
+  if (A != m_InstancedAlgorithms.end()) {
+    if (!A->second.algo->isInput(member) && !A->second.algo->isOutput(member)) {
+      throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
     }
-    if (A->second.algo->isInput(io)) {
-      if (A->second.boundinputs.count(io) > 0) {
-        throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
+    if (A->second.algo->isInput(member)) {
+      if (A->second.boundinputs.count(member) > 0) {
+        throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
       }
       return std::make_pair(
-        A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)].base_type,
-        A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)].width
+        A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].base_type,
+        A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].width
       );
-    } else if (A->second.algo->isOutput(io)) {
+    } else if (A->second.algo->isOutput(member)) {
       return std::make_pair(
-        A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(io)].base_type,
-        A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(io)].width
+        A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].base_type,
+        A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].width
       );
     } else {
       sl_assert(false);
+    }
+  } else {
+    auto B = m_BRAMNames.find(base);
+    if (B != m_BRAMNames.end()) {
+      const auto& bram = m_BRAMs[B->second];
+      verifyMemberBRAM(bram, member, (int)ioaccess->getStart()->getLine());
+      // produce the variable name
+      std::string vname = base + "_" + member;
+      // get width and size
+      auto tws = determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
+      return std::make_pair(std::get<0>(tws), std::get<1>(tws));
+    } else {
+      throw Fatal("cannot find accessed member '%s' (line %d)", base.c_str(), (int)ioaccess->getStart()->getLine());
     }
   }
   sl_assert(false);
@@ -2692,43 +2796,62 @@ void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, c
 
 // -------------------------------------------------
 
-Algorithm::t_inout_nfo Algorithm::writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess) const
+int Algorithm::writeIOAccess(
+  std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess,
+  int __id,
+  const t_subroutine_nfo* sub, const t_pipeline_stage_nfo* pip, const t_vio_dependencies& dependencies) const
 {
-  std::string algo = ioaccess->algo->getText();
-  std::string io = ioaccess->io->getText();
+  std::string base = ioaccess->base->getText();
+  if (ioaccess->IDENTIFIER().size() != 2) {
+    throw Fatal("'.' access depth limited to one in current version '%s' (line %d)", base.c_str(), (int)ioaccess->getStart()->getLine());
+  }
+  std::string member = ioaccess->IDENTIFIER()[1]->getText();
   // find algorithm
-  auto A = m_InstancedAlgorithms.find(algo);
-  if (A == m_InstancedAlgorithms.end()) {
-    throw Fatal("cannot find algorithm instance '%s' (line %d)", algo.c_str(), (int)ioaccess->getStart()->getLine());
-  } else {
-    if (!A->second.algo->isInput(io) && !A->second.algo->isOutput(io)) {
-      throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
+  auto A = m_InstancedAlgorithms.find(base);
+  if (A != m_InstancedAlgorithms.end()) {
+    if (!A->second.algo->isInput(member) && !A->second.algo->isOutput(member)) {
+      throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
     }
-    if (assigning && !A->second.algo->isInput(io)) {
-      throw Fatal("cannot write to algorithm output '%s', instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
+    if (assigning && !A->second.algo->isInput(member)) {
+      throw Fatal("cannot write to algorithm output '%s', instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
     }
-    if (!assigning && !A->second.algo->isOutput(io)) {
-      throw Fatal("cannot read from algorithm input '%s', instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
+    if (!assigning && !A->second.algo->isOutput(member)) {
+      throw Fatal("cannot read from algorithm input '%s', instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
     }
-    if (A->second.algo->isInput(io)) {
-      if (A->second.boundinputs.count(io) > 0) {
-        throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", io.c_str(), algo.c_str(), (int)ioaccess->getStart()->getLine());
+    if (A->second.algo->isInput(member)) {
+      if (A->second.boundinputs.count(member) > 0) {
+        throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
       }
       if (assigning) {
         out << FF_D; // algorithm input
       } else {
         sl_assert(false); // cannot read from input
       }
-      out << A->second.instance_prefix << "_" << io;
-      return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(io)];
-    } else if (A->second.algo->isOutput(io)) {
-      out << WIRE << A->second.instance_prefix << "_" << io;
-      return A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(io)];
+      out << A->second.instance_prefix << "_" << member;
+      return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].width;
+    } else if (A->second.algo->isOutput(member)) {
+      out << WIRE << A->second.instance_prefix << "_" << member;
+      return A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].width;
     } else {
       sl_assert(false);
     }
+  } else {
+    auto B = m_BRAMNames.find(base);
+    if (B != m_BRAMNames.end()) {
+      const auto& bram = m_BRAMs[B->second];
+      verifyMemberBRAM(bram, member, (int)ioaccess->getStart()->getLine());
+      // produce the variable name
+      std::string vname = base + "_" + member;
+      // write
+      out << rewriteIdentifier(prefix, vname, sub, pip, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
+      auto tws = determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
+      return std::get<1>(tws);
+    } else {
+      throw Fatal("cannot find accessed member '%s' (line %d)", base.c_str(), (int)ioaccess->getStart()->getLine());
+    }
   }
-  return t_inout_nfo();
+  sl_assert(false);
+  return 0;
 }
 
 // -------------------------------------------------
@@ -2740,8 +2863,8 @@ void Algorithm::writeTableAccess(
   const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const
 {
   if (tblaccess->ioAccess() != nullptr) {
-    t_inout_nfo nfo = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess());
-    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub, pip, dependencies) << ")*" << nfo.width << "+:" << nfo.width << ']';
+    int width = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess(), __id, sub, pip, dependencies);
+    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, sub, pip, dependencies) << ")*" << width << "+:" << width << ']';
   } else {
     sl_assert(tblaccess->IDENTIFIER() != nullptr);
     std::string vname = tblaccess->IDENTIFIER()->getText();
@@ -2759,7 +2882,7 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
 {
   // TODO: check access validity
   if (bitaccess->ioAccess() != nullptr) {
-    writeIOAccess(prefix, out, assigning, bitaccess->ioAccess());
+    writeIOAccess(prefix, out, assigning, bitaccess->ioAccess(), __id, sub, pip, dependencies);
   } else if (bitaccess->tableAccess() != nullptr) {
     writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, sub, pip, dependencies);
   } else {
@@ -2774,7 +2897,7 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
 void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_subroutine_nfo* sub, const t_pipeline_stage_nfo *pip, const t_vio_dependencies& dependencies) const
 {
   if (access->ioAccess() != nullptr) {
-    writeIOAccess(prefix, out, assigning, access->ioAccess());
+    writeIOAccess(prefix, out, assigning, access->ioAccess(), __id, sub, pip, dependencies);
   } else if (access->tableAccess() != nullptr) {
     writeTableAccess(prefix, out, assigning, access->tableAccess(), __id, sub, pip, dependencies);
   } else if (access->bitAccess() != nullptr) {
