@@ -24,38 +24,81 @@ algorithm frame_display(
   output! uint6  pix_b
 ) <autorun> {
 
-  bram uint6 table[$32*32$] = {
-$$for i=0,31 do  
-$$for j=0,31 do
-$$if (i+j)%2 == 0 then
-      63,
-$$else
-      0,
-$$end
-$$end
-$$end
+  uint8  frame = 0;
+  uint8  angle = 0;
+  int20  u     = 0;
+  int20  v     = 0;
+  int20  cos   = 0;
+  int20  sin   = 0;
+  int20  cornerx  = -320;
+  int20  cornery  = -240;
+  int20  corneru  = 0;
+  int20  cornerv  = 0;
+  int20  deltau_x = 0;
+  int20  deltau_y = 0;
+  int20  deltav_x = 0;
+  int20  deltav_y = 0;
+  
+  bram uint18 table[$32*32$] = {
+$$image_table('tile.tga',6)
   };
 
-  pix_r := 0;
-  pix_g := 0;
-  pix_b := 0;
+  bram int10 cosine[256] = {
+$$for i=0,255 do
+    $math.floor(511.0 * math.cos(2*math.pi*i/255))$,
+$$end
+  };
   
+  pix_r := 0; pix_g := 0; pix_b := 0;  
   // ---------- show time!
-  table.wenable = 0;
-  table.addr = 0;
+  table.wenable = 0; cosine.wenable = 0; // we only read in brams
   while (1) {
 	  // display frame
 	  while (pix_vblank == 0) {
-      if (pix_active) {
-      
-        pix_r = table.rdata;
-        pix_g = table.rdata;
-        pix_b = table.rdata;
-  
-        table.addr = pix_x[0,5] + (pix_y[0,5]<<5);
+      if (pix_active) {      
+        pix_b = table.rdata[0,6];
+        pix_g = table.rdata[6,6];
+        pix_r = table.rdata[12,6];
+        // update u,v
+        if (pix_x == 0) {
+          u = corneru;
+          v = cornerv;
+        } else {
+          if (pix_x == 639) {
+            corneru = corneru + deltau_y;
+            cornerv = cornerv + deltav_y;
+          } else {
+            u = u + deltau_x;
+            v = v + deltav_x;
+          }
+        }
+        // table bram access
+        table.addr = ((u>>11)&31) + (((v>>11)&31)<<5);
+        // access during loop (one cycle to go back)
       }
     }
-    while (pix_vblank == 1) {} // wait for sync
+    // prepare next (we are in vblank, there is time)
+    frame       = frame + 1;
+    cosine.addr = frame;
+++:    
+    angle       = ((512+cosine.rdata) >> 2);
+    cosine.addr = angle;
+++: // sine bram access
+    cos = cosine.rdata;
+    cosine.addr = angle + 64;
+++: // sine bram access
+    sin = cosine.rdata;
+    // prepare scanline with mapping
+    corneru  = (cornerx * cos - cornery * sin);
+    cornerv  = (cornerx * sin + cornery * cos);
+    deltau_x = cos;
+    deltau_y = - sin;
+    deltav_x = sin;
+    deltav_y = cos;
+    u        = corneru;
+    v        = cornerv;
+    // wait for sync
+    while (pix_vblank == 1) {} 
   }
   
 }

@@ -123,17 +123,20 @@ static void lua_print(lua_State *L, std::string str)
 
 // -------------------------------------------------
 
-static void lua_image_table(lua_State* L, std::string str)
+static void lua_image_table(lua_State* L, std::string str,int component_depth)
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("internal error (lua_image_table)");
+    throw Fatal("[image_table] internal error");
+  }
+  if (component_depth < 0 || component_depth > 8) {
+    throw Fatal("[image_table] component depth can only in ]0,8]");
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
   t_image_nfo* nfo = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
-    throw Fatal("cannot load image file '%s'",fname.c_str());
+    throw Fatal("[image_table] cannot load image file '%s'",fname.c_str());
   }
   int    nc  = nfo->depth/8;
   uchar* ptr = nfo->pixels;
@@ -141,7 +144,7 @@ static void lua_image_table(lua_State* L, std::string str)
     ForIndex(i, nfo->width) {
       uint32_t v = 0;
       ForIndex(c, nc) {
-        v = (v << 8) | *(uint8_t*)(ptr++);
+        v = (v << component_depth) | ((*(uint8_t*)(ptr++) >> (8 - component_depth)) & ((1 << component_depth)-1));
       }
       g_LuaOutputs[L] << std::to_string(v) << ",";
     }
@@ -153,31 +156,39 @@ static void lua_image_table(lua_State* L, std::string str)
   delete (nfo);
 }
 
+static void lua_image_table_simple(lua_State* L, std::string str)
+{
+  lua_image_table(L, str, 8);
+}
+
 // -------------------------------------------------
 
-static void lua_palette_table(lua_State* L, std::string str)
+static void lua_palette_table(lua_State* L, std::string str, int component_depth)
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("internal error (lua_image_table)");
+    throw Fatal("[palette_table] internal error");
+  }
+  if (component_depth < 0 || component_depth > 8) {
+    throw Fatal("[palette_table] component depth can only in ]0,8]");
   }
   LuaPreProcessor *lpp = P->second;
   std::string      fname = lpp->findFile(str);
   t_image_nfo* nfo = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
-    throw Fatal("cannot load image file '%s'", fname.c_str());
+    throw Fatal("[palette_table] cannot load image file '%s'", fname.c_str());
   }
   if (nfo->colormap == NULL) {
-    throw Fatal("image file '%s' has no palette", fname.c_str());
+    throw Fatal("[palette_table] image file '%s' has no palette", fname.c_str());
   }
   if (nfo->depth != 8) {
-    throw Fatal("image file '%s' palette is not 8 bits", fname.c_str());
+    throw Fatal("[palette_table] image file '%s' palette is not 8 bits", fname.c_str());
   }
   uchar* ptr = nfo->colormap;
   ForIndex(idx, 256) {
       uint32_t v = 0;
       ForIndex(c, 3) {
-        v = (v << 8) | *(uint8_t*)(ptr++);
+        v = (v << component_depth) | ((*(uint8_t*)(ptr++)) & ((1 << component_depth) - 1));
       }
       g_LuaOutputs[L] << std::to_string(v) << ",";
   }
@@ -186,6 +197,11 @@ static void lua_palette_table(lua_State* L, std::string str)
     delete[](nfo->colormap);
   }
   delete (nfo);
+}
+
+static void lua_palette_table_simple(lua_State* L, std::string str)
+{
+  lua_palette_table(L, str, 8);
 }
 
 // -------------------------------------------------
@@ -216,7 +232,9 @@ static void bindScript(lua_State *L)
       luabind::def("error",         &lua_preproc_error),
       luabind::def("output",        &lua_output),
       luabind::def("image_table",   &lua_image_table),
-      luabind::def("palette_table", &lua_palette_table)
+      luabind::def("image_table",   &lua_image_table_simple),
+      luabind::def("palette_table", &lua_palette_table),
+      luabind::def("palette_table", &lua_palette_table_simple)
     ];
 }
 
