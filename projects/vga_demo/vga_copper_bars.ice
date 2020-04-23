@@ -25,7 +25,7 @@ $$end
   uint6 frame  = 0;  
   int9  pos[4] = {0,0,0,0};
   
-  pix_value := 0;
+  pix_r := 0; pix_g := 0; pix_b := 0;
   // ---------- show time!
   while (1) {
 

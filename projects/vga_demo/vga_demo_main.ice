@@ -137,9 +137,9 @@ $$end
 	  pix_y      <: pix_y,
 	  pix_active <: active,
 	  pix_vblank <: vblank,
-	  pix_red    :> video_r,
-	  pix_green  :> video_g,
-	  pix_blue   :> video_b
+	  pix_r      :> video_r,
+	  pix_g      :> video_g,
+	  pix_b      :> video_b
   );
 
 $$if MOJO then

@@ -3791,8 +3791,8 @@ void Algorithm::writeAsModule(ostream& out) const
         // input is bound, directly map bound VIO
         out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name), nullptr, nullptr, nfo.second.instance_line, FF_D);
       } else {
-        // input is not bound and assigned in logic
-        out << rewriteIdentifier("_", is.name, nullptr, nullptr, nfo.second.instance_line, FF_D);
+        // input is not bound and assigned in logic, a specifc flip-flop is created for this
+        out << FF_D << nfo.second.instance_prefix << "_" << is.name;
       }
       out << ')' << ',' << endl;
     }

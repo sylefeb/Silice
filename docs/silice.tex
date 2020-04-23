@@ -144,6 +144,33 @@ The initializer is mandatory, and is always a simple constant (no expressions).
 
 \noindent Table sizes have to be constant at compile time. The initializer is mandatory and can be a string, in which case each letter becomes its ASCII value, and the string is null terminated. The table size \texttt{M} is optional (eg. \texttt{int4 tbl[]=\{1,2,3\};} ) in which case the size is automatically derived from the initializer (strings have one additional implicit character: the null terminator).
 
+\subsection{Block RAMs}
+
+\texttt{bram intN tbl[M] = \{...\} }
+
+\noindent Block RAMs are declared in a way similar to tables. Block RAMs map to special FPGA blocks and avoid using FPGA LUTs to store data. However, accessing a block RAM typically requires a one cycle latency.
+
+A block RAM variable has four members accessible with the 'dot' syntax: 
+\begin{enumerate}
+	\item {\tt addr} the address being accessed,
+	\item {\tt wenable} set to 1 if writing, set to 0 if reading,
+	\item {\tt rdata} result of read,
+	\item {\tt wdata} data to be written.
+\end{enumerate}
+
+Here is an example of using a block RAM in \silice{}:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+bram int8 table[4] = {42,43,44,45};
+int8 a = 0;
+
+table.wenable = 0; // read
+table.addr    = 2; // third entry
+++:                // wait on clock
+a = table.rdata;   // now a == 44
+\end{minted}
+
+
 \subsection{Operators}
 
 \subsubsection{Swizzling}

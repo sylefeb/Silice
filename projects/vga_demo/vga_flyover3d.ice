@@ -3,6 +3,11 @@
 
 $include('vga_demo_main.ice')
 
+$$div_width = 16
+$$div_unsigned = 1
+$$div_shrink = 3
+$include('../../common/divint_any.ice')
+
 // -------------------------
 
 algorithm frame_display(
