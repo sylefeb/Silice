@@ -2,9 +2,10 @@
 
 ## Windows
 
-Download the pre-compiled fpga-binutils from XXX. 
+I have prepared binary packages for Windows so you can easily get started!
+Download the pre-compiled fpga-binutils from https://github.com/sylefeb/fpga-binutils/releases
 
-Uncompress in silice/tools/fpga-binutils/mingw32/
+Uncompress in Silice/tools/fpga-binutils/
 
 After this step you should see three new directories:
 - Silice/tools/fpga-binutils/mingw32/bin
