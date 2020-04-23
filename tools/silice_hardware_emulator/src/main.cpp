@@ -81,11 +81,11 @@ void value_change_callback(void* user_callback_data_pointer, uint64_t time, fstH
     prev_clk = clk;
     g_VGA.step(
       clk,
-      g_Values["__main_video_vs"],
-      g_Values["__main_video_hs"],
-      g_Values["__main_video_r [5:0]"],
-      g_Values["__main_video_g [5:0]"],
-      g_Values["__main_video_b [5:0]"]
+      (uint8_t)g_Values["__main_video_vs"],
+      (uint8_t)g_Values["__main_video_hs"],
+      (uint8_t)g_Values["__main_video_r [5:0]"],
+      (uint8_t)g_Values["__main_video_g [5:0]"],
+      (uint8_t)g_Values["__main_video_b [5:0]"]
     );
 
     std::this_thread::yield();
@@ -99,13 +99,15 @@ void value_change_callback(void* user_callback_data_pointer, uint64_t time, fstH
 int main(int argc,char **argv)
 {
   try {
+
     if (argc < 2) {
       std::cerr << "Please provide fst wave file as argument" << std::endl;
       return -1;
     }
-
-    // std::string infile(argv[1]);
-    // g_VCD = AutoPtr<VCDParser>(new VCDParser(infile));
+    if (!LibSL::System::File::exists(argv[1])) {
+      std::cerr << "Could not open fst wave file " << argv[1] << std::endl;
+      return -1;
+    }
 
     SimpleUI::init(g_VGA.w(), g_VGA.h(), "Silice Hardware Emulator");
 
