@@ -187,7 +187,7 @@ void VideoOut::eval_RGB_HV
                         char num[64];
                         snprintf(num,64, "%04d", dump_ctr);
                         std::string tmp = filename + "_" + std::string(num) + ".tga";
-                        printf(" Save snapshot in file \"%s\"\n", tmp.c_str());
+                        // printf(" Save snapshot in file \"%s\"\n", tmp.c_str());
                         {
                           ImageRGB img;
                           img.pixels() = pixels;
@@ -234,8 +234,12 @@ void VideoOut::eval_RGB_HV
                       printf("*** illegal pixel access (access violation)");
                       exit (-1);
                     }
-                    pixels.at((int)(hcount), (int)(vcount)) = v3b(pixel.Red,pixel.Green,pixel.Blue);
+                    if (hcount >= 0 && vcount >= 0 && hcount < pixels.xsize() && vcount < pixels.ysize()) {
+                      pixels.at((int)(hcount), (int)(vcount)) = v3b(pixel.Red,pixel.Green,pixel.Blue);
                     // printf("*** [pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)pixel.Red,(int)pixel.Green,(int)pixel.Blue);
+                    } else {
+                      printf("*** [ERROR] out of bounds pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)pixel.Red,(int)pixel.Green,(int)pixel.Blue);
+                    }
                 }
             }
         }
