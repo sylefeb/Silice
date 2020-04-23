@@ -10,20 +10,12 @@ $$end
 
 $$if ICESTICK then
 // Clock
-import('../common/icestick_clk_vga.v')
+import('../common/icestick_clk_25.v')
 $$end
 
 $$if HARDWARE then
 // Reset
 import('../common/reset_conditioner.v')
-$$end
-
-$$if MOJO then
-$$max_color   = 1
-$$color_depth = 1
-$$else
-$$max_color   = 15
-$$color_depth = 4
 $$end
 
 // -------------------------
@@ -33,13 +25,10 @@ algorithm frame_display(
   input   uint10 pix_y,
   input   uint1  pix_active,
   input   uint1  pix_vblank,
-  output! uint4  pix_red,
-  output! uint4  pix_green,
-  output! uint4  pix_blue
+  output! uint$color_depth$ pix_red,
+  output! uint$color_depth$ pix_green,
+  output! uint$color_depth$ pix_blue
 ) <autorun> {
-  // panning
-  uint16 pan_x = 0;
-  uint16 x = 0;
   // by default r,g,b are set to zero
   pix_red   := 0;
   pix_green := 0;
@@ -49,14 +38,12 @@ algorithm frame_display(
 	  // display frame
 	  while (pix_vblank == 0) {
       if (pix_active) {
-        x         = pix_x + pan_x;
-        pix_blue  = x[4,$color_depth$];
+        pix_blue  = pix_x[4,$color_depth$];
         pix_green = pix_y[4,$color_depth$];
-        pix_red   = 0;
+        pix_red   = pix_x[1,$color_depth$];
       }      
     }    
     while (pix_vblank == 1) {} // wait for sync
-    pan_x = pan_x + 1;
   }
 }
 
@@ -104,9 +91,9 @@ $$if ICESTICK then
   output! uint1 led3,
   output! uint1 led4,
 $$end
-  output! uint4 video_r,
-  output! uint4 video_g,
-  output! uint4 video_b,
+  output! uint$color_depth$ video_r,
+  output! uint$color_depth$ video_g,
+  output! uint$color_depth$ video_b,
   output! uint1 video_hs,
   output! uint1 video_vs
 ) 
@@ -136,7 +123,7 @@ $$if MOJO then
   );
 $$elseif ICESTICK then
   // --- clock
-  icestick_clk_vga clk_gen (
+  icestick_clk_25 clk_gen (
     clock_in  <: clock,
     clock_out :> video_clock,
     lock      :> led4

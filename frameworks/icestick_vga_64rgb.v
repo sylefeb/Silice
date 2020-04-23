@@ -4,6 +4,7 @@ $$ICESTICK=1
 $$HARDWARE=1
 $$VGA=1
 $$color_depth=6
+$$color_max  =63
 
 module top(
   input  CLK,

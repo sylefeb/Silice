@@ -3614,7 +3614,7 @@ void Algorithm::writeModuleBRAM(std::ostream& out, const t_bram_nfo& bram) const
   }
   for (const auto& ouv : bram.out_vars) {
     const auto& v = m_Vars[m_VarNames.at(ouv)];
-    out << "output " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
+    out << "output reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
   }
   out << "input " ALG_CLOCK << endl;
   out << ");" << endl;

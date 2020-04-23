@@ -9,18 +9,12 @@ import('../common/mojo_clk_100_25.v')
 $$end
 $$if ICESTICK then
 // Clock
-import('../common/icestick_clk_vga.v')
+import('../common/icestick_clk_25.v')
 $$end
 
 $$if HARDWARE then
 // Reset
 import('../common/reset_conditioner.v')
-$$end
-
-$$if MOJO then
-$$max_color = 1
-$$else
-$$max_color = 15
 $$end
 
 // -------------------------
@@ -30,9 +24,9 @@ algorithm text_display(
   input   uint10 pix_y,
   input   uint1  pix_active,
   input   uint1  pix_vblank,
-  output! uint4  pix_red,
-  output! uint4  pix_green,
-  output! uint4  pix_blue
+  output! uint$color_depth$ pix_red,
+  output! uint$color_depth$ pix_green,
+  output! uint$color_depth$ pix_blue
 ) <autorun> {
 
   // Text buffer
@@ -164,9 +158,9 @@ $$end
         speed  = rand_x[10,2];
         dotpos = (frame >> speed) + rand_x;
         if (pix_y == dotpos) {
-          pix_red   = ($max_color$);
-          pix_green = ($max_color$);
-          pix_blue  = ($max_color$);
+          pix_red   = ($color_max$);
+          pix_green = ($color_max$);
+          pix_blue  = ($color_max$);
         }        
         
         // text
@@ -182,23 +176,23 @@ $$end
               {
               case 0: {
                 pix_red   = 0;
-                pix_green = $max_color$;
+                pix_green = $color_max$;
                 pix_blue  = 0;
               }
               case 4: {
                 pix_red   = 0;
                 pix_green = 0;
-                pix_blue  = $max_color$;
+                pix_blue  = $color_max$;
               }
               case 6: {
-                pix_red   = $max_color$;
+                pix_red   = $color_max$;
                 pix_green = 0;
                 pix_blue  = 0;
               }
               default: {
-                pix_red   = $max_color$;
-                pix_green = $max_color$;
-                pix_blue  = $max_color$;
+                pix_red   = $color_max$;
+                pix_green = $color_max$;
+                pix_blue  = $color_max$;
               }
               }
             }
@@ -281,9 +275,9 @@ $$end
 $$if SIMULATION then
   output! uint1 video_clock,
 $$end
-  output! uint4 video_r,
-  output! uint4 video_g,
-  output! uint4 video_b,
+  output! uint$color_depth$ video_r,
+  output! uint$color_depth$ video_g,
+  output! uint$color_depth$ video_b,
   output! uint1 video_hs,
   output! uint1 video_vs
 ) 
@@ -313,7 +307,7 @@ $$if MOJO then
   );
 $$elseif ICESTICK then
   // --- clock
-  icestick_clk_vga clk_gen (
+  icestick_clk_25 clk_gen (
     clock_in  <: clock,
     clock_out :> video_clock,
     lock      :> led4

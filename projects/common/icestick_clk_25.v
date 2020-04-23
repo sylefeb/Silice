@@ -1,4 +1,4 @@
-module icestick_clk_vga(     
+module icestick_clk_25(     
   input  clock_in,
   output clock_out,
   output lock

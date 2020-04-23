@@ -1,7 +1,9 @@
 `define ICARUS 1
 $$ICARUS=1
 $$VGA=1
-$$SIMULATION=1
+$$SIMULATION =1
+$$color_depth=6
+$$color_max  =63
 
 module top;
 
@@ -11,9 +13,9 @@ reg rst_n;
 wire __main_video_clock;
 wire __main_video_hs;
 wire __main_video_vs;
-wire [3:0] __main_video_r;
-wire [3:0] __main_video_g;
-wire [3:0] __main_video_b;
+wire [5:0] __main_video_r;
+wire [5:0] __main_video_g;
+wire [5:0] __main_video_b;
 
 initial begin
   clk = 1'b0;

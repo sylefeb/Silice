@@ -83,9 +83,9 @@ void value_change_callback(void* user_callback_data_pointer, uint64_t time, fstH
       clk,
       g_Values["__main_video_vs"],
       g_Values["__main_video_hs"],
-      g_Values["__main_video_r [3:0]"],
-      g_Values["__main_video_g [3:0]"],
-      g_Values["__main_video_b [3:0]"]
+      g_Values["__main_video_r [5:0]"],
+      g_Values["__main_video_g [5:0]"],
+      g_Values["__main_video_b [5:0]"]
     );
 
     std::this_thread::yield();

@@ -21,7 +21,7 @@ the distribution, please refer to it for details.
 VgaChip::VgaChip()
 {
   m_VideoOut = new VideoOut(
-        0/*debug*/,4/*color depth*/,0/*polarity*/,
+        0/*debug*/,6/*color depth*/,0/*polarity*/,
         640 ,16,96,48,
         480 ,10,2,33,
         "vgaout");

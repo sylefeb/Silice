@@ -184,13 +184,14 @@ void VideoOut::eval_RGB_HV
                     v_sync_stage = e_Done;
                     v_sync_count = 0;
                     {
-                        char tmp[1024];
-                        sprintf(tmp, "%s_%04d.tga", filename.c_str(), dump_ctr);
-                        printf(" Save snapshot in file \"%s\"\n", tmp);
+                        char num[64];
+                        snprintf(num,64, "%04d", dump_ctr);
+                        std::string tmp = filename + "_" + std::string(num) + ".tga";
+                        printf(" Save snapshot in file \"%s\"\n", tmp.c_str());
                         {
                           ImageRGB img;
                           img.pixels() = pixels;
-                          saveImage(tmp,&img);                        
+                          saveImage(tmp.c_str(),&img);                        
                         }
                         dump_ctr++;
                     }

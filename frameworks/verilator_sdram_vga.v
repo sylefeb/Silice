@@ -2,6 +2,8 @@
 $$VERILATOR=1
 $$VGA=1
 $$SIMULATION=1
+$$color_depth=6
+$$color_max  =63
 
 `default_nettype none
 
@@ -22,9 +24,9 @@ module vga(
   output reg  sdram_dq_en,
   // VGA
   output video_clock,
-  output reg [3:0] video_r,
-  output reg [3:0] video_g,
-  output reg [3:0] video_b,
+  output reg [5:0] video_r,
+  output reg [5:0] video_g,
+  output reg [5:0] video_b,
   output video_hs,
   output video_vs
   );
@@ -42,9 +44,9 @@ wire [7:0]  __main_sdram_dq_o;
 wire        __main_sdram_dq_en;
 
 wire        __main_video_clock;
-wire [3:0]  __main_video_r;
-wire [3:0]  __main_video_g;
-wire [3:0]  __main_video_b;
+wire [5:0]  __main_video_r;
+wire [5:0]  __main_video_g;
+wire [5:0]  __main_video_b;
 wire        __main_video_hs;
 wire        __main_video_vs;
 

@@ -23,7 +23,7 @@ VgaChip::VgaChip()
   m_W = 640;
   m_H = 480;
   m_VideoOut = new VideoOut(
-        0/*debug*/,4/*color depth*/,0/*polarity*/,
+        0/*debug*/,6/*color depth*/,0/*polarity*/,
         m_W ,16,96,48,
         m_H ,10,2,33,
         "vgaout");

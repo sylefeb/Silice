@@ -3,6 +3,8 @@
 $$ICESTICK=1
 $$HARDWARE=1
 $$VGA=1
+$$color_depth=6
+$$color_max  =63
 
 module top(
   input  CLK,
@@ -11,12 +13,14 @@ module top(
   output D3,
   output D4,
   output D5,
-  output PMOD1, // 0
-  output PMOD2, // 1
-  output PMOD3, // 2 
-  output PMOD4, // 3
-  output PMOD8, // 4
-  output PMOD9, // 5
+
+  output PMOD1, // r0
+  output PMOD2, // r1
+  output PMOD3, // r2 
+  output PMOD4, // r3
+  output PMOD8, // r4
+  output PMOD9, // r5
+
   output PMOD7, // hs
   output PMOD10 // vs
   );
@@ -30,11 +34,9 @@ wire __main_d5;
 wire __main_out_vga_hs;
 wire __main_out_vga_vs;
 wire __main_out_vga_v0;
-wire __main_out_vga_v1;
-wire __main_out_vga_v2;
-wire __main_out_vga_v3;
-wire __main_out_vga_v4;
-wire __main_out_vga_v5;
+wire [5:0] __main_out_vga_r;
+wire [5:0] __main_out_vga_g;
+wire [5:0] __main_out_vga_b;
 
 reg ready = 0;
 reg [3:0] RST_d;
@@ -66,12 +68,9 @@ M_main __main(
   .out_led4(__main_d5),
   .out_video_hs(__main_out_vga_hs),
   .out_video_vs(__main_out_vga_vs),
-  .out_video_v0(__main_out_vga_v0),
-  .out_video_v1(__main_out_vga_v1),
-  .out_video_v2(__main_out_vga_v2),  
-  .out_video_v3(__main_out_vga_v3),
-  .out_video_v4(__main_out_vga_v4),
-  .out_video_v5(__main_out_vga_v5),  
+  .out_video_r(__main_out_vga_r),
+  .out_video_g(__main_out_vga_g),
+  .out_video_b(__main_out_vga_b),
   .in_run(run_main)
 );
 
@@ -81,12 +80,14 @@ assign D3 = __main_d3;
 assign D4 = __main_d4;
 assign D5 = __main_d5;
 
-assign PMOD1  = __main_out_vga_v0;
-assign PMOD2  = __main_out_vga_v1;
-assign PMOD3  = __main_out_vga_v2;
-assign PMOD4  = __main_out_vga_v3;
-assign PMOD8  = __main_out_vga_v4;
-assign PMOD9  = __main_out_vga_v5;
+// we only drive the red component
+assign PMOD1  = __main_out_vga_r[5+:1];
+assign PMOD2  = __main_out_vga_r[4+:1];
+assign PMOD3  = __main_out_vga_r[3+:1];
+assign PMOD4  = __main_out_vga_r[2+:1];
+assign PMOD8  = __main_out_vga_r[1+:1];
+assign PMOD9  = __main_out_vga_r[0+:1];
+
 assign PMOD7  = __main_out_vga_hs;
 assign PMOD10 = __main_out_vga_vs;
 
