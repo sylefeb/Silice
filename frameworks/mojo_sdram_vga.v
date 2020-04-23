@@ -75,6 +75,7 @@ M_main __main(
   .out_spi_miso(__main_spi_miso),
   .out_avr_rx(__main_out_avr_rx),
   .out_spi_channel(__main_out_spi_channel),
+//  .out_led(__main_out_led),
   .out_sdram_clk(__main_out_sdram_clk),
   .out_sdram_cle(__main_out_sdram_cle),
   .out_sdram_dqm(__main_out_sdram_dqm),
@@ -96,7 +97,8 @@ always @* begin
   spi_miso     = __main_spi_miso;
   avr_rx       = __main_out_avr_rx;
   spi_channel  = __main_out_spi_channel;
-  
+//  led          = __main_out_led;
+
   sdram_clk    = __main_out_sdram_clk;
   sdram_cle    = __main_out_sdram_cle;
   sdram_dqm    = __main_out_sdram_dqm;

@@ -283,13 +283,11 @@ $$end
 
     // clear
 	  () <- clear_screen <- ();
+    
     // draw
     () <- draw_quad <- (qp0x,qp0y, qp1x,qp1y);
-	
-    // wait for vsync
-    while (vsync_filtered == 1) {}
-    while (vsync_filtered == 0) {}
 
+    // prepare next frame    
     if (dir0 == 0) {
       qp0y = qp0y + 1;
       if (qp0y > 80) {
@@ -313,6 +311,12 @@ $$end
         dir1 = 0;
       }
     }
+
+    // wait for frame to end
+    while (vsync_filtered == 0) {}
+
+    // swap buffers
+    fbuffer = ~fbuffer;
 
   }
 

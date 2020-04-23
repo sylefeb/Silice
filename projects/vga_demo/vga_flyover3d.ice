@@ -108,7 +108,8 @@ algorithm frame_display(
     }
     // prepare next    
     pos_u = pos_u + 1024;
-    pos_v = pos_v + 3;    
+    pos_v = pos_v + 3; 
+    
     // wait for sync
     while (pix_vblank == 1) {} 
   }

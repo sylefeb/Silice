@@ -8,6 +8,7 @@ $$end
 
 append('sdram_clock.v')
 import('sdram.v')
+// include('sdramctrl.ice')
 
 // Frame buffer row
 import('dual_frame_buffer_row.v')
@@ -259,6 +260,13 @@ sdram memory(
   busy       :> sbusy,
   in_valid   <: sin_valid,
   out_valid  :> sout_valid,
+/*
+if VERILATOR then
+  dq_i      <: sdram_dq_i,
+  dq_o      :> sdram_dq_o,
+  dq_en     :> sdram_dq_en,
+end
+*/
   <:auto:>
 );
 
