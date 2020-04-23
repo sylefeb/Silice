@@ -3,9 +3,9 @@
 
 $include('vga_demo_main.ice')
 
-$$div_width = 16
+$$div_width    = 16
 $$div_unsigned = 1
-$$div_shrink = 3
+$$div_shrink   = 3
 $include('../../common/divint_any.ice')
 
 // -------------------------
@@ -26,7 +26,8 @@ algorithm frame_display(
   uint9 offs_y = 0;
   uint8 u      = 0;
   uint8 v      = 0;
-
+  uint15 maxv  = 22000;
+  
   uint16 pos_u  = 0;
   uint16 pos_v  = 0;
 
@@ -69,7 +70,7 @@ algorithm frame_display(
               lum = 0;
             }
             // divide for next line
-            div <- (22000,offs_y);
+            div <- (maxv,offs_y);
           }
 
           u = pos_u + ((pix_x - 320) * cur_inv_y) >> 8;
