@@ -30,7 +30,7 @@ algorithm frame_display(
   int20  deltav_x = 0;
   int20  deltav_y = 0;
   
-  bram uint18 table[$32*32$] = {
+  bram uint18 tbl[$32*32$] = {
 $$image_table('tile.tga',6)
   };
 
@@ -42,14 +42,14 @@ $$end
   
   pix_r := 0; pix_g := 0; pix_b := 0;  
   // ---------- show time!
-  table.wenable = 0; cosine.wenable = 0; // we only read in brams
+  tbl.wenable = 0; cosine.wenable = 0; // we only read in brams
   while (1) {
 	  // display frame
 	  while (pix_vblank == 0) {
       if (pix_active) {      
-        pix_b = table.rdata[0,6];
-        pix_g = table.rdata[6,6];
-        pix_r = table.rdata[12,6];
+        pix_b = tbl.rdata[0,6];
+        pix_g = tbl.rdata[6,6];
+        pix_r = tbl.rdata[12,6];
         // update u,v
         if (pix_x == 0) {
           u = corneru;
@@ -63,8 +63,8 @@ $$end
             v = v + deltav_x;
           }
         }
-        // table bram access
-        table.addr = ((u>>11)&31) + (((v>>11)&31)<<5);
+        // tbl bram access
+        tbl.addr = ((u>>11)&31) + (((v>>11)&31)<<5);
         // access during loop (one cycle to go back)
       }
     }

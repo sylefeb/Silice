@@ -13,17 +13,17 @@ algorithm frame_display(
   input   uint11 video_x,
   input   uint10 video_y,
   input   uint1  video_active,
-  output! uint8  video_r,
-  output! uint8  video_g,
-  output! uint8  video_b,
+  output! uint$color_depth$ video_r,
+  output! uint$color_depth$ video_g,
+  output! uint$color_depth$ video_b,
   output! uint10 pixaddr,
   input   uint32 pixdata_r,
   output! uint1  row_busy
 ) <autorun> {
 
   // palette
-  uint24 palette[] = {
-$$palette_table(texture)
+  uint$3*color_depth$ palette[] = {
+$$palette_table(texfile,color_depth)
   };
 
   uint8  palidx = 0;
@@ -55,15 +55,15 @@ $$palette_table(texture)
 	    //    ...            loads row 199 for display in screen row 200
       if (pix_j > 0 && pix_j <= 200) {
 $$if VGA == 1 then
-		    palidx = pixdata_r >> (((video_x >> 1)&3)<<3);
+		    palidx = pixdata_r[(((video_x >> 1)&3)<<3),8];
 $$end
 $$if HDMI == 1 then
-		    palidx = pixdata_r >> (((video_x >> 2)&3)<<3);
+		    palidx = pixdata_r[(((video_x >> 2)&3)<<3),8];
 $$end
-        color = palette[palidx];
-        video_r  =  color     &255;
-        video_g  = (color>> 8)&255;
-        video_b  = (color>>16)&255;
+        color    = palette[palidx];
+        video_r  = color[0,$color_depth$];
+        video_g  = color[$color_depth$,$color_depth$];
+        video_b  = color[$2*color_depth$,$color_depth$];
       }
 $$if VGA == 1 then      
       if (video_x == 639) { // end of row
@@ -217,7 +217,8 @@ algorithm frame_buffer_row_updater(
   output! uint1  pixwenable,
   input   uint1  row_busy,
   input   uint1  vsync,
-  output  uint1  working
+  output  uint1  working,
+  input   uint1  fbuffer
 )
 {
   // frame update counters
@@ -229,10 +230,11 @@ algorithm frame_buffer_row_updater(
   uint1  vsync_filtered    = 0;
 
   sin_valid   := 0; // maintain low (pulses high when needed)
+  
   row_busy_filtered ::= row_busy;
   vsync_filtered    ::= vsync;
   
-  working = 0;  // not working yet  
+  working = 0;  // not working  
   srw     = 0;  // read
 
   while(1) {
@@ -268,13 +270,13 @@ algorithm frame_buffer_row_updater(
 	
       if (sbusy == 0) {        // not busy?
         // address to read from (count + row * 320 / 4)
-        saddr       = count + (((row << 8) + (row << 6)) >> 2); 
+        saddr       = {fbuffer,20b0} | (count + (((row << 8) + (row << 6)) >> 2)); 
         sin_valid   = 1;         // go ahead!      
         while (sout_valid == 0) {  } // wait for value
         // write to selected frame buffer row
         // display("pix value %b",sdata_out);
         pixdata_w   = sdata_out; // data to write
-        pixaddr     = next;     // address to write
+        pixaddr     = next;      // address to write
         // next
         next        = next  + 1;
         count       = count + 1;

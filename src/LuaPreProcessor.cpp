@@ -188,7 +188,7 @@ static void lua_palette_table(lua_State* L, std::string str, int component_depth
   ForIndex(idx, 256) {
       uint32_t v = 0;
       ForIndex(c, 3) {
-        v = (v << component_depth) | ((*(uint8_t*)(ptr++)) & ((1 << component_depth) - 1));
+        v = (v << component_depth) | ((*(uint8_t*)(ptr++) >> (8 - component_depth)) & ((1 << component_depth) - 1));
       }
       g_LuaOutputs[L] << std::to_string(v) << ",";
   }

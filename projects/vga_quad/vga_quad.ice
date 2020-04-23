@@ -1,20 +1,11 @@
 // ------------------------- 
 
+$$texfile = 'wall.tga'
+
 $$div_width=32
 $include('../common/divint_any.ice')
 $$mul_width=32
 $include('../common/mulint_any.ice')
-
-// ------------------------- 
-
-$$texture = ''
-$$if MOJO and VGA then
-$$texture='wallbin.tga'
-$$elseif MOJO and HDMI then
-$$texture='wall_ui8.tga'
-$$else
-$$texture='wall.tga'
-$$end
 
 // ------------------------- 
 
@@ -31,7 +22,8 @@ algorithm frame_drawer(
   input  uint32 sdata_out,
   input  uint1  sbusy,
   input  uint1  sout_valid,
-  input  uint1  vsync
+  input  uint1  vsync,
+  output uint1  fbuffer
 ) {
 
   uint1  vsync_filtered = 0;
@@ -45,8 +37,8 @@ algorithm frame_drawer(
   uint1 dir0 =   0;
   uint1 dir1 =   0;
 
-  uint8 texture[] = {   // texture from https://github.com/freedoom/freedoom
-$$image_table(texture)
+  bram uint8 texture[] = {   // texture from https://github.com/freedoom/freedoom
+$$image_table(texfile)
   };
 
   // pre-compute table for vertical interpolation (beta)  
@@ -63,7 +55,8 @@ $$end
     writes  sdata_in,
     writes  saddr,
     writes  swbyte_addr,
-    writes  sin_valid
+    writes  sin_valid,
+    reads   fbuffer
   )
   {
     uint9  pix_x      = 0;
@@ -78,7 +71,7 @@ $$end
         while (1) {
           if (sbusy == 0) {        // not busy?
             sdata_in    = 0;
-            saddr       = (pix_x + (pix_y << 8) + (pix_y << 6)) >> 2; // * 320 / 4
+            saddr       = {~fbuffer,20b0} | ((pix_x + (pix_y << 8) + (pix_y << 6)) >> 2); // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
             break;
@@ -103,9 +96,11 @@ $$end
     writes  saddr,
     writes  swbyte_addr,
     writes  sin_valid,
+    // selected framebuffer
+    reads   fbuffer,
     // tables
     reads   hscr_inv,
-    reads   texture
+    readwrites texture
   )
   {
   
@@ -127,7 +122,7 @@ $$end
     int32 h_sxdy_yndx = 0;
     int32 h_loop    = 0;
     int32 h_incr    = 0;
-    int32 dscr      = 0;
+    int32 dscr      = 0; 
     int32 dscr_inv  = 0;
     int32 fp        = 32d1048576;
 
@@ -256,12 +251,13 @@ $$end
       
         // write to sdram
         pix_x = scrix + 160;
+        // texture access
+        texture.addr = ((alpha >> 2)&63) + (((beta >> 15)&63) << 6);
+        // write to sdra,
         while (1) {
           if (sbusy == 0) {        // not busy?
-            // sdata_in    = (alpha >> 6); // palette id
-            // sdata_in    = (beta >> 16); // palette id
-            sdata_in    = texture[ ((alpha >> 2)&63) + (((beta >> 15)&63) << 6) ];
-            saddr       = (pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2; // * 320 / 4
+            sdata_in    = texture.rdata;
+            saddr       = {~fbuffer,20b0} | ((pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2); // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
             break;
@@ -281,6 +277,8 @@ $$end
 
   srw = 1;  // write
 
+  fbuffer = 0;
+  
   while (1) {
 
     // clear
@@ -291,10 +289,6 @@ $$end
     // wait for vsync
     while (vsync_filtered == 1) {}
     while (vsync_filtered == 0) {}
-
-    // wait for vsync
-    //while (vsync_filtered == 1) {}
-    //while (vsync_filtered == 0) {}
 
     if (dir0 == 0) {
       qp0y = qp0y + 1;

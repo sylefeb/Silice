@@ -16,6 +16,10 @@
 // den until it exceed num, resulting in worst performance
 // but smallest synthesized size
 
+$$if not div_shrink then
+$$  div_shrink = 0
+$$end
+
 algorithm mul_cmp$div_width$(
    input   uint$div_width$ num,
    input   uint$div_width$ den,

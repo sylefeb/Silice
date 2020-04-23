@@ -115,9 +115,9 @@ $$if ICARUS or VERILATOR then
 $$end
 $$if VGA then  
   // VGA
-  output! uint4 video_r,
-  output! uint4 video_g,
-  output! uint4 video_b,
+  output! uint$color_depth$ video_r,
+  output! uint$color_depth$ video_g,
+  output! uint$color_depth$ video_b,
   output! uint1 video_hs,
   output! uint1 video_vs
 $$end
@@ -350,6 +350,8 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
     <:auto:>
   );
 
+  uint1 onscreen_fbuffer = 0;
+  
 // --- Frame buffer row updater
   frame_buffer_row_updater fbrupd<@sdram_clock,!sdram_reset>(
     working    :> select,
@@ -364,7 +366,8 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
     sdata_out  <: sd_out0,
     sbusy      <: sbusy0,
     sin_valid  :> sin_valid0,
-    sout_valid <: sout_valid0
+    sout_valid <: sout_valid0,
+    fbuffer    <: onscreen_fbuffer
   );
  
 // --- Frame drawer
@@ -377,7 +380,8 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
     sdata_out  <: sd_out1,
     sbusy      <: sbusy1,
     sin_valid  :> sin_valid1,
-    sout_valid <: sout_valid1  
+    sout_valid <: sout_valid1,
+    fbuffer    :> onscreen_fbuffer
   );
 
   uint8 frame  = 0;

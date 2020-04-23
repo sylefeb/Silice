@@ -46,7 +46,7 @@ void Algorithm::checkModulesBindings() const
           im.first.c_str(), b.left.c_str(), b.line);
       }
       // check right side
-      if (!isInputOrOutput(b.right) 
+      if (!isInputOrOutput(b.right) && !isInOut(b.right)
         && m_VarNames.count(b.right) == 0 
         && b.right != m_Clock && b.right != ALG_CLOCK
         && b.right != m_Reset && b.right != ALG_RESET) {
@@ -84,7 +84,7 @@ void Algorithm::checkAlgorithmsBindings() const
           ia.first.c_str(), b.left.c_str(), b.line);
       }
       // check right side
-      if (!isInputOrOutput(b.right)
+      if (!isInputOrOutput(b.right) && !isInOut(b.right)
         && m_VarNames.count(b.right) == 0
         && b.right != m_Clock && b.right != ALG_CLOCK
         && b.right != m_Reset && b.right != ALG_RESET) {
@@ -584,9 +584,14 @@ void Algorithm::gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl
   t_bram_nfo bram;
   bram.name = decl->name->getText();
   splitType(decl->TYPE()->getText(), bram.base_type, bram.width);
-  bram.table_size = atoi(decl->NUMBER()->getText().c_str());
-  if (bram.table_size <= 0) {
-    throw Fatal("BRAM has zero or negative size (line %d)", (int)decl->getStart()->getLine());
+  if (decl->NUMBER() != nullptr) {
+    bram.table_size = atoi(decl->NUMBER()->getText().c_str());
+    if (bram.table_size <= 0) {
+      throw Fatal("bram has zero or negative size (line %d)", (int)decl->getStart()->getLine());
+    }
+    bram.init_values.resize(bram.table_size, "0");
+  } else {
+    bram.table_size = 0; // autosize from init
   }
   readInitList(decl, bram);
   bram.line = (int)decl->getStart()->getLine();
@@ -1010,11 +1015,35 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   for (auto P : sub->subroutineParamList()->subroutineParam()) {
     if (P->READ() != nullptr) {
       nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
+      // if bram, add all out members
+      auto B = m_BRAMNames.find(P->IDENTIFIER()->getText());
+      if (B != m_BRAMNames.end()) {
+        for (const auto& ouv : m_BRAMs[B->second].out_vars) {
+          nfo->allowed_reads.insert(ouv);
+        }
+      }
     } else if (P->WRITE() != nullptr) {
       nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
+      // if bram, add all in members
+      auto B = m_BRAMNames.find(P->IDENTIFIER()->getText());
+      if (B != m_BRAMNames.end()) {
+        for (const auto& inv : m_BRAMs[B->second].in_vars) {
+          nfo->allowed_writes.insert(inv);
+        }
+      }
     } else if (P->READWRITE() != nullptr) {
       nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
       nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
+      // if bram, add all in/out members
+      auto B = m_BRAMNames.find(P->IDENTIFIER()->getText());
+      if (B != m_BRAMNames.end()) {
+        for (const auto& ouv : m_BRAMs[B->second].out_vars) {
+          nfo->allowed_reads.insert(ouv);
+        }
+        for (const auto& inv : m_BRAMs[B->second].in_vars) {
+          nfo->allowed_writes.insert(inv);
+        }
+      }
     }
     // input or output?
     if (P->input() != nullptr || P->output() != nullptr) {
@@ -2707,7 +2736,7 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
           a.instance_name.c_str(), ins.name.c_str(), (int)plist->getStart()->getLine());
       }
       out << FF_D << a.instance_prefix << "_" << ins.name
-        << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, nullptr /*not in a subroutine*/, pip, dependencies) 
+        << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, sub, pip, dependencies) 
         << ";" << std::endl;
     }
   }

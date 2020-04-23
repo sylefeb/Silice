@@ -2,8 +2,8 @@
 $$MOJO=1
 $$VGA=1
 $$HARDWARE=1
-$$color_depth=1
-$$color_max  =1
+$$color_depth=6
+$$color_max  =63
 
 module mojo_top(
     input clk,
@@ -32,9 +32,9 @@ module mojo_top(
     // VGA
     output reg vga_hs,
     output reg vga_vs,
-    output reg vga_r,
-    output reg vga_g,
-    output reg vga_b
+    output reg [5:0] vga_r,
+    output reg [5:0] vga_g,
+    output reg [5:0] vga_b
     );
 
 wire [7:0]  __main_out_led;
@@ -55,9 +55,9 @@ wire [12:0] __main_out_sdram_a;
   
 wire        __main_out_vga_hs;
 wire        __main_out_vga_vs;
-wire        __main_out_vga_r;
-wire        __main_out_vga_g;
-wire        __main_out_vga_b;
+wire [5:0]  __main_out_vga_r;
+wire [5:0]  __main_out_vga_g;
+wire [5:0]  __main_out_vga_b;
 
 wire run_main;
 assign run_main = 1'b1;
@@ -75,7 +75,6 @@ M_main __main(
   .out_spi_miso(__main_spi_miso),
   .out_avr_rx(__main_out_avr_rx),
   .out_spi_channel(__main_out_spi_channel),
-  .out_led(__main_out_led),
   .out_sdram_clk(__main_out_sdram_clk),
   .out_sdram_cle(__main_out_sdram_cle),
   .out_sdram_dqm(__main_out_sdram_dqm),
@@ -97,8 +96,6 @@ always @* begin
   spi_miso     = __main_spi_miso;
   avr_rx       = __main_out_avr_rx;
   spi_channel  = __main_out_spi_channel;
-  
-  led          = __main_out_led;
   
   sdram_clk    = __main_out_sdram_clk;
   sdram_cle    = __main_out_sdram_cle;

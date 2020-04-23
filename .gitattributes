@@ -7,4 +7,5 @@
 *.h text eol=lf
 *.cpp text eol=lf
 *.hpp text eol=lf
+*.ucf text eol=lf
 .gitattributes text eol=lf
