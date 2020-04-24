@@ -22,10 +22,28 @@ algorithm frame_display(
 ) <autorun> {
 
   // palette
+$$if texfile then 
+  // from file
   uint$3*color_depth$ palette[] = {
 $$palette_table(texfile,color_depth)
   };
-
+$$else
+  // default
+  uint$3*color_depth$ palette[256] = {
+$$for i=0,256/4-1 do
+    $i*color_max/(256/4-1)$,
+$$end
+$$for i=0,256/4-1 do
+    $lshift(i*color_max/(256/4-1),color_depth)$,
+$$end  
+$$for i=0,256/4-1 do
+    $lshift(i*color_max/(256/4-1),2*color_depth)$,
+$$end
+$$for i=0,256/4-1 do v = i*color_max/(256/4-1)
+    $v + lshift(v,color_depth) + lshift(v,2*color_depth)$,
+$$end
+  };  
+$$end
   uint8  palidx = 0;
   uint8  pix_j  = 0;
   uint2  sub_j  = 0;
@@ -270,7 +288,7 @@ algorithm frame_buffer_row_updater(
 	
       if (sbusy == 0) {        // not busy?
         // address to read from (count + row * 320 / 4)
-        saddr       = {fbuffer,20b0} | (count + (((row << 8) + (row << 6)) >> 2)); 
+        saddr       = {fbuffer,21b0} | (count + (((row << 8) + (row << 6)) >> 2)); 
         sin_valid   = 1;         // go ahead!      
         while (sout_valid == 0) {  } // wait for value
         // write to selected frame buffer row

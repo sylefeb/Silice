@@ -206,6 +206,18 @@ static void lua_palette_table_simple(lua_State* L, std::string str)
 
 // -------------------------------------------------
 
+int lua_lshift(int n,int s)
+{
+  return n << s;
+}
+
+int lua_rshift(int n, int s)
+{
+  return n >> s;
+}
+
+// -------------------------------------------------
+
 static void bindScript(lua_State *L)
 {
   luabind::open(L);
@@ -234,7 +246,9 @@ static void bindScript(lua_State *L)
       luabind::def("image_table",   &lua_image_table),
       luabind::def("image_table",   &lua_image_table_simple),
       luabind::def("palette_table", &lua_palette_table),
-      luabind::def("palette_table", &lua_palette_table_simple)
+      luabind::def("palette_table", &lua_palette_table_simple),
+      luabind::def("lshift",        &lua_lshift),
+      luabind::def("rshift",        &lua_rshift)
     ];
 }
 

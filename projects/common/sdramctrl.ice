@@ -80,12 +80,14 @@ $$end
   uint16 delay       = 0;
   uint4  row_open    = 0;
   uint13 row_addr[4] = {0,0,0,0};
-  
+
+  uint1  work_todo   = 0;  
   uint13 row         = 0;
   uint2  bank        = 0;
   uint8  col         = 0;
   uint32 data        = 0;
   uint1  do_rw       = 0;
+  uint2  wbyte       = 0;
 
 $$refresh_cycles = 750
 $$refresh_wait   = 6
@@ -116,8 +118,28 @@ $$refresh_wait   = 6
   sdram_cle := 1;
  
   cmd       := CMD_NOP;
+
   out_valid := 0;
- 
+  
+  always { // always block tracks in_valid
+  
+    if (in_valid) {
+      // -> copy inputs
+      bank      = addr[21,2];
+      row       = addr[8,13];
+      col       = addr[0,8];
+      wbyte     = wbyte_addr;
+      data      = data_in;
+      do_rw     = rw;    
+      // -> signal work to do
+      work_todo = 1;
+      // -> now busy!
+      busy      = 1;
+    }
+  
+  }
+  
+  // start busy during init
   busy       = 1;
  
   // init
@@ -161,9 +183,6 @@ $$refresh_wait   = 6
 
   while (1) {
 
-    // can accept work
-    busy     = 0;
-    
     // refresh?
     refresh_count = refresh_count - 1;
     if (refresh_count == 0) {
@@ -171,32 +190,19 @@ $$refresh_wait   = 6
       refresh_asap  = 1;
     }
 
-    if (in_valid) { // NOTE: works only as long  as
-                    // the while loops every cycle.
-                    // Otherwise an in_valid pulse could be lost.
-                    // A single top level if-else with
-                    // nothing after it ensures this.
-                    // Otherwise an 'always block' could be used.
-      // -> now busy!
-      busy     = 1;
-      // -> copy inputs
-      bank     = addr[21,2];
-      row      = addr[8,13];
-      col      = addr[0,8];
-      data     = data_in;
-      do_rw    = rw;
+    if (work_todo) {
       // -> row management
-      if (row_open[bank]) {      
+      if (row_open[bank,1]) {      
         // a row is open
         if (row_addr[bank] == row) {
           // same row: all good!
         } else {
           // different row
           // -> pre-charge
-          cmd          = CMD_PRECHARGE;
-          a[10,1]      = 0;
-          ba           = bank;
-          row_open[ba] = 0; //row closed
+          cmd            = CMD_PRECHARGE;
+          a[10,1]        = 0;
+          ba             = bank;
+          row_open[ba,1] = 0; //row closed
 ++:
 ++:          
           // -> activate
@@ -205,8 +211,8 @@ $$refresh_wait   = 6
           a   = row;
 ++:
           // row opened
-          row_open[ba] = 1; 
-          row_addr[ba] = row;
+          row_open[ba,1] = 1; 
+          row_addr[ba]   = row;
         }
       } else {
           // -> activate
@@ -215,8 +221,8 @@ $$refresh_wait   = 6
           a   = row;
 ++:
           // row opened
-          row_open[ba] = 1;
-          row_addr[ba] = row; 
+          row_open[ba,1] = 1;
+          row_addr[ba]   = row; 
       }
       // write or read?
       if (do_rw) {
@@ -224,29 +230,34 @@ $$refresh_wait   = 6
         cmd   = CMD_WRITE;
         dq_o  = data;
         dq_en = 1;
-        a     = {2b0, 1b0, col, wbyte_addr};
+        a     = {2b0, 1b0, col, wbyte};
         ba    = bank;
 ++:
+        // can accept work
+        work_todo      = 0;
+        busy           = 0;
       } else {
         // read
-        cmd   = CMD_READ;        
         dq_en = 0;
         a     = {2b0, 1b0, col, 2b0};
         ba    = bank;
         // wait for data (CAS)
+        cmd   = CMD_READ;        
 ++:
-		cmd   = CMD_NOP;
 ++:
 ++:
         // burst 4 bytes
-        data_out[24,8] = dq_i;
-++:        
-        data_out[16,8] = dq_i;
+        data_out[0,8]  = dq_i;
 ++:        
         data_out[8,8]  = dq_i;
 ++:        
-        data_out[0,8]  = dq_i;
-        out_valid  = 1;
+        data_out[16,8] = dq_i;
+++:        
+        data_out[24,8] = dq_i;
+        out_valid      = 1;
+        // can accept work
+        work_todo      = 0;
+        busy           = 0;
       }
       
     } else { // no input
@@ -269,7 +280,9 @@ $$refresh_wait   = 6
         () <- wait <- (delay);      
         // -> reset count
         refresh_count = $refresh_cycles$;
-      }    
+        // could accept work
+        busy          = work_todo;
+      }
       
     }
         

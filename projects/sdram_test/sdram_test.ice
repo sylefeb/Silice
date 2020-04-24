@@ -91,7 +91,7 @@ $$end
   <:auto:>
 );
 
-  uint9  count = 0;
+  uint16  count = 0;
 
 $$if VERILATOR then
   // sdram clock for verilator simulation
@@ -101,9 +101,9 @@ $$end
   sin_valid := 0;
 
 $display("=== writing ===");
-  // write index in 320 bytes
+  // write index in 1024 bytes
   srw = 1;
-  while (count < 320) {
+  while (count < 1024) {
     // write to sdram
     while (1) {
       if (sbusy == 0) {        // not busy?            
@@ -120,7 +120,7 @@ $display("=== readback ===");
   count = 0;
   // read back words (4-bytes)
   srw = 0;
-  while (count < 80) {
+  while (count < 256) {
     if (sbusy == 0) {
       saddr     = count;
       sin_valid = 1;         // go ahead!

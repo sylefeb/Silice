@@ -6,9 +6,9 @@ $$if ICARUS then
   import('simul_sdram.v')
 $$end
 
-append('sdram_clock.v')
-import('sdram.v')
-// include('sdramctrl.ice')
+//append('sdram_clock.v')
+//import('sdram.v')
+$include('sdramctrl.ice')
 
 // Frame buffer row
 import('dual_frame_buffer_row.v')
@@ -249,7 +249,7 @@ uint1  sbusy       = 0;
 uint1  sin_valid   = 0;
 uint1  sout_valid  = 0;
 
-sdram memory(
+sdramctrl memory(
   clk        <: sdram_clock,
   rst        <: sdram_reset,
   addr       <: saddr,
@@ -260,13 +260,11 @@ sdram memory(
   busy       :> sbusy,
   in_valid   <: sin_valid,
   out_valid  :> sout_valid,
-/*
-if VERILATOR then
+$$if VERILATOR then
   dq_i      <: sdram_dq_i,
   dq_o      :> sdram_dq_o,
   dq_en     :> sdram_dq_en,
-end
-*/
+$$end
   <:auto:>
 );
 

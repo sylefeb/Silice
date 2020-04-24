@@ -22,7 +22,7 @@ For use with Verilator:
   (IMPORTANT: the shell has to be a MinGW 32bits shell)
 
 - Install the compiler tools from the MinGW32 shell:
-  pacman -S gcc make cmake perl
+  pacman -S gcc make cmake perl zlib zlib-devel
 
 Now we will compile the silice framework for verilator
 

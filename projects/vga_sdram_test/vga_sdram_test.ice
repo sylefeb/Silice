@@ -1,6 +1,6 @@
 // ------------------------- 
 
-$include('../common/vga_sdram_main.ice')
+$include('../common/video_sdram_main.ice')
 
 // ------------------------- 
 
@@ -13,7 +13,8 @@ algorithm frame_drawer(
   input  uint32 sdata_out,
   input  uint1  sbusy,
   input  uint1  sout_valid,
-  input  uint1  vsync
+  input  uint1  vsync,
+  output uint1  fbuffer
 ) {
 
   uint16 shift = 0;
@@ -25,7 +26,8 @@ algorithm frame_drawer(
     writes  sdata_in,
     writes  saddr,
     writes  swbyte_addr,
-    writes  sin_valid
+    writes  sin_valid,
+    reads   fbuffer
   ) {
     uint9  pix_x   = 0;
     uint8  pix_y   = 0;
@@ -37,18 +39,14 @@ algorithm frame_drawer(
       while (pix_x < 320) {
 		
         // compute pixel palette index
-        if (pix_y == 0) { // first row red
-          pix_palidx = (pix_x + shift) & 15;
-        } else {
-          pix_palidx = pix_x + shift;
-        }
+        pix_palidx = pix_x + shift;
 		
         // write to sdram
         while (1) {          
           if (sbusy == 0) {        // not busy?
             sdata_in  = pix_palidx;
             swbyte_addr = pix_x & 3;
-            saddr     = (pix_x + (pix_y << 8) + (pix_y << 6)) >> 2; // * 320 / 4
+            saddr     = {~fbuffer,21b0} | ((pix_x + (pix_y << 8) + (pix_y << 6)) >> 2); // * 320 / 4
             sin_valid = 1; // go ahead!
             break;
           }
@@ -77,9 +75,11 @@ algorithm frame_drawer(
     // increment shift    
     shift = shift + 1;
     
-    // wait for vsync
-    while (vsync_filtered == 1) {}
+    // wait for frame to end
     while (vsync_filtered == 0) {}
+
+    // swap buffers
+    fbuffer = ~fbuffer;
 
   }
 }

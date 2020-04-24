@@ -1630,7 +1630,6 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
   }
 
   auto algbody  = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
-  auto decllist = dynamic_cast<siliceParser::DeclarationListContext*>(tree);
   auto ilist    = dynamic_cast<siliceParser::InstructionListContext*>(tree);
   auto ifelse   = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
   auto ifthen   = dynamic_cast<siliceParser::IfThenContext*>(tree);
@@ -1669,6 +1668,11 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
     for (const auto& s : m_KnownSubroutines) {
       gatherSubroutine(s.second, _current, _context);
     }
+    // recurse on subroutines
+    _current = gather(algbody->subroutineList(), _current, _context);
+    // recurse on instruction list
+    _current = gather(algbody->instructionList(),_current, _context);
+    recurse  = false;
   } else if (ifelse) { 
     _current = gatherIfElse(ifelse, _current, _context);                          recurse = false; 
   } else if (ifthen)  { _current = gatherIfThen(ifthen, _current, _context);      recurse = false; 
@@ -3361,10 +3365,9 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
       }
     }
   }
-  // always block (if not empty)
-  if (!m_AlwaysPre.instructions.empty()) {
-    writeBlock(prefix, out, &m_AlwaysPre, _always_dependencies);
-  }
+  // always block
+  std::queue<size_t> q;
+  writeStatelessBlockGraph(prefix,out, &m_AlwaysPre,nullptr,q,_always_dependencies);
   // reset temp variables (to ensure no latch is created)
   for (const auto& v : m_Vars) {
     if (v.usage != e_Temporary) continue;

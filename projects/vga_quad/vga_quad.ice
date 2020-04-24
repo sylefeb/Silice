@@ -71,7 +71,7 @@ $$end
         while (1) {
           if (sbusy == 0) {        // not busy?
             sdata_in    = 0;
-            saddr       = {~fbuffer,20b0} | ((pix_x + (pix_y << 8) + (pix_y << 6)) >> 2); // * 320 / 4
+            saddr       = {~fbuffer,21b0} | ((pix_x + (pix_y << 8) + (pix_y << 6)) >> 2); // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
             break;
@@ -257,7 +257,7 @@ $$end
         while (1) {
           if (sbusy == 0) {        // not busy?
             sdata_in    = texture.rdata;
-            saddr       = {~fbuffer,20b0} | ((pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2); // * 320 / 4
+            saddr       = {~fbuffer,21b0} | ((pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2); // * 320 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
             break;
