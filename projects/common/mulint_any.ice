@@ -3,18 +3,16 @@
 // Why? The goal is to achieve a multi-cycle multiplication
 // with small combinational chains
 //
+// TODO: return twice as wide!
 
-// find out power of 2 of mul_width
+// find out power of 2 just larger than mul_width
 $$mul_width_pow2=0
 $$tmp = mul_width
 $$while tmp > 1 do
 $$  mul_width_pow2 = mul_width_pow2 + 1
-$$  tmp = math.floor(tmp/2)
+$$  tmp = (tmp/2)
 $$end
-$$if 2^mul_width_pow2 ~= mul_width then
-$$  error('mul_width is not a power of 2')
-$$end
-$$ print('generating multiplier for width ' .. 2^mul_width_pow2)
+$$ print('generating multiplier for width ' .. mul_width .. ' (pow2 = ' .. mul_width_pow2 .. ')')
 
 algorithm mul$mul_width$(
   input  int$mul_width$ im0,
@@ -24,7 +22,9 @@ algorithm mul$mul_width$(
 $$for l = 1,mul_width_pow2 do
 $$  n = 2^(l-1)
 $$  for i = 0,n-1 do
+$$     if l < mul_width_pow2 or 2*i < mul_width then
   uint$mul_width$ sum_$l$_$i$ = 0;
+$$     end
 $$  end
 $$end
 
@@ -47,7 +47,7 @@ $$end
     m1 = im1;
   }
 
-$$if MOJO and mul_width == 32 then
+$$if MOJO and mul_width > 24 then
 ++: // add step to fit the Mojo 100MHz timing at 32 bits
 $$end
 
@@ -55,12 +55,14 @@ $$end
 $$l = mul_width_pow2
 $$n = 2^(l-1)
 $$for i = 0,n-1 do
+$$  if l < mul_width_pow2 or 2*i < mul_width then
   switch (m1[$i*2$,2]) {
   case 2b00: { }
   case 2b10: { sum_$l$_$i$ = m0 << $i*2+1$; }
   case 2b01: { sum_$l$_$i$ = m0 << $i*2$; }
   case 2b11: { sum_$l$_$i$ = (m0 << $i*2$) + (m0 << $i*2+1$); }
   }
+$$  end
 $$end
 
 // generate reduction (adders)
@@ -68,7 +70,14 @@ $$for l = mul_width_pow2-1,1,-1 do
 ++:
 $$  n = 2^(l-1)
 $$  for i = 0,n-1 do
-  sum_$l$_$i$ = sum_$l+1$_$i*2$ + sum_$l+1$_$i*2+1$;
+$$    if l+1 < mul_width_pow2 or i*4 < mul_width then
+         sum_$l$_$i$ = sum_$l+1$_$i*2$
+$$    if l+1 < mul_width_pow2 or (i*2+1)*2 < mul_width then
+       + sum_$l+1$_$i*2+1$;
+$$    else
+       ; // bla
+$$    end
+$$    end
 $$  end
 $$end
 

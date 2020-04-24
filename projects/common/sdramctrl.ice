@@ -60,7 +60,7 @@ $$end
 $$if not VERILATOR then
 
   uint8  dq_i  = 0 (* IOB = "TRUE" *);
-  uint8  dq_o  = 0 (* IOB = "TRUE" *);
+  uint8  dq_o  = 0;
   uint1  dq_en = 0;
 
   inout_set ioset(

@@ -2,9 +2,9 @@
 
 $$texfile = 'wall.tga'
 
-$$div_width=32
+$$div_width=24
 $include('../common/divint_any.ice')
-$$mul_width=32
+$$mul_width=24
 $include('../common/mulint_any.ice')
 
 // ------------------------- 
@@ -17,9 +17,9 @@ algorithm frame_drawer(
   output uint23 saddr,
   output uint2  swbyte_addr,
   output uint1  srw,
-  output uint32 sdata_in,
+  output uint24 sdata_in,
   output uint1  sin_valid,
-  input  uint32 sdata_out,
+  input  uint24 sdata_out,
   input  uint1  sbusy,
   input  uint1  sout_valid,
   input  uint1  vsync,
@@ -27,13 +27,13 @@ algorithm frame_drawer(
 ) {
 
   uint1  vsync_filtered = 0;
-  div32  div;
-  mul32  mul;
+  div24  div;
+  mul24  mul;
 
-  int32 qp0x = -400;
-  int32 qp0y =   20;
-  int32 qp1x =  400;
-  int32 qp1y =   20;
+  int24 qp0x = -400;
+  int24 qp0y =   20;
+  int24 qp1x =  400;
+  int24 qp1y =   20;
   uint1 dir0 =   0;
   uint1 dir1 =   0;
 
@@ -42,10 +42,10 @@ $$image_table(texfile)
   };
 
   // pre-compute table for vertical interpolation (beta)  
-  int32 hscr_inv[100]={
+  int24 hscr_inv[100]={
     1, // 0: unused
 $$for hscr=1,99 do
-    $math.floor(0.5 + 1048576/hscr)$,
+    $math.floor(0.5 + 262144/hscr)$,
 $$end
   };
 
@@ -61,35 +61,34 @@ $$end
   {
     uint9  pix_x      = 0;
     uint8  pix_y      = 0;
-	  
-    pix_x  = 0;
-    while (pix_x < 320) {	
-	    // clear column
-	    pix_y = 0;
-      while (pix_y < 200) {
+	      
+    pix_y = 0;
+    while (pix_y < 200) {
+      pix_x  = 0;
+      while (pix_x < 320) {	
         // write to sdram
         while (1) {
-          if (sbusy == 0) {        // not busy?
+          if (sbusy == 0) { // not busy?
             sdata_in    = 0;
-            saddr       = {~fbuffer,21b0} | ((pix_x + (pix_y << 8) + (pix_y << 6)) >> 2); // * 320 / 4
+            saddr       = {~fbuffer,21b0} | ((pix_x + (pix_y << 8) + (pix_y << 6)) >> 2); // * 240 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
             break;
           }
         }          
-        pix_y = pix_y + 1;
+        pix_x = pix_x + 1;
       }	  
-	    pix_x = pix_x + 1;
+      pix_y = pix_y + 1;
 	  }	
 	  return;
   }
 
   subroutine draw_quad(
     // quad
-    input  int32 p0x,
-	  input  int32 p0y,
-    input  int32 p1x,
-	  input  int32 p1y,
+    input  int24 p0x,
+	  input  int24 p0y,
+    input  int24 p1x,
+	  input  int24 p1y,
 	  // sdram
     reads   sbusy,
     writes  sdata_in,
@@ -104,45 +103,45 @@ $$end
   )
   {
   
-    int32 pix_x = 0;
-    int32 pix_y = 0;
+    int24 pix_x = 0;
+    int24 pix_y = 0;
 
-    int32 h     = 100;
-    int32 ynear = 6;
+    int24 h     = 100;
+    int24 ynear = 6;
     
-	  int32 scr0x = 0;
-	  int32 scr0y = 0;
-	  int32 scr1x = 0;
-	  int32 scr1y = 0;
-	  int32 scrix = 0;
-	  int32 d10x  = 0;
-	  int32 d10y  = 0;
+	  int24 scr0x = 0;
+	  int24 scr0y = 0;
+	  int24 scr1x = 0;
+	  int24 scr1y = 0;
+	  int24 scrix = 0;
+	  int24 d10x  = 0;
+	  int24 d10y  = 0;
     
-    int32 hscr      = 0;
-    int32 h_sxdy_yndx = 0;
-    int32 h_loop    = 0;
-    int32 h_incr    = 0;
-    int32 dscr      = 0; 
-    int32 dscr_inv  = 0;
-    int32 fp        = 32d1048576;
+    int24 hscr      = 0;
+    int24 h_sxdy_yndx = 0;
+    int24 h_loop    = 0;
+    int24 h_incr    = 0;
+    int24 dscr      = 0; 
+    int24 dscr_inv  = 0;
+    int24 fp        = 24d262144;
 
-    int32 tmp1  = 0;
-    int32 tmp2  = 0;
+    int24 tmp1  = 0;
+    int24 tmp2  = 0;
 
-    int32 yn_d10x   = 0;
-    int32 yn_p0x    = 0;
-    int32 h_yn_d10x = 0;
-    int32 h_d10y    = 0;
+    int24 yn_d10x   = 0;
+    int24 yn_p0x    = 0;
+    int24 h_yn_d10x = 0;
+    int24 h_d10y    = 0;
   
-    int32 anum_loop = 0;
-    int32 anum_incr = 0;
-    int32 aden_loop = 0;
-    int32 aden_incr = 0;
-    int32 alpha     = 0;
+    int24 anum_loop = 0;
+    int24 anum_incr = 0;
+    int24 aden_loop = 0;
+    int24 aden_incr = 0;
+    int24 alpha     = 0;
     
-    int32 beta_loop = 0;
-    int32 beta_incr = 0;
-    int32 beta      = 0;
+    int24 beta_loop = 0;
+    int24 beta_incr = 0;
+    int24 beta      = 0;
 
     // project extremities on screen
     (scr0x) <- mul <- (ynear,p0x);
@@ -191,8 +190,8 @@ $$end
     // alpha
     //    alpha = (ynear * p0x - scrix * p0y) / (scrix * d10y - ynear * d10x);    
     (tmp1) <- mul <- (scr0x,p0y);
-    anum_loop = (yn_p0x - tmp1) << 32d10;
-    anum_incr = (- p0y)         << 32d10;
+    anum_loop = (yn_p0x - tmp1) << 24d10;
+    anum_incr = (- p0y)         << 24d10;
     (tmp1) <- mul <- (scr0x,d10y);
     aden_loop = tmp1 - yn_d10x;
     aden_incr = d10y;
@@ -219,7 +218,7 @@ $$end
     while (scrix < scr1x) {
 	
 	    /// hscr = h * (scrix * d10y - ynear * d10x) * dscr_inv; 	    
-      hscr   = h_loop >> 20; // remove fract part
+      hscr   = h_loop >> 18; // remove fract part
       h_loop = h_loop + h_incr;
 
       /// alpha (u tex coord)
@@ -252,12 +251,12 @@ $$end
         // write to sdram
         pix_x = scrix + 160;
         // texture access
-        texture.addr = ((alpha >> 2)&63) + (((beta >> 15)&63) << 6);
-        // write to sdra,
+        texture.addr = ((alpha >> 2)&63) + (((beta >> 13)&63) << 6);
+        // write to sdram
         while (1) {
           if (sbusy == 0) {        // not busy?
             sdata_in    = texture.rdata;
-            saddr       = {~fbuffer,21b0} | ((pix_x + (pix_y << 32d8) + (pix_y << 32d6)) >> 32d2); // * 320 / 4
+            saddr       = {~fbuffer,21b0} | ((pix_x + (pix_y << 24d8) + (pix_y << 24d6)) >> 24d2); // * 240 / 4
             swbyte_addr = pix_x & 3;
             sin_valid   = 1; // go ahead!
             break;

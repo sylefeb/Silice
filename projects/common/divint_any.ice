@@ -105,6 +105,10 @@ $$end
     ret = 1;
     goto done;
   }
+  if (den == 0) {
+    ret = 0;
+    goto done;
+  }
 
   reminder = num;
 
