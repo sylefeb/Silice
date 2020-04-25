@@ -106,7 +106,11 @@ $$end
     goto done;
   }
   if (den == 0) {
-    ret = 0;
+$$ ones = '0'
+$$for i=1,div_width-1 do
+$$ ones = ones .. '1'
+$$end
+    ret = $div_width$b$ones$;
     goto done;
   }
 

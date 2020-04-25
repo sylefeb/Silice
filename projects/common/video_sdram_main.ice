@@ -410,7 +410,7 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 $$if MOJO then
   while (1) {
 $$else
-  while (frame < 5) {
+  while (frame < 128) {
 $$end
   
     while (video_vblank == 1) { }
