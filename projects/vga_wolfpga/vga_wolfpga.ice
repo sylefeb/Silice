@@ -14,6 +14,11 @@ $$FPm = 7  -- precision within cells
 $$div_width = FPw
 $include('../common/divint_any.ice')
 
+$$ ones = '' .. FPw .. 'b'
+$$for i=1,FPw-1 do
+$$ ones = ones .. '1'
+$$end
+
 // -------------------------
 
 algorithm frame_drawer(
@@ -120,20 +125,31 @@ $$end
       mapy_m = (posy_m >> $FPm$) << $FPm$;  
 
       // ray direction
-      (invraydirx_f) <- div <- ($lshift(1,FPf+FPm)$,raydirx_m);
-      (invraydiry_f) <- div <- ($lshift(1,FPf+FPm)$,raydiry_m);
+      if (raydirx_m > -3 && raydirx_m < 3) { // raydirx too small
+        invraydirx_f = $ones$;
+        deltax_f     = $ones$;
+      } else {
+        (invraydirx_f) <- div <- ($lshift(1,FPf+FPm)$,raydirx_m);
+        if (invraydirx_f < 0) {
+          deltax_f = - invraydirx_f;
+        } else {
+          deltax_f = invraydirx_f;
+        }
+      }
+      
+      if (raydiry_m > -3 && raydiry_m < 3) { // raydiry too small
+        invraydiry_f = $ones$;
+        deltay_f     = $ones$;
+      } else {      
+        (invraydiry_f) <- div <- ($lshift(1,FPf+FPm)$,raydiry_m);
+        if (invraydiry_f < 0) {
+          deltay_f = - invraydiry_f;
+        } else {
+          deltay_f = invraydiry_f;
+        }
+      }
 
-      if (invraydirx_f < 0) {
-        deltax_f = - invraydirx_f;
-      } else {
-        deltax_f = invraydirx_f;
-      }
-      if (invraydiry_f < 0) {
-        deltay_f = - invraydiry_f;
-      } else {
-        deltay_f = invraydiry_f;
-      }
-++:      
+++:
       // init DDA
       if (raydirx_m < 0) {
         stepx_m  = $-1*lshift(1,FPm)$;
@@ -142,6 +158,7 @@ $$end
         stepx_m  = $ 1*lshift(1,FPm)$;
         sidex_f  = ((mapx_m + $lshift(1,FPm)$ - posx_m) * deltax_f) >> $FPm$;
       }
+
 ++:
       if (raydiry_m < 0) {
         stepy_m  = $-1*lshift(1,FPm)$;
