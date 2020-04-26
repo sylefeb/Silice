@@ -6,10 +6,23 @@
 // https://github.com/id-Software/wolf3d/blob/master/WOLFSRC/WL_DR_A.ASM
 
 $$texfile = 'wolf.tga'
+// get pallette in pre-processor
+$$texfile_palette = get_palette_table(texfile,color_depth)
+// the palette has 64 entries, create a second darker one
+// in the next 64 entries
+$$for i=1,64 do
+$$  r = texfile_palette[i] % 64
+$$  g = math.floor(texfile_palette[i]/64) % 64
+$$  b = math.floor(texfile_palette[i]/(64*64)) % 64
+$$  r = math.floor(r / 2)
+$$  g = math.floor(g / 2)
+$$  b = math.floor(b / 2)
+$$  texfile_palette[64 + i] = r + g*64 + b*64*64;
+$$end
 
 $include('../common/video_sdram_main.ice')
 
-$$FPw = 30
+$$FPw = 26
 $$FPf = 10 -- fractions precision
 $$FPm = 10 -- precision within cells
 
@@ -21,6 +34,11 @@ $$end
 $$div_width = FPw
 $include('../common/divint_any.ice')
 
+$$Deg90  =  900
+$$Deg180 = 1800
+$$Deg270 = 2700
+$$Deg360 = 3600
+  
 // -------------------------
 
 algorithm walker(
@@ -29,14 +47,16 @@ algorithm walker(
   output int16    angle
 ) <autorun> {
 
-$$ LMost = lshift(4,FPf)
-$$ RMost = lshift(11,FPf)
-$$ TMost = lshift(4,FPf)
-$$ BMost = lshift(11,FPf)
+$$ LMost = lshift(2,FPf)
+$$ RMost = lshift(14,FPf)
+$$ TMost = lshift(2,FPf)
+$$ BMost = lshift(14,FPf)
 $$if SIMULATION then
-$$ Step  = lshift(1,FPf)
+$$ Step      = lshift(1,FPf)
+$$ AngleStep = 300
 $$else
-$$ Step  = 1
+$$ Step      = lshift(1,FPf-5)
+$$ AngleStep = 10
 $$end
 
   angle = -160;
@@ -45,29 +65,21 @@ $$end
     
   while (1) {
   
-    while (posx < $RMost$) {
-      posx = posx + $Step$;
-    }
+$$if SIMULATION then
+
+    posy  = $lshift(13,FPf)$;
+    
+$$else
 
     while (posy < $BMost$) {
       posy = posy + $Step$;
-    }
-
-    while (posx > $LMost$) {
-      posx = posx - $Step$;
-    }
-
+    }  
+  
     while (posy > $TMost$) {
       posy = posy - $Step$;
     }
 
-/*    
-    if (angle > 3600) {
-      angle = angle + 1 - 3600;
-    } else {
-      angle = angle + 1;
-    }
-*/
+$$end
   }
 
 }
@@ -94,17 +106,27 @@ $$image_table(texfile)
   };
   
   bram uint10 columns[320];
-  bram uint2  material[320];
+  bram uint3  material[320];
   bram uint6  texcoord[320];
-
+  
+$$ tan_tbl = {}
+$$ for i=0,449 do
+$$   tan_tbl[i] = math.tan(2*math.pi*i/3600)
+$$ end
+  
+  // tangent table
+  // this is carefully created so that
+  // - both tan/cot match (v and 1/v) to avoid gaps at corners
+  // - the asymptotic end do not reach excessively large values
   bram int$FPw$ tan_f[$3600/4$] = {
-    0,
-$$for i=1,3600/4-3 do
-    $math.floor(lshift(1,FPf) * math.tan(2*math.pi*i/3600))$,
-$$  l = i
+$$for i=0,449 do
+     $math.floor(lshift(1,FPf) * tan_tbl[i])$,
 $$end
-    $math.floor(lshift(1,FPf) * math.tan(2*math.pi*l/3600))$,
-    $math.floor(lshift(1,FPf) * math.tan(2*math.pi*l/3600))$,
+$$for i=0,447 do
+     $math.floor(lshift(1,FPf) / tan_tbl[449-i])$,
+$$end
+  $math.floor(lshift(1,FPf) / tan_tbl[2])$,
+  $math.floor(lshift(1,FPf) / tan_tbl[2])$,
   };
   
   bram int$FPw$ sin_m[2048] = {
@@ -121,28 +143,23 @@ $$for hscr=1,511 do
 $$end
   };
 
-$$Deg90  =  900
-$$Deg180 = 1800
-$$Deg270 = 2700
-$$Deg360 = 3600
-  
   uint3 level[$16*16$] = {
-   4,3,4,3,4,3,4,3,4,3,4,3,4,3,4,3,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-   4,3,4,3,4,3,4,3,4,3,4,3,4,3,4,3,
+   1,1,1,1,1,1,4,1,4,1,1,2,1,1,1,1,
+   1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,4,
+   1,0,0,0,0,0,0,0,0,0,0,3,0,0,0,4,
+   1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,4,
+   1,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,
+   1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,4,
+   1,0,0,0,1,0,1,0,1,0,0,0,1,0,0,4,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,
+   1,0,0,0,0,0,1,0,0,2,0,0,1,0,0,4,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,
+   1,0,0,0,1,0,1,0,1,0,1,0,1,0,0,4,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,
+   1,1,1,1,1,1,4,1,4,1,4,1,1,1,1,1,
   };
   
   uint9 c      = 0;
@@ -151,8 +168,8 @@ $$Deg360 = 3600
   uint9 h      = 0;
   uint8 palidx = 0;
   
-  int$FPw$ posx_f  = $lshift(4,FPf)$;
-  int$FPw$ posy_f  = $lshift(4,FPf)$;
+  int$FPw$ posx_f  = $lshift(2,FPf)$;
+  int$FPw$ posy_f  = $lshift(13,FPf)$;
   int16    posa    = 0;
   int$FPw$ hitx_f  = 0;
   int$FPw$ hity_f  = 0;
@@ -176,10 +193,10 @@ $$Deg360 = 3600
   int$FPw$ mapxtest = 0;
   int$FPw$ mapytest = 0;
   
-  int$FPw$ tmp1     = 0;
-  int$FPw$ tmp2     = 0;
-  int$FPw$ dist_f   = 0;
-  int$FPw$ height   = 0;
+  int$FPw$ tmp1   = 0;
+  int$FPw$ tmp2   = 0;
+  int$FPw$ dist_f = 0;
+  int$FPw$ height = 0;
   
   div$FPw$ div;
   
@@ -191,13 +208,13 @@ $$Deg360 = 3600
   
   uint20    v_tex       = 0;
   uint20    v_tex_incr  = 0;
-  
+  /*
   walker walk<@vsync>(
     posx  :> posx_f,
     posy  :> posy_f,
     angle :> posa
   );
-  
+  */
   vsync_filtered ::= vsync;
 
   sin_valid := 0; // maintain low (pulses high when needed)
@@ -236,9 +253,9 @@ $$Deg360 = 3600
       mapy       = (posy_f >> $FPf$);
       
       fracx_dw_m = (posx_f >> $FPf-FPm$) & $lshift(1,FPm)-1$;
-      fracx_up_m = $lshift(1,FPm)$ - fracx_dw_m;      
+      fracx_up_m = $lshift(1,FPm)-1$ - fracx_dw_m;      
       fracy_dw_m = (posy_f >> $FPf-FPm$) & $lshift(1,FPm)-1$;
-      fracy_up_m = $lshift(1,FPm)$ - fracy_dw_m;      
+      fracy_up_m = $lshift(1,FPm)-1$ - fracy_dw_m;      
       
       colangle   = posa + c;
       while (colangle < 0) {
@@ -362,19 +379,20 @@ $$Deg360 = 3600
         }
       }
 
-      // compute distance
-++:   // relax timing
-      tmp1 = cosview_m * (hitx_f - posx_f);
-++:   // relax timing
-      tmp2 = sinview_m * (hity_f - posy_f);
-++:   // relax timing
-      dist_f = (tmp1 - tmp2) >> $FPf$;
+      // compute distance, using custom multipliers to fit timing
+      tmp1   = (cosview_m * (hitx_f - posx_f)) >>> $FPf$;
+++:   // relax timing      
+      tmp2   = (sinview_m * (hity_f - posy_f)) >>> $FPf$;
+++:   // relax timing      
+      dist_f = (tmp1 - tmp2);
+++:   // relax timing      
+      // projection divide
       (height) <- div <- ($lshift(140,FPf)$,dist_f>>1);
       
       columns.addr   = c;
       columns.wdata  = height;
       material.addr  = c;
-      material.wdata = hit-1;
+      material.wdata = {v_or_h,2b0} | (hit-1);
       texcoord.addr  = c;
       if (v_or_h == 0) {
         texcoord.wdata = hity_f >>> $FPf-6$;
@@ -410,9 +428,13 @@ $$Deg360 = 3600
       while (y < 100) {
         // floor and bottom half
         if (y <= h) {
-          texture.addr = ((texcoord.rdata + (material.rdata<<6)) & 255) + (((v_tex >> 13) & 63)<<8);
+          texture.addr = ((texcoord.rdata + ((material.rdata&3)<<6)) & 255) + (((v_tex >> 13) & 63)<<8);
 ++:          
-          palidx       = texture.rdata;
+          if (material.rdata[2,1] == 1) {
+            palidx       = texture.rdata;
+          } else {
+            palidx       = texture.rdata + 64;
+          }
         } else {
           palidx = 22;  
         }
@@ -433,7 +455,11 @@ $$Deg360 = 3600
         if (y <= h) {
           texture.addr = ((texcoord.rdata + (material.rdata<<6)) & 255) + ((63 - ((v_tex >> 13) & 63))<<8);
 ++:          
-          palidx       = texture.rdata;
+          if (material.rdata[2,1] == 1) {
+            palidx       = texture.rdata;
+          } else {
+            palidx       = texture.rdata + 64;
+          }
         } else {
           palidx = 2;
         }

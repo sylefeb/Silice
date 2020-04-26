@@ -3,7 +3,6 @@
 // Why? The goal is to achieve a multi-cycle multiplication
 // with small combinational chains
 //
-// TODO: return twice as wide!
 
 // find out power of 2 just larger than mul_width
 $$mul_width_pow2=0
@@ -17,13 +16,13 @@ $$ print('generating multiplier for width ' .. mul_width .. ' (pow2 = ' .. mul_w
 algorithm mul$mul_width$(
   input  int$mul_width$ im0,
   input  int$mul_width$ im1,
-  output int$mul_width$ ret)
+  output int$2*mul_width$ ret)
 {
 $$for l = 1,mul_width_pow2 do
 $$  n = 2^(l-1)
 $$  for i = 0,n-1 do
 $$     if l < mul_width_pow2 or 2*i < mul_width then
-  uint$mul_width$ sum_$l$_$i$ = 0;
+  uint$2*mul_width$ sum_$l$_$i$ = 0;
 $$     end
 $$  end
 $$end
@@ -47,7 +46,7 @@ $$end
     m1 = im1;
   }
 
-$$if MOJO and mul_width > 24 then
+$$if MOJO and mul_width >= 24 then
 ++: // add step to fit the Mojo 100MHz timing at 32 bits
 $$end
 
@@ -75,7 +74,7 @@ $$    if l+1 < mul_width_pow2 or i*4 < mul_width then
 $$    if l+1 < mul_width_pow2 or (i*2+1)*2 < mul_width then
        + sum_$l+1$_$i*2+1$;
 $$    else
-       ; // bla
+       ;
 $$    end
 $$    end
 $$  end

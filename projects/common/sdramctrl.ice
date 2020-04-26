@@ -90,10 +90,9 @@ $$end
   uint2  wbyte       = 0;
 
 $$refresh_cycles = 750
-$$refresh_wait   = 3 -- 6
+$$refresh_wait   = 7
 
   uint24 refresh_count = $refresh_cycles$;
-  uint1  refresh_asap  = 0;
   
   // wait for incount cycles, incount >= 3
   subroutine wait(input uint16 incount)
@@ -176,7 +175,7 @@ $$refresh_wait   = 3 -- 6
   cmd     = CMD_LOAD_MODE_REG;
   ba      = 0;
   a       = {3b000, 1b1, 2b00, 3b010, 1b0, 3b010};
-  delay   = 2;
+  delay   = 3;
   () <- wait <- (delay);
 
   $display("main loop");
@@ -186,8 +185,24 @@ $$refresh_wait   = 3 -- 6
     // refresh?
     refresh_count = refresh_count - 1;
     if (refresh_count == 0) {
-      // -> refresh asap
-      refresh_asap  = 1;
+        // -> now busy!
+        busy     = 1;
+        // -> precharge all
+        cmd      = CMD_PRECHARGE;
+        a[10,1]  = 1;
+        ba       = 0;
+        row_open = 0;
+++:
+++:
+        // refresh
+        cmd           = CMD_REFRESH;
+        delay         = $refresh_wait$;
+        // wait
+        () <- wait <- (delay);      
+        // could accept work
+        busy          = work_todo;
+        // -> reset count
+        refresh_count = $refresh_cycles$;
     }
 
     if (work_todo) {
@@ -259,32 +274,6 @@ $$refresh_wait   = 3 -- 6
         work_todo      = 0;
         busy           = 0;
       }
-      
-    } else { // no input
-    
-      // refresh?
-      if (refresh_asap) {
-        refresh_asap = 0;
-        // -> now busy!
-        busy     = 1;
-        // -> precharge all
-        cmd      = CMD_PRECHARGE;
-        a[10,1]  = 1;
-        ba       = 0;
-        row_open = 0;
-++:
-++:
-        // refresh
-        cmd      = CMD_REFRESH;
-        delay    = $refresh_wait$;
-        // -> reset count
-        refresh_count = $refresh_cycles$;
-        // wait
-        () <- wait <- (delay);      
-        // could accept work
-        busy          = work_todo;
-      }
-      
     }
         
   }

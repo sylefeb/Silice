@@ -25,7 +25,13 @@ algorithm frame_display(
 $$if texfile then 
   // from file
   uint$3*color_depth$ palette[] = {
+$$if texfile_palette then
+$$for i=1,256 do
+  $texfile_palette[i]$,
+$$end
+$$else
 $$palette_table(texfile,color_depth)
+$$end
   };
 $$else
   // default

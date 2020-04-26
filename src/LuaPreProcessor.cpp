@@ -204,6 +204,44 @@ static void lua_palette_table_simple(lua_State* L, std::string str)
   lua_palette_table(L, str, 8);
 }
 
+static luabind::object lua_get_palette_table(lua_State* L, std::string str, int component_depth)
+{
+  auto P = g_LuaPreProcessors.find(L);
+  if (P == g_LuaPreProcessors.end()) {
+    throw Fatal("[palette_table] internal error");
+  }
+  if (component_depth < 0 || component_depth > 8) {
+    throw Fatal("[palette_table] component depth can only in ]0,8]");
+  }
+  LuaPreProcessor *lpp = P->second;
+  std::string      fname = lpp->findFile(str);
+  t_image_nfo* nfo = ReadTGAFile(fname.c_str());
+  if (nfo == NULL) {
+    throw Fatal("[palette_table] cannot load image file '%s'", fname.c_str());
+  }
+  if (nfo->colormap == NULL) {
+    throw Fatal("[palette_table] image file '%s' has no palette", fname.c_str());
+  }
+  if (nfo->depth != 8) {
+    throw Fatal("[palette_table] image file '%s' palette is not 8 bits", fname.c_str());
+  }
+  luabind::object ltbl = luabind::newtable(L);
+  uchar* ptr = nfo->colormap;
+  ForIndex(idx, 256) {
+    uint32_t v = 0;
+    ForIndex(c, 3) {
+      v = (v << component_depth) | ((*(uint8_t*)(ptr++) >> (8 - component_depth)) & ((1 << component_depth) - 1));
+    }
+    ltbl[1 + idx] = v;
+  }
+  delete[](nfo->pixels);
+  if (nfo->colormap) {
+    delete[](nfo->colormap);
+  }
+  delete (nfo);
+  return ltbl;
+}
+
 // -------------------------------------------------
 
 int lua_lshift(int n,int s)
@@ -247,6 +285,7 @@ static void bindScript(lua_State *L)
       luabind::def("image_table",   &lua_image_table_simple),
       luabind::def("palette_table", &lua_palette_table),
       luabind::def("palette_table", &lua_palette_table_simple),
+      luabind::def("get_palette_table", &lua_get_palette_table),
       luabind::def("lshift",        &lua_lshift),
       luabind::def("rshift",        &lua_rshift)
     ];

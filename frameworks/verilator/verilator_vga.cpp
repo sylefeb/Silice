@@ -44,6 +44,14 @@ int main(int argc,char **argv)
   std::cerr << __LINE__ << std::endl;
   std::cerr << __LINE__ << std::endl;
   std::cerr << __LINE__ << std::endl;
+  std::cerr << __LINE__ << std::endl;
+  std::cerr << __LINE__ << std::endl;
+  std::cerr << __LINE__ << std::endl;
+  std::cerr << __LINE__ << std::endl;
+  std::cerr << __LINE__ << std::endl;
+  std::cerr << __LINE__ << std::endl;
+  std::cerr << __LINE__ << std::endl;
+  std::cerr << __LINE__ << std::endl;
 
 
   Vvga    *vga_test = new Vvga();
