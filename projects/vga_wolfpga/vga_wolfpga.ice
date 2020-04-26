@@ -23,6 +23,57 @@ $include('../common/divint_any.ice')
 
 // -------------------------
 
+algorithm walker(
+  output int$FPw$ posx,
+  output int$FPw$ posy,
+  output int16    angle
+) <autorun> {
+
+$$ LMost = lshift(4,FPf)
+$$ RMost = lshift(11,FPf)
+$$ TMost = lshift(4,FPf)
+$$ BMost = lshift(11,FPf)
+$$if SIMULATION then
+$$ Step  = lshift(1,FPf)
+$$else
+$$ Step  = 1
+$$end
+
+  angle = -160;
+  posx  = $LMost$;
+  posy  = $TMost$;
+    
+  while (1) {
+  
+    while (posx < $RMost$) {
+      posx = posx + $Step$;
+    }
+
+    while (posy < $BMost$) {
+      posy = posy + $Step$;
+    }
+
+    while (posx > $LMost$) {
+      posx = posx - $Step$;
+    }
+
+    while (posy > $TMost$) {
+      posy = posy - $Step$;
+    }
+
+/*    
+    if (angle > 3600) {
+      angle = angle + 1 - 3600;
+    } else {
+      angle = angle + 1;
+    }
+*/
+  }
+
+}
+
+// -------------------------
+
 algorithm frame_drawer(
   output uint23 saddr,
   output uint2  swbyte_addr,
@@ -102,6 +153,7 @@ $$Deg360 = 3600
   
   int$FPw$ posx_f  = $lshift(4,FPf)$;
   int$FPw$ posy_f  = $lshift(4,FPf)$;
+  int16    posa    = 0;
   int$FPw$ hitx_f  = 0;
   int$FPw$ hity_f  = 0;
   int$FPw$ xstep_f = 0;
@@ -124,22 +176,27 @@ $$Deg360 = 3600
   int$FPw$ mapxtest = 0;
   int$FPw$ mapytest = 0;
   
-  int16    angle    = 0;
-
-  int$FPw$ tmp      = 0;
+  int$FPw$ tmp1     = 0;
+  int$FPw$ tmp2     = 0;
   int$FPw$ dist_f   = 0;
   int$FPw$ height   = 0;
   
   div$FPw$ div;
   
-  uint3     hit       = 0;
-  uint1     v_or_h    = 0;
+  uint3     hit         = 0;
+  uint1     v_or_h      = 0;
 
-  uint16  frame     = 900;
-  uint24  viewangle = 0;
+  int16     viewangle   = 0;
+  int16     colangle    = 0;
   
-  uint20  v_tex      = 0;
-  uint20  v_tex_incr = 0;
+  uint20    v_tex       = 0;
+  uint20    v_tex_incr  = 0;
+  
+  walker walk<@vsync>(
+    posx  :> posx_f,
+    posy  :> posy_f,
+    angle :> posa
+  );
   
   vsync_filtered ::= vsync;
 
@@ -160,7 +217,7 @@ $$Deg360 = 3600
     material.wenable = 1;
     texcoord.wenable = 1;
     
-    viewangle = ((160 + frame) * $math.floor(2048*(2048/3600))$) >> 11;
+    viewangle = ((160 + posa) * $math.floor(2048*(2048/3600))$) >> 11;
     
     // get cos/sin view
     sin_m.addr = (viewangle) & 2047;
@@ -169,11 +226,6 @@ $$Deg360 = 3600
     sin_m.addr = (viewangle + 512) & 2047;
 ++:    
     cosview_m  = sin_m.rdata;
-
-    // animate position
-//  sin_m.addr = (frame>>1)&2047;
-//++:
-//    posx_f  = $lshift(7,FPf) + lshift(1,FPf-1)$ + (sin_m.rdata<<4);
 
     // ray cast columns
     c = 0;
@@ -188,47 +240,47 @@ $$Deg360 = 3600
       fracy_dw_m = (posy_f >> $FPf-FPm$) & $lshift(1,FPm)-1$;
       fracy_up_m = $lshift(1,FPm)$ - fracy_dw_m;      
       
-      angle  = frame + c;
-      while (angle < 0) {
-        angle = angle + 3600;
+      colangle   = posa + c;
+      while (colangle < 0) {
+        colangle = colangle + 3600;
       }
-      while (angle > 3600) {
-        angle = angle - 3600;
+      while (colangle > 3600) {
+        colangle = colangle - 3600;
       }
       
-      if (angle < $Deg90$) {
+      if (colangle < $Deg90$) {
         mapxstep   =  1;
         mapystep   = -1;
         fracx_m    = fracx_up_m;
         fracy_m    = fracy_dw_m;
-        tan_f.addr = $Deg90-1$-angle;
+        tan_f.addr = $Deg90-1$-colangle;
 ++:
         xstep_f    = tan_f.rdata;        
-        tan_f.addr = angle;
+        tan_f.addr = colangle;
 ++:
         ystep_f    = - tan_f.rdata;        
       } else {
-        if (angle < $Deg180$) {
+        if (colangle < $Deg180$) {
           mapxstep   = -1;
           mapystep   = -1;
           fracx_m    = fracx_dw_m;
           fracy_m    = fracy_dw_m;
-          tan_f.addr = angle - $Deg90$;
+          tan_f.addr = colangle - $Deg90$;
 ++:
           xstep_f    = - tan_f.rdata;        
-          tan_f.addr = $Deg180-1$-angle;
+          tan_f.addr = $Deg180-1$-colangle;
 ++:
           ystep_f    = - tan_f.rdata;        
         } else {
-          if (angle < $Deg270$) {
+          if (colangle < $Deg270$) {
             mapxstep   = -1;
             mapystep   =  1;
             fracx_m    = fracx_dw_m;
             fracy_m    = fracy_up_m;
-            tan_f.addr = $Deg270-1$-angle;
+            tan_f.addr = $Deg270-1$-colangle;
 ++:
             xstep_f    = - tan_f.rdata;        
-            tan_f.addr = angle - $Deg180$;
+            tan_f.addr = colangle - $Deg180$;
 ++:
             ystep_f    = tan_f.rdata;        
           } else {
@@ -236,10 +288,10 @@ $$Deg360 = 3600
             mapystep   =  1;
             fracx_m    = fracx_up_m;
             fracy_m    = fracy_up_m;
-            tan_f.addr = angle-$Deg270$;
+            tan_f.addr = colangle-$Deg270$;
 ++:
             xstep_f    = tan_f.rdata;        
-            tan_f.addr = $Deg360-1$-angle;
+            tan_f.addr = $Deg360-1$-colangle;
 ++:
             ystep_f    = tan_f.rdata;            
           }        
@@ -312,11 +364,11 @@ $$Deg360 = 3600
 
       // compute distance
 ++:   // relax timing
-      tmp = cosview_m * (hitx_f - posx_f);
+      tmp1 = cosview_m * (hitx_f - posx_f);
 ++:   // relax timing
-      tmp = tmp - (sinview_m * (hity_f - posy_f));
+      tmp2 = sinview_m * (hity_f - posy_f);
 ++:   // relax timing
-      dist_f = tmp >> $FPf$;
+      dist_f = (tmp1 - tmp2) >> $FPf$;
       (height) <- div <- ($lshift(140,FPf)$,dist_f>>1);
       
       columns.addr   = c;
@@ -402,17 +454,6 @@ $$Deg360 = 3600
       c = c + 1;
     }    
     
-    // prepare next frame
-$$if SIMULATION then
-    frame = frame + 100;
-$$else
-    frame = frame + 1;
-$$end
-++:
-    if (frame > 3600) {
-      frame = frame - 3600;
-    }
-
     // wait for frame to end
     while (vsync_filtered == 0) {}
 

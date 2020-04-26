@@ -89,8 +89,8 @@ $$end
   uint1  do_rw       = 0;
   uint2  wbyte       = 0;
 
-$$refresh_cycles = 650 -- 750
-$$refresh_wait   = 7
+$$refresh_cycles = 750
+$$refresh_wait   = 3 -- 6
 
   uint24 refresh_count = $refresh_cycles$;
   uint1  refresh_asap  = 0;
