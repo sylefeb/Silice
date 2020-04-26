@@ -3,13 +3,13 @@
 // see https://lodev.org/cgtutor/raycasting.html for principle
 // or "Wolfenstien 3D black book" by Fabien Sanglard
 
-$$texfile = 'wall.tga'
+$$texfile = 'wolf.tga'
 
 $include('../common/video_sdram_main.ice')
 
-$$FPw = 26
-$$FPf =  9 -- fractions precision
-$$FPm =  9 -- precision within cells
+$$FPw = 28
+$$FPf = 10 -- fractions precision
+$$FPm = 10 -- precision within cells
 
 $$ ones = '' .. FPw .. 'b'
 $$for i=1,FPw-1 do
@@ -40,16 +40,17 @@ algorithm frame_drawer(
 $$image_table(texfile)
   };
   
-  bram uint9 columns[320];
-  bram uint2 material[320];
-  bram uint8 texcoord[320];
+  bram uint10 columns[320];
+  bram uint2  material[320];
+  bram uint6  texcoord[320];
 
   bram int$FPw$ tan_f[$3600/4$] = {
     0,
-$$for i=1,3600/4-2 do
+$$for i=1,3600/4-3 do
     $math.floor(lshift(1,FPf) * math.tan(2*math.pi*i/3600))$,
 $$  l = i
 $$end
+    $math.floor(lshift(1,FPf) * math.tan(2*math.pi*l/3600))$,
     $math.floor(lshift(1,FPf) * math.tan(2*math.pi*l/3600))$,
   };
   
@@ -72,15 +73,15 @@ $$Deg180 = 1800
 $$Deg270 = 2700
 $$Deg360 = 3600
   
-  uint2 level[$8*8$] = {
-   1,1,1,1,1,1,1,1,
-   2,0,0,1,1,0,0,2,
-   2,0,0,0,0,0,0,2,
-   2,1,1,0,0,0,2,2,
-   2,0,0,0,0,0,2,2,
-   2,0,0,2,2,0,0,2,
-   2,0,0,0,2,0,0,2,
-   1,1,1,1,1,1,1,1,
+  uint3 level[$8*8$] = {
+   4,3,4,3,4,3,4,3,
+   1,0,0,0,4,0,0,2,
+   2,0,0,0,0,0,0,1,
+   1,1,0,0,0,0,2,2,
+   2,2,0,0,0,0,1,1,
+   1,0,0,0,0,0,0,2,
+   2,0,0,0,4,0,0,1,
+   4,3,4,3,4,3,4,3,
   };
   
   uint9 c      = 0;
@@ -89,8 +90,8 @@ $$Deg360 = 3600
   uint9 h      = 0;
   uint8 palidx = 0;
   
-  int$FPw$ posx_f  = $lshift(4,FPf) + lshift(1,FPf-1)$;
-  int$FPw$ posy_f  = $lshift(4,FPf) + lshift(1,FPf-1)$;
+  int$FPw$ posx_f  = $lshift(4,FPf)$;// + $lshift(1,FPf-1)$;
+  int$FPw$ posy_f  = $lshift(4,FPf)$;// + $lshift(1,FPf-1)$;
   int$FPw$ hitx_f  = 0;
   int$FPw$ hity_f  = 0;
   int$FPw$ xstep_f = 0;
@@ -106,10 +107,10 @@ $$Deg360 = 3600
   int$FPw$ cosview_m  = 0;
   int$FPw$ sinview_m  = 0;
 
-  int8     mapx     = 0;
-  int8     mapy     = 0;
-  int8     mapxstep = 0;
-  int8     mapystep = 0;
+  int$FPw$ mapx     = 0;
+  int$FPw$ mapy     = 0;
+  int$FPw$ mapxstep = 0;
+  int$FPw$ mapystep = 0;
   int$FPw$ mapxtest = 0;
   int$FPw$ mapytest = 0;
   
@@ -120,10 +121,10 @@ $$Deg360 = 3600
   
   div$FPw$ div;
   
-  uint2     hit       = 0;
+  uint3     hit       = 0;
   uint1     v_or_h    = 0;
 
-  uint24  frame     = 2600;
+  uint24  frame     = 900;
   uint24  viewangle = 0;
   
   uint20  v_tex      = 0;
@@ -157,7 +158,12 @@ $$Deg360 = 3600
     sin_m.addr = (viewangle + 512) & 2047;
 ++:    
     cosview_m  = sin_m.rdata;
-    
+
+    // animate position
+    sin_m.addr = (frame>>1)&2047;
+++:
+    posx_f  = $lshift(4,FPf) + lshift(1,FPf-1)$ + sin_m.rdata;
+
     // ray cast columns
     c = 0;
     while (c < 320) {
@@ -166,10 +172,10 @@ $$Deg360 = 3600
       mapx       = (posx_f >> $FPf$);
       mapy       = (posy_f >> $FPf$);
       
-      fracx_up_m = (posx_f >> $FPf-FPm$) & $lshift(1,FPm)-1$;
-      fracx_dw_m = $lshift(1,FPm)$ - fracx_up_m;      
-      fracy_up_m = (posy_f >> $FPf-FPm$) & $lshift(1,FPm)-1$;
-      fracy_dw_m = $lshift(1,FPm)$ - fracy_up_m;      
+      fracx_dw_m = (posx_f >> $FPf-FPm$) & $lshift(1,FPm)-1$;
+      fracx_up_m = $lshift(1,FPm)$ - fracx_dw_m;      
+      fracy_dw_m = (posy_f >> $FPf-FPm$) & $lshift(1,FPm)-1$;
+      fracy_up_m = $lshift(1,FPm)$ - fracy_dw_m;      
       
       angle  = frame + c;
       while (angle < 0) {
@@ -240,23 +246,25 @@ $$Deg360 = 3600
       hit    = 0;
       v_or_h = 0; // 0: vertical (along x) 1: horizontal (along y)
       while (hit == 0) {
+      
         mapxtest = hitx_f >>> $FPf$;
         mapytest = hity_f >>> $FPf$;
+        
         // shall we do vertical or horizontal?
         if (v_or_h == 0) {
           // keep doing vertical?
-          if (mapystep > 0 && (mapytest) >= mapy) {
+          if (mapystep > 0 && mapytest >= mapy) {
             v_or_h = 1;
           }
-          if (mapystep < 0 && (mapytest) <= mapy) {
+          if (mapystep < 0 && mapytest <= mapy) {
             v_or_h = 1;
           }
         } else {
           // keep doing horizontal?
-          if (mapxstep > 0 && (mapxtest) >= mapx) {
+          if (mapxstep > 0 && mapxtest >= mapx) {
             v_or_h = 0;
           }
-          if (mapxstep < 0 && (mapxtest) <= mapx) {
+          if (mapxstep < 0 && mapxtest <= mapx) {
             v_or_h = 0;
           }        
         }
@@ -294,17 +302,17 @@ $$Deg360 = 3600
       // distance
       dist_f = ((cosview_m * (hitx_f - posx_f))
              -  (sinview_m * (hity_f - posy_f))) >>> $FPf$;
-      (height) <- div <- ($lshift(140,FPf)$,dist_f);
+      (height) <- div <- ($lshift(140,FPf)$,dist_f>>1);
       
       columns.addr   = c;
       columns.wdata  = height;
       material.addr  = c;
-      material.wdata = hit; //{hit[0,1],v_or_h};
+      material.wdata = hit-1;
       texcoord.addr  = c;
       if (v_or_h == 0) {
-        texcoord.wdata = hity_f >>> $FPm-7$;
+        texcoord.wdata = hity_f >>> $FPf-6$;
       } else {
-        texcoord.wdata = hitx_f >>> $FPm-7$;
+        texcoord.wdata = hitx_f >>> $FPf-6$;
       }
       
       // write on loop
@@ -333,15 +341,15 @@ $$Deg360 = 3600
       v_tex_incr    = hscr_inv.rdata;  
       y = 0;
       while (y < 100) {
-        // color to write
-        palidx = 0;
+        // floor and bottom half
         if (y <= h) {
-          texture.addr = (texcoord.rdata & 63) + (((v_tex >> 13) & 63)<<6);
+          texture.addr = ((texcoord.rdata + (material.rdata<<6)) & 255) + (((v_tex >> 13) & 63)<<8);
 ++:          
           palidx       = texture.rdata;
-          v_tex        = v_tex + v_tex_incr;
+        } else {
+          palidx = 22;  
         }
-        // write to sdram (twice, symmetry)
+        // write to sdram
         yw = 100+y;
         while (1) {
           if (sbusy == 0) { // not busy?
@@ -353,6 +361,15 @@ $$Deg360 = 3600
           }
         }          
         yw = 100-y;
+        // floor and bottom half
+        palidx = 22;  
+        if (y <= h) {
+          texture.addr = ((texcoord.rdata + (material.rdata<<6)) & 255) + ((63 - ((v_tex >> 13) & 63))<<8);
+++:          
+          palidx       = texture.rdata;
+        } else {
+          palidx = 2;
+        }
         while (1) {
           if (sbusy == 0) { // not busy?
             sdata_in    = palidx;
@@ -361,7 +378,10 @@ $$Deg360 = 3600
             sin_valid   = 1; // go ahead!
             break;
           }
-        }          
+        }
+        if (y <= h) {
+          v_tex = v_tex + v_tex_incr;
+        }
         y = y + 1;        
       }      
       c = c + 1;
@@ -373,6 +393,7 @@ $$if SIMULATION then
 $$else
     frame = frame + 1;
 $$end
+
     // wait for frame to end
     while (vsync_filtered == 0) {}
 

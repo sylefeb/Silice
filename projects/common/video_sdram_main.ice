@@ -421,10 +421,10 @@ $$else
 $$end
   
     while (video_vblank == 1) { }
-	  $display("vblank off");
+	  __display("vblank off");
     
 	  while (video_vblank == 0) { }
-    $display("vblank on");
+    __display("vblank on");
 	
     frame = frame + 1;
 
