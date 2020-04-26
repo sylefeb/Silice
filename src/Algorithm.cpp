@@ -1909,9 +1909,7 @@ void Algorithm::updateDependencies(t_vio_dependencies& _depds, antlr4::tree::Par
 void Algorithm::mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const
 {
   for (const auto& d : _depds0.dependencies) {
-    for (const auto& p : d.second) {
-      _depds.dependencies[d.first].insert(p);
-    }
+    _depds.dependencies.insert(d);
   }
 }
 

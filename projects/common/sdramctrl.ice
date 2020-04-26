@@ -60,8 +60,8 @@ $$end
 $$if not VERILATOR then
 
   uint8  dq_i  = 0 (* IOB = "TRUE" *);
-  uint8  dq_o  = 0;
-  uint1  dq_en = 0;
+  uint8  dq_o  = 0 (* IOB = "TRUE" *);
+  uint1  dq_en = 0 (* IOB = "TRUE" *);
 
   inout_set ioset(
     io_pin   <:> sdram_dq,
