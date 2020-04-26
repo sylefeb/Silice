@@ -1,13 +1,15 @@
 // SL 2020-04-24
 // Wolf3D!
-// see https://lodev.org/cgtutor/raycasting.html for principle
-// or "Wolfenstien 3D black book" by Fabien Sanglard
+//
+// References:
+// "Wolfenstien 3D black book" by Fabien Sanglard
+// https://github.com/id-Software/wolf3d/blob/master/WOLFSRC/WL_DR_A.ASM
 
 $$texfile = 'wolf.tga'
 
 $include('../common/video_sdram_main.ice')
 
-$$FPw = 28
+$$FPw = 30
 $$FPf = 10 -- fractions precision
 $$FPm = 10 -- precision within cells
 
@@ -73,15 +75,23 @@ $$Deg180 = 1800
 $$Deg270 = 2700
 $$Deg360 = 3600
   
-  uint3 level[$8*8$] = {
-   4,3,4,3,4,3,4,3,
-   1,0,0,0,4,0,0,2,
-   2,0,0,0,0,0,0,1,
-   1,1,0,0,0,0,2,2,
-   2,2,0,0,0,0,1,1,
-   1,0,0,0,0,0,0,2,
-   2,0,0,0,4,0,0,1,
-   4,3,4,3,4,3,4,3,
+  uint3 level[$16*16$] = {
+   4,3,4,3,4,3,4,3,4,3,4,3,4,3,4,3,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+   4,3,4,3,4,3,4,3,4,3,4,3,4,3,4,3,
   };
   
   uint9 c      = 0;
@@ -90,8 +100,8 @@ $$Deg360 = 3600
   uint9 h      = 0;
   uint8 palidx = 0;
   
-  int$FPw$ posx_f  = $lshift(4,FPf)$;// + $lshift(1,FPf-1)$;
-  int$FPw$ posy_f  = $lshift(4,FPf)$;// + $lshift(1,FPf-1)$;
+  int$FPw$ posx_f  = $lshift(4,FPf)$;
+  int$FPw$ posy_f  = $lshift(4,FPf)$;
   int$FPw$ hitx_f  = 0;
   int$FPw$ hity_f  = 0;
   int$FPw$ xstep_f = 0;
@@ -116,6 +126,7 @@ $$Deg360 = 3600
   
   int16    angle    = 0;
 
+  int$FPw$ tmp      = 0;
   int$FPw$ dist_f   = 0;
   int$FPw$ height   = 0;
   
@@ -124,7 +135,7 @@ $$Deg360 = 3600
   uint3     hit       = 0;
   uint1     v_or_h    = 0;
 
-  uint24  frame     = 900;
+  uint16  frame     = 900;
   uint24  viewangle = 0;
   
   uint20  v_tex      = 0;
@@ -160,9 +171,9 @@ $$Deg360 = 3600
     cosview_m  = sin_m.rdata;
 
     // animate position
-    sin_m.addr = (frame>>1)&2047;
-++:
-    posx_f  = $lshift(4,FPf) + lshift(1,FPf-1)$ + sin_m.rdata;
+//  sin_m.addr = (frame>>1)&2047;
+//++:
+//    posx_f  = $lshift(7,FPf) + lshift(1,FPf-1)$ + (sin_m.rdata<<4);
 
     // ray cast columns
     c = 0;
@@ -238,7 +249,7 @@ $$Deg360 = 3600
       // first intersection
       hity_f = posy_f + ((fracx_m * ystep_f) >>> $FPm$);
       mapx   = mapx + mapxstep;
-      
+++:   // (relax timing)      
       hitx_f = posx_f + ((fracy_m * xstep_f) >>> $FPm$);
       mapy   = mapy + mapystep;
       
@@ -269,10 +280,10 @@ $$Deg360 = 3600
           }        
         }
 
-        // now advance 
+        // advance 
         if (v_or_h == 0) {
-          // check for a hit
-          hit = level[(mapx&7) + (((mapytest)&7)<<3)];
+          // check for a hit on vertical edges
+          hit = level[(mapx&15) + (((mapytest)&15)<<4)];
           if (hit != 0) {
             if (mapxstep < 0) {
               hitx_f = (mapx+1) << $FPf$;
@@ -284,8 +295,8 @@ $$Deg360 = 3600
           mapx   = mapx   + mapxstep;
           hity_f = hity_f + ystep_f;
         } else {
-          // check for a hit
-          hit = level[((mapxtest)&7) + ((mapy&7)<<3)];
+          // check for a hit on horizontal edges
+          hit = level[((mapxtest)&15) + ((mapy&15)<<4)];
           if (hit != 0) {
             if (mapystep < 0) {
               hity_f = (mapy+1) << $FPf$;
@@ -298,10 +309,14 @@ $$Deg360 = 3600
           hitx_f = hitx_f + xstep_f;
         }
       }
-      
-      // distance
-      dist_f = ((cosview_m * (hitx_f - posx_f))
-             -  (sinview_m * (hity_f - posy_f))) >>> $FPf$;
+
+      // compute distance
+++:   // relax timing
+      tmp = cosview_m * (hitx_f - posx_f);
+++:   // relax timing
+      tmp = tmp - (sinview_m * (hity_f - posy_f));
+++:   // relax timing
+      dist_f = tmp >> $FPf$;
       (height) <- div <- ($lshift(140,FPf)$,dist_f>>1);
       
       columns.addr   = c;
@@ -393,6 +408,10 @@ $$if SIMULATION then
 $$else
     frame = frame + 1;
 $$end
+++:
+    if (frame > 3600) {
+      frame = frame - 3600;
+    }
 
     // wait for frame to end
     while (vsync_filtered == 0) {}

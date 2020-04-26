@@ -89,8 +89,8 @@ $$end
   uint1  do_rw       = 0;
   uint2  wbyte       = 0;
 
-$$refresh_cycles = 750
-$$refresh_wait   = 6
+$$refresh_cycles = 650 -- 750
+$$refresh_wait   = 7
 
   uint24 refresh_count = $refresh_cycles$;
   uint1  refresh_asap  = 0;
@@ -277,9 +277,10 @@ $$refresh_wait   = 6
         // refresh
         cmd      = CMD_REFRESH;
         delay    = $refresh_wait$;
-        () <- wait <- (delay);      
         // -> reset count
         refresh_count = $refresh_cycles$;
+        // wait
+        () <- wait <- (delay);      
         // could accept work
         busy          = work_todo;
       }

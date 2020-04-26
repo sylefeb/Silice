@@ -6,7 +6,7 @@ $$if ICARUS then
   import('simul_sdram.v')
 $$end
 
-$$USE_ICE_SDRAM_CTRL = _true
+$$USE_ICE_SDRAM_CTRL = true
 
 $$if USE_ICE_SDRAM_CTRL then
 $include('sdramctrl.ice')
