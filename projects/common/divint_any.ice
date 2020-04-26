@@ -93,8 +93,8 @@ $$else
   num = inum;
 $$end
 
-$$if MOJO and div_width == 32 then
-++: // add step to fit the Mojo 100MHz timing at 32 bits
+$$if MOJO and div_width >= 24 then
+++: // add step to fit the Mojo 100MHz timing
 $$end
 
   if (den > num) {

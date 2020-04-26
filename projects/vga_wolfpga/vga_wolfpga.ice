@@ -7,9 +7,9 @@ $$texfile = 'wall.tga'
 
 $include('../common/video_sdram_main.ice')
 
-$$FPw = 32
-$$FPf = 10 -- fractions precision
-$$FPm = 10 -- precision within cells
+$$FPw = 26
+$$FPf =  9 -- fractions precision
+$$FPm =  9 -- precision within cells
 
 $$ ones = '' .. FPw .. 'b'
 $$for i=1,FPw-1 do
@@ -59,6 +59,14 @@ $$for i=0,2047 do
 $$end
   };
 
+  // table for vertical interpolation
+  bram int20 hscr_inv[512]={
+    1, // 0: unused
+$$for hscr=1,511 do
+    $math.floor(0.5 + 262144/hscr)$,
+$$end
+  };
+
 $$Deg90  =  900
 $$Deg180 = 1800
 $$Deg270 = 2700
@@ -77,6 +85,7 @@ $$Deg360 = 3600
   
   uint9 c      = 0;
   uint9 y      = 0;
+  uint9 yw     = 0;
   uint9 h      = 0;
   uint8 palidx = 0;
   
@@ -114,8 +123,11 @@ $$Deg360 = 3600
   uint2     hit       = 0;
   uint1     v_or_h    = 0;
 
-  uint24  frame     = 0;
+  uint24  frame     = 2600;
   uint24  viewangle = 0;
+  
+  uint20  v_tex      = 0;
+  uint20  v_tex_incr = 0;
   
   vsync_filtered ::= vsync;
 
@@ -125,8 +137,10 @@ $$Deg360 = 3600
 
   fbuffer = 0;
   
-  sin_m.wenable = 0;    
-  tan_f.wenable = 0;
+  sin_m.wenable    = 0;    
+  tan_f.wenable    = 0;
+  hscr_inv.wenable = 0;
+  texture.wenable  = 0;
   
   while (1) {
 
@@ -280,7 +294,7 @@ $$Deg360 = 3600
       // distance
       dist_f = ((cosview_m * (hitx_f - posx_f))
              -  (sinview_m * (hity_f - posy_f))) >>> $FPf$;
-      (height) <- div <- ($lshift(100,FPf)$,dist_f);
+      (height) <- div <- ($lshift(140,FPf)$,dist_f);
       
       columns.addr   = c;
       columns.wdata  = height;
@@ -288,9 +302,9 @@ $$Deg360 = 3600
       material.wdata = hit; //{hit[0,1],v_or_h};
       texcoord.addr  = c;
       if (v_or_h == 0) {
-        texcoord.wdata = hity_f >>> $FPm-8$;
+        texcoord.wdata = hity_f >>> $FPm-7$;
       } else {
-        texcoord.wdata = hitx_f >>> $FPm-8$;
+        texcoord.wdata = hitx_f >>> $FPm-7$;
       }
       
       // write on loop
@@ -308,26 +322,41 @@ $$Deg360 = 3600
       material.addr = c;
       texcoord.addr = c;
 ++:
-      h = columns.rdata;
+      if (columns.rdata < 100) {
+        h = columns.rdata;
+      } else {
+        h = 99;        
+      }
+      hscr_inv.addr = columns.rdata & 511;
+      v_tex = $lshift(32,13)$;
+++:      
+      v_tex_incr    = hscr_inv.rdata;  
       y = 0;
-      while (y < 200) {
+      while (y < 100) {
         // color to write
         palidx = 0;
-        if (y >= 100 - h && y <= h + 100) {
-          /*switch (material.rdata) 
-          {
-            case 0: { palidx = 21; }
-            case 1: { palidx = 10; }
-            case 2: { palidx = 25; }
-            case 3: { palidx = 30; }
-          }*/
-          palidx = texcoord.rdata & 31;
+        if (y <= h) {
+          texture.addr = (texcoord.rdata & 63) + (((v_tex >> 13) & 63)<<6);
+++:          
+          palidx       = texture.rdata;
+          v_tex        = v_tex + v_tex_incr;
         }
-        // write to sdram
+        // write to sdram (twice, symmetry)
+        yw = 100+y;
         while (1) {
           if (sbusy == 0) { // not busy?
             sdata_in    = palidx;
-            saddr       = {~fbuffer,21b0} | ((c + (y << 8) + (y << 6)) >> 2); // * 240 / 4
+            saddr       = {~fbuffer,21b0} | ((c + (yw << 8) + (yw << 6)) >> 2); // * 240 / 4
+            swbyte_addr = c & 3;
+            sin_valid   = 1; // go ahead!
+            break;
+          }
+        }          
+        yw = 100-y;
+        while (1) {
+          if (sbusy == 0) { // not busy?
+            sdata_in    = palidx;
+            saddr       = {~fbuffer,21b0} | ((c + (yw << 8) + (yw << 6)) >> 2); // * 240 / 4
             swbyte_addr = c & 3;
             sin_valid   = 1; // go ahead!
             break;
@@ -339,8 +368,11 @@ $$Deg360 = 3600
     }    
     
     // prepare next frame
+$$if SIMULATION then
     frame = frame + 100;
-
+$$else
+    frame = frame + 1;
+$$end
     // wait for frame to end
     while (vsync_filtered == 0) {}
 

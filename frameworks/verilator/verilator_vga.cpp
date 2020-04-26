@@ -31,8 +31,21 @@ int main(int argc,char **argv)
 {
   Verilated::commandArgs(argc,argv);
   
+  std::cerr << __LINE__ << std::endl;
+  
+  std::cerr << __LINE__ << std::endl;
+
   VgaChip *vga_chip = new VgaChip();
+
+  std::cerr << __LINE__ << std::endl;
+
+  std::cerr << __LINE__ << std::endl;
+
   Vvga    *vga_test = new Vvga();
+
+  std::cerr << __LINE__ << std::endl;
+
+  std::cerr << __LINE__ << std::endl;
 
   // setup for a mt48lc32m8a2 // 8 M x 8 bits x 4 banks (256 MB),
   // 67,108,864-bit banks is organized as 8192 rows by 1024 columns by 8 bits
