@@ -42,6 +42,7 @@ $$image_table(texfile)
   
   bram uint9 columns[320];
   bram uint2 material[320];
+  bram uint8 texcoord[320];
 
   bram int$FPw$ tan_f[$3600/4$] = {
     0,
@@ -65,12 +66,12 @@ $$Deg360 = 3600
   
   uint2 level[$8*8$] = {
    1,1,1,1,1,1,1,1,
+   2,0,0,1,1,0,0,2,
    2,0,0,0,0,0,0,2,
-   2,0,0,0,0,0,0,2,
-   2,0,0,0,0,0,0,2,
-   2,0,0,0,0,0,0,2,
-   2,0,0,0,0,0,0,2,
-   2,0,0,0,0,0,0,2,
+   2,1,1,0,0,0,2,2,
+   2,0,0,0,0,0,2,2,
+   2,0,0,2,2,0,0,2,
+   2,0,0,0,2,0,0,2,
    1,1,1,1,1,1,1,1,
   };
   
@@ -113,7 +114,7 @@ $$Deg360 = 3600
   uint2     hit       = 0;
   uint1     v_or_h    = 0;
 
-  uint24  frame     = $900$; //1700;
+  uint24  frame     = 0;
   uint24  viewangle = 0;
   
   vsync_filtered ::= vsync;
@@ -131,6 +132,7 @@ $$Deg360 = 3600
 
     columns .wenable = 1;
     material.wenable = 1;
+    texcoord.wenable = 1;
     
     viewangle = ((160 + frame) * $math.floor(2048*(2048/3600))$) >> 11;
     
@@ -284,6 +286,13 @@ $$Deg360 = 3600
       columns.wdata  = height;
       material.addr  = c;
       material.wdata = hit; //{hit[0,1],v_or_h};
+      texcoord.addr  = c;
+      if (v_or_h == 0) {
+        texcoord.wdata = hity_f >>> $FPm-8$;
+      } else {
+        texcoord.wdata = hitx_f >>> $FPm-8$;
+      }
+      
       // write on loop
      
       c = c + 1;
@@ -293,9 +302,11 @@ $$Deg360 = 3600
     c = 0;
     columns.wenable  = 0;
     material.wenable = 0;
+    texcoord.wenable = 0;
     while (c < 320) {
       columns.addr  = c;
       material.addr = c;
+      texcoord.addr = c;
 ++:
       h = columns.rdata;
       y = 0;
@@ -303,13 +314,14 @@ $$Deg360 = 3600
         // color to write
         palidx = 0;
         if (y >= 100 - h && y <= h + 100) {
-          switch (material.rdata) 
+          /*switch (material.rdata) 
           {
             case 0: { palidx = 21; }
             case 1: { palidx = 10; }
             case 2: { palidx = 25; }
             case 3: { palidx = 30; }
-          }
+          }*/
+          palidx = texcoord.rdata & 31;
         }
         // write to sdram
         while (1) {
