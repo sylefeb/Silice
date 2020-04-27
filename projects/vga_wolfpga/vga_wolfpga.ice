@@ -22,9 +22,9 @@ $$end
 
 $include('../common/video_sdram_main.ice')
 
-$$FPw = 26
-$$FPf = 10 -- fractions precision
-$$FPm = 10 -- precision within cells
+$$FPw = 30
+$$FPf = 12 -- fractions precision
+$$FPm = 12 -- precision within cells
 
 $$ ones = '' .. FPw .. 'b'
 $$for i=1,FPw-1 do
@@ -55,7 +55,7 @@ $$if SIMULATION then
 $$ Step      = lshift(1,FPf)
 $$ AngleStep = 300
 $$else
-$$ Step      = lshift(1,FPf-5)
+$$ Step      = math.floor(lshift(1,FPf-5)*2/3)
 $$ AngleStep = 10
 $$end
 
@@ -65,12 +65,6 @@ $$end
     
   while (1) {
   
-$$if SIMULATION then
-
-    posy  = $lshift(13,FPf)$;
-    
-$$else
-
     while (posy < $BMost$) {
       posy = posy + $Step$;
     }  
@@ -79,7 +73,6 @@ $$else
       posy = posy - $Step$;
     }
 
-$$end
   }
 
 }
@@ -120,13 +113,13 @@ $$ end
   // - the asymptotic end do not reach excessively large values
   bram int$FPw$ tan_f[$3600/4$] = {
 $$for i=0,449 do
-     $math.floor(lshift(1,FPf) * tan_tbl[i])$,
+     $math.floor(0.5 + lshift(1,FPf) * tan_tbl[i])$,
 $$end
 $$for i=0,447 do
-     $math.floor(lshift(1,FPf) / tan_tbl[449-i])$,
+     $math.floor(0.0 + lshift(1,FPf) / tan_tbl[449-i])$,
 $$end
-  $math.floor(lshift(1,FPf) / tan_tbl[2])$,
-  $math.floor(lshift(1,FPf) / tan_tbl[2])$,
+  $math.floor(0.0 + lshift(1,FPf) / tan_tbl[2])$,
+  $math.floor(0.0 + lshift(1,FPf) / tan_tbl[2])$,
   };
   
   bram int$FPw$ sin_m[2048] = {
@@ -208,13 +201,13 @@ $$end
   
   uint20    v_tex       = 0;
   uint20    v_tex_incr  = 0;
-  /*
+  
   walker walk<@vsync>(
     posx  :> posx_f,
     posy  :> posy_f,
     angle :> posa
   );
-  */
+  
   vsync_filtered ::= vsync;
 
   sin_valid := 0; // maintain low (pulses high when needed)
@@ -380,9 +373,9 @@ $$end
       }
 
       // compute distance, using custom multipliers to fit timing
-      tmp1   = (cosview_m * (hitx_f - posx_f)) >>> $FPf$;
+      tmp1   = (cosview_m * (hitx_f - posx_f)) >>> $FPm$;
 ++:   // relax timing      
-      tmp2   = (sinview_m * (hity_f - posy_f)) >>> $FPf$;
+      tmp2   = (sinview_m * (hity_f - posy_f)) >>> $FPm$;
 ++:   // relax timing      
       dist_f = (tmp1 - tmp2);
 ++:   // relax timing      

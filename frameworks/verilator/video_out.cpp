@@ -230,10 +230,6 @@ void VideoOut::eval_RGB_HV
                     pixel.Green = (green & bit_mask) << (bit_shift);
                     pixel.Blue  = (blue  & bit_mask) << (bit_shift);
 
-                    if (hcount < 0 || vcount < 0 || hcount >= pixels.xsize() || vcount >= pixels.ysize()) {
-                      printf("*** illegal pixel access (access violation)");
-                      exit (-1);
-                    }
                     if (hcount >= 0 && vcount >= 0 && hcount < pixels.xsize() && vcount < pixels.ysize()) {
                       pixels.at((int)(hcount), (int)(vcount)) = v3b(pixel.Red,pixel.Green,pixel.Blue);
                     // printf("*** [pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)pixel.Red,(int)pixel.Green,(int)pixel.Blue);
