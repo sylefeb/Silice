@@ -9,7 +9,7 @@ module mojo_top(
     input clk,
     input rst_n,
     input cclk,
-    output reg[7:0] led,
+    output reg[5:0] led,
     output reg spi_miso,
     input spi_ss,
     input spi_mosi,
@@ -37,7 +37,7 @@ module mojo_top(
     output reg [5:0] vga_b
     );
 
-wire [7:0]  __main_out_led;
+wire [5:0]  __main_out_led;
 
 wire        __main_spi_miso;
 wire        __main_out_avr_rx;
@@ -75,7 +75,7 @@ M_main __main(
   .out_spi_miso(__main_spi_miso),
   .out_avr_rx(__main_out_avr_rx),
   .out_spi_channel(__main_out_spi_channel),
-//  .out_led(__main_out_led),
+  .out_led(__main_out_led),
   .out_sdram_clk(__main_out_sdram_clk),
   .out_sdram_cle(__main_out_sdram_cle),
   .out_sdram_dqm(__main_out_sdram_dqm),
@@ -97,7 +97,7 @@ always @* begin
   spi_miso     = __main_spi_miso;
   avr_rx       = __main_out_avr_rx;
   spi_channel  = __main_out_spi_channel;
-//  led          = __main_out_led;
+  led          = __main_out_led;
 
   sdram_clk    = __main_out_sdram_clk;
   sdram_cle    = __main_out_sdram_cle;

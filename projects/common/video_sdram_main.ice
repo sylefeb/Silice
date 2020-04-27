@@ -59,7 +59,7 @@ algorithm pll(
   sdram_clock   := clock;
   sdram_reset   := reset;
   
-  video_clock     := counter[2,1];
+  video_clock     := counter[1,1];
   video_reset     := (trigger > 0);
   
   while (1) {
@@ -106,7 +106,7 @@ $$elseif MOJO then
 $$end
 $$end
 $$if MOJO then
-  output! uint8  led,
+  output! uint6  led,
   output! uint1  spi_miso,
   input   uint1  spi_ss,
   input   uint1  spi_mosi,
@@ -399,8 +399,12 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
     fbuffer    :> onscreen_fbuffer
   );
 
-  uint8 frame  = 0;
-  uint8 iter   = 0;
+  uint8 frame       = 0;
+
+$$if MOJO then
+  uint1 lastfbuffer = 1;
+  uint6 counter     = 0;
+$$end
 
   // ---------- let's go
 
@@ -415,20 +419,41 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
  
   // we count a number of frames and stop
 $$if MOJO then
-  while (1) {
+  while (1) { 
+  
+    // wait while vga draws  
+	  while (video_vblank == 0) { }
+
+    // one more vga frame
+    if (counter < 63) {
+      counter = counter + 1;
+    }
+
+++: // wait for drawer to swap
+    if (onscreen_fbuffer != lastfbuffer) {
+      // one more drawer frame
+      lastfbuffer = onscreen_fbuffer;
+      led         = counter;
+      counter     = 0;
+    }
+
+    // wait for next frame to start
+	  while (video_vblank == 1) { }
+    
+  }
 $$else
   while (frame < 128) {
-$$end
-  
+
     while (video_vblank == 1) { }
 	  __display("vblank off");
-    
+
 	  while (video_vblank == 0) { }
     __display("vblank on");
-	
-    frame = frame + 1;
 
+    frame = frame + 1;
+    
   }
+$$end
 
 }
 

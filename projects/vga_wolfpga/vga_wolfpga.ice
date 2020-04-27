@@ -162,7 +162,7 @@ $$end
   uint8 palidx = 0;
   
   int$FPw$ posx_f  = $lshift(2,FPf)$;
-  int$FPw$ posy_f  = $lshift(13,FPf)$;
+  int$FPw$ posy_f  = $lshift(2,FPf)$;
   int16    posa    = 0;
   int$FPw$ hitx_f  = 0;
   int$FPw$ hity_f  = 0;
@@ -202,12 +202,14 @@ $$end
   uint20    v_tex       = 0;
   uint20    v_tex_incr  = 0;
   
+$$if not ICARUS then
   walker walk<@vsync>(
     posx  :> posx_f,
     posy  :> posy_f,
     angle :> posa
   );
-  
+$$end
+
   vsync_filtered ::= vsync;
 
   sin_valid := 0; // maintain low (pulses high when needed)

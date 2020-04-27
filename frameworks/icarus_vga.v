@@ -5,6 +5,8 @@ $$SIMULATION =1
 $$color_depth=6
 $$color_max  =63
 
+`timescale 1ns / 1ps
+
 module top;
 
 reg clk;
