@@ -31,7 +31,7 @@ algorithm frame_display(
   int20  deltav_y = 0;
   
   bram uint18 tbl[$32*32$] = {
-$$image_table('tile.tga',6)
+$$write_image_in_table('tile.tga',6)
   };
 
   bram int10 cosine[256] = {

@@ -50,7 +50,7 @@ algorithm div$div_width$(
 $$prev = 0
 $$for i = 0,div_width-2 do
   uint$div_width$ k$i$ =
-$$if (i % math.pow(2,div_shrink)) == 0 then 
+$$if (i % (2^div_shrink)) == 0 then 
 $$prev = i
    $i$;
 $$else

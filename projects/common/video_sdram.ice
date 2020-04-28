@@ -30,7 +30,7 @@ $$for i=1,256 do
   $texfile_palette[i]$,
 $$end
 $$else
-$$palette_table(texfile,color_depth)
+$$write_palette_in_table(texfile,color_depth)
 $$end
   };
 $$else

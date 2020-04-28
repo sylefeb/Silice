@@ -123,20 +123,20 @@ static void lua_print(lua_State *L, std::string str)
 
 // -------------------------------------------------
 
-static void lua_image_table(lua_State* L, std::string str,int component_depth)
+static void lua_write_image_in_table(lua_State* L, std::string str,int component_depth)
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[image_table] internal error");
+    throw Fatal("[write_image_in_table] internal error");
   }
   if (component_depth < 0 || component_depth > 8) {
-    throw Fatal("[image_table] component depth can only in ]0,8]");
+    throw Fatal("[write_image_in_table] component depth can only in ]0,8]");
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
   t_image_nfo* nfo = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
-    throw Fatal("[image_table] cannot load image file '%s'",fname.c_str());
+    throw Fatal("[write_image_in_table] cannot load image file '%s'",fname.c_str());
   }
   int    nc  = nfo->depth/8;
   uchar* ptr = nfo->pixels;
@@ -156,33 +156,33 @@ static void lua_image_table(lua_State* L, std::string str,int component_depth)
   delete (nfo);
 }
 
-static void lua_image_table_simple(lua_State* L, std::string str)
+static void lua_write_image_in_table_simple(lua_State* L, std::string str)
 {
-  lua_image_table(L, str, 8);
+  lua_write_image_in_table(L, str, 8);
 }
 
 // -------------------------------------------------
 
-static void lua_palette_table(lua_State* L, std::string str, int component_depth)
+static void lua_write_palette_in_table(lua_State* L, std::string str, int component_depth)
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[palette_table] internal error");
+    throw Fatal("[write_palette_in_table] internal error");
   }
   if (component_depth < 0 || component_depth > 8) {
-    throw Fatal("[palette_table] component depth can only in ]0,8]");
+    throw Fatal("[write_palette_in_table] component depth can only in ]0,8]");
   }
   LuaPreProcessor *lpp = P->second;
   std::string      fname = lpp->findFile(str);
   t_image_nfo* nfo = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
-    throw Fatal("[palette_table] cannot load image file '%s'", fname.c_str());
+    throw Fatal("[write_palette_in_table] cannot load image file '%s'", fname.c_str());
   }
   if (nfo->colormap == NULL) {
-    throw Fatal("[palette_table] image file '%s' has no palette", fname.c_str());
+    throw Fatal("[write_palette_in_table] image file '%s' has no palette", fname.c_str());
   }
   if (nfo->depth != 8) {
-    throw Fatal("[palette_table] image file '%s' palette is not 8 bits", fname.c_str());
+    throw Fatal("[write_palette_in_table] image file '%s' palette is not 8 bits", fname.c_str());
   }
   uchar* ptr = nfo->colormap;
   ForIndex(idx, 256) {
@@ -199,31 +199,35 @@ static void lua_palette_table(lua_State* L, std::string str, int component_depth
   delete (nfo);
 }
 
-static void lua_palette_table_simple(lua_State* L, std::string str)
+// -------------------------------------------------
+
+static void lua_write_palette_in_table_simple(lua_State* L, std::string str)
 {
-  lua_palette_table(L, str, 8);
+  lua_write_palette_in_table(L, str, 8);
 }
 
-static luabind::object lua_get_palette_table(lua_State* L, std::string str, int component_depth)
+// -------------------------------------------------
+
+static luabind::object lua_get_palette_as_table(lua_State* L, std::string str, int component_depth)
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[palette_table] internal error");
+    throw Fatal("[get_palette_as_table] internal error");
   }
   if (component_depth < 0 || component_depth > 8) {
-    throw Fatal("[palette_table] component depth can only in ]0,8]");
+    throw Fatal("[get_palette_as_table] component depth can only in ]0,8]");
   }
   LuaPreProcessor *lpp = P->second;
   std::string      fname = lpp->findFile(str);
   t_image_nfo* nfo = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
-    throw Fatal("[palette_table] cannot load image file '%s'", fname.c_str());
+    throw Fatal("[get_palette_as_table] cannot load image file '%s'", fname.c_str());
   }
   if (nfo->colormap == NULL) {
-    throw Fatal("[palette_table] image file '%s' has no palette", fname.c_str());
+    throw Fatal("[get_palette_as_table] image file '%s' has no palette", fname.c_str());
   }
   if (nfo->depth != 8) {
-    throw Fatal("[palette_table] image file '%s' palette is not 8 bits", fname.c_str());
+    throw Fatal("[get_palette_as_table] image file '%s' palette is not 8 bits", fname.c_str());
   }
   luabind::object ltbl = luabind::newtable(L);
   uchar* ptr = nfo->colormap;
@@ -240,6 +244,13 @@ static luabind::object lua_get_palette_table(lua_State* L, std::string str, int 
   }
   delete (nfo);
   return ltbl;
+}
+
+// -------------------------------------------------
+
+static luabind::object lua_get_palette_as_table_simple(lua_State *L, std::string str)
+{
+  return lua_get_palette_as_table(L, str, 8);
 }
 
 // -------------------------------------------------
@@ -267,11 +278,11 @@ static void bindScript(lua_State *L)
       luabind::def("print",         &lua_print),
       luabind::def("error",         &lua_preproc_error),
       luabind::def("output",        &lua_output),
-      luabind::def("image_table",   &lua_image_table),
-      luabind::def("image_table",   &lua_image_table_simple),
-      luabind::def("palette_table", &lua_palette_table),
-      luabind::def("palette_table", &lua_palette_table_simple),
-      luabind::def("get_palette_table", &lua_get_palette_table),
+      luabind::def("write_image_in_table",   &lua_write_image_in_table),
+      luabind::def("write_image_in_table",   &lua_write_image_in_table_simple),
+      luabind::def("write_palette_in_table", &lua_write_palette_in_table),
+      luabind::def("write_palette_in_table", &lua_write_palette_in_table_simple),
+      luabind::def("get_palette_as_table",   &lua_get_palette_as_table),
       luabind::def("lshift",        &lua_lshift),
       luabind::def("rshift",        &lua_rshift)
     ];

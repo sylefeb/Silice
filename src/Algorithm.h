@@ -547,6 +547,8 @@ private:
   t_combinational_block *gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather a while block
   t_combinational_block *gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context);
+  /// \brief gather declaration
+  void gatherDeclaration(siliceParser::DeclarationContext *decl, t_subroutine_nfo *sub);
   /// \brief gather declaration list
   void gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub);
   /// \brief gather a subroutine

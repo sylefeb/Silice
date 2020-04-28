@@ -959,6 +959,24 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
 
 // -------------------------------------------------
 
+void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_subroutine_nfo *sub)
+{
+  auto declvar = dynamic_cast<siliceParser::DeclarationVarContext *>(decl->declarationVar());
+  auto decltbl = dynamic_cast<siliceParser::DeclarationTableContext *>(decl->declarationTable());
+  auto modalg = dynamic_cast<siliceParser::DeclarationModAlgContext *>(decl->declarationModAlg());
+  auto declbram = dynamic_cast<siliceParser::DeclarationBRAMContext *>(decl->declarationBRAM());
+  if (declvar) { gatherDeclarationVar(declvar, sub); } else if (decltbl) { gatherDeclarationTable(decltbl, sub); } else if (declbram) { gatherDeclarationBRAM(declbram, sub); } else if (modalg) {
+    std::string name = modalg->modalg->getText();
+    if (m_KnownModules.find(name) != m_KnownModules.end()) {
+      gatherDeclarationModule(modalg, sub);
+    } else {
+      gatherDeclarationAlgo(modalg, sub);
+    }
+  }
+}
+
+//-------------------------------------------------
+
 void Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub)
 {
   if (decllist == nullptr) {
@@ -967,21 +985,7 @@ void Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decl
   siliceParser::DeclarationListContext *cur_decllist = decllist;
   while (cur_decllist->declaration() != nullptr) {
     siliceParser::DeclarationContext* decl = cur_decllist->declaration();
-    auto declvar  = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
-    auto decltbl  = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
-    auto modalg   = dynamic_cast<siliceParser::DeclarationModAlgContext*>(decl->declarationModAlg());
-    auto declbram = dynamic_cast<siliceParser::DeclarationBRAMContext*>(decl->declarationBRAM());
-    if (declvar)       { gatherDeclarationVar(declvar, sub); }
-    else if (decltbl)  { gatherDeclarationTable(decltbl, sub); } 
-    else if (declbram) { gatherDeclarationBRAM(declbram, sub); }
-    else if (modalg)   {
-      std::string name = modalg->modalg->getText();
-      if (m_KnownModules.find(name) != m_KnownModules.end()) {
-        gatherDeclarationModule(modalg, sub);
-      } else {
-        gatherDeclarationAlgo(modalg, sub);
-      }
-    }
+    gatherDeclaration(decl, sub);
     cur_decllist = cur_decllist->declarationList();
   }
 }
@@ -1642,7 +1646,6 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
   auto join     = dynamic_cast<siliceParser::JoinExecContext*>(tree);
   auto sync     = dynamic_cast<siliceParser::SyncExecContext*>(tree);
   auto repeat   = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
-  auto sub      = dynamic_cast<siliceParser::SubroutineContext*>(tree);
   auto pip      = dynamic_cast<siliceParser::PipelineContext*>(tree);
   auto call     = dynamic_cast<siliceParser::CallContext*>(tree);
   auto ret      = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
@@ -1654,7 +1657,12 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
 
   if (algbody) {
     // gather declarations
-    gatherDeclarationList(algbody->declList, nullptr);
+    for (auto d : algbody->declaration()) {
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), nullptr);
+    }
+    for (auto s : algbody->subroutine()) {
+      gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), _current, _context);
+    }
     // gather always assigned
     gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
     // gather always block if defined
@@ -1668,8 +1676,6 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
     for (const auto& s : m_KnownSubroutines) {
       gatherSubroutine(s.second, _current, _context);
     }
-    // recurse on subroutines
-    _current = gather(algbody->subroutineList(), _current, _context);
     // recurse on instruction list
     _current = gather(algbody->instructionList(),_current, _context);
     recurse  = false;
@@ -1679,7 +1685,6 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
   } else if (switchC) { _current = gatherSwitchCase(switchC, _current, _context); recurse = false; 
   } else if (loop)    { _current = gatherWhile(loop, _current, _context);         recurse = false; 
   } else if (repeat)  { _current = gatherRepeatBlock(repeat, _current, _context); recurse = false; 
-  } else if (sub)     { _current = gatherSubroutine(sub, _current, _context);     recurse = false; 
   } else if (pip)     { _current = gatherPipeline(pip, _current, _context);       recurse = false; 
   } else if (sync)    { _current = gatherSyncExec(sync, _current, _context);      recurse = false; 
   } else if (join)    { _current = gatherJoinExec(join, _current, _context);      recurse = false; 

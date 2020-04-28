@@ -7,7 +7,7 @@
 
 $$texfile = 'wolf.tga'
 // get pallette in pre-processor
-$$texfile_palette = get_palette_table(texfile,color_depth)
+$$texfile_palette = get_palette_as_table(texfile,color_depth)
 // the palette has 64 entries, create a second darker one
 // in the next 64 entries
 $$for i=1,64 do
@@ -95,7 +95,7 @@ algorithm frame_drawer(
   uint1  vsync_filtered = 0;
 
   bram uint8 texture[] = {   // texture from https://github.com/freedoom/freedoom
-$$image_table(texfile)
+$$write_image_in_table(texfile)
   };
   
   bram uint10 columns[320];
@@ -111,7 +111,7 @@ $$ end
   // this is carefully created so that
   // - both tan/cot match (v and 1/v) to avoid gaps at corners
   // - the asymptotic end do not reach excessively large values
-  bram int$FPw$ tan_f[$3600/4$] = {
+  bram int$FPw$ tan_f[900] = { // 900 is 3600/4, a quarter of all angles
 $$for i=0,449 do
      $math.floor(0.5 + lshift(1,FPf) * tan_tbl[i])$,
 $$end
