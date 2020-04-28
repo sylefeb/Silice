@@ -2,64 +2,18 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 PROJECT(lua)
 
 SET(LIBLUA_SOURCES 
-src/lapi.c
-src/lauxlib.c
-src/lbaselib.c
-src/lcode.c
-src/ldblib.c
-src/ldebug.c
-src/ldo.c
-src/ldump.c
-src/lfunc.c
-src/lgc.c
-src/linit.c
-src/liolib.c
-src/llex.c
-src/lmathlib.c
-src/lmem.c
-src/loadlib.c
-src/lobject.c
-src/lopcodes.c
-src/loslib.c
-src/lparser.c
-src/lstate.c
-src/lstring.c
-src/lstrlib.c
-src/ltable.c
-src/ltablib.c
-src/ltm.c
-# src/lua.c
-# src/luac.c
-src/lundump.c
-src/lvm.c
-src/lzio.c
-src/print.c
+src/lapi.c      src/lcorolib.c  src/ldump.c   src/llex.c      src/lopcodes.c  src/lstrlib.c  src/luac.c
+src/lauxlib.c   src/lctype.c    src/lfunc.c   src/lmathlib.c  src/loslib.c    src/ltable.c   src/lundump.c
+src/lbaselib.c  src/ldblib.c    src/lgc.c     src/lmem.c      src/lparser.c   src/ltablib.c  src/lutf8lib.c
+src/lbitlib.c   src/ldebug.c    src/linit.c   src/loadlib.c   src/lstate.c    src/ltm.c      src/lvm.c
+src/lcode.c     src/ldo.c       src/liolib.c  src/lobject.c   src/lstring.c   src/lua.c      src/lzio.c
 )
 		
 SET(LIBLUA_HEADERS 
-src/lapi.h
-src/lauxlib.h
-src/lcode.h
-src/ldebug.h
-src/ldo.h
-src/lfunc.h
-src/lgc.h
-src/llex.h
-src/llimits.h
-src/lmem.h
-src/lobject.h
-src/lopcodes.h
-src/lparser.h
-src/lstate.h
-src/lstring.h
-src/ltable.h
-src/ltm.h
-src/lua.h
-src/luaconf.h
-src/lualib.h
-src/lundump.h
-src/lvm.h
-src/lzio.h
+src/lapi.h     src/ldebug.h  src/llex.h     src/lopcodes.h  src/lstring.h  src/luaconf.h  src/lzio.h
+src/lauxlib.h  src/ldo.h     src/llimits.h  src/lparser.h   src/ltable.h   src/lualib.h
+src/lcode.h    src/lfunc.h   src/lmem.h     src/lprefix.h   src/ltm.h      src/lundump.h
+src/lctype.h   src/lgc.h     src/lobject.h  src/lstate.h    src/lua.h      src/lvm.h
 )
 		
 ADD_DEFINITIONS( -DLUA_COMPAT_ALL -D_CRT_SECURE_NO_WARNINGS )
@@ -73,7 +27,6 @@ SET_TARGET_PROPERTIES(lua PROPERTIES DEBUG_POSTFIX "-d")
 
 IF(NOT WIN32)
 TARGET_LINK_LIBRARIES(lua dl)
-#CZ 2018-07-31 : required, see luaconf.h line 40
 ENDIF()
 
 #INSTALL(TARGETS lua
@@ -81,4 +34,3 @@ ENDIF()
 #  LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/lib/
 #  ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib/
 #)
-
