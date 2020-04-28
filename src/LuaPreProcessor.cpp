@@ -260,21 +260,7 @@ static void bindScript(lua_State *L)
 {
   luabind::open(L);
 
-  lua_pushcfunction(L, luaopen_base);
-  lua_pushliteral(L, "");
-  lua_call(L, 1, 0);
-
-  lua_pushcfunction(L, luaopen_math);
-  lua_pushliteral(L, LUA_TABLIBNAME);
-  lua_call(L, 1, 0);
-
-  lua_pushcfunction(L, luaopen_table);
-  lua_pushliteral(L, LUA_TABLIBNAME);
-  lua_call(L, 1, 0);
-
-  lua_pushcfunction(L, luaopen_string);
-  lua_pushliteral(L, LUA_TABLIBNAME);
-  lua_call(L, 1, 0);
+  luaL_openlibs(L);
 
   luabind::module(L)
     [
@@ -372,7 +358,7 @@ std::string LuaPreProcessor::processCode(
           code += luaProtectString(silcode->getText());
         }
         if (luacode) {
-          code += "' .. " + luacode->code->getText() + " .. '";
+          code += "' .. (" + luacode->code->getText() + ") .. '";
         }
       }
       code += "\\n')\n";
