@@ -95,11 +95,12 @@ $$               lby_up=lby_up,lby_dw=lby_dw,lbx_dw=lbx_dw,lbx_up=lbx_up,
 $$               rchild=rchild,lchild=lchild}
 $$ end
 $$ for _,n in ipairs(nodes) do
-$$   print('x = ' .. n.x .. ', n.y = ' .. n.y)
-$$   print('dx = ' .. n.dx .. ', n.dy = ' .. n.dy)
+$$   print('x = ' .. n.x .. ', y = ' .. n.y)
+$$   print('dx = ' .. n.dx .. ', dy = ' .. n.dy)
 $$   print('rchild = ' .. n.rchild .. ', lchild = ' .. n.lchild)
 $$ end
-
+// pos    = vec3(1050, 30, -3616);
+// target = vec3(1050, 30, -3500);
 
 // -------------------------
 
