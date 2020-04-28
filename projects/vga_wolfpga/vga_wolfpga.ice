@@ -26,11 +26,6 @@ $$FPw = 30
 $$FPf = 12 -- fractions precision
 $$FPm = 12 -- precision within cells
 
-$$ ones = '' .. FPw .. 'b'
-$$for i=1,FPw-1 do
-$$ ones = ones .. '1'
-$$end
-
 $$div_width = FPw
 $include('../common/divint_any.ice')
 
@@ -94,7 +89,7 @@ algorithm frame_drawer(
 
   uint1  vsync_filtered = 0;
 
-  bram uint8 texture[] = {   // texture from https://github.com/freedoom/freedoom
+  bram uint8 texture[] = {
 $$write_image_in_table(texfile)
   };
   
@@ -239,7 +234,7 @@ $$end
 ++:    
     cosview_m  = sin_m.rdata;
 
-    // ray cast columns
+    // raycast columns
     c = 0;
     while (c < 320) {
       
@@ -400,7 +395,7 @@ $$end
       c = c + 1;
     }
     
-    // now draw columns
+    // draw columns
     c = 0;
     columns.wenable  = 0;
     material.wenable = 0;
