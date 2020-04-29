@@ -81,6 +81,10 @@ ADD_EXECUTABLE(silice
   src/libs/LibSL-small/src/LibSL/System/System.cpp
   src/libs/LibSL-small/src/LibSL/CppHelpers/CppHelpers.cpp
   src/libs/LibSL-small/src/LibSL/StlHelpers/StlHelpers.cpp
+  src/libs/LibSL-small/src/LibSL/Image/Image.cpp
+  src/libs/LibSL-small/src/LibSL/Image/ImageFormat_tga.cpp
+  src/libs/LibSL-small/src/LibSL/Math/Vertex.cpp
+  src/libs/LibSL-small/src/LibSL/Math/Math.cpp
   src/tga.cpp
   src/tga.h
 )

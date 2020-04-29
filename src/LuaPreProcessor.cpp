@@ -255,6 +255,45 @@ static luabind::object lua_get_palette_as_table_simple(lua_State *L, std::string
 
 // -------------------------------------------------
 
+void lua_save_table_as_image(lua_State *L, luabind::object tbl, std::string fname)
+{
+  try {
+    int i = 0, j = 0;
+    int w = 0, h = 0;
+    // width / height
+    for (luabind::iterator row(tbl), end; row != end; row++) {
+      int ncol = 0;
+      for (luabind::iterator col(*row), end; col != end; col++) {
+        ++ncol;
+      }
+      if (w != 0 && w != ncol) {
+        throw Fatal("[save_table_as_image] row %d does not have the same size as previous", j);
+      }
+      w = ncol;
+      ++h;
+      ++j;
+    }
+    // pixels
+    ImageRGB img(w,h);
+    j = 0;
+    for (luabind::iterator row(tbl), end; row != end; row++) {
+      i = 0;
+      for (luabind::iterator col(*row), end; col != end; col++) {
+        int pix = luabind::object_cast_nothrow<int>(*col,0);
+        img.pixel(i, j) = v3b((pix>>16)&255,(pix>>8)&255,(pix)&255);
+        ++i;
+      }
+      ++j;
+    }
+    // save
+    saveImage(fname.c_str(), &img);
+  } catch (Fatal& f) {
+    luaL_error(L,f.message());
+  }
+}
+
+// -------------------------------------------------
+
 int lua_lshift(int n,int s)
 {
   return n << s;
@@ -283,6 +322,7 @@ static void bindScript(lua_State *L)
       luabind::def("write_palette_in_table", &lua_write_palette_in_table),
       luabind::def("write_palette_in_table", &lua_write_palette_in_table_simple),
       luabind::def("get_palette_as_table",   &lua_get_palette_as_table),
+      luabind::def("save_table_as_image",    &lua_save_table_as_image),
       luabind::def("lshift",        &lua_lshift),
       luabind::def("rshift",        &lua_rshift)
     ];
