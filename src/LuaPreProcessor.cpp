@@ -123,6 +123,32 @@ static void lua_print(lua_State *L, std::string str)
 
 // -------------------------------------------------
 
+void lua_dofile(lua_State *L, std::string str)
+{
+  auto P = g_LuaPreProcessors.find(L);
+  if (P == g_LuaPreProcessors.end()) {
+    throw Fatal("[dofile] internal error");
+  }
+  LuaPreProcessor *lpp   = P->second;
+  std::string      fname = lpp->findFile(str);
+  luaL_dofile(L, fname.c_str());
+}
+
+// -------------------------------------------------
+
+std::string lua_findfile(lua_State *L, std::string str)
+{
+  auto P = g_LuaPreProcessors.find(L);
+  if (P == g_LuaPreProcessors.end()) {
+    throw Fatal("[findfile] internal error");
+  }
+  LuaPreProcessor *lpp   = P->second;
+  std::string      fname = lpp->findFile(str);
+  return fname;
+}
+
+// -------------------------------------------------
+
 static void lua_write_image_in_table(lua_State* L, std::string str,int component_depth)
 {
   auto P = g_LuaPreProcessors.find(L);
@@ -317,6 +343,8 @@ static void bindScript(lua_State *L)
       luabind::def("print",         &lua_print),
       luabind::def("error",         &lua_preproc_error),
       luabind::def("output",        &lua_output),
+      luabind::def("dofile",        &lua_dofile),
+      luabind::def("findfile",      &lua_findfile),
       luabind::def("write_image_in_table",   &lua_write_image_in_table),
       luabind::def("write_image_in_table",   &lua_write_image_in_table_simple),
       luabind::def("write_palette_in_table", &lua_write_palette_in_table),

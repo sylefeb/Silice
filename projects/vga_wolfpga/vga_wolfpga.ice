@@ -23,8 +23,8 @@ $$end
 $include('../common/video_sdram_main.ice')
 
 $$FPw = 30
-$$FPf = 12 -- fractions precision
-$$FPm = 12 -- precision within cells
+$$FPf = 12
+$$FPm = 12
 
 $$div_width = FPw
 $include('../common/divint_any.ice')

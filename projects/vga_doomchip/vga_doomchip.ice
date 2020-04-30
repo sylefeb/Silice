@@ -15,8 +15,8 @@ $$dofile('pre_load_data.lua')
 $$dofile('pre_render_test.lua')
 
 $$FPw = 32
-$$FPf = 16 -- fractions precision
-$$FPm = 16 -- precision within cells
+$$FPf = 16
+$$FPm = 16
 
 $$div_width = FPw
 $include('../common/divint_any.ice')
@@ -62,17 +62,52 @@ $$for _,s in ipairs(bspSegs) do
 $$end
   };
 
-  bram int$FPw$ sin_m[2048] = {
+  bram int$FPm+1$ sin_m[2048] = {
 $$for i=0,2047 do
-    $math.floor(lshift(1,FPm) * math.sin(2*math.pi*i/2048))$,
+    $math.floor((2^FPm) * math.sin(2*math.pi*i/2048))$,
 $$end
   };
+
+  bram int13 coltoalpha[320] = {
+$$for i=0,319 do
+    $math.floor(0.5 + math.atan((w/2-i)*2/w) * (2^12))$,
+$$end
+  };
+
+  uint16 queue[64] = {};
+  uint6  queue_ptr = 0;
 
   uint1  vsync_filtered = 0;
 
   div$FPw$ div;
   
   uint9 c = 0;
+
+  int$FPw$ cosview_m  = 0;
+  int$FPw$ sinview_m  = 0;
+  int16    viewangle  = 0;
+  int16    colangle   = 0;
+
+  int$FPw$ ray_x_f  = $lshift( 1050,FPf)$;
+  int$FPw$ ray_y_f  = $lshift(-3616,FPf)$;
+  int$FPw$ ray_dx_m = 0;
+  int$FPw$ ray_dy_m = 0;
+  int$FPw$ lx_f     = 0;
+  int$FPw$ ly_f     = 0;
+  int$FPw$ ldx_f    = 0;
+  int$FPw$ ldy_f    = 0;
+  int$FPw$ dx_f     = 0;
+  int$FPw$ dy_f     = 0;
+  int$FPw$ csl_f    = 0;
+  int$FPw$ csr_f    = 0;
+  
+  uint16   rchild   = 0;
+  uint16   lchild   = 0;
+  
+  
+  int9     top = 200;
+  int9     btm =   1;
+  uint16   n   =   0;
   
   vsync_filtered ::= vsync;
 
@@ -82,16 +117,86 @@ $$end
 
   fbuffer = 0;
   
+  // brams in read mode
+  bsp_nodes_coords   .wenable = 0;
+  bsp_nodes_children .wenable = 0;
+  bsp_ssecs          .wenable = 0;
+  bsp_segs_coords    .wenable = 0;
+  bsp_segs_tex_height.wenable = 0;
+  
+  sin_m.wenable      = 0;
+  coltoalpha.wenable = 0;
+  
   while (1) {
+
+    // get cos/sin view
+    sin_m.addr = (viewangle) & 2047;
+++:    
+    sinview_m  = sin_m.rdata;
+    sin_m.addr = (viewangle + 512) & 2047;
+++:    
+    cosview_m  = sin_m.rdata;
 
     // raycast columns
     c = 0;
     while (c < 320) { 
       
+      coltoalpha.addr = c;
+++:
+      colangle = (viewangle + coltoalpha.rdata);
+      // get ray dx/dy
+      sin_m.addr = (colangle) & 2047;
+++:    
+      ray_dy_m   = sin_m.rdata;
+      sin_m.addr = (colangle + 512) & 2047;
+++:    
+      ray_dx_m   = sin_m.rdata;
+
+      top = 200;
+      btm = 1;
+      
+      // init recursion
+      queue[queue_ptr] = $root$;
+      queue_ptr = 1;
+
+      // let's rock!
+      while (queue_ptr > 0) {
+        queue_ptr = queue_ptr-1;
+        n = queue[queue_ptr];
+
+        bsp_nodes_coords  .addr = n;
+        bsp_nodes_children.addr = n;
+++:
+        if (n[15,1] == 0) {
+          // node
+          lx_f  = bsp_nodes_coords.rdata[0 ,16];
+          ly_f  = bsp_nodes_coords.rdata[16,16];
+          ldx_f = bsp_nodes_coords.rdata[32,16];
+          ldy_f = bsp_nodes_coords.rdata[48,16];
+          // which side are we on?
+          dx_f   = ray_x_f - lx_f;
+          dy_f   = ray_y_f - ly_f;
+          csl_f  = (dx_f * ldy_f) >>> $FPf$;
+          csr_f  = (dy_f * ldx_f) >>> $FPf$;
+          if (csr_f > csl_f) {
+            // front
+            queue[queue_ptr+1] = bsp_nodes_children.rdata[0,16];
+            queue[queue_ptr+2] = bsp_nodes_children.rdata[16,16];
+            queue_ptr          = queue_ptr + 2
+          } else {
+          
+          }
+          
+        } else {
+          // sub-sector reached
+          
+        }
+        
+      }
+
+      // next column    
       c = c + 1;
     }
-    
-    // draw columns
     
     // wait for frame to end
     while (vsync_filtered == 0) {}

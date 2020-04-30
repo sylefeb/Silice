@@ -24,7 +24,7 @@ end
 -- -------------------------------------
 -- read vertices
 verts = {}
-local in_verts = assert(io.open('VERTEXES', 'rb'))
+local in_verts = assert(io.open(findfile('VERTEXES'), 'rb'))
 local sz = fsize(in_verts)
 print('vertex file is ' .. sz .. ' bytes')
 for i = 1,sz/4 do
@@ -37,7 +37,7 @@ end
 -- read sidedefs, also gather textures
 sides = {}
 textures = {}
-local in_sides = assert(io.open('SIDEDEFS', 'rb'))
+local in_sides = assert(io.open(findfile('SIDEDEFS'), 'rb'))
 local sz = fsize(in_sides)
 print('sidedefs file is ' .. sz .. ' bytes')
 for i = 1,sz/30 do
@@ -82,7 +82,7 @@ end
 -- -------------------------------------
 -- read sectors
 sectors = {}
-local in_sectors = assert(io.open('SECTORS', 'rb'))
+local in_sectors = assert(io.open(findfile('SECTORS'), 'rb'))
 local sz = fsize(in_sectors)
 print('sectors file is ' .. sz .. ' bytes')
 for i = 1,sz/26 do
@@ -105,7 +105,7 @@ end
 -- -------------------------------------
 -- read linedefs
 lines = {}
-local in_lines = assert(io.open('LINEDEFS', 'rb'))
+local in_lines = assert(io.open(findfile('LINEDEFS'), 'rb'))
 local sz = fsize(in_lines)
 print('linedefs file is ' .. sz .. ' bytes')
 for i = 1,sz/14 do
@@ -125,7 +125,7 @@ end
 -- -------------------------------------
 -- read segs
 segs = {}
-local in_segs = assert(io.open('SEGS', 'rb'))
+local in_segs = assert(io.open(findfile('SEGS'), 'rb'))
 local sz = fsize(in_segs)
 print('segs file is ' .. sz .. ' bytes')
 for i = 1,sz/12 do
@@ -146,7 +146,7 @@ end
 -- -------------------------------------
 -- read ssectors
 ssectors = {}
-local in_ssectors = assert(io.open('SSECTORS', 'rb'))
+local in_ssectors = assert(io.open(findfile('SSECTORS'), 'rb'))
 local sz = fsize(in_ssectors)
 print('ssectors file is ' .. sz .. ' bytes')
 for i = 1,sz/4 do
@@ -161,10 +161,10 @@ end
 -- -------------------------------------
 -- read nodes
 nodes = {}
-local in_nodes = assert(io.open('NODES', 'rb'))
+local in_nodes = assert(io.open(findfile('NODES'), 'rb'))
 local sz = fsize(in_nodes)
 print('nodes file is ' .. sz .. ' bytes')
-root = sz/28 - 1
+root = sz//28-1
 for i = 1,sz/28 do
   local x  = string.unpack('h',in_nodes:read(2)) 
   local y  = string.unpack('h',in_nodes:read(2)) 
