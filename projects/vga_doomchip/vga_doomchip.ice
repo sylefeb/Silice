@@ -180,12 +180,13 @@ $$end
           csr_f  = (dy_f * ldx_f) >>> $FPf$;
           if (csr_f > csl_f) {
             // front
-            queue[queue_ptr+1] = bsp_nodes_children.rdata[0,16];
+            queue[queue_ptr+1] = bsp_nodes_children.rdata[ 0,16];
             queue[queue_ptr+2] = bsp_nodes_children.rdata[16,16];
-            queue_ptr          = queue_ptr + 2
           } else {
-          
+            queue[queue_ptr+1] = bsp_nodes_children.rdata[16,16];
+            queue[queue_ptr+2] = bsp_nodes_children.rdata[ 0,16];          
           }
+          queue_ptr          = queue_ptr + 2;
           
         } else {
           // sub-sector reached
