@@ -474,6 +474,7 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
       cerr << errmsg << endl;
     }
     cerr << Console::gray;
+    throw Fatal("the preprocessor was interrupted");
   }
 
   g_LuaOutputs.at(L).close();
