@@ -1,3 +1,5 @@
+-- SL 2020-04-30
+
 -- -------------------------------------
 -- helper for file size
 function fsize(file)
@@ -264,6 +266,57 @@ for i,sg in ipairs(segs) do
     other_f_h = other_f_h,
     other_c_h = other_c_h,
   }
+end
+
+-- -------------------------------------
+-- utility functions to pack records
+function pack_bsp_node_coords(node)
+  local bin = 0
+  bin = '64h' 
+        .. string.format("%04x",node.dy ):sub(-4)
+        .. string.format("%04x",node.dx ):sub(-4)
+        .. string.format("%04x",node.y  ):sub(-4)
+        .. string.format("%04x",node.x  ):sub(-4)
+  return bin
+end
+
+function pack_bsp_node_children(node)
+  local bin = 0
+  bin = '32h' 
+        .. string.format("%04x",node.lchild ):sub(-4)
+        .. string.format("%04x",node.rchild ):sub(-4)
+  return bin
+end
+
+function pack_bsp_ssec(ssec)
+  local bin = 0
+  bin = '56h' 
+        .. string.format("%04x",ssec.c_h):sub(-4)
+        .. string.format("%04x",ssec.f_h):sub(-4)
+        .. string.format("%04x",ssec.start_seg):sub(-4)
+        .. string.format("%02x",ssec.num_segs ):sub(-2)
+  return bin
+end
+
+function pack_bsp_seg_coords(seg)
+  local bin = 0
+  bin = '64h' 
+        .. string.format("%04x",seg.v1y):sub(-4)
+        .. string.format("%04x",seg.v1x):sub(-4)
+        .. string.format("%04x",seg.v0y):sub(-4)
+        .. string.format("%04x",seg.v0x):sub(-4)
+  return bin
+end
+
+function pack_bsp_seg_tex_height(seg)
+  local bin = 0
+  bin = '56h' 
+        .. string.format("%02x",seg.upr):sub(-2)
+        .. string.format("%02x",seg.mid):sub(-2)
+        .. string.format("%02x",seg.lwr):sub(-2)
+        .. string.format("%04x",seg.other_c_h):sub(-4)
+        .. string.format("%04x",seg.other_f_h):sub(-4)
+  return bin
 end
 
 -- -------------------------------------

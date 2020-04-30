@@ -522,11 +522,7 @@ void Algorithm::readInitList(D* decl,T& var)
   }
   var.init_values.resize(var.table_size, "0");
   ForIndex(i, values_str.size()) {
-    if (values_str[i].find_first_of("hbd") != std::string::npos) {
-      var.init_values[i] = rewriteConstant(values_str[i]);
-    } else {
-      var.init_values[i] = values_str[i];
-    }
+    var.init_values[i] = values_str[i];
   }
 }
 

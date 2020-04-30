@@ -1,5 +1,5 @@
-// SL 2020-04-24
-// Wolf3D!
+// SL 2020-04-28
+// DoomChip!
 //
 // References:
 // "DooM black book" by Fabien Sanglard
@@ -35,6 +35,32 @@ algorithm frame_drawer(
   input  uint1  vsync,
   output uint1  fbuffer
 ) {
+
+  bram uint64 bsp_nodes_coords[] = {
+$$for _,n in ipairs(bspNodes) do
+   $pack_bsp_node_coords(n)$, // dy=$n.dy$ dx=$n.dx$ y=$n.y$ x=$n.x$
+$$end
+  };
+  bram uint32 bsp_nodes_children[] = {
+$$for _,n in ipairs(bspNodes) do
+   $pack_bsp_node_children(n)$, // lchild=$n.lchild$ rchild=$n.rchild$ 
+$$end
+  };
+  bram uint56 bsp_ssecs[] = {
+$$for _,s in ipairs(bspSSectors) do
+   $pack_bsp_ssec(s)$,          // c_h=$s.c_h$ f_h=$s.f_h$  start_seg=$s.start_seg$ num_segs=$s.num_segs$
+$$end
+  };
+  bram uint64 bsp_segs_coords[] = {
+$$for _,s in ipairs(bspSegs) do
+   $pack_bsp_seg_coords(s)$, // v1y=$s.v1y$ v1x=$s.v1x$ v0y=$s.v0y$ v0x=$s.v0x$ 
+$$end
+  };
+  bram uint56 bsp_segs_tex_height[] = {
+$$for _,s in ipairs(bspSegs) do
+   $pack_bsp_seg_tex_height(s)$, // upr=$s.upr$ mid=$s.mid$ lwr=$s.lwr$ other_c_h=$s.other_c_h$ other_f_h=$s.other_f_h$ 
+$$end
+  };
 
   uint1  vsync_filtered = 0;
 
