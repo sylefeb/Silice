@@ -249,13 +249,15 @@ for i,sg in ipairs(segs) do
   other_f_h = 0
   other_c_h = 0
   if other_sidedef then
-    other_f_h = other_sidedef.floor
-    other_c_h = other_sidedef.ceiling
+    other_f_h = sectors[1+other_sidedef.sec].floor
+    other_c_h = sectors[1+other_sidedef.sec].ceiling
   end
   -- print('textures ids ' .. lwr .. ',' .. mid .. ',' .. upr)
   bspSegs[i] = {
-    v0        = sg.v0,
-    v1        = sg.v1,
+    v0x       = verts[1+sg.v0].x,
+    v0y       = verts[1+sg.v0].y,
+    v1x       = verts[1+sg.v1].x,
+    v1y       = verts[1+sg.v1].y,
     upr       = upr,
     lwr       = lwr,
     mid       = mid,
@@ -270,6 +272,6 @@ print('- ' .. #ssectors .. ' sub-sectors')
 print('- ' .. #nodes .. ' nodes')
 print('- ' .. #segs .. ' segs')
 print('- ' .. (num_textures-1) .. ' textures')
-error('stop')
+-- error('stop')
 
 -- -------------------------------------
