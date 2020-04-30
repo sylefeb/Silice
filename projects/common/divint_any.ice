@@ -12,7 +12,7 @@
 //    1 => default, one stage every two
 //    2 => default, one stage every four
 // ...
-// at worst the algorithm because a loop adding
+// at worst the algorithm becomes a loop adding
 // den until it exceed num, resulting in worst performance
 // but smallest synthesized size
 
@@ -117,12 +117,6 @@ $$end
   reminder = num;
 
   while (reminder >= den) {
-
-    // assign ret/reminder from previous iteration
-//    reminder = reminder_tmp;
-
-    // wait for all multiply-compare in parallel
-// ++:
 
     // perform assignment based on occuring case
 $$concat='{'

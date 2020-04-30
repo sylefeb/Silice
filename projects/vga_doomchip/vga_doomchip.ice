@@ -11,15 +11,15 @@ $$texfile_palette = get_palette_as_table(texfile,color_depth)
 
 $include('../common/video_sdram_main.ice')
 
-$$FPw = 30
-$$FPf = 12 -- fractions precision
-$$FPm = 12 -- precision within cells
+$$dofile('pre_load_data.lua')
+$$dofile('pre_render_test.lua')
+
+$$FPw = 32
+$$FPf = 16 -- fractions precision
+$$FPm = 16 -- precision within cells
 
 $$div_width = FPw
 $include('../common/divint_any.ice')
-
-$$dofile('pre_load_data.lua')
-$$dofile('pre_render_test.lua')
 
 // -------------------------
 
@@ -59,6 +59,12 @@ $$end
   bram uint56 bsp_segs_tex_height[] = {
 $$for _,s in ipairs(bspSegs) do
    $pack_bsp_seg_tex_height(s)$, // upr=$s.upr$ mid=$s.mid$ lwr=$s.lwr$ other_c_h=$s.other_c_h$ other_f_h=$s.other_f_h$ 
+$$end
+  };
+
+  bram int$FPw$ sin_m[2048] = {
+$$for i=0,2047 do
+    $math.floor(lshift(1,FPm) * math.sin(2*math.pi*i/2048))$,
 $$end
   };
 
