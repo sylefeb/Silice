@@ -175,7 +175,7 @@ private:
     LexerErrorListener() {}
     virtual void syntaxError(
       antlr4::Recognizer *recognizer,
-      antlr4::Token *offendingSymbol,
+      antlr4::Token *tk,
       size_t line,
       size_t charPositionInLine,
       const std::string &msg, std::exception_ptr e) override
@@ -190,13 +190,23 @@ private:
   class ParserErrorListener : public antlr4::BaseErrorListener {
   public:
     ParserErrorListener() {}
-    virtual void syntaxError(antlr4::Recognizer *recognizer, antlr4::Token *offendingSymbol, size_t line, size_t charPositionInLine,
-      const std::string &msg, std::exception_ptr e) override
+    virtual void syntaxError(
+      antlr4::Recognizer *recognizer, 
+      antlr4::Token      *tk, 
+      size_t              line, 
+      size_t              charPositionInLine,
+      const std::string  &msg,
+      std::exception_ptr e) override
     {
-      std::cerr << Console::red <<
-        "[parse error] line " << line << " : " << msg
-        << Console::gray << std::endl;
-      throw Fatal(msg.c_str());
+      std::string tokens =
+        tk->getInputStream()->getText(
+          antlr4::misc::Interval{ 
+            tk->getStartIndex(),
+            tk->getStopIndex()
+          });
+      std::string str = "[parse error] line " + std::to_string(line) + " : " + tokens;
+      std::cerr << Console::red << str << Console::gray << std::endl;
+      throw Fatal(str.c_str());
     }
   };
 
