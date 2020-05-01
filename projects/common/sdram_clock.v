@@ -50,7 +50,7 @@ module sdram_clock (
     
 `else
 
-    assign sdram_clk = clk;
+    assign sdram_clk = ~clk;
     
 `endif
     

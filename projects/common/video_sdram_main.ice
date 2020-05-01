@@ -82,6 +82,16 @@ $$end
 import('reset_conditioner.v')
 $$end
 
+$$if DE10NANO then
+$$if VGA then
+import('de10nano_clk_100_25.v')
+$$else
+// TODO: hdmi
+$$end
+// reset
+import('reset_conditioner.v')
+$$end
+
 // ------------------------- 
 
 algorithm main(
@@ -100,7 +110,7 @@ $$if VERILATOR then
   input   uint8  sdram_dq_i,
   output! uint8  sdram_dq_o,
   output! uint1  sdram_dq_en,
-$$elseif MOJO then
+$$else
   output! uint1  sdram_clk, // sdram chip clock != internal sdram_clock
   inout   uint8  sdram_dq,
 $$end
@@ -118,6 +128,9 @@ $$if MOJO then
 $$end
 $$if ICARUS or VERILATOR then
   output! uint1 video_clock,
+$$end
+$$if DE10NANO then
+  output! uint8 led,
 $$end
 $$if VGA then  
   // VGA
@@ -138,22 +151,17 @@ uint1 video_reset = 0;
 uint1 sdram_reset = 0;
 
 $$if ICARUS or VERILATOR then
-
 // --- PLL
-
 $$if ICARUS then
   uint1 sdram_clock = 0;
 $$end
-
 pll clockgen<@clock,!reset>(
   video_clock :> video_clock,
   video_reset :> video_reset,
   sdram_clock :> sdram_clock,
   sdram_reset :> sdram_reset
 );
-
 $$elseif MOJO then
-	
   uint1 video_clock   = 0;
 $$if VGA then
   // --- clock
@@ -172,7 +180,6 @@ $$if HDMI then
     CLK_OUT2 :> hdmi_clock
   );
 $$end
-
   // --- video clean reset
   reset_conditioner video_rstcond (
     rcclk <: video_clock,
@@ -185,7 +192,30 @@ $$end
     in  <: reset,
     out :> sdram_reset
   );
-
+$$elseif DE10NANO then
+  // --- clock
+  uint1 video_clock = 0;
+  uint1 sdram_clock = 0;
+  uint1 pll_lock    = 0;
+  de10nano_clk_100_25 clk_gen(
+    refclk    <: clock,
+    outclk_0  :> sdram_clock,
+    outclk_1  :> video_clock,
+    locked    :> pll_lock,
+    rst       <: reset
+  );
+  // --- video clean reset
+  reset_conditioner video_rstcond (
+    rcclk <: video_clock,
+    in    <: reset,
+    out   :> video_reset
+  );  
+  // --- SDRAM clean reset
+  reset_conditioner sdram_rstcond (
+    rcclk <: sdram_clock,
+    in  <: reset,
+    out :> sdram_reset
+  );
 $$end
 
 uint1  video_active = 0;
@@ -401,7 +431,7 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 
   uint8 frame       = 0;
 
-$$if MOJO then
+$$if HARDWARE then
   uint1 lastfbuffer = 1;
   uint6 counter     = 0;
 $$end
@@ -418,7 +448,7 @@ $$end
   fbrupd <- ();
  
   // we count a number of frames and stop
-$$if MOJO then
+$$if HARDWARE then
   while (1) { 
   
     // wait while vga draws  

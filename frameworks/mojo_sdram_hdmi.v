@@ -2,6 +2,7 @@
 $$MOJO=1
 $$HDMI=1
 $$HARDWARE=1
+$$SDRAM=1
 
 module mojo_top(
     input clk,

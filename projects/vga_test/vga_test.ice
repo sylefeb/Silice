@@ -13,6 +13,11 @@ $$if ICESTICK then
 import('../common/icestick_clk_25.v')
 $$end
 
+$$if DE10NANO then
+// Clock
+import('de10nano_clk_100_25.v')
+$$end
+
 $$if HARDWARE then
 // Reset
 import('../common/reset_conditioner.v')
@@ -61,7 +66,7 @@ $$if MOJO then
   output! uint1 avr_rx,
   input   uint1 avr_rx_busy,
 $$end
-$$if MOJO or VERILATOR then
+$$if SDRAM then
   // SDRAM
   output! uint1  sdram_cle,
   output! uint1  sdram_dqm,
@@ -83,6 +88,9 @@ $$end
 $$end
 $$if SIMULATION then
   output! uint1 video_clock,
+$$end
+$$if DE10NANO then
+  output! uint8 led,
 $$end
 $$if ICESTICK then
   output! uint1 led0,
@@ -116,18 +124,29 @@ $$if MOJO then
   );
   // --- sdram reset
   uint1 sdram_reset = 0;
-  reset_conditioner sdram_rstcond (
+  reset_conditioner sdram_rstcond(
     rcclk <: sdram_clock,
     in  <: reset,
     out :> sdram_reset
   );
 $$elseif ICESTICK then
   // --- clock
-  icestick_clk_25 clk_gen (
+  icestick_clk_25 clk_gen(
     clock_in  <: clock,
     clock_out :> video_clock,
     lock      :> led4
   );
+$$elseif DE10NANO then
+  // --- clock
+  uint1 sdram_clock = 0;
+  uint1 pll_lock = 0;
+  de10nano_clk_100_25 clk_gen(
+    refclk    <: clock,
+    outclk_0  :> sdram_clock,
+    outclk_1  :> video_clock,
+    locked    :> pll_lock,
+    rst       <: reset
+  ); 
 $$end
   // --- video reset
   reset_conditioner vga_rstcond (
@@ -176,6 +195,20 @@ $$if MOJO then
   spi_miso := 1bz;
   avr_rx := 1bz;
   spi_channel := 4bzzzz;
+$$end
+
+$$if DE10NANO then
+  led := 0;
+  sdram_cle := 1bz;
+  sdram_dqm := 1bz;
+  sdram_cs  := 1bz;
+  sdram_we  := 1bz;
+  sdram_cas := 1bz;
+  sdram_ras := 1bz;
+  sdram_ba  := 2bz;
+  sdram_a   := 13bz;
+  sdram_clk := 1bz;
+  // sdram_dq  := 8bz;
 $$end
 
 $$if SIMULATION then

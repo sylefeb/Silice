@@ -99,14 +99,11 @@ $$for i=0,319 do
 $$end
   };
 
-  uint16 queue[64] = {};
-  uint6  queue_ptr = 0;
+  uint16 queue[16] = {};
+  uint9  queue_ptr = 0;
 
   uint1  vsync_filtered = 0;
   
-  uint9  c = 0;
-  uint9  j = 0;
-
   int$FPw$ cosview_m  = 0;
   int$FPw$ sinview_m  = 0;
   int16    viewangle  = 512;
@@ -122,8 +119,8 @@ $$end
   int16    ldy      = 0;
   int16    dx       = 0;
   int16    dy       = 0;
-  int24    csl      = 0;
-  int24    csr      = 0;
+  int$FPw$ csl      = 0;
+  int$FPw$ csr      = 0;
   int16    v0x      = 0;
   int16    v0y      = 0;
   int16    v1x      = 0;
@@ -142,7 +139,7 @@ $$end
   int$FPw$ invd_m   = 0;
   int$FPw$ tmp1_m   = 0;
   int$FPw$ tmp2_m   = 0;
-  uint9    h        = 0;
+  int16    h        = 0;
   int16    sec_f_h  = 0;
   int16    sec_c_h  = 0;
   int$FPw$ f_h      = 0;
@@ -156,11 +153,14 @@ $$end
  
   uint16   rchild   = 0;
   uint16   lchild   = 0;
-  uint10   s        = 0;
-  
+
   uint9    top = 200;
-  uint9    btm =   1;
-  uint16   n   =   0;
+  uint9    btm = 1;
+  uint9    c   = 0;
+  uint9    j   = 0;
+
+  uint9    s   = 0;  
+  uint16   n   = 0;
   
   vsync_filtered ::= vsync;
 
@@ -233,7 +233,9 @@ $$end
           // which side are we on?
           dx   = ray_x - lx;
           dy   = ray_y - ly;
+++:
           csl  = (dx * ldy);
+++:
           csr  = (dy * ldx);
           if (csr > csl) {
             // front
@@ -262,12 +264,17 @@ $$end
             d0y = v0y - ray_y;
             d1x = v1x - ray_x;
             d1y = v1y - ray_y;
+++:
             cs0_m = (d0y * ray_dx_m - d0x * ray_dy_m);
+++:
             cs1_m = (d1y * ray_dx_m - d1x * ray_dy_m);
+++:
             if ((cs0_m<0 && cs1_m>=0) || (cs1_m<0 && cs0_m>=0)) {
               // compute distance        
               y0_m  =  (  d0x * ray_dx_m + d0y * ray_dy_m );
+++:
               y1_m  =  (  d1x * ray_dx_m + d1y * ray_dy_m );
+++:
               x0_m  =  cs0_m;
               x1_m  =  cs1_m;
               // d  = y0 + (y0 - y1) * x0 / (x1 - x0)        
@@ -284,8 +291,8 @@ $$end
                 // -> get floor/ceiling heights
                 sec_f_h = bsp_ssecs.rdata[24,16];
                 sec_c_h = bsp_ssecs.rdata[40,16];
-                tmp1_m  = (sec_f_h - 40)*$FPw$;
-                tmp2_m  = (sec_c_h - 40)*$FPw$;
+                tmp1_m  = (sec_f_h)*$FPw$;
+                tmp2_m  = (sec_c_h)*$FPw$;
                 f_h     = 100 + ((tmp1_m * invd_m) >>> 13);
                 c_h     = 100 + ((tmp2_m * invd_m) >>> 13);
                 if (btm > f_h) {
@@ -311,7 +318,7 @@ $$end
                 // lower part?                
                 if (bsp_segs_tex_height.rdata[32,8] != 0) {
                   sec_f_h   = bsp_segs_tex_height.rdata[0,16];
-                  tmp1_m    = (sec_f_h - 40)*$FPw$;
+                  tmp1_m    = (sec_f_h)*$FPw$;
                   f_o       = 100 + ((tmp1_m * invd_m) >>> 13);
                   if (btm > f_o) {
                     f_o = btm;
@@ -326,7 +333,7 @@ $$end
                 // upper part?                
                 if (bsp_segs_tex_height.rdata[48,8] != 0) {
                   sec_c_h   = bsp_segs_tex_height.rdata[16,16];
-                  tmp1_m    = (sec_c_h - 40)*$FPw$;
+                  tmp1_m    = (sec_c_h)*$FPw$;
                   c_o       = 100 + ((tmp1_m * invd_m) >>> 13);
                   if (btm > c_o) {
                     c_o = btm;

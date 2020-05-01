@@ -220,8 +220,8 @@ for i,ss in ipairs(ssectors) do
   bspSSectors[i] = {
     num_segs  = ss.num_segs,
     start_seg = ss.start_seg,
-    f_h       = parent.floor,
-    c_h       = parent.ceiling,
+    f_h       = parent.floor-40,
+    c_h       = parent.ceiling-40,
   }
 end
 for i,sg in ipairs(segs) do
@@ -251,8 +251,8 @@ for i,sg in ipairs(segs) do
   other_f_h = 0
   other_c_h = 0
   if other_sidedef then
-    other_f_h = sectors[1+other_sidedef.sec].floor
-    other_c_h = sectors[1+other_sidedef.sec].ceiling
+    other_f_h = sectors[1+other_sidedef.sec].floor-40
+    other_c_h = sectors[1+other_sidedef.sec].ceiling-40
   end
   -- print('textures ids ' .. lwr .. ',' .. mid .. ',' .. upr)
   bspSegs[i] = {

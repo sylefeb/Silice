@@ -2,6 +2,7 @@
 $$MOJO=1
 $$VGA=1
 $$HARDWARE=1
+$$SDRAM=1
 $$color_depth=6
 $$color_max  =63
 

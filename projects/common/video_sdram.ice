@@ -37,16 +37,16 @@ $$else
   // default
   uint$3*color_depth$ palette[256] = {
 $$for i=0,256/4-1 do
-    $i*color_max/(256/4-1)$,
+    $math.floor(i*color_max/(256/4-1))$,
 $$end
 $$for i=0,256/4-1 do
-    $lshift(i*color_max/(256/4-1),color_depth)$,
+    $math.floor(lshift(i*color_max/(256/4-1),color_depth))$,
 $$end  
 $$for i=0,256/4-1 do
-    $lshift(i*color_max/(256/4-1),2*color_depth)$,
+    $math.floor(lshift(i*color_max/(256/4-1),2*color_depth))$,
 $$end
 $$for i=0,256/4-1 do v = i*color_max/(256/4-1)
-    $v + lshift(v,color_depth) + lshift(v,2*color_depth)$,
+    $math.floor(v + lshift(v,color_depth) + lshift(v,2*color_depth))$,
 $$end
   };  
 $$end
