@@ -6,8 +6,8 @@
 // DooM unofficial specs http://www.gamers.org/dhs/helpdocs/dmsp1666.html
 
 $$print('main file')
-$$texfile = 'doom.tga'
-$$texfile_palette = get_palette_as_table(texfile,color_depth)
+$$-- texfile = 'doom.tga'
+$$-- texfile_palette = get_palette_as_table(texfile,color_depth)
 
 $include('../common/video_sdram_main.ice')
 
@@ -87,6 +87,11 @@ $$for _,s in ipairs(bspSegs) do
    $pack_bsp_seg_tex_height(s)$, // upr=$s.upr$ mid=$s.mid$ lwr=$s.lwr$ other_c_h=$s.other_c_h$ other_f_h=$s.other_f_h$ 
 $$end
   };
+  bram uint32 bsp_segs_texmapping[] = {
+$$for _,s in ipairs(bspSegs) do
+   $pack_bsp_seg_texmapping(s)$, // off=$s.off$ seglen=$s.seglen$
+$$end
+  };
 
   bram int$FPm+1$ sin_m[2048] = {
 $$for i=0,2047 do
@@ -115,7 +120,7 @@ $$if HARDWARE then
   int16    ray_y    = -3616;
 $$else
   int16    ray_x    =  1050;
-  int16    ray_y    =$-3616+64*4$;
+  int16    ray_y    =$-3616+64*4-1$;
 $$end
   int$FPw$ ray_dx_m = 0;
   int$FPw$ ray_dy_m = 0;
@@ -165,6 +170,7 @@ $$end
   int10    btm = 1;
   uint9    c   = 0;
   uint9    j   = 0;
+  uint8    palidx = 0;
 
   uint9    s   = 0;  
   uint16   n   = 0;
@@ -261,6 +267,7 @@ $$end
           while (s < bsp_ssecs.rdata[0,8]) {
             bsp_segs_coords.addr      = bsp_ssecs.rdata[8,16] + s;
             bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
+            bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
 ++:
             v0x = bsp_segs_coords.rdata[ 0,16];
             v0y = bsp_segs_coords.rdata[16,16];
@@ -289,7 +296,7 @@ $$end
               den   = (x1_m - x0_m) >>> $FPm$;
               (interp_m) <- div <- (num,den);
               d_m   = y0_m + (((y0_m - y1_m) >>> $FPm$) * interp_m);
-              if (d_m > 0) { // check sign
+              if (d_m > $1<<(FPm+1)$) { // check sign, with margin to stay away from 0
                 // hit!
                 // -> correct to perpendicular distance ( * cos(alpha) )
                 tmp2_m = (d_m >> $FPm$) * sin_m.rdata;
@@ -302,6 +309,11 @@ $$end
                 tmp2_m  = (sec_c_h) * 30;
                 f_h     = 100 + ((tmp1_m * invd_m) >>> 13);
                 c_h     = 100 + ((tmp2_m * invd_m) >>> 13);
+                
+                ///
+                // palidx = (n&255);
+                palidx = (bsp_segs_texmapping.rdata[0,16] * interp_m) >> $FPm$;
+                
                 if (btm > f_h) {
                   f_h = btm;
                 } else { if (top < f_h) {
@@ -333,7 +345,7 @@ $$end
                     f_o = top;
                   } }
                   while (btm < f_o) {                
-                    () <- writePixel <- (c,btm,(n&255));
+                    () <- writePixel <- (c,btm,(palidx));
                     btm = btm + 1;                  
                   }                  
                 }
@@ -348,7 +360,7 @@ $$end
                     c_o = top;
                   } }
                   while (top > c_o) {                
-                    () <- writePixel <- (c,top,(n&255));
+                    () <- writePixel <- (c,top,(palidx));
                     top = top - 1;                  
                   }
                 }
@@ -356,7 +368,7 @@ $$end
                   // opaque wall
                   j = f_h;
                   while (j <= c_h) {                
-                    () <- writePixel <- (c,j,(n&255));
+                    () <- writePixel <- (c,j,(palidx));
                     j = j + 1;                  
                   }
                   // flush queue to stop
@@ -380,7 +392,7 @@ $$end
 $$if HARDWARE then
     ray_y = ray_y + 1;
 $$else
-    ray_y = ray_y + 4;
+    // ray_y = ray_y + 1;
 $$end
     if (ray_y > -3216) {
       ray_y = -3616;

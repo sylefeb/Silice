@@ -127,6 +127,7 @@ end
 segs = {}
 local in_segs = assert(io.open(findfile('SEGS'), 'rb'))
 local sz = fsize(in_segs)
+local maxseglen = 0.0
 print('segs file is ' .. sz .. ' bytes')
 for i = 1,sz/12 do
   local v0  = string.unpack('H',in_segs:read(2))
@@ -135,8 +136,15 @@ for i = 1,sz/12 do
   local ldf = string.unpack('H',in_segs:read(2))
   local dir = string.unpack('h',in_segs:read(2))
   local off = string.unpack('h',in_segs:read(2))
-  segs[i] = {v0=v0,v1=v1,agl=agl,ldf=ldf,dir=dir,off=off}
+  dx = verts[1+v1].x-verts[1+v0].x
+  dy = verts[1+v1].y-verts[1+v0].y 
+  seglen = math.sqrt(dx*dx+dy*dy)
+  segs[i] = {v0=v0,v1=v1,agl=agl,ldf=ldf,dir=dir,off=off,seglen=seglen}
+  if (seglen > maxseglen) then
+    maxseglen = seglen
+  end
 end
+print('max seg len is ' .. maxseglen .. ' units.')
 --for _,s in ipairs(segs) do
 --  print('v0 = ' .. s.v0 .. ', v1 = ' .. s.v1)
 --  print('agl = ' .. s.agl .. ', linedef = ' .. s.ldf)
@@ -265,6 +273,8 @@ for i,sg in ipairs(segs) do
     mid       = mid,
     other_f_h = other_f_h,
     other_c_h = other_c_h,
+    off       = sg.off,
+    seglen    = sg.seglen
   }
 end
 
@@ -316,6 +326,14 @@ function pack_bsp_seg_tex_height(seg)
         .. string.format("%02x",seg.lwr):sub(-2)
         .. string.format("%04x",seg.other_c_h):sub(-4)
         .. string.format("%04x",seg.other_f_h):sub(-4)
+  return bin
+end
+
+function pack_bsp_seg_texmapping(seg)
+  local bin = 0
+  bin = '32h' 
+        .. string.format("%04x",math.floor(0.5+seg.off)):sub(-4)
+        .. string.format("%04x",math.floor(0.5+seg.seglen)):sub(-4)
   return bin
 end
 

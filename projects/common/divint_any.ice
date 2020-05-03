@@ -106,11 +106,15 @@ $$end
     goto done;
   }
   if (den == 0) {
-$$ ones = '0'
+$$ones=''
 $$for i=1,div_width-1 do
 $$ ones = ones .. '1'
 $$end
-    ret = $div_width$b$ones$;
+    if (num_neg ^ den_neg) {
+      ret = $div_width$b1$ones$;
+    } else {
+      ret = $div_width$b0$ones$;
+    }
     goto done;
   }
 
