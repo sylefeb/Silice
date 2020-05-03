@@ -114,7 +114,6 @@ $$refresh_wait   = 7
   sdram_dqm := dqm;
   sdram_ba  := ba;
   sdram_a   := a;
-  sdram_cle := 1;
  
   cmd       := CMD_NOP;
 
@@ -124,9 +123,9 @@ $$refresh_wait   = 7
   
     if (in_valid) {
       // -> copy inputs
-      bank      = addr[21,2];
-      row       = addr[8,13];
-      col       = addr[0,8];
+      bank      = addr[21,2]; // 21-22
+      row       = addr[8,13]; //  8-20
+      col       = addr[0,8];  //  0- 7
       wbyte     = wbyte_addr;
       data      = data_in;
       do_rw     = rw;    
@@ -141,8 +140,12 @@ $$refresh_wait   = 7
   // start busy during init
   busy       = 1;
  
+  // pre-init, wait before enabling clock
+  sdram_cle = 0;
+  () <- wait <- (10100);
+  sdram_cle = 1;
+
   // init
-  $display("init");
   a     = 0;
   ba    = 0;
   dq_en = 0;
@@ -150,7 +153,6 @@ $$refresh_wait   = 7
   () <- wait <- (delay);
   
   // precharge all
-  $display("precharge_all");
   cmd      = CMD_PRECHARGE;
   a[10,1]  = 1;
   ba       = 0;
@@ -159,27 +161,28 @@ $$refresh_wait   = 7
 ++:
   
   // refresh 1
-  $display("refresh 1");
   cmd     = CMD_REFRESH;
   delay   = $refresh_wait$;
   () <- wait <- (delay);
   
   // refresh 2
-  $display("refresh 2");
   cmd     = CMD_REFRESH;
   delay   = $refresh_wait$;
   () <- wait <- (delay);
   
   // load mod reg
-  $display("load mode reg");
   cmd     = CMD_LOAD_MODE_REG;
   ba      = 0;
-  a       = {3b000, 1b1, 2b00, 3b010, 1b0, 3b010};
+  a       = {3b000, 1b1, 2b00, 3b011, 1b0, 3b010};
   delay   = 3;
   () <- wait <- (delay);
 
-  $display("main loop");
-
+  ba            = 0;
+  a             = 0;
+  cmd           = CMD_NOP;
+  row_open      = 0;
+  refresh_count = $refresh_cycles$;
+  
   while (1) {
 
     // refresh?
@@ -189,6 +192,7 @@ $$refresh_wait   = 7
         busy     = 1;
         // -> precharge all
         cmd      = CMD_PRECHARGE;
+        a        = 0;
         a[10,1]  = 1;
         ba       = 0;
         row_open = 0;
@@ -202,11 +206,11 @@ $$refresh_wait   = 7
         // could accept work
         busy          = work_todo;
         // -> reset count
-        refresh_count = $refresh_cycles$;
+        refresh_count = $refresh_cycles$;        
     }
 
     if (work_todo) {
-      // -> row management
+    // -> row management
       if (row_open[bank,1]) {      
         // a row is open
         if (row_addr[bank] == row) {
@@ -215,7 +219,7 @@ $$refresh_wait   = 7
           // different row
           // -> pre-charge
           cmd            = CMD_PRECHARGE;
-          a[10,1]        = 0;
+          a              = 0;
           ba             = bank;
           row_open[ba,1] = 0; //row closed
 ++:
@@ -243,21 +247,23 @@ $$refresh_wait   = 7
       if (do_rw) {
         // write
         cmd   = CMD_WRITE;
-        dq_o  = data;
         dq_en = 1;
-        a     = {2b0, 1b0, col, wbyte};
+        dq_o  = data[0,8];
+        a     = {2b0, 1b0/*no auto-precharge*/, col, wbyte};
         ba    = bank;
 ++:
         // can accept work
+        dq_en          = 0;
         work_todo      = 0;
         busy           = 0;
       } else {
         // read
         dq_en = 0;
-        a     = {2b0, 1b0, col, 2b0};
+        a     = {2b0, 1b0/*no auto-precharge*/, col, 2b0};
         ba    = bank;
         // wait for data (CAS)
         cmd   = CMD_READ;        
+++:
 ++:
 ++:
 ++:
@@ -270,6 +276,7 @@ $$refresh_wait   = 7
 ++:        
         data_out[24,8] = dq_i;
         out_valid      = 1;
+++:
         // can accept work
         work_todo      = 0;
         busy           = 0;

@@ -6,7 +6,7 @@ $$if ICARUS then
   import('simul_sdram.v')
 $$end
 
-$$USE_ICE_SDRAM_CTRL = _true
+$$USE_ICE_SDRAM_CTRL = true
 
 $$if USE_ICE_SDRAM_CTRL then
 $include('sdramctrl.ice')
@@ -194,15 +194,16 @@ $$end
   );
 $$elseif DE10NANO then
   // --- clock
-  uint1 video_clock = 0;
-  uint1 sdram_clock = 0;
-  uint1 pll_lock    = 0;
+  uint1 video_clock  = 0;
+  uint1 sdram_clock  = 0;
+  uint1 pll_lock     = 0;
+  uint1 not_pll_lock = 0;
   de10nano_clk_100_25 clk_gen(
     refclk    <: clock,
+    rst       <: not_pll_lock,
     outclk_0  :> sdram_clock,
     outclk_1  :> video_clock,
-    locked    :> pll_lock,
-    rst       <: reset
+    locked    :> pll_lock
   );
   // --- video clean reset
   reset_conditioner video_rstcond (
@@ -363,20 +364,40 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 // --- Frame buffer row memory
 // dual clock crosses from sdram to vga
 
-  uint16 pixaddr_r = 0;
-  uint16 pixaddr_w = 0;
-  uint32 pixdata_r = 0;
-  uint32 pixdata_w = 0;
-  uint1  pixwenable  = 0;
+  uint16 pixaddr0_r  = 0;
+  uint16 pixaddr0_w  = 0;
+  uint32 pixdata0_r  = 0;
+  uint32 pixdata0_w  = 0;  
+  uint1  pixrenable0 = 0;
+  uint1  pixwenable0 = 0;
 
-  dual_frame_buffer_row fbr(
+  uint16 pixaddr1_r  = 0;
+  uint16 pixaddr1_w  = 0;
+  uint32 pixdata1_r  = 0;
+  uint32 pixdata1_w  = 0;
+  uint1  pixrenable1 = 0;
+  uint1  pixwenable1 = 0;
+
+  dual_frame_buffer_row fbr0(
     rclk    <: video_clock,
     wclk    <: sdram_clock,
-    raddr   <: pixaddr_r,
-    rdata   :> pixdata_r,
-    waddr   <: pixaddr_w,
-    wdata   <: pixdata_w,
-    wenable <: pixwenable
+    raddr   <: pixaddr0_r,
+    rdata   :> pixdata0_r,
+    waddr   <: pixaddr0_w,
+    wdata   <: pixdata0_w,
+    renable <: pixrenable0,
+    wenable <: pixwenable0
+  );
+
+  dual_frame_buffer_row fbr1(
+    rclk    <: video_clock,
+    wclk    <: sdram_clock,
+    raddr   <: pixaddr1_r,
+    rdata   :> pixdata1_r,
+    waddr   <: pixaddr1_w,
+    wdata   <: pixdata1_w,
+    renable <: pixrenable1,
+    wenable <: pixwenable1
   );
 
 // --- Display
@@ -384,14 +405,18 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   uint1 row_busy = 0;
 
   frame_display display<@video_clock,!video_reset>(
-    pixaddr   :> pixaddr_r,
-    pixdata_r <: pixdata_r,
-    row_busy  :> row_busy,
-	  video_x   <: video_x,
-	  video_y   <: video_y,
-    video_r   :> video_r,
-    video_g   :> video_g,
-    video_b   :> video_b,
+    pixaddr0   :> pixaddr0_r,
+    pixdata0_r <: pixdata0_r,
+    pixrenable0:> pixrenable0,
+    pixaddr1   :> pixaddr1_r,
+    pixdata1_r <: pixdata1_r,
+    pixrenable1:> pixrenable1,
+    row_busy   :> row_busy,
+	  video_x    <: video_x,
+	  video_y    <: video_y,
+    video_r    :> video_r,
+    video_g    :> video_g,
+    video_b    :> video_b,
     <:auto:>
   );
 
@@ -400,9 +425,12 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 // --- Frame buffer row updater
   frame_buffer_row_updater fbrupd<@sdram_clock,!sdram_reset>(
     working    :> select,
-    pixaddr    :> pixaddr_w,
-    pixdata_w  :> pixdata_w,
-    pixwenable :> pixwenable,
+    pixaddr0   :> pixaddr0_w,
+    pixdata0_w :> pixdata0_w,
+    pixwenable0:> pixwenable0,
+    pixaddr1   :> pixaddr1_w,
+    pixdata1_w :> pixdata1_w,
+    pixwenable1:> pixwenable1,
     row_busy   <: row_busy,
     vsync      <: video_vblank,
     saddr      :> saddr0,
@@ -434,6 +462,10 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 $$if HARDWARE then
   uint1 lastfbuffer = 1;
   uint6 counter     = 0;
+$$end
+
+$$if DE10NANO then
+  not_pll_lock := ~pll_lock;
 $$end
 
   // ---------- let's go

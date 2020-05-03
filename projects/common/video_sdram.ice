@@ -16,8 +16,12 @@ algorithm frame_display(
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
   output! uint$color_depth$ video_b,
-  output! uint10 pixaddr,
-  input   uint32 pixdata_r,
+  output! uint10 pixaddr0,
+  input   uint32 pixdata0_r,
+  output! uint1  pixrenable0,
+  output! uint10 pixaddr1,
+  input   uint32 pixdata1_r,
+  output! uint1  pixrenable1,
   output! uint1  row_busy
 ) <autorun> {
 
@@ -55,21 +59,30 @@ $$end
   uint2  sub_j  = 0;
   uint9  pix_a  = 0;
   uint24 color  = 0;
+  
   video_r := 0;
   video_g := 0;
   video_b := 0;
- 
+
+  always {
+    // writing/reading on buffers
+    if (row_busy) {
+      pixrenable0 = 0; // write 0
+      pixrenable1 = 1; // read  1
+    } else {
+      pixrenable0 = 1; // read  0
+      pixrenable1 = 0; // write 1
+    }  
+  }
+  
   // ---------- show time!
+
+  row_busy = 1; // initally reading from row 1
 
   while (1) {
     
-    row_busy = 1;
-  
-    if (row_busy) {
-      pixaddr = (320) >> 2;
-    } else {
-      pixaddr = (  0) >> 2;
-    }
+    pixaddr0 = 0;
+    pixaddr1 = 0;
   
     if (video_active) {
 
@@ -79,10 +92,18 @@ $$end
 	    //    ...            loads row 199 for display in screen row 200
       if (pix_j > 0 && pix_j <= 200) {
 $$if VGA == 1 then
-		    palidx = pixdata_r[(((video_x >> 1)&3)<<3),8];
+        if (row_busy) {
+          palidx = pixdata1_r[(((video_x >> 1)&3)<<3),8];
+        } else {
+          palidx = pixdata0_r[(((video_x >> 1)&3)<<3),8];
+        }
 $$end
 $$if HDMI == 1 then
-		    palidx = pixdata_r[(((video_x >> 2)&3)<<3),8];
+        if (row_busy) {
+          palidx = pixdata1_r[(((video_x >> 2)&3)<<3),8];
+        } else {
+          palidx = pixdata0_r[(((video_x >> 2)&3)<<3),8];
+        }
 $$end
         color    = palette[palidx];
         video_r  = color[0,$color_depth$];
@@ -128,7 +149,7 @@ $$end
 
     // busy row
     if (pix_j < 200) {		
-      row_busy = ~(pix_j&1);
+      row_busy = ~(pix_j[0,1]);
     }
 
     // prepare next read
@@ -146,11 +167,9 @@ $$end
 	  } else {
 	    pix_a = 0;
 	  }
-    if (row_busy) {
-      pixaddr = ((pix_a) + 320) >> 2;  
-    } else {
-      pixaddr = (pix_a) >> 2;
-	  }
+    
+    pixaddr0 = (pix_a) >> 2;  
+    pixaddr1 = (pix_a) >> 2;
 
   }
 }
@@ -236,9 +255,12 @@ algorithm frame_buffer_row_updater(
   input   uint1  sbusy,
   output  uint1  sin_valid,
   input   uint1  sout_valid,
-  output! uint10 pixaddr,
-  output! uint32 pixdata_w,
-  output! uint1  pixwenable,
+  output! uint10 pixaddr0,
+  output! uint32 pixdata0_w,
+  output! uint1  pixwenable0,
+  output! uint10 pixaddr1,
+  output! uint32 pixdata1_w,
+  output! uint1  pixwenable1,
   input   uint1  row_busy,
   input   uint1  vsync,
   output  uint1  working,
@@ -246,17 +268,29 @@ algorithm frame_buffer_row_updater(
 )
 {
   // frame update counters
-  uint10 next  = 0;
-  uint10 count = 0;
-  uint8  row   = 0; // 0 .. 200 (0 loads 1, but 0 is not displayed, we display 1 - 200)
-  uint1  working_row = 0;
+  uint8  count             = 0;
+  uint8  row               = 0; // 0 .. 200 (0 loads 1, but 0 is not displayed, we display 1 - 200)
+  uint1  working_row       = 0; // parity of row in which we write
   uint1  row_busy_filtered = 0;
   uint1  vsync_filtered    = 0;
 
-  sin_valid   := 0; // maintain low (pulses high when needed)
+  sin_valid         := 0; // maintain low (pulses high when needed)
   
-  row_busy_filtered ::= row_busy;
-  vsync_filtered    ::= vsync;
+  //row_busy_filtered ::= row_busy;
+  //vsync_filtered    ::= vsync;
+  row_busy_filtered := row_busy;
+  vsync_filtered    := vsync;
+  
+  always {
+    // writing/reading on buffers
+    if (row_busy_filtered) {
+      pixwenable0 = 1; // write 0
+      pixwenable1 = 0; // read  1
+    } else {
+      pixwenable0 = 0; // read  0
+      pixwenable1 = 1; // write 1
+    }  
+  }
   
   working = 0;  // not working  
   srw     = 0;  // read
@@ -264,7 +298,7 @@ algorithm frame_buffer_row_updater(
   while(1) {
 
     // not working for now
-    working       = 0;
+    working = 0;
 
     // wait during vsync or while the busy row is the working row
     while (vsync_filtered || (working_row == row_busy_filtered)) { 
@@ -273,42 +307,36 @@ algorithm frame_buffer_row_updater(
 			  working_row = 0;
 		  }
 	  }
-
+    
     // working again!
 	  working = 1;
+    // working_row (in which we write) is now != busy_row (which is read for display)
 
-    // read row from SDRAM to frame buffer
+    // read row from SDRAM into frame row buffer
     //    
     // NOTE: here we assume this can be done fast enough such that row_busy
     //       will not change mid-course ... will this be true? 
     //       in any case the display cannot wait, so apart from error
     //       detection there is no need for a sync mechanism    
-    if (working_row) {
-      next = (320 >> 2);
-    } else {
-	    next = 0;
-	  }
     count = 0;
-    pixwenable  = 1;
-    while (count < (320 >> 2)) {
+    while (count < ($320 >> 2$)) {
 	
       if (sbusy == 0) {        // not busy?
         // address to read from (count + row * 320 / 4)
-        saddr       = {fbuffer,21b0} | (count + (((row << 8) + (row << 6)) >> 2)); 
+        // saddr       = {1b0,fbuffer,21b0} | (count + (((row << 8) + (row << 6)) >> 2)); 
+        saddr       = {1b0,fbuffer,21b0} | (count) | (row << 8); 
         sin_valid   = 1;         // go ahead!      
         while (sout_valid == 0) {  } // wait for value
-        // write to selected frame buffer row
-        // display("pix value %b",sdata_out);
-        pixdata_w   = sdata_out; // data to write
-        pixaddr     = next;      // address to write
+        pixdata0_w   = sdata_out; // data to write
+        pixaddr0     = count;    // address to write
+        pixdata1_w   = sdata_out; // data to write
+        pixaddr1     = count;    // address to write
         // next
-        next        = next  + 1;
-        count       = count + 1;
+        count        = count + 1;
       }
 
     }
     
-    pixwenable  = 0; // write done
 	  if (row < 199) {
       // change working row
       working_row = ~working_row;
