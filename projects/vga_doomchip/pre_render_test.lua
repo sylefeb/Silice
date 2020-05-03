@@ -170,4 +170,4 @@ for i=0,w-1 do
   end
 end
 save_table_as_image(img,'test.tga')
---error('stop')
+-- error('stop')

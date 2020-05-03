@@ -433,7 +433,8 @@ $$end
         while (1) {
           if (sbusy == 0) { // not busy?
             sdata_in    = palidx;
-            saddr       = {~fbuffer,21b0} | ((c + (yw << 8) + (yw << 6)) >> 2); // * 240 / 4
+            // saddr       = {~fbuffer,21b0} | ((c + (yw << 8) + (yw << 6)) >> 2); // * 240 / 4
+            saddr       = {1b0,~fbuffer,21b0} | (c >> 2) | (yw << 8); 
             swbyte_addr = c & 3;
             sin_valid   = 1; // go ahead!
             break;
@@ -456,7 +457,8 @@ $$end
         while (1) {
           if (sbusy == 0) { // not busy?
             sdata_in    = palidx;
-            saddr       = {~fbuffer,21b0} | ((c + (yw << 8) + (yw << 6)) >> 2); // * 240 / 4
+            // saddr       = {~fbuffer,21b0} | ((c + (yw << 8) + (yw << 6)) >> 2); // * 240 / 4
+            saddr       = {1b0,~fbuffer,21b0} | (c >> 2) | (yw << 8); 
             swbyte_addr = c & 3;
             sin_valid   = 1; // go ahead!
             break;

@@ -52,7 +52,8 @@ algorithm frame_drawer(
     while (1) {
       if (sbusy == 0) { // not busy?
         sdata_in    = value;
-        saddr       = {~fbuffer,21b0} | ((pi + (revpj << 8) + (revpj << 6)) >> 2); // * 240 / 4
+        // saddr       = {~fbuffer,21b0} | ((pi + (revpj << 8) + (revpj << 6)) >> 2); // * 240 / 4
+        saddr       = {~fbuffer,21b0} | (pi >> 2) | (revpj << 8);
         swbyte_addr = pi & 3;
         sin_valid   = 1; // go ahead!
         break;
@@ -109,8 +110,13 @@ $$end
   int16    viewangle  = 512;
   int16    colangle   = 0;
 
+$$if HARDWARE then
   int16    ray_x    =  1050;
   int16    ray_y    = -3616;
+$$else
+  int16    ray_x    =  1050;
+  int16    ray_y    =$-3616+29*4$;
+$$end
   int$FPw$ ray_dx_m = 0;
   int$FPw$ ray_dy_m = 0;
   int16    lx       = 0;
@@ -137,6 +143,7 @@ $$end
   int$FPw$ y1_m     = 0;
   int$FPw$ d_m      = 0;
   int$FPw$ invd_m   = 0;
+  int$FPw$ interp_m = 0;
   int$FPw$ tmp1_m   = 0;
   int$FPw$ tmp2_m   = 0;
   int16    h        = 0;
@@ -154,8 +161,8 @@ $$end
   uint16   rchild   = 0;
   uint16   lchild   = 0;
 
-  uint9    top = 200;
-  uint9    btm = 1;
+  int10    top = 200;
+  int10    btm = 1;
   uint9    c   = 0;
   uint9    j   = 0;
 
@@ -278,10 +285,10 @@ $$end
               x0_m  =  cs0_m;
               x1_m  =  cs1_m;
               // d  = y0 + (y0 - y1) * x0 / (x1 - x0)        
-              num   = ((y0_m - y1_m) >>> $FPm$) * cs0_m;
+              num   = x0_m;
               den   = (x1_m - x0_m) >>> $FPm$;
-              (tmp1_m) <- div <- (num,den);
-              d_m   = (y0_m + tmp1_m);
+              (interp_m) <- div <- (num,den);
+              d_m   = y0_m + (((y0_m - y1_m) >>> $FPm$) * interp_m);
               if (d_m > 0) { // check sign
                 // hit!
                 // -> correct to perpendicular distance ( * cos(alpha) )
@@ -291,8 +298,8 @@ $$end
                 // -> get floor/ceiling heights
                 sec_f_h = bsp_ssecs.rdata[24,16];
                 sec_c_h = bsp_ssecs.rdata[40,16];
-                tmp1_m  = (sec_f_h)*$FPw$;
-                tmp2_m  = (sec_c_h)*$FPw$;
+                tmp1_m  = (sec_f_h) * 30;
+                tmp2_m  = (sec_c_h) * 30;
                 f_h     = 100 + ((tmp1_m * invd_m) >>> 13);
                 c_h     = 100 + ((tmp2_m * invd_m) >>> 13);
                 if (btm > f_h) {
@@ -341,9 +348,9 @@ $$end
                     c_o = top;
                   } }
                   while (top > c_o) {                
-                    () <- writePixel <- (c,btm,(n&255));
+                    () <- writePixel <- (c,top,(n&255));
                     top = top - 1;                  
-                  }                                  
+                  }
                 }
                 if (bsp_segs_tex_height.rdata[40,8] != 0) {
                   // opaque wall
@@ -370,7 +377,14 @@ $$end
     }
     
     // prepare next
-    ray_y = ray_y + 50;
+$$if HARDWARE then
+    ray_y = ray_y + 1;
+$$else
+    // ray_y = ray_y + 4;
+$$end
+    if (ray_y > -3216) {
+      ray_y = -3616;
+    }
     
     // wait for frame to end
     while (vsync_filtered == 0) {}
