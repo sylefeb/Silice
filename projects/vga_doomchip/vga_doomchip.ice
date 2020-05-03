@@ -115,7 +115,7 @@ $$if HARDWARE then
   int16    ray_y    = -3616;
 $$else
   int16    ray_x    =  1050;
-  int16    ray_y    =$-3616+50*4$;
+  int16    ray_y    =$-3616+64*4$;
 $$end
   int$FPw$ ray_dx_m = 0;
   int$FPw$ ray_dy_m = 0;
