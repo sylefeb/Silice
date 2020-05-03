@@ -93,15 +93,15 @@ $$for _,s in ipairs(bspSegs) do
 $$end
   };
 
-  bram int$FPm+1$ sin_m[2048] = {
-$$for i=0,2047 do
-    $math.floor(0.5 + ((2^FPm)-1) * math.sin(2*math.pi*i/2048))$,
+  bram int$FPm+1$ sin_m[4096] = {
+$$for i=0,4095 do
+    $math.floor(0.5 + ((2^FPm)-1) * math.sin(2*math.pi*(i+0.5)/4096))$,
 $$end
   };
 
   bram int13 coltoalpha[320] = {
 $$for i=0,319 do
-    $math.floor(0.5 + math.atan((320/2-i)*2/320) * (2^11) / (2*math.pi))$,
+    $math.floor(0.5 + math.atan((320/2-(i+0.5))*3/320) * (2^12) / (2*math.pi))$,
 $$end
   };
 
@@ -112,7 +112,7 @@ $$end
   
   int$FPw$ cosview_m  = 0;
   int$FPw$ sinview_m  = 0;
-  int16    viewangle  = 512;
+  int16    viewangle  = 1024;
   int16    colangle   = 0;
 
 $$if HARDWARE then
@@ -120,7 +120,7 @@ $$if HARDWARE then
   int16    ray_y    = -3616;
 $$else
   int16    ray_x    =  1050;
-  int16    ray_y    =$-3616+64*4-1$;
+  int16    ray_y    =$-3616 + 90$;
 $$end
   int$FPw$ ray_dx_m = 0;
   int$FPw$ ray_dy_m = 0;
@@ -147,17 +147,22 @@ $$end
   int$FPw$ x1_m     = 0;
   int$FPw$ y1_m     = 0;
   int$FPw$ d_m      = 0;
-  int$FPw$ invd_m   = 0;
+  int$FPw$ invd_h   = 0;
   int$FPw$ interp_m = 0;
   int$FPw$ tmp1_m   = 0;
   int$FPw$ tmp2_m   = 0;
+  int$FPw$ tmp1     = 0;
+  int$FPw$ tmp2     = 0;
   int16    h        = 0;
   int16    sec_f_h  = 0;
   int16    sec_c_h  = 0;
+  int16    sec_f_o  = 0;
+  int16    sec_c_o  = 0;
   int$FPw$ f_h      = 0;
   int$FPw$ c_h      = 0;
   int$FPw$ f_o      = 0;
   int$FPw$ c_o      = 0;
+  int$FPw$ tex_v    = 0;
  
   div$FPw$ div;
   int$FPw$ num      = 0;
@@ -196,10 +201,10 @@ $$end
   while (1) {
 
     // get cos/sin view
-    sin_m.addr = (viewangle) & 2047;
+    sin_m.addr = (viewangle) & 4095;
 ++:    
     sinview_m  = sin_m.rdata;
-    sin_m.addr = (viewangle + 512) & 2047;
+    sin_m.addr = (viewangle + 1024) & 4095;
 ++:    
     cosview_m  = sin_m.rdata;
 
@@ -212,15 +217,15 @@ $$end
       colangle = (viewangle + coltoalpha.rdata);
 
       // get ray dx/dy
-      sin_m.addr = (colangle) & 2047;
+      sin_m.addr = (colangle) & 4095;
 ++:    
       ray_dy_m   = sin_m.rdata;
-      sin_m.addr = (colangle + 512) & 2047;
+      sin_m.addr = (colangle + 1024) & 4095;
 ++:    
       ray_dx_m   = sin_m.rdata;
 
       // set sin table addr to get cos(alpha)
-      sin_m.addr = (coltoalpha.rdata + 512) & 2047;
+      sin_m.addr = (coltoalpha.rdata + 1024) & 4095;
       
       top = 200;
       btm = 1;
@@ -301,18 +306,49 @@ $$end
                 // -> correct to perpendicular distance ( * cos(alpha) )
                 tmp2_m = (d_m >> $FPm$) * sin_m.rdata;
                 // -> compute inverse distance
-                (invd_m) <- div <- ($(1<<16)-1$,(tmp2_m >> $FPm$)); // 1024 / d
+                (invd_h) <- div <- ($(1<<24)-1$,(tmp2_m >> $FPm$)); // 1 / d
+                d_m     = tmp2_m; // record corrected distance for tex. mapping
                 // -> get floor/ceiling heights
                 sec_f_h = bsp_ssecs.rdata[24,16];
                 sec_c_h = bsp_ssecs.rdata[40,16];
-                tmp1_m  = (sec_f_h) * 30;
-                tmp2_m  = (sec_c_h) * 30;
-                f_h     = 100 + ((tmp1_m * invd_m) >>> 13);
-                c_h     = 100 + ((tmp2_m * invd_m) >>> 13);
+                tmp1    = (sec_f_h * invd_h);
+                tmp2    = (sec_c_h * invd_h);
+                
+                // TODO: round!
+                if (tmp1>0) {
+                  if (tmp1[16,1]) {
+                    f_h   = 101 + (tmp1 >>> 17);
+                  } else {
+                    f_h   = 100 + (tmp1 >>> 17);
+                  }
+                } else {
+                  if (tmp1[16,1]) {
+                    f_h   = 100 + (tmp1 >>> 17);
+                  } else {
+                    f_h   =  99 + (tmp1 >>> 17);
+                  }
+                }
+                
+                if (tmp2>0) {
+                  if (tmp2[16,1]) {
+                    c_h   = 101 + (tmp2 >>> 17);
+                  } else {
+                    c_h   = 100 + (tmp2 >>> 17);
+                  }
+                } else {
+                  if (tmp1[16,1]) {
+                    c_h   = 100 + (tmp2 >>> 17);
+                  } else {
+                    c_h   =  99 + (tmp2 >>> 17);
+                  }
+                }
+                
+                //f_h     = 100 + (tmp1 >>> 17);
+                //c_h     = 100 + (tmp2 >>> 17);
                 
                 ///
-                // palidx = (n&255);
-                palidx = (bsp_segs_texmapping.rdata[0,16] * interp_m) >> $FPm$;
+                palidx = (n&255);
+                // palidx = bsp_segs_texmapping.rdata[16,16] + ( (bsp_segs_texmapping.rdata[0,16] * interp_m) >> $FPm$);
                 
                 if (btm > f_h) {
                   f_h = btm;
@@ -324,52 +360,88 @@ $$end
                 } else { if (top < c_h) {
                   c_h = top;
                 } }
-                // move floor
+                // draw floor
                 while (btm < f_h) {                
                   () <- writePixel <- (c,btm,255);
                   btm = btm + 1;                  
                 }
-                // move ceiling
+                // draw ceiling
                 while (top > c_h) {                
                   () <- writePixel <- (c,top,255);
                   top = top - 1;
                 }
                 // lower part?                
                 if (bsp_segs_tex_height.rdata[32,8] != 0) {
-                  sec_f_h   = bsp_segs_tex_height.rdata[0,16];
-                  tmp1_m    = (sec_f_h)*$FPw$;
-                  f_o       = 100 + ((tmp1_m * invd_m) >>> 13);
+                  sec_f_o   = bsp_segs_tex_height.rdata[0,16];
+                  tmp1      = (sec_f_o*invd_h);
+                  //f_o       = 100 + ((tmp1 * invd_h) >>> 17);
+                  
+                  if (tmp1>0) {
+                    if (tmp1[16,1]) {
+                      f_o   = 101 + (tmp1 >>> 17);
+                    } else {
+                      f_o   = 100 + (tmp1 >>> 17);
+                    }
+                  } else {
+                    if (tmp1[16,1]) {
+                      f_o   = 100 + (tmp1 >>> 17);
+                    } else {
+                      f_o   =  99 + (tmp1 >>> 17);
+                    }
+                  }
+                  
                   if (btm > f_o) {
                     f_o = btm;
                   } else { if (top < f_o) {
                     f_o = top;
                   } }
+                  tex_v   = sec_f_o << 16;
                   while (btm < f_o) {                
-                    () <- writePixel <- (c,btm,(palidx));
-                    btm = btm + 1;                  
+                    () <- writePixel <- (c,btm,(tex_v>>19));
+                    btm = btm + 1;  
+                    tex_v = tex_v + d_m;
                   }                  
                 }
                 // upper part?                
                 if (bsp_segs_tex_height.rdata[48,8] != 0) {
-                  sec_c_h   = bsp_segs_tex_height.rdata[16,16];
-                  tmp1_m    = (sec_c_h)*$FPw$;
-                  c_o       = 100 + ((tmp1_m * invd_m) >>> 13);
+                  sec_c_o   = bsp_segs_tex_height.rdata[16,16];
+                  tmp1      = (sec_c_o*invd_h);
+                  //c_o       = 100 + ((tmp1 * invd_h) >>> 17);
+                  
+                  if (tmp1>0) {
+                    if (tmp1[16,1]) {
+                      c_o   = 101 + (tmp1 >>> 17);
+                    } else {
+                      c_o   = 100 + (tmp1 >>> 17);
+                    }
+                  } else {
+                    if (tmp1[16,1]) {
+                      c_o   = 100 + (tmp1 >>> 17);
+                    } else {
+                      c_o   =  99 + (tmp1 >>> 17);
+                    }
+                  }
+                  
                   if (btm > c_o) {
                     c_o = btm;
                   } else { if (top < c_o) {
                     c_o = top;
                   } }
+                  tex_v   = sec_c_o << 16;
                   while (top > c_o) {                
-                    () <- writePixel <- (c,top,(palidx));
-                    top = top - 1;                  
+                    () <- writePixel <- (c,top,(tex_v>>19));
+                    top = top - 1;     
+                    tex_v = tex_v - d_m;
                   }
                 }
                 if (bsp_segs_tex_height.rdata[40,8] != 0) {
                   // opaque wall
-                  j = f_h;
+                  tex_v   = sec_f_h << 16;
+                  j       = f_h;
                   while (j <= c_h) {                
-                    () <- writePixel <- (c,j,(palidx));
-                    j = j + 1;                  
+                    () <- writePixel <- (c,j,(tex_v>>19));
+                    j = j + 1;   
+                    tex_v = tex_v + d_m;
                   }
                   // flush queue to stop
                   queue_ptr = 0;
@@ -392,7 +464,7 @@ $$end
 $$if HARDWARE then
     ray_y = ray_y + 1;
 $$else
-    // ray_y = ray_y + 1;
+    ray_y = ray_y + 10;
 $$end
     if (ray_y > -3216) {
       ray_y = -3616;
