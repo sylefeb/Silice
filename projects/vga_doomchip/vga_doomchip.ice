@@ -14,11 +14,45 @@ $include('../common/video_sdram_main.ice')
 $$dofile('pre_load_data.lua')
 $$dofile('pre_render_test.lua')
 
-$$FPw = 30
+// verilator does not like 64 bits ...
+$$FPl = 48 
+$$FPw = 24
 $$FPm = 12
 
-$$div_width = FPw
+$$div_width = FPl
 $include('../common/divint_any.ice')
+$$mul_width = FPw
+$include('../common/mulint_any.ice')
+
+// -------------------------
+
+$$function macro_to_h(iv,ov)
+$$code = 
+$$[[  // shift and round
+$$    if (iv[14,1]) {
+$$      ov = 101 + (iv >>> 15);
+$$    } else {
+$$      ov = 100 + (iv >>> 15);
+$$    }
+$$]]
+$$code=code:gsub('iv', iv)
+$$code=code:gsub('ov', ov)
+$$return code
+$$end
+
+$$function macro_to_tex_v(iv,ov)
+$$code = 
+$$[[  // shift and round
+$$    if (iv[1,1]) {
+$$      ov = (iv >> 2) + 1;
+$$    } else {
+$$      ov = (iv >> 2);
+$$    }
+$$]]
+$$code=code:gsub('iv', iv)
+$$code=code:gsub('ov', ov)
+$$return code
+$$end
 
 // -------------------------
 
@@ -93,15 +127,27 @@ $$for _,s in ipairs(bspSegs) do
 $$end
   };
 
+$$ sin_tbl = {}
+$$ max_sin = ((2^FPm)-1)
+$$for i=0,1023 do
+$$   sin_tbl[i]        = round(max_sin*math.sin(2*math.pi*(i+0.5)/4096))
+$$   sin_tbl[1024 + i] = round(math.sqrt(max_sin*max_sin - sin_tbl[i]*sin_tbl[i]))
+$$   sin_tbl[2048 + i] = - sin_tbl[i]
+$$   sin_tbl[2048 + 1024 + i] = - sin_tbl[1024 + i]
+$$end
+$$--for i=0,2047 do
+$$--   print('sanity check: ' .. (math.sqrt(sin_tbl[i]*sin_tbl[i]+sin_tbl[i+1024]*sin_tbl[i+1024])))
+$$--end
+
   bram int$FPm+1$ sin_m[4096] = {
 $$for i=0,4095 do
-    $math.floor(0.5 + ((2^FPm)-1) * math.sin(2*math.pi*(i+0.5)/4096))$,
+    $sin_tbl[i]$,
 $$end
   };
 
   bram int13 coltoalpha[320] = {
 $$for i=0,319 do
-    $math.floor(0.5 + math.atan((320/2-(i+0.5))*3/320) * (2^12) / (2*math.pi))$,
+    $round(math.atan((320/2-(i+0.5))*3/320) * (2^12) / (2*math.pi))$,
 $$end
   };
 
@@ -120,7 +166,7 @@ $$if HARDWARE then
   int16    ray_y    = -3616;
 $$else
   int16    ray_x    =  1050;
-  int16    ray_y    =$-3616 + 90$;
+  int16    ray_y    =$-3616 + 90 + 110 - 20$;
 $$end
   int$FPw$ ray_dx_m = 0;
   int$FPw$ ray_dy_m = 0;
@@ -151,8 +197,8 @@ $$end
   int$FPw$ interp_m = 0;
   int$FPw$ tmp1_m   = 0;
   int$FPw$ tmp2_m   = 0;
-  int$FPw$ tmp1     = 0;
-  int$FPw$ tmp2     = 0;
+  int$FPl$ tmp1_h   = 0; // larger to hold FPm x FPm
+  int$FPl$ tmp2_h   = 0; // larger to hold FPm x FPm
   int16    h        = 0;
   int16    sec_f_h  = 0;
   int16    sec_c_h  = 0;
@@ -164,9 +210,13 @@ $$end
   int$FPw$ c_o      = 0;
   int$FPw$ tex_v    = 0;
  
-  div$FPw$ div;
-  int$FPw$ num      = 0;
-  int$FPw$ den      = 0;
+  div$FPl$ divl;
+  int$FPl$ num      = 0;
+  int$FPl$ den      = 0;
+  mul$FPw$ mull;
+  int$FPw$ mula     = 0;
+  int$FPw$ mulb     = 0;
+  int$FPl$ mulr     = 0;
  
   uint16   rchild   = 0;
   uint16   lchild   = 0;
@@ -297,54 +347,33 @@ $$end
               x0_m  =  cs0_m;
               x1_m  =  cs1_m;
               // d  = y0 + (y0 - y1) * x0 / (x1 - x0)        
-              num   = x0_m;
-              den   = (x1_m - x0_m) >>> $FPm$;
-              (interp_m) <- div <- (num,den);
-              d_m   = y0_m + (((y0_m - y1_m) >>> $FPm$) * interp_m);
+              num   = x0_m <<< $FPm$;
+              den   = (x1_m - x0_m);
+              (interp_m) <- divl <- (num,den);              
+              // d_m   = y0_m + (((y0_m - y1_m) >>> $FPm$) * interp_m);
+              mula  = (y0_m - y1_m);
+              mulb  = interp_m;
+              (mulr) <- mull <- (mula,mulb);
+              // mulr  = mula * mulb;
+              d_m   = y0_m + (mulr >>> $FPm$);
+              
               if (d_m > $1<<(FPm+1)$) { // check sign, with margin to stay away from 0
+              
                 // hit!
                 // -> correct to perpendicular distance ( * cos(alpha) )
-                tmp2_m = (d_m >> $FPm$) * sin_m.rdata;
+                num     = $FPl$d$(1<<(2*FPm+FPw-2))$;
+                den     = d_m * sin_m.rdata;
                 // -> compute inverse distance
-                (invd_h) <- div <- ($(1<<24)-1$,(tmp2_m >> $FPm$)); // 1 / d
-                d_m     = tmp2_m; // record corrected distance for tex. mapping
+                (invd_h) <- divl <- (num,den); // (2^(FPw-2)) / d
+                d_m     = (den >> $FPm$); // record corrected distance for tex. mapping
                 // -> get floor/ceiling heights
                 sec_f_h = bsp_ssecs.rdata[24,16];
                 sec_c_h = bsp_ssecs.rdata[40,16];
-                tmp1    = (sec_f_h * invd_h);
-                tmp2    = (sec_c_h * invd_h);
-                
-                // TODO: round!
-                if (tmp1>0) {
-                  if (tmp1[16,1]) {
-                    f_h   = 101 + (tmp1 >>> 17);
-                  } else {
-                    f_h   = 100 + (tmp1 >>> 17);
-                  }
-                } else {
-                  if (tmp1[16,1]) {
-                    f_h   = 100 + (tmp1 >>> 17);
-                  } else {
-                    f_h   =  99 + (tmp1 >>> 17);
-                  }
-                }
-                
-                if (tmp2>0) {
-                  if (tmp2[16,1]) {
-                    c_h   = 101 + (tmp2 >>> 17);
-                  } else {
-                    c_h   = 100 + (tmp2 >>> 17);
-                  }
-                } else {
-                  if (tmp1[16,1]) {
-                    c_h   = 100 + (tmp2 >>> 17);
-                  } else {
-                    c_h   =  99 + (tmp2 >>> 17);
-                  }
-                }
-                
-                //f_h     = 100 + (tmp1 >>> 17);
-                //c_h     = 100 + (tmp2 >>> 17);
+                tmp1_h  = (sec_f_h * invd_h);
+                tmp2_h  = (sec_c_h * invd_h);
+                // shift and round
+                $macro_to_h('tmp1_h','f_h')$
+                $macro_to_h('tmp2_h','c_h')$                
                 
                 ///
                 palidx = (n&255);
@@ -373,31 +402,17 @@ $$end
                 // lower part?                
                 if (bsp_segs_tex_height.rdata[32,8] != 0) {
                   sec_f_o   = bsp_segs_tex_height.rdata[0,16];
-                  tmp1      = (sec_f_o*invd_h);
-                  //f_o       = 100 + ((tmp1 * invd_h) >>> 17);
-                  
-                  if (tmp1>0) {
-                    if (tmp1[16,1]) {
-                      f_o   = 101 + (tmp1 >>> 17);
-                    } else {
-                      f_o   = 100 + (tmp1 >>> 17);
-                    }
-                  } else {
-                    if (tmp1[16,1]) {
-                      f_o   = 100 + (tmp1 >>> 17);
-                    } else {
-                      f_o   =  99 + (tmp1 >>> 17);
-                    }
-                  }
-                  
+                  tmp1_h    = (sec_f_o*invd_h);
+                  $macro_to_h('tmp1_h','f_o')$ // shift and round
                   if (btm > f_o) {
                     f_o = btm;
                   } else { if (top < f_o) {
                     f_o = top;
                   } }
-                  tex_v   = sec_f_o << 16;
-                  while (btm < f_o) {                
-                    () <- writePixel <- (c,btm,(tex_v>>19));
+                  tex_v   = sec_f_o << $FPm$;
+                  while (btm < f_o) {
+                    // macro_to_tex_v('tex_v','palidx')
+                    () <- writePixel <- (c,btm,(palidx));
                     btm = btm + 1;  
                     tex_v = tex_v + d_m;
                   }                  
@@ -405,41 +420,28 @@ $$end
                 // upper part?                
                 if (bsp_segs_tex_height.rdata[48,8] != 0) {
                   sec_c_o   = bsp_segs_tex_height.rdata[16,16];
-                  tmp1      = (sec_c_o*invd_h);
-                  //c_o       = 100 + ((tmp1 * invd_h) >>> 17);
-                  
-                  if (tmp1>0) {
-                    if (tmp1[16,1]) {
-                      c_o   = 101 + (tmp1 >>> 17);
-                    } else {
-                      c_o   = 100 + (tmp1 >>> 17);
-                    }
-                  } else {
-                    if (tmp1[16,1]) {
-                      c_o   = 100 + (tmp1 >>> 17);
-                    } else {
-                      c_o   =  99 + (tmp1 >>> 17);
-                    }
-                  }
-                  
+                  tmp1_h    = (sec_c_o*invd_h);
+                  $macro_to_h('tmp1_h','c_o')$ // shift and round
                   if (btm > c_o) {
                     c_o = btm;
                   } else { if (top < c_o) {
                     c_o = top;
                   } }
-                  tex_v   = sec_c_o << 16;
+                  tex_v   = sec_c_o << $FPm$;
                   while (top > c_o) {                
-                    () <- writePixel <- (c,top,(tex_v>>19));
+                    // macro_to_tex_v('tex_v','palidx')
+                    () <- writePixel <- (c,top,(palidx));
                     top = top - 1;     
                     tex_v = tex_v - d_m;
                   }
                 }
                 if (bsp_segs_tex_height.rdata[40,8] != 0) {
                   // opaque wall
-                  tex_v   = sec_f_h << 16;
+                  tex_v   = sec_f_h << $FPm$;
                   j       = f_h;
                   while (j <= c_h) {                
-                    () <- writePixel <- (c,j,(tex_v>>19));
+                    // macro_to_tex_v('tex_v','palidx')
+                    () <- writePixel <- (c,j,(palidx));
                     j = j + 1;   
                     tex_v = tex_v + d_m;
                   }

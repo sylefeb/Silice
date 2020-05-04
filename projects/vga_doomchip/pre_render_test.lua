@@ -13,7 +13,7 @@ end
 
 -- raycast
 ray_x   = 1050
-ray_y   = -3616
+ray_y   = -3616 + 90 + 130
 
 view_angle = math.pi/2
 

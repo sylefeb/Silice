@@ -22,6 +22,12 @@ function getKeysSortedByValue(tbl, sortFunction)
 end
 
 -- -------------------------------------
+-- rounding
+function round(x)
+  return math.floor(x+0.5)
+end
+
+-- -------------------------------------
 -- read vertices
 verts = {}
 local in_verts = assert(io.open(findfile('VERTEXES'), 'rb'))

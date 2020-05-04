@@ -2800,7 +2800,7 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
   for (const auto& ins : s->inputs) {
     out << FF_D << prefix << s->vios.at(ins)
       << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, nullptr /*not in a subroutine*/, pip, dependencies) 
-      << ";" << std::endl;
+      << ';' << std::endl;
   }
 }
 
@@ -2822,7 +2822,8 @@ void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, c
   // read outputs (reading from FF_D or FF_Q should be equivalent since we just cycled the state machine)
   int p = 0;
   for (const auto& outs : s->outputs) {
-    out << rewriteIdentifier(prefix, idents[p++], nullptr, nullptr, plist->getStart()->getLine(), FF_D) << " = " << FF_D << prefix << s->vios.at(outs) << std::endl;
+    out << rewriteIdentifier(prefix, idents[p++], nullptr, nullptr, plist->getStart()->getLine(), FF_D) << " = " << FF_D << prefix << s->vios.at(outs) 
+      << ';' << std::endl;
   }
 }
 
