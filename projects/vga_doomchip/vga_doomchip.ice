@@ -179,8 +179,8 @@ $$end
   int8     signed8    = 0;
   int16    frame      = 0;
 
-  int24    demo_x    = $(player_start_x)<<3$;
-  int24    demo_y    = $(player_start_y)<<3$;
+  int24    demo_x    = $(player_start_x)<<2$;
+  int24    demo_y    = $(player_start_y)<<2$;
   
   int16    ray_x    = $player_start_x$;
   int16    ray_y    = $player_start_y$;
@@ -292,8 +292,8 @@ $$end
     demo_x = demo_x - ((sinview_m * signed8) >>> $FPm$);
     demo_y = demo_y + ((cosview_m * signed8) >>> $FPm$);
     
-    ray_x  = demo_x >>> 3;
-    ray_y  = demo_y >>> 3;
+    ray_x  = demo_x >>> 2;
+    ray_y  = demo_y >>> 2;
 
 $$if SIMULATION then
 //    ray_x    =  1050;
@@ -534,8 +534,8 @@ $$end
       // reset
       frame     = 0;
       viewangle = $player_start_a$;
-      demo_x    = $(player_start_x)<<3$;
-      demo_y    = $(player_start_y)<<3$;
+      demo_x    = $(player_start_x)<<2$;
+      demo_y    = $(player_start_y)<<2$;
     }
     
     demo_path.addr = frame;
