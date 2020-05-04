@@ -5,9 +5,11 @@
 // "DooM black book" by Fabien Sanglard
 // DooM unofficial specs http://www.gamers.org/dhs/helpdocs/dmsp1666.html
 
-$$print('main file')
-$$-- texfile = 'doom.tga'
-$$-- texfile_palette = get_palette_as_table(texfile,color_depth)
+$$print('------< Compiling the DooM chip >------')
+$$print('---< written in Silice by @sylefeb >---')
+
+$$texfile = 'doom.tga'
+$$texfile_palette = get_palette_as_table(texfile,color_depth)
 
 $include('../common/video_sdram_main.ice')
 
@@ -169,6 +171,9 @@ $$end
 
   int8     signed8    = 0;
   int16    frame      = 0;
+
+  int24    demo_x    = $( 1050)<<3$;
+  int24    demo_y    = $(-3616)<<3$;
   
 $$if HARDWARE then
   int16    ray_x    =  1050;
@@ -204,15 +209,17 @@ $$end
   int$FPw$ d_m      = 0;
   int$FPw$ invd_h   = 0;
   int$FPw$ interp_m = 0;
+  int16    tmp1     = 0;
+  int16    tmp2     = 0;
   int$FPw$ tmp1_m   = 0;
   int$FPw$ tmp2_m   = 0;
   int$FPl$ tmp1_h   = 0; // larger to hold FPm x FPm
   int$FPl$ tmp2_h   = 0; // larger to hold FPm x FPm
   int16    h        = 0;
-  int16    sec_f_h  = 0;
-  int16    sec_c_h  = 0;
-  int16    sec_f_o  = 0;
-  int16    sec_c_o  = 0;
+  int$FPw$ sec_f_h  = 0;
+  int$FPw$ sec_c_h  = 0;
+  int$FPw$ sec_f_o  = 0;
+  int$FPw$ sec_c_o  = 0;
   int$FPw$ f_h      = 0;
   int$FPw$ c_h      = 0;
   int$FPw$ f_o      = 0;
@@ -260,8 +267,9 @@ $$end
   
   while (1) {
   
-    signed8 = demo_path.rdata[0,8];
-    viewangle = viewangle + signed8;
+    // update viewangle
+    signed8   = demo_path.rdata[0,8];
+    viewangle = viewangle + (signed8 <<< 3);
 
     // get cos/sin view
     sin_m.addr = (viewangle) & 4095;
@@ -271,14 +279,17 @@ $$end
 ++:    
     cosview_m  = sin_m.rdata;
 
+    // update position (demo runs at higher res)
     signed8 = demo_path.rdata[16,8];
-    ray_x = ray_x + ((cosview_m * signed8) >>> $FPm$);
-    ray_y = ray_y + ((sinview_m * signed8) >>> $FPm$);
+    demo_x = demo_x + ((cosview_m * signed8) >>> $FPm$);
+    demo_y = demo_y + ((sinview_m * signed8) >>> $FPm$);
 ++:
     signed8 = demo_path.rdata[8,8];
-    ray_x = ray_x - ((sinview_m * signed8) >>> $FPm$);
-    ray_y = ray_y + ((cosview_m * signed8) >>> $FPm$);
-       
+    demo_x = demo_x - ((sinview_m * signed8) >>> $FPm$);
+    demo_y = demo_y + ((cosview_m * signed8) >>> $FPm$);
+    
+    ray_x  = demo_x >>> 3;
+    ray_y  = demo_y >>> 3;
     
     // raycast columns
     c = 0;
@@ -357,13 +368,11 @@ $$end
             d1y = v1y - ray_y;
 ++:
             cs0_m = (d0y * ray_dx_m - d0x * ray_dy_m);
-++:
             cs1_m = (d1y * ray_dx_m - d1x * ray_dy_m);
 ++:
             if ((cs0_m<0 && cs1_m>=0) || (cs1_m<0 && cs0_m>=0)) {
               // compute distance        
               y0_m  =  (  d0x * ray_dx_m + d0y * ray_dy_m );
-++:
               y1_m  =  (  d1x * ray_dx_m + d1y * ray_dy_m );
 ++:
               x0_m  =  cs0_m;
@@ -389,28 +398,33 @@ $$end
                 (invd_h) <- divl <- (num,den); // (2^(FPw-2)) / d
                 d_m     = den >>> $FPw$; // record corrected distance for tex. mapping
                 // -> get floor/ceiling heights
-                sec_f_h = bsp_ssecs.rdata[24,16];
-                sec_c_h = bsp_ssecs.rdata[40,16];
-                tmp1_h  = (sec_f_h * invd_h);
-                tmp2_h  = (sec_c_h * invd_h);
-                // shift and round
+                tmp1    = bsp_ssecs.rdata[24,16]; // NOTE: signed, so always read in same width!
+                tmp2    = bsp_ssecs.rdata[40,16];
+                tmp1_h  = (tmp1 * invd_h);
+                tmp2_h  = (tmp2 * invd_h);
+                // shift and round column heights
                 $macro_to_h('tmp1_h','f_h')$
                 $macro_to_h('tmp2_h','c_h')$                
-                
-                ///
-                palidx = (n&255);
-                // palidx = bsp_segs_texmapping.rdata[16,16] + ( (bsp_segs_texmapping.rdata[0,16] * interp_m) >> $FPm$);
-                
+                // shift sector heights for texturing
+                tmp2_m  = (tmp1 <<< $FPm$);
+                sec_f_h = tmp2_m;
                 if (btm > f_h) {
-                  f_h = btm;
+                  sec_f_h = tmp2_m + ((btm - f_h) * d_m); // offset texturing
+                  f_h     = btm;
                 } else { if (top < f_h) {
-                  f_h = top;
+                  sec_f_h = tmp2_m + ((top - f_h) * d_m); // offset texturing
+                  f_h     = top;
                 } }
                 if (btm > c_h) {
-                  c_h = btm;
+                  c_h     = btm;
                 } else { if (top < c_h) {
-                  c_h = top;
+                  c_h     = top;
                 } }
+
+                ///
+                palidx = (n&255);
+                // palidx = bsp_segs_texmapping.rdata[16,16] + ( (bsp_segs_texmapping.rdata[0,16] * interp_m) >> $FPm$);               
+
                 // draw floor
                 while (btm < f_h) {                
                   () <- writePixel <- (c,btm,255);
@@ -421,17 +435,22 @@ $$end
                   () <- writePixel <- (c,top,255);
                   top = top - 1;
                 }
+
                 // lower part?                
                 if (bsp_segs_tex_height.rdata[32,8] != 0) {
-                  sec_f_o   = bsp_segs_tex_height.rdata[0,16];
-                  tmp1_h    = (sec_f_o*invd_h);
+                  tmp1      = bsp_segs_tex_height.rdata[0,16];
+                  tmp1_h    = (tmp1 * invd_h);
+                  tmp2_m    = tmp1 <<< $FPm$;
+                  sec_f_o   = tmp2_m;
                   $macro_to_h('tmp1_h','f_o')$ // shift and round
                   if (btm > f_o) {
-                    f_o = btm;
+                    sec_f_o = tmp2_m + ((btm - f_o) * d_m); // offset texturing
+                    f_o     = btm;
                   } else { if (top < f_o) {
-                    f_o = top;
+                    sec_f_o = tmp2_m + ((top - f_o) * d_m); // offset texturing
+                    f_o     = top;
                   } }
-                  tex_v   = sec_f_o << $FPm$;
+                  tex_v   = sec_f_o;
                   while (btm < f_o) {
                     $macro_to_tex_v('tex_v','palidx')$
                     () <- writePixel <- (c,btm,(palidx));
@@ -441,15 +460,19 @@ $$end
                 }
                 // upper part?                
                 if (bsp_segs_tex_height.rdata[48,8] != 0) {
-                  sec_c_o   = bsp_segs_tex_height.rdata[16,16];
-                  tmp1_h    = (sec_c_o*invd_h);
+                  tmp1      = bsp_segs_tex_height.rdata[16,16];
+                  tmp1_h    = (tmp1 * invd_h);
+                  tmp2_m    = tmp1 <<< $FPm$;
+                  sec_c_o   = tmp2_m;
                   $macro_to_h('tmp1_h','c_o')$ // shift and round
                   if (btm > c_o) {
-                    c_o = btm;
+                    sec_c_o = tmp2_m - ((btm - c_o) * d_m); // offset texturing
+                    c_o     = btm;
                   } else { if (top < c_o) {
-                    c_o = top;
+                    sec_c_o = tmp2_m - ((top - c_o) * d_m); // offset texturing
+                    c_o     = top;
                   } }
-                  tex_v   = sec_c_o << $FPm$;
+                  tex_v   = sec_c_o;
                   while (top > c_o) {                
                     $macro_to_tex_v('tex_v','palidx')$
                     () <- writePixel <- (c,top,(palidx));
@@ -459,7 +482,7 @@ $$end
                 }
                 if (bsp_segs_tex_height.rdata[40,8] != 0) {
                   // opaque wall
-                  tex_v   = sec_f_h << $FPm$;
+                  tex_v   = sec_f_h;
                   j       = f_h;
                   while (j <= c_h) {                
                     $macro_to_tex_v('tex_v','palidx')$

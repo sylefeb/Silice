@@ -214,14 +214,18 @@ print('demo file is ' .. sz .. ' bytes')
 for i = 1,13 do -- skip header
   local h = string.unpack('B',in_path:read(1))
 end
+k = 1
 for i = 1,(sz-13)/4 do
   local straight = string.unpack('b',in_path:read(1))
   local strafe   = string.unpack('b',in_path:read(1))
   local turn     = string.unpack('b',in_path:read(1))
   local other    = string.unpack('B',in_path:read(1))
-  demo_path[i] = {
-    straight=straight, strafe=strafe, turn=turn, other=other
-  }
+  if straight ~= 0 or strafe ~= 0 or turn ~= 0 then
+    demo_path[k] = {
+      straight=straight, strafe=strafe, turn=turn, other=other
+    }
+    k = k + 1
+  end
 end
 
 -- -------------------------------------
