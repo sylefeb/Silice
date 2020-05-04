@@ -43,10 +43,10 @@ $$end
 $$function macro_to_tex_v(iv,ov)
 $$code = 
 $$[[  // shift and round
-$$    if (iv[1,1]) {
-$$      ov = (iv >> 2) + 1;
+$$    if (iv[6,1]) {
+$$      ov = (iv >> 7) + 1;
 $$    } else {
-$$      ov = (iv >> 2);
+$$      ov = (iv >> 7);
 $$    }
 $$]]
 $$code=code:gsub('iv', iv)
@@ -126,6 +126,12 @@ $$for _,s in ipairs(bspSegs) do
    $pack_bsp_seg_texmapping(s)$, // off=$s.off$ seglen=$s.seglen$
 $$end
   };
+  bram uint24 demo_path[] = {
+$$for _,s in ipairs(demo_path) do
+   $pack_demo_path(s)$, // straight=$s.straight$ strafe=$s.strafe$ turn=$s.turn$
+$$end
+  };
+  uint16 demo_path_len = $#demo_path$;
 
 $$ sin_tbl = {}
 $$ max_sin = ((2^FPm)-1)
@@ -161,12 +167,15 @@ $$end
   int16    viewangle  = 1024;
   int16    colangle   = 0;
 
+  int8     signed8    = 0;
+  int16    frame      = 0;
+  
 $$if HARDWARE then
   int16    ray_x    =  1050;
   int16    ray_y    = -3616;
 $$else
   int16    ray_x    =  1050;
-  int16    ray_y    =$-3616 + 90 + 110 - 20$;
+  int16    ray_y    =$-3616$;
 $$end
   int$FPw$ ray_dx_m = 0;
   int$FPw$ ray_dy_m = 0;
@@ -244,11 +253,15 @@ $$end
   bsp_ssecs          .wenable = 0;
   bsp_segs_coords    .wenable = 0;
   bsp_segs_tex_height.wenable = 0;
+  demo_path          .wenable = 0;
   
   sin_m.wenable      = 0;
   coltoalpha.wenable = 0;
   
   while (1) {
+  
+    signed8 = demo_path.rdata[0,8];
+    viewangle = viewangle + signed8;
 
     // get cos/sin view
     sin_m.addr = (viewangle) & 4095;
@@ -258,6 +271,15 @@ $$end
 ++:    
     cosview_m  = sin_m.rdata;
 
+    signed8 = demo_path.rdata[16,8];
+    ray_x = ray_x + ((cosview_m * signed8) >>> $FPm$);
+    ray_y = ray_y + ((sinview_m * signed8) >>> $FPm$);
+++:
+    signed8 = demo_path.rdata[8,8];
+    ray_x = ray_x - ((sinview_m * signed8) >>> $FPm$);
+    ray_y = ray_y + ((cosview_m * signed8) >>> $FPm$);
+       
+    
     // raycast columns
     c = 0;
     while (c < 320) { 
@@ -365,7 +387,7 @@ $$end
                 den     = d_m * sin_m.rdata;
                 // -> compute inverse distance
                 (invd_h) <- divl <- (num,den); // (2^(FPw-2)) / d
-                d_m     = (den >> $FPm$); // record corrected distance for tex. mapping
+                d_m     = den >>> $FPw$; // record corrected distance for tex. mapping
                 // -> get floor/ceiling heights
                 sec_f_h = bsp_ssecs.rdata[24,16];
                 sec_c_h = bsp_ssecs.rdata[40,16];
@@ -411,7 +433,7 @@ $$end
                   } }
                   tex_v   = sec_f_o << $FPm$;
                   while (btm < f_o) {
-                    // macro_to_tex_v('tex_v','palidx')
+                    $macro_to_tex_v('tex_v','palidx')$
                     () <- writePixel <- (c,btm,(palidx));
                     btm = btm + 1;  
                     tex_v = tex_v + d_m;
@@ -429,7 +451,7 @@ $$end
                   } }
                   tex_v   = sec_c_o << $FPm$;
                   while (top > c_o) {                
-                    // macro_to_tex_v('tex_v','palidx')
+                    $macro_to_tex_v('tex_v','palidx')$
                     () <- writePixel <- (c,top,(palidx));
                     top = top - 1;     
                     tex_v = tex_v - d_m;
@@ -440,7 +462,7 @@ $$end
                   tex_v   = sec_f_h << $FPm$;
                   j       = f_h;
                   while (j <= c_h) {                
-                    // macro_to_tex_v('tex_v','palidx')
+                    $macro_to_tex_v('tex_v','palidx')$
                     () <- writePixel <- (c,j,(palidx));
                     j = j + 1;   
                     tex_v = tex_v + d_m;
@@ -463,14 +485,12 @@ $$end
     }
     
     // prepare next
-$$if HARDWARE then
-    ray_y = ray_y + 1;
-$$else
-    ray_y = ray_y + 10;
-$$end
-    if (ray_y > -3216) {
-      ray_y = -3616;
+    frame = frame + 1;
+    if (frame >= demo_path_len) {
+      frame = 0;
     }
+    
+    demo_path.addr = frame;
     
     // wait for frame to end
     while (vsync_filtered == 0) {}

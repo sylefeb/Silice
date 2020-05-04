@@ -206,6 +206,25 @@ end
 --end
 
 -- -------------------------------------
+-- read demo path
+demo_path = {}
+local in_path = assert(io.open(findfile('TEST.lmp'), 'rb'))
+local sz = fsize(in_path)
+print('demo file is ' .. sz .. ' bytes')
+for i = 1,13 do -- skip header
+  local h = string.unpack('B',in_path:read(1))
+end
+for i = 1,(sz-13)/4 do
+  local straight = string.unpack('b',in_path:read(1))
+  local strafe   = string.unpack('b',in_path:read(1))
+  local turn     = string.unpack('b',in_path:read(1))
+  local other    = string.unpack('B',in_path:read(1))
+  demo_path[i] = {
+    straight=straight, strafe=strafe, turn=turn, other=other
+  }
+end
+
+-- -------------------------------------
 -- prepare custom data structures
 bspNodes    = {}
 bspSSectors = {}
@@ -340,6 +359,15 @@ function pack_bsp_seg_texmapping(seg)
   bin = '32h' 
         .. string.format("%04x",math.floor(0.5+seg.off)):sub(-4)
         .. string.format("%04x",math.floor(0.5+seg.seglen)):sub(-4)
+  return bin
+end
+
+function pack_demo_path(p)
+  local bin = 0
+  bin = '24h'
+        .. string.format("%02x",p.straight):sub(-2)
+        .. string.format("%02x",p.strafe):sub(-2)
+        .. string.format("%02x",p.turn):sub(-2)
   return bin
 end
 
