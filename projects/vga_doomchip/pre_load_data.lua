@@ -229,6 +229,26 @@ for i = 1,(sz-13)/4 do
 end
 
 -- -------------------------------------
+-- player start
+local in_things = assert(io.open(findfile('THINGS'), 'rb'))
+local sz = fsize(in_things)
+print('things file is ' .. sz .. ' bytes')
+for i = 1,sz/10 do
+  local x   = string.unpack('h',in_things:read(2))
+  local y   = string.unpack('h',in_things:read(2))
+  local a   = string.unpack('h',in_things:read(2))
+  local ty  = string.unpack('H',in_things:read(2))
+  local opt = string.unpack('H',in_things:read(2))
+  if ty == 1 then
+    print('Player start at ' .. x .. ',' .. y .. ' angle: ' .. a)
+    player_start_x = x
+    player_start_y = y
+    player_start_a = a*1024//90;
+    break;
+  end
+end
+
+-- -------------------------------------
 -- prepare custom data structures
 bspNodes    = {}
 bspSSectors = {}
