@@ -181,7 +181,7 @@ $$end
 
   bram int13 coltox[320] = {
 $$for i=0,319 do
-    $round(col_to_x(i)*64)$,
+    $round(col_to_x(i)*256)$,
 $$end
   };
 
@@ -308,7 +308,7 @@ $$end
   
     // update viewangle
     signed8   = demo_path.rdata[0,8];
-    viewangle = viewangle + 64; // (signed8 <<< 4);
+    viewangle = viewangle + (signed8 <<< 4); // 128
 
     // get cos/sin view
     sin_m.addr = (viewangle) & 4095;
@@ -473,21 +473,15 @@ $$end
                 inv_y.addr = 100 - btm;
                 while (btm < f_h) {
                   // TODO: move to texture unit algorithm
-                  //(gv_m) <- divl <- (sec_f_h   <<< $FPw$, 100 - btm);
-                  //(gu_m) <- divl <- ((c - 159) <<< $FPw$, 100 - btm);
-                  gv_m =  ((-sec_f_h) * inv_y.rdata);
-                  gu_m =  (coltox.rdata * inv_y.rdata);
+                  gv_m = (-sec_f_h)  * inv_y.rdata;
+                  gu_m = (coltox.rdata * gv_m) >>> 8;                  
+                  // NOTE: distance is gv_m>>4  (matches d_m if d_m shifted with FPw-1)                  
 ++: // relax timing                  
-                  // transform ground coordinates
-                  //tr_gu_m = ((gu_m * cosview_m - gv_m * sinview_m) >>> $FPm$);
-                  //tr_gv_m = ((gv_m * cosview_m + gu_m * sinview_m) >>> $FPm$);
+                  // transform plane coordinates
+                  tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<4);
+                  tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<4);
 
-                  //(tmp1_m) <- divl <- (ray_x <<< $FPm$,sec_f_h);
-                  //(tmp2_m) <- divl <- (ray_y <<< $FPm$,sec_f_h);
-                  //tr_gu_m = tr_gu_m + (tmp1_m>>1);
-                  //tr_gv_m = tr_gv_m + (tmp2_m>>1);
-
-                  () <- writePixel <- (c,btm,gv_m>>4,0); //(tr_gu_m>>4),(tr_gv_m>>4));
+                  () <- writePixel <- (c,btm,(tr_gu_m>>4),(tr_gv_m>>4));
                   btm = btm + 1;
                   inv_y.addr = 100 - btm;
                 }
@@ -496,16 +490,14 @@ $$end
                 inv_y.addr = top - 100;
                 while (top > c_h) {
                   // TODO: move to texture unit algorithm
-                  //(gv_m) <- divl <- ((sec_c_h) <<< $FPw$, top - 100);
-                  //(gu_m) <- divl <- ((c - 159) <<< $FPw$, top - 100);                
-                  gv_m =  ((sec_c_h) * inv_y.rdata);
-                  gu_m =  (coltox.rdata * inv_y.rdata);
+                  gv_m = (sec_c_h)   * inv_y.rdata;
+                  gu_m = (coltox.rdata * gv_m) >>> 8;
 ++: // relax timing                  
-                  // transform ground coordinates
-                  //tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$);
-                  //tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$);
+                  // transform plane coordinates
+                  tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<4);
+                  tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<4);
 
-                  () <- writePixel <- (c,top,gv_m>>4,0); //(tr_gu_m>>4),(tr_gv_m>>4));
+                  () <- writePixel <- (c,top,(tr_gu_m>>4),(tr_gv_m>>4));
                   top = top - 1;
                   inv_y.addr = top - 100;
                 }
@@ -533,8 +525,8 @@ $$end
                   j       = f_o;
                   while (j > btm) {
                     $macro_to_tex_v('tex_v','tc_v')$
-                    // () <- writePixel <- (c,j,tc_u,bsp_segs_texmapping.rdata[32,16]+tc_v);
-                    () <- writePixel <- (c,j,d_m,0);
+                    () <- writePixel <- (c,j,tc_u,bsp_segs_texmapping.rdata[32,16]+tc_v);
+                    //() <- writePixel <- (c,j,d_m,0);
                     j     = j - 1;
                     tex_v = tex_v - d_m;
                   } 
@@ -560,8 +552,8 @@ $$end
                   j       = c_o;
                   while (j < top) {
                     $macro_to_tex_v('tex_v','tc_v')$
-                    // () <- writePixel <- (c,j,tc_u,bsp_segs_texmapping.rdata[32,16]+tc_v);
-                    () <- writePixel <- (c,j,d_m,0);
+                    () <- writePixel <- (c,j,tc_u,bsp_segs_texmapping.rdata[32,16]+tc_v);
+                    //() <- writePixel <- (c,j,d_m,0);
                     j     = j + 1;
                     tex_v = tex_v + d_m;
                   }
@@ -574,8 +566,8 @@ $$end
                   j       = f_h;
                   while (j <= c_h) {                
                     $macro_to_tex_v('tex_v','tc_v')$
-                    // () <- writePixel <- (c,j,tc_u,bsp_segs_texmapping.rdata[32,16]+tc_v);
-                    () <- writePixel <- (c,j,d_m,0);
+                    () <- writePixel <- (c,j,tc_u,bsp_segs_texmapping.rdata[32,16]+tc_v);
+                    //() <- writePixel <- (c,j,d_m,0);
                     j = j + 1;   
                     tex_v = tex_v + d_m;
                   }
