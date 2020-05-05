@@ -114,8 +114,8 @@ for i=0,w-1 do
             -- hit!
             --outlog:write('    sector.f_h (1) = ' .. sector.f_h ..'\n')
             --outlog:write('    sector.c_h (1) = ' .. sector.c_h ..'\n')
-            f_h     = (sector.f_h) * 196
-            c_h     = (sector.c_h) * 196
+            f_h     = (sector.f_h - 40) * 196
+            c_h     = (sector.c_h - 40) * 196
             --outlog:write('    f_h (1) = ' .. f_h ..'\n')
             --outlog:write('    c_h (1) = ' .. c_h ..'\n')
             f_h     = 100 + f_h / d
@@ -137,7 +137,7 @@ for i=0,w-1 do
             end
             top = c_h
             if seg.lwr > 0 then
-              f_o = (seg.other_f_h) * 196
+              f_o = (seg.other_f_h - 40) * 196
               f_o = 100 + f_o / d
               f_o = math.floor(math.max(btm,math.min(top,f_o)))
               for j=btm,f_o-1 do
@@ -146,7 +146,7 @@ for i=0,w-1 do
               btm = f_o
             end
             if seg.upr > 0 then
-              c_o = (seg.other_c_h) * 196
+              c_o = (seg.other_c_h - 40) * 196
               c_o = 100 + c_o / d
               c_o = math.floor(math.max(btm,math.min(top,c_o)))
               for j=c_o+1,top do
