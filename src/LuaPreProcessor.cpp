@@ -131,7 +131,10 @@ void lua_dofile(lua_State *L, std::string str)
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
-  luaL_dofile(L, fname.c_str());
+  int ret = luaL_dofile(L, fname.c_str());
+  if (ret) {
+    lua_error(L);
+  }
 }
 
 // -------------------------------------------------
@@ -281,6 +284,52 @@ static luabind::object lua_get_palette_as_table_simple(lua_State *L, std::string
 
 // -------------------------------------------------
 
+static luabind::object lua_get_image_as_table(lua_State* L, std::string str, int component_depth)
+{
+  auto P = g_LuaPreProcessors.find(L);
+  if (P == g_LuaPreProcessors.end()) {
+    throw Fatal("[get_image_as_table] internal error");
+  }
+  if (component_depth < 0 || component_depth > 8) {
+    throw Fatal("[get_image_as_table] component depth can only in ]0,8]");
+  }
+  LuaPreProcessor *lpp = P->second;
+  std::string      fname = lpp->findFile(str);
+  t_image_nfo* nfo = ReadTGAFile(fname.c_str());
+  if (nfo == NULL) {
+    throw Fatal("[get_image_as_table] cannot load image file '%s'", fname.c_str());
+  }
+  luabind::object rows = luabind::newtable(L);
+  int    nc = nfo->depth / 8;
+  uchar* ptr = nfo->pixels;
+  ForIndex(j, nfo->height) {
+    luabind::object cols = luabind::newtable(L);
+    ForIndex(i, nfo->width) {
+      uint32_t v = 0;
+      ForIndex(c, nc) {
+        v = (v << component_depth) | ((*(uint8_t*)(ptr++) >> (8 - component_depth)) & ((1 << component_depth) - 1));
+      }
+      cols[1 + i] = v;
+    }
+    rows[1 + j] = cols;
+  }
+  delete[](nfo->pixels);
+  if (nfo->colormap) {
+    delete[](nfo->colormap);
+  }
+  delete (nfo);
+  return rows;
+}
+
+// -------------------------------------------------
+
+static luabind::object lua_get_image_as_table_simple(lua_State *L, std::string str)
+{
+  return lua_get_image_as_table(L, str, 8);
+}
+
+// -------------------------------------------------
+
 void lua_save_table_as_image(lua_State *L, luabind::object tbl, std::string fname)
 {
   try {
@@ -320,6 +369,104 @@ void lua_save_table_as_image(lua_State *L, luabind::object tbl, std::string fnam
 
 // -------------------------------------------------
 
+void lua_save_table_as_image_with_palette(lua_State *L, 
+  luabind::object tbl, luabind::object palette, std::string fname)
+{
+  try {
+    int i = 0, j = 0;
+    int w = 0, h = 0;
+    // width / height
+    for (luabind::iterator row(tbl), end; row != end; row++) {
+      int ncol = 0;
+      for (luabind::iterator col(*row), end; col != end; col++) {
+        ++ncol;
+      }
+      if (w != 0 && w != ncol) {
+        throw Fatal("[save_table_as_image_with_palette] row %d does not have the same size as previous", j);
+      }
+      w = ncol;
+      ++h;
+      ++j;
+    }
+    // pixels
+    Array2D<uchar> pixs;
+    pixs.allocate(w, h);
+    j = 0;
+    for (luabind::iterator row(tbl), end; row != end; row++) {
+      i = 0;
+      for (luabind::iterator col(*row), end; col != end; col++) {
+        int pix = luabind::object_cast_nothrow<int>(*col, 0);
+        pixs.at(i, j) = pix;
+        ++i;
+      }
+      ++j;
+    }
+    // palette
+    i = 0;
+    Array<uint> pal(256);
+    for (luabind::iterator p(palette), end; p != end; p++) {
+      uint clr = luabind::object_cast_nothrow<uint>(*p, 0);
+      if (i == 256) {
+        throw Fatal("[save_table_as_image_with_palette] palette has too many entries (expects 256)");
+      }
+      pal[i++] = ((clr & 255) << 16) | (((clr >> 8) & 255) << 8) | ((clr >> 16) & 255);
+    }
+    if (i < 256) {
+      throw Fatal("[save_table_as_image_with_palette] palette is missing entries (expects 256)");
+    }
+    // save
+#pragma pack(push, 1)
+    /* TGA header */
+    struct tga_header_t
+    {
+      uchar id_length;          /* size of image id */
+      uchar colormap_type;      /* 1 if has a colormap */
+      uchar image_type;         /* compression type */
+
+      short	cm_first_entry;       /* colormap origin */
+      short	cm_length;            /* colormap length */
+      uchar cm_depth;            /* colormap depth */
+
+      short	x_origin;             /* bottom left x coord origin */
+      short	y_origin;             /* bottom left y coord origin */
+
+      short	width;                /* picture width (in pixels) */
+      short	height;               /* picture height (in pixels) */
+
+      uchar pixel_depth;        /* bits per pixel: 8, 16, 24 or 32 */
+      uchar image_descriptor;   /* 24 bits = 0x00; 32 bits = 0x80 */
+    };
+#pragma pack(pop)
+    FILE *f = NULL;
+    fopen_s(&f, fname.c_str(), "wb");
+    if (f == NULL) {
+      throw Fatal("sorry, cannot write file '%s'", fname.c_str());
+    }
+    struct tga_header_t hd;
+    hd.id_length = 0;
+    hd.colormap_type = 1;
+    hd.image_type = 1;
+    hd.cm_first_entry = 0;
+    hd.cm_length = 256;
+    hd.cm_depth = 32;
+    hd.x_origin = 0;
+    hd.y_origin = 0;
+    hd.width = w;
+    hd.height = h;
+    hd.pixel_depth = 8;
+    hd.image_descriptor = (1 << 5);
+    fwrite(&hd, sizeof(struct tga_header_t), 1, f);
+    fwrite(pal.raw(), pal.sizeOfData(), 1, f);
+    fwrite(pixs.raw(), w*h, 1, f);
+    fclose(f);
+
+  } catch (Fatal& f) {
+    luaL_error(L, f.message());
+  }
+}
+
+// -------------------------------------------------
+
 int lua_lshift(int n,int s)
 {
   return n << s;
@@ -340,17 +487,21 @@ static void bindScript(lua_State *L)
 
   luabind::module(L)
     [
-      luabind::def("print",         &lua_print),
-      luabind::def("error",         &lua_preproc_error),
-      luabind::def("output",        &lua_output),
-      luabind::def("dofile",        &lua_dofile),
-      luabind::def("findfile",      &lua_findfile),
-      luabind::def("write_image_in_table",   &lua_write_image_in_table),
-      luabind::def("write_image_in_table",   &lua_write_image_in_table_simple),
+      luabind::def("print", &lua_print),
+      luabind::def("error", &lua_preproc_error),
+      luabind::def("output", &lua_output),
+      luabind::def("dofile", &lua_dofile),
+      luabind::def("findfile", &lua_findfile),
+      luabind::def("write_image_in_table", &lua_write_image_in_table),
+      luabind::def("write_image_in_table", &lua_write_image_in_table_simple),
       luabind::def("write_palette_in_table", &lua_write_palette_in_table),
       luabind::def("write_palette_in_table", &lua_write_palette_in_table_simple),
-      luabind::def("get_palette_as_table",   &lua_get_palette_as_table),
-      luabind::def("save_table_as_image",    &lua_save_table_as_image),
+      luabind::def("get_image_as_table", &lua_get_image_as_table),
+      luabind::def("get_image_as_table", &lua_get_image_as_table_simple),
+      luabind::def("get_palette_as_table", &lua_get_palette_as_table),
+      luabind::def("get_palette_as_table", &lua_get_palette_as_table_simple),
+      luabind::def("save_table_as_image", &lua_save_table_as_image),
+      luabind::def("save_table_as_image_with_palette", &lua_save_table_as_image_with_palette),
       luabind::def("lshift",        &lua_lshift),
       luabind::def("rshift",        &lua_rshift)
     ];

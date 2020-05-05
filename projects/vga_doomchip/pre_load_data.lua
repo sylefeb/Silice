@@ -49,9 +49,9 @@ print('sidedefs file is ' .. sz .. ' bytes')
 for i = 1,sz/30 do
   local xoff = string.unpack('h',in_sides:read(2))
   local yoff = string.unpack('h',in_sides:read(2))
-  local uprT = in_sides:read(8)
-  local lwrT = in_sides:read(8)
-  local midT = in_sides:read(8)
+  local uprT = in_sides:read(8):match("[-%a%d]+")
+  local lwrT = in_sides:read(8):match("[-%a%d]+")
+  local midT = in_sides:read(8):match("[-%a%d]+")
   if textures[uprT] then
     textures[uprT]=textures[uprT]+1
   else
@@ -81,7 +81,7 @@ for _,t in ipairs(sorted_textures) do
   if t:sub(1,1) ~= '-' then
     num_textures   = num_textures + 1
     texture_ids[t] = num_textures
-    -- print('texture ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t])
+    print('texture ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t])
   end
 end
 
@@ -292,8 +292,8 @@ for i,ss in ipairs(ssectors) do
   bspSSectors[i] = {
     num_segs  = ss.num_segs,
     start_seg = ss.start_seg,
-    f_h       = parent.floor-40,
-    c_h       = parent.ceiling-40,
+    f_h       = parent.floor,
+    c_h       = parent.ceiling,
   }
 end
 for i,sg in ipairs(segs) do
@@ -323,8 +323,8 @@ for i,sg in ipairs(segs) do
   other_f_h = 0
   other_c_h = 0
   if other_sidedef then
-    other_f_h = sectors[1+other_sidedef.sec].floor-40
-    other_c_h = sectors[1+other_sidedef.sec].ceiling-40
+    other_f_h = sectors[1+other_sidedef.sec].floor
+    other_c_h = sectors[1+other_sidedef.sec].ceiling
   end
   -- print('textures ids ' .. lwr .. ',' .. mid .. ',' .. upr)
   bspSegs[i] = {
@@ -337,7 +337,8 @@ for i,sg in ipairs(segs) do
     mid       = mid,
     other_f_h = other_f_h,
     other_c_h = other_c_h,
-    off       = sg.off,
+    xoff      = sg.off + sidedef.xoff,
+    yoff      = sidedef.yoff,
     seglen    = sg.seglen
   }
 end
@@ -395,8 +396,9 @@ end
 
 function pack_bsp_seg_texmapping(seg)
   local bin = 0
-  bin = '32h' 
-        .. string.format("%04x",math.floor(0.5+seg.off)):sub(-4)
+  bin = '48h' 
+        .. string.format("%04x",math.floor(0.5+seg.yoff)):sub(-4)
+        .. string.format("%04x",math.floor(0.5+seg.xoff)):sub(-4)
         .. string.format("%04x",math.floor(0.5+seg.seglen)):sub(-4)
   return bin
 end
