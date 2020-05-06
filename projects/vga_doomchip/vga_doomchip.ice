@@ -14,8 +14,10 @@ $$ -- texfile_palette = get_palette_as_table(texfile,color_depth)
 $include('../common/video_sdram_main.ice')
 
 $$dofile('pre_load_data.lua')
-$$-- dofile('pre_do_textures.lua')
 $$dofile('pre_render_test.lua')
+
+$$dofile('pre_do_textures.lua')
+$include('texturechip.ice')
 
 // verilator does not like 64 bits ...
 $$FPl = 48 

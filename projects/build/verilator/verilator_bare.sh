@@ -4,6 +4,12 @@ then
   echo "please provide source file name"
 else
 
+if hash make 2>/dev/null; then
+  export MAKE=make
+else
+  export MAKE=mingw32-make  
+fi
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 export PATH=$PATH:$DIR/../../../tools/fpga-binutils/mingw32/bin/
 
@@ -30,8 +36,8 @@ mkdir $u
 cd $u
 verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc bare.v --top-module bare
 cd obj_dir
-make -f Vbare.mk
-make -f Vbare.mk ../../../../../frameworks/verilator/verilator_bare.o verilated.o 
+$MAKE -f Vbare.mk
+$MAKE -f Vbare.mk ../../../../../frameworks/verilator/verilator_bare.o verilated.o 
 g++ -O3 ../../../../../frameworks/verilator/verilator_bare.o verilated.o Vbare__ALL.a ../../../../../frameworks/verilator/libverilator_silice.a -o ../../test_$u
 cd ..
 cd ..
