@@ -310,7 +310,7 @@ $$end
   
     // update viewangle
     signed8   = demo_path.rdata[0,8];
-    viewangle = viewangle + (signed8 <<< 4); // 128
+    viewangle = viewangle + 128; // (signed8 <<< 4);
 
     // get cos/sin view
     sin_m.addr = (viewangle) & 4095;
@@ -322,8 +322,10 @@ $$end
 
     // update position (demo runs at higher res)
     signed8 = demo_path.rdata[16,8];
+    
     demo_x = demo_x + ((cosview_m * signed8) >>> $FPm$);
     demo_y = demo_y + ((sinview_m * signed8) >>> $FPm$);
+    
 ++:
     signed8 = demo_path.rdata[8,8];
     demo_x = demo_x - ((sinview_m * signed8) >>> $FPm$);
@@ -480,8 +482,8 @@ $$end
                   // NOTE: distance is gv_m>>4  (matches d_m if d_m shifted with FPw-1)                  
 ++: // relax timing                  
                   // transform plane coordinates
-                  tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<4);
-                  tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<4);
+                  tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
+                  tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
 
                   () <- writePixel <- (c,btm,(tr_gu_m>>4),(tr_gv_m>>4));
                   btm = btm + 1;
@@ -496,8 +498,8 @@ $$end
                   gu_m = (coltox.rdata * gv_m) >>> 8;
 ++: // relax timing                  
                   // transform plane coordinates
-                  tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<4);
-                  tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<4);
+                  tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
+                  tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
 
                   () <- writePixel <- (c,top,(tr_gu_m>>4),(tr_gv_m>>4));
                   top = top - 1;
