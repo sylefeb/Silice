@@ -2056,19 +2056,15 @@ void Algorithm::determineVIOAccess(
       if (alw) {
         std::string var;
         if (alw->access() != nullptr) {
-          if (alw->access()->tableAccess() != nullptr) {
-            var = alw->access()->tableAccess()->IDENTIFIER()->getText();
-          } else if (alw->access()->bitAccess() != nullptr) {
-            var = alw->access()->bitAccess()->IDENTIFIER()->getText();
-          } else {
-            // instanced algorithm input
-          }
+          var = determineAccessedVar(alw->access());
         } else {
           var = alw->IDENTIFIER()->getText();
         }
-        var = translateVIOName(var, sub, pip);
-        if (vios.find(var) != vios.end()) {
-          _written.insert(var);
+        if (!var.empty()) {
+          var = translateVIOName(var, sub, pip);
+          if (vios.find(var) != vios.end()) {
+            _written.insert(var);
+          }
         }
         if (alw->ALWSASSIGNDBL() != nullptr) { // delayed flip-flop
           // update temp var usage
@@ -2076,7 +2072,16 @@ void Algorithm::determineVIOAccess(
           _read.insert(tmpvar);
           _written.insert(tmpvar);
         }
+        // recurse on rhs expression
         determineVIOAccess(alw->expression_0(), vios, sub, pip, _read, _written);
+        // recurse on lhs expression, if any
+        if (alw->access() != nullptr) {
+          if (alw->access()->tableAccess() != nullptr) {
+            determineVIOAccess(alw->access()->tableAccess()->expression_0(), vios, sub, pip, _read, _written);
+          } else if (alw->access()->bitAccess() != nullptr) {
+            determineVIOAccess(alw->access()->bitAccess()->expression_0(), vios, sub, pip, _read, _written);
+          }
+        }
         recurse = false;
       }
     } {
@@ -2126,6 +2131,16 @@ void Algorithm::determineVIOAccess(
           for (const auto& o : S->second->outputs) {
             _read.insert(S->second->vios.at(o));
           }
+        }
+        recurse = false;
+      }
+    } {
+      auto ioa = dynamic_cast<siliceParser::IoAccessContext*>(node);
+      if (ioa) {
+        // special case for io access read
+        std::string var = determineAccessedVar(ioa);
+        if (!var.empty()) {
+          _read.insert(var);
         }
         recurse = false;
       }

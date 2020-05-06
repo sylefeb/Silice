@@ -1,5 +1,7 @@
 -- SL 2020-04-30
 
+SINGLE_TEXTURE = 0
+
 -- -------------------------------------
 -- helper for file size
 function fsize(file)
@@ -49,9 +51,9 @@ print('sidedefs file is ' .. sz .. ' bytes')
 for i = 1,sz/30 do
   local xoff = string.unpack('h',in_sides:read(2))
   local yoff = string.unpack('h',in_sides:read(2))
-  local uprT = in_sides:read(8):match("[-%a%d]+")
-  local lwrT = in_sides:read(8):match("[-%a%d]+")
-  local midT = in_sides:read(8):match("[-%a%d]+")
+  local uprT = in_sides:read(8):match("[%_-%a%d]+")
+  local lwrT = in_sides:read(8):match("[%_-%a%d]+")
+  local midT = in_sides:read(8):match("[%_-%a%d]+")
   if textures[uprT] then
     textures[uprT]=textures[uprT]+1
   else
@@ -73,6 +75,42 @@ end
 --for i,si in ipairs(sides) do
 --  print('sidedef ' .. i .. ' uprT:' .. si.uprT .. ' lwrT:' .. si.lwrT .. ' midT:' .. si.midT .. ' sec: ' .. (1+si.sec))
 --end
+
+-- -------------------------------------
+-- read sectors
+sectors = {}
+local in_sectors = assert(io.open(findfile('SECTORS'), 'rb'))
+local sz = fsize(in_sectors)
+print('sectors file is ' .. sz .. ' bytes')
+for i = 1,sz/26 do
+  local floor    = string.unpack('h',in_sectors:read(2))
+  local ceiling  = string.unpack('h',in_sectors:read(2))
+  local floorT   = in_sectors:read(8):match("[%_-%a%d]+")
+  local ceilingT = in_sectors:read(8):match("[%_-%a%d]+")  
+  local light    = string.unpack('H',in_sectors:read(2))
+  local special  = string.unpack('H',in_sectors:read(2))
+  local tag      = string.unpack('H',in_sectors:read(2))
+  if textures[floorT] then
+    textures[floorT]=textures[floorT]+1
+  else
+    textures[floorT]=1
+  end
+  if textures[ceilingT] then
+    textures[ceilingT]=textures[ceilingT]+1
+  else
+    textures[ceilingT]=1
+  end
+  sectors[i] = { floor=floor, ceiling=ceiling, floorT=floorT, ceilingT=ceilingT, light=light, special=special, tag=tag}
+end
+--for i,s in ipairs(sectors) do
+--  print('sector ' .. i)
+--  for k,v in pairs(s) do
+--    print('   ' .. k .. ' = ' .. v)
+--  end
+--end
+
+-- -------------------------------------
+-- sort textures by usage
 sorted_textures = getKeysSortedByValue(textures, function(a, b) return a > b end)
 num_textures = 0
 texture_ids = {}
@@ -85,28 +123,27 @@ for _,t in ipairs(sorted_textures) do
   end
 end
 
--- -------------------------------------
--- read sectors
-sectors = {}
-local in_sectors = assert(io.open(findfile('SECTORS'), 'rb'))
-local sz = fsize(in_sectors)
-print('sectors file is ' .. sz .. ' bytes')
-for i = 1,sz/26 do
-  local floor    = string.unpack('h',in_sectors:read(2))
-  local ceiling  = string.unpack('h',in_sectors:read(2))
-  local floorT   = in_sectors:read(8)
-  local ceilingT = in_sectors:read(8)
-  local light    = string.unpack('H',in_sectors:read(2))
-  local special  = string.unpack('H',in_sectors:read(2))
-  local tag      = string.unpack('H',in_sectors:read(2))
-  sectors[i] = { floor=floor, ceiling=ceiling, floorT=floorT, ceilingT=ceilingT, light=light, special=special, tag=tag}
+if SINGLE_TEXTURE == 1 then
+  local singletex    = sorted_textures[2] -- [1] is '-'
+  texture_ids = {}
+  texture_ids[singletex] = 1
+  textures[singletex] = 1
+  for _,s in pairs(sectors) do
+    s.floorT   = singletex
+    s.ceilingT = singletex
+  end
+  for _,s in pairs(sides) do
+    if s.uprT:sub(1, 1) ~= '-' then
+      s.uprT = singletex
+    end
+    if s.lwrT:sub(1, 1) ~= '-' then
+      s.lwrT = singletex
+    end
+    if s.midT:sub(1, 1) ~= '-' then
+      s.midT = singletex
+    end
+  end
 end
---for i,s in ipairs(sectors) do
---  print('sector ' .. i)
---  for k,v in pairs(s) do
---    print('   ' .. k .. ' = ' .. v)
---  end
---end
 
 -- -------------------------------------
 -- read linedefs
@@ -294,6 +331,8 @@ for i,ss in ipairs(ssectors) do
     start_seg = ss.start_seg,
     f_h       = parent.floor,
     c_h       = parent.ceiling,
+    f_T       = texture_ids[parent.floorT],
+    c_T       = texture_ids[parent.ceilingT],
   }
 end
 for i,sg in ipairs(segs) do
@@ -370,6 +409,14 @@ function pack_bsp_ssec(ssec)
         .. string.format("%04x",ssec.f_h):sub(-4)
         .. string.format("%04x",ssec.start_seg):sub(-4)
         .. string.format("%02x",ssec.num_segs ):sub(-2)
+  return bin
+end
+
+function pack_bsp_ssec_flats(ssec)
+  local bin = 0
+  bin = '16h' 
+        .. string.format("%02x",ssec.c_T ):sub(-2)
+        .. string.format("%02x",ssec.f_T ):sub(-2)
   return bin
 end
 

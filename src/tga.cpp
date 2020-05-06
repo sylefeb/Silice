@@ -419,8 +419,7 @@ t_image_nfo *ReadTGAFile(const char *filename)
   t_image_nfo *texinfo;
   struct tga_header_t header;
 	fopen_s(&fp, filename, "rb");
-  if (!fp)
-  {
+  if (!fp) {
     fprintf (stderr, "error: couldn't open \"%s\"!\n", filename);
     return NULL;
   }

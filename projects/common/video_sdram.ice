@@ -25,35 +25,33 @@ algorithm frame_display(
   output! uint1  row_busy
 ) <autorun> {
 
-  // palette
-$$if texfile then 
-  // from file
   uint$3*color_depth$ palette[] = {
+  // palette from table
 $$if texfile_palette then
-$$for i=1,256 do
-  $texfile_palette[i]$,
-$$end
+$$  for i=1,256 do
+    $texfile_palette[i]$,
+$$  end
 $$else
-$$write_palette_in_table(texfile,color_depth)
-$$end
-  };
-$$else
+  // palette from file
+$$  if texfile then 
+$$    write_palette_in_table(texfile,color_depth)
+$$  else
   // default
-  uint$3*color_depth$ palette[256] = {
-$$for i=0,256/4-1 do
-    $math.floor(i*color_max/(256/4-1))$,
-$$end
-$$for i=0,256/4-1 do
-    $math.floor(lshift(i*color_max/(256/4-1),color_depth))$,
-$$end  
-$$for i=0,256/4-1 do
-    $math.floor(lshift(i*color_max/(256/4-1),2*color_depth))$,
-$$end
-$$for i=0,256/4-1 do v = i*color_max/(256/4-1)
-    $math.floor(v + lshift(v,color_depth) + lshift(v,2*color_depth))$,
+$$    for i=0,256/4-1 do
+        $math.floor(i*color_max/(256/4-1))$,
+$$    end
+$$    for i=0,256/4-1 do
+        $math.floor(lshift(i*color_max/(256/4-1),color_depth))$,
+$$    end  
+$$    for i=0,256/4-1 do
+        $math.floor(lshift(i*color_max/(256/4-1),2*color_depth))$,
+$$    end
+$$    for i=0,256/4-1 do v = i*color_max/(256/4-1)
+        $math.floor(v + lshift(v,color_depth) + lshift(v,2*color_depth))$,
+$$    end
+$$  end
 $$end
   };  
-$$end
   uint8  palidx = 0;
   uint8  pix_j  = 0;
   uint2  sub_j  = 0;

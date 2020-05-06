@@ -173,7 +173,7 @@ static void lua_write_image_in_table(lua_State* L, std::string str,int component
     ForIndex(i, nfo->width) {
       uint32_t v = 0;
       ForIndex(c, nc) {
-        v = (v << component_depth) | ((*(uint8_t*)(ptr++) >> (8 - component_depth)) & ((1 << component_depth)-1));
+        v = (v << component_depth) | ((*(uint8_t*)(ptr++) >> (8 - component_depth)) & ((1 << component_depth) - 1));
       }
       g_LuaOutputs[L] << std::to_string(v) << ",";
     }
@@ -355,7 +355,7 @@ void lua_save_table_as_image(lua_State *L, luabind::object tbl, std::string fnam
       i = 0;
       for (luabind::iterator col(*row), end; col != end; col++) {
         int pix = luabind::object_cast_nothrow<int>(*col,0);
-        img.pixel(i, j) = v3b((pix>>16)&255,(pix>>8)&255,(pix)&255);
+        img.pixel(i, j) = v3b((pix) & 255, (pix >> 8) & 255, (pix >> 16) & 255);
         ++i;
       }
       ++j;
@@ -409,7 +409,7 @@ void lua_save_table_as_image_with_palette(lua_State *L,
       if (i == 256) {
         throw Fatal("[save_table_as_image_with_palette] palette has too many entries (expects 256)");
       }
-      pal[i++] = ((clr & 255) << 16) | (((clr >> 8) & 255) << 8) | ((clr >> 16) & 255);
+      pal[i++] = (clr >> 16) | (((clr >> 8) & 255) << 8) | ((clr & 255) << 16);
     }
     if (i < 256) {
       throw Fatal("[save_table_as_image_with_palette] palette is missing entries (expects 256)");
@@ -448,7 +448,7 @@ void lua_save_table_as_image_with_palette(lua_State *L,
     hd.image_type = 1;
     hd.cm_first_entry = 0;
     hd.cm_length = 256;
-    hd.cm_depth = 32;
+    hd.cm_depth = 24;
     hd.x_origin = 0;
     hd.y_origin = 0;
     hd.width = w;
@@ -456,7 +456,9 @@ void lua_save_table_as_image_with_palette(lua_State *L,
     hd.pixel_depth = 8;
     hd.image_descriptor = (1 << 5);
     fwrite(&hd, sizeof(struct tga_header_t), 1, f);
-    fwrite(pal.raw(), pal.sizeOfData(), 1, f);
+    ForIndex(p, pal.size()) {
+      fwrite(&pal[p], 3, 1, f);
+    }
     fwrite(pixs.raw(), w*h, 1, f);
     fclose(f);
 
