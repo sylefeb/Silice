@@ -1,10 +1,11 @@
 print('preparing textures')
 
-SHRINK   = 1
 if SIMULATION then
-USE_BRAM = true
+USE_BRAM = false -- RAM or ROM
+SHRINK   = 0 -- 0 is original res, 1 half, 2 a quarter
 else
-USE_BRAM = false
+USE_BRAM = false -- RAM or ROM
+SHRINK   = 2 -- 0 is original res, 1 half, 2 a quarter
 end
 
 -- -------------------------------------
@@ -221,7 +222,7 @@ end
 end
 
 code:write('always {\n')
--- switch in always block to return data
+-- read data
 code:write('  switch (texid) {\n')
 code:write('    default : { }\n')  
 for tex,id in pairs(texture_ids) do
@@ -234,10 +235,7 @@ for tex,id in pairs(texture_ids) do
   code:write('    }\n')
 end
 code:write('  }\n') 
-code:write('}\n')
-
 -- addressing
-code:write('  while (1) {\n')
 if SHRINK == 2 then
   code:write('  iu = iiu>>2;\n')
   code:write('  iv = iiv>>2;\n')
@@ -313,7 +311,7 @@ for tex,id in pairs(texture_ids) do
   code:write('    }\n')
 end
 code:write('  }\n') -- switch
-code:write('  }\n') -- while
+code:write('  }\n') -- always
 code:write('}\n')
 code:close()
 

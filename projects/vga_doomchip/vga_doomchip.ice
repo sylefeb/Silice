@@ -232,10 +232,10 @@ $$end
   int$FPw$ cs0_m    = 0;
   int$FPw$ cs1_m    = 0;
   int$FPw$ x0_m     = 0;
-  int$FPl$ y0_m     = 0;
+  int$FPl$ y0_m     = 0; // larger to hold FPm x FPm
   int$FPw$ x1_m     = 0;
-  int$FPl$ y1_m     = 0;
-  int$FPw$ d_m      = 0;
+  int$FPl$ y1_m     = 0; // larger to hold FPm x FPm
+  int$FPl$ d_m      = 0;
   int$FPw$ gu_m     = 0;
   int$FPw$ gv_m     = 0;
   int$FPw$ tr_gu_m  = 0;
@@ -442,11 +442,9 @@ $$end
               mulb   = interp_m;
               (mulr) <- mull <- (mula,mulb);
 ++:             
-              if (-y0_m < (mulr>>>$FPm$) - $1<<(FPm+1)$) { 
-                        // check distance sign, with margin to stay away from 0
-                        // compare without summing to limit overflow
+              d_m    = y0_m + (mulr >>> $FPm$);
+              if (d_m > $1<<(FPm+1)$) { // check distance sign, with margin to stay away from 0                        
                 // hit!
-                d_m     = y0_m + (mulr >>> $FPm$);
                 // -> correct to perpendicular distance ( * cos(alpha) )
                 num     = $FPl$d$(1<<(2*FPm+FPw-2))$;
                 den     = d_m * sin_m.rdata;
