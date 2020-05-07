@@ -439,6 +439,7 @@ $$end
               (mulr) <- mull <- (mula,mulb);
 ++:             
               d_m    = y0_m + (mulr >>> $FPm$);
+++:
               if (d_m > $1<<(FPm+1)$) { // check distance sign, with margin to stay away from 0                        
                 // hit!
                 // -> correct to perpendicular distance ( * cos(alpha) )
@@ -446,6 +447,7 @@ $$end
                 den     = d_m * sin_m.rdata;
                 // -> compute inverse distance
                 (invd_h) <- divl <- (num,den); // (2^(FPw-2)) / d
+++:
                 d_m     = den >>> $FPw-1$; // record corrected distance for tex. mapping
                 // -> get floor/ceiling heights 
                 // NOTE: signed, so always read in same width!
@@ -453,8 +455,10 @@ $$end
                 sec_f_h = tmp1 - ray_z;
                 tmp1    = bsp_ssecs.rdata[40,16]; // ceiling height
                 sec_c_h = tmp1 - ray_z;
+++:
                 tmp1_h  = (sec_f_h * invd_h);     // h / d
                 tmp2_h  = (sec_c_h * invd_h);     // h / d
+++:
                 // shift and round projected heights
                 $macro_to_h('tmp1_h','f_h')$
                 $macro_to_h('tmp2_h','c_h')$   
@@ -487,6 +491,7 @@ $$end
                   // transform plane coordinates
                   tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
                   tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
+++: // relax timing                  
                   // light
                   tmp2_m = (gv_m>>8) - 15;
                   if (tmp2_m > 7) {
@@ -519,6 +524,7 @@ $$end
                   // transform plane coordinates
                   tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
                   tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
+++: // relax timing                  
                   // light
                   tmp2_m = (gv_m>>8) - 15;
                   if (tmp2_m > 7) {
@@ -540,10 +546,12 @@ $$end
                   inv_y.addr = top - 100;
                 }
 
+++: // relax timing                  
                 // tex coord u
                 yoff   = bsp_segs_texmapping.rdata[32,16];
                 xoff   = bsp_segs_texmapping.rdata[16,16];
                 tc_u   = ((bsp_segs_texmapping.rdata[0,16] * interp_m) >> $FPm$) + xoff;
+++: // relax timing                  
 
                 // light
                 tmp2_m = (d_m>>4) - 15;
@@ -567,10 +575,11 @@ $$end
                   tmp1      = bsp_segs_tex_height.rdata[0,16];
                   sec_f_o   = tmp1 - ray_z;
                   tmp1_h    = (sec_f_o * invd_h);
-++:
+++: // relax timing                  
                   tmp2_m    = sec_f_o <<< $FPm$;
                   sec_f_o_m = tmp2_m;
                   $macro_to_h('tmp1_h','f_o')$ // shift and round
+++: // relax timing                  
                   if (btm > f_o) {
                     sec_f_o_m = tmp2_m + ((btm - f_o) * d_m); // offset texturing
                     f_o       = btm;
@@ -583,7 +592,6 @@ $$end
                   while (j > btm) {
                     $macro_to_tex_v('tex_v','tc_v')$
                     () <- writePixel <- (c,j,tc_u,tc_v+yoff,texid,light);
-                    //() <- writePixel <- (c,j,d_m,0);
                     j     = j - 1;
                     tex_v = tex_v - d_m;
                   } 
@@ -596,10 +604,11 @@ $$end
                   tmp1      = bsp_segs_tex_height.rdata[16,16];
                   sec_c_o   = tmp1 - ray_z;
                   tmp1_h    = (sec_c_o * invd_h);
-++:
+++: // relax timing                  
                   tmp2_m    = sec_c_o <<< $FPm$;
                   sec_c_o_m = tmp2_m;
                   $macro_to_h('tmp1_h','c_o')$ // shift and round
+++: // relax timing                  
                   if (btm > c_o) {
                     sec_c_o_m = tmp2_m + ((btm - c_o) * d_m); // offset texturing
                     c_o       = btm;
@@ -612,7 +621,6 @@ $$end
                   while (j < top) {
                     $macro_to_tex_v('tex_v','tc_v')$
                     () <- writePixel <- (c,j,tc_u,tc_v+yoff,texid,light);
-                    //() <- writePixel <- (c,j,d_m,0);
                     j     = j + 1;
                     tex_v = tex_v + d_m;
                   }
@@ -627,7 +635,6 @@ $$end
                   while (j <= c_h) {                
                     $macro_to_tex_v('tex_v','tc_v')$
                     () <- writePixel <- (c,j,tc_u,tc_v+yoff,texid,light);
-                    //() <- writePixel <- (c,j,d_m,0);
                     j = j + 1;   
                     tex_v = tex_v + d_m;
                   }
