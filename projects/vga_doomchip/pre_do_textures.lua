@@ -1,6 +1,11 @@
 print('preparing textures')
 
-SHRINK = 0
+SHRINK   = 1
+if SIMULATION then
+USE_BRAM = true
+else
+USE_BRAM = false
+end
 
 -- -------------------------------------
 -- helper functions
@@ -174,27 +179,21 @@ code:write([[algorithm texturechip(
   input  uint8 texid,
   input  uint8 iiu,
   input  uint8 iiv,
+  input  uint5 light,
   output uint8 palidx) <autorun> {
   ]])
 -- build bram and texture start address table
-tex_start_addr = 0;
-tex_start_addr_tbl={}
 code:write('  uint8 u  = 0;\n')
 code:write('  uint8 v  = 0;\n')
 code:write('  uint8 iu = 0;\n')
 code:write('  uint8 iv = 0;\n')
-code:write('  brom uint8 colormap[] = {\n')
+code:write('  uint8 colormap[] = {\n')
 for _,cmap in ipairs(colormaps) do
   for _,cidx in ipairs(cmap) do
     code:write('8h'..string.format("%02x",cidx):sub(-2) .. ',')
   end
 end
 code:write('};\n')
-if SIMULATION then
-  code:write('  bram uint8 textures[] = {\n') -- verilator hangs on large BROM
-else
-  code:write('  brom uint8 textures[] = {\n') -- synthesis tool hangs on large BRAM
-end
 for tex,id in pairs(texture_ids) do
   -- load assembled texture
   local texpal  = get_palette_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
@@ -207,22 +206,37 @@ for tex,id in pairs(texture_ids) do
   end  
   local texw = #texdata[1]
   local texh = #texdata
-  -- start address
-  tex_start_addr_tbl[id] = tex_start_addr
-  tex_start_addr = tex_start_addr + texw*texh
   -- data
+if USE_BRAM then
+  code:write('  bram uint8 texture_' .. tex .. '[] = {\n') -- verilator hangs on large BROM
+else
+  code:write('  brom uint8 texture_' .. tex .. '[] = {\n') -- synthesis tool hangs on large BRAM
+end
   for j=1,texh do
     for i=1,texw do
       code:write('8h'..string.format("%02x",texdata[j][i]):sub(-2) .. ',')
     end
   end
+  code:write('};\n')
 end
-code:write('};\n')
--- build lookup switch
-if SIMULATION then
-  code:write('  textures.wenable := 0;\n')
+
+code:write('always {\n')
+-- switch in always block to return data
+code:write('  switch (texid) {\n')
+code:write('    default : { }\n')  
+for tex,id in pairs(texture_ids) do
+  code:write('    case ' .. (id) .. ': {\n')
+  if tex == 'F_SKY1' then -- special case for sky
+    code:write('       palidx = 94;\n')
+  else
+    code:write('       palidx = colormap[texture_' .. tex .. '.rdata + (light<<8)];\n')
+  end
+  code:write('    }\n')
 end
-code:write('  palidx := textures.rdata;\n')
+code:write('  }\n') 
+code:write('}\n')
+
+-- addressing
 code:write('  while (1) {\n')
 if SHRINK == 2 then
   code:write('  iu = iiu>>2;\n')
@@ -280,11 +294,11 @@ for tex,id in pairs(texture_ids) do
     code:write('       }\n')
     code:write('     }\n')
   end
-  code:write('       textures.addr = ' .. tex_start_addr_tbl[id])  
+  code:write('       texture_' .. tex .. '.addr = ')
   if texw_perfect then
-    code:write(' + (iu&' .. (texw-1) .. ')')
+    code:write(' (iu&' .. (texw-1) .. ')')
   else
-    code:write(' + (u)')
+    code:write(' (u)')
   end
   if texh_perfect then
     code:write(' + ((iv&' .. ((1<<texh_pow2)-1) .. ')')
@@ -298,8 +312,8 @@ for tex,id in pairs(texture_ids) do
   end
   code:write('    }\n')
 end
-code:write('  }\n')
-code:write('  }\n')
+code:write('  }\n') -- switch
+code:write('  }\n') -- while
 code:write('}\n')
 code:close()
 

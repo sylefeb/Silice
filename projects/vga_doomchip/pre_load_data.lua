@@ -258,6 +258,7 @@ for i = 1,(sz-13)/4 do
   local turn     = string.unpack('b',in_path:read(1))
   local other    = string.unpack('B',in_path:read(1))
   if straight ~= 0 or strafe ~= 0 or turn ~= 0 then
+    straight = (straight * 4) // 3
     demo_path[k] = {
       straight=straight, strafe=strafe, turn=turn, other=other
     }
@@ -318,6 +319,7 @@ for i,ss in ipairs(ssectors) do
     c_h       = parent.ceiling,
     f_T       = texture_ids[parent.floorT],
     c_T       = texture_ids[parent.ceilingT],
+    light     = round(math.min(31,(256 - parent.light)/8));
   }
 end
 for i,sg in ipairs(segs) do
@@ -351,6 +353,13 @@ for i,sg in ipairs(segs) do
     other_c_h = sectors[1+other_sidedef.sec].ceiling
   end
   -- print('textures ids ' .. lwr .. ',' .. mid .. ',' .. upr)
+  local xoff = sidedef.xoff + sg.off
+  if (sg.dir == 1) then
+    local dx      = verts[ldef.v1].x - verts[ldef.v0].x
+    local dy      = verts[ldef.v1].y - verts[ldef.v0].y
+    local ldeflen = math.sqrt(dx*dx+dy*dy)
+    local xoff    = round(sidedef.xoff + (ldeflen - sg.off))
+  end
   bspSegs[i] = {
     v0x       = verts[1+sg.v0].x,
     v0y       = verts[1+sg.v0].y,
@@ -361,7 +370,7 @@ for i,sg in ipairs(segs) do
     mid       = mid,
     other_f_h = other_f_h,
     other_c_h = other_c_h,
-    xoff      = sg.off + sidedef.xoff,
+    xoff      = xoff,
     yoff      = sidedef.yoff,
     seglen    = sg.seglen
   }
@@ -399,9 +408,10 @@ end
 
 function pack_bsp_ssec_flats(ssec)
   local bin = 0
-  bin = '16h' 
-        .. string.format("%02x",ssec.c_T ):sub(-2)
-        .. string.format("%02x",ssec.f_T ):sub(-2)
+  bin = '24h' 
+        .. string.format("%02x",ssec.light):sub(-2)
+        .. string.format("%02x",ssec.c_T  ):sub(-2)
+        .. string.format("%02x",ssec.f_T  ):sub(-2)
   return bin
 end
 

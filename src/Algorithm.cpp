@@ -3704,6 +3704,34 @@ void Algorithm::writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) 
 
 // -------------------------------------------------
 
+void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& bram) const
+{
+  out << "module M_" << m_Name << "_mem_" << bram.name << '(' << endl;
+  for (const auto& inv : bram.in_vars) {
+    const auto& v = m_Vars[m_VarNames.at(inv)];
+    out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
+  }
+  for (const auto& ouv : bram.out_vars) {
+    const auto& v = m_Vars[m_VarNames.at(ouv)];
+    out << "output reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
+  }
+  out << "input " ALG_CLOCK << endl;
+  out << ");" << endl;
+
+  out << "reg " << typeString(bram.base_type) << " [" << bram.width - 1 << ":0] buffer[" << bram.table_size - 1 << ":0];" << endl;
+  out << "always @(posedge " ALG_CLOCK ") begin" << endl;
+  out << "   " << ALG_OUTPUT << "_" << bram.name << "_rdata" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr" << "];" << endl;
+  out << "end" << endl;
+  out << "initial begin" << endl;
+  ForIndex(v, bram.init_values.size()) {
+    out << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
+  }
+  out << "end" << endl;
+  out << "endmodule" << endl;
+  out << endl;
+}
+
+#if 0
 void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& brom) const
 {
   out << "module M_" << m_Name << "_mem_" << brom.name << '(' << endl;
@@ -3718,7 +3746,7 @@ void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& brom) 
   out << "input " ALG_CLOCK << endl;
   out << ");" << endl;
 
-  out << "always @(posedge " ALG_CLOCK ") begin" << endl;
+  out << "always @(posedge " ALG_CLOCK ") begin" << endl;    
   out << "  case (" << ALG_INPUT << "_" << brom.name << "_addr" << ')' << endl;
   int width = justHigherPow2((int)brom.init_values.size());
   ForIndex(v, brom.init_values.size()) {
@@ -3729,6 +3757,7 @@ void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& brom) 
   out << "endmodule" << endl;
   out << endl;
 }
+#endif
 
 // -------------------------------------------------
 
