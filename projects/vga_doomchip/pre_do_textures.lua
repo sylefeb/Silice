@@ -1,6 +1,6 @@
 print('preparing textures')
 
-SHRINK = 1
+SHRINK = 0
 
 -- -------------------------------------
 -- helper functions
@@ -196,8 +196,16 @@ code:write('};\n')
 code:write('  palidx := textures.rdata;\n')
 code:write('  textures.wenable = 0;\n')
 code:write('  while (1) {\n')
-code:write('  iu = iiu>>2;\n')
-code:write('  iv = iiv>>2;\n')
+if SHRIKNG == 2 then
+  code:write('  iu = iiu>>2;\n')
+  code:write('  iv = iiv>>2;\n')
+elseif SHRINK == 1 then
+  code:write('  iu = iiu>>1;\n')
+  code:write('  iv = iiv>>1;\n')
+else
+  code:write('  iu = iiu;\n')
+  code:write('  iv = iiv;\n')
+end
 code:write('  switch (texid) {\n')
 code:write('    default : { }\n')  
 for tex,id in pairs(texture_ids) do
