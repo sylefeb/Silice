@@ -5,8 +5,10 @@ USE_BRAM = false -- RAM or ROM
 SHRINK   = 0 -- 0 is original res, 1 half, 2 a quarter
 else
 USE_BRAM = false -- RAM or ROM
-SHRINK   = 2 -- 0 is original res, 1 half, 2 a quarter
+SHRINK   = 0 -- 0 is original res, 1 half, 2 a quarter
 end
+
+ALL_IN_ONE = false
 
 -- -------------------------------------
 -- helper functions
@@ -181,20 +183,30 @@ code:write([[algorithm texturechip(
   input  uint8 iiu,
   input  uint8 iiv,
   input  uint5 light,
-  output uint8 palidx) <autorun> {
+  output uint8 palidx) {
   ]])
 -- build bram and texture start address table
-code:write('  uint8 u  = 0;\n')
-code:write('  uint8 v  = 0;\n')
-code:write('  uint8 iu = 0;\n')
-code:write('  uint8 iv = 0;\n')
-code:write('  uint8 colormap[] = {\n')
+code:write('  uint8  u    = 0;\n')
+code:write('  uint8  v    = 0;\n')
+code:write('  uint8  iu   = 0;\n')
+code:write('  uint8  iv   = 0;\n')
+code:write('  uint16 lit  = 0;\n')
+code:write('  brom   uint8 colormap[] = {\n')
 for _,cmap in ipairs(colormaps) do
   for _,cidx in ipairs(cmap) do
     code:write('8h'..string.format("%02x",cidx):sub(-2) .. ',')
   end
 end
 code:write('};\n')
+texture_start_addr = 0
+texture_start_addr_table = {}
+if ALL_IN_ONE then
+  if USE_BRAM then
+    code:write('  bram uint8 textures[] = {\n')
+  else
+    code:write('  brom uint8 textures[] = {\n')
+  end
+end
 for tex,id in pairs(texture_ids) do
   -- load assembled texture
   local texpal  = get_palette_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
@@ -207,34 +219,29 @@ for tex,id in pairs(texture_ids) do
   end  
   local texw = #texdata[1]
   local texh = #texdata
+  texture_start_addr_table[tex] = texture_start_addr
+  texture_start_addr = texture_start_addr + texw * texh
   -- data
-if USE_BRAM then
-  code:write('  bram uint8 texture_' .. tex .. '[] = {\n') -- verilator hangs on large BROM
-else
-  code:write('  brom uint8 texture_' .. tex .. '[] = {\n') -- synthesis tool hangs on large BRAM
-end
+  if not ALL_IN_ONE then
+    if USE_BRAM then
+      code:write('  bram uint8 texture_' .. tex .. '[] = {\n')
+    else
+      code:write('  brom uint8 texture_' .. tex .. '[] = {\n')
+    end
+  end
   for j=1,texh do
     for i=1,texw do
       code:write('8h'..string.format("%02x",texdata[j][i]):sub(-2) .. ',')
     end
   end
+  if not ALL_IN_ONE then
+    code:write('};\n')
+  end
+end
+if ALL_IN_ONE then
   code:write('};\n')
 end
 
-code:write('always {\n')
--- read data
-code:write('  switch (texid) {\n')
-code:write('    default : { }\n')  
-for tex,id in pairs(texture_ids) do
-  code:write('    case ' .. (id) .. ': {\n')
-  if tex == 'F_SKY1' then -- special case for sky
-    code:write('       palidx = 94;\n')
-  else
-    code:write('       palidx = colormap[texture_' .. tex .. '.rdata + (light<<8)];\n')
-  end
-  code:write('    }\n')
-end
-code:write('  }\n') 
 -- addressing
 if SHRINK == 2 then
   code:write('  iu = iiu>>2;\n')
@@ -292,7 +299,11 @@ for tex,id in pairs(texture_ids) do
     code:write('       }\n')
     code:write('     }\n')
   end
-  code:write('       texture_' .. tex .. '.addr = ')
+  if ALL_IN_ONE then
+    code:write('       textures.addr = ' .. texture_start_addr_table[tex] .. ' + ')
+  else
+    code:write('       texture_' .. tex .. '.addr = ')
+  end
   if texw_perfect then
     code:write(' (iu&' .. (texw-1) .. ')')
   else
@@ -311,7 +322,36 @@ for tex,id in pairs(texture_ids) do
   code:write('    }\n')
 end
 code:write('  }\n') -- switch
-code:write('  }\n') -- always
+
+-- wait one cycle
+code:write('++:\n')
+
+-- light
+code:write('  lit = (light<<8);\n')
+-- read data and query colormap
+if ALL_IN_ONE then
+  code:write('  colormap.addr = textures.rdata + lit;\n')
+else
+  code:write('  switch (texid) {\n')
+  code:write('    default : { }\n')  
+  for tex,id in pairs(texture_ids) do
+    code:write('    case ' .. (id) .. ': {\n')
+    if tex == 'F_SKY1' then -- special case for sky
+      code:write('       colormap.addr = 94;\n')
+    else
+      code:write('       colormap.addr = texture_' .. tex .. '.rdata + lit;\n')
+    end
+    code:write('    }\n')
+  end
+  code:write('  }\n') 
+end
+
+-- wait one cycle
+code:write('++:\n')
+
+-- done!
+code:write('palidx = colormap.rdata;\n')
+
 code:write('}\n')
 code:close()
 

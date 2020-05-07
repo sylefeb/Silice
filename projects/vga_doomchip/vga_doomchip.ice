@@ -81,13 +81,10 @@ algorithm frame_drawer(
   {
     uint9 revpj  = 0;
     revpj        = 199 - pj;
-    textures.texid = tid;
-    textures.iiu   = tu;
-    textures.iiv   = -tv;
-    textures.light = lit;
+    textures <- (tid,-tu,-tv,lit);
     while (1) {
       if (sbusy == 0) { // not busy?
-        sdata_in    = textures.palidx;
+        (sdata_in) <- textures;
         saddr       = {~fbuffer,21b0} | (pi >> 2) | (revpj << 8);
         swbyte_addr = pi & 3;
         sin_valid   = 1; // go ahead!
@@ -323,8 +320,7 @@ $$end
     signed8 = demo_path.rdata[16,8];
     
     demo_x = demo_x + ((cosview_m * signed8) >>> $FPm$);
-    demo_y = demo_y + ((sinview_m * signed8) >>> $FPm$);
-    
+    demo_y = demo_y + ((sinview_m * signed8) >>> $FPm$);    
 ++:
     signed8 = demo_path.rdata[8,8];
     demo_x = demo_x - ((sinview_m * signed8) >>> $FPm$);
@@ -638,17 +634,14 @@ $$end
                   // flush queue to stop
                   queue_ptr = 0;
                   break;                 
-                }
-                
+                }                
               }
             }
             // next segment
             s = s + 1;            
           }
-        }
-        
+        }        
       }
-
       // next column    
       c = c + 1;
     }
@@ -661,18 +654,13 @@ $$end
       viewangle = $player_start_a$;
       demo_x    = $(player_start_x)<<2$;
       demo_y    = $(player_start_y)<<2$;
-    }
-    
-    demo_path.addr = frame;
+    }    
+    demo_path.addr = frame;    
     
     // wait for frame to end
     while (vsync_filtered == 0) {}
-
+    
     // swap buffers
     fbuffer = ~fbuffer;
-
   }
-
 }
-
-// ------------------------- 
