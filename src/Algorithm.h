@@ -80,6 +80,9 @@ private:
   /// \brief base types
   enum e_Type { Int, UInt };
 
+  /// \brief memory types
+  enum e_MemType { BRAM, BROM };
+
   /// \brief algorithm name
   std::string m_Name;
 
@@ -139,10 +142,11 @@ private:
     bool combinational = false;
   };
 
-  /// \brief base info about BRAMs
-  class t_bram_nfo {
+  /// \brief base info about memory blocks
+  class t_mem_nfo {
   public:
     std::string name;
+    e_MemType   mem_type;
     e_Type      base_type;
     int         width;
     int         table_size;
@@ -176,10 +180,10 @@ private:
   /// \brief all var names, map contains index in m_Vars
   std::unordered_map<std::string, int > m_VarNames;
 
-  /// \brief all BRAMs
-  std::vector< t_bram_nfo >   m_BRAMs;
-  /// \brief all bram names, map contains index in m_BRAMs
-  std::unordered_map<std::string, int > m_BRAMNames;
+  /// \brief all memories
+  std::vector< t_mem_nfo >   m_Memories;
+  /// \brief all memorie names, map contains index in m_Memories
+  std::unordered_map<std::string, int > m_MemoryNames;
 
   /// \brief enum binding direction
   enum e_BindingDir { e_Left, e_Right, e_BiDir };
@@ -515,8 +519,8 @@ private:
   template<typename D, typename T> void readInitList(D* decl, T& var);
   /// \brief gather variable declaration
   void gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_subroutine_nfo* sub);
-  /// \brief gather bram declaration
-  void gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl, const t_subroutine_nfo* sub);
+  /// \brief gather memory declaration
+  void gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, const t_subroutine_nfo* sub);
   /// \brief extract the list of bindings
   void getBindings(
     siliceParser::ModalgBindingListContext *bindings,
@@ -601,8 +605,8 @@ private:
   int stateWidth() const;
   /// \brief fast-forward to the next non empty state
   const t_combinational_block *fastForward(const t_combinational_block *block) const;
-  /// \brief verify BRAM member
-  void verifyMemberBRAM(const t_bram_nfo& bram,std::string member,int line) const;
+  /// \brief verify memory member
+  void verifyMemberMemory(const t_mem_nfo& mem,std::string member,int line) const;
 
 private:
 
@@ -741,8 +745,12 @@ private:
   void writeVarInits(std::string prefix, std::ostream& out, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies) const;
   /// \brief writes all states in the output
   void writeCombinationalStates(std::string prefix, std::ostream& out, const t_vio_dependencies& always_dependencies) const;
-  /// \brief writes a BRAM module
-  void writeModuleBRAM(std::ostream& out, const t_bram_nfo& bram) const;
+  /// \brief writes a memory module
+  void writeModuleMemory(std::ostream& out, const t_mem_nfo& mem) const;
+  /// \brief writes a BRAM memory module
+  void writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) const;
+  /// \brief writes a BROM memory module
+  void writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& brom) const;
 
 public:
 

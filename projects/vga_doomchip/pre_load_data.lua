@@ -266,21 +266,6 @@ for i = 1,(sz-13)/4 do
 end
 
 -- -------------------------------------
--- colormap
-local in_clrmap = assert(io.open(findfile('COLORMAP'), 'rb'))
-local sz = fsize(in_clrmap)
-print('colormap file is ' .. sz .. ' bytes')
-colormaps={}
-for i=1,32 do
-  local map = {}
-  for c=1,256 do
-    local palidx = string.unpack('B',in_clrmap:read(1))
-    map[c] = palidx
-  end
-  colormaps[i] = map
-end
-
--- -------------------------------------
 -- player start
 local in_things = assert(io.open(findfile('THINGS'), 'rb'))
 local sz = fsize(in_things)

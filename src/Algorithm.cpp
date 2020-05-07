@@ -571,82 +571,98 @@ static int justHigherPow2(int n)
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationBRAM(siliceParser::DeclarationBRAMContext* decl, const t_subroutine_nfo* sub)
+typedef struct {
+  bool        is_input;
+  std::string name;
+  int         width; // -1 if same as bram declared type
+} t_mem_member;
+
+const std::vector<t_mem_member> c_BRAMmembers = {
+  {true,"wenable",1},
+  {false,"rdata",-1},
+  {true,"wdata",-1}
+  // addr is always added
+};
+
+const std::vector<t_mem_member> c_BROMmembers = {
+  {false,"rdata",-1}
+  // addr is always added
+};
+
+// -------------------------------------------------
+
+void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
-    throw Fatal("subroutine '%s': BRAMs cannot be instanced within subroutines (line %d)", sub->name.c_str(), (int)decl->name->getLine());
+    throw Fatal("subroutine '%s': a memory cannot be instanced within a subroutine (line %d)", sub->name.c_str(), (int)decl->name->getLine());
   }
-  // gather BRAM nfo
-  t_bram_nfo bram;
-  bram.name = decl->name->getText();
-  splitType(decl->TYPE()->getText(), bram.base_type, bram.width);
-  if (decl->NUMBER() != nullptr) {
-    bram.table_size = atoi(decl->NUMBER()->getText().c_str());
-    if (bram.table_size <= 0) {
-      throw Fatal("bram has zero or negative size (line %d)", (int)decl->getStart()->getLine());
-    }
-    bram.init_values.resize(bram.table_size, "0");
+  // gather memory nfo
+  t_mem_nfo mem;
+  mem.name = decl->name->getText();
+  if (decl->BRAM() != nullptr) {
+    mem.mem_type = BRAM;
+  } else if (decl->BROM() != nullptr) {
+    mem.mem_type = BROM;
   } else {
-    bram.table_size = 0; // autosize from init
+    throw Fatal("internal error, memory declaration (line %d)", (int)decl->getStart()->getLine());
   }
-  readInitList(decl, bram);
-  bram.line = (int)decl->getStart()->getLine();
-  // create bound variables for access (addr, wenable, rdata, wdata)
+  splitType(decl->TYPE()->getText(), mem.base_type, mem.width);
+  if (decl->NUMBER() != nullptr) {
+    mem.table_size = atoi(decl->NUMBER()->getText().c_str());
+    if (mem.table_size <= 0) {
+      throw Fatal("memory has zero or negative size (line %d)", (int)decl->getStart()->getLine());
+    }
+    mem.init_values.resize(mem.table_size, "0");
+  } else {
+    mem.table_size = 0; // autosize from init
+  }
+  readInitList(decl, mem);
+  mem.line = (int)decl->getStart()->getLine();
+  // create bound variables for access
+  std::vector<t_mem_member> members;
+  switch (mem.mem_type)     {
+  case BRAM: members = c_BRAMmembers; break;
+  case BROM: members = c_BROMmembers; break;
+  default: throw Fatal("internal error, memory declaration (line %d)", (int)decl->getStart()->getLine()); break;
+  }
   // -> create var for address
   {
     t_var_nfo v;
-    v.name = bram.name + "_addr";
+    v.name = mem.name + "_addr";
     v.base_type = UInt;
-    v.width = justHigherPow2(bram.table_size);
+    v.width = justHigherPow2(mem.table_size);
     v.table_size = 0;
     v.init_values.push_back("0");
     v.usage = e_Bound;
     addVar(v, nullptr, (int)decl->getStart()->getLine());
-    bram.in_vars.push_back(v.name);
-    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_bram_" + v.name;
+    mem.in_vars.push_back(v.name);
+    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_mem_" + v.name;
   }
-  // -> create var for wenable
-  {
+  // other members
+  for (const auto& m : members) {
     t_var_nfo v;
-    v.name = bram.name + "_wenable";
-    v.base_type = UInt;
-    v.width = 1;
+    v.name = mem.name + "_" + m.name;
+    if (m.width == -1) {
+      v.base_type = mem.base_type;
+      v.width = mem.width;
+    } else {
+      v.base_type = UInt;
+      v.width = mem.width;
+    }
     v.table_size = 0;
     v.init_values.push_back("0");
     v.usage = e_Bound;
     addVar(v, nullptr, (int)decl->getStart()->getLine());
-    bram.in_vars.push_back(v.name);
-    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_bram_" + v.name;
+    if (m.is_input) {
+      mem.in_vars.push_back(v.name);
+    } else {
+      mem.out_vars.push_back(v.name);
+    }
+    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_mem_" + v.name;
   }
-  // -> create var for wdata
-  {
-    t_var_nfo v;
-    v.name = bram.name + "_wdata";
-    v.base_type = bram.base_type;
-    v.width = bram.width;
-    v.table_size = 0;
-    v.init_values.push_back("0");
-    v.usage = e_Bound;
-    addVar(v, nullptr, (int)decl->getStart()->getLine());
-    bram.in_vars.push_back(v.name);
-    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_bram_" + v.name;
-  }
-  // -> create var for rdata
-  {
-    t_var_nfo v;
-    v.name = bram.name + "_rdata";
-    v.base_type = bram.base_type;
-    v.width = bram.width;
-    v.table_size = 0;
-    v.init_values.push_back("0");
-    v.usage = e_Bound;
-    addVar(v, nullptr, (int)decl->getStart()->getLine());
-    bram.out_vars.push_back(v.name);
-    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_bram_" + v.name;
-  }
-  // add bram
-  m_BRAMs.emplace_back(bram);
-  m_BRAMNames.insert(make_pair(bram.name, (int)m_BRAMs.size()-1));
+  // add memory
+  m_Memories.emplace_back(mem);
+  m_MemoryNames.insert(make_pair(mem.name, (int)m_Memories.size()-1));
 }
 
 // -------------------------------------------------
@@ -957,11 +973,14 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
 
 void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_subroutine_nfo *sub)
 {
-  auto declvar = dynamic_cast<siliceParser::DeclarationVarContext *>(decl->declarationVar());
-  auto decltbl = dynamic_cast<siliceParser::DeclarationTableContext *>(decl->declarationTable());
-  auto modalg = dynamic_cast<siliceParser::DeclarationModAlgContext *>(decl->declarationModAlg());
-  auto declbram = dynamic_cast<siliceParser::DeclarationBRAMContext *>(decl->declarationBRAM());
-  if (declvar) { gatherDeclarationVar(declvar, sub); } else if (decltbl) { gatherDeclarationTable(decltbl, sub); } else if (declbram) { gatherDeclarationBRAM(declbram, sub); } else if (modalg) {
+  auto declvar = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
+  auto decltbl = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
+  auto modalg  = dynamic_cast<siliceParser::DeclarationModAlgContext*>(decl->declarationModAlg());
+  auto declmem = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
+  if (declvar)       { gatherDeclarationVar(declvar, sub); } 
+  else if (decltbl)  { gatherDeclarationTable(decltbl, sub); } 
+  else if (declmem)  { gatherDeclarationMemory(declmem, sub); }
+  else if (modalg)   {
     std::string name = modalg->modalg->getText();
     if (m_KnownModules.find(name) != m_KnownModules.end()) {
       gatherDeclarationModule(modalg, sub);
@@ -1015,32 +1034,32 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   for (auto P : sub->subroutineParamList()->subroutineParam()) {
     if (P->READ() != nullptr) {
       nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
-      // if bram, add all out members
-      auto B = m_BRAMNames.find(P->IDENTIFIER()->getText());
-      if (B != m_BRAMNames.end()) {
-        for (const auto& ouv : m_BRAMs[B->second].out_vars) {
+      // if memory, add all out members
+      auto B = m_MemoryNames.find(P->IDENTIFIER()->getText());
+      if (B != m_MemoryNames.end()) {
+        for (const auto& ouv : m_Memories[B->second].out_vars) {
           nfo->allowed_reads.insert(ouv);
         }
       }
     } else if (P->WRITE() != nullptr) {
       nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
-      // if bram, add all in members
-      auto B = m_BRAMNames.find(P->IDENTIFIER()->getText());
-      if (B != m_BRAMNames.end()) {
-        for (const auto& inv : m_BRAMs[B->second].in_vars) {
+      // if memory, add all in members
+      auto B = m_MemoryNames.find(P->IDENTIFIER()->getText());
+      if (B != m_MemoryNames.end()) {
+        for (const auto& inv : m_Memories[B->second].in_vars) {
           nfo->allowed_writes.insert(inv);
         }
       }
     } else if (P->READWRITE() != nullptr) {
       nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
       nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
-      // if bram, add all in/out members
-      auto B = m_BRAMNames.find(P->IDENTIFIER()->getText());
-      if (B != m_BRAMNames.end()) {
-        for (const auto& ouv : m_BRAMs[B->second].out_vars) {
+      // if memory, add all in/out members
+      auto B = m_MemoryNames.find(P->IDENTIFIER()->getText());
+      if (B != m_MemoryNames.end()) {
+        for (const auto& ouv : m_Memories[B->second].out_vars) {
           nfo->allowed_reads.insert(ouv);
         }
-        for (const auto& inv : m_BRAMs[B->second].in_vars) {
+        for (const auto& inv : m_Memories[B->second].in_vars) {
           nfo->allowed_writes.insert(inv);
         }
       }
@@ -1916,21 +1935,21 @@ void Algorithm::mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_d
 
 // -------------------------------------------------
 
-void Algorithm::verifyMemberBRAM(const t_bram_nfo& bram, std::string member, int line) const
+void Algorithm::verifyMemberMemory(const t_mem_nfo& mem, std::string member, int line) const
 {
   bool found = false;
-  for (const auto& v : bram.in_vars) {
-    if (v == bram.name + "_" + member) {
+  for (const auto& v : mem.in_vars) {
+    if (v == mem.name + "_" + member) {
       found = true; break;
     }
   }
-  for (const auto& v : bram.out_vars) {
-    if (v == bram.name + "_" + member) {
+  for (const auto& v : mem.out_vars) {
+    if (v == mem.name + "_" + member) {
       found = true; break;
     }
   }
   if (!found) {
-    throw Fatal("bram '%s' has no member '%s' (line %d)", bram.name.c_str(), member.c_str(), line);
+    throw Fatal("memory '%s' has no member '%s' (line %d)", mem.name.c_str(), member.c_str(), line);
   }
 }
 
@@ -1948,10 +1967,10 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
   if (A != m_InstancedAlgorithms.end()) {
     return ""; // no var accessed in this case
   } else {
-    auto B = m_BRAMNames.find(base);
-    if (B != m_BRAMNames.end()) {
-      const auto& bram = m_BRAMs[B->second];
-      verifyMemberBRAM(bram, member, (int)access->getStart()->getLine());
+    auto B = m_MemoryNames.find(base);
+    if (B != m_MemoryNames.end()) {
+      const auto& mem = m_Memories[B->second];
+      verifyMemberMemory(mem, member, (int)access->getStart()->getLine());
       // return the variable name
       return base + "_" + member;
     } else {
@@ -2261,20 +2280,20 @@ void Algorithm::determineVariablesAccess()
       }
     }
   }
-  // determine variable access due to BRAMs
-  for (auto& bram : m_BRAMs) {
-    for (auto& inv : bram.in_vars) {
+  // determine variable access due to memories
+  for (auto& mem : m_Memories) {
+    for (auto& inv : mem.in_vars) {
       // add to always block dependency
       m_AlwaysPre.in_vars_read.insert(inv);
       // set global access
       m_Vars[m_VarNames[inv]].access = (e_Access)(m_Vars[m_VarNames[inv]].access | e_ReadOnly);
     }
-    for (auto& ouv : bram.out_vars) {
+    for (auto& ouv : mem.out_vars) {
       // add to always block dependency
       m_AlwaysPre.out_vars_written.insert(ouv);
       // -> check prior access
       if (m_Vars[m_VarNames[ouv]].access & e_WriteOnly) {
-        throw Fatal("cannot write to variable '%s' bound to a BRAM output (line %d)", ouv.c_str(), bram.line);
+        throw Fatal("cannot write to variable '%s' bound to a memory output (line %d)", ouv.c_str(), mem.line);
       }
       // set global access
       m_Vars[m_VarNames[ouv]].access = (e_Access)(m_Vars[m_VarNames[ouv]].access | e_WriteBinded);
@@ -2664,10 +2683,10 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(silic
       sl_assert(false);
     }
   } else {
-    auto B = m_BRAMNames.find(base);
-    if (B != m_BRAMNames.end()) {
-      const auto& bram = m_BRAMs[B->second];
-      verifyMemberBRAM(bram, member, (int)ioaccess->getStart()->getLine());
+    auto B = m_MemoryNames.find(base);
+    if (B != m_MemoryNames.end()) {
+      const auto& mem = m_Memories[B->second];
+      verifyMemberMemory(mem, member, (int)ioaccess->getStart()->getLine());
       // produce the variable name
       std::string vname = base + "_" + member;
       // get width and size
@@ -2884,10 +2903,10 @@ int Algorithm::writeIOAccess(
       sl_assert(false);
     }
   } else {
-    auto B = m_BRAMNames.find(base);
-    if (B != m_BRAMNames.end()) {
-      const auto& bram = m_BRAMs[B->second];
-      verifyMemberBRAM(bram, member, (int)ioaccess->getStart()->getLine());
+    auto B = m_MemoryNames.find(base);
+    if (B != m_MemoryNames.end()) {
+      const auto& mem = m_Memories[B->second];
+      verifyMemberMemory(mem, member, (int)ioaccess->getStart()->getLine());
       // produce the variable name
       std::string vname = base + "_" + member;
       // write
@@ -3652,9 +3671,9 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream& out, 
 
 // -------------------------------------------------
 
-void Algorithm::writeModuleBRAM(std::ostream& out, const t_bram_nfo& bram) const
+void Algorithm::writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) const
 {
-  out << "module M_" << m_Name << "_bram_" << bram.name << '(' << endl;
+  out << "module M_" << m_Name << "_mem_" << bram.name << '(' << endl;
   for (const auto& inv : bram.in_vars) {
     const auto& v = m_Vars[m_VarNames.at(inv)];
     out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
@@ -3685,14 +3704,53 @@ void Algorithm::writeModuleBRAM(std::ostream& out, const t_bram_nfo& bram) const
 
 // -------------------------------------------------
 
+void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& brom) const
+{
+  out << "module M_" << m_Name << "_mem_" << brom.name << '(' << endl;
+  for (const auto& inv : brom.in_vars) {
+    const auto& v = m_Vars[m_VarNames.at(inv)];
+    out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
+  }
+  for (const auto& ouv : brom.out_vars) {
+    const auto& v = m_Vars[m_VarNames.at(ouv)];
+    out << "output reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
+  }
+  out << "input " ALG_CLOCK << endl;
+  out << ");" << endl;
+
+  out << "always @(posedge " ALG_CLOCK ") begin" << endl;
+  out << "  case (" << ALG_INPUT << "_" << brom.name << "_addr" << ')' << endl;
+  int width = justHigherPow2((int)brom.init_values.size());
+  ForIndex(v, brom.init_values.size()) {
+    out << width << "'d" << v << ":" << ALG_OUTPUT << "_" << brom.name << "_rdata=" << brom.init_values[v] << ';' << endl;
+  }
+  out << "  endcase" << endl;
+  out << "end" << endl;
+  out << "endmodule" << endl;
+  out << endl;
+}
+
+// -------------------------------------------------
+
+void Algorithm::writeModuleMemory(std::ostream& out, const t_mem_nfo& mem) const
+{
+  switch (mem.mem_type)     {
+  case BRAM: writeModuleMemoryBRAM(out, mem); break;
+  case BROM: writeModuleMemoryBROM(out, mem); break;
+  default: throw Fatal("internal error (unkown memory type)"); break;
+  }
+}
+
+// -------------------------------------------------
+
 
 void Algorithm::writeAsModule(ostream& out) const
 {
   out << endl;
 
-  // write BRAM modules
-  for (const auto& bram : m_BRAMs) {
-    writeModuleBRAM(out, bram);
+  // write memory modules
+  for (const auto& mem : m_Memories) {
+    writeModuleMemory(out, mem);
   }
 
   // module header
@@ -3739,13 +3797,13 @@ void Algorithm::writeAsModule(ostream& out) const
     // algorithm done
     out << "wire " << WIRE << nfo.second.instance_prefix << '_' << ALG_DONE << ';' << endl;
   }
-  // BRAM instantiations (1/2)
-  for (const auto& bram : m_BRAMs) {
+  // Memory instantiations (1/2)
+  for (const auto& mem : m_Memories) {
     // output wires
-    for (const auto& ouv : bram.out_vars) {
+    for (const auto& ouv : mem.out_vars) {
       const auto& os = m_Vars[m_VarNames.at(ouv)];
       out << "wire " << typeString(os) << " [" << varBitDepth(os) - 1 << ":0] "
-        << WIRE << "_bram_" << os.name << ';' << endl;
+        << WIRE << "_mem_" << os.name << ';' << endl;
     }
   }
 
@@ -3878,19 +3936,19 @@ void Algorithm::writeAsModule(ostream& out) const
   }
   out << endl;
 
-  // BRAM instantiations (2/2)
-  for (const auto& bram : m_BRAMs) {
+  // Memory instantiations (2/2)
+  for (const auto& mem : m_Memories) {
     // module
-    out << "M_" << m_Name << "_bram_" << bram.name << ' ' << bram.name << '(' << endl;
+    out << "M_" << m_Name << "_mem_" << mem.name << ' ' << mem.name << '(' << endl;
     // clock
     out << '.' << ALG_CLOCK << '(' << m_Clock << ")," << endl;
     // inputs
-    for (const auto& inv : bram.in_vars) {
-      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, nullptr, nullptr, bram.line, FF_D)  << ")," << endl;
+    for (const auto& inv : mem.in_vars) {
+      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, nullptr, nullptr, mem.line, FF_D)  << ")," << endl;
     }
     // output wires
-    for (const auto& ouv : bram.out_vars) {
-      out << '.' << ALG_OUTPUT << '_' << ouv << '(' << WIRE << "_bram_" << ouv << ')' << endl;
+    for (const auto& ouv : mem.out_vars) {
+      out << '.' << ALG_OUTPUT << '_' << ouv << '(' << WIRE << "_mem_" << ouv << ')' << endl;
     }
     // end of instantiation      
     out << ");" << endl;

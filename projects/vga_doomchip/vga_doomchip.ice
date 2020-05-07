@@ -317,20 +317,6 @@ $$end
   
   while (1) {
   
-    // update position (demo runs at higher res)
-    signed8 = demo_path.rdata[16,8];
-    
-    demo_x = demo_x + ((cosview_m * signed8) >>> $FPm$);
-    demo_y = demo_y + ((sinview_m * signed8) >>> $FPm$);
-    
-++:
-    signed8 = demo_path.rdata[8,8];
-    demo_x = demo_x - ((sinview_m * signed8) >>> $FPm$);
-    demo_y = demo_y + ((cosview_m * signed8) >>> $FPm$);
-    
-    ray_x  = demo_x >>> 2;
-    ray_y  = demo_y >>> 2;
-
     // update viewangle
     signed8   = demo_path.rdata[0,8];
     viewangle = viewangle + (signed8 <<< 4);
@@ -342,6 +328,20 @@ $$end
     sin_m.addr = (viewangle + 1024) & 4095;
 ++:
     cosview_m  = sin_m.rdata;
+
+    // update position (demo runs at higher res)
+    signed8 = demo_path.rdata[16,8];
+    
+    demo_x = demo_x + ((cosview_m * signed8) >>> $FPm-1$);
+    demo_y = demo_y + ((sinview_m * signed8) >>> $FPm-1$);
+    
+++:
+    signed8 = demo_path.rdata[8,8];
+    demo_x = demo_x - ((sinview_m * signed8) >>> $FPm-1$);
+    demo_y = demo_y + ((cosview_m * signed8) >>> $FPm-1$);
+    
+    ray_x  = demo_x >>> 2;
+    ray_y  = demo_y >>> 2;
 
 $$if SIMULATION then
 //    ray_x    =  1050;

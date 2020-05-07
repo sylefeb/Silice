@@ -54,6 +54,8 @@ ALWAYS              : 'always' ;
 
 BRAM                : 'bram' ;
 
+BROM                : 'brom' ;
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -105,9 +107,9 @@ initList            : '{' (value ',')* value? '}';
 
 declarationVar      : TYPE IDENTIFIER '=' value ATTRIBS?;
 declarationTable    : TYPE IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);
-declarationBRAM     : BRAM TYPE name=IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING))?;
+declarationMemory   : (BRAM | BROM) TYPE name=IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING))?;
 declarationModAlg   : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
-declaration         : declarationVar | declarationModAlg | declarationTable | declarationBRAM; 
+declaration         : declarationVar | declarationModAlg | declarationTable | declarationMemory; 
 
 modalgBinding       : left=IDENTIFIER (LDEFINE | RDEFINE | BDEFINE) right=IDENTIFIER | AUTO;
 modalgBindingList   : modalgBinding ',' modalgBindingList | modalgBinding | ;

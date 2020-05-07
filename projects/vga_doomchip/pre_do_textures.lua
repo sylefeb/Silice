@@ -45,6 +45,21 @@ function update_palette(img,pal)
 end
 
 -- -------------------------------------
+-- colormap
+local in_clrmap = assert(io.open(findfile('COLORMAP'), 'rb'))
+local sz = fsize(in_clrmap)
+print('colormap file is ' .. sz .. ' bytes')
+colormaps={}
+for i=1,32 do
+  local map = {}
+  for c=1,256 do
+    local palidx = string.unpack('B',in_clrmap:read(1))
+    map[c] = palidx
+  end
+  colormaps[i] = map
+end
+
+-- -------------------------------------
 -- palette
 
 local in_pal = assert(io.open(findfile('PLAYPAL'), 'rb'))
@@ -168,7 +183,18 @@ code:write('  uint8 u  = 0;\n')
 code:write('  uint8 v  = 0;\n')
 code:write('  uint8 iu = 0;\n')
 code:write('  uint8 iv = 0;\n')
-code:write('  bram uint8 textures[] = {\n')
+code:write('  brom uint8 colormap[] = {\n')
+for _,cmap in ipairs(colormaps) do
+  for _,cidx in ipairs(cmap) do
+    code:write('8h'..string.format("%02x",cidx):sub(-2) .. ',')
+  end
+end
+code:write('};\n')
+if SIMULATION then
+  code:write('  bram uint8 textures[] = {\n') -- verilator hangs on large BROM
+else
+  code:write('  brom uint8 textures[] = {\n') -- synthesis tool hangs on large BRAM
+end
 for tex,id in pairs(texture_ids) do
   -- load assembled texture
   local texpal  = get_palette_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
@@ -193,10 +219,12 @@ for tex,id in pairs(texture_ids) do
 end
 code:write('};\n')
 -- build lookup switch
+if SIMULATION then
+  code:write('  textures.wenable := 0;\n')
+end
 code:write('  palidx := textures.rdata;\n')
-code:write('  textures.wenable = 0;\n')
 code:write('  while (1) {\n')
-if SHRIKNG == 2 then
+if SHRINK == 2 then
   code:write('  iu = iiu>>2;\n')
   code:write('  iv = iiv>>2;\n')
 elseif SHRINK == 1 then
