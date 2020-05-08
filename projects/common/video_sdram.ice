@@ -335,11 +335,13 @@ algorithm frame_buffer_row_updater(
 
     }
     
+    // change working row
+    working_row = ~working_row;
 	  if (row < 199) {
-      // change working row
-      working_row = ~working_row;
       row = row + 1;
-	  }
+	  } else {    
+      row = 0;
+    }
   }
 
 }

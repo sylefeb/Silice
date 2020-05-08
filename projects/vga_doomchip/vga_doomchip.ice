@@ -2,8 +2,8 @@
 // DoomChip!
 //
 // References:
-// "DooM black book" by Fabien Sanglard
-// DooM unofficial specs http://www.gamers.org/dhs/helpdocs/dmsp1666.html
+// - "DooM black book" by Fabien Sanglard
+// - DooM unofficial specs http://www.gamers.org/dhs/helpdocs/dmsp1666.html
 
 $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
@@ -197,10 +197,10 @@ $$end
   
   texturechip textures;
 
-  uint16 queue[16] = {};
-  uint9  queue_ptr = 0;
+  uint16   queue[16] = {};
+  uint9    queue_ptr = 0;
 
-  uint1  vsync_filtered = 0;
+  uint1    vsync_filtered = 0;
   
   int$FPw$ cosview_m  = 0;
   int$FPw$ sinview_m  = 0;
@@ -208,7 +208,6 @@ $$end
   int16    colangle   = 0;
 
   int16    frame      = 0;
-
   int16    ray_z    = 40;
   int16    ray_x    = $player_start_x$;
   int16    ray_y    = $player_start_y$;
@@ -287,7 +286,6 @@ $$end
   uint9    c   = 0;
   uint9    j   = 0;
   uint8    palidx = 0;
-
   uint9    s   = 0;  
   uint16   n   = 0;
   
