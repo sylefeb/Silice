@@ -245,12 +245,37 @@ end
 -- -------------------------------------
 -- read demo path
 demo_path = {}
-local in_path = io.open(findfile('poslog.txt'), 'r')
+if SIMULATION then
+in_path = io.open(findfile('poslog_debug.txt'), 'r')
+else
+in_path = io.open(findfile('poslog_final.txt'), 'r')
+end
 k = 1
+prev_x = -1
+prev_y = -1
+prev_z = -1
+prev_a = -1
 for line in in_path:lines() do
-print(line)
   local angle, x, y, z = line:match("(%-?%d+) (%-?%d+) (%-?%d+) (%-?%d+)")
   if angle then
+    if k > 1 then
+      mid_x = round((prev_x + x)/2)
+      mid_y = round((prev_y + y)/2)
+      mid_z = round((prev_z + z)/2)
+      if math.abs(angle - prev_a) < 512 then
+        mid_a = round((prev_a + angle)/2)
+      else
+        mid_a = angle
+      end
+    --  demo_path[k] = {
+    --    x=mid_x, y=mid_y, z=mid_z, angle=mid_a
+    --  }
+    --  k = k + 1
+    end
+    prev_x = x
+    prev_y = y
+    prev_z = z
+    prev_a = angle
     demo_path[k] = {
       x=x, y=y, z=z, angle=angle
     }

@@ -242,12 +242,13 @@ instructionList     :
                     | ifThenElse  instructionList
                     | ifThen      instructionList
                     | whileLoop   instructionList
-					| switchCase  instructionList
-					| pipeline    instructionList
-					| ;
+					          | switchCase  instructionList
+					          | pipeline    instructionList
+					          | ;
 
 subroutineParam     : ( READ | WRITE | READWRITE ) IDENTIFIER
-					| input | output ;
+					          | input | output ;
+                    
 subroutineParamList : (subroutineParam ',')* subroutineParam;
 subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList RETURN ';' '}' ;
                     
@@ -271,4 +272,4 @@ algorithm           : 'algorithm' IDENTIFIER '(' inOutList ')' algModifiers? '{'
 
 topList       :  (algorithm | importv | appendv | subroutine) topList | ;
 
-root                : topList ;
+root                : topList EOF ;
