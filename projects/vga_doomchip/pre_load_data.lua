@@ -245,25 +245,20 @@ end
 -- -------------------------------------
 -- read demo path
 demo_path = {}
-local in_path = assert(io.open(findfile('TEST.lmp'), 'rb'))
-local sz = fsize(in_path)
-print('demo file is ' .. sz .. ' bytes')
-for i = 1,13 do -- skip header
-  local h = string.unpack('B',in_path:read(1))
-end
+local in_path = io.open(findfile('poslog.txt'), 'r')
 k = 1
-for i = 1,(sz-13)/4 do
-  local straight = string.unpack('b',in_path:read(1))
-  local strafe   = string.unpack('b',in_path:read(1))
-  local turn     = string.unpack('b',in_path:read(1))
-  local other    = string.unpack('B',in_path:read(1))
-  if straight ~= 0 or strafe ~= 0 or turn ~= 0 then
-    straight = (straight * 4) // 3
+for line in in_path:lines() do
+print(line)
+  local angle, x, y, z = line:match("(%-?%d+) (%-?%d+) (%-?%d+) (%-?%d+)")
+  if angle then
     demo_path[k] = {
-      straight=straight, strafe=strafe, turn=turn, other=other
+      x=x, y=y, z=z, angle=angle
     }
     k = k + 1
   end
+end
+if k == 1 then
+  error('empty demo path!')
 end
 
 -- -------------------------------------
@@ -285,6 +280,29 @@ for i = 1,sz/10 do
     break;
   end
 end
+
+-- -------------------------------------
+-- find all sector doors
+doors = {}
+for _,ldef in pairs(lines) do
+  if ldef.types == 1 then
+    sidedef   = sides[1+ldef.left]
+    doorsec   = sidedef.sec
+    print('sector ' .. doorsec .. ' is a door')
+    othersidedef = sides[1+ldef.right]
+    print('       opens until ' .. sectors[1+othersidedef.sec].ceiling)
+    if not doors[doorsec] then
+      doors[doorsec] = { openh = sectors[1+othersidedef.sec].ceiling }
+    else
+      doors[doorsec].openh = round(math.min(doors[doorsec].openh, sectors[1+othersidedef.sec].ceiling))
+    end
+  end
+end
+-- open all doors!
+for sec,door in pairs(doors) do
+  sectors[1+sec].ceiling = door.openh
+end
+
 
 -- -------------------------------------
 -- prepare custom data structures
@@ -439,18 +457,19 @@ end
 function pack_bsp_seg_texmapping(seg)
   local bin = 0
   bin = '48h' 
-        .. string.format("%04x",math.floor(0.5+seg.yoff)):sub(-4)
-        .. string.format("%04x",math.floor(0.5+seg.xoff)):sub(-4)
-        .. string.format("%04x",math.floor(0.5+seg.seglen)):sub(-4)
+        .. string.format("%04x",round(seg.yoff)):sub(-4)
+        .. string.format("%04x",round(seg.xoff)):sub(-4)
+        .. string.format("%04x",round(seg.seglen)):sub(-4)
   return bin
 end
 
 function pack_demo_path(p)
   local bin = 0
-  bin = '24h'
-        .. string.format("%02x",p.straight):sub(-2)
-        .. string.format("%02x",p.strafe):sub(-2)
-        .. string.format("%02x",p.turn):sub(-2)
+  bin = '64h'
+        .. string.format("%04x",p.angle):sub(-4)
+        .. string.format("%04x",p.z):sub(-4)
+        .. string.format("%04x",p.y):sub(-4)
+        .. string.format("%04x",p.x):sub(-4)
   return bin
 end
 
