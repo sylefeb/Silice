@@ -360,3 +360,5 @@ code:close()
 local code = assert(io.open(path .. 'texturechip.ice', 'r'))
 texturechip = code:read("*all")
 code:close()
+
+print('stored ' .. texture_start_addr .. ' texture bytes\n')
