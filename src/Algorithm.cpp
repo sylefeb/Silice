@@ -1428,6 +1428,19 @@ bool Algorithm::isStateLessGraph(t_combinational_block *head) const
 
 // -------------------------------------------------
 
+Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::CircuitryInstContext* ci, t_combinational_block* _current, t_gather_context* _context)
+{
+  // find circuitry in known circuitries
+  auto C = m_KnownCircuitries.find(ci->IDENTIFIER->getText());
+  if (C == m_KnownCircuitries.end()) {
+    throw Fatal("circuitry not yet declared (line %d)", (int)ci->getStart()->getLine());
+  }
+  // instantiate
+  ///////////////////////////////// TODO
+}
+
+// -------------------------------------------------
+
 Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context)
 {
   t_combinational_block *if_block = addBlock(generateBlockName(), _current->subroutine, _current->pipeline);
@@ -1660,6 +1673,7 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
   auto async    = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
   auto join     = dynamic_cast<siliceParser::JoinExecContext*>(tree);
   auto sync     = dynamic_cast<siliceParser::SyncExecContext*>(tree);
+  auto circinst = dynamic_cast<siliceParser::CircuitryInstContext*>(tree);
   auto repeat   = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
   auto pip      = dynamic_cast<siliceParser::PipelineContext*>(tree);
   auto call     = dynamic_cast<siliceParser::CallContext*>(tree);
@@ -1687,7 +1701,7 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
         throw Fatal("always block can only be combinational (line %d)", (int)algbody->alwaysBlock()->getStart()->getLine());
       }
     }
-    // add global subroutines now (reparse them as if defined in algorithm)
+    // add global subroutines now (reparse them as if defined in this algorithm)
     for (const auto& s : m_KnownSubroutines) {
       gatherSubroutine(s.second, _current, _context);
     }
@@ -1695,22 +1709,23 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
     _current = gather(algbody->instructionList(),_current, _context);
     recurse  = false;
   } else if (ifelse) { 
-    _current = gatherIfElse(ifelse, _current, _context);                          recurse = false; 
-  } else if (ifthen)  { _current = gatherIfThen(ifthen, _current, _context);      recurse = false; 
-  } else if (switchC) { _current = gatherSwitchCase(switchC, _current, _context); recurse = false; 
-  } else if (loop)    { _current = gatherWhile(loop, _current, _context);         recurse = false; 
-  } else if (repeat)  { _current = gatherRepeatBlock(repeat, _current, _context); recurse = false; 
-  } else if (pip)     { _current = gatherPipeline(pip, _current, _context);       recurse = false; 
-  } else if (sync)    { _current = gatherSyncExec(sync, _current, _context);      recurse = false; 
-  } else if (join)    { _current = gatherJoinExec(join, _current, _context);      recurse = false; 
-  } else if (call)    { _current = gatherCall(call, _current, _context);          recurse = false; 
-  } else if (jump)    { _current = gatherJump(jump, _current, _context);          recurse = false; 
-  } else if (ret)     { _current = gatherReturnFrom(ret, _current, _context);     recurse = false; 
-  } else if (breakL)  { _current = gatherBreakLoop(breakL, _current, _context);   recurse = false; 
-  } else if (async)   { _current->instructions.push_back(t_instr_nfo(async, _context->__id));   recurse = false; 
-  } else if (assign)  { _current->instructions.push_back(t_instr_nfo(assign, _context->__id));  recurse = false; 
-  } else if (display) { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); recurse = false; 
-  } else if (ilist)   { _current = updateBlock(ilist, _current, _context); }
+    _current = gatherIfElse(ifelse, _current, _context);                               recurse = false;
+  } else if (ifthen)   { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
+  } else if (switchC)  { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
+  } else if (loop)     { _current = gatherWhile(loop, _current, _context);             recurse = false;
+  } else if (repeat)   { _current = gatherRepeatBlock(repeat, _current, _context);     recurse = false;
+  } else if (pip)      { _current = gatherPipeline(pip, _current, _context);           recurse = false;
+  } else if (sync)     { _current = gatherSyncExec(sync, _current, _context);          recurse = false;
+  } else if (join)     { _current = gatherJoinExec(join, _current, _context);          recurse = false;
+  } else if (call)     { _current = gatherCall(call, _current, _context);              recurse = false;
+  } else if (circinst) { _current = gatherCircuitryInst(circinst, _current, _context); recurse = false;
+  } else if (jump)     { _current = gatherJump(jump, _current, _context);              recurse = false; 
+  } else if (ret)      { _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
+  } else if (breakL)   { _current = gatherBreakLoop(breakL, _current, _context);       recurse = false;
+  } else if (async)    { _current->instructions.push_back(t_instr_nfo(async, _context->__id));   recurse = false; 
+  } else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _context->__id));  recurse = false; 
+  } else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); recurse = false; 
+  } else if (ilist)    { _current = updateBlock(ilist, _current, _context); }
 
   // recurse
   if (recurse) {
@@ -2514,10 +2529,11 @@ Algorithm::Algorithm(
   std::string name, 
   std::string clock, std::string reset, bool autorun, 
   const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
-  const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines)
+  const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
+  const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries)
   : m_Name(name), m_Clock(clock), 
   m_Reset(reset), m_AutoRun(autorun), 
-  m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines)
+  m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), m_KnownCircuitries(known_circuitries)
 {
   // init with empty always blocks
   m_AlwaysPre.id = 0;

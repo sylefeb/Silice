@@ -101,6 +101,9 @@ private:
   /// \brief Set of known subroutines
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& m_KnownSubroutines;
 
+  /// \brief Set of known circuitries
+  const std::unordered_map<std::string, siliceParser::CircuitryContext*>& m_KnownCircuitries;
+
   /// \brief enum for variable access
   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
   enum e_Access {
@@ -563,6 +566,8 @@ private:
   t_combinational_block* gatherJump(siliceParser::JumpContext* jump, t_combinational_block* _current, t_gather_context* _context);
   /// \brief gather a call
   t_combinational_block *gatherCall(siliceParser::CallContext* call, t_combinational_block *_current, t_gather_context *_context);
+  /// \brief gather a circuitry instanciation
+  t_combinational_block* gatherCircuitryInst(siliceParser::CircuitryInstContext* ci, t_combinational_block* _current, t_gather_context* _context);
   /// \brief gather a return
   t_combinational_block* gatherReturnFrom(siliceParser::ReturnFromContext* ret, t_combinational_block* _current, t_gather_context* _context);
   /// \brief gather a synchronous execution
@@ -656,7 +661,8 @@ public:
     std::string name, 
     std::string clock, std::string reset, bool autorun, 
     const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
-    const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines);
+    const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
+    const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries);
   /// \brief destructor
   virtual ~Algorithm();
 

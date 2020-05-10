@@ -186,6 +186,10 @@ asyncExec           : IDENTIFIER LARROW '(' paramList ')' ;
 joinExec            : '(' identifierList ')' LARROW IDENTIFIER ;
 syncExec            : joinExec LARROW '(' paramList ')' ;
 
+/* -- Circuitry instanciation -- */
+
+circuitryInst       : '(' identifierList ')' '=' IDENTIFIER '(' paramList ')' ;
+
 /* -- Control flow -- */
 
 state               : state_name=IDENTIFIER ':' | NEXT ;
@@ -263,6 +267,10 @@ declAndInstrList    : (declaration ';' | subroutine ) *
 importv             : 'import' '(' FILENAME ')' ;
 
 appendv             : 'append' '(' FILENAME ')' ;
+
+/* -- Circuitry -- */
+
+circuitry           : 'circuitry' IDENTIFIER '(' inOutList ')' '{' instructionList '}' ;
 
 /* -- Algorithm -- */
 

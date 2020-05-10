@@ -45,6 +45,7 @@ private:
   std::unordered_map<std::string, AutoPtr<Algorithm> >               m_Algorithms;
   std::unordered_map<std::string, AutoPtr<Module> >                  m_Modules;
   std::unordered_map<std::string, siliceParser::SubroutineContext* > m_Subroutines;
+  std::unordered_map<std::string, siliceParser::CircuitryContext* >  m_Circuitries;
   std::unordered_set<std::string>                                    m_Appends;
 
   std::string findFile(std::string fname) const
@@ -77,15 +78,18 @@ private:
 
     auto toplist = dynamic_cast<siliceParser::TopListContext*>(tree);
     auto alg     = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
+    auto circuit = dynamic_cast<siliceParser::CircuitryContext*>(tree);
     auto imprt   = dynamic_cast<siliceParser::ImportvContext*>(tree);
     auto app     = dynamic_cast<siliceParser::AppendvContext*>(tree);
     auto sub     = dynamic_cast<siliceParser::SubroutineContext*>(tree);
 
     if (toplist) {
+
       // keep going
       for (auto c : tree->children) {
         gatherAll(c);
       }
+
     } else if (alg) {
 
       /// algorithm
@@ -107,12 +111,21 @@ private:
           }
         }
       }
-      AutoPtr<Algorithm> algorithm(new Algorithm(name, clock, reset, autorun, m_Modules, m_Subroutines));
+      AutoPtr<Algorithm> algorithm(new Algorithm(name, clock, reset, autorun, m_Modules, m_Subroutines, m_Circuitries));
       if (m_Algorithms.find(name) != m_Algorithms.end()) {
         throw std::runtime_error("algorithm with same name already exists!");
       }
       algorithm->gather(alg->inOutList(),alg->declAndInstrList());
       m_Algorithms.insert(std::make_pair(name,algorithm));
+
+    } else if (circuit) {
+
+      /// circuitry
+      std::string name = circuit->IDENTIFIER()->getText();
+      if (m_Circuitries.find(name) != m_Circuitries.end()) {
+        throw std::runtime_error("circuitry with same name already exists!");
+      }
+      m_Circuitries.insert(std::make_pair(name, circuit));
 
     } else if (imprt) {
 
@@ -144,6 +157,10 @@ private:
     } else if (sub) {
 
       /// global subroutine
+      std::string name = sub->IDENTIFIER()->getText();
+      if (m_Subroutines.find(name) != m_Subroutines.end()) {
+        throw std::runtime_error("subroutine with same name already exists!");
+      }
       m_Subroutines.insert(std::make_pair(sub->IDENTIFIER()->getText(), sub));
 
     }
