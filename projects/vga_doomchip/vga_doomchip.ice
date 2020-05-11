@@ -3,7 +3,7 @@
 //
 // References:
 // - "DooM black book" by Fabien Sanglard
-// - DooM unofficial specs http://www.gamers.org/dhs/helpdocs/dmsp1666.html
+// - "DooM unofficial specs" http://www.gamers.org/dhs/helpdocs/dmsp1666.html
 
 $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
@@ -29,27 +29,17 @@ $$mul_width = FPw
 $include('../common/mulint_any.ice')
 
 // -------------------------
-// some macros (a better mechanism is needed in Silice)
+// some circuitry for repetitive things
 
-$$function macro_to_h(iv,ov)
-$$code = 
-$$[[ 
-$$   ov = 100 + (iv >>> 15);
-$$]]
-$$code=code:gsub('iv', iv)
-$$code=code:gsub('ov', ov)
-$$return code
-$$end
+circuitry to_h(input iv,output ov)
+{
+  ov = 100 + (iv >>> 15);
+}
 
-$$function macro_to_tex_v(iv,ov)
-$$code = 
-$$[[
-$$   ov = (iv >> 8);
-$$]]
-$$code=code:gsub('iv', iv)
-$$code=code:gsub('ov', ov)
-$$return code
-$$end
+circuitry to_tex_v(input iv,output ov)
+{
+   ov = (iv >> 8);
+}
 
 // -------------------------
 // Main drawing algorithm
@@ -318,6 +308,7 @@ $$end
     ray_x     = demo_path.rdata[ 0,16];
     ray_y     = demo_path.rdata[16,16];
     ray_z     = demo_path.rdata[32,16];
+    
     // update viewangle
     viewangle = demo_path.rdata[48,16];
     
@@ -377,6 +368,7 @@ $$end
           ly  = bsp_nodes_coords.rdata[16,16];
           ldx = bsp_nodes_coords.rdata[32,16];
           ldy = bsp_nodes_coords.rdata[48,16];
+          
           // which side are we on?
           dx   = ray_x - lx;
           dy   = ray_y - ly;
@@ -409,6 +401,7 @@ $$end
             v0y = bsp_segs_coords.rdata[16,16];
             v1x = bsp_segs_coords.rdata[32,16];
             v1y = bsp_segs_coords.rdata[48,16];
+            
             // check for intersection
             d0x = v0x - ray_x;
             d0y = v0y - ray_y;
@@ -418,24 +411,30 @@ $$end
             cs0_h = (d0y * ray_dx_m - d0x * ray_dy_m);
             cs1_h = (d1y * ray_dx_m - d1x * ray_dy_m);
 ++:
+
             if ((cs0_h<0 && cs1_h>=0) || (cs1_h<0 && cs0_h>=0)) {
+            
               // compute distance        
               y0_h   =  (  d0x * ray_dx_m + d0y * ray_dy_m );
               y1_h   =  (  d1x * ray_dx_m + d1y * ray_dy_m );
 ++:
               x0_h   =  cs0_h;
               x1_h   =  cs1_h;
+
               // d  = y0 + (y0 - y1) * x0 / (x1 - x0)        
               num    = x0_h <<< $FPm$;
               den    = (x1_h - x0_h);
               (interp_m) <- divl <- (num,den);              
+
               // d_h   = y0_h + (((y0_h - y1_h) >>> $FPm$) * interp_m);
               mula   = (y0_h - y1_h);
               mulb   = interp_m;
               (mulr) <- mull <- (mula,mulb);
               d_h    = y0_h + (mulr >>> $FPm$);              
 ++:
+
               if (d_h > $1<<(FPm+1)$) { // check distance sign, with margin to stay away from 0
+
                 // hit!
                 // -> correct to perpendicular distance ( * cos(alpha) )
                 num     = $FPl$d$(1<<(2*FPm+FPw-2))$;
@@ -454,9 +453,9 @@ $$end
                 tmp1_h  = (sec_f_h * invd_h);     // h / d
                 tmp2_h  = (sec_c_h * invd_h);     // h / d
 ++:
-                // shift and round projected heights
-                $macro_to_h('tmp1_h','f_h')$
-                $macro_to_h('tmp2_h','c_h')$   
+                // obtain projected heights
+                (f_h) = to_h(tmp1_h);
+                (c_h) = to_h(tmp2_h);
 ++:
                 // clamp to top/bottom, shift sector heights for texturing
                 tmp1_m    = (tmp1 <<< $FPm$);
@@ -572,7 +571,7 @@ $$end
 ++:
                   tmp2_m    = tmp1 <<< $FPm$;
                   sec_f_o_m = tmp2_m;
-                  $macro_to_h('tmp1_h','f_o')$ // shift and round
+                  (f_o)     = to_h(tmp1_h);
                   if (btm > f_o) {
                     sec_f_o_m = tmp2_m + ((btm - f_o) * d_h); // offset texturing
                     f_o       = btm;
@@ -583,10 +582,10 @@ $$end
                   tex_v   = sec_f_o_m;
                   j       = f_o;
                   while (j > btm) {
-                    $macro_to_tex_v('tex_v','tc_v')$
+                    (tc_v) = to_tex_v(tex_v);
                     () <- writePixel <- (c,j,tc_u,tc_v+yoff,texid,light);
-                    j     = j - 1;
-                    tex_v = tex_v - d_h;
+                    j      = j - 1;
+                    tex_v  = tex_v - d_h;
                   } 
                   btm = f_o;                  
                 }
@@ -601,7 +600,7 @@ $$end
 ++:
                   tmp2_m    = tmp1 <<< $FPm$;
                   sec_c_o_m = tmp2_m;
-                  $macro_to_h('tmp1_h','c_o')$ // shift and round
+                  (c_o)     = to_h(tmp1_h);
                   if (btm > c_o) {
                     sec_c_o_m = tmp2_m + ((btm - c_o) * d_h); // offset texturing
                     c_o       = btm;
@@ -612,10 +611,10 @@ $$end
                   tex_v   = sec_c_o_m;
                   j       = c_o;
                   while (j < top) {
-                    $macro_to_tex_v('tex_v','tc_v')$
+                    (tc_v) = to_tex_v(tex_v);
                     () <- writePixel <- (c,j,tc_u,tc_v+yoff,texid,light);
-                    j     = j + 1;
-                    tex_v = tex_v + d_h;
+                    j      = j + 1;
+                    tex_v  = tex_v + d_h;
                   }
                   top = c_o;
                 }
@@ -626,10 +625,10 @@ $$end
                   tex_v   = sec_f_h_m;
                   j       = f_h;
                   while (j <= c_h) {                
-                    $macro_to_tex_v('tex_v','tc_v')$
+                    (tc_v) = to_tex_v(tex_v);
                     () <- writePixel <- (c,j,tc_u,tc_v+yoff,texid,light);
                     j = j + 1;   
-                    tex_v = tex_v + d_h;
+                    tex_v  = tex_v + d_h;
                   }
                   // flush queue to stop
                   queue_ptr = 0;
@@ -659,7 +658,8 @@ $$end
     demo_path.addr = frame;    
     
     // wait for frame to end
-    while (vsync_filtered == 0) {}    
+    while (vsync_filtered == 0) {}
+    
     // swap buffers
     fbuffer = ~fbuffer;
   }

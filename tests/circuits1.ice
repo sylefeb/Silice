@@ -1,4 +1,4 @@
-circuitry shift_right(input uint8 a,output uint8 b,output uint8 c)
+circuitry shift_right(input a,output b,output c)
 {
   b = a >>> 3;
   c = a + 1;

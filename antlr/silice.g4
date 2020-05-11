@@ -254,7 +254,7 @@ instructionList     :
 subroutineParam     : ( READ | WRITE | READWRITE ) IDENTIFIER
 					          | input | output ;
                     
-subroutineParamList : (subroutineParam ',')* subroutineParam;
+subroutineParamList : (subroutineParam ',')* subroutineParam | ;
 subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList RETURN ';' '}' ;
                     
 declAndInstrList    : (declaration ';' | subroutine ) *
@@ -271,7 +271,11 @@ appendv             : 'append' '(' FILENAME ')' ;
 
 /* -- Circuitry -- */
 
-circuitry           : 'circuitry' IDENTIFIER '(' inOutList ')' '{' instructionList '}' ;
+circuitryParam      : ( is_input='input' | is_output='output' ) IDENTIFIER ;
+                    
+circuitryParamList  : (circuitryParam ',')* circuitryParam;
+
+circuitry           : 'circuitry' IDENTIFIER '(' circuitryParamList ')' '{' instructionList '}' ;
 
 /* -- Algorithm -- */
 

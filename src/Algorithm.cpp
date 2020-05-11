@@ -1458,22 +1458,15 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   _current->next(cblock);
   // produce io rewrite rules for the block
   // -> gather ins outs
-  vector<t_inout_nfo>  ins;
-  vector<t_output_nfo> outs;
-  for (auto io : C->second->inOutList()->inOrOut()) {
-    auto input = dynamic_cast<siliceParser::InputContext*>(io->input());
-    auto output = dynamic_cast<siliceParser::OutputContext*>(io->output());
-    auto inout = dynamic_cast<siliceParser::InoutContext*>(io->inout());
-    if (inout != nullptr) {
-      throw Fatal("A circuitry cannot use inout parameters (circuitry '%s', line %d)", name.c_str(), C->second->getStart()->getLine());
-    } else if (input != nullptr) {
-      t_inout_nfo io;
-      gatherInputNfo(input, io);
-      ins.emplace_back(io);
-    } else if (output != nullptr) {
-      t_output_nfo io;
-      gatherOutputNfo(output, io);
-      outs.emplace_back(io);
+  vector<string> ins;
+  vector<string> outs;
+  for (auto io : C->second->circuitryParamList()->circuitryParam()) {
+    if (io->is_input != nullptr) {
+      ins.emplace_back(io->IDENTIFIER()->getText());
+    } else if (io->is_output != nullptr) {
+      outs.emplace_back(io->IDENTIFIER()->getText());
+    } else {
+      throw Fatal("internal error (line %d)", (int)C->second->getStart()->getLine());
     }
   }
   // -> get identifiers
@@ -1481,7 +1474,6 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   getIdentifiers(ci->ins,  ins_idents,  nullptr);
   getIdentifiers(ci->outs, outs_idents, nullptr);
   // -> checks
-  /// TODO: type checking
   if (ins.size() != ins_idents.size()) {
     throw Fatal("Incorrect number of inputs in circuitry instanciation (circuitry '%s', line %d)", name.c_str(), ci->getStart()->getLine());
   }
@@ -1490,10 +1482,10 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   }
   // -> rewrite rules
   ForIndex(i,ins.size()) {
-    cblock->context.vio_rewrites.insert(make_pair(ins[i].name,ins_idents[i]));
+    cblock->context.vio_rewrites.insert(make_pair(ins[i],ins_idents[i]));
   }
   ForIndex(o, outs.size()) {
-    cblock->context.vio_rewrites.insert(make_pair(outs[o].name, outs_idents[o]));
+    cblock->context.vio_rewrites.insert(make_pair(outs[o], outs_idents[o]));
   }
   // gather code
   t_combinational_block* cblock_after = gather(C->second->instructionList(), cblock, _context);
