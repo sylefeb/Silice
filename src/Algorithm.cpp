@@ -762,12 +762,21 @@ std::string Algorithm::translateVIOName(
   const t_combinational_block_context *bctx) const
 {
   if (bctx != nullptr) {
+     // first block rewrite rules
+    if (!bctx->vio_rewrites.empty()) {
+      const auto& Vrew = bctx->vio_rewrites.find(vio);
+      if (Vrew != bctx->vio_rewrites.end()) {
+        vio = Vrew->second;
+      }
+    }
+    // then subroutine
     if (bctx->subroutine != nullptr) {
       const auto& Vsub = bctx->subroutine->vios.find(vio);
       if (Vsub != bctx->subroutine->vios.end()) {
         vio = Vsub->second;
       }
     }
+    // then pipeline stage
     if (bctx->pipeline != nullptr) {
       const auto& Vpip = bctx->pipeline->pipeline->trickling_vios.find(vio);
       if (Vpip != bctx->pipeline->pipeline->trickling_vios.end()) {
@@ -799,54 +808,58 @@ std::string Algorithm::rewriteIdentifier(
       throw Fatal("custom clock signal has to be bound to a module output (line %d)", line);
     }
     return m_VIOBoundToModAlgOutputs.at(var);
-  } else if (isInput(var)) {
-    return ALG_INPUT + prefix + var;
-  } else if (isInOut(var)) {
-    throw Fatal("cannot use inouts directly in expressions (line %d)", line);
-    //return ALG_INOUT + prefix + var;
-  } else if (isOutput(var)) {
-    auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
-    if (usage == e_FlipFlop) {
-      if (ff == FF_Q) {
-        if (dependencies.dependencies.count(var) > 0) {
-          return FF_D + prefix + var;
-        }
-      }
-      return ff + prefix + var;
-    } else if (usage == e_Bound) {
-      return m_VIOBoundToModAlgOutputs.at(var);
-    } else {
-      // should be e_Assigned ; currently replaced by a flip-flop but could be avoided
-      throw Fatal("assigned outputs: not yet implemented");
-    }
   } else {
+    // vio? translate
     var = translateVIOName(var, bctx);
-    auto V = m_VarNames.find(var);
-    if (V == m_VarNames.end()) {
-      throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
-    }
-    if (m_Vars.at(V->second).usage == e_Bound) {
-      // bound to an output?
-      auto Bo = m_VIOBoundToModAlgOutputs.find(var);
-      if (Bo != m_VIOBoundToModAlgOutputs.end()) {
-        return Bo->second;
-      }
-      throw Fatal("internal error (line %d) [%s, %d]", line, __FILE__, __LINE__);
-    } else {
-      if (m_Vars.at(V->second).usage == e_Temporary) {
-        // temporary
-        return FF_TMP + prefix + var;
-      } else if (m_Vars.at(V->second).usage == e_Const) {
-        // const
-        return FF_CST + prefix + var;
-      } else {
-        // flip-flop
+    // keep going
+    if (isInput(var)) {
+      return ALG_INPUT + prefix + var;
+    } else if (isInOut(var)) {
+      throw Fatal("cannot use inouts directly in expressions (line %d)", line);
+      //return ALG_INOUT + prefix + var;
+    } else if (isOutput(var)) {
+      auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
+      if (usage == e_FlipFlop) {
         if (ff == FF_Q) {
           if (dependencies.dependencies.count(var) > 0) {
             return FF_D + prefix + var;
           }
         }
         return ff + prefix + var;
+      } else if (usage == e_Bound) {
+        return m_VIOBoundToModAlgOutputs.at(var);
+      } else {
+        // should be e_Assigned ; currently replaced by a flip-flop but could be avoided
+        throw Fatal("assigned outputs: not yet implemented");
+      }
+    } else {
+      auto V = m_VarNames.find(var);
+      if (V == m_VarNames.end()) {
+        throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
+      }
+      if (m_Vars.at(V->second).usage == e_Bound) {
+        // bound to an output?
+        auto Bo = m_VIOBoundToModAlgOutputs.find(var);
+        if (Bo != m_VIOBoundToModAlgOutputs.end()) {
+          return Bo->second;
+        }
+        throw Fatal("internal error (line %d) [%s, %d]", line, __FILE__, __LINE__);
+      } else {
+        if (m_Vars.at(V->second).usage == e_Temporary) {
+          // temporary
+          return FF_TMP + prefix + var;
+        } else if (m_Vars.at(V->second).usage == e_Const) {
+          // const
+          return FF_CST + prefix + var;
+        } else {
+          // flip-flop
+          if (ff == FF_Q) {
+            if (dependencies.dependencies.count(var) > 0) {
+              return FF_D + prefix + var;
+            }
+          }
+          return ff + prefix + var;
+        }
       }
     }
   }
@@ -1435,14 +1448,63 @@ bool Algorithm::isStateLessGraph(t_combinational_block *head) const
 Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::CircuitryInstContext* ci, t_combinational_block* _current, t_gather_context* _context)
 {
   // find circuitry in known circuitries
-  auto C = m_KnownCircuitries.find(ci->IDENTIFIER()->getText());
+  std::string name = ci->IDENTIFIER()->getText();
+  auto C = m_KnownCircuitries.find(name);
   if (C == m_KnownCircuitries.end()) {
     throw Fatal("circuitry not yet declared (line %d)", (int)ci->getStart()->getLine());
   }
-  // instantiate
-  
-  ///////////////////////////////// TODO
-  return _current;
+  // instantiate in a new block
+  t_combinational_block* cblock = addBlock(generateBlockName() + "_" + name, &_current->context);
+  _current->next(cblock);
+  // produce io rewrite rules for the block
+  // -> gather ins outs
+  vector<t_inout_nfo>  ins;
+  vector<t_output_nfo> outs;
+  for (auto io : C->second->inOutList()->inOrOut()) {
+    auto input = dynamic_cast<siliceParser::InputContext*>(io->input());
+    auto output = dynamic_cast<siliceParser::OutputContext*>(io->output());
+    auto inout = dynamic_cast<siliceParser::InoutContext*>(io->inout());
+    if (inout != nullptr) {
+      throw Fatal("A circuitry cannot use inout parameters (circuitry '%s', line %d)", name.c_str(), C->second->getStart()->getLine());
+    } else if (input != nullptr) {
+      t_inout_nfo io;
+      gatherInputNfo(input, io);
+      ins.emplace_back(io);
+    } else if (output != nullptr) {
+      t_output_nfo io;
+      gatherOutputNfo(output, io);
+      outs.emplace_back(io);
+    }
+  }
+  // -> get identifiers
+  std::vector<std::string> ins_idents, outs_idents;
+  getIdentifiers(ci->ins,  ins_idents,  nullptr);
+  getIdentifiers(ci->outs, outs_idents, nullptr);
+  // -> checks
+  /// TODO: type checking
+  if (ins.size() != ins_idents.size()) {
+    throw Fatal("Incorrect number of inputs in circuitry instanciation (circuitry '%s', line %d)", name.c_str(), ci->getStart()->getLine());
+  }
+  if (outs.size() != outs_idents.size()) {
+    throw Fatal("Incorrect number of inputs in circuitry instanciation (circuitry '%s', line %d)", name.c_str(), ci->getStart()->getLine());
+  }
+  // -> rewrite rules
+  ForIndex(i,ins.size()) {
+    cblock->context.vio_rewrites.insert(make_pair(ins[i].name,ins_idents[i]));
+  }
+  ForIndex(o, outs.size()) {
+    cblock->context.vio_rewrites.insert(make_pair(outs[o].name, outs_idents[o]));
+  }
+  // gather code
+  t_combinational_block* cblock_after = gather(C->second->instructionList(), cblock, _context);
+  // check this is combinational
+  if (!isStateLessGraph(cblock)) {
+    throw Fatal("A circuitry has to be combinational (circuitry '%s', line %d)", name.c_str(), C->second->getStart()->getLine());
+  }
+  // create a new block to continue with same context as _current
+  t_combinational_block* after = addBlock(generateBlockName(), &_current->context);
+  cblock_after->next(after);
+  return after;
 }
 
 // -------------------------------------------------
@@ -1585,6 +1647,46 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
 
 // -------------------------------------------------
 
+void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _io)
+{
+  _io.name = input->IDENTIFIER()->getText();
+  _io.table_size = 0;
+  splitType(input->TYPE()->getText(), _io.base_type, _io.width);
+  if (input->NUMBER() != nullptr) {
+    _io.table_size = atoi(input->NUMBER()->getText().c_str());
+  }
+  _io.init_values.resize(max(_io.table_size, 1), "0");
+}
+
+// -------------------------------------------------
+
+void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nfo& _io)
+{
+  _io.name = output->IDENTIFIER()->getText();
+  _io.table_size = 0;
+  splitType(output->TYPE()->getText(), _io.base_type, _io.width);
+  if (output->NUMBER() != nullptr) {
+    _io.table_size = atoi(output->NUMBER()->getText().c_str());
+  }
+  _io.init_values.resize(max(_io.table_size, 1), "0");
+  _io.combinational = (output->combinational != nullptr);
+}
+
+// -------------------------------------------------
+
+void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io)
+{
+  _io.name = inout->IDENTIFIER()->getText();
+  _io.table_size = 0;
+  splitType(inout->TYPE()->getText(), _io.base_type, _io.width);
+  if (inout->NUMBER() != nullptr) {
+    _io.table_size = atoi(inout->NUMBER()->getText().c_str());
+  }
+  _io.init_values.resize(max(_io.table_size, 1), "0");
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
 {
   if (inout == nullptr) {
@@ -1596,36 +1698,17 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
     auto inout = dynamic_cast<siliceParser::InoutContext*>(io->inout());
     if (input) {
       t_inout_nfo io;
-      io.name = input->IDENTIFIER()->getText();
-      io.table_size = 0;
-      splitType(input->TYPE()->getText(), io.base_type, io.width);
-      if (input->NUMBER() != nullptr) {
-        io.table_size = atoi(input->NUMBER()->getText().c_str());
-      }
-      io.init_values.resize(max(io.table_size, 1), "0");
+      gatherInputNfo(input, io);
       m_Inputs.emplace_back(io);
       m_InputNames.insert(make_pair(io.name, (int)m_Inputs.size() - 1));
     } else if (output) {
       t_output_nfo io;
-      io.name = output->IDENTIFIER()->getText();
-      io.table_size = 0;
-      splitType(output->TYPE()->getText(), io.base_type, io.width);
-      if (output->NUMBER() != nullptr) {
-        io.table_size = atoi(output->NUMBER()->getText().c_str());
-      }
-      io.init_values.resize(max(io.table_size, 1), "0");
-      io.combinational = (output->combinational != nullptr);
+      gatherOutputNfo(output, io);
       m_Outputs.emplace_back(io);
       m_OutputNames.insert(make_pair(io.name, (int)m_Outputs.size() - 1));
     } else if (inout) {
       t_inout_nfo io;
-      io.name = inout->IDENTIFIER()->getText();
-      io.table_size = 0;
-      splitType(inout->TYPE()->getText(), io.base_type, io.width);
-      if (inout->NUMBER() != nullptr) {
-        io.table_size = atoi(inout->NUMBER()->getText().c_str());
-      }
-      io.init_values.resize(max(io.table_size, 1), "0");
+      gatherInoutNfo(inout, io);
       m_InOuts.emplace_back(io);
       m_InOutNames.insert(make_pair(io.name, (int)m_InOuts.size() - 1));
     } else {
@@ -1636,7 +1719,7 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
 
 // -------------------------------------------------
 
-void Algorithm::getParams(siliceParser::ParamListContext* params, std::vector<antlr4::tree::ParseTree*>& _vec_params, const t_combinational_block_context* bctx) const
+void Algorithm::getParams(siliceParser::ParamListContext* params, std::vector<antlr4::tree::ParseTree*>& _vec_params) const
 {
   if (params == nullptr) return;
   while (params->expression_0() != nullptr) {
@@ -2779,7 +2862,7 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
   }
   // get params
   std::vector<antlr4::tree::ParseTree*> params;
-  getParams(plist, params, bctx);
+  getParams(plist, params);
   // if params are empty we simply call, otherwise we set the inputs
   if (!params.empty()) {
     if (a.algo->m_Inputs.size() != params.size()) {
@@ -2841,7 +2924,7 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
     throw Fatal("cannot call a subroutine from a pipeline (line %d)", (int)plist->getStart()->getLine());
   }
   std::vector<antlr4::tree::ParseTree*> params;
-  getParams(plist, params, bctx);
+  getParams(plist, params);
   // check num parameters
   if (called->inputs.size() != params.size()) {
     throw Fatal("incorrect number of input parameters in call to subroutine '%s' (line %d)",

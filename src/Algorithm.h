@@ -26,8 +26,6 @@ NOTES:
 - SL: how (and whether?) to initialize outputs?
 - SL: recheck repeat blocks ...
 - SL: warning if an algorithm input is not bound + not used
-- SL: global scope subroutines (simply add them to all algorithm before gather?)
-- SL: inline combinational subroutines? [low priority]
 
 */
 
@@ -391,6 +389,7 @@ private:
   typedef struct {
     t_subroutine_nfo*     subroutine = nullptr; // if block belongs to a subroutine
     t_pipeline_stage_nfo* pipeline   = nullptr; // if block belongs to a pipeline
+    std::unordered_map<std::string, std::string> vio_rewrites; // if the block contains vio rewrites
   } t_combinational_block_context;
 
   /// \brief a combinational block of code
@@ -593,10 +592,16 @@ private:
   void gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always);
   /// \brief check access permissions
   void checkPermissions(antlr4::tree::ParseTree *node, t_combinational_block *_current);
+  /// \brief gather info about an input
+  void gatherInputNfo(siliceParser::InputContext* input, t_inout_nfo& _io);
+  /// \brief gather info about an output
+  void gatherOutputNfo(siliceParser::OutputContext* input, t_output_nfo& _io);
+  /// \brief gather info about an inout
+  void gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io);
   /// \brief gather inputs and outputs
   void gatherIOs(siliceParser::InOutListContext* inout);
   /// \brief extract the ordered list of parameters
-  void getParams(siliceParser::ParamListContext* params, std::vector<antlr4::tree::ParseTree*>& _vec_params, const t_combinational_block_context* bctx) const;
+  void getParams(siliceParser::ParamListContext* params, std::vector<antlr4::tree::ParseTree*>& _vec_params) const;
   /// \brief extract the ordered list of identifiers
   void getIdentifiers(siliceParser::IdentifierListContext* idents, std::vector<std::string>& _vec_params, const t_combinational_block_context* bctx) const;
   /// \brief sematic parsing, first discovery pass

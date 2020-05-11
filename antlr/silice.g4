@@ -188,7 +188,7 @@ syncExec            : joinExec LARROW '(' paramList ')' ;
 
 /* -- Circuitry instanciation -- */
 
-circuitryInst       : '(' identifierList ')' '=' IDENTIFIER '(' paramList ')' ;
+circuitryInst       : '(' outs=identifierList ')' '=' IDENTIFIER '(' ins=identifierList ')';
 
 /* -- Control flow -- */
 
@@ -214,6 +214,7 @@ instruction         : assignment
                     | joinExec
                     | jump
                     | call
+                    | circuitryInst
                     | returnFrom
                     | breakLoop
                     | display
@@ -278,6 +279,6 @@ algorithm           : 'algorithm' IDENTIFIER '(' inOutList ')' algModifiers? '{'
 
 /* -- Overall structure -- */
 
-topList       :  (algorithm | importv | appendv | subroutine) topList | ;
+topList       :  (algorithm | importv | appendv | subroutine | circuitry) topList | ;
 
 root                : topList EOF ;
