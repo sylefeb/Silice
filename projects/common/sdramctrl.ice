@@ -211,7 +211,7 @@ $$refresh_wait   = 7
 
     if (work_todo) {
     // -> row management
-      if (row_open[bank,1]) {      
+      if (row_open[bank,1]) {
         // a row is open
         if (row_addr[bank] == row) {
           // same row: all good!

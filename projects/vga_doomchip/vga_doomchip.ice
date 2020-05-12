@@ -296,11 +296,10 @@ $$end
   bsp_segs_tex_height.wenable = 0;
   bsp_segs_texmapping.wenable = 0;
   demo_path          .wenable = 0;
-  inv_y              .wenable = 0;
-  
-  sin_m     .wenable = 0;
-  coltoalpha.wenable = 0;
-  coltox    .wenable = 0;
+  inv_y              .wenable = 0;  
+  sin_m              .wenable = 0;
+  coltoalpha         .wenable = 0;
+  coltox             .wenable = 0;
   
   while (1) {
   
@@ -326,7 +325,7 @@ $$end
     sin_m.addr = (viewangle + 1024) & 4095;
 ++:
     cosview_m  = sin_m.rdata;
-    
+
     // raycast columns
     c = 0;
     while (c < 320) { 
@@ -356,6 +355,7 @@ $$end
 
       // let's rock!
       while (queue_ptr > 0) {
+      
         queue_ptr = queue_ptr-1;
         n         = queue[queue_ptr];
         bsp_nodes_coords  .addr = n;

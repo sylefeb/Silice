@@ -91,7 +91,7 @@ in_pal:close()
 
 -- -------------------------------------
 -- get script path
-local path,_1,_2 = string.match(findfile('textures.txt'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+path,_1,_2 = string.match(findfile('textures.txt'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
 
 -- -------------------------------------
 -- parse texture defs

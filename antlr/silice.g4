@@ -178,8 +178,6 @@ paramList           : expression_0 ',' paramList
 
 identifierList      : IDENTIFIER ',' identifierList 
                     | IDENTIFIER 
-                    | IDENTIFIER '[' NUMBER ']' ',' identifierList 
-                    | IDENTIFIER '[' NUMBER ']'
                     | ;
 
 asyncExec           : IDENTIFIER LARROW '(' paramList ')' ;

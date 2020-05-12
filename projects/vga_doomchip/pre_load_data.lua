@@ -291,6 +291,7 @@ end
 local in_things = assert(io.open(findfile('THINGS'), 'rb'))
 local sz = fsize(in_things)
 print('things file is ' .. sz .. ' bytes')
+nthings = 0
 for i = 1,sz/10 do
   local x   = string.unpack('h',in_things:read(2))
   local y   = string.unpack('h',in_things:read(2))
@@ -302,9 +303,11 @@ for i = 1,sz/10 do
     player_start_x = x
     player_start_y = y
     player_start_a = a*1024//90;
-    break;
+    -- break;
   end
+  nthings = nthings + 1
 end
+print('level contains ' .. nthings .. ' things')
 
 -- -------------------------------------
 -- find all sector doors

@@ -378,8 +378,9 @@ Algorithm::t_combinational_block *Algorithm::addBlock(std::string name, const t_
   m_Blocks.back()->id = next_id;
   m_Blocks.back()->end_action = nullptr;
   if (bctx != nullptr) {
-    m_Blocks.back()->context.subroutine = bctx->subroutine;
-    m_Blocks.back()->context.pipeline   = bctx->pipeline;
+    m_Blocks.back()->context.subroutine   = bctx->subroutine;
+    m_Blocks.back()->context.pipeline     = bctx->pipeline;
+    m_Blocks.back()->context.vio_rewrites = bctx->vio_rewrites;
   }
   m_Id2Block[next_id] = m_Blocks.back();
   m_State2Block[name] = m_Blocks.back();
