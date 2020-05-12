@@ -123,7 +123,6 @@ algorithm frame_drawer(
   while (1) {
     
     // clear screen
-    /*
     i = 0;
     while (i < 320) {
       j = 0;
@@ -133,7 +132,6 @@ algorithm frame_drawer(
       }
       i = i + 1;
     }
-    */
     
     // select sprite
     (sprt,m) = spriteWalk(angle,frame);
