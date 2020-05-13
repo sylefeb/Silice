@@ -110,7 +110,13 @@ algorithm frame_drawer(
   int10    i       = 0;
   int10    j       = 0;
   int10    c       = 0;
+  int10    r       = 0;
   int1     m       = 0;
+
+  int$FPw$ y_accum   = 0;
+  int10    y_last    = 0;
+  int10    y_cur     = 0;
+  int$FPw$ scale     = $1 << 8$; 
   
   vsync_filtered ::= vsync;
 
@@ -145,33 +151,65 @@ algorithm frame_drawer(
     sprt_lo = 100 - sprites_header.rdata[16,16];
     sprt_to = 100 - sprites_header.rdata[ 0,16];
     c = 0;
-    while (c < sprt_w) {
+    while (c < sprt_w) { // for each column
+      // retrieve column pointer
       if (m) {
         sprites_colptrs.addr = sprites_colstarts.rdata + sprt_w - 1 - c;
       } else {
         sprites_colptrs.addr = sprites_colstarts.rdata + c;
       }
 ++:
-      sprites_data.addr = sprites_colptrs.rdata;
-      while (sprites_data.rdata != 255) { // one cycle to enter while, so sprites_data is refreshed
-        // new post row start
-        j = sprites_data.rdata + sprt_to;
+      sprites_data.addr = sprites_colptrs.rdata;      
+++:
+      // init first post
+      j                 = sprites_data.rdata;      
+      if (j != 255) {
         sprites_data.addr = sprites_data.addr + 1;
 ++:
         // num in post
-        i = sprites_data.rdata;
-        sprites_data.addr = sprites_data.addr + 2; // skip one
-        // draw post
-        while (i != 0) {
-          () <- writeRawPixel <- (c + sprt_lo,j,sprites_data.rdata);
-          sprites_data.addr = sprites_data.addr + 1;
-          j = j + 1;
-          i = i - 1;
+        i                 = sprites_data.rdata;
+        sprites_data.addr = sprites_data.addr + 2; // skip one      
+        // draw the column
+        r       = 0;        
+        y_accum = 0;
+        y_last  = 0;
+        // go ahead
+        while (sprites_data.rdata != 255 && r < sprt_h) { // we advance 1-by-1 for scaling
+          if (i == 0) {
+            // start new post
+            j                 = sprites_data.rdata;
+            sprites_data.addr = sprites_data.addr + 1;
+++:
+            // num in post
+            i = sprites_data.rdata;
+            sprites_data.addr = sprites_data.addr + 2; // skip one
+          }
+          if (r >= j && i != 0) {
+            // draw post
+            y_cur = (y_accum >> 8);
+            while (y_last <= y_cur) {
+              () <- writeRawPixel <- (c + sprt_lo,y_last + sprt_to,sprites_data.rdata);
+              y_last = y_last + 1;
+            }
+            j = j + 1;
+            i = i - 1;
+            if (i == 0) {
+              // skip last
+              sprites_data.addr = sprites_data.addr + 2;
+            } else {
+              sprites_data.addr = sprites_data.addr + 1;
+            }
+          } else {
+            y_last = ((y_accum + scale) >> 8);
+          }
+          r       = r + 1;
+          y_accum = y_accum + scale;
         }
-        sprites_data.addr = sprites_data.addr + 1;
       }
-      c = c + 1;
+      // next column
+      c = c + 1;      
     }
+
     
     // prepare next
     frame = frame + 1;

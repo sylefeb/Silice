@@ -76,7 +76,7 @@ sprites_frames = {
 --'R0','S0','T0','U0',
 }
 
-sprite_id = 'SPOS'
+sprite_id = 'POSS'
 
 sprites = {}
 id = 1

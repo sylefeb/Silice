@@ -333,7 +333,7 @@ $$end
       coltoalpha.addr = c;
       coltox    .addr = c;
 ++:
-      colangle = (viewangle + coltoalpha.rdata);
+      colangle   = (viewangle + coltoalpha.rdata);
 
       // get ray dx/dy
       sin_m.addr = (colangle) & 4095;
