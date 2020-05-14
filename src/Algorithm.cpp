@@ -1578,67 +1578,26 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   // produce io rewrite rules for the block
   /// TODO: deal with memories
   // -> gather ins outs
-  vector< vector<string> > ins;
-  vector< vector<string> > outs;
-  for (auto cio : C->second->circuitryIoList()->circuitryIo()) {
-    if (cio->io() != nullptr) {
-      auto io = cio->io();
-      if (io->is_input != nullptr) {
-        ins.push_back(vector<string>());
-        ins.back().push_back(io->IDENTIFIER()->getText());
-      } else if (io->is_output != nullptr) {
-        if (io->combinational != nullptr) {
-          throw Fatal("a circuitry output is combinational by default (line %d)", (int)C->second->getStart()->getLine());
-        }
-        outs.push_back(vector<string>());
-        outs.back().push_back(io->IDENTIFIER()->getText());
-      } else if (io->is_inout != nullptr) {
-        throw Fatal("a circuitry cannot use an inout (line %d)", (int)C->second->getStart()->getLine());
-      } else {
-        throw Fatal("internal error (line %d)", (int)C->second->getStart()->getLine());
+  vector< string > ins;
+  vector< string > outs;
+  for (auto io : C->second->ioList()->io()) {
+    if (io->is_input != nullptr) {
+      ins.push_back(io->IDENTIFIER()->getText());
+    } else if (io->is_output != nullptr) {
+      if (io->combinational != nullptr) {
+        throw Fatal("a circuitry output is combinational by default (line %d)", (int)C->second->getStart()->getLine());
       }
+      outs.push_back(io->IDENTIFIER()->getText());
+    } else if (io->is_inout != nullptr) {
+      ins.push_back(io->IDENTIFIER()->getText());
+      outs.push_back(io->IDENTIFIER()->getText());
     } else {
-      sl_assert(cio->ioGroup() != nullptr);
-      // find group declaration
-      auto iog = cio->ioGroup();
-      auto G = m_KnownGroups.find(iog->groupid->getText());
-      if (G == m_KnownGroups.end()) {
-        throw Fatal("no group definition for '%s' (line %d)",
-          iog->groupid->getText().c_str(), iog->getStart()->getLine());
-      }
-      // group prefix
-      string grpre = iog->groupname->getText();
-      vector<string> allins,allouts;
-      for (auto io : iog->ioList()->io()) {
-        // check if valid member
-        verifyMemberGroup(io->IDENTIFIER()->getText(), G->second, (int)io->getStart()->getLine());
-        // add where it belongs
-        if (io->is_input != nullptr) {
-          allins.emplace_back("_" + io->IDENTIFIER()->getText());
-        } else if (io->is_output != nullptr) {
-          if (io->combinational != nullptr) {
-            throw Fatal("a circuitry output is combinational by default (line %d)", (int)C->second->getStart()->getLine());
-          }
-          allouts.emplace_back("_" + io->IDENTIFIER()->getText());
-        } else if (io->is_inout != nullptr) {
-          throw Fatal("a circuitry cannot use an inout (line %d)", (int)C->second->getStart()->getLine());
-        } else {
-          throw Fatal("internal error (line %d)", (int)C->second->getStart()->getLine());
-        }
-      }
-      if (!allins.empty()) {
-        ins.emplace_back(allins);
-        ins.back().push_back(grpre);
-      }
-      if (!allouts.empty()) {
-        outs.emplace_back(allouts);
-        outs.back().push_back(grpre);
-      }
+      throw Fatal("internal error (line %d)", (int)C->second->getStart()->getLine());
     }
   }
   // -> get identifiers
   vector<string> ins_idents, outs_idents;
-  getIdentifiers(ci->ins,  ins_idents,  nullptr);
+  getIdentifiers(ci->ins, ins_idents, nullptr);
   getIdentifiers(ci->outs, outs_idents, nullptr);
   // -> checks
   if (ins.size() != ins_idents.size()) {
@@ -1648,42 +1607,14 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
     throw Fatal("Incorrect number of inputs in circuitry instanciation (circuitry '%s', line %d)", name.c_str(), ci->getStart()->getLine());
   }
   // -> rewrite rules
-  ForIndex(i,ins.size()) {
-    auto G = m_VIOGroups.find(ins_idents[i]);
-    if (G != m_VIOGroups.end()) {
-      // group
-      string grpre_circuitry = ins[i].back();
-      ins[i].pop_back();
-      ForIndex(j, ins[i].size()) {
-        cblock->context.vio_rewrites.insert(make_pair(grpre_circuitry + ins[i][j], ins_idents[i] + ins[i][j]));
-      }
-      cblock->context.vio_rewrites.insert(make_pair(grpre_circuitry, ins_idents[i]));
-    } else {
-      sl_assert(ins[i].size() == 1);
-      cblock->context.vio_rewrites.insert(make_pair(ins[i].front(), ins_idents[i]));
-    }
+  ForIndex(i, ins.size()) {
+    cblock->context.vio_rewrites.insert(make_pair(ins[i], ins_idents[i]));
   }
   ForIndex(o, outs.size()) {
-    auto G = m_VIOGroups.find(outs_idents[o]);
-    if (G != m_VIOGroups.end()) {
-      // group
-      string grpre_circuitry = outs[o].back();
-      outs[o].pop_back();
-      ForIndex(j, outs[o].size()) {
-        cblock->context.vio_rewrites.insert(make_pair(grpre_circuitry + outs[o][j], ins_idents[o] + outs[o][j]));
-      }
-      cblock->context.vio_rewrites.insert(make_pair(grpre_circuitry, ins_idents[o]));
-    } else {
-      sl_assert(outs[o].size() == 1);
-      cblock->context.vio_rewrites.insert(make_pair(outs[o].front(), outs_idents[o]));
-    }
+    cblock->context.vio_rewrites.insert(make_pair(outs[o], outs_idents[o]));
   }
   // gather code
   t_combinational_block* cblock_after = gather(C->second->instructionList(), cblock, _context);
-  // check this is combinational
-  if (!isStateLessGraph(cblock)) {
-    throw Fatal("A circuitry has to be combinational (circuitry '%s', line %d)", name.c_str(), C->second->getStart()->getLine());
-  }
   // create a new block to continue with same context as _current
   t_combinational_block* after = addBlock(generateBlockName(), &_current->context);
   cblock_after->next(after);
