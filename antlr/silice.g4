@@ -57,6 +57,8 @@ BRAM                : 'bram' ;
 
 BROM                : 'brom' ;
 
+GROUP               : 'group' ;
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -107,14 +109,29 @@ algModifiers        : '<' (algModifier ',') * algModifier '>' ;
 
 initList            : '{' (value ',')* value? '}';
 
-declarationVar      : TYPE IDENTIFIER '=' value ATTRIBS?;
-declarationTable    : TYPE IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);
-declarationMemory   : (BRAM | BROM) TYPE name=IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING))?;
-declarationModAlg   : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
-declaration         : declarationVar | declarationModAlg | declarationTable | declarationMemory; 
+declarationVar       : TYPE IDENTIFIER '=' value ATTRIBS?;
+declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);
+declarationMemory    : (BRAM | BROM) TYPE name=IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING))?;
+declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
+declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory; 
 
-modalgBinding       : left=IDENTIFIER (LDEFINE | RDEFINE | BDEFINE) right=IDENTIFIER | AUTO;
-modalgBindingList   : modalgBinding ',' modalgBindingList | modalgBinding | ;
+modalgBinding        : left=IDENTIFIER (LDEFINE | RDEFINE | BDEFINE) right=IDENTIFIER | AUTO;
+modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
+
+/* -- io lists -- */
+
+io                  : ( is_input='input' | (is_output='output' combinational='!'?) | is_inout='inout' ) IDENTIFIER ;
+
+ioList              : (io ',')* io? ;
+
+/* -- groups -- */
+
+var                 : declarationVar ;
+varList             : (var ',')* var? ;
+
+group               : GROUP IDENTIFIER '{' varList '}' ;
+
+ioGroup             : groupid=IDENTIFIER groupname=IDENTIFIER '{' ioList '}' ;
 
 /* -- Expressions -- */
 /* 
@@ -233,7 +250,7 @@ input               : 'input' TYPE IDENTIFIER
                     | 'input' TYPE IDENTIFIER '[' NUMBER ']';
 output              : 'output' combinational='!'? TYPE IDENTIFIER
                     | 'output' combinational='!'? TYPE IDENTIFIER '[' NUMBER ']';
-inOrOut             :  input | output | inout ;
+inOrOut             :  input | output | inout | ioGroup;
 inOutList           :  (inOrOut ',') * inOrOut | ;
 
 /* -- Declarations, subroutines, instruction lists -- */
@@ -271,11 +288,7 @@ appendv             : 'append' '(' FILENAME ')' ;
 
 /* -- Circuitry -- */
 
-circuitryParam      : ( is_input='input' | is_output='output' ) IDENTIFIER ;
-                    
-circuitryParamList  : (circuitryParam ',')* circuitryParam;
-
-circuitry           : 'circuitry' IDENTIFIER '(' circuitryParamList ')' '{' instructionList '}' ;
+circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' '{' instructionList '}' ;
 
 /* -- Algorithm -- */
 
@@ -283,6 +296,6 @@ algorithm           : 'algorithm' IDENTIFIER '(' inOutList ')' algModifiers? '{'
 
 /* -- Overall structure -- */
 
-topList       :  (algorithm | importv | appendv | subroutine | circuitry) topList | ;
+topList       :  (algorithm | importv | appendv | subroutine | circuitry | group) topList | ;
 
 root                : topList EOF ;

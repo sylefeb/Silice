@@ -105,6 +105,9 @@ private:
   /// \brief Set of known circuitries
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>& m_KnownCircuitries;
 
+  /// \brief Set of known groups
+  const std::unordered_map<std::string, siliceParser::GroupContext*>& m_KnownGroups;
+
   /// \brief enum for variable access
   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
   enum e_Access {
@@ -164,8 +167,10 @@ private:
   std::vector< t_inout_nfo  > m_Inputs;
   /// \brief outputs
   std::vector< t_output_nfo > m_Outputs;
-  /// \brief inouts NOTE: for now can only be passed to verilog modules
+  /// \brief inouts NOTE: can only be passed around
   std::vector< t_inout_nfo >  m_InOuts;
+  /// \brief io groups
+  std::unordered_map<std::string, siliceParser::GroupContext*> m_VIOGroups;
 
   /// \brief all input names, map contains index in m_Inputs
   std::unordered_map<std::string, int > m_InputNames;
@@ -190,7 +195,7 @@ private:
   std::unordered_map<std::string, int > m_MemoryNames;
 
   /// \brief enum binding direction
-  enum e_BindingDir { e_Left, e_Right, e_BiDir };
+  enum e_BindingDir { e_Left, e_Right, e_BiDir, e_Auto };
 
   /// \brief records info about variable bindings
   typedef struct
@@ -523,6 +528,8 @@ private:
   std::string gatherValue(siliceParser::ValueContext* ival);
   /// \brief add a variable from its definition (_var may be modified with an updated name)
   void addVar(t_var_nfo& _var, t_subroutine_nfo* sub, int line);
+  /// \brief gather variable nfo
+  void gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nfo& _nfo);
   /// \brief gather variable declaration
   void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub);
   /// \brief gather all values from an init list
@@ -538,10 +545,12 @@ private:
     siliceParser::ModalgBindingListContext *bindings,
     std::vector<t_binding_nfo>& _vec_bindings,
     bool& _autobind) const;
+  /// \brief gather group declaration
+  void gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_subroutine_nfo* sub);
   /// \brief gather algorithm declaration
-  void gatherDeclarationAlgo(siliceParser::DeclarationModAlgContext* alg, const t_subroutine_nfo* sub);
+  void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, const t_subroutine_nfo* sub);
   /// \brief gather module declaration
-  void gatherDeclarationModule(siliceParser::DeclarationModAlgContext* mod, const t_subroutine_nfo* sub);
+  void gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, const t_subroutine_nfo* sub);
   /// \brief returns the name of a subroutine vio
   std::string subroutineVIOName(std::string vio, const t_subroutine_nfo *sub);
   /// \brief returns the name of a trickling vio for a stage of a piepline
@@ -603,6 +612,8 @@ private:
   void gatherOutputNfo(siliceParser::OutputContext* input, t_output_nfo& _io);
   /// \brief gather info about an inout
   void gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io);
+  /// \brief gather infos about an io group
+  void gatherIoGroup(siliceParser::IoGroupContext* iog);
   /// \brief gather inputs and outputs
   void gatherIOs(siliceParser::InOutListContext* inout);
   /// \brief extract the ordered list of parameters
@@ -627,6 +638,8 @@ private:
   const t_combinational_block *fastForward(const t_combinational_block *block) const;
   /// \brief verify memory member
   void verifyMemberMemory(const t_mem_nfo& mem,std::string member,int line) const;
+  /// \brief verify member in group
+  void verifyMemberGroup(std::string member, siliceParser::GroupContext* group,int line) const;
 
 private:
 
@@ -667,6 +680,8 @@ private:
   void autobindInstancedAlgorithm(t_algo_nfo& _alg);
   /// \brief autobind a module
   void autobindInstancedModule(t_module_nfo& _mod);
+  /// \brief resove e_Auto binding directions
+  void resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg);
 
 public:
 
@@ -674,9 +689,10 @@ public:
   Algorithm(
     std::string name, 
     std::string clock, std::string reset, bool autorun, int stack_size,
-    const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
+    const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
     const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
-    const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries);
+    const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
+    const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups);
   /// \brief destructor
   virtual ~Algorithm();
 

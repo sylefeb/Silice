@@ -58,14 +58,16 @@ circuitry spriteWalk(input angle,input frame,output sprite,output mirror)
 }
 
 algorithm frame_drawer(
-  output uint23 saddr,
-  output uint2  swbyte_addr,
-  output uint1  srw,
-  output uint32 sdata_in,
-  output uint1  sin_valid,
-  input  uint32 sdata_out,
-  input  uint1  sbusy,
-  input  uint1  sout_valid,
+  sdio sd {
+    output addr,
+    output wbyte_addr,
+    output rw,
+    output data_in,
+    output in_valid,
+    input  data_out,
+    input  busy,
+    input  out_valid,
+  },
   input  uint1  vsync,
   output uint1  fbuffer
 ) {
@@ -74,23 +76,19 @@ algorithm frame_drawer(
 
   // Writes a raw pixel in the framebuffer
   subroutine writeRawPixel(
-     reads  sbusy,
-     writes sdata_in,
-     writes saddr,
-     writes swbyte_addr,
-     writes sin_valid,
-     reads  fbuffer,
+     readwrites    sd,
+     reads         fbuffer,
      input  uint9  pi,
      input  uint9  pj,
      input  uint8  pidx
      )
   {
     while (1) {
-      if (sbusy == 0) { // not busy?
-        sdata_in    = pidx;
-        saddr       = {~fbuffer,21b0} | (pi >> 2) | (pj << 8);
-        swbyte_addr = pi & 3;
-        sin_valid   = 1; // go ahead!
+      if (sd.busy == 0) { // not busy?
+        sd.data_in    = pidx;
+        sd.addr       = {~fbuffer,21b0} | (pi >> 2) | (pj << 8);
+        sd.wbyte_addr = pi & 3;
+        sd.in_valid   = 1; // go ahead!
         break;
       }
     }
@@ -143,9 +141,9 @@ algorithm frame_drawer(
   
   vsync_filtered ::= vsync;
 
-  sin_valid := 0; // maintain low (pulses high when needed)
+  sd.in_valid := 0; // maintain low (pulses high when needed)
   
-  srw = 1;        // sdram write
+  sd.rw = 1;        // sdram write
 
   fbuffer = 0;
   

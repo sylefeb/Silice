@@ -313,6 +313,31 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
 
 // -------------------------------------------------
 
+void Algorithm::resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg)
+{
+  for (auto& b : _alg.bindings) {
+    if (b.dir == e_Auto) {
+      // input?
+      if (_alg.algo->isInput(b.left)) {
+        b.dir = e_Left;
+      }
+      // output?
+      else if (_alg.algo->isOutput(b.left)) {
+        b.dir = e_Right;
+      }
+      // inout?
+      else if (_alg.algo->isInOut(b.left)) {
+        b.dir = e_BiDir;
+      } else {
+        throw Fatal("cannot determine binding direction for '%s <:> %s', binding to algorithm instance '%s'",
+          b.left.c_str(), b.right.c_str(), _alg.instance_name.c_str());
+      }
+    }
+  }
+}
+
+// -------------------------------------------------
+
 Algorithm::~Algorithm()
 {
   // delete all blocks
@@ -472,17 +497,24 @@ void Algorithm::addVar(t_var_nfo& _var, t_subroutine_nfo* sub,int line)
 
 // -------------------------------------------------
 
+void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nfo& _nfo)
+{
+  _nfo.name = decl->IDENTIFIER()->getText();
+  _nfo.table_size = 0;
+  splitType(decl->TYPE()->getText(), _nfo.base_type, _nfo.width);
+  _nfo.init_values.push_back("0");
+  _nfo.init_values[0] = gatherValue(decl->value());
+  if (decl->ATTRIBS() != nullptr) {
+    _nfo.attribs = decl->ATTRIBS()->getText();
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub)
 {
   t_var_nfo var;
-  var.name       = decl->IDENTIFIER()->getText();
-  var.table_size = 0;
-  splitType(decl->TYPE()->getText(), var.base_type, var.width);
-  var.init_values.push_back("0");
-  var.init_values[0] = gatherValue(decl->value());
-  if (decl->ATTRIBS() != nullptr) {
-    var.attribs = decl->ATTRIBS()->getText();
-  }
+  gatherVarNfo(decl,var);
   addVar(var, sub, (int)decl->getStart()->getLine());
 }
 
@@ -554,7 +586,7 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* de
     var.table_size = 0; // autosize from init
   }
   readInitList(decl, var);
-
+  // insert var
   m_Vars.emplace_back(var);
   m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
   if (sub != nullptr) {
@@ -683,11 +715,29 @@ void Algorithm::getBindings(
       if (bindings->modalgBinding()->AUTO() != nullptr) {
         _autobind = true;
       } else {
+        // checkl if this is a group binding
+        if (bindings->modalgBinding()->BDEFINE() != nullptr) {
+          auto G = m_VIOGroups.find(bindings->modalgBinding()->right->getText());
+          if (G != m_VIOGroups.end()) {
+            // unfold all bindings, select direction automatically
+            for (auto v : G->second->varList()->var()) {
+              string member = v->declarationVar()->IDENTIFIER()->getText();
+              t_binding_nfo nfo;
+              nfo.left  = bindings->modalgBinding()->left->getText() + "_" + member;
+              nfo.right = bindings->modalgBinding()->right->getText() + "_" + member;
+              nfo.line  = (int)bindings->modalgBinding()->getStart()->getLine();
+              nfo.dir   = e_Auto;
+              _vec_bindings.push_back(nfo);
+            }
+            // skip to next
+            bindings = bindings->modalgBindingList();
+            continue;
+          }
+        }
         t_binding_nfo nfo;
-        nfo.line  = -1;
-        nfo.left  = bindings->modalgBinding()->left->getText();
+        nfo.left = bindings->modalgBinding()->left->getText();
         nfo.right = bindings->modalgBinding()->right->getText();
-        nfo.line  = (int)bindings->modalgBinding()->getStart()->getLine();
+        nfo.line = (int)bindings->modalgBinding()->getStart()->getLine();
         if (bindings->modalgBinding()->LDEFINE() != nullptr) {
           nfo.dir = e_Left;
         } else if (bindings->modalgBinding()->RDEFINE() != nullptr) {
@@ -705,7 +755,25 @@ void Algorithm::getBindings(
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationModAlgContext* alg, const t_subroutine_nfo* sub)
+void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_subroutine_nfo* sub)
+{
+  auto G = m_KnownGroups.find(grp->modalg->getText());
+  if (G != m_KnownGroups.end()) {
+    m_VIOGroups.insert(make_pair(grp->name->getText(), G->second));
+    for (auto v : G->second->varList()->var()) {
+      t_var_nfo vnfo;
+      gatherVarNfo(v->declarationVar(), vnfo);
+      vnfo.name = grp->name->getText() + "_" + vnfo.name;
+      addVar(vnfo, sub, (int)grp->getStart()->getLine());
+    }
+  } else {
+    throw Fatal("unkown group '%s' (line %d)", grp->modalg->getText().c_str(), grp->getStart()->getLine());
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
     throw Fatal("subroutine '%s': algorithms cannot be instanced within subroutines (line %d)", sub->name.c_str(), (int)alg->name->getLine());
@@ -740,7 +808,7 @@ void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationModAlgContext* al
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationModule(siliceParser::DeclarationModAlgContext* mod, const t_subroutine_nfo* sub)
+void Algorithm::gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
     throw Fatal("subroutine '%s': modules cannot be instanced within subroutines (line %d)", sub->name.c_str(), (int)mod->name->getLine());
@@ -992,19 +1060,21 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
 
 void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_subroutine_nfo *sub)
 {
-  auto declvar = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
-  auto decltbl = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
-  auto modalg  = dynamic_cast<siliceParser::DeclarationModAlgContext*>(decl->declarationModAlg());
-  auto declmem = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
-  if (declvar)       { gatherDeclarationVar(declvar, sub); } 
-  else if (decltbl)  { gatherDeclarationTable(decltbl, sub); } 
-  else if (declmem)  { gatherDeclarationMemory(declmem, sub); }
-  else if (modalg)   {
-    std::string name = modalg->modalg->getText();
-    if (m_KnownModules.find(name) != m_KnownModules.end()) {
-      gatherDeclarationModule(modalg, sub);
+  auto declvar   = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
+  auto decltbl   = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
+  auto grpmodalg = dynamic_cast<siliceParser::DeclarationGrpModAlgContext*>(decl->declarationGrpModAlg());
+  auto declmem   = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
+  if (declvar)        { gatherDeclarationVar(declvar, sub); } 
+  else if (decltbl)   { gatherDeclarationTable(decltbl, sub); } 
+  else if (declmem)   { gatherDeclarationMemory(declmem, sub); }
+  else if (grpmodalg) {
+    std::string name = grpmodalg->modalg->getText();
+    if (m_KnownGroups.find(name) != m_KnownGroups.end()) {
+      gatherDeclarationGroup(grpmodalg, sub);
+    } else if (m_KnownModules.find(name) != m_KnownModules.end()) {
+      gatherDeclarationModule(grpmodalg, sub);
     } else {
-      gatherDeclarationAlgo(modalg, sub);
+      gatherDeclarationAlgo(grpmodalg, sub);
     }
   }
 }
@@ -1060,6 +1130,14 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
           nfo->allowed_reads.insert(ouv);
         }
       }
+      // if group, add all members
+      auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
+      if (G != m_VIOGroups.end()) {
+        for (auto v : G->second->varList()->var()) {
+          string mbr = v->declarationVar()->IDENTIFIER()->getText();
+          nfo->allowed_reads.insert(mbr);
+        }
+      }
     } else if (P->WRITE() != nullptr) {
       nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
       // if memory, add all in members
@@ -1067,6 +1145,14 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       if (B != m_MemoryNames.end()) {
         for (const auto& inv : m_Memories[B->second].in_vars) {
           nfo->allowed_writes.insert(inv);
+        }
+      }
+      // if group, add all members
+      auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
+      if (G != m_VIOGroups.end()) {
+        for (auto v : G->second->varList()->var()) {
+          string mbr = v->declarationVar()->IDENTIFIER()->getText();
+          nfo->allowed_writes.insert(mbr);
         }
       }
     } else if (P->READWRITE() != nullptr) {
@@ -1080,6 +1166,15 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         }
         for (const auto& inv : m_Memories[B->second].in_vars) {
           nfo->allowed_writes.insert(inv);
+        }
+      }
+      // if group, add all members
+      auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
+      if (G != m_VIOGroups.end()) {
+        for (auto v : G->second->varList()->var()) {
+          string mbr = P->IDENTIFIER()->getText() + "_" + v->declarationVar()->IDENTIFIER()->getText();
+          nfo->allowed_reads.insert(mbr);
+          nfo->allowed_writes.insert(mbr);
         }
       }
     } else if (P->CALLS() != nullptr) {
@@ -1483,11 +1578,16 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   // -> gather ins outs
   vector<string> ins;
   vector<string> outs;
-  for (auto io : C->second->circuitryParamList()->circuitryParam()) {
+  for (auto io : C->second->ioList()->io()) {
     if (io->is_input != nullptr) {
       ins.emplace_back(io->IDENTIFIER()->getText());
     } else if (io->is_output != nullptr) {
+      if (io->combinational != nullptr) {
+        throw Fatal("a circuitry output is combinational by default (line %d)", (int)C->second->getStart()->getLine());
+      }
       outs.emplace_back(io->IDENTIFIER()->getText());
+    } else if (io->is_inout != nullptr) {
+      throw Fatal("a circuitry cannot use an inout (line %d)", (int)C->second->getStart()->getLine());
     } else {
       throw Fatal("internal error (line %d)", (int)C->second->getStart()->getLine());
     }
@@ -1702,15 +1802,80 @@ void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _
 
 // -------------------------------------------------
 
+void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
+{
+  // find group declaration
+  auto G = m_KnownGroups.find(iog->groupid->getText());
+  if (G == m_KnownGroups.end()) {
+    throw Fatal("no group definition for '%s' (line %d)",
+      iog->groupid->getText().c_str(),iog->getStart()->getLine());
+  }
+  // group prefix
+  string grpre = iog->groupname->getText();
+  m_VIOGroups.insert(make_pair(grpre,G->second));
+  // get var list from group
+  unordered_map<string,t_var_nfo> vars;
+  for (auto v : G->second->varList()->var()) {
+    t_var_nfo vnfo;
+    gatherVarNfo(v->declarationVar(), vnfo);
+    if (vars.count(vnfo.name)) {
+      throw Fatal("entry '%s' declared twice in group definition '%s' (line %d)",
+        vnfo.name.c_str(),iog->groupid->getText().c_str(), iog->getStart()->getLine());
+    }
+    vars.insert(make_pair(vnfo.name,vnfo));
+  }
+  for (auto io : iog->ioList()->io()) {
+    // -> check for existence
+    auto V = vars.find(io->IDENTIFIER()->getText());
+    if (V == vars.end()) {
+      throw Fatal("'%s' not in group '%s' (line %d)",
+        io->IDENTIFIER()->getText().c_str(), iog->groupid->getText().c_str(), iog->getStart()->getLine());
+    }
+    // add it where it belongs
+    if (io->is_input != nullptr) {
+      t_inout_nfo inp;
+      inp.name         = grpre + "_" + V->second.name;
+      inp.table_size   = V->second.table_size;
+      inp.init_values  = V->second.init_values;
+      inp.base_type    = V->second.base_type;
+      inp.width        = V->second.width;
+      m_Inputs.emplace_back(inp);
+      m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
+    } else if (io->is_inout != nullptr) {
+      t_inout_nfo inp;
+      inp.name = grpre + "_" + V->second.name;
+      inp.table_size  = V->second.table_size;
+      inp.init_values = V->second.init_values;
+      inp.base_type   = V->second.base_type;
+      inp.width       = V->second.width;
+      m_InOuts.emplace_back(inp);
+      m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
+    } else if (io->is_output != nullptr) {
+      t_output_nfo oup;
+      oup.name = grpre + "_" + V->second.name;
+      oup.table_size    = V->second.table_size;
+      oup.init_values   = V->second.init_values;
+      oup.combinational = (io->combinational != nullptr);
+      oup.base_type     = V->second.base_type;
+      oup.width         = V->second.width;
+      m_Outputs.emplace_back(oup);
+      m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
 {
   if (inout == nullptr) {
     return;
   }
   for (auto io : inout->inOrOut()) {
-    auto input = dynamic_cast<siliceParser::InputContext*>(io->input());
-    auto output = dynamic_cast<siliceParser::OutputContext*>(io->output());
-    auto inout = dynamic_cast<siliceParser::InoutContext*>(io->inout());
+    auto input   = dynamic_cast<siliceParser::InputContext*>(io->input());
+    auto output  = dynamic_cast<siliceParser::OutputContext*>(io->output());
+    auto inout   = dynamic_cast<siliceParser::InoutContext*>(io->inout());
+    auto iogroup = dynamic_cast<siliceParser::IoGroupContext*>(io->ioGroup());
     if (input) {
       t_inout_nfo io;
       gatherInputNfo(input, io);
@@ -1726,6 +1891,8 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
       gatherInoutNfo(inout, io);
       m_InOuts.emplace_back(io);
       m_InOutNames.insert(make_pair(io.name, (int)m_InOuts.size() - 1));
+    } else if (iogroup) {
+      gatherIoGroup(iogroup);
     } else {
       // symbol, ignore
     }
@@ -2074,6 +2241,20 @@ void Algorithm::verifyMemberMemory(const t_mem_nfo& mem, std::string member, int
 
 // -------------------------------------------------
 
+void Algorithm::verifyMemberGroup(std::string member, siliceParser::GroupContext* group, int line) const
+{
+  // -> check for existence
+  for (auto v : group->varList()->var()) {
+    if (v->declarationVar()->IDENTIFIER()->getText() == member) {
+      return; // ok!
+    }
+  }
+    throw Fatal("group '%s' does not contain a member '%s' (line %d)",
+      group->IDENTIFIER()->getText().c_str(), member, line);
+}
+
+// -------------------------------------------------
+
 std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* access) const
 {
   std::string base = access->base->getText();
@@ -2093,7 +2274,14 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
       // return the variable name
       return base + "_" + member;
     } else {
-      throw Fatal("cannot find accessed member '%s' (line %d)", base.c_str(), (int)access->getStart()->getLine());
+      auto G = m_VIOGroups.find(base);
+      if (G != m_VIOGroups.end()) {
+        verifyMemberGroup(member, G->second, (int)access->getStart()->getLine());
+        // return the group member name
+        return base + "_" + member;
+      } else {
+        throw Fatal("cannot find access base.member '%s.%s' (line %d)", base.c_str(), member.c_str(), (int)access->getStart()->getLine());
+      }
     }
   }
   return "";
@@ -2206,8 +2394,10 @@ void Algorithm::determineVIOAccess(
         if (alw->ALWSASSIGNDBL() != nullptr) { // delayed flip-flop
           // update temp var usage
           std::string tmpvar = "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
-          _read.insert(tmpvar);
-          _written.insert(tmpvar);
+          if (vios.find(tmpvar) != vios.end()) {
+            _read.insert(tmpvar);
+            _written.insert(tmpvar);
+          }
         }
         // recurse on rhs expression
         determineVIOAccess(alw->expression_0(), vios, bctx, _read, _written);
@@ -2229,14 +2419,19 @@ void Algorithm::determineVIOAccess(
         if (S != m_Subroutines.end()) {
           // inputs
           for (const auto& i : S->second->inputs) {
-            _written.insert(S->second->vios.at(i));
+            string var = S->second->vios.at(i);
+            if (vios.find(var) != vios.end()) {
+              _written.insert(var);
+            }
           }
           // internal vars init
           for (const auto& vn : S->second->vars) {
             std::string varname = S->second->vios.at(vn);
             const auto& v = m_Vars.at(m_VarNames.at(varname));
             if (v.usage != e_FlipFlop) continue;
-            _written.insert(varname);
+            if (vios.find(varname) != vios.end()) {
+              _written.insert(varname);
+            }
           }
         }
         // do not blindly recurse otherwise the child 'join' is reached
@@ -2277,7 +2472,9 @@ void Algorithm::determineVIOAccess(
         // special case for io access read
         std::string var = determineAccessedVar(ioa);
         if (!var.empty()) {
-          _read.insert(var);
+          if (vios.find(var) != vios.end()) {
+            _read.insert(var);
+          }
         }
         recurse = false;
       }
@@ -2324,10 +2521,10 @@ void Algorithm::determineVariablesAccess(t_combinational_block *block)
     block->out_vars_written.insert(written.begin(), written.end());
     // update global variable use
     for (auto r : read) {
-      m_Vars[m_VarNames[r]].access = (e_Access)(m_Vars[m_VarNames[r]].access | e_ReadOnly);
+      m_Vars[m_VarNames.at(r)].access = (e_Access)(m_Vars[m_VarNames.at(r)].access | e_ReadOnly);
     }
     for (auto w : written) {
-      m_Vars[m_VarNames[w]].access = (e_Access)(m_Vars[m_VarNames[w]].access | e_WriteOnly);
+      m_Vars[m_VarNames.at(w)].access = (e_Access)(m_Vars[m_VarNames.at(w)].access | e_WriteOnly);
     }
   }
 }
@@ -2371,6 +2568,7 @@ void Algorithm::determineVariablesAccess()
         // -> mark as write-binded
         m_Vars[m_VarNames[b.right]].access = (e_Access)(m_Vars[m_VarNames[b.right]].access | e_WriteBinded);
       } else { // e_BiDir
+        sl_assert(b.dir == e_BiDir);
         // -> check prior access
         if ((m_Vars[m_VarNames[b.right]].access & (~e_ReadWriteBinded)) != 0) {
           throw Fatal("cannot bind variable '%s' on an inout port, it is used elsewhere (line %d)", b.right.c_str(), b.line);
@@ -2633,10 +2831,13 @@ Algorithm::Algorithm(
   std::string clock, std::string reset, bool autorun, int stack_size,
   const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
-  const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries)
+  const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
+  const std::unordered_map<std::string, siliceParser::GroupContext*>& known_groups
+)
   : m_Name(name), m_Clock(clock), 
   m_Reset(reset), m_AutoRun(autorun), m_StackSize(stack_size),
-  m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), m_KnownCircuitries(known_circuitries)
+  m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), 
+  m_KnownCircuitries(known_circuitries), m_KnownGroups(known_groups)
 {
   // init with empty always blocks
   m_AlwaysPre.id = 0;
@@ -2680,7 +2881,9 @@ void Algorithm::resolveAlgorithmRefs(const std::unordered_map<std::string, AutoP
         nfo.second.instance_line);
     }
     nfo.second.algo = A->second;
-    // check autobind
+    // resolve any automatic directional bindings
+    resolveInstancedAlgorithmBindingDirections(nfo.second);
+    // perform autobind
     if (nfo.second.autobind) {
       autobindInstancedAlgorithm(nfo.second);
     }
@@ -3033,7 +3236,18 @@ int Algorithm::writeIOAccess(
       auto tws = determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
       return std::get<1>(tws);
     } else {
-      throw Fatal("cannot find accessed member '%s' (line %d)", base.c_str(), (int)ioaccess->getStart()->getLine());
+      auto G = m_VIOGroups.find(base);
+      if (G != m_VIOGroups.end()) {
+        verifyMemberGroup(member,G->second, (int)ioaccess->getStart()->getLine());
+        // produce the variable name
+        std::string vname = base + "_" + member;
+        // write
+        out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
+        auto tws = determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
+        return std::get<1>(tws);
+      } else {
+        throw Fatal("cannot find accessed base.member '%s.%s' (line %d)", base.c_str(), member.c_str(), (int)ioaccess->getStart()->getLine());
+      }
     }
   }
   sl_assert(false);

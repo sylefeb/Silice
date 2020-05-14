@@ -46,6 +46,7 @@ private:
   std::unordered_map<std::string, AutoPtr<Module> >                  m_Modules;
   std::unordered_map<std::string, siliceParser::SubroutineContext* > m_Subroutines;
   std::unordered_map<std::string, siliceParser::CircuitryContext* >  m_Circuitries;
+  std::unordered_map<std::string, siliceParser::GroupContext* >      m_Groups;
   std::unordered_set<std::string>                                    m_Appends;
 
   std::string findFile(std::string fname) const
@@ -82,6 +83,7 @@ private:
     auto imprt   = dynamic_cast<siliceParser::ImportvContext*>(tree);
     auto app     = dynamic_cast<siliceParser::AppendvContext*>(tree);
     auto sub     = dynamic_cast<siliceParser::SubroutineContext*>(tree);
+    auto group   = dynamic_cast<siliceParser::GroupContext*>(tree);
 
     if (toplist) {
 
@@ -118,9 +120,12 @@ private:
           }
         }
       }
-      AutoPtr<Algorithm> algorithm(new Algorithm(name, clock, reset, autorun, stack_size, m_Modules, m_Subroutines, m_Circuitries));
+      AutoPtr<Algorithm> algorithm(new Algorithm(
+        name, clock, reset, autorun, stack_size, 
+        m_Modules, m_Subroutines, m_Circuitries, m_Groups)
+      );
       if (m_Algorithms.find(name) != m_Algorithms.end()) {
-        throw Fatal("algorithm with same name already exists (line %d)!", alg->getStart()->getLine());
+        throw Fatal("an algorithm with same name already exists (line %d)!", alg->getStart()->getLine());
       }
       algorithm->gather(alg->inOutList(),alg->declAndInstrList());
       m_Algorithms.insert(std::make_pair(name,algorithm));
@@ -130,9 +135,18 @@ private:
       /// circuitry
       std::string name = circuit->IDENTIFIER()->getText();
       if (m_Circuitries.find(name) != m_Circuitries.end()) {
-        throw Fatal("circuitry with same name already exists (line %d)!", circuit->getStart()->getLine());
+        throw Fatal("a circuitry with same name already exists (line %d)!", circuit->getStart()->getLine());
       }
       m_Circuitries.insert(std::make_pair(name, circuit));
+
+    } else if (group) {
+
+      /// group
+      std::string name = group->IDENTIFIER()->getText();
+      if (m_Groups.find(name) != m_Groups.end()) {
+        throw Fatal("a group with same name already exists (line %d)!", group->getStart()->getLine());
+      }
+      m_Groups.insert(std::make_pair(name, group));
 
     } else if (imprt) {
 

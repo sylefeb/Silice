@@ -178,32 +178,38 @@ algorithm sdram_switcher(
   
   input uint1    select,
 
-  input   uint23 saddr0,
-  input   uint2  swbyte_addr0,
-  input   uint1  srw0,
-  input   uint32 sd_in0,
-  output! uint32 sd_out0,
-  output! uint1  sbusy0,
-  input   uint1  sin_valid0,
-  output! uint1  sout_valid0,
-  
-  input   uint23 saddr1,
-  input   uint2  swbyte_addr1,
-  input   uint1  srw1,
-  input   uint32 sd_in1,
-  output! uint32 sd_out1,
-  output! uint1  sbusy1,
-  input   uint1  sin_valid1,
-  output! uint1  sout_valid1,
+  sdio sd0 {
+    input   addr,
+    input   wbyte_addr,
+    input   rw,
+    input   data_in,
+    output! data_out,
+    output! busy,
+    input   in_valid,
+    output! out_valid  
+  },
 
-  output! uint23 saddr,
-  output! uint2  swbyte_addr,
-  output! uint1  srw,
-  output! uint32 sd_in,
-  input   uint32 sd_out,
-  input   uint1  sbusy,
-  output! uint1  sin_valid,
-  input   uint1  sout_valid
+  sdio sd1 {
+    input   addr,
+    input   wbyte_addr,
+    input   rw,
+    input   data_in,
+    output! data_out,
+    output! busy,
+    input   in_valid,
+    output! out_valid   
+  },
+
+  sdio sd {
+    output! addr,
+    output! wbyte_addr,
+    output! rw,
+    output! data_in,
+    input   data_out,
+    input   busy,
+    output! in_valid,
+    input   out_valid
+  }
   
 ) {
 	
@@ -212,33 +218,33 @@ algorithm sdram_switcher(
   while (1) {
   
     // switch only when there is no activity
-    if (  sbusy      == 0 
+    if (  sd.busy      == 0 
        && select     != active
-       && sin_valid0 == 0
-       && sin_valid1 == 0) {
+       && sd0.in_valid == 0
+       && sd1.in_valid == 0) {
       active = select;
     }  
 
     if (active) {
-	    saddr       = saddr0;
-      swbyte_addr = swbyte_addr0;
-	    srw         = srw0;
-	    sd_in       = sd_in0;
-	    sd_out0     = sd_out;
-	    sbusy0      = sbusy;
-	    sin_valid   = sin_valid0;
-	    sout_valid0 = sout_valid;
-	    sbusy1      = 1;
+	    sd.addr       = sd0.addr;
+      sd.wbyte_addr = sd0.wbyte_addr;
+	    sd.rw         = sd0.rw;
+	    sd.data_in    = sd0.data_in;
+	    sd0.data_out  = sd.data_out;
+	    sd0.busy      = sd.busy;
+	    sd.in_valid   = sd0.in_valid;
+	    sd0.out_valid = sd.out_valid;
+	    sd1.busy      = 1;
     } else {
-	    saddr       = saddr1;
-      swbyte_addr = swbyte_addr1;
-	    srw         = srw1;
-	    sd_in       = sd_in1;
-	    sd_out1     = sd_out;
-	    sbusy1      = sbusy;
-	    sin_valid   = sin_valid1;
-	    sout_valid1 = sout_valid;
-	    sbusy0      = 1;
+	    sd.addr       = sd1.addr;
+      sd.wbyte_addr = sd1.wbyte_addr;
+	    sd.rw         = sd1.rw;
+	    sd.data_in    = sd1.data_in;
+	    sd1.data_out  = sd.data_out;
+	    sd1.busy      = sd.busy;
+	    sd.in_valid   = sd1.in_valid;
+	    sd1.out_valid = sd.out_valid;
+	    sd0.busy      = 1;
     }
   }  
 }
@@ -246,13 +252,16 @@ algorithm sdram_switcher(
 // ------------------------- 
 
 algorithm frame_buffer_row_updater(
-  output  uint23 saddr,
-  output  uint1  srw,
-  output  uint32 sdata_in,
-  input   uint32 sdata_out,
-  input   uint1  sbusy,
-  output  uint1  sin_valid,
-  input   uint1  sout_valid,
+  sdio sd {
+    output  addr,
+    output  wbyte_addr,
+    output  rw,
+    output  data_in,
+    input   data_out,
+    input   busy,
+    output  in_valid,
+    input   out_valid,
+  },
   output! uint10 pixaddr0,
   output! uint32 pixdata0_w,
   output! uint1  pixwenable0,
@@ -272,7 +281,7 @@ algorithm frame_buffer_row_updater(
   uint1  row_busy_filtered = 0;
   uint1  vsync_filtered    = 0;
 
-  sin_valid         := 0; // maintain low (pulses high when needed)
+  sd.in_valid       := 0; // maintain low (pulses high when needed)
   
   //row_busy_filtered ::= row_busy;
   //vsync_filtered    ::= vsync;
@@ -291,7 +300,7 @@ algorithm frame_buffer_row_updater(
   }
   
   working = 0;  // not working  
-  srw     = 0;  // read
+  sd.rw   = 0;  // read
 
   while(1) {
 
@@ -319,15 +328,15 @@ algorithm frame_buffer_row_updater(
     count = 0;
     while (count < ($320 >> 2$)) {
 	
-      if (sbusy == 0) {        // not busy?
+      if (sd.busy == 0) {        // not busy?
         // address to read from (count + row * 320 / 4)
-        // saddr       = {1b0,fbuffer,21b0} | (count + (((row << 8) + (row << 6)) >> 2)); 
-        saddr       = {1b0,fbuffer,21b0} | (count) | (row << 8); 
-        sin_valid   = 1;         // go ahead!      
-        while (sout_valid == 0) {  } // wait for value
-        pixdata0_w   = sdata_out; // data to write
+        // sd.addr       = {1b0,fbuffer,21b0} | (count + (((row << 8) + (row << 6)) >> 2)); 
+        sd.addr       = {1b0,fbuffer,21b0} | (count) | (row << 8); 
+        sd.in_valid   = 1;         // go ahead!      
+        while (sd.out_valid == 0) {  } // wait for value
+        pixdata0_w   = sd.data_out; // data to write
         pixaddr0     = count;    // address to write
-        pixdata1_w   = sdata_out; // data to write
+        pixdata1_w   = sd.data_out; // data to write
         pixaddr1     = count;    // address to write
         // next
         count        = count + 1;

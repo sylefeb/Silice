@@ -5,14 +5,16 @@ $include('../common/video_sdram_main.ice')
 // ------------------------- 
 
 algorithm frame_drawer(
-  output uint23 saddr,
-  output uint2  swbyte_addr,
-  output uint1  srw,
-  output uint32 sdata_in,
-  output uint1  sin_valid,
-  input  uint32 sdata_out,
-  input  uint1  sbusy,
-  input  uint1  sout_valid,
+  sdio sd {
+    output addr,
+    output wbyte_addr,
+    output rw,
+    output data_in,
+    output in_valid,
+    input  data_out,
+    input  busy,
+    input  out_valid,
+  },
   input  uint1  vsync,
   output uint1  fbuffer
 ) {
@@ -21,11 +23,7 @@ algorithm frame_drawer(
   uint1  vsync_filtered = 0;
   
   subroutine clear(
-    reads   sbusy,
-    writes  sdata_in,
-    writes  saddr,
-    writes  swbyte_addr,
-    writes  sin_valid,
+    readwrites sd,
     input   uint1 buffer
   ) {
     uint9 pix_x   = 0;
@@ -38,12 +36,12 @@ algorithm frame_drawer(
       while (pix_x < 320) {		
         // write to sdram
         while (1) {          
-          if (sbusy == 0) {        // not busy?
-            sdata_in    = pix_palidx;
-            swbyte_addr = pix_x & 3;
+          if (sd.busy == 0) {        // not busy?
+            sd.data_in    = pix_palidx;
+            sd.wbyte_addr = pix_x & 3;
             // saddr       = {1b0,buffer,21b0} | ((pix_x + (pix_y << 8) + (pix_y << 6)) >> 2); // * 320 / 4
-            saddr       = {1b0,buffer,21b0} | (pix_x >> 2) | (pix_y << 8);             
-            sin_valid   = 1; // go ahead!
+            sd.addr       = {1b0,buffer,21b0} | (pix_x >> 2) | (pix_y << 8);             
+            sd.in_valid   = 1; // go ahead!
             break;
           }
         }		
@@ -56,11 +54,7 @@ algorithm frame_drawer(
 
   subroutine bands(
     reads   shift,
-    reads   sbusy,
-    writes  sdata_in,
-    readwrites  saddr,
-    writes  swbyte_addr,
-    writes  sin_valid,
+    readwrites sd,
     input   uint1 buffer
   ) {
     uint9 pix_x   = 0;
@@ -75,12 +69,12 @@ algorithm frame_drawer(
         pix_palidx = pix_x + pix_y + shift;
         // write to sdram
         while (1) {
-          if (sbusy == 0) {        // not busy?
-            swbyte_addr = pix_x & 3;
+          if (sd.busy == 0) {        // not busy?
+            sd.wbyte_addr = pix_x & 3;
             // saddr       = {1b0,buffer,21b0} | ((pix_x + (pix_y << 8) + (pix_y << 6)) >> 2); // * 320 / 4
-            saddr       = {1b0,buffer,21b0} | (pix_x >> 2) | (pix_y << 8); 
-            sdata_in    = pix_palidx;
-            sin_valid = 1; // go ahead!
+            sd.addr       = {1b0,buffer,21b0} | (pix_x >> 2) | (pix_y << 8); 
+            sd.data_in    = pix_palidx;
+            sd.in_valid = 1; // go ahead!
             break;
           }
         }
@@ -95,9 +89,9 @@ algorithm frame_drawer(
   // vsync_filtered ::= vsync;
   vsync_filtered := vsync;
 
-  sin_valid   := 0; // maintain low (pulses high when needed)
+  sd.in_valid   := 0; // maintain low (pulses high when needed)
 
-  srw   = 1;  // write
+  sd.rw   = 1;  // write
 
   // clear SDRAM buffers
   () <- clear <- (0);

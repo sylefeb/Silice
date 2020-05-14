@@ -8,6 +8,19 @@ import('inout_set.v')
     [7:0]   => column
 */
 
+// SDRAM interface
+group sdio
+{
+  uint23 addr = 0,
+  uint2  wbyte_addr = 0,
+  uint1  rw = 0,
+  uint32 data_in = 0,
+  uint32 data_out = 0,
+  uint1  busy = 0,
+  uint1  in_valid = 0,
+  uint1  out_valid = 0
+}
+
 algorithm sdramctrl(
         input   uint1   clk,
         input   uint1   rst,
@@ -30,14 +43,16 @@ $$else
         inout   uint8   sdram_dq,
 $$end
         // interface
-        input   uint23  addr,       // address to read/write
-        input   uint2   wbyte_addr, // write byte address with 32-bit word at addr
-        input   uint1   rw,         // 1 = write, 0 = read
-        input   uint32  data_in,    // data from a read
-        output  uint32  data_out,   // data for a write
-        output  uint1   busy,       // controller is busy when high
-        input   uint1   in_valid,   // pulse high to initiate a read/write
-        output  uint1   out_valid   // pulses high when data from read is
+        sdio sd {
+          input   addr,       // address to read/write
+          input   wbyte_addr, // write byte address with 32-bit word at addr
+          input   rw,         // 1 = write, 0 = read
+          input   data_in,    // data from a read
+          output  data_out,   // data for a write
+          output  busy,       // controller is busy when high
+          input   in_valid,   // pulse high to initiate a read/write
+          output  out_valid   // pulses high when data from read is
+        }
 ) <autorun>
 {
 
@@ -117,28 +132,28 @@ $$refresh_wait   = 7
  
   cmd       := CMD_NOP;
 
-  out_valid := 0;
+  sd.out_valid := 0;
   
   always { // always block tracks in_valid
   
-    if (in_valid) {
+    if (sd.in_valid) {
       // -> copy inputs
-      bank      = addr[21,2]; // 21-22
-      row       = addr[8,13]; //  8-20
-      col       = addr[0,8];  //  0- 7
-      wbyte     = wbyte_addr;
-      data      = data_in;
-      do_rw     = rw;    
+      bank      = sd.addr[21,2]; // 21-22
+      row       = sd.addr[8,13]; //  8-20
+      col       = sd.addr[0,8];  //  0- 7
+      wbyte     = sd.wbyte_addr;
+      data      = sd.data_in;
+      do_rw     = sd.rw;    
       // -> signal work to do
       work_todo = 1;
       // -> now busy!
-      busy      = 1;
+      sd.busy   = 1;
     }
   
   }
   
   // start busy during init
-  busy       = 1;
+  sd.busy   = 1;
  
   // pre-init, wait before enabling clock
   sdram_cle = 0;
@@ -189,7 +204,7 @@ $$refresh_wait   = 7
     refresh_count = refresh_count - 1;
     if (refresh_count == 0) {
         // -> now busy!
-        busy     = 1;
+        sd.busy  = 1;
         // -> precharge all
         cmd      = CMD_PRECHARGE;
         a        = 0;
@@ -204,7 +219,7 @@ $$refresh_wait   = 7
         // wait
         () <- wait <- (delay);      
         // could accept work
-        busy          = work_todo;
+        sd.busy       = work_todo;
         // -> reset count
         refresh_count = $refresh_cycles$;        
     }
@@ -255,7 +270,7 @@ $$refresh_wait   = 7
         // can accept work
         dq_en          = 0;
         work_todo      = 0;
-        busy           = 0;
+        sd.busy        = 0;
       } else {
         // read
         dq_en = 0;
@@ -268,18 +283,18 @@ $$refresh_wait   = 7
 ++:
 ++:
         // burst 4 bytes
-        data_out[0,8]  = dq_i;
+        sd.data_out[0,8]  = dq_i;
 ++:        
-        data_out[8,8]  = dq_i;
+        sd.data_out[8,8]  = dq_i;
 ++:        
-        data_out[16,8] = dq_i;
+        sd.data_out[16,8] = dq_i;
 ++:        
-        data_out[24,8] = dq_i;
-        out_valid      = 1;
+        sd.data_out[24,8] = dq_i;
+        sd.out_valid      = 1;
 ++:
         // can accept work
         work_todo      = 0;
-        busy           = 0;
+        sd.busy        = 0;
       }
     }
         
