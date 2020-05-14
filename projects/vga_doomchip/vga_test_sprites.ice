@@ -236,7 +236,6 @@ algorithm frame_drawer(
       c = c + 1;     
       x_accum = x_accum + scale;
     }
-
     
     // prepare next
     frame = frame + 1;

@@ -111,16 +111,16 @@ private:
             autorun = true;
           }
           if (m->sstacksz() != nullptr) {
-            stack_size = atoi(m->sstacksz()->getText().c_str());
+            stack_size = atoi(m->sstacksz()->NUMBER()->getText().c_str());
             if (stack_size < 1) {
-              throw std::runtime_error("algorithm return stack size should be at least 1!");
+              throw Fatal("algorithm return stack size should be at least 1 (line %d)!", alg->getStart()->getLine());
             }
           }
         }
       }
       AutoPtr<Algorithm> algorithm(new Algorithm(name, clock, reset, autorun, stack_size, m_Modules, m_Subroutines, m_Circuitries));
       if (m_Algorithms.find(name) != m_Algorithms.end()) {
-        throw std::runtime_error("algorithm with same name already exists!");
+        throw Fatal("algorithm with same name already exists (line %d)!", alg->getStart()->getLine());
       }
       algorithm->gather(alg->inOutList(),alg->declAndInstrList());
       m_Algorithms.insert(std::make_pair(name,algorithm));
@@ -130,7 +130,7 @@ private:
       /// circuitry
       std::string name = circuit->IDENTIFIER()->getText();
       if (m_Circuitries.find(name) != m_Circuitries.end()) {
-        throw std::runtime_error("circuitry with same name already exists!");
+        throw Fatal("circuitry with same name already exists (line %d)!", circuit->getStart()->getLine());
       }
       m_Circuitries.insert(std::make_pair(name, circuit));
 
@@ -145,7 +145,7 @@ private:
       }
       AutoPtr<Module> vmodule(new Module(fname));
       if (m_Modules.find(fname) != m_Modules.end()) {
-        throw std::runtime_error("verilog module already imported!");
+        throw Fatal("verilog module already imported! (line %d)",imprt->getStart()->getLine());
       }
       std::cerr << "parsing module " << vmodule->name() << std::endl;
       m_Modules.insert(std::make_pair(vmodule->name(), vmodule));
@@ -166,7 +166,7 @@ private:
       /// global subroutine
       std::string name = sub->IDENTIFIER()->getText();
       if (m_Subroutines.find(name) != m_Subroutines.end()) {
-        throw std::runtime_error("subroutine with same name already exists!");
+        throw Fatal("subroutine with same name already exists! (line %d)", sub->getStart()->getLine());
       }
       m_Subroutines.insert(std::make_pair(sub->IDENTIFIER()->getText(), sub));
 

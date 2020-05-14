@@ -2952,7 +2952,7 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
   int p = 0;
   for (const auto& ins : called->inputs) {
     out << FF_D << prefix << called->vios.at(ins)
-      << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, nullptr /*no rewrite needed*/, dependencies) 
+      << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, dependencies)
       << ';' << std::endl;
   }
 }
