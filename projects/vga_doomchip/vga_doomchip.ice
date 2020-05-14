@@ -81,7 +81,11 @@ algorithm frame_drawer(
       if (sd.busy == 0) { // not busy?
         // sync with texture unit
         (sd.data_in) <- textures;
+$$if not COL_MAJOR then               
         sd.addr       = {~fbuffer,21b0} | (pi >> 2) | (revpj << 8);
+$$else
+        sd.addr       = {~fbuffer,21b0} | ((pi >> 2) << 8) | (revpj);
+$$end        
         sd.wbyte_addr = pi & 3;
         sd.in_valid   = 1; // go ahead!
         break;
@@ -100,8 +104,7 @@ $$end
 $$for _,n in ipairs(bspNodes) do
    $pack_bsp_node_children(n)$, // lchild=$n.lchild$ rchild=$n.rchild$ 
 $$end
-  };
-  
+  };  
   // BRAMs for sub-sectors
   bram uint56 bsp_ssecs[] = {
 $$for _,s in ipairs(bspSSectors) do
@@ -112,8 +115,7 @@ $$end
 $$for _,s in ipairs(bspSSectors) do
    $pack_bsp_ssec_flats(s)$,          // light=$s.light$ c_T=$s.c_T$ f_T=$s.f_T$
 $$end
-  }; 
-  
+  };   
   // BRAMs for segments
   bram uint64 bsp_segs_coords[] = {
 $$for _,s in ipairs(bspSegs) do
@@ -129,8 +131,7 @@ $$end
 $$for _,s in ipairs(bspSegs) do
    $pack_bsp_seg_texmapping(s)$, // yoff=$s.yoff$ xoff=$s.xoff$ seglen=$s.seglen$
 $$end
-  };
-  
+  };  
   // BRAM for demo
   bram uint64 demo_path[] = {
 $$for _,s in ipairs(demo_path) do
