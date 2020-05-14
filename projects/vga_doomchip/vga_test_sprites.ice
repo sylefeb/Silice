@@ -57,6 +57,8 @@ circuitry spriteWalk(input angle,input frame,output sprite,output mirror)
   } } } } } } } }
 }
 
+// ---------------------------------------------------
+
 algorithm frame_drawer(
   sdio sd {
     output addr,
@@ -74,7 +76,7 @@ algorithm frame_drawer(
 
   $spritechip$
 
-  // Writes a raw pixel in the framebuffer
+  // writes a raw pixel in the framebuffer
   subroutine writeRawPixel(
      readwrites    sd,
      reads         fbuffer,
@@ -95,6 +97,7 @@ algorithm frame_drawer(
     return;  
   }
 
+  // clears the screen
   subroutine clearScreen(calls writeRawPixel)
   {
     int10 i = 0;
@@ -112,51 +115,39 @@ algorithm frame_drawer(
     return;
   } 
 
+  // draws a scaled sprite
+  subroutine drawSprite(
+    readwrites sprites_header,
+    readwrites sprites_colstarts,
+    readwrites sprites_data,
+    readwrites sprites_colptrs,
+    calls writeRawPixel,
+    input int16    screenx,
+    input int16    screeny,
+    input int$FPw$ scale,
+    input uint8    sp,
+    input uint1    mr
+  ) {
+    uint16   sprt_w  = 0;
+    uint16   sprt_h  = 0;
+    int16    sprt_lo = 0;
+    int16    sprt_to = 0;
+    int10    i       = 0;
+    int10    j       = 0;
+    int10    c       = 0;
+    int10    r       = 0;
 
-  uint1    vsync_filtered = 0;
-
-  uint12   angle   = 0;
-  uint8    frame   = 0;
-
-  uint8    sprt    = 0;
-  uint16   sprt_w  = 0;
-  uint16   sprt_h  = 0;
-  int16    sprt_lo = 0;
-  int16    sprt_to = 0;
-  int10    i       = 0;
-  int10    j       = 0;
-  int10    c       = 0;
-  int10    r       = 0;
-  int1     m       = 0;
-
-  int$FPw$ y_accum   = 0;
-  int10    y_last    = 0;
-  int10    y_cur     = 0;
-  
-  int$FPw$ x_accum   = 0;
-  int10    x_last    = 0;
-  int10    x_cur     = 0;
-
-  int$FPw$ scale     = $1 << 7$;
-  
-  vsync_filtered ::= vsync;
-
-  sd.in_valid := 0; // maintain low (pulses high when needed)
-  
-  sd.rw = 1;        // sdram write
-
-  fbuffer = 0;
-  
-  while (1) {
+    int$FPw$ y_accum   = 0;
+    int10    y_last    = 0;
+    int10    y_cur     = 0;
     
-    () <- clearScreen <- ();
-    
-    // select sprite
-    (sprt,m) = spriteWalk(angle,frame);
-    
+    int$FPw$ x_accum   = 0;
+    int10    x_last    = 0;
+    int10    x_cur     = 0;
+
     // read sprite info
-    sprites_header   .addr = sprt;
-    sprites_colstarts.addr = sprt;
+    sprites_header   .addr = sp;
+    sprites_colstarts.addr = sp;
 ++:
     sprt_w  = sprites_header.rdata[48,16];
     sprt_h  = sprites_header.rdata[32,16];
@@ -173,7 +164,7 @@ algorithm frame_drawer(
       while (x_last <= x_cur) {
       
         // retrieve column pointer
-        if (m) {
+        if (mr) {
           sprites_colptrs.addr = sprites_colstarts.rdata + sprt_w - 1 - c;
         } else {
           sprites_colptrs.addr = sprites_colstarts.rdata + c;
@@ -234,6 +225,34 @@ algorithm frame_drawer(
       c = c + 1;     
       x_accum = x_accum + scale;
     }
+    return;
+  }
+  
+  uint1    vsync_filtered = 0;
+
+  uint12   angle   = 0;
+  uint8    frame   = 0;
+
+  uint8    sprt    = 0;
+  uint1    mirr    = 0;
+
+  vsync_filtered ::= vsync;
+
+  sd.in_valid := 0; // maintain low (pulses high when needed)
+  
+  sd.rw = 1;        // sdram write
+
+  fbuffer = 0;
+  
+  while (1) {
+    
+    () <- clearScreen <- ();
+    
+    // select sprite
+    (sprt,mirr) = spriteWalk(angle,frame);
+    
+    // draw sprite
+    () <- drawSprite <- (sprt,mirr,100,100,1<<7);
     
     // prepare next
     frame = frame + 1;
@@ -249,3 +268,5 @@ algorithm frame_drawer(
     fbuffer = ~fbuffer;
   }
 }
+
+// ---------------------------------------------------

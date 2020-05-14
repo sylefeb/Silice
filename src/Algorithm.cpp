@@ -1166,6 +1166,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         }
         for (const auto& inv : m_Memories[B->second].in_vars) {
           nfo->allowed_writes.insert(inv);
+          nfo->allowed_reads .insert(inv);
         }
       }
       // if group, add all members
@@ -3154,6 +3155,12 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
   // set inputs
   int p = 0;
   for (const auto& ins : called->inputs) {
+    // filter out inputs which are not used
+    const auto& info = m_Vars[m_VarNames.at(called->vios.at(ins))];
+    if (info.access == e_WriteOnly) {
+      p++;
+      continue;
+    }
     out << FF_D << prefix << called->vios.at(ins)
       << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, dependencies)
       << ';' << std::endl;
@@ -3943,7 +3950,8 @@ void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::
 {
   for (const auto& vn : varnames) {
     const auto& v = m_Vars.at(vn.second);
-    if (v.usage != e_FlipFlop) continue;
+    if (v.usage  != e_FlipFlop)  continue;
+    if (v.access == e_WriteOnly) continue;
     _dependencies.dependencies.insert(std::make_pair(v.name, 0));
     if (v.table_size == 0) {
       out << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
