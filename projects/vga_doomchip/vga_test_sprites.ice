@@ -61,16 +61,7 @@ circuitry spriteWalk(input angle,input frame,output sprite,output mirror)
 // ---------------------------------------------------
 
 circuitry writePixel(
-  sdio sd {
-    output addr,
-    output wbyte_addr,
-    output rw,
-    output data_in,
-    output in_valid,
-    input  data_out,
-    input  busy,
-    input  out_valid,
-  },  
+  inout  sd,  
   input  fbuffer,
   input  pi,
   input  pj,
@@ -111,16 +102,19 @@ algorithm frame_drawer(
   $spritechip$
 
   // clears the screen
-  subroutine clearScreen(calls writeRawPixel)
-  {
+  subroutine clearScreen(
+    readwrites sd,
+    reads      fbuffer
+  ) {
     int10 i = 0;
     int10 j = 0;
+    uint1 z = 0;
     // clear screen
     i = 0;
     while (i < 320) {
       j = 0;
       while (j < 200) {
-        (sd) = writePixel(sd,fbuffer,i,j,0);
+        (sd) = writePixel(sd,fbuffer,i,j,z);
         j = j + 1;
       }
       i = i + 1;
@@ -130,13 +124,12 @@ algorithm frame_drawer(
 
   // draws a scaled sprite
   subroutine drawSprite(
-    readwrites sprites_header,
-    readwrites sprites_colstarts,
-    readwrites sprites_data,
-    readwrites sprites_colptrs,
-    readwrites    sd,
-    reads         fbuffer,    
-    calls writeRawPixel,
+    readwrites     sprites_header,
+    readwrites     sprites_colstarts,
+    readwrites     sprites_data,
+    readwrites     sprites_colptrs,
+    readwrites     sd,
+    reads          fbuffer,    
     input uint8    sp,
     input uint1    mr,
     input int16    screenx,
@@ -152,9 +145,10 @@ algorithm frame_drawer(
     int10    c       = 0;
     int10    r       = 0;
     
-    uint9  pi = 0;
-    uint9  pj = 0;
-
+    uint9  pi  = 0;
+    uint9  pj  = 0;
+    uint8  pal = 0;
+    
     int$FPw$ y_accum   = 0;
     int10    y_last    = 0;
     int10    y_cur     = 0;
@@ -217,7 +211,10 @@ algorithm frame_drawer(
               // draw post
               y_cur = (y_accum >> 8);
               while (y_last <= y_cur) {
-                (sd) = writePixel(sd,fbuffer,pi,pj,sprites_data.rdata);
+                pal  = sprites_data.rdata;
+                pi   = c + sprt_lo;
+                pj   = y_last + sprt_to;
+                (sd) = writePixel(sd,fbuffer,pi,pj,pal);
                 y_last = y_last + 1;
               }
               j = j + 1;
@@ -264,7 +261,7 @@ algorithm frame_drawer(
   
   while (1) {
     
-    // () <- clearScreen <- ();
+    () <- clearScreen <- ();
     
     // select sprite
     (sprt,mirr) = spriteWalk(angle,frame);
