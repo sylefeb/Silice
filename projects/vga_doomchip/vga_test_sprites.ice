@@ -97,6 +97,24 @@ algorithm frame_drawer(
     return;  
   }
 
+  subroutine clearScreen(calls writeRawPixel)
+  {
+    int10 i = 0;
+    int10 j = 0;
+    // clear screen
+    i = 0;
+    while (i < 320) {
+      j = 0;
+      while (j < 200) {
+        () <- writeRawPixel <- (i,j,0);
+        j = j + 1;
+      }
+      i = i + 1;
+    }
+    return;
+  } 
+
+
   uint1    vsync_filtered = 0;
 
   uint12   angle   = 0;
@@ -133,16 +151,7 @@ algorithm frame_drawer(
   
   while (1) {
     
-    // clear screen
-    i = 0;
-    while (i < 320) {
-      j = 0;
-      while (j < 200) {
-        () <- writeRawPixel <- (i,j,0);
-        j = j + 1;
-      }
-      i = i + 1;
-    }
+    () <- clearScreen <- ();
     
     // select sprite
     (sprt,m) = spriteWalk(angle,frame);

@@ -35,6 +35,7 @@ AUTORUN             : 'autorun' ;
 READ                : 'reads' ;
 WRITE               : 'writes' ;
 READWRITE           : 'readwrites' ;
+CALLS               : 'calls' ;
 
 FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/')* '\'' ;
 
@@ -98,8 +99,9 @@ value               : minus='-'? NUMBER | CONSTANT ;
 sclock              :  '@' IDENTIFIER ;
 sreset              :  '!' IDENTIFIER ;
 sautorun            :  AUTORUN ;
+sstacksz            :  'stack:' NUMBER ;
 
-algModifier         : sclock | sreset | sautorun ;
+algModifier         : sclock | sreset | sautorun | sstacksz ;
 
 algModifiers        : '<' (algModifier ',') * algModifier '>' ;
 
@@ -249,7 +251,7 @@ instructionList     :
 					          | pipeline    instructionList
 					          | ;
 
-subroutineParam     : ( READ | WRITE | READWRITE ) IDENTIFIER
+subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 					          | input | output ;
                     
 subroutineParamList : (subroutineParam ',')* subroutineParam | ;

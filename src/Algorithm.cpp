@@ -453,6 +453,8 @@ void Algorithm::addVar(t_var_nfo& _var, t_subroutine_nfo* sub,int line)
     _var.name = subroutineVIOName(base_name, sub);
     sub->vios.insert(std::make_pair(base_name, _var.name));
     sub->vars.push_back(base_name);
+    sub->allowed_reads .insert(_var.name);
+    sub->allowed_writes.insert(_var.name);
   }
   // verify the variable does not shadow an input or output
   if (isInput(_var.name)) {
@@ -1080,6 +1082,20 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
           nfo->allowed_writes.insert(inv);
         }
       }
+    } else if (P->CALLS() != nullptr) {
+      // find subroutine being called
+      auto S = m_Subroutines.find(P->IDENTIFIER()->getText());
+      if (S == m_Subroutines.end()) {
+        throw Fatal("cannot find subroutine '%s' declared called by subroutine '%s' (line %d)",
+          P->IDENTIFIER()->getText().c_str(), nfo->name.c_str(), (int)sub->getStart()->getLine());
+      }
+      // add all inputs/outputs
+      for (auto ins : S->second->inputs) {
+        nfo->allowed_writes.insert(S->second->vios.at(ins));
+      }
+      for (auto outs : S->second->outputs) {
+        nfo->allowed_reads.insert(S->second->vios.at(outs));
+      }
     }
     // input or output?
     if (P->input() != nullptr || P->output() != nullptr) {
@@ -1121,6 +1137,12 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       m_Vars.emplace_back(var);
       m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
       nfo->vios.insert(std::make_pair(ioname, var.name));
+      // add to allowed read/write list
+      if (P->input() != nullptr) {
+        nfo->allowed_reads .insert(var.name);
+      } else {
+        nfo->allowed_writes.insert(var.name);
+      }
     }
   }
   // parse the subroutine
@@ -1622,9 +1644,9 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
   }
   // yes: go ahead with checks
   std::unordered_set<std::string> read, written;
-  determineVIOAccess(node, m_VarNames,    nullptr, read, written);
-  determineVIOAccess(node, m_OutputNames, nullptr, read, written);
-  determineVIOAccess(node, m_InputNames,  nullptr, read, written);
+  determineVIOAccess(node, m_VarNames,    &_current->context, read, written);
+  determineVIOAccess(node, m_OutputNames, &_current->context, read, written);
+  determineVIOAccess(node, m_InputNames,  &_current->context, read, written);
   // now verify all permissions are granted
   for (auto R : read) {
     if (_current->context.subroutine->allowed_reads.count(R) == 0) {
@@ -2608,12 +2630,12 @@ void Algorithm::analyzeOutputsAccess()
 
 Algorithm::Algorithm(
   std::string name, 
-  std::string clock, std::string reset, bool autorun, 
+  std::string clock, std::string reset, bool autorun, int stack_size,
   const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries)
   : m_Name(name), m_Clock(clock), 
-  m_Reset(reset), m_AutoRun(autorun), 
+  m_Reset(reset), m_AutoRun(autorun), m_StackSize(stack_size),
   m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), m_KnownCircuitries(known_circuitries)
 {
   // init with empty always blocks
@@ -2942,9 +2964,6 @@ void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, c
   if (bctx->pipeline != nullptr) {
     throw Fatal("cannot join a subroutine from a pipeline (line %d)", (int)plist->getStart()->getLine());
   }
-  if (bctx->subroutine != nullptr) {
-    throw Fatal("internal error (line %d)", (int)plist->getStart()->getLine()); // not possible for now
-  }
   // get receiving identifiers
   std::vector<std::string> idents;
   getIdentifiers(plist, idents, bctx);
@@ -3170,10 +3189,6 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
             throw Fatal("cannot find algorithm '%s' on synchronous call (line %d)",
               sync->joinExec()->IDENTIFIER()->getText().c_str(), (int)sync->getStart()->getLine());
           } else {
-            // check not already in subrountine
-            if (block->context.subroutine != nullptr) {
-              throw Fatal("cannot call a subrountine from another one (line %d)", (int)sync->getStart()->getLine());
-            }
             writeSubroutineCall(prefix, out, S->second, &block->context, sync->paramList(), _dependencies);
           }
         } else {
@@ -3192,13 +3207,8 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
             throw Fatal("cannot find algorithm '%s' to join with (line %d)",
               join->IDENTIFIER()->getText().c_str(), (int)join->getStart()->getLine());
           } else {
-            // check not already in subrountine
-            if (block->context.subroutine != nullptr) {
-              throw Fatal("cannot call a subrountine from another one (line %d)", (int)join->getStart()->getLine());
-            }
             writeSubroutineReadback(prefix, out, S->second, &block->context, join->identifierList());
           }
-
         } else {
           writeAlgorithmReadback(prefix, out, A->second, join->identifierList(), &block->context);
         }
@@ -3326,7 +3336,8 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
   // state machine index
   out << "reg  [" << stateWidth() << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
   // state machine return (subroutine)
-  out << "reg  [" << stateWidth() << ":0] " FF_D << prefix << ALG_RETURN "," FF_Q << prefix << ALG_RETURN << ';' << std::endl;
+  out << "reg  [" << stateWidth() << ":0] " FF_D << prefix << ALG_RETURN "[" << m_StackSize << "]," FF_Q << prefix << ALG_RETURN "[" << m_StackSize << "];" << std::endl;
+  out << "reg  [" << ((1 << justHigherPow2(m_StackSize))-1) << ":0]" FF_D << prefix << ALG_RETURN_PTR << ", " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
   // state machine run for instanced algorithms
   for (const auto& ia : m_InstancedAlgorithms) {
     out << "reg  " << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
@@ -3395,8 +3406,10 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
   out << FF_Q << prefix << ALG_IDX   " <= " << entryState() << ";" << std::endl;
   out << "end" << std::endl;
   // return index for subroutines
-  out << FF_Q << prefix << ALG_RETURN " <= " << terminationState() << ";" << std::endl;
-
+  ForIndex(s, m_StackSize) {
+    out << FF_Q << prefix << ALG_RETURN "[" << s << "] <= " << terminationState() << ";" << std::endl;
+  }
+  out << FF_Q << prefix << ALG_RETURN_PTR " <= 0;" << std::endl;
   /// updates on clockpos
   out << "  end else begin" << std::endl;
   for (const auto& v : m_Vars) {
@@ -3418,7 +3431,10 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
   // state machine index
   out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << std::endl;
   // state machine return
-  out << FF_Q << prefix << ALG_RETURN " <= " FF_D << prefix << ALG_RETURN << ';' << std::endl;
+  ForIndex(s, m_StackSize) {
+    out << FF_Q << prefix << ALG_RETURN "[" << s << "] <= " FF_D << prefix << ALG_RETURN "[" << s << "];" << std::endl;
+  }
+  out << FF_Q << prefix << ALG_RETURN_PTR " <= " FF_D << prefix << ALG_RETURN_PTR << ';' << std::endl;
   out << "  end" << std::endl;
   out << "end" << std::endl;
 }
@@ -3453,8 +3469,11 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   }
   // state machine index
   out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << std::endl;
-  // state machine index
-  out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN << ';' << std::endl;
+  // return stack
+  ForIndex(s, m_StackSize) {
+    out << FF_D << prefix << ALG_RETURN "[" << s << "] = " FF_Q << prefix << ALG_RETURN  "[" << s << "] ;" << std::endl;
+  }
+  out << FF_D << prefix << ALG_RETURN_PTR " = " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
   // instanced algorithms run, maintain high
   for (auto ia : m_InstancedAlgorithms) {
     out << ia.second.instance_prefix + "_" ALG_RUN " = 1;" << std::endl;
@@ -3592,17 +3611,19 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       out << "end" << std::endl;
       return;
     } else if (current->return_from()) {
+      // decrease return stack pointer
+      out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " - 1;" << std::endl;
       // return to caller (goes to termination of algorithm is not set)
-      out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN << ";" << std::endl;
-      // reset return index
-      out << FF_D << prefix << ALG_RETURN " = " << terminationState() << ";" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN "[" << FF_D << prefix << ALG_RETURN_PTR << "];" << std::endl;
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
       out << FF_D << prefix << ALG_IDX " = " << fastForward(current->goto_and_return_to()->go_to)->state_id << ";" << std::endl;
       pushState(current->goto_and_return_to()->go_to, _q);
       // set return index
-      out << FF_D << prefix << ALG_RETURN " = " << fastForward(current->goto_and_return_to()->return_to)->state_id << ";" << std::endl;
+      out << FF_D << prefix << ALG_RETURN "[" << FF_Q << prefix << ALG_RETURN_PTR << "] = " << fastForward(current->goto_and_return_to()->return_to)->state_id << ";" << std::endl;
+      // increase return stack pointer
+      out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " + 1;" << std::endl;     
       pushState(current->goto_and_return_to()->return_to, _q);
       return;
     } else if (current->wait()) {

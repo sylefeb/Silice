@@ -96,6 +96,7 @@ private:
       std::string name  = alg->IDENTIFIER()->getText();
       std::cerr << "parsing algorithm " << name << std::endl;
       bool autorun      = (name == "main");
+      int  stack_size   = DEFAULT_STACK_SIZE;
       std::string clock = ALG_CLOCK;
       std::string reset = ALG_RESET;
       if (alg->algModifiers() != nullptr) {
@@ -109,9 +110,15 @@ private:
           if (m->sautorun() != nullptr) {
             autorun = true;
           }
+          if (m->sstacksz() != nullptr) {
+            stack_size = atoi(m->sstacksz()->getText().c_str());
+            if (stack_size < 1) {
+              throw std::runtime_error("algorithm return stack size should be at least 1!");
+            }
+          }
         }
       }
-      AutoPtr<Algorithm> algorithm(new Algorithm(name, clock, reset, autorun, m_Modules, m_Subroutines, m_Circuitries));
+      AutoPtr<Algorithm> algorithm(new Algorithm(name, clock, reset, autorun, stack_size, m_Modules, m_Subroutines, m_Circuitries));
       if (m_Algorithms.find(name) != m_Algorithms.end()) {
         throw std::runtime_error("algorithm with same name already exists!");
       }

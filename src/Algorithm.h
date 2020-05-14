@@ -60,9 +60,12 @@ NOTES:
 #define ALG_IDX    "index"
 #define ALG_RUN    "run"
 #define ALG_RETURN "return"
+#define ALG_RETURN_PTR "return_ptr"
 #define ALG_DONE   "done"
 #define ALG_CLOCK  "clock"
 #define ALG_RESET  "reset"
+
+#define DEFAULT_STACK_SIZE 4
 
 // -------------------------------------------------
 
@@ -247,7 +250,7 @@ private:
     t_combinational_block                          *top_block;
     std::unordered_set<std::string>                 allowed_reads;
     std::unordered_set<std::string>                 allowed_writes;
-    std::unordered_map< std::string, std::string>   vios;     // [subroutine space => translated var name in host]
+    std::unordered_map<std::string, std::string>    vios;     // [subroutine space => translated var name in host]
     std::vector<std::string>                        inputs;   // ordered list of input names (subroutine space)
     std::vector<std::string>                        outputs;  // ordered list of output names (subroutine space)
     std::vector<std::string>                        vars;     // ordered list of internal var names (subroutine space)
@@ -490,6 +493,8 @@ private:
   int m_MaxState = -1;
   /// \brief integer name of the next block
   int m_NextBlockName = 1;
+  /// \brief stack size for subroutine calls
+  int m_StackSize = DEFAULT_STACK_SIZE;
 
 private:
 
@@ -668,7 +673,7 @@ public:
   /// \brief constructor
   Algorithm(
     std::string name, 
-    std::string clock, std::string reset, bool autorun, 
+    std::string clock, std::string reset, bool autorun, int stack_size,
     const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
     const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
     const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries);
