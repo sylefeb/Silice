@@ -122,11 +122,11 @@ algorithm frame_drawer(
     readwrites sprites_data,
     readwrites sprites_colptrs,
     calls writeRawPixel,
+    input uint8    sp,
+    input uint1    mr,
     input int16    screenx,
     input int16    screeny,
-    input int$FPw$ scale,
-    input uint8    sp,
-    input uint1    mr
+    input int$FPw$ scale
   ) {
     uint16   sprt_w  = 0;
     uint16   sprt_h  = 0;
@@ -151,8 +151,8 @@ algorithm frame_drawer(
 ++:
     sprt_w  = sprites_header.rdata[48,16];
     sprt_h  = sprites_header.rdata[32,16];
-    sprt_lo = 100 - sprites_header.rdata[16,16];
-    sprt_to = 100 - sprites_header.rdata[ 0,16];
+    sprt_lo = screenx - sprites_header.rdata[16,16];
+    sprt_to = screeny - sprites_header.rdata[ 0,16];
     c = 0;
     x_accum = 0;
     x_last  = 0;
@@ -252,7 +252,7 @@ algorithm frame_drawer(
     (sprt,mirr) = spriteWalk(angle,frame);
     
     // draw sprite
-    () <- drawSprite <- (sprt,mirr,100,100,1<<7);
+    () <- drawSprite <- (sprt,mirr,100,100,1<<8);
     
     // prepare next
     frame = frame + 1;
