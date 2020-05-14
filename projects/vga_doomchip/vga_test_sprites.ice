@@ -14,6 +14,7 @@ $$dofile('pre_do_textures.lua')
 $$dofile('pre_do_sprites.lua')
 
 $$texfile_palette = palette_666
+$$COL_MAJOR = 1
 $include('../common/video_sdram_main.ice')
 
 // fixed point precisions
@@ -59,6 +60,39 @@ circuitry spriteWalk(input angle,input frame,output sprite,output mirror)
 
 // ---------------------------------------------------
 
+circuitry writePixel(
+  sdio sd {
+    output addr,
+    output wbyte_addr,
+    output rw,
+    output data_in,
+    output in_valid,
+    input  data_out,
+    input  busy,
+    input  out_valid,
+  },  
+  input  fbuffer,
+  input  pi,
+  input  pj,
+  input  pixpal)
+{
+  while (1) {
+    if (sd.busy == 0) { // not busy?
+      sd.data_in    = pixpal;
+$$if not COL_MAJOR then        
+      sd.addr       = {~fbuffer,21b0} | (pi >> 2) | (pj << 8);
+$$else
+      sd.addr       = {~fbuffer,21b0} | ((pi >> 2) << 8) | (pj);
+$$end
+      sd.wbyte_addr = pi & 3;
+      sd.in_valid   = 1; // go ahead!
+      break;
+    }
+  }
+}
+
+// ---------------------------------------------------
+
 algorithm frame_drawer(
   sdio sd {
     output addr,
@@ -76,27 +110,6 @@ algorithm frame_drawer(
 
   $spritechip$
 
-  // writes a raw pixel in the framebuffer
-  subroutine writeRawPixel(
-     readwrites    sd,
-     reads         fbuffer,
-     input  uint9  pi,
-     input  uint9  pj,
-     input  uint8  pidx
-     )
-  {
-    while (1) {
-      if (sd.busy == 0) { // not busy?
-        sd.data_in    = pidx;
-        sd.addr       = {~fbuffer,21b0} | (pi >> 2) | (pj << 8);
-        sd.wbyte_addr = pi & 3;
-        sd.in_valid   = 1; // go ahead!
-        break;
-      }
-    }
-    return;  
-  }
-
   // clears the screen
   subroutine clearScreen(calls writeRawPixel)
   {
@@ -107,7 +120,7 @@ algorithm frame_drawer(
     while (i < 320) {
       j = 0;
       while (j < 200) {
-        () <- writeRawPixel <- (i,j,0);
+        (sd) = writePixel(sd,fbuffer,i,j,0);
         j = j + 1;
       }
       i = i + 1;
@@ -121,6 +134,8 @@ algorithm frame_drawer(
     readwrites sprites_colstarts,
     readwrites sprites_data,
     readwrites sprites_colptrs,
+    readwrites    sd,
+    reads         fbuffer,    
     calls writeRawPixel,
     input uint8    sp,
     input uint1    mr,
@@ -136,6 +151,9 @@ algorithm frame_drawer(
     int10    j       = 0;
     int10    c       = 0;
     int10    r       = 0;
+    
+    uint9  pi = 0;
+    uint9  pj = 0;
 
     int$FPw$ y_accum   = 0;
     int10    y_last    = 0;
@@ -199,7 +217,7 @@ algorithm frame_drawer(
               // draw post
               y_cur = (y_accum >> 8);
               while (y_last <= y_cur) {
-                () <- writeRawPixel <- (x_last + sprt_lo,y_last + sprt_to,sprites_data.rdata);
+                (sd) = writePixel(sd,fbuffer,pi,pj,sprites_data.rdata);
                 y_last = y_last + 1;
               }
               j = j + 1;
@@ -246,13 +264,14 @@ algorithm frame_drawer(
   
   while (1) {
     
-    () <- clearScreen <- ();
+    // () <- clearScreen <- ();
     
     // select sprite
     (sprt,mirr) = spriteWalk(angle,frame);
     
     // draw sprite
     () <- drawSprite <- (sprt,mirr,100,100,1<<8);
+    () <- drawSprite <- (sprt,mirr,200,100,1<<8);
     
     // prepare next
     frame = frame + 1;

@@ -648,10 +648,10 @@ private:
   /// \brief merge variable dependencies
   void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
   /// \breif determine accessed variable
-  std::string determineAccessedVar(siliceParser::AccessContext* access) const;
-  std::string determineAccessedVar(siliceParser::IoAccessContext* access) const;
-  std::string determineAccessedVar(siliceParser::BitAccessContext* access) const;
-  std::string determineAccessedVar(siliceParser::TableAccessContext* access) const;
+  std::string determineAccessedVar(siliceParser::AccessContext* access, const t_combinational_block_context* bctx) const;
+  std::string determineAccessedVar(siliceParser::IoAccessContext* access, const t_combinational_block_context* bctx) const;
+  std::string determineAccessedVar(siliceParser::BitAccessContext* access, const t_combinational_block_context* bctx) const;
+  std::string determineAccessedVar(siliceParser::TableAccessContext* access, const t_combinational_block_context* bctx) const;
   /// \brief determine variables/inputs/outputs access within an instruction (from its tree)
   void determineVIOAccess(
     antlr4::tree::ParseTree*                    node,

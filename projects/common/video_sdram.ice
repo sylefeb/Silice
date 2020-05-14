@@ -331,7 +331,11 @@ algorithm frame_buffer_row_updater(
       if (sd.busy == 0) {        // not busy?
         // address to read from (count + row * 320 / 4)
         // sd.addr       = {1b0,fbuffer,21b0} | (count + (((row << 8) + (row << 6)) >> 2)); 
+$$if not COL_MAJOR then
         sd.addr       = {1b0,fbuffer,21b0} | (count) | (row << 8); 
+$$else
+        sd.addr       = {1b0,fbuffer,21b0} | (count << 8) | (row); 
+$$end
         sd.in_valid   = 1;         // go ahead!      
         while (sd.out_valid == 0) {  } // wait for value
         pixdata0_w   = sd.data_out; // data to write

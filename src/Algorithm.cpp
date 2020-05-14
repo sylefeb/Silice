@@ -1576,25 +1576,68 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   t_combinational_block* cblock = addBlock(generateBlockName() + "_" + name, &_current->context);
   _current->next(cblock);
   // produce io rewrite rules for the block
+  /// TODO: deal with memories
   // -> gather ins outs
-  vector<string> ins;
-  vector<string> outs;
-  for (auto io : C->second->ioList()->io()) {
-    if (io->is_input != nullptr) {
-      ins.emplace_back(io->IDENTIFIER()->getText());
-    } else if (io->is_output != nullptr) {
-      if (io->combinational != nullptr) {
-        throw Fatal("a circuitry output is combinational by default (line %d)", (int)C->second->getStart()->getLine());
+  vector< vector<string> > ins;
+  vector< vector<string> > outs;
+  for (auto cio : C->second->circuitryIoList()->circuitryIo()) {
+    if (cio->io() != nullptr) {
+      auto io = cio->io();
+      if (io->is_input != nullptr) {
+        ins.push_back(vector<string>());
+        ins.back().push_back(io->IDENTIFIER()->getText());
+      } else if (io->is_output != nullptr) {
+        if (io->combinational != nullptr) {
+          throw Fatal("a circuitry output is combinational by default (line %d)", (int)C->second->getStart()->getLine());
+        }
+        outs.push_back(vector<string>());
+        outs.back().push_back(io->IDENTIFIER()->getText());
+      } else if (io->is_inout != nullptr) {
+        throw Fatal("a circuitry cannot use an inout (line %d)", (int)C->second->getStart()->getLine());
+      } else {
+        throw Fatal("internal error (line %d)", (int)C->second->getStart()->getLine());
       }
-      outs.emplace_back(io->IDENTIFIER()->getText());
-    } else if (io->is_inout != nullptr) {
-      throw Fatal("a circuitry cannot use an inout (line %d)", (int)C->second->getStart()->getLine());
     } else {
-      throw Fatal("internal error (line %d)", (int)C->second->getStart()->getLine());
+      sl_assert(cio->ioGroup() != nullptr);
+      // find group declaration
+      auto iog = cio->ioGroup();
+      auto G = m_KnownGroups.find(iog->groupid->getText());
+      if (G == m_KnownGroups.end()) {
+        throw Fatal("no group definition for '%s' (line %d)",
+          iog->groupid->getText().c_str(), iog->getStart()->getLine());
+      }
+      // group prefix
+      string grpre = iog->groupname->getText();
+      vector<string> allins,allouts;
+      for (auto io : iog->ioList()->io()) {
+        // check if valid member
+        verifyMemberGroup(io->IDENTIFIER()->getText(), G->second, (int)io->getStart()->getLine());
+        // add where it belongs
+        if (io->is_input != nullptr) {
+          allins.emplace_back("_" + io->IDENTIFIER()->getText());
+        } else if (io->is_output != nullptr) {
+          if (io->combinational != nullptr) {
+            throw Fatal("a circuitry output is combinational by default (line %d)", (int)C->second->getStart()->getLine());
+          }
+          allouts.emplace_back("_" + io->IDENTIFIER()->getText());
+        } else if (io->is_inout != nullptr) {
+          throw Fatal("a circuitry cannot use an inout (line %d)", (int)C->second->getStart()->getLine());
+        } else {
+          throw Fatal("internal error (line %d)", (int)C->second->getStart()->getLine());
+        }
+      }
+      if (!allins.empty()) {
+        ins.emplace_back(allins);
+        ins.back().push_back(grpre);
+      }
+      if (!allouts.empty()) {
+        outs.emplace_back(allouts);
+        outs.back().push_back(grpre);
+      }
     }
   }
   // -> get identifiers
-  std::vector<std::string> ins_idents, outs_idents;
+  vector<string> ins_idents, outs_idents;
   getIdentifiers(ci->ins,  ins_idents,  nullptr);
   getIdentifiers(ci->outs, outs_idents, nullptr);
   // -> checks
@@ -1606,10 +1649,34 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   }
   // -> rewrite rules
   ForIndex(i,ins.size()) {
-    cblock->context.vio_rewrites.insert(make_pair(ins[i],ins_idents[i]));
+    auto G = m_VIOGroups.find(ins_idents[i]);
+    if (G != m_VIOGroups.end()) {
+      // group
+      string grpre_circuitry = ins[i].back();
+      ins[i].pop_back();
+      ForIndex(j, ins[i].size()) {
+        cblock->context.vio_rewrites.insert(make_pair(grpre_circuitry + ins[i][j], ins_idents[i] + ins[i][j]));
+      }
+      cblock->context.vio_rewrites.insert(make_pair(grpre_circuitry, ins_idents[i]));
+    } else {
+      sl_assert(ins[i].size() == 1);
+      cblock->context.vio_rewrites.insert(make_pair(ins[i].front(), ins_idents[i]));
+    }
   }
   ForIndex(o, outs.size()) {
-    cblock->context.vio_rewrites.insert(make_pair(outs[o], outs_idents[o]));
+    auto G = m_VIOGroups.find(outs_idents[o]);
+    if (G != m_VIOGroups.end()) {
+      // group
+      string grpre_circuitry = outs[o].back();
+      outs[o].pop_back();
+      ForIndex(j, outs[o].size()) {
+        cblock->context.vio_rewrites.insert(make_pair(grpre_circuitry + outs[o][j], ins_idents[o] + outs[o][j]));
+      }
+      cblock->context.vio_rewrites.insert(make_pair(grpre_circuitry, ins_idents[o]));
+    } else {
+      sl_assert(outs[o].size() == 1);
+      cblock->context.vio_rewrites.insert(make_pair(outs[o].front(), outs_idents[o]));
+    }
   }
   // gather code
   t_combinational_block* cblock_after = gather(C->second->instructionList(), cblock, _context);
@@ -1914,11 +1981,14 @@ void Algorithm::getParams(siliceParser::ParamListContext* params, std::vector<an
 
 // -------------------------------------------------
 
-void Algorithm::getIdentifiers(siliceParser::IdentifierListContext* idents, std::vector<std::string>& _vec_params, const t_combinational_block_context* bctx) const
+void Algorithm::getIdentifiers(
+  siliceParser::IdentifierListContext*    idents, 
+  vector<string>&                        _vec_params,
+  const t_combinational_block_context*    bctx) const
 {
+  // go through indentifier list
   while (idents->IDENTIFIER() != nullptr) {
     std::string var = idents->IDENTIFIER()->getText();
-    var = translateVIOName(var, bctx);
     _vec_params.push_back(var);
     idents = idents->identifierList();
     if (idents == nullptr) return;
@@ -2250,15 +2320,16 @@ void Algorithm::verifyMemberGroup(std::string member, siliceParser::GroupContext
       return; // ok!
     }
   }
-    throw Fatal("group '%s' does not contain a member '%s' (line %d)",
-      group->IDENTIFIER()->getText().c_str(), member, line);
+  throw Fatal("group '%s' does not contain a member '%s' (line %d)",
+    group->IDENTIFIER()->getText().c_str(), member, line);
 }
 
 // -------------------------------------------------
 
-std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* access) const
+std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* access,const t_combinational_block_context* bctx) const
 {
   std::string base = access->base->getText();
+  base = translateVIOName(base, bctx);
   if (access->IDENTIFIER().size() != 2) {
     throw Fatal("'.' access depth limited to one in current version '%s' (line %d)", base.c_str(), (int)access->getStart()->getLine());
   }
@@ -2290,12 +2361,12 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
 
 // -------------------------------------------------
 
-std::string Algorithm::determineAccessedVar(siliceParser::BitAccessContext* access) const
+std::string Algorithm::determineAccessedVar(siliceParser::BitAccessContext* access,const t_combinational_block_context* bctx) const
 {
   if (access->ioAccess() != nullptr) {
-    return determineAccessedVar(access->ioAccess());
+    return determineAccessedVar(access->ioAccess(), bctx);
   } else if (access->tableAccess() != nullptr) {
-    return determineAccessedVar(access->tableAccess());
+    return determineAccessedVar(access->tableAccess(), bctx);
   } else {
     return access->IDENTIFIER()->getText();
   }
@@ -2303,10 +2374,10 @@ std::string Algorithm::determineAccessedVar(siliceParser::BitAccessContext* acce
 
 // -------------------------------------------------
 
-std::string Algorithm::determineAccessedVar(siliceParser::TableAccessContext* access) const
+std::string Algorithm::determineAccessedVar(siliceParser::TableAccessContext* access,const t_combinational_block_context* bctx) const
 {
   if (access->ioAccess() != nullptr) {
-    return determineAccessedVar(access->ioAccess());
+    return determineAccessedVar(access->ioAccess(), bctx);
   } else {
     return access->IDENTIFIER()->getText();
   }
@@ -2314,15 +2385,15 @@ std::string Algorithm::determineAccessedVar(siliceParser::TableAccessContext* ac
 
 // -------------------------------------------------
 
-std::string Algorithm::determineAccessedVar(siliceParser::AccessContext* access) const
+std::string Algorithm::determineAccessedVar(siliceParser::AccessContext* access, const t_combinational_block_context* bctx) const
 {
   sl_assert(access != nullptr);
   if (access->ioAccess() != nullptr) {
-    return determineAccessedVar(access->ioAccess());
+    return determineAccessedVar(access->ioAccess(), bctx);
   } else if (access->tableAccess() != nullptr) {
-    return determineAccessedVar(access->tableAccess());
+    return determineAccessedVar(access->tableAccess(), bctx);
   } else if (access->bitAccess() != nullptr) {
-    return determineAccessedVar(access->bitAccess());
+    return determineAccessedVar(access->bitAccess(), bctx);
   }
   throw Fatal("internal error (line %d) [%s, %d]", access->getStart()->getLine(), __FILE__, __LINE__);
 }
@@ -2355,7 +2426,7 @@ void Algorithm::determineVIOAccess(
       if (assign) {
         std::string var;
         if (assign->access() != nullptr) {
-          var = determineAccessedVar(assign->access());
+          var = determineAccessedVar(assign->access(),bctx);
         } else {
           var = assign->IDENTIFIER()->getText();
         }
@@ -2382,7 +2453,7 @@ void Algorithm::determineVIOAccess(
       if (alw) {
         std::string var;
         if (alw->access() != nullptr) {
-          var = determineAccessedVar(alw->access());
+          var = determineAccessedVar(alw->access(),bctx);
         } else {
           var = alw->IDENTIFIER()->getText();
         }
@@ -2452,7 +2523,8 @@ void Algorithm::determineVIOAccess(
         // track writes when reading back
         std::vector<std::string> idents;
         getIdentifiers(join->identifierList(), idents, bctx);
-        for (const auto& var : idents) {
+        for (auto var : idents) {
+          var = translateVIOName(var, bctx);
           if (vios.find(var) != vios.end()) {
             _written.insert(var);
           }
@@ -2471,7 +2543,7 @@ void Algorithm::determineVIOAccess(
       auto ioa = dynamic_cast<siliceParser::IoAccessContext*>(node);
       if (ioa) {
         // special case for io access read
-        std::string var = determineAccessedVar(ioa);
+        std::string var = determineAccessedVar(ioa,bctx);
         if (!var.empty()) {
           if (vios.find(var) != vios.end()) {
             _read.insert(var);
@@ -3198,6 +3270,7 @@ int Algorithm::writeIOAccess(
   const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const
 {
   std::string base = ioaccess->base->getText();
+  base = translateVIOName(base, bctx);
   if (ioaccess->IDENTIFIER().size() != 2) {
     throw Fatal("'.' access depth limited to one in current version '%s' (line %d)", base.c_str(), (int)ioaccess->getStart()->getLine());
   }
@@ -3555,9 +3628,9 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
     }
   }
   // state machine index
-  out << "reg  [" << stateWidth() << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
+  out << "reg  [" << stateWidth()-1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
   // state machine return (subroutine)
-  out << "reg  [" << stateWidth() << ":0] " FF_D << prefix << ALG_RETURN "[" << m_StackSize << "]," FF_Q << prefix << ALG_RETURN "[" << m_StackSize << "];" << std::endl;
+  out << "reg  [" << ((stateWidth()*m_StackSize)-1) << ":0] " FF_D << prefix << ALG_RETURN << "," FF_Q << prefix << ALG_RETURN << ";" << std::endl;
   out << "reg  [" << ((1 << justHigherPow2(m_StackSize))-1) << ":0]" FF_D << prefix << ALG_RETURN_PTR << ", " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
   // state machine run for instanced algorithms
   for (const auto& ia : m_InstancedAlgorithms) {
@@ -3627,9 +3700,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
   out << FF_Q << prefix << ALG_IDX   " <= " << entryState() << ";" << std::endl;
   out << "end" << std::endl;
   // return index for subroutines
-  ForIndex(s, m_StackSize) {
-    out << FF_Q << prefix << ALG_RETURN "[" << s << "] <= " << terminationState() << ";" << std::endl;
-  }
+  out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
   out << FF_Q << prefix << ALG_RETURN_PTR " <= 0;" << std::endl;
   /// updates on clockpos
   out << "  end else begin" << std::endl;
@@ -3652,9 +3723,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
   // state machine index
   out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << std::endl;
   // state machine return
-  ForIndex(s, m_StackSize) {
-    out << FF_Q << prefix << ALG_RETURN "[" << s << "] <= " FF_D << prefix << ALG_RETURN "[" << s << "];" << std::endl;
-  }
+  out << FF_Q << prefix << ALG_RETURN " <= " FF_D << prefix << ALG_RETURN ";" << std::endl;
   out << FF_Q << prefix << ALG_RETURN_PTR " <= " FF_D << prefix << ALG_RETURN_PTR << ';' << std::endl;
   out << "  end" << std::endl;
   out << "end" << std::endl;
@@ -3691,9 +3760,7 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   // state machine index
   out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << std::endl;
   // return stack
-  ForIndex(s, m_StackSize) {
-    out << FF_D << prefix << ALG_RETURN "[" << s << "] = " FF_Q << prefix << ALG_RETURN  "[" << s << "] ;" << std::endl;
-  }
+  out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN ";" << std::endl;
   out << FF_D << prefix << ALG_RETURN_PTR " = " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
   // instanced algorithms run, maintain high
   for (auto ia : m_InstancedAlgorithms) {
@@ -3835,14 +3902,14 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       // decrease return stack pointer
       out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " - 1;" << std::endl;
       // return to caller (goes to termination of algorithm is not set)
-      out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN "[" << FF_D << prefix << ALG_RETURN_PTR << "];" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN "[" << FF_D << prefix << ALG_RETURN_PTR << " << " << stateWidth() << "+:" << stateWidth() << "];" << std::endl;
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
       out << FF_D << prefix << ALG_IDX " = " << fastForward(current->goto_and_return_to()->go_to)->state_id << ";" << std::endl;
       pushState(current->goto_and_return_to()->go_to, _q);
       // set return index
-      out << FF_D << prefix << ALG_RETURN "[" << FF_Q << prefix << ALG_RETURN_PTR << "] = " << fastForward(current->goto_and_return_to()->return_to)->state_id << ";" << std::endl;
+      out << FF_D << prefix << ALG_RETURN "[" << FF_Q << prefix << ALG_RETURN_PTR << " << " << stateWidth() << "+:" << stateWidth() << "] = " << fastForward(current->goto_and_return_to()->return_to)->state_id << ";" << std::endl;
       // increase return stack pointer
       out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " + 1;" << std::endl;     
       pushState(current->goto_and_return_to()->return_to, _q);

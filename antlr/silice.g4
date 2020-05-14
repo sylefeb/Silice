@@ -288,7 +288,9 @@ appendv             : 'append' '(' FILENAME ')' ;
 
 /* -- Circuitry -- */
 
-circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' '{' instructionList '}' ;
+circuitryIo         : io | ioGroup ;
+circuitryIoList     : (circuitryIo ',')* circuitryIo? ;
+circuitry           : 'circuitry' IDENTIFIER '(' circuitryIoList ')' '{' instructionList '}' ;
 
 /* -- Algorithm -- */
 
