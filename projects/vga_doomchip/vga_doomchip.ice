@@ -16,6 +16,7 @@ $$dofile('pre_do_textures.lua')
 $texturechip$ 
 
 $$texfile_palette = palette_666
+$$COL_MAJOR = 1
 $include('../common/video_sdram_main.ice')
 
 // fixed point precisions
@@ -45,14 +46,16 @@ circuitry to_tex_v(input iv,output ov)
 // Main drawing algorithm
 
 algorithm frame_drawer(
-  output uint23 saddr,
-  output uint2  swbyte_addr,
-  output uint1  srw,
-  output uint32 sdata_in,
-  output uint1  sin_valid,
-  input  uint32 sdata_out,
-  input  uint1  sbusy,
-  input  uint1  sout_valid,
+  sdio sd {
+    output addr,
+    output wbyte_addr,
+    output rw,
+    output data_in,
+    output in_valid,
+    input  data_out,
+    input  busy,
+    input  out_valid,
+  },
   input  uint1  vsync,
   output uint1  fbuffer
 ) {
@@ -60,11 +63,7 @@ algorithm frame_drawer(
   // Writes a pixel in the framebuffer
   // calls the texture unit
   subroutine writePixel(
-     reads  sbusy,
-     writes sdata_in,
-     writes saddr,
-     writes swbyte_addr,
-     writes sin_valid,
+     readwrites sd,
      reads  fbuffer,
      input  uint9  pi,
      input  uint9  pj,
@@ -79,12 +78,12 @@ algorithm frame_drawer(
     // start texture unit look up (takes a few cycles)
     textures <- (tid,-tu,-tv,lit);
     while (1) {
-      if (sbusy == 0) { // not busy?
+      if (sd.busy == 0) { // not busy?
         // sync with texture unit
-        (sdata_in) <- textures;
-        saddr       = {~fbuffer,21b0} | (pi >> 2) | (revpj << 8);
-        swbyte_addr = pi & 3;
-        sin_valid   = 1; // go ahead!
+        (sd.data_in) <- textures;
+        sd.addr       = {~fbuffer,21b0} | (pi >> 2) | (revpj << 8);
+        sd.wbyte_addr = pi & 3;
+        sd.in_valid   = 1; // go ahead!
         break;
       }
     }
@@ -281,9 +280,9 @@ $$end
   
   vsync_filtered ::= vsync;
 
-  sin_valid := 0; // maintain low (pulses high when needed)
+  sd.in_valid := 0; // maintain low (pulses high when needed)
   
-  srw = 1;        // sdram write
+  sd.rw = 1;        // sdram write
 
   fbuffer = 0;
   

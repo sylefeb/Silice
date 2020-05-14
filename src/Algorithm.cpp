@@ -2452,12 +2452,26 @@ void Algorithm::determineVIOAccess(
       auto join = dynamic_cast<siliceParser::JoinExecContext*>(node);
       if (join) {
         // track writes when reading back
-        std::vector<std::string> idents;
-        getIdentifiers(join->identifierList(), idents, bctx);
-        for (auto var : idents) {
-          var = translateVIOName(var, bctx);
-          if (vios.find(var) != vios.end()) {
-            _written.insert(var);
+        for (const auto& asgn : join->assignList()->assign()) {
+          std::string var;
+          if (asgn->access() != nullptr) {
+            var = determineAccessedVar(asgn->access(), bctx);
+          } else {
+            var = asgn->IDENTIFIER()->getText();
+          }
+          if (!var.empty()) {
+            var = translateVIOName(var, bctx);
+            if (!var.empty() && vios.find(var) != vios.end()) {
+              _written.insert(var);
+            }
+          }
+          // recurse on lhs expression, if any
+          if (asgn->access() != nullptr) {
+            if (asgn->access()->tableAccess() != nullptr) {
+              determineVIOAccess(asgn->access()->tableAccess()->expression_0(), vios, bctx, _read, _written);
+            } else if (asgn->access()->bitAccess() != nullptr) {
+              determineVIOAccess(asgn->access()->bitAccess()->expression_0(), vios, bctx, _read, _written);
+            }
           }
         }
         // readback results from a subroutine?
@@ -3110,7 +3124,7 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
 
 // -------------------------------------------------
 
-void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::IdentifierListContext* plist, const t_combinational_block_context* bctx) const
+void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::AssignListContext* plist, const t_combinational_block_context* bctx) const
 {
   // check for pipeline
   if (bctx->pipeline != nullptr) {
@@ -3121,19 +3135,23 @@ void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, co
     throw Fatal("algorithm instance '%s' joined accross clock-domain -- not yet supported (line %d)",
       a.instance_name.c_str(), (int)plist->getStart()->getLine());
   }
-  // get receiving identifiers
-  std::vector<std::string> idents;
-  getIdentifiers(plist, idents, bctx);
   // if params are empty we simply wait, otherwise we set the outputs
-  if (!idents.empty()) {
-    if (a.algo->m_Outputs.size() != idents.size()) {
+  if (!plist->assign().empty()) {
+    if (a.algo->m_Outputs.size() != plist->assign().size()) {
       throw Fatal("incorrect number of output parameters reading back result from algorithm instance '%s' (line %d)",
         a.instance_name.c_str(), (int)plist->getStart()->getLine());
     }
     // read outputs
     int p = 0;
     for (const auto& outs : a.algo->m_Outputs) {
-      out << rewriteIdentifier(prefix, idents[p++], bctx, plist->getStart()->getLine(), FF_D) << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
+      if (plist->assign()[p]->access() != nullptr) {
+        t_vio_dependencies _;
+        writeAccess(prefix, out, true, plist->assign()[p]->access(), -1, bctx, _);
+      } else {
+        out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D);
+      }
+      out << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
+      ++p;
     }
   }
 }
@@ -3172,24 +3190,27 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
 
 // -------------------------------------------------
 
-void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::IdentifierListContext* plist) const
+void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist) const
 {
   if (bctx->pipeline != nullptr) {
     throw Fatal("cannot join a subroutine from a pipeline (line %d)", (int)plist->getStart()->getLine());
   }
-  // get receiving identifiers
-  std::vector<std::string> idents;
-  getIdentifiers(plist, idents, bctx);
   // if params are empty we simply wait, otherwise we set the outputs
-  if (called->outputs.size() != idents.size()) {
+  if (called->outputs.size() != plist->assign().size()) {
     throw Fatal("incorrect number of output parameters reading back result from subroutine '%s' (line %d)",
       called->name.c_str(), (int)plist->getStart()->getLine());
   }
   // read outputs (reading from FF_D or FF_Q should be equivalent since we just cycled the state machine)
   int p = 0;
   for (const auto& outs : called->outputs) {
-    out << rewriteIdentifier(prefix, idents[p++], bctx, plist->getStart()->getLine(), FF_D) << " = " << FF_D << prefix << called->vios.at(outs) 
-      << ';' << std::endl;
+    if (plist->assign()[p]->access() != nullptr) {
+      t_vio_dependencies _;
+      writeAccess(prefix, out, true, plist->assign()[p]->access(), -1, bctx, _);
+    } else {
+      out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D);
+    }
+    out << " = " << FF_D << prefix << called->vios.at(outs) << ';' << std::endl;
+    ++p;
   }
 }
 
@@ -3432,10 +3453,10 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
             throw Fatal("cannot find algorithm '%s' to join with (line %d)",
               join->IDENTIFIER()->getText().c_str(), (int)join->getStart()->getLine());
           } else {
-            writeSubroutineReadback(prefix, out, S->second, &block->context, join->identifierList());
+            writeSubroutineReadback(prefix, out, S->second, &block->context, join->assignList());
           }
         } else {
-          writeAlgorithmReadback(prefix, out, A->second, join->identifierList(), &block->context);
+          writeAlgorithmReadback(prefix, out, A->second, join->assignList(), &block->context);
         }
       }
     }

@@ -199,8 +199,11 @@ identifierList      : IDENTIFIER ',' identifierList
                     | IDENTIFIER 
                     | ;
 
+assign              : IDENTIFIER | access ;
+assignList          : (assign ',')* assign? ;
+
 asyncExec           : IDENTIFIER LARROW '(' paramList ')' ;
-joinExec            : '(' identifierList ')' LARROW IDENTIFIER ;
+joinExec            : '(' assignList ')' LARROW IDENTIFIER ;
 syncExec            : joinExec LARROW '(' paramList ')' ;
 
 /* -- Circuitry instanciation -- */

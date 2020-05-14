@@ -730,11 +730,11 @@ private:
   /// \brief writes a call to an algorithm
   void writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of an algorithm
-  void writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::IdentifierListContext* plist, const t_combinational_block_context *bctx) const;
+  void writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::AssignListContext* plist, const t_combinational_block_context *bctx) const;
   /// \brief writes a call to a subroutine
   void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of a subroutine
-  void writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::IdentifierListContext* plist) const;
+  void writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist) const;
   /// \brief writes access to an algorithm in/out, return width of accessed member
   int writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to a table in/out
