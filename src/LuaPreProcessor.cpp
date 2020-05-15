@@ -52,6 +52,13 @@ extern "C" {
 
 // -------------------------------------------------
 
+static int numLinesIn(std::string l)
+{
+  return (int)std::count(l.begin(), l.end(), '\n');
+}
+
+// -------------------------------------------------
+
 LuaPreProcessor::LuaPreProcessor()
 {
 
@@ -101,16 +108,28 @@ std::map<lua_State*, LuaPreProcessor*> g_LuaPreProcessors;
 
 // -------------------------------------------------
 
-static void lua_output(lua_State *L,std::string str)
+static void lua_output(lua_State *L,std::string str,int src_line, int src_file)
 {
+  auto P = g_LuaPreProcessors.find(L);
+  if (P == g_LuaPreProcessors.end()) {
+    throw Fatal("[preprocessor] internal error");
+  }
+  P->second->addingLines(numLinesIn(str), src_line, src_file);
   g_LuaOutputs[L] << str;
+}
+
+// -------------------------------------------------
+
+void LuaPreProcessor::addingLines(int num, int src_line,int src_file)
+{
+  m_FileLineRemapping.push_back(v3i(m_CurOutputLine, src_file, src_line));
+  m_CurOutputLine += num;
 }
 
 // -------------------------------------------------
 
 static void lua_preproc_error(lua_State *L, std::string str)
 {
-  // std::cerr << Console::yellow << str << Console::gray << endl;
   lua_error(L);
 }
 
@@ -127,7 +146,7 @@ void lua_dofile(lua_State *L, std::string str)
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[dofile] internal error");
+    throw Fatal("[preprocessor] internal error");
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
@@ -562,16 +581,14 @@ std::string LuaPreProcessor::processCode(
   if (fpath == src_file) {
     fpath = ".";
   }
-  // std::string path  = parent_path + fpath;
   std::string path = fpath;
-  //cerr << "parent_path: " << parent_path << endl;
-  //cerr << "path:        " << path << endl;
 
   m_SearchPaths.push_back(path);
 
-  ifstream          file(src_file);
+  m_Files.emplace_back(src_file);
+  int src_file_id = (int)m_Files.size() - 1;
 
-  ANTLRInputStream  input(file);
+  ANTLRFileStream   input(src_file);
   lppLexer          lexer(&input);
   CommonTokenStream tokens(&lexer);
   lppParser         parser(&tokens);
@@ -579,9 +596,16 @@ std::string LuaPreProcessor::processCode(
   std::string code = "";
 
   for (auto l : parser.root()->line()) {
+    
+    // pre-process
     if (l->lualine() != nullptr) {
+
       code += l->lualine()->code->getText() + "\n";
+
     } else if (l->siliceline() != nullptr) {
+
+      int src_line = (int)l->getStart()->getLine();
+
       code += "output('";
       for (auto c : l->siliceline()->children) {
         auto silcode = dynamic_cast<lppParser::SilicecodeContext*>(c);
@@ -593,8 +617,10 @@ std::string LuaPreProcessor::processCode(
           code += "' .. (" + luacode->code->getText() + ") .. '";
         }
       }
-      code += "\\n')\n";
+      code += "\\n'," + std::to_string(src_line-1) + "," + std::to_string(src_file_id) + ")\n";
+
     } else if (l->siliceincl() != nullptr) {
+
       std::string filename = l->siliceincl()->filename->getText();
       std::regex  lfname_regex("\\s*\\(\\s*\\'([a-zA-Z_0-9\\./]+)\\'\\s*\\)\\s*");
       std::smatch matches;
@@ -635,6 +661,8 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
     header_code +
     processCode("", src_file, inclusions);
 
+  m_CurOutputLine = 0;
+
   int ret = luaL_dostring(L, code.c_str());
   if (ret) {
     char str[4096];
@@ -664,6 +692,25 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
 
   lua_close(L);
 
+}
+
+// -------------------------------------------------
+
+std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore(int line_after) const
+{
+  // locate line
+  int l = 0, r = (int)m_FileLineRemapping.size()-1;
+  while (l < r) {
+    int m = (l + r) / 2;
+    if (m_FileLineRemapping[m][0] < line_after) {
+      l = m;
+    } else if (m_FileLineRemapping[m][0] > line_after) {
+      r = m;
+    } else {
+      return std::make_pair(m_Files[m_FileLineRemapping[m][1]], m_FileLineRemapping[m][2]);
+    }
+  }
+  return std::make_pair(m_Files[m_FileLineRemapping[l][1]], m_FileLineRemapping[l][2]);
 }
 
 // -------------------------------------------------

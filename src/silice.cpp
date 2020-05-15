@@ -17,7 +17,7 @@ the distribution, please refer to it for details.
 //                                ... hardcoding ...
 // -------------------------------------------------
 
-#include "VerilogCompiler.h"
+#include "SiliceCompiler.h"
 
 #include <string>
 #include <iostream>
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 
     cmd.parse(argc, argv);
 
-    VerilogCompiler compiler;
+    SiliceCompiler compiler;
     compiler.run(
       source.getValue().c_str(),
       output.getValue().c_str(),

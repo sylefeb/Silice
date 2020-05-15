@@ -21,6 +21,8 @@ the distribution, please refer to it for details.
 #include <string>
 #include <unordered_set>
 
+#include <LibSL/Math/Vertex.h>
+
 // -------------------------------------------------
 
 /// \brief LUA based Pre-processor 
@@ -34,6 +36,10 @@ private:
   std::vector<std::string>           m_SearchPaths;  
   std::map<std::string, std::string> m_Definitions;
 
+  int                                m_CurOutputLine = 0;
+  std::vector<std::string>           m_Files;
+  std::vector<LibSL::Math::v3i>      m_FileLineRemapping; // [0] is line after, [1] is file id, [2] is line before
+
 public:
 
   LuaPreProcessor();
@@ -46,6 +52,10 @@ public:
   void addDefinition(std::string def, std::string value) { m_Definitions[def] = value; }
 
   std::string findFile(std::string fname) const;
+
+  std::pair<std::string,int> lineAfterToFileAndLineBefore(int line_after) const;
+
+  void addingLines(int num,int src_line, int src_file);
 
 };
 

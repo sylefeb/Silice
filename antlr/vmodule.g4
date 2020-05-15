@@ -61,4 +61,4 @@ inOutList           :  (inOrOut ',') * inOrOut | ;
 
 vmodule             : 'module' IDENTIFIER '(' inOutList ')' ';' ;
 
-root                : vmodule ;
+root                : vmodule EOF ;

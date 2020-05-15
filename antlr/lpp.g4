@@ -48,4 +48,4 @@ siliceline  : silicecode? (luacode silicecode?) * ;
 
 line  : lualine | siliceline | siliceincl;
 
-root  : (line NEWLINE) * line ;
+root  : (line NEWLINE) * line EOF ;
