@@ -37,7 +37,7 @@ the distribution, please refer to it for details.
 int main(int argc, char **argv)
 {
   try {
-   
+
     TCLAP::CmdLine cmd(
       "<< Silice to Verilog compiler >>\n"
       "(c) Sylvain Lefebvre -- @sylefeb\n"

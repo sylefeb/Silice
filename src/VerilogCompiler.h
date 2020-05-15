@@ -208,6 +208,54 @@ private:
 
 private:
 
+  class ReportError
+  {
+  private:
+
+    void split(const std::string& s, char delim, std::vector<std::string>& elems)
+    {
+      std::stringstream ss(s);
+      std::string item;
+      while (getline(ss, item, delim)) {
+        elems.push_back(item);
+      }
+    }
+
+    void printReport(int line,std::string msg)
+    {
+      std::vector<std::string> items;
+      split(msg, '#', items);
+      if (items.size() == 6) {
+        std::cerr << std::endl;
+        std::cerr << Console::bold << Console::white << "Syntax error line " << line << Console::normal << std::endl;
+        std::cerr << std::endl;
+        std::cerr << items[2] << std::endl;
+        ForIndex(i, std::stoi(items[4])) {
+          std::cerr << ' ';
+        }
+        std::cerr << Console::white << Console::bold;
+        ForRange(i, std::stoi(items[4]), std::stoi(items[5])) {
+          std::cerr << '^';
+        }
+        std::cerr << Console::red;
+        std::cerr << " " << items[0] << std::endl;
+        std::cerr << Console::gray;
+        std::cerr << std::endl;
+        std::cerr << std::endl;
+      } else {
+        std::cerr << msg << std::endl;
+      }
+    }
+
+  public:
+
+    ReportError(int line,std::string msg)
+    {
+      printReport(line,msg);
+    }
+
+  };
+
   class LexerErrorListener : public antlr4::BaseErrorListener {
   public:
     LexerErrorListener() {}
@@ -236,15 +284,98 @@ private:
       const std::string  &msg,
       std::exception_ptr e) override
     {
-      std::string tokens =
-        tk->getInputStream()->getText(
-          antlr4::misc::Interval{ 
-            tk->getStartIndex(),
-            tk->getStopIndex()
-          });
-      std::string str = "[parse error] line " + std::to_string(line) + " : " + tokens;
-      std::cerr << Console::red << str << Console::gray << std::endl;
-      throw Fatal(str.c_str());
+      ReportError err(line,msg);
+      throw Fatal("[parse error]");
+    }
+  };
+
+  class ParserErrorHandler : public antlr4::DefaultErrorStrategy 
+  {
+  protected:
+
+    std::string extractCodeAroundToken(std::string file,antlr4::Token* tk, antlr4::TokenStream* tk_stream,int& _offset)
+    {
+      antlr4::Token* first_tk = tk;
+      int index   = first_tk->getTokenIndex();
+      int tkline  = first_tk->getLine();
+      while (index > 0) {
+        first_tk = tk_stream->get(--index);
+        if (first_tk->getLine() < tkline) {
+          first_tk = tk_stream->get(index + 1);
+          break;
+        }
+      }
+      antlr4::Token* last_tk = tk;
+      index  = last_tk->getTokenIndex();
+      tkline = last_tk->getLine();
+      while (index < tk_stream->size()-2) {
+        last_tk = tk_stream->get(++index);
+        if (last_tk->getLine() > tkline) {
+          last_tk = tk_stream->get(index - 1);
+          break;
+        }
+      }
+      _offset = first_tk->getCharPositionInLine();
+      // now extract from file
+      int sidx = first_tk->getStartIndex();
+      int eidx = last_tk->getStopIndex();
+      {
+        FILE* f = fopen(file.c_str(), "rb");
+        if (f) {
+          char buffer[256];
+          fseek(f, sidx, SEEK_SET);
+          int read = fread(buffer, 1, min(255, eidx - sidx + 1), f);
+          buffer[read] = '\0';
+          fclose(f);
+          return std::string(buffer);
+        }
+      }
+      return tk_stream->getText(first_tk, last_tk);
+    }
+
+    void reportNoViableAlternative(antlr4::Parser *parser, antlr4::NoViableAltException const& ex) override
+    {
+      std::string msg = "reportNoViableAlternative";
+      parser->notifyErrorListeners(ex.getOffendingToken(), msg, std::make_exception_ptr(ex));
+    }
+    void reportInputMismatch(antlr4::Parser* parser, antlr4::InputMismatchException const& ex) override
+    {
+      std::string msg  = "unexpected symbol#";
+      antlr4::TokenStream* tk_stream = dynamic_cast<antlr4::TokenStream*>(parser->getInputStream());
+      if (tk_stream != nullptr) {
+        msg += tk_stream->getText(antlr4::misc::Interval{ ex.getOffendingToken()->getStartIndex(), ex.getOffendingToken()->getStopIndex() });
+      }
+      msg += "#";
+      if (tk_stream != nullptr) {
+        std::string file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
+        int offset = 0;
+        std::string line = extractCodeAroundToken(file,ex.getOffendingToken(),tk_stream,offset);
+        msg += line;
+        msg += "#";
+        msg += tk_stream->getText(ex.getOffendingToken(), ex.getOffendingToken());
+        msg += "#"; 
+        msg += std::to_string(ex.getOffendingToken()->getCharPositionInLine() - offset);
+        msg += "#";
+        msg += std::to_string(ex.getOffendingToken()->getCharPositionInLine() - offset);
+      }
+      parser->notifyErrorListeners(ex.getOffendingToken(), msg, std::make_exception_ptr(ex));
+    }
+    void reportFailedPredicate(antlr4::Parser* parser, antlr4::FailedPredicateException const& ex) override
+    {
+      std::string msg = "reportFailedPredicate";
+      parser->notifyErrorListeners(ex.getOffendingToken(), msg, std::make_exception_ptr(ex));
+    }
+    void reportUnwantedToken(antlr4::Parser* parser) override
+    {
+      std::string msg = "reportUnwantedToken";
+      antlr4::Token* tk = parser->getCurrentToken();
+      parser->notifyErrorListeners(tk, msg, nullptr);
+    }
+    void reportMissingToken(antlr4::Parser* parser) override
+    {
+      std::string msg = "reportMissingToken";
+      antlr4::Token* tk = parser->getCurrentToken();
+      parser->notifyErrorListeners(tk, msg, nullptr);
     }
   };
 
@@ -267,17 +398,18 @@ public:
     // extract path
     m_Paths = lpp.searchPaths();
     // parse the preprocessed source
-    std::ifstream file(preprocessed);
-    if (file) {
+    if (LibSL::System::File::exists(preprocessed.c_str())) {
       // initiate parsing
       LexerErrorListener          lexerErrorListener;
       ParserErrorListener         parserErrorListener;
-      antlr4::ANTLRInputStream    input(file);
+      ParserErrorHandler          parserErrorHandler;
+      antlr4::ANTLRFileStream     input(preprocessed);
       siliceLexer                 lexer(&input);
       antlr4::CommonTokenStream   tokens(&lexer);
       siliceParser                parser(&tokens);
-      file.close();
 
+      auto err_handler = std::make_shared<ParserErrorHandler>();
+      parser.setErrorHandler(err_handler);
       lexer .removeErrorListeners();
       lexer .addErrorListener(&lexerErrorListener);
       parser.removeErrorListeners();
@@ -317,7 +449,7 @@ public:
       }
 
     } else {
-      throw std::runtime_error("cannot open source file");
+      throw Fatal("cannot open source file '%s'", fsource);
     }
 
   }
