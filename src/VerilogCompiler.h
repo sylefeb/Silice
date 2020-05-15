@@ -225,16 +225,16 @@ private:
     {
       std::vector<std::string> items;
       split(msg, '#', items);
-      if (items.size() == 6) {
+      if (items.size() == 5) {
         std::cerr << std::endl;
         std::cerr << Console::bold << Console::white << "Syntax error line " << line << Console::normal << std::endl;
         std::cerr << std::endl;
-        std::cerr << items[2] << std::endl;
-        ForIndex(i, std::stoi(items[4])) {
+        std::cerr << items[1] << std::endl;
+        ForIndex(i, std::stoi(items[3])) {
           std::cerr << ' ';
         }
         std::cerr << Console::white << Console::bold;
-        ForRange(i, std::stoi(items[4]), std::stoi(items[5])) {
+        ForRange(i, std::stoi(items[3]), std::stoi(items[4])) {
           std::cerr << '^';
         }
         std::cerr << Console::red;
@@ -315,7 +315,7 @@ private:
           break;
         }
       }
-      _offset = first_tk->getCharPositionInLine();
+      _offset = first_tk->getStartIndex();
       // now extract from file
       int sidx = first_tk->getStartIndex();
       int eidx = last_tk->getStopIndex();
@@ -333,48 +333,63 @@ private:
       return tk_stream->getText(first_tk, last_tk);
     }
 
+    std::string prepareMessage(antlr4::Parser *parser, antlr4::Token *offender)
+    {
+      std::string msg = "#";
+      antlr4::TokenStream* tk_stream = dynamic_cast<antlr4::TokenStream*>(parser->getInputStream());
+      if (tk_stream != nullptr) {
+        tk_stream->getText(offender, offender); // this seems required to refresh the steam? TODO FIXME investigate
+        std::string file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
+        int offset = 0;
+        std::string line = extractCodeAroundToken(file, offender, tk_stream, offset);
+        msg += line;
+        msg += "#";
+        msg += tk_stream->getText(offender, offender);
+        msg += "#";
+        msg += std::to_string(offender->getStartIndex() - offset);
+        msg += "#";
+        msg += std::to_string(offender->getStopIndex() - offset);
+      }
+      return msg;
+    }
+
     void reportNoViableAlternative(antlr4::Parser *parser, antlr4::NoViableAltException const& ex) override
     {
-      std::string msg = "reportNoViableAlternative";
+      std::string msg = "confused by symbol";
+      msg += prepareMessage(parser, ex.getOffendingToken());
       parser->notifyErrorListeners(ex.getOffendingToken(), msg, std::make_exception_ptr(ex));
     }
     void reportInputMismatch(antlr4::Parser* parser, antlr4::InputMismatchException const& ex) override
     {
-      std::string msg  = "unexpected symbol#";
-      antlr4::TokenStream* tk_stream = dynamic_cast<antlr4::TokenStream*>(parser->getInputStream());
-      if (tk_stream != nullptr) {
-        msg += tk_stream->getText(antlr4::misc::Interval{ ex.getOffendingToken()->getStartIndex(), ex.getOffendingToken()->getStopIndex() });
-      }
-      msg += "#";
-      if (tk_stream != nullptr) {
-        std::string file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
-        int offset = 0;
-        std::string line = extractCodeAroundToken(file,ex.getOffendingToken(),tk_stream,offset);
-        msg += line;
-        msg += "#";
-        msg += tk_stream->getText(ex.getOffendingToken(), ex.getOffendingToken());
-        msg += "#"; 
-        msg += std::to_string(ex.getOffendingToken()->getCharPositionInLine() - offset);
-        msg += "#";
-        msg += std::to_string(ex.getOffendingToken()->getCharPositionInLine() - offset);
-      }
+      std::string msg  = "unexpected symbol";
+      msg += prepareMessage(parser, ex.getOffendingToken());
       parser->notifyErrorListeners(ex.getOffendingToken(), msg, std::make_exception_ptr(ex));
     }
     void reportFailedPredicate(antlr4::Parser* parser, antlr4::FailedPredicateException const& ex) override
     {
-      std::string msg = "reportFailedPredicate";
+      std::string msg = "confused by symbol";
+      msg += prepareMessage(parser, ex.getOffendingToken());
       parser->notifyErrorListeners(ex.getOffendingToken(), msg, std::make_exception_ptr(ex));
     }
     void reportUnwantedToken(antlr4::Parser* parser) override
     {
-      std::string msg = "reportUnwantedToken";
+      std::string msg = "unexpected symbol";
       antlr4::Token* tk = parser->getCurrentToken();
+      msg += prepareMessage(parser, tk);
       parser->notifyErrorListeners(tk, msg, nullptr);
     }
     void reportMissingToken(antlr4::Parser* parser) override
     {
-      std::string msg = "reportMissingToken";
+      std::string msg = "missing symbol after this";
       antlr4::Token* tk = parser->getCurrentToken();
+      antlr4::TokenStream* tk_stream = dynamic_cast<antlr4::TokenStream*>(parser->getInputStream());
+      if (tk_stream != nullptr) {
+        int index = tk->getTokenIndex();
+        if (index > 0) {
+          tk = tk_stream->get(index - 1);
+       }
+      }
+      msg += prepareMessage(parser, tk);
       parser->notifyErrorListeners(tk, msg, nullptr);
     }
   };
