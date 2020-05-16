@@ -1122,10 +1122,10 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   nfo->name = sub->IDENTIFIER()->getText();
   // check for duplicates
   if (m_Subroutines.count(nfo->name) > 0) {
-    throw Fatal("subroutine '%s': a subroutine of the same name is already declared (line %d)", nfo->name.c_str(), (int)sub->getStart()->getLine());
+    reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': a subroutine of the same name is already declared", nfo->name.c_str());
   }
   if (m_InstancedAlgorithms.count(nfo->name) > 0) {
-    throw Fatal("subroutine '%s': an instanced algorithm of the same name is already declared (line %d)", nfo->name.c_str(), (int)sub->getStart()->getLine());
+    reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': an instanced algorithm of the same name is already declared", nfo->name.c_str());
   }
   // subroutine local declarations
   gatherDeclarationList(sub->declarationList(), nfo);
@@ -1199,8 +1199,9 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       // find subroutine being called
       auto S = m_Subroutines.find(P->IDENTIFIER()->getText());
       if (S == m_Subroutines.end()) {
-        throw Fatal("cannot find subroutine '%s' declared called by subroutine '%s' (line %d)",
-          P->IDENTIFIER()->getText().c_str(), nfo->name.c_str(), (int)sub->getStart()->getLine());
+        reportError(P->IDENTIFIER()->getSymbol(), (int)P->getStart()->getLine(),  
+          "cannot find subroutine '%s' declared called by subroutine '%s'",
+          P->IDENTIFIER()->getText().c_str(), nfo->name.c_str());
       }
       // add all inputs/outputs
       for (auto ins : S->second->inputs) {
@@ -1238,8 +1239,9 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         || m_OutputNames.count(ioname) > 0
         || m_VarNames.count(ioname) > 0
         || ioname == m_Clock || ioname == m_Reset) {
-        throw Fatal("subroutine '%s' input/output '%s' is using the same name as a host VIO, clock or reset (line %d)",
-          nfo->name.c_str(), ioname.c_str(), (int)sub->getStart()->getLine());
+        reportError(P->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),
+          "subroutine '%s' input/output '%s' is using the same name as a host VIO, clock or reset",
+          nfo->name.c_str(), ioname.c_str());
       }
       // insert variable in host for each input/output
       t_var_nfo var;
@@ -1296,7 +1298,7 @@ std::string Algorithm::tricklingVIOName(std::string vio, const t_pipeline_stage_
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
   if (_current->context.pipeline != nullptr) {
-    throw Fatal("pipelines cannot be nested (line %d)", (int)pip->getStart()->getLine());
+    reportError(nullptr, (int)pip->getStart()->getLine(), "pipelines cannot be nested");
   }
   const t_subroutine_nfo *sub = _current->context.subroutine;
   t_pipeline_nfo   *nfo = new t_pipeline_nfo();
