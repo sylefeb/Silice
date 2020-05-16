@@ -1326,7 +1326,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
     // check this is a combinational chain
     if (!isStateLessGraph(stage_start)) {
-      throw Fatal("pipeline stages have to be combinational only (line %d)", (int)b->getStart()->getLine());
+      reportError(nullptr,(int)b->getStart()->getLine(),"pipeline stages have to be combinational only");
     }
     // check VIO access
     // -> gather read/written for block
@@ -1337,7 +1337,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // -> check for anything wrong: no stage should *read* a value *written* by a later stage
     for (auto w : written) {
       if (read_at.count(w) > 0) {
-        throw Fatal("pipeline inconsistency.\n       stage reads a value written by a later stage (write on %s, stage line %d)",w.c_str(), (int)b->getStart()->getLine());
+        reportError(nullptr,(int)b->getStart()->getLine(),"pipeline inconsistency.\n       stage reads a value written by a later stage (write on '%s')",w.c_str());
       }
     }
     // -> merge
