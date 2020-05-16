@@ -76,6 +76,33 @@ class Module;
 /// \brief class to parse, store and compile an algorithm definition
 class Algorithm
 {
+public:
+
+  class LanguageError
+  {
+  public:
+    enum { e_MessageBufferSize = 4096 };
+  private:
+    int            m_Line = -1;
+    antlr4::Token *m_Token = nullptr;
+    char           m_Message[e_MessageBufferSize];
+    LanguageError() { m_Message[0] = '\0'; }
+  public:
+    LanguageError(int line,antlr4::Token *tk,const char *msg, ...) LIBSL_PRINTF_ATTR
+    {
+      m_Line  = line;
+      m_Token = tk;
+      va_list args;
+      va_start(args, msg);
+      vsprintf_s(m_Message, e_MessageBufferSize, msg, args);
+      va_end(args);
+    }
+    int line() const { return m_Line; }
+    const char *message() const { return (m_Message); }
+    antlr4::Token *token() { return m_Token; }
+  };
+
+
 private:
 
   /// \brief base types
@@ -640,6 +667,8 @@ private:
   void verifyMemberMemory(const t_mem_nfo& mem,std::string member,int line) const;
   /// \brief verify member in group
   void verifyMemberGroup(std::string member, siliceParser::GroupContext* group,int line) const;
+  /// \brief report an error
+  void reportError(antlr4::Token* what, int line, const char *msg, ...) const;
 
 private:
 
@@ -735,8 +764,8 @@ private:
   void writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of a subroutine
   void writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist) const;
-  /// \brief writes access to an algorithm in/out, return width of accessed member
-  int writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
+  /// \brief writes access to an algorithm in/out, return table info of accessed member
+  std::tuple<e_Type, int, int> writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to a table in/out
   void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to bits

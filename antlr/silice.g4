@@ -92,6 +92,8 @@ ATTRIBS             : '(*' ~[\r\n]* '*)' ;
 
 STRING              : '"' ~[\r\n"]* '"' ;
 
+ERROR_CHAR          : . ; // catch-all to move lexer errors to parser
+
 /* ======== Parser ======== */
 
 /* -- Declarations, init and bindings -- */

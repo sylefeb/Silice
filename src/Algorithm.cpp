@@ -26,6 +26,21 @@ using namespace antlr4;
 
 // -------------------------------------------------
 
+void Algorithm::reportError(antlr4::Token *what, int line, const char *msg, ...) const
+{
+  const int messageBufferSize = 4096;
+  char message[messageBufferSize];
+
+  va_list args;
+  va_start(args, msg);
+  vsprintf_s(message, messageBufferSize, msg, args);
+  va_end(args);
+
+  throw LanguageError(line,what,message);
+}
+
+// -------------------------------------------------
+
 void Algorithm::checkModulesBindings() const
 {
   for (auto& im : m_InstancedModules) {
@@ -34,24 +49,24 @@ void Algorithm::checkModulesBindings() const
       bool is_output = (im.second.mod->outputs().find(b.left) != im.second.mod->outputs().end());
       bool is_inout = (im.second.mod->inouts()  .find(b.left) != im.second.mod->inouts().end());
       if (!is_input && !is_output && !is_inout) {
-        throw Fatal("wrong binding point (neither input nor output), instanced module '%s', binding '%s' (line %d)",
-          im.first.c_str(), b.left.c_str(), b.line);
+        reportError(nullptr, b.line, "wrong binding point (neither input nor output), instanced module '%s', binding '%s'",
+          im.first.c_str(), b.left.c_str());
       }
       if (b.dir == e_Left && !is_input) { // input
-        throw Fatal("wrong binding direction, instanced module '%s', binding output '%s' (line %d)",
-          im.first.c_str(), b.left.c_str(), b.line);
+        reportError(nullptr, b.line, "wrong binding direction, instanced module '%s', binding output '%s'",
+          im.first.c_str(), b.left.c_str());
       }
       if (b.dir == e_Right && !is_output) { // output
-        throw Fatal("wrong binding direction, instanced module '%s', binding input '%s' (line %d)",
-          im.first.c_str(), b.left.c_str(), b.line);
+        reportError(nullptr, b.line, "wrong binding direction, instanced module '%s', binding input '%s'",
+          im.first.c_str(), b.left.c_str());
       }
       // check right side
       if (!isInputOrOutput(b.right) && !isInOut(b.right)
         && m_VarNames.count(b.right) == 0 
         && b.right != m_Clock && b.right != ALG_CLOCK
         && b.right != m_Reset && b.right != ALG_RESET) {
-        throw Fatal("wrong binding point, instanced module '%s', binding to '%s' (line %d)",
-          im.first.c_str(), b.right.c_str(), b.line);
+        reportError(nullptr, b.line, "wrong binding point, instanced module '%s', binding to '%s'",
+          im.first.c_str(), b.right.c_str());
       }
     }
   }
@@ -68,28 +83,28 @@ void Algorithm::checkAlgorithmsBindings() const
       bool is_output = ia.second.algo->isOutput(b.left);
       bool is_inout  = ia.second.algo->isInOut (b.left);
       if (!is_input && !is_output && !is_inout) {
-        throw Fatal("wrong binding point (neither input nor output), instanced algorithm '%s', binding '%s' (line %d)",
-          ia.first.c_str(), b.left.c_str(), b.line);
+        reportError(nullptr, b.line, "wrong binding point (neither input nor output), instanced algorithm '%s', binding '%s'",
+          ia.first.c_str(), b.left.c_str());
       }
       if (b.dir == e_Left && !is_input) { // input
-        throw Fatal("wrong binding direction, instanced algorithm '%s', binding output '%s' (line %d)",
-          ia.first.c_str(), b.left.c_str(), b.line);
+        reportError(nullptr, b.line, "wrong binding direction, instanced algorithm '%s', binding output '%s'",
+          ia.first.c_str(), b.left.c_str());
       }
       if (b.dir == e_Right && !is_output) { // output
-        throw Fatal("wrong binding direction, instanced algorithm '%s', binding input '%s' (line %d)",
-          ia.first.c_str(), b.left.c_str(), b.line);
+        reportError(nullptr, b.line, "wrong binding direction, instanced algorithm '%s', binding input '%s'",
+          ia.first.c_str(), b.left.c_str());
       }
       if (b.dir == e_BiDir && !is_inout) { // inout
-        throw Fatal("wrong binding direction, instanced algorithm '%s', binding inout '%s' (line %d)",
-          ia.first.c_str(), b.left.c_str(), b.line);
+        reportError(nullptr, b.line, "wrong binding direction, instanced algorithm '%s', binding inout '%s'",
+          ia.first.c_str(), b.left.c_str());
       }
       // check right side
       if (!isInputOrOutput(b.right) && !isInOut(b.right)
         && m_VarNames.count(b.right) == 0
         && b.right != m_Clock && b.right != ALG_CLOCK
         && b.right != m_Reset && b.right != ALG_RESET) {
-        throw Fatal("wrong binding point, instanced algorithm '%s', binding to '%s' (line %d)",
-          ia.first.c_str(), b.right.c_str(), b.line);
+        reportError(nullptr, b.line, "wrong binding point, instanced algorithm '%s', binding to '%s'",
+          ia.first.c_str(), b.right.c_str());
       }
     }
   }
@@ -329,7 +344,7 @@ void Algorithm::resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg)
       else if (_alg.algo->isInOut(b.left)) {
         b.dir = e_BiDir;
       } else {
-        throw Fatal("cannot determine binding direction for '%s <:> %s', binding to algorithm instance '%s'",
+        reportError(nullptr, b.line, "cannot determine binding direction for '%s <:> %s', binding to algorithm instance '%s'",
           b.left.c_str(), b.right.c_str(), _alg.instance_name.c_str());
       }
     }
@@ -395,7 +410,7 @@ Algorithm::t_combinational_block *Algorithm::addBlock(std::string name, const t_
 {
   auto B = m_State2Block.find(name);
   if (B != m_State2Block.end()) {
-    throw Fatal("state name '%s' already defined (line %d)", name.c_str(), line);
+    reportError(nullptr, line, "state name '%s' already defined", name.c_str());
   }
   size_t next_id = m_Blocks.size();
   m_Blocks.emplace_back(new T_Block());
@@ -483,9 +498,9 @@ void Algorithm::addVar(t_var_nfo& _var, t_subroutine_nfo* sub,int line)
   }
   // verify the variable does not shadow an input or output
   if (isInput(_var.name)) {
-    throw Fatal("variable '%s' is shadowing input of same name (line %d)", _var.name.c_str(), line);
+    reportError(nullptr, line, "variable '%s' is shadowing input of same name", _var.name.c_str());
   } else if (isOutput(_var.name)) {
-    throw Fatal("variable '%s' is shadowing output of same name (line %d)", _var.name.c_str(), line);
+    reportError(nullptr, line, "variable '%s' is shadowing output of same name", _var.name.c_str());
   }
   // ok!
   m_Vars.emplace_back(_var);
@@ -546,7 +561,7 @@ void Algorithm::readInitList(D* decl,T& var)
     values_str.back() = "0"; // null terminated
   } else {
     if (var.table_size == 0) {
-      throw Fatal("cannot deduce table size: no size and no initialization given (line %d)", (int)decl->getStart()->getLine());
+      reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "cannot deduce table size: no size and no initialization given");
     }
     return; // no init list
   }
@@ -555,7 +570,7 @@ void Algorithm::readInitList(D* decl,T& var)
   } else if (values_str.empty()) {
     // auto init table to 0
   } else if (values_str.size() != var.table_size) {
-    throw Fatal("incorrect number of values in table initialization (line %d)", (int)decl->getStart()->getLine());
+    reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "incorrect number of values in table initialization");
   }
   var.init_values.resize(var.table_size, "0");
   ForIndex(i, values_str.size()) {
@@ -579,7 +594,7 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* de
   if (decl->NUMBER() != nullptr) {
     var.table_size = atoi(decl->NUMBER()->getText().c_str());
     if (var.table_size <= 0) {
-      throw Fatal("table has zero or negative size (line %d)", (int)decl->getStart()->getLine());
+      reportError(decl->NUMBER()->getSymbol(), (int)decl->getStart()->getLine(), "table has zero or negative size");
     }
     var.init_values.resize(var.table_size, "0");
   } else {
@@ -631,7 +646,7 @@ const std::vector<t_mem_member> c_BROMmembers = {
 void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
-    throw Fatal("subroutine '%s': a memory cannot be instanced within a subroutine (line %d)", sub->name.c_str(), (int)decl->name->getLine());
+    reportError(nullptr, (int)decl->getStart()->getLine(), "subroutine '%s': a memory cannot be instanced within a subroutine", sub->name.c_str());
   }
   // gather memory nfo
   t_mem_nfo mem;
@@ -641,13 +656,13 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   } else if (decl->BROM() != nullptr) {
     mem.mem_type = BROM;
   } else {
-    throw Fatal("internal error, memory declaration (line %d)", (int)decl->getStart()->getLine());
+    reportError(nullptr, (int)decl->getStart()->getLine(), "internal error, memory declaration");
   }
   splitType(decl->TYPE()->getText(), mem.base_type, mem.width);
   if (decl->NUMBER() != nullptr) {
     mem.table_size = atoi(decl->NUMBER()->getText().c_str());
     if (mem.table_size <= 0) {
-      throw Fatal("memory has zero or negative size (line %d)", (int)decl->getStart()->getLine());
+      reportError(nullptr, (int)decl->getStart()->getLine(), "memory has zero or negative size");
     }
     mem.init_values.resize(mem.table_size, "0");
   } else {
@@ -660,7 +675,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   switch (mem.mem_type)     {
   case BRAM: members = c_BRAMmembers; break;
   case BROM: members = c_BROMmembers; break;
-  default: throw Fatal("internal error, memory declaration (line %d)", (int)decl->getStart()->getLine()); break;
+  default: reportError(nullptr, (int)decl->getStart()->getLine(), "internal error, memory declaration"); break;
   }
   // -> create var for address
   {
@@ -767,7 +782,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
       addVar(vnfo, sub, (int)grp->getStart()->getLine());
     }
   } else {
-    throw Fatal("unkown group '%s' (line %d)", grp->modalg->getText().c_str(), grp->getStart()->getLine());
+    reportError(nullptr, (int)grp->getStart()->getLine(), "unkown group '%s'", grp->modalg->getText().c_str());
   }
 }
 
@@ -776,7 +791,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
 void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
-    throw Fatal("subroutine '%s': algorithms cannot be instanced within subroutines (line %d)", sub->name.c_str(), (int)alg->name->getLine());
+    reportError(nullptr, (int)alg->name->getLine(), "subroutine '%s': algorithms cannot be instanced within subroutines", sub->name.c_str());
   }
   t_algo_nfo nfo;
   nfo.algo_name      = alg->modalg->getText();
@@ -792,14 +807,14 @@ void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext*
         nfo.instance_reset = m->sreset()->IDENTIFIER()->getText();
       }
       if (m->sautorun() != nullptr) {
-        throw Fatal("autorun not allowed when instantiating algorithms (line %d)", (int)m->sautorun()->getStart()->getLine());
+        reportError(m->sautorun()->AUTORUN()->getSymbol(), (int)m->sautorun()->getStart()->getLine(), "autorun not allowed when instantiating algorithms" );
       }
     }
   }
   nfo.instance_prefix = "_" + alg->name->getText();
   nfo.instance_line   = (int)alg->getStart()->getLine();
   if (m_InstancedAlgorithms.find(nfo.instance_name) != m_InstancedAlgorithms.end()) {
-    throw Fatal("an algorithm was already instantiated with the same name (line %d)", (int)alg->name->getLine());
+    reportError(alg->name, (int)alg->name->getLine(), "an algorithm was already instantiated with the same name" );
   }
   nfo.autobind = false;
   getBindings(alg->modalgBindingList(), nfo.bindings, nfo.autobind);
@@ -811,7 +826,7 @@ void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext*
 void Algorithm::gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
-    throw Fatal("subroutine '%s': modules cannot be instanced within subroutines (line %d)", sub->name.c_str(), (int)mod->name->getLine());
+    reportError(mod->name,(int)mod->name->getLine(),"subroutine '%s': modules cannot be instanced within subroutines", sub->name.c_str());
   }
   t_module_nfo nfo;
   nfo.module_name = mod->modalg->getText();
@@ -819,7 +834,7 @@ void Algorithm::gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContex
   nfo.instance_prefix = "_" + mod->name->getText();
   nfo.instance_line = (int)mod->getStart()->getLine();
   if (m_InstancedModules.find(nfo.instance_name) != m_InstancedModules.end()) {
-    throw Fatal("a module was already instantiated with the same name (line %d)", (int)mod->name->getLine());
+    reportError(mod->name,(int)mod->name->getLine(),"a module was already instantiated with the same name");
   }
   nfo.autobind = false;
   getBindings(mod->modalgBindingList(), nfo.bindings, nfo.autobind);
@@ -871,12 +886,12 @@ std::string Algorithm::rewriteIdentifier(
     return var;
   } else if (var == m_Reset) { // cannot be ALG_RESET
     if (m_VIOBoundToModAlgOutputs.find(var) == m_VIOBoundToModAlgOutputs.end()) {
-      throw Fatal("custom reset signal has to be bound to a module output (line %d)", line);
+      reportError(nullptr, (int)line, "custom reset signal has to be bound to a module output");
     }
     return m_VIOBoundToModAlgOutputs.at(var);
   } else if (var == m_Clock) { // cannot be ALG_CLOCK
     if (m_VIOBoundToModAlgOutputs.find(var) == m_VIOBoundToModAlgOutputs.end()) {
-      throw Fatal("custom clock signal has to be bound to a module output (line %d)", line);
+      reportError(nullptr, (int)line, "custom clock signal has to be bound to a module output");
     }
     return m_VIOBoundToModAlgOutputs.at(var);
   } else {
@@ -886,7 +901,7 @@ std::string Algorithm::rewriteIdentifier(
     if (isInput(var)) {
       return ALG_INPUT + prefix + var;
     } else if (isInOut(var)) {
-      throw Fatal("cannot use inouts directly in expressions (line %d)", line);
+      reportError(nullptr, (int)line, "cannot use inouts directly in expressions");
       //return ALG_INOUT + prefix + var;
     } else if (isOutput(var)) {
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
@@ -901,12 +916,12 @@ std::string Algorithm::rewriteIdentifier(
         return m_VIOBoundToModAlgOutputs.at(var);
       } else {
         // should be e_Assigned ; currently replaced by a flip-flop but could be avoided
-        throw Fatal("assigned outputs: not yet implemented");
+        reportError(nullptr, -1, "assigned outputs: not yet implemented");
       }
     } else {
       auto V = m_VarNames.find(var);
       if (V == m_VarNames.end()) {
-        throw Fatal("variable '%s' was never declared (line %d)", var.c_str(), line);
+        reportError(nullptr, (int)line, "variable '%s' was never declared", var.c_str());
       }
       if (m_Vars.at(V->second).usage == e_Bound) {
         // bound to an output?
@@ -914,7 +929,7 @@ std::string Algorithm::rewriteIdentifier(
         if (Bo != m_VIOBoundToModAlgOutputs.end()) {
           return Bo->second;
         }
-        throw Fatal("internal error (line %d) [%s, %d]", line, __FILE__, __LINE__);
+        reportError(nullptr, (int)line, "internal error [%s, %d]", __FILE__, __LINE__);
       } else {
         if (m_Vars.at(V->second).usage == e_Temporary) {
           // temporary
@@ -934,6 +949,8 @@ std::string Algorithm::rewriteIdentifier(
       }
     }
   }
+  reportError(nullptr, (int)line, "internal error [%s, %d]", __FILE__, __LINE__);
+  return "";
 }
 
 // -------------------------------------------------
@@ -950,7 +967,7 @@ std::string Algorithm::rewriteExpression(std::string prefix, antlr4::tree::Parse
         return rewriteConstant(expr->getText());
       } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
         if (__id == -1) {
-          throw Fatal("__id used outside of repeat block (line %d)", term->getSymbol()->getLine());
+          reportError(term->getSymbol(), (int)term->getSymbol()->getLine(), "__id used outside of repeat block");
         }
         return std::to_string(__id);
       } else {
@@ -1020,7 +1037,7 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
 {
   // current goes to after while
   if (_context->break_to == nullptr) {
-    throw Fatal("cannot break outside of a loop (line %d)", (int)brk->getStart()->getLine());
+    reportError(brk->BREAK()->getSymbol(), (int)brk->getStart()->getLine(),"cannot break outside of a loop");
   }
   _current->next(_context->break_to);
   _context->break_to->is_state = true;
@@ -3216,7 +3233,7 @@ void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, c
 
 // -------------------------------------------------
 
-int Algorithm::writeIOAccess(
+std::tuple<Algorithm::e_Type, int, int> Algorithm::writeIOAccess(
   std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess,
   int __id,
   const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const
@@ -3249,10 +3266,12 @@ int Algorithm::writeIOAccess(
         sl_assert(false); // cannot read from input
       }
       out << A->second.instance_prefix << "_" << member;
-      return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].width;
+      // return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].width;
+      return A->second.algo->determineVIOTypeWidthAndTableSize(member, (int)ioaccess->getStart()->getLine());
     } else if (A->second.algo->isOutput(member)) {
       out << WIRE << A->second.instance_prefix << "_" << member;
-      return A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].width;
+      // return A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].width;
+      return A->second.algo->determineVIOTypeWidthAndTableSize(member, (int)ioaccess->getStart()->getLine());
     } else {
       sl_assert(false);
     }
@@ -3265,8 +3284,7 @@ int Algorithm::writeIOAccess(
       std::string vname = base + "_" + member;
       // write
       out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
-      auto tws = determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
-      return std::get<1>(tws);
+      return determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
     } else {
       auto G = m_VIOGroups.find(base);
       if (G != m_VIOGroups.end()) {
@@ -3275,15 +3293,14 @@ int Algorithm::writeIOAccess(
         std::string vname = base + "_" + member;
         // write
         out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
-        auto tws = determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
-        return std::get<1>(tws);
+        return determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
       } else {
         throw Fatal("cannot find accessed base.member '%s.%s' (line %d)", base.c_str(), member.c_str(), (int)ioaccess->getStart()->getLine());
       }
     }
   }
   sl_assert(false);
-  return 0;
+  return make_tuple(UInt,0,0);
 }
 
 // -------------------------------------------------
@@ -3295,14 +3312,20 @@ void Algorithm::writeTableAccess(
   const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies) const
 {
   if (tblaccess->ioAccess() != nullptr) {
-    int width = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess(), __id, bctx, dependencies);
-    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, dependencies) << ")*" << width << "+:" << width << ']';
+    auto tws = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess(), __id, bctx, dependencies);
+    if (get<2>(tws) == 0) {
+      reportError(tblaccess->ioAccess()->IDENTIFIER().back()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
+    }
+    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, dependencies) << ")*" << get<1>(tws) << "+:" << get<1>(tws) << ']';
   } else {
     sl_assert(tblaccess->IDENTIFIER() != nullptr);
     std::string vname = tblaccess->IDENTIFIER()->getText();
     out << rewriteIdentifier(prefix, vname, bctx, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
     // get width
     auto tws = determineIdentifierTypeWidthAndTableSize(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
+    if (get<2>(tws) == 0) {
+      reportError(tblaccess->IDENTIFIER()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
+    }
     // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
     out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, dependencies) << ")*" << std::get<1>(tws) << "+:" << std::get<1>(tws) << ']';
   }

@@ -230,37 +230,45 @@ void SiliceCompiler::run(
     parser.removeErrorListeners();
     parser.addErrorListener(&parserErrorListener);
 
-    // analyze
-    gatherAll(parser.topList());
+    try {
 
-    // resolve refs between algorithms and modules
-    for (const auto& alg : m_Algorithms) {
-      alg.second->resolveAlgorithmRefs(m_Algorithms);
-      alg.second->resolveModuleRefs(m_Modules);
-    }
+      // analyze
+      gatherAll(parser.topList());
 
-    // optimize
-    for (const auto& alg : m_Algorithms) {
-      alg.second->optimize();
-    }
+      // resolve refs between algorithms and modules
+      for (const auto& alg : m_Algorithms) {
+        alg.second->resolveAlgorithmRefs(m_Algorithms);
+        alg.second->resolveModuleRefs(m_Modules);
+      }
 
-    // save the result
-    {
-      std::ofstream out(fresult);
-      // write framework (top) module
-      out << framework_verilog;
-      // write includes
-      for (auto fname : m_Appends) {
-        out << Module::fileToString(fname.c_str()) << std::endl;
+      // optimize
+      for (const auto& alg : m_Algorithms) {
+        alg.second->optimize();
       }
-      // write imported modules
-      for (auto m : m_Modules) {
-        m.second->writeModule(out);
+
+      // save the result
+      {
+        std::ofstream out(fresult);
+        // write framework (top) module
+        out << framework_verilog;
+        // write includes
+        for (auto fname : m_Appends) {
+          out << Module::fileToString(fname.c_str()) << std::endl;
+        }
+        // write imported modules
+        for (auto m : m_Modules) {
+          m.second->writeModule(out);
+        }
+        // write algorithms as modules
+        for (auto a : m_Algorithms) {
+          a.second->writeAsModule(out);
+        }
       }
-      // write algorithms as modules
-      for (auto a : m_Algorithms) {
-        a.second->writeAsModule(out);
-      }
+    
+    } catch (Algorithm::LanguageError& le) {
+
+      ReportError err(lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()), le.token(), le.message());
+
     }
 
   } else {
@@ -282,14 +290,15 @@ void SiliceCompiler::ReportError::split(const std::string& s, char delim, std::v
 
 void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where, std::string msg)
 {
+  std::cerr << Console::bold << Console::white << "----------<<<<< error >>>>>----------" << std::endl << std::endl
+    << "=> file: " << where.first << std::endl
+    << "=> line: " << where.second << std::endl
+    << Console::normal << std::endl;
+
   std::vector<std::string> items;
   split(msg, '#', items);
   if (items.size() == 5) {
     std::cerr << std::endl;
-    std::cerr << Console::bold << Console::white << "----------<<< syntax error >>>----------" << std::endl << std::endl
-      << "=> file: " << where.first << std::endl
-      << "=> line: " << where.second << std::endl
-      << Console::normal << std::endl;
     std::cerr << Console::white << Console::bold;
     std::cerr << items[1] << std::endl;
     ForIndex(i, std::stoi(items[3])) {
@@ -304,40 +313,11 @@ void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where,
     std::cerr << Console::gray;
     std::cerr << std::endl;
   } else {
+    std::cerr << Console::red;
     std::cerr << msg << std::endl;
+    std::cerr << Console::gray;
+    std::cerr << std::endl;
   }
-}
-
-SiliceCompiler::ReportError::ReportError(std::pair<std::string, int> where, std::string msg)
-{
-  printReport(where, msg);
-}
-
-// -------------------------------------------------
-
-void SiliceCompiler::LexerErrorListener::syntaxError(
-  antlr4::Recognizer* recognizer,
-  antlr4::Token* tk,
-  size_t line,
-  size_t charPositionInLine,
-  const std::string& msg, std::exception_ptr e)
-{
-  ReportError err(m_PreProcessor.lineAfterToFileAndLineBefore((int)line), msg);
-  throw Fatal("[syntax error]");
-}
-
-// -------------------------------------------------
-
-void SiliceCompiler::ParserErrorListener::syntaxError(
-  antlr4::Recognizer* recognizer,
-  antlr4::Token* tk,
-  size_t              line,
-  size_t              charPositionInLine,
-  const std::string& msg,
-  std::exception_ptr e)
-{
-  ReportError err(m_PreProcessor.lineAfterToFileAndLineBefore((int)line), msg);
-  throw Fatal("[parse error]");
 }
 
 // -------------------------------------------------
@@ -348,7 +328,7 @@ void SiliceCompiler::ParserErrorListener::syntaxError(
 
 // -------------------------------------------------
 
-std::string SiliceCompiler::ParserErrorHandler::extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset)
+std::string SiliceCompiler::ReportError::extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset)
 {
   antlr4::Token* first_tk = tk;
   int index = (int)first_tk->getTokenIndex();
@@ -389,11 +369,13 @@ std::string SiliceCompiler::ParserErrorHandler::extractCodeAroundToken(std::stri
   return tk_stream->getText(first_tk, last_tk);
 }
 
-std::string SiliceCompiler::ParserErrorHandler::prepareMessage(antlr4::Parser* parser, antlr4::Token* offender)
+// -------------------------------------------------
+
+std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_stream,antlr4::Token* offender)
 {
-  std::string msg = "#";
-  antlr4::TokenStream* tk_stream = dynamic_cast<antlr4::TokenStream*>(parser->getInputStream());
-  if (tk_stream != nullptr) {
+  std::string msg = "";
+  if (tk_stream != nullptr && offender != nullptr) {
+    msg = "#";
     tk_stream->getText(offender, offender); // this seems required to refresh the steam? TODO FIXME investigate
     std::string file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
     int offset = 0;
@@ -409,24 +391,57 @@ std::string SiliceCompiler::ParserErrorHandler::prepareMessage(antlr4::Parser* p
   return msg;
 }
 
+// -------------------------------------------------
+
+SiliceCompiler::ReportError::ReportError(const LuaPreProcessor& lpp, int line, antlr4::TokenStream* tk_stream, antlr4::Token *offender, std::string msg)
+{
+  msg += prepareMessage(tk_stream,offender);
+  printReport(lpp.lineAfterToFileAndLineBefore((int)line), msg);
+}
+
+// -------------------------------------------------
+
+void SiliceCompiler::LexerErrorListener::syntaxError(
+  antlr4::Recognizer* recognizer,
+  antlr4::Token* tk,
+  size_t line,
+  size_t charPositionInLine,
+  const std::string& msg, std::exception_ptr e)
+{
+  ReportError err(m_PreProcessor, (int)line, nullptr, nullptr, msg);
+  throw Fatal("[lexical error]");
+}
+
+// -------------------------------------------------
+
+void SiliceCompiler::ParserErrorListener::syntaxError(
+  antlr4::Recognizer* recognizer,
+  antlr4::Token*      tk,
+  size_t              line,
+  size_t              charPositionInLine,
+  const std::string&  msg,
+  std::exception_ptr  e)
+{
+  ReportError err(m_PreProcessor, (int)line, dynamic_cast<antlr4::TokenStream*>(recognizer->getInputStream()), tk, msg);
+  throw Fatal("[syntax error]");
+}
+
+
 void SiliceCompiler::ParserErrorHandler::reportNoViableAlternative(antlr4::Parser* parser, antlr4::NoViableAltException const& ex)
 {
   std::string msg = "surprised to find this here";
-  msg += prepareMessage(parser, ex.getOffendingToken());
   parser->notifyErrorListeners(ex.getOffendingToken(), msg, std::make_exception_ptr(ex));
 }
 
 void SiliceCompiler::ParserErrorHandler::reportInputMismatch(antlr4::Parser* parser, antlr4::InputMismatchException const& ex)
 {
   std::string msg = "expecting something else";
-  msg += prepareMessage(parser, ex.getOffendingToken());
   parser->notifyErrorListeners(ex.getOffendingToken(), msg, std::make_exception_ptr(ex));
 }
 
 void SiliceCompiler::ParserErrorHandler::reportFailedPredicate(antlr4::Parser* parser, antlr4::FailedPredicateException const& ex)
 {
   std::string msg = "surprised to find this here";
-  msg += prepareMessage(parser, ex.getOffendingToken());
   parser->notifyErrorListeners(ex.getOffendingToken(), msg, std::make_exception_ptr(ex));
 }
 
@@ -434,7 +449,6 @@ void SiliceCompiler::ParserErrorHandler::reportUnwantedToken(antlr4::Parser* par
 {
   std::string msg = "this should not be here";
   antlr4::Token* tk = parser->getCurrentToken();
-  msg += prepareMessage(parser, tk);
   parser->notifyErrorListeners(tk, msg, nullptr);
 }
 
@@ -449,7 +463,6 @@ void SiliceCompiler::ParserErrorHandler::reportMissingToken(antlr4::Parser* pars
       tk = tk_stream->get(index - 1);
     }
   }
-  msg += prepareMessage(parser, tk);
   parser->notifyErrorListeners(tk, msg, nullptr);
 }
 

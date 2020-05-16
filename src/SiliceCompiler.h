@@ -59,12 +59,14 @@ private:
   {
   private:
 
-    void split(const std::string& s, char delim, std::vector<std::string>& elems);
-    void printReport(std::pair<std::string, int> where, std::string msg);
+    void        split(const std::string& s, char delim, std::vector<std::string>& elems);
+    void        printReport(std::pair<std::string, int> where, std::string msg);
+    std::string extractCodeAroundToken(std::string file, antlr4::Token *tk, antlr4::TokenStream *tk_stream, int &_offset);
+    std::string prepareMessage(antlr4::TokenStream* tk_stream, antlr4::Token *offender);
 
   public:
 
-    ReportError(std::pair<std::string, int> where, std::string msg);
+    ReportError(const LuaPreProcessor& lpp, int line, antlr4::TokenStream* tk_stream, antlr4::Token *offender, std::string msg);
 
   };
 
@@ -100,8 +102,6 @@ private:
   class ParserErrorHandler : public antlr4::DefaultErrorStrategy 
   {
   protected:
-    std::string extractCodeAroundToken(std::string file, antlr4::Token *tk, antlr4::TokenStream *tk_stream, int &_offset);
-    std::string prepareMessage(antlr4::Parser *parser, antlr4::Token *offender);
     void reportNoViableAlternative(antlr4::Parser *parser, antlr4::NoViableAltException const &ex) override;
     void reportInputMismatch(antlr4::Parser *parser, antlr4::InputMismatchException const &ex) override;
     void reportFailedPredicate(antlr4::Parser *parser, antlr4::FailedPredicateException const &ex) override;
