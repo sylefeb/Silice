@@ -331,9 +331,9 @@ void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where,
     std::cerr << Console::gray;
     std::cerr << std::endl;
   } else {
-    std::cerr << Console::red;
+    std::cerr << Console::red << Console::bold;
     std::cerr << msg << std::endl;
-    std::cerr << Console::gray;
+    std::cerr << Console::normal;
     std::cerr << std::endl;
   }
 }

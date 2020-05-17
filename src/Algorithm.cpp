@@ -2069,8 +2069,8 @@ void Algorithm::resolveForwardJumpRefs()
         + (refs.second.size() > 1 ? "s " : " ")
         + lines + ")";
       reportError(
-        dynamic_cast<siliceParser::JumpContext *>(refs.second.front().jump)->IDENTIFIER()->getSymbol(),
-        (int)(dynamic_cast<siliceParser::JumpContext *>(refs.second.front().jump)->getStart()->getLine()),
+        refs.second.front().jump->getSourceInterval(),
+        (int)refs.second.front().jump->getStart()->getLine(),
         "%s", msg.c_str());
     } else {
       for (auto& j : refs.second) {
@@ -3139,11 +3139,11 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineAccessTypeAndWidth(siliceP
 
 // -------------------------------------------------
 
-void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies) const
+void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies) const
 {
   // check for clock domain crossing
   if (a.instance_clock != m_Clock) {
-    reportError(plist->getSourceInterval(),(int)plist->getStart()->getLine(),
+    reportError(node->getSourceInterval(),(int)plist->getStart()->getLine(),
       "algorithm instance '%s' called accross clock-domain -- not yet supported",
       a.instance_name.c_str());
   }
@@ -3153,7 +3153,7 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
   // if params are empty we simply call, otherwise we set the inputs
   if (!params.empty()) {
     if (a.algo->m_Inputs.size() != params.size()) {
-      reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+      reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
         "incorrect number of input parameters in call to algorithm instance '%s'",
         a.instance_name.c_str());
     }
@@ -3161,7 +3161,7 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
     int p = 0;
     for (const auto& ins : a.algo->m_Inputs) {
       if (a.boundinputs.count(ins.name) > 0) {
-        reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+        reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
         "algorithm instance '%s' cannot be called as its input '%s' is bound",
           a.instance_name.c_str(), ins.name.c_str());
       }
@@ -3177,23 +3177,23 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
 
 // -------------------------------------------------
 
-void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::AssignListContext* plist, const t_combinational_block_context* bctx) const
+void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::AssignListContext* plist, const t_combinational_block_context* bctx) const
 {
   // check for pipeline
   if (bctx->pipeline != nullptr) {
-    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+    reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
       "cannot join algorithm instance from a pipeline");
   }
   // check for clock domain crossing
   if (a.instance_clock != m_Clock) {
-    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+    reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
      "algorithm instance '%s' joined accross clock-domain -- not yet supported",
       a.instance_name.c_str());
   }
   // if params are empty we simply wait, otherwise we set the outputs
   if (!plist->assign().empty()) {
     if (a.algo->m_Outputs.size() != plist->assign().size()) {
-      reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+      reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
       "incorrect number of output parameters reading back result from algorithm instance '%s'",
         a.instance_name.c_str());
     }
@@ -3214,17 +3214,17 @@ void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, co
 
 // -------------------------------------------------
 
-void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *called, const t_combinational_block_context *bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const
+void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo *called, const t_combinational_block_context *bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const
 {
   if (bctx->pipeline != nullptr) {
-    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+    reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
       "cannot call a subroutine from a pipeline");
   }
   std::vector<antlr4::tree::ParseTree*> params;
   getParams(plist, params);
   // check num parameters
   if (called->inputs.size() != params.size()) {
-    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+    reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
       "incorrect number of input parameters in call to subroutine '%s'",
       called->name.c_str());
   }
@@ -3248,15 +3248,15 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
 
 // -------------------------------------------------
 
-void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist) const
+void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist) const
 {
   if (bctx->pipeline != nullptr) {
-    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+    reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
     "cannot join a subroutine from a pipeline");
   }
   // if params are empty we simply wait, otherwise we set the outputs
   if (called->outputs.size() != plist->assign().size()) {
-    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+    reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
     "incorrect number of output parameters reading back result from subroutine '%s'",
       called->name.c_str());
   }
@@ -3426,7 +3426,7 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
     sl_assert(identifier != nullptr);
     // variable
     if (isInput(identifier->getText())) {
-      reportError(identifier->getSourceInterval(), (int)identifier->getSymbol()->getLine(),
+      reportError(a.instr->getSourceInterval(), (int)identifier->getSymbol()->getLine(),
         "cannot assign a value to an input of the algorithm, input '%s'",
         identifier->getText().c_str());
     }
@@ -3495,7 +3495,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
               async->IDENTIFIER()->getText().c_str());
           }
         } else {
-          writeAlgorithmCall(prefix, out, A->second, async->paramList(), &block->context, _dependencies);
+          writeAlgorithmCall(a.instr, prefix, out, A->second, async->paramList(), &block->context, _dependencies);
         }
       }
     } {
@@ -3511,10 +3511,10 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
               "cannot find algorithm '%s' on synchronous call",
               sync->joinExec()->IDENTIFIER()->getText().c_str());
           } else {
-            writeSubroutineCall(prefix, out, S->second, &block->context, sync->paramList(), _dependencies);
+            writeSubroutineCall(a.instr, prefix, out, S->second, &block->context, sync->paramList(), _dependencies);
           }
         } else {
-          writeAlgorithmCall(prefix, out, A->second, sync->paramList(), &block->context, _dependencies);
+          writeAlgorithmCall(a.instr, prefix, out, A->second, sync->paramList(), &block->context, _dependencies);
         }
       }
     } {
@@ -3530,10 +3530,10 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
               "cannot find algorithm '%s' to join with",
               join->IDENTIFIER()->getText().c_str(), (int)join->getStart()->getLine());
           } else {
-            writeSubroutineReadback(prefix, out, S->second, &block->context, join->assignList());
+            writeSubroutineReadback(a.instr, prefix, out, S->second, &block->context, join->assignList());
           }
         } else {
-          writeAlgorithmReadback(prefix, out, A->second, join->assignList(), &block->context);
+          writeAlgorithmReadback(a.instr, prefix, out, A->second, join->assignList(), &block->context);
         }
       }
     }
