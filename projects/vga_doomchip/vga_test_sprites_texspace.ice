@@ -254,11 +254,13 @@ algorithm frame_drawer(
   
   uint1    vsync_filtered = 0;
 
-  uint12   angle   = 0;
+  uint12   angle   = 3042;
   uint8    frame   = 0;
 
   uint8    sprt    = 0;
   uint1    mirr    = 0;
+
+  uint$FPw$ distv  = $20<<FPm$;
 
   div$FPw$ div;
 
@@ -278,13 +280,16 @@ algorithm frame_drawer(
     (sprt,mirr) = spriteWalk(angle,frame);
     
     // draw sprite
-    () <- drawSprite <- (sprt,mirr,100,100,$round(1<<(FPm))$);
+    () <- drawSprite <- (sprt,mirr,100,140,distv);
     
     // prepare next
     frame = frame + 1;
     if (frame >= 4) {
       frame = 0;
-      angle = angle + 256;
+      // angle = angle + 256;      
+    }
+    if (distv > $1<<FPm$) {
+      distv = distv - 16;
     }
     
     // wait for frame to end

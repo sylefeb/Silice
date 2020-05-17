@@ -1254,7 +1254,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         || m_OutputNames.count(ioname) > 0
         || m_VarNames.count(ioname) > 0
         || ioname == m_Clock || ioname == m_Reset) {
-        reportError(P->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),
+        reportError(P->getSourceInterval(), (int)P->getStart()->getLine(),
           "subroutine '%s' input/output '%s' is using the same name as a host VIO, clock or reset",
           nfo->name.c_str(), ioname.c_str());
       }
