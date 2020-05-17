@@ -36,7 +36,22 @@ void Algorithm::reportError(antlr4::Token *what, int line, const char *msg, ...)
   vsprintf_s(message, messageBufferSize, msg, args);
   va_end(args);
 
-  throw LanguageError(line,what,message);
+  throw LanguageError(line, what, antlr4::misc::Interval::INVALID, message);
+}
+
+// -------------------------------------------------
+
+void Algorithm::reportError(antlr4::misc::Interval interval, int line, const char *msg, ...) const
+{
+  const int messageBufferSize = 4096;
+  char message[messageBufferSize];
+
+  va_list args;
+  va_start(args, msg);
+  vsprintf_s(message, messageBufferSize, msg, args);
+  va_end(args);
+
+  throw LanguageError(line, nullptr,interval, message);
 }
 
 // -------------------------------------------------
@@ -561,7 +576,7 @@ void Algorithm::readInitList(D* decl,T& var)
     values_str.back() = "0"; // null terminated
   } else {
     if (var.table_size == 0) {
-      reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "cannot deduce table size: no size and no initialization given");
+      reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "cannot deduce table size: no size and no initialization given");
     }
     return; // no init list
   }
@@ -570,7 +585,7 @@ void Algorithm::readInitList(D* decl,T& var)
   } else if (values_str.empty()) {
     // auto init table to 0
   } else if (values_str.size() != var.table_size) {
-    reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "incorrect number of values in table initialization");
+    reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "incorrect number of values in table initialization");
   }
   var.init_values.resize(var.table_size, "0");
   ForIndex(i, values_str.size()) {
@@ -646,7 +661,7 @@ const std::vector<t_mem_member> c_BROMmembers = {
 void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
-    reportError(nullptr, (int)decl->getStart()->getLine(), "subroutine '%s': a memory cannot be instanced within a subroutine", sub->name.c_str());
+    reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "subroutine '%s': a memory cannot be instanced within a subroutine", sub->name.c_str());
   }
   // gather memory nfo
   t_mem_nfo mem;
@@ -656,13 +671,13 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   } else if (decl->BROM() != nullptr) {
     mem.mem_type = BROM;
   } else {
-    reportError(nullptr, (int)decl->getStart()->getLine(), "internal error, memory declaration");
+    reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration");
   }
   splitType(decl->TYPE()->getText(), mem.base_type, mem.width);
   if (decl->NUMBER() != nullptr) {
     mem.table_size = atoi(decl->NUMBER()->getText().c_str());
     if (mem.table_size <= 0) {
-      reportError(nullptr, (int)decl->getStart()->getLine(), "memory has zero or negative size");
+      reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "memory has zero or negative size");
     }
     mem.init_values.resize(mem.table_size, "0");
   } else {
@@ -675,7 +690,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   switch (mem.mem_type)     {
   case BRAM: members = c_BRAMmembers; break;
   case BROM: members = c_BROMmembers; break;
-  default: reportError(nullptr, (int)decl->getStart()->getLine(), "internal error, memory declaration"); break;
+  default: reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration"); break;
   }
   // -> create var for address
   {
@@ -782,7 +797,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
       addVar(vnfo, sub, (int)grp->getStart()->getLine());
     }
   } else {
-    reportError(nullptr, (int)grp->getStart()->getLine(), "unkown group '%s'", grp->modalg->getText().c_str());
+    reportError(grp->getSourceInterval(), (int)grp->getStart()->getLine(), "unkown group '%s'", grp->modalg->getText().c_str());
   }
 }
 
@@ -791,7 +806,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
 void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, const t_subroutine_nfo* sub)
 {
   if (sub != nullptr) {
-    reportError(nullptr, (int)alg->name->getLine(), "subroutine '%s': algorithms cannot be instanced within subroutines", sub->name.c_str());
+    reportError(alg->getSourceInterval(), (int)alg->name->getLine(), "subroutine '%s': algorithms cannot be instanced within subroutines", sub->name.c_str());
   }
   t_algo_nfo nfo;
   nfo.algo_name      = alg->modalg->getText();
@@ -1298,7 +1313,7 @@ std::string Algorithm::tricklingVIOName(std::string vio, const t_pipeline_stage_
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
   if (_current->context.pipeline != nullptr) {
-    reportError(nullptr, (int)pip->getStart()->getLine(), "pipelines cannot be nested");
+    reportError(pip->getSourceInterval(), (int)pip->getStart()->getLine(), "pipelines cannot be nested");
   }
   const t_subroutine_nfo *sub = _current->context.subroutine;
   t_pipeline_nfo   *nfo = new t_pipeline_nfo();
@@ -1503,7 +1518,7 @@ Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::Retu
 Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncExecContext* sync, t_combinational_block* _current, t_gather_context* _context)
 {
   if (_context->__id != -1) {
-    throw Fatal("repeat blocks cannot wait for a parallel execution (line %d)", (int)sync->getStart()->getLine());
+    reportError(sync->LARROW()->getSymbol(), (int)sync->getStart()->getLine(),"repeat blocks cannot wait for a parallel execution");
   }
   // add sync as instruction, will perform the call
   _current->instructions.push_back(t_instr_nfo(sync, _context->__id));
@@ -1529,7 +1544,7 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
 Algorithm::t_combinational_block *Algorithm::gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context)
 {
   if (_context->__id != -1) {
-    throw Fatal("repeat blocks cannot wait a parallel execution (line %d)", (int)join->getStart()->getLine());
+    reportError(join->LARROW()->getSymbol(), (int)join->getStart()->getLine(), "repeat blocks cannot wait a parallel execution");
   }
   // are we calling a subroutine?
   auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
@@ -1589,7 +1604,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   std::string name = ci->IDENTIFIER()->getText();
   auto C = m_KnownCircuitries.find(name);
   if (C == m_KnownCircuitries.end()) {
-    throw Fatal("circuitry not yet declared (line %d)", (int)ci->getStart()->getLine());
+    reportError(ci->IDENTIFIER()->getSymbol(), (int)ci->getStart()->getLine(), "circuitry not yet declared");
   }
   // instantiate in a new block
   t_combinational_block* cblock = addBlock(generateBlockName() + "_" + name, &_current->context);
@@ -1604,14 +1619,14 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
       ins.push_back(io->IDENTIFIER()->getText());
     } else if (io->is_output != nullptr) {
       if (io->combinational != nullptr) {
-        throw Fatal("a circuitry output is combinational by default (line %d)", (int)C->second->getStart()->getLine());
+        reportError(C->second->IDENTIFIER()->getSymbol(), (int)C->second->getStart()->getLine(),"a circuitry output is combinational by default");
       }
       outs.push_back(io->IDENTIFIER()->getText());
     } else if (io->is_inout != nullptr) {
       ins.push_back(io->IDENTIFIER()->getText());
       outs.push_back(io->IDENTIFIER()->getText());
     } else {
-      throw Fatal("internal error (line %d)", (int)C->second->getStart()->getLine());
+      reportError(C->second->IDENTIFIER()->getSymbol(), (int)C->second->getStart()->getLine(), "internal error");
     }
   }
   // -> get identifiers
@@ -1620,10 +1635,10 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   getIdentifiers(ci->outs, outs_idents, nullptr);
   // -> checks
   if (ins.size() != ins_idents.size()) {
-    throw Fatal("Incorrect number of inputs in circuitry instanciation (circuitry '%s', line %d)", name.c_str(), ci->getStart()->getLine());
+    reportError(ci->IDENTIFIER()->getSymbol(), (int)ci->getStart()->getLine(), "Incorrect number of inputs in circuitry instanciation (circuitry '%s')", name.c_str());
   }
   if (outs.size() != outs_idents.size()) {
-    throw Fatal("Incorrect number of inputs in circuitry instanciation (circuitry '%s', line %d)", name.c_str(), ci->getStart()->getLine());
+    reportError(ci->IDENTIFIER()->getSymbol(), (int)ci->getStart()->getLine(), "Incorrect number of inputs in circuitry instanciation (circuitry '%s')", name.c_str());
   }
   // -> rewrite rules
   ForIndex(i, ins.size()) {
@@ -1713,10 +1728,13 @@ Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::Swit
 Algorithm::t_combinational_block *Algorithm::gatherRepeatBlock(siliceParser::RepeatBlockContext* repeat, t_combinational_block *_current, t_gather_context *_context)
 {
   if (_context->__id != -1) {
-    throw Fatal("repeat blocks cannot be nested (line %d)", (int)repeat->getStart()->getLine());
+    reportError(repeat->REPEATCNT()->getSymbol(), (int)repeat->getStart()->getLine(), "repeat blocks cannot be nested");
   } else {
     std::string rcnt = repeat->REPEATCNT()->getText();
     int num = atoi(rcnt.substr(0, rcnt.length() - 1).c_str());
+    if (num <= 0) {
+      reportError(repeat->REPEATCNT()->getSymbol(), (int)repeat->getStart()->getLine(), "repeat count has to be greater than zero");
+    }
     ForIndex(id, num) {
       _context->__id = id;
       _current = gather(repeat->instructionList(), _current, _context);
@@ -1768,12 +1786,12 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
   // now verify all permissions are granted
   for (auto R : read) {
     if (_current->context.subroutine->allowed_reads.count(R) == 0) {
-      throw Fatal("variable '%s' is read by subroutine '%s' without explicit permission", R.c_str(), _current->context.subroutine->name.c_str());
+      reportError(nullptr, -1, "variable '%s' is read by subroutine '%s' without explicit permission", R.c_str(), _current->context.subroutine->name.c_str());
     }
   }
   for (auto W : written) {
     if (_current->context.subroutine->allowed_writes.count(W) == 0) {
-      throw Fatal("variable '%s' is written by subroutine '%s' without explicit permission", W.c_str(), _current->context.subroutine->name.c_str());
+      reportError(nullptr, -1, "variable '%s' is written by subroutine '%s' without explicit permission", W.c_str(), _current->context.subroutine->name.c_str());
     }
   }
 }
@@ -1825,8 +1843,8 @@ void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
   // find group declaration
   auto G = m_KnownGroups.find(iog->groupid->getText());
   if (G == m_KnownGroups.end()) {
-    throw Fatal("no group definition for '%s' (line %d)",
-      iog->groupid->getText().c_str(),iog->getStart()->getLine());
+    reportError(iog->groupid,(int)iog->getStart()->getLine(),
+      "no known group definition for '%s'",iog->groupid->getText().c_str());
   }
   // group prefix
   string grpre = iog->groupname->getText();
@@ -1837,8 +1855,9 @@ void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
     t_var_nfo vnfo;
     gatherVarNfo(v->declarationVar(), vnfo);
     if (vars.count(vnfo.name)) {
-      throw Fatal("entry '%s' declared twice in group definition '%s' (line %d)",
-        vnfo.name.c_str(),iog->groupid->getText().c_str(), iog->getStart()->getLine());
+      reportError(v->declarationVar()->IDENTIFIER()->getSymbol(),(int)v->declarationVar()->getStart()->getLine(),
+        "entry '%s' declared twice in group definition '%s'",
+        vnfo.name.c_str(),iog->groupid->getText().c_str());
     }
     vars.insert(make_pair(vnfo.name,vnfo));
   }
@@ -1846,8 +1865,8 @@ void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
     // -> check for existence
     auto V = vars.find(io->IDENTIFIER()->getText());
     if (V == vars.end()) {
-      throw Fatal("'%s' not in group '%s' (line %d)",
-        io->IDENTIFIER()->getText().c_str(), iog->groupid->getText().c_str(), iog->getStart()->getLine());
+      reportError(io->IDENTIFIER()->getSymbol(), (int)io->getStart()->getLine(), 
+        "'%s' not in group '%s'",io->IDENTIFIER()->getText().c_str(), iog->groupid->getText().c_str());
     }
     // add it where it belongs
     if (io->is_input != nullptr) {
@@ -1990,7 +2009,9 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
     if (algbody->alwaysBlock() != nullptr) {
       gather(algbody->alwaysBlock(),&m_AlwaysPre,_context);
       if (!isStateLessGraph(&m_AlwaysPre)) {
-        throw Fatal("always block can only be combinational (line %d)", (int)algbody->alwaysBlock()->getStart()->getLine());
+        reportError(algbody->alwaysBlock()->ALWAYS()->getSymbol(),
+          (int)algbody->alwaysBlock()->getStart()->getLine(),
+          "always block can only be combinational");
       }
     }
     // add global subroutines now (reparse them as if defined in this algorithm)
@@ -2047,7 +2068,10 @@ void Algorithm::resolveForwardJumpRefs()
         + refs.first + "' (line"
         + (refs.second.size() > 1 ? "s " : " ")
         + lines + ")";
-      throw Fatal("%s", msg.c_str());
+      reportError(
+        dynamic_cast<siliceParser::JumpContext *>(refs.second.front().jump)->IDENTIFIER()->getSymbol(),
+        (int)(dynamic_cast<siliceParser::JumpContext *>(refs.second.front().jump)->getStart()->getLine()),
+        "%s", msg.c_str());
     } else {
       for (auto& j : refs.second) {
         if (dynamic_cast<siliceParser::JumpContext*>(j.jump)) {
@@ -2224,8 +2248,11 @@ void Algorithm::updateDependencies(t_vio_dependencies& _depds, antlr4::tree::Par
       const auto& d = _depds.dependencies.at(w);
       if (d.count(w) > 0) {
         // yes: this would produce a combinational cycle, error!
-        throw Fatal("variable assignement leads to a combinational cycle (variable: %s, line %d)\n       consider inserting a sequential split with '++:'",
-          w.c_str(), dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine());
+        reportError(
+          dynamic_cast<antlr4::ParserRuleContext *>(instr)->getSourceInterval(),
+          (int)(dynamic_cast<antlr4::ParserRuleContext *>(instr)->getStart()->getLine()),
+          "variable assignement leads to a combinational cycle (variable: %s)\n\nConsider inserting a sequential split with '++:'",
+          w.c_str());
       }
     }
   }
@@ -2256,7 +2283,7 @@ void Algorithm::verifyMemberMemory(const t_mem_nfo& mem, std::string member, int
     }
   }
   if (!found) {
-    throw Fatal("memory '%s' has no member '%s' (line %d)", mem.name.c_str(), member.c_str(), line);
+    reportError(nullptr,line,"memory '%s' has no member '%s'", mem.name.c_str(), member.c_str());
   }
 }
 
@@ -2270,7 +2297,7 @@ void Algorithm::verifyMemberGroup(std::string member, siliceParser::GroupContext
       return; // ok!
     }
   }
-  throw Fatal("group '%s' does not contain a member '%s' (line %d)",
+  reportError(group->IDENTIFIER()->getSymbol(),line,"group '%s' does not contain a member '%s'",
     group->IDENTIFIER()->getText().c_str(), member, line);
 }
 
@@ -2281,7 +2308,7 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
   std::string base = access->base->getText();
   base = translateVIOName(base, bctx);
   if (access->IDENTIFIER().size() != 2) {
-    throw Fatal("'.' access depth limited to one in current version '%s' (line %d)", base.c_str(), (int)access->getStart()->getLine());
+    reportError(access->getSourceInterval(),(int)access->getStart()->getLine(),"'.' access depth limited to one in current version '%s'", base.c_str());
   }
   std::string member = access->IDENTIFIER()[1]->getText();
   // find algorithm
@@ -2302,7 +2329,8 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
         // return the group member name
         return base + "_" + member;
       } else {
-        throw Fatal("cannot find access base.member '%s.%s' (line %d)", base.c_str(), member.c_str(), (int)access->getStart()->getLine());
+        reportError(access->getSourceInterval(), (int)access->getStart()->getLine(), 
+          "cannot find access base.member '%s.%s'", base.c_str(), member.c_str());
       }
     }
   }
@@ -2345,7 +2373,8 @@ std::string Algorithm::determineAccessedVar(siliceParser::AccessContext* access,
   } else if (access->bitAccess() != nullptr) {
     return determineAccessedVar(access->bitAccess(), bctx);
   }
-  throw Fatal("internal error (line %d) [%s, %d]", access->getStart()->getLine(), __FILE__, __LINE__);
+  reportError(nullptr,(int)access->getStart()->getLine(), "internal error [%s, %d]",  __FILE__, __LINE__);
+  return "";
 }
 
 // -------------------------------------------------
@@ -2600,7 +2629,7 @@ void Algorithm::determineVariablesAccess()
         // set global access
         // -> check prior access
         if (m_Vars[m_VarNames[b.right]].access & e_WriteOnly) {
-          throw Fatal("cannot write to variable '%s' bound to an algorithm or module output (line %d)", b.right.c_str(), b.line);
+          reportError(nullptr, b.line, "cannot write to variable '%s' bound to an algorithm or module output", b.right.c_str());
         }
         // -> mark as write-binded
         m_Vars[m_VarNames[b.right]].access = (e_Access)(m_Vars[m_VarNames[b.right]].access | e_WriteBinded);
@@ -2608,7 +2637,7 @@ void Algorithm::determineVariablesAccess()
         sl_assert(b.dir == e_BiDir);
         // -> check prior access
         if ((m_Vars[m_VarNames[b.right]].access & (~e_ReadWriteBinded)) != 0) {
-          throw Fatal("cannot bind variable '%s' on an inout port, it is used elsewhere (line %d)", b.right.c_str(), b.line);
+          reportError(nullptr, b.line, "cannot bind variable '%s' on an inout port, it is used elsewhere", b.right.c_str());
         }
         // add to always block dependency
         m_AlwaysPre.in_vars_read.insert(b.right);
@@ -2646,7 +2675,7 @@ void Algorithm::determineVariablesAccess()
       m_AlwaysPre.out_vars_written.insert(ouv);
       // -> check prior access
       if (m_Vars[m_VarNames[ouv]].access & e_WriteOnly) {
-        throw Fatal("cannot write to variable '%s' bound to a memory output (line %d)", ouv.c_str(), mem.line);
+        reportError(nullptr, mem.line, "cannot write to variable '%s' bound to a memory output", ouv.c_str());
       }
       // set global access
       m_Vars[m_VarNames[ouv]].access = (e_Access)(m_Vars[m_VarNames[ouv]].access | e_WriteBinded);
@@ -2830,11 +2859,11 @@ void Algorithm::analyzeOutputsAccess()
       // bound to a wire
       if (global_written.find(o.name) != global_written.end()) {
         // NOTE: always caught before? (see determineVariablesAccess)
-        throw Fatal((std::string("cannot write to an output bound to a module/algorithm (") + o.name + ")").c_str());
+        reportError(nullptr, -1, (std::string("cannot write to an output bound to a module/algorithm (") + o.name + ")").c_str());
       }
       if (always_written.find(o.name) != always_written.end()) {
         // NOTE: always caught before? (see determineVariablesAccess)
-        throw Fatal((std::string("cannot write to an output bound to a module/algorithm (") + o.name + ")").c_str());
+        reportError(nullptr, -1, (std::string("cannot write to an output bound to a module/algorithm (") + o.name + ")").c_str());
       }
       o.usage = e_Bound;
       std::cerr << o.name << " => wire" << std::endl;
@@ -2912,10 +2941,9 @@ void Algorithm::resolveAlgorithmRefs(const std::unordered_map<std::string, AutoP
   for (auto& nfo : m_InstancedAlgorithms) {
     const auto& A = algorithms.find(nfo.second.algo_name);
     if (A == algorithms.end()) {
-      throw Fatal("algorithm '%s' not found, instance '%s' (line %d)",
+      reportError(nullptr, nfo.second.instance_line, "algorithm '%s' not found, instance '%s'",
         nfo.second.algo_name.c_str(),
-        nfo.second.instance_name.c_str(),
-        nfo.second.instance_line);
+        nfo.second.instance_name.c_str());
     }
     nfo.second.algo = A->second;
     // resolve any automatic directional bindings
@@ -2934,10 +2962,9 @@ void Algorithm::resolveModuleRefs(const std::unordered_map<std::string, AutoPtr<
   for (auto& nfo : m_InstancedModules) {
     const auto& M = modules.find(nfo.second.module_name);
     if (M == modules.end()) {
-      throw Fatal("module '%s' not found, instance '%s' (line %d)",
+      reportError(nullptr, nfo.second.instance_line, "module '%s' not found, instance '%s'",
         nfo.second.module_name.c_str(),
-        nfo.second.instance_name.c_str(),
-        nfo.second.instance_line);
+        nfo.second.instance_name.c_str());
     }
     nfo.second.mod = M->second;
     // check autobind
@@ -2986,7 +3013,7 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::determineVIOTypeWidthAndTable
     width = m_Outputs[m_OutputNames.at(vname)].width;
     table_size = m_Outputs[m_OutputNames.at(vname)].table_size;
   } else {
-    throw Fatal("variable '%s' not yet declared (line %d)", vname.c_str(), line);
+    reportError(nullptr, line, "variable '%s' not yet declared", vname.c_str());
   }
   return std::make_tuple(type, width, table_size);
 }
@@ -3016,18 +3043,21 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(silic
   sl_assert(ioaccess != nullptr);
   std::string base = ioaccess->base->getText();
   if (ioaccess->IDENTIFIER().size() != 2) {
-    throw Fatal("'.' access depth limited to one in current version '%s' (line %d)", base.c_str(), (int)ioaccess->getStart()->getLine());
+    reportError(ioaccess->getSourceInterval(),(int)ioaccess->getStart()->getLine(),
+      "'.' access depth limited to one in current version '%s'", base.c_str());
   }
   std::string member = ioaccess->IDENTIFIER()[1]->getText();
   // accessing an algorithm?
   auto A = m_InstancedAlgorithms.find(base);
   if (A != m_InstancedAlgorithms.end()) {
     if (!A->second.algo->isInput(member) && !A->second.algo->isOutput(member)) {
-      throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
+      reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+        "'%s' is neither an input not an output, instance '%s'", member.c_str(), base.c_str());
     }
     if (A->second.algo->isInput(member)) {
       if (A->second.boundinputs.count(member) > 0) {
-        throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
+        reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+          "cannot access bound input '%s' on instance '%s'", member.c_str(), base.c_str());
       }
       return std::make_pair(
         A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].base_type,
@@ -3052,7 +3082,8 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(silic
       auto tws = determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
       return std::make_pair(std::get<0>(tws), std::get<1>(tws));
     } else {
-      throw Fatal("cannot find accessed member '%s' (line %d)", base.c_str(), (int)ioaccess->getStart()->getLine());
+      reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+        "cannot find accessed member '%s'", base.c_str());
     }
   }
   sl_assert(false);
@@ -3112,8 +3143,9 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
 {
   // check for clock domain crossing
   if (a.instance_clock != m_Clock) {
-    throw Fatal("algorithm instance '%s' called accross clock-domain -- not yet supported (line %d)",
-      a.instance_name.c_str(), (int)plist->getStart()->getLine());
+    reportError(plist->getSourceInterval(),(int)plist->getStart()->getLine(),
+      "algorithm instance '%s' called accross clock-domain -- not yet supported",
+      a.instance_name.c_str());
   }
   // get params
   std::vector<antlr4::tree::ParseTree*> params;
@@ -3121,15 +3153,17 @@ void Algorithm::writeAlgorithmCall(std::string prefix, std::ostream& out, const 
   // if params are empty we simply call, otherwise we set the inputs
   if (!params.empty()) {
     if (a.algo->m_Inputs.size() != params.size()) {
-      throw Fatal("incorrect number of input parameters in call to algorithm instance '%s' (line %d)",
-        a.instance_name.c_str(), (int)plist->getStart()->getLine());
+      reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+        "incorrect number of input parameters in call to algorithm instance '%s'",
+        a.instance_name.c_str());
     }
     // set inputs
     int p = 0;
     for (const auto& ins : a.algo->m_Inputs) {
       if (a.boundinputs.count(ins.name) > 0) {
-        throw Fatal("algorithm instance '%s' cannot be called as its input '%s' is bound (line %d)",
-          a.instance_name.c_str(), ins.name.c_str(), (int)plist->getStart()->getLine());
+        reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+        "algorithm instance '%s' cannot be called as its input '%s' is bound",
+          a.instance_name.c_str(), ins.name.c_str());
       }
       out << FF_D << a.instance_prefix << "_" << ins.name
         << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, dependencies) 
@@ -3147,18 +3181,21 @@ void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, co
 {
   // check for pipeline
   if (bctx->pipeline != nullptr) {
-    throw Fatal("cannot join algorithm instance from a pipeline (line %d)", (int)plist->getStart()->getLine());
+    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+      "cannot join algorithm instance from a pipeline");
   }
   // check for clock domain crossing
   if (a.instance_clock != m_Clock) {
-    throw Fatal("algorithm instance '%s' joined accross clock-domain -- not yet supported (line %d)",
-      a.instance_name.c_str(), (int)plist->getStart()->getLine());
+    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+     "algorithm instance '%s' joined accross clock-domain -- not yet supported",
+      a.instance_name.c_str());
   }
   // if params are empty we simply wait, otherwise we set the outputs
   if (!plist->assign().empty()) {
     if (a.algo->m_Outputs.size() != plist->assign().size()) {
-      throw Fatal("incorrect number of output parameters reading back result from algorithm instance '%s' (line %d)",
-        a.instance_name.c_str(), (int)plist->getStart()->getLine());
+      reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+      "incorrect number of output parameters reading back result from algorithm instance '%s'",
+        a.instance_name.c_str());
     }
     // read outputs
     int p = 0;
@@ -3180,14 +3217,16 @@ void Algorithm::writeAlgorithmReadback(std::string prefix, std::ostream& out, co
 void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const t_subroutine_nfo *called, const t_combinational_block_context *bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const
 {
   if (bctx->pipeline != nullptr) {
-    throw Fatal("cannot call a subroutine from a pipeline (line %d)", (int)plist->getStart()->getLine());
+    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+      "cannot call a subroutine from a pipeline");
   }
   std::vector<antlr4::tree::ParseTree*> params;
   getParams(plist, params);
   // check num parameters
   if (called->inputs.size() != params.size()) {
-    throw Fatal("incorrect number of input parameters in call to subroutine '%s' (line %d)",
-      called->name.c_str(), (int)plist->getStart()->getLine());
+    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+      "incorrect number of input parameters in call to subroutine '%s'",
+      called->name.c_str());
   }
   // write var inits
   t_vio_dependencies _;
@@ -3212,12 +3251,14 @@ void Algorithm::writeSubroutineCall(std::string prefix, std::ostream& out, const
 void Algorithm::writeSubroutineReadback(std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist) const
 {
   if (bctx->pipeline != nullptr) {
-    throw Fatal("cannot join a subroutine from a pipeline (line %d)", (int)plist->getStart()->getLine());
+    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+    "cannot join a subroutine from a pipeline");
   }
   // if params are empty we simply wait, otherwise we set the outputs
   if (called->outputs.size() != plist->assign().size()) {
-    throw Fatal("incorrect number of output parameters reading back result from subroutine '%s' (line %d)",
-      called->name.c_str(), (int)plist->getStart()->getLine());
+    reportError(plist->getSourceInterval(), (int)plist->getStart()->getLine(),
+    "incorrect number of output parameters reading back result from subroutine '%s'",
+      called->name.c_str());
   }
   // read outputs (reading from FF_D or FF_Q should be equivalent since we just cycled the state machine)
   int p = 0;
@@ -3243,24 +3284,29 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::writeIOAccess(
   std::string base = ioaccess->base->getText();
   base = translateVIOName(base, bctx);
   if (ioaccess->IDENTIFIER().size() != 2) {
-    throw Fatal("'.' access depth limited to one in current version '%s' (line %d)", base.c_str(), (int)ioaccess->getStart()->getLine());
+    reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+      "'.' access depth limited to one in current version '%s'", base.c_str());
   }
   std::string member = ioaccess->IDENTIFIER()[1]->getText();
   // find algorithm
   auto A = m_InstancedAlgorithms.find(base);
   if (A != m_InstancedAlgorithms.end()) {
     if (!A->second.algo->isInput(member) && !A->second.algo->isOutput(member)) {
-      throw Fatal("'%s' is neither an input not an output, instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
+      reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+        "'%s' is neither an input not an output, instance '%s'", member.c_str(), base.c_str());
     }
     if (assigning && !A->second.algo->isInput(member)) {
-      throw Fatal("cannot write to algorithm output '%s', instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
+      reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+        "cannot write to algorithm output '%s', instance '%s'", member.c_str(), base.c_str());
     }
     if (!assigning && !A->second.algo->isOutput(member)) {
-      throw Fatal("cannot read from algorithm input '%s', instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
+      reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+        "cannot read from algorithm input '%s', instance '%s'", member.c_str(), base.c_str());
     }
     if (A->second.algo->isInput(member)) {
       if (A->second.boundinputs.count(member) > 0) {
-        throw Fatal("cannot access bound input '%s' on instance '%s' (line %d)", member.c_str(), base.c_str(), (int)ioaccess->getStart()->getLine());
+        reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+        "cannot access bound input '%s' on instance '%s'", member.c_str(), base.c_str());
       }
       if (assigning) {
         out << FF_D; // algorithm input
@@ -3297,7 +3343,8 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::writeIOAccess(
         out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
         return determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
       } else {
-        throw Fatal("cannot find accessed base.member '%s.%s' (line %d)", base.c_str(), member.c_str(), (int)ioaccess->getStart()->getLine());
+        reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+          "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
       }
     }
   }
@@ -3379,8 +3426,9 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
     sl_assert(identifier != nullptr);
     // variable
     if (isInput(identifier->getText())) {
-      throw Fatal("cannot assign a value to an input of the algorithm, input '%s' (line %d)",
-        identifier->getText().c_str(), (int)identifier->getSymbol()->getLine());
+      reportError(identifier->getSourceInterval(), (int)identifier->getSymbol()->getLine(),
+        "cannot assign a value to an input of the algorithm, input '%s'",
+        identifier->getText().c_str());
     }
     out << rewriteIdentifier(prefix, identifier->getText(), bctx, identifier->getSymbol()->getLine(), FF_D);
   }
@@ -3438,11 +3486,13 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
           // check if this is an erronous call to a subroutine
           auto S = m_Subroutines.find(async->IDENTIFIER()->getText());
           if (S == m_Subroutines.end()) {
-            throw Fatal("cannot find algorithm '%s' on asynchronous call (line %d)",
-              async->IDENTIFIER()->getText().c_str(), (int)async->getStart()->getLine());
+            reportError(async->getSourceInterval(), (int)async->getStart()->getLine(),
+            "cannot find algorithm '%s' on asynchronous call",
+              async->IDENTIFIER()->getText().c_str());
           } else {
-            throw Fatal("cannot perform an asynchronous call on subroutine '%s' (line %d)",
-              async->IDENTIFIER()->getText().c_str(), (int)async->getStart()->getLine());
+            reportError(async->getSourceInterval(), (int)async->getStart()->getLine(),
+              "cannot perform an asynchronous call on subroutine '%s'",
+              async->IDENTIFIER()->getText().c_str());
           }
         } else {
           writeAlgorithmCall(prefix, out, A->second, async->paramList(), &block->context, _dependencies);
@@ -3457,8 +3507,9 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
           // call to a subroutine?
           auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
           if (S == m_Subroutines.end()) {
-            throw Fatal("cannot find algorithm '%s' on synchronous call (line %d)",
-              sync->joinExec()->IDENTIFIER()->getText().c_str(), (int)sync->getStart()->getLine());
+            reportError(sync->getSourceInterval(), (int)sync->getStart()->getLine(),
+              "cannot find algorithm '%s' on synchronous call",
+              sync->joinExec()->IDENTIFIER()->getText().c_str());
           } else {
             writeSubroutineCall(prefix, out, S->second, &block->context, sync->paramList(), _dependencies);
           }
@@ -3475,7 +3526,8 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
           // return of subroutine?
           auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
           if (S == m_Subroutines.end()) {
-            throw Fatal("cannot find algorithm '%s' to join with (line %d)",
+            reportError(join->getSourceInterval(), (int)join->getStart()->getLine(),
+              "cannot find algorithm '%s' to join with",
               join->IDENTIFIER()->getText().c_str(), (int)join->getStart()->getLine());
           } else {
             writeSubroutineReadback(prefix, out, S->second, &block->context, join->assignList());
@@ -3627,7 +3679,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
     /// TODO: is this over-constrained? could it also be a variable?
     auto C = m_VIOBoundToModAlgOutputs.find(m_Clock);
     if (C == m_VIOBoundToModAlgOutputs.end()) {
-      throw Fatal("clock is not bound to a module or algorithm output");
+      reportError(nullptr,-1,"algorithm '%s', clock is not bound to a module or algorithm output",m_Name.c_str());
     }
     clock = C->second;
   }
@@ -3641,7 +3693,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
     /// TODO: is this over-constrained? could it also be a variable?
     auto R = m_VIOBoundToModAlgOutputs.find(m_Reset);
     if (R == m_VIOBoundToModAlgOutputs.end()) {
-      throw Fatal("reset is not bound to a module or algorithm output");
+      reportError(nullptr, -1, "algorithm '%s', reset is not bound to a module or algorithm output", m_Name.c_str());
     }
     reset = R->second;
   }
@@ -3895,9 +3947,9 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       // wait for algorithm
       auto A = m_InstancedAlgorithms.find(current->wait()->algo_instance_name);
       if (A == m_InstancedAlgorithms.end()) {
-        throw Fatal("cannot find algorithm '%s' to join with (line %d)",
-          current->wait()->algo_instance_name.c_str(),
-          current->wait()->line);
+        reportError(nullptr,(int)current->wait()->line,
+        "cannot find algorithm '%s' to join with",
+          current->wait()->algo_instance_name.c_str());
       } else {
         // test if algorithm is done
         out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << std::endl;
@@ -4290,7 +4342,7 @@ void Algorithm::writeAsModule(ostream& out) const
             out << '.' << b.left << '(' << WIRE << "_" << b.right << ")";
           }
         } else {
-          throw Fatal("cannot find module inout binding '%s' (line %d)", b.left.c_str(), b.line);
+          reportError(nullptr,b.line,"cannot find module inout binding '%s'", b.left.c_str());
         }
       }
     }
@@ -4336,7 +4388,7 @@ void Algorithm::writeAsModule(ostream& out) const
         }
         out << ',' << endl;
       } else {
-        throw Fatal("cannot find algorithm inout binding '%s' (line %d)", os.name.c_str(), nfo.second.instance_line);
+        reportError(nullptr, nfo.second.instance_line, "cannot find algorithm inout binding '%s'", os.name.c_str());
       }
     }
     // done

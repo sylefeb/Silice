@@ -61,12 +61,14 @@ private:
 
     void        split(const std::string& s, char delim, std::vector<std::string>& elems);
     void        printReport(std::pair<std::string, int> where, std::string msg);
+    std::string extractCodeBetweenTokens(std::string file, antlr4::TokenStream *tk_stream, int stk, int etk);
     std::string extractCodeAroundToken(std::string file, antlr4::Token *tk, antlr4::TokenStream *tk_stream, int &_offset);
-    std::string prepareMessage(antlr4::TokenStream* tk_stream, antlr4::Token *offender);
+    std::string prepareMessage(antlr4::TokenStream* tk_stream, antlr4::Token *offender, antlr4::misc::Interval tk_interval);
 
   public:
 
-    ReportError(const LuaPreProcessor& lpp, int line, antlr4::TokenStream* tk_stream, antlr4::Token *offender, std::string msg);
+    ReportError(const LuaPreProcessor& lpp, int line, antlr4::TokenStream* tk_stream, 
+      antlr4::Token *offender, antlr4::misc::Interval tk_interval, std::string msg);
 
   };
 

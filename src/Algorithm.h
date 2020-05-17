@@ -84,22 +84,25 @@ public:
     enum { e_MessageBufferSize = 4096 };
   private:
     int            m_Line = -1;
-    antlr4::Token *m_Token = nullptr;
+    antlr4::Token          *m_Token = nullptr;
+    antlr4::misc::Interval  m_Interval;
     char           m_Message[e_MessageBufferSize];
     LanguageError() { m_Message[0] = '\0'; }
   public:
-    LanguageError(int line,antlr4::Token *tk,const char *msg, ...) LIBSL_PRINTF_ATTR
+    LanguageError(int line, antlr4::Token *tk, antlr4::misc::Interval interval, const char *msg, ...) LIBSL_PRINTF_ATTR
     {
       m_Line  = line;
       m_Token = tk;
+      m_Interval = interval;
       va_list args;
       va_start(args, msg);
       vsprintf_s(m_Message, e_MessageBufferSize, msg, args);
       va_end(args);
     }
     int line() const { return m_Line; }
-    const char *message() const { return (m_Message); }
-    antlr4::Token *token() { return m_Token; }
+    const char             *message()  const { return (m_Message); }
+    antlr4::Token          *token()    { return m_Token; }
+    antlr4::misc::Interval  interval() { return m_Interval; }
   };
 
 
@@ -669,6 +672,7 @@ private:
   void verifyMemberGroup(std::string member, siliceParser::GroupContext* group,int line) const;
   /// \brief report an error
   void reportError(antlr4::Token* what, int line, const char *msg, ...) const;
+  void reportError(antlr4::misc::Interval interval, int line, const char *msg, ...) const;
 
 private:
 

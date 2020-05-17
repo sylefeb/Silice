@@ -267,7 +267,7 @@ void SiliceCompiler::run(
     
     } catch (Algorithm::LanguageError& le) {
 
-      ReportError err(lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()), le.token(), le.message());
+      ReportError err(lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()), le.token(), le.interval(), le.message());
 
     }
 
@@ -288,25 +288,43 @@ void SiliceCompiler::ReportError::split(const std::string& s, char delim, std::v
   }
 }
 
+// -------------------------------------------------
+
+static int numLinesIn(std::string l)
+{
+  return (int)std::count(l.begin(), l.end(), '\n');
+}
+
+// -------------------------------------------------
+
 void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where, std::string msg)
 {
-  std::cerr << Console::bold << Console::white << "----------<<<<< error >>>>>----------" << std::endl << std::endl
-    << "=> file: " << where.first << std::endl
-    << "=> line: " << where.second << std::endl
-    << Console::normal << std::endl;
-
+  std::cerr << Console::bold << Console::white << "----------<<<<< error >>>>>----------" << std::endl << std::endl;
+  if (where.second > -1) {
+    std::cerr 
+      << "=> file: " << where.first << std::endl
+      << "=> line: " << where.second << std::endl
+      << Console::normal << std::endl;
+  }
   std::vector<std::string> items;
   split(msg, '#', items);
   if (items.size() == 5) {
     std::cerr << std::endl;
     std::cerr << Console::white << Console::bold;
     std::cerr << items[1] << std::endl;
-    ForIndex(i, std::stoi(items[3])) {
-      std::cerr << ' ';
-    }
-    std::cerr << Console::yellow << Console::bold;
-    ForRange(i, std::stoi(items[3]), std::stoi(items[4])) {
-      std::cerr << '^';
+    int nl = numLinesIn(items[1]);
+    if (nl == 0) {
+      ForIndex(i, std::stoi(items[3])) {
+        std::cerr << ' ';
+      }
+      std::cerr << Console::yellow << Console::bold;
+      ForRange(i, std::stoi(items[3]), std::stoi(items[4])) {
+        std::cerr << '^';
+      }
+    } else {
+      std::cerr << std::endl;
+      std::cerr << Console::yellow << Console::bold;
+      std::cerr << "--->";
     }
     std::cerr << Console::red;
     std::cerr << " " << items[0] << std::endl;
@@ -325,6 +343,25 @@ void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where,
 #if !defined(_WIN32)  && !defined(_WIN64)
 #define fopen_s(f,n,m) ((*f) = fopen(n,m))
 #endif
+
+// -------------------------------------------------
+
+std::string SiliceCompiler::ReportError::extractCodeBetweenTokens(std::string file, antlr4::TokenStream *tk_stream, int stk, int etk)
+{
+  int sidx = (int)tk_stream->get(stk)->getStartIndex();
+  int eidx = (int)tk_stream->get(etk)->getStopIndex();
+  FILE *f = NULL;
+  fopen_s(&f, file.c_str(), "rb");
+  if (f) {
+    char buffer[256];
+    fseek(f, sidx, SEEK_SET);
+    int read = (int)fread(buffer, 1, min(255, eidx - sidx + 1), f);
+    buffer[read] = '\0';
+    fclose(f);
+    return std::string(buffer);
+  }
+  return tk_stream->getText(tk_stream->get(stk), tk_stream->get(etk));
+}
 
 // -------------------------------------------------
 
@@ -352,50 +389,50 @@ std::string SiliceCompiler::ReportError::extractCodeAroundToken(std::string file
   }
   _offset = (int)first_tk->getStartIndex();
   // now extract from file
-  int sidx = (int)first_tk->getStartIndex();
-  int eidx = (int)last_tk->getStopIndex();
-  {
-    FILE *f = NULL;
-    fopen_s(&f, file.c_str(), "rb");
-    if (f) {
-      char buffer[256];
-      fseek(f, sidx, SEEK_SET);
-      int read = (int)fread(buffer, 1, min(255, eidx - sidx + 1), f);
-      buffer[read] = '\0';
-      fclose(f);
-      return std::string(buffer);
-    }
-  }
-  return tk_stream->getText(first_tk, last_tk);
+  return extractCodeBetweenTokens(file, tk_stream, (int)first_tk->getTokenIndex(), (int)last_tk->getTokenIndex());
 }
 
 // -------------------------------------------------
 
-std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_stream,antlr4::Token* offender)
+std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_stream,antlr4::Token* offender,antlr4::misc::Interval interval)
 {
   std::string msg = "";
-  if (tk_stream != nullptr && offender != nullptr) {
+  if (tk_stream != nullptr && (offender != nullptr || !(interval == antlr4::misc::Interval::INVALID))) {
     msg = "#";
-    tk_stream->getText(offender, offender); // this seems required to refresh the steam? TODO FIXME investigate
     std::string file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
     int offset = 0;
-    std::string line = extractCodeAroundToken(file, offender, tk_stream, offset);
+    std::string line;
+    if (offender != nullptr) {
+      tk_stream->getText(offender, offender); // this seems required to refresh the steam? TODO FIXME investigate
+      line = extractCodeAroundToken(file, offender, tk_stream, offset);
+    } else if (!(interval == antlr4::misc::Interval::INVALID)) {
+      line = extractCodeBetweenTokens(file, tk_stream, (int)interval.a, (int)interval.b);
+      offset = (int)tk_stream->get(interval.a)->getStartIndex();
+    }
     msg += line;
     msg += "#";
     msg += tk_stream->getText(offender, offender);
     msg += "#";
-    msg += std::to_string(offender->getStartIndex() - offset);
-    msg += "#";
-    msg += std::to_string(offender->getStopIndex() - offset);
+    if (offender != nullptr) {
+      msg += std::to_string(offender->getStartIndex() - offset);
+      msg += "#";
+      msg += std::to_string(offender->getStopIndex() - offset);
+    } else if (!(interval == antlr4::misc::Interval::INVALID)) {
+      msg += std::to_string(tk_stream->get(interval.a)->getStartIndex() - offset);
+      msg += "#";
+      msg += std::to_string(tk_stream->get(interval.b)->getStopIndex() - offset);
+    }
   }
   return msg;
 }
 
 // -------------------------------------------------
 
-SiliceCompiler::ReportError::ReportError(const LuaPreProcessor& lpp, int line, antlr4::TokenStream* tk_stream, antlr4::Token *offender, std::string msg)
+SiliceCompiler::ReportError::ReportError(const LuaPreProcessor& lpp, 
+  int line, antlr4::TokenStream* tk_stream, 
+  antlr4::Token *offender, antlr4::misc::Interval interval, std::string msg)
 {
-  msg += prepareMessage(tk_stream,offender);
+  msg += prepareMessage(tk_stream,offender,interval);
   printReport(lpp.lineAfterToFileAndLineBefore((int)line), msg);
 }
 
@@ -408,7 +445,7 @@ void SiliceCompiler::LexerErrorListener::syntaxError(
   size_t charPositionInLine,
   const std::string& msg, std::exception_ptr e)
 {
-  ReportError err(m_PreProcessor, (int)line, nullptr, nullptr, msg);
+  ReportError err(m_PreProcessor, (int)line, nullptr, nullptr, antlr4::misc::Interval(), msg);
   throw Fatal("[lexical error]");
 }
 
@@ -422,7 +459,7 @@ void SiliceCompiler::ParserErrorListener::syntaxError(
   const std::string&  msg,
   std::exception_ptr  e)
 {
-  ReportError err(m_PreProcessor, (int)line, dynamic_cast<antlr4::TokenStream*>(recognizer->getInputStream()), tk, msg);
+  ReportError err(m_PreProcessor, (int)line, dynamic_cast<antlr4::TokenStream*>(recognizer->getInputStream()), tk, antlr4::misc::Interval::INVALID, msg);
   throw Fatal("[syntax error]");
 }
 

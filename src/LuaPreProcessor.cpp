@@ -698,6 +698,9 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
 
 std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore(int line_after) const
 {
+  if (line_after < 0) {
+    return std::make_pair("", -1);
+  }
   // locate line
   int l = 0, r = (int)m_FileLineRemapping.size()-1;
   while (l < r) {
