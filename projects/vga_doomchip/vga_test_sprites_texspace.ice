@@ -160,8 +160,8 @@ algorithm frame_drawer(
     int10    x_last    = 0;
 
     uint10    u       = 0;
-    uint10    v       = 0;
-    uint10    cur_v   = 0;
+    int10     v       = 0;
+    int10     cur_v   = 0;
     uint$FPw$ u_accum = 0;
     uint$FPw$ v_accum = 0;
 
@@ -207,11 +207,11 @@ algorithm frame_drawer(
 ++:
       sprites_data.addr = sprites_colptrs.rdata;
 ++:
-      r       = y_first;
-      v_accum = 0;
-      cur_v   = 0;
-      n_post  = 0;   
-      while (r < y_last && sprites_data.rdata != 255) {
+      r       =  y_first;
+      v_accum =  0;
+      cur_v   = -1;
+      n_post  =  0;   
+      while (r <= y_last && sprites_data.rdata != 255) {
         
         v    = v_accum >> $FPm$;
         while (cur_v < v) { 
