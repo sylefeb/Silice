@@ -210,7 +210,7 @@ algorithm frame_drawer(
       r       =  y_first;
       v_accum =  0;
       cur_v   = -1;
-      n_post  =  0;   
+      n_post  =  0;
       while (r <= y_last && sprites_data.rdata != 255) {
         
         v    = v_accum >> $FPm$;
