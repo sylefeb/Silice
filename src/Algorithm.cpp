@@ -3441,7 +3441,11 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
 
 void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combinational_block* block, t_vio_dependencies& _dependencies) const
 {
-  out << "// block " << block->block_name << std::endl;
+  out << "// " << block->block_name;
+  if (block->context.subroutine) {
+    out << " (" << block->context.subroutine->name << ')';
+  }
+  out << std::endl;
   for (const auto& a : block->instructions) {
     // write instruction
     {
@@ -3931,14 +3935,14 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       // decrease return stack pointer
       out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " - 1;" << std::endl;
       // return to caller (goes to termination of algorithm is not set)
-      out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN "[" << FF_D << prefix << ALG_RETURN_PTR << " << " << stateWidth() << "+:" << stateWidth() << "];" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN "[(" << FF_D << prefix << ALG_RETURN_PTR << "*" << stateWidth() << ")+:" << stateWidth() << "];" << std::endl;
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
       out << FF_D << prefix << ALG_IDX " = " << fastForward(current->goto_and_return_to()->go_to)->state_id << ";" << std::endl;
       pushState(current->goto_and_return_to()->go_to, _q);
       // set return index
-      out << FF_D << prefix << ALG_RETURN "[" << FF_Q << prefix << ALG_RETURN_PTR << " << " << stateWidth() << "+:" << stateWidth() << "] = " << fastForward(current->goto_and_return_to()->return_to)->state_id << ";" << std::endl;
+      out << FF_D << prefix << ALG_RETURN "[(" << FF_Q << prefix << ALG_RETURN_PTR << "*" << stateWidth() << ")+:" << stateWidth() << "] = " << fastForward(current->goto_and_return_to()->return_to)->state_id << ";" << std::endl;
       // increase return stack pointer
       out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " + 1;" << std::endl;     
       pushState(current->goto_and_return_to()->return_to, _q);
@@ -4081,7 +4085,7 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream& out, 
       continue;
     }
     // begin state
-    out << b->state_id << ": begin" << " // " << b->block_name << std::endl;
+    out << b->state_id << ": begin" << std::endl;
     // track dependencies, starting with those of always block
     t_vio_dependencies depds = always_dependencies;
     if (b->state_id == entryState()) {
