@@ -26,7 +26,15 @@ module SdramVga(
     output reg vga_vs,
     output reg [5:0] vga_r,
     output reg [5:0] vga_g,
-    output reg [5:0] vga_b
+    output reg [5:0] vga_b,
+    // keypad
+    output reg [3:0] kpadC,
+    input      [3:0] kpadR,
+    // LCD
+    output reg lcd_rs,
+    output reg lcd_rw,
+    output reg lcd_e,
+    output reg [7:0] lcd_d
     );
 
 wire [7:0]  __main_out_led;
@@ -46,6 +54,13 @@ wire        __main_out_vga_vs;
 wire [5:0]  __main_out_vga_r;
 wire [5:0]  __main_out_vga_g;
 wire [5:0]  __main_out_vga_b;
+
+wire [3:0]  __main_out_kpadC;
+
+wire        __main_out_lcd_rs;
+wire        __main_out_lcd_rw;
+wire        __main_out_lcd_e;
+wire [7:0]  __main_out_lcd_d;
 
 wire reset_main;
 assign reset_main = 1'b0;
@@ -71,7 +86,13 @@ M_main __main(
   .out_video_vs(__main_out_vga_vs),
   .out_video_r(__main_out_vga_r),
   .out_video_g(__main_out_vga_g),
-  .out_video_b(__main_out_vga_b)
+  .out_video_b(__main_out_vga_b),
+  .out_kpadC(__main_out_kpadC),
+  .in_kpadR(kpadR[3:0]),
+  .out_lcd_rs(__main_out_lcd_rs),
+  .out_lcd_rw(__main_out_lcd_rw),
+  .out_lcd_e(__main_out_lcd_e),
+  .out_lcd_d(__main_out_lcd_d)
 );
 
 always @* begin
@@ -93,6 +114,11 @@ always @* begin
   vga_r        = __main_out_vga_r;
   vga_g        = __main_out_vga_g;
   vga_b        = __main_out_vga_b;
+  kpadC        = __main_out_kpadC;
+  lcd_rs       = __main_out_lcd_rs;
+  lcd_rw       = __main_out_lcd_rw;
+  lcd_e        = __main_out_lcd_e;
+  lcd_d        = __main_out_lcd_d;
   
 end
 

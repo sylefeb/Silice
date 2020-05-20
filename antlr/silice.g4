@@ -256,7 +256,7 @@ input               : 'input' TYPE IDENTIFIER
 output              : 'output' combinational='!'? TYPE IDENTIFIER
                     | 'output' combinational='!'? TYPE IDENTIFIER '[' NUMBER ']';
 inOrOut             :  input | output | inout | ioGroup;
-inOutList           :  (inOrOut ',') * inOrOut | ;
+inOutList           :  (inOrOut ',') * inOrOut ?;
 
 /* -- Declarations, subroutines, instruction lists -- */
 

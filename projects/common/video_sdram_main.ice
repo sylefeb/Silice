@@ -131,6 +131,12 @@ $$if ICARUS or VERILATOR then
 $$end
 $$if DE10NANO then
   output! uint8 led,
+  output! uint4 kpadC,
+  input   uint4 kpadR,
+  output! uint1 lcd_rs,
+  output! uint1 lcd_rw,
+  output! uint1 lcd_e,
+  output! uint8 lcd_d,
 $$end
 $$if VGA then  
   // VGA
@@ -388,7 +394,8 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   frame_drawer drawer<@sdram_clock,!sdram_reset>(
     vsync      <: video_vblank,
     sd         <:> sd1,
-    fbuffer    :> onscreen_fbuffer
+    fbuffer    :> onscreen_fbuffer,
+    <:auto:>
   );
 
   uint8 frame       = 0;
@@ -429,7 +436,7 @@ $$if HARDWARE then
     if (onscreen_fbuffer != lastfbuffer) {
       // one more drawer frame
       lastfbuffer = onscreen_fbuffer;
-      led         = counter;
+      // led         = counter; // commented out as LED is passed to some frame_drawer
       counter     = 0;
     }
 

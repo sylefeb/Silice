@@ -23,6 +23,40 @@ set_location_assignment PIN_AA23 -to led[7]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to led*
 
 #============================================================
+# Keypad
+#============================================================
+
+set_location_assignment PIN_AE20 -to kpadC[0]
+set_location_assignment PIN_AF20 -to kpadC[1]
+set_location_assignment PIN_AH18 -to kpadC[2]
+set_location_assignment PIN_AH19 -to kpadC[3]
+set_location_assignment PIN_AG15 -to kpadR[0]
+set_location_assignment PIN_AF18 -to kpadR[1]
+set_location_assignment PIN_AG18 -to kpadR[2]
+set_location_assignment PIN_AG19 -to kpadR[3]
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to kpadC*
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to kpadR*
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to kpadR*
+
+#============================================================
+# LCD1602
+#============================================================
+
+set_location_assignment PIN_AG9  -to lcd_rs
+set_location_assignment PIN_U14  -to lcd_rw
+set_location_assignment PIN_U13  -to lcd_e
+set_location_assignment PIN_AF27 -to lcd_d[0]
+set_location_assignment PIN_AH27 -to lcd_d[1]
+set_location_assignment PIN_AE25 -to lcd_d[2]
+set_location_assignment PIN_AG26 -to lcd_d[3]
+set_location_assignment PIN_AH26 -to lcd_d[4]
+set_location_assignment PIN_AF25 -to lcd_d[5]
+set_location_assignment PIN_AG25 -to lcd_d[6]
+set_location_assignment PIN_AH24 -to lcd_d[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to lcd_*
+
+#============================================================
 # VGA
 #============================================================
 

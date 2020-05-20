@@ -3,59 +3,6 @@
 
 print('preparing sprites')
 
--- -----------------------------------
--- locate a thing in the BSP (returns sub-sector)
-
-function bspLocate(posx,posy)
-
-  queue     = {}
-  queue_ptr = 1
-  queue[queue_ptr] = root
-  queue_ptr = queue_ptr + 1
-  while queue_ptr > 1 do
-    n = queue[queue_ptr-1]
-    queue_ptr = queue_ptr - 1
-    if (n&(1<<15)) == 0 then
-      lx  = bspNodes[1+n].x
-      ly  = bspNodes[1+n].y
-      ldx = bspNodes[1+n].dx
-      ldy = bspNodes[1+n].dy
-      r   = bspNodes[1+n].rchild
-      l   = bspNodes[1+n].lchild
-      -- which side are we on?
-      dx     = posx - lx
-      dy     = posy - ly
-      csl    = dx * ldy
-      csr    = dy * ldx
-      if csr > csl then
-        -- front
-        queue[queue_ptr] = bspNodes[1+n].rchild;
-        queue_ptr = queue_ptr + 1     
-        queue[queue_ptr] = bspNodes[1+n].lchild;
-        queue_ptr = queue_ptr + 1     
-      else
-        -- back
-        queue[queue_ptr] = bspNodes[1+n].lchild;
-        queue_ptr = queue_ptr + 1     
-        queue[queue_ptr] = bspNodes[1+n].rchild;
-        queue_ptr = queue_ptr + 1     
-      end
-    else
-      ssid = (n&(~(1<<15)))
-      ss   = ssectors[1+ssid]
-      seg  = segs[1+ss.start_seg]
-      ldef = lines[1+seg.ldf]  
-      if seg.dir == 0 then
-        sidedef = sides[1+ldef.right]
-      else
-        sidedef = sides[1+ldef.left]
-      end
-      return ssid,sidedef.sec   
-    end
-  end
-  
-end
-
 psub,psec = bspLocate(player_start_x,player_start_y)
 print('player start in sub-sector ' .. psub .. ' sector ' .. psec)
 

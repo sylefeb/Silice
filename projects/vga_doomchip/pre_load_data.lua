@@ -23,6 +23,56 @@ function getKeysSortedByValue(tbl, sortFunction)
   return keys
 end
 
+-- -----------------------------------
+-- locate a pos in the BSP (returns sub-sector)
+function bspLocate(posx,posy)
+  queue     = {}
+  queue_ptr = 1
+  queue[queue_ptr] = root
+  queue_ptr = queue_ptr + 1
+  while queue_ptr > 1 do
+    n = queue[queue_ptr-1]
+    queue_ptr = queue_ptr - 1
+    if (n&(1<<15)) == 0 then
+      lx  = bspNodes[1+n].x
+      ly  = bspNodes[1+n].y
+      ldx = bspNodes[1+n].dx
+      ldy = bspNodes[1+n].dy
+      r   = bspNodes[1+n].rchild
+      l   = bspNodes[1+n].lchild
+      -- which side are we on?
+      dx     = posx - lx
+      dy     = posy - ly
+      csl    = dx * ldy
+      csr    = dy * ldx
+      if csr > csl then
+        -- front
+        queue[queue_ptr] = bspNodes[1+n].rchild;
+        queue_ptr = queue_ptr + 1     
+        queue[queue_ptr] = bspNodes[1+n].lchild;
+        queue_ptr = queue_ptr + 1     
+      else
+        -- back
+        queue[queue_ptr] = bspNodes[1+n].lchild;
+        queue_ptr = queue_ptr + 1     
+        queue[queue_ptr] = bspNodes[1+n].rchild;
+        queue_ptr = queue_ptr + 1     
+      end
+    else
+      ssid = (n&(~(1<<15)))
+      ss   = ssectors[1+ssid]
+      seg  = segs[1+ss.start_seg]
+      ldef = lines[1+seg.ldf]  
+      if seg.dir == 0 then
+        sidedef = sides[1+ldef.right]
+      else
+        sidedef = sides[1+ldef.left]
+      end
+      return ssid,sidedef.sec   
+    end
+  end
+end
+
 -- -------------------------------------
 -- rounding
 function round(x)
@@ -287,29 +337,6 @@ if k == 1 then
 end
 
 -- -------------------------------------
--- player start
-local in_things = assert(io.open(findfile('THINGS'), 'rb'))
-local sz = fsize(in_things)
-print('things file is ' .. sz .. ' bytes')
-nthings = 0
-for i = 1,sz/10 do
-  local x   = string.unpack('h',in_things:read(2))
-  local y   = string.unpack('h',in_things:read(2))
-  local a   = string.unpack('h',in_things:read(2))
-  local ty  = string.unpack('H',in_things:read(2))
-  local opt = string.unpack('H',in_things:read(2))
-  if ty == 1 then
-    print('Player start at ' .. x .. ',' .. y .. ' angle: ' .. a)
-    player_start_x = x
-    player_start_y = y
-    player_start_a = a*1024//90;
-    -- break;
-  end
-  nthings = nthings + 1
-end
-print('level contains ' .. nthings .. ' things')
-
--- -------------------------------------
 -- find all sector doors
 doors = {}
 for _,ldef in pairs(lines) do
@@ -421,6 +448,31 @@ for i,sg in ipairs(segs) do
     seglen    = sg.seglen
   }
 end
+
+-- -------------------------------------
+-- things (player start, monsters)
+local in_things = assert(io.open(findfile('THINGS'), 'rb'))
+local sz = fsize(in_things)
+print('things file is ' .. sz .. ' bytes')
+nthings = 0
+for i = 1,sz/10 do
+  local x   = string.unpack('h',in_things:read(2))
+  local y   = string.unpack('h',in_things:read(2))
+  local a   = string.unpack('h',in_things:read(2))
+  local ty  = string.unpack('H',in_things:read(2))
+  local opt = string.unpack('H',in_things:read(2))
+  if ty == 1 then
+    print('Player start at ' .. x .. ',' .. y .. ' angle: ' .. a)
+    player_start_x = x
+    player_start_y = y
+    player_start_a = a*1024//90;
+  elseif ty == 3004 then -- POSS
+    print('POSS at ' .. x .. ',' .. y .. ' angle: ' .. a)
+    print(' --> sector ' .. bspLocate(x,y))
+  end
+  nthings = nthings + 1
+end
+print('level contains ' .. nthings .. ' things')
 
 -- -------------------------------------
 -- utility functions to pack records

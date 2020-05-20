@@ -2,7 +2,7 @@
 	# that timing closure on our design can be analyzed
 
 create_clock -name clk -period "50MHz" [get_ports clk]
-derive_pll_clocks
+derive_pll_clocks -create_base_clocks
 derive_clock_uncertainty
 
 # inform quartus that the LED output port has no critical timing requirements

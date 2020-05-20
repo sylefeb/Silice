@@ -16,7 +16,7 @@ $$dofile('pre_do_textures.lua')
 $texturechip$ 
 
 $$texfile_palette = palette_666
-$$COL_MAJOR = 1
+$$ -- COL_MAJOR = 1
 $include('../common/video_sdram_main.ice')
 
 // fixed point precisions
@@ -29,6 +29,9 @@ $include('../common/divint_any.ice')
 $$mul_width = FPw
 $include('../common/mulint_any.ice')
 
+$$INTERACTIVE = 1
+$include('keypad.ice')
+
 // -------------------------
 // some circuitry for repetitive things
 
@@ -40,6 +43,36 @@ circuitry to_h(input iv,output ov)
 circuitry to_tex_v(input iv,output ov)
 {
    ov = (iv >> 8);
+}
+
+// Writes a pixel in the framebuffer
+// calls the texture unit
+circuitry writePixel(
+   inout  sd,
+   input  fbuffer,
+   input  pi,
+   input  pj,
+   input  tu,
+   input  tv,
+   input  tid,
+   input  lit   
+) {
+  // start texture unit look up (takes a few cycles)
+  textures <- (tid,-tu,-tv,lit);
+  while (1) {
+    if (sd.busy == 0) { // not busy?
+      // sync with texture unit
+      (sd.data_in) <- textures;
+$$if not COL_MAJOR then               
+      sd.addr       = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
+$$else
+      sd.addr       = {~fbuffer,21b0} | ((pi >> 2) << 8) | (199-pj);
+$$end        
+      sd.wbyte_addr = pi & 3;
+      sd.in_valid   = 1; // go ahead!
+      break;
+    }
+  }
 }
 
 // -------------------------
@@ -57,42 +90,15 @@ algorithm frame_drawer(
     input  out_valid,
   },
   input  uint1  vsync,
-  output uint1  fbuffer
+  output uint1  fbuffer,
+  output uint4  kpadC,
+  input  uint4  kpadR,
+  output uint8  led,
+  output uint1  lcd_rs,
+  output uint1  lcd_rw,
+  output uint1  lcd_e,
+  output uint8  lcd_d,  
 ) {
-
-  // Writes a pixel in the framebuffer
-  // calls the texture unit
-  subroutine writePixel(
-     readwrites sd,
-     reads  fbuffer,
-     input  uint9  pi,
-     input  uint9  pj,
-     input  uint8  tu,
-     input  uint8  tv,
-     input  uint8  tid,
-     input  uint5  lit
-     )
-  {
-    uint9 revpj  = 0;
-    revpj        = 199 - pj;
-    // start texture unit look up (takes a few cycles)
-    textures <- (tid,-tu,-tv,lit);
-    while (1) {
-      if (sd.busy == 0) { // not busy?
-        // sync with texture unit
-        (sd.data_in) <- textures;
-$$if not COL_MAJOR then               
-        sd.addr       = {~fbuffer,21b0} | (pi >> 2) | (revpj << 8);
-$$else
-        sd.addr       = {~fbuffer,21b0} | ((pi >> 2) << 8) | (revpj);
-$$end        
-        sd.wbyte_addr = pi & 3;
-        sd.in_valid   = 1; // go ahead!
-        break;
-      }
-    }
-    return;  
-  }
 
   // BRAMs for BSP tree
   bram uint64 bsp_nodes_coords[] = {
@@ -197,8 +203,11 @@ $$end
   int16    viewangle  = $player_start_a$;
   int16    colangle   = 0;
 
-  int16    frame      = 0;
+  int16    frame    = 0;
   int16    ray_z    = 40;
+  int16    target_z = 40;
+  int16    pr_ray_x = 0;
+  int16    pr_ray_y = 0;
   int16    ray_x    = $player_start_x$;
   int16    ray_y    = $player_start_y$;
   int$FPw$ ray_dx_m = 0;
@@ -254,6 +263,8 @@ $$end
   int$FPw$ tex_v    = 0;
   int16    tc_u     = 0;
   int16    tc_v     = 0;
+  int16    tmp_u    = 0;
+  int16    tmp_v    = 0;
   int16    xoff     = 0;
   int16    yoff     = 0;
   uint8    texid    = 0;
@@ -279,6 +290,12 @@ $$end
   uint9    s   = 0;  
   uint16   n   = 0;
   
+  uint1    viewsector = 1;
+  uint1    colliding  = 1;
+  
+  uint16   kpressed = 0;
+  keypad   kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed);
+  
   vsync_filtered ::= vsync;
 
   sd.in_valid := 0; // maintain low (pulses high when needed)
@@ -302,20 +319,13 @@ $$end
   coltox             .wenable = 0;
   
   while (1) {
-  
+    
     // update position
-    ray_x     = demo_path.rdata[ 0,16];
-    ray_y     = demo_path.rdata[16,16];
-    ray_z     = demo_path.rdata[32,16];
-    
-    // update viewangle
-    viewangle = demo_path.rdata[48,16];
-    
-$$if SIMULATION then
-// for debugging specific viewpoints
-//    ray_x =  1263;
-//    ray_y = -2677;
-//    viewangle = 850;
+$$if not INTERACTIVE then
+  ray_x     = demo_path.rdata[ 0,16];
+  ray_y     = demo_path.rdata[16,16];
+  ray_z     = demo_path.rdata[32,16];    
+  viewangle = demo_path.rdata[48,16];
 $$end
     
     // get cos/sin view
@@ -326,8 +336,12 @@ $$end
 ++:
     cosview_m  = sin_m.rdata;
 
+    // ----------------------------------------------
     // raycast columns
     c = 0;
+    viewsector = 1;
+    colliding  = 0;
+    
     while (c < 320) { 
       
       coltoalpha.addr = c;
@@ -390,28 +404,52 @@ $$end
           bsp_ssecs      .addr = n[0,14];
           bsp_ssecs_flats.addr = n[0,14];
           s = 0;
-          
+
           while (s < bsp_ssecs.rdata[0,8] && queue_ptr > 0) {
-          
+            // get segment data
             bsp_segs_coords.addr      = bsp_ssecs.rdata[8,16] + s;
             bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
             bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
 ++:
+            // segment endpoints
             v0x = bsp_segs_coords.rdata[ 0,16];
             v0y = bsp_segs_coords.rdata[16,16];
             v1x = bsp_segs_coords.rdata[32,16];
             v1y = bsp_segs_coords.rdata[48,16];
-            
-            // check for intersection
+
             d0x = v0x - ray_x;
             d0y = v0y - ray_y;
             d1x = v1x - ray_x;
             d1y = v1y - ray_y;
+
+            if (viewsector) { // done only once on first column
+              // while here, track z
+              target_z   = bsp_ssecs.rdata[24,16] + 40; // floor height 
+              // distance to wall segment (simple since subsector is convex)
+              // segment is v1 - v0
+              ldx    = v0y - v1y; // ldx,ldy is orthogonal to v1 - v0
+              ldy    = v1x - v0x;
+              d_h    = ldx * d0x + ldy * d0y;
+++:           
+              num    = d_h;
+              den    = bsp_segs_texmapping.rdata[0,16];
+              (tmp1_m) <- divl <- (num,den);
+              if (tmp1_m > 0) {
+                tmp2_m = tmp1_m;
+              } else {
+                tmp2_m = -tmp1_m;
+              }
+              if (tmp2_m < 8) {
+                colliding = 1;
+              }
+            }
+            
+            // check for intersection
 ++:
             cs0_h = (d0y * ray_dx_m - d0x * ray_dy_m);
             cs1_h = (d1y * ray_dx_m - d1x * ray_dy_m);
 ++:
-
+            
             if ((cs0_h<0 && cs1_h>=0) || (cs1_h<0 && cs0_h>=0)) {
             
               // compute distance        
@@ -432,16 +470,15 @@ $$end
               (mulr) <- mull <- (mula,mulb);
               d_h    = y0_h + (mulr >>> $FPm$);              
 ++:
-
               if (d_h > $1<<(FPm+1)$) { // check distance sign, with margin to stay away from 0
 
                 // hit!
                 // -> correct to perpendicular distance ( * cos(alpha) )
                 num     = $FPl$d$(1<<(2*FPm+FPw-2))$;
                 den     = d_h * sin_m.rdata;
+++:
                 // -> compute inverse distance
                 (invd_h) <- divl <- (num,den); // (2^(FPw-2)) / d
-++:
                 d_h     = den >>> $FPw-1$; // record corrected distance for tex. mapping
                 // -> get floor/ceiling heights 
                 // NOTE: signed, so always read in same width!
@@ -501,8 +538,10 @@ $$end
                     light = 0;
                   } }
                   // write pixel
-                  () <- writePixel <- (c,btm,(tr_gv_m>>5),(tr_gu_m>>5),texid,light);
-                  btm = btm + 1;
+                  tmp_u = (tr_gv_m>>5);
+                  tmp_v = (tr_gu_m>>5);
+                  (sd)  = writePixel(sd,fbuffer,c,btm,tmp_u,tmp_v,texid,light);
+                  btm   = btm + 1;
                   inv_y.addr = 100 - btm;
                 }
                 
@@ -534,8 +573,10 @@ $$end
                     light = 0;
                   } }
                   // write pixel
-                  () <- writePixel <- (c,top,(tr_gv_m>>5),(tr_gu_m>>5),texid,light);
-                  top = top - 1;
+                  tmp_u = (tr_gv_m>>5);
+                  tmp_v = (tr_gu_m>>5);
+                  (sd)  = writePixel(sd,fbuffer,c,top,tmp_u,tmp_v,texid,light);
+                  top   = top - 1;
                   inv_y.addr = top - 100;
                 }
 
@@ -583,7 +624,9 @@ $$end
                   j       = f_o;
                   while (j > btm) {
                     (tc_v) = to_tex_v(tex_v);
-                    () <- writePixel <- (c,j,tc_u,tc_v+yoff,texid,light);
+                    tmp_u  = tc_u;
+                    tmp_v  = tc_v+yoff;
+                    (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                     j      = j - 1;
                     tex_v  = tex_v - d_h;
                   } 
@@ -612,7 +655,9 @@ $$end
                   j       = c_o;
                   while (j < top) {
                     (tc_v) = to_tex_v(tex_v);
-                    () <- writePixel <- (c,j,tc_u,tc_v+yoff,texid,light);
+                    tmp_u  = tc_u;
+                    tmp_v  = tc_v+yoff;
+                    (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                     j      = j + 1;
                     tex_v  = tex_v + d_h;
                   }
@@ -626,8 +671,10 @@ $$end
                   j       = f_h;
                   while (j <= c_h) {                
                     (tc_v) = to_tex_v(tex_v);
-                    () <- writePixel <- (c,j,tc_u,tc_v+yoff,texid,light);
-                    j = j + 1;   
+                    tmp_u  = tc_u;
+                    tmp_v  = tc_v+yoff;
+                    (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
+                    j      = j + 1;   
                     tex_v  = tex_v + d_h;
                   }
                   // flush queue to stop
@@ -640,14 +687,19 @@ $$end
             // next segment
             s = s + 1;            
           }
-        }        
+          // only the first reached subsector contains the view
+          viewsector = 0;        
+        }
       }
       // next column    
       c = c + 1;
     }
     
-    // prepare next
+    // ----------------------------------------------
+    // prepare next frame
+    
     frame = frame + 1;
+$$if not INTERACTIVE then    
     if (frame >= demo_path_len) {
       // reset
       frame     = 0;
@@ -656,8 +708,53 @@ $$end
       ray_y     = $(player_start_y)$;
     }    
     demo_path.addr = frame;    
-    
-    // wait for frame to end
+$$elseif INTERACTIVE then
+    // DEBUG
+    led = colliding; 
+    // viewangle
+    if ((kpressed & 4) != 0) {
+      viewangle   = viewangle + 12;
+    } else {
+    if ((kpressed & 8) != 0) {
+      viewangle   = viewangle - 12;
+    } }
+    // forward motion
+    if (colliding) {
+      ray_x = pr_ray_x;
+      ray_y = pr_ray_y;
+    } else {
+      pr_ray_x = ray_x;
+      pr_ray_y = ray_y;
+      if ((kpressed & 1) != 0) {
+        ray_x   = ray_x + ((cosview_m) >>> $FPm-2$);
+        ray_y   = ray_y + ((sinview_m) >>> $FPm-2$);
+      } else {
+      if ((kpressed & 2) != 0) {
+        ray_x   = ray_x - ((cosview_m) >>> $FPm-2$);
+        ray_y   = ray_y - ((sinview_m) >>> $FPm-2$);
+      } }
+    }
+    // up/down smooth motion
+    if (ray_z < target_z) {
+      if (ray_z + 3 < target_z) {
+        ray_z = ray_z + 3;
+      } else {
+        ray_z = ray_z + 1;
+      }
+    } else { if (ray_z > target_z) {
+      if (ray_z > target_z + 3) {
+        ray_z = ray_z - 3;
+      } else {
+        ray_z = ray_z - 1;
+      }
+    }
+    }
+$$end  
+
+    // ----------------------------------------------
+    // end of frame
+
+    // wait for vsync to end
     while (vsync_filtered == 0) {}
     
     // swap buffers

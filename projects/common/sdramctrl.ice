@@ -1,5 +1,5 @@
 import('sdram_clock.v')
-import('inout_set.v')
+import('inout8_set.v')
 
 /*
     addr is 23 bits
@@ -78,7 +78,7 @@ $$if not VERILATOR then
   uint8  dq_o  = 0 (* IOB = "TRUE" *);
   uint1  dq_en = 0 (* IOB = "TRUE" *);
 
-  inout_set ioset(
+  inout8_set ioset(
     io_pin   <:> sdram_dq,
     io_write <: dq_o,
     io_read  :> dq_i,

@@ -1638,7 +1638,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
     reportError(ci->IDENTIFIER()->getSymbol(), (int)ci->getStart()->getLine(), "Incorrect number of inputs in circuitry instanciation (circuitry '%s')", name.c_str());
   }
   if (outs.size() != outs_idents.size()) {
-    reportError(ci->IDENTIFIER()->getSymbol(), (int)ci->getStart()->getLine(), "Incorrect number of inputs in circuitry instanciation (circuitry '%s')", name.c_str());
+    reportError(ci->IDENTIFIER()->getSymbol(), (int)ci->getStart()->getLine(), "Incorrect number of outputs in circuitry instanciation (circuitry '%s')", name.c_str());
   }
   // -> rewrite rules
   ForIndex(i, ins.size()) {
