@@ -1433,7 +1433,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // report
     std::cerr << tv << " trickling from " << last_write << " to " << last_read << std::endl;
     // info from source var
-    auto tws = determineVIOTypeWidthAndTableSize(tv, (int)pip->getStart()->getLine());
+    auto tws = determineVIOTypeWidthAndTableSize(&_current->context, tv, (int)pip->getStart()->getLine());
     // generate one flip-flop per stage
     ForRange(s, last_write+1, last_read) {
       // -> add variable
@@ -1757,7 +1757,7 @@ void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* al
         // insert temporary variable
         t_var_nfo var;
         var.name = "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
-        std::pair<e_Type, int> type_width = determineAccessTypeAndWidth(alw->access(), alw->IDENTIFIER());
+        std::pair<e_Type, int> type_width = determineAccessTypeAndWidth(nullptr, alw->access(), alw->IDENTIFIER());
         var.table_size = 0;
         var.base_type = type_width.first;
         var.width = type_width.second;
@@ -2993,12 +2993,14 @@ void Algorithm::optimize()
 
 // -------------------------------------------------
 
-std::tuple<Algorithm::e_Type, int, int> Algorithm::determineVIOTypeWidthAndTableSize(std::string vname,int line) const
+std::tuple<Algorithm::e_Type, int, int> Algorithm::determineVIOTypeWidthAndTableSize(const t_combinational_block_context *bctx, std::string vname,int line) const
 {
   // get width
   e_Type type = Int;
   int width = -1;
   int table_size = 0;
+  // translate
+  vname = translateVIOName(vname, bctx);
   // test if variable
   if (m_VarNames.find(vname) != m_VarNames.end()) {
     type = m_Vars[m_VarNames.at(vname)].base_type;
@@ -3020,28 +3022,29 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::determineVIOTypeWidthAndTable
 
 // -------------------------------------------------
 
-std::tuple<Algorithm::e_Type, int, int> Algorithm::determineIdentifierTypeWidthAndTableSize(antlr4::tree::TerminalNode *identifier, int line) const
+std::tuple<Algorithm::e_Type, int, int> Algorithm::determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const
 {
   sl_assert(identifier != nullptr);
   std::string vname = identifier->getText();
-  return determineVIOTypeWidthAndTableSize(vname, line);
+  return determineVIOTypeWidthAndTableSize(bctx, vname, line);
 }
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineIdentifierTypeAndWidth(antlr4::tree::TerminalNode *identifier, int line) const
+std::pair<Algorithm::e_Type, int> Algorithm::determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const
 {
   sl_assert(identifier != nullptr);
-  auto tws = determineIdentifierTypeWidthAndTableSize(identifier, line);
+  auto tws = determineIdentifierTypeWidthAndTableSize(bctx, identifier, line);
   return std::make_pair(std::get<0>(tws), std::get<1>(tws));
 }
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(siliceParser::IoAccessContext* ioaccess) const
+std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::IoAccessContext* ioaccess) const
 {
   sl_assert(ioaccess != nullptr);
   std::string base = ioaccess->base->getText();
+  base = translateVIOName(base, bctx);
   if (ioaccess->IDENTIFIER().size() != 2) {
     reportError(ioaccess->getSourceInterval(),(int)ioaccess->getStart()->getLine(),
       "'.' access depth limited to one in current version '%s'", base.c_str());
@@ -3079,7 +3082,7 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(silic
       // produce the variable name
       std::string vname = base + "_" + member;
       // get width and size
-      auto tws = determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
+      auto tws = determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
       return std::make_pair(std::get<0>(tws), std::get<1>(tws));
     } else {
       reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
@@ -3092,46 +3095,46 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(silic
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineBitAccessTypeAndWidth(siliceParser::BitAccessContext *bitaccess) const
+std::pair<Algorithm::e_Type, int> Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitAccessContext *bitaccess) const
 {
   sl_assert(bitaccess != nullptr);
   if (bitaccess->IDENTIFIER() != nullptr) {
-    return determineIdentifierTypeAndWidth(bitaccess->IDENTIFIER(), (int)bitaccess->getStart()->getLine());
+    return determineIdentifierTypeAndWidth(bctx, bitaccess->IDENTIFIER(), (int)bitaccess->getStart()->getLine());
   } else if (bitaccess->tableAccess() != nullptr) {
-    return determineTableAccessTypeAndWidth(bitaccess->tableAccess());
+    return determineTableAccessTypeAndWidth(bctx, bitaccess->tableAccess());
   } else {
-    return determineIOAccessTypeAndWidth(bitaccess->ioAccess());
+    return determineIOAccessTypeAndWidth(bctx, bitaccess->ioAccess());
   }
 }
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineTableAccessTypeAndWidth(siliceParser::TableAccessContext *tblaccess) const
+std::pair<Algorithm::e_Type, int> Algorithm::determineTableAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::TableAccessContext *tblaccess) const
 {
   sl_assert(tblaccess != nullptr);
   if (tblaccess->IDENTIFIER() != nullptr) {
-    return determineIdentifierTypeAndWidth(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
+    return determineIdentifierTypeAndWidth(bctx, tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
   } else {
-    return determineIOAccessTypeAndWidth(tblaccess->ioAccess());
+    return determineIOAccessTypeAndWidth(bctx, tblaccess->ioAccess());
   }
 }
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineAccessTypeAndWidth(siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const
+std::pair<Algorithm::e_Type, int> Algorithm::determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const
 {
   if (access) {
     // table, output or bits
     if (access->ioAccess() != nullptr) {
-      return determineIOAccessTypeAndWidth(access->ioAccess());
+      return determineIOAccessTypeAndWidth(bctx,access->ioAccess());
     } else if (access->tableAccess() != nullptr) {
-      return determineTableAccessTypeAndWidth(access->tableAccess());
+      return determineTableAccessTypeAndWidth(bctx,access->tableAccess());
     } else if (access->bitAccess() != nullptr) {
-      return determineBitAccessTypeAndWidth(access->bitAccess());
+      return determineBitAccessTypeAndWidth(bctx,access->bitAccess());
     }
   } else {
     // identifier
-    return determineIdentifierTypeAndWidth(identifier, (int)identifier->getSymbol()->getLine());
+    return determineIdentifierTypeAndWidth(bctx, identifier, (int)identifier->getSymbol()->getLine());
   }
   sl_assert(false);
   return std::make_pair(Int, 0);
@@ -3315,11 +3318,11 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::writeIOAccess(
       }
       out << A->second.instance_prefix << "_" << member;
       // return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].width;
-      return A->second.algo->determineVIOTypeWidthAndTableSize(member, (int)ioaccess->getStart()->getLine());
+      return A->second.algo->determineVIOTypeWidthAndTableSize(bctx, member, (int)ioaccess->getStart()->getLine());
     } else if (A->second.algo->isOutput(member)) {
       out << WIRE << A->second.instance_prefix << "_" << member;
       // return A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].width;
-      return A->second.algo->determineVIOTypeWidthAndTableSize(member, (int)ioaccess->getStart()->getLine());
+      return A->second.algo->determineVIOTypeWidthAndTableSize(bctx, member, (int)ioaccess->getStart()->getLine());
     } else {
       sl_assert(false);
     }
@@ -3332,7 +3335,7 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::writeIOAccess(
       std::string vname = base + "_" + member;
       // write
       out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
-      return determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
+      return determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
     } else {
       auto G = m_VIOGroups.find(base);
       if (G != m_VIOGroups.end()) {
@@ -3341,7 +3344,7 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::writeIOAccess(
         std::string vname = base + "_" + member;
         // write
         out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
-        return determineVIOTypeWidthAndTableSize(vname, (int)ioaccess->getStart()->getLine());
+        return determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
       } else {
         reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
           "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
@@ -3371,7 +3374,7 @@ void Algorithm::writeTableAccess(
     std::string vname = tblaccess->IDENTIFIER()->getText();
     out << rewriteIdentifier(prefix, vname, bctx, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
     // get width
-    auto tws = determineIdentifierTypeWidthAndTableSize(tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
+    auto tws = determineIdentifierTypeWidthAndTableSize(bctx, tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
     if (get<2>(tws) == 0) {
       reportError(tblaccess->IDENTIFIER()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }

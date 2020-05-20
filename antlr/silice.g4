@@ -276,8 +276,8 @@ instructionList     :
 subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 					          | input | output ;
                     
-subroutineParamList : (subroutineParam ',')* subroutineParam | ;
-subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList RETURN ';' '}' ;
+subroutineParamList : (subroutineParam ',')* subroutineParam ? ;
+subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList (RETURN ';')? '}' ;
                     
 declAndInstrList    : (declaration ';' | subroutine ) *
                       alwaysPre = alwaysAssignedList 

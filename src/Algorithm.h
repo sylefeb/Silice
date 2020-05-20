@@ -747,19 +747,19 @@ private:
   std::string typeString(const t_var_nfo& v) const;
   std::string typeString(e_Type type) const;
   /// \brief determines vio bit width and (if applicable) table size
-  std::tuple<e_Type, int, int> determineVIOTypeWidthAndTableSize(std::string vname, int line) const;
+  std::tuple<e_Type, int, int> determineVIOTypeWidthAndTableSize(const t_combinational_block_context *bctx, std::string vname, int line) const;
   /// \brief determines identifier bit width and (if applicable) table size
-  std::tuple<e_Type, int, int> determineIdentifierTypeWidthAndTableSize(antlr4::tree::TerminalNode *identifier, int line) const;
+  std::tuple<e_Type, int, int> determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const;
   /// \brief determines identifier type and width
-  std::pair<e_Type, int> determineIdentifierTypeAndWidth(antlr4::tree::TerminalNode *identifier, int line) const;
+  std::pair<e_Type, int> determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const;
   /// \brief determines IO access bit width
-  std::pair<e_Type, int> determineIOAccessTypeAndWidth(siliceParser::IoAccessContext *ioaccess) const;
+  std::pair<e_Type, int> determineIOAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::IoAccessContext *ioaccess) const;
   /// \brief determines bit access type/width
-  std::pair<e_Type, int> determineBitAccessTypeAndWidth(siliceParser::BitAccessContext *bitaccess) const;
+  std::pair<e_Type, int> determineBitAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitAccessContext *bitaccess) const;
   /// \brief determines table access type/width
-  std::pair<e_Type, int> determineTableAccessTypeAndWidth(siliceParser::TableAccessContext *tblaccess) const;
+  std::pair<e_Type, int> determineTableAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::TableAccessContext *tblaccess) const;
   /// \brief determines access type/width
-  std::pair<e_Type, int> determineAccessTypeAndWidth(siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const;
+  std::pair<e_Type, int> determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const;
   /// \brief writes a call to an algorithm
   void writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of an algorithm
