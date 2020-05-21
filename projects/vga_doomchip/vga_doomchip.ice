@@ -478,12 +478,14 @@ $$end
                 if (bsp_segs_tex_height.rdata[40,8] != 0) {
                   colliding = 1;
                   // decollision,  pos = pos - (d.n) * n
+++:  // relax timing
                   if (d_h < 0) {
                     num    =  - ((tmp2_h - tmp1_h) << $FPm$);
                   } else {
                     num    =    ((tmp2_h - tmp1_h) << $FPm$);
                   }
                   den    = bsp_segs_texmapping.rdata[0,16];                  
+++:  // relax timing
                   (tmp1_h) <- divl <- (num,den);
                   num    = tmp1_h * ndx;
                   (tmp2_h) <- divl <- (num,den);
@@ -625,37 +627,38 @@ $$end
                 
                 // draw ceiling
                 texid = bsp_ssecs_flats.rdata[8,8];
-                inv_y.addr = top - 100;                
-                while (top > c_h) {
-                  // TODO: move to texture unit algorithm
-                  gv_m = (sec_c_h)   * inv_y.rdata;
-                  gu_m = (coltox.rdata * gv_m) >>> 8;
+                if (texid > 0) {
+                  inv_y.addr = top - 100;                
+                  while (top > c_h) {
+                    gv_m = (sec_c_h)   * inv_y.rdata;
+                    gu_m = (coltox.rdata * gv_m) >>> 8;
 ++: // relax timing                  
-                  // transform plane coordinates
-                  tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
-                  tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
+                    // transform plane coordinates
+                    tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
+                    tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
 ++: // relax timing
-                  // light
-                  tmp2_m = (gv_m>>8) - 15;
-                  if (tmp2_m > 7) {
-                    atten = 7;
-                  } else {
-                    atten = tmp2_m;
-                  }                  
-                  tmp1_m = (bsp_ssecs_flats.rdata[16,8]) + atten;
-                  if (tmp1_m > 31) {
-                    light = 31;
-                  } else { if (tmp1_m>=0){
-                    light = tmp1_m;
-                  } else {
-                    light = 0;
-                  } }
-                  // write pixel
-                  tmp_u = (tr_gv_m>>5);
-                  tmp_v = (tr_gu_m>>5);
-                  (sd)  = writePixel(sd,fbuffer,c,top,tmp_u,tmp_v,texid,light);
-                  top   = top - 1;
-                  inv_y.addr = top - 100;
+                    // light
+                    tmp2_m = (gv_m>>8) - 15;
+                    if (tmp2_m > 7) {
+                      atten = 7;
+                    } else {
+                      atten = tmp2_m;
+                    }                  
+                    tmp1_m = (bsp_ssecs_flats.rdata[16,8]) + atten;
+                    if (tmp1_m > 31) {
+                      light = 31;
+                    } else { if (tmp1_m>=0){
+                      light = tmp1_m;
+                    } else {
+                      light = 0;
+                    } }
+                    // write pixel
+                    tmp_u = (tr_gv_m>>5);
+                    tmp_v = (tr_gu_m>>5);
+                    (sd)  = writePixel(sd,fbuffer,c,top,tmp_u,tmp_v,texid,light);
+                    top   = top - 1;
+                    inv_y.addr = top - 100;
+                  }
                 }
 
                 // tex coord u
@@ -712,7 +715,7 @@ $$end
                   btm = f_o;                  
                 }
                 
-                // upper part?                
+                // upper part?
                 if (bsp_segs_tex_height.rdata[48,8] != 0) {
                   texid     = bsp_segs_tex_height.rdata[48,8];                
                   if (bsp_segs_tex_height.rdata[56,8] != 0) {  // door?

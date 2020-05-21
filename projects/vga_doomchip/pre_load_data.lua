@@ -163,7 +163,7 @@ end
 -- sort textures by usage
 sorted_textures = getKeysSortedByValue(textures, function(a, b) return a > b end)
 num_textures = 0
-texture_ids = {}
+texture_ids = {} -- valid ids start at 1
 for _,t in ipairs(sorted_textures) do
   local n = textures[t]
   if t:sub(1,1) ~= '-' then
@@ -410,14 +410,21 @@ for i,ss in ipairs(ssectors) do
   if doors[sidedef.sec] then
     doorid = doors[sidedef.sec].id
   end
+  -- textures
+  f_T   = texture_ids[parent.floorT]
+  if parent.ceilingT == 'F_SKY1' then
+    c_T = 0
+  else
+    c_T = texture_ids[parent.ceilingT]
+  end
   -- store
   bspSSectors[i] = {
     num_segs  = ss.num_segs,
     start_seg = ss.start_seg,
     f_h       = parent.floor,
     c_h       = parent.ceiling,
-    f_T       = texture_ids[parent.floorT],
-    c_T       = texture_ids[parent.ceilingT],
+    f_T       = f_T,
+    c_T       = c_T,
     light     = round(math.min(31,(256 - parent.light)/8)),
     doorid    = doorid
   }
@@ -451,7 +458,7 @@ for i,sg in ipairs(segs) do
   if other_sidedef then
     if     sectors[1+sidedef.sec].ceilingT == 'F_SKY1'
        and sectors[1+other_sidedef.sec].ceilingT == 'F_SKY1' then
-      upr = texture_ids['F_SKY1']
+      upr = 0 -- texture_ids['F_SKY1']
     end
   end
   -- other sector floor/ceiling heights
