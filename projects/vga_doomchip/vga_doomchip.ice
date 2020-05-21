@@ -142,12 +142,13 @@ $$end
   };    
   // BRAM for doors
   bram uint48 bsp_doors[] = {
+   48h0, // first record is not used
 $$for _,d in ipairs(bspDoors) do
    $pack_door(d)$, // closeh=$d.closeh$ openh=$d.openh$ h=$d.h$
 $$end
   };
 $$if #bspDoors > 255 then error('more than 255 doors!') end
-  uint8 num_bsp_doors = $#bspDoors$;
+  uint8 num_bsp_doors = $1 + #bspDoors$;
   // BRAM for demo
   bram uint64 demo_path[] = {
 $$for _,s in ipairs(demo_path) do
@@ -304,6 +305,9 @@ $$end
   uint9    s   = 0;  
   uint16   n   = 0;
   
+  uint48   doordata = 0;
+  uint1    doordir  = 0;
+  
   uint1    viewsector = 1;
   uint1    colliding  = 1;
   
@@ -333,6 +337,7 @@ $$end
   bsp_segs_coords    .wenable = 0;
   bsp_segs_tex_height.wenable = 0;
   bsp_segs_texmapping.wenable = 0;
+  bsp_doors          .wenable = 0;
   demo_path          .wenable = 0;
   inv_y              .wenable = 0;  
   sin_m              .wenable = 0;
@@ -427,28 +432,27 @@ $$end
           // sub-sector reached
           bsp_ssecs      .addr = n[0,14];
           bsp_ssecs_flats.addr = n[0,14];
-          s = 0;
 
-          while (s < bsp_ssecs.rdata[0,8] && queue_ptr > 0) {
-            // get segment data
-            bsp_segs_coords.addr      = bsp_ssecs.rdata[8,16] + s;
-            bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
-            bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
-            bsp_doors.addr            = bsp_ssecs.rdata[56,8];
+          // collision detection
+          if (viewsector) { // done only once on first column
+            s = 0;
+            while (s < bsp_ssecs.rdata[0,8]) {
+              // get segment data
+              bsp_segs_coords.addr      = bsp_ssecs.rdata[8,16] + s;
+              bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
+              bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
+              bsp_doors.addr            = bsp_ssecs.rdata[56,8];
 ++:
-            // segment endpoints
-            v0x = bsp_segs_coords.rdata[ 0,16];
-            v0y = bsp_segs_coords.rdata[16,16];
-            v1x = bsp_segs_coords.rdata[32,16];
-            v1y = bsp_segs_coords.rdata[48,16];
-
-            // check for intersection
-            d0x = v0x - ray_x;
-            d0y = v0y - ray_y;
-            d1x = v1x - ray_x;
-            d1y = v1y - ray_y;
-
-            if (viewsector) { // done only once on first column
+              // segment endpoints
+              v0x = bsp_segs_coords.rdata[ 0,16];
+              v0y = bsp_segs_coords.rdata[16,16];
+              v1x = bsp_segs_coords.rdata[32,16];
+              v1y = bsp_segs_coords.rdata[48,16];
+              // segment vector
+              d0x = v0x - col_rx;
+              d0y = v0y - col_ry;
+              d1x = v1x - col_rx;
+              d1y = v1y - col_ry;
               // while here, track z
               target_z   = bsp_ssecs.rdata[24,16] + 40; // floor height + eye level
               // orthogonal distance to wall segment
@@ -469,8 +473,7 @@ $$end
               tmp2_h = bsp_segs_texmapping.rdata[ 0,16] << 4; // seglen * 16
               tmp3_h = bsp_segs_texmapping.rdata[48,16] << 8; // sqseglen
               // close to the wall?
-              if ( (tmp1_h < tmp2_h) && l_h > 0 && l_h < tmp3_h
-              ) { 
+              if ( (tmp1_h < tmp2_h) && (l_h > - tmp2_h) && l_h < (tmp3_h + tmp2_h) ) { 
                 // opaque wall? (TODO: also consider bottom part and height difference)
                 if (bsp_segs_tex_height.rdata[40,8] != 0) {
                   colliding = 1;
@@ -490,12 +493,34 @@ $$end
                   col_ry = col_ry - (tmp2_h >>> $FPm$);
                 }
               }
-            }         
+              s = s + 1;
+            }        
+          }
+          viewsector = 0;
+          
+          // render column segments
+          s = 0;
+          while (s < bsp_ssecs.rdata[0,8]) {
+            // get segment data
+            bsp_segs_coords.addr      = bsp_ssecs.rdata[8,16] + s;
+            bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
+            bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
+            bsp_doors.addr            = bsp_ssecs.rdata[56,8];
+++:
+            // segment endpoints
+            v0x = bsp_segs_coords.rdata[ 0,16];
+            v0y = bsp_segs_coords.rdata[16,16];
+            v1x = bsp_segs_coords.rdata[32,16];
+            v1y = bsp_segs_coords.rdata[48,16];
+            // check for intersection
+            d0x = v0x - ray_x;
+            d0y = v0y - ray_y;
+            d1x = v1x - ray_x;
+            d1y = v1y - ray_y;
 ++:
             cs0_h = (d0y * ray_dx_m - d0x * ray_dy_m);
             cs1_h = (d1y * ray_dx_m - d1x * ray_dy_m);
-++:
-            
+++:            
             if ((cs0_h<0 && cs1_h>=0) || (cs1_h<0 && cs0_h>=0)) {
             
               // compute distance        
@@ -652,8 +677,9 @@ $$end
                   light = tmp1_m;
                 } else {
                   light = 0;
-                } }                
-++: // relax timing                  
+                } }
+                
+++: // relax timing             
 
                 // lower part?                
                 if (bsp_segs_tex_height.rdata[32,8] != 0) {
@@ -689,7 +715,7 @@ $$end
                 // upper part?                
                 if (bsp_segs_tex_height.rdata[48,8] != 0) {
                   texid     = bsp_segs_tex_height.rdata[48,8];                
-                  if (bsp_ssecs.rdata[56,8] != 0) {  // door?
+                  if (bsp_segs_tex_height.rdata[56,8] != 0) {  // door?
                     tmp1    = bsp_doors.rdata[0,16]; // door ceiling height
                   } else {
                     tmp1    = bsp_segs_tex_height.rdata[16,16];
@@ -726,7 +752,7 @@ $$end
                   texid   = bsp_segs_tex_height.rdata[40,8];
                   tex_v   = sec_f_h_m;
                   j       = f_h;
-                  while (j <= c_h) {                
+                  while (j <= c_h) {
                     (tc_v) = to_tex_v(tex_v);
                     tmp_u  = tc_u;
                     tmp_v  = tc_v+yoff;
@@ -736,7 +762,7 @@ $$end
                   }
                   // flush queue to stop
                   queue_ptr = 0;
-                  break;                 
+                  break;
                 }
                 
               }
@@ -744,13 +770,46 @@ $$end
             // next segment
             s = s + 1;            
           }
-          // only the first reached subsector contains the view
-          viewsector = 0;        
         }
       }
       // next column    
       c = c + 1;
     }
+
+    // ----------------------------------------------
+    // motion doors
+    bsp_doors.wenable = 0;
+    bsp_doors.addr    = 1; // skip first (empty, id=0 tags 'not a door')
+    while (bsp_doors.addr < num_bsp_doors) {
+      // modify
+      tmp1   = bsp_doors.rdata[0,16];
+      if (doordir == 0) {
+        // up
+        tmp2 = bsp_doors.rdata[16,16]; // openh
+        if (tmp1 < tmp2) {
+          doordata = bsp_doors.rdata;      
+          doordata[0,16] = tmp1 + 1;
+        } else {
+          doordata = bsp_doors.rdata;
+        }
+      } else {
+        // down
+        tmp2 = bsp_doors.rdata[32,16]; // closeh
+        if (tmp1 > tmp2) {
+          doordata = bsp_doors.rdata;
+          doordata[0,16] = tmp1 - 1;
+        } else {
+          doordata = bsp_doors.rdata;
+        }
+      }
+      // write back
+      bsp_doors.wenable = 1;
+      bsp_doors.wdata   = doordata;
+++:
+      bsp_doors.wenable = 0;
+      bsp_doors.addr    = bsp_doors.addr + 1;
+    }
+    bsp_doors.wenable = 0;
     
     // ----------------------------------------------
     // prepare next frame
@@ -784,6 +843,10 @@ $$elseif INTERACTIVE then
       ray_x   = col_rx - ((cosview_m) >>> $FPm-2$);
       ray_y   = col_ry - ((sinview_m) >>> $FPm-2$);
     } }
+    // doors TODO: only open neartby door!
+    if ((kpressed & 16) != 0) {
+      doordir = ~doordir;
+    }
     // up/down smooth motion
     if (ray_z < target_z) {
       if (ray_z + 3 < target_z) {
