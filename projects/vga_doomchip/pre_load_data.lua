@@ -451,7 +451,7 @@ for i,sg in ipairs(segs) do
   if other_sidedef then
     if     sectors[1+sidedef.sec].ceilingT == 'F_SKY1'
        and sectors[1+other_sidedef.sec].ceilingT == 'F_SKY1' then
-      upr = 0 --texture_ids['F_SKY1']
+      upr = texture_ids['F_SKY1']
     end
   end
   -- other sector floor/ceiling heights
