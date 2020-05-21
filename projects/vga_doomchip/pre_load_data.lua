@@ -238,6 +238,9 @@ for i = 1,sz/12 do
   end
 end
 print('max seg len is ' .. maxseglen .. ' units.')
+if maxseglen*maxseglen / 256 > 65535 then
+  error('squared segment length too large for 16 bits')
+end
 --for _,s in ipairs(segs) do
 --  print('v0 = ' .. s.v0 .. ', v1 = ' .. s.v1)
 --  print('agl = ' .. s.agl .. ', linedef = ' .. s.ldf)
@@ -339,6 +342,7 @@ end
 -- -------------------------------------
 -- find all sector doors
 doors = {}
+id    = 1
 for _,ldef in pairs(lines) do
   if ldef.types == 1 then
     sidedef   = sides[1+ldef.left]
@@ -347,23 +351,40 @@ for _,ldef in pairs(lines) do
     othersidedef = sides[1+ldef.right]
     print('       opens until ' .. sectors[1+othersidedef.sec].ceiling)
     if not doors[doorsec] then
-      doors[doorsec] = { openh = sectors[1+othersidedef.sec].ceiling }
+      doors[doorsec] = { 
+        id     = id,
+        openh  = sectors[1+othersidedef.sec].ceiling,
+        closeh = sectors[1+othersidedef.sec].floor
+        }
+      id = id + 1
     else
-      doors[doorsec].openh = round(math.min(doors[doorsec].openh, sectors[1+othersidedef.sec].ceiling))
+      doors[doorsec].openh  = round(math.min(doors[doorsec].openh,  sectors[1+othersidedef.sec].ceiling))
+      doors[doorsec].closeh = round(math.max(doors[doorsec].closeh, sectors[1+othersidedef.sec].floor))
     end
   end
 end
 -- open all doors!
-for sec,door in pairs(doors) do
-  sectors[1+sec].ceiling = door.openh
-end
-
+--for sec,door in pairs(doors) do
+--  sectors[1+sec].ceiling = door.openh
+--end
 
 -- -------------------------------------
 -- prepare custom data structures
 bspNodes    = {}
 bspSSectors = {}
 bspSegs     = {}
+bspDoors    = {}
+maxdoorid   = 0
+for sec,d in pairs(doors) do
+  bspDoors[d.id] = {
+    h      = d.openh,
+    openh  = d.openh,
+    closeh = d.closeh
+  }
+  maxdoorid = math.max(maxdoorid,d.id)
+end
+print('' .. maxdoorid .. ' doors in level')
+
 for i,n in ipairs(nodes) do
   bspNodes[i] = {
     x  = n.x,
@@ -384,6 +405,11 @@ for i,ss in ipairs(ssectors) do
     sidedef = sides[1+ldef.left]
   end
   parent = sectors[1+sidedef.sec]
+  --- door?
+  doorid = 0
+  if doors[sidedef.sec] then
+    doorid = doors[sidedef.sec].id
+  end
   -- store
   bspSSectors[i] = {
     num_segs  = ss.num_segs,
@@ -392,7 +418,8 @@ for i,ss in ipairs(ssectors) do
     c_h       = parent.ceiling,
     f_T       = texture_ids[parent.floorT],
     c_T       = texture_ids[parent.ceilingT],
-    light     = round(math.min(31,(256 - parent.light)/8));
+    light     = round(math.min(31,(256 - parent.light)/8)),
+    doorid    = doorid
   }
 end
 for i,sg in ipairs(segs) do
@@ -407,6 +434,7 @@ for i,sg in ipairs(segs) do
     sidedef = sides[1+ldef.left]
     other_sidedef = sides[1+ldef.right]
   end
+  -- textures
   lwr = 0
   if sidedef.lwrT:sub(1, 1) ~= '-' then
     lwr = texture_ids[sidedef.lwrT]
@@ -419,11 +447,25 @@ for i,sg in ipairs(segs) do
   if sidedef.midT:sub(1, 1) ~= '-' then
     mid = texture_ids[sidedef.midT]
   end
+  -- adjust for sky
+  if other_sidedef then
+    if     sectors[1+sidedef.sec].ceilingT == 'F_SKY1'
+       and sectors[1+other_sidedef.sec].ceilingT == 'F_SKY1' then
+      upr = 0 --texture_ids['F_SKY1']
+    end
+  end
+  -- other sector floor/ceiling heights
   other_f_h = 0
   other_c_h = 0
+  other_doorid = 0
   if other_sidedef then
-    other_f_h = sectors[1+other_sidedef.sec].floor
-    other_c_h = sectors[1+other_sidedef.sec].ceiling
+    other_f_h    = sectors[1+other_sidedef.sec].floor
+    other_c_h    = sectors[1+other_sidedef.sec].ceiling
+    doorid       = 0
+    if doors[other_sidedef.sec] then
+      doorid     = doors[other_sidedef.sec].id
+    end
+    other_doorid = doorid
   end
   -- print('textures ids ' .. lwr .. ',' .. mid .. ',' .. upr)
   local xoff = sidedef.xoff + sg.off
@@ -443,9 +485,11 @@ for i,sg in ipairs(segs) do
     mid       = mid,
     other_f_h = other_f_h,
     other_c_h = other_c_h,
+    other_doorid = other_doorid,
     xoff      = xoff,
     yoff      = sidedef.yoff,
-    seglen    = sg.seglen
+    seglen    = sg.seglen,
+    segsqlen  = sg.seglen*sg.seglen/256
   }
 end
 
@@ -496,7 +540,8 @@ end
 
 function pack_bsp_ssec(ssec)
   local bin = 0
-  bin = '56h' 
+  bin = '64h' 
+        .. string.format("%02x",ssec.doorid):sub(-2)
         .. string.format("%04x",ssec.c_h):sub(-4)
         .. string.format("%04x",ssec.f_h):sub(-4)
         .. string.format("%04x",ssec.start_seg):sub(-4)
@@ -525,7 +570,8 @@ end
 
 function pack_bsp_seg_tex_height(seg)
   local bin = 0
-  bin = '56h' 
+  bin = '64h' 
+        .. string.format("%02x",seg.other_doorid):sub(-2)
         .. string.format("%02x",seg.upr):sub(-2)
         .. string.format("%02x",seg.mid):sub(-2)
         .. string.format("%02x",seg.lwr):sub(-2)
@@ -536,7 +582,8 @@ end
 
 function pack_bsp_seg_texmapping(seg)
   local bin = 0
-  bin = '48h' 
+  bin = '64h'
+        .. string.format("%04x",round(seg.segsqlen)):sub(-4)
         .. string.format("%04x",round(seg.yoff)):sub(-4)
         .. string.format("%04x",round(seg.xoff)):sub(-4)
         .. string.format("%04x",round(seg.seglen)):sub(-4)
@@ -550,6 +597,15 @@ function pack_demo_path(p)
         .. string.format("%04x",p.z):sub(-4)
         .. string.format("%04x",p.y):sub(-4)
         .. string.format("%04x",p.x):sub(-4)
+  return bin
+end
+
+function pack_door(d)
+  local bin = 0
+  bin = '48h'
+        .. string.format("%04x",d.closeh):sub(-4)
+        .. string.format("%04x",d.openh):sub(-4)
+        .. string.format("%04x",d.h):sub(-4)
   return bin
 end
 

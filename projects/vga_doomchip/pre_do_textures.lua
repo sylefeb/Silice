@@ -2,10 +2,10 @@ print('preparing textures')
 
 if SIMULATION then
 USE_BRAM = false -- RAM or ROM
-SHRINK   = 2 -- 0 is original res, 1 half, 2 a quarter
+SHRINK   = 3 -- 0 is original res, 1 half, 2 a quarter
 else
 USE_BRAM = false -- RAM or ROM
-SHRINK   = 2 -- 0 is original res, 1 half, 2 a quarter
+SHRINK   = 3 -- 0 is original res, 1 half, 2 a quarter
              -- synthesis is much fast at a quarter res, recommanded for testing
 end
 
@@ -213,7 +213,9 @@ for tex,id in pairs(texture_ids) do
   local texpal  = get_palette_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
   local texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
   texdata = update_palette(texdata,texpal)
-  if SHRINK == 2 then
+  if SHRINK == 3 then
+    texdata = shrink_tex(shrink_tex(shrink_tex(texdata)))
+  elseif SHRINK == 2 then
     texdata = shrink_tex(shrink_tex(texdata))
   elseif SHRINK == 1 then
     texdata = shrink_tex(texdata)
@@ -244,7 +246,10 @@ if ALL_IN_ONE then
 end
 
 -- addressing
-if SHRINK == 2 then
+if SHRINK == 3 then
+  code:write('  iu = iiu>>3;\n')
+  code:write('  iv = iiv>>3;\n')
+elseif SHRINK == 2 then
   code:write('  iu = iiu>>2;\n')
   code:write('  iv = iiv>>2;\n')
 elseif SHRINK == 1 then
@@ -259,7 +264,9 @@ code:write('    default : { }\n')
 for tex,id in pairs(texture_ids) do
   -- load assembled texture
   local texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
-  if SHRINK == 2 then
+  if SHRINK == 3 then
+    texdata = shrink_tex(shrink_tex(shrink_tex(texdata)))
+  elseif SHRINK == 2 then
     texdata = shrink_tex(shrink_tex(texdata))
   elseif SHRINK == 1 then
     texdata = shrink_tex(texdata)
