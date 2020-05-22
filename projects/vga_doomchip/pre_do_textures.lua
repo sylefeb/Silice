@@ -209,6 +209,7 @@ if ALL_IN_ONE then
   end
 end
 for tex,id in pairs(texture_ids) do
+  if tex == 'F_SKY1' then continue end
   -- load assembled texture
   local texpal  = get_palette_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
   local texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
@@ -262,6 +263,7 @@ end
 code:write('  switch (texid) {\n')
 code:write('    default : { }\n')  
 for tex,id in pairs(texture_ids) do
+  if tex == 'F_SKY1' then continue end
   -- load assembled texture
   local texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
   if SHRINK == 3 then
@@ -341,7 +343,7 @@ if ALL_IN_ONE then
   code:write('  colormap.addr = textures.rdata + lit;\n')
 else
   code:write('  switch (texid) {\n')
-  code:write('    default : { }\n')  
+  code:write('    default : { colormap.addr = 94; }\n')  
   for tex,id in pairs(texture_ids) do
     code:write('    case ' .. (id) .. ': {\n')
     if tex == 'F_SKY1' then -- special case for sky

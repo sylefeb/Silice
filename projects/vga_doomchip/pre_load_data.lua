@@ -180,16 +180,18 @@ if SINGLE_TEXTURE == 1 then
   textures[singletex] = 1
   for _,s in pairs(sectors) do
     s.floorT   = singletex
-    s.ceilingT = singletex
+    if s.ceilingT ~= 'F_SKY1' then
+      s.ceilingT = singletex
+    end
   end
   for _,s in pairs(sides) do
-    if s.uprT:sub(1, 1) ~= '-' then
+    if s.uprT:sub(1, 1) ~= '-' and s.uprT ~= 'F_SKY1' then
       s.uprT = singletex
     end
-    if s.lwrT:sub(1, 1) ~= '-' then
+    if s.lwrT:sub(1, 1) ~= '-' and s.lwrT ~= 'F_SKY1' then
       s.lwrT = singletex
     end
-    if s.midT:sub(1, 1) ~= '-' then
+    if s.midT:sub(1, 1) ~= '-' and s.midT ~= 'F_SKY1' then
       s.midT = singletex
     end
   end

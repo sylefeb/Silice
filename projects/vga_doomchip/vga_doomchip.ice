@@ -716,7 +716,8 @@ $$end
                 }
                 
                 // upper part?
-                if (bsp_segs_tex_height.rdata[48,8] != 0) {
+                if (bsp_segs_tex_height.rdata[48,8] != 0 
+                 || bsp_ssecs_flats.rdata[8,8] == 0) { // also if ceiling is sky
                   texid     = bsp_segs_tex_height.rdata[48,8];                
                   if (bsp_segs_tex_height.rdata[56,8] != 0) {  // door?
                     tmp1    = bsp_doors.rdata[0,16]; // door ceiling height
