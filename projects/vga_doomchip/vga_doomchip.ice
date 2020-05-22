@@ -301,7 +301,7 @@ $$end
   int10    top = 200;
   int10    btm = 1;
   uint9    c   = 0;
-  uint9    j   = 0;
+  int9     j   = 0;
   uint8    palidx = 0;
   uint9    s   = 0;  
   uint16   n   = 0;
@@ -718,7 +718,7 @@ $$end
                   } }
                   tex_v   = sec_f_o_m;
                   j       = f_o;
-                  while (j > btm) {
+                  while (j >= btm) {
                     (tc_v) = to_tex_v(tex_v);
                     tmp_u  = tc_u;
                     tmp_v  = tc_v+yoff;
@@ -754,7 +754,7 @@ $$end
                   } }
                   tex_v   = sec_c_o_m;
                   j       = c_o;
-                  while (j < top) {
+                  while (j <= top) {
                     (tc_v) = to_tex_v(tex_v);
                     tmp_u  = tc_u;
                     tmp_v  = tc_v+yoff;
