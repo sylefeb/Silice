@@ -46,7 +46,7 @@ algorithm lcd_status(
     uint4 h = 0;
     while (n < 16) {
       while (io.ready == 0) { }
-      h        = (v >> n);
+      h        = (v >> (12 - n));
       if (h < 10) {
         io.data  = 48 + h;
       } else {

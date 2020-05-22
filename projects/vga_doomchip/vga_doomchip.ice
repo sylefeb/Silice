@@ -29,10 +29,11 @@ $include('../common/divint_any.ice')
 $$mul_width = FPw
 $include('../common/mulint_any.ice')
 
+$$if DE10NANO then
 $$INTERACTIVE = 1
 $include('keypad.ice')
-
 $include('lcd_status.ice')
+$$end
 
 // -------------------------
 // some circuitry for repetitive things
@@ -312,11 +313,13 @@ $$end
   uint1    colliding  = 1;
   
   uint16   kpressed = 0;
-  keypad   kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed);
-  
   uint16   lcd_x = 0;
   uint16   lcd_y = 0;
+  
+$$if DE10NANO then
+  keypad     kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
   lcd_status status(<:auto:>, posx <: lcd_x, posy <: lcd_y );
+$$end
   
   vsync_filtered ::= vsync;
 
@@ -348,10 +351,15 @@ $$end
     
     // update position
 $$if not INTERACTIVE then
+$$if not SIMULATION then
   ray_x     = demo_path.rdata[ 0,16];
   ray_y     = demo_path.rdata[16,16];
   ray_z     = demo_path.rdata[32,16];    
   viewangle = demo_path.rdata[48,16];
+$$else
+  ray_x =  1353;
+  ray_y = -3338;
+$$end  
 $$end
     
     col_rx = ray_x;
@@ -432,7 +440,8 @@ $$end
           // sub-sector reached
           bsp_ssecs      .addr = n[0,14];
           bsp_ssecs_flats.addr = n[0,14];
-
+          
+$$if INTERACTIVE then
           // collision detection
           if (viewsector) { // done only once on first column
             s = 0;
@@ -453,8 +462,6 @@ $$end
               d0y = v0y - col_ry;
               d1x = v1x - col_rx;
               d1y = v1y - col_ry;
-              // while here, track z
-              target_z   = bsp_ssecs.rdata[24,16] + 40; // floor height + eye level
               // orthogonal distance to wall segment
               // (segment is v1 - v0)
               ldx    = v1x - v0x;
@@ -498,6 +505,13 @@ $$end
               s = s + 1;
             }        
           }
+$$else          
+++: // wait for bsp_ssecs data
+$$end
+          if (viewsector) { // done only once on first column
+            // while here, track z
+            target_z   = bsp_ssecs.rdata[24,16] + 40; // floor height + eye level
+          }         
           viewsector = 0;
           
           // render column segments
@@ -704,7 +718,7 @@ $$end
                   } }
                   tex_v   = sec_f_o_m;
                   j       = f_o;
-                  while (j >= btm) {
+                  while (j > btm) {
                     (tc_v) = to_tex_v(tex_v);
                     tmp_u  = tc_u;
                     tmp_v  = tc_v+yoff;
@@ -740,7 +754,7 @@ $$end
                   } }
                   tex_v   = sec_c_o_m;
                   j       = c_o;
-                  while (j <= top) {
+                  while (j < top) {
                     (tc_v) = to_tex_v(tex_v);
                     tmp_u  = tc_u;
                     tmp_v  = tc_v+yoff;
@@ -828,7 +842,7 @@ $$if not INTERACTIVE then
       ray_y     = $(player_start_y)$;
     }    
     demo_path.addr = frame;    
-$$elseif INTERACTIVE then
+$$else
     // DEBUG
     led = colliding;
     // viewangle
