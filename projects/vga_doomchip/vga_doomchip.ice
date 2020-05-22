@@ -704,7 +704,7 @@ $$end
                   } }
                   tex_v   = sec_f_o_m;
                   j       = f_o;
-                  while (j > btm) {
+                  while (j >= btm) {
                     (tc_v) = to_tex_v(tex_v);
                     tmp_u  = tc_u;
                     tmp_v  = tc_v+yoff;
@@ -739,7 +739,7 @@ $$end
                   } }
                   tex_v   = sec_c_o_m;
                   j       = c_o;
-                  while (j < top) {
+                  while (j <= top) {
                     (tc_v) = to_tex_v(tex_v);
                     tmp_u  = tc_u;
                     tmp_v  = tc_v+yoff;
