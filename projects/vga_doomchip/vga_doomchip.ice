@@ -62,20 +62,19 @@ circuitry writePixel(
 ) {
   // start texture unit look up (takes a few cycles)
   textures <- (tid,-tu,-tv,lit);
-  while (1) {
-    if (sd.busy == 0) { // not busy?
-      // sync with texture unit
-      (sd.data_in) <- textures;
+  // wait for not busy
+  while (sd.busy) {}
+  // sync with texture unit
+  (sd.data_in) <- textures;
+  // wait for not busy  (may have been in between)
+  while (sd.busy) {}
 $$if not COL_MAJOR then               
-      sd.addr       = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
+  sd.addr       = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
 $$else
-      sd.addr       = {~fbuffer,21b0} | ((pi >> 2) << 8) | (199-pj);
+  sd.addr       = {~fbuffer,21b0} | ((pi >> 2) << 8) | (199-pj);
 $$end        
-      sd.wbyte_addr = pi & 3;
-      sd.in_valid   = 1; // go ahead!
-      break;
-    }
-  }
+  sd.wbyte_addr = pi & 3;
+  sd.in_valid   = 1; // go ahead!
 }
 
 // -------------------------
@@ -300,8 +299,8 @@ $$end
 
   int10    top = 200;
   int10    btm = 1;
-  uint9    c   = 0;
-  int9     j   = 0;
+  uint10   c   = 0;
+  int10    j   = 0;
   uint8    palidx = 0;
   uint9    s   = 0;  
   uint16   n   = 0;
@@ -313,20 +312,15 @@ $$end
   uint1    colliding  = 1;
   
   uint16   kpressed = 0;
-  uint16   lcd_x = 0;
-  uint16   lcd_y = 0;
   
 $$if DE10NANO then
   keypad     kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
-  lcd_status status(<:auto:>, posx <: lcd_x, posy <: lcd_y );
+  lcd_status status(<:auto:>, posx <: ray_x, posy <: ray_y, posz <: ray_z, posa <: viewangle );
 $$end
   
   vsync_filtered ::= vsync;
 
   sd.in_valid := 0; // maintain low (pulses high when needed)
-  
-  lcd_x       := ray_x;
-  lcd_y       := ray_y;
   
   sd.rw = 1;        // sdram write
 
@@ -351,15 +345,10 @@ $$end
     
     // update position
 $$if not INTERACTIVE then
-$$if not SIMULATION then
   ray_x     = demo_path.rdata[ 0,16];
   ray_y     = demo_path.rdata[16,16];
   ray_z     = demo_path.rdata[32,16];    
   viewangle = demo_path.rdata[48,16];
-$$else
-  ray_x =  1353;
-  ray_y = -3338;
-$$end  
 $$end
     
     col_rx = ray_x;
@@ -730,8 +719,9 @@ $$end
                 }
                 
                 // upper part?
-                if (bsp_segs_tex_height.rdata[48,8] != 0 
-                 || bsp_ssecs_flats.rdata[8,8] == 0) { // also if ceiling is sky
+                if (bsp_segs_tex_height.rdata[48,8] != 0 // upper texture present
+                || (bsp_ssecs_flats.rdata[8,8] == 0 && bsp_segs_tex_height.rdata[40,8] != 0) // or opaque with sky above
+                ) {
                   texid     = bsp_segs_tex_height.rdata[48,8];                
                   if (bsp_segs_tex_height.rdata[56,8] != 0) {  // door?
                     tmp1    = bsp_doors.rdata[0,16]; // door ceiling height

@@ -213,38 +213,65 @@ algorithm sdram_switcher(
   
 ) {
 	
-  uint1 active = 0;
+  sdio buffered_sd0;
+  sdio buffered_sd1;
+  
+  sd0.busy      := buffered_sd0.in_valid; // sd0 is busy until we process its request
+  sd1.busy      := buffered_sd1.in_valid; // sd1 is busy until we process its request
+  sd0.out_valid := 0; // pulses high when ready
+  sd1.out_valid := 0; // pulses high when ready
+  
+  always {
+    if (buffered_sd0.in_valid == 0 && sd0.in_valid == 1) {
+      buffered_sd0.addr       = sd0.addr;
+      buffered_sd0.wbyte_addr = sd0.wbyte_addr;
+      buffered_sd0.rw         = sd0.rw;
+      buffered_sd0.data_in    = sd0.data_in;
+      buffered_sd0.in_valid   = 1;
+    }
+    if (buffered_sd1.in_valid == 0 && sd1.in_valid == 1) {
+      buffered_sd1.addr       = sd1.addr;
+      buffered_sd1.wbyte_addr = sd1.wbyte_addr;
+      buffered_sd1.rw         = sd1.rw;
+      buffered_sd1.data_in    = sd1.data_in;
+      buffered_sd1.in_valid   = 1;
+    }
+  }
   
   while (1) {
-  
-    // switch only when there is no activity
-    if (  sd.busy      == 0 
-       && select     != active
-       && sd0.in_valid == 0
-       && sd1.in_valid == 0) {
-      active = select;
-    }  
-
-    if (active) {
-	    sd.addr       = sd0.addr;
-      sd.wbyte_addr = sd0.wbyte_addr;
-	    sd.rw         = sd0.rw;
-	    sd.data_in    = sd0.data_in;
-	    sd0.data_out  = sd.data_out;
-	    sd0.busy      = sd.busy;
-	    sd.in_valid   = sd0.in_valid;
-	    sd0.out_valid = sd.out_valid;
-	    sd1.busy      = 1;
-    } else {
-	    sd.addr       = sd1.addr;
-      sd.wbyte_addr = sd1.wbyte_addr;
-	    sd.rw         = sd1.rw;
-	    sd.data_in    = sd1.data_in;
-	    sd1.data_out  = sd.data_out;
-	    sd1.busy      = sd.busy;
-	    sd.in_valid   = sd1.in_valid;
-	    sd1.out_valid = sd.out_valid;
-	    sd0.busy      = 1;
+    if (sd.busy == 0) {
+      // we can do some work!
+      // -> sd0 (highest priority)
+      if (buffered_sd0.in_valid == 1) {
+        sd.addr       = buffered_sd0.addr;
+        sd.wbyte_addr = buffered_sd0.wbyte_addr;
+        sd.rw         = buffered_sd0.rw;
+        sd.data_in    = buffered_sd0.data_in;
+        sd.in_valid   = 1;        
+        // reading?
+        if (buffered_sd0.rw == 0) {
+          while (sd.out_valid == 0) { }
+          sd0.data_out  = sd.data_out;
+          sd0.out_valid = 1;
+        }
+        buffered_sd0.in_valid = 0; // done
+      } else {
+        // -> sd1
+        if (buffered_sd1.in_valid == 1) {
+          sd.addr       = buffered_sd1.addr;
+          sd.wbyte_addr = buffered_sd1.wbyte_addr;
+          sd.rw         = buffered_sd1.rw;
+          sd.data_in    = buffered_sd1.data_in;
+          sd.in_valid   = 1;        
+          // reading?
+          if (buffered_sd1.rw == 0) {
+            while (sd.out_valid == 0) { }
+            sd1.data_out  = sd.data_out;
+            sd1.out_valid = 1;
+          }
+          buffered_sd1.in_valid = 0; // done
+        }
+      }
     }
   }  
 }

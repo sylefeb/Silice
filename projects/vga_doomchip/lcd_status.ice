@@ -9,7 +9,9 @@ algorithm lcd_status(
   output uint1  lcd_e,
   output uint8  lcd_d,
   input  uint16 posx,
-  input  uint16 posy
+  input  uint16 posy,
+  input  uint16 posz,
+  input  uint16 posa,
 ) <autorun> {
 
   lcdio io;
@@ -21,8 +23,8 @@ algorithm lcd_status(
     io    <:> io
   );
 
-  uint8  msg1 [17] = "DooM-chip   v0.1";
-  uint8  chars[]   = "E1M1 XY";
+  uint8  msg1 [17] = "DooM-chip   E1M1";
+  uint8  chars[]   = "XYZA";
   uint26 counter   = 1;
   
   subroutine printMessage(
@@ -77,32 +79,14 @@ algorithm lcd_status(
     io.data   = 1;
     io.setrow = 1;
     
-    i = 0;
-    while (i<4) {
-      while (io.ready == 0) { }
-      io.data  = chars[i];
-      io.print = 1;   
-      i = i + 1;
-    }
-    
-    // space
-    while (io.ready == 0) { }
-    io.data  = chars[4];
-    io.print = 1;   
-    
-    // X
-    while (io.ready == 0) { }
-    io.data  = chars[5];
-    io.print = 1;   
-    
-    () <- printNumber <- (posx);
-    
+    // X    
+    () <- printNumber <- (posx);    
     // Y
-    while (io.ready == 0) { }
-    io.data  = chars[6];
-    io.print = 1;   
-
     () <- printNumber <- (posy);
+    // Z
+    () <- printNumber <- (posz);
+    // Angle
+    () <- printNumber <- (posa);
     
     // wait some
     cnt = 1;

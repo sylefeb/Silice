@@ -22,12 +22,4 @@ mingw32-make -j16 install
 
 cd ..
 
-mkdir build-silicehe
-cd build-silicehe
-
-cmake -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" ../../tools/silice_hardware_emulator
-mingw32-make install
-
-cd ..
-
 cd ..
