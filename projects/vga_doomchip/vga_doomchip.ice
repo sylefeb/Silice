@@ -708,7 +708,7 @@ $$end
                     sec_f_o_m = tmp2_m + ((top - f_o) * d_h); // offset texturing
                     f_o       = top;
                   } }
-                  tex_v   = - (sec_f_o_m);
+                  tex_v   = (sec_f_o_m);
                   j       = f_o;
                   while (j >= btm) {
                     (tc_v) = to_tex_v(tex_v);
@@ -746,7 +746,7 @@ $$end
                     sec_c_o_m = tmp2_m + ((top - c_o) * d_h); // offset texturing
                     c_o       = top;
                   } }
-                  tex_v   = - (sec_c_o_m);
+                  tex_v   = (sec_c_o_m);
                   j       = c_o;
                   while (j <= top) {
                     (tc_v) = to_tex_v(tex_v);
@@ -762,7 +762,7 @@ $$end
                 // opaque wall
                 if (bsp_segs_tex_height.rdata[40,8] != 0) {
                   texid   = bsp_segs_tex_height.rdata[40,8];
-                  tex_v   = - (sec_f_h_m);
+                  tex_v   = (sec_f_h_m);
                   j       = f_h;
                   while (j <= c_h) {
                     (tc_v) = to_tex_v(tex_v);
