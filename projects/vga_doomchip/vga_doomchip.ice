@@ -575,6 +575,9 @@ $$end
                 (c_h) = to_h(tmp2_h);
 ++:
                 // clamp to top/bottom, shift sector heights for texturing
+                tmp1      = bsp_ssecs.rdata[40,16]; // ceiling height
+                // NOTE: even if it is a door, we still texture from the
+                // same coordinate as before (tex coord does not change)
                 tmp1_m    = (tmp1 <<< $FPm$);
                 sec_f_h_m = tmp1_m;
                 if (btm > f_h) {
@@ -695,7 +698,7 @@ $$end
 ++:
                   tmp1_h    = (sec_f_o * invd_h);
 ++:
-                  tmp2_m    = tmp1 <<< $FPm$;
+                  tmp2_m    = (tmp1 <<< $FPm$);
                   sec_f_o_m = tmp2_m;
                   (f_o)     = to_h(tmp1_h);
                   if (btm > f_o) {
@@ -705,7 +708,7 @@ $$end
                     sec_f_o_m = tmp2_m + ((top - f_o) * d_h); // offset texturing
                     f_o       = top;
                   } }
-                  tex_v   = sec_f_o_m;
+                  tex_v   = - (sec_f_o_m);
                   j       = f_o;
                   while (j >= btm) {
                     (tc_v) = to_tex_v(tex_v);
@@ -726,13 +729,14 @@ $$end
                   if (bsp_segs_tex_height.rdata[56,8] != 0) {  // door?
                     tmp1    = bsp_doors.rdata[0,16]; // door ceiling height
                   } else {
-                    tmp1    = bsp_segs_tex_height.rdata[16,16];
+                    tmp1    = bsp_segs_tex_height.rdata[16,16]; // other sector ceiling height
                   }
                   sec_c_o   = tmp1 - ray_z;
 ++:
                   tmp1_h    = (sec_c_o * invd_h);
 ++:
-                  tmp2_m    = tmp1 <<< $FPm$;
+                  tmp1      = bsp_segs_tex_height.rdata[16,16]; // other sector ceiling height
+                  tmp2_m    = (tmp1 <<< $FPm$);
                   sec_c_o_m = tmp2_m;
                   (c_o)     = to_h(tmp1_h);
                   if (btm > c_o) {
@@ -742,7 +746,7 @@ $$end
                     sec_c_o_m = tmp2_m + ((top - c_o) * d_h); // offset texturing
                     c_o       = top;
                   } }
-                  tex_v   = sec_c_o_m;
+                  tex_v   = - (sec_c_o_m);
                   j       = c_o;
                   while (j <= top) {
                     (tc_v) = to_tex_v(tex_v);
@@ -758,7 +762,7 @@ $$end
                 // opaque wall
                 if (bsp_segs_tex_height.rdata[40,8] != 0) {
                   texid   = bsp_segs_tex_height.rdata[40,8];
-                  tex_v   = sec_f_h_m;
+                  tex_v   = - (sec_f_h_m);
                   j       = f_h;
                   while (j <= c_h) {
                     (tc_v) = to_tex_v(tex_v);
