@@ -34,7 +34,7 @@ u=$(echo "$1" | sed s:/:__:g | tr -d ".")
 echo "using directory $u"
 
 mkdir $u
-# ../../../bin/silice -f ../../../frameworks/verilator_sdram_vga.v -o $u/vga.v $1 
+../../../bin/silice -f ../../../frameworks/verilator_sdram_vga.v -o $u/vga.v $1 
 cd $u
 verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc vga.v --top-module vga
 cd obj_dir

@@ -307,7 +307,7 @@ $$end
   
   uint48   doordata = 0;
   uint1    doordir  = 0;
-  
+
   uint1    viewsector = 1;
   uint1    colliding  = 1;
   
@@ -630,7 +630,7 @@ $$end
                 
                 // draw ceiling
                 texid = bsp_ssecs_flats.rdata[8,8];
-                if (texid > 0) {
+                if (texid > 0 || (bsp_segs_tex_height.rdata[48,8] != 0)) {  // draw sky if upper texture present
                   inv_y.addr = top - 100;                
                   while (top > c_h) {
                     gv_m = (sec_c_h)   * inv_y.rdata;
@@ -719,8 +719,8 @@ $$end
                 }
                 
                 // upper part?
-                if (bsp_segs_tex_height.rdata[48,8] != 0 // upper texture present
-                || (bsp_ssecs_flats.rdata[8,8] == 0 && bsp_segs_tex_height.rdata[40,8] != 0) // or opaque with sky above
+                if ( (bsp_segs_tex_height.rdata[48,8] != 0) // upper texture present
+                ||   (bsp_ssecs_flats.rdata[8,8] == 0 && bsp_segs_tex_height.rdata[40,8] != 0) // or opaque with sky above
                 ) {
                   texid     = bsp_segs_tex_height.rdata[48,8];                
                   if (bsp_segs_tex_height.rdata[56,8] != 0) {  // door?
@@ -799,6 +799,9 @@ $$end
           doordata[0,16] = tmp1 + 1;
         } else {
           doordata = bsp_doors.rdata;
+$$if SIMULATION then
+          doordir = ~doordir;
+$$end
         }
       } else {
         // down
@@ -808,6 +811,9 @@ $$end
           doordata[0,16] = tmp1 - 1;
         } else {
           doordata = bsp_doors.rdata;
+$$if SIMULATION then
+          doordir = ~doordir;
+$$end
         }
       }
       // write back
@@ -831,7 +837,7 @@ $$if not INTERACTIVE then
       ray_x     = $(player_start_x)$;
       ray_y     = $(player_start_y)$;
     }    
-    demo_path.addr = frame;    
+    demo_path.addr = frame;
 $$else
     // DEBUG
     led = colliding;
