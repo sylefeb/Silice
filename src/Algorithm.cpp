@@ -24,6 +24,8 @@ holder must remain included in all distributions.
 using namespace std;
 using namespace antlr4;
 
+#define SUB_ENTRY_BLOCK "__sub_"
+
 // -------------------------------------------------
 
 void Algorithm::reportError(antlr4::Token *what, int line, const char *msg, ...) const
@@ -1145,7 +1147,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   // subroutine local declarations
   gatherDeclarationList(sub->declarationList(), nfo);
   // subroutine block
-  t_combinational_block *subb = addBlock("__sub_" + nfo->name, nullptr, (int)sub->getStart()->getLine());
+  t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, nullptr, (int)sub->getStart()->getLine());
   // cross ref between block and subroutine
   subb->context.subroutine = nfo;
   nfo->top_block           = subb;
@@ -3231,9 +3233,6 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
       "incorrect number of input parameters in call to subroutine '%s'",
       called->name.c_str());
   }
-  // write var inits
-  t_vio_dependencies _;
-  writeVarInits(prefix, out, called->varnames, _);
   // set inputs
   int p = 0;
   for (const auto& ins : called->inputs) {
@@ -3449,6 +3448,15 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
     out << " (" << block->context.subroutine->name << ')';
   }
   out << std::endl;
+  // if this is a subroutine first block, write local vars init
+  if (block->context.subroutine != nullptr) {
+    if (!strncmp(block->block_name.c_str(), SUB_ENTRY_BLOCK, strlen(SUB_ENTRY_BLOCK))) {
+      t_vio_dependencies _;
+      out << "// sub locals init" << std::endl;
+      writeVarInits(prefix, out, block->context.subroutine->varnames, _);
+      out << "// --" << std::endl;
+    }
+  }
   for (const auto& a : block->instructions) {
     // write instruction
     {

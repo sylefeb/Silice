@@ -1,0 +1,78 @@
+Pipeline rules:
+
+- has to behave as if not pipelined (e.g. standard sequence)
+- variables enter the pipeline and trickle down
+- they have to be 'captured' so that if stages change them this does not impact
+
+Example: loop index!
+
+i = 0, a = 0, b = 0
+
+Stage 0: a = i+10
+Stage 1: b = a+100
+Stage 2: t[i] = b
+
+loop 0, stage 0 [not pipelined]: a=10, (i=0, b=0)
+loop 0, stage 1 [not pipelined]: b=110,(i=0, a=10)
+loop 0, stage 2 [not pipelined]: t[0]=110
+loop 1, stage 0 [not pipelined]: a=11, (i=1, b=0)
+loop 1, stage 1 [not pipelined]: b=111,(i=0, a=11)
+loop 1, stage 2 [not pipelined]: t[1]=111
+--- without 'trickling'
+=> next tick: (in: i=0, a=0, b=0)
+tick 0, stage 0 [pipelined]: a=10, 
+=> next tick: (in: i=1, a=10, b=0)
+tick 1, stage 0 [pipelined]: a=11, 
+tick 1, stage 1 [pipelined]: b=110,
+=> next tick: (in: i=2, a=11, b=110)
+tick 2, stage 0 [pipelined]: a=12, 
+tick 2, stage 1 [pipelined]: b=111,
+tick 2, stage 2 [pipelined]: t[2]=110
+                             ^^^^ wrong
+
+--- with 'trickling'
+=> next tick: (in: i=0, a=0, b=0)
+tick 0, stage 0 [pipelined]: i0=i, a=10,       
+=> next tick: (in: i=1, a=10, b=0, i0=0)
+tick 1, stage 0 [pipelined]: i0=i, a=11,
+tick 1, stage 1 [pipelined]: i1=i0,b=110,
+=> next tick: (in: i=2, a=11, b=110, i0=1, i1=0)
+tick 2, stage 0 [pipelined]: i0=i, a=12,       
+tick 2, stage 1 [pipelined]: i1=i0,b=111,     
+tick 2, stage 2 [pipelined]: t[i1]=110,
+                             ^^^^ correct (i1=0)
+=> next tick: (in: i=3, a=12, b=111, i0=2, i1=1)
+
+All pipeline input read dependencies have to be registered and 'trickled' down.
+(this guarantees but is somewhat conservative - some of these inputs may
+ not change in which case trickling is not necessary)
+
+Is this true of any variable written and then read by a later stage? 
+NO if read immediately by next stage (and never again), YES otherwise
+
+- pipeline 'start' *cannot* depend on any stage output
+  => this is impossible as it requires a synch of computed values
+- more generally, no stage should *read* a value *written* by a later stage
+  (the opposite being ok: a stage can *write* a value *read* by a later stage)
+
+Example of problematic case
+
+Stage 0: b = a    <= uses a
+Stage 1: a = b+2  <= changes value of a, stage 0 would be impacted
+
+a=10, b=0
+loop 0, stage 0 [not pipelined]: b=10, (a=10)
+loop 0, stage 1 [not pipelined]: (b=10), a=12
+loop 1, stage 0 [not pipelined]: b=12, (a=12)
+loop 1, stage 1 [not pipelined]: (b=12), a=14
+---
+tick 0, stage 0 [pipelined]: b=10 (in: a=10, b=0)
+tick 1, stage 0 [pipelined]: b=2  (in: a=2, b=10)
+tick 1, stage 1 [pipelined]: a=12 (in: a=2, b=10)
+                             ^^^^ wrong
+
+WHEN TO start and stop the pipeline?
+- start when stage 0 is fed a valid value
+- stop when stage N processed the last value
+
+                             

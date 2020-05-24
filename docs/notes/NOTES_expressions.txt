@@ -1,0 +1,21 @@
+ We could define special arithmetic blocks where algorithms are used as operators:
+ 
+ expression<*:mymul,/:mydiv,+:myadd> {
+   a = (c+3) * 3 / (1 - 15/z);
+ }
+(if not given, operators use default unless non available, e.g. div)
+
+These would get automatically optimized towards the least number of cycles (and temporary register? or do we trust the verilog synthesizer and add as many regs as we need?). Also given that operators could be pipelined (so they have to follow some sort of convention to specify latency and output frequency?).
+
+Groups can be used in operator definition:
+
+group binary_op {
+  uintX a,
+  uintX b,
+  uintX r
+}
+
+This raises many questions regarding type width, (un)signed, etc.
+
+Even with poor optimization it would already be convenient thanks to a automatic
+temporary register creation.
