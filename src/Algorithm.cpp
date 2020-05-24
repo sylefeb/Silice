@@ -1115,17 +1115,20 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_subr
 
 //-------------------------------------------------
 
-void Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub)
+int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub)
 {
   if (decllist == nullptr) {
-    return;
+    return 0;
   }
+  int num = 0;
   siliceParser::DeclarationListContext *cur_decllist = decllist;
   while (cur_decllist->declaration() != nullptr) {
     siliceParser::DeclarationContext* decl = cur_decllist->declaration();
     gatherDeclaration(decl, sub);
     cur_decllist = cur_decllist->declarationList();
+    ++num;
   }
+  return num;
 }
 
 // -------------------------------------------------
@@ -1145,9 +1148,12 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
     reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': an instanced algorithm of the same name is already declared", nfo->name.c_str());
   }
   // subroutine local declarations
-  gatherDeclarationList(sub->declarationList(), nfo);
+  int numdecl = gatherDeclarationList(sub->declarationList(), nfo);
   // subroutine block
   t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, nullptr, (int)sub->getStart()->getLine());
+  if (numdecl > 0) {
+    subb->no_skip = true; // do not skip if local vars must be initialized
+  }
   // cross ref between block and subroutine
   subb->context.subroutine = nfo;
   nfo->top_block           = subb;

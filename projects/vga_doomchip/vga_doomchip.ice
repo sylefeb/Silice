@@ -309,9 +309,12 @@ $$end
   uint1    doordir  = 0;
 
   uint1    viewsector = 1;
-  uint1    colliding  = 1;
+  uint1    walkable   = 1;
+  uint1    colliding  = 0;
+  uint1    ondoor     = 0;
   
-  uint16   kpressed = 0;
+  uint16   kpressed   = 0;
+  uint6    kdoorblind = 0;
   
 $$if DE10NANO then
   keypad     kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
@@ -367,6 +370,7 @@ $$end
     c = 0;
     viewsector = 1;
     colliding  = 0;
+    ondoor     = 0;
     
     while (c < 320) { 
       
@@ -439,8 +443,9 @@ $$if INTERACTIVE then
               bsp_segs_coords.addr      = bsp_ssecs.rdata[8,16] + s;
               bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
               bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
-              bsp_doors.addr            = bsp_ssecs.rdata[56,8];
 ++:
+              // prepare door data, for other sector ceiling (if any)
+              bsp_doors.addr            = bsp_segs_tex_height.rdata[56,8];
               // segment endpoints
               v0x = bsp_segs_coords.rdata[ 0,16];
               v0y = bsp_segs_coords.rdata[16,16];
@@ -470,8 +475,25 @@ $$if INTERACTIVE then
               tmp3_h = bsp_segs_texmapping.rdata[48,16] << 8; // sqseglen
               // close to the wall?
               if ( (tmp1_h < tmp2_h) && (l_h > - tmp2_h) && l_h < (tmp3_h + tmp2_h) ) { 
-                // opaque wall? (TODO: also consider bottom part and height difference)
-                if (bsp_segs_tex_height.rdata[40,8] != 0) {
+                // determine if we can walk across
+                walkable = 1;
+                if (bsp_segs_tex_height.rdata[40,8] != 0) { // opaque wall
+                  walkable = 0;
+                } else { // here we assume all walls without a middle section are two sided
+                  // other sector floor height
+                  tmp1      = bsp_segs_tex_height.rdata[0,16];
+                  // other sector ceiling height
+                  if (bsp_segs_tex_height.rdata[56,8] != 0) {  // door?
+                    tmp2    = bsp_doors.rdata[0,16];
+                    ondoor  = 1;
+                  } else {
+                    tmp2    = bsp_segs_tex_height.rdata[16,16];
+                  }
+                  if (ray_z < tmp1 || ray_z > tmp2) {
+                    walkable = 0;
+                  }
+                }
+                if (walkable == 0) {
                   colliding = 1;
                   // decollision,  pos = pos - (d.n) * n
 ++:  // relax timing
@@ -693,7 +715,7 @@ $$end
                 // lower part?                
                 if (bsp_segs_tex_height.rdata[32,8] != 0) {
                   texid     = bsp_segs_tex_height.rdata[32,8];
-                  tmp1      = bsp_segs_tex_height.rdata[0,16];
+                  tmp1      = bsp_segs_tex_height.rdata[0,16]; // other sector floor height
                   sec_f_o   = tmp1 - ray_z;
 ++:
                   tmp1_h    = (sec_f_o * invd_h);
@@ -844,7 +866,8 @@ $$if not INTERACTIVE then
     demo_path.addr = frame;
 $$else
     // DEBUG
-    led = colliding;
+    led[0,1] = colliding;
+    led[1,1] = ondoor;
     // viewangle
     if ((kpressed & 4) != 0) {
       viewangle   = viewangle + 12;
@@ -861,9 +884,14 @@ $$else
       ray_x   = col_rx - ((cosview_m) >>> $FPm-2$);
       ray_y   = col_ry - ((sinview_m) >>> $FPm-2$);
     } }
-    // doors TODO: only open neartby door!
-    if ((kpressed & 16) != 0) {
-      doordir = ~doordir;
+    // doors TODO: only open nearby door!
+    if (kdoorblind == 0) {
+      if ((kpressed & 16) != 0) {
+        doordir = ~doordir;
+        kdoorblind = 1;
+      }
+    } else {
+      kdoorblind = kdoorblind + 1;
     }
     // up/down smooth motion
     if (ray_z < target_z) {
