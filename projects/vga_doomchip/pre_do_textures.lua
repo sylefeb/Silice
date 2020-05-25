@@ -331,9 +331,9 @@ for tex,id in pairs(texture_ids) do
 end
 code:write('  }\n') -- switch
 
--- wait one cycle
+-- wait two cycles (seems required @100MHz, one led to artefacts)
 code:write('++:\n')
-code:write('++:\n') ----------------------------- DEBUG
+code:write('++:\n')
 
 -- light
 code:write('  lit = (light<<8);\n')

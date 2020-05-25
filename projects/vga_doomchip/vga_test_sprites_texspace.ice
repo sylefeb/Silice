@@ -25,8 +25,6 @@ $$FPm = 12
 $$div_width = FPw
 $include('../common/divint_any.ice')
 
-import('inout4_set.v')
-
 // -------------------------
 // Main drawing algorithm
 
@@ -265,12 +263,16 @@ algorithm frame_drawer(
   uint8    sprt    = 0;
   uint1    mirr    = 0;
 
+  uint24 count = 0;
   uint5     n = 0;
   
-  uint10    posx   = 160;
   uint12    angle  = 3042;
   uint$FPw$ distv  = $4<<FPm$;
 
+  uint10    poss[6]  = {30,95,150,197,230,285};
+  uint$FPw$ dists[6] = {$(4<<FPm)-512$,$(4<<FPm)+233$,$(4<<FPm)-1050$,$(4<<FPm)+800$,$(4<<FPm)-574$,$(4<<FPm)+798$};
+  uint12    angls[6] = {3042,3042,3042,3042,3042,3042};
+  
   div$FPw$ div;
   
   vsync_filtered ::= vsync;
@@ -286,16 +288,25 @@ algorithm frame_drawer(
     () <- clearScreen <- ();
     
     // draw sprite
-    if (distv <= $1<<FPm$) {
-      frsprt      = ((frame+n) & 1);
-    } else {
-      frsprt      = ((frame+n) & 3);
-    }
-    (sprt,mirr) = spriteSelect(angle,frsprt);
-    if (distv <= $1<<FPm$) {
-      () <- drawSprite <- (sprt+20,mirr,posx,140,distv);
-    } else {
-      () <- drawSprite <- (sprt,mirr,posx,140,distv);
+    n = 0;
+    while (n < 6) {
+      distv = dists[n];
+      if (distv <= $1<<FPm$) {
+        frsprt      = ((frame+n) & 1);
+      } else {
+        frsprt      = ((frame+n) & 3);
+      }
+      angle = angls[n];
+      (sprt,mirr) = spriteSelect(angle,frsprt);
+      if (distv <= $1<<FPm$) {
+        () <- drawSprite <- (sprt+20,mirr,poss[n],140,distv);
+      } else {
+        () <- drawSprite <- (sprt,mirr,poss[n],140,distv);
+      }
+      if (dists[n] > $1<<FPm$) {
+        dists[n] = dists[n] - 256;
+      }
+      n = n + 1;
     }
     
     // prepare next
@@ -307,6 +318,13 @@ algorithm frame_drawer(
     // swap buffers
     fbuffer = ~fbuffer;
 
+$$if not SIMULATION then
+    // slow down animation!
+    count = 0;
+    while (count < delay) {
+      count = count + 1;
+    }
+$$end
   }
 }
 

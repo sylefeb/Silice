@@ -2610,7 +2610,7 @@ void Algorithm::determineVariablesAccess()
   // for all blocks
   // TODO: some blocks may never be reached ...
   for (auto& b : m_Blocks) {
-    if (b->state_id == -1) continue; // block is never reached
+    if (b->state_id == -1 && b->is_state) continue; // block is never reached
     determineVariablesAccess(b);
   }
   // determine variable access for always blocks
@@ -2838,7 +2838,7 @@ void Algorithm::analyzeOutputsAccess()
   std::unordered_set<std::string> global_read;
   std::unordered_set<std::string> global_written;
   for (const auto& b : m_Blocks) {
-    if (b->state_id == -1) continue; // block is never reached
+    if (b->state_id == -1 && b->is_state) continue; // block is never reached
     for (const auto& i : b->instructions) {
       std::unordered_set<std::string> read;
       std::unordered_set<std::string> written;
