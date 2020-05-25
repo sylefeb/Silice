@@ -325,7 +325,6 @@ private:
   /// \brief ending actions for blocks
   class t_end_action {
   public:
-    virtual void getRefs(std::vector<size_t>& _refs) const = 0;
     virtual void getChildren(std::vector<t_combinational_block*>& _ch) const = 0;
   };
 
@@ -335,7 +334,6 @@ private:
   public:
     t_combinational_block        *next;
     end_action_goto_next(t_combinational_block *next_) : next(next_) {}
-    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(next->id); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); }
   };
 
@@ -349,7 +347,6 @@ private:
     t_combinational_block        *after;
     end_action_if_else(t_instr_nfo test_, t_combinational_block *if_next_, t_combinational_block *else_next_, t_combinational_block *after_)
       : test(test_), if_next(if_next_), else_next(else_next_), after(after_) {}
-    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(if_next->id); _refs.push_back(else_next->id); _refs.push_back(after->id); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(if_next); _ch.push_back(else_next); _ch.push_back(after); }
   };
 
@@ -362,7 +359,6 @@ private:
     t_combinational_block*                                       after;
     end_action_switch_case(t_instr_nfo test_, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks_, t_combinational_block* after_)
       : test(test_), case_blocks(case_blocks_), after(after_) {}
-    void getRefs(std::vector<size_t>& _refs) const override { for (auto b : case_blocks) { _refs.push_back(b.second->id); } _refs.push_back(after->id); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const override { for (auto b : case_blocks) { _ch.push_back(b.second); } _ch.push_back(after); }
   };
 
@@ -375,7 +371,6 @@ private:
     t_combinational_block        *after;
     end_action_while(t_instr_nfo test_, t_combinational_block *iteration_, t_combinational_block *after_)
       : test(test_), iteration(iteration_), after(after_) {}
-    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(iteration->id); _refs.push_back(after->id); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(iteration);  _ch.push_back(after); }
   };
 
@@ -388,7 +383,6 @@ private:
     t_combinational_block        *waiting;
     t_combinational_block        *next;
     end_action_wait(int line_, std::string algo_name_, t_combinational_block *waiting_, t_combinational_block *next_) : line(line_), algo_instance_name(algo_name_), waiting(waiting_), next(next_) {}
-    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(waiting->id); _refs.push_back(next->id); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(waiting); _ch.push_back(next); }
   };
 
@@ -397,7 +391,6 @@ private:
   {
   public:
     end_action_return_from() {  }
-    void getRefs(std::vector<size_t>& _refs) const override {  }
     void getChildren(std::vector<t_combinational_block*>& _ch) const override {  }
   };
 
@@ -408,7 +401,6 @@ private:
     t_combinational_block          *go_to;
     t_combinational_block          *return_to;
     end_action_goto_and_return_to(t_combinational_block* go_to_, t_combinational_block *return_to_) : go_to(go_to_), return_to(return_to_) {  }
-    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(go_to->id); _refs.push_back(return_to->id); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(go_to); _ch.push_back(return_to); }
   };
 
@@ -419,7 +411,6 @@ private:
     t_combinational_block        *next;
     t_combinational_block        *after;
     end_action_pipeline_next(t_combinational_block *next_, t_combinational_block *after_) : next(next_), after(after_) { }
-    void getRefs(std::vector<size_t>& _refs) const override { _refs.push_back(next->id);_refs.push_back(after->id); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next);_ch.push_back(after); }
   };
 
@@ -497,7 +488,6 @@ private:
     }
     const end_action_pipeline_next *pipeline_next() const { return dynamic_cast<const end_action_pipeline_next*>(end_action); }
 
-    void getRefs(std::vector<size_t>& _refs) const { if (end_action != nullptr) end_action->getRefs(_refs); }
     void getChildren(std::vector<t_combinational_block*>& _ch) const { if (end_action != nullptr) end_action->getChildren(_ch); }
   };
 
@@ -518,7 +508,7 @@ private:
   t_combinational_block                                             m_AlwaysPre;
   /// \brief all combinational blocks
   std::list< t_combinational_block* >                               m_Blocks;
-  /// \brief state name to combination block
+  /// \brief state name to combinational block
   std::unordered_map< std::string, t_combinational_block* >         m_State2Block;
   /// \brief id to combination block
   std::unordered_map< size_t, t_combinational_block* >              m_Id2Block;

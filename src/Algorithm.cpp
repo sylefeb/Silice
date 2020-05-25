@@ -2142,7 +2142,7 @@ int Algorithm::maxState() const
 int Algorithm::entryState() const
 {
   // TODO: but not so simple, can lead to trouble with var inits, 
-  // for instance if the entry state becomes the first in a lopp
+  // for instance if the entry state becomes the first in a loop
   // fastForward(m_Blocks.front())->state_id 
 
   return 0;
@@ -2610,6 +2610,7 @@ void Algorithm::determineVariablesAccess()
   // for all blocks
   // TODO: some blocks may never be reached ...
   for (auto& b : m_Blocks) {
+    if (b->state_id == -1) continue; // block is never reached
     determineVariablesAccess(b);
   }
   // determine variable access for always blocks
@@ -2837,6 +2838,7 @@ void Algorithm::analyzeOutputsAccess()
   std::unordered_set<std::string> global_read;
   std::unordered_set<std::string> global_written;
   for (const auto& b : m_Blocks) {
+    if (b->state_id == -1) continue; // block is never reached
     for (const auto& i : b->instructions) {
       std::unordered_set<std::string> read;
       std::unordered_set<std::string> written;

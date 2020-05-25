@@ -471,7 +471,7 @@ $$if INTERACTIVE then
               } else {
                 tmp1_h = d_h;
               }
-              tmp2_h = bsp_segs_texmapping.rdata[ 0,16] << 4; // seglen * 16
+              tmp2_h = bsp_segs_texmapping.rdata[ 0,16] << 5; // seglen * 32
               tmp3_h = bsp_segs_texmapping.rdata[48,16] << 8; // sqseglen
               // close to the wall?
               if ( (tmp1_h < tmp2_h) && (l_h > - tmp2_h) && l_h < (tmp3_h + tmp2_h) ) { 

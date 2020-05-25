@@ -5,7 +5,7 @@ USE_BRAM = false -- RAM or ROM
 SHRINK   = 3 -- 0 is original res, 1 half, 2 a quarter
 else
 USE_BRAM = false -- RAM or ROM
-SHRINK   = 3 -- 0 is original res, 1 half, 2 a quarter
+SHRINK   = 0 -- 0 is original res, 1 half, 2 a quarter
              -- synthesis is much fast at a quarter res, recommanded for testing
 end
 
@@ -333,6 +333,7 @@ code:write('  }\n') -- switch
 
 -- wait one cycle
 code:write('++:\n')
+code:write('++:\n') ----------------------------- DEBUG
 
 -- light
 code:write('  lit = (light<<8);\n')
