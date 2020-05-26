@@ -183,10 +183,10 @@ algorithm sdram_switcher(
     input   wbyte_addr,
     input   rw,
     input   data_in,
-    output  data_out,
-    output  busy,
+    output! data_out,
+    output! busy,
     input   in_valid,
-    output  out_valid  
+    output! out_valid  
   },
 
   sdio sd1 {
@@ -194,10 +194,10 @@ algorithm sdram_switcher(
     input   wbyte_addr,
     input   rw,
     input   data_in,
-    output  data_out,
-    output  busy,
+    output! data_out,
+    output! busy,
     input   in_valid,
-    output  out_valid   
+    output! out_valid   
   },
 
   sdio sd {

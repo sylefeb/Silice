@@ -240,7 +240,7 @@ for i = 1,sz/12 do
   end
 end
 print('max seg len is ' .. maxseglen .. ' units.')
-if maxseglen*maxseglen / 256 > 65535 then
+if (maxseglen*maxseglen / 32) > 65535 then
   error('squared segment length too large for 16 bits')
 end
 --for _,s in ipairs(segs) do
@@ -478,17 +478,30 @@ for i,sg in ipairs(segs) do
   end
   -- print('textures ids ' .. lwr .. ',' .. mid .. ',' .. upr)
   local xoff = sidedef.xoff + sg.off
-  if (sg.dir == 1) then
+  --[[if (sg.dir == 1) then
+    -- correct texture offset NOTE: TODO not yet checked, does this work?
     local dx      = verts[ldef.v1].x - verts[ldef.v0].x
     local dy      = verts[ldef.v1].y - verts[ldef.v0].y
     local ldeflen = math.sqrt(dx*dx+dy*dy)
     local xoff    = round(sidedef.xoff + (ldeflen - sg.off))
+  end]]
+  if (sg.dir == 1) then
+    -- revert to be oriented as linedef
+    v1x       = verts[1+sg.v0].x
+    v1y       = verts[1+sg.v0].y
+    v0x       = verts[1+sg.v1].x
+    v0y       = verts[1+sg.v1].y
+  else
+    v0x       = verts[1+sg.v0].x
+    v0y       = verts[1+sg.v0].y
+    v1x       = verts[1+sg.v1].x
+    v1y       = verts[1+sg.v1].y  
   end
   bspSegs[i] = {
-    v0x       = verts[1+sg.v0].x,
-    v0y       = verts[1+sg.v0].y,
-    v1x       = verts[1+sg.v1].x,
-    v1y       = verts[1+sg.v1].y,
+    v0x       = v0x,
+    v0y       = v0y,
+    v1x       = v1x,
+    v1y       = v1y,
     upr       = upr,
     lwr       = lwr,
     mid       = mid,
@@ -498,7 +511,7 @@ for i,sg in ipairs(segs) do
     xoff      = xoff,
     yoff      = sidedef.yoff,
     seglen    = sg.seglen,
-    segsqlen  = sg.seglen*sg.seglen/256
+    segsqlen  = math.ceil(sg.seglen*sg.seglen/32)
   }
 end
 
@@ -611,7 +624,7 @@ end
 
 function pack_door(d)
   local bin = 0
-  bin = '48h'
+  bin = '49h1' -- msb indicate door direction
         .. string.format("%04x",d.closeh):sub(-4)
         .. string.format("%04x",d.openh):sub(-4)
         .. string.format("%04x",d.h):sub(-4)

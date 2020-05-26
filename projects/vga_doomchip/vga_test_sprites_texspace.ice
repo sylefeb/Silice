@@ -320,8 +320,8 @@ algorithm frame_drawer(
 
 $$if not SIMULATION then
     // slow down animation!
-    count = 0;
-    while (count < delay) {
+    count = 1;
+    while (count != 0) {
       count = count + 1;
     }
 $$end
