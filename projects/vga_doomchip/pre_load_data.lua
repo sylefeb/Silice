@@ -301,8 +301,7 @@ end
 -- read demo path
 demo_path = {}
 if SIMULATION then
--- in_path = io.open(findfile('poslog_debug.txt'), 'r')
-in_path = io.open(findfile('poslog_final.txt'), 'r')
+in_path = io.open(findfile('poslog_debug.txt'), 'r')
 else
 in_path = io.open(findfile('poslog_final.txt'), 'r')
 end
@@ -465,6 +464,7 @@ for i,ss in ipairs(ssectors) do
 --  end
   -- store
   bspSSectors[i] = {
+    sec       = sidedef.sec,
     num_segs  = ss.num_segs,
     start_seg = ss.start_seg,
     f_h       = parent.floor,
@@ -476,11 +476,9 @@ for i,ss in ipairs(ssectors) do
     special   = parent.special,
     doorid    = doorid
   }
-  print('sector ' .. sidedef.sec .. ' seclight: ' .. seclight .. ' lowlight:' .. lowlight)
-  print('  ' .. i-1 .. ' ' .. ' seclight: ' .. bspSSectors[i].light .. ' lowlight:' .. bspSSectors[i].lowlight)
+  --print('sector ' .. sidedef.sec .. ' seclight: ' .. seclight .. ' lowlight:' .. lowlight)
+  --print('  ' .. i-1 .. ' ' .. ' seclight: ' .. bspSSectors[i].light .. ' lowlight:' .. bspSSectors[i].lowlight)
 end
-
-error('stop')
 
 for i,sg in ipairs(segs) do
   ldef = lines[1+sg.ldf]
@@ -548,6 +546,14 @@ for i,sg in ipairs(segs) do
     v1x       = verts[1+sg.v1].x
     v1y       = verts[1+sg.v1].y  
   end
+  lower_unpegged = 0
+  if (ldef.flags & 16) ~= 0 then
+    lower_unpegged = 1
+  end
+  upper_unpegged = 0
+  if (ldef.flags & 8) ~= 0 then
+    upper_unpegged = 1
+  end
   bspSegs[i] = {
     v0x       = v0x,
     v0y       = v0y,
@@ -562,7 +568,9 @@ for i,sg in ipairs(segs) do
     xoff      = xoff,
     yoff      = sidedef.yoff,
     seglen    = sg.seglen,
-    segsqlen  = math.ceil(sg.seglen*sg.seglen/32)
+    segsqlen  = math.ceil(sg.seglen*sg.seglen/32),
+    lower_unpegged = lower_unpegged,
+    upper_unpegged = upper_unpegged
   }
 end
 
@@ -638,7 +646,7 @@ end
 
 function pack_bsp_ssec_flats(ssec)
   local bin = 0
-  bin = '40h' 
+  bin = '40h'
         .. string.format("%02x",ssec.lowlight):sub(-2)
         .. string.format("%02x",math.min(255,ssec.special)):sub(-2)
         .. string.format("%02x",ssec.light):sub(-2)
@@ -671,7 +679,8 @@ end
 
 function pack_bsp_seg_texmapping(seg)
   local bin = 0
-  bin = '64h'
+  bin = '66h'
+        .. ((seg.upper_unpegged<<1) | seg.lower_unpegged)
         .. string.format("%04x",round(seg.segsqlen)):sub(-4)
         .. string.format("%04x",round(seg.yoff)):sub(-4)
         .. string.format("%04x",round(seg.xoff)):sub(-4)

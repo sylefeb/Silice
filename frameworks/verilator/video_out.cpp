@@ -224,14 +224,13 @@ void VideoOut::eval_RGB_HV
 
             if (vcount < ver_size) {
                 if (hcount < hor_size) {
-                    RGBApixel pixel;
 
-                    pixel.Red   = (red   & bit_mask) << (bit_shift);
-                    pixel.Green = (green & bit_mask) << (bit_shift);
-                    pixel.Blue  = (blue  & bit_mask) << (bit_shift);
+                    uchar r = (red   & bit_mask) << (bit_shift);
+                    uchar g = (green & bit_mask) << (bit_shift);
+                    uchar b = (blue  & bit_mask) << (bit_shift);
 
                     if (hcount >= 0 && vcount >= 0 && hcount < pixels.xsize() && vcount < pixels.ysize()) {
-                      pixels.at((int)(hcount), (int)(vcount)) = v3b(pixel.Red,pixel.Green,pixel.Blue);
+                      pixels.at((int)(hcount), (int)(vcount)) = v3b(r,g,b);
                     // printf("*** [pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)pixel.Red,(int)pixel.Green,(int)pixel.Blue);
                     } else {
                       printf("*** [ERROR] out of bounds pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)pixel.Red,(int)pixel.Green,(int)pixel.Blue);

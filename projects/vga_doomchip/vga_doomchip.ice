@@ -4,6 +4,13 @@
 // References:
 // - "DooM black book" by Fabien Sanglard
 // - "DooM unofficial specs" http://www.gamers.org/dhs/helpdocs/dmsp1666.html
+//
+// TODO: 
+// reduce design size : - use subroutines for column drawing
+// optimize           : - cache for SDRAM
+//                      - framebuffer transpose (reduce row activate/precharge!)
+//                      - parallel columns (arbitrer for BSP!)
+//
 
 $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
@@ -43,11 +50,6 @@ circuitry to_h(input iv,output ov)
   ov = 100 + (iv >>> 15);
 }
 
-circuitry to_tex_v(input iv,output ov)
-{
-   ov = (iv >> 8);
-}
-
 circuitry bbox_ray(input ray_x,input ray_y,input ray_dx_m,input ray_dy_m,
                    input bbox_x_lw,input bbox_x_hi,input bbox_y_lw,input bbox_y_hi,
                    output couldhit)
@@ -79,7 +81,7 @@ circuitry writePixel(
    input  lit   
 ) {
   // start texture unit look up (takes a few cycles)
-  textures <- (tid,-tu,-tv,lit);
+  textures <- (tid,-tu,tv,lit);
   // wait for not busy
   while (sd.busy) {}
   // sync with texture unit
@@ -139,7 +141,7 @@ $$end
   // BRAMs for sub-sectors
   bram uint64 bsp_ssecs[] = {
 $$for _,s in ipairs(bspSSectors) do
-   $pack_bsp_ssec(s)$,          // doorid=$s.doorid$ c_h=$s.c_h$ f_h=$s.f_h$  start_seg=$s.start_seg$ num_segs=$s.num_segs$
+   $pack_bsp_ssec(s)$,          // sec=$s.sec$ doorid=$s.doorid$ c_h=$s.c_h$ f_h=$s.f_h$  start_seg=$s.start_seg$ num_segs=$s.num_segs$
 $$end
   };
   bram uint40 bsp_ssecs_flats[] = {
@@ -158,9 +160,9 @@ $$for _,s in ipairs(bspSegs) do
    $pack_bsp_seg_tex_height(s)$, // other_doorid=$s.other_doorid$ upr=$s.upr$ mid=$s.mid$ lwr=$s.lwr$ other_c_h=$s.other_c_h$ other_f_h=$s.other_f_h$ 
 $$end
   };
-  bram uint64 bsp_segs_texmapping[] = {
-$$for _,s in ipairs(bspSegs) do
-   $pack_bsp_seg_texmapping(s)$, // segsqlen/32=$s.segsqlen$ yoff=$s.yoff$ xoff=$s.xoff$ seglen=$s.seglen$ 
+  bram uint66 bsp_segs_texmapping[] = {
+$$for i,s in ipairs(bspSegs) do
+   $pack_bsp_seg_texmapping(s)$, // $i-1$] unpegged U$s.upper_unpegged$ L$s.lower_unpegged$ segsqlen/32=$s.segsqlen$ yoff=$s.yoff$ xoff=$s.xoff$ seglen=$s.seglen$ 
 $$end
   };    
   // BRAM for doors
@@ -348,7 +350,7 @@ $$end
   uint16   kpressed   = 0;
   uint6    kdoorblind = 0;
   
-  uint12   rand = 0;
+  uint12   rand = 3137;
 
 $$if DE10NANO then
   keypad     kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
@@ -487,7 +489,7 @@ $$end
           // light level in sector
           switch (bsp_ssecs_flats.rdata[24,8]) {
             case 1: { // random off
-              if (((rand^n) & 3) == 0) {
+              if (((rand>>1) & 15) < 2) {
                 seclight = bsp_ssecs_flats.rdata[32,8]; // off (lowlight)
               } else {
                 seclight = bsp_ssecs_flats.rdata[16,8]; // on (sector light)
@@ -604,23 +606,22 @@ $$end
                 (f_h) = to_h(tmp1_h);
                 (c_h) = to_h(tmp2_h);
 ++:
-                // clamp to top/bottom, shift sector heights for texturing
-                tmp1      = bsp_ssecs.rdata[40,16]; // ceiling height
-                // NOTE: even if it is a door, we still texture from the
-                // same coordinate as before (tex coord does not change)
-                tmp1_m    = (tmp1 <<< $FPm$);
-                sec_f_h_m = tmp1_m;
+                // clamp to top/bottom, shift for texturing
+                sec_f_h_m = 0;
                 if (btm > f_h) {
-                  sec_f_h_m = tmp1_m + ((btm - f_h) * d_h); // offset texturing
+                  sec_f_h_m = ((btm - f_h) * d_h) <<< 4; // offset texturing
                   f_h       = btm;
                 } else { if (top < f_h) {
-                  sec_f_h_m = tmp1_m + ((top - f_h) * d_h); // offset texturing
+                  sec_f_h_m = ((f_h - top) * d_h) <<< 4; // offset texturing
                   f_h       = top;
                 } }
+                sec_c_h_m = 0;
                 if (btm > c_h) {
-                  c_h     = btm;
+                  sec_c_h_m = ((btm - c_h) * d_h) <<< 4; // offset texturing
+                  c_h       = btm;
                 } else { if (top < c_h) {
-                  c_h     = top;
+                  sec_c_h_m = ((c_h - top) * d_h) <<< 4; // offset texturing
+                  c_h       = top;
                 } }
                 
                 // prepare door data, for other sector ceiling (if any)
@@ -728,25 +729,24 @@ $$end
 ++:
                   tmp1_h    = (sec_f_o * invd_h);
 ++:
-                  tmp2_m    = (tmp1 <<< $FPm$);
-                  sec_f_o_m = tmp2_m;
+                  sec_f_o_m = 0;
                   (f_o)     = to_h(tmp1_h);
                   if (btm > f_o) {
-                    sec_f_o_m = tmp2_m + ((btm - f_o) * d_h); // offset texturing
+                    sec_f_o_m = ((btm - f_o) * d_h) <<< 4; // offset texturing
                     f_o       = btm;
                   } else { if (top < f_o) {
-                    sec_f_o_m = tmp2_m + ((top - f_o) * d_h); // offset texturing
+                    sec_f_o_m = ((f_o - top) * d_h) <<< 4; // offset texturing
                     f_o       = top;
                   } }
                   tex_v   = (sec_f_o_m);
                   j       = f_o;
                   while (j >= btm) {
-                    (tc_v) = to_tex_v(tex_v);
+                    tc_v   = tex_v >> 12;
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
                     (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                     j      = j - 1;
-                    tex_v  = tex_v - d_h;
+                    tex_v  = tex_v - (d_h<<<4);
                   } 
                   btm = f_o;                  
                 }
@@ -766,25 +766,24 @@ $$end
                   tmp1_h    = (sec_c_o * invd_h);
 ++:
                   tmp1      = bsp_segs_tex_height.rdata[16,16]; // other sector ceiling height
-                  tmp2_m    = (tmp1 <<< $FPm$);
-                  sec_c_o_m = tmp2_m;
+                  sec_c_o_m = -1;
                   (c_o)     = to_h(tmp1_h);
                   if (btm > c_o) {
-                    sec_c_o_m = tmp2_m + ((btm - c_o) * d_h); // offset texturing
+                    sec_c_o_m = - ((btm - c_o) * d_h) <<< 4; // offset texturing
                     c_o       = btm;
                   } else { if (top < c_o) {
-                    sec_c_o_m = tmp2_m + ((top - c_o) * d_h); // offset texturing
+                    sec_c_o_m = - ((c_o - top) * d_h) <<< 4; // offset texturing
                     c_o       = top;
                   } }
                   tex_v   = (sec_c_o_m);
                   j       = c_o;
                   while (j <= top) {
-                    (tc_v) = to_tex_v(tex_v);
+                    tc_v   = tex_v >>> 12;
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
                     (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                     j      = j + 1;
-                    tex_v  = tex_v + d_h;
+                    tex_v  = tex_v - (d_h<<<4);
                   }
                   top = c_o;
                 }
@@ -792,15 +791,30 @@ $$end
                 // opaque wall
                 if (bsp_segs_tex_height.rdata[40,8] != 0) {
                   texid   = bsp_segs_tex_height.rdata[40,8];
-                  tex_v   = (sec_f_h_m);
-                  j       = f_h;
-                  while (j <= c_h) {
-                    (tc_v) = to_tex_v(tex_v);
-                    tmp_u  = tc_u;
-                    tmp_v  = tc_v + yoff;
-                    (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
-                    j      = j + 1;   
-                    tex_v  = tex_v + d_h;
+                  if (bsp_segs_texmapping.rdata[64,1] == 0) {
+                    // normal
+                    tex_v   = sec_c_h_m;
+                    j       = c_h;
+                    while (j >= f_h) {
+                      tc_v   = tex_v >> 12;
+                      tmp_u  = tc_u;
+                      tmp_v  = tc_v + yoff;
+                      (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
+                      j      = j - 1;   
+                      tex_v  = tex_v + (d_h<<<4);
+                    }
+                  } else {
+                    // lower unpegged
+                    tex_v   = sec_f_h_m;
+                    j       = f_h;
+                    while (j <= c_h) {
+                      tc_v   = tex_v >> 12;
+                      tmp_u  = tc_u;
+                      tmp_v  = tc_v + yoff;
+                      (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
+                      j      = j + 1;   
+                      tex_v  = tex_v + (d_h<<<4);
+                    }                    
                   }
                   // flush queue to stop
                   queue_ptr = 0;
@@ -1005,10 +1019,8 @@ $$end
     // prepare next frame
     
     time  = time  + 1;
-    if ((time & 15) == 0) {
-       rand = rand * 31421 + 6927;
-    }
-    
+    rand  = rand * 31421 + 6927;
+  
     frame = frame + 1;
 $$if not INTERACTIVE then    
     if (frame >= demo_path_len) {

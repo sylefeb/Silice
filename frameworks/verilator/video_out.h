@@ -34,13 +34,7 @@ the distribution, please refer to it for details.
 class VideoOut
 {
     public:
-        typedef struct {
-          uchar Red;
-          uchar Green;
-          uchar Blue;
-          uchar Alpha;
-        } RGBApixel;
-
+    
         // Constructor and destructor
         VideoOut(
           vluint8_t debug, 
@@ -55,7 +49,6 @@ class VideoOut
         vluint16_t get_hcount();
         vluint16_t get_vcount();
     private:
-        RGBApixel yuv2rgb(int lum, int cb, int cr);
         // Color depth
         int        bit_shift;
         vluint8_t  bit_mask;
