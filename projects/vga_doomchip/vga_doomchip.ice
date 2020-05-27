@@ -143,8 +143,8 @@ $$for _,s in ipairs(bspSSectors) do
 $$end
   };
   bram uint40 bsp_ssecs_flats[] = {
-$$for _,s in ipairs(bspSSectors) do
-   $pack_bsp_ssec_flats(s)$,          // lowlight=$s.lowlight$ special=$s.special$ light=$s.light$ c_T=$s.c_T$ f_T=$s.f_T$
+$$for i,s in ipairs(bspSSectors) do
+   $pack_bsp_ssec_flats(s)$,          // $i-1$] lowlight=$s.lowlight$ special=$s.special$ light=$s.light$ c_T=$s.c_T$ f_T=$s.f_T$
 $$end
   };   
   // BRAMs for segments
@@ -487,10 +487,10 @@ $$end
           // light level in sector
           switch (bsp_ssecs_flats.rdata[24,8]) {
             case 1: { // random off
-              if (((rand ^ n) & 7) == 0) {
-                seclight = bsp_ssecs_flats.rdata[32,8];
+              if (((rand^n) & 3) == 0) {
+                seclight = bsp_ssecs_flats.rdata[32,8]; // off (lowlight)
               } else {
-                seclight = bsp_ssecs_flats.rdata[16,8];
+                seclight = bsp_ssecs_flats.rdata[16,8]; // on (sector light)
               }            
             }
             case 2: { // flash fast

@@ -455,7 +455,7 @@ for i,ss in ipairs(ssectors) do
   end
   lowlight = 0
   if lowlights[sidedef.sec] then
-    lowlight = sidedef.sec
+    lowlight = lowlights[sidedef.sec].level
   end
   seclight = parent.light
 --  if lowlight >= seclight 
@@ -476,7 +476,11 @@ for i,ss in ipairs(ssectors) do
     special   = parent.special,
     doorid    = doorid
   }
+  print('sector ' .. sidedef.sec .. ' seclight: ' .. seclight .. ' lowlight:' .. lowlight)
+  print('  ' .. i-1 .. ' ' .. ' seclight: ' .. bspSSectors[i].light .. ' lowlight:' .. bspSSectors[i].lowlight)
 end
+
+error('stop')
 
 for i,sg in ipairs(segs) do
   ldef = lines[1+sg.ldf]
@@ -700,6 +704,5 @@ print('- ' .. #ssectors .. ' sub-sectors')
 print('- ' .. #nodes .. ' nodes')
 print('- ' .. #segs .. ' segs')
 print('- ' .. (num_textures-1) .. ' textures')
--- error('stop')
 
 -- -------------------------------------
