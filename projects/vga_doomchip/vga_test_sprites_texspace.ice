@@ -14,7 +14,7 @@ $$dofile('pre_do_textures.lua')
 $$dofile('pre_do_sprites.lua')
 
 $$texfile_palette = palette_666
-$$COL_MAJOR = 1
+$$ -- COL_MAJOR = 1
 $include('../common/video_sdram_main.ice')
 
 // fixed point precisions
@@ -263,8 +263,8 @@ algorithm frame_drawer(
   uint8    sprt    = 0;
   uint1    mirr    = 0;
 
-  uint24 count = 0;
-  uint5     n = 0;
+  uint23 count = 0;
+  uint5     n  = 0;
   
   uint12    angle  = 3042;
   uint$FPw$ distv  = $4<<FPm$;
@@ -282,6 +282,18 @@ algorithm frame_drawer(
   sd.rw = 1;        // sdram write
 
   fbuffer = 0;
+  
+$$if not SIMULATION then
+    // wait before start
+    n = 1;
+    while (n != 0) {
+      count = 1;
+      while (count != 0) {
+        count = count + 1;
+      }
+      n = n + 1;
+    }
+$$end  
   
   while (1) {
 

@@ -276,19 +276,19 @@ for i = 1,sz/28 do
   local y  = string.unpack('h',in_nodes:read(2)) 
   local dx = string.unpack('h',in_nodes:read(2)) 
   local dy = string.unpack('h',in_nodes:read(2)) 
-  local rby_up = string.unpack('h',in_nodes:read(2)) 
-  local rby_dw = string.unpack('h',in_nodes:read(2)) 
-  local rbx_dw = string.unpack('h',in_nodes:read(2)) 
-  local rbx_up = string.unpack('h',in_nodes:read(2)) 
-  local lby_up = string.unpack('h',in_nodes:read(2)) 
-  local lby_dw = string.unpack('h',in_nodes:read(2)) 
-  local lbx_dw = string.unpack('h',in_nodes:read(2)) 
-  local lbx_up = string.unpack('h',in_nodes:read(2))
+  local rby_hi = string.unpack('h',in_nodes:read(2)) 
+  local rby_lw = string.unpack('h',in_nodes:read(2)) 
+  local rbx_lw = string.unpack('h',in_nodes:read(2)) 
+  local rbx_hi = string.unpack('h',in_nodes:read(2)) 
+  local lby_hi = string.unpack('h',in_nodes:read(2)) 
+  local lby_lw = string.unpack('h',in_nodes:read(2)) 
+  local lbx_lw = string.unpack('h',in_nodes:read(2)) 
+  local lbx_hi = string.unpack('h',in_nodes:read(2))
   local rchild = string.unpack('H',in_nodes:read(2))
   local lchild = string.unpack('H',in_nodes:read(2))
   nodes[i] = {x=x,y=y,dx=dx,dy=dy,
-         rby_up=rby_up,rby_dw=rby_dw,rbx_dw=rbx_dw,rbx_up=rbx_up,
-         lby_up=lby_up,lby_dw=lby_dw,lbx_dw=lbx_dw,lbx_up=lbx_up,
+         rby_hi=rby_hi,rby_lw=rby_lw,rbx_lw=rbx_lw,rbx_hi=rbx_hi,
+         lby_hi=lby_hi,lby_lw=lby_lw,lbx_lw=lbx_lw,lbx_hi=lbx_hi,
          rchild=rchild,lchild=lchild}
 end
 --for _,n in ipairs(nodes) do
@@ -395,6 +395,14 @@ for i,n in ipairs(nodes) do
     dy = n.dy,
     rchild = n.rchild,
     lchild = n.lchild,
+    lbx_hi = n.lbx_hi,
+    lbx_lw = n.lbx_lw,
+    lby_hi = n.lby_hi,
+    lby_lw = n.lby_lw,
+    rbx_hi = n.rbx_hi,
+    rbx_lw = n.rbx_lw,
+    rby_hi = n.rby_hi,
+    rby_lw = n.rby_lw,
   }
 end
 for i,ss in ipairs(ssectors) do
@@ -557,6 +565,20 @@ function pack_bsp_node_children(node)
   bin = '32h' 
         .. string.format("%04x",node.lchild ):sub(-4)
         .. string.format("%04x",node.rchild ):sub(-4)
+  return bin
+end
+
+function pack_bsp_node_children_box(node)
+  local bin = 0
+  bin = '128h' 
+        .. string.format("%04x",node.lby_hi):sub(-4)
+        .. string.format("%04x",node.lby_lw):sub(-4)
+        .. string.format("%04x",node.lbx_hi):sub(-4)
+        .. string.format("%04x",node.lbx_lw):sub(-4)
+        .. string.format("%04x",node.rby_hi):sub(-4)
+        .. string.format("%04x",node.rby_lw):sub(-4)
+        .. string.format("%04x",node.rbx_hi):sub(-4)
+        .. string.format("%04x",node.rbx_lw):sub(-4)
   return bin
 end
 
