@@ -301,7 +301,8 @@ end
 -- read demo path
 demo_path = {}
 if SIMULATION then
-in_path = io.open(findfile('poslog_debug.txt'), 'r')
+-- in_path = io.open(findfile('poslog_debug.txt'), 'r')
+in_path = io.open(findfile('poslog_final.txt'), 'r')
 else
 in_path = io.open(findfile('poslog_final.txt'), 'r')
 end
@@ -371,6 +372,31 @@ end
 --end
 
 -- -------------------------------------
+-- find min light level of neighboring sectors
+lowlights = {}
+for _,ldef in pairs(lines) do
+  sidedef      = sides[1+ldef.right]
+  sec          = sidedef.sec
+  if ldef.left < 65535 then
+    othersidedef = sides[1+ldef.left]
+    osec = othersidedef.sec;
+    if not lowlights[sec] then
+      lowlights[sec] = { level = sectors[1+osec].light }
+    else
+      lowlights[sec].level = math.min(lowlights[sec].level,sectors[1+osec].light)
+    end
+    if not lowlights[osec] then
+      lowlights[osec] = { level = sectors[1+sec].light }
+    else
+      lowlights[osec].level = math.min(lowlights[osec].level,sectors[1+sec].light)
+    end
+  end
+end
+for s,l in pairs(lowlights) do
+  print('sector ' .. s .. ' light: ' .. sectors[1+s].light .. ' lowlight: ' .. l.level)
+end
+
+-- -------------------------------------
 -- prepare custom data structures
 bspNodes    = {}
 bspSSectors = {}
@@ -427,6 +453,16 @@ for i,ss in ipairs(ssectors) do
   else
     c_T = texture_ids[parent.ceilingT]
   end
+  lowlight = 0
+  if lowlights[sidedef.sec] then
+    lowlight = sidedef.sec
+  end
+  seclight = parent.light
+--  if lowlight >= seclight 
+--  and (parent.special == 2 or parent.special == 3 or parent.special == 4) then
+--    print('sector ' .. sidedef.sec .. ' forcing light to zero (seclight: ' .. seclight .. ' lowlight:' .. lowlight .. ')')
+--    seclight = 0
+--  end
   -- store
   bspSSectors[i] = {
     num_segs  = ss.num_segs,
@@ -435,10 +471,13 @@ for i,ss in ipairs(ssectors) do
     c_h       = parent.ceiling,
     f_T       = f_T,
     c_T       = c_T,
-    light     = round(math.min(31,(256 - parent.light)/8)),
+    light     = round(math.min(31,(255 - seclight)/8)),
+    lowlight  = round(math.min(31,(255 - lowlight)/8)),
+    special   = parent.special,
     doorid    = doorid
   }
 end
+
 for i,sg in ipairs(segs) do
   ldef = lines[1+sg.ldf]
   other_sidedef = nil
@@ -595,7 +634,9 @@ end
 
 function pack_bsp_ssec_flats(ssec)
   local bin = 0
-  bin = '24h' 
+  bin = '40h' 
+        .. string.format("%02x",ssec.lowlight):sub(-2)
+        .. string.format("%02x",math.min(255,ssec.special)):sub(-2)
         .. string.format("%02x",ssec.light):sub(-2)
         .. string.format("%02x",ssec.c_T  ):sub(-2)
         .. string.format("%02x",ssec.f_T  ):sub(-2)

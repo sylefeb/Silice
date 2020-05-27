@@ -67,8 +67,7 @@ circuitry bbox_ray(input ray_x,input ray_y,input ray_dx_m,input ray_dy_m,
   }
 }
 
-// Writes a pixel in the framebuffer
-// calls the texture unit
+// Writes a pixel in the framebuffer, calls the texture unit
 circuitry writePixel(
    inout  sd,
    input  fbuffer,
@@ -143,9 +142,9 @@ $$for _,s in ipairs(bspSSectors) do
    $pack_bsp_ssec(s)$,          // doorid=$s.doorid$ c_h=$s.c_h$ f_h=$s.f_h$  start_seg=$s.start_seg$ num_segs=$s.num_segs$
 $$end
   };
-  bram uint24 bsp_ssecs_flats[] = {
+  bram uint40 bsp_ssecs_flats[] = {
 $$for _,s in ipairs(bspSSectors) do
-   $pack_bsp_ssec_flats(s)$,          // light=$s.light$ c_T=$s.c_T$ f_T=$s.f_T$
+   $pack_bsp_ssec_flats(s)$,          // lowlight=$s.lowlight$ special=$s.special$ light=$s.light$ c_T=$s.c_T$ f_T=$s.f_T$
 $$end
   };   
   // BRAMs for segments
@@ -238,6 +237,7 @@ $$end
   int16    viewangle  = $player_start_a$;
   int16    colangle   = 0;
 
+  int16    time     = 0;
   int16    frame    = 0;
   int16    ray_z    = 40;
   int16    target_z = 40;
@@ -307,6 +307,7 @@ $$end
   int16    xoff     = 0;
   int16    yoff     = 0;
   uint8    texid    = 0;
+  uint8    seclight = 0;
   int$FPw$ light    = 0;
   int$FPw$ atten    = 0;
    
@@ -320,10 +321,10 @@ $$end
  
   uint16   rchild    = 0;
   uint16   lchild    = 0;
-  uint16   bbox_x_lw = 0;
-  uint16   bbox_x_hi = 0;
-  uint16   bbox_y_lw = 0;
-  uint16   bbox_y_hi = 0;
+  int16    bbox_x_lw = 0;
+  int16    bbox_x_hi = 0;
+  int16    bbox_y_lw = 0;
+  int16    bbox_y_hi = 0;
   uint1    couldhit  = 0;
 
   int10    top = 200;
@@ -339,12 +340,15 @@ $$end
   
   uint1    viewsector = 1;
   uint1    walkable   = 1;
+  uint1    onesided   = 1;
   uint1    colliding  = 0;
   uint8    ondoor     = 0;
   uint1    doorseg    = 0;
   
   uint16   kpressed   = 0;
   uint6    kdoorblind = 0;
+  
+  uint12   rand = 0;
 
 $$if DE10NANO then
   keypad     kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
@@ -398,11 +402,7 @@ $$end
 
     // ----------------------------------------------
     // raycast columns
-    c = 0;
-    viewsector = 1;
-    colliding  = 0;
-    ondoor     = 0;
-    
+    c = 0;    
     while (c < 320) { 
       
       coltoalpha.addr = c;
@@ -445,6 +445,7 @@ $$end
           ldx = bsp_nodes_coords.rdata[32,16];
           ldy = bsp_nodes_coords.rdata[48,16];
           
+          couldhit = 0;
           // which side are we on?
           dx   = ray_x - lx;
           dy   = ray_y - ly;
@@ -475,13 +476,62 @@ $$end
               queue[queue_ptr+1] = bsp_nodes_children.rdata[ 0,16];          
             }
           }
-          queue_ptr = queue_ptr + 2;    
+          queue_ptr = queue_ptr + 1 + couldhit;
           
         } else {
           
           // sub-sector reached
           bsp_ssecs      .addr = n[0,14];
           bsp_ssecs_flats.addr = n[0,14];
+++:          
+          // light level in sector
+          switch (bsp_ssecs_flats.rdata[24,8]) {
+            case 1: { // random off
+              if (((rand ^ n) & 7) == 0) {
+                seclight = bsp_ssecs_flats.rdata[32,8];
+              } else {
+                seclight = bsp_ssecs_flats.rdata[16,8];
+              }            
+            }
+            case 2: { // flash fast
+              if ( (((time^n)>>4)&3) == 0 ) {
+                seclight = bsp_ssecs_flats.rdata[16,8];
+              } else {
+                seclight = bsp_ssecs_flats.rdata[32,8];
+              }            
+            }
+            case 3: { // flash slow
+              if ( (((time^n)>>5)&3) == 0 ) {
+                seclight = bsp_ssecs_flats.rdata[16,8];
+              } else {
+                seclight = bsp_ssecs_flats.rdata[32,8];
+              }            
+            }
+            case 12: { // flash fast
+              if ( (((time)>>4)&3) == 0 ) {
+                seclight = bsp_ssecs_flats.rdata[16,8];
+              } else {
+                seclight = bsp_ssecs_flats.rdata[32,8];
+              }            
+            }
+            case 13: { // flash slow
+              if ( (((time)>>5)&3) == 0 ) {
+                seclight = bsp_ssecs_flats.rdata[16,8];
+              } else {
+                seclight = bsp_ssecs_flats.rdata[32,8];
+              }            
+            }
+            case 8: { // oscillates (to improve)
+              if ( (((time+n)>>5)&1) == 0) {
+                seclight = bsp_ssecs_flats.rdata[32,8];
+              } else {
+                seclight = bsp_ssecs_flats.rdata[16,8];
+              }            
+            }
+            default: {
+              seclight = bsp_ssecs_flats.rdata[16,8];
+            }
+          }
           
           // render column segments
           s = 0;
@@ -595,7 +645,7 @@ $$end
                   } else {
                     atten = tmp2_m;
                   }                  
-                  tmp1_m = (bsp_ssecs_flats.rdata[16,8]) + atten;
+                  tmp1_m = seclight + atten;
                   if (tmp1_m > 31) {
                     light = 31;
                   } else { if (tmp1_m>=0){
@@ -630,7 +680,7 @@ $$end
                     } else {
                       atten = tmp2_m;
                     }                  
-                    tmp1_m = (bsp_ssecs_flats.rdata[16,8]) + atten;
+                    tmp1_m = seclight + atten;
                     if (tmp1_m > 31) {
                       light = 31;
                     } else { if (tmp1_m>=0){
@@ -659,7 +709,7 @@ $$end
                 } else {
                   atten = tmp2_m;
                 }                  
-                tmp1_m = (bsp_ssecs_flats.rdata[16,8]) + atten;
+                tmp1_m = seclight + atten;
                 if (tmp1_m > 31) {
                   light = 31;
                 } else { if (tmp1_m>=0){
@@ -693,7 +743,7 @@ $$end
                   while (j >= btm) {
                     (tc_v) = to_tex_v(tex_v);
                     tmp_u  = tc_u;
-                    tmp_v  = tc_v+yoff;
+                    tmp_v  = tc_v + yoff;
                     (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                     j      = j - 1;
                     tex_v  = tex_v - d_h;
@@ -731,7 +781,7 @@ $$end
                   while (j <= top) {
                     (tc_v) = to_tex_v(tex_v);
                     tmp_u  = tc_u;
-                    tmp_v  = tc_v+yoff;
+                    tmp_v  = tc_v + yoff;
                     (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                     j      = j + 1;
                     tex_v  = tex_v + d_h;
@@ -747,7 +797,7 @@ $$end
                   while (j <= c_h) {
                     (tc_v) = to_tex_v(tex_v);
                     tmp_u  = tc_u;
-                    tmp_v  = tc_v+yoff;
+                    tmp_v  = tc_v + yoff;
                     (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                     j      = j + 1;   
                     tex_v  = tex_v + d_h;
@@ -774,6 +824,8 @@ $$end
     // TODO: detect doors from further away
 $$if INTERACTIVE then    
     viewsector = 1;
+    colliding  = 0;  
+    ondoor     = 0;    
     // init recursion
     queue[queue_ptr] = $root$;
     queue_ptr  = 1;
@@ -817,13 +869,14 @@ $$if INTERACTIVE then
 ++:
           // prepare door data, for other sector ceiling (if any)
           bsp_doors.addr            = bsp_segs_tex_height.rdata[56,8];
+++:          
           // determine the type of segment (can we walk across, is it a door?)
           walkable = 1;
           doorseg  = 0;
+          onesided = 0;
           if (bsp_segs_tex_height.rdata[40,8] != 0) { // opaque wall
-            if (d_h < 0) { // only stop if distance is negative (one-sided collision check)
-              walkable = 0;
-            }
+            walkable = 0;
+            onesided = 1;
           } else { // here we assume all walls without a middle section are two sided
             // other sector floor height
             tmp1      = bsp_segs_tex_height.rdata[0,16];
@@ -838,7 +891,7 @@ $$if INTERACTIVE then
               walkable = 0;
             }
           }
-          if ((! walkable) || ondoor) {
+          if ((walkable == 0) || (doorseg == 1)) {
             // segment endpoints
             v0x = bsp_segs_coords.rdata[ 0,16];
             v0y = bsp_segs_coords.rdata[16,16];
@@ -857,39 +910,41 @@ $$if INTERACTIVE then
             l_h    = ldx * d0x + ldy * d0y;
             d_h    = ndx * d0x + ndy * d0y;
   ++:           
-            if (d_h < 0) {
-              tmp1_h = - d_h;
-            } else {
-              tmp1_h = d_h;
-            }
-            tmp2_h = (bsp_segs_texmapping.rdata[ 0,16] << 4) + (bsp_segs_texmapping.rdata[ 0,16] << 1); // seglen * (16 + 2)
-            tmp3_h = bsp_segs_texmapping.rdata[48,16] << 5; // segsqlen
-            // close to door seg?
-            if (doorseg) {
-              if (((tmp1_h>>1/*detect from further away*/) < tmp2_h) && (l_h > 0) && l_h < (tmp3_h)) {
-                ondoor  = bsp_doors.addr;
+            if (onesided == 0 || d_h < 0) { // one sided only stops if d_h < 0
+              if (d_h < 0) {
+                tmp1_h = - d_h;
+              } else {
+                tmp1_h = d_h;
               }
-            }
-            // close to the wall?
-            if ( (tmp1_h < tmp2_h) && (l_h > - tmp2_h) && l_h < (tmp3_h + tmp2_h) ) { 
-              if (walkable == 0) {
-                colliding = 1;
-                // decollision,  pos = pos + (d.n) * n
-  ++:  // relax timing
-                if (d_h < 0) {
-                  num    =  - ((tmp2_h - tmp1_h) << $FPm$);
-                } else {
-                  num    =    ((tmp2_h - tmp1_h) << $FPm$);
+              tmp2_h = (bsp_segs_texmapping.rdata[ 0,16] << 4) + (bsp_segs_texmapping.rdata[ 0,16] << 1); // seglen * (16 + 2)
+              tmp3_h = bsp_segs_texmapping.rdata[48,16] << 5; // segsqlen
+              // close to door seg?
+              if (doorseg == 1) {
+                if (((tmp1_h>>2/*detect from further away*/) < tmp2_h) && (l_h > 0) && l_h < (tmp3_h)) {
+                  ondoor  = bsp_doors.addr;
                 }
-                den    = bsp_segs_texmapping.rdata[0,16];                  
-  ++:  // relax timing
-                (tmp1_h) <- divl <- (num,den);
-                num    = tmp1_h * ndx;
-                (tmp2_h) <- divl <- (num,den);
-                col_rx = col_rx + (tmp2_h >>> $FPm$);
-                num    = tmp1_h * ndy;
-                (tmp2_h) <- divl <- (num,den);
-                col_ry = col_ry + (tmp2_h >>> $FPm$);
+              }
+              if (walkable == 0) {
+                // close to the wall?
+                if ( (tmp1_h < tmp2_h) && (l_h > - tmp2_h) && l_h < (tmp3_h + tmp2_h) ) { 
+                  colliding = 1;
+                  // decollision,  pos = pos + (d.n) * n
+    ++:  // relax timing
+                  if (d_h < 0) {
+                    num    =  - ((tmp2_h - tmp1_h) << $FPm$);
+                  } else {
+                    num    =    ((tmp2_h - tmp1_h) << $FPm$);
+                  }
+                  den    = bsp_segs_texmapping.rdata[0,16];                  
+    ++:  // relax timing
+                  (tmp1_h) <- divl <- (num,den);
+                  num    = tmp1_h * ndx;
+                  (tmp2_h) <- divl <- (num,den);
+                  col_rx = col_rx + (tmp2_h >>> $FPm$);
+                  num    = tmp1_h * ndy;
+                  (tmp2_h) <- divl <- (num,den);
+                  col_ry = col_ry + (tmp2_h >>> $FPm$);
+                }
               }
             }
           }
@@ -948,6 +1003,11 @@ $$end
     
     // ----------------------------------------------
     // prepare next frame
+    
+    time  = time  + 1;
+    if ((time & 15) == 0) {
+       rand = rand * 31421 + 6927;
+    }
     
     frame = frame + 1;
 $$if not INTERACTIVE then    
