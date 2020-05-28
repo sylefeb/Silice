@@ -9,7 +9,7 @@ function fsize(file)
   return size
 end
 
-lump_list = {
+lump_pre_list = {
 'COLORMAP',
 'PLAYPAL',
 'LINEDEFS',
@@ -23,9 +23,9 @@ lump_list = {
 }
 
 -- -------------------------------------
+
 local in_wad = assert(io.open(findfile(wad), 'rb'))
 local sz_wad = fsize(in_wad)
-print('WAD file is ' .. sz_wad .. ' bytes')
 
 local id = string.unpack('c4',in_wad:read(4))
 if id ~= 'IWAD' and  id ~= 'PWAD' then
@@ -33,19 +33,46 @@ if id ~= 'IWAD' and  id ~= 'PWAD' then
 end
 
 local nlumps = string.unpack('I4',in_wad:read(4))
-print(' - ' .. nlumps .. ' lumps')
+print('WAD file contains ' .. nlumps .. ' lumps')
 
 local diroffs = string.unpack('I4',in_wad:read(4))
 -- read directory
 in_wad:seek("set", diroffs)
 lumps={}
 for l=1,nlumps do
-  local seek = string.unpack('I4',in_wad:read(4))
-  local size = string.unpack('I4',in_wad:read(4))
-  local name = string.unpack('c8',in_wad:read(8)):match("[%_-%a%d]+")
-  print(' - lump ' .. name .. ' [' .. seek .. '] ' .. size)
+  local start = string.unpack('I4',in_wad:read(4))
+  local size  = string.unpack('I4',in_wad:read(4))
+  local name  = string.unpack('c8',in_wad:read(8)):match("[%_-%a%d]+")
+  lumps[name] = { start=start, size=size }
+--  print(' - lump "' .. name .. '" [' .. start .. '] ' .. size)
 end
 
 in_wad:close()
 
--- error('stop')
+-- -------------------------------------
+-- extracts a lump
+function extract_lump(name)
+  name = name:upper()
+  -- get script path
+  local path,_1,_2 = string.match(findfile('vga_doomchip.ice'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+  -- open wad
+  local in_wad = assert(io.open(findfile(wad), 'rb'))
+  print('extracting lump ' .. name)
+  if lumps[name] then
+    in_wad:seek("set", lumps[name].start)
+    local data = in_wad:read(lumps[name].size)
+    local out_lump = assert(io.open(path .. '/lumps/' .. name .. '.lump', 'wb'))
+    out_lump:write(data)
+    out_lump:close()
+  else
+    error('lump ' .. name .. ' not found!')
+  end
+  in_wad:close()
+end
+
+-- -------------------------------------
+-- extract some lumps right away
+for _,lmp in pairs(lump_pre_list) do
+  extract_lump(lmp)
+end
+

@@ -82,7 +82,7 @@ end
 -- -------------------------------------
 -- read vertices
 verts = {}
-local in_verts = assert(io.open(findfile('VERTEXES'), 'rb'))
+local in_verts = assert(io.open(findfile('lumps/VERTEXES.lump'), 'rb'))
 local sz = fsize(in_verts)
 print('vertex file is ' .. sz .. ' bytes')
 for i = 1,sz/4 do
@@ -95,7 +95,7 @@ end
 -- read sidedefs, also gather textures
 sides = {}
 textures = {}
-local in_sides = assert(io.open(findfile('SIDEDEFS'), 'rb'))
+local in_sides = assert(io.open(findfile('lumps/SIDEDEFS.lump'), 'rb'))
 local sz = fsize(in_sides)
 print('sidedefs file is ' .. sz .. ' bytes')
 for i = 1,sz/30 do
@@ -129,7 +129,7 @@ end
 -- -------------------------------------
 -- read sectors
 sectors = {}
-local in_sectors = assert(io.open(findfile('SECTORS'), 'rb'))
+local in_sectors = assert(io.open(findfile('lumps/SECTORS.lump'), 'rb'))
 local sz = fsize(in_sectors)
 print('sectors file is ' .. sz .. ' bytes')
 for i = 1,sz/26 do
@@ -200,7 +200,7 @@ end
 -- -------------------------------------
 -- read linedefs
 lines = {}
-local in_lines = assert(io.open(findfile('LINEDEFS'), 'rb'))
+local in_lines = assert(io.open(findfile('lumps/LINEDEFS.lump'), 'rb'))
 local sz = fsize(in_lines)
 print('linedefs file is ' .. sz .. ' bytes')
 for i = 1,sz/14 do
@@ -220,7 +220,7 @@ end
 -- -------------------------------------
 -- read segs
 segs = {}
-local in_segs = assert(io.open(findfile('SEGS'), 'rb'))
+local in_segs = assert(io.open(findfile('lumps/SEGS.lump'), 'rb'))
 local sz = fsize(in_segs)
 local maxseglen = 0.0
 print('segs file is ' .. sz .. ' bytes')
@@ -252,7 +252,7 @@ end
 -- -------------------------------------
 -- read ssectors
 ssectors = {}
-local in_ssectors = assert(io.open(findfile('SSECTORS'), 'rb'))
+local in_ssectors = assert(io.open(findfile('lumps/SSECTORS.lump'), 'rb'))
 local sz = fsize(in_ssectors)
 print('ssectors file is ' .. sz .. ' bytes')
 for i = 1,sz/4 do
@@ -267,7 +267,7 @@ end
 -- -------------------------------------
 -- read nodes
 nodes = {}
-local in_nodes = assert(io.open(findfile('NODES'), 'rb'))
+local in_nodes = assert(io.open(findfile('lumps/NODES.lump'), 'rb'))
 local sz = fsize(in_nodes)
 print('nodes file is ' .. sz .. ' bytes')
 root = sz//28-1
@@ -576,7 +576,7 @@ end
 
 -- -------------------------------------
 -- things (player start, monsters)
-local in_things = assert(io.open(findfile('THINGS'), 'rb'))
+local in_things = assert(io.open(findfile('lumps/THINGS.lump'), 'rb'))
 local sz = fsize(in_things)
 print('things file is ' .. sz .. ' bytes')
 nthings = 0

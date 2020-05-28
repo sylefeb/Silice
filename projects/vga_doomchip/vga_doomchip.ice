@@ -610,6 +610,7 @@ $$end
                   sec_f_h_m = - ((f_h - top) * d_h) <<< 4; // offset texturing
                   f_h       = top;
                 } }
+++:                
                 sec_c_h_m = 0;
                 if (btm > c_h) {
                   sec_c_h_m = ((btm - c_h) * d_h) <<< 4; // offset texturing
@@ -733,6 +734,7 @@ $$end
                     sec_f_o_m = ((f_o - top) * d_h) <<< 4; // offset texturing
                     f_o       = top;
                   } }
+++:
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
                     // normal
                     tex_v   = (sec_f_o_m);

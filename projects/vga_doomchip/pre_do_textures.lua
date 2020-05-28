@@ -53,9 +53,15 @@ function update_palette(img,pal)
   return img
 end
 
+function decode_img_lump(name)
+  -- open lump file
+  ------------------------------- TODO TODO TODO
+  
+end
+
 -- -------------------------------------
 -- colormap
-local in_clrmap = assert(io.open(findfile('COLORMAP'), 'rb'))
+local in_clrmap = assert(io.open(findfile('lumps/COLORMAP.lump'), 'rb'))
 local sz = fsize(in_clrmap)
 print('colormap file is ' .. sz .. ' bytes')
 colormaps={}
@@ -71,7 +77,7 @@ end
 -- -------------------------------------
 -- palette
 
-local in_pal = assert(io.open(findfile('PLAYPAL'), 'rb'))
+local in_pal = assert(io.open(findfile('lumps/PLAYPAL.lump'), 'rb'))
 local sz = fsize(in_pal)
 print('palette file is ' .. sz .. ' bytes')
 palette={}
@@ -91,11 +97,11 @@ in_pal:close()
 
 -- -------------------------------------
 -- get script path
-path,_1,_2 = string.match(findfile('textures.txt'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+path,_1,_2 = string.match(findfile('vga_doomchip.ice'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
 
 -- -------------------------------------
 -- parse texture defs
-local in_texdefs = assert(io.open(findfile('textures.txt'), 'r'))
+local in_texdefs = assert(io.open(findfile('textures/textures.txt'), 'r'))
 num_tex_defs = 0
 current = nil
 texpatches = {}
@@ -146,6 +152,7 @@ for line in in_texdefs:lines() do
         else
           texpatches[pname] = 1
         end
+        extract_lump(pname)
         print('   loading textures/source/' .. pname .. '.tga')
         local pimg = get_image_as_table(path .. 'textures/source/' .. pname .. '.tga')
         local ppal = get_palette_as_table(path .. 'textures/source/' .. pname .. '.tga')
@@ -371,3 +378,5 @@ texturechip = code:read("*all")
 code:close()
 
 print('stored ' .. texture_start_addr .. ' texture bytes\n')
+
+-- error('stop')
