@@ -12,9 +12,27 @@ end
 -- -------------------------------------
 local in_wad = assert(io.open(findfile(wad), 'rb'))
 local sz_wad = fsize(in_wad)
-print('WAD file is ' .. sz .. ' bytes')
+print('WAD file is ' .. sz_wad .. ' bytes')
 
-local id = string.unpack('h',in_verts:read(4))
-if (id[0] ~= 'I' and id[0] ~= 'P') or  id[0] ~= 'I' or id[0] ~= 'I' or id[0] ~= 'I' then
+local id = string.unpack('c4',in_wad:read(4))
+if id ~= 'IWAD' and  id ~= 'PWAD' then
   error('not a WAD file')
 end
+
+local nlumps = string.unpack('I4',in_wad:read(4))
+print(' - ' .. nlumps .. ' lumps')
+
+local diroffs = string.unpack('I4',in_wad:read(4))
+-- read directory
+in_wad:seek("set", diroffs)
+lumps={}
+for l=1,nlumps do
+  local seek = string.unpack('I4',in_wad:read(4))
+  local size = string.unpack('I4',in_wad:read(4))
+  local name = string.unpack('c8',in_wad:read(8)):match("[%_-%a%d]+")
+  print(' - lump ' .. name .. ' [' .. seek .. '] ' .. size)
+end
+
+in_wad:close()
+
+error('stop')
