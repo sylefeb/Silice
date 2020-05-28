@@ -288,10 +288,10 @@ $$end
   int16    sec_c_h  = 0;
   int16    sec_f_o  = 0;
   int16    sec_c_o  = 0;
-  int$FPw$ sec_f_h_m = 0;
-  int$FPw$ sec_c_h_m = 0;
-  int$FPw$ sec_f_o_m = 0;
-  int$FPw$ sec_c_o_m = 0;
+  int$FPw$ sec_f_h_w = 0;
+  int$FPw$ sec_c_h_w = 0;
+  int$FPw$ sec_f_o_w = 0;
+  int$FPw$ sec_c_o_w = 0;
   int$FPw$ f_h      = 0;
   int$FPw$ c_h      = 0;
   int$FPw$ f_o      = 0;
@@ -571,7 +571,7 @@ $$end
               mula   = (y0_h - y1_h);
               mulb   = interp_m;
               (mulr) <- mull <- (mula,mulb);
-              d_h    = y0_h + (mulr >>> $FPm$);              
+              d_h    = y0_h + (mulr >>> $FPm$);
 ++:
               if (d_h > $1<<(FPm+1)$) { // check distance sign, with margin to stay away from 0
 
@@ -582,7 +582,7 @@ $$end
 ++:
                 // -> compute inverse distance
                 (invd_h) <- divl <- (num,den); // (2^(FPw-2)) / d
-                d_h     = den >>> $FPw-1$; // record corrected distance for tex. mapping
+                d_h     = den >>> $FPm+4$; // record corrected distance for tex. mapping
                 // -> get floor/ceiling heights 
                 // NOTE: signed, so always read in same width!
                 tmp1    = bsp_ssecs.rdata[24,16]; // floor height 
@@ -602,21 +602,21 @@ $$end
                 (c_h) = to_h(tmp2_h);
 ++:
                 // clamp to top/bottom, shift for texturing
-                sec_f_h_m = -1;
+                sec_f_h_w = -1;
                 if (btm > f_h) {
-                  sec_f_h_m = - ((btm - f_h) * d_h); // offset texturing
+                  sec_f_h_w = - ((btm - f_h) * d_h); // offset texturing
                   f_h       = btm;
                 } else { if (top < f_h) {
-                  sec_f_h_m = - ((f_h - top) * d_h); // offset texturing
+                  sec_f_h_w = - ((f_h - top) * d_h); // offset texturing
                   f_h       = top;
                 } }
 ++:                
-                sec_c_h_m = 0;
+                sec_c_h_w = 0;
                 if (btm > c_h) {
-                  sec_c_h_m = ((btm - c_h) * d_h); // offset texturing
+                  sec_c_h_w = ((btm - c_h) * d_h); // offset texturing
                   c_h       = btm;
                 } else { if (top < c_h) {
-                  sec_c_h_m = ((c_h - top) * d_h); // offset texturing
+                  sec_c_h_w = ((c_h - top) * d_h); // offset texturing
                   c_h       = top;
                 } }
                 
@@ -700,7 +700,7 @@ $$end
                 tc_u   = ((bsp_segs_texmapping.rdata[0,16] * interp_m) >> $FPm$) + xoff;
 
                 // light
-                tmp2_m = (d_h>>4) - 15;
+                tmp2_m = (d_h>>$FPm-1$) - 15;
                 if (tmp2_m > 7) {
                   atten = 7;
                 } else {
@@ -725,26 +725,26 @@ $$end
 ++:
                   tmp1_h    = (sec_f_o * invd_h);
 ++:
-                  sec_f_o_m = 0;
+                  sec_f_o_w = 0;
                   (f_o)     = to_h(tmp1_h);
                   if (btm > f_o) {
-                    sec_f_o_m = ((btm - f_o) * d_h); // offset texturing
+                    sec_f_o_w = ((btm - f_o) * d_h); // offset texturing
                     f_o       = btm;
                   } else { if (top < f_o) {
-                    sec_f_o_m = ((f_o - top) * d_h); // offset texturing
+                    sec_f_o_w = ((f_o - top) * d_h); // offset texturing
                     f_o       = top;
                   } }
 ++:
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
                     // normal
-                    tex_v   = (sec_f_o_m);
+                    tex_v   = (sec_f_o_w);
                   } else {
                     // lower unpegged                   
-                    tex_v   = (sec_c_h_m) + ((c_h - f_o) * d_h);
+                    tex_v   = (sec_c_h_w) + ((c_h - f_o) * d_h);
                   }
                   j       = f_o;
                   while (j >= btm) {
-                    tc_v   = tex_v >> 8;
+                    tc_v   = tex_v >> $FPm-1+4$;
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
                     (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
@@ -770,19 +770,19 @@ $$end
 ++:
                   if (bsp_segs_texmapping.rdata[65,1] == 0) {
                     // normal
-                    sec_c_o_m = -1;
+                    sec_c_o_w = -1;
                     (c_o)     = to_h(tmp1_h);
                     if (btm > c_o) {
-                      sec_c_o_m = - ((btm - c_o) * d_h); // offset texturing
+                      sec_c_o_w = - ((btm - c_o) * d_h); // offset texturing
                       c_o       = btm;
                     } else { if (top < c_o) {
-                      sec_c_o_m = - ((c_o - top) * d_h); // offset texturing
+                      sec_c_o_w = - ((c_o - top) * d_h); // offset texturing
                       c_o       = top;
                     } }
-                    tex_v   = (sec_c_o_m);
+                    tex_v   = (sec_c_o_w);
                     j       = c_o;
                     while (j <= top) {
-                      tc_v   = tex_v >>> 8;
+                      tc_v   = tex_v >>> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
@@ -798,10 +798,10 @@ $$end
                     } else { if (top < c_o) {
                       c_o       = top;
                     } }
-                    tex_v   = (sec_c_h_m);
+                    tex_v   = (sec_c_h_w);
                     j       = top;
                     while (j >= c_o) {
-                      tc_v   = tex_v >>> 8;
+                      tc_v   = tex_v >>> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
@@ -817,10 +817,10 @@ $$end
                   texid   = bsp_segs_tex_height.rdata[40,8];
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
                     // normal
-                    tex_v   = (sec_c_h_m);
+                    tex_v   = (sec_c_h_w);
                     j       = c_h;
                     while (j >= f_h) {
-                      tc_v   = tex_v >> 8;
+                      tc_v   = tex_v >> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
@@ -829,10 +829,10 @@ $$end
                     }
                   } else {
                     // lower unpegged
-                    tex_v   = (sec_f_h_m);
+                    tex_v   = (sec_f_h_w);
                     j       = f_h;
                     while (j <= c_h) {
-                      tc_v   = tex_v >> 8;
+                      tc_v   = tex_v >> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
