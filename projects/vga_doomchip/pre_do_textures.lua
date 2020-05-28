@@ -5,7 +5,7 @@ USE_BRAM = false -- RAM or ROM
 SHRINK   = 1 -- 0 is original res, 1 half, 2 a quarter
 else
 USE_BRAM = false -- RAM or ROM
-SHRINK   = 0 -- 0 is original res, 1 half, 2 a quarter
+SHRINK   = 2 -- 0 is original res, 1 half, 2 a quarter
              -- synthesis is much fast at a quarter res, recommanded for testing
 end
 
@@ -188,16 +188,17 @@ print('generating texture chip code')
 local code = assert(io.open(path .. 'texturechip.ice', 'w'))
 code:write([[algorithm texturechip(
   input  uint8 texid,
-  input  uint8 iiu,
-  input  uint8 iiv,
+  input  int9  iiu,
+  input  int9  iiv,
   input  uint5 light,
   output uint8 palidx) {
   ]])
 -- build bram and texture start address table
 code:write('  uint8  u    = 0;\n')
 code:write('  uint8  v    = 0;\n')
-code:write('  uint8  iu   = 0;\n')
-code:write('  uint8  iv   = 0;\n')
+code:write('  int9   iu   = 0;\n')
+code:write('  int9   iv   = 0;\n')
+code:write('  int9   nv   = 0;\n')
 code:write('  uint16 lit  = 0;\n')
 code:write('  brom   uint8 colormap[] = {\n')
 for _,cmap in ipairs(colormaps) do
@@ -254,14 +255,14 @@ end
 
 -- addressing
 if SHRINK == 3 then
-  code:write('  iu = iiu>>3;\n')
-  code:write('  iv = iiv>>3;\n')
+  code:write('  iu = iiu>>>3;\n')
+  code:write('  iv = iiv>>>3;\n')
 elseif SHRINK == 2 then
-  code:write('  iu = iiu>>2;\n')
-  code:write('  iv = iiv>>2;\n')
+  code:write('  iu = iiu>>>2;\n')
+  code:write('  iv = iiv>>>2;\n')
 elseif SHRINK == 1 then
-  code:write('  iu = iiu>>1;\n')
-  code:write('  iv = iiv>>1;\n')
+  code:write('  iu = iiu>>>1;\n')
+  code:write('  iv = iiv>>>1;\n')
 else
   code:write('  iu = iiu;\n')
   code:write('  iv = iiv;\n')
@@ -299,20 +300,23 @@ for tex,id in pairs(texture_ids) do
     code:write('       }\n')
     code:write('     }\n')
   end
+  code:write('     if (iv > 0) { nv = iv; } else { nv = ' .. texh ..  ' + iv; } \n')
   if not texh_perfect then
-    code:write('     if (iv > ' .. (3*texh) ..') {\n')
-    code:write('       v = iv - ' .. (3*texh) .. ';\n')
+    code:write('     if (nv > ' .. (3*texh) ..') {\n')
+    code:write('       v = nv - ' .. (3*texh) .. ';\n')
     code:write('     } else {\n')
-    code:write('       if (iv > ' .. (2*texh) ..') {\n')
-    code:write('         v = iv - ' .. (2*texh) .. ';\n')
+    code:write('       if (nv > ' .. (2*texh) ..') {\n')
+    code:write('         v = nv - ' .. (2*texh) .. ';\n')
     code:write('       } else {\n')
-    code:write('         if (iv > ' .. (texh) ..') {\n')
-    code:write('           v = iv - ' .. (texh) .. ';\n')
+    code:write('         if (nv > ' .. (texh) ..') {\n')
+    code:write('           v = nv - ' .. (texh) .. ';\n')
     code:write('         } else {\n')
-    code:write('           v = iv;\n')
+    code:write('           v = nv;\n')
     code:write('         }\n')
     code:write('       }\n')
     code:write('     }\n')
+  else
+    code:write('     v = nv; \n')
   end
   if ALL_IN_ONE then
     code:write('       textures.addr = ' .. texture_start_addr_table[tex] .. ' + ')
@@ -325,7 +329,7 @@ for tex,id in pairs(texture_ids) do
     code:write(' (u)')
   end
   if texh_perfect then
-    code:write(' + ((iv&' .. ((1<<texh_pow2)-1) .. ')')
+    code:write(' + ((v&' .. ((1<<texh_pow2)-1) .. ')')
   else
     code:write(' + ((v)')
   end
