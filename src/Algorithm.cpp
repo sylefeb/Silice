@@ -545,6 +545,11 @@ void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nf
 
 void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub)
 {
+  // check for duplicates
+  if (!isIdentifierAvailable(decl->IDENTIFIER()->getText())) {
+    reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "variable '%s': this name is already used by a prior declaration", decl->IDENTIFIER()->getText().c_str());
+  }
+  // gather variable
   t_var_nfo var;
   gatherVarNfo(decl,var);
   addVar(var, sub, (int)decl->getStart()->getLine());
@@ -599,6 +604,11 @@ void Algorithm::readInitList(D* decl,T& var)
 
 void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_subroutine_nfo* sub)
 {
+  // check for duplicates
+  if (!isIdentifierAvailable(decl->IDENTIFIER()->getText())) {
+    reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "table '%s': this name is already used by a prior declaration", decl->IDENTIFIER()->getText().c_str());
+  }
+  // gather table
   t_var_nfo var;
   if (sub == nullptr) {
     var.name = decl->IDENTIFIER()->getText();
@@ -664,6 +674,10 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
 {
   if (sub != nullptr) {
     reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "subroutine '%s': a memory cannot be instanced within a subroutine", sub->name.c_str());
+  }
+  // check for duplicates
+  if (!isIdentifierAvailable(decl->IDENTIFIER()->getText())) {
+    reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "memory '%s': this name is already used by a prior declaration", decl->IDENTIFIER()->getText().c_str());
   }
   // gather memory nfo
   t_mem_nfo mem;
@@ -789,6 +803,11 @@ void Algorithm::getBindings(
 
 void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_subroutine_nfo* sub)
 {
+  // check for duplicates
+  if (!isIdentifierAvailable(grp->name->getText())) {
+    reportError(grp->getSourceInterval(), (int)grp->getStart()->getLine(), "group '%s': this name is already used by a prior declaration", grp->name->getText().c_str());
+  }
+  // gather
   auto G = m_KnownGroups.find(grp->modalg->getText());
   if (G != m_KnownGroups.end()) {
     m_VIOGroups.insert(make_pair(grp->name->getText(), G->second));
@@ -806,10 +825,15 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
 // -------------------------------------------------
 
 void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, const t_subroutine_nfo* sub)
-{
+{  
   if (sub != nullptr) {
-    reportError(alg->getSourceInterval(), (int)alg->name->getLine(), "subroutine '%s': algorithms cannot be instanced within subroutines", sub->name.c_str());
+    reportError(alg->getSourceInterval(), (int)alg->name->getLine(), "subroutine '%s': algorithms cannot be instanced within subroutines", sub->name.c_str()); 
   }
+  // check for duplicates
+  if (!isIdentifierAvailable(alg->name->getText())) {
+    reportError(alg->getSourceInterval(), (int)alg->getStart()->getLine(), "algorithm instance '%s': this name is already used by a prior declaration", alg->name->getText().c_str());
+  }
+  // gather
   t_algo_nfo nfo;
   nfo.algo_name      = alg->modalg->getText();
   nfo.instance_name  = alg->name->getText();
@@ -845,6 +869,11 @@ void Algorithm::gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContex
   if (sub != nullptr) {
     reportError(mod->name,(int)mod->name->getLine(),"subroutine '%s': modules cannot be instanced within subroutines", sub->name.c_str());
   }
+  // check for duplicates
+  if (!isIdentifierAvailable(mod->name->getText())) {
+    reportError(mod->getSourceInterval(), (int)mod->getStart()->getLine(), "module instance '%s': this name is already used by a prior declaration", mod->name->getText().c_str());
+  }
+  // gather
   t_module_nfo nfo;
   nfo.module_name = mod->modalg->getText();
   nfo.instance_name = mod->name->getText();
@@ -1133,6 +1162,34 @@ int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decll
 
 // -------------------------------------------------
 
+bool Algorithm::isIdentifierAvailable(std::string name) const
+{
+  if (m_Subroutines.count(name) > 0) {
+    return false;
+  }
+  if (m_InstancedAlgorithms.count(name) > 0) {
+    return false;
+  }
+  if (m_VarNames.count(name) > 0) {
+    return false;
+  }
+  if (m_InputNames.count(name) > 0) {
+    return false;
+  }
+  if (m_OutputNames.count(name) > 0) {
+    return false;
+  }
+  if (m_InOutNames.count(name) > 0) {
+    return false;
+  }
+  if (m_MemoryNames.count(name) > 0) {
+    return false;
+  }
+  return true;
+}
+
+// -------------------------------------------------
+
 Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context)
 {
   sl_assert(_current->context.subroutine == nullptr);
@@ -1141,11 +1198,8 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   // subroutine name
   nfo->name = sub->IDENTIFIER()->getText();
   // check for duplicates
-  if (m_Subroutines.count(nfo->name) > 0) {
-    reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': a subroutine of the same name is already declared", nfo->name.c_str());
-  }
-  if (m_InstancedAlgorithms.count(nfo->name) > 0) {
-    reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': an instanced algorithm of the same name is already declared", nfo->name.c_str());
+  if (!isIdentifierAvailable(nfo->name)) {
+    reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': this name is already used by a prior declaration", nfo->name.c_str());
   }
   // subroutine local declarations
   int numdecl = gatherDeclarationList(sub->declarationList(), nfo);

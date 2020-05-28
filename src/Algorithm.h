@@ -548,6 +548,8 @@ private:
   std::string gatherValue(siliceParser::ValueContext* ival);
   /// \brief add a variable from its definition (_var may be modified with an updated name)
   void addVar(t_var_nfo& _var, t_subroutine_nfo* sub, int line);
+  /// \brief check if an identifier is available
+  bool isIdentifierAvailable(std::string name) const;
   /// \brief gather variable nfo
   void gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nfo& _nfo);
   /// \brief gather variable declaration

@@ -706,7 +706,7 @@ std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore(int li
   while (l < r) {
     int m = (l + r) / 2;
     if (m_FileLineRemapping[m][0] < line_after) {
-      l = m;
+      l = m+1;
     } else if (m_FileLineRemapping[m][0] > line_after) {
       r = m;
     } else {

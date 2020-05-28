@@ -15,6 +15,9 @@
 $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
 
+$$wad = 'doom1.wad'
+$$dofile('pre_wad.lua')
+
 $$dofile('pre_load_data.lua')
 $$ -- dofile('pre_render_test.lua')
 
@@ -23,7 +26,6 @@ $$dofile('pre_do_textures.lua')
 $texturechip$ 
 
 $$texfile_palette = palette_666
-$$ -- COL_MAJOR = 1
 $include('../common/video_sdram_main.ice')
 
 // fixed point precisions
@@ -71,28 +73,21 @@ circuitry bbox_ray(input ray_x,input ray_y,input ray_dx_m,input ray_dy_m,
 
 // Writes a pixel in the framebuffer, calls the texture unit
 circuitry writePixel(
-   inout  sd,
-   input  fbuffer,
-   input  pi,
-   input  pj,
-   input  tu,
-   input  tv,
-   input  tid,
-   input  lit   
+   inout  sd,  input  fbuffer,
+   input  pi,  input  pj,
+   input  tu,  input  tv,
+   input  tid, input  lit   
 ) {
-  // start texture unit look up (takes a few cycles)
+  // initiate texture unit lookup (takes a few cycles)
   textures <- (tid,-tu,tv,lit);
   // wait for not busy
-  while (sd.busy) {}
+  while (sd.busy) { /*waiting*/ }
   // sync with texture unit
   (sd.data_in) <- textures;
   // wait for not busy  (may have been in between)
-  while (sd.busy) {}
-$$if not COL_MAJOR then               
+  while (sd.busy) { /*waiting*/ }
+  // write!
   sd.addr       = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
-$$else
-  sd.addr       = {~fbuffer,21b0} | ((pi >> 2) << 8) | (199-pj);
-$$end        
   sd.wbyte_addr = pi & 3;
   sd.in_valid   = 1; // go ahead!
 }
@@ -607,12 +602,12 @@ $$end
                 (c_h) = to_h(tmp2_h);
 ++:
                 // clamp to top/bottom, shift for texturing
-                sec_f_h_m = 0;
+                sec_f_h_m = -1;
                 if (btm > f_h) {
-                  sec_f_h_m = ((btm - f_h) * d_h) <<< 4; // offset texturing
+                  sec_f_h_m = - ((btm - f_h) * d_h) <<< 4; // offset texturing
                   f_h       = btm;
                 } else { if (top < f_h) {
-                  sec_f_h_m = ((f_h - top) * d_h) <<< 4; // offset texturing
+                  sec_f_h_m = - ((f_h - top) * d_h) <<< 4; // offset texturing
                   f_h       = top;
                 } }
                 sec_c_h_m = 0;
@@ -738,7 +733,13 @@ $$end
                     sec_f_o_m = ((f_o - top) * d_h) <<< 4; // offset texturing
                     f_o       = top;
                   } }
-                  tex_v   = (sec_f_o_m);
+                  if (bsp_segs_texmapping.rdata[64,1] == 0) {
+                    // normal
+                    tex_v   = (sec_f_o_m);
+                  } else {
+                    // lower unpegged                   
+                    tex_v   = (sec_c_h_m) + (((top - f_o) * d_h) <<< 4);
+                  }
                   j       = f_o;
                   while (j >= btm) {
                     tc_v   = tex_v >> 12;
@@ -746,9 +747,9 @@ $$end
                     tmp_v  = tc_v + yoff;
                     (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                     j      = j - 1;
-                    tex_v  = tex_v - (d_h<<<4);
+                    tex_v  = tex_v + (d_h<<<4);
                   } 
-                  btm = f_o;                  
+                  btm = f_o;
                 }
                 
                 // upper part?
@@ -765,27 +766,48 @@ $$end
 ++:
                   tmp1_h    = (sec_c_o * invd_h);
 ++:
-                  tmp1      = bsp_segs_tex_height.rdata[16,16]; // other sector ceiling height
-                  sec_c_o_m = -1;
-                  (c_o)     = to_h(tmp1_h);
-                  if (btm > c_o) {
-                    sec_c_o_m = - ((btm - c_o) * d_h) <<< 4; // offset texturing
-                    c_o       = btm;
-                  } else { if (top < c_o) {
-                    sec_c_o_m = - ((c_o - top) * d_h) <<< 4; // offset texturing
-                    c_o       = top;
-                  } }
-                  tex_v   = (sec_c_o_m);
-                  j       = c_o;
-                  while (j <= top) {
-                    tc_v   = tex_v >>> 12;
-                    tmp_u  = tc_u;
-                    tmp_v  = tc_v + yoff;
-                    (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
-                    j      = j + 1;
-                    tex_v  = tex_v - (d_h<<<4);
+                  if (bsp_segs_texmapping.rdata[65,1] == 0) {
+                    // normal
+                    sec_c_o_m = -1;
+                    (c_o)     = to_h(tmp1_h);
+                    if (btm > c_o) {
+                      sec_c_o_m = - ((btm - c_o) * d_h) <<< 4; // offset texturing
+                      c_o       = btm;
+                    } else { if (top < c_o) {
+                      sec_c_o_m = - ((c_o - top) * d_h) <<< 4; // offset texturing
+                      c_o       = top;
+                    } }
+                    tex_v   = (sec_c_o_m);
+                    j       = c_o;
+                    while (j <= top) {
+                      tc_v   = tex_v >>> 12;
+                      tmp_u  = tc_u;
+                      tmp_v  = tc_v + yoff;
+                      (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
+                      j      = j + 1;
+                      tex_v  = tex_v - (d_h<<<4);
+                    }
+                    top = c_o;
+                  } else {
+                    // upper unpegged
+                    (c_o)     = to_h(tmp1_h);
+                    if (btm > c_o) {
+                      c_o       = btm;
+                    } else { if (top < c_o) {
+                      c_o       = top;
+                    } }
+                    tex_v   = (sec_c_h_m);
+                    j       = top;
+                    while (j >= c_o) {
+                      tc_v   = tex_v >>> 12;
+                      tmp_u  = tc_u;
+                      tmp_v  = tc_v + yoff;
+                      (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
+                      j      = j - 1;
+                      tex_v  = tex_v + (d_h<<<4);
+                    }
+                    top = c_o;                    
                   }
-                  top = c_o;
                 }
                 
                 // opaque wall
@@ -793,7 +815,7 @@ $$end
                   texid   = bsp_segs_tex_height.rdata[40,8];
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
                     // normal
-                    tex_v   = sec_c_h_m;
+                    tex_v   = (sec_c_h_m);
                     j       = c_h;
                     while (j >= f_h) {
                       tc_v   = tex_v >> 12;
@@ -805,7 +827,7 @@ $$end
                     }
                   } else {
                     // lower unpegged
-                    tex_v   = sec_f_h_m;
+                    tex_v   = (sec_f_h_m);
                     j       = f_h;
                     while (j <= c_h) {
                       tc_v   = tex_v >> 12;
@@ -813,7 +835,7 @@ $$end
                       tmp_v  = tc_v + yoff;
                       (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                       j      = j + 1;   
-                      tex_v  = tex_v + (d_h<<<4);
+                      tex_v  = tex_v - (d_h<<<4);
                     }                    
                   }
                   // flush queue to stop
@@ -1085,8 +1107,7 @@ $$else
       } else {
         ray_z = ray_z - 1;
       }
-    }
-    }
+    } }
 $$end  
 
     // ----------------------------------------------
