@@ -858,8 +858,6 @@ $$end
 
     // ----------------------------------------------
     // collisions
-    // TODO: use bbox for early culling!
-    // TODO: detect doors from further away
 $$if INTERACTIVE then    
     viewsector = 1;
     colliding  = 0;  
