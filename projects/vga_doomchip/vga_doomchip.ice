@@ -738,7 +738,7 @@ $$end
                     tex_v   = (sec_f_o_m);
                   } else {
                     // lower unpegged                   
-                    tex_v   = (sec_c_h_m) + (((top - f_o) * d_h) <<< 4);
+                    tex_v   = (sec_c_h_m) + (((c_h - f_o) * d_h) <<< 4);
                   }
                   j       = f_o;
                   while (j >= btm) {
