@@ -61,7 +61,7 @@ end
 
 -- -------------------------------------
 -- colormap
-local in_clrmap = assert(io.open(findfile('lumps/COLORMAP.lump'), 'rb'))
+local in_clrmap = assert(io.open(findfile('COLORMAP'), 'rb'))
 local sz = fsize(in_clrmap)
 print('colormap file is ' .. sz .. ' bytes')
 colormaps={}
@@ -77,7 +77,7 @@ end
 -- -------------------------------------
 -- palette
 
-local in_pal = assert(io.open(findfile('lumps/PLAYPAL.lump'), 'rb'))
+local in_pal = assert(io.open(findfile('PLAYPAL'), 'rb'))
 local sz = fsize(in_pal)
 print('palette file is ' .. sz .. ' bytes')
 palette={}

@@ -604,19 +604,19 @@ $$end
                 // clamp to top/bottom, shift for texturing
                 sec_f_h_m = -1;
                 if (btm > f_h) {
-                  sec_f_h_m = - ((btm - f_h) * d_h) <<< 4; // offset texturing
+                  sec_f_h_m = - ((btm - f_h) * d_h); // offset texturing
                   f_h       = btm;
                 } else { if (top < f_h) {
-                  sec_f_h_m = - ((f_h - top) * d_h) <<< 4; // offset texturing
+                  sec_f_h_m = - ((f_h - top) * d_h); // offset texturing
                   f_h       = top;
                 } }
 ++:                
                 sec_c_h_m = 0;
                 if (btm > c_h) {
-                  sec_c_h_m = ((btm - c_h) * d_h) <<< 4; // offset texturing
+                  sec_c_h_m = ((btm - c_h) * d_h); // offset texturing
                   c_h       = btm;
                 } else { if (top < c_h) {
-                  sec_c_h_m = ((c_h - top) * d_h) <<< 4; // offset texturing
+                  sec_c_h_m = ((c_h - top) * d_h); // offset texturing
                   c_h       = top;
                 } }
                 
@@ -728,10 +728,10 @@ $$end
                   sec_f_o_m = 0;
                   (f_o)     = to_h(tmp1_h);
                   if (btm > f_o) {
-                    sec_f_o_m = ((btm - f_o) * d_h) <<< 4; // offset texturing
+                    sec_f_o_m = ((btm - f_o) * d_h); // offset texturing
                     f_o       = btm;
                   } else { if (top < f_o) {
-                    sec_f_o_m = ((f_o - top) * d_h) <<< 4; // offset texturing
+                    sec_f_o_m = ((f_o - top) * d_h); // offset texturing
                     f_o       = top;
                   } }
 ++:
@@ -740,16 +740,16 @@ $$end
                     tex_v   = (sec_f_o_m);
                   } else {
                     // lower unpegged                   
-                    tex_v   = (sec_c_h_m) + (((c_h - f_o) * d_h) <<< 4);
+                    tex_v   = (sec_c_h_m) + ((c_h - f_o) * d_h);
                   }
                   j       = f_o;
                   while (j >= btm) {
-                    tc_v   = tex_v >> 12;
+                    tc_v   = tex_v >> 8;
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
                     (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                     j      = j - 1;
-                    tex_v  = tex_v + (d_h<<<4);
+                    tex_v  = tex_v + (d_h);
                   } 
                   btm = f_o;
                 }
@@ -773,21 +773,21 @@ $$end
                     sec_c_o_m = -1;
                     (c_o)     = to_h(tmp1_h);
                     if (btm > c_o) {
-                      sec_c_o_m = - ((btm - c_o) * d_h) <<< 4; // offset texturing
+                      sec_c_o_m = - ((btm - c_o) * d_h); // offset texturing
                       c_o       = btm;
                     } else { if (top < c_o) {
-                      sec_c_o_m = - ((c_o - top) * d_h) <<< 4; // offset texturing
+                      sec_c_o_m = - ((c_o - top) * d_h); // offset texturing
                       c_o       = top;
                     } }
                     tex_v   = (sec_c_o_m);
                     j       = c_o;
                     while (j <= top) {
-                      tc_v   = tex_v >>> 12;
+                      tc_v   = tex_v >>> 8;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                       j      = j + 1;
-                      tex_v  = tex_v - (d_h<<<4);
+                      tex_v  = tex_v - (d_h);
                     }
                     top = c_o;
                   } else {
@@ -801,12 +801,12 @@ $$end
                     tex_v   = (sec_c_h_m);
                     j       = top;
                     while (j >= c_o) {
-                      tc_v   = tex_v >>> 12;
+                      tc_v   = tex_v >>> 8;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                       j      = j - 1;
-                      tex_v  = tex_v + (d_h<<<4);
+                      tex_v  = tex_v + (d_h);
                     }
                     top = c_o;                    
                   }
@@ -820,24 +820,24 @@ $$end
                     tex_v   = (sec_c_h_m);
                     j       = c_h;
                     while (j >= f_h) {
-                      tc_v   = tex_v >> 12;
+                      tc_v   = tex_v >> 8;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                       j      = j - 1;   
-                      tex_v  = tex_v + (d_h<<<4);
+                      tex_v  = tex_v + (d_h);
                     }
                   } else {
                     // lower unpegged
                     tex_v   = (sec_f_h_m);
                     j       = f_h;
                     while (j <= c_h) {
-                      tc_v   = tex_v >> 12;
+                      tc_v   = tex_v >> 8;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
                       j      = j + 1;   
-                      tex_v  = tex_v - (d_h<<<4);
+                      tex_v  = tex_v - (d_h);
                     }                    
                   }
                   // flush queue to stop
@@ -1014,7 +1014,7 @@ $$end
         } else {
           doordata       = bsp_doors.rdata;
 $$if SIMULATION then
-          doordata[48,1] = ~doordir;
+//          doordata[48,1] = ~doordir;
 $$end
         }
       } else {
@@ -1026,7 +1026,7 @@ $$end
         } else {
           doordata       = bsp_doors.rdata;
 $$if SIMULATION then
-          doordata[48,1] = ~doordir;
+//          doordata[48,1] = ~doordir;
 $$end
         }
       }
