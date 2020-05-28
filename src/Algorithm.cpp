@@ -513,11 +513,9 @@ void Algorithm::addVar(t_var_nfo& _var, t_subroutine_nfo* sub,int line)
     sub->allowed_reads .insert(_var.name);
     sub->allowed_writes.insert(_var.name);
   }
-  // verify the variable does not shadow an input or output
-  if (isInput(_var.name)) {
-    reportError(nullptr, line, "variable '%s' is shadowing input of same name", _var.name.c_str());
-  } else if (isOutput(_var.name)) {
-    reportError(nullptr, line, "variable '%s' is shadowing output of same name", _var.name.c_str());
+  // check for duplicates
+  if (!isIdentifierAvailable(_var.name)) {
+    reportError(nullptr, line, "variable '%s': this name is already used by a prior declaration", _var.name.c_str());
   }
   // ok!
   m_Vars.emplace_back(_var);
@@ -545,10 +543,6 @@ void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nf
 
 void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub)
 {
-  // check for duplicates
-  if (!isIdentifierAvailable(decl->IDENTIFIER()->getText())) {
-    reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "variable '%s': this name is already used by a prior declaration", decl->IDENTIFIER()->getText().c_str());
-  }
   // gather variable
   t_var_nfo var;
   gatherVarNfo(decl,var);
@@ -1164,6 +1158,7 @@ int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decll
 
 bool Algorithm::isIdentifierAvailable(std::string name) const
 {
+  
   if (m_Subroutines.count(name) > 0) {
     return false;
   }

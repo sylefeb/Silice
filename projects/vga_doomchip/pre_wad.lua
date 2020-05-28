@@ -9,6 +9,19 @@ function fsize(file)
   return size
 end
 
+lump_list = {
+'COLORMAP',
+'PLAYPAL',
+'LINEDEFS',
+'NODES',
+'SECTORS',
+'SEGS',
+'SIDEDEFS',
+'SSECTORS',
+'THINGS',
+'VERTEXES',
+}
+
 -- -------------------------------------
 local in_wad = assert(io.open(findfile(wad), 'rb'))
 local sz_wad = fsize(in_wad)
@@ -35,4 +48,4 @@ end
 
 in_wad:close()
 
-error('stop')
+-- error('stop')
