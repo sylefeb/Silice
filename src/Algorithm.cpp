@@ -646,20 +646,32 @@ static int justHigherPow2(int n)
 
 typedef struct {
   bool        is_input;
+  bool        is_addr;
   std::string name;
   int         width; // -1 if same as bram declared type
 } t_mem_member;
 
 const std::vector<t_mem_member> c_BRAMmembers = {
-  {true,"wenable",1},
-  {false,"rdata",-1},
-  {true,"wdata",-1}
-  // addr is always added
+  {true, false,"wenable",1},
+  {false,false,"rdata",-1},
+  {true, false,"wdata",-1},
+  {true, true, "addr",-1}
 };
 
 const std::vector<t_mem_member> c_BROMmembers = {
-  {false,"rdata",-1}
-  // addr is always added
+  {false,false,"rdata",-1},
+  {true, true, "addr",-1}
+};
+
+const std::vector<t_mem_member> c_DualPortBRAMmembers = {
+  {true, false,"wenable0",1},
+  {false,false,"rdata0",-1},
+  {true, false,"wdata0",-1},
+  {true, true, "addr0",-1},
+  {true, false,"wenable1",1},
+  {false,false,"rdata1",-1},
+  {true, false,"wdata1",-1},
+  {true, true, "addr1",-1},
 };
 
 // -------------------------------------------------
@@ -680,6 +692,8 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     mem.mem_type = BRAM;
   } else if (decl->BROM() != nullptr) {
     mem.mem_type = BROM;
+  } else if (decl->DUALBRAM() != nullptr) {
+    mem.mem_type = DUALBRAM;
   } else {
     reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration");
   }
@@ -698,28 +712,19 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   // create bound variables for access
   std::vector<t_mem_member> members;
   switch (mem.mem_type)     {
-  case BRAM: members = c_BRAMmembers; break;
-  case BROM: members = c_BROMmembers; break;
+  case BRAM:     members = c_BRAMmembers; break;
+  case BROM:     members = c_BROMmembers; break;
+  case DUALBRAM: members = c_BROMmembers; break;
   default: reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration"); break;
   }
-  // -> create var for address
-  {
-    t_var_nfo v;
-    v.name = mem.name + "_addr";
-    v.base_type = UInt;
-    v.width = justHigherPow2(mem.table_size);
-    v.table_size = 0;
-    v.init_values.push_back("0");
-    v.usage = e_Bound;
-    addVar(v, nullptr, (int)decl->getStart()->getLine());
-    mem.in_vars.push_back(v.name);
-    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_mem_" + v.name;
-  }
-  // other members
+  // members
   for (const auto& m : members) {
     t_var_nfo v;
     v.name = mem.name + "_" + m.name;
-    if (m.width == -1) {
+    if (m.is_addr) {
+      v.base_type = UInt;
+      v.width = justHigherPow2(mem.table_size);
+    } else if (m.width == -1) {
       v.base_type = mem.base_type;
       v.width = mem.width;
     } else {
@@ -4272,11 +4277,57 @@ void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& brom) 
 
 // -------------------------------------------------
 
+void Algorithm::writeModuleMemoryDualPortBRAM(std::ostream& out, const t_mem_nfo& bram) const
+{
+  out << "module M_" << m_Name << "_mem_" << bram.name << '(' << endl;
+  for (const auto& inv : bram.in_vars) {
+    const auto& v = m_Vars[m_VarNames.at(inv)];
+    out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
+  }
+  for (const auto& ouv : bram.out_vars) {
+    const auto& v = m_Vars[m_VarNames.at(ouv)];
+    out << "output reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
+  }
+  out << "input " ALG_CLOCK << "0," << endl;
+  out << "input " ALG_CLOCK << '1' << endl;
+  out << ");" << endl;
+
+  out << "reg " << typeString(bram.base_type) << " [" << bram.width - 1 << ":0] buffer[" << bram.table_size - 1 << ":0];" << endl;
+
+  out << "always @(posedge " ALG_CLOCK "0) begin" << endl;
+  out << "  if (" << ALG_INPUT << "_" << bram.name << "_wenable0" << ") begin" << endl;
+  out << "    buffer[" << ALG_INPUT << "_" << bram.name << "_addr0" << "] <= " ALG_INPUT << "_" << bram.name << "_wdata0" ";" << endl;
+  out << "  end else begin" << endl;
+  out << "    " << ALG_OUTPUT << "_" << bram.name << "_rdata0" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr0" << "];" << endl;
+  out << "  end" << endl;
+  out << "end" << endl;
+
+  out << "always @(posedge " ALG_CLOCK "1) begin" << endl;
+  out << "  if (" << ALG_INPUT << "_" << bram.name << "_wenable1" << ") begin" << endl;
+  out << "    buffer[" << ALG_INPUT << "_" << bram.name << "_addr1" << "] <= " ALG_INPUT << "_" << bram.name << "_wdata1" ";" << endl;
+  out << "  end else begin" << endl;
+  out << "    " << ALG_OUTPUT << "_" << bram.name << "_rdata1" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr1" << "];" << endl;
+  out << "  end" << endl;
+  out << "end" << endl;
+
+  out << "initial begin" << endl;
+  ForIndex(v, bram.init_values.size()) {
+    out << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
+  }
+  out << "end" << endl;
+
+  out << "endmodule" << endl;
+  out << endl;
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeModuleMemory(std::ostream& out, const t_mem_nfo& mem) const
 {
   switch (mem.mem_type)     {
-  case BRAM: writeModuleMemoryBRAM(out, mem); break;
-  case BROM: writeModuleMemoryBROM(out, mem); break;
+  case BRAM:     writeModuleMemoryBRAM(out, mem); break;
+  case BROM:     writeModuleMemoryBROM(out, mem); break;
+  case DUALBRAM: writeModuleMemoryDualPortBRAM(out, mem); break;
   default: throw Fatal("internal error (unkown memory type)"); break;
   }
 }

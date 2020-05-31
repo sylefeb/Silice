@@ -5,8 +5,9 @@ USE_BRAM = false -- RAM or ROM
 SHRINK   = 1 -- 0 is original res, 1 half, 2 a quarter
 else
 USE_BRAM = false -- RAM or ROM
-SHRINK   = 0 -- 0 is original res, 1 half, 2 a quarter
+SHRINK   = 2 -- 0 is original res, 1 half, 2 a quarter
              -- synthesis is much fast at a quarter res, recommanded for testing
+-- NO_TEXTURE = 1             
 end
 
 ALL_IN_ONE = false
@@ -209,48 +210,50 @@ end
 code:write('};\n')
 texture_start_addr = 0
 texture_start_addr_table = {}
-if ALL_IN_ONE then
-  if USE_BRAM then
-    code:write('  bram uint8 textures[] = {\n')
-  else
-    code:write('  brom uint8 textures[] = {\n')
-  end
-end
-for tex,id in pairs(texture_ids) do
-  -- load assembled texture
-  local texpal  = get_palette_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
-  local texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
-  texdata = update_palette(texdata,texpal)
-  if SHRINK == 3 then
-    texdata = shrink_tex(shrink_tex(shrink_tex(texdata)))
-  elseif SHRINK == 2 then
-    texdata = shrink_tex(shrink_tex(texdata))
-  elseif SHRINK == 1 then
-    texdata = shrink_tex(texdata)
-  end  
-  local texw = #texdata[1]
-  local texh = #texdata
-  texture_start_addr_table[tex] = texture_start_addr
-  texture_start_addr = texture_start_addr + texw * texh
-  -- data
-  if not ALL_IN_ONE then
+if not NO_TEXTURE then
+  if ALL_IN_ONE then
     if USE_BRAM then
-      code:write('  bram uint8 texture_' .. tex .. '[] = {\n')
+      code:write('  bram uint8 textures[] = {\n')
     else
-      code:write('  brom uint8 texture_' .. tex .. '[] = {\n')
+      code:write('  brom uint8 textures[] = {\n')
     end
   end
-  for j=1,texh do
-    for i=1,texw do
-      code:write('8h'..string.format("%02x",texdata[j][i]):sub(-2) .. ',')
+  for tex,id in pairs(texture_ids) do
+    -- load assembled texture
+    local texpal  = get_palette_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
+    local texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
+    texdata = update_palette(texdata,texpal)
+    if SHRINK == 3 then
+      texdata = shrink_tex(shrink_tex(shrink_tex(texdata)))
+    elseif SHRINK == 2 then
+      texdata = shrink_tex(shrink_tex(texdata))
+    elseif SHRINK == 1 then
+      texdata = shrink_tex(texdata)
+    end  
+    local texw = #texdata[1]
+    local texh = #texdata
+    texture_start_addr_table[tex] = texture_start_addr
+    texture_start_addr = texture_start_addr + texw * texh
+    -- data
+    if not ALL_IN_ONE then
+      if USE_BRAM then
+        code:write('  bram uint8 texture_' .. tex .. '[] = {\n')
+      else
+        code:write('  brom uint8 texture_' .. tex .. '[] = {\n')
+      end
+    end
+    for j=1,texh do
+      for i=1,texw do
+        code:write('8h'..string.format("%02x",texdata[j][i]):sub(-2) .. ',')
+      end
+    end
+    if not ALL_IN_ONE then
+      code:write('};\n')
     end
   end
-  if not ALL_IN_ONE then
+  if ALL_IN_ONE then
     code:write('};\n')
   end
-end
-if ALL_IN_ONE then
-  code:write('};\n')
 end
 
 -- addressing
@@ -270,108 +273,118 @@ end
 code:write('  switch (texid) {\n')
 code:write('    default : { }\n')  
 for tex,id in pairs(texture_ids) do
-  -- load assembled texture
-  local texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
-  if SHRINK == 3 then
-    texdata = shrink_tex(shrink_tex(shrink_tex(texdata)))
-  elseif SHRINK == 2 then
-    texdata = shrink_tex(shrink_tex(texdata))
-  elseif SHRINK == 1 then
-    texdata = shrink_tex(texdata)
-  end  
-  local texw = #texdata[1]
-  local texh = #texdata
-  local texw_pow2,texw_perfect = texture_dim_pow2(texw)
-  local texh_pow2,texh_perfect = texture_dim_pow2(texh)
-  code:write('    case ' .. (id) .. ': {\n')
-  code:write('       // ' .. tex .. ' ' .. texw .. 'x' .. texh .. '\n')
-  if not texw_perfect then
-    code:write('     if (iu > ' .. (3*texw) ..') {\n')
-    code:write('       u = iu - ' .. (3*texw) .. ';\n')
-    code:write('     } else {\n')
-    code:write('       if (iu > ' .. (2*texw) ..') {\n')
-    code:write('         u = iu - ' .. (2*texw) .. ';\n')
-    code:write('       } else {\n')
-    code:write('         if (iu > ' .. (texw) ..') {\n')
-    code:write('           u = iu - ' .. (texw) .. ';\n')
-    code:write('         } else {\n')
-    code:write('           u = iu;\n')
-    code:write('         }\n')
-    code:write('       }\n')
-    code:write('     }\n')
-  end
-  code:write('     if (iv > 0) { nv = iv; } else { nv = ' .. texh ..  ' + iv; } \n')
-  if not texh_perfect then
-    code:write('     if (nv > ' .. (3*texh) ..') {\n')
-    code:write('       v = nv - ' .. (3*texh) .. ';\n')
-    code:write('     } else {\n')
-    code:write('       if (nv > ' .. (2*texh) ..') {\n')
-    code:write('         v = nv - ' .. (2*texh) .. ';\n')
-    code:write('       } else {\n')
-    code:write('         if (nv > ' .. (texh) ..') {\n')
-    code:write('           v = nv - ' .. (texh) .. ';\n')
-    code:write('         } else {\n')
-    code:write('           v = nv;\n')
-    code:write('         }\n')
-    code:write('       }\n')
-    code:write('     }\n')
-  else
-    code:write('     v = nv; \n')
-  end
-  if ALL_IN_ONE then
-    code:write('       textures.addr = ' .. texture_start_addr_table[tex] .. ' + ')
-  else
-    code:write('       texture_' .. tex .. '.addr = ')
-  end
-  if texw_perfect then
-    code:write(' (iu&' .. (texw-1) .. ')')
-  else
-    code:write(' (u)')
-  end
-  if texh_perfect then
-    code:write(' + ((v&' .. ((1<<texh_pow2)-1) .. ')')
-  else
-    code:write(' + ((v)')
-  end
-  if texw_perfect then
-    code:write('<<' .. texw_pow2 .. ');\n')
-  else
-    code:write('*' .. texw .. ');\n')
-  end
-  code:write('    }\n')
-end
-code:write('  }\n') -- switch
-
--- wait two cycles (seems required @100MHz, one led to artefacts)
-code:write('++:\n')
-code:write('++:\n')
-
--- light
-code:write('  lit = (light<<8);\n')
--- read data and query colormap
-if ALL_IN_ONE then
-  code:write('  colormap.addr = textures.rdata + lit;\n')
-else
-  code:write('  switch (texid) {\n')
-  code:write('    default : { }\n')  
-  code:write('    case 0  : { colormap.addr = 94; }\n')  
-  for tex,id in pairs(texture_ids) do
+  if NO_TEXTURE then
     code:write('    case ' .. (id) .. ': {\n')
-    if tex == 'F_SKY1' then -- special case for sky
-      code:write('       colormap.addr = 94;\n')
+    code:write('    palidx = ' .. id .. ';\n')    
+    code:write('    }\n')    
+  else
+    -- load assembled texture
+    local texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
+    if SHRINK == 3 then
+      texdata = shrink_tex(shrink_tex(shrink_tex(texdata)))
+    elseif SHRINK == 2 then
+      texdata = shrink_tex(shrink_tex(texdata))
+    elseif SHRINK == 1 then
+      texdata = shrink_tex(texdata)
+    end  
+    local texw = #texdata[1]
+    local texh = #texdata
+    local texw_pow2,texw_perfect = texture_dim_pow2(texw)
+    local texh_pow2,texh_perfect = texture_dim_pow2(texh)
+    code:write('    case ' .. (id) .. ': {\n')
+    code:write('       // ' .. tex .. ' ' .. texw .. 'x' .. texh .. '\n')
+    if not texw_perfect then
+      code:write('     if (iu > ' .. (3*texw) ..') {\n')
+      code:write('       u = iu - ' .. (3*texw) .. ';\n')
+      code:write('     } else {\n')
+      code:write('       if (iu > ' .. (2*texw) ..') {\n')
+      code:write('         u = iu - ' .. (2*texw) .. ';\n')
+      code:write('       } else {\n')
+      code:write('         if (iu > ' .. (texw) ..') {\n')
+      code:write('           u = iu - ' .. (texw) .. ';\n')
+      code:write('         } else {\n')
+      code:write('           u = iu;\n')
+      code:write('         }\n')
+      code:write('       }\n')
+      code:write('     }\n')
+    end
+    code:write('     if (iv > 0) { nv = iv; } else { nv = ' .. texh ..  ' + iv; } \n')
+    if not texh_perfect then
+      code:write('     if (nv > ' .. (3*texh) ..') {\n')
+      code:write('       v = nv - ' .. (3*texh) .. ';\n')
+      code:write('     } else {\n')
+      code:write('       if (nv > ' .. (2*texh) ..') {\n')
+      code:write('         v = nv - ' .. (2*texh) .. ';\n')
+      code:write('       } else {\n')
+      code:write('         if (nv > ' .. (texh) ..') {\n')
+      code:write('           v = nv - ' .. (texh) .. ';\n')
+      code:write('         } else {\n')
+      code:write('           v = nv;\n')
+      code:write('         }\n')
+      code:write('       }\n')
+      code:write('     }\n')
     else
-      code:write('       colormap.addr = texture_' .. tex .. '.rdata + lit;\n')
+      code:write('     v = nv; \n')
+    end
+    if ALL_IN_ONE then
+      code:write('       textures.addr = ' .. texture_start_addr_table[tex] .. ' + ')
+    else
+      code:write('       texture_' .. tex .. '.addr = ')
+    end
+    if texw_perfect then
+      code:write(' (iu&' .. (texw-1) .. ')')
+    else
+      code:write(' (u)')
+    end
+    if texh_perfect then
+      code:write(' + ((v&' .. ((1<<texh_pow2)-1) .. ')')
+    else
+      code:write(' + ((v)')
+    end
+    if texw_perfect then
+      code:write('<<' .. texw_pow2 .. ');\n')
+    else
+      code:write('*' .. texw .. ');\n')
     end
     code:write('    }\n')
   end
-  code:write('  }\n') 
 end
+code:write('  }\n') -- switch
 
--- wait one cycle
-code:write('++:\n')
+if not NO_TEXTURE then
 
--- done!
-code:write('palidx = colormap.rdata;\n')
+  -- wait two cycles (seems required @100MHz, one led to artefacts)
+  code:write('++:\n')
+  code:write('++:\n')
+
+  -- light
+  code:write('  lit = (light<<8);\n')
+  -- read data and query colormap
+  if ALL_IN_ONE then
+    code:write('  colormap.addr = textures.rdata + lit;\n')
+  else
+    code:write('  switch (texid) {\n')
+    code:write('    default : { }\n')  
+    code:write('    case 0  : { colormap.addr = 94; }\n')  
+    for tex,id in pairs(texture_ids) do
+      code:write('    case ' .. (id) .. ': {\n')
+      if tex == 'F_SKY1' then -- special case for sky
+        code:write('       colormap.addr = 94;\n')
+      else
+        code:write('       colormap.addr = texture_' .. tex .. '.rdata + lit;\n')
+      end
+      code:write('    }\n')
+    end
+    code:write('  }\n') 
+  end
+
+  -- wait one cycle
+  code:write('++:\n')
+
+  -- done!
+  code:write('palidx = colormap.rdata;\n')
+
+end
 
 code:write('}\n')
 code:close()

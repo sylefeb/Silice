@@ -55,6 +55,8 @@ ALWAYS              : 'always' ;
 
 BRAM                : 'bram' ;
 
+DUALBRAM            : 'dualport_bram';
+
 BROM                : 'brom' ;
 
 GROUP               : 'group' ;
@@ -106,14 +108,15 @@ sautorun            :  AUTORUN ;
 sstacksz            :  'stack:' NUMBER ;
 
 algModifier         : sclock | sreset | sautorun | sstacksz ;
-
-algModifiers        : '<' (algModifier ',') * algModifier '>' ;
+algModifiers        : '<' (algModifier ',') * algModifier? '>' ;
 
 initList            : '{' (value ',')* value? '}';
 
+memModifiers        : '<' clk0=sclock, clk1=sclock '>' ;
+
 declarationVar       : TYPE IDENTIFIER '=' value ATTRIBS?;
 declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);
-declarationMemory    : (BRAM | BROM) TYPE name=IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING))?;
+declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING))?;
 declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
 declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory; 
 

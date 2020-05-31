@@ -82,7 +82,7 @@ end
 -- -------------------------------------
 -- read vertices
 verts = {}
-local in_verts = assert(io.open(findfile('VERTEXES'), 'rb'))
+local in_verts = assert(io.open(findfile('lumps/' .. level .. '_' .. 'VERTEXES.lump'), 'rb'))
 local sz = fsize(in_verts)
 print('vertex file is ' .. sz .. ' bytes')
 for i = 1,sz/4 do
@@ -95,7 +95,7 @@ end
 -- read sidedefs, also gather textures
 sides = {}
 textures = {}
-local in_sides = assert(io.open(findfile('SIDEDEFS'), 'rb'))
+local in_sides = assert(io.open(findfile('lumps/' .. level .. '_' .. 'SIDEDEFS.lump'), 'rb'))
 local sz = fsize(in_sides)
 print('sidedefs file is ' .. sz .. ' bytes')
 for i = 1,sz/30 do
@@ -129,7 +129,8 @@ end
 -- -------------------------------------
 -- read sectors
 sectors = {}
-local in_sectors = assert(io.open(findfile('SECTORS'), 'rb'))
+tag_2_sector = {}
+local in_sectors = assert(io.open(findfile('lumps/' .. level .. '_' .. 'SECTORS.lump'), 'rb'))
 local sz = fsize(in_sectors)
 print('sectors file is ' .. sz .. ' bytes')
 for i = 1,sz/26 do
@@ -150,6 +151,7 @@ for i = 1,sz/26 do
   else
     textures[ceilingT]=1
   end
+  tag_2_sector[tag] = i-1
   sectors[i] = { floor=floor, ceiling=ceiling, floorT=floorT, ceilingT=ceilingT, light=light, special=special, tag=tag}
 end
 --for i,s in ipairs(sectors) do
@@ -200,7 +202,7 @@ end
 -- -------------------------------------
 -- read linedefs
 lines = {}
-local in_lines = assert(io.open(findfile('LINEDEFS'), 'rb'))
+local in_lines = assert(io.open(findfile('lumps/' .. level .. '_' .. 'LINEDEFS.lump'), 'rb'))
 local sz = fsize(in_lines)
 print('linedefs file is ' .. sz .. ' bytes')
 for i = 1,sz/14 do
@@ -220,7 +222,7 @@ end
 -- -------------------------------------
 -- read segs
 segs = {}
-local in_segs = assert(io.open(findfile('SEGS'), 'rb'))
+local in_segs = assert(io.open(findfile('lumps/' .. level .. '_' .. 'SEGS.lump'), 'rb'))
 local sz = fsize(in_segs)
 local maxseglen = 0.0
 print('segs file is ' .. sz .. ' bytes')
@@ -252,7 +254,7 @@ end
 -- -------------------------------------
 -- read ssectors
 ssectors = {}
-local in_ssectors = assert(io.open(findfile('SSECTORS'), 'rb'))
+local in_ssectors = assert(io.open(findfile('lumps/' .. level .. '_' .. 'SSECTORS.lump'), 'rb'))
 local sz = fsize(in_ssectors)
 print('ssectors file is ' .. sz .. ' bytes')
 for i = 1,sz/4 do
@@ -267,7 +269,7 @@ end
 -- -------------------------------------
 -- read nodes
 nodes = {}
-local in_nodes = assert(io.open(findfile('NODES'), 'rb'))
+local in_nodes = assert(io.open(findfile('lumps/' .. level .. '_' .. 'NODES.lump'), 'rb'))
 local sz = fsize(in_nodes)
 print('nodes file is ' .. sz .. ' bytes')
 root = sz//28-1
@@ -342,33 +344,108 @@ if k == 1 then
 end
 
 -- -------------------------------------
--- find all sector doors
-doors = {}
-id    = 1
+-- compute sectors LIC, LIF, HIF, HIC, LEF, HEF
+sectors_heights={}
+for id,sect in ipairs(sectors) do
+  sectors_heights[id-1] = {
+    lif = sect.floor, hif = sect.floor, lic = sect.ceiling, hic = sect.ceiling 
+  }
+end
 for _,ldef in pairs(lines) do
-  if ldef.types == 1 then
-    sidedef   = sides[1+ldef.left]
-    doorsec   = sidedef.sec
-    print('sector ' .. doorsec .. ' is a door')
-    othersidedef = sides[1+ldef.right]
-    print('       opens until ' .. sectors[1+othersidedef.sec].ceiling)
-    if not doors[doorsec] then
-      doors[doorsec] = { 
-        id     = id,
-        openh  = sectors[1+othersidedef.sec].ceiling,
-        closeh = sectors[1+othersidedef.sec].floor
-        }
-      id = id + 1
+  if ldef.left < 65535 then
+    othersidedef = sides[1+ldef.left]
+    sidedef      = sides[1+ldef.right]
+    -- one side
+    othersec     = othersidedef.sec
+    sec          = sidedef.sec
+    sectors_heights[sec].lif = math.min(sectors_heights[sec].lif,sectors[1+othersec].floor)
+    sectors_heights[sec].hif = math.max(sectors_heights[sec].hif,sectors[1+othersec].floor)
+    sectors_heights[sec].lic = math.min(sectors_heights[sec].lic,sectors[1+othersec].ceiling)
+    sectors_heights[sec].hic = math.max(sectors_heights[sec].hic,sectors[1+othersec].ceiling)
+    if sectors_heights[sec].lef then
+      sectors_heights[sec].lef = math.min(sectors_heights[sec].lef,sectors[1+othersec].floor)
+      sectors_heights[sec].hef = math.max(sectors_heights[sec].hef,sectors[1+othersec].floor)        
     else
-      doors[doorsec].openh  = round(math.min(doors[doorsec].openh,  sectors[1+othersidedef.sec].ceiling))
-      doors[doorsec].closeh = round(math.max(doors[doorsec].closeh, sectors[1+othersidedef.sec].floor))
+      sectors_heights[sec].lef = sectors[1+othersec].floor
+      sectors_heights[sec].hef = sectors[1+othersec].floor
+    end
+    -- other side
+    othersec     = sidedef.sec
+    sec          = othersidedef.sec
+    sectors_heights[sec].lif = math.min(sectors_heights[sec].lif,sectors[1+othersec].floor)
+    sectors_heights[sec].hif = math.max(sectors_heights[sec].hif,sectors[1+othersec].floor)
+    sectors_heights[sec].lic = math.min(sectors_heights[sec].lic,sectors[1+othersec].ceiling)
+    sectors_heights[sec].hic = math.max(sectors_heights[sec].hic,sectors[1+othersec].ceiling)
+    if sectors_heights[sec].lef then
+      sectors_heights[sec].lef = math.min(sectors_heights[sec].lef,sectors[1+othersec].floor)
+      sectors_heights[sec].hef = math.max(sectors_heights[sec].hef,sectors[1+othersec].floor)        
+    else
+      sectors_heights[sec].lef = sectors[1+othersec].floor
+      sectors_heights[sec].hef = sectors[1+othersec].floor
     end
   end
 end
--- open all doors!
---for sec,door in pairs(doors) do
---  sectors[1+sec].ceiling = door.openh
---end
+
+-- -------------------------------------
+-- find all movable sectors and triggers
+movables = {}
+id    = 1
+for _,ldef in pairs(lines) do
+  local isdoor,ismanual,isfloor,isceiling,islift
+  isdoor=false;ismanual=false;isfloor=false;isceiling=false;islift=false
+  if   ldef.types == 1 
+    or ldef.types == 26
+    or ldef.types == 28
+    or ldef.types == 27
+    or ldef.types == 31
+    or ldef.types == 32
+    or ldef.types == 33
+    or ldef.types == 34
+    or ldef.types == 46
+    or ldef.types == 117
+    or ldef.types == 118
+    then
+    isdoor   = true
+    ismanual = true
+  end
+  if   ldef.types == 10 
+    or ldef.types == 21
+    or ldef.types == 88
+    or ldef.types == 62
+    or ldef.types == 121
+    or ldef.types == 122
+    or ldef.types == 120
+    or ldef.types == 123
+    then
+    islift   = true
+    ismanual = true -- for now
+  end  
+  if isdoor or islift or isceiling or isfloor then
+    if ldef.left < 65535 then
+      if ldef.tag == 0 then
+        sidedef      = sides[1+ldef.left]
+        movablesec   = sidedef.sec
+      else
+        movablesec   = tag_2_sector[ldef.tag]
+      end
+      print('' .. id .. '] sector ' .. movablesec .. ' is a movable (door/lift/ceiling) tag:' .. ldef.tag)
+      --print('          lif: ' .. sectors_heights[movablesec].lif .. ' hic: ' .. sectors_heights[movablesec].hic)
+      --print('          lef: ' .. sectors_heights[movablesec].lef .. ' hef: ' .. sectors_heights[movablesec].hef)      
+      starth = sectors_heights[movablesec].lif
+      if not movables[movablesec] then
+        -- TODO: This is wrong, multiple linedefs can impact a same sector
+        -- A movable should refer to a sector being manipulated
+        movables[movablesec] = {
+          id     = id,
+          starth = starth,
+          openh  = sectors_heights[movablesec].lef,
+          closeh = sectors_heights[movablesec].hef
+          }
+        id = id + 1
+      end
+    end
+  end
+end
 
 -- -------------------------------------
 -- find min light level of neighboring sectors
@@ -391,26 +468,28 @@ for _,ldef in pairs(lines) do
     end
   end
 end
-for s,l in pairs(lowlights) do
-  print('sector ' .. s .. ' light: ' .. sectors[1+s].light .. ' lowlight: ' .. l.level)
-end
+--for s,l in pairs(lowlights) do
+--  print('sector ' .. s .. ' light: ' .. sectors[1+s].light .. ' lowlight: ' .. l.level)
+--end
 
 -- -------------------------------------
 -- prepare custom data structures
-bspNodes    = {}
-bspSSectors = {}
-bspSegs     = {}
-bspDoors    = {}
-maxdoorid   = 0
-for sec,d in pairs(doors) do
-  bspDoors[d.id] = {
-    h      = d.closeh,
-    openh  = d.openh,
-    closeh = d.closeh
+bspNodes     = {}
+bspSSectors  = {}
+bspSegs      = {}
+bspMovables  = {}
+maxmovableid = 0
+for sec,m in pairs(movables) do
+  print('MOVABLE ID = ' .. m.id)
+  bspMovables[m.id] = {
+    h      = m.starth,
+    openh  = m.openh,
+    closeh = m.closeh
   }
-  maxdoorid = math.max(maxdoorid,d.id)
+  maxmovableid = math.max(maxmovableid,m.id)
 end
-print('' .. maxdoorid .. ' doors in level')
+print('' .. maxmovableid .. ' movables in level')
+-- error('stop')
 
 for i,n in ipairs(nodes) do
   bspNodes[i] = {
@@ -440,10 +519,10 @@ for i,ss in ipairs(ssectors) do
     sidedef = sides[1+ldef.left]
   end
   parent = sectors[1+sidedef.sec]
-  --- door?
-  doorid = 0
-  if doors[sidedef.sec] then
-    doorid = doors[sidedef.sec].id
+  --- movable?
+  movableid = 0
+  if movables[sidedef.sec] then
+    movableid = movables[sidedef.sec].id
   end
   -- textures
   f_T   = texture_ids[parent.floorT]
@@ -474,7 +553,7 @@ for i,ss in ipairs(ssectors) do
     light     = round(math.min(31,(255 - seclight)/8)),
     lowlight  = round(math.min(31,(255 - lowlight)/8)),
     special   = parent.special,
-    doorid    = doorid
+    movableid = movableid
   }
   --print('sector ' .. sidedef.sec .. ' seclight: ' .. seclight .. ' lowlight:' .. lowlight)
   --print('  ' .. i-1 .. ' ' .. ' seclight: ' .. bspSSectors[i].light .. ' lowlight:' .. bspSSectors[i].lowlight)
@@ -515,15 +594,15 @@ for i,sg in ipairs(segs) do
   -- other sector floor/ceiling heights
   other_f_h = 0
   other_c_h = 0
-  other_doorid = 0
+  other_movableid = 0
   if other_sidedef then
     other_f_h    = sectors[1+other_sidedef.sec].floor
     other_c_h    = sectors[1+other_sidedef.sec].ceiling
-    doorid       = 0
-    if doors[other_sidedef.sec] then
-      doorid     = doors[other_sidedef.sec].id
+    if movables[other_sidedef.sec] then
+      other_movableid  = movables[other_sidedef.sec].id
+      print('seg ' .. (i-1) .. ' other_movableid ' .. other_movableid)
+      print('  between ' .. sidedef.sec .. ' - ' .. other_sidedef.sec)
     end
-    other_doorid = doorid
   end
   -- print('textures ids ' .. lwr .. ',' .. mid .. ',' .. upr)
   local xoff = sidedef.xoff + sg.off
@@ -564,7 +643,7 @@ for i,sg in ipairs(segs) do
     mid       = mid,
     other_f_h = other_f_h,
     other_c_h = other_c_h,
-    other_doorid = other_doorid,
+    other_movableid = other_movableid,
     xoff      = xoff,
     yoff      = sidedef.yoff,
     seglen    = sg.seglen,
@@ -576,9 +655,9 @@ end
 
 -- -------------------------------------
 -- things (player start, monsters)
-local in_things = assert(io.open(findfile('THINGS'), 'rb'))
+local in_things = assert(io.open(findfile('lumps/' .. level .. '_' .. 'THINGS.lump'), 'rb'))
 local sz = fsize(in_things)
-print('things file is ' .. sz .. ' bytes')
+--print('things file is ' .. sz .. ' bytes')
 nthings = 0
 for i = 1,sz/10 do
   local x   = string.unpack('h',in_things:read(2))
@@ -592,8 +671,8 @@ for i = 1,sz/10 do
     player_start_y = y
     player_start_a = a*1024//90;
   elseif ty == 3004 then -- POSS
-    print('POSS at ' .. x .. ',' .. y .. ' angle: ' .. a)
-    print(' --> sector ' .. bspLocate(x,y))
+  --  print('POSS at ' .. x .. ',' .. y .. ' angle: ' .. a)
+  --  print(' --> sector ' .. bspLocate(x,y))
   end
   nthings = nthings + 1
 end
@@ -636,7 +715,7 @@ end
 function pack_bsp_ssec(ssec)
   local bin = 0
   bin = '64h' 
-        .. string.format("%02x",ssec.doorid):sub(-2)
+        .. string.format("%02x",ssec.movableid):sub(-2)
         .. string.format("%04x",ssec.c_h):sub(-4)
         .. string.format("%04x",ssec.f_h):sub(-4)
         .. string.format("%04x",ssec.start_seg):sub(-4)
@@ -668,7 +747,7 @@ end
 function pack_bsp_seg_tex_height(seg)
   local bin = 0
   bin = '64h' 
-        .. string.format("%02x",seg.other_doorid):sub(-2)
+        .. string.format("%02x",seg.other_movableid):sub(-2)
         .. string.format("%02x",seg.upr):sub(-2)
         .. string.format("%02x",seg.mid):sub(-2)
         .. string.format("%02x",seg.lwr):sub(-2)
@@ -698,12 +777,12 @@ function pack_demo_path(p)
   return bin
 end
 
-function pack_door(d)
+function pack_movable(m)
   local bin = 0
-  bin = '49h1' -- msb indicate door direction
-        .. string.format("%04x",d.closeh):sub(-4)
-        .. string.format("%04x",d.openh):sub(-4)
-        .. string.format("%04x",d.h):sub(-4)
+  bin = '49h1' -- msb indicate moving direction (up/down)
+        .. string.format("%04x",m.closeh):sub(-4)
+        .. string.format("%04x",m.openh):sub(-4)
+        .. string.format("%04x",m.h):sub(-4)
   return bin
 end
 
@@ -715,3 +794,5 @@ print('- ' .. #segs .. ' segs')
 print('- ' .. (num_textures-1) .. ' textures')
 
 -- -------------------------------------
+
+-- error('stop')

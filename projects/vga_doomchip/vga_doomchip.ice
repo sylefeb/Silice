@@ -16,6 +16,7 @@ $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
 
 $$wad = 'doom1.wad'
+$$level = 'E1M2'
 $$dofile('pre_wad.lua')
 
 $$dofile('pre_load_data.lua')
@@ -136,7 +137,7 @@ $$end
   // BRAMs for sub-sectors
   bram uint64 bsp_ssecs[] = {
 $$for _,s in ipairs(bspSSectors) do
-   $pack_bsp_ssec(s)$,          // sec=$s.sec$ doorid=$s.doorid$ c_h=$s.c_h$ f_h=$s.f_h$  start_seg=$s.start_seg$ num_segs=$s.num_segs$
+   $pack_bsp_ssec(s)$,          // sec=$s.sec$ movableid=$s.movableid$ c_h=$s.c_h$ f_h=$s.f_h$  start_seg=$s.start_seg$ num_segs=$s.num_segs$
 $$end
   };
   bram uint40 bsp_ssecs_flats[] = {
@@ -151,8 +152,8 @@ $$for _,s in ipairs(bspSegs) do
 $$end
   };
   bram uint64 bsp_segs_tex_height[] = {
-$$for _,s in ipairs(bspSegs) do
-   $pack_bsp_seg_tex_height(s)$, // other_doorid=$s.other_doorid$ upr=$s.upr$ mid=$s.mid$ lwr=$s.lwr$ other_c_h=$s.other_c_h$ other_f_h=$s.other_f_h$ 
+$$for i,s in ipairs(bspSegs) do
+   $pack_bsp_seg_tex_height(s)$, // $i-1$] other_movableid=$s.other_movableid$ upr=$s.upr$ mid=$s.mid$ lwr=$s.lwr$ other_c_h=$s.other_c_h$ other_f_h=$s.other_f_h$ 
 $$end
   };
   bram uint66 bsp_segs_texmapping[] = {
@@ -160,15 +161,15 @@ $$for i,s in ipairs(bspSegs) do
    $pack_bsp_seg_texmapping(s)$, // $i-1$] unpegged U$s.upper_unpegged$ L$s.lower_unpegged$ segsqlen/32=$s.segsqlen$ yoff=$s.yoff$ xoff=$s.xoff$ seglen=$s.seglen$ 
 $$end
   };    
-  // BRAM for doors
-  bram uint49 bsp_doors[] = { 
+  // BRAM for movables
+  bram uint49 bsp_movables[] = { 
    49h0, // first record is not used
-$$for _,d in ipairs(bspDoors) do
-   $pack_door(d)$, // closeh=$d.closeh$ openh=$d.openh$ h=$d.h$
+$$for _,d in ipairs(bspMovables) do
+   $pack_movable(d)$, // closeh=$d.closeh$ openh=$d.openh$ h=$d.h$
 $$end
   };
-$$if #bspDoors > 255 then error('more than 255 doors!') end
-  uint8 num_bsp_doors = $1 + #bspDoors$;
+$$if #bspMovables > 255 then error('more than 255 movables!') end
+  uint8 num_bsp_movables = $1 + #bspMovables$;
   // BRAM for demo
   bram uint64 demo_path[] = {
 $$for _,s in ipairs(demo_path) do
@@ -224,7 +225,7 @@ $$end
   
   texturechip textures;
 
-  uint16   queue[16] = {};
+  uint16   queue[64] = {};
   uint9    queue_ptr = 0;
 
   uint1    vsync_filtered = 0;
@@ -332,24 +333,29 @@ $$end
   uint9    s   = 0;  
   uint16   n   = 0;
   
-  uint49   doordata = 0;
-  uint1    doordir  = 0;
+  uint49   movabledata = 0;
+  uint1    movabledir  = 0;
   
   uint1    viewsector = 1;
   uint1    walkable   = 1;
   uint1    onesided   = 1;
   uint1    colliding  = 0;
-  uint8    ondoor     = 0;
-  uint1    doorseg    = 0;
+  uint8    onmovable  = 0;
+  uint1    movableseg = 0;
   
   uint16   kpressed   = 0;
-  uint6    kdoorblind = 0;
+  uint6    kpressblind = 0;
   
   uint12   rand = 3137;
+  
+  int16    debug0 = 0;
+  int16    debug1 = 0;
+  int16    debug2 = 0;
+  int16    debug3 = 0;
 
 $$if DE10NANO then
   keypad     kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
-  lcd_status status(<:auto:>, posx <: ray_x, posy <: ray_y, posz <: ray_z, posa <: viewangle );
+  lcd_status status(<:auto:>, posx <: debug0, posy <: debug1, posz <: debug2, posa <: debug3 );
 $$end
   
   vsync_filtered ::= vsync;
@@ -369,7 +375,7 @@ $$end
   bsp_segs_coords    .wenable = 0;
   bsp_segs_tex_height.wenable = 0;
   bsp_segs_texmapping.wenable = 0;
-  bsp_doors          .wenable = 0;
+  bsp_movables       .wenable = 0;
   demo_path          .wenable = 0;
   inv_y              .wenable = 0;  
   sin_m              .wenable = 0;
@@ -379,7 +385,7 @@ $$end
   while (1) {
     
     // update position
-$$if not INTERACTIVE then
+$$if not INTERACTIVE and not SIMULATION then
   ray_x     = demo_path.rdata[ 0,16];
   ray_y     = demo_path.rdata[16,16];
   ray_z     = demo_path.rdata[32,16];    
@@ -491,14 +497,14 @@ $$end
               }            
             }
             case 2: { // flash fast
-              if ( (((time^n)>>4)&3) == 0 ) {
+              if ( (((time)>>4)&3) == 0 ) {
                 seclight = bsp_ssecs_flats.rdata[16,8];
               } else {
                 seclight = bsp_ssecs_flats.rdata[32,8];
               }            
             }
             case 3: { // flash slow
-              if ( (((time^n)>>5)&3) == 0 ) {
+              if ( (((time)>>5)&3) == 0 ) {
                 seclight = bsp_ssecs_flats.rdata[16,8];
               } else {
                 seclight = bsp_ssecs_flats.rdata[32,8];
@@ -519,7 +525,7 @@ $$end
               }            
             }
             case 8: { // oscillates (to improve)
-              if ( (((time+n)>>5)&1) == 0) {
+              if ( (((time)>>5)&1) == 0) {
                 seclight = bsp_ssecs_flats.rdata[32,8];
               } else {
                 seclight = bsp_ssecs_flats.rdata[16,8];
@@ -537,7 +543,7 @@ $$end
             bsp_segs_coords.addr      = bsp_ssecs.rdata[8,16] + s;
             bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
             bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
-            bsp_doors.addr            = bsp_ssecs.rdata[56,8];
+            bsp_movables.addr         = bsp_ssecs.rdata[56,8];
 ++:
             // segment endpoints
             v0x = bsp_segs_coords.rdata[ 0,16];
@@ -587,8 +593,8 @@ $$end
                 // NOTE: signed, so always read in same width!
                 tmp1    = bsp_ssecs.rdata[24,16]; // floor height 
                 sec_f_h = tmp1 - ray_z;
-                if (bsp_ssecs.rdata[56,8] != 0) {  // door?
-                  tmp1    = bsp_doors.rdata[0,16]; // door ceiling height
+                if (bsp_ssecs.rdata[56,8] != 0) {  // movable?
+                  tmp1    = bsp_movables.rdata[0,16]; // movable ceiling height
                 } else {
                   tmp1    = bsp_ssecs.rdata[40,16]; // ceiling height
                 }
@@ -620,8 +626,8 @@ $$end
                   c_h       = top;
                 } }
                 
-                // prepare door data, for other sector ceiling (if any)
-                bsp_doors.addr = bsp_segs_tex_height.rdata[56,8];
+                // prepare movable data, for other sector ceiling (if any)
+                bsp_movables.addr = bsp_segs_tex_height.rdata[56,8];
                 
                 // draw floor
                 texid = bsp_ssecs_flats.rdata[0,8];
@@ -759,8 +765,8 @@ $$end
                 ||   (bsp_ssecs_flats.rdata[8,8] == 0 && bsp_segs_tex_height.rdata[40,8] != 0) // or opaque with sky above
                 ) {
                   texid     = bsp_segs_tex_height.rdata[48,8];                
-                  if (bsp_segs_tex_height.rdata[56,8] != 0) {  // door?
-                    tmp1    = bsp_doors.rdata[0,16]; // door ceiling height
+                  if (bsp_segs_tex_height.rdata[56,8] != 0) {  // movable?
+                    tmp1    = bsp_movables.rdata[0,16]; // movable ceiling height
                   } else {
                     tmp1    = bsp_segs_tex_height.rdata[16,16]; // other sector ceiling height
                   }
@@ -861,7 +867,7 @@ $$end
 $$if INTERACTIVE then    
     viewsector = 1;
     colliding  = 0;  
-    ondoor     = 0;    
+    onmovable  = 0;    
     // init recursion
     queue[queue_ptr] = $root$;
     queue_ptr  = 1;
@@ -903,13 +909,13 @@ $$if INTERACTIVE then
           bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
           bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
 ++:
-          // prepare door data, for other sector ceiling (if any)
-          bsp_doors.addr            = bsp_segs_tex_height.rdata[56,8];
+          // prepare movable data, for other sector ceiling (if any)
+          bsp_movables.addr         = bsp_segs_tex_height.rdata[56,8];
 ++:          
-          // determine the type of segment (can we walk across, is it a door?)
-          walkable = 1;
-          doorseg  = 0;
-          onesided = 0;
+          // determine the type of segment (can we walk across, is it a movable?)
+          walkable   = 1;
+          movableseg = 0;
+          onesided   = 0;
           if (bsp_segs_tex_height.rdata[40,8] != 0) { // opaque wall
             walkable = 0;
             onesided = 1;
@@ -917,9 +923,9 @@ $$if INTERACTIVE then
             // other sector floor height
             tmp1      = bsp_segs_tex_height.rdata[0,16];
             // other sector ceiling height
-            if (bsp_segs_tex_height.rdata[56,8] != 0) {  // door?
-              tmp2    = bsp_doors.rdata[0,16];
-              doorseg = 1;
+            if (bsp_segs_tex_height.rdata[56,8] != 0) {  // movable?
+              tmp2       = bsp_movables.rdata[0,16];
+              movableseg = 1;
             } else {
               tmp2    = bsp_segs_tex_height.rdata[16,16];
             }
@@ -927,7 +933,7 @@ $$if INTERACTIVE then
               walkable = 0;
             }
           }
-          if ((walkable == 0) || (doorseg == 1)) {
+          if ((walkable == 0) || (movableseg == 1)) {
             // segment endpoints
             v0x = bsp_segs_coords.rdata[ 0,16];
             v0y = bsp_segs_coords.rdata[16,16];
@@ -954,16 +960,22 @@ $$if INTERACTIVE then
               }
               tmp2_h = (bsp_segs_texmapping.rdata[ 0,16] << 4) + (bsp_segs_texmapping.rdata[ 0,16] << 1); // seglen * (16 + 2)
               tmp3_h = bsp_segs_texmapping.rdata[48,16] << 5; // segsqlen
-              // close to door seg?
-              if (doorseg == 1) {
-                if (((tmp1_h>>2/*detect from further away*/) < tmp2_h) && (l_h > 0) && l_h < (tmp3_h)) {
-                  ondoor  = bsp_doors.addr;
+              // close to movable seg?
+              if (movableseg == 1) {
+                //          vvv detect from further away
+                if (((tmp1_h>>2) < tmp2_h) && (l_h > 0) && l_h < (tmp3_h)) {
+                  onmovable  = bsp_movables.addr;
                 }
               }
               if (walkable == 0) {
                 // close to the wall?
                 if ( (tmp1_h < tmp2_h) && (l_h > - tmp2_h) && l_h < (tmp3_h + tmp2_h) ) { 
                   colliding = 1;
+                  //// DEBUG
+                  debug0    = bsp_segs_tex_height.rdata[56,8];
+                  debug1    = movableseg;
+                  debug2    = bsp_movables.addr;
+                  debug3    = bsp_ssecs.rdata[8,16] + s;
                   // decollision,  pos = pos + (d.n) * n
     ++:  // relax timing
                   if (d_h < 0) {
@@ -985,7 +997,7 @@ $$if INTERACTIVE then
             }
           }
           s = s + 1;
-        }        
+        } 
         if (viewsector) { // done only once on first column
           // while here, track z
           target_z   = bsp_ssecs.rdata[24,16] + 40; // floor height + eye level
@@ -996,46 +1008,46 @@ $$if INTERACTIVE then
 $$end
 
     // ----------------------------------------------
-    // motion doors
-    bsp_doors.wenable = 0;
-    bsp_doors.addr    = 1; // skip first (empty, id=0 tags 'not a door')
-    while (bsp_doors.addr < num_bsp_doors) {
+    // motion movables
+    bsp_movables.wenable = 0;
+    bsp_movables.addr    = 1; // skip first (empty, id=0 tags 'not a movable')
+    while (bsp_movables.addr < num_bsp_movables) {
       // modify
-      tmp1    = bsp_doors.rdata[0,16];
-      doordir = bsp_doors.rdata[48,1];
-      if (doordir == 0) {
+      tmp1       = bsp_movables.rdata[0,16];
+      movabledir = bsp_movables.rdata[48,1];
+      if (movabledir == 0) {
         // up
-        tmp2 = bsp_doors.rdata[16,16]; // openh
+        tmp2 = bsp_movables.rdata[16,16]; // openh
         if (tmp1 < tmp2) {
-          doordata = bsp_doors.rdata;      
-          doordata[0,16] = tmp1 + 1;
+          movabledata = bsp_movables.rdata;      
+          movabledata[0,16] = tmp1 + 1;
         } else {
-          doordata       = bsp_doors.rdata;
+          movabledata       = bsp_movables.rdata;
 $$if SIMULATION then
-//          doordata[48,1] = ~doordir;
+//          movabledata[48,1] = ~movabledir;
 $$end
         }
       } else {
         // down
-        tmp2 = bsp_doors.rdata[32,16]; // closeh
+        tmp2 = bsp_movables.rdata[32,16]; // closeh
         if (tmp1 > tmp2) {
-          doordata = bsp_doors.rdata;
-          doordata[0,16] = tmp1 - 1;
+          movabledata = bsp_movables.rdata;
+          movabledata[0,16] = tmp1 - 1;
         } else {
-          doordata       = bsp_doors.rdata;
+          movabledata       = bsp_movables.rdata;
 $$if SIMULATION then
-//          doordata[48,1] = ~doordir;
+//          movabledata[48,1] = ~movabledir;
 $$end
         }
       }
       // write back
-      bsp_doors.wenable = 1;
-      bsp_doors.wdata   = doordata;
+      bsp_movables.wenable = 1;
+      bsp_movables.wdata   = movabledata;
 ++:
-      bsp_doors.wenable = 0;
-      bsp_doors.addr    = bsp_doors.addr + 1;
+      bsp_movables.wenable = 0;
+      bsp_movables.addr    = bsp_movables.addr + 1;
     }
-    bsp_doors.wenable = 0;
+    bsp_movables.wenable = 0;
     
     // ----------------------------------------------
     // prepare next frame
@@ -1044,7 +1056,7 @@ $$end
     rand  = rand * 31421 + 6927;
   
     frame = frame + 1;
-$$if not INTERACTIVE then    
+$$if not INTERACTIVE and not SIMULATION then    
     if (frame >= demo_path_len) {
       // reset
       frame     = 0;
@@ -1056,7 +1068,7 @@ $$if not INTERACTIVE then
 $$else
     // DEBUG
     led[0,1] = colliding;
-    if (ondoor != 0) {
+    if (onmovable != 0) {
       led[1,1] = 1;
     } else {
       led[1,1] = 0;
@@ -1077,22 +1089,22 @@ $$else
       ray_x   = col_rx - ((cosview_m) >>> $FPm-2$);
       ray_y   = col_ry - ((sinview_m) >>> $FPm-2$);
     } }
-    // doors TODO: only open nearby door!
-    if (kdoorblind == 0) {
+    // manual movables
+    if (kpressblind == 0) {
       if ((kpressed & 16) != 0) {        
-        kdoorblind = 1;
-        // change door direction
-        bsp_doors.addr    = ondoor;
+        kpressblind = 1;
+        // change movable direction
+        bsp_movables.addr    = onmovable;
 ++:        
-        doordata          = bsp_doors.rdata;
-        doordata[48,1]    = ~bsp_doors.rdata[48,1];
-        bsp_doors.wdata   = doordata;
-        bsp_doors.wenable = 1;
+        movabledata          = bsp_movables.rdata;
+        movabledata[48,1]    = ~bsp_movables.rdata[48,1];
+        bsp_movables.wdata   = movabledata;
+        bsp_movables.wenable = 1;
 ++:        
-        bsp_doors.wenable = 0;
+        bsp_movables.wenable = 0;
       }
     } else {
-      kdoorblind = kdoorblind + 1;
+      kpressblind = kpressblind + 1;
     }
     // up/down smooth motion
     if (ray_z < target_z) {

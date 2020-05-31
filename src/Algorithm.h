@@ -112,7 +112,7 @@ private:
   enum e_Type { Int, UInt };
 
   /// \brief memory types
-  enum e_MemType { BRAM, BROM };
+  enum e_MemType { BRAM, DUALBRAM, BROM };
 
   /// \brief algorithm name
   std::string m_Name;
@@ -810,6 +810,8 @@ private:
   void writeModuleMemory(std::ostream& out, const t_mem_nfo& mem) const;
   /// \brief writes a BRAM memory module
   void writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) const;
+  /// \brief writes a dualport BRAM memory module
+  void writeModuleMemoryDualPortBRAM(std::ostream& out, const t_mem_nfo& bram) const;
   /// \brief writes a BROM memory module
   void writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& brom) const;
 

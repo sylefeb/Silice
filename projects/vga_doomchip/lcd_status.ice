@@ -23,7 +23,7 @@ algorithm lcd_status(
     io    <:> io
   );
 
-  uint8  msg1 [17] = "DooM-chip   E1M1";
+  uint8  msg1 [17] = "DooM-chip   $level$";
   uint8  chars[]   = "XYZA";
   uint26 counter   = 1;
   

@@ -191,6 +191,31 @@ int main(int argc,char **argv)
   std::cerr << __FILE__ << std::endl;
   std::cerr << __FILE__ << std::endl;
   std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
+  std::cerr << __FILE__ << std::endl;
 
   Vvga    *vga_test = new Vvga();
 
