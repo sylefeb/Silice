@@ -112,7 +112,7 @@ algModifiers        : '<' (algModifier ',') * algModifier? '>' ;
 
 initList            : '{' (value ',')* value? '}';
 
-memModifiers        : '<' clk0=sclock, clk1=sclock '>' ;
+memModifiers        : '<' clk0=sclock ',' clk1=sclock '>' ;
 
 declarationVar       : TYPE IDENTIFIER '=' value ATTRIBS?;
 declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);

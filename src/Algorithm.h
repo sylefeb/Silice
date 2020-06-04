@@ -188,6 +188,7 @@ private:
     int         width;
     int         table_size;
     int         line;
+    std::vector<std::string> clocks;
     std::vector<std::string> in_vars;
     std::vector<std::string> out_vars;
     std::vector<std::string> init_values;
@@ -531,6 +532,8 @@ private:
   bool isInOut(std::string var) const;
   /// \brief checks whether an identifier is an input or output
   bool isInputOrOutput(std::string var) const;
+  /// \brief checks whether an identifier is a VIO
+  bool isVIO(std::string var) const;
   /// \brief splits a type between base type and width
   void splitType(std::string type, e_Type& _type, int& _width);
   /// \brief splits a constant between width, base and value

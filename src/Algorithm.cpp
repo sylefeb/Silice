@@ -422,6 +422,13 @@ bool Algorithm::isInputOrOutput(std::string var) const
 
 // -------------------------------------------------
 
+bool Algorithm::isVIO(std::string var) const
+{
+  return isInput(var) || isOutput(var) || isInOut(var) || m_VarNames.count(var) > 0;
+}
+
+// -------------------------------------------------
+
 template<class T_Block>
 Algorithm::t_combinational_block *Algorithm::addBlock(std::string name, const t_combinational_block_context* bctx, int line)
 {
@@ -741,6 +748,23 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
       mem.out_vars.push_back(v.name);
     }
     m_VIOBoundToModAlgOutputs[v.name] = WIRE "_mem_" + v.name;
+  }
+  // clocks
+  if (decl->memModifiers() != nullptr) {
+    // check clock signal exist
+    if (!isVIO(decl->memModifiers()->clk0->getText())) {
+      reportError(decl->memModifiers()->clk0->IDENTIFIER()->getSymbol(), 
+        (int)decl->memModifiers()->clk0->getStart()->getLine(),
+        "clock signal '%s' not declared in dual port BRAM", decl->memModifiers()->clk0->getText());
+    }
+    if (!isVIO(decl->memModifiers()->clk1->getText())) {
+      reportError(decl->memModifiers()->clk1->IDENTIFIER()->getSymbol(),
+        (int)decl->memModifiers()->clk1->getStart()->getLine(),
+        "clock signal '%s' not declared in dual port BRAM", decl->memModifiers()->clk1->getText());
+    }
+    // add
+    mem.clocks.push_back(decl->memModifiers()->clk0->getText());
+    mem.clocks.push_back(decl->memModifiers()->clk1->getText());
   }
   // add memory
   m_Memories.emplace_back(mem);
@@ -4531,8 +4555,19 @@ void Algorithm::writeAsModule(ostream& out) const
   for (const auto& mem : m_Memories) {
     // module
     out << "M_" << m_Name << "_mem_" << mem.name << ' ' << mem.name << '(' << endl;
-    // clock
-    out << '.' << ALG_CLOCK << '(' << m_Clock << ")," << endl;
+    // clocks
+    if (mem.clocks.empty()) {
+      if (mem.mem_type == DUALBRAM) {
+        out << '.' << ALG_CLOCK << "0(" << m_Clock << ")," << endl;
+        out << '.' << ALG_CLOCK << "1(" << m_Clock << ")," << endl;
+      } else {
+        out << '.' << ALG_CLOCK << '(' << m_Clock << ")," << endl;
+      }
+    } else {
+      sl_assert(mem.mem_type == DUALBRAM && mem.clocks.size() == 2);
+      out << '.' << ALG_CLOCK << "0(" << mem.clocks[0] << ")," << endl;
+      out << '.' << ALG_CLOCK << "1(" << mem.clocks[1] << ")," << endl;
+    }
     // inputs
     for (const auto& inv : mem.in_vars) {
       out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, nullptr, mem.line, FF_D)  << ")," << endl;
