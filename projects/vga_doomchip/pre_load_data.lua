@@ -348,8 +348,12 @@ end
 sectors_heights={}
 for id,sect in ipairs(sectors) do
   sectors_heights[id-1] = {
-    floor = sect.floor, ceiling = sect.ceiling,
-    lif = sect.floor, hif = sect.floor, lic = sect.ceiling, hic = sect.ceiling 
+    floor   = sect.floor, 
+    ceiling = sect.ceiling,
+    lif     = sect.floor, 
+    hif     = sect.floor, 
+    lic     = sect.ceiling, 
+    hic     = sect.ceiling 
   }
 end
 for _,ldef in pairs(lines) do
@@ -365,10 +369,12 @@ for _,ldef in pairs(lines) do
     sectors_heights[sec].hic = math.max(sectors_heights[sec].hic,sectors[1+othersec].ceiling)
     if sectors_heights[sec].lef then
       sectors_heights[sec].lef = math.min(sectors_heights[sec].lef,sectors[1+othersec].floor)
-      sectors_heights[sec].hef = math.max(sectors_heights[sec].hef,sectors[1+othersec].floor)        
+      sectors_heights[sec].hef = math.max(sectors_heights[sec].hef,sectors[1+othersec].floor)
+      sectors_heights[sec].lec = math.min(sectors_heights[sec].lec,sectors[1+othersec].ceiling)
     else
       sectors_heights[sec].lef = sectors[1+othersec].floor
       sectors_heights[sec].hef = sectors[1+othersec].floor
+      sectors_heights[sec].lec = sectors[1+othersec].ceiling
     end
     -- other side
     othersec     = sidedef.sec
@@ -380,9 +386,11 @@ for _,ldef in pairs(lines) do
     if sectors_heights[sec].lef then
       sectors_heights[sec].lef = math.min(sectors_heights[sec].lef,sectors[1+othersec].floor)
       sectors_heights[sec].hef = math.max(sectors_heights[sec].hef,sectors[1+othersec].floor)        
+      sectors_heights[sec].lec = math.min(sectors_heights[sec].lec,sectors[1+othersec].ceiling)
     else
       sectors_heights[sec].lef = sectors[1+othersec].floor
       sectors_heights[sec].hef = sectors[1+othersec].floor
+      sectors_heights[sec].lec = sectors[1+othersec].ceiling
     end
   end
 end
@@ -472,7 +480,7 @@ for lid,ldef in ipairs(lines) do
         movables[lid-1].uph   = sectors_heights[movedsec].floor
       else 
         movables[lid-1].downh = sectors_heights[movedsec].floor      
-        movables[lid-1].uph   = sectors_heights[movedsec].hic
+        movables[lid-1].uph   = sectors_heights[movedsec].lec
       end
       id = id + 1
     end
