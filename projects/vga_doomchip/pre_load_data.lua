@@ -386,13 +386,13 @@ for _,ldef in pairs(lines) do
   end
 end
 
--- -------------------------------------
--- find all movable sectors and triggers
+-- -------------------------
+-- find all movable triggers
 movables = {}
 id    = 1
-for _,ldef in pairs(lines) do
-  local isdoor,ismanual,isfloor,isceiling,islift
-  isdoor=false;ismanual=false;isfloor=false;isceiling=false;islift=false
+for lid,ldef in ipairs(lines) do
+  local ismovable,ismanual,floor_or_ceiling
+  ismovable=false; ismanual=0; floor_or_ceiling=0
   if   ldef.types == 1 
     or ldef.types == 26
     or ldef.types == 28
@@ -405,8 +405,9 @@ for _,ldef in pairs(lines) do
     or ldef.types == 117
     or ldef.types == 118
     then
-    isdoor   = true
-    ismanual = true
+    ismovable = true
+    floor_or_ceiling = 0 -- ceiling
+    ismanual = 1
   end
   if   ldef.types == 10 
     or ldef.types == 21
@@ -417,32 +418,30 @@ for _,ldef in pairs(lines) do
     or ldef.types == 120
     or ldef.types == 123
     then
-    islift   = true
-    ismanual = true -- for now
+    ismovable = true
+    floor_or_ceiling   = 1 -- floor
+    ismanual = 1 -- for now
   end  
-  if isdoor or islift or isceiling or isfloor then
+  if ismovable then
     if ldef.left < 65535 then
       if ldef.tag == 0 then
-        sidedef      = sides[1+ldef.left]
-        movablesec   = sidedef.sec
+        sidedef    = sides[1+ldef.left]
+        movedsec   = sidedef.sec
       else
-        movablesec   = tag_2_sector[ldef.tag]
+        movedsec   = tag_2_sector[ldef.tag]
       end
-      print('' .. id .. '] sector ' .. movablesec .. ' is a movable (door/lift/ceiling) tag:' .. ldef.tag)
-      --print('          lif: ' .. sectors_heights[movablesec].lif .. ' hic: ' .. sectors_heights[movablesec].hic)
-      --print('          lef: ' .. sectors_heights[movablesec].lef .. ' hef: ' .. sectors_heights[movablesec].hef)      
-      starth = sectors_heights[movablesec].lif
-      if not movables[movablesec] then
-        -- TODO: This is wrong, multiple linedefs can impact a same sector
-        -- A movable should refer to a sector being manipulated
-        movables[movablesec] = {
-          id     = id,
-          starth = starth,
-          openh  = sectors_heights[movablesec].lef,
-          closeh = sectors_heights[movablesec].hef
+      print('' .. id .. '] sector ' .. movedsec .. ' is a moving (door/lift/ceiling) - tag:' .. ldef.tag)
+      starth = sectors_heights[movedsec].lif
+      movables[lid-1] = {
+          id       = id,
+          sec      = movedsec,
+          starth   = starth,
+          ismanual = ismanual,
+          uph      = sectors_heights[movedsec].lef,
+          downh    = sectors_heights[movedsec].hef,
+          floor_or_ceiling = floor_or_ceiling,
           }
-        id = id + 1
-      end
+      id = id + 1
     end
   end
 end
@@ -475,16 +474,50 @@ end
 -- -------------------------------------
 -- prepare custom data structures
 bspNodes     = {}
+bspSectors   = {}
 bspSSectors  = {}
 bspSegs      = {}
 bspMovables  = {}
+
+for i,sc in ipairs(sectors) do
+  -- textures
+  local f_T   = texture_ids[sc.floorT]
+  local c_T
+  if sc.ceilingT == 'F_SKY1' then
+    c_T = 0
+  else
+    c_T = texture_ids[sc.ceilingT]
+  end
+  local lowlight = 0
+  if lowlights[i-1] then
+    lowlight = lowlights[i-1].level
+  end
+  local seclight = sc.light
+--  if lowlight >= seclight 
+--  and (sc.special == 2 or sc.special == 3 or sc.special == 4) then
+--    print('sector ' .. sidedef.sec .. ' forcing light to zero (seclight: ' .. seclight .. ' lowlight:' .. lowlight .. ')')
+--    seclight = 0
+--  end
+  bspSectors[i] = {
+    f_h       = sc.floor,
+    c_h       = sc.ceiling,
+    f_T       = f_T,
+    c_T       = c_T,
+    light     = round(math.min(31,(255 - seclight)/8)),
+    lowlight  = round(math.min(31,(255 - lowlight)/8)),
+    special   = sc.special,
+  }
+end
+
 maxmovableid = 0
 for sec,m in pairs(movables) do
-  print('MOVABLE ID = ' .. m.id)
   bspMovables[m.id] = {
-    h      = m.starth,
-    openh  = m.openh,
-    closeh = m.closeh
+    sec    = m.sec,
+    starth = m.starth,
+    uph    = m.uph,
+    downh  = m.downh,
+    ismanual = m.ismanual,
+    floor_or_ceiling = m.floor_or_ceiling
   }
   maxmovableid = math.max(maxmovableid,m.id)
 end
@@ -509,6 +542,7 @@ for i,n in ipairs(nodes) do
     rby_lw = n.rby_lw,
   }
 end
+
 for i,ss in ipairs(ssectors) do
   -- identify parent sector
   seg  = segs[1+ss.start_seg]
@@ -518,45 +552,12 @@ for i,ss in ipairs(ssectors) do
   else
     sidedef = sides[1+ldef.left]
   end
-  parent = sectors[1+sidedef.sec]
-  --- movable?
-  movableid = 0
-  if movables[sidedef.sec] then
-    movableid = movables[sidedef.sec].id
-  end
-  -- textures
-  f_T   = texture_ids[parent.floorT]
-  if parent.ceilingT == 'F_SKY1' then
-    c_T = 0
-  else
-    c_T = texture_ids[parent.ceilingT]
-  end
-  lowlight = 0
-  if lowlights[sidedef.sec] then
-    lowlight = lowlights[sidedef.sec].level
-  end
-  seclight = parent.light
---  if lowlight >= seclight 
---  and (parent.special == 2 or parent.special == 3 or parent.special == 4) then
---    print('sector ' .. sidedef.sec .. ' forcing light to zero (seclight: ' .. seclight .. ' lowlight:' .. lowlight .. ')')
---    seclight = 0
---  end
   -- store
   bspSSectors[i] = {
-    sec       = sidedef.sec,
+    parentsec = sidedef.sec,
     num_segs  = ss.num_segs,
     start_seg = ss.start_seg,
-    f_h       = parent.floor,
-    c_h       = parent.ceiling,
-    f_T       = f_T,
-    c_T       = c_T,
-    light     = round(math.min(31,(255 - seclight)/8)),
-    lowlight  = round(math.min(31,(255 - lowlight)/8)),
-    special   = parent.special,
-    movableid = movableid
   }
-  --print('sector ' .. sidedef.sec .. ' seclight: ' .. seclight .. ' lowlight:' .. lowlight)
-  --print('  ' .. i-1 .. ' ' .. ' seclight: ' .. bspSSectors[i].light .. ' lowlight:' .. bspSSectors[i].lowlight)
 end
 
 for i,sg in ipairs(segs) do
@@ -591,20 +592,11 @@ for i,sg in ipairs(segs) do
       upr = 0 -- texture_ids['F_SKY1']
     end
   end
-  -- other sector floor/ceiling heights
-  other_f_h = 0
-  other_c_h = 0
-  other_movableid = 0
+  -- other sector
+  other_sec = 65535
   if other_sidedef then
-    other_f_h    = sectors[1+other_sidedef.sec].floor
-    other_c_h    = sectors[1+other_sidedef.sec].ceiling
-    if movables[other_sidedef.sec] then
-      other_movableid  = movables[other_sidedef.sec].id
-      print('seg ' .. (i-1) .. ' other_movableid ' .. other_movableid)
-      print('  between ' .. sidedef.sec .. ' - ' .. other_sidedef.sec)
-    end
+    other_sec = other_sidedef.sec
   end
-  -- print('textures ids ' .. lwr .. ',' .. mid .. ',' .. upr)
   local xoff = sidedef.xoff + sg.off
   --[[if (sg.dir == 1) then
     -- correct texture offset NOTE: TODO not yet checked, does this work?
@@ -633,6 +625,10 @@ for i,sg in ipairs(segs) do
   if (ldef.flags & 8) ~= 0 then
     upper_unpegged = 1
   end
+  local movableid = 0
+  if movables[sg.ldf] then
+    movableid = movables[sg.ldf].id
+  end
   bspSegs[i] = {
     v0x       = v0x,
     v0y       = v0y,
@@ -641,9 +637,8 @@ for i,sg in ipairs(segs) do
     upr       = upr,
     lwr       = lwr,
     mid       = mid,
-    other_f_h = other_f_h,
-    other_c_h = other_c_h,
-    other_movableid = other_movableid,
+    movableid = movableid,
+    other_sec = other_sec,
     xoff      = xoff,
     yoff      = sidedef.yoff,
     seglen    = sg.seglen,
@@ -712,25 +707,31 @@ function pack_bsp_node_children_box(node)
   return bin
 end
 
-function pack_bsp_ssec(ssec)
+function pack_bsp_sec(sec)
   local bin = 0
-  bin = '64h' 
-        .. string.format("%02x",ssec.movableid):sub(-2)
-        .. string.format("%04x",ssec.c_h):sub(-4)
-        .. string.format("%04x",ssec.f_h):sub(-4)
-        .. string.format("%04x",ssec.start_seg):sub(-4)
-        .. string.format("%02x",ssec.num_segs ):sub(-2)
+  bin = '32h'
+        .. string.format("%04x",sec.c_h):sub(-4)
+        .. string.format("%04x",sec.f_h):sub(-4)
   return bin
 end
 
-function pack_bsp_ssec_flats(ssec)
+function pack_bsp_sec_flats(sec)
   local bin = 0
   bin = '40h'
-        .. string.format("%02x",ssec.lowlight):sub(-2)
-        .. string.format("%02x",math.min(255,ssec.special)):sub(-2)
-        .. string.format("%02x",ssec.light):sub(-2)
-        .. string.format("%02x",ssec.c_T  ):sub(-2)
-        .. string.format("%02x",ssec.f_T  ):sub(-2)
+        .. string.format("%02x",sec.lowlight):sub(-2)
+        .. string.format("%02x",math.min(255,sec.special)):sub(-2)
+        .. string.format("%02x",sec.light):sub(-2)
+        .. string.format("%02x",sec.c_T  ):sub(-2)
+        .. string.format("%02x",sec.f_T  ):sub(-2)
+  return bin
+end
+
+function pack_bsp_ssec(ssec)
+  local bin = 0
+  bin = '40h' 
+        .. string.format("%04x",ssec.parentsec):sub(-4)
+        .. string.format("%04x",ssec.start_seg):sub(-4)
+        .. string.format("%02x",ssec.num_segs ):sub(-2)
   return bin
 end
 
@@ -746,13 +747,12 @@ end
 
 function pack_bsp_seg_tex_height(seg)
   local bin = 0
-  bin = '64h' 
-        .. string.format("%02x",seg.other_movableid):sub(-2)
+  bin = '48h' 
+        .. string.format("%02x",seg.movableid):sub(-2)
+        .. string.format("%04x",seg.other_sec):sub(-4)
         .. string.format("%02x",seg.upr):sub(-2)
         .. string.format("%02x",seg.mid):sub(-2)
         .. string.format("%02x",seg.lwr):sub(-2)
-        .. string.format("%04x",seg.other_c_h):sub(-4)
-        .. string.format("%04x",seg.other_f_h):sub(-4)
   return bin
 end
 
@@ -779,10 +779,11 @@ end
 
 function pack_movable(m)
   local bin = 0
-  bin = '49h1' -- msb indicate moving direction (up/down)
-        .. string.format("%04x",m.closeh):sub(-4)
-        .. string.format("%04x",m.openh):sub(-4)
-        .. string.format("%04x",m.h):sub(-4)
+  bin = '52h1' -- msb: 51:active, 50:moving dir, 49:ismanual, 48:floor_or_ceiling
+        .. (0*8 + 1*4 + m.ismanual*2 + m.floor_or_ceiling*1)
+        .. string.format("%04x",m.sec):sub(-4)
+        .. string.format("%04x",m.downh):sub(-4)
+        .. string.format("%04x",m.uph):sub(-4)
   return bin
 end
 

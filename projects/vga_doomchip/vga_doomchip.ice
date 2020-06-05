@@ -124,53 +124,69 @@ $$for _,n in ipairs(bspNodes) do
    $pack_bsp_node_coords(n)$, // dy=$n.dy$ dx=$n.dx$ y=$n.y$ x=$n.x$
 $$end
   };
+  
   bram uint32 bsp_nodes_children[] = {
 $$for _,n in ipairs(bspNodes) do
    $pack_bsp_node_children(n)$, // lchild=$n.lchild$ rchild=$n.rchild$ 
 $$end
   };  
+  
   bram uint128 bsp_nodes_boxes[] = {
 $$for _,n in ipairs(bspNodes) do
    $pack_bsp_node_children_box(n)$, // left: $n.lbx_lw$,$n.lbx_hi$,$n.lby_lw$,$n.lby_hi$ right: $n.rbx_lw$,$n.rbx_hi$,$n.rby_lw$,$n.rby_hi$
 $$end
   };  
-  // BRAMs for sub-sectors
-  bram uint64 bsp_ssecs[] = {
-$$for _,s in ipairs(bspSSectors) do
-   $pack_bsp_ssec(s)$,          // sec=$s.sec$ movableid=$s.movableid$ c_h=$s.c_h$ f_h=$s.f_h$  start_seg=$s.start_seg$ num_segs=$s.num_segs$
+  
+  // BRAMs for sectors
+  bram uint32 bsp_secs[] = {
+$$for _,s in ipairs(bspSectors) do
+   $pack_bsp_sec(s)$,          // c_h=$s.c_h$ f_h=$s.f_h$
 $$end
   };
-  bram uint40 bsp_ssecs_flats[] = {
-$$for i,s in ipairs(bspSSectors) do
-   $pack_bsp_ssec_flats(s)$,          // $i-1$] lowlight=$s.lowlight$ special=$s.special$ light=$s.light$ c_T=$s.c_T$ f_T=$s.f_T$
+
+  bram uint40 bsp_secs_flats[] = {
+$$for i,s in ipairs(bspSectors) do
+   $pack_bsp_sec_flats(s)$,  // $i-1$] lowlight=$s.lowlight$ special=$s.special$ light=$s.light$ c_T=$s.c_T$ f_T=$s.f_T$
 $$end
-  };   
+  };     
+
+  // BRAM for sub-sectors
+  bram uint40 bsp_ssecs[] = {
+$$for _,s in ipairs(bspSSectors) do
+   $pack_bsp_ssec(s)$,         // parentsec=$s.parentsec$ start_seg=$s.start_seg$ num_segs=$s.num_segs$
+$$end
+  };
+  
   // BRAMs for segments
   bram uint64 bsp_segs_coords[] = {
 $$for _,s in ipairs(bspSegs) do
    $pack_bsp_seg_coords(s)$, // v1y=$s.v1y$ v1x=$s.v1x$ v0y=$s.v0y$ v0x=$s.v0x$ 
 $$end
   };
-  bram uint64 bsp_segs_tex_height[] = {
+  
+  bram uint48 bsp_segs_tex_height[] = {
 $$for i,s in ipairs(bspSegs) do
-   $pack_bsp_seg_tex_height(s)$, // $i-1$] other_movableid=$s.other_movableid$ upr=$s.upr$ mid=$s.mid$ lwr=$s.lwr$ other_c_h=$s.other_c_h$ other_f_h=$s.other_f_h$ 
+   $pack_bsp_seg_tex_height(s)$, // $i-1$] other_sec=$s.other_sec$ upr=$s.upr$ mid=$s.mid$ lwr=$s.lwr$
 $$end
   };
+  
   bram uint66 bsp_segs_texmapping[] = {
 $$for i,s in ipairs(bspSegs) do
    $pack_bsp_seg_texmapping(s)$, // $i-1$] unpegged U$s.upper_unpegged$ L$s.lower_unpegged$ segsqlen/32=$s.segsqlen$ yoff=$s.yoff$ xoff=$s.xoff$ seglen=$s.seglen$ 
 $$end
-  };    
+  };  
+  
   // BRAM for movables
-  bram uint49 bsp_movables[] = { 
-   49h0, // first record is not used
-$$for _,d in ipairs(bspMovables) do
-   $pack_movable(d)$, // closeh=$d.closeh$ openh=$d.openh$ h=$d.h$
+  bram uint52 bsp_movables[] = { 
+   52h0, // first record is not used
+$$for _,m in ipairs(bspMovables) do
+   $pack_movable(m)$, // sec=$m.sec$ downh=$m.downh$ uph=$m.uph$
 $$end
-  };
+  };  
 $$if #bspMovables > 255 then error('more than 255 movables!') end
   uint8 num_bsp_movables = $1 + #bspMovables$;
-  // BRAM for demo
+  
+  // BRAM for demo path
   bram uint64 demo_path[] = {
 $$for _,s in ipairs(demo_path) do
    $pack_demo_path(s)$, // angle=$s.angle$ z=$s.z$ y=$s.y$ x=$s.x$
@@ -279,6 +295,7 @@ $$end
   int$FPw$ interp_m = 0;
   int16    tmp1     = 0;
   int16    tmp2     = 0;
+  int16    tmp3     = 0;
   int$FPw$ tmp1_m   = 0;
   int$FPw$ tmp2_m   = 0;
   int$FPl$ tmp1_h   = 0; // larger to hold FPm x FPm
@@ -333,8 +350,8 @@ $$end
   uint9    s   = 0;  
   uint16   n   = 0;
   
-  uint49   movabledata = 0;
-  uint1    movabledir  = 0;
+  uint52   movabledata = 0;
+  uint1    active = 0;
   
   uint1    viewsector = 1;
   uint1    walkable   = 1;
@@ -370,8 +387,9 @@ $$end
   bsp_nodes_coords   .wenable = 0;
   bsp_nodes_children .wenable = 0;
   bsp_nodes_boxes    .wenable = 0;
+  bsp_secs          .wenable = 0;
+  bsp_secs_flats     .wenable = 0;
   bsp_ssecs          .wenable = 0;  
-  bsp_ssecs_flats    .wenable = 0;
   bsp_segs_coords    .wenable = 0;
   bsp_segs_tex_height.wenable = 0;
   bsp_segs_texmapping.wenable = 0;
@@ -485,54 +503,56 @@ $$end
           
           // sub-sector reached
           bsp_ssecs      .addr = n[0,14];
-          bsp_ssecs_flats.addr = n[0,14];
+++:       
+          bsp_secs       .addr = bsp_ssecs.rdata[24,16];
+          bsp_secs_flats .addr = bsp_ssecs.rdata[24,16];
 ++:          
           // light level in sector
-          switch (bsp_ssecs_flats.rdata[24,8]) {
+          switch (bsp_secs_flats.rdata[24,8]) {
             case 1: { // random off
               if (((rand>>1) & 15) < 2) {
-                seclight = bsp_ssecs_flats.rdata[32,8]; // off (lowlight)
+                seclight = bsp_secs_flats.rdata[32,8]; // off (lowlight)
               } else {
-                seclight = bsp_ssecs_flats.rdata[16,8]; // on (sector light)
+                seclight = bsp_secs_flats.rdata[16,8]; // on (sector light)
               }            
             }
             case 2: { // flash fast
               if ( (((time)>>4)&3) == 0 ) {
-                seclight = bsp_ssecs_flats.rdata[16,8];
+                seclight = bsp_secs_flats.rdata[16,8];
               } else {
-                seclight = bsp_ssecs_flats.rdata[32,8];
+                seclight = bsp_secs_flats.rdata[32,8];
               }            
             }
             case 3: { // flash slow
               if ( (((time)>>5)&3) == 0 ) {
-                seclight = bsp_ssecs_flats.rdata[16,8];
+                seclight = bsp_secs_flats.rdata[16,8];
               } else {
-                seclight = bsp_ssecs_flats.rdata[32,8];
+                seclight = bsp_secs_flats.rdata[32,8];
               }            
             }
             case 12: { // flash fast
               if ( (((time)>>4)&3) == 0 ) {
-                seclight = bsp_ssecs_flats.rdata[16,8];
+                seclight = bsp_secs_flats.rdata[16,8];
               } else {
-                seclight = bsp_ssecs_flats.rdata[32,8];
+                seclight = bsp_secs_flats.rdata[32,8];
               }            
             }
             case 13: { // flash slow
               if ( (((time)>>5)&3) == 0 ) {
-                seclight = bsp_ssecs_flats.rdata[16,8];
+                seclight = bsp_secs_flats.rdata[16,8];
               } else {
-                seclight = bsp_ssecs_flats.rdata[32,8];
+                seclight = bsp_secs_flats.rdata[32,8];
               }            
             }
             case 8: { // oscillates (to improve)
               if ( (((time)>>5)&1) == 0) {
-                seclight = bsp_ssecs_flats.rdata[32,8];
+                seclight = bsp_secs_flats.rdata[32,8];
               } else {
-                seclight = bsp_ssecs_flats.rdata[16,8];
+                seclight = bsp_secs_flats.rdata[16,8];
               }            
             }
             default: {
-              seclight = bsp_ssecs_flats.rdata[16,8];
+              seclight = bsp_secs_flats.rdata[16,8];
             }
           }
           
@@ -543,7 +563,6 @@ $$end
             bsp_segs_coords.addr      = bsp_ssecs.rdata[8,16] + s;
             bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
             bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
-            bsp_movables.addr         = bsp_ssecs.rdata[56,8];
 ++:
             // segment endpoints
             v0x = bsp_segs_coords.rdata[ 0,16];
@@ -591,13 +610,9 @@ $$end
                 d_h     = den >>> $FPm+4$; // record corrected distance for tex. mapping
                 // -> get floor/ceiling heights 
                 // NOTE: signed, so always read in same width!
-                tmp1    = bsp_ssecs.rdata[24,16]; // floor height 
+                tmp1    = bsp_secs.rdata[0,16]; // sector floor height 
                 sec_f_h = tmp1 - ray_z;
-                if (bsp_ssecs.rdata[56,8] != 0) {  // movable?
-                  tmp1    = bsp_movables.rdata[0,16]; // movable ceiling height
-                } else {
-                  tmp1    = bsp_ssecs.rdata[40,16]; // ceiling height
-                }
+                tmp1    = bsp_secs.rdata[16,16]; // ceiling height
                 sec_c_h = tmp1 - ray_z;                  
 ++:
                 tmp1_h  = (sec_f_h * invd_h);     // h / d
@@ -626,11 +641,11 @@ $$end
                   c_h       = top;
                 } }
                 
-                // prepare movable data, for other sector ceiling (if any)
-                bsp_movables.addr = bsp_segs_tex_height.rdata[56,8];
+                // prepare sector data for other sector (if any)
+                bsp_secs.addr = bsp_segs_tex_height.rdata[24,8];
                 
                 // draw floor
-                texid = bsp_ssecs_flats.rdata[0,8];
+                texid = bsp_secs_flats.rdata[0,8];
                 inv_y.addr = 100 - btm;
                 while (btm < f_h) {
                   gv_m = (-sec_f_h)  * inv_y.rdata;
@@ -665,8 +680,8 @@ $$end
                 }
                 
                 // draw ceiling
-                texid = bsp_ssecs_flats.rdata[8,8];
-                if (texid > 0 || (bsp_segs_tex_height.rdata[48,8] != 0)) {  // draw sky if upper texture present
+                texid = bsp_secs_flats.rdata[8,8];
+                if (texid > 0 || (bsp_segs_tex_height.rdata[16,8] != 0)) {  // draw sky if upper texture present
                   inv_y.addr = top - 100;                
                   while (top > c_h) {
                     gv_m = (sec_c_h)   * inv_y.rdata;
@@ -724,9 +739,10 @@ $$end
 ++: // relax timing             
 
                 // lower part?                
-                if (bsp_segs_tex_height.rdata[32,8] != 0) {
-                  texid     = bsp_segs_tex_height.rdata[32,8];
-                  tmp1      = bsp_segs_tex_height.rdata[0,16]; // other sector floor height
+                if (bsp_segs_tex_height.rdata[0,8] != 0) {
+                  texid     = bsp_segs_tex_height.rdata[0,8];
+                  
+                  tmp1      = bsp_secs.rdata[0,16]; // other sector floor height
                   sec_f_o   = tmp1 - ray_z;
 ++:
                   tmp1_h    = (sec_f_o * invd_h);
@@ -761,15 +777,12 @@ $$end
                 }
                 
                 // upper part?
-                if ( (bsp_segs_tex_height.rdata[48,8] != 0) // upper texture present
-                ||   (bsp_ssecs_flats.rdata[8,8] == 0 && bsp_segs_tex_height.rdata[40,8] != 0) // or opaque with sky above
+                if ( (bsp_segs_tex_height.rdata[16,8] != 0) // upper texture present
+                ||   (bsp_secs_flats.rdata[8,8] == 0 && bsp_segs_tex_height.rdata[8,8] != 0) // or opaque with sky above
                 ) {
-                  texid     = bsp_segs_tex_height.rdata[48,8];                
-                  if (bsp_segs_tex_height.rdata[56,8] != 0) {  // movable?
-                    tmp1    = bsp_movables.rdata[0,16]; // movable ceiling height
-                  } else {
-                    tmp1    = bsp_segs_tex_height.rdata[16,16]; // other sector ceiling height
-                  }
+                  texid     = bsp_segs_tex_height.rdata[16,8];
+                  
+                  tmp1      = bsp_secs.rdata[16,16]; // other sector ceiling height                 
                   sec_c_o   = tmp1 - ray_z;
 ++:
                   tmp1_h    = (sec_c_o * invd_h);
@@ -819,8 +832,8 @@ $$end
                 }
                 
                 // opaque wall
-                if (bsp_segs_tex_height.rdata[40,8] != 0) {
-                  texid   = bsp_segs_tex_height.rdata[40,8];
+                if (bsp_segs_tex_height.rdata[8,8] != 0) {
+                  texid   = bsp_segs_tex_height.rdata[8,8];
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
                     // normal
                     tex_v   = (sec_c_h_w);
@@ -899,8 +912,15 @@ $$if INTERACTIVE then
         queue_ptr = queue_ptr + 2;            
       } else {        
         // sub-sector reached
-        bsp_ssecs      .addr = n[0,14];
-        bsp_ssecs_flats.addr = n[0,14];        
+        bsp_ssecs    .addr = n[0,14];
+        // while here, track z        
+        if (viewsector) { // done only once on first column
+++:       
+          bsp_secs   .addr = bsp_ssecs.rdata[24,16];
+++:       
+          target_z   = bsp_secs.rdata[0,16] + 40; // floor height + eye level
+          viewsector = 0;
+        }  
         // collision detection
         s = 0;
         while (s < bsp_ssecs.rdata[0,8]) {
@@ -909,26 +929,28 @@ $$if INTERACTIVE then
           bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
           bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
 ++:
-          // prepare movable data, for other sector ceiling (if any)
-          bsp_movables.addr         = bsp_segs_tex_height.rdata[56,8];
-++:          
+          // prepare movable data (if any)
+          bsp_movables.addr         = bsp_segs_tex_height.rdata[40,8];
+          // prepare sector data for other sector (if any)
+          bsp_secs.addr = bsp_segs_tex_height.rdata[24,8];
+++:       
           // determine the type of segment (can we walk across, is it a movable?)
           walkable   = 1;
           movableseg = 0;
           onesided   = 0;
-          if (bsp_segs_tex_height.rdata[40,8] != 0) { // opaque wall
+          if (bsp_segs_tex_height.rdata[8,8] != 0) { // opaque wall
             walkable = 0;
             onesided = 1;
           } else { // here we assume all walls without a middle section are two sided
             // other sector floor height
-            tmp1      = bsp_segs_tex_height.rdata[0,16];
+            tmp1      = bsp_secs.rdata[0,16];
             // other sector ceiling height
-            if (bsp_segs_tex_height.rdata[56,8] != 0) {  // movable?
-              tmp2       = bsp_movables.rdata[0,16];
+            tmp2      = bsp_secs.rdata[16,16];
+            // movable?
+            if (bsp_segs_tex_height.rdata[40,8] != 0) {  
               movableseg = 1;
-            } else {
-              tmp2    = bsp_segs_tex_height.rdata[16,16];
             }
+            // walkable?
             if (ray_z < tmp1 || ray_z > tmp2) {
               walkable = 0;
             }
@@ -972,7 +994,7 @@ $$if INTERACTIVE then
                 if ( (tmp1_h < tmp2_h) && (l_h > - tmp2_h) && l_h < (tmp3_h + tmp2_h) ) { 
                   colliding = 1;
                   //// DEBUG
-                  debug0    = bsp_segs_tex_height.rdata[56,8];
+                  debug0    = bsp_segs_tex_height.rdata[40,8];
                   debug1    = movableseg;
                   debug2    = bsp_movables.addr;
                   debug3    = bsp_ssecs.rdata[8,16] + s;
@@ -998,11 +1020,6 @@ $$if INTERACTIVE then
           }
           s = s + 1;
         } 
-        if (viewsector) { // done only once on first column
-          // while here, track z
-          target_z   = bsp_ssecs.rdata[24,16] + 40; // floor height + eye level
-        }         
-        viewsector = 0;
       }
     }
 $$end
@@ -1010,44 +1027,61 @@ $$end
     // ----------------------------------------------
     // motion movables
     bsp_movables.wenable = 0;
-    bsp_movables.addr    = 1; // skip first (empty, id=0 tags 'not a movable')
+    bsp_movables.addr    = 1; // skip first (id=0 tags 'not a movable')
     while (bsp_movables.addr < num_bsp_movables) {
-      // modify
-      tmp1       = bsp_movables.rdata[0,16];
-      movabledir = bsp_movables.rdata[48,1];
-      if (movabledir == 0) {
-        // up
-        tmp2 = bsp_movables.rdata[16,16]; // openh
-        if (tmp1 < tmp2) {
-          movabledata = bsp_movables.rdata;      
-          movabledata[0,16] = tmp1 + 1;
+      if (bsp_movables.rdata[51,1]) { // active?
+        active = 1;
+        // read sector
+        bsp_secs    .wenable = 0;
+        bsp_secs    .addr    = bsp_movables.rdata[32,16];
+++:
+        // floor or ceiling
+        if (bsp_movables.rdata[48,1]) { 
+          tmp1 = bsp_secs.rdata[0,16];
         } else {
-          movabledata       = bsp_movables.rdata;
-$$if SIMULATION then
-//          movabledata[48,1] = ~movabledir;
-$$end
+          tmp1 = bsp_secs.rdata[16,16];
         }
-      } else {
-        // down
-        tmp2 = bsp_movables.rdata[32,16]; // closeh
-        if (tmp1 > tmp2) {
-          movabledata = bsp_movables.rdata;
-          movabledata[0,16] = tmp1 - 1;
+        // direction
+        if (bsp_movables.rdata[50,1] == 0) {
+          // up
+          tmp2 = bsp_movables.rdata[0,16]; // uph
+          if (tmp1 < tmp2) {
+            tmp3 = tmp1 + 1;
+          } else {
+            tmp3 = tmp1;
+            active = 0;
+          }
         } else {
-          movabledata       = bsp_movables.rdata;
-$$if SIMULATION then
-//          movabledata[48,1] = ~movabledir;
-$$end
+          // down
+          tmp2 = bsp_movables.rdata[16,16]; // downh
+          if (tmp1 > tmp2) {
+            tmp3 = tmp1 - 1;
+          } else {
+            tmp3 = tmp1;
+            active = 0;
+          }
+        }
+        // write back sector
+        bsp_secs.wdata = bsp_secs.rdata;
+        if (bsp_movables.rdata[48,1]) { 
+          bsp_secs.wdata[0,16] = tmp3;
+        } else {
+          bsp_secs.wdata[16,16] = tmp3;
+        }      
+        bsp_secs.wenable = 1;
+        // update movable if became inactive
+        if (active == 0) {
+          bsp_movables.wdata   = bsp_movables.rdata;
+          bsp_movables.wdata[51,1] = active;
+          bsp_movables.wenable = 1;
+++:          
+          bsp_movables.wenable = 0;
         }
       }
-      // write back
-      bsp_movables.wenable = 1;
-      bsp_movables.wdata   = movabledata;
-++:
-      bsp_movables.wenable = 0;
+      // next
       bsp_movables.addr    = bsp_movables.addr + 1;
     }
-    bsp_movables.wenable = 0;
+    bsp_secs.wenable = 0;
     
     // ----------------------------------------------
     // prepare next frame
@@ -1097,7 +1131,8 @@ $$else
         bsp_movables.addr    = onmovable;
 ++:        
         movabledata          = bsp_movables.rdata;
-        movabledata[48,1]    = ~bsp_movables.rdata[48,1];
+        movabledata[50,1]    = ~bsp_movables.rdata[50,1];
+        movabledata[51,1]    = 1; // activate
         bsp_movables.wdata   = movabledata;
         bsp_movables.wenable = 1;
 ++:        
