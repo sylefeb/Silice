@@ -398,6 +398,7 @@ id    = 1
 for lid,ldef in ipairs(lines) do
   local ismovable,ismanual,floor_or_ceiling
   ismovable=false; ismanual=0; floor_or_ceiling=0
+  -- manual doors
   if   ldef.types == 1 
     or ldef.types == 26
     or ldef.types == 28
@@ -414,6 +415,27 @@ for lid,ldef in ipairs(lines) do
     floor_or_ceiling = 0 -- ceiling
     ismanual = 1
   end
+  -- remote doors
+  if   ldef.types == 4
+    or ldef.types == 29
+    or ldef.types == 90
+    or ldef.types == 63
+    or ldef.types == 2
+    or ldef.types == 103
+    or ldef.types == 86
+    or ldef.types == 61
+    or ldef.types == 3
+    or ldef.types == 50
+    or ldef.types == 75
+    or ldef.types == 42
+    or ldef.types == 16
+    or ldef.types == 76
+    then
+    ismovable = true
+    floor_or_ceiling = 0 -- ceiling
+    ismanual = 1
+  end
+  -- lifts  
   if   ldef.types == 10 
     or ldef.types == 21
     or ldef.types == 88
@@ -428,8 +450,8 @@ for lid,ldef in ipairs(lines) do
     ismanual = 1 -- for now
   end  
   if ismovable then
-    if ldef.left < 65535 then
-      if ldef.tag == 0 then
+    if ldef.left < 65535 or ldef.tag > 0 then
+      if ldef.tag == 0 then -- TODO also check sector is not tagged
         sidedef    = sides[1+ldef.left]
         movedsec   = sidedef.sec
       else
@@ -456,6 +478,8 @@ for lid,ldef in ipairs(lines) do
     end
   end
 end
+
+-- error('stop')
 
 -- -------------------------------------
 -- find min light level of neighboring sectors

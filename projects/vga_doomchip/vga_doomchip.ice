@@ -166,7 +166,7 @@ $$end
   
   bram uint48 bsp_segs_tex_height[] = {
 $$for i,s in ipairs(bspSegs) do
-   $pack_bsp_seg_tex_height(s)$, // $i-1$] other_sec=$s.other_sec$ upr=$s.upr$ mid=$s.mid$ lwr=$s.lwr$
+   $pack_bsp_seg_tex_height(s)$, // $i-1$] movableid=$s.movableid$ other_sec=$s.other_sec$ upr=$s.upr$ mid=$s.mid$ lwr=$s.lwr$
 $$end
   };
   
@@ -861,9 +861,14 @@ $$end
                       tex_v  = tex_v - (d_h);
                     }                    
                   }
+                  // close column
+                  top = btm;
+                }
+                
+                if (top <= btm) { // column completed
                   // flush queue to stop
                   queue_ptr = 0;
-                  break;
+                  break;                
                 }
                 
               }
@@ -948,14 +953,14 @@ $$if INTERACTIVE then
             tmp1      = bsp_secs.rdata[0,16];
             // other sector ceiling height
             tmp2      = bsp_secs.rdata[16,16];
-            // movable?
-            if (bsp_segs_tex_height.rdata[40,8] != 0) {  
-              movableseg = 1;
-            }
             // walkable?
             if (ray_z < tmp1 || ray_z > tmp2) {
               walkable = 0;
             }
+          }
+          // movable?
+          if (bsp_segs_tex_height.rdata[40,8] != 0) {  
+            movableseg = 1;
           }
           if ((walkable == 0) || (movableseg == 1)) {
             // segment endpoints
