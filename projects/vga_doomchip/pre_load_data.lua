@@ -344,10 +344,11 @@ if k == 1 then
 end
 
 -- -------------------------------------
--- compute sectors LIC, LIF, HIF, HIC, LEF, HEF
+-- compute sectors heights
 sectors_heights={}
 for id,sect in ipairs(sectors) do
   sectors_heights[id-1] = {
+    floor = sect.floor, ceiling = sect.ceiling,
     lif = sect.floor, hif = sect.floor, lic = sect.ceiling, hic = sect.ceiling 
   }
 end
@@ -385,6 +386,10 @@ for _,ldef in pairs(lines) do
     end
   end
 end
+
+--for sec,sh in pairs(sectors_heights) do
+--  print('sector ' .. sec .. ' hic = ' .. sh.hic)
+--end
 
 -- -------------------------
 -- find all movable triggers
@@ -431,16 +436,22 @@ for lid,ldef in ipairs(lines) do
         movedsec   = tag_2_sector[ldef.tag]
       end
       print('' .. id .. '] sector ' .. movedsec .. ' is a moving (door/lift/ceiling) - tag:' .. ldef.tag)
-      starth = sectors_heights[movedsec].lif
       movables[lid-1] = {
           id       = id,
           sec      = movedsec,
           starth   = starth,
           ismanual = ismanual,
-          uph      = sectors_heights[movedsec].lef,
-          downh    = sectors_heights[movedsec].hef,
           floor_or_ceiling = floor_or_ceiling,
-          }
+          uph      = 0,
+          downh    = 0,
+      }
+      if floor_or_ceiling == 1 then
+        movables[lid-1].downh = sectors_heights[movedsec].lif
+        movables[lid-1].uph   = sectors_heights[movedsec].floor
+      else 
+        movables[lid-1].downh = sectors_heights[movedsec].floor      
+        movables[lid-1].uph   = sectors_heights[movedsec].hic
+      end
       id = id + 1
     end
   end

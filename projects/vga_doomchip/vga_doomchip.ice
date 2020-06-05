@@ -179,8 +179,8 @@ $$end
   // BRAM for movables
   bram uint52 bsp_movables[] = { 
    52h0, // first record is not used
-$$for _,m in ipairs(bspMovables) do
-   $pack_movable(m)$, // sec=$m.sec$ downh=$m.downh$ uph=$m.uph$
+$$for i,m in ipairs(bspMovables) do
+   $pack_movable(m)$, // $i-1$] sec=$m.sec$ downh=$m.downh$ uph=$m.uph$
 $$end
   };  
 $$if #bspMovables > 255 then error('more than 255 movables!') end
@@ -563,6 +563,8 @@ $$end
             bsp_segs_coords.addr      = bsp_ssecs.rdata[8,16] + s;
             bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
             bsp_segs_texmapping.addr  = bsp_ssecs.rdata[8,16] + s;
+            // sector info (changes in loop)
+            bsp_secs.addr             = bsp_ssecs.rdata[24,16];
 ++:
             // segment endpoints
             v0x = bsp_segs_coords.rdata[ 0,16];
@@ -610,7 +612,7 @@ $$end
                 d_h     = den >>> $FPm+4$; // record corrected distance for tex. mapping
                 // -> get floor/ceiling heights 
                 // NOTE: signed, so always read in same width!
-                tmp1    = bsp_secs.rdata[0,16]; // sector floor height 
+                tmp1    = bsp_secs.rdata[0,16];  // floor height 
                 sec_f_h = tmp1 - ray_z;
                 tmp1    = bsp_secs.rdata[16,16]; // ceiling height
                 sec_c_h = tmp1 - ray_z;                  
@@ -994,7 +996,6 @@ $$if INTERACTIVE then
                 if ( (tmp1_h < tmp2_h) && (l_h > - tmp2_h) && l_h < (tmp3_h + tmp2_h) ) { 
                   colliding = 1;
                   //// DEBUG
-                  debug0    = bsp_segs_tex_height.rdata[40,8];
                   debug1    = movableseg;
                   debug2    = bsp_movables.addr;
                   debug3    = bsp_ssecs.rdata[8,16] + s;
@@ -1030,6 +1031,10 @@ $$end
     bsp_movables.addr    = 1; // skip first (id=0 tags 'not a movable')
     while (bsp_movables.addr < num_bsp_movables) {
       if (bsp_movables.rdata[51,1]) { // active?
+        
+        ///// DEBUG
+        debug0 = bsp_movables.addr;
+        
         active = 1;
         // read sector
         bsp_secs    .wenable = 0;
@@ -1071,15 +1076,15 @@ $$end
         bsp_secs.wenable = 1;
         // update movable if became inactive
         if (active == 0) {
-          bsp_movables.wdata   = bsp_movables.rdata;
+          bsp_movables.wdata       = bsp_movables.rdata;
           bsp_movables.wdata[51,1] = active;
-          bsp_movables.wenable = 1;
+          bsp_movables.wenable     = 1;
 ++:          
-          bsp_movables.wenable = 0;
+          bsp_movables.wenable     = 0;
         }
       }
       // next
-      bsp_movables.addr    = bsp_movables.addr + 1;
+      bsp_movables.addr = bsp_movables.addr + 1;
     }
     bsp_secs.wenable = 0;
     
@@ -1100,7 +1105,7 @@ $$if not INTERACTIVE and not SIMULATION then
     }    
     demo_path.addr = frame;
 $$else
-    // DEBUG
+    //// DEBUG
     led[0,1] = colliding;
     if (onmovable != 0) {
       led[1,1] = 1;
