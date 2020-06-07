@@ -171,8 +171,8 @@ for _,t in ipairs(sorted_walls) do
   local n = walls[t]
   if t:sub(1,1) ~= '-' then
     num_textures   = num_textures + 1
-    texture_ids[t] = num_textures
-    print('wall ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t])
+    texture_ids[t] = {id=num_textures,type='wall'}
+    print('wall ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t].id)
   end
 end
 -- sort flats by usage
@@ -181,8 +181,8 @@ for _,t in ipairs(sorted_flats) do
   local n = flats[t]
   if t:sub(1,1) ~= '-' then
     num_textures   = num_textures + 1
-    texture_ids[t] = num_textures
-    print('flat ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t])
+    texture_ids[t] = {id=num_textures,type='flat'}
+    print('flat ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t].id)
   end
 end
 
@@ -513,12 +513,12 @@ bspMovables  = {}
 
 for i,sc in ipairs(sectors) do
   -- textures
-  local f_T   = texture_ids[sc.floorT]
+  local f_T   = texture_ids[sc.floorT].id
   local c_T
   if sc.ceilingT == 'F_SKY1' then
     c_T = 0
   else
-    c_T = texture_ids[sc.ceilingT]
+    c_T = texture_ids[sc.ceilingT].id
   end
   local lowlight = 0
   if lowlights[i-1] then
@@ -607,21 +607,21 @@ for i,sg in ipairs(segs) do
   -- textures
   lwr = 0
   if sidedef.lwrT:sub(1, 1) ~= '-' then
-    lwr = texture_ids[sidedef.lwrT]
+    lwr = texture_ids[sidedef.lwrT].id
   end
   upr = 0
   if sidedef.uprT:sub(1, 1) ~= '-' then
-    upr = texture_ids[sidedef.uprT]
+    upr = texture_ids[sidedef.uprT].id
   end
   mid = 0
   if sidedef.midT:sub(1, 1) ~= '-' then
-    mid = texture_ids[sidedef.midT]
+    mid = texture_ids[sidedef.midT].id
   end
   -- adjust for sky
   if other_sidedef then
     if     sectors[1+sidedef.sec].ceilingT == 'F_SKY1'
        and sectors[1+other_sidedef.sec].ceilingT == 'F_SKY1' then
-      upr = 0 -- texture_ids['F_SKY1']
+      upr = 0
     end
   end
   -- other sector

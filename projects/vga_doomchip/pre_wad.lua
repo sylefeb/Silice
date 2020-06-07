@@ -23,6 +23,7 @@ VERTEXES='VERTEXES',
 lump_misc = {
 'COLORMAP',
 'PLAYPAL',
+'PNAMES',
 'TEXTURE1',
 }
 
@@ -84,28 +85,27 @@ for l=1,nlumps do
   if lump_level[name] then
     name = level_prefix .. '_' .. name
   end
-  if string.match(name,'F_START') then
-    in_flats = 1
-  end
+  lumps[name] = { start=start, size=size }
+  print(' - lump "' .. name .. '" [' .. start .. '] ' .. size)
   if string.match(name,'F_END') then
     in_flats = 0
   end
-  if string.match(name,'P_START') then
-    in_patches = 1
-  end
-  if string.match(name,'P_END') then
+  if string.match(name,'P1_END') then
     in_patches = 0
   end
-  lumps[name] = { start=start, size=size }
   if in_flats == 1 then
     lumps_flats[name] = { start=start, size=size }
     extract_lump(name,'flats/')
   end
   if in_patches == 1 then
     lumps_patches[name] = { start=start, size=size }
-    extract_lump(name,'patches/')
   end
-  print(' - lump "' .. name .. '" [' .. start .. '] ' .. size)
+  if string.match(name,'F_START') then
+    in_flats = 1
+  end
+  if string.match(name,'P1_START') then
+    in_patches = 1
+  end
 end
 
 in_wad:close()
@@ -120,5 +120,5 @@ for _,lmp in pairs(lump_level) do
   extract_lump(level .. '_' .. lmp)
 end
 
-error('stop')
+-- error('stop')
 

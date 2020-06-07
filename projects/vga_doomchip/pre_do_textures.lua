@@ -7,14 +7,12 @@ else
 USE_BRAM = false -- RAM or ROM
 SHRINK   = 1 -- 0 is original res, 1 half, 2 a quarter
              -- synthesis is much fast at a quarter res, recommanded for testing
--- NO_TEXTURE = 1             
 end
 
 ALL_IN_ONE = false
 
 -- -------------------------------------
 -- helper functions
-
 function texture_dim_pow2(dim)
   local pow2=0
   local tmp = dim
@@ -54,15 +52,66 @@ function update_palette(img,pal)
   return img
 end
 
-function decode_img_lump(name)
+-- -------------------------------------
+-- decode a Doom patch
+function decode_patch_lump(name)
   -- open lump file
-  ------------------------------- TODO TODO TODO
-  
+  local in_patch = assert(io.open(findfile(name), 'rb'))
+  local pw = string.unpack('H',in_patch:read(2))
+  local ph = string.unpack('H',in_patch:read(2))
+  img={}
+  for j = 1,ph do
+    img[j]={}
+    for i = 1,pw do
+      img[j][i] = -1 -- transparent
+    end
+  end
+  local lo = string.unpack('H',in_patch:read(2))  
+  local to = string.unpack('H',in_patch:read(2))
+  local colptrs={}
+  for i=1,pw do
+    colptrs[i] = string.unpack('I4',in_patch:read(4))
+  end
+  -- read posts
+  for i=1,pw do
+    while true do
+      local rstart = string.unpack('B',in_patch:read(1))
+      if rstart == 255 then
+        break
+      end
+      local num    = string.unpack('B',in_patch:read(1))
+      in_patch:read(1) -- skip
+      for n=1,num do
+        img[1+rstart][i] = string.unpack('B',in_patch:read(1))
+        rstart = rstart + 1
+      end
+      in_patch:read(1) -- skip
+    end
+  end
+  in_patch:close()
+  return img
+end
+
+-- -------------------------------------
+-- decode a Doom flat
+function decode_flat_lump(name)
+  local pw = 64
+  local ph = 64
+  local in_flat = assert(io.open(findfile(name), 'rb'))
+  img={}
+  for j = 1,ph do
+    img[j]={}
+    for i = 1,pw do
+      img[j][i] = string.unpack('B',in_flat:read(1))
+    end
+  end
+  in_flat:close()
+  return img
 end
 
 -- -------------------------------------
 -- colormap
-local in_clrmap = assert(io.open(findfile('COLORMAP'), 'rb'))
+local in_clrmap = assert(io.open(findfile('lumps/COLORMAP.lump'), 'rb'))
 local sz = fsize(in_clrmap)
 print('colormap file is ' .. sz .. ' bytes')
 colormaps={}
@@ -77,8 +126,7 @@ end
 
 -- -------------------------------------
 -- palette
-
-local in_pal = assert(io.open(findfile('PLAYPAL'), 'rb'))
+local in_pal = assert(io.open(findfile('lumps/PLAYPAL.lump'), 'rb'))
 local sz = fsize(in_pal)
 print('palette file is ' .. sz .. ' bytes')
 palette={}
@@ -101,90 +149,85 @@ in_pal:close()
 path,_1,_2 = string.match(findfile('vga_doomchip.ice'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
 
 -- -------------------------------------
+-- parse pnames
+local in_pnames = assert(io.open(findfile('lumps/PNAMES.lump'), 'rb'))
+local num_pnames = string.unpack('I4',in_pnames:read(4))
+pnames={}
+for p=1,num_pnames do
+  local name = in_pnames:read(8):match("[%_-%a%d]+")
+  pnames[p-1] = name
+end
+in_pnames:close()
+
+-- -------------------------------------
 -- parse texture defs
-
-local in_texdefs = assert(io.open(findfile('textures/textures.txt'), 'r'))
-num_tex_defs = 0
-current = nil
-texpatches = {}
-imgcur = nil
-imgcur_w = 0
-imgcur_h = 0
-
-for line in in_texdefs:lines() do
-  local name, w, h = line:match("WallTexture ([%a%d_]+), (%d+), (%d+)")
-  if name then
-    if texture_ids[name] ~= nil then
-      -- start new
-      print('texdef "' .. name .. '"')
-      print('   width:  ' .. w)
-      print('   height: ' .. h)
-      num_tex_defs = num_tex_defs + 1
-      current = name
-      imgcur = {}
-      for j=1,h do
-        imgcur[j] = {}
-        for i=1,w do
-          imgcur[j][i] = 0
-        end
-      end
-    else
-      current = nil
+local in_texdefs = assert(io.open(findfile('lumps/TEXTURE1.lump'), 'rb'))
+local imgcur = nil
+local imgcur_w = 0
+local imgcur_h = 0
+local sz_read = 0
+local num_texdefs = string.unpack('I4',in_texdefs:read(4))
+local texdefs_seek={}
+for i=1,num_texdefs do
+  texdefs_seek[i] = string.unpack('I4',in_texdefs:read(4))
+end
+for i=1,num_texdefs do
+  local name = in_texdefs:read(8):match("[%_-%a%d]+")
+  in_texdefs:read(2) -- skip
+  in_texdefs:read(2) -- skip
+  local w = string.unpack('H',in_texdefs:read(2))
+  local h = string.unpack('H',in_texdefs:read(2))
+  in_texdefs:read(2) -- skip
+  in_texdefs:read(2) -- skip
+  -- start new
+  print('wall texture ' .. name .. ' ' .. w .. 'x' .. h)
+  imgcur = {}
+  for j=1,h do
+    imgcur[j] = {}
+    for i=1,w do
+      imgcur[j][i] = 0
     end
-  elseif current ~= nil then    
-    -- closing bracket?
-    if line:match("}") then
-        -- save previous
-      if imgcur ~= nil then
-        print('saving ' .. current ..  ' ...')
-        save_table_as_image_with_palette(imgcur,palette,path .. 'textures/assembled/' .. current .. '.tga')
-        print('         ...done.')
-      end
-      current = nil
-      imgcur  = nil
-    else
-      -- patch?
-      local pname, x, y = line:match("%s*Patch ([%a%d_]+), (%-?%d+), (%-?%d+)")
-      if pname then
-        print('   patch "' .. pname .. '"')
-        print('     x:  ' .. x)
-        print('     y:  ' .. y)
-        if texpatches[pname] then
-          texpatches[pname] = texpatches[pname] + 1
-        else
-          texpatches[pname] = 1
-        end
-        extract_lump(pname)
-        print('   loading textures/source/' .. pname .. '.tga')
-        local pimg = get_image_as_table(path .. 'textures/source/' .. pname .. '.tga')
-        local ppal = get_palette_as_table(path .. 'textures/source/' .. pname .. '.tga')
-        pimg = update_palette(pimg,ppal)
-        local ph = #pimg
-        local pw = #pimg[1]
-        print('   patch is ' .. pw .. 'x' .. ph)
-        for j=1,ph do
-          for i=1,pw do
-             if ((j+y) <= #imgcur) and ((i+x) <= #imgcur[1]) and (j+y) > 0 and (i+x) > 0 then
+  end
+  -- copy patches
+  local npatches = string.unpack('H',in_texdefs:read(2))
+  for p=1,npatches do
+    local x   = string.unpack('h',in_texdefs:read(2))
+    local y   = string.unpack('h',in_texdefs:read(2))
+    local pid = string.unpack('H',in_texdefs:read(2))
+    pname = nil
+    if pnames[pid] then
+      pname = pnames[pid]
+      print('   patch "' .. pname .. '" id=' .. pid)
+      print('     x:  ' .. x)
+      print('     y:  ' .. y)
+    end
+    in_texdefs:read(2) -- skip
+    in_texdefs:read(2) -- skip    
+    if pname then
+      print('   loading patch ' .. pname)
+      local pimg = decode_patch_lump(path .. 'lumps/patches/' .. pname .. '.lump')
+      local ph = #pimg
+      local pw = #pimg[1]
+      print('   patch is ' .. pw .. 'x' .. ph)
+      for j=1,ph do
+        for i=1,pw do
+           if ((j+y) <= #imgcur) and ((i+x) <= #imgcur[1]) and (j+y) > 0 and (i+x) > 0 then
+             if pimg[j][i] > -1 then -- -1 is transparent
                imgcur[math.floor(j+y)][math.floor(i+x)] = pimg[j][i]
              end
-          end
+           end
         end
-        print('   copied.')
       end
-    end  
-  end  
+      print('   copied.')    
+    else
+      error('cannot find patch ' .. pid)
+    end
+  end
+  -- save  
+  print('saving ' .. name .. ' ...')
+  save_table_as_image_with_palette(imgcur,palette,path .. 'textures/assembled/' .. name .. '.tga')
+  print('         ... done.')
 end
--- save any last one
-if current then
-  print('saving...')
-  save_table_as_image_with_palette(imgcur,palette,path .. 'textures/assembled/' .. current .. '.tga')
-  print('         ...done.')
-end 
-
-print('num tex defs used: ' .. num_tex_defs)
---for p,i in pairs(texpatches) do
---  print('patch ' .. p .. ' used ' .. i .. ' times')
---end
 
 print('generating texture chip code')
 local code = assert(io.open(path .. 'texturechip.ice', 'w'))
@@ -211,19 +254,22 @@ end
 code:write('};\n')
 texture_start_addr = 0
 texture_start_addr_table = {}
-if not NO_TEXTURE then
-  if ALL_IN_ONE then
-    if USE_BRAM then
-      code:write('  bram uint8 textures[] = {\n')
-    else
-      code:write('  brom uint8 textures[] = {\n')
-    end
+if ALL_IN_ONE then
+  if USE_BRAM then
+    code:write('  bram uint8 textures[] = {\n')
+  else
+    code:write('  brom uint8 textures[] = {\n')
   end
-  for tex,id in pairs(texture_ids) do
-    -- load assembled texture
-    local texpal  = get_palette_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
-    local texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
-    texdata = update_palette(texdata,texpal)
+end
+for tex,nfo in pairs(texture_ids) do
+  if tex ~= 'F_SKY1' then -- skip sky entirely
+    -- load texture
+    local texdata
+    if nfo.type == 'wall' then
+      texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
+    else
+      texdata = decode_flat_lump(path .. 'lumps/flats/' .. tex .. '.lump')
+    end
     if SHRINK == 3 then
       texdata = shrink_tex(shrink_tex(shrink_tex(texdata)))
     elseif SHRINK == 2 then
@@ -252,9 +298,9 @@ if not NO_TEXTURE then
       code:write('};\n')
     end
   end
-  if ALL_IN_ONE then
-    code:write('};\n')
-  end
+end
+if ALL_IN_ONE then
+  code:write('};\n')
 end
 
 -- addressing
@@ -273,14 +319,15 @@ else
 end
 code:write('  switch (texid) {\n')
 code:write('    default : { }\n')  
-for tex,id in pairs(texture_ids) do
-  if NO_TEXTURE then
-    code:write('    case ' .. (id) .. ': {\n')
-    code:write('    palidx = ' .. id .. ';\n')    
-    code:write('    }\n')    
-  else
-    -- load assembled texture
-    local texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
+for tex,nfo in pairs(texture_ids) do
+  if tex ~= 'F_SKY1' then -- skip sky entirely
+    -- load texture
+    local texdata
+    if nfo.type == 'wall' then
+      texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
+    else
+      texdata = decode_flat_lump(path .. 'lumps/flats/' .. tex .. '.lump')
+    end
     if SHRINK == 3 then
       texdata = shrink_tex(shrink_tex(shrink_tex(texdata)))
     elseif SHRINK == 2 then
@@ -292,7 +339,7 @@ for tex,id in pairs(texture_ids) do
     local texh = #texdata
     local texw_pow2,texw_perfect = texture_dim_pow2(texw)
     local texh_pow2,texh_perfect = texture_dim_pow2(texh)
-    code:write('    case ' .. (id) .. ': {\n')
+    code:write('    case ' .. (nfo.id) .. ': {\n')
     code:write('       // ' .. tex .. ' ' .. texw .. 'x' .. texh .. '\n')
     if not texw_perfect then
       code:write('     if (iu > ' .. (3*texw) ..') {\n')
@@ -352,40 +399,36 @@ for tex,id in pairs(texture_ids) do
 end
 code:write('  }\n') -- switch
 
-if not NO_TEXTURE then
+-- wait two cycles (seems required @100MHz, single one led to artifacts)
+code:write('++:\n')
+code:write('++:\n')
 
-  -- wait two cycles (seems required @100MHz, one led to artefacts)
-  code:write('++:\n')
-  code:write('++:\n')
-
-  -- light
-  code:write('  lit = (light<<8);\n')
-  -- read data and query colormap
-  if ALL_IN_ONE then
-    code:write('  colormap.addr = textures.rdata + lit;\n')
-  else
-    code:write('  switch (texid) {\n')
-    code:write('    default : { }\n')  
-    code:write('    case 0  : { colormap.addr = 94; }\n')  
-    for tex,id in pairs(texture_ids) do
-      code:write('    case ' .. (id) .. ': {\n')
-      if tex == 'F_SKY1' then -- special case for sky
-        code:write('       colormap.addr = 94;\n')
-      else
-        code:write('       colormap.addr = texture_' .. tex .. '.rdata + lit;\n')
-      end
-      code:write('    }\n')
+-- light
+code:write('  lit = (light<<8);\n')
+-- read data and query colormap
+if ALL_IN_ONE then
+  code:write('  colormap.addr = textures.rdata + lit;\n')
+else
+  code:write('  switch (texid) {\n')
+  code:write('    default : { }\n')  
+  code:write('    case 0  : { colormap.addr = 94; }\n')  
+  for tex,nfo in pairs(texture_ids) do
+    code:write('    case ' .. (nfo.id) .. ': {\n')
+    if tex == 'F_SKY1' then -- special case for sky
+      code:write('       colormap.addr = 94;\n')
+    else
+      code:write('       colormap.addr = texture_' .. tex .. '.rdata + lit;\n')
     end
-    code:write('  }\n') 
+    code:write('    }\n')
   end
-
-  -- wait one cycle
-  code:write('++:\n')
-
-  -- done!
-  code:write('palidx = colormap.rdata;\n')
-
+  code:write('  }\n') 
 end
+
+-- wait one cycle
+code:write('++:\n')
+
+-- done!
+code:write('palidx = colormap.rdata;\n')
 
 code:write('}\n')
 code:close()
@@ -396,5 +439,3 @@ texturechip = code:read("*all")
 code:close()
 
 print('stored ' .. texture_start_addr .. ' texture bytes\n')
-
--- error('stop')
