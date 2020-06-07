@@ -510,7 +510,7 @@ $$end
           // light level in sector
           switch (bsp_secs_flats.rdata[24,8]) {
             case 1: { // random off
-              if (((rand>>1) & 15) < 2) {
+              if (rand < 256) {
                 seclight = bsp_secs_flats.rdata[32,8]; // off (lowlight)
               } else {
                 seclight = bsp_secs_flats.rdata[16,8]; // on (sector light)
@@ -1097,8 +1097,10 @@ $$end
     // prepare next frame
     
     time  = time  + 1;
-    rand  = rand * 31421 + 6927;
-  
+    if ((time & 3) == 0) {
+      rand  = rand * 31421 + 6927;
+    }
+    
     frame = frame + 1;
 $$if not INTERACTIVE and not SIMULATION then    
     if (frame >= demo_path_len) {

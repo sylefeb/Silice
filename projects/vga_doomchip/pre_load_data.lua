@@ -1,7 +1,5 @@
 -- SL 2020-04-30
 
-SINGLE_TEXTURE = 0
-
 -- -------------------------------------
 -- helper for file size
 function fsize(file)
@@ -94,7 +92,7 @@ end
 -- -------------------------------------
 -- read sidedefs, also gather textures
 sides = {}
-textures = {}
+walls = {}
 local in_sides = assert(io.open(findfile('lumps/' .. level .. '_' .. 'SIDEDEFS.lump'), 'rb'))
 local sz = fsize(in_sides)
 print('sidedefs file is ' .. sz .. ' bytes')
@@ -104,20 +102,20 @@ for i = 1,sz/30 do
   local uprT = in_sides:read(8):match("[%_-%a%d]+")
   local lwrT = in_sides:read(8):match("[%_-%a%d]+")
   local midT = in_sides:read(8):match("[%_-%a%d]+")
-  if textures[uprT] then
-    textures[uprT]=textures[uprT]+1
+  if walls[uprT] then
+    walls[uprT]=walls[uprT]+1
   else
-    textures[uprT]=1
+    walls[uprT]=1
   end
-  if textures[lwrT] then
-    textures[lwrT]=textures[lwrT]+1
+  if walls[lwrT] then
+    walls[lwrT]=walls[lwrT]+1
   else
-    textures[lwrT]=1
+    walls[lwrT]=1
   end
-  if textures[midT] then
-    textures[midT]=textures[midT]+1
+  if walls[midT] then
+    walls[midT]=walls[midT]+1
   else
-    textures[midT]=1
+    walls[midT]=1
   end
   local sec  = string.unpack('H',in_sides:read(2))
   sides[i] = {xoff = xoff, yoff = yoff,uprT = uprT,lwrT = lwrT, midT = midT, sec=sec}
@@ -130,6 +128,7 @@ end
 -- read sectors
 sectors = {}
 tag_2_sector = {}
+flats={}
 local in_sectors = assert(io.open(findfile('lumps/' .. level .. '_' .. 'SECTORS.lump'), 'rb'))
 local sz = fsize(in_sectors)
 print('sectors file is ' .. sz .. ' bytes')
@@ -141,15 +140,15 @@ for i = 1,sz/26 do
   local light    = string.unpack('H',in_sectors:read(2))
   local special  = string.unpack('H',in_sectors:read(2))
   local tag      = string.unpack('H',in_sectors:read(2))
-  if textures[floorT] then
-    textures[floorT]=textures[floorT]+1
+  if flats[floorT] then
+    flats[floorT]=flats[floorT]+1
   else
-    textures[floorT]=1
+    flats[floorT]=1
   end
-  if textures[ceilingT] then
-    textures[ceilingT]=textures[ceilingT]+1
+  if flats[ceilingT] then
+    flats[ceilingT]=flats[ceilingT]+1
   else
-    textures[ceilingT]=1
+    flats[ceilingT]=1
   end
   tag_2_sector[tag] = i-1
   sectors[i] = { floor=floor, ceiling=ceiling, floorT=floorT, ceilingT=ceilingT, light=light, special=special, tag=tag}
@@ -162,42 +161,32 @@ end
 --end
 
 -- -------------------------------------
--- sort textures by usage
-sorted_textures = getKeysSortedByValue(textures, function(a, b) return a > b end)
+-- process textures (walls and flats)
 num_textures = 0
 texture_ids = {} -- valid ids start at 1
-for _,t in ipairs(sorted_textures) do
-  local n = textures[t]
+-- -------------------------------------
+-- sort walls by usage
+local sorted_walls = getKeysSortedByValue(walls, function(a, b) return a > b end)
+for _,t in ipairs(sorted_walls) do
+  local n = walls[t]
   if t:sub(1,1) ~= '-' then
     num_textures   = num_textures + 1
     texture_ids[t] = num_textures
-    print('texture ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t])
+    print('wall ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t])
+  end
+end
+-- sort flats by usage
+local sorted_flats = getKeysSortedByValue(flats, function(a, b) return a > b end)
+for _,t in ipairs(sorted_flats) do
+  local n = flats[t]
+  if t:sub(1,1) ~= '-' then
+    num_textures   = num_textures + 1
+    texture_ids[t] = num_textures
+    print('flat ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t])
   end
 end
 
-if SINGLE_TEXTURE == 1 then
-  local singletex    = sorted_textures[2] -- [1] is '-'
-  texture_ids = {}
-  texture_ids[singletex] = 1
-  textures[singletex] = 1
-  for _,s in pairs(sectors) do
-    s.floorT   = singletex
-    if s.ceilingT ~= 'F_SKY1' then
-      s.ceilingT = singletex
-    end
-  end
-  for _,s in pairs(sides) do
-    if s.uprT:sub(1, 1) ~= '-' and s.uprT ~= 'F_SKY1' then
-      s.uprT = singletex
-    end
-    if s.lwrT:sub(1, 1) ~= '-' and s.lwrT ~= 'F_SKY1' then
-      s.lwrT = singletex
-    end
-    if s.midT:sub(1, 1) ~= '-' and s.midT ~= 'F_SKY1' then
-      s.midT = singletex
-    end
-  end
-end
+-- error('stop')
 
 -- -------------------------------------
 -- read linedefs
