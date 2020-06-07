@@ -164,6 +164,8 @@ end
 -- process textures (walls and flats)
 num_textures = 0
 texture_ids = {} -- valid ids start at 1
+switch_on_ids  = {}
+switch_off_ids = {}
 -- -------------------------------------
 -- sort walls by usage
 local sorted_walls = getKeysSortedByValue(walls, function(a, b) return a > b end)
@@ -173,6 +175,15 @@ for _,t in ipairs(sorted_walls) do
     num_textures   = num_textures + 1
     texture_ids[t] = {id=num_textures,type='wall'}
     print('wall ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t].id)
+    if t:sub(1,3) == 'SW1' then
+      t_on = 'SW2' .. t:sub(4)
+      num_textures   = num_textures + 1
+      texture_ids[t_on] = {id=num_textures,type='wall'}
+      print('=> switch, adding \'on\' texture ' .. t_on .. ' id=' .. texture_ids[t_on].id)
+      -- record switch ids
+      switch_on_ids [texture_ids[t_on].id] = t_on
+      switch_off_ids[texture_ids[t   ].id] = t
+    end
   end
 end
 -- sort flats by usage

@@ -1149,6 +1149,7 @@ $$else
         bsp_movables.wenable = 1;
 ++:        
         bsp_movables.wenable = 0;
+        // TODO: if switch, change texture
       }
     } else {
       kpressblind = kpressblind + 1;
