@@ -102,6 +102,7 @@ path,_1,_2 = string.match(findfile('vga_doomchip.ice'), "(.-)([^\\/]-%.?([^%.\\/
 
 -- -------------------------------------
 -- parse texture defs
+
 local in_texdefs = assert(io.open(findfile('textures/textures.txt'), 'r'))
 num_tex_defs = 0
 current = nil

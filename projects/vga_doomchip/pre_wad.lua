@@ -69,8 +69,10 @@ local diroffs = string.unpack('I4',in_wad:read(4))
 in_wad:seek("set", diroffs)
 local level_prefix = ''
 local in_flats = 0
+local in_patches = 0
 lumps={}
 lumps_flats={}
+lumps_patches={}
 for l=1,nlumps do
   local start = string.unpack('I4',in_wad:read(4))
   local size  = string.unpack('I4',in_wad:read(4))
@@ -88,10 +90,20 @@ for l=1,nlumps do
   if string.match(name,'F_END') then
     in_flats = 0
   end
+  if string.match(name,'P_START') then
+    in_patches = 1
+  end
+  if string.match(name,'P_END') then
+    in_patches = 0
+  end
   lumps[name] = { start=start, size=size }
   if in_flats == 1 then
     lumps_flats[name] = { start=start, size=size }
     extract_lump(name,'flats/')
+  end
+  if in_patches == 1 then
+    lumps_patches[name] = { start=start, size=size }
+    extract_lump(name,'patches/')
   end
   print(' - lump "' .. name .. '" [' .. start .. '] ' .. size)
 end
