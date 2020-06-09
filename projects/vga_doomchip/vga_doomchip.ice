@@ -404,7 +404,7 @@ $$end
   while (1) {
     
     // update position
-$$if not INTERACTIVE and not SIMULATION then
+$$if not INTERACTIVE then
   ray_x     = demo_path.rdata[ 0,16];
   ray_y     = demo_path.rdata[16,16];
   ray_z     = demo_path.rdata[32,16];    
@@ -838,26 +838,16 @@ $$end
                 
                 // opaque wall
                 if (bsp_segs_tex_height.rdata[8,8] != 0) {
-                  tmpid   = bsp_segs_tex_height.rdata[8,8];
+                  texid = bsp_segs_tex_height.rdata[8,8];
                   // if switch, possibly change texture
                   (has_switch) = is_switch(texid);
-                  if (has_switch) {
-                    texid = tmpid + 1;
-                  } else {
-                    texid = tmpid;
-                  }
-                  /*
                   if (has_switch && bsp_segs_tex_height.rdata[40,8] != 0) {
                     // check movable status
-                    if (bsp_movables.rdata[50,1]) {
-                      tmpid = bsp_segs_tex_height.rdata[8,8];
-                      (has_switch) = is_switch_on(tmpid);
-                      if (has_switch) {
-                        texid = tmpid + 1; // use ON texture
-                      }
+                    if (bsp_movables.rdata[50,1] == 0) {
+                      // use ON texture
+                      texid = bsp_segs_tex_height.rdata[8,8] + 1; 
                     }
                   }
-                  */
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
                     // normal
                     tex_v   = (sec_c_h_w);
@@ -1124,7 +1114,7 @@ $$end
     }
     
     frame = frame + 1;
-$$if not INTERACTIVE and not SIMULATION then    
+$$if not INTERACTIVE then    
     if (frame >= demo_path_len) {
       // reset
       frame     = 0;

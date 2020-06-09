@@ -2,7 +2,7 @@ print('preparing textures')
 
 if SIMULATION then
 USE_BRAM = false -- RAM or ROM
-SHRINK   = 1 -- 0 is original res, 1 half, 2 a quarter
+SHRINK   = 2 -- 0 is original res, 1 half, 2 a quarter
 else
 USE_BRAM = false -- RAM or ROM
 SHRINK   = 1 -- 0 is original res, 1 half, 2 a quarter
