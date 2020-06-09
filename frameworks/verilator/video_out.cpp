@@ -231,9 +231,9 @@ void VideoOut::eval_RGB_HV
 
                     if (hcount >= 0 && vcount >= 0 && hcount < pixels.xsize() && vcount < pixels.ysize()) {
                       pixels.at((int)(hcount), (int)(vcount)) = v3b(r,g,b);
-                    // printf("*** [pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)pixel.Red,(int)pixel.Green,(int)pixel.Blue);
+                    // printf("*** [pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)r,(int)g,(int)b);
                     } else {
-                      printf("*** [ERROR] out of bounds pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)pixel.Red,(int)pixel.Green,(int)pixel.Blue);
+                      printf("*** [ERROR] out of bounds pixel write at %d,%d  R%dG%dB%d]\n",hcount,vcount,(int)r,(int)g,(int)b);
                     }
                 }
             }

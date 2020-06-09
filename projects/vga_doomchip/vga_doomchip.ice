@@ -6,11 +6,10 @@
 // - "DooM unofficial specs" http://www.gamers.org/dhs/helpdocs/dmsp1666.html
 //
 // TODO: 
-// reduce design size : - use subroutines for column drawing
-// optimize           : - cache for SDRAM
+// cleanup
+// optimize           : - buffer column drawing and do it in //
 //                      - framebuffer transpose (reduce row activate/precharge!)
-//                      - parallel columns (arbitrer for BSP!)
-//
+//                      - parallel game logic (dualport bram)
 
 $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
@@ -322,6 +321,7 @@ $$end
   int16    xoff     = 0;
   int16    yoff     = 0;
   uint8    texid    = 0;
+  uint8    tmpid    = 0;
   uint8    seclight = 0;
   int$FPw$ light    = 0;
   int$FPw$ atten    = 0;
@@ -352,6 +352,7 @@ $$end
   
   uint52   movabledata = 0;
   uint1    active = 0;
+  uint1    has_switch = 0;
   
   uint1    viewsector = 1;
   uint1    walkable   = 1;
@@ -372,7 +373,7 @@ $$end
 
 $$if DE10NANO then
   keypad     kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
-  lcd_status status(<:auto:>, posx <: debug0, posy <: debug1, posz <: debug2, posa <: debug3 );
+  lcd_status status(<:auto:>, posx <: ray_x, posy <: ray_y, posz <: ray_z, posa <: viewangle );
 $$end
   
   vsync_filtered ::= vsync;
@@ -387,7 +388,7 @@ $$end
   bsp_nodes_coords   .wenable = 0;
   bsp_nodes_children .wenable = 0;
   bsp_nodes_boxes    .wenable = 0;
-  bsp_secs          .wenable = 0;
+  bsp_secs           .wenable = 0;
   bsp_secs_flats     .wenable = 0;
   bsp_ssecs          .wenable = 0;  
   bsp_segs_coords    .wenable = 0;
@@ -566,6 +567,8 @@ $$end
             // sector info (changes in loop)
             bsp_secs.addr             = bsp_ssecs.rdata[24,16];
 ++:
+            // prepare movable data (if any)
+            bsp_movables.addr         = bsp_segs_tex_height.rdata[40,8];
             // segment endpoints
             v0x = bsp_segs_coords.rdata[ 0,16];
             v0y = bsp_segs_coords.rdata[16,16];
@@ -835,7 +838,26 @@ $$end
                 
                 // opaque wall
                 if (bsp_segs_tex_height.rdata[8,8] != 0) {
-                  texid   = bsp_segs_tex_height.rdata[8,8];
+                  tmpid   = bsp_segs_tex_height.rdata[8,8];
+                  // if switch, possibly change texture
+                  (has_switch) = is_switch(texid);
+                  if (has_switch) {
+                    texid = tmpid + 1;
+                  } else {
+                    texid = tmpid;
+                  }
+                  /*
+                  if (has_switch && bsp_segs_tex_height.rdata[40,8] != 0) {
+                    // check movable status
+                    if (bsp_movables.rdata[50,1]) {
+                      tmpid = bsp_segs_tex_height.rdata[8,8];
+                      (has_switch) = is_switch_on(tmpid);
+                      if (has_switch) {
+                        texid = tmpid + 1; // use ON texture
+                      }
+                    }
+                  }
+                  */
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
                     // normal
                     tex_v   = (sec_c_h_w);
@@ -991,14 +1013,14 @@ $$if INTERACTIVE then
               tmp3_h = bsp_segs_texmapping.rdata[48,16] << 5; // segsqlen
               // close to movable seg?
               if (movableseg == 1) {
-                //          vvv detect from further away
+                //          vvv  detect from further away
                 if (((tmp1_h>>2) < tmp2_h) && (l_h > 0) && l_h < (tmp3_h)) {
                   onmovable  = bsp_movables.addr;
                 }
               }
               if (walkable == 0) {
-                // close to the wall?
-                if ( (tmp1_h < tmp2_h) && (l_h > - tmp2_h) && l_h < (tmp3_h + tmp2_h) ) { 
+                // close to the wall?              vv margin to prevent going in between convex corners
+                if ( (tmp1_h < tmp2_h) && (l_h > - 32) && l_h < (tmp3_h + 32) ) { 
                   colliding = 1;
                   //// DEBUG
                   debug1    = movableseg;
@@ -1149,7 +1171,6 @@ $$else
         bsp_movables.wenable = 1;
 ++:        
         bsp_movables.wenable = 0;
-        // TODO: if switch, change texture
       }
     } else {
       kpressblind = kpressblind + 1;

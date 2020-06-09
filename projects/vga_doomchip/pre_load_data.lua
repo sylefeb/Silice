@@ -181,8 +181,8 @@ for _,t in ipairs(sorted_walls) do
       texture_ids[t_on] = {id=num_textures,type='wall'}
       print('=> switch, adding \'on\' texture ' .. t_on .. ' id=' .. texture_ids[t_on].id)
       -- record switch ids
-      switch_on_ids [texture_ids[t_on].id] = t_on
       switch_off_ids[texture_ids[t   ].id] = t
+      switch_on_ids [texture_ids[t_on].id] = t_on
     end
   end
 end
@@ -822,7 +822,7 @@ end
 
 function pack_movable(m)
   local bin = 0
-  bin = '52h1' -- msb: 51:active, 50:moving dir, 49:ismanual, 48:floor_or_ceiling
+  bin = '52h' -- msb: 51:active, 50:moving dir, 49:ismanual, 48:floor_or_ceiling
         .. (0*8 + 1*4 + m.ismanual*2 + m.floor_or_ceiling*1)
         .. string.format("%04x",m.sec):sub(-4)
         .. string.format("%04x",m.downh):sub(-4)

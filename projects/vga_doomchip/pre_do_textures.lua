@@ -427,10 +427,47 @@ end
 -- wait one cycle
 code:write('++:\n')
 
--- done!
+-- done with texture data
 code:write('palidx = colormap.rdata;\n')
-
 code:write('}\n')
+
+-- now make a circuit to tell which ids are on/off switches
+-- switch ON
+code:write('circuitry is_switch_on(input texid,output is)\n')
+code:write('{\n')
+code:write('  switch (texid) {\n')
+code:write('    default : { is = 0; }\n')  
+for id,name in pairs(switch_on_ids) do
+  code:write('    case ' .. id .. '  : { is = 1; }\n')  
+end
+code:write('  }\n') 
+code:write('}\n')
+-- switch OFF
+code:write('circuitry is_switch_off(input texid,output is)\n')
+code:write('{\n')
+code:write('  switch (texid) {\n')
+code:write('    default : { is = 0; }\n')  
+for id,name in pairs(switch_off_ids) do
+  code:write('    case ' .. id .. '  : { is = 1; }\n')  
+end
+code:write('  }\n') 
+code:write('}\n')
+-- switch ON or OFF
+code:write('circuitry is_switch(input texid,output is)\n')
+code:write('{\n')
+code:write('  switch (texid) {\n')
+code:write('    default : { is = 0; }\n')  
+for id,name in pairs(switch_on_ids) do
+  code:write('    case ' .. id .. '  : { is = 1; }\n')  
+end
+for id,name in pairs(switch_off_ids) do
+  code:write('    case ' .. id .. '  : { is = 1; }\n')  
+end
+code:write('  }\n') 
+code:write('}\n')
+
+
+-- done
 code:close()
 
 -- now load file into string
