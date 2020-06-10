@@ -231,8 +231,9 @@ private:
   /// \brief records info about variable bindings
   typedef struct
   {
-    std::string  left;
-    std::string  right;
+    std::string                    left;
+    std::string                    right_identifier;
+    siliceParser::IoAccessContext *right_access = nullptr;
     e_BindingDir dir;
     int          line;      // for error reporting
   } t_binding_nfo;
@@ -675,7 +676,9 @@ private:
   void updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context* bctx) const;
   /// \brief merge variable dependencies
   void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
-  /// \breif determine accessed variable
+  /// \brief determine binding right identifier
+  std::string bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx = nullptr) const;
+  /// \brief determine accessed variable
   std::string determineAccessedVar(siliceParser::AccessContext* access, const t_combinational_block_context* bctx) const;
   std::string determineAccessedVar(siliceParser::IoAccessContext* access, const t_combinational_block_context* bctx) const;
   std::string determineAccessedVar(siliceParser::BitAccessContext* access, const t_combinational_block_context* bctx) const;

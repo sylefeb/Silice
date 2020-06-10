@@ -120,7 +120,9 @@ declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifier
 declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
 declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory; 
 
-modalgBinding        : left=IDENTIFIER (LDEFINE | RDEFINE | BDEFINE) right=IDENTIFIER | AUTO;
+idOrIoAccess         : (ioAccess|IDENTIFIER) ;
+
+modalgBinding        : left=IDENTIFIER (LDEFINE | RDEFINE | BDEFINE) right=idOrIoAccess | AUTO;
 modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
 
 /* -- io lists -- */

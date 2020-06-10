@@ -78,12 +78,12 @@ void Algorithm::checkModulesBindings() const
           im.first.c_str(), b.left.c_str());
       }
       // check right side
-      if (!isInputOrOutput(b.right) && !isInOut(b.right)
-        && m_VarNames.count(b.right) == 0 
-        && b.right != m_Clock && b.right != ALG_CLOCK
-        && b.right != m_Reset && b.right != ALG_RESET) {
+      if (!isInputOrOutput(bindingRightIdentifier(b)) && !isInOut(bindingRightIdentifier(b))
+        && m_VarNames.count(bindingRightIdentifier(b)) == 0
+        && bindingRightIdentifier(b) != m_Clock && bindingRightIdentifier(b) != ALG_CLOCK
+        && bindingRightIdentifier(b) != m_Reset && bindingRightIdentifier(b) != ALG_RESET) {
         reportError(nullptr, b.line, "wrong binding point, instanced module '%s', binding to '%s'",
-          im.first.c_str(), b.right.c_str());
+          im.first.c_str(), bindingRightIdentifier(b).c_str());
       }
     }
   }
@@ -116,12 +116,13 @@ void Algorithm::checkAlgorithmsBindings() const
           ia.first.c_str(), b.left.c_str());
       }
       // check right side
-      if (!isInputOrOutput(b.right) && !isInOut(b.right)
-        && m_VarNames.count(b.right) == 0
-        && b.right != m_Clock && b.right != ALG_CLOCK
-        && b.right != m_Reset && b.right != ALG_RESET) {
-        reportError(nullptr, b.line, "wrong binding point, instanced algorithm '%s', binding to '%s'",
-          ia.first.c_str(), b.right.c_str());
+      std::string br = bindingRightIdentifier(b);
+      if (!isInputOrOutput(br) && !isInOut(br)
+        && m_VarNames.count(br) == 0
+        && br != m_Clock && br != ALG_CLOCK
+        && br != m_Reset && br != ALG_RESET) {
+        reportError(nullptr, b.line, "wrong binding point, instanced algorithm '%s', binding '%s' to '%s'",
+          ia.first.c_str(), br.c_str(), b.left.c_str());
       }
     }
   }
@@ -143,9 +144,9 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
       if (m_InputNames.find(io.first) != m_InputNames.end()) {
         // yes: autobind
         t_binding_nfo bnfo;
-        bnfo.line = _mod.instance_line;
-        bnfo.left = io.first;
-        bnfo.right = io.first;
+        bnfo.line  = _mod.instance_line;
+        bnfo.left  = io.first;
+        bnfo.right_identifier = io.first;
         bnfo.dir = e_Left;
         _mod.bindings.push_back(bnfo);
       }
@@ -156,7 +157,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
           t_binding_nfo bnfo;
           bnfo.line = _mod.instance_line;
           bnfo.left = io.first;
-          bnfo.right = io.first;
+          bnfo.right_identifier = io.first;
           bnfo.dir = e_Left;
           _mod.bindings.push_back(bnfo);
         }
@@ -175,7 +176,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
         t_binding_nfo bnfo;
         bnfo.line = _mod.instance_line;
         bnfo.left = io;
-        bnfo.right = io;
+        bnfo.right_identifier = io;
         bnfo.dir = e_Left;
         _mod.bindings.push_back(bnfo);
       }
@@ -190,7 +191,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
         t_binding_nfo bnfo;
         bnfo.line = _mod.instance_line;
         bnfo.left = io.first;
-        bnfo.right = io.first;
+        bnfo.right_identifier = io.first;
         bnfo.dir = e_Right;
         _mod.bindings.push_back(bnfo);
       }
@@ -201,7 +202,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
           t_binding_nfo bnfo;
           bnfo.line = _mod.instance_line;
           bnfo.left = io.first;
-          bnfo.right = io.first;
+          bnfo.right_identifier = io.first;
           bnfo.dir = e_Right;
           _mod.bindings.push_back(bnfo);
         }
@@ -218,7 +219,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
         t_binding_nfo bnfo;
         bnfo.line = _mod.instance_line;
         bnfo.left = io.first;
-        bnfo.right = io.first;
+        bnfo.right_identifier = io.first;
         bnfo.dir = e_BiDir;
         _mod.bindings.push_back(bnfo);
       }
@@ -229,7 +230,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
           t_binding_nfo bnfo;
           bnfo.line = _mod.instance_line;
           bnfo.left = io.first;
-          bnfo.right = io.first;
+          bnfo.right_identifier = io.first;
           bnfo.dir = e_BiDir;
           _mod.bindings.push_back(bnfo);
         }
@@ -256,7 +257,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
         t_binding_nfo bnfo;
         bnfo.line = _alg.instance_line;
         bnfo.left = io.name;
-        bnfo.right = io.name;
+        bnfo.right_identifier = io.name;
         bnfo.dir = e_Left;
         _alg.bindings.push_back(bnfo);
       } else // check if algorithm has a var with same name
@@ -265,7 +266,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
           t_binding_nfo bnfo;
           bnfo.line = _alg.instance_line;
           bnfo.left = io.name;
-          bnfo.right = io.name;
+          bnfo.right_identifier = io.name;
           bnfo.dir = e_Left;
           _alg.bindings.push_back(bnfo);
         }
@@ -283,7 +284,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
         t_binding_nfo bnfo;
         bnfo.line = _alg.instance_line;
         bnfo.left = io;
-        bnfo.right = io;
+        bnfo.right_identifier = io;
         bnfo.dir = e_Left;
         _alg.bindings.push_back(bnfo);
       }
@@ -298,7 +299,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
         t_binding_nfo bnfo;
         bnfo.line = _alg.instance_line;
         bnfo.left = io.name;
-        bnfo.right = io.name;
+        bnfo.right_identifier = io.name;
         bnfo.dir = e_Right;
         _alg.bindings.push_back(bnfo);
       } else // check if algorithm has a var with same name
@@ -307,7 +308,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
           t_binding_nfo bnfo;
           bnfo.line = _alg.instance_line;
           bnfo.left = io.name;
-          bnfo.right = io.name;
+          bnfo.right_identifier = io.name;
           bnfo.dir = e_Right;
           _alg.bindings.push_back(bnfo);
         }
@@ -323,7 +324,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
         t_binding_nfo bnfo;
         bnfo.line = _alg.instance_line;
         bnfo.left = io.name;
-        bnfo.right = io.name;
+        bnfo.right_identifier = io.name;
         bnfo.dir = e_BiDir;
         _alg.bindings.push_back(bnfo);
       }
@@ -334,7 +335,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
           t_binding_nfo bnfo;
           bnfo.line = _alg.instance_line;
           bnfo.left = io.name;
-          bnfo.right = io.name;
+          bnfo.right_identifier = io.name;
           bnfo.dir = e_BiDir;
           _alg.bindings.push_back(bnfo);
         }
@@ -362,7 +363,7 @@ void Algorithm::resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg)
         b.dir = e_BiDir;
       } else {
         reportError(nullptr, b.line, "cannot determine binding direction for '%s <:> %s', binding to algorithm instance '%s'",
-          b.left.c_str(), b.right.c_str(), _alg.instance_name.c_str());
+          b.left.c_str(), bindingRightIdentifier(b).c_str(), _alg.instance_name.c_str());
       }
     }
   }
@@ -788,16 +789,23 @@ void Algorithm::getBindings(
       if (bindings->modalgBinding()->AUTO() != nullptr) {
         _autobind = true;
       } else {
-        // checkl if this is a group binding
+        // check if this is a group binding
         if (bindings->modalgBinding()->BDEFINE() != nullptr) {
           auto G = m_VIOGroups.find(bindings->modalgBinding()->right->getText());
           if (G != m_VIOGroups.end()) {
+            // verify right is an identifier
+            if (bindings->modalgBinding()->right->IDENTIFIER() == nullptr) {
+              reportError(
+                bindings->modalgBinding()->right->getSourceInterval(),
+                (int)bindings->modalgBinding()->right->getStart()->getLine(), 
+                "expecting an identifier on the right side of a group binding");
+            }
             // unfold all bindings, select direction automatically
             for (auto v : G->second->varList()->var()) {
               string member = v->declarationVar()->IDENTIFIER()->getText();
               t_binding_nfo nfo;
               nfo.left  = bindings->modalgBinding()->left->getText() + "_" + member;
-              nfo.right = bindings->modalgBinding()->right->getText() + "_" + member;
+              nfo.right_identifier = bindings->modalgBinding()->right->IDENTIFIER()->getText() + "_" + member;
               nfo.line  = (int)bindings->modalgBinding()->getStart()->getLine();
               nfo.dir   = e_Auto;
               _vec_bindings.push_back(nfo);
@@ -809,7 +817,12 @@ void Algorithm::getBindings(
         }
         t_binding_nfo nfo;
         nfo.left = bindings->modalgBinding()->left->getText();
-        nfo.right = bindings->modalgBinding()->right->getText();
+        if (bindings->modalgBinding()->right->IDENTIFIER() != nullptr) {
+          nfo.right_identifier = bindings->modalgBinding()->right->IDENTIFIER()->getText();
+        } else {
+          sl_assert(bindings->modalgBinding()->right->ioAccess() != nullptr);
+          nfo.right_access = bindings->modalgBinding()->right->ioAccess();
+        }
         nfo.line = (int)bindings->modalgBinding()->getStart()->getLine();
         if (bindings->modalgBinding()->LDEFINE() != nullptr) {
           nfo.dir = e_Left;
@@ -2393,6 +2406,17 @@ void Algorithm::verifyMemberGroup(std::string member, siliceParser::GroupContext
 
 // -------------------------------------------------
 
+std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx) const
+{
+  if (bnd.right_access == nullptr) {
+    return translateVIOName(bnd.right_identifier, bctx);
+  } else {
+    return determineAccessedVar(bnd.right_access, bctx);
+  }
+}
+
+// -------------------------------------------------
+
 std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* access,const t_combinational_block_context* bctx) const
 {
   std::string base = access->base->getText();
@@ -2708,33 +2732,33 @@ void Algorithm::determineVariablesAccess()
   }
   for (const auto& b : all_bindings) {
     // variables are always on the right
-    if (m_VarNames.find(b.right) != m_VarNames.end()) {
+    if (m_VarNames.find(bindingRightIdentifier(b)) != m_VarNames.end()) {
       if (b.dir == e_Left) {
         // add to always block dependency
-        m_AlwaysPre.in_vars_read.insert(b.right);
+        m_AlwaysPre.in_vars_read.insert(bindingRightIdentifier(b));
         // set global access
-        m_Vars[m_VarNames[b.right]].access = (e_Access)(m_Vars[m_VarNames[b.right]].access | e_ReadOnly);
+        m_Vars[m_VarNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Vars[m_VarNames[bindingRightIdentifier(b)]].access | e_ReadOnly);
       } else if (b.dir == e_Right) {
         // add to always block dependency
-        m_AlwaysPre.out_vars_written.insert(b.right);
+        m_AlwaysPre.out_vars_written.insert(bindingRightIdentifier(b));
         // set global access
         // -> check prior access
-        if (m_Vars[m_VarNames[b.right]].access & e_WriteOnly) {
-          reportError(nullptr, b.line, "cannot write to variable '%s' bound to an algorithm or module output", b.right.c_str());
+        if (m_Vars[m_VarNames[bindingRightIdentifier(b)]].access & e_WriteOnly) {
+          reportError(nullptr, b.line, "cannot write to variable '%s' bound to an algorithm or module output", bindingRightIdentifier(b).c_str());
         }
         // -> mark as write-binded
-        m_Vars[m_VarNames[b.right]].access = (e_Access)(m_Vars[m_VarNames[b.right]].access | e_WriteBinded);
+        m_Vars[m_VarNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Vars[m_VarNames[bindingRightIdentifier(b)]].access | e_WriteBinded);
       } else { // e_BiDir
         sl_assert(b.dir == e_BiDir);
         // -> check prior access
-        if ((m_Vars[m_VarNames[b.right]].access & (~e_ReadWriteBinded)) != 0) {
-          reportError(nullptr, b.line, "cannot bind variable '%s' on an inout port, it is used elsewhere", b.right.c_str());
+        if ((m_Vars[m_VarNames[bindingRightIdentifier(b)]].access & (~e_ReadWriteBinded)) != 0) {
+          reportError(nullptr, b.line, "cannot bind variable '%s' on an inout port, it is used elsewhere", bindingRightIdentifier(b).c_str());
         }
         // add to always block dependency
-        m_AlwaysPre.in_vars_read.insert(b.right);
-        m_AlwaysPre.out_vars_written.insert(b.right);
+        m_AlwaysPre.in_vars_read.insert(bindingRightIdentifier(b));
+        m_AlwaysPre.out_vars_written.insert(bindingRightIdentifier(b));
         // set global access
-        m_Vars[m_VarNames[b.right]].access = (e_Access)(m_Vars[m_VarNames[b.right]].access | e_ReadWriteBinded);
+        m_Vars[m_VarNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Vars[m_VarNames[bindingRightIdentifier(b)]].access | e_ReadWriteBinded);
       }
     }
   }
@@ -2862,27 +2886,27 @@ void Algorithm::determineModAlgBoundVIO()
 {
   // find out vio bound to a module input/output
   for (const auto& im : m_InstancedModules) {
-    for (const auto& bi : im.second.bindings) {
-      if (bi.dir == e_Right) {
+    for (const auto& b : im.second.bindings) {
+      if (b.dir == e_Right) {
         // record wire name for this output
-        m_VIOBoundToModAlgOutputs[bi.right] = WIRE + im.second.instance_prefix + "_" + bi.left;
-      } else if (bi.dir == e_BiDir) {
+        m_VIOBoundToModAlgOutputs[bindingRightIdentifier(b)] = WIRE + im.second.instance_prefix + "_" + b.left;
+      } else if (b.dir == e_BiDir) {
         // record wire name for this inout
-        std::string bindpoint = im.second.instance_prefix + "_" + bi.left;
-        m_ModAlgInOutsBoundToVIO[bindpoint] = bi.right;
+        std::string bindpoint = im.second.instance_prefix + "_" + b.left;
+        m_ModAlgInOutsBoundToVIO[bindpoint] = bindingRightIdentifier(b);
       }
     }
   }
   // find out vio bound to an algorithm output
   for (const auto& ia : m_InstancedAlgorithms) {
-    for (const auto& bi : ia.second.bindings) {
-      if (bi.dir == e_Right) {
+    for (const auto& b : ia.second.bindings) {
+      if (b.dir == e_Right) {
         // record wire name for this output
-        m_VIOBoundToModAlgOutputs[bi.right] = WIRE + ia.second.instance_prefix + "_" + bi.left;
-      } else if (bi.dir == e_BiDir) {
+        m_VIOBoundToModAlgOutputs[bindingRightIdentifier(b)] = WIRE + ia.second.instance_prefix + "_" + b.left;
+      } else if (b.dir == e_BiDir) {
         // record wire name for this inout
-        std::string bindpoint = ia.second.instance_prefix + "_" + bi.left;
-        m_ModAlgInOutsBoundToVIO[bindpoint] = bi.right;
+        std::string bindpoint = ia.second.instance_prefix + "_" + b.left;
+        m_ModAlgInOutsBoundToVIO[bindpoint] = bindingRightIdentifier(b);
       }
     }
   }
@@ -2906,7 +2930,7 @@ void Algorithm::analyzeInstancedAlgorithmsInputs()
     for (const auto& b : ia.second.bindings) {
       if (b.dir == e_Left) { // setting input
         // input is bound directly
-        ia.second.boundinputs.insert(std::make_pair(b.left, b.right));
+        ia.second.boundinputs.insert(std::make_pair(b.left, bindingRightIdentifier(b)));
       }
     }
   }
@@ -3905,15 +3929,15 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   for (auto im : m_InstancedModules) {
     for (auto b : im.second.bindings) {
       if (b.dir == e_Right) { // output
-        if (m_VarNames.find(b.right) != m_VarNames.end()) {
+        if (m_VarNames.find(bindingRightIdentifier(b)) != m_VarNames.end()) {
           // bound to variable, the variable is replaced by the output wire
-          auto usage = m_Vars.at(m_VarNames.at(b.right)).usage;
+          auto usage = m_Vars.at(m_VarNames.at(bindingRightIdentifier(b))).usage;
           sl_assert(usage == e_Bound);
-        } else if (m_OutputNames.find(b.right) != m_OutputNames.end()) {
+        } else if (m_OutputNames.find(bindingRightIdentifier(b)) != m_OutputNames.end()) {
           // bound to an algorithm output
-          auto usage = m_Outputs.at(m_OutputNames.at(b.right)).usage;
+          auto usage = m_Outputs.at(m_OutputNames.at(bindingRightIdentifier(b))).usage;
           if (usage == e_FlipFlop) {
-            out << FF_D << prefix + b.right + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
+            out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
           }
         }
       }
@@ -3924,16 +3948,16 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   for (auto ia : m_InstancedAlgorithms) {
     for (auto b : ia.second.bindings) {
       if (b.dir == e_Right) { // output
-        if (m_VarNames.find(b.right) != m_VarNames.end()) {
+        if (m_VarNames.find(bindingRightIdentifier(b)) != m_VarNames.end()) {
           // bound to variable, the variable is replaced by the output wire
-          auto usage = m_Vars.at(m_VarNames.at(b.right)).usage;
+          auto usage = m_Vars.at(m_VarNames.at(bindingRightIdentifier(b))).usage;
           sl_assert(usage == e_Bound);
-        } else if (m_OutputNames.find(b.right) != m_OutputNames.end()) {
+        } else if (m_OutputNames.find(bindingRightIdentifier(b)) != m_OutputNames.end()) {
           // bound to an algorithm output
-          auto usage = m_Outputs.at(m_OutputNames.at(b.right)).usage;
+          auto usage = m_Outputs.at(m_OutputNames.at(bindingRightIdentifier(b))).usage;
           if (usage == e_FlipFlop) {
             // the output is a flip-flop, copy from the wire
-            out << FF_D << prefix + b.right + " = " + WIRE + ia.second.instance_prefix + "_" + b.left << ';' << std::endl;
+            out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.second.instance_prefix + "_" + b.left << ';' << std::endl;
           }
           // else, the output is replaced by the wire
         }
@@ -4476,7 +4500,7 @@ void Algorithm::writeAsModule(ostream& out) const
       if (b.dir == e_Left) {
         // input
         out << '.' << b.left << '('
-          << rewriteIdentifier("_", b.right, nullptr, nfo.second.instance_line, FF_D)
+          << rewriteIdentifier("_", bindingRightIdentifier(b), nullptr, nfo.second.instance_line, FF_D)
           << ")";
       } else if (b.dir == e_Right) {
         // output (wire)
@@ -4487,10 +4511,10 @@ void Algorithm::writeAsModule(ostream& out) const
         std::string bindpoint = nfo.second.instance_prefix + "_" + b.left;
         const auto& vio = m_ModAlgInOutsBoundToVIO.find(bindpoint);
         if (vio != m_ModAlgInOutsBoundToVIO.end()) {
-          if (isInOut(b.right)) {
-            out << '.' << b.left << '(' << ALG_INOUT << "_" << b.right << ")";
+          if (isInOut(bindingRightIdentifier(b))) {
+            out << '.' << b.left << '(' << ALG_INOUT << "_" << bindingRightIdentifier(b) << ")";
           } else {
-            out << '.' << b.left << '(' << WIRE << "_" << b.right << ")";
+            out << '.' << b.left << '(' << WIRE << "_" << bindingRightIdentifier(b) << ")";
           }
         } else {
           reportError(nullptr,b.line,"cannot find module inout binding '%s'", b.left.c_str());

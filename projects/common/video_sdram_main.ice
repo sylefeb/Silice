@@ -16,7 +16,7 @@ import('sdram.v')
 $$end
 
 // Frame buffer row
-import('dual_frame_buffer_row.v')
+// import('dual_frame_buffer_row.v')
 
 $$if VGA then
 // VGA driver
@@ -317,53 +317,18 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 // --- Frame buffer row memory
 // dual clock crosses from sdram to vga
 
-  uint16 pixaddr0_r  = 0;
-  uint16 pixaddr0_w  = 0;
-  uint32 pixdata0_r  = 0;
-  uint32 pixdata0_w  = 0;  
-  uint1  pixrenable0 = 0;
-  uint1  pixwenable0 = 0;
-
-  uint16 pixaddr1_r  = 0;
-  uint16 pixaddr1_w  = 0;
-  uint32 pixdata1_r  = 0;
-  uint32 pixdata1_w  = 0;
-  uint1  pixrenable1 = 0;
-  uint1  pixwenable1 = 0;
-
-  dual_frame_buffer_row fbr0(
-    rclk    <: video_clock,
-    wclk    <: sdram_clock,
-    raddr   <: pixaddr0_r,
-    rdata   :> pixdata0_r,
-    waddr   <: pixaddr0_w,
-    wdata   <: pixdata0_w,
-    renable <: pixrenable0,
-    wenable <: pixwenable0
-  );
-
-  dual_frame_buffer_row fbr1(
-    rclk    <: video_clock,
-    wclk    <: sdram_clock,
-    raddr   <: pixaddr1_r,
-    rdata   :> pixdata1_r,
-    waddr   <: pixaddr1_w,
-    wdata   <: pixdata1_w,
-    renable <: pixrenable1,
-    wenable <: pixwenable1
-  );
-
+  dualport_bram uint32 fbr0<@video_clock,@sdram_clock>[80] = {};
+  dualport_bram uint32 fbr1<@video_clock,@sdram_clock>[80] = {};
+  
 // --- Display
 
   uint1 row_busy = 0;
 
   frame_display display<@video_clock,!video_reset>(
-    pixaddr0   :> pixaddr0_r,
-    pixdata0_r <: pixdata0_r,
-    pixrenable0:> pixrenable0,
-    pixaddr1   :> pixaddr1_r,
-    pixdata1_r <: pixdata1_r,
-    pixrenable1:> pixrenable1,
+    pixaddr0   :> fbr0.addr0,
+    pixdata0_r <: fbr0.rdata0,
+    pixaddr1   :> fbr1.addr0,
+    pixdata1_r <: fbr1.rdata0,
     row_busy   :> row_busy,
 	  video_x    <: video_x,
 	  video_y    <: video_y,
@@ -378,12 +343,12 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 // --- Frame buffer row updater
   frame_buffer_row_updater fbrupd<@sdram_clock,!sdram_reset>(
     working    :> select,
-    pixaddr0   :> pixaddr0_w,
-    pixdata0_w :> pixdata0_w,
-    pixwenable0:> pixwenable0,
-    pixaddr1   :> pixaddr1_w,
-    pixdata1_w :> pixdata1_w,
-    pixwenable1:> pixwenable1,
+    pixaddr0   :> fbr0.addr1,
+    pixdata0_w :> fbr0.wdata1,
+    pixwenable0:> fbr0.wenable1,
+    pixaddr1   :> fbr1.addr1,
+    pixdata1_w :> fbr1.wdata1,
+    pixwenable1:> fbr1.wenable1,
     row_busy   <: row_busy,
     vsync      <: video_vblank,
     sd         <:> sd0,

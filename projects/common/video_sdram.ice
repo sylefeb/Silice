@@ -18,10 +18,8 @@ algorithm frame_display(
   output! uint$color_depth$ video_b,
   output! uint10 pixaddr0,
   input   uint32 pixdata0_r,
-  output! uint1  pixrenable0,
   output! uint10 pixaddr1,
   input   uint32 pixdata1_r,
-  output! uint1  pixrenable1,
   output! uint1  row_busy
 ) <autorun> {
 
@@ -62,17 +60,6 @@ $$end
   video_g := 0;
   video_b := 0;
 
-  always {
-    // writing/reading on buffers
-    if (row_busy) {
-      pixrenable0 = 0; // write 0
-      pixrenable1 = 1; // read  1
-    } else {
-      pixrenable0 = 1; // read  0
-      pixrenable1 = 0; // write 1
-    }  
-  }
-  
   // ---------- show time!
 
   row_busy = 1; // initally reading from row 1
