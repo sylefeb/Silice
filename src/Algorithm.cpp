@@ -752,19 +752,23 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   // clocks
   if (decl->memModifiers() != nullptr) {
     // check clock signal exist
-    if (!isVIO(decl->memModifiers()->clk0->getText())) {
+    if ( !isVIO(decl->memModifiers()->clk0->IDENTIFIER()->getText())
+      && decl->memModifiers()->clk0->IDENTIFIER()->getText() != ALG_CLOCK
+      && decl->memModifiers()->clk0->IDENTIFIER()->getText() != m_Clock) {
       reportError(decl->memModifiers()->clk0->IDENTIFIER()->getSymbol(), 
         (int)decl->memModifiers()->clk0->getStart()->getLine(),
         "clock signal '%s' not declared in dual port BRAM", decl->memModifiers()->clk0->getText());
     }
-    if (!isVIO(decl->memModifiers()->clk1->getText())) {
+    if (!isVIO(decl->memModifiers()->clk1->IDENTIFIER()->getText())
+      && decl->memModifiers()->clk1->IDENTIFIER()->getText() != ALG_CLOCK
+      && decl->memModifiers()->clk1->IDENTIFIER()->getText() != m_Clock) {
       reportError(decl->memModifiers()->clk1->IDENTIFIER()->getSymbol(),
         (int)decl->memModifiers()->clk1->getStart()->getLine(),
         "clock signal '%s' not declared in dual port BRAM", decl->memModifiers()->clk1->getText());
     }
     // add
-    mem.clocks.push_back(decl->memModifiers()->clk0->getText());
-    mem.clocks.push_back(decl->memModifiers()->clk1->getText());
+    mem.clocks.push_back(decl->memModifiers()->clk0->IDENTIFIER()->getText());
+    mem.clocks.push_back(decl->memModifiers()->clk1->IDENTIFIER()->getText());
   }
   // add memory
   m_Memories.emplace_back(mem);
@@ -4565,8 +4569,10 @@ void Algorithm::writeAsModule(ostream& out) const
       }
     } else {
       sl_assert(mem.mem_type == DUALBRAM && mem.clocks.size() == 2);
-      out << '.' << ALG_CLOCK << "0(" << mem.clocks[0] << ")," << endl;
-      out << '.' << ALG_CLOCK << "1(" << mem.clocks[1] << ")," << endl;
+      std::string clk0 = mem.clocks[0];
+      std::string clk1 = mem.clocks[1];
+      out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", clk0, nullptr, mem.line, FF_D) << ")," << endl;
+      out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", clk1, nullptr, mem.line, FF_D) << ")," << endl;
     }
     // inputs
     for (const auto& inv : mem.in_vars) {

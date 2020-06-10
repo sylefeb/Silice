@@ -24,7 +24,7 @@ algorithm main(output uint8 led)
         // display current, which was read at cycle (iteration) before: it is n-2
         tmp1 = n-2;
         tmp2 = mem.rdata1;
-        $display("mem[%d] = %d",tmp1,tmp2);
+        __display("mem[%d] = %d",tmp1,tmp2);
       }
     }
     n = n + 1;
