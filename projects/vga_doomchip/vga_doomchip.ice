@@ -745,7 +745,17 @@ $$end
 
                 // lower part?                
                 if (bsp_segs_tex_height.rdata[0,8] != 0) {
+                
                   texid     = bsp_segs_tex_height.rdata[0,8];
+                  // if switch, possibly change texture
+                  (has_switch) = is_switch(texid);
+                  if (has_switch && bsp_segs_tex_height.rdata[40,8] != 0) {
+                    // check movable status
+                    if (bsp_movables.rdata[50,1] == 0) {
+                      // use ON texture
+                      texid = bsp_segs_tex_height.rdata[0,8] + 1; 
+                    }
+                  }
                   
                   tmp1      = bsp_secs.rdata[0,16]; // other sector floor height
                   sec_f_o   = tmp1 - ray_z;
@@ -838,6 +848,7 @@ $$end
                 
                 // opaque wall
                 if (bsp_segs_tex_height.rdata[8,8] != 0) {
+                
                   texid = bsp_segs_tex_height.rdata[8,8];
                   // if switch, possibly change texture
                   (has_switch) = is_switch(texid);
@@ -848,6 +859,7 @@ $$end
                       texid = bsp_segs_tex_height.rdata[8,8] + 1; 
                     }
                   }
+                  
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
                     // normal
                     tex_v   = (sec_c_h_w);
