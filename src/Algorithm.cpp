@@ -721,7 +721,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   switch (mem.mem_type)     {
   case BRAM:     members = c_BRAMmembers; break;
   case BROM:     members = c_BROMmembers; break;
-  case DUALBRAM: members = c_BROMmembers; break;
+  case DUALBRAM: members = c_DualPortBRAMmembers; break;
   default: reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration"); break;
   }
   // members
@@ -4573,8 +4573,14 @@ void Algorithm::writeAsModule(ostream& out) const
       out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, nullptr, mem.line, FF_D)  << ")," << endl;
     }
     // output wires
+    int num = (int)mem.out_vars.size();
     for (const auto& ouv : mem.out_vars) {
-      out << '.' << ALG_OUTPUT << '_' << ouv << '(' << WIRE << "_mem_" << ouv << ')' << endl;
+      out << '.' << ALG_OUTPUT << '_' << ouv << '(' << WIRE << "_mem_" << ouv << ')';
+      if (num-- > 1) {
+        out << ',' << endl;
+      } else {
+        out << endl;
+      }
     }
     // end of instantiation      
     out << ");" << endl;
