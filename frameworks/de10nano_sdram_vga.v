@@ -34,7 +34,13 @@ module SdramVga(
     output reg lcd_rs,
     output reg lcd_rw,
     output reg lcd_e,
-    output reg [7:0] lcd_d
+    output reg [7:0] lcd_d,
+    // OLED
+    output reg oled_din,
+    output reg oled_clk,
+    output reg oled_cs,
+    output reg oled_dc,
+    output reg oled_rst
     );
 
 wire [7:0]  __main_out_led;
@@ -61,6 +67,12 @@ wire        __main_out_lcd_rs;
 wire        __main_out_lcd_rw;
 wire        __main_out_lcd_e;
 wire [7:0]  __main_out_lcd_d;
+
+wire        __main_out_oled_din;
+wire        __main_out_oled_clk;
+wire        __main_out_oled_cs;
+wire        __main_out_oled_dc;
+wire        __main_out_oled_rst;
 
 wire reset_main;
 assign reset_main = 1'b0;
@@ -92,7 +104,12 @@ M_main __main(
   .out_lcd_rs(__main_out_lcd_rs),
   .out_lcd_rw(__main_out_lcd_rw),
   .out_lcd_e(__main_out_lcd_e),
-  .out_lcd_d(__main_out_lcd_d)
+  .out_lcd_d(__main_out_lcd_d),
+  .out_oled_din(__main_out_oled_din),
+  .out_oled_clk(__main_out_oled_clk),
+  .out_oled_cs(__main_out_oled_cs),
+  .out_oled_dc(__main_out_oled_dc),
+  .out_oled_rst(__main_out_oled_rst)
 );
 
 always @* begin
@@ -119,6 +136,11 @@ always @* begin
   lcd_rw       = __main_out_lcd_rw;
   lcd_e        = __main_out_lcd_e;
   lcd_d        = __main_out_lcd_d;
+  oled_din     = __main_out_oled_din;
+  oled_clk     = __main_out_oled_clk;
+  oled_cs      = __main_out_oled_cs;
+  oled_dc      = __main_out_oled_dc;
+  oled_rst     = __main_out_oled_rst;
   
 end
 

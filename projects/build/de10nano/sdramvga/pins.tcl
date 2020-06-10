@@ -57,6 +57,17 @@ set_location_assignment PIN_AH24 -to lcd_d[7]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to lcd_*
 
 #============================================================
+# SSD1351
+#============================================================
+
+set_location_assignment PIN_AG8  -to oled_din
+set_location_assignment PIN_AH8  -to oled_clk
+set_location_assignment PIN_AF17 -to oled_cs
+set_location_assignment PIN_AE15 -to oled_dc
+set_location_assignment PIN_AF15 -to oled_rst
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to oled_*
+
+#============================================================
 # VGA
 #============================================================
 
