@@ -19,13 +19,16 @@ algorithm oled_pll(
   output! uint1 oled_clock
 ) <autorun>
 {
-  uint16 counter = 0;
+  uint4 counter = 0;
   
-  // generate a slower clock
-  oled_clock := counter[8,1];
-  
+  // generate 260 ns cycle clock
+  oled_clock = 0;  
   while (1) {
 	  counter = counter + 1;
+    if (counter == 13) {
+      counter    = 0;
+      oled_clock = ~oled_clock;
+    }
   }
 }
 
@@ -35,7 +38,6 @@ algorithm oled(
   output uint1 oled_cs,
   output uint1 oled_dc,
   output uint1 oled_rst,
-  output uint8 led,
   oledio io {
     input  x_start,
     input  x_end,
@@ -100,12 +102,6 @@ algorithm oled(
   }
 
   uint8 n = 0;
-  uint28 debug = 0;
-  
-  led[0,1] := oled_clk;
-  led[1,1] := 1;
-  led[2,1] := debug[27,1];
-  led[7,1] := io.ready;
   
   //---------------
   // Intializing
@@ -165,7 +161,11 @@ algorithm oled(
   () <- send <- (8hfd,0);
   () <- send <- (8hb1,1);
 
-  // set verticfal scroll to 0
+  // set clock divider to 1
+  //() <- send <- (8hb3,0);
+  //() <- send <- (8b11010000,1);
+
+  // set vertical scroll to 0
   () <- send <- (8ha2,0);
   () <- send <- (8h00,1);
 
@@ -176,7 +176,7 @@ algorithm oled(
   // Init done!
   //--------------  
 
-  //////////// TEST
+  // clear screen
   // set col addr
   () <- send <- (8h15,0);
   () <- send <- (  0,1);
@@ -195,23 +195,20 @@ algorithm oled(
       u = 0;    
       while (u < 128) {
         u = u + 1;
-        () <- send <- (u,1); // b
-        () <- send <- (v,1); // g
-        () <- send <- (8hff,1); // r
+        () <- send <- (0,1); // b
+        () <- send <- (0,1); // g
+        () <- send <- (0,1); // r
       }
       v = v + 1;
     }   
   }
 
-  
+  // ready to accept commands
+  io.ready = 1;
+
   while (1) {
 
-    io.ready = 1;
-
-    debug = debug + 1;
-
     if (io.start_rect) {
-      led[4,1] = 1;
       io.ready = 0;
       // set col addr
       () <- send <- (8h15,0);
@@ -223,17 +220,17 @@ algorithm oled(
       () <- send <- (io.y_end,1);
       // initiate write
       () <- send <- (8h5c,0);
+      io.ready = 1;
+    } else { // this else is important to ensure the loop remain a one-cycle loop when not entering the if-s
+      if (io.next_pixel) {
+        io.ready = 0;
+        // send pixel
+        () <- send <- (io.color[12,6],1);
+        () <- send <- (io.color[ 6,6],1);
+        () <- send <- (io.color[ 0,6],1);
+        io.ready = 1;
+      }
     }
-
-    if (io.next_pixel) {
-      led[3,1] = 1;
-      io.ready = 0;
-      // send pixel
-      () <- send <- (io.color[12,6],1);
-      () <- send <- (io.color[ 6,6],1);
-      () <- send <- (io.color[ 0,6],1);
-    }
-    
   }
 
 }

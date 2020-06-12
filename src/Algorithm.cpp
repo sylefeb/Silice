@@ -3746,12 +3746,14 @@ void Algorithm::writeConstDeclarations(std::string prefix, std::ostream& out) co
       continue;
     }
     out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_CST << prefix << v.name << ';' << std::endl;
-    if (v.table_size == 0) {
-      out << "assign " << FF_CST << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
-    } else {
-      int width = v.width;
-      ForIndex(i, v.table_size) {
-        out << "assign " << FF_CST << prefix << v.name << '[' << (i*width) << "+:" << width << ']' << " = " << v.init_values[i] << ';' << std::endl;
+    if (!v.do_not_initialize) {
+      if (v.table_size == 0) {
+        out << "assign " << FF_CST << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
+      } else {
+        int width = v.width;
+        ForIndex(i, v.table_size) {
+          out << "assign " << FF_CST << prefix << v.name << '[' << (i*width) << "+:" << width << ']' << " = " << v.init_values[i] << ';' << std::endl;
+        }
       }
     }
   }

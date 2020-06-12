@@ -55,10 +55,11 @@ $$  end
   };
 
   uint3  frame = 0;
-  uint32 nfo = 0;
-  uint8  u = 0;
-  uint8  v = 0;
+  uint3  count = 0;
+  uint32 nfo   = 0;
   
+  uint12 rand = 3137;
+
   uint1 video_reset = 0;
   uint1 sdram_reset = 0;
 
@@ -94,60 +95,78 @@ $$  end
     oled_cs  :> oled_cs,
     oled_dc  :> oled_dc,
     oled_rst :> oled_rst,
-    led      :> led,
     io      <:> io
   );
 
   // maintain low (pulses high when sending)
   io.start_rect := 0;
   io.next_pixel := 0;
+
+  while (1) {
   
-  // wait for controller to be ready  
-  while (io.ready == 0) { }  
+    uint8  u     = uninitialized;
+    uint8  v     = uninitialized;
 
-  // draw frame
-  nfo           = doomface_nfo[frame];
-  io.x_start    = 0;
-  io.x_end      = nfo[16,8];
-  io.y_start    = 0;
-  io.y_end      = nfo[24,8];
-  io.start_rect = 1;
-  while (io.ready == 0) { } 
-  doomhead.addr = nfo[0,16];
-  v = 0;
-  while (v < nfo[24,8]) {
-    u = 0;    
-    while (u < nfo[16,8]) {
-      // send next pixel
-      io.color      = palette[doomhead.rdata];
-      doomhead.addr = doomhead.addr + 1;      
-      io.next_pixel = 1;
-      while (io.ready == 0) { } 
-      u = u + 1;
-    }
-    v = v + 1;
-  }
+    // wait for controller to be ready  
+    while (io.ready == 0) { }  
+    
+    // draw frame
+    nfo           = doomface_nfo[frame];
+    io.x_start    = 0;
+    io.x_end      = (nfo[16,8]<<2)-1;
+    io.y_start    = 0;
+    io.y_end      = (nfo[24,8]<<2)-1;
+    io.start_rect = 1;
+    while (io.ready == 0) { } 
 
-/*
-  io.x_start    = 0;
-  io.x_end      = 127;
-  io.y_start    = 0;
-  io.y_end      = 127;
-  io.start_rect = 1;
-  while (io.ready == 0) { } 
-  v = 0;
-  while (v < 128) {
-    u = 0;    
-    while (u < 128) {
-      // send next pixel
-      io.color      = 18b111111000000111111;
-      io.next_pixel = 1;
-      while (io.ready == 0) { } 
-      u = u + 1;
+    doomhead.addr = nfo[0,16];
+    v = 0;
+    while (v < nfo[24,8]) {
+      uint4  repeat = uninitialized;
+      uint16 ptr    = uninitialized;
+      repeat = 0;
+      ptr    = doomhead.addr;
+      while (repeat < 4) { // draw line four times
+        u = 0;
+        doomhead.addr = ptr;
+        while (u < nfo[16,8]) {
+          // send pixel x4
+          io.color      = palette[doomhead.rdata];
+          io.next_pixel = 1;
+          while (io.ready == 0) { } 
+          
+          io.next_pixel = 1;
+          while (io.ready == 0) { } 
+          
+          io.next_pixel = 1;
+          while (io.ready == 0) { } 
+          
+          io.next_pixel = 1;
+          while (io.ready == 0) { } 
+          
+          u = u + 1;
+          doomhead.addr = doomhead.addr + 1;      
+        }
+        repeat = repeat + 1;
+      }
+      v = v + 1;
     }
-    v = v + 1;
+
+    if ((count&3) == 0) {
+      rand  = rand * 31421 + 6927;
+      if (rand < 2048) {
+        frame = 0;
+      } else {
+        if (rand < $2048+1024$) {
+          frame = 1;
+        } else {
+          frame = 2;
+        }
+      }
+    }
+    
   }
-*/
+  
 }
 
 // ------------------------- 
