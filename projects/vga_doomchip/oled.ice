@@ -98,7 +98,6 @@ algorithm oled(
     }
     oled_cs  = 1;
     () <- synch_clk <- (1);
-    () <- synch_clk <- (0);
   }
 
   uint8 n = 0;

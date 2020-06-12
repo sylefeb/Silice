@@ -152,7 +152,7 @@ $$  end
       v = v + 1;
     }
 
-    if ((count&3) == 0) {
+    if ((count&7) == 0) {
       rand  = rand * 31421 + 6927;
       if (rand < 2048) {
         frame = 0;
@@ -164,6 +164,7 @@ $$  end
         }
       }
     }
+    count = count + 1;
     
   }
   
