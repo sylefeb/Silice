@@ -601,9 +601,9 @@ private:
   /// \brief gather a while block
   t_combinational_block *gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather declaration
-  void gatherDeclaration(siliceParser::DeclarationContext *decl, t_subroutine_nfo *sub);
+  void gatherDeclaration(siliceParser::DeclarationContext *decl, t_subroutine_nfo *sub, bool var_table_only);
   /// \brief gather declaration list, returns number of gathered declarations 
-  int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub);
+  int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub, bool var_table_only);
   /// \brief gather a subroutine
   t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather a pipeline

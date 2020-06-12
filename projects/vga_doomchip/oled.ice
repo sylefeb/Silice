@@ -187,6 +187,10 @@ algorithm oled(
   // initiate write
   () <- send <- (8h5c,0); 
   {
+    //uint8 iter = 0;
+    uint8 val = 8h00;
+    //while (iter < 100) {
+  
     uint8 u = 0;
     uint8 v = 0;
     v = 0;
@@ -194,14 +198,18 @@ algorithm oled(
       u = 0;    
       while (u < 128) {
         u = u + 1;
-        () <- send <- (0,1); // b
-        () <- send <- (0,1); // g
-        () <- send <- (0,1); // r
+        () <- send <- (val,1); // b
+        () <- send <- (val,1); // g
+        () <- send <- (val,1); // r
       }
       v = v + 1;
-    }   
+    }
+    
+    //val = ~val;    
+    //iter = iter + 1;
+    //}
   }
-
+  
   // ready to accept commands
   io.ready = 1;
 

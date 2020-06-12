@@ -1178,12 +1178,22 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_subroutine_nfo *sub)
+void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_subroutine_nfo *sub, bool var_table_only)
 {
   auto declvar   = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
   auto decltbl   = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
   auto grpmodalg = dynamic_cast<siliceParser::DeclarationGrpModAlgContext*>(decl->declarationGrpModAlg());
   auto declmem   = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
+  if (var_table_only) {
+    if (declmem) {
+      reportError(declmem->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(),
+        "cannot declare a memory here");
+    }
+    if (grpmodalg) {
+      reportError(grpmodalg->getSourceInterval(), (int)decl->getStart()->getLine(),
+        "cannot declare groups, nor intantiate modules or algorithms here");
+    }
+  }
   if (declvar)        { gatherDeclarationVar(declvar, sub); } 
   else if (decltbl)   { gatherDeclarationTable(decltbl, sub); } 
   else if (declmem)   { gatherDeclarationMemory(declmem, sub); }
@@ -1201,7 +1211,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_subr
 
 //-------------------------------------------------
 
-int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub)
+int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub,bool var_table_only)
 {
   if (decllist == nullptr) {
     return 0;
@@ -1210,7 +1220,7 @@ int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decll
   siliceParser::DeclarationListContext *cur_decllist = decllist;
   while (cur_decllist->declaration() != nullptr) {
     siliceParser::DeclarationContext* decl = cur_decllist->declaration();
-    gatherDeclaration(decl, sub);
+    gatherDeclaration(decl, sub, var_table_only);
     cur_decllist = cur_decllist->declarationList();
     ++num;
   }
@@ -1261,7 +1271,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
     reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': this name is already used by a prior declaration", nfo->name.c_str());
   }
   // subroutine local declarations
-  int numdecl = gatherDeclarationList(sub->declarationList(), nfo);
+  int numdecl = gatherDeclarationList(sub->declarationList(), nfo, true);
   // subroutine block
   t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, nullptr, (int)sub->getStart()->getLine());
   if (numdecl > 0) {
@@ -2123,7 +2133,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   if (algbody) {
     // gather declarations
     for (auto d : algbody->declaration()) {
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), nullptr);
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), nullptr, false);
     }
     for (auto s : algbody->subroutine()) {
       gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), _current, _context);
@@ -2146,7 +2156,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     // recurse on instruction list
     _current = gather(algbody->instructionList(),_current, _context);
     recurse  = false;
-  } else if (decl)     { gatherDeclaration(decl, _current->context.subroutine);        recurse = false;
+  } else if (decl)     { gatherDeclaration(decl, _current->context.subroutine, true);  recurse = false;
   } else if (ifelse)   { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
   } else if (ifthen)   { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
   } else if (switchC)  { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
