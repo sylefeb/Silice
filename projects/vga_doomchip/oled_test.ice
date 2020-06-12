@@ -7,6 +7,14 @@ $include('oled.ice')
 
 // ------------------------- 
 
+$$wad = 'doom1.wad'
+$$level = 'E1M2'
+$$dofile('pre_wad.lua')
+
+$$dofile('pre_do_doomhead.lua')
+
+// ------------------------- 
+
 algorithm main(
   output! uint1  sdram_cle,
   output! uint1  sdram_dqm,
@@ -37,6 +45,21 @@ algorithm main(
   output! uint1 video_vs
 ) <@sdram_clock,!sdram_reset> {
 
+  // write down the code for the doomhead data
+  $doomhead$
+  // palette
+  uint18 palette[] = {
+$$  for i=1,256 do
+    $palette_666[i]$,
+$$  end
+  };
+
+  uint3  frame = 0;
+  uint32 nfo = 0;
+  uint8  u = 0;
+  uint8  v = 0;
+  uint8  pixidx = 0;
+  
   uint1 video_reset = 0;
   uint1 sdram_reset = 0;
 
@@ -72,16 +95,61 @@ algorithm main(
     oled_cs  :> oled_cs,
     oled_dc  :> oled_dc,
     oled_rst :> oled_rst,
+    led      :> led,
     io      <:> io
   );
 
-  led      := 0;
+  // maintain low (pulses high when sending)
+  io.start_rect := 0;
+  io.next_pixel := 0;
   
-  while (1) {
-    
-    while (io.ready == 0) { }
+  // wait for controller to be ready  
+  while (io.ready == 0) { }  
 
+  // draw frame
+  nfo           = doomface_nfo[frame];
+  io.x_start    = 0;
+  io.x_end      = nfo[16,8];
+  io.y_start    = 0;
+  io.y_end      = nfo[24,8];
+  io.start_rect = 1;
+  while (io.ready == 0) { } 
+  doomhead.addr = nfo[0,16];
+  v = 0;
+  while (v < nfo[24,8]) {
+    u = 0;    
+    while (u < nfo[16,8]) {
+      // send next pixel
+      pixidx        = doomhead.rdata;
+      io.color      = palette[pixidx];
+      doomhead.addr = doomhead.addr + 1;      
+      io.next_pixel = 1;
+      while (io.ready == 0) { } 
+      u = u + 1;
+    }
+    v = v + 1;
   }
+
+/*
+  io.x_start    = 0;
+  io.x_end      = 127;
+  io.y_start    = 0;
+  io.y_end      = 127;
+  io.start_rect = 1;
+  while (io.ready == 0) { } 
+  v = 0;
+  while (v < 128) {
+    u = 0;    
+    while (u < 128) {
+      // send next pixel
+      io.color      = 18b111111000000111111;
+      io.next_pixel = 1;
+      while (io.ready == 0) { } 
+      u = u + 1;
+    }
+    v = v + 1;
+  }
+*/
 }
 
 // ------------------------- 

@@ -225,7 +225,7 @@ call                : CALL IDENTIFIER ;
 returnFrom          : RETURN ;
 breakLoop           : BREAK ;
 
-block               : '{' instructionList '}';
+block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
 ifThenElse          : 'if' '(' expression_0 ')' if_block=block 'else' else_block=block ;
 switchCase          : 'switch' '(' expression_0 ')' '{' caseBlock * '}' ;
@@ -269,14 +269,15 @@ declarationList     : declaration ';' declarationList | ;
 
 instructionList     : 
                       (instruction ';') + instructionList 
+					| block       instructionList
                     | repeatBlock instructionList
                     | state       instructionList
                     | ifThenElse  instructionList
                     | ifThen      instructionList
                     | whileLoop   instructionList
-					          | switchCase  instructionList
-					          | pipeline    instructionList
-					          | ;
+					| switchCase  instructionList
+					| pipeline    instructionList
+					| ;
 
 subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 					          | input | output ;

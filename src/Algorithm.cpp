@@ -1233,8 +1233,9 @@ bool Algorithm::isIdentifierAvailable(std::string name) const
 
 Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context)
 {
-  sl_assert(_current->context.subroutine == nullptr);
-
+  if (_current->context.subroutine != nullptr) {
+    reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(), "subroutine '%s': cannot declare a subroutine in another", sub->IDENTIFIER()->getText().c_str());
+  }
   t_subroutine_nfo *nfo = new t_subroutine_nfo;
   // subroutine name
   nfo->name = sub->IDENTIFIER()->getText();
@@ -2069,13 +2070,17 @@ void Algorithm::getIdentifiers(
 
 // -------------------------------------------------
 
-Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context)
+Algorithm::t_combinational_block *Algorithm::gather(
+  antlr4::tree::ParseTree *tree, 
+  t_combinational_block   *_current, 
+  t_gather_context        *_context)
 {
   if (tree == nullptr) {
     return _current;
   }
 
   auto algbody  = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
+  auto decl     = dynamic_cast<siliceParser::DeclarationContext*>(tree);
   auto ilist    = dynamic_cast<siliceParser::InstructionListContext*>(tree);
   auto ifelse   = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
   auto ifthen   = dynamic_cast<siliceParser::IfThenContext*>(tree);
@@ -2094,7 +2099,7 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
   auto ret      = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
   auto breakL   = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
 
-  bool recurse = true;
+  bool recurse  = true;
 
   checkPermissions(tree, _current);
 
@@ -2124,8 +2129,8 @@ Algorithm::t_combinational_block *Algorithm::gather(antlr4::tree::ParseTree *tre
     // recurse on instruction list
     _current = gather(algbody->instructionList(),_current, _context);
     recurse  = false;
-  } else if (ifelse) { 
-    _current = gatherIfElse(ifelse, _current, _context);                               recurse = false;
+  } else if (decl)     { gatherDeclaration(decl, _current->context.subroutine);        recurse = false;
+  } else if (ifelse)   { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
   } else if (ifthen)   { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
   } else if (switchC)  { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
   } else if (loop)     { _current = gatherWhile(loop, _current, _context);             recurse = false;

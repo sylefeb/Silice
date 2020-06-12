@@ -9,6 +9,63 @@ function fsize(file)
   return size
 end
 
+-- -------------------------------------
+-- decode a Doom patch into an image table
+function decode_patch_lump(name)
+  -- open lump file
+  local in_patch = assert(io.open(findfile(name), 'rb'))
+  local pw = string.unpack('H',in_patch:read(2))
+  local ph = string.unpack('H',in_patch:read(2))
+  img={}
+  for j = 1,ph do
+    img[j]={}
+    for i = 1,pw do
+      img[j][i] = -1 -- transparent
+    end
+  end
+  local lo = string.unpack('H',in_patch:read(2))  
+  local to = string.unpack('H',in_patch:read(2))
+  local colptrs={}
+  for i=1,pw do
+    colptrs[i] = string.unpack('I4',in_patch:read(4))
+  end
+  -- read posts
+  for i=1,pw do
+    while true do
+      local rstart = string.unpack('B',in_patch:read(1))
+      if rstart == 255 then
+        break
+      end
+      local num    = string.unpack('B',in_patch:read(1))
+      in_patch:read(1) -- skip
+      for n=1,num do
+        img[1+rstart][i] = string.unpack('B',in_patch:read(1))
+        rstart = rstart + 1
+      end
+      in_patch:read(1) -- skip
+    end
+  end
+  in_patch:close()
+  return img
+end
+
+-- -------------------------------------
+-- decode a Doom flat into an image table
+function decode_flat_lump(name)
+  local pw = 64
+  local ph = 64
+  local in_flat = assert(io.open(findfile(name), 'rb'))
+  img={}
+  for j = 1,ph do
+    img[j]={}
+    for i = 1,pw do
+      img[j][i] = string.unpack('B',in_flat:read(1))
+    end
+  end
+  in_flat:close()
+  return img
+end
+
 lump_level = {
 LINEDEFS='LINEDEFS',
 NODES='NODES',
@@ -119,6 +176,42 @@ end
 for _,lmp in pairs(lump_level) do
   extract_lump(level .. '_' .. lmp)
 end
+
+
+-- -------------------------------------
+-- colormap
+local in_clrmap = assert(io.open(findfile('lumps/COLORMAP.lump'), 'rb'))
+local sz = fsize(in_clrmap)
+print('colormap file is ' .. sz .. ' bytes')
+colormaps={}
+for i=1,32 do
+  local map = {}
+  for c=1,256 do
+    local palidx = string.unpack('B',in_clrmap:read(1))
+    map[c] = palidx
+  end
+  colormaps[i] = map
+end
+
+-- -------------------------------------
+-- palette
+local in_pal = assert(io.open(findfile('lumps/PLAYPAL.lump'), 'rb'))
+local sz = fsize(in_pal)
+print('palette file is ' .. sz .. ' bytes')
+palette={}
+inv_palette={}
+palette_666={}
+for c=1,256 do
+  local r    = string.unpack('B',in_pal:read(1))
+  local g    = string.unpack('B',in_pal:read(1))
+  local b    = string.unpack('B',in_pal:read(1))
+  local rgb     = r + (g*256) + (b*256*256)
+  local rgb_666 = (r>>2) + (g>>2)*64 + (b>>2)*64*64
+  palette_666[c] = rgb_666
+  palette[c] = rgb
+  inv_palette[rgb] = c
+end
+in_pal:close()
 
 -- error('stop')
 
