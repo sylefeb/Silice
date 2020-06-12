@@ -5,7 +5,7 @@ algorithm test(output uint8 ov,input uint8 iv)
 
 algorithm main(output int8 v)
 {
-  bram uint8 table[64] = {};
+  bram uint8 table[64] = uninitialized;
   
   uint8 a = 0;
   uint8 b = 0;

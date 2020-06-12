@@ -505,8 +505,8 @@ std::string Algorithm::gatherValue(siliceParser::ValueContext* ival)
     return sign + ival->NUMBER()->getText();
   } else {
     sl_assert(false);
+    return "";
   }
-  return "";
 }
 
 // -------------------------------------------------
@@ -540,8 +540,16 @@ void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nf
   _nfo.name = decl->IDENTIFIER()->getText();
   _nfo.table_size = 0;
   splitType(decl->TYPE()->getText(), _nfo.base_type, _nfo.width);
-  _nfo.init_values.push_back("0");
-  _nfo.init_values[0] = gatherValue(decl->value());
+  if (decl->value() != nullptr) {
+    _nfo.init_values.push_back("0");
+    _nfo.init_values[0] = gatherValue(decl->value());
+  } else {
+    if (decl->UNINITIALIZED() != nullptr) {
+      _nfo.do_not_initialize = true;
+    } else {
+      reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable has no initializer, use '= uninitialized' if you really don't want to initialize it.");
+    }
+  }
   if (decl->ATTRIBS() != nullptr) {
     _nfo.attribs = decl->ATTRIBS()->getText();
   }
@@ -587,7 +595,11 @@ void Algorithm::readInitList(D* decl,T& var)
     if (var.table_size == 0) {
       reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "cannot deduce table size: no size and no initialization given");
     }
-    return; // no init list
+    if (decl->UNINITIALIZED() != nullptr) {
+      var.do_not_initialize = true;
+    } else {
+      reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "table has no initializer, use '= uninitialized' if you really don't want to initialize it.");
+    }    
   }
   if (var.table_size == 0) { // autosize
     var.table_size = (int)values_str.size();
@@ -716,6 +728,11 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     mem.table_size = 0; // autosize from init
   }
   readInitList(decl, mem);
+  // check
+  if (mem.mem_type == BROM && mem.do_not_initialize) {
+    reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "a brom has to be initialized: initializer missing, or use a bram instead.");
+  }
+  // decl. line
   mem.line = (int)decl->getStart()->getLine();
   // create bound variables for access
   std::vector<t_mem_member> members;
@@ -3680,7 +3697,9 @@ void Algorithm::writeBlock(std::string prefix, std::ostream& out, const t_combin
 
 void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
 {
-  out << FF_Q << prefix << v.name << " <= " << v.init_values[0] << ';' << std::endl;
+  if (!v.do_not_initialize) {
+    out << FF_Q << prefix << v.name << " <= " << v.init_values[0] << ';' << std::endl;
+  }
 }
 
 // -------------------------------------------------
@@ -4182,6 +4201,7 @@ void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::
     const auto& v = m_Vars.at(vn.second);
     if (v.usage  != e_FlipFlop)  continue;
     if (v.access == e_WriteOnly) continue;
+    if (v.do_not_initialize)     continue;
     _dependencies.dependencies.insert(std::make_pair(v.name, 0));
     if (v.table_size == 0) {
       out << FF_D << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
@@ -4266,11 +4286,13 @@ void Algorithm::writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) 
   out << "    " << ALG_OUTPUT << "_" << bram.name << "_rdata" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr" << "];" << endl;
   out << "  end" << endl;
   out << "end" << endl;
-  out << "initial begin" << endl;
-  ForIndex(v, bram.init_values.size()) {
-    out << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
+  if (!bram.do_not_initialize) {
+    out << "initial begin" << endl;
+    ForIndex(v, bram.init_values.size()) {
+      out << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
+    }
+    out << "end" << endl;
   }
-  out << "end" << endl;
   out << "endmodule" << endl;
   out << endl;
 }
@@ -4367,11 +4389,13 @@ void Algorithm::writeModuleMemoryDualPortBRAM(std::ostream& out, const t_mem_nfo
   out << "  end" << endl;
   out << "end" << endl;
 
-  out << "initial begin" << endl;
-  ForIndex(v, bram.init_values.size()) {
-    out << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
+  if (!bram.do_not_initialize) {
+    out << "initial begin" << endl;
+    ForIndex(v, bram.init_values.size()) {
+      out << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
+    }
+    out << "end" << endl;
   }
-  out << "end" << endl;
 
   out << "endmodule" << endl;
   out << endl;
@@ -4591,10 +4615,10 @@ void Algorithm::writeAsModule(ostream& out) const
     // clocks
     if (mem.clocks.empty()) {
       if (mem.mem_type == DUALBRAM) {
-        out << '.' << ALG_CLOCK << "0(" << m_Clock << ")," << endl;
-        out << '.' << ALG_CLOCK << "1(" << m_Clock << ")," << endl;
+        out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q) << ")," << endl;
+        out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q) << ")," << endl;
       } else {
-        out << '.' << ALG_CLOCK << '(' << m_Clock << ")," << endl;
+        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q) << ")," << endl;
       }
     } else {
       sl_assert(mem.mem_type == DUALBRAM && mem.clocks.size() == 2);

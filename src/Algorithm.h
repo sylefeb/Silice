@@ -165,6 +165,7 @@ private:
     int         width;
     std::vector<std::string> init_values;
     int         table_size; // 0: not a table, otherwise size
+    bool        do_not_initialize = false;
     e_Access    access = e_NotAccessed;
     e_VarUsage  usage = e_Undetermined;
     std::string attribs;
@@ -187,6 +188,7 @@ private:
     e_Type      base_type;
     int         width;
     int         table_size;
+    bool        do_not_initialize = false;
     int         line;
     std::vector<std::string> clocks;
     std::vector<std::string> in_vars;

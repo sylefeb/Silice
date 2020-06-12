@@ -179,20 +179,21 @@ algorithm oled(
   //////////// TEST
   // set col addr
   () <- send <- (8h15,0);
-  () <- send <- (0,1);
-  () <- send <- (63,1);
+  () <- send <- (  0,1);
+  () <- send <- (127,1);
   // set row addr
   () <- send <- (8h75,0);
-  () <- send <- (0,1);
-  () <- send <- (63,1);
-  () <- send <- (8h5c,0); // initiate write
+  () <- send <- (  0,1);
+  () <- send <- (127,1);
+  // initiate write
+  () <- send <- (8h5c,0); 
   {
     uint8 u = 0;
     uint8 v = 0;
     v = 0;
-    while (v < 64) {
+    while (v < 128) {
       u = 0;    
-      while (u < 64) {
+      while (u < 128) {
         u = u + 1;
         () <- send <- (u,1); // b
         () <- send <- (v,1); // g
@@ -228,9 +229,9 @@ algorithm oled(
       led[3,1] = 1;
       io.ready = 0;
       // send pixel
-      () <- send <- (io.color[ 0,6],1);
-      () <- send <- (io.color[ 6,6],1);
       () <- send <- (io.color[12,6],1);
+      () <- send <- (io.color[ 6,6],1);
+      () <- send <- (io.color[ 0,6],1);
     }
     
   }

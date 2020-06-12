@@ -61,6 +61,8 @@ BROM                : 'brom' ;
 
 GROUP               : 'group' ;
 
+UNINITIALIZED       : 'uninitialized' ;
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -114,9 +116,9 @@ initList            : '{' (value ',')* value? '}';
 
 memModifiers        : '<' clk0=sclock ',' clk1=sclock '>' ;
 
-declarationVar       : TYPE IDENTIFIER '=' value ATTRIBS?;
-declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' '=' (initList | STRING);
-declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING))?;
+declarationVar       : TYPE IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS?;
+declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))?;
+declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))?;
 declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
 declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory; 
 

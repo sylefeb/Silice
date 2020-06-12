@@ -48,9 +48,9 @@ algorithm main(
   // write down the code for the doomhead data
   $doomhead$
   // palette
-  uint18 palette[] = {
+  uint18 palette[256] = {
 $$  for i=1,256 do
-    $palette_666[i]$,
+    18h$string.format("%05x",palette_666[i]):sub(-5)$,
 $$  end
   };
 
@@ -58,7 +58,6 @@ $$  end
   uint32 nfo = 0;
   uint8  u = 0;
   uint8  v = 0;
-  uint8  pixidx = 0;
   
   uint1 video_reset = 0;
   uint1 sdram_reset = 0;
@@ -120,8 +119,7 @@ $$  end
     u = 0;    
     while (u < nfo[16,8]) {
       // send next pixel
-      pixidx        = doomhead.rdata;
-      io.color      = palette[pixidx];
+      io.color      = palette[doomhead.rdata];
       doomhead.addr = doomhead.addr + 1;      
       io.next_pixel = 1;
       while (io.ready == 0) { } 
