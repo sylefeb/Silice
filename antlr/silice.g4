@@ -168,7 +168,9 @@ unaryExpression     : (
                     '-' | '!' | '~&' | '~|' | '&' | '|' | '^~'| '~^' | '~'
 					) atom | atom ;
 
-concatenation       : '{' (expression_0 ',')* expression_0 '}' ;
+concatexpr          : expression_0 | NUMBER concatenation ;
+
+concatenation       : '{' (concatexpr ',')* concatexpr '}' ;
 
 atom                : CONSTANT 
                     | NUMBER 

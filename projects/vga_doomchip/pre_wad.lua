@@ -96,7 +96,7 @@ function extract_lump(name,dir)
   if path == '' then path = '.' end
   -- open wad
   local in_wad = assert(io.open(findfile(wad), 'rb'))
-  print('extracting lump ' .. name)
+  -- print('extracting lump ' .. name)
   if lumps[name] then
     in_wad:seek("set", lumps[name].start)
     local data = in_wad:read(lumps[name].size)
@@ -143,7 +143,7 @@ for l=1,nlumps do
     name = level_prefix .. '_' .. name
   end
   lumps[name] = { start=start, size=size }
-  print(' - lump "' .. name .. '" [' .. start .. '] ' .. size)
+  -- print(' - lump "' .. name .. '" [' .. start .. '] ' .. size)
   if string.match(name,'F_END') then
     in_flats = 0
   end

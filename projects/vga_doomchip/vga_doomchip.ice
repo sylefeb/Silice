@@ -15,7 +15,7 @@ $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
 
 $$wad = 'doom1.wad'
-$$level = 'E1M2'
+$$level = 'E1M1'
 $$dofile('pre_wad.lua')
 
 $$dofile('pre_load_data.lua')
@@ -42,6 +42,7 @@ $$if DE10NANO then
 $$INTERACTIVE = 1
 $include('keypad.ice')
 $include('lcd_status.ice')
+$include('oled_doomhead.ice')
 $$end
 
 // -------------------------
@@ -114,7 +115,12 @@ algorithm frame_drawer(
   output uint1  lcd_rs,
   output uint1  lcd_rw,
   output uint1  lcd_e,
-  output uint8  lcd_d,  
+  output uint8  lcd_d,
+  output uint1  oled_din,
+  output uint1  oled_clk,
+  output uint1  oled_cs,
+  output uint1  oled_dc,
+  output uint1  oled_rst,  
 ) {
 
   // BRAMs for BSP tree
@@ -372,8 +378,9 @@ $$end
   int16    debug3 = 0;
 
 $$if DE10NANO then
-  keypad     kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
-  lcd_status status(<:auto:>, posx <: ray_x, posy <: ray_y, posz <: ray_z, posa <: viewangle );
+  keypad        kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
+  lcd_status    status(<:auto:>, posx <: ray_x, posy <: ray_y, posz <: ray_z, posa <: viewangle );
+  oled_doomhead doomhead(<:auto:>);
 $$end
   
   vsync_filtered ::= vsync;
@@ -1059,7 +1066,7 @@ $$end
     bsp_movables.wenable = 0;
     bsp_movables.addr    = 1; // skip first (id=0 tags 'not a movable')
     while (bsp_movables.addr < num_bsp_movables) {
-      if (bsp_movables.rdata[51,1]) { // active?
+      if (bsp_movables.rdata[51,1] && bsp_movables.rdata[32,16] < 65535) { // active and drives a sector?
         
         ///// DEBUG
         debug0 = bsp_movables.addr;
@@ -1068,7 +1075,7 @@ $$end
         // read sector
         bsp_secs    .wenable = 0;
         bsp_secs    .addr    = bsp_movables.rdata[32,16];
-++:
+++:        
         // floor or ceiling
         if (bsp_movables.rdata[48,1]) { 
           tmp1 = bsp_secs.rdata[0,16];

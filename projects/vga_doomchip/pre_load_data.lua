@@ -404,8 +404,8 @@ end
 movables = {}
 id    = 1
 for lid,ldef in ipairs(lines) do
-  local ismovable,ismanual,floor_or_ceiling
-  ismovable=false; ismanual=0; floor_or_ceiling=0
+  local ismovable,ismanual,floor_or_ceiling,end_level
+  ismovable=false; ismanual=0; floor_or_ceiling=0; end_level=0
   -- manual doors
   if   ldef.types == 1 
     or ldef.types == 26
@@ -456,16 +456,35 @@ for lid,ldef in ipairs(lines) do
     ismovable = true
     floor_or_ceiling   = 1 -- floor
     ismanual = 1 -- for now
-  end  
+  end
+  -- end switch
+  if   ldef.types == 11 
+    or ldef.types == 51
+    or ldef.types == 52
+    or ldef.types == 124
+    then
+    ismovable = true
+    end_level = 1
+    ismanual  = 1
+  end
+  
   if ismovable then
-    if ldef.left < 65535 or ldef.tag > 0 then
-      if ldef.tag == 0 then -- TODO also check sector is not tagged
-        sidedef    = sides[1+ldef.left]
-        movedsec   = sidedef.sec
+    if ldef.left < 65535 or ldef.tag > 0 or end_level == 1 then
+      if end_level == 1 then
+          movedsec = 65535 -- no sector
       else
-        movedsec   = tag_2_sector[ldef.tag]
+        if ldef.tag == 0 then -- TODO also check sector is not tagged
+          sidedef    = sides[1+ldef.left]
+          movedsec   = sidedef.sec
+        else
+          movedsec   = tag_2_sector[ldef.tag]
+        end
       end
-      print('' .. id .. '] sector ' .. movedsec .. ' is a moving (door/lift/ceiling) - tag:' .. ldef.tag)
+      if movedsec == 65535 then
+        print('' .. id .. '] is an end of level switch')
+      else
+        print('' .. id .. '] sector ' .. movedsec .. ' is a moving (door/lift/ceiling) - tag:' .. ldef.tag)
+      end
       movables[lid-1] = {
           id       = id,
           sec      = movedsec,
@@ -475,12 +494,14 @@ for lid,ldef in ipairs(lines) do
           uph      = 0,
           downh    = 0,
       }
-      if floor_or_ceiling == 1 then
-        movables[lid-1].downh = sectors_heights[movedsec].lif
-        movables[lid-1].uph   = sectors_heights[movedsec].floor
-      else 
-        movables[lid-1].downh = sectors_heights[movedsec].floor      
-        movables[lid-1].uph   = sectors_heights[movedsec].lec
+      if movedsec < 65535 then
+        if floor_or_ceiling == 1 then
+          movables[lid-1].downh = sectors_heights[movedsec].lif
+          movables[lid-1].uph   = sectors_heights[movedsec].floor
+        else 
+          movables[lid-1].downh = sectors_heights[movedsec].floor      
+          movables[lid-1].uph   = sectors_heights[movedsec].lec
+        end
       end
       id = id + 1
     end

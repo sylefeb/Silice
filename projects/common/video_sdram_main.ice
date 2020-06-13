@@ -137,6 +137,11 @@ $$if DE10NANO then
   output! uint1 lcd_rw,
   output! uint1 lcd_e,
   output! uint8 lcd_d,
+  output! uint1 oled_din,
+  output! uint1 oled_clk,
+  output! uint1 oled_cs,
+  output! uint1 oled_dc,
+  output! uint1 oled_rst,  
 $$end
 $$if VGA then  
   // VGA
