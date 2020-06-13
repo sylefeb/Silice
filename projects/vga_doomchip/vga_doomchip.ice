@@ -15,7 +15,7 @@ $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
 
 $$wad = 'doom1.wad'
-$$level = 'E1M2'
+$$level = 'E1M1' // select the level here!
 $$dofile('pre_wad.lua')
 
 $$dofile('pre_load_data.lua')

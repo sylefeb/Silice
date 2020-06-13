@@ -194,7 +194,7 @@ bitfieldAccess      : field=IDENTIFIER '(' idOrIoAccess ')' '.' member=IDENTIFIE
 ioAccess            : base=IDENTIFIER ('.' IDENTIFIER)+ ;
 bitAccess           : (ioAccess | tableAccess | IDENTIFIER) '[' first=expression_0 ',' num=NUMBER ']' ;
 tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;
-access              : (ioAccess | tableAccess | bitAccess) ; 
+access              : (ioAccess | tableAccess | bitAccess | bitfieldAccess) ; 
 
 idOrIoAccess        : (ioAccess | IDENTIFIER) ;
 

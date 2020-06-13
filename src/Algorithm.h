@@ -537,7 +537,7 @@ private:
   /// \brief checks whether an identifier is a VIO
   bool isVIO(std::string var) const;
   /// \brief splits a type between base type and width
-  void splitType(std::string type, e_Type& _type, int& _width);
+  void splitType(std::string type, e_Type& _type, int& _width) const;
   /// \brief splits a constant between width, base and value
   void splitConstant(std::string cst, int& _width, char& _base, std::string& _value, bool& _negative) const;
   /// \brief rewrites a constant
@@ -550,7 +550,9 @@ private:
   /// \brief generate the next block name
   std::string generateBlockName();
   /// \brief returns the bitfield width
-  int bitfieldWidth(siliceParser::BitfieldContext* field);
+  int bitfieldWidth(siliceParser::BitfieldContext* field) const;
+  /// \brief returns the bitfield member offset and width
+  std::pair<int,int> bitfieldMemberOffsetAndWidth(siliceParser::BitfieldContext* field,std::string member) const;
   /// \brief gather a const value
   std::string gatherConstValue(siliceParser::ConstValueContext* ival);
   /// \brief gather a bitfield value
@@ -691,6 +693,7 @@ private:
   std::string determineAccessedVar(siliceParser::AccessContext* access, const t_combinational_block_context* bctx) const;
   std::string determineAccessedVar(siliceParser::IoAccessContext* access, const t_combinational_block_context* bctx) const;
   std::string determineAccessedVar(siliceParser::BitAccessContext* access, const t_combinational_block_context* bctx) const;
+  std::string determineAccessedVar(siliceParser::BitfieldAccessContext* access, const t_combinational_block_context* bctx) const;
   std::string determineAccessedVar(siliceParser::TableAccessContext* access, const t_combinational_block_context* bctx) const;
   /// \brief determine variables/inputs/outputs access within an instruction (from its tree)
   void determineVIOAccess(
@@ -778,12 +781,12 @@ private:
   void writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of a subroutine
   void writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist) const;
-  /// \brief writes access to a bitfield member
-  void writeBitfieldccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitfieldAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to an algorithm in/out, memory or group member ; returns info of accessed member.
   std::tuple<e_Type, int, int> writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to a table in/out
   void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
+  /// \brief writes access to a bitfield member
+  void writeBitfieldAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitfieldAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to bits
   void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to an identifier

@@ -454,7 +454,7 @@ Algorithm::t_combinational_block *Algorithm::addBlock(std::string name, const t_
 
 // -------------------------------------------------
 
-void Algorithm::splitType(std::string type, e_Type& _type, int& _width)
+void Algorithm::splitType(std::string type, e_Type& _type, int& _width) const
 {
   std::regex  rx_type("([[:alpha:]]+)([[:digit:]]+)");
   std::smatch sm_type;
@@ -496,7 +496,7 @@ std::string Algorithm::rewriteConstant(std::string cst) const
 
 // -------------------------------------------------
 
-int Algorithm::bitfieldWidth(siliceParser::BitfieldContext* field)
+int Algorithm::bitfieldWidth(siliceParser::BitfieldContext* field) const
 {
   int tot_width = 0;
   for (auto v : field->varList()->var()) {
@@ -509,12 +509,30 @@ int Algorithm::bitfieldWidth(siliceParser::BitfieldContext* field)
 
 // -------------------------------------------------
 
+std::pair<int, int> Algorithm::bitfieldMemberOffsetAndWidth(siliceParser::BitfieldContext* field, std::string member) const
+{
+  int offset = 0;
+  sl_assert(!field->varList()->var().empty());
+  ForRangeReverse(i, (int)field->varList()->var().size() - 1, 0) {
+    auto v = field->varList()->var()[i];
+    e_Type tp; int wi;
+    splitType(v->declarationVar()->TYPE()->getText(), tp, wi);
+    if (member == v->declarationVar()->IDENTIFIER()->getText()) {
+      return make_pair(offset, wi);
+    }
+    offset += wi;
+  }
+  return make_pair(-1,-1);
+}
+
+// -------------------------------------------------
+
 std::string Algorithm::gatherBitfieldValue(siliceParser::InitBitfieldContext* ifield)
 {
   // find field definition
   auto F = m_KnownBitFields.find(ifield->field->getText());
   if (F == m_KnownBitFields.end()) {
-    reportError(ifield->getSourceInterval(), (int)ifield->getStart()->getLine(), "unkown field '%s'", ifield->field->getText().c_str());
+    reportError(ifield->getSourceInterval(), (int)ifield->getStart()->getLine(), "unkown bitfield '%s'", ifield->field->getText().c_str());
   }
   // gather const values for each named entry
   unordered_map<string, pair<bool,string> > named_values;
@@ -2499,7 +2517,7 @@ void Algorithm::verifyMemberGroup(std::string member, siliceParser::GroupContext
     }
   }
   reportError(group->IDENTIFIER()->getSymbol(),line,"group '%s' does not contain a member '%s'",
-    group->IDENTIFIER()->getText().c_str(), member, line);
+    group->IDENTIFIER()->getText().c_str(), member.c_str(), line);
 }
 
 // -------------------------------------------------
@@ -2509,11 +2527,17 @@ void Algorithm::verifyMemberBitfield(std::string member, siliceParser::BitfieldC
   // -> check for existence
   for (auto v : field->varList()->var()) {
     if (v->declarationVar()->IDENTIFIER()->getText() == member) {
+      // verify there is no initializer
+      if (v->declarationVar()->value() != nullptr) {
+        reportError(v->declarationVar()->getSourceInterval(), (int)v->declarationVar()->value()->getStart()->getLine(),
+          "bitfield members should not be given initial values (field '%s', member '%s')",
+          field->IDENTIFIER()->getText().c_str(), member.c_str());
+      }
       return; // ok!
     }
   }
-  reportError(field->IDENTIFIER()->getSymbol(), line, "field '%s' does not contain a member '%s'",
-    field->IDENTIFIER()->getText().c_str(), member, line);
+  reportError(nullptr, line, "bitfield '%s' does not contain a member '%s'",
+    field->IDENTIFIER()->getText().c_str(), member.c_str(), line);
 }
 
 // -------------------------------------------------
@@ -2561,6 +2585,17 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
     }
   }
   return "";
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::determineAccessedVar(siliceParser::BitfieldAccessContext* bfaccess, const t_combinational_block_context* bctx) const
+{
+  if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
+    return determineAccessedVar(bfaccess->idOrIoAccess()->ioAccess(), bctx);
+  } else {
+    return bfaccess->idOrIoAccess()->IDENTIFIER()->getText();
+  }
 }
 
 // -------------------------------------------------
@@ -3325,14 +3360,28 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(const
 
 std::pair<Algorithm::e_Type, int> Algorithm::determineBitfieldAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitfieldAccessContext *bfaccess) const
 {
+  // TODO FIXME: Does not care about the bit access pattern, only returns base identifier type and width. 
+  //             This is supsicious. Might be ok as returned width is larger than required, still ...
   sl_assert(bfaccess != nullptr);
-
+  // check field definition exists
+  auto F = m_KnownBitFields.find(bfaccess->field->getText());
+  if (F == m_KnownBitFields.end()) {
+    reportError(bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine(), "unkown bitfield '%s'", bfaccess->field->getText().c_str());
+  }
+  // etiher indentifier or ioaccess
+  if (bfaccess->idOrIoAccess()->IDENTIFIER() != nullptr) {
+    return determineIdentifierTypeAndWidth(bctx, bfaccess->idOrIoAccess()->IDENTIFIER(), (int)bfaccess->getStart()->getLine());
+  } else {
+    return determineIOAccessTypeAndWidth(bctx, bfaccess->idOrIoAccess()->ioAccess());
+  }
 }
 
 // -------------------------------------------------
 
 std::pair<Algorithm::e_Type, int> Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitAccessContext *bitaccess) const
 {
+  // TODO FIXME: Does not care about the bit access pattern, only returns base identifier type and width. 
+  //             This is supsicious. Might be ok as returned width is larger than required, still ...
   sl_assert(bitaccess != nullptr);
   if (bitaccess->IDENTIFIER() != nullptr) {
     return determineIdentifierTypeAndWidth(bctx, bitaccess->IDENTIFIER(), (int)bitaccess->getStart()->getLine());
@@ -3618,6 +3667,27 @@ void Algorithm::writeTableAccess(
 
 // -------------------------------------------------
 
+void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitfieldAccessContext* bfaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const
+{
+  // find field definition
+  auto F = m_KnownBitFields.find(bfaccess->field->getText());
+  if (F == m_KnownBitFields.end()) {
+    reportError(bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine(), "unkown bitfield '%s'", bfaccess->field->getText().c_str());
+  }
+  if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
+    writeIOAccess(prefix, out, assigning, bfaccess->idOrIoAccess()->ioAccess(), __id, bctx, dependencies);
+  } else {
+    sl_assert(bfaccess->idOrIoAccess()->IDENTIFIER() != nullptr);
+    out << rewriteIdentifier(prefix, bfaccess->idOrIoAccess()->IDENTIFIER()->getText(), bctx, bfaccess->idOrIoAccess()->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies);
+  }
+  verifyMemberBitfield(bfaccess->member->getText(), F->second, (int)bfaccess->getStart()->getLine());
+  pair<int, int> ow = bitfieldMemberOffsetAndWidth(F->second,bfaccess->member->getText());
+  sl_assert(ow.first > -1); // should never happen as member is checked before
+  out << '[' << ow.first << "+:" << ow.second << ']';
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const
 {
   // TODO: check access validity
@@ -3642,6 +3712,8 @@ void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assignin
     writeTableAccess(prefix, out, assigning, access->tableAccess(), __id, bctx, dependencies);
   } else if (access->bitAccess() != nullptr) {
     writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, bctx, dependencies);
+  } else if (access->bitfieldAccess() != nullptr) {
+    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), __id, bctx, dependencies);
   }
 }
 
