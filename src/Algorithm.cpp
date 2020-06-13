@@ -1741,7 +1741,6 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   t_combinational_block* cblock = addBlock(generateBlockName() + "_" + name, &_current->context);
   _current->next(cblock);
   // produce io rewrite rules for the block
-  /// TODO: deal with memories
   // -> gather ins outs
   vector< string > ins;
   vector< string > outs;
@@ -2746,7 +2745,6 @@ void Algorithm::determineVariablesAccess(t_combinational_block *block)
 void Algorithm::determineVariablesAccess()
 {
   // for all blocks
-  // TODO: some blocks may never be reached ...
   for (auto& b : m_Blocks) {
     if (b->state_id == -1 && b->is_state) continue; // block is never reached
     determineVariablesAccess(b);

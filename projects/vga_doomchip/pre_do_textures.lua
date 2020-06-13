@@ -2,11 +2,8 @@ print('preparing textures')
 
 if SIMULATION then
 USE_BRAM = false -- RAM or ROM
-SHRINK   = 1 -- 0 is original res, 1 half, 2 a quarter
 else
 USE_BRAM = false -- RAM or ROM
-SHRINK   = 1 -- 0 is original res, 1 half, 2 a quarter
-             -- synthesis is much fast at a quarter res, recommanded for testing
 end
 
 ALL_IN_ONE = false
@@ -138,6 +135,13 @@ for i=1,num_texdefs do
 end
 
 -- -------------------------------------
+-- decide which textures to shrink
+texture_shrink = {}
+for tex,nfo in pairs(texture_ids) do
+  texture_shrink[tex] = 1
+end
+
+-- -------------------------------------
 -- produce code for the texture chip
 print('generating texture chip code')
 local code = assert(io.open(path .. 'texturechip.ice', 'w'))
@@ -180,11 +184,11 @@ for tex,nfo in pairs(texture_ids) do
     else
       texdata = decode_flat_lump(path .. 'lumps/flats/' .. tex .. '.lump')
     end
-    if SHRINK == 3 then
+    if texture_shrink[tex] == 3 then
       texdata = shrink_tex(shrink_tex(shrink_tex(texdata)))
-    elseif SHRINK == 2 then
+    elseif texture_shrink[tex] == 2 then
       texdata = shrink_tex(shrink_tex(texdata))
-    elseif SHRINK == 1 then
+    elseif texture_shrink[tex] == 1 then
       texdata = shrink_tex(texdata)
     end  
     local texw = #texdata[1]
@@ -214,19 +218,6 @@ if ALL_IN_ONE then
 end
 
 -- addressing
-if SHRINK == 3 then
-  code:write('  iu = iiu>>>3;\n')
-  code:write('  iv = iiv>>>3;\n')
-elseif SHRINK == 2 then
-  code:write('  iu = iiu>>>2;\n')
-  code:write('  iv = iiv>>>2;\n')
-elseif SHRINK == 1 then
-  code:write('  iu = iiu>>>1;\n')
-  code:write('  iv = iiv>>>1;\n')
-else
-  code:write('  iu = iiu;\n')
-  code:write('  iv = iiv;\n')
-end
 code:write('  switch (texid) {\n')
 code:write('    default : { }\n')  
 for tex,nfo in pairs(texture_ids) do
@@ -238,11 +229,11 @@ for tex,nfo in pairs(texture_ids) do
     else
       texdata = decode_flat_lump(path .. 'lumps/flats/' .. tex .. '.lump')
     end
-    if SHRINK == 3 then
+    if texture_shrink[tex] == 3 then
       texdata = shrink_tex(shrink_tex(shrink_tex(texdata)))
-    elseif SHRINK == 2 then
+    elseif texture_shrink[tex] == 2 then
       texdata = shrink_tex(shrink_tex(texdata))
-    elseif SHRINK == 1 then
+    elseif texture_shrink[tex] == 1 then
       texdata = shrink_tex(texdata)
     end  
     local texw = #texdata[1]
@@ -251,6 +242,19 @@ for tex,nfo in pairs(texture_ids) do
     local texh_pow2,texh_perfect = texture_dim_pow2(texh)
     code:write('    case ' .. (nfo.id) .. ': {\n')
     code:write('       // ' .. tex .. ' ' .. texw .. 'x' .. texh .. '\n')
+    if texture_shrink[tex] == 3 then
+      code:write('  iu = iiu>>>3;\n')
+      code:write('  iv = iiv>>>3;\n')
+    elseif texture_shrink[tex] == 2 then
+      code:write('  iu = iiu>>>2;\n')
+      code:write('  iv = iiv>>>2;\n')
+    elseif texture_shrink[tex] == 1 then
+      code:write('  iu = iiu>>>1;\n')
+      code:write('  iv = iiv>>>1;\n')
+    else
+      code:write('  iu = iiu;\n')
+      code:write('  iv = iiv;\n')
+    end
     if not texw_perfect then
       code:write('     if (iu > ' .. (3*texw) ..') {\n')
       code:write('       u = iu - ' .. (3*texw) .. ';\n')

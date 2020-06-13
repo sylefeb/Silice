@@ -430,7 +430,8 @@ $$end
     cosview_m  = sin_m.rdata;
 
     // ----------------------------------------------
-    // raycast columns
+    // rendering
+    // ----------------------------------------------
     c = 0;    
     while (c < 320) { 
       
@@ -576,12 +577,14 @@ $$end
 ++:
             // prepare movable data (if any)
             bsp_movables.addr         = bsp_segs_tex_height.rdata[40,8];
-            // segment endpoints
+
+            //-------------------------
+            // check for intersection
+            //-------------------------            
             v0x = bsp_segs_coords.rdata[ 0,16];
             v0y = bsp_segs_coords.rdata[16,16];
             v1x = bsp_segs_coords.rdata[32,16];
             v1y = bsp_segs_coords.rdata[48,16];
-            // check for intersection
             d0x = v0x - ray_x;
             d0y = v0y - ray_y;
             d1x = v1x - ray_x;
@@ -592,7 +595,9 @@ $$end
 ++:            
             if ((cs0_h<0 && cs1_h>=0) || (cs1_h<0 && cs0_h>=0)) {
             
-              // compute distance        
+              //-------------------------
+              // compute distance to intersection
+              //-------------------------
               y0_h   =  (  d0x * ray_dx_m + d0y * ray_dy_m );
               y1_h   =  (  d1x * ray_dx_m + d1y * ray_dy_m );
 ++:
@@ -612,7 +617,9 @@ $$end
 ++:
               if (d_h > $1<<(FPm+1)$) { // check distance sign, with margin to stay away from 0
 
+                //-------------------------
                 // hit!
+                //-------------------------
                 // -> correct to perpendicular distance ( * cos(alpha) )
                 num     = $FPl$d$(1<<(2*FPm+FPw-2))$;
                 den     = d_h * sin_m.rdata;
@@ -620,7 +627,10 @@ $$end
                 // -> compute inverse distance
                 (invd_h) <- divl <- (num,den); // (2^(FPw-2)) / d
                 d_h     = den >>> $FPm+4$; // record corrected distance for tex. mapping
-                // -> get floor/ceiling heights 
+
+                //-------------------------
+                // floor/ceiling heights 
+                //-------------------------
                 // NOTE: signed, so always read in same width!
                 tmp1    = bsp_secs.rdata[0,16];  // floor height 
                 sec_f_h = tmp1 - ray_z;
@@ -656,7 +666,9 @@ $$end
                 // prepare sector data for other sector (if any)
                 bsp_secs.addr = bsp_segs_tex_height.rdata[24,8];
                 
+                //-------------------------
                 // draw floor
+                //-------------------------
                 texid = bsp_secs_flats.rdata[0,8];
                 inv_y.addr = 100 - btm;
                 while (btm < f_h) {
@@ -691,7 +703,9 @@ $$end
                   inv_y.addr = 100 - btm;
                 }
                 
+                //-------------------------
                 // draw ceiling
+                //-------------------------
                 texid = bsp_secs_flats.rdata[8,8];
                 if (texid > 0 || (bsp_segs_tex_height.rdata[16,8] != 0)) {  // draw sky if upper texture present
                   inv_y.addr = top - 100;                
@@ -750,7 +764,9 @@ $$end
                 
 ++: // relax timing             
 
-                // lower part?                
+                //-------------------------
+                // lower wall?                
+                //-------------------------
                 if (bsp_segs_tex_height.rdata[0,8] != 0) {
                 
                   texid     = bsp_segs_tex_height.rdata[0,8];
@@ -798,7 +814,9 @@ $$end
                   btm = f_o;
                 }
                 
-                // upper part?
+                //-------------------------
+                // upper wall?
+                //-------------------------
                 if ( (bsp_segs_tex_height.rdata[16,8] != 0) // upper texture present
                 ||   (bsp_secs_flats.rdata[8,8] == 0 && bsp_segs_tex_height.rdata[8,8] != 0) // or opaque with sky above
                 ) {
@@ -853,7 +871,9 @@ $$end
                   }
                 }
                 
-                // opaque wall
+                //-------------------------
+                // middle wall
+                //-------------------------
                 if (bsp_segs_tex_height.rdata[8,8] != 0) {
                 
                   texid = bsp_segs_tex_height.rdata[8,8];
@@ -915,6 +935,7 @@ $$end
 
     // ----------------------------------------------
     // collisions
+    // ----------------------------------------------    
 $$if INTERACTIVE then    
     viewsector = 1;
     colliding  = 0;  
@@ -1063,6 +1084,7 @@ $$end
 
     // ----------------------------------------------
     // motion movables
+    // ----------------------------------------------
     bsp_movables.wenable = 0;
     bsp_movables.addr    = 1; // skip first (id=0 tags 'not a movable')
     while (bsp_movables.addr < num_bsp_movables) {
@@ -1126,6 +1148,7 @@ $$end
     
     // ----------------------------------------------
     // prepare next frame
+    // ----------------------------------------------
     
     time  = time  + 1;
     if ((time & 3) == 0) {
@@ -1202,6 +1225,7 @@ $$end
 
     // ----------------------------------------------
     // end of frame
+    // ----------------------------------------------
 
     // wait for vsync to end
     while (vsync_filtered == 0) {}
