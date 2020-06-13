@@ -496,7 +496,62 @@ std::string Algorithm::rewriteConstant(std::string cst) const
 
 // -------------------------------------------------
 
-std::string Algorithm::gatherValue(siliceParser::ValueContext* ival)
+int Algorithm::bitfieldWidth(siliceParser::BitfieldContext* field)
+{
+  int tot_width = 0;
+  for (auto v : field->varList()->var()) {
+    e_Type tp; int wi;
+    splitType(v->declarationVar()->TYPE()->getText(), tp, wi);
+    tot_width += wi;
+  }
+  return tot_width;
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::gatherBitfieldValue(siliceParser::InitBitfieldContext* ifield)
+{
+  // find field definition
+  auto F = m_KnownBitFields.find(ifield->field->getText());
+  if (F == m_KnownBitFields.end()) {
+    reportError(ifield->getSourceInterval(), (int)ifield->getStart()->getLine(), "unkown field '%s'", ifield->field->getText().c_str());
+  }
+  // gather const values for each named entry
+  unordered_map<string, pair<bool,string> > named_values;
+  for (auto ne : ifield->namedValue()) {
+    verifyMemberBitfield(ne->name->getText(), F->second, (int)ne->getStart()->getLine());
+    named_values[ne->name->getText()] = make_pair(
+      (ne->constValue()->CONSTANT() != nullptr), // true if sized constant
+      gatherConstValue(ne->constValue()));
+  }
+  // verify we have all required fields, and only them
+  if (named_values.size() != F->second->varList()->var().size()) {
+    reportError(ifield->getSourceInterval(), (int)ifield->getStart()->getLine(), "incorrect number of names values in field initialization", ifield->field->getText().c_str());
+  }
+  // concatenate and rewrite as a single number with proper width
+  int fwidth = bitfieldWidth(F->second);
+  string concat = "{";
+  int n = (int)F->second->varList()->var().size();
+  for (auto v : F->second->varList()->var()) {
+    auto ne = named_values.at(v->declarationVar()->IDENTIFIER()->getText());
+    e_Type tp; int wi;
+    splitType(v->declarationVar()->TYPE()->getText(), tp, wi);
+    if (ne.first) {
+      concat = concat + ne.second;
+    } else {
+      concat = concat + to_string(wi) + "'d" + ne.second;
+    }
+    if (--n > 0) {
+      concat = concat + ",";
+    }
+  }
+  concat = concat + "}";
+  return concat;
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::gatherConstValue(siliceParser::ConstValueContext* ival)
 {
   if (ival->CONSTANT() != nullptr) {
     return rewriteConstant(ival->CONSTANT()->getText());
@@ -506,6 +561,18 @@ std::string Algorithm::gatherValue(siliceParser::ValueContext* ival)
   } else {
     sl_assert(false);
     return "";
+  }
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::gatherValue(siliceParser::ValueContext* ival)
+{
+  if (ival->constValue() != nullptr) {
+    return gatherConstValue(ival->constValue());
+  } else {
+    sl_assert(ival->initBitfield() != nullptr);
+    return gatherBitfieldValue(ival->initBitfield());
   }
 }
 
@@ -2437,6 +2504,20 @@ void Algorithm::verifyMemberGroup(std::string member, siliceParser::GroupContext
 
 // -------------------------------------------------
 
+void Algorithm::verifyMemberBitfield(std::string member, siliceParser::BitfieldContext* field, int line) const
+{
+  // -> check for existence
+  for (auto v : field->varList()->var()) {
+    if (v->declarationVar()->IDENTIFIER()->getText() == member) {
+      return; // ok!
+    }
+  }
+  reportError(field->IDENTIFIER()->getSymbol(), line, "field '%s' does not contain a member '%s'",
+    field->IDENTIFIER()->getText().c_str(), member, line);
+}
+
+// -------------------------------------------------
+
 std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx) const
 {
   if (bnd.right_access == nullptr) {
@@ -3044,12 +3125,13 @@ Algorithm::Algorithm(
   const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
-  const std::unordered_map<std::string, siliceParser::GroupContext*>& known_groups
+  const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
+  const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield
 )
   : m_Name(name), m_Clock(clock), 
   m_Reset(reset), m_AutoRun(autorun), m_StackSize(stack_size),
   m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), 
-  m_KnownCircuitries(known_circuitries), m_KnownGroups(known_groups)
+  m_KnownCircuitries(known_circuitries), m_KnownGroups(known_groups), m_KnownBitFields(known_bitfield)
 {
   // init with empty always blocks
   m_AlwaysPre.id = 0;
@@ -3237,6 +3319,14 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(const
   }
   sl_assert(false);
   return std::make_pair(Int, 0);
+}
+
+// -------------------------------------------------
+
+std::pair<Algorithm::e_Type, int> Algorithm::determineBitfieldAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitfieldAccessContext *bfaccess) const
+{
+  sl_assert(bfaccess != nullptr);
+
 }
 
 // -------------------------------------------------

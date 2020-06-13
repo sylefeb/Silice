@@ -47,6 +47,7 @@ private:
   std::unordered_map<std::string, siliceParser::SubroutineContext* > m_Subroutines;
   std::unordered_map<std::string, siliceParser::CircuitryContext* >  m_Circuitries;
   std::unordered_map<std::string, siliceParser::GroupContext* >      m_Groups;
+  std::unordered_map<std::string, siliceParser::BitfieldContext* >   m_BitFields;
   std::unordered_set<std::string>                                    m_Appends;
 
   std::string findFile(std::string fname) const;

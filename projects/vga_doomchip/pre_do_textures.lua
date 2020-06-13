@@ -1,9 +1,15 @@
 print('preparing textures')
 
 if SIMULATION then
-USE_BRAM = false -- RAM or ROM
+  USE_BRAM = false -- RAM or ROM
+  memory_budget_bits = 1000000 -- 4000000
+  reduce_switches    = true
+  default_shrink     = 1
 else
-USE_BRAM = false -- RAM or ROM
+  USE_BRAM = false -- RAM or ROM
+  memory_budget_bits = 4000000
+  reduce_switches    = false
+  default_shrink     = 0
 end
 
 ALL_IN_ONE = false
@@ -135,11 +141,64 @@ for i=1,num_texdefs do
 end
 
 -- -------------------------------------
--- decide which textures to shrink
-texture_shrink = {}
+-- add texture sizes to datastrcuture
+
 for tex,nfo in pairs(texture_ids) do
-  texture_shrink[tex] = 1
+  local texdata
+  if nfo.type == 'wall' then
+    texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
+  else
+    texdata = decode_flat_lump(path .. 'lumps/flats/' .. tex .. '.lump')
+  end
+  texture_ids[tex].texw = #texdata[1]
+  texture_ids[tex].texh = #texdata
 end
+-- -------------------------------------
+-- decide which textures to shrink
+shrink_below_usage = 0
+shrink_min_res = 256
+max_usage = 0
+for tex,nfo in pairs(texture_ids) do
+  max_usage = math.max(max_usage,nfo.used)
+end
+-- auto reduction
+repeat 
+  num_reduced = 0
+  texture_bits = 0
+  texture_shrink = {}
+  for tex,nfo in pairs(texture_ids) do
+    if tex ~= 'F_SKY1' then -- skip sky entirely
+      texture_shrink[tex] = default_shrink -- default
+      local is_switch = (tex:sub(1,3) == 'SW1' or tex:sub(1,3) == 'SW2')
+      if      nfo.used < shrink_below_usage 
+          and math.max(nfo.texw,nfo.texh) >= shrink_min_res 
+          and (not is_switch or reduce_switches)
+        then
+        texture_shrink[tex] = 1+default_shrink -- shrink it in half
+        num_reduced = num_reduced + 1
+        --print('reducing size of texture ' .. tex .. ' (' .. nfo.texw .. 'x' .. nfo.texh .. ' used ' .. nfo.used .. ' times)')
+      end
+      texture_bits = texture_bits + (nfo.texw>>texture_shrink[tex])*(nfo.texh>>texture_shrink[tex])*8
+    end
+  end
+  shrink_below_usage = shrink_below_usage + 1
+  if shrink_below_usage > max_usage then
+    shrink_below_usage = 0
+    shrink_min_res = shrink_min_res // 2
+    if (shrink_min_res == 0) then
+      print('giving up')
+      break
+    end
+    print('restart -- current texture bits: ' .. texture_bits 
+       .. ' budget: ' .. memory_budget_bits
+       .. ' res cutoff ' .. shrink_min_res)
+  end
+until texture_bits < memory_budget_bits
+print('texture bits: ' .. texture_bits 
+       .. ' budget: ' .. memory_budget_bits
+       .. ' num reduced: ' .. num_reduced .. '/' .. num_textures)
+
+-- error('stop')
 
 -- -------------------------------------
 -- produce code for the texture chip
@@ -388,4 +447,6 @@ local code = assert(io.open(path .. 'texturechip.ice', 'r'))
 texturechip = code:read("*all")
 code:close()
 
-print('stored ' .. texture_start_addr .. ' texture bytes\n')
+print('stored ' .. texture_start_addr .. ' texture bytes (' .. texture_start_addr*8 .. ' bits) \n')
+
+-- error('stop')

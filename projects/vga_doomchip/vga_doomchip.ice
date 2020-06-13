@@ -15,7 +15,7 @@ $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
 
 $$wad = 'doom1.wad'
-$$level = 'E1M1'
+$$level = 'E1M2'
 $$dofile('pre_wad.lua')
 
 $$dofile('pre_load_data.lua')
@@ -305,7 +305,7 @@ $$end
   int$FPw$ tmp2_m   = 0;
   int$FPl$ tmp1_h   = 0; // larger to hold FPm x FPm
   int$FPl$ tmp2_h   = 0; // larger to hold FPm x FPm
-  int$FPw$ tmp3_h   = 0;
+  int$FPl$ tmp3_h   = 0;
   int16    h        = 0;
   int16    sec_f_h  = 0;
   int16    sec_c_h  = 0;
@@ -365,10 +365,11 @@ $$end
   uint1    onesided   = 1;
   uint1    colliding  = 0;
   uint8    onmovable  = 0;
+  int$FPl$ onmovable_dist = 0;
   uint1    movableseg = 0;
   
   uint16   kpressed   = 0;
-  uint6    kpressblind = 0;
+  uint5    kpressblind = 0;
   
   uint12   rand = 3137;
   
@@ -379,7 +380,7 @@ $$end
 
 $$if DE10NANO then
   keypad        kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
-  lcd_status    status(<:auto:>, posx <: ray_x, posy <: ray_y, posz <: ray_z, posa <: viewangle );
+  lcd_status    status(<:auto:>, posx <: debug0, posy <: debug1, posz <: debug2, posa <: debug3 );
   oled_doomhead doomhead(<:auto:>);
 $$end
   
@@ -664,7 +665,7 @@ $$end
                 } }
                 
                 // prepare sector data for other sector (if any)
-                bsp_secs.addr = bsp_segs_tex_height.rdata[24,8];
+                bsp_secs.addr = bsp_segs_tex_height.rdata[24,16];
                 
                 //-------------------------
                 // draw floor
@@ -690,7 +691,7 @@ $$end
                   tmp1_m = seclight + atten;
                   if (tmp1_m > 31) {
                     light = 31;
-                  } else { if (tmp1_m>=0){
+                  } else { if (tmp1_m>=0) {
                     light = tmp1_m;
                   } else {
                     light = 0;
@@ -707,7 +708,7 @@ $$end
                 // draw ceiling
                 //-------------------------
                 texid = bsp_secs_flats.rdata[8,8];
-                if (texid > 0 || (bsp_segs_tex_height.rdata[16,8] != 0)) {  // draw sky if upper texture present
+                if (texid > 0 || (bsp_segs_tex_height.rdata[16,8] != 0)) { // draw sky if upper texture present
                   inv_y.addr = top - 100;                
                   while (top > c_h) {
                     gv_m = (sec_c_h)   * inv_y.rdata;
@@ -818,11 +819,16 @@ $$end
                 // upper wall?
                 //-------------------------
                 if ( (bsp_segs_tex_height.rdata[16,8] != 0) // upper texture present
-                ||   (bsp_secs_flats.rdata[8,8] == 0 && bsp_segs_tex_height.rdata[8,8] != 0) // or opaque with sky above
+                ||   (bsp_secs_flats.rdata[8,8] == 0 
+                   && bsp_segs_tex_height.rdata[8,8] != 0) // or opaque with sky above
                 ) {
                   texid     = bsp_segs_tex_height.rdata[16,8];
                   
-                  tmp1      = bsp_secs.rdata[16,16]; // other sector ceiling height                 
+                  if (bsp_segs_tex_height.rdata[24,16] == 65535) {
+                    tmp1    = sec_c_h + ray_z; // sky case: use sector height
+                  } else {
+                    tmp1    = bsp_secs.rdata[16,16]; // other sector ceiling height                 
+                  }
                   sec_c_o   = tmp1 - ray_z;
 ++:
                   tmp1_h    = (sec_c_o * invd_h);
@@ -940,6 +946,7 @@ $$if INTERACTIVE then
     viewsector = 1;
     colliding  = 0;  
     onmovable  = 0;    
+    onmovable_dist = 0;
     // init recursion
     queue[queue_ptr] = $root$;
     queue_ptr  = 1;
@@ -979,7 +986,7 @@ $$if INTERACTIVE then
 ++:       
           target_z   = bsp_secs.rdata[0,16] + 40; // floor height + eye level
           viewsector = 0;
-        }  
+        }
         // collision detection
         s = 0;
         while (s < bsp_ssecs.rdata[0,8]) {
@@ -991,7 +998,7 @@ $$if INTERACTIVE then
           // prepare movable data (if any)
           bsp_movables.addr         = bsp_segs_tex_height.rdata[40,8];
           // prepare sector data for other sector (if any)
-          bsp_secs.addr = bsp_segs_tex_height.rdata[24,8];
+          bsp_secs.addr = bsp_segs_tex_height.rdata[24,16];
 ++:       
           // determine the type of segment (can we walk across, is it a movable?)
           walkable   = 1;
@@ -1045,7 +1052,15 @@ $$if INTERACTIVE then
               if (movableseg == 1) {
                 //          vvv  detect from further away
                 if (((tmp1_h>>2) < tmp2_h) && (l_h > 0) && l_h < (tmp3_h)) {
-                  onmovable  = bsp_movables.addr;
+                  if (onmovable) {
+                    // keep only closest
+                    if (tmp1_h < onmovable_dist) {
+                      onmovable_dist = tmp1_h;
+                      onmovable      = bsp_movables.addr;
+                    }
+                  } else {
+                    onmovable  = bsp_movables.addr;
+                  }
                 }
               }
               if (walkable == 0) {

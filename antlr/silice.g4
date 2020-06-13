@@ -61,6 +61,8 @@ BROM                : 'brom' ;
 
 GROUP               : 'group' ;
 
+BITFIELD            : 'bitfield' ;
+
 UNINITIALIZED       : 'uninitialized' ;
 
 DEFAULT             : 'default' (' ' | '\t')* ':';
@@ -102,7 +104,9 @@ ERROR_CHAR          : . ; // catch-all to move lexer errors to parser
 
 /* -- Declarations, init and bindings -- */
 
-value               : minus='-'? NUMBER | CONSTANT ;
+constValue          : minus='-'? NUMBER | CONSTANT ;
+
+value               : constValue | initBitfield ;
 
 sclock              :  '@' IDENTIFIER ;
 sreset              :  '!' IDENTIFIER ;
@@ -122,8 +126,6 @@ declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifier
 declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
 declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory; 
 
-idOrIoAccess         : (ioAccess|IDENTIFIER) ;
-
 modalgBinding        : left=IDENTIFIER (LDEFINE | RDEFINE | BDEFINE) right=idOrIoAccess | AUTO;
 modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
 
@@ -141,6 +143,12 @@ varList             : (var ',')* var? ;
 group               : GROUP IDENTIFIER '{' varList '}' ;
 
 ioGroup             : groupid=IDENTIFIER groupname=IDENTIFIER '{' ioList '}' ;
+
+/* -- bitfields -- */
+
+bitfield            : BITFIELD IDENTIFIER '{' varList '}' ;
+namedValue          : name=IDENTIFIER '=' constValue ;
+initBitfield        : field=IDENTIFIER '(' (namedValue ',') + namedValue? ')' ;
 
 /* -- Expressions -- */
 /* 
@@ -182,10 +190,13 @@ atom                : CONSTANT
 
 /* -- Accesses to VIO -- */
 
+bitfieldAccess      : field=IDENTIFIER '(' idOrIoAccess ')' '.' member=IDENTIFIER ;
 ioAccess            : base=IDENTIFIER ('.' IDENTIFIER)+ ;
 bitAccess           : (ioAccess | tableAccess | IDENTIFIER) '[' first=expression_0 ',' num=NUMBER ']' ;
 tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;
 access              : (ioAccess | tableAccess | bitAccess) ; 
+
+idOrIoAccess        : (ioAccess | IDENTIFIER) ;
 
 /* -- Assignments -- */
                     
@@ -206,10 +217,6 @@ paramList           : expression_0 ',' paramList
                     | expression_0 
                     | ;
 
-identifierList      : IDENTIFIER ',' identifierList 
-                    | IDENTIFIER 
-                    | ;
-
 assign              : IDENTIFIER | access ;
 assignList          : (assign ',')* assign? ;
 
@@ -218,6 +225,11 @@ joinExec            : '(' assignList ')' LARROW IDENTIFIER ;
 syncExec            : joinExec LARROW '(' paramList ')' ;
 
 /* -- Circuitry instanciation -- */
+
+// TODO: allow passing ioAccess as well ( idOrIoAccess )
+identifierList      : IDENTIFIER ',' identifierList 
+                    | IDENTIFIER 
+                    | ;
 
 circuitryInst       : '(' outs=identifierList ')' '=' IDENTIFIER '(' ins=identifierList ')';
 
@@ -311,6 +323,6 @@ algorithm           : 'algorithm' IDENTIFIER '(' inOutList ')' algModifiers? '{'
 
 /* -- Overall structure -- */
 
-topList       :  (algorithm | importv | appendv | subroutine | circuitry | group) topList | ;
+topList       :  (algorithm | importv | appendv | subroutine | circuitry | group | bitfield) topList | ;
 
 root                : topList EOF ;

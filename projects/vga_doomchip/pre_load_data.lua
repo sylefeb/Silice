@@ -173,12 +173,12 @@ for _,t in ipairs(sorted_walls) do
   local n = walls[t]
   if t:sub(1,1) ~= '-' then
     num_textures   = num_textures + 1
-    texture_ids[t] = {id=num_textures,type='wall'}
+    texture_ids[t] = {id=num_textures,type='wall',used=n}
     print('wall ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t].id)
     if t:sub(1,3) == 'SW1' then
       t_on = 'SW2' .. t:sub(4)
       num_textures   = num_textures + 1
-      texture_ids[t_on] = {id=num_textures,type='wall'}
+      texture_ids[t_on] = {id=num_textures,type='wall',used=n}
       print('=> switch, adding \'on\' texture ' .. t_on .. ' id=' .. texture_ids[t_on].id)
       -- record switch ids
       switch_off_ids[texture_ids[t   ].id] = t
@@ -192,7 +192,7 @@ for _,t in ipairs(sorted_flats) do
   local n = flats[t]
   if t:sub(1,1) ~= '-' then
     num_textures   = num_textures + 1
-    texture_ids[t] = {id=num_textures,type='flat'}
+    texture_ids[t] = {id=num_textures,type='flat',used=n}
     print('flat ' .. t .. ' used ' .. n .. ' time(s) id=' .. texture_ids[t].id)
   end
 end
@@ -660,7 +660,8 @@ for i,sg in ipairs(segs) do
   other_sec = 65535
   if other_sidedef then
     other_sec = other_sidedef.sec
-  end
+  end  
+  -- print('seg ' .. i-1 .. ' ldef ' .. sg.ldf .. ' sidedefs: ' .. ldef.right .. '|' .. ldef.left .. ' sectors ' .. sidedef.sec .. '|' .. other_sec)  
   local xoff = sidedef.xoff + sg.off
   --[[if (sg.dir == 1) then
     -- correct texture offset NOTE: TODO not yet checked, does this work?
@@ -711,6 +712,8 @@ for i,sg in ipairs(segs) do
     upper_unpegged = upper_unpegged
   }
 end
+
+--  error('stop')
 
 -- -------------------------------------
 -- things (player start, monsters)

@@ -128,15 +128,14 @@ private:
 
   /// \brief Set of known modules
   const std::unordered_map<std::string, AutoPtr<Module> >& m_KnownModules;
-
   /// \brief Set of known subroutines
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& m_KnownSubroutines;
-
   /// \brief Set of known circuitries
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>& m_KnownCircuitries;
-
   /// \brief Set of known groups
   const std::unordered_map<std::string, siliceParser::GroupContext*>& m_KnownGroups;
+  /// \brief Set of known bitfields
+  const std::unordered_map<std::string, siliceParser::BitfieldContext*>& m_KnownBitFields;
 
   /// \brief enum for variable access
   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
@@ -550,6 +549,12 @@ private:
   void resetBlockName();
   /// \brief generate the next block name
   std::string generateBlockName();
+  /// \brief returns the bitfield width
+  int bitfieldWidth(siliceParser::BitfieldContext* field);
+  /// \brief gather a const value
+  std::string gatherConstValue(siliceParser::ConstValueContext* ival);
+  /// \brief gather a bitfield value
+  std::string gatherBitfieldValue(siliceParser::InitBitfieldContext* ival);
   /// \brief gather a value
   std::string gatherValue(siliceParser::ValueContext* ival);
   /// \brief add a variable from its definition (_var may be modified with an updated name)
@@ -668,6 +673,8 @@ private:
   void verifyMemberMemory(const t_mem_nfo& mem,std::string member,int line) const;
   /// \brief verify member in group
   void verifyMemberGroup(std::string member, siliceParser::GroupContext* group,int line) const;
+  /// \brief verify member in bitfield
+  void verifyMemberBitfield(std::string member, siliceParser::BitfieldContext* group, int line) const;
   /// \brief report an error
   void reportError(antlr4::Token* what, int line, const char *msg, ...) const;
   void reportError(antlr4::misc::Interval interval, int line, const char *msg, ...) const;
@@ -725,7 +732,8 @@ public:
     const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
     const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
     const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
-    const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups);
+    const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
+    const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield);
   /// \brief destructor
   virtual ~Algorithm();
 
@@ -752,6 +760,8 @@ private:
   std::tuple<e_Type, int, int> determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const;
   /// \brief determines identifier type and width
   std::pair<e_Type, int> determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const;
+  /// \brief determines bitfield access bit width
+  std::pair<e_Type, int> determineBitfieldAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitfieldAccessContext *ioaccess) const;
   /// \brief determines IO access bit width
   std::pair<e_Type, int> determineIOAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::IoAccessContext *ioaccess) const;
   /// \brief determines bit access type/width
@@ -768,7 +778,9 @@ private:
   void writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const;
   /// \brief writes reading back the results of a subroutine
   void writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist) const;
-  /// \brief writes access to an algorithm in/out, return table info of accessed member
+  /// \brief writes access to a bitfield member
+  void writeBitfieldccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitfieldAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
+  /// \brief writes access to an algorithm in/out, memory or group member ; returns info of accessed member.
   std::tuple<e_Type, int, int> writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
   /// \brief writes access to a table in/out
   void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;

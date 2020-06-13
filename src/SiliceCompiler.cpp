@@ -72,6 +72,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
   auto app = dynamic_cast<siliceParser::AppendvContext*>(tree);
   auto sub = dynamic_cast<siliceParser::SubroutineContext*>(tree);
   auto group = dynamic_cast<siliceParser::GroupContext*>(tree);
+  auto bitfield = dynamic_cast<siliceParser::BitfieldContext*>(tree);
 
   if (toplist) {
 
@@ -110,7 +111,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     }
     AutoPtr<Algorithm> algorithm(new Algorithm(
       name, clock, reset, autorun, stack_size,
-      m_Modules, m_Subroutines, m_Circuitries, m_Groups)
+      m_Modules, m_Subroutines, m_Circuitries, m_Groups, m_BitFields)
     );
     if (m_Algorithms.find(name) != m_Algorithms.end()) {
       throw Fatal("an algorithm with same name already exists (line %d)!", alg->getStart()->getLine());
@@ -135,6 +136,15 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
       throw Fatal("a group with same name already exists (line %d)!", group->getStart()->getLine());
     }
     m_Groups.insert(std::make_pair(name, group));
+
+  } else if (bitfield) {
+
+    /// bitfield
+    std::string name = bitfield->IDENTIFIER()->getText();
+    if (m_BitFields.find(name) != m_BitFields.end()) {
+      throw Fatal("a bitfield with same name already exists (line %d)!", bitfield->getStart()->getLine());
+    }
+    m_BitFields.insert(std::make_pair(name, bitfield));
 
   } else if (imprt) {
 
