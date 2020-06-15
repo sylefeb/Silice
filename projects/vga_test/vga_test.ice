@@ -55,18 +55,7 @@ algorithm frame_display(
 // -------------------------
 
 algorithm main(
-$$if MOJO then
-  output! uint8 led,
-  output! uint1 spi_miso,
-  input   uint1 spi_ss,
-  input   uint1 spi_mosi,
-  input   uint1 spi_sck,
-  output! uint4 spi_channel,
-  input   uint1 avr_tx,
-  output! uint1 avr_rx,
-  input   uint1 avr_rx_busy,
-$$end
-$$if SDRAM then
+$$if not ICARUS then
   // SDRAM
   output! uint1  sdram_cle,
   output! uint1  sdram_dqm,
@@ -82,28 +71,51 @@ $$if VERILATOR then
   output! uint8  sdram_dq_o,
   output! uint1  sdram_dq_en,
 $$else
-  output! uint1  sdram_clk,
+  output! uint1  sdram_clk, // sdram chip clock != internal sdram_clock
   inout   uint8  sdram_dq,
 $$end
 $$end
-$$if SIMULATION then
+$$if MOJO then
+  output! uint6  led,
+  output! uint1  spi_miso,
+  input   uint1  spi_ss,
+  input   uint1  spi_mosi,
+  input   uint1  spi_sck,
+  output! uint4  spi_channel,
+  input   uint1  avr_tx,
+  output! uint1  avr_rx,
+  input   uint1  avr_rx_busy,
+$$end
+$$if ICARUS or VERILATOR then
   output! uint1 video_clock,
 $$end
 $$if DE10NANO then
   output! uint8 led,
+  output! uint4 kpadC,
+  input   uint4 kpadR,
+  output! uint1 lcd_rs,
+  output! uint1 lcd_rw,
+  output! uint1 lcd_e,
+  output! uint8 lcd_d,
+  output! uint1 oled_din,
+  output! uint1 oled_clk,
+  output! uint1 oled_cs,
+  output! uint1 oled_dc,
+  output! uint1 oled_rst,  
 $$end
-$$if ICESTICK then
-  output! uint1 led0,
-  output! uint1 led1,
-  output! uint1 led2,
-  output! uint1 led3,
-  output! uint1 led4,
-$$end
+$$if VGA then  
+  // VGA
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
   output! uint$color_depth$ video_b,
   output! uint1 video_hs,
   output! uint1 video_vs
+$$end
+$$if HDMI then  
+  // HDMI
+  output! uint4 hdmi1_tmds,
+  output! uint4 hdmi1_tmdsb
+$$end 
 ) 
 $$if HARDWARE then
 // on an actual board, the video signal is produced by a PLL

@@ -13,7 +13,7 @@
             <Keywords name="Numbers, suffix1"></Keywords>
             <Keywords name="Numbers, suffix2"></Keywords>
             <Keywords name="Numbers, range"></Keywords>
-            <Keywords name="Operators1">&lt;&lt; &gt;&gt; + - * &amp; &amp;&amp; | || ^ ^^ == = := ::= &gt; &lt; ~ ; ( ) { }</Keywords>
+            <Keywords name="Operators1">&lt;&lt; &gt;&gt; + - * &amp; &amp;&amp; | || ^ ^^ == = := ::= &gt; &lt; ~ ; ( ) { } &lt;: :&gt; &lt;:&gt; &lt;::</Keywords>
             <Keywords name="Operators2"></Keywords>
             <Keywords name="Folders in code1, open"></Keywords>
             <Keywords name="Folders in code1, middle"></Keywords>
@@ -24,7 +24,7 @@
             <Keywords name="Folders in comment, open"></Keywords>
             <Keywords name="Folders in comment, middle"></Keywords>
             <Keywords name="Folders in comment, close"></Keywords>
-            <Keywords name="Keywords1">if&#x000D;&#x000A;while&#x000D;&#x000A;output&#x000D;&#x000A;input&#x000D;&#x000A;algorithm&#x000D;&#x000A;subroutine&#x000D;&#x000A;inout&#x000D;&#x000A;reads&#x000D;&#x000A;writes&#x000D;&#x000A;return&#x000D;&#x000A;return;&#x000D;&#x000A;goto&#x000D;&#x000A;else&#x000D;&#x000A;autorun&#x000D;&#x000A;output!</Keywords>
+            <Keywords name="Keywords1">if&#x000D;&#x000A;while&#x000D;&#x000A;output&#x000D;&#x000A;input&#x000D;&#x000A;algorithm&#x000D;&#x000A;subroutine&#x000D;&#x000A;always&#x000D;&#x000A;inout&#x000D;&#x000A;reads&#x000D;&#x000A;writes&#x000D;&#x000A;return&#x000D;&#x000A;return;&#x000D;&#x000A;goto&#x000D;&#x000A;else&#x000D;&#x000A;autorun&#x000D;&#x000A;output!&#x000D;&#x000A;input!</Keywords>
             <Keywords name="Keywords2">int&#x000D;&#x000A;uint&#x000D;&#x000A;@&#x000D;&#x000A;!&#x000D;&#x000A;</Keywords>
             <Keywords name="Keywords3">++:</Keywords>
             <Keywords name="Keywords4">$include&#x000D;&#x000A;$$</Keywords>

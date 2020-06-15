@@ -141,17 +141,30 @@ private:
   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
   enum e_Access {
     e_NotAccessed = 0,
-    e_ReadOnly = 1, e_WriteOnly = 2, e_ReadWrite = 3,
-    e_WriteBinded = 4, e_ReadWriteBinded = 8,
+    e_ReadOnly = 1, 
+    e_WriteOnly = 2, 
+    e_ReadWrite = 3,
+    e_WriteBinded = 4, 
+    e_ReadWriteBinded = 8,
     e_InternalFlipFlop = 16
   };
 
   /// \brief enum for variable type
   enum e_VarUsage {
-    e_Undetermined = 0, e_NotUsed = 1,
-    e_Const = 2, e_Temporary = 3,
-    e_FlipFlop = 4, e_Bound = 5, e_Assigned = 6
+    e_Undetermined = 0, 
+    e_NotUsed = 1,
+    e_Const = 2,
+    e_Temporary = 3,
+    e_FlipFlop = 4, 
+    e_Bound = 5, 
+    e_Assigned = 6,   // TODO: reconsider
+    e_Wire = 7
   };
+
+  /// \brief enum for variable type
+  enum e_FFUsage { 
+    e_None = 0, e_D = 1, e_Q = 2, e_DQ = 3, 
+    e_Latch = 4, e_LatchD = 5, e_LatchQ = 6, e_LatchDQ = 7};
 
   /// \brief enum for IO types
   enum e_IOType { e_Input, e_Output, e_InOut, e_NotIO };
@@ -159,22 +172,25 @@ private:
   /// \brief base info about variables, inputs, outputs
   class t_var_nfo {
   public:
-    std::string name;
-    e_Type      base_type;
-    int         width;
+    std::string  name;
+    e_Type       base_type;
+    int          width;
     std::vector<std::string> init_values;
-    int         table_size; // 0: not a table, otherwise size
-    bool        do_not_initialize = false;
-    e_Access    access = e_NotAccessed;
-    e_VarUsage  usage = e_Undetermined;
-    std::string attribs;
+    int          table_size; // 0: not a table, otherwise size
+    bool         do_not_initialize = false;
+    e_Access     access   = e_NotAccessed;
+    e_VarUsage   usage    = e_Undetermined;
+    std::string  attribs;
   };
 
   /// \brief typedef to distinguish vars from ios
-  typedef t_var_nfo t_inout_nfo;
+  class t_inout_nfo : public t_var_nfo{
+  public:
+    bool nolatch = false;
+  };
 
   /// \brief specialized info class for outputs
-  class t_output_nfo : public t_inout_nfo {
+  class t_output_nfo : public t_var_nfo {
   public:
     bool combinational = false;
   };
@@ -188,6 +204,7 @@ private:
     int         width;
     int         table_size;
     bool        do_not_initialize = false;
+    bool        no_input_latch = false;
     int         line;
     std::vector<std::string> clocks;
     std::vector<std::string> in_vars;
@@ -227,7 +244,7 @@ private:
   std::unordered_map<std::string, int > m_MemoryNames;
 
   /// \brief enum binding direction
-  enum e_BindingDir { e_Left, e_Right, e_BiDir, e_Auto };
+  enum e_BindingDir { e_Left, e_LeftQ, e_Right, e_BiDir, e_Auto };
 
   /// \brief records info about variable bindings
   typedef struct
@@ -250,7 +267,7 @@ private:
     AutoPtr<Algorithm>         algo;
     std::vector<t_binding_nfo> bindings;
     bool                       autobind;
-    std::unordered_map<std::string, std::string> boundinputs;
+    std::unordered_map<std::string, std::pair<std::string,e_FFUsage> > boundinputs;
   } t_algo_nfo;
 
   /// \brief instanced algorithms
@@ -323,6 +340,13 @@ private:
   public:
     // records for each written variable so far, each variable it depends on (throughout all computations leading to it)
     std::unordered_map< std::string, std::unordered_set < std::string > > dependencies;
+  };
+
+  /// \brief variable dependencies within combinational sequences
+  class t_vio_ff_usage {
+  public:
+    // records for each variable whether the D or Q port of a flip-flop is used
+    std::unordered_map<std::string, e_FFUsage> ff_usage;
   };
 
   /// \brief ending actions for blocks
@@ -509,6 +533,7 @@ private:
 
   /// \brief always blocks
   t_combinational_block                                             m_AlwaysPre;
+  t_combinational_block                                             m_AlwaysPost; // empty, used only to track post-reads (bindings)
   /// \brief all combinational blocks
   std::list< t_combinational_block* >                               m_Blocks;
   /// \brief state name to combinational block
@@ -565,6 +590,8 @@ private:
   bool isIdentifierAvailable(std::string name) const;
   /// \brief gather variable nfo
   void gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nfo& _nfo);
+  /// \brief gather wire declaration
+  void gatherDeclarationWire(siliceParser::DeclarationWireContext* decl, t_subroutine_nfo* sub);
   /// \brief gather variable declaration
   void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub);
   /// \brief gather all values from an init list
@@ -598,9 +625,10 @@ private:
   std::string rewriteIdentifier(
     std::string prefix, std::string var,
     const t_combinational_block_context *bctx, size_t line,
-    std::string ff, const t_vio_dependencies& dependencies = t_vio_dependencies()) const;
+    std::string ff,
+    const t_vio_dependencies &dependencies, t_vio_ff_usage &_ff_usage, e_FFUsage ff_force=e_None) const; 
   /// \brief rewrite an expression, renaming identifiers
-  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
+  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_combinational_block_context* bctx, std::string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief update current block based on the next instruction list
   t_combinational_block *updateBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather a break from loop
@@ -687,6 +715,10 @@ private:
   void updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context* bctx) const;
   /// \brief merge variable dependencies
   void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
+  /// \brief update flip-flop usage
+  void updateFFUsage(e_FFUsage usage, e_FFUsage &_ff) const;
+  /// \brief combine flip-flop usage
+  void combineFFUsageInto(const t_vio_ff_usage &ff0, t_vio_ff_usage &ff1, t_vio_ff_usage& _ff_usage) const;
   /// \brief determine binding right identifier
   std::string bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx = nullptr) const;
   /// \brief determine accessed variable
@@ -725,6 +757,12 @@ private:
   void autobindInstancedModule(t_module_nfo& _mod);
   /// \brief resove e_Auto binding directions
   void resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg);
+  /// \brief returns true if the algorithm does not have an FSM
+  bool hasNoFSM() const;
+  /// \brief returns true if the algorithm does not need a reset
+  bool requiresNoReset() const;
+  /// \brief returns true if the algorithm does not call subroutines
+  bool doesNotCallSubroutines() const;
 
 public:
 
@@ -774,23 +812,23 @@ private:
   /// \brief determines access type/width
   std::pair<e_Type, int> determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const;
   /// \brief writes a call to an algorithm
-  void writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies) const;
+  void writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes reading back the results of an algorithm
-  void writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::AssignListContext* plist, const t_combinational_block_context *bctx) const;
+  void writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::AssignListContext* plist, const t_combinational_block_context *bctx, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes a call to a subroutine
-  void writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies) const;
+  void writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes reading back the results of a subroutine
-  void writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist) const;
+  void writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes access to an algorithm in/out, memory or group member ; returns info of accessed member.
-  std::tuple<e_Type, int, int> writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
+  std::tuple<e_Type, int, int> writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes access to a table in/out
-  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
+  void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes access to a bitfield member
-  void writeBitfieldAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitfieldAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies) const;
+  void writeBitfieldAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitfieldAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes access to bits
-  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies) const;
+  void writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, int __id, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes access to an identifier
-  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies) const;
+  void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes an assignment
   void writeAssignement(std::string prefix, std::ostream& out,
     const t_instr_nfo& a,
@@ -798,9 +836,9 @@ private:
     antlr4::tree::TerminalNode* identifier,
     siliceParser::Expression_0Context *expression_0,
     const t_combinational_block_context *bctx,
-    const t_vio_dependencies& dependencies) const;
-  /// \brief writes a single block to the output
-  void writeBlock(std::string prefix, std::ostream& out, const t_combinational_block* block, t_vio_dependencies& _dependencies) const;
+    std::string ff,const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
+  /// \brief writes all wire assignements for a block
+  void writeWireAssignements(std::string prefix, std::ostream &out, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes flip-flop value init for a variable
   void writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
   /// \brief writes flip-flop value update for a variable
@@ -817,18 +855,20 @@ private:
   void writeFlipFlops(std::string prefix, std::ostream& out) const;
   /// \brief writes flip-flop combinational value update for a variable
   void writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
-  /// \brief writes combinational steps that are always performed /before/ the state machine
-  void writeCombinationalAlwaysPre(std::string prefix, std::ostream& out, t_vio_dependencies& _always_dependencies) const;
   /// \brief add a state to the queue
-  void pushState(const t_combinational_block* b, std::queue<size_t>& _q) const;
-  /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
-  void writeStatelessBlockGraph(std::string prefix, std::ostream& out, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies) const;
-  /// \brief writes a stateless pipeline to the output, returns zhere to resume from
-  const t_combinational_block *writeStatelessPipeline(std::string prefix, std::ostream& out, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies) const;
-  /// \brief writes variable inits
-  void writeVarInits(std::string prefix, std::ostream& out, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies) const;
+  void pushState(const t_combinational_block *b, std::queue<size_t> &_q) const;
+  /// \brief writes combinational steps that are always performed /before/ the state machine
+  void writeCombinationalAlwaysPre(std::string prefix, std::ostream& out, t_vio_dependencies& _always_dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes all states in the output
-  void writeCombinationalStates(std::string prefix, std::ostream& out, const t_vio_dependencies& always_dependencies) const;
+  void writeCombinationalStates(std::string prefix, std::ostream &out, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage) const;
+  /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
+  void writeStatelessBlockGraph(std::string prefix, std::ostream& out, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const;
+  /// \brief writes a stateless pipeline to the output, returns zhere to resume from
+  const t_combinational_block *writeStatelessPipeline(std::string prefix, std::ostream& out, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const;
+  /// \brief writes a single block to the output
+  void writeBlock(std::string prefix, std::ostream &out, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
+  /// \brief writes variable inits
+  void writeVarInits(std::string prefix, std::ostream& out, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes a memory module
   void writeModuleMemory(std::ostream& out, const t_mem_nfo& mem) const;
   /// \brief writes a BRAM memory module
@@ -837,11 +877,13 @@ private:
   void writeModuleMemoryDualPortBRAM(std::ostream& out, const t_mem_nfo& bram) const;
   /// \brief writes a BROM memory module
   void writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& brom) const;
+  /// \brief writes the algorithm as a Verilog module
+  void writeAsModule(std::ostream &out, t_vio_ff_usage &_ff_usage) const;
 
 public:
 
   /// \brief writes the algorithm as a Verilog module
-  void writeAsModule(std::ostream& out) const;
+  void writeAsModule(std::ostream& out);
 
 };
 

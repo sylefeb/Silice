@@ -119,6 +119,7 @@ $$end
   }
 
   reminder = num;
+  ret = 0;
 
   while (reminder >= den) {
 

@@ -50,8 +50,8 @@ algorithm vga(
          && (ycount >= VA_START && ycount < V_END);
   vblank := (ycount < VA_START);
 
-  xcount = H_END;
-  ycount = V_END;
+  xcount = 0;
+  ycount = 0;
 
   while (1) {
 

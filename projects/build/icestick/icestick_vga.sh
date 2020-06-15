@@ -13,7 +13,7 @@ if ! type "nextpnr-ice40" > /dev/null; then
   icepack build.txt build.bin
 else
   yosys -p 'synth_ice40 -top top -json build.json' build.v
-  nextpnr-ice40 --hx1k --json build.json --pcf ../../../frameworks/icestick.pcf --asc build.asc
+  nextpnr-ice40 --hx1k --json build.json --pcf ../../../frameworks/icestick.pcf --asc build.asc --package tq144
   icepack build.asc build.bin
 fi
 

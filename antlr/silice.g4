@@ -77,6 +77,7 @@ RARROW              : '->' ;
 LDEFINE             : '<:' ;
 RDEFINE             : ':>' ;
 BDEFINE             : '<:>';
+LDEFINEDBL          : '<::' ;
 AUTO                : '<:auto:>' ;
 
 ALWSASSIGNDBL       : '::=' ;
@@ -120,22 +121,26 @@ sstacksz            :  'stack:' NUMBER ;
 algModifier         : sclock | sreset | sautorun | sstacksz ;
 algModifiers        : '<' algModifier (',' algModifier)* '>' ;
 
-initList            : '{' value (',' value)* ','? '}' | '{' '}';
+initList            : '{' value (',' value)* ','? '}' | '{' '}' ;
 
-memModifiers        : '<' clk0=sclock ',' clk1=sclock '>' ;
+memNoInputLatch     : 'input' '!' ;
+memClocks           : (clk0=sclock ',' clk1=sclock) ;
+memModifier         : memClocks | memNoInputLatch ;
+memModifiers        : '<' memModifier (',' memModifier)* ','? '>' ;
 
+declarationWire      : TYPE alwaysAssigned;
 declarationVar       : TYPE IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS?;
 declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))?;
 declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))?;
 declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
-declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory; 
+declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire; 
 
-modalgBinding        : left=IDENTIFIER (LDEFINE | RDEFINE | BDEFINE) right=idOrIoAccess | AUTO;
+modalgBinding        : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE) right=idOrIoAccess | AUTO;
 modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
 
 /* -- io lists -- */
 
-io                  : ( is_input='input' | (is_output='output' combinational='!'?) | is_inout='inout' ) IDENTIFIER ;
+io                  : ( (is_input='input' nolatch='!'? ) | (is_output='output' combinational='!'?) | is_inout='inout' ) IDENTIFIER ;
 
 ioList              : io (',' io)* ','? | ;
 
@@ -166,6 +171,7 @@ expression_0        : expression_1 (
                     | expression_0 (
                       '+' | '-' | '||' | '|' | '===' | '==' | '!==' | '!='  | '<<<' | '>>>' | '<<' | '>>' | '<' | '>' | '<=' | '>='
                       ) expression_1 
+                    | expression_0 '?' expression_0 ':' expression_0
                     | expression_1;
 
 expression_1        : unaryExpression (
@@ -278,8 +284,8 @@ pipeline            : block ('->' block) +;
 
 inout               : 'inout' TYPE IDENTIFIER 
                     | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
-input               : 'input' TYPE IDENTIFIER 
-                    | 'input' TYPE IDENTIFIER '[' NUMBER ']';
+input               : 'input' nolatch='!'? TYPE IDENTIFIER
+                    | 'input' nolatch='!'? TYPE IDENTIFIER '[' NUMBER ']';
 output              : 'output' combinational='!'? TYPE IDENTIFIER
                     | 'output' combinational='!'? TYPE IDENTIFIER '[' NUMBER ']';
 inOrOut             :  input | output | inout | ioGroup;
