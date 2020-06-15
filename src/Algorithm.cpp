@@ -1158,6 +1158,10 @@ std::string Algorithm::rewriteExpression(std::string prefix, antlr4::tree::Parse
           reportError(term->getSymbol(), (int)term->getSymbol()->getLine(), "__id used outside of repeat block");
         }
         return std::to_string(__id);
+      } else if (term->getSymbol()->getType() == siliceParser::TOUNSIGNED) {
+        return "$unsigned";
+      } else if (term->getSymbol()->getType() == siliceParser::TOSIGNED) {
+        return "$signed";
       } else {
         return expr->getText();
       }
@@ -2531,6 +2535,14 @@ void Algorithm::verifyMemberBitfield(std::string member, siliceParser::BitfieldC
       if (v->declarationVar()->value() != nullptr) {
         reportError(v->declarationVar()->getSourceInterval(), (int)v->declarationVar()->value()->getStart()->getLine(),
           "bitfield members should not be given initial values (field '%s', member '%s')",
+          field->IDENTIFIER()->getText().c_str(), member.c_str());
+      }
+      // verify type is uint
+      sl_assert(v->declarationVar()->TYPE() != nullptr);
+      string test = v->declarationVar()->TYPE()->getText();
+      if (v->declarationVar()->TYPE()->getText()[0] != 'u') {
+        reportError(v->declarationVar()->getSourceInterval(), (int)v->declarationVar()->getStart()->getLine(),
+          "bitfield members can only be unsigned (field '%s', member '%s')",
           field->IDENTIFIER()->getText().c_str(), member.c_str());
       }
       return; // ok!

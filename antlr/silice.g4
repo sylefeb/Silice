@@ -51,6 +51,10 @@ BREAK               : 'break' ;
 
 DISPLAY             : '$display' | '__display' ;
 
+TOSIGNED            : '__signed' ;
+
+TOUNSIGNED          : '__unsigned' ;
+
 ALWAYS              : 'always' ;
 
 BRAM                : 'bram' ;
@@ -114,9 +118,9 @@ sautorun            :  AUTORUN ;
 sstacksz            :  'stack:' NUMBER ;
 
 algModifier         : sclock | sreset | sautorun | sstacksz ;
-algModifiers        : '<' (algModifier ',') * algModifier? '>' ;
+algModifiers        : '<' algModifier (',' algModifier)* '>' ;
 
-initList            : '{' (value ',')* value? '}';
+initList            : '{' value (',' value)* ','? '}' | '{' '}';
 
 memModifiers        : '<' clk0=sclock ',' clk1=sclock '>' ;
 
@@ -133,12 +137,12 @@ modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
 
 io                  : ( is_input='input' | (is_output='output' combinational='!'?) | is_inout='inout' ) IDENTIFIER ;
 
-ioList              : (io ',')* io? ;
+ioList              : io (',' io)* ','? | ;
 
 /* -- groups -- */
 
 var                 : declarationVar ;
-varList             : (var ',')* var? ;
+varList             : var (',' var)* ','? | ;
 
 group               : GROUP IDENTIFIER '{' varList '}' ;
 
@@ -148,7 +152,7 @@ ioGroup             : groupid=IDENTIFIER groupname=IDENTIFIER '{' ioList '}' ;
 
 bitfield            : BITFIELD IDENTIFIER '{' varList '}' ;
 namedValue          : name=IDENTIFIER '=' constValue ;
-initBitfield        : field=IDENTIFIER '(' (namedValue ',') + namedValue? ')' ;
+initBitfield        : field=IDENTIFIER '(' namedValue (',' + namedValue)* ','? ')' ;
 
 /* -- Expressions -- */
 /* 
@@ -178,7 +182,7 @@ unaryExpression     : (
 
 concatexpr          : expression_0 | NUMBER concatenation ;
 
-concatenation       : '{' (concatexpr ',')* concatexpr '}' ;
+concatenation       : '{' concatexpr (',' concatexpr)* '}' ;
 
 atom                : CONSTANT 
                     | NUMBER 
@@ -186,6 +190,8 @@ atom                : CONSTANT
                     | REPEATID
                     | access
                     | '(' expression_0 ')'
+                    | TOSIGNED '(' expression_0 ')'
+                    | TOUNSIGNED '(' expression_0 ')'
                     | concatenation ;
 
 /* -- Accesses to VIO -- */
@@ -218,7 +224,7 @@ paramList           : expression_0 ',' paramList
                     | ;
 
 assign              : IDENTIFIER | access ;
-assignList          : (assign ',')* assign? ;
+assignList          : assign (',' assign)* ','? | ;
 
 asyncExec           : IDENTIFIER LARROW '(' paramList ')' ;
 joinExec            : '(' assignList ')' LARROW IDENTIFIER ;
@@ -248,7 +254,7 @@ switchCase          : 'switch' '(' expression_0 ')' '{' caseBlock * '}' ;
 caseBlock           : ('case' case_value=value ':' | DEFAULT ) case_block=block;
 whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 
-displayParams       : (IDENTIFIER ',') * IDENTIFIER ;
+displayParams       : IDENTIFIER (',' IDENTIFIER)* ;
 display             : DISPLAY '(' STRING ( ',' displayParams )? ')';
 
 instruction         : assignment 
@@ -277,28 +283,30 @@ input               : 'input' TYPE IDENTIFIER
 output              : 'output' combinational='!'? TYPE IDENTIFIER
                     | 'output' combinational='!'? TYPE IDENTIFIER '[' NUMBER ']';
 inOrOut             :  input | output | inout | ioGroup;
-inOutList           :  (inOrOut ',') * inOrOut ?;
+inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 
 /* -- Declarations, subroutines, instruction lists -- */
 
 declarationList     : declaration ';' declarationList | ;
 
 instructionList     : 
-                      (instruction ';') + instructionList 
-					| block       instructionList
-                    | repeatBlock instructionList
-                    | state       instructionList
-                    | ifThenElse  instructionList
-                    | ifThen      instructionList
-                    | whileLoop   instructionList
-					| switchCase  instructionList
-					| pipeline    instructionList
-					| ;
+                      (
+                        (instruction ';') + 
+                      | block
+                      | repeatBlock
+                      | state
+                      | ifThenElse
+                      | ifThen
+                      | whileLoop
+                      | switchCase
+                      | pipeline
+                      ) instructionList 
+                      | ;
 
 subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
-					          | input | output ;
+					  | input | output ;
                     
-subroutineParamList : (subroutineParam ',')* subroutineParam ? ;
+subroutineParamList : subroutineParam (',' subroutineParam)* ','? | ;
 subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList (RETURN ';')? '}' ;
                     
 declAndInstrList    : (declaration ';' | subroutine ) *
