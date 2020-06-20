@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Based on @BrunoLevy01 FemtoRV compile scripts, https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV
+# Based on FemtoRV compile scripts https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV
 
 ./risc-v/bin/riscv64-unknown-elf-gcc -O0 -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o code.s
 ./risc-v/bin/riscv64-unknown-elf-gcc -O0 -fno-pic -march=rv32i -mabi=ilp32 -c -o code.o $1

@@ -1,7 +1,7 @@
 .globl _start
 
 _start:
-  
+
   addi  t0, zero, 33
   addi  t1, t0, -42
   slti  t2, t1, 0

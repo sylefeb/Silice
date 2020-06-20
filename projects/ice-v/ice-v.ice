@@ -79,9 +79,9 @@ algorithm intops(
   input!  int32  imm,
   input!  uint3  select,
   input!  uint1  select2,
-  input!  uint1  aZero,
-  input!  uint1  aSelect,
-  input!  uint1  bSelect,
+  input!  uint1  forceZero,
+  input!  uint1  regOrPc,
+  input!  uint1  regOrImm,
   output  int32  r,
   output  uint1  working,
 ) {
@@ -89,8 +89,8 @@ algorithm intops(
   uint1 dir    = 0;
   uint5 shamt  = 0;
   
-  int32 a := aSelect ? ({20b0,pc[0,10],2b0}) : (aZero ? xa : 32b0); 
-  int32 b := bSelect ? imm : (xb);
+  int32 a := regOrPc  ? ({20b0,pc[0,10],2b0}) : (forceZero ? xa : 32b0); 
+  int32 b := regOrImm ? imm : (xb);
   //      ^^
   // using := during a declaration means that the variable now constantly tracks
   // the declared expression (but it is no longer assignable)
@@ -185,9 +185,9 @@ algorithm decode(
   output! uint3   select,
   output! uint1   select2,
   output! int32   imm,
-  output! uint1   aZero,
-  output! uint1   aSelect,
-  output! uint1   bSelect
+  output! uint1   forceZero,
+  output! uint1   regOrPc,
+  output! uint1   regOrImm
 ) {
   always {
     switch (instr[ 0, 7])
@@ -203,9 +203,9 @@ algorithm decode(
         select      = 0;
         select2     = 0;
         imm         = {Utype(instr).imm31_12,12b0};
-        aZero       = 0; // force x0
-        aSelect     = 0; // reg
-        bSelect     = 1; // imm
+        forceZero   = 0; // force x0
+        regOrPc     = 0; // reg
+        regOrImm    = 1; // imm
       }
       
       case 7b0010111: { // AUIPC
@@ -218,9 +218,9 @@ algorithm decode(
         select      = 0;
         select2     = 0;           
         imm         = {Utype(instr).imm31_12,12b0};
-        aZero       = 1;
-        aSelect     = 1; // pc
-        bSelect     = 1; // imm
+        forceZero   = 1;
+        regOrPc     = 1; // pc
+        regOrImm    = 1; // imm
       }
       
       case 7b1101111: { // JAL
@@ -238,9 +238,9 @@ algorithm decode(
            Jtype(instr).imm11,
            Jtype(instr).imm10_1,
            1b0};
-        aZero       = 1;
-        aSelect     = 1; // pc
-        bSelect     = 1; // imm           
+        forceZero   = 1;
+        regOrPc     = 1; // pc
+        regOrImm    = 1; // imm           
       }
       
       case 7b1100111: { // JALR
@@ -253,9 +253,9 @@ algorithm decode(
         select      = 0;
         select2     = 0;        
         imm         = {{20{instr[31,1]}},Itype(instr).imm};
-        aZero       = 1;
-        aSelect     = 0; // reg
-        bSelect     = 1; // imm
+        forceZero   = 1;
+        regOrPc     = 0; // reg
+        regOrImm    = 1; // imm
       }
       
       case 7b1100011: { // branch
@@ -274,9 +274,9 @@ algorithm decode(
             Btype(instr).imm4_1,
             1b0
             };
-        aZero       = 1;
-        aSelect     = 1; // pc
-        bSelect     = 1; // imm
+        forceZero   = 1;
+        regOrPc     = 1; // pc
+        regOrImm    = 1; // imm
       }
  
       case 7b0000011: { // load
@@ -290,9 +290,9 @@ algorithm decode(
         select      = 0;
         select2     = 0;
         imm         = {{20{instr[31,1]}},Itype(instr).imm};
-        aZero       = 1;
-        aSelect     = 0; // reg
-        bSelect     = 1; // imm
+        forceZero   = 1;
+        regOrPc     = 0; // reg
+        regOrImm    = 1; // imm
       }
       
       case 7b0100011: { // store
@@ -306,9 +306,9 @@ algorithm decode(
         select      = 0;
         select2     = 0;        
         imm         = {{20{instr[31,1]}},Stype(instr).imm11_5,Stype(instr).imm4_0};
-        aZero       = 1;
-        aSelect     = 0; // reg
-        bSelect     = 1; // imm
+        forceZero   = 1;
+        regOrPc     = 0; // reg
+        regOrImm    = 1; // imm
       }
 
       case 7b0010011: { // integer, immediate  
@@ -320,9 +320,9 @@ algorithm decode(
         select      = Itype(instr).funct3;
         select2     = instr[30,1] /*SRLI/SRAI*/ & (Itype(instr).funct3 != 3b000) /*not ADD*/;
         imm         = {{20{instr[31,1]}},Itype(instr).imm};        
-        aZero       = 1;
-        aSelect     = 0; // reg
-        bSelect     = 1; // imm
+        forceZero   = 1;
+        regOrPc     = 0; // reg
+        regOrImm    = 1; // imm
       }
       
       case 7b0110011: { // integer, registers
@@ -335,9 +335,9 @@ algorithm decode(
         select      = Itype(instr).funct3;
         select2     = Rtype(instr).select2;
         imm         = 0;        
-        aZero       = 1;
-        aSelect     = 0; // reg
-        bSelect     = 0; // reg
+        forceZero   = 1;
+        regOrPc     = 0; // reg
+        regOrImm    = 0; // reg
       }
       
       default: {  }
@@ -395,9 +395,9 @@ $$end
   );
 
   int32 imm         = uninitialized;
-  uint1 aZero       = uninitialized;
-  uint1 aSelect     = uninitialized;
-  uint1 bSelect     = uninitialized;
+  uint1 forceZero   = uninitialized;
+  uint1 regOrPc     = uninitialized;
+  uint1 regOrImm    = uninitialized;
   uint3 loadStoreOp = uninitialized;
   decode dec(
     instr       <:: instr,    // the <:: indicates we bind the variable as it was at the 
@@ -410,9 +410,9 @@ $$end
     select      :> select,
     select2     :> select2,
     imm         :> imm,
-    aZero       :> aZero,
-    aSelect     :> aSelect,
-    bSelect     :> bSelect
+    forceZero   :> forceZero,
+    regOrPc     :> regOrPc,
+    regOrImm    :> regOrImm
   );
 
   
@@ -425,9 +425,9 @@ $$end
     xa      <: xregsA.rdata,
     xb      <: xregsB.rdata,
     imm     <: imm,
-    aZero   <: aZero,
-    aSelect <: aSelect,
-    bSelect <: bSelect,
+    forceZero   <: forceZero,
+    regOrPc     <: regOrPc,
+    regOrImm    <: regOrImm,
     r       :> alu_out,
     select  <: select,
     select2 <: select2,
@@ -452,13 +452,13 @@ $$end
   mem_addr        = 0;
   
 $$if SIMULATION then
-  while (iter < 64) {
+  while (iter < 48) {
     iter = iter + 1;
 $$else
   while (1) {
 $$end
 
-//__display("pc %d",mem_addr);
+__display("pc %d",mem_addr);
 
     // mem_data is now available
     instr = mem_rdata;
@@ -474,18 +474,12 @@ $$end
 
     while (1) {
 
-      if (alu_working == 0) { // ALU done?
-// __display("ALU DONE");        
-        
-        // alu result
-        data = alu_out;
-        
         // load/store?        
         // What happens here: we always load, mask and store.
         // the reason being that the BRAM design currently does not support
         // write masks (likely to evolve, but have to worry about compatibility 
         // across architectures).
-        if (load) {        
+        if (load) {
           // load
           mem_addr    = alu_out>>2;
     ++: // wait data
@@ -510,8 +504,18 @@ $$end
               }
               default: { data = 0; }
             }            
+__display("LOAD addr: %h op: %b read: %h",mem_addr, loadStoreOp, data);
+            // commit result
+            xregsA.wenable = 1;
+            xregsB.wenable = 1;
+            xregsA.wdata   = data;
+            xregsB.wdata   = data;
+            xregsA.addr    = write_rd;
+            xregsB.addr    = write_rd;
+
           } else {
-__display("LOAD addr: %b (store %b) op: %b",alu_out,store,loadStoreOp);
+          
+__display("STORE1 addr: %h op: %b d: %h",mem_addr,loadStoreOp,mem_rdata);
             switch (loadStoreOp) {
               case 3b000: { // SB
                   switch (alu_out[0,2]) {
@@ -531,29 +535,40 @@ __display("LOAD addr: %b (store %b) op: %b",alu_out,store,loadStoreOp);
                 mem_wdata   = xregsB.rdata;
               }            
             }
-__display("STORE op: %d data: %d",loadStoreOp,mem_wdata);
+__display("STORE2 addr: %h op: %b write: %h",mem_addr,loadStoreOp,mem_wdata);
+            mem_addr    = alu_out>>2;
             mem_wen     = 1;
     ++: // wait write
           }
-        }
-
-        mem_addr     = (jump | cmp) ? data[2,12]  : pc+1;
-        xregsA.wdata = (jump | cmp) ? (pc+1) << 2 : data;
-        xregsB.wdata = (jump | cmp) ? (pc+1) << 2 : data;
+          
+          mem_addr = pc+1;
+          break;
+          
+        } else {
         
-        // store result   
-        if (write_rd) {
-          // commit result
-          xregsA.wenable = 1;
-          xregsB.wenable = 1;
-          xregsA.addr    = write_rd;
-          xregsB.addr    = write_rd;
-        }        
+          if (alu_working == 0) { // ALU done?
+      // __display("ALU DONE");        
+            // alu result
+            data = alu_out;
 
-        break;
-      }      
-    }
-    
+            mem_addr     = (jump | cmp) ? data[2,12]  : pc+1;
+            xregsA.wdata = (jump | cmp) ? (pc+1) << 2 : data;
+            xregsB.wdata = (jump | cmp) ? (pc+1) << 2 : data;
+            
+            // store result   
+            if (write_rd) {
+              // commit result
+              xregsA.wenable = 1;
+              xregsB.wenable = 1;
+              xregsA.addr    = write_rd;
+              xregsB.addr    = write_rd;
+            }        
+
+            break;
+          }      
+        }
+      }
+
 $$if SIMULATION then  
 $$if SHOW_REGS then  
 ++:
