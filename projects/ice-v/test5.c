@@ -1,6 +1,6 @@
 void main() 
 {
-  int *led = (int*)0x400;
+  int* const led = (int*)0x1000;
   int i = 0;
 
   int l = 1;

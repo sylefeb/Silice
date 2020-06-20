@@ -759,12 +759,16 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* de
 
 static int justHigherPow2(int n)
 {
-  int p2 = 0;
+  int  p2   = 0;
+  bool isp2 = true;
   while (n > 0) {
-    p2++;
+    if (n > 1 && (n & 1)) {
+      isp2 = false;
+    }
+    ++ p2;
     n = n >> 1;
   }
-  return p2;
+  return isp2 ? p2-1 : p2;
 }
 
 // -------------------------------------------------

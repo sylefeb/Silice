@@ -5,13 +5,18 @@
 // RV32I cpu, see README.txt
 
 // IceStick clock
+$$if not SIMULATION then
 import('../common/icestick_clk_60.v')
+$$end
 
-$$SHOW_REGS = false
+$$SHOW_REGS = true
 
 // pre-compilation script, embeds compile code within BRAM
 $$dofile('pre_include_asm.lua')
 
+// bitfields for easier decoding of instructions ; these
+// define views on a uint32, that are used upon 
+// access, avoiding hard coded values in part-selects
 bitfield Itype {
   uint12 imm,
   uint5  rs1,
@@ -69,7 +74,7 @@ bitfield Btype {
 algorithm intops(
   input!  uint1  enable,  // input! tells the compiler that the input does not 
   input!  uint12 pc,      // need to be latched, so we can save registers
-  input!  int32  xa,      // (may become automatic in the future)
+  input!  int32  xa,      // caller has to ensure consistency
   input!  int32  xb,
   input!  int32  imm,
   input!  uint3  select,
@@ -88,9 +93,10 @@ algorithm intops(
   int32 b := bSelect ? imm : (xb);
   //      ^^
   // using := during a declaration means that the variable now constantly tracks
-  // the declared expression (it is no longer assignable)
+  // the declared expression (but it is no longer assignable)
+  // In other words, this is a wire!
   
-  always {
+  always { // this part of the algorithm is executed every clock
   
     if (shamt > 0) {
     
@@ -100,31 +106,18 @@ algorithm intops(
       
     } else {
 
-      if (enable) {
-      
+      if (enable) {      
         switch (select) {
           case 3b000: { // ADD / SUB
             int32 tmp = uninitialized;
-            if (select2) {
-              tmp = -b;
-            } else {
-              tmp = b;
-            }
+            if (select2) { tmp = -b; } else { tmp = b; }
             r = a + tmp;
           }
           case 3b010: { // SLTI
-            if (__signed(a) < __signed(b)) {
-              r = 32b1;
-            } else {
-              r = 32b0;
-            }
+            if (__signed(a) < __signed(b)) { r = 32b1; } else { r = 32b0; }
           }
           case 3b011: { // SLTU
-            if (__unsigned(a) < __unsigned(b)) {
-              r = 32b1;
-            } else {
-              r = 32b0;
-            }
+            if (__unsigned(a) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
           }
           case 3b100: { r = a ^ b;} // XOR
           case 3b110: { r = a | b;} // OR
@@ -141,8 +134,7 @@ algorithm intops(
             signed  = select2;
             dir     = 1;
           }
-        }
-        
+        }        
       }    
       
     }
@@ -153,6 +145,7 @@ $$if SIMULATION then
 //__display("enable %b a = %d b = %d r = %d select=%d select2=%d working=%d shamt=%d",enable,a,b,r,select,select2,working,shamt);
 $$end
   }
+  
 }
 
 // Performs integer comparisons
@@ -360,6 +353,8 @@ algorithm rv32i_cpu(
   output! uint1  mem_wen,
 ) {
   
+  //                 |--------- indicates we don't want the bram inputs to be latched
+  //                 v          writes have to be setup during the same clock cycle
   bram int32 xregsA<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   bram int32 xregsB<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   
@@ -378,7 +373,8 @@ algorithm rv32i_cpu(
 
   uint32 instr       = uninitialized;
   uint12 pc          = uninitialized;
-  uint12 next_pc    := pc + 1;
+  
+  uint12 next_pc    := pc+1; // seemingly not used but helps synthesis (less LUTs!)
 
 $$if SIMULATION then  
 $$if SHOW_REGS then
@@ -389,12 +385,13 @@ $$end
 $$end
 
   uint3 funct3    := Btype(instr).funct3;
+  
   intcmp cmps(
     a      <: xregsA.rdata,
     b      <: xregsB.rdata,
-    select <:  funct3,
-    enable <:  branch,
-    j      :>  cmp
+    select <: funct3,
+    enable <: branch,
+    j      :> cmp
   );
 
   int32 imm         = uninitialized;
@@ -403,8 +400,8 @@ $$end
   uint1 bSelect     = uninitialized;
   uint3 loadStoreOp = uninitialized;
   decode dec(
-    instr       <:: instr,
-    write_rd    :> write_rd,
+    instr       <:: instr,    // the <:: indicates we bind the variable as it was at the 
+    write_rd    :> write_rd,  // last clock edge (as opposed to its being modified value)
     jump        :> jump,
     branch      :> branch,
     load        :> load,
@@ -418,6 +415,7 @@ $$end
     bSelect     :> bSelect
   );
 
+  
   int32  alu_out     = uninitialized;
   uint1  alu_working = uninitialized;
   uint1  alu_enable  = uninitialized;
@@ -441,11 +439,11 @@ $$if SIMULATION then
   uint16 iter = 0;
 $$end
 
-  // maintain write enable low
+  // maintain write enable low (pulses high when needed)
   mem_wen        := 0; 
-  // maintain alu enable low
+  // maintain alu enable low (pulses high when needed)
   alu_enable     := 0;
-  // maintain read registers
+  // maintain read registers (no latched, see bram parameter)
   xregsA.wenable := 0;
   xregsB.wenable := 0;
   xregsA.addr    := Rtype(instr).rs1;
@@ -513,7 +511,7 @@ $$end
               default: { data = 0; }
             }            
           } else {
-//__display("LOAD addr: %b (store %b) op: %b",alu_out,store,loadStoreOp);
+__display("LOAD addr: %b (store %b) op: %b",alu_out,store,loadStoreOp);
             switch (loadStoreOp) {
               case 3b000: { // SB
                   switch (alu_out[0,2]) {
@@ -533,13 +531,13 @@ $$end
                 mem_wdata   = xregsB.rdata;
               }            
             }
-//__display("STORE op: %d data: %d",loadStoreOp,mem_wdata);
+__display("STORE op: %d data: %d",loadStoreOp,mem_wdata);
             mem_wen     = 1;
     ++: // wait write
           }
         }
 
-        mem_addr     = (jump | cmp) ? data[2,12]     : pc+1;
+        mem_addr     = (jump | cmp) ? data[2,12]  : pc+1;
         xregsA.wdata = (jump | cmp) ? (pc+1) << 2 : data;
         xregsB.wdata = (jump | cmp) ? (pc+1) << 2 : data;
         
@@ -583,36 +581,63 @@ algorithm main(
   output! uint1 led2,
   output! uint1 led3,
   output! uint1 led4,
+$$if OLED then
+  output! uint1 oled_din,
+  output! uint1 oled_clk,
+  output! uint1 oled_cs,
+  output! uint1 oled_ds,
+  output! uint1 oled_rst,
+$$end
+$$if not SIMULATION then
   ) <@cpu_clock>
 {
-  // clock
-  
+  // clock  
   icestick_clk_60 clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
-  );
-  
+  ); 
+$$else
+) {
+$$end
   
   // ram
   bram uint32 mem<input!>[] = $meminit$;
   
+  uint12 wide_addr = uninitialized;
+  
   // cpu
   rv32i_cpu cpu(
-    mem_addr  :> mem.addr,
+    mem_addr  :> wide_addr,
     mem_rdata <: mem.rdata,
     mem_wdata :> mem.wdata,
     mem_wen   :> mem.wenable,
   );
 
+  mem.addr := wide_addr[0,10];
+  
   // io mapping
   always {
-    if (mem.wenable & mem.addr == 12h100) {
-      led0 = mem.wdata[0,1];
-      led1 = mem.wdata[1,1];
-      led2 = mem.wdata[2,1];
-      led3 = mem.wdata[3,1];
-      led4 = mem.wdata[4,1];
-      // __display("Led %b%b%b%b%b",led0,led1,led2,led3,led4);
+    if (mem.wenable) {
+      switch (wide_addr[10,2]) {
+        case 2b01: {
+          led0 = mem.wdata[0,1];
+          led1 = mem.wdata[1,1];
+          led2 = mem.wdata[2,1];
+          led3 = mem.wdata[3,1];
+          led4 = mem.wdata[4,1];
+          __display("Led %b%b%b%b%b",led0,led1,led2,led3,led4);
+        }
+$$if OLED then
+        case 2b10: {
+          oled_din = mem.wdata[0,1];
+          oled_clk = mem.wdata[1,1];
+          oled_cs  = mem.wdata[2,1];
+          oled_ds  = mem.wdata[3,1];
+          oled_rst = mem.wdata[4,1];
+        }
+$$end
+        default: { }
+      }
     }
   }
 

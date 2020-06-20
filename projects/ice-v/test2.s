@@ -1,11 +1,10 @@
-.equ Leds, 0x400
+.equ Leds, 0b010000000000
 
 .globl _start
 
 _start:
 
   addi  t1, zero, 0x0f
-  /*lui t1,0xff*/
 loop1:
   addi  t1,t1,-1
   bne   t1,zero,loop1
@@ -14,7 +13,6 @@ loop1:
   sw    t0, Leds(zero)
 
   addi  t1, zero, 0x0f
-  /*lui t1,0xff*/
 loop2:
   addi  t1,t1,-1
   bne   t1,zero,loop2
