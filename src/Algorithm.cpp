@@ -1098,10 +1098,13 @@ std::string Algorithm::translateVIOName(
 
 std::string Algorithm::rewriteIdentifier(
   std::string prefix, std::string var,
-  const t_combinational_block_context *bctx, 
-  size_t line, 
-  std::string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage, e_FFUsage ff_Force) const
+  const t_combinational_block_context *bctx,
+  size_t line,
+  std::string ff, bool read_access,
+  const t_vio_dependencies& dependencies,
+  t_vio_ff_usage &_ff_usage, e_FFUsage ff_Force) const
 {
+  sl_assert(!(!read_access && ff == FF_Q));
   if (var == ALG_RESET || var == ALG_CLOCK) {
     return var;
   } else if (var == m_Reset) { // cannot be ALG_RESET
@@ -1132,14 +1135,14 @@ std::string Algorithm::rewriteIdentifier(
         // flip-flop
         if (ff == FF_Q) {
           if (dependencies.dependencies.count(var) > 0) {
-            updateFFUsage((e_FFUsage)((int)e_D | ff_Force), _ff_usage.ff_usage[var]);
+            updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
             return FF_D + prefix + var;
           } else {
-            updateFFUsage((e_FFUsage)((int)e_Q | ff_Force), _ff_usage.ff_usage[var]);
+            updateFFUsage((e_FFUsage)((int)e_Q | ff_Force), read_access, _ff_usage.ff_usage[var]);
           }
         } else {
           sl_assert(ff == FF_D);
-          updateFFUsage((e_FFUsage)((int)e_D | ff_Force), _ff_usage.ff_usage[var]);
+          updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
         }
         return ff + prefix + var;
       } else if (usage == e_Bound) {
@@ -1175,14 +1178,14 @@ std::string Algorithm::rewriteIdentifier(
           // flip-flop
           if (ff == FF_Q) {
             if (dependencies.dependencies.count(var) > 0) {
-              updateFFUsage((e_FFUsage)((int)e_D | ff_Force), _ff_usage.ff_usage[var]);
+              updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
               return FF_D + prefix + var;
             } else {
-              updateFFUsage((e_FFUsage)((int)e_Q | ff_Force), _ff_usage.ff_usage[var]);
+              updateFFUsage((e_FFUsage)((int)e_Q | ff_Force), read_access, _ff_usage.ff_usage[var]);
             }
           } else {
             sl_assert(ff == FF_D);
-            updateFFUsage((e_FFUsage)((int)e_D | ff_Force), _ff_usage.ff_usage[var]);
+            updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
           }
           return ff + prefix + var;
         }
@@ -1198,14 +1201,15 @@ std::string Algorithm::rewriteIdentifier(
 std::string Algorithm::rewriteExpression(
   std::string prefix, antlr4::tree::ParseTree *expr, 
   int __id, const t_combinational_block_context *bctx, 
-  std::string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
+  std::string ff, bool read_access,
+  const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   std::string result;
   if (expr->children.empty()) {
     auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
     if (term) {
       if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-        return rewriteIdentifier(prefix, expr->getText(), bctx, term->getSymbol()->getLine(), ff, dependencies, _ff_usage);
+        return rewriteIdentifier(prefix, expr->getText(), bctx, term->getSymbol()->getLine(), ff, read_access, dependencies, _ff_usage);
       } else if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
         return rewriteConstant(expr->getText());
       } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
@@ -1232,7 +1236,7 @@ std::string Algorithm::rewriteExpression(
     } else {
       // recurse
       for (auto c : expr->children) {
-        result = result + rewriteExpression(prefix, c, __id, bctx, ff, dependencies, _ff_usage);
+        result = result + rewriteExpression(prefix, c, __id, bctx, ff, read_access, dependencies, _ff_usage);
       }
     }
   }
@@ -2489,6 +2493,9 @@ bool Algorithm::hasNoFSM() const
   if (!m_Blocks.front()->instructions.empty()) {
     return false;
   }
+  if (m_Blocks.front()->end_action != nullptr) {
+    return false;
+  }
   for (const auto &b : m_Blocks) { // NOTE: no need to consider m_AlwaysPre, it has to be comibinational
     if (b->state_id == -1 && b->is_state) continue; // block is never reached
     if (b->state_id > 0) { // block has a stateid
@@ -2623,14 +2630,16 @@ void Algorithm::mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_d
 
 // -------------------------------------------------
 
-void Algorithm::updateFFUsage(e_FFUsage usage, e_FFUsage &_ff) const
+void Algorithm::updateFFUsage(e_FFUsage usage, bool read_access, e_FFUsage &_ff) const
 {
   if (usage & e_Q) {
     _ff = (e_FFUsage)((int)_ff | (e_Q));
   }
   if (usage & e_D) {
-    if (_ff & e_Latch) {
-      _ff = (e_FFUsage)((int)_ff | (e_Q));
+    if (read_access) {
+      if (_ff & e_Latch) {
+        _ff = (e_FFUsage)((int)_ff | (e_Q));
+      }
     }
     _ff = (e_FFUsage)((int)_ff | (e_D));
   }
@@ -2641,26 +2650,89 @@ void Algorithm::updateFFUsage(e_FFUsage usage, e_FFUsage &_ff) const
 
 // -------------------------------------------------
 
-void Algorithm::combineFFUsageInto(const t_vio_ff_usage &ff0, t_vio_ff_usage &ff1, t_vio_ff_usage &_ff_usage) const
+void Algorithm::resetFFUsageLatches(t_vio_ff_usage &_ff) const
 {
-  for (const auto &u : ff0.ff_usage) {
-    e_FFUsage ffu = u.second;
-    if (ff1.ff_usage.count(u.first) == 0) {
-      // used in ff0 but not in ff1, indicate we have to promote to 'Q' next time this is used as 'D'
-      ffu = (e_FFUsage)((int)ffu | e_Latch);
-    }
-    // combine, not applying the latch (ff0 and ff1 occur in self-excluding branches)
-    _ff_usage.ff_usage[u.first] = (e_FFUsage)((int)_ff_usage.ff_usage[u.first] | ffu);
+  for (auto& v : _ff.ff_usage) {
+    v.second = (e_FFUsage)((int)v.second & (~e_Latch));
   }
-  for (const auto &u : ff1.ff_usage) {
-    e_FFUsage ffu = u.second;
-    if (ff0.ff_usage.count(u.first) == 0) {
-      // used in ff1 but not in ff0, indicate we have to promote to 'Q' next time this is used as 'D'
-      ffu = (e_FFUsage)((int)ffu | e_Latch);
+}
+
+// -------------------------------------------------
+
+void Algorithm::combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<t_vio_ff_usage> &ff_branches, t_vio_ff_usage& _ff_after) const
+{
+  t_vio_ff_usage ff_after = _ff_after; // do not manipulate _ff_after as it is typically a ref to ff_before as well
+  // find if some vars are e_D *only* in all branches
+  set<string> d_in_all;
+  bool first = true;
+  for (const auto& br : ff_branches) {
+    set<string> d_in_br;
+    for (auto& v : br.ff_usage) {
+      if ((v.second & e_D) && !(v.second & e_Q)) { // D but not Q
+        d_in_br.insert(v.first);
+      }
     }
-    // combine, not applying the latch (ff0 and ff1 occur in self-excluding branches)
-    _ff_usage.ff_usage[u.first] = (e_FFUsage)((int)_ff_usage.ff_usage[u.first] | ffu);
+    if (first) {
+      d_in_all = d_in_br;
+      first = false;
+    } else {
+      set<string> tmp;
+      set_intersection(
+        d_in_all.begin(), d_in_all.end(), 
+        d_in_br.begin(), d_in_br.end(),
+        std::inserter(tmp, tmp.begin()));
+      d_in_all = tmp;
+    }
+    if (d_in_all.empty()) { // no need to continue
+      break;
+    }
   }
+  // all vars that are Q or D in before or branches will be Q or D after
+  for (auto& v : ff_before.ff_usage) {
+    if (v.second & e_Q) {
+      ff_after.ff_usage[v.first] = (e_FFUsage)((int)ff_after.ff_usage[v.first] | e_Q);
+    }
+    if (v.second & e_D) {
+      ff_after.ff_usage[v.first] = (e_FFUsage)((int)ff_after.ff_usage[v.first] | e_D);
+    }
+  }
+  for (const auto& br : ff_branches) {
+    for (auto& v : br.ff_usage) {
+      if (v.second & e_Q) {
+        ff_after.ff_usage[v.first] = (e_FFUsage)((int)ff_after.ff_usage[v.first] | e_Q);
+      }
+      if (v.second & e_D) {
+        ff_after.ff_usage[v.first] = (e_FFUsage)((int)ff_after.ff_usage[v.first] | e_D);
+      }
+    }
+  }
+  // the questions that remain are:
+  // 1) which vars have to be promoted from D to Q?
+  // => all vars that are not Q in branches, but were marked latched before
+  for (const auto& br : ff_branches) {
+    for (auto& v : br.ff_usage) {
+      if ((v.second & e_D) && !(v.second & e_Q)) { // D but not Q
+        auto B = ff_before.ff_usage.find(v.first);
+        if (B != ff_before.ff_usage.end()) {
+          if (B->second & e_Latch) {
+            ff_after.ff_usage[v.first] = (e_FFUsage)((int)ff_after.ff_usage[v.first] | e_Q);
+          }
+        }
+      }
+    }
+  }
+  // 2) which vars have to be latched if used after?
+  // => all vars that are D in a branch but not in another
+  for (const auto& br : ff_branches) {
+    for (auto& v : br.ff_usage) {
+      if ((v.second & e_D) && !(v.second & e_Q)) { // D but not Q
+        if (d_in_all.count(v.first) == 0) { // not used in all branches? => latch if used next
+          ff_after.ff_usage[v.first] = (e_FFUsage)((int)ff_after.ff_usage[v.first] | e_Latch);
+        }
+      }
+    }
+  }
+  _ff_after = ff_after;
 }
 
 // -------------------------------------------------
@@ -3676,7 +3748,7 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
           a.instance_name.c_str(), ins.name.c_str());
       }
       out << FF_D << a.instance_prefix << "_" << ins.name
-        << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, FF_Q, dependencies, _ff_usage) 
+        << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage) 
         << ";" << std::endl;
     }
   }
@@ -3721,7 +3793,7 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
         writeAccess(prefix, out, true, plist->assign()[p]->access(), -1, bctx, _, _ff_usage);
       } else {
         t_vio_dependencies _;
-        out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D, _, _ff_usage);
+        out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
       }
       out << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
       ++p;
@@ -3755,7 +3827,7 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
       continue;
     }
     out << FF_D << prefix << called->vios.at(ins)
-      << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, FF_Q, dependencies, _ff_usage)
+      << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage)
       << ';' << std::endl;
   }
 }
@@ -3782,7 +3854,7 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
       writeAccess(prefix, out, true, plist->assign()[p]->access(), -1, bctx, _, _ff_usage);
     } else {
       t_vio_dependencies _;
-      out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D, _, _ff_usage);
+      out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
     }
     out << " = " << FF_D << prefix << called->vios.at(outs) << ';' << std::endl;
     ++p;
@@ -3846,7 +3918,7 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::writeIOAccess(
       // produce the variable name
       std::string vname = base + "_" + member;
       // write
-      out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies, _ff_usage);
+      out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
       return determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
     } else {
       auto G = m_VIOGroups.find(base);
@@ -3855,7 +3927,7 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::writeIOAccess(
         // produce the variable name
         std::string vname = base + "_" + member;
         // write
-        out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies, _ff_usage);
+        out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
         return determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
       } else {
         reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
@@ -3880,18 +3952,18 @@ void Algorithm::writeTableAccess(
     if (get<2>(tws) == 0) {
       reportError(tblaccess->ioAccess()->IDENTIFIER().back()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
-    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, dependencies, _ff_usage) << ")*" << get<1>(tws) << "+:" << get<1>(tws) << ']';
+    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ")*" << get<1>(tws) << "+:" << get<1>(tws) << ']';
   } else {
     sl_assert(tblaccess->IDENTIFIER() != nullptr);
     std::string vname = tblaccess->IDENTIFIER()->getText();
-    out << rewriteIdentifier(prefix, vname, bctx, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies, _ff_usage);
+    out << rewriteIdentifier(prefix, vname, bctx, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
     // get width
     auto tws = determineIdentifierTypeWidthAndTableSize(bctx, tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
     if (get<2>(tws) == 0) {
       reportError(tblaccess->IDENTIFIER()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
     // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
-    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, dependencies, _ff_usage) << ")*" << std::get<1>(tws) << "+:" << std::get<1>(tws) << ']';
+    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ")*" << std::get<1>(tws) << "+:" << std::get<1>(tws) << ']';
   }
 }
 
@@ -3910,7 +3982,7 @@ void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool 
     writeIOAccess(prefix, out, assigning, bfaccess->idOrIoAccess()->ioAccess(), __id, bctx, dependencies, _ff_usage);
   } else {
     sl_assert(bfaccess->idOrIoAccess()->IDENTIFIER() != nullptr);
-    out << rewriteIdentifier(prefix, bfaccess->idOrIoAccess()->IDENTIFIER()->getText(), bctx, bfaccess->idOrIoAccess()->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies, _ff_usage);
+    out << rewriteIdentifier(prefix, bfaccess->idOrIoAccess()->IDENTIFIER()->getText(), bctx, bfaccess->idOrIoAccess()->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
   }
   verifyMemberBitfield(bfaccess->member->getText(), F->second, (int)bfaccess->getStart()->getLine());
   pair<int, int> ow = bitfieldMemberOffsetAndWidth(F->second,bfaccess->member->getText());
@@ -3931,9 +4003,9 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
     writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, bctx, dependencies, _ff_usage);
   } else {
     sl_assert(bitaccess->IDENTIFIER() != nullptr);
-    out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), bctx, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, dependencies, _ff_usage);
+    out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), bctx, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
   }
-  out << '[' << rewriteExpression(prefix, bitaccess->first, __id, bctx, FF_Q, dependencies, _ff_usage) << "+:" << bitaccess->num->getText() << ']';
+  out << '[' << rewriteExpression(prefix, bitaccess->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) << "+:" << bitaccess->num->getText() << ']';
 }
 
 // -------------------------------------------------
@@ -3974,9 +4046,9 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
         "cannot assign a value to an input of the algorithm, input '%s'",
         identifier->getText().c_str());
     }
-    out << rewriteIdentifier(prefix, identifier->getText(), bctx, identifier->getSymbol()->getLine(), FF_D, dependencies, _ff_usage);
+    out << rewriteIdentifier(prefix, identifier->getText(), bctx, identifier->getSymbol()->getLine(), FF_D, false, dependencies, _ff_usage);
   }
-  out << " = " + rewriteExpression(prefix, expression_0, a.__id, bctx, ff, dependencies, _ff_usage);
+  out << " = " + rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage);
   out << ';' << std::endl;
 
 }
@@ -4008,7 +4080,7 @@ void Algorithm::writeWireAssignements(std::string prefix, std::ostream &out, con
           // update dependencies
           updateDependencies(_dependencies, a.instr, &block->context);
           // update usage
-          updateFFUsage((alw->ALWSASSIGNDBL() == nullptr) ? e_D : e_Q, _ff_usage.ff_usage[var]);
+          updateFFUsage((alw->ALWSASSIGNDBL() == nullptr) ? e_D : e_Q, true, _ff_usage.ff_usage[var]);
         }
     }
   }
@@ -4395,8 +4467,9 @@ void Algorithm::pushState(const t_combinational_block* b, std::queue<size_t>& _q
 
 void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage) const
 {
-  std::unordered_set<size_t> produced;
-  std::queue<size_t>         q;
+  vector<t_vio_ff_usage> ff_usages;
+  unordered_set<size_t>  produced;
+  queue<size_t>          q;
   q.push(0); // starts at 0
   // states
   out << "case (" << FF_Q << prefix << ALG_IDX << ")" << std::endl;
@@ -4417,10 +4490,14 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
     // track dependencies, starting with those of always block
     t_vio_dependencies depds = always_dependencies;
     // write block instructions
-    writeStatelessBlockGraph(prefix, out, b, nullptr, q, depds, _ff_usage);
+    ff_usages.push_back(_ff_usage);
+    //resetFFUsageLatches(_ff_usage);
+    writeStatelessBlockGraph(prefix, out, b, nullptr, q, depds, ff_usages.back()/*_ff_usage*/);
     // end of state
     out << "end" << std::endl;
   }
+  // combine all ff usages
+  combineFFUsageInto(_ff_usage, ff_usages, _ff_usage);
   // initiate termination sequence
   // -> termination state
   {
@@ -4516,7 +4593,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
         out << "$display(" << display->STRING()->getText();
         if (display->displayParams() != nullptr) {
           for (auto p : display->displayParams()->IDENTIFIER()) {
-            out << "," << rewriteIdentifier(prefix, p->getText(), &block->context, display->getStart()->getLine(), FF_Q, _dependencies, _ff_usage);
+            out << "," << rewriteIdentifier(prefix, p->getText(), &block->context, display->getStart()->getLine(), FF_Q, true, _dependencies, _ff_usage);
           }
         }
         out << ");" << std::endl;
@@ -4610,22 +4687,23 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
     if (current->next()) {
       current = current->next()->next;
     } else if (current->if_then_else()) {
-      out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, &current->context, FF_Q, _dependencies, _ff_usage) << ") begin" << std::endl;
+      out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ") begin" << std::endl;
+      vector<t_vio_ff_usage> usage_branches;
       // recurse if
       t_vio_dependencies depds_if = _dependencies; 
-      t_vio_ff_usage     usage_if = _ff_usage;
-      writeStatelessBlockGraph(prefix, out, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_if);
+      usage_branches.push_back(t_vio_ff_usage());
+      writeStatelessBlockGraph(prefix, out, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back());
       out << "end else begin" << std::endl;
       // recurse else
       t_vio_dependencies depds_else = _dependencies;
-      t_vio_ff_usage     usage_else = _ff_usage;
-      writeStatelessBlockGraph(prefix, out, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_else);
+      usage_branches.push_back(t_vio_ff_usage());
+      writeStatelessBlockGraph(prefix, out, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_branches.back());
       out << "end" << std::endl;
       // merge dependencies
       mergeDependenciesInto(depds_if, _dependencies);
       mergeDependenciesInto(depds_else, _dependencies);
       // combine ff usage
-      combineFFUsageInto(usage_if, usage_else, _ff_usage);
+      combineFFUsageInto(_ff_usage, usage_branches, _ff_usage);
       // follow after?
       if (current->if_then_else()->after->is_state) {
         return; // no: already indexed by recursive calls
@@ -4633,26 +4711,30 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
         current = current->if_then_else()->after; // yes!
       }
     } else if (current->switch_case()) {
-      out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, &current->context, FF_Q, _dependencies, _ff_usage) << ")" << std::endl;
+      out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ")" << std::endl;
       // recurse block
       t_vio_dependencies depds_before_case = _dependencies;
-      t_vio_ff_usage     usage_before_case = _ff_usage;
+      vector<t_vio_ff_usage> usage_branches;
+      bool has_default = false;
       for (auto cb : current->switch_case()->case_blocks) {
         out << "  " << cb.first << ": begin" << std::endl;
+        has_default = has_default | (cb.first == "default");
         // recurse case
         t_vio_dependencies depds_case = depds_before_case;
-        t_vio_ff_usage     usage_case = usage_before_case;
-        writeStatelessBlockGraph(prefix, out, cb.second, current->switch_case()->after, _q, depds_case, _ff_usage);
+        usage_branches.push_back(t_vio_ff_usage());
+        writeStatelessBlockGraph(prefix, out, cb.second, current->switch_case()->after, _q, depds_case, usage_branches.back());
         // merge sets of written vars
         mergeDependenciesInto(depds_case, _dependencies);
-        // combine ff usage
-        combineFFUsageInto(usage_case, _ff_usage, _ff_usage);
-        // NOTE TODO: we are missing an opportunity, if the switch-case is complete we could check that all cases use a var D,
-        //            and thus could avoid 'promoting' to Q even if not used before.
         out << "  end" << std::endl;
       }
       // end of case
       out << "endcase" << std::endl;
+      // merge ff usage
+      if (!has_default) {
+        usage_branches.push_back(t_vio_ff_usage()); // push an empty set
+        // NOTE: the case could be complete, currently not checked ; safe but missing an opportunity
+      }
+      combineFFUsageInto(_ff_usage, usage_branches, _ff_usage);
       // follow after?
       if (current->switch_case()->after->is_state) {
         return; // no: already indexed by recursive calls
@@ -4661,7 +4743,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       }
     } else if (current->while_loop()) {
       // while
-      out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, FF_Q, _dependencies, _ff_usage) << ") begin" << std::endl;
+      out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ") begin" << std::endl;
       writeStatelessBlockGraph(prefix, out, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage);
       out << "end else begin" << std::endl;
       out << FF_D << prefix << ALG_IDX " = " << fastForward(current->while_loop()->after)->state_id << ";" << std::endl;
@@ -4762,11 +4844,13 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
       if (stage >= tv.second[0] && stage < tv.second[1]) {
         out << FF_D << prefix << tricklingVIOName(tv.first, pip, stage + 1)
           << " = ";
+        updateFFUsage(e_D, false, _ff_usage.ff_usage[tricklingVIOName(tv.first, pip, stage + 1)]);
         std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage);
         if (stage == tv.second[0]) {
-          out << rewriteIdentifier(prefix, tv.first, &current->context, -1, FF_D, _dependencies, _ff_usage);
+          out << rewriteIdentifier(prefix, tv.first, &current->context, -1, FF_D, true, _dependencies, _ff_usage);
         } else {
           out << FF_Q << prefix << tricklingsrc;
+          updateFFUsage(e_Q, true, _ff_usage.ff_usage[tricklingsrc]);
         }
         out << ';' << std::endl;
       }
@@ -4992,6 +5076,7 @@ void Algorithm::writeAsModule(std::ostream &out)
 #endif
 
 #if 1
+  std::cerr << " === algorithm " << m_Name << " ====" << std::endl;
   for (const auto &v : ff_usage.ff_usage) {
     std::cerr << "vio " << v.first << " : ";
     if (v.second & e_D) {
@@ -5097,10 +5182,10 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
       out << "assign " << ALG_OUTPUT << "_" << v.name << " = ";
       if (v.combinational) {
         out << FF_D;
-        updateFFUsage(e_D,_ff_usage.ff_usage[v.name]);
+        updateFFUsage(e_D, true, _ff_usage.ff_usage[v.name]);
       } else {
         out << FF_Q;
-        updateFFUsage(e_Q, _ff_usage.ff_usage[v.name]);
+        updateFFUsage(e_Q, true, _ff_usage.ff_usage[v.name]);
       }
       out << "_" << v.name << ';' << endl;
     } else if (v.usage == e_Temporary) {
@@ -5138,7 +5223,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         t_vio_dependencies _;
         out << '.' << b.left << '('
           << rewriteIdentifier("_", bindingRightIdentifier(b), nullptr, nfo.second.instance_line, 
-            b.dir == e_LeftQ ? FF_Q : FF_D, _, _ff_usage, e_DQ /*force module inputs to be latched*/
+            b.dir == e_LeftQ ? FF_Q : FF_D, true, _, _ff_usage, e_DQ /*force module inputs to be latched*/
           )
           << ")";
       } else if (b.dir == e_Right) {
@@ -5174,13 +5259,13 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         // input is bound, directly map bound VIO
         t_vio_dependencies _;
         out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name).first, nullptr, nfo.second.instance_line, 
-          nfo.second.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, _, _ff_usage, 
+          nfo.second.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, _ff_usage, 
           nfo.second.boundinputs.at(is.name).second == e_Q ? e_Q : (is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/) );
       } else {
         // input is not bound and assigned in logic, a specifc flip-flop is created for this
         out << FF_D << nfo.second.instance_prefix << "_" << is.name;
         // add to usage
-        updateFFUsage(is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/, _ff_usage.ff_usage[nfo.second.instance_prefix + "_" + is.name]);
+        updateFFUsage(is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/, true, _ff_usage.ff_usage[nfo.second.instance_prefix + "_" + is.name]);
       }
       out << ')' << ',' << endl;
     }
@@ -5219,12 +5304,12 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     // reset
     if (!nfo.second.algo->requiresNoReset()) {
       t_vio_dependencies _;
-      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.second.instance_reset, nullptr, nfo.second.instance_line, FF_Q, _, _ff_usage) << ")," << endl;
+      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.second.instance_reset, nullptr, nfo.second.instance_line, FF_Q, true, _, _ff_usage) << ")," << endl;
     }
     // clock
     {
       t_vio_dependencies _;
-      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.second.instance_clock, nullptr, nfo.second.instance_line, FF_Q, _, _ff_usage) << ")" << endl;
+      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.second.instance_clock, nullptr, nfo.second.instance_line, FF_Q, true, _, _ff_usage) << ")" << endl;
     }
     // end of instantiation      
     out << ");" << endl;
@@ -5239,24 +5324,24 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     if (mem.clocks.empty()) {
       if (mem.mem_type == DUALBRAM) {
         t_vio_dependencies _1,_2;
-        out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, _1, _ff_usage) << ")," << endl;
-        out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, _2, _ff_usage) << ")," << endl;
+        out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _1, _ff_usage) << ")," << endl;
+        out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _2, _ff_usage) << ")," << endl;
       } else {
         t_vio_dependencies _;
-        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, _, _ff_usage) << ")," << endl;
+        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _, _ff_usage) << ")," << endl;
       }
     } else {
       sl_assert(mem.mem_type == DUALBRAM && mem.clocks.size() == 2);
       std::string clk0 = mem.clocks[0];
       std::string clk1 = mem.clocks[1];
       t_vio_dependencies _1, _2;
-      out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", clk0, nullptr, mem.line, FF_D, _1, _ff_usage) << ")," << endl;
-      out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", clk1, nullptr, mem.line, FF_D, _2, _ff_usage) << ")," << endl;
+      out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", clk0, nullptr, mem.line, FF_D, true, _1, _ff_usage) << ")," << endl;
+      out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", clk1, nullptr, mem.line, FF_D, true, _2, _ff_usage) << ")," << endl;
     }
     // inputs
     for (const auto& inv : mem.in_vars) {
       t_vio_dependencies _;
-      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, nullptr, mem.line, FF_D, _, _ff_usage, 
+      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, nullptr, mem.line, FF_D, true, _, _ff_usage, 
         mem.no_input_latch ? e_D : e_DQ /*latch inputs*/) << ")," << endl;
     }
     // output wires

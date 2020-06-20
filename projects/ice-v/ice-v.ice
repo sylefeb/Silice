@@ -9,7 +9,7 @@ $$if not SIMULATION then
 import('../common/icestick_clk_60.v')
 $$end
 
-$$SHOW_REGS = true
+$$SHOW_REGS = false
 
 // pre-compilation script, embeds compile code within BRAM
 $$dofile('pre_include_asm.lua')
@@ -364,7 +364,6 @@ algorithm rv32i_cpu(
   uint1  jump        = uninitialized;  
   uint1  branch      = uninitialized;
   
-  uint32 data        = uninitialized;
   uint1  load        = uninitialized;
   uint1  store       = uninitialized;
   
@@ -479,43 +478,46 @@ __display("pc %d",mem_addr);
         // the reason being that the BRAM design currently does not support
         // write masks (likely to evolve, but have to worry about compatibility 
         // across architectures).
-        if (load) {
+        if (load) {        
           // load
           mem_addr    = alu_out>>2;
     ++: // wait data
           if (~store) {
+            uint32 tmp = uninitialized;
             switch ( loadStoreOp ) {
               case 3b000: { // LB / LBU
                   switch (alu_out[0,2]) {
-                    case 2b00: { data = { {24{loadStoreOp[2,1]&mem_rdata[ 7,1]}},mem_rdata[ 0,8]}; }
-                    case 2b01: { data = { {24{loadStoreOp[2,1]&mem_rdata[15,1]}},mem_rdata[ 8,8]}; }
-                    case 2b10: { data = { {24{loadStoreOp[2,1]&mem_rdata[23,1]}},mem_rdata[16,8]}; }
-                    case 2b11: { data = { {24{loadStoreOp[2,1]&mem_rdata[31,1]}},mem_rdata[24,8]}; }
+                    case 2b00: { tmp = { {24{loadStoreOp[2,1]&mem_rdata[ 7,1]}},mem_rdata[ 0,8]}; }
+                    case 2b01: { tmp = { {24{loadStoreOp[2,1]&mem_rdata[15,1]}},mem_rdata[ 8,8]}; }
+                    case 2b10: { tmp = { {24{loadStoreOp[2,1]&mem_rdata[23,1]}},mem_rdata[16,8]}; }
+                    case 2b11: { tmp = { {24{loadStoreOp[2,1]&mem_rdata[31,1]}},mem_rdata[24,8]}; }
+                    default:   { tmp = 0; }
                   }
               }
               case 3b001: { // LH / LHU
                   switch (alu_out[1,1]) {
-                    case 1b0: { data = { {16{loadStoreOp[2,1]&mem_rdata[15,1]}},mem_rdata[ 0,16]}; }
-                    case 1b1: { data = { {16{loadStoreOp[2,1]&mem_rdata[31,1]}},mem_rdata[16,16]}; }
+                    case 1b0: { tmp = { {16{loadStoreOp[2,1]&mem_rdata[15,1]}},mem_rdata[ 0,16]}; }
+                    case 1b1: { tmp = { {16{loadStoreOp[2,1]&mem_rdata[31,1]}},mem_rdata[16,16]}; }
+                    default:  { tmp = 0; }
                   }
               }
               case 3b010: { // LW
-                data = mem_rdata;  
+                tmp = mem_rdata;  
               }
-              default: { data = 0; }
+              default: { tmp = 0; }
             }            
-__display("LOAD addr: %h op: %b read: %h",mem_addr, loadStoreOp, data);
+//__display("LOAD addr: %h op: %b read: %h",mem_addr, loadStoreOp, data);
             // commit result
             xregsA.wenable = 1;
             xregsB.wenable = 1;
-            xregsA.wdata   = data;
-            xregsB.wdata   = data;
+            xregsA.wdata   = tmp;
+            xregsB.wdata   = tmp;
             xregsA.addr    = write_rd;
             xregsB.addr    = write_rd;
 
           } else {
           
-__display("STORE1 addr: %h op: %b d: %h",mem_addr,loadStoreOp,mem_rdata);
+//__display("STORE1 addr: %h op: %b d: %h",mem_addr,loadStoreOp,mem_rdata);
             switch (loadStoreOp) {
               case 3b000: { // SB
                   switch (alu_out[0,2]) {
@@ -535,7 +537,7 @@ __display("STORE1 addr: %h op: %b d: %h",mem_addr,loadStoreOp,mem_rdata);
                 mem_wdata   = xregsB.rdata;
               }            
             }
-__display("STORE2 addr: %h op: %b write: %h",mem_addr,loadStoreOp,mem_wdata);
+//__display("STORE2 addr: %h op: %b write: %h",mem_addr,loadStoreOp,mem_wdata);
             mem_addr    = alu_out>>2;
             mem_wen     = 1;
     ++: // wait write
@@ -549,11 +551,10 @@ __display("STORE2 addr: %h op: %b write: %h",mem_addr,loadStoreOp,mem_wdata);
           if (alu_working == 0) { // ALU done?
       // __display("ALU DONE");        
             // alu result
-            data = alu_out;
 
-            mem_addr     = (jump | cmp) ? data[2,12]  : pc+1;
-            xregsA.wdata = (jump | cmp) ? (pc+1) << 2 : data;
-            xregsB.wdata = (jump | cmp) ? (pc+1) << 2 : data;
+            mem_addr     = (jump | cmp) ? alu_out[2,12]  : pc+1;
+            xregsA.wdata = (jump | cmp) ? (pc+1) << 2 : alu_out;
+            xregsB.wdata = (jump | cmp) ? (pc+1) << 2 : alu_out;
             
             // store result   
             if (write_rd) {

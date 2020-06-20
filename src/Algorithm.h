@@ -625,10 +625,10 @@ private:
   std::string rewriteIdentifier(
     std::string prefix, std::string var,
     const t_combinational_block_context *bctx, size_t line,
-    std::string ff,
+    std::string ff,bool read_access,
     const t_vio_dependencies &dependencies, t_vio_ff_usage &_ff_usage, e_FFUsage ff_force=e_None) const; 
   /// \brief rewrite an expression, renaming identifiers
-  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_combinational_block_context* bctx, std::string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
+  std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_combinational_block_context* bctx, std::string ff, bool read_access, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief update current block based on the next instruction list
   t_combinational_block *updateBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather a break from loop
@@ -716,9 +716,11 @@ private:
   /// \brief merge variable dependencies
   void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
   /// \brief update flip-flop usage
-  void updateFFUsage(e_FFUsage usage, e_FFUsage &_ff) const;
+  void updateFFUsage(e_FFUsage usage, bool read_access, e_FFUsage &_ff) const;
+  /// \brief reset ff usage latches
+  void resetFFUsageLatches(t_vio_ff_usage &_ff) const;
   /// \brief combine flip-flop usage
-  void combineFFUsageInto(const t_vio_ff_usage &ff0, t_vio_ff_usage &ff1, t_vio_ff_usage& _ff_usage) const;
+  void combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<t_vio_ff_usage> &ff_branches, t_vio_ff_usage& _ff_after) const;
   /// \brief determine binding right identifier
   std::string bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx = nullptr) const;
   /// \brief determine accessed variable
