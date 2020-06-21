@@ -1,7 +1,10 @@
 -- include ASM code as a BROM
 memsize = 1024
 
-in_asm = io.open(findfile('code.hex'), 'r')
+in_asm = io.open(findfile('build/code.hex'), 'r')
+if not in_asm then
+  error('please compile code first using the compile_asm.sh / compile_c.sh scripts')
+end
 code = in_asm:read("*all")
 in_asm:close()
 nentries = 0

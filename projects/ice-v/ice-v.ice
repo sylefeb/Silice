@@ -1,18 +1,25 @@
-// SL 2020-06-12
+// SL 2020-06-12 @sylefeb
 //
 // Fun with RISC-V!
+// Fits an IceStick
 //
 // RV32I cpu, see README.txt
 
 // IceStick clock
 $$if not SIMULATION then
 import('../common/icestick_clk_60.v')
+$$else
+$$OLED = 1
 $$end
 
 $$SHOW_REGS = false
 
+// --------------------------------------------------
+
 // pre-compilation script, embeds compile code within BRAM
 $$dofile('pre_include_asm.lua')
+
+// --------------------------------------------------
 
 // bitfields for easier decoding of instructions ; these
 // define views on a uint32, that are used upon 
@@ -69,6 +76,8 @@ bitfield Btype {
   uint1  imm11,
   uint7  opcode
 }
+
+// --------------------------------------------------
 
 // Performs integer computations
 algorithm intops(
@@ -148,6 +157,8 @@ $$end
   
 }
 
+// --------------------------------------------------
+
 // Performs integer comparisons
 algorithm intcmp(
   input!  int32 a,
@@ -172,6 +183,7 @@ $$end
   }
 }
 
+// --------------------------------------------------
 
 // decode next instruction
 algorithm decode(
@@ -179,7 +191,7 @@ algorithm decode(
   output! uint5   write_rd,
   output! uint1   jump,
   output! uint1   branch,
-  output! uint1   load,
+  output! uint1   load_store,
   output! uint1   store,
   output! uint3   loadStoreOp,
   output! uint3   select,
@@ -198,7 +210,7 @@ algorithm decode(
         write_rd    = Rtype(instr).rd;
         jump        = 0;
         branch      = 0;
-        load        = 0;
+        load_store  = 0;
         store       = 0;
         select      = 0;
         select2     = 0;
@@ -213,7 +225,7 @@ algorithm decode(
         write_rd    = Rtype(instr).rd;
         jump        = 0;
         branch      = 0;
-        load        = 0;
+        load_store  = 0;
         store       = 0;
         select      = 0;
         select2     = 0;           
@@ -228,7 +240,7 @@ algorithm decode(
         write_rd    = Rtype(instr).rd;
         jump        = 1;
         branch      = 0;
-        load        = 0;
+        load_store  = 0;
         store       = 0;
         select      = 0;
         select2     = 0;        
@@ -248,7 +260,7 @@ algorithm decode(
         write_rd    = Rtype(instr).rd;
         jump        = 1;
         branch      = 0;
-        load        = 0;
+        load_store  = 0;
         store       = 0;
         select      = 0;
         select2     = 0;        
@@ -263,7 +275,7 @@ algorithm decode(
         write_rd    = 0;
         jump        = 0;
         branch      = 1;
-        load        = 0;
+        load_store  = 0;
         store       = 0;
         select      = 0;
         select2     = 0;        
@@ -284,7 +296,7 @@ algorithm decode(
         write_rd    = Rtype(instr).rd;
         jump        = 0;
         branch      = 1;
-        load        = 1;
+        load_store  = 1;
         store       = 0;
         loadStoreOp = Itype(instr).funct3;
         select      = 0;
@@ -300,7 +312,7 @@ algorithm decode(
         write_rd    = 0;
         jump        = 0;
         branch      = 0;
-        load        = 1;
+        load_store  = 1;
         store       = 1;
         loadStoreOp = Itype(instr).funct3;
         select      = 0;
@@ -315,7 +327,7 @@ algorithm decode(
         write_rd    = Rtype(instr).rd;
         jump        = 0;
         branch      = 0;
-        load        = 0;
+        load_store  = 0;
         store       = 0;
         select      = Itype(instr).funct3;
         select2     = instr[30,1] /*SRLI/SRAI*/ & (Itype(instr).funct3 != 3b000) /*not ADD*/;
@@ -330,7 +342,7 @@ algorithm decode(
         write_rd    = Rtype(instr).rd;
         jump        = 0;
         branch      = 0;
-        load        = 0;
+        load_store  = 0;
         store       = 0;
         select      = Itype(instr).funct3;
         select2     = Rtype(instr).select2;
@@ -340,11 +352,25 @@ algorithm decode(
         regOrImm    = 0; // reg
       }
       
-      default: {  }
+      default: {
+        write_rd    = 0;        
+        jump        = 0;
+        branch      = 0;
+        load_store  = 0;
+        store       = 0;    
+        select      = 0;
+        select2     = 0;
+        imm         = 0;
+        forceZero   = 0;
+        regOrPc     = 0; // reg
+        regOrImm    = 0; // reg        
+      }
     }
   }
 }
 
+// --------------------------------------------------
+// The Risc-V RV32I CPU itself
 
 algorithm rv32i_cpu(
   output! uint12 mem_addr,
@@ -364,7 +390,7 @@ algorithm rv32i_cpu(
   uint1  jump        = uninitialized;  
   uint1  branch      = uninitialized;
   
-  uint1  load        = uninitialized;
+  uint1  load_store  = uninitialized;
   uint1  store       = uninitialized;
   
   uint3 select       = uninitialized;  
@@ -399,11 +425,11 @@ $$end
   uint1 regOrImm    = uninitialized;
   uint3 loadStoreOp = uninitialized;
   decode dec(
-    instr       <:: instr,    // the <:: indicates we bind the variable as it was at the 
-    write_rd    :> write_rd,  // last clock edge (as opposed to its being modified value)
+    instr       <:: instr,    // the <:: indicates we bind the variable as it was at the last
+    write_rd    :> write_rd,  // clock edge (as opposed to its value being modified in this cycle)
     jump        :> jump,
     branch      :> branch,
-    load        :> load,
+    load_store  :> load_store,
     store       :> store,
     loadStoreOp :> loadStoreOp,
     select      :> select,
@@ -451,13 +477,13 @@ $$end
   mem_addr        = 0;
   
 $$if SIMULATION then
-  while (iter < 48) {
+  while (iter < 1024) {
     iter = iter + 1;
 $$else
   while (1) {
 $$end
 
-__display("pc %d",mem_addr);
+//__display("pc %d",mem_addr);
 
     // mem_data is now available
     instr = mem_rdata;
@@ -474,18 +500,18 @@ __display("pc %d",mem_addr);
     while (1) {
 
         // load/store?        
-        // What happens here: we always load, mask and store.
+        // What happens here: we always load, and mask and store on SB,SH,SW.
         // the reason being that the BRAM design currently does not support
         // write masks (likely to evolve, but have to worry about compatibility 
         // across architectures).
-        if (load) {        
-          // load
+        if (load_store) {        
+          // load data (NOTE: could skip if followed by SW)
           mem_addr    = alu_out>>2;
-    ++: // wait data
+++: // wait data
           if (~store) {
             uint32 tmp = uninitialized;
-            switch ( loadStoreOp ) {
-              case 3b000: { // LB / LBU
+            switch ( loadStoreOp[0,2] ) {
+              case 2b00: { // LB / LBU
                   switch (alu_out[0,2]) {
                     case 2b00: { tmp = { {24{loadStoreOp[2,1]&mem_rdata[ 7,1]}},mem_rdata[ 0,8]}; }
                     case 2b01: { tmp = { {24{loadStoreOp[2,1]&mem_rdata[15,1]}},mem_rdata[ 8,8]}; }
@@ -494,19 +520,19 @@ __display("pc %d",mem_addr);
                     default:   { tmp = 0; }
                   }
               }
-              case 3b001: { // LH / LHU
+              case 2b01: { // LH / LHU
                   switch (alu_out[1,1]) {
                     case 1b0: { tmp = { {16{loadStoreOp[2,1]&mem_rdata[15,1]}},mem_rdata[ 0,16]}; }
                     case 1b1: { tmp = { {16{loadStoreOp[2,1]&mem_rdata[31,1]}},mem_rdata[16,16]}; }
                     default:  { tmp = 0; }
                   }
               }
-              case 3b010: { // LW
+              case 2b10: { // LW
                 tmp = mem_rdata;  
               }
               default: { tmp = 0; }
             }            
-//__display("LOAD addr: %h op: %b read: %h",mem_addr, loadStoreOp, data);
+//__display("LOAD addr: %h (%b) op: %b read: %h / %h", mem_addr, alu_out, loadStoreOp, mem_rdata, tmp);
             // commit result
             xregsA.wenable = 1;
             xregsB.wenable = 1;
@@ -517,7 +543,7 @@ __display("pc %d",mem_addr);
 
           } else {
           
-//__display("STORE1 addr: %h op: %b d: %h",mem_addr,loadStoreOp,mem_rdata);
+//__display("STORE1 addr: %h (%b) op: %b d: %h",mem_addr,alu_out,loadStoreOp,mem_rdata);
             switch (loadStoreOp) {
               case 3b000: { // SB
                   switch (alu_out[0,2]) {
@@ -540,7 +566,8 @@ __display("pc %d",mem_addr);
 //__display("STORE2 addr: %h op: %b write: %h",mem_addr,loadStoreOp,mem_wdata);
             mem_addr    = alu_out>>2;
             mem_wen     = 1;
-    ++: // wait write
+++: // wait write
+
           }
           
           mem_addr = pc+1;
@@ -549,10 +576,10 @@ __display("pc %d",mem_addr);
         } else {
         
           if (alu_working == 0) { // ALU done?
-      // __display("ALU DONE");        
-            // alu result
 
+            // next instruction
             mem_addr     = (jump | cmp) ? alu_out[2,12]  : pc+1;
+            // what do we write in register (pc or alu, load is handled above)
             xregsA.wdata = (jump | cmp) ? (pc+1) << 2 : alu_out;
             xregsB.wdata = (jump | cmp) ? (pc+1) << 2 : alu_out;
             
@@ -591,7 +618,53 @@ $$end
 
 }
 
-algorithm main(
+// --------------------------------------------------
+// Help send bytes to the OLED screen
+// produces a quarter freq clock with one bit traveling a four bit ring
+// data is sent one main clock cycle before the OLED clock raises
+
+$$if OLED then
+
+algorithm oled(
+  input!  uint1 enable,
+  input!  uint1 data_or_command,
+  input!  uint8 byte,
+  output! uint1 oled_clk,
+  output! uint1 oled_din,
+  output! uint1 oled_cs,
+  output! uint1 oled_dc,
+) <autorun> {
+
+  uint4 osc        = 1;
+  uint1 dc         = 0;
+  uint9 sending    = 0;
+  
+  always {
+    oled_dc  =  dc;
+    osc      =  {osc[0,3],osc[3,1]};
+    oled_clk =  (osc[2,1]|osc[3,1]);
+    oled_cs  = !(sending>1);
+    if (enable) {
+      sending    = {1b1,
+        byte[0,1],byte[1,1],byte[2,1],byte[3,1],
+        byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
+      dc = data_or_command;
+    } else {
+      if (sending>1) {
+        oled_din = sending[0,1];
+      }
+      if (osc[2,1]) {
+        sending  = {1b0,sending[1,8]};
+      }
+    }
+  }
+}
+
+$$end
+
+// --------------------------------------------------
+
+algorithm main( // I guess this is the SOC :-D
   output! uint1 led0,
   output! uint1 led1,
   output! uint1 led2,
@@ -601,21 +674,23 @@ $$if OLED then
   output! uint1 oled_din,
   output! uint1 oled_clk,
   output! uint1 oled_cs,
-  output! uint1 oled_ds,
+  output! uint1 oled_dc,
   output! uint1 oled_rst,
 $$end
 $$if not SIMULATION then
   ) <@cpu_clock>
 {
+
   // clock  
   icestick_clk_60 clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
   ); 
+ 
 $$else
 ) {
 $$end
-  
+
   // ram
   bram uint32 mem<input!>[] = $meminit$;
   
@@ -629,10 +704,28 @@ $$end
     mem_wen   :> mem.wenable,
   );
 
+$$if OLED then
+  uint1 displ_en = uninitialized;
+  uint1 displ_dta_or_cmd := mem.wdata[10,1];
+  uint8 displ_byte       := mem.wdata[0,8];
+  oled display(
+    enable          <: displ_en,
+    data_or_command <: displ_dta_or_cmd,
+    byte            <: displ_byte,
+    oled_din        :> oled_din,
+    oled_clk        :> oled_clk,
+    oled_cs         :> oled_cs,
+    oled_dc         :> oled_dc,
+  );
+$$end
+
   mem.addr := wide_addr[0,10];
-  
+    
   // io mapping
   always {
+$$if OLED then
+    displ_en = 0;
+$$end
     if (mem.wenable) {
       switch (wide_addr[10,2]) {
         case 2b01: {
@@ -644,12 +737,17 @@ $$end
           __display("Led %b%b%b%b%b",led0,led1,led2,led3,led4);
         }
 $$if OLED then
-        case 2b10: {
-          oled_din = mem.wdata[0,1];
-          oled_clk = mem.wdata[1,1];
-          oled_cs  = mem.wdata[2,1];
-          oled_ds  = mem.wdata[3,1];
-          oled_rst = mem.wdata[4,1];
+        case 2b10: {        
+          if (mem.wdata[9,1]) {
+            // command
+            displ_en = 1;
+          } else { if (mem.wdata[10,1]) {
+            // data
+            displ_en = 1;
+          } else { if (mem.wdata[11,1]) {
+            // reset
+            oled_rst = mem.wdata[0,1];
+          } } }
         }
 $$end
         default: { }
@@ -662,3 +760,4 @@ $$end
 
 }
 
+// --------------------------------------------------
