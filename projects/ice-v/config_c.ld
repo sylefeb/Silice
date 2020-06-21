@@ -10,5 +10,6 @@ SECTIONS {
         crt0.o (.text) 
         *(.text) 
         *(.sdata)
+        *(.data)
   } >ram 
 }

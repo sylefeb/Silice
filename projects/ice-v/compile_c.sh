@@ -11,5 +11,6 @@
 
 ./risc-v/bin/riscv64-unknown-elf-objcopy.exe -O verilog build/code.elf build/code.hex
 
-./risc-v/bin/riscv64-unknown-elf-objcopy.exe -O binary build/code.elf build/code.bin
-./risc-v/bin/riscv64-unknown-elf-objdump.exe -D -b binary -m riscv build/code.bin 
+# uncomment to see the actual code, usefull for debugging
+# ./risc-v/bin/riscv64-unknown-elf-objcopy.exe -O binary build/code.elf build/code.bin
+# ./risc-v/bin/riscv64-unknown-elf-objdump.exe -D -b binary -m riscv build/code.bin 

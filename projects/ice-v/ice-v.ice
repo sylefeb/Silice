@@ -78,8 +78,8 @@ bitfield Btype {
 }
 
 // --------------------------------------------------
-
 // Performs integer computations
+
 algorithm intops(
   input!  uint1  enable,  // input! tells the compiler that the input does not 
   input!  uint12 pc,      // need to be latched, so we can save registers
@@ -158,8 +158,8 @@ $$end
 }
 
 // --------------------------------------------------
-
 // Performs integer comparisons
+
 algorithm intcmp(
   input!  int32 a,
   input!  int32 b,
@@ -203,8 +203,7 @@ algorithm decode(
 ) {
   always {
     switch (instr[ 0, 7])
-    {
-    
+    {    
       case 7b0110111: { // LUI
         //__display("LUI");
         write_rd    = Rtype(instr).rd;
