@@ -6,10 +6,8 @@
 // RV32I cpu, see README.txt
 
 // IceStick clock
-$$if not SIMULATION then
+$$if ICESTICK then
 import('../common/icestick_clk_60.v')
-$$else
-$$OLED = 1
 $$end
 
 $$SHOW_REGS = false
@@ -676,7 +674,7 @@ $$if OLED then
   output! uint1 oled_dc,
   output! uint1 oled_rst,
 $$end
-$$if not SIMULATION then
+$$if ICESTICK then
   ) <@cpu_clock>
 {
 
