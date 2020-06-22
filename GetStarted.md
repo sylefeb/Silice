@@ -12,7 +12,7 @@ After this step you should see three new directories:
 - Silice/tools/fpga-binutils/mingw32/include
 - Silice/tools/fpga-binutils/mingw32/lib
 
-For use with Verilator:
+To use build shell scripts (.sh) and the Verilator simulation framework: (**highly recommended**)
 
 - Download and install MSYS2 (msys2-x86_64) from https://www.msys2.org/
   Be sure to follow the instructions on the download page to update your 
@@ -33,7 +33,7 @@ Now we will compile the silice framework for verilator
 
 (installs new files in Silice/frameworks/verilator/)
 
-- Now we are ready to test!
+- We are ready to test!
 
 ```
 cd projects
@@ -46,38 +46,21 @@ cd verilator
 => This executes the simulation, which output 40 image files (tga format)
 Look at them in sequence :-)
 
+*Note:* Under MinGW you can also compile *silice* and *silicehe* using the provided shell scripts in the root silice directory.
+
 ## Linux
 
-Install the following dependencies (this was tested on Ubuntu, you may have to adapt package names and package manager to your Linux distribution):
+Should be as simple as:
 ```
-sudo apt install default-jre
-sudo apt install default-jdk
-sudo apt install iverilog
-sudo apt install verilator
-sudo apt install fpga-icestorm
-sudo apt install arachne-pnr
-sudo apt install yosys
-sudo apt install gtkwave
-sudo apt install git
-sudo apt install gcc
-sudo apt install g++
-sudo apt install make
-sudo apt install cmake
-sudo apt install pkg-config
-sudo apt install uuid
-sudo apt install uuid-dev
 git clone --recurse-submodules https://github.com/sylefeb/Silice.git
 cd Silice
-mkdir BUILD
-cd BUILD
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make
-make install
-cd ..
-rm -rf BUILD
+./compile_silice_linux.sh
 ```
 
-Done! This compiled and install the Silice executable in silice/bin/
+Done! This compiled and installed the Silice executable in silice/bin/
 
-(Note: the Java jre/jdk is only used during compilation)
+*Note:* The script will attempt to install the following dependencies using apt ; you may have to adapt package names and package manager to your Linux distribution: 
+```default-jre default-jdk iverilog verilator fpga-icestorm arachne-pnr yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
+```
 
+(the Java jre/jdk is only used during compilation)

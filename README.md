@@ -1,8 +1,8 @@
 # Silice
 
-Silice aims at simplifying writing code for FPGAs. It compiles to and inter-operates with Verilog. Silice is not meant to hide the HDL complexity, but rather to complement it, making it more enjoyable to write parallel code and algorithms utilizing the FPGA architecture. 
+Silice aims at simplifying writing code for FPGAs. It compiles to and inter-operates with Verilog. Silice is not meant to hide the HDL, but rather to complement it, making it more enjoyable to write parallel code and algorithms utilizing the FPGA architecture. 
 
-To start coding now, see the [getting started](GetStarted.md) guide.
+To start coding now, see the [getting started](GetStarted.md) guide. You don't even need an FPGA: designs and their outputs (e.g. images) can be simulated!
 
 #### A first example:
 
@@ -65,35 +65,26 @@ The main features are:
 - Familiar C-like syntax.
 - Powerful LUA-based pre-processor.
 
-## Getting Silice
+## Getting started with Silice
 
-### Compile from source
+See the [getting started](GetStarted.md) guide. Silice runs great both on Windows and Linux!
 
-Silice should compile from source easily on most platforms. The build system relies
-on CMake. However, the compilation process requires the Java dev kit ( https://jdk.java.net/ ) 
-to be in the path, as java and javac are called.
+## Building the examples
 
-### Binary release
+All examples are in the *projects* directory. This directory also contains a *build* subdirectory, with one entry for each currently supported framework. This includes both simulation (icarus, verilator) and FPGA hardware (icestick, mojo v3, de10nano, etc.).
 
-We provide binary releases with an extensive toolset for Windows.
-Under Linux we recommend building from source and using the package manager to get the tools.
+To build a project, go into projects/build/*architecture* where *architecture* is your target framework. This directory contains shell scripts that take as parameter the project source file. Let's take an example! We will build the 'divint bare' demo for simulation with icarus. Do the following:
 
-### Toolset
+*Note:* under Windows please use a MinGW32 shell, please refer to the [getting started](GetStarted.md) guide.
 
-We recommend using Silice in conjunction with
-- Icarus Verilog (iverilog)
-- Verilator
-- gtkwave
-- Yosys
-- IceStorm and nextpnr for Ice40 open source development
-
-The demos included with Silice make use of these tools.
-
-### Verilator
-
-To use Silice with Verilator, please compile the project in silice/frameworks/verilator, using CMake,
-and installing it (eg. make install).
-
-Under Windows we recommend using MSYS2, with the MinGW32 toolchain. Cygwin works great as well.
+```
+cd silice/projects/build/icarus
+./icarus_bare.sh ../../projects/divint_bare/main.ice
+```
+If everthing goes well you should see in the last console output:
+```
+20043 /   -817 =    -24
+```
+Yes, the hardware division is working!
 
 
