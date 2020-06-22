@@ -57,7 +57,7 @@ cd Silice
 ./compile_silice_linux.sh
 ```
 
-Done! This compiled and install the Silice executable in silice/bin/
+Done! This compiled and installed the Silice executable in silice/bin/
 
 *Note:* The script will attempt to install the following dependencies using apt ; you may have to adapt package names and package manager to your Linux distribution: 
 ```default-jre default-jdk iverilog verilator fpga-icestorm arachne-pnr yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
