@@ -104,7 +104,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
         if (m->sstacksz() != nullptr) {
           stack_size = atoi(m->sstacksz()->NUMBER()->getText().c_str());
           if (stack_size < 1) {
-            throw Fatal("algorithm return stack size should be at least 1 (line %d)!", alg->getStart()->getLine());
+            throw Fatal("algorithm return stack size should be at least 1 (line %d)!", (int)alg->getStart()->getLine());
           }
         }
       }
@@ -114,7 +114,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
       m_Modules, m_Subroutines, m_Circuitries, m_Groups, m_BitFields)
     );
     if (m_Algorithms.find(name) != m_Algorithms.end()) {
-      throw Fatal("an algorithm with same name already exists (line %d)!", alg->getStart()->getLine());
+      throw Fatal("an algorithm with same name already exists (line %d)!", (int)alg->getStart()->getLine());
     }
     algorithm->gather(alg->inOutList(), alg->declAndInstrList());
     m_Algorithms.insert(std::make_pair(name, algorithm));
@@ -124,7 +124,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     /// circuitry
     std::string name = circuit->IDENTIFIER()->getText();
     if (m_Circuitries.find(name) != m_Circuitries.end()) {
-      throw Fatal("a circuitry with same name already exists (line %d)!", circuit->getStart()->getLine());
+      throw Fatal("a circuitry with same name already exists (line %d)!", (int)circuit->getStart()->getLine());
     }
     m_Circuitries.insert(std::make_pair(name, circuit));
 
@@ -133,7 +133,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     /// group
     std::string name = group->IDENTIFIER()->getText();
     if (m_Groups.find(name) != m_Groups.end()) {
-      throw Fatal("a group with same name already exists (line %d)!", group->getStart()->getLine());
+      throw Fatal("a group with same name already exists (line %d)!", (int)group->getStart()->getLine());
     }
     m_Groups.insert(std::make_pair(name, group));
 
@@ -142,7 +142,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     /// bitfield
     std::string name = bitfield->IDENTIFIER()->getText();
     if (m_BitFields.find(name) != m_BitFields.end()) {
-      throw Fatal("a bitfield with same name already exists (line %d)!", bitfield->getStart()->getLine());
+      throw Fatal("a bitfield with same name already exists (line %d)!", (int)bitfield->getStart()->getLine());
     }
     m_BitFields.insert(std::make_pair(name, bitfield));
 
@@ -153,11 +153,11 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     fname = fname.substr(1, fname.length() - 2);
     fname = findFile(fname);
     if (!LibSL::System::File::exists(fname.c_str())) {
-      throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), imprt->getStart()->getLine());
+      throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), (int)imprt->getStart()->getLine());
     }
     AutoPtr<Module> vmodule(new Module(fname));
     if (m_Modules.find(fname) != m_Modules.end()) {
-      throw Fatal("verilog module already imported! (line %d)", imprt->getStart()->getLine());
+      throw Fatal("verilog module already imported! (line %d)", (int)imprt->getStart()->getLine());
     }
     std::cerr << "parsing module " << vmodule->name() << std::endl;
     m_Modules.insert(std::make_pair(vmodule->name(), vmodule));
@@ -169,7 +169,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     fname = fname.substr(1, fname.length() - 2);
     fname = findFile(fname);
     if (!LibSL::System::File::exists(fname.c_str())) {
-      throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), app->getStart()->getLine());
+      throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), (int)app->getStart()->getLine());
     }
     m_Appends.insert(fname);
 
@@ -178,7 +178,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     /// global subroutine
     std::string name = sub->IDENTIFIER()->getText();
     if (m_Subroutines.find(name) != m_Subroutines.end()) {
-      throw Fatal("subroutine with same name already exists! (line %d)", sub->getStart()->getLine());
+      throw Fatal("subroutine with same name already exists! (line %d)", (int)sub->getStart()->getLine());
     }
     m_Subroutines.insert(std::make_pair(sub->IDENTIFIER()->getText(), sub));
 

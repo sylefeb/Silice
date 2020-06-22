@@ -89,7 +89,7 @@ public:
     char           m_Message[e_MessageBufferSize];
     LanguageError() { m_Message[0] = '\0'; }
   public:
-    LanguageError(int line, antlr4::Token *tk, antlr4::misc::Interval interval, const char *msg, ...) LIBSL_PRINTF_ATTR
+    LanguageError(int line, antlr4::Token *tk, antlr4::misc::Interval interval, const char *msg, ...) __attribute__ ((format (printf,5,6)))
     {
       m_Line  = line;
       m_Token = tk;
