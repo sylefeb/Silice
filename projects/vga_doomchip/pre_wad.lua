@@ -156,6 +156,7 @@ for l=1,nlumps do
   end
   if in_patches == 1 then
     lumps_patches[name] = { start=start, size=size }
+    extract_lump(name,'patches/')
   end
   if string.match(name,'F_START') then
     in_flats = 1
