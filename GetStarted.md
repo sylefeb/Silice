@@ -12,7 +12,7 @@ After this step you should see three new directories:
 - Silice/tools/fpga-binutils/mingw32/include
 - Silice/tools/fpga-binutils/mingw32/lib
 
-To use shell scripts (.sh) and the Verilator simulation framework: (**highly recommended**)
+To use build shell scripts (.sh) and the Verilator simulation framework: (**highly recommended**)
 
 - Download and install MSYS2 (msys2-x86_64) from https://www.msys2.org/
   Be sure to follow the instructions on the download page to update your 
