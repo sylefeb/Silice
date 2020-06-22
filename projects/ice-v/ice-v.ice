@@ -188,10 +188,10 @@ algorithm oled(
     oled_clk =  (osc[2,1]|osc[3,1]);
     oled_cs  = !(sending>1);
     if (enable) {
+      dc = data_or_command;
       sending    = {1b1,
         byte[0,1],byte[1,1],byte[2,1],byte[3,1],
         byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
-      dc = data_or_command;
     } else {
       if (sending>1) {
         oled_din = sending[0,1];
@@ -474,21 +474,6 @@ algorithm decode(
   always {
     switch (instr[ 0, 7])
     {    
-      case 7b0110111: { // LUI
-        //__display("LUI");
-        write_rd    = Rtype(instr).rd;
-        jump        = 0;
-        branch      = 0;
-        load_store  = 0;
-        store       = 0;
-        select      = 0;
-        select2     = 0;
-        imm         = {Utype(instr).imm31_12,12b0};
-        forceZero   = 0; // force x0
-        regOrPc     = 0; // reg
-        regOrImm    = 1; // imm
-      }
-      
       case 7b0010111: { // AUIPC
         //__display("AUIPC");
         write_rd    = Rtype(instr).rd;
@@ -501,6 +486,21 @@ algorithm decode(
         imm         = {Utype(instr).imm31_12,12b0};
         forceZero   = 1;
         regOrPc     = 1; // pc
+        regOrImm    = 1; // imm
+      }
+      
+      case 7b0110111: { // LUI
+        //__display("LUI");
+        write_rd    = Rtype(instr).rd;
+        jump        = 0;
+        branch      = 0;
+        load_store  = 0;
+        store       = 0;
+        select      = 0;
+        select2     = 0;
+        imm         = {Utype(instr).imm31_12,12b0};
+        forceZero   = 0; // force x0
+        regOrPc     = 0; // reg
         regOrImm    = 1; // imm
       }
       
@@ -639,32 +639,6 @@ algorithm decode(
 }
 
 // --------------------------------------------------
-// Performs integer comparisons
-
-algorithm intcmp(
-  input!  int32 a,
-  input!  int32 b,
-  input!  uint3 select,
-  input!  uint1 enable,
-  output! uint1 j,
-) {
-  always {  
-    switch (select) {
-      case 3b000: { j = enable & (a == b); } // BEQ
-      case 3b001: { j = enable & (a != b); } // BNE
-      case 3b100: { j = enable & (__signed(a)   <  __signed(b));   } // BLT
-      case 3b110: { j = enable & (__unsigned(a) <  __unsigned(b)); } // BLTU
-      case 3b101: { j = enable & (__signed(a)   >= __signed(b));   } // BGE
-      case 3b111: { j = enable & (__unsigned(a) >= __unsigned(b)); } // BGEU
-      default:    { j = 0; }
-    }
-$$if SIMULATION then
-//__display("a = %d b = %d j = %d select=%d",a,b,j,select);
-$$end
-  }
-}
-
-// --------------------------------------------------
 // Performs integer computations
 
 algorithm intops(
@@ -744,5 +718,30 @@ $$end
   
 }
 
+// --------------------------------------------------
+// Performs integer comparisons
+
+algorithm intcmp(
+  input!  int32 a,
+  input!  int32 b,
+  input!  uint3 select,
+  input!  uint1 enable,
+  output! uint1 j,
+) {
+  always {  
+    switch (select) {
+      case 3b000: { j = enable & (a == b); } // BEQ
+      case 3b001: { j = enable & (a != b); } // BNE
+      case 3b100: { j = enable & (__signed(a)   <  __signed(b));   } // BLT
+      case 3b110: { j = enable & (__unsigned(a) <  __unsigned(b)); } // BLTU
+      case 3b101: { j = enable & (__signed(a)   >= __signed(b));   } // BGE
+      case 3b111: { j = enable & (__unsigned(a) >= __unsigned(b)); } // BGEU
+      default:    { j = 0; }
+    }
+$$if SIMULATION then
+//__display("a = %d b = %d j = %d select=%d",a,b,j,select);
+$$end
+  }
+}
 
 // --------------------------------------------------
