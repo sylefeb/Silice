@@ -8,7 +8,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 mkdir BUILD
 cd BUILD
 
-pacman -S --noconfirm --needed unzip wget perl cmake gcc g++ make
+pacman -S --noconfirm --needed unzip wget perl ${MINGW_PACKAGE_PREFIX}-cmake ${MINGW_PACKAGE_PREFIX}-gcc ${MINGW_PACKAGE_PREFIX}-g++ ${MINGW_PACKAGE_PREFIX}-make
 
 mkdir verilator-framework
 cd verilator-framework

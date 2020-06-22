@@ -34,9 +34,6 @@ $$if VERILATOR then
   output! uint4  video_b,
   output! uint1  video_hs,
   output! uint1  video_vs
-$$elseif MOJO then
-  output! uint1  sdram_clk, // sdram chip clock != internal sdram_clock
-  inout   uint8  sdram_dq
 $$end
 $$end
 )
@@ -44,14 +41,7 @@ $$end
 
 // --- SDRAM
 
-uint23 saddr       = 0;
-uint2  swbyte_addr = 0;
-uint1  srw         = 0;
-uint32 sdata_in    = 0;
-uint32 sdata_out   = 0;
-uint1  sbusy       = 0;
-uint1  sin_valid   = 0;
-uint1  sout_valid  = 0;
+sdio   sio;
 
 $$if ICARUS then
 
@@ -73,44 +63,38 @@ simul_sdram simul(
 $$end
 
 sdramctrl memory(
-  clk       <: clock,
-  rst       <: reset,
-  addr      <: saddr,
-  wbyte_addr<: swbyte_addr,
-  rw        <: srw,
-  data_in   <: sdata_in,
-  data_out  :> sdata_out,
-  busy      :> sbusy,
-  in_valid  <: sin_valid,
-  out_valid :> sout_valid,
+  clk       <:  clock,
+  rst       <:  reset,
+  sd        <:> sio,
 $$if VERILATOR then
-  dq_i      <: sdram_dq_i,
-  dq_o      :> sdram_dq_o,
-  dq_en     :> sdram_dq_en,
+  dq_i      <:  sdram_dq_i,
+  dq_o      :>  sdram_dq_o,
+  dq_en     :>  sdram_dq_en,
 $$end
   <:auto:>
 );
 
   uint16  count = 0;
+  uint32  read = 0;
 
 $$if VERILATOR then
   // sdram clock for verilator simulation
   sdram_clock := clock;
 $$end
-  // maintain low (pulse up when ready)
-  sin_valid := 0;
+  // maintain low (pulse up when ready, see below)
+  sio.in_valid := 0;
 
 $display("=== writing ===");
   // write index in 1024 bytes
-  srw = 1;
+  sio.rw = 1;
   while (count < 1024) {
     // write to sdram
     while (1) {
-      if (sbusy == 0) {        // not busy?            
-        sdata_in    = count;            
-        saddr       = count >> 2; // word address
-        swbyte_addr = count &  3;  // byte within word
-        sin_valid   = 1; // go ahead!
+      if (sio.busy == 0) {        // not busy?            
+        sio.data_in    = count;            
+        sio.addr       = count >> 2; // word address
+        sio.wbyte_addr = count &  3;  // byte within word
+        sio.in_valid   = 1; // go ahead!
         break;
       }
     } // write occurs during loop cycle      
@@ -119,14 +103,17 @@ $display("=== writing ===");
 $display("=== readback ===");
   count = 0;
   // read back words (4-bytes)
-  srw = 0;
+  sio.rw = 0;
   while (count < 256) {
-    if (sbusy == 0) {
-      saddr     = count;
-      sin_valid = 1;         // go ahead!
-      while (sout_valid == 0) { } // wait for value
-      $display("read [%x] = %x",count,sdata_out);
+    if (sio.busy == 0) {
+      sio.addr     = count;
+      sio.in_valid = 1;         // go ahead!
+      while (sio.out_valid == 0) { } // wait for value
+      read = sio.data_out;
+      $display("read [%x] = %x",count,read);
       count = count + 1;
     }
   }  
 }
+
+

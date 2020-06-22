@@ -42,4 +42,6 @@ g++ -O3 ../../../../../frameworks/verilator/verilator_bare.o verilated.o Vbare__
 cd ..
 cd ..
 
+./test_$u
+
 fi

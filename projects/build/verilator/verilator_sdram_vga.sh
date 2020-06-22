@@ -44,4 +44,6 @@ g++ -O3 ../../../../../frameworks/verilator/verilator_vga.o verilated.o Vvga__AL
 cd ..
 cd ..
 
+./test_$u
+
 fi
