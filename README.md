@@ -69,4 +69,29 @@ The main features are:
 
 See the [getting started](GetStarted.md) guide. Silice runs great both on Windows and Linux!
 
+## Building the examples
+
+All examples are in the *projects* directory. This directory also contains a *build* subdirectory, with one entry for each currently supported framework. This includes both simulation (icarus, verilator) and FPGA hardware (icestick, mojo v3, de10nano, etc.).
+
+To build a project, go into projects/build/*architecture* where *architecture* is your target framework. This directory contains shell scripts that take as parameter the project source file. Let's take an example! We will build the 'divint bare' demo for simulation with icarus. Do the following:
+
+*Note:* under Windows please use a MinGW32 shell, please refer to the [getting started](GetStarted.md) guide.
+
+```
+cd silice/projects/build/icarus
+./icarus_bare.sh ../../projects/divint_bare/main.ice
+```
+If everthing goes well you should see in the last console output:
+```
+20043 /   -817 =    -24
+```
+Yes, the hardware division is working!
+
+The script also output a trace of all signals in the circuit. You can also look at the output with gtkwave:
+```
+./gtkwave.sh icarus.fst
+```
+*(Coming soon: Tutorial on how to use gtkwave)*
+
+
 
