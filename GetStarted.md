@@ -46,11 +46,11 @@ cd verilator
 => This executes the simulation, which output 40 image files (tga format)
 Look at them in sequence :-)
 
-*Note:* Under MinGW you can also compile *silice* and *silicehe* using the provided shell scripts in the root directory.
+*Note:* Under MinGW you can also compile *silice* and *silicehe* using the provided shell scripts in the root silice directory.
 
 ## Linux
 
-Should be as easy as
+Should be as simple as:
 ```
 git clone --recurse-submodules https://github.com/sylefeb/Silice.git
 cd Silice
