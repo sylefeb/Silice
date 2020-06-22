@@ -702,7 +702,7 @@ $$end
   );
 
 $$if OLED then
-  uint1 displ_en = uninitialized;
+  uint1 displ_en          = uninitialized;
   uint1 displ_dta_or_cmd := mem.wdata[10,1];
   uint8 displ_byte       := mem.wdata[0,8];
   oled display(
