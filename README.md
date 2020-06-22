@@ -87,11 +87,4 @@ If everthing goes well you should see in the last console output:
 ```
 Yes, the hardware division is working!
 
-The script also output a trace of all signals in the circuit. You can also look at the output with gtkwave:
-```
-./gtkwave.sh icarus.fst
-```
-*(Coming soon: Tutorial on how to use gtkwave)*
-
-
 
