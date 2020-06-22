@@ -1,5 +1,3 @@
-int* const LEDS = (int*)0x1000;
-
 #include "oled.h"
 
 void starfield(int time)

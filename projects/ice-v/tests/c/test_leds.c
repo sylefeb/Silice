@@ -1,7 +1,7 @@
 void main() 
 {
-  int* const led = (int*)0x1000;
-  int i = 0;
+  int* const led = (int*)0x1004;
+  volatile int i = 0;
 
   int l = 1;
   while (1) {
@@ -12,7 +12,7 @@ void main()
     }
     *led = (l | 16);
     
-    for (i=0;i<65535;i++) { }
+    for (i=0;i<65536;i++) { }
   
   }
 

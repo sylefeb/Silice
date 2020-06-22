@@ -482,7 +482,7 @@ $$else
   while (1) {
 $$end
 
-//__display("pc %d",mem_addr);
+// __display("pc %d",mem_addr);
 
     // mem_data is now available
     instr = mem_rdata;
@@ -693,7 +693,7 @@ $$end
   // ram
   bram uint32 mem<input!>[] = $meminit$;
   
-  uint12 wide_addr = uninitialized;
+  uint11 wide_addr = uninitialized;
   
   // cpu
   rv32i_cpu cpu(
@@ -719,38 +719,25 @@ $$if OLED then
 $$end
 
   mem.addr := wide_addr[0,10];
-    
+
   // io mapping
   always {
 $$if OLED then
     displ_en = 0;
 $$end
-    if (mem.wenable) {
-      switch (wide_addr[10,2]) {
-        case 2b01: {
-          led0 = mem.wdata[0,1];
-          led1 = mem.wdata[1,1];
-          led2 = mem.wdata[2,1];
-          led3 = mem.wdata[3,1];
-          led4 = mem.wdata[4,1];
-          __display("Led %b%b%b%b%b",led0,led1,led2,led3,led4);
-        }
+    if (mem.wenable & wide_addr[10,1]) {
+      led0 = mem.wdata[0,1] & wide_addr[0,1];
+      led1 = mem.wdata[1,1] & wide_addr[0,1];
+      led2 = mem.wdata[2,1] & wide_addr[0,1];
+      led3 = mem.wdata[3,1] & wide_addr[0,1];
+      led4 = mem.wdata[4,1] & wide_addr[0,1];
+      //__display("Led %b%b%b%b%b",led0,led1,led2,led3,led4);
 $$if OLED then
-        case 2b10: {        
-          if (mem.wdata[9,1]) {
-            // command
-            displ_en = 1;
-          } else { if (mem.wdata[10,1]) {
-            // data
-            displ_en = 1;
-          } else { if (mem.wdata[11,1]) {
-            // reset
-            oled_rst = mem.wdata[0,1];
-          } } }
-        }
+      // command
+      displ_en = (mem.wdata[9,1] | mem.wdata[10,1]) & wide_addr[1,1];
+      // reset
+      oled_rst = !(mem.wdata[0,1] & wide_addr[2,1]);
 $$end
-        default: { }
-      }
     }
   }
 

@@ -5,7 +5,7 @@
 ./risc-v/bin/riscv64-unknown-elf-gcc -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
 ./risc-v/bin/riscv64-unknown-elf-gcc -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -c -o build/code.o $1
 
-./risc-v/bin/riscv64-unknown-elf-as.exe -march=rv32i -mabi=ilp32 -o build/crt0.o crt0.s
+./risc-v/bin/riscv64-unknown-elf-as.exe -march=rv32i -mabi=ilp32 -o crt0.o crt0.s
 
 ./risc-v/bin/riscv64-unknown-elf-ld.exe -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld --no-relax -o build/code.elf build/code.o
 
