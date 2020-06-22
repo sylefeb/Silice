@@ -1033,6 +1033,7 @@ void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext*
   nfo.autobind = false;
   getBindings(alg->modalgBindingList(), nfo.bindings, nfo.autobind);
   m_InstancedAlgorithms[nfo.instance_name] = nfo;
+  m_InstancedAlgorithmsInDeclOrder.push_back(nfo.instance_name);
 }
 
 // -------------------------------------------------
@@ -4200,11 +4201,12 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
     out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << std::endl;
   }
   // flip-flops for algorithm inputs that are not bound
-  for (const auto &ia : m_InstancedAlgorithms) {
-    for (const auto &is : ia.second.algo->m_Inputs) {
-      if (ia.second.boundinputs.count(is.name) == 0) {
+  for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
+    const auto &ia = m_InstancedAlgorithms.at(iaiordr);
+    for (const auto &is : ia.algo->m_Inputs) {
+      if (ia.boundinputs.count(is.name) == 0) {
         out << "reg " << typeString(is) << " [" << varBitDepth(is) - 1 << ":0] ";
-        out << FF_D << ia.second.instance_prefix << '_' << is.name << ',' << FF_Q << ia.second.instance_prefix << '_' << is.name << ';' << std::endl;
+        out << FF_D << ia.instance_prefix << '_' << is.name << ',' << FF_Q << ia.instance_prefix << '_' << is.name << ';' << std::endl;
       }
     }
   }
@@ -4218,10 +4220,11 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
     out << "reg  [" << ((1 << justHigherPow2(m_StackSize)) - 1) << ":0]" FF_D << prefix << ALG_RETURN_PTR << ", " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
   }
   // state machine run for instanced algorithms
-  for (const auto& ia : m_InstancedAlgorithms) {
+  for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
+    const auto &ia = m_InstancedAlgorithms.at(iaiordr);
     // check for call on purely combinational
-    if (!ia.second.algo->hasNoFSM()) {
-      out << "reg  " << ia.second.instance_prefix + "_" ALG_RUN << ';' << std::endl;
+    if (!ia.algo->hasNoFSM()) {
+      out << "reg  " << ia.instance_prefix + "_" ALG_RUN << ';' << std::endl;
     }
   }
 }
@@ -4266,22 +4269,6 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
       if (v.usage != e_FlipFlop) continue;
       writeVarFlipFlopInit(prefix, out, v);
     }
-#if 0
-    // NOTE: output initialization is undefined for now, so we might as well skip it!
-    for (const auto &v : m_Outputs) {
-      if (v.usage != e_FlipFlop) continue;
-      writeVarFlipFlopInit(prefix, out, v);
-    }
-#endif
-#if 0 // NOTE: bound input are initialized through bound var, others are initialized upon calls
-    for (const auto &ia : m_InstancedAlgorithms) {
-      for (const auto &is : ia.second.algo->m_Inputs) {
-        if (ia.second.boundinputs.count(is.name) == 0) {
-          writeVarFlipFlopInit(ia.second.instance_prefix + '_', out, is);
-        }
-      }
-    }
-#endif
     // state machine 
     if (!hasNoFSM()) {
       // -> on reset
@@ -4310,23 +4297,6 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
     if (v.usage != e_FlipFlop) continue;
     writeVarFlipFlopUpdate(prefix, out, v);
   }
-#if 0
-  // NOTE: if not initialized (see above), then should be updated outside reset if/else
-  for (const auto& v : m_Outputs) {
-    if (v.usage != e_FlipFlop) continue;
-    writeVarFlipFlopUpdate(prefix, out, v);
-  }
-#endif
-#if 0
-  // NOTE: if not initialized (see above), then should be updated outside reset if/else
-  for (const auto &ia : m_InstancedAlgorithms) {
-    for (const auto &is : ia.second.algo->m_Inputs) {
-      if (ia.second.boundinputs.count(is.name) == 0) {
-        writeVarFlipFlopUpdate(ia.second.instance_prefix + '_', out, is);
-      }
-    }
-  }
-#endif
   if (!hasNoFSM()) {
     // state machine index
     out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << std::endl;
@@ -4339,21 +4309,20 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
   if (!requiresNoReset()) {
     out << "  end" << std::endl;
   }
-#if 1
   // update output flip-flops
   for (const auto &v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
     writeVarFlipFlopUpdate(prefix, out, v);
   }
   // update instanced algorithms input flip-flops
-  for (const auto &ia : m_InstancedAlgorithms) {
-    for (const auto &is : ia.second.algo->m_Inputs) {
-      if (ia.second.boundinputs.count(is.name) == 0) {
-        writeVarFlipFlopUpdate(ia.second.instance_prefix + '_', out, is);
+  for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
+    const auto &ia = m_InstancedAlgorithms.at(iaiordr);
+    for (const auto &is : ia.algo->m_Inputs) {
+      if (ia.boundinputs.count(is.name) == 0) {
+        writeVarFlipFlopUpdate(ia.instance_prefix + '_', out, is);
       }
     }
   }
-#endif
   out << "end" << std::endl;
 }
 
@@ -4377,10 +4346,11 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
     if (v.usage != e_FlipFlop) continue;
     writeVarFlipFlopCombinationalUpdate(prefix, out, v);
   }
-  for (const auto &ia : m_InstancedAlgorithms) {
-    for (const auto &is : ia.second.algo->m_Inputs) {
-      if (ia.second.boundinputs.count(is.name) == 0) {
-        writeVarFlipFlopCombinationalUpdate(ia.second.instance_prefix + '_', out, is);
+  for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
+    const auto &ia = m_InstancedAlgorithms.at(iaiordr);
+    for (const auto &is : ia.algo->m_Inputs) {
+      if (ia.boundinputs.count(is.name) == 0) {
+        writeVarFlipFlopCombinationalUpdate(ia.instance_prefix + '_', out, is);
       }
     }
   }
@@ -4394,9 +4364,10 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
     }
   }
   // instanced algorithms run, maintain high
-  for (auto ia : m_InstancedAlgorithms) {
-    if (!ia.second.algo->hasNoFSM()) {
-      out << ia.second.instance_prefix + "_" ALG_RUN " = 1;" << std::endl;
+  for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
+    const auto &ia = m_InstancedAlgorithms.at(iaiordr);
+    if (!ia.algo->hasNoFSM()) {
+      out << ia.instance_prefix + "_" ALG_RUN " = 1;" << std::endl;
     }
   }
   // instanced modules input/output bindings with wires
@@ -4420,8 +4391,9 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   }
   // instanced algorithms input/output bindings with wires
   // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
-  for (auto ia : m_InstancedAlgorithms) {
-    for (auto b : ia.second.bindings) {
+  for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
+    const auto &ia = m_InstancedAlgorithms.at(iaiordr);
+    for (auto b : ia.bindings) {
       if (b.dir == e_Right) { // output
         if (m_VarNames.find(bindingRightIdentifier(b)) != m_VarNames.end()) {
           // bound to variable, the variable is replaced by the output wire
@@ -4432,7 +4404,7 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
           auto usage = m_Outputs.at(m_OutputNames.at(bindingRightIdentifier(b))).usage;
           if (usage == e_FlipFlop) {
             // the output is a flip-flop, copy from the wire
-            out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.second.instance_prefix + "_" + b.left << ';' << std::endl;
+            out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << std::endl;
           }
           // else, the output is replaced by the wire
         }
@@ -4871,8 +4843,14 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
 
 void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const
 {
+  // visit vars in order of declaration
+  vector<int> indices;
   for (const auto& vn : varnames) {
-    const auto& v = m_Vars.at(vn.second);
+    indices.push_back(vn.second);
+  }
+  sort(indices.begin(), indices.end());
+  for (auto idx : indices) {
+    const auto& v = m_Vars.at(idx);
     if (v.usage  != e_FlipFlop && v.usage != e_Temporary)  continue;
     if (v.access == e_WriteOnly) continue;
     if (v.do_not_initialize)     continue;
@@ -5143,15 +5121,16 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   }
   // algorithm instantiations (1/2) 
   // -> required wires to hold outputs
-  for (auto& nfo : m_InstancedAlgorithms) {
+  for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
+    const auto &nfo = m_InstancedAlgorithms.at(iaiordr);
     // output wires
-    for (const auto& os : nfo.second.algo->m_Outputs) {
+    for (const auto& os : nfo.algo->m_Outputs) {
       out << "wire " << typeString(os) << " [" << varBitDepth(os) - 1 << ":0] "
-        << WIRE << nfo.second.instance_prefix << '_' << os.name << ';' << endl;
+        << WIRE << nfo.instance_prefix << '_' << os.name << ';' << endl;
     }
-    if (!nfo.second.algo->hasNoFSM()) {
+    if (!nfo.algo->hasNoFSM()) {
       // algorithm done
-      out << "wire " << WIRE << nfo.second.instance_prefix << '_' << ALG_DONE << ';' << endl;
+      out << "wire " << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ';' << endl;
     }
   }
   // Memory instantiations (1/2)
@@ -5249,36 +5228,37 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   }
 
   // algorithm instantiations (2/2) 
-  for (auto& nfo : m_InstancedAlgorithms) {
+  for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
+    const auto &nfo = m_InstancedAlgorithms.at(iaiordr);
     // algorithm module
-    out << "M_" << nfo.second.algo_name << ' ' << nfo.second.instance_name << '(' << endl;
+    out << "M_" << nfo.algo_name << ' ' << nfo.instance_name << '(' << endl;
     // inputs
-    for (const auto &is : nfo.second.algo->m_Inputs) {
+    for (const auto &is : nfo.algo->m_Inputs) {
       out << '.' << ALG_INPUT << '_' << is.name << '(';
-      if (nfo.second.boundinputs.count(is.name) > 0) {
+      if (nfo.boundinputs.count(is.name) > 0) {
         // input is bound, directly map bound VIO
         t_vio_dependencies _;
-        out << rewriteIdentifier("_", nfo.second.boundinputs.at(is.name).first, nullptr, nfo.second.instance_line, 
-          nfo.second.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, _ff_usage, 
-          nfo.second.boundinputs.at(is.name).second == e_Q ? e_Q : (is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/) );
+        out << rewriteIdentifier("_", nfo.boundinputs.at(is.name).first, nullptr, nfo.instance_line, 
+          nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, _ff_usage, 
+          nfo.boundinputs.at(is.name).second == e_Q ? e_Q : (is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/) );
       } else {
         // input is not bound and assigned in logic, a specifc flip-flop is created for this
-        out << FF_D << nfo.second.instance_prefix << "_" << is.name;
+        out << FF_D << nfo.instance_prefix << "_" << is.name;
         // add to usage
-        updateFFUsage(is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/, true, _ff_usage.ff_usage[nfo.second.instance_prefix + "_" + is.name]);
+        updateFFUsage(is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/, true, _ff_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
       }
       out << ')' << ',' << endl;
     }
     // outputs (wire)
-    for (const auto& os : nfo.second.algo->m_Outputs) {
+    for (const auto& os : nfo.algo->m_Outputs) {
       out << '.'
         << ALG_OUTPUT << '_' << os.name
-        << '(' << WIRE << nfo.second.instance_prefix << '_' << os.name << ')';
+        << '(' << WIRE << nfo.instance_prefix << '_' << os.name << ')';
       out << ',' << endl;
     }
     // inouts (host algorithm inout or wire)
-    for (const auto& os : nfo.second.algo->m_InOuts) {
-      std::string bindpoint = nfo.second.instance_prefix + "_" + os.name;
+    for (const auto& os : nfo.algo->m_InOuts) {
+      std::string bindpoint = nfo.instance_prefix + "_" + os.name;
       const auto& vio = m_ModAlgInOutsBoundToVIO.find(bindpoint);
       if (vio != m_ModAlgInOutsBoundToVIO.end()) {
         if (isInOut(vio->second)) {
@@ -5288,28 +5268,28 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         }
         out << ',' << endl;
       } else {
-        reportError(nullptr, nfo.second.instance_line, "cannot find algorithm inout binding '%s'", os.name.c_str());
+        reportError(nullptr, nfo.instance_line, "cannot find algorithm inout binding '%s'", os.name.c_str());
       }
     }
-    if (!nfo.second.algo->hasNoFSM()) {
+    if (!nfo.algo->hasNoFSM()) {
       // done
       out << '.' << ALG_OUTPUT << '_' << ALG_DONE
-        << '(' << WIRE << nfo.second.instance_prefix << '_' << ALG_DONE << ')';
+        << '(' << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ')';
       out << ',' << endl;
       // run
       out << '.' << ALG_INPUT << '_' << ALG_RUN
-        << '(' << nfo.second.instance_prefix << '_' << ALG_RUN << ')';
+        << '(' << nfo.instance_prefix << '_' << ALG_RUN << ')';
       out << ',' << endl;
     }
     // reset
-    if (!nfo.second.algo->requiresNoReset()) {
+    if (!nfo.algo->requiresNoReset()) {
       t_vio_dependencies _;
-      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.second.instance_reset, nullptr, nfo.second.instance_line, FF_Q, true, _, _ff_usage) << ")," << endl;
+      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, nullptr, nfo.instance_line, FF_Q, true, _, _ff_usage) << ")," << endl;
     }
     // clock
     {
       t_vio_dependencies _;
-      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.second.instance_clock, nullptr, nfo.second.instance_line, FF_Q, true, _, _ff_usage) << ")" << endl;
+      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, nullptr, nfo.instance_line, FF_Q, true, _, _ff_usage) << ")" << endl;
     }
     // end of instantiation      
     out << ");" << endl;

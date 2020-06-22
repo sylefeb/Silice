@@ -118,6 +118,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     }
     algorithm->gather(alg->inOutList(), alg->declAndInstrList());
     m_Algorithms.insert(std::make_pair(name, algorithm));
+    m_AlgorithmsInDeclOrder.push_back(name);
 
   } else if (circuit) {
 
@@ -161,6 +162,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     }
     std::cerr << "parsing module " << vmodule->name() << std::endl;
     m_Modules.insert(std::make_pair(vmodule->name(), vmodule));
+    m_ModulesInDeclOrder.push_back(vmodule->name());
 
   } else if (app) {
 
@@ -172,6 +174,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
       throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), (int)app->getStart()->getLine());
     }
     m_Appends.insert(fname);
+    m_AppendsInDeclOrder.push_back(fname);
 
   } else if (sub) {
 
@@ -262,16 +265,18 @@ void SiliceCompiler::run(
         // write framework (top) module
         out << framework_verilog;
         // write includes
-        for (auto fname : m_Appends) {
+        for (auto fname : m_AppendsInDeclOrder) {
           out << Module::fileToString(fname.c_str()) << std::endl;
         }
         // write imported modules
-        for (auto m : m_Modules) {
-          m.second->writeModule(out);
+        for (auto miordr : m_ModulesInDeclOrder) {
+          auto m = m_Modules.at(miordr);
+          m->writeModule(out);
         }
         // write algorithms as modules
-        for (auto a : m_Algorithms) {
-          a.second->writeAsModule(out);
+        for (auto aiordr : m_AlgorithmsInDeclOrder) {
+          auto a = m_Algorithms.at(aiordr);
+          a->writeAsModule(out);
         }
       }
     

@@ -237,12 +237,12 @@ private:
   std::unordered_map<std::string, std::string > m_ModAlgInOutsBoundToVIO;
 
   /// \brief all variables
-  std::vector< t_var_nfo >    m_Vars;
+  std::vector< t_var_nfo >              m_Vars;
   /// \brief all var names, map contains index in m_Vars
   std::unordered_map<std::string, int > m_VarNames;
 
   /// \brief all memories
-  std::vector< t_mem_nfo >   m_Memories;
+  std::vector< t_mem_nfo >              m_Memories;
   /// \brief all memorie names, map contains index in m_Memories
   std::unordered_map<std::string, int > m_MemoryNames;
 
@@ -275,6 +275,7 @@ private:
 
   /// \brief instanced algorithms
   std::unordered_map< std::string, t_algo_nfo > m_InstancedAlgorithms;
+  std::vector< std::string >                    m_InstancedAlgorithmsInDeclOrder;
 
   /// \brief info about an instanced module
   typedef struct {
