@@ -30,11 +30,16 @@ function decode_patch_lump(name)
     colptrs[i] = string.unpack('I4',in_patch:read(4))
   end
   -- read posts
+  local opaque = 1
   for i=1,pw do
+    local last = 0
     while true do
       local rstart = string.unpack('B',in_patch:read(1))
       if rstart == 255 then
         break
+      end
+      if rstart > last + 1 then
+        opaque = 0
       end
       local num    = string.unpack('B',in_patch:read(1))
       in_patch:read(1) -- skip
@@ -46,7 +51,7 @@ function decode_patch_lump(name)
     end
   end
   in_patch:close()
-  return img
+  return img,opaque
 end
 
 -- -------------------------------------

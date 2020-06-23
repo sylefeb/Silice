@@ -2,14 +2,14 @@ print('preparing textures')
 
 if SIMULATION then
   USE_BRAM = false -- RAM or ROM
-  memory_budget_bits = 1000000 -- 4000000
+  memory_budget_bits = 500000 -- 4000000
   reduce_switches    = true
-  default_shrink     = 1
+  default_shrink     = 2
 else
   USE_BRAM = false -- RAM or ROM
-  memory_budget_bits = 3000000
+  memory_budget_bits = 500000 -- 3000000
   reduce_switches    = false
-  default_shrink     = 0
+  default_shrink     = 2
 end
 
 ALL_IN_ONE = false
@@ -82,6 +82,8 @@ local texdefs_seek={}
 for i=1,num_texdefs do
   texdefs_seek[i] = string.unpack('I4',in_texdefs:read(4))
 end
+
+textures_opacity={}
 for i=1,num_texdefs do
   local name = in_texdefs:read(8):match("[%_-%a%d]+")
   in_texdefs:read(2) -- skip
@@ -96,11 +98,12 @@ for i=1,num_texdefs do
   for j=1,h do
     imgcur[j] = {}
     for i=1,w do
-      imgcur[j][i] = 0
+      imgcur[j][i] = -1
     end
   end
-  -- copy patches
+  -- tex is opaque?
   local npatches = string.unpack('H',in_texdefs:read(2))
+  -- copy patches
   for p=1,npatches do
     local x   = string.unpack('h',in_texdefs:read(2))
     local y   = string.unpack('h',in_texdefs:read(2))
@@ -134,10 +137,28 @@ for i=1,num_texdefs do
       error('cannot find patch ' .. pid)
     end
   end
+  local opaque = 1
+  local uses_255 = 0
+  for j=1,h do
+    for i=1,w do
+      if imgcur[j][i] == 255 then
+        uses_255 = 1
+      end
+      if imgcur[j][i] == -1 then
+        opaque = 0
+        imgcur[j][i] = 255 -- replace by transparent marker
+      end
+    end
+  end
+  textures_opacity[name] = opaque
   -- save  
   print('saving ' .. name .. ' ...')
   save_table_as_image_with_palette(imgcur,palette,path .. 'textures/assembled/' .. name .. '.tga')
   print('         ... done.')
+
+  if opaque == 0 and uses_255 == 1 then
+    error('transparent but cannot use marker')
+  end
 end
 
 -- -------------------------------------
@@ -209,7 +230,8 @@ code:write([[algorithm texturechip(
   input  int9  iiu,
   input  int9  iiv,
   input  uint5 light,
-  output uint8 palidx) {
+  output uint8 palidx,
+  output uint1 opac) {
   ]])
 -- build bram and texture start address table
 code:write('  uint8  u    = 0;\n')
@@ -275,7 +297,6 @@ end
 if ALL_IN_ONE then
   code:write('};\n')
 end
-
 -- addressing
 code:write('  switch (texid) {\n')
 code:write('    default : { }\n')  
@@ -378,6 +399,8 @@ code:write('++:\n')
 
 -- light
 code:write('  lit = (light<<8);\n')
+-- defaut is non transparent
+code:write('  opac = 1;')
 -- read data and query colormap
 if ALL_IN_ONE then
   code:write('  colormap.addr = textures.rdata + lit;\n')
@@ -390,6 +413,9 @@ else
     if tex == 'F_SKY1' then -- special case for sky
       code:write('       colormap.addr = 94;\n')
     else
+      if textures_opacity[tex] == 0 then
+        code:write('       opac = texture_' .. tex .. '.rdata==255 ? 0 : 1;')
+      end
       code:write('       colormap.addr = texture_' .. tex .. '.rdata + lit;\n')
     end
     code:write('    }\n')
@@ -435,6 +461,21 @@ for id,name in pairs(switch_on_ids) do
 end
 for id,name in pairs(switch_off_ids) do
   code:write('    case ' .. id .. '  : { is = 1; }\n')  
+end
+code:write('  }\n') 
+code:write('}\n')
+
+-- circuit to know if a texture is transparent
+code:write('circuitry is_opaque(input texid,output is)\n')
+code:write('{\n')
+code:write('  switch (texid) {\n')
+code:write('    default : { is = 1; }\n')  
+for name,opaque in pairs(textures_opacity) do
+  if opaque == 0 then
+    if texture_ids[name] then
+      code:write('    case ' .. texture_ids[name].id .. '  : { is = 0; }\n')  
+    end
+  end
 end
 code:write('  }\n') 
 code:write('}\n')

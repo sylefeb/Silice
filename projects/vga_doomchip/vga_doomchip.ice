@@ -5,18 +5,26 @@
 // - "DooM black book" by Fabien Sanglard
 // - "DooM unofficial specs" http://www.gamers.org/dhs/helpdocs/dmsp1666.html
 //
+// NOTE: for now the focus is on 'making it happen'
+//       this will be followed by optimizations to exploit
+//       FPGA parallelism (a great exercise!)
+//
 // TODO: 
 // cleanup
+// update to use bitfields!
 // optimize           : - buffer column drawing and do it in //
 //                      - framebuffer transpose (reduce row activate/precharge!)
-//                      - parallel game logic (dualport bram)
+//                      - a lot of things could be parallelized
+//                        => drawing for floor/celing/lower/upper/middle
+//                        => collisions
+//                        => movable updates
 
 $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
 
 // select the level here!
 $$wad = 'doom1.wad'
-$$level = 'E1M2' 
+$$level = 'E1M1' 
 $$dofile('pre_wad.lua')
 
 $$dofile('pre_load_data.lua')
@@ -46,6 +54,8 @@ $include('lcd_status.ice')
 $include('oled_doomhead.ice')
 $$end
 
+$$USE_DEBUG_POS = 1
+
 // -------------------------
 // some circuitry for repetitive things
 
@@ -73,25 +83,43 @@ circuitry bbox_ray(input ray_x,input ray_y,input ray_dx_m,input ray_dy_m,
   }
 }
 
+bitfield ZRec
+{
+  uint1     clear,
+  uint$FPw$ depth,
+}
+
 // Writes a pixel in the framebuffer, calls the texture unit
 circuitry writePixel(
-   inout  sd,  input  fbuffer,
-   input  pi,  input  pj,
-   input  tu,  input  tv,
-   input  tid, input  lit   
+   inout  sd,   output opac,
+   input  fbuffer,
+   input  pi,   input  pj,
+   input  tu,   input  tv,
+   input  tid,  input  lit,
+   input  dist, inout  depthBuffer
 ) {
   // initiate texture unit lookup (takes a few cycles)
   textures <- (tid,-tu,tv,lit);
-  // wait for not busy
-  while (sd.busy) { /*waiting*/ }
-  // sync with texture unit
-  (sd.data_in) <- textures;
-  // wait for not busy  (may have been in between)
-  while (sd.busy) { /*waiting*/ }
-  // write!
-  sd.addr       = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
-  sd.wbyte_addr = pi & 3;
-  sd.in_valid   = 1; // go ahead!
+  // initiate depth buffer read
+  depthBuffer.addr    = pj;
+  depthBuffer.wenable = 0;
+++: // read depth
+  if (dist < ZRec(depthBuffer.rdata).depth || ZRec(depthBuffer.rdata).clear != pi[0,1]) {
+    //                                    clear toggle test ^^^^^
+    // sync with texture unit
+    (sd.data_in,opac) <- textures;  
+    if (opac) {
+      // wait for sdram to not be busy
+      while (sd.busy) { /*waiting*/ }
+      // write!
+      sd.addr         = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
+      sd.wbyte_addr   = pi & 3;
+      sd.in_valid     = 1; // go ahead!
+      // update depth
+      depthBuffer.wenable = 1;
+      depthBuffer.wdata = {pi[0,1], dist[0,$FPw$]};
+    }
+  }
 }
 
 // -------------------------
@@ -333,6 +361,8 @@ $$end
   int$FPw$ light    = 0;
   int$FPw$ atten    = 0;
    
+  uint1    opac     = 0; 
+  
   div$FPl$ divl;
   int$FPl$ num      = 0;
   int$FPl$ den      = 0;
@@ -374,6 +404,10 @@ $$end
   
   uint12   rand = 3137;
   
+  bram uint$FPw+1$ depthBuffer[200] = uninitialized; // MSB is a 'clear' toggle
+  // it changes every column so we known whether the value is old (cleared) or
+  // current.
+  
   int16    debug0 = 0;
   int16    debug1 = 0;
   int16    debug2 = 0;
@@ -381,7 +415,7 @@ $$end
 
 $$if DE10NANO then
   keypad        kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
-  lcd_status    status(<:auto:>, posx <: debug0, posy <: debug1, posz <: debug2, posa <: debug3 );
+  lcd_status    status(<:auto:>, posx <: ray_x, posy <: ray_y, posz <: ray_z, posa <: viewangle );
   oled_doomhead doomhead(<:auto:>);
 $$end
   
@@ -413,7 +447,7 @@ $$end
   while (1) {
     
     // update position
-$$if not INTERACTIVE then
+$$if not INTERACTIVE and (not SIMULATION or USE_DEBUG_POS) then
   ray_x     = demo_path.rdata[ 0,16];
   ray_y     = demo_path.rdata[16,16];
   ray_z     = demo_path.rdata[32,16];    
@@ -676,7 +710,7 @@ $$end
                 while (btm < f_h) {
                   gv_m = (-sec_f_h)  * inv_y.rdata;
                   gu_m = (coltox.rdata * gv_m) >>> 8;                  
-                  // NOTE: distance is gv_m>>4  (matches d_h if d_h shifted with FPw-1)                  
+                  // NOTE: distance is gv_m>>4  (matches d_h r-shifted by FPw-1)
 ++: // relax timing
                   // transform plane coordinates
                   tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
@@ -700,7 +734,7 @@ $$end
                   // write pixel
                   tmp_u = (tr_gv_m>>5);
                   tmp_v = (tr_gu_m>>5);
-                  (sd)  = writePixel(sd,fbuffer,c,btm,tmp_u,tmp_v,texid,light);
+                  (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,btm,tmp_u,tmp_v,texid,light,gv_m,depthBuffer);
                   btm   = btm + 1;
                   inv_y.addr = 100 - btm;
                 }
@@ -737,7 +771,7 @@ $$end
                     // write pixel
                     tmp_u = (tr_gv_m>>5);
                     tmp_v = (tr_gu_m>>5);
-                    (sd)  = writePixel(sd,fbuffer,c,top,tmp_u,tmp_v,texid,light);
+                    (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,top,tmp_u,tmp_v,texid,light,gv_m,depthBuffer);
                     top   = top - 1;
                     inv_y.addr = top - 100;
                   }
@@ -809,7 +843,8 @@ $$end
                     tc_v   = tex_v >> $FPm-1+4$;
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
-                    (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
+                    tmp1_h = d_h>>3;
+                    (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer);
                     j      = j - 1;
                     tex_v  = tex_v + (d_h);
                   } 
@@ -851,7 +886,8 @@ $$end
                       tc_v   = tex_v >>> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
-                      (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
+                      tmp1_h = d_h>>3;
+                      (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer);
                       j      = j + 1;
                       tex_v  = tex_v - (d_h);
                     }
@@ -870,7 +906,8 @@ $$end
                       tc_v   = tex_v >>> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
-                      (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
+                      tmp1_h = d_h>>3;
+                      (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer);
                       j      = j - 1;
                       tex_v  = tex_v + (d_h);
                     }
@@ -902,7 +939,8 @@ $$end
                       tc_v   = tex_v >> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
-                      (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
+                      tmp1_h = d_h>>3;
+                      (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer);
                       j      = j - 1;   
                       tex_v  = tex_v + (d_h);
                     }
@@ -914,13 +952,17 @@ $$end
                       tc_v   = tex_v >> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
-                      (sd)   = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light);
+                      tmp1_h = d_h>>3;
+                      (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer);
                       j      = j + 1;   
                       tex_v  = tex_v - (d_h);
                     }                    
                   }
-                  // close column
-                  top = btm;
+                  (opac) = is_opaque(texid);
+                  if (opac) {
+                    // close column
+                    top = btm;
+                  } // otherwise we keep going is if nothing happened!
                 }
                 
                 if (top <= btm) { // column completed
@@ -1172,7 +1214,7 @@ $$end
     }
     
     frame = frame + 1;
-$$if not INTERACTIVE then    
+$$if not INTERACTIVE and (not SIMULATION or USE_DEBUG_POS) then    
     if (frame >= demo_path_len) {
       // reset
       frame     = 0;
