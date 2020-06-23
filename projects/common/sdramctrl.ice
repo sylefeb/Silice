@@ -79,10 +79,10 @@ $$if not VERILATOR then
   uint1  dq_en = 0 (* IOB = "TRUE" *);
 
   inout8_set ioset(
-    io_pin   <:> sdram_dq,
-    io_write <: dq_o,
-    io_read  :> dq_i,
-    io_write_enable <: dq_en
+    io_pin          <:> sdram_dq,
+    io_write        <:: dq_o,
+    io_read         :>  dq_i,
+    io_write_enable <:: dq_en
   );
 
 $$end
@@ -282,7 +282,7 @@ $$refresh_wait   = 7
 ++:
 ++:
 ++:
-        // burst 4 bytes
+        // burst 4 bytes 
         sd.data_out[0,8]  = dq_i;
 ++:        
         sd.data_out[8,8]  = dq_i;

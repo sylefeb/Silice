@@ -78,6 +78,7 @@ LDEFINE             : '<:' ;
 RDEFINE             : ':>' ;
 BDEFINE             : '<:>';
 LDEFINEDBL          : '<::' ;
+BDEFINEDBL          : '<::>';
 AUTO                : '<:auto:>' ;
 
 ALWSASSIGNDBL       : '::=' ;
@@ -135,7 +136,7 @@ declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifier
 declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
 declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire; 
 
-modalgBinding        : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE) right=idOrIoAccess | AUTO;
+modalgBinding        : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
 modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
 
 /* -- io lists -- */

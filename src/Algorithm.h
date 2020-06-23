@@ -247,7 +247,7 @@ private:
   std::unordered_map<std::string, int > m_MemoryNames;
 
   /// \brief enum binding direction
-  enum e_BindingDir { e_Left, e_LeftQ, e_Right, e_BiDir, e_Auto };
+  enum e_BindingDir { e_Left, e_LeftQ, e_Right, e_BiDir, e_Auto, e_AutoQ};
 
   /// \brief records info about variable bindings
   typedef struct

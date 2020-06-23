@@ -54,7 +54,7 @@
 // Constructor
 SDRAM::SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *logfile)
 {
-    // memory size
+    // memory size 
     int s       = (int)1 << (log2_rows + log2_cols);
     // SDRAM capacity initialized
     bus_mask    =  flags & (DATA_MSB | DATA_MSW | DATA_MSL);

@@ -349,10 +349,10 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
 void Algorithm::resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg)
 {
   for (auto& b : _alg.bindings) {
-    if (b.dir == e_Auto) {
+    if (b.dir == e_Auto || b.dir == e_AutoQ) {
       // input?
       if (_alg.algo->isInput(b.left)) {
-        b.dir = e_Left;
+        b.dir = (b.dir == e_Auto) ? e_Left : e_LeftQ;
       }
       // output?
       else if (_alg.algo->isOutput(b.left)) {
@@ -921,13 +921,13 @@ void Algorithm::getBindings(
         _autobind = true;
       } else {
         // check if this is a group binding
-        if (bindings->modalgBinding()->BDEFINE() != nullptr) {
+        if (bindings->modalgBinding()->BDEFINE() != nullptr || bindings->modalgBinding()->BDEFINEDBL() != nullptr) {
           auto G = m_VIOGroups.find(bindings->modalgBinding()->right->getText());
           if (G != m_VIOGroups.end()) {
             // verify right is an identifier
             if (bindings->modalgBinding()->right->IDENTIFIER() == nullptr) {
               reportError(
-                bindings->modalgBinding()->right->getSourceInterval(),
+                bindings->modalgBinding()->getSourceInterval(),
                 (int)bindings->modalgBinding()->right->getStart()->getLine(), 
                 "expecting an identifier on the right side of a group binding");
             }
@@ -938,7 +938,7 @@ void Algorithm::getBindings(
               nfo.left  = bindings->modalgBinding()->left->getText() + "_" + member;
               nfo.right_identifier = bindings->modalgBinding()->right->IDENTIFIER()->getText() + "_" + member;
               nfo.line  = (int)bindings->modalgBinding()->getStart()->getLine();
-              nfo.dir   = e_Auto;
+              nfo.dir   = (bindings->modalgBinding()->BDEFINE() != nullptr) ? e_Auto : e_AutoQ;
               _vec_bindings.push_back(nfo);
             }
             // skip to next
@@ -961,9 +961,13 @@ void Algorithm::getBindings(
           nfo.dir = e_LeftQ;
         } else if (bindings->modalgBinding()->RDEFINE() != nullptr) {
           nfo.dir = e_Right;
-        } else {
-          sl_assert(bindings->modalgBinding()->BDEFINE() != nullptr);
+        } else if (bindings->modalgBinding()->BDEFINE() != nullptr) {
           nfo.dir = e_BiDir;
+        } else {
+          reportError(
+            bindings->modalgBinding()->getSourceInterval(),
+            (int)bindings->modalgBinding()->right->getStart()->getLine(),
+            "this binding operator can only be used on io groups");
         }
         _vec_bindings.push_back(nfo);
       }
@@ -2669,7 +2673,7 @@ void Algorithm::combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<
   for (const auto& br : ff_branches) {
     set<string> d_in_br;
     for (auto& v : br.ff_usage) {
-      if ((v.second & e_D) && !(v.second & e_Q)) { // D but not Q
+      if (v.second == e_D) { // exactly D (not Q, not latched next)
         d_in_br.insert(v.first);
       }
     }
@@ -2992,15 +2996,6 @@ void Algorithm::determineVIOAccess(
             string var = S->second->vios.at(i);
             if (vios.find(var) != vios.end()) {
               _written.insert(var);
-            }
-          }
-          // internal vars init
-          for (const auto& vn : S->second->vars) {
-            std::string varname = S->second->vios.at(vn);
-            const auto& v = m_Vars.at(m_VarNames.at(varname));            
-            // if (v.usage != e_FlipFlop) continue; /////////////////////// NOTE: this is suspicious, we should not have to rely on usage here, as determineVIOAccess is first called before usage is determined
-            if (vios.find(varname) != vios.end()) {
-              _written.insert(varname);
             }
           }
         }

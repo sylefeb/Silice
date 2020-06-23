@@ -56,8 +56,16 @@ uint13 sdram_a     = 0;
 uint8  sdram_dq    = 0;
 
 simul_sdram simul(
-  sdram_clk <: clock,
-  <:auto:>
+  sdram_clk <:  clock,
+  sdram_cle <:  sdram_cle,
+  sdram_dqm <:  sdram_dqm,
+  sdram_cs  <:  sdram_cs,
+  sdram_we  <:  sdram_we,
+  sdram_cas <:  sdram_cas,
+  sdram_ras <:  sdram_ras,
+  sdram_ba  <:  sdram_ba,
+  sdram_a   <:  sdram_a,
+  sdram_dq  <:> sdram_dq
 );
 
 $$end
@@ -66,12 +74,21 @@ sdramctrl memory(
   clk       <:  clock,
   rst       <:  reset,
   sd        <:> sio,
+  sdram_cle :>  sdram_cle,
+  sdram_dqm :>  sdram_dqm,
+  sdram_cs  :>  sdram_cs,
+  sdram_we  :>  sdram_we,
+  sdram_cas :>  sdram_cas,
+  sdram_ras :>  sdram_ras,
+  sdram_ba  :>  sdram_ba,
+  sdram_a   :>  sdram_a,
 $$if VERILATOR then
   dq_i      <:  sdram_dq_i,
   dq_o      :>  sdram_dq_o,
   dq_en     :>  sdram_dq_en,
+$$else
+  sdram_dq  <:> sdram_dq
 $$end
-  <:auto:>
 );
 
   uint16  count = 0;
@@ -87,7 +104,7 @@ $$end
 $display("=== writing ===");
   // write index in 1024 bytes
   sio.rw = 1;
-  while (count < 1024) {
+  while (count < 64) {
     // write to sdram
     while (1) {
       if (sio.busy == 0) {        // not busy?            
@@ -104,7 +121,7 @@ $display("=== readback ===");
   count = 0;
   // read back words (4-bytes)
   sio.rw = 0;
-  while (count < 256) {
+  while (count < 16) {
     if (sio.busy == 0) {
       sio.addr     = count;
       sio.in_valid = 1;         // go ahead!

@@ -1,7 +1,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 export PATH=$PATH:$DIR/../../../tools/fpga-binutils/mingw32/bin/
 export PYTHONHOME=/mingw32/bin
-export PYTHONLIB=/mingw32/lib/python3.8/
+export PYTHONPATH=/mingw32/lib/python3.8/
 
 rm build*
 
