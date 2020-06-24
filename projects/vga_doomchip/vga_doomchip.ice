@@ -615,7 +615,7 @@ $$end
               seclight = bsp_secs_flats.rdata[16,8];
             }
           }
-          
+
           // render column segments
           s = 0;
           while (s < bsp_ssecs.rdata[0,8]) {
@@ -995,7 +995,36 @@ $$end
           //-------------------------
           // draw things!
           //-------------------------
-
+          // get sector things info
+          bsp_secs.addr = bsp_ssecs.rdata[24,16];
+++:
+          s = 0;
+          while (s < bsp_secs.rdata[24,8]) {
+            all_things.addr = bsp_secs.rdata[32,8] + s;
+++:         
+            // get the thing center x,y coordinates
+            v0x = all_things.rdata[ 0,16];
+            v0y = all_things.rdata[16,16];
+            // go to view space
+            d0x = v0x - ray_x;
+            d0y = v0y - ray_y;
+            tmp1_h = (  d0x * ray_dx_m + d0y * ray_dy_m );
+            d_h    = (- d0x * ray_dy_m + d0y * ray_dx_m );
+            if (d_h > $1<<(FPm+1)$) { // margin to stay away from 0
+              // in front
+              if (tmp1_h > -32 && tmp1_h < 32) { // TESTING
+                // NOTE d_h >> 5 for depth buffer
+                j = 80;
+                while (j <= 120) {
+                  tmp2_h = d_h >> 5;
+                  tmp1 = 0;
+                  (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp1,tmp1,tmp1,light,tmp2_h,depthBuffer);
+                  j      = j + 1;                     
+                }
+              }
+            }
+            s = s + 1;
+          }
           
           
         }

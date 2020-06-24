@@ -909,8 +909,8 @@ end
 function pack_thing(th)
   local bin = 0
   bin = '32h'
-        .. string.format("%04x",th.x):sub(-4)
         .. string.format("%04x",th.y):sub(-4)
+        .. string.format("%04x",th.x):sub(-4)
   return bin
 end
 
