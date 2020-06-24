@@ -33,7 +33,7 @@ int main(int argc,char **argv)
   
   VgaChip *vga_chip = new VgaChip();
 
-  // char foo[4096]; // DEBUG FIXME: there is a memory leak that makes this necessary. I have not been able to track it down so far!!
+  char foo[4096]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
   
   Vvga    *vga_test = new Vvga();
 

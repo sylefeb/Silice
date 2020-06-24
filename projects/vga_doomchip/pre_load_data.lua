@@ -765,9 +765,9 @@ end
 -- produce consecutive array of things
 allThings = {}
 thingsPerSec_start = {}
-nextThing = 0
+nextThing = 1
 for sec,ths in pairs(thingsPerSec) do
-  thingsPerSec_start[sec] = nextThing
+  thingsPerSec_start[sec] = nextThing-1
   for _,th in pairs(ths) do
     allThings[nextThing] = th
     nextThing = nextThing + 1    

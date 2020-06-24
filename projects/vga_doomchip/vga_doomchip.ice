@@ -174,7 +174,7 @@ $$end
   };  
   
   // BRAMs for sectors
-  bram uint40 bsp_secs[] = {
+  bram uint48 bsp_secs[] = {
 $$for _,s in ipairs(bspSectors) do
    $pack_bsp_sec(s)$,          // fth=$s.first_thing$ nth=$s.num_things$ c_h=$s.c_h$ f_h=$s.f_h$
 $$end
@@ -225,7 +225,7 @@ $$if #bspMovables > 255 then error('more than 255 movables!') end
   // BRAMs for things
   bram uint32 all_things[] = {
 $$for i,th in pairs(allThings) do
-   $pack_thing(th)$, // $i$] x=$th.x$ y=$th.y$
+   $pack_thing(th)$, // $i-1$] x=$th.x$ y=$th.y$
 $$end  
   };
   
@@ -672,10 +672,10 @@ $$end
                 // hit!
                 //-------------------------
                 // -> correct to perpendicular distance ( * cos(alpha) )
-                num     = $FPl$d$(1<<(2*FPm+FPw-2))$;
                 den     = d_h * sin_m.rdata;
-++:
                 // -> compute inverse distance
+                num     = $FPl$d$(1<<(FPl-2))$;
+++: // relax timing
                 (invd_h) <- divl <- (num,den); // (2^(FPw-2)) / d
                 d_h     = den >>> $FPm+4$; // record corrected distance for tex. mapping
 
@@ -999,25 +999,52 @@ $$end
           bsp_secs.addr = bsp_ssecs.rdata[24,16];
 ++:
           s = 0;
-          while (s < bsp_secs.rdata[24,8]) {
-            all_things.addr = bsp_secs.rdata[32,8] + s;
-++:         
+          while (s < bsp_secs.rdata[32,8]) {
+            all_things.addr = bsp_secs.rdata[40,8] + s;
+            /*{
+            uint16 dtmp1 = 0;
+            uint16 dtmp2 = 0;
+            uint8  dtmp3 = 0;            
+            dtmp1 = bsp_ssecs.rdata[24,16];
+            dtmp2 = bsp_secs.rdata[40,8] + s;
+            dtmp3 = bsp_secs.rdata[32,8];
+            __display("****************************************************");
+            __display("[%d] sector %d, %d things, thing %d (%d)",c,dtmp1,dtmp3,dtmp2,s);
+            }*/
+++:
             // get the thing center x,y coordinates
             v0x = all_things.rdata[ 0,16];
             v0y = all_things.rdata[16,16];
+            //__display("pos x%d y%d  dir: %d,%d",ray_x,ray_y,cosview_m,sinview_m);
+            //__display("thing x%d y%d",v0x,v0y);
             // go to view space
             d0x = v0x - ray_x;
             d0y = v0y - ray_y;
-            tmp1_h = (  d0x * ray_dx_m + d0y * ray_dy_m );
-            d_h    = (- d0x * ray_dy_m + d0y * ray_dx_m );
+            //__display("delta %d %d",d0x,d0y);
+            d_h    = (  d0x * cosview_m + d0y * sinview_m ); // along center view ray
+            tmp1_h = (- d0x * sinview_m + d0y * cosview_m ); // ortho to center view ray
+            //__display("lateral %d distance %d",tmp1_h,d_h);
             if (d_h > $1<<(FPm+1)$) { // margin to stay away from 0
               // in front
-              if (tmp1_h > -32 && tmp1_h < 32) { // TESTING
+              //__display("----------- in front ----------");
+              // -> compute inverse distance
+              num     = $FPl$d$(1<<(FPl-2))$;
+              den     = d_h;
+++: // relax timing
+              (invd_h) <- divl <- (num,den);
+              // shift distance for depth buffer
+              d_h     = den >>> $FPm+4$;
+              // -> compute thing center screen x
+              tmp3_h  = (tmp1_h * invd_h) >>> $(FPl-2-  FPm)$; 
+              // -> compute thing width
+              tmp2_h  = (   50 * invd_h) >>> $(FPl-2-2*FPm)$; // seems ok
+              //__display("dist %d screenx %d width %d",d_h,tmp3_h,tmp2_h);
+              if (tmp3_h > coltox.rdata - tmp2_h && tmp3_h < coltox.rdata + tmp2_h) { // TESTING
                 // NOTE d_h >> 5 for depth buffer
                 j = 80;
                 while (j <= 120) {
-                  tmp2_h = d_h >> 5;
-                  tmp1 = 0;
+                  tmp2_h = d_h>>3;
+                  tmp1   = 0;
                   (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp1,tmp1,tmp1,light,tmp2_h,depthBuffer);
                   j      = j + 1;                     
                 }
