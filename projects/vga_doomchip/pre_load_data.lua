@@ -563,13 +563,13 @@ for i,sc in ipairs(sectors) do
 --    seclight = 0
 --  end
   bspSectors[i] = {
-    f_h       = sc.floor,
-    c_h       = sc.ceiling,
-    f_T       = f_T,
-    c_T       = c_T,
-    light     = round(math.min(31,(255 - seclight)/8)),
-    lowlight  = round(math.min(31,(255 - lowlight)/8)),
-    special   = sc.special,
+    f_h        = sc.floor,
+    c_h        = sc.ceiling,
+    f_T        = f_T,
+    c_T        = c_T,
+    light      = round(math.min(31,(255 - seclight)/8)),
+    lowlight   = round(math.min(31,(255 - lowlight)/8)),
+    special    = sc.special,
   }
 end
 
@@ -713,14 +713,15 @@ for i,sg in ipairs(segs) do
   }
 end
 
---  error('stop')
-
 -- -------------------------------------
 -- things (player start, monsters)
+-- requires data structures above
 local in_things = assert(io.open(findfile('lumps/' .. level .. '_' .. 'THINGS.lump'), 'rb'))
 local sz = fsize(in_things)
 --print('things file is ' .. sz .. ' bytes')
 nthings = 0
+nPOSS   = 0
+thingsPerSec = {}
 for i = 1,sz/10 do
   local x   = string.unpack('h',in_things:read(2))
   local y   = string.unpack('h',in_things:read(2))
@@ -733,12 +734,61 @@ for i = 1,sz/10 do
     player_start_y = y
     player_start_a = a*1024//90;
   elseif ty == 3004 then -- POSS
-  --  print('POSS at ' .. x .. ',' .. y .. ' angle: ' .. a)
-  --  print(' --> sector ' .. bspLocate(x,y))
+    nPOSS = nPOSS + 1
   end
-  nthings = nthings + 1
+  
+  if false  -- some things only
+  or ty == 9
+  or ty == 65
+  or ty == 3001
+  or ty == 3002
+  or ty == 3006  
+  or ty == 3005
+  or ty == 3004 then
+    local _,insec = bspLocate(x,y)
+    if not thingsPerSec[insec] then
+      thingsPerSec[insec] = {}
+    end
+    thing = {
+      x = x, y = y, a = a, typ = typ, opt = opt
+    }
+    table.insert(thingsPerSec[insec],thing)  
+    nthings = nthings + 1
+  end
+  
 end
-print('level contains ' .. nthings .. ' things')
+print('level contains ' .. nthings .. ' things among which ' .. nPOSS .. ' POSS')
+for s,ths in pairs(thingsPerSec) do
+  local num = #ths
+  print('   sector ' .. s .. ' contains ' .. num .. ' things')
+end
+-- produce consecutive array of things
+allThings = {}
+thingsPerSec_start = {}
+nextThing = 0
+for sec,ths in pairs(thingsPerSec) do
+  thingsPerSec_start[sec] = nextThing
+  for _,th in pairs(ths) do
+    allThings[nextThing] = th
+    nextThing = nextThing + 1    
+  end
+end
+if nextThing > 255 then
+  error('too many things (>255)')
+end
+-- include info in sectors
+for i,sc in ipairs(bspSectors) do
+  local nth = 0
+  local fth = 0
+  if thingsPerSec[i-1] then
+    nth = #thingsPerSec[i-1]
+    fth = thingsPerSec_start[i-1]
+  end
+  sc.num_things = nth
+  sc.first_thing = fth
+end
+
+-- error('stop')
 
 -- -------------------------------------
 -- utility functions to pack records
@@ -776,7 +826,9 @@ end
 
 function pack_bsp_sec(sec)
   local bin = 0
-  bin = '32h'
+  bin = '48h'
+        .. string.format("%02x",sec.first_thing):sub(-2)
+        .. string.format("%02x",sec.num_things):sub(-2)
         .. string.format("%04x",sec.c_h):sub(-4)
         .. string.format("%04x",sec.f_h):sub(-4)
   return bin
@@ -851,6 +903,14 @@ function pack_movable(m)
         .. string.format("%04x",m.sec):sub(-4)
         .. string.format("%04x",m.downh):sub(-4)
         .. string.format("%04x",m.uph):sub(-4)
+  return bin
+end
+
+function pack_thing(th)
+  local bin = 0
+  bin = '32h'
+        .. string.format("%04x",th.x):sub(-4)
+        .. string.format("%04x",th.y):sub(-4)
   return bin
 end
 

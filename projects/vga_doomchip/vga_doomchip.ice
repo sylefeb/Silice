@@ -106,10 +106,12 @@ circuitry writePixel(
 ++: // read depth
   if (dist < ZRec(depthBuffer.rdata).depth || ZRec(depthBuffer.rdata).clear != pi[0,1]) {
     //                                    clear toggle test ^^^^^
+    // wait for sdram to not be busy
+    while (sd.busy) { /*waiting*/ }
     // sync with texture unit
     (sd.data_in,opac) <- textures;  
     if (opac) {
-      // wait for sdram to not be busy
+      // wait for sdram to not be busy (could have been in between)
       while (sd.busy) { /*waiting*/ }
       // write!
       sd.addr         = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
@@ -172,9 +174,9 @@ $$end
   };  
   
   // BRAMs for sectors
-  bram uint32 bsp_secs[] = {
+  bram uint40 bsp_secs[] = {
 $$for _,s in ipairs(bspSectors) do
-   $pack_bsp_sec(s)$,          // c_h=$s.c_h$ f_h=$s.f_h$
+   $pack_bsp_sec(s)$,          // fth=$s.first_thing$ nth=$s.num_things$ c_h=$s.c_h$ f_h=$s.f_h$
 $$end
   };
 
@@ -219,6 +221,13 @@ $$end
   };  
 $$if #bspMovables > 255 then error('more than 255 movables!') end
   uint8 num_bsp_movables = $1 + #bspMovables$;
+  
+  // BRAMs for things
+  bram uint32 all_things[] = {
+$$for i,th in pairs(allThings) do
+   $pack_thing(th)$, // $i$] x=$th.x$ y=$th.y$
+$$end  
+  };
   
   // BRAM for demo path
   bram uint64 demo_path[] = {
@@ -471,6 +480,9 @@ $$end
     c = 0;    
     while (c < 320) { 
       
+      // -------
+      // prepare
+      
       coltoalpha.addr = c;
       coltox    .addr = c;
 ++:
@@ -490,6 +502,9 @@ $$end
       top = 199;
       btm = 0;
       
+      // -------
+      // draw
+
       // init recursion
       queue[queue_ptr] = $root$;
       queue_ptr = 1;
@@ -616,7 +631,7 @@ $$end
 
             //-------------------------
             // check for intersection
-            //-------------------------            
+            //-------------------------
             v0x = bsp_segs_coords.rdata[ 0,16];
             v0y = bsp_segs_coords.rdata[16,16];
             v1x = bsp_segs_coords.rdata[32,16];
@@ -976,6 +991,13 @@ $$end
             // next segment
             s = s + 1;            
           }
+         
+          //-------------------------
+          // draw things!
+          //-------------------------
+
+          
+          
         }
       }
       // next column    
