@@ -24,7 +24,7 @@ $$print('---< written in Silice by @sylefeb >---')
 
 // select the level here!
 $$wad = 'doom1.wad'
-$$level = 'E1M2' 
+$$level = 'E1M2'
 $$dofile('pre_wad.lua')
 
 $$dofile('pre_load_data.lua')
@@ -101,10 +101,11 @@ circuitry writePixel(
    input  pi,   input  pj,
    input  tu,   input  tv,
    input  tid,  input  lit,
-   input  dist, inout  depthBuffer
+   input  dist, inout  depthBuffer,
+   inout  colormap
 ) {
   // initiate texture unit lookup (takes a few cycles)
-  textures <- (tid,-tu,tv,lit);
+  textures <- (tid,-tu,tv);
   // initiate depth buffer read
   depthBuffer.addr    = pj;
   depthBuffer.wenable = 0;
@@ -114,11 +115,14 @@ circuitry writePixel(
     // wait for sdram to not be busy
     while (sd.busy) { /*waiting*/ }
     // sync with texture unit
-    (sd.data_in,opac) <- textures;  
+    (sd.data_in,opac) <- textures;
+    // lookup lighting
+    colormap.addr = sd.data_in + (lit<<8);
     if (opac) {
       // wait for sdram to not be busy (could have been in between)
-      while (sd.busy) { /*waiting*/ }
+      while (sd.busy) { /*waiting*/ } // takes at least one cycle, colormap data is ready
       // write!
+      sd.data_in      = colormap.rdata;
       sd.addr         = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
       sd.wbyte_addr   = pi & 3;
       sd.in_valid     = 1; // go ahead!
@@ -134,7 +138,8 @@ circuitry writeSpritePixel(
    inout  sd,   input  fbuffer,
    input  pi,   input  pj,
    input  pix,  input  lit,
-   input  dist, inout  depthBuffer
+   input  dist, inout  depthBuffer,
+   inout  colormap
 ) {
   // initiate depth buffer read
   depthBuffer.addr    = pj;
@@ -142,10 +147,12 @@ circuitry writeSpritePixel(
 ++: // read depth
   if (dist < ZRec(depthBuffer.rdata).depth || ZRec(depthBuffer.rdata).clear != pi[0,1]) {
     //                                    clear toggle test ^^^^^
+    // lookup lighting
+    colormap.addr   = pix + (lit<<8);
     // wait for sdram to not be busy
     while (sd.busy) { /*waiting*/ }
     // write!
-    sd.data_in      = pix;
+    sd.data_in      = colormap.rdata;
     sd.addr         = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
     sd.wbyte_addr   = pi & 3;
     sd.in_valid     = 1; // go ahead!
@@ -187,6 +194,76 @@ circuitry spriteSelect(input angle,input frame,output sprite,output mirror)
     sprite = frame * 5 + 2;
     mirror = 1;
   } } } } } } } }
+}
+
+// Determines sector light level
+circuitry sectorLightLevel(input bsp_secs_flats, output seclight)
+{
+    switch (bsp_secs_flats.rdata[24,8]) {
+      case 1: { // random off
+        if (rand < 256) {
+          seclight = bsp_secs_flats.rdata[32,8]; // off (lowlight)
+        } else {
+          seclight = bsp_secs_flats.rdata[16,8]; // on (sector light)
+        }            
+      }
+      case 2: { // flash fast
+        if ( (((time)>>4)&3) == 0 ) {
+          seclight = bsp_secs_flats.rdata[16,8];
+        } else {
+          seclight = bsp_secs_flats.rdata[32,8];
+        }            
+      }
+      case 3: { // flash slow
+        if ( (((time)>>5)&3) == 0 ) {
+          seclight = bsp_secs_flats.rdata[16,8];
+        } else {
+          seclight = bsp_secs_flats.rdata[32,8];
+        }            
+      }
+      case 12: { // flash fast
+        if ( (((time)>>4)&3) == 0 ) {
+          seclight = bsp_secs_flats.rdata[16,8];
+        } else {
+          seclight = bsp_secs_flats.rdata[32,8];
+        }            
+      }
+      case 13: { // flash slow
+        if ( (((time)>>5)&3) == 0 ) {
+          seclight = bsp_secs_flats.rdata[16,8];
+        } else {
+          seclight = bsp_secs_flats.rdata[32,8];
+        }            
+      }
+      case 8: { // oscillates (to improve)
+        if ( (((time)>>5)&1) == 0) {
+          seclight = bsp_secs_flats.rdata[32,8];
+        } else {
+          seclight = bsp_secs_flats.rdata[16,8];
+        }            
+      }
+      default: {
+        seclight = bsp_secs_flats.rdata[16,8];
+      }
+    }
+}
+
+// Determined light value from sector light and distance
+circuitry lightFromDistance(input dist,output light,inout tmp1,inout tmp2)
+{
+  if (dist > 7) {
+    tmp1 = 7;
+  } else {
+    tmp1 = dist;
+  }                  
+  tmp2 = seclight + tmp1;
+  if (tmp2 > 31) {
+    light = 31;
+  } else { if (tmp2>=0) {
+    light = tmp2;
+  } else {
+    light = 0;
+  } }
 }
 
 // -------------------------
@@ -288,11 +365,14 @@ $$if #bspMovables > 255 then error('more than 255 movables!') end
   uint8 num_bsp_movables = $1 + #bspMovables$;
   
   // BRAMs for things
-  bram uint32 all_things[] = {
+  bram uint40 all_things[] = {
 $$for i,th in pairs(allThings) do
-   $pack_thing(th)$, // $i-1$] x=$th.x$ y=$th.y$
+   $pack_thing(th)$, // $i-1$] a=$th.a$ x=$th.x$ y=$th.y$
 $$end  
   };
+  
+  // BROM colormap
+  $colormap$
   
   // BRAM for demo path
   bram uint64 demo_path[] = {
@@ -638,53 +718,7 @@ $$end
           bsp_secs_flats .addr = bsp_ssecs.rdata[24,16];
 ++:          
           // light level in sector
-          switch (bsp_secs_flats.rdata[24,8]) {
-            case 1: { // random off
-              if (rand < 256) {
-                seclight = bsp_secs_flats.rdata[32,8]; // off (lowlight)
-              } else {
-                seclight = bsp_secs_flats.rdata[16,8]; // on (sector light)
-              }            
-            }
-            case 2: { // flash fast
-              if ( (((time)>>4)&3) == 0 ) {
-                seclight = bsp_secs_flats.rdata[16,8];
-              } else {
-                seclight = bsp_secs_flats.rdata[32,8];
-              }            
-            }
-            case 3: { // flash slow
-              if ( (((time)>>5)&3) == 0 ) {
-                seclight = bsp_secs_flats.rdata[16,8];
-              } else {
-                seclight = bsp_secs_flats.rdata[32,8];
-              }            
-            }
-            case 12: { // flash fast
-              if ( (((time)>>4)&3) == 0 ) {
-                seclight = bsp_secs_flats.rdata[16,8];
-              } else {
-                seclight = bsp_secs_flats.rdata[32,8];
-              }            
-            }
-            case 13: { // flash slow
-              if ( (((time)>>5)&3) == 0 ) {
-                seclight = bsp_secs_flats.rdata[16,8];
-              } else {
-                seclight = bsp_secs_flats.rdata[32,8];
-              }            
-            }
-            case 8: { // oscillates (to improve)
-              if ( (((time)>>5)&1) == 0) {
-                seclight = bsp_secs_flats.rdata[32,8];
-              } else {
-                seclight = bsp_secs_flats.rdata[16,8];
-              }            
-            }
-            default: {
-              seclight = bsp_secs_flats.rdata[16,8];
-            }
-          }
+          (seclight) = sectorLightLevel(bsp_secs_flats);
 
           // render column segments
           s = 0;
@@ -803,23 +837,11 @@ $$end
 ++: // relax timing
                   // light
                   tmp2_m = (gv_m>>8) - 15;
-                  if (tmp2_m > 7) {
-                    atten = 7;
-                  } else {
-                    atten = tmp2_m;
-                  }                  
-                  tmp1_m = seclight + atten;
-                  if (tmp1_m > 31) {
-                    light = 31;
-                  } else { if (tmp1_m>=0) {
-                    light = tmp1_m;
-                  } else {
-                    light = 0;
-                  } }
+                  (light,atten,tmp1_m) = lightFromDistance(tmp2_m,atten,tmp1_m);
                   // write pixel
                   tmp_u = (tr_gv_m>>5);
                   tmp_v = (tr_gu_m>>5);
-                  (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,btm,tmp_u,tmp_v,texid,light,gv_m,depthBuffer);
+                  (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,btm,tmp_u,tmp_v,texid,light,gv_m,depthBuffer,colormap);
                   btm   = btm + 1;
                   inv_y.addr = 100 - btm;
                 }
@@ -840,23 +862,11 @@ $$end
 ++: // relax timing
                     // light
                     tmp2_m = (gv_m>>8) - 15;
-                    if (tmp2_m > 7) {
-                      atten = 7;
-                    } else {
-                      atten = tmp2_m;
-                    }                  
-                    tmp1_m = seclight + atten;
-                    if (tmp1_m > 31) {
-                      light = 31;
-                    } else { if (tmp1_m>=0){
-                      light = tmp1_m;
-                    } else {
-                      light = 0;
-                    } }
+                    (light,atten,tmp1_m) = lightFromDistance(tmp2_m,atten,tmp1_m);
                     // write pixel
                     tmp_u = (tr_gv_m>>5);
                     tmp_v = (tr_gu_m>>5);
-                    (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,top,tmp_u,tmp_v,texid,light,gv_m,depthBuffer);
+                    (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,top,tmp_u,tmp_v,texid,light,gv_m,depthBuffer,colormap);
                     top   = top - 1;
                     inv_y.addr = top - 100;
                   }
@@ -869,19 +879,7 @@ $$end
 
                 // light
                 tmp2_m = (d_h>>$FPm-1$) - 15;
-                if (tmp2_m > 7) {
-                  atten = 7;
-                } else {
-                  atten = tmp2_m;
-                }                  
-                tmp1_m = seclight + atten;
-                if (tmp1_m > 31) {
-                  light = 31;
-                } else { if (tmp1_m>=0){
-                  light = tmp1_m;
-                } else {
-                  light = 0;
-                } }
+                (light,atten,tmp1_m) = lightFromDistance(tmp2_m,atten,tmp1_m);
                 
 ++: // relax timing             
 
@@ -929,7 +927,7 @@ $$end
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
                     tmp1_h = d_h>>3;
-                    (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer);
+                    (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                     j      = j - 1;
                     tex_v  = tex_v + (d_h);
                   } 
@@ -972,7 +970,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_h>>3;
-                      (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer);
+                      (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j + 1;
                       tex_v  = tex_v - (d_h);
                     }
@@ -992,7 +990,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_h>>3;
-                      (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer);
+                      (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j - 1;
                       tex_v  = tex_v + (d_h);
                     }
@@ -1025,7 +1023,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_h>>3;
-                      (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer);
+                      (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j - 1;   
                       tex_v  = tex_v + (d_h);
                     }
@@ -1038,7 +1036,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_h>>3;
-                      (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer);
+                      (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j + 1;   
                       tex_v  = tex_v - (d_h);
                     }                    
@@ -1067,12 +1065,14 @@ $$end
           //-------------------------
           // get things sector info
           bsp_secs.addr = bsp_ssecs.rdata[24,16];
+          bsp_secs_flats.addr = bsp_ssecs.rdata[24,16];
 ++:
+          (seclight) = sectorLightLevel(bsp_secs_flats);
           s = 0;
           while (s < bsp_secs.rdata[32,8]) {
           
             all_things.addr = bsp_secs.rdata[40,8] + s;
-++:
+++: // could be avoided
             // get the thing center x,y coordinates
             v0x = all_things.rdata[ 0,16];
             v0y = all_things.rdata[16,16];
@@ -1085,8 +1085,10 @@ $$end
             // is in front?
             if (d_h > $1<<(FPm+1)$) { // margin to stay away from 0
               // yes, in front
-              uint8  sp_frame    = 0;
+              uint8  sp_frame    = 0;              
               uint1  sp_mirrored = 0;
+              uint12 sel_angle   = 0;
+              uint8  sel_frame   = 0;              
               int16  sprt_w      = 0;
               int16  sprt_h      = 0;
               int16  screen_ctr  = 0;
@@ -1105,9 +1107,12 @@ $$end
               uint8  pix         = 0;
 
               // -> get sprite frame data              
-              sp_frame = ((((time>>3) + s)&1)*5) + 20;
+              tmp1      = all_things.rdata[32,8];
+              sel_angle = ((-3072-viewangle+(tmp1<<5)) & 4095);
+              sel_frame = ((((time>>2) + s)&1)*5) + 20; // firing
+              (sp_frame,sp_mirrored) = spriteSelect(sel_angle,sel_frame);
               sprites_header   .addr = sp_frame;
-              sprites_colstarts.addr = sp_frame;
+              sprites_colstarts.addr = sp_frame; 
               
               // -> compute inverse distance
               num     = $FPl$d$(1<<(FPl-2))$;
@@ -1117,6 +1122,9 @@ $$end
               // shift distance for texturing (here d_h is shifted by FPm less
               // than for walls: not multiplied by sin_m)
               d_h     = den >>> 4;
+              // -> light level
+              tmp2_m = (d_h>>$FPm-1$) - 15;
+              (light,atten,tmp1_m) = lightFromDistance(tmp2_m,atten,tmp1_m);              
               // -> compute thing center screen x
               screen_ctr = (tmp1_h * invd_h) >>> $(4+FPl-2-2*FPm)$; // shift to end up in coltox space
               // -> compute thing size
@@ -1185,7 +1193,7 @@ $$end
                     (tmp1) = to_h(r);
                     if (tmp1 >= 0 && tmp1 < 200) {
                       //__display("pix draw %d,%d = %d",c,r,pix);
-                      (sd,depthBuffer) = writeSpritePixel(sd,fbuffer,c,tmp1,pix,light,tmp2_h,depthBuffer);
+                      (sd,depthBuffer,colormap) = writeSpritePixel(sd,fbuffer,c,tmp1,pix,light,tmp2_h,depthBuffer,colormap);
                     }                    
                   }
                   

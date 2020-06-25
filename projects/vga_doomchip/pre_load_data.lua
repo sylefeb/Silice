@@ -750,7 +750,7 @@ for i = 1,sz/10 do
       thingsPerSec[insec] = {}
     end
     thing = {
-      x = x, y = y, a = a, typ = typ, opt = opt
+      x = x, y = y, a = a*32//90, typ = typ, opt = opt
     }
     table.insert(thingsPerSec[insec],thing)  
     nthings = nthings + 1
@@ -908,7 +908,8 @@ end
 
 function pack_thing(th)
   local bin = 0
-  bin = '32h'
+  bin = '40h'
+        .. string.format("%02x",th.a):sub(-2)
         .. string.format("%04x",th.y):sub(-4)
         .. string.format("%04x",th.x):sub(-4)
   return bin

@@ -229,7 +229,6 @@ code:write([[algorithm texturechip(
   input  uint8 texid,
   input  int9  iiu,
   input  int9  iiv,
-  input  uint5 light,
   output uint8 palidx,
   output uint1 opac) {
   ]])
@@ -239,14 +238,6 @@ code:write('  uint8  v    = 0;\n')
 code:write('  int9   iu   = 0;\n')
 code:write('  int9   iv   = 0;\n')
 code:write('  int9   nv   = 0;\n')
-code:write('  uint16 lit  = 0;\n')
-code:write('  brom   uint8 colormap[] = {\n')
-for _,cmap in ipairs(colormaps) do
-  for _,cidx in ipairs(cmap) do
-    code:write('8h'..string.format("%02x",cidx):sub(-2) .. ',')
-  end
-end
-code:write('};\n')
 texture_start_addr = 0
 texture_start_addr_table = {}
 if ALL_IN_ONE then
@@ -397,37 +388,30 @@ code:write('  }\n') -- switch
 code:write('++:\n')
 code:write('++:\n')
 
--- light
-code:write('  lit = (light<<8);\n')
 -- defaut is non transparent
 code:write('  opac = 1;')
--- read data and query colormap
+-- read data
 if ALL_IN_ONE then
-  code:write('  colormap.addr = textures.rdata + lit;\n')
+  code:write('  colormap.addr = textures.rdata;\n')
 else
   code:write('  switch (texid) {\n')
-  code:write('    default : { }\n')  
-  code:write('    case 0  : { colormap.addr = 94; }\n')  
+  code:write('    default : { palidx = 255; }\n')  
+  code:write('    case 0  : { palidx = 94; }\n')  
   for tex,nfo in pairs(texture_ids) do
     code:write('    case ' .. (nfo.id) .. ': {\n')
     if tex == 'F_SKY1' then -- special case for sky
-      code:write('       colormap.addr = 94;\n')
+      code:write('       palidx = 94;\n')
     else
       if textures_opacity[tex] == 0 then
         code:write('       opac = texture_' .. tex .. '.rdata==255 ? 0 : 1;')
       end
-      code:write('       colormap.addr = texture_' .. tex .. '.rdata + lit;\n')
+      code:write('       palidx = texture_' .. tex .. '.rdata;\n')
     end
     code:write('    }\n')
   end
   code:write('  }\n') 
 end
 
--- wait one cycle
-code:write('++:\n')
-
--- done with texture data
-code:write('palidx = colormap.rdata;\n')
 code:write('}\n')
 
 -- now make a circuit to tell which ids are on/off switches
@@ -479,6 +463,15 @@ for name,opaque in pairs(textures_opacity) do
 end
 code:write('  }\n') 
 code:write('}\n')
+
+-- colormap brom for lighting
+colormap = '  brom   uint8 colormap[] = {\n'
+for _,cmap in ipairs(colormaps) do
+  for _,cidx in ipairs(cmap) do
+    colormap = colormap .. '8h'..string.format("%02x",cidx):sub(-2) .. ','
+  end
+end
+colormap = colormap .. '};\n'
 
 -- done
 code:close()
