@@ -6,14 +6,13 @@
 // - "DooM unofficial specs" http://www.gamers.org/dhs/helpdocs/dmsp1666.html
 //
 // NOTE: for now the focus is on 'making it happen'
-//       this will be followed by optimizations to exploit
-//       FPGA parallelism (a great exercise!)
+//     this will be followed by optimizations to fully exploit
+//     FPGA parallelism (a great exercise!)
 //
 // TODO: 
-// cleanup
-// update to use bitfields!
-// optimize           : - buffer column drawing and do it in //
-//                      - framebuffer transpose (reduce row activate/precharge!)
+//   cleanup
+//   update to use bitfields!
+//   optimize         : - framebuffer transpose (reduce row activate/precharge!)
 //                      - a lot of things could be parallelized
 //                        => drawing for floor/celing/lower/upper/middle
 //                        => collisions
@@ -141,10 +140,7 @@ circuitry writeSpritePixel(
    input  dist, inout  depthBuffer,
    inout  colormap
 ) {
-  // initiate depth buffer read
-  depthBuffer.addr    = pj;
-  depthBuffer.wenable = 0;
-++: // read depth
+  // NOTE: assumes depth buffer has been prepared (to save a cycle)
   if (dist < ZRec(depthBuffer.rdata).depth || ZRec(depthBuffer.rdata).clear != pi[0,1]) {
     //                                    clear toggle test ^^^^^
     // lookup lighting
@@ -1072,7 +1068,7 @@ $$end
           //-------------------------
           // draw things!
           //-------------------------
-          // get things sector info
+          // get things sector info          
           bsp_secs.addr = bsp_ssecs.rdata[24,16];
           bsp_secs_flats.addr = bsp_ssecs.rdata[24,16];
 ++:
@@ -1115,14 +1111,12 @@ $$end
               int$FPw$ r         = 0;
               uint8  pix         = 0;
 
-              // -> compute inverse distance
-              num     = $FPl$d$(1<<(FPl-2))$;
-              den     = d_h;
 ++: // relax timing
-              (invd_h) <- divl <- (num,den);
+              // -> compute inverse distance
+              (invd_h) <- divl <- ( $FPl$d$(1<<(FPl-2))$ , d_h );
               // shift distance for texturing (here d_h is shifted by FPm less
               // than for walls: not multiplied by sin_m)
-              d_h     = den >>> 4;
+              d_h     = d_h >>> 4;
               // -> light level
               tmp2_m = (d_h>>$FPm-1$) - 15;
               (light,atten,tmp1_m) = lightFromDistance(tmp2_m,atten,tmp1_m);              
@@ -1172,14 +1166,20 @@ $$end
             ++:
                 sprites_data.addr = sprites_colptrs.rdata;
             ++:
-                r       =  y_last;
                 v_accum =  0;
                 cur_v   = -1;
                 n_post  =  0;
-                while (r >= y_first && sprites_data.rdata != 255) {
+                r       =  y_last;
+                (tmp1)  = to_h(r);
+                while (r >= y_first && sprites_data.rdata != 255 && tmp1 >= 0) {
                   
+                  // initiate depth buffer read
+                  depthBuffer.addr    = tmp1;
+                  depthBuffer.wenable = 0;
+                  // obtain low-precision v
                   v    = v_accum >> $FPm-1+4$;
-                  while (cur_v < v) { 
+                  
+                  while (cur_v < v) {
                     if (n_post == 0) {
                       // read next post
                       v_post            = sprites_data.rdata;
@@ -1200,19 +1200,25 @@ $$end
                     }
                     cur_v = cur_v + 1;                    
                     //__display("first %d last %d r %d v_accum %d v %d cur_v %d v_post %d",y_first,y_last,r,v_accum,v,cur_v,v_post);
+
                   }
-                  
-                  if (v >= v_post && n_post != 0) {
+                 
+                  if (v >= v_post && n_post != 0 && tmp1 < 200) {
                     pix    = sprites_data.rdata;
-                    (tmp1) = to_h(r);
-                    if (tmp1 >= 0 && tmp1 < 200) {
-                      //__display("pix draw %d,%d = %d",c,r,pix);
-                      (sd,depthBuffer,colormap) = writeSpritePixel(sd,fbuffer,c,tmp1,pix,light,tmp2_h,depthBuffer,colormap);
-                    }                    
+                    //__display("pix draw %d,%d = %d",c,r,pix);
+                    (sd,depthBuffer,colormap) = writeSpritePixel(sd,fbuffer,c,tmp1,pix,light,tmp2_h,depthBuffer,colormap);
+
+                    v_accum = v_accum + d_h;
+                    r       = r - $1<<15$;
+                    (tmp1)  = to_h(r);
+                  } else {
+                    // yes, this is duplicated! but this allows to save cycles
+                    // by minimizing the jumps between states
+                    v_accum = v_accum + d_h;
+                    r       = r - $1<<15$;
+                    (tmp1)  = to_h(r);                    
                   }
-                  
-                  v_accum = v_accum + d_h;
-                  r = r - $1<<15$;
+                    
                 }
                 // -----------------------------------------------
                 
