@@ -1130,102 +1130,92 @@ $$end
               screen_ctr = (tmp1_h * invd_h) >>> $(4+FPl-2-2*FPm)$; // shift to end up in screen x space
 ++: // relax timing
               // -> on screen? NOTE: may pop, remove once working as it should be safe without
-              /*if (screen_ctr >= $round(256*col_to_x(319))$ && screen_ctr <= $round(256*col_to_x(0))$)*/ {
-                // -> read angle at this column (prepare)
-                xtoalpha.addr = $xtoalpha_offset$ + screen_ctr;
-  ++:              
-                // -> get sprite frame data              
-                tmp1      = all_things.rdata[32,8];
-                tmp2      = xtoalpha.rdata;
-                sel_angle = ((1024+viewangle+tmp2-(tmp1<<5)) & 4095);
-                sel_frame = (((time>>2) + s)&1); // firing, 2 frames
-                (sp_frame,sp_mirrored) = spriteSelect(sel_angle,sel_frame);
-                sprites_header   .addr = sp_frame + 20; // +20: firing
-                sprites_colstarts.addr = sp_frame + 20; 
-  ++:
-                // -> compute thing size
-                sprt_w   = sprites_header.rdata[48,16];
-                sprt_h   = sprites_header.rdata[32,16];
-                screen_w = (sprt_w * invd_h) >>> $(5+FPl-2-2*FPm)$;
-                screen_h = (sprt_h * invd_h) >>> $(5+FPl-2-2*FPm-15)$; // shift by 15 to keep precision
-                // -> compute thing height
-                tmp1    = bsp_secs.rdata[0,16]; // thing sector floor height
-                sec_f_o = tmp1 - ray_z;
-                tmp1_h  = (sec_f_o * invd_h) >>> $FPm$;
-  ++: // relax timing              
-                tmp1_m = coltox.rdata; // widden for compare
-                if (tmp1_m > screen_ctr - screen_w && tmp1_m < screen_ctr + screen_w) { // is current column covered?
-                  
-                /*{
-                  uint16 dtmp1 = 0;
-                  uint16 dtmp2 = 0;
-                  dtmp2 = all_things.addr;
-                  dtmp1 = xtoalpha.addr;
-                  __display("THING %d, screen_ctr %d, xtoalpha.addr %d, xtoalpha.rdata %d, sp_frame %d, sp_mirror %d sel_angle %d", dtmp2, screen_ctr, dtmp1, tmp2, sp_frame,sp_mirrored,sel_angle);
-                }*/
-
-                  screen_y = tmp1_h;
-                  tmp2_h = d_h>>3; // distance increment
-                  
-                  // --------------------------- sprite draw column
-                  tmp2_m  = tmp1_m - (screen_ctr - screen_w);
-                  u       = (tmp2_m * d_h) >> $1+FPm-1+4$;
-                  y_first = screen_y;
-                  y_last  = screen_y + screen_h - $1<<15$;
-                  // retrieve column pointer
-                  if (sp_mirrored) {
-                    sprites_colptrs.addr = sprites_colstarts.rdata + sprt_w - 1 - u;
-                  } else {
-                    sprites_colptrs.addr = sprites_colstarts.rdata + u;
-                  }
-              ++:
-                  sprites_data.addr = sprites_colptrs.rdata;
-              ++:
-                  r       =  y_last;
-                  v_accum =  0;
-                  cur_v   = -1;
-                  n_post  =  0;
-                  while (r >= y_first && sprites_data.rdata != 255) {
-                    
-                    v    = v_accum >> $FPm-1+4$;
-                    while (cur_v < v) { 
-                      if (n_post == 0) {
-                        // read next post
-                        v_post            = sprites_data.rdata;
-                        sprites_data.addr = sprites_data.addr + 1;
-              ++:
-                        // num in post
-                        n_post            = sprites_data.rdata;
-                        sprites_data.addr = sprites_data.addr + 2; // skip one              
-                      }
-                      if (cur_v >= v_post) {
-                        n_post = n_post - 1;
-                        if (n_post == 0) {
-                          // skip last
-                          sprites_data.addr = sprites_data.addr + 2;
-                        } else {
-                          sprites_data.addr = sprites_data.addr + 1;
-                        }
-                      }
-                      cur_v = cur_v + 1;                    
-                      //__display("first %d last %d r %d v_accum %d v %d cur_v %d v_post %d",y_first,y_last,r,v_accum,v,cur_v,v_post);
-                    }
-                    
-                    if (v >= v_post && n_post != 0) {
-                      pix    = sprites_data.rdata;
-                      (tmp1) = to_h(r);
-                      if (tmp1 >= 0 && tmp1 < 200) {
-                        //__display("pix draw %d,%d = %d",c,r,pix);
-                        (sd,depthBuffer,colormap) = writeSpritePixel(sd,fbuffer,c,tmp1,pix,light,tmp2_h,depthBuffer,colormap);
-                      }                    
-                    }
-                    
-                    v_accum = v_accum + d_h;
-                    r = r - $1<<15$;
-                  }
-                  // -----------------------------------------------
-                  
+              // -> read angle at this column (prepare)
+              xtoalpha.addr = $xtoalpha_offset$ + screen_ctr;
+++:              
+              // -> get sprite frame data              
+              tmp1      = all_things.rdata[32,8];
+              tmp2      = xtoalpha.rdata;
+              sel_angle = ((1024+viewangle+tmp2-(tmp1<<5)) & 4095);
+              sel_frame = (((time>>2) + s)&1); // firing, 2 frames
+              (sp_frame,sp_mirrored) = spriteSelect(sel_angle,sel_frame);
+              sprites_header   .addr = sp_frame + 20; // +20: firing
+              sprites_colstarts.addr = sp_frame + 20; 
+++:
+              // -> compute thing size
+              sprt_w   = sprites_header.rdata[48,16];
+              sprt_h   = sprites_header.rdata[32,16];
+              screen_w = (sprt_w * invd_h) >>> $(5+FPl-2-2*FPm)$;
+              screen_h = (sprt_h * invd_h) >>> $(5+FPl-2-2*FPm-15)$; // shift by 15 to keep precision
+              // -> compute thing height
+              tmp1    = bsp_secs.rdata[0,16]; // thing sector floor height
+              sec_f_o = tmp1 - ray_z;
+              tmp1_h  = (sec_f_o * invd_h) >>> $FPm$;
+++: // relax timing              
+              tmp1_m = coltox.rdata; // widden for compare
+              if (tmp1_m > screen_ctr - screen_w && tmp1_m < screen_ctr + screen_w) { // is current column covered?
+                
+                screen_y = tmp1_h;
+                tmp2_h = d_h>>3; // distance increment
+                
+                // --------------------------- sprite draw column
+                tmp2_m  = tmp1_m - (screen_ctr - screen_w);
+                u       = (tmp2_m * d_h) >> $1+FPm-1+4$;
+                y_first = screen_y;
+                y_last  = screen_y + screen_h - $1<<15$;
+                // retrieve column pointer
+                if (sp_mirrored) {
+                  sprites_colptrs.addr = sprites_colstarts.rdata + sprt_w - 1 - u;
+                } else {
+                  sprites_colptrs.addr = sprites_colstarts.rdata + u;
                 }
+            ++:
+                sprites_data.addr = sprites_colptrs.rdata;
+            ++:
+                r       =  y_last;
+                v_accum =  0;
+                cur_v   = -1;
+                n_post  =  0;
+                while (r >= y_first && sprites_data.rdata != 255) {
+                  
+                  v    = v_accum >> $FPm-1+4$;
+                  while (cur_v < v) { 
+                    if (n_post == 0) {
+                      // read next post
+                      v_post            = sprites_data.rdata;
+                      sprites_data.addr = sprites_data.addr + 1;
+            ++:
+                      // num in post
+                      n_post            = sprites_data.rdata;
+                      sprites_data.addr = sprites_data.addr + 2; // skip one              
+                    }
+                    if (cur_v >= v_post) {
+                      n_post = n_post - 1;
+                      if (n_post == 0) {
+                        // skip last
+                        sprites_data.addr = sprites_data.addr + 2;
+                      } else {
+                        sprites_data.addr = sprites_data.addr + 1;
+                      }
+                    }
+                    cur_v = cur_v + 1;                    
+                    //__display("first %d last %d r %d v_accum %d v %d cur_v %d v_post %d",y_first,y_last,r,v_accum,v,cur_v,v_post);
+                  }
+                  
+                  if (v >= v_post && n_post != 0) {
+                    pix    = sprites_data.rdata;
+                    (tmp1) = to_h(r);
+                    if (tmp1 >= 0 && tmp1 < 200) {
+                      //__display("pix draw %d,%d = %d",c,r,pix);
+                      (sd,depthBuffer,colormap) = writeSpritePixel(sd,fbuffer,c,tmp1,pix,light,tmp2_h,depthBuffer,colormap);
+                    }                    
+                  }
+                  
+                  v_accum = v_accum + d_h;
+                  r = r - $1<<15$;
+                }
+                // -----------------------------------------------
+                
               }
             }
             s = s + 1;

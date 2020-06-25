@@ -387,6 +387,7 @@ code:write('  }\n') -- switch
 -- wait two cycles (seems required @100MHz, single one led to artifacts)
 code:write('++:\n')
 code:write('++:\n')
+code:write('++:\n')
 
 -- defaut is non transparent
 code:write('  opac = 1;')
