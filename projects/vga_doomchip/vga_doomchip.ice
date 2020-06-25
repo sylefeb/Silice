@@ -24,7 +24,7 @@ $$print('---< written in Silice by @sylefeb >---')
 
 // select the level here!
 $$wad = 'doom1.wad'
-$$level = 'E1M1' 
+$$level = 'E1M2' 
 $$dofile('pre_wad.lua')
 
 $$dofile('pre_load_data.lua')
@@ -1104,8 +1104,8 @@ $$end
               int$FPw$ r         = 0;
               uint8  pix         = 0;
 
-              // -> get sprite frame data
-              sp_frame = (((frame + s)&1)*5) + 20;
+              // -> get sprite frame data              
+              sp_frame = ((((time>>3) + s)&1)*5) + 20;
               sprites_header   .addr = sp_frame;
               sprites_colstarts.addr = sp_frame;
               
@@ -1470,6 +1470,15 @@ $$else
     if ((kpressed & 2) != 0) {
       ray_x   = col_rx - ((cosview_m) >>> $FPm-2$);
       ray_y   = col_ry - ((sinview_m) >>> $FPm-2$);
+    } }
+    // side motion
+    if ((kpressed &  64) != 0) {
+      ray_x   = col_rx - ((sinview_m) >>> $FPm-2$);
+      ray_y   = col_ry + ((cosview_m) >>> $FPm-2$);
+    } else {
+    if ((kpressed & 128) != 0) {
+      ray_x   = col_rx + ((sinview_m) >>> $FPm-2$);
+      ray_y   = col_ry - ((cosview_m) >>> $FPm-2$);
     } }
     // manual movables
     if (kpressblind == 0) {
