@@ -24,7 +24,7 @@ $$print('---< written in Silice by @sylefeb >---')
 
 // select the level here!
 $$wad = 'doom1.wad'
-$$level = 'E1M2'
+$$level = 'E1M1'
 $$dofile('pre_wad.lua')
 
 $$dofile('pre_load_data.lua')
@@ -1109,10 +1109,10 @@ $$end
               // -> get sprite frame data              
               tmp1      = all_things.rdata[32,8];
               sel_angle = ((-3072-viewangle+(tmp1<<5)) & 4095);
-              sel_frame = ((((time>>2) + s)&1)*5) + 20; // firing
+              sel_frame = (((time>>2) + s)&1); // firing, 2 frames
               (sp_frame,sp_mirrored) = spriteSelect(sel_angle,sel_frame);
-              sprites_header   .addr = sp_frame;
-              sprites_colstarts.addr = sp_frame; 
+              sprites_header   .addr = sp_frame + 20; // +20: firing
+              sprites_colstarts.addr = sp_frame + 20; 
               
               // -> compute inverse distance
               num     = $FPl$d$(1<<(FPl-2))$;
