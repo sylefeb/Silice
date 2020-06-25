@@ -334,7 +334,8 @@ $$end
   int$FPw$ gv_m     = 0;
   int$FPw$ tr_gu_m  = 0;
   int$FPw$ tr_gv_m  = 0;
-  int$FPw$ invd_h   = 0;
+  int$FPw$ invd_w   = 0;
+  int$FPl$ invd_h   = 0;
   int$FPw$ interp_m = 0;
   int16    tmp1     = 0;
   int16    tmp2     = 0;
@@ -676,7 +677,7 @@ $$end
                 // -> compute inverse distance
                 num     = $FPl$d$(1<<(FPl-2))$;
 ++: // relax timing
-                (invd_h) <- divl <- (num,den); // (2^(FPw-2)) / d
+                (invd_w) <- divl <- (num,den); // (2^(FPl-2)) / d
                 d_h     = den >>> $FPm+4$; // record corrected distance for tex. mapping
 
                 //-------------------------
@@ -688,8 +689,8 @@ $$end
                 tmp1    = bsp_secs.rdata[16,16]; // ceiling height
                 sec_c_h = tmp1 - ray_z;                  
 ++:
-                tmp1_h  = (sec_f_h * invd_h);     // h / d
-                tmp2_h  = (sec_c_h * invd_h);     // h / d
+                tmp1_h  = (sec_f_h * invd_w);     // h / d
+                tmp2_h  = (sec_c_h * invd_w);     // h / d
 ++:
                 // obtain projected heights
                 (f_h) = to_h(tmp1_h);
@@ -834,7 +835,7 @@ $$end
                   tmp1      = bsp_secs.rdata[0,16]; // other sector floor height
                   sec_f_o   = tmp1 - ray_z;
 ++:
-                  tmp1_h    = (sec_f_o * invd_h);
+                  tmp1_h    = (sec_f_o * invd_w);
 ++:
                   sec_f_o_w = 0;
                   (f_o)     = to_h(tmp1_h);
@@ -882,7 +883,7 @@ $$end
                   }
                   sec_c_o   = tmp1 - ray_z;
 ++:
-                  tmp1_h    = (sec_c_o * invd_h);
+                  tmp1_h    = (sec_c_o * invd_w);
 ++:
                   if (bsp_segs_texmapping.rdata[65,1] == 0) {
                     // normal
@@ -995,12 +996,13 @@ $$end
           //-------------------------
           // draw things!
           //-------------------------
-          // get sector things info
+          // get things sector info
           bsp_secs.addr = bsp_ssecs.rdata[24,16];
 ++:
           s = 0;
           while (s < bsp_secs.rdata[32,8]) {
             all_things.addr = bsp_secs.rdata[40,8] + s;
+            /*if (bsp_ssecs.rdata[24,16] == 52)*/ {
             /*{
             uint16 dtmp1 = 0;
             uint16 dtmp2 = 0;
@@ -1015,14 +1017,14 @@ $$end
             // get the thing center x,y coordinates
             v0x = all_things.rdata[ 0,16];
             v0y = all_things.rdata[16,16];
+            //__display("*** thing x%d y%d",v0x,v0y);
             //__display("pos x%d y%d  dir: %d,%d",ray_x,ray_y,cosview_m,sinview_m);
-            //__display("thing x%d y%d",v0x,v0y);
             // go to view space
             d0x = v0x - ray_x;
             d0y = v0y - ray_y;
             //__display("delta %d %d",d0x,d0y);
             d_h    = (  d0x * cosview_m + d0y * sinview_m ); // along center view ray
-            tmp1_h = (- d0x * sinview_m + d0y * cosview_m ); // ortho to center view ray
+            tmp1_h = (- d0x * sinview_m + d0y * cosview_m ) >>> $FPm$; // ortho to center view ray
             //__display("lateral %d distance %d",tmp1_h,d_h);
             if (d_h > $1<<(FPm+1)$) { // margin to stay away from 0
               // in front
@@ -1032,23 +1034,40 @@ $$end
               den     = d_h;
 ++: // relax timing
               (invd_h) <- divl <- (num,den);
-              // shift distance for depth buffer
-              d_h     = den >>> $FPm+4$;
+              // shift distance for texturing (here d_h is shifted by FPm less
+              // than for walls: not multiplied by sin_m)
+              d_h     = den >>> 4;
               // -> compute thing center screen x
-              tmp3_h  = (tmp1_h * invd_h) >>> $(FPl-2-  FPm)$; 
-              // -> compute thing width
-              tmp2_h  = (   50 * invd_h) >>> $(FPl-2-2*FPm)$; // seems ok
-              //__display("dist %d screenx %d width %d",d_h,tmp3_h,tmp2_h);
-              if (tmp3_h > coltox.rdata - tmp2_h && tmp3_h < coltox.rdata + tmp2_h) { // TESTING
+              tmp3_h  = (  tmp1_h * invd_h) >>> $(4+FPl-2-2*FPm)$; // shift to end up in coltox space
+              // -> compute thing size
+              tmp2_h  = ($FPl$d30 * invd_h) >>> $(4+FPl-2-2*FPm)$;
+              // -> compute thing height
+              tmp1    = bsp_secs.rdata[0,16]; // thing sector floor height
+              sec_f_o = tmp1 - ray_z;
+              tmp1_h  = (sec_f_o * invd_h) >>> $FPm$;
+++: // relax timing              
+/*{
+              int16 dtmp4 = 0;
+              dtmp4 = coltox.rdata;
+              __display("dist %d screenx %d coltox %d width %d",d_h,tmp3_h,dtmp4,tmp2_h);
+}*/
+              tmp1_m = coltox.rdata; // widden for compare
+              if (tmp1_m > tmp3_h - tmp2_h && tmp1_m < tmp3_h + tmp2_h) { // is current column covered?
                 // NOTE d_h >> 5 for depth buffer
-                j = 80;
-                while (j <= 120) {
-                  tmp2_h = d_h>>3;
-                  tmp1   = 0;
-                  (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp1,tmp1,tmp1,light,tmp2_h,depthBuffer);
-                  j      = j + 1;                     
+                (tmp1) = to_h(tmp1_h);
+                j      = tmp1;
+                tmp2   = tmp1 + tmp2_h;
+                //__display("rayz %d f_h %d [%d,%d] sz %d",ray_z,sec_f_o,j,tmp2,tmp2_h);
+                tmp2_h = d_h>>3;
+                tmp3   = 0;
+                while (j < tmp2) {
+                  if (j >= 0 && j < 200) {
+                    (sd,opac,depthBuffer) = writePixel(sd,fbuffer,c,j,tmp3,tmp3,tmp3,light,tmp2_h,depthBuffer);
+                  }
+                  j = j + 1;                     
                 }
               }
+            }
             }
             s = s + 1;
           }
