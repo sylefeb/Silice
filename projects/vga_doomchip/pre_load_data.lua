@@ -737,24 +737,26 @@ for i = 1,sz/10 do
     nPOSS = nPOSS + 1
   end
   
-  if false  -- some things only
-  or ty == 9
-  or ty == 65
-  or ty == 3001
-  or ty == 3002
-  or ty == 3006  
-  or ty == 3005
-  or ty == 3004 then
-    local _,insec = bspLocate(x,y)
-    if not thingsPerSec[insec] then
-      thingsPerSec[insec] = {}
+  --if (opt&2) == 0 and (opt&4) == 0 then -- skill level filter
+    if false  -- some things only
+    or ty == 9
+--    or ty == 65
+--    or ty == 3001
+--    or ty == 3002
+--    or ty == 3006  
+--    or ty == 3005
+    or ty == 3004 then
+      local _,insec = bspLocate(x,y)
+      if not thingsPerSec[insec] then
+        thingsPerSec[insec] = {}
+      end
+      thing = {
+        x = x, y = y, a = a*32//90, typ = typ, opt = opt
+      }
+      table.insert(thingsPerSec[insec],thing)  
+      nthings = nthings + 1
     end
-    thing = {
-      x = x, y = y, a = a*32//90, typ = typ, opt = opt
-    }
-    table.insert(thingsPerSec[insec],thing)  
-    nthings = nthings + 1
-  end
+  --end
   
 end
 print('level contains ' .. nthings .. ' things among which ' .. nPOSS .. ' POSS')
