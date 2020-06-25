@@ -99,7 +99,7 @@ algorithm frame_drawer(
   output uint1  fbuffer
 ) {
 
-  $spritechip$
+  $spritebrom$
 
   // clears the screen
   subroutine clearScreen(

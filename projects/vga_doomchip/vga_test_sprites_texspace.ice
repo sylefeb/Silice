@@ -105,7 +105,7 @@ algorithm frame_drawer(
   output uint8  led,
 ) {
 
-  $spritechip$
+  $spritebrom$
 
   // clears the screen
   subroutine clearScreen(

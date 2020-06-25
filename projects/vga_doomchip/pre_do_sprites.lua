@@ -31,8 +31,9 @@ sprite_col_start = 0
 sprite_colptr_offset = 0
 for _,sprite_frame in ipairs(sprites_frames) do
 
-  sprite_lump = 'sprites/' .. sprite_id .. sprite_frame .. '.lmp'
-
+  extract_lump(sprite_id .. sprite_frame,'sprites/')
+  sprite_lump = 'lumps/sprites/' .. sprite_id .. sprite_frame .. '.lump'
+  
   local in_sprite = assert(io.open(findfile(sprite_lump), 'rb'))
   local sz = fsize(in_sprite)
   -- read sprite header
@@ -66,8 +67,8 @@ for _,sprite_frame in ipairs(sprites_frames) do
 
 end
 
-print('generating sprite chip code')
-local code = assert(io.open(path .. 'spritechip.ice', 'w'))
+print('generating sprite brom code')
+local code = assert(io.open(path .. 'spritebrom.ice', 'w'))
 
 sprite_bytes = 0
 
@@ -113,7 +114,7 @@ code:close()
 print('stored ' .. sprite_bytes .. ' sprite bytes\n')
 
 -- now load file into string
-local code = assert(io.open(path .. 'spritechip.ice', 'r'))
-spritechip = code:read("*all")
+local code = assert(io.open(path .. 'spritebrom.ice', 'r'))
+spritebrom = code:read("*all")
 code:close()
 

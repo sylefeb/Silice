@@ -21,4 +21,11 @@ Images will be produced in the directory, the third one (*vgaout_0002.tga*) shou
 
 ##Running on real hardware
 
-TBW
+The target platform is a de10-nano board equipped with SDRAM.  This is the
+exact same setup as the [MiSTEr projet](https://github.com/MiSTer-devel/Main_MiSTer/wiki) (see instructions there).
+
+I cannot provide a pre-built image for programming the FPGA as it would include
+game data, so you'll have to compile the entire thing -- but that is a good way
+to get started, and I will guide you through the process!
+
+To be continued...
