@@ -1,5 +1,22 @@
 # Getting started with Silice
 
+## Linux
+
+Should be as simple as:
+```
+git clone --recurse-submodules https://github.com/sylefeb/Silice.git
+cd Silice
+./compile_silice_linux.sh
+```
+
+Done! This compiled and installed the Silice executable in silice/bin/
+
+*Note:* The script will attempt to install the following dependencies using apt ; you may have to adapt package names and package manager to your Linux distribution: 
+```default-jre default-jdk iverilog verilator fpga-icestorm arachne-pnr yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
+```
+
+(the Java jre/jdk is only used during compilation)
+
 ## Windows
 
 I have prepared binary packages for Windows so you can easily get started!
@@ -47,20 +64,3 @@ cd verilator
 Look at them in sequence :-)
 
 *Note:* Under MinGW you can also compile *silice* and *silicehe* using the provided shell scripts in the root silice directory.
-
-## Linux
-
-Should be as simple as:
-```
-git clone --recurse-submodules https://github.com/sylefeb/Silice.git
-cd Silice
-./compile_silice_linux.sh
-```
-
-Done! This compiled and installed the Silice executable in silice/bin/
-
-*Note:* The script will attempt to install the following dependencies using apt ; you may have to adapt package names and package manager to your Linux distribution: 
-```default-jre default-jdk iverilog verilator fpga-icestorm arachne-pnr yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
-```
-
-(the Java jre/jdk is only used during compilation)
