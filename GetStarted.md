@@ -1,5 +1,7 @@
 # Getting started with Silice
 
+Here are the instructions to setup Silice. Once done, head out to [writing your first design](WriteAFirstDesign.md).
+
 ## Linux
 
 Should be as simple as:
