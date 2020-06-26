@@ -2,8 +2,9 @@
 
 Silice aims at simplifying writing code for FPGAs. It compiles to and inter-operates with Verilog. Silice is not meant to hide the HDL, but rather to complement it, making it more enjoyable to write parallel code and algorithms utilizing the FPGA architecture. 
 
-To setup Silice, see the [getting started](GetStarted.md) guide. You don't even need an FPGA: designs and their outputs (e.g. images) can be simulated!
+To setup Silice, see the [getting started](GetStarted.md) guide. 
 To start writing a first program, see [writing your first design](WriteAFirstDesign.md).
+You don't even need an FPGA: designs and their outputs (e.g. VGA signal) can be simulated and visualized.
 
 #### A first example:
 
