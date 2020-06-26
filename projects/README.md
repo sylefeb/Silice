@@ -9,8 +9,9 @@ To build a design please refer to the [building](#building-a-project) section be
 All designs can be simulated with Icarus/Verilator, and many will work right out of the box on real hardware. Please refer
 to the README of each project.
 
-Some projects require a VGA DAC (a bunch of resistors on a breadbord will do!). This is simple and fun to do, so I highly encourage you [to make one](DIYVGA.md).
-A few projects rely on some external hardware (typical, low cost things), this is all detailed in the README of the project.
+Some projects require a VGA DAC (a bunch of resistors on a breadbord will do!). This is simple and fun to do, so I highly encourage you [to make one](DIYVGA.md). All VGA and SDRAM projects can be simulated with the verilator framework (see next section), which outputs images of what you would see on screen. They can also be simulated with Icarus, which outputs a fst file that can be explored with gtkwave or visualized with *silicehe*.
+
+A few projects rely on some external hardware (typical, low cost things: OLED, keypad, LCD, etc.), this is all detailed in the README of the project.
 
 ## Building the examples
 
