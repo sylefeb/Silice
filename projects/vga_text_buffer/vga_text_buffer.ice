@@ -30,7 +30,7 @@ algorithm text_display(
 ) <autorun> {
 
   // Text buffer
-  bram uint6 txt[1024];
+  bram uint6 txt[1024] = {};
 
   // ---------- font
   // assumes letter_w_sp (defined in font) is an integer divider of 640

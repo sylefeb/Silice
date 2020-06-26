@@ -2,9 +2,9 @@ print('preparing textures')
 
 if SIMULATION then
   USE_BRAM = false -- RAM or ROM
-  memory_budget_bits = 500000 -- 4000000
+  memory_budget_bits = 2000000 -- 4000000
   reduce_switches    = true
-  default_shrink     = 2
+  default_shrink     = 0
 else
   USE_BRAM = false -- RAM or ROM
   memory_budget_bits = 4000000 -- 3000000
@@ -386,8 +386,8 @@ code:write('  }\n') -- switch
 
 -- wait two cycles (seems required @100MHz, single one led to artifacts)
 code:write('++:\n')
-code:write('++:\n')
-code:write('++:\n') -- not necessary? playing it safe for now
+--code:write('++:\n')
+--code:write('++:\n') -- not necessary? playing it safe for now
 
 -- defaut is non transparent
 code:write('  opac = 1;')

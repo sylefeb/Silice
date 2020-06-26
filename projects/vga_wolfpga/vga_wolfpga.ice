@@ -75,14 +75,16 @@ $$end
 // -------------------------
 
 algorithm frame_drawer(
-  output uint23 saddr,
-  output uint2  swbyte_addr,
-  output uint1  srw,
-  output uint32 sdata_in,
-  output uint1  sin_valid,
-  input  uint32 sdata_out,
-  input  uint1  sbusy,
-  input  uint1  sout_valid,
+  sdio sd {
+    output addr,
+    output wbyte_addr,
+    output rw,
+    output data_in,
+    output in_valid,
+    input  data_out,
+    input  busy,
+    input  out_valid,
+  },
   input  uint1  vsync,
   output uint1  fbuffer
 ) {
@@ -93,9 +95,9 @@ algorithm frame_drawer(
 $$write_image_in_table(texfile)
   };
   
-  bram uint10 columns[320];
-  bram uint3  material[320];
-  bram uint6  texcoord[320];
+  bram uint10 columns[320]  = {};
+  bram uint3  material[320] = {};
+  bram uint6  texcoord[320] = {};
   
 $$ tan_tbl = {}
 $$ for i=0,449 do
@@ -207,9 +209,9 @@ $$end
 
   vsync_filtered ::= vsync;
 
-  sin_valid := 0; // maintain low (pulses high when needed)
+  sd.in_valid := 0; // maintain low (pulses high when needed)
   
-  srw = 1;        // sdram write
+  sd.rw = 1;        // sdram write
 
   fbuffer = 0;
   
@@ -431,12 +433,12 @@ $$end
         // write to sdram
         yw = 100+y;
         while (1) {
-          if (sbusy == 0) { // not busy?
-            sdata_in    = palidx;
+          if (sd.busy == 0) { // not busy?
+            sd.data_in    = palidx;
             // saddr       = {~fbuffer,21b0} | ((c + (yw << 8) + (yw << 6)) >> 2); // * 240 / 4
-            saddr       = {1b0,~fbuffer,21b0} | (c >> 2) | (yw << 8); 
-            swbyte_addr = c & 3;
-            sin_valid   = 1; // go ahead!
+            sd.addr       = {1b0,~fbuffer,21b0} | (c >> 2) | (yw << 8); 
+            sd.wbyte_addr = c & 3;
+            sd.in_valid   = 1; // go ahead!
             break;
           }
         }          
@@ -455,12 +457,12 @@ $$end
           palidx = 2;
         }
         while (1) {
-          if (sbusy == 0) { // not busy?
-            sdata_in    = palidx;
+          if (sd.busy == 0) { // not busy?
+            sd.data_in    = palidx;
             // saddr       = {~fbuffer,21b0} | ((c + (yw << 8) + (yw << 6)) >> 2); // * 240 / 4
-            saddr       = {1b0,~fbuffer,21b0} | (c >> 2) | (yw << 8); 
-            swbyte_addr = c & 3;
-            sin_valid   = 1; // go ahead!
+            sd.addr       = {1b0,~fbuffer,21b0} | (c >> 2) | (yw << 8); 
+            sd.wbyte_addr = c & 3;
+            sd.in_valid   = 1; // go ahead!
             break;
           }
         }

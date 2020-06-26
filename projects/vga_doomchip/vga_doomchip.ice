@@ -55,7 +55,7 @@ $include('lcd_status.ice')
 $include('oled_doomhead.ice')
 $$end
 
-$$USE_DEBUG_POS = 1
+$$USE_DEBUG_POS = false
 
 $$print('done reading game data')
 $$print('(compiling takes a bit of time, please wait ...)')
