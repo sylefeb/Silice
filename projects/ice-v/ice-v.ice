@@ -3,6 +3,8 @@
 // Fun with RISC-V!
 // Fits an IceStick
 //
+// (can be further reduced!)
+//
 // RV32I cpu, see README.txt
 
 // IceStick clock
@@ -10,6 +12,7 @@ $$if ICESTICK then
 import('../common/icestick_clk_60.v')
 $$end
 
+// enable to see the registers during simulation
 $$SHOW_REGS = false
 
 // --------------------------------------------------

@@ -5155,7 +5155,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     if (v.usage == e_FlipFlop) {
       out << "assign " << ALG_OUTPUT << "_" << v.name << " = ";
       if (v.combinational) {
-        out << FF_D;
+        out << FF_D; 
         updateFFUsage(e_D, true, _ff_usage.ff_usage[v.name]);
       } else {
         out << FF_Q;
@@ -5173,7 +5173,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
 
   // algorithm done
   if (!hasNoFSM()) {
-    out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_D << "_" << ALG_IDX << " == " << terminationState() << ");" << endl;
+    out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << terminationState() << ");" << endl;
   }
 
   // flip-flops update

@@ -12,10 +12,6 @@ algorithm main()
   
   (result) <- div0 <- (dividend,divisor);
 
-$$if not VERILATOR then
-
   __display("%d / %d = %d",dividend,divisor,result);  
-  
-$$end
 
 }
