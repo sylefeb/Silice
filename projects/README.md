@@ -10,7 +10,27 @@ All designs can be simulated with Icarus/Verilator, and many will work right out
 to the README of each project.
 
 Some projects require a VGA DAC (a bunch of resistors on a breadbord will do!). This is simple and fun to do, so I highly encourage you [to make one](DIYVGA.md).
-A few projects rely on some external hardware (typical, low cost things), this is all listed in the README of the project with references.
+A few projects rely on some external hardware (typical, low cost things), this is all detailed in the README of the project.
+
+## Building the examples
+
+All examples are in the *projects* directory. This directory also contains a *build* subdirectory, with one entry for each currently supported framework. This includes both simulation (icarus, verilator) and FPGA hardware (icestick, mojo v3, de10nano, etc.).
+
+To build a project, go into projects/build/*architecture* where *architecture* is your target framework. This directory contains shell scripts that take as parameter the project source file. Let's take an example! We will build the 'divint bare' demo for simulation with icarus. Do the following:
+
+*Note:* under Windows please use a MinGW32 shell, please refer to the [getting started](GetStarted.md) guide.
+
+```
+cd silice/projects/build/icarus
+./icarus_bare.sh ../../projects/divint_bare/main.ice
+```
+If everthing goes well you should see in the last console output:
+```
+20043 /   -817 =    -24
+```
+Yes, the hardware division is working!
+
+# All examples
 
 ## VGA demo effects
 
@@ -52,7 +72,3 @@ A small demo featuring a font and text buffer
 ## Arithmetic
 
 Divider (because we need one!), multiplier and pipeline multiplier.
-
-## Building a project
-
-To be written.
