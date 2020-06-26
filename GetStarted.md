@@ -1,6 +1,6 @@
 # Getting started with Silice
 
-Here are the instructions to setup Silice. Once done, head out to [writing your first design](WriteAFirstDesign.md).
+Here are the instructions to setup Silice. Once done, head out to [writing your first design](FirstDesign.md) or try our [example projects](projects/README.md).
 
 ## Linux
 
