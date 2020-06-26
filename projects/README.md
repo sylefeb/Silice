@@ -28,7 +28,7 @@ If everthing goes well you should see in the last console output:
 ```
 20043 /   -817 =    -24
 ```
-Yes, the hardware division is working!
+Yes, the hardware divider is working!
 
 # All examples
 
