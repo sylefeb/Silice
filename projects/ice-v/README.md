@@ -19,14 +19,13 @@ On an IceStick the LEDs will blink rapidely around the center one.
 Optionally you can plug a small OLED screen (I used [this one](https://www.waveshare.com/1.5inch-rgb-oled-module.htm), 128x128 RGB with SSD1351 driver).
 
 The pinout for the IceStick is:
-|--------------|-----------|
 | IceStick     | OLED      |
+|--------------|-----------|
 | BR3 (pin 62) | din       |
 | BR4 (pin 61) | clk       |
 | BR5 (pin 60) | cs        |
 | BR6 (pin 56) | dc        |
 | BR7 (pin 48) | rst       |
-|--------------|-----------|
 
 Equipped with this, you can test the Doom fire (tests/c/fire.c) or the starfield
 (tests/c/starfield.c). Use the script ./icestick_**oled**.sh to synthesize the
