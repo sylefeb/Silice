@@ -6,7 +6,7 @@
 
 This is very much a work in progress, and Silice has evolved together with the DooM-chip. Therefore the code is not always using of the latest language niceties.
 
-It is also slow compared to what it should be, as the main loop is way too sequential. This will be improved and optimized (resulting in a much more elegant code!) but only once all features are in. First, let's make it work!
+More importantly, it is slow compared to what it should be, essentially because the main loop is naively sequential. This will be soon improved and optimized (resulting in a much more elegant code!), but the focus was first and foremost on make it happen!
 
 ## Where's All the Data?
 
