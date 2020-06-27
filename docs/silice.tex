@@ -231,13 +231,23 @@ All standard verilog operators are supported, binary and unary.
 Concatenation allows to combine expressions to form expressions having larger bit-width.
 The syntax is to form a comma separated list enclosed by braces.  Example:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
-  int6  a = 6b111000;
-  int2  b = 2b10;
-  int10 c = 0;
-  c := {b,a,2b11};
+  int6  i = 6b111000;
+  int2  j = 2b10;
+  int10 k = 0;
+  k := {j,i,2b11};
 \end{minted}
 
 Here c is obtained by concatenating a,b and the constant 2b11 to form a ten bits wide integer.
+
+Bits can also be replicated with a syntax similar to Verilog:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  uint2  a = 2b10;
+  uint9  c = 0;
+  c := { 1b0, {8{a[1,1]}} };
+\end{minted}
+
+Here the last eight bits of variable c are set to the second bit of a.
 
 \subsubsection{Bindings}
 \label{sec:bindings}
@@ -249,27 +259,189 @@ Here c is obtained by concatenating a,b and the constant 2b11 to form a ten bits
 	\item \texttt{<:>} binds both ways % \todo{not yet implemented}
 \end{itemize}
 
-The bound sides have to be VIO identifiers. 
+The bound sides have to be VIO identifiers. To bind expressions you can use expression tracking~(see Section~\ref{sec:exprtrack}).
+
 Bound VIOs are connected and immediately track each others values.
 A good way to think of this is as a physical wire between IC pins, where each VIO is a pin.
 Bindings are specified when instantiating algorithms and modules. 
 
-The bidirectional binding is reserved for \texttt{inout} variables, which currently can only be
-passed through \silice{} to \verilog{} modules.
+The bidirectional binding is reserved for two use cases:
+\begin{enumerate}
+\item binding \texttt{inout} variables,
+\item binding IO groups (see Section~\ref{sec:groups}).
+\end{enumerate}
 
-\subsubsection{Continuous assignment}
+\paragraph{Advanced}
+
+There are two specialized versions of the binding operators:
+\begin{itemize}
+	\item \texttt{<:} binds right to left, using value at prior clock rising edge,
+	\item \texttt{<::>} binds an IO group, using value at prior clock rising edge for inputs.
+\end{itemize}
+
+Normally, the bound inputs are tracking the value of the bound VIO as they are changing during the current clock cycle. Therefore, the tracking algorithm/module immediately gets new values (in other words, there is a combinatorial connection). However, in specific cases one needs to bind the value as it was at the last (positive) clock edge, ignoring ongoing changes. This may, for instance, be necessary to avoid a combinatorial cycle.
+
+\subsubsection{Always assign}
 \label{sec:contassign}
 
 \silice{} defines operators for continuous assignment of VIOs.
-A continuous assignment is performed at each clock rising edge, regardless of the 
-execution state of the algorithm. The left side of the assignment has to be a VIO identifier,
-while the right side may be an expression.
+A continuous assignment is performed at each clock rising edge, regardless of the execution state of the algorithm. The left side of the assignment has to be a VIO identifier, while the right side may be an expression.
 \begin{itemize}
 \item \texttt{:=} assign right to left at each rising clock.
-\item \texttt{::=} assign right to left with a one clock cycle delay (two stages flip-flop).
+\item \texttt{::=} assign right to left with a one clock cycle delay (two stages flip-flop for e.g. clock domain crossing).
 \end{itemize}
 
-Continuous assignments are specified just after variable declarations and algorithms/modules instantiations.
+Continuous assignments are specified just after variable declarations and algorithms/modules instantiations. A typical use case is to make something pulse high, for instance:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm writer(
+  output uint1 write, // pulse high to write
+  output uint8 data,  // byte to write
+  // ...
+) {
+
+  write := 0; // maintain low with always assign
+  // ...
+  if (do_write) {
+    data  = ...;
+    write = 1; // pulses high on next rising clock
+  }
+  
+}
+\end{minted}
+
+
+\textbf{Important:} the assignment is performed immediately after the clock rising edge. If the value of the expression in the right hand side is later changing (during the clock cycle), this will not change the value of the left hand side.
+To achieve this use \textit{expression tracking} (see next).
+
+\subsubsection{Expression tracking}
+\label{sec:exprtrack}
+
+Variables can be defined to constantly track the value of an expression. This is done during the variable declaration, using either the \textit{:=} or \textit{::=} operators. Example:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm adder(
+  output uint9 o,
+  // ...
+) {
+  uint8 a = 1;
+  uint8 b = 2;
+  uint9 a_plus_b := a + b;
+  
+  a = 15;
+  b = 3;
+  o = a_plus_b;
+}
+\end{minted}
+
+In this case o gets assigned 15+3. Note that the variable \textit{a\_plus\_b} becomes read only (in Verilog terms, this is now a wire). 
+
+The second operator, \textit{::=} tracks the expression using the values of the variables as they where at the previous clock rising edge.
+If used in this example, o would be assigned 1+2.
+
+\subsubsection{Groups}
+\label{sec:groups}
+
+Often, we want to pass around variables that form conceptual groups, like the interface to a controller. \silice{} has a specific mechanism to help with that. A group is declared as:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+// SDRAM interface
+group sdio
+{
+  uint23 addr       = 0,
+  uint2  wbyte_addr = 0,
+  uint1  rw         = 0,
+  uint32 data_in    = 0,
+  uint32 data_out   = 0,
+  uint1  busy       = 0,
+  uint1  in_valid   = 0,
+  uint1  out_valid  = 0
+}
+\end{minted}
+
+
+Then a group variable can be declared directly:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+sdio sd; // init values are defined in the group declaration
+\end{minted}
+
+To pass a group variable to an algorithm, we need to defined an IO group. This will further specify which group members are input and outputs:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm sdramctrl(
+  // ..
+  // interface
+  sdio sd {
+    input   addr,       // address to read/write
+    input   wbyte_addr, // write byte address with 32-bit word at addr
+    input   rw,         // 1 = write, 0 = read
+    input   data_in,    // data from a read
+    output  data_out,   // data for a write
+    output  busy,       // controller is busy when high
+    input   in_valid,   // pulse high to initiate a read/write
+    output  out_valid   // pulses high when data from read is
+}    
+) {
+  // ..
+\end{minted}
+
+Binding to the algorithm is then a single line ; in the parent:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+sdramctrl memory(
+  sd <:> sd,
+  // ..
+);
+\end{minted}
+
+\subsubsection{Bitfields}
+\label{sec:bitfields}
+
+There are many cases where we pack multiple data in a larger variable, for instance:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  uint32 data = 32hffff1234;
+  // ..
+  left  = data[ 0,16];
+  right = data[16,16];
+\end{minted}
+
+The hard coded values make this type of code quite hard to read and difficult to maintain. To cope with that, \silice{} defines bitfields. A bitfield is first declared:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+bitfield Node {
+  uint16 right,
+  uint16 left
+}
+\end{minted}
+
+Note that the first entry in the list is mapped to the higher bits of the field.
+
+This can then be used during access, to unpack the data:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+left  = Node(data).left;
+right = Node(data).right;
+\end{minted}
+
+There is no overhead to the mechanism, and different bitfield can be used on a same
+variable depending on the context (e.g. instruction decoding).
+
+The bitfield can also be used to initialize the wider variable:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+uint32 data = Node(left=16hffff,right=16h1234);
+\end{minted}
+
+\subsubsection{Intrinsics}
+
+\silice{} has convenient intrinsics:
+
+\begin{itemize}
+	\item \texttt{\_\_signed(exp)} indicates the expression is signed (Verilog \texttt{\$signed})
+	\item \texttt{\_\_unsigned(exp)} indicates the expression is unsigned (Verilog \texttt{\$unsigned})
+	\item \texttt{\_\_display(format\_string,value0,value1,...)} maps to Verilog \texttt{\$display} allowing text output during simulation.
+\end{itemize}
+	
 
 % ==============================================
 
@@ -299,7 +471,8 @@ output! TYPE ID
 ) <MODS> {
   DECLARATIONS
   SUBROUTINES
-  CONTINUOUS_ASSIGNMENTS
+  ALWAYS_ASSIGNMENTS
+  ALWAYS_BLOCK
   INSTRUCTIONS
 }
 \end{minted}
@@ -365,10 +538,10 @@ The bindings are optional and may be partial.
 Each binding is defined as:
 \texttt{ID\_left OP ID\_right} 
 where \texttt{ID\_left}
-is the identifier of an instance input or output, \texttt{OP} a continuous
-assignment operator (Section~\ref{sec:contassign}) and \texttt{ID\_right} a variable identifier.
+is the identifier of an instance input or output, \texttt{OP} a binding
+operator (Section~\ref{sec:bindings}) and \texttt{ID\_right} a variable identifier.
 
-Note that only identifiers are allowed in bindings: access to tables, swizzling and access to other algorithms input/output with the dot syntax are not allowed.
+Note that only identifiers are allowed in bindings: access to tables and swizzling are not allowed. This can be alleviated using expression tracking, see Section~\ref{sec:exprtrack}.
 
 Combined with \texttt{autorun} such bindings allow to instantiate and immediately run an algorithm to drive some of the parent algorithm variables. 
 Here is an example:
@@ -407,15 +580,15 @@ algorithm main(output int8 led)
 %
 This example reveals some interesting possibilities, and a constraint.
 As algorithm \texttt{blink} is instanced as \texttt{b0}, it starts running immediately (due to the \texttt{autorun} modifier in the declaration of \texttt{blink}). Hence, the variables \texttt{a} and \texttt{b}
-are immediately tracking the \texttt{b\_slow} and \texttt{b\_fast} outputs of \texttt{b0}. The continuous assignments to \texttt{led} then use \texttt{a} and \texttt{b} to output to the \texttt{led} 8-bit variable, which we assume is physically connected to LEDs. The first assignment sets \texttt{led} to zero, and then its two first bits to \texttt{a} and \texttt{b}. As the continuous assignments are order dependent, this behaves properly with the two first bits always assigned at each clock cycle. Since all updates in \texttt{main} are done through bindings and continuous assignments, and because \textit{algorithms always run in parallel}, there is nothing else to do, and \texttt{main} enters an infinite loop.
+are immediately tracking the \texttt{b\_slow} and \texttt{b\_fast} outputs of \texttt{b0}. The always assignment to \texttt{led} then use \texttt{a} and \texttt{b} to output to the \texttt{led} 8-bit variable, which we assume is physically connected to LEDs. The first assignment sets \texttt{led} to zero, and then its two first bits to \texttt{a} and \texttt{b}. As the always assignments are order dependent, this behaves properly with the two first bits always assigned at each clock cycle. Since all updates in \texttt{main} are done through bindings and alway assignments, and because \textit{algorithms run in parallel}, there is nothing else to do, and \texttt{main} enters an infinite loop (runs as long as there is power).
 
-The constraint, however, is that \texttt{a} and \texttt{b} are necessary. This is due to the fact that we cannot directly bind \texttt{led[0,1]} and \texttt{led[1,1]} to the instance of \texttt{blink}. Only identifiers can be specified during binding.
+The constraint, however, is that \texttt{a} and \texttt{b} are necessary. This is due to the fact that we cannot directly bind \texttt{led[0,1]} and \texttt{led[1,1]} to the instance of \texttt{blink}. Only identifiers can be specified during bindings. This can be alleviated by using expression tracking (see Section~\ref{sec:exprtrack}).
 
 \paragraph{Automatic binding.}
 The optional \texttt{<:auto:>} tag allows to automatically bind matching identifiers:
 the compiler finds all valid left/right identifier pairs having the same name and
-binds them directly. This is convenient when many bindings are repeated and passed
-around. 
+binds them directly. While this is convenient when many bindings are repeated and passed
+around, it is recommended to use groups for brevity and make all bindings explicit. 
 
 \paragraph{Direct access to inputs and outputs.}
 
@@ -547,6 +720,37 @@ subroutines offer a simple mechanism to repeat internal tasks.\\~
 
 \noindent \textit{Global subroutines} Subroutines may be declared outside of an algorithm. Such subroutines are called \textit{global} and may be called from any algorithm. This is convenient to share subroutines across algorithms. If a global subroutine requests access to parent algorithm variables (read/write permissions), an algorithm calling the subroutine has to have a matching set of variables in its scope. Note that global subroutines are not technically shared, but rather copied in each calling algorithm's scope at compile time.
 
+\noindent \textit{Nested calls}
+
+Subroutines can call other subroutines, and have to declare this is the case using the keyword \texttt{calls}.
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+subroutine wait(input uint24 delay)
+{
+  // ...
+}
+subroutine init_device(calls wait)
+{
+  // ...
+  () <- wait <- (1023);
+}
+\end{minted}
+
+Note that re-entrant calls (subroutine calling itself, even through other subroutines) are not possible.
+
+The algorithms have a stack which has to be as deep as the deepest call tree. By default the stack has a size of 4. The stack size can be specified as an algorithm option:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm foo( /*...*/ ) <stack:8> { /* ... */ }
+\end{minted}
+
+The algorithm now has a stack of size 8.
+
+\vspace*{5mm}
+\noindent
+\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
+\textbf{Note:} Beware that runtime stack overflows cannot be detected. Besides careful use of nested calls, simulation can be used to confirm a problem, looking at the max value of \texttt{\_d\_return\_ptr} for the algorithm. }}
+
 % ----------------------------------------------
 
 \subsection{Combinational loops}
@@ -598,12 +802,12 @@ It would be difficult to manually keep track of all these potential chains, whic
 
 % ----------------------------------------------
 
-\subsection{Continuous assignments}
+\subsection{Always assignments}
 
-After declarations, optional continuous assignments can be specified.
+After declarations, optional always assignments can be specified.
 These use the operators defined in Section~\ref{sec:contassign}.
 %
-Continuous assignments allow to track the value of an expression
+Always assignments allow to track the value of an expression
 in a variable, output, or instanced algorithm input or output.
 
 \noindent Example:
@@ -618,7 +822,7 @@ algorithm main(output uint8 led)
 }
 \end{minted}
 
-\noindent These assignments are performed at each clock cycle and are order dependent. For instance:
+\noindent These assignments are performed immediately after each rising clock and are order dependent. For instance:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 b := a;
 c := b;
@@ -635,6 +839,35 @@ crossing a clock domain as it allows to implement a two stages flip-flop. In fac
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 c ::= a;
+\end{minted}
+
+% ----------------------------------------------
+
+\subsection{Always block}
+
+An algorithm can have an always block. This block has to be combinational (no goto, while or step operator inside). It is always running, regardless of the state of the rest of the algorithm, and is executed immediately after always assignments, and before anything else.
+
+The syntax simply is:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+always {
+  // instructions
+  // ...
+}
+\end{minted}
+
+Assigning a variable in an always block or using an always assignment is in fact equivalent, that is:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+always {
+  a = 0;
+}
+\end{minted}
+
+\noindent is functionally the same as
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+a := 0;
 \end{minted}
 
 % ----------------------------------------------
@@ -692,6 +925,8 @@ to the next requires one clock cycle, delaying further computations.
 %
 Of course, longer combinational chains also lead to reduced clock frequency, so
 there is a tradeoff. This is why \silice{} lets you explicitly specify where to cut a combinational chain using the step operator \texttt{++:}
+
+The use of control flow structures such as \texttt{while} (or \texttt{goto}), as well as synchronization with other algorithm also require introducing states. This results in additional cycles being introduced. \silice{} follow a set of precise rules to do this, so you always know what to expect.
 
 \subsection{The {step} operator}
 \label{sec:step}
@@ -810,7 +1045,7 @@ b = a + 1;
 }
 \end{minted}
 
-Note that source code lines are either fully Silice, of fully preprocessor (starting with \$\$). A second syntax allows to use preprocessor variables directly in Silice source code, simply doing \$\texttt{varname}\$ with \texttt{varname} the variable from the preprocessor context. In fact, a full Lua expression can be used in between the \$ signs; this expression is simply concatenated to the surrounding Silice code.
+Note that source code lines are either fully \silice{}, of fully preprocessor (starting with \$\$). A second syntax allows to use preprocessor variables directly in \silice{} source code, simply doing \$\texttt{varname}\$ with \texttt{varname} the variable from the preprocessor context. In fact, a full Lua expression can be used in between the \$ signs; this expression is simply concatenated to the surrounding \silice{} code.
 
 Here is an example:
 
@@ -835,12 +1070,25 @@ uint8 a_3 = 103;
 }
 \end{minted}
 
+If a large chunk of Lua code has to be written, you can simply write it in a separate \texttt{.lua} file and use:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+$$dofile('some_lua_code.lua')
+\end{minted}
+
+% ----------------------------------------------
 
 \subsection{Includes}
 
 The preprocessor is also in charge of including other Silice source code files,
 using the syntax \texttt{\$include('source.ice')}. This loads the entire file
 (and recursively its own included files) into the preprocessor execution context.
+
+% ----------------------------------------------
+
+\subsection{Pre-processor image and palette functions}
+
+The pre-processor has a number of function to facilitate the inclusion of images
+and palette data ; please refer to the example projects \texttt{vga\_demo}, \texttt{vga\_wolfpga} and \texttt{vga\_doomchip}.
 
 % ----------------------------------------------
 
@@ -889,13 +1137,13 @@ The host hardware framework typically consists in a \verilog{} glue file. The fr
 %	\item \todo{update with icarus, as well as bare versions, mention sdram emulator}
 \end{itemize}
 
-For practical usage examples please refer to the \textit{Getting started} guide. \todo{ + guide url}
+For practical usage examples please refer to the \textit{Getting started} guide at \url{https://github.com/sylefeb/Silice/blob/master/GetStarted.md}.
 
 \subsection{VGA emulation}
 
 Silice comes with a tool called \texttt{silicehe} for \textit{\silice{} hardware emulation}. This tool will read the output of the \texttt{icarus\_vga} simulator (the fst file storing signals) and produce a sequence of images from the stored VGA signals.
 
-\todo{file format, etc.}
+Simply call it with the fst file as the second argument.
 
 % ==============================================
 	
