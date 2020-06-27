@@ -58,7 +58,7 @@ The DooM-chip, pushing the limits.
 
 ## Ice-V
 
-The coolest Risc-V processor (ok, quite an overstatement, but it is a fun project ;) ).
+A cool and tiny Risc-V processor (fits a HX1K Ice40, e.g. on the IceStick).
 
 *Tested on*: IceStick
 *Optional*: OLED screen
