@@ -1,4 +1,4 @@
-Silice risc-v RV32I implementation
+# Silice risc-v RV32I implementation
 
 Fits in an IceStick!
 
@@ -35,7 +35,7 @@ design and program the board.
 *Note:* the reset is not always reliable; if nothing happens try unplugin/plugin
 the IceStick back after programming.
 
-Links
+## Links
 
 * FemtoRV https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV
 * PicoRV  https://github.com/cliffordwolf/picorv32
