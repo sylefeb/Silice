@@ -20,8 +20,8 @@ wire __main_d5;
 
 reg ready = 0;
 
-reg [17:0] RST_d;
-reg [17:0] RST_q;
+reg [31:0] RST_d;
+reg [31:0] RST_q;
 
 always @* begin
   RST_d = RST_q >> 1;
@@ -32,7 +32,7 @@ always @(posedge CLK) begin
     RST_q <= RST_d;
   end else begin
     ready <= 1;
-    RST_q <= 18'b111111111111111111;
+    RST_q <= 32'b111111111111111111111111111111;
   end
 end
 
