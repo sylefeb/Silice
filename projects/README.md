@@ -37,7 +37,7 @@ Yes, the hardware divider is working!
 
 Some old-school effects ported on FPGA.
 
-*Tested on*: IceStick Ice40, Mojo V3
+*Tested on*: IceStick Ice40, Mojo V3\
 *Requires*: VGA DAC
 
 ## VGA + SDRAM framebuffer demos
@@ -46,28 +46,28 @@ Some old-school effects ported on FPGA.
 
 The (very simplified) render loop of Wolfenstein 3D.
 
-*Tested on*: Mojo V3 + SDRAM (or HDMI) shield
+*Tested on*: Mojo V3 + SDRAM (or HDMI) shield\
 *Requires*: VGA DAC, SDRAM
 
 ### The DooM-chip
 
 The DooM-chip, pushing the limits.
 
-*Tested on*: de10-nano with SDRAM board
+*Tested on*: de10-nano with SDRAM board\
 *Requires*: VGA DAC, SDRAM
 
 ## Ice-V
 
 A cool and tiny Risc-V processor (fits a HX1K Ice40, e.g. on the IceStick).
 
-*Tested on*: IceStick
+*Tested on*: IceStick\
 *Optional*: OLED screen
 
 ## VGA text buffer
 
 A small demo featuring a font and text buffer
 
-*Requires*: VGA DAC
+*Requires*: VGA DAC\
 *Tested on*: IceStick, Mojo V3
 
 ## Arithmetic
