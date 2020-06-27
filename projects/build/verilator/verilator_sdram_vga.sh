@@ -11,7 +11,7 @@ else
 fi
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-export PATH=$PATH:$DIR/../../../tools/fpga-binutils/mingw32/bin/
+export PATH=$PATH:$DIR/../../../bin/:$DIR/../../../tools/fpga-binutils/mingw32/bin/
 
 echo $PATH
 
@@ -34,7 +34,7 @@ u=$(echo "$1" | sed s:/:__:g | tr -d ".")
 echo "using directory $u"
 
 mkdir $u
-../../../bin/silice -f ../../../frameworks/verilator_sdram_vga.v -o $u/vga.v $1 
+silice -f ../../../frameworks/verilator_sdram_vga.v -o $u/vga.v $1 
 cd $u
 verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc vga.v --top-module vga
 cd obj_dir
