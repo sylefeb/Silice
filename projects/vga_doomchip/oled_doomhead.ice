@@ -1,6 +1,6 @@
 // SL 2020-05
 
-$include('oled.ice')
+$include('../common/oled.ice')
 
 // ------------------------- 
 

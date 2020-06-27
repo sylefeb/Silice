@@ -3,6 +3,13 @@
 // OLED 128x128 RGB screen driver (SSD1351)
 // ------------------------- 
 
+// NOTE TODO: my implementation of sending byte 
+// over SPI is much better in the ice-v, 
+// (more compact, supports higher freqs). This
+// one needs updating.
+
+// ------------------------- 
+
 group oledio {
   uint8  x_start = 0,
   uint8  x_end   = 0,

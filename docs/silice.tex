@@ -12,14 +12,16 @@
 
 % enamel
 
-\title{\silice{}\\ \textit{\normalsize A low-level procedural programming language for FPGA}}
+\title{\silice{}\\ \textit{\normalsize A programming language for FPGAs}}
 
 \begin{document}
 
 \maketitle
 
 \silice{} makes it possible to write algorithms for FPGAs in the same way we write them for processors: defining sequences of operations, subroutines that can be called, and using control flow statements such as \texttt{while} and \texttt{break} (even good old \texttt{goto}s are available!). 
-At the same time, \silice{} \textit{remains low level}. Everything an algorithm does is precisely timed, you can fully exploit the parallelism and niceties of FPGA architectures, clock domains are exposed. 
+At the same time, \silice{} lets you fully exploit the parallelism and niceties of FPGA architectures, describing operations and algorithms that run in parallel and are always active, as well as pipelines.
+\silice{} \textit{remains close to the hardware}. When writing an algorithm you are in control of what happens at which clock cycle, with predictable rules for flow control. Clock domains are exposed. 
+
 \silice{} is only a thin layer above the hardware: nothing gets obfuscated away. In fact, \silice{} compiles to and inter-operates with \verilog{}: you can directly instantiate and bind with existing modules. When \verilog{} makes more sense, use it!
 
 \silice{} is reminiscent of high performance programming in the late 90s (in the demo scene in particular): the then considered high-level C language was commonly interfaced with time-critical ASM routines. This enabled a best-of-both-worlds situation, with C being used for the overall program flow and ASM used only on carefully optimized hardware dependent routines.
@@ -134,7 +136,8 @@ Variables are declared with the following pattern:
 
 \noindent where \texttt{TYPE} is a type definition (Section~\ref{sec:types}), \texttt{ID} a variable identifier (starting with a letter followed by alphanumeric or underscores) and \texttt{VALUE} a constant (Section~\ref{sec:csts}).
 
-The initializer is mandatory, and is always a simple constant (no expressions).
+The initializer is mandatory, and is always a simple constant (no expressions), or the special
+value \texttt{uninitialized}. The later indicates that the initialization can be skipped, reducing design size. This is particularly interesting on brams/broms and register arrays.
 
 \subsection{Tables}
 
@@ -144,7 +147,7 @@ The initializer is mandatory, and is always a simple constant (no expressions).
 
 \noindent Table sizes have to be constant at compile time. The initializer is mandatory and can be a string, in which case each letter becomes its ASCII value, and the string is null terminated. The table size \texttt{M} is optional (eg. \texttt{int4 tbl[]=\{1,2,3\};} ) in which case the size is automatically derived from the initializer (strings have one additional implicit character: the null terminator).
 
-\subsection{Block RAMs}
+\subsection{Block RAMs / ROMs}
 
 \texttt{bram intN tbl[M] = \{...\} }
 
@@ -170,6 +173,41 @@ table.addr    = 2; // third entry
 a = table.rdata;   // now a == 44
 \end{minted}
 
+Finally, an advanced option lets you indicate that the BRAM inputs need
+not be latched:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+bram int8 table<input!>[4] = uninitialized;
+\end{minted}
+
+This is used to minimize a design size ; however the caller has to ensure
+values are all properly present at the right cycle when reading/writing.
+
+
+\paragraph{Block ROMs}
+
+ROMs use a similar syntax, using \texttt{brom} instead of \texttt{bram}.
+
+\paragraph{Dual-port RAMs}
+
+A dual-port block RAM has eight members accessible with the 'dot' syntax: 
+\begin{enumerate}
+	\item {\tt addr0} the address being accessed on port 0,
+	\item {\tt wenable0} write enable on port 0,
+	\item {\tt rdata0} result of read on port 0,
+	\item {\tt wdata0} data to be written on port 0,
+	\item {\tt addr1} the address being accessed on port 1
+	\item {\tt wenable1} write enable on port 1,
+	\item {\tt rdata1} result of read on port 1,
+	\item {\tt wdata1} data to be written on port1.
+\end{enumerate}
+
+The dual-port BRAM also has optional clock parameters for port0 and port1.
+
+Here is an example of using a block RAM in \silice{} with different clocks:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+dualport_bram int8 table<@clock0,@clock1>[4] = {42,43,44,45};
+\end{minted}
 
 \subsection{Operators}
 

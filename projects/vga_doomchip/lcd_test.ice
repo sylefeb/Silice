@@ -1,7 +1,7 @@
 // SL 2020-05
 
-import('../../common/de10nano_clk_100_25.v')
-import('../../common/reset_conditioner.v')
+import('../common/de10nano_clk_100_25.v')
+import('../common/reset_conditioner.v')
 
 $include('lcd.ice')
 

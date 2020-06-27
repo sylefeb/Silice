@@ -1,5 +1,5 @@
 // SL 2020-05
-$include('lcd.ice')
+$include('../common/lcd.ice')
 
 // ------------------------- 
 

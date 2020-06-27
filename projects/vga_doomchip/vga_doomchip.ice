@@ -50,7 +50,7 @@ $include('../common/mulint_any.ice')
 
 $$if DE10NANO then
 $$INTERACTIVE = 1
-$include('keypad.ice')
+$include('../common/keypad.ice')
 $include('lcd_status.ice')
 $include('oled_doomhead.ice')
 $$end
