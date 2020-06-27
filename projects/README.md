@@ -37,7 +37,7 @@ Yes, the hardware divider is working!
 
 Some old-school effects ported on FPGA.
 
-*Tested on*: IceStick, Mojo V3
+*Tested on*: IceStick Ice40, Mojo V3
 *Requires*: VGA DAC
 
 ## VGA + SDRAM framebuffer demos
