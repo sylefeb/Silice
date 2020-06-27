@@ -14,7 +14,7 @@ You do not need an FPGA to start with Silice: designs and their outputs (e.g. VG
 ```c
 1  algorithm main(output uint8 led) {   
 2    uint28 counter = 0;      // a 28 bits unsigned integer
-3    led := counter[20,8];    // LEDs is updated every clock with the 8 most significant bits  
+3    led := counter[20,8];    // LEDs updated every clock with the 8 most significant bits  
 4    while (1) {              // forever
 5      counter = counter + 1; // increment counter
 6    }  
