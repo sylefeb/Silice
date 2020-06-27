@@ -1,12 +1,12 @@
 # Silice
 
-**Important: Silice is under active development (read more)[#project-status]**
+**Important: Silice is under active development [read more](#project-status)**
 
 Silice aims at simplifying writing code for FPGAs. It compiles to and inter-operates with Verilog. Silice is not meant to hide the HDL, but rather to complement it, making it more enjoyable to write complex parallel code and algorithms utilizing the FPGA architecture. 
 
 To setup Silice, see the [getting started](GetStarted.md) guide. To start writing code, see [writing your first design](FirstDesign.md). To see what can be done with Silice, checkout our [example projects](projects/README.md) (all are available in this repo).
 
-You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized.
+You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 examples](projects/README.md).
 
 #### A first example:
 
@@ -14,7 +14,7 @@ You do not need an FPGA to start with Silice: designs and their outputs (e.g. VG
 ```c
 1  algorithm main(output uint8 led) {   
 2    uint28 counter = 0;      // a 28 bits unsigned integer
-3    led := counter[20,8];    // LEDs track the 8 most significant bits  
+3    led := counter[20,8];    // LEDs updated every clock with the 8 most significant bits  
 4    while (1) {              // forever
 5      counter = counter + 1; // increment counter
 6    }  
@@ -59,7 +59,7 @@ Silice does not attempt to abstract away the hardware: the programmer remains in
 
 Silice is reminiscent of high performance programming in the late 90s (in the demo scene in particular): the then considered high-level C language was commonly interfaced with time-critical ASM routines. This enabled a best-of-both-worlds situation, with C being used for the overall program flow and ASM used only on carefully optimized hardware dependent routines.
 
-Silice does the same, providing a programmer friendly C-inspired layer on top of Verilog, while allowing to call low level Verilog modules whenever needed. Silice also favors parallelism and performance everywhere, allowing to fully benefits from the specificities of FPGA architectures.
+Silice does the same, providing a programmer friendly layer on top of Verilog with a familiar syntax, while allowing to use low level Verilog modules whenever needed. Silice also favors parallelism and performance everywhere, allowing to fully benefits from the natural parallelism of FPGA architectures.
 
 The main features are:
 - Prioritize combinational over sequential execution. Parallelism comes first!
@@ -77,8 +77,8 @@ To see what can be done with Silice, checkout our [example projects](projects/RE
 
 ## Project status
 
-Silice can already be used to create non trivial designs, from a tiny Risc-V processor to an entire game render loop (visit the (examples)[projects/README.md] page).
+Silice can already be used to create non trivial designs, from a tiny Risc-V processor to an entire game render loop (visit the [examples](projects/README.md) page).
 
-However Silice is under active development. I decided to open the repo so everyone can join in the fun, but it is far from complete: documentation is lacking, some examples are outdated or far from polished, some very important language features are missing, and many known issues exist (head out to the (Issues)[https://github.com/sylefeb/Silice/issues] page). I am confident I can avoid major code breaking syntax changing, but some adjustments may be necessary.
+However Silice is under active development. I decided to open the repo so everyone can join in the fun, but it is far from complete: documentation is lacking, some examples are outdated or far from polished, some very important language features are missing, and many known issues exist (head out to the [Issues](https://github.com/sylefeb/Silice/issues) page). I am confident I can avoid major code breaking syntax changing, but some adjustments may be necessary.
 
 I hope you'll nevertheless enjoy diving into it, and will find it useful. Please let me know your thoughts: comments and contributions are welcome!
