@@ -1,6 +1,6 @@
 # Silice
 
-**Important: Silice is under active development [read more](#project-status)**
+**Important: Silice is in alpha stages and under active development [read more](#project-status-alpha-release)**
 
 Silice aims at simplifying writing code for FPGAs. It compiles to and inter-operates with Verilog. Silice is not meant to hide the HDL, but rather to complement it, making it more enjoyable to write complex parallel code and algorithms utilizing the FPGA architecture. 
 
@@ -75,7 +75,7 @@ See the [getting started](GetStarted.md) guide. Silice runs great both on Window
 To start writing code, see [writing your first design](FirstDesign.md).
 To see what can be done with Silice, checkout our [example projects](projects/README.md) (all are available in this repo).
 
-## Project status
+## Project status: Alpha release
 
 Silice can already be used to create non trivial designs, from a tiny Risc-V processor to an entire game render loop (visit the [examples](projects/README.md) page).
 
