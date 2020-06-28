@@ -2,6 +2,10 @@
 
 Fits in an IceStick!
 
+Requires the RiscV toolchain. Under Windows, this is included in the binary 
+package from my fpga-binutils repo (see [Getting started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md) ). Under Linux you will
+have to compile from source (afaik there is no package yet?), see links below.
+
 Builds in two steps, first compile some code for the processor to run:
 
 In the *projects/ice-v* folder (here!) run
@@ -37,6 +41,8 @@ the IceStick back after programming.
 
 ## Links
 
+* RiscV toolchain https://github.com/riscv/riscv-gnu-toolchain
+* Pre-compiled riscv-toolchain for Linux https://matthieu-moy.fr/spip/?Pre-compiled-RISC-V-GNU-toolchain-and-spike&lang=en
 * FemtoRV https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV
 * PicoRV  https://github.com/cliffordwolf/picorv32
 * Stackoverflow post on CPU design (see answer) https://stackoverflow.com/questions/51592244/implementation-of-simple-microprocessor-using-verilog
