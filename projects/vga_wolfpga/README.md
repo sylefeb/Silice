@@ -10,5 +10,6 @@ MojoV3 board, and can be simulated with Icarus/Verilator
 ## Textures
 
 The four textures in wolf.tga are damaged versions of the original ones 
-(for copyright reasons), simply replace by those from your copy of the game 
-for best results!
+(for copyright reasons), and the result is quite horrible.
+
+Simply replace by textures from your copy of the game for best results!
