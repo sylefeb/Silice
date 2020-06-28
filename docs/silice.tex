@@ -952,7 +952,7 @@ Now, \texttt{if-then-else} is slightly more subtle. When applied to sequences of
 When the \texttt{if-then-else} contains additional control flow (e.g. a subroutine call, a \texttt{while}, a \texttt{++:}, a \texttt{goto}, etc.) it is automatically split into several states. It then takes one cycle to exit the 'if' or 'else' part and resume operations.
 If only the 'if' or the 'else' requires additional states while the other is a single combinational chain (possibly empty), an additional state is still required to 'jump' to what comes after the \texttt{if-then-else}. So in general this will cost one cycle. However, in cases where this next state already exists, for instance when the \texttt{if-then-else} is at the end of a \texttt{while} loop, this existing state is reused resulting in no overhead.
 
-This as interesting implications. Consider the following code:
+This has interesting implications. Consider the following code:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 while(...) {
@@ -965,7 +965,7 @@ while(...) {
 }
 \end{minted}
 
-When the \texttt{if} is not taken, we still have to pay one cycle to reach line 5. That is because it has been split into a separate state since the \texttt{if} contains non-combinational code that must jump to reach it. Hence, the while loop will always take at least two cycles.
+When the \texttt{if} is not taken, we still have to pay one cycle to reach line 7. That is because it has been place into a separate state since the \texttt{if} contains non-combinational code that has to jump to reach it. Hence, the while loop will always take at least two cycles.
 
 However, you may choose to duplicate some code (and hence some circuitry!) to avoid the extra cycle, rewriting as:
 
