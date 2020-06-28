@@ -73,3 +73,7 @@ A small demo featuring a font and text buffer
 ## Arithmetic
 
 Divider (because we need one!), multiplier and pipeline multiplier.
+
+# Notes and tips
+
+If you are using an IceStick under Windows and run into trouble, checkout the notes on my [fpga-binutils repo](https://github.com/sylefeb/fpga-binutils) (end of page).
