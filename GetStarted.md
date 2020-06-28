@@ -64,7 +64,7 @@ cd verilator
 ./test_____vga_text_buffer__vga_text_bufferice.exe
 ```
 
-=> This executes the simulation, which output 40 image files (tga format)
+=> This executes the simulation, which outputs 40 image files (tga format)
 Look at them in sequence :-)
 
 *Note:* Under MinGW you can also compile *silice* and *silicehe* using the provided shell scripts in the root silice directory.
