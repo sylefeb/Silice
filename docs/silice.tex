@@ -914,19 +914,20 @@ and vendor toolchain.
 
 % ----------------------------------------------
 
-\section{Execution flow}
+\section{Execution flow and cycle utilization rules}
 \label{sec:execflow}
 
 Upon compilation, \silice{} breaks down the code into a finite state machine (FSM) and corresponding combinational chains.
 %
 \silice{} attempts to form the longest combinational chains, or equivalently
-to minimize the number of states in the FSM. That is because going from one state 
-to the next requires one clock cycle, delaying further computations. 
+to minimize the number of states in the FSM. That is because going from one state to the next requires one clock cycle, delaying further computations.
 %
 Of course, longer combinational chains also lead to reduced clock frequency, so
 there is a tradeoff. This is why \silice{} lets you explicitly specify where to cut a combinational chain using the step operator \texttt{++:}
 
-The use of control flow structures such as \texttt{while} (or \texttt{goto}), as well as synchronization with other algorithm also require introducing states. This results in additional cycles being introduced. \silice{} follow a set of precise rules to do this, so you always know what to expect.
+Note that if a state contains several independent combinational chain, they will execute as parallel circuits (e.g. two computations regarding different sets of variables). Grouping such computations in a same state increases parallelism, without deepening the combinational chains.
+
+The use of control flow structures such as \texttt{while} (or \texttt{goto}), as well as synchronization with other algorithm also require introducing states. This results in additional cycles being introduced. \silice{} follows a set of precise rules to do this, so you always know what to expect.
 
 \subsection{The {step} operator}
 \label{sec:step}
@@ -935,51 +936,65 @@ Placing a \texttt{++:} in the sequence of operations of an algorithm explicitly 
 
 This has several important applications such as waiting for a memory read/write, or breaking down long combinational chains that would violate timing.
 
-
-
-% https://www.xilinx.com/support/documentation/sw_manuals/xilinx2015_2/sdsoc_doc/topics/calling-coding-guidelines/concept_pipelining_loop_unrolling.html
-%
-% pipelining
-%
-% for (...) {
-%   A(i)   what if A(i) uses C(i-1) ?? => cannot pipeline ...
-%   ++:
-%   B(i)   written by A, read by B => preserve
-%   ++:
-%   C(i)   written by A or B, read by C => preserve
-% }
-%
-% for (...) {
-%   A(i) [write for B(i),C(i)], B(i-1) [write for C(i-1)], C(i-2) [write for A(i+1)]
-%   ++:
-% }
-%
-% unrolling
-% 
-
 % ----------------------------------------------
 
 \subsection{Control flow}
 
 The core control flow operations are \texttt{goto}, \texttt{call} and \texttt{return} (\texttt{call} is a \texttt{goto} preparing a return address for \texttt{return}). 
 %
-While \texttt{goto} and \texttt{call} may be used directly, it is recommended to prefer higher level primitives such as \texttt{while} and subroutines, because \texttt{goto} often lead to harder to read and maintain code\footnote{See the famous Dijkstra's paper about this~\cite{dijkstra}}. Yet, they are a fundamental low-level operation and \silice{} is happy to expose them for your enjoyment!
+While \texttt{goto} and \texttt{call} may be used directly, it is recommended to prefer higher level primitives such as \texttt{while} and subroutines, because \texttt{goto} often leads to harder to read and maintain code\footnote{See the famous Dijkstra's paper about this~\cite{dijkstra}}. 
+Yet, they are a fundamental low-level operation and \silice{} is happy to expose them for your enjoyment!
 
 \texttt{goto} and \texttt{call} always require one cycle to 'jump': this is a change of state in the FSM. Entering a \texttt{while} takes one cycle and then, if there is a single combinational chain inside, it takes exactly one cycle per iteration. 
 
 Now, \texttt{if-then-else} is slightly more subtle. When applied to sequences of operations not requiring any control flow, an \texttt{if-then-else} synthesizes to a combinational \texttt{if-then-else}. This means that both the 'if' and 'else' code are evaluated in parallel as combinational chains, and a multiplexer selects which one is the result based on the condition. This applies recursively, so combinational \texttt{if-then-else} may be nested.
 
-When the \texttt{if-then-else} contains additional control flow (e.g. a subroutine call, a \texttt{while}, a \texttt{++:}, a \texttt{goto}, etc.) it is automatically split into several states of the FSM. It then takes one cycle to exit the 'if' or 'else' part and resume operations. This applies to both 'if' and 'else' even if only one requires control flow while the other is a single combinational chain.
+When the \texttt{if-then-else} contains additional control flow (e.g. a subroutine call, a \texttt{while}, a \texttt{++:}, a \texttt{goto}, etc.) it is automatically split into several states. It then takes one cycle to exit the 'if' or 'else' part and resume operations.
+If only the 'if' or the 'else' requires additional states while the other is a single combinational chain (possibly empty), an additional state is still required to 'jump' to what comes after the \texttt{if-then-else}. So in general this will cost one cycle. However, in cases where this next state already exists, for instance when the \texttt{if-then-else} is at the end of a \texttt{while} loop, this existing state is reused resulting in no overhead.
+
+This as interesting implications. Consider the following code:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+while(...) {
+  if (condition) {
+    ...
+++:
+    ...    
+  }
+  a = b + 1;
+}
+\end{minted}
+
+When the \texttt{if} is not taken, we still have to pay one cycle to reach line 5. That is because it has been split into a separate state since the \texttt{if} contains non-combinational code that must jump to reach it. Hence, the while loop will always take at least two cycles.
+
+However, you may choose to duplicate some code (and hence some circuitry!) to avoid the extra cycle, rewriting as:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+while(...) {
+  if (condition) {
+    ...
+++:
+    ...    
+    a = b + 1;
+  } else {
+    a = b + 1;
+  }
+}
+\end{minted}
+
+This works because when the \texttt{if} is taken the execution simply goes back to the start of the \texttt{while}, a state that already exists. The \texttt{else} being combinational and also followed by the start of the \texttt{while} no extra cycle is necessary! We just tradeoff a bit of circuit size for extra performance.
 
 % ----------------------------------------------
 
 \subsection{Cycle costs of calls to algorithms and subroutines}
 
-\todo{subroutine: one cycle to jump to, one cycle to return from}
+A synchronized call to an algorithm takes at best two cycles: one cycle for the algorithm to start processing, and one cycle to register that the algorithm is done.
+
+A synchronized call to a subroutine takes at best two cycles: one cycle to jump to the subroutine initial state, and one cycle to jump back.
 
 % ----------------------------------------------
 
-\subsection{Pipelining}
+\subsection{Pipelining} 
 
 \todo{describe syntax \ttfamily{\{ \} -> \{ \}}}
 
