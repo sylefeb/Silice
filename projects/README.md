@@ -72,7 +72,7 @@ A small demo featuring a font and text buffer
 
 ## Arithmetic
 
-Divider (because we need one!), multiplier and pipeline multiplier.
+Divider (because we need one!), multiplier and pipelined multiplier.
 
 # Notes and tips
 
