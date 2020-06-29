@@ -11,7 +11,7 @@ silice -f ../../../frameworks/icestick.v $1 -o build.v
 
 if ! type "nextpnr-ice40" > /dev/null; then
   # try arachne-pnr instead
-  echo "next-pnr not found, trying arachne-pnr instead"
+  echo "nextpnr-ice40 not found, trying arachne-pnr instead"
   yosys -q -p "synth_ice40 -blif build.blif" build.v
   arachne-pnr -p ../../../frameworks/icestick.pcf build.blif -o build.txt
   icepack build.txt build.bin
