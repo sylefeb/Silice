@@ -76,7 +76,6 @@ Here is another small example outlining a core principle of Silice:
 10 ++:
 11     cosview     = sintbl.rdata;
 12     ...
-13 }
 ```
 ##### Explanations:
 
