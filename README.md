@@ -81,9 +81,8 @@ Here is another small example outlining a core principle of Silice:
 ##### Explanations:
 
 This code is storing a sine table in a block ROM and accesses it to obtain a cosine and sine for the current view angle.
-Note the use of the **++:** *step* operator in lines 7 and 10. This explicitely splits the exectution flow and introduces a one
-cycle delay, here waiting for the brom to output its result in field *rdata* for the select address in *addr*.
-Anything is between is considered combinational; for instance lines 8 and 9 are executed in parallel, as they
+Note the use of the **++:** *step* operator in lines 7 and 10. This explicitely splits the exectution flow and introduces a one cycle delay, here waiting for the brom to output its result in field *rdata* for the select address in *addr*.
+Anything in between is considered combinational; for instance lines 8 and 9 are evaluated in parallel on hardware, as they
 each produce two pieces of independent circuitry.
 
 ## Design principles
