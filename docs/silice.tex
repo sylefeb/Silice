@@ -1038,9 +1038,14 @@ This works because when the \texttt{if} is taken the execution simply goes back 
 
 \subsection{Cycle costs of calls to algorithms and subroutines}
 
-A synchronized call to an algorithm takes at best two cycles: one cycle for the algorithm to start processing, and one cycle to register that the algorithm is done.
+A synchronized call to an algorithm takes at best two cycles: one cycle for the algorithm to start processing, and one cycle to register that the algorithm is done. An asynchronous call is a combinational operation (and the algorithm will start running on the next clock cycle), while a synchronization inserts a state in the control flow and always requires at least one cycle, even if the algorithm is already finished.
 
 A synchronized call to a subroutine takes at best two cycles: one cycle to jump to the subroutine initial state, and one cycle to jump back.
+
+\vspace*{5mm}
+\noindent
+\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
+		\textbf{Note:} Keep in mind that algorithms can also autorun and have their inputs/outputs bound to variables (see Section \ref{sec:instantiation}). Algorithms may also contain a combinational \texttt{always} block that is always running.}}
 
 % ----------------------------------------------
 
