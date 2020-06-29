@@ -3,13 +3,15 @@
 
 **Important: Silice is in alpha stages and under active development [read more](#project-status-alpha-release)**
 
-Silice aims at simplifying writing code for FPGAs. It compiles to and inter-operates with Verilog. Silice is not meant to hide the HDL, but rather to complement it, making it more enjoyable to write complex parallel code and algorithms utilizing the FPGA architecture. 
+Silice makes it possible to write algorithms for FPGAs in the same way we write them for processors: defining sequences of operations, subroutines that can be called, and using control flow statements such as *while* and *break*. At the same time, Silice lets you fully exploit the parallelism and niceties of FPGA architectures, describing operations and algorithms that run in parallel and are always active, as well as pipelines. Silice *remains close to the hardware*: nothing gets obfuscated away. When writing an algorithm you are in control of what happens at which clock cycle, with predictable rules for flow control. Clock domains are exposed. In fact, Silice compiles to and inter-operates with Verilog: you can directly instantiate and bind with existing modules.
 
 To setup Silice, see the [getting started](GetStarted.md) guide. To start writing code, see [writing your first design](FirstDesign.md). To see what can be done with Silice, checkout our [example projects](projects/README.md) (all are available in this repo).
 
 The Silice [documentation is here](docs/silice.pdf).
 
 You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 examples](projects/README.md).
+
+While I developed Silice for my own needs, I hope you'll find it useful for your projects!
 
 #### A first example:
 
