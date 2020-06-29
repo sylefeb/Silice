@@ -35,7 +35,7 @@ silice first_example.ice -f frameworks/mojo_led.v -o Mojo-Project/src/mojo_top.v
 
 ![First example in action on a Mojo v3](docs/figures/first_example.gif)
 
-##### Explanations
+##### Explanations:
 
 Line 1 is the entry point of any Silice hardware: the main algorithm. Line 2 we define
 a 28 bits unsigned int, initialized to 0. Initializers are mandatory and are always constants.
@@ -57,6 +57,34 @@ Several other frameworks are provided, and it is easy to write your own.
 The -o parameter indicates where to write the Verilog output. In this example we overwrite 
 the main file of a pre-existing project, which is then compiled using Xilinx ISE toolchain.
 Fear not, we also have examples working with yosys, nextpnr and [project icestorm](http://www.clifford.at/icestorm/)!
+
+#### Cycles and control flow:
+
+Here is another small example outlining a core principle of Silice:
+
+##### Code:
+```c
+1 algorithm main() {   
+2    brom int12 sintbl[4096] = {...}
+3    ...
+4    while (1) { // render loop
+5      // get cos/sin view
+6      sintbl.addr = (viewangle) & 4095;
+7  ++:
+8      sinview     = sintbl.rdata;
+9      sintbl.addr = (viewangle + 1024) & 4095;
+10 ++:
+11     cosview     = sintbl.rdata;
+12     ...
+13 }
+```
+##### Explanations:
+
+This code is storing a sine table in a block ROM and accesses it to obtain a cosine and sine for the current view angle.
+Note the use of the **++:** *step* operator in lines 7 and 10. This explicitely splits the exectution flow and introduces a one
+cycle delay, here waiting for the brom to output its result in field *rdata* for the select address in *addr*.
+Anything is between is considered combinational; for instance lines 8 and 9 are executed in parallel, as they
+each produce two pieces of independent circuitry.
 
 ## Design principles
 
