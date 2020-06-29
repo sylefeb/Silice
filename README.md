@@ -41,22 +41,22 @@ Line 1 is the entry point of any Silice hardware: the main algorithm. Line 2 we 
 a 28 bits unsigned int, initialized to 0. Initializers are mandatory and are always constants.
 Line 3 we request that the output led tracks the eight most significant bits of the counter variable.
 The syntax [20,8] means 8 bits wide starting from bit 20. The assignement to led
-uses the := operator which is a continuous assignement: led is now automatically 
-tracking changes to counter at each clock cycle. Continuous assignements always 
-directly follow variable declarations in an algorithm.
+uses the := operator which is an *always* assignement: led is now automatically 
+updated with counter after each rising clock. Such assignements have to appear
+at the top of an algorithm, right before any other instruction.
 
 Finally, lines 4-6 define the infinite loop that increments the counter. Of course the
 28 bit counter will ultimately overflow and go back to 0, hence the cyclic LED light pattern.
 In this case, the loop takes exactly one cycle to execute: we have one increment per cycle 
 at 50 MHz (the clock frequency of the Mojo v3).
 
-We then compile with silice. The -f parameter indicates which framework to use: this is a
+We then compile with silice. The -f parameter indicates which framework to use: this is an
 FPGA plateform dependent wrapper code. Here we are using the Mojo framework with LEDs only.
 Several other frameworks are provided, and it is easy to write your own. 
 
 The -o parameter indicates where to write the Verilog output. In this example we overwrite 
 the main file of a pre-existing project, which is then compiled using Xilinx ISE toolchain.
-We also have examples working with [project icestorm](http://www.clifford.at/icestorm/)!
+Fear not, we also have examples working with yosys, nextpnr and [project icestorm](http://www.clifford.at/icestorm/)!
 
 ## Design principles
 
