@@ -23,12 +23,19 @@ Images will be produced in the directory, the third one (*vgaout_0002.tga*) shou
 
 ## Running on real hardware
 
-The target platform is a de10-nano board equipped with SDRAM.  This is the
-exact same setup as the [MiSTEr projet](https://github.com/MiSTer-devel/Main_MiSTer/wiki) (see instructions there).
-You also need a VGA DAC, see [instructions here](../DIYVGA.md).
+The target platform is a de10-nano board equipped with SDRAM, a VGA DAC and (for now) a 4x4 keypad matrix. 
+The SDRAM uses the exact same setup as the [MiSTEr projet](https://github.com/MiSTer-devel/Main_MiSTer/wiki) (see instructions there). You also need a VGA DAC, see [instructions here](../DIYVGA.md).
 
 I cannot provide a pre-built image for programming the FPGA as it would include
 game data, so you'll have to compile the entire thing -- but that is a good way
-to get started, and I will guide you through the process!
+to get started!
 
-To be continued...
+Basically you have to
+1- Generate the Verilog code into the de10nano projet, see [README in projects/build/de10nano](../build/de10nano/README.md)
+2- Launch Quartus and start synthesis
+3- Wait for a relatively long time 
+4- Program the de10nano using Quartus programmer!
+
+The amound of texture data can be controlled from the header of 'pre_do_textures.lua'. The more you use, the slower synthesis is (and of course the design may not fit).
+
+(To be expanded)
