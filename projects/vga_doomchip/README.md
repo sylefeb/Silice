@@ -8,9 +8,11 @@ This is very much a work in progress, and Silice has evolved together with the D
 
 More importantly, it is slow compared to what it should be, essentially because the main loop is naively sequential. This will be soon improved and optimized (resulting in a much more elegant code!), but the focus was first and foremost on make it happen!
 
+The DooM-chip is also a great example of what the Lua pre-processor has to offer. Indeed, the pre-processor automatically parses the game file data, extracts and generates all datastructures that are then embedded into brams/broms.
+
 ## Where's All the Data?
 
-For obvious copyright reasons you have to provide your own Doom WAD file. During compilation the data will be automatically extracted and processed. You can select the level in the header of *vga_doomchip.ice*.
+For obvious copyright reasons you have to provide your own Doom WAD file. During compilation the data will be automatically extracted and processed. You can select the level in the header of *vga_doomchip.ice* (see the "ExMy" string).
 
 ## How to test
 
