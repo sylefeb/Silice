@@ -13,7 +13,7 @@ cd Silice
 
 Done! This compiled and installed the Silice executable in silice/bin/
 
-*Note:* The script will attempt to install the following dependencies using apt ; you may have to adapt package names and package manager to your Linux distribution: 
+**Note:** The script will attempt to install the following dependencies using apt ; you may have to adapt package names and package manager to your Linux distribution, and/or edit the script to remove any dependency you do not wish to install: 
 ```
 default-jre default-jdk iverilog verilator fpga-icestorm arachne-pnr 
 yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
