@@ -20,13 +20,7 @@ holder must remain included in all distributions.
 // -------------------------------------------------
 
 /*
-
-NOTES:
-- SL: could we identify combinational loops through binded algorithms?
-- SL: how (and whether?) to initialize outputs?
-- SL: recheck repeat blocks ...
-- SL: warning if an algorithm input is not bound + not used
-
+See GitHub Issues section for open/known issues.
 */
 
 #include "siliceLexer.h"
