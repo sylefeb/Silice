@@ -772,11 +772,10 @@ Note that there is no type specification on inputs/outputs as these are resolved
 circuitry writeData(inout sd,input addr,input data) {
   // wait for sdram to not be busy
   while (sd.busy) { /*waiting*/ }
-    // write!
-    sd.data_in      = rdata;
-    sd.addr         = addr;
-    sd.in_valid     = 1;
-  }
+  // write!
+  sd.data_in      = rdata;
+  sd.addr         = addr;
+  sd.in_valid     = 1;
 }
 \end{minted}
 
