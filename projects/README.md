@@ -13,6 +13,10 @@ Some projects require a VGA DAC (a bunch of resistors on a breadbord will do!). 
 
 A few projects rely on some external hardware (typical, low cost things: OLED, keypad, LCD, etc.), this is all detailed in the README of the project.
 
+<p align="center">
+  <img width="600" src="gallery.png">
+</p>
+
 ## Building the examples
 
 All examples are in the *projects* directory. This directory also contains a *build* subdirectory, with one entry for each currently supported framework. This includes both simulation (icarus, verilator) and FPGA hardware (icestick, mojo v3, de10nano, etc.).
