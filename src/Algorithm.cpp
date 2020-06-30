@@ -4463,7 +4463,7 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
   if (!m_OneHot) {
     out << "case (" << FF_Q << prefix << ALG_IDX << ")" << std::endl;
   } else {
-    out << "(* parallel_case *)" << endl;
+    out << "(* parallel_case, full_case *)" << endl;
     out << "case (1'b1)" << endl;
   }
   while (!q.empty()) {
