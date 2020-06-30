@@ -15,6 +15,11 @@ $$if ICESTICK then
 import('../common/icestick_clk_25.v')
 $$end
 
+$$if ULX3S then
+// Clock
+import('../common/ulx3s_clk_100_25.v')
+$$end
+
 $$if HARDWARE then
 // Reset
 import('../common/reset_conditioner.v')
@@ -34,7 +39,7 @@ $$if MOJO then
   output! uint1 avr_rx,
   input   uint1 avr_rx_busy,
 $$end
-$$if MOJO or VERILATOR then
+$$if MOJO or VERILATOR or ULX3S then
   // SDRAM
   output! uint1  sdram_cle,
   output! uint1  sdram_dqm,
@@ -63,6 +68,9 @@ $$if ICESTICK then
   output! uint1 led2,
   output! uint1 led3,
   output! uint1 led4,
+$$end
+$$if ULX3S then
+  output! uint8 led,
 $$end
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
@@ -101,6 +109,16 @@ $$elseif ICESTICK then
     clock_out :> video_clock,
     lock      :> led4
   );
+$$elseif ULX3S then
+  // --- clock
+  uint1 sdram_clock = 0;
+  uint1 pll_lock = 0;
+  ulx3s_clk_100_25 clk_gen(
+    clkin    <: clock,
+    clkout0  :> sdram_clock,
+    clkout1  :> video_clock,
+    locked   :> pll_lock
+  ); 
 $$end
   // --- video reset
   reset_conditioner vga_rstcond (

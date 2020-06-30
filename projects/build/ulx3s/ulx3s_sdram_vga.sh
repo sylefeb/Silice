@@ -5,7 +5,7 @@ export PYTHONPATH=/mingw32/lib/python3.8/
 
 rm build*
 
-silice -f ../../../frameworks/ulx3s.v $1 -o build.v
+silice -f ../../../frameworks/ulx3s_sdram_vga.v $1 -o build.v
 
 # exit
 
