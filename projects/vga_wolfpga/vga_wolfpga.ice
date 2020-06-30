@@ -397,7 +397,7 @@ $$end
       c = c + 1;
     }
     
-    // draw columns
+    // draw columns TODO: in parallel with FIFO
     c = 0;
     columns.wenable  = 0;
     material.wenable = 0;
