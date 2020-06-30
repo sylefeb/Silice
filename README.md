@@ -100,6 +100,10 @@ The main features are:
 - Familiar C-like syntax.
 - Powerful LUA-based pre-processor.
 
+These two examples are very different and representative of this approach:
+- The [WolfPGA](https://github.com/sylefeb/Silice/blob/master/projects/vga_wolfpga/vga_wolfpga.ice) is a raycaster essentially based on a sequential flow (but where each step is a relatively large combinational block).
+- The [ice-v](https://github.com/sylefeb/Silice/blob/master/projects/ice-v/ice-v.ice) is a RiscV RV32I processor that relies mostly on non-sequential constructs.
+
 ## Getting started with Silice
 
 See the [getting started](GetStarted.md) guide. Silice runs great both on Windows and Linux!
