@@ -123,6 +123,9 @@ private:
   /// \brief whether algorithm autorun at startup
   bool m_AutoRun = false;
 
+  /// \brief whether algorithm uses onehot state encoding
+  bool m_OneHot = false;
+
   /// \brief Set of known modules
   const std::unordered_map<std::string, AutoPtr<Module> >& m_KnownModules;
   /// \brief Set of known subroutines
@@ -763,13 +766,16 @@ private:
   bool requiresNoReset() const;
   /// \brief returns true if the algorithm does not call subroutines
   bool doesNotCallSubroutines() const;
+  /// \brief converts an internal state into a FSM state
+  int  toFSMState(int state) const;
 
 public:
 
   /// \brief constructor
   Algorithm(
     std::string name, 
-    std::string clock, std::string reset, bool autorun, int stack_size,
+    std::string clock, std::string reset, 
+    bool autorun, bool onehot, int stack_size,
     const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
     const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
     const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,

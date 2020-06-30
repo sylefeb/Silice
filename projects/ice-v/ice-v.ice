@@ -217,7 +217,7 @@ algorithm rv32i_cpu(
   input   uint32 mem_rdata,
   output! uint32 mem_wdata,
   output! uint1  mem_wen,
-) {
+) <onehot> {
   
   //                 |--------- indicates we don't want the bram inputs to be latched
   //                 v          writes have to be setup during the same clock cycle

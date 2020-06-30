@@ -2435,10 +2435,9 @@ int Algorithm::maxState() const
 
 int Algorithm::entryState() const
 {
-  // TODO: but not so simple, can lead to trouble with var inits, 
+  // TODO: fastforward, but not so simple, can lead to trouble with var inits, 
   // for instance if the entry state becomes the first in a loop
   // fastForward(m_Blocks.front())->state_id 
-
   return 0;
 }
 
@@ -2447,6 +2446,17 @@ int Algorithm::entryState() const
 int Algorithm::terminationState() const
 {
   return m_MaxState - 1;
+}
+
+// -------------------------------------------------
+
+int  Algorithm::toFSMState(int state) const
+{
+  if (!m_OneHot) {
+    return state;
+  } else {
+    return 1 << state;
+  }
 }
 
 // -------------------------------------------------
@@ -2502,7 +2512,9 @@ bool Algorithm::hasNoFSM() const
     return false;
   }
   for (const auto &b : m_Blocks) { // NOTE: no need to consider m_AlwaysPre, it has to be comibinational
-    if (b->state_id == -1 && b->is_state) continue; // block is never reached
+    if (b->state_id == -1 && b->is_state) {
+      continue; // block is never reached
+    }
     if (b->state_id > 0) { // block has a stateid
       return false;
     }
@@ -3127,7 +3139,9 @@ void Algorithm::determineVariablesAccess()
 {
   // for all blocks
   for (auto& b : m_Blocks) {
-    if (b->state_id == -1 && b->is_state) continue; // block is never reached
+    if (b->state_id == -1 && b->is_state) {
+      continue; // block is never reached
+    }
     determineVariablesAccess(b);
   }
   // determine variable access for always blocks
@@ -3374,7 +3388,9 @@ void Algorithm::analyzeOutputsAccess()
   std::unordered_set<std::string> global_read;
   std::unordered_set<std::string> global_written;
   for (const auto& b : m_Blocks) {
-    if (b->state_id == -1 && b->is_state) continue; // block is never reached
+    if (b->state_id == -1 && b->is_state) {
+      continue; // block is never reached
+    }
     for (const auto& i : b->instructions) {
       std::unordered_set<std::string> read;
       std::unordered_set<std::string> written;
@@ -3440,15 +3456,16 @@ void Algorithm::analyzeOutputsAccess()
 
 Algorithm::Algorithm(
   std::string name, 
-  std::string clock, std::string reset, bool autorun, int stack_size,
+  std::string clock, std::string reset, 
+  bool autorun, bool onehot, int stack_size,
   const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
   const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
   const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield
 )
-  : m_Name(name), m_Clock(clock), 
-  m_Reset(reset), m_AutoRun(autorun), m_StackSize(stack_size),
+  : m_Name(name), m_Clock(clock), m_Reset(reset), 
+    m_AutoRun(autorun), m_OneHot(onehot), m_StackSize(stack_size),
   m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), 
   m_KnownCircuitries(known_circuitries), m_KnownGroups(known_groups), m_KnownBitFields(known_bitfield)
 {
@@ -4207,7 +4224,11 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
   }
   // state machine index
   if (!hasNoFSM()) {
-    out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
+    if (!m_OneHot) {
+      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
+    } else {
+      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
+    }
   }
   // state machine return (subroutine)
   if (!doesNotCallSubroutines()) {
@@ -4270,14 +4291,14 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
       out << "  if (" << reset << ") begin" << std::endl;
       if (!m_AutoRun) {
         // no autorun: jump to halt state
-        out << FF_Q << prefix << ALG_IDX   " <= " << terminationState() << ";" << std::endl;
+        out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(terminationState()) << ";" << std::endl;
       } else {
         // autorun: jump to first state
-        out << FF_Q << prefix << ALG_IDX   " <= " << entryState() << ";" << std::endl;
+        out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << std::endl;
       }
       out << "end else begin" << std::endl;
       // -> on restart, jump to first state
-      out << FF_Q << prefix << ALG_IDX   " <= " << entryState() << ";" << std::endl;
+      out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << std::endl;
       out << "end" << std::endl;
       // return index for subroutines
       if (!doesNotCallSubroutines()) {
@@ -4439,7 +4460,12 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
   queue<size_t>          q;
   q.push(0); // starts at 0
   // states
-  out << "case (" << FF_Q << prefix << ALG_IDX << ")" << std::endl;
+  if (!m_OneHot) {
+    out << "case (" << FF_Q << prefix << ALG_IDX << ")" << std::endl;
+  } else {
+    out << "(* parallel_case *)" << endl;
+    out << "case (1'b1)" << endl;
+  }
   while (!q.empty()) {
     size_t bid = q.front();
     const t_combinational_block *b = m_Id2Block.at(bid);
@@ -4453,7 +4479,11 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
       continue;
     }
     // begin state
-    out << b->state_id << ": begin" << std::endl;
+    if (!m_OneHot) {
+      out << toFSMState(b->state_id) << ": begin" << endl;
+    } else {
+      out << FF_Q << prefix << ALG_IDX << '[' << b->state_id << "]: begin" << endl;
+    }
     // track dependencies, starting with those of always block
     t_vio_dependencies depds = always_dependencies;
     // write block instructions
@@ -4461,20 +4491,20 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
     //resetFFUsageLatches(_ff_usage);
     writeStatelessBlockGraph(prefix, out, b, nullptr, q, depds, ff_usages.back()/*_ff_usage*/);
     // end of state
-    out << "end" << std::endl;
+    out << "end" << endl;
   }
   // combine all ff usages
   combineFFUsageInto(_ff_usage, ff_usages, _ff_usage);
   // initiate termination sequence
   // -> termination state
   {
-    out << terminationState() << ": begin // end of " << m_Name << std::endl;
+    out << toFSMState(terminationState()) << ": begin // end of " << m_Name << std::endl;
     out << "end" << std::endl;
   }
   // default: internal error, should never happen
   {
     out << "default: begin " << std::endl;
-    out << FF_D << prefix << ALG_IDX " = " << terminationState() << ";" << std::endl;
+    out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << std::endl;
     out << " end" << std::endl;
   }
   out << "endcase" << std::endl;
@@ -4639,7 +4669,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
     // if called on a state, index state and stop there
     if (block->is_state) {
       // yes: index the state directly
-      out << FF_D << prefix << ALG_IDX " = " << fastForward(block)->state_id << ";" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(block)->state_id) << ";" << std::endl;
       pushState(block, _q);
       // return
       return;
@@ -4713,7 +4743,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ") begin" << std::endl;
       writeStatelessBlockGraph(prefix, out, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage);
       out << "end else begin" << std::endl;
-      out << FF_D << prefix << ALG_IDX " = " << fastForward(current->while_loop()->after)->state_id << ";" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->while_loop()->after)->state_id) << ";" << std::endl;
       pushState(current->while_loop()->after, _q);
       out << "end" << std::endl;
       return;
@@ -4725,10 +4755,11 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
-      out << FF_D << prefix << ALG_IDX " = " << fastForward(current->goto_and_return_to()->go_to)->state_id << ";" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << std::endl;
       pushState(current->goto_and_return_to()->go_to, _q);
       // set return index
-      out << FF_D << prefix << ALG_RETURN "[(" << FF_Q << prefix << ALG_RETURN_PTR << "*" << stateWidth() << ")+:" << stateWidth() << "] = " << fastForward(current->goto_and_return_to()->return_to)->state_id << ";" << std::endl;
+      out << FF_D << prefix << ALG_RETURN "[(" << FF_Q << prefix << ALG_RETURN_PTR << "*" << stateWidth() << ")+:" << stateWidth() << "] = " 
+          << toFSMState(fastForward(current->goto_and_return_to()->return_to)->state_id) << ";" << std::endl;
       // increase return stack pointer
       out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " + 1;" << std::endl;     
       pushState(current->goto_and_return_to()->return_to, _q);
@@ -4745,12 +4776,12 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
         out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << std::endl;
         // yes!
         // -> goto next
-        out << FF_D << prefix << ALG_IDX " = " << fastForward(current->wait()->next)->state_id << ";" << std::endl;
+        out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->wait()->next)->state_id) << ";" << std::endl;
         pushState(current->wait()->next, _q);
         out << "end else begin" << std::endl;
         // no!
         // -> wait
-        out << FF_D << prefix << ALG_IDX " = " << fastForward(current->wait()->waiting)->state_id << ";" << std::endl;
+        out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->wait()->waiting)->state_id) << ";" << std::endl;
         pushState(current->wait()->waiting, _q);
         out << "end" << std::endl;
       }
@@ -4761,14 +4792,14 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
     } else {
       if (!hasNoFSM()) { // necessary as m_AlwaysPre reaches this
         // no action, goto end
-        out << FF_D << prefix << ALG_IDX " = " << terminationState() << ";" << std::endl;
+        out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << std::endl;
       }
       return;
     }
     // check whether next is a state
     if (current->is_state) {
       // yes: index and stop
-      out << FF_D << prefix << ALG_IDX " = " << fastForward(current)->state_id << ";" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current)->state_id) << ";" << std::endl;
       pushState(current, _q);
       return;
     }
@@ -5022,6 +5053,7 @@ void Algorithm::writeAsModule(std::ostream &out)
   writeAsModule(null, ff_usage);
 
 #if 1
+  // update usage based on first pass
   for (const auto &v : ff_usage.ff_usage) {
     if (!(v.second & e_Q)) {
       if (m_VarNames.count(v.first)) {
@@ -5173,7 +5205,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
 
   // algorithm done
   if (!hasNoFSM()) {
-    out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << terminationState() << ");" << endl;
+    out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << toFSMState(terminationState()) << ");" << endl;
   }
 
   // flip-flops update

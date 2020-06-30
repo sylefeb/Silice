@@ -32,6 +32,8 @@ GOTO                : 'goto' ;
 
 AUTORUN             : 'autorun' ;
 
+ONEHOT              : 'onehot' ;
+
 READ                : 'reads' ;
 WRITE               : 'writes' ;
 READWRITE           : 'readwrites' ;
@@ -117,9 +119,10 @@ value               : constValue | initBitfield ;
 sclock              :  '@' IDENTIFIER ;
 sreset              :  '!' IDENTIFIER ;
 sautorun            :  AUTORUN ;
+sonehot             :  ONEHOT ;
 sstacksz            :  'stack:' NUMBER ;
 
-algModifier         : sclock | sreset | sautorun | sstacksz ;
+algModifier         : sclock | sreset | sautorun | sonehot | sstacksz ;
 algModifiers        : '<' algModifier (',' algModifier)* '>' ;
 
 initList            : '{' value (',' value)* ','? '}' | '{' '}' ;
