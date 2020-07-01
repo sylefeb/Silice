@@ -371,7 +371,7 @@ $$end
         }
       }
 
-      // compute distance, using custom multipliers to fit timing
+      // compute distance, splitting to fit timing
       tmp1   = (cosview_m * (hitx_f - posx_f)) >>> $FPm$;
 ++:   // relax timing      
       tmp2   = (sinview_m * (hity_f - posy_f)) >>> $FPm$;
@@ -397,7 +397,7 @@ $$end
       c = c + 1;
     }
     
-    // draw columns
+    // draw columns TODO: in parallel with FIFO
     c = 0;
     columns.wenable  = 0;
     material.wenable = 0;
