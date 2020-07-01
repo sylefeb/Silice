@@ -15,9 +15,6 @@ append('sdram_clock.v')
 import('sdram.v')
 $$end
 
-// Frame buffer row
-// import('dual_frame_buffer_row.v')
-
 $$if VGA then
 // VGA driver
 $include('vga.ice')
@@ -25,13 +22,13 @@ $$end
 
 $$if HDMI then
 // HDMI driver
-append('verilog/serdes_n_to_1.v')
-append('verilog/simple_dual_ram.v')
-append('verilog/tmds_encoder.v')
-append('verilog/async_fifo.v')
-append('verilog/fifo_2x_reducer.v')
-append('verilog/dvi_encoder.v')
-import('verilog/hdmi_encoder.v')
+append('serdes_n_to_1.v')
+append('simple_dual_ram.v')
+append('tmds_encoder.v')
+append('async_fifo.v')
+append('fifo_2x_reducer.v')
+append('dvi_encoder.v')
+import('hdmi_encoder.v')
 $$end
 
 $include('video_sdram.ice')
@@ -92,6 +89,14 @@ $$end
 import('reset_conditioner.v')
 $$end
 
+
+$$if ULX3S then
+// Clock
+import('ulx3s_clk_100_25.v')
+// reset
+import('reset_conditioner.v')
+$$end
+
 // ------------------------- 
 
 algorithm main(
@@ -142,6 +147,9 @@ $$if DE10NANO then
   output! uint1 oled_cs,
   output! uint1 oled_dc,
   output! uint1 oled_rst,  
+$$end
+$$if ULX3S then
+  output! uint8 led,
 $$end
 $$if VGA then  
   // VGA
@@ -216,6 +224,29 @@ $$elseif DE10NANO then
     outclk_1  :> video_clock,
     locked    :> pll_lock
   );
+  // --- video clean reset
+  reset_conditioner video_rstcond (
+    rcclk <: video_clock,
+    in    <: reset,
+    out   :> video_reset
+  );  
+  // --- SDRAM clean reset
+  reset_conditioner sdram_rstcond (
+    rcclk <: sdram_clock,
+    in  <: reset,
+    out :> sdram_reset
+  );
+$$elseif ULX3S then
+  // --- clock
+  uint1 video_clock  = 0;
+  uint1 sdram_clock = 0;
+  uint1 pll_lock = 0;
+  ulx3s_clk_100_25 clk_gen(
+    clkin    <: clock,
+    clkout0  :> sdram_clock,
+    clkout1  :> video_clock,
+    locked   :> pll_lock
+  ); 
   // --- video clean reset
   reset_conditioner video_rstcond (
     rcclk <: video_clock,

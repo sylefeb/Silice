@@ -80,4 +80,6 @@ Divider (because we need one!), multiplier and pipelined multiplier.
 
 # Notes and tips
 
-If you are using an IceStick under Windows and run into trouble, checkout the notes on my [fpga-binutils repo](https://github.com/sylefeb/fpga-binutils) (end of page).
+- If you are using an IceStick under Windows and run into trouble, checkout the notes on my [fpga-binutils repo](https://github.com/sylefeb/fpga-binutils) (end of page).
+
+- Some Verilog code in *projects/common* (hdmi, sdram) comes from the [Alchitry](https://alchitry.com/) demos for the MojoV3. Also checkout [Lucid](https://alchitry.com/pages/lucid-fpga-tutorials) it is great for learning low-level FPGA programming (similar to Verilog but more beginner-friendly). The website features good tutorials on FPGAs in general.
