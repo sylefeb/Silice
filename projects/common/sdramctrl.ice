@@ -45,7 +45,7 @@ $$end
         // interface
         sdio sd {
           input   addr,       // address to read/write
-          input   wbyte_addr, // write byte address with 32-bit word at addr
+          input   wbyte_addr, // write byte address within 32-bit word at addr
           input   rw,         // 1 = write, 0 = read
           input   data_in,    // data from a read
           output  data_out,   // data for a write
