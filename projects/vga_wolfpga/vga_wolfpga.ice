@@ -27,6 +27,9 @@ $$FPf = 12
 $$FPm = 12
 
 $$div_width = FPw
+$$if ULX3S then
+$$ -- div_no_case = true
+$$end
 $include('../common/divint_any.ice')
 
 $$Deg90  =  900

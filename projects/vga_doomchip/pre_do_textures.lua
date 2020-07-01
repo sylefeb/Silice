@@ -7,9 +7,9 @@ if SIMULATION then
   default_shrink     = 0
 else
   USE_BRAM = false -- RAM or ROM
-  memory_budget_bits = 4000000 -- 3000000
+  memory_budget_bits = 1000000 -- 3000000
   reduce_switches    = false
-  default_shrink     = 0
+  default_shrink     = 2
 end
 
 ALL_IN_ONE = false

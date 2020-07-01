@@ -24,7 +24,7 @@ algorithm mul_cmp$div_width$(
    input   uint$div_width$ num,
    input   uint$div_width$ den,
    input   uint$div_width$ k,
-   output  uint1 above)
+   output  uint1 beq)
 <autorun>   
 {
   uint$div_width+1$ th   = 0;
@@ -35,9 +35,9 @@ algorithm mul_cmp$div_width$(
   while (1) {
     dk = (den << k);
     if (den > th) {
-      above = 1;
+      beq = 0;
     } else {
-      above = (num < dk);
+      beq = (num >= dk);
     }
   }
 }
@@ -66,9 +66,11 @@ $$end
 
   uint$div_width$ num = 0;
   uint$div_width$ den = 0; 
+
+  uint$div_width$ concat = 0;
   
 $$for i = 0,div_width-2 do
-  mul_cmp$div_width$ mc$i$(num <: reminder, den <: den, k <: k$i$, above :> r$i$);
+  mul_cmp$div_width$ mc$i$(num <: reminder, den <: den, k <: k$i$, beq :> r$i$);
 $$end
 
 $$if not div_unsigned then
@@ -122,16 +124,17 @@ $$end
   ret = 0;
 
   while (reminder >= den) {
-
     // perform assignment based on occuring case
 $$concat='{'
 $$for i = 0,div_width-3 do concat=concat..'r'..(div_width-2-i)..',' end
 $$concat=concat..'r0}'
-    switch($concat$) {
+    concat = $concat$ + 1;
+    switch(concat) {
       // NOTE: cannot use reminder directly, a combinational loop would be created
 $$for c = 0,div_width-2 do
-$$ s='' .. (div_width-1) .. 'b'
-$$ for i = 0,div_width-2 do if i<c then s=s..'1' else s=s..'0' end end      
+$$ s='' .. (div_width) .. 'b'
+$$ for i = 0,div_width-2 do if i==c then s=s..'1' else s=s..'0' end end
+$$ s=s..'0'
       case $s$: {
         ret = ret + (1<<k$div_width-2-c$);
         reminder = reminder - (den << k$div_width-2-c$);
@@ -142,7 +145,6 @@ $$end
         reminder = 0;
       }
     }
-
   }
 
 done:
