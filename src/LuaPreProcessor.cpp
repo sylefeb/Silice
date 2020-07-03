@@ -182,7 +182,7 @@ static void lua_write_image_in_table(lua_State* L, std::string str,int component
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
-  t_image_nfo* nfo = ReadTGAFile(fname.c_str());
+  t_image_nfo     *nfo   = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
     throw Fatal("[write_image_in_table] cannot load image file '%s'",fname.c_str());
   }
@@ -198,9 +198,7 @@ static void lua_write_image_in_table(lua_State* L, std::string str,int component
     }
   }
   delete[](nfo->pixels);
-  if (nfo->colormap) {
-    delete[](nfo->colormap);
-  }
+  delete[](nfo->colormap);
   delete (nfo);
 }
 
@@ -220,9 +218,9 @@ static void lua_write_palette_in_table(lua_State* L, std::string str, int compon
   if (component_depth < 0 || component_depth > 8) {
     throw Fatal("[write_palette_in_table] component depth can only in ]0,8]");
   }
-  LuaPreProcessor *lpp = P->second;
+  LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
-  t_image_nfo* nfo = ReadTGAFile(fname.c_str());
+  t_image_nfo     *nfo   = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
     throw Fatal("[write_palette_in_table] cannot load image file '%s'", fname.c_str());
   }
@@ -241,9 +239,7 @@ static void lua_write_palette_in_table(lua_State* L, std::string str, int compon
       g_LuaOutputs[L] << std::to_string(v) << ",";
   }
   delete[](nfo->pixels);
-  if (nfo->colormap) {
-    delete[](nfo->colormap);
-  }
+  delete[](nfo->colormap);
   delete (nfo);
 }
 
@@ -265,9 +261,9 @@ static luabind::object lua_get_palette_as_table(lua_State* L, std::string str, i
   if (component_depth < 0 || component_depth > 8) {
     throw Fatal("[get_palette_as_table] component depth can only in ]0,8]");
   }
-  LuaPreProcessor *lpp = P->second;
+  LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
-  t_image_nfo* nfo = ReadTGAFile(fname.c_str());
+  t_image_nfo     *nfo   = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
     throw Fatal("[get_palette_as_table] cannot load image file '%s'", fname.c_str());
   }
@@ -287,9 +283,7 @@ static luabind::object lua_get_palette_as_table(lua_State* L, std::string str, i
     ltbl[1 + idx] = v;
   }
   delete[](nfo->pixels);
-  if (nfo->colormap) {
-    delete[](nfo->colormap);
-  }
+  delete[](nfo->colormap);
   delete (nfo);
   return ltbl;
 }
@@ -312,9 +306,9 @@ static luabind::object lua_get_image_as_table(lua_State* L, std::string str, int
   if (component_depth < 0 || component_depth > 8) {
     throw Fatal("[get_image_as_table] component depth can only in ]0,8]");
   }
-  LuaPreProcessor *lpp = P->second;
+  LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
-  t_image_nfo* nfo = ReadTGAFile(fname.c_str());
+  t_image_nfo     *nfo = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
     throw Fatal("[get_image_as_table] cannot load image file '%s'", fname.c_str());
   }
@@ -333,9 +327,7 @@ static luabind::object lua_get_image_as_table(lua_State* L, std::string str, int
     rows[1 + j] = cols;
   }
   delete[](nfo->pixels);
-  if (nfo->colormap) {
-    delete[](nfo->colormap);
-  }
+  delete[](nfo->colormap);
   delete (nfo);
   return rows;
 }

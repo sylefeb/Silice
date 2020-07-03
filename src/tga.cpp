@@ -415,8 +415,8 @@ ReadTGAgray16bitsRLE (FILE *fp, t_image_nfo *texinfo)
 
 t_image_nfo *ReadTGAFile(const char *filename)
 {
-  FILE *fp;
-  t_image_nfo *texinfo;
+  FILE               *fp = NULL;
+  t_image_nfo        *texinfo = NULL;
   struct tga_header_t header;
 	fopen_s(&fp, filename, "rb");
   if (!fp) {
@@ -425,7 +425,7 @@ t_image_nfo *ReadTGAFile(const char *filename)
   }
 
   /* Read header */
-  fread (&header, sizeof (struct tga_header_t), 1, fp);
+  fread (&header, sizeof(struct tga_header_t), 1, fp);
 
   texinfo = new t_image_nfo;
   GetTextureInfo (&header, texinfo);
@@ -435,7 +435,7 @@ t_image_nfo *ReadTGAFile(const char *filename)
   texinfo->pixels = new uchar[texinfo->width * texinfo->height * (texinfo->depth/8)];
   if (!texinfo->pixels)
   {
-    free (texinfo);
+    delete (texinfo);
     return NULL;
   }
 
@@ -521,7 +521,7 @@ t_image_nfo *ReadTGAFile(const char *filename)
     /* Image type is not correct */
     fprintf (stderr, "error: unknown TGA image type %i!\n", header.image_type);
     delete[] (texinfo->pixels);
-    if (texinfo->colormap) delete[](texinfo->colormap);
+    delete[] (texinfo->colormap);
     delete   (texinfo);
     texinfo = NULL;
     break;
