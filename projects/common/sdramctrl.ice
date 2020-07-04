@@ -104,7 +104,11 @@ $$end
   uint1  do_rw       = 0;
   uint2  wbyte       = 0;
 
-$$refresh_cycles = 750
+$$if not sdramctrl_clock_freq then
+$$refresh_cycles = 750 -- assume 100 MHz
+$$else
+$$refresh_cycles = math.floor(750*sdramctrl_clock_freq/100)
+$$end
 $$refresh_wait   = 7
 
   uint24 refresh_count = $refresh_cycles$;

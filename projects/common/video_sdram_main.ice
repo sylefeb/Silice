@@ -1,18 +1,11 @@
 // SL 2019-10
 
+$$USE_ICE_SDRAM_CTRL = true
+
 $$if ICARUS then
   // SDRAM simulator
   append('mt48lc32m8a2.v')
   import('simul_sdram.v')
-$$end
-
-$$USE_ICE_SDRAM_CTRL = true
-
-$$if USE_ICE_SDRAM_CTRL then
-$include('sdramctrl.ice')
-$$else
-append('sdram_clock.v')
-import('sdram.v')
 $$end
 
 $$if VGA then
@@ -30,8 +23,6 @@ append('fifo_2x_reducer.v')
 append('dvi_encoder.v')
 import('hdmi_encoder.v')
 $$end
-
-$include('video_sdram.ice')
 
 // ------------------------- 
 
@@ -89,13 +80,28 @@ $$end
 import('reset_conditioner.v')
 $$end
 
-
 $$if ULX3S then
 // Clock
-import('ulx3s_clk_100_25.v')
+import('ulx3s_clk_50_25.v')
+$$sdramctrl_clock_freq = 50
 // reset
 import('reset_conditioner.v')
 $$end
+
+// ------------------------- 
+
+// SDRAM controller
+$$if USE_ICE_SDRAM_CTRL then
+$include('sdramctrl.ice')
+$$else
+append('sdram_clock.v')
+import('sdram.v')
+$$end
+
+// ------------------------- 
+
+// video sdram framework
+$include('video_sdram.ice')
 
 // ------------------------- 
 
@@ -241,7 +247,7 @@ $$elseif ULX3S then
   uint1 video_clock  = 0;
   uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
-  ulx3s_clk_100_25 clk_gen(
+  ulx3s_clk_50_25 clk_gen(
     clkin    <: clock,
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,

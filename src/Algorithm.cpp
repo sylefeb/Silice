@@ -781,7 +781,8 @@ typedef struct {
 } t_mem_member;
 
 const std::vector<t_mem_member> c_BRAMmembers = {
-  {true, false,"wenable",-1}, // NOTE: -1 here is not a bug, this results in less LUTs on Yosys! TODO variants in frameworks
+  {true, false,"wenable",1}, // NOTE: -1 here is not a bug, this results in less LUTs on Yosys! TODO variants in frameworks
+                             // TODO: we have a problem here, Ice40 is happier with -1, ecp5 needs 1 ....
   {false,false,"rdata",-1},
   {true, false,"wdata",-1},
   {true, true, "addr",-1}

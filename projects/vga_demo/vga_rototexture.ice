@@ -41,8 +41,8 @@ $$end
   };
   
   pix_r := 0; pix_g := 0; pix_b := 0;  
+  tbl.wenable = 0; cosine.wenable = 0;
   // ---------- show time!
-  tbl.wenable = 0; cosine.wenable = 0; // we only read in brams
   while (1) {
 	  // display frame
 	  while (pix_vblank == 0) {
