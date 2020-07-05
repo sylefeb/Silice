@@ -83,7 +83,6 @@ bitfield DrawColumn
 
 // -------------------------
 
-/*
 algorithm columns_drawer(
   // sdram
   sdio sd {
@@ -96,13 +95,133 @@ algorithm columns_drawer(
     input  busy,
     input  out_valid,
   },
-  // reading for broms
-  input  uint1  vsync,
-  output uint1  fbuffer
-) {
+  // reading from column bram
+  output uint9  addr,
+  input  uint18 rdata, // NOTE, TODO: allow to use bitfield name (DrawColumn)
+  // how many columns have been written
+  input  uint9  num_in_cols,
+  // how many collumns have been drawn
+  output uint9  num_drawn_cols,
+  // vsynch  
+  input  uint1  vsync,  // vsynch
+  // framebuffer selection
+  input  uint1  fbuffer
+) <autorun> { 
+
+  uint9 y      = 0;
+  uint9 yw     = 0;
+  uint9 h      = 0;
+  uint8 palidx = 0;
   
+  uint20 v_tex       = 0;
+  uint20 v_tex_incr  = 0;
+
+  // texture data
+  brom uint8 texture[] = {
+$$write_image_in_table(texfile)
+  };
+
+  // table for vertical interpolation
+  brom int20 hscr_inv[512]={
+    1, // 0: unused
+$$for hscr=1,511 do
+    $math.floor(0.5 + 262144/hscr)$,
+$$end
+  };
+
+  sd.in_valid := 0; // maintain low (pulses high when needed)
+  sd.rw = 1;        // sdram write
+
+  while (1) {
+  
+    addr           = 0;
+    num_drawn_cols = 0;
+    while (num_drawn_cols < num_in_cols) {
+
+      if (DrawColumn(rdata).height < 100) {
+        h = DrawColumn(rdata).height;
+      } else {
+        h = 99;        
+      }
+
+      hscr_inv.addr = DrawColumn(rdata).height & 511;
+      v_tex = $lshift(32,13)$;
+  ++:      
+      v_tex_incr    = hscr_inv.rdata;
+
+      y = 0;
+      while (y < 100) {
+        // floor and bottom half
+        if (y <= h) {
+
+          texture.addr = ((DrawColumn(rdata).texcoord
+                       + ((DrawColumn(rdata).material)<<6)) & 255) + (((v_tex >> 13) & 63)<<8);
+  ++:          
+          if (DrawColumn(rdata).v_or_h == 1) {
+            palidx       = texture.rdata;
+          } else {
+            palidx       = texture.rdata + 64;
+          }
+
+          //palidx = 63;          
+        } else {
+          palidx = 22;  
+        }
+        // write to sdram
+        yw = 100+y;
+        while (1) {
+          if (sd.busy == 0) { // not busy?
+            sd.data_in    = palidx;
+            sd.addr       = {1b0,~fbuffer,21b0} | (num_drawn_cols >> 2) | (yw << 8); 
+            sd.wbyte_addr = num_drawn_cols & 3;
+            sd.in_valid   = 1; // go ahead!
+            break;
+          }
+        }          
+        // other half
+        if (y <= h) {
+        
+          texture.addr = ((DrawColumn(rdata).texcoord
+                       + (DrawColumn(rdata).material<<6)) & 255) + ((63 - ((v_tex >> 13) & 63))<<8);
+  ++:          
+          if (DrawColumn(rdata).v_or_h == 1) {
+            palidx       = texture.rdata;
+          } else {
+            palidx       = texture.rdata + 64;
+          }
+        
+          //palidx = 55;
+        } else {
+          palidx = 2;
+        }
+        
+        // write to sdram
+        yw = 100-y;
+        while (1) {
+          if (sd.busy == 0) { // not busy?
+            sd.data_in    = palidx;
+            sd.addr       = {1b0,~fbuffer,21b0} | (num_drawn_cols >> 2) | (yw << 8); 
+            sd.wbyte_addr = num_drawn_cols & 3;
+            sd.in_valid   = 1; // go ahead!
+            break;
+          }
+        }
+        if (y <= h) {
+          v_tex = v_tex + v_tex_incr;
+        }
+        y = y + 1;        
+      }      
+      
+      // next
+      num_drawn_cols = num_drawn_cols + 1;
+      addr           = num_drawn_cols;
+    }    
+   
+    // wait for frame to end
+    while (vsync == 0) {}
+    
+  }
 }
-*/
 
 // -------------------------
 
@@ -124,13 +243,24 @@ algorithm frame_drawer(
 
   uint1  vsync_filtered = 0;
 
-  brom uint8 texture[] = {
-$$write_image_in_table(texfile)
-  };
-
-  // NOTE: cannot yet declare the bram with the bitfield ; TODO
+  // NOTE, TODO: cannot yet declare the bram with the bitfield
   // bram DrawColumn columns[320] = {};
-  bram uint18 columns[320] = {};
+  dualport_bram uint18 columns[320] = {};
+
+  // ray-cast columns counter  
+  uint9 c       = 0;
+  // drawn columns counter
+  uint9 c_drawn = 0;
+
+  columns_drawer coldrawer(
+    sd      <:> sd,
+    vsync   <: vsync_filtered,
+    fbuffer <: fbuffer,
+    addr    :> columns.addr1,  // drives port1 of columns
+    rdata   <: columns.rdata1,
+    num_in_cols    <: c,
+    num_drawn_cols :> c_drawn
+  );
 
 $$ tan_tbl = {}
 $$ for i=0,449 do
@@ -158,14 +288,7 @@ $$for i=0,2047 do
 $$end
   };
 
-  // table for vertical interpolation
-  brom int20 hscr_inv[512]={
-    1, // 0: unused
-$$for hscr=1,511 do
-    $math.floor(0.5 + 262144/hscr)$,
-$$end
-  };
-
+  // level definition
   brom uint3 level[$16*16$] = {
    1,1,1,1,1,1,4,1,4,1,1,2,1,1,1,1,
    1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,4,
@@ -184,13 +307,7 @@ $$end
    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,
    1,1,1,1,1,1,4,1,4,1,4,1,1,1,1,1,
   };
-  
-  uint9 c      = 0;
-  uint9 y      = 0;
-  uint9 yw     = 0;
-  uint9 h      = 0;
-  uint8 palidx = 0;
-  
+    
   int$FPw$ posx_f  = $lshift(2,FPf)$;
   int$FPw$ posy_f  = $lshift(2,FPf)$;
   int16    posa    = 0;
@@ -228,13 +345,9 @@ $$end
   uint3     hit         = 0;
   uint1     v_or_h      = 0;
   
-  uint8     iter = 0;
-
   int16     viewangle   = 0;
   int16     colangle    = 0;
   
-  uint20    v_tex       = 0;
-  uint20    v_tex_incr  = 0;
   /*
 $$if not ICARUS then
   walker walk<@vsync_filtered>(
@@ -246,20 +359,12 @@ $$end
 */
   vsync_filtered ::= vsync;
 
-  sd.in_valid := 0; // maintain low (pulses high when needed)
-  
-  sd.rw = 1;        // sdram write
-
   fbuffer = 0;
   
-  //sin_m.wenable    = 0;    
-  //tan_f.wenable    = 0;
-  //hscr_inv.wenable = 0;
-  //texture.wenable  = 0;
+  columns.wenable0 = 1; // write on port 0
+  columns.wenable1 = 0; // read from port 1
   
   while (1) {
-
-    columns .wenable = 1;
     
     viewangle = ((160 + posa) * $math.floor(2048*(2048/3600))$) >> 11;
     
@@ -356,12 +461,9 @@ $$end
       // DDA wolfenstein-style main loop
       hit    = 0;
       v_or_h = 0; // 0: vertical (along x) 1: horizontal (along y)
-      iter=0;
-      while (/*iter < 2 &&*/ hit == 0) {
-        iter=iter+1;
+      while (hit == 0) {
       
         mapxtest = hitx_f >>> $FPf$;
-//++:        
         mapytest = hity_f >>> $FPf$;
 ++:             
         // shall we do vertical or horizontal?
@@ -431,101 +533,20 @@ $$end
       // projection divide      
       (height) <- div <- ($140<<FPf$,dist_f>>1);
 
-      columns.addr   = c;
-      DrawColumn(columns.wdata).height   = height;
-      DrawColumn(columns.wdata).v_or_h   = v_or_h;
-      DrawColumn(columns.wdata).material = hit-1;
-      DrawColumn(columns.wdata).texcoord = (v_or_h == 0) ? (hity_f >>> $FPf-6$) : (hitx_f >>> $FPf-6$);
+      columns.addr0 = c;
+      DrawColumn(columns.wdata0).height   = height;
+      DrawColumn(columns.wdata0).v_or_h   = v_or_h;
+      DrawColumn(columns.wdata0).material = hit-1;
+      DrawColumn(columns.wdata0).texcoord = (v_or_h == 0) ? (hity_f >>> $FPf-6$) : (hitx_f >>> $FPf-6$);
       
       // write on loop     
       c = c + 1;
     }
-    
-    // draw columns TODO: in parallel with FIFO
-    c = 0;
-    columns.wenable = 0;
-    columns.addr    = 0;
-    while (c < 320) {
+       
 
-      if (DrawColumn(columns.rdata).height < 100) {
-        h = DrawColumn(columns.rdata).height;
-      } else {
-        h = 99;        
-      }
+    // wait for drawer to end
+    while (c_drawn < 320) {}
 
-      hscr_inv.addr = DrawColumn(columns.rdata).height & 511;
-      v_tex = $lshift(32,13)$;
-++:      
-      v_tex_incr    = hscr_inv.rdata;
-
-      y = 0;
-      while (y < 100) {
-        // floor and bottom half
-        if (y <= h) {
-
-          texture.addr = ((DrawColumn(columns.rdata).texcoord
-                       + ((DrawColumn(columns.rdata).material)<<6)) & 255) + (((v_tex >> 13) & 63)<<8);
-++:          
-          if (DrawColumn(columns.rdata).v_or_h == 1) {
-            palidx       = texture.rdata;
-          } else {
-            palidx       = texture.rdata + 64;
-          }
-
-          //palidx = 63;          
-        } else {
-          palidx = 22;  
-        }
-        // write to sdram
-        yw = 100+y;
-        while (1) {
-          if (sd.busy == 0) { // not busy?
-            sd.data_in    = palidx;
-            sd.addr       = {1b0,~fbuffer,21b0} | (c >> 2) | (yw << 8); 
-            sd.wbyte_addr = c & 3;
-            sd.in_valid   = 1; // go ahead!
-            break;
-          }
-        }          
-        // other half
-        if (y <= h) {
-        
-          texture.addr = ((DrawColumn(columns.rdata).texcoord
-                       + (DrawColumn(columns.rdata).material<<6)) & 255) + ((63 - ((v_tex >> 13) & 63))<<8);
-++:          
-          if (DrawColumn(columns.rdata).v_or_h == 1) {
-            palidx       = texture.rdata;
-          } else {
-            palidx       = texture.rdata + 64;
-          }
-        
-          //palidx = 55;
-        } else {
-          palidx = 2;
-        }
-        
-        // write to sdram
-        yw = 100-y;
-        while (1) {
-          if (sd.busy == 0) { // not busy?
-            sd.data_in    = palidx;
-            sd.addr       = {1b0,~fbuffer,21b0} | (c >> 2) | (yw << 8); 
-            sd.wbyte_addr = c & 3;
-            sd.in_valid   = 1; // go ahead!
-            break;
-          }
-        }
-        if (y <= h) {
-          v_tex = v_tex + v_tex_incr;
-        }
-        y = y + 1;        
-      }      
-      
-      // next
-      c = c + 1;
-      columns.addr = c;
-    }    
-    
     // wait for frame to end
     while (vsync_filtered == 0) {}
 
