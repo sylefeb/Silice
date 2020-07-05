@@ -20,6 +20,9 @@ holder must remain included in all distributions.
 
 #include "Algorithm.h"
 #include "Module.h"
+#include "Config.h"
+#include "VerilogTemplate.h"
+#include <cctype>
 
 using namespace std;
 using namespace antlr4;
@@ -777,31 +780,29 @@ typedef struct {
   bool        is_input;
   bool        is_addr;
   std::string name;
-  int         width; // -1 if same as bram declared type
 } t_mem_member;
 
 const std::vector<t_mem_member> c_BRAMmembers = {
-  {true, false,"wenable",1}, // NOTE: -1 here is not a bug, this results in less LUTs on Yosys! TODO variants in frameworks
-                             // TODO: we have a problem here, Ice40 is happier with -1, ecp5 needs 1 ....
-  {false,false,"rdata",-1},
-  {true, false,"wdata",-1},
-  {true, true, "addr",-1}
+  {true, false,"wenable"},
+  {false,false,"rdata"},
+  {true, false,"wdata"},
+  {true, true, "addr"}
 };
 
 const std::vector<t_mem_member> c_BROMmembers = {
-  {false,false,"rdata",-1},
-  {true, true, "addr",-1}
+  {false,false,"rdata"},
+  {true, true, "addr"}
 };
 
 const std::vector<t_mem_member> c_DualPortBRAMmembers = {
-  {true, false,"wenable0",-1},
-  {false,false,"rdata0",-1},
-  {true, false,"wdata0",-1},
-  {true, true, "addr0",-1},
-  {true, false,"wenable1",-1},
-  {false,false,"rdata1",-1},
-  {true, false,"wdata1",-1},
-  {true, true, "addr1",-1},
+  {true, false,"wenable0"},
+  {false,false,"rdata0"},
+  {true, false,"wdata0"},
+  {true, true, "addr0"},
+  {true, false,"wenable1"},
+  {false,false,"rdata1"},
+  {true, false,"wdata1"},
+  {true, true, "addr1"},
 };
 
 // -------------------------------------------------
@@ -818,12 +819,16 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   // gather memory nfo
   t_mem_nfo mem;
   mem.name = decl->name->getText();
+  string memid = "";
   if (decl->BRAM() != nullptr) {
     mem.mem_type = BRAM;
+    memid = "bram";
   } else if (decl->BROM() != nullptr) {
     mem.mem_type = BROM;
+    memid = "brom";
   } else if (decl->DUALBRAM() != nullptr) {
     mem.mem_type = DUALBRAM;
+    memid = "dualport_bram";
   } else {
     reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration");
   }
@@ -858,13 +863,28 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     v.name = mem.name + "_" + m.name;
     if (m.is_addr) {
       v.base_type = UInt;
-      v.width = justHigherPow2(mem.table_size);
-    } else if (m.width == -1) {
-      v.base_type = mem.base_type;
-      v.width = mem.width;
+      v.width     = justHigherPow2(mem.table_size);
     } else {
-      v.base_type = UInt;
-      v.width = m.width;
+      // search config
+      auto C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
+      if (C == CONFIG.keyValues().end()) {
+        v.width     = mem.width;
+      } else if (C->second == "1") {
+        v.width     = 1;
+      } else if (C->second == "data") {
+        v.width     = mem.width;
+      }
+      // search config
+      auto T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
+      if (T == CONFIG.keyValues().end()) {
+        v.base_type = mem.base_type;
+      } else if (T->second == "uint") {
+        v.base_type = UInt;
+      } else if (T->second == "int") {
+        v.base_type = Int;
+      } else if (T->second == "data") {
+        v.base_type = mem.base_type;
+      }
     }
     v.table_size = 0;
     v.init_values.push_back("0");
@@ -4896,35 +4916,80 @@ void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::
 
 // -------------------------------------------------
 
+void Algorithm::prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, std::unordered_map<std::string, std::string>& _replacements) const
+{
+  string memid;
+  std::vector<t_mem_member> members;
+  switch (bram.mem_type) {
+  case BRAM:     members = c_BRAMmembers; memid = "bram";  break;
+  case BROM:     members = c_BROMmembers; memid = "brom"; break;
+  case DUALBRAM: members = c_DualPortBRAMmembers; memid = "dualport_bram"; break;
+  default: reportError(nullptr, -1, "internal error, memory type"); break;
+  }
+  _replacements["MODULE"] = m_Name;
+  _replacements["NAME"] = bram.name;
+  for (const auto& m : members) {
+    string nameup = m.name;
+    std::transform(nameup.begin(), nameup.end(), nameup.begin(),
+      [](unsigned char c) { return std::toupper(c); }
+    );
+    if (m.is_addr) {
+      _replacements[nameup + "_WIDTH"] = std::to_string(justHigherPow2(bram.table_size) - 1);
+    } else {
+      // search config
+      string width = ""; // bit-width - 1 (written as top of verilog range)
+      auto C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
+      if (C == CONFIG.keyValues().end()) {
+        width = std::to_string(bram.width - 1);
+      } else if (C->second == "1") {
+        width = "0";
+      } else if (C->second == "data") {
+        width = std::to_string(bram.width - 1);
+      }
+      _replacements[nameup + "_WIDTH"] = width;
+      // search config
+      string sgnd = "";
+      auto T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
+      if (T == CONFIG.keyValues().end()) {
+        sgnd = typeString(bram.base_type);
+      } else if (T->second == "uint") {
+        sgnd = "";
+      } else if (T->second == "int") {
+        sgnd = "signed";
+      } else if (T->second == "data") {
+        sgnd = typeString(bram.base_type);
+      }
+      _replacements[nameup + "_TYPE"] = sgnd;
+    }
+  }
+  _replacements["DATA_TYPE"] = typeString(bram.base_type);
+  _replacements["DATA_WIDTH"] = std::to_string(bram.width - 1);
+  _replacements["DATA_SIZE"] = std::to_string(bram.table_size - 1);
+  ostringstream initial;
+  if (!bram.do_not_initialize) {
+    initial << "initial begin" << endl;
+    ForIndex(v, bram.init_values.size()) {
+      initial << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
+    }
+    initial << "end" << endl;
+  }
+  _replacements["INITIAL"] = initial.str();
+  _replacements["CLOCK"]   = ALG_CLOCK;
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) const
 {
-  out << "module M_" << m_Name << "_mem_" << bram.name << '(' << endl;
-  for (const auto& inv : bram.in_vars) {
-    const auto& v = m_Vars[m_VarNames.at(inv)];
-    out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
-  }
-  for (const auto& ouv : bram.out_vars) {
-    const auto& v = m_Vars[m_VarNames.at(ouv)];
-    out << "output reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
-  }
-  out << "input " ALG_CLOCK << endl;
-  out << ");" << endl;
-
-  out << "reg " << typeString(bram.base_type) << " [" << bram.width - 1 << ":0] buffer[" << bram.table_size - 1 << ":0];" << endl;
-  out << "always @(posedge " ALG_CLOCK ") begin" << endl;
-  out << "  if (" << ALG_INPUT << "_" << bram.name << "_wenable" << ") begin" << endl;
-  out << "    buffer[" << ALG_INPUT << "_" << bram.name << "_addr" << "] <= " ALG_INPUT << "_" << bram.name << "_wdata" ";" << endl;
-  out << "  end" << endl;
-  out << "  " << ALG_OUTPUT << "_" << bram.name << "_rdata" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr" << "];" << endl;
-  out << "end" << endl;
-  if (!bram.do_not_initialize) {
-    out << "initial begin" << endl;
-    ForIndex(v, bram.init_values.size()) {
-      out << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
-    }
-    out << "end" << endl;
-  }
-  out << "endmodule" << endl;
+  // prepare replacement vars
+  std::unordered_map<std::string, std::string> replacements;
+  prepareModuleMemoryTemplateReplacements(bram, replacements);
+  // load template
+  VerilogTemplate tmplt;
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["bram_template"],
+    replacements);
+  // write to output
+  out << tmplt.code();
   out << endl;
 }
 
@@ -4932,103 +4997,31 @@ void Algorithm::writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) 
 
 void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& bram) const
 {
-  out << "module M_" << m_Name << "_mem_" << bram.name << '(' << endl;
-  for (const auto& inv : bram.in_vars) {
-    const auto& v = m_Vars[m_VarNames.at(inv)];
-    out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
-  }
-  for (const auto& ouv : bram.out_vars) {
-    const auto& v = m_Vars[m_VarNames.at(ouv)];
-    out << "output reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
-  }
-  out << "input " ALG_CLOCK << endl;
-  out << ");" << endl;
-
-  out << "reg " << typeString(bram.base_type) << " [" << bram.width - 1 << ":0] buffer[" << bram.table_size - 1 << ":0];" << endl;
-  out << "always @(posedge " ALG_CLOCK ") begin" << endl;
-  out << "   " << ALG_OUTPUT << "_" << bram.name << "_rdata" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr" << "];" << endl;
-  out << "end" << endl;
-  out << "initial begin" << endl;
-  ForIndex(v, bram.init_values.size()) {
-    out << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
-  }
-  out << "end" << endl;
-  out << "endmodule" << endl;
+  // prepare replacement vars
+  std::unordered_map<std::string, std::string> replacements;
+  prepareModuleMemoryTemplateReplacements(bram, replacements);
+  // load template
+  VerilogTemplate tmplt;
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["brom_template"],
+    replacements);
+  // write to output
+  out << tmplt.code();
   out << endl;
 }
-
-#if 0
-void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& brom) const
-{
-  out << "module M_" << m_Name << "_mem_" << brom.name << '(' << endl;
-  for (const auto& inv : brom.in_vars) {
-    const auto& v = m_Vars[m_VarNames.at(inv)];
-    out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
-  }
-  for (const auto& ouv : brom.out_vars) {
-    const auto& v = m_Vars[m_VarNames.at(ouv)];
-    out << "output reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
-  }
-  out << "input " ALG_CLOCK << endl;
-  out << ");" << endl;
-
-  out << "always @(posedge " ALG_CLOCK ") begin" << endl;    
-  out << "  case (" << ALG_INPUT << "_" << brom.name << "_addr" << ')' << endl;
-  int width = justHigherPow2((int)brom.init_values.size());
-  ForIndex(v, brom.init_values.size()) {
-    out << width << "'d" << v << ":" << ALG_OUTPUT << "_" << brom.name << "_rdata=" << brom.init_values[v] << ';' << endl;
-  }
-  out << "  endcase" << endl;
-  out << "end" << endl;
-  out << "endmodule" << endl;
-  out << endl;
-}
-#endif
 
 // -------------------------------------------------
 
 void Algorithm::writeModuleMemoryDualPortBRAM(std::ostream& out, const t_mem_nfo& bram) const
 {
-  out << "module M_" << m_Name << "_mem_" << bram.name << '(' << endl;
-  for (const auto& inv : bram.in_vars) {
-    const auto& v = m_Vars[m_VarNames.at(inv)];
-    out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
-  }
-  for (const auto& ouv : bram.out_vars) {
-    const auto& v = m_Vars[m_VarNames.at(ouv)];
-    out << "output reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
-  }
-  out << "input " ALG_CLOCK << "0," << endl;
-  out << "input " ALG_CLOCK << '1' << endl;
-  out << ");" << endl;
-
-  out << "reg " << typeString(bram.base_type) << " [" << bram.width - 1 << ":0] buffer[" << bram.table_size - 1 << ":0];" << endl;
-
-  out << "always @(posedge " ALG_CLOCK "0) begin" << endl;
-  out << "  if (" << ALG_INPUT << "_" << bram.name << "_wenable0" << ") begin" << endl;
-  out << "    buffer[" << ALG_INPUT << "_" << bram.name << "_addr0" << "] <= " ALG_INPUT << "_" << bram.name << "_wdata0" ";" << endl;
-  out << "  end else begin" << endl;
-  out << "    " << ALG_OUTPUT << "_" << bram.name << "_rdata0" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr0" << "];" << endl;
-  out << "  end" << endl;
-  out << "end" << endl;
-
-  out << "always @(posedge " ALG_CLOCK "1) begin" << endl;
-  out << "  if (" << ALG_INPUT << "_" << bram.name << "_wenable1" << ") begin" << endl;
-  out << "    buffer[" << ALG_INPUT << "_" << bram.name << "_addr1" << "] <= " ALG_INPUT << "_" << bram.name << "_wdata1" ";" << endl;
-  out << "  end else begin" << endl;
-  out << "    " << ALG_OUTPUT << "_" << bram.name << "_rdata1" << " <= buffer[" << ALG_INPUT << "_" << bram.name << "_addr1" << "];" << endl;
-  out << "  end" << endl;
-  out << "end" << endl;
-
-  if (!bram.do_not_initialize) {
-    out << "initial begin" << endl;
-    ForIndex(v, bram.init_values.size()) {
-      out << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
-    }
-    out << "end" << endl;
-  }
-
-  out << "endmodule" << endl;
+  // prepare replacement vars
+  std::unordered_map<std::string, std::string> replacements;
+  prepareModuleMemoryTemplateReplacements(bram, replacements);
+  // load template
+  VerilogTemplate tmplt;
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["dualport_bram_template"],
+    replacements);
+  // write to output
+  out << tmplt.code();
   out << endl;
 }
 

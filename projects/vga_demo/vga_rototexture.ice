@@ -30,18 +30,17 @@ algorithm frame_display(
   int20  deltav_x = 0;
   int20  deltav_y = 0;
   
-  bram uint18 tbl[$32*32$] = {
+  brom uint18 tbl[$32*32$] = {
 $$write_image_in_table('tile.tga',6)
   };
 
-  bram int10 cosine[256] = {
+  brom int10 cosine[256] = {
 $$for i=0,255 do
     $math.floor(511.0 * math.cos(2*math.pi*i/255))$,
 $$end
   };
   
   pix_r := 0; pix_g := 0; pix_b := 0;  
-  tbl.wenable = 0; cosine.wenable = 0;
   // ---------- show time!
   while (1) {
 	  // display frame

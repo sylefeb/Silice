@@ -204,7 +204,7 @@ private:
     int         width;
     int         table_size;
     bool        do_not_initialize = false;
-    bool        no_input_latch = false;
+    bool        no_input_latch    = false;
     int         line;
     std::vector<std::string> clocks;
     std::vector<std::string> in_vars;
@@ -877,6 +877,8 @@ private:
   void writeVarInits(std::string prefix, std::ostream& out, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const;
   /// \brief writes a memory module
   void writeModuleMemory(std::ostream& out, const t_mem_nfo& mem) const;
+  /// \brief prepare replacements for a memory module template
+  void prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, std::unordered_map<std::string, std::string>& _replacements) const;
   /// \brief writes a BRAM memory module
   void writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) const;
   /// \brief writes a dualport BRAM memory module

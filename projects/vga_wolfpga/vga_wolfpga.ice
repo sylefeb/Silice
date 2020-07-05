@@ -5,7 +5,7 @@
 // "Wolfenstein 3D black book" by Fabien Sanglard
 // https://github.com/id-Software/wolf3d/blob/master/WOLFSRC/WL_DR_A.ASM
 
-$$texfile = '2_wolf.tga'
+$$texfile = 'wolf.tga'
 // get pallette in pre-processor
 $$texfile_palette = get_palette_as_table(texfile,color_depth)
 // the palette has 64 entries, create a second darker one

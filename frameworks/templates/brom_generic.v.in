@@ -1,0 +1,11 @@
+module M_%MODULE%_mem_%NAME%(
+input                  [%ADDR_WIDTH%:0] in_%NAME%_addr,
+output reg %DATA_TYPE% [%DATA_WIDTH%:0] out_%NAME%_rdata,
+input                                   %CLOCK%
+);
+reg %DATA_TYPE% [%DATA_WIDTH%:0] buffer[%DATA_SIZE%:0];
+always @(posedge %CLOCK%) begin
+   out_%NAME%_rdata <= buffer[in_%NAME%_addr];
+end
+%INITIAL%
+endmodule

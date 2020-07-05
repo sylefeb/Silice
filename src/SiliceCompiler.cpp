@@ -19,6 +19,7 @@ the distribution, please refer to it for details.
 // -------------------------------------------------
 
 #include "SiliceCompiler.h"
+#include "Config.h"
 
 // -------------------------------------------------
 
@@ -223,12 +224,19 @@ void SiliceCompiler::run(
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
   prepareFramework(fframework, framework_lpp, framework_verilog);
+  // add framework path to config
+  CONFIG.keyValues()["framework_path"] = LibSL::StlHelpers::extractPath(fframework);
+  CONFIG.keyValues()["framework_name"] = LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework));
+  CONFIG.keyValues()["templates_path"] = LibSL::StlHelpers::extractPath(fframework) + "/templates";
   // preprocessor
   LuaPreProcessor lpp;
   std::string preprocessed = std::string(fsource) + ".lpp";
-  lpp.addDefinition("FRAMEWORK", fframework);
+  lpp.addDefinition("FRAMEWORK", 
+    LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework)));
   lpp.run(fsource, framework_lpp, preprocessed);
-  // extract path
+  // display config
+  CONFIG.print();
+  // extract paths
   m_Paths = lpp.searchPaths();
   // parse the preprocessed source
   if (LibSL::System::File::exists(preprocessed.c_str())) {

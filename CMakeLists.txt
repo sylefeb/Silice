@@ -67,6 +67,11 @@ ADD_EXECUTABLE(silice
   src/LuaPreProcessor.cpp
   src/SiliceCompiler.cpp
   src/SiliceCompiler.h
+  src/Config.h
+  src/Config.cpp
+  src/VerilogTemplate.h
+  src/VerilogTemplate.cpp
+  src/Config.cpp
   antlr/siliceParser.cpp
   antlr/siliceParser.h
   antlr/siliceLexer.cpp

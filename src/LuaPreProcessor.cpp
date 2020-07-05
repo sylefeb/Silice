@@ -20,6 +20,7 @@ the distribution, please refer to it for details.
 #include "lppParser.h"
 // -------------------------------------------------
 #include "LuaPreProcessor.h"
+#include "Config.h"
 // -------------------------------------------------
 
 #include <iostream>
@@ -55,6 +56,29 @@ extern "C" {
 static int numLinesIn(std::string l)
 {
   return (int)std::count(l.begin(), l.end(), '\n');
+}
+
+// -------------------------------------------------
+
+static void load_config_into_lua(lua_State *L)
+{
+  luabind::object table = luabind::newtable(L);
+  for (auto kv : CONFIG.keyValues()) {
+    table[kv.first] = kv.second;
+  }
+  luabind::globals(L)["config"] = table;
+}
+
+// -------------------------------------------------
+
+static void load_config_from_lua(lua_State *L)
+{
+  luabind::object table = luabind::globals(L)["config"];
+  for (luabind::iterator kv(table), end; kv != end; kv++) {
+    string key   = luabind::object_cast_nothrow<string>(kv.key(),string(""));
+    string value = luabind::object_cast_nothrow<string>(*kv, string(""));
+    CONFIG.keyValues()[key] = value;
+  }
 }
 
 // -------------------------------------------------
@@ -655,6 +679,7 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
 
   m_CurOutputLine = 0;
 
+  load_config_into_lua(L);
   int ret = luaL_dostring(L, code.c_str());
   if (ret) {
     char str[4096];
@@ -677,6 +702,7 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
     cerr << Console::gray;
     throw Fatal("the preprocessor was interrupted");
   }
+  load_config_from_lua(L);
 
   g_LuaOutputs.at(L).close();
   g_LuaOutputs.erase(L);
