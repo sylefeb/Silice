@@ -17,6 +17,7 @@ the distribution, please refer to it for details.
 
 #include "Config.h"
 #include <LibSL/LibSL.h>
+#include <iomanip>
 
 using namespace std;
 
@@ -55,8 +56,8 @@ Config::Config()
 void Config::print()
 {
   for (auto kv : m_KeyValues) {
-    cerr << Console::white   << kv.first << "\t\t = ";
-    cerr << Console::yellow << kv.second << endl;
+    cerr << Console::white  << setw(30) << kv.first << " = ";
+    cerr << Console::yellow << setw(30) << kv.second << endl;
   }
   cerr << Console::gray;
 }
