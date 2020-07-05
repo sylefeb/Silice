@@ -92,7 +92,6 @@ $$end
   uint2  ba  = 0 (* IOB = "TRUE" *);
   uint13 a   = 0 (* IOB = "TRUE" *);
   
-  uint16 delay       = 0;
   uint4  row_open    = 0;
   uint13 row_addr[4] = {0,0,0,0};
 
@@ -105,11 +104,24 @@ $$end
   uint2  wbyte       = 0;
 
 $$if not sdramctrl_clock_freq then
-$$refresh_cycles = 750 -- assume 100 MHz
+$$  refresh_cycles      = 750 -- assume 100 MHz
+$$  refresh_wait        = 7
+$$  read_wait           = 3
+$$  cmd_active_delay    = 1
+$$  cmd_precharge_delay = 2
+$$  cmd_pre_precharge_delay = 0
+$$  print('SDRAM configured for 100 MHz (default)')
 $$else
-$$refresh_cycles = math.floor(750*sdramctrl_clock_freq/100)
+$$  refresh_cycles      = math.floor(750*sdramctrl_clock_freq/100)
+$$  refresh_wait        = 1 + math.floor(7*sdramctrl_clock_freq/100)
+$$  read_wait           = 1 + math.max(4, math.floor(4*sdramctrl_clock_freq/100))
+$$  if sdramctrl_clock_freq > 100 then
+$$    cmd_active_delay        = 2
+$$    cmd_precharge_delay     = 4
+$$    cmd_pre_precharge_delay = 1
+$$  end
+$$  print('SDRAM configured for ' .. sdramctrl_clock_freq .. ' MHz')
 $$end
-$$refresh_wait   = 7
 
   uint24 refresh_count = $refresh_cycles$;
   
@@ -168,33 +180,30 @@ $$refresh_wait   = 7
   a     = 0;
   ba    = 0;
   dq_en = 0;
-  delay = 10100;
-  () <- wait <- (delay);
+  () <- wait <- (10100);
   
   // precharge all
   cmd      = CMD_PRECHARGE;
   a[10,1]  = 1;
   ba       = 0;
   row_open = 0;
+$$for i=1,cmd_precharge_delay do          
 ++:
-++:
+$$end
   
   // refresh 1
   cmd     = CMD_REFRESH;
-  delay   = $refresh_wait$;
-  () <- wait <- (delay);
+  () <- wait <- ($refresh_wait$);
   
   // refresh 2
   cmd     = CMD_REFRESH;
-  delay   = $refresh_wait$;
-  () <- wait <- (delay);
+  () <- wait <- ($refresh_wait$);
   
   // load mod reg
   cmd     = CMD_LOAD_MODE_REG;
   ba      = 0;
   a       = {3b000, 1b1, 2b00, 3b011, 1b0, 3b010};
-  delay   = 3;
-  () <- wait <- (delay);
+  () <- wait <- (3);
 
   ba            = 0;
   a             = 0;
@@ -210,18 +219,21 @@ $$refresh_wait   = 7
         // -> now busy!
         sd.busy  = 1;
         // -> precharge all
+$$for i=1,cmd_pre_precharge_delay do          
+++:
+$$end
         cmd      = CMD_PRECHARGE;
         a        = 0;
         a[10,1]  = 1;
         ba       = 0;
         row_open = 0;
+$$for i=1,cmd_precharge_delay do          
 ++:
-++:
+$$end
         // refresh
         cmd           = CMD_REFRESH;
-        delay         = $refresh_wait$;
         // wait
-        () <- wait <- (delay);      
+        () <- wait <- ($refresh_wait$);      
         // could accept work
         sd.busy       = work_todo;
         // -> reset count
@@ -237,17 +249,23 @@ $$refresh_wait   = 7
         } else {
           // different row
           // -> pre-charge
+$$for i=1,cmd_pre_precharge_delay do          
+++:
+$$end
           cmd            = CMD_PRECHARGE;
           a              = 0;
           ba             = bank;
           row_open[ba,1] = 0; //row closed
+$$for i=1,cmd_precharge_delay do          
 ++:
-++:          
+$$end
           // -> activate
           cmd = CMD_ACTIVE;
           ba  = bank;
           a   = row;
+$$for i=1,cmd_active_delay do          
 ++:
+$$end
           // row opened
           row_open[ba,1] = 1; 
           row_addr[ba]   = row;
@@ -257,7 +275,9 @@ $$refresh_wait   = 7
           cmd = CMD_ACTIVE;
           ba  = bank;
           a   = row;
+$$for i=1,cmd_active_delay do          
 ++:
+$$end
           // row opened
           row_open[ba,1] = 1;
           row_addr[ba]   = row; 
@@ -281,11 +301,10 @@ $$refresh_wait   = 7
         a     = {2b0, 1b0/*no auto-precharge*/, col, 2b0};
         ba    = bank;
         // wait for data (CAS)
-        cmd   = CMD_READ;        
-++:
-++:
-++:
-++:
+        cmd   = CMD_READ;
+        
+        () <- wait <- ($read_wait$);
+        
         // burst 4 bytes 
         sd.data_out[0,8]  = dq_i;
 ++:        

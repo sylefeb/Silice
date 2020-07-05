@@ -38,7 +38,9 @@ algorithm pll(
   output  uint1 video_clock,
   output  uint1 video_reset,
   output! uint1 sdram_clock,
-  output! uint1 sdram_reset
+  output! uint1 sdram_reset,
+  output! uint1 compute_clock,
+  output! uint1 compute_reset
 ) <autorun>
 {
   uint3 counter = 0;
@@ -47,11 +49,14 @@ algorithm pll(
   sdram_clock   := clock;
   sdram_reset   := reset;
   
-  video_clock     := counter[1,1];
-  video_reset     := (trigger > 0);
+  compute_clock := counter[0,1]; // x2 slower
+  compute_reset := (trigger > 0);
+
+  video_clock   := counter[1,1]; // x4 slower
+  video_reset   := (trigger > 0);
   
-  while (1) {
-	  counter = counter + 1;
+  while (1) {	  
+    counter = counter + 1;
 	  trigger = trigger >> 1;
   }
 }
@@ -82,8 +87,7 @@ $$end
 
 $$if ULX3S then
 // Clock
-import('ulx3s_clk_50_25.v')
-$$sdramctrl_clock_freq = 50
+import('ulx3s_clk_50_25_100.v')
 // reset
 import('reset_conditioner.v')
 $$end
@@ -172,19 +176,24 @@ $$if HDMI then
 $$end  
 ) <@sdram_clock,!sdram_reset> {
 
-uint1 video_reset = 0;
-uint1 sdram_reset = 0;
+uint1 video_reset   = 0;
+uint1 sdram_reset   = 0;
 
 $$if ICARUS or VERILATOR then
 // --- PLL
+$$HAS_COMPUTE_CLOCK = true
+uint1 compute_reset = 0;
+uint1 compute_clock = 0;
 $$if ICARUS then
-  uint1 sdram_clock = 0;
+uint1 sdram_clock   = 0;
 $$end
 pll clockgen<@clock,!reset>(
-  video_clock :> video_clock,
-  video_reset :> video_reset,
-  sdram_clock :> sdram_clock,
-  sdram_reset :> sdram_reset
+  video_clock   :> video_clock,
+  video_reset   :> video_reset,
+  sdram_clock   :> sdram_clock,
+  sdram_reset   :> sdram_reset,
+  compute_clock :> compute_clock,
+  compute_reset :> compute_reset
 );
 $$elseif MOJO then
   uint1 video_clock   = 0;
@@ -244,13 +253,17 @@ $$elseif DE10NANO then
   );
 $$elseif ULX3S then
   // --- clock
-  uint1 video_clock  = 0;
-  uint1 sdram_clock = 0;
-  uint1 pll_lock = 0;
-  ulx3s_clk_50_25 clk_gen(
+$$HAS_COMPUTE_CLOCK = true
+  uint1 compute_clock = 0;
+  uint1 compute_reset = 0;
+  uint1 video_clock   = 0;
+  uint1 sdram_clock   = 0;
+  uint1 pll_lock      = 0;
+  ulx3s_clk_50_25_100 clk_gen(
     clkin    <: clock,
-    clkout0  :> sdram_clock,
+    clkout0  :> compute_clock,
     clkout1  :> video_clock,
+    clkout2  :> sdram_clock,
     locked   :> pll_lock
   ); 
   // --- video clean reset
@@ -262,8 +275,14 @@ $$elseif ULX3S then
   // --- SDRAM clean reset
   reset_conditioner sdram_rstcond (
     rcclk <: sdram_clock,
-    in  <: reset,
-    out :> sdram_reset
+    in    <: reset,
+    out   :> sdram_reset
+  );
+  // --- compute clean reset
+  reset_conditioner compute_rstcond (
+    rcclk <: compute_clock,
+    in    <: reset,
+    out   :> compute_reset
   );
 $$end
 
@@ -398,19 +417,24 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   );
  
 // --- Frame drawer
-  frame_drawer drawer<@sdram_clock,!sdram_reset>(
-    vsync      <: video_vblank,
-    sd         <:> sd1,
-    fbuffer    :> onscreen_fbuffer,
+  frame_drawer drawer
+$$if HAS_COMPUTE_CLOCK then  
+    <@compute_clock,!compute_reset>
+$$else
+    <@sdram_clock,!sdram_reset>
+$$end
+(
+    vsync       <:  video_vblank,
+    sd          <:> sd1,
+    fbuffer     :>  onscreen_fbuffer,
+$$if HAS_COMPUTE_CLOCK then  
+    sdram_clock <:  sdram_clock,
+    sdram_reset <:  sdram_reset,
+$$end
     <:auto:>
   );
 
   uint8 frame       = 0;
-
-$$if HARDWARE then
-  uint1 lastfbuffer = 1;
-  uint6 counter     = 0;
-$$end
 
 $$if DE10NANO then
   not_pll_lock := ~pll_lock;
@@ -422,8 +446,10 @@ $$end
   sd_switcher <- ();
   
   // start the frame drawer
+$$if not HAS_COMPUTE_CLOCK then
   drawer <- ();
-   
+$$end
+ 
   // start the frame buffer row updater
   fbrupd <- ();
  
@@ -433,19 +459,6 @@ $$if HARDWARE then
   
     // wait while vga draws  
 	  while (video_vblank == 0) { }
-
-    // one more vga frame
-    if (counter < 63) {
-      counter = counter + 1;
-    }
-
-++: // wait for drawer to swap
-    if (onscreen_fbuffer != lastfbuffer) {
-      // one more drawer frame
-      lastfbuffer = onscreen_fbuffer;
-      // led         = counter; // commented out as LED is passed to some frame_drawer
-      counter     = 0;
-    }
 
     // wait for next frame to start
 	  while (video_vblank == 1) { }

@@ -98,6 +98,7 @@ algorithm columns_drawer(
   // reading from column bram
   output uint9  addr,
   input  uint18 rdata, // NOTE, TODO: allow to use bitfield name (DrawColumn)
+  output uint1  wen,
   // how many columns have been written
   input  uint9  num_in_cols,
   // how many collumns have been drawn
@@ -129,8 +130,9 @@ $$for hscr=1,511 do
 $$end
   };
 
-  sd.in_valid := 0; // maintain low (pulses high when needed)
-  sd.rw = 1;        // sdram write
+  wen         := 0; // reading from bram
+  sd.in_valid := 0; // maintain low (pulses high when needed)  
+  sd.rw       := 1; // writing to sdram
 
   while (1) {
   
@@ -236,27 +238,40 @@ algorithm frame_drawer(
     input  busy,
     input  out_valid,
   },
+$$if HAS_COMPUTE_CLOCK then
+  input  uint1  sdram_clock,
+  input  uint1  sdram_reset,
+$$end
   input  uint1  vsync,
   output uint1  fbuffer,
   output uint8  led
-) {
+) <autorun> {
 
   uint1  vsync_filtered = 0;
 
   // NOTE, TODO: cannot yet declare the bram with the bitfield
   // bram DrawColumn columns[320] = {};
+$$if HAS_COMPUTE_CLOCK then   
+  dualport_bram uint18 columns<@clock,@sdram_clock>[320] = {};
+$$else
   dualport_bram uint18 columns[320] = {};
+$$end
 
   // ray-cast columns counter  
   uint9 c       = 0;
   // drawn columns counter
   uint9 c_drawn = 0;
 
-  columns_drawer coldrawer(
+  columns_drawer coldrawer
+$$if HAS_COMPUTE_CLOCK then
+  <@sdram_clock,!sdram_reset>
+$$end
+  (
     sd      <:> sd,
     vsync   <: vsync_filtered,
     fbuffer <: fbuffer,
     addr    :> columns.addr1,  // drives port1 of columns
+    wen     :> columns.wenable1,
     rdata   <: columns.rdata1,
     num_in_cols    <: c,
     num_drawn_cols :> c_drawn
@@ -362,7 +377,6 @@ $$end
   fbuffer = 0;
   
   columns.wenable0 = 1; // write on port 0
-  columns.wenable1 = 0; // read from port 1
   
   while (1) {
     
