@@ -70,6 +70,40 @@ $$end
 
 }
 */
+
+// -------------------------
+
+bitfield DrawColumn
+{
+  uint9  height,
+  uint1  v_or_h,
+  uint2  material,
+  uint6  texcoord
+}
+
+// -------------------------
+
+/*
+algorithm columns_drawer(
+  // sdram
+  sdio sd {
+    output addr,
+    output wbyte_addr,
+    output rw,
+    output data_in,
+    output in_valid,
+    input  data_out,
+    input  busy,
+    input  out_valid,
+  },
+  // reading for broms
+  input  uint1  vsync,
+  output uint1  fbuffer
+) {
+  
+}
+*/
+
 // -------------------------
 
 algorithm frame_drawer(
@@ -94,10 +128,9 @@ algorithm frame_drawer(
 $$write_image_in_table(texfile)
   };
 
-  bram uint10 columns[320]  = {};
-
-  bram uint3  material[320] = {};
-  bram uint6  texcoord[320] = {};
+  // NOTE: cannot yet declare the bram with the bitfield ; TODO
+  // bram DrawColumn columns[320] = {};
+  bram uint18 columns[320] = {};
 
 $$ tan_tbl = {}
 $$ for i=0,449 do
@@ -227,8 +260,6 @@ $$end
   while (1) {
 
     columns .wenable = 1;
-    material.wenable = 1;
-    texcoord.wenable = 1;
     
     viewangle = ((160 + posa) * $math.floor(2048*(2048/3600))$) >> 11;
     
@@ -398,28 +429,13 @@ $$end
 ++:   // relax timing      
 
       // projection divide      
-      // (height) <- div <- ($140<<FPf$,dist_f>>1);
-      
       (height) <- div <- ($140<<FPf$,dist_f>>1);
 
-      // height = dist_f >> 10;
-
-//      height = c&63; ///////////////////////////////////////// DEBUG
-//v_or_h = 0;
-//hit = 2;
-//hity_f = 0;
-//hitx_f = 0;
-
       columns.addr   = c;
-      columns.wdata  = height;
-      material.addr  = c;
-      material.wdata = {v_or_h,2b0} | (hit-1);
-      texcoord.addr  = c;
-      if (v_or_h == 0) {
-        texcoord.wdata = hity_f >>> $FPf-6$;
-      } else {
-        texcoord.wdata = hitx_f >>> $FPf-6$;
-      }
+      DrawColumn(columns.wdata).height   = height;
+      DrawColumn(columns.wdata).v_or_h   = v_or_h;
+      DrawColumn(columns.wdata).material = hit-1;
+      DrawColumn(columns.wdata).texcoord = (v_or_h == 0) ? (hity_f >>> $FPf-6$) : (hitx_f >>> $FPf-6$);
       
       // write on loop     
       c = c + 1;
@@ -427,21 +443,17 @@ $$end
     
     // draw columns TODO: in parallel with FIFO
     c = 0;
-    columns.wenable  = 0;
-    material.wenable = 0;
-    texcoord.wenable = 0;
+    columns.wenable = 0;
+    columns.addr    = 0;
     while (c < 320) {
-      columns.addr  = c;
-      material.addr = c;
-      texcoord.addr = c;
-++:
-      if (columns.rdata < 100) {
-        h = columns.rdata;
+
+      if (DrawColumn(columns.rdata).height < 100) {
+        h = DrawColumn(columns.rdata).height;
       } else {
         h = 99;        
       }
 
-      hscr_inv.addr = columns.rdata & 511;
+      hscr_inv.addr = DrawColumn(columns.rdata).height & 511;
       v_tex = $lshift(32,13)$;
 ++:      
       v_tex_incr    = hscr_inv.rdata;
@@ -451,9 +463,10 @@ $$end
         // floor and bottom half
         if (y <= h) {
 
-          texture.addr = ((texcoord.rdata + ((material.rdata&3)<<6)) & 255) + (((v_tex >> 13) & 63)<<8);
+          texture.addr = ((DrawColumn(columns.rdata).texcoord
+                       + ((DrawColumn(columns.rdata).material)<<6)) & 255) + (((v_tex >> 13) & 63)<<8);
 ++:          
-          if (material.rdata[2,1] == 1) {
+          if (DrawColumn(columns.rdata).v_or_h == 1) {
             palidx       = texture.rdata;
           } else {
             palidx       = texture.rdata + 64;
@@ -477,9 +490,10 @@ $$end
         // other half
         if (y <= h) {
         
-          texture.addr = ((texcoord.rdata + (material.rdata<<6)) & 255) + ((63 - ((v_tex >> 13) & 63))<<8);
+          texture.addr = ((DrawColumn(columns.rdata).texcoord
+                       + (DrawColumn(columns.rdata).material<<6)) & 255) + ((63 - ((v_tex >> 13) & 63))<<8);
 ++:          
-          if (material.rdata[2,1] == 1) {
+          if (DrawColumn(columns.rdata).v_or_h == 1) {
             palidx       = texture.rdata;
           } else {
             palidx       = texture.rdata + 64;
@@ -506,7 +520,10 @@ $$end
         }
         y = y + 1;        
       }      
+      
+      // next
       c = c + 1;
+      columns.addr = c;
     }    
     
     // wait for frame to end

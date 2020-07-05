@@ -2928,6 +2928,8 @@ std::string Algorithm::determineAccessedVar(siliceParser::AccessContext* access,
     return determineAccessedVar(access->tableAccess(), bctx);
   } else if (access->bitAccess() != nullptr) {
     return determineAccessedVar(access->bitAccess(), bctx);
+  } else if (access->bitfieldAccess() != nullptr) {
+    return determineAccessedVar(access->bitfieldAccess(), bctx);
   }
   reportError(nullptr,(int)access->getStart()->getLine(), "internal error [%s, %d]",  __FILE__, __LINE__);
   return "";
