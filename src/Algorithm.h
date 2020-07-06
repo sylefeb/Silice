@@ -463,8 +463,9 @@ private:
     std::vector<t_instr_nfo>         instructions;         // list of instructions within block
     t_end_action                    *end_action = nullptr; // end action to perform
     t_combinational_block_context    context;
-    std::unordered_set<std::string>  in_vars_read;         // which variables are read from before
-    std::unordered_set<std::string>  out_vars_written;     // which variables have been written after
+    std::unordered_map<std::string,int> initialized_vars;     // variables initialized at block start
+    std::unordered_set<std::string>     in_vars_read;         // which variables are read from before
+    std::unordered_set<std::string>     out_vars_written;     // which variables have been written after
     ~t_combinational_block() { swap_end(nullptr); }
 
     void next(t_combinational_block *next)

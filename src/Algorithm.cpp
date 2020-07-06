@@ -623,6 +623,9 @@ void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gathe
   if (sub != nullptr) {
     sub->varnames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
   }
+  // add to block initialization set
+  _current->initialized_vars.insert(make_pair(_var.name, (int)m_Vars.size() - 1));
+  _current->no_skip = true; // mark as cannot skip to honor var initializations
 }
 
 // -------------------------------------------------
@@ -900,7 +903,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     }
     v.table_size = 0;
     v.init_values.push_back("0");
-    addVar(v, nullptr, nullptr, (int)decl->getStart()->getLine());
+    addVar(v, _current, _context, (int)decl->getStart()->getLine());
     if (m.is_input) {
       mem.in_vars.push_back(v.name);
     } else {
@@ -1320,7 +1323,7 @@ Algorithm::t_combinational_block *Algorithm::updateBlock(siliceParser::Instructi
     }
     t_combinational_block *block = addBlock(name, &_current->context, (int)ilist->state()->getStart()->getLine());
     block->is_state = true; // block explicitely required to be a state
-    block->no_skip = no_skip;
+    block->no_skip  = no_skip;
     _current->next(block);
     return block;
   } else {
@@ -1468,15 +1471,11 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   }
   // subroutine block
   t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, nullptr, (int)sub->getStart()->getLine());
+  subb->context.subroutine    = nfo;
+  nfo->top_block              = subb;
   // subroutine local declarations
   int numdecl = gatherDeclarationList(sub->declarationList(), subb, _context, true);
-  // do not skip if local vars must be initialized
-  if (numdecl > 0) {
-    subb->no_skip = true; 
-  }
   // cross ref between block and subroutine
-  subb->context.subroutine = nfo;
-  nfo->top_block           = subb;
   // gather inputs/outputs and access constraints
   sl_assert(sub->subroutineParamList() != nullptr);
   // constraint?
@@ -1600,6 +1599,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         nfo->allowed_reads .insert(var.name);
       } else {
         nfo->allowed_writes.insert(var.name);
+        nfo->allowed_reads .insert(var.name);
       }
     }
   }
@@ -4563,19 +4563,11 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
     out << " (" << block->context.subroutine->name << ')';
   }
   out << std::endl;
-  // entry block starts by variable initialization
-  if (block->state_id == entryState()) {
+  // block variable initialization
+  if (!block->initialized_vars.empty()) {
     out << "// var inits" << std::endl;
-    writeVarInits(prefix, out, m_VarNames, _dependencies, _ff_usage);
+    writeVarInits(prefix, out, block->initialized_vars, _dependencies, _ff_usage);
     out << "// --" << std::endl;
-  }
-  // if this is a subroutine first block, write local vars init
-  if (block->context.subroutine != nullptr) {
-    if (!strncmp(block->block_name.c_str(), SUB_ENTRY_BLOCK, strlen(SUB_ENTRY_BLOCK))) {
-      out << "// sub locals init" << std::endl;
-      writeVarInits(prefix, out, block->context.subroutine->varnames, _dependencies, _ff_usage);
-      out << "// --" << std::endl;
-    }
   }
   for (const auto &a : block->instructions) {
     // write instruction
