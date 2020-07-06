@@ -434,7 +434,8 @@ bool Algorithm::isVIO(std::string var) const
 // -------------------------------------------------
 
 template<class T_Block>
-Algorithm::t_combinational_block *Algorithm::addBlock(std::string name, const t_combinational_block_context* bctx, int line)
+Algorithm::t_combinational_block *Algorithm::addBlock(
+  std::string name, const t_combinational_block* parent, const t_combinational_block_context *bctx, int line)
 {
   auto B = m_State2Block.find(name);
   if (B != m_State2Block.end()) {
@@ -442,13 +443,18 @@ Algorithm::t_combinational_block *Algorithm::addBlock(std::string name, const t_
   }
   size_t next_id = m_Blocks.size();
   m_Blocks.emplace_back(new T_Block());
-  m_Blocks.back()->block_name = name;
-  m_Blocks.back()->id = next_id;
-  m_Blocks.back()->end_action = nullptr;
-  if (bctx != nullptr) {
+  m_Blocks.back()->block_name     = name;
+  m_Blocks.back()->id             = next_id;
+  m_Blocks.back()->end_action     = nullptr;
+  m_Blocks.back()->context.parent = parent;
+  if (bctx) {
     m_Blocks.back()->context.subroutine   = bctx->subroutine;
     m_Blocks.back()->context.pipeline     = bctx->pipeline;
     m_Blocks.back()->context.vio_rewrites = bctx->vio_rewrites;
+  } else if (parent) {
+    m_Blocks.back()->context.subroutine   = parent->context.subroutine;
+    m_Blocks.back()->context.pipeline     = parent->context.pipeline;
+    m_Blocks.back()->context.vio_rewrites = parent->context.vio_rewrites;
   }
   m_Id2Block[next_id] = m_Blocks.back();
   m_State2Block[name] = m_Blocks.back();
@@ -599,6 +605,28 @@ std::string Algorithm::gatherValue(siliceParser::ValueContext* ival)
 
 // -------------------------------------------------
 
+void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current, bool no_init)
+{
+  t_subroutine_nfo *sub = nullptr;
+  if (_current) {
+    sub = _current->context.subroutine;
+  }
+  m_Vars.emplace_back(_var);
+  m_VarNames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
+  if (sub != nullptr) {
+    sub->varnames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
+  }
+  if (!no_init) {
+    // add to block initialization set
+    _current->initialized_vars.insert(make_pair(_var.name, (int)m_Vars.size() - 1));
+    _current->no_skip = true; // mark as cannot skip to honor var initializations
+  }
+  // add to block declared vios
+  _current->declared_vios.insert(_var.name);
+}
+
+// -------------------------------------------------
+
 void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, int line)
 {
   t_subroutine_nfo *sub = nullptr;
@@ -618,14 +646,7 @@ void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gathe
     reportError(nullptr, line, "variable '%s': this name is already used by a prior declaration", _var.name.c_str());
   }
   // ok!
-  m_Vars.emplace_back(_var);
-  m_VarNames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
-  if (sub != nullptr) {
-    sub->varnames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
-  }
-  // add to block initialization set
-  _current->initialized_vars.insert(make_pair(_var.name, (int)m_Vars.size() - 1));
-  _current->no_skip = true; // mark as cannot skip to honor var initializations
+  insertVar(_var, _current);
 }
 
 // -------------------------------------------------
@@ -762,11 +783,7 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* de
   }
   readInitList(decl, var);
   // insert var
-  m_Vars.emplace_back(var);
-  m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
-  if (sub != nullptr) {
-    sub->varnames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
-  }
+  insertVar(var, _current);
 }
 
 // -------------------------------------------------
@@ -1308,7 +1325,23 @@ std::string Algorithm::generateBlockName()
 
 // -------------------------------------------------
 
-Algorithm::t_combinational_block *Algorithm::updateBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context)
+Algorithm::t_combinational_block *Algorithm::gatherBlock(siliceParser::BlockContext *block, t_combinational_block *_current, t_gather_context *_context)
+{
+  t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, (int)block->getStart()->getLine());
+  _current->next(newblock);
+  // gather declarations in new block
+  gatherDeclarationList(block->declarationList(), newblock, _context, true);
+  // gather instructions in new block
+  t_combinational_block *after     = gather(block->instructionList(), newblock, _context);
+  // produce next block
+  t_combinational_block *nextblock = addBlock(generateBlockName(), _current, nullptr, (int)block->getStart()->getLine());
+  after->next(nextblock);
+  return nextblock;
+}
+
+// -------------------------------------------------
+
+Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context)
 {
   if (ilist->state() != nullptr) {
     // start a new block
@@ -1321,7 +1354,7 @@ Algorithm::t_combinational_block *Algorithm::updateBlock(siliceParser::Instructi
       name = generateBlockName();
       no_skip = true;
     }
-    t_combinational_block *block = addBlock(name, &_current->context, (int)ilist->state()->getStart()->getLine());
+    t_combinational_block *block = addBlock(name, _current, nullptr, (int)ilist->state()->getStart()->getLine());
     block->is_state = true; // block explicitely required to be a state
     block->no_skip  = no_skip;
     _current->next(block);
@@ -1342,7 +1375,7 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
   _current->next(_context->break_to);
   _context->break_to->is_state = true;
   // start a new block after the break
-  t_combinational_block *block = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block *block = addBlock(generateBlockName(), _current);
   // return block
   return block;
 }
@@ -1352,12 +1385,12 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
 Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context)
 {
   // while header block
-  t_combinational_block *while_header = addBlock("__while" + generateBlockName(), &_current->context);
+  t_combinational_block *while_header = addBlock("__while" + generateBlockName(), _current);
   _current->next(while_header);
   // iteration block
-  t_combinational_block *iter = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block *iter = addBlock(generateBlockName(), _current);
   // block for after the while
-  t_combinational_block *after = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block *after = addBlock(generateBlockName(), _current);
   // parse the iteration block
   t_combinational_block *previous = _context->break_to;
   _context->break_to = after;
@@ -1470,7 +1503,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
     reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': this name is already used by a prior declaration", nfo->name.c_str());
   }
   // subroutine block
-  t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, nullptr, (int)sub->getStart()->getLine());
+  t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, nullptr, nullptr, (int)sub->getStart()->getLine());
   subb->context.subroutine    = nfo;
   nfo->top_block              = subb;
   // subroutine local declarations
@@ -1591,8 +1624,9 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       var.table_size = tbl_size;
       splitType(strtype, var.base_type, var.width);
       var.init_values.resize(max(var.table_size, 1), "0");
-      m_Vars.emplace_back(var);
-      m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
+      // insert var
+      insertVar(var, _current, true /*no init*/);
+      // record in subroutine
       nfo->vios.insert(std::make_pair(ioname, var.name));
       // add to allowed read/write list
       if (P->input() != nullptr) {
@@ -1601,6 +1635,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         nfo->allowed_writes.insert(var.name);
         nfo->allowed_reads .insert(var.name);
       }
+      nfo->top_block->declared_vios.insert(var.name);
     }
   }
   // parse the subroutine
@@ -1649,7 +1684,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   // name of the pipeline
   nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine());
   // add a block for after pipeline
-  t_combinational_block *after = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block *after = addBlock(generateBlockName(), _current);
   // go through the pipeline
   // -> track read/written
   std::unordered_map<std::string,std::vector<int> > read_at, written_at;
@@ -1660,12 +1695,12 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   for (auto b : pip->block()) {
     // stage info
     t_pipeline_stage_nfo *snfo = new t_pipeline_stage_nfo();
-    nfo->stages.push_back(snfo);
+    nfo ->stages.push_back(snfo);
     snfo->pipeline = nfo;
     snfo->stage_id = stage;
     // blocks
-    t_combinational_block_context ctx = { _current->context.subroutine, snfo };
-    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), &ctx, (int)b->getStart()->getLine());
+    t_combinational_block_context ctx  = { _current->context.subroutine, snfo, _current->context.parent };
+    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, (int)b->getStart()->getLine());
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
     // check this is a combinational chain
     if (!isStateLessGraph(stage_start)) {
@@ -1772,8 +1807,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       var.table_size = get<2>(tws);
       var.init_values.resize(var.table_size > 0 ? var.table_size : 1, "0");
       var.access = e_InternalFlipFlop;
-      m_Vars.emplace_back(var);
-      m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
+      insertVar(var, _current, true /*no init*/);
     }
   }
   // done
@@ -1798,7 +1832,7 @@ Algorithm::t_combinational_block* Algorithm::gatherJump(siliceParser::JumpContex
     B->second->is_state = true; // destination has to be a state
   }
   // start a new block just after the jump
-  t_combinational_block* after = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block* after = addBlock(generateBlockName(), _current);
   // return block after jump
   return after;
 }
@@ -1808,7 +1842,7 @@ Algorithm::t_combinational_block* Algorithm::gatherJump(siliceParser::JumpContex
 Algorithm::t_combinational_block *Algorithm::gatherCall(siliceParser::CallContext* call, t_combinational_block *_current, t_gather_context *_context)
 {
   // start a new block just after the call
-  t_combinational_block* after = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block* after = addBlock(generateBlockName(), _current);
   // has to be a state to return to
   after->is_state = true;
   // find the destination
@@ -1837,7 +1871,7 @@ Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::Retu
   // add return at end of current
   _current->return_from();
   // start a new block
-  t_combinational_block* block = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block* block = addBlock(generateBlockName(), _current);
   return block;
 }
 
@@ -1854,7 +1888,7 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
   auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
   if (S != m_Subroutines.end()) {
     // yes! create a new block, call subroutine
-    t_combinational_block* after = addBlock(generateBlockName(), &_current->context);
+    t_combinational_block* after = addBlock(generateBlockName(), _current);
     // has to be a state to return to
     after->is_state = true;
     // call subroutine
@@ -1878,12 +1912,12 @@ Algorithm::t_combinational_block *Algorithm::gatherJoinExec(siliceParser::JoinEx
   auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
   if (S == m_Subroutines.end()) { // no, waiting for algorithm
     // block for the wait
-    t_combinational_block* waiting_block = addBlock(generateBlockName(), &_current->context);
+    t_combinational_block* waiting_block = addBlock(generateBlockName(), _current);
     waiting_block->is_state = true; // state for waiting
     // enter wait after current
     _current->next(waiting_block);
     // block for after the wait
-    t_combinational_block* next_block = addBlock(generateBlockName(), &_current->context);
+    t_combinational_block* next_block = addBlock(generateBlockName(), _current);
     next_block->is_state = true; // state to goto after the wait
     // ask current block to wait the algorithm termination
     waiting_block->wait((int)join->getStart()->getLine(), join->IDENTIFIER()->getText(), waiting_block, next_block);
@@ -1935,7 +1969,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
     reportError(ci->IDENTIFIER()->getSymbol(), (int)ci->getStart()->getLine(), "circuitry not yet declared");
   }
   // instantiate in a new block
-  t_combinational_block* cblock = addBlock(generateBlockName() + "_" + name, &_current->context);
+  t_combinational_block* cblock = addBlock(generateBlockName() + "_" + name, _current);
   _current->next(cblock);
   // produce io rewrite rules for the block
   // -> gather ins outs
@@ -1977,7 +2011,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   // gather code
   t_combinational_block* cblock_after = gather(C->second->instructionList(), cblock, _context);
   // create a new block to continue with same context as _current
-  t_combinational_block* after = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block* after = addBlock(generateBlockName(), _current);
   cblock_after->next(after);
   return after;
 }
@@ -1986,13 +2020,13 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
 
 Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context)
 {
-  t_combinational_block *if_block = addBlock(generateBlockName(), &_current->context);
-  t_combinational_block *else_block = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block *if_block = addBlock(generateBlockName(), _current);
+  t_combinational_block *else_block = addBlock(generateBlockName(), _current);
   // parse the blocks
   t_combinational_block *if_block_after = gather(ifelse->if_block, if_block, _context);
   t_combinational_block *else_block_after = gather(ifelse->else_block, else_block, _context);
   // create a block for after the if-then-else
-  t_combinational_block *after = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block *after = addBlock(generateBlockName(), _current);
   if_block_after->next(after);
   else_block_after->next(after);
   // add if_then_else to current
@@ -2006,12 +2040,12 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
 
 Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenContext* ifthen, t_combinational_block *_current, t_gather_context *_context)
 {
-  t_combinational_block *if_block = addBlock(generateBlockName(), &_current->context);
-  t_combinational_block *else_block = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block *if_block = addBlock(generateBlockName(), _current);
+  t_combinational_block *else_block = addBlock(generateBlockName(), _current);
   // parse the blocks
   t_combinational_block *if_block_after = gather(ifthen->if_block, if_block, _context);
   // create a block for after the if-then-else
-  t_combinational_block *after = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block *after = addBlock(generateBlockName(), _current);
   if_block_after->next(after);
   else_block->next(after);
   // add if_then_else to current
@@ -2026,11 +2060,11 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
 Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::SwitchCaseContext* switchCase, t_combinational_block* _current, t_gather_context* _context)
 {
   // create a block for after the switch-case
-  t_combinational_block* after = addBlock(generateBlockName(), &_current->context);
+  t_combinational_block* after = addBlock(generateBlockName(), _current);
   // create a block per case statement
   std::vector<std::pair<std::string, t_combinational_block*> > case_blocks;
   for (auto cb : switchCase->caseBlock()) {
-    t_combinational_block* case_block = addBlock(generateBlockName() + "_case", &_current->context);
+    t_combinational_block* case_block = addBlock(generateBlockName() + "_case", _current);
     std::string            value = "default";
     if (cb->case_value != nullptr) {
       value = gatherValue(cb->case_value);
@@ -2089,8 +2123,7 @@ void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* al
         var.base_type = type_width.first;
         var.width = type_width.second;
         var.init_values.push_back("0");
-        m_Vars.emplace_back(var);
-        m_VarNames.insert(std::make_pair(var.name, (int)m_Vars.size() - 1));
+        insertVar(var, always, true /*no init*/);
       }
     }
     alws = alws->alwaysAssignedList();
@@ -2101,24 +2134,45 @@ void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* al
 
 void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_block *_current)
 {
-  // in subroutine
-  if (_current->context.subroutine == nullptr) {
-    return; // no, return, no checks required
-  }
-  // yes: go ahead with checks
+  // gather info for checks
+  std::unordered_set<std::string> all;
   std::unordered_set<std::string> read, written;
-  determineVIOAccess(node, m_VarNames,    &_current->context, read, written);
+  determineVIOAccess(node, m_VarNames, &_current->context, read, written);
   determineVIOAccess(node, m_OutputNames, &_current->context, read, written);
-  determineVIOAccess(node, m_InputNames,  &_current->context, read, written);
-  // now verify all permissions are granted
-  for (auto R : read) {
-    if (_current->context.subroutine->allowed_reads.count(R) == 0) {
-      reportError(nullptr, -1, "variable '%s' is read by subroutine '%s' without explicit permission", R.c_str(), _current->context.subroutine->name.c_str());
+  determineVIOAccess(node, m_InputNames, &_current->context, read, written);
+  for (auto R : read)    { all.insert(R); }
+  for (auto W : written) { all.insert(W); }
+  // in subroutine
+  std::unordered_set<std::string> insub;
+  if (_current->context.subroutine != nullptr) {
+    // now verify all permissions are granted
+    for (auto R : read) {
+      if (_current->context.subroutine->allowed_reads.count(R) == 0) {
+        reportError(nullptr, -1, "variable '%s' is read by subroutine '%s' without explicit permission", R.c_str(), _current->context.subroutine->name.c_str());
+      }
+    }
+    for (auto W : written) {
+      if (_current->context.subroutine->allowed_writes.count(W) == 0) {
+        reportError(nullptr, -1, "variable '%s' is written by subroutine '%s' without explicit permission", W.c_str(), _current->context.subroutine->name.c_str());
+      }
     }
   }
-  for (auto W : written) {
-    if (_current->context.subroutine->allowed_writes.count(W) == 0) {
-      reportError(nullptr, -1, "variable '%s' is written by subroutine '%s' without explicit permission", W.c_str(), _current->context.subroutine->name.c_str());
+  // block scope
+  // -> attempt to locate variable in parent scope
+  for (auto V : all) {
+    if (isInputOrOutput(V) || isInOut(V)) { 
+      continue;   // ignore input/output/inout
+    }
+    const t_combinational_block *visiting = _current;
+    bool found = false;
+    while (visiting != nullptr) {
+      if (visiting->declared_vios.count(V) > 0) {
+        found = true; break;
+      }
+      visiting = visiting->context.parent;
+    }
+    if (!found) {
+      reportError(nullptr, -1, "variable '%s' is either unknown or out of scope", V.c_str());
     }
   }
 }
@@ -2323,10 +2377,9 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto call     = dynamic_cast<siliceParser::CallContext*>(tree);
   auto ret      = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
   auto breakL   = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
+  auto block    = dynamic_cast<siliceParser::BlockContext *>(tree);
 
   bool recurse  = true;
-
-  checkPermissions(tree, _current);
 
   if (algbody) {
     // gather declarations
@@ -2338,6 +2391,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     }
     // gather always assigned
     gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
+    m_AlwaysPre.context.parent = _current;
     // gather always block if defined
     if (algbody->alwaysBlock() != nullptr) {
       gather(algbody->alwaysBlock(),&m_AlwaysPre,_context);
@@ -2352,7 +2406,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
       gatherSubroutine(s.second, _current, _context);
     }
     // recurse on instruction list
-    _current = gather(algbody->instructionList(),_current, _context);
+    _current = gather(algbody->instructionList(), _current, _context);
     recurse  = false;
   } else if (decl)     { gatherDeclaration(decl, _current, _context, true);  recurse = false;
   } else if (ifelse)   { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
@@ -2369,9 +2423,10 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (ret)      { _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
   } else if (breakL)   { _current = gatherBreakLoop(breakL, _current, _context);       recurse = false;
   } else if (async)    { _current->instructions.push_back(t_instr_nfo(async, _context->__id));   recurse = false; 
-  } else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _context->__id));  recurse = false; 
+  } else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _context->__id));  recurse = false;
   } else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); recurse = false; 
-  } else if (ilist)    { _current = updateBlock(ilist, _current, _context); }
+  } else if (block)    { _current = gatherBlock(block, _current, _context);            recurse = false;
+  } else if (ilist)    { checkPermissions(ilist, _current); _current = splitOrContinueBlock(ilist, _current, _context); }
 
   // recurse
   if (recurse) {
@@ -3523,7 +3578,7 @@ Algorithm::Algorithm(
 void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *declAndInstr)
 {
   // gather elements from source code
-  t_combinational_block *main = addBlock("_top", nullptr, (int)inout->getStart()->getLine());
+  t_combinational_block *main = addBlock("_top", nullptr, nullptr, (int)inout->getStart()->getLine());
   main->is_state = true;
 
   // gather input and outputs

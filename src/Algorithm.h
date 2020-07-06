@@ -312,6 +312,8 @@ private:
     std::vector<std::string>                        vars;     // ordered list of internal var names (subroutine space)
     std::unordered_map<std::string, int >           varnames; // internal var names (translated), for use with host m_Vars
   };
+
+  /// \brief All subroutines
   std::unordered_map< std::string, t_subroutine_nfo* > m_Subroutines;
 
   /// \brief forward declaration of a pipeline stage
@@ -444,8 +446,9 @@ private:
 
   /// \brief combinational block context
   typedef struct {
-    t_subroutine_nfo*     subroutine = nullptr; // if block belongs to a subroutine
-    t_pipeline_stage_nfo* pipeline   = nullptr; // if block belongs to a pipeline
+    t_subroutine_nfo            *subroutine = nullptr; // if block belongs to a subroutine
+    t_pipeline_stage_nfo        *pipeline   = nullptr; // if block belongs to a pipeline
+    const t_combinational_block *parent     = nullptr; // parent block (forms a hierarchy) used for scoping
     std::unordered_map<std::string, std::string> vio_rewrites; // if the block contains vio rewrites
   } t_combinational_block_context;
 
@@ -455,15 +458,16 @@ private:
   private:
     void swap_end(t_end_action *end) { if (end_action != nullptr) delete (end_action); end_action = end; }
   public:
-    size_t                           id;                   // internal block id
-    std::string                      block_name;           // internal block name (state name from source when applicable)
-    bool                             is_state = false;     // true if block has to be a state, false otherwise
-    bool                             no_skip = false;      // true the state cannot be skipped, even if empty
-    int                              state_id = -1;        // state id, when assigned, -1 otherwise
-    std::vector<t_instr_nfo>         instructions;         // list of instructions within block
-    t_end_action                    *end_action = nullptr; // end action to perform
-    t_combinational_block_context    context;
-    std::unordered_map<std::string,int> initialized_vars;     // variables initialized at block start
+    size_t                              id;                   // internal block id
+    std::string                         block_name;           // internal block name (state name from source when applicable)
+    bool                                is_state = false;     // true if block has to be a state, false otherwise
+    bool                                no_skip = false;      // true the state cannot be skipped, even if empty
+    int                                 state_id = -1;        // state id, when assigned, -1 otherwise
+    std::vector<t_instr_nfo>            instructions;         // list of instructions within block
+    t_end_action                       *end_action = nullptr; // end action to perform
+    t_combinational_block_context       context;              // block context: subroutine, parent, etc.
+    std::unordered_set<std::string>     declared_vios;        // vios declared by block
+    std::unordered_map<std::string,int> initialized_vars;     // variables to initialize at block start
     std::unordered_set<std::string>     in_vars_read;         // which variables are read from before
     std::unordered_set<std::string>     out_vars_written;     // which variables have been written after
     ~t_combinational_block() { swap_end(nullptr); }
@@ -571,7 +575,7 @@ private:
   std::string rewriteConstant(std::string cst) const;
   /// \brief adds a combinational block to the list of blocks, performs book keeping
   template<class T_Block = t_combinational_block>
-  t_combinational_block *addBlock(std::string name, const t_combinational_block_context *bctx, int line = -1);
+  t_combinational_block *addBlock(std::string name, const t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, int line = -1);
   /// \brief resets the block name generator
   void resetBlockName();
   /// \brief generate the next block name
@@ -586,6 +590,8 @@ private:
   std::string gatherBitfieldValue(siliceParser::InitBitfieldContext* ival);
   /// \brief gather a value
   std::string gatherValue(siliceParser::ValueContext* ival);
+  /// \brief insert a variable in the data-structures (lower level than addVar, use to insert any var)
+  void insertVar(const t_var_nfo &_var, t_combinational_block *_current, bool no_init = false);
   /// \brief add a variable from its definition (_var may be modified with an updated name)
   void addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, int line);
   /// \brief check if an identifier is available
@@ -631,8 +637,8 @@ private:
     const t_vio_dependencies &dependencies, t_vio_ff_usage &_ff_usage, e_FFUsage ff_force=e_None) const; 
   /// \brief rewrite an expression, renaming identifiers
   std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_combinational_block_context* bctx, std::string ff, bool read_access, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
-  /// \brief update current block based on the next instruction list
-  t_combinational_block *updateBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context);
+  /// \brief split current block (state present) or continue current with the next instruction list
+  t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather a break from loop
   t_combinational_block *gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather a while block
@@ -681,6 +687,8 @@ private:
   void gatherIoGroup(siliceParser::IoGroupContext* iog);
   /// \brief gather inputs and outputs
   void gatherIOs(siliceParser::InOutListContext* inout);
+  /// \brief gather a block
+  t_combinational_block *gatherBlock(siliceParser::BlockContext *block, t_combinational_block *_current, t_gather_context *_context);
   /// \brief extract the ordered list of parameters
   void getParams(siliceParser::ParamListContext* params, std::vector<antlr4::tree::ParseTree*>& _vec_params) const;
   /// \brief extract the ordered list of identifiers
