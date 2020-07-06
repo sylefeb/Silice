@@ -253,7 +253,7 @@ $$elseif DE10NANO then
   );
 $$elseif ULX3S then
   // --- clock
-$$HAS_COMPUTE_CLOCK = true
+$$HAS_COMPUTE_CLOCK    = true
   uint1 compute_clock = 0;
   uint1 compute_reset = 0;
   uint1 video_clock   = 0;
