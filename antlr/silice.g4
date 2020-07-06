@@ -333,7 +333,7 @@ appendv             : 'append' '(' FILENAME ')' ;
 
 /* -- Circuitry -- */
 
-circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' '{' instructionList '}' ;
+circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' block ;
 
 /* -- Algorithm -- */
 

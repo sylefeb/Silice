@@ -2009,7 +2009,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
     cblock->context.vio_rewrites.insert(make_pair(outs[o], outs_idents[o]));
   }
   // gather code
-  t_combinational_block* cblock_after = gather(C->second->instructionList(), cblock, _context);
+  t_combinational_block* cblock_after = gather(C->second->block(), cblock, _context);
   // create a new block to continue with same context as _current
   t_combinational_block* after = addBlock(generateBlockName(), _current);
   cblock_after->next(after);
