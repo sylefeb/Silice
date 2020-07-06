@@ -599,8 +599,12 @@ std::string Algorithm::gatherValue(siliceParser::ValueContext* ival)
 
 // -------------------------------------------------
 
-void Algorithm::addVar(t_var_nfo& _var, t_subroutine_nfo* sub,int line)
+void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, int line)
 {
+  t_subroutine_nfo *sub = nullptr;
+  if (_current) {
+    sub = _current->context.subroutine;
+  }
   if (sub != nullptr) {
     std::string base_name = _var.name;
     _var.name = subroutineVIOName(base_name, sub);
@@ -645,7 +649,7 @@ void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nf
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire, t_subroutine_nfo* sub)
+void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire, t_combinational_block *_current, t_gather_context *_context)
 {
   t_var_nfo nfo;
   // checks
@@ -658,19 +662,19 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
   nfo.usage = e_Wire;
   splitType(wire->TYPE()->getText(), nfo.base_type, nfo.width);
   // add var
-  addVar(nfo, sub, (int)wire->getStart()->getLine());
+  addVar(nfo, _current, _context, (int)wire->getStart()->getLine());
   // insert assignment in always block
   m_AlwaysPre.instructions.push_back(t_instr_nfo(wire->alwaysAssigned(),-1));
 }
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub)
+void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current, t_gather_context *_context)
 {
   // gather variable
   t_var_nfo var;
   gatherVarNfo(decl,var);
-  addVar(var, sub, (int)decl->getStart()->getLine());
+  addVar(var, _current, _context, (int)decl->getStart()->getLine());
 }
 
 // -------------------------------------------------
@@ -724,8 +728,12 @@ void Algorithm::readInitList(D* decl,T& var)
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_subroutine_nfo* sub)
+void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_combinational_block *_current, t_gather_context *_context)
 {
+  t_subroutine_nfo *sub = nullptr;
+  if (_current) {
+    sub = _current->context.subroutine;
+  }
   // check for duplicates
   if (!isIdentifierAvailable(decl->IDENTIFIER()->getText())) {
     reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "table '%s': this name is already used by a prior declaration", decl->IDENTIFIER()->getText().c_str());
@@ -807,8 +815,12 @@ const std::vector<t_mem_member> c_DualPortBRAMmembers = {
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, const t_subroutine_nfo* sub)
+void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, t_combinational_block *_current, t_gather_context *_context)
 {
+  t_subroutine_nfo *sub = nullptr;
+  if (_current) {
+    sub = _current->context.subroutine;
+  }
   if (sub != nullptr) {
     reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "subroutine '%s': a memory cannot be instanced within a subroutine", sub->name.c_str());
   }
@@ -888,7 +900,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     }
     v.table_size = 0;
     v.init_values.push_back("0");
-    addVar(v, nullptr, (int)decl->getStart()->getLine());
+    addVar(v, nullptr, nullptr, (int)decl->getStart()->getLine());
     if (m.is_input) {
       mem.in_vars.push_back(v.name);
     } else {
@@ -999,7 +1011,7 @@ void Algorithm::getBindings(
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_subroutine_nfo* sub)
+void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_combinational_block *_current, t_gather_context *_context)
 {
   // check for duplicates
   if (!isIdentifierAvailable(grp->name->getText())) {
@@ -1013,7 +1025,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
       t_var_nfo vnfo;
       gatherVarNfo(v->declarationVar(), vnfo);
       vnfo.name = grp->name->getText() + "_" + vnfo.name;
-      addVar(vnfo, sub, (int)grp->getStart()->getLine());
+      addVar(vnfo, _current, _context, (int)grp->getStart()->getLine());
     }
   } else {
     reportError(grp->getSourceInterval(), (int)grp->getStart()->getLine(), "unkown group '%s'", grp->modalg->getText().c_str());
@@ -1022,8 +1034,12 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, const t_subroutine_nfo* sub)
+void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context)
 {  
+  t_subroutine_nfo *sub = nullptr;
+  if (_current) {
+    sub = _current->context.subroutine;
+  }
   if (sub != nullptr) {
     reportError(alg->getSourceInterval(), (int)alg->name->getLine(), "subroutine '%s': algorithms cannot be instanced within subroutines", sub->name.c_str()); 
   }
@@ -1063,8 +1079,12 @@ void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext*
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, const t_subroutine_nfo* sub)
+void Algorithm::gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, t_combinational_block *_current, t_gather_context *_context)
 {
+  t_subroutine_nfo *sub = nullptr;
+  if (_current) {
+    sub = _current->context.subroutine;
+  }
   if (sub != nullptr) {
     reportError(mod->name,(int)mod->name->getLine(),"subroutine '%s': modules cannot be instanced within subroutines", sub->name.c_str());
   }
@@ -1352,7 +1372,7 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_subroutine_nfo *sub, bool var_table_only)
+void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, bool var_table_only)
 {
   auto declvar   = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
   auto declwire  = dynamic_cast<siliceParser::DeclarationWireContext *>(decl->declarationWire());
@@ -1369,25 +1389,25 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_subr
         "cannot declare groups, nor intantiate modules or algorithms here");
     }
   }
-  if (declvar)        { gatherDeclarationVar(declvar, sub); } 
-  else if (declwire)  { gatherDeclarationWire(declwire, sub); }
-  else if (decltbl)   { gatherDeclarationTable(decltbl, sub); }
-  else if (declmem)   { gatherDeclarationMemory(declmem, sub); }
+  if (declvar)        { gatherDeclarationVar(declvar, _current, _context); }
+  else if (declwire)  { gatherDeclarationWire(declwire, _current, _context); }
+  else if (decltbl)   { gatherDeclarationTable(decltbl, _current, _context); }
+  else if (declmem)   { gatherDeclarationMemory(declmem, _current, _context); }
   else if (grpmodalg) {
     std::string name = grpmodalg->modalg->getText();
     if (m_KnownGroups.find(name) != m_KnownGroups.end()) {
-      gatherDeclarationGroup(grpmodalg, sub);
+      gatherDeclarationGroup(grpmodalg, _current, _context);
     } else if (m_KnownModules.find(name) != m_KnownModules.end()) {
-      gatherDeclarationModule(grpmodalg, sub);
+      gatherDeclarationModule(grpmodalg, _current, _context);
     } else {
-      gatherDeclarationAlgo(grpmodalg, sub);
+      gatherDeclarationAlgo(grpmodalg, _current, _context);
     }
   }
 }
 
 //-------------------------------------------------
 
-int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub,bool var_table_only)
+int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context* _context,bool var_table_only)
 {
   if (decllist == nullptr) {
     return 0;
@@ -1396,7 +1416,7 @@ int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decll
   siliceParser::DeclarationListContext *cur_decllist = decllist;
   while (cur_decllist->declaration() != nullptr) {
     siliceParser::DeclarationContext* decl = cur_decllist->declaration();
-    gatherDeclaration(decl, sub, var_table_only);
+    gatherDeclaration(decl, _current, _context, var_table_only);
     cur_decllist = cur_decllist->declarationList();
     ++num;
   }
@@ -1446,12 +1466,13 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   if (!isIdentifierAvailable(nfo->name)) {
     reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': this name is already used by a prior declaration", nfo->name.c_str());
   }
-  // subroutine local declarations
-  int numdecl = gatherDeclarationList(sub->declarationList(), nfo, true);
   // subroutine block
   t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, nullptr, (int)sub->getStart()->getLine());
+  // subroutine local declarations
+  int numdecl = gatherDeclarationList(sub->declarationList(), subb, _context, true);
+  // do not skip if local vars must be initialized
   if (numdecl > 0) {
-    subb->no_skip = true; // do not skip if local vars must be initialized
+    subb->no_skip = true; 
   }
   // cross ref between block and subroutine
   subb->context.subroutine = nfo;
@@ -2310,7 +2331,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   if (algbody) {
     // gather declarations
     for (auto d : algbody->declaration()) {
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), nullptr, false);
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, false);
     }
     for (auto s : algbody->subroutine()) {
       gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), _current, _context);
@@ -2333,7 +2354,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     // recurse on instruction list
     _current = gather(algbody->instructionList(),_current, _context);
     recurse  = false;
-  } else if (decl)     { gatherDeclaration(decl, _current->context.subroutine, true);  recurse = false;
+  } else if (decl)     { gatherDeclaration(decl, _current, _context, true);  recurse = false;
   } else if (ifelse)   { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
   } else if (ifthen)   { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
   } else if (switchC)  { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;

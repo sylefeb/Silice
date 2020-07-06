@@ -586,34 +586,34 @@ private:
   /// \brief gather a value
   std::string gatherValue(siliceParser::ValueContext* ival);
   /// \brief add a variable from its definition (_var may be modified with an updated name)
-  void addVar(t_var_nfo& _var, t_subroutine_nfo* sub, int line);
+  void addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, int line);
   /// \brief check if an identifier is available
   bool isIdentifierAvailable(std::string name) const;
   /// \brief gather variable nfo
   void gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nfo& _nfo);
   /// \brief gather wire declaration
-  void gatherDeclarationWire(siliceParser::DeclarationWireContext* decl, t_subroutine_nfo* sub);
+  void gatherDeclarationWire(siliceParser::DeclarationWireContext* decl, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather variable declaration
-  void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_subroutine_nfo* sub);
+  void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather all values from an init list
   void gatherInitList(siliceParser::InitListContext* ilist, std::vector<std::string>& _values_str);
   /// \bried read initializer list
   template<typename D, typename T> void readInitList(D* decl, T& var);
   /// \brief gather variable declaration
-  void gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_subroutine_nfo* sub);
+  void gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather memory declaration
-  void gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, const t_subroutine_nfo* sub);
+  void gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, t_combinational_block *_current, t_gather_context *_context);
   /// \brief extract the list of bindings
   void getBindings(
     siliceParser::ModalgBindingListContext *bindings,
     std::vector<t_binding_nfo>& _vec_bindings,
     bool& _autobind) const;
   /// \brief gather group declaration
-  void gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_subroutine_nfo* sub);
+  void gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather algorithm declaration
-  void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, const t_subroutine_nfo* sub);
+  void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather module declaration
-  void gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, const t_subroutine_nfo* sub);
+  void gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, t_combinational_block *_current, t_gather_context *_context);
   /// \brief returns the name of a subroutine vio
   std::string subroutineVIOName(std::string vio, const t_subroutine_nfo *sub);
   /// \brief returns the name of a trickling vio for a stage of a piepline
@@ -637,9 +637,9 @@ private:
   /// \brief gather a while block
   t_combinational_block *gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather declaration
-  void gatherDeclaration(siliceParser::DeclarationContext *decl, t_subroutine_nfo *sub, bool var_table_only);
+  void gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, bool var_table_only);
   /// \brief gather declaration list, returns number of gathered declarations 
-  int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_subroutine_nfo* sub, bool var_table_only);
+  int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context *_context, bool var_table_only);
   /// \brief gather a subroutine
   t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather a pipeline
