@@ -443,10 +443,10 @@ Algorithm::t_combinational_block *Algorithm::addBlock(
   }
   size_t next_id = m_Blocks.size();
   m_Blocks.emplace_back(new T_Block());
-  m_Blocks.back()->block_name     = name;
-  m_Blocks.back()->id             = next_id;
-  m_Blocks.back()->end_action     = nullptr;
-  m_Blocks.back()->context.parent = parent;
+  m_Blocks.back()->block_name           = name;
+  m_Blocks.back()->id                   = next_id;
+  m_Blocks.back()->end_action           = nullptr;
+  m_Blocks.back()->context.parent_scope = parent;
   if (bctx) {
     m_Blocks.back()->context.subroutine   = bctx->subroutine;
     m_Blocks.back()->context.pipeline     = bctx->pipeline;
@@ -1215,8 +1215,7 @@ std::string Algorithm::rewriteIdentifier(
         // bound
         return m_VIOBoundToModAlgOutputs.at(var);
       } else {
-        // should be e_Assigned ; currently replaced by a flip-flop but could be avoided
-        reportError(nullptr, -1, "assigned outputs: not yet implemented");
+        reportError(nullptr, (int)line, "internal error [%s, %d]", __FILE__, __LINE__);
       }
     } else {
       auto V = m_VarNames.find(var);
@@ -1503,7 +1502,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
     reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': this name is already used by a prior declaration", nfo->name.c_str());
   }
   // subroutine block
-  t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, nullptr, nullptr, (int)sub->getStart()->getLine());
+  t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, _current, nullptr, (int)sub->getStart()->getLine());
   subb->context.subroutine    = nfo;
   nfo->top_block              = subb;
   // subroutine local declarations
@@ -1699,7 +1698,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     snfo->pipeline = nfo;
     snfo->stage_id = stage;
     // blocks
-    t_combinational_block_context ctx  = { _current->context.subroutine, snfo, _current->context.parent };
+    t_combinational_block_context ctx  = { _current->context.subroutine, snfo, _current->context.parent_scope };
     t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, (int)b->getStart()->getLine());
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
     // check this is a combinational chain
@@ -2169,7 +2168,7 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
       if (visiting->declared_vios.count(V) > 0) {
         found = true; break;
       }
-      visiting = visiting->context.parent;
+      visiting = visiting->context.parent_scope;
     }
     if (!found) {
       reportError(nullptr, -1, "variable '%s' is either unknown or out of scope", V.c_str());
@@ -2391,7 +2390,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     }
     // gather always assigned
     gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
-    m_AlwaysPre.context.parent = _current;
+    m_AlwaysPre.context.parent_scope = _current;
     // gather always block if defined
     if (algbody->alwaysBlock() != nullptr) {
       gather(algbody->alwaysBlock(),&m_AlwaysPre,_context);
@@ -2426,7 +2425,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _context->__id));  recurse = false;
   } else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); recurse = false; 
   } else if (block)    { _current = gatherBlock(block, _current, _context);            recurse = false;
-  } else if (ilist)    { checkPermissions(ilist, _current); _current = splitOrContinueBlock(ilist, _current, _context); }
+  } else if (ilist)    { _current = splitOrContinueBlock(ilist, _current, _context); }
 
   // recurse
   if (recurse) {
@@ -3193,7 +3192,7 @@ void Algorithm::determineVIOAccess(
 
 // -------------------------------------------------
 
-void Algorithm::determineVariablesAccess(t_combinational_block *block)
+void Algorithm::determineVariablesAndOutputsAccess(t_combinational_block *block)
 {
   // determine variable access
   std::unordered_set<std::string> already_read;
@@ -3212,6 +3211,7 @@ void Algorithm::determineVariablesAccess(t_combinational_block *block)
     std::unordered_set<std::string> read;
     std::unordered_set<std::string> written;
     determineVIOAccess(i.instr, m_VarNames, &block->context, read, written);
+    determineVIOAccess(i.instr, m_OutputNames, &block->context, read, written);
     // record which are read from outside
     for (auto r : read) {
       // if read and not written before in block
@@ -3222,29 +3222,39 @@ void Algorithm::determineVariablesAccess(t_combinational_block *block)
     // record which are written to
     already_written.insert(written.begin(), written.end());
     block->out_vars_written.insert(written.begin(), written.end());
-    // update global variable use
+    // update global use
     for (auto r : read) {
-      m_Vars[m_VarNames.at(r)].access = (e_Access)(m_Vars[m_VarNames.at(r)].access | e_ReadOnly);
+      if (m_VarNames.find(r) != m_VarNames.end()) {
+        m_Vars[m_VarNames.at(r)].access = (e_Access)(m_Vars[m_VarNames.at(r)].access | e_ReadOnly);
+      }
+      if (m_OutputNames.find(r) != m_OutputNames.end()) {
+        m_Outputs[m_OutputNames.at(r)].access = (e_Access)(m_Outputs[m_OutputNames.at(r)].access | e_ReadOnly);
+      }
     }
     for (auto w : written) {
-      m_Vars[m_VarNames.at(w)].access = (e_Access)(m_Vars[m_VarNames.at(w)].access | e_WriteOnly);
+      if (m_VarNames.find(w) != m_VarNames.end()) {
+        m_Vars[m_VarNames.at(w)].access = (e_Access)(m_Vars[m_VarNames.at(w)].access | e_WriteOnly);
+      }
+      if (m_OutputNames.find(w) != m_OutputNames.end()) {
+        m_Outputs[m_OutputNames.at(w)].access = (e_Access)(m_Outputs[m_OutputNames.at(w)].access | e_WriteOnly);
+      }
     }
   }
 }
 
 // -------------------------------------------------
 
-void Algorithm::determineVariablesAccess()
+void Algorithm::determineVariablesAndOutputsAccess()
 {
   // for all blocks
   for (auto& b : m_Blocks) {
     if (b->state_id == -1 && b->is_state) {
       continue; // block is never reached
     }
-    determineVariablesAccess(b);
+    determineVariablesAndOutputsAccess(b);
   }
   // determine variable access for always blocks
-  determineVariablesAccess(&m_AlwaysPre);
+  determineVariablesAndOutputsAccess(&m_AlwaysPre);
   // determine variable access due to algorithm and module instances
   // bindings are considered as belonging to the always pre block
   std::vector<t_binding_nfo> all_bindings;
@@ -3255,7 +3265,8 @@ void Algorithm::determineVariablesAccess()
     all_bindings.insert(all_bindings.end(), a.second.bindings.begin(), a.second.bindings.end());
   }
   for (const auto& b : all_bindings) {
-    // variables are always on the right
+    // NOTE, TODO: template helper method to not duplicate code between vars and outputs
+    // variables
     if (m_VarNames.find(bindingRightIdentifier(b)) != m_VarNames.end()) {
       if (b.dir == e_Left || b.dir == e_LeftQ) {
         // add to always block dependency ; bound input are read /after/ combinational block
@@ -3285,6 +3296,36 @@ void Algorithm::determineVariablesAccess()
         m_Vars[m_VarNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Vars[m_VarNames[bindingRightIdentifier(b)]].access | e_ReadWriteBinded);
       }
     }
+    // outputs
+    if (m_OutputNames.find(bindingRightIdentifier(b)) != m_OutputNames.end()) {
+      if (b.dir == e_Left || b.dir == e_LeftQ) {
+        // add to always block dependency ; bound input are read /after/ combinational block
+        m_AlwaysPost.in_vars_read.insert(bindingRightIdentifier(b));
+        // set global access
+        m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access | e_ReadOnly);
+      } else if (b.dir == e_Right) {
+        // add to always block dependency ; bound output are written /before/ combinational block
+        m_AlwaysPre.out_vars_written.insert(bindingRightIdentifier(b));
+        // set global access
+        // -> check prior access
+        if (m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access & e_WriteOnly) {
+          reportError(nullptr, b.line, "cannot write to output '%s' bound to an algorithm or module output", bindingRightIdentifier(b).c_str());
+        }
+        // -> mark as write-binded
+        m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access | e_WriteBinded);
+      } else { // e_BiDir
+        sl_assert(b.dir == e_BiDir);
+        // -> check prior access
+        if ((m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access & (~e_ReadWriteBinded)) != 0) {
+          reportError(nullptr, b.line, "cannot bind output '%s' on an inout port, it is used elsewhere", bindingRightIdentifier(b).c_str());
+        }
+        // add to always block dependency
+        m_AlwaysPost.in_vars_read.insert(bindingRightIdentifier(b)); // read after
+        m_AlwaysPre .out_vars_written.insert(bindingRightIdentifier(b)); // written before
+        // set global access
+        m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access | e_ReadWriteBinded);
+      }
+    }
   }
   // determine variable access due to algorithm instances clocks and reset
   for (const auto& m : m_InstancedAlgorithms) {
@@ -3292,7 +3333,7 @@ void Algorithm::determineVariablesAccess()
     candidates.push_back(m.second.instance_clock);
     candidates.push_back(m.second.instance_reset);
     for (auto v : candidates) {
-      // variables are always on the right
+      // variables only
       if (m_VarNames.find(v) != m_VarNames.end()) {
         // add to always block dependency
         m_AlwaysPost.in_vars_read.insert(v);
@@ -3325,22 +3366,16 @@ void Algorithm::determineVariablesAccess()
 
 // -------------------------------------------------
 
-void Algorithm::determineVariablesUsage()
+void Algorithm::determineVariableAndOutputsUsage()
 {
 
-  // NOTE TODO FIXME the notion of block here ignores combinational chains, which is what matters for, for instance, temporary vars.
-  // - any variable that is not used outside a combinational chain is a temp, implying it does not need a full flip-flop
-  // - a variable that is read after being written in the same cycle does not need to survive accross cycles
+  // NOTE The notion of block here ignores combinational chains. For this reason this is only a 
+  //      coarse pass, and a second, finer analysis is performed through the two-passes write (see writeAsModule). 
+  //      This pass is still useful to detect (in particular) consts.
 
   // determine variables access
-  determineVariablesAccess();
+  determineVariablesAndOutputsAccess();
   // analyze usage
-  std::unordered_set<std::string> global_no_alwspre_written;
-  {
-    for (const auto &b : m_Blocks) {
-      global_no_alwspre_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
-    }
-  }
   // merge all in_reads and out_written
   std::unordered_set<std::string> global_in_read;
   std::unordered_set<std::string> global_out_written;
@@ -3348,11 +3383,11 @@ void Algorithm::determineVariablesUsage()
   all_blocks.push_front(&m_AlwaysPre);
   all_blocks.push_front(&m_AlwaysPost);
   for (const auto &b : all_blocks) {
-    global_in_read.insert(b->in_vars_read.begin(), b->in_vars_read.end());
+    global_in_read    .insert(b->in_vars_read.begin(), b->in_vars_read.end());
     global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
   }
-  // report
-  std::cerr << "---< variables >---" << std::endl;
+  // set and report
+  std::cerr << "---< " << m_Name << "::variables >---" << std::endl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
       switch (v.usage) {
@@ -3391,8 +3426,21 @@ void Algorithm::determineVariablesUsage()
       std::cerr << v.name << " => internal flip-flop ";
       v.usage = e_FlipFlop;
     } else {
-      std::cerr << Console::yellow << "warning: " << v.name << " unexpected usage." << Console::gray << std::endl;
-      v.usage = e_FlipFlop;
+      throw Fatal("interal error -- variable '%s' has an unknown usage pattern", v.name.c_str());
+    }
+    std::cerr << std::endl;
+  }
+  std::cerr << "---< " << m_Name << "::outputs >---" << std::endl;
+  for (auto &o : m_Outputs) {
+    if (o.access == (e_WriteBinded | e_ReadOnly)) {
+      std::cerr << o.name << " => bound (wire)";
+      o.usage = e_Bound;
+    } else if (o.access == (e_WriteBinded)) {
+      std::cerr << o.name << " => bound (wire)";
+      o.usage = e_Bound;
+    } else  {
+      std::cerr << o.name << " => flip-flop";
+      o.usage = e_FlipFlop;
     }
     std::cerr << std::endl;
   }
@@ -3475,78 +3523,6 @@ void Algorithm::analyzeInstancedAlgorithmsInputs()
         // input is bound directly
         ia.second.boundinputs.insert(make_pair(b.left, make_pair(bindingRightIdentifier(b),b.dir == e_LeftQ ? e_Q : e_D)));
       }
-    }
-  }
-}
-
-// -------------------------------------------------
-
-void Algorithm::analyzeOutputsAccess()
-{
-  // go through all instructions and determine access
-  std::unordered_set<std::string> global_read;
-  std::unordered_set<std::string> global_written;
-  for (const auto& b : m_Blocks) {
-    if (b->state_id == -1 && b->is_state) {
-      continue; // block is never reached
-    }
-    for (const auto& i : b->instructions) {
-      std::unordered_set<std::string> read;
-      std::unordered_set<std::string> written;
-      determineVIOAccess(i.instr, m_OutputNames, &b->context, read, written);
-      global_read.insert(read.begin(), read.end());
-      global_written.insert(written.begin(), written.end());
-    }
-  }
-  // always block
-  std::unordered_set<std::string> always_read;
-  std::unordered_set<std::string> always_written;
-  std::vector<t_combinational_block*> ablocks;
-  ablocks.push_back(&m_AlwaysPre);
-  for (const auto& b : ablocks) {
-    for (const auto& i : b->instructions) {
-      std::unordered_set<std::string> read;
-      std::unordered_set<std::string> written;
-      determineVIOAccess(i.instr, m_OutputNames, nullptr, read, written);
-      always_read.insert(read.begin(), read.end());
-      always_written.insert(written.begin(), written.end());
-    }
-  }
-  // analyze access and usage
-  std::cerr << "---< outputs >---" << std::endl;
-  for (auto& o : m_Outputs) {
-    auto W = m_VIOBoundToModAlgOutputs.find(o.name);
-    if (W != m_VIOBoundToModAlgOutputs.end()) {
-      // bound to a wire
-      if (global_written.find(o.name) != global_written.end()) {
-        // NOTE: always caught before? (see determineVariablesAccess)
-        reportError(nullptr, -1, (std::string("cannot write to an output bound to a module/algorithm (") + o.name + ")").c_str());
-      }
-      if (always_written.find(o.name) != always_written.end()) {
-        // NOTE: always caught before? (see determineVariablesAccess)
-        reportError(nullptr, -1, (std::string("cannot write to an output bound to a module/algorithm (") + o.name + ")").c_str());
-      }
-      o.usage = e_Bound;
-      std::cerr << o.name << " => wire" << std::endl;
-    } else if (
-      global_written.find(o.name) == global_written.end()
-      && global_read.find(o.name) == global_read.end()
-      && (always_written.find(o.name) != always_written.end()
-        || always_read.find(o.name) != always_read.end()
-        )
-      ) {
-      // not used in blocks but used in always block
-      // only assigned (either way)
-      // o.usage = e_Assigned; /////// TODO
-      o.usage = e_FlipFlop;
-      std::cerr << o.name << " => assigned" << std::endl;
-    } else {
-      // any other case: flip-flop
-      // NOTE: outputs are always considered used externally (read)
-      //       they also have to be set at each step of the algorithm (avoiding latches)
-      //       thus as soon as used in a block != always, they become flip-flops
-      o.usage = e_FlipFlop;
-      std::cerr << o.name << " => flip-flop" << std::endl;
     }
   }
 }
@@ -3639,17 +3615,32 @@ void Algorithm::resolveModuleRefs(const std::unordered_map<std::string, AutoPtr<
 
 // -------------------------------------------------
 
+void Algorithm::checkPermissions()
+{
+  // check permissions on all instructions of all blocks
+  for (const auto &i : m_AlwaysPre.instructions) {
+    checkPermissions(i.instr, &m_AlwaysPre);
+  }
+  for (const auto &b : m_Blocks) {
+    for (const auto &i : b->instructions) {
+      checkPermissions(i.instr,b);
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::optimize()
 {
   // check bindings
   checkModulesBindings();
   checkAlgorithmsBindings();
+  // check var access permissions
+  checkPermissions();
   // determine which VIO are assigned to wires
   determineModAlgBoundVIO();
   // analyze variables access 
-  determineVariablesUsage();
-  // analyze outputs access
-  analyzeOutputsAccess();
+  determineVariableAndOutputsUsage();
   // analyze instanced algorithms inputs
   analyzeInstancedAlgorithmsInputs();
 }

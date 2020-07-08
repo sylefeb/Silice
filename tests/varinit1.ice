@@ -3,7 +3,7 @@ algorithm main(output uint8 led)
   uint8 v1 = 1;
   uint8 v2 = 1;
 
-  subroutine foo(output uint8 o1,input uint8 i1)
+  subroutine foo(output uint8 o1,input uint8 i1,reads v1)
   {
     uint8 v3 = 3;
     
@@ -16,7 +16,8 @@ algorithm main(output uint8 led)
       o1 = o1 + v4;
     }
     
-    // v4 = i1; // should trigger error
+    o1 = v1;
+    //v4 = i1; // should trigger error
   }
   
   v1 := 5;

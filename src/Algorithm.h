@@ -157,8 +157,7 @@ private:
     e_Temporary = 3,
     e_FlipFlop = 4, 
     e_Bound = 5, 
-    e_Assigned = 6,   // TODO: reconsider
-    e_Wire = 7
+    e_Wire = 6
   };
 
   /// \brief enum for variable type
@@ -446,9 +445,9 @@ private:
 
   /// \brief combinational block context
   typedef struct {
-    t_subroutine_nfo            *subroutine = nullptr; // if block belongs to a subroutine
-    t_pipeline_stage_nfo        *pipeline   = nullptr; // if block belongs to a pipeline
-    const t_combinational_block *parent     = nullptr; // parent block (forms a hierarchy) used for scoping
+    t_subroutine_nfo            *subroutine   = nullptr; // if block belongs to a subroutine
+    t_pipeline_stage_nfo        *pipeline     = nullptr; // if block belongs to a pipeline
+    const t_combinational_block *parent_scope = nullptr; // parent block in scope
     std::unordered_map<std::string, std::string> vio_rewrites; // if the block contains vio rewrites
   } t_combinational_block_context;
 
@@ -675,8 +674,10 @@ private:
   t_combinational_block *gatherRepeatBlock(siliceParser::RepeatBlockContext* repeat, t_combinational_block *_current, t_gather_context *_context);
   /// \brief gather always assigned
   void gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always);
-  /// \brief check access permissions
+  /// \brief check access permissions (recursively) from a specific node
   void checkPermissions(antlr4::tree::ParseTree *node, t_combinational_block *_current);
+  /// \brief check access permissions on all block instructions
+  void checkPermissions();
   /// \brief gather info about an input
   void gatherInputNfo(siliceParser::InputContext* input, t_inout_nfo& _io);
   /// \brief gather info about an output
@@ -746,19 +747,17 @@ private:
     const t_combinational_block_context        *bctx,
     std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const;
   /// \brief determines variable access within a block
-  void determineVariablesAccess(t_combinational_block *block);
+  void determineVariablesAndOutputsAccess(t_combinational_block *block);
   /// \brief determine variable access within algorithm
-  void determineVariablesAccess();
+  void determineVariablesAndOutputsAccess();
   /// \brief analyze variables access and classifies variables
-  void determineVariablesUsage();
+  void determineVariableAndOutputsUsage();
   /// \brief determines the list of bound VIO
   void determineModAlgBoundVIO();
   /// \brief determine block dependencies
   void determineBlockDependencies(const t_combinational_block* block, t_vio_dependencies& _dependencies) const;
   /// \brief analyze usage of inputs of instanced algorithms
   void analyzeInstancedAlgorithmsInputs();
-  /// \brief analyze output accesses and classifies them
-  void analyzeOutputsAccess();
   /// \brief Verifies validity of bindings on instanced modules
   void checkModulesBindings() const;
   /// \brief Verifies validity of bindings on instanced algorithms
