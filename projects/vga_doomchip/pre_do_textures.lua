@@ -4,12 +4,12 @@ if SIMULATION then
   USE_BRAM = false -- RAM or ROM
   memory_budget_bits = 2000000 -- 4000000
   reduce_switches    = true
-  default_shrink     = 0
+  default_shrink     = 2 -- 2 is very low res, for quicker testing, use 0 for native res
 else
   USE_BRAM = false -- RAM or ROM
   memory_budget_bits = 1000000 -- 3000000
   reduce_switches    = false
-  default_shrink     = 2
+  default_shrink     = 2 -- 2 is very low res, for quicker testing, use 0 for native res
 end
 
 ALL_IN_ONE = false

@@ -5,6 +5,8 @@
 // "Wolfenstein 3D black book" by Fabien Sanglard
 // https://github.com/id-Software/wolf3d/blob/master/WOLFSRC/WL_DR_A.ASM
 
+$$HAS_COMPUTE_CLOCK=true
+
 $$texfile = 'wolf.tga'
 // get pallette in pre-processor
 $$texfile_palette = get_palette_as_table(texfile,color_depth)
@@ -238,10 +240,8 @@ algorithm frame_drawer(
     input  busy,
     input  out_valid,
   },
-$$if HAS_COMPUTE_CLOCK then
   input  uint1  sdram_clock,
   input  uint1  sdram_reset,
-$$end
   input  uint1  vsync,
   output uint1  fbuffer,
   output uint8  led
@@ -251,21 +251,14 @@ $$end
 
   // NOTE, TODO: cannot yet declare the bram with the bitfield
   // bram DrawColumn columns[320] = {};
-$$if HAS_COMPUTE_CLOCK then   
   dualport_bram uint18 columns<@clock,@sdram_clock>[320] = {};
-$$else
-  dualport_bram uint18 columns[320] = {};
-$$end
 
   // ray-cast columns counter  
   uint9 c       = 0;
   // drawn columns counter
   uint9 c_drawn = 0;
 
-  columns_drawer coldrawer
-$$if HAS_COMPUTE_CLOCK then
-  <@sdram_clock,!sdram_reset>
-$$end
+  columns_drawer coldrawer<@sdram_clock,!sdram_reset>
   (
     sd      <:> sd,
     vsync   <: vsync_filtered,

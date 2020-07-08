@@ -276,10 +276,6 @@ algorithm frame_drawer(
     input  busy,
     input  out_valid,
   },
-$$if HAS_COMPUTE_CLOCK then
-  input  uint1  sdram_clock,
-  input  uint1  sdram_reset,
-$$end
   input  uint1  vsync,
   output uint1  fbuffer,
   output uint4  kpadC,

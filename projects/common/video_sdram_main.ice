@@ -39,8 +39,10 @@ algorithm pll(
   output  uint1 video_reset,
   output! uint1 sdram_clock,
   output! uint1 sdram_reset,
+$$if HAS_COMPUTE_CLOCK then
   output! uint1 compute_clock,
   output! uint1 compute_reset
+$$end
 ) <autorun>
 {
   uint3 counter = 0;
@@ -49,8 +51,10 @@ algorithm pll(
   sdram_clock   := clock;
   sdram_reset   := reset;
   
+$$if HAS_COMPUTE_CLOCK then
   compute_clock := counter[0,1]; // x2 slower
   compute_reset := (trigger > 0);
+$$end
 
   video_clock   := counter[1,1]; // x4 slower
   video_reset   := (trigger > 0);
@@ -88,6 +92,7 @@ $$end
 $$if ULX3S then
 // Clock
 import('ulx3s_clk_50_25_100.v')
+import('ulx3s_clk_100_25.v')
 // reset
 import('reset_conditioner.v')
 $$end
@@ -181,7 +186,6 @@ uint1 sdram_reset   = 0;
 
 $$if ICARUS or VERILATOR then
 // --- PLL
-$$HAS_COMPUTE_CLOCK = true
 uint1 compute_reset = 0;
 uint1 compute_clock = 0;
 $$if ICARUS then
@@ -192,8 +196,10 @@ pll clockgen<@clock,!reset>(
   video_reset   :> video_reset,
   sdram_clock   :> sdram_clock,
   sdram_reset   :> sdram_reset,
+$$if HAS_COMPUTE_CLOCK then
   compute_clock :> compute_clock,
   compute_reset :> compute_reset
+$$end
 );
 $$elseif MOJO then
   uint1 video_clock   = 0;
@@ -253,12 +259,12 @@ $$elseif DE10NANO then
   );
 $$elseif ULX3S then
   // --- clock
-$$HAS_COMPUTE_CLOCK    = true
-  uint1 compute_clock = 0;
-  uint1 compute_reset = 0;
   uint1 video_clock   = 0;
   uint1 sdram_clock   = 0;
   uint1 pll_lock      = 0;
+$$if HAS_COMPUTE_CLOCK then
+  uint1 compute_clock = 0;
+  uint1 compute_reset = 0;
   ulx3s_clk_50_25_100 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
@@ -266,6 +272,14 @@ $$HAS_COMPUTE_CLOCK    = true
     clkout2  :> sdram_clock,
     locked   :> pll_lock
   ); 
+$$else
+  ulx3s_clk_100_25 clk_gen(
+    clkin    <: clock,
+    clkout0  :> sdram_clock,
+    clkout1  :> video_clock,
+    locked   :> pll_lock
+  ); 
+$$end
   // --- video clean reset
   reset_conditioner video_rstcond (
     rcclk <: video_clock,
@@ -418,7 +432,7 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
  
 // --- Frame drawer
   frame_drawer drawer
-$$if HAS_COMPUTE_CLOCK then  
+$$if HAS_COMPUTE_CLOCK then
     <@compute_clock,!compute_reset>
 $$else
     <@sdram_clock,!sdram_reset>
