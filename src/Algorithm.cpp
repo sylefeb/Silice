@@ -3244,6 +3244,44 @@ void Algorithm::determineVariablesAndOutputsAccess(t_combinational_block *block)
 
 // -------------------------------------------------
 
+template<typename T_nfo>
+void Algorithm::updateAccessFromBinding(const t_binding_nfo &b, 
+  const std::unordered_map<std::string, int >& names, std::vector< T_nfo >& _nfos)
+{
+  if (names.find(bindingRightIdentifier(b)) != names.end()) {
+    if (b.dir == e_Left || b.dir == e_LeftQ) {
+      // add to always block dependency ; bound input are read /after/ combinational block
+      m_AlwaysPost.in_vars_read.insert(bindingRightIdentifier(b));
+      // set global access
+      _nfos[names.at(bindingRightIdentifier(b))].access = (e_Access)(_nfos[names.at(bindingRightIdentifier(b))].access | e_ReadOnly);
+    } else if (b.dir == e_Right) {
+      // add to always block dependency ; bound output are written /before/ combinational block
+      m_AlwaysPre.out_vars_written.insert(bindingRightIdentifier(b));
+      // set global access
+      // -> check prior access
+      if (_nfos[names.at(bindingRightIdentifier(b))].access & e_WriteOnly) {
+        reportError(nullptr, b.line, "cannot write to variable '%s' bound to an algorithm or module output", bindingRightIdentifier(b).c_str());
+      }
+      // -> mark as write-binded
+      _nfos[names.at(bindingRightIdentifier(b))].access = (e_Access)(_nfos[names.at(bindingRightIdentifier(b))].access | e_WriteBinded);
+    } else { // e_BiDir
+      sl_assert(b.dir == e_BiDir);
+      // -> check prior access
+      if ((_nfos[names.at(bindingRightIdentifier(b))].access & (~e_ReadWriteBinded)) != 0) {
+        reportError(nullptr, b.line, "cannot bind variable '%s' on an inout port, it is used elsewhere", bindingRightIdentifier(b).c_str());
+      }
+      // add to always block dependency
+      m_AlwaysPost.in_vars_read.insert(bindingRightIdentifier(b)); // read after
+      m_AlwaysPre.out_vars_written.insert(bindingRightIdentifier(b)); // written before
+      // set global access
+      _nfos[names.at(bindingRightIdentifier(b))].access = (e_Access)(_nfos[names.at(bindingRightIdentifier(b))].access | e_ReadWriteBinded);
+    }
+  }
+}
+
+
+// -------------------------------------------------
+
 void Algorithm::determineVariablesAndOutputsAccess()
 {
   // for all blocks
@@ -3267,65 +3305,9 @@ void Algorithm::determineVariablesAndOutputsAccess()
   for (const auto& b : all_bindings) {
     // NOTE, TODO: template helper method to not duplicate code between vars and outputs
     // variables
-    if (m_VarNames.find(bindingRightIdentifier(b)) != m_VarNames.end()) {
-      if (b.dir == e_Left || b.dir == e_LeftQ) {
-        // add to always block dependency ; bound input are read /after/ combinational block
-        m_AlwaysPost.in_vars_read.insert(bindingRightIdentifier(b));
-        // set global access
-        m_Vars[m_VarNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Vars[m_VarNames[bindingRightIdentifier(b)]].access | e_ReadOnly);
-      } else if (b.dir == e_Right) {
-        // add to always block dependency ; bound output are written /before/ combinational block
-        m_AlwaysPre.out_vars_written.insert(bindingRightIdentifier(b));
-        // set global access
-        // -> check prior access
-        if (m_Vars[m_VarNames[bindingRightIdentifier(b)]].access & e_WriteOnly) {
-          reportError(nullptr, b.line, "cannot write to variable '%s' bound to an algorithm or module output", bindingRightIdentifier(b).c_str());
-        }
-        // -> mark as write-binded
-        m_Vars[m_VarNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Vars[m_VarNames[bindingRightIdentifier(b)]].access | e_WriteBinded);
-      } else { // e_BiDir
-        sl_assert(b.dir == e_BiDir);
-        // -> check prior access
-        if ((m_Vars[m_VarNames[bindingRightIdentifier(b)]].access & (~e_ReadWriteBinded)) != 0) {
-          reportError(nullptr, b.line, "cannot bind variable '%s' on an inout port, it is used elsewhere", bindingRightIdentifier(b).c_str());
-        }
-        // add to always block dependency
-        m_AlwaysPost.in_vars_read    .insert(bindingRightIdentifier(b)); // read after
-        m_AlwaysPre .out_vars_written.insert(bindingRightIdentifier(b)); // written before
-        // set global access
-        m_Vars[m_VarNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Vars[m_VarNames[bindingRightIdentifier(b)]].access | e_ReadWriteBinded);
-      }
-    }
+    updateAccessFromBinding(b, m_VarNames, m_Vars);
     // outputs
-    if (m_OutputNames.find(bindingRightIdentifier(b)) != m_OutputNames.end()) {
-      if (b.dir == e_Left || b.dir == e_LeftQ) {
-        // add to always block dependency ; bound input are read /after/ combinational block
-        m_AlwaysPost.in_vars_read.insert(bindingRightIdentifier(b));
-        // set global access
-        m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access | e_ReadOnly);
-      } else if (b.dir == e_Right) {
-        // add to always block dependency ; bound output are written /before/ combinational block
-        m_AlwaysPre.out_vars_written.insert(bindingRightIdentifier(b));
-        // set global access
-        // -> check prior access
-        if (m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access & e_WriteOnly) {
-          reportError(nullptr, b.line, "cannot write to output '%s' bound to an algorithm or module output", bindingRightIdentifier(b).c_str());
-        }
-        // -> mark as write-binded
-        m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access | e_WriteBinded);
-      } else { // e_BiDir
-        sl_assert(b.dir == e_BiDir);
-        // -> check prior access
-        if ((m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access & (~e_ReadWriteBinded)) != 0) {
-          reportError(nullptr, b.line, "cannot bind output '%s' on an inout port, it is used elsewhere", bindingRightIdentifier(b).c_str());
-        }
-        // add to always block dependency
-        m_AlwaysPost.in_vars_read.insert(bindingRightIdentifier(b)); // read after
-        m_AlwaysPre .out_vars_written.insert(bindingRightIdentifier(b)); // written before
-        // set global access
-        m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access = (e_Access)(m_Outputs[m_OutputNames[bindingRightIdentifier(b)]].access | e_ReadWriteBinded);
-      }
-    }
+    updateAccessFromBinding(b, m_OutputNames, m_Outputs);
   }
   // determine variable access due to algorithm instances clocks and reset
   for (const auto& m : m_InstancedAlgorithms) {
@@ -3342,7 +3324,7 @@ void Algorithm::determineVariablesAndOutputsAccess()
       }
     }
   }
-  // determine variable access due to memories
+  // determine access to memory variables
   for (auto& mem : m_Memories) {
     for (auto& inv : mem.in_vars) {
       // add to always block dependency

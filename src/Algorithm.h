@@ -746,6 +746,9 @@ private:
     const std::unordered_map<std::string, int>& vios,
     const t_combinational_block_context        *bctx,
     std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const;
+  /// \brief updates access to vars due to a binding
+  template<typename T_nfo>
+  void updateAccessFromBinding(const t_binding_nfo& b,const std::unordered_map<std::string, int > &names, std::vector< T_nfo > &_nfos);
   /// \brief determines variable access within a block
   void determineVariablesAndOutputsAccess(t_combinational_block *block);
   /// \brief determine variable access within algorithm
