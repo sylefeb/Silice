@@ -306,7 +306,7 @@ void SiliceCompiler::run(
 
 // -------------------------------------------------
 
-void SiliceCompiler::ReportError::split(const std::string& s, char delim, std::vector<std::string>& elems)
+void SiliceCompiler::ReportError::split(const std::string& s, char delim, std::vector<std::string>& elems) const
 {
   std::stringstream ss(s);
   std::string item;
@@ -324,7 +324,7 @@ static int numLinesIn(std::string l)
 
 // -------------------------------------------------
 
-void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where, std::string msg)
+void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where, std::string msg) const
 {
   std::cerr << Console::bold << Console::white << "----------<<<<< error >>>>>----------" << std::endl << std::endl;
   if (where.second > -1) {
@@ -373,7 +373,7 @@ void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where,
 
 // -------------------------------------------------
 
-std::string SiliceCompiler::ReportError::extractCodeBetweenTokens(std::string file, antlr4::TokenStream *tk_stream, int stk, int etk)
+std::string SiliceCompiler::ReportError::extractCodeBetweenTokens(std::string file, antlr4::TokenStream *tk_stream, int stk, int etk) const
 {
   int sidx = (int)tk_stream->get(stk)->getStartIndex();
   int eidx = (int)tk_stream->get(etk)->getStopIndex();
@@ -392,7 +392,7 @@ std::string SiliceCompiler::ReportError::extractCodeBetweenTokens(std::string fi
 
 // -------------------------------------------------
 
-std::string SiliceCompiler::ReportError::extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset)
+std::string SiliceCompiler::ReportError::extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset) const
 {
   antlr4::Token* first_tk = tk;
   int index = (int)first_tk->getTokenIndex();
@@ -421,22 +421,22 @@ std::string SiliceCompiler::ReportError::extractCodeAroundToken(std::string file
 
 // -------------------------------------------------
 
-std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_stream,antlr4::Token* offender,antlr4::misc::Interval interval)
+std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_stream,antlr4::Token* offender,antlr4::misc::Interval interval) const
 {
   std::string msg = "";
   if (tk_stream != nullptr && (offender != nullptr || !(interval == antlr4::misc::Interval::INVALID))) {
     msg = "#";
     std::string file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
     int offset = 0;
-    std::string line;
+    std::string codeline;
     if (offender != nullptr) {
       tk_stream->getText(offender, offender); // this seems required to refresh the steam? TODO FIXME investigate
-      line = extractCodeAroundToken(file, offender, tk_stream, offset);
+      codeline = extractCodeAroundToken(file, offender, tk_stream, offset);
     } else if (!(interval == antlr4::misc::Interval::INVALID)) {
-      line = extractCodeBetweenTokens(file, tk_stream, (int)interval.a, (int)interval.b);
+      codeline = extractCodeBetweenTokens(file, tk_stream, (int)interval.a, (int)interval.b);
       offset = (int)tk_stream->get(interval.a)->getStartIndex();
     }
-    msg += line;
+    msg += codeline;
     msg += "#";
     msg += tk_stream->getText(offender, offender);
     msg += "#";
@@ -455,11 +455,27 @@ std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_
 
 // -------------------------------------------------
 
+int SiliceCompiler::ReportError::lineFromInterval(antlr4::TokenStream *tk_stream,antlr4::misc::Interval interval) const
+{
+  if (tk_stream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
+    // attempt to recover source line from interval only
+    antlr4::Token *tk = tk_stream->get(interval.a);
+    return (int)tk->getLine();
+  } else {
+    return -1;
+  }
+}
+
+// -------------------------------------------------
+
 SiliceCompiler::ReportError::ReportError(const LuaPreProcessor& lpp, 
   int line, antlr4::TokenStream* tk_stream, 
   antlr4::Token *offender, antlr4::misc::Interval interval, std::string msg)
 {
   msg += prepareMessage(tk_stream,offender,interval);
+  if (line == -1) {
+    line = lineFromInterval(tk_stream,interval);
+  }
   printReport(lpp.lineAfterToFileAndLineBefore((int)line), msg);
 }
 

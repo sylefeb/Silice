@@ -53,21 +53,26 @@ private:
   std::unordered_set<std::string>                                    m_Appends;
   std::vector<std::string>                                           m_AppendsInDeclOrder;
 
+  /// \brief finds a file by checking throughout paths known to be used by the source code
   std::string findFile(std::string fname) const;
+  /// \brief gathers all constructs from the source code file
   void gatherAll(antlr4::tree::ParseTree* tree);
+  /// \brief prepare the hardware fraemwork before compilation
   void prepareFramework(const char* fframework, std::string& _lpp, std::string& _verilog);
 
 private:
 
+  /// \brief class for error reporting from ANTL status
   class ReportError
   {
   private:
 
-    void        split(const std::string& s, char delim, std::vector<std::string>& elems);
-    void        printReport(std::pair<std::string, int> where, std::string msg);
-    std::string extractCodeBetweenTokens(std::string file, antlr4::TokenStream *tk_stream, int stk, int etk);
-    std::string extractCodeAroundToken(std::string file, antlr4::Token *tk, antlr4::TokenStream *tk_stream, int &_offset);
-    std::string prepareMessage(antlr4::TokenStream* tk_stream, antlr4::Token *offender, antlr4::misc::Interval tk_interval);
+    void        split(const std::string& s, char delim, std::vector<std::string>& elems) const;
+    void        printReport(std::pair<std::string, int> where, std::string msg) const;
+    int         lineFromInterval(antlr4::TokenStream *tk_stream,antlr4::misc::Interval interval) const;
+    std::string extractCodeBetweenTokens(std::string file, antlr4::TokenStream *tk_stream, int stk, int etk) const;
+    std::string extractCodeAroundToken(std::string file, antlr4::Token *tk, antlr4::TokenStream *tk_stream, int &_offset) const;
+    std::string prepareMessage(antlr4::TokenStream* tk_stream, antlr4::Token *offender, antlr4::misc::Interval tk_interval) const;
 
   public:
 
@@ -76,6 +81,7 @@ private:
 
   };
 
+  /// \brief class for ANTLR lexer error reporting
   class LexerErrorListener : public antlr4::BaseErrorListener 
   {
   private:
@@ -90,7 +96,8 @@ private:
       const std::string& msg, std::exception_ptr e) override;
   };
 
-  class ParserErrorListener : public antlr4::BaseErrorListener 
+  /// \brief class for ANTLR parsing error reporting
+  class ParserErrorListener : public antlr4::BaseErrorListener
   {
   private:
     const LuaPreProcessor &m_PreProcessor;
@@ -105,7 +112,8 @@ private:
       std::exception_ptr e) override;
   };
 
-  class ParserErrorHandler : public antlr4::DefaultErrorStrategy 
+  /// \brief class for ANTLR error handling strategy
+  class ParserErrorHandler : public antlr4::DefaultErrorStrategy
   {
   protected:
     void reportNoViableAlternative(antlr4::Parser *parser, antlr4::NoViableAltException const &ex) override;

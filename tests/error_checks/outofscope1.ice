@@ -17,7 +17,7 @@ algorithm main(output uint8 led)
     }
     
     o1 = v1;
-    // v4 = i1; // should trigger error
+    v4 = i1; // should trigger error
   }
   
   v1 := 5;

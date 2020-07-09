@@ -2147,12 +2147,12 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
     // now verify all permissions are granted
     for (auto R : read) {
       if (_current->context.subroutine->allowed_reads.count(R) == 0) {
-        reportError(nullptr, -1, "variable '%s' is read by subroutine '%s' without explicit permission", R.c_str(), _current->context.subroutine->name.c_str());
+        reportError(node->getSourceInterval(), -1, "variable '%s' is read by subroutine '%s' without explicit permission", R.c_str(), _current->context.subroutine->name.c_str());
       }
     }
     for (auto W : written) {
       if (_current->context.subroutine->allowed_writes.count(W) == 0) {
-        reportError(nullptr, -1, "variable '%s' is written by subroutine '%s' without explicit permission", W.c_str(), _current->context.subroutine->name.c_str());
+        reportError(node->getSourceInterval(), -1, "variable '%s' is written by subroutine '%s' without explicit permission", W.c_str(), _current->context.subroutine->name.c_str());
       }
     }
   }
@@ -2171,7 +2171,7 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
       visiting = visiting->context.parent_scope;
     }
     if (!found) {
-      reportError(nullptr, -1, "variable '%s' is either unknown or out of scope", V.c_str());
+      reportError(node->getSourceInterval(), -1, "variable '%s' is either unknown or out of scope", V.c_str());
     }
   }
 }
