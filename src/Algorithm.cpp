@@ -2136,9 +2136,9 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
   // gather info for checks
   std::unordered_set<std::string> all;
   std::unordered_set<std::string> read, written;
-  determineVIOAccess(node, m_VarNames, &_current->context, read, written);
+  determineVIOAccess(node, m_VarNames   , &_current->context, read, written);
   determineVIOAccess(node, m_OutputNames, &_current->context, read, written);
-  determineVIOAccess(node, m_InputNames, &_current->context, read, written);
+  determineVIOAccess(node, m_InputNames , &_current->context, read, written);
   for (auto R : read)    { all.insert(R); }
   for (auto W : written) { all.insert(W); }
   // in subroutine
@@ -3606,6 +3606,16 @@ void Algorithm::checkPermissions()
   for (const auto &b : m_Blocks) {
     for (const auto &i : b->instructions) {
       checkPermissions(i.instr,b);
+    }
+    // check expressions in flow control
+    if (b->if_then_else()) {
+      checkPermissions(b->if_then_else()->test.instr, b);
+    }
+    if (b->switch_case()) {
+      checkPermissions(b->switch_case()->test.instr, b);
+    }
+    if (b->while_loop()) {
+      checkPermissions(b->while_loop()->test.instr, b);
     }
   }
 }
