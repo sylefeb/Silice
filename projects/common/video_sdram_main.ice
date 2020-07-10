@@ -292,12 +292,14 @@ $$end
     in    <: reset,
     out   :> sdram_reset
   );
+$$if HAS_COMPUTE_CLOCK then
   // --- compute clean reset
   reset_conditioner compute_rstcond (
     rcclk <: compute_clock,
     in    <: reset,
     out   :> compute_reset
   );
+$$end
 $$end
 
 uint1  video_active = 0;
