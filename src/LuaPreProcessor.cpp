@@ -30,8 +30,6 @@ the distribution, please refer to it for details.
 
 #include <LibSL/LibSL.h>
 
-#include "path.h"
-
 using namespace std;
 using namespace antlr4;
 

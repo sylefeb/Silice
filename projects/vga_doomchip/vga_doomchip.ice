@@ -73,16 +73,16 @@ circuitry bbox_ray(input ray_x,input ray_y,input ray_dx_m,input ray_dy_m,
                    output couldhit)
 {
   couldhit = 1;
-  if (ray_x > bbox_x_hi && ray_dx_m > 0) {
+  if (ray_x > bbox_x_hi && ray_dx_m > __signed(0)) {
     couldhit = 0;
   }
-  if (ray_x < bbox_x_lw && ray_dx_m < 0) {
+  if (ray_x < bbox_x_lw && ray_dx_m < __signed(0)) {
     couldhit = 0;
   }
-  if (ray_y > bbox_y_hi && ray_dy_m > 0) {
+  if (ray_y > bbox_y_hi && ray_dy_m > __signed(0)) {
     couldhit = 0;
   }
-  if (ray_y < bbox_y_lw && ray_dy_m < 0) {
+  if (ray_y < bbox_y_lw && ray_dy_m < __signed(0)) {
     couldhit = 0;
   }
 }
@@ -753,7 +753,7 @@ $$end
             cs0_h = (d0y * ray_dx_m - d0x * ray_dy_m);
             cs1_h = (d1y * ray_dx_m - d1x * ray_dy_m);
 ++:            
-            if ((cs0_h<0 && cs1_h>=0) || (cs1_h<0 && cs0_h>=0)) {
+            if ((cs0_h<__signed(0) && cs1_h>=__signed(0)) || (cs1_h<__signed(0) && cs0_h>=__signed(0))) {
             
               //-------------------------
               // compute distance to intersection

@@ -81,7 +81,7 @@ $$end
 
   // deal with sign (den)
 $$if not div_unsigned then
-  if (iden < 0) {
+  if (iden < __signed(0)) {
     den_neg = 1;
     den = - iden;
   } else {
@@ -93,7 +93,7 @@ $$end
 
   // deal with sign (num)
 $$if not div_unsigned then
-  if (inum < 0) {
+  if (inum < __signed(0)) {
     num_neg = 1;
     num = - inum;
   } else {

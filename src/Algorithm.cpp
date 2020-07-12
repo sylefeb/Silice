@@ -22,10 +22,13 @@ holder must remain included in all distributions.
 #include "Module.h"
 #include "Config.h"
 #include "VerilogTemplate.h"
+#include "ExpressionLinter.h"
+
 #include <cctype>
 
 using namespace std;
 using namespace antlr4;
+using namespace Silice;
 
 #define SUB_ENTRY_BLOCK "__sub_"
 
@@ -65,9 +68,9 @@ void Algorithm::checkModulesBindings() const
 {
   for (auto& im : m_InstancedModules) {
     for (const auto& b : im.second.bindings) {
-      bool is_input = (im.second.mod->inputs()  .find(b.left) != im.second.mod->inputs().end());
+      bool is_input  = (im.second.mod->inputs() .find(b.left) != im.second.mod->inputs().end());
       bool is_output = (im.second.mod->outputs().find(b.left) != im.second.mod->outputs().end());
-      bool is_inout = (im.second.mod->inouts()  .find(b.left) != im.second.mod->inouts().end());
+      bool is_inout  = (im.second.mod->inouts() .find(b.left) != im.second.mod->inouts().end());
       if (!is_input && !is_output && !is_inout) {
         reportError(nullptr, b.line, "wrong binding point (neither input nor output), instanced module '%s', binding '%s'",
           im.first.c_str(), b.left.c_str());
@@ -127,6 +130,14 @@ void Algorithm::checkAlgorithmsBindings() const
         reportError(nullptr, b.line, "wrong binding point, instanced algorithm '%s', binding '%s' to '%s'",
           ia.first.c_str(), br.c_str(), b.left.c_str());
       }
+      // lint
+      ExpressionLinter linter(this);
+      linter.lintBinding(
+        sprint("instanced algorithm '%s', binding '%s' to '%s'", ia.first.c_str(), br.c_str(), b.left.c_str()),
+        b.dir,b.line,
+        get<0>(ia.second.algo->determineVIOTypeWidthAndTableSize(nullptr, b.left, -1)),
+        get<0>(determineVIOTypeWidthAndTableSize(nullptr, br, -1))
+      );
     }
   }
 }
@@ -463,36 +474,6 @@ Algorithm::t_combinational_block *Algorithm::addBlock(
 
 // -------------------------------------------------
 
-void Algorithm::splitType(std::string type, e_Type& _type, int& _width) const
-{
-  std::regex  rx_type("([[:alpha:]]+)([[:digit:]]+)");
-  std::smatch sm_type;
-  bool ok = std::regex_search(type, sm_type, rx_type);
-  sl_assert(ok);
-  // type
-  if (sm_type[1] == "int")  _type = Int;
-  else if (sm_type[1] == "uint") _type = UInt;
-  else sl_assert(false);
-  // width
-  _width = atoi(sm_type[2].str().c_str());
-}
-
-// -------------------------------------------------
-
-void Algorithm::splitConstant(std::string cst, int& _width, char& _base, std::string& _value, bool& _negative) const
-{
-  std::regex  rx_type("(-?)([[:digit:]]+)([bdh])([[:digit:]a-fA-Fxz]+)");
-  std::smatch sm_type;
-  bool ok = std::regex_search(cst, sm_type, rx_type);
-  sl_assert(ok);
-  _width = atoi(sm_type[2].str().c_str());
-  _base = sm_type[3].str()[0];
-  _value = sm_type[4].str();
-  _negative = !sm_type[1].str().empty();
-}
-
-// -------------------------------------------------
-
 std::string Algorithm::rewriteConstant(std::string cst) const
 {
   int width;
@@ -509,29 +490,29 @@ int Algorithm::bitfieldWidth(siliceParser::BitfieldContext* field) const
 {
   int tot_width = 0;
   for (auto v : field->varList()->var()) {
-    e_Type tp; int wi;
-    splitType(v->declarationVar()->TYPE()->getText(), tp, wi);
-    tot_width += wi;
+    t_type_nfo tn;
+    splitType(v->declarationVar()->TYPE()->getText(), tn);
+    tot_width += tn.width;
   }
   return tot_width;
 }
 
 // -------------------------------------------------
 
-std::pair<int, int> Algorithm::bitfieldMemberOffsetAndWidth(siliceParser::BitfieldContext* field, std::string member) const
+std::pair<t_type_nfo, int> Algorithm::bitfieldMemberTypeAndOffset(siliceParser::BitfieldContext* field, std::string member) const
 {
   int offset = 0;
   sl_assert(!field->varList()->var().empty());
   ForRangeReverse(i, (int)field->varList()->var().size() - 1, 0) {
     auto v = field->varList()->var()[i];
-    e_Type tp; int wi;
-    splitType(v->declarationVar()->TYPE()->getText(), tp, wi);
+    t_type_nfo tn;
+    splitType(v->declarationVar()->TYPE()->getText(), tn);
     if (member == v->declarationVar()->IDENTIFIER()->getText()) {
-      return make_pair(offset, wi);
+      return make_pair(tn, offset);
     }
-    offset += wi;
+    offset += tn.width;
   }
-  return make_pair(-1,-1);
+  return make_pair(t_type_nfo(),-1);
 }
 
 // -------------------------------------------------
@@ -561,12 +542,12 @@ std::string Algorithm::gatherBitfieldValue(siliceParser::InitBitfieldContext* if
   int n = (int)F->second->varList()->var().size();
   for (auto v : F->second->varList()->var()) {
     auto ne = named_values.at(v->declarationVar()->IDENTIFIER()->getText());
-    e_Type tp; int wi;
-    splitType(v->declarationVar()->TYPE()->getText(), tp, wi);
+    t_type_nfo tn;
+    splitType(v->declarationVar()->TYPE()->getText(), tn);
     if (ne.first) {
       concat = concat + ne.second;
     } else {
-      concat = concat + to_string(wi) + "'d" + ne.second;
+      concat = concat + to_string(tn.width) + "'d" + ne.second;
     }
     if (--n > 0) {
       concat = concat + ",";
@@ -655,7 +636,7 @@ void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nf
 {
   _nfo.name = decl->IDENTIFIER()->getText();
   _nfo.table_size = 0;
-  splitType(decl->TYPE()->getText(), _nfo.base_type, _nfo.width);
+  splitType(decl->TYPE()->getText(), _nfo.type_nfo);
   if (decl->value() != nullptr) {
     _nfo.init_values.push_back("0");
     _nfo.init_values[0] = gatherValue(decl->value());
@@ -684,7 +665,7 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
   nfo.table_size = 0;
   nfo.do_not_initialize = true;
   nfo.usage = e_Wire;
-  splitType(wire->TYPE()->getText(), nfo.base_type, nfo.width);
+  splitType(wire->TYPE()->getText(), nfo.type_nfo);
   // add var
   addVar(nfo, _current, _context, (int)wire->getStart()->getLine());
   // insert assignment in always block
@@ -771,7 +752,7 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* de
     sub->vios.insert(std::make_pair(decl->IDENTIFIER()->getText(), var.name));
     sub->vars.push_back(decl->IDENTIFIER()->getText());
   }
-  splitType(decl->TYPE()->getText(), var.base_type, var.width);
+  splitType(decl->TYPE()->getText(), var.type_nfo);
   if (decl->NUMBER() != nullptr) {
     var.table_size = atoi(decl->NUMBER()->getText().c_str());
     if (var.table_size <= 0) {
@@ -864,7 +845,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   } else {
     reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration");
   }
-  splitType(decl->TYPE()->getText(), mem.base_type, mem.width);
+  splitType(decl->TYPE()->getText(), mem.type_nfo);
   if (decl->NUMBER() != nullptr) {
     mem.table_size = atoi(decl->NUMBER()->getText().c_str());
     if (mem.table_size <= 0) {
@@ -894,28 +875,28 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     t_var_nfo v;
     v.name = mem.name + "_" + m.name;
     if (m.is_addr) {
-      v.base_type = UInt;
-      v.width     = justHigherPow2(mem.table_size);
+      v.type_nfo.base_type = UInt;
+      v.type_nfo.width     = justHigherPow2(mem.table_size);
     } else {
       // search config
       auto C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
       if (C == CONFIG.keyValues().end()) {
-        v.width     = mem.width;
+        v.type_nfo.width     = mem.type_nfo.width;
       } else if (C->second == "1") {
-        v.width     = 1;
+        v.type_nfo.width     = 1;
       } else if (C->second == "data") {
-        v.width     = mem.width;
+        v.type_nfo.width     = mem.type_nfo.width;
       }
       // search config
       auto T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
       if (T == CONFIG.keyValues().end()) {
-        v.base_type = mem.base_type;
+        v.type_nfo.base_type = mem.type_nfo.base_type;
       } else if (T->second == "uint") {
-        v.base_type = UInt;
+        v.type_nfo.base_type = UInt;
       } else if (T->second == "int") {
-        v.base_type = Int;
+        v.type_nfo.base_type = Int;
       } else if (T->second == "data") {
-        v.base_type = mem.base_type;
+        v.type_nfo.base_type = mem.type_nfo.base_type;
       }
     }
     v.table_size = 0;
@@ -1621,7 +1602,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       t_var_nfo var;
       var.name = in_or_out + "_" + nfo->name + "_" + ioname;
       var.table_size = tbl_size;
-      splitType(strtype, var.base_type, var.width);
+      splitType(strtype, var.type_nfo);
       var.init_values.resize(max(var.table_size, 1), "0");
       // insert var
       insertVar(var, _current, true /*no init*/);
@@ -1801,9 +1782,8 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       // -> add variable
       t_var_nfo var;
       var.name = tricklingVIOName(tv,nfo,s);
-      var.base_type = get<0>(tws);
-      var.width = get<1>(tws);
-      var.table_size = get<2>(tws);
+      var.type_nfo   = get<0>(tws);
+      var.table_size = get<1>(tws);
       var.init_values.resize(var.table_size > 0 ? var.table_size : 1, "0");
       var.access = e_InternalFlipFlop;
       insertVar(var, _current, true /*no init*/);
@@ -2117,10 +2097,9 @@ void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* al
         // insert temporary variable
         t_var_nfo var;
         var.name = "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
-        std::pair<e_Type, int> type_width = determineAccessTypeAndWidth(nullptr, alw->access(), alw->IDENTIFIER());
-        var.table_size = 0;
-        var.base_type = type_width.first;
-        var.width = type_width.second;
+        t_type_nfo typenfo = determineAccessTypeAndWidth(nullptr, alw->access(), alw->IDENTIFIER());
+        var.table_size     = 0;
+        var.type_nfo       = typenfo;
         var.init_values.push_back("0");
         insertVar(var, always, true /*no init*/);
       }
@@ -2182,7 +2161,7 @@ void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _i
 {
   _io.name = input->IDENTIFIER()->getText();
   _io.table_size = 0;
-  splitType(input->TYPE()->getText(), _io.base_type, _io.width);
+  splitType(input->TYPE()->getText(), _io.type_nfo);
   if (input->NUMBER() != nullptr) {
     _io.table_size = atoi(input->NUMBER()->getText().c_str());
   }
@@ -2196,7 +2175,7 @@ void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nf
 {
   _io.name = output->IDENTIFIER()->getText();
   _io.table_size = 0;
-  splitType(output->TYPE()->getText(), _io.base_type, _io.width);
+  splitType(output->TYPE()->getText(), _io.type_nfo);
   if (output->NUMBER() != nullptr) {
     _io.table_size = atoi(output->NUMBER()->getText().c_str());
   }
@@ -2210,7 +2189,7 @@ void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _
 {
   _io.name = inout->IDENTIFIER()->getText();
   _io.table_size = 0;
-  splitType(inout->TYPE()->getText(), _io.base_type, _io.width);
+  splitType(inout->TYPE()->getText(), _io.type_nfo);
   if (inout->NUMBER() != nullptr) {
     _io.table_size = atoi(inout->NUMBER()->getText().c_str());
   }
@@ -2255,8 +2234,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
       inp.name         = grpre + "_" + V->second.name;
       inp.table_size   = V->second.table_size;
       inp.init_values  = V->second.init_values;
-      inp.base_type    = V->second.base_type;
-      inp.width        = V->second.width;
+      inp.type_nfo     = V->second.type_nfo;
       m_Inputs.emplace_back(inp);
       m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
     } else if (io->is_inout != nullptr) {
@@ -2265,8 +2243,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
       inp.table_size  = V->second.table_size;
       inp.init_values = V->second.init_values;
       inp.nolatch     = (io->nolatch != nullptr);
-      inp.base_type   = V->second.base_type;
-      inp.width       = V->second.width;
+      inp.type_nfo    = V->second.type_nfo;
       m_InOuts.emplace_back(inp);
       m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
     } else if (io->is_output != nullptr) {
@@ -2275,8 +2252,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
       oup.table_size    = V->second.table_size;
       oup.init_values   = V->second.init_values;
       oup.combinational = (io->combinational != nullptr);
-      oup.base_type     = V->second.base_type;
-      oup.width         = V->second.width;
+      oup.type_nfo      = V->second.type_nfo;
       m_Outputs.emplace_back(oup);
       m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
     }
@@ -3622,6 +3598,126 @@ void Algorithm::checkPermissions()
 
 // -------------------------------------------------
 
+void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinational_block *_current)
+{
+  auto expr   = dynamic_cast<siliceParser::Expression_0Context*>(node);
+  auto assign = dynamic_cast<siliceParser::AssignmentContext*>(node);
+  auto alwasg = dynamic_cast<siliceParser::AlwaysAssignedContext*>(node);
+  auto async  = dynamic_cast<siliceParser::AsyncExecContext *>(node);
+  auto sync   = dynamic_cast<siliceParser::SyncExecContext *>(node);
+  auto join   = dynamic_cast<siliceParser::JoinExecContext *>(node);
+  if (expr) {
+    ExpressionLinter linter(this);
+    linter.lint(expr, &_current->context);
+  } else if (assign) {
+    ExpressionLinter linter(this);
+    linter.lintAssignment(assign->access(),assign->IDENTIFIER(), assign->expression_0(), &_current->context);
+  } else if (alwasg) { 
+    ExpressionLinter linter(this);
+    linter.lintAssignment(alwasg->access(), alwasg->IDENTIFIER(), alwasg->expression_0(), &_current->context);
+  } else if (async) {
+    // get params
+    std::vector<antlr4::tree::ParseTree*> params;
+    getParams(async->paramList(), params);
+    if (!params.empty()) {
+      // find algorithm
+      auto A = m_InstancedAlgorithms.find(async->IDENTIFIER()->getText());
+      if (A != m_InstancedAlgorithms.end()) {
+        int p = 0;
+        for (const auto& ins : A->second.algo->m_Inputs) {
+          ExpressionLinter linter(this);
+          linter.lintInputParameter(ins.name, ins.type_nfo, dynamic_cast<siliceParser::Expression_0Context*>(params[p++]), &_current->context);
+        }
+      }
+    }
+  } else if (sync) {
+    // get params
+    std::vector<antlr4::tree::ParseTree*> params;
+    getParams(sync->paramList(), params);
+    if (!params.empty()) {
+      // find algorithm / subroutine
+      auto A = m_InstancedAlgorithms.find(sync->joinExec()->IDENTIFIER()->getText());
+      if (A != m_InstancedAlgorithms.end()) { // algorithm
+        int p = 0;
+        for (const auto& ins : A->second.algo->m_Inputs) {
+          ExpressionLinter linter(this);
+          linter.lintInputParameter(ins.name, ins.type_nfo, dynamic_cast<siliceParser::Expression_0Context*>(params[p++]), &_current->context);
+        }
+      } else {
+        auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
+        if (S != m_Subroutines.end()) { // subroutine
+          int p = 0;
+          for (const auto& ins : S->second->inputs) {
+            // skip inputs which are not used
+            const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(ins))];
+            if (info.access == e_WriteOnly) {
+              p++;
+              continue;
+            }
+            ExpressionLinter linter(this);
+            linter.lintInputParameter(ins, info.type_nfo, dynamic_cast<siliceParser::Expression_0Context*>(params[p++]), &_current->context);
+          }
+        }
+      }
+    }
+  } else if (join) {
+    if (!join->assignList()->assign().empty()) {
+      // find algorithm / subroutine
+      auto A = m_InstancedAlgorithms.find(join->IDENTIFIER()->getText());
+      if (A != m_InstancedAlgorithms.end()) { // algorithm
+        int p = 0;
+        for (const auto& outs : A->second.algo->m_Outputs) {
+          ExpressionLinter linter(this);
+          linter.lintReadback(outs.name, join->assignList()->assign()[p]->access(), join->assignList()->assign()[p]->IDENTIFIER(), outs.type_nfo, &_current->context);
+          ++p;
+        }
+      } else {
+        auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
+        if (S != m_Subroutines.end()) { // subroutine
+          int p = 0;
+          for (const auto& outs : S->second->outputs) {
+            ExpressionLinter linter(this);
+            const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(outs))];
+            linter.lintReadback(outs, join->assignList()->assign()[p]->access(), join->assignList()->assign()[p]->IDENTIFIER(), info.type_nfo, &_current->context);
+            ++p;
+          }
+        }
+      }
+    }
+  } else {
+    for (auto c : node->children) {
+      checkExpressions(c, _current);
+    }
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::checkExpressions()
+{
+  // check permissions on all instructions of all blocks
+  for (const auto &i : m_AlwaysPre.instructions) {
+    checkExpressions(i.instr, &m_AlwaysPre);
+  }
+  for (const auto &b : m_Blocks) {
+    for (const auto &i : b->instructions) {
+      checkExpressions(i.instr, b);
+    }
+    // check expressions in flow control
+    if (b->if_then_else()) {
+      checkExpressions(b->if_then_else()->test.instr, b);
+    }
+    if (b->switch_case()) {
+      checkExpressions(b->switch_case()->test.instr, b);
+    }
+    if (b->while_loop()) {
+      checkExpressions(b->while_loop()->test.instr, b);
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::optimize()
 {
   // check bindings
@@ -3629,6 +3725,8 @@ void Algorithm::optimize()
   checkAlgorithmsBindings();
   // check var access permissions
   checkPermissions();
+  // check expressions (lint)
+  checkExpressions();
   // determine which VIO are assigned to wires
   determineModAlgBoundVIO();
   // analyze variables access 
@@ -3639,36 +3737,33 @@ void Algorithm::optimize()
 
 // -------------------------------------------------
 
-std::tuple<Algorithm::e_Type, int, int> Algorithm::determineVIOTypeWidthAndTableSize(const t_combinational_block_context *bctx, std::string vname,int line) const
+std::tuple<t_type_nfo, int> Algorithm::determineVIOTypeWidthAndTableSize(const t_combinational_block_context *bctx, std::string vname,int line) const
 {
-  // get width
-  e_Type type = Int;
-  int width = -1;
+  t_type_nfo tn;
+  tn.base_type   = Int;
+  tn.width       = -1;
   int table_size = 0;
   // translate
   vname = translateVIOName(vname, bctx);
   // test if variable
   if (m_VarNames.find(vname) != m_VarNames.end()) {
-    type = m_Vars[m_VarNames.at(vname)].base_type;
-    width = m_Vars[m_VarNames.at(vname)].width;
+    tn         = m_Vars[m_VarNames.at(vname)].type_nfo;
     table_size = m_Vars[m_VarNames.at(vname)].table_size;
   } else if (m_InputNames.find(vname) != m_InputNames.end()) {
-    type = m_Inputs[m_InputNames.at(vname)].base_type;
-    width = m_Inputs[m_InputNames.at(vname)].width;
+    tn         = m_Inputs[m_InputNames.at(vname)].type_nfo;
     table_size = m_Inputs[m_InputNames.at(vname)].table_size;
   } else if (m_OutputNames.find(vname) != m_OutputNames.end()) {
-    type = m_Outputs[m_OutputNames.at(vname)].base_type;
-    width = m_Outputs[m_OutputNames.at(vname)].width;
+    tn         = m_Outputs[m_OutputNames.at(vname)].type_nfo;
     table_size = m_Outputs[m_OutputNames.at(vname)].table_size;
   } else {
     reportError(nullptr, line, "variable '%s' not yet declared", vname.c_str());
   }
-  return std::make_tuple(type, width, table_size);
+  return std::make_tuple(tn, table_size);
 }
 
 // -------------------------------------------------
 
-std::tuple<Algorithm::e_Type, int, int> Algorithm::determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const
+std::tuple<t_type_nfo, int> Algorithm::determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const
 {
   sl_assert(identifier != nullptr);
   std::string vname = identifier->getText();
@@ -3677,19 +3772,20 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::determineIdentifierTypeWidthA
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const
+t_type_nfo Algorithm::determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const
 {
   sl_assert(identifier != nullptr);
   auto tws = determineIdentifierTypeWidthAndTableSize(bctx, identifier, line);
-  return std::make_pair(std::get<0>(tws), std::get<1>(tws));
+  return std::get<0>(tws);
 }
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::IoAccessContext* ioaccess) const
+t_type_nfo Algorithm::determineIOAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::IoAccessContext* ioaccess) const
 {
   sl_assert(ioaccess != nullptr);
   std::string base = ioaccess->base->getText();
+  // translate
   base = translateVIOName(base, bctx);
   if (ioaccess->IDENTIFIER().size() != 2) {
     reportError(ioaccess->getSourceInterval(),(int)ioaccess->getStart()->getLine(),
@@ -3708,15 +3804,9 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(const
         reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
           "cannot access bound input '%s' on instance '%s'", member.c_str(), base.c_str());
       }
-      return std::make_pair(
-        A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].base_type,
-        A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].width
-      );
+      return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].type_nfo;
     } else if (A->second.algo->isOutput(member)) {
-      return std::make_pair(
-        A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].base_type,
-        A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].width
-      );
+      return A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].type_nfo;
     } else {
       sl_assert(false);
     }
@@ -3729,55 +3819,72 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineIOAccessTypeAndWidth(const
       std::string vname = base + "_" + member;
       // get width and size
       auto tws = determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
-      return std::make_pair(std::get<0>(tws), std::get<1>(tws));
+      return std::get<0>(tws);
     } else {
-      reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
-        "cannot find accessed member '%s'", base.c_str());
+      auto G = m_VIOGroups.find(base);
+      if (G != m_VIOGroups.end()) {
+        verifyMemberGroup(member, G->second, (int)ioaccess->getStart()->getLine());
+        // produce the variable name
+        std::string vname = base + "_" + member;
+        // get width and size
+        auto tws = determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
+        return std::get<0>(tws);
+      } else {
+        reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+          "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
+      }
     }
   }
   sl_assert(false);
-  return std::make_pair(Int, 0);
+  return t_type_nfo(UInt, 0);
 }
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineBitfieldAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitfieldAccessContext *bfaccess) const
+t_type_nfo Algorithm::determineBitfieldAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitfieldAccessContext *bfaccess) const
 {
-  // TODO FIXME: Does not care about the bit access pattern, only returns base identifier type and width. 
-  //             This is supsicious. Might be ok as returned width is larger than required, still ...
   sl_assert(bfaccess != nullptr);
   // check field definition exists
   auto F = m_KnownBitFields.find(bfaccess->field->getText());
   if (F == m_KnownBitFields.end()) {
     reportError(bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine(), "unkown bitfield '%s'", bfaccess->field->getText().c_str());
   }
-  // etiher indentifier or ioaccess
+  // either identifier or ioaccess
+  t_type_nfo packed;
   if (bfaccess->idOrIoAccess()->IDENTIFIER() != nullptr) {
-    return determineIdentifierTypeAndWidth(bctx, bfaccess->idOrIoAccess()->IDENTIFIER(), (int)bfaccess->getStart()->getLine());
+    packed = determineIdentifierTypeAndWidth(bctx, bfaccess->idOrIoAccess()->IDENTIFIER(), (int)bfaccess->getStart()->getLine());
   } else {
-    return determineIOAccessTypeAndWidth(bctx, bfaccess->idOrIoAccess()->ioAccess());
+    packed = determineIOAccessTypeAndWidth(bctx, bfaccess->idOrIoAccess()->ioAccess());
   }
+  // get member
+  verifyMemberBitfield(bfaccess->member->getText(), F->second, (int)bfaccess->getStart()->getLine());
+  pair<t_type_nfo, int> ow = bitfieldMemberTypeAndOffset(F->second, bfaccess->member->getText());
+  if (ow.first.width + ow.second > packed.width) {
+    reportError(bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine(), "bitfield access '%s.%s' is out of bounds", bfaccess->field->getText().c_str(), bfaccess->member->getText().c_str());
+  }
+  return ow.first;
 }
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitAccessContext *bitaccess) const
+t_type_nfo Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitAccessContext *bitaccess) const
 {
-  // TODO FIXME: Does not care about the bit access pattern, only returns base identifier type and width. 
-  //             This is supsicious. Might be ok as returned width is larger than required, still ...
   sl_assert(bitaccess != nullptr);
+  t_type_nfo tn;
   if (bitaccess->IDENTIFIER() != nullptr) {
-    return determineIdentifierTypeAndWidth(bctx, bitaccess->IDENTIFIER(), (int)bitaccess->getStart()->getLine());
+    tn = determineIdentifierTypeAndWidth(bctx, bitaccess->IDENTIFIER(), (int)bitaccess->getStart()->getLine());
   } else if (bitaccess->tableAccess() != nullptr) {
-    return determineTableAccessTypeAndWidth(bctx, bitaccess->tableAccess());
+    tn = determineTableAccessTypeAndWidth(bctx, bitaccess->tableAccess());
   } else {
-    return determineIOAccessTypeAndWidth(bctx, bitaccess->ioAccess());
+    tn = determineIOAccessTypeAndWidth(bctx, bitaccess->ioAccess());
   }
+  tn.width = std::stoi(bitaccess->num->getText());
+  return tn;
 }
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineTableAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::TableAccessContext *tblaccess) const
+t_type_nfo Algorithm::determineTableAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::TableAccessContext *tblaccess) const
 {
   sl_assert(tblaccess != nullptr);
   if (tblaccess->IDENTIFIER() != nullptr) {
@@ -3789,23 +3896,25 @@ std::pair<Algorithm::e_Type, int> Algorithm::determineTableAccessTypeAndWidth(co
 
 // -------------------------------------------------
 
-std::pair<Algorithm::e_Type, int> Algorithm::determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const
+t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const
 {
   if (access) {
     // table, output or bits
     if (access->ioAccess() != nullptr) {
-      return determineIOAccessTypeAndWidth(bctx,access->ioAccess());
+      return determineIOAccessTypeAndWidth(bctx, access->ioAccess());
     } else if (access->tableAccess() != nullptr) {
-      return determineTableAccessTypeAndWidth(bctx,access->tableAccess());
+      return determineTableAccessTypeAndWidth(bctx, access->tableAccess());
     } else if (access->bitAccess() != nullptr) {
-      return determineBitAccessTypeAndWidth(bctx,access->bitAccess());
+      return determineBitAccessTypeAndWidth(bctx, access->bitAccess());
+    } else if (access->bitfieldAccess() != nullptr) {
+      return determineBitfieldAccessTypeAndWidth(bctx, access->bitfieldAccess());
     }
-  } else {
+  } else if (identifier) {
     // identifier
     return determineIdentifierTypeAndWidth(bctx, identifier, (int)identifier->getSymbol()->getLine());
   }
   sl_assert(false);
-  return std::make_pair(Int, 0);
+  return t_type_nfo(UInt, 0);
 }
 
 // -------------------------------------------------
@@ -3839,7 +3948,7 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
     for (const auto& ins : a.algo->m_Inputs) {
       if (a.boundinputs.count(ins.name) > 0) {
         reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
-        "algorithm instance '%s' cannot be called as its input '%s' is bound",
+        "algorithm instance '%s' cannot be called with parameters as its input '%s' is bound",
           a.instance_name.c_str(), ins.name.c_str());
       }
       out << FF_D << a.instance_prefix << "_" << ins.name
@@ -3915,7 +4024,7 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
   // set inputs
   int p = 0;
   for (const auto& ins : called->inputs) {
-    // filter out inputs which are not used
+    // skip inputs which are not used
     const auto& info = m_Vars[m_VarNames.at(called->vios.at(ins))];
     if (info.access == e_WriteOnly) {
       p++;
@@ -3958,7 +4067,7 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
 
 // -------------------------------------------------
 
-std::tuple<Algorithm::e_Type, int, int> Algorithm::writeIOAccess(
+std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
   std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess,
   int __id, const t_combinational_block_context* bctx, 
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
@@ -4031,7 +4140,7 @@ std::tuple<Algorithm::e_Type, int, int> Algorithm::writeIOAccess(
     }
   }
   sl_assert(false);
-  return make_tuple(UInt,0,0);
+  return make_tuple(t_type_nfo(UInt, 0), 0);
 }
 
 // -------------------------------------------------
@@ -4044,21 +4153,21 @@ void Algorithm::writeTableAccess(
 {
   if (tblaccess->ioAccess() != nullptr) {
     auto tws = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess(), __id, bctx, dependencies, _ff_usage);
-    if (get<2>(tws) == 0) {
+    if (get<1>(tws) == 0) {
       reportError(tblaccess->ioAccess()->IDENTIFIER().back()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
-    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ")*" << get<1>(tws) << "+:" << get<1>(tws) << ']';
+    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ")*" << get<0>(tws).width << "+:" << get<0>(tws).width << ']';
   } else {
     sl_assert(tblaccess->IDENTIFIER() != nullptr);
     std::string vname = tblaccess->IDENTIFIER()->getText();
     out << rewriteIdentifier(prefix, vname, bctx, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
     // get width
     auto tws = determineIdentifierTypeWidthAndTableSize(bctx, tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
-    if (get<2>(tws) == 0) {
+    if (get<1>(tws) == 0) {
       reportError(tblaccess->IDENTIFIER()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
     // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
-    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ")*" << std::get<1>(tws) << "+:" << std::get<1>(tws) << ']';
+    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ")*" << std::get<0>(tws).width << "+:" << std::get<0>(tws).width << ']';
   }
 }
 
@@ -4073,16 +4182,22 @@ void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool 
   if (F == m_KnownBitFields.end()) {
     reportError(bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine(), "unkown bitfield '%s'", bfaccess->field->getText().c_str());
   }
+  verifyMemberBitfield(bfaccess->member->getText(), F->second, (int)bfaccess->getStart()->getLine());
+  pair<t_type_nfo, int> ow = bitfieldMemberTypeAndOffset(F->second, bfaccess->member->getText());
+  sl_assert(ow.first.width > -1); // should never happen as member is checked before
+  if (ow.first.base_type == Int) {
+    out << "$signed(";
+  }
   if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
     writeIOAccess(prefix, out, assigning, bfaccess->idOrIoAccess()->ioAccess(), __id, bctx, dependencies, _ff_usage);
   } else {
     sl_assert(bfaccess->idOrIoAccess()->IDENTIFIER() != nullptr);
     out << rewriteIdentifier(prefix, bfaccess->idOrIoAccess()->IDENTIFIER()->getText(), bctx, bfaccess->idOrIoAccess()->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
   }
-  verifyMemberBitfield(bfaccess->member->getText(), F->second, (int)bfaccess->getStart()->getLine());
-  pair<int, int> ow = bitfieldMemberOffsetAndWidth(F->second,bfaccess->member->getText());
-  sl_assert(ow.first > -1); // should never happen as member is checked before
-  out << '[' << ow.first << "+:" << ow.second << ']';
+  out << '[' << ow.second << "+:" << ow.first.width << ']';
+  if (ow.first.base_type == Int) {
+    out << ")";
+  }
 }
 
 // -------------------------------------------------
@@ -4203,9 +4318,9 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, co
 int Algorithm::varBitDepth(const t_var_nfo& v) const
 {
   if (v.table_size == 0) {
-    return v.width;
+    return v.type_nfo.width;
   } else {
-    return v.width * v.table_size;
+    return v.type_nfo.width * v.table_size;
   }
 }
 
@@ -4213,7 +4328,7 @@ int Algorithm::varBitDepth(const t_var_nfo& v) const
 
 std::string Algorithm::typeString(const t_var_nfo& v) const
 {
-  return typeString(v.base_type);
+  return typeString(v.type_nfo.base_type);
 }
 
 // -------------------------------------------------
@@ -4237,7 +4352,7 @@ void Algorithm::writeConstDeclarations(std::string prefix, std::ostream& out) co
       if (v.table_size == 0) {
         out << "assign " << FF_CST << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
       } else {
-        int width = v.width;
+        int width = v.type_nfo.width;
         ForIndex(i, v.table_size) {
           out << "assign " << FF_CST << prefix << v.name << '[' << (i*width) << "+:" << width << ']' << " = " << v.init_values[i] << ';' << std::endl;
         }
@@ -4959,7 +5074,7 @@ void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::
       out << ff << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
     } else {
       ForIndex(i, v.table_size) {
-        out << ff << prefix << v.name << "[(" << i << ")*" << v.width << "+:" << v.width << ']' << " = " << v.init_values[i] << ';' << std::endl;
+        out << ff << prefix << v.name << "[(" << i << ")*" << v.type_nfo.width << "+:" << v.type_nfo.width << ']' << " = " << v.init_values[i] << ';' << std::endl;
       }
     }
     // insert write in dependencies
@@ -4993,30 +5108,30 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, s
       string width = ""; // bit-width - 1 (written as top of verilog range)
       auto C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
       if (C == CONFIG.keyValues().end()) {
-        width = std::to_string(bram.width - 1);
+        width = std::to_string(bram.type_nfo.width - 1);
       } else if (C->second == "1") {
         width = "0";
       } else if (C->second == "data") {
-        width = std::to_string(bram.width - 1);
+        width = std::to_string(bram.type_nfo.width - 1);
       }
       _replacements[nameup + "_WIDTH"] = width;
       // search config
       string sgnd = "";
       auto T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
       if (T == CONFIG.keyValues().end()) {
-        sgnd = typeString(bram.base_type);
+        sgnd = typeString(bram.type_nfo.base_type);
       } else if (T->second == "uint") {
         sgnd = "";
       } else if (T->second == "int") {
         sgnd = "signed";
       } else if (T->second == "data") {
-        sgnd = typeString(bram.base_type);
+        sgnd = typeString(bram.type_nfo.base_type);
       }
       _replacements[nameup + "_TYPE"] = sgnd;
     }
   }
-  _replacements["DATA_TYPE"] = typeString(bram.base_type);
-  _replacements["DATA_WIDTH"] = std::to_string(bram.width - 1);
+  _replacements["DATA_TYPE"] = typeString(bram.type_nfo.base_type);
+  _replacements["DATA_WIDTH"] = std::to_string(bram.type_nfo.width - 1);
   _replacements["DATA_SIZE"] = std::to_string(bram.table_size - 1);
   ostringstream initial;
   if (!bram.do_not_initialize) {

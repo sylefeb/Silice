@@ -1,3 +1,0 @@
-#pragma once
-
-#define SRC_PATH "@CMAKE_SOURCE_DIR@"

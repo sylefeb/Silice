@@ -662,7 +662,7 @@ algorithm intops(
   uint1 dir    = 0;
   uint5 shamt  = 0;
   
-  int32 a := regOrPc  ? ({20b0,pc[0,10],2b0}) : (forceZero ? xa : 32b0); 
+  int32 a := regOrPc  ? __signed({20b0,pc[0,10],2b0}) : (forceZero ? xa : __signed(32b0));
   int32 b := regOrImm ? imm : (xb);
   //      ^^
   // using := during a declaration means that the variable now constantly tracks
@@ -674,7 +674,7 @@ algorithm intops(
     if (shamt > 0) {
     
       // process the shift one bit at a time
-      r     = dir ? (signed ? {r[31,1],r[1,31]} : {1b0,r[1,31]}) : {r[0,31],1b0};
+      r     = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
       shamt = shamt - 1;
       
     } else {
@@ -697,13 +697,13 @@ algorithm intops(
           case 3b111: { r = a & b;} // AND
           case 3b001: { // SLLI
             r       = a;
-            shamt   = b[0,5];
+            shamt   = __unsigned(b[0,5]);
             signed  = select2;
             dir     = 0;
           }
           case 3b101: { // SRLI / SRAI
             r       = a;
-            shamt   = b[0,5];
+            shamt   = __unsigned(b[0,5]);
             signed  = select2;
             dir     = 1;
           }

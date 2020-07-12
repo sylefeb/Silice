@@ -18,11 +18,6 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:4194304")
 endif()
 
-CONFIGURE_FILE(
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/path.h.in"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/path.h"
-  )
-
 if (WIN32)
 SET(ANTLR_COMPILER ${PROJECT_SOURCE_DIR}/antlr/compile.bat)
 else ()
@@ -76,6 +71,10 @@ ADD_EXECUTABLE(silice
   src/VerilogTemplate.h
   src/VerilogTemplate.cpp
   src/Config.cpp
+  src/TypesAndConsts.cpp
+  src/TypesAndConsts.h
+  src/ExpressionLinter.cpp
+  src/ExpressionLinter.h
   antlr/siliceParser.cpp
   antlr/siliceParser.h
   antlr/siliceLexer.cpp

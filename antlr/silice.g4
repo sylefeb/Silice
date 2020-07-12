@@ -169,20 +169,56 @@ Precedences are not properly enforced, but this has no consequence as Silice
 outputs expressions as-is to Verilog, which then applies operator precedences.
 */
 
-expression_0        : expression_1 (
-                      '+' | '-' | '||' | '|' | '===' | '==' | '!==' | '!='  | '<<<' | '>>>' | '<<' | '>>' | '<' | '>' | '<=' | '>='
-                      ) expression_1 
-                    | expression_0 (
-                      '+' | '-' | '||' | '|' | '===' | '==' | '!==' | '!='  | '<<<' | '>>>' | '<<' | '>>' | '<' | '>' | '<=' | '>='
-                      ) expression_1 
-                    | expression_0 '?' expression_0 ':' expression_0
+expression_0        : expression_0 '?' expression_0 ':' expression_0
                     | expression_1;
 
-expression_1        : unaryExpression (
-                    '*' | '&&' | '&' | '^~'| '~^' | '~' | '^'
-                    ) unaryExpression 
-                    | expression_1 (
-                    '*' | '&&' | '&' | '^~'| '~^' | '~' | '^'
+expression_1        : expression_1 (
+                    '||'
+                    ) expression_2
+                    | expression_2 ;
+
+expression_2        : expression_2 (
+                    '&&'
+                    ) expression_3
+                    | expression_3 ;
+
+expression_3        : expression_3 (
+                    '|'
+                    ) expression_4
+                    | expression_4 ;
+
+expression_4        : expression_4 (
+                    '^' | '^~'| '~^'
+                    ) expression_5
+                    | expression_5 ;
+
+expression_5        : expression_5 (
+                    '&'
+                    ) expression_6
+                    | expression_6 ;
+
+expression_6        : expression_6 (
+                    '===' | '==' | '!==' | '!='
+                    ) expression_7
+                    | expression_7 ;
+
+expression_7        : expression_7 (
+                    '<' | '>' | '<=' | '>='
+                    ) expression_8
+                    | expression_8 ;
+
+expression_8        : expression_8 (
+                    '<<' | '<<<' | '>>' | '>>>'
+                    ) expression_9
+                    | expression_9 ;
+
+expression_9        : expression_9 (
+                    '+' | '-'
+                    ) expression_10
+                    | expression_10 ;
+
+expression_10        : expression_10 (
+                    '*'
                     ) unaryExpression
                     | unaryExpression ;
 

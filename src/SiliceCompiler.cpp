@@ -20,6 +20,7 @@ the distribution, please refer to it for details.
 
 #include "SiliceCompiler.h"
 #include "Config.h"
+#include "ExpressionLinter.h"
 
 // -------------------------------------------------
 
@@ -32,7 +33,7 @@ the distribution, please refer to it for details.
 
 #include <LibSL/LibSL.h>
 
-#include "path.h"
+using namespace Silice;
 
 // -------------------------------------------------
 
@@ -255,6 +256,9 @@ void SiliceCompiler::run(
     parser.removeErrorListeners();
     parser.addErrorListener(&parserErrorListener);
 
+    ExpressionLinter::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
+    ExpressionLinter::setLuaPreProcessor(&lpp);
+
     try {
 
       // analyze
@@ -297,6 +301,9 @@ void SiliceCompiler::run(
       ReportError err(lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()), le.token(), le.interval(), le.message());
 
     }
+
+    ExpressionLinter::setTokenStream(nullptr);
+    ExpressionLinter::setLuaPreProcessor(nullptr);
 
   } else {
     throw Fatal("cannot open source file '%s'", fsource);

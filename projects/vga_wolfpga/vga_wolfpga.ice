@@ -401,14 +401,14 @@ $$end
 ++:      
       
       colangle   = posa + c;
-      while (colangle < 0) {
+      while (colangle < __signed(0)) {
         colangle = colangle + 3600;
       }
-      while (colangle > 3600) {
+      while (colangle > __signed(3600)) {
         colangle = colangle - 3600;
       }
       
-      if (colangle < $Deg90$) {
+      if (colangle < __signed($Deg90$)) {
         mapxstep   =  1;
         mapystep   = -1;
         fracx_m    = fracx_up_m;
@@ -476,18 +476,18 @@ $$end
         // shall we do vertical or horizontal?
         if (v_or_h == 0) {
           // keep doing vertical?
-          if (mapystep > 0 && mapytest >= mapy) {
+          if (mapystep > __signed(0) && mapytest >= mapy) {
             v_or_h = 1;
           } else {
-          if (mapystep < 0 && mapytest <= mapy) {
+          if (mapystep < __signed(0) && mapytest <= mapy) {
             v_or_h = 1;
           } }
         } else {
           // keep doing horizontal?
-          if (mapxstep > 0 && mapxtest >= mapx) {
+          if (mapxstep > __signed(0) && mapxtest >= mapx) {
             v_or_h = 0;
           } else {
-          if (mapxstep < 0 && mapxtest <= mapx) {
+          if (mapxstep < __signed(0) && mapxtest <= mapx) {
             v_or_h = 0;
           } } 
         }

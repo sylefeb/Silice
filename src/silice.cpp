@@ -27,10 +27,10 @@ the distribution, please refer to it for details.
 
 #include <LibSL/LibSL.h>
 
-#include "path.h"
-
 #include <tclap/CmdLine.h>
 #include <tclap/UnlabeledValueArg.h>
+
+using namespace Silice;
 
 // -------------------------------------------------
 

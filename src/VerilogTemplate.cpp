@@ -22,6 +22,7 @@ the distribution, please refer to it for details.
 #include <regex>
 
 using namespace std;
+using namespace Silice;
 
 // -------------------------------------------------
 
