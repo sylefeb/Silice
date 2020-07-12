@@ -119,7 +119,6 @@ void ExpressionLinter::lintReadback(
 
 // -------------------------------------------------
 
-/// \brief Lint a binding
 void ExpressionLinter::lintBinding(
   std::string                                     msg,
   Algorithm::e_BindingDir                         dir,
