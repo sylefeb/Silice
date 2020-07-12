@@ -3755,6 +3755,15 @@ std::tuple<t_type_nfo, int> Algorithm::determineVIOTypeWidthAndTableSize(const t
   } else if (m_OutputNames.find(vname) != m_OutputNames.end()) {
     tn         = m_Outputs[m_OutputNames.at(vname)].type_nfo;
     table_size = m_Outputs[m_OutputNames.at(vname)].table_size;
+  } else if (m_InOutNames.find(vname) != m_InOutNames.end()) {
+    tn         = m_InOuts[m_InOutNames.at(vname)].type_nfo;
+    table_size = m_InOuts[m_InOutNames.at(vname)].table_size;
+  } else if (vname == ALG_CLOCK) {
+    tn         = t_type_nfo(UInt,1);
+    table_size = 0;
+  } else if (vname == ALG_RESET) {
+    tn         = t_type_nfo(UInt,1);
+    table_size = 0;
   } else {
     reportError(nullptr, line, "variable '%s' not yet declared", vname.c_str());
   }

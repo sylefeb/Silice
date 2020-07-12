@@ -314,15 +314,7 @@ void ExpressionLinter::typeNfo(
       _nfo.base_type = UInt;
       _nfo.width     = -1; // undetermined (NOTE: verilog default to 32 bits ...)
     } else if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-      if (term->getText() == "clock") {
-        _nfo.base_type = UInt;
-        _nfo.width = 1;
-      } else if (term->getText() == "reset") {
-        _nfo.base_type = UInt;
-        _nfo.width = 1;
-      } else {
-        _nfo = m_Host->determineIdentifierTypeAndWidth(bctx, term, (int)term->getSymbol()->getLine());
-      }
+      _nfo = m_Host->determineIdentifierTypeAndWidth(bctx, term, (int)term->getSymbol()->getLine());
     } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
       _nfo.base_type = UInt;
       _nfo.width = -1; // unspecified
