@@ -3345,62 +3345,63 @@ void Algorithm::determineVariableAndOutputsUsage()
     global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
   }
   // set and report
-  std::cerr << "---< " << m_Name << "::variables >---" << std::endl;
+  const bool report = false;
+  if (report) std::cerr << "---< " << m_Name << "::variables >---" << std::endl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
       switch (v.usage) {
-      case e_Wire: std::cerr << v.name << " => wire (by def)" << std::endl; break;
+      case e_Wire: if (report) std::cerr << v.name << " => wire (by def)" << std::endl; break;
       default: throw Fatal("interal error");
       }
       continue; // usage is fixed by definition
     }
     if (v.access == e_ReadOnly) {
-      std::cerr << v.name << " => const ";
+      if (report) std::cerr << v.name << " => const ";
       v.usage = e_Const;
     } else if (v.access == e_WriteOnly) {
-      std::cerr << v.name << " => written but not used ";
+      if (report) std::cerr << v.name << " => written but not used ";
       v.usage = e_Temporary; // e_NotUsed;
     } else if (v.access == e_ReadWrite) {
       if (global_in_read.find(v.name) == global_in_read.end()) {
-        std::cerr << v.name << " => temp ";
+        if (report) std::cerr << v.name << " => temp ";
         v.usage = e_Temporary;
       } else {
-        std::cerr << v.name << " => flip-flop ";
+        if (report) std::cerr << v.name << " => flip-flop ";
         v.usage = e_FlipFlop;
       }
     } else if (v.access == (e_WriteBinded | e_ReadOnly)) {
-      std::cerr << v.name << " => write-binded ";
+      if (report) std::cerr << v.name << " => write-binded ";
       v.usage = e_Bound;
     } else if (v.access == (e_WriteBinded)) {
-      std::cerr << v.name << " => write-binded but not used ";
+      if (report) std::cerr << v.name << " => write-binded but not used ";
       v.usage = e_Bound;
     } else if (v.access == e_NotAccessed) {
-      std::cerr << v.name << " => unused ";
+      if (report) std::cerr << v.name << " => unused ";
       v.usage = e_NotUsed;
     } else if (v.access == e_ReadWriteBinded) {
-      std::cerr << v.name << " => bound to inout ";
+      if (report) std::cerr << v.name << " => bound to inout ";
       v.usage = e_Bound;
     } else if ((v.access & e_InternalFlipFlop) == e_InternalFlipFlop) {
-      std::cerr << v.name << " => internal flip-flop ";
+      if (report) std::cerr << v.name << " => internal flip-flop ";
       v.usage = e_FlipFlop;
     } else {
       throw Fatal("interal error -- variable '%s' has an unknown usage pattern", v.name.c_str());
     }
-    std::cerr << std::endl;
+    if (report) std::cerr << std::endl;
   }
-  std::cerr << "---< " << m_Name << "::outputs >---" << std::endl;
+  if (report) std::cerr << "---< " << m_Name << "::outputs >---" << std::endl;
   for (auto &o : m_Outputs) {
     if (o.access == (e_WriteBinded | e_ReadOnly)) {
-      std::cerr << o.name << " => bound (wire)";
+      if (report) std::cerr << o.name << " => bound (wire)";
       o.usage = e_Bound;
     } else if (o.access == (e_WriteBinded)) {
-      std::cerr << o.name << " => bound (wire)";
+      if (report) std::cerr << o.name << " => bound (wire)";
       o.usage = e_Bound;
     } else  {
-      std::cerr << o.name << " => flip-flop";
+      if (report) std::cerr << o.name << " => flip-flop";
       o.usage = e_FlipFlop;
     }
-    std::cerr << std::endl;
+    if (report) std::cerr << std::endl;
   }
 
 #if 0
@@ -5223,7 +5224,6 @@ void Algorithm::writeAsModule(std::ostream &out)
   std::ofstream null;
   writeAsModule(null, ff_usage);
 
-#if 1
   // update usage based on first pass
   for (const auto &v : ff_usage.ff_usage) {
     if (!(v.second & e_Q)) {
@@ -5249,9 +5249,8 @@ void Algorithm::writeAsModule(std::ostream &out)
       }
     }
   }
-#endif
 
-#if 1
+#if 0
   std::cerr << " === algorithm " << m_Name << " ====" << std::endl;
   for (const auto &v : ff_usage.ff_usage) {
     std::cerr << "vio " << v.first << " : ";
