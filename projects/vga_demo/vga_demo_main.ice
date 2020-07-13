@@ -20,6 +20,11 @@ $$if ULX3S then
 import('../common/ulx3s_clk_100_25.v')
 $$end
 
+$$if DE10NANO then
+// Clock
+import('../common/de10nano_clk_100_25.v')
+$$end
+
 $$if HARDWARE then
 // Reset
 import('../common/reset_conditioner.v')
@@ -39,7 +44,7 @@ $$if MOJO then
   output! uint1 avr_rx,
   input   uint1 avr_rx_busy,
 $$end
-$$if MOJO or VERILATOR or ULX3S then
+$$if MOJO or VERILATOR or ULX3S or DE10NANO then
   // SDRAM
   output! uint1  sdram_cle,
   output! uint1  sdram_dqm,
@@ -68,6 +73,20 @@ $$if ICESTICK then
   output! uint1 led2,
   output! uint1 led3,
   output! uint1 led4,
+$$end
+$$if DE10NANO then
+  output! uint8 led,
+  output! uint4 kpadC,
+  input   uint4 kpadR,
+  output! uint1 lcd_rs,
+  output! uint1 lcd_rw,
+  output! uint1 lcd_e,
+  output! uint8 lcd_d,
+  output! uint1 oled_din,
+  output! uint1 oled_clk,
+  output! uint1 oled_cs,
+  output! uint1 oled_dc,
+  output! uint1 oled_rst,  
 $$end
 $$if ULX3S then
   output! uint8 led,
@@ -117,6 +136,17 @@ $$elseif ULX3S then
     clkin    <: clock,
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,
+    locked   :> pll_lock
+  ); 
+$$elseif DE10NANO then
+  // --- clock
+  uint1 sdram_clock = 0;
+  uint1 pll_lock = 0;
+  de10nano_clk_100_25 clk_gen(
+    refclk   <: clock,
+    rst      <: reset,
+    outclk_0 :> sdram_clock,
+    outclk_1 :> video_clock,
     locked   :> pll_lock
   ); 
 $$end
@@ -175,7 +205,7 @@ $$end
 
 $$if SIMULATION then
   // we count a number of frames and stop
-  while (frame < 2) {
+  while (frame < 4) {
 $$else
   // forever
   while (1) {

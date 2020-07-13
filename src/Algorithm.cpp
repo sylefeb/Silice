@@ -1293,7 +1293,7 @@ std::string Algorithm::rewriteExpression(
     auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
     if (access) {
       std::ostringstream ostr;
-      writeAccess(prefix, ostr, false, access, __id, bctx, dependencies, _ff_usage);
+      writeAccess(prefix, ostr, false, access, __id, bctx, ff, dependencies, _ff_usage);
       result = result + ostr.str();
     } else {
       // recurse
@@ -4024,7 +4024,7 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
     for (const auto& outs : a.algo->m_Outputs) {
       if (plist->assign()[p]->access() != nullptr) {
         t_vio_dependencies _;
-        writeAccess(prefix, out, true, plist->assign()[p]->access(), -1, bctx, _, _ff_usage);
+        writeAccess(prefix, out, true, plist->assign()[p]->access(), -1, bctx, FF_D, _, _ff_usage);
       } else {
         t_vio_dependencies _;
         out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
@@ -4085,7 +4085,7 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
   for (const auto& outs : called->outputs) {
     if (plist->assign()[p]->access() != nullptr) {
       t_vio_dependencies _;
-      writeAccess(prefix, out, true, plist->assign()[p]->access(), -1, bctx, _, _ff_usage);
+      writeAccess(prefix, out, true, plist->assign()[p]->access(), -1, bctx, FF_D, _, _ff_usage);
     } else {
       t_vio_dependencies _;
       out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
@@ -4099,7 +4099,7 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
 
 std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
   std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess,
-  int __id, const t_combinational_block_context* bctx, 
+  int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   std::string base = ioaccess->base->getText();
@@ -4152,7 +4152,7 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
       // produce the variable name
       std::string vname = base + "_" + member;
       // write
-      out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
+      out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
       return determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
     } else {
       auto G = m_VIOGroups.find(base);
@@ -4161,7 +4161,7 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
         // produce the variable name
         std::string vname = base + "_" + member;
         // write
-        out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
+        out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
         return determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
       } else {
         reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
@@ -4178,11 +4178,11 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
 void Algorithm::writeTableAccess(
   std::string prefix, std::ostream& out, bool assigning,
   siliceParser::TableAccessContext* tblaccess, 
-  int __id, const t_combinational_block_context *bctx, 
+  int __id, const t_combinational_block_context *bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   if (tblaccess->ioAccess() != nullptr) {
-    auto tws = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess(), __id, bctx, dependencies, _ff_usage);
+    auto tws = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess(), __id, bctx, ff, dependencies, _ff_usage);
     if (get<1>(tws) == 0) {
       reportError(tblaccess->ioAccess()->IDENTIFIER().back()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
@@ -4190,7 +4190,7 @@ void Algorithm::writeTableAccess(
   } else {
     sl_assert(tblaccess->IDENTIFIER() != nullptr);
     std::string vname = tblaccess->IDENTIFIER()->getText();
-    out << rewriteIdentifier(prefix, vname, bctx, tblaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
+    out << rewriteIdentifier(prefix, vname, bctx, tblaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
     // get width
     auto tws = determineIdentifierTypeWidthAndTableSize(bctx, tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
     if (get<1>(tws) == 0) {
@@ -4204,7 +4204,7 @@ void Algorithm::writeTableAccess(
 // -------------------------------------------------
 
 void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitfieldAccessContext* bfaccess, 
-  int __id, const t_combinational_block_context* bctx, 
+  int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   // find field definition
@@ -4219,10 +4219,11 @@ void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool 
     out << "$signed(";
   }
   if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
-    writeIOAccess(prefix, out, assigning, bfaccess->idOrIoAccess()->ioAccess(), __id, bctx, dependencies, _ff_usage);
+    writeIOAccess(prefix, out, assigning, bfaccess->idOrIoAccess()->ioAccess(), __id, bctx, ff, dependencies, _ff_usage);
   } else {
     sl_assert(bfaccess->idOrIoAccess()->IDENTIFIER() != nullptr);
-    out << rewriteIdentifier(prefix, bfaccess->idOrIoAccess()->IDENTIFIER()->getText(), bctx, bfaccess->idOrIoAccess()->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
+    out << rewriteIdentifier(prefix, bfaccess->idOrIoAccess()->IDENTIFIER()->getText(), bctx, 
+      bfaccess->idOrIoAccess()->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
   }
   out << '[' << ow.second << "+:" << ow.first.width << ']';
   if (ow.first.base_type == Int) {
@@ -4233,17 +4234,18 @@ void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool 
 // -------------------------------------------------
 
 void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, 
-  int __id, const t_combinational_block_context* bctx, 
+  int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   // TODO: check access validity
   if (bitaccess->ioAccess() != nullptr) {
-    writeIOAccess(prefix, out, assigning, bitaccess->ioAccess(), __id, bctx, dependencies, _ff_usage);
+    writeIOAccess(prefix, out, assigning, bitaccess->ioAccess(), __id, bctx, ff, dependencies, _ff_usage);
   } else if (bitaccess->tableAccess() != nullptr) {
-    writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, bctx, dependencies, _ff_usage);
+    writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), __id, bctx, ff, dependencies, _ff_usage);
   } else {
     sl_assert(bitaccess->IDENTIFIER() != nullptr);
-    out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), bctx, bitaccess->getStart()->getLine(), assigning ? FF_D : FF_Q, !assigning, dependencies, _ff_usage);
+    out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), bctx, 
+      bitaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
   }
   out << '[' << rewriteExpression(prefix, bitaccess->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) << "+:" << bitaccess->num->getText() << ']';
 }
@@ -4251,17 +4253,17 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
 // -------------------------------------------------
 
 void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, 
-  int __id, const t_combinational_block_context* bctx, 
+  int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   if (access->ioAccess() != nullptr) {
-    writeIOAccess(prefix, out, assigning, access->ioAccess(), __id, bctx, dependencies, _ff_usage);
+    writeIOAccess(prefix, out, assigning, access->ioAccess(), __id, bctx, ff, dependencies, _ff_usage);
   } else if (access->tableAccess() != nullptr) {
-    writeTableAccess(prefix, out, assigning, access->tableAccess(), __id, bctx, dependencies, _ff_usage);
+    writeTableAccess(prefix, out, assigning, access->tableAccess(), __id, bctx, ff, dependencies, _ff_usage);
   } else if (access->bitAccess() != nullptr) {
-    writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, bctx, dependencies, _ff_usage);
+    writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, bctx, ff, dependencies, _ff_usage);
   } else if (access->bitfieldAccess() != nullptr) {
-    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), __id, bctx, dependencies, _ff_usage);
+    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), __id, bctx, ff, dependencies, _ff_usage);
   }
 }
 
@@ -4277,7 +4279,7 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
 {
   if (access) {
     // table, output or bits
-    writeAccess(prefix, out, true, access, a.__id, bctx, dependencies, _ff_usage);
+    writeAccess(prefix, out, true, access, a.__id, bctx, ff, dependencies, _ff_usage);
   } else {
     sl_assert(identifier != nullptr);
     // variable
