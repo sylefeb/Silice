@@ -1,18 +1,25 @@
 // SL 2020-07-13
 // Wave function collapse (with image output)
 
+$$if DE10NANO or SIMULATION or ULX3S then
+$$Nlog = 4
+$$else
 $$Nlog = 3
+$$end
+
 $$N    = (1<<Nlog)
 
 $include('../common/empty.ice')
 $include('../vga_demo/vga_demo_main.ice')
 
+$$PROBLEM = 'problems/knots/'
 $$dofile('pre_rules.lua')
 
 // -------------------------
+// rule-processor
 // applies the neighboring rules
 
-algorithm wfc_site_processor(
+algorithm wfc_rule_processor(
   input   uint$L$ site,
   input   uint$L$ left,   // -1, 0
   input   uint$L$ right,  //  1, 0
@@ -88,7 +95,7 @@ $$end
 // - when two are present, one is randomly selected
 algorithm makeAChoice(
   input   uint$L$ i,
-  input   uint$L$ rand,
+  input   uint16  rand,
   output! uint$L$ o)
 {
 
@@ -105,10 +112,14 @@ $$for lvl=L_pow2-1,0,-1 do
 $$  for i=0,(1<<lvl)-1 do
   uint5 keep_$lvl$_$2*i$_$2*i+1$ := 
 $$    if lvl == L_pow2-1 then
-$$      if 2*i+1 < L then
-           (i[$2*i$,1] && i[$2*i+1$,1]) ? (rand[$nr$,1] ? $2*i$ : $2*i+1$) : (i[$2*i$,1] ? $2*i$ : (i[$2*i+1$,1] ? $2*i+1$ : 0)) ;
+$$      if 2*i < L then
+$$        if 2*i+1 < L then
+            (i[$2*i$,1] && i[$2*i+1$,1]) ? (rand[$nr$,1] ? $2*i$ : $2*i+1$) : (i[$2*i$,1] ? $2*i$ : (i[$2*i+1$,1] ? $2*i+1$ : 0)) ;
+$$        else
+            (i[$2*i$,1] ? $2*i$ : 0) ;
+$$        end
 $$      else
-           (i[$2*i$,1] ? $2*i$ : 0) ;
+           0;
 $$      end
 $$    else
            (keep_$lvl+1$_$4*i$_$4*i+1$ && keep_$lvl+1$_$4*i+2$_$4*i+3$) ? (rand[$nr$,1] ? keep_$lvl+1$_$4*i$_$4*i+1$ : keep_$lvl+1$_$4*i+2$_$4*i+3$) : (keep_$lvl+1$_$4*i$_$4*i+1$ | keep_$lvl+1$_$4*i+2$_$4*i+3$);
@@ -126,7 +137,7 @@ $$end
 algorithm wfc(
   output uint16  addr,
   output uint$L$ data,
-  input  uint$L$ seed
+  input  uint16  seed
 )
 {
   // all sites, initialized so that everything is possible
@@ -138,10 +149,10 @@ $$for i=1,N*N do
   uint1   stable_$i-1$   = uninitialized;
 $$end  
   
-  // all site processors
+  // all rule-processors
 $$for i=1,N*N do
 $$ l,r,t,b = neighbors(i-1)
-  wfc_site_processor proc_$i-1$(
+  wfc_rule_processor proc_$i-1$(
     site    <:: grid_$i-1$,
     left    <:: grid_$l$,
     right   <:: grid_$r$,
@@ -182,7 +193,7 @@ $$end
   // next entry to be collapsed
   uint16 next = 0;
   // random
-  int$L$ rand = 0;
+  uint16 rand = 0;
     
   // grid updates
 $$for i=1,N*N do
@@ -255,20 +266,29 @@ algorithm frame_display(
   input   uint10 pix_y,
   input   uint1  pix_active,
   input   uint1  pix_vblank,
+$$if DE10NANO then
+  output uint4  kpadC,
+  input  uint4  kpadR,
+$$end  
   output! uint$color_depth$ pix_r,
   output! uint$color_depth$ pix_g,
   output! uint$color_depth$ pix_b
 ) <autorun> {
 
-  brom uint18 tiles[$16*16*15$] = {
+  uint16   kpressed   = 4;
+$$if DE10NANO then
+  keypad        kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
+$$end
+
+  brom uint18 tiles[$16*16*L$] = {
 $$for i=1,L do
-$$write_image_in_table('tile_' .. string.format('%02d',i-1) .. '.tga',6)
+$$write_image_in_table(PROBLEM .. 'tile_' .. string.format('%02d',i-1) .. '.tga',6)
 $$end
   };
 
   dualport_bram uint$L$ result[$N*N$] = uninitialized;
 
-  uint12 iter = 0;
+  uint16 iter = 0;
 
   wfc wfc1(
     addr :> result.addr1,
@@ -282,29 +302,17 @@ $$end
   result.wenable1 = 1;
 
   result.addr0 = 0;
-/*
-  while (1) {
-    
-    () <- wfc1 <- ();
 
-    iter = iter + 1;
-    
-    if (result.rdata0 != 0) {
-      break;
-    }
-    
-    __display("wfc restart");
-  }
-*/
   // ---- display result  
   while (1) {   
 	  uint8   tile = 0;
 	  while (pix_vblank == 0) {
-      if (pix_active) {
+      if (pix_active) {      
         // set rgb data
-        pix_b = tiles.rdata[0,6];
-        pix_g = tiles.rdata[6,6];
-        pix_r = tiles.rdata[12,6];
+        pix_b = pix_x > 15 ? tiles.rdata[0,6]  : 0;
+        pix_g = pix_x > 15 ? tiles.rdata[6,6]  : 0;
+        pix_r = pix_x > 15 ? tiles.rdata[12,6] : 0;
+        //      ^^^^^^^^^^^ hides a defect on first tile of each row ... yeah, well ...
         {
           // read next pixel
           uint10 x = uninitialized;
@@ -328,14 +336,16 @@ $$end
       }
     }
     
-    while (1) {
-      
-      () <- wfc1 <- ();
+    if ((kpressed & 4) != 0) {
+      while (1) {
+        
+        () <- wfc1 <- ();
 
-      iter = iter + 1;
-      
-      if (result.rdata0 != 0) {
-        break;
+        iter = iter + 1;
+        
+        if (result.rdata0 != 0) {
+          break;
+        }
       }
     }
     

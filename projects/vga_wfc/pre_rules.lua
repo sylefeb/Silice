@@ -1,4 +1,4 @@
-local in_rules = io.open(findfile('rules.txt'), 'r')
+local in_rules = io.open(findfile(PROBLEM .. 'rules.txt'), 'r')
 local lines = {}
 
 for line in in_rules:lines() do

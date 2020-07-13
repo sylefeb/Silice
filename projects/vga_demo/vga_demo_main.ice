@@ -23,11 +23,34 @@ $$end
 $$if DE10NANO then
 // Clock
 import('../common/de10nano_clk_100_25.v')
+// keypad
+$include('../common/keypad.ice')
 $$end
 
 $$if HARDWARE then
 // Reset
 import('../common/reset_conditioner.v')
+$$end
+
+// -------------------------
+
+$$if SIMULATION then
+algorithm pll(
+  output  uint1 video_clock,
+  output  uint1 video_reset,
+) <autorun>
+{
+  uint3 counter = 0;
+  uint8 trigger = 8b11111111;
+  
+  video_clock   := counter[1,1]; // x4 slower
+  video_reset   := (trigger > 0);
+  
+  always {	  
+    counter = counter + 1;
+	  trigger = trigger >> 1;
+  }
+}
 $$end
 
 // -------------------------
@@ -96,15 +119,11 @@ $$end
   output! uint$color_depth$ video_b,
   output! uint1 video_hs,
   output! uint1 video_vs
-) 
-$$if HARDWARE then
-// on an actual board, the video signal is produced by a PLL
-<@video_clock,!video_reset> 
-$$end
+) <@video_clock,!video_reset> 
 {
+  uint1 video_reset = 0;
 
 $$if HARDWARE then
-  uint1 video_reset = 0;
   uint1 video_clock = 0;
 $$if MOJO then
   uint1 sdram_clock = 0;
@@ -156,6 +175,12 @@ $$end
     in  <: reset,
     out :> video_reset
   );
+$$else
+  // --- simulation pll
+  pll clockgen<@clock,!reset>(
+    video_clock   :> video_clock,
+    video_reset   :> video_reset,
+  );  
 $$end
 
   uint1  active = 0;
@@ -187,7 +212,8 @@ $$end
 	  pix_vblank <: vblank,
 	  pix_r      :> video_r,
 	  pix_g      :> video_g,
-	  pix_b      :> video_b
+	  pix_b      :> video_b,
+    <:auto:>
   );
 
   uint8 frame  = 0;
@@ -197,10 +223,6 @@ $$if MOJO then
   spi_miso := 1bz;
   avr_rx := 1bz;
   spi_channel := 4bzzzz;
-$$end
-
-$$if SIMULATION then
-  video_clock := clock;
 $$end
 
 $$if SIMULATION then
