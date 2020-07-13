@@ -100,6 +100,7 @@ void Algorithm::checkModulesBindings() const
 void Algorithm::checkAlgorithmsBindings() const
 {
   for (auto& ia : m_InstancedAlgorithms) {
+    set<string> inbound;
     for (const auto& b : ia.second.bindings) {
       // check left side
       bool is_input  = ia.second.algo->isInput (b.left);
@@ -123,12 +124,17 @@ void Algorithm::checkAlgorithmsBindings() const
       }
       // check right side
       std::string br = bindingRightIdentifier(b);
+      // check existence
       if (!isInputOrOutput(br) && !isInOut(br)
         && m_VarNames.count(br) == 0
         && br != m_Clock && br != ALG_CLOCK
         && br != m_Reset && br != ALG_RESET) {
         reportError(nullptr, b.line, "wrong binding point, instanced algorithm '%s', binding '%s' to '%s'",
           ia.first.c_str(), br.c_str(), b.left.c_str());
+      }
+      if (b.dir == e_Left || b.dir == e_LeftQ) {
+        // track inbound
+        inbound.insert(br);
       }
       // lint
       ExpressionLinter linter(this);
@@ -138,6 +144,16 @@ void Algorithm::checkAlgorithmsBindings() const
         get<0>(ia.second.algo->determineVIOTypeWidthAndTableSize(nullptr, b.left, -1)),
         get<0>(determineVIOTypeWidthAndTableSize(nullptr, br, -1))
       );
+    }
+    // check no binding appears with both directions (excl. inout)
+    for (const auto &b : ia.second.bindings) {
+      std::string br = bindingRightIdentifier(b);
+      if (b.dir == e_Right) {
+        if (inbound.count(br) > 0) {
+          reportError(nullptr, b.line, "binding appears both as input and output on the same instance, instanced algorithm '%s', bound vio '%s'",
+            ia.first.c_str(), br.c_str());
+        }
+      }
     }
   }
 }
@@ -3641,6 +3657,7 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
       if (A != m_InstancedAlgorithms.end()) { // algorithm
         int p = 0;
         for (const auto& ins : A->second.algo->m_Inputs) {
+          if (p >= params.size()) { break; } // safety in case of wrong num params
           ExpressionLinter linter(this);
           linter.lintInputParameter(ins.name, ins.type_nfo, dynamic_cast<siliceParser::Expression_0Context*>(params[p++]), &_current->context);
         }
@@ -3649,6 +3666,7 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
         if (S != m_Subroutines.end()) { // subroutine
           int p = 0;
           for (const auto& ins : S->second->inputs) {
+            if (p >= params.size()) { break; } // safety in case of wrong num params
             // skip inputs which are not used
             const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(ins))];
             if (info.access == e_WriteOnly) {
@@ -3668,6 +3686,7 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
       if (A != m_InstancedAlgorithms.end()) { // algorithm
         int p = 0;
         for (const auto& outs : A->second.algo->m_Outputs) {
+          if (p >= join->assignList()->assign().size()) { break; } // safety in case of wrong num params
           ExpressionLinter linter(this);
           linter.lintReadback(outs.name, join->assignList()->assign()[p]->access(), join->assignList()->assign()[p]->IDENTIFIER(), outs.type_nfo, &_current->context);
           ++p;
@@ -3677,6 +3696,7 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
         if (S != m_Subroutines.end()) { // subroutine
           int p = 0;
           for (const auto& outs : S->second->outputs) {
+            if (p >= join->assignList()->assign().size()) { break; } // safety in case of wrong num params
             ExpressionLinter linter(this);
             const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(outs))];
             linter.lintReadback(outs, join->assignList()->assign()[p]->access(), join->assignList()->assign()[p]->IDENTIFIER(), info.type_nfo, &_current->context);
