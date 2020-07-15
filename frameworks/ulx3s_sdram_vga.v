@@ -10,6 +10,7 @@ $$SDRAM=1
 module top(
   input  clk_25mhz,
   output reg [7:0] led,
+  input      [6:0] btn,
   // SDRAM
   output reg sdram_clk,
   output reg sdram_cke,
@@ -43,7 +44,6 @@ wire        __main_out_vga_vs;
 wire [5:0]  __main_out_vga_r;
 wire [5:0]  __main_out_vga_g;
 wire [5:0]  __main_out_vga_b;
-
 
 reg ready = 0;
 
@@ -85,6 +85,7 @@ M_main __main(
   .out_video_r(__main_out_vga_r),
   .out_video_g(__main_out_vga_g),
   .out_video_b(__main_out_vga_b),
+  .in_btn(btn),
   .in_run(run_main)
 );
 

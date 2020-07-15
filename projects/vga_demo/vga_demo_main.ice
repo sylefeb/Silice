@@ -113,6 +113,7 @@ $$if DE10NANO then
 $$end
 $$if ULX3S then
   output! uint8 led,
+  input   uint7 btn,
 $$end
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,

@@ -1,10 +1,10 @@
 // SL 2020-07-13
 // Wave function collapse (with image output)
 
-$$if DE10NANO or SIMULATION or ULX3S then
+$$if DE10NANO or SIMULATION then
 $$Nlog = 4
 $$else
-$$Nlog = 3
+$$Nlog = 4 -- 3
 $$end
 
 $$N    = (1<<Nlog)
@@ -173,22 +173,17 @@ $$end
   );
 
   // reduction to detect stable state
-  // -> first rows
-$$for i=1,N do
-  uint$N$ stable_reduce_$i-1$ := {
-$$for j=1,N-1 do
-    stable_$j-1 + (i-1) * N$,
-$$end
-    stable_$N-1 + (i-1) * N$
-  };
+$$for l=Nlog*2-1,0,-1 do
+$$  for i=0,(1<<l)-1 do
+$$    if l==Nlog*2-1 then
+        uint$N$ stable_reduce_$l$_$i$ := stable_$i*2$ || stable_$i*2+1$;
+$$    else
+        uint$N$ stable_reduce_$l$_$i$ := stable_reduce_$l+1$_$i*2$ || stable_reduce_$l+1$_$i*2+1$;
+$$    end
+$$  end
 $$end
   // -> then columns
-  uint1 stable_reduce := 
-       (&stable_reduce_0)
-$$for i=2,N do
-    && (&stable_reduce_$i-1$)
-$$end
-  ;
+  uint1 stable_reduce := stable_reduce_0_0;
 
   // next entry to be collapsed
   uint16 next = 0;
@@ -269,7 +264,10 @@ algorithm frame_display(
 $$if DE10NANO then
   output uint4  kpadC,
   input  uint4  kpadR,
-$$end  
+$$end
+$$if ULX3S then
+  input  uint7 btn,
+$$end
   output! uint$color_depth$ pix_r,
   output! uint$color_depth$ pix_g,
   output! uint$color_depth$ pix_b
@@ -309,8 +307,8 @@ $$end
 	  while (pix_vblank == 0) {
       if (pix_active) {      
         // set rgb data
-        pix_b = pix_x > 15 ? tiles.rdata[0,6]  : 0;
-        pix_g = pix_x > 15 ? tiles.rdata[6,6]  : 0;
+        pix_b = pix_x > 15 ? tiles.rdata[ 0,6] : 0;
+        pix_g = pix_x > 15 ? tiles.rdata[ 6,6] : 0;
         pix_r = pix_x > 15 ? tiles.rdata[12,6] : 0;
         //      ^^^^^^^^^^^ hides a defect on first tile of each row ... yeah, well ...
         {
@@ -335,8 +333,13 @@ $$end
         }
       }
     }
-    
+$$if DE10NABO then        
     if ((kpressed & 4) != 0) {
+$$elseif ULX3S then
+    if (btn[4,1] != 0) {
+$$else
+    if (1) {
+$$end    
       while (1) {
         
         () <- wfc1 <- ();

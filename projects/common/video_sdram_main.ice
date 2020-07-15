@@ -165,6 +165,7 @@ $$if DE10NANO then
 $$end
 $$if ULX3S then
   output! uint8 led,
+  input   uint7 btn,
 $$end
 $$if VGA then  
   // VGA
