@@ -180,9 +180,9 @@ $$end
 $$for l=Nlog*2-1,0,-1 do
 $$  for i=0,(1<<l)-1 do
 $$    if l==Nlog*2-1 then
-        uint$N$ stable_reduce_$l$_$i$ := stable_$i*2$ || stable_$i*2+1$;
+        uint$N$ stable_reduce_$l$_$i$ := stable_$i*2$ && stable_$i*2+1$;
 $$    else
-        uint$N$ stable_reduce_$l$_$i$ := stable_reduce_$l+1$_$i*2$ || stable_reduce_$l+1$_$i*2+1$;
+        uint$N$ stable_reduce_$l$_$i$ := stable_reduce_$l+1$_$i*2$ && stable_reduce_$l+1$_$i*2+1$;
 $$    end
 $$  end
 $$end
