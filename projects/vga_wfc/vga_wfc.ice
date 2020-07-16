@@ -179,14 +179,10 @@ $$end
   // reduction to detect stable state
 $$for l=Nlog*2-1,0,-1 do
 $$  for i=0,(1<<l)-1 do
-$$    if l==Nlog*2-1 then
-        uint$N$ nstable_reduce_$l$_$i$ := nstable_$i*2$ || nstable_$i*2+1$;
-$$    else
-        uint$N$ nstable_reduce_$l$_$i$ := nstable_reduce_$l+1$_$i*2$ || nstable_reduce_$l+1$_$i*2+1$;
-$$    end
+  uint$N$ nstable_reduce_$l$_$i$ = uninitialized;
 $$  end
 $$end
-  uint1 nstable_reduce := nstable_reduce_0_0;
+  uint1 nstable_reduce = uninitialized;
 
   // next entry to be collapsed
   uint16 next = 0;
@@ -222,8 +218,17 @@ $$end
       }
     }
     
-    // wait propagate    
-    while (nstable_reduce != 0) { }
+    // wait propagate
+    while (1) { 
+        if (|{
+$$for i=0,N*N-2 do
+          nstable_$i$,
+$$end        
+          nstable_$N*N-1$
+          } == 0) {
+          break;
+        }
+    }
             
     // display the grid
     __display("-----");
