@@ -85,6 +85,10 @@ $$  if xm1 < 0   then xm1 = N-1 end
 $$  if xp1 > N-1 then xp1 = 0   end
 $$  if ym1 < 0   then ym1 = N-1 end
 $$  if yp1 > N-1 then yp1 = 0   end
+$$  --if xm1 < 0   then xm1 = 0 end
+$$  --if xp1 > N-1 then xp1 = N-1   end
+$$  --if ym1 < 0   then ym1 = 0 end
+$$  --if yp1 > N-1 then yp1 = N-1   end
 $$  return xm1+y*N , xp1+y*N , x+ym1*N , x+yp1*N
 $$end
 
@@ -182,7 +186,6 @@ $$    else
 $$    end
 $$  end
 $$end
-  // -> then columns
   uint1 stable_reduce := stable_reduce_0_0;
 
   // next entry to be collapsed
@@ -222,15 +225,15 @@ $$end
     // wait propagate    
     while (stable_reduce == 0) { }
             
-      // display the grid
-      __display("-----");
+    // display the grid
+    __display("-----");
 $$for j=1,N do
-      __display("%x %x %x %x %x %x %x %x",
+    __display("%x %x %x %x %x %x %x %x",
 $$for i=1,N-1 do
         grid_$(i-1)+(j-1)*N$,
 $$end
         grid_$(N-1)+(j-1)*N$
-      );
+    );
 $$end
     
     rand = rand * 31421 + 6927;
