@@ -26,7 +26,7 @@ algorithm wfc_rule_processor(
   input   uint$L$ top,    //  0,-1
   input   uint$L$ bottom, //  0, 1
   output! uint$L$ newsite,
-  output! uint1   stable
+  output! uint1   nstable
 ) {
   always {
     newsite = site & (
@@ -59,7 +59,7 @@ $$end
 $$end
     )    
     ;
-    stable = (newsite == site);
+    nstable = (newsite != site);
   }
 }
 
@@ -150,7 +150,7 @@ $$for i=1,N*N do
 $$end    
 $$for i=1,N*N do
   uint$L$ new_grid_$i-1$ = uninitialized;
-  uint1   stable_$i-1$   = uninitialized;
+  uint1   nstable_$i-1$   = uninitialized;
 $$end  
   
   // all rule-processors
@@ -163,7 +163,7 @@ $$ l,r,t,b = neighbors(i-1)
     top     <:: grid_$t$,
     bottom  <:: grid_$b$,
     newsite :>  new_grid_$i-1$,
-    stable  :>  stable_$i-1$
+    nstable :>  nstable_$i-1$
   );
 $$end  
 
@@ -180,13 +180,13 @@ $$end
 $$for l=Nlog*2-1,0,-1 do
 $$  for i=0,(1<<l)-1 do
 $$    if l==Nlog*2-1 then
-        uint$N$ stable_reduce_$l$_$i$ := stable_$i*2$ && stable_$i*2+1$;
+        uint$N$ nstable_reduce_$l$_$i$ := nstable_$i*2$ || nstable_$i*2+1$;
 $$    else
-        uint$N$ stable_reduce_$l$_$i$ := stable_reduce_$l+1$_$i*2$ && stable_reduce_$l+1$_$i*2+1$;
+        uint$N$ nstable_reduce_$l$_$i$ := nstable_reduce_$l+1$_$i*2$ || nstable_reduce_$l+1$_$i*2+1$;
 $$    end
 $$  end
 $$end
-  uint1 stable_reduce := stable_reduce_0_0;
+  uint1 nstable_reduce := nstable_reduce_0_0;
 
   // next entry to be collapsed
   uint16 next = 0;
@@ -223,7 +223,7 @@ $$end
     }
     
     // wait propagate    
-    while (stable_reduce == 0) { }
+    while (nstable_reduce != 0) { }
             
     // display the grid
     __display("-----");
