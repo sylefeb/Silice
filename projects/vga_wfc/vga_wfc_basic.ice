@@ -2,7 +2,7 @@
 // Wave function collapse (with image output)
 
 $$if DE10NANO or SIMULATION then
-$$Nlog = 3
+$$Nlog = 4
 $$else
 $$Nlog = 3
 $$end
@@ -74,15 +74,22 @@ $$end
 // -------------------------
 // helper function to locate neighbors
 
-$$function neighbors(i,j)
-$$  local im1 = i-1
-$$  local ip1 = i+1
-$$  local jm1 = j-1
-$$  local jp1 = j+1
-$$  local l = {i=im1,j=j}
-$$  local r = {i=ip1,j=j}
-$$  local t = {i=i,j=jm1}
-$$  local b = {i=i,j=jp1}
+$$function neighbors(i)
+$$  local x   = i%N
+$$  local y   = i//N
+$$  local xm1 = x-1
+$$  local xp1 = x+1
+$$  local ym1 = y-1
+$$  local yp1 = y+1
+$$  -- make toroidal if outside of grid
+$$  if xm1 < 0   then xm1 = N-1 end
+$$  if xp1 > N-1 then xp1 = 0   end
+$$  if ym1 < 0   then ym1 = N-1 end
+$$  if yp1 > N-1 then yp1 = 0   end
+$$  local l = xm1+y*N
+$$  local r = xp1+y*N
+$$  local t = x+ym1*N
+$$  local b = x+yp1*N
 $$  return l,r,t,b
 $$end
 
@@ -133,40 +140,32 @@ $$end
 // main WFC algorithm
 
 algorithm wfc(
-  output uint1   we,
   output uint16  addr,
-  input  uint$L$ data_in,
-  output uint$L$ data_out,
+  output uint$L$ data,
   input  uint16  seed
 )
 {
-  // all sites N+2 for left/right, top/bottom padding
-$$for j=0,(N+2)-1 do
-$$for i=0,(N+2)-1 do
-  uint$L$ grid_$i$_$j$ = uninitialized;
+  // all sites, initialized so that everything is possible
+$$for i=1,N*N do
+  uint$L$ grid_$i-1$ = $ones$;
+$$end
+$$for i=1,N*N do
+  uint$L$ new_grid_$i-1$ = uninitialized;
+  uint1   nstable_$i-1$  = uninitialized;
 $$end    
-$$end
-  // variables bound to rule processor outputs 
-$$for j=1,N do
-$$for i=1,N do
-  uint$L$ new_grid_$i$_$j$ = uninitialized;
-  uint1   nstable_$i$_$j$  = uninitialized;
-$$end
-$$end   
+  
   // all rule-processors
-$$for j=1,N do
-$$for i=1,N do
-$$ l,r,t,b = neighbors(i,j)
-  wfc_rule_processor proc_$i$_$j$(
-    site    <:: grid_$i$_$j$,
-    left    <:: grid_$l.i$_$l.j$,
-    right   <:: grid_$r.i$_$r.j$,
-    top     <:: grid_$t.i$_$t.j$,
-    bottom  <:: grid_$b.i$_$b.j$,
-    newsite :>  new_grid_$i$_$j$,
-    nstable :>  nstable_$i$_$j$
+$$for i=1,N*N do
+$$ l,r,t,b = neighbors(i-1)
+  wfc_rule_processor proc_$i-1$(
+    site    <:: grid_$i-1$,
+    left    <:: grid_$l$,
+    right   <:: grid_$r$,
+    top     <:: grid_$t$,
+    bottom  <:: grid_$b$,
+    newsite :>  new_grid_$i-1$,
+    nstable :>  nstable_$i-1$
   );
-$$end  
 $$end  
 
   // algorithm for choosing a label
@@ -179,93 +178,43 @@ $$end
   );
 
   uint$N*N$ nstable_reduce := {
-$$for i=1,N do
-$$for j=1,N do
-            nstable_$i$_$j$ $((i==N and j==N) and '' or ',')$
+$$for i=0,N*N-2 do
+          nstable_$i$,
 $$end        
-$$end
-          };		  
+          nstable_$N*N-1$
+          };
+		  
   // next entry to be collapsed
-  uint8  next_i = 0;
-  uint16 next_j = 0;
-  uint16 next   = 0;
+  uint16 next = 0;
   // random
-  uint16 rand = 0;    
+  uint16 rand = 0;
+    
   // grid updates
-  uint1  update_en = 0;
-$$for j=1,N do
-$$for i=1,N do
-  grid_$i$_$j$ := update_en ? new_grid_$i$_$j$ : grid_$i$_$j$;
-$$end
+$$for i=1,N*N do
+  grid_$i-1$ := new_grid_$i-1$;
 $$end
 
   rand = seed + 7919;
 
   __display("wfc start");
 
-  // read from input
-  we     = 0;
-  next_j = 0;
-  addr   = 0;
-  while (next_j < $(N+2)*(N+2)$) {
-    next_i = 0;
-    while (next_i < $N+2$) {
-      addr = next_i + next_j;
-      switch (addr) {
-        default: {  }
-$$for j=0,N+1 do
-$$for i=0,N+1 do    
-        case $i + j*(N+2)$: { grid_$i$_$j$ = data_in; }
-$$end      
-$$end      
-      }    
-      next_i = next_i + 1;
-    }
-    next_j = next_j + $N+2$;
-  }
-
-  // enable updates from rule-processors
-  update_en = 1;
-
-  // display the grid
-  __display("----- INIT GRID -----");
-$$for j=1,N do
-  __display("%x %x %x %x %x %x %x %x",
-$$for i=1,N-1 do
-      grid_$i$_$j$,
-$$end
-      grid_$N$_$j$
-  );
-$$end
-
-  // while not fully resolved ...  
-  next = 0;
+  // while not fully resolved ...
   while (next < $N*N$) {
     
     // choose
     {
       switch (next) {
         default: { site = 0; }
-$$nxt = 0
-$$for j=1,N do
-$$for i=1,N do
-        case $nxt$: { site = grid_$i$_$j$; }
-$$nxt = nxt + 1        
-$$end
-$$end
+$$for i=1,N*N do
+        case $i-1$: { site = grid_$i-1$; }
+$$end      
       }
-      
 ++: // wait for choice to be made, then store
-
       switch (next) {
         default: {  }
-$$nxt = 0
-$$for j=1,N do
-$$for i=1,N do
-        case $nxt$: { grid_$i$_$j$ = choice; }
-$$nxt = nxt + 1        
-$$end
-$$end
+$$for i=1,N*N do
+        case $i-1$: { grid_$i-1$ = choice; }
+$$end      
       }
     }
     
@@ -277,9 +226,9 @@ $$end
 $$for j=1,N do
     __display("%x %x %x %x %x %x %x %x",
 $$for i=1,N-1 do
-        grid_$i$_$j$,
+        grid_$(i-1)+(j-1)*N$,
 $$end
-        grid_$N$_$j$
+        grid_$(N-1)+(j-1)*N$
     );
 $$end
     
@@ -287,28 +236,19 @@ $$end
     next = next + 1;
   }
   
-  // write to output (excluding padding)
-  next_j = 0;
-  addr   = 0;
-  while (next_j < $(N+2)*(N+2)$) {
-    next_i = 0;
-    while (next_i < $N+2$) {
-      addr = next_i + next_j;
-      we   = 1;
-      switch (addr) {
-        default: { we = 0; }
-$$for j=1,N do
-$$for i=1,N do    
-        case $i + j*(N+2)$: { data_out = grid_$i$_$j$; }
+  // write to output
+  next = 0;
+  while (next < $N*N$) {
+    addr = next;
+    switch (next) {
+      default: {  }
+$$for i=1,N*N do
+        case $i-1$: { data = grid_$i-1$; }
 $$end      
-$$end      
-      }    
-      next_i = next_i + 1;
-    }
-    next_j = next_j + $N+2$;
+    }    
+    next = next + 1;
   }
-  we = 0;
-
+  
   __display("wfc done");  
   
 }
@@ -343,61 +283,32 @@ $$write_image_in_table(PROBLEM .. 'tile_' .. string.format('%02d',i-1) .. '.tga'
 $$end
   };
 
-  dualport_bram uint$L$ domain[$(N+2)*(N+2)$] = {
-$$for i=1,(N+2)*(N+2) do
-    $ones$,
-$$end
-  };
+  dualport_bram uint$L$ result[$N*N$] = uninitialized;
 
   uint16 iter = 0;
 
   wfc wfc1(
-    we       :> domain.wenable1,
-    addr     :> domain.addr1,
-    data_out :> domain.wdata1,
-    data_in  <: domain.rdata1,
-    seed     <: iter
+    addr :> result.addr1,
+    data :> result.wdata1,
+    seed <: iter
   );
-
-  uint1 in_domain := (pix_x >= $16$ && pix_y >= $16$ 
-                   && pix_x < $(N+1)*16$ && pix_y < $(N+1)*16$);
 
   pix_r := 0; pix_g := 0; pix_b := 0;  
   
-  domain.wenable0 = 0;
+  result.wenable0 = 0;
+  result.wenable1 = 1;
 
-  // ---- display domain  
+  result.addr0 = 0;
+
+  // ---- display result  
   while (1) {   
-	  uint8   tile       = 0;
-    uint16  domain_row = 0;
-    domain.addr0       = 0; // restart domain scanning
-    
+	  uint8   tile = 0;
 	  while (pix_vblank == 0) {
-      
-      if (pix_active) {
-        if (pix_x == 639) {
-          if ((pix_y&15) == 15) {
-            // next row
-            domain_row   = domain_row + $(N+2)$;
-            domain.addr0 = domain_row; 
-          } else {
-            // reset to start of row
-            domain.addr0 = domain_row; 
-          }
-        } else {
-          if ((pix_x&15) == 13) { // move to next site
-            if (domain.addr0 < domain_row + $(N+2) - 1$) {
-              domain.addr0 = domain.addr0 + 1;
-            } else {
-              domain.addr0 = domain.addr0;
-            }
-          }
-        }
-        
+      if (pix_active) {      
         // set rgb data
-        pix_b = in_domain ? tiles.rdata[ 0,6] : 0;
-        pix_g = in_domain ? tiles.rdata[ 6,6] : 0;
-        pix_r = in_domain ? tiles.rdata[12,6] : 0;
+        pix_b = pix_x > 15 ? tiles.rdata[ 0,6] : 0;
+        pix_g = pix_x > 15 ? tiles.rdata[ 6,6] : 0;
+        pix_r = pix_x > 15 ? tiles.rdata[12,6] : 0;
         //      ^^^^^^^^^^^ hides a defect on first tile of each row ... yeah, well ...
         {
           // read next pixel
@@ -406,14 +317,18 @@ $$end
           x = (pix_x == 639) ? 0       : pix_x+1;
           y = (pix_x == 639) ? pix_y+1 : pix_y;
           tiles .addr  = (x&15) + ((y&15)<<4) + (tile<<8);
-          // select next tile
-          if ((pix_x&15) == 14) {
-            switch (domain.rdata0) {
+          // read next tile
+          if ((pix_x&15) == 13) {
+            // read grid ahead of vga beam
+            result.addr0 = (((pix_x>>4)+1)&$N-1$) + (((pix_y>>4)&$N-1$)<<$Nlog$);
+          } else { if ((pix_x&15) == 14) {
+            // select next tile
+            switch (result.rdata0) {
 $$for i=1,L do
               case $1<<(i-1)$: { tile = $i-1$; }
 $$end
             }
-          }
+          } }
         }
       }
     }
@@ -430,7 +345,7 @@ $$end
 
         iter = iter + 1;
         
-        if (domain.rdata0 != 0) {
+        if (result.rdata0 != 0) {
           break;
         }
       }
