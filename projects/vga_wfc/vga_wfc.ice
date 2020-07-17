@@ -2,12 +2,13 @@
 // Wave function collapse (with image output)
 
 $$if DE10NANO or SIMULATION then
-$$Nlog = 3
+$$N = 8
 $$else
-$$Nlog = 3
+$$N = 8
 $$end
 
-$$N = (1<<Nlog)
+$$T = 3
+$$G = 1+T*N+1
 
 $include('../common/empty.ice')
 $include('../vga_demo/vga_demo_main.ice')
@@ -133,11 +134,12 @@ $$end
 // main WFC algorithm
 
 algorithm wfc(
-  output uint1   we,
-  output uint16  addr,
-  input  uint$L$ data_in,
-  output uint$L$ data_out,
-  input  uint16  seed
+  output! uint1   we,
+  output! uint16  addr,
+  input   uint$L$ data_in,
+  output! uint$L$ data_out,
+  input   uint16  offset,
+  input   uint16  seed
 )
 {
   // all sites N+2 for left/right, top/bottom padding
@@ -189,6 +191,8 @@ $$end
   uint8  next_i = 0;
   uint16 next_j = 0;
   uint16 next   = 0;
+  // local address in grid
+  uint16 local = 0;
   // random
   uint16 rand = 0;    
   // grid updates
@@ -206,22 +210,26 @@ $$end
   // read from input
   we     = 0;
   next_j = 0;
-  addr   = 0;
-  while (next_j < $(N+2)*(N+2)$) {
+  local  = 0;
+  addr   = offset;
+  while (next_j < $(N+2)*G$) {
     next_i = 0;
-    while (next_i < $N+2$) {
-      addr = next_i + next_j;
-      switch (addr) {
+    addr   = local  + offset;
+    while (next_i <= $N+2$) {
+      switch (local) {
         default: {  }
 $$for j=0,N+1 do
 $$for i=0,N+1 do    
-        case $i + j*(N+2)$: { grid_$i$_$j$ = data_in; }
+        case $i + j*G$: { grid_$i$_$j$ = data_in; }
 $$end      
 $$end      
       }    
       next_i = next_i + 1;
+      local  = next_i + next_j;
+      addr   = local  + offset;
     }
-    next_j = next_j + $N+2$;
+    next_j = next_j + $G$;
+    local  = next_j;
   }
 
   // enable updates from rule-processors
@@ -229,12 +237,12 @@ $$end
 
   // display the grid
   __display("----- INIT GRID -----");
-$$for j=1,N do
-  __display("%x %x %x %x %x %x %x %x",
-$$for i=1,N-1 do
+$$for j=0,N+1 do
+  __display("(%x) %x %x %x %x %x %x %x %x (%x)",
+$$for i=0,N do
       grid_$i$_$j$,
 $$end
-      grid_$N$_$j$
+      grid_$N+1$_$j$
   );
 $$end
 
@@ -271,41 +279,42 @@ $$end
     
     // wait propagate
     while (nstable_reduce) { }
-            
+
     // display the grid
     __display("-----");
-$$for j=1,N do
-    __display("%x %x %x %x %x %x %x %x",
-$$for i=1,N-1 do
+$$for j=0,N+1 do
+    __display("(%x) %x %x %x %x %x %x %x %x (%x)",
+$$for i=0,N do
         grid_$i$_$j$,
 $$end
-        grid_$N$_$j$
+        grid_$N+1$_$j$
     );
 $$end
-    
+
     rand = rand * 31421 + 6927;
     next = next + 1;
   }
-  
+
   // write to output (excluding padding)
   next_j = 0;
-  addr   = 0;
-  while (next_j < $(N+2)*(N+2)$) {
+  addr   = offset;
+  while (next_j < $(N+2)*G$) {
     next_i = 0;
     while (next_i < $N+2$) {
-      addr = next_i + next_j;
-      we   = 1;
-      switch (addr) {
+      local = next_i + next_j;    
+      addr  = local + offset;
+      we    = 1;
+      switch (local) {
         default: { we = 0; }
 $$for j=1,N do
 $$for i=1,N do    
-        case $i + j*(N+2)$: { data_out = grid_$i$_$j$; }
+        case $i + j*G$: { data_out = grid_$i$_$j$; }
 $$end      
 $$end      
       }    
       next_i = next_i + 1;
     }
-    next_j = next_j + $N+2$;
+    next_j = next_j + $G$;
   }
   we = 0;
 
@@ -343,31 +352,34 @@ $$write_image_in_table(PROBLEM .. 'tile_' .. string.format('%02d',i-1) .. '.tga'
 $$end
   };
 
-  dualport_bram uint$L$ domain[$(N+2)*(N+2)$] = {
-$$for i=1,(N+2)*(N+2) do
+  dualport_bram uint$L$ domain[$G*G$] = {
+$$for i=1,G*G do
     $ones$,
 $$end
   };
 
-  uint16 iter = 0;
+  uint16 iter   = 1;
+  uint16 offset = 0;
 
   wfc wfc1(
     we       :> domain.wenable1,
     addr     :> domain.addr1,
     data_out :> domain.wdata1,
     data_in  <: domain.rdata1,
+    offset   <: offset,
     seed     <: iter
   );
 
-  uint1 in_domain := (pix_x >= $16$ && pix_y >= $16$ 
-                   && pix_x < $(N+1)*16$ && pix_y < $(N+1)*16$);
+  uint1 in_domain := (pix_x >= $16$  && pix_y >= $16$ 
+                   && pix_x < $(G-1)*16$ && pix_y < $(G-1)*16$);
 
   pix_r := 0; pix_g := 0; pix_b := 0;  
   
   domain.wenable0 = 0;
 
   // ---- display domain  
-  while (1) {   
+  while (1) { 
+  
 	  uint8   tile       = 0;
     uint16  domain_row = 0;
     domain.addr0       = 0; // restart domain scanning
@@ -378,7 +390,7 @@ $$end
         if (pix_x == 639) {
           if ((pix_y&15) == 15) {
             // next row
-            domain_row   = domain_row + $(N+2)$;
+            domain_row   = domain_row + $G$;
             domain.addr0 = domain_row; 
           } else {
             // reset to start of row
@@ -386,7 +398,7 @@ $$end
           }
         } else {
           if ((pix_x&15) == 13) { // move to next site
-            if (domain.addr0 < domain_row + $(N+2) - 1$) {
+            if (domain.addr0 < domain_row + $G-1$) {
               domain.addr0 = domain.addr0 + 1;
             } else {
               domain.addr0 = domain.addr0;
@@ -426,13 +438,26 @@ $$else
 $$end    
       while (1) {
         
-        () <- wfc1 <- ();
-
-        iter = iter + 1;
+        uint8  next_tile_j = 0;
+        uint16 offset_row = 0;        
+        while (next_tile_j < $T$) {
+          uint8 next_tile_i = 0;
+          offset   = offset_row;
+          while (next_tile_i < $T$) {    
+            __display("*** tile %d,%d ***",next_tile_i,next_tile_j);
+            () <- wfc1 <- ();
+            iter = iter + 1;
+            offset      = offset + $N$;
+            next_tile_i = next_tile_i + 1;
+          }
+          offset_row  = offset_row + $(N)*G$;
+          next_tile_j = next_tile_j + 1;
+        }
         
         if (domain.rdata0 != 0) {
           break;
         }
+        
       }
     }
     
