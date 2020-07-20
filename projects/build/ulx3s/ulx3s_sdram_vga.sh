@@ -11,7 +11,7 @@ silice -f ../../../frameworks/ulx3s_sdram_vga.v $1 -o build.v
 
 yosys -p 'synth_ecp5 -abc9 -top top -json build.json' build.v
 
-nextpnr-ecp5 --85k --package CABGA381 --json build.json --textcfg build.config --lpf ulx3s.lpf --timing-allow-fail
+nextpnr-ecp5 --85k --package CABGA381 --json build.json --textcfg build.config --lpf ulx3s.lpf --timing-allow-fail --freq 25
 
 ecppack --svf-rowsize 100000 --svf build.svf build.config build.bit
 

@@ -18,6 +18,11 @@
 //                        => collisions
 //                        => movable updates
 
+$$if ULX3S then
+$$HAS_COMPUTE_CLOCK = true
+$$ULX3S_25MHZ = true
+$$end
+
 $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
 
@@ -276,6 +281,10 @@ algorithm frame_drawer(
     input  busy,
     input  out_valid,
   },
+$$if HAS_COMPUTE_CLOCK then  
+  input  uint1  sdram_clock,
+  input  uint1  sdram_reset,
+$$end  
   input  uint1  vsync,
   output uint1  fbuffer,
   output uint4  kpadC,
@@ -290,7 +299,11 @@ algorithm frame_drawer(
   output uint1  oled_cs,
   output uint1  oled_dc,
   output uint1  oled_rst,  
-) {
+) 
+$$if HAS_COMPUTE_CLOCK then
+<autorun> 
+$$end
+{
 
   // BRAMs for BSP tree
   bram uint64 bsp_nodes_coords[] = {
@@ -1064,7 +1077,7 @@ $$end
             // next segment
             s = s + 1;            
           }
-         
+
           //-------------------------
           // draw things!
           //-------------------------

@@ -900,11 +900,19 @@ end
 
 function pack_movable(m)
   local bin = 0
-  bin = '52h' -- msb: 51:active, 50:moving dir, 49:ismanual, 48:floor_or_ceiling
-        .. (0*8 + 1*4 + m.ismanual*2 + m.floor_or_ceiling*1)
-        .. string.format("%04x",m.sec):sub(-4)
-        .. string.format("%04x",m.downh):sub(-4)
-        .. string.format("%04x",m.uph):sub(-4)
+  if ULX3S then
+    bin = '52h' -- msb: 51:active, 50:moving dir, 49:ismanual, 48:floor_or_ceiling
+          .. (1*8 + 0*4 + m.ismanual*2 + m.floor_or_ceiling*1)
+          .. string.format("%04x",m.sec):sub(-4)
+          .. string.format("%04x",m.downh):sub(-4)
+          .. string.format("%04x",m.uph):sub(-4)
+  else
+    bin = '52h' -- msb: 51:active, 50:moving dir, 49:ismanual, 48:floor_or_ceiling
+          .. (0*8 + 1*4 + m.ismanual*2 + m.floor_or_ceiling*1)
+          .. string.format("%04x",m.sec):sub(-4)
+          .. string.format("%04x",m.downh):sub(-4)
+          .. string.format("%04x",m.uph):sub(-4)
+  end
   return bin
 end
 

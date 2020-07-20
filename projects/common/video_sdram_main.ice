@@ -92,7 +92,10 @@ $$end
 $$if ULX3S then
 // Clock
 import('ulx3s_clk_50_25_100.v')
+import('ulx3s_clk_25_25_100.v')
+import('ulx3s_clk_25_25_50.v')
 import('ulx3s_clk_100_25.v')
+import('ulx3s_clk_25_25.v')
 // reset
 import('reset_conditioner.v')
 $$end
@@ -266,11 +269,31 @@ $$elseif ULX3S then
 $$if HAS_COMPUTE_CLOCK then
   uint1 compute_clock = 0;
   uint1 compute_reset = 0;
+$$if ULX3S_25MHZ then
+$$print('using ULX3S at 25 MHz, compute clock')
+  ulx3s_clk_25_25_50 clk_gen(
+    clkin    <: clock,
+    clkout0  :> compute_clock,
+    clkout1  :> video_clock,
+    clkout2  :> sdram_clock,
+    locked   :> pll_lock
+  ); 
+$$else
   ulx3s_clk_50_25_100 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
     clkout1  :> video_clock,
     clkout2  :> sdram_clock,
+    locked   :> pll_lock
+  ); 
+$$end
+$$else
+$$if ULX3S_25MHZ then
+$$print('using ULX3S at 25 MHz')
+  ulx3s_clk_25_25 clk_gen(
+    clkin    <: clock,
+    clkout0  :> sdram_clock,
+    clkout1  :> video_clock,
     locked   :> pll_lock
   ); 
 $$else
@@ -280,6 +303,7 @@ $$else
     clkout1  :> video_clock,
     locked   :> pll_lock
   ); 
+$$end
 $$end
   // --- video clean reset
   reset_conditioner video_rstcond (

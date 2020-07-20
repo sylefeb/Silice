@@ -15,11 +15,6 @@ $$if ICESTICK then
 import('../common/icestick_clk_25.v')
 $$end
 
-$$if ULX3S then
-// Clock
-import('../common/ulx3s_clk_100_25.v')
-$$end
-
 $$if DE10NANO then
 // Clock
 import('../common/de10nano_clk_100_25.v')
@@ -43,7 +38,7 @@ algorithm pll(
   uint3 counter = 0;
   uint8 trigger = 8b11111111;
   
-  video_clock   := counter[1,1]; // x4 slower
+  video_clock   := counter[1,1]; // x4 slower (25 MHz)
   video_reset   := (trigger > 0);
   
   always {	  
@@ -120,7 +115,10 @@ $$end
   output! uint$color_depth$ video_b,
   output! uint1 video_hs,
   output! uint1 video_vs
-) <@video_clock,!video_reset> 
+) 
+$$if not ULX3S then
+<@video_clock,!video_reset> 
+$$end
 {
   uint1 video_reset = 0;
 
@@ -148,16 +146,6 @@ $$elseif ICESTICK then
     clock_out :> video_clock,
     lock      :> led4
   );
-$$elseif ULX3S then
-  // --- clock
-  uint1 sdram_clock = 0;
-  uint1 pll_lock = 0;
-  ulx3s_clk_100_25 clk_gen(
-    clkin    <: clock,
-    clkout0  :> sdram_clock,
-    clkout1  :> video_clock,
-    locked   :> pll_lock
-  ); 
 $$elseif DE10NANO then
   // --- clock
   uint1 sdram_clock = 0;
@@ -189,11 +177,7 @@ $$end
   uint10 pix_x  = 0;
   uint10 pix_y  = 0;
 
-  vga vga_driver 
-$$if HARDWARE then
-  <@video_clock,!video_reset>
-$$end
-  (
+  vga vga_driver (
     vga_hs :> video_hs,
 	  vga_vs :> video_vs,
 	  active :> active,
@@ -202,11 +186,7 @@ $$end
 	  vga_y  :> pix_y
   );
 
-  frame_display display
-$$if HARDWARE then
-  <@video_clock,!video_reset>
-$$end  
-  (
+  frame_display display (
 	  pix_x      <: pix_x,
 	  pix_y      <: pix_y,
 	  pix_active <: active,
@@ -228,7 +208,7 @@ $$end
 
 $$if SIMULATION then
   // we count a number of frames and stop
-  while (frame < 4) {
+  while (frame < 3) {
 $$else
   // forever
   while (1) {

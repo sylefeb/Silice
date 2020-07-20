@@ -27,12 +27,12 @@
             <Keywords name="Keywords1">if&#x000D;&#x000A;while&#x000D;&#x000A;output&#x000D;&#x000A;input&#x000D;&#x000A;algorithm&#x000D;&#x000A;subroutine&#x000D;&#x000A;always&#x000D;&#x000A;inout&#x000D;&#x000A;reads&#x000D;&#x000A;writes&#x000D;&#x000A;return&#x000D;&#x000A;return;&#x000D;&#x000A;goto&#x000D;&#x000A;else&#x000D;&#x000A;autorun&#x000D;&#x000A;output!&#x000D;&#x000A;input!</Keywords>
             <Keywords name="Keywords2">int&#x000D;&#x000A;uint&#x000D;&#x000A;@&#x000D;&#x000A;!&#x000D;&#x000A;</Keywords>
             <Keywords name="Keywords3">++:</Keywords>
-            <Keywords name="Keywords4">$include&#x000D;&#x000A;$$</Keywords>
+            <Keywords name="Keywords4">$include&#x000D;&#x000A;$$&#x000D;&#x000A;</Keywords>
             <Keywords name="Keywords5">uninitialized</Keywords>
             <Keywords name="Keywords6"></Keywords>
             <Keywords name="Keywords7"></Keywords>
             <Keywords name="Keywords8"></Keywords>
-            <Keywords name="Delimiters">00$ 01 02$ 03 04 05 06&apos; 07 08&apos; 09&quot; 10 11&quot; 12 13 14 15 16 17 18 19 20 21 22 23</Keywords>
+            <Keywords name="Delimiters">00$$ 00$ 01 02((EOL)) 02((EOL $)) 03 04 05 06&apos; 07 08&apos; 09&quot; 10 11&quot; 12$ 13 14((EOL)) 15 16 17 18 19 20 21 22 23</Keywords>
         </KeywordLists>
         <Styles>
             <WordsStyle name="DEFAULT" fgColor="FFFFFF" bgColor="252525" fontName="" fontStyle="0" nesting="0" />
