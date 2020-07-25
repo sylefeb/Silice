@@ -32,28 +32,28 @@ algorithm wfc_rule_processor(
   always {
     newsite = site & (
 $$for i=1,L do
-      ({$L${left[$i-1$,1]}} & $L$b$Rleft[i]$)
+      ({$L${right[$i-1$,1]}} & $L$b$Rleft[i]$)
 $$if i < L then
     |
 $$end      
 $$end
     ) & (
 $$for i=1,L do
-      ({$L${right[$i-1$,1]}} & $L$b$Rright[i]$)
+      ({$L${left[$i-1$,1]}} & $L$b$Rright[i]$)
 $$if i < L then
     |
 $$end      
 $$end
     ) & (
 $$for i=1,L do
-      ({$L${top[$i-1$,1]}} & $L$b$Rtop[i]$)
+      ({$L${bottom[$i-1$,1]}} & $L$b$Rtop[i]$)
 $$if i < L then
     |
 $$end      
 $$end
     ) & (
 $$for i=1,L do
-      ({$L${bottom[$i-1$,1]}} & $L$b$Rbottom[i]$)
+      ({$L${top[$i-1$,1]}} & $L$b$Rbottom[i]$)
 $$if i < L then
     |
 $$end      
@@ -124,6 +124,7 @@ $$    else
            (keep_$lvl+1$_$4*i$_$4*i+1$ && keep_$lvl+1$_$4*i+2$_$4*i+3$) ? (rand[$nr$,1] ? keep_$lvl+1$_$4*i$_$4*i+1$ : keep_$lvl+1$_$4*i+2$_$4*i+3$) : (keep_$lvl+1$_$4*i$_$4*i+1$ | keep_$lvl+1$_$4*i+2$_$4*i+3$);
 $$    end
 $$    nr = nr + 1
+$$    if nr > 15 then nr = 0 end
 $$  end
 $$end
 

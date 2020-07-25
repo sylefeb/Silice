@@ -60,6 +60,10 @@ $include('lcd_status.ice')
 $include('oled_doomhead.ice')
 $$end
 
+$$if ULX3S then
+$$INTERACTIVE = 1
+$$end
+
 $$USE_DEBUG_POS = false
 
 $$print('done reading game data')
@@ -287,6 +291,7 @@ $$if HAS_COMPUTE_CLOCK then
 $$end  
   input  uint1  vsync,
   output uint1  fbuffer,
+$$if DE10NANO then  
   output uint4  kpadC,
   input  uint4  kpadR,
   output uint8  led,
@@ -298,7 +303,12 @@ $$end
   output uint1  oled_clk,
   output uint1  oled_cs,
   output uint1  oled_dc,
-  output uint1  oled_rst,  
+  output uint1  oled_rst,
+$$end
+$$if ULX3S then
+  output uint8 led,
+  input  uint7 btn,
+$$end  
 ) 
 $$if HAS_COMPUTE_CLOCK then
 <autorun> 
@@ -599,6 +609,10 @@ $$end
   vsync_filtered ::= vsync;
 
   sd.in_valid := 0; // maintain low (pulses high when needed)
+  
+$$if ULX3S then
+  kpressed := {1b0,1b0,1b0,btn[2,1]/*fire2*/,btn[6,1]/*right*/,btn[5,1]/*left*/,btn[4,1]/*dwn*/,btn[3,1]/*up*/};
+$$end
   
   sd.rw = 1;        // sdram write
 
@@ -1496,30 +1510,37 @@ $$else
     } else {
       led[1,1] = 0;
     }
+$$if ULX3S then
+$$  ANGLE_SPEED   = 36
+$$  FORWARD_SHIFT = FPm-3
+$$else
+$$  ANGLE_SPEED   = 12
+$$  FORWARD_SHIFT = FPm-2
+$$end    
     // viewangle
     if ((kpressed & 4) != 0) {
-      viewangle   = viewangle + 12;
+      viewangle   = viewangle + $ANGLE_SPEED$;
     } else {
     if ((kpressed & 8) != 0) {
-      viewangle   = viewangle - 12;
+      viewangle   = viewangle - $ANGLE_SPEED$;
     } }
     // forward motion
     if ((kpressed & 1) != 0) {
-      ray_x   = col_rx + ((cosview_m) >>> $FPm-2$);
-      ray_y   = col_ry + ((sinview_m) >>> $FPm-2$);
+      ray_x   = col_rx + ((cosview_m) >>> $FORWARD_SHIFT$);
+      ray_y   = col_ry + ((sinview_m) >>> $FORWARD_SHIFT$);
     } else {
     if ((kpressed & 2) != 0) {
-      ray_x   = col_rx - ((cosview_m) >>> $FPm-2$);
-      ray_y   = col_ry - ((sinview_m) >>> $FPm-2$);
+      ray_x   = col_rx - ((cosview_m) >>> $FORWARD_SHIFT$);
+      ray_y   = col_ry - ((sinview_m) >>> $FORWARD_SHIFT$);
     } }
     // side motion
     if ((kpressed &  64) != 0) {
-      ray_x   = col_rx - ((sinview_m) >>> $FPm-2$);
-      ray_y   = col_ry + ((cosview_m) >>> $FPm-2$);
+      ray_x   = col_rx - ((sinview_m) >>> $FORWARD_SHIFT$);
+      ray_y   = col_ry + ((cosview_m) >>> $FORWARD_SHIFT$);
     } else {
     if ((kpressed & 128) != 0) {
-      ray_x   = col_rx + ((sinview_m) >>> $FPm-2$);
-      ray_y   = col_ry - ((cosview_m) >>> $FPm-2$);
+      ray_x   = col_rx + ((sinview_m) >>> $FORWARD_SHIFT$);
+      ray_y   = col_ry - ((cosview_m) >>> $FORWARD_SHIFT$);
     } }
     // manual movables
     if (kpressblind == 0) {

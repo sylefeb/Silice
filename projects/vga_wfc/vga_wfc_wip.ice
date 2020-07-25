@@ -20,7 +20,7 @@ $$end
 $include('../common/empty.ice')
 $include('../vga_demo/vga_demo_main.ice')
 
-$$PROBLEM = 'problems/paths/'
+$$PROBLEM = 'problems/summer/'
 $$dofile('pre_rules.lua')
 
 // -------------------------
@@ -116,7 +116,7 @@ $$print('choice reducer has ' .. L_pow2 .. ' levels')
 $$nr = 0
 $$for lvl=L_pow2-1,0,-1 do
 $$  for i=0,(1<<lvl)-1 do
-  uint5 keep_$lvl$_$2*i$_$2*i+1$ := 
+  uint8 keep_$lvl$_$2*i$_$2*i+1$ := 
 $$    if lvl == L_pow2-1 then
 $$      if 2*i < L then
 $$        if 2*i+1 < L then
@@ -164,23 +164,23 @@ algorithm wfc(
 ) <autorun> {
 
   // site being considered
-  uint$L$ site       = uninitialized;
+  uint$L$ site       = $ones$;
   // neighboring sites on the sides
   uint$L$ left       = $ones$;
   uint$L$ right      = $ones$;
   // neighboring site below
-  uint$L$ btm        = uninitialized; // just below
+  uint$L$ btm        = $ones$; // just below
   // sites above
   uint$L$ above       = $ones$;
   uint$L$ newabove    = $ones$;
   uint$L$ above_left  = $ones$;
   uint$L$ above_right = $ones$;
-  uint$L$ prev_choice = uninitialized;
+  uint$L$ prev_choice = $ones$;
   
   // rule-processors
   uint1   nstable1   = 0; // not used
   uint1   nstable2   = 0; // not used
-  uint$L$ newsite    = uninitialized;
+  uint$L$ newsite    = $ones$;
   uint$L$ ones       = $ones$;
   
   wfc_rule_processor proc1(
@@ -269,13 +269,17 @@ $$end
         site        = $ones$;
         left        = $ones$;
         right       = $ones$;
+        btm         = $ones$;
         above_left  = $ones$;
         above_right = $ones$;
+        prev_choice = $ones$;
+        __display("__ next row __");
         while (dir ? prev_i < $GX$ : prev_i >= 0) { 
           // rules have been applied at i,j
           // -> start making a choice at i,j
           rand        = permut[permut_addr];
           site        = newsite;
+          __display("%d %d [site] %b",i,j,site);
           // -> next random
           permut_addr = (permut_addr + 1);
           // -> meanwhile read next btm from previous
@@ -294,32 +298,48 @@ $$end
           }
   ++:        
           // choice has been made at i,j
+          {
+            uint8 tile = 0;
+            switch (choice) {
+              default: { tile = 0; }
+$$for i=1,L do
+              case $L$d$1<<(i-1)$: { tile = $i-1$; }
+$$end
+            }          
+            __display("%d %d =>     %b (%d)",i,j,choice,tile);
+          }
           // -> write result
-          addr       = i + j;
-          data_out   = choice;
-          // -> store in previous for next row
-          previous_row.wenable = 1;
-          previous_row.wdata   = choice;
-          previous_row.addr    = i;
-          // move known sites to start appyling rule on next
+          if (i>=0 && i <$GX$) {
+            addr       = i + j;
+            data_out   = choice;
+          }
+          // -> move known sites to start applying rule on next
           btm            = (j > 0 && next_i >=0 && next_i < $GX$) ? previous_row.rdata : ones;
           if (dir) {
-            right        = choice;
+            right        = (i >= 0 && i < $GX$) ? choice : ones;
             site         = left;
             left         = (next_next_i >=0 && next_next_i < $GX$) ? current_row.rdata : ones;
           } else {
-            left         = choice;
+            left         = (i >= 0 && i < $GX$) ? choice : ones;
             site         = right;
             right        = (next_next_i >=0 && next_next_i < $GX$) ? current_row.rdata : ones;
           }
+          // -> store current for next row
+          previous_row.addr    = i;
+          previous_row.wenable = 1;
+          previous_row.wdata   = choice;
           // rules have been applied above
-          above               = newabove;
+          above               = (prev_i >= 0 && prev_i < $GX$) ? newabove : ones;
           // -> store in current for next row
           current_row.wenable = 1;
           current_row.wdata   = newabove;
           current_row.addr    = prev_i;
+          {
+            __display(" current_row[%d] = %b",prev_i,newabove);
+            __display(" L %b R %b B %b",above_left,above_right,prev_choice);
+          }
           // -> record choice for appyling rules above
-          prev_choice  = choice;
+          prev_choice  = (i >= 0 && i < $GX$) ? choice : ones;
           // next
           prev_i       = i;
           i            = next_i;
@@ -414,7 +434,7 @@ $$end
     wfc_run  <: wfc_run
   );
 
-  uint1 in_domain := (pix_x >= $16$); // skips first tile TODO: fix this
+  uint1 in_domain := (pix_x >= $16$ && pix_x < $16*GX$); // skips first/last tiles (padding - improve?)
 
   pix_r := 0; pix_g := 0; pix_b := 0;  
   
