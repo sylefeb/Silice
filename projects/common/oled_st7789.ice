@@ -178,6 +178,19 @@ $$end
   () <- sendCommand <- (8h13);
   () <- wait <- (300000); // 12 msec @25Mhz
 
+  /*
+  // gamma on
+  () <- sendCommand <- (8hBA);
+  () <- sendData    <- (8b00000100);
+  // gamma curve
+  () <- sendCommand <- (8h26);
+  () <- sendData    <- (8b00000010);
+  */
+
+  // brightness  
+  () <- sendCommand <- (8h51);
+  () <- sendData    <- (8d255);
+  
   // display on
   () <- sendCommand <- (8h29);
   () <- wait <- (4500000); // 180 msec @25Mhz

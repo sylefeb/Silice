@@ -1,6 +1,7 @@
 // SL 2020-07
 
-$$SSD1351=1
+$$ -- SSD1351=1
+$$ ST7789=1
 $include('../common/oled.ice')
 
 $$if not ULX3S and not ICARUS then
