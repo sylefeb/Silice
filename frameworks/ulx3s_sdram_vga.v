@@ -45,7 +45,7 @@ wire [5:0]  __main_out_vga_r;
 wire [5:0]  __main_out_vga_g;
 wire [5:0]  __main_out_vga_b;
 
-reg ready = 0;
+wire ready = btn[0];
 
 reg [31:0] RST_d;
 reg [31:0] RST_q;
@@ -58,7 +58,7 @@ always @(posedge clk_25mhz) begin
   if (ready) begin
     RST_q <= RST_d;
   end else begin
-    ready <= 1;
+    // ready <= 1;
     RST_q <= 32'b111111111111111111111111111111;
   end
 end
