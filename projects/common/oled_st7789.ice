@@ -101,10 +101,11 @@ $$end
   uint1 enable          = 0;
   uint1 data_or_command = 0;
   uint8 byte            = 0;
+
   oled_send sender(
-    enable <: enable,
-    data_or_command <: data_or_command,
-    byte            <: byte,
+    enable          <:: enable,
+    data_or_command <:: data_or_command,
+    byte            <:: byte,
     oled_clk  :> oled_clk,
     oled_mosi :> oled_mosi,
     oled_dc   :> oled_dc

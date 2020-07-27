@@ -578,7 +578,8 @@ $$if DE10NANO then
   oled_doomhead doomhead(<:auto:>);
 $$end
   
-  colio.write    := 0; // maintain low (pulses high when needed)
+  colio.done  := 0; // maintain low (pulses high when needed)
+  colio.write := 0; // maintain low (pulses high when needed)
   
 $$if ULX3S then
   kpressed := {1b0,1b0,1b0,btn[2,1]/*fire2*/,btn[6,1]/*right*/,btn[5,1]/*left*/,btn[4,1]/*dwn*/,btn[3,1]/*up*/};
@@ -625,13 +626,12 @@ $$end
     // ----------------------------------------------
     // rendering
     // ----------------------------------------------
-    colio.done = -1;
     c = 0;    
     while (c < $doomchip_width$) { 
       
       // -------
       // wait for drawer
-      while (c > colio.draw_col) { /*wait*/ }
+      while (c != colio.draw_col) { /*wait*/ }
       
       // -------
       // prepare
@@ -1229,7 +1229,7 @@ $$end
         }
       }
       // tell caller we are done with column
-      colio.done = c;
+      colio.done = 1;
       // next column    
       c = c + 1;
     }

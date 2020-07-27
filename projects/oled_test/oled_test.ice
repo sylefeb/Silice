@@ -37,7 +37,7 @@ algorithm main(
   // maintain low (pulses high when sending)
   io.start_rect := 0;
   io.next_pixel := 0;
- 
+  
   // wait for controller to be ready  
   while (io.ready == 0) { }
 

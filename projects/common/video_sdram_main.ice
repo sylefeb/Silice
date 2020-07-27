@@ -35,8 +35,8 @@ NOTE: sdram_clock cannot use a normal output as this would mean sampling
 	  
 */
 algorithm pll(
-  output  uint1 video_clock,
-  output  uint1 video_reset,
+  output! uint1 video_clock,
+  output! uint1 video_reset,
   output! uint1 sdram_clock,
   output! uint1 sdram_reset,
 $$if HAS_COMPUTE_CLOCK then
@@ -506,7 +506,7 @@ $$if HARDWARE then
     
   }
 $$else
-  while (frame < 4) {
+  while (frame < 6) {
 
     while (video_vblank == 1) { }
 	  //__display("vblank off");

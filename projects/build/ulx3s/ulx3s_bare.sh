@@ -10,7 +10,7 @@ silice -f ../../../frameworks/ulx3s.v $1 -o buildb.v
 
 # exit
 
-yosys -p 'scratchpad -copy abc9.script.flow3 abc9.script; synth_ecp5 -abc9 -json buildb.json' buildb.v
+yosys -p 'synth_ecp5 -abc9 -json buildb.json' buildb.v
 
 nextpnr-ecp5 --85k --package CABGA381 --json buildb.json --textcfg buildb.config --lpf ulx3s.lpf --timing-allow-fail --freq 25
 

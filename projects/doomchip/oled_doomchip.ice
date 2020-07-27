@@ -3,8 +3,6 @@
 //
 
 $$if ULX3S then
-$$  HAS_COMPUTE_CLOCK=false
-$$  ULX3S_25MHZ=true
 $$  ST7789=1
 $include('../common/oled.ice')
 $$elseif ICARUS then
@@ -40,6 +38,32 @@ $include('doomchip_debug_placeholder.ice')
 // -------------------------
 
 $$print('------< OLED mode >------')
+
+// -------------------------
+
+$$if ULX3S then
+import('ulx3s_clk_50_25_100.v')
+$$end
+
+// ------------------------- 
+
+$$if ICARUS or VERILATOR then
+// PLL for simulation
+algorithm pll(
+  output! uint1 oled_clock,
+  output! uint1 compute_clock,
+) <autorun>
+{
+  uint3 counter = 0;
+  
+  oled_clock    := clock;
+  compute_clock := counter[1,1]; // x4 slower
+  
+  while (1) {	  
+    counter = counter + 1;
+  }
+}
+$$end
 
 // -------------------------
 
@@ -89,7 +113,6 @@ $$end
   uint10 xfer_offset   = $doomchip_height$; // offset of column being transfered
   uint10 xfer_count    = $doomchip_height$; // transfer count
   uint10 xfer_col      = $doomchip_height-1$; // column being transfered
-  uint10 last_xfer_col =-1; // last column transfered
   uint10 draw_col      = 0;
   uint1  done          = 0;
   
@@ -134,27 +157,20 @@ $$end
       } else {
         // done
         __display("xfer %d done (count %d)",xfer_col,xfer_count);
-        last_xfer_col    = xfer_col;
-        xfer_col         = draw_col;
-        draw_col         = (draw_col == $doomchip_width-1$) ? 0 : (draw_col + 1); 
+        xfer_col         = (draw_col == 0) ? 0 : xfer_col+1;
+        draw_col         = (draw_col == $doomchip_width$) ? 0 : draw_col+1; 
         xfer_offset      = (xfer_offset   == 0) ? $doomchip_height$ : 0;
         drawer_offset    = (drawer_offset == 0) ? $doomchip_height$ : 0;
         col_buffer.addr1 = xfer_offset; // position for restart        
         __display("xfer next %d (draw %d)",xfer_col,draw_col);
-        if (draw_col == 0) {
-          // end of frame
-          while (displio.ready == 0) { }
-          displio.x_start    = 0;
-          displio.x_end      = $doomchip_width-1$;
-          displio.y_start    = 0;
-          displio.y_end      = $doomchip_height-1$;
-          displio.start_rect = 1;
-          // NOTE: risk of tearing as we do not have a vsync
+        if (draw_col == $doomchip_width$) {
+          // frame done
+          draw_col = 0;
         }
       }
     } else {    
-      if (done && xfer_col != last_xfer_col) {
-        __display("starting xfer %d %d",xfer_col,last_xfer_col);
+      if (done) {
+        __display("starting xfer %d",xfer_col);
         done = 0;
         // starts xfer
         xfer_count    = 0; 
@@ -174,13 +190,38 @@ algorithm main(
   output! uint1 oled_dc,
   output! uint1 oled_resn,
   output! uint1 oled_csn,  
-) {
+) <@compute_clock> {
 
   column_io colio;
   
   uint1  vsync = 1;
-  uint16 iter  = 0;
-  
+$$if SIMULATION then
+  uint32 iter  = 0;
+$$end
+
+  // clocking  
+$$if ULX3S then
+  uint1 oled_clock    = 0;
+  uint1 compute_clock = 0;
+  uint1 fast_clock    = 0;
+  uint1 pll_lock      = 0;
+  ulx3s_clk_50_25_100 clk_gen(
+    clkin    <: clock,
+    clkout0  :> fast_clock,
+    clkout1  :> compute_clock,
+    clkout2  :> oled_clock,
+    locked   :> pll_lock
+  ); 
+$$end
+$$if SIMULATION then
+  uint1 oled_clock    = 0;
+  uint1 compute_clock = 0;
+  pll clk_gen<@clock>(
+    oled_clock    :> oled_clock,
+    compute_clock :> compute_clock,
+  );   
+$$end
+
   doomchip doom( 
     colio <:> colio,
     vsync <: vsync,
@@ -188,8 +229,8 @@ algorithm main(
   );
 
   oledio displio;
-  
-  oled   display(
+
+  oled   display<@oled_clock>(
     oled_clk  :> oled_clk,
     oled_mosi :> oled_mosi,
     oled_dc   :> oled_dc,
@@ -197,12 +238,15 @@ algorithm main(
     oled_csn  :> oled_csn,
     io       <:> displio
   );
-  
+
   oled_pixel_writer writer(
     colio   <:> colio,
     displio <:> displio,
   );
    
-  // while (iter < 65000) { iter = iter + 1; }
+$$if SIMULATION then
+  while (iter < 4000000) { iter = iter + 1; }
+$$else
   while (1) { }
+$$end
 }
