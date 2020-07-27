@@ -40,9 +40,6 @@ $texturechip$
 
 $$dofile('pre_do_sprites.lua')
 
-$$texfile_palette = palette_666
-$include('../common/video_sdram_main.ice')
-
 // fixed point precisions
 $$FPl = 48 
 $$FPw = 24
@@ -64,7 +61,7 @@ $$if ULX3S then
 $$INTERACTIVE = 1
 $$end
 
-$$USE_DEBUG_POS = false
+$$USE_DEBUG_POS = true
 
 $$print('done reading game data')
 $$print('(compiling takes a bit of time, please wait ...)')
@@ -74,7 +71,7 @@ $$print('(compiling takes a bit of time, please wait ...)')
 
 circuitry to_h(input iv,output ov)
 {
-  ov = 100 + (iv >>> 15);
+  ov = $doomchip_height//2$ + (iv >>> 15);
 }
 
 circuitry bbox_ray(input ray_x,input ray_y,input ray_dx_m,input ray_dy_m,
@@ -104,8 +101,8 @@ bitfield ZRec
 
 // Writes a pixel in the framebuffer, calls the texture unit
 circuitry writePixel(
-   inout  sd,   output opac,
-   input  fbuffer,
+   inout  colio,
+   output opac,
    input  pi,   input  pj,
    input  tu,   input  tv,
    input  tid,  input  lit,
@@ -120,30 +117,25 @@ circuitry writePixel(
 ++: // read depth
   if (dist < ZRec(depthBuffer.rdata).depth || ZRec(depthBuffer.rdata).clear != pi[0,1]) {
     //                                                    clear toggle test ^^^^^
-    // wait for sdram to not be busy
-    while (sd.busy) { /*waiting*/ }
     // sync with texture unit
-    (sd.data_in,opac) <- textures;
+    (colio.palidx,opac) <- textures;
     // lookup lighting
-    colormap.addr = (tid == $texture_ids['F_SKY1'].id$) ? 94 : (sd.data_in + (lit<<8));
-    if (opac) {
-      // wait for sdram to not be busy (could have been in between)
-      while (sd.busy) { /*waiting*/ } // takes at least one cycle, colormap data is ready
+    colormap.addr = (tid == $texture_ids['F_SKY1'].id$) ? 94 : (colio.palidx + (lit<<8));
+    if (opac) { 
       // write!
-      sd.data_in      = colormap.rdata;
-      sd.addr         = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
-      sd.wbyte_addr   = pi & 3;
-      sd.in_valid     = 1; // go ahead!
+      colio.palidx    = colormap.rdata;
+      colio.y         = $doomchip_height-1$-pj;
+      colio.write     = 1;
       // update depth
       depthBuffer.wenable = 1;
-      depthBuffer.wdata = {pi[0,1], dist[0,$FPw$]};
+      depthBuffer.wdata   = {pi[0,1], dist[0,$FPw$]};
     }
   }
 }
 
 // Writes a sprite pixel in the framebuffer
 circuitry writeSpritePixel(
-   inout  sd,   input  fbuffer,
+   inout  colio,
    input  pi,   input  pj,
    input  pix,  input  lit,
    input  dist, inout  depthBuffer,
@@ -154,13 +146,10 @@ circuitry writeSpritePixel(
     //                                    clear toggle test ^^^^^
     // lookup lighting
     colormap.addr   = pix + (lit<<8);
-    // wait for sdram to not be busy
-    while (sd.busy) { /*waiting*/ }
     // write!
-    sd.data_in      = colormap.rdata;
-    sd.addr         = {~fbuffer,21b0} | (pi >> 2) | ((199-pj) << 8);
-    sd.wbyte_addr   = pi & 3;
-    sd.in_valid     = 1; // go ahead!
+    colio.palidx    = colormap.rdata;
+    colio.y         = $doomchip_height-1$-pj;
+    colio.write     = 1;
     // update depth
     depthBuffer.wenable = 1;
     depthBuffer.wdata = {pi[0,1], dist[0,$FPw$]};
@@ -274,23 +263,15 @@ circuitry lightFromDistance(input dist,output light,inout tmp1,inout tmp2)
 // -------------------------
 // Main drawing algorithm
 
-algorithm frame_drawer(
-  sdio sd {
-    output addr,
-    output wbyte_addr,
-    output rw,
-    output data_in,
-    output in_valid,
-    input  data_out,
-    input  busy,
-    input  out_valid,
+algorithm doomchip(
+  column_io colio {
+    input   draw_col,
+    output  y,
+    output  palidx,
+    output  write,
+    output  done,
   },
-$$if HAS_COMPUTE_CLOCK then  
-  input  uint1  sdram_clock,
-  input  uint1  sdram_reset,
-$$end  
-  input  uint1  vsync,
-  output uint1  fbuffer,
+  input uint1   vsync,
 $$if DE10NANO then  
   output uint4  kpadC,
   input  uint4  kpadR,
@@ -310,9 +291,7 @@ $$if ULX3S then
   input  uint7 btn,
 $$end  
 ) 
-$$if HAS_COMPUTE_CLOCK then
 <autorun> 
-$$end
 {
 
   // BRAMs for BSP tree
@@ -402,9 +381,9 @@ $$end
   uint16 demo_path_len = $#demo_path$;
   
   // BRAM for floor/ceiling texturing ( 1/y table )
-  bram int$FPw$ inv_y[101]={
+  bram int$FPw$ inv_y[$(doomchip_height//2)+1$]={
     1, // 0: unused
-$$for hscr=1,100 do
+$$for hscr=1,doomchip_height//2 do
     $round((1<<(FPm))/hscr)$,
 $$end
   };
@@ -430,27 +409,27 @@ $$end
 
   // BRAM for x coord to angle
 $$function col_to_x(i)
-$$  return (320/2-(i+0.5))*3/320
+$$  return (doomchip_width/2-(i+0.5))*3/doomchip_width
 $$end
   
-  bram int13 coltoalpha[320] = {
-$$for i=0,319 do
+  bram int13 coltoalpha[$doomchip_width$] = {
+$$for i=0,doomchip_width-1 do
     $round(math.atan(col_to_x(i)) * (2^12) / (2*math.pi))$,
 $$end
   };
   
-$$xtoalpha_index_min = round(col_to_x(319)*256)
-$$xtoalpha_index_max = round(col_to_x(  0)*256)
+$$xtoalpha_index_min = round(col_to_x(doomchip_width-1)*256)
+$$xtoalpha_index_max = round(col_to_x(               0)*256)
 $$xtoalpha_offset    = - xtoalpha_index_min
   bram int13 xtoalpha[$xtoalpha_index_max-xtoalpha_index_min+1$] = {
-$$for x=round(col_to_x(319)*256),round(col_to_x(0)*256),1 do
+$$for x=round(col_to_x(doomchip_width-1)*256),round(col_to_x(0)*256),1 do
     $round(math.atan((x+0.5)/256.0) * (2^12) / (2*math.pi))$, // $x$
 $$end
   };
 
   // BRAM for column to x coord
-  bram int13 coltox[320] = {
-$$for i=0,319 do
+  bram int13 coltox[$doomchip_width$] = {
+$$for i=0,doomchip_width-1 do
     $round(col_to_x(i)*256)$,
 $$end
   };
@@ -464,8 +443,6 @@ $$end
   uint16   queue[64] = {};
   uint9    queue_ptr = 0;
 
-  uint1    vsync_filtered = 0;
-  
   int$FPw$ cosview_m  = 0;
   int$FPw$ sinview_m  = 0;
   int16    viewangle  = $player_start_a$;
@@ -566,7 +543,7 @@ $$end
   int16    bbox_y_hi = 0;
   uint1    couldhit  = 0;
 
-  int10    top = 200;
+  int10    top = $doomchip_height$;
   int10    btm = 1;
   uint10   c   = 0;
   int10    j   = 0;
@@ -591,7 +568,7 @@ $$end
   
   uint12   rand = 3137;
   
-  bram uint$FPw+1$ depthBuffer[200] = uninitialized; // MSB is a 'clear' toggle
+  bram uint$FPw+1$ depthBuffer[$doomchip_height$] = uninitialized; // MSB is a 'clear' toggle
   // it changes every column so we known whether the value is old (cleared) or
   // current.
   
@@ -606,18 +583,13 @@ $$if DE10NANO then
   oled_doomhead doomhead(<:auto:>);
 $$end
   
-  vsync_filtered ::= vsync;
-
-  sd.in_valid := 0; // maintain low (pulses high when needed)
+  colio.write    := 0; // maintain low (pulses high when needed)
+  colio.done     := 0; // maintain low (pulses high when needed)
   
 $$if ULX3S then
   kpressed := {1b0,1b0,1b0,btn[2,1]/*fire2*/,btn[6,1]/*right*/,btn[5,1]/*left*/,btn[4,1]/*dwn*/,btn[3,1]/*up*/};
 $$end
-  
-  sd.rw = 1;        // sdram write
-
-  fbuffer = 0;
-  
+    
   // brams in read mode
   bsp_nodes_coords   .wenable = 0;
   bsp_nodes_children .wenable = 0;
@@ -660,7 +632,11 @@ $$end
     // rendering
     // ----------------------------------------------
     c = 0;    
-    while (c < 320) { 
+    while (c < $doomchip_width$) { 
+      
+      // -------
+      // wait for drawer
+      while (c > colio.draw_col) { /*wait*/ }
       
       // -------
       // prepare
@@ -681,7 +657,7 @@ $$end
       // set sin table addr to get cos(alpha)
       sin_m.addr = (coltoalpha.rdata + 1024) & 4095;
       
-      top = 199;
+      top = $doomchip_height-1$;
       btm = 0;
       
       // -------
@@ -857,7 +833,7 @@ $$end
                 // draw floor
                 //-------------------------
                 texid = bsp_secs_flats.rdata[0,8];
-                inv_y.addr = 100 - btm;
+                inv_y.addr = $doomchip_height//2$ - btm;
                 while (btm < f_h) {
                   gv_m = (-sec_f_h)  * inv_y.rdata;
                   gu_m = (coltox.rdata * gv_m) >>> 8;                  
@@ -873,9 +849,9 @@ $$end
                   // write pixel
                   tmp_u = (tr_gv_m>>5);
                   tmp_v = (tr_gu_m>>5);
-                  (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,btm,tmp_u,tmp_v,texid,light,gv_m,depthBuffer,colormap);
+                  (colio,opac,depthBuffer,colormap) = writePixel(colio,c,btm,tmp_u,tmp_v,texid,light,gv_m,depthBuffer,colormap);
                   btm   = btm + 1;
-                  inv_y.addr = 100 - btm;
+                  inv_y.addr = $doomchip_height//2$ - btm;
                 }
                 
                 //-------------------------
@@ -883,7 +859,7 @@ $$end
                 //-------------------------
                 texid = bsp_secs_flats.rdata[8,8];
                 if (texid > 0 || (bsp_segs_tex_height.rdata[16,8] != 0)) { // draw sky if upper texture present
-                  inv_y.addr = top - 100;                
+                  inv_y.addr = top - $doomchip_height//2$;
                   while (top > c_h) {
                     gv_m = (sec_c_h)   * inv_y.rdata;
                     gu_m = (coltox.rdata * gv_m) >>> 8;
@@ -898,9 +874,9 @@ $$end
                     // write pixel
                     tmp_u = (tr_gv_m>>5);
                     tmp_v = (tr_gu_m>>5);
-                    (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,top,tmp_u,tmp_v,texid,light,gv_m,depthBuffer,colormap);
+                    (colio,opac,depthBuffer,colormap) = writePixel(colio,c,top,tmp_u,tmp_v,texid,light,gv_m,depthBuffer,colormap);
                     top   = top - 1;
-                    inv_y.addr = top - 100;
+                    inv_y.addr = top - $doomchip_height//2$;
                   }
                 }
 
@@ -959,7 +935,7 @@ $$end
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
                     tmp1_h = d_h>>3;
-                    (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
+                    (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                     j      = j - 1;
                     tex_v  = tex_v + (d_h);
                   } 
@@ -1002,7 +978,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_h>>3;
-                      (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
+                      (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j + 1;
                       tex_v  = tex_v - (d_h);
                     }
@@ -1022,7 +998,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_h>>3;
-                      (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
+                      (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j - 1;
                       tex_v  = tex_v + (d_h);
                     }
@@ -1055,7 +1031,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_h>>3;
-                      (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
+                      (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j - 1;   
                       tex_v  = tex_v + (d_h);
                     }
@@ -1068,7 +1044,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_h>>3;
-                      (sd,opac,depthBuffer,colormap) = writePixel(sd,fbuffer,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
+                      (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j + 1;   
                       tex_v  = tex_v - (d_h);
                     }                    
@@ -1230,10 +1206,10 @@ $$end
 
                   }
                  
-                  if (v >= v_post && n_post != 0 && tmp1 < 200) {
+                  if (v >= v_post && n_post != 0 && tmp1 < $doomchip_height$) {
                     pix    = sprites_data.rdata;
                     //__display("pix draw %d,%d = %d",c,r,pix);
-                    (sd,depthBuffer,colormap) = writeSpritePixel(sd,fbuffer,c,tmp1,pix,light,tmp2_h,depthBuffer,colormap);
+                    (colio,depthBuffer,colormap) = writeSpritePixel(colio,c,tmp1,pix,light,tmp2_h,depthBuffer,colormap);
 
                     v_accum = v_accum + d_h;
                     r       = r - $1<<15$;
@@ -1257,6 +1233,8 @@ $$end
           
         }
       }
+      // tell caller we are done with column
+      colio.done = 1;
       // next column    
       c = c + 1;
     }
@@ -1503,20 +1481,15 @@ $$if not INTERACTIVE and (not SIMULATION or USE_DEBUG_POS) then
     }    
     demo_path.addr = frame;
 $$else
-    //// DEBUG
-    led[0,1] = colliding;
-    if (onmovable != 0) {
-      led[1,1] = 1;
-    } else {
-      led[1,1] = 0;
-    }
+
 $$if ULX3S then
 $$  ANGLE_SPEED   = 36
 $$  FORWARD_SHIFT = FPm-3
 $$else
 $$  ANGLE_SPEED   = 12
 $$  FORWARD_SHIFT = FPm-2
-$$end    
+$$end
+
     // viewangle
     if ((kpressed & 4) != 0) {
       viewangle   = viewangle + $ANGLE_SPEED$;
@@ -1581,9 +1554,7 @@ $$end
     // ----------------------------------------------
 
     // wait for vsync to end
-    while (vsync_filtered == 0) {}
+    while (vsync == 0) {}
     
-    // swap buffers
-    fbuffer = ~fbuffer;
   }
 }

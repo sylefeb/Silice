@@ -14,7 +14,6 @@ holder must remain included in all distributions.
 
 (header_1_0)
 */
-#pragma once
 // -------------------------------------------------
 //                                ... hardcoding ...
 // -------------------------------------------------

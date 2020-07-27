@@ -4293,7 +4293,7 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
   out << " = " + rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage);
   out << ';' << std::endl;
 
-}
+} 
 
 // -------------------------------------------------
 

@@ -297,8 +297,8 @@ algorithm frame_buffer_row_updater(
 
   sd.in_valid       := 0; // maintain low (pulses high when needed)
   
-  //row_busy_filtered ::= row_busy;
-  //vsync_filtered    ::= vsync;
+  // row_busy_filtered ::= row_busy;
+  // vsync_filtered    ::= vsync;
   row_busy_filtered := row_busy;
   vsync_filtered    := vsync;
   

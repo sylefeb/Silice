@@ -114,7 +114,10 @@ $$  print('SDRAM configured for 100 MHz (default)')
 $$else
 $$  refresh_cycles      = math.floor(750*sdramctrl_clock_freq/100)
 $$  refresh_wait        = 1 + math.floor(7*sdramctrl_clock_freq/100)
-$$  read_wait           = 1 + math.max(4, math.floor(4*sdramctrl_clock_freq/100))
+$$  read_wait           = 1 + math.floor(math.max(4, 4*sdramctrl_clock_freq/100))
+$$  cmd_active_delay    = 1
+$$  cmd_precharge_delay = 2
+$$  cmd_pre_precharge_delay = 0
 $$  if sdramctrl_clock_freq > 100 then
 $$    cmd_active_delay        = 2
 $$    cmd_precharge_delay     = 4

@@ -45,6 +45,7 @@ wire [5:0]  __main_out_vga_r;
 wire [5:0]  __main_out_vga_g;
 wire [5:0]  __main_out_vga_b;
 
+// reg ready = 0;
 wire ready = btn[0];
 
 reg [31:0] RST_d;
