@@ -18,16 +18,11 @@
 //                        => collisions
 //                        => movable updates
 
-$$if ULX3S then
-$$HAS_COMPUTE_CLOCK = true
-$$ULX3S_25MHZ = true
-$$end
-
 $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
 
 // select the level here!
-$$wad = 'doom1.wad'
+$$wad   = 'doom1.wad'
 $$level = 'E1M1'
 $$dofile('pre_wad.lua')
 
@@ -584,7 +579,6 @@ $$if DE10NANO then
 $$end
   
   colio.write    := 0; // maintain low (pulses high when needed)
-  colio.done     := 0; // maintain low (pulses high when needed)
   
 $$if ULX3S then
   kpressed := {1b0,1b0,1b0,btn[2,1]/*fire2*/,btn[6,1]/*right*/,btn[5,1]/*left*/,btn[4,1]/*dwn*/,btn[3,1]/*up*/};
@@ -631,6 +625,7 @@ $$end
     // ----------------------------------------------
     // rendering
     // ----------------------------------------------
+    colio.done = -1;
     c = 0;    
     while (c < $doomchip_width$) { 
       
@@ -1234,7 +1229,7 @@ $$end
         }
       }
       // tell caller we are done with column
-      colio.done = 1;
+      colio.done = c;
       // next column    
       c = c + 1;
     }

@@ -3,11 +3,14 @@
 //
 
 $$if ULX3S then
-$$  HAS_COMPUTE_CLOCK = true
-$$  ULX3S_25MHZ = true
+$$  HAS_COMPUTE_CLOCK=false
+$$  ULX3S_25MHZ=true
 $$  ST7789=1
 $include('../common/oled.ice')
 $$elseif ICARUS then
+$$  ST7789=1
+$include('../common/oled.ice')
+$$elseif VERILATOR then
 $$  ST7789=1
 $include('../common/oled.ice')
 $$else
@@ -15,11 +18,13 @@ $$  error('OLED doomchip only tested on ULX3S')
 $$end
 
 $$color_depth=6
+$$color_max  =63
 
 // -------------------------
 
 group column_io {
-  uint10 draw_col = 0, // column that can be drawn (drawer should not draw beyond this)
+  uint10 draw_col  = 0, // column that can be drawn
+                        // (drawer should not draw beyond this)
   uint10 y        = 0,
   uint8  palidx   = 0,
   uint1  write    = 0,
@@ -29,7 +34,7 @@ group column_io {
 $$doomchip_width  = 240
 $$doomchip_height = 240
 
-//$include('doomchip.ice')
+// include('doomchip.ice')
 $include('doomchip_debug_placeholder.ice')
 
 // -------------------------
@@ -39,81 +44,123 @@ $$print('------< OLED mode >------')
 // -------------------------
 
 algorithm oled_pixel_writer(
-  pixel_io pixio {
-    output  busy,
-    input   x,
+  column_io colio {
+    output  draw_col,
     input   y,
     input   palidx,
     input   write,
+    input   done,
   },
   oledio displio {
-    output! x_start,
-    output! x_end,
-    output! y_start,
-    output! y_end,
-    output! color,
-    output! start_rect,
-    output! next_pixel,
+    output  x_start,
+    output  x_end,
+    output  y_start,
+    output  y_end,
+    output  color,
+    output  start_rect,
+    output  next_pixel,
     input   ready
   },
 ) <autorun> {
   
   uint$3*color_depth$ palette[] = {
+$$if palette_666 then
 $$  for i=1,256 do
     $palette_666[i]$,
 $$  end
+$$else
+$$    for i=0,256/4-1 do
+        $math.floor(i*color_max/(256/4-1))$,
+$$    end
+$$    for i=0,256/4-1 do
+        $math.floor(lshift(i*color_max/(256/4-1),color_depth))$,
+$$    end  
+$$    for i=0,256/4-1 do
+        $math.floor(lshift(i*color_max/(256/4-1),2*color_depth))$,
+$$    end
+$$    for i=0,256/4-1 do v = i*color_max/(256/4-1)
+        $math.floor(v + lshift(v,color_depth) + lshift(v,2*color_depth))$,
+$$    end
+$$end
   };
+    
+  dualport_bram uint8 col_buffer[$doomchip_height*2$] = uninitialized;
+  uint10 drawer_offset = 0; // offset of column being drawn
+  uint10 xfer_offset   = $doomchip_height$; // offset of column being transfered
+  uint10 xfer_count    = $doomchip_height$; // transfer count
+  uint10 xfer_col      = $doomchip_height-1$; // column being transfered
+  uint10 last_xfer_col =-1; // last column transfered
+  uint10 draw_col      = 0;
+  uint1  done          = 0;
   
-  bram uint8 col_buffer[$doomchip_height$] = uninitialized;
-  uint10 last_col = 0;
-  
-  pixel_io buffered;  
+  col_buffer.wenable0 := 1; // write on port0
+  col_buffer.wenable1 := 0; // read  on port1
+  // column that can be drawn
+  colio.draw_col      := draw_col;
+  // maintain low, pulses high
+  displio.start_rect  := 0;
+  displio.next_pixel  := 0;
   
   always {
-    if (pixio.write) {
-      // latch pixel to be written
-      buffered.x      = pixio.x;
-      buffered.y      = pixio.y;
-      buffered.palidx = pixio.palidx;
-      buffered.write  = 1;
+    if (colio.write) {
+      // write in bram
+      col_buffer.addr0  = drawer_offset + colio.y;
+      col_buffer.wdata0 = colio.palidx;
     }
-    pixio.busy = buffered.write;
+    if (colio.done) {
+      done = 1;
+    }
   }
   
+  // prepare viewport
+  while (displio.ready == 0) { }
   displio.x_start    = 0;
   displio.x_end      = $doomchip_width-1$;
   displio.y_start    = 0;
   displio.y_end      = $doomchip_height-1$;
   displio.start_rect = 1;
-  while (displio.ready == 0) { }
-
+  
   while (1) {
-    if (buffered.write == 1) {
-      if (last_col != buffered.x) {
-        // output column to oled
-        uint10 i = 0;
-        col_buffer.wenable = 0;
-        col_buffer.addr    = i;
-        while (i < $doomchip_height$) {
-          // wait oled to be available
-          while (displio.ready == 0) { }
-          // write pixel
-          displio.color = palette[col_buffer.rdata];
-          i = i + 1;
-          col_buffer.addr = i;
-        }
+    // continue with transfer if not done
+    if (xfer_count < $doomchip_height$) {
+      // write
+      while (displio.ready == 0) { }
+      displio.color      = palette[col_buffer.rdata1];
+      displio.next_pixel = 1;
+      // next      
+      xfer_count      = xfer_count + 1;
+      if (xfer_count < $doomchip_height$) {
+        col_buffer.addr1 = xfer_offset + xfer_count;
+      } else {
         // done
+        __display("xfer %d done (count %d)",xfer_col,xfer_count);
+        last_xfer_col    = xfer_col;
+        xfer_col         = draw_col;
+        draw_col         = (draw_col == $doomchip_width-1$) ? 0 : (draw_col + 1); 
+        xfer_offset      = (xfer_offset   == 0) ? $doomchip_height$ : 0;
+        drawer_offset    = (drawer_offset == 0) ? $doomchip_height$ : 0;
+        col_buffer.addr1 = xfer_offset; // position for restart        
+        __display("xfer next %d (draw %d)",xfer_col,draw_col);
+        if (draw_col == 0) {
+          // end of frame
+          while (displio.ready == 0) { }
+          displio.x_start    = 0;
+          displio.x_end      = $doomchip_width-1$;
+          displio.y_start    = 0;
+          displio.y_end      = $doomchip_height-1$;
+          displio.start_rect = 1;
+          // NOTE: risk of tearing as we do not have a vsync
+        }
       }
-      // write to buffer
-      last_col           = buffered.x;
-      col_buffer.addr    = buffered.y;
-      col_buffer.wenable = 1;
-      col_buffer.wdata   = buffered.palidx;
-      // done
-      buffered.write = 0;
+    } else {    
+      if (done && xfer_col != last_xfer_col) {
+        __display("starting xfer %d %d",xfer_col,last_xfer_col);
+        done = 0;
+        // starts xfer
+        xfer_count    = 0; 
+      }    
     }
   }
-  
 }
 
 // -------------------------
@@ -129,12 +176,13 @@ algorithm main(
   output! uint1 oled_csn,  
 ) {
 
-  pixel_io pixio;
+  column_io colio;
   
-  uint1 vsync = 1;
+  uint1  vsync = 1;
+  uint16 iter  = 0;
   
   doomchip doom( 
-    pixio <:> pixio,
+    colio <:> colio,
     vsync <: vsync,
     <:auto:> // used to bind parameters across the different boards
   );
@@ -151,9 +199,10 @@ algorithm main(
   );
   
   oled_pixel_writer writer(
-    pixio   <:> pixio,
+    colio   <:> colio,
     displio <:> displio,
   );
-  
-  while (1) {  }
+   
+  // while (iter < 65000) { iter = iter + 1; }
+  while (1) { }
 }

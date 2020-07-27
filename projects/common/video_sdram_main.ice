@@ -506,7 +506,7 @@ $$if HARDWARE then
     
   }
 $$else
-  while (frame < 5) {
+  while (frame < 4) {
 
     while (video_vblank == 1) { }
 	  //__display("vblank off");
