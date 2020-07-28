@@ -591,6 +591,7 @@ $$end
   
 $$if ULX3S then
   kpressed := {1b0,1b0,1b0,btn[2,1]/*fire2*/,btn[6,1]/*right*/,btn[5,1]/*left*/,btn[4,1]/*dwn*/,btn[3,1]/*up*/};
+  led := 0;
 $$end
     
   // brams in read mode
@@ -639,8 +640,10 @@ $$end
       
       // -------
       // wait for drawer
+      __display("c = %d",c);
       while (c != colio.draw_col) { /*wait*/ }
-      
+      __display("c passed = %d",c);
+
       // -------
       // prepare
       
