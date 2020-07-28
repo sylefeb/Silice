@@ -42,7 +42,7 @@ Yes, the hardware divider is working!
 Some old-school effects ported on FPGA.
 
 *Requires*: [VGA DAC](DIYVGA.md)\
-*Tested on*: IceStick Ice40, Mojo V3
+*Tested on*: IceStick Ice40, Mojo V3, ULX3S
 
 ## VGA + SDRAM framebuffer demos
 
@@ -51,14 +51,14 @@ Some old-school effects ported on FPGA.
 The (very simplified) render loop of Wolfenstein 3D.
 
 *Requires*: [VGA DAC](DIYVGA.md), SDRAM\
-*Tested on*: Mojo V3 + SDRAM (or HDMI) shield
+*Tested on*: Mojo V3 + SDRAM (or HDMI) shield, ULX3S
 
 ### The DooM-chip
 
 The DooM-chip, pushing the limits.
 
-*Requires*: [VGA DAC](DIYVGA.md), SDRAM\
-*Tested on*: de10-nano with SDRAM board
+*Requires*: [VGA DAC](DIYVGA.md) or OLED/LCD screen, SDRAM\
+*Tested on*: de10-nano with SDRAM board, ULX3S
 
 ## Ice-V
 

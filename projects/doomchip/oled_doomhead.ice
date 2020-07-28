@@ -34,11 +34,11 @@ $$  end
 
   oledio io;
   oled   display(
-    oled_din :> oled_din,
-    oled_clk :> oled_clk,
-    oled_cs  :> oled_cs,
-    oled_dc  :> oled_dc,
-    oled_rst :> oled_rst,
+    oled_mosi :> oled_din,
+    oled_clk  :> oled_clk,
+    oled_csn  :> oled_cs,
+    oled_dc   :> oled_dc,
+    oled_resn :> oled_rst,
     io      <:> io
   );
 

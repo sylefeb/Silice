@@ -9,7 +9,7 @@ else
   USE_BRAM = false -- RAM or ROM
   memory_budget_bits = 500000 -- 3000000
   reduce_switches    = true
-  default_shrink     = 0 -- 2 is very low res, for quicker testing, use 0 for native res
+  default_shrink     = 2 -- 2 is very low res, for quicker testing, use 0 for native res
 end
 
 ALL_IN_ONE = false
@@ -72,94 +72,103 @@ in_pnames:close()
 
 -- -------------------------------------
 -- parse texture defs
-local in_texdefs = assert(io.open(findfile('lumps/TEXTURE1.lump'), 'rb'))
-local imgcur = nil
-local imgcur_w = 0
-local imgcur_h = 0
-local sz_read = 0
-local num_texdefs = string.unpack('I4',in_texdefs:read(4))
-local texdefs_seek={}
-for i=1,num_texdefs do
-  texdefs_seek[i] = string.unpack('I4',in_texdefs:read(4))
+-- 
+function parse_textures(texdeflump)
+  local in_texdefs = io.open(findfile('lumps/' .. texdeflump), 'rb')
+  if in_texdefs == nil then
+    return -- not all WADs contain TEXTURE2, for instance
+  end
+  local imgcur = nil
+  local imgcur_w = 0
+  local imgcur_h = 0
+  local sz_read = 0
+  local num_texdefs = string.unpack('I4',in_texdefs:read(4))
+  local texdefs_seek={}
+  for i=1,num_texdefs do
+    texdefs_seek[i] = string.unpack('I4',in_texdefs:read(4))
+  end
+
+  for i=1,num_texdefs do
+    local name = in_texdefs:read(8):match("[%_-%a%d]+")
+    in_texdefs:read(2) -- skip
+    in_texdefs:read(2) -- skip
+    local w = string.unpack('H',in_texdefs:read(2))
+    local h = string.unpack('H',in_texdefs:read(2))
+    in_texdefs:read(2) -- skip
+    in_texdefs:read(2) -- skip
+    -- start new
+    print('wall texture ' .. name .. ' ' .. w .. 'x' .. h)
+    imgcur = {}
+    for j=1,h do
+      imgcur[j] = {}
+      for i=1,w do
+        imgcur[j][i] = -1
+      end
+    end
+    -- tex is opaque?
+    local npatches = string.unpack('H',in_texdefs:read(2))
+    -- copy patches
+    for p=1,npatches do
+      local x   = string.unpack('h',in_texdefs:read(2))
+      local y   = string.unpack('h',in_texdefs:read(2))
+      local pid = string.unpack('H',in_texdefs:read(2))
+      pname = nil
+      if pnames[pid] then
+        pname = pnames[pid]
+        print('   patch "' .. pname .. '" id=' .. pid)
+        print('     x:  ' .. x)
+        print('     y:  ' .. y)
+      end
+      in_texdefs:read(2) -- skip
+      in_texdefs:read(2) -- skip    
+      if pname then
+        print('   loading patch ' .. pname)
+        local pimg = decode_patch_lump(path .. 'lumps/patches/' .. pname .. '.lump')
+        local ph = #pimg
+        local pw = #pimg[1]
+        print('   patch is ' .. pw .. 'x' .. ph)
+        for j=1,ph do
+          for i=1,pw do
+             if ((j+y) <= #imgcur) and ((i+x) <= #imgcur[1]) and (j+y) > 0 and (i+x) > 0 then
+               if pimg[j][i] > -1 then -- -1 is transparent
+                 imgcur[math.floor(j+y)][math.floor(i+x)] = pimg[j][i]
+               end
+             end
+          end
+        end
+        print('   copied.')    
+      else
+        error('cannot find patch ' .. pid)
+      end
+    end
+    local opaque = 1
+    local uses_255 = 0
+    for j=1,h do
+      for i=1,w do
+        if imgcur[j][i] == 255 then
+          uses_255 = 1
+        end
+        if imgcur[j][i] == -1 then
+          opaque = 0
+          imgcur[j][i] = 255 -- replace by transparent marker
+        end
+      end
+    end
+    textures_opacity[name] = opaque
+    -- save  
+    print('saving ' .. name .. ' ...')
+    save_table_as_image_with_palette(imgcur,palette,path .. 'textures/assembled/' .. name .. '.tga')
+    print('         ... done.')
+
+    if opaque == 0 and uses_255 == 1 then
+      print('WARNING: transparent marker used in texture')    
+    end
+  end
 end
 
 textures_opacity={}
-for i=1,num_texdefs do
-  local name = in_texdefs:read(8):match("[%_-%a%d]+")
-  in_texdefs:read(2) -- skip
-  in_texdefs:read(2) -- skip
-  local w = string.unpack('H',in_texdefs:read(2))
-  local h = string.unpack('H',in_texdefs:read(2))
-  in_texdefs:read(2) -- skip
-  in_texdefs:read(2) -- skip
-  -- start new
-  print('wall texture ' .. name .. ' ' .. w .. 'x' .. h)
-  imgcur = {}
-  for j=1,h do
-    imgcur[j] = {}
-    for i=1,w do
-      imgcur[j][i] = -1
-    end
-  end
-  -- tex is opaque?
-  local npatches = string.unpack('H',in_texdefs:read(2))
-  -- copy patches
-  for p=1,npatches do
-    local x   = string.unpack('h',in_texdefs:read(2))
-    local y   = string.unpack('h',in_texdefs:read(2))
-    local pid = string.unpack('H',in_texdefs:read(2))
-    pname = nil
-    if pnames[pid] then
-      pname = pnames[pid]
-      print('   patch "' .. pname .. '" id=' .. pid)
-      print('     x:  ' .. x)
-      print('     y:  ' .. y)
-    end
-    in_texdefs:read(2) -- skip
-    in_texdefs:read(2) -- skip    
-    if pname then
-      print('   loading patch ' .. pname)
-      local pimg = decode_patch_lump(path .. 'lumps/patches/' .. pname .. '.lump')
-      local ph = #pimg
-      local pw = #pimg[1]
-      print('   patch is ' .. pw .. 'x' .. ph)
-      for j=1,ph do
-        for i=1,pw do
-           if ((j+y) <= #imgcur) and ((i+x) <= #imgcur[1]) and (j+y) > 0 and (i+x) > 0 then
-             if pimg[j][i] > -1 then -- -1 is transparent
-               imgcur[math.floor(j+y)][math.floor(i+x)] = pimg[j][i]
-             end
-           end
-        end
-      end
-      print('   copied.')    
-    else
-      error('cannot find patch ' .. pid)
-    end
-  end
-  local opaque = 1
-  local uses_255 = 0
-  for j=1,h do
-    for i=1,w do
-      if imgcur[j][i] == 255 then
-        uses_255 = 1
-      end
-      if imgcur[j][i] == -1 then
-        opaque = 0
-        imgcur[j][i] = 255 -- replace by transparent marker
-      end
-    end
-  end
-  textures_opacity[name] = opaque
-  -- save  
-  print('saving ' .. name .. ' ...')
-  save_table_as_image_with_palette(imgcur,palette,path .. 'textures/assembled/' .. name .. '.tga')
-  print('         ... done.')
-
-  if opaque == 0 and uses_255 == 1 then
-    error('transparent but cannot use marker')
-  end
-end
+parse_textures('TEXTURE1.lump')
+parse_textures('TEXTURE2.lump')
 
 -- -------------------------------------
 -- add texture sizes to datastrcuture

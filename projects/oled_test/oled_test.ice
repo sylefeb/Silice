@@ -1,11 +1,12 @@
 // SL 2020-07
 
+// Select screen driver below
 $$ -- SSD1351=1
 $$ ST7789=1
 $include('../common/oled.ice')
 
-$$if not ULX3S and not ICARUS then
-$$error('only tested on ULX3S and ICARUS, small changes likely required to main input/outputs for other boards')
+$$if not ULX3S then
+$$error('only tested on ULX3S, small changes likely required to main input/outputs for other boards')
 $$end
 
 // ------------------------- 
@@ -41,12 +42,12 @@ algorithm main(
   // wait for controller to be ready  
   while (io.ready == 0) { }
 
-$$if not SIMULATION then
   while (1) {
   
-    uint16 u     = uninitialized;
-    uint16 v     = uninitialized;
+    uint10 u     = uninitialized;
+    uint10 v     = uninitialized;
 
+     // draw window
     io.x_start = 0;
     io.x_end   = $oled_width-1$;
     io.y_start = 0;
@@ -54,11 +55,14 @@ $$if not SIMULATION then
     io.start_rect = 1;
     while (io.ready == 0) { }
 
+    // simple test pattern
     v = 0;
     while (v < $oled_height$) {
       u = 0;
       while (u < $oled_width$) {
-        io.color      = u[0,6] | (v[0,6]<<6) | (frame[0,6]<<12);
+        uint18 tmp    = uninitialized;
+        tmp           = u + v + frame;
+        io.color      = frame;
         io.next_pixel = 1;
         while (io.ready == 0) { } // wait ack
         u = u + 1;
@@ -69,7 +73,6 @@ $$if not SIMULATION then
     frame = frame + 1;
    
   }
-$$end
 
 }
 

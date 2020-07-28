@@ -89,9 +89,13 @@ lump_misc = {
 'TEXTURE1',
 }
 
+lump_opt = {
+'TEXTURE2',
+}
+
 -- -------------------------------------
 -- extracts a lump
-function extract_lump(name,dir)
+function extract_lump(name,dir,optional)
   if not dir then
     dir = ''
   end
@@ -109,7 +113,11 @@ function extract_lump(name,dir)
     out_lump:write(data)
     out_lump:close()
   else
-    error('lump ' .. name .. ' not found!')
+    if optional then
+      print('optional lump ' .. name .. ' not found')
+    else
+      error('lump ' .. name .. ' not found!')
+    end
   end
   in_wad:close()
 end
@@ -155,6 +163,9 @@ for l=1,nlumps do
   if string.match(name,'P1_END') then
     in_patches = 0
   end
+  if string.match(name,'S_END') then
+    in_patches = 0 -- freedoom uses some sprites as patches ...
+  end
   if in_flats == 1 then
     lumps_flats[name] = { start=start, size=size }
     extract_lump(name,'flats/')
@@ -169,6 +180,9 @@ for l=1,nlumps do
   if string.match(name,'P1_START') then
     in_patches = 1
   end
+  if string.match(name,'S_START') then
+    in_patches = 1 -- freedoom uses some sprites as patches ...
+  end
 end
 
 in_wad:close()
@@ -177,6 +191,10 @@ in_wad:close()
 -- extract misc lumps
 for _,lmp in pairs(lump_misc) do
   extract_lump(lmp)
+end
+
+for _,lmp in pairs(lump_opt) do
+  extract_lump(lmp,'',true)
 end
 
 for _,lmp in pairs(lump_level) do
