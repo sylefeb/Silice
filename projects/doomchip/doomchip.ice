@@ -119,7 +119,11 @@ circuitry writePixel(
     if (opac) { 
       // write!
       colio.palidx    = colormap.rdata;
+$$if doomchip_vflip then
+      colio.y         = pj;
+$$else      
       colio.y         = $doomchip_height-1$-pj;
+$$end
       colio.write     = 1;
       // update depth
       depthBuffer.wenable = 1;
@@ -143,7 +147,11 @@ circuitry writeSpritePixel(
     colormap.addr   = pix + (lit<<8);
     // write!
     colio.palidx    = colormap.rdata;
+$$if doomchip_vflip then
+    colio.y         = pj;
+$$else      
     colio.y         = $doomchip_height-1$-pj;
+$$end
     colio.write     = 1;
     // update depth
     depthBuffer.wenable = 1;

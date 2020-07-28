@@ -168,7 +168,8 @@ $$end
 
   // madctl
   () <- sendCommand <- (8h36);
-  () <- sendData    <- (8b00010000);
+  //                      MY MX MV ML RGB MH - -
+  () <- sendData    <- (8b00100000);
   () <- wait <- (300000); // 12 msec @25Mhz
 
   // invon

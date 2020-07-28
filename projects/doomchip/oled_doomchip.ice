@@ -1,6 +1,5 @@
 // SL 2020-04-28
-// DoomChip, VGA wrapper
-//
+// DoomChip, OLED wrapper
 
 $$if ULX3S then
 $$  ST7789=1
@@ -31,6 +30,8 @@ group column_io {
 
 $$doomchip_width  = 240
 $$doomchip_height = 240
+
+$$doomchip_vflip  = true
 
 // include('doomchip.ice')
 $include('doomchip_debug_placeholder.ice')
@@ -113,6 +114,7 @@ $$end
   uint10 xfer_offset   = $doomchip_height$; // offset of column being transfered
   uint10 xfer_count    = $doomchip_height$; // transfer count
   uint10 xfer_col      = $doomchip_height-1$; // column being transfered
+  uint10 last_xfer_col = -1;
   uint10 draw_col      = 0;
   uint1  done          = 0;
   
@@ -157,21 +159,22 @@ $$end
       } else {
         // done
         __display("xfer %d done (count %d)",xfer_col,xfer_count);
+        last_xfer_col    = xfer_col;
         xfer_col         = (draw_col == 0) ? 0 : xfer_col+1;
         draw_col         = (draw_col == $doomchip_width$) ? 0 : draw_col+1; 
         xfer_offset      = (xfer_offset   == 0) ? $doomchip_height$ : 0;
         drawer_offset    = (drawer_offset == 0) ? $doomchip_height$ : 0;
         col_buffer.addr1 = xfer_offset; // position for restart        
-        __display("xfer next %d (draw %d)",xfer_col,draw_col);
         if (draw_col == $doomchip_width$) {
           // frame done
           draw_col = 0;
         }
+        __display("next: xfer %d, draw %d",xfer_col,draw_col);
       }
     } else {    
-      if (done) {
-        __display("starting xfer %d",xfer_col);
+      if (done && (last_xfer_col != xfer_col)) {
         done = 0;
+        __display("starting xfer %d",xfer_col);
         // starts xfer
         xfer_count    = 0; 
       }    

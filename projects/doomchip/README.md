@@ -17,17 +17,38 @@ For obvious copyright reasons you have to provide your own Doom WAD file. During
 ## How to test
 
 Open a shell, go to *Silice/projects/build/verilator* and then type in
-```./verilator_sdram_vga.sh ../../vga_doomchip/vga_doomchip.ice```
+```./verilator_sdram_vga.sh ../../doomchip/vga_doomchip.ice```
 
 Images will be produced in the directory, the third one (*vgaout_0002.tga*) should reveal a view of E1M1! (the two first are black as this corresponds to memory and chip reset/warmup).
 
 ## Running on real hardware
 
+The Doom-chip has been tested on the following boards:
+
+### ULX3S with OLED screen
+
+The default is a ST7789 240x240 screen ; these are innexpensive (~ $6) and some models plug directly into the OLED connector of the ULX3S (you'll have to solder the connector if not present, it is located just below the ECP5).
+
+The OLED library supports also an SSD1351 driver, and other resolutions, but you'll have to edit the source code to customize for that (easy, there are variables for that in headers).
+
+Go into the projects/build/ulx3s directory, plug the board to USB and run
+```./ulx3s_bare.sh ../../doomchip/oled_doomchip.ice```
+
+Done! (takes ~ 1 hour)
+
+### ULX3S with VGA DAC
+
+For this one you need a VGA DAC, see [instructions here](../DIYVGA.md).
+
+Then, enter the projects/build/ulx3s directory, plug the board to USB and run
+```./ulx3s_sdram_vga.sh ../../doomchip/vga_doomchip.ice```
+
+### de10-nano with VGA DAC and SDRAM
+
 The target platform is a de10-nano board equipped with SDRAM, a VGA DAC and (for now) a 4x4 keypad matrix. 
 The SDRAM uses the exact same setup as the [MiSTEr projet](https://github.com/MiSTer-devel/Main_MiSTer/wiki) (see instructions there). You also need a VGA DAC, see [instructions here](../DIYVGA.md).
 
-I cannot provide a pre-built image for programming the FPGA as it would include
-game data, so you'll have to compile the entire thing -- but that is a good way
+I cannot provide a pre-built image for programming the FPGA as it would include game data, so you'll have to compile the entire thing -- but that is a good way
 to get started!
 
 Basically you have to
