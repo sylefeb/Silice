@@ -62,7 +62,7 @@ algorithm main(
       while (u < $oled_width$) {
         uint18 tmp    = uninitialized;
         tmp           = u + v + frame;
-        io.color      = frame;
+        io.color      = tmp;
         io.next_pixel = 1;
         while (io.ready == 0) { } // wait ack
         u = u + 1;
