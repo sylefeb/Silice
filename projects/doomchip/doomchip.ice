@@ -46,9 +46,10 @@ $$FPl = 48
 $$FPw = 24
 $$FPm = 12
 
-$$div_width = FPl
+$$div_shrink = 1
+$$div_width  = FPl
 $include('../common/divint_any.ice')
-$$mul_width = FPw
+$$mul_width  = FPw
 $include('../common/mulint_any.ice')
 
 $$if DE10NANO then
@@ -255,8 +256,10 @@ circuitry sectorLightLevel(input bsp_secs_flats, output seclight)
 }
 
 // Determined light value from sector light and distance
-circuitry lightFromDistance(input dist,output light,inout tmp1,inout tmp2)
+circuitry lightFromDistance(input dist,output light)
 {
+  int$FPw$ tmp1 = uninitialized; // NOTE[Silice] here we would really like to be able to do "typeof(light) tmp1 = ..."
+  int$FPw$ tmp2 = uninitialized;
   if (dist > 7) {
     tmp1 = 7;
   } else {
@@ -472,8 +475,6 @@ $$end
   int16    ly       = 0;
   int16    ldx      = 0;
   int16    ldy      = 0;
-  int16    ndx      = 0;
-  int16    ndy      = 0;
   int16    col_rx   = 0;
   int16    col_ry   = 0;
   int16    dx       = 0;
@@ -484,33 +485,10 @@ $$end
   int16    v0y      = 0;
   int16    v1x      = 0;
   int16    v1y      = 0;
-  int16    d0x      = 0;
-  int16    d0y      = 0;
-  int16    d1x      = 0;
-  int16    d1y      = 0;
   int$FPl$ cs0_h    = 0;
   int$FPl$ cs1_h    = 0;
-  int$FPl$ x0_h     = 0;
-  int$FPl$ y0_h     = 0; // larger to hold FPm x FPm
-  int$FPl$ x1_h     = 0;
-  int$FPl$ y1_h     = 0; // larger to hold FPm x FPm
-  int$FPl$ d_h      = 0;
-  int$FPl$ l_h      = 0;
-  int$FPw$ gu_m     = 0;
-  int$FPw$ gv_m     = 0;
-  int$FPw$ tr_gu_m  = 0;
-  int$FPw$ tr_gv_m  = 0;
   int$FPw$ invd_w   = 0;
-  int$FPl$ invd_h   = 0;
   int$FPw$ interp_m = 0;
-  int16    tmp1     = 0;
-  int16    tmp2     = 0;
-  int16    tmp3     = 0;
-  int$FPw$ tmp1_m   = 0;
-  int$FPw$ tmp2_m   = 0;
-  int$FPl$ tmp1_h   = 0; // larger to hold FPm x FPm
-  int$FPl$ tmp2_h   = 0; // larger to hold FPm x FPm
-  int$FPl$ tmp3_h   = 0;
   int16    h        = 0;
   int16    sec_f_h  = 0;
   int16    sec_c_h  = 0;
@@ -524,17 +502,12 @@ $$end
   int$FPw$ c_h      = 0;
   int$FPw$ f_o      = 0;
   int$FPw$ c_o      = 0;
-  int$FPw$ tex_v    = 0;
   int16    tc_u     = 0;
-  int16    tc_v     = 0;
-  int16    tmp_u    = 0;
-  int16    tmp_v    = 0;
   int16    xoff     = 0;
   int16    yoff     = 0;
   uint8    texid    = 0;
   uint8    tmpid    = 0;
   uint8    seclight = 0;
-  int$FPw$ light    = 0;
   int$FPw$ atten    = 0;
    
   uint1    opac     = 0; 
@@ -746,6 +719,11 @@ $$end
           // render column segments
           s = 0;
           while (s < bsp_ssecs.rdata[0,8]) {
+            int16    d0x      = uninitialized;
+            int16    d0y      = uninitialized;
+            int16    d1x      = uninitialized;
+            int16    d1y      = uninitialized;
+          
             // get segment data
             bsp_segs_coords.addr      = bsp_ssecs.rdata[8,16] + s;
             bsp_segs_tex_height.addr  = bsp_ssecs.rdata[8,16] + s;
@@ -772,6 +750,11 @@ $$end
             cs1_h = (d1y * ray_dx_m - d1x * ray_dy_m);
 ++:            
             if ((cs0_h<__signed(0) && cs1_h>=__signed(0)) || (cs1_h<__signed(0) && cs0_h>=__signed(0))) {
+              int$FPl$ x0_h     = uninitialized;
+              int$FPl$ y0_h     = uninitialized; // larger to hold FPm x FPm
+              int$FPl$ x1_h     = uninitialized;
+              int$FPl$ y1_h     = uninitialized; // larger to hold FPm x FPm
+              int$FPl$ d_h      = uninitialized;
             
               //-------------------------
               // compute distance to intersection
@@ -794,7 +777,10 @@ $$end
               d_h    = y0_h + (mulr >>> $FPm$);
 ++:
               if (d_h > $1<<(FPm+1)$) { // check distance sign, with margin to stay away from 0
-
+                int16    tmp1     = uninitialized;
+                int16    tmp2     = uninitialized;
+                int$FPl$ d_c_h    = uninitialized;
+                int$FPw$ light    = uninitialized;
                 //-------------------------
                 // hit!
                 //-------------------------
@@ -804,40 +790,44 @@ $$end
                 num     = $FPl$d$(1<<(FPl-2))$;
 ++: // relax timing
                 (invd_w) <- divl <- (num,den); // (2^(FPl-2)) / d
-                d_h     = den >>> $FPm+4$; // record corrected distance for tex. mapping
-
+                d_c_h   = den >>> $FPm+4$; // record corrected distance for tex. mapping
+++: // relax timing
                 //-------------------------
                 // floor/ceiling heights 
                 //-------------------------
                 // NOTE: signed, so always read in same width!
                 tmp1    = bsp_secs.rdata[0,16];  // floor height 
                 sec_f_h = tmp1 - ray_z;
-                tmp1    = bsp_secs.rdata[16,16]; // ceiling height
-                sec_c_h = tmp1 - ray_z;                  
+                tmp2    = bsp_secs.rdata[16,16]; // ceiling height
+                sec_c_h = tmp2 - ray_z;                  
 ++:
-                tmp1_h  = (sec_f_h * invd_w);     // h / d
-                tmp2_h  = (sec_c_h * invd_w);     // h / d
+                {
+                  int$FPl$ tmp1_h = uninitialized;
+                  int$FPl$ tmp2_h = uninitialized;
+                  tmp1_h  = (sec_f_h * invd_w);     // h / d
+                  tmp2_h  = (sec_c_h * invd_w);     // h / d
 ++:
-                // obtain projected heights
-                (f_h) = to_h(tmp1_h);
-                (c_h) = to_h(tmp2_h);
+                  // obtain projected heights
+                  (f_h) = to_h(tmp1_h);
+                  (c_h) = to_h(tmp2_h);
+                }
 ++:
                 // clamp to top/bottom, shift for texturing
                 sec_f_h_w = -1;
                 if (btm > f_h) {
-                  sec_f_h_w = - ((btm - f_h) * d_h); // offset texturing
+                  sec_f_h_w = - ((btm - f_h) * d_c_h); // offset texturing
                   f_h       = btm;
                 } else { if (top < f_h) {
-                  sec_f_h_w = - ((f_h - top) * d_h); // offset texturing
+                  sec_f_h_w = - ((f_h - top) * d_c_h); // offset texturing
                   f_h       = top;
                 } }
 ++:                
                 sec_c_h_w = 0;
                 if (btm > c_h) {
-                  sec_c_h_w = ((btm - c_h) * d_h); // offset texturing
+                  sec_c_h_w = ((btm - c_h) * d_c_h); // offset texturing
                   c_h       = btm;
                 } else { if (top < c_h) {
-                  sec_c_h_w = ((c_h - top) * d_h); // offset texturing
+                  sec_c_h_w = ((c_h - top) * d_c_h); // offset texturing
                   c_h       = top;
                 } }
                 
@@ -850,9 +840,17 @@ $$end
                 texid = bsp_secs_flats.rdata[0,8];
                 inv_y.addr = $doomchip_height//2$ - btm;
                 while (btm < f_h) {
+                  int$FPw$ tmp2_m   = uninitialized;
+                  int16    tmp_u    = uninitialized;
+                  int16    tmp_v    = uninitialized;                  
+                  int$FPw$ gu_m     = uninitialized;
+                  int$FPw$ gv_m     = uninitialized;
+                  int$FPw$ tr_gu_m  = uninitialized;
+                  int$FPw$ tr_gv_m  = uninitialized;                  
+                  int$FPw$ light    = uninitialized;
                   gv_m = (-sec_f_h)  * inv_y.rdata;
                   gu_m = (coltox.rdata * gv_m) >>> 8;                  
-                  // NOTE: distance is gv_m>>4  (matches d_h r-shifted by FPw-1)
+                  // NOTE: distance is gv_m>>4  (matches d_c_h r-shifted by FPw-1)
 ++: // relax timing
                   // transform plane coordinates
                   tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
@@ -860,7 +858,7 @@ $$end
 ++: // relax timing
                   // light
                   tmp2_m = (gv_m>>8) - 15;
-                  (light,atten,tmp1_m) = lightFromDistance(tmp2_m,atten,tmp1_m);
+                  (light) = lightFromDistance(tmp2_m);
                   // write pixel
                   tmp_u = (tr_gv_m>>5);
                   tmp_v = (tr_gu_m>>5);
@@ -876,6 +874,14 @@ $$end
                 if (texid > 0 || (bsp_segs_tex_height.rdata[16,8] != 0)) { // draw sky if upper texture present
                   inv_y.addr = top - $doomchip_height//2$;
                   while (top > c_h) {
+                    int$FPw$ tmp2_m   = uninitialized;
+                    int16    tmp_u    = uninitialized;
+                    int16    tmp_v    = uninitialized;
+                    int$FPw$ gu_m     = uninitialized;
+                    int$FPw$ gv_m     = uninitialized;
+                    int$FPw$ tr_gu_m  = uninitialized;
+                    int$FPw$ tr_gv_m  = uninitialized;                  
+                    int$FPw$ light    = uninitialized;
                     gv_m = (sec_c_h)   * inv_y.rdata;
                     gu_m = (coltox.rdata * gv_m) >>> 8;
 ++: // relax timing                  
@@ -885,7 +891,7 @@ $$end
 ++: // relax timing
                     // light
                     tmp2_m = (gv_m>>8) - 15;
-                    (light,atten,tmp1_m) = lightFromDistance(tmp2_m,atten,tmp1_m);
+                    (light) = lightFromDistance(tmp2_m);
                     // write pixel
                     tmp_u = (tr_gv_m>>5);
                     tmp_v = (tr_gu_m>>5);
@@ -901,16 +907,21 @@ $$end
                 tc_u   = ((bsp_segs_texmapping.rdata[0,16] * interp_m) >> $FPm$) + xoff;
 
                 // light
-                tmp2_m = (d_h>>$FPm-1$) - 15;
-                (light,atten,tmp1_m) = lightFromDistance(tmp2_m,atten,tmp1_m);
-                
+                {
+                  int$FPw$ tmp2_m   = uninitialized;
+                  tmp2_m = (d_c_h>>$FPm-1$) - 15;
+                  (light) = lightFromDistance(tmp2_m);
+                }
 ++: // relax timing             
 
                 //-------------------------
                 // lower wall?                
                 //-------------------------
                 if (bsp_segs_tex_height.rdata[0,8] != 0) {
-                
+                  int16    tmp1   = uninitialized;
+                  int$FPl$ tmp1_h = uninitialized;
+                  int$FPw$ tex_v  = uninitialized;
+
                   texid     = bsp_segs_tex_height.rdata[0,8];
                   // if switch, possibly change texture
                   (has_switch) = is_switch(texid);
@@ -925,15 +936,15 @@ $$end
                   tmp1      = bsp_secs.rdata[0,16]; // other sector floor height
                   sec_f_o   = tmp1 - ray_z;
 ++:
-                  tmp1_h    = (sec_f_o * invd_w);
+                  tmp1_h  = (sec_f_o * invd_w);
 ++:
                   sec_f_o_w = 0;
                   (f_o)     = to_h(tmp1_h);
                   if (btm > f_o) {
-                    sec_f_o_w = ((btm - f_o) * d_h); // offset texturing
+                    sec_f_o_w = ((btm - f_o) * d_c_h); // offset texturing
                     f_o       = btm;
                   } else { if (top < f_o) {
-                    sec_f_o_w = ((f_o - top) * d_h); // offset texturing
+                    sec_f_o_w = ((f_o - top) * d_c_h); // offset texturing
                     f_o       = top;
                   } }
 ++:
@@ -942,17 +953,21 @@ $$end
                     tex_v   = (sec_f_o_w);
                   } else {
                     // lower unpegged                   
-                    tex_v   = (sec_c_h_w) + ((c_h - f_o) * d_h);
+                    tex_v   = (sec_c_h_w) + ((c_h - f_o) * d_c_h);
                   }
                   j       = f_o-1;
                   while (j >= btm) {
+                    int$FPl$ tmp1_h = uninitialized;
+                    int16    tmp_u  = uninitialized;
+                    int16    tmp_v  = uninitialized;
+                    int16    tc_v   = uninitialized;
                     tc_v   = tex_v >> $FPm-1+4$;
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
-                    tmp1_h = d_h>>3;
+                    tmp1_h = d_c_h>>3;
                     (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                     j      = j - 1;
-                    tex_v  = tex_v + (d_h);
+                    tex_v  = tex_v + (d_c_h);
                   } 
                   btm = f_o;
                 }
@@ -964,6 +979,9 @@ $$end
                 ||   (bsp_secs_flats.rdata[8,8] == 0 
                    && bsp_segs_tex_height.rdata[8,8] != 0) // or opaque with sky above
                 ) {
+                  int$FPl$ tmp1_h = uninitialized;
+                  int16    tmp1   = uninitialized;                  
+                  
                   texid     = bsp_segs_tex_height.rdata[16,8];
                   
                   if (bsp_segs_tex_height.rdata[24,16] == 65535) {
@@ -976,29 +994,35 @@ $$end
                   tmp1_h    = (sec_c_o * invd_w);
 ++:
                   if (bsp_segs_texmapping.rdata[65,1] == 0) {
+                    int$FPw$ tex_v  = uninitialized;
                     // normal
                     sec_c_o_w = -1;
                     (c_o)     = to_h(tmp1_h);
                     if (btm > c_o) {
-                      sec_c_o_w = - ((btm - c_o) * d_h); // offset texturing
+                      sec_c_o_w = - ((btm - c_o) * d_c_h); // offset texturing
                       c_o       = btm;
                     } else { if (top < c_o) {
-                      sec_c_o_w = - ((c_o - top) * d_h); // offset texturing
+                      sec_c_o_w = - ((c_o - top) * d_c_h); // offset texturing
                       c_o       = top;
                     } }
                     tex_v   = (sec_c_o_w);
                     j       = c_o + 1;
                     while (j <= top) {
+                      int$FPl$ tmp1_h = uninitialized;
+                      int16    tmp_u  = uninitialized;
+                      int16    tmp_v  = uninitialized;
+                      int16    tc_v   = uninitialized;
                       tc_v   = tex_v >>> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
-                      tmp1_h = d_h>>3;
+                      tmp1_h = d_c_h>>3;
                       (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j + 1;
-                      tex_v  = tex_v - (d_h);
+                      tex_v  = tex_v - (d_c_h);
                     }
                     top = c_o;
                   } else {
+                    int$FPw$ tex_v  = uninitialized;
                     // upper unpegged
                     (c_o)     = to_h(tmp1_h);
                     if (btm > c_o) {
@@ -1009,13 +1033,17 @@ $$end
                     tex_v   = (sec_c_h_w);
                     j       = top;
                     while (j > c_o) {
+                      int$FPl$ tmp1_h = uninitialized;
+                      int16    tmp_u  = uninitialized;
+                      int16    tmp_v  = uninitialized;
+                      int16    tc_v   = uninitialized;
                       tc_v   = tex_v >>> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
-                      tmp1_h = d_h>>3;
+                      tmp1_h = d_c_h>>3;
                       (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j - 1;
-                      tex_v  = tex_v + (d_h);
+                      tex_v  = tex_v + (d_c_h);
                     }
                     top = c_o;                    
                   }
@@ -1038,30 +1066,40 @@ $$end
                   }
                   
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
+                    int$FPw$ tex_v  = uninitialized;
                     // normal
                     tex_v   = (sec_c_h_w);
                     j       = c_h;
                     while (j >= f_h) {
+                      int$FPl$ tmp1_h = uninitialized;
+                      int16    tmp_u  = uninitialized;
+                      int16    tmp_v  = uninitialized;
+                      int16    tc_v   = uninitialized;
                       tc_v   = tex_v >> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
-                      tmp1_h = d_h>>3;
+                      tmp1_h = d_c_h>>3;
                       (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j - 1;   
-                      tex_v  = tex_v + (d_h);
+                      tex_v  = tex_v + (d_c_h);
                     }
                   } else {
+                    int$FPw$ tex_v  = uninitialized;
                     // lower unpegged
                     tex_v   = (sec_f_h_w);
                     j       = f_h;
                     while (j <= c_h) {
+                      int$FPl$ tmp1_h = uninitialized;
+                      int16    tmp_u  = uninitialized;
+                      int16    tmp_v  = uninitialized;
+                      int16    tc_v   = uninitialized;
                       tc_v   = tex_v >> $FPm-1+4$;
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
-                      tmp1_h = d_h>>3;
+                      tmp1_h = d_c_h>>3;
                       (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
                       j      = j + 1;   
-                      tex_v  = tex_v - (d_h);
+                      tex_v  = tex_v - (d_c_h);
                     }                    
                   }
                   (opac) = is_opaque(texid);
@@ -1093,7 +1131,13 @@ $$end
           (seclight) = sectorLightLevel(bsp_secs_flats);
           s = 0;
           while (s < bsp_secs.rdata[32,8]) {
-          
+            int$FPl$ tmp1_h = uninitialized;
+            int16    d0x    = uninitialized;
+            int16    d0y    = uninitialized;
+            int16    d1x    = uninitialized;
+            int16    d1y    = uninitialized;
+            int$FPl$ d_h    = uninitialized;
+
             all_things.addr = bsp_secs.rdata[40,8] + s;
 ++: // could be avoided
             // get the thing center x,y coordinates
@@ -1101,34 +1145,40 @@ $$end
             v0y = all_things.rdata[16,16];
             //__display("*** thing x%d y%d",v0x,v0y);
             // go to view space
-            d0x = v0x - ray_x;
-            d0y = v0y - ray_y;
+            d0x    = v0x - ray_x;
+            d0y    = v0y - ray_y;
             d_h    = (  d0x * cosview_m + d0y * sinview_m ); // along center view ray
             tmp1_h = (- d0x * sinview_m + d0y * cosview_m ) >>> $FPm$; // ortho to center view ray
             // is in front?
             if (d_h > $1<<(FPm+1)$) { // margin to stay away from 0
               // yes, in front
-              uint8  sp_frame    = 0;              
-              uint1  sp_mirrored = 0;
-              uint12 sel_angle   = 0;
-              uint8  sel_frame   = 0;              
-              int16  sprt_w      = 0;
-              int16  sprt_h      = 0;
-              int16  screen_ctr  = 0;
-              int16  screen_w    = 0;
-              int10     cur_v    = 0;
-              uint$FPw$ v_accum  = 0;
-              int$FPw$  screen_h = 0;
-              int$FPw$  screen_y = 0;
-              int$FPw$  y_first  = 0;
-              int$FPw$  y_last   = 0;   
-              int10  v_post      = 0;
-              int10  n_post      = 0;
-              int10  u           = 0;
-              int10  v           = 0;
-              int$FPw$ r         = 0;
-              uint8  pix         = 0;
-
+              uint8  sp_frame    = uninitialized;              
+              uint1  sp_mirrored = uninitialized;
+              uint12 sel_angle   = uninitialized;
+              uint8  sel_frame   = uninitialized;              
+              int16  sprt_w      = uninitialized;
+              int16  sprt_h      = uninitialized;
+              int16  screen_ctr  = uninitialized;
+              int16  screen_w    = uninitialized;
+              int10     cur_v    = uninitialized;
+              uint$FPw$ v_accum  = uninitialized;
+              int$FPw$  screen_h = uninitialized;
+              int$FPw$  screen_y = uninitialized;
+              int$FPw$  y_first  = uninitialized;
+              int$FPw$  y_last   = uninitialized;   
+              int10  v_post      = uninitialized;
+              int10  n_post      = uninitialized;
+              int10  u           = uninitialized;
+              int10  v           = uninitialized;
+              int$FPw$ r         = uninitialized;
+              uint8  pix         = uninitialized;
+              int16  tmp1        = uninitialized;
+              int16  tmp2        = uninitialized;
+              int$FPw$ tmp1_m    = uninitialized;
+              int$FPl$ invd_h    = uninitialized;
+              int$FPl$ tmp3_h    = uninitialized;
+              int$FPw$ light     = uninitialized;
+              
 ++: // relax timing
               // -> compute inverse distance
               (invd_h) <- divl <- ( $FPl$d$(1<<(FPl-2))$ , d_h );
@@ -1136,8 +1186,11 @@ $$end
               // than for walls: not multiplied by sin_m)
               d_h     = d_h >>> 4;
               // -> light level
-              tmp2_m = (d_h>>$FPm-1$) - 15;
-              (light,atten,tmp1_m) = lightFromDistance(tmp2_m,atten,tmp1_m);              
+              {
+                int$FPw$ tmp2_m   = uninitialized;
+                tmp2_m  = (d_h>>$FPm-1$) - 15;
+                (light) = lightFromDistance(tmp2_m);              
+              }
               // -> compute thing center screen x
               screen_ctr = (tmp1_h * invd_h) >>> $(4+FPl-2-2*FPm)$; // shift to end up in screen x space
 ++: // relax timing
@@ -1162,13 +1215,15 @@ $$end
               // -> compute thing height
               tmp1    = bsp_secs.rdata[0,16]; // thing sector floor height
               sec_f_o = tmp1 - ray_z;
-              tmp1_h  = (sec_f_o * invd_h) >>> $FPm$;
+              tmp3_h  = (sec_f_o * invd_h) >>> $FPm$;
 ++: // relax timing              
               tmp1_m = coltox.rdata; // widden for compare
               if (tmp1_m > screen_ctr - screen_w && tmp1_m < screen_ctr + screen_w) { // is current column covered?
+                int$FPw$ tmp2_m = uninitialized;
+                int$FPl$ tmp2_h = uninitialized;
                 
-                screen_y = tmp1_h;
-                tmp2_h = d_h>>3; // distance increment
+                screen_y = tmp3_h;
+                tmp2_h   = d_h>>3; // distance increment
                 
                 // --------------------------- sprite draw column
                 tmp2_m  = tmp1_m - (screen_ctr - screen_w);
@@ -1323,10 +1378,12 @@ $$if INTERACTIVE then
             walkable = 0;
             onesided = 1;
           } else { // here we assume all walls without a middle section are two sided
+            int16  tmp1 = uninitialized;
+            int16  tmp2 = uninitialized;
             // other sector floor height
-            tmp1      = bsp_secs.rdata[0,16];
+            tmp1 = bsp_secs.rdata[0,16];
             // other sector ceiling height
-            tmp2      = bsp_secs.rdata[16,16];
+            tmp2 = bsp_secs.rdata[16,16];
             // walkable?
             if (ray_z < tmp1 || ray_z > tmp2) {
               walkable = 0;
@@ -1337,6 +1394,15 @@ $$if INTERACTIVE then
             movableseg = 1;
           }
           if ((walkable == 0) || (movableseg == 1)) {
+            int16    d0x      = uninitialized;
+            int16    d0y      = uninitialized;
+            int16    d1x      = uninitialized;
+            int16    d1y      = uninitialized;
+            int16    ndx      = uninitialized;
+            int16    ndy      = uninitialized;
+            int$FPl$ d_h      = uninitialized;
+            int$FPl$ l_h      = uninitialized;
+            
             // segment endpoints
             v0x = bsp_segs_coords.rdata[ 0,16];
             v0y = bsp_segs_coords.rdata[16,16];
@@ -1356,6 +1422,9 @@ $$if INTERACTIVE then
             d_h    = ndx * d0x + ndy * d0y;
   ++:           
             if (onesided == 0 || d_h < 0) { // one sided only stops if d_h < 0
+              int$FPl$ tmp1_h = uninitialized;
+              int$FPl$ tmp2_h = uninitialized;
+              int$FPl$ tmp3_h = uninitialized;
               if (d_h < 0) {
                 tmp1_h = - d_h;
               } else {
@@ -1364,6 +1433,7 @@ $$if INTERACTIVE then
               tmp2_h = (bsp_segs_texmapping.rdata[ 0,16] << 4) + (bsp_segs_texmapping.rdata[ 0,16] << 1); // seglen * (16 + 2)
               tmp3_h = bsp_segs_texmapping.rdata[48,16] << 5; // segsqlen
               // close to movable seg?
+    ++:  // relax timing
               if (movableseg == 1) {
                 //          vvv  detect from further away
                 if (((tmp1_h>>2) < tmp2_h) && (l_h > 0) && l_h < (tmp3_h)) {
@@ -1378,6 +1448,7 @@ $$if INTERACTIVE then
                   }
                 }
               }
+    ++:  // relax timing
               if (walkable == 0) {
                 // close to the wall?              vv margin to prevent going in between convex corners
                 if ( (tmp1_h < tmp2_h) && (l_h > - 32) && l_h < (tmp3_h + 32) ) { 
@@ -1419,6 +1490,8 @@ $$end
     bsp_movables.addr    = 1; // skip first (id=0 tags 'not a movable')
     while (bsp_movables.addr < num_bsp_movables) {
       if (bsp_movables.rdata[51,1] && bsp_movables.rdata[32,16] < 65535) { // active and drives a sector?
+        int16 tmp1 = uninitialized;
+        int16 tmp3 = uninitialized;
         
         ///// DEBUG
         debug0 = bsp_movables.addr;
@@ -1436,28 +1509,30 @@ $$end
         }
         // direction
         if (bsp_movables.rdata[50,1] == 0) {
+          int16 tmp2 = uninitialized;
           // up
           tmp2 = bsp_movables.rdata[0,16]; // uph
           if (tmp1 < tmp2) {
-            tmp3 = tmp1 + 1;
+            tmp3   = tmp1 + 1;
           } else {
-            tmp3 = tmp1;
+            tmp3   = tmp1;
             active = 0;
           }
         } else {
+          int16 tmp2 = uninitialized;
           // down
           tmp2 = bsp_movables.rdata[16,16]; // downh
           if (tmp1 > tmp2) {
-            tmp3 = tmp1 - 1;
+            tmp3   = tmp1 - 1;
           } else {
-            tmp3 = tmp1;
+            tmp3   = tmp1;
             active = 0;
           }
         }
         // write back sector
         bsp_secs.wdata = bsp_secs.rdata;
         if (bsp_movables.rdata[48,1]) { 
-          bsp_secs.wdata[0,16] = tmp3;
+          bsp_secs.wdata[0,16]  = tmp3;
         } else {
           bsp_secs.wdata[16,16] = tmp3;
         }      

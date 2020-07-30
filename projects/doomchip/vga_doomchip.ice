@@ -1,6 +1,9 @@
 // SL 2020-04-28
 // DoomChip, VGA wrapper
 //
+// NOTE: there is tearing currently (unrestricted frame rate),
+//       will be fixed later
+//
 
 $$if ULX3S then
 $$HAS_COMPUTE_CLOCK    = true

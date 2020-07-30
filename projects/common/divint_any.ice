@@ -23,6 +23,10 @@ $$if not div_shrink then
 $$  div_shrink = 0
 $$end
 
+$$if div_width > 64 then
+error('pre-processor constants cannot exceed 64 bits')
+$$end
+
 // use pre-processor to generate all comparators
 $$for i = 0,div_width-2 do
 algorithm mul_cmp$div_width$_$i$(
@@ -31,16 +35,10 @@ algorithm mul_cmp$div_width$_$i$(
    output! uint1 beq)
 <autorun>   
 {
-$$ K = i
-  uint$div_width+1$ dk  = 0;  
-  uint$div_width+1$ th := (1<<($div_width-K$));
+  uint$div_width+1$ nk = 0;
   always {
-    dk = (den << $K$);
-    if (den > th) {
-      beq = 0;
-    } else {
-      beq = (num >= dk);
-    }
+    nk  = (num >> $i$);
+    beq = (nk > den);
   }
 }
 $$end
@@ -138,13 +136,12 @@ $$end
     // perform assignment based on occurring case
     
     // produce a vector from the comparators
-    // it has a pattern like 0...01...1
+    // it has a one-hot pattern like 0...010...0
 $$concat='{'
-$$for i = 0,div_width-3 do concat=concat..'r'..(div_width-2-i)..',' end
-$$concat=concat..'r0}'
-    // add one to produce a single bit number
-    // 0....010....0
-    concat = $concat$ + 1;
+$$for i = 0,div_width-3 do 
+$$  concat = concat..'!r'..(div_width-2-i)..'&&r'..(div_width-2-i-1)..',' end
+$$concat=concat..'1b0}'
+    concat = $concat$;
     // switch base on this number (NOTE: could be a onehot switch)
     switch(concat) {
 $$for c = 0,div_width-2 do
@@ -152,7 +149,7 @@ $$ s='' .. (div_width) .. 'b'
 $$ for i = 0,div_width-2 do if i==c then s=s..'1' else s=s..'0' end end
 $$ s=s..'0'
       case $s$: {
-        ret = ret + (1<<$K[div_width-2-c]$);
+        ret      = ret      + (1<<$K[div_width-2-c]$);
         reminder = reminder - (den << $K[div_width-2-c]$);
       }
 $$end      
@@ -172,4 +169,3 @@ $$if not div_unsigned then
 $$end
 
 }
-

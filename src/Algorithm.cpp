@@ -630,13 +630,20 @@ void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gathe
   if (_current) {
     sub = _current->context.subroutine;
   }
+  // subroutine renaming?
   if (sub != nullptr) {
     std::string base_name = _var.name;
     _var.name = subroutineVIOName(base_name, sub);
+    _var.name = blockVIOName(_var.name, _current);
     sub->vios.insert(std::make_pair(base_name, _var.name));
     sub->vars.push_back(base_name);
     sub->allowed_reads .insert(_var.name);
     sub->allowed_writes.insert(_var.name);
+  } else {
+    // block renaming
+    std::string base_name = _var.name;
+    _var.name = blockVIOName(base_name,_current);
+    _current->context.vio_rewrites[base_name] = _var.name;
   }
   // check for duplicates
   if (!isIdentifierAvailable(_var.name)) {
@@ -760,14 +767,21 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* de
     reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "table '%s': this name is already used by a prior declaration", decl->IDENTIFIER()->getText().c_str());
   }
   // gather table
-  t_var_nfo var;
+  t_var_nfo var;  
   if (sub == nullptr) {
     var.name = decl->IDENTIFIER()->getText();
+    // block renaming
+    std::string base_name = var.name;
+    var.name = blockVIOName(base_name, _current);
+    _current->context.vio_rewrites.insert(std::make_pair(base_name, var.name));
   } else {
+    // subroutine renaming
     var.name = subroutineVIOName(decl->IDENTIFIER()->getText(), sub);
+    var.name = blockVIOName(var.name, _current);
     sub->vios.insert(std::make_pair(decl->IDENTIFIER()->getText(), var.name));
     sub->vars.push_back(decl->IDENTIFIER()->getText());
   }
+  // type and table size
   splitType(decl->TYPE()->getText(), var.type_nfo);
   if (decl->NUMBER() != nullptr) {
     var.table_size = atoi(decl->NUMBER()->getText().c_str());
@@ -1655,6 +1669,17 @@ std::string Algorithm::subroutineVIOName(std::string vio, const t_subroutine_nfo
 
 // -------------------------------------------------
 
+std::string Algorithm::blockVIOName(std::string vio, const t_combinational_block *host)
+{
+  if (host->block_name != "_top") {
+    return host->block_name + "_" + vio;
+  } else {
+    return vio;
+  }
+}
+
+// -------------------------------------------------
+
 std::string Algorithm::tricklingVIOName(std::string vio, const t_pipeline_nfo *nfo, int stage) const
 {
   return nfo->name + "_" + std::to_string(stage) + "_" + vio;
@@ -1998,10 +2023,24 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   }
   // -> rewrite rules
   ForIndex(i, ins.size()) {
-    cblock->context.vio_rewrites.insert(make_pair(ins[i], ins_idents[i]));
+    // -> closure on pre-existing rewrite rule
+    std::string v = ins_idents[i];
+    auto R        = cblock->context.vio_rewrites.find(v);
+    if (R != cblock->context.vio_rewrites.end()) {
+      v = R->second;
+    }
+    // -> add rule
+    cblock->context.vio_rewrites.insert(make_pair(ins[i], v));
   }
   ForIndex(o, outs.size()) {
-    cblock->context.vio_rewrites.insert(make_pair(outs[o], outs_idents[o]));
+    // -> closure on pre-existing rewrite rule
+    std::string v = outs_idents[o];
+    auto R = cblock->context.vio_rewrites.find(v);
+    if (R != cblock->context.vio_rewrites.end()) {
+      v = R->second;
+    }
+    // -> add rule
+    cblock->context.vio_rewrites.insert(make_pair(outs[o], v));
   }
   // gather code
   t_combinational_block* cblock_after = gather(C->second->block(), cblock, _context);

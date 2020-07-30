@@ -14,6 +14,6 @@ yosys -p 'synth_ecp5 -abc9 -json buildb1.json' buildb1.v
 
 nextpnr-ecp5 --85k --package CABGA381 --json buildb1.json --textcfg buildb1.config --lpf ulx3s.lpf --timing-allow-fail --freq 25
 
-ecppack --svf-rowsize 100000 --svf buildb1.svf buildb1.config buildb1.bit
+ecppack --compress --svf-rowsize 100000 --svf buildb1.svf buildb1.config buildb1.bit
 
 fujprog buildb1.bit

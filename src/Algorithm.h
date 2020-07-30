@@ -615,8 +615,10 @@ namespace Silice
     void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather module declaration
     void gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, t_combinational_block *_current, t_gather_context *_context);
-    /// \brief returns the name of a subroutine vio
+    /// \brief expands the name of a subroutine vio
     std::string subroutineVIOName(std::string vio, const t_subroutine_nfo *sub);
+    /// \brief expands the name of a block vio
+    std::string blockVIOName(std::string vio, const t_combinational_block *host);
     /// \brief returns the name of a trickling vio for a stage of a piepline
     std::string tricklingVIOName(std::string vio, const t_pipeline_nfo *nfo, int stage) const;
     /// \brief returns the name of a trickling vio for a stage of a piepline
