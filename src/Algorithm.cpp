@@ -2542,6 +2542,9 @@ void Algorithm::generateStates()
   if (hasNoFSM()) {
     std::cerr << " (no FSM)";
   }
+  if (!requiresStack()) {
+    std::cerr << " (no stack)";
+  }
   if (requiresNoReset()) {
     std::cerr << " (no reset)";
   }
@@ -2651,6 +2654,71 @@ bool Algorithm::hasNoFSM() const
 
 // -------------------------------------------------
 
+bool Algorithm::requiresStack() const
+{
+  if (hasNoFSM()) {
+    return false;
+  }
+  // now we check whether there are nested subroutine calls
+  for (const auto &b : m_Blocks) { // NOTE: no need to consider m_AlwaysPre, it has to be comibinational
+    if (b->state_id == -1 && b->is_state) {
+      continue; // block is never reached
+    }
+    // subroutine block?
+    if (b->context.subroutine == nullptr) {
+      continue;
+    }
+    // contains a suborutine call?
+    for (auto i : b->instructions) {
+      auto call = dynamic_cast<siliceParser::SyncExecContext*>(i.instr);
+      if (call) {
+        // find algorithm / subroutine
+        auto A = m_InstancedAlgorithms.find(call->joinExec()->IDENTIFIER()->getText());
+        if (A == m_InstancedAlgorithms.end()) { // not a call to algorithm?
+          auto S = m_Subroutines.find(call->joinExec()->IDENTIFIER()->getText());
+          if (S != m_Subroutines.end()) { // nested call to subroutine
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+
+// -------------------------------------------------
+
+bool Algorithm::doesNotCallSubroutines() const
+{
+  if (hasNoFSM()) {
+    return true;
+  }
+  // now we check whether there are subroutine calls
+  for (const auto &b : m_Blocks) { // NOTE: no need to consider m_AlwaysPre, it has to be comibinational
+    if (b->state_id == -1 && b->is_state) {
+      continue; // block is never reached
+    }
+    // contains a suborutine call?
+    for (auto i : b->instructions) {
+      auto call = dynamic_cast<siliceParser::SyncExecContext*>(i.instr);
+      if (call) {
+        // find algorithm / subroutine
+        auto A = m_InstancedAlgorithms.find(call->joinExec()->IDENTIFIER()->getText());
+        if (A == m_InstancedAlgorithms.end()) { // not a call to algorithm?
+          auto S = m_Subroutines.find(call->joinExec()->IDENTIFIER()->getText());
+          if (S != m_Subroutines.end()) { // nested call to subroutine
+            return false;
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
+
+// -------------------------------------------------
+
 bool Algorithm::requiresNoReset() const
 {
   if (!hasNoFSM()) {
@@ -2659,18 +2727,6 @@ bool Algorithm::requiresNoReset() const
   for (const auto &v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
     if (!v.do_not_initialize) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// -------------------------------------------------
-
-bool Algorithm::doesNotCallSubroutines() const
-{
-  for (const auto &b : m_Blocks) {
-    if (b->context.subroutine != nullptr) {
       return false;
     }
   }
@@ -3529,6 +3585,27 @@ void Algorithm::determineBlockDependencies(const t_combinational_block* block, t
 
 // -------------------------------------------------
 
+void Algorithm::determineSubroutineReturnStates()
+{
+  for (const auto &b : m_Blocks) {
+    if (b->state_id == -1 && b->is_state) {
+      continue; // block is never reached
+    }
+    // contains a subroutine call?
+    for (auto i : b->instructions) {
+      if (b->goto_and_return_to()) {
+        if (b->goto_and_return_to()->go_to->context.subroutine != nullptr) {
+          // record return state
+          m_SubroutinesReturnStates[b->goto_and_return_to()->go_to->context.subroutine->name]
+            .insert(b->goto_and_return_to()->return_to->state_id);
+        }
+      }
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::analyzeInstancedAlgorithmsInputs()
 {
   for (auto& ia : m_InstancedAlgorithms) {
@@ -3789,6 +3866,8 @@ void Algorithm::optimize()
   checkExpressions();
   // determine which VIO are assigned to wires
   determineModAlgBoundVIO();
+  // determine wich states call wich subroutines
+  determineSubroutineReturnStates();
   // analyze variables access 
   determineVariableAndOutputsUsage();
   // analyze instanced algorithms inputs
@@ -4500,8 +4579,12 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
   }
   // state machine return (subroutine)
   if (!doesNotCallSubroutines()) {
-    out << "reg  [" << ((stateWidth() * m_StackSize) - 1) << ":0] " FF_D << prefix << ALG_RETURN << "," FF_Q << prefix << ALG_RETURN << ";" << std::endl;
-    out << "reg  [" << ((1 << justHigherPow2(m_StackSize)) - 1) << ":0]" FF_D << prefix << ALG_RETURN_PTR << ", " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
+    if (requiresStack()) {
+      out << "reg  [" << ((stateWidth() * m_StackSize) - 1) << ":0] " FF_D << prefix << ALG_RETURN << "," FF_Q << prefix << ALG_RETURN << ";" << std::endl;
+      out << "reg  [" << ((1 << justHigherPow2(m_StackSize)) - 1) << ":0]" FF_D << prefix << ALG_RETURN_PTR << ", " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
+    } else {
+      out << "reg  [" << (stateWidth() - 1) << ":0] " FF_D << prefix << ALG_RETURN << "," FF_Q << prefix << ALG_RETURN << ";" << std::endl;
+    }
   }
   // state machine run for instanced algorithms
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
@@ -4570,8 +4653,12 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
       out << "end" << std::endl;
       // return index for subroutines
       if (!doesNotCallSubroutines()) {
-        out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
-        out << FF_Q << prefix << ALG_RETURN_PTR " <= 0;" << std::endl;
+        if (requiresStack()) {
+          out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
+          out << FF_Q << prefix << ALG_RETURN_PTR " <= 0;" << std::endl;
+        } else {
+          out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
+        }
       }
     }
     /// updates on clockpos
@@ -4586,8 +4673,12 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
     out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << std::endl;
     // state machine return
     if (!doesNotCallSubroutines()) {
-      out << FF_Q << prefix << ALG_RETURN " <= " FF_D << prefix << ALG_RETURN ";" << std::endl;
-      out << FF_Q << prefix << ALG_RETURN_PTR " <= " FF_D << prefix << ALG_RETURN_PTR << ';' << std::endl;
+      if (requiresStack()) {
+        out << FF_Q << prefix << ALG_RETURN " <= " FF_D << prefix << ALG_RETURN ";" << std::endl;
+        out << FF_Q << prefix << ALG_RETURN_PTR " <= " FF_D << prefix << ALG_RETURN_PTR << ';' << std::endl;
+      } else {
+        out << FF_Q << prefix << ALG_RETURN " <= " FF_D << prefix << ALG_RETURN ";" << std::endl;
+      }
     }
   }
   if (!requiresNoReset()) {
@@ -4642,9 +4733,13 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
     // state machine index
     out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << std::endl;
     if (!doesNotCallSubroutines()) {
-      // return stack
-      out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN ";" << std::endl;
-      out << FF_D << prefix << ALG_RETURN_PTR " = " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
+      if (requiresStack()) {
+        // return stack
+        out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN ";" << std::endl;
+        out << FF_D << prefix << ALG_RETURN_PTR " = " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
+      } else {
+        out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN ";" << std::endl;
+      }
     }
   }
   // instanced algorithms run, maintain high
@@ -5008,20 +5103,43 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       out << "end" << std::endl;
       return;
     } else if (current->return_from()) {
-      // decrease return stack pointer
-      out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " - 1;" << std::endl;
-      // return to caller (goes to termination of algorithm is not set)
-      out << FF_D << prefix << ALG_IDX " = " << FF_D << prefix << ALG_RETURN "[(" << FF_D << prefix << ALG_RETURN_PTR << "*" << stateWidth() << ")+:" << stateWidth() << "];" << std::endl;
+      if (requiresStack()) {
+        // decrease return stack pointer
+        out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " - 1;" << std::endl;
+        // return to caller (goes to termination of algorithm is not set)
+        out << "case (" << FF_D << prefix << ALG_RETURN "[(" << FF_D << prefix << ALG_RETURN_PTR << "*" << stateWidth() << ")+:" << stateWidth() << "])" << std::endl;
+      } else {
+        // return to caller (goes to termination of algorithm is not set)
+        out << "case (" << FF_D << prefix << ALG_RETURN << ")" << std::endl;
+      }
+      sl_assert(current->context.subroutine != nullptr);
+      auto RS = m_SubroutinesReturnStates.find(current->context.subroutine->name);
+      if (RS != m_SubroutinesReturnStates.end()) {
+        for (auto possible_retrun_state : RS->second) {
+          out << stateWidth() << "'d" << possible_retrun_state << ':'
+              << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << possible_retrun_state << ';' << std::endl;
+        }
+      } else {
+        // this subroutine is never called?
+      }
+      out << "default:" << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << std::endl;
+      out << "endcase" << std::endl;
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
       out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << std::endl;
       pushState(current->goto_and_return_to()->go_to, _q);
-      // set return index
-      out << FF_D << prefix << ALG_RETURN "[(" << FF_Q << prefix << ALG_RETURN_PTR << "*" << stateWidth() << ")+:" << stateWidth() << "] = " 
+      if (requiresStack()) {
+        // set return index
+        out << FF_D << prefix << ALG_RETURN "[(" << FF_Q << prefix << ALG_RETURN_PTR << "*" << stateWidth() << ")+:" << stateWidth() << "] = "
           << toFSMState(fastForward(current->goto_and_return_to()->return_to)->state_id) << ";" << std::endl;
-      // increase return stack pointer
-      out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " + 1;" << std::endl;     
+        // increase return stack pointer
+        out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " + 1;" << std::endl;
+      } else {
+        // set return index
+        out << FF_D << prefix << ALG_RETURN << " = "
+          << toFSMState(fastForward(current->goto_and_return_to()->return_to)->state_id) << ";" << std::endl;
+      }
       pushState(current->goto_and_return_to()->return_to, _q);
       return;
     } else if (current->wait()) {

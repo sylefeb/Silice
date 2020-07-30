@@ -5,6 +5,7 @@ $$HARDWARE=1
 $$color_depth=6
 $$color_max  =63
 $$SDRAM=1
+$$OLED=1
 
 module SdramVga(
     input clk,

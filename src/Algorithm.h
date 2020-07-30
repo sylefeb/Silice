@@ -311,8 +311,11 @@ namespace Silice
       std::unordered_map<std::string, int >           varnames; // internal var names (translated), for use with host m_Vars
     };
 
-    /// \brief All subroutines
+    /// \brief all subroutines
     std::unordered_map< std::string, t_subroutine_nfo* > m_Subroutines;
+
+    /// \brief subroutine calls: which states subroutine are going back to
+    std::unordered_map< std::string, std::set<int> >     m_SubroutinesReturnStates;
 
     /// \brief forward declaration of a pipeline stage
     struct s_pipeline_stage_nfo;
@@ -760,6 +763,8 @@ namespace Silice
     void determineModAlgBoundVIO();
     /// \brief determine block dependencies
     void determineBlockDependencies(const t_combinational_block* block, t_vio_dependencies& _dependencies) const;
+    /// \brief determines the subroutine return states
+    void determineSubroutineReturnStates();
     /// \brief analyze usage of inputs of instanced algorithms
     void analyzeInstancedAlgorithmsInputs();
     /// \brief Verifies validity of bindings on instanced modules
@@ -774,6 +779,8 @@ namespace Silice
     void resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg);
     /// \brief returns true if the algorithm does not have an FSM
     bool hasNoFSM() const;
+    /// \brief returns true if the algorithm needs a stack
+    bool requiresStack() const;
     /// \brief returns true if the algorithm does not need a reset
     bool requiresNoReset() const;
     /// \brief returns true if the algorithm does not call subroutines
