@@ -461,9 +461,13 @@ namespace Silice
       size_t                              id;                   // internal block id
       std::string                         block_name;           // internal block name (state name from source when applicable)
       bool                                is_state = false;     // true if block has to be a state, false otherwise
+      bool                                is_sub_state = false; // true if block is a sub state in a linear seauence
+      bool                                could_be_sub = false; // whether could be made a sub-state
       bool                                no_skip = false;      // true the state cannot be skipped, even if empty
       int                                 state_id = -1;        // state id, when assigned, -1 otherwise
       int                                 parent_state_id = -1; // state id of the parent, -1 only if never reached
+      int                                 num_sub_states = 0;   // number of sub-states below if root of a sequence
+      int                                 sub_state_id = 0;     // sub-state id if is_sub_state
       std::vector<t_instr_nfo>            instructions;         // list of instructions within block
       t_end_action                       *end_action = nullptr; // end action to perform
       t_combinational_block_context       context;              // block context: subroutine, parent, etc.
@@ -662,6 +666,8 @@ namespace Silice
     t_combinational_block *gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context);
     /// \brief tests whether a graph of block is stateless
     bool isStateLessGraph(t_combinational_block *head) const;
+    /// \brief find all non-comibnation leaves from this block
+    void findNonCombinationalLeaves(const t_combinational_block *head,std::set<t_combinational_block*>& _leaves) const;
     /// \brief gather an if-then-else
     t_combinational_block *gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather an if-then

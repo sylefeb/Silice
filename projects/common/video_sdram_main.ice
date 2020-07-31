@@ -282,7 +282,7 @@ $$print('using ULX3S at 25 MHz, compute clock')
   ); 
 $$else
 $$if ULX3S then
-  ulx3s_clk_50_25_75 clk_gen(
+  ulx3s_clk_50_25_100 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
     clkout1  :> video_clock,
