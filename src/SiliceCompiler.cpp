@@ -89,7 +89,6 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     std::cerr << "parsing algorithm " << name << std::endl;
     bool autorun = (name == "main");
     bool onehot = false;
-    int  stack_size = DEFAULT_STACK_SIZE;
     std::string clock = ALG_CLOCK;
     std::string reset = ALG_RESET;
     if (alg->algModifiers() != nullptr) {
@@ -107,15 +106,12 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
           onehot = true;
         }
         if (m->sstacksz() != nullptr) {
-          stack_size = atoi(m->sstacksz()->NUMBER()->getText().c_str());
-          if (stack_size < 1) {
-            throw Fatal("algorithm return stack size should be at least 1 (line %d)!", (int)alg->getStart()->getLine());
-          }
+          // deprecated, ignore
         }
       }
     }
     AutoPtr<Algorithm> algorithm(new Algorithm(
-      name, clock, reset, autorun, onehot, stack_size,
+      name, clock, reset, autorun, onehot,
       m_Modules, m_Subroutines, m_Circuitries, m_Groups, m_BitFields)
     );
     if (m_Algorithms.find(name) != m_Algorithms.end()) {

@@ -195,7 +195,7 @@ algorithm main(
   output! uint1 oled_dc,
   output! uint1 oled_resn,
   output! uint1 oled_csn,  
-) <@compute_clock> {
+) </*@compute_clock*/@oled_clock> {
 
   column_io colio;
   
@@ -208,12 +208,12 @@ $$end
 $$if ULX3S then
   uint1 oled_clock    = 0;
   uint1 compute_clock = 0;
-  uint1 fast_clock    = 0;
+  uint1 unused_clock    = 0;
   uint1 pll_lock      = 0;
   ulx3s_clk_50_25_100 clk_gen(
     clkin    <: clock,
-    clkout0  :> fast_clock,
-    clkout1  :> compute_clock,
+    clkout0  :> compute_clock, // unused_clock,
+    clkout1  :> unused_clock,  // compute_clock,
     clkout2  :> oled_clock,
     locked   :> pll_lock
   ); 

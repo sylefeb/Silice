@@ -142,11 +142,11 @@ $$end
   // select auto horiz. increment, 666 RGB 
   () <- sendCommand <- (8ha0);
   () <- sendData    <- (8b10100000);
-
+  
   // unlock
   () <- sendCommand <- (8hfd);
   () <- sendData    <- (8hb1);
-
+  
   // set vertical scroll to 0
   () <- sendCommand <- (8ha2);
   () <- sendData    <- (8h00);

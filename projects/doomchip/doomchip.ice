@@ -1,6 +1,6 @@
 // SL 2020-04-28
 // DoomChip!
-//
+// 
 // References:
 // - "DooM black book" by Fabien Sanglard
 // - "DooM unofficial specs" http://www.gamers.org/dhs/helpdocs/dmsp1666.html
@@ -100,73 +100,6 @@ bitfield ZRec
 {
   uint1     clear,
   uint$FPw$ depth,
-}
-
-// Writes a pixel in the framebuffer, calls the texture unit
-circuitry writePixel(
-   inout  colio,
-   output opac,
-   input  pi,   input  pj,
-   input  tu,   input  tv,
-   input  tid,  input  lit,
-   input  dist, inout  depthBuffer,
-   inout  colormap
-) {
-  // initiate texture unit lookup (takes a few cycles)
-  textures <- (tid,-tu,tv);
-  // initiate depth buffer read
-  depthBuffer.addr    = pj;
-  depthBuffer.wenable = 0;
-++: // read depth
-  if (dist < ZRec(depthBuffer.rdata).depth || ZRec(depthBuffer.rdata).clear != pi[0,1]) {
-    //                                                    clear toggle test ^^^^^
-    // sync with texture unit
-    (colio.palidx,opac) <- textures;
-    // lookup lighting
-    colormap.addr = (tid == $texture_ids['F_SKY1'].id$) ? 94 : (colio.palidx + (lit<<8));
-++:    
-    if (opac) { 
-      // write!
-      colio.palidx    = colormap.rdata;
-$$if doomchip_vflip then
-      colio.y         = pj;
-$$else      
-      colio.y         = $doomchip_height-1$-pj;
-$$end
-      colio.write     = 1;
-      // update depth
-      depthBuffer.wenable = 1;
-      depthBuffer.wdata   = {pi[0,1], dist[0,$FPw$]};
-    }
-  }
-}
-
-// Writes a sprite pixel in the framebuffer
-circuitry writeSpritePixel(
-   inout  colio,
-   input  pi,   input  pj,
-   input  pix,  input  lit,
-   input  dist, inout  depthBuffer,
-   inout  colormap
-) {
-  // NOTE: assumes depth buffer has been prepared (to save a cycle)
-  if (dist < ZRec(depthBuffer.rdata).depth || ZRec(depthBuffer.rdata).clear != pi[0,1]) {
-    //                                    clear toggle test ^^^^^
-    // lookup lighting
-    colormap.addr   = pix + (lit<<8);
-++:    
-    // write!
-    colio.palidx    = colormap.rdata;
-$$if doomchip_vflip then
-    colio.y         = pj;
-$$else      
-    colio.y         = $doomchip_height-1$-pj;
-$$end
-    colio.write     = 1;
-    // update depth
-    depthBuffer.wenable = 1;
-    depthBuffer.wdata = {pi[0,1], dist[0,$FPw$]};
-  }
 }
 
 // Selects a sprite based on angle
@@ -305,9 +238,7 @@ $$if ULX3S then
   output uint8 led,
   input  uint7 btn,
 $$end  
-) 
-<autorun> 
-{
+) <autorun> {
 
   // BRAMs for BSP tree
   bram uint64 bsp_nodes_coords[] = {
@@ -448,13 +379,82 @@ $$for i=0,doomchip_width-1 do
     $round(col_to_x(i)*256)$,
 $$end
   };
-  
+
+  // Writes a pixel in the framebuffer, calls the texture unit
+  subroutine writePixel(
+     readwrites   colio,
+     readwrites   depthBuffer,
+     readwrites   colormap,
+     output uint1 texopac,
+     input  uint10 pi, input  uint10 pj,
+     input  int16 tu,  input  int16 tv,
+     input  uint8 tid, input  uint8 lit,
+     input  int$FPw$ dist, 
+  ) {
+    // initiate texture unit lookup (takes a few cycles)
+    textures <- (tid,-tu,tv);
+    // initiate depth buffer read
+    depthBuffer.addr    = pj;
+    depthBuffer.wenable = 0;
+  ++: // read depth
+    if (dist < ZRec(depthBuffer.rdata).depth || ZRec(depthBuffer.rdata).clear != pi[0,1]) {
+      //                                                    clear toggle test ^^^^^
+      // sync with texture unit
+      (colio.palidx,texopac) <- textures;
+      // lookup lighting
+      colormap.addr = (tid == $texture_ids['F_SKY1'].id$) ? 94 : (colio.palidx + (lit<<8));
+  ++:    
+      if (texopac) { 
+        // write!
+        colio.palidx    = colormap.rdata;
+  $$if doomchip_vflip then
+        colio.y         = pj;
+  $$else      
+        colio.y         = $doomchip_height-1$-pj;
+  $$end
+        colio.write     = 1;
+        // update depth
+        depthBuffer.wenable = 1;
+        depthBuffer.wdata   = {pi[0,1], dist[0,$FPw$]};
+      }
+    }
+  }
+
+  // Writes a sprite pixel in the framebuffer
+  subroutine writeSpritePixel(
+     readwrites   colio,
+     readwrites   depthBuffer,
+     readwrites   colormap,
+     input  uint10 pi, input uint10 pj,
+     input  uint8  pix,  input uint8 lit,
+     input  int$FPw$ dist
+  ) {
+    // NOTE: assumes depth buffer has been prepared (to save a cycle)
+    if (dist < ZRec(depthBuffer.rdata).depth || ZRec(depthBuffer.rdata).clear != pi[0,1]) {
+      //                                    clear toggle test ^^^^^
+      // lookup lighting
+      colormap.addr   = pix + (lit<<8);
+  ++:
+      // write!
+      colio.palidx    = colormap.rdata;
+  $$if doomchip_vflip then
+      colio.y         = pj;
+  $$else      
+      colio.y         = $doomchip_height-1$-pj;
+  $$end
+      colio.write     = 1;
+      // update depth
+      depthBuffer.wenable = 1;
+      depthBuffer.wdata = {pi[0,1], dist[0,$FPw$]};
+    }
+  }
+
   // BROM with sprite data
   $spritebrom$
   
   // texture chip
   texturechip textures;
-
+  
   uint16   queue[64] = {};
   uint9    queue_ptr = 0;
 
@@ -494,10 +494,10 @@ $$end
   int16    sec_c_h  = 0;
   int16    sec_f_o  = 0;
   int16    sec_c_o  = 0;
-  int$FPw$ sec_f_h_w = 0;
-  int$FPw$ sec_c_h_w = 0;
-  int$FPw$ sec_f_o_w = 0;
-  int$FPw$ sec_c_o_w = 0;
+  int$FPw$ sec_f_h_t = 0;
+  int$FPw$ sec_c_h_t = 0;
+  int$FPw$ sec_f_o_t = 0;
+  int$FPw$ sec_c_o_t = 0;
   int$FPw$ f_h      = 0;
   int$FPw$ c_h      = 0;
   int$FPw$ f_o      = 0;
@@ -570,7 +570,7 @@ $$end
   
   colio.done  := 0; // maintain low (pulses high when needed)
   colio.write := 0; // maintain low (pulses high when needed)
-  
+
 $$if ULX3S then
   kpressed := {1b0,1b0,1b0,btn[2,1]/*fire2*/,btn[6,1]/*right*/,btn[5,1]/*left*/,btn[4,1]/*dwn*/,btn[3,1]/*up*/};
   led := 0;
@@ -800,11 +800,12 @@ $$end
                 sec_f_h = tmp1 - ray_z;
                 tmp2    = bsp_secs.rdata[16,16]; // ceiling height
                 sec_c_h = tmp2 - ray_z;                  
-++:
                 {
                   int$FPl$ tmp1_h = uninitialized;
                   int$FPl$ tmp2_h = uninitialized;
+++:
                   tmp1_h  = (sec_f_h * invd_w);     // h / d
+++:                  
                   tmp2_h  = (sec_c_h * invd_w);     // h / d
 ++:
                   // obtain projected heights
@@ -813,21 +814,21 @@ $$end
                 }
 ++:
                 // clamp to top/bottom, shift for texturing
-                sec_f_h_w = -1;
+                sec_f_h_t = -1;
                 if (btm > f_h) {
-                  sec_f_h_w = - ((btm - f_h) * d_c_h); // offset texturing
+                  sec_f_h_t = - ((btm - f_h) * d_c_h); // offset texturing
                   f_h       = btm;
                 } else { if (top < f_h) {
-                  sec_f_h_w = - ((f_h - top) * d_c_h); // offset texturing
+                  sec_f_h_t = - ((f_h - top) * d_c_h); // offset texturing
                   f_h       = top;
                 } }
 ++:                
-                sec_c_h_w = 0;
+                sec_c_h_t = 0;
                 if (btm > c_h) {
-                  sec_c_h_w = ((btm - c_h) * d_c_h); // offset texturing
+                  sec_c_h_t = ((btm - c_h) * d_c_h); // offset texturing
                   c_h       = btm;
                 } else { if (top < c_h) {
-                  sec_c_h_w = ((c_h - top) * d_c_h); // offset texturing
+                  sec_c_h_t = ((c_h - top) * d_c_h); // offset texturing
                   c_h       = top;
                 } }
                 
@@ -857,12 +858,12 @@ $$end
                   tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
 ++: // relax timing
                   // light
-                  tmp2_m = (gv_m>>8) - 15;
+                  tmp2_m  = (gv_m>>8) - 15;
                   (light) = lightFromDistance(tmp2_m);
                   // write pixel
                   tmp_u = (tr_gv_m>>5);
                   tmp_v = (tr_gu_m>>5);
-                  (colio,opac,depthBuffer,colormap) = writePixel(colio,c,btm,tmp_u,tmp_v,texid,light,gv_m,depthBuffer,colormap);
+                  (opac) <- writePixel <- (c,btm,tmp_u,tmp_v,texid,light,gv_m);
                   btm   = btm + 1;
                   inv_y.addr = $doomchip_height//2$ - btm;
                 }
@@ -890,12 +891,12 @@ $$end
                     tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
 ++: // relax timing
                     // light
-                    tmp2_m = (gv_m>>8) - 15;
+                    tmp2_m  = (gv_m>>8) - 15;
                     (light) = lightFromDistance(tmp2_m);
                     // write pixel
                     tmp_u = (tr_gv_m>>5);
                     tmp_v = (tr_gu_m>>5);
-                    (colio,opac,depthBuffer,colormap) = writePixel(colio,c,top,tmp_u,tmp_v,texid,light,gv_m,depthBuffer,colormap);
+                    (opac) <- writePixel <- (c,top,tmp_u,tmp_v,texid,light,gv_m);
                     top   = top - 1;
                     inv_y.addr = top - $doomchip_height//2$;
                   }
@@ -938,22 +939,22 @@ $$end
 ++:
                   tmp1_h  = (sec_f_o * invd_w);
 ++:
-                  sec_f_o_w = 0;
+                  sec_f_o_t = 0;
                   (f_o)     = to_h(tmp1_h);
                   if (btm > f_o) {
-                    sec_f_o_w = ((btm - f_o) * d_c_h); // offset texturing
+                    sec_f_o_t = ((btm - f_o) * d_c_h); // offset texturing
                     f_o       = btm;
                   } else { if (top < f_o) {
-                    sec_f_o_w = ((f_o - top) * d_c_h); // offset texturing
+                    sec_f_o_t = ((f_o - top) * d_c_h); // offset texturing
                     f_o       = top;
                   } }
 ++:
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
                     // normal
-                    tex_v   = (sec_f_o_w);
+                    tex_v   = (sec_f_o_t);
                   } else {
                     // lower unpegged                   
-                    tex_v   = (sec_c_h_w) + ((c_h - f_o) * d_c_h);
+                    tex_v   = (sec_c_h_t) + ((c_h - f_o) * d_c_h);
                   }
                   j       = f_o-1;
                   while (j >= btm) {
@@ -965,7 +966,7 @@ $$end
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
                     tmp1_h = d_c_h>>3;
-                    (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
+                    (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                     j      = j - 1;
                     tex_v  = tex_v + (d_c_h);
                   } 
@@ -996,16 +997,16 @@ $$end
                   if (bsp_segs_texmapping.rdata[65,1] == 0) {
                     int$FPw$ tex_v  = uninitialized;
                     // normal
-                    sec_c_o_w = -1;
+                    sec_c_o_t = -1;
                     (c_o)     = to_h(tmp1_h);
                     if (btm > c_o) {
-                      sec_c_o_w = - ((btm - c_o) * d_c_h); // offset texturing
+                      sec_c_o_t = - ((btm - c_o) * d_c_h); // offset texturing
                       c_o       = btm;
                     } else { if (top < c_o) {
-                      sec_c_o_w = - ((c_o - top) * d_c_h); // offset texturing
+                      sec_c_o_t = - ((c_o - top) * d_c_h); // offset texturing
                       c_o       = top;
                     } }
-                    tex_v   = (sec_c_o_w);
+                    tex_v   = (sec_c_o_t);
                     j       = c_o + 1;
                     while (j <= top) {
                       int$FPl$ tmp1_h = uninitialized;
@@ -1016,7 +1017,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
-                      (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
+                      (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j + 1;
                       tex_v  = tex_v - (d_c_h);
                     }
@@ -1030,7 +1031,7 @@ $$end
                     } else { if (top < c_o) {
                       c_o       = top;
                     } }
-                    tex_v   = (sec_c_h_w);
+                    tex_v   = (sec_c_h_t);
                     j       = top;
                     while (j > c_o) {
                       int$FPl$ tmp1_h = uninitialized;
@@ -1041,7 +1042,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
-                      (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
+                      (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j - 1;
                       tex_v  = tex_v + (d_c_h);
                     }
@@ -1068,7 +1069,7 @@ $$end
                   if (bsp_segs_texmapping.rdata[64,1] == 0) {
                     int$FPw$ tex_v  = uninitialized;
                     // normal
-                    tex_v   = (sec_c_h_w);
+                    tex_v   = (sec_c_h_t);
                     j       = c_h;
                     while (j >= f_h) {
                       int$FPl$ tmp1_h = uninitialized;
@@ -1079,14 +1080,14 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
-                      (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
+                      (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j - 1;   
                       tex_v  = tex_v + (d_c_h);
                     }
                   } else {
                     int$FPw$ tex_v  = uninitialized;
                     // lower unpegged
-                    tex_v   = (sec_f_h_w);
+                    tex_v   = (sec_f_h_t);
                     j       = f_h;
                     while (j <= c_h) {
                       int$FPl$ tmp1_h = uninitialized;
@@ -1097,7 +1098,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
-                      (colio,opac,depthBuffer,colormap) = writePixel(colio,c,j,tmp_u,tmp_v,texid,light,tmp1_h,depthBuffer,colormap);
+                      (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j + 1;   
                       tex_v  = tex_v - (d_c_h);
                     }                    
@@ -1125,7 +1126,7 @@ $$end
           // draw things!
           //-------------------------
           // get things sector info          
-          bsp_secs.addr = bsp_ssecs.rdata[24,16];
+          bsp_secs.addr       = bsp_ssecs.rdata[24,16];
           bsp_secs_flats.addr = bsp_ssecs.rdata[24,16];
 ++:
           (seclight) = sectorLightLevel(bsp_secs_flats);
@@ -1139,7 +1140,7 @@ $$end
             int$FPl$ d_h    = uninitialized;
 
             all_things.addr = bsp_secs.rdata[40,8] + s;
-++: // could be avoided
+++:
             // get the thing center x,y coordinates
             v0x = all_things.rdata[ 0,16];
             v0y = all_things.rdata[16,16];
@@ -1147,8 +1148,10 @@ $$end
             // go to view space
             d0x    = v0x - ray_x;
             d0y    = v0y - ray_y;
+++:
             d_h    = (  d0x * cosview_m + d0y * sinview_m ); // along center view ray
             tmp1_h = (- d0x * sinview_m + d0y * cosview_m ) >>> $FPm$; // ortho to center view ray
+++:
             // is in front?
             if (d_h > $1<<(FPm+1)$) { // margin to stay away from 0
               // yes, in front
@@ -1178,7 +1181,7 @@ $$end
               int$FPl$ invd_h    = uninitialized;
               int$FPl$ tmp3_h    = uninitialized;
               int$FPw$ light     = uninitialized;
-              
+
 ++: // relax timing
               // -> compute inverse distance
               (invd_h) <- divl <- ( $FPl$d$(1<<(FPl-2))$ , d_h );
@@ -1230,15 +1233,16 @@ $$end
                 u       = (tmp2_m * d_h) >> $1+FPm-1+4$;
                 y_first = screen_y;
                 y_last  = screen_y + screen_h - $1<<15$;
+++:
                 // retrieve column pointer
                 if (sp_mirrored) {
                   sprites_colptrs.addr = sprites_colstarts.rdata + sprt_w - 1 - u;
                 } else {
                   sprites_colptrs.addr = sprites_colstarts.rdata + u;
                 }
-            ++:
+++:
                 sprites_data.addr = sprites_colptrs.rdata;
-            ++:
+++:
                 v_accum =  0;
                 cur_v   = -1;
                 n_post  =  0;
@@ -1257,7 +1261,7 @@ $$end
                       // read next post
                       v_post            = sprites_data.rdata;
                       sprites_data.addr = sprites_data.addr + 1;
-            ++:
+++:
                       // num in post
                       n_post            = sprites_data.rdata;
                       sprites_data.addr = sprites_data.addr + 2; // skip one              
@@ -1279,7 +1283,7 @@ $$end
                   if (v >= v_post && n_post != 0 && tmp1 < $doomchip_height$) {
                     pix    = sprites_data.rdata;
                     //__display("pix draw %d,%d = %d",c,r,pix);
-                    (colio,depthBuffer,colormap) = writeSpritePixel(colio,c,tmp1,pix,light,tmp2_h,depthBuffer,colormap);
+                    () <- writeSpritePixel <- (c,tmp1,pix,light,tmp2_h);
 
                     v_accum = v_accum + d_h;
                     r       = r - $1<<15$;
@@ -1308,11 +1312,12 @@ $$end
       // next column    
       c = c + 1;
     }
+++:
 
     // ----------------------------------------------
     // collisions
     // ----------------------------------------------    
-$$if INTERACTIVE then    
+//if INTERACTIVE then    
     viewsector = 1;
     colliding  = 0;  
     onmovable  = 0;    
@@ -1402,7 +1407,7 @@ $$if INTERACTIVE then
             int16    ndy      = uninitialized;
             int$FPl$ d_h      = uninitialized;
             int$FPl$ l_h      = uninitialized;
-            
+
             // segment endpoints
             v0x = bsp_segs_coords.rdata[ 0,16];
             v0y = bsp_segs_coords.rdata[16,16];
@@ -1420,7 +1425,7 @@ $$if INTERACTIVE then
             // dot products
             l_h    = ldx * d0x + ldy * d0y;
             d_h    = ndx * d0x + ndy * d0y;
-  ++:           
+    ++:           
             if (onesided == 0 || d_h < 0) { // one sided only stops if d_h < 0
               int$FPl$ tmp1_h = uninitialized;
               int$FPl$ tmp2_h = uninitialized;
@@ -1481,7 +1486,7 @@ $$if INTERACTIVE then
         } 
       }
     }
-$$end
+//end
 
     // ----------------------------------------------
     // motion movables
@@ -1529,6 +1534,7 @@ $$end
             active = 0;
           }
         }
+++:
         // write back sector
         bsp_secs.wdata = bsp_secs.rdata;
         if (bsp_movables.rdata[48,1]) { 
@@ -1554,12 +1560,12 @@ $$end
     // ----------------------------------------------
     // prepare next frame
     // ----------------------------------------------
-    
+++:   
     time  = time  + 1;
     if ((time & 3) == 0) {
       rand  = rand * 31421 + 6927;
     }
-    
+++:   
     frame = frame + 1;
 $$if not INTERACTIVE and (not SIMULATION or USE_DEBUG_POS) then    
     if (frame >= demo_path_len) {
@@ -1580,6 +1586,7 @@ $$  ANGLE_SPEED   = 12
 $$  FORWARD_SHIFT = FPm-2
 $$end
 
+++:
     // viewangle
     if ((kpressed & 4) != 0) {
       viewangle   = viewangle + $ANGLE_SPEED$;
@@ -1623,6 +1630,8 @@ $$end
     } else {
       kpressblind = kpressblind + 1;
     }
+    
+++:    
     // up/down smooth motion
     if (ray_z < target_z) {
       if (ray_z + 3 < target_z) {

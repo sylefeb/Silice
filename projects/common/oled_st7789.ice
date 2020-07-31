@@ -52,22 +52,6 @@ algorithm oled_send(
 
 // ------------------------- 
 
-circuitry sendCommand(output dc,output en,output byte,input val)
-{
-  dc   = 0;
-  byte = val;
-  en   = 1;
-}
-
-circuitry sendData(output dc,output en,output byte,input val)
-{
-  dc   = 1;
-  byte = val;
-  en   = 1;
-}
-
-// ------------------------- 
-
 algorithm oled(
   output uint1 oled_clk,
   output uint1 oled_mosi,
@@ -116,7 +100,7 @@ $$end
   {
     data_or_command = 0;
     byte            = val;
-    enable          = 1;    
+    enable          = 1;
     () <- wait <- ($oled_send_delay-4$);
   }
 
@@ -141,44 +125,44 @@ $$end
   // reset high
   oled_resn = 1;
   // wait
-  () <- wait <- (2000000); // 80 msec @25Mhz
+  () <- wait        <- (2000000); // 80 msec @25Mhz
   // reset low
   oled_resn = 0;
   // wait
-  () <- wait <- (2000000); // 80 msec @25Mhz
+  () <- wait        <- (2000000); // 80 msec @25Mhz
   // reset high
   oled_resn = 1;
   // wait
-  () <- wait <- (2000000); // 80 msec @25Mhz
+  () <- wait        <- (2000000); // 80 msec @25Mhz
   
   // software reset
   () <- sendCommand <- (8h01);
   // wait
-  () <- wait <- (4500000); // 180 msec @25Mhz
+  () <- wait        <- (4500000); // 180 msec @25Mhz
 
   // sleep out
   () <- sendCommand <- (8h11);
   // wait
-  () <- wait <- (3000000); // 120 msec @25Mhz
+  () <- wait        <- (3000000); // 120 msec @25Mhz
   
   // colmod
   () <- sendCommand <- (8h3A);
   () <- sendData    <- (8b01100110);
-  () <- wait <- (300000); // 12 msec @25Mhz
+  () <- wait        <- (300000); // 12 msec @25Mhz
 
   // madctl
   () <- sendCommand <- (8h36);
   //                      MY MX MV ML RGB MH - -
   () <- sendData    <- (8b00100000);
-  () <- wait <- (300000); // 12 msec @25Mhz
+  () <- wait        <- (300000); // 12 msec @25Mhz
 
   // invon
   () <- sendCommand <- (8h21);
-  () <- wait <- (300000); // 12 msec @25Mhz
+  () <- wait        <- (300000); // 12 msec @25Mhz
 
   // noron
   () <- sendCommand <- (8h13);
-  () <- wait <- (300000); // 12 msec @25Mhz
+  () <- wait        <- (300000); // 12 msec @25Mhz
 
   /*
   // gamma on
@@ -195,7 +179,7 @@ $$end
   
   // display on
   () <- sendCommand <- (8h29);
-  () <- wait <- (4500000); // 180 msec @25Mhz
+  () <- wait        <- (4500000); // 180 msec @25Mhz
   
   //---------------
   // Init done!

@@ -962,7 +962,19 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
         mem.clocks.push_back(mod->memClocks()->clk0->IDENTIFIER()->getText());
         mem.clocks.push_back(mod->memClocks()->clk1->IDENTIFIER()->getText());
       } else if (mod->memNoInputLatch() != nullptr) {
+        if (mod->memDelayed() != nullptr) {
+          reportError(mod->memNoInputLatch()->getSourceInterval(),
+            (int)mod->memNoInputLatch()->getStart()->getLine(),
+            "memory cannot use both 'input!' and 'delayed' options");
+        }
         mem.no_input_latch = true;
+      } else if (mod->memDelayed() != nullptr) {
+        if (mod->memNoInputLatch() != nullptr) {
+          reportError(mod->memDelayed()->getSourceInterval(),
+            (int)mod->memDelayed()->getStart()->getLine(),
+            "memory cannot use both 'input!' and 'delayed' options");
+        }
+        mem.delayed = true;
       }
     }
   }
@@ -2522,13 +2534,16 @@ void Algorithm::generateStates()
     // test
     if (cur->is_state) {
       sl_assert(cur->state_id == -1);
-      cur->state_id = m_MaxState++;
+      cur->state_id        = m_MaxState++;
+      cur->parent_state_id = cur->state_id;
     }
     // recurse
     std::vector< t_combinational_block * > children;
     cur->getChildren(children);
     for (auto c : children) {
       if (visited.find(c) == visited.end()) {
+        c->parent_state_id = cur->parent_state_id;
+        sl_assert(c->parent_state_id > -1);
         visited.insert(c);
         q.push(c);
       }
@@ -2541,9 +2556,6 @@ void Algorithm::generateStates()
     << " num states: " << m_MaxState;
   if (hasNoFSM()) {
     std::cerr << " (no FSM)";
-  }
-  if (!requiresStack()) {
-    std::cerr << " (no stack)";
   }
   if (requiresNoReset()) {
     std::cerr << " (no reset)";
@@ -2641,7 +2653,7 @@ bool Algorithm::hasNoFSM() const
   if (m_Blocks.front()->end_action != nullptr) {
     return false;
   }
-  for (const auto &b : m_Blocks) { // NOTE: no need to consider m_AlwaysPre, it has to be comibinational
+  for (const auto &b : m_Blocks) { // NOTE: no need to consider m_AlwaysPre, it has to be combinational
     if (b->state_id == -1 && b->is_state) {
       continue; // block is never reached
     }
@@ -2651,41 +2663,6 @@ bool Algorithm::hasNoFSM() const
   }
   return true;
 }
-
-// -------------------------------------------------
-
-bool Algorithm::requiresStack() const
-{
-  if (hasNoFSM()) {
-    return false;
-  }
-  // now we check whether there are nested subroutine calls
-  for (const auto &b : m_Blocks) { // NOTE: no need to consider m_AlwaysPre, it has to be comibinational
-    if (b->state_id == -1 && b->is_state) {
-      continue; // block is never reached
-    }
-    // subroutine block?
-    if (b->context.subroutine == nullptr) {
-      continue;
-    }
-    // contains a suborutine call?
-    for (auto i : b->instructions) {
-      auto call = dynamic_cast<siliceParser::SyncExecContext*>(i.instr);
-      if (call) {
-        // find algorithm / subroutine
-        auto A = m_InstancedAlgorithms.find(call->joinExec()->IDENTIFIER()->getText());
-        if (A == m_InstancedAlgorithms.end()) { // not a call to algorithm?
-          auto S = m_Subroutines.find(call->joinExec()->IDENTIFIER()->getText());
-          if (S != m_Subroutines.end()) { // nested call to subroutine
-            return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
-}
-
 
 // -------------------------------------------------
 
@@ -3575,17 +3552,7 @@ void Algorithm::determineModAlgBoundVIO()
 
 // -------------------------------------------------
 
-void Algorithm::determineBlockDependencies(const t_combinational_block* block, t_vio_dependencies& _dependencies) const
-{
-  for (const auto& a : block->instructions) {
-    // update dependencies
-    updateDependencies(_dependencies, a.instr, &block->context);
-  }
-}
-
-// -------------------------------------------------
-
-void Algorithm::determineSubroutineReturnStates()
+void Algorithm::analyzeSubroutineCalls()
 {
   for (const auto &b : m_Blocks) {
     if (b->state_id == -1 && b->is_state) {
@@ -3596,8 +3563,15 @@ void Algorithm::determineSubroutineReturnStates()
       if (b->goto_and_return_to()) {
         if (b->goto_and_return_to()->go_to->context.subroutine != nullptr) {
           // record return state
-          m_SubroutinesReturnStates[b->goto_and_return_to()->go_to->context.subroutine->name]
-            .insert(b->goto_and_return_to()->return_to->state_id);
+          m_SubroutinesCallerReturnStates[b->goto_and_return_to()->go_to->context.subroutine->name]
+            .insert(std::make_pair(
+              b->parent_state_id,
+              b->goto_and_return_to()->return_to
+            ));
+          // if in subroutine, indicate it performs sub-calls
+          if (b->context.subroutine != nullptr) {
+            m_Subroutines.at(b->context.subroutine->name)->contains_calls = true;
+          }
         }
       }
     }
@@ -3623,7 +3597,7 @@ void Algorithm::analyzeInstancedAlgorithmsInputs()
 Algorithm::Algorithm(
   std::string name, 
   std::string clock, std::string reset, 
-  bool autorun, bool onehot, int stack_size,
+  bool autorun, bool onehot,
   const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
@@ -3631,7 +3605,7 @@ Algorithm::Algorithm(
   const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield
 )
   : m_Name(name), m_Clock(clock), m_Reset(reset), 
-    m_AutoRun(autorun), m_OneHot(onehot), m_StackSize(stack_size),
+    m_AutoRun(autorun), m_OneHot(onehot), 
   m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), 
   m_KnownCircuitries(known_circuitries), m_KnownGroups(known_groups), m_KnownBitFields(known_bitfield)
 {
@@ -3867,7 +3841,7 @@ void Algorithm::optimize()
   // determine which VIO are assigned to wires
   determineModAlgBoundVIO();
   // determine wich states call wich subroutines
-  determineSubroutineReturnStates();
+  analyzeSubroutineCalls();
   // analyze variables access 
   determineVariableAndOutputsUsage();
   // analyze instanced algorithms inputs
@@ -4577,13 +4551,14 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
       out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
     }
   }
-  // state machine return (subroutine)
+  // state machine caller id (subroutine)
   if (!doesNotCallSubroutines()) {
-    if (requiresStack()) {
-      out << "reg  [" << ((stateWidth() * m_StackSize) - 1) << ":0] " FF_D << prefix << ALG_RETURN << "," FF_Q << prefix << ALG_RETURN << ";" << std::endl;
-      out << "reg  [" << ((1 << justHigherPow2(m_StackSize)) - 1) << ":0]" FF_D << prefix << ALG_RETURN_PTR << ", " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
-    } else {
-      out << "reg  [" << (stateWidth() - 1) << ":0] " FF_D << prefix << ALG_RETURN << "," FF_Q << prefix << ALG_RETURN << ";" << std::endl;
+    out << "reg  [" << (stateWidth() - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ";" << std::endl;
+    // per-subroutine caller id backup (subroutine making nested calls)
+    for (auto sub : m_Subroutines) {
+      if (sub.second->contains_calls) {
+        out << "reg  [" << (stateWidth() - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ";" << std::endl;
+      }
     }
   }
   // state machine run for instanced algorithms
@@ -4651,13 +4626,13 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
       // -> on restart, jump to first state
       out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << std::endl;
       out << "end" << std::endl;
-      // return index for subroutines
+      // caller ids for subroutines
       if (!doesNotCallSubroutines()) {
-        if (requiresStack()) {
-          out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
-          out << FF_Q << prefix << ALG_RETURN_PTR " <= 0;" << std::endl;
-        } else {
-          out << FF_Q << prefix << ALG_RETURN " <= 0;" << std::endl;
+        out << FF_Q << prefix << ALG_CALLER " <= 0;" << std::endl;
+        for (auto sub : m_Subroutines) {
+          if (sub.second->contains_calls) {
+            out << FF_Q << prefix << sub.second->name << "_" << ALG_CALLER " <= 0;" << std::endl;
+          }
         }
       }
     }
@@ -4671,13 +4646,13 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
   if (!hasNoFSM()) {
     // state machine index
     out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << std::endl;
-    // state machine return
+    // caller ids for subroutines
     if (!doesNotCallSubroutines()) {
-      if (requiresStack()) {
-        out << FF_Q << prefix << ALG_RETURN " <= " FF_D << prefix << ALG_RETURN ";" << std::endl;
-        out << FF_Q << prefix << ALG_RETURN_PTR " <= " FF_D << prefix << ALG_RETURN_PTR << ';' << std::endl;
-      } else {
-        out << FF_Q << prefix << ALG_RETURN " <= " FF_D << prefix << ALG_RETURN ";" << std::endl;
+      out << FF_Q << prefix << ALG_CALLER " <= " FF_D << prefix << ALG_CALLER ";" << std::endl;
+      for (auto sub : m_Subroutines) {
+        if (sub.second->contains_calls) {
+          out << FF_Q << prefix << sub.second->name << "_" << ALG_CALLER " <= " FF_D << prefix << sub.second->name << "_" << ALG_CALLER ";" << std::endl;
+        }
       }
     }
   }
@@ -4732,13 +4707,13 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   if (!hasNoFSM()) {
     // state machine index
     out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << std::endl;
+    // caller ids for subroutines
     if (!doesNotCallSubroutines()) {
-      if (requiresStack()) {
-        // return stack
-        out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN ";" << std::endl;
-        out << FF_D << prefix << ALG_RETURN_PTR " = " FF_Q << prefix << ALG_RETURN_PTR << ';' << std::endl;
-      } else {
-        out << FF_D << prefix << ALG_RETURN " = " FF_Q << prefix << ALG_RETURN ";" << std::endl;
+      out << FF_D << prefix << ALG_CALLER " = " FF_Q << prefix << ALG_CALLER ";" << std::endl;
+      for (auto sub : m_Subroutines) {
+        if (sub.second->contains_calls) {
+          out << FF_D << prefix << sub.second->name << "_" << ALG_CALLER " = " FF_Q << prefix << sub.second->name << "_" << ALG_CALLER ";" << std::endl;
+        }
       }
     }
   }
@@ -4829,6 +4804,9 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
     out << "(* parallel_case, full_case *)" << endl;
     out << "case (1'b1)" << endl;
   }
+  // track per-ff state usage
+  std::unordered_map<std::string, std::pair<int, int> >  ff_usage_counts;
+  // go ahead!
   while (!q.empty()) {
     size_t bid = q.front();
     const t_combinational_block *b = m_Id2Block.at(bid);
@@ -4852,9 +4830,21 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
     // write block instructions
     ff_usages.push_back(_ff_usage);
     //resetFFUsageLatches(_ff_usage);
-    writeStatelessBlockGraph(prefix, out, b, nullptr, q, depds, ff_usages.back()/*_ff_usage*/);
+    writeStatelessBlockGraph(prefix, out, b, nullptr, q, depds, ff_usages.back());
     // end of state
     out << "end" << endl;
+    // track states ff usage
+    for (auto ff : ff_usages.back().ff_usage) {
+      ff_usage_counts[ff.first].first  += ((ff.second & e_Q) ? 1 : 0);
+      ff_usage_counts[ff.first].second += ((ff.second & e_D) ? 1 : 0);
+    }
+  }
+  // report on per-ff state use
+  if (0) {
+    std::cerr << "------ flip-flop per state usage ------" << std::endl;
+    for (auto cnt : ff_usage_counts) {
+      std::cerr << setw(30) << cnt.first << " " << setw(30) << sprint("R:%03d W:%03d", cnt.second.first, cnt.second.second) << std::endl;
+    }
   }
   // combine all ff usages
   combineFFUsageInto(_ff_usage, ff_usages, _ff_usage);
@@ -5103,43 +5093,50 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       out << "end" << std::endl;
       return;
     } else if (current->return_from()) {
-      if (requiresStack()) {
-        // decrease return stack pointer
-        out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " - 1;" << std::endl;
-        // return to caller (goes to termination of algorithm is not set)
-        out << "case (" << FF_D << prefix << ALG_RETURN "[(" << FF_D << prefix << ALG_RETURN_PTR << "*" << stateWidth() << ")+:" << stateWidth() << "])" << std::endl;
-      } else {
-        // return to caller (goes to termination of algorithm is not set)
-        out << "case (" << FF_D << prefix << ALG_RETURN << ")" << std::endl;
-      }
+      // return to caller (goes to termination of algorithm is not set)
       sl_assert(current->context.subroutine != nullptr);
-      auto RS = m_SubroutinesReturnStates.find(current->context.subroutine->name);
-      if (RS != m_SubroutinesReturnStates.end()) {
-        for (auto possible_retrun_state : RS->second) {
-          out << stateWidth() << "'d" << possible_retrun_state << ':'
-              << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << possible_retrun_state << ';' << std::endl;
+      auto RS = m_SubroutinesCallerReturnStates.find(current->context.subroutine->name);
+      if (RS != m_SubroutinesCallerReturnStates.end()) {
+        if (RS->second.size() > 1) {
+          out << "case (" << FF_D << prefix << ALG_CALLER << ") " << std::endl;
+          for (auto caller_return : RS->second) {
+            out << stateWidth() << "'d" << caller_return.first << ": begin" << std::endl;
+            out << "  " << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << std::endl;
+            // if returning to a subroutine, restore caller id
+            if (caller_return.second->context.subroutine != nullptr) {
+              sl_assert(caller_return.second->context.subroutine->contains_calls);
+              out << "  " << FF_D << prefix << ALG_CALLER << " = " << FF_Q << prefix << caller_return.second->context.subroutine->name << '_' << ALG_CALLER << ';' << std::endl;
+            }
+            out << "end" << std::endl;
+          }
+          out << "default:" << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << std::endl;
+          out << "endcase" << std::endl;
+        } else {
+          auto caller_return = *RS->second.begin();
+          out << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << std::endl;
+          // if returning to a subroutine, restore caller id
+          if (caller_return.second->context.subroutine != nullptr) {
+            sl_assert(caller_return.second->context.subroutine->contains_calls);
+            out << FF_D << prefix << ALG_CALLER << " = " << FF_Q << prefix << caller_return.second->context.subroutine->name << '_' << ALG_CALLER << ';' << std::endl;
+          }
         }
       } else {
-        // this subroutine is never called?
+        // this subroutine is never called??
+        out << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << std::endl;
       }
-      out << "default:" << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << std::endl;
-      out << "endcase" << std::endl;
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
       out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << std::endl;
       pushState(current->goto_and_return_to()->go_to, _q);
-      if (requiresStack()) {
-        // set return index
-        out << FF_D << prefix << ALG_RETURN "[(" << FF_Q << prefix << ALG_RETURN_PTR << "*" << stateWidth() << ")+:" << stateWidth() << "] = "
-          << toFSMState(fastForward(current->goto_and_return_to()->return_to)->state_id) << ";" << std::endl;
-        // increase return stack pointer
-        out << FF_D << prefix << ALG_RETURN_PTR << " = " << FF_Q << prefix << ALG_RETURN_PTR << " + 1;" << std::endl;
-      } else {
-        // set return index
-        out << FF_D << prefix << ALG_RETURN << " = "
-          << toFSMState(fastForward(current->goto_and_return_to()->return_to)->state_id) << ";" << std::endl;
+      // if in subroutine making nested calls, store callerid
+      if (current->context.subroutine != nullptr) {
+        sl_assert(current->context.subroutine->contains_calls);
+        out << FF_D << prefix << current->context.subroutine->name << '_' << ALG_CALLER << " = " << FF_Q << prefix << ALG_CALLER << ";" << std::endl;
       }
+      // set caller id
+      sl_assert(current->parent_state_id > -1);
+      out << FF_D << prefix << ALG_CALLER << " = " << current->parent_state_id << ";" << std::endl;
       pushState(current->goto_and_return_to()->return_to, _q);
       return;
     } else if (current->wait()) {
@@ -5399,30 +5396,32 @@ void Algorithm::writeModuleMemory(std::ostream& out, const t_mem_nfo& mem) const
 void Algorithm::writeAsModule(std::ostream &out)
 {
   // first pass, discarded but used to fine tune detection of temporary vars
-  t_vio_ff_usage ff_usage;
-  std::ofstream null;
-  writeAsModule(null, ff_usage);
+  {
+    t_vio_ff_usage ff_usage;
+    std::ofstream null;
+    writeAsModule(null, ff_usage);
 
-  // update usage based on first pass
-  for (const auto &v : ff_usage.ff_usage) {
-    if (!(v.second & e_Q)) {
-      if (m_VarNames.count(v.first)) {
-        // NOTE FIXME how about an assignement on only a few bits? this would be missed and not latched as expected
-        if ( m_Vars.at(m_VarNames.at(v.first)).usage == e_FlipFlop) {
-          if (m_Vars.at(m_VarNames.at(v.first)).access == e_ReadOnly) {
-            m_Vars.at(m_VarNames.at(v.first)).usage = e_Const;
-          } else {
-            if (m_Vars.at(m_VarNames.at(v.first)).table_size == 0) { // if not a table (all entries have to be latched)
-              m_Vars.at(m_VarNames.at(v.first)).usage = e_Temporary;
+    // update usage based on first pass
+    for (const auto &v : ff_usage.ff_usage) {
+      if (!(v.second & e_Q)) {
+        if (m_VarNames.count(v.first)) {
+          // NOTE FIXME how about an assignement on only a few bits? this would be missed and not latched as expected
+          if (m_Vars.at(m_VarNames.at(v.first)).usage == e_FlipFlop) {
+            if (m_Vars.at(m_VarNames.at(v.first)).access == e_ReadOnly) {
+              m_Vars.at(m_VarNames.at(v.first)).usage = e_Const;
+            } else {
+              if (m_Vars.at(m_VarNames.at(v.first)).table_size == 0) { // if not a table (all entries have to be latched)
+                m_Vars.at(m_VarNames.at(v.first)).usage = e_Temporary;
+              }
             }
           }
         }
-      }
-      if (hasNoFSM()) {
-        // if there is no FSM, the algorithm is combinational and outputs do not need to be latched
-        if (m_OutputNames.count(v.first)) {
-          if (m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop) {
-            m_Outputs.at(m_OutputNames.at(v.first)).usage = e_Temporary;
+        if (hasNoFSM()) {
+          // if there is no FSM, the algorithm is combinational and outputs do not need to be latched
+          if (m_OutputNames.count(v.first)) {
+            if (m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop) {
+              m_Outputs.at(m_OutputNames.at(v.first)).usage = e_Temporary;
+            }
           }
         }
       }
@@ -5443,8 +5442,10 @@ void Algorithm::writeAsModule(std::ostream &out)
   }
 #endif
 
-  writeAsModule(out, ff_usage);
-
+  {
+    t_vio_ff_usage ff_usage;
+    writeAsModule(out, ff_usage);
+  }
 }
 
 // -------------------------------------------------
@@ -5697,8 +5698,9 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     // inputs
     for (const auto& inv : mem.in_vars) {
       t_vio_dependencies _;
-      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, nullptr, mem.line, FF_D, true, _, _ff_usage, 
-        mem.no_input_latch ? e_D : e_DQ /*latch inputs*/) << ")," << endl;
+      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, nullptr, mem.line, mem.delayed ? FF_Q : FF_D, true, _, _ff_usage,
+      mem.delayed ? e_Q : (mem.no_input_latch ? e_D : e_DQ /*latch inputs*/ )
+      ) << ")," << endl;
     }
     // output wires
     int num = (int)mem.out_vars.size();

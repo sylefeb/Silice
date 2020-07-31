@@ -12,7 +12,7 @@ $$ -- sdramctrl_clock_freq = 50 -- DO NOT USE, something is wrong with it, corru
 $$elseif SIMULATION then
 $$HAS_COMPUTE_CLOCK    = true
 $$end
-
+ 
 // -------------------------
 
 group column_io {

@@ -128,8 +128,9 @@ algModifiers        : '<' algModifier (',' algModifier)* '>' ;
 initList            : '{' value (',' value)* ','? '}' | '{' '}' ;
 
 memNoInputLatch     : 'input' '!' ;
+memDelayed          : 'delayed' ;
 memClocks           : (clk0=sclock ',' clk1=sclock) ;
-memModifier         : memClocks | memNoInputLatch ;
+memModifier         : memClocks | memNoInputLatch | memDelayed ;
 memModifiers        : '<' memModifier (',' memModifier)* ','? '>' ;
 
 declarationWire      : TYPE alwaysAssigned;

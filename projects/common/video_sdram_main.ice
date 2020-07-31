@@ -92,6 +92,8 @@ $$end
 $$if ULX3S then
 // Clock
 import('ulx3s_clk_50_25_100.v')
+import('ulx3s_clk_50_25_50.v')
+import('ulx3s_clk_50_25_75.v')
 import('ulx3s_clk_25_25_100.v')
 import('ulx3s_clk_25_25_50.v')
 import('ulx3s_clk_100_25.v')
@@ -279,6 +281,15 @@ $$print('using ULX3S at 25 MHz, compute clock')
     locked   :> pll_lock
   ); 
 $$else
+$$if ULX3S then
+  ulx3s_clk_50_25_75 clk_gen(
+    clkin    <: clock,
+    clkout0  :> compute_clock,
+    clkout1  :> video_clock,
+    clkout2  :> sdram_clock,
+    locked   :> pll_lock
+  ); 
+$$else
   ulx3s_clk_50_25_100 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
@@ -286,6 +297,7 @@ $$else
     clkout2  :> sdram_clock,
     locked   :> pll_lock
   ); 
+$$end
 $$end
 $$else
 $$if ULX3S_25MHZ then
@@ -506,7 +518,7 @@ $$if HARDWARE then
     
   }
 $$else
-  while (frame < 10) {
+  while (frame < 64) {
 
     while (video_vblank == 1) { }
 	  //__display("vblank off");

@@ -297,6 +297,7 @@ end
 if ALL_IN_ONE then
   code:write('};\n')
 end
+
 -- addressing
 code:write('  switch (texid) {\n')
 code:write('    default : { }\n')  
@@ -393,16 +394,14 @@ for tex,nfo in pairs(texture_ids) do
 end
 code:write('  }\n') -- switch
 
--- wait two cycles (seems required @100MHz, single one led to artifacts)
+-- wait for texture data
 code:write('++:\n')
--- code:write('++:\n')
--- code:write('++:\n') -- not necessary? playing it safe for now
-
+ 
 -- defaut is non transparent
 code:write('  opac = 1;')
--- read data
+-- read and return data
 if ALL_IN_ONE then
-  code:write('  colormap.addr = textures.rdata;\n')
+  error('not implemented!')
 else
   code:write('  switch (texid) {\n')
   code:write('    default : { palidx = 255; }\n')  

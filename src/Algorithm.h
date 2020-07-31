@@ -53,13 +53,10 @@ See GitHub Issues section for open/known issues.
 #define ALG_INOUT  "inout"
 #define ALG_IDX    "index"
 #define ALG_RUN    "run"
-#define ALG_RETURN "return"
-#define ALG_RETURN_PTR "return_ptr"
+#define ALG_CALLER "caller"
 #define ALG_DONE   "done"
 #define ALG_CLOCK  "clock"
 #define ALG_RESET  "reset"
-
-#define DEFAULT_STACK_SIZE 4
 
 namespace Silice
 {
@@ -202,7 +199,8 @@ namespace Silice
       t_type_nfo  type_nfo;
       int         table_size;
       bool        do_not_initialize = false;
-      bool        no_input_latch = false;
+      bool        no_input_latch    = false;
+      bool        delayed           = false;
       int         line;
       std::vector<std::string> clocks;
       std::vector<std::string> in_vars;
@@ -309,13 +307,14 @@ namespace Silice
       std::vector<std::string>                        outputs;  // ordered list of output names (subroutine space)
       std::vector<std::string>                        vars;     // ordered list of internal var names (subroutine space)
       std::unordered_map<std::string, int >           varnames; // internal var names (translated), for use with host m_Vars
+      bool                                            contains_calls = false; // does the subroutine call other subroutines?
     };
 
     /// \brief all subroutines
     std::unordered_map< std::string, t_subroutine_nfo* > m_Subroutines;
 
     /// \brief subroutine calls: which states subroutine are going back to
-    std::unordered_map< std::string, std::set<int> >     m_SubroutinesReturnStates;
+    std::unordered_map< std::string, std::set<std::pair<int, t_combinational_block*> > >  m_SubroutinesCallerReturnStates;
 
     /// \brief forward declaration of a pipeline stage
     struct s_pipeline_stage_nfo;
@@ -464,6 +463,7 @@ namespace Silice
       bool                                is_state = false;     // true if block has to be a state, false otherwise
       bool                                no_skip = false;      // true the state cannot be skipped, even if empty
       int                                 state_id = -1;        // state id, when assigned, -1 otherwise
+      int                                 parent_state_id = -1; // state id of the parent, -1 only if never reached
       std::vector<t_instr_nfo>            instructions;         // list of instructions within block
       t_end_action                       *end_action = nullptr; // end action to perform
       t_combinational_block_context       context;              // block context: subroutine, parent, etc.
@@ -553,8 +553,6 @@ namespace Silice
     int m_MaxState = -1;
     /// \brief integer name of the next block
     int m_NextBlockName = 1;
-    /// \brief stack size for subroutine calls
-    int m_StackSize = DEFAULT_STACK_SIZE;
 
   private:
 
@@ -761,10 +759,8 @@ namespace Silice
     void determineVariableAndOutputsUsage();
     /// \brief determines the list of bound VIO
     void determineModAlgBoundVIO();
-    /// \brief determine block dependencies
-    void determineBlockDependencies(const t_combinational_block* block, t_vio_dependencies& _dependencies) const;
-    /// \brief determines the subroutine return states
-    void determineSubroutineReturnStates();
+    /// \brief analyze the subroutine calls
+    void analyzeSubroutineCalls();
     /// \brief analyze usage of inputs of instanced algorithms
     void analyzeInstancedAlgorithmsInputs();
     /// \brief Verifies validity of bindings on instanced modules
@@ -779,8 +775,6 @@ namespace Silice
     void resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg);
     /// \brief returns true if the algorithm does not have an FSM
     bool hasNoFSM() const;
-    /// \brief returns true if the algorithm needs a stack
-    bool requiresStack() const;
     /// \brief returns true if the algorithm does not need a reset
     bool requiresNoReset() const;
     /// \brief returns true if the algorithm does not call subroutines
@@ -794,7 +788,7 @@ namespace Silice
     Algorithm(
       std::string name,
       std::string clock, std::string reset,
-      bool autorun, bool onehot, int stack_size,
+      bool autorun, bool onehot,
       const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
       const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
       const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
