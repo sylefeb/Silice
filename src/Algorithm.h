@@ -714,6 +714,8 @@ namespace Silice
     int entryState() const;
     /// \brief returns the index to jump to to intitate the termination sequence
     int terminationState() const;
+    /// \brief returns the state bit-width required to encode up to max_state
+    int stateWidth(int max_state) const;
     /// \brief returns the state bit-width for the algorithm
     int stateWidth() const;
     /// \brief fast-forward to the next non empty state

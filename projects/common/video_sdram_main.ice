@@ -97,6 +97,8 @@ import('ulx3s_clk_50_25_75.v')
 import('ulx3s_clk_25_25_100.v')
 import('ulx3s_clk_25_25_50.v')
 import('ulx3s_clk_100_25.v')
+import('ulx3s_clk_75_25.v')
+import('ulx3s_clk_50_25.v')
 import('ulx3s_clk_25_25.v')
 // reset
 import('reset_conditioner.v')
@@ -272,7 +274,7 @@ $$if HAS_COMPUTE_CLOCK then
   uint1 compute_clock = 0;
   uint1 compute_reset = 0;
 $$if ULX3S_25MHZ then
-$$print('using ULX3S at 25 MHz, compute clock')
+$$print('ULX3S at 25 MHz compute clock, 50 Mhz SDRAM')
   ulx3s_clk_25_25_50 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
@@ -282,6 +284,7 @@ $$print('using ULX3S at 25 MHz, compute clock')
   ); 
 $$else
 $$if ULX3S then
+$$print('ULX3S at 50 MHz compute clock, 100 Mhz SDRAM')
   ulx3s_clk_50_25_100 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
@@ -309,7 +312,7 @@ $$print('using ULX3S at 25 MHz')
     locked   :> pll_lock
   ); 
 $$else
-  ulx3s_clk_100_25 clk_gen(
+  ulx3s_clk_75_25 clk_gen( // DEBUG should be 100_25
     clkin    <: clock,
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,
@@ -518,7 +521,7 @@ $$if HARDWARE then
     
   }
 $$else
-  while (frame < 64) {
+  while (frame < 4) {
 
     while (video_vblank == 1) { }
 	  //__display("vblank off");

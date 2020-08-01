@@ -2666,14 +2666,20 @@ int  Algorithm::toFSMState(int state) const
 
 // -------------------------------------------------
 
-int Algorithm::stateWidth() const
+int Algorithm::stateWidth(int max_state) const
 {
-  int max_s = maxState();
   int w = 0;
-  while (max_s > (1 << w)) {
+  while (max_state > (1 << w)) {
     w++;
   }
   return w;
+}
+
+// -------------------------------------------------
+
+int Algorithm::stateWidth() const
+{
+  return stateWidth(maxState());
 }
 
 // -------------------------------------------------
@@ -4616,7 +4622,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
     // sub-state indices (one-hot)
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
-        out << "reg  [" << b->num_sub_states - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "," FF_Q << prefix << b->block_name << '_' << ALG_IDX << ';' << std::endl;
+        out << "reg  [" << stateWidth(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "," FF_Q << prefix << b->block_name << '_' << ALG_IDX << ';' << std::endl;
       }
     }
   }
@@ -4694,7 +4700,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
       // sub-states indices
       for (auto b : m_Blocks) {
         if (b->num_sub_states > 1) {
-          out << FF_Q << prefix << b->block_name << '_' << ALG_IDX   " <= 1;" << std::endl;
+          out << FF_Q << prefix << b->block_name << '_' << ALG_IDX   " <= 0;" << std::endl;
         }
       }
       out << "end else begin" << std::endl;
@@ -4908,15 +4914,17 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
       // by default stay in this state
       out << FF_D << prefix << ALG_IDX << " = " << b->state_id << ';' << endl;
       // produce a local one-hot FSM for the sequence
-      out << "(* parallel_case, full_case *)" << endl;
-      out << "case (1'b1)" << endl;
+      // out << "(* parallel_case, full_case *)" << endl;
+      // out << "case (1'b1)" << endl;
+      out << "case (" << FF_Q << prefix << b->block_name << '_' << ALG_IDX << ")" << endl;
       const t_combinational_block *cur = b;
       int sanity = 0;
       while (cur) {
         // write sub-state
         // -> case value
-        out << FF_Q << prefix << b->block_name << '_' << ALG_IDX << '[' << cur->sub_state_id 
-            << "]: begin" << endl;
+        //out << FF_Q << prefix << b->block_name << '_' << ALG_IDX << '[' << cur->sub_state_id << ']'
+        out << cur->sub_state_id
+            << ": begin" << endl;
         // -> track dependencies, starting with those of always block
         t_vio_dependencies depds = always_dependencies;
         // -> write block instructions
@@ -4925,13 +4933,15 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
         // -> goto next
         if (cur->sub_state_id == b->num_sub_states-1) { 
           // -> if last, reinit local index
-          out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << b->num_sub_states << "'b1";
+          // out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << b->num_sub_states << "'b1";
+          out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << "0";
         } else {
           // -> next
-          out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << b->num_sub_states << "'b";
+          /*out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << b->num_sub_states << "'b";
           ForRangeReverse(i, b->num_sub_states - 1, 0) {
             out << (i == (cur->sub_state_id + 1) ? '1' : '0');
-          }
+          }*/
+          out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << cur->sub_state_id + 1;
         }
         out << ';' << endl;
         // -> close state
@@ -4956,9 +4966,7 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
       }
       sl_assert(sanity == b->num_sub_states);
       // closing sub-state local FSM      
-      out << "default: begin" << endl; // -> should never be reached
-      out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << b->num_sub_states << "'b1;" << endl;
-      out << "end" << endl;
+      out << "default: begin end" << endl; // -> should never be reached
       out << "endcase" << endl;
     } else {
       // track dependencies, starting with those of always block

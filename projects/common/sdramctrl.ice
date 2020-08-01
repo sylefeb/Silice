@@ -93,7 +93,7 @@ $$end
   uint13 a   = 0 (* IOB = "TRUE" *);
   
   uint4  row_open    = 0;
-  uint13 row_addr[4] = {0,0,0,0};
+  uint16 row_addr[4] = {0,0,0,0}; // uin16 instead of 13 to avoid mul
 
   uint1  work_todo   = 0;  
   uint13 row         = 0;
@@ -109,7 +109,6 @@ $$  refresh_wait        = 7
 $$  read_wait           = 3
 $$  cmd_active_delay    = 1
 $$  cmd_precharge_delay = 2
-$$  cmd_pre_precharge_delay = 0
 $$  print('SDRAM configured for 100 MHz (default)')
 $$else
 $$  refresh_cycles      = math.floor(750*sdramctrl_clock_freq/100)
@@ -117,11 +116,9 @@ $$  refresh_wait        = 1 + math.floor(7*sdramctrl_clock_freq/100)
 $$  read_wait           = 1 + math.floor(math.max(4, 4*sdramctrl_clock_freq/100))
 $$  cmd_active_delay    = 1
 $$  cmd_precharge_delay = 2
-$$  cmd_pre_precharge_delay = 0
 $$  if sdramctrl_clock_freq > 100 then
 $$    cmd_active_delay        = 2
 $$    cmd_precharge_delay     = 4
-$$    cmd_pre_precharge_delay = 1
 $$  end
 $$  print('SDRAM configured for ' .. sdramctrl_clock_freq .. ' MHz')
 $$end
@@ -132,15 +129,48 @@ $$end
   subroutine wait(input uint16 incount)
   {
     uint16 count = 0;
-    count = incount - 3; // -1 for startup,
-                         // -1 for exit,
+    count = incount - 3; // -1 for sub entry,
+                         // -1 for sub exit,
                          // -1 for proper loop length
     while (count > 0) {
       count = count - 1;      
     }
-    return;
   }
 
+  subroutine precharge(
+     reads  CMD_PRECHARGE,
+     writes cmd,writes a,writes ba,
+     readwrites  row_open,
+     input uint2 bk,
+     input uint1 all)
+  {
+        cmd      = CMD_PRECHARGE;
+        a        = 0;
+        a[10,1]  = all;
+        ba       = bk;
+        if (all) {
+          row_open = 0;
+        } else {
+          row_open[bk,1] = 0;
+        }
+$$for i=1,cmd_precharge_delay-1 do         
+++:
+$$end
+  }
+  
+  subroutine activate(
+    reads CMD_ACTIVE, writes cmd, writes ba, writes a,
+    input uint2 bk,input uint13 rw)
+  {
+    // -> activate
+    cmd = CMD_ACTIVE;
+    ba  = bk;
+    a   = rw;
+$$for i=1,cmd_active_delay do
+++:
+$$end  
+  }
+  
   sdram_cs  := cmd[3,1];
   sdram_ras := cmd[2,1];
   sdram_cas := cmd[1,1];
@@ -186,13 +216,7 @@ $$end
   () <- wait <- (10100);
   
   // precharge all
-  cmd      = CMD_PRECHARGE;
-  a[10,1]  = 1;
-  ba       = 0;
-  row_open = 0;
-$$for i=1,cmd_precharge_delay do          
-++:
-$$end
+  () <- precharge <- (0,1);
   
   // refresh 1
   cmd     = CMD_REFRESH;
@@ -222,17 +246,7 @@ $$end
         // -> now busy!
         sd.busy  = 1;
         // -> precharge all
-$$for i=1,cmd_pre_precharge_delay do          
-++:
-$$end
-        cmd      = CMD_PRECHARGE;
-        a        = 0;
-        a[10,1]  = 1;
-        ba       = 0;
-        row_open = 0;
-$$for i=1,cmd_precharge_delay do          
-++:
-$$end
+        () <- precharge <- (0,1);
         // refresh
         cmd           = CMD_REFRESH;
         // wait
@@ -244,7 +258,7 @@ $$end
     }
 
     if (work_todo) {
-    // -> row management
+      // -> row management
       if (row_open[bank,1]) {
         // a row is open
         if (row_addr[bank] == row) {
@@ -252,72 +266,48 @@ $$end
         } else {
           // different row
           // -> pre-charge
-$$for i=1,cmd_pre_precharge_delay do          
-++:
-$$end
-          cmd            = CMD_PRECHARGE;
-          a              = 0;
-          ba             = bank;
-          row_open[ba,1] = 0; //row closed
-$$for i=1,cmd_precharge_delay do          
-++:
-$$end
+          () <- precharge <- (bank,0);
           // -> activate
-          cmd = CMD_ACTIVE;
-          ba  = bank;
-          a   = row;
-$$for i=1,cmd_active_delay do          
-++:
-$$end
-          // row opened
-          row_open[ba,1] = 1; 
-          row_addr[ba]   = row;
+          () <- activate <- (bank,row);
         }
       } else {
-          // -> activate
-          cmd = CMD_ACTIVE;
-          ba  = bank;
-          a   = row;
-$$for i=1,cmd_active_delay do          
-++:
-$$end
-          // row opened
-          row_open[ba,1] = 1;
-          row_addr[ba]   = row; 
+        // -> activate
+        () <- activate <- (bank,row);
       }
+      // row opened
+      row_open[ba,1] = 1; 
+      row_addr[ba]   = row;
       // write or read?
       if (do_rw) {
         // write
         cmd   = CMD_WRITE;
         dq_en = 1;
-        dq_o  = data[0,8];
         a     = {2b0, 1b0/*no auto-precharge*/, col, wbyte};
         ba    = bank;
+        dq_o  = data[0,8];
 ++:
         // can accept work
         dq_en          = 0;
         work_todo      = 0;
         sd.busy        = 0;
       } else {
+        uint6 read_cnt = 0;
         // read
+        cmd   = CMD_READ;
         dq_en = 0;
         a     = {2b0, 1b0/*no auto-precharge*/, col, 2b0};
         ba    = bank;
         // wait for data (CAS)
-        cmd   = CMD_READ;
-        
-        () <- wait <- ($read_wait$);
-        
-        // burst 4 bytes 
-        sd.data_out[0,8]  = dq_i;
-++:        
-        sd.data_out[8,8]  = dq_i;
-++:        
-        sd.data_out[16,8] = dq_i;
-++:        
-        sd.data_out[24,8] = dq_i;
-        sd.out_valid      = 1;
+        // () <- wait <- ($read_wait$);
 ++:
+++:
+++:
+        // burst 4 bytes
+        while (read_cnt < 32) {
+          sd.data_out[read_cnt,8] = dq_i;
+          read_cnt                = read_cnt + 8;
+          sd.out_valid = read_cnt[3,1] & read_cnt[4,1];
+        }
         // can accept work
         work_todo      = 0;
         sd.busy        = 0;
