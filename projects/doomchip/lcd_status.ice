@@ -29,12 +29,12 @@ algorithm lcd_status(
   
   subroutine printMessage(
     readwrites  io,
-    input uint8 msg[17]
+    reads msg1
   ) {
     uint8 i = 0;  
-    while (msg[i] != 0) {
+    while (msg1[i] != 0) {
       while (io.ready == 0) { }
-      io.data   = msg[i];
+      io.data   = msg1[i];
       io.print  = 1;
       i         = i + 1;
     }
@@ -70,7 +70,7 @@ algorithm lcd_status(
   io.data   = 1;
   io.setrow = 0;
 
-  () <- printMessage <- (msg1);
+  () <- printMessage <- ();
 
   while (1) {
     

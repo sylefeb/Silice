@@ -93,7 +93,7 @@ $$end
   uint13 a   = 0 (* IOB = "TRUE" *);
   
   uint4  row_open    = 0;
-  uint16 row_addr[4] = {0,0,0,0}; // uin16 instead of 13 to avoid mul
+  uint13 row_addr[4] = {0,0,0,0};
 
   uint1  work_todo   = 0;  
   uint13 row         = 0;
@@ -259,24 +259,18 @@ $$end
 
     if (work_todo) {
       // -> row management
-      if (row_open[bank,1]) {
-        // a row is open
-        if (row_addr[bank] == row) {
-          // same row: all good!
-        } else {
-          // different row
+      if (!row_open[bank,1] || row_addr[bank] != row) {
+        if (row_open[bank,1]) {
+          // different row open
           // -> pre-charge
           () <- precharge <- (bank,0);
-          // -> activate
-          () <- activate <- (bank,row);
         }
-      } else {
         // -> activate
         () <- activate <- (bank,row);
       }
       // row opened
       row_open[ba,1] = 1; 
-      row_addr[ba]   = row;
+      row_addr[ba]   = row;      
       // write or read?
       if (do_rw) {
         // write
@@ -285,11 +279,7 @@ $$end
         a     = {2b0, 1b0/*no auto-precharge*/, col, wbyte};
         ba    = bank;
         dq_o  = data[0,8];
-++:
-        // can accept work
-        dq_en          = 0;
-        work_todo      = 0;
-        sd.busy        = 0;
+        // a cycle is spent upon exiting this branch
       } else {
         uint6 read_cnt = 0;
         // read
@@ -297,21 +287,20 @@ $$end
         dq_en = 0;
         a     = {2b0, 1b0/*no auto-precharge*/, col, 2b0};
         ba    = bank;
-        // wait for data (CAS)
-        // () <- wait <- ($read_wait$);
 ++:
 ++:
-++:
+// the third comes when entering the while
         // burst 4 bytes
         while (read_cnt < 32) {
           sd.data_out[read_cnt,8] = dq_i;
           read_cnt                = read_cnt + 8;
-          sd.out_valid = read_cnt[3,1] & read_cnt[4,1];
         }
-        // can accept work
-        work_todo      = 0;
-        sd.busy        = 0;
       }
+      // can accept work
+      dq_en          = 0;
+      work_todo      = 0;
+      sd.busy        = 0;
+      sd.out_valid   = 1;
     }
         
   }

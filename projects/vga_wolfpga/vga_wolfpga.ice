@@ -38,6 +38,7 @@ $$Deg270 = 2700
 $$Deg360 = 3600
   
 // -------------------------
+
 /*
 algorithm walker(
   output int$FPw$ posx,

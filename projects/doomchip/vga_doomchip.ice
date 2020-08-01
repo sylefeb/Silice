@@ -7,7 +7,7 @@
 
 $$if ULX3S then
 $$HAS_COMPUTE_CLOCK    = true
-$$ -- ULX3S_25MHZ          = true
+$$ -- ULX3S_SLOW       = true
 $$ -- sdramctrl_clock_freq = 50 -- DO NOT USE, something is wrong with it, corrupts SDRAM
 $$elseif SIMULATION then
 $$HAS_COMPUTE_CLOCK    = true
@@ -24,11 +24,11 @@ group column_io {
   uint1  done      = 0, // done drawing column
 }
 
-$$doomchip_width  = 320
+$$doomchip_width  = 320 
 $$doomchip_height = 200
 
 $include('doomchip.ice')
-// include('doomchip_debug_placeholder.ice')
+//include('doomchip_debug_placeholder.ice')
 
 $$texfile_palette = palette_666
 $include('../common/video_sdram_main.ice')

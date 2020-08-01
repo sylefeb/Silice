@@ -1620,6 +1620,9 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         ioname = P->input()->IDENTIFIER()->getText();
         strtype = P->input()->TYPE()->getText();
         if (P->input()->NUMBER() != nullptr) {
+          reportError(P->getSourceInterval(), (int)P->getStart()->getLine(),
+            "subroutine '%s' input '%s', tables as input are not yet supported",
+            nfo->name.c_str(), ioname.c_str());
           tbl_size = atoi(P->input()->NUMBER()->getText().c_str());
         }
         nfo->inputs.push_back(ioname);
@@ -1628,6 +1631,9 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         ioname = P->output()->IDENTIFIER()->getText();
         strtype = P->output()->TYPE()->getText();
         if (P->output()->NUMBER() != nullptr) {
+          reportError(P->getSourceInterval(), (int)P->getStart()->getLine(),
+            "subroutine '%s' output '%s', tables as output are not yet supported",
+            nfo->name.c_str(), ioname.c_str());
           tbl_size = atoi(P->output()->NUMBER()->getText().c_str());
         }
         nfo->outputs.push_back(ioname);
@@ -2260,6 +2266,7 @@ void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _i
   _io.table_size = 0;
   splitType(input->TYPE()->getText(), _io.type_nfo);
   if (input->NUMBER() != nullptr) {
+    reportError(input->getSourceInterval(), -1, "input '%s': tables as input are not yet supported", _io.name.c_str());
     _io.table_size = atoi(input->NUMBER()->getText().c_str());
   }
   _io.init_values.resize(max(_io.table_size, 1), "0");
@@ -2274,6 +2281,7 @@ void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nf
   _io.table_size = 0;
   splitType(output->TYPE()->getText(), _io.type_nfo);
   if (output->NUMBER() != nullptr) {
+    reportError(output->getSourceInterval(), -1, "input '%s': tables as output are not yet supported", _io.name.c_str());
     _io.table_size = atoi(output->NUMBER()->getText().c_str());
   }
   _io.init_values.resize(max(_io.table_size, 1), "0");
@@ -2288,6 +2296,7 @@ void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _
   _io.table_size = 0;
   splitType(inout->TYPE()->getText(), _io.type_nfo);
   if (inout->NUMBER() != nullptr) {
+    reportError(inout->getSourceInterval(), -1, "inout '%s': tables as inout are not supported", _io.name.c_str());
     _io.table_size = atoi(inout->NUMBER()->getText().c_str());
   }
   _io.init_values.resize(max(_io.table_size, 1), "0");
@@ -4347,7 +4356,7 @@ void Algorithm::writeTableAccess(
     if (get<1>(tws) == 0) {
       reportError(tblaccess->ioAccess()->IDENTIFIER().back()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
-    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ")*" << get<0>(tws).width << "+:" << get<0>(tws).width << ']';
+    out << "[" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ']';
   } else {
     sl_assert(tblaccess->IDENTIFIER() != nullptr);
     std::string vname = tblaccess->IDENTIFIER()->getText();
@@ -4358,7 +4367,7 @@ void Algorithm::writeTableAccess(
       reportError(tblaccess->IDENTIFIER()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
     // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
-    out << "[(" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ")*" << std::get<0>(tws).width << "+:" << std::get<0>(tws).width << ']';
+    out << "[" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ']';
   }
 }
 
@@ -4495,7 +4504,13 @@ void Algorithm::writeWireAssignements(std::string prefix, std::ostream &out, con
 void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
 {
   if (!v.do_not_initialize) {
-    out << FF_Q << prefix << v.name << " <= " << v.init_values[0] << ';' << std::endl;
+    if (v.table_size == 0) {
+      out << FF_Q << prefix << v.name << " <= " << v.init_values[0] << ';' << endl;
+    } else {
+      ForIndex(i,v.init_values.size()) {
+        out << FF_Q << prefix << v.name << "[" << i << "] <= " << v.init_values[i] << ';' << endl;
+      }
+    }
   }
 }
 
@@ -4503,7 +4518,13 @@ void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, cons
 
 void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const
 {
-  out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << std::endl;
+  if (v.table_size == 0) {
+    out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << endl;
+  } else {
+    ForIndex(i, v.init_values.size()) {
+      out << FF_Q << prefix << v.name << "[" << i << "] <= " << FF_D << prefix << v.name << "[" << i << "];" << endl;
+    }
+  }
 }
 
 // -------------------------------------------------
@@ -4513,7 +4534,7 @@ int Algorithm::varBitDepth(const t_var_nfo& v) const
   if (v.table_size == 0) {
     return v.type_nfo.width;
   } else {
-    return v.type_nfo.width * v.table_size;
+    return v.type_nfo.width;
   }
 }
 
@@ -4540,14 +4561,18 @@ void Algorithm::writeConstDeclarations(std::string prefix, std::ostream& out) co
 {
   for (const auto& v : m_Vars) {
     if (v.usage != e_Const) continue;
-    out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_CST << prefix << v.name << ';' << std::endl;
+    if (v.table_size == 0) {
+      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_CST << prefix << v.name << ';' << std::endl;
+    } else {
+      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_CST << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << std::endl;
+    }
     if (!v.do_not_initialize) {
       if (v.table_size == 0) {
         out << "assign " << FF_CST << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
       } else {
         int width = v.type_nfo.width;
         ForIndex(i, v.table_size) {
-          out << "assign " << FF_CST << prefix << v.name << '[' << (i*width) << "+:" << width << ']' << " = " << v.init_values[i] << ';' << std::endl;
+          out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = " << v.init_values[i] << ';' << std::endl;
         }
       }
     }
@@ -4560,7 +4585,11 @@ void Algorithm::writeTempDeclarations(std::string prefix, std::ostream& out) con
 {
   for (const auto& v : m_Vars) {
     if (v.usage != e_Temporary) continue;
-    out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_TMP << prefix << v.name << ';' << std::endl;
+    if (v.table_size == 0) {
+      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_TMP << prefix << v.name << ';' << std::endl;
+    } else {
+      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_TMP << prefix << v.name << '[' << v.table_size-1 << ":0]" << ';' << std::endl;
+    }
   }
   for (const auto &v : m_Outputs) {
     if (v.usage != e_Temporary) continue;
@@ -4573,9 +4602,12 @@ void Algorithm::writeTempDeclarations(std::string prefix, std::ostream& out) con
 void Algorithm::writeWireDeclarations(std::string prefix, std::ostream& out) const
 {
   for (const auto& v : m_Vars) {
-    if ((v.usage == e_Bound && v.access == e_ReadWriteBinded) 
-      || v.usage == e_Wire) {
-      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << WIRE << prefix << v.name << ';' << std::endl;
+    if ((v.usage == e_Bound && v.access == e_ReadWriteBinded) || v.usage == e_Wire) {
+      if (v.table_size == 0) {
+        out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << WIRE << prefix << v.name << ';' << std::endl;
+      } else {
+        out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << WIRE << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << std::endl;
+      }
     }
   }
 }
@@ -4588,13 +4620,23 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
   // flip-flops for vars
   for (const auto& v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
-    out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
-    out << FF_D << prefix << v.name << ';' << std::endl;
-    if (!v.attribs.empty()) {
-      out << v.attribs << std::endl;
+    if (v.table_size == 0) {
+      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
+      out << FF_D << prefix << v.name << ';' << std::endl;
+      if (!v.attribs.empty()) {
+        out << v.attribs << std::endl;
+      }
+      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
+      out << FF_Q << prefix << v.name << ';' << std::endl;
+    } else {
+      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
+      out << FF_D << prefix << v.name << '[' << v.table_size-1 << ":0];" << std::endl;
+      if (!v.attribs.empty()) {
+        out << v.attribs << std::endl;
+      }
+      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
+      out << FF_Q << prefix << v.name << '[' << v.table_size - 1 << ":0];" << std::endl;
     }
-    out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
-    out << FF_Q << prefix << v.name << ';' << std::endl;
   }
   // flip-flops for outputs
   for (const auto& v : m_Outputs) {
@@ -4758,7 +4800,13 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
 
 void Algorithm::writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const
 {
-  out << FF_D << prefix << v.name << " = " << FF_Q << prefix << v.name << ';' << std::endl;
+  if (v.table_size == 0) {
+    out << FF_D << prefix << v.name << " = " << FF_Q << prefix << v.name << ';' << std::endl;
+  } else {
+    ForIndex(i, v.table_size) {
+      out << FF_D << prefix << v.name << '[' << i << "] = " << FF_Q << prefix << v.name << '[' << i << "];" << std::endl;
+    }
+  }
 }
 
 // -------------------------------------------------
@@ -4852,6 +4900,7 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   // reset temp variables (to ensure no latch is created)
   for (const auto &v : m_Vars) {
     if (v.usage != e_Temporary) continue;
+    sl_assert(v.table_size == 0);
     out << FF_TMP << prefix << v.name << " = 0;" << std::endl;
   }
   for (const auto &v : m_Outputs) {
@@ -5413,7 +5462,7 @@ void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::
       out << ff << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
     } else {
       ForIndex(i, v.table_size) {
-        out << ff << prefix << v.name << "[(" << i << ")*" << v.type_nfo.width << "+:" << v.type_nfo.width << ']' << " = " << v.init_values[i] << ';' << std::endl;
+        out << ff << prefix << v.name << "[" << i << ']' << " = " << v.init_values[i] << ';' << std::endl;
       }
     }
     // insert write in dependencies
@@ -5615,12 +5664,15 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   // module header
   out << "module M_" << m_Name << '(' << endl;
   for (const auto& v : m_Inputs) {
+    sl_assert(v.table_size == 0);
     out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
   }
   for (const auto& v : m_Outputs) {
+    sl_assert(v.table_size == 0);
     out << "output " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
   }
   for (const auto& v : m_InOuts) {
+    sl_assert(v.table_size == 0);
     out << "inout " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INOUT << '_' << v.name << ',' << endl;
   }
   if (!hasNoFSM()) {
@@ -5649,14 +5701,15 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
       }
     }
   }
+
   // algorithm instantiations (1/2) 
   // -> required wires to hold outputs
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &nfo = m_InstancedAlgorithms.at(iaiordr);
     // output wires
     for (const auto& os : nfo.algo->m_Outputs) {
-      out << "wire " << typeString(os) << " [" << varBitDepth(os) - 1 << ":0] "
-        << WIRE << nfo.instance_prefix << '_' << os.name << ';' << endl;
+      sl_assert(os.table_size == 0);
+      out << "wire " << typeString(os) << " [" << varBitDepth(os) - 1 << ":0] " << WIRE << nfo.instance_prefix << '_' << os.name << ';' << endl;
     }
     if (!nfo.algo->hasNoFSM()) {
       // algorithm done
@@ -5687,20 +5740,20 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
 
   // output assignments
   for (const auto& v : m_Outputs) {
+    sl_assert(v.table_size == 0);
     if (v.usage == e_FlipFlop) {
       out << "assign " << ALG_OUTPUT << "_" << v.name << " = ";
+      out << (v.combinational ? FF_D : FF_Q);
+      out << "_" << v.name << ';' << endl;
       if (v.combinational) {
-        out << FF_D; 
         updateFFUsage(e_D, true, _ff_usage.ff_usage[v.name]);
       } else {
-        out << FF_Q;
         updateFFUsage(e_Q, true, _ff_usage.ff_usage[v.name]);
       }
-      out << "_" << v.name << ';' << endl;
     } else if (v.usage == e_Temporary) {
-      out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << FF_TMP << "_" << v.name << ';' << endl;
+        out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << FF_TMP << "_" << v.name << ';' << endl;
     } else if (v.usage == e_Bound) {
-      out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << endl;
+        out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << endl;
     } else {
       throw Fatal("internal error");
     }

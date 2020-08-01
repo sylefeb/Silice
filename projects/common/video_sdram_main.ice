@@ -270,56 +270,36 @@ $$elseif ULX3S then
   uint1 video_clock   = 0;
   uint1 sdram_clock   = 0;
   uint1 pll_lock      = 0;
-$$if HAS_COMPUTE_CLOCK then
-  uint1 compute_clock = 0;
-  uint1 compute_reset = 0;
-$$if ULX3S_25MHZ then
-$$print('ULX3S at 25 MHz compute clock, 50 Mhz SDRAM')
-  ulx3s_clk_25_25_50 clk_gen(
-    clkin    <: clock,
-    clkout0  :> compute_clock,
-    clkout1  :> video_clock,
-    clkout2  :> sdram_clock,
-    locked   :> pll_lock
-  ); 
-$$else
-$$if ULX3S then
-$$print('ULX3S at 50 MHz compute clock, 100 Mhz SDRAM')
-  ulx3s_clk_50_25_100 clk_gen(
-    clkin    <: clock,
-    clkout0  :> compute_clock,
-    clkout1  :> video_clock,
-    clkout2  :> sdram_clock,
-    locked   :> pll_lock
-  ); 
-$$else
-  ulx3s_clk_50_25_100 clk_gen(
-    clkin    <: clock,
-    clkout0  :> compute_clock,
-    clkout1  :> video_clock,
-    clkout2  :> sdram_clock,
-    locked   :> pll_lock
-  ); 
-$$end
-$$end
-$$else
-$$if ULX3S_25MHZ then
-$$print('using ULX3S at 25 MHz')
-  ulx3s_clk_25_25 clk_gen(
-    clkin    <: clock,
-    clkout0  :> sdram_clock,
-    clkout1  :> video_clock,
-    locked   :> pll_lock
-  ); 
-$$else
-  ulx3s_clk_75_25 clk_gen( // DEBUG should be 100_25
-    clkin    <: clock,
-    clkout0  :> sdram_clock,
-    clkout1  :> video_clock,
-    locked   :> pll_lock
-  ); 
-$$end
-$$end
+  $$if HAS_COMPUTE_CLOCK then
+    uint1 compute_clock = 0;
+    uint1 compute_reset = 0;
+    $$if ULX3S_SLOW then
+      $$print('ULX3S at 25 MHz compute clock, 100 MHz SDRAM')
+      ulx3s_clk_25_25_100 clk_gen(
+        clkin    <: clock,
+        clkout0  :> compute_clock,
+        clkout1  :> video_clock,
+        clkout2  :> sdram_clock,
+        locked   :> pll_lock
+      ); 
+    $$else
+      $$print('ULX3S at 50 MHz compute clock, 100 MHz SDRAM')
+      ulx3s_clk_50_25_100 clk_gen(
+        clkin    <: clock,
+        clkout0  :> compute_clock,
+        clkout1  :> video_clock,
+        clkout2  :> sdram_clock,
+        locked   :> pll_lock
+      ); 
+    $$end
+  $$else -- not HAS_COMPUTE_CLOCK
+    ulx3s_clk_100_25 clk_gen(
+      clkin    <: clock,
+      clkout0  :> sdram_clock,
+      clkout1  :> video_clock,
+      locked   :> pll_lock
+    ); 
+  $$end
   // --- video clean reset
   reset_conditioner video_rstcond (
     rcclk <: video_clock,
@@ -332,14 +312,14 @@ $$end
     in    <: reset,
     out   :> sdram_reset
   );
-$$if HAS_COMPUTE_CLOCK then
+  $$if HAS_COMPUTE_CLOCK then
   // --- compute clean reset
   reset_conditioner compute_rstcond (
     rcclk <: compute_clock,
     in    <: reset,
     out   :> compute_reset
   );
-$$end
+  $$end
 $$end
 
 uint1  video_active = 0;
@@ -425,10 +405,10 @@ sdio sd1;
 uint1  select       = 0;
 
 sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
-  select     <:  select,
-  sd         <:> sd,
-  sd0        <:> sd0,
-  sd1        <:> sd1,
+  select     <:   select,
+  sd         <:>  sd,
+  sd0        <:>  sd0,
+  sd1        <:>  sd1,
 );
 
 // --- Frame buffer row memory
@@ -521,7 +501,7 @@ $$if HARDWARE then
     
   }
 $$else
-  while (frame < 4) {
+  while (frame < 16) {
 
     while (video_vblank == 1) { }
 	  //__display("vblank off");

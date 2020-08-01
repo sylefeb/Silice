@@ -4,7 +4,7 @@
 // cause of this could be from wrong CPHASE/FPHASE parameters
 module ulx3s_clk_100_25
 (
-    input  clkin, // 25 MHz, 0 deg
+    input clkin, // 25 MHz, 0 deg
     output clkout0, // 100 MHz, 0 deg
     output clkout1, // 25 MHz, 0 deg
     output locked

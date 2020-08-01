@@ -64,7 +64,7 @@ $$if doomchip_vflip then
 $$else
         colio.y      = y;
 $$end
-        colio.palidx = y + offset; // + c;  
+        colio.palidx = y + offset + c;  
         colio.write  = 1;
         y = y + 1;
       }
