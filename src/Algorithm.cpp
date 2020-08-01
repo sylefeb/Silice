@@ -1378,7 +1378,7 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
     }
     t_combinational_block *block = addBlock(name, _current, nullptr, (int)ilist->state()->getStart()->getLine());
     block->is_state     = true;    // block explicitely required to be a state (may become a sub-state)
-    block->could_be_sub = no_skip; // could become a sub-state
+    block->could_be_sub = false;   // TODO command line option // no_skip; // could become a sub-state
     block->no_skip      = no_skip;
     _current->next(block);
     return block;
