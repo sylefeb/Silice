@@ -491,8 +491,6 @@ $$end
   int$FPw$ interp_m = 0;
   int16    h        = 0;
   int16    sec_f_h  = 0;
-  int16    sec_c_h  = 0;
-  int16    sec_f_o  = 0;
   int16    sec_c_o  = 0;
   int$FPw$ sec_f_h_t = 0;
   int$FPw$ sec_c_h_t = 0;
@@ -505,7 +503,6 @@ $$end
   int16    tc_u     = 0;
   int16    xoff     = 0;
   int16    yoff     = 0;
-  uint8    texid    = 0;
   uint8    tmpid    = 0;
   uint8    seclight = 0;
   int$FPw$ atten    = 0;
@@ -562,6 +559,10 @@ $$end
   int16    debug2 = 0;
   int16    debug3 = 0;
 
+$$if ULX3S then
+  uint7    btn_latch = 0;
+$$end
+
 $$if DE10NANO then
   keypad        kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
   lcd_status    status(<:auto:>, posx <: ray_x, posy <: ray_y, posz <: ray_z, posa <: viewangle );
@@ -572,7 +573,8 @@ $$end
   colio.write := 0; // maintain low (pulses high when needed)
 
 $$if ULX3S then
-  kpressed := {1b0,1b0,1b0,btn[2,1]/*fire2*/,btn[6,1]/*right*/,btn[5,1]/*left*/,btn[4,1]/*dwn*/,btn[3,1]/*up*/};
+  kpressed  := {1b0,1b0,1b0,btn_latch[2,1]/*fire2*/,btn_latch[6,1]/*right*/,btn_latch[5,1]/*left*/,btn_latch[4,1]/*dwn*/,btn_latch[3,1]/*up*/};
+  btn_latch := btn;
   led := 0;
 $$end
     
@@ -781,6 +783,7 @@ $$end
                 int16    tmp2     = uninitialized;
                 int$FPl$ d_c_h    = uninitialized;
                 int$FPw$ light    = uninitialized;
+                int16    sec_c_h  = uninitialized;
                 //-------------------------
                 // hit!
                 //-------------------------
@@ -838,70 +841,78 @@ $$end
                 //-------------------------
                 // draw floor
                 //-------------------------
-                texid = bsp_secs_flats.rdata[0,8];
-                inv_y.addr = $doomchip_height//2$ - btm;
-                while (btm < f_h) {
-                  int$FPw$ tmp2_m   = uninitialized;
-                  int16    tmp_u    = uninitialized;
-                  int16    tmp_v    = uninitialized;                  
-                  int$FPw$ gu_m     = uninitialized;
-                  int$FPw$ gv_m     = uninitialized;
-                  int$FPw$ tr_gu_m  = uninitialized;
-                  int$FPw$ tr_gv_m  = uninitialized;                  
-                  int$FPw$ light    = uninitialized;
-                  gv_m = (-sec_f_h)  * inv_y.rdata;
-                  gu_m = (coltox.rdata * gv_m) >>> 8;                  
-                  // NOTE: distance is gv_m>>4  (matches d_c_h r-shifted by FPw-1)
-++: // relax timing
-                  // transform plane coordinates
-                  tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
-                  tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
-++: // relax timing
-                  // light
-                  tmp2_m  = (gv_m>>8) - 15;
-                  (light) = lightFromDistance(tmp2_m);
-                  // write pixel
-                  tmp_u = (tr_gv_m>>5);
-                  tmp_v = (tr_gu_m>>5);
-                  (opac) <- writePixel <- (c,btm,tmp_u,tmp_v,texid,light,gv_m);
-                  btm   = btm + 1;
+                {
+                  uint8 texid = uninitialized;
+                  texid = bsp_secs_flats.rdata[0,8];
                   inv_y.addr = $doomchip_height//2$ - btm;
-                }
-                
-                //-------------------------
-                // draw ceiling
-                //-------------------------
-                texid = bsp_secs_flats.rdata[8,8];
-                if (texid > 0 || (bsp_segs_tex_height.rdata[16,8] != 0)) { // draw sky if upper texture present
-                  inv_y.addr = top - $doomchip_height//2$;
-                  while (top > c_h) {
+                  while (btm < f_h) {
                     int$FPw$ tmp2_m   = uninitialized;
                     int16    tmp_u    = uninitialized;
-                    int16    tmp_v    = uninitialized;
+                    int16    tmp_v    = uninitialized;                  
                     int$FPw$ gu_m     = uninitialized;
                     int$FPw$ gv_m     = uninitialized;
                     int$FPw$ tr_gu_m  = uninitialized;
                     int$FPw$ tr_gv_m  = uninitialized;                  
                     int$FPw$ light    = uninitialized;
-                    gv_m = (sec_c_h)   * inv_y.rdata;
-                    gu_m = (coltox.rdata * gv_m) >>> 8;
-++: // relax timing                  
+                    gv_m = (-sec_f_h)  * inv_y.rdata;
+  ++: // relax timing
+                    gu_m = (coltox.rdata * gv_m) >>> 8;                  
+  ++: // relax timing
+                    // NOTE: distance is gv_m>>4  (matches d_c_h r-shifted by FPw-1)
                     // transform plane coordinates
                     tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
                     tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
-++: // relax timing
                     // light
                     tmp2_m  = (gv_m>>8) - 15;
                     (light) = lightFromDistance(tmp2_m);
+  ++: // relax timing
                     // write pixel
                     tmp_u = (tr_gv_m>>5);
                     tmp_v = (tr_gu_m>>5);
-                    (opac) <- writePixel <- (c,top,tmp_u,tmp_v,texid,light,gv_m);
-                    top   = top - 1;
-                    inv_y.addr = top - $doomchip_height//2$;
+                    (opac) <- writePixel <- (c,btm,tmp_u,tmp_v,texid,light,gv_m);
+                    btm   = btm + 1;
+                    inv_y.addr = $doomchip_height//2$ - btm;
                   }
                 }
-
+                
+                //-------------------------
+                // draw ceiling
+                //-------------------------
+                {
+                  uint8 texid = uninitialized;
+                  texid = bsp_secs_flats.rdata[8,8];
+                  if (texid > 0 || (bsp_segs_tex_height.rdata[16,8] != 0)) { // draw sky if upper texture present
+                    inv_y.addr = top - $doomchip_height//2$;
+                    while (top > c_h) {
+                      int$FPw$ tmp2_m   = uninitialized;
+                      int16    tmp_u    = uninitialized;
+                      int16    tmp_v    = uninitialized;
+                      int$FPw$ gu_m     = uninitialized;
+                      int$FPw$ gv_m     = uninitialized;
+                      int$FPw$ tr_gu_m  = uninitialized;
+                      int$FPw$ tr_gv_m  = uninitialized;                  
+                      int$FPw$ light    = uninitialized;
+                      gv_m = (sec_c_h)   * inv_y.rdata;
+  ++: // relax timing                  
+                      gu_m = (coltox.rdata * gv_m) >>> 8;
+  ++: // relax timing
+                      // transform plane coordinates
+                      tr_gu_m = ((gu_m * cosview_m + gv_m * sinview_m) >>> $FPm$) + (ray_y<<<5);
+                      tr_gv_m = ((gv_m * cosview_m - gu_m * sinview_m) >>> $FPm$) + (ray_x<<<5);
+                      // light
+                      tmp2_m  = (gv_m>>8) - 15;
+                      (light) = lightFromDistance(tmp2_m);
+  ++: // relax timing
+                      // write pixel
+                      tmp_u = (tr_gv_m>>5);
+                      tmp_v = (tr_gu_m>>5);
+                      (opac) <- writePixel <- (c,top,tmp_u,tmp_v,texid,light,gv_m);
+                      top   = top - 1;
+                      inv_y.addr = top - $doomchip_height//2$;
+                    }
+                  }
+                }
+                
                 // tex coord u
                 yoff   = bsp_segs_texmapping.rdata[32,16];
                 xoff   = bsp_segs_texmapping.rdata[16,16];
@@ -919,10 +930,11 @@ $$end
                 // lower wall?                
                 //-------------------------
                 if (bsp_segs_tex_height.rdata[0,8] != 0) {
-                  int16    tmp1   = uninitialized;
-                  int$FPl$ tmp1_h = uninitialized;
-                  int$FPw$ tex_v  = uninitialized;
-
+                  int16    tmp1     = uninitialized;
+                  int$FPl$ tmp1_h   = uninitialized;
+                  int$FPw$ tex_v    = uninitialized;
+                  int16     sec_f_o = uninitialized;
+                  uint8     texid   = uninitialized;
                   texid     = bsp_segs_tex_height.rdata[0,8];
                   // if switch, possibly change texture
                   (has_switch) = is_switch(texid);
@@ -982,11 +994,12 @@ $$end
                 ) {
                   int$FPl$ tmp1_h = uninitialized;
                   int16    tmp1   = uninitialized;                  
+                  uint8    texid  = uninitialized;
                   
                   texid     = bsp_segs_tex_height.rdata[16,8];
                   
                   if (bsp_segs_tex_height.rdata[24,16] == 65535) {
-                    tmp1    = sec_c_h + ray_z; // sky case: use sector height
+                    tmp1    = tmp2; // sec_c_h + ray_z; // sky case: use sector height
                   } else {
                     tmp1    = bsp_secs.rdata[16,16]; // other sector ceiling height                 
                   }
@@ -1054,7 +1067,8 @@ $$end
                 // middle wall
                 //-------------------------
                 if (bsp_segs_tex_height.rdata[8,8] != 0) {
-                
+                  uint8 texid = uninitialized;
+                  
                   texid = bsp_segs_tex_height.rdata[8,8];
                   // if switch, possibly change texture
                   (has_switch) = is_switch(texid);
@@ -1181,7 +1195,8 @@ $$end
               int$FPl$ invd_h    = uninitialized;
               int$FPl$ tmp3_h    = uninitialized;
               int$FPw$ light     = uninitialized;
-
+              int16     sec_f_o  = uninitialized;
+              
 ++: // relax timing
               // -> compute inverse distance
               (invd_h) <- divl <- ( $FPl$d$(1<<(FPl-2))$ , d_h );

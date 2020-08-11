@@ -1,7 +1,5 @@
 // SL 2019-10
 
-$$USE_ICE_SDRAM_CTRL = true
-
 $$if ICARUS then
   // SDRAM simulator
   append('mt48lc32m8a2.v')
@@ -35,13 +33,13 @@ NOTE: sdram_clock cannot use a normal output as this would mean sampling
 	  
 */
 algorithm pll(
-  output! uint1 video_clock,
-  output! uint1 video_reset,
+  output  uint1 video_clock,
+  output  uint1 video_reset,
   output! uint1 sdram_clock,
   output! uint1 sdram_reset,
 $$if HAS_COMPUTE_CLOCK then
-  output! uint1 compute_clock,
-  output! uint1 compute_reset
+  output  uint1 compute_clock,
+  output  uint1 compute_reset
 $$end
 ) <autorun>
 {
@@ -52,7 +50,7 @@ $$end
   sdram_reset   := reset;
   
 $$if HAS_COMPUTE_CLOCK then
-  compute_clock := counter[0,1]; // x2 slower
+  compute_clock := ~counter[0,1]; // x2 slower
   compute_reset := (trigger > 0);
 $$end
 
@@ -107,12 +105,7 @@ $$end
 // ------------------------- 
 
 // SDRAM controller
-$$if USE_ICE_SDRAM_CTRL then
 $include('sdramctrl.ice')
-$$else
-append('sdram_clock.v')
-import('sdram.v')
-$$end
 
 // ------------------------- 
 
@@ -124,68 +117,68 @@ $include('video_sdram.ice')
 algorithm main(
 $$if not ICARUS then
   // SDRAM
-  output! uint1  sdram_cle,
-  output! uint1  sdram_dqm,
-  output! uint1  sdram_cs,
-  output! uint1  sdram_we,
-  output! uint1  sdram_cas,
-  output! uint1  sdram_ras,
-  output! uint2  sdram_ba,
-  output! uint13 sdram_a,
+  output uint1  sdram_cle,
+  output uint1  sdram_dqm,
+  output uint1  sdram_cs,
+  output uint1  sdram_we,
+  output uint1  sdram_cas,
+  output uint1  sdram_ras,
+  output uint2  sdram_ba,
+  output uint13 sdram_a,
 $$if VERILATOR then
-  output! uint1  sdram_clock,
+  output uint1  sdram_clock, // sdram controller clock
   input   uint8  sdram_dq_i,
-  output! uint8  sdram_dq_o,
-  output! uint1  sdram_dq_en,
+  output uint8  sdram_dq_o,
+  output uint1  sdram_dq_en,
 $$else
-  output! uint1  sdram_clk, // sdram chip clock != internal sdram_clock
+  output uint1  sdram_clk,  // sdram chip clock != internal sdram_clock
   inout   uint8  sdram_dq,
 $$end
 $$end
 $$if MOJO then
-  output! uint6  led,
-  output! uint1  spi_miso,
+  output uint6  led,
+  output uint1  spi_miso,
   input   uint1  spi_ss,
   input   uint1  spi_mosi,
   input   uint1  spi_sck,
-  output! uint4  spi_channel,
+  output uint4  spi_channel,
   input   uint1  avr_tx,
-  output! uint1  avr_rx,
+  output uint1  avr_rx,
   input   uint1  avr_rx_busy,
 $$end
 $$if ICARUS or VERILATOR then
-  output! uint1 video_clock,
+  output uint1 video_clock,
 $$end
 $$if DE10NANO then
-  output! uint8 led,
-  output! uint4 kpadC,
-  input   uint4 kpadR,
-  output! uint1 lcd_rs,
-  output! uint1 lcd_rw,
-  output! uint1 lcd_e,
-  output! uint8 lcd_d,
-  output! uint1 oled_din,
-  output! uint1 oled_clk,
-  output! uint1 oled_cs,
-  output! uint1 oled_dc,
-  output! uint1 oled_rst,  
+  output uint8 led,
+  output uint4 kpadC,
+  input  uint4 kpadR,
+  output uint1 lcd_rs,
+  output uint1 lcd_rw,
+  output uint1 lcd_e,
+  output uint8 lcd_d,
+  output uint1 oled_din,
+  output uint1 oled_clk,
+  output uint1 oled_cs,
+  output uint1 oled_dc,
+  output uint1 oled_rst,  
 $$end
 $$if ULX3S then
-  output! uint8 led,
-  input   uint7 btn,
+  output uint8 led,
+  input  uint7 btn,
 $$end
 $$if VGA then  
   // VGA
-  output! uint$color_depth$ video_r,
-  output! uint$color_depth$ video_g,
-  output! uint$color_depth$ video_b,
-  output! uint1 video_hs,
-  output! uint1 video_vs
+  output uint$color_depth$ video_r,
+  output uint$color_depth$ video_g,
+  output uint$color_depth$ video_b,
+  output uint1 video_hs,
+  output uint1 video_vs
 $$end
 $$if HDMI then  
   // HDMI
-  output! uint4 hdmi1_tmds,
-  output! uint4 hdmi1_tmdsb
+  output uint4 hdmi1_tmds,
+  output uint4 hdmi1_tmdsb
 $$end  
 ) <@sdram_clock,!sdram_reset> {
 
@@ -381,15 +374,11 @@ $$end
 
 sdio sd;
 
-$$if USE_ICE_SDRAM_CTRL then
 sdramctrl memory(
-$$else
-sdram memory(
-$$end
   clk        <:  sdram_clock,
   rst        <:  sdram_reset,
   sd         <:> sd,
-$$if VERILATOR and USE_ICE_SDRAM_CTRL then
+$$if VERILATOR then
   dq_i       <: sdram_dq_i,
   dq_o       :> sdram_dq_o,
   dq_en      :> sdram_dq_en,
@@ -402,10 +391,7 @@ $$end
 sdio sd0;
 sdio sd1;
 
-uint1  select       = 0;
-
 sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
-  select     <:   select,
   sd         <:>  sd,
   sd0        <:>  sd0,
   sd1        <:>  sd1,
@@ -439,7 +425,6 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   
 // --- Frame buffer row updater
   frame_buffer_row_updater fbrupd<@sdram_clock,!sdram_reset>(
-    working    :> select,
     pixaddr0   :> fbr0.addr1,
     pixdata0_w :> fbr0.wdata1,
     pixwenable0:> fbr0.wenable1,
@@ -501,7 +486,7 @@ $$if HARDWARE then
     
   }
 $$else
-  while (frame < 16) {
+  while (frame < 6) {
 
     while (video_vblank == 1) { }
 	  //__display("vblank off");

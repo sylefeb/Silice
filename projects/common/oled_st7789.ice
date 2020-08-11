@@ -4,10 +4,10 @@
 // ------------------------- 
 
 group oledio {
-  uint8  x_start     = 0,
-  uint8  x_end       = 0,
-  uint8  y_start     = 0,
-  uint8  y_end       = 0,
+  uint9  x_start     = 0,
+  uint9  x_end       = 0,
+  uint9  y_start     = 0,
+  uint9  y_end       = 0,
   uint18 color       = 0,
   uint1  start_rect  = 0,
   uint1  next_pixel  = 0,
@@ -22,9 +22,9 @@ algorithm oled_send(
   input!  uint1 enable,
   input!  uint1 data_or_command,
   input!  uint8 byte,
-  output! uint1 oled_clk,
-  output! uint1 oled_mosi,
-  output! uint1 oled_dc,
+  output  uint1 oled_clk,
+  output  uint1 oled_mosi,
+  output  uint1 oled_dc,
 ) <autorun> {
 
   uint2  osc        = 1;
@@ -112,11 +112,13 @@ $$end
     enable          = 1;    
     () <- wait <- ($oled_send_delay-4$);
   }
-
+$$if st7789_no_cs then
   oled_csn := 1; // backlight 
+$$else
+  oled_csn := 0; // enable chip
+$$end
   enable   := 0; // maintained low, pulses high
 
- 
   //---------------
   // Initializing
   //---------------
@@ -153,7 +155,11 @@ $$end
   // madctl
   () <- sendCommand <- (8h36);
   //                      MY MX MV ML RGB MH - -
+$$if st7789_transpose then  
   () <- sendData    <- (8b00100000);
+$$else
+  () <- sendData    <- (8b00000000);
+$$end
   () <- wait        <- (300000); // 12 msec @25Mhz
 
   // invon
@@ -163,15 +169,6 @@ $$end
   // noron
   () <- sendCommand <- (8h13);
   () <- wait        <- (300000); // 12 msec @25Mhz
-
-  /*
-  // gamma on
-  () <- sendCommand <- (8hBA);
-  () <- sendData    <- (8b00000100);
-  // gamma curve
-  () <- sendCommand <- (8h26);
-  () <- sendData    <- (8b00000010);
-  */
 
   // brightness  
   () <- sendCommand <- (8h51);
@@ -195,15 +192,15 @@ $$end
       // set bounds
       // columns
       () <- sendCommand <- (8h2A);
-      () <- sendData    <- (0);
-      () <- sendData    <- (io.x_start);
-      () <- sendData    <- (0);
-      () <- sendData    <- (io.x_end);
+      () <- sendData    <- ({7b0,io.x_start[8,1]});
+      () <- sendData    <- (io.x_start[0,8]);
+      () <- sendData    <- ({7b0,io.x_end[8,1]});
+      () <- sendData    <- (io.x_end[0,8]);
       () <- sendCommand <- (8h2B);
-      () <- sendData    <- (0);
-      () <- sendData    <- (io.y_start);
-      () <- sendData    <- (0);
-      () <- sendData    <- (io.y_end);
+      () <- sendData    <- ({7b0,io.y_start[8,1]});
+      () <- sendData    <- (io.y_start[0,8]);
+      () <- sendData    <- ({7b0,io.y_end[8,1]});
+      () <- sendData    <- (io.y_end[0,8]);
       // start writing to ram
       () <- sendCommand <- (8h2C);
       // ready!

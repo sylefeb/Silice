@@ -14,8 +14,8 @@ $$else
 $$  error('OLED doomchip only tested on ULX3S')
 $$end
 
-$$color_depth=6
-$$color_max  =63
+$$color_depth = 6
+$$color_max   = 63
 
 // -------------------------
 
@@ -28,8 +28,8 @@ group column_io {
   uint1  done     = 0,
 }
 
-$$doomchip_width  = 240
-$$doomchip_height = 240
+$$doomchip_width  = oled_height
+$$doomchip_height = oled_width
 
 $$doomchip_vflip  = true
 
@@ -134,7 +134,7 @@ $$end
     }
     if (colio.done && (last_drawn != draw_col)) {
       last_drawn = draw_col;
-      __display("done received (draw_col: %d)",draw_col);
+      // __display("done received (draw_col: %d)",draw_col);
       done = 1;
     }   
   }
@@ -142,9 +142,9 @@ $$end
   // prepare viewport
   while (displio.ready == 0) { }
   displio.x_start    = 0;
-  displio.x_end      = $doomchip_width-1$;
+  displio.x_end      = $oled_width-1$;
   displio.y_start    = 0;
-  displio.y_end      = $doomchip_height-1$;
+  displio.y_end      = $oled_height-1$;
   displio.start_rect = 1;
   
   while (1) {
@@ -160,7 +160,7 @@ $$end
         col_buffer.addr1 = xfer_offset + xfer_count;
       } else {
         // done
-        __display("xfer %d done (count %d)",xfer_col,xfer_count);
+        // __display("xfer %d done (count %d)",xfer_col,xfer_count);
         xfer_col         = (draw_col == 0) ? 0 : xfer_col+1;
         draw_col         = (draw_col == $doomchip_width$) ? 0 : draw_col+1; 
         xfer_offset      = (xfer_offset   == 0) ? $doomchip_height$ : 0;
@@ -170,13 +170,13 @@ $$end
           // frame done
           draw_col = 0;
         }
-        __display("next: xfer %d, draw %d",xfer_col,draw_col);
+        // __display("next: xfer %d, draw %d",xfer_col,draw_col);
       }
     } else {    
       if (done) {
         done = 0;
-        __display("column %d drawn",draw_col);
-        __display(" -> starting xfer %d",xfer_col);
+        // __display("column %d drawn",draw_col);
+        // __display(" -> starting xfer %d",xfer_col);
         // starts xfer
         xfer_count    = 0; 
       }    
@@ -188,14 +188,18 @@ $$end
 // Main drawing algorithm
 
 algorithm main(
-  output! uint8 led,
+  output  uint8 led,
   input   uint7 btn,
-  output! uint1 oled_clk,
-  output! uint1 oled_mosi,
-  output! uint1 oled_dc,
-  output! uint1 oled_resn,
-  output! uint1 oled_csn,  
-) </*@compute_clock*/@oled_clock> {
+  output  uint1 oled_clk,
+  output  uint1 oled_mosi,
+  output  uint1 oled_dc,
+  output  uint1 oled_resn,
+  output  uint1 oled_csn,  
+  output  uint1 sd_clk,
+  output  uint1 sd_mosi,
+  output  uint1 sd_csn,
+  input   uint1 sd_miso  
+) <@compute_clock> {
 
   column_io colio;
   

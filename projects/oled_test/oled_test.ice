@@ -5,7 +5,7 @@ $$ -- SSD1351=1
 $$ ST7789=1
 $include('../common/oled.ice')
 
-$$if not ULX3S and not DE10NANO then
+$$if not ULX3S and not DE10NANO and not ICARUS then
 $$error('only tested on ULX3S and DE10NANO, small changes likely required to main input/outputs for other boards')
 $$end
 
@@ -13,6 +13,15 @@ $$end
 
 algorithm main(
 $$if ULX3S then
+  output! uint8 led,
+  input   uint7 btn,
+  output! uint1 oled_clk,
+  output! uint1 oled_mosi,
+  output! uint1 oled_dc,
+  output! uint1 oled_resn,
+  output! uint1 oled_csn,
+$$end
+$$if ICARUS then
   output! uint8 led,
   input   uint7 btn,
   output! uint1 oled_clk,
@@ -79,13 +88,13 @@ $$end
   io.start_rect := 0;
   io.next_pixel := 0;
   
-  // wait for controller to be ready  
-  while (io.ready == 0) { }
-
   while (1) {
   
     uint10 u     = uninitialized;
     uint10 v     = uninitialized;
+
+    // wait for controller to be ready  
+    while (io.ready == 0) { }
 
      // draw window
     io.x_start = 0;

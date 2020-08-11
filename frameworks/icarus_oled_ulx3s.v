@@ -16,6 +16,12 @@ wire __main_oled_mosi;
 wire __main_oled_dc;
 wire __main_oled_resn;
 wire __main_oled_csn;
+wire __main_sd_clk;
+wire __main_sd_csn;
+wire __main_sd_mosi;
+wire [7:0] __main_led;
+wire [6:0] __main_btn;
+wire __main_sd_miso;
 
 initial begin
   clk = 1'b0;
@@ -58,6 +64,12 @@ M_main __main(
   .out_oled_dc(__main_oled_dc),
   .out_oled_csn(__main_oled_csn),
   .out_oled_resn(__main_oled_resn),
+  .out_sd_csn   (__main_sd_csn),
+  .out_sd_clk   (__main_sd_clk),
+  .out_sd_mosi  (__main_sd_mosi),
+  .in_sd_miso   (__main_sd_miso),  
+  .out_led(__main_led),
+  .in_btn(__main_btn),
   .in_run(run_main),
   .out_done(done_main)
 );

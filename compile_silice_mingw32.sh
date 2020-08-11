@@ -17,7 +17,7 @@ export PATH=$PATH:$DIR/jdk-14.0.1/bin/
 mkdir build-silice
 cd build-silice
 
-cmake -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" ../..
+/mingw32/bin/cmake -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" ../..
 mingw32-make -j16 install
 
 cd ..

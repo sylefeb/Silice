@@ -4,10 +4,10 @@
 // ------------------------- 
 
 group oledio {
-  uint8  x_start = 0,
-  uint8  x_end   = 0,
-  uint8  y_start = 0,
-  uint8  y_end   = 0,
+  uint9  x_start = 0,
+  uint9  x_end   = 0,
+  uint9  y_start = 0,
+  uint9  y_end   = 0,
   uint18 color       = 0,
   uint1  start_rect  = 0,
   uint1  next_pixel  = 0,
@@ -22,9 +22,9 @@ algorithm oled_send(
   input!  uint1 enable,
   input!  uint1 data_or_command,
   input!  uint8 byte,
-  output! uint1 oled_clk,
-  output! uint1 oled_mosi,
-  output! uint1 oled_dc,
+  output  uint1 oled_clk,
+  output  uint1 oled_mosi,
+  output  uint1 oled_dc,
 ) <autorun> {
 
   uint2  osc        = 1;

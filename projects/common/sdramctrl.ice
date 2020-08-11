@@ -92,16 +92,25 @@ $$end
   uint2  ba  = 0 (* IOB = "TRUE" *);
   uint13 a   = 0 (* IOB = "TRUE" *);
   
+  uint1  work_done   = 0;
   uint4  row_open    = 0;
   uint13 row_addr[4] = {0,0,0,0};
 
-  uint1  work_todo   = 0;  
-  uint13 row         = 0;
-  uint2  bank        = 0;
-  uint8  col         = 0;
-  uint32 data        = 0;
-  uint1  do_rw       = 0;
-  uint2  wbyte       = 0;
+  uint1  work_todo_latch   = 0;  
+  uint13 row_latch         = 0;
+  uint2  bank_latch        = 0;
+  uint8  col_latch         = 0;
+  uint32 data_latch        = 0;
+  uint1  do_rw_latch       = 0;
+  uint2  wbyte_latch       = 0;
+
+  uint1  work_todo   ::= work_todo_latch;  
+  uint13 row         ::= row_latch;
+  uint2  bank        ::= bank_latch;
+  uint8  col         ::= col_latch;
+  uint32 data        ::= data_latch;
+  uint1  do_rw       ::= do_rw_latch;
+  uint2  wbyte       ::= wbyte_latch;
 
 $$if not sdramctrl_clock_freq then
 $$  refresh_cycles      = 750 -- assume 100 MHz
@@ -128,7 +137,7 @@ $$end
   // wait for incount cycles, incount >= 3
   subroutine wait(input uint16 incount)
   {
-    uint16 count = 0;
+    int16 count = 0;
     count = incount - 3; // -1 for sub entry,
                          // -1 for sub exit,
                          // -1 for proper loop length
@@ -147,7 +156,6 @@ $$end
         cmd      = CMD_PRECHARGE;
         a        = 0;
         a[10,1]  = all;
-        ba       = bk;
         if (all) {
           row_open = 0;
         } else {
@@ -164,7 +172,6 @@ $$end
   {
     // -> activate
     cmd = CMD_ACTIVE;
-    ba  = bk;
     a   = rw;
 $$for i=1,cmd_active_delay do
 ++:
@@ -186,19 +193,27 @@ $$end
   always { // always block tracks in_valid
   
     if (sd.in_valid) {
+      if (sd.busy) {
+        uint1 error = 0;
+        __display("********************************** ERROR");
+        error = 1;
+      }
       // -> copy inputs
-      bank      = sd.addr[21,2]; // 21-22
-      row       = sd.addr[8,13]; //  8-20
-      col       = sd.addr[0,8];  //  0- 7
-      wbyte     = sd.wbyte_addr;
-      data      = sd.data_in;
-      do_rw     = sd.rw;    
+      bank_latch      = sd.addr[21,2]; // 21-22
+      row_latch       = sd.addr[8,13]; //  8-20
+      col_latch       = sd.addr[0,8];  //  0- 7
+      wbyte_latch     = sd.wbyte_addr;
+      data_latch      = sd.data_in;
+      do_rw_latch     = sd.rw;    
       // -> signal work to do
-      work_todo = 1;
-      // -> now busy!
-      sd.busy   = 1;
+      work_todo_latch = 1;
+      // -> signal busy
+      sd.busy     = 1;
     }
-  
+    if (work_done) {
+      work_done = 0;
+      sd.busy   = work_todo_latch;
+    }
   }
   
   // start busy during init
@@ -238,26 +253,27 @@ $$end
   row_open      = 0;
   refresh_count = $refresh_cycles$;
   
+  // init done
+  work_done     = 1;
+  
   while (1) {
 
     // refresh?
     refresh_count = refresh_count - 1;
     if (refresh_count == 0) {
-        // -> now busy!
-        sd.busy  = 1;
         // -> precharge all
         () <- precharge <- (0,1);
         // refresh
         cmd           = CMD_REFRESH;
         // wait
         () <- wait <- ($refresh_wait$);      
-        // could accept work
-        sd.busy       = work_todo;
         // -> reset count
         refresh_count = $refresh_cycles$;        
     }
 
     if (work_todo) {
+      work_todo_latch = 0;
+      ba              = bank;
       // -> row management
       if (!row_open[bank,1] || row_addr[bank] != row) {
         if (row_open[bank,1]) {
@@ -289,7 +305,7 @@ $$end
         ba    = bank;
 ++:
 ++:
-// the third comes when entering the while
+++:
         // burst 4 bytes
         while (read_cnt < 32) {
           sd.data_out[read_cnt,8] = dq_i;
@@ -298,8 +314,7 @@ $$end
       }
       // can accept work
       dq_en          = 0;
-      work_todo      = 0;
-      sd.busy        = 0;
+      work_done      = 1;
       sd.out_valid   = 1;
     }
         

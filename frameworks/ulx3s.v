@@ -5,14 +5,18 @@ $$HARDWARE=1
 $$OLED=1
 
 module top(
-  input  clk_25mhz,
-  output reg [7:0] led,
-  input      [6:0] btn,  
-  output reg oled_clk,
-  output reg oled_mosi,
-  output reg oled_dc,
-  output reg oled_resn,
-  output reg oled_csn
+  input   clk_25mhz,
+  output  [7:0] led,
+  input   [6:0] btn,  
+  output  oled_clk,
+  output  oled_mosi,
+  output  oled_dc,
+  output  oled_resn,
+  output  oled_csn,
+  output  sd_clk,
+  output  sd_csn,
+  output  sd_mosi,
+  input   sd_miso
   );
 
 wire [7:0] __main_led;
@@ -21,6 +25,9 @@ wire __main_oled_mosi;
 wire __main_oled_dc;
 wire __main_oled_resn;
 wire __main_oled_csn;
+wire __main_sd_clk;
+wire __main_sd_csn;
+wire __main_sd_mosi;
 
 wire ready = btn[0];
 
@@ -52,6 +59,10 @@ M_main __main(
   .out_oled_dc  (__main_oled_dc),
   .out_oled_resn(__main_oled_resn),
   .out_oled_csn (__main_oled_csn),
+  .out_sd_csn   (__main_sd_csn),
+  .out_sd_clk   (__main_sd_clk),
+  .out_sd_mosi  (__main_sd_mosi),
+  .in_sd_miso   (sd_miso),
   .in_btn       (btn),
   .in_run       (run_main)
 );
@@ -62,5 +73,8 @@ assign oled_mosi = __main_oled_mosi;
 assign oled_dc   = __main_oled_dc;
 assign oled_resn = __main_oled_resn;
 assign oled_csn  = __main_oled_csn;
+assign sd_clk    = __main_sd_clk;
+assign sd_csn    = __main_sd_csn;
+assign sd_mosi   = __main_sd_mosi;
 
 endmodule

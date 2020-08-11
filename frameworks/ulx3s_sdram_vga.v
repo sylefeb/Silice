@@ -9,22 +9,22 @@ $$SDRAM=1
 
 module top(
   input  clk_25mhz,
-  output reg [7:0] led,
-  input      [6:0] btn,
+  output [7:0] led,
+  input  [6:0] btn,
   // SDRAM
-  output reg sdram_clk,
-  output reg sdram_cke,
-  output reg [1:0] sdram_dqm,
-  output reg sdram_csn,
-  output reg sdram_wen,
-  output reg sdram_casn,
-  output reg sdram_rasn,
-  output reg [1:0] sdram_ba,
-  output reg [12:0] sdram_a,
+  output sdram_clk,
+  output sdram_cke,
+  output [1:0] sdram_dqm,
+  output sdram_csn,
+  output sdram_wen,
+  output sdram_casn,
+  output sdram_rasn,
+  output [1:0] sdram_ba,
+  output [12:0] sdram_a,
   inout [15:0] sdram_d,
   // GPIO
-  output reg [27:0] gp,
-  output reg [27:0] gn
+  output [27:0] gp,
+  output [27:0] gn
   );
 
 wire [7:0]  __main_out_led;

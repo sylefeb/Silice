@@ -28,7 +28,7 @@ $$doomchip_width  = 320
 $$doomchip_height = 200
 
 $include('doomchip.ice')
-//include('doomchip_debug_placeholder.ice')
+// include('doomchip_debug_placeholder.ice')
 
 $$texfile_palette = palette_666
 $include('../common/video_sdram_main.ice')
@@ -70,6 +70,7 @@ algorithm sdram_column_writer(
   uint1  done          = 0;
   
   sd.rw               := 1; // write to SDRAM
+  sd.in_valid         := 0; // maintain low, pulses high
   col_buffer.wenable0 := 1; // write on port0
   col_buffer.wenable1 := 0; // read  on port1
   // column that can be drawn
@@ -83,11 +84,12 @@ algorithm sdram_column_writer(
     }
     if (colio.done && (last_drawn != draw_col)) {
       last_drawn = draw_col;
-      __display("done received (draw_col: %d)",draw_col);
+      // __display("done received (draw_col: %d)",draw_col);
       done = 1;
     }   
   }
   
+  fbuffer = 0;
   while (1) {
     // continue with transfer if not done
     if (xfer_count < $doomchip_height$) {
@@ -104,7 +106,7 @@ algorithm sdram_column_writer(
         col_buffer.addr1 = xfer_offset + xfer_count;
       } else {
         // done
-        __display("xfer %d done (count %d)",xfer_col,xfer_count);
+        // __display("xfer %d done (count %d)",xfer_col,xfer_count);
         xfer_col         = (draw_col == 0) ? 0 : xfer_col+1;
         draw_col         = (draw_col == $doomchip_width$) ? 0 : draw_col+1; 
         xfer_offset      = (xfer_offset   == 0) ? $doomchip_height$ : 0;
@@ -117,13 +119,13 @@ algorithm sdram_column_writer(
           fbuffer  = ~fbuffer;
           // NOTE: risk of tearing if we do not wait vsync
         }
-        __display(" -> next: xfer %d, draw %d",xfer_col,draw_col);
+        // __display(" -> next: xfer %d, draw %d",xfer_col,draw_col);
       }
     } else {    
       if (done) {
         done = 0;
-        __display("column %d drawn",draw_col);
-        __display(" -> starting xfer %d",xfer_col);
+        // __display("column %d drawn",draw_col);
+        // __display(" -> starting xfer %d",xfer_col);
         // starts xfer
         xfer_count    = 0; 
       }    

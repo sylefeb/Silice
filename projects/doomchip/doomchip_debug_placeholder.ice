@@ -54,9 +54,9 @@ $$end
 
       uint10 y = 0;
 
-      __display("c = %d",c);
+      // __display("c = %d",c);
       while (c != colio.draw_col) { /*wait*/ }
-      __display("c passed = %d",c);
+      // __display("c passed = %d",c);
 
       while (y < $doomchip_height$) {
 $$if doomchip_vflip then
