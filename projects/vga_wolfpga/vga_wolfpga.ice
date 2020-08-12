@@ -5,7 +5,11 @@
 // "Wolfenstein 3D black book" by Fabien Sanglard
 // https://github.com/id-Software/wolf3d/blob/master/WOLFSRC/WL_DR_A.ASM
 
+$$if not DE10NANO then
+// having a compute clock means that the renderer runs
+// at a different frequency than the SDRAM
 $$HAS_COMPUTE_CLOCK=true
+$$end
 
 $$texfile = 'wolf.tga'
 // get pallette in pre-processor
@@ -241,25 +245,39 @@ algorithm frame_drawer(
     input  busy,
     input  out_valid,
   },
+$$if HAS_COMPUTE_CLOCK then 
   input  uint1  sdram_clock,
   input  uint1  sdram_reset,
+$$end
   input  uint1  vsync,
   output uint1  fbuffer,
   output uint8  led
-) <autorun> {
+) 
+$$if HAS_COMPUTE_CLOCK then
+<autorun> 
+$$end
+{
 
   uint1  vsync_filtered = 0;
 
   // NOTE, TODO: cannot yet declare the bram with the bitfield
   // bram DrawColumn columns[320] = {};
+$$if HAS_COMPUTE_CLOCK then 
   dualport_bram uint18 columns<@clock,@sdram_clock>[320] = {};
+$$else
+  dualport_bram uint18 columns[320] = {};
+$$end
 
   // ray-cast columns counter  
   uint9 c       = 0;
   // drawn columns counter
   uint9 c_drawn = 0;
 
+$$if HAS_COMPUTE_CLOCK then 
   columns_drawer coldrawer<@sdram_clock,!sdram_reset>
+$$else
+  columns_drawer coldrawer
+$$end
   (
     sd      <:> sd,
     vsync   <: vsync_filtered,
@@ -408,7 +426,6 @@ $$end
       while (colangle > __signed(3600)) {
         colangle = colangle - 3600;
       }
-      
       if (colangle < __signed($Deg90$)) {
         mapxstep   =  1;
         mapystep   = -1;
@@ -540,7 +557,7 @@ $$end
 
       // projection divide      
       (height) <- div <- ($140<<FPf$,dist_f>>1);
-
+    
       columns.addr0 = c;
       DrawColumn(columns.wdata0).height   = height;
       DrawColumn(columns.wdata0).v_or_h   = v_or_h;
@@ -550,7 +567,6 @@ $$end
       // write on loop     
       c = c + 1;
     }
-       
 
     // wait for drawer to end
     while (c_drawn < 320) {}
@@ -573,7 +589,7 @@ $$ BMost = lshift(15,FPf)
         dir_y = 0;
       }
     }
-    
+
     // swap buffers
     fbuffer = ~fbuffer;
 
