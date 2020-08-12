@@ -153,9 +153,18 @@ $$ s=s..'0'
         reminder = reminder - (den << $K[div_width-2-c]$);
       }
 $$end      
+$$if div_shrink > 0 then
+// this last case is required when div_shrink > 0 as 'concat' may become all 0s
+$$ s='' .. (div_width) .. 'b'
+$$ for i = 0,div_width-1 do s=s..'0' end
+$$ s=s..'0'
+      case $s$: {
+        ret      = ret      + (1<<$K[0]$);
+        reminder = reminder - (den << $K[0]$);
+      }
+$$end      
       default: {
         // should never happen
-        reminder = 0;
       }
     }
   }

@@ -1,3 +1,8 @@
+// SL @sylefeb 2020-08
+// Simple SDcard controller
+// only supports SDHC/SDXC, not extensively tested 
+//
+// Work in progress!
 // ------------------------- 
 
 algorithm sdcard(

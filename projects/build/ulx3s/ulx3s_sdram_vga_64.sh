@@ -11,7 +11,7 @@ silice -f ../../../frameworks/ulx3s_sdram_vga.v $1 -o build1.v
 
 # exit
 
-yosys -p 'synth_ecp5 -abc9 -top top -json build1.json' build1.v
+yosys -p 'scratchpad -copy abc9.script.flow3 abc9.script; synth_ecp5 -abc9 -top top -json build1.json' build1.v
 
 nextpnr-ecp5 --85k --package CABGA381 --json build1.json --textcfg build1.config --lpf ulx3s.lpf --timing-allow-fail --freq 25
 

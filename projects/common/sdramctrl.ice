@@ -1,6 +1,6 @@
-import('sdram_clock.v')
-import('inout8_set.v')
-
+// @sylefeb SDRAM simple controller demo
+// writes single bytes
+// reads 32 bits
 /*
     addr is 23 bits
     [22:21] => bank  
@@ -8,11 +8,14 @@ import('inout8_set.v')
     [7:0]   => column
 */
 
+import('sdram_clock.v')
+import('inout8_set.v')
+
 // SDRAM interface
 group sdio
 {
-  uint23 addr = 0,
-  uint2  wbyte_addr = 0,
+  uint23 addr = 0,        // 32 bits address
+  uint2  wbyte_addr = 0,  // byte position within 32 bits for writes
   uint1  rw = 0,
   uint32 data_in = 0,
   uint32 data_out = 0,
@@ -104,10 +107,10 @@ $$end
   uint1  do_rw_latch       = 0;
   uint2  wbyte_latch       = 0;
 
-  uint1  work_todo   ::= work_todo_latch;  
-  uint13 row         ::= row_latch;
-  uint2  bank        ::= bank_latch;
-  uint8  col         ::= col_latch;
+  uint1  work_todo   ::= work_todo_latch; // ::= tracks the other variable as it 
+  uint13 row         ::= row_latch;       //     was on last clock posedge 
+  uint2  bank        ::= bank_latch;      //     updates during current cycle have 
+  uint8  col         ::= col_latch;       //     no effect on tracked expression
   uint32 data        ::= data_latch;
   uint1  do_rw       ::= do_rw_latch;
   uint2  wbyte       ::= wbyte_latch;
@@ -120,6 +123,8 @@ $$  cmd_active_delay    = 1
 $$  cmd_precharge_delay = 2
 $$  print('SDRAM configured for 100 MHz (default)')
 $$else
+// beware of this, untested and there are known issues
+//  controller is best used at 100 MHz
 $$  refresh_cycles      = math.floor(750*sdramctrl_clock_freq/100)
 $$  refresh_wait        = 1 + math.floor(7*sdramctrl_clock_freq/100)
 $$  read_wait           = 1 + math.floor(math.max(4, 4*sdramctrl_clock_freq/100))

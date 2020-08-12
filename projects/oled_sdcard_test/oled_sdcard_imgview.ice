@@ -1,4 +1,4 @@
-// SL 2020-08
+// SL 2020-08 @sylefeb
 
 // Select screen driver below
 $$ -- SSD1351=1

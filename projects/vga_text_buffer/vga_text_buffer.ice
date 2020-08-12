@@ -73,7 +73,7 @@ $$end
   int12 rand_x = 0;
 
   // ---------- string
-  uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- COMING SOON --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK##HERE ON ICESTICK#WITH OPEN-SOURCE TOOLS";
+  uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ULX3S";
 
   // --------- print string
   subroutine print_string( 
@@ -93,9 +93,10 @@ $$end
         str_y = str_y + 1;
         offs  = 0;
       } else {
-        switch (str[col]) {
+        switch (str[col]) { // some ASCII to font translation
           case 32: {lttr = 36;}
           case 45: {lttr = 37;}
+          case 51: {lttr = 3;}
           default: {lttr = str[col] - 55;}
         }
         txt_addr    = offs + str_x + (str_y << 5);
@@ -245,7 +246,7 @@ $$if MOJO then
   output! uint1 avr_rx,
   input   uint1 avr_rx_busy,
 $$end
-$$if MOJO or VERILATOR then
+$$if MOJO or VERILATOR or ULX3S or DE10NANO then
   // SDRAM
   output! uint1  sdram_cle,
   output! uint1  sdram_dqm,
@@ -265,6 +266,9 @@ $$else
   inout   uint8  sdram_dq,
 $$end
 $$end
+$$if SIMULATION then
+  output! uint1 video_clock,
+$$end
 $$if ICESTICK then
   output! uint1 led0,
   output! uint1 led1,
@@ -272,8 +276,23 @@ $$if ICESTICK then
   output! uint1 led3,
   output! uint1 led4,
 $$end
-$$if SIMULATION then
-  output! uint1 video_clock,
+$$if DE10NANO then
+  output! uint8 led,
+  output! uint4 kpadC,
+  input   uint4 kpadR,
+  output! uint1 lcd_rs,
+  output! uint1 lcd_rw,
+  output! uint1 lcd_e,
+  output! uint8 lcd_d,
+  output! uint1 oled_din,
+  output! uint1 oled_clk,
+  output! uint1 oled_cs,
+  output! uint1 oled_dc,
+  output! uint1 oled_rst,  
+$$end
+$$if ULX3S then
+  output! uint8 led,
+  input   uint7 btn,
 $$end
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
@@ -281,13 +300,13 @@ $$end
   output! uint1 video_hs,
   output! uint1 video_vs
 ) 
-$$if HARDWARE then
+$$if HARDWARE and not ULX3S then
 // on an actual board, the video signal is produced by a PLL
 <@video_clock,!video_reset> 
 $$end
 {
 
-$$if HARDWARE then
+$$if HARDWARE and not ULX3S then
   uint1 video_reset = 0;
   uint1 video_clock = 0;
 $$if MOJO then
@@ -327,9 +346,6 @@ $$end
   uint10 pix_y  = 0;
 
   vga vga_driver 
-$$if HARDWARE then
-  <@video_clock,!video_reset>
-$$end
   (
     vga_hs :> video_hs,
 	  vga_vs :> video_vs,
@@ -340,9 +356,6 @@ $$end
   );
 
   text_display display
-$$if HARDWARE then
-  <@video_clock,!video_reset>
-$$end  
   (
 	  pix_x      <: pix_x,
 	  pix_y      <: pix_y,
