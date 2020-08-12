@@ -11,7 +11,7 @@ to the README of each project.
 
 Some projects require a VGA DAC (a bunch of resistors on a breadbord will do!). This is simple and fun to do, so I highly encourage you [to make one](DIYVGA.md). All VGA and SDRAM projects can be simulated with the verilator framework (see next section), which outputs images of what you would see on screen. They can also be simulated with Icarus, which outputs a fst file that can be explored with gtkwave or visualized with *silicehe*.
 
-A few projects rely on some external hardware (typical, low cost things: OLED, keypad, LCD, etc.), this is all detailed in the README of the project.
+A few projects rely on some external hardware (typical, low cost things: OLED, keypad, LCD, etc.), this is all detailed in the README of the projects.
 
 <p align="center">
   <img width="600" src="gallery.png">
@@ -33,7 +33,7 @@ If everthing goes well you should see in the last console output:
 ```
 20043 /   -817 =    -24
 ```
-Yes, the hardware divider is working!
+Good news, the hardware divider is working!
 
 # All examples
 
@@ -58,13 +58,13 @@ The (very simplified) render loop of Wolfenstein 3D.
 The DooM-chip, pushing the limits.
 
 *Requires*: [VGA DAC](DIYVGA.md) or OLED/LCD screen, SDRAM\
-*Tested on*: de10-nano with SDRAM board, ULX3S
+*Tested on*: de10-nano with MiSTer SDRAM board, ULX3S
 
 ## Ice-V
 
 A cool and tiny Risc-V processor (fits a HX1K Ice40, e.g. on the IceStick).
 
-*Tested on*: IceStick\
+*Tested on*: ULX3S, IceStick\
 *Optional*: OLED screen
 
 ## VGA text buffer
@@ -72,11 +72,11 @@ A cool and tiny Risc-V processor (fits a HX1K Ice40, e.g. on the IceStick).
 A small demo featuring a font and text buffer
 
 *Requires*: [VGA DAC](DIYVGA.md)\
-*Tested on*: IceStick, Mojo V3
+*Tested on*: ULX3S, IceStick, Mojo V3
 
 ## Arithmetic
 
-Divider (because we need one!), multiplier and pipelined multiplier.
+Divider (because we need one), multiplier and pipelined multiplier.
 
 # Notes and tips
 
