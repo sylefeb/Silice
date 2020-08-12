@@ -34,7 +34,9 @@ The OLED library supports also an SSD1351 driver, and other resolutions, but you
 Go into the projects/build/ulx3s directory, plug the board to USB and run
 ```./ulx3s_bare.sh ../../doomchip/oled_doomchip.ice```
 
-Done! (takes ~ 1 hour)
+Done! (takes ~ 0.5 hour)
+
+Note: under Windows make sure you use the toolchain compiled for 64 bits (MinGW64) as compilation allocates more than 4GB of RAM.
 
 ### ULX3S with VGA DAC
 
