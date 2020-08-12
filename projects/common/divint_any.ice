@@ -156,7 +156,6 @@ $$end
 // last case where 'concat' becomes all 0s
 $$ s='' .. (div_width) .. 'b'
 $$ for i = 0,div_width-1 do s=s..'0' end
-$$ s=s..'0'
       case $s$: {
         ret      = ret      + (1<<$K[0]$);
         reminder = reminder - (den << $K[0]$);
