@@ -215,11 +215,16 @@ void SiliceCompiler::prepareFramework(const char* fframework, std::string& _lpp,
 void SiliceCompiler::run(
   const char* fsource,
   const char* fresult,
-  const char* fframework)
+  const char* fframework,
+  const std::vector<std::string>& defines)
 {
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
   prepareFramework(fframework, framework_lpp, framework_verilog);
+  // add defines to header
+  for (auto d : defines) {
+    framework_lpp = d + "\n" + framework_lpp;
+  }
   // add framework path to config
   CONFIG.keyValues()["framework_path"] = LibSL::StlHelpers::extractPath(fframework);
   CONFIG.keyValues()["framework_name"] = LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework));

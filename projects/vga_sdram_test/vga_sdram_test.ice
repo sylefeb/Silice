@@ -90,12 +90,10 @@ $$end
     return;
   }
   
-  // vsync_filtered ::= vsync;
-  vsync_filtered := vsync;
+  vsync_filtered ::= vsync;
 
   sd.in_valid   := 0; // maintain low (pulses high when needed)
-
-  sd.rw   = 1;  // write
+  sd.rw         := 1; // always writes
 
   // clear SDRAM buffers
   () <- clear <- (0);

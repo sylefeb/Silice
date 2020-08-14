@@ -54,10 +54,10 @@ $include('../common/mulint_any.ice')
 
 $$if DE10NANO then
 $$INTERACTIVE = 1
-$$OLED=1
+// OLED=1
 $include('../common/keypad.ice')
 $include('lcd_status.ice')
-$include('oled_doomhead.ice')
+// include('oled_doomhead.ice')
 $$end
 
 $$if ULX3S then
@@ -566,7 +566,7 @@ $$end
 $$if DE10NANO then
   keypad        kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
   lcd_status    status(<:auto:>, posx <: ray_x, posy <: ray_y, posz <: ray_z, posa <: viewangle );
-  oled_doomhead doomhead(<:auto:>);
+//  oled_doomhead doomhead(<:auto:>);
 $$end
   
   colio.done  := 0; // maintain low (pulses high when needed)

@@ -6,6 +6,11 @@ $$color_depth=6
 $$color_max  =63
 $$SDRAM=1
 $$OLED=1
+$$if YOSYS then
+$$config['bram_wenable_width'] = 'data'
+$$config['dualport_bram_wenable0_width'] = 'data'
+$$config['dualport_bram_wenable1_width'] = 'data'
+$$end
 
 module SdramVga(
     input clk,
@@ -21,7 +26,8 @@ module SdramVga(
     output reg SDRAM_nRAS,
     output reg [1:0] SDRAM_BA,
     output reg [12:0] SDRAM_A,
-    inout [15:0] SDRAM_DQ,
+    // inout [15:0] SDRAM_DQ,
+    inout [7:0] SDRAM_DQ,
     // VGA
     output reg vga_hs,
     output reg vga_vs,
@@ -75,8 +81,28 @@ wire        __main_out_oled_cs;
 wire        __main_out_oled_dc;
 wire        __main_out_oled_rst;
 
+
+reg [31:0] RST_d;
+reg [31:0] RST_q;
+
+reg ready = 0;
+
+always @* begin
+  RST_d = RST_q >> 1;
+end
+
+always @(posedge clk) begin
+  if (ready) begin
+    RST_q <= RST_d;
+  end else begin
+    ready <= 1;
+    RST_q <= 32'b111111111111111111111111111111;
+  end
+end
+
+
 wire reset_main;
-assign reset_main = 1'b0;
+assign reset_main = RST_q[0];
 wire run_main;
 assign run_main = 1'b1;
 
@@ -144,7 +170,5 @@ always @* begin
   oled_rst     = __main_out_oled_rst;
   
 end
-
-assign SDRAM_DQ[15:8] = 0;
 
 endmodule

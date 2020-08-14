@@ -69,11 +69,9 @@ module sdram_clock (
       .datain_l(1'b1),
       .outclock(clk),
       .dataout(sdram_clk),
-      .aclr(1'b0),
       .aset(1'b0),
       .oe(1'b1),
       .outclocken(1'b1),
-      .sclr(1'b0),
       .sset(1'b0)
     );
 
@@ -128,7 +126,7 @@ EHXPLLL #(
 
 `else
 
-    assign sdram_clk = clk;
+    assign sdram_clk = ~clk;
     
 `endif
 `endif

@@ -457,6 +457,8 @@ $$end
 
   uint8 frame       = 0;
 
+  // led := frame;
+  
 $$if DE10NANO then
   not_pll_lock := ~pll_lock;
 $$end
@@ -477,13 +479,7 @@ $$end
   // we count a number of frames and stop
 $$if HARDWARE then
   while (1) { 
-  
-    // wait while vga draws  
-	  while (video_vblank == 0) { }
-
-    // wait for next frame to start
-	  while (video_vblank == 1) { }
-    
+    frame = frame + 1;
   }
 $$else
   while (frame < 6) {

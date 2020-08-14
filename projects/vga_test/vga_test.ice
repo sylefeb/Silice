@@ -228,7 +228,7 @@ $$if MOJO then
 $$end
 
 $$if DE10NANO then
-  led := 0;
+  led := frame;
   sdram_cle := 1bz;
   sdram_dqm := 1bz;
   sdram_cs  := 1bz;

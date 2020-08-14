@@ -129,7 +129,8 @@ namespace Silice {
     void run(
       const char *fsource,
       const char *fresult,
-      const char *fframework);
+      const char *fframework,
+      const std::vector<std::string>& defines);
 
   };
 

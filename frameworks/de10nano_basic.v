@@ -18,8 +18,28 @@ module Basic(
 
 wire [7:0] __main_out_led;
 
+
+reg [31:0] RST_d;
+reg [31:0] RST_q;
+
+reg ready = 0;
+
+always @* begin
+  RST_d = RST_q >> 1;
+end
+
+always @(posedge clk) begin
+  if (ready) begin
+    RST_q <= RST_d;
+  end else begin
+    ready <= 1;
+    RST_q <= 32'b111111111111111111111111111111;
+  end
+end
+
+
 wire reset_main;
-assign reset_main = 1'b0;
+assign reset_main = RST_q[0];
 wire run_main;
 assign run_main = 1'b1;
 

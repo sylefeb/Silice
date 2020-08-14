@@ -52,7 +52,7 @@ assign run_main = 1'b1;
 
 M_main __main(
   .clock        (clk_25mhz),
-  .reset        (RST_d),
+  .reset        (RST_q[0]),
   .out_led      (__main_led),
   .out_oled_clk (__main_oled_clk),
   .out_oled_mosi(__main_oled_mosi),

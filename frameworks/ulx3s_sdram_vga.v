@@ -69,7 +69,7 @@ assign run_main = 1'b1;
 
 M_main __main(
   .clock(clk_25mhz),
-  .reset(RST_d),
+  .reset(RST_q[0]),
   .out_led(__main_out_led),
   .inout_sdram_dq(sdram_d[7:0]),
   .out_sdram_clk(__main_out_sdram_clk),
