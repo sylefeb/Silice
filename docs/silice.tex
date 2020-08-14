@@ -733,19 +733,6 @@ subroutine init_device(calls wait)
 
 Note that re-entrant calls (subroutine calling itself, even through other subroutines) are not possible.
 
-The algorithms have a stack which has to be as deep as the deepest call tree. By default the stack has a size of 4. The stack size can be specified as an algorithm option:
-
-\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
-algorithm foo( /*...*/ ) <stack:8> { /* ... */ }
-\end{minted}
-
-The algorithm now has a stack of size 8.
-
-\vspace*{5mm}
-\noindent
-\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
-\textbf{Note:} Beware that runtime stack overflows cannot be detected. Besides careful use of nested calls, simulation can be used to confirm a problem, looking at the max value of \texttt{\_d\_return\_ptr} for the algorithm. }}
-
 % ----------------------------------------------
 
 \subsection{Circuitry}
