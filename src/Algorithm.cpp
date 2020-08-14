@@ -2078,7 +2078,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
       v = R->second;
     }
     // -> add rule
-    cblock->context.vio_rewrites.insert(make_pair(ins[i], v));
+    cblock->context.vio_rewrites[ins[i]] = v;
   }
   ForIndex(o, outs.size()) {
     // -> closure on pre-existing rewrite rule
@@ -2088,7 +2088,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
       v = R->second;
     }
     // -> add rule
-    cblock->context.vio_rewrites.insert(make_pair(outs[o], v));
+    cblock->context.vio_rewrites[outs[o]] = v;
   }
   // gather code
   t_combinational_block* cblock_after = gather(C->second->block(), cblock, _context);

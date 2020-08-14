@@ -482,7 +482,7 @@ $$if HARDWARE then
     frame = frame + 1;
   }
 $$else
-  while (frame < 6) {
+  while (frame < 64) {
 
     while (video_vblank == 1) { }
 	  //__display("vblank off");
