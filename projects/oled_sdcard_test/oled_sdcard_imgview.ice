@@ -16,35 +16,40 @@ $$dofile('pre_sdcard_image.lua')
 
 // ------------------------- 
 
+group streamio {
+  uint1 next  = 0,
+  uint8 data  = 0,
+  uint1 ready = 0,
+}
+
 algorithm sdcard_streamer(
-  output! uint1 sd_clk,
-  output! uint1 sd_mosi,
-  output! uint1 sd_csn,
+  output  uint1 sd_clk,
+  output  uint1 sd_mosi,
+  output  uint1 sd_csn,
   input   uint1 sd_miso,
-  output  uint8 led,
-  input   uint1 next,
-  output  uint8 data,
-  output  uint1 ready,
+  streamio stream {
+    input   next,
+    output  data,
+    output  ready,
+  }
 ) <autorun> {
 
   // Read buffer
   dualport_bram uint8 sdbuffer[512] = uninitialized;
 
   // SD-card interface
-  uint40 status = 0;
-  uint1  read_sector = 0;
-  uint32 addr_sector = 0;
+  sdcardio sdcio;
   sdcard sd(
+    // pins
     sd_clk  :> sd_clk,
     sd_mosi :> sd_mosi,
     sd_csn  :> sd_csn,
     sd_miso <: sd_miso,
-    status  :> status,
-    read_sector <: read_sector,
-    addr_sector <: addr_sector,
+    // read io
+    io      <:> sdcio,
+    // bram port
     store_addr  :> sdbuffer.addr1,
-    store_byte  :> sdbuffer.wdata1,
-    led :> led
+    store_byte  :> sdbuffer.wdata1
   );
   
   // Global pointer in data
@@ -53,39 +58,39 @@ algorithm sdcard_streamer(
   
   sdbuffer.wenable0 := 0;
   sdbuffer.wenable1 := 1;  
-  read_sector       := 0;
+  sdcio.read_sector := 0;
 
   always {
-    if (next) {
+    if (stream.next) {
       do_next = 1;
-      ready   = 0;
+      stream.ready   = 0;
     }
   }
 
-  ready = 0;
+  stream.ready = 0;
 
   // wait for sdcard to initialize
-  while (sd.ready == 0) { }
+  while (sdcio.ready == 0) { }
 
-  ready = 1;
+  stream.ready = 1;
 
-  addr_sector = 0;
+  sdcio.addr_sector = 0;
   while (1) {
     if (do_next) {
       do_next = 0;
       // read next sector?
       if (ptr[0,9] == 0) {
-        read_sector = 1;
+        sdcio.read_sector = 1;
         // wait for sdcard
-        while (sd.ready == 0) { }
+        while (sdcio.ready == 0) { }
         // prepare for next
-        addr_sector = addr_sector + 1;
+        sdcio.addr_sector = sdcio.addr_sector + 1;
       }
       sdbuffer.addr0 = ptr[0,9];
 ++:      
-      data           = sdbuffer.rdata0; // ptr;
+      stream.data    = sdbuffer.rdata0; // ptr;
       ptr            = ptr + 1;
-      ready          = 1;
+      stream.ready   = 1;
     }
   }
   
@@ -117,21 +122,13 @@ algorithm main(
     io       <:> io
   );
 
-  uint1 next  = 0;
-  uint8 data  = 0;
-  uint1 ready = 0;
-
-  uint8 foo   = 0;
-
+  streamio stream;
   sdcard_streamer streamer(
     sd_clk  :> sd_clk,
     sd_mosi :> sd_mosi,
     sd_csn  :> sd_csn,
     sd_miso <: sd_miso,
-    led     :> foo,
-    next    <: next,
-    data    :> data,
-    ready   :> ready    
+    stream  <:> stream
   );
 
   // Buffers with image data
@@ -145,7 +142,7 @@ algorithm main(
   // maintain low (pulses high when needed)
   io.start_rect := 0;
   io.next_pixel := 0;
-  next          := 0;
+  stream.next   := 0;
 
 led = 0;
 
@@ -155,29 +152,9 @@ led = 0;
 led = 2;
 
   // wait for sdcard controller to be ready  
-  while (ready == 0)    { }
+  while (stream.ready == 0)    { }
 
 led = 4;
-
-  // fill palette with white DEBUG
-  {
-    uint10 to_read  = 0;
-    palette.wenable = 1;    
-    palette.addr    = 0;
-    while (to_read < 256) {    
-      uint18 clr = 0;
-      uint6 n    = 0;
-      n = 0;
-      while (n < 18) {
-        clr[   n,6] = 18h7ffff;
-        n           = n + 6;
-      }      
-      palette.addr  = to_read;
-      palette.wdata = clr;
-      to_read       = to_read + 1;
-    }
-    palette.wenable = 0;
-  }
 
   // read palette
   {
@@ -189,9 +166,9 @@ led = 4;
       uint6 n    = 0;
       n = 0;
       while (n < 18) {
-        next        = 1;
-        while (ready == 0) { }
-        clr[   n,6] = data[2,6]; // (n == 0) ? to_read[2,6] : 0; //
+        stream.next = 1;
+        while (stream.ready == 0) { }
+        clr[   n,6] = stream.data[2,6];
         n           = n + 6;
       }      
       palette.addr  = to_read;
@@ -209,9 +186,9 @@ led = 8;
     image.wenable  = 1;    
     while (to_read < $oled_width*oled_height$) {    
       led          = to_read;
-      next         = 1;
-      while (ready == 0) { }
-      image.wdata  = data;
+      stream.next  = 1;
+      while (stream.ready == 0) { }
+      image.wdata  = stream.data;
       image.addr   = to_read;
       to_read      = to_read + 1;
     }
