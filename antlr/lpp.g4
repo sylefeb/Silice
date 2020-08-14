@@ -34,9 +34,11 @@ ANY                 : ~[\r\n$]+ ;
 
 FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/')* '\'' ;
 
+LUALINE_PREFIX      : (' ' | '\t')* '$$' ;
+
 /* ======== Parser ======== */
 
-lualine     : '$$' code=ANY ;
+lualine     : LUALINE_PREFIX code=ANY ;
 
 luacode     : '$' code=ANY '$' ;
 

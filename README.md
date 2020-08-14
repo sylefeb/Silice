@@ -9,7 +9,7 @@ To setup Silice, see the [getting started](GetStarted.md) guide. To start writin
 
 The Silice [documentation is here](docs/silice.pdf).
 
-You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 examples](projects/README.md).
+You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 and ULX3S examples](projects/README.md).
 
 While I developed Silice for my own needs, I hope you'll find it useful for your projects!
 

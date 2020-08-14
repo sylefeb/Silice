@@ -733,19 +733,6 @@ subroutine init_device(calls wait)
 
 Note that re-entrant calls (subroutine calling itself, even through other subroutines) are not possible.
 
-The algorithms have a stack which has to be as deep as the deepest call tree. By default the stack has a size of 4. The stack size can be specified as an algorithm option:
-
-\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
-algorithm foo( /*...*/ ) <stack:8> { /* ... */ }
-\end{minted}
-
-The algorithm now has a stack of size 8.
-
-\vspace*{5mm}
-\noindent
-\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
-\textbf{Note:} Beware that runtime stack overflows cannot be detected. Besides careful use of nested calls, simulation can be used to confirm a problem, looking at the max value of \texttt{\_d\_return\_ptr} for the algorithm. }}
-
 % ----------------------------------------------
 
 \subsection{Circuitry}
@@ -939,6 +926,8 @@ Upon declaration, modifiers can be specified (see \texttt{<MODS>}) in the declar
 	\item \textbf{Internal clock.} Adding a \texttt{@ID} specifies the use of an internally generated clock signal. It is then expected that the algorithm contains a \texttt{int1 ID = 0;} variable declaration, which is bound to the output of a module producing a clock signal. This is meant to be used together with \verilog{} PLLs, to produce new clock signals. The module producing the new clock will typically take \texttt{clock} as input and \texttt{ID}
 	as output.
 	\item \textbf{Internal reset.} Adding a \texttt{!ID} specifies the use of an internally generated reset signal. It is then expected that the algorithm contains a \texttt{int1 ID = 0;} variable declaration, which is bound to the output of a module producing a reset signal. This may be used, for instance, to filter the signal from a physical reset button.
+	\item \textbf{Stack.} Adding the \texttt{stack:N} modifier (with N an integer > 1) will allocate a stack of size N for the algorithm subroutine nested calls.
+	\item \textbf{One-hot.} Adding the \texttt{onehot} modifier will use a 'onehot' state numbering for the algorithm state machine. On small algorithms with few states this can result in smaller, faster designs.
 \end{itemize}
 
 Here is an example:

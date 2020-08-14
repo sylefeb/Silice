@@ -2,6 +2,9 @@
 `default_nettype none
 $$ICESTICK=1
 $$HARDWARE=1
+$$config['bram_wenable_width'] = 'data'
+$$config['dualport_bram_wenable0_width'] = 'data'
+$$config['dualport_bram_wenable1_width'] = 'data'
 
 module top(
   input  CLK,

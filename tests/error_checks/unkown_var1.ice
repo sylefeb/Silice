@@ -8,7 +8,7 @@ algorithm main(
   int1 rst = 0;
   
   reset_conditioner rstcond(
-    rcclk <: clk,
+    rcclk <: clk, // error
     in    <: rst_n,
     out  :> rst
   );

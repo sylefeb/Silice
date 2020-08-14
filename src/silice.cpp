@@ -27,10 +27,10 @@ the distribution, please refer to it for details.
 
 #include <LibSL/LibSL.h>
 
-#include "path.h"
-
 #include <tclap/CmdLine.h>
 #include <tclap/UnlabeledValueArg.h>
+
+using namespace Silice;
 
 // -------------------------------------------------
 
@@ -50,6 +50,8 @@ int main(int argc, char **argv)
     cmd.add(output);
     TCLAP::ValueArg<std::string> framework("f", "framework", "Input framework file (.v)", false, "../frameworks/icarus_bare.v", "string");
     cmd.add(framework);
+    TCLAP::MultiArg<std::string> defines("D", "define", "specifies a define for the preprocessor, e.g. -D name=value", false, "string");
+    cmd.add(defines);
 
     cmd.parse(argc, argv);
 
@@ -57,7 +59,8 @@ int main(int argc, char **argv)
     compiler.run(
       source.getValue().c_str(),
       output.getValue().c_str(),
-      framework.getValue().c_str());
+      framework.getValue().c_str(),
+      defines.getValue());
 
   } catch (TCLAP::ArgException& err) {
     std::cerr << "command line error: " << err.what() << std::endl;

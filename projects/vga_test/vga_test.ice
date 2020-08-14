@@ -15,7 +15,12 @@ $$end
 
 $$if DE10NANO then
 // Clock
-import('de10nano_clk_100_25.v')
+import('../common/de10nano_clk_100_25.v')
+$$end
+
+$$if ULX3S then
+// Clock
+import('../common/ulx3s_clk_100_25.v')
 $$end
 
 $$if HARDWARE then
@@ -103,6 +108,9 @@ $$if DE10NANO then
   output! uint1 oled_dc,
   output! uint1 oled_rst,  
 $$end
+$$if ULX3S then
+  output! uint8 led,
+$$end
 $$if VGA then  
   // VGA
   output! uint$color_depth$ video_r,
@@ -159,6 +167,16 @@ $$elseif DE10NANO then
     locked    :> pll_lock,
     rst       <: reset
   ); 
+$$elseif ULX3S then
+  // --- clock
+  uint1 sdram_clock = 0;
+  uint1 pll_lock = 0;
+  ulx3s_clk_100_25 clk_gen(
+    clkin    <: clock,
+    clkout0  :> sdram_clock,
+    clkout1  :> video_clock,
+    locked   :> pll_lock
+  ); 
 $$end
   // --- video reset
   reset_conditioner vga_rstcond (
@@ -210,7 +228,7 @@ $$if MOJO then
 $$end
 
 $$if DE10NANO then
-  led := 0;
+  led := frame;
   sdram_cle := 1bz;
   sdram_dqm := 1bz;
   sdram_cs  := 1bz;

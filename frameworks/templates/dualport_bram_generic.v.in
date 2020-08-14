@@ -1,0 +1,29 @@
+module M_%MODULE%_mem_%NAME%(
+input      [%WENABLE0_WIDTH%:0]             in_%NAME%_wenable0,
+input      %DATA_TYPE% [%DATA_WIDTH%:0]     in_%NAME%_wdata0,
+input      [%ADDR0_WIDTH%:0]                in_%NAME%_addr0,
+input      [%WENABLE1_WIDTH%:0]             in_%NAME%_wenable1,
+input      [%DATA_WIDTH%:0]                 in_%NAME%_wdata1,
+input      [%ADDR1_WIDTH%:0]                in_%NAME%_addr1,
+output reg %DATA_TYPE% [%DATA_WIDTH%:0]     out_%NAME%_rdata0,
+output reg %DATA_TYPE% [%DATA_WIDTH%:0]     out_%NAME%_rdata1,
+input      %CLOCK%0,
+input      %CLOCK%1
+);
+reg %DATA_TYPE% [%DATA_WIDTH%:0] buffer[%DATA_SIZE%:0];
+always @(posedge %CLOCK%0) begin
+  if (in_%NAME%_wenable0) begin
+    buffer[in_%NAME%_addr0] <= in_%NAME%_wdata0;
+  end else begin
+    out_%NAME%_rdata0 <= buffer[in_%NAME%_addr0];
+  end
+end
+always @(posedge %CLOCK%1) begin
+  if (in_%NAME%_wenable1) begin
+    buffer[in_%NAME%_addr1] <= in_%NAME%_wdata1;
+  end else begin
+    out_%NAME%_rdata1 <= buffer[in_%NAME%_addr1];
+  end
+end
+%INITIAL%
+endmodule

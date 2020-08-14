@@ -11,7 +11,7 @@ to the README of each project.
 
 Some projects require a VGA DAC (a bunch of resistors on a breadbord will do!). This is simple and fun to do, so I highly encourage you [to make one](DIYVGA.md). All VGA and SDRAM projects can be simulated with the verilator framework (see next section), which outputs images of what you would see on screen. They can also be simulated with Icarus, which outputs a fst file that can be explored with gtkwave or visualized with *silicehe*.
 
-A few projects rely on some external hardware (typical, low cost things: OLED, keypad, LCD, etc.), this is all detailed in the README of the project.
+A few projects rely on some external hardware (typical, low cost things: OLED, keypad, LCD, etc.), this is all detailed in the README of the projects.
 
 <p align="center">
   <img width="600" src="gallery.png">
@@ -33,7 +33,7 @@ If everthing goes well you should see in the last console output:
 ```
 20043 /   -817 =    -24
 ```
-Yes, the hardware divider is working!
+Good news, the hardware divider is working!
 
 # All examples
 
@@ -42,7 +42,7 @@ Yes, the hardware divider is working!
 Some old-school effects ported on FPGA.
 
 *Requires*: [VGA DAC](DIYVGA.md)\
-*Tested on*: IceStick Ice40, Mojo V3
+*Tested on*: IceStick Ice40, Mojo V3, ULX3S
 
 ## VGA + SDRAM framebuffer demos
 
@@ -51,20 +51,20 @@ Some old-school effects ported on FPGA.
 The (very simplified) render loop of Wolfenstein 3D.
 
 *Requires*: [VGA DAC](DIYVGA.md), SDRAM\
-*Tested on*: Mojo V3 + SDRAM (or HDMI) shield
+*Tested on*: Mojo V3 + SDRAM (or HDMI) shield, ULX3S
 
 ### The DooM-chip
 
 The DooM-chip, pushing the limits.
 
-*Requires*: [VGA DAC](DIYVGA.md), SDRAM\
-*Tested on*: de10-nano with SDRAM board
+*Requires*: [VGA DAC](DIYVGA.md) or OLED/LCD screen, SDRAM\
+*Tested on*: de10-nano with MiSTer SDRAM board, ULX3S
 
 ## Ice-V
 
 A cool and tiny Risc-V processor (fits a HX1K Ice40, e.g. on the IceStick).
 
-*Tested on*: IceStick\
+*Tested on*: ULX3S, IceStick\
 *Optional*: OLED screen
 
 ## VGA text buffer
@@ -72,12 +72,14 @@ A cool and tiny Risc-V processor (fits a HX1K Ice40, e.g. on the IceStick).
 A small demo featuring a font and text buffer
 
 *Requires*: [VGA DAC](DIYVGA.md)\
-*Tested on*: IceStick, Mojo V3
+*Tested on*: ULX3S, IceStick, Mojo V3
 
 ## Arithmetic
 
-Divider (because we need one!), multiplier and pipelined multiplier.
+Divider (because we need one), multiplier and pipelined multiplier.
 
 # Notes and tips
 
-If you are using an IceStick under Windows and run into trouble, checkout the notes on my [fpga-binutils repo](https://github.com/sylefeb/fpga-binutils) (end of page).
+- If you are using an IceStick under Windows and run into trouble, checkout the notes on my [fpga-binutils repo](https://github.com/sylefeb/fpga-binutils) (end of page).
+
+- Some Verilog code in *projects/common* (hdmi, sdram) comes from the [Alchitry](https://alchitry.com/) demos for the MojoV3. Also checkout [Lucid](https://alchitry.com/pages/lucid-fpga-tutorials) it is great for learning low-level FPGA programming (similar to Verilog but more beginner-friendly). The website features good tutorials on FPGAs in general.

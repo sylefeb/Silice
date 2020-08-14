@@ -69,18 +69,66 @@ module sdram_clock (
       .datain_l(1'b1),
       .outclock(clk),
       .dataout(sdram_clk),
-      .aclr(1'b0),
       .aset(1'b0),
       .oe(1'b1),
       .outclocken(1'b1),
-      .sclr(1'b0),
       .sset(1'b0)
     );
 
 `else
 
+`ifdef ULX3S
+
+wire clkout0;
+wire locked;
+
+(* FREQUENCY_PIN_CLKI="100" *)
+(* FREQUENCY_PIN_CLKOP="100" *)
+(* FREQUENCY_PIN_CLKOS="100" *)
+(* ICP_CURRENT="12" *) (* LPF_RESISTOR="8" *) (* MFG_ENABLE_FILTEROPAMP="1" *) (* MFG_GMCREF_SEL="2" *)
+EHXPLLL #(
+        .PLLRST_ENA("DISABLED"),
+        .INTFB_WAKE("DISABLED"),
+        .STDBY_ENABLE("DISABLED"),
+        .DPHASE_SOURCE("DISABLED"),
+        .OUTDIVIDER_MUXA("DIVA"),
+        .OUTDIVIDER_MUXB("DIVB"),
+        .OUTDIVIDER_MUXC("DIVC"),
+        .OUTDIVIDER_MUXD("DIVD"),
+        .CLKI_DIV(1),
+        .CLKOP_ENABLE("ENABLED"),
+        .CLKOP_DIV(6),
+        .CLKOP_CPHASE(2),
+        .CLKOP_FPHASE(0),
+        .CLKOS_ENABLE("ENABLED"),
+        .CLKOS_DIV(6),
+        .CLKOS_CPHASE(1),
+        .CLKOS_FPHASE(-4),
+        .FEEDBK_PATH("CLKOP"),
+        .CLKFB_DIV(1)
+    ) pll_i (
+        .RST(1'b0),
+        .STDBY(1'b0),
+        .CLKI(clk),
+        .CLKOP(clkout0),
+        .CLKOS(sdram_clk),
+        .CLKFB(clkout0),
+        .CLKINTFB(),
+        .PHASESEL0(1'b0),
+        .PHASESEL1(1'b0),
+        .PHASEDIR(1'b1),
+        .PHASESTEP(1'b1),
+        .PHASELOADREG(1'b1),
+        .PLLWAKESYNC(1'b0),
+        .ENCLKOP(1'b0),
+        .LOCK(locked)
+	);
+
+`else
+
     assign sdram_clk = ~clk;
     
+`endif
 `endif
 `endif
     

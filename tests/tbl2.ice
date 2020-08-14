@@ -15,7 +15,7 @@ loop:
 algorithm main(output int8 led)
 {
   wait w;
-  test t;
+  test tst;
   int8 tbl[8] = {1,2,4,8,16,32,64,128};
   int8 myled = 0;
   int8 i = 0;
@@ -28,14 +28,14 @@ loop:
    
 fori:
   myled = tbl[i];
-  () <- w <- ();
+  //() <- w <- ();
   i = i + 1;
   if (i < 8) {
     goto fori;
   }
   
-  (myled) <- t <- (tbl);
-  () <- w <- ();
+  (myled) <- tst <- (tbl);
+  //() <- w <- ();
   
   goto loop;
   

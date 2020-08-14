@@ -13,12 +13,13 @@ the distribution, please refer to it for details.
 
 (header_1_0)
 */
-#pragma once
 // -------------------------------------------------
 //                                ... hardcoding ...
 // -------------------------------------------------
 
 #include "SiliceCompiler.h"
+#include "Config.h"
+#include "ExpressionLinter.h"
 
 // -------------------------------------------------
 
@@ -31,7 +32,7 @@ the distribution, please refer to it for details.
 
 #include <LibSL/LibSL.h>
 
-#include "path.h"
+using namespace Silice;
 
 // -------------------------------------------------
 
@@ -87,7 +88,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     std::string name = alg->IDENTIFIER()->getText();
     std::cerr << "parsing algorithm " << name << std::endl;
     bool autorun = (name == "main");
-    int  stack_size = DEFAULT_STACK_SIZE;
+    bool onehot = false;
     std::string clock = ALG_CLOCK;
     std::string reset = ALG_RESET;
     if (alg->algModifiers() != nullptr) {
@@ -101,16 +102,16 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
         if (m->sautorun() != nullptr) {
           autorun = true;
         }
+        if (m->sonehot() != nullptr) {
+          onehot = true;
+        }
         if (m->sstacksz() != nullptr) {
-          stack_size = atoi(m->sstacksz()->NUMBER()->getText().c_str());
-          if (stack_size < 1) {
-            throw Fatal("algorithm return stack size should be at least 1 (line %d)!", (int)alg->getStart()->getLine());
-          }
+          // deprecated, ignore
         }
       }
     }
     AutoPtr<Algorithm> algorithm(new Algorithm(
-      name, clock, reset, autorun, stack_size,
+      name, clock, reset, autorun, onehot,
       m_Modules, m_Subroutines, m_Circuitries, m_Groups, m_BitFields)
     );
     if (m_Algorithms.find(name) != m_Algorithms.end()) {
@@ -214,17 +215,29 @@ void SiliceCompiler::prepareFramework(const char* fframework, std::string& _lpp,
 void SiliceCompiler::run(
   const char* fsource,
   const char* fresult,
-  const char* fframework)
+  const char* fframework,
+  const std::vector<std::string>& defines)
 {
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
   prepareFramework(fframework, framework_lpp, framework_verilog);
+  // add defines to header
+  for (auto d : defines) {
+    framework_lpp = d + "\n" + framework_lpp;
+  }
+  // add framework path to config
+  CONFIG.keyValues()["framework_path"] = LibSL::StlHelpers::extractPath(fframework);
+  CONFIG.keyValues()["framework_name"] = LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework));
+  CONFIG.keyValues()["templates_path"] = LibSL::StlHelpers::extractPath(fframework) + "/templates";
   // preprocessor
   LuaPreProcessor lpp;
   std::string preprocessed = std::string(fsource) + ".lpp";
-  lpp.addDefinition("FRAMEWORK", fframework);
+  lpp.addDefinition("FRAMEWORK", 
+    LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework)));
   lpp.run(fsource, framework_lpp, preprocessed);
-  // extract path
+  // display config
+  CONFIG.print();
+  // extract paths
   m_Paths = lpp.searchPaths();
   // parse the preprocessed source
   if (LibSL::System::File::exists(preprocessed.c_str())) {
@@ -242,6 +255,9 @@ void SiliceCompiler::run(
     lexer.addErrorListener(&lexerErrorListener);
     parser.removeErrorListeners();
     parser.addErrorListener(&parserErrorListener);
+
+    ExpressionLinter::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
+    ExpressionLinter::setLuaPreProcessor(&lpp);
 
     try {
 
@@ -286,6 +302,9 @@ void SiliceCompiler::run(
 
     }
 
+    ExpressionLinter::setTokenStream(nullptr);
+    ExpressionLinter::setLuaPreProcessor(nullptr);
+
   } else {
     throw Fatal("cannot open source file '%s'", fsource);
   }
@@ -294,7 +313,7 @@ void SiliceCompiler::run(
 
 // -------------------------------------------------
 
-void SiliceCompiler::ReportError::split(const std::string& s, char delim, std::vector<std::string>& elems)
+void SiliceCompiler::ReportError::split(const std::string& s, char delim, std::vector<std::string>& elems) const
 {
   std::stringstream ss(s);
   std::string item;
@@ -312,7 +331,7 @@ static int numLinesIn(std::string l)
 
 // -------------------------------------------------
 
-void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where, std::string msg)
+void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where, std::string msg) const
 {
   std::cerr << Console::bold << Console::white << "----------<<<<< error >>>>>----------" << std::endl << std::endl;
   if (where.second > -1) {
@@ -361,7 +380,7 @@ void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where,
 
 // -------------------------------------------------
 
-std::string SiliceCompiler::ReportError::extractCodeBetweenTokens(std::string file, antlr4::TokenStream *tk_stream, int stk, int etk)
+std::string SiliceCompiler::ReportError::extractCodeBetweenTokens(std::string file, antlr4::TokenStream *tk_stream, int stk, int etk) const
 {
   int sidx = (int)tk_stream->get(stk)->getStartIndex();
   int eidx = (int)tk_stream->get(etk)->getStopIndex();
@@ -380,7 +399,7 @@ std::string SiliceCompiler::ReportError::extractCodeBetweenTokens(std::string fi
 
 // -------------------------------------------------
 
-std::string SiliceCompiler::ReportError::extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset)
+std::string SiliceCompiler::ReportError::extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset) const
 {
   antlr4::Token* first_tk = tk;
   int index = (int)first_tk->getTokenIndex();
@@ -409,22 +428,22 @@ std::string SiliceCompiler::ReportError::extractCodeAroundToken(std::string file
 
 // -------------------------------------------------
 
-std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_stream,antlr4::Token* offender,antlr4::misc::Interval interval)
+std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_stream,antlr4::Token* offender,antlr4::misc::Interval interval) const
 {
   std::string msg = "";
   if (tk_stream != nullptr && (offender != nullptr || !(interval == antlr4::misc::Interval::INVALID))) {
     msg = "#";
     std::string file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
     int offset = 0;
-    std::string line;
+    std::string codeline;
     if (offender != nullptr) {
       tk_stream->getText(offender, offender); // this seems required to refresh the steam? TODO FIXME investigate
-      line = extractCodeAroundToken(file, offender, tk_stream, offset);
+      codeline = extractCodeAroundToken(file, offender, tk_stream, offset);
     } else if (!(interval == antlr4::misc::Interval::INVALID)) {
-      line = extractCodeBetweenTokens(file, tk_stream, (int)interval.a, (int)interval.b);
+      codeline = extractCodeBetweenTokens(file, tk_stream, (int)interval.a, (int)interval.b);
       offset = (int)tk_stream->get(interval.a)->getStartIndex();
     }
-    msg += line;
+    msg += codeline;
     msg += "#";
     msg += tk_stream->getText(offender, offender);
     msg += "#";
@@ -443,11 +462,27 @@ std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_
 
 // -------------------------------------------------
 
+int SiliceCompiler::ReportError::lineFromInterval(antlr4::TokenStream *tk_stream,antlr4::misc::Interval interval) const
+{
+  if (tk_stream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
+    // attempt to recover source line from interval only
+    antlr4::Token *tk = tk_stream->get(interval.a);
+    return (int)tk->getLine();
+  } else {
+    return -1;
+  }
+}
+
+// -------------------------------------------------
+
 SiliceCompiler::ReportError::ReportError(const LuaPreProcessor& lpp, 
   int line, antlr4::TokenStream* tk_stream, 
   antlr4::Token *offender, antlr4::misc::Interval interval, std::string msg)
 {
   msg += prepareMessage(tk_stream,offender,interval);
+  if (line == -1) {
+    line = lineFromInterval(tk_stream,interval);
+  }
   printReport(lpp.lineAfterToFileAndLineBefore((int)line), msg);
 }
 

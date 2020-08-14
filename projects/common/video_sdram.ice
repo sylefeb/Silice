@@ -163,17 +163,15 @@ $$end
 
 algorithm sdram_switcher(
   
-  input uint1    select,
-
   sdio sd0 {
     input   addr,
     input   wbyte_addr,
     input   rw,
     input   data_in,
-    output! data_out,
-    output! busy,
+    output  data_out,
+    output  busy,
     input   in_valid,
-    output! out_valid  
+    output  out_valid  
   },
 
   sdio sd1 {
@@ -181,20 +179,20 @@ algorithm sdram_switcher(
     input   wbyte_addr,
     input   rw,
     input   data_in,
-    output! data_out,
-    output! busy,
+    output  data_out,
+    output  busy,
     input   in_valid,
-    output! out_valid   
+    output  out_valid   
   },
 
   sdio sd {
-    output! addr,
-    output! wbyte_addr,
-    output! rw,
-    output! data_in,
+    output  addr,
+    output  wbyte_addr,
+    output  rw,
+    output  data_in,
     input   data_out,
     input   busy,
-    output! in_valid,
+    output  in_valid,
     input   out_valid
   }
   
@@ -203,10 +201,9 @@ algorithm sdram_switcher(
   sdio buffered_sd0;
   sdio buffered_sd1;
   
-  sd0.busy      := buffered_sd0.in_valid; // sd0 is busy until we process its request
-  sd1.busy      := buffered_sd1.in_valid; // sd1 is busy until we process its request
   sd0.out_valid := 0; // pulses high when ready
   sd1.out_valid := 0; // pulses high when ready
+  sd .in_valid  := 0; // pulses high when ready
   
   always {
     if (buffered_sd0.in_valid == 0 && sd0.in_valid == 1) {
@@ -223,6 +220,8 @@ algorithm sdram_switcher(
       buffered_sd1.data_in    = sd1.data_in;
       buffered_sd1.in_valid   = 1;
     }
+    sd0.busy = buffered_sd0.in_valid; // sd0 is busy until we process its request
+    sd1.busy = buffered_sd1.in_valid; // sd1 is busy until we process its request
   }
   
   while (1) {
@@ -255,7 +254,7 @@ algorithm sdram_switcher(
             while (sd.out_valid == 0) { }
             sd1.data_out  = sd.data_out;
             sd1.out_valid = 1;
-          }
+          }  
           buffered_sd1.in_valid = 0; // done
         }
       }
@@ -294,13 +293,13 @@ algorithm frame_buffer_row_updater(
   uint1  working_row       = 0; // parity of row in which we write
   uint1  row_busy_filtered = 0;
   uint1  vsync_filtered    = 0;
+  uint1  fbuffer_filtered  = 0;
 
   sd.in_valid       := 0; // maintain low (pulses high when needed)
   
-  //row_busy_filtered ::= row_busy;
-  //vsync_filtered    ::= vsync;
-  row_busy_filtered := row_busy;
-  vsync_filtered    := vsync;
+  row_busy_filtered ::= row_busy;
+  vsync_filtered    ::= vsync;
+  fbuffer_filtered  ::= fbuffer;
   
   always {
     // writing/reading on buffers
@@ -346,9 +345,9 @@ algorithm frame_buffer_row_updater(
         // address to read from (count + row * 320 / 4)
         // sd.addr       = {1b0,fbuffer,21b0} | (count + (((row << 8) + (row << 6)) >> 2)); 
 $$if not COL_MAJOR then
-        sd.addr       = {1b0,fbuffer,21b0} | (count) | (row << 8); 
+        sd.addr       = {1b0,fbuffer_filtered,21b0} | (count) | (row << 8); 
 $$else
-        sd.addr       = {1b0,fbuffer,21b0} | (count << 8) | (row); 
+        sd.addr       = {1b0,fbuffer_filtered,21b0} | (count << 8) | (row); 
 $$end
         sd.in_valid   = 1;         // go ahead!      
         while (sd.out_valid == 0) {  } // wait for value

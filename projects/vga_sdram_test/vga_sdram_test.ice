@@ -15,6 +15,10 @@ algorithm frame_drawer(
     input  busy,
     input  out_valid,
   },
+$$if HAS_COMPUTE_CLOCK then
+  input  uint1  sdram_clock,
+  input  uint1  sdram_reset,
+$$end
   input  uint1  vsync,
   output uint1  fbuffer
 ) {
@@ -86,12 +90,10 @@ algorithm frame_drawer(
     return;
   }
   
-  // vsync_filtered ::= vsync;
-  vsync_filtered := vsync;
+  vsync_filtered ::= vsync;
 
   sd.in_valid   := 0; // maintain low (pulses high when needed)
-
-  sd.rw   = 1;  // write
+  sd.rw         := 1; // always writes
 
   // clear SDRAM buffers
   () <- clear <- (0);

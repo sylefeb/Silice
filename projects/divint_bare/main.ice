@@ -1,6 +1,7 @@
 
 // integer division
-$include('../common/divint16.ice')
+$$div_width=16
+$include('../common/divint_any.ice')
 
 algorithm main()
 {
