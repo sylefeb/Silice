@@ -5,20 +5,26 @@
 // Work in progress!
 // ------------------------- 
 
+group sdcardio {
+  uint32 addr_sector = 0,
+  uint1  read_sector = 0,
+  uint1  ready       = 0,
+}
+
 algorithm sdcard(
-  output! uint1  sd_clk,
-  output! uint1  sd_mosi,
-  output! uint1  sd_csn,
+  output  uint1  sd_clk,
+  output  uint1  sd_mosi,
+  output  uint1  sd_csn,
   input   uint1  sd_miso,
-  output  uint40 status,
   // read io
-  input!  uint32 addr_sector,
-  input!  uint1  read_sector,
-  output  uint1  ready,
+  sdcardio io {
+    input!  addr_sector,
+    input!  read_sector,
+    output  ready,
+  },
   // storage
-  output  uint10  store_addr,
-  output  uint8   store_byte,
-  output  uint8   led
+  output  uint9 store_addr,
+  output  uint8 store_byte,  
 ) <autorun> {
   
   subroutine send(
@@ -68,6 +74,7 @@ algorithm sdcard(
   }
   
   uint16 count  = 0;
+  uint40 status = 0;
   uint48 cmd0   = 48b010000000000000000000000000000000000000010010101;
   uint48 cmd8   = 48b010010000000000000000000000000011010101010000111;
   uint48 cmd55  = 48b011101110000000000000000000000000000000000000001;
@@ -81,10 +88,10 @@ algorithm sdcard(
   
   always {
     
-    if (read_sector) {
+    if (io.read_sector) {
       do_read_sector = 1;
-      do_addr_sector = addr_sector;
-      ready = 0;
+      do_addr_sector = io.addr_sector;
+      io.ready = 0;
     }
   
   }
@@ -92,8 +99,6 @@ algorithm sdcard(
   sd_mosi = 1;
   sd_csn  = 1;
   sd_clk  = 0;
-
-  led = 0;
 
   // wait 1 msec (power up), @25 MHz
   count = 0;
@@ -112,7 +117,6 @@ algorithm sdcard(
   
   store_addr     = 0;
   
-  status = 8hff;
   // init
   () <- send <- (cmd0);
   (status) <- read <- (8,1);
@@ -133,16 +137,13 @@ algorithm sdcard(
   () <- send <- (cmd16);
   (status) <- read <- (8,1);
 
-  ready = 1;  
-  led   = 2;
+  io.ready = 1;  
   
   // ready to work
   while (1) {
     
     if (do_read_sector) {
       do_read_sector = 0;
-
-      led = 4;
 
       // read some!
       // cmd17[8,32] = do_addr_sector // FIXME Silice bug, does not properly detect cmd17 status
@@ -161,13 +162,11 @@ algorithm sdcard(
         }        
         (status) <- read <- (16,1); // CRC
         
-        led   = 16;
-        ready = 1;
+        io.ready = 1;
 
       } else {
       
-        led   = 1;
-        ready = 1;
+        io.ready = 1;
 
       }
     }

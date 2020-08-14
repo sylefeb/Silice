@@ -19,7 +19,7 @@ algorithm text_display(
   input   uint10 pix_x,
   input   uint10 pix_y,
   output  uint1  white,
-  output! uint12 letter_addr,
+  output  uint12 letter_addr,
   input   uint6  letter,
 ) <autorun> {
 
@@ -90,20 +90,18 @@ algorithm main(
   // Read buffer
   dualport_bram uint8 sdbuffer[512] = uninitialized;
 
-  uint40 status = 0;
-  uint1  read_sector = 0;
-  uint32 addr_sector = 0;
+  sdcardio sdcio;
   sdcard sd(
-    sd_clk  :> sd_clk,
-    sd_mosi :> sd_mosi,
-    sd_csn  :> sd_csn,
-    sd_miso <: sd_miso,
-    status  :> status,
-    read_sector <: read_sector,
-    addr_sector <: addr_sector,
+    // pins
+    sd_clk      :> sd_clk,
+    sd_mosi     :> sd_mosi,
+    sd_csn      :> sd_csn,
+    sd_miso     <: sd_miso,
+    // io
+    io          <:> sdcio,
+    // bram port
     store_addr  :> sdbuffer.addr1,
     store_byte  :> sdbuffer.wdata1,
-    led :> led
   );
 
   // Text buffer
@@ -183,7 +181,7 @@ algorithm main(
   btn_latch         := btn;
   sdbuffer.wenable0 := 0;
   sdbuffer.wenable1 := 1;  
-  read_sector       := 0;
+  sdcio.read_sector := 0;
 
   // maintain low (pulses high when sending)
   io.start_rect := 0;
@@ -215,10 +213,10 @@ algorithm main(
   while (io.ready == 0) { }
 
   // wait for sdcard
-  while (sd.ready == 0) { }
-  // read sector
-  addr_sector = 0;
-  read_sector = 1;
+  while (sdcio.ready == 0) { }
+  // read first sector
+  sdcio.addr_sector = 0;
+  sdcio.read_sector = 1;
 
   while (1) {
   
@@ -241,14 +239,14 @@ algorithm main(
     }
     
     // wait for sdcard
-    while (sd.ready == 0) { }
+    while (sdcio.ready == 0) { }
     
     // write data on screen
     str_x = 0;
     str_y = 0;
     () <- print_string <- ();
-    () <- print_hex    <- (addr_sector[8,8]);
-    () <- print_hex    <- (addr_sector[0,8]);
+    () <- print_hex    <- (sdcio.addr_sector[8,8]);
+    () <- print_hex    <- (sdcio.addr_sector[0,8]);
     str_x = 0;
     str_y = 2;
     sdbuffer.addr0 = 0;
@@ -268,13 +266,13 @@ algorithm main(
 
     // update sector addr
     if (btn_latch[1,1]) {
-      addr_sector = addr_sector + 1;
+      sdcio.addr_sector = sdcio.addr_sector + 1;
     } else { if (btn_latch[2,1]) {
-        addr_sector = (addr_sector == 0) ? 0 : addr_sector - 1;    
+        sdcio.addr_sector = (sdcio.addr_sector == 0) ? 0 : sdcio.addr_sector - 1;    
       }
     }
     // read sector
-    read_sector = 1;
+    sdcio.read_sector = 1;
 
   }
 
