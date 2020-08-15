@@ -21,8 +21,10 @@ algorithm frame_display(
   int20  v     = 0;
   int20  cos   = 0;
   int20  sin   = 0;
-  int20  cornerx  = -320;
-  int20  cornery  = -240;
+  int20  cornerx  = 320;
+  int20  cornery  = 240;
+  //int20  cornerx  = -320;
+  //int20  cornery  = -240;
   int20  corneru  = 0;
   int20  cornerv  = 0;
   int20  deltau_x = 0;
@@ -68,8 +70,8 @@ $$end
       }
     }
     // prepare next (we are in vblank, there is time)
-    frame       = frame + 1;
     cosine.addr = frame;
+    frame       = frame + 1;
 ++:    
     angle       = ((512+cosine.rdata) >> 2);
     cosine.addr = angle;
@@ -79,9 +81,11 @@ $$end
 ++: // sine bram access
     sin = cosine.rdata;
     // prepare scanline with mapping
-    corneru  = (cornerx * cos - cornery * sin);
-    cornerv  = (cornerx * sin + cornery * cos);
-    deltau_x = cos;
+    corneru  = - ((cornerx * cos) - (cornery * sin));
+    cornerv  = - ((cornerx * sin) + (cornery * cos));
+    //corneru  =  ((cornerx * cos) - (cornery * sin));
+    //cornerv  =  ((cornerx * sin) + (cornery * cos));
+    deltau_x =   cos;
     deltau_y = - sin;
     deltav_x = sin;
     deltav_y = cos;

@@ -6,6 +6,10 @@ algorithm main(
   output uint1 oled_dc,
   output uint1 oled_resn,
   output uint1 oled_csn,  
+  output uint1 sd_clk,
+  output uint1 sd_csn,
+  output uint1 sd_mosi,
+  input  uint1 sd_miso
   )
 {
   uint28 counter = 0;

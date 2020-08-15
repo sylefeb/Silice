@@ -18,8 +18,6 @@ $$end
 $$if DE10NANO then
 // Clock
 import('../common/de10nano_clk_100_25.v')
-// keypad
-$include('../common/keypad.ice')
 $$end
 
 $$if HARDWARE then
