@@ -12,6 +12,8 @@ set_global_assignment -name FINAL_PLACEMENT_OPTIMIZATION ALWAYS
 set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
 set_global_assignment -name SEED 1
 
+set_global_assignment -name OPTIMIZATION_MODE "AGGRESSIVE PERFORMANCE"
+
 set_global_assignment -name SOURCE_TCL_SCRIPT_FILE pins.tcl
 set_location_assignment PIN_AE20 -to kpadC[0]
 set_location_assignment PIN_AF20 -to kpadC[1]
@@ -196,3 +198,23 @@ set_global_assignment -name ALLOW_ANY_ROM_SIZE_FOR_RECOGNITION OFF
 set_global_assignment -name TIMING_ANALYZER_DO_REPORT_TIMING OFF
 
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id SdramVga
+set_global_assignment -name LAST_QUARTUS_VERSION "19.1.0 Lite Edition"
+set_location_assignment PIN_AF27 -to lcd_d[0]
+set_location_assignment PIN_AH27 -to lcd_d[1]
+set_location_assignment PIN_AE25 -to lcd_d[2]
+set_location_assignment PIN_AG26 -to lcd_d[3]
+set_location_assignment PIN_AH26 -to lcd_d[4]
+set_location_assignment PIN_AF25 -to lcd_d[5]
+set_location_assignment PIN_AG25 -to lcd_d[6]
+set_location_assignment PIN_AH24 -to lcd_d[7]
+set_location_assignment PIN_U13 -to lcd_e
+set_location_assignment PIN_AG9 -to lcd_rs
+set_location_assignment PIN_U14 -to lcd_rw
+set_location_assignment PIN_AH8 -to oled_clk
+set_location_assignment PIN_AF17 -to oled_cs
+set_location_assignment PIN_AE15 -to oled_dc
+set_location_assignment PIN_AG8 -to oled_din
+set_location_assignment PIN_AF15 -to oled_rst
+set_global_assignment -name SOURCE_FILE pins.tcl
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to lcd_*
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to oled_*

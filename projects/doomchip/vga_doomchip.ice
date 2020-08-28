@@ -6,11 +6,13 @@
 //
 
 $$if ULX3S then
-$$HAS_COMPUTE_CLOCK    = true
-$$ -- ULX3S_SLOW       = true -- uncomment for 25 MHz version
-$$ -- sdramctrl_clock_freq = 50 -- DO NOT USE, something is wrong with it, corrupts SDRAM
+$$  HAS_COMPUTE_CLOCK    = true
+$$  -- ULX3S_SLOW       = true -- uncomment for 25 MHz version
+$$  -- sdramctrl_clock_freq = 50 -- DO NOT USE, something is wrong with it, corrupts SDRAM
+$$elseif DE10NANO and YOSYS then
+$$  -- HAS_COMPUTE_CLOCK    = true
 $$elseif SIMULATION then
-$$HAS_COMPUTE_CLOCK    = true
+$$  HAS_COMPUTE_CLOCK    = true
 $$end
  
 // -------------------------

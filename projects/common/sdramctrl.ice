@@ -198,11 +198,6 @@ $$end
   always { // always block tracks in_valid
   
     if (sd.in_valid) {
-      if (sd.busy) {
-        uint1 error = 0;
-        __display("********************************** ERROR");
-        error = 1;
-      }
       // -> copy inputs
       bank_latch      = sd.addr[21,2]; // 21-22
       row_latch       = sd.addr[8,13]; //  8-20

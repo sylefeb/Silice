@@ -26,7 +26,7 @@ $$wad   = 'doom1.wad'
 $$ -- wad   = 'freedoom1.wad' -- works also with freedoom!
 
 // SETUP select the level here!
-$$level = 'E1M1'
+$$level = 'E1M2'
 $$dofile('pre_wad.lua')
 
 $$dofile('pre_load_data.lua')
@@ -46,7 +46,12 @@ $$FPl = 48
 $$FPw = 24
 $$FPm = 12
 
+$$if ULX3S then
 $$div_shrink = 1
+$$else
+$$div_shrink = 0
+$$end
+
 $$div_width  = FPl
 $include('../common/divint_any.ice')
 $$mul_width  = FPw
@@ -624,9 +629,9 @@ $$end
       
       // -------
       // wait for drawer
-      __display("c = %d",c);
+      //__display("c = %d",c);
       while (c != colio.draw_col) { /*wait*/ }
-      __display("c passed = %d",c);
+      //__display("c passed = %d",c);
 
       // -------
       // prepare
@@ -678,8 +683,10 @@ $$end
           // which side are we on?
           dx   = ray_x - lx;
           dy   = ray_y - ly;
+++: // TEST
           csl  = (dx * ldy);
           csr  = (dy * ldx);
+++: // TEST
           if (csr > csl) {
             // front
             queue[queue_ptr  ] = bsp_nodes_children.rdata[ 0,16];
@@ -761,6 +768,7 @@ $$end
               //-------------------------
               // compute distance to intersection
               //-------------------------
+++: // TEST
               y0_h   =  (  d0x * ray_dx_m + d0y * ray_dy_m );
               y1_h   =  (  d1x * ray_dx_m + d1y * ray_dy_m );
 ++:
@@ -776,6 +784,7 @@ $$end
               mula   = (y0_h - y1_h);
               mulb   = interp_m;
               (mulr) <- mull <- (mula,mulb);
+++: // TEST
               d_h    = y0_h + (mulr >>> $FPm$);
 ++:
               if (d_h > $1<<(FPm+1)$) { // check distance sign, with margin to stay away from 0
@@ -1668,7 +1677,7 @@ $$end
     // ----------------------------------------------
 
     // wait for vsync to end
-    while (vsync == 0) {}
+    // while (vsync == 0) {} //// TEST
     
   }
 }

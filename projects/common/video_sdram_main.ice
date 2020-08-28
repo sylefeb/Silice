@@ -80,6 +80,7 @@ $$end
 $$if DE10NANO then
 $$if VGA then
 import('de10nano_clk_100_25.v')
+import('de10nano_clk_50_25_100.v')
 $$else
 // TODO: hdmi
 $$end
@@ -239,13 +240,26 @@ $$elseif DE10NANO then
   uint1 sdram_clock  = 0;
   uint1 pll_lock     = 0;
   uint1 not_pll_lock = 0;
-  de10nano_clk_100_25 clk_gen(
-    refclk    <: clock,
-    rst       <: not_pll_lock,
-    outclk_0  :> sdram_clock,
-    outclk_1  :> video_clock,
-    locked    :> pll_lock
-  );
+  $$if HAS_COMPUTE_CLOCK then
+    uint1 compute_clock = 0;
+    uint1 compute_reset = 0;
+    de10nano_clk_50_25_100 clk_gen(
+      refclk    <: clock,
+      rst       <: not_pll_lock,
+      outclk_0  :> compute_clock,
+      outclk_1  :> video_clock,
+      outclk_2  :> sdram_clock,
+      locked    :> pll_lock
+    );
+  $$else
+    de10nano_clk_100_25 clk_gen(
+      refclk    <: clock,
+      rst       <: not_pll_lock,
+      outclk_0  :> sdram_clock,
+      outclk_1  :> video_clock,
+      locked    :> pll_lock
+    );
+  $$end
   // --- video clean reset
   reset_conditioner video_rstcond (
     rcclk <: video_clock,
@@ -255,9 +269,17 @@ $$elseif DE10NANO then
   // --- SDRAM clean reset
   reset_conditioner sdram_rstcond (
     rcclk <: sdram_clock,
-    in  <: reset,
-    out :> sdram_reset
+    in    <: reset,
+    out   :> sdram_reset
   );
+  $$if HAS_COMPUTE_CLOCK then
+  // --- compute clean reset
+  reset_conditioner compute_rstcond (
+    rcclk <: compute_clock,
+    in    <: reset,
+    out   :> compute_reset
+  );
+  $$end
 $$elseif ULX3S then
   // --- clock
   uint1 video_clock   = 0;
