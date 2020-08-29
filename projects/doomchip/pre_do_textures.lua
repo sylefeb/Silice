@@ -123,7 +123,7 @@ function parse_textures(texdeflump)
       in_texdefs:read(2) -- skip    
       if pname then
         print('   loading patch ' .. pname)
-        local pimg = decode_patch_lump(path .. 'lumps/patches/' .. pname .. '.lump')
+        local pimg = decode_patch_lump(path .. 'lumps/patches/' .. pname:upper() .. '.lump')
         local ph = #pimg
         local pw = #pimg[1]
         print('   patch is ' .. pw .. 'x' .. ph)
@@ -157,7 +157,7 @@ function parse_textures(texdeflump)
     textures_opacity[name] = opaque
     -- save  
     print('saving ' .. name .. ' ...')
-    save_table_as_image_with_palette(imgcur,palette,path .. 'textures/assembled/' .. name .. '.tga')
+    save_table_as_image_with_palette(imgcur,palette,path .. 'textures/assembled/' .. name:upper() .. '.tga')
     print('         ... done.')
 
     if opaque == 0 and uses_255 == 1 then
@@ -176,7 +176,7 @@ parse_textures('TEXTURE2.lump')
 for tex,nfo in pairs(texture_ids) do
   local texdata
   if nfo.type == 'wall' then
-    texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
+    texdata = get_image_as_table(path .. 'textures/assembled/' .. tex:upper() .. '.tga')
   else
     texdata = decode_flat_lump(path .. 'lumps/flats/' .. tex .. '.lump')
   end
@@ -261,7 +261,7 @@ for tex,nfo in pairs(texture_ids) do
     -- load texture
     local texdata
     if nfo.type == 'wall' then
-      texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
+      texdata = get_image_as_table(path .. 'textures/assembled/' .. tex:upper() .. '.tga')
     else
       texdata = decode_flat_lump(path .. 'lumps/flats/' .. tex .. '.lump')
     end
@@ -306,7 +306,7 @@ for tex,nfo in pairs(texture_ids) do
     -- load texture
     local texdata
     if nfo.type == 'wall' then
-      texdata = get_image_as_table(path .. 'textures/assembled/' .. tex .. '.tga')
+      texdata = get_image_as_table(path .. 'textures/assembled/' .. tex:upper() .. '.tga')
     else
       texdata = decode_flat_lump(path .. 'lumps/flats/' .. tex .. '.lump')
     end
