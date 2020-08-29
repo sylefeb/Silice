@@ -1364,8 +1364,10 @@ $$end
         // which side are we on?
         dx   = ray_x - lx;
         dy   = ray_y - ly;
+++: // TEST        
         csl  = (dx * ldy);
         csr  = (dy * ldx);
+++: // TEST        
         if (csr > csl) {
           // front
           queue[queue_ptr  ] = bsp_nodes_children.rdata[ 0,16];
@@ -1655,7 +1657,7 @@ $$end
       kpressblind = kpressblind + 1;
     }
     
-++:    
+++:
     // up/down smooth motion
     if (ray_z < target_z) {
       if (ray_z + 3 < target_z) {
