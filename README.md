@@ -117,3 +117,9 @@ Silice can already be used to create non trivial designs, from a tiny Risc-V pro
 However Silice is under active development. I decided to open the repo so everyone can join in the fun, but it is far from complete: documentation is lacking, some examples are outdated or far from polished, some very important language features are missing, and many known issues exist (head out to the [Issues](https://github.com/sylefeb/Silice/issues) page). I am confident I can avoid major code breaking syntax changes, but some adjustments may be necessary.
 
 I hope you'll nevertheless enjoy diving into it, and will find it useful. Please let me know your thoughts: comments and contributions are welcome!
+
+## Development branches
+
+- **master** is the latest, most stable version
+- **wip** is where new features are being implemented, less stable but reasonnable
+- **draft** is heavy experimental work in progress, likely unstable, may not compile
