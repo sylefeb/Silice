@@ -5,11 +5,9 @@
 // "Wolfenstein 3D black book" by Fabien Sanglard
 // https://github.com/id-Software/wolf3d/blob/master/WOLFSRC/WL_DR_A.ASM
 
-$$if not DE10NANO then
 // having a compute clock means that the renderer runs
 // at a different frequency than the SDRAM
 $$HAS_COMPUTE_CLOCK=true
-$$end
 
 $$texfile = 'wolf.tga'
 // get pallette in pre-processor
