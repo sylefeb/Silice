@@ -26,7 +26,7 @@ $$wad   = 'doom1.wad'
 $$ -- wad   = 'freedoom1.wad' -- works also with freedoom!
 
 // SETUP select the level here!
-$$level = 'E1M2'
+$$level = 'E1M1'
 $$dofile('pre_wad.lua')
 
 $$dofile('pre_load_data.lua')
