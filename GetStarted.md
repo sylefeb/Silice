@@ -26,28 +26,33 @@ yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
 I have prepared binary packages for Windows so you can easily get started!
 Download the pre-compiled fpga-binutils from https://github.com/sylefeb/fpga-binutils/releases
 
+There are two versions: 32 bits and 64 bits. I recommend using the 64 bits version, even though you may need
+both since a few tools compile to 32 bits only.
+
 Uncompress in Silice/tools/fpga-binutils/
 
-After this step you should see three new directories:
-- Silice/tools/fpga-binutils/mingw32/bin
-- Silice/tools/fpga-binutils/mingw32/include
-- Silice/tools/fpga-binutils/mingw32/lib
+After this step you should see these new directories:
+- Silice/tools/fpga-binutils/mingw32/ (with subdirectories: bin, ...)
+- Silice/tools/fpga-binutils/mingw64/ (with subdirectories: bin, ...)
+
+## Verilator framework
 
 To use build shell scripts (.sh) and the Verilator simulation framework: (**highly recommended**)
+
+### Windows
 
 - Download and install MSYS2 (msys2-x86_64) from https://www.msys2.org/
   Be sure to follow the instructions on the download page to update your 
   MSYS2 install to latest.
 
-- Start a MinGW32 shell from (assuming default path) c:\msys64\mingw32.exe
-  (IMPORTANT: the shell has to be a MinGW 32bits shell)
+- Start a MinGW shell from (assuming default path) c:\msys64\mingw32.exe (32 bits) or c:\msys64\mingw64.exe (64 bits)
 
-- Install the compiler tools from the MinGW32 shell:
+- Install the compiler tools from the MinGW shell:
   pacman -S gcc make cmake perl zlib zlib-devel
 
 Now we will compile the silice framework for verilator
 
-- Go into the silice folder and type 
+- Go into the silice folder and type (for 32 bits version, use 64 prefix for 64 bits version)
 ```
 ./compile_verilator_framework_mingw32.sh
 ```
@@ -56,6 +61,20 @@ Now we will compile the silice framework for verilator
 
 - We are ready to test!
 
+### Linux
+
+- Open a command line into the silice folder and type
+```
+./compile_verilator_framework_linux.sh
+```
+
+(installs new files in Silice/frameworks/verilator/)
+
+- We are ready to test!
+
+### Testing
+
+From a shell starting from the silice folder:
 ```
 cd projects
 cd build
@@ -63,6 +82,7 @@ cd verilator
 ./verilator_sdram_vga.sh ../../vga_text_buffer/vga_text_buffer.ice
 ./test_____vga_text_buffer__vga_text_bufferice.exe
 ```
+**IMPORTANT** under Windows, if you compiled for 64 bits, use a MinGW64 shell and the script ```/verilator_sdram_vga_64.sh``` instead.
 
 => This executes the simulation, which outputs 40 image files (tga format)
 Look at them in sequence :-)
