@@ -23,7 +23,7 @@ All examples are in the *projects* directory. This directory also contains a *bu
 
 To build a project, go into projects/build/*architecture* where *architecture* is your target framework. This directory contains shell scripts that take as parameter the project source file. Let's take an example! We will build the 'divint bare' demo for simulation with icarus. Do the following:
 
-*Note:* under Windows please use a MinGW32 shell, please refer to the [getting started](../GetStarted.md) guide.
+*Note:* under Windows please use a MinGW shell, please refer to the [getting started](../GetStarted.md) guide.
 
 ```
 cd silice/projects/build/icarus
