@@ -14,7 +14,9 @@ The DooM-chip is also a great example of what the Lua pre-processor has to offer
 
 For obvious copyright reasons you have to provide your own Doom WAD file. During compilation the data will be automatically extracted and processed. You can select the level in the header of *vga_doomchip.ice* (see the "ExMy" string).
 
-## How to test
+The DooM-chip also works with WAD files from the [freedoom project](https://freedoom.github.io/).
+
+## How to test in simulation
 
 Open a shell, go to *Silice/projects/build/verilator* and then type in
 ```./verilator_sdram_vga.sh ../../doomchip/vga_doomchip.ice```
