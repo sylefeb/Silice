@@ -123,3 +123,14 @@ I hope you'll nevertheless enjoy diving into it, and will find it useful. Please
 - **master** is the latest, most stable version
 - **wip** is where new features are being implemented, less stable but reasonnable
 - **draft** is heavy experimental work in progress, likely unstable, may not compile
+
+## Directory structure
+- **docs** contains the LateX documentation sources, and pre-generated documentation pdf
+- **projects** contains many demo projects ([see README therein](projects/README.md)) as well as build scripts for several boards
+- **bin** contains the Silice binaries after compiling using the ```compile_silice_*.sh``` script
+- **frameworks** contains the frameworks for various boards and setups
+- **tools** contains tools useful for Silice development, either source or binary form (to be installed, see [getting started](GetStarted.md))
+- **src** contains Silice core source code
+- **antlr** contains Silice grammar and parsing related source code
+- **tests** contains test scripts for Silice development
+
