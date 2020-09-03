@@ -19,8 +19,7 @@ algorithm text_display(
   input   uint10 pix_x,
   input   uint10 pix_y,
   output  uint1  white,
-  output  uint12 letter_addr,
-  input   uint6  letter,
+  bram_port0     letter,
 ) <autorun> {
 
   // ---------- font  
@@ -37,8 +36,11 @@ $$end
   uint5  letter_j = 0;
   uint12 addr     = 0;
 
+  // read from letter  
+  letter.wenable0  := 0;
+  
   // ---------- show time!
-
+ 
   while (1) {
 
     // text
@@ -48,11 +50,11 @@ $$end
     text_j   = pix_y >> 3;
     
     if (text_i < 32 && text_j < 32) {
-      letter_addr = text_i + (text_j*$oled_width>>3$);
+      letter.addr0 = text_i + (text_j*$oled_width>>3$);
 ++:      
-      addr        = letter_i + ( letter_j << 3) 
-                             + (letter << 6);
-      white       = letters[ addr ];
+      addr         = letter_i + ( letter_j << 3) 
+                             + (letter.rdata0 << 6);
+      white        = letters[ addr ];
     } else {
       white    = 0;
     }
@@ -100,8 +102,7 @@ algorithm main(
     // io
     io          <:> sdcio,
     // bram port
-    store_addr  :> sdbuffer.addr1,
-    store_byte  :> sdbuffer.wdata1,    
+    store       <:> sdbuffer
   );
 
   // Text buffer
@@ -171,25 +172,24 @@ algorithm main(
   text_display text(
     pix_x  <: u,
     pix_y  <: v,
-    white :> white,
-    letter_addr :> txt.addr0,
-    letter      <: txt.rdata0
+    white  :> white,
+    letter <:> txt // port0
   );
 
   uint7  btn_latch = 0;
 
   btn_latch         := btn;
   sdbuffer.wenable0 := 0;
-  sdbuffer.wenable1 := 1;  
   sdcio.read_sector := 0;
 
   // maintain low (pulses high when sending)
   io.start_rect := 0;
   io.next_pixel := 0;
-
-  txt.wenable0  := 0;
+  // writes to txt
   txt.wenable1  := 1;
-    
+  
+  led           := 0;
+  
   // fill buffer with spaces
   {
     uint11 next = 0;

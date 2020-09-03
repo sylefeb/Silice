@@ -209,14 +209,18 @@ namespace Silice
       std::vector<std::string> in_vars;
       std::vector<std::string> out_vars;
       std::vector<std::string> init_values;
+      std::vector<std::string> members;
     };
 
+    /// \brief holds a reference to the context responsible for a group definition
     class t_group_definition {
     public:
-      siliceParser::GroupContext    *group    = nullptr; // from an actual group declaration
-      siliceParser::IntrfaceContext *intrface = nullptr; // from an interface declaration
-      t_group_definition(siliceParser::GroupContext *g)     : group(g)    {}
+      siliceParser::GroupContext    *group           = nullptr; // from an actual group declaration
+      siliceParser::IntrfaceContext *intrface        = nullptr; // from an interface declaration
+      siliceParser::DeclarationMemoryContext *memory = nullptr; // from a memory declaration
+      t_group_definition(siliceParser::GroupContext *g) : group(g)    {}
       t_group_definition(siliceParser::IntrfaceContext *i) : intrface(i) {}
+      t_group_definition(siliceParser::DeclarationMemoryContext *m) : memory(m) {}
     };
 
     /// \brief inputs
@@ -735,8 +739,6 @@ namespace Silice
     int stateWidth() const;
     /// \brief fast-forward to the next non empty state
     const t_combinational_block *fastForward(const t_combinational_block *block) const;
-    /// \brief verify memory member
-    void verifyMemberMemory(const t_mem_nfo& mem, std::string member, int line) const;
     /// \brief verify member in group
     void verifyMemberGroup(std::string member, siliceParser::GroupContext* group, int line) const;
     /// \brief verify member in interface

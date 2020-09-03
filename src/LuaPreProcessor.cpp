@@ -654,7 +654,11 @@ std::string LuaPreProcessor::processCode(
 
 // -------------------------------------------------
 
-void LuaPreProcessor::run(std::string src_file, std::string header_code, std::string dst_file)
+void LuaPreProcessor::run(
+  std::string src_file, 
+  const std::vector<std::string>& defaultLibraries, 
+  std::string lua_header_code, 
+  std::string dst_file)
 {
   lua_State *L = luaL_newstate();
 
@@ -671,9 +675,15 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
 
   // get code
   std::unordered_set<std::string> inclusions;
-  std::string code = 
-    header_code +
-    processCode("", src_file, inclusions);
+  // start with header
+  std::string code = lua_header_code;
+  // add default libs to source
+  for (auto l : defaultLibraries) {
+    std::string libfile = CONFIG.keyValues()["libraries_path"] + "/" + l;
+    code = code + "\n" + processCode(CONFIG.keyValues()["libraries_path"],libfile,inclusions);
+  }
+  // parse main file
+  code = code + "\n" + processCode("", src_file, inclusions);
 
   m_CurOutputLine = 0;
 

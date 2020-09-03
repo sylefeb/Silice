@@ -22,16 +22,18 @@ group streamio {
   uint1 ready = 0,
 }
 
+interface streamio_ctrl {
+    input   next,
+    output  data,
+    output  ready,
+}
+
 algorithm sdcard_streamer(
   output  uint1 sd_clk,
   output  uint1 sd_mosi,
   output  uint1 sd_csn,
   input   uint1 sd_miso,
-  streamio stream {
-    input   next,
-    output  data,
-    output  ready,
-  }
+  streamio_ctrl stream
 ) <autorun> {
 
   // Read buffer
@@ -48,8 +50,7 @@ algorithm sdcard_streamer(
     // read io
     io      <:> sdcio,
     // bram port
-    store_addr  :> sdbuffer.addr1,
-    store_byte  :> sdbuffer.wdata1
+    store   <:> sdbuffer,
   );
   
   // Global pointer in data
@@ -57,7 +58,6 @@ algorithm sdcard_streamer(
   uint1  do_next = 0;
   
   sdbuffer.wenable0 := 0;
-  sdbuffer.wenable1 := 1;  
   sdcio.read_sector := 0;
 
   always {

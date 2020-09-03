@@ -7,11 +7,11 @@ group test {
 algorithm foo(
   test tin {
     input a,
-    output b,
+    // output b, // partial group used is allowed
     output c
   }
 ) {
-  
+  tin.c = tin.a;
 }
 
 algorithm alg(
@@ -29,5 +29,6 @@ algorithm alg(
   
   bla.b = 5;
 
-  t0.c = t0.a;
+  t0.a = 10;
+
 }

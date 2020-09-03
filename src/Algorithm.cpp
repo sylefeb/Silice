@@ -378,6 +378,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
 
 void Algorithm::resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg)
 {
+  std::vector<t_binding_nfo> cleanedup_bindings;
   for (auto& b : _alg.bindings) {
     if (b.dir == e_Auto || b.dir == e_AutoQ) {
       // input?
@@ -392,11 +393,18 @@ void Algorithm::resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg)
       else if (_alg.algo->isInOut(b.left)) {
         b.dir = e_BiDir;
       } else {
-        reportError(nullptr, b.line, "cannot determine binding direction for '%s <:> %s', binding to algorithm instance '%s'",
-          b.left.c_str(), bindingRightIdentifier(b).c_str(), _alg.instance_name.c_str());
+        
+        // group members is not used by algorithm, we allow this for flexibility,
+        // in particular in conjunction with interfaces
+        continue;
+
+        //reportError(nullptr, b.line, "cannot determine binding direction for '%s <:> %s', binding to algorithm instance '%s'",
+        //  b.left.c_str(), bindingRightIdentifier(b).c_str(), _alg.instance_name.c_str());
       }
     }
+    cleanedup_bindings.push_back(b);
   }
+  _alg.bindings = cleanedup_bindings;
 }
 
 // -------------------------------------------------
@@ -904,11 +912,13 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   for (const auto& m : members) {
     t_var_nfo v;
     v.name = mem.name + "_" + m.name;
+    mem.members.push_back(m.name);
     if (m.is_addr) {
+      // address bus
       v.type_nfo.base_type = UInt;
       v.type_nfo.width     = justHigherPow2(mem.table_size);
     } else {
-      // search config
+      // search config for width
       auto C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
       if (C == CONFIG.keyValues().end()) {
         v.type_nfo.width     = mem.type_nfo.width;
@@ -917,7 +927,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
       } else if (C->second == "data") {
         v.type_nfo.width     = mem.type_nfo.width;
       }
-      // search config
+      // search config for type
       auto T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
       if (T == CONFIG.keyValues().end()) {
         v.type_nfo.base_type = mem.type_nfo.base_type;
@@ -981,6 +991,8 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   // add memory
   m_Memories.emplace_back(mem);
   m_MemoryNames.insert(make_pair(mem.name, (int)m_Memories.size()-1));
+  // add group for member access and bindings
+  m_VIOGroups.insert(make_pair(mem.name, decl));
 }
 
 // -------------------------------------------------
@@ -1008,6 +1020,7 @@ void Algorithm::getBindings(
                 "expecting an identifier on the right side of a group binding");
             }
             // unfold all bindings, select direction automatically
+            // NOTE: some members may not be used, these are excluded during auto-binding
             for (auto v : getGroupMembers(G->second)) {
               string member = v;
               t_binding_nfo nfo;
@@ -1065,6 +1078,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
   if (G != m_KnownGroups.end()) {
     m_VIOGroups.insert(make_pair(grp->name->getText(), G->second));
     for (auto v : G->second->varList()->var()) {
+      // create group variables
       t_var_nfo vnfo;
       gatherVarNfo(v->declarationVar(), vnfo);
       vnfo.name = grp->name->getText() + "_" + vnfo.name;
@@ -1538,50 +1552,27 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   for (auto P : sub->subroutineParamList()->subroutineParam()) {
     if (P->READ() != nullptr) {
       nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
-      // if memory, add all out members
-      auto B = m_MemoryNames.find(P->IDENTIFIER()->getText());
-      if (B != m_MemoryNames.end()) {
-        for (const auto& ouv : m_Memories[B->second].out_vars) {
-          nfo->allowed_reads.insert(ouv);
-        }
-      }
       // if group, add all members
       auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
       if (G != m_VIOGroups.end()) {
-        for (auto mbr : getGroupMembers(G->second)) {
+        for (auto v : getGroupMembers(G->second)) {
+          string mbr = P->IDENTIFIER()->getText() + "_" + v;
           nfo->allowed_reads.insert(mbr);
         }
       }
     } else if (P->WRITE() != nullptr) {
       nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
-      // if memory, add all in members
-      auto B = m_MemoryNames.find(P->IDENTIFIER()->getText());
-      if (B != m_MemoryNames.end()) {
-        for (const auto& inv : m_Memories[B->second].in_vars) {
-          nfo->allowed_writes.insert(inv);
-        }
-      }
       // if group, add all members
       auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
       if (G != m_VIOGroups.end()) {
-        for (auto mbr : getGroupMembers(G->second)) {
+        for (auto v : getGroupMembers(G->second)) {
+          string mbr = P->IDENTIFIER()->getText() + "_" + v;
           nfo->allowed_writes.insert(mbr);
         }
       }
     } else if (P->READWRITE() != nullptr) {
       nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
       nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
-      // if memory, add all in/out members
-      auto B = m_MemoryNames.find(P->IDENTIFIER()->getText());
-      if (B != m_MemoryNames.end()) {
-        for (const auto& ouv : m_Memories[B->second].out_vars) {
-          nfo->allowed_reads.insert(ouv);
-        }
-        for (const auto& inv : m_Memories[B->second].in_vars) {
-          nfo->allowed_writes.insert(inv);
-          nfo->allowed_reads .insert(inv);
-        }
-      }
       // if group, add all members
       auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
       if (G != m_VIOGroups.end()) {
@@ -3054,26 +3045,6 @@ void Algorithm::combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<
 
 // -------------------------------------------------
 
-void Algorithm::verifyMemberMemory(const t_mem_nfo& mem, std::string member, int line) const
-{
-  bool found = false;
-  for (const auto& v : mem.in_vars) {
-    if (v == mem.name + "_" + member) {
-      found = true; break;
-    }
-  }
-  for (const auto& v : mem.out_vars) {
-    if (v == mem.name + "_" + member) {
-      found = true; break;
-    }
-  }
-  if (!found) {
-    reportError(nullptr,line,"memory '%s' has no member '%s'", mem.name.c_str(), member.c_str());
-  }
-}
-
-// -------------------------------------------------
-
 void Algorithm::verifyMemberGroup(std::string member, siliceParser::GroupContext* group, int line) const
 {
   // -> check for existence
@@ -3124,6 +3095,9 @@ std::vector<std::string> Algorithm::getGroupMembers(const t_group_definition &gd
     for (auto io : gd.intrface->ioList()->io()) {
       mbs.push_back(io->IDENTIFIER()->getText());
     }
+  } else if (gd.memory != nullptr) {
+    const t_mem_nfo &nfo = m_Memories.at(m_MemoryNames.at(gd.memory->name->getText()));
+    return nfo.members;
   }
   return mbs;
 }
@@ -3182,22 +3156,14 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
   if (A != m_InstancedAlgorithms.end()) {
     return ""; // no var accessed in this case
   } else {
-    auto B = m_MemoryNames.find(base);
-    if (B != m_MemoryNames.end()) {
-      const auto& mem = m_Memories[B->second];
-      verifyMemberMemory(mem, member, (int)access->getStart()->getLine());
-      // return the variable name
+    auto G = m_VIOGroups.find(base);
+    if (G != m_VIOGroups.end()) {
+      verifyMemberGroup(member, G->second, (int)access->getStart()->getLine());
+      // return the group member name
       return base + "_" + member;
     } else {
-      auto G = m_VIOGroups.find(base);
-      if (G != m_VIOGroups.end()) {
-        verifyMemberGroup(member, G->second, (int)access->getStart()->getLine());
-        // return the group member name
-        return base + "_" + member;
-      } else {
-        reportError(access->getSourceInterval(), (int)access->getStart()->getLine(), 
-          "cannot find access base.member '%s.%s'", base.c_str(), member.c_str());
-      }
+      reportError(access->getSourceInterval(), (int)access->getStart()->getLine(),
+        "cannot find access base.member '%s.%s'", base.c_str(), member.c_str());
     }
   }
   return "";
@@ -4117,28 +4083,17 @@ t_type_nfo Algorithm::determineIOAccessTypeAndWidth(const t_combinational_block_
       sl_assert(false);
     }
   } else {
-    auto B = m_MemoryNames.find(base);
-    if (B != m_MemoryNames.end()) {
-      const auto& mem = m_Memories[B->second];
-      verifyMemberMemory(mem, member, (int)ioaccess->getStart()->getLine());
+    auto G = m_VIOGroups.find(base);
+    if (G != m_VIOGroups.end()) {
+      verifyMemberGroup(member, G->second, (int)ioaccess->getStart()->getLine());
       // produce the variable name
       std::string vname = base + "_" + member;
       // get width and size
       auto tws = determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
       return std::get<0>(tws);
     } else {
-      auto G = m_VIOGroups.find(base);
-      if (G != m_VIOGroups.end()) {
-        verifyMemberGroup(member, G->second, (int)ioaccess->getStart()->getLine());
-        // produce the variable name
-        std::string vname = base + "_" + member;
-        // get width and size
-        auto tws = determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
-        return std::get<0>(tws);
-      } else {
-        reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
-          "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
-      }
+      reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+        "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
     }
   }
   sl_assert(false);
@@ -4421,28 +4376,17 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
       sl_assert(false);
     }
   } else {
-    auto B = m_MemoryNames.find(base);
-    if (B != m_MemoryNames.end()) {
-      const auto& mem = m_Memories[B->second];
-      verifyMemberMemory(mem, member, (int)ioaccess->getStart()->getLine());
+    auto G = m_VIOGroups.find(base);
+    if (G != m_VIOGroups.end()) {
+      verifyMemberGroup(member, G->second, (int)ioaccess->getStart()->getLine());
       // produce the variable name
       std::string vname = base + "_" + member;
       // write
       out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
       return determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
     } else {
-      auto G = m_VIOGroups.find(base);
-      if (G != m_VIOGroups.end()) {
-        verifyMemberGroup(member,G->second, (int)ioaccess->getStart()->getLine());
-        // produce the variable name
-        std::string vname = base + "_" + member;
-        // write
-        out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
-        return determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
-      } else {
-        reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
-          "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
-      }
+      reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
+        "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
     }
   }
   sl_assert(false);
@@ -5876,7 +5820,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     ForIndex(i,m_Parameterized.size()) {
       string str = m_Parameterized[i];
       std::transform(str.begin(), str.end(), str.begin(), std::toupper);
-      out << "parameter " << str << "_WIDTH=0" << endl;
+      out << "parameter " << str << "_WIDTH=1";
       // out << "parameter " << str << "_SIGNED=\"\"";
       if (i + 1 < m_Parameterized.size()) {
         out << ',';
@@ -6179,7 +6123,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   // Memory instantiations (2/2)
   for (const auto& mem : m_Memories) {
     // module
-    out << "M_" << m_Name << "_mem_" << mem.name << ' ' << mem.name << '(' << endl;
+    out << "M_" << m_Name << "_mem_" << mem.name << " __mem__" << mem.name << '(' << endl;
     // clocks
     if (mem.clocks.empty()) {
       if (mem.mem_type == DUALBRAM) {

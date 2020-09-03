@@ -206,7 +206,7 @@ $$end
 
 $$if SIMULATION then
   // we count a number of frames and stop
-  while (frame < 3) {
+  while (frame < 8) {
 $$else
   // forever
   while (1) {

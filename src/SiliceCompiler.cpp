@@ -231,20 +231,24 @@ void SiliceCompiler::run(
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
   prepareFramework(fframework, framework_lpp, framework_verilog);
-  // add defines to header
+  // produce header
+  // -> pre-processor code from framework
+  std::string header = framework_lpp;
+  // -> cmd line defines
   for (auto d : defines) {
-    framework_lpp = d + "\n" + framework_lpp;
+    header = d + "\n" + header;
   }
   // add framework path to config
   CONFIG.keyValues()["framework_path"] = LibSL::StlHelpers::extractPath(fframework);
   CONFIG.keyValues()["framework_name"] = LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework));
   CONFIG.keyValues()["templates_path"] = LibSL::StlHelpers::extractPath(fframework) + "/templates";
+  CONFIG.keyValues()["libraries_path"] = LibSL::StlHelpers::extractPath(fframework) + "/libraries";
   // preprocessor
   LuaPreProcessor lpp;
-  std::string preprocessed = std::string(fsource) + ".lpp";
   lpp.addDefinition("FRAMEWORK", 
     LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework)));
-  lpp.run(fsource, framework_lpp, preprocessed);
+  std::string preprocessed = std::string(fsource) + ".lpp";
+  lpp.run(fsource, c_DefaultLibraries, header, preprocessed);
   // display config
   CONFIG.print();
   // extract paths

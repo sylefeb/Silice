@@ -54,6 +54,8 @@ namespace Silice {
     std::unordered_set<std::string>                                    m_Appends;
     std::vector<std::string>                                           m_AppendsInDeclOrder;
 
+    const std::vector<std::string> c_DefaultLibraries = { "memory_ports.ice" };
+
     /// \brief finds a file by checking throughout paths known to be used by the source code
     std::string findFile(std::string fname) const;
     /// \brief gathers all constructs from the source code file

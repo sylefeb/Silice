@@ -25,8 +25,7 @@ algorithm sdcard(
   // read io
   sdcardio_ctrl  io,
   // storage
-  output  uint9  store_addr,
-  output  uint8  store_byte,  
+  bram_port1    store
 ) <autorun> {
   
   // assert(sizeof(io.addr_sector) == 32);
@@ -90,6 +89,8 @@ algorithm sdcard(
   uint1  do_read_sector = 0;
   uint32 do_addr_sector = 0;
   
+  store.wenable1 := 1; // only writes
+  
   always {
     
     if (io.read_sector) {
@@ -97,7 +98,7 @@ algorithm sdcard(
       do_addr_sector = io.addr_sector;
       io.ready = 0;
     }
-  
+ 
   }
   
   sd_mosi = 1;
@@ -117,9 +118,8 @@ algorithm sdcard(
     count = count + 1;
   }
 
-  sd_csn  = 0;
-  
-  store_addr     = 0;
+  sd_csn         = 0; 
+  store.addr1    = 0;
   
   // init
   () <- send <- (cmd0);
@@ -158,11 +158,11 @@ algorithm sdcard(
       if (status[0,8] == 8h00) {
         (status) <- read <- (1,1); // start token
         
-        store_addr = 0;
-        (store_byte) <- read <- (8,0); // bytes  
-        while (store_addr < 511) {
-          (store_byte) <- read <- (8,0); // bytes          
-          store_addr = store_addr + 1;
+        store.addr1 = 0;
+        (store.wdata1) <- read <- (8,0); // bytes  
+        while (store.addr1 < 511) {
+          (store.wdata1) <- read <- (8,0); // bytes          
+          store.addr1 = store.addr1 + 1;
         }        
         (status) <- read <- (16,1); // CRC
         
