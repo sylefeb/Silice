@@ -39,7 +39,7 @@ namespace Silice
 {
 
   /// \brief base types
-  enum e_Type { Int, UInt };
+  enum e_Type { Int, UInt, Parameterized };
 
   /// \brief info about a type
   class t_type_nfo {

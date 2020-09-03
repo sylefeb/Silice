@@ -67,9 +67,11 @@ BROM                : 'brom' ;
 
 GROUP               : 'group' ;
 
+INTERFACE           : 'interface' ;
+
 BITFIELD            : 'bitfield' ;
 
-UNINITIALIZED       : 'uninitialized' ;
+UNINITIALIZED       : 'uninitialized' | 'uninitialised' ;
 
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
@@ -149,14 +151,22 @@ io                  : ( (is_input='input' nolatch='!'? ) | (is_output='output' c
 
 ioList              : io (',' io)* ','? | ;
 
-/* -- groups -- */
+/* -- vars -- */
 
 var                 : declarationVar ;
 varList             : var (',' var)* ','? | ;
 
+/* -- groups -- */
+
 group               : GROUP IDENTIFIER '{' varList '}' ;
 
 ioGroup             : groupid=IDENTIFIER groupname=IDENTIFIER '{' ioList '}' ;
+
+/* -- interfaces -- */
+
+intrface            : INTERFACE IDENTIFIER '{' ioList '}' ;
+
+ioInterface         : interfaceid=IDENTIFIER groupname=IDENTIFIER;
 
 /* -- bitfields -- */
 
@@ -165,10 +175,6 @@ namedValue          : name=IDENTIFIER '=' constValue ;
 initBitfield        : field=IDENTIFIER '(' namedValue (',' + namedValue)* ','? ')' ;
 
 /* -- Expressions -- */
-/* 
-Precedences are not properly enforced, but this has no consequence as Silice
-outputs expressions as-is to Verilog, which then applies operator precedences.
-*/
 
 expression_0        : expression_0 '?' expression_0 ':' expression_0
                     | expression_1;
@@ -329,7 +335,7 @@ input               : 'input' nolatch='!'? TYPE IDENTIFIER
                     | 'input' nolatch='!'? TYPE IDENTIFIER '[' NUMBER ']';
 output              : 'output' combinational='!'? TYPE IDENTIFIER
                     | 'output' combinational='!'? TYPE IDENTIFIER '[' NUMBER ']';
-inOrOut             :  input | output | inout | ioGroup;
+inOrOut             :  input | output | inout | ioGroup | ioInterface;
 inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 
 /* -- Declarations, subroutines, instruction lists -- */
@@ -378,6 +384,6 @@ algorithm           : 'algorithm' IDENTIFIER '(' inOutList ')' algModifiers? '{'
 
 /* -- Overall structure -- */
 
-topList       :  (algorithm | importv | appendv | subroutine | circuitry | group | bitfield) topList | ;
+topList       :  (algorithm | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
 
 root                : topList EOF ;

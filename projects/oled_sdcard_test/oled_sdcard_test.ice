@@ -101,7 +101,7 @@ algorithm main(
     io          <:> sdcio,
     // bram port
     store_addr  :> sdbuffer.addr1,
-    store_byte  :> sdbuffer.wdata1,
+    store_byte  :> sdbuffer.wdata1,    
   );
 
   // Text buffer

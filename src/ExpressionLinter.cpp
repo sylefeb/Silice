@@ -58,13 +58,17 @@ void ExpressionLinter::lintAssignment(
   t_type_nfo rvalue_nfo;
   typeNfo(expr, bctx, rvalue_nfo);
   // check
-  if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
-    if (rvalue_nfo.base_type == Int) {
-      warn(expr->getSourceInterval(), -1, "assigning signed expression to unsigned lvalue");
+  if (lvalue_nfo.base_type == Parameterized || rvalue_nfo.base_type == Parameterized) {
+    // warn(expr->getSourceInterval(), -1, "skipping check (parameterized variable : not yet implemented)");
+  } else {
+    if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
+      if (rvalue_nfo.base_type == Int) {
+        warn(expr->getSourceInterval(), -1, "assigning signed expression to unsigned lvalue");
+      }
     }
-  }
-  if (lvalue_nfo.width < rvalue_nfo.width) {
-    warn(expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", rvalue_nfo.width,lvalue_nfo.width);
+    if (lvalue_nfo.width < rvalue_nfo.width) {
+      warn(expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", rvalue_nfo.width, lvalue_nfo.width);
+    }
   }
 }
 
@@ -127,6 +131,9 @@ void ExpressionLinter::lintBinding(
 ) const
 {
   // check
+  if (left.base_type == Parameterized || right.base_type == Parameterized) {
+    return; // skip if parameterized
+  }
   if (left.base_type != right.base_type) {
     warn(antlr4::misc::Interval::INVALID, line, "%s, bindings have inconsistent signedness", msg.c_str());
   }

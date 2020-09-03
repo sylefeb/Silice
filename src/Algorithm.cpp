@@ -1008,8 +1008,8 @@ void Algorithm::getBindings(
                 "expecting an identifier on the right side of a group binding");
             }
             // unfold all bindings, select direction automatically
-            for (auto v : G->second->varList()->var()) {
-              string member = v->declarationVar()->IDENTIFIER()->getText();
+            for (auto v : getGroupMembers(G->second)) {
+              string member = v;
               t_binding_nfo nfo;
               nfo.left  = bindings->modalgBinding()->left->getText() + "_" + member;
               nfo.right_identifier = bindings->modalgBinding()->right->IDENTIFIER()->getText() + "_" + member;
@@ -1548,8 +1548,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       // if group, add all members
       auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
       if (G != m_VIOGroups.end()) {
-        for (auto v : G->second->varList()->var()) {
-          string mbr = v->declarationVar()->IDENTIFIER()->getText();
+        for (auto mbr : getGroupMembers(G->second)) {
           nfo->allowed_reads.insert(mbr);
         }
       }
@@ -1565,8 +1564,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       // if group, add all members
       auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
       if (G != m_VIOGroups.end()) {
-        for (auto v : G->second->varList()->var()) {
-          string mbr = v->declarationVar()->IDENTIFIER()->getText();
+        for (auto mbr : getGroupMembers(G->second)) {
           nfo->allowed_writes.insert(mbr);
         }
       }
@@ -1587,8 +1585,8 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       // if group, add all members
       auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
       if (G != m_VIOGroups.end()) {
-        for (auto v : G->second->varList()->var()) {
-          string mbr = P->IDENTIFIER()->getText() + "_" + v->declarationVar()->IDENTIFIER()->getText();
+        for (auto v : getGroupMembers(G->second)) {
+          string mbr = P->IDENTIFIER()->getText() + "_" + v;
           nfo->allowed_reads.insert(mbr);
           nfo->allowed_writes.insert(mbr);
         }
@@ -2367,16 +2365,78 @@ void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
 
 // -------------------------------------------------
 
+void Algorithm::gatherIoInterface(siliceParser::IoInterfaceContext *itrf)
+{
+  // find interface declaration
+  auto I = m_KnownInterfaces.find(itrf->interfaceid->getText());
+  if (I == m_KnownInterfaces.end()) {
+    reportError(itrf->interfaceid, (int)itrf->getStart()->getLine(),
+      "no known interface definition for '%s'", itrf->interfaceid->getText().c_str());
+  }
+  // group prefix
+  string grpre = itrf->groupname->getText();
+  m_VIOGroups.insert(make_pair(grpre, I->second));
+  // get member list from group
+  unordered_set<string> vars;
+  for (auto io : I->second->ioList()->io()) {
+    t_var_nfo vnfo;
+    vnfo.name = io->IDENTIFIER()->getText();
+    vnfo.type_nfo.base_type = Parameterized;
+    vnfo.type_nfo.width     = 0;
+    vnfo.table_size         = 0;
+    if (vars.count(vnfo.name)) {
+      reportError(io->IDENTIFIER()->getSymbol(), (int)io->getStart()->getLine(),
+        "entry '%s' declared twice in interface definition '%s'",
+        vnfo.name.c_str(), itrf->interfaceid->getText().c_str());
+    }
+    vars.insert(vnfo.name);
+    // add it where it belongs
+    if (io->is_input != nullptr) {
+      t_inout_nfo inp;
+      inp.name = grpre + "_" + vnfo.name;
+      inp.table_size = vnfo.table_size;
+      inp.init_values = vnfo.init_values;
+      inp.type_nfo = vnfo.type_nfo;
+      m_Inputs.emplace_back(inp);
+      m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
+      m_Parameterized.push_back(inp.name);
+    } else if (io->is_inout != nullptr) {
+      t_inout_nfo inp;
+      inp.name = grpre + "_" + vnfo.name;
+      inp.table_size = vnfo.table_size;
+      inp.init_values = vnfo.init_values;
+      inp.nolatch = (io->nolatch != nullptr);
+      inp.type_nfo = vnfo.type_nfo;
+      m_InOuts.emplace_back(inp);
+      m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
+      m_Parameterized.push_back(inp.name);
+    } else if (io->is_output != nullptr) {
+      t_output_nfo oup;
+      oup.name = grpre + "_" + vnfo.name;
+      oup.table_size = vnfo.table_size;
+      oup.init_values = vnfo.init_values;
+      oup.combinational = (io->combinational != nullptr);
+      oup.type_nfo = vnfo.type_nfo;
+      m_Outputs.emplace_back(oup);
+      m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
+      m_Parameterized.push_back(oup.name);
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
 {
   if (inout == nullptr) {
     return;
   }
   for (auto io : inout->inOrOut()) {
-    auto input   = dynamic_cast<siliceParser::InputContext*>(io->input());
-    auto output  = dynamic_cast<siliceParser::OutputContext*>(io->output());
-    auto inout   = dynamic_cast<siliceParser::InoutContext*>(io->inout());
-    auto iogroup = dynamic_cast<siliceParser::IoGroupContext*>(io->ioGroup());
+    auto input       = dynamic_cast<siliceParser::InputContext*>(io->input());
+    auto output      = dynamic_cast<siliceParser::OutputContext*>(io->output());
+    auto inout       = dynamic_cast<siliceParser::InoutContext*>(io->inout());
+    auto iogroup     = dynamic_cast<siliceParser::IoGroupContext*>(io->ioGroup());
+    auto iointerface = dynamic_cast<siliceParser::IoInterfaceContext*>(io->ioInterface());
     if (input) {
       t_inout_nfo io;
       gatherInputNfo(input, io);
@@ -2394,6 +2454,8 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
       m_InOutNames.insert(make_pair(io.name, (int)m_InOuts.size() - 1));
     } else if (iogroup) {
       gatherIoGroup(iogroup);
+    } else if (iointerface) {
+      gatherIoInterface(iointerface);
     } else {
       // symbol, ignore
     }
@@ -3022,6 +3084,48 @@ void Algorithm::verifyMemberGroup(std::string member, siliceParser::GroupContext
   }
   reportError(group->IDENTIFIER()->getSymbol(),line,"group '%s' does not contain a member '%s'",
     group->IDENTIFIER()->getText().c_str(), member.c_str(), line);
+}
+
+// -------------------------------------------------
+
+void Algorithm::verifyMemberInterface(std::string member, siliceParser::IntrfaceContext *intrface, int line) const
+{
+  // -> check for existence
+  for (auto io : intrface->ioList()->io()) {
+    if (io->IDENTIFIER()->getText() == member) {
+      return; // ok!
+    }
+  }
+  reportError(intrface->IDENTIFIER()->getSymbol(), line, "interface '%s' does not contain a member '%s'",
+    intrface->IDENTIFIER()->getText().c_str(), member.c_str(), line);
+}
+
+// -------------------------------------------------
+
+void Algorithm::verifyMemberGroup(std::string member, const t_group_definition &gd, int line) const
+{
+  if (gd.group != nullptr) {
+    verifyMemberGroup(member, gd.group, line);
+  } else if (gd.intrface != nullptr) {
+    verifyMemberInterface(member, gd.intrface, line);
+  }
+}
+
+// -------------------------------------------------
+
+std::vector<std::string> Algorithm::getGroupMembers(const t_group_definition &gd) const
+{
+  std::vector<std::string> mbs;
+  if (gd.group != nullptr) {
+    for (auto v : gd.group->varList()->var()) {
+      mbs.push_back(v->declarationVar()->IDENTIFIER()->getText());
+    }
+  } else if (gd.intrface != nullptr) {
+    for (auto io : gd.intrface->ioList()->io()) {
+      mbs.push_back(io->IDENTIFIER()->getText());
+    }
+  }
+  return mbs;
 }
 
 // -------------------------------------------------
@@ -3680,12 +3784,14 @@ Algorithm::Algorithm(
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
   const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
+  const std::unordered_map<std::string, siliceParser::IntrfaceContext *>& known_interfaces,
   const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield
 )
   : m_Name(name), m_Clock(clock), m_Reset(reset), 
     m_AutoRun(autorun), m_OneHot(onehot), 
   m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), 
-  m_KnownCircuitries(known_circuitries), m_KnownGroups(known_groups), m_KnownBitFields(known_bitfield)
+  m_KnownCircuitries(known_circuitries), m_KnownGroups(known_groups), 
+  m_KnownInterfaces(known_interfaces), m_KnownBitFields(known_bitfield)
 {
   // init with empty always blocks
   m_AlwaysPre.id = 0;
@@ -4529,12 +4635,28 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, co
 
 // -------------------------------------------------
 
-int Algorithm::varBitDepth(const t_var_nfo& v) const
+std::string Algorithm::varBitRange(const t_var_nfo& v) const
 {
-  if (v.table_size == 0) {
-    return v.type_nfo.width;
+  if (v.type_nfo.base_type == Parameterized) {
+    string str = v.name;
+    std::transform(str.begin(), str.end(), str.begin(), std::toupper);
+    str = str + "_WIDTH-1";
+    return "[" + str + ":0]";
   } else {
-    return v.type_nfo.width;
+    return "[" + std::to_string(v.type_nfo.width - 1) + ":0]";
+  }
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::varBitWidth(const t_var_nfo &v) const
+{
+  if (v.type_nfo.base_type == Parameterized) {
+    string str = v.name;
+    std::transform(str.begin(), str.end(), str.begin(), std::toupper);
+    return str + "_WIDTH";
+  } else {
+    return std::to_string(v.type_nfo.width);
   }
 }
 
@@ -4542,7 +4664,19 @@ int Algorithm::varBitDepth(const t_var_nfo& v) const
 
 std::string Algorithm::typeString(const t_var_nfo& v) const
 {
+  sl_assert(v.type_nfo.base_type != Parameterized);
   return typeString(v.type_nfo.base_type);
+}
+
+// -------------------------------------------------
+
+void Algorithm::writeVerilogDeclaration(std::ostream &out, std::string base, const t_var_nfo &v, std::string postfix) const
+{
+  if (v.type_nfo.base_type == Parameterized) {
+    out << base << " " << typeString(UInt) << " " << varBitRange(v) << " " << postfix << ';' << endl;
+  } else {
+    out << base << " " << typeString(v) << " " << varBitRange(v) << " " << postfix << ';' << endl;
+  }
 }
 
 // -------------------------------------------------
@@ -4562,9 +4696,11 @@ void Algorithm::writeConstDeclarations(std::string prefix, std::ostream& out) co
   for (const auto& v : m_Vars) {
     if (v.usage != e_Const) continue;
     if (v.table_size == 0) {
-      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_CST << prefix << v.name << ';' << std::endl;
+      writeVerilogDeclaration(out, "wire", v, string(FF_CST) + prefix + v.name);
+      // out << "wire " << typeString(v) << " " << varBitRange(v) << " " << FF_CST << prefix << v.name << ';' << std::endl;
     } else {
-      out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_CST << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << std::endl;
+      writeVerilogDeclaration(out, "wire", v, string(FF_CST) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
+      // out << "wire " << typeString(v) << " " << varBitRange(v) << " " << FF_CST << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << std::endl;
     }
     if (!v.do_not_initialize) {
       if (v.table_size == 0) {
@@ -4586,14 +4722,16 @@ void Algorithm::writeTempDeclarations(std::string prefix, std::ostream& out) con
   for (const auto& v : m_Vars) {
     if (v.usage != e_Temporary) continue;
     if (v.table_size == 0) {
-      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_TMP << prefix << v.name << ';' << std::endl;
+      writeVerilogDeclaration(out, "reg", v, string(FF_TMP) + prefix + v.name);
+      // out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << ';' << std::endl;
     } else {
-      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_TMP << prefix << v.name << '[' << v.table_size-1 << ":0]" << ';' << std::endl;
+      writeVerilogDeclaration(out, "reg", v, string(FF_TMP) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
+      // out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << '[' << v.table_size-1 << ":0]" << ';' << std::endl;
     }
   }
   for (const auto &v : m_Outputs) {
     if (v.usage != e_Temporary) continue;
-    out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << FF_TMP << prefix << v.name << ';' << std::endl;
+    out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << ';' << std::endl;
   }
 }
 
@@ -4604,9 +4742,11 @@ void Algorithm::writeWireDeclarations(std::string prefix, std::ostream& out) con
   for (const auto& v : m_Vars) {
     if ((v.usage == e_Bound && v.access == e_ReadWriteBinded) || v.usage == e_Wire) {
       if (v.table_size == 0) {
-        out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << WIRE << prefix << v.name << ';' << std::endl;
+        writeVerilogDeclaration(out, "wire", v, string(WIRE) + prefix + v.name);
+        //out << "wire " << typeString(v) << " " << varBitRange(v) << " " << WIRE << prefix << v.name << ';' << std::endl;
       } else {
-        out << "wire " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << WIRE << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << std::endl;
+        writeVerilogDeclaration(out, "wire", v, string(WIRE) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
+        //out << "wire " << typeString(v) << " " << varBitRange(v) << " " << WIRE << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << std::endl;
       }
     }
   }
@@ -4621,36 +4761,42 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
   for (const auto& v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
     if (v.table_size == 0) {
-      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
-      out << FF_D << prefix << v.name << ';' << std::endl;
-      if (!v.attribs.empty()) {
-        out << v.attribs << std::endl;
-      }
-      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
-      out << FF_Q << prefix << v.name << ';' << std::endl;
+      writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name);
+      //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
+      //out << FF_D << prefix << v.name << ';' << std::endl;
+      writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name);
+      //if (!v.attribs.empty()) {
+      //  out << v.attribs << std::endl;
+      //}
+      //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
+      //out << FF_Q << prefix << v.name << ';' << std::endl;
     } else {
-      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
-      out << FF_D << prefix << v.name << '[' << v.table_size-1 << ":0];" << std::endl;
-      if (!v.attribs.empty()) {
-        out << v.attribs << std::endl;
-      }
-      out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
-      out << FF_Q << prefix << v.name << '[' << v.table_size - 1 << ":0];" << std::endl;
+      writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + "]");
+      //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
+      //out << FF_D << prefix << v.name << '[' << v.table_size-1 << ";" << std::endl;
+      writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + "]");
+      //if (!v.attribs.empty()) {
+      //  out << v.attribs << std::endl;
+      //}
+      //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
+      //out << FF_Q << prefix << v.name << '[' << v.table_size - 1 << ";" << std::endl;
     }
   }
   // flip-flops for outputs
   for (const auto& v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
-    out << "reg " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] ";
-    out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << std::endl;
+    writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + ',' + string(FF_Q) + prefix + v.name);
+    //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
+    //out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << std::endl;
   }
   // flip-flops for algorithm inputs that are not bound
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
     for (const auto &is : ia.algo->m_Inputs) {
       if (ia.boundinputs.count(is.name) == 0) {
-        out << "reg " << typeString(is) << " [" << varBitDepth(is) - 1 << ":0] ";
-        out << FF_D << ia.instance_prefix << '_' << is.name << ',' << FF_Q << ia.instance_prefix << '_' << is.name << ';' << std::endl;
+        writeVerilogDeclaration(out, "reg", is, string(FF_D) + ia.instance_prefix + '_' + is.name + ',' + string(FF_Q) + ia.instance_prefix + '_' + is.name);
+        //out << "reg " << typeString(is) << " " << varBitRange(is) << " ";
+        //out << FF_D << ia.instance_prefix << '_' << is.name << ',' << FF_Q << ia.instance_prefix << '_' << is.name << ';' << std::endl;
       }
     }
   }
@@ -5652,6 +5798,67 @@ void Algorithm::writeAsModule(std::ostream &out)
 
 // -------------------------------------------------
 
+const Algorithm::t_binding_nfo &Algorithm::findBindingTo(std::string var, const std::vector<t_binding_nfo> &bndgs) const
+{
+  for (const auto &b : bndgs) {
+    if (b.left == var) {
+      return b;
+    }
+  }
+  throw Fatal("internal error [findBindingTo]");
+  static t_binding_nfo foo;
+  return foo;
+}
+
+// -------------------------------------------------
+
+template <typename T> 
+void copyToVarNfo(Algorithm::t_var_nfo &_nfo, const T &src)
+{
+  _nfo.name = src.name;
+  _nfo.type_nfo = src.type_nfo;
+  _nfo.init_values = src.init_values;
+  _nfo.table_size = src.table_size;
+  _nfo.do_not_initialize = src.do_not_initialize;
+  _nfo.access = src.access;
+  _nfo.usage = src.usage;
+  _nfo.attribs = src.attribs;
+}
+
+// -------------------------------------------------
+
+bool Algorithm::getVIONfo(std::string vio, t_var_nfo& _nfo) const
+{
+  {
+    auto I = m_InputNames.find(vio);
+    if (I != m_InputNames.end()) {
+      copyToVarNfo(_nfo, m_Inputs[I->second]);
+      return true;
+    }
+  } {
+    auto Io = m_InOutNames.find(vio);
+    if (Io != m_InOutNames.end()) {
+      copyToVarNfo(_nfo, m_InOuts[Io->second]);
+      return true;
+    }
+  } {
+    auto O = m_OutputNames.find(vio);
+    if (O != m_OutputNames.end()) {
+      copyToVarNfo(_nfo, m_Outputs[O->second]);
+      return true;
+    }
+  } {
+    auto V = m_VarNames.find(vio);
+    if (V != m_VarNames.end()) {
+      copyToVarNfo(_nfo, m_Vars[V->second]);
+      return true;
+    }
+  }
+  return false;
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
 {
   out << endl;
@@ -5662,28 +5869,66 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   }
 
   // module header
-  out << "module M_" << m_Name << '(' << endl;
+  out << "module M_" << m_Name << ' ';
+  if (!m_Parameterized.empty()) {
+    out << "#(" << endl;
+    // parameters for parameterized variables
+    ForIndex(i,m_Parameterized.size()) {
+      string str = m_Parameterized[i];
+      std::transform(str.begin(), str.end(), str.begin(), std::toupper);
+      out << "parameter " << str << "_WIDTH=0" << endl;
+      // out << "parameter " << str << "_SIGNED=\"\"";
+      if (i + 1 < m_Parameterized.size()) {
+        out << ',';
+      }
+      out << endl;
+    }
+    out << ") ";
+  }
+  // list ports names
+  out << '(' << endl;
+  for (const auto &v : m_Inputs) {
+    out << string(ALG_INPUT) << '_' << v.name << ',' << endl;
+  }
+  for (const auto &v : m_Outputs) {
+    out << string(ALG_OUTPUT) << '_' << v.name << ',' << endl;
+  }
+  for (const auto &v : m_InOuts) {
+    out << string(ALG_INOUT) << '_' << v.name << ',' << endl;
+  }
+  if (!hasNoFSM()) {
+    out << ALG_INPUT << "_" << ALG_RUN << ',' << endl;
+    out << ALG_OUTPUT << "_" << ALG_DONE << ',' << endl;
+  }
+  if (!requiresNoReset()) {
+    out << ALG_RESET "," << endl;
+  }
+  out << ALG_CLOCK << endl;
+  out << ");" << endl;
+  // declare ports
   for (const auto& v : m_Inputs) {
     sl_assert(v.table_size == 0);
-    out << "input " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INPUT << '_' << v.name << ',' << endl;
+    writeVerilogDeclaration(out, "input", v, string(ALG_INPUT) + "_" + v.name );
+    // out << "input " << typeString(v) << " " << varBitRange(v) << " " << ALG_INPUT << '_' << v.name << ';' << endl;
   }
   for (const auto& v : m_Outputs) {
     sl_assert(v.table_size == 0);
-    out << "output " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_OUTPUT << '_' << v.name << ',' << endl;
+    writeVerilogDeclaration(out, "output", v, string(ALG_OUTPUT) + "_" + v.name);
+    // out << "output " << typeString(v) << " " << varBitRange(v) << " " << ALG_OUTPUT << '_' << v.name << ';' << endl;
   }
   for (const auto& v : m_InOuts) {
     sl_assert(v.table_size == 0);
-    out << "inout " << typeString(v) << " [" << varBitDepth(v) - 1 << ":0] " << ALG_INOUT << '_' << v.name << ',' << endl;
+    writeVerilogDeclaration(out, "inout", v, string(ALG_INOUT) + "_" + v.name);
+    // out << "inout " << typeString(v) << " " << varBitRange(v) << " " << ALG_INOUT << '_' << v.name << ';' << endl;
   }
   if (!hasNoFSM()) {
-    out << "input " << ALG_INPUT << "_" << ALG_RUN << ',' << endl;
-    out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ',' << endl;
+    out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << endl;
+    out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ';' << endl;
   }
   if (!requiresNoReset()) {
-    out << "input " ALG_RESET "," << endl;
+    out << "input " ALG_RESET ";" << endl;
   }
-  out << "input " ALG_CLOCK << endl;
-  out << ");" << endl;
+  out << "input " ALG_CLOCK << ";" << endl;
 
   // module instantiations (1/2)
   // -> required wires to hold outputs
@@ -5709,7 +5954,22 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     // output wires
     for (const auto& os : nfo.algo->m_Outputs) {
       sl_assert(os.table_size == 0);
-      out << "wire " << typeString(os) << " [" << varBitDepth(os) - 1 << ":0] " << WIRE << nfo.instance_prefix << '_' << os.name << ';' << endl;
+      // is the output parameterized?
+      if (os.type_nfo.base_type == Parameterized) {
+        // find binding
+        const auto &b = findBindingTo(os.name, nfo.bindings);
+        std::string bound = bindingRightIdentifier(b);
+        t_var_nfo bnfo;
+        if (!getVIONfo(bound, bnfo)) {
+          reportError(nullptr, nfo.instance_line, "cannot determine binding source type for binding between '%s' and '%s', instance '%s'",
+            os.name.c_str(), bound.c_str(), nfo.instance_name.c_str());
+        }
+        writeVerilogDeclaration(out, "wire", bnfo, std::string(WIRE) + nfo.instance_prefix + '_' + os.name);
+        // out << "wire " << typeString(bnfo) << " " << varBitRange(bnfo) << " " << WIRE << nfo.instance_prefix << '_' << os.name << ';' << endl;
+      } else {
+        writeVerilogDeclaration(out, "wire", os, std::string(WIRE) + nfo.instance_prefix + '_' + os.name);
+        // out << "wire " << typeString(os) << " " << varBitRange(os) << " " << WIRE << nfo.instance_prefix << '_' << os.name << ';' << endl;
+      }
     }
     if (!nfo.algo->hasNoFSM()) {
       // algorithm done
@@ -5721,8 +5981,8 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     // output wires
     for (const auto& ouv : mem.out_vars) {
       const auto& os = m_Vars[m_VarNames.at(ouv)];
-      out << "wire " << typeString(os) << " [" << varBitDepth(os) - 1 << ":0] "
-        << WIRE << "_mem_" << os.name << ';' << endl;
+      writeVerilogDeclaration(out, "wire", os, std::string(WIRE) + "_mem_" + os.name);
+      // out << "wire " << typeString(os) << " " << varBitRange(os) << " " << WIRE << "_mem_" << os.name << ';' << endl;
     }
   }
 
@@ -5814,7 +6074,44 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &nfo = m_InstancedAlgorithms.at(iaiordr);
     // algorithm module
-    out << "M_" << nfo.algo_name << ' ' << nfo.instance_name << '(' << endl;
+    out << "M_" << nfo.algo_name << ' ';
+    // parameters
+    if (!nfo.algo->m_Parameterized.empty()) {
+      out << "#(" << endl;
+      // parameters for parameterized variables
+      ForIndex(i, nfo.algo->m_Parameterized.size()) {
+        string var = nfo.algo->m_Parameterized[i];
+        // find binding
+        const auto& b     = findBindingTo(var, nfo.bindings);
+        std::string bound = bindingRightIdentifier(b);
+        t_var_nfo bnfo;
+        if (!getVIONfo(bound, bnfo)) {
+          reportError(nullptr, nfo.instance_line, "cannot determine binding source type for binding between generic '%s' and '%s', instance '%s'", 
+            var.c_str(),bound.c_str(), nfo.instance_name.c_str());
+        }
+        // for now, signed cannot be taken into account
+        if (bnfo.type_nfo.base_type == Int) {
+          reportError(nullptr, nfo.instance_line, "signed binding sources are not supported, generic '%s' bound to (signed) '%s', instance '%s')",
+            var.c_str(), bound.c_str(), nfo.instance_name.c_str());
+        }
+        // write
+        std::transform(var.begin(), var.end(), var.begin(), std::toupper);
+        out << '.' << var << "_WIDTH";
+        out << '(' << varBitWidth(bnfo) << ')';
+        //out << ',' << endl;
+        //out << '.' << var << "_SIGNED";
+        //out << "(\"" << typeString(bnfo) << "\")";
+        if (i + 1 < nfo.algo->m_Parameterized.size()) {
+          out << ',';
+        }
+        out << endl;
+      }
+      out << ") ";
+    }
+    // instance name
+    out << nfo.instance_name << ' ';
+    // ports
+    out << '(' << endl;
     // inputs
     for (const auto &is : nfo.algo->m_Inputs) {
       out << '.' << ALG_INPUT << '_' << is.name << '(';

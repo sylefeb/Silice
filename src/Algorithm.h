@@ -131,6 +131,8 @@ namespace Silice
     const std::unordered_map<std::string, siliceParser::CircuitryContext*>& m_KnownCircuitries;
     /// \brief Set of known groups
     const std::unordered_map<std::string, siliceParser::GroupContext*>& m_KnownGroups;
+    /// \brief Set of known interfaces
+    const std::unordered_map<std::string, siliceParser::IntrfaceContext*> &m_KnownInterfaces;
     /// \brief Set of known bitfields
     const std::unordered_map<std::string, siliceParser::BitfieldContext*>& m_KnownBitFields;
 
@@ -167,6 +169,7 @@ namespace Silice
     enum e_IOType { e_Input, e_Output, e_InOut, e_NotIO };
 
     /// \brief base info about variables, inputs, outputs
+    // TODO: split in the definition part and usage/analyis part
     class t_var_nfo {
     public:
       std::string  name;
@@ -208,6 +211,14 @@ namespace Silice
       std::vector<std::string> init_values;
     };
 
+    class t_group_definition {
+    public:
+      siliceParser::GroupContext    *group    = nullptr; // from an actual group declaration
+      siliceParser::IntrfaceContext *intrface = nullptr; // from an interface declaration
+      t_group_definition(siliceParser::GroupContext *g)     : group(g)    {}
+      t_group_definition(siliceParser::IntrfaceContext *i) : intrface(i) {}
+    };
+
     /// \brief inputs
     std::vector< t_inout_nfo  > m_Inputs;
     /// \brief outputs
@@ -215,7 +226,9 @@ namespace Silice
     /// \brief inouts NOTE: can only be passed around
     std::vector< t_inout_nfo >  m_InOuts;
     /// \brief io groups
-    std::unordered_map<std::string, siliceParser::GroupContext*> m_VIOGroups;
+    std::unordered_map<std::string, t_group_definition> m_VIOGroups;
+    /// \brief parameterized vars
+    std::vector< std::string >  m_Parameterized;
 
     /// \brief all input names, map contains index in m_Inputs
     std::unordered_map<std::string, int > m_InputNames;
@@ -694,6 +707,8 @@ namespace Silice
     void gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io);
     /// \brief gather infos about an io group
     void gatherIoGroup(siliceParser::IoGroupContext* iog);
+    /// \brief gather infos about an io interface
+    void gatherIoInterface(siliceParser::IoInterfaceContext *itrf);
     /// \brief gather inputs and outputs
     void gatherIOs(siliceParser::InOutListContext* inout);
     /// \brief gather a block
@@ -724,6 +739,12 @@ namespace Silice
     void verifyMemberMemory(const t_mem_nfo& mem, std::string member, int line) const;
     /// \brief verify member in group
     void verifyMemberGroup(std::string member, siliceParser::GroupContext* group, int line) const;
+    /// \brief verify member in interface
+    void verifyMemberInterface(std::string member, siliceParser::IntrfaceContext *intrface, int line) const;
+    /// \brief verify member in group definition
+    void verifyMemberGroup(std::string member, const t_group_definition& gd, int line) const;
+    /// \brief get the list of members within a group
+    std::vector<std::string> getGroupMembers(const t_group_definition &gd) const;
     /// \brief verify member in bitfield
     void verifyMemberBitfield(std::string member, siliceParser::BitfieldContext* group, int line) const;
     /// \brief report an error
@@ -789,6 +810,10 @@ namespace Silice
     bool doesNotCallSubroutines() const;
     /// \brief converts an internal state into a FSM state
     int  toFSMState(int state) const;
+    /// \brief finds the binding to var
+    const t_binding_nfo &findBindingTo(std::string var, const std::vector<t_binding_nfo> &bndgs) const;
+    /// \brief returns the var nfo of a VIO identifier
+    bool getVIONfo(std::string vio, t_var_nfo& _nfo) const;
 
   public:
 
@@ -801,6 +826,7 @@ namespace Silice
       const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
       const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
       const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
+      const std::unordered_map<std::string, siliceParser::IntrfaceContext *>& known_interfaces,
       const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield);
     /// \brief destructor
     virtual ~Algorithm();
@@ -817,11 +843,15 @@ namespace Silice
 
   private:
 
-    /// \brief computes variable bit depdth
-    int varBitDepth(const t_var_nfo& v) const;
+    /// \brief returns variable bit range for verilog declaration
+    std::string varBitRange(const t_var_nfo& v) const;
+    /// \brief returns a variable bit width for verilog use
+    std::string varBitWidth(const t_var_nfo &v) const;
     /// \brief returns a type dependent string for resource declaration
     std::string typeString(const t_var_nfo& v) const;
     std::string typeString(e_Type type) const;
+    /// \brief write a verilog wire/reg declaration, possibly parameterized
+    void writeVerilogDeclaration(std::ostream &out, std::string base, const t_var_nfo &v, std::string postfix) const;
     /// \brief determines vio bit width and (if applicable) table size
     std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(const t_combinational_block_context *bctx, std::string vname, int line) const;
     /// \brief determines identifier bit width and (if applicable) table size

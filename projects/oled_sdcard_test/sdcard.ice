@@ -11,21 +11,25 @@ group sdcardio {
   uint1  ready       = 0,
 }
 
+interface sdcardio_ctrl {
+  input!  addr_sector,
+  input!  read_sector,
+  output  ready,
+}
+
 algorithm sdcard(
   output  uint1  sd_clk,
   output  uint1  sd_mosi,
   output  uint1  sd_csn,
   input   uint1  sd_miso,
   // read io
-  sdcardio io {
-    input!  addr_sector,
-    input!  read_sector,
-    output  ready,
-  },
+  sdcardio_ctrl  io,
   // storage
-  output  uint9 store_addr,
-  output  uint8 store_byte,  
+  output  uint9  store_addr,
+  output  uint8  store_byte,  
 ) <autorun> {
+  
+  // assert(sizeof(io.addr_sector) == 32);
   
   subroutine send(
     input  uint48   cmd,
