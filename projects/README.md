@@ -35,6 +35,11 @@ If everthing goes well you should see in the last console output:
 ```
 Good news, the hardware divider is working!
 
+## Note on OLED
+
+To configure your OLED setup, edit the *oled.ice* file in [common/oled.ice](common/oled.ice) to specify the driver and resolution being used.
+The OLED library supports the SDD1351 and ST7789 drivers. Also checkout the specific pinout used for your board.
+
 # All examples
 
 ## VGA demo effects
