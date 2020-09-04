@@ -562,6 +562,8 @@ namespace Silice
     /// \brief always blocks
     t_combinational_block                                             m_AlwaysPre;
     t_combinational_block                                             m_AlwaysPost; // empty, used only to track post-reads (bindings)
+    /// \brief wire assignments
+    std::unordered_map<std::string,t_instr_nfo>                       m_WireAssignments;
     /// \brief all combinational blocks
     std::list< t_combinational_block* >                               m_Blocks;
     /// \brief state name to combinational block
@@ -755,8 +757,8 @@ namespace Silice
 
   private:
 
-    /// \brief update variable dependencies for an instruction
-    void updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context* bctx) const;
+    /// \brief update and check variable dependencies for an instruction
+    void updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context* bctx) const;
     /// \brief merge variable dependencies
     void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
     /// \brief update flip-flop usage
@@ -782,10 +784,25 @@ namespace Silice
     /// \brief updates access to vars due to a binding
     template<typename T_nfo>
     void updateAccessFromBinding(const t_binding_nfo& b, const std::unordered_map<std::string, int > &names, std::vector< T_nfo > &_nfos);
+    /// \brief determines variable access for an instruction
+    void determineVariablesAndOutputsAccess(
+      antlr4::tree::ParseTree             *instr,
+      const t_combinational_block_context *context,
+      std::unordered_set<std::string> &_already_written, 
+      std::unordered_set<std::string> &_in_vars_read,
+      std::unordered_set<std::string> &_out_vars_written);
     /// \brief determines variable access within a block
     void determineVariablesAndOutputsAccess(t_combinational_block *block);
-    /// \brief determine variable access within algorithm
-    void determineVariablesAndOutputsAccess();
+    /// \brief determine variable access due to wires within the algorithm
+    void determineVariablesAndOutputsAccessForWires(
+      std::unordered_set<std::string> &_global_in_read,
+      std::unordered_set<std::string> &_global_out_written
+    );
+    /// \brief determine variable access within the algorithm
+    void determineVariablesAndOutputsAccess(
+      std::unordered_set<std::string> &_global_in_read,
+      std::unordered_set<std::string> &_global_out_written
+    );
     /// \brief analyze variables access and classifies variables
     void determineVariableAndOutputsUsage();
     /// \brief determines the list of bound VIO
@@ -896,8 +913,8 @@ namespace Silice
       siliceParser::Expression_0Context *expression_0,
       const t_combinational_block_context *bctx,
       std::string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
-    /// \brief writes all wire assignements for a block
-    void writeWireAssignements(std::string prefix, std::ostream &out, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
+    /// \brief writes all wire assignements
+    void writeWireAssignements(std::string prefix, std::ostream &out, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes flip-flop value init for a variable
     void writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
     /// \brief writes flip-flop value update for a variable

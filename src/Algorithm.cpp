@@ -699,8 +699,8 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
   splitType(wire->TYPE()->getText(), nfo.type_nfo);
   // add var
   addVar(nfo, _current, _context, (int)wire->getStart()->getLine());
-  // insert assignment in always block
-  m_AlwaysPre.instructions.push_back(t_instr_nfo(wire->alwaysAssigned(),-1));
+  // insert wire assignment
+  m_WireAssignments.insert(make_pair(nfo.name,t_instr_nfo(wire->alwaysAssigned(),-1)));
 }
 
 // -------------------------------------------------
@@ -2843,7 +2843,7 @@ bool Algorithm::requiresNoReset() const
 
 // -------------------------------------------------
 
-void Algorithm::updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context *bctx) const
+void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context *bctx) const
 {
   if (instr == nullptr) {
     return;
@@ -2890,7 +2890,7 @@ void Algorithm::updateDependencies(t_vio_dependencies& _depds, antlr4::tree::Par
     }
     std::cerr << std::endl;
   }
-
+  
   // check if everything is legit
   // for each written variable
   for (const auto& w : written) {
@@ -2917,7 +2917,7 @@ void Algorithm::updateDependencies(t_vio_dependencies& _depds, antlr4::tree::Par
               reportError(
                 dynamic_cast<antlr4::ParserRuleContext *>(instr)->getSourceInterval(),
                 (int)(dynamic_cast<antlr4::ParserRuleContext *>(instr)->getStart()->getLine()),
-                "variable assignement leads to a combinational cycle through variable bound to expression\n\n(variable: '%s', through '%s') Consider inserting a sequential split with '++:'",
+                "variable assignement leads to a combinational cycle through variable bound to expression\n\n(variable: '%s', through '%s').",
                 w.c_str(), d.c_str());
             }
           }
@@ -3248,12 +3248,14 @@ void Algorithm::determineVIOAccess(
     {
       auto assign = dynamic_cast<siliceParser::AssignmentContext*>(node);
       if (assign) {
+        // retrieve var
         std::string var;
         if (assign->access() != nullptr) {
-          var = determineAccessedVar(assign->access(),bctx);
+          var = determineAccessedVar(assign->access(), bctx);
         } else {
           var = assign->IDENTIFIER()->getText();
         }
+        // tag var as written
         if (!var.empty()) {
           var = translateVIOName(var, bctx);
           if (!var.empty() && vios.find(var) != vios.end()) {
@@ -3275,9 +3277,10 @@ void Algorithm::determineVIOAccess(
     } {
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(node);
       if (alw) {
+        // retrieve var
         std::string var;
         if (alw->access() != nullptr) {
-          var = determineAccessedVar(alw->access(),bctx);
+          var = determineAccessedVar(alw->access(), bctx);
         } else {
           var = alw->IDENTIFIER()->getText();
         }
@@ -3404,10 +3407,52 @@ void Algorithm::determineVIOAccess(
 
 // -------------------------------------------------
 
+void Algorithm::determineVariablesAndOutputsAccess(
+  antlr4::tree::ParseTree             *instr,
+  const t_combinational_block_context *context,
+  std::unordered_set<std::string>& _already_written,
+  std::unordered_set<std::string>& _in_vars_read,
+  std::unordered_set<std::string>& _out_vars_written
+  )
+{
+  std::unordered_set<std::string> read;
+  std::unordered_set<std::string> written;
+  determineVIOAccess(instr, m_VarNames, context, read, written);
+  determineVIOAccess(instr, m_OutputNames, context, read, written);
+  // record which are read from outside
+  for (auto r : read) {
+    // if read and not written before in block
+    if (_already_written.find(r) == _already_written.end()) {
+      _in_vars_read.insert(r); // value from prior block is read
+    }
+  }
+  // record which are written to
+  _already_written .insert(written.begin(), written.end());
+  _out_vars_written.insert(written.begin(), written.end());
+  // update global use
+  for (auto r : read) {
+    if (m_VarNames.find(r) != m_VarNames.end()) {
+      m_Vars[m_VarNames.at(r)].access = (e_Access)(m_Vars[m_VarNames.at(r)].access | e_ReadOnly);
+    }
+    if (m_OutputNames.find(r) != m_OutputNames.end()) {
+      m_Outputs[m_OutputNames.at(r)].access = (e_Access)(m_Outputs[m_OutputNames.at(r)].access | e_ReadOnly);
+    }
+  }
+  for (auto w : written) {
+    if (m_VarNames.find(w) != m_VarNames.end()) {
+      m_Vars[m_VarNames.at(w)].access = (e_Access)(m_Vars[m_VarNames.at(w)].access | e_WriteOnly);
+    }
+    if (m_OutputNames.find(w) != m_OutputNames.end()) {
+      m_Outputs[m_OutputNames.at(w)].access = (e_Access)(m_Outputs[m_OutputNames.at(w)].access | e_WriteOnly);
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::determineVariablesAndOutputsAccess(t_combinational_block *block)
 {
   // determine variable access
-  std::unordered_set<std::string> already_read;
   std::unordered_set<std::string> already_written;
   std::vector<t_instr_nfo> instr = block->instructions;
   if (block->if_then_else()) {
@@ -3420,37 +3465,7 @@ void Algorithm::determineVariablesAndOutputsAccess(t_combinational_block *block)
     instr.push_back(block->while_loop()->test);
   }
   for (const auto& i : instr) {
-    std::unordered_set<std::string> read;
-    std::unordered_set<std::string> written;
-    determineVIOAccess(i.instr, m_VarNames, &block->context, read, written);
-    determineVIOAccess(i.instr, m_OutputNames, &block->context, read, written);
-    // record which are read from outside
-    for (auto r : read) {
-      // if read and not written before in block
-      if (already_written.find(r) == already_written.end()) {
-        block->in_vars_read.insert(r); // value from prior block is read
-      }
-    }
-    // record which are written to
-    already_written.insert(written.begin(), written.end());
-    block->out_vars_written.insert(written.begin(), written.end());
-    // update global use
-    for (auto r : read) {
-      if (m_VarNames.find(r) != m_VarNames.end()) {
-        m_Vars[m_VarNames.at(r)].access = (e_Access)(m_Vars[m_VarNames.at(r)].access | e_ReadOnly);
-      }
-      if (m_OutputNames.find(r) != m_OutputNames.end()) {
-        m_Outputs[m_OutputNames.at(r)].access = (e_Access)(m_Outputs[m_OutputNames.at(r)].access | e_ReadOnly);
-      }
-    }
-    for (auto w : written) {
-      if (m_VarNames.find(w) != m_VarNames.end()) {
-        m_Vars[m_VarNames.at(w)].access = (e_Access)(m_Vars[m_VarNames.at(w)].access | e_WriteOnly);
-      }
-      if (m_OutputNames.find(w) != m_OutputNames.end()) {
-        m_Outputs[m_OutputNames.at(w)].access = (e_Access)(m_Outputs[m_OutputNames.at(w)].access | e_WriteOnly);
-      }
-    }
+    determineVariablesAndOutputsAccess(i.instr, &block->context, already_written, block->in_vars_read, block->out_vars_written);
   }
 }
 
@@ -3491,10 +3506,62 @@ void Algorithm::updateAccessFromBinding(const t_binding_nfo &b,
   }
 }
 
+// -------------------------------------------------
+
+void Algorithm::determineVariablesAndOutputsAccessForWires(
+  std::unordered_set<std::string> &_global_in_read,
+  std::unordered_set<std::string> &_global_out_written
+)
+{
+  t_combinational_block_context empty;
+  std::unordered_map<std::string, siliceParser::AlwaysAssignedContext*> all_wires;
+  std::queue<std::string> q_wires;
+  for (const auto &v : m_Vars) {
+    if (v.usage == e_Wire) { // this is a wire (bound expression)
+      // find corresponding wire assignement
+      auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(m_WireAssignments.at(v.name).instr);
+      sl_assert(alw != nullptr);
+      sl_assert(alw->IDENTIFIER() != nullptr);
+      string var = translateVIOName(alw->IDENTIFIER()->getText(), &empty);
+      if (var == v.name) { // found it
+        all_wires.insert(make_pair(v.name, alw));
+        if (v.access != e_NotAccessed) {
+          sl_assert(v.access == e_ReadOnly); // there should not be any other use for a bound expression
+          q_wires.push(v.name);
+        }
+      }
+    }
+  }
+  // gather wires
+  // -> these are bound expressions, accessed only if the corresp. variable is used
+  unordered_set<std::string> processed;
+  while (!q_wires.empty()) { // requires mutiple passes
+    auto w = q_wires.front();
+    q_wires.pop();
+    if (processed.count(w) == 0) { // skip if processed already
+      // add access based on wire expression
+      std::unordered_set<std::string> _,in_read;
+      determineVariablesAndOutputsAccess(all_wires.at(w), &empty, _, in_read, _global_out_written);
+      for (auto v : in_read) {
+        // insert in global set
+        _global_in_read.insert(v);
+        // check if this used a new wire?          
+        if (all_wires.count(v) > 0 && processed.count(v) == 0) {
+          // recurse
+          q_wires.push(v);
+        }
+      }
+    }
+  }
+
+}
 
 // -------------------------------------------------
 
-void Algorithm::determineVariablesAndOutputsAccess()
+void Algorithm::determineVariablesAndOutputsAccess(
+  std::unordered_set<std::string>& _global_in_read,
+  std::unordered_set<std::string>& _global_out_written
+)
 {
   // for all blocks
   for (auto& b : m_Blocks) {
@@ -3505,6 +3572,8 @@ void Algorithm::determineVariablesAndOutputsAccess()
   }
   // determine variable access for always blocks
   determineVariablesAndOutputsAccess(&m_AlwaysPre);
+  // determine variable access for wires
+  determineVariablesAndOutputsAccessForWires(_global_in_read, _global_out_written);
   // determine variable access due to algorithm and module instances
   // bindings are considered as belonging to the always pre block
   std::vector<t_binding_nfo> all_bindings;
@@ -3515,7 +3584,6 @@ void Algorithm::determineVariablesAndOutputsAccess()
     all_bindings.insert(all_bindings.end(), a.second.bindings.begin(), a.second.bindings.end());
   }
   for (const auto& b : all_bindings) {
-    // NOTE, TODO: template helper method to not duplicate code between vars and outputs
     // variables
     updateAccessFromBinding(b, m_VarNames, m_Vars);
     // outputs
@@ -3555,7 +3623,14 @@ void Algorithm::determineVariablesAndOutputsAccess()
       m_Vars[m_VarNames[ouv]].access = (e_Access)(m_Vars[m_VarNames[ouv]].access | e_WriteBinded);
     }
   }
-
+  // merge all in_reads and out_written
+  auto all_blocks = m_Blocks;
+  all_blocks.push_front(&m_AlwaysPre);
+  all_blocks.push_front(&m_AlwaysPost);
+  for (const auto &b : all_blocks) {
+    _global_in_read.insert(b->in_vars_read.begin(), b->in_vars_read.end());
+    _global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
+  }
 }
 
 // -------------------------------------------------
@@ -3568,18 +3643,9 @@ void Algorithm::determineVariableAndOutputsUsage()
   //      This pass is still useful to detect (in particular) consts.
 
   // determine variables access
-  determineVariablesAndOutputsAccess();
-  // analyze usage
-  // merge all in_reads and out_written
   std::unordered_set<std::string> global_in_read;
   std::unordered_set<std::string> global_out_written;
-  auto all_blocks = m_Blocks;
-  all_blocks.push_front(&m_AlwaysPre);
-  all_blocks.push_front(&m_AlwaysPost);
-  for (const auto &b : all_blocks) {
-    global_in_read    .insert(b->in_vars_read.begin(), b->in_vars_read.end());
-    global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
-  }
+  determineVariablesAndOutputsAccess(global_in_read, global_out_written);
   // set and report
   const bool report = false;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << std::endl;
@@ -4517,33 +4583,50 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
 
 // -------------------------------------------------
 
-void Algorithm::writeWireAssignements(std::string prefix, std::ostream &out, const t_combinational_block *block, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const
+void Algorithm::writeWireAssignements(
+  std::string prefix, std::ostream &out,  
+  t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const
 {
-  for (const auto &a : block->instructions) {
-    auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.instr);
-    if (alw) {
-        // check if this always assignment is on a wire var
-        bool assign = false;
-        // -> determine assigned var
-        string var;
-        if (alw->IDENTIFIER() != nullptr) {
-          var = translateVIOName(alw->IDENTIFIER()->getText(), &block->context);
-        } else {
-          var = determineAccessedVar(alw->access(), &block->context);
+  t_combinational_block_context empty;
+  for (const auto &a : m_WireAssignments) {
+    auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.second.instr);
+    sl_assert(alw != nullptr);
+    sl_assert(alw->IDENTIFIER() != nullptr);
+    // -> determine assigned var
+    string var = translateVIOName(alw->IDENTIFIER()->getText(), &empty);
+    // double check that this always assignment is on a wire var
+    bool wire_assign = false;
+    if (m_VarNames.count(var) > 0) {
+      wire_assign = (m_Vars.at(m_VarNames.at(var)).usage == e_Wire);
+    }
+    sl_assert(wire_assign);
+    bool d_or_q = (alw->ALWSASSIGNDBL() == nullptr);
+    out << "assign ";
+    writeAssignement(prefix, out, a.second, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &empty,
+      d_or_q ? FF_D : FF_Q,
+      _dependencies, _ff_usage);    
+    // update usage
+    updateFFUsage(d_or_q ? e_D : e_Q, true, _ff_usage.ff_usage[var]);
+    // update dependencies
+    t_vio_dependencies no_dependencies = _dependencies;
+    updateAndCheckDependencies(_dependencies, a.second.instr, &empty);
+    // we take the opportunity to check that if the wire depends on other wires, they are either all := or all ::=
+    for (const auto &d : _dependencies.dependencies.at(var)) {
+      // is this dependency a wire?
+      auto W = m_WireAssignments.find(d);
+      if (W != m_WireAssignments.end()) {
+        auto w_alw    = dynamic_cast<siliceParser::AlwaysAssignedContext *>(W->second.instr);
+        bool w_d_or_q = (w_alw->ALWSASSIGNDBL() == nullptr);
+        if (d_or_q ^ w_d_or_q) {
+          reportError(alw->getSourceInterval(), (int)alw->getStart()->getLine(), 
+            "inconsistent use of ::= and := between bound expressions (with '%s')",d.c_str());
         }
-        if (m_VarNames.count(var) > 0) {
-          assign = (m_Vars.at(m_VarNames.at(var)).usage == e_Wire);
-        }
-        if (assign) {
-          out << "assign ";
-          writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context,
-            (alw->ALWSASSIGNDBL() == nullptr) ? FF_D : FF_Q,
-            _dependencies, _ff_usage);
-          // update dependencies
-          updateDependencies(_dependencies, a.instr, &block->context);
-          // update usage
-          updateFFUsage((alw->ALWSASSIGNDBL() == nullptr) ? e_D : e_Q, true, _ff_usage.ff_usage[var]);
-        }
+      }
+    }
+    if (!d_or_q) {
+      // ignore dependencies if reading from Q: we can ignore them safely
+      // as the wire does not contribute to create combinational cycles
+      _dependencies = no_dependencies;
     }
   }
   out << endl;
@@ -5166,13 +5249,14 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
     {
       auto assign = dynamic_cast<siliceParser::AssignmentContext *>(a.instr);
       if (assign) {
-        // check if wire
+        // retrieve var
         string var;
         if (assign->IDENTIFIER() != nullptr) {
           var = translateVIOName(assign->IDENTIFIER()->getText(), &block->context);
         } else {
           var = determineAccessedVar(assign->access(), &block->context);
         }
+        // check if assigning to a wire
         if (m_VarNames.count(var) > 0) {
           if (m_Vars.at(m_VarNames.at(var)).usage == e_Wire) {
             reportError(assign->getSourceInterval(), (int)assign->getStart()->getLine(), "cannot assign a variable bound to an expression");
@@ -5284,7 +5368,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
       }
     }
     // update dependencies
-    updateDependencies(_dependencies, a.instr, &block->context);
+    updateAndCheckDependencies(_dependencies, a.instr, &block->context);
   }
 }
 
@@ -6166,7 +6250,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
 
   // wire assignments
   t_vio_dependencies always_dependencies;
-  writeWireAssignements("_", out, &m_AlwaysPre, always_dependencies, _ff_usage);
+  writeWireAssignements("_", out, always_dependencies, _ff_usage);
   // combinational
   out << "always @* begin" << endl;
   writeCombinationalAlwaysPre("_", out, always_dependencies, _ff_usage);
