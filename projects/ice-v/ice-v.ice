@@ -239,7 +239,7 @@ algorithm rv32i_cpu(
   uint32 instr       = uninitialized;
   uint12 pc          = uninitialized;
   
-  uint12 next_pc    := pc+1; // seemingly not used but helps synthesis (less LUTs!)
+  uint12 next_pc   ::= pc+1;
 
 $$if SIMULATION then  
 $$if SHOW_REGS then
@@ -408,7 +408,7 @@ $$end
 
           }
           
-          mem_addr = pc+1;
+          mem_addr = next_pc;
           break;
           
         } else {
@@ -416,10 +416,10 @@ $$end
           if (alu_working == 0) { // ALU done?
 
             // next instruction
-            mem_addr     = (jump | cmp) ? alu_out[2,12]  : pc+1;
+            mem_addr     = (jump | cmp) ? alu_out[2,12]  : next_pc;
             // what do we write in register (pc or alu, load is handled above)
-            xregsA.wdata = (jump | cmp) ? (pc+1) << 2 : alu_out;
-            xregsB.wdata = (jump | cmp) ? (pc+1) << 2 : alu_out;
+            xregsA.wdata = (jump | cmp) ? (next_pc) << 2 : alu_out;
+            xregsB.wdata = (jump | cmp) ? (next_pc) << 2 : alu_out;
             
             // store result   
             if (write_rd) {
