@@ -3511,9 +3511,9 @@ void Algorithm::updateAccessFromBinding(const t_binding_nfo &b,
 void Algorithm::determineVariablesAndOutputsAccessForWires(
   std::unordered_set<std::string> &_global_in_read,
   std::unordered_set<std::string> &_global_out_written
-)
-{
+) {
   t_combinational_block_context empty;
+  // first we gather all wires (bound expressions)
   std::unordered_map<std::string, siliceParser::AlwaysAssignedContext*> all_wires;
   std::queue<std::string> q_wires;
   for (const auto &v : m_Vars) {
@@ -3525,8 +3525,9 @@ void Algorithm::determineVariablesAndOutputsAccessForWires(
       string var = translateVIOName(alw->IDENTIFIER()->getText(), &empty);
       if (var == v.name) { // found it
         all_wires.insert(make_pair(v.name, alw));
-        if (v.access != e_NotAccessed) {
+        if (v.access != e_NotAccessed) { // used in design
           sl_assert(v.access == e_ReadOnly); // there should not be any other use for a bound expression
+          // add to stack
           q_wires.push(v.name);
         }
       }
@@ -3539,14 +3540,18 @@ void Algorithm::determineVariablesAndOutputsAccessForWires(
     auto w = q_wires.front();
     q_wires.pop();
     if (processed.count(w) == 0) { // skip if processed already
+      processed.insert(w);
       // add access based on wire expression
       std::unordered_set<std::string> _,in_read;
       determineVariablesAndOutputsAccess(all_wires.at(w), &empty, _, in_read, _global_out_written);
+      // foreach read vio
       for (auto v : in_read) {
         // insert in global set
         _global_in_read.insert(v);
         // check if this used a new wire?          
         if (all_wires.count(v) > 0 && processed.count(v) == 0) {
+          // promote as accessed
+          m_Vars.at(m_VarNames.at(v)).access = e_ReadOnly;
           // recurse
           q_wires.push(v);
         }
@@ -4600,17 +4605,21 @@ void Algorithm::writeWireAssignements(
       wire_assign = (m_Vars.at(m_VarNames.at(var)).usage == e_Wire);
     }
     sl_assert(wire_assign);
+    // skip if not used
+    if (m_Vars.at(m_VarNames.at(var)).access == e_NotAccessed) {
+      continue;
+    }
+    // type of assignment
     bool d_or_q = (alw->ALWSASSIGNDBL() == nullptr);
     out << "assign ";
     writeAssignement(prefix, out, a.second, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &empty,
       d_or_q ? FF_D : FF_Q,
       _dependencies, _ff_usage);    
-    // update usage
-    updateFFUsage(d_or_q ? e_D : e_Q, true, _ff_usage.ff_usage[var]);
     // update dependencies
     t_vio_dependencies no_dependencies = _dependencies;
     updateAndCheckDependencies(_dependencies, a.second.instr, &empty);
     // we take the opportunity to check that if the wire depends on other wires, they are either all := or all ::=
+    // mixing these two is forbidden, as this quickly leads to confusion without real benefits
     for (const auto &d : _dependencies.dependencies.at(var)) {
       // is this dependency a wire?
       auto W = m_WireAssignments.find(d);
@@ -4622,6 +4631,9 @@ void Algorithm::writeWireAssignements(
             "inconsistent use of ::= and := between bound expressions (with '%s')",d.c_str());
         }
       }
+      // update usage of dependencies to q
+      // NOTE: could be done only if wire is used ...
+      updateFFUsage(e_Q, true, _ff_usage.ff_usage[d]);
     }
     if (!d_or_q) {
       // ignore dependencies if reading from Q: we can ignore them safely
@@ -4768,6 +4780,8 @@ void Algorithm::writeWireDeclarations(std::string prefix, std::ostream& out) con
 {
   for (const auto& v : m_Vars) {
     if ((v.usage == e_Bound && v.access == e_ReadWriteBinded) || v.usage == e_Wire) {
+      // skip if not used
+      if (v.access == e_NotAccessed) { continue; }
       if (v.table_size == 0) {
         writeVerilogDeclaration(out, "wire", v, string(WIRE) + prefix + v.name);
         //out << "wire " << typeString(v) << " " << varBitRange(v) << " " << WIRE << prefix << v.name << ';' << std::endl;
@@ -5802,21 +5816,22 @@ void Algorithm::writeAsModule(std::ostream &out)
         }
       }
     }
-  }
 
 #if 0
-  std::cerr << " === algorithm " << m_Name << " ====" << std::endl;
-  for (const auto &v : ff_usage.ff_usage) {
-    std::cerr << "vio " << v.first << " : ";
-    if (v.second & e_D) {
-      std::cerr << "D";
+    std::cerr << " === algorithm " << m_Name << " ====" << std::endl;
+    for (const auto &v : ff_usage.ff_usage) {
+      std::cerr << "vio " << v.first << " : ";
+      if (v.second & e_D) {
+        std::cerr << "D";
+      }
+      if (v.second & e_Q) {
+        std::cerr << "Q";
+      }
+      std::cerr << std::endl;
     }
-    if (v.second & e_Q) {
-      std::cerr << "Q";
-    }
-    std::cerr << std::endl;
-  }
 #endif
+
+  }
 
   {
     t_vio_ff_usage ff_usage;

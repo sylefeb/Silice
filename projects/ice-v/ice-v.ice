@@ -239,7 +239,8 @@ algorithm rv32i_cpu(
   uint32 instr       = uninitialized;
   uint12 pc          = uninitialized;
   
-  uint12 next_pc   ::= pc+1;
+  uint12 next_pc   ::= pc+1; // next_pc tracks the expression 'pc + 1' using the
+                             // value of pc from the last clock edge (due to ::)
 
 $$if SIMULATION then  
 $$if SHOW_REGS then
@@ -409,6 +410,7 @@ $$end
           }
           
           mem_addr = next_pc;
+          
           break;
           
         } else {
