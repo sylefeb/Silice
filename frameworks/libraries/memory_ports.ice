@@ -9,7 +9,7 @@ interface bram_port {
   output! addr,
   output! wenable,
   input   rdata,
-  input   wdata,
+  output! wdata,
 }
 
 // single port BROM
