@@ -2894,7 +2894,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   // check if everything is legit
   // for each written variable
   for (const auto& w : written) {
-    // check if the variable was written before
+    // check if the variable was written before and depends on self
     if (written_before.count(w) > 0) {
       // yes: does it depend on itself?
       const auto& d = _depds.dependencies.at(w);
@@ -2919,6 +2919,44 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
                 (int)(dynamic_cast<antlr4::ParserRuleContext *>(instr)->getStart()->getLine()),
                 "variable assignement leads to a combinational cycle through variable bound to expression\n\n(variable: '%s', through '%s').",
                 w.c_str(), d.c_str());
+            }
+          }
+        }
+      }
+    }
+    // now check for combinational cycles through algorithm bindings
+    for (const auto& alg : m_InstancedAlgorithms) {      
+      // gather bindings potentially creating comb. cycles
+      unordered_set<string> i_bounds,o_bounds;
+      for (const auto& b : alg.second.bindings) {        
+        if (b.dir == e_Left) { // NOTE: we ignore e_LeftQ as these cannot produce comb. cycles
+          // find right indentifier
+          std::string i_bound = bindingRightIdentifier(b);
+          if (_depds.dependencies.count(i_bound) > 0) {
+            i_bounds.insert(i_bound);
+          }
+        } else if (b.dir == e_Right) {
+          const auto& O = alg.second.algo->m_OutputNames.find(b.left);
+          if (O != alg.second.algo->m_OutputNames.end()) {
+            if (alg.second.algo->m_Outputs[O->second].combinational) {
+              std::string o_bound = bindingRightIdentifier(b);
+              o_bounds.insert(o_bound);
+            }
+          }
+        }
+      }
+      // now check
+      for (const auto& i : i_bounds) {
+        if (_depds.dependencies.count(i) > 0) { // input is being written
+          // depends on a combinational output?
+          for (const auto& o : o_bounds) {
+            if (_depds.dependencies.at(i).count(o) > 0) {
+              // cycle!
+              reportError(
+                dynamic_cast<antlr4::ParserRuleContext *>(instr)->getSourceInterval(),
+                (int)(dynamic_cast<antlr4::ParserRuleContext *>(instr)->getStart()->getLine()),
+                "assignement to algorithm input leads to a combinational cycle\n\n(input '%s' instance '%s' through output '%s')",
+                i.c_str(), alg.second.algo_name.c_str(), o.c_str());
             }
           }
         }
