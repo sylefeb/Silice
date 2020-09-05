@@ -1,9 +1,10 @@
 // based on  https://github.com/lawrie/ulx3s_examples/blob/master/hdmi/clk_25_250_125_25.v
+
 module ulx3s_clk_250_125_25(
-    input  clkin, 
-    output clkout0,
-    output clkout1,
-    output clkout2,
+    input  clkin,   // 25
+    output clkout0, // 250
+    output clkout1, // 125
+    output clkout2, //  25
     output locked
 );
 wire clkfb;
@@ -36,8 +37,8 @@ EHXPLLL #(
         .CLKFB(clkfb),
         .CLKINTFB(clkfb),
         .CLKOP(clkop),
-        .CLKOS(clkout0),
-        .CLKOS2(clkout1),
+        .CLKOS(clkout1),  // 125
+        .CLKOS2(clkout2), // 25
         .RST(1'b0),
         .STDBY(1'b0),
         .PHASESEL0(1'b0),
@@ -48,5 +49,5 @@ EHXPLLL #(
         .ENCLKOP(1'b0),
         .LOCK(locked)
 	);
-assign clkout2 = clkop;
+assign clkout0 = clkop; // 250
 endmodule

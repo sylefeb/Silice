@@ -4850,10 +4850,10 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
       //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
       //out << FF_Q << prefix << v.name << ';' << std::endl;
     } else {
-      writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + "]");
+      writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
       //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
       //out << FF_D << prefix << v.name << '[' << v.table_size-1 << ";" << std::endl;
-      writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + "]");
+      writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
       //if (!v.attribs.empty()) {
       //  out << v.attribs << std::endl;
       //}
