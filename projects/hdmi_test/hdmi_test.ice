@@ -54,9 +54,11 @@ algorithm main(
   led = 0;
   while (1) { 
   
-    r = x;
-    g = y;
-    b = (x+y);
+    if (active) {
+      r = x;
+      g = y;
+      b = (x+y);
+    }
     
   }
   

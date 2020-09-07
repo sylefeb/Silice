@@ -173,8 +173,8 @@ EHXPLLL #(
         .CLKOP_FPHASE(0),
         .CLKOS_ENABLE("ENABLED"),
         .CLKOS_DIV(6),
-        .CLKOS_CPHASE(1),
-        .CLKOS_FPHASE(-4),
+        .CLKOS_CPHASE(5),
+        .CLKOS_FPHASE(0),
         .FEEDBK_PATH("CLKOP"),
         .CLKFB_DIV(1)
     ) pll_i (
@@ -194,6 +194,8 @@ EHXPLLL #(
         .ENCLKOP(1'b0),
         .LOCK(locked)
 	);
+
+//    assign sdram_clk = ~clk;
 
 `else
 

@@ -3,10 +3,8 @@
 // ------------------------- 
 
 // 320x200
-// VGA  actual resolution is      640x480
+// Actual resolution is      640x480
 //   we divide by 2   down to 320x240
-// HDMI actual resolution is     1280x720
-//   we divide by 4,3 down to 320x240
 // and the use rows 1 to 200 (as opposed to 0 to 199)
 // the first row (0) is used to pre-load row 1
 algorithm frame_display(
@@ -76,39 +74,20 @@ $$end
 	    //    the row loader loads row   0 for display in screen row   1
 	    //    ...            loads row 199 for display in screen row 200
       if (pix_j > 0 && pix_j <= 200) {
-$$if VGA == 1 then
         if (row_busy) {
           palidx = pixdata1_r[(((video_x >> 1)&3)<<3),8];
         } else {
           palidx = pixdata0_r[(((video_x >> 1)&3)<<3),8];
         }
-$$end
-$$if HDMI == 1 then
-        if (row_busy) {
-          palidx = pixdata1_r[(((video_x >> 2)&3)<<3),8];
-        } else {
-          palidx = pixdata0_r[(((video_x >> 2)&3)<<3),8];
-        }
-$$end
         color    = palette[palidx];
         video_r  = color[0,$color_depth$];
         video_g  = color[$color_depth$,$color_depth$];
         video_b  = color[$2*color_depth$,$color_depth$];
       }
-$$if VGA == 1 then      
       if (video_x == 639) { // end of row
-$$end
-$$if HDMI == 1 then      
-      if (video_x == 1279) { // end of row
-$$end
         // increment pix_j
         sub_j = sub_j + 1;
-$$if VGA == 1 then      
         if (sub_j == 2) {
-$$end
-$$if HDMI == 1 then      
-        if (sub_j == 3) {
-$$end
           sub_j = 0;
           if (pix_j <= 200) {
             // increment row
@@ -118,12 +97,7 @@ $$end
 		      }
         }
 		
-$$if VGA == 1 then      
         if (video_y == 479) {
-$$end
-$$if HDMI == 1 then      
-        if (video_y == 719) {
-$$end
           // end of frame
           sub_j = 0;
           pix_j = 0;          
@@ -141,14 +115,8 @@ $$end
     // note the use of video_x + 1 to trigger 
 	  // read one clock step ahead so that result 
     // is avail right on time
-$$if VGA == 1 then
     if (video_x < 639) {
 		  pix_a = ((video_x+1) >> 1);
-$$end
-$$if HDMI == 1 then
-    if (video_x < 1279) {
-		  pix_a = ((video_x+1) >> 2);
-$$end    
 	  } else {
 	    pix_a = 0;
 	  }
@@ -157,6 +125,7 @@ $$end
     pixaddr1 = (pix_a) >> 2;
 
   }
+
 }
 
 // ------------------------- 

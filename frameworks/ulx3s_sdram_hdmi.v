@@ -2,7 +2,7 @@
 `default_nettype none
 $$ULX3S=1
 $$HARDWARE=1
-$$VGA=1
+$$HDMI=1
 $$color_depth=6
 $$color_max  =63
 $$SDRAM=1
@@ -106,8 +106,8 @@ always @* begin
   
 end
 
-assign gpdi_dp[3] =  clk_25mhz;
-assign gpdi_dn[3] = ~clk_25mhz;
+OBCO dp(.I(clk_25mhz), .OT(gpdi_dp[3]), .OC(gpdi_dn[3]) );
+
 assign sdram_d[15:8] = 0;
 
 endmodule

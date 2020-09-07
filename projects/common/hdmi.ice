@@ -1,4 +1,5 @@
 import('hdmi_clock.v')
+import('differential_pair.v')
 
 // ----------------------------------------------------
 
@@ -14,12 +15,12 @@ algorithm tmds_encoder(
 ) <autorun> {
 
   uint9 q_m             = 0;
-  int6  dc_bias         = 0;
+  int5  dc_bias         = 0;
   
   uint4 num_ones        := data[0,1] + data[1,1] + data[2,1] + data[3,1]
                          + data[4,1] + data[5,1] + data[6,1] + data[7,1];
 
-  int6  diff_ones_zeros := q_m[0,1] + q_m[1,1] + q_m[2,1] + q_m[3,1] 
+  int5  diff_ones_zeros := q_m[0,1] + q_m[1,1] + q_m[2,1] + q_m[3,1] 
                          + q_m[4,1] + q_m[5,1] + q_m[6,1] + q_m[7,1] - 6d4;
 
   int1  xored1          := data[1,1] ^ data[0,1];
@@ -82,15 +83,13 @@ algorithm tmds_encoder(
 
 algorithm tmds_shifter(
   input   uint10 data,
-  output! uint1  outbit_p,
-  output! uint1  outbit_n,
+  output! uint1  outbit,
 ) <autorun> {
   uint4  mod10 = 0;
   uint10 shift = 0;
   always {
     shift    = (mod10 == 9) ? data : shift[1,9];
-    outbit_p =   shift[0,1];
-    outbit_n = ~ shift[0,1];
+    outbit   = shift[0,1];
     mod10    = (mod10 == 9) ? 0 : mod10 + 1;
   }
 }
@@ -147,32 +146,32 @@ algorithm hdmi(
     tmds         :> tmds_blue
   );
   // shifters
+  uint1 r_o = 0;
+  tmds_shifter shiftR<@clk_tmds>(
+    data   <: tmds_red,
+    outbit :> r_o,
+  );
+  uint1 g_o = 0;
+  tmds_shifter shiftG<@clk_tmds>(
+    data    <: tmds_green,
+    outbit :> g_o,
+  );
+  uint1 b_o = 0;  
+  tmds_shifter shiftB<@clk_tmds>(
+    data   <: tmds_blue,
+    outbit :> b_o,
+  );
+    
   uint1 r_p = 0;
   uint1 r_n = 0;
-  tmds_shifter shiftR<@clk_tmds>(
-    data     <: tmds_red,
-    outbit_p :> r_p,
-    outbit_n :> r_n,
-  );
   uint1 g_p = 0;
   uint1 g_n = 0;
-  tmds_shifter shiftG<@clk_tmds>(
-    data     <: tmds_green,
-    outbit_p :> g_p,
-    outbit_n :> g_n,
-  );
   uint1 b_p = 0;
   uint1 b_n = 0;
   
-  tmds_shifter shiftB<@clk_tmds>(
-    data     <: tmds_blue,
-    outbit_p :> b_p,
-    outbit_n :> b_n,
-  );
-  
-  //uint8  red   = 0;
-  //uint8  green = 0;
-  //uint8  blue  = 0;
+  differential_pair outr( I <: r_o, OT :> r_p, OC :> r_n );
+  differential_pair outg( I <: g_o, OT :> g_p, OC :> g_n );
+  differential_pair outb( I <: b_o, OT :> b_p, OC :> b_n );
   
   gpdi_dp[2,1] := r_p;
   gpdi_dn[2,1] := r_n;
@@ -180,10 +179,7 @@ algorithm hdmi(
   gpdi_dn[1,1] := g_n;
   gpdi_dp[0,1] := b_p;
   gpdi_dn[0,1] := b_n;
-  
-  //red   := cntx;
-  //blue  := cnty;
-  
+
   always {
 
     // synchronization bits
@@ -191,17 +187,17 @@ algorithm hdmi(
     vsync     = (cnty > 489) && (cnty < 492);
     sync_ctrl = {vsync,hsync};
     
-    // active area
-    active    = (cntx < 640) && (cnty < 480);    
-    // vblank
-    vblank    = (cnty >= 480);
-
     // update coordinates
     cnty      = (cntx == 799) ? (cnty == 524 ? 0 : (cnty + 1)) : cnty;
     cntx      = (cntx == 799) ? 0 : (cntx + 1);
     
     x         = cntx;
     y         = cnty;
+    
+    // active area
+    active    = (cntx < 640) && (cnty < 480);    
+    // vblank
+    vblank    = (cnty >= 480);
 
   }
 }

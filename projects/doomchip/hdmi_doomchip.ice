@@ -1,5 +1,5 @@
 // SL 2020-04-28
-// DoomChip, VGA wrapper
+// DoomChip, HDMI wrapper
 //
 // NOTE: there is tearing currently (unrestricted frame rate),
 //       will be fixed later
@@ -7,12 +7,8 @@
 
 $$if ULX3S then
 $$  HAS_COMPUTE_CLOCK    = true
-$$  -- ULX3S_SLOW       = true -- uncomment for 25 MHz version
-$$  -- sdramctrl_clock_freq = 50 -- DO NOT USE, something is wrong with it, corrupts SDRAM
-$$elseif DE10NANO and YOSYS then
-$$  -- HAS_COMPUTE_CLOCK    = true
-$$elseif SIMULATION then
-$$  HAS_COMPUTE_CLOCK    = true
+$$else
+$$  error('only tested on ULX3S, other boards will require changes')
 $$end
  
 // -------------------------
@@ -30,14 +26,14 @@ $$doomchip_width  = 320
 $$doomchip_height = 200
 
 $include('doomchip.ice')
-//include('doomchip_debug_placeholder.ice')
+// include('doomchip_debug_placeholder.ice')
 
 $$texfile_palette = palette_666
 $include('../common/video_sdram_main.ice')
 
 // -------------------------
 
-$$print('------<  VGA mode  >------')
+$$print('------<  HDMI mode  >------')
 
 // -------------------------
 
@@ -78,7 +74,6 @@ $$if DE10NANO then
   output uint1  oled_rst,
 $$end
 $$if ULX3S then
-  output uint8 led,
   input  uint7 btn,
 $$end  
 ) 

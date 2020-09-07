@@ -185,7 +185,7 @@ $$end
 }
 
 // -------------------------
-// Main drawing algorithm
+// Main
 
 algorithm main(
   output  uint8 led,

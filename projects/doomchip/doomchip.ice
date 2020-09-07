@@ -69,7 +69,7 @@ $$if ULX3S then
 $$INTERACTIVE = 1
 $$end
 
-$$USE_DEBUG_POS = true
+$$USE_DEBUG_POS = false
 
 $$print('done reading game data')
 $$print('(compiling takes a bit of time, please wait ...)')

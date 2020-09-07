@@ -13,13 +13,7 @@ $$end
 
 $$if HDMI then
 // HDMI driver
-append('serdes_n_to_1.v')
-append('simple_dual_ram.v')
-append('tmds_encoder.v')
-append('async_fifo.v')
-append('fifo_2x_reducer.v')
-append('dvi_encoder.v')
-import('hdmi_encoder.v')
+$include('hdmi.ice')
 $$end
 
 // ------------------------- 
@@ -71,7 +65,7 @@ $$if MOJO then
 $$if VGA then
 import('mojo_clk_100_25.v')
 $$else
-import('mojo_clk_100_75.v')
+$$error('HDMI not yet implemented')
 $$end
 // reset
 import('reset_conditioner.v')
@@ -82,7 +76,7 @@ $$if VGA then
 import('de10nano_clk_100_25.v')
 import('de10nano_clk_50_25_100.v')
 $$else
-// TODO: hdmi
+$$error('HDMI not yet implemented')
 $$end
 // reset
 import('reset_conditioner.v')
@@ -176,10 +170,15 @@ $$if VGA then
   output uint1 video_hs,
   output uint1 video_vs
 $$end
-$$if HDMI then  
+$$if HDMI then
+$$if MOJO then
   // HDMI
   output uint4 hdmi1_tmds,
   output uint4 hdmi1_tmdsb
+$$elseif ULX3S then
+  output uint3 gpdi_dp,
+  output uint3 gpdi_dn
+$$end
 $$end  
 ) <@sdram_clock,!sdram_reset> {
 
@@ -347,10 +346,10 @@ $$if VGA then
 vga vga_driver<@video_clock,!video_reset>(
   vga_hs :> video_hs,
 	vga_vs :> video_vs,
-	active :> video_active,
-	vblank :> video_vblank,
 	vga_x  :> video_x,
-	vga_y  :> video_y
+	vga_y  :> video_y,
+	vblank :> video_vblank,
+	active :> video_active,
 );
 $$end
 
@@ -359,24 +358,27 @@ $$if HDMI then
 uint8 video_r = 0;
 uint8 video_g = 0;
 uint8 video_b = 0;
-hdmi_encoder hdmi(
-  clk    <: hdmi_clock,
-  rst    <: video_reset,
-  red    <: video_r,
-  green  <: video_g,
-  blue   <: video_b,
-  pclk   :> video_clock,
-  tmds   :> hdmi1_tmds,
-  tmdsb  :> hdmi1_tmdsb,
-  vblank :> video_vblank,
-  active :> video_active,
-  x      :> video_x,
-  y      :> video_y
+
+uint8 vr := video_r<<2;
+uint8 vg := video_g<<2;
+uint8 vb := video_b<<2;
+
+hdmi hdmi_driver<@clock,!reset>( // NOTE: should be @video_clock,!video_reset, but ...
+                                 // does not work for some reason on ULX3S
+//hdmi hdmi_driver<@video_clock,!video_reset>(                                 
+  x       :> video_x,
+  y       :> video_y,
+  vblank  :> video_vblank,
+  active  :> video_active,
+  red     <: vr,
+  green   <: vg,
+  blue    <: vb,
+  gpdi_dp :> gpdi_dp,
+  gpdi_dn :> gpdi_dn,
 );
 $$end
 
 // --- SDRAM
-
 $$if ICARUS then
 uint1  sdram_cle   = 0;
 uint1  sdram_dqm   = 0;
@@ -426,9 +428,7 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   dualport_bram uint32 fbr1<@video_clock,@sdram_clock>[80] = {};
   
 // --- Display
-
   uint1 row_busy = 0;
-
   frame_display display<@video_clock,!video_reset>(
     pixaddr0   :> fbr0.addr0,
     pixdata0_r <: fbr0.rdata0,
@@ -445,7 +445,7 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
 
   uint1 onscreen_fbuffer = 0;
   
-// --- Frame buffer row updater
+  // --- Frame buffer row updater
   frame_buffer_row_updater fbrupd<@sdram_clock,!sdram_reset>(
     pixaddr0   :> fbr0.addr1,
     pixdata0_w :> fbr0.wdata1,
@@ -458,8 +458,8 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
     sd         <:> sd0,
     fbuffer    <: onscreen_fbuffer
   );
- 
-// --- Frame drawer
+
+  // --- Frame drawer
   frame_drawer drawer
 $$if HAS_COMPUTE_CLOCK then
     <@compute_clock,!compute_reset>
