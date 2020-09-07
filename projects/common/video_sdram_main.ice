@@ -479,8 +479,6 @@ $$end
 
   uint8 frame       = 0;
 
-  // led := frame;
-  
 $$if DE10NANO then
   not_pll_lock := ~pll_lock;
 $$end

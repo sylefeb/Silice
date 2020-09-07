@@ -1,12 +1,21 @@
+// SL 2020-09-05
+// Silice HDMI driver
+//
+// 640x480, 250MHz TMDS from 25MHz pixel clock
+//
+// Currently limited to the ULX3S, but should be relatively easy to port,
+// pending clocking and differenctal pairs output primitives
+//
+// See also
+// - https://www.digikey.com/eewiki/pages/viewpage.action?pageId=36569119
+// - https://www.fpga4fun.com/HDMI.html
+// - https://github.com/lawrie/ulx3s_examples/blob/master/hdmi/tmds_encoder.v
+
 import('hdmi_clock.v')
 import('differential_pair.v')
 
 // ----------------------------------------------------
 
-// see also
-// - https://www.digikey.com/eewiki/pages/viewpage.action?pageId=36569119
-// - https://www.fpga4fun.com/HDMI.html
-// - https://github.com/lawrie/ulx3s_examples/blob/master/hdmi/tmds_encoder.v
 algorithm tmds_encoder(
   input   uint8  data,
   input   uint2  ctrl,
@@ -16,13 +25,15 @@ algorithm tmds_encoder(
 
   uint9 q_m             = 0;
   int5  dc_bias         = 0;
-  
+
+  // tracks 'number on ones' in input
   uint4 num_ones        := data[0,1] + data[1,1] + data[2,1] + data[3,1]
                          + data[4,1] + data[5,1] + data[6,1] + data[7,1];
-
+  // tracks 'numbers of ones minus number of zeros' in internal byte
   int5  diff_ones_zeros := q_m[0,1] + q_m[1,1] + q_m[2,1] + q_m[3,1] 
                          + q_m[4,1] + q_m[5,1] + q_m[6,1] + q_m[7,1] - 6d4;
 
+  // XOR chain on input
   int1  xored1          := data[1,1] ^ data[0,1];
   int1  xored2          := data[2,1] ^ xored1;
   int1  xored3          := data[3,1] ^ xored2;
@@ -31,6 +42,7 @@ algorithm tmds_encoder(
   int1  xored6          := data[6,1] ^ xored5;
   int1  xored7          := data[7,1] ^ xored6;
 
+  // XNOR chain on input
   int1  xnored1         := ~(data[1,1] ^ data[0,1]);
   int1  xnored2         := ~(data[2,1] ^ xnored1);
   int1  xnored3         := ~(data[3,1] ^ xnored2);
@@ -173,6 +185,8 @@ algorithm hdmi(
   differential_pair outg( I <: g_o, OT :> g_p, OC :> g_n );
   differential_pair outb( I <: b_o, OT :> b_p, OC :> b_n );
   
+  // TODO: this is not elegant ; Silice will support direct binding of bit-vectors
+  //       at some point, update code when possible and remove r_*,g_*,b_* vars
   gpdi_dp[2,1] := r_p;
   gpdi_dn[2,1] := r_n;
   gpdi_dp[1,1] := g_p;

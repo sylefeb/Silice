@@ -74,6 +74,7 @@ $$if DE10NANO then
   output uint1  oled_rst,
 $$end
 $$if ULX3S then
+  output uint8 led,
   input  uint7 btn,
 $$end  
 ) 

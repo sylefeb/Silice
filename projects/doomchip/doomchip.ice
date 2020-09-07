@@ -23,7 +23,7 @@ $$print('---< written in Silice by @sylefeb >---')
 
 // SETUP select the wad file here
 $$wad   = 'doom1.wad'
-$$ -- wad   = 'freedoom1.wad' -- works also with freedoom!
+$$-- wad   = 'freedoom1.wad' -- works also with freedoom!
 
 // SETUP select the level here!
 $$level = 'E1M1'
@@ -580,7 +580,7 @@ $$end
 $$if ULX3S then
   kpressed  := {1b0,1b0,1b0,btn_latch[2,1]/*fire2*/,btn_latch[6,1]/*right*/,btn_latch[5,1]/*left*/,btn_latch[4,1]/*dwn*/,btn_latch[3,1]/*up*/};
   btn_latch := btn;
-  led := 0;
+  led       := 0;
 $$end
     
   // brams in read mode
