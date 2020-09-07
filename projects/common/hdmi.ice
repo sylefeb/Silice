@@ -4,7 +4,7 @@
 // 640x480, 250MHz TMDS from 25MHz pixel clock
 //
 // Currently limited to the ULX3S, but should be relatively easy to port,
-// pending clocking and differenctal pairs output primitives
+// pending pll and differential serial output primitives
 //
 // See also
 // - https://www.digikey.com/eewiki/pages/viewpage.action?pageId=36569119
