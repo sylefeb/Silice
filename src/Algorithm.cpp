@@ -4716,7 +4716,8 @@ std::string Algorithm::varBitRange(const t_var_nfo& v) const
 {
   if (v.type_nfo.base_type == Parameterized) {
     string str = v.name;
-    std::transform(str.begin(), str.end(), str.begin(), std::toupper);
+    std::transform(str.begin(), str.end(), str.begin(),
+      [](unsigned char c) -> unsigned char { return std::toupper(c); });
     str = str + "_WIDTH-1";
     return "[" + str + ":0]";
   } else {
@@ -4730,7 +4731,8 @@ std::string Algorithm::varBitWidth(const t_var_nfo &v) const
 {
   if (v.type_nfo.base_type == Parameterized) {
     string str = v.name;
-    std::transform(str.begin(), str.end(), str.begin(), std::toupper);
+    std::transform(str.begin(), str.end(), str.begin(),
+      [](unsigned char c) -> unsigned char { return std::toupper(c); });
     return str + "_WIDTH";
   } else {
     return std::to_string(v.type_nfo.width);
@@ -5956,7 +5958,8 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     // parameters for parameterized variables
     ForIndex(i,m_Parameterized.size()) {
       string str = m_Parameterized[i];
-      std::transform(str.begin(), str.end(), str.begin(), std::toupper);
+      std::transform(str.begin(), str.end(), str.begin(),
+        [](unsigned char c) -> unsigned char { return std::toupper(c); });
       out << "parameter " << str << "_WIDTH=1";
       // out << "parameter " << str << "_SIGNED=\"\"";
       if (i + 1 < m_Parameterized.size()) {
@@ -6176,7 +6179,8 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
             var.c_str(), bound.c_str(), nfo.instance_name.c_str());
         }
         // write
-        std::transform(var.begin(), var.end(), var.begin(), std::toupper);
+        std::transform(var.begin(), var.end(), var.begin(),
+          [](unsigned char c) -> unsigned char { return std::toupper(c); });
         out << '.' << var << "_WIDTH";
         out << '(' << varBitWidth(bnfo) << ')';
         //out << ',' << endl;
