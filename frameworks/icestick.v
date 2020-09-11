@@ -21,8 +21,12 @@ wire __main_d3;
 wire __main_d4;
 wire __main_d5;
 
-reg ready = 0;
+// the init sequence pauses for some cycles
+// waiting for BRAM init to stabalize
+// this is a known issue with ice40 FPGAs
+// https://github.com/YosysHQ/icestorm/issues/76
 
+reg ready = 0;
 reg [31:0] RST_d;
 reg [31:0] RST_q;
 

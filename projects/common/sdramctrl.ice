@@ -275,6 +275,7 @@ $$end
       work_todo_latch = 0;
       ba              = bank;
       // -> row management
+      // NOTE TODO are we wasting a cycle here if everything is ready?
       if (!row_open[bank,1] || row_addr[bank] != row) {
         if (row_open[bank,1]) {
           // different row open

@@ -109,9 +109,11 @@ for _,s in ipairs(sprites) do
 end 
 code:write('};\n')
 
+code:write('// stored ' .. sprite_bytes .. ' sprite bytes (' .. sprite_bytes*8 .. ' bits) \n')
+
 code:close()
 
-print('stored ' .. sprite_bytes .. ' sprite bytes\n')
+print('stored ' .. sprite_bytes .. ' sprite bytes (' .. sprite_bytes*8 .. ' bits) \n')
 
 -- now load file into string
 local code = assert(io.open(path .. 'spritebrom.ice', 'r'))

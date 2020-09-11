@@ -472,6 +472,7 @@ for name,opaque in pairs(textures_opacity) do
 end
 code:write('  }\n') 
 code:write('}\n')
+code:write('// stored ' .. texture_start_addr .. ' texture bytes (' .. texture_start_addr*8 .. ' bits) \n')
 
 -- colormap brom for lighting
 colormap = '  brom   uint8 colormap[] = {\n'

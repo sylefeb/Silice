@@ -55,6 +55,11 @@ wire [5:0] __main_out_vga_r;
 wire [5:0] __main_out_vga_g;
 wire [5:0] __main_out_vga_b;
 
+// the init sequence pauses for some cycles
+// waiting for BRAM init to stabalize
+// this is a known issue with ice40 FPGAs
+// https://github.com/YosysHQ/icestorm/issues/76
+
 reg ready = 0;
 reg [3:0] RST_d;
 reg [3:0] RST_q;
