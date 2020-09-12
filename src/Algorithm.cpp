@@ -3308,6 +3308,15 @@ void Algorithm::determineVIOAccess(
             determineVIOAccess(assign->access()->tableAccess()->expression_0(), vios, bctx, _read, _written);
           } else if (assign->access()->bitAccess() != nullptr) {
             determineVIOAccess(assign->access()->bitAccess()->expression_0(), vios, bctx, _read, _written);
+            // This is a bit access. We assume it is partial (could be checked if const).
+            // Thus the variable is likely only partially written and to be safe we tag
+            // it as 'read' since other bits are likely read later in the execution flow.
+            // This is a conservative assumption. A bit-per-bit analysis could be envisioned, 
+            // but for lack of it we have no other choice here to avoid generating wrong code.
+            // See also issue #54.
+            if (!var.empty() && vios.find(var) != vios.end()) {
+              _read.insert(var);
+            }
           }
         }
         recurse = false;
@@ -4577,6 +4586,16 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
       bitaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
   }
   out << '[' << rewriteExpression(prefix, bitaccess->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) << "+:" << bitaccess->num->getText() << ']';
+  if (assigning) {
+    // This is a bit access. We assume it is partial (could be checked if const).
+    // Thus the variable is likely only partially written and to be safe we tag
+    // it as Q since other bits are likely read later in the execution flow.
+    // This is a conservative assumption. A bit-per-bit analysis could be envisioned, 
+    // but for lack of it we have no other choice here to avoid generating wrong code.
+    // See also issue #54.
+    std::string var = determineAccessedVar(bitaccess, bctx);
+    updateFFUsage(e_Q, true, _ff_usage.ff_usage[var]);
+  }
 }
 
 // -------------------------------------------------
@@ -5835,7 +5854,6 @@ void Algorithm::writeAsModule(std::ostream &out)
     for (const auto &v : ff_usage.ff_usage) {
       if (!(v.second & e_Q)) {
         if (m_VarNames.count(v.first)) {
-          // NOTE FIXME how about an assignement on only a few bits? this would be missed and not latched as expected
           if (m_Vars.at(m_VarNames.at(v.first)).usage == e_FlipFlop) {
             if (m_Vars.at(m_VarNames.at(v.first)).access == e_ReadOnly) {
               m_Vars.at(m_VarNames.at(v.first)).usage = e_Const;
@@ -5856,7 +5874,7 @@ void Algorithm::writeAsModule(std::ostream &out)
         }
       }
     }
-
+    
 #if 0
     std::cerr << " === algorithm " << m_Name << " ====" << std::endl;
     for (const auto &v : ff_usage.ff_usage) {

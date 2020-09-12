@@ -150,7 +150,6 @@ algorithm sdcard(
       do_read_sector = 0;
 
       // read some!
-      // cmd17[8,32] = do_addr_sector // FIXME Silice bug, does not properly detect cmd17 status
       () <- send <- ({cmd17[40,8],do_addr_sector,cmd17[0,8]});
 
       (status) <- read <- (8,1); // response
