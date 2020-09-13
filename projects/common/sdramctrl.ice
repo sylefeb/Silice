@@ -159,8 +159,7 @@ $$end
      input uint1 all)
   {
         cmd      = CMD_PRECHARGE;
-        a        = 0;
-        a[10,1]  = all;
+        a        = {2b0,all,10b0};
         if (all) {
           row_open = 0;
         } else {

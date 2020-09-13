@@ -1564,15 +1564,14 @@ $$end
         // write back sector
         bsp_secs.wdata = bsp_secs.rdata;
         if (bsp_movables.rdata[48,1]) { 
-          bsp_secs.wdata[0,16]  = tmp3;
+          bsp_secs.wdata = {bsp_secs.rdata[16,32],tmp3};
         } else {
-          bsp_secs.wdata[16,16] = tmp3;
+          bsp_secs.wdata = {bsp_secs.rdata[32,16],tmp3,bsp_secs.rdata[0,16]};
         }      
         bsp_secs.wenable = 1;
         // update movable if became inactive
         if (active == 0) {
-          bsp_movables.wdata       = bsp_movables.rdata;
-          bsp_movables.wdata[51,1] = active;
+          bsp_movables.wdata       = {active,bsp_movables.rdata[0,51]};
           bsp_movables.wenable     = 1;
 ++:          
           bsp_movables.wenable     = 0;
@@ -1645,9 +1644,7 @@ $$end
         // change movable direction
         bsp_movables.addr    = onmovable;
 ++:        
-        movabledata          = bsp_movables.rdata;
-        movabledata[50,1]    = ~bsp_movables.rdata[50,1];
-        movabledata[51,1]    = 1; // activate
+        movabledata          = {1b1,~bsp_movables.rdata[50,1],bsp_movables.rdata[0,50]};
         bsp_movables.wdata   = movabledata;
         bsp_movables.wenable = 1;
 ++:        

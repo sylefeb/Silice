@@ -31,7 +31,7 @@ int main(int argc,char **argv)
 {
   Verilated::commandArgs(argc,argv);
   
-  VgaChip *vga_chip = new VgaChip();
+  VgaChip *vga_chip = new VgaChip(6);
 
   char foo[1<<19]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
   
