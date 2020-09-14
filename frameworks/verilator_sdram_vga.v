@@ -1,10 +1,12 @@
-`define VERILATOR   1
-`define COLOR_DEPTH 6
+`define VERILATOR        1
+`define COLOR_DEPTH      6
+`define SDRAM_WORD_WIDTH 8
+
 $$VERILATOR=1
 $$VGA=1
 $$SIMULATION=1
 $$color_depth=6
-$$color_max  =63
+$$color_max=63
 
 `timescale 1ns / 1ps
 `default_nettype none
@@ -31,12 +33,15 @@ module vga(
   output reg [5:0] video_b,
   output video_hs,
   output video_vs,
-  output [4:0] video_color_depth
+  output [4:0] video_color_depth,
+  output [5:0] sdram_word_width
   );
 
 // this is used by the verilator framework
-// to know the output color depth
+// -> to know the output color depth
 assign video_color_depth = `COLOR_DEPTH;
+// -> to know the sdram word width
+assign sdram_word_width  = `SDRAM_WORD_WIDTH;
 
 wire        __main_sdram_clock;
 wire        __main_sdram_cle;
