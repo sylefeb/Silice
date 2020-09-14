@@ -109,6 +109,8 @@ as combinational hardware.
 	\item \texttt{uint}N with N the bit-width, e.g. \texttt{uint8}: unsigned integer.
 \end{itemize}
 
+% --------------------------
+
 \subsection{Constants}
 \label{sec:csts}
 
@@ -121,6 +123,8 @@ can be given with a specified bit width and base:
 \end{itemize}
 
 Supported base identifiers are: \texttt{b} for binary, \texttt{h} for hexadecimal, \texttt{d} for decimal. If the value does not fit the bit width, it is clamped.
+
+% --------------------------
 
 \subsection{Variables}
 
@@ -202,6 +206,8 @@ Here is an example of using a block RAM in \silice{} with different clocks:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 dualport_bram int8 table<@clock0,@clock1>[4] = {42,43,44,45};
 \end{minted}
+
+% --------------------------
 
 \subsection{Operators}
 
@@ -328,12 +334,15 @@ algorithm adder(
 }
 \end{minted}
 
-In this case o gets assigned 15+3. Note that the variable \textit{a\_plus\_b} becomes read only (in Verilog terms, this is now a wire). 
+In this case \textit{o} gets assigned 15+3 on line 11, as it tracks immediate changes to the expression \textit{a+b}. Note that the variable \textit{a\_plus\_b} becomes read only (in Verilog terms, this is now a wire). We call \textit{o} an expression tracker.
 
-The second operator, \textit{::=} tracks the expression using the values of the variables as they where at the previous clock rising edge.
-If used in this example, o would be assigned 1+2.
+The second operator, \textit{::=} tracks the expression using the values of the variables as they where at the previous clock rising edge. If used in this example, o would be assigned 1+2.
 
-\subsubsection{Groups}
+Expression trackers can refer to other trackers, however trackers using \textit{:=} and \textit{::=} cannot be mixed.
+
+% --------------------------
+
+\subsection{Groups}
 \label{sec:groups}
 
 Often, we want to pass around variables that form conceptual groups, like the interface to a controller. \silice{} has a specific mechanism to help with that. A group is declared as:
@@ -388,7 +397,7 @@ sdramctrl memory(
 );
 \end{minted}
 
-\subsubsection{Bitfields}
+\subsection{Bitfields}
 \label{sec:bitfields}
 
 There are many cases where we pack multiple data in a larger variable, for instance:
@@ -426,7 +435,7 @@ The bitfield can also be used to initialize the wider variable:
 uint32 data = Node(left=16hffff,right=16h1234);
 \end{minted}
 
-\subsubsection{Intrinsics}
+\subsection{Intrinsics}
 
 \silice{} has convenient intrinsics:
 
@@ -436,7 +445,6 @@ uint32 data = Node(left=16hffff,right=16h1234);
 	\item \texttt{\_\_display(format\_string,value0,value1,...)} maps to Verilog \texttt{\$display} allowing text output during simulation.
 \end{itemize}
 	
-
 % ==============================================
 
 \section{Algorithms}

@@ -1,4 +1,5 @@
-`define VERILATOR 1
+`define VERILATOR   1
+`define COLOR_DEPTH 6
 $$VERILATOR=1
 $$VGA=1
 $$SIMULATION=1
@@ -29,8 +30,13 @@ module vga(
   output reg [5:0] video_g,
   output reg [5:0] video_b,
   output video_hs,
-  output video_vs
+  output video_vs,
+  output [4:0] video_color_depth
   );
+
+// this is used by the verilator framework
+// to know the output color depth
+assign video_color_depth = `COLOR_DEPTH;
 
 wire        __main_sdram_clock;
 wire        __main_sdram_cle;
