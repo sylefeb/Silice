@@ -19,7 +19,7 @@ A few projects rely on some external hardware (typical, low cost things: OLED, k
 
 ## Building the examples
 
-All examples are in the *projects* directory. This directory also contains a *build* subdirectory, with one entry for each currently supported framework. This includes both simulation (icarus, verilator) and FPGA hardware (icestick, mojo v3, de10nano, etc.).
+All examples are in the *projects* directory. This directory also contains a *build* subdirectory, with one entry for each currently supported framework. This includes both simulation (icarus, verilator) and FPGA hardware (icestick, icebreaker, mojo v3, de10nano, etc.).
 
 To build a project, go into projects/build/*architecture* where *architecture* is your target framework. This directory contains shell scripts that take as parameter the project source file. Let's take an example! We will build the 'divint bare' demo for simulation with icarus. Do the following:
 
