@@ -3714,9 +3714,14 @@ void Algorithm::determineVariableAndOutputsUsage()
       v.usage = e_Const;
     } else if (v.access == e_WriteOnly) {
       if (report) std::cerr << v.name << " => written but not used ";
-      v.usage = e_Temporary; // e_NotUsed;
+      if (v.table_size == 0) {  // tables are not allowed to become temporary registers
+        v.usage = e_Temporary; // e_NotUsed;
+      } else {
+        v.usage = e_FlipFlop;  // e_NotUsed;
+      }
     } else if (v.access == e_ReadWrite) {
-      if (global_in_read.find(v.name) == global_in_read.end()) {
+      if ( v.table_size == 0  // tables are not allowed to become temporary registers
+        && global_in_read.find(v.name) == global_in_read.end()) {
         if (report) std::cerr << v.name << " => temp ";
         v.usage = e_Temporary;
       } else {
