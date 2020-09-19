@@ -10,6 +10,11 @@ $$if MOJO then
 import('../common/mojo_clk_100_25.v')
 $$end
 
+$$if ICEBREAKER then
+// Clock
+import('../common/icebreaker_clk_25.v')
+$$end
+
 $$if ICESTICK then
 // Clock
 import('../common/icestick_clk_25.v')
@@ -83,12 +88,15 @@ $$end
 $$if SIMULATION then
   output! uint1 video_clock,
 $$end
-$$if ICESTICK then
+$$if ICESTICK or ICEBREAKER then
   output! uint1 led0,
   output! uint1 led1,
   output! uint1 led2,
   output! uint1 led3,
   output! uint1 led4,
+$$if ICEBREAKER then
+  output! uint1 ctrl_clk,
+$$end
 $$end
 $$if DE10NANO then
   output! uint8 led,
@@ -136,6 +144,12 @@ $$if MOJO then
     rcclk <: sdram_clock,
     in  <: reset,
     out :> sdram_reset
+  );
+$$elseif ICEBREAKER then
+  // --- clock
+  icebreaker_clk_25 clk_gen (
+    clock_in  <: clock,
+    clock_out :> video_clock
   );
 $$elseif ICESTICK then
   // --- clock
@@ -196,6 +210,10 @@ $$end
   );
 
   uint8 frame  = 0;
+
+$$if ICEBREAKER then
+  ctrl_clk = video_clock;
+$$end
 
 $$if MOJO then
   // unused pins
