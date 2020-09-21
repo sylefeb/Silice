@@ -53,6 +53,8 @@ BREAK               : 'break' ;
 
 DISPLAY             : '$display' | '__display' ;
 
+DISPLWRITE          : '__write' ;
+
 TOSIGNED            : '__signed' ;
 
 TOUNSIGNED          : '__unsigned' ;
@@ -308,7 +310,7 @@ caseBlock           : ('case' case_value=value ':' | DEFAULT ) case_block=block;
 whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 
 displayParams       : IDENTIFIER (',' IDENTIFIER)* ;
-display             : DISPLAY '(' STRING ( ',' displayParams )? ')';
+display             : (DISPLAY | DISPLWRITE) '(' STRING ( ',' displayParams )? ')';
 
 instruction         : assignment 
                     | syncExec

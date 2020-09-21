@@ -5377,7 +5377,12 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
     } {
       auto display = dynamic_cast<siliceParser::DisplayContext *>(a.instr);
       if (display) {
-        out << "$display(" << display->STRING()->getText();
+        if (display->DISPLAY() != nullptr) {
+          out << "$display(";
+        } else if (display->DISPLWRITE() != nullptr) {
+          out << "$write(";
+        }
+        out << display->STRING()->getText();
         if (display->displayParams() != nullptr) {
           for (auto p : display->displayParams()->IDENTIFIER()) {
             out << "," << rewriteIdentifier(prefix, p->getText(), &block->context, display->getStart()->getLine(), FF_Q, true, _dependencies, _ff_usage);
