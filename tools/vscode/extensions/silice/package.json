@@ -1,0 +1,26 @@
+{
+    "name": "silice",
+    "displayName": "Silice",
+    "description": "Syntax highlighting for Silice.",
+    "version": "0.0.1",
+    "publisher": "sylefeb",
+    "engines": {
+        "vscode": "^1.5.0"
+    },
+    "categories": [
+        "Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "silice",
+            "aliases": ["silice", "silice"],
+            "extensions": [".ice"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "silice",
+            "scopeName": "source.silice",
+            "path": "./syntaxes/silice.tmLanguage.json"
+        }]
+    }
+}
