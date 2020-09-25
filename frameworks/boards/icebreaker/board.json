@@ -1,0 +1,83 @@
+{
+  "name": "icebreaker",
+  "variants": [
+    {
+      "name": "bare",
+      "framework" : "icebreaker_bare.v",
+      "pins": [
+        "bare"
+      ]
+    },
+    {
+      "name": "vga",
+      "framework" : "icebreaker_vga.v",
+      "pins": [
+        "bare",
+        "vga"
+      ]
+    }
+  ],
+  "builders": [
+    {
+      "system" : "shell",
+      "command" : "icebreaker.sh",
+      "description": "Custom shell scripts using yosys and nextpnr-ecp5"
+    }
+  ],
+  "pins": {
+    "bare": [
+        {
+          "name": "led0",
+          "type": "uint1",
+          "io": "output"
+        },
+        {
+          "name": "led1",
+          "type": "uint1",
+          "io": "output"
+        },
+        {
+          "name": "led2",
+          "type": "uint1",
+          "io": "output"
+        },
+        {
+          "name": "led3",
+          "type": "uint1",
+          "io": "output"
+        },
+        {
+          "name": "led4",
+          "type": "uint1",
+          "io": "output"
+        }
+    ],
+    "vga": [
+      {
+        "name": "vga_hs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_vs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_r",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_g",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_b",
+        "type": "uint6",
+        "io": "output"
+      }
+    ]
+  }
+}

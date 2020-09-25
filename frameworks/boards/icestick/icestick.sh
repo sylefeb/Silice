@@ -26,10 +26,16 @@ rm build*
 
 silice -f $FRAMEWORK_FILE $1 -o build.v
 
-yosys -p 'synth_ecp5 -abc9 -json build.json' build.v
+if ! type "nextpnr-ice40" > /dev/null; then
+  # try arachne-pnr instead
+  echo "nextpnr-ice40 not found, trying arachne-pnr instead"
+  yosys -q -p "synth_ice40 -blif build.blif" build.v
+  arachne-pnr -p $BOARD_DIR/icestick.pcf build.blif -o build.txt
+  icepack build.txt build.bin
+else
+  yosys -p 'synth_ice40 -top top -json build.json' build.v
+  nextpnr-ice40 --hx1k --json build.json --pcf $BOARD_DIR/icestick.pcf --asc build.asc --package tq144 --freq 12
+  icepack build.asc build.bin
+fi
 
-nextpnr-ecp5 --85k --package CABGA381 --json build.json --textcfg build.config --lpf $BOARD_DIR/ulx3s.lpf --timing-allow-fail --freq 25
-
-ecppack --compress --svf-rowsize 100000 --svf build.svf build.config build.bit
-
-fujprog build.bit
+iceprog build.bin

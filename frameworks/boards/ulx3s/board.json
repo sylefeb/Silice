@@ -35,6 +35,18 @@
         "sdram",
         "vga"
       ]
+    },
+    {
+      "name": "full",
+      "framework" : "ulx3s_full.v",
+      "pins": [
+        "bare",
+        "sdcard",
+        "sdram",
+        "hdmi",
+        "oled",
+        "gpio"
+      ]
     }
   ],
   "builders": [
@@ -170,6 +182,18 @@
         "io": "output"
       }
     ],
+    "gpio": [
+      {
+        "name": "gp",
+        "type": "uint28",
+        "io": "output"
+      },
+      {
+        "name": "gn",
+        "type": "uint28",
+        "io": "output"
+      }
+    ],
     "vga": [
       {
         "name": "vga_hs",
@@ -183,17 +207,17 @@
       },
       {
         "name": "vga_r",
-        "type": "uint1",
+        "type": "uint6",
         "io": "output"
       },
       {
         "name": "vga_g",
-        "type": "uint1",
+        "type": "uint6",
         "io": "output"
       },
       {
         "name": "vga_b",
-        "type": "uint1",
+        "type": "uint6",
         "io": "output"
       }
     ]

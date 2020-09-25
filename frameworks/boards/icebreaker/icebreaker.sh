@@ -26,10 +26,8 @@ rm build*
 
 silice -f $FRAMEWORK_FILE $1 -o build.v
 
-yosys -p 'synth_ecp5 -abc9 -json build.json' build.v
+yosys -q -p "synth_ice40 -json build.json" build.v
+nextpnr-ice40 --up5k --freq 13 --package sg48 --json build.json --pcf $BOARD_DIR/icebreaker.pcf --asc build.asc
 
-nextpnr-ecp5 --85k --package CABGA381 --json build.json --textcfg build.config --lpf $BOARD_DIR/ulx3s.lpf --timing-allow-fail --freq 25
-
-ecppack --compress --svf-rowsize 100000 --svf build.svf build.config build.bit
-
-fujprog build.bit
+icepack build.asc build.bin
+iceprog build.bin
