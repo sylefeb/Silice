@@ -1,0 +1,167 @@
+{
+  "name": "icestick",
+  "variants": [
+    {
+      "name": "bare",
+      "framework" : "icestick_bare.v",
+      "pins": [
+        "bare"
+      ]
+    },
+    {
+      "name": "oled",
+      "framework" : "icestick_oled.v",
+      "pins": [
+        "bare",
+        "oled"
+      ]
+    },
+    {
+      "name": "vga",
+      "framework" : "icestick_vga.v",
+      "pins": [
+        "bare",
+        "vga"
+      ]
+    }
+  ],
+  "builders": [
+    {
+      "system" : "shell",
+      "command" : "icestick.sh",
+      "description": "Custom shell scripts using yosys and nextpnr-ecp5"
+    }
+  ],
+  "pins": {
+    "bare": [
+      {
+        "name": "led",
+        "type": "uint8",
+        "io": "output"
+      },
+      {
+        "name": "btn",
+        "type": "uint1",
+        "io": "input"
+      }
+    ],
+    "oled": [
+      {
+        "name": "oled_clk",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "oled_mosi",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "oled_dc",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "oled_resn",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "oled_csn",
+        "type": "uint1",
+        "io": "output"
+      }
+    ],
+    "sdram": [
+      {
+        "name": "sdram_dq",
+        "type": "uint16",
+        "io": "inout"
+      },
+      {
+        "name": "sdram_clk",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_cle",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_dqm",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_cs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_we",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_cas",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_ras",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_ba",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_a",
+        "type": "uint1",
+        "io": "output"
+      }
+    ],
+    "hdmi": [
+      {
+        "name": "gpdi_dq",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "gpdi_dn",
+        "type": "uint1",
+        "io": "output"
+      }
+    ],
+    "vga": [
+      {
+        "name": "vga_hs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_vs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_r",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_g",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_b",
+        "type": "uint1",
+        "io": "output"
+      }
+    ]
+  }
+}

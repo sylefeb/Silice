@@ -1,0 +1,10 @@
+{
+    "boards" : [
+        {
+            "name" : "ulx3s"
+        },
+        {
+            "name" : "icestick"
+        }
+    ]
+}

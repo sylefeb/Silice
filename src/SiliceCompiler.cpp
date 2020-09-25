@@ -239,14 +239,11 @@ void SiliceCompiler::run(
     header = d + "\n" + header;
   }
   // add framework path to config
-  CONFIG.keyValues()["framework_path"] = LibSL::StlHelpers::extractPath(fframework);
-  CONFIG.keyValues()["framework_name"] = LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework));
-  CONFIG.keyValues()["templates_path"] = LibSL::StlHelpers::extractPath(fframework) + "/templates";
-  CONFIG.keyValues()["libraries_path"] = LibSL::StlHelpers::extractPath(fframework) + "/libraries";
+  CONFIG.keyValues()["framework_file"] = fframework;
+  CONFIG.keyValues()["templates_path"] = std::string(LibSL::System::Application::executablePath()) + "/../frameworks/templates";
+  CONFIG.keyValues()["libraries_path"] = std::string(LibSL::System::Application::executablePath()) + "/../frameworks/libraries";
   // preprocessor
   LuaPreProcessor lpp;
-  lpp.addDefinition("FRAMEWORK", 
-    LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework)));
   std::string preprocessed = std::string(fsource) + ".lpp";
   lpp.run(fsource, c_DefaultLibraries, header, preprocessed);
   // display config
