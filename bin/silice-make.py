@@ -15,7 +15,7 @@ if len(sys.argv) < 2:
     sys.exit()
 else:
     try:
-        opts, args = getopt.getopt(sys.argv[1:],"hlb:o:",["help","list-boards","source=","board=","outdir="])
+        opts, args = getopt.getopt(sys.argv[1:],"hls:b:o:",["help","list-boards","source=","board=","outdir="])
     except getopt.GetoptError:
         print("no command line arguments")
     list_boards = False
