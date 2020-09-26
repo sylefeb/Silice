@@ -12,38 +12,38 @@ target = None
 outdir = None
 if len(sys.argv) < 2:
     print("no source file no command line")
+    sys.exit()
 else:
-    source = sys.argv[1]
     try:
-        opts, args = getopt.getopt(sys.argv[2:],"hb:o:",["help","source=","board=","outdir="])
+        opts, args = getopt.getopt(sys.argv[1:],"hlb:o:",["help","list-boards","source=","board=","outdir="])
     except getopt.GetoptError:
         print("no command line arguments")
+    list_boards = False
     for opt, arg in opts:
         if opt == '-h' or opt == '--help':
-            print("Usage: silice-make.py -s <source.ice> -b <board>")
+            print("Usage: silice-make.py [-l] -s <source.ice> -b <board>")
             sys.exit()
         elif opt == '-s' or opt == '--source':
             source = arg
+        elif opt == '-l' or opt == '--list-boards':
+            list_boards = True
         elif opt == '-b' or opt == '--board':
             target = arg
         elif opt == '-o' or opt == '--outdir':
             outdir = arg
 
-list_boards = False
-if source == None or target == None:
-    list_boards = True
-
 if outdir == None:
     outdir = "./BUILD/"
 
 # check source file
-source_file = os.path.abspath(source)
-print("* Source file                : ",source_file,"   ",end='')
-if (os.path.exists(source_file)):
-    print(colored("[ok]", 'green'))
-else:
-    print(colored("[not found]", 'red'))
-    sys.exit(-1)
+if source is not None:
+    source_file = os.path.abspath(source)
+    print("* Source file                : ",source_file,"   ",end='')
+    if (os.path.exists(source_file)):
+        print(colored("[ok]", 'green'))
+    else:
+        print(colored("[not found]", 'red'))
+        sys.exit(-1)
 
 # check directories
 
