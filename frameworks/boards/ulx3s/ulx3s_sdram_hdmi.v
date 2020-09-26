@@ -1,11 +1,12 @@
 `define ULX3S 1
 `default_nettype none
-$$ULX3S=1
-$$HARDWARE=1
-$$HDMI=1
-$$color_depth=6
-$$color_max  =63
-$$SDRAM=1
+$$ULX3S    = 1
+$$HARDWARE = 1
+$$SDRAM    = 1
+$$SDCARD   = 1
+$$HDMI     = 1
+$$color_depth = 8
+$$color_max   = 255
 
 module top(
   input  clk_25mhz,

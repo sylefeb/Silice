@@ -1,58 +1,38 @@
 {
-  "name": "icebreaker",
+  "name": "orangecrab",
   "variants": [
     {
       "name": "bare",
-      "framework" : "icebreaker_bare.v",
+      "framework" : "orangecrab_bare.v",
       "pins": [
         "bare"
       ]
     },
     {
-      "name": "vga",
-      "framework" : "icebreaker_vga.v",
+      "name": "full",
+      "framework" : "orangecrab_full.v",
       "pins": [
         "bare",
-        "vga"
+        "gpio"
       ]
     }
   ],
   "builders": [
     {
       "system" : "shell",
-      "command" : "icebreaker.sh",
+      "command" : "orangecrab.sh",
       "description": "Custom shell scripts using yosys and nextpnr"
     }
   ],
   "pins": {
     "bare": [
         {
-          "name": "led0",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led1",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led2",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led3",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led4",
-          "type": "uint1",
+          "name": "led",
+          "type": "uint3",
           "io": "output"
         }
     ],
-    "vga": [
+    "gpio": [
       {
         "name": "vga_hs",
         "type": "uint1",

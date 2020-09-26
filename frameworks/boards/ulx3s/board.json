@@ -53,7 +53,7 @@
     {
       "system" : "shell",
       "command" : "ulx3s.sh",
-      "description": "Custom shell scripts using yosys and nextpnr-ecp5"
+      "description": "Custom shell scripts using yosys and nextpnr"
     }
   ],
   "pins": {

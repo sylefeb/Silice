@@ -1,11 +1,13 @@
 `define ULX3S 1
 `default_nettype none
-$$ULX3S=1
-$$HARDWARE=1
-$$HDMI=1
-$$color_depth=6
-$$color_max  =63
-$$SDRAM=1
+$$ULX3S    = 1
+$$HARDWARE = 1
+$$SDRAM    = 1
+$$OLED     = 1
+$$SDCARD   = 1
+$$HDMI     = 1
+$$color_depth = 8
+$$color_max   = 255
 
 module top(
   input  clk_25mhz,
@@ -39,7 +41,7 @@ module top(
   output [27:0] gn,
   // hdmi
   output [3:0]  gpdi_dp, // {clock,R,G,B}
-  output [3:0]  gpdi_dn,
+  output [3:0]  gpdi_dn
   );
 
 wire [7:0]  __main_out_led;
@@ -92,7 +94,9 @@ assign run_main = 1'b1;
 M_main __main(
   .clock         (clk_25mhz),
   .reset         (RST_q[0]),
+  .in_run        (run_main),
   .out_led       (__main_out_led),
+  .in_btn        (btn),
   .inout_sdram_dq(sdram_d[7:0]),
   .out_sdram_clk (__main_out_sdram_clk),
   .out_sdram_cle (__main_out_sdram_cle),
@@ -113,9 +117,7 @@ M_main __main(
   .out_oled_resn(__main_oled_resn),
   .out_oled_csn (__main_oled_csn),
   .out_gpdi_dp   (__main_out_gpdi_dp),
-  .out_gpdi_dn   (__main_out_gpdi_dn),
-  .in_btn        (btn),
-  .in_run        (run_main)
+  .out_gpdi_dn   (__main_out_gpdi_dn)
 );
 
 assign led           = __main_out_led;

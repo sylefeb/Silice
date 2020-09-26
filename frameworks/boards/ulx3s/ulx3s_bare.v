@@ -2,21 +2,11 @@
 `default_nettype none
 $$ULX3S=1
 $$HARDWARE=1
-$$OLED=1
 
 module top(
   input   clk_25mhz,
   output  [7:0] led,
-  input   [6:0] btn,  
-  output  oled_clk,
-  output  oled_mosi,
-  output  oled_dc,
-  output  oled_resn,
-  output  oled_csn,
-  output  sd_clk,
-  output  sd_csn,
-  output  sd_mosi,
-  input   sd_miso
+  input   [6:0] btn
   );
 
 wire [7:0] __main_led;

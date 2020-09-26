@@ -29,7 +29,7 @@
     {
       "system" : "shell",
       "command" : "icestick.sh",
-      "description": "Custom shell scripts using yosys and nextpnr-ecp5"
+      "description": "Custom shell scripts using yosys and nextpnr"
     }
   ],
   "pins": {

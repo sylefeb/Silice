@@ -1,8 +1,9 @@
 `define ULX3S 1
 `default_nettype none
-$$ULX3S=1
-$$HARDWARE=1
-$$OLED=1
+$$ULX3S    = 1
+$$HARDWARE = 1
+$$OLED     = 1
+$$SDCARD   = 1
 
 module top(
   input   clk_25mhz,
