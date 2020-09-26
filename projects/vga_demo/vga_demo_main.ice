@@ -5,6 +5,11 @@
 // VGA driver
 $include('../../common/vga.ice')
 
+$$if CROSSLINKNX_EVN then
+// Clock
+import('../common/crosslink_nx_evn_clk_25.v')
+$$end
+
 $$if MOJO then
 // Clock
 import('../common/mojo_clk_100_25.v')
@@ -88,7 +93,7 @@ $$end
 $$if SIMULATION then
   output! uint1 video_clock,
 $$end
-$$if ICESTICK or ICEBREAKER then
+$$if ICESTICK or ICEBREAKER or CROSSLINKNX_EVN then
   output! uint1 led0,
   output! uint1 led1,
   output! uint1 led2,
@@ -144,6 +149,14 @@ $$if MOJO then
     rcclk <: sdram_clock,
     in  <: reset,
     out :> sdram_reset
+  );
+$$elseif CROSSLINKNX_EVN then
+  // --- clock
+  crosslink_nx_evn_clk_25 clk_gen (
+    clki_i  <: clock,
+    rst_i   <: reset,
+    clkop_o :> video_clock,
+    lock_o  :> led4
   );
 $$elseif ICEBREAKER then
   // --- clock
