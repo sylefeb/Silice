@@ -52,7 +52,7 @@ int main(int argc, char **argv)
     cmd.add(framework);
     TCLAP::ValueArg<std::string> frameworks_dir("", "frameworks_dir", "Path to frameworks root directory", false, "", "string");
     cmd.add(frameworks_dir);
-    TCLAP::MultiArg<std::string> defines("D", "define", "specifies a define for the preprocessor, e.g. -D name=value", false, "string");
+    TCLAP::MultiArg<std::string> defines("D", "define", "specifies a define for the preprocessor, e.g. -D name=value\nthe define is added both to the Silice preprocessor and the Verilog framework header", false, "string");
     cmd.add(defines);
 
     cmd.parse(argc, argv);

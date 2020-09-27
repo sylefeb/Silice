@@ -208,7 +208,7 @@ void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp,
   // - verilog code (all other lines)
   std::ifstream infile(fframework);
   if (!infile) {
-    throw Fatal("Cannot open framework file '%s'", fframework);
+    throw Fatal("Cannot open framework file '%s'", fframework.c_str());
   }
   std::string line;
   while (std::getline(infile, line)) {
@@ -295,6 +295,13 @@ void SiliceCompiler::run(
       // save the result
       {
         std::ofstream out(fresult);
+        // wrtie cmd line defines
+        for (auto d : defines) {
+          auto eq = d.find('=');
+          if (eq != std::string::npos) {
+            out << "`define " << d.substr(0,eq) << " " << d.substr(eq+1) << std::endl;
+          }
+        }
         // write framework (top) module
         out << framework_verilog;
         // write includes

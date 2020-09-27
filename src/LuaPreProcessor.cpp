@@ -28,6 +28,8 @@ the distribution, please refer to it for details.
 #include <regex>
 #include <queue>
 
+#include <filesystem>
+
 #include <LibSL/LibSL.h>
 
 using namespace std;
@@ -654,6 +656,50 @@ std::string LuaPreProcessor::processCode(
 
 // -------------------------------------------------
 
+// NOTE: use std::filesystem::current_path() in the future ....
+#if defined(WIN32) || defined(WIN64)
+
+#include <direct.h>
+
+std::string getCurrentPath()
+{
+  std::string ret;
+  char buf[4096];
+  ret = std::string(_getcwd(buf, 4096));
+  return ret;
+}
+
+std::string fileAbsolutePath(std::string f)
+{
+  char buf[4096];
+  GetFullPathNameA(f.c_str(), 4096, buf, NULL);
+  return std::string(buf);
+}
+
+#else
+
+#include <unistd.h>
+#include <limits.h>
+
+std::string getCurrentPath()
+{
+  std::string ret;
+  char buf[PATH_MAX+1];
+  ret = std::string(getcwd(buf, 4096));
+  return ret;
+}
+
+std::string fileAbsolutePath(std::string f)
+{
+  char buf[PATH_MAX+1];
+  realpath(f.c_str(), buf);
+  return std::string(buf);
+}
+
+#endif
+
+// -------------------------------------------------
+
 void LuaPreProcessor::run(
   std::string src_file, 
   const std::vector<std::string>& defaultLibraries, 
@@ -673,6 +719,9 @@ void LuaPreProcessor::run(
     luabind::globals(L)[dv.first] = dv.second;
   }
 
+  // add current directory to search dirs
+  m_SearchPaths.push_back(getCurrentPath());
+  m_SearchPaths.push_back(extractPath(fileAbsolutePath(src_file)));
   // get code
   std::unordered_set<std::string> inclusions;
   // start with header
@@ -680,6 +729,7 @@ void LuaPreProcessor::run(
   // add default libs to source
   for (auto l : defaultLibraries) {
     std::string libfile = CONFIG.keyValues()["libraries_path"] + "/" + l;
+    libfile = findFile(libfile);
     code = code + "\n" + processCode(CONFIG.keyValues()["libraries_path"],libfile,inclusions);
   }
   // parse main file

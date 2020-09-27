@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser(description='silice-make is the Silice build to
 parser.add_argument('-s','--source', help="Source file to build.")
 parser.add_argument('-b','--board', help="Board to build for. Variant can be specified as board:variant")
 parser.add_argument('-t','--tool', help="Tool used for building (edalize,shell).")
+parser.add_argument('-p','--pins', help="Pins used in the design, comma separated, e.g. basic,vga")
 parser.add_argument('-o','--outdir', help="Specify name of output directory.", default="BUILD")
 parser.add_argument('-l','--list_boards', help="List all available target boards.", action="store_true")
 
@@ -79,6 +80,14 @@ if args.list_boards:
             print(colored("[ok]", 'green'))
         else:
             print(colored("[not found]", 'yellow'))
+        with open(board_path) as json_file:            
+            board_def = json.load(json_file)
+            # list all variants
+            for variant in board_def['variants']:
+                print('variant : ',colored(variant['name'], 'cyan'))
+                print('pin sets:  ',end='')
+                for pin_set in variant['pins']:
+                    print(colored(pin_set['set'],'cyan'),' ',end='')
     sys.exit(0)
 
 if not args.board:
@@ -118,6 +127,9 @@ if target_variant == None:
     print(colored("variant " + target_variant_name + " not found", 'red'))
 else:
     print('using variant         ',colored(target_variant['name'],'cyan'))
+variant_pin_sets = {}
+for pin_set in target_variant['pins']:
+    variant_pin_sets[pin_set['set']] = pin_set
 
 if args.tool:
     target_builder = None
@@ -148,19 +160,29 @@ if target_builder['builder'] == 'shell':
     if not os.path.exists(script):
         print(colored("script " + script + " not found", 'red'))
         sys.exit()
+    # prepare additional defines
+    defines = ""
+    if args.pins:
+        for pin_set in args.pins.split(','):
+            if not pin_set in variant_pin_sets:
+                print(color("pin set " + pin_set + " not defined in board variant",'red'))
+            else:
+                if 'define' in variant_pin_sets[pin_set]:
+                    defines = defines + " -D " + variant_pin_sets[pin_set]['define']
     # execute
     command = script + " " + source_file
     print('launching command     ', colored(command,'cyan'))
-    bash = "C:/msys64/usr/bin/bash.exe"
-    if not os.path.exists(script):
-        print(colored("MSYS2 bash not found", 'red'))
-        sys.exit()            
     if platform.system() == "Windows":
         ## TODO better way to detect where mingw bash is?
         ##      unfortunately we cannot use /usr/bin/path as os.system spawns a Windows env
-        os.system("C:/msys64/usr/bin/bash.exe " + command)
+        bash = "C:/msys64/usr/bin/bash.exe"
     else:
-        os.system("bash " + command)
+        bash = "bash"
+    if not os.path.exists(bash):
+        print(colored("bash not found", 'red'))
+        sys.exit(-1)
+    else:
+        os.system(bash + " " + command + " " + defines)
 
 elif target_builder['builder'] == 'edalize':
 
@@ -174,15 +196,31 @@ elif target_builder['builder'] == 'edalize':
     tool   = target_builder['tool']
     constr = target_builder['constraints'][0]
 
+    # prepare parameters
+    parameters = {}
+    if args.pins:
+        for pin_set in args.pins.split(','):
+            if not pin_set in variant_pin_sets:
+                print(color("pin set " + pin_set + " not defined in board variant",'red'))
+            else:
+                if 'define' in variant_pin_sets[pin_set]:
+                    name = variant_pin_sets[pin_set]['define'].split('=')[0]
+                    value = variant_pin_sets[pin_set]['define'].split('=')[1]
+                    parameters[name] = {
+                        'datatype':'int',
+                        'paramtype':'vlogdefine',
+                        'default' : value
+                    }
+
     edam = {'name' : 'build',
             'files': [{'name': 'build.v', 'file_type': 'verilogSource'},
                         {'name': board_path + "/" + constr['name'],
                         'file_type': constr['file_type']}
                         ],
             'tool_options': {tool: target_builder["tool_options"][0]},
-            'toplevel' : 'top'
+            'toplevel' : 'top',
+            'parameters' : parameters
             }
-
     cmd = ["silice", "-f", framework_file, source_file, "-o", "build.v"]
 
     try:

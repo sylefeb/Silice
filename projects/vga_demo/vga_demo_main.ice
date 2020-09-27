@@ -3,7 +3,7 @@
 // -------------------------
 
 // VGA driver
-$include('../../common/vga.ice')
+$include('../common/vga.ice')
 
 $$if CROSSLINKNX_EVN then
 // Clock

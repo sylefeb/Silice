@@ -24,7 +24,7 @@ cd $BUILD_DIR
 
 rm build*
 
-silice -f $FRAMEWORK_FILE $1 -o build.v
+silice -f $FRAMEWORK_FILE $1 -o build.v "${@:2}"
 
 yosys -q -p "synth_ice40 -json build.json" build.v
 nextpnr-ice40 --up5k --freq 13 --package sg48 --json build.json --pcf $BOARD_DIR/icebreaker.pcf --asc build.asc

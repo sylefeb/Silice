@@ -2,18 +2,11 @@
   "name": "icebreaker",
   "variants": [
     {
-      "name": "bare",
-      "framework" : "icebreaker_bare.v",
-      "pins": [
-        "bare"
-      ]
-    },
-    {
-      "name": "vga",
-      "framework" : "icebreaker_vga.v",
-      "pins": [
-        "bare",
-        "vga"
+      "name"      : "configurable",
+      "framework" : "icebreaker.v",
+      "pins"      : [ 
+        {"set"    : "basic"},
+        {"set"    : "vga", "define" : "VGA=1"} 
       ]
     }
   ],
@@ -38,7 +31,7 @@
     }
   ],
   "pins": {
-    "bare": [
+    "basic": [
         {
           "name": "led0",
           "type": "uint1",
