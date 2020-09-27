@@ -12,7 +12,7 @@
   ],
   "builders": [
     {
-      "system" : "shell",
+      "builder" : "shell",
       "command" : "crosslink_nx_evn.sh",
       "description": "Custom shell scripts using lattice radiant"
     }

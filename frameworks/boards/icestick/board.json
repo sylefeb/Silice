@@ -27,7 +27,7 @@
   ],
   "builders": [
     {
-      "system" : "shell",
+      "builder" : "shell",
       "command" : "icestick.sh",
       "description": "Custom shell scripts using yosys and nextpnr"
     }

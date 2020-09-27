@@ -201,7 +201,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
 
 // -------------------------------------------------
 
-void SiliceCompiler::prepareFramework(const char* fframework, std::string& _lpp, std::string& _verilog)
+void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog)
 {
   // gather 
   // - pre-processor header (all lines starting with $$)
@@ -223,11 +223,16 @@ void SiliceCompiler::prepareFramework(const char* fframework, std::string& _lpp,
 // -------------------------------------------------
 
 void SiliceCompiler::run(
-  const char* fsource,
-  const char* fresult,
-  const char* fframework,
+  std::string fsource,
+  std::string fresult,
+  std::string fframework,
+  std::string frameworks_dir,
   const std::vector<std::string>& defines)
 {
+  // determine frameworks dir if needed
+  if (frameworks_dir.empty()) {
+    frameworks_dir = std::string(LibSL::System::Application::executablePath()) + "../frameworks/";
+  }
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
   prepareFramework(fframework, framework_lpp, framework_verilog);
@@ -240,8 +245,9 @@ void SiliceCompiler::run(
   }
   // add framework path to config
   CONFIG.keyValues()["framework_file"] = fframework;
-  CONFIG.keyValues()["templates_path"] = std::string(LibSL::System::Application::executablePath()) + "/../frameworks/templates";
-  CONFIG.keyValues()["libraries_path"] = std::string(LibSL::System::Application::executablePath()) + "/../frameworks/libraries";
+  CONFIG.keyValues()["frameworks_dir"] = frameworks_dir;
+  CONFIG.keyValues()["templates_path"] = frameworks_dir + "/templates";
+  CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
   // preprocessor
   LuaPreProcessor lpp;
   std::string preprocessed = std::string(fsource) + ".lpp";

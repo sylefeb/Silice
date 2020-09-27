@@ -61,7 +61,7 @@ namespace Silice {
     /// \brief gathers all constructs from the source code file
     void gatherAll(antlr4::tree::ParseTree* tree);
     /// \brief prepare the hardware fraemwork before compilation
-    void prepareFramework(const char* fframework, std::string& _lpp, std::string& _verilog);
+    void prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog);
 
   private:
 
@@ -130,9 +130,10 @@ namespace Silice {
 
     /// \brief runs the compiler
     void run(
-      const char *fsource,
-      const char *fresult,
-      const char *fframework,
+      std::string fsource,
+      std::string fresult,
+      std::string fframework,
+      std::string frameworks_dir,
       const std::vector<std::string>& defines);
 
   };

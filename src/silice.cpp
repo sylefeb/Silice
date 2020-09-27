@@ -48,8 +48,10 @@ int main(int argc, char **argv)
     cmd.add(source);
     TCLAP::ValueArg<std::string> output("o", "output", "Output compiled file (.v)", false, "out.v", "string");
     cmd.add(output);
-    TCLAP::ValueArg<std::string> framework("f", "framework", "Input framework file (.v)", false, "../frameworks/icarus_bare.v", "string");
+    TCLAP::ValueArg<std::string> framework("f", "framework", "Input framework file (.v)", true, "", "string");
     cmd.add(framework);
+    TCLAP::ValueArg<std::string> frameworks_dir("", "frameworks_dir", "Path to frameworks root directory", false, "", "string");
+    cmd.add(frameworks_dir);
     TCLAP::MultiArg<std::string> defines("D", "define", "specifies a define for the preprocessor, e.g. -D name=value", false, "string");
     cmd.add(defines);
 
@@ -57,9 +59,10 @@ int main(int argc, char **argv)
 
     SiliceCompiler compiler;
     compiler.run(
-      source.getValue().c_str(),
-      output.getValue().c_str(),
-      framework.getValue().c_str(),
+      source.getValue(),
+      output.getValue(),
+      framework.getValue(),
+      frameworks_dir.getValue(),
       defines.getValue());
 
   } catch (TCLAP::ArgException& err) {

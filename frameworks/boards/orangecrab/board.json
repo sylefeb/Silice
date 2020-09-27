@@ -19,7 +19,7 @@
   ],
   "builders": [
     {
-      "system" : "shell",
+      "builder" : "shell",
       "command" : "orangecrab.sh",
       "description": "Custom shell scripts using yosys and nextpnr"
     }

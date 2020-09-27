@@ -51,7 +51,7 @@
   ],
   "builders": [
     {
-      "system" : "shell",
+      "builder" : "shell",
       "command" : "ulx3s.sh",
       "description": "Custom shell scripts using yosys and nextpnr"
     }
