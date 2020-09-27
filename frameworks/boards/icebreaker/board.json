@@ -21,9 +21,18 @@
     {
       "system" : "shell",
       "command" : "icebreaker.sh",
-      "description": "Custom shell scripts using yosys and nextpnr"
+      "description": "Custom shell scripts using yosys and nextpnr",
+      "tool": "icestorm",
+      "tool_options": [
+        {
+            "nextpnr_options": ["--up5k", "--freq 13", "--package sg48"],
+            "pnr": "next"
+        }
+      ]
     }
   ],
+  "program": [{"cmd" : "iceprog", "bit_format" : "bin"}],
+  "constraints": [{"name": "icebreaker.pcf", "file_type": "PCF"}],
   "pins": {
     "bare": [
         {

@@ -134,7 +134,8 @@ if target_builder == None:
     target_builder = board_props['builders'][0]
     print('using build system    ',colored(target_builder['system'],'cyan'))
 
-os.environ["FRAMEWORK_FILE"] = os.path.realpath(os.path.join(board_path,target_variant['framework']))
+framework_file = os.path.realpath(os.path.join(board_path,target_variant['framework']))
+os.environ["FRAMEWORK_FILE"] = framework_file
 
 if target_builder['system'] == 'shell':
     # system checks
@@ -157,4 +158,55 @@ if target_builder['system'] == 'shell':
             sys.exit()            
         os.system("C:/msys64/usr/bin/bash.exe " + command)
     else:
-        os.system(command)
+        my_env = os.environ
+        my_env["PATH"] = make_dir + os.pathsep + my_env["PATH"]
+
+        from edalize import get_edatool
+        from shlex import join
+        import subprocess
+
+        tool=target_builder["tool"]
+        constr = board_props['constraints'][0]
+
+        edam = {'name' : 'build',
+                'files': [{'name': 'build.v', 'file_type': 'verilogSource'},
+                          {'name': board_path + "/" + constr['name'],
+                           'file_type': constr['file_type']}
+                         ],
+                'tool_options': {tool: target_builder["tool_options"][0]},
+                'toplevel' : 'top'
+               }
+
+        cmd = ["silice", "-f", framework_file, source_file, "-o", "build.v"]
+
+        try:
+            subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)
+        except FileNotFoundError as e:
+            raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError("script '{}' exited with error code {}".format(
+                cmd, e.returncode))
+
+        backend = get_edatool(tool)(edam=edam, work_root=out_dir)
+        backend.configure()
+        backend.build()
+
+        try:
+            program = board_props['program'][0]
+            prog = program['cmd']
+            bitstream = "build." + program['bit_format']
+            try:
+                args = program['args']
+                cmd = [prog, args, bitstream]
+            except KeyError as e:
+                cmd = [prog, bitstream]
+
+            try:
+                subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)
+            except FileNotFoundError as e:
+                raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))
+            except subprocess.CalledProcessError as e:
+                raise RuntimeError("script '{}' exited with error code {}".format(
+                    cmd, e.returncode))
+        except KeyError as e:
+            pass
