@@ -2,30 +2,29 @@
   "name": "icestick",
   "variants": [
     {
-      "name": "bare",
-      "framework" : "icestick_bare.v",
-      "pins": [
-        "bare"
-      ]
-    },
-    {
-      "name": "oled",
-      "framework" : "icestick_oled.v",
-      "pins": [
-        "bare",
-        "oled"
-      ]
-    },
-    {
-      "name": "vga",
-      "framework" : "icestick_vga.v",
-      "pins": [
-        "bare",
-        "vga"
+      "name"      : "configurable",
+      "framework" : "icestick.v",
+      "pins"      : [ 
+        {"set"    : "basic"},
+        {"set"    : "vga",  "define" : "VGA=1"},
+        {"set"    : "oled", "define" : "OLED=1"}
       ]
     }
   ],
   "builders": [
+    {
+      "builder" : "edalize",
+      "description": "Build using Edalize",
+      "tool": "icestorm",
+      "tool_options": [
+        {
+            "nextpnr_options": ["--hx1k", "--freq 12", "--package tq144"],
+            "pnr": "next"
+        }
+      ],
+      "program": [{"cmd" : "iceprog", "bit_format" : "bin"}],
+      "constraints": [{"name": "icestick.pcf", "file_type": "PCF"}]
+    },
     {
       "builder" : "shell",
       "command" : "icestick.sh",
@@ -33,7 +32,7 @@
     }
   ],
   "pins": {
-    "bare": [
+    "basic": [
       {
         "name": "led0",
         "type": "uint1",
@@ -67,17 +66,17 @@
         "io": "output"
       },
       {
-        "name": "oled_din",
+        "name": "oled_mosi",
         "type": "uint1",
         "io": "output"
       },
       {
-        "name": "oled_cs",
+        "name": "oled_csn",
         "type": "uint1",
         "io": "output"
       },
       {
-        "name": "oled_rst",
+        "name": "oled_resn",
         "type": "uint1",
         "io": "output"
       },

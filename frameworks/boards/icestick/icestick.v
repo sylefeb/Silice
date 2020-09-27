@@ -16,7 +16,14 @@ module top(
   output D3,
   output D4,
   output D5,
-
+`ifdef OLED
+  output BR3,
+  output BR4,
+  output BR5,
+  output BR6,
+  output BR7  
+`endif
+`ifdef VGA
   output PMOD1, // r0
   output PMOD2, // r1
   output PMOD3, // r2 
@@ -40,6 +47,7 @@ module top(
 
   output PMOD7, // hs
   output PMOD10 // vs
+`endif
   );
 
 wire __main_d1;
@@ -48,12 +56,22 @@ wire __main_d3;
 wire __main_d4;
 wire __main_d5;
 
+`ifdef OLED
+wire __main_oled_clk;
+wire __main_oled_mosi;
+wire __main_oled_csn;
+wire __main_oled_resn;
+wire __main_oled_dc;
+`endif
+
+`ifdef VGA
 wire __main_out_vga_hs;
 wire __main_out_vga_vs;
 wire __main_out_vga_v0;
 wire [5:0] __main_out_vga_r;
 wire [5:0] __main_out_vga_g;
 wire [5:0] __main_out_vga_b;
+`endif
 
 // the init sequence pauses for some cycles
 // waiting for BRAM init to stabalize
@@ -61,8 +79,8 @@ wire [5:0] __main_out_vga_b;
 // https://github.com/YosysHQ/icestorm/issues/76
 
 reg ready = 0;
-reg [3:0] RST_d;
-reg [3:0] RST_q;
+reg [31:0] RST_d;
+reg [31:0] RST_q;
 
 always @* begin
   RST_d = RST_q >> 1;
@@ -73,7 +91,7 @@ always @(posedge CLK) begin
     RST_q <= RST_d;
   end else begin
     ready <= 1;
-    RST_q <= 4'b1111;
+    RST_q <= 32'b11111111111111111111111111111111;
   end
 end
 
@@ -88,11 +106,20 @@ M_main __main(
   .out_led2(__main_d3),
   .out_led3(__main_d4),
   .out_led4(__main_d5),
+`ifdef OLED
+  .out_oled_mosi(__main_oled_mosi),
+  .out_oled_clk(__main_oled_clk),
+  .out_oled_csn(__main_oled_csn),
+  .out_oled_dc(__main_oled_dc),
+  .out_oled_resn(__main_oled_resn),
+`endif
+`ifdef VGA
   .out_video_hs(__main_out_vga_hs),
   .out_video_vs(__main_out_vga_vs),
   .out_video_r(__main_out_vga_r),
   .out_video_g(__main_out_vga_g),
   .out_video_b(__main_out_vga_b),
+`endif
   .in_run(run_main)
 );
 
@@ -101,6 +128,22 @@ assign D2 = __main_d2;
 assign D3 = __main_d3;
 assign D4 = __main_d4;
 assign D5 = __main_d5;
+
+// OLED
+
+`ifdef OLED
+
+assign BR3 = __main_oled_mosi;
+assign BR4 = __main_oled_clk;
+assign BR5 = __main_oled_csn;
+assign BR6 = __main_oled_dc;
+assign BR7 = __main_oled_resn;
+
+`endif
+
+// VGA
+
+`ifdef VGA
 
 assign PMOD1  = __main_out_vga_r[5+:1];
 assign PMOD2  = __main_out_vga_r[4+:1];
@@ -125,5 +168,8 @@ assign BR5    = __main_out_vga_b[0+:1];
 
 assign PMOD7  = __main_out_vga_hs;
 assign PMOD10 = __main_out_vga_vs;
+
+`endif
+
 
 endmodule

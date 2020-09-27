@@ -198,28 +198,21 @@ elif target_builder['builder'] == 'edalize':
     my_env["PATH"] = make_dir + os.pathsep + my_env["PATH"]
 
     from edalize import get_edatool
-#    from shlex import join
     import subprocess
 
     tool   = target_builder['tool']
     constr = target_builder['constraints'][0]
 
-    # prepare parameters
-    parameters = {}
+    # prepare additional defines
+    defines = {}
     if args.pins:
         for pin_set in args.pins.split(','):
             if not pin_set in variant_pin_sets:
                 print(color("pin set " + pin_set + " not defined in board variant",'red'))
             else:
                 if 'define' in variant_pin_sets[pin_set]:
-                    name = variant_pin_sets[pin_set]['define'].split('=')[0]
-                    value = variant_pin_sets[pin_set]['define'].split('=')[1]
-                    parameters[name] = {
-                        'datatype':'int',
-                        'paramtype':'vlogdefine',
-                        'default' : value
-                    }
-
+                    defines[pin_set] = variant_pin_sets[pin_set]['define']
+    # prepare edam structure                    
     edam = {'name' : 'build',
             'files': [{'name': 'build.v', 'file_type': 'verilogSource'},
                         {'name': board_path + "/" + constr['name'],
@@ -227,9 +220,11 @@ elif target_builder['builder'] == 'edalize':
                         ],
             'tool_options': {tool: target_builder["tool_options"][0]},
             'toplevel' : 'top',
-            'parameters' : parameters
             }
     cmd = ["silice", "-f", framework_file, source_file, "-o", "build.v"]
+    for d in defines:
+        cmd.append("-D")
+        cmd.append(defines[d])
 
     try:
         subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)

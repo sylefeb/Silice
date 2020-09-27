@@ -2,6 +2,9 @@
     "boards" : [
         {
             "name" : "icebreaker"
+        },
+        {
+            "name" : "icestick"
         }
     ]
 }

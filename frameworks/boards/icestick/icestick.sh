@@ -24,7 +24,7 @@ cd $BUILD_DIR
 
 rm build*
 
-silice -f $FRAMEWORK_FILE $1 -o build.v
+silice -f $FRAMEWORK_FILE $1 -o build.v "${@:2}"
 
 if ! type "nextpnr-ice40" > /dev/null; then
   # try arachne-pnr instead

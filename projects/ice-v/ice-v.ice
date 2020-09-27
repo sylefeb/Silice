@@ -88,11 +88,11 @@ algorithm main( // I guess this is the SOC :-D
   output! uint1 led3,
   output! uint1 led4,
 $$if OLED then
-  output! uint1 oled_din,
   output! uint1 oled_clk,
-  output! uint1 oled_cs,
+  output! uint1 oled_mosi,
   output! uint1 oled_dc,
-  output! uint1 oled_rst,
+  output! uint1 oled_resn,
+  output! uint1 oled_csn,
 $$end
 $$if ICESTICK then
   ) <@cpu_clock>
@@ -116,9 +116,9 @@ $$if OLED then
     enable          <: displ_en,
     data_or_command <: displ_dta_or_cmd,
     byte            <: displ_byte,
-    oled_din        :> oled_din,
+    oled_din        :> oled_mosi,
     oled_clk        :> oled_clk,
-    oled_cs         :> oled_cs,
+    oled_cs         :> oled_csn,
     oled_dc         :> oled_dc,
   );
 $$end
@@ -154,7 +154,7 @@ $$if OLED then
       // command
       displ_en = (mem.wdata[9,1] | mem.wdata[10,1]) & wide_addr[1,1];
       // reset
-      oled_rst = !(mem.wdata[0,1] & wide_addr[2,1]);
+      oled_resn = !(mem.wdata[0,1] & wide_addr[2,1]);
 $$end
     }
   }
