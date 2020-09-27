@@ -28,8 +28,6 @@ the distribution, please refer to it for details.
 #include <regex>
 #include <queue>
 
-#include <filesystem>
-
 #include <LibSL/LibSL.h>
 
 using namespace std;

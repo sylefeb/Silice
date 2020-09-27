@@ -177,7 +177,7 @@ if target_builder['builder'] == 'shell':
         ##      unfortunately we cannot use /usr/bin/path as os.system spawns a Windows env
         bash = "C:/msys64/usr/bin/bash.exe"
     else:
-        bash = "bash"
+        bash = "/bin/bash"
     if not os.path.exists(bash):
         print(colored("bash not found", 'red'))
         sys.exit(-1)
@@ -190,7 +190,7 @@ elif target_builder['builder'] == 'edalize':
     my_env["PATH"] = make_dir + os.pathsep + my_env["PATH"]
 
     from edalize import get_edatool
-    from shlex import join
+#    from shlex import join
     import subprocess
 
     tool   = target_builder['tool']
