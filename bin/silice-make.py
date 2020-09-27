@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import sys
 import json
@@ -28,11 +30,11 @@ if args.source:
         sys.exit(-1)
 
 # check directories
-
+# - bin directory
 make_dir = os.path.dirname(os.path.abspath(__file__))
 print("* Silice bin directory       : ",make_dir)
 os.environ["SILICE_DIR"] = make_dir
-
+# - output directory
 out_dir = os.path.realpath(args.outdir)
 print("* Build output directory     : ",out_dir,end='')
 try:
@@ -42,7 +44,7 @@ except FileExistsError:
     print('  (exists)')
 os.chdir(out_dir)
 os.environ["BUILD_DIR"] = out_dir
-
+# - frameworks directory
 frameworks_dir = os.path.realpath(os.path.join(make_dir,"../frameworks/"))
 print("* Silice frameworks directory: ",frameworks_dir,"\t\t\t",end='')
 if (os.path.exists(frameworks_dir)):
@@ -52,8 +54,7 @@ else:
     sys.exit(-1)
 os.environ["FRAMEWORKS_DIR"] = frameworks_dir
 
-# list all boards
-
+# get all boards definitions
 boards_path = os.path.realpath(os.path.join(frameworks_dir,"boards/boards.json"))
 print("* boards description file    : ",boards_path,"\t",end='')
 if (os.path.exists(boards_path)):
@@ -70,6 +71,7 @@ with open(boards_path) as json_file:
         if (os.path.exists(board_path)):
             known_boards[board['name']] = board_path
 
+# if asked, list boards and their options and exit
 if args.list_boards:
     print("Available boards")
     for board in boards['boards']:
@@ -90,30 +92,37 @@ if args.list_boards:
                     print(colored(pin_set['set'],'cyan'),' ',end='')
     sys.exit(0)
 
+# check we have a board specified at this point
 if not args.board:
     print(colored("no target board specified", 'red'))
     sys.exit(-1)
 
+# split board/variant
 target_board = args.board.split(":")[0]
 target_variant_name = None
 if len(args.board.split(":")) > 1:
     target_variant_name = args.board.split(":")[1]
 
+# check we have a source file specified at this point
 if not args.source:
     print(colored("no source file specified", 'red'))
     sys.exit(-1)
 
+# inform user about what is happening
 print(colored("<<=- compiling " + args.source + " for " + target_board + " -=>>", 'white', attrs=['bold']))
 
+# check the board is indeed known
 if not target_board in known_boards:
     print(colored("board " + target_board + " not available", 'red'))
     sys.exit(-1)
 
+# load board definitions
 board_path = os.path.realpath(os.path.join(frameworks_dir,"boards/" + target_board + "/"))
 with open(board_path + "/board.json") as json_file:
     board_props = json.load(json_file)
 os.environ["BOARD_DIR"] = board_path
 
+# identify the board variant
 target_variant = None
 if target_variant_name == None:
     target_variant = board_props['variants'][0]
@@ -127,10 +136,12 @@ if target_variant == None:
     print(colored("variant " + target_variant_name + " not found", 'red'))
 else:
     print('using variant         ',colored(target_variant['name'],'cyan'))
+# record pin sets
 variant_pin_sets = {}
 for pin_set in target_variant['pins']:
     variant_pin_sets[pin_set['set']] = pin_set
 
+# check the selected tool exists (or selects default, first in json file)
 if args.tool:
     target_builder = None
     for builder in board_props['builders']:
@@ -142,13 +153,17 @@ if args.tool:
         sys.exit(-1)
 else:
     target_builder = board_props['builders'][0]
-
 print('using build system    ',colored(target_builder['builder'],'cyan'))
 
+# framework file
 framework_file = os.path.realpath(os.path.join(board_path,target_variant['framework']))
 os.environ["FRAMEWORK_FILE"] = framework_file
 
+# ok, build!
+
 if target_builder['builder'] == 'shell':
+
+    # ==== building with a custom script
 
     # system checks
     if platform.system() == "Windows":
@@ -172,19 +187,12 @@ if target_builder['builder'] == 'shell':
     # execute
     command = script + " " + source_file
     print('launching command     ', colored(command,'cyan'))
-    if platform.system() == "Windows":
-        ## TODO better way to detect where mingw bash is?
-        ##      unfortunately we cannot use /usr/bin/path as os.system spawns a Windows env
-        bash = "C:/msys64/usr/bin/bash.exe"
-    else:
-        bash = "/bin/bash"
-    if not os.path.exists(bash):
-        print(colored("bash not found", 'red'))
-        sys.exit(-1)
-    else:
-        os.system(bash + " " + command + " " + defines)
+    bash = "env bash"
+    os.system(bash + " " + command + " " + defines)
 
 elif target_builder['builder'] == 'edalize':
+
+    # ==== building with Edalize
 
     my_env = os.environ
     my_env["PATH"] = make_dir + os.pathsep + my_env["PATH"]
