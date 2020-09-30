@@ -1,6 +1,7 @@
 `define CROSSLINKNX_EVN 1
 $$CROSSLINKNX_EVN=1
 $$HARDWARE=1
+$$NUM_LEDS=5
 $$VGA=1
 $$color_depth=6
 $$color_max  =63
@@ -9,13 +10,12 @@ $$config['dualport_bram_wenable0_width'] = 'data'
 $$config['dualport_bram_wenable1_width'] = 'data'
 
 module top(
-  input  CLK,
   output LED0,
   output LED1,
   output LED2,
   output LED3,
   output LED4,
-
+`ifdef VGA
   output PMOD0_1, // r0
   output PMOD0_2, // r1
   output PMOD0_3, // r2
@@ -32,21 +32,20 @@ module top(
   output PMOD1_4, // g3
   
   output PMOD1_7, // hs
-  output PMOD1_8  // vs
-  );
+  output PMOD1_8, // vs
+`endif
+  input  CLK
+);
 
-wire __main_d1;
-wire __main_d2;
-wire __main_d3;
-wire __main_d4;
-wire __main_d5;
+wire [4:0] __main_leds;
 
+`ifdef VGA
 wire __main_out_vga_hs;
 wire __main_out_vga_vs;
-wire __main_out_vga_v0;
 wire [5:0] __main_out_vga_r;
 wire [5:0] __main_out_vga_g;
 wire [5:0] __main_out_vga_b;
+`endif
 
 BB u0_BB (.B(CLK),
 	.I(1'b0),
@@ -77,24 +76,26 @@ assign run_main = 1'b1;
 M_main __main(
   .clock(clk_s),
   .reset(RST_d[0]),
-  .out_led0(__main_d1),
-  .out_led1(__main_d2),
-  .out_led2(__main_d3),
-  .out_led3(__main_d4),
-  .out_led4(__main_d5),
+  .out_leds(__main_leds),
+`ifdef VGA
   .out_video_hs(__main_out_vga_hs),
   .out_video_vs(__main_out_vga_vs),
   .out_video_r(__main_out_vga_r),
   .out_video_g(__main_out_vga_g),
   .out_video_b(__main_out_vga_b),
+`endif
   .in_run(run_main)
 );
 
-assign LED0 = __main_d1;
-assign LED1 = __main_d2;
-assign LED2 = __main_d3;
-assign LED3 = __main_d4;
-assign LED4 = __main_d5;
+assign LED0 = __main_leds[0+:1];
+assign LED1 = __main_leds[1+:1];
+assign LED2 = __main_leds[2+:1];
+assign LED3 = __main_leds[3+:1];
+assign LED4 = __main_leds[4+:1];
+
+// VGA
+
+`ifdef VGA
 
 assign PMOD0_1  = __main_out_vga_r[2+:1];
 assign PMOD0_2  = __main_out_vga_r[3+:1];
@@ -113,5 +114,7 @@ assign PMOD1_4  = __main_out_vga_g[5+:1];
 
 assign PMOD1_7  = __main_out_vga_hs;
 assign PMOD1_8  = __main_out_vga_vs;
+
+`endif
 
 endmodule

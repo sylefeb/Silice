@@ -144,7 +144,7 @@ for pin_set in target_variant['pins']:
 # check the selected tool exists (or selects default, first in json file)
 if args.tool:
     target_builder = None
-    for builder in board_props['builders']:
+    for builder in target_variant['builders']:
         if builder['builder'] == args.tool:
             target_builder = builder
             break
@@ -152,7 +152,7 @@ if args.tool:
         print(colored("builder '" + args.tool + "' not found", 'red'))
         sys.exit(-1)
 else:
-    target_builder = board_props['builders'][0]
+    target_builder = target_variant['builders'][0]
 print('using build system    ',colored(target_builder['builder'],'cyan'))
 
 # framework file
@@ -238,24 +238,25 @@ elif target_builder['builder'] == 'edalize':
     backend.configure()
     backend.build()
 
-    try:
-        program = board_props['program'][0]
-        prog = program['cmd']
-        bitstream = "build." + program['bit_format']
+    print(colored('programming device ... ','white', attrs=['bold']))
+    for program in target_builder['program']:
         try:
-            args = program['args']
-            cmd = [prog, args, bitstream]
+            prog = program['cmd']
+            args = program['args']            
+            cmd = [prog] + args.split(' ')
+            try:
+                subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)
+            except FileNotFoundError as e:
+                print(colored('<<error>>','red'))
+                raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))
+            except subprocess.CalledProcessError as e:
+                print(colored('<<error>>','red'))
+                raise RuntimeError("script '{}' exited with error code {}".format(
+                    cmd, e.returncode))
         except KeyError as e:
-            cmd = [prog, bitstream]
-
-        try:
-            subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)
-        except FileNotFoundError as e:
-            raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError("script '{}' exited with error code {}".format(
-                cmd, e.returncode))
-    except KeyError as e:
-        pass
+            print(colored('<<error in board.json>>','red'))
+            raise RuntimeError("missing key {}".format(str(e)))
+    print(colored('done.','green'))
+            
 else:
     print(colored("builder '" + target_variant_name + "' not implemented", 'red'))

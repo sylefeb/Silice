@@ -2,6 +2,7 @@
 `default_nettype none
 $$ICEBREAKER=1
 $$HARDWARE=1
+$$NUM_LEDS=5
 $$VGA=1
 $$color_depth=6
 $$color_max  =63
@@ -10,7 +11,6 @@ $$config['dualport_bram_wenable0_width'] = 'data'
 $$config['dualport_bram_wenable1_width'] = 'data'
 
 module top(
-  input  CLK,
   output LED1,
   output LED2,
   output LED3,
@@ -33,15 +33,37 @@ module top(
   output P1B4,  // g3
   
   output P1B7, // hs
-  output P1B8  // vs
+  output P1B8,  // vs
 `endif  
+  input  CLK
   );
 
-wire __main_d1;
-wire __main_d2;
-wire __main_d3;
-wire __main_d4;
-wire __main_d5;
+
+wire clk_25mhz;
+
+SB_PLL40_PAD #(.FEEDBACK_PATH("SIMPLE"),
+              .PLLOUT_SELECT("GENCLK"),
+              .DIVR(4'b0000),
+              .DIVF(7'b1000010),
+              .DIVQ(3'b101),
+              .FILTER_RANGE(3'b001),
+              .DELAY_ADJUSTMENT_MODE_FEEDBACK("FIXED"),
+              .FDA_FEEDBACK(4'b0000),
+              .DELAY_ADJUSTMENT_MODE_RELATIVE("FIXED"),
+              .FDA_RELATIVE(4'b0000),
+              .SHIFTREG_DIV_MODE(2'b00),
+              .ENABLE_ICEGATE(1'b0)
+              ) uut (
+                      .PACKAGEPIN(CLK),
+                      .PLLOUTCORE(clk_25mhz),
+                      .EXTFEEDBACK(),
+                      .DYNAMICDELAY(),
+                      .LATCHINPUTVALUE(),
+                      .RESETB(1'b1),
+                      .BYPASS(1'b0)
+                    );
+
+wire [4:0] __main_leds;
 
 `ifdef VGA
 wire __main_out_vga_hs;
@@ -52,8 +74,6 @@ wire [5:0] __main_out_vga_g;
 wire [5:0] __main_out_vga_b;
 `endif  
 
-wire clk_out;
-
 reg ready = 0;
 reg [31:0] RST_d;
 reg [31:0] RST_q;
@@ -62,7 +82,7 @@ always @* begin
   RST_d = RST_q >> 1;
 end
 
-always @(posedge clk_out) begin
+always @(posedge clk_25mhz) begin
   if (ready) begin
     RST_q <= RST_d;
   end else begin
@@ -75,14 +95,9 @@ wire run_main;
 assign run_main = 1'b1;
 
 M_main __main(
-  .out_ctrl_clk(clk_out),
-  .clock(CLK),
+  .clock(clk_25mhz),
   .reset(RST_d[0]),
-  .out_led0(__main_d1),
-  .out_led1(__main_d2),
-  .out_led2(__main_d3),
-  .out_led3(__main_d4),
-  .out_led4(__main_d5),
+  .out_leds(__main_leds),
 `ifdef VGA
   .out_video_hs(__main_out_vga_hs),
   .out_video_vs(__main_out_vga_vs),
@@ -93,11 +108,11 @@ M_main __main(
   .in_run(run_main)
 );
 
-assign LED1 = __main_d1;
-assign LED2 = __main_d2;
-assign LED3 = __main_d3;
-assign LED4 = __main_d4;
-assign LED5 = __main_d5;
+assign LED1 = __main_leds[0+:1];
+assign LED2 = __main_leds[1+:1];
+assign LED3 = __main_leds[2+:1];
+assign LED4 = __main_leds[3+:1];
+assign LED5 = __main_leds[4+:1];
 
 `ifdef VGA
 assign P1A1  = __main_out_vga_r[2+:1];

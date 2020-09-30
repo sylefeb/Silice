@@ -7,54 +7,35 @@
       "pins"      : [ 
         {"set"    : "basic"},
         {"set"    : "vga", "define" : "VGA=1"} 
-      ]
-    }
-  ],
-  "builders": [
-    {
-      "builder" : "edalize",
-      "description": "Build using Edalize",
-      "tool": "icestorm",
-      "tool_options": [
-        {
-            "nextpnr_options": ["--up5k", "--freq 13", "--package sg48"],
-            "pnr": "next"
-        }
       ],
-      "program": [{"cmd" : "iceprog", "bit_format" : "bin"}],
-      "constraints": [{"name": "icebreaker.pcf", "file_type": "PCF"}]
-    },
-    {
-      "builder" : "shell",
-      "command" : "icebreaker.sh",
-      "description": "Custom shell scripts using yosys and nextpnr"
+      "notes"     : "Board clock is 13 MHz, however basic framework brings it up to 25 MHz.",
+      "builders": [
+        {
+          "builder" : "edalize",
+          "description": "Build using Edalize",
+          "tool": "icestorm",
+          "tool_options": [
+            {
+                "nextpnr_options": ["--up5k", "--freq 13", "--package sg48", "--timing-allow-fail"],
+                "pnr": "next"
+            }
+          ],
+          "constraints": [{"name": "icebreaker.pcf", "file_type": "PCF"}],
+          "program": [{"cmd" : "iceprog", "args" : "build.bin"}]
+        },
+        {
+          "builder" : "shell",
+          "command" : "icebreaker.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        }
+      ]    
     }
   ],
   "pins": {
     "basic": [
         {
-          "name": "led0",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led1",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led2",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led3",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led4",
-          "type": "uint1",
+          "name": "leds",
+          "type": "uint5",
           "io": "output"
         }
     ],

@@ -2,6 +2,7 @@
 `default_nettype none
 $$ICESTICK=1
 $$HARDWARE=1
+$$NUM_LEDS=5
 $$VGA=1
 $$color_depth=6
 $$color_max  =63
@@ -10,7 +11,6 @@ $$config['dualport_bram_wenable0_width'] = 'data'
 $$config['dualport_bram_wenable1_width'] = 'data'
 
 module top(
-  input  CLK,
   output D1,
   output D2,
   output D3,
@@ -21,7 +21,7 @@ module top(
   output BR4,
   output BR5,
   output BR6,
-  output BR7  
+  output BR7,
 `endif
 `ifdef VGA
   output PMOD1, // r0
@@ -45,16 +45,13 @@ module top(
   output BR6,  // b4
   output BR5,  // b5
 
-  output PMOD7, // hs
-  output PMOD10 // vs
+  output PMOD7,  // hs
+  output PMOD10, // vs
 `endif
+  input  CLK
   );
 
-wire __main_d1;
-wire __main_d2;
-wire __main_d3;
-wire __main_d4;
-wire __main_d5;
+wire [4:0] __main_leds;
 
 `ifdef OLED
 wire __main_oled_clk;
@@ -101,11 +98,7 @@ assign run_main = 1'b1;
 M_main __main(
   .clock(CLK),
   .reset(RST_d),
-  .out_led0(__main_d1),
-  .out_led1(__main_d2),
-  .out_led2(__main_d3),
-  .out_led3(__main_d4),
-  .out_led4(__main_d5),
+  .out_leds(__main_leds),
 `ifdef OLED
   .out_oled_mosi(__main_oled_mosi),
   .out_oled_clk(__main_oled_clk),
@@ -123,11 +116,11 @@ M_main __main(
   .in_run(run_main)
 );
 
-assign D1 = __main_d1;
-assign D2 = __main_d2;
-assign D3 = __main_d3;
-assign D4 = __main_d4;
-assign D5 = __main_d5;
+assign D1 = __main_leds[0+:1];
+assign D2 = __main_leds[1+:1];
+assign D3 = __main_leds[2+:1];
+assign D4 = __main_leds[3+:1];
+assign D5 = __main_leds[4+:1];
 
 // OLED
 

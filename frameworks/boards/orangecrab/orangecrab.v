@@ -2,6 +2,7 @@
 `default_nettype none
 $$ORANGECRAB=1
 $$HARDWARE=1
+$$NUM_LEDS=3
 
 module top(
   input  CLK, // 38.8 MHz

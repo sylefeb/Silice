@@ -24,7 +24,7 @@ cd $BUILD_DIR
 
 rm -rf build* *.rdf *.sty impl
 
-silice -f $FRAMEWORK_FILE $1 -o build.v
+silice -f $FRAMEWORK_FILE $1 -o build.v "${@:2}"
 
 cat << EOF > build.tcl
 prj_create -name "crosslink_nx_evn" -impl "impl" -dev LIFCL-40-9BG400C
@@ -40,6 +40,6 @@ prj_run Export -impl impl -task Bitgen
 prj_close
 EOF
 
-radiantc build.tcl > toto.log 2>&1
+radiantc build.tcl > toto.log 2>&1 # toto.log - French touch ;-)
 
 openFPGALoader impl/crosslink_nx_evn_impl.bit

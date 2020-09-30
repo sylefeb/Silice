@@ -24,7 +24,7 @@ cd $BUILD_DIR
 
 rm build*
 
-silice -f $FRAMEWORK_FILE $1 -o build.v
+silice -f $FRAMEWORK_FILE $1 -o build.v "${@:2}"
 
 yosys -p 'synth_ecp5 -abc9 -json build.json' build.v
 
@@ -33,7 +33,5 @@ nextpnr-ecp5 --25k --package CSFBGA285 --json build.json --textcfg build.config 
 ecppack --freq 38.8 --compress build.config build.bit
 
 cp build.bit build.dfu
-
 dfu-suffix -v 1209 -p 5af0 -a build.dfu
-
 dfu-util -D build.dfu

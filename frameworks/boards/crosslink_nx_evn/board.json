@@ -2,49 +2,29 @@
   "name": "crosslink_nx_evn",
   "variants": [
     {
-      "name": "vga",
-      "framework" : "crosslink_nx_evn_vga.v",
+      "name": "configurable",
+      "framework" : "crosslink_nx_evn.v",
       "pins": [
-        "bare",
-        "vga"
-      ]
-    }
-  ],
-  "builders": [
-    {
-      "builder" : "shell",
-      "command" : "crosslink_nx_evn.sh",
-      "description": "Custom shell scripts using lattice radiant"
-    }
+        {"set"    : "basic"},
+        {"set"    : "vga",  "define" : "VGA=1"}
+      ],
+      "builders": [
+      {
+        "builder" : "shell",
+        "command" : "crosslink_nx_evn.sh",
+        "description": "Custom shell scripts using lattice radiant"
+      }
+    ]
+  }
   ],
   "pins": {
-    "bare": [
+    "basic": [
         {
-          "name": "led0",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led1",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led2",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led3",
-          "type": "uint1",
-          "io": "output"
-        },
-        {
-          "name": "led4",
-          "type": "uint1",
+          "name": "leds",
+          "type": "uint5",
           "io": "output"
         }
-    ],
+      ],
     "vga": [
       {
         "name": "vga_hs",
