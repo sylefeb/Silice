@@ -24,7 +24,7 @@ module top(
     output  SDRAM_nRAS,
     output  [1:0] SDRAM_BA,
     output  [12:0] SDRAM_A,
-    inout [15:0] SDRAM_DQ,
+    inout   [15:0] SDRAM_DQ,
 `endif  
 `ifdef VGA  
     // vga
@@ -33,6 +33,11 @@ module top(
     output  [5:0] vga_r,
     output  [5:0] vga_g,
     output  [5:0] vga_b,
+`endif  
+`ifdef UART
+    // uart
+    input  uart_rx,
+    output uart_tx,
 `endif  
 `ifdef KEYPAD
     // keypad
@@ -63,6 +68,10 @@ wire        __main_out_vga_vs;
 wire [5:0]  __main_out_vga_r;
 wire [5:0]  __main_out_vga_g;
 wire [5:0]  __main_out_vga_b;
+`endif  
+
+`ifdef UART
+wire        __main_out_uart_tx;
 `endif  
 
 `ifdef KEYPAD
@@ -116,6 +125,10 @@ M_main __main(
   .out_video_r(__main_out_vga_r),
   .out_video_g(__main_out_vga_g),
   .out_video_b(__main_out_vga_b),
+`endif
+`ifdef UART
+  .out_uart_tx(__main_out_uart_tx),
+  .in_uart_rx(uart_rx),
 `endif  
 `ifdef KEYPAD
   .out_kpadC(__main_out_kpadC),
@@ -145,6 +158,10 @@ assign  vga_vs       = __main_out_vga_vs;
 assign  vga_r        = __main_out_vga_r;
 assign  vga_g        = __main_out_vga_g;
 assign  vga_b        = __main_out_vga_b;
+`endif  
+
+`ifdef UART
+assign uart_tx       = __main_out_uart_tx;
 `endif  
 
 `ifdef KEYPAD

@@ -8,6 +8,7 @@
         {"set"    : "basic"},
         {"set"    : "vga",    "define" : "VGA=1"},
         {"set"    : "sdram",  "define" : "SDRAM=1"},
+        {"set"    : "uart",   "define" : "UART=1"},
         {"set"    : "keypad", "define" : "KEYPAD=1"}
       ],
       "builders": [
@@ -41,6 +42,18 @@
         "name": "leds",
         "type": "uint8",
         "io"  : "output"
+      }
+    ],
+    "uart": [
+      {
+        "name": "tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "rx",
+        "type": "uint1",
+        "io"  : "input"
       }
     ],
     "keypad" : [
