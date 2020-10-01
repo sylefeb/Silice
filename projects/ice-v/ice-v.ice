@@ -82,11 +82,7 @@ bitfield Btype {
 // --------------------------------------------------
 
 algorithm main( // I guess this is the SOC :-D
-  output! uint1 led0,
-  output! uint1 led1,
-  output! uint1 led2,
-  output! uint1 led3,
-  output! uint1 led4,
+  output! uint5 leds,
 $$if OLED then
   output! uint1 oled_clk,
   output! uint1 oled_mosi,
@@ -144,12 +140,7 @@ $$if OLED then
     displ_en = 0;
 $$end
     if (mem.wenable & wide_addr[10,1]) {
-      led0 = mem.wdata[0,1] & wide_addr[0,1];
-      led1 = mem.wdata[1,1] & wide_addr[0,1];
-      led2 = mem.wdata[2,1] & wide_addr[0,1];
-      led3 = mem.wdata[3,1] & wide_addr[0,1];
-      led4 = mem.wdata[4,1] & wide_addr[0,1];
-      //__display("Led %b%b%b%b%b",led0,led1,led2,led3,led4);
+      leds = mem.wdata[0,5] & {5{wide_addr[0,1]}};
 $$if OLED then
       // command
       displ_en = (mem.wdata[9,1] | mem.wdata[10,1]) & wide_addr[1,1];

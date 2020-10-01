@@ -2,7 +2,7 @@
 `default_nettype none
 $$ULX3S    = 1
 $$HARDWARE = 1
-$$NUM_LEDS = 5
+$$NUM_LEDS = 8
 $$NUM_BTNS = 7
 $$SDRAM    = 1
 $$OLED     = 1

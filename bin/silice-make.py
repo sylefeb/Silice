@@ -201,7 +201,11 @@ elif target_builder['builder'] == 'edalize':
     import subprocess
 
     tool   = target_builder['tool']
-    constr = target_builder['constraints'][0]
+
+    # constraint and design files
+    files = [{'name': 'build.v', 'file_type': 'verilogSource'}]
+    for constr in target_builder['constraints']:
+        files.append({'name': board_path + "/" + constr['name'],'file_type': constr['file_type']})
 
     # prepare additional defines
     defines = {}
@@ -214,10 +218,7 @@ elif target_builder['builder'] == 'edalize':
                     defines[pin_set] = variant_pin_sets[pin_set]['define']
     # prepare edam structure                    
     edam = {'name' : 'build',
-            'files': [{'name': 'build.v', 'file_type': 'verilogSource'},
-                        {'name': board_path + "/" + constr['name'],
-                        'file_type': constr['file_type']}
-                        ],
+            'files': files,
             'tool_options': {tool: target_builder["tool_options"][0]},
             'toplevel' : 'top',
             }
@@ -227,6 +228,7 @@ elif target_builder['builder'] == 'edalize':
         cmd.append(defines[d])
 
     try:
+        print("skip")
         subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)
     except FileNotFoundError as e:
         raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))
@@ -237,26 +239,32 @@ elif target_builder['builder'] == 'edalize':
     backend = get_edatool(tool)(edam=edam, work_root=out_dir)
     backend.configure()
     backend.build()
-
-    print(colored('programming device ... ','white', attrs=['bold']))
-    for program in target_builder['program']:
-        try:
-            prog = program['cmd']
-            args = program['args']            
-            cmd = [prog] + args.split(' ')
+    
+    try:
+        print(colored('programming device ... ','white', attrs=['bold']))
+        for program in target_builder['program']:
             try:
-                subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)
-            except FileNotFoundError as e:
-                print(colored('<<error>>','red'))
-                raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))
-            except subprocess.CalledProcessError as e:
-                print(colored('<<error>>','red'))
-                raise RuntimeError("script '{}' exited with error code {}".format(
-                    cmd, e.returncode))
-        except KeyError as e:
-            print(colored('<<error in board.json>>','red'))
-            raise RuntimeError("missing key {}".format(str(e)))
-    print(colored('done.','green'))
+                prog = program['cmd']
+                args = program['args']            
+                cmd = [prog] + args.split(' ')
+                str_cmd = ""
+                for s in cmd:
+                    str_cmd = str_cmd + " " + s
+                try:
+                    subprocess.check_call(str_cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE, shell=True)
+                except FileNotFoundError as e:
+                    print(colored('<<error>>','red'))
+                    raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))
+                except subprocess.CalledProcessError as e:
+                    print(colored('<<error>>','red'))
+                    raise RuntimeError("script '{}' exited with error code {}".format(
+                        cmd, e.returncode))
+            except KeyError as e:
+                print(colored('<<error in board.json>>','red'))
+                raise RuntimeError("missing key {}".format(str(e)))
+        print(colored('done.','green'))
+    except KeyError as e:
+        print(colored('no programmer defined in json file','yellow'))
             
 else:
     print(colored("builder '" + target_variant_name + "' not implemented", 'red'))
