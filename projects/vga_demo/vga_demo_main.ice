@@ -69,7 +69,7 @@ $$if SIMULATION then
   output! uint1             video_clock,
 $$end
 ) 
-$$if not ULX3S and not ICEBREAKER then
+$$if not ULX3S then
 <@video_clock,!video_reset> 
 $$end
 {
@@ -101,6 +101,12 @@ $$elseif ICESTICK then
     clock_in  <: clock,
     clock_out :> video_clock,
     lock      :> pll_lock
+  );
+$$elseif ICEBREAKER then
+  // --- clock
+  icebreaker_clk_25 clk_gen (
+    clock_in  <: clock,
+    clock_out :> video_clock
   );
 $$elseif DE10NANO then
   // --- clock

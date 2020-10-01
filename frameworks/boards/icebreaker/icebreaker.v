@@ -38,32 +38,13 @@ module top(
   input  CLK
   );
 
-
-wire clk_25mhz;
-
-SB_PLL40_PAD #(.FEEDBACK_PATH("SIMPLE"),
-              .PLLOUT_SELECT("GENCLK"),
-              .DIVR(4'b0000),
-              .DIVF(7'b1000010),
-              .DIVQ(3'b101),
-              .FILTER_RANGE(3'b001),
-              .DELAY_ADJUSTMENT_MODE_FEEDBACK("FIXED"),
-              .FDA_FEEDBACK(4'b0000),
-              .DELAY_ADJUSTMENT_MODE_RELATIVE("FIXED"),
-              .FDA_RELATIVE(4'b0000),
-              .SHIFTREG_DIV_MODE(2'b00),
-              .ENABLE_ICEGATE(1'b0)
-              ) uut (
-                      .PACKAGEPIN(CLK),
-                      .PLLOUTCORE(clk_25mhz),
-                      .EXTFEEDBACK(),
-                      .DYNAMICDELAY(),
-                      .LATCHINPUTVALUE(),
-                      .RESETB(1'b1),
-                      .BYPASS(1'b0)
-                    );
-
 wire [4:0] __main_leds;
+
+// clock from design is used in case
+// it relies on a PLL: in such cases
+// we cannot use the clock fed into
+// the PLL here
+wire design_clk;
 
 `ifdef VGA
 wire __main_out_vga_hs;
@@ -82,7 +63,7 @@ always @* begin
   RST_d = RST_q >> 1;
 end
 
-always @(posedge clk_25mhz) begin
+always @(posedge design_clk) begin
   if (ready) begin
     RST_q <= RST_d;
   end else begin
@@ -95,7 +76,8 @@ wire run_main;
 assign run_main = 1'b1;
 
 M_main __main(
-  .clock(clk_25mhz),
+  .clock(CLK),
+  .out_clock(design_clk),
   .reset(RST_d[0]),
   .out_leds(__main_leds),
 `ifdef VGA
