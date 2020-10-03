@@ -1,9 +1,9 @@
 
 .DEFAULT: vga_flyover3d.ice
 ifdef tool
-		../../bin/silice-make.py -s vga_flyover3d.ice -b $@ -p basic,vga -o BUILD_$(subst :,_,$@) -t $(tool)
+		silice-make.py -s vga_flyover3d.ice -b $@ -p basic,vga -o BUILD_$(subst :,_,$@) -t $(tool)
 else
-		../../bin/silice-make.py -s vga_flyover3d.ice -b $@ -p basic,vga -o BUILD_$(subst :,_,$@)
+		silice-make.py -s vga_flyover3d.ice -b $@ -p basic,vga -o BUILD_$(subst :,_,$@)
 endif
 
 clean:

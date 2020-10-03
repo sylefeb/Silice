@@ -16,6 +16,7 @@ parser.add_argument('-t','--tool', help="Tool used for building (edalize,shell).
 parser.add_argument('-p','--pins', help="Pins used in the design, comma separated, e.g. basic,vga")
 parser.add_argument('-o','--outdir', help="Specify name of output directory.", default="BUILD")
 parser.add_argument('-l','--list_boards', help="List all available target boards.", action="store_true")
+parser.add_argument('-r','--root', help="Root directory, use to override default frameworks.")
 
 args = parser.parse_args()
 
@@ -42,10 +43,12 @@ try:
     print('  (created)')
 except FileExistsError:
     print('  (exists)')
-os.chdir(out_dir)
 os.environ["BUILD_DIR"] = out_dir
+
 # - frameworks directory
 frameworks_dir = os.path.realpath(os.path.join(make_dir,"../frameworks/"))
+if args.root:
+  frameworks_dir = os.path.realpath(os.path.abspath(args.root))
 print("* Silice frameworks directory: ",frameworks_dir,"\t\t\t",end='')
 if (os.path.exists(frameworks_dir)):
     print(colored("[ok]", 'green'))
@@ -53,6 +56,9 @@ else:
     print(colored("[not found]", 'red'))
     sys.exit(-1)
 os.environ["FRAMEWORKS_DIR"] = frameworks_dir
+
+# enter build directory
+os.chdir(out_dir)
 
 # get all boards definitions
 boards_path = os.path.realpath(os.path.join(frameworks_dir,"boards/boards.json"))
@@ -229,7 +235,7 @@ elif target_builder['builder'] == 'edalize':
             'tool_options': {tool: target_builder["tool_options"][0]},
             'toplevel' : 'top',
             }
-    cmd = ["silice", "-f", framework_file, source_file, "-o", "build.v"]
+    cmd = ["silice", "--frameworks_dir", frameworks_dir, "-f", framework_file, source_file, "-o", "build.v"]
     for d in defines:
         cmd.append("-D")
         cmd.append(defines[d])
