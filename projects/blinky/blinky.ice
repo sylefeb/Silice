@@ -1,3 +1,4 @@
+
 algorithm main(output uint$NUM_LEDS$ leds)
 {
   uint32 cnt = 0;

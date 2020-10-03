@@ -233,6 +233,13 @@ void SiliceCompiler::run(
   if (frameworks_dir.empty()) {
     frameworks_dir = std::string(LibSL::System::Application::executablePath()) + "../frameworks/";
   }
+  /*
+  std::cerr << Console::white << std::setw(30) << "framework directory" << " = ";
+  std::cerr << Console::yellow << std::setw(30) << frameworks_dir << std::endl;
+  std::cerr << Console::white << std::setw(30) << "framework file" << " = ";
+  std::cerr << Console::yellow << std::setw(30) << fframework << std::endl;
+  std::cerr << Console::gray;
+  */
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
   prepareFramework(fframework, framework_lpp, framework_verilog);

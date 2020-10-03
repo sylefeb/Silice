@@ -8,7 +8,6 @@
         {"set"    : "basic"},
         {"set"    : "vga", "define" : "VGA=1"} 
       ],
-      "notes"     : "Board clock is 13 MHz, however basic framework brings it up to 25 MHz.",
       "builders": [
         {
           "builder" : "edalize",

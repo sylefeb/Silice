@@ -17,6 +17,9 @@
         },
         {
             "name" : "crosslink_nx_evn"
+        },
+        {
+            "name" : "fomu"
         }
     ]
 }

@@ -14,6 +14,7 @@ $$color_max   = 255
 module top(
   // basic
   output [7:0] leds,
+  // buttons
   input  [6:0] btns,
 `ifdef SDRAM
   // sdram
