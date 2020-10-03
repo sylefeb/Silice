@@ -15,7 +15,7 @@ echo "build script: BUILD_DIR      = $BUILD_DIR"
 echo "build script: BOARD_DIR      = $BOARD_DIR"
 echo "build script: FRAMEWORK_FILE = $FRAMEWORK_FILE"
 
-export PATH=$PATH:$SILICE_DIR:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/
+export PATH=$PATH:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/:$SILICE_DIR
 export PYTHONHOME=/mingw64/bin
 export PYTHONPATH=/mingw64/lib/python3.8/
 export QT_QPA_PLATFORM_PLUGIN_PATH=/mingw64/share/qt5/plugins

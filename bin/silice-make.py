@@ -136,6 +136,8 @@ if target_variant == None:
     print(colored("variant " + target_variant_name + " not found", 'red'))
 else:
     print('using variant         ',colored(target_variant['name'],'cyan'))
+# env var for variant
+os.environ["BOARD_VARIANT"] = target_variant['name']
 # record pin sets
 variant_pin_sets = {}
 for pin_set in target_variant['pins']:
@@ -184,6 +186,11 @@ if target_builder['builder'] == 'shell':
             else:
                 if 'define' in variant_pin_sets[pin_set]:
                     defines = defines + " -D " + variant_pin_sets[pin_set]['define']
+                    key_value = variant_pin_sets[pin_set]['define'].split('=')
+                    if len(key_value) == 2:
+                      os.environ[key_value[0]] = key_value[1]
+                    elif len(key_value) == 1:
+                      os.environ[key_value[0]] = 1
     # execute
     command = script + " " + source_file
     print('launching command     ', colored(command,'cyan'))

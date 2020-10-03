@@ -64,7 +64,7 @@ algorithm main(
   output! uint$color_depth$ video_g,
   output! uint$color_depth$ video_b,
   output! uint1             video_hs,
-  output! uint1             video_vs
+  output! uint1             video_vs,
 $$if SIMULATION then
   output! uint1             video_clock,
 $$end

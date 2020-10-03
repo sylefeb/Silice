@@ -15,7 +15,7 @@ the distribution, please refer to it for details.
 */
 // SL 2019-09-23
 
-#include "Vvga.h"
+#include "Vtop.h"
 #include <iostream>
 
 #include "VgaChip.h"
@@ -31,7 +31,7 @@ int main(int argc,char **argv)
 {
   Verilated::commandArgs(argc,argv);
   
-  Vvga    *vga_test = new Vvga();
+  Vtop    *vga_test = new Vtop();
 
   vga_test->clk = 0;
 
