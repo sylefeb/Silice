@@ -136,7 +136,7 @@ M_main __main(
   .in_btns       (btns),
 `endif
 `ifdef SDRAM
-  .inout_sdram_dq(sdram_d[7:0]),
+  .inout_sdram_dq(sdram_d),
   .out_sdram_clk (__main_out_sdram_clk),
   .out_sdram_cle (__main_out_sdram_cle),
   .out_sdram_dqm (__main_out_sdram_dqm),
