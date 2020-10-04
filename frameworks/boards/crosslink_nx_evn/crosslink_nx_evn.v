@@ -39,6 +39,12 @@ module top(
 
 wire [4:0] __main_leds;
 
+// clock from design is used in case
+// it relies on a PLL: in such cases
+// we cannot use the clock fed into
+// the PLL here
+wire design_clk;
+
 `ifdef VGA
 wire __main_out_vga_hs;
 wire __main_out_vga_vs;
@@ -61,7 +67,7 @@ always @* begin
   RST_d = RST_q >> 1;
 end
 
-always @(posedge clk_s) begin
+always @(posedge design_clk) begin
   if (ready) begin
     RST_q <= RST_d;
   end else begin
@@ -75,6 +81,7 @@ assign run_main = 1'b1;
 
 M_main __main(
   .clock(clk_s),
+  .out_clock(design_clk),
   .reset(RST_d[0]),
   .out_leds(__main_leds),
 `ifdef VGA
