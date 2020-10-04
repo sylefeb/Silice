@@ -41,43 +41,6 @@ $$Deg360 = 3600
   
 // -------------------------
 
-/*
-algorithm walker(
-  output int$FPw$ posx,
-  output int$FPw$ posy,
-  output int16    angle
-) <autorun> {
-
-$$ LMost = lshift(2,FPf)
-$$ RMost = lshift(14,FPf)
-$$ TMost = lshift(2,FPf)
-$$ BMost = lshift(14,FPf)
-$$if SIMULATION then
-$$ Step      = lshift(1,FPf)
-$$ AngleStep = 300
-$$else
-$$ Step      = math.floor(lshift(1,FPf-5)*2/3)
-$$ AngleStep = 10
-$$end
-
-  angle = -160;
-  posx  = $LMost$;
-  posy  = $TMost$;
-    
-  while (1) {
-    while (posy < $BMost$) {
-      posy = posy + $Step$;
-    }  
-    while (posy > $TMost$) {
-      posy = posy - $Step$;
-    }
-  }
-
-}
-*/
-
-// -------------------------
-
 bitfield DrawColumn
 {
   uint9  height,
@@ -92,7 +55,6 @@ algorithm columns_drawer(
   // sdram
   sdio sd {
     output addr,
-    output wbyte_addr,
     output rw,
     output data_in,
     output in_valid,
@@ -179,8 +141,7 @@ $$end
         while (1) {
           if (sd.busy == 0) { // not busy?
             sd.data_in    = palidx;
-            sd.addr       = {1b0,~fbuffer,21b0} | (num_drawn_cols >> 2) | (yw << 8); 
-            sd.wbyte_addr = num_drawn_cols & 3;
+            sd.addr       = {1b0,~fbuffer,24b0} | (num_drawn_cols) | (yw << 9); 
             sd.in_valid   = 1; // go ahead!
             break;
           }
@@ -207,8 +168,7 @@ $$end
         while (1) {
           if (sd.busy == 0) { // not busy?
             sd.data_in    = palidx;
-            sd.addr       = {1b0,~fbuffer,21b0} | (num_drawn_cols >> 2) | (yw << 8); 
-            sd.wbyte_addr = num_drawn_cols & 3;
+            sd.addr       = {1b0,~fbuffer,24b0} | (num_drawn_cols) | (yw << 9); 
             sd.in_valid   = 1; // go ahead!
             break;
           }
@@ -235,7 +195,6 @@ $$end
 algorithm frame_drawer(
   sdio sd {
     output addr,
-    output wbyte_addr,
     output rw,
     output data_in,
     output in_valid,
@@ -249,7 +208,7 @@ $$if HAS_COMPUTE_CLOCK then
 $$end
   input  uint1  vsync,
   output uint1  fbuffer,
-  output uint8  led
+  output uint8  leds
 ) 
 $$if HAS_COMPUTE_CLOCK then
 <autorun> 
@@ -373,16 +332,9 @@ $$end
   int16     viewangle   = 0;
   int16     colangle    = 0;
   
-  /*
-$$if not ICARUS then
-  walker walk<@vsync_filtered>(
-    posx  :> posx_f,
-    posy  :> posy_f,
-    angle :> posa
-  );
-$$end
-*/
   vsync_filtered ::= vsync;
+
+  leds := 0;
 
   fbuffer = 0;
   

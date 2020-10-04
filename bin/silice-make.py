@@ -169,6 +169,13 @@ os.environ["FRAMEWORK_FILE"] = framework_file
 
 # ok, build!
 
+# convenience: under Windows/mingw extend path with known typical locations
+if platform.system() == "Windows":
+    if sysconfig.get_platform() == "mingw":
+      os.environ["PATH"] += os.pathsep + os.path.realpath(make_dir)
+      os.environ["PATH"] += os.pathsep + os.path.realpath(os.path.join(make_dir,"../tools/fpga-binutils/mingw64/bin/"))
+      os.environ["PATH"] += os.pathsep + os.path.realpath("c:/intelFPGA_lite/19.1/quartus/bin64/")
+
 if target_builder['builder'] == 'shell':
 
     # ==== building with a custom script
@@ -178,6 +185,7 @@ if target_builder['builder'] == 'shell':
         if not sysconfig.get_platform() == "mingw":
             print(colored("to build from scripts please run MinGW python from a shell",'red'))
             sys.exit(-1)
+
     # script check
     script = os.path.join(board_path,target_builder['command'])
     if not os.path.exists(script):
@@ -231,6 +239,7 @@ elif target_builder['builder'] == 'edalize':
             else:
                 if 'define' in variant_pin_sets[pin_set]:
                     defines[pin_set] = variant_pin_sets[pin_set]['define']
+
     # prepare edam structure                    
     edam = {'name' : 'build',
             'files': files,
@@ -243,7 +252,6 @@ elif target_builder['builder'] == 'edalize':
         cmd.append(defines[d])
 
     try:
-        print("skip")
         subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)
     except FileNotFoundError as e:
         raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))

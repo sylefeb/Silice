@@ -11,7 +11,6 @@ algorithm sdram_column_writer(
   },
   sdio sd {
     output addr,
-    output wbyte_addr,
     output rw,
     output data_in,
     output in_valid,
@@ -59,8 +58,7 @@ algorithm sdram_column_writer(
       while (sd.busy == 1) { }
       // write
       sd.data_in      = col_buffer.rdata1;
-      sd.addr         = {~fbuffer,21b0} | (xfer_col >> 2) | (xfer_count << 8);
-      sd.wbyte_addr   = xfer_col & 3;
+      sd.addr         = {~fbuffer,24b0} | (xfer_col) | (xfer_count << 9);
       sd.in_valid     = 1; // go ahead!
       // next      
       xfer_count      = xfer_count + 1;

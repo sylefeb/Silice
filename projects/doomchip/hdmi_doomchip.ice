@@ -45,7 +45,6 @@ $include('sdram_column_writer.ice')
 algorithm frame_drawer(
   sdio sd {
     output addr,
-    output wbyte_addr,
     output rw,
     output data_in,
     output in_valid,
@@ -62,7 +61,6 @@ $$end
 $$if DE10NANO then  
   output uint4  kpadC,
   input  uint4  kpadR,
-  output uint8  led,
   output uint1  lcd_rs,
   output uint1  lcd_rw,
   output uint1  lcd_e,
@@ -74,9 +72,9 @@ $$if DE10NANO then
   output uint1  oled_rst,
 $$end
 $$if ULX3S then
-  output uint8 led,
-  input  uint7 btn,
-$$end  
+  input  uint7  btns,
+$$end
+  output uint8  leds,
 ) 
 $$if HAS_COMPUTE_CLOCK then
 <autorun> 
@@ -90,11 +88,11 @@ $$end
     <:auto:> // used to bind parameters across the different boards
   );
 
-$$if HAS_COMPUTE_CLOCK then
-  sdram_column_writer writer<@sdram_clock,!sdram_reset>(
-$$else
+//if HAS_COMPUTE_CLOCK then
+//  sdram_column_writer writer<@sdram_clock,!sdram_reset>(
+//else
   sdram_column_writer writer(
-$$end
+//end
     colio   <:> colio,
     sd      <:> sd,
     fbuffer  :> fbuffer,

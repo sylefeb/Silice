@@ -46,12 +46,9 @@ int main(int argc,char **argv)
 
   VgaChip *vga_chip = new VgaChip((int)vga_test->video_color_depth);
 
-  char foo[1<<20]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
+  char foo[1<<19]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
   
-  // setup for a mt48lc32m8a2 // 8 M x 8 bits x 4 banks (256 MB),
-  // 67,108,864-bit banks is organized as 8192 rows by 1024 columns by 8 bits
-  // this matches the Mojo Alchitry board with SDRAM shield
-  vluint8_t sdram_flags = 0; // FLAG_DATA_WIDTH_8; // | FLAG_BANK_INTERLEAVING | FLAG_BIG_ENDIAN;
+  vluint8_t sdram_flags = 0;
   if ((int)vga_test->sdram_word_width == 8) {
     sdram_flags |= FLAG_DATA_WIDTH_8;
   } else if ((int)vga_test->sdram_word_width == 16) {

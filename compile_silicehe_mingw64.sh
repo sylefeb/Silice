@@ -11,7 +11,7 @@ pacman -S --noconfirm --needed unzip wget perl cmake gcc g++ make
 mkdir build-silicehe
 cd build-silicehe
 
-/mingw32/bin/cmake -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" ../../tools/silice_hardware_emulator
+/mingw64/bin/cmake -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" ../../tools/silice_hardware_emulator
 mingw32-make install
 
 cd ..

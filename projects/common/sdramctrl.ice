@@ -25,6 +25,9 @@ $$   SDRAM_COLUMNS_WIDTH = 10
 $$ elseif DE10NANO then
 $$   print('setting SDRAM_COLUMNS_WIDTH=9 for DE10NANO with AS4C16M16 chip')
 $$   SDRAM_COLUMNS_WIDTH =  9
+$$ elseif SIMULATION then
+$$   print('setting SDRAM_COLUMNS_WIDTH=10 for simulation')
+$$   SDRAM_COLUMNS_WIDTH = 10
 $$ else
 $$   error('SDRAM_COLUMNS_WIDTH not specified')
 $$ end

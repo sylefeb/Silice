@@ -298,7 +298,7 @@ uint2  sdram_ba    = 0;
 uint13 sdram_a     = 0;
 uint16 sdram_dq    = 0;
 
-simul_sdram simul<@sdram_clock,!sdram_reset>(
+simul_sdram simul(
   sdram_clk <: clock,
   <:auto:>
 );
@@ -307,7 +307,7 @@ $$end
 sdchipio sdchip;
 sdio     sd;
 
-sdramctrl_chip memory_chip<@sdram_clock,!sdram_reset>(
+sdramctrl_chip memory_chip(
   sd         <:> sdchip,
 $$if VERILATOR then
   dq_i       <: sdram_dq_i,
@@ -327,7 +327,7 @@ sdramctrl memory(
 sdio sd0;
 sdio sd1;
 
-sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
+sdram_switcher sd_switcher(
   sd         <:>  sd,
   sd0        <:>  sd0,
   sd1        <:>  sd1,
@@ -358,7 +358,7 @@ sdram_switcher sd_switcher<@sdram_clock,!sdram_reset>(
   uint1 onscreen_fbuffer = 0;
   
   // --- Frame buffer row updater
-  frame_buffer_row_updater fbrupd<@sdram_clock,!sdram_reset>(
+  frame_buffer_row_updater fbrupd(
     pixaddr0   :> fbr0.addr1,
     pixdata0_w :> fbr0.wdata1,
     pixwenable0:> fbr0.wenable1,

@@ -49,7 +49,6 @@ $include('sdram_column_writer.ice')
 algorithm frame_drawer(
   sdio sd {
     output addr,
-    output wbyte_addr,
     output rw,
     output data_in,
     output in_valid,
@@ -66,7 +65,6 @@ $$end
 $$if DE10NANO then  
   output uint4  kpadC,
   input  uint4  kpadR,
-  output uint8  led,
   output uint1  lcd_rs,
   output uint1  lcd_rw,
   output uint1  lcd_e,
@@ -78,9 +76,9 @@ $$if DE10NANO then
   output uint1  oled_rst,
 $$end
 $$if ULX3S then
-  output uint8 led,
-  input  uint7 btn,
+  input  uint7 btns,
 $$end  
+  output uint8 leds,
 ) 
 $$if HAS_COMPUTE_CLOCK then
 <autorun> 

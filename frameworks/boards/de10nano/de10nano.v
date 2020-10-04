@@ -132,7 +132,7 @@ M_main __main(
 `endif  
 `ifdef KEYPAD
   .out_kpadC(__main_out_kpadC),
-  .in_kpadR(kpadR[3:0]),
+  .in_kpadR(kpadR),
 `endif
   .clock(clk)
 );
