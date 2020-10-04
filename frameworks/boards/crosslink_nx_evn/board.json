@@ -10,6 +10,18 @@
       ],
       "builders": [
       {
+        "builder" : "edalize",
+        "description": "Build using Edalize",
+        "tool": "radiant",
+        "tool_options": [
+          {
+              "part": "LIFCL-40-9BG400C"
+          }
+        ],
+        "constraints": [{"name": "crosslink_nx_evn.pdc", "file_type": "PDC"}],
+        "program": [{"cmd" : "openFPGALoader", "args" : "impl/build_impl.bit"}]
+      },
+      {
         "builder" : "shell",
         "command" : "crosslink_nx_evn.sh",
         "description": "Custom shell scripts using lattice radiant"

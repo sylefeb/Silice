@@ -29,7 +29,7 @@ rm -rf build* *.rdf *.sty impl
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
 cat << EOF > build.tcl
-prj_create -name "crosslink_nx_evn" -impl "impl" -dev LIFCL-40-9BG400C
+prj_create -name "build" -impl "impl" -dev LIFCL-40-9BG400C
 prj_set_impl_opt {include path} {""}
 prj_add_source "build.v" -work work
 prj_add_source "$BOARD_DIR/crosslink_nx_evn.pdc" -work work
@@ -44,4 +44,4 @@ EOF
 
 radiantc build.tcl > toto.log 2>&1 # toto.log - French touch ;-)
 
-openFPGALoader impl/crosslink_nx_evn_impl.bit
+openFPGALoader impl/build_impl.bit
