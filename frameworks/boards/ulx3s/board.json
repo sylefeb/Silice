@@ -118,7 +118,7 @@
       },
       {
         "name": "sdram_dqm",
-        "type": "uint1",
+        "type": "uint2",
         "io": "output"
       },
       {

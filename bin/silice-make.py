@@ -188,7 +188,8 @@ if target_builder['builder'] == 'shell':
     if args.pins:
         for pin_set in args.pins.split(','):
             if not pin_set in variant_pin_sets:
-                print(color("pin set " + pin_set + " not defined in board variant",'red'))
+                print(colored("pin set '" + pin_set + "' not defined in board variant",'red'))
+                sys.exit(-1)
             else:
                 if 'define' in variant_pin_sets[pin_set]:
                     defines = defines + " -D " + variant_pin_sets[pin_set]['define']
@@ -225,7 +226,8 @@ elif target_builder['builder'] == 'edalize':
     if args.pins:
         for pin_set in args.pins.split(','):
             if not pin_set in variant_pin_sets:
-                print(color("pin set " + pin_set + " not defined in board variant",'red'))
+                print(colored("pin set '" + pin_set + "' not defined in board variant",'red'))
+                sys.exit(-1)
             else:
                 if 'define' in variant_pin_sets[pin_set]:
                     defines[pin_set] = variant_pin_sets[pin_set]['define']

@@ -5,9 +5,9 @@ $include('../common/video_sdram_main.ice')
 // ------------------------- 
 
 algorithm frame_drawer(
+  output uint8 leds,
   sdio sd {
     output addr,
-    output wbyte_addr,
     output rw,
     output data_in,
     output in_valid,
@@ -21,7 +21,7 @@ $$if HAS_COMPUTE_CLOCK then
 $$end
   input  uint1  vsync,
   output uint1  fbuffer
-) {
+) <autorun> {
 
   uint16 shift = 0;
   uint1  vsync_filtered = 0;
@@ -42,9 +42,7 @@ $$end
         while (1) {          
           if (sd.busy == 0) {        // not busy?
             sd.data_in    = pix_palidx;
-            sd.wbyte_addr = pix_x & 3;
-            // saddr       = {1b0,buffer,21b0} | ((pix_x + (pix_y << 8) + (pix_y << 6)) >> 2); // * 320 / 4
-            sd.addr       = {1b0,buffer,21b0} | (pix_x >> 2) | (pix_y << 8);             
+            sd.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 9);             
             sd.in_valid   = 1; // go ahead!
             break;
           }
@@ -74,9 +72,7 @@ $$end
         // write to sdram
         while (1) {
           if (sd.busy == 0) {        // not busy?
-            sd.wbyte_addr = pix_x & 3;
-            // saddr       = {1b0,buffer,21b0} | ((pix_x + (pix_y << 8) + (pix_y << 6)) >> 2); // * 320 / 4
-            sd.addr       = {1b0,buffer,21b0} | (pix_x >> 2) | (pix_y << 8); 
+            sd.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 9); 
             sd.data_in    = pix_palidx;
             sd.in_valid = 1; // go ahead!
             break;
@@ -91,6 +87,8 @@ $$end
   }
   
   vsync_filtered ::= vsync;
+
+  leds := 0;
 
   sd.in_valid   := 0; // maintain low (pulses high when needed)
   sd.rw         := 1; // always writes

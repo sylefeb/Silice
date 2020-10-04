@@ -4,12 +4,8 @@ $$ULX3S    = 1
 $$HARDWARE = 1
 $$NUM_LEDS = 8
 $$NUM_BTNS = 7
-$$SDRAM    = 1
-$$OLED     = 1
-$$SDCARD   = 1
-$$HDMI     = 1
-$$color_depth = 8
-$$color_max   = 255
+$$color_depth = 6
+$$color_max   = 63
 
 module top(
   // basic

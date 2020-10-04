@@ -20,9 +20,14 @@ echo "build script: FRAMEWORKS_DIR = $FRAMEWORKS_DIR"
 echo "build script: FRAMEWORK_FILE = $FRAMEWORK_FILE"
 
 export PATH=$PATH:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/:$SILICE_DIR
+case "$(uname -s)" in
+MINGW*)
 export PYTHONHOME=/mingw64/bin
 export PYTHONPATH=/mingw64/lib/python3.8/
 export QT_QPA_PLATFORM_PLUGIN_PATH=/mingw64/share/qt5/plugins
+;;
+*)
+esac
 
 cd $BUILD_DIR
 
