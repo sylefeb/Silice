@@ -61,10 +61,7 @@ To run simulations with Verilator (**highly recommended**), including SDRAM and 
 
 Now we will compile the silice framework for verilator
 
-- Go into the silice folder and type
-```
-./compile_verilator_framework_mingw64.sh
-```
+- Go into the silice folder and type `./compile_verilator_framework_mingw64.sh`
 
 (installs new files in Silice/frameworks/verilator/)
 
@@ -72,10 +69,7 @@ Now we will compile the silice framework for verilator
 
 ### Linux
 
-- Open a command line into the silice folder and type
-```
-./compile_verilator_framework_linux.sh
-```
+- Open a command line into the silice folder and type `./compile_verilator_framework_linux.sh`
 
 (installs new files in Silice/frameworks/verilator/)
 
@@ -90,5 +84,5 @@ cd vga_demo
 make verilator
 ```
 
-=> This executes the simulation, which outputs 32 image files (tga format) in the subdirectory *BUILD_verilator*.
+This executes the simulation, which outputs 32 image files (tga format) in the subdirectory *BUILD_verilator*.
 Look at them in sequence :-)
