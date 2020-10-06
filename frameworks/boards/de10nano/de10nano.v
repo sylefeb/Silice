@@ -10,6 +10,12 @@ $$end
 $$color_depth = 6
 $$color_max   = 63
 
+`ifdef UART
+`ifdef UART2
+  `error_choose_either_uart_or_uart2
+`endif  
+`endif  
+
 module top(
     output [7:0] leds,
 `ifdef SDRAM
@@ -38,6 +44,11 @@ module top(
     // uart
     input  uart_rx,
     output uart_tx,
+`endif  
+`ifdef UART2
+    // uart, second choice
+    input  uart2_rx,
+    output uart2_tx,
 `endif  
 `ifdef KEYPAD
     // keypad
@@ -71,6 +82,9 @@ wire [5:0]  __main_out_vga_b;
 `endif  
 
 `ifdef UART
+wire        __main_out_uart_tx;
+`endif  
+`ifdef UART2
 wire        __main_out_uart_tx;
 `endif  
 
@@ -130,6 +144,10 @@ M_main __main(
   .out_uart_tx(__main_out_uart_tx),
   .in_uart_rx(uart_rx),
 `endif  
+`ifdef UART2
+  .out_uart_tx(__main_out_uart_tx),
+  .in_uart_rx(uart2_rx),
+`endif  
 `ifdef KEYPAD
   .out_kpadC(__main_out_kpadC),
   .in_kpadR(kpadR),
@@ -162,6 +180,9 @@ assign  vga_b        = __main_out_vga_b;
 
 `ifdef UART
 assign uart_tx       = __main_out_uart_tx;
+`endif  
+`ifdef UART2
+assign uart2_tx      = __main_out_uart_tx;
 `endif  
 
 `ifdef KEYPAD
