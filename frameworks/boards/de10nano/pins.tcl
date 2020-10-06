@@ -1,4 +1,11 @@
 #============================================================
+# Additional settings
+#============================================================
+
+set_global_assignment -name ALLOW_ANY_ROM_SIZE_FOR_RECOGNITION ON
+set_global_assignment -name ALLOW_ANY_RAM_SIZE_FOR_RECOGNITION ON
+
+#============================================================
 # Clocks
 #============================================================
 

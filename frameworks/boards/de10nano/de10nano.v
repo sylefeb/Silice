@@ -6,6 +6,8 @@ $$if YOSYS then
 $$config['bram_wenable_width'] = 'data'
 $$config['dualport_bram_wenable0_width'] = 'data'
 $$config['dualport_bram_wenable1_width'] = 'data'
+$$else
+$$config['dualport_bram_template'] = 'dualport_bram_altera.v.in'
 $$end
 $$color_depth = 6
 $$color_max   = 63
