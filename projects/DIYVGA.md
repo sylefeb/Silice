@@ -8,7 +8,6 @@ This was tested on the Mojo v3, de10nano and IceStick.
 
 ![VGA DAC](vga_dac.jpg)
 
-
 ## Pinout for the IceStick
 
 | IceStick pins | VGA signal |
@@ -34,7 +33,35 @@ This was tested on the Mojo v3, de10nano and IceStick.
 | BR6  (pin 56)  | blue 4 |
 | BR5  (pin 60)  | blue 5 |
 
+## Pinout for the de10nano
+
+The de10nano pinout is now compatible with the VGA onboard the [MiSTer IO board](https://github.com/MiSTer-devel/Main_MiSTer/wiki/IO-Board)
+
+| de10nano pins | VGA signal |
+|---------------|------------|
+| pin AH22  | horiz. synch |
+| pin AG24  | vert. synch |
+| pin AE17  | red 0 |
+| pin AE20  | red 1 |
+| pin AF20  | red 2 |
+| pin AH18  | red 3 |
+| pin AH19  | red 4 |
+| pin AF21  | red 5 |
+| pin AE19  | green 0 |
+| pin AG15  | green 1 |
+| pin AF18  | green 2 |
+| pin AG18  | green 3 |
+| pin AG19  | green 4 |
+| pin AG20  | green 5 |
+| pin AG21  | blue 0 |
+| pin AA20  | blue 1 |
+| pin AE22  | blue 2 |
+| pin AF22  | blue 3 |
+| pin AH23  | blue 4 |
+| pin AH21  | blue 5 |
+
 ## Pinout for the MojoV3
+(NOTE: the MojoV3 is not yet integrated in the new build system)
 
 | MojoV3 pins | VGA signal |
 |---------------|------------|
@@ -58,31 +85,3 @@ This was tested on the Mojo v3, de10nano and IceStick.
 | pin 93  | blue 3 |
 | pin 95  | blue 4 |
 | pin 98  | blue 5 |
-
-## Pinout for the de10nano
-
-| de10nano pins | VGA signal |
-|---------------|------------|
-| pin AE19  | horiz. synch |
-| pin AE17  | vert. synch |
-| pin AF28  | red 0 |
-| pin AD26  | red 1 |
-| pin AC24  | red 2 |
-| pin Y15   | red 3 |
-| pin AA15  | red 4 |
-| pin AG28  | red 5 |
-| pin AF23  | green 0 |
-| pin AH22  | green 1 |
-| pin AG21  | green 2 |
-| pin AA20  | green 3 |
-| pin AE22  | green 4 |
-| pin AF21  | green 5 |
-| pin AG23  | blue 0 |
-| pin AG24  | blue 1 |
-| pin AH21  | blue 2 |
-| pin AH23  | blue 3 |
-| pin AF22  | blue 4 |
-| pin AG20  | blue 5 |
-
-
-

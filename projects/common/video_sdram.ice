@@ -15,9 +15,9 @@ algorithm frame_display(
   output! uint$color_depth$ video_g,
   output! uint$color_depth$ video_b,
   output! uint10 pixaddr0,
-  input   uint32 pixdata0_r,
+  input   uint8  pixdata0_r,
   output! uint10 pixaddr1,
-  input   uint32 pixdata1_r,
+  input   uint8  pixdata1_r,
   output! uint1  row_busy
 ) <autorun> {
 
@@ -47,7 +47,8 @@ $$    for i=0,256/4-1 do v = i*color_max/(256/4-1)
 $$    end
 $$  end
 $$end
-  };  
+  };
+  
   uint8  palidx = 0;
   uint8  pix_j  = 0;
   uint2  sub_j  = 0;
@@ -75,14 +76,14 @@ $$end
 	    //    ...            loads row 199 for display in screen row 200
       if (pix_j > 0 && pix_j <= 200) {
         if (row_busy) {
-          palidx = pixdata1_r[(((video_x >> 1)&3)<<3),8];
+          palidx = pixdata1_r;
         } else {
-          palidx = pixdata0_r[(((video_x >> 1)&3)<<3),8];
+          palidx = pixdata0_r;
         }
         color    = palette[palidx];
-        video_r  = color[0,$color_depth$];
-        video_g  = color[$color_depth$,$color_depth$];
-        video_b  = color[$2*color_depth$,$color_depth$];
+        video_r  = color[               0,$color_depth$];
+        video_g  = color[ $  color_depth$,$color_depth$];
+        video_b  = color[ $2*color_depth$,$color_depth$];
       }
       if (video_x == 639) { // end of row
         // increment pix_j
@@ -121,8 +122,8 @@ $$end
 	    pix_a = 0;
 	  }
     
-    pixaddr0 = (pix_a) >> 2;  
-    pixaddr1 = (pix_a) >> 2;
+    pixaddr0 = pix_a;
+    pixaddr1 = pix_a;
 
   }
 
@@ -134,7 +135,6 @@ algorithm sdram_switcher(
   
   sdio sd0 {
     input   addr,
-    input   wbyte_addr,
     input   rw,
     input   data_in,
     output  data_out,
@@ -145,7 +145,6 @@ algorithm sdram_switcher(
 
   sdio sd1 {
     input   addr,
-    input   wbyte_addr,
     input   rw,
     input   data_in,
     output  data_out,
@@ -156,7 +155,6 @@ algorithm sdram_switcher(
 
   sdio sd {
     output  addr,
-    output  wbyte_addr,
     output  rw,
     output  data_in,
     input   data_out,
@@ -177,14 +175,12 @@ algorithm sdram_switcher(
   always {
     if (buffered_sd0.in_valid == 0 && sd0.in_valid == 1) {
       buffered_sd0.addr       = sd0.addr;
-      buffered_sd0.wbyte_addr = sd0.wbyte_addr;
       buffered_sd0.rw         = sd0.rw;
       buffered_sd0.data_in    = sd0.data_in;
       buffered_sd0.in_valid   = 1;
     }
     if (buffered_sd1.in_valid == 0 && sd1.in_valid == 1) {
       buffered_sd1.addr       = sd1.addr;
-      buffered_sd1.wbyte_addr = sd1.wbyte_addr;
       buffered_sd1.rw         = sd1.rw;
       buffered_sd1.data_in    = sd1.data_in;
       buffered_sd1.in_valid   = 1;
@@ -199,7 +195,6 @@ algorithm sdram_switcher(
       // -> sd0 (highest priority)
       if (buffered_sd0.in_valid == 1) {
         sd.addr       = buffered_sd0.addr;
-        sd.wbyte_addr = buffered_sd0.wbyte_addr;
         sd.rw         = buffered_sd0.rw;
         sd.data_in    = buffered_sd0.data_in;
         sd.in_valid   = 1;        
@@ -214,7 +209,6 @@ algorithm sdram_switcher(
         // -> sd1
         if (buffered_sd1.in_valid == 1) {
           sd.addr       = buffered_sd1.addr;
-          sd.wbyte_addr = buffered_sd1.wbyte_addr;
           sd.rw         = buffered_sd1.rw;
           sd.data_in    = buffered_sd1.data_in;
           sd.in_valid   = 1;        
@@ -236,7 +230,6 @@ algorithm sdram_switcher(
 algorithm frame_buffer_row_updater(
   sdio sd {
     output  addr,
-    output  wbyte_addr,
     output  rw,
     output  data_in,
     input   data_out,
@@ -245,10 +238,10 @@ algorithm frame_buffer_row_updater(
     input   out_valid,
   },
   output! uint10 pixaddr0,
-  output! uint32 pixdata0_w,
+  output! uint8  pixdata0_w,
   output! uint1  pixwenable0,
   output! uint10 pixaddr1,
-  output! uint32 pixdata1_w,
+  output! uint8  pixdata1_w,
   output! uint1  pixwenable1,
   input   uint1  row_busy,
   input   uint1  vsync,
@@ -257,7 +250,7 @@ algorithm frame_buffer_row_updater(
 )
 {
   // frame update counters
-  uint8  count             = 0;
+  uint9  count             = 0;
   uint8  row               = 0; // 0 .. 200 (0 loads 1, but 0 is not displayed, we display 1 - 200)
   uint1  working_row       = 0; // parity of row in which we write
   uint1  row_busy_filtered = 0;
@@ -308,22 +301,17 @@ algorithm frame_buffer_row_updater(
     //       in any case the display cannot wait, so apart from error
     //       detection there is no need for a sync mechanism    
     count = 0;
-    while (count < ($320 >> 2$)) {
+    while (count < 320) {
 	
-      if (sd.busy == 0) {        // not busy?
-        // address to read from (count + row * 320 / 4)
-        // sd.addr       = {1b0,fbuffer,21b0} | (count + (((row << 8) + (row << 6)) >> 2)); 
-$$if not COL_MAJOR then
-        sd.addr       = {1b0,fbuffer_filtered,21b0} | (count) | (row << 8); 
-$$else
-        sd.addr       = {1b0,fbuffer_filtered,21b0} | (count << 8) | (row); 
-$$end
-        sd.in_valid   = 1;         // go ahead!      
-        while (sd.out_valid == 0) {  } // wait for value
+      if (sd.busy == 0) {           // not busy?
+        // address to read from (count + row * 320)
+        sd.addr      = {1b0,fbuffer_filtered,24b0} | (count) | (row << 9); 
+        sd.in_valid  = 1;           // go ahead!      
+        while (sd.out_valid == 0) { } // wait for value
         pixdata0_w   = sd.data_out; // data to write
-        pixaddr0     = count;    // address to write
+        pixaddr0     = count;       // address to write
         pixdata1_w   = sd.data_out; // data to write
-        pixaddr1     = count;    // address to write
+        pixaddr1     = count;       // address to write
         // next
         count        = count + 1;
       }

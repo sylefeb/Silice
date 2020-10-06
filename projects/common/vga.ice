@@ -55,10 +55,8 @@ algorithm vga(
 
   while (1) {
 
-    if (active) {
-      vga_x = xcount - HA_START;
-      vga_y = ycount - VA_START;
-    }
+      vga_x = xcount - HA_START; //(active) ? xcount - HA_START : 0;
+      vga_y = ycount - VA_START; //(vblank) ? 0 : ycount - VA_START;
 
     if (xcount == H_END-1) {
       xcount = 0;

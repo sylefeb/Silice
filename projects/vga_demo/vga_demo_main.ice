@@ -3,7 +3,12 @@
 // -------------------------
 
 // VGA driver
-$include('../../common/vga.ice')
+$include('../common/vga.ice')
+
+$$if CROSSLINKNX_EVN then
+// Clock
+import('../common/crosslink_nx_evn_clk_25.v')
+$$end
 
 $$if MOJO then
 // Clock
@@ -54,73 +59,15 @@ $$end
 // -------------------------
 
 algorithm main(
-$$if MOJO then
-  output! uint8 led,
-  output! uint1 spi_miso,
-  input   uint1 spi_ss,
-  input   uint1 spi_mosi,
-  input   uint1 spi_sck,
-  output! uint4 spi_channel,
-  input   uint1 avr_tx,
-  output! uint1 avr_rx,
-  input   uint1 avr_rx_busy,
-$$end
-$$if MOJO or VERILATOR or ULX3S or DE10NANO then
-  // SDRAM
-  output! uint1  sdram_cle,
-  output! uint1  sdram_dqm,
-  output! uint1  sdram_cs,
-  output! uint1  sdram_we,
-  output! uint1  sdram_cas,
-  output! uint1  sdram_ras,
-  output! uint2  sdram_ba,
-  output! uint13 sdram_a,
-$$if VERILATOR then
-  output! uint1  sdram_clock,
-  input   uint8  sdram_dq_i,
-  output! uint8  sdram_dq_o,
-  output! uint1  sdram_dq_en,
-$$else
-  output! uint1  sdram_clk,
-  inout   uint8  sdram_dq,
-$$end
-$$end
-$$if SIMULATION then
-  output! uint1 video_clock,
-$$end
-$$if ICESTICK or ICEBREAKER then
-  output! uint1 led0,
-  output! uint1 led1,
-  output! uint1 led2,
-  output! uint1 led3,
-  output! uint1 led4,
-$$if ICEBREAKER then
-  output! uint1 ctrl_clk,
-$$end
-$$end
-$$if DE10NANO then
-  output! uint8 led,
-  output! uint4 kpadC,
-  input   uint4 kpadR,
-  output! uint1 lcd_rs,
-  output! uint1 lcd_rw,
-  output! uint1 lcd_e,
-  output! uint8 lcd_d,
-  output! uint1 oled_din,
-  output! uint1 oled_clk,
-  output! uint1 oled_cs,
-  output! uint1 oled_dc,
-  output! uint1 oled_rst,  
-$$end
-$$if ULX3S then
-  output! uint8 led,
-  input   uint7 btn,
-$$end
+  output! uint$NUM_LEDS$    leds,
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
   output! uint$color_depth$ video_b,
-  output! uint1 video_hs,
-  output! uint1 video_vs
+  output! uint1             video_hs,
+  output! uint1             video_vs,
+$$if SIMULATION then
+  output! uint1             video_clock,
+$$end
 ) 
 $$if not ULX3S then
 <@video_clock,!video_reset> 
@@ -138,12 +85,22 @@ $$if MOJO then
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> video_clock
   );
-  // --- sdram reset
-  uint1 sdram_reset = 0;
-  reset_conditioner sdram_rstcond (
-    rcclk <: sdram_clock,
-    in  <: reset,
-    out :> sdram_reset
+$$elseif CROSSLINKNX_EVN then
+  // --- clock
+  uint1 pll_lock    = 0;
+  crosslink_nx_evn_clk_25 clk_gen (
+    clki_i  <: clock,
+    rst_i   <: reset,
+    clkop_o :> video_clock,
+    lock_o  :> pll_lock
+  );
+$$elseif ICESTICK then
+  // --- clock
+  uint1 pll_lock    = 0;
+  icestick_clk_25 clk_gen (
+    clock_in  <: clock,
+    clock_out :> video_clock,
+    lock      :> pll_lock
   );
 $$elseif ICEBREAKER then
   // --- clock
@@ -151,17 +108,10 @@ $$elseif ICEBREAKER then
     clock_in  <: clock,
     clock_out :> video_clock
   );
-$$elseif ICESTICK then
-  // --- clock
-  icestick_clk_25 clk_gen (
-    clock_in  <: clock,
-    clock_out :> video_clock,
-    lock      :> led4
-  );
 $$elseif DE10NANO then
   // --- clock
   uint1 sdram_clock = 0;
-  uint1 pll_lock = 0;
+  uint1 pll_lock    = 0;
   de10nano_clk_100_25 clk_gen(
     refclk   <: clock,
     rst      <: reset,
@@ -171,10 +121,10 @@ $$elseif DE10NANO then
   ); 
 $$end
   // --- video reset
-  reset_conditioner vga_rstcond (
+  reset_conditioner vga_rstcond(
     rcclk <: video_clock,
-    in  <: reset,
-    out :> video_reset
+    in    <: reset,
+    out   :> video_reset
   );
 $$else
   // --- simulation pll
@@ -211,20 +161,9 @@ $$end
 
   uint8 frame  = 0;
 
-$$if ICEBREAKER then
-  ctrl_clk = video_clock;
-$$end
-
-$$if MOJO then
-  // unused pins
-  spi_miso := 1bz;
-  avr_rx := 1bz;
-  spi_channel := 4bzzzz;
-$$end
-
 $$if SIMULATION then
   // we count a number of frames and stop
-  while (frame < 8) {
+  while (frame < 32) {
 $$else
   // forever
   while (1) {

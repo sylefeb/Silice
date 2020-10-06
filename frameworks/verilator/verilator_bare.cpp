@@ -15,7 +15,7 @@ the distribution, please refer to it for details.
 */
 // SL 2019-10-09
 
-#include "Vbare.h"
+#include "Vtop.h"
 #include <iostream>
 
 int main(int argc,char **argv)
@@ -23,7 +23,7 @@ int main(int argc,char **argv)
 
   Verilated::commandArgs(argc,argv);
 
-  Vbare    *bare_test = new Vbare();
+  Vtop    *bare_test = new Vtop();
 
   char foo[1<<17]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
 

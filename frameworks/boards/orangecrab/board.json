@@ -1,0 +1,45 @@
+{
+  "name": "orangecrab",
+  "variants": [
+    {
+      "name"      : "r2_0",
+      "framework" : "orangecrab.v",
+      "pins"      : [ 
+        {"set"    : "basic"}
+      ],
+      "builders": [
+        {
+          "builder" : "edalize",
+          "description": "Build using Edalize",
+          "tool": "trellis",
+          "tool_options": [
+            {
+                "nextpnr_options": ["--25k", "--freq 38.8", "--package CSFBGA285", "--timing-allow-fail"],
+                "pnr": "next"
+            }
+          ],
+          "constraints": [{"name": "pinout.lpf", "file_type": "LPF"}],
+          "program": [
+            {"cmd" : "cp", "args" : "build.bit build.dfu"},
+            {"cmd" : "dfu-suffix", "args" : "-v 1209 -p 5af0 -a build.dfu"},
+            {"cmd" : "dfu-util", "args" : "-D build.dfu"}
+          ]
+        },
+        {
+          "builder" : "shell",
+          "command" : "orangecrab.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        }
+      ]    
+    }
+  ],
+  "pins": {
+    "basic": [
+        {
+          "name": "led",
+          "type": "uint3",
+          "io": "output"
+        }
+    ]
+  }
+}

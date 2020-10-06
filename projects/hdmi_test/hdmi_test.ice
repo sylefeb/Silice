@@ -21,8 +21,13 @@ algorithm main(
   output uint13 sdram_a,
   output uint1  sdram_clk,
   inout  uint8  sdram_dq,
+  // sdcard
+  output  uint1 sd_clk,
+  output  uint1 sd_mosi,
+  output  uint1 sd_csn,
+  input   uint1 sd_miso,
   // led
-  output uint8  led,
+  output uint8  leds,
   // buttons
   input  uint7  btn,
   // video
@@ -51,7 +56,7 @@ algorithm main(
     blue    <: b
   );
   
-  led = 0;
+  leds = 0;
   while (1) { 
   
     if (active) {

@@ -6015,6 +6015,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   if (!requiresNoReset()) {
     out << ALG_RESET "," << endl;
   }
+  out << "out_" << ALG_CLOCK "," << endl;
   out << ALG_CLOCK << endl;
   out << ");" << endl;
   // declare ports
@@ -6040,7 +6041,16 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   if (!requiresNoReset()) {
     out << "input " ALG_RESET ";" << endl;
   }
+  out << "output out_" ALG_CLOCK << ";" << endl;
   out << "input " ALG_CLOCK << ";" << endl;
+
+  // assign algorithm clock to output clock
+  {
+    t_vio_dependencies _1, _2;
+    out << "assign out_" ALG_CLOCK << " = " 
+      << rewriteIdentifier("_", m_Clock, nullptr, -1, FF_Q, true, _1, _ff_usage) 
+      << ';' << std::endl;
+  }
 
   // module instantiations (1/2)
   // -> required wires to hold outputs

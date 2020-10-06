@@ -1,0 +1,77 @@
+{
+  "name": "fomu",
+  "variants": [
+    {
+      "name"      : "hacker",
+      "framework" : "fomu.v",
+      "pins"      : [ 
+        {"set"    : "basic"},
+        {"set"    : "usb",  "define" : "USB=1"},
+        {"set"    : "spi",  "define" : "SPI=1"},
+        {"set"    : "pads", "define" : "PADS=1"}
+      ],
+      "builders": [
+        {
+          "builder" : "shell",
+          "command" : "fomu.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        }
+      ]    
+    }
+  ],
+  "pins": {
+    "basic": [
+        {
+          "name": "leds",
+          "type": "uint3",
+          "io": "output"
+        }
+    ],
+    "usb": [
+      {
+        "name": "usb_dp",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "usb_dn",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "usb_dp_pu",
+        "type": "uint1",
+        "io": "output"
+      }
+    ],
+    "spi": [
+      {
+        "name": "spi_mosi",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "spi_miso",
+        "type": "uint1",
+        "io": "input"
+      },
+      {
+        "name": "spi_clk",
+        "type": "uint1",
+        "io": "output"
+      },      
+      {
+        "name": "spi_cs",
+        "type": "uint1",
+        "io": "output"
+      }
+    ],
+    "pads": [
+      {
+        "name": "user_pads",
+        "type": "uint4",
+        "io": "input"
+      }
+    ]
+  }
+}

@@ -5,17 +5,18 @@ $include('../common/sdramctrl.ice')
 
 $$if ICARUS then
 // SDRAM simulator
-append('../common/mt48lc32m8a2.v')
+append('../common/mt48lc16m16a2.v')
 import('../common/simul_sdram.v')
 $$end
 
 // ------------------------- 
 
 algorithm main(
+  output uint$NUM_LEDS$ leds,
 $$if not ICARUS then
   // SDRAM
   output! uint1  sdram_cle,
-  output! uint1  sdram_dqm,
+  output! uint2  sdram_dqm,
   output! uint1  sdram_cs,
   output! uint1  sdram_we,
   output! uint1  sdram_cas,
@@ -24,10 +25,10 @@ $$if not ICARUS then
   output! uint13 sdram_a,
 $$if VERILATOR then
   output! uint1  sdram_clock,
-  input   uint8  sdram_dq_i,
-  output! uint8  sdram_dq_o,
+  input   uint16 sdram_dq_i,
+  output! uint16 sdram_dq_o,
   output! uint1  sdram_dq_en,
-  // VGA (to be compiled with sdram_vga framework
+  // VGA (to be compiled with sdram_vga framework)
   output! uint1  video_clock,
   output! uint4  video_r,
   output! uint4  video_g,
@@ -41,19 +42,17 @@ $$end
 
 // --- SDRAM
 
-sdio   sio;
-
 $$if ICARUS then
 
 uint1  sdram_cle   = 0;
-uint1  sdram_dqm   = 0;
+uint2  sdram_dqm   = 0;
 uint1  sdram_cs    = 0;
 uint1  sdram_we    = 0;
 uint1  sdram_cas   = 0;
 uint1  sdram_ras   = 0;
 uint2  sdram_ba    = 0;
 uint13 sdram_a     = 0;
-uint8  sdram_dq    = 0;
+uint16 sdram_dq    = 0;
 
 simul_sdram simul(
   sdram_clk <:  clock,
@@ -70,10 +69,12 @@ simul_sdram simul(
 
 $$end
 
-sdramctrl memory(
-  clk       <:  clock,
-  rst       <:  reset,
-  sd        <:> sio,
+// SDRAM chip controller
+// interface
+sdchipio sdram_io;
+// algorithm
+sdramctrl_chip sdram(
+  sd        <:> sdram_io,
   sdram_cle :>  sdram_cle,
   sdram_dqm :>  sdram_dqm,
   sdram_cs  :>  sdram_cs,
@@ -91,8 +92,17 @@ $$else
 $$end
 );
 
-  uint16  count = 0;
-  uint32  read = 0;
+// SDRAM memory interface
+// interface
+sdio sio;
+// algorithm
+sdramctrl memory(
+  sdchip <:> sdram_io,
+  sd     <:> sio
+);
+
+  uint8  count = 0;
+  uint8   read = 0;
 
 $$if VERILATOR then
   // sdram clock for verilator simulation
@@ -102,24 +112,24 @@ $$end
   sio.in_valid := 0;
 
 $display("=== writing ===");
-  // write index in 1024 bytes
+  // write
   sio.rw = 1;
-  while (count < 64) {
+  while (count < 16) {
     // write to sdram
     while (1) {
       if (sio.busy == 0) {        // not busy?            
         sio.data_in    = count;            
-        sio.addr       = count >> 2; // word address
-        sio.wbyte_addr = count &  3;  // byte within word
+        sio.addr       = count;
         sio.in_valid   = 1; // go ahead!
         break;
       }
     } // write occurs during loop cycle      
     count = count + 1;
   }
+
 $display("=== readback ===");
   count = 0;
-  // read back words (4-bytes)
+  // read back
   sio.rw = 0;
   while (count < 16) {
     if (sio.busy == 0) {

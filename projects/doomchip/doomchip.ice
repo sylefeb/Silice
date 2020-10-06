@@ -59,10 +59,7 @@ $include('../common/mulint_any.ice')
 
 $$if DE10NANO then
 $$INTERACTIVE = 1
-// OLED=1
 $include('../common/keypad.ice')
-$include('lcd_status.ice')
-// include('oled_doomhead.ice')
 $$end
 
 $$if ULX3S then
@@ -228,21 +225,11 @@ algorithm doomchip(
 $$if DE10NANO then  
   output uint4  kpadC,
   input  uint4  kpadR,
-  output uint8  led,
-  output uint1  lcd_rs,
-  output uint1  lcd_rw,
-  output uint1  lcd_e,
-  output uint8  lcd_d,
-  output uint1  oled_din,
-  output uint1  oled_clk,
-  output uint1  oled_cs,
-  output uint1  oled_dc,
-  output uint1  oled_rst,
 $$end
 $$if ULX3S then
-  output uint8 led,
-  input  uint7 btn,
+  input  uint7  btns,
 $$end  
+  output uint8  leds,
 ) <autorun> {
 
   // BRAMs for BSP tree
@@ -570,8 +557,6 @@ $$end
 
 $$if DE10NANO then
   keypad        kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
-  lcd_status    status(<:auto:>, posx <: ray_x, posy <: ray_y, posz <: ray_z, posa <: viewangle );
-//  oled_doomhead doomhead(<:auto:>);
 $$end
   
   colio.done  := 0; // maintain low (pulses high when needed)
@@ -579,8 +564,8 @@ $$end
 
 $$if ULX3S then
   kpressed  := {1b0,1b0,1b0,btn_latch[2,1]/*fire2*/,btn_latch[6,1]/*right*/,btn_latch[5,1]/*left*/,btn_latch[4,1]/*dwn*/,btn_latch[3,1]/*up*/};
-  btn_latch := btn;
-  led       := 0;
+  btn_latch := btns;
+  leds      := 0;
 $$end
     
   // brams in read mode

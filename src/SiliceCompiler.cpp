@@ -201,14 +201,14 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
 
 // -------------------------------------------------
 
-void SiliceCompiler::prepareFramework(const char* fframework, std::string& _lpp, std::string& _verilog)
+void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog)
 {
   // gather 
   // - pre-processor header (all lines starting with $$)
   // - verilog code (all other lines)
   std::ifstream infile(fframework);
   if (!infile) {
-    throw Fatal("Cannot open framework file '%s'", fframework);
+    throw Fatal("Cannot open framework file '%s'", fframework.c_str());
   }
   std::string line;
   while (std::getline(infile, line)) {
@@ -223,11 +223,23 @@ void SiliceCompiler::prepareFramework(const char* fframework, std::string& _lpp,
 // -------------------------------------------------
 
 void SiliceCompiler::run(
-  const char* fsource,
-  const char* fresult,
-  const char* fframework,
+  std::string fsource,
+  std::string fresult,
+  std::string fframework,
+  std::string frameworks_dir,
   const std::vector<std::string>& defines)
 {
+  // determine frameworks dir if needed
+  if (frameworks_dir.empty()) {
+    frameworks_dir = std::string(LibSL::System::Application::executablePath()) + "../frameworks/";
+  }
+  /*
+  std::cerr << Console::white << std::setw(30) << "framework directory" << " = ";
+  std::cerr << Console::yellow << std::setw(30) << frameworks_dir << std::endl;
+  std::cerr << Console::white << std::setw(30) << "framework file" << " = ";
+  std::cerr << Console::yellow << std::setw(30) << fframework << std::endl;
+  std::cerr << Console::gray;
+  */
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
   prepareFramework(fframework, framework_lpp, framework_verilog);
@@ -239,14 +251,12 @@ void SiliceCompiler::run(
     header = d + "\n" + header;
   }
   // add framework path to config
-  CONFIG.keyValues()["framework_path"] = LibSL::StlHelpers::extractPath(fframework);
-  CONFIG.keyValues()["framework_name"] = LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework));
-  CONFIG.keyValues()["templates_path"] = LibSL::StlHelpers::extractPath(fframework) + "/templates";
-  CONFIG.keyValues()["libraries_path"] = LibSL::StlHelpers::extractPath(fframework) + "/libraries";
+  CONFIG.keyValues()["framework_file"] = fframework;
+  CONFIG.keyValues()["frameworks_dir"] = frameworks_dir;
+  CONFIG.keyValues()["templates_path"] = frameworks_dir + "/templates";
+  CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
   // preprocessor
   LuaPreProcessor lpp;
-  lpp.addDefinition("FRAMEWORK", 
-    LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework)));
   std::string preprocessed = std::string(fsource) + ".lpp";
   lpp.run(fsource, c_DefaultLibraries, header, preprocessed);
   // display config
@@ -292,6 +302,13 @@ void SiliceCompiler::run(
       // save the result
       {
         std::ofstream out(fresult);
+        // wrtie cmd line defines
+        for (auto d : defines) {
+          auto eq = d.find('=');
+          if (eq != std::string::npos) {
+            out << "`define " << d.substr(0,eq) << " " << d.substr(eq+1) << std::endl;
+          }
+        }
         // write framework (top) module
         out << framework_verilog;
         // write includes

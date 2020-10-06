@@ -6,7 +6,7 @@ out.v
 *.d
 *.class
 *.interp
-BUILD
+BUILD*
 antlr/*.tokens
 antlr/*Listener.*
 antlr/*Lexer.*
