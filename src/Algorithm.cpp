@@ -754,7 +754,22 @@ void Algorithm::readInitList(D* decl,T& var)
   } else if (values_str.empty()) {
     // auto init table to 0
   } else if (values_str.size() != var.table_size) {
-    reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "incorrect number of values in table initialization");
+    // pad?
+    if (values_str.size() < var.table_size) {
+      if (decl->STRING() != nullptr) {
+        // string: will pad with zeros
+      } else if (decl->initList() != nullptr) {
+        if (decl->initList()->pad() != nullptr) {
+          values_str.resize(var.table_size, gatherValue(decl->initList()->pad()->value()));
+        } else {
+          reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "too few values in table initialization, you may use '{...,pad(v)}' to fill the table remainder with v.");
+        }
+      } else {
+        reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "too few values in table initialization");
+      }
+    } else {
+      reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "too many values in table initialization");
+    }
   }
   var.init_values.resize(var.table_size, "0");
   ForIndex(i, values_str.size()) {

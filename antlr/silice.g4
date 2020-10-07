@@ -75,6 +75,8 @@ BITFIELD            : 'bitfield' ;
 
 UNINITIALIZED       : 'uninitialized' | 'uninitialised' ;
 
+PAD                 : 'pad' ;
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -129,7 +131,9 @@ sstacksz            :  'stack:' NUMBER ;
 algModifier         : sclock | sreset | sautorun | sonehot | sstacksz ;
 algModifiers        : '<' algModifier (',' algModifier)* '>' ;
 
-initList            : '{' value (',' value)* ','? '}' | '{' '}' ;
+pad                 : PAD '(' value ')' ;
+
+initList            : '{' value (',' value)* ','? pad? '}' | '{' '}' ;
 
 memNoInputLatch     : 'input' '!' ;
 memDelayed          : 'delayed' ;
