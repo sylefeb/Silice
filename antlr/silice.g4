@@ -131,9 +131,9 @@ sstacksz            :  'stack:' NUMBER ;
 algModifier         : sclock | sreset | sautorun | sonehot | sstacksz ;
 algModifiers        : '<' algModifier (',' algModifier)* '>' ;
 
-pad                 : PAD '(' value ')' ;
+pad                 : PAD '(' (value | UNINITIALIZED) ')' ;
 
-initList            : '{' value (',' value)* ','? pad? '}' | '{' '}' ;
+initList            : '{' value (',' value)* (',' pad)? ','? '}' | '{' pad '}'  | '{' '}' ;
 
 memNoInputLatch     : 'input' '!' ;
 memDelayed          : 'delayed' ;

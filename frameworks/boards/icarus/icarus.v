@@ -26,6 +26,11 @@ wire [5:0] __main_video_g;
 wire [5:0] __main_video_b;
 `endif
 
+`ifdef UART
+wire __main_uart_tx;
+wire __main_uart_rx = 0;
+`endif
+
 initial begin
   clk = 1'b0;
   rst_n = 1'b0;
@@ -73,6 +78,10 @@ M_main __main(
   .out_video_b(__main_video_b),
   .out_video_hs(__main_video_hs),
   .out_video_vs(__main_video_vs),  
+`endif  
+`ifdef UART
+  .out_uart_tx(__main_uart_tx),
+  .in_uart_rx(__main_uart_rx),
 `endif  
   .in_run(run_main),
   .out_done(done_main)

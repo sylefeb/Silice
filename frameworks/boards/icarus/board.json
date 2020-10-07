@@ -6,7 +6,8 @@
       "framework" : "icarus.v",
       "pins"      : [ 
         {"set"    : "basic"},
-        {"set"    : "vga", "define" : "VGA=1"} 
+        {"set"    : "vga", "define"  : "VGA=1"},
+        {"set"    : "uart", "define" : "UART=1"}
       ],
       "builders": [
         {
@@ -24,6 +25,18 @@
           "type": "uint8",
           "io": "output"
         }
+    ],
+    "uart": [
+      {
+        "name": "uart_tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "uart_rx",
+        "type": "uint1",
+        "io"  : "input"
+      }
     ],
     "vga": [
       {

@@ -749,31 +749,47 @@ void Algorithm::readInitList(D* decl,T& var)
       reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "table has no initializer, use '= uninitialized' if you really don't want to initialize it.");
     }    
   }
-  if (var.table_size == 0) { // autosize
-    var.table_size = (int)values_str.size();
-  } else if (values_str.empty()) {
-    // auto init table to 0
-  } else if (values_str.size() != var.table_size) {
-    // pad?
-    if (values_str.size() < var.table_size) {
-      if (decl->STRING() != nullptr) {
-        // string: will pad with zeros
-      } else if (decl->initList() != nullptr) {
-        if (decl->initList()->pad() != nullptr) {
-          values_str.resize(var.table_size, gatherValue(decl->initList()->pad()->value()));
+  var.init_values.clear();
+  if (!var.do_not_initialize) {
+    if (var.table_size == 0) {
+      // autosize
+      var.table_size = (int)values_str.size();
+    } else if (values_str.size() != var.table_size) {
+      // pad?
+      if (values_str.size() < var.table_size) {
+        if (decl->STRING() != nullptr) {
+          // string: will pad with zeros
+        } else if (decl->initList() != nullptr) {
+          if (decl->initList()->pad() != nullptr) {
+            if (decl->initList()->pad()->value() != nullptr) {
+              // pad with value
+              values_str.resize(var.table_size, gatherValue(decl->initList()->pad()->value()));
+            } else {
+              // leave the rest uninitialized
+              sl_assert(decl->initList()->pad()->UNINITIALIZED() != nullptr);
+            }
+          } else {
+            // not allowed
+            if (values_str.empty()) {
+              reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "table initializer is empty, use e.g. ' = {pad(0)}' to fill with zeros, or '= uninitialized' to skip initialization");
+            } else {
+              reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "too few values in table initialization, you may use '{...,pad(v)}' to fill the table remainder with v.");
+            }
+          }
         } else {
-          reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "too few values in table initialization, you may use '{...,pad(v)}' to fill the table remainder with v.");
+          // not allowed (case should not happen)
+          reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "too few values in table initialization");
         }
       } else {
-        reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "too few values in table initialization");
+        // not allowed
+        reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "too many values in table initialization");
       }
-    } else {
-      reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "too many values in table initialization");
     }
-  }
-  var.init_values.resize(var.table_size, "0");
-  ForIndex(i, values_str.size()) {
-    var.init_values[i] = values_str[i];
+    // store
+    var.init_values.resize(values_str.size(), "0");
+    ForIndex(i, values_str.size()) {
+      var.init_values[i] = values_str[i];
+    }
   }
 }
 
@@ -811,7 +827,6 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* de
     if (var.table_size <= 0) {
       reportError(decl->NUMBER()->getSymbol(), (int)decl->getStart()->getLine(), "table has zero or negative size");
     }
-    var.init_values.resize(var.table_size, "0");
   } else {
     var.table_size = 0; // autosize from init
   }
@@ -904,7 +919,6 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     if (mem.table_size <= 0) {
       reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "memory has zero or negative size");
     }
-    mem.init_values.resize(mem.table_size, "0");
   } else {
     mem.table_size = 0; // autosize from init
   }
@@ -4743,7 +4757,7 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, co
   if (v.table_size == 0) {
     out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << endl;
   } else {
-    ForIndex(i, v.init_values.size()) {
+    ForIndex(i, v.table_size) {
       out << FF_Q << prefix << v.name << "[" << i << "] <= " << FF_D << prefix << v.name << "[" << i << "];" << endl;
     }
   }
@@ -4822,10 +4836,11 @@ void Algorithm::writeConstDeclarations(std::string prefix, std::ostream& out) co
     }
     if (!v.do_not_initialize) {
       if (v.table_size == 0) {
+        sl_assert(!v.init_values.empty());
         out << "assign " << FF_CST << prefix << v.name << " = " << v.init_values[0] << ';' << nxl;
       } else {
         int width = v.type_nfo.width;
-        ForIndex(i, v.table_size) {
+        ForIndex(i, v.init_values.size()) {
           out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = " << v.init_values[i] << ';' << nxl;
         }
       }
@@ -5731,9 +5746,10 @@ void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::
     if (v.do_not_initialize)     continue;
     string ff = (v.usage == e_FlipFlop) ? FF_D : FF_TMP;
     if (v.table_size == 0) {
+      sl_assert(!v.init_values.empty());
       out << ff << prefix << v.name << " = " << v.init_values[0] << ';' << nxl;
     } else {
-      ForIndex(i, v.table_size) {
+      ForIndex(i, v.init_values.size()) {
         out << ff << prefix << v.name << "[" << i << ']' << " = " << v.init_values[i] << ';' << nxl;
       }
     }

@@ -447,7 +447,7 @@ $$end
   // texture chip
   texturechip textures;
   
-  uint16   queue[64] = {};
+  uint16   queue[64] = uninitialized;
   uint9    queue_ptr = 0;
 
   int$FPw$ cosview_m  = 0;

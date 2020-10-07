@@ -178,6 +178,18 @@
         "io": "output"
       }
     ],
+    "uart": [
+      {
+        "name": "uart_tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "uart_rx",
+        "type": "uint1",
+        "io"  : "input"
+      }
+    ],
     "vga": [
       {
         "name": "vga_hs",

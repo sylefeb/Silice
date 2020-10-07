@@ -336,8 +336,8 @@ sdram_switcher sd_switcher(
 // --- Frame buffer row memory
 // dual clock crosses from sdram to vga
 
-  dualport_bram uint8 fbr0<@video_clock,@sdram_clock>[320] = {};
-  dualport_bram uint8 fbr1<@video_clock,@sdram_clock>[320] = {};
+  dualport_bram uint8 fbr0<@video_clock,@sdram_clock>[320] = uninitialized;
+  dualport_bram uint8 fbr1<@video_clock,@sdram_clock>[320] = uninitialized;
   
 // --- Display
   uint1 row_busy = 0;

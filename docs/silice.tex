@@ -143,7 +143,8 @@ value \texttt{uninitialized}. The later indicates that the initialization can be
 
 \noindent Example:  \texttt{int6 tbl[4] = \{0,0,0,0\};}
 
-\noindent Table sizes have to be constant at compile time. The initializer is mandatory and can be a string, in which case each letter becomes its ASCII value, and the string is null terminated. 
+Table sizes have to be constant at compile time. The initializer is mandatory and can be a string, in which case each letter becomes its ASCII value, and the string is null terminated. 
+
 The table size \texttt{M} is optional (eg. \texttt{int4 tbl[]=\{1,2,3\};} ) in which case the size is automatically derived from the initializer (strings have one additional implicit character: the null terminator).
 
 If the table size is specified and the initializer is a shorter string, the table is automatically padded with zeros. A longer string results in an error. 
@@ -151,6 +152,14 @@ If the table size is specified and the initializer is a shorter string, the tabl
 If the table size is specified and the initializer -- not a string -- has a different number of elements, an error occurs. However, if a smaller number of elements is given the last element can be \texttt{pad(value)} in which case the remainder of the table is filled with \texttt{value}.
 
 \noindent Example:  \texttt{int6 tbl[256] = \{0,0,0,0,pad(255)\};}
+
+\noindent Example:  \texttt{int6 tbl[256] = \{pad(0)\};}
+
+The keyword \texttt{uninitialized} may be used to explicitly skip table initialization, in which case the initial table state is unknown: \texttt{int6 tbl[4] = uninitialized;}. 
+
+Similarly, the padding can be uninitialized: 
+\texttt{int6 tbl[256] = \{0,0,0,0,pad(uninitialized)\};}.
+In this case, only the first part of the table will be initialized, the state of the other values will be unknown.
 
 \subsection{Block RAMs / ROMs}
 

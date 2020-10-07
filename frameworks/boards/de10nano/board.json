@@ -47,12 +47,12 @@
     ],
     "uart": [
       {
-        "name": "tx",
+        "name": "uart_tx",
         "type": "uint1",
         "io"  : "output"
       },
       {
-        "name": "rx",
+        "name": "uart_rx",
         "type": "uint1",
         "io"  : "input"
       }

@@ -220,9 +220,9 @@ $$end
   // NOTE, TODO: cannot yet declare the bram with the bitfield
   // bram DrawColumn columns[320] = {};
 $$if HAS_COMPUTE_CLOCK then 
-  dualport_bram uint18 columns<@clock,@sdram_clock>[320] = {};
+  dualport_bram uint18 columns<@clock,@sdram_clock>[320] = uninitialized;
 $$else
-  dualport_bram uint18 columns[320] = {};
+  dualport_bram uint18 columns[320] = uninitialized;
 $$end
 
   // ray-cast columns counter  
