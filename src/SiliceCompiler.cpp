@@ -87,7 +87,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
 
     /// algorithm
     std::string name = alg->IDENTIFIER()->getText();
-    std::cerr << "parsing algorithm " << name << std::endl;
+    std::cerr << "parsing algorithm " << name << nxl;
     bool autorun = (name == "main");
     bool onehot = false;
     std::string clock = ALG_CLOCK;
@@ -171,7 +171,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     if (m_Modules.find(fname) != m_Modules.end()) {
       throw Fatal("verilog module already imported! (line %d)", (int)imprt->getStart()->getLine());
     }
-    std::cerr << "parsing module " << vmodule->name() << std::endl;
+    std::cerr << "parsing module " << vmodule->name() << nxl;
     m_Modules.insert(std::make_pair(vmodule->name(), vmodule));
     m_ModulesInDeclOrder.push_back(vmodule->name());
 
@@ -235,9 +235,9 @@ void SiliceCompiler::run(
   }
   /*
   std::cerr << Console::white << std::setw(30) << "framework directory" << " = ";
-  std::cerr << Console::yellow << std::setw(30) << frameworks_dir << std::endl;
+  std::cerr << Console::yellow << std::setw(30) << frameworks_dir << nxl;
   std::cerr << Console::white << std::setw(30) << "framework file" << " = ";
-  std::cerr << Console::yellow << std::setw(30) << fframework << std::endl;
+  std::cerr << Console::yellow << std::setw(30) << fframework << nxl;
   std::cerr << Console::gray;
   */
   // extract pre-processor header from framework
@@ -306,14 +306,14 @@ void SiliceCompiler::run(
         for (auto d : defines) {
           auto eq = d.find('=');
           if (eq != std::string::npos) {
-            out << "`define " << d.substr(0,eq) << " " << d.substr(eq+1) << std::endl;
+            out << "`define " << d.substr(0,eq) << " " << d.substr(eq+1) << nxl;
           }
         }
         // write framework (top) module
         out << framework_verilog;
         // write includes
         for (auto fname : m_AppendsInDeclOrder) {
-          out << Module::fileToString(fname.c_str()) << std::endl;
+          out << Module::fileToString(fname.c_str()) << nxl;
         }
         // write imported modules
         for (auto miordr : m_ModulesInDeclOrder) {
@@ -364,19 +364,19 @@ static int numLinesIn(std::string l)
 
 void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where, std::string msg) const
 {
-  std::cerr << Console::bold << Console::white << "----------<<<<< error >>>>>----------" << std::endl << std::endl;
+  std::cerr << Console::bold << Console::white << "----------<<<<< error >>>>>----------" << nxl << nxl;
   if (where.second > -1) {
     std::cerr 
-      << "=> file: " << where.first << std::endl
-      << "=> line: " << where.second << std::endl
-      << Console::normal << std::endl;
+      << "=> file: " << where.first << nxl
+      << "=> line: " << where.second << nxl
+      << Console::normal << nxl;
   }
   std::vector<std::string> items;
   split(msg, '#', items);
   if (items.size() == 5) {
-    std::cerr << std::endl;
+    std::cerr << nxl;
     std::cerr << Console::white << Console::bold;
-    std::cerr << items[1] << std::endl;
+    std::cerr << items[1] << nxl;
     int nl = numLinesIn(items[1]);
     if (nl == 0) {
       ForIndex(i, std::stoi(items[3])) {
@@ -387,19 +387,19 @@ void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where,
         std::cerr << '^';
       }
     } else {
-      std::cerr << std::endl;
+      std::cerr << nxl;
       std::cerr << Console::yellow << Console::bold;
       std::cerr << "--->";
     }
     std::cerr << Console::red;
-    std::cerr << " " << items[0] << std::endl;
+    std::cerr << " " << items[0] << nxl;
     std::cerr << Console::gray;
-    std::cerr << std::endl;
+    std::cerr << nxl;
   } else {
     std::cerr << Console::red << Console::bold;
-    std::cerr << msg << std::endl;
+    std::cerr << msg << nxl;
     std::cerr << Console::normal;
-    std::cerr << std::endl;
+    std::cerr << nxl;
   }
 }
 

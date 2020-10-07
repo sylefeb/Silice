@@ -159,7 +159,7 @@ static void lua_preproc_error(lua_State *L, std::string str)
 
 static void lua_print(lua_State *L, std::string str)
 {
-  cerr << "[preprocessor] " << Console::white << str << Console::gray << endl;
+  cerr << "[preprocessor] " << Console::white << str << Console::gray << "\n";
 }
 
 // -------------------------------------------------
@@ -579,7 +579,7 @@ std::string LuaPreProcessor::processCode(
   std::string src_file,
   std::unordered_set<std::string> alreadyIncluded)
 {
-  cerr << "preprocessing " << src_file << '.' << endl;
+  cerr << "preprocessing " << src_file << '.' << "\n";
   if (!LibSL::System::File::exists(src_file.c_str())) {
     throw Fatal("cannot find source file '%s'", src_file.c_str());
   }
@@ -751,9 +751,9 @@ void LuaPreProcessor::run(
     cerr << "[preprocessor] ";
     cerr << Console::yellow;
     if (errline > -1) {
-      cerr << errline << "] " << errmsg << endl;
+      cerr << errline << "] " << errmsg << "\n";
     } else {
-      cerr << errmsg << endl;
+      cerr << errmsg << "\n";
     }
     cerr << Console::gray;
     throw Fatal("the preprocessor was interrupted");

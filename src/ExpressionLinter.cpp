@@ -177,7 +177,7 @@ void ExpressionLinter::warn(antlr4::misc::Interval interval, int line, const cha
     std::cerr << "(" << line << ") ";
   }
   std::cerr << message;
-  std::cerr << std::endl;
+  std::cerr << "\n";
 }
 
 // -------------------------------------------------

@@ -1796,14 +1796,14 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       trickling_vios.insert(r.first);
     }
     for (auto s : r.second) {
-      std::cerr << "vio " << r.first << " read at stage " << s << std::endl;
+      std::cerr << "vio " << r.first << " read at stage " << s << nxl;
     }
   }
   // report on written variables
   for (auto w : written_at) {
     for (auto s : w.second) {
       std::cerr << "vio " << w.first << " written at stage " << s;
-      std::cerr << std::endl;
+      std::cerr << nxl;
     }
   }
   // create trickling variables
@@ -1823,7 +1823,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // register in pipeline info
     nfo->trickling_vios.insert(std::make_pair(tv, v2i(last_write,last_read)));
     // report
-    std::cerr << tv << " trickling from " << last_write << " to " << last_read << std::endl;
+    std::cerr << tv << " trickling from " << last_write << " to " << last_read << nxl;
     // info from source var
     auto tws = determineVIOTypeWidthAndTableSize(&_current->context, tv, (int)pip->getStart()->getLine());
     // generate one flip-flop per stage
@@ -2658,7 +2658,7 @@ void Algorithm::generateStates()
         }
         if (num_sub_states > 1) {
           cur->num_sub_states = num_sub_states;
-          std::cerr << "block " << cur->block_name << " has " << num_sub_states << " sub states" << std::endl;
+          std::cerr << "block " << cur->block_name << " has " << num_sub_states << " sub states" << nxl;
         }
       }
     }
@@ -2688,7 +2688,7 @@ void Algorithm::generateStates()
   if (doesNotCallSubroutines()) {
     std::cerr << " (no subs)";
   }
-  std::cerr << std::endl;
+  std::cerr << nxl;
 }
 
 // -------------------------------------------------
@@ -2880,15 +2880,15 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
 
   /// DEBUG
   if (0) {
-    std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << std::endl;
+    std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << nxl;
     for (auto w : _depds.dependencies) {
       std::cerr << "var " << w.first << " depds on ";
       for (auto r : w.second) {
         std::cerr << r << ' ';
       }
-      std::cerr << std::endl;
+      std::cerr << nxl;
     }
-    std::cerr << std::endl;
+    std::cerr << nxl;
   }
   
   // check if everything is legit
@@ -3700,11 +3700,11 @@ void Algorithm::determineVariableAndOutputsUsage()
   determineVariablesAndOutputsAccess(global_in_read, global_out_written);
   // set and report
   const bool report = false;
-  if (report) std::cerr << "---< " << m_Name << "::variables >---" << std::endl;
+  if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
       switch (v.usage) {
-      case e_Wire: if (report) std::cerr << v.name << " => wire (by def)" << std::endl; break;
+      case e_Wire: if (report) std::cerr << v.name << " => wire (by def)" << nxl; break;
       default: throw Fatal("interal error");
       }
       continue; // usage is fixed by definition
@@ -3746,9 +3746,9 @@ void Algorithm::determineVariableAndOutputsUsage()
     } else {
       throw Fatal("interal error -- variable '%s' has an unknown usage pattern", v.name.c_str());
     }
-    if (report) std::cerr << std::endl;
+    if (report) std::cerr << nxl;
   }
-  if (report) std::cerr << "---< " << m_Name << "::outputs >---" << std::endl;
+  if (report) std::cerr << "---< " << m_Name << "::outputs >---" << nxl;
   for (auto &o : m_Outputs) {
     if (o.access == (e_WriteBinded | e_ReadOnly)) {
       if (report) std::cerr << o.name << " => bound (wire)";
@@ -3760,7 +3760,7 @@ void Algorithm::determineVariableAndOutputsUsage()
       if (report) std::cerr << o.name << " => flip-flop";
       o.usage = e_FlipFlop;
     }
-    if (report) std::cerr << std::endl;
+    if (report) std::cerr << nxl;
   }
 
 #if 0
@@ -3769,20 +3769,20 @@ void Algorithm::determineVariableAndOutputsUsage()
     cerr << v.name << " access: ";
     if (v.access & e_ReadOnly) cerr << 'R';
     if (v.access & e_WriteOnly) cerr << 'W';
-    std::cerr << std::endl;
+    std::cerr << nxl;
   }
   for (const auto& b : all_blocks) {
-    std::cerr << "== block " << b->block_name << "==" << std::endl;
+    std::cerr << "== block " << b->block_name << "==" << nxl;
     std::cerr << "   read from before: ";
     for (auto i : b->in_vars_read) {
       std::cerr << i << ' ';
     }
-    std::cerr << std::endl;
+    std::cerr << nxl;
     std::cerr << "   changed within: ";
     for (auto i : b->out_vars_written) {
       std::cerr << i << ' ';
     }
-    std::cerr << std::endl;
+    std::cerr << nxl;
   }
   /////////////////
 #endif
@@ -4337,11 +4337,11 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
       }
       out << FF_D << a.instance_prefix << "_" << ins.name
         << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage) 
-        << ";" << std::endl;
+        << ";" << nxl;
     }
   }
   // restart algorithm (pulse run low)
-  out << a.instance_prefix << "_" << ALG_RUN << " = 0;" << std::endl;
+  out << a.instance_prefix << "_" << ALG_RUN << " = 0;" << nxl;
   /// WARNING: this does not work across clock domains!
 }
 
@@ -4383,7 +4383,7 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
         t_vio_dependencies _;
         out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
       }
-      out << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << std::endl;
+      out << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << nxl;
       ++p;
     }
   }
@@ -4416,7 +4416,7 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
     }
     out << FF_D << prefix << called->vios.at(ins)
       << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage)
-      << ';' << std::endl;
+      << ';' << nxl;
   }
 }
 
@@ -4444,7 +4444,7 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
       t_vio_dependencies _;
       out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
     }
-    out << " = " << FF_D << prefix << called->vios.at(outs) << ';' << std::endl;
+    out << " = " << FF_D << prefix << called->vios.at(outs) << ';' << nxl;
     ++p;
   }
 }
@@ -4644,7 +4644,7 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
     out << rewriteIdentifier(prefix, identifier->getText(), bctx, identifier->getSymbol()->getLine(), FF_D, false, dependencies, _ff_usage);
   }
   out << " = " + rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage);
-  out << ';' << std::endl;
+  out << ';' << nxl;
 
 } 
 
@@ -4800,18 +4800,18 @@ void Algorithm::writeConstDeclarations(std::string prefix, std::ostream& out) co
     if (v.usage != e_Const) continue;
     if (v.table_size == 0) {
       writeVerilogDeclaration(out, "wire", v, string(FF_CST) + prefix + v.name);
-      // out << "wire " << typeString(v) << " " << varBitRange(v) << " " << FF_CST << prefix << v.name << ';' << std::endl;
+      // out << "wire " << typeString(v) << " " << varBitRange(v) << " " << FF_CST << prefix << v.name << ';' << nxl;
     } else {
       writeVerilogDeclaration(out, "wire", v, string(FF_CST) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
-      // out << "wire " << typeString(v) << " " << varBitRange(v) << " " << FF_CST << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << std::endl;
+      // out << "wire " << typeString(v) << " " << varBitRange(v) << " " << FF_CST << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << nxl;
     }
     if (!v.do_not_initialize) {
       if (v.table_size == 0) {
-        out << "assign " << FF_CST << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
+        out << "assign " << FF_CST << prefix << v.name << " = " << v.init_values[0] << ';' << nxl;
       } else {
         int width = v.type_nfo.width;
         ForIndex(i, v.table_size) {
-          out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = " << v.init_values[i] << ';' << std::endl;
+          out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = " << v.init_values[i] << ';' << nxl;
         }
       }
     }
@@ -4826,15 +4826,15 @@ void Algorithm::writeTempDeclarations(std::string prefix, std::ostream& out) con
     if (v.usage != e_Temporary) continue;
     if (v.table_size == 0) {
       writeVerilogDeclaration(out, "reg", v, string(FF_TMP) + prefix + v.name);
-      // out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << ';' << std::endl;
+      // out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << ';' << nxl;
     } else {
       writeVerilogDeclaration(out, "reg", v, string(FF_TMP) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
-      // out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << '[' << v.table_size-1 << ":0]" << ';' << std::endl;
+      // out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << '[' << v.table_size-1 << ":0]" << ';' << nxl;
     }
   }
   for (const auto &v : m_Outputs) {
     if (v.usage != e_Temporary) continue;
-    out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << ';' << std::endl;
+    out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << ';' << nxl;
   }
 }
 
@@ -4848,10 +4848,10 @@ void Algorithm::writeWireDeclarations(std::string prefix, std::ostream& out) con
       if (v.access == e_NotAccessed) { continue; }
       if (v.table_size == 0) {
         writeVerilogDeclaration(out, "wire", v, string(WIRE) + prefix + v.name);
-        //out << "wire " << typeString(v) << " " << varBitRange(v) << " " << WIRE << prefix << v.name << ';' << std::endl;
+        //out << "wire " << typeString(v) << " " << varBitRange(v) << " " << WIRE << prefix << v.name << ';' << nxl;
       } else {
         writeVerilogDeclaration(out, "wire", v, string(WIRE) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
-        //out << "wire " << typeString(v) << " " << varBitRange(v) << " " << WIRE << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << std::endl;
+        //out << "wire " << typeString(v) << " " << varBitRange(v) << " " << WIRE << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << nxl;
       }
     }
   }
@@ -4861,30 +4861,30 @@ void Algorithm::writeWireDeclarations(std::string prefix, std::ostream& out) con
 
 void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out) const
 {
-  out << std::endl;
+  out << nxl;
   // flip-flops for vars
   for (const auto& v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
     if (v.table_size == 0) {
       writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name);
       //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
-      //out << FF_D << prefix << v.name << ';' << std::endl;
+      //out << FF_D << prefix << v.name << ';' << nxl;
       writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name);
       //if (!v.attribs.empty()) {
-      //  out << v.attribs << std::endl;
+      //  out << v.attribs << nxl;
       //}
       //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
-      //out << FF_Q << prefix << v.name << ';' << std::endl;
+      //out << FF_Q << prefix << v.name << ';' << nxl;
     } else {
       writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
       //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
-      //out << FF_D << prefix << v.name << '[' << v.table_size-1 << ";" << std::endl;
+      //out << FF_D << prefix << v.name << '[' << v.table_size-1 << ";" << nxl;
       writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
       //if (!v.attribs.empty()) {
-      //  out << v.attribs << std::endl;
+      //  out << v.attribs << nxl;
       //}
       //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
-      //out << FF_Q << prefix << v.name << '[' << v.table_size - 1 << ";" << std::endl;
+      //out << FF_Q << prefix << v.name << '[' << v.table_size - 1 << ";" << nxl;
     }
   }
   // flip-flops for outputs
@@ -4892,7 +4892,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
     if (v.usage != e_FlipFlop) continue;
     writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + ',' + string(FF_Q) + prefix + v.name);
     //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
-    //out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << std::endl;
+    //out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << nxl;
   }
   // flip-flops for algorithm inputs that are not bound
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
@@ -4901,31 +4901,31 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
       if (ia.boundinputs.count(is.name) == 0) {
         writeVerilogDeclaration(out, "reg", is, string(FF_D) + ia.instance_prefix + '_' + is.name + ',' + string(FF_Q) + ia.instance_prefix + '_' + is.name);
         //out << "reg " << typeString(is) << " " << varBitRange(is) << " ";
-        //out << FF_D << ia.instance_prefix << '_' << is.name << ',' << FF_Q << ia.instance_prefix << '_' << is.name << ';' << std::endl;
+        //out << FF_D << ia.instance_prefix << '_' << is.name << ',' << FF_Q << ia.instance_prefix << '_' << is.name << ';' << nxl;
       }
     }
   }
   // state machine index
   if (!hasNoFSM()) {
     if (!m_OneHot) {
-      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
+      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << nxl;
     } else {
-      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << std::endl;
+      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << nxl;
     }
     // sub-state indices (one-hot)
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
-        out << "reg  [" << stateWidth(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "," FF_Q << prefix << b->block_name << '_' << ALG_IDX << ';' << std::endl;
+        out << "reg  [" << stateWidth(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "," FF_Q << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
       }
     }
   }
   // state machine caller id (subroutine)
   if (!doesNotCallSubroutines()) {
-    out << "reg  [" << (stateWidth() - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ";" << std::endl;
+    out << "reg  [" << (stateWidth() - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ";" << nxl;
     // per-subroutine caller id backup (subroutine making nested calls)
     for (auto sub : m_Subroutines) {
       if (sub.second->contains_calls) {
-        out << "reg  [" << (stateWidth() - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ";" << std::endl;
+        out << "reg  [" << (stateWidth() - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ";" << nxl;
       }
     }
   }
@@ -4934,7 +4934,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
     // check for call on purely combinational
     if (!ia.algo->hasNoFSM()) {
-      out << "reg  " << ia.instance_prefix + "_" ALG_RUN << ';' << std::endl;
+      out << "reg  " << ia.instance_prefix + "_" ALG_RUN << ';' << nxl;
     }
   }
 }
@@ -4944,7 +4944,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
 void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
 {
   // output flip-flop init and update on clock
-  out << std::endl;
+  out << nxl;
   std::string clock = m_Clock;
   if (m_Clock != ALG_CLOCK) {
     // in this case, clock has to be bound to a module/algorithm output
@@ -4956,7 +4956,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
     clock = C->second;
   }
 
-  out << "always @(posedge " << clock << ") begin" << std::endl;
+  out << "always @(posedge " << clock << ") begin" << nxl;
 
   /// init on hardware reset
   if (!requiresNoReset()) {
@@ -4974,7 +4974,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
     if (!hasNoFSM()) {
       out << " || !in_run";
     }
-    out << ") begin" << std::endl;
+    out << ") begin" << nxl;
     for (const auto &v : m_Vars) {
       if (v.usage != e_FlipFlop) continue;
       writeVarFlipFlopInit(prefix, out, v);
@@ -4982,27 +4982,27 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
     // state machine 
     if (!hasNoFSM()) {
       // -> on reset
-      out << "  if (" << reset << ") begin" << std::endl;
+      out << "  if (" << reset << ") begin" << nxl;
       if (!m_AutoRun) {
         // no autorun: jump to halt state
-        out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(terminationState()) << ";" << std::endl;
+        out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(terminationState()) << ";" << nxl;
       } else {
         // autorun: jump to first state
-        out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << std::endl;
+        out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << nxl;
       }
       // sub-states indices
       for (auto b : m_Blocks) {
         if (b->num_sub_states > 1) {
-          out << FF_Q << prefix << b->block_name << '_' << ALG_IDX   " <= 0;" << std::endl;
+          out << FF_Q << prefix << b->block_name << '_' << ALG_IDX   " <= 0;" << nxl;
         }
       }
-      out << "end else begin" << std::endl;
+      out << "end else begin" << nxl;
       // -> on restart, jump to first state
-      out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << std::endl;
-      out << "end" << std::endl;
+      out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << nxl;
+      out << "end" << nxl;
     }
     /// updates on clockpos
-    out << "  end else begin" << std::endl;
+    out << "  end else begin" << nxl;
   }
   for (const auto& v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
@@ -5010,25 +5010,25 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
   }
   if (!hasNoFSM()) {
     // state machine index
-    out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << std::endl;
+    out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << nxl;
     // sub-states indices
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
-        out << FF_Q << prefix << b->block_name << '_' << ALG_IDX " <= " FF_D << prefix << b->block_name << '_' << ALG_IDX << ';' << std::endl;
+        out << FF_Q << prefix << b->block_name << '_' << ALG_IDX " <= " FF_D << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
       }
     }
     // caller ids for subroutines
     if (!doesNotCallSubroutines()) {
-      out << FF_Q << prefix << ALG_CALLER " <= " FF_D << prefix << ALG_CALLER ";" << std::endl;
+      out << FF_Q << prefix << ALG_CALLER " <= " FF_D << prefix << ALG_CALLER ";" << nxl;
       for (auto sub : m_Subroutines) {
         if (sub.second->contains_calls) {
-          out << FF_Q << prefix << sub.second->name << "_" << ALG_CALLER " <= " FF_D << prefix << sub.second->name << "_" << ALG_CALLER ";" << std::endl;
+          out << FF_Q << prefix << sub.second->name << "_" << ALG_CALLER " <= " FF_D << prefix << sub.second->name << "_" << ALG_CALLER ";" << nxl;
         }
       }
     }
   }
   if (!requiresNoReset()) {
-    out << "  end" << std::endl;
+    out << "  end" << nxl;
   }
   // update output flip-flops
   for (const auto &v : m_Outputs) {
@@ -5044,7 +5044,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
       }
     }
   }
-  out << "end" << std::endl;
+  out << "end" << nxl;
 }
 
 // -------------------------------------------------
@@ -5052,10 +5052,10 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
 void Algorithm::writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const
 {
   if (v.table_size == 0) {
-    out << FF_D << prefix << v.name << " = " << FF_Q << prefix << v.name << ';' << std::endl;
+    out << FF_D << prefix << v.name << " = " << FF_Q << prefix << v.name << ';' << nxl;
   } else {
     ForIndex(i, v.table_size) {
-      out << FF_D << prefix << v.name << '[' << i << "] = " << FF_Q << prefix << v.name << '[' << i << "];" << std::endl;
+      out << FF_D << prefix << v.name << '[' << i << "] = " << FF_Q << prefix << v.name << '[' << i << "];" << nxl;
     }
   }
 }
@@ -5083,19 +5083,19 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   }
   if (!hasNoFSM()) {
     // state machine index
-    out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << std::endl;
+    out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << nxl;
     // sub-states indices
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
-        out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " FF_Q << prefix << b->block_name << '_' << ALG_IDX << ';' << std::endl;
+        out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " FF_Q << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
       }
     }
     // caller ids for subroutines
     if (!doesNotCallSubroutines()) {
-      out << FF_D << prefix << ALG_CALLER " = " FF_Q << prefix << ALG_CALLER ";" << std::endl;
+      out << FF_D << prefix << ALG_CALLER " = " FF_Q << prefix << ALG_CALLER ";" << nxl;
       for (auto sub : m_Subroutines) {
         if (sub.second->contains_calls) {
-          out << FF_D << prefix << sub.second->name << "_" << ALG_CALLER " = " FF_Q << prefix << sub.second->name << "_" << ALG_CALLER ";" << std::endl;
+          out << FF_D << prefix << sub.second->name << "_" << ALG_CALLER " = " FF_Q << prefix << sub.second->name << "_" << ALG_CALLER ";" << nxl;
         }
       }
     }
@@ -5104,7 +5104,7 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
     if (!ia.algo->hasNoFSM()) {
-      out << ia.instance_prefix + "_" ALG_RUN " = 1;" << std::endl;
+      out << ia.instance_prefix + "_" ALG_RUN " = 1;" << nxl;
     }
   }
   // instanced modules input/output bindings with wires
@@ -5120,7 +5120,7 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
           // bound to an algorithm output
           auto usage = m_Outputs.at(m_OutputNames.at(bindingRightIdentifier(b))).usage;
           if (usage == e_FlipFlop) {
-            out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << std::endl;
+            out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + im.second.instance_prefix + "_" + b.left << ';' << nxl;
           }
         }
       }
@@ -5141,7 +5141,7 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
           auto usage = m_Outputs.at(m_OutputNames.at(bindingRightIdentifier(b))).usage;
           if (usage == e_FlipFlop) {
             // the output is a flip-flop, copy from the wire
-            out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << std::endl;
+            out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << nxl;
           }
           // else, the output is replaced by the wire
         }
@@ -5152,11 +5152,11 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   for (const auto &v : m_Vars) {
     if (v.usage != e_Temporary) continue;
     sl_assert(v.table_size == 0);
-    out << FF_TMP << prefix << v.name << " = 0;" << std::endl;
+    out << FF_TMP << prefix << v.name << " = 0;" << nxl;
   }
   for (const auto &v : m_Outputs) {
     if (v.usage != e_Temporary) continue;
-    out << FF_TMP << prefix << v.name << " = 0;" << std::endl;
+    out << FF_TMP << prefix << v.name << " = 0;" << nxl;
   }
   // always block
   std::queue<size_t> q;
@@ -5183,7 +5183,7 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
   q.push(0); // starts at 0
   // states
   if (!m_OneHot) {
-    out << "case (" << FF_Q << prefix << ALG_IDX << ")" << std::endl;
+    out << "case (" << FF_Q << prefix << ALG_IDX << ")" << nxl;
   } else {
     out << "(* parallel_case, full_case *)" << endl;
     out << "case (1'b1)" << endl;
@@ -5285,9 +5285,9 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
   }
   // report on per-ff state use
   if (0) {
-    std::cerr << "------ flip-flop per state usage ------" << std::endl;
+    std::cerr << "------ flip-flop per state usage ------" << nxl;
     for (auto cnt : ff_usage_counts) {
-      std::cerr << setw(30) << cnt.first << " " << setw(30) << sprint("R:%03d W:%03d", cnt.second.first, cnt.second.second) << std::endl;
+      std::cerr << setw(30) << cnt.first << " " << setw(30) << sprint("R:%03d W:%03d", cnt.second.first, cnt.second.second) << nxl;
     }
   }
   // combine all ff usages
@@ -5295,16 +5295,16 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
   // initiate termination sequence
   // -> termination state
   {
-    out << toFSMState(terminationState()) << ": begin // end of " << m_Name << std::endl;
-    out << "end" << std::endl;
+    out << toFSMState(terminationState()) << ": begin // end of " << m_Name << nxl;
+    out << "end" << nxl;
   }
   // default: internal error, should never happen
   {
-    out << "default: begin " << std::endl;
-    out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << std::endl;
-    out << " end" << std::endl;
+    out << "default: begin " << nxl;
+    out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << nxl;
+    out << " end" << nxl;
   }
-  out << "endcase" << std::endl;
+  out << "endcase" << nxl;
 }
 
 // -------------------------------------------------
@@ -5315,12 +5315,12 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
   if (block->context.subroutine) {
     out << " (" << block->context.subroutine->name << ')';
   }
-  out << std::endl;
+  out << nxl;
   // block variable initialization
   if (!block->initialized_vars.empty()) {
-    out << "// var inits" << std::endl;
+    out << "// var inits" << nxl;
     writeVarInits(prefix, out, block->initialized_vars, _dependencies, _ff_usage);
-    out << "// --" << std::endl;
+    out << "// --" << nxl;
   }
   for (const auto &a : block->instructions) {
     // write instruction
@@ -5367,7 +5367,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
               std::string lvalue = ostr.str().substr(0, pos - 1);
               std::string rvalue = ostr.str().substr(pos + 1);
               std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
-              out << lvalue << " = " << FF_D << tmpvar << ';' << std::endl;
+              out << lvalue << " = " << FF_D << tmpvar << ';' << nxl;
               out << FF_D << tmpvar << " = " << rvalue; // rvalue includes the line end ";\n"
             } else {
               writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, FF_Q, _dependencies, _ff_usage);
@@ -5388,7 +5388,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
             out << "," << rewriteIdentifier(prefix, p->getText(), &block->context, display->getStart()->getLine(), FF_Q, true, _dependencies, _ff_usage);
           }
         }
-        out << ");" << std::endl;
+        out << ");" << nxl;
       }
     } {
       auto async = dynamic_cast<siliceParser::AsyncExecContext *>(a.instr);
@@ -5465,7 +5465,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
     // if called on a state, index state and stop there
     if (block->is_state) {
       // yes: index the state directly
-      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(block)->state_id) << ";" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(block)->state_id) << ";" << nxl;
       pushState(block, _q);
       // return
       return;
@@ -5484,18 +5484,18 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
     if (current->next()) {
       current = current->next()->next;
     } else if (current->if_then_else()) {
-      out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ") begin" << std::endl;
+      out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
       vector<t_vio_ff_usage> usage_branches;
       // recurse if
       t_vio_dependencies depds_if = _dependencies; 
       usage_branches.push_back(t_vio_ff_usage());
       writeStatelessBlockGraph(prefix, out, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back());
-      out << "end else begin" << std::endl;
+      out << "end else begin" << nxl;
       // recurse else
       t_vio_dependencies depds_else = _dependencies;
       usage_branches.push_back(t_vio_ff_usage());
       writeStatelessBlockGraph(prefix, out, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_branches.back());
-      out << "end" << std::endl;
+      out << "end" << nxl;
       // merge dependencies
       mergeDependenciesInto(depds_if, _dependencies);
       mergeDependenciesInto(depds_else, _dependencies);
@@ -5508,13 +5508,13 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
         current = current->if_then_else()->after; // yes!
       }
     } else if (current->switch_case()) {
-      out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ")" << std::endl;
+      out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ")" << nxl;
       // recurse block
       t_vio_dependencies depds_before_case = _dependencies;
       vector<t_vio_ff_usage> usage_branches;
       bool has_default = false;
       for (auto cb : current->switch_case()->case_blocks) {
-        out << "  " << cb.first << ": begin" << std::endl;
+        out << "  " << cb.first << ": begin" << nxl;
         has_default = has_default | (cb.first == "default");
         // recurse case
         t_vio_dependencies depds_case = depds_before_case;
@@ -5522,10 +5522,10 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
         writeStatelessBlockGraph(prefix, out, cb.second, current->switch_case()->after, _q, depds_case, usage_branches.back());
         // merge sets of written vars
         mergeDependenciesInto(depds_case, _dependencies);
-        out << "  end" << std::endl;
+        out << "  end" << nxl;
       }
       // end of case
-      out << "endcase" << std::endl;
+      out << "endcase" << nxl;
       // merge ff usage
       if (!has_default) {
         usage_branches.push_back(t_vio_ff_usage()); // push an empty set
@@ -5540,12 +5540,12 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       }
     } else if (current->while_loop()) {
       // while
-      out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ") begin" << std::endl;
+      out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
       writeStatelessBlockGraph(prefix, out, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage);
-      out << "end else begin" << std::endl;
-      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->while_loop()->after)->state_id) << ";" << std::endl;
+      out << "end else begin" << nxl;
+      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->while_loop()->after)->state_id) << ";" << nxl;
       pushState(current->while_loop()->after, _q);
-      out << "end" << std::endl;
+      out << "end" << nxl;
       return;
     } else if (current->return_from()) {
       // return to caller (goes to termination of algorithm is not set)
@@ -5553,45 +5553,45 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       auto RS = m_SubroutinesCallerReturnStates.find(current->context.subroutine->name);
       if (RS != m_SubroutinesCallerReturnStates.end()) {
         if (RS->second.size() > 1) {
-          out << "case (" << FF_D << prefix << ALG_CALLER << ") " << std::endl;
+          out << "case (" << FF_D << prefix << ALG_CALLER << ") " << nxl;
           for (auto caller_return : RS->second) {
-            out << stateWidth() << "'d" << caller_return.first << ": begin" << std::endl;
-            out << "  " << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << std::endl;
+            out << stateWidth() << "'d" << caller_return.first << ": begin" << nxl;
+            out << "  " << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << nxl;
             // if returning to a subroutine, restore caller id
             if (caller_return.second->context.subroutine != nullptr) {
               sl_assert(caller_return.second->context.subroutine->contains_calls);
-              out << "  " << FF_D << prefix << ALG_CALLER << " = " << FF_Q << prefix << caller_return.second->context.subroutine->name << '_' << ALG_CALLER << ';' << std::endl;
+              out << "  " << FF_D << prefix << ALG_CALLER << " = " << FF_Q << prefix << caller_return.second->context.subroutine->name << '_' << ALG_CALLER << ';' << nxl;
             }
-            out << "end" << std::endl;
+            out << "end" << nxl;
           }
-          out << "default:" << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << std::endl;
-          out << "endcase" << std::endl;
+          out << "default:" << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << nxl;
+          out << "endcase" << nxl;
         } else {
           auto caller_return = *RS->second.begin();
-          out << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << std::endl;
+          out << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << nxl;
           // if returning to a subroutine, restore caller id
           if (caller_return.second->context.subroutine != nullptr) {
             sl_assert(caller_return.second->context.subroutine->contains_calls);
-            out << FF_D << prefix << ALG_CALLER << " = " << FF_Q << prefix << caller_return.second->context.subroutine->name << '_' << ALG_CALLER << ';' << std::endl;
+            out << FF_D << prefix << ALG_CALLER << " = " << FF_Q << prefix << caller_return.second->context.subroutine->name << '_' << ALG_CALLER << ';' << nxl;
           }
         }
       } else {
         // this subroutine is never called??
-        out << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << std::endl;
+        out << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << nxl;
       }
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
-      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << nxl;
       pushState(current->goto_and_return_to()->go_to, _q);
       // if in subroutine making nested calls, store callerid
       if (current->context.subroutine != nullptr) {
         sl_assert(current->context.subroutine->contains_calls);
-        out << FF_D << prefix << current->context.subroutine->name << '_' << ALG_CALLER << " = " << FF_Q << prefix << ALG_CALLER << ";" << std::endl;
+        out << FF_D << prefix << current->context.subroutine->name << '_' << ALG_CALLER << " = " << FF_Q << prefix << ALG_CALLER << ";" << nxl;
       }
       // set caller id
       sl_assert(current->parent_state_id > -1);
-      out << FF_D << prefix << ALG_CALLER << " = " << current->parent_state_id << ";" << std::endl;
+      out << FF_D << prefix << ALG_CALLER << " = " << current->parent_state_id << ";" << nxl;
       pushState(current->goto_and_return_to()->return_to, _q);
       return;
     } else if (current->wait()) {
@@ -5603,17 +5603,17 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
           current->wait()->algo_instance_name.c_str());
       } else {
         // test if algorithm is done
-        out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << std::endl;
+        out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << nxl;
         // yes!
         // -> goto next
-        out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->wait()->next)->state_id) << ";" << std::endl;
+        out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->wait()->next)->state_id) << ";" << nxl;
         pushState(current->wait()->next, _q);
-        out << "end else begin" << std::endl;
+        out << "end else begin" << nxl;
         // no!
         // -> wait
-        out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->wait()->waiting)->state_id) << ";" << std::endl;
+        out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->wait()->waiting)->state_id) << ";" << nxl;
         pushState(current->wait()->waiting, _q);
-        out << "end" << std::endl;
+        out << "end" << nxl;
       }
       return;
     } else if (current->pipeline_next()) {
@@ -5622,14 +5622,14 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
     } else { // necessary as m_AlwaysPre reaches this
       if (!hasNoFSM()) { 
         // no action, goto end
-        out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << std::endl;
+        out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << nxl;
       }
       return;
     }
     // check whether next is a state
     if (current->is_state) {
       // yes: index and stop
-      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current)->state_id) << ";" << std::endl;
+      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current)->state_id) << ";" << nxl;
       pushState(current, _q);
       return;
     }
@@ -5653,7 +5653,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const
 {
   // follow the chain
-  out << "// pipeline" << std::endl;
+  out << "// pipeline" << nxl;
   const t_combinational_block *current = block_before->pipeline_next()->next;
   const t_combinational_block *after   = block_before->pipeline_next()->after;
   const t_pipeline_nfo        *pip     = current->context.pipeline->pipeline;
@@ -5662,7 +5662,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     sl_assert(pip == current->context.pipeline->pipeline);
     // write stage
     int stage = current->context.pipeline->stage_id;
-    out << "// stage " << stage << std::endl;
+    out << "// stage " << stage << nxl;
     // write code
     t_vio_dependencies deps;
     if (current != after) { // this is the more complex case of multiple blocks in stage
@@ -5684,7 +5684,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
           out << FF_Q << prefix << tricklingsrc;
           updateFFUsage(e_Q, true, _ff_usage.ff_usage[tricklingsrc]);
         }
-        out << ';' << std::endl;
+        out << ';' << nxl;
       }
     }
     // advance
@@ -5716,10 +5716,10 @@ void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::
     if (v.do_not_initialize)     continue;
     string ff = (v.usage == e_FlipFlop) ? FF_D : FF_TMP;
     if (v.table_size == 0) {
-      out << ff << prefix << v.name << " = " << v.init_values[0] << ';' << std::endl;
+      out << ff << prefix << v.name << " = " << v.init_values[0] << ';' << nxl;
     } else {
       ForIndex(i, v.table_size) {
-        out << ff << prefix << v.name << "[" << i << ']' << " = " << v.init_values[i] << ';' << std::endl;
+        out << ff << prefix << v.name << "[" << i << ']' << " = " << v.init_values[i] << ';' << nxl;
       }
     }
     // insert write in dependencies
@@ -5886,7 +5886,7 @@ void Algorithm::writeAsModule(std::ostream &out)
     }
     
 #if 0
-    std::cerr << " === algorithm " << m_Name << " ====" << std::endl;
+    std::cerr << " === algorithm " << m_Name << " ====" << nxl;
     for (const auto &v : ff_usage.ff_usage) {
       std::cerr << "vio " << v.first << " : ";
       if (v.second & e_D) {
@@ -5895,7 +5895,7 @@ void Algorithm::writeAsModule(std::ostream &out)
       if (v.second & e_Q) {
         std::cerr << "Q";
       }
-      std::cerr << std::endl;
+      std::cerr << nxl;
     }
 #endif
 
@@ -6049,7 +6049,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     t_vio_dependencies _1, _2;
     out << "assign out_" ALG_CLOCK << " = " 
       << rewriteIdentifier("_", m_Clock, nullptr, -1, FF_Q, true, _1, _ff_usage) 
-      << ';' << std::endl;
+      << ';' << nxl;
   }
 
   // module instantiations (1/2)

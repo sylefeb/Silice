@@ -66,13 +66,13 @@ int main(int argc, char **argv)
       defines.getValue());
 
   } catch (TCLAP::ArgException& err) {
-    std::cerr << "command line error: " << err.what() << std::endl;
+    std::cerr << "command line error: " << err.what() << "\n";
     return -1;
   } catch (Fatal& err) {
-    std::cerr << Console::red << "error: " << err.message() << Console::gray << std::endl;
+    std::cerr << Console::red << "error: " << err.message() << Console::gray << "\n";
     return -2;
   } catch (std::exception& err) {
-    std::cerr << "error: " << err.what() << std::endl;
+    std::cerr << "error: " << err.what() << "\n";
     return -3;
   }
   return 0;
