@@ -143,7 +143,14 @@ value \texttt{uninitialized}. The later indicates that the initialization can be
 
 \noindent Example:  \texttt{int6 tbl[4] = \{0,0,0,0\};}
 
-\noindent Table sizes have to be constant at compile time. The initializer is mandatory and can be a string, in which case each letter becomes its ASCII value, and the string is null terminated. The table size \texttt{M} is optional (eg. \texttt{int4 tbl[]=\{1,2,3\};} ) in which case the size is automatically derived from the initializer (strings have one additional implicit character: the null terminator).
+\noindent Table sizes have to be constant at compile time. The initializer is mandatory and can be a string, in which case each letter becomes its ASCII value, and the string is null terminated. 
+The table size \texttt{M} is optional (eg. \texttt{int4 tbl[]=\{1,2,3\};} ) in which case the size is automatically derived from the initializer (strings have one additional implicit character: the null terminator).
+
+If the table size is specified and the initializer is a shorter string, the table is automatically padded with zeros. A longer string results in an error. 
+
+If the table size is specified and the initializer -- not a string -- has a different number of elements, an error occurs. However, if a smaller number of elements is given the last element can be \texttt{pad(value)} in which case the remainder of the table is filled with \texttt{value}.
+
+\noindent Example:  \texttt{int6 tbl[256] = \{0,0,0,0,pad(255)\};}
 
 \subsection{Block RAMs / ROMs}
 
@@ -180,6 +187,7 @@ bram int8 table<input!>[4] = uninitialized;
 This is used to minimize a design size ; however the caller has to ensure
 values are all properly present at the right cycle when reading/writing.
 
+The rules for initializers of BRAMs are the same as for tables.
 
 \paragraph{Block ROMs}
 
