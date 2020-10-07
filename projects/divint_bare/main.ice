@@ -3,7 +3,7 @@
 $$div_width=16
 $include('../common/divint_any.ice')
 
-algorithm main()
+algorithm main(output uint8 leds)
 {
   int16  dividend = 20043;
   int16  divisor  = -817;
