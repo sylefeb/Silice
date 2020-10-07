@@ -57,8 +57,8 @@ module top(
 `endif  
 `ifdef UART
   // uart
-  input  ftdi_rxd,
-  output ftdi_txd,
+  output  ftdi_rxd,
+  input   ftdi_txd,
 `endif  
   input  clk_25mhz
   );
@@ -171,7 +171,7 @@ M_main __main(
 `endif  
 `ifdef UART
   .out_uart_tx  (__main_out_uart_tx),
-  .in_uart_rx   (ftdi_rxd),
+  .in_uart_rx   (ftdi_txd),
 `endif  
 `ifdef VGA
   .out_video_hs (__main_out_vga_hs),
@@ -244,7 +244,7 @@ assign oled_csn      = __main_oled_csn;
 `endif
 
 `ifdef UART
-assign ftdi_txd      = __main_out_uart_tx;
+assign ftdi_rxd      = __main_out_uart_tx;
 `endif  
 
 `ifdef HDMI
