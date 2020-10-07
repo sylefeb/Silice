@@ -12,7 +12,8 @@
         {"set"    : "sdram",  "define" : "SDRAM=1"},
         {"set"    : "sdcard", "define" : "SDCARD=1"},
         {"set"    : "hdmi",   "define" : "HDMI=1"},
-        {"set"    : "gpio",   "define" : "GPIO=1"}
+        {"set"    : "gpio",   "define" : "GPIO=1"},
+        {"set"    : "uart",   "define" : "UART=1"}
       ],
       "builders": [
       {

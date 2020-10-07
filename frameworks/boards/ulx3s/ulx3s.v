@@ -55,6 +55,11 @@ module top(
   output [3:0]  gpdi_dp, // {clock,R,G,B}
   output [3:0]  gpdi_dn,
 `endif  
+`ifdef UART
+  // uart
+  input  ftdi_rxd,
+  output ftdi_txd,
+`endif  
   input  clk_25mhz
   );
 
@@ -83,6 +88,10 @@ wire [12:0] __main_out_sdram_a;
 `ifdef GPIO
 wire [2:0]  __main_out_gp;
 wire [2:0]  __main_out_gn;
+`endif
+
+`ifdef UART
+wire        __main_out_uart_tx;
 `endif
 
 `ifdef VGA
@@ -160,6 +169,10 @@ M_main __main(
   .out_gp       (__main_out_gp),
   .out_gn       (__main_out_gn),
 `endif  
+`ifdef UART
+  .out_uart_tx  (__main_out_uart_tx),
+  .in_uart_rx   (ftdi_rxd),
+`endif  
 `ifdef VGA
   .out_video_hs (__main_out_vga_hs),
   .out_video_vs (__main_out_vga_vs),
@@ -229,6 +242,10 @@ assign oled_dc       = __main_oled_dc;
 assign oled_resn     = __main_oled_resn;
 assign oled_csn      = __main_oled_csn;
 `endif
+
+`ifdef UART
+assign ftdi_txd      = __main_out_uart_tx;
+`endif  
 
 `ifdef HDMI
 assign gpdi_dp[0+:3] = __main_out_gpdi_dp;
