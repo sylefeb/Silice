@@ -1,0 +1,56 @@
+{
+  "name": "icarus",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "icarus.v",
+      "pins"      : [ 
+        {"set"    : "basic"},
+        {"set"    : "vga", "define" : "VGA=1"} 
+      ],
+      "builders": [
+        {
+          "builder" : "shell",
+          "command" : "icarus.sh",
+          "description": "Simulates with icarus and opens gtkwave for visualization"
+        }
+      ]
+    }
+  ],
+  "pins": {
+    "basic": [
+        {
+          "name": "leds",
+          "type": "uint8",
+          "io": "output"
+        }
+    ],
+    "vga": [
+      {
+        "name": "vga_hs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_vs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_r",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_g",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_b",
+        "type": "uint6",
+        "io": "output"
+      }
+    ]
+  }
+}
