@@ -48,25 +48,24 @@ algorithm uart_sender(
 
   always {    
 
-    if (io.data_in_ready) {
-      // start transmitting
-      io.busy  = 1;
-      transmit = {1b1,1b0,io.data_in,1b0};
-    } else {
-      if (transmit > 1) {
+    if (transmit > 1) {
+      // keep transmitting
+      if (counter == 0) {
         // keep going
-        if (counter == 0) {
-          uart_tx  = transmit[0,1];
-          transmit = {1b0,transmit[1,10]};
-        }
-      } else {
-        // done
-        uart_tx = 1;
-        io.busy = 0;
+        uart_tx  = transmit[0,1];
+        transmit = {1b0,transmit[1,10]}; // goes to zero when done
+      }
+      counter = (counter == interval) ? 0 : (counter + 1);
+    } else {
+      // done
+      uart_tx = 1;
+      io.busy = 0;
+      if (io.data_in_ready) {
+        // start transmitting
+        io.busy  = 1;
+        transmit = {1b1,1b0,io.data_in,1b0};
       }
     }
-    counter = (counter == interval) ? 0 : (counter + 1);
-
   }
 
   uart_tx = 1;
@@ -103,20 +102,22 @@ algorithm uart_receiver(
   uint4  receiving     = 0;
   uint10 received      = 0;
 
-  always {
+  uint1  latched_rx    = 0;
+
+  always {     
 
     io.data_out_ready = 0; // maintain low
 
     if (receiving == 0) {
-      if (uart_rx == 0) {
+      if (latched_rx == 0) {
         // start receiving
-        receiving = 10; // expecting 10 bits: start - 8 data - stop
+        receiving = 10; // expecting 10 bits: start - data x8 - stop
         received  =  0;
         counter   = half_interval; // wait half-period
       }
     } else {
       if (counter == 0) { // right in the middle
-        received  = {uart_rx,received[1,9]}; // read uart rx
+        received  = {latched_rx,received[1,9]}; // read uart rx
         receiving = receiving - 1;
         counter   = interval;
         if (receiving == 0) {
@@ -128,6 +129,8 @@ algorithm uart_receiver(
         counter   = counter - 1;
       }
     }
+
+    latched_rx = uart_rx;
 
   }
 

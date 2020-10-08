@@ -24,10 +24,14 @@ algorithm main(
 
   uo.data_in_ready := 0; // maintain low
 
+  leds = 0;
+
   while (1) {
     if (ui.data_out_ready) {
       uo.data_in       = ui.data_out;
-      leds             = ui.data_out;
+      if (ui.data_out != 100) {
+        leds           = leds + 1;
+      }
       uo.data_in_ready = 1;
     }
   }
