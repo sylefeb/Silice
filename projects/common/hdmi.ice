@@ -98,20 +98,19 @@ algorithm hdmi_ddr_shifter(
   input   uint10 data_r,
   input   uint10 data_g,
   input   uint10 data_b,
-  output! uint8  outbits,
+  output  uint8  outbits,
 ) <autorun> {
   uint3  mod5    = 0;
   uint10 shift_r = 0;
   uint10 shift_g = 0;
   uint10 shift_b = 0;
+  uint2  clkbits = 0;
   always {
     shift_r = (mod5 == 0) ?  data_r : shift_r[2,8];
     shift_g = (mod5 == 0) ?  data_g : shift_g[2,8];
     shift_b = (mod5 == 0) ?  data_b : shift_b[2,8];
-    outbits = {
-        ~(mod5[2,1] || mod5[1,1]),
-        ~(mod5[2,1] || (mod5[1,1] & mod5[0,1])),
-        shift_b[0,2] , shift_g[0,2] , shift_r[0,2] };
+    clkbits = (mod5[0,2] < 2) ? 2b11 : ( (mod5 > 2) ? 2b00 : 2b01 );
+    outbits = { clkbits , shift_b[0,2] , shift_g[0,2] , shift_r[0,2] };
     mod5    = (mod5 == 4) ? 0 : (mod5 + 1);
   }
 }
@@ -150,23 +149,30 @@ algorithm hdmi(
   uint10 tmds_green = 0;
   uint10 tmds_blue  = 0;
 
+  uint8  latch_red   = 0;
+  uint8  latch_green = 0;
+  uint8  latch_blue  = 0;
+  uint2  prev_sync_ctrl = 0;
+  uint1  prev_active    = 0;
+
   // encoders
+  // => we use <:: to bind values from cycle start (ignoring changes during current cycle)
   tmds_encoder tmdsR(
-    data         <: red,
-    ctrl         <: null_ctrl,
-    data_or_ctrl <: active,
+    data        <:: latch_red,
+    ctrl        <:: null_ctrl,
+    data_or_ctrl<:: prev_active,
     tmds         :> tmds_red
   );
   tmds_encoder tmdsG(
-    data         <: green,
-    ctrl         <: null_ctrl,
-    data_or_ctrl <: active,
+    data        <:: latch_green,
+    ctrl        <:: null_ctrl,
+    data_or_ctrl<:: prev_active,
     tmds         :> tmds_green
   );
   tmds_encoder tmdsB(
-    data         <: blue,
-    ctrl         <: sync_ctrl,
-    data_or_ctrl <: active,
+    data        <:: latch_blue,
+    ctrl        <:: prev_sync_ctrl,
+    data_or_ctrl<:: prev_active,
     tmds         :> tmds_blue
   );
 
@@ -190,22 +196,33 @@ algorithm hdmi(
 
   always {
 
+    // record previous state of sync_ctrl and active,
+    // we receive the r,b,g value for the x,y set below with a one cycle latency
+    // we have to delay sync and active two cycles
+    prev_sync_ctrl = sync_ctrl;
+    prev_active    = active;
+
     // synchronization bits
-    hsync     = (cntx > 655) && (cntx < 752);
-    vsync     = (cnty > 489) && (cnty < 492);
-    sync_ctrl = {vsync,hsync};
-    
+    hsync          = (cntx > 655) && (cntx < 752);
+    vsync          = (cnty > 489) && (cnty < 492);
+    sync_ctrl      = {vsync,hsync};    
+    // output active area
+    active         = (cntx < 640) && (cnty < 480);    
+    // output vblank
+    vblank         = (cnty >= 480);
+    // output x,y
+    x              = cntx;
+    y              = cnty; 
+    // => we will get color result on next cycle   
+
     // update coordinates
-    cnty      = (cntx == 799) ? (cnty == 524 ? 0 : (cnty + 1)) : cnty;
-    cntx      = (cntx == 799) ? 0 : (cntx + 1);
+    cnty        = (cntx == 799) ? (cnty == 524 ? 0 : (cnty + 1)) : cnty;
+    cntx        = (cntx == 799) ? 0 : (cntx + 1);
     
-    x         = cntx;
-    y         = cnty;
-    
-    // active area
-    active    = (cntx < 640) && (cnty < 480);    
-    // vblank
-    vblank    = (cnty >= 480);
+    // latch r,b,g received at this cycle
+    latch_red   = red;
+    latch_green = green;
+    latch_blue  = blue;
 
   }
 }
