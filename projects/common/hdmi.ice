@@ -13,6 +13,7 @@
 
 import('hdmi_clock.v')
 import('differential_pair.v')
+import('hdmi_differential_pairs.v')
 
 // ----------------------------------------------------
 
@@ -93,28 +94,38 @@ algorithm tmds_encoder(
 
 // ----------------------------------------------------
 
-algorithm tmds_shifter(
-  input   uint10 data,
-  output! uint1  outbit,
+algorithm hdmi_ddr_shifter(
+  input   uint10 data_r,
+  input   uint10 data_g,
+  input   uint10 data_b,
+  output! uint8  outbits,
 ) <autorun> {
-  uint4  mod10 = 0;
-  uint10 shift = 0;
+  uint3  mod5    = 0;
+  uint10 shift_r = 0;
+  uint10 shift_g = 0;
+  uint10 shift_b = 0;
   always {
-    shift    = (mod10 == 9) ? data : shift[1,9];
-    outbit   = shift[0,1];
-    mod10    = (mod10 == 9) ? 0 : mod10 + 1;
+    shift_r = (mod5 == 0) ?  data_r : shift_r[2,8];
+    shift_g = (mod5 == 0) ?  data_g : shift_g[2,8];
+    shift_b = (mod5 == 0) ?  data_b : shift_b[2,8];
+    outbits = {
+        ~(mod5[2,1] || mod5[1,1]),
+        ~(mod5[2,1] || (mod5[1,1] & mod5[0,1])),
+        shift_b[0,2] , shift_g[0,2] , shift_r[0,2] };
+    mod5    = (mod5 == 4) ? 0 : (mod5 + 1);
   }
 }
 
 // ----------------------------------------------------
 
+// Expects to run at 25 MHz (hdmi pixel clock)
 algorithm hdmi(
   output  uint10 x,
   output  uint10 y,
   output  uint1  active,
   output  uint1  vblank,
-  output! uint3  gpdi_dp,
-  output! uint3  gpdi_dn,
+  output! uint4  gpdi_dp,
+  output! uint4  gpdi_dn,
   input   uint8  red,
   input   uint8  green,
   input   uint8  blue,
@@ -127,10 +138,10 @@ algorithm hdmi(
   uint1  vsync = 0;
   
   // pll for tmds
-  uint1  clk_tmds = uninitialized;
+  uint1  half_hdmi_clk = uninitialized;
   hdmi_clock pll(
-    clk      <: clock,      //  25 MHz
-    hdmi_clk :> clk_tmds,   // 250 MHz ... yeeehaw!
+    clk      <: clock,              //  25 MHz
+    half_hdmi_clk :> half_hdmi_clk, // 125 MHz (half 250MHz HDMI, double data rate output)
   );
   
   uint2  null_ctrl  = 0;
@@ -138,6 +149,7 @@ algorithm hdmi(
   uint10 tmds_red   = 0;
   uint10 tmds_green = 0;
   uint10 tmds_blue  = 0;
+
   // encoders
   tmds_encoder tmdsR(
     data         <: red,
@@ -157,42 +169,24 @@ algorithm hdmi(
     data_or_ctrl <: active,
     tmds         :> tmds_blue
   );
-  // shifters
-  uint1 r_o = 0;
-  tmds_shifter shiftR<@clk_tmds>(
-    data   <: tmds_red,
-    outbit :> r_o,
+
+  // shifter
+  uint8 crgb_pos = 0;
+  hdmi_ddr_shifter shift<@half_hdmi_clk>(
+    data_r  <: tmds_red,
+    data_g  <: tmds_green,
+    data_b  <: tmds_blue,
+    outbits :> crgb_pos,
   );
-  uint1 g_o = 0;
-  tmds_shifter shiftG<@clk_tmds>(
-    data    <: tmds_green,
-    outbit :> g_o,
-  );
-  uint1 b_o = 0;  
-  tmds_shifter shiftB<@clk_tmds>(
-    data   <: tmds_blue,
-    outbit :> b_o,
-  );
-    
-  uint1 r_p = 0;
-  uint1 r_n = 0;
-  uint1 g_p = 0;
-  uint1 g_n = 0;
-  uint1 b_p = 0;
-  uint1 b_n = 0;
+
+  uint8 crgb_neg := ~ crgb_pos;
   
-  differential_pair outr( I <: r_o, OT :> r_p, OC :> r_n );
-  differential_pair outg( I <: g_o, OT :> g_p, OC :> g_n );
-  differential_pair outb( I <: b_o, OT :> b_p, OC :> b_n );
-  
-  // TODO: this is not elegant ; Silice will support direct binding of bit-vectors
-  //       at some point, update code when possible and remove r_*,g_*,b_* vars
-  gpdi_dp[2,1] := r_p;
-  gpdi_dn[2,1] := r_n;
-  gpdi_dp[1,1] := g_p;
-  gpdi_dn[1,1] := g_n;
-  gpdi_dp[0,1] := b_p;
-  gpdi_dn[0,1] := b_n;
+  hdmi_differential_pairs hdmi_out( 
+    clock   <: half_hdmi_clk,
+    pos     <: crgb_pos, 
+    neg     <: crgb_neg, 
+    out_pos :> gpdi_dp, 
+    out_neg :> gpdi_dn );
 
   always {
 

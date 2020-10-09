@@ -256,8 +256,7 @@ elif target_builder['builder'] == 'edalize':
     except FileNotFoundError as e:
         raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))
     except subprocess.CalledProcessError as e:
-        raise RuntimeError("script '{}' exited with error code {}".format(
-            cmd, e.returncode))
+        sys.exit(-1)
 
     backend = get_edatool(tool)(edam=edam, work_root=out_dir)
     backend.configure()

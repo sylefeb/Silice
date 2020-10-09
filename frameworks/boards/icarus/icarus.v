@@ -31,6 +31,11 @@ wire __main_uart_tx;
 wire __main_uart_rx = 0;
 `endif
 
+`ifdef HDMI
+wire [3:0] __main_out_gpdi_dp;
+wire [3:0] __main_out_gpdi_dn;
+`endif
+
 initial begin
   clk = 1'b0;
   rst_n = 1'b0;
@@ -41,9 +46,17 @@ initial begin
 `else
   $dumpvars(0,top); // dump all (for full debugging)
 `endif
+`ifdef HDMI
+  // if simulating with HDMI, produce a 25 MHz clock
+  repeat(4) #20 clk = ~clk; 
+  rst_n = 1'b1;
+  forever #20 clk = ~clk;
+`else
+  // generates a 100 MHz clock
   repeat(4) #5 clk = ~clk; 
   rst_n = 1'b1;
-  forever #5 clk = ~clk;   // generates a 100 MHz clock
+  forever #5 clk = ~clk;   
+`endif
 end
 
 reg ready = 0;
@@ -82,6 +95,10 @@ M_main __main(
 `ifdef UART
   .out_uart_tx(__main_uart_tx),
   .in_uart_rx(__main_uart_rx),
+`endif  
+`ifdef HDMI
+  .out_gpdi_dp  (__main_out_gpdi_dp),
+  .out_gpdi_dn  (__main_out_gpdi_dn),
 `endif  
   .in_run(run_main),
   .out_done(done_main)

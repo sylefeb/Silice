@@ -330,6 +330,7 @@ void SiliceCompiler::run(
     } catch (Algorithm::LanguageError& le) {
 
       ReportError err(lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()), le.token(), le.interval(), le.message());
+      throw Fatal("Silice compiler stopped");
 
     }
 

@@ -7,6 +7,7 @@
       "pins"      : [ 
         {"set"    : "basic"},
         {"set"    : "vga", "define"  : "VGA=1"},
+        {"set"    : "hdmi", "define" : "HDMI=1"},
         {"set"    : "uart", "define" : "UART=1"}
       ],
       "builders": [
@@ -62,6 +63,18 @@
       {
         "name": "vga_b",
         "type": "uint6",
+        "io": "output"
+      }
+    ],
+    "hdmi": [
+      {
+        "name": "gpdi_dq",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "gpdi_dn",
+        "type": "uint1",
         "io": "output"
       }
     ]

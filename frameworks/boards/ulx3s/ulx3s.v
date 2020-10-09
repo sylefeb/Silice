@@ -109,8 +109,8 @@ wire        __main_sd_mosi;
 `endif
 
 `ifdef HDMI
-wire [2:0]  __main_out_gpdi_dp;
-wire [2:0]  __main_out_gpdi_dn;
+wire [3:0]  __main_out_gpdi_dp;
+wire [3:0]  __main_out_gpdi_dn;
 `endif
 
 wire ready = btns[0];
@@ -248,9 +248,8 @@ assign ftdi_rxd      = __main_out_uart_tx;
 `endif  
 
 `ifdef HDMI
-assign gpdi_dp[0+:3] = __main_out_gpdi_dp;
-assign gpdi_dn[0+:3] = __main_out_gpdi_dn;
-OBCO dp(.I(clk_25mhz), .OT(gpdi_dp[3]), .OC(gpdi_dn[3]) );
+assign gpdi_dp       = __main_out_gpdi_dp;
+assign gpdi_dn       = __main_out_gpdi_dn;
 `endif
 
 endmodule

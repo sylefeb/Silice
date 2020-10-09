@@ -1,6 +1,6 @@
 module hdmi_clock (
-        input  clk,      //  25 MHz
-        output hdmi_clk  // 250 MHz
+        input  clk,           //  25 MHz
+        output half_hdmi_clk  // 125 MHz
     );
 
 `ifdef MOJO
@@ -15,7 +15,7 @@ module hdmi_clock (
 
 wire clkfb;
 wire clkos;
-wire clkout1;
+wire clkout0;
 wire clkout2;
 wire locked;
 
@@ -45,8 +45,8 @@ EHXPLLL #(
         .CLKI(clk),
         .CLKFB(clkfb),
         .CLKINTFB(clkfb),
-        .CLKOP(hdmi_clk), // 250
-        .CLKOS(clkout1),  // 125
+        .CLKOP(clkout0), // 250
+        .CLKOS(half_hdmi_clk),  // 125
         .CLKOS2(clkout2), // 25
         .RST(1'b0),
         .STDBY(1'b0),
@@ -61,6 +61,18 @@ EHXPLLL #(
 
 `else
 
+`ifdef ICARUS
+
+reg genclk;
+
+initial begin
+  genclk = 1'b0;
+  forever #4 genclk = ~genclk;   // generates a 125 MHz clock
+end
+
+assign half_hdmi_clk = genclk;
+
+`endif
     
 `endif
 `endif
