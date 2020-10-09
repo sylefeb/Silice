@@ -198,7 +198,8 @@ algorithm hdmi(
 
     // record previous state of sync_ctrl and active,
     // we receive the r,b,g value for the x,y set below with a one cycle latency
-    // we have to delay sync and active two cycles
+    // these are then latched for the following cycle
+    // thus we have to delay corresponding sync and active two cycles
     prev_sync_ctrl = sync_ctrl;
     prev_active    = active;
 
@@ -219,7 +220,8 @@ algorithm hdmi(
     cnty        = (cntx == 799) ? (cnty == 524 ? 0 : (cnty + 1)) : cnty;
     cntx        = (cntx == 799) ? 0 : (cntx + 1);
     
-    // latch r,b,g received at this cycle
+    // latch r,b,g received at this cycle, for previous coord
+    // will be fed into HDMI encoders next cycle
     latch_red   = red;
     latch_green = green;
     latch_blue  = blue;
