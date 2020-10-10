@@ -12,6 +12,11 @@ INCLUDE_DIRECTORIES(
 
 add_definitions(-Wfatal-errors)
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+# hack to deal with https://github.com/verilator/verilator/issues/2502
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif()
+
 ADD_LIBRARY(verilator_silice
   video_out.cpp
   video_out.h
