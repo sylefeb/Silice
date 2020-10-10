@@ -24,7 +24,9 @@ yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
 ## macOS (WIP)
 
 Install the packages listed in the Linux section above (except gcc,
-g++, other builtin packages).
+g++, other builtin packages). You might need to clone and build
+`icestorm`, `prjtrellis`, `yosys`, and `verilator` from source to get
+up-to-date versions; the versions in Homebrew may be a bit old.
 
 Then:
 

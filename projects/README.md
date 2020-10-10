@@ -27,7 +27,7 @@ To build a project, go into projects/build/*architecture* where *architecture* i
 
 ```
 cd silice/projects/build/icarus
-./icarus_bare.sh ../../projects/divint_bare/main.ice
+./icarus_bare.sh ../../divint_bare/main.ice
 ```
 If everthing goes well you should see in the last console output:
 ```
