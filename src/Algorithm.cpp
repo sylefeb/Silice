@@ -949,14 +949,14 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
           && mod->memClocks()->clk0->IDENTIFIER()->getText() != m_Clock) {
           reportError(mod->memClocks()->clk0->IDENTIFIER()->getSymbol(),
             (int)mod->memClocks()->clk0->getStart()->getLine(),
-            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk0->getText());
+            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk0->getText().c_str());
         }
         if (!isVIO(mod->memClocks()->clk1->IDENTIFIER()->getText())
           && mod->memClocks()->clk1->IDENTIFIER()->getText() != ALG_CLOCK
           && mod->memClocks()->clk1->IDENTIFIER()->getText() != m_Clock) {
           reportError(mod->memClocks()->clk1->IDENTIFIER()->getSymbol(),
             (int)mod->memClocks()->clk1->getStart()->getLine(),
-            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk1->getText());
+            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk1->getText().c_str());
         }
         // add
         mem.clocks.push_back(mod->memClocks()->clk0->IDENTIFIER()->getText());

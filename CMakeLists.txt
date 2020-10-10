@@ -18,6 +18,11 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:4194304")
 endif()
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+# think antlr does stuff that isn't permitted in Clang under newer C++ standard
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+endif()
+
 if (WIN32)
 SET(ANTLR_COMPILER ${PROJECT_SOURCE_DIR}/antlr/compile.bat)
 else ()
