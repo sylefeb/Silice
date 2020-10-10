@@ -106,7 +106,7 @@ These two examples are very different and representative of this approach:
 
 ## Getting started with Silice
 
-See the [getting started](GetStarted.md) guide. Silice runs great both on Windows and Linux!
+See the [getting started](GetStarted.md) guide. Silice runs great on Windows, Linux, and macOS!
 To start writing code, see [writing your first design](FirstDesign.md).
 To see what can be done with Silice, checkout our [example projects](projects/README.md) (all are available in this repo).
 

@@ -21,6 +21,26 @@ yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
 
 (the Java jre/jdk is only used during compilation)
 
+## macOS (WIP)
+
+Install the packages listed in the Linux section above (except gcc,
+g++, other builtin packages).
+
+Then:
+
+```
+git clone --recurse-submodules https://github.com/sylefeb/Silice.git
+cd Silice
+
+mkdir BUILD
+cd BUILD
+mkdir build-silice
+cd build-silice
+
+cmake -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles" ../..
+make -j16 install
+```
+
 ## Windows
 
 I have prepared binary packages for Windows so you can easily get started!
@@ -61,11 +81,15 @@ Now we will compile the silice framework for verilator
 
 - We are ready to test!
 
-### Linux
+### Linux and macOS
 
 - Open a command line into the silice folder and type
 ```
 ./compile_verilator_framework_linux.sh
+```
+or
+```
+./compile_verilator_framework_macos.sh
 ```
 
 (installs new files in Silice/frameworks/verilator/)
