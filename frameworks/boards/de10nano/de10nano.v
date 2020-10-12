@@ -2,6 +2,7 @@
 $$DE10NANO = 1
 $$HARDWARE = 1
 $$NUM_LEDS = 8
+$$NUM_BTNS = 6
 $$if YOSYS then
 $$config['bram_wenable_width'] = 'data'
 $$config['dualport_bram_wenable0_width'] = 'data'
@@ -20,6 +21,10 @@ $$color_max   = 63
 
 module top(
     output [7:0] leds,
+`ifdef BUTTONS
+    // buttons
+    input  [5:0] btns,
+`endif  
 `ifdef SDRAM
     // sdram
     output  SDRAM_CLK,
@@ -123,6 +128,9 @@ M_main __main(
   .reset(reset_main),
   .in_run(run_main),
   .out_leds(__main_out_leds),
+`ifdef BUTTONS  
+  .in_btns(btns),
+`endif
 `ifdef SDRAM
   .inout_sdram_dq(SDRAM_DQ),
   .out_sdram_clk(__main_out_sdram_clk),

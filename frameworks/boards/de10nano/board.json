@@ -6,6 +6,7 @@
       "framework" : "de10nano.v",
       "pins": [
         {"set"    : "basic"},
+        {"set"    : "buttons","define" : "BUTTONS=1"},
         {"set"    : "vga",    "define" : "VGA=1"},
         {"set"    : "sdram",  "define" : "SDRAM=1"},
         {"set"    : "uart",   "define" : "UART=1"},
@@ -78,6 +79,13 @@
       {
         "name": "kpadR",
         "type": "uint4",
+        "io"  : "input"
+      }
+    ],
+    "buttons" : [
+      {
+        "name": "btns",
+        "type": "uint6",
         "io"  : "input"
       }
     ],
