@@ -50,12 +50,11 @@ set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to kpadR*
 # Switches and Buttons
 #============================================================
 
-set_location_assignment PIN_AH17 -to btns[0]
-set_location_assignment PIN_AH16 -to btns[1]
-set_location_assignment PIN_Y24  -to btns[2]
-set_location_assignment PIN_W24  -to btns[3]
-set_location_assignment PIN_W21  -to btns[4]
-set_location_assignment PIN_W20  -to btns[5]
+set_location_assignment PIN_AH24 -to btns[0]
+set_location_assignment PIN_AG25 -to btns[1]
+set_location_assignment PIN_AG23 -to btns[2]
+set_location_assignment PIN_AH17 -to btns[3]
+set_location_assignment PIN_AH16 -to btns[4]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to btns*
 
 #============================================================

@@ -2,7 +2,7 @@
 $$DE10NANO = 1
 $$HARDWARE = 1
 $$NUM_LEDS = 8
-$$NUM_BTNS = 6
+$$NUM_BTNS = 5
 $$if YOSYS then
 $$config['bram_wenable_width'] = 'data'
 $$config['dualport_bram_wenable0_width'] = 'data'
@@ -23,7 +23,7 @@ module top(
     output [7:0] leds,
 `ifdef BUTTONS
     // buttons
-    input  [5:0] btns,
+    input  [4:0] btns,
 `endif  
 `ifdef SDRAM
     // sdram

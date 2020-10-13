@@ -85,7 +85,7 @@
     "buttons" : [
       {
         "name": "btns",
-        "type": "uint6",
+        "type": "uint5",
         "io"  : "input"
       }
     ],
