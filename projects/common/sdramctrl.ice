@@ -352,7 +352,7 @@ algorithm sdramctrl(
 
   // cached reads
   uint128 cached      = uninitialized;
-  uint26  cached_addr = uninitialized;
+  uint26  cached_addr = 26h3FFFFFF;
   uint2   busy        = 1;
   
   always {
@@ -383,7 +383,7 @@ algorithm sdramctrl(
     } else {
       if (sd.in_valid) {
         if (sd.rw == 0) { // reading
-          uint25 read_addr_cached   = uninitialized;
+          uint26 read_addr_cached   = uninitialized;
           uint3  read_addr_in_cache = uninitialized;
           read_addr_in_cache        = sd.addr[0,3];
           read_addr_cached          = {sd.addr[3,23],3b000};
