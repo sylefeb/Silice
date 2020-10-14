@@ -59,7 +59,11 @@ module top(
   // uart
   output  ftdi_rxd,
   input   ftdi_txd,
-`endif  
+`endif
+
+  output [3:0] audio_l,
+  output [3:0] audio_r,
+
   input  clk_25mhz
   );
 
@@ -112,6 +116,9 @@ wire        __main_sd_mosi;
 wire [3:0]  __main_out_gpdi_dp;
 wire [3:0]  __main_out_gpdi_dn;
 `endif
+
+wire [3:0]  __main_out_audio_l;
+wire [3:0]  __main_out_audio_r;
 
 wire ready = btns[0];
 
@@ -184,6 +191,8 @@ M_main __main(
   .out_gpdi_dp  (__main_out_gpdi_dp),
   .out_gpdi_dn  (__main_out_gpdi_dn),
 `endif
+  .out_audio_l      (__main_out_audio_l),
+  .out_audio_r      (__main_out_audio_r),
   .clock         (clk_25mhz)
 );
 
@@ -251,5 +260,8 @@ assign ftdi_rxd      = __main_out_uart_tx;
 assign gpdi_dp       = __main_out_gpdi_dp;
 assign gpdi_dn       = __main_out_gpdi_dn;
 `endif
+
+assign audio_l          = __main_out_audio_l;
+assign audio_r          = __main_out_audio_r;
 
 endmodule
