@@ -63,7 +63,11 @@ module top(
   // uart
   output  ftdi_rxd,
   input   ftdi_txd,
-`endif  
+`endif
+
+  output [3:0] audio_l,
+  output [3:0] audio_r,
+
   input  clk_25mhz
   );
 
