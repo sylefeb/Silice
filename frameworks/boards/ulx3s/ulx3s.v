@@ -25,6 +25,10 @@ module top(
   output [12:0] sdram_a,
   inout  [15:0] sdram_d,
 `endif  
+`ifdef AUDIO
+  output [3:0] audio_l,
+  output [3:0] audio_r,
+`endif  
 `ifdef OLED  
   // oled
   output  oled_clk,
@@ -113,6 +117,11 @@ wire [3:0]  __main_out_gpdi_dp;
 wire [3:0]  __main_out_gpdi_dn;
 `endif
 
+`ifdef AUDIO
+wire [3:0]  __main_out_audio_l;
+wire [3:0]  __main_out_audio_r;
+`endif
+
 wire ready = btns[0];
 
 reg [31:0] RST_d;
@@ -157,6 +166,10 @@ M_main __main(
   .out_sd_clk    (__main_sd_clk),
   .out_sd_mosi   (__main_sd_mosi),
   .in_sd_miso    (sd_miso),
+`endif  
+`ifdef AUDIO
+  .out_audio_l  (__main_out_audio_l),
+  .out_audio_r  (__main_out_audio_r),
 `endif  
 `ifdef OLED
   .out_oled_clk (__main_oled_clk),
@@ -205,6 +218,11 @@ assign sdram_a       = __main_out_sdram_a;
 assign gp[0+:3]      = __main_out_gp;
 assign gn[0+:3]      = __main_out_gn;
 `endif
+
+`ifdef AUDIO
+assign audio_l       = __main_out_audio_l;
+assign audio_r       = __main_out_audio_r;
+`endif  
 
 `ifdef VGA
 assign gp[0]         = __main_out_vga_vs;
