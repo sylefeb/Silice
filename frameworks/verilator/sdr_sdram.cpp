@@ -551,6 +551,7 @@ void SDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
         printf("OK\n");
         
         delete[] row_buf;
+        fclose(fh);
     }
     else
     {

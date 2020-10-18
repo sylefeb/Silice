@@ -46,13 +46,13 @@ initial begin
 `else
   $dumpvars(0,top); // dump all (for full debugging)
 `endif
-`ifdef HDMI
-  // if simulating with HDMI, produce a 25 MHz clock
+`ifdef CLOCK_25MHz
+  // generate a 25 MHz clock
   repeat(4) #20 clk = ~clk; 
   rst_n = 1'b1;
   forever #20 clk = ~clk;
 `else
-  // generates a 100 MHz clock
+  // generate a 100 MHz clock
   repeat(4) #5 clk = ~clk; 
   rst_n = 1'b1;
   forever #5 clk = ~clk;   

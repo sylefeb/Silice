@@ -146,7 +146,7 @@ $$end
   uint13 row         = 0;
   uint2  bank        = 0;
   uint10 col         = 0;
-  uint32 data        = 0;
+  uint8  data        = 0;
   uint1  do_rw       = 0;
   uint1  byte        = 0;
 
@@ -184,7 +184,7 @@ $$ print('SDRAM configured for 100 MHz (default)')
       }    
       // -> copy inputs
       bank      = sd.addr[24, 2]; // bits 24-25
-      row       = sd.addr[$SDRAM_COLUMNS_WIDTH+1$,13];
+      row       = sd.addr[$SDRAM_COLUMNS_WIDTH+1$, 13];
       col       = sd.addr[                      1, $SDRAM_COLUMNS_WIDTH$];
       byte      = sd.addr[ 0, 1];
       data      = sd.data_in;
@@ -281,17 +281,12 @@ $$end
       // write or read?
       if (do_rw) {
         // write
-        cmd     = CMD_WRITE;
+        cmd       = CMD_WRITE;
         (sdram_cs,sdram_ras,sdram_cas,sdram_we) = command(cmd);
-        dq_en   = 1;
-        sdram_a = {2b0, 1b1/*auto-precharge*/, col};
-        if (byte) {
-          sdram_dqm = 2b01;
-          dq_o      = {data[0,8],8b0};
-        } else {
-          sdram_dqm = 2b10;
-          dq_o      = {8b0,data[0,8]};
-        }
+        dq_en     = 1;
+        sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
+        dq_o      = {data,data};
+        sdram_dqm = {~byte,byte};
         // a cycle is spent upon exiting this branch
       } else {
         uint8 read_cnt = 0;
@@ -305,17 +300,18 @@ $$end
 ++:
 ++:
 ++:
-        // burst 4 bytes
+        // burst 8 x 16 bytes
         while (read_cnt < 128) {
           sd.data_out[read_cnt,16] = dq_i;
           read_cnt                 = read_cnt + 16;
         }
+
       }
       // can accept work
-      sdram_dqm      = 2b0;
-      dq_en          = 0;
       work_done      = 1;
-      sd.out_valid   = 1;
+      // sdram_dqm      = 2b0;
+      dq_en          = 0;
+      sd.out_valid   = ~do_rw; // signal out avail if was reading (do earlier?)
     }
         
   }
@@ -350,17 +346,16 @@ algorithm sdramctrl(
   },
 ) <autorun> {
 
-  // cached reads
-  uint128 cached      = uninitialized;
-  uint26  cached_addr = 26h3FFFFFF;
-  uint2   busy        = 1;
+  // cached reads, one per bank
+  uint128 cached[4]      = uninitialized;
+  uint26  cached_addr[4] = {26h3FFFFFF,26h3FFFFFF,26h3FFFFFF,26h3FFFFFF};
+  uint26  read_addr      = uninitialized;
+
+  uint2   busy           = 1;
   
   always {
 
-    // transfer state from chip
-    sdchip.addr     = sd.addr;
-    sdchip.rw       = sd.rw;
-    sdchip.data_in  = sd.data_in;
+    // maintain low
     sdchip.in_valid = 0;
 
     // maintain busy for one clock to
@@ -373,39 +368,49 @@ algorithm sdramctrl(
     
     sd.out_valid = 0;
     if (sdchip.out_valid) {
+      uint7  offset     = uninitialized;
+      uint128 data      = uninitialized;
+      uint26 cbank_addr = uninitialized;
       // data is available
       // -> fill cache
-      cached       = sdchip.data_out;
+      data         = sdchip.data_out;
+      cached[read_addr[24,2]] = data;
       // -> extract byte
-      sd.data_out  = cached[ {sd.addr[0,3],3b000} , 8 ];
+      offset       = {read_addr[0,4],3b000};
+      sd.data_out  = data[ offset , 8 ];
       // -> signal availability
       sd.out_valid = 1;
     } else {
       if (sd.in_valid) {
         if (sd.rw == 0) { // reading
-          uint26 read_addr_cached   = uninitialized;
-          uint3  read_addr_in_cache = uninitialized;
-          read_addr_in_cache        = sd.addr[0,3];
-          read_addr_cached          = {sd.addr[3,23],3b000};
-          if (read_addr_cached == cached_addr) {
+          uint26 cbank_addr = uninitialized;
+          uint128 data      = uninitialized;
+          read_addr         = sd.addr;
+          cbank_addr        = cached_addr[read_addr[24,2]];
+          if (read_addr[4,22] == cbank_addr[4,22]) {
             // in cache!
-            sd.data_out  = cached[ {read_addr_in_cache,3b000} , 8 ];
+            data         = cached[read_addr[24,2]];
+            sd.data_out  = data[ {read_addr[0,4],3b000} , 8 ];
             // -> signal availability
             sd.out_valid = 1;
           } else {
             sd.busy = 1;
             busy    = 2b11;
             // issue read
-            sdchip.addr      = read_addr_cached;
+            sdchip.rw        = 0;
+            sdchip.addr      = {read_addr[4,22],4b0000};
             sdchip.in_valid  = 1;
             // record cache addr          
-            cached_addr      = read_addr_cached;
+            cached_addr[read_addr[24,2]] = read_addr;
           }
-        } else { // writting
+        } else { // writing
           sd.busy = 1;
           busy    = 2b11;
           // issue write
-          sdchip.in_valid  = 1; 
+          sdchip.rw       = 1;
+          sdchip.addr     = sd.addr;
+          sdchip.data_in  = sd.data_in;
+          sdchip.in_valid = 1; 
         }
       }
     }

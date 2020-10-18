@@ -46,7 +46,7 @@ int main(int argc,char **argv)
 
   VgaChip *vga_chip = new VgaChip((int)vga_test->video_color_depth);
 
-  char foo[1<<19]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
+  char foo[1<<18]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
   
   vluint8_t sdram_flags = 0;
   if ((int)vga_test->sdram_word_width == 8) {
@@ -60,8 +60,10 @@ int main(int argc,char **argv)
   }
   
   SDRAM* sdr  = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); 
-                                                             // "sdram.txt");
+                                                              // "sdram.txt");
   vluint64_t sdram_dq = 0;
+  
+  vluint8_t prev_vga_vs = 0;
   
   while (!Verilated::gotFinish()) {
 
@@ -77,6 +79,14 @@ int main(int argc,char **argv)
 
     vga_test->sdram_dq_i = (vga_test->sdram_dq_en) ? vga_test->sdram_dq_o : sdram_dq;
 
+    if (prev_vga_vs == 0 && vga_test->video_vs != 0) {
+      static int cnt = 0;
+      char str[256];
+      snprintf(str,256,"dump_%04d.raw",cnt++);
+      sdr->save(str,4*8192*1024*2,0);
+    }
+    prev_vga_vs = vga_test->video_vs;
+    
     vga_chip->eval(
        vga_test->video_clock,
        vga_test->video_vs,vga_test->video_hs,
