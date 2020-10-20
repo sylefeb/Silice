@@ -64,10 +64,10 @@ algorithm vga(
         ycount = 0;
       } else {
         ycount = ycount + 1;
-	  }
+	    }
     } else {
       xcount = xcount + 1;
-	}
+	  }
   }
 
 }
