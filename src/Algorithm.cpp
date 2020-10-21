@@ -1994,10 +1994,16 @@ Algorithm::t_combinational_block *Algorithm::gatherJoinExec(siliceParser::JoinEx
 bool Algorithm::isStateLessGraph(t_combinational_block *head) const
 {
   std::queue< t_combinational_block* > q;
+  std::set< t_combinational_block* > visited;
+
   q.push(head);
   while (!q.empty()) {
     auto cur = q.front();
     q.pop();
+    if (visited.count(cur) > 0) {
+      continue;
+    }
+    visited.insert(cur);
     // test
     if (cur == nullptr) { // tags a forward ref (jump), not stateless
       return false;
