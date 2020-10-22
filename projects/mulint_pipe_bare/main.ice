@@ -3,7 +3,7 @@
 $$mul_width = 16
 $include('../common/mulint_pipe_any.ice')
 
-algorithm main()
+algorithm main(output uint$NUM_LEDS$ leds = 0)
 {
   int16  m0      = 0;
   int16  m1      = 0;

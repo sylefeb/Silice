@@ -2717,14 +2717,18 @@ void Algorithm::parseCallParams(
   } else {
     expected_params = sub->outputs;
   }
-  bool ok = matchCallParams(given_params, sub->inputs, bctx, _matches);
+  bool ok = matchCallParams(given_params, expected_params, bctx, _matches);
   if (!ok) {
     reportError(params->getSourceInterval(), -1,
       "incorrect %s parameters in call to algorithm '%s', last correct match was parameter '%s'",
       input_else_output ? "input" : "output", sub->name.c_str(),
       expected_params.empty() ? "" : expected_params[_matches.size() - 1].c_str());
   }
-  sl_assert(_matches.size() == sub->inputs.size());
+  if (input_else_output) {
+    sl_assert(_matches.size() == sub->inputs.size());
+  } else {
+    sl_assert(_matches.size() == sub->outputs.size());
+  }
 }
 
 // -------------------------------------------------
@@ -4309,7 +4313,7 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
         if (S != m_Subroutines.end()) { // subroutine
           // get params
           std::vector<t_call_param> matches;
-          parseCallParams(sync->callParamList(), A->second.algo.raw(), true, &_current->context, matches);
+          parseCallParams(sync->callParamList(), S->second, true, &_current->context, matches);
           // lint each
           int p = 0;
           for (const auto& ins : S->second->inputs) {
@@ -4619,12 +4623,8 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
       out << FF_D << a.instance_prefix << "_" << ins.name;
       if (std::holds_alternative<std::string>(matches[p].what)) {
         out << " = " << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), bctx, (int)plist->getStart()->getLine(), FF_Q, true, dependencies, _ff_usage);
-      } else if (std::holds_alternative<std::monostate>(matches[p].what)) {
-        out << " = " << rewriteExpression(prefix, matches[p].expression, -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage);
       } else {
-        reportError(matches[p].expression->getSourceInterval(),-1, 
-          "call to algorithm instance '%s' invalid expression for input '%s'",
-          a.instance_name.c_str(), ins.name.c_str());
+        out << " = " << rewriteExpression(prefix, matches[p].expression, -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage);
       }
       out << ";" << nxl;
       ++p;
@@ -4696,14 +4696,10 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
   int p = 0;
   for (const auto& ins : called->inputs) {
     out << FF_D << prefix << called->vios.at(ins);
-    if (std::holds_alternative<std::monostate>(matches[p].what)) {
-      out << " = " << rewriteExpression(prefix, matches[p].expression, -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage);
-    } else if (std::holds_alternative<std::string>(matches[p].what)) {
+    if (std::holds_alternative<std::string>(matches[p].what)) {
       out << " = " << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), bctx, (int)plist->getStart()->getLine(), FF_Q, true, dependencies, _ff_usage);
     } else {
-      reportError(matches[p].expression->getSourceInterval(), -1,
-        "call to subroutine '%s' invalid expression for input '%s'",
-        called->name.c_str(), ins.c_str());
+      out << " = " << rewriteExpression(prefix, matches[p].expression, -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage);
     }
     out << ';' << nxl;
     ++p;
@@ -5291,7 +5287,13 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
     /// updates on clockpos
     out << "  end else begin" << nxl;
   }
+  // update var flip-flops
   for (const auto& v : m_Vars) {
+    if (v.usage != e_FlipFlop) continue;
+    writeVarFlipFlopUpdate(prefix, out, v);
+  }
+  // update output flip-flops
+  for (const auto &v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
     writeVarFlipFlopUpdate(prefix, out, v);
   }
@@ -5316,11 +5318,6 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
   }
   if (!requiresNoReset()) {
     out << "  end" << nxl;
-  }
-  // update output flip-flops
-  for (const auto &v : m_Outputs) {
-    if (v.usage != e_FlipFlop) continue;
-    writeVarFlipFlopUpdate(prefix, out, v);
   }
   // update instanced algorithms input flip-flops
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
@@ -5676,10 +5673,8 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
           for (auto p : params) {
             if (std::holds_alternative<std::string>(p.what)) {
               out << "," << rewriteIdentifier(prefix, std::get<std::string>(p.what), &block->context, display->getStart()->getLine(), FF_Q, true, _dependencies, _ff_usage);
-            } else if (std::holds_alternative<std::monostate>(p.what)) {
-              out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, FF_Q, true, _dependencies, _ff_usage);
             } else {
-              reportError(p.expression->getSourceInterval(), -1, "invalid input expression");
+              out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, FF_Q, true, _dependencies, _ff_usage);
             }
           }
         }

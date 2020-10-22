@@ -60,6 +60,9 @@ $$end
 
 algorithm main(
   output! uint$NUM_LEDS$    leds,
+$$if BUTTONS then
+  input   uint$NUM_BTNS$    btns,
+$$end
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
   output! uint$color_depth$ video_b,

@@ -2,17 +2,20 @@
 // Wave function collapse (with image output)
 
 $$if DE10NANO or SIMULATION then
-$$Nlog = 4
+$$Nlog = 3
 $$else
 $$Nlog = 3
 $$end
 
 $$N = (1<<Nlog)
 
-$include('../common/empty.ice')
+$$if not SIMULATION then
+$$BUTTONS = 1
+$$end
+
 $include('../vga_demo/vga_demo_main.ice')
 
-$$PROBLEM = 'problems/summer/'
+$$PROBLEM = 'problems/knots/'
 $$dofile('pre_rules.lua')
 
 // -------------------------
@@ -261,22 +264,13 @@ algorithm frame_display(
   input   uint10 pix_y,
   input   uint1  pix_active,
   input   uint1  pix_vblank,
-$$if DE10NANO then
-  output uint4  kpadC,
-  input  uint4  kpadR,
-$$end
-$$if ULX3S then
-  input  uint7 btn,
-$$end
+$$if not SIMULATION then
+  input   uint$NUM_BTNS$ btns,
+$$end  
   output! uint$color_depth$ pix_r,
   output! uint$color_depth$ pix_g,
   output! uint$color_depth$ pix_b
 ) <autorun> {
-
-  uint16   kpressed   = 4;
-$$if DE10NANO then
-  keypad        kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
-$$end
 
   brom uint18 tiles[$16*16*L$] = {
 $$for i=1,L do
@@ -286,7 +280,10 @@ $$end
 
   dualport_bram uint$L$ result[$N*N$] = uninitialized;
 
-  uint16 iter = 0;
+  uint16         iter     = 0;
+$$if not SIMULATION then
+  uint$NUM_BTNS$ reg_btns = 0;
+$$end  
 
   wfc wfc1(
     addr :> result.addr1,
@@ -296,6 +293,10 @@ $$end
 
   pix_r := 0; pix_g := 0; pix_b := 0;  
   
+$$if not SIMULATION then
+  reg_btns ::= btns;
+$$end
+
   result.wenable0 = 0;
   result.wenable1 = 1;
 
@@ -333,10 +334,8 @@ $$end
         }
       }
     }
-$$if DE10NABO then        
-    if ((kpressed & 4) != 0) {
-$$elseif ULX3S then
-    if (btn[4,1] != 0) {
+$$if not SIMULATION then
+    if (reg_btns[1,1] != 0) {
 $$else
     if (1) {
 $$end    

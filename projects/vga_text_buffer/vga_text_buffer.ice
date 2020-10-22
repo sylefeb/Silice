@@ -7,10 +7,17 @@ $$if MOJO then
 // Clock
 import('../common/mojo_clk_100_25.v')
 $$end
+
 $$if ICESTICK then
 // Clock
 import('../common/icestick_clk_25.v')
 $$end
+
+$$if ICEBREAKER then
+// Clock
+import('../common/icebreaker_clk_25.v')
+$$end
+
 $$if DE10NANO then
 // Clock
 import('../common/de10nano_clk_100_25.v')
@@ -77,7 +84,7 @@ $$end
   int12 rand_x = 0;
 
   // ---------- string
-  uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ULX3S#-DE10-NANO";
+  uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ICEBREAKER#-ULX3S#-DE10-NANO";
 
   // --------- print string
   subroutine print_string( 
@@ -245,20 +252,9 @@ $$end
 // -------------------------
 
 algorithm main(
-$$if MOJO then
-  output! uint8 leds,
-$$end
+  output! uint$NUM_LEDS$ leds,
 $$if SIMULATION then
   output! uint1 video_clock,
-$$end
-$$if ICESTICK then
-  output! uint5 leds,
-$$end
-$$if DE10NANO then
-  output! uint8 leds,
-$$end
-$$if ULX3S then
-  output! uint8 leds,
 $$end
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
@@ -296,6 +292,12 @@ $$elseif ICESTICK then
     clock_in  <: clock,
     clock_out :> video_clock,
     lock      :> led4
+  );
+$$elseif ICEBREAKER then
+  // --- clock
+  icebreaker_clk_25 clk_gen (
+    clock_in  <: clock,
+    clock_out :> video_clock
   );
 $$elseif DE10NANO then
   // --- clock

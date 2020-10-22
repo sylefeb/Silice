@@ -82,12 +82,10 @@ void ExpressionLinter::lintInputParameter(
 {
   t_type_nfo rvalue_nfo;
   antlr4::tree::ParseTree *exp = nullptr;
-  if (std::holds_alternative<std::monostate>(inp.what)) {
-    typeNfo(inp.expression, bctx, rvalue_nfo);
-  } else if (std::holds_alternative<std::string>(inp.what)) {
+  if (std::holds_alternative<std::string>(inp.what)) {
     typeNfo(std::get<std::string>(inp.what), bctx, rvalue_nfo);
   } else {
-    m_Host->reportError(inp.expression->getSourceInterval(), -1, "parameter '%s': cannot use this expression as an input parameter", name.c_str());
+    typeNfo(inp.expression, bctx, rvalue_nfo);
   }
   // check
   if (param.base_type != rvalue_nfo.base_type) {

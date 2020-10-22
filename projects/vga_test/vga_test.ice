@@ -13,6 +13,11 @@ $$if ICESTICK then
 import('../common/icestick_clk_25.v')
 $$end
 
+$$if ICEBREAKER then
+// Clock
+import('../common/icebreaker_clk_25.v')
+$$end
+
 $$if DE10NANO then
 // Clock
 import('../common/de10nano_clk_100_25.v')
@@ -60,56 +65,9 @@ algorithm frame_display(
 // -------------------------
 
 algorithm main(
-$$if not ICARUS then
-  // SDRAM
-  output! uint1  sdram_cle,
-  output! uint1  sdram_dqm,
-  output! uint1  sdram_cs,
-  output! uint1  sdram_we,
-  output! uint1  sdram_cas,
-  output! uint1  sdram_ras,
-  output! uint2  sdram_ba,
-  output! uint13 sdram_a,
-$$if VERILATOR then
-  output! uint1  sdram_clock,
-  input   uint8  sdram_dq_i,
-  output! uint8  sdram_dq_o,
-  output! uint1  sdram_dq_en,
-$$else
-  output! uint1  sdram_clk, // sdram chip clock != internal sdram_clock
-  inout   uint8  sdram_dq,
-$$end
-$$end
-$$if MOJO then
-  output! uint6  led,
-  output! uint1  spi_miso,
-  input   uint1  spi_ss,
-  input   uint1  spi_mosi,
-  input   uint1  spi_sck,
-  output! uint4  spi_channel,
-  input   uint1  avr_tx,
-  output! uint1  avr_rx,
-  input   uint1  avr_rx_busy,
-$$end
+  output! uint$NUM_LEDS$ leds,
 $$if ICARUS or VERILATOR then
   output! uint1 video_clock,
-$$end
-$$if DE10NANO then
-  output! uint8 led,
-  output! uint4 kpadC,
-  input   uint4 kpadR,
-  output! uint1 lcd_rs,
-  output! uint1 lcd_rw,
-  output! uint1 lcd_e,
-  output! uint8 lcd_d,
-  output! uint1 oled_din,
-  output! uint1 oled_clk,
-  output! uint1 oled_cs,
-  output! uint1 oled_dc,
-  output! uint1 oled_rst,  
-$$end
-$$if ULX3S then
-  output! uint8 led,
 $$end
 $$if VGA then  
   // VGA
@@ -119,11 +77,6 @@ $$if VGA then
   output! uint1 video_hs,
   output! uint1 video_vs
 $$end
-$$if HDMI then  
-  // HDMI
-  output! uint4 hdmi1_tmds,
-  output! uint4 hdmi1_tmdsb
-$$end 
 ) 
 $$if HARDWARE then
 // on an actual board, the video signal is produced by a PLL
@@ -151,10 +104,17 @@ $$if MOJO then
   );
 $$elseif ICESTICK then
   // --- clock
+  uint1 pll_lock = 0;
   icestick_clk_25 clk_gen(
     clock_in  <: clock,
     clock_out :> video_clock,
-    lock      :> led4
+    lock      :> pll_lock
+  );
+$$elseif ICEBREAKER then
+  // --- clock
+  icebreaker_clk_25 clk_gen (
+    clock_in  <: clock,
+    clock_out :> video_clock
   );
 $$elseif DE10NANO then
   // --- clock
@@ -225,20 +185,6 @@ $$if MOJO then
   spi_miso := 1bz;
   avr_rx := 1bz;
   spi_channel := 4bzzzz;
-$$end
-
-$$if DE10NANO then
-  led := frame;
-  sdram_cle := 1bz;
-  sdram_dqm := 1bz;
-  sdram_cs  := 1bz;
-  sdram_we  := 1bz;
-  sdram_cas := 1bz;
-  sdram_ras := 1bz;
-  sdram_ba  := 2bz;
-  sdram_a   := 13bz;
-  sdram_clk := 1bz;
-  // sdram_dq  := 8bz;
 $$end
 
 $$if SIMULATION then

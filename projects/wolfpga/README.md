@@ -4,8 +4,8 @@
 
 ## How to build
 
-This projet requires a [VGA DAC](../DIYVGA.md). It was developped/tested for a 
-MojoV3 board, and can be simulated with Icarus/Verilator
+This projet requires a [VGA DAC](../DIYVGA.md). It was tested on a 
+MojoV3 board, de10nano, ulx3s, and can be simulated with Icarus/Verilator
 
 ## Textures
 

@@ -11,7 +11,7 @@ $$end
 
 // ------------------------- 
 
-$include('sdcard.ice')
+$include('../common/sdcard.ice')
 
 // ------------------------- 
 
@@ -66,8 +66,8 @@ $$end
 // ------------------------- 
 
 algorithm main(
-  output! uint8 led,
-  input   uint7 btn,
+  output! uint8 leds,
+  input   uint7 btns,
   output! uint1 oled_clk,
   output! uint1 oled_mosi,
   output! uint1 oled_dc,
@@ -176,9 +176,9 @@ algorithm main(
     letter <:> txt // port0
   );
 
-  uint7  btn_latch = 0;
+  uint7  btns_latch = 0;
 
-  btn_latch         := btn;
+  btns_latch       ::= btns;
   sdbuffer.wenable0 := 0;
   sdcio.read_sector := 0;
 
@@ -188,7 +188,7 @@ algorithm main(
   // writes to txt
   txt.wenable1  := 1;
   
-  led           := 0;
+  leds           = 0;
   
   // fill buffer with spaces
   {
@@ -200,9 +200,13 @@ algorithm main(
       next      = next + 1; // next
     }
   }
-  
-  // wait for controller to be ready  
+
+  leds           = 1;
+
+  // wait for oled controller to be ready  
   while (io.ready == 0) { }
+
+  leds           = 2;
 
   // setup draw window
   io.x_start = 0;
@@ -212,11 +216,15 @@ algorithm main(
   io.start_rect = 1;
   while (io.ready == 0) { }
 
+  leds           = 4;
+
   // wait for sdcard
   while (sdcio.ready == 0) { }
   // read first sector
   sdcio.addr_sector = 0;
   sdcio.read_sector = 1;
+
+  leds           = 8;
 
   while (1) {
   
@@ -239,7 +247,7 @@ algorithm main(
     }
     
     // wait for sdcard
-    while (sdcio.ready == 0) { }
+    // while (sdcio.ready == 0) { }
     
     // write data on screen
     str_x = 0;
@@ -265,9 +273,9 @@ algorithm main(
     }
 
     // update sector addr
-    if (btn_latch[1,1]) {
+    if (btns_latch[1,1]) {
       sdcio.addr_sector = sdcio.addr_sector + 1;
-    } else { if (btn_latch[2,1]) {
+    } else { if (btns_latch[2,1]) {
         sdcio.addr_sector = (sdcio.addr_sector == 0) ? 0 : sdcio.addr_sector - 1;    
       }
     }

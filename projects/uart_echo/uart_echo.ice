@@ -29,9 +29,7 @@ algorithm main(
   while (1) {
     if (ui.data_out_ready) {
       uo.data_in       = ui.data_out;
-      if (ui.data_out != 100) {
-        leds           = leds + 1;
-      }
+      leds             = ui.data_out;
       uo.data_in_ready = 1;
     }
   }
