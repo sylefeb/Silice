@@ -6575,7 +6575,14 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         if (!bnfo.do_not_initialize) {
           out << ',' << endl;
           out << '.' << var << "_INIT";
-          out << '(' << bnfo.init_values[0] << ')';
+          if (bnfo.type_nfo.base_type == Parameterized) { // bound var may itself be parameterized
+            string str = bnfo.type_nfo.type_of.empty() ? bnfo.name : bnfo.type_nfo.type_of;
+            std::transform(str.begin(), str.end(), str.begin(),
+              [](unsigned char c) -> unsigned char { return std::toupper(c); });
+            out << '(' << str << "_INIT)";
+          } else {
+            out << '(' << bnfo.init_values[0] << ')';
+          }
         }
         //out << '.' << var << "_SIGNED";
         //out << "(\"" << typeString(bnfo) << "\")";
