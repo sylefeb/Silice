@@ -3,6 +3,7 @@
 $$ICEBREAKER=1
 $$HARDWARE=1
 $$NUM_LEDS=5
+$$NUM_BTNS=3
 $$VGA=1
 $$color_depth=6
 $$color_max  =63
@@ -16,6 +17,11 @@ module top(
   output LED3,
   output LED4,
   output LED5,
+`ifdef BUTTONS
+  input BTN1,
+  input BTN2,
+  input BTN3,
+`endif
 `ifdef VGA
   output P1A1, // r0
   output P1A2, // r1
@@ -80,6 +86,9 @@ M_main __main(
   .out_clock(design_clk),
   .reset(RST_d[0]),
   .out_leds(__main_leds),
+`ifdef BUTTONS
+  .in_btns({BTN3,BTN2,BTN1}),
+`endif
 `ifdef VGA
   .out_video_hs(__main_out_vga_hs),
   .out_video_vs(__main_out_vga_vs),

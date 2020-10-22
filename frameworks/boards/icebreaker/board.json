@@ -4,8 +4,9 @@
     {
       "name"      : "configurable",
       "framework" : "icebreaker.v",
-      "pins"      : [ 
+      "pins"      : [         
         {"set"    : "basic"},
+        {"set"    : "buttons", "define" : "BUTTONS=1"},
         {"set"    : "vga", "define" : "VGA=1"} 
       ],
       "builders": [
@@ -37,6 +38,13 @@
           "type": "uint5",
           "io": "output"
         }
+    ],    
+    "buttons": [
+      {
+        "name": "btns",
+        "type": "uint3",
+        "io": "input"
+      }
     ],
     "vga": [
       {

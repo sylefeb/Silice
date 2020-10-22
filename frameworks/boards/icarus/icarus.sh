@@ -17,7 +17,7 @@ echo "build script: BOARD_DIR      = $BOARD_DIR"
 echo "build script: FRAMEWORKS_DIR = $FRAMEWORKS_DIR"
 echo "build script: FRAMEWORK_FILE = $FRAMEWORK_FILE"
 
-export PATH=$PATH:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/:$SILICE_DIR
+export PATH=$PATH:$SILICE_DIR:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/
 case "$(uname -s)" in
 MINGW*)
 export PYTHONHOME=/mingw64/bin
