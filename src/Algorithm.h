@@ -653,6 +653,8 @@ namespace Silice
       bool& _autobind) const;
     /// \brief gather group declaration
     void gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather typeof declaration
+    void gatherDeclarationTypeOf(siliceParser::DeclarationTypeOfContext *decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather algorithm declaration
     void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather module declaration

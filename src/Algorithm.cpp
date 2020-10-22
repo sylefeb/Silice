@@ -1112,6 +1112,45 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
 
 // -------------------------------------------------
 
+/// \brief gather typeof declaration
+void Algorithm::gatherDeclarationTypeOf(siliceParser::DeclarationTypeOfContext *tpof, t_combinational_block *_current, t_gather_context *_context)
+{
+  // check for duplicates
+  if (!isIdentifierAvailable(tpof->name->getText())) {
+    reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(), "group (typeof) '%s': this name is already used by a prior declaration", tpof->name->getText().c_str());
+  }
+  // find base interface
+  std::string base = tpof->base->getText();
+  auto G = m_VIOGroups.find(base);
+  if (G == m_VIOGroups.end()) {
+    reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(),
+      "no known definition for '%s' (typeof can only be applied to input interfaces)", tpof->base->getText().c_str());
+  }
+  auto I = G->second.intrface;
+  if (I == nullptr) {
+    reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(),
+      "typeof can only be applied to input interfaces");
+  }
+  // now, insert as group, where each member is parameterized by the corresponding interface member
+  std::string name = tpof->name->getText();
+  m_VIOGroups.insert(make_pair(name, I));
+  // get member list from interface
+  for (auto io : I->ioList()->io()) {
+    t_var_nfo vnfo;
+    vnfo.name               = name + "_" + io->IDENTIFIER()->getText();
+    vnfo.type_nfo.base_type = Parameterized;
+    vnfo.type_nfo.type_of   = base + "_" + io->IDENTIFIER()->getText();
+    vnfo.type_nfo.width     = 0;
+    vnfo.table_size         = 0;
+    vnfo.do_not_initialize  = false;
+    // add it
+    addVar(vnfo, _current, _context, (int)tpof->getStart()->getLine());
+  }
+
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context)
 {  
   t_subroutine_nfo *sub = nullptr;
@@ -1531,6 +1570,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
   auto decltbl   = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
   auto grpmodalg = dynamic_cast<siliceParser::DeclarationGrpModAlgContext*>(decl->declarationGrpModAlg());
   auto declmem   = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
+  auto decltpof  = dynamic_cast<siliceParser::DeclarationTypeOfContext *>(decl->declarationTypeOf());
   if (var_table_only) {
     if (declmem) {
       reportError(declmem->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(),
@@ -1545,6 +1585,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
   else if (declwire)  { gatherDeclarationWire(declwire, _current, _context); }
   else if (decltbl)   { gatherDeclarationTable(decltbl, _current, _context); }
   else if (declmem)   { gatherDeclarationMemory(declmem, _current, _context); }
+  else if (decltpof)  { gatherDeclarationTypeOf(decltpof, _current, _context); }
   else if (grpmodalg) {
     std::string name = grpmodalg->modalg->getText();
     if (m_KnownGroups.find(name) != m_KnownGroups.end()) {
@@ -2454,7 +2495,7 @@ void Algorithm::gatherIoInterface(siliceParser::IoInterfaceContext *itrf)
   // group prefix
   string grpre = itrf->groupname->getText();
   m_VIOGroups.insert(make_pair(grpre, I->second));
-  // get member list from group
+  // get member list from interface
   unordered_set<string> vars;
   for (auto io : I->second->ioList()->io()) {
     t_var_nfo vnfo;
@@ -2462,7 +2503,7 @@ void Algorithm::gatherIoInterface(siliceParser::IoInterfaceContext *itrf)
     vnfo.type_nfo.base_type = Parameterized;
     vnfo.type_nfo.width     = 0;
     vnfo.table_size         = 0;
-    vnfo.do_not_initialize  = true;
+    vnfo.do_not_initialize  = false;
     if (vars.count(vnfo.name)) {
       reportError(io->IDENTIFIER()->getSymbol(), (int)io->getStart()->getLine(),
         "entry '%s' declared twice in interface definition '%s'",
@@ -2708,12 +2749,6 @@ void Algorithm::parseCallParams(
   std::vector<std::string> expected_params;
   if (input_else_output) {
     expected_params = sub->inputs;
-    /*
-      // skip inputs which are not used      NOTE: used to be done but seems like a bad idea?
-      if (info.access == e_WriteOnly) {
-        // skip
-      }
-    */
   } else {
     expected_params = sub->outputs;
   }
@@ -4665,6 +4700,12 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
     int p = 0;
     for (const auto& outs : a.algo->m_Outputs) {
       if (std::holds_alternative<std::string>(matches[p].what)) {
+        // check if bound
+        if (m_VIOBoundToModAlgOutputs.count(std::get<std::string>(matches[p].what))) {
+          reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
+            "algorithm instance '%s', cannot store output '%s' in bound variable '%s'",
+            a.instance_name.c_str(), outs.name.c_str(), std::get<std::string>(matches[p].what).c_str());
+        }
         t_vio_dependencies _;
         out << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
       } else if (std::holds_alternative<siliceParser::AccessContext*>(matches[p].what)) {
@@ -4672,7 +4713,7 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
         writeAccess(prefix, out, true, std::get<siliceParser::AccessContext *>(matches[p].what), -1, bctx, FF_D, _, _ff_usage);
       } else {
         reportError(matches[p].expression->getSourceInterval(), -1,
-          "algorithm instance '%s' invalid receiving expression for output '%s'",
+          "algorithm instance '%s', invalid expression for storing output '%s'",
           a.instance_name.c_str(), outs.name.c_str());
       }
       out << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << nxl;
@@ -4997,10 +5038,10 @@ void Algorithm::writeWireAssignements(
 
 void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
 {
-  if (!v.do_not_initialize || v.type_nfo.base_type == Parameterized) {
+  if (!v.do_not_initialize) {
     if (v.table_size == 0) {
       if (v.type_nfo.base_type == Parameterized) {
-        std::string var = v.name;
+        std::string var = v.type_nfo.type_of.empty() ? v.name : v.type_nfo.type_of;
         std::transform(var.begin(), var.end(), var.begin(),
           [](unsigned char c) -> unsigned char { return std::toupper(c); });
         out << FF_Q << prefix << v.name << " <= " << var << "_INIT" << ';' << endl;
@@ -5033,7 +5074,7 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, co
 std::string Algorithm::varBitRange(const t_var_nfo& v) const
 {
   if (v.type_nfo.base_type == Parameterized) {
-    string str = v.name;
+    string str = v.type_nfo.type_of.empty() ? v.name : v.type_nfo.type_of;
     std::transform(str.begin(), str.end(), str.begin(),
       [](unsigned char c) -> unsigned char { return std::toupper(c); });
     str = str + "_WIDTH-1";
@@ -5048,7 +5089,7 @@ std::string Algorithm::varBitRange(const t_var_nfo& v) const
 std::string Algorithm::varBitWidth(const t_var_nfo &v) const
 {
   if (v.type_nfo.base_type == Parameterized) {
-    string str = v.name;
+    string str = v.type_nfo.type_of.empty() ? v.name : v.type_nfo.type_of;
     std::transform(str.begin(), str.end(), str.begin(),
       [](unsigned char c) -> unsigned char { return std::toupper(c); });
     return str + "_WIDTH";
@@ -5259,7 +5300,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
     }
     for (const auto &v : m_Outputs) {
       if (v.usage != e_FlipFlop) continue;
-      if (v.do_not_initialize && v.type_nfo.base_type != Parameterized) continue;
+      if (v.do_not_initialize)   continue;
       writeVarFlipFlopInit(prefix, out, v);
     }
     // state machine 
@@ -6006,8 +6047,15 @@ void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::
     if (v.do_not_initialize)     continue;
     string ff = (v.usage == e_FlipFlop) ? FF_D : FF_TMP;
     if (v.table_size == 0) {
-      sl_assert(!v.init_values.empty());
-      out << ff << prefix << v.name << " = " << v.init_values[0] << ';' << nxl;
+      if (v.type_nfo.base_type == Parameterized) {
+        std::string var = v.type_nfo.type_of.empty() ? v.name : v.type_nfo.type_of;
+        std::transform(var.begin(), var.end(), var.begin(),
+          [](unsigned char c) -> unsigned char { return std::toupper(c); });
+        out << ff << prefix << v.name << " = " << var << "_INIT" << ';' << nxl;
+      } else {
+        sl_assert(!v.init_values.empty());
+        out << ff << prefix << v.name << " = " << v.init_values[0] << ';' << nxl;
+      }
     } else {
       ForIndex(i, v.init_values.size()) {
         out << ff << prefix << v.name << "[" << i << ']' << " = " << v.init_values[i] << ';' << nxl;
