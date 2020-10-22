@@ -141,8 +141,8 @@ void Algorithm::checkAlgorithmsBindings() const
       linter.lintBinding(
         sprint("instanced algorithm '%s', binding '%s' to '%s'", ia.first.c_str(), br.c_str(), b.left.c_str()),
         b.dir,b.line,
-        get<0>(ia.second.algo->determineVIOTypeWidthAndTableSize(nullptr, b.left, -1)),
-        get<0>(determineVIOTypeWidthAndTableSize(nullptr, br, -1))
+        get<0>(ia.second.algo->determineVIOTypeWidthAndTableSize(nullptr, b.left, antlr4::misc::Interval::INVALID, -1)),
+        get<0>(determineVIOTypeWidthAndTableSize(nullptr, br, antlr4::misc::Interval::INVALID, -1))
       );
     }
     // check no binding appears with both directions (excl. inout)
@@ -176,7 +176,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
         t_binding_nfo bnfo;
         bnfo.line  = _mod.instance_line;
         bnfo.left  = io.first;
-        bnfo.right_identifier = io.first;
+        bnfo.right = io.first;
         bnfo.dir = e_Left;
         _mod.bindings.push_back(bnfo);
       }
@@ -187,7 +187,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
           t_binding_nfo bnfo;
           bnfo.line = _mod.instance_line;
           bnfo.left = io.first;
-          bnfo.right_identifier = io.first;
+          bnfo.right = io.first;
           bnfo.dir = e_Left;
           _mod.bindings.push_back(bnfo);
         }
@@ -206,7 +206,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
         t_binding_nfo bnfo;
         bnfo.line = _mod.instance_line;
         bnfo.left = io;
-        bnfo.right_identifier = io;
+        bnfo.right = io;
         bnfo.dir = e_Left;
         _mod.bindings.push_back(bnfo);
       }
@@ -221,7 +221,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
         t_binding_nfo bnfo;
         bnfo.line = _mod.instance_line;
         bnfo.left = io.first;
-        bnfo.right_identifier = io.first;
+        bnfo.right = io.first;
         bnfo.dir = e_Right;
         _mod.bindings.push_back(bnfo);
       }
@@ -232,7 +232,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
           t_binding_nfo bnfo;
           bnfo.line = _mod.instance_line;
           bnfo.left = io.first;
-          bnfo.right_identifier = io.first;
+          bnfo.right = io.first;
           bnfo.dir = e_Right;
           _mod.bindings.push_back(bnfo);
         }
@@ -249,7 +249,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
         t_binding_nfo bnfo;
         bnfo.line = _mod.instance_line;
         bnfo.left = io.first;
-        bnfo.right_identifier = io.first;
+        bnfo.right = io.first;
         bnfo.dir = e_BiDir;
         _mod.bindings.push_back(bnfo);
       }
@@ -260,7 +260,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
           t_binding_nfo bnfo;
           bnfo.line = _mod.instance_line;
           bnfo.left = io.first;
-          bnfo.right_identifier = io.first;
+          bnfo.right = io.first;
           bnfo.dir = e_BiDir;
           _mod.bindings.push_back(bnfo);
         }
@@ -287,7 +287,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
         t_binding_nfo bnfo;
         bnfo.line = _alg.instance_line;
         bnfo.left = io.name;
-        bnfo.right_identifier = io.name;
+        bnfo.right = io.name;
         bnfo.dir = e_Left;
         _alg.bindings.push_back(bnfo);
       } else // check if algorithm has a var with same name
@@ -296,7 +296,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
           t_binding_nfo bnfo;
           bnfo.line = _alg.instance_line;
           bnfo.left = io.name;
-          bnfo.right_identifier = io.name;
+          bnfo.right = io.name;
           bnfo.dir = e_Left;
           _alg.bindings.push_back(bnfo);
         }
@@ -314,7 +314,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
         t_binding_nfo bnfo;
         bnfo.line = _alg.instance_line;
         bnfo.left = io;
-        bnfo.right_identifier = io;
+        bnfo.right = io;
         bnfo.dir = e_Left;
         _alg.bindings.push_back(bnfo);
       }
@@ -329,7 +329,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
         t_binding_nfo bnfo;
         bnfo.line = _alg.instance_line;
         bnfo.left = io.name;
-        bnfo.right_identifier = io.name;
+        bnfo.right = io.name;
         bnfo.dir = e_Right;
         _alg.bindings.push_back(bnfo);
       } else // check if algorithm has a var with same name
@@ -338,7 +338,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
           t_binding_nfo bnfo;
           bnfo.line = _alg.instance_line;
           bnfo.left = io.name;
-          bnfo.right_identifier = io.name;
+          bnfo.right = io.name;
           bnfo.dir = e_Right;
           _alg.bindings.push_back(bnfo);
         }
@@ -354,7 +354,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
         t_binding_nfo bnfo;
         bnfo.line = _alg.instance_line;
         bnfo.left = io.name;
-        bnfo.right_identifier = io.name;
+        bnfo.right = io.name;
         bnfo.dir = e_BiDir;
         _alg.bindings.push_back(bnfo);
       }
@@ -365,7 +365,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
           t_binding_nfo bnfo;
           bnfo.line = _alg.instance_line;
           bnfo.left = io.name;
-          bnfo.right_identifier = io.name;
+          bnfo.right = io.name;
           bnfo.dir = e_BiDir;
           _alg.bindings.push_back(bnfo);
         }
@@ -464,6 +464,13 @@ bool Algorithm::isInputOrOutput(std::string var) const
 bool Algorithm::isVIO(std::string var) const
 {
   return isInput(var) || isOutput(var) || isInOut(var) || m_VarNames.count(var) > 0;
+}
+
+// -------------------------------------------------
+
+bool Algorithm::isGroupVIO(std::string var) const
+{
+  return m_VIOGroups.find(var) != m_VIOGroups.end();
 }
 
 // -------------------------------------------------
@@ -663,28 +670,6 @@ void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gathe
 
 // -------------------------------------------------
 
-void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nfo& _nfo)
-{
-  _nfo.name = decl->IDENTIFIER()->getText();
-  _nfo.table_size = 0;
-  splitType(decl->TYPE()->getText(), _nfo.type_nfo);
-  if (decl->value() != nullptr) {
-    _nfo.init_values.push_back("0");
-    _nfo.init_values[0] = gatherValue(decl->value());
-  } else {
-    if (decl->UNINITIALIZED() != nullptr) {
-      _nfo.do_not_initialize = true;
-    } else {
-      reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable has no initializer, use '= uninitialized' if you really don't want to initialize it.");
-    }
-  }
-  if (decl->ATTRIBS() != nullptr) {
-    _nfo.attribs = decl->ATTRIBS()->getText();
-  }
-}
-
-// -------------------------------------------------
-
 void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire, t_combinational_block *_current, t_gather_context *_context)
 {
   t_var_nfo nfo;
@@ -705,11 +690,60 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
 
 // -------------------------------------------------
 
+void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init)
+{
+  _nfo.name = decl->IDENTIFIER()->getText();
+  _nfo.table_size = 0;
+  splitType(decl->TYPE()->getText(), _nfo.type_nfo);
+  if (decl->value() != nullptr) {
+    _nfo.init_values.push_back("0");
+    _nfo.init_values[0] = gatherValue(decl->value());
+  } else {
+    if (decl->UNINITIALIZED() != nullptr || default_no_init) {
+      _nfo.do_not_initialize = true;
+    } else {
+      reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable has no initializer, use '= uninitialized' if you really don't want to initialize it.");
+    }
+  }
+  if (decl->ATTRIBS() != nullptr) {
+    _nfo.attribs = decl->ATTRIBS()->getText();
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current, t_gather_context *_context)
 {
   // gather variable
   t_var_nfo var;
   gatherVarNfo(decl,var);
+  addVar(var, _current, _context, (int)decl->getStart()->getLine());
+}
+
+// -------------------------------------------------
+
+void Algorithm::gatherTableNfo(siliceParser::DeclarationTableContext *decl, t_var_nfo &_nfo)
+{
+  _nfo.name = decl->IDENTIFIER()->getText();
+  _nfo.table_size = 0;
+  splitType(decl->TYPE()->getText(), _nfo.type_nfo);
+  if (decl->NUMBER() != nullptr) {
+    _nfo.table_size = atoi(decl->NUMBER()->getText().c_str());
+    if (_nfo.table_size <= 0) {
+      reportError(decl->NUMBER()->getSymbol(), (int)decl->getStart()->getLine(), "table has zero or negative size");
+    }
+  } else {
+    _nfo.table_size = 0; // autosize from init
+  }
+  readInitList(decl, _nfo);
+}
+
+// -------------------------------------------------
+
+void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext *decl, t_combinational_block *_current, t_gather_context *_context)
+{
+  t_var_nfo var;
+  gatherTableNfo(decl, var);
   addVar(var, _current, _context, (int)decl->getStart()->getLine());
 }
 
@@ -791,48 +825,6 @@ void Algorithm::readInitList(D* decl,T& var)
       var.init_values[i] = values_str[i];
     }
   }
-}
-
-// -------------------------------------------------
-
-void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_combinational_block *_current, t_gather_context *_context)
-{
-  t_subroutine_nfo *sub = nullptr;
-  if (_current) {
-    sub = _current->context.subroutine;
-  }
-  // check for duplicates
-  if (!isIdentifierAvailable(decl->IDENTIFIER()->getText())) {
-    reportError(decl->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(), "table '%s': this name is already used by a prior declaration", decl->IDENTIFIER()->getText().c_str());
-  }
-  // gather table
-  t_var_nfo var;  
-  if (sub == nullptr) {
-    var.name = decl->IDENTIFIER()->getText();
-    // block renaming
-    std::string base_name = var.name;
-    var.name = blockVIOName(base_name, _current);
-    _current->context.vio_rewrites.insert(std::make_pair(base_name, var.name));
-  } else {
-    // subroutine renaming
-    var.name = subroutineVIOName(decl->IDENTIFIER()->getText(), sub);
-    var.name = blockVIOName(var.name, _current);
-    sub->vios.insert(std::make_pair(decl->IDENTIFIER()->getText(), var.name));
-    sub->vars.push_back(decl->IDENTIFIER()->getText());
-  }
-  // type and table size
-  splitType(decl->TYPE()->getText(), var.type_nfo);
-  if (decl->NUMBER() != nullptr) {
-    var.table_size = atoi(decl->NUMBER()->getText().c_str());
-    if (var.table_size <= 0) {
-      reportError(decl->NUMBER()->getSymbol(), (int)decl->getStart()->getLine(), "table has zero or negative size");
-    }
-  } else {
-    var.table_size = 0; // autosize from init
-  }
-  readInitList(decl, var);
-  // insert var
-  insertVar(var, _current);
 }
 
 // -------------------------------------------------
@@ -1054,7 +1046,7 @@ void Algorithm::getBindings(
               string member = v;
               t_binding_nfo nfo;
               nfo.left  = bindings->modalgBinding()->left->getText() + "_" + member;
-              nfo.right_identifier = bindings->modalgBinding()->right->IDENTIFIER()->getText() + "_" + member;
+              nfo.right = bindings->modalgBinding()->right->IDENTIFIER()->getText() + "_" + member;
               nfo.line  = (int)bindings->modalgBinding()->getStart()->getLine();
               nfo.dir   = (bindings->modalgBinding()->BDEFINE() != nullptr) ? e_Auto : e_AutoQ;
               _vec_bindings.push_back(nfo);
@@ -1067,10 +1059,10 @@ void Algorithm::getBindings(
         t_binding_nfo nfo;
         nfo.left = bindings->modalgBinding()->left->getText();
         if (bindings->modalgBinding()->right->IDENTIFIER() != nullptr) {
-          nfo.right_identifier = bindings->modalgBinding()->right->IDENTIFIER()->getText();
+          nfo.right = bindings->modalgBinding()->right->IDENTIFIER()->getText();
         } else {
           sl_assert(bindings->modalgBinding()->right->ioAccess() != nullptr);
-          nfo.right_access = bindings->modalgBinding()->right->ioAccess();
+          nfo.right = bindings->modalgBinding()->right->ioAccess();
         }
         nfo.line = (int)bindings->modalgBinding()->getStart()->getLine();
         if (bindings->modalgBinding()->LDEFINE() != nullptr) {
@@ -1376,6 +1368,64 @@ std::string Algorithm::rewriteExpression(
 
 // -------------------------------------------------
 
+bool Algorithm::isIdentifier(antlr4::tree::ParseTree *expr,std::string& _identifier) const
+{
+  if (expr->children.empty()) {
+    auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
+    if (term) {
+      if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
+        _identifier = expr->getText();
+        return true;
+      } else  {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  } else {
+    auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
+    if (access) {
+      return false;
+    } else {
+      // recurse
+      if (expr->children.size() == 1) {
+        return isIdentifier(expr->children.front(), _identifier);
+      } else {
+        return false;
+      }
+    }
+  }
+  return false;
+}
+
+// -------------------------------------------------
+
+bool Algorithm::isAccess(antlr4::tree::ParseTree *expr, siliceParser::AccessContext *&_access) const
+{
+  if (expr->children.empty()) {
+    auto term = dynamic_cast<antlr4::tree::TerminalNode *>(expr);
+    if (term) {
+      return false;
+    }
+  } else {
+    auto access = dynamic_cast<siliceParser::AccessContext *>(expr);
+    if (access) {
+      _access = access;
+      return true;
+    } else {
+      // recurse
+      if (expr->children.size() == 1) {
+        return isAccess(expr->children.front(), _access);
+      } else {
+        return false;
+      }
+    }
+  }
+  return false;
+}
+
+// -------------------------------------------------
+
 void Algorithm::resetBlockName()
 {
   m_NextBlockName = 1;
@@ -1488,7 +1538,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
     }
     if (grpmodalg) {
       reportError(grpmodalg->getSourceInterval(), (int)decl->getStart()->getLine(),
-        "cannot declare groups, nor intantiate modules or algorithms here");
+        "cannot declare groups, nor instantiate modules or algorithms here");
     }
   }
   if (declvar)        { gatherDeclarationVar(declvar, _current, _context); }
@@ -1556,6 +1606,7 @@ bool Algorithm::isIdentifierAvailable(std::string name) const
 
 // -------------------------------------------------
 
+// TODO: group as parameter?
 Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context)
 {
   if (_current->context.subroutine != nullptr) {
@@ -1615,7 +1666,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       // find subroutine being called
       auto S = m_Subroutines.find(P->IDENTIFIER()->getText());
       if (S == m_Subroutines.end()) {
-        reportError(P->IDENTIFIER()->getSymbol(), (int)P->getStart()->getLine(),  
+        reportError(P->IDENTIFIER()->getSymbol(), (int)P->getStart()->getLine(),
           "cannot find subroutine '%s' declared called by subroutine '%s'",
           P->IDENTIFIER()->getText().c_str(), nfo->name.c_str());
       }
@@ -1626,9 +1677,8 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       for (auto outs : S->second->outputs) {
         nfo->allowed_reads.insert(S->second->vios.at(outs));
       }
-    }
-    // input or output?
-    if (P->input() != nullptr || P->output() != nullptr) {
+    } else if (P->input() != nullptr || P->output() != nullptr) {
+      // input or output?      
       std::string in_or_out;
       std::string ioname;
       std::string strtype;
@@ -1646,14 +1696,13 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         nfo->inputs.push_back(ioname);
       } else {
         in_or_out = "o";
-        ioname = P->output()->IDENTIFIER()->getText();
-        strtype = P->output()->TYPE()->getText();
-        if (P->output()->NUMBER() != nullptr) {
+        if (P->output()->declarationTable() != nullptr) {
           reportError(P->getSourceInterval(), (int)P->getStart()->getLine(),
             "subroutine '%s' output '%s', tables as output are not yet supported",
             nfo->name.c_str(), ioname.c_str());
-          tbl_size = atoi(P->output()->NUMBER()->getText().c_str());
         }
+        ioname  = P->output()->declarationVar()->IDENTIFIER()->getText();
+        strtype = P->output()->declarationVar()->TYPE()->getText();
         nfo->outputs.push_back(ioname);
       }
       // check for name collisions
@@ -1677,10 +1726,10 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       nfo->vios.insert(std::make_pair(ioname, var.name));
       // add to allowed read/write list
       if (P->input() != nullptr) {
-        nfo->allowed_reads .insert(var.name);
+        nfo->allowed_reads.insert(var.name);
       } else {
         nfo->allowed_writes.insert(var.name);
-        nfo->allowed_reads .insert(var.name);
+        nfo->allowed_reads.insert(var.name);
       }
       nfo->top_block->declared_vios.insert(var.name);
     }
@@ -1854,7 +1903,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // report
     std::cerr << tv << " trickling from " << last_write << " to " << last_read << nxl;
     // info from source var
-    auto tws = determineVIOTypeWidthAndTableSize(&_current->context, tv, (int)pip->getStart()->getLine());
+    auto tws = determineVIOTypeWidthAndTableSize(&_current->context, tv, pip->getSourceInterval(), (int)pip->getStart()->getLine());
     // generate one flip-flop per stage
     ForRange(s, last_write+1, last_read) {
       // -> add variable
@@ -2076,7 +2125,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
       }
       outs.push_back(io->IDENTIFIER()->getText());
     } else if (io->is_inout != nullptr) {
-      ins.push_back(io->IDENTIFIER()->getText());
+      ins .push_back(io->IDENTIFIER()->getText());
       outs.push_back(io->IDENTIFIER()->getText());
     } else {
       reportError(C->second->IDENTIFIER()->getSymbol(), (int)C->second->getStart()->getLine(), "internal error");
@@ -2301,14 +2350,14 @@ void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _i
 
 void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nfo& _io)
 {
-  _io.name = output->IDENTIFIER()->getText();
-  _io.table_size = 0;
-  splitType(output->TYPE()->getText(), _io.type_nfo);
-  if (output->NUMBER() != nullptr) {
-    reportError(output->getSourceInterval(), -1, "input '%s': tables as output are not yet supported", _io.name.c_str());
-    _io.table_size = atoi(output->NUMBER()->getText().c_str());
+  if (output->declarationVar() != nullptr) {
+    gatherVarNfo(output->declarationVar(), _io, true);
+  } else if (output->declarationTable() != nullptr) {
+    reportError(output->getSourceInterval(), -1, "output '%s': tables as output are not yet supported", _io.name.c_str());
+    // gatherTableNfo(output->declarationTable(), _io);
+  } else {
+    sl_assert(false);
   }
-  _io.init_values.resize(max(_io.table_size, 1), "0");
   _io.combinational = (output->combinational != nullptr);
 }
 
@@ -2361,28 +2410,31 @@ void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
     // add it where it belongs
     if (io->is_input != nullptr) {
       t_inout_nfo inp;
-      inp.name         = grpre + "_" + V->second.name;
-      inp.table_size   = V->second.table_size;
-      inp.init_values  = V->second.init_values;
-      inp.type_nfo     = V->second.type_nfo;
+      inp.name              = grpre + "_" + V->second.name;
+      inp.table_size        = V->second.table_size;
+      inp.init_values       = V->second.init_values;
+      inp.do_not_initialize = V->second.do_not_initialize;
+      inp.type_nfo          = V->second.type_nfo;
       m_Inputs.emplace_back(inp);
       m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
     } else if (io->is_inout != nullptr) {
       t_inout_nfo inp;
-      inp.name = grpre + "_" + V->second.name;
-      inp.table_size  = V->second.table_size;
-      inp.init_values = V->second.init_values;
-      inp.nolatch     = (io->nolatch != nullptr);
-      inp.type_nfo    = V->second.type_nfo;
+      inp.name              = grpre + "_" + V->second.name;
+      inp.table_size        = V->second.table_size;
+      inp.init_values       = V->second.init_values;
+      inp.do_not_initialize = V->second.do_not_initialize;
+      inp.type_nfo          = V->second.type_nfo;
+      inp.nolatch           = (io->nolatch != nullptr);
       m_InOuts.emplace_back(inp);
       m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
     } else if (io->is_output != nullptr) {
       t_output_nfo oup;
-      oup.name = grpre + "_" + V->second.name;
-      oup.table_size    = V->second.table_size;
-      oup.init_values   = V->second.init_values;
-      oup.combinational = (io->combinational != nullptr);
-      oup.type_nfo      = V->second.type_nfo;
+      oup.name              = grpre + "_" + V->second.name;
+      oup.table_size        = V->second.table_size;
+      oup.init_values       = V->second.init_values;
+      oup.do_not_initialize = V->second.do_not_initialize;
+      oup.type_nfo          = V->second.type_nfo;
+      oup.combinational     = (io->combinational != nullptr);
       m_Outputs.emplace_back(oup);
       m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
     }
@@ -2406,10 +2458,11 @@ void Algorithm::gatherIoInterface(siliceParser::IoInterfaceContext *itrf)
   unordered_set<string> vars;
   for (auto io : I->second->ioList()->io()) {
     t_var_nfo vnfo;
-    vnfo.name = io->IDENTIFIER()->getText();
+    vnfo.name               = io->IDENTIFIER()->getText();
     vnfo.type_nfo.base_type = Parameterized;
     vnfo.type_nfo.width     = 0;
     vnfo.table_size         = 0;
+    vnfo.do_not_initialize  = true;
     if (vars.count(vnfo.name)) {
       reportError(io->IDENTIFIER()->getSymbol(), (int)io->getStart()->getLine(),
         "entry '%s' declared twice in interface definition '%s'",
@@ -2419,30 +2472,33 @@ void Algorithm::gatherIoInterface(siliceParser::IoInterfaceContext *itrf)
     // add it where it belongs
     if (io->is_input != nullptr) {
       t_inout_nfo inp;
-      inp.name = grpre + "_" + vnfo.name;
-      inp.table_size = vnfo.table_size;
-      inp.init_values = vnfo.init_values;
-      inp.type_nfo = vnfo.type_nfo;
+      inp.name              = grpre + "_" + vnfo.name;
+      inp.table_size        = vnfo.table_size;
+      inp.init_values       = vnfo.init_values;
+      inp.type_nfo          = vnfo.type_nfo;
+      inp.do_not_initialize = vnfo.do_not_initialize;
       m_Inputs.emplace_back(inp);
       m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
       m_Parameterized.push_back(inp.name);
     } else if (io->is_inout != nullptr) {
       t_inout_nfo inp;
-      inp.name = grpre + "_" + vnfo.name;
-      inp.table_size = vnfo.table_size;
-      inp.init_values = vnfo.init_values;
-      inp.nolatch = (io->nolatch != nullptr);
-      inp.type_nfo = vnfo.type_nfo;
+      inp.name              = grpre + "_" + vnfo.name;
+      inp.table_size        = vnfo.table_size;
+      inp.init_values       = vnfo.init_values;
+      inp.type_nfo          = vnfo.type_nfo;
+      inp.do_not_initialize = vnfo.do_not_initialize;
+      inp.nolatch           = (io->nolatch != nullptr);
       m_InOuts.emplace_back(inp);
       m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
       m_Parameterized.push_back(inp.name);
     } else if (io->is_output != nullptr) {
       t_output_nfo oup;
-      oup.name = grpre + "_" + vnfo.name;
-      oup.table_size = vnfo.table_size;
-      oup.init_values = vnfo.init_values;
-      oup.combinational = (io->combinational != nullptr);
-      oup.type_nfo = vnfo.type_nfo;
+      oup.name              = grpre + "_" + vnfo.name;
+      oup.table_size        = vnfo.table_size;
+      oup.init_values       = vnfo.init_values;
+      oup.type_nfo          = vnfo.type_nfo;
+      oup.do_not_initialize = vnfo.do_not_initialize;
+      oup.combinational     = (io->combinational != nullptr);
       m_Outputs.emplace_back(oup);
       m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
       m_Parameterized.push_back(oup.name);
@@ -2490,14 +2546,185 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
 
 // -------------------------------------------------
 
-void Algorithm::getParams(siliceParser::ParamListContext* params, std::vector<antlr4::tree::ParseTree*>& _vec_params) const
+/// \brief returns the postfix of an identifier knwon to be a group member
+static std::string memberPostfix(std::string name)
 {
-  if (params == nullptr) return;
-  while (params->expression_0() != nullptr) {
-    _vec_params.push_back(params->expression_0());
-    params = params->paramList();
-    if (params == nullptr) return;
+  auto pos = name.rfind('_');
+  if (pos != std::string::npos) {
+    return name.substr(pos + 1);
+  } else {
+    return "";
   }
+}
+
+/// \brief returns the prefix of an identifier knwon to be a group member
+static std::string memberPrefix(std::string name)
+{
+  auto pos = name.rfind('_');
+  if (pos != std::string::npos) {
+    return name.substr(0,pos);
+  } else {
+    return "";
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::getCallParams(
+  siliceParser::CallParamListContext    *params,
+  std::vector<t_call_param>&            _inparams, 
+  const t_combinational_block_context   *bctx
+) const
+{
+  if (params == nullptr) {
+    return;
+  }
+  for (auto param : params->expression_0()) {
+    t_call_param nfo;
+    nfo.expression = param;
+    std::string identifier;
+    if (isIdentifier(nfo.expression, identifier)) {
+      // check if that is a group, if yes store its definition
+      identifier = translateVIOName(identifier, bctx);
+      auto G = m_VIOGroups.find(identifier);
+      if (G != m_VIOGroups.end()) {
+        nfo.what = &G->second;
+      } else {
+        nfo.what = identifier;
+      }
+    } else {
+      siliceParser::AccessContext *access = nullptr;
+      if (isAccess(nfo.expression, access)) {
+        nfo.what = access;
+      }
+    }
+    _inparams.push_back(nfo);
+  }
+}
+
+// -------------------------------------------------
+
+bool Algorithm::matchCallParams(
+  const std::vector<t_call_param>&     given_params, 
+  const std::vector<std::string>&      expected_params,
+  const t_combinational_block_context* bctx,
+  std::vector<t_call_param>&          _matches) const
+{
+  if (given_params.empty() && expected_params.empty()) {
+    return true;  // both empty, success!
+  }
+  if (given_params.empty() || expected_params.empty()) {
+    return false; // only one empty, cannot match
+  }
+  int g = 0; // current in given params
+  int i = 0; // current in input params
+  while (i < expected_params.size()) {
+    if (g >= given_params.size()) {
+      return false; // partial match
+    }
+    if (std::holds_alternative<const t_group_definition *>(given_params[g].what)) { // given param is a group
+      // get the base identifier
+      std::string base;
+      bool ok = isIdentifier(given_params[g].expression, base);
+      sl_assert(ok);
+      base = translateVIOName(base, bctx);
+      bool no_match = true;
+      // check if a member matches
+      for (auto member : getGroupMembers(*std::get<const t_group_definition *>(given_params[g].what))) {
+        if (memberPostfix(expected_params[i]) == member) {
+          // match with the indentifier
+          t_call_param matched;
+          matched.expression = given_params[g].expression;
+          matched.what       = base + "_" + member;
+          _matches.push_back(matched);
+          no_match = false;
+          ++i; // advance on i only
+          break;
+        }
+      }
+      if (no_match) {
+        ++g; // advance on g only
+      }
+    } else {
+      t_call_param matched;
+      _matches.push_back(given_params[g]);
+      ++i;
+      ++g;
+    }
+  }
+  if (g == given_params.size()) {
+    // exact match
+    return true;
+  } else if (g + 1 == given_params.size()) {
+    // we did not use the last entire group, that is ok
+    return std::holds_alternative<const t_group_definition *>(given_params[g].what);
+  } else {
+    // improper match
+    return false;
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::parseCallParams(
+  siliceParser::CallParamListContext *params,
+  const Algorithm *alg,
+  bool input_else_output,
+  const t_combinational_block_context *bctx,
+  std::vector<t_call_param> &_matches) const
+{
+  std::vector<t_call_param> given_params;
+  getCallParams(params, given_params, bctx);
+  std::vector<std::string> expected_params;
+  if (input_else_output) {
+    for (auto I : alg->m_Inputs) {
+      expected_params.push_back(I.name);
+    }
+  } else {
+    for (auto O : alg->m_Outputs) {
+      expected_params.push_back(O.name);
+    }
+  }
+  bool ok = matchCallParams(given_params, expected_params, bctx, _matches);
+  if (!ok) {
+    reportError(params->getSourceInterval(),-1,
+      "incorrect number of %s parameters in call to algorithm '%s'",
+      input_else_output ? "input" : "output", alg->m_Name.c_str());
+  }
+  sl_assert(_matches.size() == expected_params.size());
+}
+
+// -------------------------------------------------
+
+void Algorithm::parseCallParams(
+  siliceParser::CallParamListContext *params,
+  const t_subroutine_nfo *sub,
+  bool input_else_output,
+  const t_combinational_block_context *bctx,
+  std::vector<t_call_param> &_matches) const
+{
+  std::vector<t_call_param> given_params;
+  getCallParams(params, given_params, bctx);
+  std::vector<std::string> expected_params;
+  if (input_else_output) {
+    expected_params = sub->inputs;
+    /*
+      // skip inputs which are not used      NOTE: used to be done but seems like a bad idea?
+      if (info.access == e_WriteOnly) {
+        // skip
+      }
+    */
+  } else {
+    expected_params = sub->outputs;
+  }
+  bool ok = matchCallParams(given_params, sub->inputs, bctx, _matches);
+  if (!ok) {
+    reportError(params->getSourceInterval(), -1,
+      "incorrect %s parameters in call to algorithm '%s', last correct match was parameter '%s'",
+      input_else_output ? "input" : "output", sub->name.c_str(),
+      expected_params.empty() ? "" : expected_params[_matches.size() - 1].c_str());
+  }
+  sl_assert(_matches.size() == sub->inputs.size());
 }
 
 // -------------------------------------------------
@@ -2873,6 +3100,12 @@ bool Algorithm::requiresNoReset() const
       return false;
     }
   }
+  for (const auto &v : m_Outputs) {
+    if (v.usage != e_FlipFlop) continue;
+    if (!v.do_not_initialize) {
+      return false;
+    }
+  }
   return true;
 }
 
@@ -3207,10 +3440,10 @@ void Algorithm::verifyMemberBitfield(std::string member, siliceParser::BitfieldC
 
 std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx) const
 {
-  if (bnd.right_access == nullptr) {
-    return translateVIOName(bnd.right_identifier, bctx);
+  if (std::holds_alternative<std::string>(bnd.right)) {
+    return translateVIOName(std::get<std::string>(bnd.right), bctx);
   } else {
-    return determineAccessedVar(bnd.right_access, bctx);
+    return determineAccessedVar(std::get<siliceParser::IoAccessContext*>(bnd.right), bctx);
   }
 }
 
@@ -3421,12 +3654,17 @@ void Algorithm::determineVIOAccess(
       auto join = dynamic_cast<siliceParser::JoinExecContext*>(node);
       if (join) {
         // track writes when reading back
-        for (const auto& asgn : join->assignList()->assign()) {
+        for (const auto& asgn : join->callParamList()->expression_0()) {
           std::string var;
-          if (asgn->access() != nullptr) {
-            var = determineAccessedVar(asgn->access(), bctx);
+          // which var is accessed?
+          siliceParser::AccessContext *access = nullptr;
+          std::string identifier;
+          if (isAccess(asgn, access)) {
+            var = determineAccessedVar(access, bctx);
+          } else if (isIdentifier(asgn, identifier)) {
+            var = identifier;
           } else {
-            var = asgn->IDENTIFIER()->getText();
+            reportError(asgn->getSourceInterval(), -1, "cannot assign a return value to this expression");
           }
           if (!var.empty()) {
             var = translateVIOName(var, bctx);
@@ -3435,11 +3673,11 @@ void Algorithm::determineVIOAccess(
             }
           }
           // recurse on lhs expression, if any
-          if (asgn->access() != nullptr) {
-            if (asgn->access()->tableAccess() != nullptr) {
-              determineVIOAccess(asgn->access()->tableAccess()->expression_0(), vios, bctx, _read, _written);
-            } else if (asgn->access()->bitAccess() != nullptr) {
-              determineVIOAccess(asgn->access()->bitAccess()->expression_0(), vios, bctx, _read, _written);
+          if (access != nullptr) {
+            if (access->tableAccess() != nullptr) {
+              determineVIOAccess(access->tableAccess()->expression_0(), vios, bctx, _read, _written);
+            } else if (access->bitAccess() != nullptr) {
+              determineVIOAccess(access->bitAccess()->expression_0(), vios, bctx, _read, _written);
             }
           }
         }
@@ -3904,11 +4142,11 @@ Algorithm::Algorithm(
   std::string name, 
   std::string clock, std::string reset, 
   bool autorun, bool onehot,
-  const std::unordered_map<std::string, AutoPtr<Module> >& known_modules,
+  const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
   const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
-  const std::unordered_map<std::string, siliceParser::IntrfaceContext *>& known_interfaces,
+  const std::unordered_map<std::string, siliceParser::IntrfaceContext *>&  known_interfaces,
   const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield
 )
   : m_Name(name), m_Clock(clock), m_Reset(reset), 
@@ -4031,73 +4269,86 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
     ExpressionLinter linter(this);
     linter.lintAssignment(alwasg->access(), alwasg->IDENTIFIER(), alwasg->expression_0(), &_current->context);
   } else if (async) {
-    // get params
-    std::vector<antlr4::tree::ParseTree*> params;
-    getParams(async->paramList(), params);
-    if (!params.empty()) {
+    if (async->callParamList()) {
       // find algorithm
       auto A = m_InstancedAlgorithms.find(async->IDENTIFIER()->getText());
       if (A != m_InstancedAlgorithms.end()) {
-        int p = 0;
-        for (const auto& ins : A->second.algo->m_Inputs) {
-          ExpressionLinter linter(this);
-          linter.lintInputParameter(ins.name, ins.type_nfo, dynamic_cast<siliceParser::Expression_0Context*>(params[p++]), &_current->context);
+        // if parameters are given, check, otherwise we allow call without parameters (bindings may exist)
+        if (!async->callParamList()->expression_0().empty()) {
+          // get params
+          std::vector<t_call_param> matches;
+          parseCallParams(async->callParamList(), A->second.algo.raw(), true, &_current->context, matches);
+          // lint each
+          int p = 0;
+          for (const auto &ins : A->second.algo->m_Inputs) {
+            ExpressionLinter linter(this);
+            linter.lintInputParameter(ins.name, ins.type_nfo, matches[p++], &_current->context);
+          }
         }
       }
     }
   } else if (sync) {
-    // get params
-    std::vector<antlr4::tree::ParseTree*> params;
-    getParams(sync->paramList(), params);
-    if (!params.empty()) {
+    if (sync->callParamList()) {
       // find algorithm / subroutine
       auto A = m_InstancedAlgorithms.find(sync->joinExec()->IDENTIFIER()->getText());
       if (A != m_InstancedAlgorithms.end()) { // algorithm
-        int p = 0;
-        for (const auto& ins : A->second.algo->m_Inputs) {
-          if (p >= params.size()) { break; } // safety in case of wrong num params
-          ExpressionLinter linter(this);
-          linter.lintInputParameter(ins.name, ins.type_nfo, dynamic_cast<siliceParser::Expression_0Context*>(params[p++]), &_current->context);
+        // if parameters are given, check, otherwise we allow call without parameters (bindings may exist)
+        if (!sync->callParamList()->expression_0().empty()) {
+          // get params
+          std::vector<t_call_param> matches;
+          parseCallParams(sync->callParamList(), A->second.algo.raw(), true, &_current->context, matches);
+          // lint each
+          int p = 0;
+          for (const auto &ins : A->second.algo->m_Inputs) {
+            ExpressionLinter linter(this);
+            linter.lintInputParameter(ins.name, ins.type_nfo, matches[p++], &_current->context);
+          }
         }
       } else {
         auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
         if (S != m_Subroutines.end()) { // subroutine
+          // get params
+          std::vector<t_call_param> matches;
+          parseCallParams(sync->callParamList(), A->second.algo.raw(), true, &_current->context, matches);
+          // lint each
           int p = 0;
           for (const auto& ins : S->second->inputs) {
-            if (p >= params.size()) { break; } // safety in case of wrong num params
-            // skip inputs which are not used
             const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(ins))];
-            if (info.access == e_WriteOnly) {
-              p++;
-              continue;
-            }
             ExpressionLinter linter(this);
-            linter.lintInputParameter(ins, info.type_nfo, dynamic_cast<siliceParser::Expression_0Context*>(params[p++]), &_current->context);
+            linter.lintInputParameter(ins, info.type_nfo, matches[p++], &_current->context);
           }
         }
       }
     }
   } else if (join) {
-    if (!join->assignList()->assign().empty()) {
+    if (!join->callParamList()->expression_0().empty()) {
       // find algorithm / subroutine
       auto A = m_InstancedAlgorithms.find(join->IDENTIFIER()->getText());
       if (A != m_InstancedAlgorithms.end()) { // algorithm
-        int p = 0;
-        for (const auto& outs : A->second.algo->m_Outputs) {
-          if (p >= join->assignList()->assign().size()) { break; } // safety in case of wrong num params
-          ExpressionLinter linter(this);
-          linter.lintReadback(outs.name, join->assignList()->assign()[p]->access(), join->assignList()->assign()[p]->IDENTIFIER(), outs.type_nfo, &_current->context);
-          ++p;
+        // if parameters are given, check, otherwise we allow call without parameters (bindings may exist)
+        if (!join->callParamList()->expression_0().empty()) {
+          // get params
+          std::vector<t_call_param> matches;
+          parseCallParams(join->callParamList(), A->second.algo.raw(), false, &_current->context, matches);
+          // lint each
+          int p = 0;
+          for (const auto &outs : A->second.algo->m_Outputs) {
+            ExpressionLinter linter(this);
+            linter.lintReadback(outs.name, matches[p++], outs.type_nfo, &_current->context);
+          }
         }
       } else {
         auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
         if (S != m_Subroutines.end()) { // subroutine
+          // get params
+          std::vector<t_call_param> matches;
+          parseCallParams(join->callParamList(), S->second, false, &_current->context, matches);
+          // lint each
           int p = 0;
           for (const auto& outs : S->second->outputs) {
-            if (p >= join->assignList()->assign().size()) { break; } // safety in case of wrong num params
             ExpressionLinter linter(this);
             const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(outs))];
-            linter.lintReadback(outs, join->assignList()->assign()[p]->access(), join->assignList()->assign()[p]->IDENTIFIER(), info.type_nfo, &_current->context);
+            linter.lintReadback(outs, matches[p++], info.type_nfo, &_current->context);
             ++p;
           }
         }
@@ -4158,7 +4409,7 @@ void Algorithm::optimize()
 
 // -------------------------------------------------
 
-std::tuple<t_type_nfo, int> Algorithm::determineVIOTypeWidthAndTableSize(const t_combinational_block_context *bctx, std::string vname,int line) const
+std::tuple<t_type_nfo, int> Algorithm::determineVIOTypeWidthAndTableSize(const t_combinational_block_context *bctx, std::string vname, antlr4::misc::Interval interval, int line) const
 {
   t_type_nfo tn;
   tn.base_type   = Int;
@@ -4186,26 +4437,26 @@ std::tuple<t_type_nfo, int> Algorithm::determineVIOTypeWidthAndTableSize(const t
     tn         = t_type_nfo(UInt,1);
     table_size = 0;
   } else {
-    reportError(nullptr, line, "variable '%s' not yet declared", vname.c_str());
+    reportError(interval, line, "variable '%s' not yet declared", vname.c_str());
   }
   return std::make_tuple(tn, table_size);
 }
 
 // -------------------------------------------------
 
-std::tuple<t_type_nfo, int> Algorithm::determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const
+std::tuple<t_type_nfo, int> Algorithm::determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, antlr4::misc::Interval interval, int line) const
 {
   sl_assert(identifier != nullptr);
   std::string vname = identifier->getText();
-  return determineVIOTypeWidthAndTableSize(bctx, vname, line);
+  return determineVIOTypeWidthAndTableSize(bctx, vname, interval, line);
 }
 
 // -------------------------------------------------
 
-t_type_nfo Algorithm::determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const
+t_type_nfo Algorithm::determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, antlr4::misc::Interval interval, int line) const
 {
   sl_assert(identifier != nullptr);
-  auto tws = determineIdentifierTypeWidthAndTableSize(bctx, identifier, line);
+  auto tws = determineIdentifierTypeWidthAndTableSize(bctx, identifier, interval, line);
   return std::get<0>(tws);
 }
 
@@ -4247,7 +4498,7 @@ t_type_nfo Algorithm::determineIOAccessTypeAndWidth(const t_combinational_block_
       // produce the variable name
       std::string vname = base + "_" + member;
       // get width and size
-      auto tws = determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
+      auto tws = determineVIOTypeWidthAndTableSize(bctx, vname, ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
       return std::get<0>(tws);
     } else {
       reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
@@ -4271,7 +4522,7 @@ t_type_nfo Algorithm::determineBitfieldAccessTypeAndWidth(const t_combinational_
   // either identifier or ioaccess
   t_type_nfo packed;
   if (bfaccess->idOrIoAccess()->IDENTIFIER() != nullptr) {
-    packed = determineIdentifierTypeAndWidth(bctx, bfaccess->idOrIoAccess()->IDENTIFIER(), (int)bfaccess->getStart()->getLine());
+    packed = determineIdentifierTypeAndWidth(bctx, bfaccess->idOrIoAccess()->IDENTIFIER(), bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine());
   } else {
     packed = determineIOAccessTypeAndWidth(bctx, bfaccess->idOrIoAccess()->ioAccess());
   }
@@ -4291,7 +4542,7 @@ t_type_nfo Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block
   sl_assert(bitaccess != nullptr);
   t_type_nfo tn;
   if (bitaccess->IDENTIFIER() != nullptr) {
-    tn = determineIdentifierTypeAndWidth(bctx, bitaccess->IDENTIFIER(), (int)bitaccess->getStart()->getLine());
+    tn = determineIdentifierTypeAndWidth(bctx, bitaccess->IDENTIFIER(), bitaccess->getSourceInterval(), (int)bitaccess->getStart()->getLine());
   } else if (bitaccess->tableAccess() != nullptr) {
     tn = determineTableAccessTypeAndWidth(bctx, bitaccess->tableAccess());
   } else {
@@ -4307,7 +4558,7 @@ t_type_nfo Algorithm::determineTableAccessTypeAndWidth(const t_combinational_blo
 {
   sl_assert(tblaccess != nullptr);
   if (tblaccess->IDENTIFIER() != nullptr) {
-    return determineIdentifierTypeAndWidth(bctx, tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
+    return determineIdentifierTypeAndWidth(bctx, tblaccess->IDENTIFIER(), tblaccess->getSourceInterval(), (int)tblaccess->getStart()->getLine());
   } else {
     return determineIOAccessTypeAndWidth(bctx, tblaccess->ioAccess());
   }
@@ -4330,7 +4581,7 @@ t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_co
     }
   } else if (identifier) {
     // identifier
-    return determineIdentifierTypeAndWidth(bctx, identifier, (int)identifier->getSymbol()->getLine());
+    return determineIdentifierTypeAndWidth(bctx, identifier, identifier->getSourceInterval(), (int)identifier->getSymbol()->getLine());
   }
   sl_assert(false);
   return t_type_nfo(UInt, 0);
@@ -4338,7 +4589,7 @@ t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_co
 
 // -------------------------------------------------
 
-void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
+void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::CallParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   // check for clock domain crossing
   if (a.instance_clock != m_Clock) {
@@ -4352,16 +4603,11 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
       "algorithm instance '%s' called while being purely combinational",
       a.instance_name.c_str());
   }
-  // get params
-  std::vector<antlr4::tree::ParseTree*> params;
-  getParams(plist, params);
   // if params are empty we simply call, otherwise we set the inputs
-  if (!params.empty()) {
-    if (a.algo->m_Inputs.size() != params.size()) {
-      reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
-        "incorrect number of input parameters in call to algorithm instance '%s'",
-        a.instance_name.c_str());
-    }
+  if (!plist->expression_0().empty()) {
+    // parse parameters
+    std::vector<t_call_param> matches;
+    parseCallParams(plist, a.algo.raw(), true, bctx, matches);
     // set inputs
     int p = 0;
     for (const auto& ins : a.algo->m_Inputs) {
@@ -4370,9 +4616,18 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
         "algorithm instance '%s' cannot be called with parameters as its input '%s' is bound",
           a.instance_name.c_str(), ins.name.c_str());
       }
-      out << FF_D << a.instance_prefix << "_" << ins.name
-        << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage) 
-        << ";" << nxl;
+      out << FF_D << a.instance_prefix << "_" << ins.name;
+      if (std::holds_alternative<std::string>(matches[p].what)) {
+        out << " = " << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), bctx, (int)plist->getStart()->getLine(), FF_Q, true, dependencies, _ff_usage);
+      } else if (std::holds_alternative<std::monostate>(matches[p].what)) {
+        out << " = " << rewriteExpression(prefix, matches[p].expression, -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage);
+      } else {
+        reportError(matches[p].expression->getSourceInterval(),-1, 
+          "call to algorithm instance '%s' invalid expression for input '%s'",
+          a.instance_name.c_str(), ins.name.c_str());
+      }
+      out << ";" << nxl;
+      ++p;
     }
   }
   // restart algorithm (pulse run low)
@@ -4382,7 +4637,7 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
 
 // -------------------------------------------------
 
-void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::AssignListContext* plist, const t_combinational_block_context* bctx, t_vio_ff_usage &_ff_usage) const
+void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::CallParamListContext* plist, const t_combinational_block_context* bctx, t_vio_ff_usage &_ff_usage) const
 {
   // check for pipeline
   if (bctx->pipeline != nullptr) {
@@ -4402,21 +4657,23 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
       a.instance_name.c_str());
   }
   // if params are empty we simply wait, otherwise we set the outputs
-  if (!plist->assign().empty()) {
-    if (a.algo->m_Outputs.size() != plist->assign().size()) {
-      reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
-      "incorrect number of output parameters reading back result from algorithm instance '%s'",
-        a.instance_name.c_str());
-    }
+  if (!plist->expression_0().empty()) {
+    // parse parameters
+    std::vector<t_call_param> matches;
+    parseCallParams(plist, a.algo.raw(), false, bctx, matches);
     // read outputs
     int p = 0;
     for (const auto& outs : a.algo->m_Outputs) {
-      if (plist->assign()[p]->access() != nullptr) {
+      if (std::holds_alternative<std::string>(matches[p].what)) {
         t_vio_dependencies _;
-        writeAccess(prefix, out, true, plist->assign()[p]->access(), -1, bctx, FF_D, _, _ff_usage);
+        out << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
+      } else if (std::holds_alternative<siliceParser::AccessContext*>(matches[p].what)) {
+        t_vio_dependencies _;
+        writeAccess(prefix, out, true, std::get<siliceParser::AccessContext *>(matches[p].what), -1, bctx, FF_D, _, _ff_usage);
       } else {
-        t_vio_dependencies _;
-        out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
+        reportError(matches[p].expression->getSourceInterval(), -1,
+          "algorithm instance '%s' invalid receiving expression for output '%s'",
+          a.instance_name.c_str(), outs.name.c_str());
       }
       out << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << nxl;
       ++p;
@@ -4426,58 +4683,57 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
 
 // -------------------------------------------------
 
-void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo *called, const t_combinational_block_context *bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
+void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo *called, const t_combinational_block_context *bctx, siliceParser::CallParamListContext* plist, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   if (bctx->pipeline != nullptr) {
     reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
       "cannot call a subroutine from a pipeline");
   }
-  std::vector<antlr4::tree::ParseTree*> params;
-  getParams(plist, params);
-  // check num parameters
-  if (called->inputs.size() != params.size()) {
-    reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
-      "incorrect number of input parameters in call to subroutine '%s'",
-      called->name.c_str());
-  }
+  // parse parameters
+  std::vector<t_call_param> matches;
+  parseCallParams(plist, called, true, bctx, matches);
   // set inputs
   int p = 0;
   for (const auto& ins : called->inputs) {
-    // skip inputs which are not used
-    const auto& info = m_Vars[m_VarNames.at(called->vios.at(ins))];
-    if (info.access == e_WriteOnly) {
-      p++;
-      continue;
+    out << FF_D << prefix << called->vios.at(ins);
+    if (std::holds_alternative<std::monostate>(matches[p].what)) {
+      out << " = " << rewriteExpression(prefix, matches[p].expression, -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage);
+    } else if (std::holds_alternative<std::string>(matches[p].what)) {
+      out << " = " << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), bctx, (int)plist->getStart()->getLine(), FF_Q, true, dependencies, _ff_usage);
+    } else {
+      reportError(matches[p].expression->getSourceInterval(), -1,
+        "call to subroutine '%s' invalid expression for input '%s'",
+        called->name.c_str(), ins.c_str());
     }
-    out << FF_D << prefix << called->vios.at(ins)
-      << " = " << rewriteExpression(prefix, params[p++], -1 /*cannot be in repeated block*/, bctx, FF_Q, true, dependencies, _ff_usage)
-      << ';' << nxl;
+    out << ';' << nxl;
+    ++p;
   }
 }
 
 // -------------------------------------------------
 
-void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist, t_vio_ff_usage &_ff_usage) const
+void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::CallParamListContext* plist, t_vio_ff_usage &_ff_usage) const
 {
   if (bctx->pipeline != nullptr) {
     reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
     "cannot join a subroutine from a pipeline");
   }
-  // if params are empty we simply wait, otherwise we set the outputs
-  if (called->outputs.size() != plist->assign().size()) {
-    reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
-    "incorrect number of output parameters reading back result from subroutine '%s'",
-      called->name.c_str());
-  }
+  // parse parameters
+  std::vector<t_call_param> matches;
+  parseCallParams(plist, called, false, bctx, matches);
   // read outputs (reading from FF_D or FF_Q should be equivalent since we just cycled the state machine)
   int p = 0;
-  for (const auto& outs : called->outputs) {
-    if (plist->assign()[p]->access() != nullptr) {
+  for (const auto &outs : called->outputs) {
+    if (std::holds_alternative<std::string>(matches[p].what)) {
       t_vio_dependencies _;
-      writeAccess(prefix, out, true, plist->assign()[p]->access(), -1, bctx, FF_D, _, _ff_usage);
+      out << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
+    } else if (std::holds_alternative<siliceParser::AccessContext *>(matches[p].what)) {
+      t_vio_dependencies _;
+      writeAccess(prefix, out, true, std::get<siliceParser::AccessContext *>(matches[p].what), -1, bctx, FF_D, _, _ff_usage);
     } else {
-      t_vio_dependencies _;
-      out << rewriteIdentifier(prefix, plist->assign()[p]->IDENTIFIER()->getText(), bctx, plist->getStart()->getLine(), FF_D, true, _, _ff_usage);
+      reportError(matches[p].expression->getSourceInterval(), -1,
+        "call to subroutine '%s' invalid receiving expression for output '%s'",
+        called->name.c_str(), outs.c_str());
     }
     out << " = " << FF_D << prefix << called->vios.at(outs) << ';' << nxl;
     ++p;
@@ -4525,11 +4781,11 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
       }
       out << A->second.instance_prefix << "_" << member;
       // return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].width;
-      return A->second.algo->determineVIOTypeWidthAndTableSize(bctx, member, (int)ioaccess->getStart()->getLine());
+      return A->second.algo->determineVIOTypeWidthAndTableSize(bctx, member, ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
     } else if (A->second.algo->isOutput(member)) {
       out << WIRE << A->second.instance_prefix << "_" << member;
       // return A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].width;
-      return A->second.algo->determineVIOTypeWidthAndTableSize(bctx, member, (int)ioaccess->getStart()->getLine());
+      return A->second.algo->determineVIOTypeWidthAndTableSize(bctx, member, ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
     } else {
       sl_assert(false);
     }
@@ -4541,7 +4797,7 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
       std::string vname = base + "_" + member;
       // write
       out << rewriteIdentifier(prefix, vname, bctx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
-      return determineVIOTypeWidthAndTableSize(bctx, vname, (int)ioaccess->getStart()->getLine());
+      return determineVIOTypeWidthAndTableSize(bctx, vname, ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
     } else {
       reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
         "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
@@ -4570,7 +4826,7 @@ void Algorithm::writeTableAccess(
     std::string vname = tblaccess->IDENTIFIER()->getText();
     out << rewriteIdentifier(prefix, vname, bctx, tblaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
     // get width
-    auto tws = determineIdentifierTypeWidthAndTableSize(bctx, tblaccess->IDENTIFIER(), (int)tblaccess->getStart()->getLine());
+    auto tws = determineIdentifierTypeWidthAndTableSize(bctx, tblaccess->IDENTIFIER(), tblaccess->getSourceInterval(), (int)tblaccess->getStart()->getLine());
     if (get<1>(tws) == 0) {
       reportError(tblaccess->IDENTIFIER()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
@@ -4745,9 +5001,16 @@ void Algorithm::writeWireAssignements(
 
 void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
 {
-  if (!v.do_not_initialize) {
+  if (!v.do_not_initialize || v.type_nfo.base_type == Parameterized) {
     if (v.table_size == 0) {
-      out << FF_Q << prefix << v.name << " <= " << v.init_values[0] << ';' << endl;
+      if (v.type_nfo.base_type == Parameterized) {
+        std::string var = v.name;
+        std::transform(var.begin(), var.end(), var.begin(),
+          [](unsigned char c) -> unsigned char { return std::toupper(c); });
+        out << FF_Q << prefix << v.name << " <= " << var << "_INIT" << ';' << endl;
+      } else {
+        out << FF_Q << prefix << v.name << " <= " << v.init_values[0] << ';' << endl;
+      }
     } else {
       ForIndex(i,v.init_values.size()) {
         out << FF_Q << prefix << v.name << "[" << i << "] <= " << v.init_values[i] << ';' << endl;
@@ -4903,32 +5166,17 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
     if (v.usage != e_FlipFlop) continue;
     if (v.table_size == 0) {
       writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name);
-      //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
-      //out << FF_D << prefix << v.name << ';' << nxl;
       writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name);
-      //if (!v.attribs.empty()) {
-      //  out << v.attribs << nxl;
-      //}
-      //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
-      //out << FF_Q << prefix << v.name << ';' << nxl;
     } else {
       writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
-      //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
-      //out << FF_D << prefix << v.name << '[' << v.table_size-1 << ";" << nxl;
       writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
-      //if (!v.attribs.empty()) {
-      //  out << v.attribs << nxl;
-      //}
-      //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
-      //out << FF_Q << prefix << v.name << '[' << v.table_size - 1 << ";" << nxl;
     }
   }
   // flip-flops for outputs
   for (const auto& v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
+    sl_assert(v.table_size == 0);
     writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + ',' + string(FF_Q) + prefix + v.name);
-    //out << "reg " << typeString(v) << " " << varBitRange(v) << " ";
-    //out << FF_D << prefix << v.name << ',' << FF_Q << prefix << v.name << ';' << nxl;
   }
   // flip-flops for algorithm inputs that are not bound
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
@@ -4936,8 +5184,6 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
     for (const auto &is : ia.algo->m_Inputs) {
       if (ia.boundinputs.count(is.name) == 0) {
         writeVerilogDeclaration(out, "reg", is, string(FF_D) + ia.instance_prefix + '_' + is.name + ',' + string(FF_Q) + ia.instance_prefix + '_' + is.name);
-        //out << "reg " << typeString(is) << " " << varBitRange(is) << " ";
-        //out << FF_D << ia.instance_prefix << '_' << is.name << ',' << FF_Q << ia.instance_prefix << '_' << is.name << ';' << nxl;
       }
     }
   }
@@ -5013,6 +5259,11 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out) const
     out << ") begin" << nxl;
     for (const auto &v : m_Vars) {
       if (v.usage != e_FlipFlop) continue;
+      writeVarFlipFlopInit(prefix, out, v);
+    }
+    for (const auto &v : m_Outputs) {
+      if (v.usage != e_FlipFlop) continue;
+      if (v.do_not_initialize && v.type_nfo.base_type != Parameterized) continue;
       writeVarFlipFlopInit(prefix, out, v);
     }
     // state machine 
@@ -5419,9 +5670,17 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
           out << "$write(";
         }
         out << display->STRING()->getText();
-        if (display->displayParams() != nullptr) {
-          for (auto p : display->displayParams()->IDENTIFIER()) {
-            out << "," << rewriteIdentifier(prefix, p->getText(), &block->context, display->getStart()->getLine(), FF_Q, true, _dependencies, _ff_usage);
+        if (display->callParamList() != nullptr) {
+          std::vector<t_call_param> params;
+          getCallParams(display->callParamList(),params, &block->context);
+          for (auto p : params) {
+            if (std::holds_alternative<std::string>(p.what)) {
+              out << "," << rewriteIdentifier(prefix, std::get<std::string>(p.what), &block->context, display->getStart()->getLine(), FF_Q, true, _dependencies, _ff_usage);
+            } else if (std::holds_alternative<std::monostate>(p.what)) {
+              out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, FF_Q, true, _dependencies, _ff_usage);
+            } else {
+              reportError(p.expression->getSourceInterval(), -1, "invalid input expression");
+            }
           }
         }
         out << ");" << nxl;
@@ -5444,7 +5703,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
               async->IDENTIFIER()->getText().c_str());
           }
         } else {
-          writeAlgorithmCall(a.instr, prefix, out, A->second, async->paramList(), &block->context, _dependencies, _ff_usage);
+          writeAlgorithmCall(a.instr, prefix, out, A->second, async->callParamList(), &block->context, _dependencies, _ff_usage);
         }
       }
     } {
@@ -5460,10 +5719,10 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
               "cannot find algorithm '%s' on synchronous call",
               sync->joinExec()->IDENTIFIER()->getText().c_str());
           } else {
-            writeSubroutineCall(a.instr, prefix, out, S->second, &block->context, sync->paramList(), _dependencies, _ff_usage);
+            writeSubroutineCall(a.instr, prefix, out, S->second, &block->context, sync->callParamList(), _dependencies, _ff_usage);
           }
         } else {
-          writeAlgorithmCall(a.instr, prefix, out, A->second, sync->paramList(), &block->context, _dependencies, _ff_usage);
+          writeAlgorithmCall(a.instr, prefix, out, A->second, sync->callParamList(), &block->context, _dependencies, _ff_usage);
         }
       }
     } {
@@ -5479,10 +5738,10 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_combin
               "cannot find algorithm '%s' to join with",
               join->IDENTIFIER()->getText().c_str(), (int)join->getStart()->getLine());
           } else {
-            writeSubroutineReadback(a.instr, prefix, out, S->second, &block->context, join->assignList(), _ff_usage);
+            writeSubroutineReadback(a.instr, prefix, out, S->second, &block->context, join->callParamList(), _ff_usage);
           }
         } else {
-          writeAlgorithmReadback(a.instr, prefix, out, A->second, join->assignList(), &block->context, _ff_usage);
+          writeAlgorithmReadback(a.instr, prefix, out, A->second, join->callParamList(), &block->context, _ff_usage);
         }
       }
     }
@@ -5946,14 +6205,15 @@ void Algorithm::writeAsModule(std::ostream &out)
 
 // -------------------------------------------------
 
-const Algorithm::t_binding_nfo &Algorithm::findBindingTo(std::string var, const std::vector<t_binding_nfo> &bndgs) const
+const Algorithm::t_binding_nfo &Algorithm::findBindingTo(std::string var, const std::vector<t_binding_nfo> &bndgs, bool& _found) const
 {
+  _found = false;
   for (const auto &b : bndgs) {
     if (b.left == var) {
+      _found = true;
       return b;
     }
   }
-  throw Fatal("internal error [findBindingTo]");
   static t_binding_nfo foo;
   return foo;
 }
@@ -6025,8 +6285,9 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
       string str = m_Parameterized[i];
       std::transform(str.begin(), str.end(), str.begin(),
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
-      out << "parameter " << str << "_WIDTH=1";
-      // out << "parameter " << str << "_SIGNED=\"\"";
+      out << "parameter " << str << "_WIDTH=1,";
+      // out << "parameter " << str << "_SIGNED=1,";
+      out << "parameter " << str << "_INIT=0";
       if (i + 1 < m_Parameterized.size()) {
         out << ',';
       }
@@ -6116,7 +6377,12 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
       // is the output parameterized?
       if (os.type_nfo.base_type == Parameterized) {
         // find binding
-        const auto &b = findBindingTo(os.name, nfo.bindings);
+        bool found        = false;
+        const auto& b     = findBindingTo(os.name, nfo.bindings, found);
+        if (!found) {
+          reportError(nullptr, nfo.instance_line, "interface '%s' of instance '%s' is not bound, interfaces have to be bound using the <:> binding operator",
+            memberPrefix(os.name).c_str(), nfo.instance_name.c_str());
+        }
         std::string bound = bindingRightIdentifier(b);
         t_var_nfo bnfo;
         if (!getVIONfo(bound, bnfo)) {
@@ -6241,7 +6507,12 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
       ForIndex(i, nfo.algo->m_Parameterized.size()) {
         string var = nfo.algo->m_Parameterized[i];
         // find binding
-        const auto& b     = findBindingTo(var, nfo.bindings);
+        bool found        = false;
+        const auto& b     = findBindingTo(var, nfo.bindings, found);
+        if (!found) {
+          reportError(nullptr, nfo.instance_line, "interface '%s' of instance '%s' is not bound, interfaces have to be bound using the <:> binding operator",
+            memberPrefix(var).c_str(), nfo.instance_name.c_str());
+        }
         std::string bound = bindingRightIdentifier(b);
         t_var_nfo bnfo;
         if (!getVIONfo(bound, bnfo)) {
@@ -6258,7 +6529,11 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
           [](unsigned char c) -> unsigned char { return std::toupper(c); });
         out << '.' << var << "_WIDTH";
         out << '(' << varBitWidth(bnfo) << ')';
-        //out << ',' << endl;
+        if (!bnfo.do_not_initialize) {
+          out << ',' << endl;
+          out << '.' << var << "_INIT";
+          out << '(' << bnfo.init_values[0] << ')';
+        }
         //out << '.' << var << "_SIGNED";
         //out << "(\"" << typeString(bnfo) << "\")";
         if (i + 1 < nfo.algo->m_Parameterized.size()) {

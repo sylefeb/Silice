@@ -1,0 +1,22 @@
+group g
+{
+  uint8 value  = 0,
+  uint1 enable = 0,
+}
+
+algorithm test(
+  g           it { input value, output enable }, 
+  output uint8 v
+) {
+  v = it.value + 1;
+  it.enable = 1;
+}
+
+algorithm main(output uint8 leds)
+{
+  g    foo;
+  test t;
+  
+  foo.value = 13;
+  (foo,leds) <- t <- (foo);
+}

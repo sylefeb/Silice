@@ -80,6 +80,12 @@ namespace Silice
       const Algorithm::t_combinational_block_context *bctx, 
       t_type_nfo& _nfo) const;
 
+    /// \brief returns type nfo of an identifier
+    void typeNfo(
+      std::string                                     idnt,
+      const Algorithm::t_combinational_block_context *bctx,
+      t_type_nfo& _nfo) const;
+
     /// \brief Token stream for warning reporting, optionally set
     static antlr4::TokenStream *s_TokenStream;
     /// \brief Pre-processor for warning line reporting, optionally set
@@ -106,14 +112,13 @@ namespace Silice
     void lintInputParameter(
       std::string                                     name,
       const t_type_nfo                               &param,
-      siliceParser::Expression_0Context              *expr,
+      const Algorithm::t_call_param                  &inp,
       const Algorithm::t_combinational_block_context *bctx) const;
 
     /// \brief Lint an readback assignment
     void lintReadback(
       std::string                                     name,
-      siliceParser::AccessContext                    *access,
-      antlr4::tree::TerminalNode                     *identifier,
+      const Algorithm::t_call_param                  &outp,
       const t_type_nfo                               &rvalue_nfo,
       const Algorithm::t_combinational_block_context *bctx) const;
 

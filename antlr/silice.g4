@@ -73,6 +73,8 @@ INTERFACE           : 'interface' ;
 
 BITFIELD            : 'bitfield' ;
 
+TYPEOF              : 'typeof' ;
+
 UNINITIALIZED       : 'uninitialized' | 'uninitialised' ;
 
 PAD                 : 'pad' ;
@@ -142,11 +144,12 @@ memModifier         : memClocks | memNoInputLatch | memDelayed ;
 memModifiers        : '<' memModifier (',' memModifier)* ','? '>' ;
 
 declarationWire      : TYPE alwaysAssigned;
-declarationVar       : TYPE IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS?;
-declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))?;
-declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))?;
-declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
-declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire; 
+declarationVar       : TYPE IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS? ;
+declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
+declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
+declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ? ;
+declarationTypeOf    : TYPEOF '(' base=IDENTIFIER ')' name=IDENTIFIER ;
+declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire | declarationTypeOf;
 
 modalgBinding        : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
 modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
@@ -278,16 +281,11 @@ alwaysAssignedList  : alwaysAssigned ';' alwaysAssignedList | ;
 
 /* -- Algorithm calls -- */
 
-paramList           : expression_0 ',' paramList 
-                    | expression_0 
-                    | ;
+callParamList       : expression_0 (',' expression_0)* ','? | ;
 
-assign              : IDENTIFIER | access ;
-assignList          : assign (',' assign)* ','? | ;
-
-asyncExec           : IDENTIFIER LARROW '(' paramList ')' ;
-joinExec            : '(' assignList ')' LARROW IDENTIFIER ;
-syncExec            : joinExec LARROW '(' paramList ')' ;
+asyncExec           : IDENTIFIER LARROW '(' callParamList ')' ;
+joinExec            : '(' callParamList ')' LARROW IDENTIFIER ;
+syncExec            : joinExec LARROW '(' callParamList ')' ;
 
 /* -- Circuitry instanciation -- */
 
@@ -313,8 +311,7 @@ switchCase          : 'switch' '(' expression_0 ')' '{' caseBlock * '}' ;
 caseBlock           : ('case' case_value=value ':' | DEFAULT ) case_block=block;
 whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 
-displayParams       : IDENTIFIER (',' IDENTIFIER)* ;
-display             : (DISPLAY | DISPLWRITE) '(' STRING ( ',' displayParams )? ')';
+display             : (DISPLAY | DISPLWRITE) '(' STRING ( ',' callParamList )? ')';
 
 instruction         : assignment 
                     | syncExec
@@ -339,8 +336,8 @@ inout               : 'inout' TYPE IDENTIFIER
                     | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
 input               : 'input' nolatch='!'? TYPE IDENTIFIER
                     | 'input' nolatch='!'? TYPE IDENTIFIER '[' NUMBER ']';
-output              : 'output' combinational='!'? TYPE IDENTIFIER
-                    | 'output' combinational='!'? TYPE IDENTIFIER '[' NUMBER ']';
+output              : 'output' combinational='!'? declarationVar
+                    | 'output' combinational='!'? declarationTable ; 
 inOrOut             :  input | output | inout | ioGroup | ioInterface;
 inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 

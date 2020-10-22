@@ -379,8 +379,7 @@ group sdio
 }
 \end{minted}
 
-
-Then a group variable can be declared directly:
+A group variable can be declared directly:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 sdio sd; // init values are defined in the group declaration
 \end{minted}
@@ -413,6 +412,11 @@ sdramctrl memory(
   // ..
 );
 \end{minted}
+
+\vspace*{5mm}
+\noindent
+\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
+		\textbf{Note:} A group cannot contain tables.}}
 
 \subsection{Bitfields}
 \label{sec:bitfields}

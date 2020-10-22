@@ -472,6 +472,9 @@ std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_
       tk_stream->getText(offender, offender); // this seems required to refresh the steam? TODO FIXME investigate
       codeline = extractCodeAroundToken(file, offender, tk_stream, offset);
     } else if (!(interval == antlr4::misc::Interval::INVALID)) {
+      if (interval.a > interval.b) {
+        std::swap(interval.a, interval.b);
+      }
       codeline = extractCodeBetweenTokens(file, tk_stream, (int)interval.a, (int)interval.b);
       offset = (int)tk_stream->get(interval.a)->getStartIndex();
     }
