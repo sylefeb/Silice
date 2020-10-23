@@ -73,7 +73,9 @@ INTERFACE           : 'interface' ;
 
 BITFIELD            : 'bitfield' ;
 
-TYPEOF              : 'typeof' ;
+SAMEAS              : 'sameas' ;
+
+WIDTHOF             : 'widthof' ;
 
 UNINITIALIZED       : 'uninitialized' | 'uninitialised' ;
 
@@ -148,8 +150,8 @@ declarationVar       : TYPE IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS? ;
 declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ? ;
-declarationTypeOf    : TYPEOF '(' base=IDENTIFIER ')' name=IDENTIFIER ;
-declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire | declarationTypeOf;
+declarationSameAs    : SAMEAS '(' base=IDENTIFIER ')' name=IDENTIFIER ;
+declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire | declarationSameAs;
 
 modalgBinding        : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
 modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
@@ -254,6 +256,7 @@ atom                : CONSTANT
                     | '(' expression_0 ')'
                     | TOSIGNED '(' expression_0 ')'
                     | TOUNSIGNED '(' expression_0 ')'
+                    | WIDTHOF '(' IDENTIFIER ')'
                     | concatenation ;
 
 /* -- Accesses to VIO -- */

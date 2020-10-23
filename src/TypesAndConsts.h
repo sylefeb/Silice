@@ -46,7 +46,7 @@ namespace Silice
   public:
     e_Type      base_type = UInt; // base type
     int         width     = 0;    // bit width
-    std::string type_of;          // reference to a VIO which is parameterizing this type
+    std::string same_as;          // reference to a VIO which is parameterizing this type
     t_type_nfo(e_Type t,int w) : base_type(t), width(w) {}
     t_type_nfo() {}
   };

@@ -344,6 +344,10 @@ void ExpressionLinter::typeNfo(
       // recurse and force int
       typeNfo(atom->expression_0(), bctx, _nfo);
       _nfo.base_type = Int;
+    } else if (atom->WIDTHOF() != nullptr) {
+      // force uint 32 bits
+      _nfo.width     = -1; // undetermined (NOTE: verilog default to 32 bits ...)
+      _nfo.base_type = UInt;
     } else if (access_) {
       // recurse
       typeNfo(access_, bctx, _nfo);

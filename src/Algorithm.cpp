@@ -1112,41 +1112,128 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
 
 // -------------------------------------------------
 
-/// \brief gather typeof declaration
-void Algorithm::gatherDeclarationTypeOf(siliceParser::DeclarationTypeOfContext *tpof, t_combinational_block *_current, t_gather_context *_context)
+// templated helper to search for vios definitions
+template <typename T>
+bool findVIO(std::string vio, std::unordered_map<std::string, int> names, std::vector<T> vars,Algorithm::t_var_nfo& _def)
+{
+  auto V = names.find(vio);
+  if (V != names.end()) {
+    _def = vars[V->second];
+    return true;
+  }
+  return false;
+}
+
+// -------------------------------------------------
+
+Algorithm::t_var_nfo Algorithm::getVIODefinition(std::string var,bool& _found) const
+{
+  t_var_nfo def;
+  _found = true;
+  if (findVIO(var, m_VarNames, m_Vars, def))       return def;
+  if (findVIO(var, m_InputNames, m_Inputs, def))   return def;
+  if (findVIO(var, m_OutputNames, m_Outputs, def)) return def;
+  if (findVIO(var, m_InOutNames, m_InOuts, def))   return def;
+  _found = false;
+  return def;
+}
+
+// -------------------------------------------------
+
+// templated helper to search for vios in findSameAsRoot
+template <typename T>
+std::string findSameAs(std::string vio,std::unordered_map<std::string,int> names,std::vector<T> vars)
+{
+  auto V = names.find(vio);
+  if (V != names.end()) {
+    if (!vars[V->second].type_nfo.same_as.empty()) {
+      return vars[V->second].type_nfo.same_as;
+    }
+  }
+  return "";
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::findSameAsRoot(std::string vio, const t_combinational_block_context *bctx) const
+{
+  do {
+    // find vio
+    vio = translateVIOName(vio, bctx);
+    // search dependency and move up the chain
+    std::string base = findSameAs(vio, m_VarNames, m_Vars);
+    if (!base.empty()) {
+      vio = base;
+    } else {
+      base = findSameAs(vio, m_InputNames, m_Inputs);
+      if (!base.empty()) {
+        vio = base;
+      } else {
+        base = findSameAs(vio, m_OutputNames, m_Outputs);
+        if (!base.empty()) {
+          vio = base;
+        } else {
+          base = findSameAs(vio, m_InOutNames, m_InOuts);
+          if (base.empty()) {
+            return vio;
+          }
+        }
+      }
+    }
+  } while (1);
+}
+
+// -------------------------------------------------
+
+void Algorithm::gatherDeclarationSameAs(siliceParser::DeclarationSameAsContext *tpof, t_combinational_block *_current, t_gather_context *_context)
 {
   // check for duplicates
   if (!isIdentifierAvailable(tpof->name->getText())) {
-    reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(), "group (typeof) '%s': this name is already used by a prior declaration", tpof->name->getText().c_str());
+    reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(), "group (sameas) '%s': this name is already used by a prior declaration", tpof->name->getText().c_str());
   }
-  // find base interface
-  std::string base = tpof->base->getText();
-  auto G = m_VIOGroups.find(base);
-  if (G == m_VIOGroups.end()) {
-    reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(),
-      "no known definition for '%s' (typeof can only be applied to input interfaces)", tpof->base->getText().c_str());
-  }
-  auto I = G->second.intrface;
-  if (I == nullptr) {
-    reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(),
-      "typeof can only be applied to input interfaces");
-  }
-  // now, insert as group, where each member is parameterized by the corresponding interface member
+  // find base
+  std::string base = translateVIOName(tpof->base->getText(), &_current->context);
   std::string name = tpof->name->getText();
-  m_VIOGroups.insert(make_pair(name, I));
-  // get member list from interface
-  for (auto io : I->ioList()->io()) {
-    t_var_nfo vnfo;
-    vnfo.name               = name + "_" + io->IDENTIFIER()->getText();
-    vnfo.type_nfo.base_type = Parameterized;
-    vnfo.type_nfo.type_of   = base + "_" + io->IDENTIFIER()->getText();
-    vnfo.type_nfo.width     = 0;
-    vnfo.table_size         = 0;
-    vnfo.do_not_initialize  = false;
-    // add it
-    addVar(vnfo, _current, _context, (int)tpof->getStart()->getLine());
+  // interface?
+  auto G = m_VIOGroups.find(base);
+  if (G != m_VIOGroups.end()) {
+    // now, insert as group, where each member is parameterized by the corresponding interface member
+    m_VIOGroups.insert(make_pair(name, G->second));
+    // get member list from interface
+    for (auto mbr : getGroupMembers(G->second)) {
+      // search parameterizing var
+      std::string typed_by    = base + "_" + mbr;
+      typed_by                = findSameAsRoot(typed_by, &_current->context);
+      // add var
+      t_var_nfo vnfo;
+      vnfo.name               = name + "_" + mbr;
+      vnfo.type_nfo.base_type = Parameterized;
+      vnfo.type_nfo.same_as   = typed_by;
+      vnfo.type_nfo.width     = 0;
+      vnfo.table_size         = 0;
+      vnfo.do_not_initialize  = false;
+      // add it
+      addVar(vnfo, _current, _context, (int)tpof->getStart()->getLine());
+    }
+  } else {
+    // find base in standard vios
+    if (isVIO(base)) {
+      std::string typed_by = findSameAsRoot(base, &_current->context);
+      // add var
+      t_var_nfo vnfo;
+      vnfo.name               = name;
+      vnfo.type_nfo.base_type = Parameterized;
+      vnfo.type_nfo.same_as   = typed_by;
+      vnfo.type_nfo.width     = 0;
+      vnfo.table_size         = 0;
+      vnfo.do_not_initialize  = false;
+      // add it
+      addVar(vnfo, _current, _context, (int)tpof->getStart()->getLine());
+    } else {
+      reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(),
+        "no known definition for '%s' (sameas can only be applied to interfaces, groups and simple variables)", tpof->base->getText().c_str());
+    }
   }
-
 }
 
 // -------------------------------------------------
@@ -1396,9 +1483,26 @@ std::string Algorithm::rewriteExpression(
       writeAccess(prefix, ostr, false, access, __id, bctx, ff, dependencies, _ff_usage);
       result = result + ostr.str();
     } else {
-      // recurse
-      for (auto c : expr->children) {
-        result = result + rewriteExpression(prefix, c, __id, bctx, ff, read_access, dependencies, _ff_usage);
+      bool recurse = true;
+      // atom?
+      auto atom = dynamic_cast<siliceParser::AtomContext *>(expr);
+      if (atom) {
+        if (atom->WIDTHOF() != nullptr) {
+          recurse = false;
+          std::string vio = atom->IDENTIFIER()->getText();
+          bool found      = false;
+          t_var_nfo def   = getVIODefinition(vio, found);
+          if (!found) {
+            reportError(atom->getSourceInterval(),-1,"cannot find VIO '%s' in widthof",vio.c_str());
+          }
+          result = result + "(" + varBitWidth(def) + ")";
+        }
+      }
+      // recurse?
+      if (recurse) {
+        for (auto c : expr->children) {
+          result = result + rewriteExpression(prefix, c, __id, bctx, ff, read_access, dependencies, _ff_usage);
+        }
       }
     }
   }
@@ -1570,7 +1674,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
   auto decltbl   = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
   auto grpmodalg = dynamic_cast<siliceParser::DeclarationGrpModAlgContext*>(decl->declarationGrpModAlg());
   auto declmem   = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
-  auto decltpof  = dynamic_cast<siliceParser::DeclarationTypeOfContext *>(decl->declarationTypeOf());
+  auto decltpof  = dynamic_cast<siliceParser::DeclarationSameAsContext *>(decl->declarationSameAs());
   if (var_table_only) {
     if (declmem) {
       reportError(declmem->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(),
@@ -1585,7 +1689,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
   else if (declwire)  { gatherDeclarationWire(declwire, _current, _context); }
   else if (decltbl)   { gatherDeclarationTable(decltbl, _current, _context); }
   else if (declmem)   { gatherDeclarationMemory(declmem, _current, _context); }
-  else if (decltpof)  { gatherDeclarationTypeOf(decltpof, _current, _context); }
+  else if (decltpof)  { gatherDeclarationSameAs(decltpof, _current, _context); }
   else if (grpmodalg) {
     std::string name = grpmodalg->modalg->getText();
     if (m_KnownGroups.find(name) != m_KnownGroups.end()) {
@@ -5040,15 +5144,9 @@ void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, cons
 {
   if (!v.do_not_initialize) {
     if (v.table_size == 0) {
-      if (v.type_nfo.base_type == Parameterized) {
-        std::string var = v.type_nfo.type_of.empty() ? v.name : v.type_nfo.type_of;
-        std::transform(var.begin(), var.end(), var.begin(),
-          [](unsigned char c) -> unsigned char { return std::toupper(c); });
-        out << FF_Q << prefix << v.name << " <= " << var << "_INIT" << ';' << endl;
-      } else {
-        out << FF_Q << prefix << v.name << " <= " << v.init_values[0] << ';' << endl;
-      }
+      out << FF_Q << prefix << v.name << " <= " << varInitValue(v) << ';' << endl;
     } else {
+      sl_assert(v.type_nfo.base_type != Parameterized);
       ForIndex(i,v.init_values.size()) {
         out << FF_Q << prefix << v.name << "[" << i << "] <= " << v.init_values[i] << ';' << endl;
       }
@@ -5074,10 +5172,18 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, co
 std::string Algorithm::varBitRange(const t_var_nfo& v) const
 {
   if (v.type_nfo.base_type == Parameterized) {
-    string str = v.type_nfo.type_of.empty() ? v.name : v.type_nfo.type_of;
-    std::transform(str.begin(), str.end(), str.begin(),
-      [](unsigned char c) -> unsigned char { return std::toupper(c); });
-    str = str + "_WIDTH-1";
+    bool ok = false;
+    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as,ok);
+    sl_assert(ok);
+    string str;
+    if (base.type_nfo.base_type == Parameterized) {
+      str = base.name;
+      std::transform(str.begin(), str.end(), str.begin(),
+        [](unsigned char c) -> unsigned char { return std::toupper(c); });
+      str = str + "_WIDTH-1";
+    } else {
+      str = std::to_string(base.type_nfo.width-1);
+    }
     return "[" + str + ":0]";
   } else {
     return "[" + std::to_string(v.type_nfo.width - 1) + ":0]";
@@ -5089,12 +5195,50 @@ std::string Algorithm::varBitRange(const t_var_nfo& v) const
 std::string Algorithm::varBitWidth(const t_var_nfo &v) const
 {
   if (v.type_nfo.base_type == Parameterized) {
-    string str = v.type_nfo.type_of.empty() ? v.name : v.type_nfo.type_of;
-    std::transform(str.begin(), str.end(), str.begin(),
-      [](unsigned char c) -> unsigned char { return std::toupper(c); });
-    return str + "_WIDTH";
+    bool ok = false;
+    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
+    sl_assert(ok);
+    string str;
+    if (base.type_nfo.base_type == Parameterized) {
+      str = base.name;
+      std::transform(str.begin(), str.end(), str.begin(),
+        [](unsigned char c) -> unsigned char { return std::toupper(c); });
+      str = str + "_WIDTH";
+    } else {
+      str = std::to_string(base.type_nfo.width);
+    }
+    return str;
   } else {
     return std::to_string(v.type_nfo.width);
+  }
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::varInitValue(const t_var_nfo &v) const
+{
+  sl_assert(v.table_size == 0);
+  if (v.type_nfo.base_type == Parameterized) {
+    bool ok = false;
+    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
+    sl_assert(ok);
+    string str;
+    if (base.type_nfo.base_type == Parameterized) {
+      str = base.name;
+      std::transform(str.begin(), str.end(), str.begin(),
+        [](unsigned char c) -> unsigned char { return std::toupper(c); });
+      str = str + "_INIT";
+    } else {
+      if (base.init_values.empty()) {
+        str = "0";
+      } else {
+        str = base.init_values[0];
+      }
+    }
+    return str;
+  } else {
+    sl_assert(!v.init_values.empty());
+    return v.init_values[0];
   }
 }
 
@@ -5135,16 +5279,14 @@ void Algorithm::writeConstDeclarations(std::string prefix, std::ostream& out) co
     if (v.usage != e_Const) continue;
     if (v.table_size == 0) {
       writeVerilogDeclaration(out, "wire", v, string(FF_CST) + prefix + v.name);
-      // out << "wire " << typeString(v) << " " << varBitRange(v) << " " << FF_CST << prefix << v.name << ';' << nxl;
     } else {
       writeVerilogDeclaration(out, "wire", v, string(FF_CST) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
-      // out << "wire " << typeString(v) << " " << varBitRange(v) << " " << FF_CST << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << nxl;
     }
     if (!v.do_not_initialize) {
       if (v.table_size == 0) {
-        sl_assert(!v.init_values.empty());
-        out << "assign " << FF_CST << prefix << v.name << " = " << v.init_values[0] << ';' << nxl;
+        out << "assign " << FF_CST << prefix << v.name << " = " << varInitValue(v) << ';' << nxl;
       } else {
+        sl_assert(v.type_nfo.base_type != Parameterized);
         int width = v.type_nfo.width;
         ForIndex(i, v.init_values.size()) {
           out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = " << v.init_values[i] << ';' << nxl;
@@ -5162,10 +5304,8 @@ void Algorithm::writeTempDeclarations(std::string prefix, std::ostream& out) con
     if (v.usage != e_Temporary) continue;
     if (v.table_size == 0) {
       writeVerilogDeclaration(out, "reg", v, string(FF_TMP) + prefix + v.name);
-      // out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << ';' << nxl;
     } else {
       writeVerilogDeclaration(out, "reg", v, string(FF_TMP) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
-      // out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << '[' << v.table_size-1 << ":0]" << ';' << nxl;
     }
   }
   for (const auto &v : m_Outputs) {
@@ -6047,16 +6187,9 @@ void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::
     if (v.do_not_initialize)     continue;
     string ff = (v.usage == e_FlipFlop) ? FF_D : FF_TMP;
     if (v.table_size == 0) {
-      if (v.type_nfo.base_type == Parameterized) {
-        std::string var = v.type_nfo.type_of.empty() ? v.name : v.type_nfo.type_of;
-        std::transform(var.begin(), var.end(), var.begin(),
-          [](unsigned char c) -> unsigned char { return std::toupper(c); });
-        out << ff << prefix << v.name << " = " << var << "_INIT" << ';' << nxl;
-      } else {
-        sl_assert(!v.init_values.empty());
-        out << ff << prefix << v.name << " = " << v.init_values[0] << ';' << nxl;
-      }
+      out << ff << prefix << v.name << " = " << varInitValue(v) << ';' << nxl;
     } else {
+      sl_assert(v.type_nfo.base_type != Parameterized);
       ForIndex(i, v.init_values.size()) {
         out << ff << prefix << v.name << "[" << i << ']' << " = " << v.init_values[i] << ';' << nxl;
       }
@@ -6575,14 +6708,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         if (!bnfo.do_not_initialize) {
           out << ',' << endl;
           out << '.' << var << "_INIT";
-          if (bnfo.type_nfo.base_type == Parameterized) { // bound var may itself be parameterized
-            string str = bnfo.type_nfo.type_of.empty() ? bnfo.name : bnfo.type_nfo.type_of;
-            std::transform(str.begin(), str.end(), str.begin(),
-              [](unsigned char c) -> unsigned char { return std::toupper(c); });
-            out << '(' << str << "_INIT)";
-          } else {
-            out << '(' << bnfo.init_values[0] << ')';
-          }
+          out << '(' << varInitValue(bnfo) << ')';
         }
         //out << '.' << var << "_SIGNED";
         //out << "(\"" << typeString(bnfo) << "\")";

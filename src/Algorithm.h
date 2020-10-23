@@ -603,6 +603,8 @@ namespace Silice
     bool isInputOrOutput(std::string var) const;
     /// \brief checks whether an identifier is a VIO
     bool isVIO(std::string var) const;
+    /// \brief returns a VIO definition
+    t_var_nfo getVIODefinition(std::string var, bool &_found) const;
     /// \brief checks whether an identifier is a group VIO
     bool isGroupVIO(std::string var) const;
     /// \brief rewrites a constant
@@ -653,8 +655,8 @@ namespace Silice
       bool& _autobind) const;
     /// \brief gather group declaration
     void gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_combinational_block *_current, t_gather_context *_context);
-    /// \brief gather typeof declaration
-    void gatherDeclarationTypeOf(siliceParser::DeclarationTypeOfContext *decl, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather sameas declaration
+    void gatherDeclarationSameAs(siliceParser::DeclarationSameAsContext *decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather algorithm declaration
     void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather module declaration
@@ -896,9 +898,13 @@ namespace Silice
     std::string varBitRange(const t_var_nfo& v) const;
     /// \brief returns a variable bit width for verilog use
     std::string varBitWidth(const t_var_nfo &v) const;
+    /// \brief returns a variable init value for verilog use (non-tables only)
+    std::string varInitValue(const t_var_nfo &v) const;
     /// \brief returns a type dependent string for resource declaration
     std::string typeString(const t_var_nfo& v) const;
     std::string typeString(e_Type type) const;
+    /// \brief finds the root of a same_as chain
+    std::string findSameAsRoot(std::string vio, const t_combinational_block_context *bctx) const;
     /// \brief write a verilog wire/reg declaration, possibly parameterized
     void writeVerilogDeclaration(std::ostream &out, std::string base, const t_var_nfo &v, std::string postfix) const;
     /// \brief determines vio bit width and (if applicable) table size

@@ -14,7 +14,7 @@ algorithm test(
   i_g    it,
   output uint8 v
 ) {
-  typeof(it) tmp;
+  sameas(it) tmp;
   tmp.value  = it.value + 1;
   v          = tmp.value;
   tmp.enable = 1;
