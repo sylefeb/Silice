@@ -609,6 +609,8 @@ namespace Silice
     bool isGroupVIO(std::string var) const;
     /// \brief rewrites a constant
     std::string rewriteConstant(std::string cst) const;
+    /// \brief returns a string representing the widthof value
+    std::string resolveWidthOf(std::string vio, antlr4::misc::Interval interval) const;
     /// \brief adds a combinational block to the list of blocks, performs book keeping
     template<class T_Block = t_combinational_block>
     t_combinational_block *addBlock(std::string name, const t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, int line = -1);
@@ -621,7 +623,7 @@ namespace Silice
     /// \brief returns the bitfield member type and offset and width
     std::pair<t_type_nfo, int> bitfieldMemberTypeAndOffset(siliceParser::BitfieldContext* field, std::string member) const;
     /// \brief gather a const value
-    std::string gatherConstValue(siliceParser::ConstValueContext* ival);
+    std::string gatherConstValue(siliceParser::ConstValueContext *ival) const;
     /// \brief gather a bitfield value
     std::string gatherBitfieldValue(siliceParser::InitBitfieldContext* ival);
     /// \brief gather a value

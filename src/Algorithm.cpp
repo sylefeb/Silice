@@ -590,13 +590,15 @@ std::string Algorithm::gatherBitfieldValue(siliceParser::InitBitfieldContext* if
 
 // -------------------------------------------------
 
-std::string Algorithm::gatherConstValue(siliceParser::ConstValueContext* ival)
+std::string Algorithm::gatherConstValue(siliceParser::ConstValueContext* ival) const
 {
   if (ival->CONSTANT() != nullptr) {
     return rewriteConstant(ival->CONSTANT()->getText());
   } else if (ival->NUMBER() != nullptr) {
     std::string sign = ival->minus != nullptr ? "-" : "";
     return sign + ival->NUMBER()->getText();
+  } else if (ival->WIDTHOF() != nullptr) {
+    return resolveWidthOf(ival->IDENTIFIER()->getText(), ival->getSourceInterval());
   } else {
     sl_assert(false);
     return "";
@@ -1447,6 +1449,18 @@ std::string Algorithm::rewriteIdentifier(
 
 // -------------------------------------------------
 
+std::string Algorithm::resolveWidthOf(std::string vio, antlr4::misc::Interval interval) const
+{
+  bool found    = false;
+  t_var_nfo def = getVIODefinition(vio, found);
+  if (!found) {
+    reportError(interval, -1, "cannot find VIO '%s' in widthof", vio.c_str());
+  }
+  return varBitWidth(def);
+}
+
+// -------------------------------------------------
+
 std::string Algorithm::rewriteExpression(
   std::string prefix, antlr4::tree::ParseTree *expr, 
   int __id, const t_combinational_block_context *bctx, 
@@ -1490,12 +1504,8 @@ std::string Algorithm::rewriteExpression(
         if (atom->WIDTHOF() != nullptr) {
           recurse = false;
           std::string vio = atom->IDENTIFIER()->getText();
-          bool found      = false;
-          t_var_nfo def   = getVIODefinition(vio, found);
-          if (!found) {
-            reportError(atom->getSourceInterval(),-1,"cannot find VIO '%s' in widthof",vio.c_str());
-          }
-          result = result + "(" + varBitWidth(def) + ")";
+          std::string wo  = resolveWidthOf(vio, atom->getSourceInterval());
+          result = result + "(" + wo + ")";
         }
       }
       // recurse?
@@ -4683,6 +4693,7 @@ t_type_nfo Algorithm::determineBitfieldAccessTypeAndWidth(const t_combinational_
 t_type_nfo Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitAccessContext *bitaccess) const
 {
   sl_assert(bitaccess != nullptr);
+  // accessed item
   t_type_nfo tn;
   if (bitaccess->IDENTIFIER() != nullptr) {
     tn = determineIdentifierTypeAndWidth(bctx, bitaccess->IDENTIFIER(), bitaccess->getSourceInterval(), (int)bitaccess->getStart()->getLine());
@@ -4691,7 +4702,14 @@ t_type_nfo Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block
   } else {
     tn = determineIOAccessTypeAndWidth(bctx, bitaccess->ioAccess());
   }
-  tn.width = std::stoi(bitaccess->num->getText());
+  // const width
+  int w = -1;
+  try {
+    w = std::stoi(gatherConstValue(bitaccess->num));
+  } catch (...) {
+    reportError(bitaccess->getSourceInterval(), -1, "the width has to be a simple number or the widthof() of a fully determined VIO");
+  }
+  tn.width = w;
   return tn;
 }
 
@@ -5022,7 +5040,7 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
     out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), bctx, 
       bitaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
   }
-  out << '[' << rewriteExpression(prefix, bitaccess->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) << "+:" << bitaccess->num->getText() << ']';
+  out << '[' << rewriteExpression(prefix, bitaccess->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) << "+:" << gatherConstValue(bitaccess->num) << ']';
   if (assigning) {
     // This is a bit access. We assume it is partial (could be checked if const).
     // Thus the variable is likely only partially written and to be safe we tag
