@@ -9,7 +9,11 @@
 // Tested ok at  50 MHz
 // Tested ok at 100 MHz
 //
-// ------------------------- 
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
 
 group sdcardio {
   uint32 addr_sector = 0,

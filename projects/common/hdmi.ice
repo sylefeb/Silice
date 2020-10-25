@@ -10,6 +10,12 @@
 // - https://www.digikey.com/eewiki/pages/viewpage.action?pageId=36569119
 // - https://www.fpga4fun.com/HDMI.html
 // - https://github.com/lawrie/ulx3s_examples/blob/master/hdmi/tmds_encoder.v
+//
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
 
 import('hdmi_clock.v')
 import('differential_pair.v')

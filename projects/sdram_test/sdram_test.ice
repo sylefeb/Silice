@@ -71,9 +71,9 @@ $$end
 
 // SDRAM chip controller
 // interface
-sdchipio sdram_io;
+sdram_raw_io sdram_io;
 // algorithm
-sdramctrl_chip sdram(
+sdram_controller sdram(
   sd        <:> sdram_io,
   sdram_cle :>  sdram_cle,
   sdram_dqm :>  sdram_dqm,
@@ -94,11 +94,11 @@ $$end
 
 // SDRAM memory interface
 // interface
-sdio sio;
+sdram_byte_io sio;
 // algorithm
-sdramctrl memory(
-  sdchip <:> sdram_io,
-  sd     <:> sio
+sdram_byte_readcache memory(
+  sdr <:> sdram_io,
+  sdb <:> sio
 );
 
   uint8  count = 0;

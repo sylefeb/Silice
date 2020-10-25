@@ -6,6 +6,12 @@
 // (can be further reduced!)
 //
 // RV32I cpu, see README.txt
+//
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
 
 // IceStick clock
 $$if ICESTICK then

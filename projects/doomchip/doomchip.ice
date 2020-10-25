@@ -12,11 +12,16 @@
 // TODO: 
 //   cleanup
 //   update to use bitfields!
-//   optimize         : - framebuffer transpose (reduce row activate/precharge!)
-//                      - a lot of things could be parallelized / factored
+//   optimize         : - a lot of things could be parallelized / factored
 //                        => drawing for floor/celing/lower/upper/middle
 //                        => collisions
 //                        => movable updates
+//
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
 
 $$print('------< Compiling the DooM chip >------')
 $$print('---< written in Silice by @sylefeb >---')
@@ -222,11 +227,7 @@ algorithm doomchip(
     output  done,
   },
   input uint1   vsync,
-$$if DE10NANO then  
-  output uint4  kpadC,
-  input  uint4  kpadR,
-$$end
-$$if ULX3S then
+$$if ULX3S or DE10NANO then
   input  uint7  btns,
 $$end  
   output uint8  leds,
@@ -502,8 +503,6 @@ $$end
   uint1    opac     = 0; 
   
   div$FPl$ divl;
-  int$FPl$ num      = 0;
-  int$FPl$ den      = 0;
   mul$FPw$ mull;
   int$FPw$ mula     = 0;
   int$FPw$ mulb     = 0;
@@ -551,22 +550,19 @@ $$end
   int16    debug2 = 0;
   int16    debug3 = 0;
 
-$$if ULX3S then
-  uint7    btn_latch = 0;
-$$end
-
-$$if DE10NANO then
-  keypad        kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
-$$end
-  
-  colio.done  := 0; // maintain low (pulses high when needed)
-  colio.write := 0; // maintain low (pulses high when needed)
-
+$$if ULX3S or DE10NANO then
+  uint7 btn_latch = 0;
 $$if ULX3S then
   kpressed  := {1b0,1b0,1b0,btn_latch[2,1]/*fire2*/,btn_latch[6,1]/*right*/,btn_latch[5,1]/*left*/,btn_latch[4,1]/*dwn*/,btn_latch[3,1]/*up*/};
+$$else
+  kpressed  := {1b0,1b0,1b0,1b0,btn_latch[0,1]/*right*/,btn_latch[1,1]/*left*/,1b0/*dwn*/,btn_latch[2,1]/*up*/};
+$$end  
   btn_latch := btns;
   leds      := 0;
 $$end
+
+  colio.done  := 0; // maintain low (pulses high when needed)
+  colio.write := 0; // maintain low (pulses high when needed)
     
   // brams in read mode
   bsp_nodes_coords   .wenable = 0;
@@ -668,10 +664,10 @@ $$end
           // which side are we on?
           dx   = ray_x - lx;
           dy   = ray_y - ly;
-++: // TEST
+++: // relax timing
           csl  = (dx * ldy);
           csr  = (dy * ldx);
-++: // TEST
+++: // relax timing
           if (csr > csl) {
             // front
             queue[queue_ptr  ] = bsp_nodes_children.rdata[ 0,16];
@@ -749,27 +745,30 @@ $$end
               int$FPl$ x1_h     = uninitialized;
               int$FPl$ y1_h     = uninitialized; // larger to hold FPm x FPm
               int$FPl$ d_h      = uninitialized;
-            
+              int$FPl$ num      = uninitialized;
+              int$FPl$ den      = uninitialized;
+
               //-------------------------
               // compute distance to intersection
               //-------------------------
-++: // TEST
+++: // relax timing
               y0_h   =  (  d0x * ray_dx_m + d0y * ray_dy_m );
               y1_h   =  (  d1x * ray_dx_m + d1y * ray_dy_m );
 ++:
               x0_h   =  cs0_h;
               x1_h   =  cs1_h;
-
+++:
               // d  = y0 + (y0 - y1) * x0 / (x1 - x0)        
               num    = x0_h <<< $FPm$;
               den    = (x1_h - x0_h);
+++: // relax timing
               (interp_m) <- divl <- (num,den);              
 
               // d_h   = y0_h + (((y0_h - y1_h) >>> $FPm$) * interp_m);
               mula   = (y0_h - y1_h);
               mulb   = interp_m;
+++: // relax timing
               (mulr) <- mull <- (mula,mulb);
-++: // TEST
               d_h    = y0_h + (mulr >>> $FPm$);
 ++:
               if (d_h > $1<<(FPm+1)$) { // check distance sign, with margin to stay away from 0
@@ -778,6 +777,8 @@ $$end
                 int$FPl$ d_c_h    = uninitialized;
                 int$FPw$ light    = uninitialized;
                 int16    sec_c_h  = uninitialized;
+                int$FPl$ num      = uninitialized;
+                int$FPl$ den      = uninitialized;
                 //-------------------------
                 // hit!
                 //-------------------------
@@ -859,10 +860,10 @@ $$end
                     // light
                     tmp2_m  = (gv_m>>8) - 15;
                     (light) = lightFromDistance(tmp2_m);
-  ++: // relax timing
                     // write pixel
                     tmp_u = (tr_gv_m>>5);
                     tmp_v = (tr_gu_m>>5);
+++: // relax timing
                     (opac) <- writePixel <- (c,btm,tmp_u,tmp_v,texid,light,gv_m);
                     btm   = btm + 1;
                     inv_y.addr = $doomchip_height//2$ - btm;
@@ -896,10 +897,10 @@ $$end
                       // light
                       tmp2_m  = (gv_m>>8) - 15;
                       (light) = lightFromDistance(tmp2_m);
-  ++: // relax timing
                       // write pixel
                       tmp_u = (tr_gv_m>>5);
                       tmp_v = (tr_gu_m>>5);
+  ++: // relax timing
                       (opac) <- writePixel <- (c,top,tmp_u,tmp_v,texid,light,gv_m);
                       top   = top - 1;
                       inv_y.addr = top - $doomchip_height//2$;
@@ -972,6 +973,7 @@ $$end
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
                     tmp1_h = d_c_h>>3;
+++: // relax timing
                     (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                     j      = j - 1;
                     tex_v  = tex_v + (d_c_h);
@@ -1024,6 +1026,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
+++: // relax timing
                       (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j + 1;
                       tex_v  = tex_v - (d_c_h);
@@ -1049,6 +1052,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
+++: // relax timing
                       (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j - 1;
                       tex_v  = tex_v + (d_c_h);
@@ -1088,6 +1092,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
+++: // relax timing
                       (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j - 1;   
                       tex_v  = tex_v + (d_c_h);
@@ -1106,6 +1111,7 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
+++: // relax timing
                       (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j + 1;   
                       tex_v  = tex_v - (d_c_h);
@@ -1349,10 +1355,10 @@ $$end
         // which side are we on?
         dx   = ray_x - lx;
         dy   = ray_y - ly;
-++: // TEST        
+++: // relax timing
         csl  = (dx * ldy);
         csr  = (dy * ldx);
-++: // TEST        
+++: // relax timing
         if (csr > csl) {
           // front
           queue[queue_ptr  ] = bsp_nodes_children.rdata[ 0,16];
@@ -1366,10 +1372,9 @@ $$end
         // sub-sector reached
         bsp_ssecs    .addr = n[0,14];
         // while here, track z        
+++:       
         if (viewsector) { // done only once on first column
-++:       
           bsp_secs   .addr = bsp_ssecs.rdata[24,16];
-++:       
           target_z   = bsp_secs.rdata[0,16] + 40; // floor height + eye level
           viewsector = 0;
         }
@@ -1409,6 +1414,7 @@ $$end
           if (bsp_segs_tex_height.rdata[40,8] != 0) {  
             movableseg = 1;
           }
+++:          
           if ((walkable == 0) || (movableseg == 1)) {
             int16    d0x      = uninitialized;
             int16    d0y      = uninitialized;
@@ -1433,6 +1439,7 @@ $$end
             ldy    = v1y - v0y;
             ndx    = - ldy; // ndx,ndy is orthogonal to v1 - v0
             ndy    =   ldx;
+    ++: // relax timing
             // dot products
             l_h    = ldx * d0x + ldy * d0y;
             d_h    = ndx * d0x + ndy * d0y;
@@ -1468,6 +1475,9 @@ $$end
               if (walkable == 0) {
                 // close to the wall?              vv margin to prevent going in between convex corners
                 if ( (tmp1_h < tmp2_h) && (l_h > - 32) && l_h < (tmp3_h + 32) ) { 
+                  int$FPl$ num      = uninitialized;
+                  int$FPl$ den      = uninitialized;
+
                   colliding = 1;
                   //// DEBUG
                   debug1    = movableseg;
@@ -1484,9 +1494,12 @@ $$end
     ++:  // relax timing
                   (tmp1_h) <- divl <- (num,den);
                   num    = tmp1_h * ndx;
+    ++:  // relax timing
                   (tmp2_h) <- divl <- (num,den);
                   col_rx = col_rx + (tmp2_h >>> $FPm$);
+    ++:  // relax timing
                   num    = tmp1_h * ndy;
+    ++:  // relax timing
                   (tmp2_h) <- divl <- (num,den);
                   col_ry = col_ry + (tmp2_h >>> $FPm$);
                 }
@@ -1555,6 +1568,7 @@ $$end
         }      
         bsp_secs.wenable = 1;
         // update movable if became inactive
+++:        
         if (active == 0) {
           bsp_movables.wdata       = {active,bsp_movables.rdata[0,51]};
           bsp_movables.wenable     = 1;

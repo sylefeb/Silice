@@ -1,5 +1,10 @@
 // SL 2019-10
-// -------------------------
+//
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
 
 algorithm vga(
   output! uint1  vga_hs,

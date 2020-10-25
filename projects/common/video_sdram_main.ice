@@ -16,6 +16,11 @@ $$if HDMI then
 $include('hdmi.ice')
 $$end
 
+$$if HARDWARE then
+// Reset
+$include('clean_reset.ice')
+$$end
+
 // ------------------------- 
 
 $$if ICARUS or VERILATOR then
@@ -23,30 +28,24 @@ $$if ICARUS or VERILATOR then
 /*
 NOTE: sdram_clock cannot use a normal output as this would mean sampling
       a register tracking clock using clock itself; this lead to a race
-	  condition, see https://stackoverflow.com/questions/58563770/unexpected-simulation-behavior-in-iverilog-on-flip-flop-replicating-clock-signal
-	  
+	  condition, see https://stackoverflow.com/questions/58563770/unexpected-simulation-behavior-in-iverilog-on-flip-flop-replicating-clock-signal	  
 */
 algorithm pll(
   output  uint1 video_clock,
   output  uint1 video_reset,
   output! uint1 sdram_clock,
   output! uint1 sdram_reset,
-$$if HAS_COMPUTE_CLOCK then
   output  uint1 compute_clock,
   output  uint1 compute_reset
-$$end
-) <autorun>
-{
+) <autorun> {
   uint3 counter = 0;
   uint8 trigger = 8b11111111;
   
   sdram_clock   := clock;
-  sdram_reset   := reset;
+  sdram_reset   := (trigger > 0);
   
-$$if HAS_COMPUTE_CLOCK then
   compute_clock := ~counter[0,1]; // x2 slower
   compute_reset := (trigger > 0);
-$$end
 
   video_clock   := counter[1,1]; // x4 slower
   video_reset   := (trigger > 0);
@@ -60,21 +59,24 @@ $$end
 
 // ------------------------- 
 
+// TODO add back Mojov3
+
 $$if DE10NANO then
+$$if VGA then
 import('de10nano_clk_50_25_100_100ph180.v')
-import('de10nano_clk_100_25_100ph180.v')
-$$if HDMI then
-$$error('HDMI not yet implemented')
+$$else
+// TODO: hdmi
 $$end
-// reset
-import('reset_conditioner.v')
 $$end
 
 $$if ULX3S then
 // Clock
 import('ulx3s_clk_50_25_100_100ph180.v')
-// reset
-import('reset_conditioner.v')
+$$end
+
+$$if SDCARD then
+$include('sdcard.ice')
+$include('sdcard_streamer.ice')
 $$end
 
 // ------------------------- 
@@ -86,6 +88,60 @@ $include('sdramctrl.ice')
 
 // video sdram framework
 $include('video_sdram.ice')
+
+// ------------------------- 
+
+$$if SDCARD and init_data_bytes then
+
+algorithm init_data(
+  output  uint1 sd_clk,
+  output  uint1 sd_mosi,
+  output  uint1 sd_csn,
+  input   uint1 sd_miso,
+  output  uint8 leds,
+  sdram_user sd
+) <autorun> {
+
+  streamio stream;
+  sdcard_streamer streamer(
+    sd_clk  :> sd_clk,
+    sd_mosi :> sd_mosi,
+    sd_csn  :> sd_csn,
+    sd_miso <: sd_miso,
+    stream  <:> stream
+  );
+
+  // maintain low (pulses high when needed)
+  stream.next   := 0;
+  sd.in_valid   := 0;
+  // only writes to memory
+  sd.rw         := 1;
+
+  // wait for sdcard controller to be ready  
+  while (stream.ready == 0)    { }
+
+  // read some
+  {
+    uint22 to_read = 0;
+    while (to_read < $init_data_bytes$) {
+      stream.next  = 1;
+      while (stream.ready == 0) { }
+      leds            = to_read[14,8];
+      // write to sdram
+      // -> wait for sdram to be available
+      while (sd.busy == 1) { }
+      // -> write
+      sd.data_in      = stream.data;
+      sd.addr         = {1b1,1b0,24b0} | to_read;
+      sd.in_valid     = 1; // go ahead!      
+      // next
+      to_read = to_read + 1;
+    }
+  }
+
+}
+
+$$end
 
 // ------------------------- 
 
@@ -121,6 +177,13 @@ $$end
 $$if ULX3S then
   input  uint7 btns,
 $$end
+$$if SDCARD then
+  // sdcard
+  output! uint1 sd_clk,
+  output! uint1 sd_mosi,
+  output! uint1 sd_csn,
+  input   uint1 sd_miso,  
+$$end  
 $$if VGA then  
   // VGA
   output uint$color_depth$ video_r,
@@ -139,76 +202,55 @@ $$end
 $$end  
 ) <@sdram_clock,!sdram_reset> {
 
-uint1 video_reset   = 0;
-uint1 sdram_reset   = 0;
+  uint1 video_reset   = 0;
+  uint1 sdram_reset   = 0;
 
 $$if ICARUS or VERILATOR then
-// --- PLL
-uint1 compute_reset = 0;
-uint1 compute_clock = 0;
-$$if ICARUS then
-uint1 sdram_clock   = 0;
-$$end
-pll clockgen<@clock,!reset>(
-  video_clock   :> video_clock,
-  video_reset   :> video_reset,
-  sdram_clock   :> sdram_clock,
-  sdram_reset   :> sdram_reset,
-$$if HAS_COMPUTE_CLOCK then
-  compute_clock :> compute_clock,
-  compute_reset :> compute_reset
-$$end
-);
+  // --- PLL
+  uint1 compute_reset = 0;
+  uint1 compute_clock = 0;
+  $$if ICARUS then
+  uint1 sdram_clock   = 0;
+  $$end
+  pll clockgen<@clock,!reset>(
+    video_clock   :> video_clock,
+    video_reset   :> video_reset,
+    sdram_clock   :> sdram_clock,
+    sdram_reset   :> sdram_reset,
+    compute_clock :> compute_clock,
+    compute_reset :> compute_reset
+  );
 $$elseif DE10NANO then
   // --- clock
   uint1 video_clock  = 0;
   uint1 sdram_clock  = 0;
   uint1 pll_lock     = 0;
   uint1 not_pll_lock = 0;
-  $$if HAS_COMPUTE_CLOCK then
-    uint1 compute_clock = 0;
-    uint1 compute_reset = 0;
-    de10nano_clk_50_25_100_100ph180 clk_gen(
-      refclk    <: clock,
-      rst       <: not_pll_lock,
-      outclk_0  :> compute_clock,
-      outclk_1  :> video_clock,
-      outclk_2  :> sdram_clock, // controller
-      outclk_3  :> sdram_clk,   // chip
-      locked    :> pll_lock
-    );
-  $$else
-    de10nano_clk_100_25_100ph180 clk_gen(
-      refclk    <: clock,
-      rst       <: not_pll_lock,
-      outclk_0  :> sdram_clock, // controller
-      outclk_1  :> video_clock,
-      outclk_2  :> sdram_clk,   // chip
-      locked    :> pll_lock
-    );
-  $$end
+  uint1 compute_clock = 0;
+  uint1 compute_reset = 0;
+  $$print('DE10NANO at 50 MHz compute clock, 100 MHz SDRAM')
+  de10nano_clk_50_25_100_100ph180 clk_gen(
+    refclk    <: clock,
+    rst       <: not_pll_lock,
+    outclk_0  :> compute_clock,
+    outclk_1  :> video_clock,
+    outclk_2  :> sdram_clock, // controller
+    outclk_3  :> sdram_clk,   // chip
+    locked    :> pll_lock
+  );
   // --- video clean reset
-  reset_conditioner video_rstcond (
-    rcclk <: video_clock,
-    in    <: reset,
+  clean_reset video_rstcond<@video_clock,!reset> (
     out   :> video_reset
   );  
   // --- SDRAM clean reset
-  reset_conditioner sdram_rstcond (
-    rcclk <: sdram_clock,
-    in    <: reset,
+  clean_reset sdram_rstcond<@sdram_clock,!reset> (
     out   :> sdram_reset
   );
-  $$if HAS_COMPUTE_CLOCK then
   // --- compute clean reset
-  reset_conditioner compute_rstcond (
-    rcclk <: compute_clock,
-    in    <: reset,
+  clean_reset compute_rstcond<@compute_clock,!reset> (
     out   :> compute_reset
   );
-  $$end
 $$elseif ULX3S then
-$$HAS_COMPUTE_CLOCK = true
   // --- clock
   uint1 video_clock   = 0;
   uint1 sdram_clock   = 0;
@@ -225,121 +267,117 @@ $$HAS_COMPUTE_CLOCK = true
     locked   :> pll_lock
   ); 
   // --- video clean reset
-  reset_conditioner video_rstcond (
-    rcclk <: video_clock,
-    in    <: reset,
+  clean_reset video_rstcond<@video_clock,!reset> (
     out   :> video_reset
   );  
   // --- SDRAM clean reset
-  reset_conditioner sdram_rstcond (
-    rcclk <: sdram_clock,
-    in    <: reset,
+  clean_reset sdram_rstcond<@sdram_clock,!reset> (
     out   :> sdram_reset
   );
   // --- compute clean reset
-  reset_conditioner compute_rstcond (
-    rcclk <: compute_clock,
-    in    <: reset,
+  clean_reset compute_rstcond<@compute_clock,!reset> (
     out   :> compute_reset
   );
 $$end
 
-uint1  video_active = 0;
-uint1  video_vblank = 0;
-uint11 video_x  = 0;
-uint10 video_y  = 0;
+  uint1  video_active = 0;
+  uint1  video_vblank = 0;
+  uint11 video_x  = 0;
+  uint10 video_y  = 0;
 
 $$if VGA then
-// --- VGA
-vga vga_driver<@video_clock,!video_reset>(
-  vga_hs :> video_hs,
-	vga_vs :> video_vs,
-	vga_x  :> video_x,
-	vga_y  :> video_y,
-	vblank :> video_vblank,
-	active :> video_active,
-);
+  // --- VGA
+  vga vga_driver<@video_clock,!video_reset>(
+    vga_hs :> video_hs,
+    vga_vs :> video_vs,
+    vga_x  :> video_x,
+    vga_y  :> video_y,
+    vblank :> video_vblank,
+    active :> video_active,
+  );
 $$end
 
 $$if HDMI then
-// --- HDMI
-uint6 video_r = 0;
-uint6 video_g = 0;
-uint6 video_b = 0;
+  // --- HDMI
+  uint8 video_r = 0;
+  uint8 video_g = 0;
+  uint8 video_b = 0;
 
-uint8 vr := video_r<<2;
-uint8 vg := video_g<<2;
-uint8 vb := video_b<<2;
-
-hdmi hdmi_driver<@clock,!reset>( // NOTE: should be @video_clock,!video_reset, but ...
-                                 // does not work for some reason on ULX3S
-//hdmi hdmi_driver<@video_clock,!video_reset>(                                 
-  x       :> video_x,
-  y       :> video_y,
-  vblank  :> video_vblank,
-  active  :> video_active,
-  red     <: vr,
-  green   <: vg,
-  blue    <: vb,
-  gpdi_dp :> gpdi_dp,
-  gpdi_dn :> gpdi_dn,
-);
+  hdmi hdmi_driver<@clock,!reset>( // NOTE: should be @video_clock,!video_reset, but ...
+                                   // does not work for some reason on ULX3S
+  //hdmi hdmi_driver<@video_clock,!video_reset>(                                 
+    x       :> video_x,
+    y       :> video_y,
+    vblank  :> video_vblank,
+    active  :> video_active,
+    red     <: video_r,
+    green   <: video_g,
+    blue    <: video_b,
+    gpdi_dp :> gpdi_dp,
+    gpdi_dn :> gpdi_dn,
+  );
 $$end
 
 // --- SDRAM
 $$if ICARUS then
-uint1  sdram_cle   = 0;
-uint2  sdram_dqm   = 0;
-uint1  sdram_cs    = 0;
-uint1  sdram_we    = 0;
-uint1  sdram_cas   = 0;
-uint1  sdram_ras   = 0;
-uint2  sdram_ba    = 0;
-uint13 sdram_a     = 0;
-uint16 sdram_dq    = 0;
+  uint1  sdram_cle   = 0;
+  uint2  sdram_dqm   = 0;
+  uint1  sdram_cs    = 0;
+  uint1  sdram_we    = 0;
+  uint1  sdram_cas   = 0;
+  uint1  sdram_ras   = 0;
+  uint2  sdram_ba    = 0;
+  uint13 sdram_a     = 0;
+  uint16 sdram_dq    = 0;
 
-simul_sdram simul(
-  sdram_clk <: clock,
-  <:auto:>
-);
+  simul_sdram simul<@sdram_clock,!sdram_reset>(
+    sdram_clk <: clock,
+    <:auto:>
+  );
 $$end
 
-sdchipio sdchip;
-sdio     sd;
+  // --- SDRAM raw interface
 
-sdramctrl_chip memory_chip(
-  sd         <:> sdchip,
-$$if VERILATOR then
-  dq_i       <: sdram_dq_i,
-  dq_o       :> sdram_dq_o,
-  dq_en      :> sdram_dq_en,
-$$end
-  <:auto:>
-);
-
-sdramctrl memory(
-  sdchip <:> sdchip,
-  sd     <:> sd,
-);
-
-// --- SDRAM switcher
-
-sdio sd0;
-sdio sd1;
-
-sdram_switcher sd_switcher(
-  sd         <:>  sd,
-  sd0        <:>  sd0,
-  sd1        <:>  sd1,
-);
-
-// --- Frame buffer row memory
-// dual clock crosses from sdram to vga
-
-  dualport_bram uint8 fbr0<@video_clock,@sdram_clock>[320] = uninitialized;
-  dualport_bram uint8 fbr1<@video_clock,@sdram_clock>[320] = uninitialized;
+  sdram_raw_io sdm;
   
-// --- Display
+  sdram_controller memory<@sdram_clock,!sdram_reset>(
+    sd         <:> sdm,
+  $$if VERILATOR then
+    dq_i       <: sdram_dq_i,
+    dq_o       :> sdram_dq_o,
+    dq_en      :> sdram_dq_en,
+  $$end
+    <:auto:>
+  );
+
+  // --- SDRAM byte memory interface
+
+  sdram_raw_io sdf; // framebuffer
+  sdram_raw_io sdd; // drawer
+  sdram_raw_io sdi; // init
+
+  // --- SDRAM switcher, framebuffer (0) / drawer (1) / init (2)
+  
+  sdram_switcher_3way sd_switcher<@sdram_clock,!sdram_reset>(
+    sd         <:>  sdm,
+    sd0        <:>  sdf,
+    sd1        <:>  sdd,
+    sd2        <:>  sdi,
+  );
+
+  sdram_byte_io sdd_byte; // drawer
+
+  sdram_byte_readcache memory_byte1<@sdram_clock,!sdram_reset>(
+    sdr    <:> sdd,
+    sdb    <:> sdd_byte,
+  );
+
+  // --- Frame buffer row memory
+  // dual clock crosses from sdram to vga
+  dualport_bram uint128 fbr0<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
+  dualport_bram uint128 fbr1<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
+  
+  // --- Display
   uint1 row_busy = 0;
   frame_display display<@video_clock,!video_reset>(
     pixaddr0   :> fbr0.addr0,
@@ -358,7 +396,7 @@ sdram_switcher sd_switcher(
   uint1 onscreen_fbuffer = 0;
   
   // --- Frame buffer row updater
-  frame_buffer_row_updater fbrupd(
+  frame_buffer_row_updater fbrupd<@sdram_clock,!sdram_reset>(
     pixaddr0   :> fbr0.addr1,
     pixdata0_w :> fbr0.wdata1,
     pixwenable0:> fbr0.wenable1,
@@ -367,63 +405,51 @@ sdram_switcher sd_switcher(
     pixwenable1:> fbr1.wenable1,
     row_busy   <: row_busy,
     vsync      <: video_vblank,
-    sd         <:> sd0,
+    sd         <:> sdf,
     fbuffer    <: onscreen_fbuffer
   );
 
   // --- Frame drawer
-  frame_drawer drawer
-$$if HAS_COMPUTE_CLOCK then
-    <@compute_clock,!compute_reset>
-$$else
-    <@sdram_clock,!sdram_reset>
-$$end
-(
+  frame_drawer drawer<@compute_clock,!compute_reset>(
     vsync       <:  video_vblank,
-    sd          <:> sd1,
+    sd          <:> sdd_byte,
     fbuffer     :>  onscreen_fbuffer,
-$$if HAS_COMPUTE_CLOCK then  
     sdram_clock <:  sdram_clock,
     sdram_reset <:  sdram_reset,
-$$end
     <:auto:>
   );
 
   uint8 frame       = 0;
 
-$$if DE10NANO then
-  not_pll_lock := ~pll_lock;
-$$end
-
-  // ---------- let's go
-
-  // start the switcher
-  sd_switcher <- ();
+  // --- Init from SDCARD
+  sdram_raw_io sdh;
   
-  // start the frame drawer
-$$if not HAS_COMPUTE_CLOCK then
-  drawer <- ();
+  sdram_half_speed_access sdaccess<@sdram_clock,!sdram_reset>(
+    sd      <:> sdi,
+    sdh     <:> sdh,
+  );
+
+$$if SDCARD and init_data_bytes then
+  init_data init<@compute_clock,!compute_reset>(
+    sd <:> sdh,
+    <:auto:>
+  );
 $$end
+
+  // ---------- let's go (all modules autorun)
  
-  // start the frame buffer row updater
-  fbrupd <- ();
- 
-  // we count a number of frames and stop
 $$if HARDWARE then
-  while (1) { 
-    frame = frame + 1;
-  }
+  while (1) { }
 $$else
-  while (frame < 64) {
-
+  // we count a number of frames and stop
+$$if ICARUS then
+  while (frame < 2) {
+$$else
+  while (frame < 8) {
+$$end    
     while (video_vblank == 1) { }
-	  //__display("vblank off");
-
 	  while (video_vblank == 0) { }
-    //__display("vblank on");
-
-    frame = frame + 1;
-    
+    frame = frame + 1;    
   }
 $$end
 

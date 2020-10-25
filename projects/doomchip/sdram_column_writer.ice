@@ -9,15 +9,7 @@ algorithm sdram_column_writer(
     input   write,
     input   done,
   },
-  sdio sd {
-    output addr,
-    output rw,
-    output data_in,
-    output in_valid,
-    input  data_out,
-    input  busy,
-    input  out_valid,
-  },  
+  sdram_user   sd,  
   output uint1 fbuffer,
 ) <autorun> {
   

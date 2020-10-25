@@ -32,7 +32,7 @@ $$end
 
 $$if HARDWARE then
 // Reset
-import('../common/reset_conditioner.v')
+$include('../common/clean_reset.ice')
 $$end
 
 // -------------------------
@@ -124,9 +124,7 @@ $$elseif DE10NANO then
   ); 
 $$end
   // --- video reset
-  reset_conditioner vga_rstcond(
-    rcclk <: video_clock,
-    in    <: reset,
+  clean_reset vga_rstcond<@video_clock,!reset>(
     out   :> video_reset
   );
 $$else

@@ -4,24 +4,26 @@
 // References:
 // "Wolfenstein 3D black book" by Fabien Sanglard
 // https://github.com/id-Software/wolf3d/blob/master/WOLFSRC/WL_DR_A.ASM
-
-// having a compute clock means that the renderer runs
-// at a different frequency than the SDRAM
-$$HAS_COMPUTE_CLOCK=true
+//
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
 
 $$texfile = 'wolf.tga'
 // get pallette in pre-processor
-$$texfile_palette = get_palette_as_table(texfile,color_depth)
+$$palette = get_palette_as_table(texfile,8)
 // the palette has 64 entries, create a second darker one
 // in the next 64 entries
 $$for i=1,64 do
-$$  r = texfile_palette[i] % 64
-$$  g = math.floor(texfile_palette[i]/64) % 64
-$$  b = math.floor(texfile_palette[i]/(64*64)) % 64
+$$  r = palette[i] % 256
+$$  g = math.floor(palette[i]/256) % 256
+$$  b = math.floor(palette[i]/(256*256)) % 256
 $$  r = math.floor(r / 2)
 $$  g = math.floor(g / 2)
 $$  b = math.floor(b / 2)
-$$  texfile_palette[64 + i] = r + g*64 + b*64*64;
+$$  palette[64 + i] = r + g*256 + b*256*256;
 $$end
 
 $include('../common/video_sdram_main.ice')
@@ -53,15 +55,7 @@ bitfield DrawColumn
 
 algorithm columns_drawer(
   // sdram
-  sdio sd {
-    output addr,
-    output rw,
-    output data_in,
-    output in_valid,
-    input  data_out,
-    input  busy,
-    input  out_valid,
-  },
+  sdram_user    sd,
   // reading from column bram
   output uint9  addr,
   input  uint18 rdata, // NOTE, TODO: allow to use bitfield name (DrawColumn)
@@ -193,48 +187,26 @@ $$end
 // -------------------------
 
 algorithm frame_drawer(
-  sdio sd {
-    output addr,
-    output rw,
-    output data_in,
-    output in_valid,
-    input  data_out,
-    input  busy,
-    input  out_valid,
-  },
-$$if HAS_COMPUTE_CLOCK then 
+  sdram_user    sd,
   input  uint1  sdram_clock,
   input  uint1  sdram_reset,
-$$end
   input  uint1  vsync,
   output uint1  fbuffer,
   output uint8  leds
-) 
-$$if HAS_COMPUTE_CLOCK then
-<autorun> 
-$$end
-{
+) <autorun> {
 
   uint1  vsync_filtered = 0;
 
   // NOTE, TODO: cannot yet declare the bram with the bitfield
   // bram DrawColumn columns[320] = {};
-$$if HAS_COMPUTE_CLOCK then 
   dualport_bram uint18 columns<@clock,@sdram_clock>[320] = uninitialized;
-$$else
-  dualport_bram uint18 columns[320] = uninitialized;
-$$end
 
   // ray-cast columns counter  
   uint9 c       = 0;
   // drawn columns counter
   uint9 c_drawn = 0;
 
-$$if HAS_COMPUTE_CLOCK then 
   columns_drawer coldrawer<@sdram_clock,!sdram_reset>
-$$else
-  columns_drawer coldrawer
-$$end
   (
     sd      <:> sd,
     vsync   <: vsync_filtered,
