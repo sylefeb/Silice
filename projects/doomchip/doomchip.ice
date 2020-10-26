@@ -860,10 +860,10 @@ $$end
                     // light
                     tmp2_m  = (gv_m>>8) - 15;
                     (light) = lightFromDistance(tmp2_m);
+  ++: // relax timing
                     // write pixel
                     tmp_u = (tr_gv_m>>5);
                     tmp_v = (tr_gu_m>>5);
-++: // relax timing
                     (opac) <- writePixel <- (c,btm,tmp_u,tmp_v,texid,light,gv_m);
                     btm   = btm + 1;
                     inv_y.addr = $doomchip_height//2$ - btm;
@@ -897,10 +897,10 @@ $$end
                       // light
                       tmp2_m  = (gv_m>>8) - 15;
                       (light) = lightFromDistance(tmp2_m);
+  ++: // relax timing
                       // write pixel
                       tmp_u = (tr_gv_m>>5);
                       tmp_v = (tr_gu_m>>5);
-  ++: // relax timing
                       (opac) <- writePixel <- (c,top,tmp_u,tmp_v,texid,light,gv_m);
                       top   = top - 1;
                       inv_y.addr = top - $doomchip_height//2$;
@@ -973,7 +973,6 @@ $$end
                     tmp_u  = tc_u;
                     tmp_v  = tc_v + yoff;
                     tmp1_h = d_c_h>>3;
-++: // relax timing
                     (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                     j      = j - 1;
                     tex_v  = tex_v + (d_c_h);
@@ -1026,7 +1025,6 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
-++: // relax timing
                       (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j + 1;
                       tex_v  = tex_v - (d_c_h);
@@ -1052,7 +1050,6 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
-++: // relax timing
                       (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j - 1;
                       tex_v  = tex_v + (d_c_h);
@@ -1092,7 +1089,6 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
-++: // relax timing
                       (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j - 1;   
                       tex_v  = tex_v + (d_c_h);
@@ -1111,7 +1107,6 @@ $$end
                       tmp_u  = tc_u;
                       tmp_v  = tc_v + yoff;
                       tmp1_h = d_c_h>>3;
-++: // relax timing
                       (opac) <- writePixel <- (c,j,tmp_u,tmp_v,texid,light,tmp1_h);
                       j      = j + 1;   
                       tex_v  = tex_v - (d_c_h);
@@ -1371,10 +1366,11 @@ $$end
       } else {        
         // sub-sector reached
         bsp_ssecs    .addr = n[0,14];
+++: // wait for data
         // while here, track z        
-++:       
         if (viewsector) { // done only once on first column
           bsp_secs   .addr = bsp_ssecs.rdata[24,16];
+++: // wait for data
           target_z   = bsp_secs.rdata[0,16] + 40; // floor height + eye level
           viewsector = 0;
         }
