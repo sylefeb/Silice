@@ -1194,7 +1194,8 @@ void Algorithm::gatherDeclarationSameAs(siliceParser::DeclarationSameAsContext *
     reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(), "group (sameas) '%s': this name is already used by a prior declaration", tpof->name->getText().c_str());
   }
   // find base
-  std::string base = translateVIOName(tpof->base->getText(), &_current->context);
+  std::string base = tpof->base->getText() + (tpof->member != nullptr ? "_" + tpof->member->getText() : "");
+  base             = translateVIOName(base, &_current->context);
   std::string name = tpof->name->getText();
   // interface?
   auto G = m_VIOGroups.find(base);
@@ -1503,7 +1504,7 @@ std::string Algorithm::rewriteExpression(
       if (atom) {
         if (atom->WIDTHOF() != nullptr) {
           recurse = false;
-          std::string vio = atom->IDENTIFIER()->getText();
+          std::string vio = atom->base->getText() + (atom->member != nullptr ? "_" + atom->member->getText() : "");
           std::string wo  = resolveWidthOf(vio, atom->getSourceInterval());
           result = result + "(" + wo + ")";
         }

@@ -7,7 +7,7 @@
 \usepackage{calc}
 
 \newcommand\todo[1]{{\color{magenta}\textbf{TODO:} #1}}
-\newcommand\verilog{Verilog}
+\newcommand\verilog{Verilog} 
 \newcommand\silice{Silice}
 
 % enamel
@@ -285,14 +285,14 @@ Bindings are specified when instantiating algorithms and modules.
 The bidirectional binding is reserved for two use cases:
 \begin{enumerate}
 \item binding \texttt{inout} variables,
-\item binding IO groups (see Section~\ref{sec:groups}).
+\item binding groups (see Section~\ref{sec:groups}) and interfaces (see Section~\ref{sec:interfaces}).
 \end{enumerate}
 
 \paragraph{Advanced}
 
 There are two specialized versions of the binding operators:
 \begin{itemize}
-	\item \texttt{<:} binds right to left, using value at prior clock rising edge,
+	\item \texttt{<::} binds right to left, using value at prior clock rising edge,
 	\item \texttt{<::>} binds an IO group, using value at prior clock rising edge for inputs.
 \end{itemize}
 
@@ -366,14 +366,13 @@ Often, we want to pass around variables that form conceptual groups, like the in
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 // SDRAM interface
-group sdio
+group sdram_32b_io
 {
-  uint23 addr       = 0,
-  uint2  wbyte_addr = 0,
+  uint24 addr       = 0,
   uint1  rw         = 0,
   uint32 data_in    = 0,
   uint32 data_out   = 0,
-  uint1  busy       = 0,
+  uint1  busy       = 1,
   uint1  in_valid   = 0,
   uint1  out_valid  = 0
 }
@@ -381,18 +380,17 @@ group sdio
 
 A group variable can be declared directly:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
-sdio sd; // init values are defined in the group declaration
+sdram_32b_io sd; // init values are defined in the group declaration
 \end{minted}
 
-To pass a group variable to an algorithm, we need to defined an IO group. This will further specify which group members are input and outputs:
+To pass a group variable to an algorithm, we need to define an interface (see also Section~\ref{sec:interfaces}). This will further specify which group members are input and outputs:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 algorithm sdramctrl(
   // ..
   // interface
-  sdio sd {
+  sdram_provider sd {
     input   addr,       // address to read/write
-    input   wbyte_addr, // write byte address with 32-bit word at addr
     input   rw,         // 1 = write, 0 = read
     input   data_in,    // data from a read
     output  data_out,   // data for a write
@@ -417,6 +415,84 @@ sdramctrl memory(
 \noindent
 \framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
 		\textbf{Note:} A group cannot contain tables.}}
+    
+% --------------------------
+
+\subsection{Interfaces}
+\label{sec:interfaces}
+
+Interfaces are ways to describe what inputs and outputs an algorithm expects, without knowing in advance the exact specification of these fields (e.g. their widths). Besides making algorithm IO description more compact, this provides
+genericity. Interfaces are meant to be bound to groups (Section~\ref{sec:groups}).
+
+Reusing the example of Section~\ref{sec:groups} we can define an interface ahead of time: 
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+interface sdram_provider {
+  input   addr,       // address to read/write
+  input   rw,         // 1 = write, 0 = read
+  input   data_in,    // data from a read
+  output  data_out,   // data for a write
+  output  busy,       // controller is busy when high
+  input   in_valid,   // pulse high to initiate a read/write
+  output  out_valid   // pulses high when data from read is
+}
+\end{minted}
+
+And then the sdram controller algorithm declaration simply becomes:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  algorithm sdramctrl(
+    // interface
+    sdram_provider sd,
+    // ..
+  ) {
+    // ..
+\end{minted}
+
+Note than the algorithm is now using a generic interface, it does not know
+in advance the width of the signals in the interface. This is determined
+at binding time, when a group is bound to the interface. Interfaces can be bound to other interfaces, the information is propagated
+when a group is bound at the top level.
+
+For instance, we may define another group as follows, which uses 8 bits
+instead of 32 bits:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  // SDRAM interface
+  group sdram_8b_io
+  {
+    uint24 addr       = 0,
+    uint1  rw         = 0,
+    uint8  data_in    = 0,
+    uint8  data_out   = 0,
+    uint1  busy       = 1,
+    uint1  in_valid   = 0,
+    uint1  out_valid  = 0
+  }
+  \end{minted}
+  
+This group can be bound to the \texttt{sdramctrl} controller, which
+now will receive 8 bits signals for \texttt{data\_in}/\texttt{data\_out}.
+
+The \texttt{sdramctrl} controller can adjust to this change, using \texttt{sameas} and \texttt{widthof}. The first, \texttt{sameas}, allows to declare a variable the same as another:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  sameas(sd.data_in) tmp;
+\end{minted}
+
+\noindent The second, \texttt{widthof}, returns the width of a signal:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  while (i < (widthof(sd.data_in) >> 3)) {
+    // ...
+  }
+\end{minted}
+
+\vspace*{5mm}
+\noindent
+\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
+		\textbf{Note:} In the future Silice will provide compile time checks, for instance verifying the width of a signal is a specifc value.}}
+
+% --------------------------
 
 \subsection{Bitfields}
 \label{sec:bitfields}
@@ -455,6 +531,8 @@ The bitfield can also be used to initialize the wider variable:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 uint32 data = Node(left=16hffff,right=16h1234);
 \end{minted}
+
+% --------------------------
 
 \subsection{Intrinsics}
 

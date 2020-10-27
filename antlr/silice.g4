@@ -150,7 +150,7 @@ declarationVar       : TYPE IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS? ;
 declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ? ;
-declarationSameAs    : SAMEAS '(' base=IDENTIFIER ')' name=IDENTIFIER ;
+declarationSameAs    : SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')' name=IDENTIFIER ;
 declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire | declarationSameAs;
 
 modalgBinding        : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
@@ -256,7 +256,7 @@ atom                : CONSTANT
                     | '(' expression_0 ')'
                     | TOSIGNED '(' expression_0 ')'
                     | TOUNSIGNED '(' expression_0 ')'
-                    | WIDTHOF '(' IDENTIFIER ')'
+                    | WIDTHOF '(' base=IDENTIFIER  ('.' member=IDENTIFIER)? ')'
                     | concatenation ;
 
 /* -- Accesses to VIO -- */
