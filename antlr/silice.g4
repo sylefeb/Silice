@@ -256,7 +256,7 @@ atom                : CONSTANT
                     | '(' expression_0 ')'
                     | TOSIGNED '(' expression_0 ')'
                     | TOUNSIGNED '(' expression_0 ')'
-                    | WIDTHOF '(' base=IDENTIFIER  ('.' member=IDENTIFIER)? ')'
+                    | WIDTHOF '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')'
                     | concatenation ;
 
 /* -- Accesses to VIO -- */

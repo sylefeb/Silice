@@ -4881,7 +4881,7 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
   // parse parameters
   std::vector<t_call_param> matches;
   parseCallParams(plist, called, false, bctx, matches);
-  // read outputs (reading from FF_D or FF_Q should be equivalent since we just cycled the state machine)
+  // read outputs
   int p = 0;
   for (const auto &outs : called->outputs) {
     if (std::holds_alternative<std::string>(matches[p].what)) {
@@ -4895,7 +4895,8 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
         "call to subroutine '%s' invalid receiving expression for output '%s'",
         called->name.c_str(), outs.c_str());
     }
-    out << " = " << FF_D << prefix << called->vios.at(outs) << ';' << nxl;
+    updateFFUsage(e_Q, true, _ff_usage.ff_usage[called->vios.at(outs)]);
+    out << " = " << FF_Q << prefix << called->vios.at(outs) << ';' << nxl;
     ++p;
   }
 }
