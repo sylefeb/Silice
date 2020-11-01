@@ -25,7 +25,7 @@ $$end
 
 $$if HARDWARE then
 // Reset
-import('../common/reset_conditioner.v')
+$include('../common/clean_reset.ice')
 $$end
 
 // -------------------------
@@ -279,13 +279,6 @@ $$if MOJO then
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> video_clock
   );
-  // --- sdram reset
-  uint1 sdram_reset = 0;
-  reset_conditioner sdram_rstcond (
-    rcclk <: sdram_clock,
-    in  <: reset,
-    out :> sdram_reset
-  );
 $$elseif ICESTICK then
   // --- clock
   icestick_clk_25 clk_gen (
@@ -312,9 +305,7 @@ $$elseif DE10NANO then
   );   
 $$end
   // --- video reset
-  reset_conditioner vga_rstcond (
-    rcclk <: video_clock,
-    in  <: reset,
+  clean_reset vga_rstcond<@video_clock,!reset>(
     out :> video_reset
   );
 $$end

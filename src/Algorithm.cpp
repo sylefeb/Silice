@@ -3144,10 +3144,10 @@ int  Algorithm::toFSMState(int state) const
 
 // -------------------------------------------------
 
-int Algorithm::stateWidth(int max_state) const
+int Algorithm::width(int val) const
 {
   int w = 0;
-  while (max_state > (1 << w)) {
+  while (val > (1 << w)) {
     w++;
   }
   return w;
@@ -3157,7 +3157,7 @@ int Algorithm::stateWidth(int max_state) const
 
 int Algorithm::stateWidth() const
 {
-  return stateWidth(maxState());
+  return width(maxState());
 }
 
 // -------------------------------------------------
@@ -3173,8 +3173,31 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
       return last_state;
     }
     if (!current->instructions.empty()) {
+      bool stop = true;
+      if (current->instructions.size() == 1) {
+        // special case of empty return from call
+        auto j = dynamic_cast<siliceParser::JoinExecContext *>(current->instructions.front().instr);
+        if (j != nullptr) {
+          // find algorithm
+          auto A = m_InstancedAlgorithms.find(j->IDENTIFIER()->getText());
+          if (A == m_InstancedAlgorithms.end()) {
+            // return of subroutine?
+            auto S = m_Subroutines.find(j->IDENTIFIER()->getText());
+            sl_assert(S != m_Subroutines.end());
+            if (S->second->outputs.empty()) {
+              stop = false; // nothing returned, we can fast forward
+            }
+          } else {
+            if (A->second.algo->m_Outputs.empty()) {
+              stop = false; // nothing returned, we can fast forward
+            }
+          }
+        }
+      }
       // non-empty, stop here
-      return last_state;
+      if (stop) {
+        return last_state;
+      }
     }
     if (current->next() == nullptr) {
       // not a simple jump, stop here
@@ -4257,19 +4280,20 @@ void Algorithm::analyzeSubroutineCalls()
       continue; // block is never reached
     }
     // contains a subroutine call?
-    for (auto i : b->instructions) {
-      if (b->goto_and_return_to()) {
-        if (b->goto_and_return_to()->go_to->context.subroutine != nullptr) {
-          // record return state
-          m_SubroutinesCallerReturnStates[b->goto_and_return_to()->go_to->context.subroutine->name]
-            .insert(std::make_pair(
-              b->parent_state_id,
-              b->goto_and_return_to()->return_to
-            ));
-          // if in subroutine, indicate it performs sub-calls
-          if (b->context.subroutine != nullptr) {
-            m_Subroutines.at(b->context.subroutine->name)->contains_calls = true;
-          }
+    if (b->goto_and_return_to()) {
+      int call_id = m_SubroutineCallerNextId++;
+      sl_assert(m_SubroutineCallerIds.count(b->goto_and_return_to()) == 0);
+      m_SubroutineCallerIds.insert(std::make_pair(b->goto_and_return_to(), call_id));
+      if (b->goto_and_return_to()->go_to->context.subroutine != nullptr) {
+        // record return state
+        m_SubroutinesCallerReturnStates[b->goto_and_return_to()->go_to->context.subroutine->name]
+          .push_back(std::make_pair(
+            call_id,
+            b->goto_and_return_to()->return_to
+          ));
+        // if in subroutine, indicate it performs sub-calls
+        if (b->context.subroutine != nullptr) {
+          m_Subroutines.at(b->context.subroutine->name)->contains_calls = true;
         }
       }
     }
@@ -5394,17 +5418,17 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
     // sub-state indices (one-hot)
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
-        out << "reg  [" << stateWidth(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "," FF_Q << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
+        out << "reg  [" << width(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "," FF_Q << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
       }
     }
   }
   // state machine caller id (subroutine)
   if (!doesNotCallSubroutines()) {
-    out << "reg  [" << (stateWidth() - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ";" << nxl;
+    out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ";" << nxl;
     // per-subroutine caller id backup (subroutine making nested calls)
     for (auto sub : m_Subroutines) {
       if (sub.second->contains_calls) {
-        out << "reg  [" << (stateWidth() - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ";" << nxl;
+        out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ";" << nxl;
       }
     }
   }
@@ -6044,9 +6068,9 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       auto RS = m_SubroutinesCallerReturnStates.find(current->context.subroutine->name);
       if (RS != m_SubroutinesCallerReturnStates.end()) {
         if (RS->second.size() > 1) {
-          out << "case (" << FF_D << prefix << ALG_CALLER << ") " << nxl;
+          out << "case (" << FF_Q << prefix << ALG_CALLER << ") " << nxl;
           for (auto caller_return : RS->second) {
-            out << stateWidth() << "'d" << caller_return.first << ": begin" << nxl;
+            out << width(m_SubroutineCallerNextId) << "'d" << caller_return.first << ": begin" << nxl;
             out << "  " << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << nxl;
             // if returning to a subroutine, restore caller id
             if (caller_return.second->context.subroutine != nullptr) {
@@ -6055,7 +6079,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
             }
             out << "end" << nxl;
           }
-          out << "default:" << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << nxl;
+          out << "default: begin " << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << "; end" << nxl;
           out << "endcase" << nxl;
         } else {
           auto caller_return = *RS->second.begin();
@@ -6081,8 +6105,9 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
         out << FF_D << prefix << current->context.subroutine->name << '_' << ALG_CALLER << " = " << FF_Q << prefix << ALG_CALLER << ";" << nxl;
       }
       // set caller id
-      sl_assert(current->parent_state_id > -1);
-      out << FF_D << prefix << ALG_CALLER << " = " << current->parent_state_id << ";" << nxl;
+      auto C = m_SubroutineCallerIds.find(current->goto_and_return_to());
+      sl_assert(C != m_SubroutineCallerIds.end());
+      out << FF_D << prefix << ALG_CALLER << " = " << C->second << ";" << nxl;
       pushState(current->goto_and_return_to()->return_to, _q);
       return;
     } else if (current->wait()) {

@@ -344,9 +344,6 @@ namespace Silice
     /// \brief all subroutines
     std::unordered_map< std::string, t_subroutine_nfo* > m_Subroutines;
 
-    /// \brief subroutine calls: which states subroutine are going back to
-    std::unordered_map< std::string, std::set<std::pair<int, t_combinational_block*> > >  m_SubroutinesCallerReturnStates;
-
     /// \brief forward declaration of a pipeline stage
     struct s_pipeline_stage_nfo;
 
@@ -474,6 +471,13 @@ namespace Silice
       end_action_pipeline_next(t_combinational_block *next_, t_combinational_block *after_) : next(next_), after(after_) { }
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); _ch.push_back(after); }
     };
+
+    /// \brief counter to generate caller ids, used for subroutine returns
+    int                                                             m_SubroutineCallerNextId = 0;
+    /// \brief map of ids for each subroutine caller
+    std::unordered_map< const end_action_goto_and_return_to *, int> m_SubroutineCallerIds;
+    /// \brief subroutine calls: which states subroutine are going back to
+    std::unordered_map< std::string, std::vector<std::pair<int, t_combinational_block *> > >  m_SubroutinesCallerReturnStates;
 
     /// \brief combinational block context
     typedef struct {
@@ -770,7 +774,7 @@ namespace Silice
     /// \brief returns the index to jump to to intitate the termination sequence
     int terminationState() const;
     /// \brief returns the state bit-width required to encode up to max_state
-    int stateWidth(int max_state) const;
+    int width(int max_state) const;
     /// \brief returns the state bit-width for the algorithm
     int stateWidth() const;
     /// \brief fast-forward to the next non empty state
