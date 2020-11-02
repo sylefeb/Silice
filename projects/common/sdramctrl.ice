@@ -364,7 +364,7 @@ $$end
 
       if (work_todo) {
         work_todo = 0;
-        
+
         // -> activate
         reg_sdram_ba = bank;
         reg_sdram_a  = row;
@@ -413,6 +413,10 @@ $$end
             }
           }
         }
+
+++: // enforce tRP
+++:
+++:
 
       } // work_todo
     } // refresh
