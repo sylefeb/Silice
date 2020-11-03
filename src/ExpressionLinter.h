@@ -42,6 +42,8 @@ namespace Silice
 
     const Algorithm *m_Host;
 
+    bool m_WarnAssignWidth = false;
+
     /// \brief issues a warning
     void warn(antlr4::misc::Interval interval, int line, const char *msg, ...) const;
 
