@@ -48,7 +48,9 @@ import('inout16_ff_ulx3s.v')
 import('out1_ff_ulx3s.v')
 import('out2_ff_ulx3s.v')
 import('out13_ff_ulx3s.v')
+
 $$ULX3S_IO = true
+
 $$end
 
 // -----------------------------------------------------------
@@ -170,6 +172,7 @@ $$end
   uint16  reg_dq_o      = 0;
   uint1   reg_dq_en     = 0;
 
+
 $$if not VERILATOR then
 
   uint16 dq_i      = 0;
@@ -195,9 +198,6 @@ $$if ULX3S_IO then
 
 $$elseif DE10NANO then
 
-  uint16 dq_o      = 0;
-  uint1  dq_en     = 0;
-
   inout16_set ioset(
     io_pin          <:> sdram_dq,
     io_write        <:  reg_dq_o,
@@ -207,14 +207,11 @@ $$elseif DE10NANO then
 
 $$else
 
-  uint16 dq_o      = 0;
-  uint1  dq_en     = 0;
-
   inout16_set ioset(
     io_pin          <:> sdram_dq,
-    io_write        <:  dq_o,
+    io_write        <:  reg_dq_o,
     io_read         :>  dq_i,
-    io_write_enable <:  dq_en
+    io_write_enable <:  reg_dq_en
   );
 
 $$end
@@ -267,8 +264,10 @@ $$if not ULX3S_IO then
   sdram_dqm := reg_sdram_dqm;
   sdram_ba  := reg_sdram_ba;
   sdram_a   := reg_sdram_a;
+$$if VERILATOR then  
   dq_o      := reg_dq_o;
   dq_en     := reg_dq_en;
+$$end  
 $$end
 
   sd.out_valid := 0;
@@ -373,7 +372,7 @@ $$end
 
       if (work_todo) {
         work_todo = 0;
-
+        
         // -> activate
         reg_sdram_ba = bank;
         reg_sdram_a  = row;
@@ -422,7 +421,7 @@ $$end
             }
           }
         }
-
+        
 ++: // enforce tRP
 ++:
 ++:
@@ -439,8 +438,8 @@ $$end
 //
 // Assumptions:
 //  * !!IMPORTANT!! assumes no writes ever occur into a cached read
-//  * busy     == 1 => in_valid = 0
-//  * in_valid == 1 => out_valid = 0
+//  * busy     == 1 => in_valid  = 0
+//  * in_valid == 1 & rw == 1 => in_valid == 0 until out_valid == 1
 //
 algorithm sdram_byte_readcache(
   sdram_provider sdb,
@@ -455,57 +454,65 @@ algorithm sdram_byte_readcache(
   
   always {
 
-    // maintain low
-    sdr.in_valid = 0;
-
     // maintain busy for one clock to
     // account for one cycle latency
     // of latched outputs to chip
-    sdb.busy         = busy[0,1];
+    sdb.busy = busy[0,1];
     if (sdr.busy == 0) {
       busy = {1b0,busy[1,1]};
     }
-    
-    sdb.out_valid = 0;
-    if (sdr.out_valid) {
-      // data is available
-      // -> fill cache
-      cached       = sdr.data_out;
-      // -> extract byte
-      sdb.data_out  = cached[ {cached_addr[0,4],3b000} , 8 ];
-      // -> signal availability
-      sdb.out_valid = 1;
-    } else {
-      if (sdb.in_valid) {
-        if (sdb.rw == 0) { // reading
-          if (sdb.addr[4,22] == cached_addr[4,22]) {
-            // in cache!
-            sdb.data_out   = cached[ {sdb.addr[0,4],3b000} , 8 ];
-            // -> signal availability
-            sdb.out_valid  = 1;
-          } else {
-            sdb.busy       = 1;
-            busy          = 2b11;
-            // record addr to cache
-            cached_addr   = sdb.addr;
-            // issue read
-            sdr.rw        = 0;
-            sdr.addr      = {cached_addr[4,22],4b0000};
-            sdr.in_valid  = 1;
-          }
-        } else { // writing
-          sdb.busy = 1;
-          busy    = 2b11;
-          // issue write
-          sdr.rw       = 1;
-          sdr.addr     = sdb.addr;
-          sdr.data_in  = sdb.data_in;
-          sdr.in_valid = 1; 
-          // __display("<sdram (byte): write %x>",sdb.data_in);
+
+    if (sdb.in_valid) {
+      if (sdb.rw == 0) { // reading
+        if (sdb.addr[4,22] == cached_addr[4,22]) {
+          // in cache!
+          sdb.data_out  = cached >> {sdb.addr[0,4],3b000};
+          // -> signal availability
+          sdb.out_valid = 1;
+          // no request
+          sdr.in_valid  = 0;
+        } else {
+          sdb.busy      = 1;
+          busy          = 2b11;
+          // record addr to cache
+          cached_addr   = sdb.addr;
+          // issue read
+          sdr.rw        = 0;
+          sdr.addr      = {cached_addr[4,22],4b0000};
+          sdr.in_valid  = 1;
+          // no output
+          sdb.out_valid = 0;
         }
+      } else { // writing
+        sdb.busy      = 1;
+        busy          = 2b11;
+        // issue write
+        sdr.rw        = 1;
+        sdr.addr      = sdb.addr;
+        sdr.data_in   = sdb.data_in;
+        sdr.in_valid  = 1; 
+        // no output
+        sdb.out_valid = 0;
+      }
+    } else {
+      if (sdr.out_valid) {
+        // data is available
+        // -> fill cache
+        cached        = sdr.data_out;
+        // -> extract byte
+        sdb.data_out  = cached >> {cached_addr[0,4],3b000};
+        // -> signal availability
+        sdb.out_valid = 1;
+        // no request
+        sdr.in_valid = 0;
+      } else {
+        // no output
+        sdb.out_valid = 0;
+        // no request
+        sdr.in_valid  = 0;
       }
     }
-  
+
   }
 
 }

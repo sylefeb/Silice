@@ -1,4 +1,5 @@
 `define ICARUS 1
+`define DUMP_TOP_ONLY 1
 $$ICARUS      = 1
 $$SIMULATION  = 1
 $$NUM_LEDS    = 8
