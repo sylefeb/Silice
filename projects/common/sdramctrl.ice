@@ -48,9 +48,7 @@ import('inout16_ff_ulx3s.v')
 import('out1_ff_ulx3s.v')
 import('out2_ff_ulx3s.v')
 import('out13_ff_ulx3s.v')
-
 $$ULX3S_IO = true
-
 $$end
 
 // -----------------------------------------------------------
@@ -172,7 +170,6 @@ $$end
   uint16  reg_dq_o      = 0;
   uint1   reg_dq_en     = 0;
 
-
 $$if not VERILATOR then
 
   uint16 dq_i      = 0;
@@ -195,6 +192,18 @@ $$if ULX3S_IO then
   out2_ff_ulx3s  off_sdram_dqm(clock <: clock, pin :> sdram_dqm, d <:: reg_sdram_dqm);
   out2_ff_ulx3s  off_sdram_ba (clock <: clock, pin :> sdram_ba , d <:: reg_sdram_ba );
   out13_ff_ulx3s off_sdram_a  (clock <: clock, pin :> sdram_a  , d <:: reg_sdram_a  );
+
+$$elseif DE10NANO then
+
+  uint16 dq_o      = 0;
+  uint1  dq_en     = 0;
+
+  inout16_set ioset(
+    io_pin          <:> sdram_dq,
+    io_write        <:  reg_dq_o,
+    io_read         :>  dq_i,
+    io_write_enable <:  reg_dq_en
+  );
 
 $$else
 
