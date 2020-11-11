@@ -159,7 +159,7 @@ static void lua_preproc_error(lua_State *L, std::string str)
 
 static void lua_print(lua_State *L, std::string str)
 {
-  cerr << "[preprocessor] " << Console::white << str << Console::gray << endl;
+  cerr << "[preprocessor] " << Console::white << str << Console::gray << "\n";
 }
 
 // -------------------------------------------------
@@ -579,7 +579,7 @@ std::string LuaPreProcessor::processCode(
   std::string src_file,
   std::unordered_set<std::string> alreadyIncluded)
 {
-  cerr << "preprocessing " << src_file << '.' << endl;
+  cerr << "preprocessing " << src_file << '.' << "\n";
   if (!LibSL::System::File::exists(src_file.c_str())) {
     throw Fatal("cannot find source file '%s'", src_file.c_str());
   }
@@ -634,9 +634,8 @@ std::string LuaPreProcessor::processCode(
       code += "\\n'," + std::to_string(src_line-1) + "," + std::to_string(src_file_id) + ")\n";
 
     } else if (l->siliceincl() != nullptr) {
-
       std::string filename = l->siliceincl()->filename->getText();
-      std::regex  lfname_regex("\\s*\\(\\s*\\'([a-zA-Z_0-9\\./]+)\\'\\s*\\)\\s*");
+      std::regex  lfname_regex("\\s*\\(\\s*\\'(.+?)\\'\\s*\\)\\s*");
       std::smatch matches;
       if (std::regex_match(filename, matches, lfname_regex)) {
         std::string fname = matches.str(1).c_str();
@@ -644,8 +643,9 @@ std::string LuaPreProcessor::processCode(
         fname             = findFile(fname);
         // recurse
         code += "\n" + processCode(path + "/",fname, alreadyIncluded) + "\n";
+      } else {
+        throw Fatal("cannot split filename '%s'", filename.c_str());
       }
-
     }
   }
 
@@ -654,7 +654,55 @@ std::string LuaPreProcessor::processCode(
 
 // -------------------------------------------------
 
-void LuaPreProcessor::run(std::string src_file, std::string header_code, std::string dst_file)
+// NOTE: use std::filesystem::current_path() in the future ....
+#if defined(WIN32) || defined(WIN64)
+
+#include <direct.h>
+
+std::string getCurrentPath()
+{
+  std::string ret;
+  char buf[4096];
+  ret = std::string(_getcwd(buf, 4096));
+  return ret;
+}
+
+std::string fileAbsolutePath(std::string f)
+{
+  char buf[4096];
+  GetFullPathNameA(f.c_str(), 4096, buf, NULL);
+  return std::string(buf);
+}
+
+#else
+
+#include <unistd.h>
+#include <limits.h>
+
+std::string getCurrentPath()
+{
+  std::string ret;
+  char buf[PATH_MAX+1];
+  ret = std::string(getcwd(buf, 4096));
+  return ret;
+}
+
+std::string fileAbsolutePath(std::string f)
+{
+  char buf[PATH_MAX+1];
+  realpath(f.c_str(), buf);
+  return std::string(buf);
+}
+
+#endif
+
+// -------------------------------------------------
+
+void LuaPreProcessor::run(
+  std::string src_file, 
+  const std::vector<std::string>& defaultLibraries, 
+  std::string lua_header_code, 
+  std::string dst_file)
 {
   lua_State *L = luaL_newstate();
 
@@ -669,11 +717,21 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
     luabind::globals(L)[dv.first] = dv.second;
   }
 
+  // add current directory to search dirs
+  m_SearchPaths.push_back(getCurrentPath());
+  m_SearchPaths.push_back(extractPath(fileAbsolutePath(src_file)));
   // get code
   std::unordered_set<std::string> inclusions;
-  std::string code = 
-    header_code +
-    processCode("", src_file, inclusions);
+  // start with header
+  std::string code = lua_header_code;
+  // add default libs to source
+  for (auto l : defaultLibraries) {
+    std::string libfile = CONFIG.keyValues()["libraries_path"] + "/" + l;
+    libfile = findFile(libfile);
+    code = code + "\n" + processCode(CONFIG.keyValues()["libraries_path"],libfile,inclusions);
+  }
+  // parse main file
+  code = code + "\n" + processCode("", src_file, inclusions);
 
   m_CurOutputLine = 0;
 
@@ -693,9 +751,9 @@ void LuaPreProcessor::run(std::string src_file, std::string header_code, std::st
     cerr << "[preprocessor] ";
     cerr << Console::yellow;
     if (errline > -1) {
-      cerr << errline << "] " << errmsg << endl;
+      cerr << errline << "] " << errmsg << "\n";
     } else {
-      cerr << errmsg << endl;
+      cerr << errmsg << "\n";
     }
     cerr << Console::gray;
     throw Fatal("the preprocessor was interrupted");

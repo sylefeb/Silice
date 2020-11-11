@@ -18,10 +18,10 @@ the distribution, please refer to it for details.
 #include "VgaChip.h"
 #include "video_out.h"
 
-VgaChip::VgaChip()
+VgaChip::VgaChip(int color_depth)
 {
   m_VideoOut = new VideoOut(
-        0/*debug*/,6/*color depth*/,0/*polarity*/,
+        0/*debug*/,color_depth/*color depth*/,0/*polarity*/,
         640 ,16,96,48,
         480 ,10,2,33,
         "vgaout");

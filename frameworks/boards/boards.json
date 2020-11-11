@@ -1,0 +1,31 @@
+{
+  "boards" : [
+    {
+      "name" : "icarus"
+    },
+    {
+      "name" : "verilator"
+    },
+    {
+      "name" : "icebreaker"
+    },
+    {
+      "name" : "icestick"
+    },
+    {
+      "name" : "ulx3s"
+    },
+    {
+      "name" : "de10nano"
+    },
+    {
+      "name" : "orangecrab"
+    },
+    {
+      "name" : "crosslink_nx_evn"
+    },
+    {
+      "name" : "fomu"
+    }
+  ]
+}

@@ -1,3 +1,11 @@
+-- @sylefeb, 2020
+--
+--      GNU AFFERO GENERAL PUBLIC LICENSE
+--        Version 3, 19 November 2007
+--      
+--  A copy of the license full text is included in 
+--  the distribution, please refer to it for details.
+--
 
 -- NOTE: uses helper functions from pre_do_textures, include after
 
@@ -109,9 +117,11 @@ for _,s in ipairs(sprites) do
 end 
 code:write('};\n')
 
+code:write('// stored ' .. sprite_bytes .. ' sprite bytes (' .. sprite_bytes*8 .. ' bits) \n')
+
 code:close()
 
-print('stored ' .. sprite_bytes .. ' sprite bytes\n')
+print('stored ' .. sprite_bytes .. ' sprite bytes (' .. sprite_bytes*8 .. ' bits) \n')
 
 -- now load file into string
 local code = assert(io.open(path .. 'spritebrom.ice', 'r'))

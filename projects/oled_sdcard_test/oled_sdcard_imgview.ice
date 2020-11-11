@@ -11,95 +11,14 @@ $$end
 
 // ------------------------- 
 
-$include('sdcard.ice')
+$include('../common/sdcard.ice')
+$include('../common/sdcard_streamer.ice')
 $$dofile('pre_sdcard_image.lua')
 
 // ------------------------- 
 
-group streamio {
-  uint1 next  = 0,
-  uint8 data  = 0,
-  uint1 ready = 0,
-}
-
-algorithm sdcard_streamer(
-  output  uint1 sd_clk,
-  output  uint1 sd_mosi,
-  output  uint1 sd_csn,
-  input   uint1 sd_miso,
-  streamio stream {
-    input   next,
-    output  data,
-    output  ready,
-  }
-) <autorun> {
-
-  // Read buffer
-  dualport_bram uint8 sdbuffer[512] = uninitialized;
-
-  // SD-card interface
-  sdcardio sdcio;
-  sdcard sd(
-    // pins
-    sd_clk  :> sd_clk,
-    sd_mosi :> sd_mosi,
-    sd_csn  :> sd_csn,
-    sd_miso <: sd_miso,
-    // read io
-    io      <:> sdcio,
-    // bram port
-    store_addr  :> sdbuffer.addr1,
-    store_byte  :> sdbuffer.wdata1
-  );
-  
-  // Global pointer in data
-  uint32 ptr     = 0;
-  uint1  do_next = 0;
-  
-  sdbuffer.wenable0 := 0;
-  sdbuffer.wenable1 := 1;  
-  sdcio.read_sector := 0;
-
-  always {
-    if (stream.next) {
-      do_next = 1;
-      stream.ready   = 0;
-    }
-  }
-
-  stream.ready = 0;
-
-  // wait for sdcard to initialize
-  while (sdcio.ready == 0) { }
-
-  stream.ready = 1;
-
-  sdcio.addr_sector = 0;
-  while (1) {
-    if (do_next) {
-      do_next = 0;
-      // read next sector?
-      if (ptr[0,9] == 0) {
-        sdcio.read_sector = 1;
-        // wait for sdcard
-        while (sdcio.ready == 0) { }
-        // prepare for next
-        sdcio.addr_sector = sdcio.addr_sector + 1;
-      }
-      sdbuffer.addr0 = ptr[0,9];
-++:      
-      stream.data    = sdbuffer.rdata0; // ptr;
-      ptr            = ptr + 1;
-      stream.ready   = 1;
-    }
-  }
-  
-}
-
-// ------------------------- 
-
 algorithm main(
-  output! uint8 led,
+  output! uint8 leds,
   input   uint7 btn,
   output! uint1 oled_clk,
   output! uint1 oled_mosi,
@@ -144,17 +63,17 @@ algorithm main(
   io.next_pixel := 0;
   stream.next   := 0;
 
-led = 0;
+leds = 0;
 
   // wait for oled controller to be ready  
   while (io.ready == 0) { }
 
-led = 2;
+leds = 2;
 
   // wait for sdcard controller to be ready  
   while (stream.ready == 0)    { }
 
-led = 4;
+leds = 4;
 
   // read palette
   {
@@ -178,14 +97,14 @@ led = 4;
     palette.wenable = 0;
   }
 
-led = 8;
+leds = 8;
 
   // read image
   {
     uint17 to_read = 0;
     image.wenable  = 1;    
     while (to_read < $oled_width*oled_height$) {    
-      led          = to_read;
+      leds         = to_read;
       stream.next  = 1;
       while (stream.ready == 0) { }
       image.wdata  = stream.data;
@@ -195,7 +114,7 @@ led = 8;
     image.wenable = 0;  
   }
 
-led = 16;
+leds = 16;
 
   while (1)
   {

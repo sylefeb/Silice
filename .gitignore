@@ -1,3 +1,13 @@
 *.lpp
 *.fst
 out.v
+*.a
+*.o
+*.d
+*.class
+*.interp
+BUILD*
+antlr/*.tokens
+antlr/*Listener.*
+antlr/*Lexer.*
+antlr/*Parser.*

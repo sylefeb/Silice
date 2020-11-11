@@ -53,6 +53,8 @@ BREAK               : 'break' ;
 
 DISPLAY             : '$display' | '__display' ;
 
+DISPLWRITE          : '__write' ;
+
 TOSIGNED            : '__signed' ;
 
 TOUNSIGNED          : '__unsigned' ;
@@ -67,9 +69,17 @@ BROM                : 'brom' ;
 
 GROUP               : 'group' ;
 
+INTERFACE           : 'interface' ;
+
 BITFIELD            : 'bitfield' ;
 
-UNINITIALIZED       : 'uninitialized' ;
+SAMEAS              : 'sameas' ;
+
+WIDTHOF             : 'widthof' ;
+
+UNINITIALIZED       : 'uninitialized' | 'uninitialised' ;
+
+PAD                 : 'pad' ;
 
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
@@ -112,7 +122,7 @@ ERROR_CHAR          : . ; // catch-all to move lexer errors to parser
 
 /* -- Declarations, init and bindings -- */
 
-constValue          : minus='-'? NUMBER | CONSTANT ;
+constValue          : minus='-'? NUMBER | CONSTANT | WIDTHOF '(' IDENTIFIER ')';
 
 value               : constValue | initBitfield ;
 
@@ -125,7 +135,9 @@ sstacksz            :  'stack:' NUMBER ;
 algModifier         : sclock | sreset | sautorun | sonehot | sstacksz ;
 algModifiers        : '<' algModifier (',' algModifier)* '>' ;
 
-initList            : '{' value (',' value)* ','? '}' | '{' '}' ;
+pad                 : PAD '(' (value | UNINITIALIZED) ')' ;
+
+initList            : '{' value (',' value)* (',' pad)? ','? '}' | '{' pad '}'  | '{' '}' ;
 
 memNoInputLatch     : 'input' '!' ;
 memDelayed          : 'delayed' ;
@@ -134,11 +146,12 @@ memModifier         : memClocks | memNoInputLatch | memDelayed ;
 memModifiers        : '<' memModifier (',' memModifier)* ','? '>' ;
 
 declarationWire      : TYPE alwaysAssigned;
-declarationVar       : TYPE IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS?;
-declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))?;
-declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))?;
-declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ?;
-declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire; 
+declarationVar       : TYPE IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS? ;
+declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
+declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
+declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ? ;
+declarationSameAs    : SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')' name=IDENTIFIER ;
+declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire | declarationSameAs;
 
 modalgBinding        : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
 modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
@@ -149,14 +162,22 @@ io                  : ( (is_input='input' nolatch='!'? ) | (is_output='output' c
 
 ioList              : io (',' io)* ','? | ;
 
-/* -- groups -- */
+/* -- vars -- */
 
 var                 : declarationVar ;
 varList             : var (',' var)* ','? | ;
 
+/* -- groups -- */
+
 group               : GROUP IDENTIFIER '{' varList '}' ;
 
 ioGroup             : groupid=IDENTIFIER groupname=IDENTIFIER '{' ioList '}' ;
+
+/* -- interfaces -- */
+
+intrface            : INTERFACE IDENTIFIER '{' ioList '}' ;
+
+ioInterface         : interfaceid=IDENTIFIER groupname=IDENTIFIER;
 
 /* -- bitfields -- */
 
@@ -165,10 +186,6 @@ namedValue          : name=IDENTIFIER '=' constValue ;
 initBitfield        : field=IDENTIFIER '(' namedValue (',' + namedValue)* ','? ')' ;
 
 /* -- Expressions -- */
-/* 
-Precedences are not properly enforced, but this has no consequence as Silice
-outputs expressions as-is to Verilog, which then applies operator precedences.
-*/
 
 expression_0        : expression_0 '?' expression_0 ':' expression_0
                     | expression_1;
@@ -239,13 +256,14 @@ atom                : CONSTANT
                     | '(' expression_0 ')'
                     | TOSIGNED '(' expression_0 ')'
                     | TOUNSIGNED '(' expression_0 ')'
+                    | WIDTHOF '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')'
                     | concatenation ;
 
 /* -- Accesses to VIO -- */
 
 bitfieldAccess      : field=IDENTIFIER '(' idOrIoAccess ')' '.' member=IDENTIFIER ;
 ioAccess            : base=IDENTIFIER ('.' IDENTIFIER)+ ;
-bitAccess           : (ioAccess | tableAccess | IDENTIFIER) '[' first=expression_0 ',' num=NUMBER ']' ;
+bitAccess           : (ioAccess | tableAccess | IDENTIFIER) '[' first=expression_0 ',' num=constValue ']' ;
 tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;
 access              : (ioAccess | tableAccess | bitAccess | bitfieldAccess) ; 
 
@@ -266,16 +284,11 @@ alwaysAssignedList  : alwaysAssigned ';' alwaysAssignedList | ;
 
 /* -- Algorithm calls -- */
 
-paramList           : expression_0 ',' paramList 
-                    | expression_0 
-                    | ;
+callParamList       : expression_0 (',' expression_0)* ','? | ;
 
-assign              : IDENTIFIER | access ;
-assignList          : assign (',' assign)* ','? | ;
-
-asyncExec           : IDENTIFIER LARROW '(' paramList ')' ;
-joinExec            : '(' assignList ')' LARROW IDENTIFIER ;
-syncExec            : joinExec LARROW '(' paramList ')' ;
+asyncExec           : IDENTIFIER LARROW '(' callParamList ')' ;
+joinExec            : '(' callParamList ')' LARROW IDENTIFIER ;
+syncExec            : joinExec LARROW '(' callParamList ')' ;
 
 /* -- Circuitry instanciation -- */
 
@@ -301,8 +314,7 @@ switchCase          : 'switch' '(' expression_0 ')' '{' caseBlock * '}' ;
 caseBlock           : ('case' case_value=value ':' | DEFAULT ) case_block=block;
 whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 
-displayParams       : IDENTIFIER (',' IDENTIFIER)* ;
-display             : DISPLAY '(' STRING ( ',' displayParams )? ')';
+display             : (DISPLAY | DISPLWRITE) '(' STRING ( ',' callParamList )? ')';
 
 instruction         : assignment 
                     | syncExec
@@ -327,9 +339,9 @@ inout               : 'inout' TYPE IDENTIFIER
                     | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
 input               : 'input' nolatch='!'? TYPE IDENTIFIER
                     | 'input' nolatch='!'? TYPE IDENTIFIER '[' NUMBER ']';
-output              : 'output' combinational='!'? TYPE IDENTIFIER
-                    | 'output' combinational='!'? TYPE IDENTIFIER '[' NUMBER ']';
-inOrOut             :  input | output | inout | ioGroup;
+output              : 'output' combinational='!'? declarationVar
+                    | 'output' combinational='!'? declarationTable ; 
+inOrOut             :  input | output | inout | ioGroup | ioInterface;
 inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 
 /* -- Declarations, subroutines, instruction lists -- */
@@ -378,6 +390,6 @@ algorithm           : 'algorithm' IDENTIFIER '(' inOutList ')' algModifiers? '{'
 
 /* -- Overall structure -- */
 
-topList       :  (algorithm | importv | appendv | subroutine | circuitry | group | bitfield) topList | ;
+topList       :  (algorithm | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
 
 root                : topList EOF ;

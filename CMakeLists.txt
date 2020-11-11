@@ -18,9 +18,14 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:4194304")
 endif()
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 # think antlr does stuff that isn't permitted in Clang under newer C++ standard
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+# => latest Silice requires c++ 17, we'll have to look into this
+# set(CMAKE_CXX_STANDARD 14)
 endif()
 
 if (WIN32)

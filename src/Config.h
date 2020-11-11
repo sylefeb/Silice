@@ -47,3 +47,7 @@ public:
 #define CONFIG (*Config::getUniqueInstance())
 
 // -------------------------------------------------
+
+extern const std::string nxl; // end of line
+
+// -------------------------------------------------

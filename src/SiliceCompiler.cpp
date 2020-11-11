@@ -73,6 +73,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
   auto app = dynamic_cast<siliceParser::AppendvContext*>(tree);
   auto sub = dynamic_cast<siliceParser::SubroutineContext*>(tree);
   auto group = dynamic_cast<siliceParser::GroupContext*>(tree);
+  auto intrface = dynamic_cast<siliceParser::IntrfaceContext *>(tree);
   auto bitfield = dynamic_cast<siliceParser::BitfieldContext*>(tree);
 
   if (toplist) {
@@ -86,7 +87,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
 
     /// algorithm
     std::string name = alg->IDENTIFIER()->getText();
-    std::cerr << "parsing algorithm " << name << std::endl;
+    std::cerr << "parsing algorithm " << name << nxl;
     bool autorun = (name == "main");
     bool onehot = false;
     std::string clock = ALG_CLOCK;
@@ -112,7 +113,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     }
     AutoPtr<Algorithm> algorithm(new Algorithm(
       name, clock, reset, autorun, onehot,
-      m_Modules, m_Subroutines, m_Circuitries, m_Groups, m_BitFields)
+      m_Modules, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
     );
     if (m_Algorithms.find(name) != m_Algorithms.end()) {
       throw Fatal("an algorithm with same name already exists (line %d)!", (int)alg->getStart()->getLine());
@@ -139,6 +140,15 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     }
     m_Groups.insert(std::make_pair(name, group));
 
+  } else if (intrface) {
+
+    /// interface
+    std::string name = intrface->IDENTIFIER()->getText();
+    if (m_Interfaces.find(name) != m_Interfaces.end()) {
+      throw Fatal("an interface with same name already exists (line %d)!", (int)intrface->getStart()->getLine());
+    }
+    m_Interfaces.insert(std::make_pair(name, intrface));
+
   } else if (bitfield) {
 
     /// bitfield
@@ -161,7 +171,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     if (m_Modules.find(fname) != m_Modules.end()) {
       throw Fatal("verilog module already imported! (line %d)", (int)imprt->getStart()->getLine());
     }
-    std::cerr << "parsing module " << vmodule->name() << std::endl;
+    std::cerr << "parsing module " << vmodule->name() << nxl;
     m_Modules.insert(std::make_pair(vmodule->name(), vmodule));
     m_ModulesInDeclOrder.push_back(vmodule->name());
 
@@ -191,14 +201,14 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
 
 // -------------------------------------------------
 
-void SiliceCompiler::prepareFramework(const char* fframework, std::string& _lpp, std::string& _verilog)
+void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog)
 {
   // gather 
   // - pre-processor header (all lines starting with $$)
   // - verilog code (all other lines)
   std::ifstream infile(fframework);
   if (!infile) {
-    throw Fatal("Cannot open framework file '%s'", fframework);
+    throw Fatal("Cannot open framework file '%s'", fframework.c_str());
   }
   std::string line;
   while (std::getline(infile, line)) {
@@ -213,28 +223,42 @@ void SiliceCompiler::prepareFramework(const char* fframework, std::string& _lpp,
 // -------------------------------------------------
 
 void SiliceCompiler::run(
-  const char* fsource,
-  const char* fresult,
-  const char* fframework,
+  std::string fsource,
+  std::string fresult,
+  std::string fframework,
+  std::string frameworks_dir,
   const std::vector<std::string>& defines)
 {
+  // determine frameworks dir if needed
+  if (frameworks_dir.empty()) {
+    frameworks_dir = std::string(LibSL::System::Application::executablePath()) + "../frameworks/";
+  }
+  /*
+  std::cerr << Console::white << std::setw(30) << "framework directory" << " = ";
+  std::cerr << Console::yellow << std::setw(30) << frameworks_dir << nxl;
+  std::cerr << Console::white << std::setw(30) << "framework file" << " = ";
+  std::cerr << Console::yellow << std::setw(30) << fframework << nxl;
+  std::cerr << Console::gray;
+  */
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
   prepareFramework(fframework, framework_lpp, framework_verilog);
-  // add defines to header
+  // produce header
+  // -> pre-processor code from framework
+  std::string header = framework_lpp;
+  // -> cmd line defines
   for (auto d : defines) {
-    framework_lpp = d + "\n" + framework_lpp;
+    header = d + "\n" + header;
   }
   // add framework path to config
-  CONFIG.keyValues()["framework_path"] = LibSL::StlHelpers::extractPath(fframework);
-  CONFIG.keyValues()["framework_name"] = LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework));
-  CONFIG.keyValues()["templates_path"] = LibSL::StlHelpers::extractPath(fframework) + "/templates";
+  CONFIG.keyValues()["framework_file"] = fframework;
+  CONFIG.keyValues()["frameworks_dir"] = frameworks_dir;
+  CONFIG.keyValues()["templates_path"] = frameworks_dir + "/templates";
+  CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
   // preprocessor
   LuaPreProcessor lpp;
   std::string preprocessed = std::string(fsource) + ".lpp";
-  lpp.addDefinition("FRAMEWORK", 
-    LibSL::StlHelpers::removeExtensionFromFileName(LibSL::StlHelpers::extractFileName(fframework)));
-  lpp.run(fsource, framework_lpp, preprocessed);
+  lpp.run(fsource, c_DefaultLibraries, header, preprocessed);
   // display config
   CONFIG.print();
   // extract paths
@@ -278,11 +302,18 @@ void SiliceCompiler::run(
       // save the result
       {
         std::ofstream out(fresult);
+        // wrtie cmd line defines
+        for (auto d : defines) {
+          auto eq = d.find('=');
+          if (eq != std::string::npos) {
+            out << "`define " << d.substr(0,eq) << " " << d.substr(eq+1) << nxl;
+          }
+        }
         // write framework (top) module
         out << framework_verilog;
         // write includes
         for (auto fname : m_AppendsInDeclOrder) {
-          out << Module::fileToString(fname.c_str()) << std::endl;
+          out << Module::fileToString(fname.c_str()) << nxl;
         }
         // write imported modules
         for (auto miordr : m_ModulesInDeclOrder) {
@@ -299,6 +330,7 @@ void SiliceCompiler::run(
     } catch (Algorithm::LanguageError& le) {
 
       ReportError err(lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()), le.token(), le.interval(), le.message());
+      throw Fatal("Silice compiler stopped");
 
     }
 
@@ -333,19 +365,19 @@ static int numLinesIn(std::string l)
 
 void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where, std::string msg) const
 {
-  std::cerr << Console::bold << Console::white << "----------<<<<< error >>>>>----------" << std::endl << std::endl;
+  std::cerr << Console::bold << Console::white << "----------<<<<< error >>>>>----------" << nxl << nxl;
   if (where.second > -1) {
     std::cerr 
-      << "=> file: " << where.first << std::endl
-      << "=> line: " << where.second << std::endl
-      << Console::normal << std::endl;
+      << "=> file: " << where.first << nxl
+      << "=> line: " << where.second << nxl
+      << Console::normal << nxl;
   }
   std::vector<std::string> items;
   split(msg, '#', items);
   if (items.size() == 5) {
-    std::cerr << std::endl;
+    std::cerr << nxl;
     std::cerr << Console::white << Console::bold;
-    std::cerr << items[1] << std::endl;
+    std::cerr << items[1] << nxl;
     int nl = numLinesIn(items[1]);
     if (nl == 0) {
       ForIndex(i, std::stoi(items[3])) {
@@ -356,19 +388,19 @@ void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where,
         std::cerr << '^';
       }
     } else {
-      std::cerr << std::endl;
+      std::cerr << nxl;
       std::cerr << Console::yellow << Console::bold;
       std::cerr << "--->";
     }
     std::cerr << Console::red;
-    std::cerr << " " << items[0] << std::endl;
+    std::cerr << " " << items[0] << nxl;
     std::cerr << Console::gray;
-    std::cerr << std::endl;
+    std::cerr << nxl;
   } else {
     std::cerr << Console::red << Console::bold;
-    std::cerr << msg << std::endl;
+    std::cerr << msg << nxl;
     std::cerr << Console::normal;
-    std::cerr << std::endl;
+    std::cerr << nxl;
   }
 }
 
@@ -440,6 +472,9 @@ std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_
       tk_stream->getText(offender, offender); // this seems required to refresh the steam? TODO FIXME investigate
       codeline = extractCodeAroundToken(file, offender, tk_stream, offset);
     } else if (!(interval == antlr4::misc::Interval::INVALID)) {
+      if (interval.a > interval.b) {
+        std::swap(interval.a, interval.b);
+      }
       codeline = extractCodeBetweenTokens(file, tk_stream, (int)interval.a, (int)interval.b);
       offset = (int)tk_stream->get(interval.a)->getStartIndex();
     }

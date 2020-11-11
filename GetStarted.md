@@ -21,6 +21,8 @@ yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
 
 (the Java jre/jdk is only used during compilation)
 
+**Note:** It is highly recommended for all tools to be available from the PATH (yosys, nextpnr, dfu-utils, fujprog, etc.). This is required by the default build system.
+
 ## macOS (WIP)
 
 Install the packages listed in the Linux section above (except gcc,
@@ -45,39 +47,43 @@ make -j16 install
 
 ## Windows
 
-I have prepared binary packages for Windows so you can easily get started!
-Download the pre-compiled fpga-binutils from https://github.com/sylefeb/fpga-binutils/releases
+Silice runs smoothly under Windows using [MSYS2 / MinGW64](https://www.msys2.org/).
 
-There are two versions: 32 bits and 64 bits. I recommend using the 64 bits version, even though you may need
-both since a few tools compile to 32 bits only.
+Please download and install MSYS2 (msys2-x86_64) from https://www.msys2.org/
+Be sure to follow the instructions on the download page to update your MSYS2 install to latest.
+From there, to use Silice open a MinGW64 prompt, launching `c:\msys64\mingw64.exe` (assuming MSYS2 installed
+in default location). Be sure to use MinGW**64**, *not* 32.
 
-Uncompress in Silice/tools/fpga-binutils/
+The first step is to compile Silice from source. 
 
-After this step you should see these new directories:
-- Silice/tools/fpga-binutils/mingw32/ (with subdirectories: bin, ...)
-- Silice/tools/fpga-binutils/mingw64/ (with subdirectories: bin, ...)
+- Install the compiler tools from the MinGW64 shell: `pacman -S gcc make cmake`
+
+- Open a MinGW64 prompt, enter the Silice directory and type: `./compile_silice_mingw64.sh`
+
+### Toolchain
+
+Using Silice with your FPGA requires many other tools. I have prepared a binary package for MinGW64 with the full OpenSource toolchain pre-compiled, 
+so you can easily get started! 
+
+- Download fpga-binutils from https://github.com/sylefeb/fpga-binutils/releases
+
+- Uncompress the archive *Silice/tools/fpga-binutils/*
+
+- After this step you should see this new directory: *Silice/tools/fpga-binutils/mingw64/* (with subdirectories: bin, ...)
 
 ## Verilator framework
 
-To use build shell scripts (.sh) and the Verilator simulation framework: (**highly recommended**)
+To run simulations with Verilator (**highly recommended**), including SDRAM and VGA output simulations, we have to compile the Silice Verilator framework.
 
 ### Windows
 
-- Download and install MSYS2 (msys2-x86_64) from https://www.msys2.org/
-  Be sure to follow the instructions on the download page to update your 
-  MSYS2 install to latest.
+- Start a MinGW64 shell from (assuming default path) c:\msys64\mingw64.exe (64 bits)
 
-- Start a MinGW shell from (assuming default path) c:\msys64\mingw32.exe (32 bits) or c:\msys64\mingw64.exe (64 bits)
-
-- Install the compiler tools from the MinGW shell:
-  pacman -S gcc make cmake perl zlib zlib-devel
+- Install the compiler tools from the MinGW64 shell: `pacman -S gcc make cmake perl zlib zlib-devel`
 
 Now we will compile the silice framework for verilator
 
-- Go into the silice folder and type (for 32 bits version, use 64 prefix for 64 bits version)
-```
-./compile_verilator_framework_mingw32.sh
-```
+- Go into the silice folder and type `./compile_verilator_framework_mingw64.sh`
 
 (installs new files in Silice/frameworks/verilator/)
 
@@ -103,14 +109,9 @@ or
 From a shell starting from the silice folder:
 ```
 cd projects
-cd build
-cd verilator
-./verilator_sdram_vga.sh ../../vga_text_buffer/vga_text_buffer.ice
-./test_____vga_text_buffer__vga_text_bufferice.exe
+cd vga_demo
+make verilator
 ```
-**IMPORTANT** under Windows, if you compiled for 64 bits, use a MinGW64 shell and the script ```/verilator_sdram_vga_64.sh``` instead.
 
-=> This executes the simulation, which outputs 40 image files (tga format)
+This executes the simulation, which outputs 32 image files (tga format) in the subdirectory *BUILD_verilator*.
 Look at them in sequence :-)
-
-*Note:* Under MinGW you can also compile *silice* and *silicehe* using the provided shell scripts in the root silice directory.

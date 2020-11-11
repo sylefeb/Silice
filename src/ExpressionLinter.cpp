@@ -53,18 +53,24 @@ void ExpressionLinter::lintAssignment(
     typeNfo(access, bctx, lvalue_nfo);
   } else {
     sl_assert(identifier != nullptr);
-    lvalue_nfo = m_Host->determineIdentifierTypeAndWidth(bctx, identifier, (int)identifier->getSymbol()->getLine());
+    lvalue_nfo = m_Host->determineIdentifierTypeAndWidth(bctx, identifier, identifier->getSourceInterval(), (int)identifier->getSymbol()->getLine());
   }
   t_type_nfo rvalue_nfo;
   typeNfo(expr, bctx, rvalue_nfo);
   // check
-  if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
-    if (rvalue_nfo.base_type == Int) {
-      warn(expr->getSourceInterval(), -1, "assigning signed expression to unsigned lvalue");
+  if (lvalue_nfo.base_type == Parameterized || rvalue_nfo.base_type == Parameterized) {
+    // warn(expr->getSourceInterval(), -1, "skipping check (parameterized variable : not yet implemented)");
+  } else {
+    if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
+      if (rvalue_nfo.base_type == Int) {
+        warn(expr->getSourceInterval(), -1, "assigning signed expression to unsigned lvalue");
+      }
     }
-  }
-  if (lvalue_nfo.width < rvalue_nfo.width) {
-    warn(expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", rvalue_nfo.width,lvalue_nfo.width);
+    if (lvalue_nfo.width < rvalue_nfo.width) {
+      if (m_WarnAssignWidth) {
+        warn(expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", rvalue_nfo.width, lvalue_nfo.width);
+      }
+    }
   }
 }
 
@@ -73,19 +79,24 @@ void ExpressionLinter::lintAssignment(
 void ExpressionLinter::lintInputParameter(
   std::string                                     name,
   const t_type_nfo                               &param,
-  siliceParser::Expression_0Context              *expr,
+  const Algorithm::t_call_param                  &inp,
   const Algorithm::t_combinational_block_context *bctx) const
 {
   t_type_nfo rvalue_nfo;
-  typeNfo(expr, bctx, rvalue_nfo);
+  antlr4::tree::ParseTree *exp = nullptr;
+  if (std::holds_alternative<std::string>(inp.what)) {
+    typeNfo(std::get<std::string>(inp.what), bctx, rvalue_nfo);
+  } else {
+    typeNfo(inp.expression, bctx, rvalue_nfo);
+  }
   // check
   if (param.base_type != rvalue_nfo.base_type) {
     if (rvalue_nfo.base_type == Int) {
-      warn(expr->getSourceInterval(), -1, "parameter '%s': assigning signed expression to unsigned lvalue",name.c_str());
+      warn(inp.expression->getSourceInterval(), -1, "parameter '%s': assigning signed expression to unsigned lvalue", name.c_str());
     }
   }
   if (param.width < rvalue_nfo.width) {
-    warn(expr->getSourceInterval(), -1, "parameter '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, param.width);
+    warn(inp.expression->getSourceInterval(), -1, "parameter '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, param.width);
   }
 }
 
@@ -93,26 +104,24 @@ void ExpressionLinter::lintInputParameter(
 
 void ExpressionLinter::lintReadback(
   std::string                                     name,
-  siliceParser::AccessContext                    *access,
-  antlr4::tree::TerminalNode                     *identifier,
+  const Algorithm::t_call_param                  &outp,
   const t_type_nfo                               &rvalue_nfo,
   const Algorithm::t_combinational_block_context *bctx) const
 {
   t_type_nfo lvalue_nfo;
-  if (access != nullptr) {
-    typeNfo(access, bctx, lvalue_nfo);
-  } else {
-    sl_assert(identifier != nullptr);
-    lvalue_nfo = m_Host->determineIdentifierTypeAndWidth(bctx, identifier, (int)identifier->getSymbol()->getLine());
+  if (std::holds_alternative<siliceParser::AccessContext*>(outp.what)) {
+    typeNfo(std::get<siliceParser::AccessContext *>(outp.what), bctx, lvalue_nfo);
+  } else if (std::holds_alternative<std::string>(outp.what)) {
+    lvalue_nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(bctx, std::get<std::string>(outp.what), outp.expression->getSourceInterval(), -1));
   }
   // check
   if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
     if (rvalue_nfo.base_type == Int) {
-      warn(access ? access->getSourceInterval() : identifier->getSourceInterval(), -1, "output '%s': assigning signed expression to unsigned lvalue", name.c_str());
+      warn(outp.expression->getSourceInterval(), -1, "output '%s': assigning signed expression to unsigned lvalue", name.c_str());
     }
   }
   if (lvalue_nfo.width < rvalue_nfo.width) {
-    warn(access ? access->getSourceInterval() : identifier->getSourceInterval(), -1, "output '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, lvalue_nfo.width);
+    warn(outp.expression->getSourceInterval(), -1, "output '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, lvalue_nfo.width);
   }
 }
 
@@ -127,6 +136,9 @@ void ExpressionLinter::lintBinding(
 ) const
 {
   // check
+  if (left.base_type == Parameterized || right.base_type == Parameterized) {
+    return; // skip if parameterized
+  }
   if (left.base_type != right.base_type) {
     warn(antlr4::misc::Interval::INVALID, line, "%s, bindings have inconsistent signedness", msg.c_str());
   }
@@ -170,7 +182,7 @@ void ExpressionLinter::warn(antlr4::misc::Interval interval, int line, const cha
     std::cerr << "(" << line << ") ";
   }
   std::cerr << message;
-  std::cerr << std::endl;
+  std::cerr << "\n";
 }
 
 // -------------------------------------------------
@@ -313,7 +325,7 @@ void ExpressionLinter::typeNfo(
       _nfo.base_type = UInt;
       _nfo.width     = -1; // undetermined (NOTE: verilog default to 32 bits ...)
     } else if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-      _nfo = m_Host->determineIdentifierTypeAndWidth(bctx, term, (int)term->getSymbol()->getLine());
+      _nfo = m_Host->determineIdentifierTypeAndWidth(bctx, term, term->getSourceInterval(), (int)term->getSymbol()->getLine());
     } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
       _nfo.base_type = UInt;
       _nfo.width = -1; // unspecified
@@ -334,6 +346,10 @@ void ExpressionLinter::typeNfo(
       // recurse and force int
       typeNfo(atom->expression_0(), bctx, _nfo);
       _nfo.base_type = Int;
+    } else if (atom->WIDTHOF() != nullptr) {
+      // force uint 32 bits
+      _nfo.width     = -1; // undetermined (NOTE: verilog default to 32 bits ...)
+      _nfo.base_type = UInt;
     } else if (access_) {
       // recurse
       typeNfo(access_, bctx, _nfo);
@@ -407,6 +423,16 @@ void ExpressionLinter::typeNfo(
   } else {
     throw Fatal("internal error [%s, %d] '%s'", __FILE__, __LINE__,expr->getText().c_str());
   }
+}
+
+// -------------------------------------------------
+
+void ExpressionLinter::typeNfo(
+  std::string                                     idnt,
+  const Algorithm::t_combinational_block_context *bctx,
+  t_type_nfo& _nfo) const
+{
+  _nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(bctx, idnt, antlr4::misc::Interval::INVALID , -1));
 }
 
 // -------------------------------------------------

@@ -7,7 +7,7 @@
 \usepackage{calc}
 
 \newcommand\todo[1]{{\color{magenta}\textbf{TODO:} #1}}
-\newcommand\verilog{Verilog}
+\newcommand\verilog{Verilog} 
 \newcommand\silice{Silice}
 
 % enamel
@@ -109,6 +109,8 @@ as combinational hardware.
 	\item \texttt{uint}N with N the bit-width, e.g. \texttt{uint8}: unsigned integer.
 \end{itemize}
 
+% --------------------------
+
 \subsection{Constants}
 \label{sec:csts}
 
@@ -121,6 +123,8 @@ can be given with a specified bit width and base:
 \end{itemize}
 
 Supported base identifiers are: \texttt{b} for binary, \texttt{h} for hexadecimal, \texttt{d} for decimal. If the value does not fit the bit width, it is clamped.
+
+% --------------------------
 
 \subsection{Variables}
 
@@ -139,7 +143,23 @@ value \texttt{uninitialized}. The later indicates that the initialization can be
 
 \noindent Example:  \texttt{int6 tbl[4] = \{0,0,0,0\};}
 
-\noindent Table sizes have to be constant at compile time. The initializer is mandatory and can be a string, in which case each letter becomes its ASCII value, and the string is null terminated. The table size \texttt{M} is optional (eg. \texttt{int4 tbl[]=\{1,2,3\};} ) in which case the size is automatically derived from the initializer (strings have one additional implicit character: the null terminator).
+Table sizes have to be constant at compile time. The initializer is mandatory and can be a string, in which case each letter becomes its ASCII value, and the string is null terminated. 
+
+The table size \texttt{M} is optional (eg. \texttt{int4 tbl[]=\{1,2,3\};} ) in which case the size is automatically derived from the initializer (strings have one additional implicit character: the null terminator).
+
+If the table size is specified and the initializer is a shorter string, the table is automatically padded with zeros. A longer string results in an error. 
+
+If the table size is specified and the initializer -- not a string -- has a different number of elements, an error occurs. However, if a smaller number of elements is given the last element can be \texttt{pad(value)} in which case the remainder of the table is filled with \texttt{value}.
+
+\noindent Example:  \texttt{int6 tbl[256] = \{0,0,0,0,pad(255)\};}
+
+\noindent Example:  \texttt{int6 tbl[256] = \{pad(0)\};}
+
+The keyword \texttt{uninitialized} may be used to explicitly skip table initialization, in which case the initial table state is unknown: \texttt{int6 tbl[4] = uninitialized;}. 
+
+Similarly, the padding can be uninitialized: 
+\texttt{int6 tbl[256] = \{0,0,0,0,pad(uninitialized)\};}.
+In this case, only the first part of the table will be initialized, the state of the other values will be unknown.
 
 \subsection{Block RAMs / ROMs}
 
@@ -176,6 +196,7 @@ bram int8 table<input!>[4] = uninitialized;
 This is used to minimize a design size ; however the caller has to ensure
 values are all properly present at the right cycle when reading/writing.
 
+The rules for initializers of BRAMs are the same as for tables.
 
 \paragraph{Block ROMs}
 
@@ -202,6 +223,8 @@ Here is an example of using a block RAM in \silice{} with different clocks:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 dualport_bram int8 table<@clock0,@clock1>[4] = {42,43,44,45};
 \end{minted}
+
+% --------------------------
 
 \subsection{Operators}
 
@@ -262,14 +285,14 @@ Bindings are specified when instantiating algorithms and modules.
 The bidirectional binding is reserved for two use cases:
 \begin{enumerate}
 \item binding \texttt{inout} variables,
-\item binding IO groups (see Section~\ref{sec:groups}).
+\item binding groups (see Section~\ref{sec:groups}) and interfaces (see Section~\ref{sec:interfaces}).
 \end{enumerate}
 
 \paragraph{Advanced}
 
 There are two specialized versions of the binding operators:
 \begin{itemize}
-	\item \texttt{<:} binds right to left, using value at prior clock rising edge,
+	\item \texttt{<::} binds right to left, using value at prior clock rising edge,
 	\item \texttt{<::>} binds an IO group, using value at prior clock rising edge for inputs.
 \end{itemize}
 
@@ -328,46 +351,46 @@ algorithm adder(
 }
 \end{minted}
 
-In this case o gets assigned 15+3. Note that the variable \textit{a\_plus\_b} becomes read only (in Verilog terms, this is now a wire). 
+In this case \textit{o} gets assigned 15+3 on line 11, as it tracks immediate changes to the expression \textit{a+b}. Note that the variable \textit{a\_plus\_b} becomes read only (in Verilog terms, this is now a wire). We call \textit{o} an expression tracker.
 
-The second operator, \textit{::=} tracks the expression using the values of the variables as they where at the previous clock rising edge.
-If used in this example, o would be assigned 1+2.
+The second operator, \textit{::=} tracks the expression using the values of the variables as they where at the previous clock rising edge. If used in this example, o would be assigned 1+2.
 
-\subsubsection{Groups}
+Expression trackers can refer to other trackers, however trackers using \textit{:=} and \textit{::=} cannot be mixed.
+
+% --------------------------
+
+\subsection{Groups}
 \label{sec:groups}
 
 Often, we want to pass around variables that form conceptual groups, like the interface to a controller. \silice{} has a specific mechanism to help with that. A group is declared as:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 // SDRAM interface
-group sdio
+group sdram_32b_io
 {
-  uint23 addr       = 0,
-  uint2  wbyte_addr = 0,
+  uint24 addr       = 0,
   uint1  rw         = 0,
   uint32 data_in    = 0,
   uint32 data_out   = 0,
-  uint1  busy       = 0,
+  uint1  busy       = 1,
   uint1  in_valid   = 0,
   uint1  out_valid  = 0
 }
 \end{minted}
 
-
-Then a group variable can be declared directly:
+A group variable can be declared directly:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
-sdio sd; // init values are defined in the group declaration
+sdram_32b_io sd; // init values are defined in the group declaration
 \end{minted}
 
-To pass a group variable to an algorithm, we need to defined an IO group. This will further specify which group members are input and outputs:
+To pass a group variable to an algorithm, we need to define an interface (see also Section~\ref{sec:interfaces}). This will further specify which group members are input and outputs:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 algorithm sdramctrl(
   // ..
   // interface
-  sdio sd {
+  sdram_provider sd {
     input   addr,       // address to read/write
-    input   wbyte_addr, // write byte address with 32-bit word at addr
     input   rw,         // 1 = write, 0 = read
     input   data_in,    // data from a read
     output  data_out,   // data for a write
@@ -388,7 +411,90 @@ sdramctrl memory(
 );
 \end{minted}
 
-\subsubsection{Bitfields}
+\vspace*{5mm}
+\noindent
+\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
+		\textbf{Note:} A group cannot contain tables.}}
+    
+% --------------------------
+
+\subsection{Interfaces}
+\label{sec:interfaces}
+
+Interfaces are ways to describe what inputs and outputs an algorithm expects, without knowing in advance the exact specification of these fields (e.g. their widths). Besides making algorithm IO description more compact, this provides
+genericity. Interfaces are meant to be bound to groups (Section~\ref{sec:groups}).
+
+Reusing the example of Section~\ref{sec:groups} we can define an interface ahead of time: 
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+interface sdram_provider {
+  input   addr,       // address to read/write
+  input   rw,         // 1 = write, 0 = read
+  input   data_in,    // data from a read
+  output  data_out,   // data for a write
+  output  busy,       // controller is busy when high
+  input   in_valid,   // pulse high to initiate a read/write
+  output  out_valid   // pulses high when data from read is
+}
+\end{minted}
+
+And then the sdram controller algorithm declaration simply becomes:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  algorithm sdramctrl(
+    // interface
+    sdram_provider sd,
+    // ..
+  ) {
+    // ..
+\end{minted}
+
+Note than the algorithm is now using a generic interface, it does not know
+in advance the width of the signals in the interface. This is determined
+at binding time, when a group is bound to the interface. Interfaces can be bound to other interfaces, the information is propagated
+when a group is bound at the top level.
+
+For instance, we may define another group as follows, which uses 8 bits
+instead of 32 bits:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  // SDRAM interface
+  group sdram_8b_io
+  {
+    uint24 addr       = 0,
+    uint1  rw         = 0,
+    uint8  data_in    = 0,
+    uint8  data_out   = 0,
+    uint1  busy       = 1,
+    uint1  in_valid   = 0,
+    uint1  out_valid  = 0
+  }
+  \end{minted}
+  
+This group can be bound to the \texttt{sdramctrl} controller, which
+now will receive 8 bits signals for \texttt{data\_in}/\texttt{data\_out}.
+
+The \texttt{sdramctrl} controller can adjust to this change, using \texttt{sameas} and \texttt{widthof}. The first, \texttt{sameas}, allows to declare a variable the same as another:
+
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  sameas(sd.data_in) tmp;
+\end{minted}
+
+\noindent The second, \texttt{widthof}, returns the width of a signal:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+  while (i < (widthof(sd.data_in) >> 3)) {
+    // ...
+  }
+\end{minted}
+
+\vspace*{5mm}
+\noindent
+\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
+		\textbf{Note:} In the future Silice will provide compile time checks, for instance verifying the width of a signal is a specifc value.}}
+
+% --------------------------
+
+\subsection{Bitfields}
 \label{sec:bitfields}
 
 There are many cases where we pack multiple data in a larger variable, for instance:
@@ -426,7 +532,9 @@ The bitfield can also be used to initialize the wider variable:
 uint32 data = Node(left=16hffff,right=16h1234);
 \end{minted}
 
-\subsubsection{Intrinsics}
+% --------------------------
+
+\subsection{Intrinsics}
 
 \silice{} has convenient intrinsics:
 
@@ -436,7 +544,6 @@ uint32 data = Node(left=16hffff,right=16h1234);
 	\item \texttt{\_\_display(format\_string,value0,value1,...)} maps to Verilog \texttt{\$display} allowing text output during simulation.
 \end{itemize}
 	
-
 % ==============================================
 
 \section{Algorithms}

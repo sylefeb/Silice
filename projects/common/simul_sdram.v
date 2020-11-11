@@ -1,16 +1,16 @@
 module simul_sdram(
     input sdram_clk,
     input sdram_cle,
-    input sdram_dqm,
+    input [1:0]  sdram_dqm,
     input sdram_cs,
     input sdram_we,
     input sdram_cas,
     input sdram_ras,
     input [1:0]  sdram_ba,
     input [12:0] sdram_a,
-	  inout [7:0]  sdram_dq);
+	  inout [15:0] sdram_dq);
 
-mt48lc32m8a2 simulator(
+mt48lc16m16a2 simulator(
   .Dq(sdram_dq),
   .Addr(sdram_a),
   .Ba(sdram_ba),
@@ -24,4 +24,3 @@ mt48lc32m8a2 simulator(
 );
 
 endmodule
-

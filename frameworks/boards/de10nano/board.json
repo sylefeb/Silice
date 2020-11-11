@@ -1,0 +1,172 @@
+{
+  "name": "de10nano",
+  "variants": [
+    {
+      "name": "configurable",
+      "framework" : "de10nano.v",
+      "pins": [
+        {"set"    : "basic"},
+        {"set"    : "buttons","define" : "BUTTONS=1"},
+        {"set"    : "vga",    "define" : "VGA=1"},
+        {"set"    : "sdram",  "define" : "SDRAM=1"},
+        {"set"    : "uart",   "define" : "UART=1"},
+        {"set"    : "uart2",  "define" : "UART2=1"},
+        {"set"    : "keypad", "define" : "KEYPAD=1"}
+      ],
+      "builders": [
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize",
+        "tool": "quartus",
+        "tool_options": [
+          {
+            "family": "Cyclone V",
+            "device": "5CSEBA6U23I7",
+            "cable" : "DE-SoC",
+            "board_device_index" : 2
+          }
+        ],
+        "toplevel" : "top",
+        "constraints": [
+          {"name": "build.sdc", "file_type": "SDC"},
+          {"name": "pins.tcl", "file_type": "tclSource"}
+        ],
+        "program": [
+          {"cmd" : "quartus_pgm", "args" : "-m jtag -o \"p;build.sof@2\""}
+        ]
+      }
+      ]
+    }
+  ],
+  "pins": {
+    "basic": [
+      {
+        "name": "leds",
+        "type": "uint8",
+        "io"  : "output"
+      }
+    ],
+    "uart": [
+      {
+        "name": "uart_tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "uart_rx",
+        "type": "uint1",
+        "io"  : "input"
+      }
+    ],
+    "uart2": [
+      {
+        "name": "tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "rx",
+        "type": "uint1",
+        "io"  : "input"
+      }
+    ],
+    "keypad" : [
+      {
+        "name": "kpadC",
+        "type": "uint4",
+        "io"  : "output"
+      },
+      {
+        "name": "kpadR",
+        "type": "uint4",
+        "io"  : "input"
+      }
+    ],
+    "buttons" : [
+      {
+        "name": "btns",
+        "type": "uint5",
+        "io"  : "input"
+      }
+    ],
+    "sdram": [
+      {
+        "name": "sdram_dq",
+        "type": "uint16",
+        "io": "inout"
+      },
+      {
+        "name": "sdram_clk",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_cle",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_dqm",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_cs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_we",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_cas",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_ras",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_ba",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_a",
+        "type": "uint1",
+        "io": "output"
+      }
+    ],
+    "vga": [
+      {
+        "name": "vga_hs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_vs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_r",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_g",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_b",
+        "type": "uint6",
+        "io": "output"
+      }
+    ]
+  }
+}

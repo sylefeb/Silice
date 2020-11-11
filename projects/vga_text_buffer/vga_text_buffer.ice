@@ -7,14 +7,25 @@ $$if MOJO then
 // Clock
 import('../common/mojo_clk_100_25.v')
 $$end
+
 $$if ICESTICK then
 // Clock
 import('../common/icestick_clk_25.v')
 $$end
 
+$$if ICEBREAKER then
+// Clock
+import('../common/icebreaker_clk_25.v')
+$$end
+
+$$if DE10NANO then
+// Clock
+import('../common/de10nano_clk_100_25.v')
+$$end
+
 $$if HARDWARE then
 // Reset
-import('../common/reset_conditioner.v')
+$include('../common/clean_reset.ice')
 $$end
 
 // -------------------------
@@ -30,7 +41,7 @@ algorithm text_display(
 ) <autorun> {
 
   // Text buffer
-  bram uint6 txt[1024] = {};
+  bram uint6 txt[1024] = {pad(0)};
 
   // ---------- font
   // assumes letter_w_sp (defined in font) is an integer divider of 640
@@ -73,7 +84,7 @@ $$end
   int12 rand_x = 0;
 
   // ---------- string
-  uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ULX3S";
+  uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ICEBREAKER#-ULX3S#-DE10-NANO";
 
   // --------- print string
   subroutine print_string( 
@@ -96,8 +107,14 @@ $$end
         switch (str[col]) { // some ASCII to font translation
           case 32: {lttr = 36;}
           case 45: {lttr = 37;}
-          case 51: {lttr = 3;}
-          default: {lttr = str[col] - 55;}
+          case 51: {lttr = 3;}          
+          default: {
+            if (str[col] <= 57) {
+              lttr = str[col] - 48;
+            } else {
+              lttr = str[col] - 55;
+            }
+          }
         }
         txt_addr    = offs + str_x + (str_y << 5);
         txt_wdata   = lttr[0,6];
@@ -235,64 +252,9 @@ $$end
 // -------------------------
 
 algorithm main(
-$$if MOJO then
-  output! uint8 led,
-  output! uint1 spi_miso,
-  input   uint1 spi_ss,
-  input   uint1 spi_mosi,
-  input   uint1 spi_sck,
-  output! uint4 spi_channel,
-  input   uint1 avr_tx,
-  output! uint1 avr_rx,
-  input   uint1 avr_rx_busy,
-$$end
-$$if MOJO or VERILATOR or ULX3S or DE10NANO then
-  // SDRAM
-  output! uint1  sdram_cle,
-  output! uint1  sdram_dqm,
-  output! uint1  sdram_cs,
-  output! uint1  sdram_we,
-  output! uint1  sdram_cas,
-  output! uint1  sdram_ras,
-  output! uint2  sdram_ba,
-  output! uint13 sdram_a,
-$$if VERILATOR then
-  output! uint1  sdram_clock,
-  input   uint8  sdram_dq_i,
-  output! uint8  sdram_dq_o,
-  output! uint1  sdram_dq_en,
-$$else
-  output! uint1  sdram_clk,
-  inout   uint8  sdram_dq,
-$$end
-$$end
+  output! uint$NUM_LEDS$ leds,
 $$if SIMULATION then
   output! uint1 video_clock,
-$$end
-$$if ICESTICK then
-  output! uint1 led0,
-  output! uint1 led1,
-  output! uint1 led2,
-  output! uint1 led3,
-  output! uint1 led4,
-$$end
-$$if DE10NANO then
-  output! uint8 led,
-  output! uint4 kpadC,
-  input   uint4 kpadR,
-  output! uint1 lcd_rs,
-  output! uint1 lcd_rw,
-  output! uint1 lcd_e,
-  output! uint8 lcd_d,
-  output! uint1 oled_din,
-  output! uint1 oled_clk,
-  output! uint1 oled_cs,
-  output! uint1 oled_dc,
-  output! uint1 oled_rst,  
-$$end
-$$if ULX3S then
-  output! uint8 led,
-  input   uint7 btn,
 $$end
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
@@ -317,13 +279,6 @@ $$if MOJO then
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> video_clock
   );
-  // --- sdram reset
-  uint1 sdram_reset = 0;
-  reset_conditioner sdram_rstcond (
-    rcclk <: sdram_clock,
-    in  <: reset,
-    out :> sdram_reset
-  );
 $$elseif ICESTICK then
   // --- clock
   icestick_clk_25 clk_gen (
@@ -331,11 +286,26 @@ $$elseif ICESTICK then
     clock_out :> video_clock,
     lock      :> led4
   );
+$$elseif ICEBREAKER then
+  // --- clock
+  icebreaker_clk_25 clk_gen (
+    clock_in  <: clock,
+    clock_out :> video_clock
+  );
+$$elseif DE10NANO then
+  // --- clock
+  uint1 sdram_clock = 0;
+  uint1 pll_lock    = 0;
+  de10nano_clk_100_25 clk_gen(
+    refclk   <: clock,
+    rst      <: reset,
+    outclk_0 :> sdram_clock,
+    outclk_1 :> video_clock,
+    locked   :> pll_lock
+  );   
 $$end
   // --- video reset
-  reset_conditioner vga_rstcond (
-    rcclk <: video_clock,
-    in  <: reset,
+  clean_reset vga_rstcond<@video_clock,!reset>(
     out :> video_reset
   );
 $$end
@@ -367,13 +337,6 @@ $$end
   );
 
   uint8 frame  = 0;
-
-$$if MOJO then
-  // unused pins
-  spi_miso := 1bz;
-  avr_rx := 1bz;
-  spi_channel := 4bzzzz;
-$$end
 
 $$if SIMULATION then
   video_clock := clock;

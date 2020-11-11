@@ -1,0 +1,77 @@
+{
+  "name": "icebreaker",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "icebreaker.v",
+      "pins"      : [         
+        {"set"    : "basic"},
+        {"set"    : "buttons", "define" : "BUTTONS=1"},
+        {"set"    : "vga", "define" : "VGA=1"} 
+      ],
+      "builders": [
+        {
+          "builder" : "edalize",
+          "description": "Build using Edalize",
+          "tool": "icestorm",
+          "tool_options": [
+            {
+                "nextpnr_options": ["--up5k", "--freq 13", "--package sg48", "--timing-allow-fail"],
+                "pnr": "next"
+            }
+          ],
+          "constraints": [{"name": "icebreaker.pcf", "file_type": "PCF"}],
+          "program": [{"cmd" : "iceprog", "args" : "build.bin"}]
+        },
+        {
+          "builder" : "shell",
+          "command" : "icebreaker.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        }
+      ]    
+    }
+  ],
+  "pins": {
+    "basic": [
+        {
+          "name": "leds",
+          "type": "uint5",
+          "io": "output"
+        }
+    ],    
+    "buttons": [
+      {
+        "name": "btns",
+        "type": "uint3",
+        "io": "input"
+      }
+    ],
+    "vga": [
+      {
+        "name": "vga_hs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_vs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_r",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_g",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_b",
+        "type": "uint6",
+        "io": "output"
+      }
+    ]
+  }
+}

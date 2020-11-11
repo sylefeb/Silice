@@ -1,0 +1,71 @@
+{
+	"name": "silice",
+	"patterns": [
+		{
+			"include": "#elements"
+		}
+	],
+	"repository": {
+		"elements": {
+			"patterns": [
+				{
+					"name": "keyword",
+					"match": "algorithm|output|input|if|else|while|autorun|auto|onehot|\\+\\+:|brom|bram|dualport_bram|case|circuitry|switch|default|break|always|__display|__write|__signed|__unsigned|bitfield|interface"
+				}, 
+				{
+					"name": "keyword",
+					"match": "(@[a-zA-Z_][a-zA-Z0-9_]+)|(![a-zA-Z_][a-zA-Z0-9_]+)"
+				},        
+				{
+					"name": "markup.underline",
+					"match": "uint[0-9]+|int[0-9]+|uint|int"
+				},        
+				{
+					"match": "(\\W+)([[:digit:]]+[h|b|d][[:digit:]]+)",
+          "captures": {
+            "2": {
+							"name": "constant.numeric"
+						}
+          }
+				},
+				{
+					"match": "(\\W+)([[:digit:]]+)",
+          "captures": {
+            "2": {
+							"name": "constant.numeric"
+						}
+          }
+				},
+				{
+					"name": "string",
+					"match": "\".*\""
+				},
+				{
+					"name": "meta.preprocessor.string",
+					"match": "\\$\\$.*"
+				},
+				{
+					"name": "meta.preprocessor.numeric",
+					"match": "\\$.*?\\$"
+				},
+ 				{
+					"name": "markup.bold",
+					"match": "(<\\-)|(<:>)|(<:)|(:>)|(<::>)|(<::)|(::>)"
+				},
+ 				{
+					"name": "markup.inline.raw",
+					"match": "uninitialized"
+				},
+				{
+					"name": "comment",
+					"match": "/\\*.*\\*/"
+				},
+				{
+					"name": "comment",
+					"match": "//.*"
+				}
+			]
+		}
+	},
+	"scopeName": "source.silice"
+}

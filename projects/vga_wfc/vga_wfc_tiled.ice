@@ -4,13 +4,16 @@
 $$if DE10NANO or SIMULATION then
 $$N = 8
 $$else
-$$N = 8
+$$N = 4
 $$end
 
 $$T = 3
 $$G = 1+T*N+1
 
-$include('../common/empty.ice')
+$$if not SIMULATION then
+$$BUTTONS = 1
+$$end
+
 $include('../vga_demo/vga_demo_main.ice')
 
 $$PROBLEM = 'problems/knots/'
@@ -330,22 +333,13 @@ algorithm frame_display(
   input   uint10 pix_y,
   input   uint1  pix_active,
   input   uint1  pix_vblank,
-$$if DE10NANO then
-  output uint4  kpadC,
-  input  uint4  kpadR,
-$$end
-$$if ULX3S then
-  input  uint7 btn,
-$$end
+$$if not SIMULATION then
+  input   uint$NUM_BTNS$ btns,
+$$end  
   output! uint$color_depth$ pix_r,
   output! uint$color_depth$ pix_g,
   output! uint$color_depth$ pix_b
 ) <autorun> {
-
-  uint16   kpressed   = 4;
-$$if DE10NANO then
-  keypad        kpad(kpadC :> kpadC, kpadR <: kpadR, pressed :> kpressed); 
-$$end
 
   brom uint18 tiles[$16*16*L$] = {
 $$for i=1,L do
@@ -430,10 +424,8 @@ $$end
         }
       }
     }
-$$if DE10NABO then        
-    if ((kpressed & 4) != 0) {
-$$elseif ULX3S then
-    if (btn[4,1] != 0) {
+$$if not SIMULATION then
+    if (btns[1,1] != 0) {
 $$else
     if (1) {
 $$end    

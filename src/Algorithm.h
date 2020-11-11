@@ -36,6 +36,7 @@ See GitHub Issues section for open/known issues.
 #include <unordered_set>
 #include <unordered_map>
 #include <numeric>
+#include <variant>
 
 #include <LibSL/LibSL.h>
 
@@ -131,6 +132,8 @@ namespace Silice
     const std::unordered_map<std::string, siliceParser::CircuitryContext*>& m_KnownCircuitries;
     /// \brief Set of known groups
     const std::unordered_map<std::string, siliceParser::GroupContext*>& m_KnownGroups;
+    /// \brief Set of known interfaces
+    const std::unordered_map<std::string, siliceParser::IntrfaceContext*> &m_KnownInterfaces;
     /// \brief Set of known bitfields
     const std::unordered_map<std::string, siliceParser::BitfieldContext*>& m_KnownBitFields;
 
@@ -167,6 +170,7 @@ namespace Silice
     enum e_IOType { e_Input, e_Output, e_InOut, e_NotIO };
 
     /// \brief base info about variables, inputs, outputs
+    // TODO: split in the definition part and usage/analyis part
     class t_var_nfo {
     public:
       std::string  name;
@@ -206,6 +210,18 @@ namespace Silice
       std::vector<std::string> in_vars;
       std::vector<std::string> out_vars;
       std::vector<std::string> init_values;
+      std::vector<std::string> members;
+    };
+
+    /// \brief holds a reference to the context responsible for a group definition
+    class t_group_definition {
+    public:
+      siliceParser::GroupContext    *group           = nullptr; // from an actual group declaration
+      siliceParser::IntrfaceContext *intrface        = nullptr; // from an interface declaration
+      siliceParser::DeclarationMemoryContext *memory = nullptr; // from a memory declaration
+      t_group_definition(siliceParser::GroupContext *g) : group(g)    {}
+      t_group_definition(siliceParser::IntrfaceContext *i) : intrface(i) {}
+      t_group_definition(siliceParser::DeclarationMemoryContext *m) : memory(m) {}
     };
 
     /// \brief inputs
@@ -215,7 +231,9 @@ namespace Silice
     /// \brief inouts NOTE: can only be passed around
     std::vector< t_inout_nfo >  m_InOuts;
     /// \brief io groups
-    std::unordered_map<std::string, siliceParser::GroupContext*> m_VIOGroups;
+    std::unordered_map<std::string, t_group_definition> m_VIOGroups;
+    /// \brief parameterized vars
+    std::vector< std::string >  m_Parameterized;
 
     /// \brief all input names, map contains index in m_Inputs
     std::unordered_map<std::string, int > m_InputNames;
@@ -246,8 +264,7 @@ namespace Silice
     typedef struct
     {
       std::string                    left;
-      std::string                    right_identifier;
-      siliceParser::IoAccessContext *right_access = nullptr;
+      std::variant<std::string, siliceParser::IoAccessContext*> right;
       e_BindingDir dir;
       int          line;      // for error reporting
     } t_binding_nfo;
@@ -281,6 +298,20 @@ namespace Silice
       bool                       autobind;
     } t_module_nfo;
 
+    /// \brief info about a call parameter
+    /// 
+    /// a group identifier
+    /// expression is always the source expression (even if a group)
+    typedef struct {
+      antlr4::tree::ParseTree  *expression = nullptr;
+      std::variant<
+        std::monostate,                     // empty
+        std::string,                        // identifier
+        const t_group_definition*,          // group
+        siliceParser::AccessContext*        // access
+        > what;
+    } t_call_param;
+
     /// \brief instanced modules
     std::unordered_map< std::string, t_module_nfo > m_InstancedModules;
 
@@ -312,9 +343,6 @@ namespace Silice
 
     /// \brief all subroutines
     std::unordered_map< std::string, t_subroutine_nfo* > m_Subroutines;
-
-    /// \brief subroutine calls: which states subroutine are going back to
-    std::unordered_map< std::string, std::set<std::pair<int, t_combinational_block*> > >  m_SubroutinesCallerReturnStates;
 
     /// \brief forward declaration of a pipeline stage
     struct s_pipeline_stage_nfo;
@@ -444,6 +472,13 @@ namespace Silice
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); _ch.push_back(after); }
     };
 
+    /// \brief counter to generate caller ids, used for subroutine returns
+    int                                                             m_SubroutineCallerNextId = 0;
+    /// \brief map of ids for each subroutine caller
+    std::unordered_map< const end_action_goto_and_return_to *, int> m_SubroutineCallerIds;
+    /// \brief subroutine calls: which states subroutine are going back to
+    std::unordered_map< std::string, std::vector<std::pair<int, t_combinational_block *> > >  m_SubroutinesCallerReturnStates;
+
     /// \brief combinational block context
     typedef struct {
       t_subroutine_nfo            *subroutine = nullptr; // if block belongs to a subroutine
@@ -545,6 +580,8 @@ namespace Silice
     /// \brief always blocks
     t_combinational_block                                             m_AlwaysPre;
     t_combinational_block                                             m_AlwaysPost; // empty, used only to track post-reads (bindings)
+    /// \brief wire assignments
+    std::unordered_map<std::string,t_instr_nfo>                       m_WireAssignments;
     /// \brief all combinational blocks
     std::list< t_combinational_block* >                               m_Blocks;
     /// \brief state name to combinational block
@@ -570,8 +607,14 @@ namespace Silice
     bool isInputOrOutput(std::string var) const;
     /// \brief checks whether an identifier is a VIO
     bool isVIO(std::string var) const;
+    /// \brief returns a VIO definition
+    t_var_nfo getVIODefinition(std::string var, bool &_found) const;
+    /// \brief checks whether an identifier is a group VIO
+    bool isGroupVIO(std::string var) const;
     /// \brief rewrites a constant
     std::string rewriteConstant(std::string cst) const;
+    /// \brief returns a string representing the widthof value
+    std::string resolveWidthOf(std::string vio, antlr4::misc::Interval interval) const;
     /// \brief adds a combinational block to the list of blocks, performs book keeping
     template<class T_Block = t_combinational_block>
     t_combinational_block *addBlock(std::string name, const t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, int line = -1);
@@ -584,7 +627,7 @@ namespace Silice
     /// \brief returns the bitfield member type and offset and width
     std::pair<t_type_nfo, int> bitfieldMemberTypeAndOffset(siliceParser::BitfieldContext* field, std::string member) const;
     /// \brief gather a const value
-    std::string gatherConstValue(siliceParser::ConstValueContext* ival);
+    std::string gatherConstValue(siliceParser::ConstValueContext *ival) const;
     /// \brief gather a bitfield value
     std::string gatherBitfieldValue(siliceParser::InitBitfieldContext* ival);
     /// \brief gather a value
@@ -595,16 +638,18 @@ namespace Silice
     void addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, int line);
     /// \brief check if an identifier is available
     bool isIdentifierAvailable(std::string name) const;
-    /// \brief gather variable nfo
-    void gatherVarNfo(siliceParser::DeclarationVarContext* decl, t_var_nfo& _nfo);
     /// \brief gather wire declaration
     void gatherDeclarationWire(siliceParser::DeclarationWireContext* decl, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather variable nfo
+    void gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init = false);
     /// \brief gather variable declaration
     void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather all values from an init list
     void gatherInitList(siliceParser::InitListContext* ilist, std::vector<std::string>& _values_str);
     /// \bried read initializer list
     template<typename D, typename T> void readInitList(D* decl, T& var);
+    /// \brief gather table nfo
+    void gatherTableNfo(siliceParser::DeclarationTableContext *decl, t_var_nfo &_nfo);
     /// \brief gather variable declaration
     void gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather memory declaration
@@ -616,6 +661,8 @@ namespace Silice
       bool& _autobind) const;
     /// \brief gather group declaration
     void gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather sameas declaration
+    void gatherDeclarationSameAs(siliceParser::DeclarationSameAsContext *decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather algorithm declaration
     void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather module declaration
@@ -638,6 +685,10 @@ namespace Silice
       const t_vio_dependencies &dependencies, t_vio_ff_usage &_ff_usage, e_FFUsage ff_force = e_None) const;
     /// \brief rewrite an expression, renaming identifiers
     std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_combinational_block_context* bctx, std::string ff, bool read_access, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
+    /// \brief returns true if an expression is a single identifier
+    bool isIdentifier(antlr4::tree::ParseTree *expr, std::string& _identifier) const;
+    /// \brief returns true if an expression is an access
+    bool isAccess(antlr4::tree::ParseTree *expr, siliceParser::AccessContext*& _access) const;
     /// \brief split current block (state present) or continue current with the next instruction list
     t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a break from loop
@@ -694,12 +745,20 @@ namespace Silice
     void gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io);
     /// \brief gather infos about an io group
     void gatherIoGroup(siliceParser::IoGroupContext* iog);
+    /// \brief gather infos about an io interface
+    void gatherIoInterface(siliceParser::IoInterfaceContext *itrf);
     /// \brief gather inputs and outputs
     void gatherIOs(siliceParser::InOutListContext* inout);
     /// \brief gather a block
     t_combinational_block *gatherBlock(siliceParser::BlockContext *block, t_combinational_block *_current, t_gather_context *_context);
-    /// \brief extract the ordered list of parameters
-    void getParams(siliceParser::ParamListContext* params, std::vector<antlr4::tree::ParseTree*>& _vec_params) const;
+    /// \brief extract the ordered list of parameters for calling an algorithm or subroutine (call and return)
+    void getCallParams(siliceParser::CallParamListContext* params, std::vector<t_call_param>& _inparams, const t_combinational_block_context* bctx) const;
+    /// \brief match parameters between a given list and the expected list, expanding groups
+    bool matchCallParams(const std::vector<t_call_param>& given_params, const std::vector<std::string>& expected_params, const t_combinational_block_context* bctx, std::vector<t_call_param>& _matches) const;
+    /// \brief parse call parameters for an algorithm
+    void parseCallParams(siliceParser::CallParamListContext *params, const Algorithm *alg, bool input_else_output, const t_combinational_block_context *bctx, std::vector<t_call_param> &_matches) const;
+    /// \brief parse call parameters for a subroutine
+    void parseCallParams(siliceParser::CallParamListContext *params, const t_subroutine_nfo *sub, bool input_else_output, const t_combinational_block_context *bctx, std::vector<t_call_param> &_matches) const;
     /// \brief extract the ordered list of identifiers
     void getIdentifiers(siliceParser::IdentifierListContext* idents, std::vector<std::string>& _vec_params, const t_combinational_block_context* bctx) const;
     /// \brief sematic parsing, first discovery pass
@@ -715,15 +774,19 @@ namespace Silice
     /// \brief returns the index to jump to to intitate the termination sequence
     int terminationState() const;
     /// \brief returns the state bit-width required to encode up to max_state
-    int stateWidth(int max_state) const;
+    int width(int max_state) const;
     /// \brief returns the state bit-width for the algorithm
     int stateWidth() const;
     /// \brief fast-forward to the next non empty state
     const t_combinational_block *fastForward(const t_combinational_block *block) const;
-    /// \brief verify memory member
-    void verifyMemberMemory(const t_mem_nfo& mem, std::string member, int line) const;
     /// \brief verify member in group
     void verifyMemberGroup(std::string member, siliceParser::GroupContext* group, int line) const;
+    /// \brief verify member in interface
+    void verifyMemberInterface(std::string member, siliceParser::IntrfaceContext *intrface, int line) const;
+    /// \brief verify member in group definition
+    void verifyMemberGroup(std::string member, const t_group_definition& gd, int line) const;
+    /// \brief get the list of members within a group
+    std::vector<std::string> getGroupMembers(const t_group_definition &gd) const;
     /// \brief verify member in bitfield
     void verifyMemberBitfield(std::string member, siliceParser::BitfieldContext* group, int line) const;
     /// \brief report an error
@@ -732,8 +795,8 @@ namespace Silice
 
   private:
 
-    /// \brief update variable dependencies for an instruction
-    void updateDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context* bctx) const;
+    /// \brief update and check variable dependencies for an instruction
+    void updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context* bctx) const;
     /// \brief merge variable dependencies
     void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
     /// \brief update flip-flop usage
@@ -759,10 +822,25 @@ namespace Silice
     /// \brief updates access to vars due to a binding
     template<typename T_nfo>
     void updateAccessFromBinding(const t_binding_nfo& b, const std::unordered_map<std::string, int > &names, std::vector< T_nfo > &_nfos);
+    /// \brief determines variable access for an instruction
+    void determineVariablesAndOutputsAccess(
+      antlr4::tree::ParseTree             *instr,
+      const t_combinational_block_context *context,
+      std::unordered_set<std::string> &_already_written, 
+      std::unordered_set<std::string> &_in_vars_read,
+      std::unordered_set<std::string> &_out_vars_written);
     /// \brief determines variable access within a block
     void determineVariablesAndOutputsAccess(t_combinational_block *block);
-    /// \brief determine variable access within algorithm
-    void determineVariablesAndOutputsAccess();
+    /// \brief determine variable access due to wires within the algorithm
+    void determineVariablesAndOutputsAccessForWires(
+      std::unordered_set<std::string> &_global_in_read,
+      std::unordered_set<std::string> &_global_out_written
+    );
+    /// \brief determine variable access within the algorithm
+    void determineVariablesAndOutputsAccess(
+      std::unordered_set<std::string> &_global_in_read,
+      std::unordered_set<std::string> &_global_out_written
+    );
     /// \brief analyze variables access and classifies variables
     void determineVariableAndOutputsUsage();
     /// \brief determines the list of bound VIO
@@ -789,6 +867,10 @@ namespace Silice
     bool doesNotCallSubroutines() const;
     /// \brief converts an internal state into a FSM state
     int  toFSMState(int state) const;
+    /// \brief finds the binding to var
+    const t_binding_nfo &findBindingTo(std::string var, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
+    /// \brief returns the var nfo of a VIO identifier
+    bool getVIONfo(std::string vio, t_var_nfo& _nfo) const;
 
   public:
 
@@ -801,6 +883,7 @@ namespace Silice
       const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
       const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
       const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
+      const std::unordered_map<std::string, siliceParser::IntrfaceContext *>& known_interfaces,
       const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield);
     /// \brief destructor
     virtual ~Algorithm();
@@ -817,17 +900,25 @@ namespace Silice
 
   private:
 
-    /// \brief computes variable bit depdth
-    int varBitDepth(const t_var_nfo& v) const;
+    /// \brief returns variable bit range for verilog declaration
+    std::string varBitRange(const t_var_nfo& v) const;
+    /// \brief returns a variable bit width for verilog use
+    std::string varBitWidth(const t_var_nfo &v) const;
+    /// \brief returns a variable init value for verilog use (non-tables only)
+    std::string varInitValue(const t_var_nfo &v) const;
     /// \brief returns a type dependent string for resource declaration
     std::string typeString(const t_var_nfo& v) const;
     std::string typeString(e_Type type) const;
+    /// \brief finds the root of a same_as chain
+    std::string findSameAsRoot(std::string vio, const t_combinational_block_context *bctx) const;
+    /// \brief write a verilog wire/reg declaration, possibly parameterized
+    void writeVerilogDeclaration(std::ostream &out, std::string base, const t_var_nfo &v, std::string postfix) const;
     /// \brief determines vio bit width and (if applicable) table size
-    std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(const t_combinational_block_context *bctx, std::string vname, int line) const;
+    std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(const t_combinational_block_context *bctx, std::string vname, antlr4::misc::Interval interval, int line) const;
     /// \brief determines identifier bit width and (if applicable) table size
-    std::tuple<t_type_nfo, int> determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const;
+    std::tuple<t_type_nfo, int> determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, antlr4::misc::Interval interval, int line) const;
     /// \brief determines identifier type and width
-    t_type_nfo determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, int line) const;
+    t_type_nfo determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, antlr4::misc::Interval interval, int line) const;
     /// \brief determines bitfield access bit width
     t_type_nfo determineBitfieldAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitfieldAccessContext *ioaccess) const;
     /// \brief determines IO access bit width
@@ -839,13 +930,13 @@ namespace Silice
     /// \brief determines access type/width
     t_type_nfo determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const;
     /// \brief writes a call to an algorithm
-    void writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::ParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
+    void writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::CallParamListContext *plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes reading back the results of an algorithm
-    void writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::AssignListContext* plist, const t_combinational_block_context *bctx, t_vio_ff_usage &_ff_usage) const;
+    void writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::CallParamListContext *plist, const t_combinational_block_context *bctx, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes a call to a subroutine
-    void writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::ParamListContext* plist, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
+    void writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::CallParamListContext *plist, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes reading back the results of a subroutine
-    void writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::AssignListContext* plist, t_vio_ff_usage &_ff_usage) const;
+    void writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::CallParamListContext *plist, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes access to an algorithm in/out, memory or group member ; returns info of accessed member.
     std::tuple<t_type_nfo, int> writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess, int __id, const t_combinational_block_context* bctx, std::string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes access to a table in/out
@@ -864,8 +955,8 @@ namespace Silice
       siliceParser::Expression_0Context *expression_0,
       const t_combinational_block_context *bctx,
       std::string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
-    /// \brief writes all wire assignements for a block
-    void writeWireAssignements(std::string prefix, std::ostream &out, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
+    /// \brief writes all wire assignements
+    void writeWireAssignements(std::string prefix, std::ostream &out, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes flip-flop value init for a variable
     void writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
     /// \brief writes flip-flop value update for a variable

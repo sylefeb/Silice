@@ -11,7 +11,7 @@ $$end
 
 // ------------------------- 
 
-$include('sdcard.ice')
+$include('../common/sdcard.ice')
 
 // ------------------------- 
 
@@ -19,8 +19,7 @@ algorithm text_display(
   input   uint10 pix_x,
   input   uint10 pix_y,
   output  uint1  white,
-  output  uint12 letter_addr,
-  input   uint6  letter,
+  bram_port0     letter,
 ) <autorun> {
 
   // ---------- font  
@@ -37,8 +36,11 @@ $$end
   uint5  letter_j = 0;
   uint12 addr     = 0;
 
+  // read from letter  
+  letter.wenable0  := 0;
+  
   // ---------- show time!
-
+ 
   while (1) {
 
     // text
@@ -48,11 +50,11 @@ $$end
     text_j   = pix_y >> 3;
     
     if (text_i < 32 && text_j < 32) {
-      letter_addr = text_i + (text_j*$oled_width>>3$);
+      letter.addr0 = text_i + (text_j*$oled_width>>3$);
 ++:      
-      addr        = letter_i + ( letter_j << 3) 
-                             + (letter << 6);
-      white       = letters[ addr ];
+      addr         = letter_i + ( letter_j << 3) 
+                             + (letter.rdata0 << 6);
+      white        = letters[ addr ];
     } else {
       white    = 0;
     }
@@ -64,8 +66,8 @@ $$end
 // ------------------------- 
 
 algorithm main(
-  output! uint8 led,
-  input   uint7 btn,
+  output! uint8 leds,
+  input   uint7 btns,
   output! uint1 oled_clk,
   output! uint1 oled_mosi,
   output! uint1 oled_dc,
@@ -100,8 +102,7 @@ algorithm main(
     // io
     io          <:> sdcio,
     // bram port
-    store_addr  :> sdbuffer.addr1,
-    store_byte  :> sdbuffer.wdata1,
+    store       <:> sdbuffer
   );
 
   // Text buffer
@@ -171,25 +172,24 @@ algorithm main(
   text_display text(
     pix_x  <: u,
     pix_y  <: v,
-    white :> white,
-    letter_addr :> txt.addr0,
-    letter      <: txt.rdata0
+    white  :> white,
+    letter <:> txt // port0
   );
 
-  uint7  btn_latch = 0;
+  uint7  btns_latch = 0;
 
-  btn_latch         := btn;
+  btns_latch       ::= btns;
   sdbuffer.wenable0 := 0;
-  sdbuffer.wenable1 := 1;  
   sdcio.read_sector := 0;
 
   // maintain low (pulses high when sending)
   io.start_rect := 0;
   io.next_pixel := 0;
-
-  txt.wenable0  := 0;
+  // writes to txt
   txt.wenable1  := 1;
-    
+  
+  leds           = 0;
+  
   // fill buffer with spaces
   {
     uint11 next = 0;
@@ -200,9 +200,13 @@ algorithm main(
       next      = next + 1; // next
     }
   }
-  
-  // wait for controller to be ready  
+
+  leds           = 1;
+
+  // wait for oled controller to be ready  
   while (io.ready == 0) { }
+
+  leds           = 2;
 
   // setup draw window
   io.x_start = 0;
@@ -212,11 +216,15 @@ algorithm main(
   io.start_rect = 1;
   while (io.ready == 0) { }
 
+  leds           = 4;
+
   // wait for sdcard
   while (sdcio.ready == 0) { }
   // read first sector
   sdcio.addr_sector = 0;
   sdcio.read_sector = 1;
+
+  leds           = 8;
 
   while (1) {
   
@@ -239,7 +247,7 @@ algorithm main(
     }
     
     // wait for sdcard
-    while (sdcio.ready == 0) { }
+    // while (sdcio.ready == 0) { }
     
     // write data on screen
     str_x = 0;
@@ -265,9 +273,9 @@ algorithm main(
     }
 
     // update sector addr
-    if (btn_latch[1,1]) {
+    if (btns_latch[1,1]) {
       sdcio.addr_sector = sdcio.addr_sector + 1;
-    } else { if (btn_latch[2,1]) {
+    } else { if (btns_latch[2,1]) {
         sdcio.addr_sector = (sdcio.addr_sector == 0) ? 0 : sdcio.addr_sector - 1;    
       }
     }

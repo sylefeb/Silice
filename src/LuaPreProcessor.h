@@ -45,7 +45,7 @@ public:
   LuaPreProcessor();
   virtual ~LuaPreProcessor();
 
-  void run(std::string src_file, std::string header_code, std::string dst_file);
+  void run(std::string src_file, const std::vector<std::string>& defaultLibraries, std::string lua_header_code, std::string dst_file);
 
   std::vector<std::string> searchPaths() const { return m_SearchPaths; }
   

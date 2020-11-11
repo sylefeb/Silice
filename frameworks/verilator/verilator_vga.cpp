@@ -15,7 +15,7 @@ the distribution, please refer to it for details.
 */
 // SL 2019-09-23
 
-#include "Vvga.h"
+#include "Vtop.h"
 #include <iostream>
 
 #include "VgaChip.h"
@@ -31,22 +31,40 @@ int main(int argc,char **argv)
 {
   Verilated::commandArgs(argc,argv);
   
-  VgaChip *vga_chip = new VgaChip();
+  Vtop    *vga_test = new Vtop();
 
-  char foo[1<<19]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
-  
-  Vvga    *vga_test = new Vvga();
-
-  // setup for a mt48lc32m8a2 // 8 M x 8 bits x 4 banks (256 MB),
-  // 67,108,864-bit banks is organized as 8192 rows by 1024 columns by 8 bits
-  // this matches the Mojo Alchitry board with SDRAM shield
-  vluint8_t sdram_flags = FLAG_DATA_WIDTH_8; // | FLAG_BANK_INTERLEAVING | FLAG_BIG_ENDIAN;
-  SDRAM* sdr  = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); 
-                                                             // "sdram.txt");
-  vluint64_t sdram_dq = 0;
-  
   vga_test->clk = 0;
 
+  // we need to step simulation until we get the parameters
+  do {
+
+    vga_test->clk = 1 - vga_test->clk;
+
+    vga_test->eval();
+
+  } while ((int)vga_test->video_color_depth == 0);
+
+  VgaChip *vga_chip = new VgaChip((int)vga_test->video_color_depth);
+
+  char foo[1<<18]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
+  
+  vluint8_t sdram_flags = 0;
+  if ((int)vga_test->sdram_word_width == 8) {
+    sdram_flags |= FLAG_DATA_WIDTH_8;
+  } else if ((int)vga_test->sdram_word_width == 16) {
+    sdram_flags |= FLAG_DATA_WIDTH_16;
+  } else if ((int)vga_test->sdram_word_width == 32) {
+    sdram_flags |= FLAG_DATA_WIDTH_32;
+  } else if ((int)vga_test->sdram_word_width == 64) {
+    sdram_flags |= FLAG_DATA_WIDTH_64;
+  }
+  
+  SDRAM* sdr  = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); 
+                                                              // "sdram.txt");
+  vluint64_t sdram_dq = 0;
+  
+  vluint8_t prev_vga_vs = 0;
+  
   while (!Verilated::gotFinish()) {
 
     vga_test->clk = 1 - vga_test->clk;
@@ -58,9 +76,21 @@ int main(int argc,char **argv)
               vga_test->sdram_cs,  vga_test->sdram_ras, vga_test->sdram_cas, vga_test->sdram_we,
               vga_test->sdram_ba,  vga_test->sdram_a,
               vga_test->sdram_dqm, (vluint64_t)vga_test->sdram_dq_o, sdram_dq);
+
     vga_test->sdram_dq_i = (vga_test->sdram_dq_en) ? vga_test->sdram_dq_o : sdram_dq;
+
+    if (prev_vga_vs == 0 && vga_test->video_vs != 0) {
+      static int cnt = 0;
+      char str[256];
+      snprintf(str,256,"dump_%04d.raw",cnt++);
+      sdr->save(str,4*8192*1024*2,0);
+    }
+    prev_vga_vs = vga_test->video_vs;
     
-    vga_chip->eval(vga_test->video_clock,vga_test->video_vs,vga_test->video_hs,vga_test->video_r,vga_test->video_g,vga_test->video_b);
+    vga_chip->eval(
+       vga_test->video_clock,
+       vga_test->video_vs,vga_test->video_hs,
+       vga_test->video_r,vga_test->video_g,vga_test->video_b);
 
     main_time ++;
   }

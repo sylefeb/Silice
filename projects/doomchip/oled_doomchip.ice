@@ -185,11 +185,11 @@ $$end
 }
 
 // -------------------------
-// Main drawing algorithm
+// Main
 
 algorithm main(
-  output  uint8 led,
-  input   uint7 btn,
+  output  uint8 leds,
+  input   uint7 btns,
   output  uint1 oled_clk,
   output  uint1 oled_mosi,
   output  uint1 oled_dc,

@@ -57,13 +57,13 @@ void Config::print()
 {
   for (auto kv : m_KeyValues) {
     cerr << Console::white  << setw(30) << kv.first << " = ";
-    cerr << Console::yellow << setw(30) << kv.second << endl;
+    cerr << Console::yellow << setw(30) << kv.second << "\n";
   }
   cerr << Console::gray;
 }
 
 // -------------------------------------------------
 
-#define CONFIG (*Config::getUniqueInstance())
+const std::string nxl = "\n"; // end of line
 
 // -------------------------------------------------

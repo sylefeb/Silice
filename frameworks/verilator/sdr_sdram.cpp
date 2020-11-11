@@ -36,6 +36,8 @@
 #include <stdio.h>
 #include <time.h>
 
+#include <iostream>
+
 // SDRAM commands
 #define CMD_LMR  ((vluint8_t)0)
 #define CMD_REF  ((vluint8_t)1)
@@ -80,8 +82,7 @@ SDRAM::SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *lo
     }
     mem_size    = s << (bus_log2 + SDRAM_BIT_BANKS);
     // Init message
-    printf("Instantiating %d MB SDRAM : %d banks x %d rows x %d cols x %d bits\n",
-            mem_size >> 20, SDRAM_NUM_BANKS, num_rows, num_cols, 8 << bus_log2);
+    std::cerr << "Instantiating " << (mem_size >> 20) << " MB SDRAM : " << SDRAM_NUM_BANKS << " banks x " << num_rows << " rows x " << num_cols << " cols x " << (8 << bus_log2) << " bits" << std::endl;
     // byte reading function
     switch (flags & (DATA_MSB | DATA_MSW | DATA_MSL | FLAG_BANK_INTERLEAVING | FLAG_BIG_ENDIAN))
     {
@@ -550,6 +551,7 @@ void SDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
         printf("OK\n");
         
         delete[] row_buf;
+        fclose(fh);
     }
     else
     {
@@ -1407,6 +1409,7 @@ vluint8_t SDRAM::read_byte_i_be_32(vluint32_t addr)
         case 2 : return mem_array_1[bank_nr][idx];
         case 3 : return mem_array_0[bank_nr][idx];
     }
+    return 0;
 }
 
 // Read a byte, interleaved banks, big endian, 64-bit SDRAM
@@ -1429,6 +1432,7 @@ vluint8_t SDRAM::read_byte_i_be_64(vluint32_t addr)
         case 6 : return mem_array_1[bank_nr][idx];
         case 7 : return mem_array_0[bank_nr][idx];
     }
+    return 0;
 }
 
 // Read a byte, interleaved banks, little endian, 8-bit SDRAM
@@ -1474,6 +1478,7 @@ vluint8_t SDRAM::read_byte_i_le_32(vluint32_t addr)
         case 2 : return mem_array_2[bank_nr][idx];
         case 3 : return mem_array_3[bank_nr][idx];
     }
+    return 0;
 }
 
 // Read a byte, interleaved banks, little endian, 64-bit SDRAM
@@ -1496,6 +1501,7 @@ vluint8_t SDRAM::read_byte_i_le_64(vluint32_t addr)
         case 6 : return mem_array_6[bank_nr][idx];
         case 7 : return mem_array_7[bank_nr][idx];
     }
+    return 0;
 }
 
 // Read a byte, contiguous banks, big endian, 8-bit SDRAM
@@ -1541,6 +1547,7 @@ vluint8_t SDRAM::read_byte_c_be_32(vluint32_t addr)
         case 2 : return mem_array_1[bank_nr][idx];
         case 3 : return mem_array_0[bank_nr][idx];
     }
+    return 0;
 }
 
 // Read a byte, contiguous banks, big endian, 64-bit SDRAM
@@ -1563,6 +1570,7 @@ vluint8_t SDRAM::read_byte_c_be_64(vluint32_t addr)
         case 6 : return mem_array_1[bank_nr][idx];
         case 7 : return mem_array_0[bank_nr][idx];
     }
+    return 0;
 }
 
 // Read a byte, contiguous banks, little endian, 8-bit SDRAM
@@ -1608,6 +1616,7 @@ vluint8_t SDRAM::read_byte_c_le_32(vluint32_t addr)
         case 2 : return mem_array_2[bank_nr][idx];
         case 3 : return mem_array_3[bank_nr][idx];
     }
+    return 0;
 }
 
 // Read a byte, contiguous banks, little endian, 64-bit SDRAM
@@ -1630,4 +1639,5 @@ vluint8_t SDRAM::read_byte_c_le_64(vluint32_t addr)
         case 6 : return mem_array_6[bank_nr][idx];
         case 7 : return mem_array_7[bank_nr][idx];
     }
+    return 0;
 }

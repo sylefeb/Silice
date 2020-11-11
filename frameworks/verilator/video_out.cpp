@@ -32,7 +32,7 @@ using namespace LibSL::Math;
 
 ImageFormat_TGA g_RegisterFormat_TGA;
 
-// Constructor
+// Constructor 
 VideoOut::VideoOut(vluint8_t debug, vluint8_t depth, vluint8_t polarity,
                    vluint16_t hactive, vluint16_t hfporch_, vluint16_t hspulse_, vluint16_t hbporch_,
                    vluint16_t vactive, vluint16_t vfporch_, vluint16_t vspulse_, vluint16_t vbporch_,
@@ -62,7 +62,7 @@ VideoOut::VideoOut(vluint8_t debug, vluint8_t depth, vluint8_t polarity,
     // debug mode
     dbg_on      = debug;
     // allocate the pixels
-    std::cerr << hactive << " x " << vactive << std::endl;
+    std::cerr << hactive << " x " << vactive << " x " << (int)depth << std::endl;
     pixels.allocate((int)hactive, (int)vactive);
     // copy the filename
     filename    = std::string(file);

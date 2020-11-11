@@ -1,3 +1,12 @@
+-- @sylefeb, 2020
+--
+--      GNU AFFERO GENERAL PUBLIC LICENSE
+--        Version 3, 19 November 2007
+--      
+--  A copy of the license full text is included in 
+--  the distribution, please refer to it for details.
+--
+
 print('preparing textures')
 
 if SIMULATION then
@@ -472,6 +481,7 @@ for name,opaque in pairs(textures_opacity) do
 end
 code:write('  }\n') 
 code:write('}\n')
+code:write('// stored ' .. texture_start_addr .. ' texture bytes (' .. texture_start_addr*8 .. ' bits) \n')
 
 -- colormap brom for lighting
 colormap = '  brom   uint8 colormap[] = {\n'

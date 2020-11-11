@@ -30,7 +30,7 @@ private:
 
 public:
 
-  VgaChip();
+  VgaChip(int color_depth);
   ~VgaChip();
   
   void eval(vluint8_t  clk,

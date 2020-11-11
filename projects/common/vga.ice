@@ -1,5 +1,10 @@
 // SL 2019-10
-// -------------------------
+//
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
 
 algorithm vga(
   output! uint1  vga_hs,
@@ -55,10 +60,8 @@ algorithm vga(
 
   while (1) {
 
-    if (active) {
-      vga_x = xcount - HA_START;
-      vga_y = ycount - VA_START;
-    }
+    vga_x = (active) ? xcount - HA_START : 0;
+    vga_y = (vblank) ? 0 : ycount - VA_START;
 
     if (xcount == H_END-1) {
       xcount = 0;
@@ -66,10 +69,10 @@ algorithm vga(
         ycount = 0;
       } else {
         ycount = ycount + 1;
-	  }
+	    }
     } else {
       xcount = xcount + 1;
-	}
+	  }
   }
 
 }

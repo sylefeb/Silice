@@ -12,8 +12,8 @@ $$end
 // ------------------------- 
 
 algorithm main(
+  output! uint$NUM_LEDS$ leds,
 $$if ULX3S then
-  output! uint8 led,
   input   uint7 btn,
   output! uint1 oled_clk,
   output! uint1 oled_mosi,
@@ -22,7 +22,6 @@ $$if ULX3S then
   output! uint1 oled_csn,
 $$end
 $$if ICARUS then
-  output! uint8 led,
   input   uint7 btn,
   output! uint1 oled_clk,
   output! uint1 oled_mosi,
@@ -31,7 +30,6 @@ $$if ICARUS then
   output! uint1 oled_csn,
 $$end
 $$if DE10NANO then
-  output! uint8 led,
   output! uint4 kpadC,
   input   uint4 kpadR,
   output! uint1 lcd_rs,
@@ -82,7 +80,7 @@ $$end
 
   uint16 frame = 0;
 
-  led := frame[0,8];
+  leds := frame[0,8];
 
   // maintain low (pulses high when sending)
   io.start_rect := 0;

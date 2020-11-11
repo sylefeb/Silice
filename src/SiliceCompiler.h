@@ -49,16 +49,19 @@ namespace Silice {
     std::unordered_map<std::string, siliceParser::SubroutineContext* > m_Subroutines;
     std::unordered_map<std::string, siliceParser::CircuitryContext* >  m_Circuitries;
     std::unordered_map<std::string, siliceParser::GroupContext* >      m_Groups;
+    std::unordered_map<std::string, siliceParser::IntrfaceContext * > m_Interfaces;
     std::unordered_map<std::string, siliceParser::BitfieldContext* >   m_BitFields;
     std::unordered_set<std::string>                                    m_Appends;
     std::vector<std::string>                                           m_AppendsInDeclOrder;
+
+    const std::vector<std::string> c_DefaultLibraries = { "memory_ports.ice" };
 
     /// \brief finds a file by checking throughout paths known to be used by the source code
     std::string findFile(std::string fname) const;
     /// \brief gathers all constructs from the source code file
     void gatherAll(antlr4::tree::ParseTree* tree);
     /// \brief prepare the hardware fraemwork before compilation
-    void prepareFramework(const char* fframework, std::string& _lpp, std::string& _verilog);
+    void prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog);
 
   private:
 
@@ -127,9 +130,10 @@ namespace Silice {
 
     /// \brief runs the compiler
     void run(
-      const char *fsource,
-      const char *fresult,
-      const char *fframework,
+      std::string fsource,
+      std::string fresult,
+      std::string fframework,
+      std::string frameworks_dir,
       const std::vector<std::string>& defines);
 
   };

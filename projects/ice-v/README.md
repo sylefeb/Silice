@@ -15,12 +15,12 @@ In the *projects/ice-v* folder (here!) run
 ./compile_c.sh tests/c/test_leds.c
 ```
 
-Plug your board tp the computer for programming and in the *projects/build/icestick* folder run:
+Plug your board tp the computer for programming and, from the project folder run:
 ```
-./icestick_bare.sh ../../ice-v/ice-v.ice
+make icestick
 ```
 
-On an IceStick the LEDs will blink rapidely around the center one.
+On an IceStick the LEDs will blink around the center one.
 
 Optionally you can plug a small OLED screen (I used [this one](https://www.waveshare.com/1.5inch-rgb-oled-module.htm), 128x128 RGB with SSD1351 driver).
 
@@ -34,11 +34,10 @@ The pinout for the IceStick is:
 | BR7 (pin 48) | rst       |
 
 Equipped with this, you can test the Doom fire (tests/c/fire.c) or the starfield
-(tests/c/starfield.c). Use the script ./icestick_**oled**.sh to synthesize the
+(tests/c/starfield.c). Use `make icestick -f Makefile.oled` to synthesize the
 design and program the board.
 
-
-*Note:* the reset is not always reliable; if nothing happens try unplugin/plugin
+*Note:* the reset is not perfectly reliable; if nothing happens try unplugin/plugin
 the IceStick back after programming.
 
 ## Links

@@ -1,4 +1,11 @@
 -- SL 2020-05, DooM-Chip WAD lump extractor
+--
+--      GNU AFFERO GENERAL PUBLIC LICENSE
+--        Version 3, 19 November 2007
+--      
+--  A copy of the license full text is included in 
+--  the distribution, please refer to it for details.
+--
 
 -- -------------------------------------
 -- helper for file size

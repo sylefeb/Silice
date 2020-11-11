@@ -39,13 +39,14 @@ namespace Silice
 {
 
   /// \brief base types
-  enum e_Type { Int, UInt };
+  enum e_Type { Int, UInt, Parameterized };
 
   /// \brief info about a type
   class t_type_nfo {
   public:
-    e_Type      base_type = UInt;
-    int         width = 0;
+    e_Type      base_type = UInt; // base type
+    int         width     = 0;    // bit width
+    std::string same_as;          // reference to a VIO which is parameterizing this type
     t_type_nfo(e_Type t,int w) : base_type(t), width(w) {}
     t_type_nfo() {}
   };

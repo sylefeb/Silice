@@ -6,6 +6,12 @@
 // (can be further reduced!)
 //
 // RV32I cpu, see README.txt
+//
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
 
 // IceStick clock
 $$if ICESTICK then
@@ -82,17 +88,13 @@ bitfield Btype {
 // --------------------------------------------------
 
 algorithm main( // I guess this is the SOC :-D
-  output! uint1 led0,
-  output! uint1 led1,
-  output! uint1 led2,
-  output! uint1 led3,
-  output! uint1 led4,
+  output! uint5 leds,
 $$if OLED then
-  output! uint1 oled_din,
   output! uint1 oled_clk,
-  output! uint1 oled_cs,
+  output! uint1 oled_mosi,
   output! uint1 oled_dc,
-  output! uint1 oled_rst,
+  output! uint1 oled_resn,
+  output! uint1 oled_csn,
 $$end
 $$if ICESTICK then
   ) <@cpu_clock>
@@ -116,9 +118,9 @@ $$if OLED then
     enable          <: displ_en,
     data_or_command <: displ_dta_or_cmd,
     byte            <: displ_byte,
-    oled_din        :> oled_din,
+    oled_din        :> oled_mosi,
     oled_clk        :> oled_clk,
-    oled_cs         :> oled_cs,
+    oled_cs         :> oled_csn,
     oled_dc         :> oled_dc,
   );
 $$end
@@ -144,17 +146,12 @@ $$if OLED then
     displ_en = 0;
 $$end
     if (mem.wenable & wide_addr[10,1]) {
-      led0 = mem.wdata[0,1] & wide_addr[0,1];
-      led1 = mem.wdata[1,1] & wide_addr[0,1];
-      led2 = mem.wdata[2,1] & wide_addr[0,1];
-      led3 = mem.wdata[3,1] & wide_addr[0,1];
-      led4 = mem.wdata[4,1] & wide_addr[0,1];
-      //__display("Led %b%b%b%b%b",led0,led1,led2,led3,led4);
+      leds = mem.wdata[0,5] & {5{wide_addr[0,1]}};
 $$if OLED then
       // command
       displ_en = (mem.wdata[9,1] | mem.wdata[10,1]) & wide_addr[1,1];
       // reset
-      oled_rst = !(mem.wdata[0,1] & wide_addr[2,1]);
+      oled_resn = !(mem.wdata[0,1] & wide_addr[2,1]);
 $$end
     }
   }
@@ -239,7 +236,8 @@ algorithm rv32i_cpu(
   uint32 instr       = uninitialized;
   uint12 pc          = uninitialized;
   
-  uint12 next_pc    := pc+1; // seemingly not used but helps synthesis (less LUTs!)
+  uint12 next_pc   ::= pc+1; // next_pc tracks the expression 'pc + 1' using the
+                             // value of pc from the last clock edge (due to ::)
 
 $$if SIMULATION then  
 $$if SHOW_REGS then
@@ -408,7 +406,8 @@ $$end
 
           }
           
-          mem_addr = pc+1;
+          mem_addr = next_pc;
+          
           break;
           
         } else {
@@ -416,10 +415,10 @@ $$end
           if (alu_working == 0) { // ALU done?
 
             // next instruction
-            mem_addr     = (jump | cmp) ? alu_out[2,12]  : pc+1;
+            mem_addr     = (jump | cmp) ? alu_out[2,12]  : next_pc;
             // what do we write in register (pc or alu, load is handled above)
-            xregsA.wdata = (jump | cmp) ? (pc+1) << 2 : alu_out;
-            xregsB.wdata = (jump | cmp) ? (pc+1) << 2 : alu_out;
+            xregsA.wdata = (jump | cmp) ? (next_pc) << 2 : alu_out;
+            xregsB.wdata = (jump | cmp) ? (next_pc) << 2 : alu_out;
             
             // store result   
             if (write_rd) {

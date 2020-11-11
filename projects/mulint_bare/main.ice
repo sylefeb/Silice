@@ -3,7 +3,7 @@
 $$mul_width = 24
 $include('../common/mulint_any.ice')
 
-algorithm main()
+algorithm main(output uint$NUM_LEDS$ leds = 0)
 {
   int$mul_width$  m0      = -170;
   int$mul_width$  m1      =  121;
