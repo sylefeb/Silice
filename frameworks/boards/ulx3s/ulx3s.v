@@ -65,9 +65,6 @@ module top(
   input   ftdi_txd,
 `endif
 
-  output [3:0] audio_l,
-  output [3:0] audio_r,
-
   input  clk_25mhz
   );
 
