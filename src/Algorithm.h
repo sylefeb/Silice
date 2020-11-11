@@ -137,6 +137,8 @@ namespace Silice
     /// \brief Set of known bitfields
     const std::unordered_map<std::string, siliceParser::BitfieldContext*>& m_KnownBitFields;
 
+public:
+
     /// \brief enum for variable access
     /// e_ReadWrite = e_ReadOnly | e_WriteOnly
     enum e_Access {
@@ -170,7 +172,6 @@ namespace Silice
     enum e_IOType { e_Input, e_Output, e_InOut, e_NotIO };
 
     /// \brief base info about variables, inputs, outputs
-    // TODO: split in the definition part and usage/analyis part
     class t_var_nfo {
     public:
       std::string  name;
@@ -182,6 +183,8 @@ namespace Silice
       e_VarUsage   usage = e_Undetermined;
       std::string  attribs;
     };
+
+private:
 
     /// \brief typedef to distinguish vars from ios
     class t_inout_nfo : public t_var_nfo {
@@ -383,6 +386,7 @@ namespace Silice
     /// \brief ending actions for blocks
     class t_end_action {
     public:
+      virtual ~t_end_action() {}
       virtual void getChildren(std::vector<t_combinational_block*>& _ch) const = 0;
     };
 

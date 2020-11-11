@@ -44,7 +44,7 @@ void Algorithm::reportError(antlr4::Token *what, int line, const char *msg, ...)
   vsprintf_s(message, messageBufferSize, msg, args);
   va_end(args);
 
-  throw LanguageError(line, what, antlr4::misc::Interval::INVALID, message);
+  throw LanguageError(line, what, antlr4::misc::Interval::INVALID, "%s", message);
 }
 
 // -------------------------------------------------
@@ -59,7 +59,7 @@ void Algorithm::reportError(antlr4::misc::Interval interval, int line, const cha
   vsprintf_s(message, messageBufferSize, msg, args);
   va_end(args);
 
-  throw LanguageError(line, nullptr,interval, message);
+  throw LanguageError(line, nullptr,interval, "%s", message);
 }
 
 // -------------------------------------------------
