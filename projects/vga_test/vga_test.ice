@@ -30,7 +30,28 @@ $$end
 
 $$if HARDWARE then
 // Reset
-import('../common/reset_conditioner.v')
+$include('../common/clean_reset.ice')
+$$end
+
+// -------------------------
+
+$$if SIMULATION then
+algorithm pll(
+  output  uint1 video_clock,
+  output  uint1 video_reset,
+) <autorun>
+{
+  uint3 counter = 0;
+  uint8 trigger = 8b11111111;
+  
+  video_clock   := counter[1,1]; // x4 slower (25 MHz)
+  video_reset   := (trigger > 0);
+  
+  always {	  
+    counter = counter + 1;
+	  trigger = trigger >> 1;
+  }
+}
 $$end
 
 // -------------------------
@@ -66,7 +87,7 @@ algorithm frame_display(
 
 algorithm main(
   output! uint$NUM_LEDS$ leds,
-$$if ICARUS or VERILATOR then
+$$if SIMULATION then
   output! uint1 video_clock,
 $$end
 $$if VGA then  
@@ -78,14 +99,13 @@ $$if VGA then
   output! uint1 video_vs
 $$end
 ) 
-$$if HARDWARE then
-// on an actual board, the video signal is produced by a PLL
+$$if not ULX3S then
 <@video_clock,!video_reset> 
 $$end
 {
-
-$$if HARDWARE then
   uint1 video_reset = 0;
+  
+$$if HARDWARE then
   uint1 video_clock = 0;
 $$if MOJO then
   uint1 sdram_clock = 0;
@@ -94,13 +114,6 @@ $$if MOJO then
     CLK_IN1  <: clock,
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> video_clock
-  );
-  // --- sdram reset
-  uint1 sdram_reset = 0;
-  reset_conditioner sdram_rstcond(
-    rcclk <: sdram_clock,
-    in  <: reset,
-    out :> sdram_reset
   );
 $$elseif ICESTICK then
   // --- clock
@@ -139,11 +152,15 @@ $$elseif ULX3S then
   ); 
 $$end
   // --- video reset
-  reset_conditioner vga_rstcond (
-    rcclk <: video_clock,
-    in  <: reset,
+  clean_reset vga_rstcond<@video_clock,!reset> (
     out :> video_reset
   );
+$$else
+  // --- simulation pll
+  pll clockgen<@clock,!reset>(
+    video_clock   :> video_clock,
+    video_reset   :> video_reset,
+  );  
 $$end
 
   uint1  active = 0;
@@ -151,11 +168,7 @@ $$end
   uint10 pix_x  = 0;
   uint10 pix_y  = 0;
 
-  vga vga_driver 
-$$if HARDWARE then
-  <@video_clock,!video_reset>
-$$end
-  (
+  vga vga_driver (
     vga_hs :> video_hs,
 	  vga_vs :> video_vs,
 	  active :> active,
@@ -164,11 +177,7 @@ $$end
 	  vga_y  :> pix_y
   );
 
-  frame_display display
-$$if HARDWARE then
-  <@video_clock,!video_reset>
-$$end  
-  (
+  frame_display display (
 	  pix_x      <: pix_x,
 	  pix_y      <: pix_y,
 	  pix_active <: active,
@@ -185,10 +194,6 @@ $$if MOJO then
   spi_miso := 1bz;
   avr_rx := 1bz;
   spi_channel := 4bzzzz;
-$$end
-
-$$if SIMULATION then
-  video_clock := clock;
 $$end
 
 $$if SIMULATION then

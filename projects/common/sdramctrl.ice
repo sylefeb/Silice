@@ -205,6 +205,10 @@ $$elseif DE10NANO then
     io_write_enable <:  reg_dq_en
   );
 
+$$elseif ICARUS then
+
+$$ error('sdram simulation is currently not working properly with icarus')
+
 $$else
 
   inout16_set ioset(
