@@ -17,6 +17,8 @@ $$  if DE10NANO then
 $$    uart_in_clock_freq_mhz = 50
 $$  elseif ULX3S then
 $$    uart_in_clock_freq_mhz = 25
+$$  elseif ICEBREAKER then
+$$    uart_in_clock_freq_mhz = 12
 $$  else
 $$    error("[uart] clock frequency 'uart_in_clock_freq_mhz' not specified")
 $$  end

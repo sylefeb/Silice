@@ -22,6 +22,10 @@ module top(
   input BTN2,
   input BTN3,
 `endif
+`ifdef UART
+  output TX,
+  input  RX,
+`endif
 `ifdef VGA
   output P1A1, // r0
   output P1A2, // r1
@@ -88,6 +92,10 @@ M_main __main(
   .out_leds(__main_leds),
 `ifdef BUTTONS
   .in_btns({BTN3,BTN2,BTN1}),
+`endif
+`ifdef UART
+  .out_uart_tx(TX),
+  .in_uart_rx(RX),
 `endif
 `ifdef VGA
   .out_video_hs(__main_out_vga_hs),
