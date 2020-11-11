@@ -23,6 +23,28 @@ yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
 
 **Note:** It is highly recommended for all tools to be available from the PATH (yosys, nextpnr, dfu-utils, fujprog, etc.). This is required by the default build system.
 
+## macOS (WIP)
+
+Install the packages listed in the Linux section above (except gcc,
+g++, other builtin packages). You might need to clone and build
+`icestorm`, `prjtrellis`, `yosys`, and `verilator` from source to get
+up-to-date versions; the versions in Homebrew may be a bit old.
+
+Then:
+
+```
+git clone --recurse-submodules https://github.com/sylefeb/Silice.git
+cd Silice
+
+mkdir BUILD
+cd BUILD
+mkdir build-silice
+cd build-silice
+
+cmake -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles" ../..
+make -j16 install
+```
+
 ## Windows
 
 Silice runs smoothly under Windows using [MSYS2 / MinGW64](https://www.msys2.org/).
@@ -67,9 +89,16 @@ Now we will compile the silice framework for verilator
 
 - We are ready to test!
 
-### Linux
+### Linux and macOS
 
-- Open a command line into the silice folder and type `./compile_verilator_framework_linux.sh`
+- Open a command line into the silice folder and type
+```
+./compile_verilator_framework_linux.sh
+```
+or
+```
+./compile_verilator_framework_macos.sh
+```
 
 (installs new files in Silice/frameworks/verilator/)
 
