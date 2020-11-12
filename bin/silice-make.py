@@ -17,6 +17,9 @@ parser.add_argument('-p','--pins', help="Pins used in the design, comma separate
 parser.add_argument('-o','--outdir', help="Specify name of output directory.", default="BUILD")
 parser.add_argument('-l','--list_boards', help="List all available target boards.", action="store_true")
 parser.add_argument('-r','--root', help="Root directory, use to override default frameworks.")
+parser.add_argument('--no_build', help="Only generate verilog output file.", action="store_true")
+parser.add_argument('--no_program', help="Only generate verilog output file and build bitstream.",
+                    action="store_true")
 
 args = parser.parse_args()
 
@@ -259,35 +262,37 @@ elif target_builder['builder'] == 'edalize':
     except subprocess.CalledProcessError as e:
         sys.exit(-1)
 
-    backend = get_edatool(tool)(edam=edam, work_root=out_dir)
-    backend.configure()
-    backend.build()
+    if not args.no_build:
+        backend = get_edatool(tool)(edam=edam, work_root=out_dir)
+        backend.configure()
+        backend.build()
     
-    try:
-        print(colored('programming device ... ','white', attrs=['bold']))
-        for program in target_builder['program']:
+        if not args.no_program:
             try:
-                prog = program['cmd']
-                args = program['args']            
-                cmd = [prog] + args.split(' ')
-                str_cmd = ""
-                for s in cmd:
-                    str_cmd = str_cmd + " " + s
-                try:
-                    subprocess.check_call(str_cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE, shell=True)
-                except FileNotFoundError as e:
-                    print(colored('<<error>>','red'))
-                    raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))
-                except subprocess.CalledProcessError as e:
-                    print(colored('<<error>>','red'))
-                    raise RuntimeError("script '{}' exited with error code {}".format(
-                        cmd, e.returncode))
+                print(colored('programming device ... ','white', attrs=['bold']))
+                for program in target_builder['program']:
+                    try:
+                        prog = program['cmd']
+                        args = program['args']
+                        cmd = [prog] + args.split(' ')
+                        str_cmd = ""
+                        for s in cmd:
+                            str_cmd = str_cmd + " " + s
+                        try:
+                            subprocess.check_call(str_cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE, shell=True)
+                        except FileNotFoundError as e:
+                            print(colored('<<error>>','red'))
+                            raise RuntimeError("Unable to run script '{}': {}".format(cmd, str(e)))
+                        except subprocess.CalledProcessError as e:
+                            print(colored('<<error>>','red'))
+                            raise RuntimeError("script '{}' exited with error code {}".format(
+                                cmd, e.returncode))
+                    except KeyError as e:
+                        print(colored('<<error in board.json>>','red'))
+                        raise RuntimeError("missing key {}".format(str(e)))
+                print(colored('done.','green'))
             except KeyError as e:
-                print(colored('<<error in board.json>>','red'))
-                raise RuntimeError("missing key {}".format(str(e)))
-        print(colored('done.','green'))
-    except KeyError as e:
-        print(colored('no programmer defined in json file','yellow'))
+                print(colored('no programmer defined in json file','yellow'))
             
 else:
     print(colored("builder '" + target_variant_name + "' not implemented", 'red'))
