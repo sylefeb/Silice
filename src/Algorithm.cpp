@@ -2670,6 +2670,7 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
     return;
   }
   for (auto io : inout->inOrOut()) {
+    bool found;
     auto input       = dynamic_cast<siliceParser::InputContext*>(io->input());
     auto output      = dynamic_cast<siliceParser::OutputContext*>(io->output());
     auto inout       = dynamic_cast<siliceParser::InoutContext*>(io->inout());
@@ -2678,16 +2679,31 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
     if (input) {
       t_inout_nfo io;
       gatherInputNfo(input, io);
+      getVIODefinition(io.name, found);
+      if (found) {
+        throw Fatal("input %s is already defined in %s algorithm",
+		  io.name.c_str(), m_Name.c_str());
+      }
       m_Inputs.emplace_back(io);
       m_InputNames.insert(make_pair(io.name, (int)m_Inputs.size() - 1));
     } else if (output) {
       t_output_nfo io;
       gatherOutputNfo(output, io);
+      getVIODefinition(io.name, found);
+      if (found) {
+        throw Fatal("output %s is already defined in %s algorithm",
+		  io.name.c_str(), m_Name.c_str());
+      }
       m_Outputs.emplace_back(io);
       m_OutputNames.insert(make_pair(io.name, (int)m_Outputs.size() - 1));
     } else if (inout) {
       t_inout_nfo io;
       gatherInoutNfo(inout, io);
+      getVIODefinition(io.name, found);
+      if (found) {
+        throw Fatal("inout %s is already defined in %s algorithm",
+          io.name.c_str(), m_Name.c_str());
+      }
       m_InOuts.emplace_back(io);
       m_InOutNames.insert(make_pair(io.name, (int)m_InOuts.size() - 1));
     } else if (iogroup) {
