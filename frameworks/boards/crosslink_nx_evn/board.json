@@ -18,6 +18,7 @@
               "part": "LIFCL-40-9BG400C"
           }
         ],
+        "bitstream"  : "impl/build_impl.bit",
         "constraints": [{"name": "crosslink_nx_evn.pdc", "file_type": "PDC"}],
         "program": [{"cmd" : "openFPGALoader", "args" : "impl/build_impl.bit"}]
       },
