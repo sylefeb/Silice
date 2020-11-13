@@ -21,6 +21,7 @@
                 "pnr": "next"
             }
           ],
+          "bitstream"  : "build.bin",
           "constraints": [{"name": "icebreaker.pcf", "file_type": "PCF"}],
           "program": [{"cmd" : "iceprog", "args" : "build.bin"}]
         },

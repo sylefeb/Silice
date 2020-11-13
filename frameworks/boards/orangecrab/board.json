@@ -18,6 +18,7 @@
                 "pnr": "next"
             }
           ],
+          "bitstream"  : "build.dfu",
           "constraints": [{"name": "pinout.lpf", "file_type": "LPF"}],
           "program": [
             {"cmd" : "cp", "args" : "build.bit build.dfu"},

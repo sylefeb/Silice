@@ -27,6 +27,7 @@
           }
         ],
         "toplevel" : "top",
+        "bitstream"  : "build.sof",
         "constraints": [
           {"name": "build.sdc", "file_type": "SDC"},
           {"name": "pins.tcl", "file_type": "tclSource"}

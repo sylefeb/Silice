@@ -28,6 +28,7 @@
               "pnr": "next"
           }
         ],
+        "bitstream"  : "build.bit",
         "constraints": [{"name": "ulx3s.lpf", "file_type": "LPF"}],
         "program": [{"cmd" : "fujprog", "args" : "build.bit"}]
       },
