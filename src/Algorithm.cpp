@@ -5692,6 +5692,7 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
   q.push(0); // starts at 0
   // states
   if (!m_OneHot) {
+    out << "(* full_case *)" << endl;
     out << "case (" << FF_Q << prefix << ALG_IDX << ")" << nxl;
   } else {
     out << "(* parallel_case, full_case *)" << endl;
