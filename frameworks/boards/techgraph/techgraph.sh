@@ -29,9 +29,10 @@ esac
 
 cd $BUILD_DIR
 
-# rm build*
+rm build.v
+
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
-yosys -p 'synth ; show' build.v
+yosys -p 'synth ; show -width -stretch -colors 4242' build.v
 
-dot -Tpng:cairo show.dot -O
+dot -Tpdf:cairo show.dot -O

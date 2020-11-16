@@ -11,11 +11,19 @@ module top(
 
     wire [7:0] __main_leds;
 
+    reg reset = 1;
+
+    always @(posedge clk) begin
+      if (reset) begin
+        reset <= 0;
+      end
+    end
+
     M_main __main(
     .clock        (clk),
-    .reset        (1'b0),
+    .reset        (reset),
     .out_leds     (__main_leds),
-    .in_run       (1'b1)
+    .in_run       (~reset)
     );
 
     assign leds = __main_leds;
