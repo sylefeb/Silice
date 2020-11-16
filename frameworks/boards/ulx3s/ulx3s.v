@@ -46,8 +46,8 @@ module top(
 `endif  
 `ifdef GPIO
   // gpio
-  output [27:0] gp,
-  output [27:0] gn,
+  inout [27:0] gp,
+  inout [27:0] gn,
 `endif  
 `ifdef VGA
   // vga
@@ -64,7 +64,6 @@ module top(
   output  ftdi_rxd,
   input   ftdi_txd,
 `endif
-
   input  clk_25mhz
   );
 
@@ -180,8 +179,8 @@ M_main __main(
   .out_oled_csn (__main_oled_csn),
 `endif 
 `ifdef GPIO
-  .out_gp       (__main_out_gp),
-  .out_gn       (__main_out_gn),
+  .inout_gp     (__main_out_gp),
+  .inout_gn     (__main_out_gn),
 `endif  
 `ifdef UART
   .out_uart_tx  (__main_out_uart_tx),
