@@ -92,10 +92,11 @@ if args.list_boards:
             board_def = json.load(json_file)
             # list all variants
             for variant in board_def['variants']:
-                print('variant : ',colored(variant['name'], 'cyan'))
-                print('pin sets:  ',end='')
+                print('      variant : ',colored(variant['name'], 'cyan'))
+                print('      pin sets:  ',end='')
                 for pin_set in variant['pins']:
                     print(colored(pin_set['set'],'cyan'),' ',end='')
+                print()
     sys.exit(0)
 
 # check we have a board specified at this point

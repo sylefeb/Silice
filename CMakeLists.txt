@@ -21,6 +21,13 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+# think antlr does stuff that isn't permitted in Clang under newer C++ standard
+# => latest Silice requires c++ 17, we'll have to look into this
+# set(CMAKE_CXX_STANDARD 14)
+endif()
+
 if (WIN32)
 SET(ANTLR_COMPILER ${PROJECT_SOURCE_DIR}/antlr/compile.bat)
 else ()

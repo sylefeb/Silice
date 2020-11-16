@@ -338,7 +338,7 @@ void SiliceCompiler::run(
     ExpressionLinter::setLuaPreProcessor(nullptr);
 
   } else {
-    throw Fatal("cannot open source file '%s'", fsource);
+    throw Fatal("cannot open source file '%s'", fsource.c_str());
   }
 
 }

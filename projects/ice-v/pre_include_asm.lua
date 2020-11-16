@@ -12,7 +12,7 @@ nbytes = 0
 h32 = ''
 meminit = '{'
 numinit = 0
-for str in string.gmatch(code, "([^ \n]+)") do
+for str in string.gmatch(code, "([^ \r\n]+)") do
   -- 
   if nentries > 0 then
     h32 = str .. h32

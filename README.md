@@ -1,7 +1,9 @@
 # Silice
 *A language for hardcoding Algorithms into FPGA hardware*
 
-**Important: Silice is in alpha stages and under active development [read more](#project-status-alpha-release)**
+**Important:** Silice is in alpha stages and under active development [read more](#project-status-alpha-release)
+
+**Important:** Latest changes occur in the 'wip' (work in progress) branch, check it out to enjoy the latest features. [Read more about development branches](#development-branches).
 
 Silice makes it possible to write algorithms for FPGAs in the same way we write them for processors: defining sequences of operations, subroutines that can be called, and using control flow statements such as *while* and *break*. At the same time, Silice lets you fully exploit the parallelism and niceties of FPGA architectures, describing operations and algorithms that run in parallel and are always active, as well as pipelines. Silice *remains close to the hardware*: nothing gets obfuscated away. When writing an algorithm you are in control of what happens at which clock cycle, with predictable rules for flow control. Clock domains are exposed. In fact, Silice compiles to and inter-operates with Verilog: you can directly instantiate and bind with existing modules.
 
@@ -106,7 +108,7 @@ These two examples are very different and representative of this approach:
 
 ## Getting started with Silice
 
-See the [getting started](GetStarted.md) guide. Silice runs great both on Windows and Linux!
+See the [getting started](GetStarted.md) guide. Silice runs great on Windows, Linux, and macOS!
 To start writing code, see [writing your first design](FirstDesign.md).
 To see what can be done with Silice, checkout our [example projects](projects/README.md) (all are available in this repo).
 

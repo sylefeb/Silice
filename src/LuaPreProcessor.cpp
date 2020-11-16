@@ -634,9 +634,8 @@ std::string LuaPreProcessor::processCode(
       code += "\\n'," + std::to_string(src_line-1) + "," + std::to_string(src_file_id) + ")\n";
 
     } else if (l->siliceincl() != nullptr) {
-
       std::string filename = l->siliceincl()->filename->getText();
-      std::regex  lfname_regex("\\s*\\(\\s*\\'([a-zA-Z_0-9\\./]+)\\'\\s*\\)\\s*");
+      std::regex  lfname_regex("\\s*\\(\\s*\\'(.+?)\\'\\s*\\)\\s*");
       std::smatch matches;
       if (std::regex_match(filename, matches, lfname_regex)) {
         std::string fname = matches.str(1).c_str();
@@ -644,8 +643,9 @@ std::string LuaPreProcessor::processCode(
         fname             = findFile(fname);
         // recurse
         code += "\n" + processCode(path + "/",fname, alreadyIncluded) + "\n";
+      } else {
+        throw Fatal("cannot split filename '%s'", filename.c_str());
       }
-
     }
   }
 

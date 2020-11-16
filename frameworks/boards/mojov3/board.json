@@ -1,0 +1,45 @@
+{
+  "name": "mojov3",
+  "variants": [
+    {
+      "name": "configurable",
+      "framework" : "mojov3.v",
+      "pins": [
+        {"set"    : "basic"}
+      ],
+      "builders": [
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize",
+        "tool": "ise",
+        "tool_options": [
+          {
+            "family": "spartan6",
+            "device": "xc6slx9",
+            "package": "tqg144",
+            "speed"  : -2
+          }
+        ],
+        "toplevel" : "top",
+        "constraints": [
+          {"name": "mojov3.ucf", "file_type": "UCF"}
+        ],
+        "program": [
+          {"cmd" : "promgen", "args" : "-u 0 top.bit -p bin -spi -w"},
+          {"cmd" : "printf", "args" : "\"\\n\\nThe programming file has been generated in BUILD_mojov3/top.bin, please use Mojo Loader to program your board\\n\\n\""},
+          {"cmd" : "mojo-loader", "args" : "-b top.bin"}
+        ]
+      }
+      ]
+    }
+  ],
+  "pins": {
+    "basic": [
+      {
+        "name": "leds",
+        "type": "uint8",
+        "io"  : "output"
+      }
+    ]
+  }
+}

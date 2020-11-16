@@ -67,7 +67,9 @@ void ExpressionLinter::lintAssignment(
       }
     }
     if (lvalue_nfo.width < rvalue_nfo.width) {
-      warn(expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", rvalue_nfo.width, lvalue_nfo.width);
+      if (m_WarnAssignWidth) {
+        warn(expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", rvalue_nfo.width, lvalue_nfo.width);
+      }
     }
   }
 }

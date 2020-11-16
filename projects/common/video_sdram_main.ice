@@ -91,7 +91,9 @@ $include('video_sdram.ice')
 
 // ------------------------- 
 
-$$if SDCARD and init_data_bytes then
+$$if init_data_bytes then
+
+$$if SDCARD then
 
 algorithm init_data(
   output  uint1 sd_clk,
@@ -99,6 +101,7 @@ algorithm init_data(
   output  uint1 sd_csn,
   input   uint1 sd_miso,
   output  uint8 leds,
+  output  uint1 ready = 0,
   sdram_user sd
 ) <autorun> {
 
@@ -117,12 +120,16 @@ algorithm init_data(
   // only writes to memory
   sd.rw         := 1;
 
+  leds = 1;
+
   // wait for sdcard controller to be ready  
   while (stream.ready == 0)    { }
 
+  leds = 2;
+
   // read some
   {
-    uint22 to_read = 0;
+    uint23 to_read = 0;
     while (to_read < $init_data_bytes$) {
       stream.next  = 1;
       while (stream.ready == 0) { }
@@ -139,8 +146,49 @@ algorithm init_data(
     }
   }
 
+  leds  = 4;
+
+  ready = 1;
 }
 
+$$elseif SIMULATION and data_hex then
+
+// for simulation
+
+algorithm init_data(
+  sdram_user sd,
+  output  uint1 ready = 0
+) <autorun> {
+
+  brom uint8 sdcard_data[] = {
+$data_hex$
+  };
+
+  uint22 to_read = 0;
+  uint8  data    = 0;
+
+  sd.in_valid := 0;
+  sd.rw       := 1;
+  __display("loading %d bytes from sdcard (simulation)",$init_data_bytes$);
+  while (to_read < $init_data_bytes$) {
+    sdcard_data.addr = to_read;
+    // write to sdram
+    // -> wait for sdram to be available
+    while (sd.busy == 1) { }
+    // -> write
+    data            = sdcard_data.rdata;
+    sd.data_in      = data;
+    sd.addr         = {1b1,1b0,24b0} | to_read;
+    sd.in_valid     = 1; // go ahead!
+    // next
+    to_read = to_read + 1;
+  }
+  __display("loading %d bytes from sdcard ===> done",$init_data_bytes$);
+
+  ready = 1;  
+}
+
+$$end
 $$end
 
 // ------------------------- 
@@ -170,11 +218,7 @@ $$end
 $$if ICARUS or VERILATOR then
   output uint1 video_clock,
 $$end
-$$if DE10NANO then
-  output uint4 kpadC,
-  input  uint4 kpadR,
-$$end
-$$if ULX3S then
+$$if ULX3S or DE10NANO then
   input  uint7 btns,
 $$end
 $$if SDCARD then
@@ -365,13 +409,6 @@ $$end
     sd2        <:>  sdi,
   );
 
-  sdram_byte_io sdd_byte; // drawer
-
-  sdram_byte_readcache memory_byte1<@sdram_clock,!sdram_reset>(
-    sdr    <:> sdd,
-    sdb    <:> sdd_byte,
-  );
-
   // --- Frame buffer row memory
   // dual clock crosses from sdram to vga
   dualport_bram uint128 fbr0<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
@@ -409,18 +446,6 @@ $$end
     fbuffer    <: onscreen_fbuffer
   );
 
-  // --- Frame drawer
-  frame_drawer drawer<@compute_clock,!compute_reset>(
-    vsync       <:  video_vblank,
-    sd          <:> sdd_byte,
-    fbuffer     :>  onscreen_fbuffer,
-    sdram_clock <:  sdram_clock,
-    sdram_reset <:  sdram_reset,
-    <:auto:>
-  );
-
-  uint8 frame       = 0;
-
   // --- Init from SDCARD
   sdram_raw_io sdh;
   
@@ -429,12 +454,30 @@ $$end
     sdh     <:> sdh,
   );
 
-$$if SDCARD and init_data_bytes then
+  uint1 data_ready = 0;
+$$if (SDCARD and init_data_bytes) or (SIMULATION and init_data_bytes) then
   init_data init<@compute_clock,!compute_reset>(
-    sd <:> sdh,
+    sd    <:> sdh,
+    ready  :> data_ready,
     <:auto:>
   );
+
+  uint1 frame_drawer_reset ::= compute_reset || (~data_ready);
+$$else
+  uint1 frame_drawer_reset ::= compute_reset;
 $$end
+
+  // --- Frame drawer
+  frame_drawer drawer<@compute_clock,!frame_drawer_reset>(
+    vsync       <:  video_vblank,
+    sd          <:> sdd,
+    fbuffer     :>  onscreen_fbuffer,
+    sdram_clock <:  sdram_clock,
+    sdram_reset <:  sdram_reset,
+    <:auto:>
+  );
+
+  uint8 frame       = 0;
 
   // ---------- let's go (all modules autorun)
  
@@ -443,9 +486,9 @@ $$if HARDWARE then
 $$else
   // we count a number of frames and stop
 $$if ICARUS then
-  while (frame < 2) {
+  while (frame < 12) {
 $$else
-  while (frame < 8) {
+  while (frame < 12) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }

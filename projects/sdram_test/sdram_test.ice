@@ -114,7 +114,7 @@ $$end
 $display("=== writing ===");
   // write
   sio.rw = 1;
-  while (count < 16) {
+  while (count < 64) {
     // write to sdram
     while (1) {
       if (sio.busy == 0) {        // not busy?            
@@ -131,7 +131,7 @@ $display("=== readback ===");
   count = 0;
   // read back
   sio.rw = 0;
-  while (count < 16) {
+  while (count < 64) {
     if (sio.busy == 0) {
       sio.addr     = count;
       sio.in_valid = 1;         // go ahead!
