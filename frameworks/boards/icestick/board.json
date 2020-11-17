@@ -20,6 +20,7 @@
                 "pnr": "next"
             }
           ],
+          "bitstream"  : "build.bin",
           "constraints": [{"name": "icestick.pcf", "file_type": "PCF"}],
           "program": [{"cmd" : "iceprog", "args" : "build.bin"}]
         },

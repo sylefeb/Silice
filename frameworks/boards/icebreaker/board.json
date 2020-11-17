@@ -7,6 +7,7 @@
       "pins"      : [         
         {"set"    : "basic"},
         {"set"    : "buttons", "define" : "BUTTONS=1"},
+        {"set"    : "uart", "define" : "UART=1"},
         {"set"    : "vga", "define" : "VGA=1"} 
       ],
       "builders": [
@@ -20,6 +21,7 @@
                 "pnr": "next"
             }
           ],
+          "bitstream"  : "build.bin",
           "constraints": [{"name": "icebreaker.pcf", "file_type": "PCF"}],
           "program": [{"cmd" : "iceprog", "args" : "build.bin"}]
         },
@@ -44,6 +46,18 @@
         "name": "btns",
         "type": "uint3",
         "io": "input"
+      }
+    ],
+    "uart": [
+      {
+        "name": "uart_tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "uart_rx",
+        "type": "uint1",
+        "io"  : "input"
       }
     ],
     "vga": [

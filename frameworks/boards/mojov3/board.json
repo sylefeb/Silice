@@ -21,6 +21,7 @@
           }
         ],
         "toplevel" : "top",
+        "bitstream"  : "top.bin",
         "constraints": [
           {"name": "mojov3.ucf", "file_type": "UCF"}
         ],
