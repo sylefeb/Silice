@@ -15,7 +15,7 @@ You do not need an FPGA to start with Silice: designs and their outputs (e.g. VG
 
 While I developed Silice for my own needs, I hope you'll find it useful for your projects!
 
-[![Introduction to Silice](https://img.youtube.com/vi/_OhxEY72qxI/0.jpg)](https://www.youtube.com/watch?v=_OhxEY72qxI)
+[Watch the introduction video on programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI)
 
 #### A first example:
 
