@@ -466,13 +466,10 @@ private:
     public:
       end_action_return_from(std::string subroutine_,const t_SubroutinesCallerReturnStates& return_states_) : subroutine(subroutine_), return_states(return_states_) { }
       void getChildren(std::vector<t_combinational_block*>& _ch) const override {  
-        LIBSL_TRACE;
-        std::cerr << "sub " << subroutine << std::endl;
         auto RS = return_states.find(subroutine);
         if (RS != return_states.end()) {
           LIBSL_TRACE;
           for (auto caller_return : RS->second) {
-          std::cerr << "sub " << subroutine << " next: " << caller_return.second->block_name << std::endl;
             _ch.push_back(caller_return.second);
           }
         }        

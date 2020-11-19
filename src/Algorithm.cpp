@@ -3049,7 +3049,6 @@ void Algorithm::resolveForwardJumpRefs()
 
 void Algorithm::generateStates()
 {
-  std::cerr << "generateStates :::::::::: " << m_Name << std::endl;
   // generate state ids and determine sub-state chains
   m_MaxState = 0;
   std::unordered_set< t_combinational_block * > visited;
@@ -3100,6 +3099,10 @@ void Algorithm::generateStates()
     std::vector< t_combinational_block * > children;
     cur->getChildren(children);
     for (auto c : children) {
+      if (c->is_state) {
+        // NOTE: anyone sees a good way to get rid of the const cast? (without rewriting fastForward)
+        c = const_cast<t_combinational_block *>(fastForward(c));
+      }
       if (visited.find(c) == visited.end()) {
         c->parent_state_id = cur->parent_state_id;
         sl_assert(c->parent_state_id > -1);
@@ -4301,8 +4304,6 @@ void Algorithm::analyzeSubroutineCalls()
       m_SubroutineCallerIds.insert(std::make_pair(b->goto_and_return_to(), call_id));
       if (b->goto_and_return_to()->go_to->context.subroutine != nullptr) {
         // record return state
-        LIBSL_TRACE;
-        std::cerr << "SUB " << b->goto_and_return_to()->go_to->context.subroutine->name << std::endl;
         m_SubroutinesCallerReturnStates[b->goto_and_return_to()->go_to->context.subroutine->name]
           .push_back(std::make_pair(
             call_id,
@@ -5704,8 +5705,6 @@ void Algorithm::pushState(const t_combinational_block* b, std::queue<size_t>& _q
 
 void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage) const
 {
-  std::cerr << "writeCombinationalStates :::::::::: " << m_Name << std::endl;
-
   vector<t_vio_ff_usage> ff_usages;
   unordered_set<size_t>  produced;
   queue<size_t>          q;
@@ -6933,37 +6932,6 @@ void Algorithm::outputFSMGraph(std::string dotFile) const
     for (auto c : children) {      
       cerr << "   CHILD " << c->block_name << " state_id = " << c->state_id << endl;
     }
-    /*
-    if (((const t_combinational_block*)b)->return_from()) { // subroutine returns
-      sl_assert(b->context.subroutine != nullptr);
-      auto RS = m_SubroutinesCallerReturnStates.find(b->context.subroutine->name);
-      if (RS != m_SubroutinesCallerReturnStates.end()) {
-        for (auto caller_return : RS->second) {
-          nexts.insert(toFSMState(fastForward(caller_return.second)->state_id));
-        }
-      }
-    }
-    if (b->next()) {
-      std::set<t_combinational_block*> leaves;
-      findNonCombinationalLeaves(b, leaves);
-      for (auto other : leaves) {
-        nexts.insert(toFSMState(fastForward(other)->state_id));
-      }
-    } else if (b->goto_and_return_to()) {
-      nexts.insert(toFSMState(fastForward(b->goto_and_return_to()->go_to)->state_id));
-    } else if (b->if_then_else()) {
-      if (b->if_then_else()->if_next && b->if_then_else()->if_next->state_id > -1) {
-        nexts.insert(toFSMState(fastForward(b->if_then_else()->if_next)->state_id));
-      }
-      if (b->if_then_else()->else_next && b->if_then_else()->else_next->state_id > -1) {
-        nexts.insert(toFSMState(fastForward(b->if_then_else()->else_next)->state_id));
-      }
-    } else if (b->switch_case()) {
-      for (auto other : b->switch_case()->case_blocks) {
-        nexts.insert(toFSMState(fastForward(other.second)->state_id));
-      }
-    }
-    */
     std::set<t_combinational_block*> leaves;
     findNonCombinationalLeaves(b, leaves);
     for (auto other : leaves) {
