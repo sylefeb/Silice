@@ -6924,7 +6924,7 @@ void Algorithm::outputFSMGraph(std::string dotFile) const
   out << "digraph D {" << nxl;
   for (auto b : m_Blocks) {
     if (b->state_id < 0) { continue; }
-    out << "st_" << toFSMState(b->state_id) << "[label = \"State " << toFSMState(b->state_id) << "\"];" << nxl;
+    out << "st_" << toFSMState(b->state_id) << "[label = \"State " << toFSMState(b->state_id) << "\n" << b->block_name << "\"];" << nxl;
     std::set<int> nexts;
     cerr << "STATE " << b->block_name << " state_id = " << b->state_id << nxl;
     cerr << b->end_action_name() << nxl;
