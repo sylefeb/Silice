@@ -1893,7 +1893,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   // parse the subroutine
   t_combinational_block *sub_last = gather(sub->instructionList(), subb, _context);
   // add return from last
-  sub_last->return_from();
+  sub_last->return_from(nfo->name,m_SubroutinesCallerReturnStates);
   // subroutine has to be a state
   subb->is_state = true;
   // record as a know subroutine
@@ -2130,8 +2130,11 @@ Algorithm::t_combinational_block *Algorithm::gatherCall(siliceParser::CallContex
 
 Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::ReturnFromContext* ret, t_combinational_block* _current, t_gather_context* _context)
 {
+  if (_current->context.subroutine == nullptr) {
+   reportError(ret->getSourceInterval(), -1, "return can only be used from within subroutines");
+  }
   // add return at end of current
-  _current->return_from();
+  _current->return_from(_current->context.subroutine->name,m_SubroutinesCallerReturnStates);
   // start a new block
   t_combinational_block* block = addBlock(generateBlockName(), _current);
   return block;
@@ -3046,6 +3049,7 @@ void Algorithm::resolveForwardJumpRefs()
 
 void Algorithm::generateStates()
 {
+  std::cerr << "generateStates :::::::::: " << m_Name << std::endl;
   // generate state ids and determine sub-state chains
   m_MaxState = 0;
   std::unordered_set< t_combinational_block * > visited;
@@ -4290,9 +4294,6 @@ void Algorithm::determineModAlgBoundVIO()
 void Algorithm::analyzeSubroutineCalls()
 {
   for (const auto &b : m_Blocks) {
-    if (b->state_id == -1 && b->is_state) {
-      continue; // block is never reached
-    }
     // contains a subroutine call?
     if (b->goto_and_return_to()) {
       int call_id = m_SubroutineCallerNextId++;
@@ -4300,6 +4301,8 @@ void Algorithm::analyzeSubroutineCalls()
       m_SubroutineCallerIds.insert(std::make_pair(b->goto_and_return_to(), call_id));
       if (b->goto_and_return_to()->go_to->context.subroutine != nullptr) {
         // record return state
+        LIBSL_TRACE;
+        std::cerr << "SUB " << b->goto_and_return_to()->go_to->context.subroutine->name << std::endl;
         m_SubroutinesCallerReturnStates[b->goto_and_return_to()->go_to->context.subroutine->name]
           .push_back(std::make_pair(
             call_id,
@@ -4371,6 +4374,9 @@ void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::Pars
 
   // resolve forward refs
   resolveForwardJumpRefs();
+
+  // determine return states for subroutine calls
+  analyzeSubroutineCalls();
 
   // generate states
   generateStates();
@@ -4591,8 +4597,6 @@ void Algorithm::optimize()
   checkExpressions();
   // determine which VIO are assigned to wires
   determineModAlgBoundVIO();
-  // determine wich states call wich subroutines
-  analyzeSubroutineCalls();
   // analyze variables access 
   determineVariableAndOutputsUsage();
   // analyze instanced algorithms inputs
@@ -5700,6 +5704,8 @@ void Algorithm::pushState(const t_combinational_block* b, std::queue<size_t>& _q
 
 void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage) const
 {
+  std::cerr << "writeCombinationalStates :::::::::: " << m_Name << std::endl;
+
   vector<t_vio_ff_usage> ff_usages;
   unordered_set<size_t>  produced;
   queue<size_t>          q;
@@ -6903,8 +6909,71 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   }
   out << "end" << endl;
 
-  out << "endmodule" << endl;
+  out << "endmodule" << endl; 
   out << endl;
+}
+
+// -------------------------------------------------
+
+void Algorithm::outputFSMGraph(std::string dotFile) const
+{
+  ofstream out(dotFile);
+  cerr << "==========================================================" << nxl;
+  cerr << dotFile << nxl;
+  cerr << "==========================================================" << nxl;
+  out << "digraph D {" << nxl;
+  for (auto b : m_Blocks) {
+    if (b->state_id < 0) { continue; }
+    out << "st_" << toFSMState(b->state_id) << "[label = \"State " << toFSMState(b->state_id) << "\"];" << nxl;
+    std::set<int> nexts;
+    cerr << "STATE " << b->block_name << " state_id = " << b->state_id << nxl;
+    cerr << b->end_action_name() << nxl;
+    std::vector< t_combinational_block * > children;
+    b->getChildren(children);
+    for (auto c : children) {      
+      cerr << "   CHILD " << c->block_name << " state_id = " << c->state_id << endl;
+    }
+    /*
+    if (((const t_combinational_block*)b)->return_from()) { // subroutine returns
+      sl_assert(b->context.subroutine != nullptr);
+      auto RS = m_SubroutinesCallerReturnStates.find(b->context.subroutine->name);
+      if (RS != m_SubroutinesCallerReturnStates.end()) {
+        for (auto caller_return : RS->second) {
+          nexts.insert(toFSMState(fastForward(caller_return.second)->state_id));
+        }
+      }
+    }
+    if (b->next()) {
+      std::set<t_combinational_block*> leaves;
+      findNonCombinationalLeaves(b, leaves);
+      for (auto other : leaves) {
+        nexts.insert(toFSMState(fastForward(other)->state_id));
+      }
+    } else if (b->goto_and_return_to()) {
+      nexts.insert(toFSMState(fastForward(b->goto_and_return_to()->go_to)->state_id));
+    } else if (b->if_then_else()) {
+      if (b->if_then_else()->if_next && b->if_then_else()->if_next->state_id > -1) {
+        nexts.insert(toFSMState(fastForward(b->if_then_else()->if_next)->state_id));
+      }
+      if (b->if_then_else()->else_next && b->if_then_else()->else_next->state_id > -1) {
+        nexts.insert(toFSMState(fastForward(b->if_then_else()->else_next)->state_id));
+      }
+    } else if (b->switch_case()) {
+      for (auto other : b->switch_case()->case_blocks) {
+        nexts.insert(toFSMState(fastForward(other.second)->state_id));
+      }
+    }
+    */
+    std::set<t_combinational_block*> leaves;
+    findNonCombinationalLeaves(b, leaves);
+    for (auto other : leaves) {
+      nexts.insert(toFSMState(fastForward(other)->state_id));
+    }
+    for (auto N : nexts) {
+       out << "st_" << toFSMState(b->state_id) << " -> " << "st_" << N << ';' << nxl;
+    }
+  }
+  out << "}" << nxl;
 }
 
 // -------------------------------------------------

@@ -33,6 +33,6 @@ rm build.v
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
-yosys -p 'synth ; show -width -stretch -colors 4242' build.v
+yosys -p 'synth_ice40 ; show -width -stretch -colors 4242' build.v
 
 dot -Tpdf:cairo show.dot -O

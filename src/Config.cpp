@@ -49,6 +49,9 @@ Config::Config()
   m_KeyValues["dualport_bram_wenable0_width"] = "1"; // 1 | data
   m_KeyValues["dualport_bram_wenable1_type"]  = "uint"; // uint | int | data
   m_KeyValues["dualport_bram_wenable1_width"] = "1"; // 1 | data
+
+  // internal options
+  m_KeyValues["output_fsm_graph"]             = "1";
 }
 
 // -------------------------------------------------

@@ -347,6 +347,9 @@ private:
     /// \brief all subroutines
     std::unordered_map< std::string, t_subroutine_nfo* > m_Subroutines;
 
+    /// \brief typedef of data-structure storing subroutine return info
+    typedef std::unordered_map< std::string, std::vector<std::pair<int, t_combinational_block *> > > t_SubroutinesCallerReturnStates;
+
     /// \brief forward declaration of a pipeline stage
     struct s_pipeline_stage_nfo;
 
@@ -388,6 +391,7 @@ private:
     public:
       virtual ~t_end_action() {}
       virtual void getChildren(std::vector<t_combinational_block*>& _ch) const = 0;
+      virtual std::string name() const = 0;
     };
 
     /// \brief goto a next block at the end
@@ -397,6 +401,7 @@ private:
       t_combinational_block        *next;
       end_action_goto_next(t_combinational_block *next_) : next(next_) {}
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); }
+      std::string name() const override { return "end_action_goto_next";}
     };
 
     /// \brief conditional branch at the end
@@ -410,6 +415,7 @@ private:
       end_action_if_else(t_instr_nfo test_, t_combinational_block *if_next_, t_combinational_block *else_next_, t_combinational_block *after_)
         : test(test_), if_next(if_next_), else_next(else_next_), after(after_) {}
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(if_next); _ch.push_back(else_next); _ch.push_back(after); }
+      std::string name() const override { return "end_action_if_else";}
     };
 
     /// \brief switch case at the end
@@ -422,6 +428,7 @@ private:
       end_action_switch_case(t_instr_nfo test_, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks_, t_combinational_block* after_)
         : test(test_), case_blocks(case_blocks_), after(after_) {}
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { for (auto b : case_blocks) { _ch.push_back(b.second); } _ch.push_back(after); }
+      std::string name() const override { return "end_action_switch_case";}
     };
 
     /// \brief while loop at the end
@@ -434,6 +441,7 @@ private:
       end_action_while(t_instr_nfo test_, t_combinational_block *iteration_, t_combinational_block *after_)
         : test(test_), iteration(iteration_), after(after_) {}
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(iteration);  _ch.push_back(after); }
+      std::string name() const override { return "end_action_while";}
     };
 
     /// \brief wait for algorithm termination at the end
@@ -446,14 +454,30 @@ private:
       t_combinational_block        *next;
       end_action_wait(int line_, std::string algo_name_, t_combinational_block *waiting_, t_combinational_block *next_) : line(line_), algo_instance_name(algo_name_), waiting(waiting_), next(next_) {}
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(waiting); _ch.push_back(next); }
+      std::string name() const override { return "end_action_wait";}
     };
 
     /// \brief return from a block at the end
     class end_action_return_from : public t_end_action
     {
+    private:
+    std::string                            subroutine;    
+    const t_SubroutinesCallerReturnStates& return_states;
     public:
-      end_action_return_from() {  }
-      void getChildren(std::vector<t_combinational_block*>& _ch) const override {  }
+      end_action_return_from(std::string subroutine_,const t_SubroutinesCallerReturnStates& return_states_) : subroutine(subroutine_), return_states(return_states_) { }
+      void getChildren(std::vector<t_combinational_block*>& _ch) const override {  
+        LIBSL_TRACE;
+        std::cerr << "sub " << subroutine << std::endl;
+        auto RS = return_states.find(subroutine);
+        if (RS != return_states.end()) {
+          LIBSL_TRACE;
+          for (auto caller_return : RS->second) {
+          std::cerr << "sub " << subroutine << " next: " << caller_return.second->block_name << std::endl;
+            _ch.push_back(caller_return.second);
+          }
+        }        
+      }
+      std::string name() const override { return "end_action_return_from";}
     };
 
     /// \brief goto next with return
@@ -463,7 +487,8 @@ private:
       t_combinational_block          *go_to;
       t_combinational_block          *return_to;
       end_action_goto_and_return_to(t_combinational_block* go_to_, t_combinational_block *return_to_) : go_to(go_to_), return_to(return_to_) {  }
-      void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(go_to); _ch.push_back(return_to); }
+      void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(go_to); /*_ch.push_back(return_to); <= not added since it is not a following state*/ }
+      std::string name() const override { return "end_action_goto_and_return_to";}
     };
 
     /// \brief pipeline with next
@@ -474,6 +499,7 @@ private:
       t_combinational_block        *after;
       end_action_pipeline_next(t_combinational_block *next_, t_combinational_block *after_) : next(next_), after(after_) { }
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); _ch.push_back(after); }
+      std::string name() const override { return "end_action_pipeline_next";}
     };
 
     /// \brief counter to generate caller ids, used for subroutine returns
@@ -481,7 +507,7 @@ private:
     /// \brief map of ids for each subroutine caller
     std::unordered_map< const end_action_goto_and_return_to *, int> m_SubroutineCallerIds;
     /// \brief subroutine calls: which states subroutine are going back to
-    std::unordered_map< std::string, std::vector<std::pair<int, t_combinational_block *> > >  m_SubroutinesCallerReturnStates;
+    t_SubroutinesCallerReturnStates                                 m_SubroutinesCallerReturnStates;
 
     /// \brief combinational block context
     typedef struct {
@@ -516,6 +542,8 @@ private:
       std::unordered_set<std::string>     out_vars_written;     // which variables have been written after
       ~t_combinational_block() { swap_end(nullptr); }
 
+      std::string end_action_name() { if (end_action != nullptr) return end_action->name(); else return "<none>"; }
+
       void next(t_combinational_block *next)
       {
         // NOTE: nullptr is allowed due to forward refs
@@ -547,9 +575,9 @@ private:
       }
       const end_action_while *while_loop() const { return dynamic_cast<const end_action_while*>(end_action); }
 
-      void return_from()
+      void return_from(std::string subroutine,const t_SubroutinesCallerReturnStates& return_states)
       {
-        swap_end(new end_action_return_from());
+        swap_end(new end_action_return_from(subroutine,return_states));
       }
       const end_action_return_from *return_from() const { return dynamic_cast<const end_action_return_from*>(end_action); }
 
@@ -1009,9 +1037,14 @@ private:
     /// \brief writes the algorithm as a Verilog module
     void writeAsModule(std::ostream& out);
 
+    /// \brief outputs the FSM graph in a file (graphviz dot format)
+    void outputFSMGraph(std::string dotFile) const;
+
     /// \brief ExpressionLinter is a friend
     friend class ExpressionLinter;
 
+    /// \brief return the algorithm name
+    std::string name() const { return m_Name; }
   };
 
   // -------------------------------------------------
