@@ -6923,21 +6923,21 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
 void Algorithm::outputFSMGraph(std::string dotFile) const
 {
   ofstream out(dotFile);
-  cerr << "==========================================================" << nxl;
-  cerr << dotFile << nxl;
-  cerr << "==========================================================" << nxl;
+  //cerr << "==========================================================" << nxl;
+  //cerr << dotFile << nxl;
+  //cerr << "==========================================================" << nxl;
   out << "digraph D {" << nxl;
   for (auto b : m_Blocks) {
     if (b->state_id < 0) { continue; }
     out << "st_" << toFSMState(b->state_id) << "[label = \"State " << toFSMState(b->state_id) << "\n" << b->block_name << "\"];" << nxl;
     std::set<int> nexts;
-    cerr << "STATE " << b->block_name << " state_id = " << b->state_id << nxl;
-    cerr << b->end_action_name() << nxl;
+    //cerr << "STATE " << b->block_name << " state_id = " << b->state_id << nxl;
+    //cerr << b->end_action_name() << nxl;
     std::vector< t_combinational_block * > children;
     b->getChildren(children);
-    for (auto c : children) {      
-      cerr << "   CHILD " << c->block_name << " state_id = " << c->state_id << endl;
-    }
+    //for (auto c : children) {      
+    //  cerr << "   CHILD " << c->block_name << " state_id = " << c->state_id << endl;
+    //}
     std::set<t_combinational_block*> leaves;
     findNonCombinationalLeaves(b, leaves);
     for (auto other : leaves) {
