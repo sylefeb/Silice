@@ -2202,15 +2202,12 @@ Algorithm::t_combinational_block *Algorithm::gatherJoinExec(siliceParser::JoinEx
 bool Algorithm::isStateLessGraph(t_combinational_block *head) const
 {
   std::queue< t_combinational_block* > q;
-  std::set< t_combinational_block* > visited;
+  std::unordered_set< t_combinational_block* > visited;
 
   q.push(head);
   while (!q.empty()) {
     auto cur = q.front();
     q.pop();
-    if (visited.count(cur) > 0) {
-      continue;
-    }
     visited.insert(cur);
     // test
     if (cur == nullptr) { // tags a forward ref (jump), not stateless
@@ -2223,7 +2220,9 @@ bool Algorithm::isStateLessGraph(t_combinational_block *head) const
     std::vector< t_combinational_block* > children;
     cur->getChildren(children);
     for (auto c : children) {
-      q.push(c);
+      if (visited.count(c) == 0) {
+        q.push(c);
+      }
     }
   }
   return true;
@@ -2234,14 +2233,20 @@ bool Algorithm::isStateLessGraph(t_combinational_block *head) const
 void Algorithm::findNonCombinationalLeaves(const t_combinational_block *head, std::set<t_combinational_block*>& _leaves) const
 {
   std::queue< t_combinational_block* >  q;
-  std::vector< t_combinational_block* > children;
-  head->getChildren(children);
-  for (auto c : children) {
-    q.push(c);
+  std::unordered_set< t_combinational_block * > visited;
+  // initialize queue
+  {
+    std::vector< t_combinational_block * > children;
+    head->getChildren(children);
+    for (auto c : children) {
+      q.push(c);
+    }
   }
+  // explore
   while (!q.empty()) {
     auto cur = q.front();
     q.pop();
+    visited.insert(cur);
     // test
     if (cur == nullptr) { // tags a forward ref (jump), not stateless
       _leaves.insert(cur);
@@ -2249,10 +2254,12 @@ void Algorithm::findNonCombinationalLeaves(const t_combinational_block *head, st
       _leaves.insert(cur);
     } else {
       // recurse
-      children.clear();
+      std::vector< t_combinational_block * > children;
       cur->getChildren(children);
       for (auto c : children) {
-        q.push(c);
+        if (visited.count(c) == 0) {
+          q.push(c);
+        }
       }
     }
   }
@@ -4378,9 +4385,6 @@ void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::Pars
 
   // determine return states for subroutine calls
   analyzeSubroutineCalls();
-
-  // generate states
-  generateStates();
 }
 
 // -------------------------------------------------
@@ -4589,6 +4593,8 @@ void Algorithm::checkExpressions()
 
 void Algorithm::optimize()
 {
+  // generate states
+  generateStates();
   // check bindings
   checkModulesBindings();
   checkAlgorithmsBindings();

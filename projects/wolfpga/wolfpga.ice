@@ -412,7 +412,7 @@ $$end
       
         mapxtest = hitx_f >>> $FPf$;
         mapytest = hity_f >>> $FPf$;
-++:             
+++:
         // shall we do vertical or horizontal?
         if (v_or_h == 0) {
           // keep doing vertical?
@@ -431,13 +431,13 @@ $$end
             v_or_h = 0;
           } } 
         }
-++:      
+++:
         // advance 
         if (v_or_h == 0) {
           // check for a hit on vertical edges
           level.addr = (mapx&15) + (((mapytest)&15)<<4);
           // hit = level[(mapx&15) + (((mapytest)&15)<<4)];
-++:      
+++:
           hit = level.rdata;
           if (hit != 0) {
             if (mapxstep < 0) {
@@ -453,7 +453,7 @@ $$end
           // check for a hit on horizontal edges
           level.addr = ((mapxtest)&15) + ((mapy&15)<<4);
           // hit = level[((mapxtest)&15) + ((mapy&15)<<4)];
-++:      
+++:
           hit = level.rdata;
           if (hit != 0) {
             if (mapystep < 0) {
@@ -468,7 +468,7 @@ $$end
         }
       }
       
-++:      
+++:
       // compute distance
       tmp1   = (cosview_m * (hitx_f - posx_f)) >>> $FPm$;
 // ++:   // relax timing      

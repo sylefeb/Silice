@@ -468,7 +468,6 @@ private:
       void getChildren(std::vector<t_combinational_block*>& _ch) const override {  
         auto RS = return_states.find(subroutine);
         if (RS != return_states.end()) {
-          LIBSL_TRACE;
           for (auto caller_return : RS->second) {
             _ch.push_back(caller_return.second);
           }
