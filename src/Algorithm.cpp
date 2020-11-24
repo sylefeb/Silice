@@ -13,6 +13,7 @@ above, identitfying the author and original copyright
 holder must remain included in all distributions.
 
 (header_1_0)
+
 */
 // -------------------------------------------------
 //                                ... hardcoding ...
@@ -72,15 +73,21 @@ void Algorithm::checkModulesBindings() const
       bool is_output = (im.second.mod->outputs().find(b.left) != im.second.mod->outputs().end());
       bool is_inout  = (im.second.mod->inouts() .find(b.left) != im.second.mod->inouts().end());
       if (!is_input && !is_output && !is_inout) {
-        reportError(nullptr, b.line, "wrong binding point (neither input nor output), instanced module '%s', binding '%s'",
-          im.first.c_str(), b.left.c_str());
+        // check if right is a group/interface
+        if (m_VIOGroups.count(bindingRightIdentifier(b)) > 0) {
+          reportError(nullptr, b.line, "instanced module '%s', binding '%s': use <:> to bind groups and interfaces",
+            im.first.c_str(), b.left.c_str());
+        } else {
+          reportError(nullptr, b.line, "instanced module '%s', binding '%s': wrong binding point (neither input nor output)",
+            im.first.c_str(), b.left.c_str());
+        }
       }
       if ((b.dir == e_Left || b.dir == e_LeftQ) && !is_input) { // input
-        reportError(nullptr, b.line, "wrong binding direction, instanced module '%s', binding output '%s'",
+        reportError(nullptr, b.line, "instanced module '%s', binding output '%s': wrong binding direction",
           im.first.c_str(), b.left.c_str());
       }
       if (b.dir == e_Right && !is_output) { // output
-        reportError(nullptr, b.line, "wrong binding direction, instanced module '%s', binding input '%s'",
+        reportError(nullptr, b.line, "instanced module '%s', binding input '%s': wrong binding direction",
           im.first.c_str(), b.left.c_str());
       }
       // check right side
@@ -107,19 +114,24 @@ void Algorithm::checkAlgorithmsBindings() const
       bool is_output = ia.second.algo->isOutput(b.left);
       bool is_inout  = ia.second.algo->isInOut (b.left);
       if (!is_input && !is_output && !is_inout) {
-        reportError(nullptr, b.line, "wrong binding point (neither input nor output), instanced algorithm '%s', binding '%s'",
-          ia.first.c_str(), b.left.c_str());
+        if (m_VIOGroups.count(bindingRightIdentifier(b)) > 0) {
+          reportError(nullptr, b.line, "instanced module '%s', binding '%s': use <:> to bind groups and interfaces",
+            ia.first.c_str(), b.left.c_str());
+        } else {
+          reportError(nullptr, b.line, "instanced algorithm '%s', binding '%s': wrong binding point (neither input nor output)",
+            ia.first.c_str(), b.left.c_str());
+        }
       }
       if ((b.dir == e_Left || b.dir == e_LeftQ) && !is_input) { // input
-        reportError(nullptr, b.line, "wrong binding direction, instanced algorithm '%s', binding output '%s'",
+        reportError(nullptr, b.line, "instanced algorithm '%s', binding output '%s': wrong binding direction",
           ia.first.c_str(), b.left.c_str());
       }
       if (b.dir == e_Right && !is_output) { // output
-        reportError(nullptr, b.line, "wrong binding direction, instanced algorithm '%s', binding input '%s'",
+        reportError(nullptr, b.line, "instanced algorithm '%s', binding input '%s': wrong binding direction",
           ia.first.c_str(), b.left.c_str());
       }
       if (b.dir == e_BiDir && !is_inout) { // inout
-        reportError(nullptr, b.line, "wrong binding direction, instanced algorithm '%s', binding inout '%s'",
+        reportError(nullptr, b.line, "instanced algorithm '%s', binding inout '%s': wrong binding direction",
           ia.first.c_str(), b.left.c_str());
       }
       // check right side
@@ -129,7 +141,7 @@ void Algorithm::checkAlgorithmsBindings() const
         && m_VarNames.count(br) == 0
         && br != m_Clock && br != ALG_CLOCK
         && br != m_Reset && br != ALG_RESET) {
-        reportError(nullptr, b.line, "wrong binding point, instanced algorithm '%s', binding '%s' to '%s'",
+        reportError(nullptr, b.line, "instanced algorithm '%s', binding '%s' to '%s': wrong binding point",
           ia.first.c_str(), br.c_str(), b.left.c_str());
       }
       if (b.dir == e_Left || b.dir == e_LeftQ) {
