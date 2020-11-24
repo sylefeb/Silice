@@ -522,7 +522,10 @@ int Algorithm::bitfieldWidth(siliceParser::BitfieldContext* field) const
   int tot_width = 0;
   for (auto v : field->varList()->var()) {
     t_type_nfo tn;
-    splitType(v->declarationVar()->TYPE()->getText(), tn);
+    if (v->declarationVar()->type()->TYPE() == nullptr) {
+      reportError(v->declarationVar()->getSourceInterval(), -1, "a bitfield cannot contain a 'sameas' definition");
+    }
+    splitType(v->declarationVar()->type()->TYPE()->getText(), tn);
     tot_width += tn.width;
   }
   return tot_width;
@@ -537,7 +540,10 @@ std::pair<t_type_nfo, int> Algorithm::bitfieldMemberTypeAndOffset(siliceParser::
   ForRangeReverse(i, (int)field->varList()->var().size() - 1, 0) {
     auto v = field->varList()->var()[i];
     t_type_nfo tn;
-    splitType(v->declarationVar()->TYPE()->getText(), tn);
+    if (v->declarationVar()->type()->TYPE() == nullptr) {
+      reportError(v->declarationVar()->getSourceInterval(), -1, "a bitfield cannot contain a 'sameas' definition");
+    }
+    splitType(v->declarationVar()->type()->TYPE()->getText(), tn);
     if (member == v->declarationVar()->IDENTIFIER()->getText()) {
       return make_pair(tn, offset);
     }
@@ -574,7 +580,10 @@ std::string Algorithm::gatherBitfieldValue(siliceParser::InitBitfieldContext* if
   for (auto v : F->second->varList()->var()) {
     auto ne = named_values.at(v->declarationVar()->IDENTIFIER()->getText());
     t_type_nfo tn;
-    splitType(v->declarationVar()->TYPE()->getText(), tn);
+    if (v->declarationVar()->type()->TYPE() == nullptr) {
+      reportError(v->declarationVar()->getSourceInterval(), -1, "a bitfield cannot contain a 'sameas' definition");
+    }
+    splitType(v->declarationVar()->type()->TYPE()->getText(), tn);
     if (ne.first) {
       concat = concat + ne.second;
     } else {
@@ -683,7 +692,12 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
   nfo.table_size = 0;
   nfo.do_not_initialize = true;
   nfo.usage = e_Wire;
-  splitType(wire->TYPE()->getText(), nfo.type_nfo);
+  // get type
+  std::string is_group;
+  gatherTypeNfo(wire->type(), nfo.type_nfo, _current, _context, is_group);
+  if (!is_group.empty()) {
+    reportError(wire->getSourceInterval(), (int)wire->getStart()->getLine(), "'sameas' wire declaration cannot be refering to a group or interface");
+  }
   // add var
   addVar(nfo, _current, _context, (int)wire->getStart()->getLine());
   // insert wire assignment
@@ -692,23 +706,29 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
 
 // -------------------------------------------------
 
-void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init)
+void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init, t_combinational_block *_current, t_gather_context *_context, std::string &_is_group)
 {
   _nfo.name = decl->IDENTIFIER()->getText();
   _nfo.table_size = 0;
-  splitType(decl->TYPE()->getText(), _nfo.type_nfo);
-  if (decl->value() != nullptr) {
-    _nfo.init_values.push_back("0");
-    _nfo.init_values[0] = gatherValue(decl->value());
+  // get type
+  gatherTypeNfo(decl->type(), _nfo.type_nfo, _current, _context, _is_group);
+  if (!_is_group.empty()) {
+    return;
   } else {
-    if (decl->UNINITIALIZED() != nullptr || default_no_init) {
-      _nfo.do_not_initialize = true;
+    // init values
+    if (decl->value() != nullptr) {
+      _nfo.init_values.push_back("0");
+      _nfo.init_values[0] = gatherValue(decl->value());
     } else {
-      reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable has no initializer, use '= uninitialized' if you really don't want to initialize it.");
+      if (decl->UNINITIALIZED() != nullptr || default_no_init) {
+        _nfo.do_not_initialize = true;
+      } else {
+        reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable has no initializer, use '= uninitialized' if you really don't want to initialize it.");
+      }
     }
-  }
-  if (decl->ATTRIBS() != nullptr) {
-    _nfo.attribs = decl->ATTRIBS()->getText();
+    if (decl->ATTRIBS() != nullptr) {
+      _nfo.attribs = decl->ATTRIBS()->getText();
+    }
   }
 }
 
@@ -718,17 +738,51 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
 {
   // gather variable
   t_var_nfo var;
-  gatherVarNfo(decl,var);
-  addVar(var, _current, _context, (int)decl->getStart()->getLine());
+  std::string is_group;
+  gatherVarNfo(decl, var, false, _current, _context, is_group);
+  if (!is_group.empty()) {
+    if (decl->value() != nullptr || decl->UNINITIALIZED() != nullptr || decl->ATTRIBS() != nullptr) {
+      reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable is declared as 'sameas' a group or interface, it cannot have initializers.");
+    }
+    // find group (should be here, according to gatherTypeNfo)
+    auto G = m_VIOGroups.find(is_group);
+    sl_assert(G != m_VIOGroups.end());
+    // now, insert as group, where each member is parameterized by the corresponding interface member
+    m_VIOGroups.insert(make_pair(var.name, G->second));
+    // get member list from interface
+    for (auto mbr : getGroupMembers(G->second)) {
+      // search parameterizing var
+      std::string typed_by = is_group + "_" + mbr;
+      typed_by = findSameAsRoot(typed_by, &_current->context);
+      // add var
+      t_var_nfo vnfo;
+      vnfo.name = var.name + "_" + mbr;
+      vnfo.type_nfo.base_type = Parameterized;
+      vnfo.type_nfo.same_as = typed_by;
+      vnfo.type_nfo.width = 0;
+      vnfo.table_size = 0;
+      vnfo.do_not_initialize = false;
+      // add it
+      addVar(vnfo, _current, _context, (int)decl->getStart()->getLine());
+    }
+  } else {
+    addVar(var, _current, _context, (int)decl->getStart()->getLine());
+  }
 }
 
 // -------------------------------------------------
 
-void Algorithm::gatherTableNfo(siliceParser::DeclarationTableContext *decl, t_var_nfo &_nfo)
+void Algorithm::gatherTableNfo(siliceParser::DeclarationTableContext *decl, t_var_nfo &_nfo, t_combinational_block *_current, t_gather_context *_context)
 {
   _nfo.name = decl->IDENTIFIER()->getText();
   _nfo.table_size = 0;
-  splitType(decl->TYPE()->getText(), _nfo.type_nfo);
+  // get type
+  std::string is_group;
+  gatherTypeNfo(decl->type(), _nfo.type_nfo, _current, _context, is_group);
+  if (!is_group.empty()) {
+    reportError(decl->type()->getSourceInterval(), (int)decl->type()->getStart()->getLine(), "'sameas' in table declarations are not yet supported");
+  }
+  // init values
   if (decl->NUMBER() != nullptr) {
     _nfo.table_size = atoi(decl->NUMBER()->getText().c_str());
     if (_nfo.table_size <= 0) {
@@ -745,7 +799,7 @@ void Algorithm::gatherTableNfo(siliceParser::DeclarationTableContext *decl, t_va
 void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext *decl, t_combinational_block *_current, t_gather_context *_context)
 {
   t_var_nfo var;
-  gatherTableNfo(decl, var);
+  gatherTableNfo(decl, var, _current, _context);
   addVar(var, _current, _context, (int)decl->getStart()->getLine());
 }
 
@@ -1103,7 +1157,11 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
     for (auto v : G->second->varList()->var()) {
       // create group variables
       t_var_nfo vnfo;
-      gatherVarNfo(v->declarationVar(), vnfo);
+      std::string is_group;
+      gatherVarNfo(v->declarationVar(), vnfo, false, _current, _context, is_group);
+      if (vnfo.type_nfo.base_type == Parameterized) {
+        reportError(v->getSourceInterval(), (int)v->getStart()->getLine(), "group '%s': group member declarations cannot use 'sameas'", grp->name->getText().c_str());
+      }
       vnfo.name = grp->name->getText() + "_" + vnfo.name;
       addVar(vnfo, _current, _context, (int)grp->getStart()->getLine());
     }
@@ -1187,54 +1245,34 @@ std::string Algorithm::findSameAsRoot(std::string vio, const t_combinational_blo
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationSameAs(siliceParser::DeclarationSameAsContext *tpof, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo, t_combinational_block *_current, t_gather_context *_context, string &_is_group)
 {
-  // check for duplicates
-  if (!isIdentifierAvailable(tpof->name->getText())) {
-    reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(), "group (sameas) '%s': this name is already used by a prior declaration", tpof->name->getText().c_str());
-  }
-  // find base
-  std::string base = tpof->base->getText() + (tpof->member != nullptr ? "_" + tpof->member->getText() : "");
-  base             = translateVIOName(base, &_current->context);
-  std::string name = tpof->name->getText();
-  // interface?
-  auto G = m_VIOGroups.find(base);
-  if (G != m_VIOGroups.end()) {
-    // now, insert as group, where each member is parameterized by the corresponding interface member
-    m_VIOGroups.insert(make_pair(name, G->second));
-    // get member list from interface
-    for (auto mbr : getGroupMembers(G->second)) {
-      // search parameterizing var
-      std::string typed_by    = base + "_" + mbr;
-      typed_by                = findSameAsRoot(typed_by, &_current->context);
-      // add var
-      t_var_nfo vnfo;
-      vnfo.name               = name + "_" + mbr;
-      vnfo.type_nfo.base_type = Parameterized;
-      vnfo.type_nfo.same_as   = typed_by;
-      vnfo.type_nfo.width     = 0;
-      vnfo.table_size         = 0;
-      vnfo.do_not_initialize  = false;
-      // add it
-      addVar(vnfo, _current, _context, (int)tpof->getStart()->getLine());
-    }
+  if (type->TYPE() != nullptr) {
+    splitType(type->TYPE()->getText(), _nfo);
   } else {
-    // find base in standard vios
-    if (isVIO(base)) {
-      std::string typed_by = findSameAsRoot(base, &_current->context);
-      // add var
-      t_var_nfo vnfo;
-      vnfo.name               = name;
-      vnfo.type_nfo.base_type = Parameterized;
-      vnfo.type_nfo.same_as   = typed_by;
-      vnfo.type_nfo.width     = 0;
-      vnfo.table_size         = 0;
-      vnfo.do_not_initialize  = false;
-      // add it
-      addVar(vnfo, _current, _context, (int)tpof->getStart()->getLine());
+    // find base
+    std::string base = type->base->getText() + (type->member != nullptr ? "_" + type->member->getText() : "");
+    base = translateVIOName(base, &_current->context);
+    // group?
+    _is_group = "";
+    auto G = m_VIOGroups.find(base);
+    if (G != m_VIOGroups.end()) {
+      _nfo.base_type = Parameterized;
+      _nfo.same_as = "";
+      _nfo.width = 0;
+      _is_group = base;
+      return;
     } else {
-      reportError(tpof->getSourceInterval(), (int)tpof->getStart()->getLine(),
-        "no known definition for '%s' (sameas can only be applied to interfaces, groups and simple variables)", tpof->base->getText().c_str());
+      // find base in standard vios
+      if (isVIO(base)) {
+        std::string typed_by = findSameAsRoot(base, &_current->context);
+        _nfo.base_type = Parameterized;
+        _nfo.same_as = typed_by;
+        _nfo.width = 0;
+      } else {
+        reportError(type->getSourceInterval(), (int)type->getStart()->getLine(),
+          "no known definition for '%s' (sameas can only be applied to interfaces, groups and simple variables)", type->base->getText().c_str());
+      }
     }
   }
 }
@@ -1678,36 +1716,39 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, bool var_table_only)
+void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, bool var_group_table_only)
 {
   auto declvar   = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
   auto declwire  = dynamic_cast<siliceParser::DeclarationWireContext *>(decl->declarationWire());
   auto decltbl   = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
   auto grpmodalg = dynamic_cast<siliceParser::DeclarationGrpModAlgContext*>(decl->declarationGrpModAlg());
   auto declmem   = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
-  auto decltpof  = dynamic_cast<siliceParser::DeclarationSameAsContext *>(decl->declarationSameAs());
-  if (var_table_only) {
+  if (var_group_table_only) {
     if (declmem) {
       reportError(declmem->IDENTIFIER()->getSymbol(), (int)decl->getStart()->getLine(),
         "cannot declare a memory here");
     }
     if (grpmodalg) {
-      reportError(grpmodalg->getSourceInterval(), (int)decl->getStart()->getLine(),
-        "cannot declare groups, nor instantiate modules or algorithms here");
+      std::string name = grpmodalg->modalg->getText();
+      if (m_KnownGroups.find(name) == m_KnownGroups.end()) {
+        reportError(grpmodalg->getSourceInterval(), (int)decl->getStart()->getLine(),
+          "cannot instantiate modules or algorithms here");
+      }
     }
   }
   if (declvar)        { gatherDeclarationVar(declvar, _current, _context); }
   else if (declwire)  { gatherDeclarationWire(declwire, _current, _context); }
   else if (decltbl)   { gatherDeclarationTable(decltbl, _current, _context); }
   else if (declmem)   { gatherDeclarationMemory(declmem, _current, _context); }
-  else if (decltpof)  { gatherDeclarationSameAs(decltpof, _current, _context); }
   else if (grpmodalg) {
     std::string name = grpmodalg->modalg->getText();
     if (m_KnownGroups.find(name) != m_KnownGroups.end()) {
       gatherDeclarationGroup(grpmodalg, _current, _context);
     } else if (m_KnownModules.find(name) != m_KnownModules.end()) {
+      sl_assert(!var_group_table_only);
       gatherDeclarationModule(grpmodalg, _current, _context);
     } else {
+      sl_assert(!var_group_table_only);
       gatherDeclarationAlgo(grpmodalg, _current, _context);
     }
   }
@@ -1715,7 +1756,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
 
 //-------------------------------------------------
 
-int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context* _context,bool var_table_only)
+int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context* _context,bool var_group_table_only)
 {
   if (decllist == nullptr) {
     return 0;
@@ -1724,7 +1765,7 @@ int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decll
   siliceParser::DeclarationListContext *cur_decllist = decllist;
   while (cur_decllist->declaration() != nullptr) {
     siliceParser::DeclarationContext* decl = cur_decllist->declaration();
-    gatherDeclaration(decl, _current, _context, var_table_only);
+    gatherDeclaration(decl, _current, _context, var_group_table_only);
     cur_decllist = cur_decllist->declarationList();
     ++num;
   }
@@ -1837,12 +1878,12 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       // input or output?      
       std::string in_or_out;
       std::string ioname;
-      std::string strtype;
+      siliceParser::TypeContext *type = nullptr;
       int tbl_size = 0;
       if (P->input() != nullptr) {
         in_or_out = "i";
         ioname = P->input()->IDENTIFIER()->getText();
-        strtype = P->input()->TYPE()->getText();
+        type   = P->input()->type();
         if (P->input()->NUMBER() != nullptr) {
           reportError(P->getSourceInterval(), (int)P->getStart()->getLine(),
             "subroutine '%s' input '%s', tables as input are not yet supported",
@@ -1857,8 +1898,8 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
             "subroutine '%s' output '%s', tables as output are not yet supported",
             nfo->name.c_str(), ioname.c_str());
         }
-        ioname  = P->output()->declarationVar()->IDENTIFIER()->getText();
-        strtype = P->output()->declarationVar()->TYPE()->getText();
+        ioname = P->output()->declarationVar()->IDENTIFIER()->getText();
+        type   = P->output()->declarationVar()->type();
         nfo->outputs.push_back(ioname);
       }
       // check for name collisions
@@ -1874,7 +1915,14 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       t_var_nfo var;
       var.name = in_or_out + "_" + nfo->name + "_" + ioname;
       var.table_size = tbl_size;
-      splitType(strtype, var.type_nfo);
+      // get type
+      sl_assert(type != nullptr);
+      std::string is_group;
+      gatherTypeNfo(type, var.type_nfo, _current, _context, is_group);
+      if (!is_group.empty()) {
+        reportError(type->getSourceInterval(), (int)type->getStart()->getLine(), "'sameas' in subroutine declaration cannot be refering to a group or interface");
+      }
+      // init values
       var.init_values.resize(max(var.table_size, 1), "0");
       // insert var
       insertVar(var, _current, true /*no init*/);
@@ -2499,11 +2547,16 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
 
 // -------------------------------------------------
 
-void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _io)
+void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _io, t_combinational_block *_current, t_gather_context *_context)
 {
   _io.name = input->IDENTIFIER()->getText();
   _io.table_size = 0;
-  splitType(input->TYPE()->getText(), _io.type_nfo);
+  // type
+  std::string is_group;
+  gatherTypeNfo(input->type(), _io.type_nfo, _current, _context, is_group);
+  if (_io.type_nfo.base_type == Parameterized) {
+    reportError(input->getSourceInterval(), -1, "input '%s': using 'sameas' is not yet supported", _io.name.c_str());
+  }
   if (input->NUMBER() != nullptr) {
     reportError(input->getSourceInterval(), -1, "input '%s': tables as input are not yet supported", _io.name.c_str());
     _io.table_size = atoi(input->NUMBER()->getText().c_str());
@@ -2514,10 +2567,14 @@ void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _i
 
 // -------------------------------------------------
 
-void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nfo& _io)
+void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nfo& _io, t_combinational_block *_current, t_gather_context *_context)
 {
   if (output->declarationVar() != nullptr) {
-    gatherVarNfo(output->declarationVar(), _io, true);
+    std::string is_group;
+    gatherVarNfo(output->declarationVar(), _io, true, _current, _context, is_group);
+    if (_io.type_nfo.base_type == Parameterized) {
+      reportError(output->getSourceInterval(), -1, "output '%s': 'sameas' on a group/interface as output are not yet supported", _io.name.c_str());
+    }
   } else if (output->declarationTable() != nullptr) {
     reportError(output->getSourceInterval(), -1, "output '%s': tables as output are not yet supported", _io.name.c_str());
     // gatherTableNfo(output->declarationTable(), _io);
@@ -2543,13 +2600,29 @@ void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _
 
 // -------------------------------------------------
 
-void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
+void Algorithm::gatherIoDef(siliceParser::IoDefContext *iod, t_combinational_block *_current, t_gather_context *_context)
+{
+  if (iod->ioList() != nullptr || iod->INPUT() != nullptr || iod->OUTPUT() != nullptr) {
+    gatherIoGroup(iod,_current,_context);
+  } else {
+    gatherIoInterface(iod);
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_block *_current, t_gather_context *_context)
 {
   // find group declaration
-  auto G = m_KnownGroups.find(iog->groupid->getText());
+  auto G = m_KnownGroups.find(iog->defid->getText());
   if (G == m_KnownGroups.end()) {
-    reportError(iog->groupid,(int)iog->getStart()->getLine(),
-      "no known group definition for '%s'",iog->groupid->getText().c_str());
+    reportError(iog->defid,(int)iog->getStart()->getLine(),
+      "no known group definition for '%s'",iog->defid->getText().c_str());
+  }
+  // check io specs
+  if (iog->ioList() != nullptr && (iog->INPUT() != nullptr || iog->OUTPUT() != nullptr)) {
+    reportError(iog->defid, (int)iog->getStart()->getLine(),
+      "specify either a detailed io list, or input/output for the entire group");
   }
   // group prefix
   string grpre = iog->groupname->getText();
@@ -2558,64 +2631,103 @@ void Algorithm::gatherIoGroup(siliceParser::IoGroupContext* iog)
   unordered_map<string,t_var_nfo> vars;
   for (auto v : G->second->varList()->var()) {
     t_var_nfo vnfo;
-    gatherVarNfo(v->declarationVar(), vnfo);
+    std::string is_group;
+    gatherVarNfo(v->declarationVar(), vnfo, false, _current, _context,is_group);
+    // sameas?
+    if (vnfo.type_nfo.base_type == Parameterized) {
+      reportError(v->declarationVar()->IDENTIFIER()->getSymbol(), (int)v->declarationVar()->getStart()->getLine(),
+        "entry '%s': 'sameas' not allowed in group",
+        vnfo.name.c_str(), iog->defid->getText().c_str());
+    }
+    // duplicates?
     if (vars.count(vnfo.name)) {
       reportError(v->declarationVar()->IDENTIFIER()->getSymbol(),(int)v->declarationVar()->getStart()->getLine(),
         "entry '%s' declared twice in group definition '%s'",
-        vnfo.name.c_str(),iog->groupid->getText().c_str());
+        vnfo.name.c_str(),iog->defid->getText().c_str());
     }
     vars.insert(make_pair(vnfo.name,vnfo));
   }
-  for (auto io : iog->ioList()->io()) {
-    // -> check for existence
-    auto V = vars.find(io->IDENTIFIER()->getText());
-    if (V == vars.end()) {
-      reportError(io->IDENTIFIER()->getSymbol(), (int)io->getStart()->getLine(), 
-        "'%s' not in group '%s'",io->IDENTIFIER()->getText().c_str(), iog->groupid->getText().c_str());
+
+  if (iog->ioList() != nullptr) {
+    for (auto io : iog->ioList()->io()) {
+      // -> check for existence
+      auto V = vars.find(io->IDENTIFIER()->getText());
+      if (V == vars.end()) {
+        reportError(io->IDENTIFIER()->getSymbol(), (int)io->getStart()->getLine(),
+          "'%s' not in group '%s'", io->IDENTIFIER()->getText().c_str(), iog->defid->getText().c_str());
+      }
+      // add it where it belongs
+      if (io->is_input != nullptr) {
+        t_inout_nfo inp;
+        inp.name = grpre + "_" + V->second.name;
+        inp.table_size = V->second.table_size;
+        inp.init_values = V->second.init_values;
+        inp.do_not_initialize = V->second.do_not_initialize;
+        inp.type_nfo = V->second.type_nfo;
+        m_Inputs.emplace_back(inp);
+        m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
+      } else if (io->is_inout != nullptr) {
+        t_inout_nfo inp;
+        inp.name = grpre + "_" + V->second.name;
+        inp.table_size = V->second.table_size;
+        inp.init_values = V->second.init_values;
+        inp.do_not_initialize = V->second.do_not_initialize;
+        inp.type_nfo = V->second.type_nfo;
+        inp.nolatch = (io->nolatch != nullptr);
+        m_InOuts.emplace_back(inp);
+        m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
+      } else if (io->is_output != nullptr) {
+        t_output_nfo oup;
+        oup.name = grpre + "_" + V->second.name;
+        oup.table_size = V->second.table_size;
+        oup.init_values = V->second.init_values;
+        oup.do_not_initialize = V->second.do_not_initialize;
+        oup.type_nfo = V->second.type_nfo;
+        oup.combinational = (io->combinational != nullptr);
+        m_Outputs.emplace_back(oup);
+        m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
+      }
     }
-    // add it where it belongs
-    if (io->is_input != nullptr) {
-      t_inout_nfo inp;
-      inp.name              = grpre + "_" + V->second.name;
-      inp.table_size        = V->second.table_size;
-      inp.init_values       = V->second.init_values;
-      inp.do_not_initialize = V->second.do_not_initialize;
-      inp.type_nfo          = V->second.type_nfo;
-      m_Inputs.emplace_back(inp);
-      m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
-    } else if (io->is_inout != nullptr) {
-      t_inout_nfo inp;
-      inp.name              = grpre + "_" + V->second.name;
-      inp.table_size        = V->second.table_size;
-      inp.init_values       = V->second.init_values;
-      inp.do_not_initialize = V->second.do_not_initialize;
-      inp.type_nfo          = V->second.type_nfo;
-      inp.nolatch           = (io->nolatch != nullptr);
-      m_InOuts.emplace_back(inp);
-      m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
-    } else if (io->is_output != nullptr) {
-      t_output_nfo oup;
-      oup.name              = grpre + "_" + V->second.name;
-      oup.table_size        = V->second.table_size;
-      oup.init_values       = V->second.init_values;
-      oup.do_not_initialize = V->second.do_not_initialize;
-      oup.type_nfo          = V->second.type_nfo;
-      oup.combinational     = (io->combinational != nullptr);
-      m_Outputs.emplace_back(oup);
-      m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
+  } else {
+    if (iog->INPUT() != nullptr) {
+      // all input
+      for (auto v : vars) {
+        t_inout_nfo inp;
+        inp.name = grpre + "_" + v.second.name;
+        inp.table_size = v.second.table_size;
+        inp.init_values = v.second.init_values;
+        inp.do_not_initialize = v.second.do_not_initialize;
+        inp.type_nfo = v.second.type_nfo;
+        m_Inputs.emplace_back(inp);
+        m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
+      }
+    } else {
+      sl_assert(iog->OUTPUT());
+      // all output
+      for (auto v : vars) {
+        t_output_nfo oup;
+        oup.name = grpre + "_" + v.second.name;
+        oup.table_size = v.second.table_size;
+        oup.init_values = v.second.init_values;
+        oup.do_not_initialize = v.second.do_not_initialize;
+        oup.type_nfo = v.second.type_nfo;
+        oup.combinational = (iog->combinational != nullptr);
+        m_Outputs.emplace_back(oup);
+        m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
+      }
     }
   }
 }
 
 // -------------------------------------------------
 
-void Algorithm::gatherIoInterface(siliceParser::IoInterfaceContext *itrf)
+void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
 {
   // find interface declaration
-  auto I = m_KnownInterfaces.find(itrf->interfaceid->getText());
+  auto I = m_KnownInterfaces.find(itrf->defid->getText());
   if (I == m_KnownInterfaces.end()) {
-    reportError(itrf->interfaceid, (int)itrf->getStart()->getLine(),
-      "no known interface definition for '%s'", itrf->interfaceid->getText().c_str());
+    reportError(itrf->defid, (int)itrf->getStart()->getLine(),
+      "no known interface definition for '%s'", itrf->defid->getText().c_str());
   }
   // group prefix
   string grpre = itrf->groupname->getText();
@@ -2632,7 +2744,7 @@ void Algorithm::gatherIoInterface(siliceParser::IoInterfaceContext *itrf)
     if (vars.count(vnfo.name)) {
       reportError(io->IDENTIFIER()->getSymbol(), (int)io->getStart()->getLine(),
         "entry '%s' declared twice in interface definition '%s'",
-        vnfo.name.c_str(), itrf->interfaceid->getText().c_str());
+        vnfo.name.c_str(), itrf->defid->getText().c_str());
     }
     vars.insert(vnfo.name);
     // add it where it belongs
@@ -2674,22 +2786,21 @@ void Algorithm::gatherIoInterface(siliceParser::IoInterfaceContext *itrf)
 
 // -------------------------------------------------
 
-void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
+void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational_block *_current, t_gather_context *_context)
 {
   if (inout == nullptr) {
     return;
   }
   for (auto io : inout->inOrOut()) {
     bool found;
-    int line         = io->getStart()->getLine();
+    int line         = (int)io->getStart()->getLine();
     auto input       = dynamic_cast<siliceParser::InputContext*>(io->input());
     auto output      = dynamic_cast<siliceParser::OutputContext*>(io->output());
     auto inout       = dynamic_cast<siliceParser::InoutContext*>(io->inout());
-    auto iogroup     = dynamic_cast<siliceParser::IoGroupContext*>(io->ioGroup());
-    auto iointerface = dynamic_cast<siliceParser::IoInterfaceContext*>(io->ioInterface());
+    auto iodef       = dynamic_cast<siliceParser::IoDefContext*>(io->ioDef());
     if (input) {
       t_inout_nfo io;
-      gatherInputNfo(input, io);
+      gatherInputNfo(input, io, _current, _context);
       getVIODefinition(io.name, found);
       if (found) {
         reportError(nullptr, line, "input '%s': this name is already used by a previous definition", io.name.c_str());
@@ -2698,7 +2809,7 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
       m_InputNames.insert(make_pair(io.name, (int)m_Inputs.size() - 1));
     } else if (output) {
       t_output_nfo io;
-      gatherOutputNfo(output, io);
+      gatherOutputNfo(output, io, _current, _context);
       getVIODefinition(io.name, found);
       if (found) {
         reportError(nullptr, line, "output '%s': this name is already used by a previous definition", io.name.c_str());
@@ -2714,10 +2825,8 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
       }
       m_InOuts.emplace_back(io);
       m_InOutNames.insert(make_pair(io.name, (int)m_InOuts.size() - 1));
-    } else if (iogroup) {
-      gatherIoGroup(iogroup);
-    } else if (iointerface) {
-      gatherIoInterface(iointerface);
+    } else if (iodef) {
+      gatherIoDef(iodef,_current,_context);
     } else {
       // symbol, ignore
     }
@@ -3627,9 +3736,12 @@ void Algorithm::verifyMemberBitfield(std::string member, siliceParser::BitfieldC
           field->IDENTIFIER()->getText().c_str(), member.c_str());
       }
       // verify type is uint
-      sl_assert(v->declarationVar()->TYPE() != nullptr);
-      string test = v->declarationVar()->TYPE()->getText();
-      if (v->declarationVar()->TYPE()->getText()[0] != 'u') {
+      if (v->declarationVar()->type()->TYPE() == nullptr) {
+        reportError(v->declarationVar()->getSourceInterval(), -1, "a bitfield cannot contain a 'sameas' definition");
+      }
+      sl_assert(v->declarationVar()->type()->TYPE() != nullptr);
+      string test = v->declarationVar()->type()->TYPE()->getText();
+      if (v->declarationVar()->type()->TYPE()->getText()[0] != 'u') {
         reportError(v->declarationVar()->getSourceInterval(), (int)v->declarationVar()->getStart()->getLine(),
           "bitfield members can only be unsigned (field '%s', member '%s')",
           field->IDENTIFIER()->getText().c_str(), member.c_str());
@@ -4371,13 +4483,15 @@ void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::Pars
   t_combinational_block *main = addBlock("_top", nullptr, nullptr, (int)inout->getStart()->getLine());
   main->is_state = true;
 
-  // gather input and outputs
-  gatherIOs(inout);
-
-  // semantic pass
+  // context
   t_gather_context context;
   context.__id = -1;
   context.break_to = nullptr;
+
+  // gather input and outputs
+  gatherIOs(inout, main, &context);
+
+  // semantic pass
   gather(declAndInstr, main, &context);
 
   // resolve forward refs

@@ -666,10 +666,12 @@ private:
     void addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, int line);
     /// \brief check if an identifier is available
     bool isIdentifierAvailable(std::string name) const;
+    /// \brief gather type nfo
+    void gatherTypeNfo(siliceParser::TypeContext *type,t_type_nfo &_nfo, t_combinational_block *_current, t_gather_context *_context, std::string& _is_group);
     /// \brief gather wire declaration
     void gatherDeclarationWire(siliceParser::DeclarationWireContext* decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather variable nfo
-    void gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init = false);
+    void gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init, t_combinational_block *_current, t_gather_context *_context,std::string& _is_group);
     /// \brief gather variable declaration
     void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather all values from an init list
@@ -677,7 +679,7 @@ private:
     /// \bried read initializer list
     template<typename D, typename T> void readInitList(D* decl, T& var);
     /// \brief gather table nfo
-    void gatherTableNfo(siliceParser::DeclarationTableContext *decl, t_var_nfo &_nfo);
+    void gatherTableNfo(siliceParser::DeclarationTableContext *decl, t_var_nfo &_nfo, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather variable declaration
     void gatherDeclarationTable(siliceParser::DeclarationTableContext* decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather memory declaration
@@ -689,8 +691,6 @@ private:
       bool& _autobind) const;
     /// \brief gather group declaration
     void gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_combinational_block *_current, t_gather_context *_context);
-    /// \brief gather sameas declaration
-    void gatherDeclarationSameAs(siliceParser::DeclarationSameAsContext *decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather algorithm declaration
     void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather module declaration
@@ -724,9 +724,9 @@ private:
     /// \brief gather a while block
     t_combinational_block *gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather declaration
-    void gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, bool var_table_only);
+    void gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, bool var_group_table_only);
     /// \brief gather declaration list, returns number of gathered declarations 
-    int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context *_context, bool var_table_only);
+    int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context *_context, bool var_group_table_only);
     /// \brief gather a subroutine
     t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a pipeline
@@ -766,17 +766,19 @@ private:
     /// \brief check expressions on all blocks
     void checkExpressions();
     /// \brief gather info about an input
-    void gatherInputNfo(siliceParser::InputContext* input, t_inout_nfo& _io);
+    void gatherInputNfo(siliceParser::InputContext* input, t_inout_nfo& _io, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather info about an output
-    void gatherOutputNfo(siliceParser::OutputContext* input, t_output_nfo& _io);
+    void gatherOutputNfo(siliceParser::OutputContext* input, t_output_nfo& _io, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather info about an inout
     void gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io);
+    /// \brief gather infos about an io definition (group/interface)
+    void gatherIoDef(siliceParser::IoDefContext *iod, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather infos about an io group
-    void gatherIoGroup(siliceParser::IoGroupContext* iog);
+    void gatherIoGroup(siliceParser::IoDefContext * iog, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather infos about an io interface
-    void gatherIoInterface(siliceParser::IoInterfaceContext *itrf);
+    void gatherIoInterface(siliceParser::IoDefContext *itrf);
     /// \brief gather inputs and outputs
-    void gatherIOs(siliceParser::InOutListContext* inout);
+    void gatherIOs(siliceParser::InOutListContext* inout, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a block
     t_combinational_block *gatherBlock(siliceParser::BlockContext *block, t_combinational_block *_current, t_gather_context *_context);
     /// \brief extract the ordered list of parameters for calling an algorithm or subroutine (call and return)

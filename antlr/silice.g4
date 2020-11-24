@@ -77,6 +77,10 @@ SAMEAS              : 'sameas' ;
 
 WIDTHOF             : 'widthof' ;
 
+INPUT               : 'input' ;
+
+OUTPUT              : 'output' ;
+
 UNINITIALIZED       : 'uninitialized' | 'uninitialised' ;
 
 PAD                 : 'pad' ;
@@ -145,13 +149,13 @@ memClocks           : (clk0=sclock ',' clk1=sclock) ;
 memModifier         : memClocks | memNoInputLatch | memDelayed ;
 memModifiers        : '<' memModifier (',' memModifier)* ','? '>' ;
 
-declarationWire      : TYPE alwaysAssigned;
-declarationVar       : TYPE IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS? ;
-declarationTable     : TYPE IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
+type                 : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')') ;
+declarationWire      : type alwaysAssigned;
+declarationVar       : type IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS? ;
+declarationTable     : type IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ? ;
-declarationSameAs    : SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')' name=IDENTIFIER ;
-declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire | declarationSameAs;
+declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire;
 
 modalgBinding        : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
 modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
@@ -171,13 +175,13 @@ varList             : var (',' var)* ','? | ;
 
 group               : GROUP IDENTIFIER '{' varList '}' ;
 
-ioGroup             : groupid=IDENTIFIER groupname=IDENTIFIER '{' ioList '}' ;
-
 /* -- interfaces -- */
 
 intrface            : INTERFACE IDENTIFIER '{' ioList '}' ;
 
-ioInterface         : interfaceid=IDENTIFIER groupname=IDENTIFIER;
+/* -- io definition (from group or interface) -- */
+
+ioDef               : (INPUT | (OUTPUT combinational='!'?))? defid=IDENTIFIER groupname=IDENTIFIER ('{' ioList '}')? ;
 
 /* -- bitfields -- */
 
@@ -337,11 +341,11 @@ pipeline            : block ('->' block) +;
 
 inout               : 'inout' TYPE IDENTIFIER 
                     | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
-input               : 'input' nolatch='!'? TYPE IDENTIFIER
-                    | 'input' nolatch='!'? TYPE IDENTIFIER '[' NUMBER ']';
+input               : 'input' nolatch='!'? type IDENTIFIER
+                    | 'input' nolatch='!'? type IDENTIFIER '[' NUMBER ']';
 output              : 'output' combinational='!'? declarationVar
                     | 'output' combinational='!'? declarationTable ; 
-inOrOut             :  input | output | inout | ioGroup | ioInterface;
+inOrOut             :  input | output | inout | ioDef;
 inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 
 /* -- Declarations, subroutines, instruction lists -- */
