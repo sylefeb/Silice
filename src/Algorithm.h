@@ -936,6 +936,8 @@ private:
     std::string varBitWidth(const t_var_nfo &v) const;
     /// \brief returns a variable init value for verilog use (non-tables only)
     std::string varInitValue(const t_var_nfo &v) const;
+    /// \brief returns a variable signedness for verilog use
+    std::string varSignedness(const t_var_nfo &v) const;
     /// \brief returns a type dependent string for resource declaration
     std::string typeString(const t_var_nfo& v) const;
     std::string typeString(e_Type type) const;

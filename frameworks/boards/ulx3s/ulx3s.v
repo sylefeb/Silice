@@ -46,13 +46,13 @@ module top(
 `endif  
 `ifdef GPIO
   // gpio
-  inout [27:0] gp,
-  inout [27:0] gn,
+  output [27:0] gp,
+  input  [27:0] gn,
 `endif  
 `ifdef VGA
   // vga
   output [27:0] gp,
-  output [27:0] gn,
+  input  [27:0] gn,
 `endif  
 `ifdef HDMI
   // hdmi
@@ -63,6 +63,9 @@ module top(
   // uart
   output  ftdi_rxd,
   input   ftdi_txd,
+`endif
+`ifdef UART2
+  // uart2
 `endif
   input  clk_25mhz
   );
@@ -88,10 +91,11 @@ wire        __main_out_sdram_ras;
 wire [1:0]  __main_out_sdram_ba;
 wire [12:0] __main_out_sdram_a;
 `endif
-  
-`ifdef GPIO
-wire [2:0]  __main_out_gp;
-wire [2:0]  __main_out_gn;
+
+`ifdef UART2
+`ifndef GPIO
+`error_UART2_needs_GPIO
+`endif
 `endif
 
 `ifdef UART
@@ -179,8 +183,15 @@ M_main __main(
   .out_oled_csn (__main_oled_csn),
 `endif 
 `ifdef GPIO
-  .inout_gp     (__main_out_gp),
-  .inout_gn     (__main_out_gn),
+`ifdef UART2
+  .out_gp       (gp[27:1]),
+  .in_gn        (gn[27:1]),
+  .out_uart2_tx (gp[0]),
+  .in_uart2_rx  (gn[0]),
+`else
+  .out_gp       (gp),
+  .in_gn        (gn),
+`endif  
 `endif  
 `ifdef UART
   .out_uart_tx  (__main_out_uart_tx),
@@ -212,11 +223,6 @@ assign sdram_casn    = __main_out_sdram_cas;
 assign sdram_rasn    = __main_out_sdram_ras;
 assign sdram_ba      = __main_out_sdram_ba;
 assign sdram_a       = __main_out_sdram_a;
-`endif
-
-`ifdef GPIO
-assign gp[0+:3]      = __main_out_gp;
-assign gn[0+:3]      = __main_out_gn;
 `endif
 
 `ifdef AUDIO

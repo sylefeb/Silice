@@ -6,20 +6,22 @@ $include('../common/uart.ice')
 
 algorithm main(
   output uint$NUM_LEDS$ leds,
-  output uint1 uart_tx,
-  input  uint1 uart_rx
+  output uint1  uart2_tx,
+  input  uint1  uart2_rx,
+  output uint27 gp,
+  input  uint27 gn,
 ) {
 
   uart_out uo;
   uart_sender usend(
     io      <:> uo,
-    uart_tx :>  uart_tx
+    uart_tx :>  uart2_tx
   );
 
   uart_in ui;
   uart_receiver urecv(
     io      <:> ui,
-    uart_rx <:  uart_rx
+    uart_rx <:  uart2_rx
   );
 
   uo.data_in_ready := 0; // maintain low

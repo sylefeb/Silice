@@ -5439,6 +5439,33 @@ std::string Algorithm::varInitValue(const t_var_nfo &v) const
 
 // -------------------------------------------------
 
+std::string Algorithm::varSignedness(const t_var_nfo &v) const
+{
+  if (v.type_nfo.base_type == Parameterized) {
+    bool ok = false;
+    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
+    sl_assert(ok);
+    string str;
+    if (base.type_nfo.base_type == Parameterized) {
+      str = base.name;
+      std::transform(str.begin(), str.end(), str.begin(),
+        [](unsigned char c) -> unsigned char { return std::toupper(c); });
+      str = str + "_SIGNED";
+    } else {
+      if (base.type_nfo.base_type == Int) {
+        str = "1";
+      } else {
+        str = "0";
+      }
+    }
+    return str;
+  } else {
+    return (v.type_nfo.base_type == Int) ? "1" : "0";
+  }
+}
+
+// -------------------------------------------------
+
 std::string Algorithm::typeString(const t_var_nfo& v) const
 {
   sl_assert(v.type_nfo.base_type != Parameterized);
@@ -6659,7 +6686,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
       std::transform(str.begin(), str.end(), str.begin(),
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
       out << "parameter " << str << "_WIDTH=1,";
-      // out << "parameter " << str << "_SIGNED=1,";
+      out << "parameter " << str << "_SIGNED=0,";
       out << "parameter " << str << "_INIT=0";
       if (i + 1 < m_Parameterized.size()) {
         out << ',';
@@ -6907,8 +6934,9 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
           out << '.' << var << "_INIT";
           out << '(' << varInitValue(bnfo) << ')';
         }
-        //out << '.' << var << "_SIGNED";
-        //out << "(\"" << typeString(bnfo) << "\")";
+        out << ',' << endl;
+        out << '.' << var << "_SIGNED";
+        out << "(" << varSignedness(bnfo) << ")";
         if (i + 1 < nfo.algo->m_Parameterized.size()) {
           out << ',';
         }
