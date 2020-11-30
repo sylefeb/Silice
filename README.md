@@ -15,6 +15,8 @@ You do not need an FPGA to start with Silice: designs and their outputs (e.g. VG
 
 While I developed Silice for my own needs, I hope you'll find it useful for your projects!
 
+[Watch the introduction video on programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube).
+
 #### A first example:
 
 ##### Code:
@@ -103,7 +105,7 @@ The main features are:
 - Powerful LUA-based pre-processor.
 
 These two examples are very different and representative of this approach:
-- The [WolfPGA](https://github.com/sylefeb/Silice/blob/master/projects/vga_wolfpga/vga_wolfpga.ice) is a raycaster essentially based on a sequential flow (but where each step is a relatively large combinational block).
+- The [WolfPGA](https://github.com/sylefeb/Silice/blob/master/projects/wolfpga/wolfpga.ice) is a raycaster essentially based on a sequential flow (but where each step is a relatively large combinational block).
 - The [ice-v](https://github.com/sylefeb/Silice/blob/master/projects/ice-v/ice-v.ice) is a RiscV RV32I processor that relies mostly on non-sequential constructs.
 
 ## Getting started with Silice
