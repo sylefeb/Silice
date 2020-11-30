@@ -1399,6 +1399,30 @@ std::string Algorithm::translateVIOName(
 
 // -------------------------------------------------
 
+std::string Algorithm::encapsulateIdentifier(std::string var, bool read_access, std::string rewritten) const
+{
+  if (!read_access) {
+    return rewritten;
+  }
+  bool found = false;
+  t_var_nfo v = getVIODefinition(var,found);
+  sl_assert(found);
+  if (v.type_nfo.base_type == Parameterized) {
+    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, found);
+    sl_assert(found);
+    string str;
+    str = base.name;
+    std::transform(str.begin(), str.end(), str.begin(),
+      [](unsigned char c) -> unsigned char { return std::toupper(c); });
+    str = str + "_SIGNED";
+    return "((" + str + "==1)?$signed(" + rewritten + "):$signed({1'b0,"+ rewritten +"}))";
+  } else {
+    return rewritten;
+  }
+}
+
+// -------------------------------------------------
+
 std::string Algorithm::rewriteIdentifier(
   std::string prefix, std::string var,
   const t_combinational_block_context *bctx,
@@ -1425,7 +1449,7 @@ std::string Algorithm::rewriteIdentifier(
     var = translateVIOName(var, bctx);
     // keep going
     if (isInput(var)) {
-      return ALG_INPUT + prefix + var;
+      return encapsulateIdentifier(var, read_access, ALG_INPUT + prefix + var);
     } else if (isInOut(var)) {
       reportError(nullptr, (int)line, "cannot use inouts directly in expressions");
       //return ALG_INOUT + prefix + var;
@@ -1433,13 +1457,13 @@ std::string Algorithm::rewriteIdentifier(
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_Temporary) {
         // temporary
-        return FF_TMP + prefix + var;
+        return encapsulateIdentifier(var, read_access, FF_TMP + prefix + var);
       } else if (usage == e_FlipFlop) {
         // flip-flop
         if (ff == FF_Q) {
           if (dependencies.dependencies.count(var) > 0) {
             updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
-            return FF_D + prefix + var;
+            return encapsulateIdentifier(var, read_access, FF_D + prefix + var);
           } else {
             updateFFUsage((e_FFUsage)((int)e_Q | ff_Force), read_access, _ff_usage.ff_usage[var]);
           }
@@ -1447,10 +1471,10 @@ std::string Algorithm::rewriteIdentifier(
           sl_assert(ff == FF_D);
           updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
         }
-        return ff + prefix + var;
+        return encapsulateIdentifier(var, read_access, ff + prefix + var);
       } else if (usage == e_Bound) {
         // bound
-        return m_VIOBoundToModAlgOutputs.at(var);
+        return encapsulateIdentifier(var, read_access, m_VIOBoundToModAlgOutputs.at(var));
       } else {
         reportError(nullptr, (int)line, "internal error [%s, %d]", __FILE__, __LINE__);
       }
@@ -1463,25 +1487,25 @@ std::string Algorithm::rewriteIdentifier(
         // bound to an output?
         auto Bo = m_VIOBoundToModAlgOutputs.find(var);
         if (Bo != m_VIOBoundToModAlgOutputs.end()) {
-          return Bo->second;
+          return encapsulateIdentifier(var, read_access, Bo->second);
         }
         reportError(nullptr, (int)line, "internal error [%s, %d]", __FILE__, __LINE__);
       } else {
         if (m_Vars.at(V->second).usage == e_Temporary) {
           // temporary
-          return FF_TMP + prefix + var;
+          return encapsulateIdentifier(var, read_access, FF_TMP + prefix + var);
         } else if (m_Vars.at(V->second).usage == e_Const) {
           // const
-          return FF_CST + prefix + var;
+          return encapsulateIdentifier(var, read_access, FF_CST + prefix + var);
         } else if (m_Vars.at(V->second).usage == e_Wire) {
           // wire
-          return WIRE + prefix + var;
+          return encapsulateIdentifier(var, read_access, WIRE + prefix + var);
         } else {
           // flip-flop
           if (ff == FF_Q) {
             if (dependencies.dependencies.count(var) > 0) {
               updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
-              return FF_D + prefix + var;
+              return encapsulateIdentifier(var, read_access, FF_D + prefix + var);
             } else {
               updateFFUsage((e_FFUsage)((int)e_Q | ff_Force), read_access, _ff_usage.ff_usage[var]);
             }
@@ -1489,7 +1513,7 @@ std::string Algorithm::rewriteIdentifier(
             sl_assert(ff == FF_D);
             updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
           }
-          return ff + prefix + var;
+          return encapsulateIdentifier(var, read_access, ff + prefix + var);
         }
       }
     }
@@ -6920,10 +6944,10 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
             var.c_str(),bound.c_str(), nfo.instance_name.c_str());
         }
         // for now, signed cannot be taken into account
-        if (bnfo.type_nfo.base_type == Int) {
-          reportError(nullptr, nfo.instance_line, "signed binding sources are not supported, generic '%s' bound to (signed) '%s', instance '%s')",
-            var.c_str(), bound.c_str(), nfo.instance_name.c_str());
-        }
+        //if (bnfo.type_nfo.base_type == Int) {
+        //  reportError(nullptr, nfo.instance_line, "signed binding sources are not supported, generic '%s' bound to (signed) '%s', instance '%s')",
+        //    var.c_str(), bound.c_str(), nfo.instance_name.c_str());
+        //}
         // write
         std::transform(var.begin(), var.end(), var.begin(),
           [](unsigned char c) -> unsigned char { return std::toupper(c); });

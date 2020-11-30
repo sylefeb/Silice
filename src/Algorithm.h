@@ -705,6 +705,8 @@ private:
     std::string tricklingVIOName(std::string vio, const t_pipeline_stage_nfo *nfo) const;
     /// \brief translate a variable name using subroutine/pipeline info
     std::string translateVIOName(std::string vio, const t_combinational_block_context *bctx) const;
+    /// \brief Ecanpsulates the identifier in whatever is required after rewrite
+    std::string encapsulateIdentifier(std::string var, bool read_access, std::string rewritten) const;
     /// \brief returns the rewritten indentifier, taking into account bindings, inputs/outputs, custom clocks and resets
     std::string rewriteIdentifier(
       std::string prefix, std::string var,
