@@ -1401,6 +1401,8 @@ std::string Algorithm::translateVIOName(
 
 std::string Algorithm::encapsulateIdentifier(std::string var, bool read_access, std::string rewritten) const
 {
+  return rewritten;
+  /*
   if (!read_access) {
     return rewritten;
   }
@@ -1419,6 +1421,7 @@ std::string Algorithm::encapsulateIdentifier(std::string var, bool read_access, 
   } else {
     return rewritten;
   }
+  */
 }
 
 // -------------------------------------------------
