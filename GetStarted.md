@@ -13,6 +13,8 @@ cd Silice
 
 Done! This compiled and installed the Silice executable in silice/bin/
 
+**Note:** Be sure to use the latest [yosys](https://github.com/YosysHQ/yosys), [nextpnr](https://github.com/YosysHQ/nextpnr) and [trellis](https://github.com/YosysHQ/prjtrellis) / [ice40](http://www.clifford.at/icestorm/). It is highly recommanded to build them from source; for instance on Ubuntu the available packages are outdated and will not work properly. Please follow the instruction on the README of each project.
+
 **Note:** The script will attempt to install the following dependencies using apt ; you may have to adapt package names and package manager to your Linux distribution, and/or edit the script to remove any dependency you do not wish to install: 
 ```
 default-jre default-jdk iverilog verilator fpga-icestorm arachne-pnr 
