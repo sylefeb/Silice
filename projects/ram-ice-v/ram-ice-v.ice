@@ -112,15 +112,16 @@ interface rv32i_ram_provider {
 // The Risc-V RV32I CPU
 
 algorithm rv32i_cpu(
+  input uint1    enable,
   rv32i_ram_user ram
-) <onehot> {
+) <autorun> {
   
   //                 |--------- indicates we don't want the bram inputs to be latched
   //                 v          writes have to be setup during the same clock cycle
   bram int32 xregsA<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   bram int32 xregsB<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   
-  uint1  skip        = 0;
+  uint1  load_next_instr = uninitialized;
   
   uint1  cmp         = uninitialized;
   
@@ -148,8 +149,6 @@ $$end
 $$end
 $$end
 
-  uint3 funct3    := Btype(instr).funct3;
-  
   int32  alu_out     = uninitialized;
   intops alu(
     pc        <: pc,
@@ -185,7 +184,9 @@ $$end
     regOrImm    :> regOrImm
   );
  
- intcmp cmps(
+  uint3 funct3   ::= Btype(instr).funct3;
+  
+  intcmp cmps(
     a      <: xregsA.rdata,
     b      <: xregsB.rdata,
     select <: funct3,
@@ -197,38 +198,43 @@ $$if SIMULATION then
   uint16 iter = 0;
 $$end
 
+  uint1  out_valid_pulsed = uninitialized;
+
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid   := 0; 
-  // maintain alu enable low (pulses high when needed)
-  alu_enable     := 0;
   // maintain read registers (no latched, see bram parameter)
   xregsA.wenable := 0;
   xregsB.wenable := 0;
   xregsA.addr    := Rtype(instr).rs1;
   xregsB.addr    := Rtype(instr).rs2;  
+
+  always {
+    out_valid_pulsed = out_valid_pulsed | ram.out_valid;
+  } 
   
   // boot at 0x00
-  ram.addr        = 0;
-  ram.rw          = 0;
+  load_next_instr =  1;
+  ram.addr        =  0;
+  ram.rw          =  0;
+  pc              = -1;
   
-$$if SIMULATION then
-  while (iter < 1024) {
-    iter = iter + 1;
-$$else
   while (1) {
-$$end
-
-// __display("pc %d",mem_addr);
+  
+    // __display("CPU ram @%h load_next_instr %b load_store %b store %b",ram.addr,load_next_instr,load_store,store);
 
     // wait for memory
-    while ( ( (load_store && store) || load_next_instr )
-      ?  ram.busy
-      : !ram.out_valid
-    ) { }
+    while ( !enable || 
+      ( ( (load_store && store) || load_next_instr )
+        ?  ram.busy
+        : !out_valid_pulsed )
+    ) { /*__display("wait (@%h) %b busy:%b out:%b load_next_instr:%b",ram.addr,enable,ram.busy,ram.out_valid,load_next_instr);*/ }
+    
+    out_valid_pulsed = 0;
     
     // ram is not busy, or data is available
     
-    if (load_next_instr) {
+    if (load_next_instr == 1) {
+      // __display("[load_next_instr]");
     
       // load next instruction
       load_next_instr = 0;
@@ -238,7 +244,8 @@ $$end
       // null instruction (sets all decode low, so load_store == 0)
       instr           = 0;
     
-    } else if (load_store) {
+    } else { if (load_store) {
+      // __display("[load_store]");
     
       if (~store) { // load
       
@@ -266,7 +273,7 @@ $$end
           }
           default: { tmp = 0; }
         }            
-//__display("LOAD addr: %h (%b) op: %b read: %h / %h", mem_addr, alu_out, loadStoreOp, mem_rdata, tmp);
+        // __display("LOAD addr: %h (%b) op: %b read: %h / %h", ram.addr, alu_out, loadStoreOp, ram.data_out, tmp);
         
         // commit result
         xregsA.wenable = 1;
@@ -287,7 +294,8 @@ $$end
       load_next_instr = 1;
       
     } else {
-    
+      // __display("[exec] instr = %h",ram.data_out);
+
       // instruction available
     
       // ready
@@ -298,6 +306,7 @@ $$end
       xregsB.addr = Rtype(instr).rs2;  
 
     ++: // decode and ALU
+    ++: // decode and ALU
     
       // ram may again be busy
     
@@ -305,7 +314,7 @@ $$end
       
         // prepare load/store
         ram.rw       = store;
-        raw.addr     = alu_out>>2;      
+        ram.addr     = alu_out>>2;      
         // store? set data
         if (store) { 
           switch (loadStoreOp) {
@@ -325,9 +334,11 @@ $$end
             }
             case 3b010: { // SW
               ram.data_in = xregsB.rdata; ram.wmask = 4b1111;
-            }            
+            }
+            default: { ram.data_in = 0; }
           }          
         }
+        // __display("STORE addr: %h (%b) op: %b to_store: %h", ram.addr, alu_out, loadStoreOp, ram.data_in);
         
       } else {
 
@@ -348,7 +359,7 @@ $$end
         load_next_instr = 1;
 
       }
-    }
+    } }
 
 $$if SIMULATION then  
 $$if SHOW_REGS then  
