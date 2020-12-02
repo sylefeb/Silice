@@ -3108,6 +3108,11 @@ Algorithm::t_combinational_block *Algorithm::gather(
     for (auto d : algbody->declaration()) {
       gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, false);
     }
+    // add global subroutines now (reparse them as if defined in this algorithm)
+    for (const auto &s : m_KnownSubroutines) {
+      gatherSubroutine(s.second, _current, _context);
+    }
+    // gather local subroutines
     for (auto s : algbody->subroutine()) {
       gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), _current, _context);
     }
@@ -3122,10 +3127,6 @@ Algorithm::t_combinational_block *Algorithm::gather(
           (int)algbody->alwaysBlock()->getStart()->getLine(),
           "always block can only be combinational");
       }
-    }
-    // add global subroutines now (reparse them as if defined in this algorithm)
-    for (const auto& s : m_KnownSubroutines) {
-      gatherSubroutine(s.second, _current, _context);
     }
     // recurse on instruction list
     _current = gather(algbody->instructionList(), _current, _context);
