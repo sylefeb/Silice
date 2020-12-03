@@ -5358,7 +5358,7 @@ void Algorithm::writeWireAssignements(
       _dependencies = no_dependencies;
     }
   }
-  out << endl;
+  out << nxl;
 }
 
 // -------------------------------------------------
@@ -5367,11 +5367,11 @@ void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, cons
 {
   if (!v.do_not_initialize) {
     if (v.table_size == 0) {
-      out << FF_Q << prefix << v.name << " <= " << varInitValue(v) << ';' << endl;
+      out << FF_Q << prefix << v.name << " <= " << varInitValue(v) << ';' << nxl;
     } else {
       sl_assert(v.type_nfo.base_type != Parameterized);
       ForIndex(i,v.init_values.size()) {
-        out << FF_Q << prefix << v.name << "[" << i << "] <= " << v.init_values[i] << ';' << endl;
+        out << FF_Q << prefix << v.name << "[" << i << "] <= " << v.init_values[i] << ';' << nxl;
       }
     }
   }
@@ -5382,10 +5382,10 @@ void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, cons
 void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const
 {
   if (v.table_size == 0) {
-    out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << endl;
+    out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << nxl;
   } else {
     ForIndex(i, v.table_size) {
-      out << FF_Q << prefix << v.name << "[" << i << "] <= " << FF_D << prefix << v.name << "[" << i << "];" << endl;
+      out << FF_Q << prefix << v.name << "[" << i << "] <= " << FF_D << prefix << v.name << "[" << i << "];" << nxl;
     }
   }
 }
@@ -5505,9 +5505,9 @@ std::string Algorithm::typeString(const t_var_nfo& v) const
 void Algorithm::writeVerilogDeclaration(std::ostream &out, std::string base, const t_var_nfo &v, std::string postfix) const
 {
   if (v.type_nfo.base_type == Parameterized) {
-    out << base << " " << typeString(UInt) << " " << varBitRange(v) << " " << postfix << ';' << endl;
+    out << base << " " << typeString(UInt) << " " << varBitRange(v) << " " << postfix << ';' << nxl;
   } else {
-    out << base << " " << typeString(v) << " " << varBitRange(v) << " " << postfix << ';' << endl;
+    out << base << " " << typeString(v) << " " << varBitRange(v) << " " << postfix << ';' << nxl;
   }
 }
 
@@ -5898,11 +5898,11 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
   q.push(0); // starts at 0
   // states
   if (!m_OneHot) {
-    out << "(* full_case *)" << endl;
+    out << "(* full_case *)" << nxl;
     out << "case (" << FF_Q << prefix << ALG_IDX << ")" << nxl;
   } else {
-    out << "(* parallel_case, full_case *)" << endl;
-    out << "case (1'b1)" << endl;
+    out << "(* parallel_case, full_case *)" << nxl;
+    out << "case (1'b1)" << nxl;
   }
   // track per-ff state usage
   std::unordered_map<std::string, std::pair<int, int> >  ff_usage_counts;
@@ -5921,18 +5921,18 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
     }
     // begin state
     if (!m_OneHot) {
-      out << toFSMState(b->state_id) << ": begin" << endl;
+      out << toFSMState(b->state_id) << ": begin" << nxl;
     } else {
-      out << FF_Q << prefix << ALG_IDX << '[' << b->state_id << "]: begin" << endl;
+      out << FF_Q << prefix << ALG_IDX << '[' << b->state_id << "]: begin" << nxl;
     }
     // if state contains sub-state
     if (b->num_sub_states > 1) {
       // by default stay in this state
-      out << FF_D << prefix << ALG_IDX << " = " << b->state_id << ';' << endl;
+      out << FF_D << prefix << ALG_IDX << " = " << b->state_id << ';' << nxl;
       // produce a local one-hot FSM for the sequence
-      // out << "(* parallel_case, full_case *)" << endl;
-      // out << "case (1'b1)" << endl;
-      out << "case (" << FF_Q << prefix << b->block_name << '_' << ALG_IDX << ")" << endl;
+      // out << "(* parallel_case, full_case *)" << nxl;
+      // out << "case (1'b1)" << nxl;
+      out << "case (" << FF_Q << prefix << b->block_name << '_' << ALG_IDX << ")" << nxl;
       const t_combinational_block *cur = b;
       int sanity = 0;
       while (cur) {
@@ -5940,7 +5940,7 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
         // -> case value
         //out << FF_Q << prefix << b->block_name << '_' << ALG_IDX << '[' << cur->sub_state_id << ']'
         out << cur->sub_state_id
-            << ": begin" << endl;
+            << ": begin" << nxl;
         // -> track dependencies, starting with those of always block
         t_vio_dependencies depds = always_dependencies;
         // -> write block instructions
@@ -5959,9 +5959,9 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
           }*/
           out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << cur->sub_state_id + 1;
         }
-        out << ';' << endl;
+        out << ';' << nxl;
         // -> close state
-        out << "end" << endl;
+        out << "end" << nxl;
         // -> track states ff usage
         for (auto ff : ff_usages.back().ff_usage) {
           ff_usage_counts[ff.first].first += ((ff.second & e_Q) ? 1 : 0);
@@ -5982,8 +5982,8 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
       }
       sl_assert(sanity == b->num_sub_states);
       // closing sub-state local FSM      
-      out << "default: begin end" << endl; // -> should never be reached
-      out << "endcase" << endl;
+      out << "default: begin end" << nxl; // -> should never be reached
+      out << "endcase" << nxl;
     } else {
       // track dependencies, starting with those of always block
       t_vio_dependencies depds = always_dependencies;
@@ -5997,7 +5997,7 @@ void Algorithm::writeCombinationalStates(std::string prefix, std::ostream &out, 
       }
     }
     // close state
-    out << "end" << endl;
+    out << "end" << nxl;
   }
   // report on per-ff state use
   if (0) {
@@ -6504,11 +6504,11 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, s
   _replacements["DATA_SIZE"] = std::to_string(bram.table_size - 1);
   ostringstream initial;
   if (!bram.do_not_initialize) {
-    initial << "initial begin" << endl;
+    initial << "initial begin" << nxl;
     ForIndex(v, bram.init_values.size()) {
-      initial << " buffer[" << v << "] = " << bram.init_values[v] << ';' << endl;
+      initial << " buffer[" << v << "] = " << bram.init_values[v] << ';' << nxl;
     }
-    initial << "end" << endl;
+    initial << "end" << nxl;
   }
   _replacements["INITIAL"] = initial.str();
   _replacements["CLOCK"]   = ALG_CLOCK;
@@ -6527,7 +6527,7 @@ void Algorithm::writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) 
     replacements);
   // write to output
   out << tmplt.code();
-  out << endl;
+  out << nxl;
 }
 
 // -------------------------------------------------
@@ -6543,7 +6543,7 @@ void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& bram) 
     replacements);
   // write to output
   out << tmplt.code();
-  out << endl;
+  out << nxl;
 }
 
 // -------------------------------------------------
@@ -6559,7 +6559,7 @@ void Algorithm::writeModuleMemoryDualPortBRAM(std::ostream& out, const t_mem_nfo
     replacements);
   // write to output
   out << tmplt.code();
-  out << endl;
+  out << nxl;
 }
 
 // -------------------------------------------------
@@ -6697,7 +6697,7 @@ bool Algorithm::getVIONfo(std::string vio, t_var_nfo& _nfo) const
 
 void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
 {
-  out << endl;
+  out << nxl;
 
   // write memory modules
   for (const auto& mem : m_Memories) {
@@ -6707,7 +6707,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   // module header
   out << "module M_" << m_Name << ' ';
   if (!m_Parameterized.empty()) {
-    out << "#(" << endl;
+    out << "#(" << nxl;
     // parameters for parameterized variables
     ForIndex(i,m_Parameterized.size()) {
       string str = m_Parameterized[i];
@@ -6719,56 +6719,56 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
       if (i + 1 < m_Parameterized.size()) {
         out << ',';
       }
-      out << endl;
+      out << nxl;
     }
     out << ") ";
   }
   // list ports names
-  out << '(' << endl;
+  out << '(' << nxl;
   for (const auto &v : m_Inputs) {
-    out << string(ALG_INPUT) << '_' << v.name << ',' << endl;
+    out << string(ALG_INPUT) << '_' << v.name << ',' << nxl;
   }
   for (const auto &v : m_Outputs) {
-    out << string(ALG_OUTPUT) << '_' << v.name << ',' << endl;
+    out << string(ALG_OUTPUT) << '_' << v.name << ',' << nxl;
   }
   for (const auto &v : m_InOuts) {
-    out << string(ALG_INOUT) << '_' << v.name << ',' << endl;
+    out << string(ALG_INOUT) << '_' << v.name << ',' << nxl;
   }
   if (!hasNoFSM()) {
-    out << ALG_INPUT << "_" << ALG_RUN << ',' << endl;
-    out << ALG_OUTPUT << "_" << ALG_DONE << ',' << endl;
+    out << ALG_INPUT << "_" << ALG_RUN << ',' << nxl;
+    out << ALG_OUTPUT << "_" << ALG_DONE << ',' << nxl;
   }
   if (!requiresNoReset()) {
-    out << ALG_RESET "," << endl;
+    out << ALG_RESET "," << nxl;
   }
-  out << "out_" << ALG_CLOCK "," << endl;
-  out << ALG_CLOCK << endl;
-  out << ");" << endl;
+  out << "out_" << ALG_CLOCK "," << nxl;
+  out << ALG_CLOCK << nxl;
+  out << ");" << nxl;
   // declare ports
   for (const auto& v : m_Inputs) {
     sl_assert(v.table_size == 0);
     writeVerilogDeclaration(out, "input", v, string(ALG_INPUT) + "_" + v.name );
-    // out << "input " << typeString(v) << " " << varBitRange(v) << " " << ALG_INPUT << '_' << v.name << ';' << endl;
+    // out << "input " << typeString(v) << " " << varBitRange(v) << " " << ALG_INPUT << '_' << v.name << ';' << nxl;
   }
   for (const auto& v : m_Outputs) {
     sl_assert(v.table_size == 0);
     writeVerilogDeclaration(out, "output", v, string(ALG_OUTPUT) + "_" + v.name);
-    // out << "output " << typeString(v) << " " << varBitRange(v) << " " << ALG_OUTPUT << '_' << v.name << ';' << endl;
+    // out << "output " << typeString(v) << " " << varBitRange(v) << " " << ALG_OUTPUT << '_' << v.name << ';' << nxl;
   }
   for (const auto& v : m_InOuts) {
     sl_assert(v.table_size == 0);
     writeVerilogDeclaration(out, "inout", v, string(ALG_INOUT) + "_" + v.name);
-    // out << "inout " << typeString(v) << " " << varBitRange(v) << " " << ALG_INOUT << '_' << v.name << ';' << endl;
+    // out << "inout " << typeString(v) << " " << varBitRange(v) << " " << ALG_INOUT << '_' << v.name << ';' << nxl;
   }
   if (!hasNoFSM()) {
-    out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << endl;
-    out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ';' << endl;
+    out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
+    out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ';' << nxl;
   }
   if (!requiresNoReset()) {
-    out << "input " ALG_RESET ";" << endl;
+    out << "input " ALG_RESET ";" << nxl;
   }
-  out << "output out_" ALG_CLOCK << ";" << endl;
-  out << "input " ALG_CLOCK << ";" << endl;
+  out << "output out_" ALG_CLOCK << ";" << nxl;
+  out << "input " ALG_CLOCK << ";" << nxl;
 
   // assign algorithm clock to output clock
   {
@@ -6790,7 +6790,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         } else {
           out << "wire[" << O.first << ':' << O.second << "] " << wire_prefix + "_" + b.left;
         }
-        out << ';' << endl;
+        out << ';' << nxl;
       }
     }
   }
@@ -6818,15 +6818,15 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
             os.name.c_str(), bound.c_str(), nfo.instance_name.c_str());
         }
         writeVerilogDeclaration(out, "wire", bnfo, std::string(WIRE) + nfo.instance_prefix + '_' + os.name);
-        // out << "wire " << typeString(bnfo) << " " << varBitRange(bnfo) << " " << WIRE << nfo.instance_prefix << '_' << os.name << ';' << endl;
+        // out << "wire " << typeString(bnfo) << " " << varBitRange(bnfo) << " " << WIRE << nfo.instance_prefix << '_' << os.name << ';' << nxl;
       } else {
         writeVerilogDeclaration(out, "wire", os, std::string(WIRE) + nfo.instance_prefix + '_' + os.name);
-        // out << "wire " << typeString(os) << " " << varBitRange(os) << " " << WIRE << nfo.instance_prefix << '_' << os.name << ';' << endl;
+        // out << "wire " << typeString(os) << " " << varBitRange(os) << " " << WIRE << nfo.instance_prefix << '_' << os.name << ';' << nxl;
       }
     }
     if (!nfo.algo->hasNoFSM()) {
       // algorithm done
-      out << "wire " << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ';' << endl;
+      out << "wire " << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ';' << nxl;
     }
   }
   // Memory instantiations (1/2)
@@ -6835,7 +6835,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     for (const auto& ouv : mem.out_vars) {
       const auto& os = m_Vars[m_VarNames.at(ouv)];
       writeVerilogDeclaration(out, "wire", os, std::string(WIRE) + "_mem_" + os.name);
-      // out << "wire " << typeString(os) << " " << varBitRange(os) << " " << WIRE << "_mem_" << os.name << ';' << endl;
+      // out << "wire " << typeString(os) << " " << varBitRange(os) << " " << WIRE << "_mem_" << os.name << ';' << nxl;
     }
   }
 
@@ -6857,16 +6857,16 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     if (v.usage == e_FlipFlop) {
       out << "assign " << ALG_OUTPUT << "_" << v.name << " = ";
       out << (v.combinational ? FF_D : FF_Q);
-      out << "_" << v.name << ';' << endl;
+      out << "_" << v.name << ';' << nxl;
       if (v.combinational) {
         updateFFUsage(e_D, true, _ff_usage.ff_usage[v.name]);
       } else {
         updateFFUsage(e_Q, true, _ff_usage.ff_usage[v.name]);
       }
     } else if (v.usage == e_Temporary) {
-        out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << FF_TMP << "_" << v.name << ';' << endl;
+        out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << FF_TMP << "_" << v.name << ';' << nxl;
     } else if (v.usage == e_Bound) {
-        out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << endl;
+        out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << nxl;
     } else {
       throw Fatal("internal error");
     }
@@ -6874,24 +6874,24 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
 
   // algorithm done
   if (!hasNoFSM()) {
-    out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << toFSMState(terminationState()) << ");" << endl;
+    out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << toFSMState(terminationState()) << ");" << nxl;
   }
 
   // flip-flops update
   writeFlipFlops("_", out);
 
-  out << endl;
+  out << nxl;
 
   // module instantiations (2/2)
   // -> module instances
   for (auto& nfo : m_InstancedModules) {
     std::string  wire_prefix = WIRE + nfo.second.instance_prefix;
     // write module instantiation
-    out << endl;
-    out << nfo.second.module_name << ' ' << nfo.second.instance_prefix << " (" << endl;
+    out << nxl;
+    out << nfo.second.module_name << ' ' << nfo.second.instance_prefix << " (" << nxl;
     bool first = true;
     for (auto b : nfo.second.bindings) {
-      if (!first) out << ',' << endl;
+      if (!first) out << ',' << nxl;
       first = false;
       if (b.dir == e_Left || b.dir == e_LeftQ) {
         // input
@@ -6920,7 +6920,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         }
       }
     }
-    out << endl << ");" << endl;
+    out << nxl << ");" << nxl;
   }
 
   // algorithm instantiations (2/2) 
@@ -6930,7 +6930,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     out << "M_" << nfo.algo_name << ' ';
     // parameters
     if (!nfo.algo->m_Parameterized.empty()) {
-      out << "#(" << endl;
+      out << "#(" << nxl;
       // parameters for parameterized variables
       ForIndex(i, nfo.algo->m_Parameterized.size()) {
         string var = nfo.algo->m_Parameterized[i];
@@ -6958,24 +6958,24 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         out << '.' << var << "_WIDTH";
         out << '(' << varBitWidth(bnfo) << ')';
         if (!bnfo.do_not_initialize) {
-          out << ',' << endl;
+          out << ',' << nxl;
           out << '.' << var << "_INIT";
           out << '(' << varInitValue(bnfo) << ')';
         }
-        out << ',' << endl;
+        out << ',' << nxl;
         out << '.' << var << "_SIGNED";
         out << "(" << varSignedness(bnfo) << ")";
         if (i + 1 < nfo.algo->m_Parameterized.size()) {
           out << ',';
         }
-        out << endl;
+        out << nxl;
       }
       out << ") ";
     }
     // instance name
     out << nfo.instance_name << ' ';
     // ports
-    out << '(' << endl;
+    out << '(' << nxl;
     // inputs
     for (const auto &is : nfo.algo->m_Inputs) {
       out << '.' << ALG_INPUT << '_' << is.name << '(';
@@ -6991,14 +6991,14 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         // add to usage
         updateFFUsage(is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/, true, _ff_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
       }
-      out << ')' << ',' << endl;
+      out << ')' << ',' << nxl;
     }
     // outputs (wire)
     for (const auto& os : nfo.algo->m_Outputs) {
       out << '.'
         << ALG_OUTPUT << '_' << os.name
         << '(' << WIRE << nfo.instance_prefix << '_' << os.name << ')';
-      out << ',' << endl;
+      out << ',' << nxl;
     }
     // inouts (host algorithm inout or wire)
     for (const auto& os : nfo.algo->m_InOuts) {
@@ -7010,7 +7010,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         } else {
           out << '.' << ALG_INOUT << '_' << os.name << '(' << WIRE << "_" << vio->second << ")";
         }
-        out << ',' << endl;
+        out << ',' << nxl;
       } else {
         reportError(nullptr, nfo.instance_line, "cannot find algorithm inout binding '%s'", os.name.c_str());
       }
@@ -7019,85 +7019,85 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
       // done
       out << '.' << ALG_OUTPUT << '_' << ALG_DONE
         << '(' << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ')';
-      out << ',' << endl;
+      out << ',' << nxl;
       // run
       out << '.' << ALG_INPUT << '_' << ALG_RUN
         << '(' << nfo.instance_prefix << '_' << ALG_RUN << ')';
-      out << ',' << endl;
+      out << ',' << nxl;
     }
     // reset
     if (!nfo.algo->requiresNoReset()) {
       t_vio_dependencies _;
-      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, nullptr, nfo.instance_line, FF_Q, true, _, _ff_usage) << ")," << endl;
+      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, nullptr, nfo.instance_line, FF_Q, true, _, _ff_usage) << ")," << nxl;
     }
     // clock
     {
       t_vio_dependencies _;
-      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, nullptr, nfo.instance_line, FF_Q, true, _, _ff_usage) << ")" << endl;
+      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, nullptr, nfo.instance_line, FF_Q, true, _, _ff_usage) << ")" << nxl;
     }
     // end of instantiation      
-    out << ");" << endl;
+    out << ");" << nxl;
   }
-  out << endl;
+  out << nxl;
 
   // Memory instantiations (2/2)
   for (const auto& mem : m_Memories) {
     // module
-    out << "M_" << m_Name << "_mem_" << mem.name << " __mem__" << mem.name << '(' << endl;
+    out << "M_" << m_Name << "_mem_" << mem.name << " __mem__" << mem.name << '(' << nxl;
     // clocks
     if (mem.clocks.empty()) {
       if (mem.mem_type == DUALBRAM) {
         t_vio_dependencies _1,_2;
-        out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _1, _ff_usage) << ")," << endl;
-        out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _2, _ff_usage) << ")," << endl;
+        out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _1, _ff_usage) << ")," << nxl;
+        out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _2, _ff_usage) << ")," << nxl;
       } else {
         t_vio_dependencies _;
-        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _, _ff_usage) << ")," << endl;
+        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _, _ff_usage) << ")," << nxl;
       }
     } else {
       sl_assert(mem.mem_type == DUALBRAM && mem.clocks.size() == 2);
       std::string clk0 = mem.clocks[0];
       std::string clk1 = mem.clocks[1];
       t_vio_dependencies _1, _2;
-      out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", clk0, nullptr, mem.line, FF_D, true, _1, _ff_usage) << ")," << endl;
-      out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", clk1, nullptr, mem.line, FF_D, true, _2, _ff_usage) << ")," << endl;
+      out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", clk0, nullptr, mem.line, FF_D, true, _1, _ff_usage) << ")," << nxl;
+      out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", clk1, nullptr, mem.line, FF_D, true, _2, _ff_usage) << ")," << nxl;
     }
     // inputs
     for (const auto& inv : mem.in_vars) {
       t_vio_dependencies _;
       out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, nullptr, mem.line, mem.delayed ? FF_Q : FF_D, true, _, _ff_usage,
       mem.delayed ? e_Q : (mem.no_input_latch ? e_D : e_DQ /*latch inputs*/ )
-      ) << ")," << endl;
+      ) << ")," << nxl;
     }
     // output wires
     int num = (int)mem.out_vars.size();
     for (const auto& ouv : mem.out_vars) {
       out << '.' << ALG_OUTPUT << '_' << ouv << '(' << WIRE << "_mem_" << ouv << ')';
       if (num-- > 1) {
-        out << ',' << endl;
+        out << ',' << nxl;
       } else {
-        out << endl;
+        out << nxl;
       }
     }
     // end of instantiation      
-    out << ");" << endl;
+    out << ");" << nxl;
   }
-  out << endl;
+  out << nxl;
 
   // wire assignments
   t_vio_dependencies always_dependencies;
   writeWireAssignements("_", out, always_dependencies, _ff_usage);
   // combinational
-  out << "always @* begin" << endl;
+  out << "always @* begin" << nxl;
   writeCombinationalAlwaysPre("_", out, always_dependencies, _ff_usage);
   if (!hasNoFSM()) {
     // write all states
     writeCombinationalStates("_", out, always_dependencies, _ff_usage);
   }
-  out << "end" << endl;
+  out << "end" << nxl;
 
-  out << "endmodule" << endl; 
-  out << endl;
+  out << "endmodule" << nxl;
+  out << nxl;
 }
 
 // -------------------------------------------------
@@ -7118,7 +7118,7 @@ void Algorithm::outputFSMGraph(std::string dotFile) const
     std::vector< t_combinational_block * > children;
     b->getChildren(children);
     //for (auto c : children) {      
-    //  cerr << "   CHILD " << c->block_name << " state_id = " << c->state_id << endl;
+    //  cerr << "   CHILD " << c->block_name << " state_id = " << c->state_id << nxl;
     //}
     std::set<t_combinational_block*> leaves;
     findNonCombinationalLeaves(b, leaves);
