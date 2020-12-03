@@ -46,6 +46,7 @@ algorithm sdram_ram_32bits(
             sdr.data_in  = tmp[24,8];
             sdr.in_valid = 1;
           }
+          sdr.addr   = sdr.addr + 1;
           tmp        = tmp       << 8;
           write_seq  = write_seq >> 1;        
         }
