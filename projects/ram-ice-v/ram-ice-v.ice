@@ -214,8 +214,6 @@ $$end
   
   // boot at 0x00
   load_next_instr =  1;
-  ram.addr        =  0;
-  ram.rw          =  0;
   pc              = -1;
   
   while (1) {
@@ -238,7 +236,7 @@ $$end
     
       // load next instruction
       load_next_instr = 0;
-      ram.addr        = ((~load_store) && (jump | cmp)) ? alu_out[2,12]  : next_pc;
+      ram.addr        = {6b1,1b1,1b0,12b0,((~load_store) && (jump | cmp)) ? alu_out[2,12] : next_pc};
       ram.rw          = 0;
       ram.in_valid    = 1;
       // null instruction (sets all decode low, so load_store == 0)
@@ -294,7 +292,7 @@ $$end
       load_next_instr = 1;
       
     } else {
-      // __display("[exec] instr = %h",ram.data_out);
+      __display("[exec] instr = %h",ram.data_out);
 
       // instruction available
     
@@ -589,8 +587,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   // the declared expression (but it is no longer assignable)
   // In other words, this is a wire!
   
-  always { // this part of the algorithm is executed every clock
-  
+  always { // this part of the algorithm is executed every clock  
     switch (select) {
       case 3b000: { // ADD / SUB
         int32 tmp = uninitialized;
@@ -609,10 +606,6 @@ algorithm intops(         // input! tells the compiler that the input does not
       case 3b001: { r = (a <<< b[0,5]); } // SLLI
       case 3b101: { r = select2 ? (a >>> b[0,5]) : (a >> b[0,5]); } // SRLI / SRAI
     }
-      
-$$if SIMULATION then
-//__display("enable %b a = %d b = %d r = %d select=%d select2=%d working=%d shamt=%d",enable,a,b,r,select,select2,working,shamt);
-$$end
   }
   
 }
@@ -637,9 +630,6 @@ algorithm intcmp(
       case 3b111: { j = enable & (__unsigned(a) >= __unsigned(b)); } // BGEU
       default:    { j = 0; }
     }
-$$if SIMULATION then
-//__display("a = %d b = %d j = %d select=%d",a,b,j,select);
-$$end
   }
 }
 

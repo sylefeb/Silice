@@ -51,7 +51,7 @@ $$end
 
   // 'simulate' a ram
 $$if SIMULATION then
-  while (iter < 8000) {
+  while (iter < 4096) {
     iter = iter + 1;
 $$else
   while (1) {
