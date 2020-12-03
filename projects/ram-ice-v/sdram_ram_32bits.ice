@@ -33,27 +33,26 @@ algorithm sdram_ram_32bits(
   while (1) {
   
     if (work_todo) {
-      sdr.addr     = addr;
       sdr.rw       = rw;
       if (rw) {
         uint4  write_seq = 4b1000;       
         uint32 tmp = uninitialized;
-      __display("sdram write");
-        tmp = wdata;
+        tmp      = wdata;
+        sdr.addr = addr + 3;
         while (write_seq != 0) {
           if (wmask & write_seq) {
             while (sdr.busy) {  }
             sdr.data_in  = tmp[24,8];
             sdr.in_valid = 1;
           }
-          sdr.addr   = sdr.addr + 1;
+          sdr.addr   = sdr.addr - 1;
           tmp        = tmp       << 8;
           write_seq  = write_seq >> 1;        
         }
         work_todo = 0;        
       } else {
-      __display("sdram read");
         while (sdr.busy)       {  }
+        sdr.addr     = addr;
         sdr.in_valid = 1;
         while (!sdr.out_valid) {  }
         r32.data_out  = sdr.data_out[0,32];

@@ -6,10 +6,8 @@ void main()
   while (1) {
   
     volatile unsigned char *ptr = FRAMEBUFFER;
-    for (int j = 0 ; j < 200 ; j++) {
-      for (int i = 0 ; i < 320 ; i++) {
+    for (int j = 0 ; j < 64000 ; j++) {
         *(ptr++) = (unsigned char)j;
-      }
     }
   
   }
