@@ -59,7 +59,6 @@ algorithm columns_drawer(
   // reading from column bram
   output uint9  addr,
   input  uint18 rdata, // NOTE, TODO: allow to use bitfield name (DrawColumn)
-  output uint1  wen,
   // how many columns have been written
   input  uint9  num_in_cols,
   // how many collumns have been drawn
@@ -91,7 +90,6 @@ $$for hscr=1,511 do
 $$end
   };
 
-  wen         := 0; // reading from bram
   sd.in_valid := 0; // maintain low (pulses high when needed)  
   sd.rw       := 1; // writing to sdram
 
@@ -199,7 +197,7 @@ algorithm frame_drawer(
 
   // NOTE, TODO: cannot yet declare the bram with the bitfield
   // bram DrawColumn columns[320] = {};
-  dualport_bram uint18 columns<@clock,@sdram_clock>[320] = uninitialized;
+  simple_dualport_bram uint18 columns<@clock,@sdram_clock>[320] = uninitialized;
 
   // ray-cast columns counter  
   uint9 c       = 0;
@@ -211,9 +209,8 @@ algorithm frame_drawer(
     sd      <:> sd,
     vsync   <: vsync_filtered,
     fbuffer <: fbuffer,
-    addr    :> columns.addr1,  // drives port1 of columns
-    wen     :> columns.wenable1,
-    rdata   <: columns.rdata1,
+    addr    :> columns.addr0,  // drives read (port0) of columns
+    rdata   <: columns.rdata0,
     num_in_cols    <: c,
     num_drawn_cols :> c_drawn
   );
@@ -310,7 +307,7 @@ $$end
 
   fbuffer = 0;
   
-  columns.wenable0 = 1; // write on port 0
+  columns.wenable1 = 1; // write on port 0
   
   while (1) {
     
@@ -480,11 +477,11 @@ $$end
       // projection divide      
       (height) <- div <- ($140<<FPf$,dist_f>>1);
     
-      columns.addr0 = c;
-      DrawColumn(columns.wdata0).height   = height;
-      DrawColumn(columns.wdata0).v_or_h   = v_or_h;
-      DrawColumn(columns.wdata0).material = hit-1;
-      DrawColumn(columns.wdata0).texcoord = (v_or_h == 0) ? (hity_f >>> $FPf-6$) : (hitx_f >>> $FPf-6$);
+      columns.addr1 = c;
+      DrawColumn(columns.wdata1).height   = height;
+      DrawColumn(columns.wdata1).v_or_h   = v_or_h;
+      DrawColumn(columns.wdata1).material = hit-1;
+      DrawColumn(columns.wdata1).texcoord = (v_or_h == 0) ? (hity_f >>> $FPf-6$) : (hitx_f >>> $FPf-6$);
       
       // write on loop     
       c = c + 1;

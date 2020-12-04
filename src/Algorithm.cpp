@@ -942,6 +942,14 @@ const std::vector<t_mem_member> c_DualPortBRAMmembers = {
   {true, true, "addr1"},
 };
 
+const std::vector<t_mem_member> c_SimpleDualPortBRAMmembers = {
+  {false,false,"rdata0"},
+  {true, true, "addr0"},
+  {true, false,"wenable1"},
+  {true, false,"wdata1"},
+  {true, true, "addr1"},
+};
+
 // -------------------------------------------------
 
 void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, t_combinational_block *_current, t_gather_context *_context)
@@ -970,9 +978,20 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   } else if (decl->DUALBRAM() != nullptr) {
     mem.mem_type = DUALBRAM;
     memid = "dualport_bram";
+  } else if (decl->SIMPLEDUALBRAM() != nullptr) {
+    mem.mem_type = SIMPLEDUALBRAM;
+    memid = "simple_dualport_bram";
   } else {
     reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration");
   }
+  // check if supported
+  auto C = CONFIG.keyValues().find(memid + "_supported");
+  if (C == CONFIG.keyValues().end()) {
+    reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "memory type '%s' is not supported by this hardware", memid.c_str());
+  } else if (C->second != "yes") {
+    reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "memory type '%s' is not supported by this hardware", memid.c_str());
+  }
+  // gather type and size
   splitType(decl->TYPE()->getText(), mem.type_nfo);
   if (decl->NUMBER() != nullptr) {
     mem.table_size = atoi(decl->NUMBER()->getText().c_str());
@@ -995,6 +1014,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   case BRAM:     members = c_BRAMmembers; break;
   case BROM:     members = c_BROMmembers; break;
   case DUALBRAM: members = c_DualPortBRAMmembers; break;
+  case SIMPLEDUALBRAM: members = c_SimpleDualPortBRAMmembers; break;
   default: reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration"); break;
   }
   // members
@@ -1030,6 +1050,9 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     }
     v.table_size = 0;
     v.init_values.push_back("0");
+    if (m.is_input) {
+      v.access = e_InternalFlipFlop; // for internal flip-flop to circumvent issue #102 (see also Yosys #2473)
+    }
     addVar(v, _current, _context, (int)decl->getStart()->getLine());
     if (m.is_input) {
       mem.in_vars.push_back(v.name);
@@ -4228,7 +4251,7 @@ void Algorithm::determineVariablesAndOutputsAccessForWires(
         // check if this used a new wire?          
         if (all_wires.count(v) > 0 && processed.count(v) == 0) {
           // promote as accessed
-          m_Vars.at(m_VarNames.at(v)).access = e_ReadOnly;
+          m_Vars.at(m_VarNames.at(v)).access = (e_Access)(m_Vars.at(m_VarNames.at(v)).access | e_ReadOnly);
           // recurse
           q_wires.push(v);
         }
@@ -4329,7 +4352,7 @@ void Algorithm::determineVariableAndOutputsUsage()
   std::unordered_set<std::string> global_out_written;
   determineVariablesAndOutputsAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = false;
+  const bool report = true;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
@@ -4349,6 +4372,15 @@ void Algorithm::determineVariableAndOutputsUsage()
       } else {
         v.usage = e_FlipFlop;  // e_NotUsed;
       }
+    } else if ((v.access == (e_WriteBinded | e_ReadOnly)) || (v.access == (e_WriteBinded | e_ReadOnly | e_InternalFlipFlop))) {
+      if (report) std::cerr << v.name << " => write-binded ";
+      v.usage = e_Bound;
+    } else if (v.access == (e_WriteBinded) || (v.access == (e_WriteBinded | e_InternalFlipFlop))) {
+      if (report) std::cerr << v.name << " => write-binded but not used ";
+      v.usage = e_Bound;
+    } else if (v.access & e_InternalFlipFlop) {
+      if (report) std::cerr << v.name << " => internal flip-flop ";
+      v.usage = e_FlipFlop;
     } else if (v.access == e_ReadWrite) {
       if ( v.table_size == 0  // tables are not allowed to become temporary registers
         && global_in_read.find(v.name) == global_in_read.end()) {
@@ -4358,22 +4390,13 @@ void Algorithm::determineVariableAndOutputsUsage()
         if (report) std::cerr << v.name << " => flip-flop ";
         v.usage = e_FlipFlop;
       }
-    } else if (v.access == (e_WriteBinded | e_ReadOnly)) {
-      if (report) std::cerr << v.name << " => write-binded ";
-      v.usage = e_Bound;
-    } else if (v.access == (e_WriteBinded)) {
-      if (report) std::cerr << v.name << " => write-binded but not used ";
-      v.usage = e_Bound;
     } else if (v.access == e_NotAccessed) {
       if (report) std::cerr << v.name << " => unused ";
       v.usage = e_NotUsed;
     } else if (v.access == e_ReadWriteBinded) {
       if (report) std::cerr << v.name << " => bound to inout ";
       v.usage = e_Bound;
-    } else if ((v.access & e_InternalFlipFlop) == e_InternalFlipFlop) {
-      if (report) std::cerr << v.name << " => internal flip-flop ";
-      v.usage = e_FlipFlop;
-    } else {
+    } else  {
       throw Fatal("interal error -- variable '%s' has an unknown usage pattern", v.name.c_str());
     }
     if (report) std::cerr << nxl;
@@ -6461,6 +6484,7 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, s
   case BRAM:     members = c_BRAMmembers; memid = "bram";  break;
   case BROM:     members = c_BROMmembers; memid = "brom"; break;
   case DUALBRAM: members = c_DualPortBRAMmembers; memid = "dualport_bram"; break;
+  case SIMPLEDUALBRAM: members = c_SimpleDualPortBRAMmembers; memid = "simple_dualport_bram";  break;
   default: reportError(nullptr, -1, "internal error, memory type"); break;
   }
   _replacements["MODULE"] = m_Name;
@@ -6564,12 +6588,29 @@ void Algorithm::writeModuleMemoryDualPortBRAM(std::ostream& out, const t_mem_nfo
 
 // -------------------------------------------------
 
+void Algorithm::writeModuleMemorySimpleDualPortBRAM(std::ostream &out, const t_mem_nfo &bram) const
+{
+  // prepare replacement vars
+  std::unordered_map<std::string, std::string> replacements;
+  prepareModuleMemoryTemplateReplacements(bram, replacements);
+  // load template
+  VerilogTemplate tmplt;
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["simple_dualport_bram_template"],
+    replacements);
+  // write to output
+  out << tmplt.code();
+  out << nxl;
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeModuleMemory(std::ostream& out, const t_mem_nfo& mem) const
 {
   switch (mem.mem_type)     {
   case BRAM:     writeModuleMemoryBRAM(out, mem); break;
   case BROM:     writeModuleMemoryBROM(out, mem); break;
   case DUALBRAM: writeModuleMemoryDualPortBRAM(out, mem); break;
+  case SIMPLEDUALBRAM: writeModuleMemorySimpleDualPortBRAM(out, mem); break;
   default: throw Fatal("internal error (unkown memory type)"); break;
   }
 }
@@ -7046,7 +7087,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     out << "M_" << m_Name << "_mem_" << mem.name << " __mem__" << mem.name << '(' << nxl;
     // clocks
     if (mem.clocks.empty()) {
-      if (mem.mem_type == DUALBRAM) {
+      if (mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) {
         t_vio_dependencies _1,_2;
         out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _1, _ff_usage) << ")," << nxl;
         out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _2, _ff_usage) << ")," << nxl;
@@ -7055,7 +7096,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", m_Clock, nullptr, mem.line, FF_Q, true, _, _ff_usage) << ")," << nxl;
       }
     } else {
-      sl_assert(mem.mem_type == DUALBRAM && mem.clocks.size() == 2);
+      sl_assert((mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) && mem.clocks.size() == 2);
       std::string clk0 = mem.clocks[0];
       std::string clk1 = mem.clocks[1];
       t_vio_dependencies _1, _2;

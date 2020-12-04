@@ -65,6 +65,8 @@ BRAM                : 'bram' ;
 
 DUALBRAM            : 'dualport_bram';
 
+SIMPLEDUALBRAM      : 'simple_dualport_bram';
+
 BROM                : 'brom' ;
 
 GROUP               : 'group' ;
@@ -153,7 +155,7 @@ type                 : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER
 declarationWire      : type alwaysAssigned;
 declarationVar       : type IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS? ;
 declarationTable     : type IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
-declarationMemory    : (BRAM | BROM | DUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
+declarationMemory    : (BRAM | BROM | DUALBRAM | SIMPLEDUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ? ;
 declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire;
 

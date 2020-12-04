@@ -107,7 +107,7 @@ namespace Silice
   private:
 
     /// \brief memory types
-    enum e_MemType { BRAM, DUALBRAM, BROM };
+    enum e_MemType { BRAM, SIMPLEDUALBRAM, DUALBRAM, BROM };
 
     /// \brief algorithm name
     std::string m_Name;
@@ -1029,6 +1029,8 @@ private:
     void writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) const;
     /// \brief writes a dualport BRAM memory module
     void writeModuleMemoryDualPortBRAM(std::ostream& out, const t_mem_nfo& bram) const;
+    /// \brief writes a simple dualport BRAM memory module
+    void writeModuleMemorySimpleDualPortBRAM(std::ostream &out, const t_mem_nfo &bram) const;
     /// \brief writes a BROM memory module
     void writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& brom) const;
     /// \brief writes the algorithm as a Verilog module

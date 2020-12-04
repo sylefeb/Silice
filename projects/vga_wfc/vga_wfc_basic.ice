@@ -278,7 +278,7 @@ $$write_image_in_table(PROBLEM .. 'tile_' .. string.format('%02d',i-1) .. '.tga'
 $$end
   };
 
-  dualport_bram uint$L$ result[$N*N$] = uninitialized;
+  simple_dualport_bram uint$L$ result[$N*N$] = uninitialized;
 
   uint16         iter     = 0;
 $$if not SIMULATION then
@@ -297,7 +297,6 @@ $$if not SIMULATION then
   reg_btns ::= btns;
 $$end
 
-  result.wenable0 = 0;
   result.wenable1 = 1;
 
   result.addr0 = 0;
@@ -326,6 +325,7 @@ $$end
           } else { if ((pix_x&15) == 14) {
             // select next tile
             switch (result.rdata0) {
+              default: {  }
 $$for i=1,L do
               case $L$d$1<<(i-1)$: { tile = $i-1$; }
 $$end
