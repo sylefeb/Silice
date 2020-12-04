@@ -5420,7 +5420,9 @@ std::string Algorithm::varBitRange(const t_var_nfo& v) const
   if (v.type_nfo.base_type == Parameterized) {
     bool ok = false;
     t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as,ok);
-    sl_assert(ok);
+    if (!ok) {
+      reportError(nullptr, -1, "cannot find definition of '%s' ('%s')", v.type_nfo.same_as.empty() ? v.name.c_str() : v.type_nfo.same_as.c_str(), v.name.c_str());
+    }
     string str;
     if (base.type_nfo.base_type == Parameterized) {
       str = base.name;
@@ -5443,7 +5445,9 @@ std::string Algorithm::varBitWidth(const t_var_nfo &v) const
   if (v.type_nfo.base_type == Parameterized) {
     bool ok = false;
     t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
-    sl_assert(ok);
+    if (!ok) {
+      reportError(nullptr, -1, "cannot find definition of '%s' ('%s')", v.type_nfo.same_as.empty() ? v.name.c_str() : v.type_nfo.same_as.c_str(), v.name.c_str());
+    }
     string str;
     if (base.type_nfo.base_type == Parameterized) {
       str = base.name;
