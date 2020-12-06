@@ -109,7 +109,7 @@ $$    end
 $$end
   };
     
-  dualport_bram uint8 col_buffer[$doomchip_height*2$] = uninitialized;
+  simple_dualport_bram uint8 col_buffer[$doomchip_height*2$] = uninitialized;
   uint10 drawer_offset = 0; // offset of column being drawn
   uint10 xfer_offset   = $doomchip_height$; // offset of column being transfered
   uint10 xfer_count    = $doomchip_height$; // transfer count
@@ -118,8 +118,7 @@ $$end
   uint10 draw_col      = 0;
   uint1  done          = 0;
   
-  col_buffer.wenable0 := 1; // write on port0
-  col_buffer.wenable1 := 0; // read  on port1
+  col_buffer.wenable1 := 1; // write on port1, read on port0
   // column that can be drawn
   colio.draw_col      := draw_col;
   // maintain low, pulses high
@@ -129,8 +128,8 @@ $$end
   always {
     if (colio.write) {
       // write in bram
-      col_buffer.addr0  = drawer_offset + colio.y;
-      col_buffer.wdata0 = colio.palidx;
+      col_buffer.addr1  = drawer_offset + colio.y;
+      col_buffer.wdata1 = colio.palidx;
     }
     if (colio.done && (last_drawn != draw_col)) {
       last_drawn = draw_col;
@@ -152,12 +151,12 @@ $$end
     if (xfer_count < $doomchip_height$) {
       // write
       while (displio.ready == 0) { }
-      displio.color      = palette[col_buffer.rdata1];
+      displio.color      = palette[col_buffer.rdata0];
       displio.next_pixel = 1;
       // next      
       xfer_count      = xfer_count + 1;
       if (xfer_count < $doomchip_height$) {
-        col_buffer.addr1 = xfer_offset + xfer_count;
+        col_buffer.addr0 = xfer_offset + xfer_count;
       } else {
         // done
         // __display("xfer %d done (count %d)",xfer_col,xfer_count);
@@ -165,7 +164,7 @@ $$end
         draw_col         = (draw_col == $doomchip_width$) ? 0 : draw_col+1; 
         xfer_offset      = (xfer_offset   == 0) ? $doomchip_height$ : 0;
         drawer_offset    = (drawer_offset == 0) ? $doomchip_height$ : 0;
-        col_buffer.addr1 = xfer_offset; // position for restart        
+        col_buffer.addr0 = xfer_offset; // position for restart        
         if (draw_col == $doomchip_width$) {
           // frame done
           draw_col = 0;

@@ -35,7 +35,7 @@ algorithm sdcard(
   // read io
   sdcardio_ctrl  io,
   // storage
-  bram_port1    store
+  simple_dualbram_port1 store
 ) <autorun> {
   
   // assert(sizeof(io.addr_sector) == 32);
@@ -100,7 +100,7 @@ algorithm sdcard(
   uint1  do_read_sector = 0;
   uint32 do_addr_sector = 0;
   
-  store.wenable1 := 1; // only writes
+  store.wenable1 := 1; // writes
   
   always {
     
