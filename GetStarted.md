@@ -11,7 +11,7 @@ The instructions depend on your target platform, please follow the links below!
 
 # Testing
 
-Once everthing is installed, let's run a couple tests:
+Once everything is installed, let's run a couple tests:
 
 ## Hardware division 
 
@@ -34,7 +34,7 @@ The window is gtkwave, which is opened on the result of the simulation using ica
 <img width="800" src="docs/figures/gtkwave1.jpg">
 </p>
 
-For fun, you might want to select `> top` in the left panel, then double click on `clock` in the list theat appears in the bottom part of the panel. Finally click on the left-most magnifier icon. This reveals the clock signal! This is extremely useful to explore the signals in your design and verifiy that it works as intended.
+For fun, you might want to select `> top` in the left panel, then double click on `clk` in the list that appears in the bottom part of the panel. Finally click on the left-most magnifier icon. This reveals the clock signal! This is extremely useful to explore the signals in your design and verify that it works as intended.
 
 ## VGA
 
