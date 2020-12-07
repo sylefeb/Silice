@@ -31,7 +31,7 @@ Yes! The hardware division is working.
 The window is gtkwave, which is opened on the result of the simulation using icarus Verilog.
 
 <p align="center">
-<img width="600" src="docs/figures/gtkwave1.jpg">
+<img width="800" src="docs/figures/gtkwave1.jpg">
 </p>
 
 For fun, you might want to select `> top` in the left panel, then double click on `clock` in the list theat appears in the bottom part of the panel. Finally click on the left-most magnifier icon. This reveals the clock signal! This is extremely useful to explore the signals in your design and verifiy that it works as intended.
@@ -52,7 +52,7 @@ This executes the simulation, which outputs image files (tga format) in the subd
 Look at them in sequence :-)
 
 <p align="center">
-<img width="600" src="docs/figures/vga_demo_frame.png">
+<img width="400" src="docs/figures/vga_demo_frame.png">
 </p>
 
 *Note*: there is an embarassing known issue in my Verilator simulation code which may result in a segfault on simulation startup. So if this happens, you've just hit the bug. Working on it, but it is a non trivial issue unfortunately.
