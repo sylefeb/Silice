@@ -2,12 +2,13 @@
 
 ## Compiling Silice
 
-Silice runs smoothly under Windows using [MSYS2 / MinGW64](https://www.msys2.org/).
+Silice runs smoothly under Windows using [MSYS2 / MinGW64](https://www.msys2.org/). MSYS2 is great to
+use Linux-style tools under Windows, and installs a self-contained environment easy to later uninstall.
 
 Please download and install MSYS2 (msys2-x86_64) from https://www.msys2.org/
 Be sure to follow the instructions on the download page to update your MSYS2 install to latest.
-From there, to use Silice open a MinGW64 prompt, launching `c:\msys64\mingw64.exe` (assuming MSYS2 installed
-in default location). Be sure to use MinGW**64**, *not* 32.
+From there, to use Silice open a MinGW64 prompt, launching `c:\msys64\mingw64.exe` (assuming MSYS2 is 
+installed in its default location). Be sure to use MinGW**64**, *not* 32.
 
 The first step is to compile Silice from source. 
 

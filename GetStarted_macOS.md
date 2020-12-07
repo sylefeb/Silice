@@ -37,7 +37,7 @@ Yosys, icestorm, trellis, nextpnr, verilator are not difficult to compile and in
 - [Project trellis](https://github.com/YosysHQ/prjtrellis)
 - [Project icestorm](https://github.com/YosysHQ/icestorm)
 - [NextPNR](https://github.com/YosysHQ/nextpnr)
-- [verilator](https://github.com/verilator/verilator)
+- [Verilator](https://github.com/verilator/verilator)
 
 Note that trellis and icestorm have to be compiled and installed before nextpnr (please refer to the NextPNR setup instructions). 
 

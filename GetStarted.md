@@ -26,7 +26,7 @@ You should the following Window open and this as the last line in the console:
 ```
 20043 /     41 =    488
 ```
-Yes! The hardware division is working.
+Yes! The integer hardware division is working.
 
 The window is gtkwave, which is opened on the result of the simulation using icarus Verilog.
 
