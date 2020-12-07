@@ -60,5 +60,4 @@ To run simulations with Verilator (**highly recommended**), including SDRAM and 
 
 ## Testing
 
-Time to [run a few tests](projects/GetStarted.md#testing).
-
+Time to [run a few tests](GetStarted.md#testing).

@@ -62,4 +62,4 @@ Open a command line into the silice folder and type
 
 ## Testing
 
-Time to [run a few tests](projects/GetStarted.md#testing).
+Time to [run a few tests](GetStarted.md#testing).

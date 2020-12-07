@@ -45,4 +45,4 @@ Now we will compile the silice framework for verilator
 
 ## Testing
 
-Time to [run a few tests](projects/GetStarted.md#testing).
+Time to [run a few tests](GetStarted.md#testing).
