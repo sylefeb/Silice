@@ -32,7 +32,9 @@ While I developed Silice for my own needs, I hope you'll find it useful for your
 
 ##### Compile:
 ```
-silice first_example.ice -f frameworks/mojo_led.v -o Mojo-Project/src/mojo_top.v
+cd projects
+cd blinky
+make mojov3
 ```
 
 ##### Enjoy!

@@ -1,110 +1,43 @@
 # Getting started with Silice
 
-Here are the instructions to setup Silice. Once done, head out to [writing your first design](FirstDesign.md) or try our [example projects](projects/README.md).
+Here are the instructions to setup Silice from scratch. Once done, head out to [writing your first design](FirstDesign.md) or try our [example projects](projects/README.md).
 
-## Linux
+We will first compile Silice and then compile or install the Open Source tools we will be using to synthesize a working design from a Silice code. We will also install the tools to directly program the boards.
 
-Should be as simple as:
+The instructions depend on your target platform, please follow the links below!
+- [Getting started under Linux](GetStarted_Linux.md).
+- [Getting started under Windows](GetStarted_Windows.md).
+- [Getting started under macOS](GetStarted_macOS.md).
+
+# Testing
+
+Once everthing is installed, let's run a couple tests:
+
+## Hardware division 
+
+From a shell starting from the silice folder:
 ```
-git clone --recurse-submodules https://github.com/sylefeb/Silice.git
-cd Silice
-./compile_silice_linux.sh
-```
-
-Done! This compiled and installed the Silice executable in silice/bin/
-
-**Note:** The script will attempt to install the following dependencies using apt ; you may have to adapt package names and package manager to your Linux distribution, and/or edit the script to remove any dependency you do not wish to install: 
-```
-default-jre default-jdk iverilog verilator fpga-icestorm arachne-pnr 
-yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
-```
-
-(the Java jre/jdk is only used during compilation)
-
-**Note:** It is highly recommended for all tools to be available from the PATH (yosys, nextpnr, dfu-utils, fujprog, etc.). This is required by the default build system.
-
-## macOS (WIP)
-
-Install the packages listed in the Linux section above (except gcc,
-g++, other builtin packages). You might need to clone and build
-`icestorm`, `prjtrellis`, `yosys`, and `verilator` from source to get
-up-to-date versions; the versions in Homebrew may be a bit old.
-
-Then:
-
-```
-git clone --recurse-submodules https://github.com/sylefeb/Silice.git
-cd Silice
-
-mkdir BUILD
-cd BUILD
-mkdir build-silice
-cd build-silice
-
-cmake -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles" ../..
-make -j16 install
+cd projects
+cd divstd_bare
+make icarus
 ```
 
-## Windows
-
-Silice runs smoothly under Windows using [MSYS2 / MinGW64](https://www.msys2.org/).
-
-Please download and install MSYS2 (msys2-x86_64) from https://www.msys2.org/
-Be sure to follow the instructions on the download page to update your MSYS2 install to latest.
-From there, to use Silice open a MinGW64 prompt, launching `c:\msys64\mingw64.exe` (assuming MSYS2 installed
-in default location). Be sure to use MinGW**64**, *not* 32.
-
-The first step is to compile Silice from source. 
-
-- Install the compiler tools from the MinGW64 shell: `pacman -S gcc make cmake`
-
-- Open a MinGW64 prompt, enter the Silice directory and type: `./compile_silice_mingw64.sh`
-
-### Toolchain
-
-Using Silice with your FPGA requires many other tools. I have prepared a binary package for MinGW64 with the full OpenSource toolchain pre-compiled, 
-so you can easily get started! 
-
-- Download fpga-binutils from https://github.com/sylefeb/fpga-binutils/releases
-
-- Uncompress the archive *Silice/tools/fpga-binutils/*
-
-- After this step you should see this new directory: *Silice/tools/fpga-binutils/mingw64/* (with subdirectories: bin, ...)
-
-## Verilator framework
-
-To run simulations with Verilator (**highly recommended**), including SDRAM and VGA output simulations, we have to compile the Silice Verilator framework.
-
-### Windows
-
-- Start a MinGW64 shell from (assuming default path) c:\msys64\mingw64.exe (64 bits)
-
-- Install the compiler tools from the MinGW64 shell: `pacman -S gcc make cmake perl zlib zlib-devel`
-
-Now we will compile the silice framework for verilator
-
-- Go into the silice folder and type `./compile_verilator_framework_mingw64.sh`
-
-(installs new files in Silice/frameworks/verilator/)
-
-- We are ready to test!
-
-### Linux and macOS
-
-- Open a command line into the silice folder and type
+You should the following Window open and this as the last line in the console:
 ```
-./compile_verilator_framework_linux.sh
+20043 /     41 =    488
 ```
-or
-```
-./compile_verilator_framework_macos.sh
-```
+Yes! The hardware division is working.
 
-(installs new files in Silice/frameworks/verilator/)
+The window is gtkwave, which is opened on the result of the simulation using icarus Verilog.
 
-- We are ready to test!
+![gtkwave after simulation with icarus](docs/figures/gtkwave1.jpg)
 
-### Testing
+For fun, you might want to select `> top` in the left panel, then double click on `clock` in the list theat appears in the bottom part of the panel. Finally click on the left-most magnifier icon. This reveals the clock signal! This is extremely useful to explore the signals in your design and verifiy that it works as intended.
+
+## VGA
+
+Now we are going to test simulation with Verilator. This compiles the design into an executable
+that can simulate much faster than icarus.
 
 From a shell starting from the silice folder:
 ```
@@ -113,5 +46,9 @@ cd vga_demo
 make verilator
 ```
 
-This executes the simulation, which outputs 32 image files (tga format) in the subdirectory *BUILD_verilator*.
+This executes the simulation, which outputs image files (tga format) in the subdirectory *BUILD_verilator*.
 Look at them in sequence :-)
+
+![one frame of vga_demo](docs/figures/vga_demo_frame.png)
+
+*Note* there is an embarassing known issue in my Verilator simulation code which may result in a segfault on simulation startup. So if this happens, you've just hit the bug. Working on it, but it is a non trivial issue unfortunately.
