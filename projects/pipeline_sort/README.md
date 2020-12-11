@@ -37,6 +37,8 @@ You will see a list of sorted entries, such as:
 [         15] = 228
 ```
 
+## Walkthrough the code
+
 Now, let's have a look at [main.ice](https://github.com/sylefeb/Silice/blob/wip/projects/pipeline_sort/main.ice).
 
 The algorithm is built around a main while loop:
@@ -54,11 +56,22 @@ $$N=16
 Using `$$` at the start of a line indicates that the entire line is preprocessor code, while using `$...$` within a line of 
 code inserts the preprocessor result within the current code line. So for instance `$2*N$` becomes `32` when N=16.
 
+This loop inserts (streams) the values from the `in_values` into the pipeline. For each iteration
+below $N$, a value is read from `in_value` and placed in front of the pipeline top stage. For iterations
+above $N$ we insert the MAX value, which in our case is 255, so that they no longer influence the result.
 
-## Principle
+```c
+to_insert_0 = i < $N$ ? in_values[i] : 255;
+```
 
-This is an example of a pipelined sort algorithm.
+The last $N$ iterations are only here to flush the pipeline, ensuring the last inserted value
+can fully propagate ; with this simple algorithm this requires $N$ cycles.
 
-It runs in O(n) (2.n cycles for n entries).
+
+
+## Example run
+
+The following figure illustrates a run for N=3. It takes 6 cycles to gaurantee the sort is fully
+terminated. 
 
 ![pipeline sort](pipeline_sort.jpg)
