@@ -1,8 +1,8 @@
-# Sorting in linear time
+# Pipelined sort (linear time)
 
-A sort has to be n.log(n), right? Well, not if you have a pipelined architecture!
+A sort has to be n.log(n), right? Well, not if you can design a pipelined architecture!
 
-**Note:** This is a toy example demonstrating Silice pipelines, as well as pre-processor for code generation.
+**Note:** This is a toy example demonstrating Silice pipelines, as well as Silice pre-processor for code generation.
 
 ## What this does
 
@@ -64,10 +64,35 @@ above $N$ we insert the MAX value, which in our case is 255, so that they no lon
 to_insert_0 = i < $N$ ? in_values[i] : 255;
 ```
 
-The last $N$ iterations are only here to flush the pipeline, ensuring the last inserted value
-can fully propagate ; with this simple algorithm this requires $N$ cycles.
+The last N iterations are only here to flush the pipeline, ensuring the last inserted value
+can fully propagate ; with this simple algorithm this requires N cycles.
 
+Now, let's have a look at a single pipeline stage. 
 
+```c
+  if (to_insert_$n$ < sorted_$n$) {  // if the value to insert is smaller, we insert here
+    to_insert_$n+1$ = sorted_$n$;    // the current value is evicted and becomes the next one to insert
+    sorted_$n$      = to_insert_$n$; // the current value is replace with the new one to insert here
+  } else {
+    to_insert_$n+1$ = to_insert_$n$; // otherwise, the value has to be inserted further
+  }
+```
+
+Each stage `$n$` uses two variables: `to_insert_$n$` and `sorted_$n$`.
+The variables `sorted_$n$` actually are the result array. At the end `sorted_0` contains the smallest value and
+`sorted_$N-1$` the largest. The role of each pipeline stage is to compare the current value of `sorted_$n$`
+with the incoming value of `to_insert_$n$`. If `to_insert_$n$` is smaller, then the value of `sorted_$n$` is evicted,
+replaced by `to_insert_$n$`, and the evicted value becomes the one to insert at stage n+1: it is stored
+in `to_insert_$n+1$`.
+
+From the point of view of a single stage things are fairly simple. Stage $n$ is responsible for the value stored
+at rank $n$ in the sorted array. The stage receives a value to insert. If it is smaller than the current one it inserts
+it and ask further stages to insert the evictede value. If the recived value is larger, it is simply passed further down
+the pipeline. 
+
+The really interesting thing here is that all stages execute in parallel, such that the evicted values trickle down
+the pipeline all together, at each clock cycle. It takes N cycles to flush the pipeline, as if the last inserted
+value is the largest one it has to trickle down all N stages.
 
 ## Example run
 
@@ -75,3 +100,8 @@ The following figure illustrates a run for N=3. It takes 6 cycles to gaurantee t
 terminated. 
 
 ![pipeline sort](pipeline_sort.jpg)
+
+## Further reading
+
+For efficient sorting in parallel refer to [sorting networks](https://en.wikipedia.org/wiki/Sorting_network). 
+Typical parallel algorithms are [odd-even sort](https://en.wikipedia.org/wiki/Odd%E2%80%93even_sort) and [bitonic sort](https://en.wikipedia.org/wiki/Bitonic_sorter). 
