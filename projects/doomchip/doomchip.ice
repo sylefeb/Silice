@@ -448,8 +448,8 @@ $$end
   // texture chip
   texturechip textures;
   
-  uint16   queue[64] = uninitialized;
-  uint9    queue_ptr = 0;
+  uint16   stack[64] = uninitialized;
+  uint9    stack_ptr = 0;
 
   int$FPw$ cosview_m  = 0;
   int$FPw$ sinview_m  = 0;
@@ -640,14 +640,14 @@ $$end
       // draw
 
       // init recursion
-      queue[queue_ptr] = $root$;
-      queue_ptr = 1;
+      stack[stack_ptr] = $root$;
+      stack_ptr = 1;
 
       // let's rock!
-      while (queue_ptr > 0) {
+      while (stack_ptr > 0) {
       
-        queue_ptr = queue_ptr-1;
-        n         = queue[queue_ptr];
+        stack_ptr = stack_ptr-1;
+        n         = stack[stack_ptr];
         bsp_nodes_coords  .addr = n;
         bsp_nodes_children.addr = n;
         bsp_nodes_boxes   .addr = n;
@@ -670,7 +670,7 @@ $$end
 ++: // relax timing
           if (csr > csl) {
             // front
-            queue[queue_ptr  ] = bsp_nodes_children.rdata[ 0,16];
+            stack[stack_ptr  ] = bsp_nodes_children.rdata[ 0,16];
             bbox_x_lw          = bsp_nodes_boxes   .rdata[ 64,16];
             bbox_x_hi          = bsp_nodes_boxes   .rdata[ 80,16];
             bbox_y_lw          = bsp_nodes_boxes   .rdata[ 96,16];
@@ -678,11 +678,11 @@ $$end
             (couldhit)         = bbox_ray(ray_x,ray_y,ray_dx_m,ray_dy_m,
                                           bbox_x_lw,bbox_x_hi,bbox_y_lw,bbox_y_hi);
             if (couldhit) {
-              queue[queue_ptr+1] = bsp_nodes_children.rdata[16,16];
+              stack[stack_ptr+1] = bsp_nodes_children.rdata[16,16];
             }
           } else {
             // back
-            queue[queue_ptr  ] = bsp_nodes_children.rdata[16,16];
+            stack[stack_ptr  ] = bsp_nodes_children.rdata[16,16];
             bbox_x_lw          = bsp_nodes_boxes   .rdata[  0,16];
             bbox_x_hi          = bsp_nodes_boxes   .rdata[ 16,16];
             bbox_y_lw          = bsp_nodes_boxes   .rdata[ 32,16];
@@ -690,10 +690,10 @@ $$end
             (couldhit)         = bbox_ray(ray_x,ray_y,ray_dx_m,ray_dy_m,
                                           bbox_x_lw,bbox_x_hi,bbox_y_lw,bbox_y_hi);
             if (couldhit) {
-              queue[queue_ptr+1] = bsp_nodes_children.rdata[ 0,16];          
+              stack[stack_ptr+1] = bsp_nodes_children.rdata[ 0,16];          
             }
           }
-          queue_ptr = queue_ptr + 1 + couldhit;
+          stack_ptr = stack_ptr + 1 + couldhit;
           
         } else {
           
@@ -1120,8 +1120,8 @@ $$end
                 }
                 
                 if (top <= btm) { // column completed
-                  // flush queue to stop
-                  queue_ptr = 0;
+                  // flush stack to stop
+                  stack_ptr = 0;
                   break;                
                 }
                 
@@ -1333,11 +1333,11 @@ $$end
     onmovable  = 0;    
     onmovable_dist = 0;
     // init recursion
-    queue[queue_ptr] = $root$;
-    queue_ptr  = 1;
-    while (queue_ptr > 0) {    
-      queue_ptr = queue_ptr-1;
-      n         = queue[queue_ptr];
+    stack[stack_ptr] = $root$;
+    stack_ptr  = 1;
+    while (stack_ptr > 0) {    
+      stack_ptr = stack_ptr-1;
+      n         = stack[stack_ptr];
       bsp_nodes_coords  .addr = n;
       bsp_nodes_children.addr = n;
 ++:
@@ -1356,13 +1356,13 @@ $$end
 ++: // relax timing
         if (csr > csl) {
           // front
-          queue[queue_ptr  ] = bsp_nodes_children.rdata[ 0,16];
-          queue[queue_ptr+1] = bsp_nodes_children.rdata[16,16];
+          stack[stack_ptr  ] = bsp_nodes_children.rdata[ 0,16];
+          stack[stack_ptr+1] = bsp_nodes_children.rdata[16,16];
         } else {
-          queue[queue_ptr  ] = bsp_nodes_children.rdata[16,16];
-          queue[queue_ptr+1] = bsp_nodes_children.rdata[ 0,16];          
+          stack[stack_ptr  ] = bsp_nodes_children.rdata[16,16];
+          stack[stack_ptr+1] = bsp_nodes_children.rdata[ 0,16];          
         }
-        queue_ptr = queue_ptr + 2;            
+        stack_ptr = stack_ptr + 2;            
       } else {        
         // sub-sector reached
         bsp_ssecs    .addr = n[0,14];

@@ -324,6 +324,8 @@ void SiliceCompiler::run(
         for (auto aiordr : m_AlgorithmsInDeclOrder) {
           auto a = m_Algorithms.at(aiordr);
           a->writeAsModule(out);
+          // experimental FSM ouptut for analysis
+          // a->outputFSMGraph(fresult + "_" + a->name() + ".dot");
         }
       }
     

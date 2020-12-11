@@ -14,7 +14,8 @@
         {"set"    : "hdmi",   "define" : "HDMI=1"},
         {"set"    : "gpio",   "define" : "GPIO=1"},
         {"set"    : "audio",  "define" : "AUDIO=1"},
-        {"set"    : "uart",   "define" : "UART=1"}
+        {"set"    : "uart",   "define" : "UART=1"},
+        {"set"    : "uart2",  "define" : "UART2=1"}
       ],
       "builders": [
       {
@@ -184,12 +185,12 @@
       {
         "name": "gp",
         "type": "uint28",
-        "io": "output"
+        "io": "inout"
       },
       {
         "name": "gn",
         "type": "uint28",
-        "io": "output"
+        "io": "inout"
       }
     ],
     "uart": [
@@ -200,6 +201,18 @@
       },
       {
         "name": "uart_rx",
+        "type": "uint1",
+        "io"  : "input"
+      }
+    ],
+    "uart2": [
+      {
+        "name": "uart2_tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "uart2_rx",
         "type": "uint1",
         "io"  : "input"
       }

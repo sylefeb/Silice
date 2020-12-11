@@ -6,10 +6,17 @@
 //
 // Expects a 16 bits wide SDRAM interface
 
-// AS4C32M16SB (e.g. ULX3S)
+// AS4C32M16SB (e.g. some ULX3S)
 // 4 banks, 8192 rows, 1024 columns, 16 bits words
 // ============== addr ================================
 //   25 24 | 23 -------- 11 | 10 ----- 1 | 0
+//   bank  |     row        |   column   | byte (H/L)
+// ====================================================
+
+// IS42S16160G (e.g. some ULX3S)
+// 4 banks, 8192 rows,  512 columns, 16 bits words
+// ============== addr ================================
+//   25 24 | 22 -------- 10 |  9 ----- 1 | 0
 //   bank  |     row        |   column   | byte (H/L)
 // ====================================================
 
@@ -28,8 +35,10 @@
 
 $$if not SDRAM_COLUMNS_WIDTH then
 $$ if ULX3S then
-$$   print('setting SDRAM_COLUMNS_WIDTH=10 for ULX3S with AS4C32M16 chip')
-$$   SDRAM_COLUMNS_WIDTH = 10
+$$  -- print('setting SDRAM_COLUMNS_WIDTH=10 for ULX3S with AS4C32M16 chip')
+$$  SDRAM_COLUMNS_WIDTH = 9
+$$  print('setting SDRAM_COLUMNS_WIDTH=9 for ULX3S with AS4C32M16 or IS42S16160G chip')
+$$  print('Note: the AS4C32M16 is only partially used with this setting')
 $$ elseif DE10NANO then
 $$   print('setting SDRAM_COLUMNS_WIDTH=9 for DE10NANO with AS4C16M16 chip')
 $$   SDRAM_COLUMNS_WIDTH =  9

@@ -95,6 +95,8 @@ $$if init_data_bytes then
 
 $$if SDCARD then
 
+$$print('setting up for SDRAM initialization from SDCARD')
+
 algorithm init_data(
   output  uint1 sd_clk,
   output  uint1 sd_mosi,
@@ -411,8 +413,8 @@ $$end
 
   // --- Frame buffer row memory
   // dual clock crosses from sdram to vga
-  dualport_bram uint128 fbr0<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
-  dualport_bram uint128 fbr1<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
+  simple_dualport_bram uint128 fbr0<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
+  simple_dualport_bram uint128 fbr1<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
   
   // --- Display
   uint1 row_busy = 0;
@@ -486,9 +488,9 @@ $$if HARDWARE then
 $$else
   // we count a number of frames and stop
 $$if ICARUS then
-  while (frame < 12) {
+  while (frame < 4) {
 $$else
-  while (frame < 12) {
+  while (frame < 16) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }

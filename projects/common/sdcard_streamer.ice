@@ -22,7 +22,7 @@ algorithm sdcard_streamer(
 ) <autorun> {
 
   // Read buffer
-  dualport_bram uint8 sdbuffer[512] = uninitialized;
+  simple_dualport_bram uint8 sdbuffer[512] = uninitialized;
 
   // SD-card interface
   sdcardio sdcio;
@@ -42,7 +42,6 @@ algorithm sdcard_streamer(
   uint32 ptr     = 0;
   uint1  do_next = 0;
   
-  sdbuffer.wenable0 := 0;
   sdcio.read_sector := 0;
 
   always {

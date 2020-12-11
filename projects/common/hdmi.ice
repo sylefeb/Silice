@@ -104,7 +104,8 @@ algorithm hdmi_ddr_shifter(
   input   uint10 data_r,
   input   uint10 data_g,
   input   uint10 data_b,
-  output  uint8  outbits,
+  output  uint8  p_outbits,
+  output  uint8  n_outbits,
 ) <autorun> {
   uint3  mod5    = 0;
   uint10 shift_r = 0;
@@ -112,12 +113,13 @@ algorithm hdmi_ddr_shifter(
   uint10 shift_b = 0;
   uint2  clkbits = 0;
   always {
-    shift_r = (mod5 == 0) ?  data_r : shift_r[2,8];
-    shift_g = (mod5 == 0) ?  data_g : shift_g[2,8];
-    shift_b = (mod5 == 0) ?  data_b : shift_b[2,8];
-    clkbits = (mod5[0,2] < 2) ? 2b11 : ( (mod5 > 2) ? 2b00 : 2b01 );
-    outbits = { clkbits , shift_b[0,2] , shift_g[0,2] , shift_r[0,2] };
-    mod5    = (mod5 == 4) ? 0 : (mod5 + 1);
+    shift_r   = (mod5 == 0) ?  data_r : shift_r[2,8];
+    shift_g   = (mod5 == 0) ?  data_g : shift_g[2,8];
+    shift_b   = (mod5 == 0) ?  data_b : shift_b[2,8];
+    clkbits   = (mod5[0,2] < 2) ? 2b11 : ( (mod5 > 2) ? 2b00 : 2b01 );
+    p_outbits = { clkbits , shift_b[0,2] , shift_g[0,2] , shift_r[0,2] };
+    n_outbits = {~clkbits ,~shift_b[0,2] ,~shift_g[0,2] ,~shift_r[0,2] };
+    mod5      = (mod5 == 4) ? 0 : (mod5 + 1);
   }
 }
 
@@ -184,15 +186,15 @@ algorithm hdmi(
 
   // shifter
   uint8 crgb_pos = 0;
+  uint8 crgb_neg = 0;
   hdmi_ddr_shifter shift<@half_hdmi_clk>(
     data_r  <: tmds_red,
     data_g  <: tmds_green,
     data_b  <: tmds_blue,
-    outbits :> crgb_pos,
+    p_outbits :> crgb_pos,
+    n_outbits :> crgb_neg,
   );
 
-  uint8 crgb_neg := ~ crgb_pos;
-  
   hdmi_differential_pairs hdmi_out( 
     clock   <: half_hdmi_clk,
     pos     <: crgb_pos, 

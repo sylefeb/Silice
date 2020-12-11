@@ -38,17 +38,28 @@ Config *Config::getUniqueInstance()
 Config::Config()
 {  
   // initialize with defaults
+  m_KeyValues["bram_supported"]               = "yes";
   m_KeyValues["bram_template"]                = "bram_generic.v.in"; 
   m_KeyValues["bram_wenable_type"]            = "uint"; // uint | int | data
   m_KeyValues["bram_wenable_width"]           = "1";    // 1 | data
   
+  m_KeyValues["brom_supported"]               = "yes";
   m_KeyValues["brom_template"]                = "brom_generic.v.in";
   
+  m_KeyValues["dualport_bram_supported"]      = "yes";
   m_KeyValues["dualport_bram_template"]       = "dualport_bram_generic.v.in";
   m_KeyValues["dualport_bram_wenable0_type"]  = "uint"; // uint | int | data
   m_KeyValues["dualport_bram_wenable0_width"] = "1"; // 1 | data
   m_KeyValues["dualport_bram_wenable1_type"]  = "uint"; // uint | int | data
   m_KeyValues["dualport_bram_wenable1_width"] = "1"; // 1 | data
+
+  m_KeyValues["simple_dualport_bram_supported"]      = "yes";
+  m_KeyValues["simple_dualport_bram_template"]       = "simple_dualport_bram_generic.v.in";
+  m_KeyValues["simple_dualport_bram_wenable1_type"]  = "uint"; // uint | int | data
+  m_KeyValues["simple_dualport_bram_wenable1_width"] = "1"; // 1 | data
+
+  // internal options
+  m_KeyValues["output_fsm_graph"]             = "1";
 }
 
 // -------------------------------------------------

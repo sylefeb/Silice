@@ -32,6 +32,8 @@ cd $BUILD_DIR
 rm build*
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
+# exit ################### DEBUG DEBUG DEBUG
+
 yosys -p 'scratchpad -copy abc9.script.flow3 abc9.script; synth_ecp5 -abc9 -json build.json' build.v
 
 nextpnr-ecp5 --85k --package CABGA381 --freq 25 --json build.json --textcfg build.config --lpf $BOARD_DIR/ulx3s.lpf --timing-allow-fail
