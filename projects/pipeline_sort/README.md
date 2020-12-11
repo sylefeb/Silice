@@ -127,7 +127,7 @@ The following figure illustrates a run for N=3. It takes 6 cycles to guarantee t
 
 The figure shows 6 clock cycles from left to right. For each cycle, we see the incoming stream value at the top, the comparisons of each stage (vertically) and the values to insert trickling down the pipeline (orange arrows). The horizontal green arrows show when a value is changed in the sorted array.
 
-For instance, consider the value `20`. Its insertion starts at cycle 2. Stage 0 pushed it down as it is greater than `5`, already inserted there. On cycle 3, `20` evicts `MAX` and replaces it in the result array. However, `1` started its insertion at cycle 3 and evicted `5`. On cycle 4, `5` reaches stage 2 and evicts `20`. On cycle 5, in stage 3, `20` evicts `MAX` and replaces it in the result array.
+For instance, consider the value `20`. Its insertion starts at cycle 2. Stage 0 pushed it down as it is greater than `5`, already inserted there. On cycle 3, `20` evicts `MAX` and replaces it in the result array. However, `1` started its insertion at cycle 3 and evicted `5`. On cycle 4, `5` reaches stage 1 and evicts `20`. On cycle 5, in stage 2, `20` evicts `MAX` and replaces it in the result array.
 
 ![pipeline sort](pipeline_sort.jpg)
 
