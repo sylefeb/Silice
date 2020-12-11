@@ -1,5 +1,5 @@
 
-$$N=32
+$$N=16
 
 algorithm main(output uint8 leds)
 {
@@ -45,8 +45,8 @@ $$for n=0,N-1 do
     {
       // at stage n we compare the value to insert to the current value
       if (to_insert_$n$ < sorted_$n$) {  // if the value to insert is smaller, we insert here
-        to_insert_$n+1$ = sorted_$n$;    // the current value becomes the next one to insert
-        sorted_$n$      = to_insert_$n$; // replace the current value with the new one
+        to_insert_$n+1$ = sorted_$n$;    // the current value is evicted and becomes the next one to insert
+        sorted_$n$      = to_insert_$n$;
       } else {
         to_insert_$n+1$ = to_insert_$n$; // otherwise, the value has to be inserted further
       }
