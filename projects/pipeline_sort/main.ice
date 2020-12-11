@@ -16,7 +16,7 @@ $$end
   // - the result value of the sort (sorted_n)
 $$for n=0,N do
   uint8 sorted_$n$    = 255;
-  uint8 to_insert_$n$ = uninitialized;
+  uint8 to_insert_$n$ = 255;
 $$end
   // NOTE: It would be more convenient for 'sorted' to be an array,
   //       however Silice will reject the pipeline as it will consider
@@ -57,10 +57,10 @@ $$end
 $$end
 
     i = i + 1;
-  }
-  
+  } 
   
 $$for n=0,N-1 do
    __display("[%d] = %d",$n$,sorted_$n$);
 $$end   
+
 }
