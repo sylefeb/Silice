@@ -6,7 +6,7 @@ A sort has to be n.log(n), right? Well, not if you can design a pipelined archit
 
 ## What this does
 
-This algorithm is designed to sort a stream of N values as they come in. The sort is pipelined such that
+This algorithm is designed to sort a stream of *exactly* N values as they come in. The sort is pipelined such that
 if N values are received, they are sorted N cycles after the last one came in (linear time!). 
 Of course there is no free lunch, and this comes at the cost of a pipeline of depth N. 
 So beyond being a fun -- and hopefully interesting -- example, this will only be useful in practice for 
