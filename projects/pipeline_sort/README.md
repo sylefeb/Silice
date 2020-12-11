@@ -6,11 +6,11 @@ A sort has to be n.log(n), right? Well, not if you can design a pipelined archit
 
 ## What this does
 
-This algorithm is designed to sort a stream of values as they come in. The sort is pipelined such that
-if N values are received, they are sorted after 2.N cycles (linear time!). Of course there is no free lunch, and this
-comes at the cost of a pipeline of depth N. So beyond being a fun -- and hopefully interesting -- example, 
-this will only be useful in practice for relatively small values of N. But such cases do occur in practice, and this
-algorithm may come in handy.
+This algorithm is designed to sort a stream of N values as they come in. The sort is pipelined such that
+if N values are received, they are sorted N cycles after the last one came in (linear time!). 
+Of course there is no free lunch, and this comes at the cost of a pipeline of depth N. 
+So beyond being a fun -- and hopefully interesting -- example, this will only be useful in practice for 
+relatively small values of N. But such cases do occur in practice, and this algorithm may come in handy.
 
 ## How to test
 
@@ -39,7 +39,7 @@ You will see a list of sorted entries, such as:
 
 ## Walkthrough the code
 
-Now, let's have a look at [main.ice](https://github.com/sylefeb/Silice/blob/wip/projects/pipeline_sort/main.ice).
+Now, let's have a look at [main.ice](main.ice).
 
 The algorithm is built around a main while loop:
 ```c
@@ -48,8 +48,10 @@ The algorithm is built around a main while loop:
      ...
   }
 ```
-The pipeline is within the loop, and the iterates 2.N times to ensure the pipeline is fully flushed at the end.
-The syntax `$2*N$` is using the Lua preprocessor, indeed N is a preprocessor variable defined before with this line:
+The pipeline is within the loop, and the loop iterates 2.N times to ensure the pipeline is fully flushed at the end (N cycles
+after the last value is inserted).
+
+The syntax `$2*N$` is using the Lua preprocessor. Indeed N is a preprocessor variable defined before with this line:
 ```c
 $$N=16
 ```
@@ -57,22 +59,26 @@ Using `$$` at the start of a line indicates that the entire line is preprocessor
 code inserts the preprocessor result within the current code line. So for instance `$2*N$` becomes `32` when N=16.
 
 This loop inserts (streams) the values from the `in_values` into the pipeline. For each iteration
-below $N$, a value is read from `in_value` and placed in front of the pipeline top stage. For iterations
-above $N$ we insert the MAX value, which in our case is 255, so that they no longer influence the result.
+below N, a value is read from `in_value` and placed in front of the pipeline top stage. For iterations
+above N we insert the MAX value, which in our case is 255, so that they no longer influence the result.
 
 ```c
 to_insert_0 = i < $N$ ? in_values[i] : 255;
 ```
 
-The last N iterations are only here to flush the pipeline, ensuring the last inserted value
+Again, the last N iterations are only here to flush the pipeline, ensuring the last inserted value
 can fully propagate ; with this simple algorithm this requires N cycles.
 
-Now, let's have a look at a single pipeline stage. 
+Now, let's have a look at a single pipeline stage. From the point of view of a single stage things are fairly simple. 
+Stage $n$ is responsible for the value stored at rank $n$ in the sorted array. The stage receives a value to be inserted. 
+If the received value is larger than the one at rank $n$, it is simply passed further down the pipeline. 
+If the value to insert is smaller than the one at rank $n$, it evicts and replaces it. 
+The evicted value is passed to subsequent stages for further insertion.   
 
 ```c
   if (to_insert_$n$ < sorted_$n$) {  // if the value to insert is smaller, we insert here
-    to_insert_$n+1$ = sorted_$n$;    // the current value is evicted and becomes the next one to insert
-    sorted_$n$      = to_insert_$n$; // the current value is replace with the new one to insert here
+    to_insert_$n+1$ = sorted_$n$;    // the current value is evicted ...
+    sorted_$n$      = to_insert_$n$; // ...  and becomes the next one to insert
   } else {
     to_insert_$n+1$ = to_insert_$n$; // otherwise, the value has to be inserted further
   }
@@ -85,19 +91,41 @@ with the incoming value of `to_insert_$n$`. If `to_insert_$n$` is smaller, then 
 replaced by `to_insert_$n$`, and the evicted value becomes the one to insert at stage n+1: it is stored
 in `to_insert_$n+1$`.
 
-From the point of view of a single stage things are fairly simple. Stage $n$ is responsible for the value stored
-at rank $n$ in the sorted array. The stage receives a value to insert. If it is smaller than the current one it inserts
-it and ask further stages to insert the evictede value. If the recived value is larger, it is simply passed further down
-the pipeline. 
-
 The really interesting thing here is that all stages execute in parallel, such that the evicted values trickle down
 the pipeline all together, at each clock cycle. It takes N cycles to flush the pipeline, as if the last inserted
 value is the largest one it has to trickle down all N stages.
 
+Now that we understand each stage, how do we tell Silice to build a pipeline? The syntax is simply:
+```c
+{
+  // stage 0
+} -> {
+  // stage 1
+} -> {
+  // final stage
+}
+```
+Silice takes care of the rest. Please refer to the documentation for more details on pipelines.
+
+As our pipeline depth depends on the value of N, we build it with the preprocessor:
+```c
+$$for n=0,N-1 do
+    {
+      // [removed] code for stage n
+    }
+$$if n < N-1 then
+    -> // pipe to next stage (if not last)
+$$end    
+$$end
+```
+
+And that's it! We have a linear time sorting algorithm for an incoming stream of values.
+
 ## Example run
 
-The following figure illustrates a run for N=3. It takes 6 cycles to gaurantee the sort is fully
-terminated. 
+The following figure illustrates a run for N=3. It takes 6 cycles to guarantee that the sort is fully terminated. 
+
+The figure shows 6 clock cycles from left to right. For each cycle, we see the incoming stream value at the top, the comparisons of each stages (vertically) and the values to insert trickling down the pipeline (orange arrows). The horizontal green arrows show when a value is changed in the sorted array.
 
 ![pipeline sort](pipeline_sort.jpg)
 
