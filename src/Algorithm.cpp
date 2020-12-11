@@ -6414,7 +6414,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     int stage = current->context.pipeline->stage_id;
     out << "// stage " << stage << nxl;
     // write code
-    t_vio_dependencies deps;
+    t_vio_dependencies deps = _dependencies;
     if (current != after) { // this is the more complex case of multiple blocks in stage
       writeStatelessBlockGraph(prefix, out, current, after, _q, deps, _ff_usage); // NOTE: q will not be changed since this is a combinational block
       current = after;
