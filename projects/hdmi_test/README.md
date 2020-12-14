@@ -3,8 +3,10 @@
 This project is a simple test of the [Silice HDMI implementation](../common/hdmi.ice)
 
 It outputs a 640x480 HDMI signal, with a pixel clock of 25 MHz and hence a signal clock of 250 MHz (10 bits per pixel for the HDMI protocol).
+This example assumes the base clock is 25 MHz, which is the case for instance on the ULX3S.
 
-**Note:** This project was tested on the ULX3S board.
+**Note:** This project was primarily designed for the ULX3S board ; it is possible to adapt it for other boards but will require to replace
+ECP5/Lattice specific primitives in [differential_pair.v](../common/differential_pair.v).
 
 ## Example code walkthrough
 
