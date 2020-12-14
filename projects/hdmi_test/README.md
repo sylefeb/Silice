@@ -1,12 +1,12 @@
-# HDMI test
+# Simple HDMI test framework with Silice
 
-This project is a simple test of the [Silice HDMI implementation](../common/hdmi.ice)
+This project is a simple test of the [Silice HDMI implementation](../common/hdmi.ice). This page details the example and then provides some
+details on the HDMI controller implementation itself.
 
-It outputs a 640x480 HDMI signal, with a pixel clock of 25 MHz and hence a signal clock of 250 MHz (10 bits RGB serial).
-This example assumes the base clock is 25 MHz, which is the case for instance on the ULX3S.
+The example outputs a visual pattern through a 640x480 HDMI signal, with a pixel clock of 25 MHz. The design assumes the base clock is 25 MHz, which is the case for instance on the ULX3S.
 
 **Note:** This project was primarily designed for the ULX3S board ; it is possible to adapt it for other boards but will require to replace
-ECP5/Lattice specific primitives in [differential_pair.v](../common/differential_pair.v) and update the PLL / clock.
+ECP5/Lattice specific primitives in [differential_pair.v](../common/differential_pair.v) and update the PLL / clock in [hdmi_clock.v](../common/hdmi_clock.v).
 
 <p align="center">
   <img width="600" src="hdmi_test.jpg">
@@ -27,7 +27,7 @@ The main algorithm first declares a number of variables that allow us to interac
 ```
 
 It then instantiates the HDMI controller and binds these variables to it. Note the syntax `:>` indicating an output (e.g. x,y) and `<:` indicating an input (r,g,b).
-From this point on, the variables are bound to the HDMI controller and directly reflect its internal state. 
+From this point on, the variables are bound to the HDMI controller and directly driven by its internal state. 
 
 ```c
   hdmi video(
@@ -43,15 +43,14 @@ From this point on, the variables are bound to the HDMI controller and directly 
   );
 ```
 
-The controller forms the HDMI signal, which is output on the pins `gpdi_dp` and `gpdi_dn`. The HDMI protocol uses a 4 bits signal (red, green, blue, pixel clock), but this signal is sent to the screen through two sets of pins (for a total of eight pins): four positive and four negative. The corresponding positive and negative bits form pairs, called *differential* pairs. This is done to strongly improve the signal quality and integrity. Thus, `gpdi_dp` encodes the signals on four bits and `gpdi_dn` are their negated counterpart: `gpdi_dn = ~gpdi_dp`.
+The controller forms the HDMI signal, which is output on the pins `gpdi_dp` and `gpdi_dn`. The HDMI protocol uses a 4 bits signal (RGBC: red, green, blue, pixel clock), but this signal is sent to the screen through two sets of pins (for a total of eight pins): four positive and four negative. The corresponding positive and negative bits form pairs, called *differential pairs*. This is done to strongly improve the signal quality and integrity. Thus, `gpdi_dp` encodes the signals on four bits and `gpdi_dn` are their negated counterpart: `gpdi_dn = ~gpdi_dp`.
 
-Now we are ready to draw on screen! We enter an infinite loop, that computes r,g,b from x,y. If you have
+Now we are ready to draw on screen! We enter an infinite loop, that computes RGB from x,y. If you have
 done GPU shaders in the past, this is very similar to a pixel shader in concept.
 
 The example draws simple red-green ramp along x/y as well as blue diagonals, with the following code:
 
 ```c
-  leds = 0;
   while (1) { 
     if (active) {
       r = x;
@@ -61,7 +60,7 @@ The example draws simple red-green ramp along x/y as well as blue diagonals, wit
   }
 ```  
 
-Feel free to experiment with this! It is fun to generate your own images and animations.
+Feel free to experiment with this (it *is* fun), and please share your images and animations!
 
 ## HDMI code walkthrough
 
@@ -73,17 +72,17 @@ The controller uses three different algorithms:
 - `hdmi_ddr_shifter` takes all three R,G,B TMDS encoded signals, and shifts them into the output pins, two at a time,
 - `hdmi` is the main algorithm that implements the controller and uses the other two algorithms.
 
-The overall flow is as follows: three TMDS encoders receive the 8-bits RGB colors, turn them into three 10 bits vectors, that are then shifted (serialized) and output to the three corresponding HDMI differential pairs. The last (fourth) pair carries the pixel clock for synchronization.
+The overall flow is as follows: three TMDS encoders receive the 8-bits RGB colors, turn them into three 10 bits vectors, that are then shifted (serialized) 
+and output to the three corresponding HDMI differential pairs. The last (fourth) pair carries the pixel clock for synchronization.
 
 I will not detail the TMDS encoder -- the important thing to keep in mind is that it encodes a byte into ten bits to be sent. 
-The goal of this encoder is to obtain a very stable and reliable serial communication (see also links below).
+The goal of this encoder is to obtain a very stable and reliable high speed serial communication (see also links below).
 
-The controller assumes that the base clock is 25 MHz. For a 640x480 8-bits RGB signal we need a 25 MHz pixel clock, so that matches the base clock. 
-Each byte (RGB) is encoded onto ten bits by the TMDS encoder, so we have to send 10 bits at each pixel clock on each component differential pair. 
-This means we have to send each component at ten times the pixel clock: 250 MHz. 
+The HDMI controller assumes that the base clock is 25 MHz. For a 640x480 8-bits RGB signal we need a 25 MHz pixel clock, so that matches the base clock. 
+Each byte (RGB) is however encoded onto ten bits by the TMDS encoder, so we have to send 10 bits at each pixel clock on each component's differential pair. 
+This means we have to send the bits at ten times the pixel clock: 250 MHz. 
 
-This starts to be a fairly high frequency. To reduce the pressure on the place and route, we instead use a 125 MHz clock and output the ten bits over five clock cycles. 
-How is that possible? We use a [DDR output](https://en.wikipedia.org/wiki/Double_data_rate), that outputs one bit on the clock positive edge, and another bit on the clock negative edge. This is a vendor specific primitive, that is however very commonly used and available.
+This starts to be a fairly high frequency. To reduce the pressure on the place and route, we instead use a 125 MHz clock and output the ten bits over five clock cycles. How is that possible? We use a [DDR output](https://en.wikipedia.org/wiki/Double_data_rate), that outputs one bit on the clock's positive edge, and another bit on the clock's negative edge. This requires a vendor specific primitive, that is however very commonly used and available.
 
 The 125 MHz clock is generated here:
 ```c
@@ -116,7 +115,7 @@ Where `tmds_red`, `tmds_green` and `tmds_blue` are each 10 bits output by three 
   );
 ```
 
-Note how `crgb_pos` and `crgb_neg` are both 8 bits. Each encode the (respectively) positive and negative side of the RGBC differential pairs (C is pixel clock), for *two* cycles of a 250 MHz clock. The [`hdmi_differential_pairs.v`](../common/hdmi_differential_pairs.v) module (in Verilog) takes care of instantiating the three specialized DDR output cells, defined in [`differential_pair.v`](../common/differential_pair.v), that outputs the four differential pairs at twice the 125 MHz clock.
+Note how `crgb_pos` and `crgb_neg` are both 8 bits. Each encode the (respectively) positive and negative side of the RGBC differential pairs for **two** cycles of a 250 MHz clock. The [`hdmi_differential_pairs.v`](../common/hdmi_differential_pairs.v) module (in Verilog) takes care of instantiating the four specialized DDR output cells, defined in [`differential_pair.v`](../common/differential_pair.v), that output the four differential pairs at twice the 125 MHz clock.
 
 Finally, the `always` block of the `hdmi` algorithm updates the various internal states:
 - The internal pixel coordinates counters `cntx`,`cnty`.
@@ -136,5 +135,4 @@ A few other notes:
 - https://www.fpga4fun.com/HDMI.html
 - https://www.digikey.com/eewiki/pages/viewpage.action?pageId=36569119
 - https://github.com/lawrie/ulx3s_examples/blob/master/hdmi/tmds_encoder.v
-
 
