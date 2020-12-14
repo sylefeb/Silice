@@ -1,9 +1,9 @@
 # Simple HDMI test framework with Silice
 
-This project is a simple test of the [Silice HDMI implementation](../common/hdmi.ice). This page details the example and then provides some
+This project is a simple test of the [Silice HDMI implementation](../common/hdmi.ice). This page explains the example and then provides some
 details on the HDMI controller implementation itself.
 
-The example outputs a visual pattern through a 640x480 HDMI signal, with a pixel clock of 25 MHz. The design assumes the base clock is 25 MHz, which is the case for instance on the ULX3S.
+The example outputs an on-screen pattern through a 640x480 HDMI signal, with a pixel clock of 25 MHz. The design assumes the base clock is 25 MHz, which is the case for instance on the ULX3S.
 
 **Note:** This project was primarily designed for the ULX3S board ; it is possible to adapt it for other boards but will require to replace
 ECP5/Lattice specific primitives in [differential_pair.v](../common/differential_pair.v) and update the PLL / clock in [hdmi_clock.v](../common/hdmi_clock.v).
@@ -21,12 +21,12 @@ The main algorithm first declares a number of variables that allow us to interac
   uint10 y      = 0; // (output from HDMI) the active pixel y coordinate
   uint1  active = 0; // (output from HDMI) whether the active screen area is being drawn
   uint1  vblank = 0; // (output from HDMI) whether vblank is active (interval between frames)
-  uint8  r      = 0; // (input to HDMI)  the red value of the active pixel
+  uint8  r      = 0; // (input to HDMI) the red value of the active pixel
   uint8  g      = 0; // (input to HDMI) the green value of the active pixel
   uint8  b      = 0; // (input to HDMI) the blue value of the active pixel
 ```
 
-It then instantiates the HDMI controller and binds these variables to it. Note the syntax `:>` indicating an output (e.g. x,y) and `<:` indicating an input (r,g,b).
+It then instantiates the HDMI controller and binds these variables to it. Note the syntax `:>` indicating an output (e.g. `x`,`y`) and `<:` indicating an input (`r`,`g`,`b`).
 From this point on, the variables are bound to the HDMI controller and directly driven by its internal state. 
 
 ```c
@@ -45,7 +45,7 @@ From this point on, the variables are bound to the HDMI controller and directly 
 
 The controller forms the HDMI signal, which is output on the pins `gpdi_dp` and `gpdi_dn`. The HDMI protocol uses a 4 bits signal (RGBC: red, green, blue, pixel clock), but this signal is sent to the screen through two sets of pins (for a total of eight pins): four positive and four negative. The corresponding positive and negative bits form pairs, called *differential pairs*. This is done to strongly improve the signal quality and integrity. Thus, `gpdi_dp` encodes the signals on four bits and `gpdi_dn` are their negated counterpart: `gpdi_dn = ~gpdi_dp`.
 
-Now we are ready to draw on screen! We enter an infinite loop, that computes RGB from x,y. If you have
+Now we are ready to draw on screen! We enter an infinite loop, that computes `r`,`g`,`b` from `x`,`y`. If you have
 done GPU shaders in the past, this is very similar to a pixel shader in concept.
 
 The example draws simple red-green ramp along x/y as well as blue diagonals, with the following code:
@@ -115,9 +115,9 @@ Where `tmds_red`, `tmds_green` and `tmds_blue` are each 10 bits output by three 
   );
 ```
 
-Note how `crgb_pos` and `crgb_neg` are both 8 bits. Each encode the (respectively) positive and negative side of the RGBC differential pairs for **two** cycles of a 250 MHz clock. The [`hdmi_differential_pairs.v`](../common/hdmi_differential_pairs.v) module (in Verilog) takes care of instantiating the four specialized DDR output cells, defined in [`differential_pair.v`](../common/differential_pair.v), that output the four differential pairs at twice the 125 MHz clock.
+Note how `crgb_pos` and `crgb_neg` are both 8 bits. Each encode the (respectively) positive and negative side of the RGBC differential pairs for **two** cycles of a 250 MHz clock. The [`hdmi_differential_pairs.v`](../common/hdmi_differential_pairs.v) module (in Verilog) takes care of instantiating the four specialized DDR output cells, defined in [`differential_pair.v`](../common/differential_pair.v), that output the four differential pairs at twice the 125 MHz clock. For the ULX3S, the specialized DDR cell is called `ODDRX1F`.
 
-Finally, the `always` block of the `hdmi` algorithm updates the various internal states:
+Finally, the `always` block of the `hdmi` algorithm updates the various internal states: (as a reminder, the always block of an algorithm in Silice is executed at each clock cycle, before anything else ; the `hdmi` algorithm only contains an always block)
 - The internal pixel coordinates counters `cntx`,`cnty`.
 - The `hsync`, `vsync` states (based on pixel coordinates)
 - The `active` state (coordinate within drawable screen area)
