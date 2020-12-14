@@ -38,9 +38,9 @@ We then instantiate the HDMI controller and bind these variables to it. Note the
 ```
 
 Now we are ready to draw on screen! We enter an infinite loop, that computes r,g,b from x,y. If you have
-done GPU shaders in the past, this is very similar!
+done GPU shaders in the past, this is very similar to a pixel shader in concept.
 
-The example draws simple red-green ramps along x/y as well as blue diagonals, with the following code:
+The example draws simple red-green ramp along x/y as well as blue diagonals, with the following code:
 
 ```c
   leds = 0;
