@@ -117,7 +117,7 @@ Where `tmds_red`, `tmds_green` and `tmds_blue` are each 10 bits output by three 
 
 Note how `crgb_pos` and `crgb_neg` are both 8 bits. Each encode the (respectively) positive and negative side of the RGBC differential pairs for **two** cycles of a 250 MHz clock. The [`hdmi_differential_pairs.v`](../common/hdmi_differential_pairs.v) module (in Verilog) takes care of instantiating the four specialized DDR output cells, defined in [`differential_pair.v`](../common/differential_pair.v), that output the four differential pairs at twice the 125 MHz clock. For the ULX3S, the specialized DDR cell is called `ODDRX1F`.
 
-Finally, the `always` block of the `hdmi` algorithm updates the various internal states: (as a reminder, the always block of an algorithm in Silice is executed at each clock cycle, before anything else ; the `hdmi` algorithm only contains an always block)
+Finally, the `always` block<sup>[1](#footnote1)</sup> of the `hdmi` algorithm updates the various internal states: 
 - The internal pixel coordinates counters `cntx`,`cnty`.
 - The `hsync`, `vsync` states (based on pixel coordinates)
 - The `active` state (coordinate within drawable screen area)
@@ -130,6 +130,8 @@ A few other notes:
 - The TMDS signals can be in data or control mode. They switch to control when the signal is not in the screen area (horizontal and vertical blank).
 - During the horizontal and vertical blanks, the green signal carries the state of vsync/hsync encoded in the control bits.
 - The positive/negative pairs are produced with the same logic paths to minimize they chance they would get different delays (we want them to be in sync). To ensure this, vendor specific primitives could be used for true differential pairs.
+
+<a name="footnote1">1</a>: as a reminder, the always block of an algorithm in Silice is executed at each clock cycle, before anything else ; the `hdmi` algorithm only contains an always block.
 
 # Links and further reading
 - https://www.fpga4fun.com/HDMI.html
