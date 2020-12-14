@@ -118,6 +118,13 @@ Where `tmds_red`, `tmds_green` and `tmds_blue` are each 10 bits output by three 
 
 Note how `crgb_pos` and `crgb_neg` are both 8 bits. Each encode the (respectively) positive and negative side of the RGBC differential pairs (C is pixel clock), for *two* cycles of a 250 MHz clock. The [`hdmi_differential_pairs.v`](../common/hdmi_differential_pairs.v) module (in Verilog) takes care of instantiating the three specialized DDR output cells, defined in [`differential_pair.v`](../common/differential_pair.v), that outputs the four differential pairs at twice the 125 MHz clock.
 
+Finally, the `always` block of the `hdmi` algorithm updates the various internal states:
+- The internal pixel coordinates counters `cntx`,`cnty`.
+- The `hsync`, `vsync` states (based on pixel coordinates)
+- The `active` state (coordinate within drawable screen area)
+- The `vblank` state (time interval between frames)
+The input R,G,B signals are also registered to relax timing (e.g. `latch_red   = red;`).
+
 And that's about it! Regarding the TMDS encoder, please refer to [wikipedia](https://en.wikipedia.org/wiki/Transition-minimized_differential_signaling) for the basics. For my implementation I used the [algorithm chart from digikey](https://www.digikey.com/eewiki/pages/viewpage.action?pageId=36569119).
 
 A few other notes:
