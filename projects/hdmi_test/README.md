@@ -63,6 +63,7 @@ The example draws simple red-green ramp along x/y as well as blue diagonals, wit
 ```  
 
 Feel free to experiment with this (it *is* fun), and please share your images and animations!
+And if you need some inspiration, be sure to check out the [VGA demos](../vga_demo/) that rely on a similar framework but with a VGA output.
 
 ## HDMI code walkthrough
 
