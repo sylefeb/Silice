@@ -8,6 +8,10 @@ This example assumes the base clock is 25 MHz, which is the case for instance on
 **Note:** This project was primarily designed for the ULX3S board ; it is possible to adapt it for other boards but will require to replace
 ECP5/Lattice specific primitives in [differential_pair.v](../common/differential_pair.v).
 
+<p align="center">
+  <img width="600" src="hdmi_test.jpg">
+</p>
+
 ## Example code walkthrough
 
 The main algorithm first declares a number of variables that allow us to interact with the HDMI controller:
@@ -59,4 +63,41 @@ The example draws simple red-green ramp along x/y as well as blue diagonals, wit
 
 ## HDMI code walkthrough
 
-**TODO**
+Now, let's have a look inside the HDMI controller, [hdmi.ice](../common/hdmi.ice).
+
+The controller uses three different algorithms:
+- `tmds_encoder` takes a byte and transforms it into a 10 bit TMDS encoded signal,
+- `hdmi_ddr_shifter` takes all r,g,b TMDS encoded signals, and shifts them into the output pins, two at a time,
+- `hdmi` is the main algorithm that implements the controller
+
+Basically, the TMDS encoder receives the 8-bits RGB colors, turn them into three 10 bits vectors that are shifted (serialized) and output to
+the three corresponding HDMI differential pairs. The last pair similarly encodes the pixel clock.
+
+I will not detail the TMDS encoder -- the important thing to keep in mind is that it encodes a byte into ten bits to be sent. 
+The goal of this encoder is to obtain a very stable and reliable serial communication (see also links below).
+
+The algorithm assumes that the base clock is 25 MHz. For a 640x480 8-bits RGB signal, we need a 25 MHz pixel clock, so that matches the base clock. 
+Each byte (RGB) is encoded onto ten bits by the TMDS encoder, so we have to send 10 bits at each pixel clock for each component 
+(each having its own differential pair). This means we have to send each component at ten times the pixel clock: 250 MHz. This starts
+to be a fairly high frequency. To reduce the pressure on the place and route, we instead use a 125 MHz clock and output the ten bits over five clock cycles.
+
+The 125 MHz clock is generated here:
+```c
+  // pll for tmds
+  uint1  half_hdmi_clk = uninitialized;
+  hdmi_clock pll(
+    clk      <: clock,              //  25 MHz
+    half_hdmi_clk :> half_hdmi_clk, // 125 MHz (half 250MHz HDMI, double data rate output)
+  );
+```
+
+How is that possible? We use a [DDR output block](https://en.wikipedia.org/wiki/Double_data_rate), that outputs one bit on the clock positive edge, and another bit one the clock negative edge. 
+
+This is the reason why the `hdmi_ddr_shifter` outputs 8 bits in the positive and negative 
+
+# Links and further reading
+- https://www.fpga4fun.com/HDMI.html
+- https://www.digikey.com/eewiki/pages/viewpage.action?pageId=36569119
+- https://github.com/lawrie/ulx3s_examples/blob/master/hdmi/tmds_encoder.v
+
+
