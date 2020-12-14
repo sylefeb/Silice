@@ -1,6 +1,6 @@
 # HDMI test
 
-This project is a test example of the [Silice HDMI example implementation](../common/hdmi.ice)
+This project is a simple test of the [Silice HDMI implementation](../common/hdmi.ice)
 
 It outputs a 640x480 HDMI signal, with a pixel clock of 25 MHz and hence a signal clock of 250 MHz (10 bits per pixel for the HDMI protocol).
 
@@ -8,8 +8,7 @@ It outputs a 640x480 HDMI signal, with a pixel clock of 25 MHz and hence a signa
 
 ## Example code walkthrough
 
-The main algorithm first declares a number of variables that will allow 
-us to interact with the HDMI controller:
+The main algorithm first declares a number of variables that allow us to interact with the HDMI controller:
 
 ```c
   uint10 x      = 0; // (output) the active pixel x coordinate
@@ -21,7 +20,8 @@ us to interact with the HDMI controller:
   uint8  b      = 0; // (input) the blue value of the active pixel
 ```
 
-We then instantiate the HDMI controller and bind these variables to it. Note the syntax `:>` indicating an output (x,y,...) and `<:` indicating an input (r,g,b).
+It then instantiates the HDMI controller and bind these variables to it. Note the syntax `:>` indicating an output (e.g. x,y) and `<:` indicating an input (r,g,b).
+From this point on, the variables are bound to the HDMI controller and directly reflect its internal state. 
 
 ```c
   hdmi video(
@@ -36,6 +36,8 @@ We then instantiate the HDMI controller and bind these variables to it. Note the
     blue    <: b
   );
 ```
+
+The controller forms the HDMI signal, which is output on the pins `gpdi_dp` and `gpdi_dn`. The HDMI protocol uses a 4 bits signal (red, green, blue, clock), but this signal is sent to the screen through two sets of pins (for a total of eight pins): positive and negative. Each positive and negative bits forms a pair, called a *differential* pair. This is done to strongly improve the signal quality and integrity. Thus, `gpdi_dp` encodes the signals on four bits and `gpdi_dn` are their negated counterpart (we have `gpdi_dn = ~gpdi_dp`).
 
 Now we are ready to draw on screen! We enter an infinite loop, that computes r,g,b from x,y. If you have
 done GPU shaders in the past, this is very similar to a pixel shader in concept.
