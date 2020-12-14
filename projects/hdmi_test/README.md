@@ -80,6 +80,7 @@ The algorithm assumes that the base clock is 25 MHz. For a 640x480 8-bits RGB si
 Each byte (RGB) is encoded onto ten bits by the TMDS encoder, so we have to send 10 bits at each pixel clock for each component 
 (each having its own differential pair). This means we have to send each component at ten times the pixel clock: 250 MHz. This starts
 to be a fairly high frequency. To reduce the pressure on the place and route, we instead use a 125 MHz clock and output the ten bits over five clock cycles.
+How is that possible? We use a [DDR output block](https://en.wikipedia.org/wiki/Double_data_rate), that outputs one bit on the clock positive edge, and another bit one the clock negative edge. 
 
 The 125 MHz clock is generated here:
 ```c
@@ -91,7 +92,19 @@ The 125 MHz clock is generated here:
   );
 ```
 
-How is that possible? We use a [DDR output block](https://en.wikipedia.org/wiki/Double_data_rate), that outputs one bit on the clock positive edge, and another bit one the clock negative edge. 
+The high speed clock is then used by the shifter that serializes the RGB components onto the output pins:
+```c
+ hdmi_ddr_shifter shift<@half_hdmi_clk>(
+    data_r    <: tmds_red,
+    data_g    <: tmds_green,
+    data_b    <: tmds_blue,
+    p_outbits :> crgb_pos,
+    n_outbits :> crgb_neg,
+  );
+```
+Where `tmds_red`, `tmds_green` and `tmds_blue` are each 10 bits output by three instances of the TMDS encoder.
+
+Note how `crgb_pos` and `crgb_neg` are both 8 bits. Each encode the (respectively) positive and negative side of the RGBC (C is pixel clock) differential pairs, for *two* cycles of a 250 MHz clock. The [`hdmi_differential_pairs`](../common/hdmi_differential_pairs.v) module (in Verilog) takes care of instantiating the specialized DDR output cells for the selected hardware (here, ULX3S), [visible here](../common/differential_pair.v).
 
 This is the reason why the `hdmi_ddr_shifter` outputs 8 bits in the positive and negative 
 
