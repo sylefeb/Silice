@@ -19,7 +19,7 @@ A few projects rely on some external hardware (typical, low cost things: OLED, k
 
 Some of the projects have detailed explanations:
 - [pipelined sort](pipeline_sort/)
-
+- [HDMI test framework](hdmi_test/)
 
 ## Building the examples
 
