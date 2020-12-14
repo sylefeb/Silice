@@ -10,26 +10,8 @@ $$ -- error('this project has been only tested for the ULX3S, other boards will 
 $$end
 
 algorithm main(
-  // SDRAM
-  output uint1  sdram_cle,
-  output uint1  sdram_dqm,
-  output uint1  sdram_cs,
-  output uint1  sdram_we,
-  output uint1  sdram_cas,
-  output uint1  sdram_ras,
-  output uint2  sdram_ba,
-  output uint13 sdram_a,
-  output uint1  sdram_clk,
-  inout  uint8  sdram_dq,
-  // sdcard
-  output  uint1 sd_clk,
-  output  uint1 sd_mosi,
-  output  uint1 sd_csn,
-  input   uint1 sd_miso,
   // led
   output uint8  leds,
-  // buttons
-  input  uint7  btn,
   // video
   output uint4  gpdi_dp,
   output uint4  gpdi_dn
