@@ -5,6 +5,8 @@ details on the HDMI controller implementation itself.
 
 The example outputs an on-screen pattern through a 640x480 HDMI signal, with a pixel clock of 25 MHz. The design assumes the base clock is 25 MHz, which is the case for instance on the ULX3S.
 
+To try it, open a command line in this directory and type `make ulx3s`.
+
 **Note:** This project was primarily designed for the ULX3S board ; it is possible to adapt it for other boards but will require to replace
 ECP5/Lattice specific primitives in [differential_pair.v](../common/differential_pair.v) and update the PLL / clock in [hdmi_clock.v](../common/hdmi_clock.v).
 
