@@ -100,6 +100,8 @@ The 125 MHz clock is generated here:
 
 The high speed clock is then used by the shifter that serializes the RGB components, as well as the pixel clock, onto the output pins:
 ```c
+ uint8 crgb_pos = 0;
+ uint8 crgb_neg = 0;
  hdmi_ddr_shifter shift<@half_hdmi_clk>(
     data_r    <: tmds_red,
     data_g    <: tmds_green,
