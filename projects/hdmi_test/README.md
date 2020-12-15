@@ -134,7 +134,7 @@ And that's about it! Regarding the TMDS encoder, please refer to [wikipedia](htt
 A few other notes:
 - The TMDS signals can be in data or control mode. They switch to control when the signal is not in the screen area (horizontal and vertical blank).
 - During the horizontal and vertical blanks, the green signal carries the state of vsync/hsync encoded in the control bits.
-- The positive/negative pairs are produced with the same logic paths to minimize they chance they would get different delays (we want them to be in sync). To ensure this, vendor specific primitives could be used for true differential pairs.
+- The positive/negative pairs are produced with the same logic paths to minimize the chance they would get different delays (we want them to be in sync). To ensure this, vendor specific primitives could be used for true differential pairs.
 
 <a name="footnote1">1</a>: as a reminder, the always block of an algorithm in Silice is executed at each clock cycle, before anything else ; the `hdmi` algorithm only contains an always block.
 
