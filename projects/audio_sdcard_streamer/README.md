@@ -103,7 +103,7 @@ Finally, the main loop has a very simple job: requesting the next byte from the 
       wait = wait + 1;  // count cycles
     }
 
-    // wait some more (until sampling rate is correct
+    // wait some more (until sampling rate is correct)
     while (wait < $base_freq // track_freq$) { 
       wait = wait + 1;  // count cycles
     }
@@ -121,7 +121,7 @@ And that's it!
 A few other notes:
 - Try by-passing the `audio_pwm` algorithm, writing only `wave[4,4]` in `audio_l` and `audio_c`. The quality drops horribly!
 - `$base_freq // track_freq$` is preprocessor code computing the number of wait cycles for the base clock (25 MHz) to achieve the target sampling rate (44.1 kHz). `//` is the integer division in Lua (the language used by the preprocessor).
-- The base frequency and wave frequency are defined at the top of (main.ice)[main.ice]: `$$base_freq  = 25000000` and `$$track_freq =    44100`.
+- The base frequency and wave frequency are defined at the top of [main.ice](main.ice): `$$base_freq  = 25000000` and `$$track_freq =    44100`.
 - It will happily read data past your file, you may get screeching sounds!
 
 <a name="footnote1">1</a>: I got these audio tricks [from @emard](https://github.com/emard/ulx3s-misc/blob/master/examples/audio/hdl/dacpwm.v).
