@@ -18,6 +18,7 @@
 group sdcardio {
   uint32 addr_sector = 0,
   uint1  read_sector = 0,
+  uint16 offset      = 0,
   uint1  ready       = 0,
 }
 
@@ -25,6 +26,7 @@ interface sdcardio_ctrl {
   input!  addr_sector,
   input!  read_sector,
   output  ready,
+  input   offset,
 }
 
 algorithm sdcard(
@@ -107,7 +109,7 @@ algorithm sdcard(
     if (io.read_sector) {
       do_read_sector = 1;
       do_addr_sector = io.addr_sector;
-      io.ready = 0;
+      io.ready       = 0;
     }
  
   }
@@ -159,20 +161,23 @@ algorithm sdcard(
     
     if (do_read_sector) {
       do_read_sector = 0;
-
+      
       // read some!
       () <- send <- ({cmd17[40,8],do_addr_sector,cmd17[0,8]});
 
       (status) <- read <- (8,1,3); // response
 
       if (status[0,8] == 8h00) {
+        uint9 progress = 0;
+        
         (status) <- read <- (1,1,3); // start token
         
-        store.addr1 = 0;
+        store.addr1 = io.offset + progress;
         (store.wdata1) <- read <- (8,0,3); // bytes  
-        while (store.addr1 < 511) {
+        while (progress < 511) {
           (store.wdata1) <- read <- (8,0,3); // bytes          
           store.addr1 = store.addr1 + 1;
+          progress    = progress + 1;
         }        
         (status) <- read <- (16,1,3); // CRC
         
