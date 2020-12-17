@@ -90,6 +90,13 @@ Note the use of the **++:** *step* operator in lines 7 and 10. This explicitely 
 Anything in between is considered combinational; for instance lines 8 and 9 are evaluated in parallel on hardware, as they
 each produce two pieces of independent circuitry.
 
+#### Other examples with detailed explanations
+
+This repo contains many [example projects](projects/), some including detailed code walkthrough:
+- [HDMI test framework](projects/hdmi_test/)
+- [streaming audio from sdcard](projects/audio_sdcard_streamer/)
+- [Pipelined sort](projects/pipeline_sort/)
+
 ## Design principles
 
 Silice does not attempt to abstract away the hardware: the programmer remains in control and very close to hardware features. However, Silice makes it much easier to reason in terms of execution flow and operation sequences than when using Verilog directly. But when Verilog makes more sense, simply import Verilog directly into Silice!
