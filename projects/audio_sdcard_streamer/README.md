@@ -13,6 +13,8 @@ From Audacity, record something or open a wav file, convert to mono, then select
 
 Save in a file named `track.raw`.
 
+You can also use `ffmpeg`, with this command line: ` ffmpeg.exe -i input.mp3 -ac 1 -f s8 track.raw`.
+
 Write the file `track.raw` on the sdcard, using a low-level write (e.g. Win32DiskImager under Windows). 
 
 **Important:** all pre-existing data on the sdcard will be lost!
