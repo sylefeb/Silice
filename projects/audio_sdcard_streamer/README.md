@@ -1,5 +1,7 @@
 # Streaming audio from an sdcard with Silice (DIY FPGA wave player!)
 
+**Note:** This example is designed for the ULX3S board, but could be easily adapted to other boards having a sdcard slot and audio DAC (de10nano + IO board, I am looking at you!).
+
 ## How to build
 
 Save a raw audio file, for instance from [Audacity](https://www.audacityteam.org/):
@@ -11,11 +13,15 @@ From Audacity, record something or open a wav file, convert to mono, then select
 
 Save in a file named `track.raw`.
 
-Write the file `track.raw` on the sdcard, using a low-level write (e.g. Win32DiskImager under Windows). **Be warned:** all pre-existing data on the sdcard will be lost!
+You can also use `ffmpeg`, with this command line: ` ffmpeg.exe -i input.mp3 -ac 1 -f s8 track.raw`.
+
+Write the file `track.raw` on the sdcard, using a low-level write (e.g. Win32DiskImager under Windows). 
+
+**Important:** all pre-existing data on the sdcard will be lost!
 
 Put the sdcard in the ULX3S (and don't forget to plug speakers ;-) ).
 
-Then plug your board, open the command line in this folder and type `make ulx3s`.
+Then plug your board in a USB port, open the command line in this folder and type `make ulx3s`.
 
 ## What's going on?
 
@@ -43,13 +49,13 @@ The signal is not directly sent to the audio pins `audio_l` and `audio_r`. Inste
 into another algorithm, `audio_pwm`: this algorithm maps the 8-bits of the wave to the 4-bits audio
 DAC of the ULX3S board. 
 
-Why? We could send only the high bits ofthe signal, but we would loose a lot of data (and subtle audio)
+Why? We could send only the high bits of the signal, but we would loose a lot of data (and subtle audio)
 in the process. Instead, `audio_pwm` makes the signal nicer by relying on another cool trick<sup>[1](#footnote1)</sup>: a PWM that oscillates between the two 4-bits values to artificially increase the resolution.
 
 The idea is to produce a rectangular [PWM signal](https://en.wikipedia.org/wiki/Pulse-width_modulation), 
 between two 4-bits values, for instance 5 and 6. 
-If the signal spend half its time on 5 and half on 6, then the output will be a halfway voltage,
-exactly what we want! Since we can drive the output much (much!) faster than the 44100 Hz, we
+If the signal spends half its time on 5 and half on 6, then the output will be a halfway voltage,
+exactly what we want! Since we can drive the output much (much!) faster than the 44100 Hz with our 25000000 Hz clock, we
 can easily afford this trick.
 
 The implementation is in `audio_pwm`:
@@ -99,7 +105,7 @@ Finally, the main loop has a very simple job: requesting the next byte from the 
       wait = wait + 1;  // count cycles
     }
 
-    // wait some more (until sampling rate is correct
+    // wait some more (until sampling rate is correct)
     while (wait < $base_freq // track_freq$) { 
       wait = wait + 1;  // count cycles
     }
@@ -117,15 +123,15 @@ And that's it!
 A few other notes:
 - Try by-passing the `audio_pwm` algorithm, writing only `wave[4,4]` in `audio_l` and `audio_c`. The quality drops horribly!
 - `$base_freq // track_freq$` is preprocessor code computing the number of wait cycles for the base clock (25 MHz) to achieve the target sampling rate (44.1 kHz). `//` is the integer division in Lua (the language used by the preprocessor).
-- The base frequency and wave frequency are defined at the top of (main.ice)[main.ice]: `$$base_freq  = 25000000` and `$$track_freq =    44100`.
+- The base frequency and wave frequency are defined at the top of [main.ice](main.ice): `$$base_freq  = 25000000` and `$$track_freq =    44100`.
+- It will happily read data past your file, you may get screeching sounds!
 
 <a name="footnote1">1</a>: I got these audio tricks [from @emard](https://github.com/emard/ulx3s-misc/blob/master/examples/audio/hdl/dacpwm.v).
+
+## Future work
+
+Turn this into an audio player with an OLED screen. Silice already has all the components!
 
 ## Known issues
 
 The sdcard has to be a SDHC. Also it sometimes fails to initialize. In such cases I first try to reset (press PWR, top right of the ULX3S). If that still fails I remove it carefully, wait a second, a re-insert it. You can also try to flash the design (`fujprog -j flash BUILD_ulx3s/built.bit`) as it usually works on power-up.
-
-## Notes
-
-This was designed and tested primarily for the ULX3S board but should be relatively
-easy to adapt to ohter boards with and audio DAC and a sdcard slot (de10nano + I/O, I am looking at you!).
