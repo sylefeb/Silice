@@ -1,8 +1,14 @@
 // SL 2020-07 @sylefeb
 
-// Select screen driver below
+// vvvvvvvvvvvvv select screen driver below
 $$ -- SSD1351=1
 $$ ST7789=1
+//               vvvvv adjust to your screen
+$$ oled_width   = 240
+$$ oled_height  = 240
+//               vvvvv set to false if the screen uses the CS pin
+$$ st7789_no_cs = true
+
 $include('../common/oled.ice')
 
 $$if not ULX3S and not ICARUS then
@@ -50,7 +56,7 @@ $$end
       letter.addr0 = text_i + (text_j*$oled_width>>3$);
 ++:      
       addr         = letter_i + ( letter_j << 3) 
-                             + (letter.rdata0 << 6);
+                              + (letter.rdata0 << 6);
       white        = letters[ addr ];
     } else {
       white    = 0;
