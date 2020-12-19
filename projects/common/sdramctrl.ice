@@ -1,10 +1,16 @@
 // -----------------------------------------------------------
 // @sylefeb A SDRAM controller in Silice
 //
+// Expects a 16 bits wide SDRAM interface
+//
 // writes single bytes
 // reads bursts of 8 x 16 bits
 //
-// Expects a 16 bits wide SDRAM interface
+// if using directly the controller: 
+//  - reads (16x8 bits) have to align with 16 bits boundaries (even byte addresses)
+//  - writes   (8 bits) do not have this restriction
+//
+// use the sdram_byte_readcache for a simple byte interface
 
 // AS4C32M16SB (e.g. some ULX3S)
 // 4 banks, 8192 rows, 1024 columns, 16 bits words
@@ -506,6 +512,8 @@ algorithm sdram_byte_readcache(
         sdr.in_valid  = 1; 
         // no output
         sdb.out_valid = 0;
+        // invalidate cache if writing in same space
+        cached_addr   = (sdb.addr[4,22] == cached_addr[4,22]) ? 26h3FFFFFF : cached_addr;
       }
     } else {
       if (sdr.out_valid) {

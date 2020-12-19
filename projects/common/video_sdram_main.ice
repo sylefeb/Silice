@@ -148,7 +148,7 @@ algorithm init_data(
     }
   }
 
-  leds  = 4;
+  leds  = 8b10000000;
 
   ready = 1;
 }
@@ -490,7 +490,7 @@ $$else
 $$if ICARUS then
   while (frame < 4) {
 $$else
-  while (frame < 16) {
+  while (frame < 64) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }

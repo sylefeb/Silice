@@ -1,4 +1,4 @@
-volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x1000000;
+unsigned char* const FRAMEBUFFER = (unsigned char*)0x4000000;
 
 void main() 
 {
@@ -7,11 +7,11 @@ void main()
 
   while (1) {
   
-    volatile unsigned char *ptr = FRAMEBUFFER;
-    for (int j = 0 ; j < 64000 ; j++) {
-        *(ptr++) = (unsigned char)(offset+j);
+    for (int j = 0 ; j < 200 ; j++) {
+      for (int i = 0 ; i < 320 ; i++) {
+        *(FRAMEBUFFER + i + (j << 9)) = (unsigned char)(offset+i);
+      }
     }
-  
     ++offset;
   
   }

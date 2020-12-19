@@ -22,7 +22,7 @@ algorithm sdram_ram_32bits(
       rw        = r32.rw;
       wmask     = r32.wmask;
       wdata     = r32.data_in;
-      addr      = {r32.addr[24,2],r32.addr[0,22],2b00};
+      addr      = r32.addr;
       work_todo = 1;
     }
 
@@ -35,19 +35,20 @@ algorithm sdram_ram_32bits(
     if (work_todo) {
       sdr.rw       = rw;
       if (rw) {
-        uint4  write_seq = 4b1000;       
+        uint4  write_seq = 4b0001;       
         uint32 tmp = uninitialized;
-        tmp      = wdata;
-        sdr.addr = addr + 3;
+        uint2  pos = 0;
+        tmp        = wdata;
         while (write_seq != 0) {
           if (wmask & write_seq) {
             while (sdr.busy) {  }
-            sdr.data_in  = tmp[24,8];
+            sdr.addr     = {addr[2,24],pos};
+            sdr.data_in  = tmp[0,8];
             sdr.in_valid = 1;
           }
-          sdr.addr   = sdr.addr - 1;
-          tmp        = tmp       << 8;
-          write_seq  = write_seq >> 1;        
+          pos        = pos + 1;
+          tmp        = tmp       >> 8;
+          write_seq  = write_seq << 1;        
         }
         work_todo = 0;        
       } else {
@@ -55,7 +56,11 @@ algorithm sdram_ram_32bits(
         sdr.addr     = addr;
         sdr.in_valid = 1;
         while (!sdr.out_valid) {  }
-        r32.data_out  = sdr.data_out[0,32];
+        if (sdr.addr&1) { // the sdram controller ignores lowest bit on a read (16 bits aligned accesses)
+          r32.data_out  = sdr.data_out[8,32];
+        } else {
+          r32.data_out  = sdr.data_out[0,32];
+        }
         r32.out_valid = 1;
         work_todo     = 0;
       }

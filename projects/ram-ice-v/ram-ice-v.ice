@@ -121,7 +121,8 @@ algorithm rv32i_cpu(
   bram int32 xregsA<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   bram int32 xregsB<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   
-  uint1  load_next_instr = uninitialized;
+  uint1  load_next_instr   = uninitialized;
+  int32  load_next_alu_out = uninitialized;
   
   uint1  cmp         = uninitialized;
   
@@ -138,7 +139,7 @@ algorithm rv32i_cpu(
   uint32 instr       = uninitialized;
   uint12 pc          = uninitialized;
   
-  uint12 next_pc   ::= pc+1; // next_pc tracks the expression 'pc + 1' using the
+  uint12 next_pc   ::= pc+4; // next_pc tracks the expression 'pc + 4' using the
                              // value of pc from the last clock edge (due to ::)
 
 $$if SIMULATION then  
@@ -214,11 +215,11 @@ $$end
   
   // boot at 0x00
   load_next_instr =  1;
-  pc              = -1;
+  pc              = -4;
   
   while (1) {
   
-    // __display("CPU ram @%h load_next_instr %b load_store %b store %b",ram.addr,load_next_instr,load_store,store);
+    //__display("CPU ram @%h load_next_instr %b load_store %b store %b",ram.addr,load_next_instr,load_store,store);
 
     // wait for memory
     while ( !enable || 
@@ -236,7 +237,7 @@ $$end
     
       // load next instruction
       load_next_instr = 0;
-      ram.addr        = {6b1,1b1,1b0,12b0,((~load_store) && (jump | cmp)) ? alu_out[2,12] : next_pc};
+      ram.addr        = {6b1,1b1,1b0,12b0,((~load_store) && (jump | cmp)) ? load_next_alu_out[0,12] : next_pc};
       ram.rw          = 0;
       ram.in_valid    = 1;
       // null instruction (sets all decode low, so load_store == 0)
@@ -292,7 +293,7 @@ $$end
       load_next_instr = 1;
       
     } else {
-      __display("[exec] instr = %h",ram.data_out);
+      // __display("[exec] instr = %h",ram.data_out);
 
       // instruction available
     
@@ -312,7 +313,7 @@ $$end
       
         // prepare load/store
         ram.rw       = store;
-        ram.addr     = alu_out>>2;      
+        ram.addr     = alu_out;      
         // store? set data
         if (store) { 
           switch (loadStoreOp) {
@@ -341,8 +342,8 @@ $$end
       } else {
 
         // what do we write in register (pc or alu, load is handled above)
-        xregsA.wdata = (jump | cmp) ? (next_pc) << 2 : alu_out;
-        xregsB.wdata = (jump | cmp) ? (next_pc) << 2 : alu_out;
+        xregsA.wdata = (jump | cmp) ? (next_pc) : alu_out;
+        xregsB.wdata = (jump | cmp) ? (next_pc) : alu_out;
         
         // store result   
         if (write_rd) {
@@ -354,7 +355,8 @@ $$end
         }        
         
         // next instruction
-        load_next_instr = 1;
+        load_next_alu_out = alu_out;
+        load_next_instr   = 1;
 
       }
     } }
@@ -413,6 +415,7 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 1; // pc
         regOrImm    = 1; // imm
+        //__display("AUIPC %x",imm);
       }
       
       case 7b0110111: { // LUI
@@ -463,6 +466,7 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
+        //__display("JALR %x",imm);
       }
       
       case 7b1100011: { // branch
@@ -580,7 +584,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   output  int32  r,
 ) {
   
-  int32 a := regOrPc  ? __signed({20b0,pc[0,10],2b0}) : (forceZero ? xa : __signed(32b0));
+  int32 a := regOrPc  ? __signed({20b0,pc[0,12]}) : (forceZero ? xa : __signed(32b0));
   int32 b := regOrImm ? imm : (xb);
   //      ^^
   // using := during a declaration means that the variable now constantly tracks

@@ -12,18 +12,19 @@ $$end
 
 $include('../common/video_sdram_main.ice')
 
+$$SHOW_REGS = false
+
 $include('ram-ice-v.ice')
 $include('sdram_ram_32bits.ice')
 
 // ------------------------- 
 
 algorithm frame_drawer(
-  output uint8  leds,
   sdram_user    sd,
   input  uint1  sdram_clock,
   input  uint1  sdram_reset,
   input  uint1  vsync,
-  output uint1  fbuffer
+  output uint1  fbuffer,
 ) <autorun> {
 
 $$if SIMULATION then
@@ -56,12 +57,12 @@ $$end
   
   vsync_filtered ::= vsync;
   fbuffer        := 0;
-  leds           := 0;
 
   while (1) {
   
     cpu_enable      = 1;
   
+    /*
     if (ram.in_valid) {
       if (ram.rw) {
         __display("RAM write @%h = %h (%b)",ram.addr,ram.data_in,ram.wmask);
@@ -69,6 +70,7 @@ $$end
         __display("RAM read  @%h",ram.addr);
       }
     }
+    */
   
   }
 }
