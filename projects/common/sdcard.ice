@@ -172,7 +172,7 @@ algorithm sdcard(
         
         (status) <- read <- (1,1,3); // start token
         
-        store.addr1 = io.offset + progress;
+        store.addr1 = io.offset;
         (store.wdata1) <- read <- (8,0,3); // bytes  
         while (progress < 511) {
           (store.wdata1) <- read <- (8,0,3); // bytes          

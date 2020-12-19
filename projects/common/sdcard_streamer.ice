@@ -24,8 +24,9 @@ algorithm sdcard_streamer(
   // Read buffer
   simple_dualport_bram uint8 sdbuffer[1024] = uninitialized;
   // Offset to store/read either in the first or second part (one is read while the other is written to)
-  uint10 write_offset   = 0;
-  uint10 read_offset  ::= (write_offset == 0) ? 512 : 0;
+  uint10 write_offset     = 0;
+  uint10 read_offset      = 512;
+  uint23 last_read_sector = 23h11111111111111111111111;
 
   // SD-card interface, load sectors
   sdcardio sdcio;
@@ -45,8 +46,8 @@ algorithm sdcard_streamer(
   uint32 ptr     = 0;
   uint1  do_next = 0;
   
+  // Maintain low  
   sdcio.read_sector := 0;
-  sdcio.offset      := write_offset;
 
   always {
     if (stream.next) {
@@ -58,26 +59,32 @@ algorithm sdcard_streamer(
   // wait for sdcard to initialize
   while (sdcio.ready == 0) { }
 
+  // read sector 0
+  sdcio.addr_sector = 0;
+  sdcio.read_sector = 1; 
+  // wait for sector 0
+  while (sdcio.ready == 0) { }
+
   // ready
   stream.ready = 1;
 
-  // initialize to largest value so that +1 reads sector 0
-  sdcio.addr_sector = -1;
-  
   while (1) {
 
     if (
-       ptr[0,9] == 9b0                      // changing sector
-    && sdcio.ready == 1) {                  // sdcard is ready
+       ptr[0, 9]        == 9b0                     // changing sector
+    && ptr[9,23]        == sdcio.addr_sector[0,23] // not yet changed
+    && sdcio.ready      == 1) {                    // sdcard is ready
       // -> swap buffers
-      write_offset      = read_offset;
+      write_offset      = (write_offset == 0) ? 512 : 0;
+      read_offset       = (read_offset  == 0) ? 512 : 0;
+      sdcio.offset      = write_offset;
       // -> start reading the next sector immediately
-      sdcio.addr_sector = sdcio.addr_sector + 1;
+      sdcio.addr_sector = ptr[9,23] + 1;
       sdcio.read_sector = 1;
     }
     
-    if (do_next                                 // client requested next byte
-    && sdcio.addr_sector[0,23] == ptr[9,23] + 1 // reading next sector (current is available)
+    if (do_next                              // client requested next byte
+    && (ptr[9,23] + 1 == sdcio.addr_sector)  // reading next sector
     ) {
       do_next = 0;
       sdbuffer.addr0 = read_offset + ptr[0,9];
