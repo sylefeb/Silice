@@ -229,8 +229,8 @@ $$end
     
     uint3 case_select = uninitialized;
     case_select = {
-      enable && ram_done_pulsed && load_store  && alu_wait == 0, // load store available
-      enable && (!(jump || cmp || instr == 0) || ram_done_pulsed) && !load_store && alu_wait == 0, // next instruction available
+      enable && ram_done_pulsed && load_store && alu_wait == 0, // load store available
+      enable && (!(jump || cmp || instr == 0 /*after loadt_store*/) || ram_done_pulsed) && !load_store && alu_wait == 0, // next instruction available
       enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
     };
 

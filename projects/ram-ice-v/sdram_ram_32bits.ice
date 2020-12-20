@@ -19,21 +19,12 @@ $$cache_size = 256
   
   uint1  work_todo = 0;
   
-  uint1  rw        = uninitialized;
-  uint4  wmask     = uninitialized;
-  uint32 wdata     = uninitialized;
-  uint26 addr      = uninitialized;
-
   sdr.in_valid := 0;
   r32.done     := 0;
   
   always {
   
     if (r32.in_valid) {
-      rw    = r32.rw;
-      wmask = r32.wmask;
-      wdata = r32.data_in;
-      addr  = r32.addr;
       work_todo  = 1;
       // __display("R32 work todo, rw: %b, at @%h",work_rw,work_addr);
     }
@@ -44,32 +35,32 @@ $$cache_size = 256
   
     if (work_todo) {
       work_todo = 0;        
-      sdr.rw    = rw;
-      if (rw) {
+      sdr.rw    = r32.rw;
+      if (r32.rw) {
         // write
         uint4  write_seq = 4b0001;       
         uint32 tmp = uninitialized;
         uint2  pos = 0;
         //__display("R32 write");
-        tmp        = wdata;
-        while (write_seq != 0) {
-          if (wmask & write_seq) {
-            while (sdr.busy) {  }
-            sdr.addr     = {addr[2,24],pos};
-            sdr.data_in  = tmp[0,8];
-            sdr.in_valid = 1;
-          }
-          pos        = pos + 1;
-          tmp        = tmp       >> 8;
-          write_seq  = write_seq << 1;        
-        }
-        // done!
-        r32.done  = 1;
+        tmp        = r32.data_in;
         // invalidate cache if writing in same space
         if (in_cache) {
           cached_map.addr    = cache_entry;
           cached_map.wenable = 1;
           cached_map.wdata   = 0;
+        }
+        while (write_seq != 0) {
+          if (sdr.busy == 0) {
+            if (r32.wmask & write_seq) {
+              sdr.addr     = {r32.addr[2,24],pos};
+              sdr.data_in  = tmp[0,8];
+              sdr.in_valid = 1;
+            }
+            pos        = pos + 1;
+            tmp        = tmp       >> 8;
+            write_seq  = write_seq << 1;        
+            r32.done   = (write_seq == 0);
+          }
         }
         //__display("R32 write done");
       } else {
@@ -83,29 +74,31 @@ $$cache_size = 256
         if (in_cache && cached_map.rdata) {
           //__display("R32 read, in cache");
           // in cache
-          r32.data_out  = cached.rdata >> {addr[0,4],3b000};
+          r32.data_out  = cached.rdata >> {r32.addr[0,4],3b000};
           // done!
           r32.done  = 1;
           //__display("R32 read done (in cache)");
         } else {
           //__display("R32 read, cache miss");
           // cache miss
-          while (sdr.busy)       {  }
-          sdr.addr     = {addr[4,22],4b0000};
-          sdr.in_valid = 1;
-          while (!sdr.out_valid) {  }
+          while (!sdr.out_valid) {  
+            if (sdr.busy == 0) {
+              sdr.addr     = {r32.addr[4,22],4b0000};
+              sdr.in_valid = 1;              
+            }
+          }
           // update cache
           cached_map.wenable = 1;
           cached_map.wdata   = 1;
           cached    .wenable = 1;
           cached    .wdata   = sdr.data_out;
           // write output data
-          r32.data_out  = sdr.data_out >> {addr[0,4],3b000};
+          r32.data_out  = sdr.data_out >> {r32.addr[0,4],3b000};
           // done!
           r32.done  = 1;
           //__display("R32 read done (cache miss)");
-       }
-     }  
+        }
+      }  
    }
  }
  
