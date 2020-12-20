@@ -45,7 +45,8 @@ $$cache_size = 256
   while (1) {
   
     if (work_todo) {
-      sdr.rw       = rw;
+      work_todo = 0;        
+      sdr.rw    = rw;
       if (rw) {
         // write
         uint4  write_seq = 4b0001;       
@@ -65,8 +66,7 @@ $$cache_size = 256
           write_seq  = write_seq << 1;        
         }
         // done!
-        work_todo = 0;        
-        r32.done  = 1;
+        r32.done  = !work_todo;
         // invalidate cache if writing in same space
         if (in_cache) {
           cached_map.addr    = cache_entry;
@@ -87,8 +87,7 @@ $$cache_size = 256
           // in cache
           r32.data_out  = cached.rdata >> {addr[0,4],3b000};
           // done!
-          r32.done  = 1;
-          work_todo = 0;
+          r32.done  = !work_todo;
           //__display("R32 read done (in cache)");
         } else {
           //__display("R32 read, cache miss");
@@ -105,8 +104,7 @@ $$cache_size = 256
           // write output data
           r32.data_out  = sdr.data_out >> {addr[0,4],3b000};
           // done!
-          r32.done  = 1;
-          work_todo = 0;
+          r32.done  = !work_todo;
           //__display("R32 read done (cache miss)");
        }
      }  

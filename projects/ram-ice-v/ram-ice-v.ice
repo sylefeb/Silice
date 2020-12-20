@@ -227,128 +227,149 @@ $$if SIMULATION then
     //__display("CPU at ram @%h [cycle %d] (enable: %b ram_done_pulsed: %b load_store: %b store: %b)",      ram.addr,cycle,enable,ram_done_pulsed,load_store,store);
 $$end
     
-    if (enable && ram_done_pulsed && load_store) {
-      ram_done_pulsed = 0;
-      // __display("[load_store done]");
-      
-      // data with memory access
-      if (~store) { 
-        // finalize load
-        uint32 tmp = uninitialized;
-        switch ( loadStoreOp[0,2] ) {
-          case 2b00: { // LB / LBU
-              switch (alu_out[0,2]) {
-                case 2b00: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[ 7,1]}},ram.data_out[ 0,8]}; }
-                case 2b01: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[15,1]}},ram.data_out[ 8,8]}; }
-                case 2b10: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[23,1]}},ram.data_out[16,8]}; }
-                case 2b11: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[31,1]}},ram.data_out[24,8]}; }
-                default:   { tmp = 0; }
-              }
-          }
-          case 2b01: { // LH / LHU
-              switch (alu_out[1,1]) {
-                case 1b0: { tmp = { {16{loadStoreOp[2,1]&ram.data_out[15,1]}},ram.data_out[ 0,16]}; }
-                case 1b1: { tmp = { {16{loadStoreOp[2,1]&ram.data_out[31,1]}},ram.data_out[16,16]}; }
-                default:  { tmp = 0; }
-              }
-          }
-          case 2b10: { // LW
-            tmp = ram.data_out;  
-          }
-          default: { tmp = 0; }
-        }            
-        // commit result
-        xregsA.wenable = 1;
-        xregsB.wenable = 1;
-        xregsA.wdata   = tmp;
-        xregsB.wdata   = tmp;
-        xregsA.addr    = write_rd;
-        xregsB.addr    = write_rd;      
-      }
+    uint3 case_select = uninitialized;
+    case_select = {
+      enable && ram_done_pulsed && load_store  && alu_wait == 0, // load store available
+      enable && ram_done_pulsed && !load_store && alu_wait == 0, // next instruction available
+      enable && alu_wait == 1                                    // decode+ALU done
+    };
 
-      // prepare load next instruction
-      instr           = 0; // resets decoder
-      ram.addr        = next_pc;
-      ram.rw          = 0;
-      ram.in_valid    = 1;
-            
-    } else { if (enable && ram_done_pulsed && alu_wait == 0) {
-      ram_done_pulsed = 0;
-      
-$$if SIMULATION then    
-      __display("[exec] instr = %h [cycle %d (%d since)]",ram.data_out,cycle,cycle - cycle_last_exec);
-      cycle_last_exec = cycle;
-$$end
-
-      // instruction available
+    switch (case_select) {
     
-      // ready
-      instr       = ram.data_out;
-      pc          = ram.addr;
-      // update register immediately
-      xregsA.addr = Rtype(instr).rs1;
-      xregsB.addr = Rtype(instr).rs2;  
-
-      alu_wait    = 3; // 1 + num cycles to wait (2 for decode and ALU)
-
-    } else { if (enable && alu_wait == 1) {
-    
-      alu_wait    = 0;
-    
-      if (load_store) {
-      
-        // prepare load/store
-        ram.in_valid = 1;
-        ram.rw       = store;
-        ram.addr     = alu_out;
-        if (store) { 
-          // prepare store
-          switch (loadStoreOp) {
-            case 3b000: { // SB
+      case 4: {
+        ram_done_pulsed = 0;
+$$if SIMULATION then
+        __display("[load_store done] cycle %d",cycle);
+$$end        
+        // data with memory access
+        if (~store) { 
+          // finalize load
+          uint32 tmp = uninitialized;
+          switch ( loadStoreOp[0,2] ) {
+            case 2b00: { // LB / LBU
                 switch (alu_out[0,2]) {
-                  case 2b00: { ram.data_in[ 0,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b0001; }
-                  case 2b01: { ram.data_in[ 8,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b0010; }
-                  case 2b10: { ram.data_in[16,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b0100; }
-                  case 2b11: { ram.data_in[24,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b1000; }
+                  case 2b00: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[ 7,1]}},ram.data_out[ 0,8]}; }
+                  case 2b01: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[15,1]}},ram.data_out[ 8,8]}; }
+                  case 2b10: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[23,1]}},ram.data_out[16,8]}; }
+                  case 2b11: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[31,1]}},ram.data_out[24,8]}; }
+                  default:   { tmp = 0; }
                 }
             }
-            case 3b001: { // SH
+            case 2b01: { // LH / LHU
                 switch (alu_out[1,1]) {
-                  case 1b0: { ram.data_in[ 0,16] = xregsB.rdata[ 0,16]; ram.wmask = 4b0011; }
-                  case 1b1: { ram.data_in[16,16] = xregsB.rdata[ 0,16]; ram.wmask = 4b1100; }
+                  case 1b0: { tmp = { {16{loadStoreOp[2,1]&ram.data_out[15,1]}},ram.data_out[ 0,16]}; }
+                  case 1b1: { tmp = { {16{loadStoreOp[2,1]&ram.data_out[31,1]}},ram.data_out[16,16]}; }
+                  default:  { tmp = 0; }
                 }
             }
-            case 3b010: { // SW
-              ram.data_in = xregsB.rdata; ram.wmask = 4b1111;
+            case 2b10: { // LW
+              tmp = ram.data_out;  
             }
-            default: { ram.data_in = 0; }
-          }          
-        }        
-        
-      } else {
-
-        // what do we write in register (pc or alu, load is handled above)
-        xregsA.wdata = (jump | cmp) ? (next_pc) : alu_out;
-        xregsB.wdata = (jump | cmp) ? (next_pc) : alu_out;
-               
-        // prepare load next instruction
-        ram.in_valid = 1;
-        ram.addr     = (jump | cmp) ? alu_out[0,26] : next_pc;
-        ram.rw       = 0;
-
-        // store ALU result in register
-        if (write_rd) {
+            default: { tmp = 0; }
+          }            
           // commit result
           xregsA.wenable = 1;
           xregsB.wenable = 1;
+          xregsA.wdata   = tmp;
+          xregsB.wdata   = tmp;
           xregsA.addr    = write_rd;
-          xregsB.addr    = write_rd;
-        }        
+          xregsB.addr    = write_rd;      
+        }
+        // prepare load next instruction
+        instr           = 0; // resets decoder
+        ram.addr        = next_pc;
+        ram.rw          = 0;
+        ram.in_valid    = 1;
+        
+      } // case 4
 
-      }
+      case 2: {
+        ram_done_pulsed = 0;
+$$if SIMULATION then    
+        __display("[exec] instr = %h [cycle %d (%d since)]",ram.data_out,cycle,cycle - cycle_last_exec);
+        cycle_last_exec = cycle;
+$$end
+
+        // instruction available
+        instr       = ram.data_out; // triggers decode+ALU
+        pc          = ram.addr;
+        // wait for decode+ALU
+        alu_wait    = 3; // 1 (tag) + 1 for decode +1 for ALU
+        // read registers
+        xregsA.addr = Rtype(instr).rs1;
+        xregsB.addr = Rtype(instr).rs2;          
+        // be optimistic, start reading next
+        //ram.in_valid = 1;
+        //ram.addr     = next_pc;
+        //ram.rw       = 0;        
+
+      } // case 2
+
+      case 1: {      
+        alu_wait    = 0;  
+$$if SIMULATION then
+        __display("[decode+ALU done] cycle %d",cycle);
+$$end                        
+        if (load_store) {
+        
+          // prepare load/store
+          ram.in_valid = 1;
+          ram.rw       = store;
+          ram.addr     = alu_out;          
+          if (store) { 
+            // prepare store
+            switch (loadStoreOp) {
+              case 3b000: { // SB
+                  switch (alu_out[0,2]) {
+                    case 2b00: { ram.data_in[ 0,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b0001; }
+                    case 2b01: { ram.data_in[ 8,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b0010; }
+                    case 2b10: { ram.data_in[16,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b0100; }
+                    case 2b11: { ram.data_in[24,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b1000; }
+                  }
+              }
+              case 3b001: { // SH
+                  switch (alu_out[1,1]) {
+                    case 1b0: { ram.data_in[ 0,16] = xregsB.rdata[ 0,16]; ram.wmask = 4b0011; }
+                    case 1b1: { ram.data_in[16,16] = xregsB.rdata[ 0,16]; ram.wmask = 4b1100; }
+                  }
+              }
+              case 3b010: { // SW
+                ram.data_in = xregsB.rdata; ram.wmask = 4b1111;
+              }
+              default: { ram.data_in = 0; }
+            }          
+          }        
+          
+        } else {
+
+          // prepare load next instruction if there was a jump (otherwise, done already)
+          //if (jump | cmp) {
+            ram.in_valid = 1;
+            //ram.addr     = alu_out[0,26];
+            ram.addr     = (jump | cmp) ? alu_out[0,26] : next_pc;
+            ram.rw       = 0;
+          //}
+
+          // what do we write in register (pc or alu, load is handled above)
+          xregsA.wdata = (jump | cmp) ? (next_pc) : alu_out;
+          xregsB.wdata = (jump | cmp) ? (next_pc) : alu_out;
+                 
+          // store ALU result in register
+          if (write_rd) {
+            // commit result
+            xregsA.wenable = 1;
+            xregsB.wenable = 1;
+            xregsA.addr    = write_rd;
+            xregsB.addr    = write_rd;
+          }        
+
+        }
+        
+      } // case 1
       
-    } } } 
-    
+      default: {}
+      
+    } // switch
 $$if SIMULATION then  
 $$if SHOW_REGS then  
 ++:
