@@ -57,7 +57,8 @@ $$cache_size = 256
             tmp        = tmp       >> 8;
             write_seq  = write_seq << 1;        
             r32.done   = (write_seq == 0);
-          }
+// ++: // TODO: issue with larger writes not supporting two strobes of in_valid in a row?
+          }          
         }
         //__display("R32 write done");
       } else {
@@ -78,10 +79,12 @@ $$cache_size = 256
         } else {
           //__display("R32 read, cache miss");
           // cache miss
+          uint1 done = 0;
           while (!sdr.out_valid) {  
-            if (sdr.busy == 0) {
+            if (sdr.busy == 0 && done == 0) {
               sdr.addr     = {r32.addr[4,22],4b0000};
-              sdr.in_valid = 1;              
+              sdr.in_valid = 1;
+              done = 1;              
             }
           }
           // update cache

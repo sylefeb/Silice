@@ -147,9 +147,9 @@ $$end
 
   int32  alu_out     = uninitialized;
   intops alu(
-    pc        <: pc,
-    xa        <: xregsA.rdata0,
-    xb        <: xregsB.rdata0,
+    pc        <:: pc,
+    xa        <:: xregsA.rdata0,
+    xb        <:: xregsB.rdata0,
     imm       <: imm,
     forceZero <: forceZero,
     regOrPc   <: regOrPc,
@@ -183,11 +183,11 @@ $$end
   uint3 funct3   ::= Btype(instr).funct3;
   
   intcmp cmps(
-    a      <: xregsA.rdata0,
-    b      <: xregsB.rdata0,
-    select <: funct3,
-    enable <: branch,
-    j      :> cmp
+    a      <:: xregsA.rdata0,
+    b      <:: xregsB.rdata0,
+    select <:  funct3,
+    enable <:  branch,
+    j      :>  cmp
   ); 
 
 $$if SIMULATION then
