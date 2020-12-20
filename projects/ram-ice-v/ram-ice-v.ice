@@ -114,10 +114,8 @@ algorithm rv32i_cpu(
   rv32i_ram_user ram
 ) <autorun> {
   
-  //                 |--------- indicates we don't want the bram inputs to be latched
-  //                 v          writes have to be setup during the same clock cycle
-  bram int32 xregsA<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-  bram int32 xregsB<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  simple_dualport_bram int32 xregsA[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  simple_dualport_bram int32 xregsB[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   
   uint1  cmp         = uninitialized;
   
@@ -150,8 +148,8 @@ $$end
   int32  alu_out     = uninitialized;
   intops alu(
     pc        <: pc,
-    xa        <: xregsA.rdata,
-    xb        <: xregsB.rdata,
+    xa        <: xregsA.rdata0,
+    xb        <: xregsB.rdata0,
     imm       <: imm,
     forceZero <: forceZero,
     regOrPc   <: regOrPc,
@@ -185,8 +183,8 @@ $$end
   uint3 funct3   ::= Btype(instr).funct3;
   
   intcmp cmps(
-    a      <: xregsA.rdata,
-    b      <: xregsB.rdata,
+    a      <: xregsA.rdata0,
+    b      <: xregsB.rdata0,
     select <: funct3,
     enable <: branch,
     j      :> cmp
@@ -201,11 +199,10 @@ $$end
 
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid   := 0; 
-  // maintain read registers (no latched, see bram parameter)
-  xregsA.wenable := 0;
-  xregsB.wenable := 0;
-  xregsA.addr    := Rtype(instr).rs1;
-  xregsB.addr    := Rtype(instr).rs2;  
+  
+  // maintain bram registers
+  xregsA.wenable1 := 0;
+  xregsB.wenable1 := 0;
 
   always {
     ram_done_pulsed = ram_done_pulsed | ram.done;
@@ -230,11 +227,11 @@ $$end
     // produces a case number for each of the three different possibilities:
     // [case 4] a load store completed
     // [case 2] a next instruction is available
-    // [case 1] the decode+ALU completed
+    // [case 1] the decode+ALU completed, a next instruction is available
     uint3 case_select = uninitialized;
     case_select = {
-      enable && ram_done_pulsed && load_store && alu_wait == 0, // load store completed
-      enable && (!(jump || cmp || instr == 0 /*after load_store*/) || ram_done_pulsed) && !load_store && alu_wait == 0, // next instruction available
+      enable && ram_done_pulsed && load_store  && alu_wait == 0, // load store completed
+      enable && ram_done_pulsed && !load_store && alu_wait == 0, // next instruction available
       enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
     };
 
@@ -272,12 +269,12 @@ $$end
             default: { tmp = 0; }
           }            
           // commit result
-          xregsA.wenable = 1;
-          xregsB.wenable = 1;
-          xregsA.wdata   = tmp;
-          xregsB.wdata   = tmp;
-          xregsA.addr    = write_rd;
-          xregsB.addr    = write_rd;      
+          xregsA.wenable1 = write_rd != 0;
+          xregsB.wenable1 = write_rd != 0;
+          xregsA.wdata1   = tmp;
+          xregsB.wdata1   = tmp;
+          xregsA.addr1    = write_rd;
+          xregsB.addr1    = write_rd;
         }
         // prepare load next instruction
         instr           = 0; // resets decoder
@@ -290,18 +287,18 @@ $$end
       case 2: {
         ram_done_pulsed = 0;
 $$if SIMULATION then    
-        __display("[exec] instr = %h [cycle %d (%d since)]",ram.data_out,cycle,cycle - cycle_last_exec);
+        __display("[execA] instr = %h [cycle %d (%d since)]",ram.data_out,cycle,cycle - cycle_last_exec);
         cycle_last_exec = cycle;
 $$end
 
         // instruction available
-        instr       = ram.data_out; // triggers decode+ALU
-        pc          = ram.addr;        
+        instr        = ram.data_out; // triggers decode+ALU
+        pc           = ram.addr;        
         // wait for decode+ALU
-        alu_wait    = 3; // 1 (tag) + 1 for decode +1 for ALU        
+        alu_wait     = 3; // 1 (tag) + 1 for decode +1 for ALU        
         // read registers
-        xregsA.addr = Rtype(instr).rs1;
-        xregsB.addr = Rtype(instr).rs2;        
+        xregsA.addr0 = Rtype(instr).rs1;
+        xregsB.addr0 = Rtype(instr).rs2;        
         // be optimistic, start reading next
         ram.in_valid = 1;
         ram.addr     = pc + 4;
@@ -326,39 +323,36 @@ $$end
             switch (loadStoreOp) {
               case 3b000: { // SB
                   switch (alu_out[0,2]) {
-                    case 2b00: { ram.data_in[ 0,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b0001; }
-                    case 2b01: { ram.data_in[ 8,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b0010; }
-                    case 2b10: { ram.data_in[16,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b0100; }
-                    case 2b11: { ram.data_in[24,8] = xregsB.rdata[ 0,8]; ram.wmask = 4b1000; }
+                    case 2b00: { ram.data_in[ 0,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0001; }
+                    case 2b01: { ram.data_in[ 8,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0010; }
+                    case 2b10: { ram.data_in[16,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0100; }
+                    case 2b11: { ram.data_in[24,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b1000; }
                   }
               }
               case 3b001: { // SH
                   switch (alu_out[1,1]) {
-                    case 1b0: { ram.data_in[ 0,16] = xregsB.rdata[ 0,16]; ram.wmask = 4b0011; }
-                    case 1b1: { ram.data_in[16,16] = xregsB.rdata[ 0,16]; ram.wmask = 4b1100; }
+                    case 1b0: { ram.data_in[ 0,16] = xregsB.rdata0[ 0,16]; ram.wmask = 4b0011; }
+                    case 1b1: { ram.data_in[16,16] = xregsB.rdata0[ 0,16]; ram.wmask = 4b1100; }
                   }
               }
               case 3b010: { // SW
-                ram.data_in = xregsB.rdata; ram.wmask = 4b1111;
+                ram.data_in = xregsB.rdata0; ram.wmask = 4b1111;
               }
               default: { ram.data_in = 0; }
             }          
           }        
           
         } else {
-
-          // what do we write in register (pc or alu, load is handled above)
-          xregsA.wdata = (jump | cmp) ? (next_pc) : alu_out;
-          xregsB.wdata = (jump | cmp) ? (next_pc) : alu_out;
                  
-          // store ALU result in register
-          if (write_rd) {
-            // commit result
-            xregsA.wenable = 1;
-            xregsB.wenable = 1;
-            xregsA.addr    = write_rd;
-            xregsB.addr    = write_rd;
-          }
+          // store ALU result in registers
+          // -> what do we write in register (pc or alu, load is handled above)
+          xregsA.wdata1 = (jump | cmp) ? (next_pc) : alu_out;
+          xregsB.wdata1 = (jump | cmp) ? (next_pc) : alu_out;
+          // -> commit result
+          xregsA.wenable1 = write_rd != 0;
+          xregsB.wenable1 = write_rd != 0;
+          xregsA.addr1    = write_rd;
+          xregsB.addr1    = write_rd;
 
           // prepare load next instruction if there was a jump (otherwise, done already)
           if (jump | cmp) {
@@ -366,8 +360,22 @@ $$end
             ram.addr        = alu_out[0,26];
             ram.rw          = 0;
           } else {
-            // we have the next instruction!
-            // => cannot use it right away, as we have to write in the registers ...
+$$if SIMULATION then    
+            __display("[execB] instr = %h [cycle %d (%d since)]",ram.data_out,cycle,cycle - cycle_last_exec);
+            cycle_last_exec = cycle;
+$$end
+            // next instruction available!
+            instr        = ram.data_out; // triggers decode+ALU
+            pc           = ram.addr;        
+            // wait for decode+ALU
+            alu_wait     = 3; // 1 (tag) + 1 for decode +1 for ALU        
+            // read registers
+            xregsA.addr0 = Rtype(instr).rs1;
+            xregsB.addr0 = Rtype(instr).rs2;        
+            // be optimistic, start reading next
+            ram.in_valid = 1;
+            ram.addr     = pc + 4;
+            ram.rw       = 0;        
           }
 
         }
@@ -384,9 +392,9 @@ $$if SHOW_REGS then
   xregsB.wenable = 0;
   __display("------------------ registers A ------------------");
 $$for i=0,31 do
-      xregsA.addr = $i$;
+      xregsA.addr0 = $i$;
 ++:
-      xv$i$ = xregsA.rdata;
+      xv$i$ = xregsA.rdata0;
 $$end
       __display("%h %h %h %h\\n%h %h %h %h\\n%h %h %h %h\\n%h %h %h %h",xv0,xv1,xv2,xv3,xv4,xv5,xv6,xv7,xv8,xv9,xv10,xv11,xv12,xv13,xv14,xv15);
       __display("%h %h %h %h\\n%h %h %h %h\\n%h %h %h %h\\n%h %h %h %h",xv16,xv17,xv18,xv19,xv20,xv21,xv22,xv23,xv24,xv25,xv26,xv27,xv28,xv29,xv30,xv31);
