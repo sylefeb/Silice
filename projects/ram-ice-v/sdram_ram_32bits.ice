@@ -7,11 +7,6 @@ algorithm sdram_ram_32bits(
   input uint26       cache_start
 ) <autorun> {
 
-  uint1  work_rw        = uninitialized;
-  uint4  work_wmask     = uninitialized;
-  uint32 work_wdata     = uninitialized;
-  uint26 work_addr      = uninitialized;
-  
   // single cached read
   // uint128 cached      = uninitialized;
   // uint26  cached_addr = 26h3FFFFFF;
@@ -24,18 +19,23 @@ $$cache_size = 256
   
   uint1  work_todo = 0;
   
+  uint1  rw        = uninitialized;
+  uint4  wmask     = uninitialized;
+  uint32 wdata     = uninitialized;
+  uint26 addr      = uninitialized;
+
   sdr.in_valid := 0;
   r32.done     := 0;
   
   always {
   
     if (r32.in_valid) {
-      work_rw    = r32.rw;
-      work_wmask = r32.wmask;
-      work_wdata = r32.data_in;
-      work_addr  = r32.addr;
+      rw    = r32.rw;
+      wmask = r32.wmask;
+      wdata = r32.data_in;
+      addr  = r32.addr;
       work_todo  = 1;
-       __display("R32 work todo, rw: %b, at @%h",work_rw,work_addr);
+      // __display("R32 work todo, rw: %b, at @%h",work_rw,work_addr);
     }
 
   }
@@ -43,22 +43,14 @@ $$cache_size = 256
   while (1) {
   
     if (work_todo) {
-      uint1  rw        = uninitialized;
-      uint4  wmask     = uninitialized;
-      uint32 wdata     = uninitialized;
-      uint26 addr      = uninitialized;
       work_todo = 0;        
-      rw        = work_rw;      
-      wmask     = work_wmask;      
-      wdata     = work_wdata;      
-      addr      = work_addr;      
       sdr.rw    = rw;
       if (rw) {
         // write
         uint4  write_seq = 4b0001;       
         uint32 tmp = uninitialized;
         uint2  pos = 0;
-        __display("R32 write");
+        //__display("R32 write");
         tmp        = wdata;
         while (write_seq != 0) {
           if (wmask & write_seq) {
@@ -72,14 +64,14 @@ $$cache_size = 256
           write_seq  = write_seq << 1;        
         }
         // done!
-        r32.done  = !work_todo;
+        r32.done  = 1;
         // invalidate cache if writing in same space
         if (in_cache) {
           cached_map.addr    = cache_entry;
           cached_map.wenable = 1;
           cached_map.wdata   = 0;
         }
-        __display("R32 write done");
+        //__display("R32 write done");
       } else {
         // test cache        
         cached_map.addr    = cache_entry;
@@ -89,14 +81,14 @@ $$cache_size = 256
 ++:        
         // read
         if (in_cache && cached_map.rdata) {
-          __display("R32 read, in cache");
+          //__display("R32 read, in cache");
           // in cache
           r32.data_out  = cached.rdata >> {addr[0,4],3b000};
           // done!
-          r32.done  = !work_todo;
-          __display("R32 read done (in cache)");
+          r32.done  = 1;
+          //__display("R32 read done (in cache)");
         } else {
-          __display("R32 read, cache miss");
+          //__display("R32 read, cache miss");
           // cache miss
           while (sdr.busy)       {  }
           sdr.addr     = {addr[4,22],4b0000};
@@ -110,8 +102,8 @@ $$cache_size = 256
           // write output data
           r32.data_out  = sdr.data_out >> {addr[0,4],3b000};
           // done!
-          r32.done  = !work_todo;
-          __display("R32 read done (cache miss)");
+          r32.done  = 1;
+          //__display("R32 read done (cache miss)");
        }
      }  
    }

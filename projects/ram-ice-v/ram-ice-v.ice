@@ -230,8 +230,8 @@ $$end
     uint3 case_select = uninitialized;
     case_select = {
       enable && ram_done_pulsed && load_store  && alu_wait == 0, // load store available
-      enable && ram_done_pulsed && !load_store && alu_wait == 0, // next instruction available
-      enable && alu_wait == 1                                    // decode+ALU done
+      enable && (!(jump || cmp || instr == 0) || ram_done_pulsed) && !load_store && alu_wait == 0, // next instruction available
+      enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
     };
 
     switch (case_select) {
@@ -306,7 +306,8 @@ $$end
       } // case 2
 
       case 1: {      
-        alu_wait    = 0;  
+        ram_done_pulsed = 0;
+        alu_wait        = 0;  
 $$if SIMULATION then
         __display("[decode+ALU done] cycle %d",cycle);
 $$end                        
@@ -316,7 +317,6 @@ $$end
           ram.in_valid    = 1;
           ram.rw          = store;
           ram.addr        = alu_out;
-          ram_done_pulsed = 0; // cancel prior instruction read if it terminated
           if (store) { 
             // prepare store
             switch (loadStoreOp) {
@@ -349,7 +349,6 @@ $$end
             ram.addr        = alu_out[0,26];
             //ram.addr        = (jump | cmp) ? alu_out[0,26] : next_pc;
             ram.rw          = 0;
-            ram_done_pulsed = 0; // cancel prior instruction read if it terminated
           }
 
           // what do we write in register (pc or alu, load is handled above)
@@ -363,7 +362,7 @@ $$end
             xregsB.wenable = 1;
             xregsA.addr    = write_rd;
             xregsB.addr    = write_rd;
-          }        
+          }
 
         }
         
