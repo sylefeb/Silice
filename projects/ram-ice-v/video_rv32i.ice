@@ -35,10 +35,13 @@ algorithm frame_drawer(
 
   rv32i_ram_io ram;
 
+  uint26 cache_start = 26h2000000;
+
   // sdram io
   sdram_ram_32bits bridge(
     sdr <:> sdh,
-    r32 <:> ram
+    r32 <:> ram,
+    cache_start <: cache_start,
   );
   
   uint1  cpu_enable     = 0;

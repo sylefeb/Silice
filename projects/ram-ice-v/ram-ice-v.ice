@@ -130,12 +130,14 @@ algorithm rv32i_cpu(
   
   uint3  select      = uninitialized;  
   uint1  select2     = uninitialized;
+  
+  uint2  alu_wait    = 0;
 
   uint32 instr       = 0;    // initialize with null instruction, which sets everything to 0
   uint26 pc          = uninitialized;
   
-  uint26 next_pc   ::= pc+4; // next_pc tracks the expression 'pc + 4' using the
-                             // value of pc from the last clock edge (due to ::)
+  uint26 next_pc   ::= pc + 4; // next_pc tracks the expression 'pc + 4' using the
+                               // value of pc from the last clock edge (due to ::)
 
 $$if SIMULATION then  
 $$if SHOW_REGS then
@@ -207,6 +209,7 @@ $$end
 
   always {
     ram_done_pulsed = ram_done_pulsed | ram.done;
+    alu_wait        = (alu_wait != 1 && alu_wait != 0) ? alu_wait - 1 : alu_wait;
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
@@ -226,9 +229,9 @@ $$end
     
     if (enable && ram_done_pulsed && load_store) {
       ram_done_pulsed = 0;
+      // __display("[load_store done]");
       
       // data with memory access
-      __display("[load_store done]");    
       if (~store) { 
         // finalize load
         uint32 tmp = uninitialized;
@@ -269,7 +272,7 @@ $$end
       ram.rw          = 0;
       ram.in_valid    = 1;
             
-    } else { if (enable && ram_done_pulsed) {
+    } else { if (enable && ram_done_pulsed && alu_wait == 0) {
       ram_done_pulsed = 0;
       
 $$if SIMULATION then    
@@ -286,8 +289,11 @@ $$end
       xregsA.addr = Rtype(instr).rs1;
       xregsB.addr = Rtype(instr).rs2;  
 
-    ++: // decode and ALU
-    ++: // decode and ALU
+      alu_wait    = 3; // 1 + num cycles to wait (2 for decode and ALU)
+
+    } else { if (enable && alu_wait == 1) {
+    
+      alu_wait    = 0;
     
       if (load_store) {
       
@@ -340,7 +346,8 @@ $$end
         }        
 
       }
-    } } 
+      
+    } } } 
     
 $$if SIMULATION then  
 $$if SHOW_REGS then  
