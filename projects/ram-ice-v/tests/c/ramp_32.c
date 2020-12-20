@@ -10,10 +10,10 @@ void main()
     for (unsigned int j = 0 ; j < 200 ; j++) {
       for (unsigned int i = 0 ; i < 320 ; i+=4) {
         *(unsigned int*)(FRAMEBUFFER + i + (j << 9)) =
-              (offset+i+0)
-            | (offset+i+1)<<8
-            | (offset+i+2)<<16
-            | (offset+i+3)<<24
+              ((offset+i+0)&255)
+            | ((offset+i+1)&255)<<8
+            | ((offset+i+2)&255)<<16
+            | ((offset+i+3)&255)<<24
             ;
       }
     }

@@ -57,7 +57,7 @@ $$cache_size = 256
             tmp        = tmp       >> 8;
             write_seq  = write_seq << 1;        
             r32.done   = (write_seq == 0);
-// ++: // TODO: issue with larger writes not supporting two strobes of in_valid in a row?
+++: // TODO: issue with larger writes not supporting two strobes of in_valid in a row?
           }          
         }
         //__display("R32 write done");
