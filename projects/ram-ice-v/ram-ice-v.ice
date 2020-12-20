@@ -227,10 +227,14 @@ $$if SIMULATION then
     //__display("CPU at ram @%h [cycle %d] (enable: %b ram_done_pulsed: %b load_store: %b store: %b)",      ram.addr,cycle,enable,ram_done_pulsed,load_store,store);
 $$end
     
+    // produces a case number for each of the three different possibilities:
+    // [case 4] a load store completed
+    // [case 2] a next instruction is available
+    // [case 1] the decode+ALU completed
     uint3 case_select = uninitialized;
     case_select = {
-      enable && ram_done_pulsed && load_store && alu_wait == 0, // load store available
-      enable && (!(jump || cmp || instr == 0 /*after loadt_store*/) || ram_done_pulsed) && !load_store && alu_wait == 0, // next instruction available
+      enable && ram_done_pulsed && load_store && alu_wait == 0, // load store completed
+      enable && (!(jump || cmp || instr == 0 /*after load_store*/) || ram_done_pulsed) && !load_store && alu_wait == 0, // next instruction available
       enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
     };
 
@@ -292,12 +296,12 @@ $$end
 
         // instruction available
         instr       = ram.data_out; // triggers decode+ALU
-        pc          = ram.addr;
+        pc          = ram.addr;        
         // wait for decode+ALU
-        alu_wait    = 3; // 1 (tag) + 1 for decode +1 for ALU
+        alu_wait    = 3; // 1 (tag) + 1 for decode +1 for ALU        
         // read registers
         xregsA.addr = Rtype(instr).rs1;
-        xregsB.addr = Rtype(instr).rs2;          
+        xregsB.addr = Rtype(instr).rs2;        
         // be optimistic, start reading next
         ram.in_valid = 1;
         ram.addr     = pc + 4;
@@ -343,14 +347,6 @@ $$end
           
         } else {
 
-          // prepare load next instruction if there was a jump (otherwise, done already)
-          if (jump | cmp) {
-            ram.in_valid    = 1;
-            ram.addr        = alu_out[0,26];
-            //ram.addr        = (jump | cmp) ? alu_out[0,26] : next_pc;
-            ram.rw          = 0;
-          }
-
           // what do we write in register (pc or alu, load is handled above)
           xregsA.wdata = (jump | cmp) ? (next_pc) : alu_out;
           xregsB.wdata = (jump | cmp) ? (next_pc) : alu_out;
@@ -362,6 +358,16 @@ $$end
             xregsB.wenable = 1;
             xregsA.addr    = write_rd;
             xregsB.addr    = write_rd;
+          }
+
+          // prepare load next instruction if there was a jump (otherwise, done already)
+          if (jump | cmp) {
+            ram.in_valid    = 1;
+            ram.addr        = alu_out[0,26];
+            ram.rw          = 0;
+          } else {
+            // we have the next instruction!
+            // => cannot use it right away, as we have to write in the registers ...
           }
 
         }

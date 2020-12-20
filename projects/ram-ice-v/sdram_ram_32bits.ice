@@ -7,28 +7,25 @@ algorithm sdram_ram_32bits(
   input uint26       cache_start
 ) <autorun> {
 
-  // single cached read
-  // uint128 cached      = uninitialized;
-  // uint26  cached_addr = 26h3FFFFFF;
-  
 $$cache_size = 256  
+  // cache brams
   bram uint1   cached_map[$cache_size$] = {pad(0)};
   bram uint128 cached    [$cache_size$] = uninitialized;
+  // track when address is in cache region and onto which entry
   uint1  in_cache    := (r32.addr | $cache_size-1$) == (cache_start | $cache_size-1$);
   uint8  cache_entry := r32.addr & ($cache_size-1$);
   
   uint1  work_todo = 0;
   
-  sdr.in_valid := 0;
-  r32.done     := 0;
+  sdr.in_valid := 0; // pulses high when needed
+  r32.done     := 0; // pulses high when needed
   
   always {
-  
+    // we track the input impulse in the always block
+    // to ensure we won't miss it!
     if (r32.in_valid) {
       work_todo  = 1;
-      // __display("R32 work todo, rw: %b, at @%h",work_rw,work_addr);
     }
-
   }
   
   while (1) {
@@ -69,7 +66,7 @@ $$cache_size = 256
         cached_map.wenable = 0;
         cached    .addr    = cache_entry;
         cached    .wenable = 0;
-++:        
+++:
         // read
         if (in_cache && cached_map.rdata) {
           //__display("R32 read, in cache");
