@@ -11,10 +11,14 @@ algorithm sdram_ram_32bits(
   uint32 wdata     = uninitialized;
   uint26 addr      = uninitialized;
   
+  // single cached read
+  uint128 cached      = uninitialized;
+  uint26  cached_addr = 26h3FFFFFF;
+  
   uint1  work_todo = 0;
   
-  sdr.in_valid  := 0;
-  r32.out_valid := 0;
+  sdr.in_valid := 0;
+  r32.done     := 0;
   
   always {
   
@@ -24,10 +28,9 @@ algorithm sdram_ram_32bits(
       wdata     = r32.data_in;
       addr      = r32.addr;
       work_todo = 1;
+      //__display("R32 work todo, rw: %b, at @%h, wdata %h",rw,addr,wdata);
     }
 
-    r32.busy  = work_todo;
-   
   }
   
   while (1) {
@@ -35,9 +38,11 @@ algorithm sdram_ram_32bits(
     if (work_todo) {
       sdr.rw       = rw;
       if (rw) {
+        // write
         uint4  write_seq = 4b0001;       
         uint32 tmp = uninitialized;
         uint2  pos = 0;
+        //__display("R32 write");
         tmp        = wdata;
         while (write_seq != 0) {
           if (wmask & write_seq) {
@@ -50,23 +55,43 @@ algorithm sdram_ram_32bits(
           tmp        = tmp       >> 8;
           write_seq  = write_seq << 1;        
         }
+        // done!
         work_todo = 0;        
+        r32.done  = 1;
+        // invalidate cache if writing in same space
+        cached_addr   = (addr[4,22] == cached_addr[4,22]) 
+                      ? 26h3FFFFFF : cached_addr;
+        //__display("R32 write done");
       } else {
-        while (sdr.busy)       {  }
-        sdr.addr     = addr;
-        sdr.in_valid = 1;
-        while (!sdr.out_valid) {  }
-        if (sdr.addr&1) { // the sdram controller ignores lowest bit on a read (16 bits aligned accesses)
-          r32.data_out  = sdr.data_out[8,32];
+        // read
+        if (addr[4,22] == cached_addr[4,22]) {
+          //__display("R32 read, in cache");
+          // in cache
+          r32.data_out  = cached >> {addr[0,4],3b000};
+          // done!
+          r32.done  = 1;
+          work_todo = 0;
+          //__display("R32 read done (in cache)");
         } else {
-          r32.data_out  = sdr.data_out[0,32];
-        }
-        r32.out_valid = 1;
-        work_todo     = 0;
-      }
-    }
-  
-  }
-
+          //__display("R32 read, cache miss");
+          // cache miss
+          while (sdr.busy)       {  }
+          sdr.addr     = {addr[4,22],4b0000};
+          sdr.in_valid = 1;
+          while (!sdr.out_valid) {  }
+          // update cache
+          cached_addr = addr;
+          cached      = sdr.data_out;
+          // write output data
+          r32.data_out  = cached >> {addr[0,4],3b000};
+          // done!
+          r32.done  = 1;
+          work_todo = 0;
+          //__display("R32 read done (cache miss)");
+       }
+     }  
+   }
+ }
+ 
 }
 

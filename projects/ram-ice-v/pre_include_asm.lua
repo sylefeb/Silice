@@ -42,5 +42,3 @@ for i=numinit+1,memsize do
   meminit = meminit .. '32h0,'
 end
 meminit = meminit .. '}'
-
--- init_data_bytes = 512 + init_data_bytes

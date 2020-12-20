@@ -74,13 +74,12 @@ bitfield Btype {
 group rv32i_ram_io
 {
   uint32  addr       = 0, // 32 bits address space
-  uint1   rw         = 0,
+  uint1   rw         = 0, // rw==1 on write, 0 on read
   uint4   wmask      = 0, // write mask
   uint32  data_in    = 0,
   uint32  data_out   = 0,
-  uint1   busy       = 1,
   uint1   in_valid   = 0,
-  uint1   out_valid  = 0
+  uint1   done       = 0 // pulses when a read or write is done
 }
 
 // interface for user
@@ -91,8 +90,7 @@ interface rv32i_ram_user {
   output  data_in,
   output  in_valid,
   input   data_out,
-  input   busy,
-  input   out_valid,
+  input   done,
 }
 
 // interface for provider
@@ -102,9 +100,8 @@ interface rv32i_ram_provider {
   input   wmask,
   input   data_in,
   output  data_out,
-  output  busy,
   input   in_valid,
-  output  out_valid
+  output  done
 }
 
 
@@ -113,6 +110,7 @@ interface rv32i_ram_provider {
 
 algorithm rv32i_cpu(
   input uint1    enable,
+  input uint26   boot_at,
   rv32i_ram_user ram
 ) <autorun> {
   
@@ -120,9 +118,6 @@ algorithm rv32i_cpu(
   //                 v          writes have to be setup during the same clock cycle
   bram int32 xregsA<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   bram int32 xregsB<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-  
-  uint1  load_next_instr   = uninitialized;
-  int32  load_next_alu_out = uninitialized;
   
   uint1  cmp         = uninitialized;
   
@@ -136,10 +131,10 @@ algorithm rv32i_cpu(
   uint3  select      = uninitialized;  
   uint1  select2     = uninitialized;
 
-  uint32 instr       = uninitialized;
-  uint12 pc          = uninitialized;
+  uint32 instr       = 0;    // initialize with null instruction, which sets everything to 0
+  uint26 pc          = uninitialized;
   
-  uint12 next_pc   ::= pc+4; // next_pc tracks the expression 'pc + 4' using the
+  uint26 next_pc   ::= pc+4; // next_pc tracks the expression 'pc + 4' using the
                              // value of pc from the last clock edge (due to ::)
 
 $$if SIMULATION then  
@@ -196,10 +191,11 @@ $$end
   ); 
 
 $$if SIMULATION then
-  uint16 iter = 0;
+  uint32 cycle = 0;
+  uint32 cycle_last_exec = 0;
 $$end
 
-  uint1  out_valid_pulsed = uninitialized;
+  uint1  ram_done_pulsed = 0;
 
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid   := 0; 
@@ -210,45 +206,31 @@ $$end
   xregsB.addr    := Rtype(instr).rs2;  
 
   always {
-    out_valid_pulsed = out_valid_pulsed | ram.out_valid;
+    ram_done_pulsed = ram_done_pulsed | ram.done;
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
   } 
   
-  // boot at 0x00
-  load_next_instr =  1;
-  pc              = -4;
+  // boot
+  pc              = boot_at - 4;
+  ram.addr        = boot_at;
+  ram.rw          = 0;
+  ram.in_valid    = 1;
   
   while (1) {
-  
-    //__display("CPU ram @%h load_next_instr %b load_store %b store %b",ram.addr,load_next_instr,load_store,store);
 
-    // wait for memory
-    while ( !enable || 
-      ( ( (load_store && store) || load_next_instr )
-        ?  ram.busy
-        : !out_valid_pulsed )
-    ) { /*__display("wait (@%h) %b busy:%b out:%b load_next_instr:%b",ram.addr,enable,ram.busy,ram.out_valid,load_next_instr);*/ }
+$$if SIMULATION then
+    //__display("CPU at ram @%h [cycle %d] (enable: %b ram_done_pulsed: %b load_store: %b store: %b)",      ram.addr,cycle,enable,ram_done_pulsed,load_store,store);
+$$end
     
-    out_valid_pulsed = 0;
-    
-    // ram is not busy, or data is available
-    
-    if (load_next_instr == 1) {
-      // __display("[load_next_instr]");
-    
-      // load next instruction
-      load_next_instr = 0;
-      ram.addr        = {6b1,1b1,1b0,12b0,((~load_store) && (jump | cmp)) ? load_next_alu_out[0,12] : next_pc};
-      ram.rw          = 0;
-      ram.in_valid    = 1;
-      // null instruction (sets all decode low, so load_store == 0)
-      instr           = 0;
-    
-    } else { if (load_store) {
-      // __display("[load_store]");
-    
-      if (~store) { // load
+    if (enable && ram_done_pulsed && load_store) {
+      ram_done_pulsed = 0;
       
-        // data is available, ram may be busy
+      // data with memory access
+      __display("[load_store done]");    
+      if (~store) { 
+        // finalize load
         uint32 tmp = uninitialized;
         switch ( loadStoreOp[0,2] ) {
           case 2b00: { // LB / LBU
@@ -272,8 +254,6 @@ $$end
           }
           default: { tmp = 0; }
         }            
-        // __display("LOAD addr: %h (%b) op: %b read: %h / %h", ram.addr, alu_out, loadStoreOp, ram.data_out, tmp);
-        
         // commit result
         xregsA.wenable = 1;
         xregsB.wenable = 1;
@@ -281,19 +261,21 @@ $$end
         xregsB.wdata   = tmp;
         xregsA.addr    = write_rd;
         xregsB.addr    = write_rd;      
-
-      } else { // store
-
-        // ram is not busy, execute store
-        ram.in_valid    = 1;
-        
       }
 
-      // next instruction
-      load_next_instr = 1;
+      // prepare load next instruction
+      instr           = 0; // resets decoder
+      ram.addr        = next_pc;
+      ram.rw          = 0;
+      ram.in_valid    = 1;
+            
+    } else { if (enable && ram_done_pulsed) {
+      ram_done_pulsed = 0;
       
-    } else {
-      // __display("[exec] instr = %h",ram.data_out);
+$$if SIMULATION then    
+      __display("[exec] instr = %h [cycle %d (%d since)]",ram.data_out,cycle,cycle - cycle_last_exec);
+      cycle_last_exec = cycle;
+$$end
 
       // instruction available
     
@@ -307,15 +289,14 @@ $$end
     ++: // decode and ALU
     ++: // decode and ALU
     
-      // ram may again be busy
-    
       if (load_store) {
       
         // prepare load/store
+        ram.in_valid = 1;
         ram.rw       = store;
-        ram.addr     = alu_out;      
-        // store? set data
+        ram.addr     = alu_out;
         if (store) { 
+          // prepare store
           switch (loadStoreOp) {
             case 3b000: { // SB
                 switch (alu_out[0,2]) {
@@ -336,16 +317,20 @@ $$end
             }
             default: { ram.data_in = 0; }
           }          
-        }
-        // __display("STORE addr: %h (%b) op: %b to_store: %h", ram.addr, alu_out, loadStoreOp, ram.data_in);
+        }        
         
       } else {
 
         // what do we write in register (pc or alu, load is handled above)
         xregsA.wdata = (jump | cmp) ? (next_pc) : alu_out;
         xregsB.wdata = (jump | cmp) ? (next_pc) : alu_out;
-        
-        // store result   
+               
+        // prepare load next instruction
+        ram.in_valid = 1;
+        ram.addr     = (jump | cmp) ? alu_out[0,26] : next_pc;
+        ram.rw       = 0;
+
+        // store ALU result in register
         if (write_rd) {
           // commit result
           xregsA.wenable = 1;
@@ -353,14 +338,10 @@ $$end
           xregsA.addr    = write_rd;
           xregsB.addr    = write_rd;
         }        
-        
-        // next instruction
-        load_next_alu_out = alu_out;
-        load_next_instr   = 1;
 
       }
-    } }
-
+    } } 
+    
 $$if SIMULATION then  
 $$if SHOW_REGS then  
 ++:
@@ -377,7 +358,7 @@ $$end
 $$end
 $$end
 
-  }
+  } // while
 
 }
 
@@ -572,7 +553,7 @@ algorithm decode(
 // Performs integer computations
 
 algorithm intops(         // input! tells the compiler that the input does not                            
-  input!  uint12 pc,      // need to be latched, so we can save registers
+  input!  uint26 pc,      // need to be latched, so we can save registers
   input!  int32  xa,      // caller has to ensure consistency
   input!  int32  xb,
   input!  int32  imm,
@@ -584,7 +565,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   output  int32  r,
 ) {
   
-  int32 a := regOrPc  ? __signed({20b0,pc[0,12]}) : (forceZero ? xa : __signed(32b0));
+  int32 a := regOrPc  ? __signed({6b0,pc[0,26]}) : (forceZero ? xa : __signed(32b0));
   int32 b := regOrImm ? imm : (xb);
   //      ^^
   // using := during a declaration means that the variable now constantly tracks

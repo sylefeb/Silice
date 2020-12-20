@@ -27,10 +27,6 @@ algorithm frame_drawer(
   output uint1  fbuffer,
 ) <autorun> {
 
-$$if SIMULATION then
-  uint16 iter = 0;
-$$end
-
   sdram_raw_io sdh;
   sdram_half_speed_access sdram_slower<@sdram_clock,!sdram_reset>(
     sd  <:> sd,
@@ -45,12 +41,14 @@ $$end
     r32 <:> ram
   );
   
-  uint1 cpu_enable = 0;
+  uint1  cpu_enable     = 0;
+  uint26 cpu_start_addr = 26h2000000;
 
   // cpu 
   rv32i_cpu cpu(
-    enable <:  cpu_enable,
-    ram    <:> ram
+    enable   <:  cpu_enable,
+    boot_at  <: cpu_start_addr,
+    ram      <:> ram
   );
 
   uint1  vsync_filtered = 0;
@@ -61,17 +59,15 @@ $$end
   while (1) {
   
     cpu_enable      = 1;
-  
-    /*
+/*  
     if (ram.in_valid) {
       if (ram.rw) {
-        __display("RAM write @%h = %h (%b)",ram.addr,ram.data_in,ram.wmask);
+        __display("  RAM write @%h = %h (%b)",ram.addr,ram.data_in,ram.wmask);
       } else {
-        __display("RAM read  @%h",ram.addr);
+        __display("  RAM read  @%h",ram.addr);
       }
     }
-    */
-  
+*/  
   }
 }
 
