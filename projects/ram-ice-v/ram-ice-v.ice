@@ -299,9 +299,9 @@ $$end
         xregsA.addr = Rtype(instr).rs1;
         xregsB.addr = Rtype(instr).rs2;          
         // be optimistic, start reading next
-        //ram.in_valid = 1;
-        //ram.addr     = next_pc;
-        //ram.rw       = 0;        
+        ram.in_valid = 1;
+        ram.addr     = pc + 4;
+        ram.rw       = 0;        
 
       } // case 2
 
@@ -313,9 +313,10 @@ $$end
         if (load_store) {
         
           // prepare load/store
-          ram.in_valid = 1;
-          ram.rw       = store;
-          ram.addr     = alu_out;          
+          ram.in_valid    = 1;
+          ram.rw          = store;
+          ram.addr        = alu_out;
+          ram_done_pulsed = 0; // cancel prior instruction read if it terminated
           if (store) { 
             // prepare store
             switch (loadStoreOp) {
@@ -343,12 +344,13 @@ $$end
         } else {
 
           // prepare load next instruction if there was a jump (otherwise, done already)
-          //if (jump | cmp) {
-            ram.in_valid = 1;
-            //ram.addr     = alu_out[0,26];
-            ram.addr     = (jump | cmp) ? alu_out[0,26] : next_pc;
-            ram.rw       = 0;
-          //}
+          if (jump | cmp) {
+            ram.in_valid    = 1;
+            ram.addr        = alu_out[0,26];
+            //ram.addr        = (jump | cmp) ? alu_out[0,26] : next_pc;
+            ram.rw          = 0;
+            ram_done_pulsed = 0; // cancel prior instruction read if it terminated
+          }
 
           // what do we write in register (pc or alu, load is handled above)
           xregsA.wdata = (jump | cmp) ? (next_pc) : alu_out;
