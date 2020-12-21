@@ -1,10 +1,10 @@
 // -----------------------------------------------------------
 // @sylefeb A SDRAM controller in Silice
 //
-// Expects a 16 bits wide SDRAM interface
-//
-// writes single bytes
-// reads bursts of 8 x 16 bits
+// SDRAM controller with auto-precharge
+// - expects a 16 bits wide SDRAM interface
+// - writes single bytes
+// - reads bursts of 8 x 16 bits
 //
 // if using directly the controller: 
 //  - reads (16x8 bits) have to align with 16 bits boundaries (even byte addresses)
@@ -70,62 +70,6 @@ $$end
 
 // -----------------------------------------------------------
 
-// SDRAM, raw data exchange (1 byte write, 16 bytes read)
-group sdram_raw_io
-{
-  uint26  addr       = 0,  // addressable bytes (internally deals with 16 bits wide sdram)
-  uint1   rw         = 0,
-  uint8   data_in    = 0,  //   8 bits write
-  uint128 data_out   = 0,  // 128 bits read (8x burst of 16 bits)
-  uint1   busy       = 1,
-  uint1   in_valid   = 0,
-  uint1   out_valid  = 0
-}
-
-// SDRAM, byte data exchange
-// emulates a simple byte rw interface
-// reads are cached (burst length)
-
-group sdram_byte_io
-{
-  uint26  addr       = 0,  // addressable bytes
-  uint1   rw         = 0,
-  uint8   data_in    = 0,  // write byte
-  uint8   data_out   = 0,  // read byte
-  uint1   busy       = 1,
-  uint1   in_valid   = 0,
-  uint1   out_valid  = 0
-}
-
-// => NOTE how sdram_raw_io and sdram_byte_io are compatible in terms of named members
-//         this allows using the same interface for both
-
-// Interfaces
-
-// interface for user
-interface sdram_user {
-  output  addr,
-  output  rw,
-  output  data_in,
-  output  in_valid,
-  input   data_out,
-  input   busy,
-  input   out_valid,
-}
-
-// interface for provider
-interface sdram_provider {
-  input   addr,
-  input   rw,
-  input   data_in,
-  output  data_out,
-  output  busy,
-  input   in_valid,
-  output  out_valid
-}
-
-// -----------------------------------------------------------
-
 circuitry command(
   output sdram_cs,output sdram_ras,output sdram_cas,output sdram_we,input cmd)
 {
@@ -137,7 +81,7 @@ circuitry command(
 
 // -----------------------------------------------------------
 
-algorithm sdram_controller(
+algorithm sdram_controller_autoprecharge_r128_w8(
         // sdram pins
         // => we use immediate (combinational) outputs as these are registered 
         //    explicitely using dedicqted primitives when available / implemented
@@ -219,10 +163,6 @@ $$elseif DE10NANO then
     io_read         :>  dq_i,
     io_write_enable <:  reg_dq_en
   );
-
-$$elseif ICARUS then
-
-$$ error('sdram simulation is currently not working properly with icarus')
 
 $$else
 
@@ -449,298 +389,6 @@ $$end
     } // refresh
 
   }
-}
-
-// -----------------------------------------------------------
-
-// Implements a simplified byte memory interface
-//
-// Assumptions:
-//  * !!IMPORTANT!! assumes no writes ever occur into a cached read
-//  * busy     == 1 => in_valid  = 0
-//  * in_valid == 1 & rw == 1 => in_valid == 0 until out_valid == 1
-//
-algorithm sdram_byte_readcache(
-  sdram_provider sdb,
-  sdram_user     sdr,
-) <autorun> {
-
-  // cached reads
-  uint128 cached         = uninitialized;
-  uint26  cached_addr    = 26h3FFFFFF;
-
-  uint2   busy           = 1;
-  
-  always {
-
-    // maintain busy for one clock to
-    // account for one cycle latency
-    // of latched outputs to chip
-    sdb.busy = busy[0,1];
-    if (sdr.busy == 0) {
-      busy = {1b0,busy[1,1]};
-    }
-
-    if (sdb.in_valid) {
-      if (sdb.rw == 0) { // reading
-        if (sdb.addr[4,22] == cached_addr[4,22]) {
-          // in cache!
-          sdb.data_out  = cached >> {sdb.addr[0,4],3b000};
-          // -> signal availability
-          sdb.out_valid = 1;
-          // no request
-          sdr.in_valid  = 0;
-        } else {
-          sdb.busy      = 1;
-          busy          = 2b11;
-          // record addr to cache
-          cached_addr   = sdb.addr;
-          // issue read
-          sdr.rw        = 0;
-          sdr.addr      = {cached_addr[4,22],4b0000};
-          sdr.in_valid  = 1;
-          // no output
-          sdb.out_valid = 0;
-        }
-      } else { // writing
-        sdb.busy      = 1;
-        busy          = 2b11;
-        // issue write
-        sdr.rw        = 1;
-        sdr.addr      = sdb.addr;
-        sdr.data_in   = sdb.data_in;
-        sdr.in_valid  = 1; 
-        // no output
-        sdb.out_valid = 0;
-        // invalidate cache if writing in same space
-        cached_addr   = (sdb.addr[4,22] == cached_addr[4,22]) ? 26h3FFFFFF : cached_addr;
-      }
-    } else {
-      if (sdr.out_valid) {
-        // data is available
-        // -> fill cache
-        cached        = sdr.data_out;
-        // -> extract byte
-        sdb.data_out  = cached >> {cached_addr[0,4],3b000};
-        // -> signal availability
-        sdb.out_valid = 1;
-        // no request
-        sdr.in_valid = 0;
-      } else {
-        // no output
-        sdb.out_valid = 0;
-        // no request
-        sdr.in_valid  = 0;
-      }
-    }
-
-  }
-
-}
-
-// ------------------------- 
-// Three-way arbitrer for SDRAM
-// sd0 has highest priority, then sd1, then sd2
-
-algorithm sdram_switcher_3way(
-  sdram_provider sd0,
-  sdram_provider sd1,
-  sdram_provider sd2,
-  sdram_user     sd
-) {
-	
-  sameas(sd0) buffered_sd0;
-  sameas(sd1) buffered_sd1;
-  sameas(sd2) buffered_sd2;
-  
-  uint2 reading   = 2b11;
-  uint1 writing   = 0;
-  uint3 in_valids = uninitialized;
-
-  sd0.out_valid := 0; // pulses high when ready
-  sd1.out_valid := 0; // pulses high when ready
-  sd2.out_valid := 0; // pulses high when ready
-  sd .in_valid  := 0; // pulses high when ready
-  
-  always {
-    
-    in_valids = {buffered_sd2.in_valid , buffered_sd1.in_valid , buffered_sd0.in_valid};
-
-    // buffer requests
-    if (buffered_sd0.in_valid == 0 && sd0.in_valid == 1) {
-      buffered_sd0.addr       = sd0.addr;
-      buffered_sd0.rw         = sd0.rw;
-      buffered_sd0.data_in    = sd0.data_in;
-      buffered_sd0.in_valid   = 1;
-    }
-    if (buffered_sd1.in_valid == 0 && sd1.in_valid == 1) {
-      buffered_sd1.addr       = sd1.addr;
-      buffered_sd1.rw         = sd1.rw;
-      buffered_sd1.data_in    = sd1.data_in;
-      buffered_sd1.in_valid   = 1;
-    }
-    if (buffered_sd2.in_valid == 0 && sd2.in_valid == 1) {
-      buffered_sd2.addr       = sd2.addr;
-      buffered_sd2.rw         = sd2.rw;
-      buffered_sd2.data_in    = sd2.data_in;
-      buffered_sd2.in_valid   = 1;
-    }
-    // check if read operations terminated
-    switch (reading) {
-    case 0 : { 
-      if (sd.out_valid == 1) {
-        // done
-        sd0.data_out  = sd.data_out;
-        sd0.out_valid = 1;
-        reading       = 2b11;
-        buffered_sd0.in_valid = 0;
-      }
-    }
-    case 1 : { 
-      if (sd.out_valid == 1) {
-        // done
-        sd1.data_out  = sd.data_out;
-        sd1.out_valid = 1;
-        reading       = 2b11;
-        buffered_sd1.in_valid = 0;
-      }
-    }
-    case 2 : { 
-      if (sd.out_valid == 1) {
-        // done
-        sd2.data_out  = sd.data_out;
-        sd2.out_valid = 1;
-        reading       = 2b11;
-        buffered_sd2.in_valid = 0;
-      }
-    }
-    default: { 
-      if (writing) { // when writing we wait on cycle before resuming, 
-        writing = 0; // ensuring the sdram controler reports busy properly
-      } else {
-        // -> sd0 (highest priority)
-        if (   sd.busy == 0
-            && in_valids[0,1] == 1) {
-          sd.addr     = buffered_sd0.addr;
-          sd.rw       = buffered_sd0.rw;
-          sd.data_in  = buffered_sd0.data_in;
-          sd.in_valid = 1;
-          if (buffered_sd0.rw == 0) { 
-            reading               = 0; // reading, wait for answer
-          } else {
-            writing = 1;
-            buffered_sd0.in_valid = 0; // done if writing
-          }
-        }
-        if (   sd.busy == 0 
-            && in_valids[0,1] == 0 
-            && in_valids[1,1] == 1) {
-          sd.addr     = buffered_sd1.addr;
-          sd.rw       = buffered_sd1.rw;
-          sd.data_in  = buffered_sd1.data_in;
-          sd.in_valid = 1;        
-          if (buffered_sd1.rw == 0) { 
-            reading               = 1; // reading, wait for answer
-          } else {
-            writing = 1;
-            buffered_sd1.in_valid = 0; // done if writing
-          }
-        }
-        if (   sd.busy == 0 
-            && in_valids[0,1] == 0
-            && in_valids[1,1] == 0
-            && in_valids[2,1] == 1) {
-          sd.addr     = buffered_sd2.addr;
-          sd.rw       = buffered_sd2.rw;
-          sd.data_in  = buffered_sd2.data_in;
-          sd.in_valid = 1;        
-          if (buffered_sd2.rw == 0) { 
-            reading               = 2; // reading, wait for answer
-          } else {
-            writing = 1;
-            buffered_sd2.in_valid = 0; // done if writing
-          }
-        } 
-      }
-    }
-    } // switch
-    // interfaces are busy while their request is being processed
-    sd0.busy = buffered_sd0.in_valid;
-    sd1.busy = buffered_sd1.in_valid;
-    sd2.busy = buffered_sd2.in_valid;
-  } // always
-}
-
-// -------------------------
-// wrapper for sdram from design running hafl-speed clock
-// the wrapper runs full speed, the design using it half-speed
-algorithm sdram_half_speed_access(
-  sdram_provider sdh,
-  sdram_user     sd
-) <autorun> {
-
-  sameas(sdh) buffered_sdh;
-  
-  uint1 reading   = 0;
-  uint1 writing   = 0;
-  uint1 in_valid  = uninitialized;
-
-  uint1 half_clock = 0;
-  uint2 out_valid  = 0;
-
-  sdh.out_valid := 0; // pulses high when ready
-  sd .in_valid  := 0; // pulses high when ready
-  
-  always {
-    
-    in_valid = buffered_sdh.in_valid;
-
-    // buffer requests
-    if (half_clock) { // read only on slow clock
-      if (buffered_sdh.in_valid == 0 && sdh.in_valid == 1) {
-        buffered_sdh.addr       = sdh.addr;
-        buffered_sdh.rw         = sdh.rw;
-        buffered_sdh.data_in    = sdh.data_in;
-        buffered_sdh.in_valid   = 1;
-      }
-    }
-    // update out_valid
-    out_valid = out_valid >> 1;
-    // check if read operations terminated
-    if (reading) {
-      if (sd.out_valid == 1) {
-        // done
-        sdh.data_out  = sd.data_out;
-        out_valid     = 2b11;
-        reading       = 0;
-        buffered_sdh.in_valid = 0;
-      }
-    } else { 
-      if (writing) { // when writing we wait on cycle before resuming, 
-        writing = 0; // ensuring the sdram controler reports busy properly
-      } else {
-        if (   sd.busy == 0 && in_valid == 1  ) {
-          sd.addr     = buffered_sdh.addr;
-          sd.rw       = buffered_sdh.rw;
-          sd.data_in  = buffered_sdh.data_in;
-          sd.in_valid = 1;
-          if (buffered_sdh.rw == 0) { 
-            reading               = 1; // reading, wait for answer
-          } else {
-            writing = 1;
-            buffered_sdh.in_valid = 0; // done if writing
-          }
-        }
-      }
-    } // reading
-    // interface is busy while its request is being processed
-    sdh.busy      = buffered_sdh.in_valid;
-    // two-cycle out valid
-    sdh.out_valid = out_valid[0,1];
-    // half clock
-    half_clock    = ~ half_clock;
-  } // always
-
 }
 
 // -----------------------------------------------------------

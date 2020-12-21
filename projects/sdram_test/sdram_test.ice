@@ -1,7 +1,8 @@
 // ------------------------- 
 
-// SDRAM controller
-$include('../common/sdramctrl.ice')
+$include('../common/sdram_interfaces.ice')
+$include('../common/sdram_controller_r128_w8.ice')
+$include('../common/sdram_utils.ice')
 
 $$if ICARUS then
 // SDRAM simulator
@@ -73,7 +74,7 @@ $$end
 // interface
 sdram_raw_io sdram_io;
 // algorithm
-sdram_controller sdram(
+sdram_controller_r128_w8 sdram(
   sd        <:> sdram_io,
   sdram_cle :>  sdram_cle,
   sdram_dqm :>  sdram_dqm,
@@ -119,7 +120,7 @@ $display("=== writing ===");
     while (1) {
       if (sio.busy == 0) {        // not busy?            
         sio.data_in    = count;            
-        sio.addr       = count;
+        sio.addr       = count << 21; // forces to spill over banks
         sio.in_valid   = 1; // go ahead!
         break;
       }
@@ -133,7 +134,7 @@ $display("=== readback ===");
   sio.rw = 0;
   while (count < 64) {
     if (sio.busy == 0) {
-      sio.addr     = count;
+      sio.addr     = count << 21; // forces to spill over banks
       sio.in_valid = 1;         // go ahead!
       while (sio.out_valid == 0) { } // wait for value
       read = sio.data_out;
