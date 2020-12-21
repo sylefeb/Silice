@@ -118,6 +118,7 @@ algorithm rv32i_cpu(
   simple_dualport_bram int32 xregsB[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   
   uint1  cmp         = uninitialized;
+  uint1  halt        = 0;
   
   uint5  write_rd    = uninitialized;
   uint1  jump        = uninitialized;  
@@ -218,12 +219,8 @@ $$end
   ram.rw          = 0;
   ram.in_valid    = 1;
   
-  while (1) {
+  while (!halt) {
 
-$$if SIMULATION then
-    //__display("CPU at ram @%h [cycle %d] (enable: %b ram_done_pulsed: %b load_store: %b store: %b)",      ram.addr,cycle,enable,ram_done_pulsed,load_store,store);
-$$end
-    
     // produces a case number for each of the three different possibilities:
     // [case 4] a load store completed
     // [case 2] a next instruction is available
@@ -240,7 +237,7 @@ $$end
       case 4: {
         ram_done_pulsed = 0;
 $$if SIMULATION then
-        __display("[load_store done] cycle %d",cycle);
+        // __display("[load_store done] cycle %d",cycle);
 $$end        
         // data with memory access
         if (~store) { 
@@ -248,26 +245,17 @@ $$end
           uint32 tmp = uninitialized;
           switch ( loadStoreOp[0,2] ) {
             case 2b00: { // LB / LBU
-                switch (alu_out[0,2]) {
-                  case 2b00: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[ 7,1]}},ram.data_out[ 0,8]}; }
-                  case 2b01: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[15,1]}},ram.data_out[ 8,8]}; }
-                  case 2b10: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[23,1]}},ram.data_out[16,8]}; }
-                  case 2b11: { tmp = { {24{loadStoreOp[2,1]&ram.data_out[31,1]}},ram.data_out[24,8]}; }
-                  default:   { tmp = 0; }
-                }
+              tmp = { {24{loadStoreOp[2,1]&ram.data_out[ 7,1]}},ram.data_out[ 0,8]};
             }
             case 2b01: { // LH / LHU
-                switch (alu_out[1,1]) {
-                  case 1b0: { tmp = { {16{loadStoreOp[2,1]&ram.data_out[15,1]}},ram.data_out[ 0,16]}; }
-                  case 1b1: { tmp = { {16{loadStoreOp[2,1]&ram.data_out[31,1]}},ram.data_out[16,16]}; }
-                  default:  { tmp = 0; }
-                }
+              tmp = { {16{loadStoreOp[2,1]&ram.data_out[15,1]}},ram.data_out[ 0,16]};
             }
             case 2b10: { // LW
               tmp = ram.data_out;  
             }
             default: { tmp = 0; }
           }            
+          __display("LOAD %b %h (%h) @%h",loadStoreOp,tmp,ram.data_out,ram.addr);
           // commit result
           xregsA.wenable1 = write_rd != 0;
           xregsB.wenable1 = write_rd != 0;
@@ -287,12 +275,13 @@ $$end
       case 2: {
         ram_done_pulsed = 0;
 $$if SIMULATION then    
-        __display("[execA] instr = %h [cycle %d (%d since)]",ram.data_out,cycle,cycle - cycle_last_exec);
+        __display("[execA] @%h instr = %h [cycle %d (%d since)]",ram.addr,ram.data_out,cycle,cycle - cycle_last_exec);
         cycle_last_exec = cycle;
 $$end
 
         // instruction available
         instr        = ram.data_out; // triggers decode+ALU
+        halt         = (instr == 0);
         pc           = ram.addr;        
         // wait for decode+ALU
         alu_wait     = 3; // 1 (tag) + 1 for decode +1 for ALU        
@@ -310,7 +299,7 @@ $$end
         ram_done_pulsed = 0;
         alu_wait        = 0;  
 $$if SIMULATION then
-        __display("[decode+ALU done] cycle %d",cycle);
+        // __display("[decode+ALU done] cycle %d",cycle);
 $$end                        
         if (load_store) {
         
@@ -339,7 +328,8 @@ $$end
                 ram.data_in = xregsB.rdata0; ram.wmask = 4b1111;
               }
               default: { ram.data_in = 0; }
-            }          
+            }         
+            __display("STORE %b %h [%b] @%h",loadStoreOp,ram.data_in,ram.wmask,ram.addr);            
           }        
           
         } else {
@@ -361,11 +351,12 @@ $$end
             ram.rw          = 0;
           } else {
 $$if SIMULATION then    
-            __display("[execB] instr = %h [cycle %d (%d since)]",ram.data_out,cycle,cycle - cycle_last_exec);
+            __display("[execB] @%h instr = %h [cycle %d (%d since)]",ram.addr,ram.data_out,cycle,cycle - cycle_last_exec);
             cycle_last_exec = cycle;
 $$end
             // next instruction available!
             instr        = ram.data_out; // triggers decode+ALU
+            halt         = (instr == 0);
             pc           = ram.addr;        
             // wait for decode+ALU
             alu_wait     = 3; // 1 (tag) + 1 for decode +1 for ALU        

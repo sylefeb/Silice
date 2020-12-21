@@ -7,13 +7,14 @@ algorithm sdram_ram_32bits(
   input uint26       cache_start
 ) <autorun> {
 
-$$cache_size = 256  
+$$cache_depth = 10
+$$cache_size  = 1<<cache_depth
   // cache brams
   bram uint1   cached_map[$cache_size$] = {pad(0)};
   bram uint128 cached    [$cache_size$] = uninitialized;
-  // track when address is in cache region and onto which entry
-  uint1  in_cache    := (r32.addr | $cache_size-1$) == (cache_start | $cache_size-1$);
-  uint8  cache_entry := r32.addr & ($cache_size-1$);
+  // track when address is in cache region and onto which entry  
+  uint1  in_cache                := (r32.addr | $cache_size-1$) == (cache_start | $cache_size-1$);
+  uint$cache_depth$  cache_entry := r32.addr & ($cache_size-1$);
   
   uint1  work_todo = 0;
   
@@ -70,7 +71,7 @@ $$cache_size = 256
 ++:
         // read
         if (in_cache && cached_map.rdata) {
-          //__display("R32 read, in cache");
+          //__display("R32 read, in cache @%h entry %h",r32.addr, cache_entry);
           // in cache
           r32.data_out  = cached.rdata >> {r32.addr[0,4],3b000};
           // done!
@@ -88,9 +89,9 @@ $$cache_size = 256
             }
           }
           // update cache
-          cached_map.wenable = 1;
+          cached_map.wenable = in_cache;
           cached_map.wdata   = 1;
-          cached    .wenable = 1;
+          cached    .wenable = in_cache;
           cached    .wdata   = sdr.data_out;
           // write output data
           r32.data_out  = sdr.data_out >> {r32.addr[0,4],3b000};
