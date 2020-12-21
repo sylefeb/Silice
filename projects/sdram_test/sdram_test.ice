@@ -72,7 +72,7 @@ $$end
 
 // SDRAM chip controller
 // interface
-sdram_raw_io sdram_io;
+sdram_r128w8_io sdram_io;
 // algorithm
 sdram_controller_r128_w8 sdram(
   sd        <:> sdram_io,

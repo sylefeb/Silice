@@ -388,7 +388,7 @@ $$end
 
   // --- SDRAM raw interface
 
-  sdram_raw_io sdm;
+  sdram_r128w8_io sdm;
   
   // sdram_controller_autoprecharge_r128_w8 memory<@sdram_clock,!sdram_reset>(
   sdram_controller_r128_w8 memory<@sdram_clock,!sdram_reset>(
@@ -403,9 +403,9 @@ $$end
 
   // --- SDRAM byte memory interface
 
-  sdram_raw_io sdf; // framebuffer
-  sdram_raw_io sdd; // drawer
-  sdram_raw_io sdi; // init
+  sdram_r128w8_io sdf; // framebuffer
+  sdram_r128w8_io sdd; // drawer
+  sdram_r128w8_io sdi; // init
 
   // --- SDRAM arbitrer, framebuffer (0) / drawer (1) / init (2)
   
@@ -454,7 +454,7 @@ $$end
   );
 
   // --- Init from SDCARD
-  sdram_raw_io sdh;
+  sdram_r128w8_io sdh;
   
   sdram_half_speed_access sdaccess<@sdram_clock,!sdram_reset>(
     sd      <:> sdi,

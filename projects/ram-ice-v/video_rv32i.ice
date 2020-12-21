@@ -27,7 +27,7 @@ algorithm frame_drawer(
   output uint1  fbuffer,
 ) <autorun> {
 
-  sdram_raw_io sdh;
+  sameas(sd) sdh;
   sdram_half_speed_access sdram_slower<@sdram_clock,!sdram_reset>(
     sd  <:> sd,
     sdh <:> sdh

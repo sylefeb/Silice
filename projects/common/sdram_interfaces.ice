@@ -6,8 +6,8 @@
 
 // -----------------------------------------------------------
 
-// SDRAM, raw data exchange (1 byte write, 16 bytes read)
-group sdram_raw_io
+// SDRAM, r128w8 data exchange (1 byte write, 16 bytes read)
+group sdram_r128w8_io
 {
   uint26  addr       = 0,  // addressable bytes (internally deals with 16 bits wide sdram)
   uint1   rw         = 0,
