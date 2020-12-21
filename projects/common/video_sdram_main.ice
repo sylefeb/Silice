@@ -83,8 +83,8 @@ $$end
 
 // SDRAM controller
 $include('sdram_interfaces.ice')
-// include('sdram_controller_autoprecharge_r128_w8.ice')
-$include('sdram_controller_r128_w8.ice')
+$include('sdram_controller_autoprecharge_r128_w8.ice')
+// include('sdram_controller_r128_w8.ice')
 $include('sdram_arbitrers.ice')
 $include('sdram_utils.ice')
 
@@ -390,8 +390,8 @@ $$end
 
   sdram_r128w8_io sdm;
   
-  // sdram_controller_autoprecharge_r128_w8 memory<@sdram_clock,!sdram_reset>(
-  sdram_controller_r128_w8 memory<@sdram_clock,!sdram_reset>(
+  sdram_controller_autoprecharge_r128_w8 memory<@sdram_clock,!sdram_reset>(
+  // sdram_controller_r128_w8 memory<@sdram_clock,!sdram_reset>(
     sd         <:> sdm,
   $$if VERILATOR then
     dq_i       <: sdram_dq_i,
