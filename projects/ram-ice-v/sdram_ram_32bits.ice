@@ -12,7 +12,7 @@ $$cache_size  = 1<<cache_depth
   // cache brams
   bram uint1   cached_map[$cache_size$] = {pad(0)};
   bram uint128 cached    [$cache_size$] = uninitialized;
-  // track when address is in cache region and onto which entry  
+  // track when address is in cache region and onto which entry   
   uint1  in_cache                := (r32.addr | $cache_size-1$) == (cache_start | $cache_size-1$);
   uint$cache_depth$  cache_entry := r32.addr & ($cache_size-1$);
   

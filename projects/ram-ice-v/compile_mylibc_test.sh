@@ -10,6 +10,10 @@ else
   ARCH="riscv32-unknown"
 fi
 
+GCC=`which riscv32-unknown-elf-gcc.exe`
+RISCVLIB=`dirname $GCC`/../riscv32-unknown-elf/lib
+echo "path to riscv libs $RISCVLIB"
+
 echo "using $ARCH"
 
 $ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O1 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
@@ -17,12 +21,14 @@ $ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O1 -fno-pic -march=rv32i -mabi=i
 
 $ARCH-elf-gcc -w -S -DRISCV -DTIME -DUSE_MYSTDLIB -O1 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
 
+$ARCH-elf-as -march=rv32i -mabi=ilp32 -o div.o tests/mylibc/div.s
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0.s
 
-$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld --no-relax -o mylibc_test.elf mylibc.o mylibc_test.o
+$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld -o mylibc_test.elf div.o mylibc.o mylibc_test.o
 
 $ARCH-elf-objcopy -O verilog mylibc_test.elf build/code.hex
 
 # uncomment to see the actual code, usefull for debugging
-$ARCH-elf-objcopy.exe -O binary mylibc_test.elf build/code.bin
-$ARCH-elf-objdump.exe -D -b binary -m riscv build/code.bin 
+# $ARCH-elf-objcopy.exe -O binary mylibc_test.elf build/code.bin
+# $ARCH-elf-objdump.exe -D -b binary -m riscv build/code.bin 
+

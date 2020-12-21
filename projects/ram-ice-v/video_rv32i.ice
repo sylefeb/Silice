@@ -7,8 +7,9 @@ $$dofile('pre_include_asm.lua')
 // basic palette
 $$palette = {}
 $$for i=1,256 do
-$$  palette[i]= (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
+$$  palette[i] = (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
 $$end
+$$ palette[256] = 255 | (255<<8) | (255<<16)
 
 $include('../common/video_sdram_main.ice')
 

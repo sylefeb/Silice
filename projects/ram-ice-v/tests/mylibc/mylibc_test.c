@@ -1,5 +1,7 @@
 #include "mylibc.h"
 
+void print_dec(int val);
+
 void main()
 {
 /*  
@@ -9,9 +11,9 @@ void main()
       }
     }
 */
- printf("Abcdefghijklmnopqrstuvwxyz");
- // printf("ABC");
-
+ //printf("Hello world\nbouh");
+ printf("\nABC %d",54321);
+ 
  asm("unimp\n");
 
 }
