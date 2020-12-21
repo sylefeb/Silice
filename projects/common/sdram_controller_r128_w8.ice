@@ -337,7 +337,7 @@ $$end
         work_todo    = 0;        
         reg_sdram_ba = bank;
         if (row_open[bank,1] == 0 || row_addr[bank] != row) {
-          if (row_open[bank,1] == 0) {
+          if (row_open[bank,1] == 1) {
             // -> precharge previous
             cmd         = CMD_PRECHARGE;
             (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);      
