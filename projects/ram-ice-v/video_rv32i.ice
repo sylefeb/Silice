@@ -43,7 +43,7 @@ algorithm frame_drawer(
     r32 <:> ram,
     cache_start <: cache_start,
   );
-  
+
   uint1  cpu_enable     = 0;
   uint26 cpu_start_addr = 26h2000000;
 
@@ -62,6 +62,7 @@ algorithm frame_drawer(
   while (1) {
   
     cpu_enable      = 1;
+
 /*  
     if (ram.in_valid) {
       if (ram.rw) {
