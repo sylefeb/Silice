@@ -2,7 +2,7 @@
 
 Shows how to bind a verilog SDRAM simulator. Meant to be simulated with the icarus_bare framework and the verilator_sdram_vga framework.
 
-Uses a basic SDRAM controller written in Silice (common/sdramctrl.ice).
+Uses a basic SDRAM controller written in Silice (common/sdram_controller_r128_w8.ice).
 
 ## Icarus version
 
