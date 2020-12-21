@@ -311,71 +311,64 @@ $$end
   
   while (1) {
 
+    // precharge?
+    if (refresh_count == 0 || (work_todo && row_open[bank,1] == 1 && row_addr[bank] != row)) {
+      reg_sdram_ba = bank;
+      cmd          = CMD_PRECHARGE;
+      (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);      
+      reg_sdram_a  = {2b0,refresh_count == 0/*all*/,10b0};
+      row_open     = (refresh_count == 0) ? 0 : row_open;
+      () <- wait <- ($cmd_precharge_delay-3$);    
+    }
+
     // refresh?
     if (refresh_count == 0) {
-
-      // -> precharge all
-      cmd         = CMD_PRECHARGE;
-      (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);      
-      reg_sdram_a = {2b0,1b1,10b0};
-      row_open    = 0; // all rows are closed
-      () <- wait <- ($cmd_precharge_delay-3$);
-
-      // refresh
       cmd           = CMD_REFRESH;
       (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
       // wait
       () <- wait <- ($refresh_wait-3$);
       // -> reset count
       refresh_count = $refresh_cycles$;  
+    }    
+    
+    refresh_count = refresh_count - 1;
 
-    } else {
-
-      refresh_count = refresh_count - 1;
-
-      if (work_todo) {
-        work_todo    = 0;        
-        reg_sdram_ba = bank;
-        if (row_open[bank,1] == 0 || row_addr[bank] != row) {
-          if (row_open[bank,1] == 1) {
-            // -> precharge previous
-            cmd         = CMD_PRECHARGE;
-            (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);      
-            reg_sdram_a = {2b0,1b0,10b0};
-            () <- wait <- ($cmd_precharge_delay-3$);
-          }
-          // -> activate next
-          reg_sdram_a  = row;
-          cmd          = CMD_ACTIVE;
-          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+    if (work_todo) {
+      work_todo    = 0;        
+      reg_sdram_ba = bank;
+      if (row_open[bank,1] == 0 || row_addr[bank] != row) {
+        // -> activate next
+        reg_sdram_a  = row;
+        cmd          = CMD_ACTIVE;
+        (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
 $$for i=1,cmd_active_delay do
 ++:
 $$end
-        }
-        // row is now active
-        row_open[bank,1] = 1;
-        row_addr[bank]   = row;
-        // write or read?
-        if (do_rw) {
-          // __display("<sdram: write %x>",data);
-          // write
-          cmd       = CMD_WRITE;
-          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-          reg_dq_en     = 1;
-          reg_sdram_a   = {2b0, 1b0/*do not auto-precharge*/, col};
-          reg_dq_o      = {data,data};
-          reg_sdram_dqm = {~byte,byte};
-          // can accept work
-          work_done      = 1;
+      }
+      // row is now active
+      row_open[bank,1] = 1;
+      row_addr[bank]   = row;
+      // write or read?
+      if (do_rw) {
+        // __display("<sdram: write %x>",data);
+        // write
+        cmd       = CMD_WRITE;
+        (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+        reg_dq_en     = 1;
+        reg_sdram_a   = {2b0, 1b0/*do not auto-precharge*/, col};
+        reg_dq_o      = {data,data};
+        reg_sdram_dqm = {~byte,byte};
+        // can accept work
+        work_done      = 1;
 ++:       // wait one cycle to enforce tWR
-        } else {
-          // read
-          cmd         = CMD_READ;
-          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-          reg_dq_en       = 0;
-          reg_sdram_dqm   = 2b0;
-          reg_sdram_a     = {2b0, 1b0/*do not auto-precharge*/, col};
-          // wait CAS cycles
+      } else {
+        // read
+        cmd         = CMD_READ;
+        (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+        reg_dq_en       = 0;
+        reg_sdram_dqm   = 2b0;
+        reg_sdram_a     = {2b0, 1b0/*do not auto-precharge*/, col};
+        // wait CAS cycles
 ++:
 ++:
 ++:
@@ -383,24 +376,23 @@ $$if ULX3S_IO then
 ++: // dq_i latency
 ++:
 $$end
-          // burst 8 x 16 bytes
-          {
-            uint8 read_cnt = 0;
-            while (read_cnt < 8) {
-              sd.data_out[{read_cnt,4b0000},16] = dq_i;
-              read_cnt      = read_cnt + 1;
-              work_done     = (read_cnt[3,1]); // done
-              sd.out_valid  = (read_cnt[3,1]); // data_out is available
-            }
+        // burst 8 x 16 bytes
+        {
+          uint8 read_cnt = 0;
+          while (read_cnt < 8) {
+            sd.data_out[{read_cnt,4b0000},16] = dq_i;
+            read_cnt      = read_cnt + 1;
+            work_done     = (read_cnt[3,1]); // done
+            sd.out_valid  = (read_cnt[3,1]); // data_out is available
           }
         }
-        
+      }
+      
 ++: // enforce tRP
 ++:
 ++:
 
-      } // work_todo
-    } // refresh
+    } // work_todo
 
   }
 }

@@ -98,9 +98,8 @@ algorithm sdram_byte_readcache(
   
   always {
 
-    // maintain busy for one clock to
-    // account for one cycle latency
-    // of latched outputs to chip
+    // maintain busy for one clock to account
+    // for one cycle latency of outputs
     sdb.busy = busy[0,1];
     if (sdr.busy == 0) {
       busy = {1b0,busy[1,1]};
