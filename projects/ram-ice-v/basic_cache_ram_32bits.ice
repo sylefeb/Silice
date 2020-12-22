@@ -7,7 +7,7 @@ algorithm basic_cache_ram_32bits(
   input uint26       cache_start // where the cache is locate
 ) <autorun> {
 
-$$cache_depth = 10
+$$cache_depth = 11               -- 11 => 8 KB + 2 KB (tag bits)
 $$cache_size  = 1<<cache_depth
 
   // cache brams
