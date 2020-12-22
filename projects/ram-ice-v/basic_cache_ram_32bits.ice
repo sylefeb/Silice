@@ -46,7 +46,6 @@ $$cache_size  = 1<<cache_depth
     if (pram.in_valid 
     && (predicted_addr == pram.addr)
     &&  cache_predicted) {
-      // __display("CACHE prediction! @%h = %h [cycle %d] (in:%b)",pram.addr,predicted_addr,cycle,cached_map.rdata0&in_cache);
       work_todo  = 1;
     }
     
@@ -55,7 +54,6 @@ $$cache_size  = 1<<cache_depth
       // previous_addr = request_addr;
       if (in_cache && cached_map.rdata0) {
         if (pram.rw) {
-          // __display("CACHE write @%h = %h",pram.addr,pram.data_in);
           // write in cache
           cached    .wenable1 = 1;
           cached    .wdata1   = {
@@ -65,7 +63,6 @@ $$cache_size  = 1<<cache_depth
                                  pram.wmask[0,1] ? pram.data_in[ 0,8] : cached.rdata0[ 0,8]
                                };
         } else {
-          // __display("CACHE read @%h (=%h)",pram.addr,cached.rdata0);
           // read from cache
           pram.data_out = cached.rdata0 >> {pram.addr[0,2],3b000};
         }
@@ -76,9 +73,7 @@ $$cache_size  = 1<<cache_depth
         cached    .addr0 = (predicted_addr>>2) & $cache_size-1$;
         cached_map.addr0 = (predicted_addr>>2) & $cache_size-1$;
         cache_predicted  = 1;
-        // __display("CACHE predicts @%h [cycle %d]",predicted_addr,cycle);
       } else {
-        // __display("CACHE relay rw:%b @%h (@%h)",pram.rw,pram.addr,predicted_addr);        
         // relay to used interface
         uram.addr     = {pram.addr[2,30],2b00};
         uram.data_in  = pram.data_in;
