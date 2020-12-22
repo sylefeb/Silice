@@ -179,7 +179,6 @@ $$end
 
   uint4  cmd = 7;
   
-  uint1  work_done   = 0;
   uint4  row_open    = 0;
   uint13 row_addr[4] = uninitialized;
 
@@ -232,19 +231,13 @@ $$if VERILATOR then
 $$end  
 $$end
 
-  sd.out_valid := 0;
+  sd.done := 0;
   
   always { // always block tracks in_valid
   
     cmd = CMD_NOP;
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
     if (sd.in_valid) {
-$$if SIMULATION then
-      if (sd.busy) {
-        error = 1;
-        __display("ERROR chip is busy!");
-      }    
-$$end    
       // -> copy inputs
       bank      = sd.addr[24, 2]; // bits 24-25
       row       = sd.addr[$SDRAM_COLUMNS_WIDTH+1$, 13];
@@ -254,18 +247,9 @@ $$end
       do_rw     = sd.rw;    
       // -> signal work to do
       work_todo = 1;
-      // -> signal busy
-      sd.busy     = 1;
-    }
-    if (work_done) {
-      work_done = 0;
-      sd.busy   = work_todo;
     }
   }
   
-  // start busy during init
-  sd.busy   = 1;
- 
   // pre-init, wait before enabling clock
   reg_sdram_cle = 0;
   () <- wait <- (10100);
@@ -305,9 +289,6 @@ $$end
   cmd      = CMD_NOP;
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   refresh_count = $refresh_cycles$;
-  
-  // init done
-  work_done     = 1;
   
   while (1) {
 
@@ -358,8 +339,8 @@ $$end
         reg_sdram_a   = {2b0, 1b0/*do not auto-precharge*/, col};
         reg_dq_o      = {data,data};
         reg_sdram_dqm = {~byte,byte};
-        // can accept work
-        work_done      = 1;
+        // signal done
+        sd.done       = 1;
 ++:       // wait one cycle to enforce tWR
       } else {
         // read
@@ -381,9 +362,8 @@ $$end
           uint8 read_cnt = 0;
           while (read_cnt < 8) {
             sd.data_out[{read_cnt,4b0000},16] = dq_i;
-            read_cnt      = read_cnt + 1;
-            work_done     = (read_cnt[3,1]); // done
-            sd.out_valid  = (read_cnt[3,1]); // data_out is available
+            read_cnt     = read_cnt + 1;
+            sd.done      = (read_cnt[3,1]); // data_out is available
           }
         }
       }

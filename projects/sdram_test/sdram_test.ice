@@ -1,8 +1,9 @@
 // ------------------------- 
 
 $include('../common/sdram_interfaces.ice')
+// include('../common/sdram_controller_autoprecharge_r128_w8.ice')
 $include('../common/sdram_controller_r128_w8.ice')
-$include('../common/sdram_utils.ice')
+// include('../common/sdram_utils.ice')
 
 $$if ICARUS then
 // SDRAM simulator
@@ -72,10 +73,10 @@ $$end
 
 // SDRAM chip controller
 // interface
-sdram_r128w8_io sdram_io;
+sdram_r128w8_io sio; // sdram_io;
 // algorithm
 sdram_controller_r128_w8 sdram(
-  sd        <:> sdram_io,
+  sd        <:> sio,
   sdram_cle :>  sdram_cle,
   sdram_dqm :>  sdram_dqm,
   sdram_cs  :>  sdram_cs,
@@ -93,55 +94,49 @@ $$else
 $$end
 );
 
-// SDRAM memory interface
-// interface
-sdram_byte_io sio;
-// algorithm
-sdram_byte_readcache memory(
-  sdr <:> sdram_io,
-  sdb <:> sio
-);
+// // SDRAM memory interface
+// // interface
+// sdram_byte_io sio;
+// // algorithm
+// sdram_byte_readcache memory(
+//   sdr <:> sdram_io,
+//   sdb <:> sio
+// );
 
-  uint8  count = 0;
-  uint8   read = 0;
+  uint8                count = 0;
+  sameas(sio.data_out) read  = 0;
 
-$$if VERILATOR then
+  $$if VERILATOR then
   // sdram clock for verilator simulation
   sdram_clock := clock;
-$$end
+  $$end
   // maintain low (pulse up when ready, see below)
   sio.in_valid := 0;
 
-$display("=== writing ===");
+  $display("=== writing ===");
   // write
   sio.rw = 1;
-  while (count < 64) {
+  while (count < 128) {
     // write to sdram
-    while (1) {
-      if (sio.busy == 0) {        // not busy?            
-        sio.data_in    = count;            
-        sio.addr       = count << 21; // forces to spill over banks
-        sio.in_valid   = 1; // go ahead!
-        break;
-      }
-    } // write occurs during loop cycle      
-    count = count + 1;
+    sio.data_in    = count;            
+    sio.addr       = count;
+    sio.in_valid   = 1; // go ahead!
+    $display("write [%x] = %x",count,count);
+    count          = count + 1;
+    while (!sio.done) {}
   }
 
-$display("=== readback ===");
+  $display("=== readback ===");
   count = 0;
   // read back
   sio.rw = 0;
-  while (count < 64) {
-    if (sio.busy == 0) {
-      sio.addr     = count << 21; // forces to spill over banks
-      sio.in_valid = 1;         // go ahead!
-      while (sio.out_valid == 0) { } // wait for value
-      read = sio.data_out;
-      $display("read [%x] = %x",count,read);
-      count = count + 1;
-    }
+  while (count < 128) {
+    sio.addr     = count;
+    sio.in_valid = 1; // go ahead!
+    while (!sio.done) {}
+    read = sio.data_out;
+    $display("read  [%x] = %x",count,read);
+    count = count + 16;
   }  
+
 }
-
-
