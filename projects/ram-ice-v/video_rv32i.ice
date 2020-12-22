@@ -17,6 +17,7 @@ $$SHOW_REGS = false
 
 $include('ram-ice-v.ice')
 $include('sdram_ram_32bits.ice')
+$include('basic_cache_ram_32bits.ice')
 
 // ------------------------- 
 
@@ -36,23 +37,30 @@ algorithm frame_drawer(
 
   rv32i_ram_io ram;
 
-  uint26 cache_start = 26h2000000;
-
   // sdram io
   sdram_ram_32bits bridge(
     sdr <:> sdh,
     r32 <:> ram,
+  );
+
+  // basic cache  
+  rv32i_ram_io cram;
+  uint26 cache_start = 26h2000000;
+  
+  basic_cache_ram_32bits cache(
+    pram <:> cram,
+    uram <:> ram,
     cache_start <: cache_start,
   );
-  
+
   uint1  cpu_enable     = 0;
   uint26 cpu_start_addr = 26h2000000;
 
   // cpu 
   rv32i_cpu cpu(
     enable   <:  cpu_enable,
-    boot_at  <: cpu_start_addr,
-    ram      <:> ram
+    boot_at  <:  cpu_start_addr,
+    ram      <:> cram
   );
 
   uint1  vsync_filtered = 0;
@@ -63,6 +71,7 @@ algorithm frame_drawer(
   while (1) {
   
     cpu_enable      = 1;
+    
 /*  
     if (ram.in_valid) {
       if (ram.rw) {
