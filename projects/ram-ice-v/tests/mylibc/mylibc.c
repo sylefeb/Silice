@@ -17,6 +17,7 @@ int cursor_y = 0x00000000;
 
 int    putchar(int c)
 {
+  
   if (c == 10) {
     // clear rest of line
     for (int j=0;j<8;j++) {

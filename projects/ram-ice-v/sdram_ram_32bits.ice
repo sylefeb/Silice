@@ -34,41 +34,60 @@ $$cache_size  = 1<<cache_depth
     if (work_todo) {
       work_todo = 0;        
       sdr.rw    = r32.rw;
+      // test cache        
+      cached_map.addr    = cache_entry;
+      cached_map.wenable = 0;
+      cached    .addr    = cache_entry;
+      cached    .wenable = 0;
+++:
       if (r32.rw) {
         // write
-        uint4  write_seq = 4b0001;       
-        uint32 tmp = uninitialized;
-        uint2  pos = 0;
-        //__display("R32 write");
-        tmp        = r32.data_in;
-        // invalidate cache if writing in same space
-        if (in_cache) {
-          cached_map.addr    = cache_entry;
-          cached_map.wenable = 1;
-          cached_map.wdata   = 0;
-        }
-        while (write_seq != 0) {
-          if (sdr.busy == 0) {
-            if (r32.wmask & write_seq) {
-              sdr.addr     = {r32.addr[2,24],pos};
-              sdr.data_in  = tmp[0,8];
-              sdr.in_valid = 1;
-            }
-            pos        = pos + 1;
-            tmp        = tmp       >> 8;
-            write_seq  = write_seq << 1;        
-            r32.done   = (write_seq == 0);
+        if (in_cache && cached_map.rdata) {
+          uint32 tmp  = uninitialized;
+          uint32 prev = uninitialized;
+          uint32 mask = uninitialized;
+//__display("R32 write %h, in cache @%h entry %h sub@%b mask %b",r32.data_in,r32.addr, cache_entry,r32.addr[0,4],r32.wmask);        
+//__display("  -> cache before %h",cached.rdata);
+          cached    .wenable = 1;
+          prev               = cached.rdata >> {r32.addr[0,4],3b000};
+          tmp                = {
+                                 r32.wmask[3,1] ? r32.data_in[24,8] : prev[24,8],
+                                 r32.wmask[2,1] ? r32.data_in[16,8] : prev[16,8],
+                                 r32.wmask[1,1] ? r32.data_in[ 8,8] : prev[ 8,8],
+                                 r32.wmask[0,1] ? r32.data_in[ 0,8] : prev[ 0,8]
+                               };
+          mask                = {
+                                 r32.wmask[3,1] ? 8h00 : 8hFF,
+                                 r32.wmask[2,1] ? 8h00 : 8hFF,
+                                 r32.wmask[1,1] ? 8h00 : 8hFF,
+                                 r32.wmask[0,1] ? 8h00 : 8hFF
+                               };
+          cached    .wdata    = (cached.rdata & mask) | (tmp << {r32.addr[0,4],3b000});
+//__display("  -> cache after  %h",cached.wdata);
+          r32.done   = 1;
+        } else {
+          uint4  write_seq = 4b0001;       
+          uint2  pos = 0;
+          uint32 tmp = uninitialized;
+//__display("R32 write %h, cache miss @%h (%h)",r32.data_in,r32.addr,cache_start | $cache_size-1$);
+          tmp        = r32.data_in;
+          while (write_seq != 0) {
+            if (sdr.busy == 0) {
+              if (r32.wmask & write_seq) {
+                sdr.addr     = {r32.addr[2,24],pos};
+                sdr.data_in  = tmp[0,8];
+                sdr.in_valid = 1;
+              }
+              pos        = pos + 1;
+              tmp        = tmp       >> 8;
+              write_seq  = write_seq << 1;        
+              r32.done   = (write_seq == 0);
 ++: // TODO: issue with larger writes not supporting two strobes of in_valid in a row?
-          }          
+            }          
+          }
         }
         //__display("R32 write done");
       } else {
-        // test cache        
-        cached_map.addr    = cache_entry;
-        cached_map.wenable = 0;
-        cached    .addr    = cache_entry;
-        cached    .wenable = 0;
-++:
         // read
         if (in_cache && cached_map.rdata) {
 //          __display("R32 read, in cache @%h entry %h",r32.addr, cache_entry);
