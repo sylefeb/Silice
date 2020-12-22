@@ -27,39 +27,34 @@ algorithm sdram_ram_32bits(
       if (r32.rw) {
         // write
         uint4  write_seq = 4b0001;       
-        uint2  pos = 0;
-        uint32 tmp = uninitialized;
-        __display("RAM   write @%h = %h",r32.addr,r32.data_in);
-        tmp        = r32.data_in;
+        uint2  pos       = 0;
+        uint32 tmp       = uninitialized;
+        //__display("RAM   write @%h = %h",r32.addr,r32.data_in);
+        tmp              = r32.data_in;
         while (write_seq != 0) {
-          if (sdr.busy == 0) {
-            if (r32.wmask & write_seq) {
-              sdr.addr     = {r32.addr[2,24],pos};
-              sdr.data_in  = tmp[0,8];
-              sdr.in_valid = 1;
-            }
-            pos        = pos + 1;
-            tmp        = tmp       >> 8;
-            write_seq  = write_seq << 1;        
-            r32.done   = (write_seq == 0);
-++: // TODO: issue with larger writes not supporting two strobes of in_valid in a row?
+          if (r32.wmask & write_seq) {
+            sdr.addr     = {r32.addr[2,24],pos};
+            sdr.data_in  = tmp[0,8];
+            sdr.in_valid = 1;
+            while (!sdr.done) {}
           }
+          pos        = pos + 1;
+          tmp        = tmp       >> 8;
+          write_seq  = write_seq << 1;        
+          r32.done   = (write_seq == 0);
         }
+        //__display("RAM   write done");
       } else {
         // read
-        uint1 done = 0;
-        __display("RAM   read @%h",r32.addr);
-        while (!sdr.out_valid) {  
-          if (sdr.busy == 0 && done == 0) {
-            sdr.addr     = {r32.addr[4,22],4b0000};
-            sdr.in_valid = 1;
-            done = 1;              
-          }
-        }
+        //_display("RAM   read @%h",r32.addr);
+        sdr.addr     = {r32.addr[4,22],4b0000};
+        sdr.in_valid = 1;
+        while (!sdr.done) {}
         // write output data
         r32.data_out  = sdr.data_out >> {r32.addr[0,4],3b000};
         // done!
         r32.done  = 1;
+        //__display("RAM   read done @%h = %h",r32.addr,r32.data_out);
       }  
     } 
     

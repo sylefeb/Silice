@@ -141,12 +141,11 @@ algorithm init_data(
       while (stream.ready == 0) { }
       leds            = to_read[14,8];
       // write to sdram
-      // -> wait for sdram to be available
-      while (sd.busy == 1) { }
-      // -> write
       sd.data_in      = stream.data;
       sd.addr         = {1b1,1b0,24b0} | to_read;
       sd.in_valid     = 1; // go ahead!      
+      // -> wait for sdram to be done
+      while (!sd.done) { }
       // next
       to_read = to_read + 1;
     }
@@ -178,14 +177,14 @@ $data_hex$
   __display("loading %d bytes from sdcard (simulation)",$init_data_bytes$);
   while (to_read < $init_data_bytes$) {
     sdcard_data.addr = to_read;
+++:    
     // write to sdram
-    // -> wait for sdram to be available
-    while (sd.busy == 1) { }
-    // -> write
     data            = sdcard_data.rdata;
     sd.data_in      = data;
     sd.addr         = {1b1,1b0,24b0} | to_read;
     sd.in_valid     = 1; // go ahead!
+    // wait for sdram to be done
+    while (!sd.done) { }
     // next
     to_read = to_read + 1;
   }
@@ -495,7 +494,7 @@ $$else
 $$if ICARUS then
   while (frame < 4) {
 $$else
-  while (frame < 20) {
+  while (frame < 8) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }
