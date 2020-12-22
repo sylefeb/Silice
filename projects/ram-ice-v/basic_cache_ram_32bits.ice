@@ -11,8 +11,8 @@ $$cache_depth = 13               -- 11 => 8 KB + 2 KB (tag bits)
 $$cache_size  = 1<<cache_depth
 
   // cache brams
-  bram uint1  cached_map[$cache_size$] = {pad(0)};
-  bram uint32 cached    [$cache_size$] = uninitialized;
+  bram uint1  cached_map<input!>[$cache_size$] = {pad(0)};
+  bram uint32 cached    <input!>[$cache_size$] = uninitialized;
   
   // track when address is in cache region and onto which entry   
   uint1  in_cache                ::=     ((pram.addr   >> 2) | $cache_size-1$) 
@@ -22,7 +22,6 @@ $$cache_size  = 1<<cache_depth
   uint1  work_todo = 0;
   
   uram.in_valid := 0; // pulsed high when needed
-  pram.done     := 0;
   
   always {
     pram.done          = uram.done;
@@ -69,7 +68,7 @@ $$cache_size  = 1<<cache_depth
       }
     }
     
-    // done at then end so the next cycle reads the cache
+    // done at then end so the next cycle reads the cache brams
     if (pram.in_valid) {
       work_todo  = 1;
     }
