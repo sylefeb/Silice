@@ -41,19 +41,14 @@ algorithm frame_drawer(
       pix_x  = 0;
       while (pix_x < 320) {		
         // write to sdram
-        while (1) {          
-          if (sdh.busy == 0) {        // not busy?
-            sdh.data_in    = pix_palidx;
-            sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 9);             
-            sdh.in_valid   = 1; // go ahead!
-            break;
-          }
-        }		
+        sdh.data_in    = pix_palidx;
+        sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 9);             
+        sdh.in_valid   = 1; // go ahead!
+        while (!sdh.done) { }
         pix_x = pix_x + 1;
       }
       pix_y = pix_y + 1;
     }
-    return;
   }
 
   subroutine bands(
@@ -72,20 +67,15 @@ algorithm frame_drawer(
 
         pix_palidx = pix_x + pix_y + shift;
         // write to sdram
-        while (1) {
-          if (sdh.busy == 0) {        // not busy?
-            sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 9); 
-            sdh.data_in    = pix_palidx;
-            sdh.in_valid = 1; // go ahead!
-            break;
-          }
-        }
-        
+        sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 9); 
+        sdh.data_in    = pix_palidx;
+        sdh.in_valid = 1; // go ahead!
+        while (!sdh.done) { }
+
         pix_x = pix_x + 1;
       }
       pix_y = pix_y + 1;
     }
-    return;
   }
   
   vsync_filtered ::= vsync;

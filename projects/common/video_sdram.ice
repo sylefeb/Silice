@@ -190,19 +190,17 @@ algorithm frame_buffer_row_updater(
     count = 0;
     while (count < $320//16$) { // we read 16 bytes at once
 	
-      if (sd.busy == 0) {             // not busy?
-        // address to read from (count + row * 320)        
-        sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<4) | (row << 9); 
-        sd.in_valid  = 1;             // go ahead!      
-        while (sd.out_valid == 0) { } // wait for value
-        // __display("<read %x>",sd.data_out);
-        pixdata0_w   = sd.data_out;   // data to write
-        pixaddr0     = count;         // address to write
-        pixdata1_w   = sd.data_out;   // data to write
-        pixaddr1     = count;         // address to write        
-        // next
-        count        = count + 1;
-      }
+      // address to read from (count + row * 320)        
+      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<4) | (row << 9); 
+      sd.in_valid  = 1;             // go ahead!      
+      while (sd.done == 0) { }      // wait for value
+      // __display("<read %x>",sd.data_out);
+      pixdata0_w   = sd.data_out;   // data to write
+      pixaddr0     = count;         // address to write
+      pixdata1_w   = sd.data_out;   // data to write
+      pixaddr1     = count;         // address to write        
+      // next
+      count        = count + 1;
 
     }
 
