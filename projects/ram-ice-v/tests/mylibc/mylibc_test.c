@@ -11,9 +11,12 @@ void main()
       }
     }
 */
- //printf("Hello world\nbouh");
- printf("\nABC %d",54321);
+  printf("Hello world\n\n");
  
- asm("unimp\n");
+  while (1) {
+    printf("time = %d -- insn = %d\n",time(),insn());
+  }
+
+// asm("unimp\n");
 
 }

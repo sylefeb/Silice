@@ -13,8 +13,8 @@ $$cache_size  = 1<<cache_depth
   bram uint1   cached_map[$cache_size$] = {pad(0)};
   bram uint128 cached    [$cache_size$] = uninitialized;
   // track when address is in cache region and onto which entry   
-  uint1  in_cache                := (r32.addr | $cache_size-1$) == (cache_start | $cache_size-1$);
-  uint$cache_depth$  cache_entry := r32.addr & ($cache_size-1$);
+  uint1  in_cache                := ((r32.addr >> 4) | $cache_size-1$) == ((cache_start >> 4) | $cache_size-1$);
+  uint$cache_depth$  cache_entry := (r32.addr >> 4) & ($cache_size-1$);
   
   uint1  work_todo = 0;
   
@@ -71,16 +71,16 @@ $$cache_size  = 1<<cache_depth
 ++:
         // read
         if (in_cache && cached_map.rdata) {
-          //__display("R32 read, in cache @%h entry %h",r32.addr, cache_entry);
+//          __display("R32 read, in cache @%h entry %h",r32.addr, cache_entry);
           // in cache
           r32.data_out  = cached.rdata >> {r32.addr[0,4],3b000};
           // done!
           r32.done  = 1;
           //__display("R32 read done (in cache)");
         } else {
-          //__display("R32 read, cache miss");
-          // cache miss
           uint1 done = 0;
+//          __display("R32 read, cache miss @%h (%h)",r32.addr,cache_start | $cache_size-1$);
+          // cache miss
           while (!sdr.out_valid) {  
             if (sdr.busy == 0 && done == 0) {
               sdr.addr     = {r32.addr[4,22],4b0000};

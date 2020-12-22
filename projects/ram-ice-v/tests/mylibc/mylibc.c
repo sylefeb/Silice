@@ -18,11 +18,13 @@ int cursor_y = 0x00000000;
 int    putchar(int c)
 {
   if (c == 10) {
-    /*for (int j=0;j<8;j++) {
+    // clear rest of line
+    for (int j=0;j<8;j++) {
       for (int i=cursor_x;i<320;i++) {
         *(FRAMEBUFFER + (i + ((cursor_y+j)<<9)) ) = 0;
       }
-    }*/
+    }
+    // next line
     cursor_x = 0;
     cursor_y += 8;
     if (cursor_y > 200) {
@@ -75,6 +77,22 @@ int strcmp(const char *p1, const char *p2) {
 */
 
 #include <stdarg.h>
+
+// from https://github.com/cliffordwolf/picorv32/blob/f9b1beb4cfd6b382157b54bc8f38c61d5ae7d785/dhrystone/stdlib.c
+
+long time() 
+{
+   int cycles;
+   asm volatile ("rdcycle %0" : "=r"(cycles));
+   return cycles;
+}
+
+long insn() 
+{
+   int insns;
+   asm volatile ("rdinstret %0" : "=r"(insns));
+   return insns;
+}
 
 // from https://github.com/BrunoLevy/learn-fpga/blob/master/FemtoRV/FIRMWARE/LIBFEMTOC/printf.c
 

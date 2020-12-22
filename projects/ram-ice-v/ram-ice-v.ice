@@ -127,6 +127,8 @@ algorithm rv32i_cpu(
   uint1  load_store  = uninitialized;
   uint1  store       = uninitialized;
   
+  uint1  csr         = uninitialized;
+  
   uint3  select      = uninitialized;  
   uint1  select2     = uninitialized;
   
@@ -178,7 +180,8 @@ $$end
     imm         :> imm,
     forceZero   :> forceZero,
     regOrPc     :> regOrPc,
-    regOrImm    :> regOrImm
+    regOrImm    :> regOrImm,
+    csr         :> csr
   );
  
   uint3 funct3   ::= Btype(instr).funct3;
@@ -191,9 +194,11 @@ $$end
     j      :>  cmp
   ); 
 
+  uint64 cycle   = 0;
+  uint64 instret = 0;
+
 $$if SIMULATION then
-  uint32 cycle = 0;
-  uint32 cycle_last_exec = 0;
+  uint64 cycle_last_exec = 0;
 $$end
 
   uint1  ram_done_pulsed = 0;
@@ -208,9 +213,7 @@ $$end
   always {
     ram_done_pulsed = ram_done_pulsed | ram.done;
     alu_wait        = (alu_wait != 1 && alu_wait != 0) ? alu_wait - 1 : alu_wait;
-$$if SIMULATION then
-    cycle = cycle + 1;
-$$end
+    cycle           = cycle + 1;
   } 
   
   // boot
@@ -278,7 +281,6 @@ $$if SIMULATION then
         __display("[execA] @%h instr = %h [cycle %d (%d since)]",ram.addr,ram.data_out,cycle,cycle - cycle_last_exec);
         cycle_last_exec = cycle;
 $$end
-
         // instruction available
         instr        = ram.data_out; // triggers decode+ALU
         halt         = (instr == 0);
@@ -298,6 +300,8 @@ $$end
       case 1: {      
         ram_done_pulsed = 0;
         alu_wait        = 0;  
+        instret         = instret + 1;
+
 $$if SIMULATION then
         // __display("[decode+ALU done] cycle %d",cycle);
 $$end                        
@@ -336,8 +340,19 @@ $$end
                  
           // store ALU result in registers
           // -> what do we write in register (pc or alu, load is handled above)
-          xregsA.wdata1 = (jump | cmp) ? (next_pc) : alu_out;
-          xregsB.wdata1 = (jump | cmp) ? (next_pc) : alu_out;
+          uint32 from_csr = uninitialized;
+          // csr
+          switch (select) {
+            case 3b000: { from_csr = cycle[ 0,32]; }
+            case 3b100: { from_csr = cycle[32,32]; }
+            //case 3b001: {  }
+            //case 3b101: {  }
+            case 3b010: { from_csr = instret[ 0,32]; }
+            case 3b110: { from_csr = instret[32,32]; }
+            default: { }
+          }
+          xregsA.wdata1 = csr ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
+          xregsB.wdata1 = csr ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
           // -> commit result
           xregsA.wenable1 = write_rd != 0;
           xregsB.wenable1 = write_rd != 0;
@@ -412,7 +427,8 @@ algorithm decode(
   output! int32   imm,
   output! uint1   forceZero,
   output! uint1   regOrPc,
-  output! uint1   regOrImm
+  output! uint1   regOrImm,
+  output! uint1   csr,
 ) {
   always {
     switch (instr[ 0, 7])
@@ -430,6 +446,7 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 1; // pc
         regOrImm    = 1; // imm
+        csr         = 0;
         //__display("AUIPC %x",imm);
       }
       
@@ -446,6 +463,7 @@ algorithm decode(
         forceZero   = 0; // force x0
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
+        csr         = 0;
       }
       
       case 7b1101111: { // JAL
@@ -465,7 +483,8 @@ algorithm decode(
            1b0};
         forceZero   = 1;
         regOrPc     = 1; // pc
-        regOrImm    = 1; // imm           
+        regOrImm    = 1; // imm 
+        csr         = 0;        
       }
       
       case 7b1100111: { // JALR
@@ -481,6 +500,7 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
+        csr         = 0;        
         //__display("JALR %x",imm);
       }
       
@@ -503,6 +523,7 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 1; // pc
         regOrImm    = 1; // imm
+        csr         = 0;        
       }
  
       case 7b0000011: { // load
@@ -519,6 +540,7 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
+        csr         = 0;        
       }
       
       case 7b0100011: { // store
@@ -535,6 +557,7 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
+        csr         = 0;        
       }
 
       case 7b0010011: { // integer, immediate  
@@ -549,6 +572,7 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
+        csr         = 0;        
       }
       
       case 7b0110011: { // integer, registers
@@ -564,6 +588,22 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 0; // reg
+        csr         = 0;        
+      }
+      
+      case 7b1110011: { // timers
+        write_rd    = Rtype(instr).rd;
+        jump        = 0;
+        branch      = 0;
+        load_store  = 0;
+        store       = 0;
+        select      = {instr[27,1],instr[20,2]}; // we grab only the bits for rdcycle (0xc00 and 0cx80), rdtime (0xc01 and 0cx81), instret (0xc02 and 0cx82)
+        select2     = 0;
+        imm         = 0;
+        forceZero   = 1;
+        regOrPc     = 0; // reg
+        regOrImm    = 0; // reg  
+        csr         = 1;                
       }
       
       default: {
@@ -578,6 +618,7 @@ algorithm decode(
         forceZero   = 0;
         regOrPc     = 0; // reg
         regOrImm    = 0; // reg        
+        csr         = 0;        
       }
     }
   }
