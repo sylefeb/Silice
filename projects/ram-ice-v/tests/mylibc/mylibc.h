@@ -2,9 +2,11 @@
 
 extern volatile unsigned char* const FRAMEBUFFER;
 extern volatile unsigned char* const AUDIO;
+extern volatile unsigned char* const DATA;
 
 typedef unsigned int size_t;
 
+void   set_cursor(int x,int y);
 int    putchar(int c);
 int    puts(const char* s);
 int    printf(const char *fmt,...);

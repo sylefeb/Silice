@@ -248,7 +248,7 @@ $$if VGA then
 $$end
 $$if AUDIO then
   output uint4 audio_l,
-  output uint4 audio_h,
+  output uint4 audio_r,
 $$end
 $$if HDMI then
 $$if ULX3S then
@@ -503,7 +503,7 @@ $$else
 $$if ICARUS then
   while (frame < 4) {
 $$else
-  while (frame < 4) {
+  while (frame < 20) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }

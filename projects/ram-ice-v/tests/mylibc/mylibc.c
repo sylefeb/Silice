@@ -12,9 +12,16 @@ The rest is hastily composed from a variety of sources (referenced in code) to g
 
 volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x4000000;
 volatile unsigned char* const AUDIO       = (unsigned char*)0xC000000;
+volatile unsigned char* const DATA        = (unsigned char*)0x2020000;
 
 int cursor_x = 0x00000000;
 int cursor_y = 0x00000000;
+
+void set_cursor(int x,int y)
+{
+  cursor_x = x;
+  cursor_y = y;  
+}
 
 int    putchar(int c)
 {

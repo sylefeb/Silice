@@ -46,7 +46,7 @@ algorithm sdram_ram_32bits(
         //__display("RAM   write done");
       } else {
         // read
-        //_display("RAM   read @%h",r32.addr);
+        __display("RAM   read @%h",r32.addr);
         sdr.addr     = {r32.addr[4,22],4b0000};
         sdr.in_valid = 1;
         while (!sdr.done) {}

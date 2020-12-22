@@ -12,6 +12,7 @@ $$end
 $$ palette[256] = 255 | (255<<8) | (255<<16)
 
 $include('../common/video_sdram_main.ice')
+$include('../common/audio_pwm.ice')
 
 $$SHOW_REGS = false
 
@@ -99,6 +100,18 @@ algorithm frame_drawer(
     ram      <:> cram1
   );
 
+  // audio pwms
+  uint8 wave_l = uninitialized;
+  audio_pwm left(
+    wave  <: wave_l,
+    audio :> audio_l,
+  );
+  uint8 wave_r = uninitialized;
+  audio_pwm right(
+    wave  <: wave_r,
+    audio :> audio_r,
+  );
+
   uint1  vsync_filtered = 0;
   
   vsync_filtered ::= vsync;
@@ -110,11 +123,11 @@ algorithm frame_drawer(
 
     if (ram0.in_valid && ram0.rw && ram0.addr[26,2] == 2b11) {
       __display("audio 0, %h",ram0.data_in[0,8]);
-      audio_l = ram0.data_in[0,4];
+      wave_l = ram0.data_in[0,8];
     }
     if (ram1.in_valid && ram1.rw && ram1.addr[26,2] == 2b11) {
       __display("audio 1, %h",ram1.data_in[0,8]);
-      audio_r = ram1.data_in[0,4];
+      wave_r = ram1.data_in[0,8];
     }
 
   }
