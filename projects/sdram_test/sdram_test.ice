@@ -3,7 +3,7 @@
 $include('../common/sdram_interfaces.ice')
 // include('../common/sdram_controller_autoprecharge_r128_w8.ice')
 $include('../common/sdram_controller_r128_w8.ice')
-// include('../common/sdram_utils.ice')
+$include('../common/sdram_utils.ice')
 
 $$if ICARUS then
 // SDRAM simulator
@@ -71,37 +71,37 @@ simul_sdram simul(
 
 $$end
 
-// SDRAM chip controller
-// interface
-sdram_r128w8_io sio; // sdram_io;
-// algorithm
-sdram_controller_r128_w8 sdram(
-  sd        <:> sio,
-  sdram_cle :>  sdram_cle,
-  sdram_dqm :>  sdram_dqm,
-  sdram_cs  :>  sdram_cs,
-  sdram_we  :>  sdram_we,
-  sdram_cas :>  sdram_cas,
-  sdram_ras :>  sdram_ras,
-  sdram_ba  :>  sdram_ba,
-  sdram_a   :>  sdram_a,
-$$if VERILATOR then
-  dq_i      <:  sdram_dq_i,
-  dq_o      :>  sdram_dq_o,
-  dq_en     :>  sdram_dq_en,
-$$else
-  sdram_dq  <:> sdram_dq
-$$end
-);
+  // SDRAM chip controller
+  // interface
+  sdram_r128w8_io sdram_io;
+  // algorithm
+  sdram_controller_r128_w8 sdram(
+    sd        <:> sdram_io,
+    sdram_cle :>  sdram_cle,
+    sdram_dqm :>  sdram_dqm,
+    sdram_cs  :>  sdram_cs,
+    sdram_we  :>  sdram_we,
+    sdram_cas :>  sdram_cas,
+    sdram_ras :>  sdram_ras,
+    sdram_ba  :>  sdram_ba,
+    sdram_a   :>  sdram_a,
+  $$if VERILATOR then
+    dq_i      <:  sdram_dq_i,
+    dq_o      :>  sdram_dq_o,
+    dq_en     :>  sdram_dq_en,
+  $$else
+    sdram_dq  <:> sdram_dq
+  $$end
+  );
 
-// // SDRAM memory interface
-// // interface
-// sdram_byte_io sio;
-// // algorithm
-// sdram_byte_readcache memory(
-//   sdr <:> sdram_io,
-//   sdb <:> sio
-// );
+  // SDRAM memory interface
+  // byte interface
+  sdram_byte_io sio;
+  // algorithm
+  sdram_byte_readcache memory(
+    sdr <:> sdram_io,
+    sdb <:> sio
+  );
 
   uint8                count = 0;
   sameas(sio.data_out) read  = 0;
@@ -136,7 +136,7 @@ $$end
     while (!sio.done) {}
     read = sio.data_out;
     $display("read  [%x] = %x",count,read);
-    count = count + 16;
+    count = count + 1;
   }  
 
 }
