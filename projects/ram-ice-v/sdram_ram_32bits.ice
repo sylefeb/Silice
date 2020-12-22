@@ -43,7 +43,7 @@ algorithm sdram_ram_32bits(
             write_seq  = write_seq << 1;        
             r32.done   = (write_seq == 0);
 ++: // TODO: issue with larger writes not supporting two strobes of in_valid in a row?
-          }          
+          }
         }
       } else {
         // read

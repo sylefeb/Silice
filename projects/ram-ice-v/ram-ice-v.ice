@@ -148,27 +148,13 @@ $$end
 $$end
 $$end
 
-  int32  alu_out     = uninitialized;
-  intops alu(
-    pc        <:: pc,
-    xa        <:: xregsA.rdata0,
-    xb        <:: xregsB.rdata0,
-    imm       <: imm,
-    forceZero <: forceZero,
-    regOrPc   <: regOrPc,
-    regOrImm  <: regOrImm,
-    r         :> alu_out,
-    select    <: select,
-    select2   <: select2,
-  );
-
   int32 imm         = uninitialized;
   uint1 forceZero   = uninitialized;
   uint1 regOrPc     = uninitialized;
   uint1 regOrImm    = uninitialized;
   uint3 loadStoreOp = uninitialized;
   decode dec(
-    instr       <:: instr,    // the <:: indicates we bind the variable as it was at the last
+    instr       <: instr,     // the <:: indicates we bind the variable as it was at the last
     write_rd    :> write_rd,  // clock edge (as opposed to its value being modified in this cycle)
     jump        :> jump,
     branch      :> branch,
@@ -184,11 +170,25 @@ $$end
     csr         :> csr
   );
  
+  int32  alu_out     = uninitialized;
+  intops alu(
+    pc        <:: pc, // <:: since not needed before 1 cycle while decoder works
+    xa        <:: xregsA.rdata0, // same
+    xb        <:: xregsB.rdata0, // same
+    imm       <: imm,
+    forceZero <: forceZero,
+    regOrPc   <: regOrPc,
+    regOrImm  <: regOrImm,
+    select    <: select,
+    select2   <: select2,
+    r         :> alu_out,
+  );
+
   uint3 funct3   ::= Btype(instr).funct3;
   
   intcmp cmps(
-    a      <:: xregsA.rdata0,
-    b      <:: xregsB.rdata0,
+    a      <:: xregsA.rdata0, // <:: since not needed before 1 cycle while decoder works
+    b      <:: xregsB.rdata0, // same
     select <:  funct3,
     enable <:  branch,
     j      :>  cmp
@@ -237,9 +237,9 @@ $$end
       enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
     };
 
-    if (enable && alu_wait == 1 && !ram_done_pulsed) {
-      __display("[decode+ALU done, waiting] cycle %d",cycle);
-    }
+    //if (enable && alu_wait == 1 && !ram_done_pulsed) {
+    //  __display("[decode+ALU done, waiting] cycle %d",cycle);
+    //}
 
     switch (case_select) {
     
@@ -264,7 +264,7 @@ $$end
             }
             default: { tmp = 0; }
           }            
-          __display("LOAD %b %h (%h) @%h",loadStoreOp,tmp,ram.data_out,ram.addr);
+          // __display("[LOAD] %b %h (%h) @%h",loadStoreOp,tmp,ram.data_out,ram.addr);
           // write result to register
           xregsA.wenable1 = write_rd != 0;
           xregsB.wenable1 = write_rd != 0;
@@ -278,7 +278,7 @@ $$end
         ram.in_valid    = 1;
         ram.rw          = 0;
         ram.addr        = next_pc;
-        
+        // __display("[FETCH3] @%h cycle %d",ram.addr,cycle);
       } // case 4
 
       case 2: {
@@ -290,6 +290,7 @@ $$end
         ram.in_valid    = 1;
         ram.rw          = 0;            
         ram.addr        = pc + 4;
+        // __display("[FETCH1] @%h cycle %d",ram.addr,cycle);
       } // case 2
 
       case 1: {      
@@ -298,7 +299,7 @@ $$end
         instret         = instret + 1;
 
 $$if SIMULATION then
-        __display("[decode+ALU done, instruction received] cycle %d",cycle);
+        // __display("[decode+ALU done, instruction received] cycle %d",cycle);
 $$end                        
         if (load_store) {
         
@@ -306,6 +307,7 @@ $$end
           ram.in_valid    = 1;
           ram.rw          = store;
           ram.addr        = alu_out;
+          // __display("[FETCH4] @%h cycle %d",ram.addr,cycle);          
           if (store) { 
             // prepare store
             switch (loadStoreOp) {
@@ -328,7 +330,7 @@ $$end
               }
               default: { ram.data_in = 0; }
             }         
-            __display("STORE %b %h [%b] @%h",loadStoreOp,ram.data_in,ram.wmask,ram.addr);            
+            // __display("STORE %b %h [%b] @%h",loadStoreOp,ram.data_in,ram.wmask,ram.addr);            
           }        
           
         } else {
@@ -367,6 +369,7 @@ $$end
             // be optimistic, start reading next
             ram.addr      = pc + 4;
           }
+          // __display("[FETCH2] @%h cycle %d",ram.addr,cycle);
 
         }
         
@@ -415,20 +418,20 @@ $$end
 // decode next instruction
 
 algorithm decode(
-  input   uint32  instr,
-  output! uint5   write_rd,
-  output! uint1   jump,
-  output! uint1   branch,
-  output! uint1   load_store,
-  output! uint1   store,
-  output! uint3   loadStoreOp,
-  output! uint3   select,
-  output! uint1   select2,
-  output! int32   imm,
-  output! uint1   forceZero,
-  output! uint1   regOrPc,
-  output! uint1   regOrImm,
-  output! uint1   csr,
+  input! uint32  instr,
+  output uint5   write_rd,
+  output uint1   jump,
+  output uint1   branch,
+  output uint1   load_store,
+  output uint1   store,
+  output uint3   loadStoreOp,
+  output uint3   select,
+  output uint1   select2,
+  output int32   imm,
+  output uint1   forceZero,
+  output uint1   regOrPc,
+  output uint1   regOrImm,
+  output uint1   csr,
 ) {
   always {
     switch (instr[ 0, 7])
@@ -637,7 +640,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   input!  uint1  forceZero,
   input!  uint1  regOrPc,
   input!  uint1  regOrImm,
-  output  int32  r,
+  output! int32  r,
 ) {
   
   int32 a := regOrPc  ? __signed({6b0,pc[0,26]}) : (forceZero ? xa : __signed(32b0));
