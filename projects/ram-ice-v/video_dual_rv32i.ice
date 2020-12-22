@@ -30,6 +30,8 @@ algorithm frame_drawer(
   input  uint1  sdram_reset,
   input  uint1  vsync,
   output uint1  fbuffer,
+  output uint4  audio_l,
+  output uint4  audio_r,
 ) <autorun> {
 
   sameas(sd) sdh;
@@ -105,6 +107,16 @@ algorithm frame_drawer(
   always {  
     cpu0_enable = 1;
     cpu1_enable = 1;
+
+    if (ram0.in_valid && ram0.rw && ram0.addr[26,2] == 2b11) {
+      __display("audio 0, %h",ram0.data_in[0,8]);
+      audio_l = ram0.data_in[0,4];
+    }
+    if (ram1.in_valid && ram1.rw && ram1.addr[26,2] == 2b11) {
+      __display("audio 1, %h",ram1.data_in[0,8]);
+      audio_r = ram1.data_in[0,4];
+    }
+
   }
 
 }

@@ -10,7 +10,8 @@ The rest is hastily composed from a variety of sources (referenced in code) to g
 #include "mylibc.h"
 #include "tama_mini02_font.h"
 
-unsigned char* const FRAMEBUFFER = (unsigned char*)0x4000000;
+volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x4000000;
+volatile unsigned char* const AUDIO       = (unsigned char*)0xC000000;
 
 int cursor_x = 0x00000000;
 int cursor_y = 0x00000000;

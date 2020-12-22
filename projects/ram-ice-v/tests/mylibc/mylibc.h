@@ -1,6 +1,7 @@
 #pragma once
 
-extern unsigned char* const FRAMEBUFFER;
+extern volatile unsigned char* const FRAMEBUFFER;
+extern volatile unsigned char* const AUDIO;
 
 typedef unsigned int size_t;
 
