@@ -45,12 +45,12 @@ algorithm sdram_column_writer(
   while (1) {
     // continue with transfer if not done
     if (xfer_count < $doomchip_height$) {
-      // wait for sdram to be available
-      while (sd.busy == 1) { }
       // write
       sd.data_in      = col_buffer.rdata0;
       sd.addr         = {~fbuffer,24b0} | (xfer_col) | (xfer_count << 9);
       sd.in_valid     = 1; // go ahead!
+      // wait for sdram to be done
+      while (sd.done == 0) { }
       // next      
       xfer_count      = xfer_count + 1;
       if (xfer_count < $doomchip_height$) {
