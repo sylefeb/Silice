@@ -19,14 +19,14 @@ echo "using $ARCH"
 $ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
 $ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc_test.c
 
-$ARCH-elf-gcc -w -S -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
+# $ARCH-elf-gcc -w -S -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
 
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o div.o tests/mylibc/div.s
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0.s
 
 $ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld -o mylibc_test.elf div.o mylibc.o mylibc_test.o
 
-$ARCH-elf-objcopy -O verilog mylibc_test.elf build/code.hex
+$ARCH-elf-objcopy -O verilog mylibc_test.elf build/code0.hex
 
 # uncomment to see the actual code, usefull for debugging
 $ARCH-elf-objcopy.exe -O binary mylibc_test.elf build/code.bin

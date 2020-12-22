@@ -20,11 +20,11 @@ int    putchar(int c)
   
   if (c == 10) {
     // clear rest of line
-    for (int j=0;j<8;j++) {
-      for (int i=cursor_x;i<320;i++) {
-        *(FRAMEBUFFER + (i + ((cursor_y+j)<<9)) ) = 0;
-      }
-    }
+    //for (int j=0;j<8;j++) {
+    //  for (int i=cursor_x;i<320;i++) {
+    //    *(FRAMEBUFFER + (i + ((cursor_y+j)<<9)) ) = 0;
+    //  }
+    //}
     // next line
     cursor_x = 0;
     cursor_y += 8;
@@ -93,6 +93,14 @@ long insn()
    int insns;
    asm volatile ("rdinstret %0" : "=r"(insns));
    return insns;
+}
+
+long cpuid() 
+{
+  // SL: This is non standard, find another way
+  int id;
+  asm volatile ("rdtime %0" : "=r"(id));
+  return id;
 }
 
 // from https://github.com/BrunoLevy/learn-fpga/blob/master/FemtoRV/FIRMWARE/LIBFEMTOC/printf.c

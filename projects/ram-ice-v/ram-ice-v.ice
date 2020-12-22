@@ -111,6 +111,7 @@ interface rv32i_ram_provider {
 algorithm rv32i_cpu(
   input uint1    enable,
   input uint26   boot_at,
+  input uint3    cpu_id,
   rv32i_ram_user ram
 ) <autorun> {
   
@@ -342,8 +343,8 @@ $$end
           switch (select) {
             case 3b000: { from_csr = cycle[ 0,32]; }
             case 3b100: { from_csr = cycle[32,32]; }
-            //case 3b001: {  }
-            //case 3b101: {  }
+            case 3b001: { from_csr = cpu_id; }
+            case 3b101: { from_csr = cpu_id; }
             case 3b010: { from_csr = instret[ 0,32]; }
             case 3b110: { from_csr = instret[32,32]; }
             default: { }

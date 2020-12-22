@@ -55,11 +55,13 @@ algorithm frame_drawer(
 
   uint1  cpu_enable     = 0;
   uint26 cpu_start_addr = 26h2000000;
+  uint3  cpu_id         = 0;
 
   // cpu 
   rv32i_cpu cpu(
     enable   <:  cpu_enable,
     boot_at  <:  cpu_start_addr,
+    cpu_id   <:  cpu_id,
     ram      <:> cram
   );
 

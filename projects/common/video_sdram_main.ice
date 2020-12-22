@@ -82,6 +82,7 @@ $$end
 // ------------------------- 
 
 // SDRAM controller
+$$read_burst_length = 8 -- NOTE: mandatory for the framebuffer!
 $include('sdram_interfaces.ice')
 $include('sdram_controller_autoprecharge_r128_w8.ice')
 // include('sdram_controller_r128_w8.ice')
@@ -140,12 +141,14 @@ algorithm init_data(
       stream.next  = 1;
       while (stream.ready == 0) { }
       leds            = to_read[14,8];
+
       // write to sdram
       sd.data_in      = stream.data;
       sd.addr         = {1b1,1b0,24b0} | to_read;
       sd.in_valid     = 1; // go ahead!      
       // -> wait for sdram to be done
-      while (!sd.done) { }
+      while (!sd.done) { }     
+
       // next
       to_read = to_read + 1;
     }
@@ -178,13 +181,15 @@ $data_hex$
   while (to_read < $init_data_bytes$) {
     sdcard_data.addr = to_read;
 ++:    
-    // write to sdram
     data            = sdcard_data.rdata;
+
+    // write to sdram
     sd.data_in      = data;
     sd.addr         = {1b1,1b0,24b0} | to_read;
     sd.in_valid     = 1; // go ahead!
     // wait for sdram to be done
     while (!sd.done) { }
+
     // next
     to_read = to_read + 1;
   }
@@ -240,6 +245,10 @@ $$if VGA then
   output uint$color_depth$ video_b,
   output uint1 video_hs,
   output uint1 video_vs,
+$$end
+$$if AUDIO then
+  output uint4 audio_l,
+  output uint4 audio_h,
 $$end
 $$if HDMI then
 $$if ULX3S then
@@ -494,7 +503,7 @@ $$else
 $$if ICARUS then
   while (frame < 4) {
 $$else
-  while (frame < 20) {
+  while (frame < 4) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }

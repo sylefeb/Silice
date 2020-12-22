@@ -81,6 +81,20 @@ circuitry command(
 
 // -----------------------------------------------------------
 
+$$if not read_burst_length then
+$$ read_burst_length = 8 -- max
+$$end
+$$ if read_burst_length == 8 then
+$$    burst_config = '3b011'
+$$ elseif read_burst_length == 4 then
+$$    burst_config = '3b010'
+$$ elseif read_burst_length == 2 then
+$$    burst_config = '3b001'
+$$ elseif read_burst_length == 1 then
+$$    burst_config = '3b000'
+$$ else
+$$end
+
 algorithm sdram_controller_autoprecharge_r128_w8(
         // sdram pins
         // => we use immediate (combinational) outputs as these are registered 
@@ -190,7 +204,7 @@ $$ refresh_cycles      = 750 -- assume 100 MHz
 $$ refresh_wait        = 7
 $$ cmd_active_delay    = 2
 $$ cmd_precharge_delay = 3
-$$ print('SDRAM configured for 100 MHz (default)')
+$$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
 
   uint10 refresh_count = $refresh_cycles$;
   
@@ -277,7 +291,7 @@ $$end
   cmd      = CMD_LOAD_MODE_REG;
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   reg_sdram_ba = 0;
-  reg_sdram_a  = {3b000, 1b1, 2b00, 3b011/*CAS*/, 1b0, 3b011 /*burst x8*/};
+  reg_sdram_a  = {3b000, 1b1, 2b00, 3b011/*CAS*/, 1b0, $burst_config$ /*burst x8*/};
   () <- wait <- (0);
 
   reg_sdram_ba = 0;
@@ -354,7 +368,7 @@ $$end
           // burst 8 x 16 bytes
           {
             uint8 read_cnt = 0;
-            while (read_cnt < 8) {
+            while (read_cnt < $read_burst_length$) {
               sd.data_out[{read_cnt,4b0000},16] = dq_i;
               read_cnt     = read_cnt + 1;
               sd.done      = (read_cnt[3,1]); // data_out is available

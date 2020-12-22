@@ -12,16 +12,17 @@ fi
 
 echo "using $ARCH"
 
-# Following based on FemtoRV compile scripts https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV
+$ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
 
-$ARCH-elf-gcc -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
-$ARCH-elf-gcc -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -c -o build/code.o $1
+$ARCH-elf-gcc -fno-unroll-loops -O2 -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
+$ARCH-elf-gcc -fno-unroll-loops -O2 -fno-pic -march=rv32i -mabi=ilp32 -c -o build/code.o $1
 
+$ARCH-elf-as -march=rv32i -mabi=ilp32 -o div.o tests/mylibc/div.s
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0.s
 
-$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld --no-relax -o build/code.elf build/code.o
+$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_cpu$2.ld --no-relax -o build/code.elf build/code.o div.o mylibc.o
 
-$ARCH-elf-objcopy -O verilog build/code.elf build/code.hex
+$ARCH-elf-objcopy -O verilog build/code.elf build/code$2.hex
 
 # uncomment to see the actual code, usefull for debugging
 $ARCH-elf-objcopy.exe -O binary build/code.elf build/code.bin
