@@ -130,14 +130,10 @@ $$end
         }
         // write to sdram
         yw = 100+y;
-        while (1) {
-          if (sd.busy == 0) { // not busy?
-            sd.data_in    = palidx;
-            sd.addr       = {1b0,~fbuffer,24b0} | (num_drawn_cols) | (yw << 9); 
-            sd.in_valid   = 1; // go ahead!
-            break;
-          }
-        }          
+        sd.data_in    = palidx;
+        sd.addr       = {1b0,~fbuffer,24b0} | (num_drawn_cols) | (yw << 9); 
+        sd.in_valid   = 1; // go ahead!
+        while (!sd.done) { }
         // other half
         if (y <= h) {
         
@@ -157,14 +153,10 @@ $$end
         
         // write to sdram
         yw = 100-y;
-        while (1) {
-          if (sd.busy == 0) { // not busy?
-            sd.data_in    = palidx;
-            sd.addr       = {1b0,~fbuffer,24b0} | (num_drawn_cols) | (yw << 9); 
-            sd.in_valid   = 1; // go ahead!
-            break;
-          }
-        }
+        sd.data_in    = palidx;
+        sd.addr       = {1b0,~fbuffer,24b0} | (num_drawn_cols) | (yw << 9); 
+        sd.in_valid   = 1; // go ahead!
+        while (!sd.done) { }
         if (y <= h) {
           v_tex = v_tex + v_tex_incr;
         }

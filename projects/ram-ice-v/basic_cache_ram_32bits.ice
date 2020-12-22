@@ -17,13 +17,11 @@ $$cache_size  = 1<<cache_depth
   uint32 predicted_addr           = uninitialized;  
   // track when address is in cache region and onto which entry   
   uint1  in_cache                ::=     ((pram.addr   >> 2) | $cache_size-1$) 
-                                     == ((cache_start >> 2) | $cache_size-1$);
+                                      == ((cache_start >> 2) | $cache_size-1$);
   uint$cache_depth$  cache_entry ::= (pram.addr >> 2) & ($cache_size-1$);
   
   uint1  work_todo       = 0;
   uint1  cache_predicted = 0;
-  
-  uint32 cycle = 0;
   
   uram.in_valid := 0; // pulsed high when needed
   
@@ -37,8 +35,6 @@ $$cache_size  = 1<<cache_depth
     cached_map.addr1    = cache_entry;
     cached_map.wenable1 = uram.done & ((~uram.rw) || (pram.wmask == 4b1111)) & in_cache;
     cached_map.wdata1   = 1;
-    
-    cycle = cycle + 1;
   }
   
   while (1) {
