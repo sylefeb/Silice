@@ -16,10 +16,10 @@ echo "path to riscv libs $RISCVLIB"
 
 echo "using $ARCH"
 
-$ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O1 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
-$ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O1 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc_test.c
+$ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
+$ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc_test.c
 
-$ARCH-elf-gcc -w -S -DRISCV -DTIME -DUSE_MYSTDLIB -O1 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
+$ARCH-elf-gcc -w -S -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
 
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o div.o tests/mylibc/div.s
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0.s
@@ -30,4 +30,4 @@ $ARCH-elf-objcopy -O verilog mylibc_test.elf build/code.hex
 
 # uncomment to see the actual code, usefull for debugging
 $ARCH-elf-objcopy.exe -O binary mylibc_test.elf build/code.bin
-$ARCH-elf-objdump.exe -D -b binary -m riscv build/code.bin 
+$ARCH-elf-objdump.exe -D -h -b binary -m riscv build/code.bin 

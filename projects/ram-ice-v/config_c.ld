@@ -14,5 +14,6 @@ SECTIONS {
         *(.rodata)
         *(.rodata.str1.4)        
         *(.data)
+        *(.sbss)
   } >ram 
 }

@@ -7,7 +7,7 @@ algorithm basic_cache_ram_32bits(
   input uint26       cache_start // where the cache is locate
 ) <autorun> {
 
-$$cache_depth = 11               -- 11 => 8 KB + 2 KB (tag bits)
+$$cache_depth = 13               -- 11 => 8 KB + 2 KB (tag bits)
 $$cache_size  = 1<<cache_depth
 
   // cache brams
@@ -25,15 +25,14 @@ $$cache_size  = 1<<cache_depth
   pram.done     := 0;
   
   always {
-    // we track the input impulse in the always block
-    // to ensure we won't miss it!
     pram.done          = uram.done;
     pram.data_out      = uram.done ? (uram.data_out >> {pram.addr[0,2],3b000}) : pram.data_out;
+    // cache update rules
     cached.addr        = cache_entry;
-    cached.wenable     = uram.done & ~uram.rw & in_cache;
-    cached.wdata       = uram.data_out;
+    cached.wenable     = uram.done & ((~uram.rw) || (pram.wmask == 4b1111)) & in_cache;
+    cached.wdata       = (~uram.rw) ? uram.data_out : pram.data_in;
     cached_map.addr    = cache_entry;
-    cached_map.wenable = uram.done & ~uram.rw & in_cache;
+    cached_map.wenable = uram.done & ((~uram.rw) || (pram.wmask == 4b1111)) & in_cache;
     cached_map.wdata   = 1;
   }
   

@@ -5,7 +5,7 @@
 _start: 
    la sp, after /* this is a hack to push the code away                      */
    j after      /* and have the stack at the begining, where the cache lies  */
-   .skip 256    /* there is plenty of memory space before, so no risk there  */
+   .skip 512    /* there is plenty of memory space before, so no risk there  */
 after:   
    call main
    .word 0

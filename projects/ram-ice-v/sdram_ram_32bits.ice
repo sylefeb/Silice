@@ -29,7 +29,7 @@ algorithm sdram_ram_32bits(
         uint4  write_seq = 4b0001;       
         uint2  pos = 0;
         uint32 tmp = uninitialized;
-        //__display("RAM   write @%h = %h",r32.addr,r32.data_in);
+        __display("RAM   write @%h = %h",r32.addr,r32.data_in);
         tmp        = r32.data_in;
         while (write_seq != 0) {
           if (sdr.busy == 0) {
@@ -48,7 +48,7 @@ algorithm sdram_ram_32bits(
       } else {
         // read
         uint1 done = 0;
-        //__display("RAM   read @%h",r32.addr);
+        __display("RAM   read @%h",r32.addr);
         while (!sdr.out_valid) {  
           if (sdr.busy == 0 && done == 0) {
             sdr.addr     = {r32.addr[4,22],4b0000};

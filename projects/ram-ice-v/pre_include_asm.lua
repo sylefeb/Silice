@@ -17,24 +17,32 @@ meminit = '{'
 numinit = 0
 data_hex = ''
 init_data_bytes = 0
+prev_addr = -1
 local out = assert(io.open(path .. '/data.img', "wb"))
 for str in string.gmatch(code, "([^ \r\n]+)") do
-  -- 
-  if nentries > 0 then
+  if string.sub(str,1,1) == '@' then
+    addr = tonumber(string.sub(str,2), 16)
+    if prev_addr < 0 then
+      print('first addr = ' .. addr)
+      prev_addr = addr
+    end
+    print('addr delta = ' .. addr - prev_addr)
+    prev_addr = addr
+  else 
     data_hex = data_hex .. '8h' .. str .. ','
     out:write(string.pack('B', tonumber(str,16) ))
     init_data_bytes = init_data_bytes + 1
     h32 = str .. h32
     nbytes = nbytes + 1
+    prev_addr = prev_addr + 1
     if nbytes == 4 then
-      print('32h' .. h32)
+      -- print('32h' .. h32)
       meminit = meminit .. '32h' .. h32 .. ','
       nbytes = 0
       h32 = ''
       numinit = numinit + 1
     end
   end
-  nentries = nentries + 1
 end
 out:close()
 
