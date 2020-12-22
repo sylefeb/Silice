@@ -15,9 +15,9 @@ $$cache_size  = 1<<cache_depth
   bram uint32 cached    [$cache_size$] = uninitialized;
   
   // track when address is in cache region and onto which entry   
-  uint1  in_cache                :=     ((pram.addr   >> 2) | $cache_size-1$) 
-                                     == ((cache_start >> 2) | $cache_size-1$);
-  uint$cache_depth$  cache_entry := (pram.addr >> 2) & ($cache_size-1$);
+  uint1  in_cache                ::=     ((pram.addr   >> 2) | $cache_size-1$) 
+                                      == ((cache_start >> 2) | $cache_size-1$);
+  uint$cache_depth$  cache_entry ::= (pram.addr >> 2) & ($cache_size-1$);
   
   uint1  work_todo = 0;
   
@@ -27,27 +27,20 @@ $$cache_size  = 1<<cache_depth
   always {
     // we track the input impulse in the always block
     // to ensure we won't miss it!
-    if (pram.in_valid) {
-      work_todo  = 1;
-    }
     pram.done          = uram.done;
     pram.data_out      = uram.done ? (uram.data_out >> {pram.addr[0,2],3b000}) : pram.data_out;
     cached.addr        = cache_entry;
-    cached.wenable     = uram.done & ~uram.rw;
+    cached.wenable     = uram.done & ~uram.rw & in_cache;
     cached.wdata       = uram.data_out;
     cached_map.addr    = cache_entry;
-    cached_map.wenable = uram.done & ~uram.rw;
-    cached_map.wdata   = ~uram.rw;
+    cached_map.wenable = uram.done & ~uram.rw & in_cache;
+    cached_map.wdata   = 1;
   }
   
   while (1) {
   
     if (work_todo) {
       work_todo = 0;        
-      // test cache        
-//      cached_map.wenable = 0;
-//      cached    .wenable = 0;
-++:
       if (in_cache && cached_map.rdata) {
         if (pram.rw) {
           //__display("CACHE write @%h = %h",pram.addr,pram.data_in);
@@ -76,6 +69,12 @@ $$cache_size  = 1<<cache_depth
         uram.in_valid = 1;        
       }
     }
+    
+    // done at then end so the next cycle reads the cache
+    if (pram.in_valid) {
+      work_todo  = 1;
+    }
+
   }
  
 }

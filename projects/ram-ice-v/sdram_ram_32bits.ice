@@ -60,7 +60,6 @@ algorithm sdram_ram_32bits(
         r32.data_out  = sdr.data_out >> {r32.addr[0,4],3b000};
         // done!
         r32.done  = 1;
-        //__display("RAM   read @%h done",r32.addr);
       }  
     } 
     
