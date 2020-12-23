@@ -382,7 +382,7 @@ $$end
     
     if (exec) {
 $$if SIMULATION then    
-        // __display("[exec] @%h instr = %h [cycle %d (%d since)]",ram.addr,ram.data_out,cycle,cycle - cycle_last_exec);
+        __display("[exec] @%h instr = %h [cycle %d (%d since)]",ram.addr,ram.data_out,cycle,cycle - cycle_last_exec);
         cycle_last_exec = cycle;
 $$end
         // instruction available, start decode+ALU

@@ -66,4 +66,4 @@ print('sdcard image is ' .. init_data_bytes .. ' bytes.')
 
 init_data_bytes = math.max(init_data_bytes,(1<<20)) -- we load 1 MB to be sure we can append stuff
 
--- error('stop')
+--error('stop')

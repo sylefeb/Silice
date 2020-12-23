@@ -122,11 +122,11 @@ algorithm frame_drawer(
     cpu1_enable = 1;
 
     if (ram0.in_valid && ram0.rw && ram0.addr[26,2] == 2b11) {
-      __display("audio 0, %h",ram0.data_in[0,8]);
+      //__display("audio 0, %h",ram0.data_in[0,8]);
       wave_l = ram0.data_in[0,8];
     }
     if (ram1.in_valid && ram1.rw && ram1.addr[26,2] == 2b11) {
-      __display("audio 1, %h",ram1.data_in[0,8]);
+      //__display("audio 1, %h",ram1.data_in[0,8]);
       wave_r = ram1.data_in[0,8];
     }
 

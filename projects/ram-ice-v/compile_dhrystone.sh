@@ -14,7 +14,6 @@ echo "using $ARCH"
 
 $ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/dhrystone/dhry_1.c
 $ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/dhrystone/dhry_2.c
-$ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/dhrystone/misc.c
 $ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
 
 $ARCH-elf-gcc -w -S -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/dhrystone/dhry_1.c
@@ -23,7 +22,7 @@ $ARCH-elf-gcc -w -S -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mab
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o div.o tests/mylibc/div.s
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0.s
 
-$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld -o dhry.elf div.o dhry_1.o dhry_2.o mylibc.o misc.o
+$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld -o dhry.elf div.o dhry_1.o dhry_2.o mylibc.o
 
 $ARCH-elf-objcopy -O verilog dhry.elf build/code0.hex
 

@@ -7,7 +7,11 @@ algorithm basic_cache_ram_32bits(
   input uint26       cache_start // where the cache is locate
 ) <autorun> {
 
-$$cache_depth = 11               -- 11 => 8 KB + 2 KB (tag bits)
+$$if SIMULATION then
+$$  cache_depth = 11               -- 11 => 8 KB + 2 KB (tag bits)
+$$else
+$$  cache_depth = 14
+$$end
 $$cache_size  = 1<<cache_depth
 
   // cache brams
