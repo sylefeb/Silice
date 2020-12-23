@@ -1,8 +1,11 @@
+// SL 2020
+//
+// A simple test for SDRAM controllers, in simulation
+//
 // ------------------------- 
 
 $include('../common/sdram_interfaces.ice')
-// include('../common/sdram_controller_autoprecharge_r128_w8.ice')
-$include('../common/sdram_controller_r128_w8.ice')
+$include('../common/sdram_controller_autoprecharge_r16_w16.ice')
 $include('../common/sdram_utils.ice')
 
 $$if ICARUS then
@@ -71,12 +74,12 @@ simul_sdram simul(
 
 $$end
 
-  // SDRAM chip controller
-  // interface
-  sdram_r128w8_io sdram_io;
+  // SDRAM interface
+  sdram_r16w16_io sio;
+  
   // algorithm
-  sdram_controller_r128_w8 sdram(
-    sd        <:> sdram_io,
+  sdram_controller_autoprecharge_r16_w16 sdram(
+    sd        <:> sio,
     sdram_cle :>  sdram_cle,
     sdram_dqm :>  sdram_dqm,
     sdram_cs  :>  sdram_cs,
@@ -94,34 +97,28 @@ $$end
   $$end
   );
 
-  // SDRAM memory interface
-  // byte interface
-  sdram_byte_io sio;
-  // algorithm
-  sdram_byte_readcache memory(
-    sdr <:> sdram_io,
-    sdb <:> sio
-  );
-
-  uint8                count = 0;
+  uint20               count = 0;
   sameas(sio.data_out) read  = 0;
 
   $$if VERILATOR then
   // sdram clock for verilator simulation
   sdram_clock := clock;
   $$end
+  
   // maintain low (pulse up when ready, see below)
   sio.in_valid := 0;
 
   $display("=== writing ===");
   // write
   sio.rw = 1;
-  while (count < 128) {
+  while (count < 65536) {
     // write to sdram
     sio.data_in    = count;            
     sio.addr       = count;
     sio.in_valid   = 1; // go ahead!
-    $display("write [%x] = %x",count,count);
+    if (count < 16 || count > 65520) {
+      __display("write [%x] = %x",count,count);
+    }
     count          = count + 1;
     while (!sio.done) {}
   }
@@ -130,12 +127,14 @@ $$end
   count = 0;
   // read back
   sio.rw = 0;
-  while (count < 128) {
+  while (count < 65536) {
     sio.addr     = count;
     sio.in_valid = 1; // go ahead!
     while (!sio.done) {}
     read = sio.data_out;
-    $display("read  [%x] = %x",count,read);
+    if (count < 16 || count > 65520) {
+      __display("read  [%x] = %x",count,read);
+    }  
     count = count + 1;
   }  
 
