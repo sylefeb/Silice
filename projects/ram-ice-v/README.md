@@ -310,7 +310,7 @@ There is a myriad of refinements and subtleties to CPU design (like pipelining a
 
 ## The SDRAM controller and arbiter
 
-**TODO**
+For details on SDRAM controllers please refer to the [sdram_test project](https://github.com/sylefeb/Silice/tree/master/projects/sdram_test).
 
 ## Links
 * Demo project voices made with https://text-to-speech-demo.ng.bluemix.net/
