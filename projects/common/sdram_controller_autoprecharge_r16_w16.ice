@@ -354,6 +354,7 @@ $$end
 ++:       // wait CAS cycles
 ++:
 ++:
+++:
 $$if ULX3S_IO then
 ++: // dq_i 2 cycles latency due to flip-flops on output and input path
 ++:

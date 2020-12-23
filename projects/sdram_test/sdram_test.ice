@@ -97,7 +97,7 @@ $$end
   $$end
   );
 
-  uint20               count = 0;
+  uint16               count = 0;
   sameas(sio.data_out) read  = 0;
 
   $$if VERILATOR then
@@ -112,31 +112,31 @@ $$end
 
   // write
   sio.rw = 1;
-  while (count < 65536) {
+  while (count < 65534) {
     // write to sdram
     sio.data_in    = count;            
     sio.addr       = count;
     sio.in_valid   = 1; // go ahead!
-    while (!sio.done) {}
+    while (!sio.done) { }
     if (count < 16 || count > 65520) {
       __display("write [%x] = %x",count,count);
     }
-    count          = count + 1;
+    count          = count + 2;
   }
 
   $display("=== readback ===");
-  count = 0;
   // read back
   sio.rw = 0;
-  while (count < 65536) {
+  count  = 0;
+  while (count < 65534) {
     sio.addr     = count;
     sio.in_valid = 1; // go ahead!
-    while (!sio.done) {}
+    while (!sio.done) { }
     read = sio.data_out;
     if (count < 16 || count > 65520) {
       __display("read  [%x] = %x",count,read);
     }  
-    count = count + 1;
+    count = count + 2;
   }  
 
 }
