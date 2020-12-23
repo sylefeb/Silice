@@ -84,7 +84,7 @@ We instantiate the controller, binding it to the interface and the (many) pins:
 ```
 Note that Verilator requires a special treatment for the tri-state bus. Wait, the **what?**
 
-Let's stop here for a moment. The SDRAM chip already uses quite many pins, 16 of which are required for reading/writing 16 bits at a time (*Note:* some SDRAM chips have 8 bits interfaces, but for bandwidth more is better). Instead of using two times 16 wires, the chip uses only 16 wires but these are bidirectional: they are used both for reading and writing. This is why the `sdram_dq` pin (the data bus) is bound with two directions: `sdram_dq  <:> sdram_dq`. We'll come back to this when discussing the controller.
+Let's stop here for a moment. The SDRAM chip already uses quite many pins, 16 of which are required for reading/writing 16 bits at a time (*Note:* some SDRAM chips have 8 bits interfaces, but for bandwidth more is better). Instead of using two times 16 wires, the chip uses only 16 wires but these are bidirectional: they are used both for reading and writing. This is why the `sdram_dq` pin (the data bus) is bound with two directions: `sdram_dq  <:> sdram_dq`. 
 
 So how do we use this controller?
 
@@ -139,9 +139,82 @@ This is very similar: we indicate we want to read `sio.rw = 0;`, specify the add
 
 And that's it!
 
-## A closer look at the SDRAM controller insides
+## A closer look at the SDRAM controller
 
-**TODO**
+We are now looking inside [dram_controller_autoprecharge_r16_w16.ice](../common/dram_controller_autoprecharge_r16_w16.ice).
+
+Writing an SDRAM controller might be intimidating, but the basics are in fact relatively simple. What makes it more complex, in terms of hardware, are the quite strict requirements on delays when the FPGA and SDRAM chip communicate synchronously. What makes it interesting, in terms of design, are the many possible approaches to try to achieve higher bandwidth and lower latencies. This will depend on how your design uses memory of course, and I am still learning and experimenting with this. The [MiSTer cores](https://github.com/MiSTer-devel/Main_MiSTer/wiki) are a good source of examples for SDRAM controllers.
+
+The controller we are considering here is very straightforward: it reads/writes at the native chip width (16 bits) and uses 'auto-precharge' (more on this soon). This is simple but may not be great for your design, as in particular SDRAM chips are able to 'burst' data, amortizing the cost of other operations. For instance a x8 read burst will have some initial latency, but then outputs one 16 bits word every cycles for eight cycles. For instance, the [dram_controller_autoprecharge_r128_w8.ice](../common/dram_controller_autoprecharge_r16_w16.ice) reads in x8 bursts (16x8 bits) and writes single bytes. Many variants are possible.
+
+I said earlier that the controller uses auto-precharge. What does that mean?
+Well, SDRAM chips are organized in a very specific way. The memory is decomposed in banks, the rows, then columns. On a typical chip (e.g. AS4C16M16SA) you get something like 4 banks, 8192 rows, 512 columns of 16 bits words (for a grand total of 32MB in this case). 
+
+A 16 bit word is addressed by setting the bank, row, column. The way you map addresses to banks is again an important design choice, and is up to you. For this simple design I chose:
+```c
+// 4 banks, 8192 rows,  512 columns, 16 bits words
+// ============== addr ================================
+//   25 24 | 22 -------- 10 |  9 ----- 1 | 0
+//   bank  |     row        |   column   | byte (ignored)
+// ====================================================
+```
+(*Note:* I am ignoring the byte bit but keep it there to provide compatibility with controllers able to address individual bytes. With this controllers all addresses have to be aligned on 16 bits -- multiples of two).
+
+The thing is, you cannot directly address a row in a bank. It has to be `activated` first (think *opening the row*). And once you are done with it, it has to be `pre-charged` (think *closing the row*). These operations, active/pre-charge have a relatively high latency. So for efficiency you'd rather keep a row opened as long as possible -- and of course you have four banks so up to four rows opened at once.
+
+However, this controller does not do that. To avoid any book keeping it always activates and pre-charges rows, every access. Brute force! And to avoid having to explictely do the pre-charge, it uses a SDRAM chip feature called `auto-precharge`. This automatically closes the row after this access, simplifying the controller further (and also we do not have to wait explictely for the pre-charge to terminate).
+
+Let's have a closer look at what happens in the code. I'll skip the tricky details of using on-pins flip-flops and such -- which are very important for stability -- keeping them for a later time. I'll focus on the logic of the controller.
+
+A first important component is the `always` block:
+
+```c  
+  always { // always block is executed at every cycle before anything else  
+    // keep done low, pulse high when done
+    sd.done = 0;
+    // defaults to NOP command
+    cmd = CMD_NOP;
+    (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+    // track in valid here to ensure we never misss a request
+    if (sd.in_valid) {
+      // -> copy inputs, decompose the address in bank/row/column
+      bank      = sd.addr[24, 2]; // bits 24-25
+      row       = sd.addr[$SDRAM_COLUMNS_WIDTH+1$, 13];
+      col       = sd.addr[                      1, $SDRAM_COLUMNS_WIDTH$];
+      data      = sd.data_in;
+      do_rw     = sd.rw;    
+      // -> signal work to do
+      work_todo = 1;
+    }
+  }
+```
+This runs every cycle before anything else. The most important part here is `if (sd.in_valid) { ...` where we track input requests. Indeed, as the controller is a multi-cycle affair with waits and such, we could easily miss a request that pulses high for a single cycle.
+
+After that  we have a rather boring initialization sequence that I'll skip. Then we enter the main loop of the controller:
+
+```c
+  // init done, start answering requests  
+  while (1) {
+```
+
+Let us first see how read/write request are answer. We first check if a new request was received while we were busy:
+```c
+      // any pending request?
+      if (work_todo) {
+        work_todo = 0;
+```
+Then we start by opening (activating) the row of the selected bank (the address was decoded in the always block):
+```c
+        // first, activate the row of the bank
+        reg_sdram_ba = bank;
+        reg_sdram_a  = row;
+        cmd          = CMD_ACTIVE;
+        (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+        $$for i=1,cmd_active_delay do
+     ++:
+        $$end
+```
+This simply issues a command to the SDRAM chip, and then waits... (see the `++:`, these wait one cycle).
 
 ## Notes
 

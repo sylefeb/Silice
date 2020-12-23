@@ -192,7 +192,7 @@ $$end
   uint13 row         = 0;
   uint2  bank        = 0;
   uint10 col         = 0;
-  uint8  data        = 0;
+  uint16 data        = 0;
   uint1  do_rw       = 0;
 
 $$ refresh_cycles      = 750 -- assume 100 MHz
@@ -235,11 +235,10 @@ $$if VERILATOR then
   dq_en     := reg_dq_en;
 $$end  
 $$end
-
-  sd.done := 0;
   
-  always { // always block is executed at every cycle before anything else
-  
+  always { // always block is executed at every cycle before anything else  
+    // keep done low, pulse high when done
+    sd.done = 0;
     // defaults to NOP command
     cmd = CMD_NOP;
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
@@ -342,7 +341,7 @@ $$end
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           reg_dq_en     = 1;
           reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
-          reg_dq_o      = {data,data};
+          reg_dq_o      = data;
           // signal done
           sd.done       = 1;
 ++:       // wait one cycle to enforce tWR
