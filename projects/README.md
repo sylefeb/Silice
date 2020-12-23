@@ -21,6 +21,8 @@ Some of the projects have detailed explanations:
 - [pipelined sort](pipeline_sort/)
 - [HDMI test framework](hdmi_test/)
 - [streaming audio from sdcard](audio_sdcard_streamer/)
+- [dual CPU RISC-V in graphics framework](ram-ice-v/)
+- [sdram test and controller introduction](sdram_test/)
 
 ## Building the examples
 
