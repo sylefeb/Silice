@@ -74,7 +74,7 @@ Memory addresses are 26 bits, with the two highest bits indicated the memory ban
 - **Bank 2** [0x2000000 - 0x2ffffff] Data loaded from sdcard at startup.
 - **Bank 3** [0x3000000 - 0x3ffffff] Free!
 
-The framebuffers occupy addresses up to 18fff in their banks. This might seem surprising: a frame is 320x200 so one would expect f9ff. Well, this is because the rows of 320 pixels are stored apart from each other, with a total spacing of 512 bytes. This allows a pixel address to be computed as `x + y<<9`. But you are free to  squeeze other data in the `512-320` unused space, the framebuffer does not touch it.
+The framebuffers occupy addresses up to 18fff in their banks. This might seem surprising: a frame is 320x200 so one would expect f9ff. Well, this is because the rows of 320 pixels are stored apart from each other, with a total spacing of 512 bytes. This allows a pixel address to be computed as `x + y<<9`. But you are free to  squeeze other data in the [320-511] unused space, the framebuffer does not touch it.
 
 Where will the CPU code endup? This is specified in `config_cpu0.ld` and `config_cpu1.ld`. The first uses addresses from 0x2000000, the second from 0x2010000. So of course this is assuming this leaves enough space for code ... and stack! The code is shifted by 512 bytes so the stack starts at 0x20001ff and 0x20101ff (it grows downwards). See `crt0.s`. This shift is there to simplify the cache that covers both the instructions and the stack.
 
