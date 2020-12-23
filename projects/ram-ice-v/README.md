@@ -58,7 +58,7 @@ If I got this right, the CPU currently gets a score of 4.975 cycles per instruct
 
 ## Overall architecture
 
-I rely on the Silice graphics framework (the same one [used by the Doom-chip](../common/doomchip/)), primarily defined in [video_sdram_main.ice](../common/video_sdram_main.ice) and [video_sdram.ice](../common/video_sdram.ice). It essentially implements a 320x200 8-bit palette framebuffer in SDRAM, with the possibility to load data from an sdcard at startup.
+I rely on the Silice graphics framework (the same one [used by the Doom-chip](../doomchip/)), primarily defined in [video_sdram_main.ice](../common/video_sdram_main.ice) and [video_sdram.ice](../common/video_sdram.ice). It essentially implements a 320x200 8-bit palette framebuffer in SDRAM, with the possibility to load data from an sdcard at startup.
 
 The graphics framework is targeting boards with HDMI/VGA and SDRAM. This is typically the ULX3S or the de10nano with a [MiSTer](https://github.com/MiSTer-devel/Main_MiSTer/wiki) setup.
 
