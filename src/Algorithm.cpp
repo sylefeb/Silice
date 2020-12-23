@@ -5587,7 +5587,7 @@ void Algorithm::writeTempDeclarations(std::string prefix, std::ostream& out) con
   }
   for (const auto &v : m_Outputs) {
     if (v.usage != e_Temporary) continue;
-    out << "reg " << typeString(v) << " " << varBitRange(v) << " " << FF_TMP << prefix << v.name << ';' << nxl;
+    writeVerilogDeclaration(out, "reg", v, string(FF_TMP) + prefix + v.name);
   }
 }
 

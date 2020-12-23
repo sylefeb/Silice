@@ -74,15 +74,6 @@ algorithm frame_drawer(
   
     cpu_enable      = 1;
     
-/*  
-    if (ram.in_valid) {
-      if (ram.rw) {
-        __display("  RAM write @%h = %h (%b)",ram.addr,ram.data_in,ram.wmask);
-      } else {
-        __display("  RAM read  @%h",ram.addr);
-      }
-    }
-*/  
   }
 }
 
