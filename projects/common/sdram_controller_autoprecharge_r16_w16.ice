@@ -301,12 +301,6 @@ $$end
     // refresh?
     if (refresh_count == 0) {
 
-      // -> precharge all
-      cmd      = CMD_PRECHARGE;
-      (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);      
-      reg_sdram_a  = {2b0,1b1,10b0};
-      () <- wait <- ($cmd_precharge_delay-3$);
-
       // refresh
       cmd           = CMD_REFRESH;
       (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);

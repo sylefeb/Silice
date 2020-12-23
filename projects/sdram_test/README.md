@@ -17,21 +17,21 @@ After some compilation, you should see this output (summarized here):
 === writing ===
 640 x 480 x 6
 Instantiating 64 MB SDRAM : 4 banks x 8192 rows x 1024 cols x 16 bits
-write [00000] = 00000
-write [00001] = 00001
-write [00002] = 00002
+write [0000] = 0000
+write [0002] = 0002
+write [0004] = 0004
 ...
-write [0fffd] = 0fffd
-write [0fffe] = 0fffe
-write [0ffff] = 0ffff
+write [fff8] = fff8
+write [fffa] = fffa
+write [fffc] = fffc
 === readback ===
-read  [00000] = 0000
-read  [00001] = 0101
-read  [00002] = 0101
+read  [0000] = 0000
+read  [0002] = 0002
+read  [0004] = 0004
 ...
-read  [0fffd] = fdfd
-read  [0fffe] = fdfd
-read  [0ffff] = ffff
+read  [fff8] = fff8
+read  [fffa] = fffa
+read  [fffc] = fffc
 - build.v:138: Verilog $finish
 ```
 
@@ -214,7 +214,73 @@ Then we start by opening (activating) the row of the selected bank (the address 
      ++:
         $$end
 ```
-This simply issues a command to the SDRAM chip, and then waits... (see the `++:`, these wait one cycle).
+This simply issues a command to the SDRAM chip, and then waits... (see the `++:`, these wait one cycle). The delay is typically 2 cycles.
+
+We then check if we have to read or write:
+```c
+        // write or read?
+        if (do_rw) {
+```
+A write takes this path:
+```c
+          // write
+          cmd       = CMD_WRITE;
+          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+          reg_dq_en     = 1;
+          reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
+          reg_dq_o      = {data,data};
+          // signal done
+          sd.done       = 1;
+++:       // wait one cycle to enforce tWR
+```
+This sets the pins, issues the command and signal we are done. However, we have to wait one cycle (`++:`) as the SDRAM chip also has delays between commands, and here was could end up violating one such delay.
+
+A read path takes this path:
+
+```c
+          // read
+          cmd         = CMD_READ;
+          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+          reg_dq_en       = 0;
+          reg_sdram_a     = {2b0, 1b1/*auto-precharge*/, col};          
+++:       // wait CAS cycles
+++:
+++:
+++:
+$$if ULX3S_IO then
+++: // dq_i 2 cycles latency due to flip-flops on output and input path
+++:
+$$end
+          // data is available
+          sd.data_out = dq_i;
+          sd.done     = 1;
+```
+
+Wow, what's with all the delays? Well, there are the CAS delays (time it takes for the chip to answer), plus delays due to the fact that we are registering the input and output pins (and even more on actual hardware due to additional flip-flops on the ins themselves). We pay in latency what we obtain in stability.
+
+Now you can hopefully see why reading/writing in burst is a good idea!
+
+We are almost done, but there is a last very important details. SDRAM chips store data in capacitors, and these capacitors leak! They have to be periodically refreshed. This is why we count cycles in `refresh_count` and do this when the delay elapsed:
+
+```c
+    // refresh?
+    if (refresh_count == 0) {
+
+      // refresh
+      cmd           = CMD_REFRESH;
+      (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+      // wait
+      () <- wait <- ($refresh_wait-3$);
+      // -> reset count
+      refresh_count = $refresh_cycles$;  
+
+    } else { // ...
+
+```
+
+This requests a refresh of the memory chip. Meanwhile nothing else can happen...
+
+And that's it , a basic, functional SDRAM controller.
 
 ## Notes
 
