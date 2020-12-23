@@ -1,7 +1,7 @@
 /*
 SL 2012-12-21
 
-A few custom function (character on screen, etc.).
+A few custom functions (character on screen, etc.).
 
 The rest is hastily composed from a variety of sources (referenced in code) to get something up and running
 
