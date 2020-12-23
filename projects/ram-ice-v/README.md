@@ -313,4 +313,10 @@ There is a myriad of refinements and subtleties to CPU design (like pipelining a
 **TODO**
 
 ## Links
-- Demo project voices made with https://text-to-speech-demo.ng.bluemix.net/
+* Demo project voices made with https://text-to-speech-demo.ng.bluemix.net/
+* RiscV toolchain https://github.com/riscv/riscv-gnu-toolchain
+* Pre-compiled riscv-toolchain for Linux https://matthieu-moy.fr/spip/?Pre-compiled-RISC-V-GNU-toolchain-and-spike&lang=en
+* Homebrew RISC-V toolchain for macOS https://github.com/riscv/homebrew-riscv
+* FemtoRV https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV
+* PicoRV  https://github.com/cliffordwolf/picorv32
+* Stackoverflow post on CPU design (see answer) https://stackoverflow.com/questions/51592244/implementation-of-simple-microprocessor-using-verilog
