@@ -105,10 +105,11 @@ $$end
   sdram_clock := clock;
   $$end
   
-  // maintain low (pulse up when ready, see below)
+  // maintain low (pulses when ready, see below)
   sio.in_valid := 0;
 
   $display("=== writing ===");
+
   // write
   sio.rw = 1;
   while (count < 65536) {
@@ -116,11 +117,11 @@ $$end
     sio.data_in    = count;            
     sio.addr       = count;
     sio.in_valid   = 1; // go ahead!
+    while (!sio.done) {}
     if (count < 16 || count > 65520) {
       __display("write [%x] = %x",count,count);
     }
     count          = count + 1;
-    while (!sio.done) {}
   }
 
   $display("=== readback ===");
