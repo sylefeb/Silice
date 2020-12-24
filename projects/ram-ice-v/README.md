@@ -271,7 +271,7 @@ The best cache performance is achieved for continuous (serial) accesses, with th
 
 ## The RiscV processor
 
-This is a RV32I design. It is quite straightforward and is meant to remain simple and easy to modify / hack. Its most 'advanced' feature is that it tries to optimistically fetch the next instructions, before being done with the current one. Together with the instruction cache, this allows many instructions to execute in only 2 cycles. 
+This is a RV32I design. It is quite straightforward and is meant to remain simple and easy to modify / hack. Its most 'advanced' feature is that it tries to optimistically fetch the next instruction, before being done with the current one. Together with the instruction cache, this allows many instructions to execute in only 2 cycles. 
 
 The design is not optimized for compactness. For a smaller design please checkout the original [ice-v](../projects/ice-v) which implements an RV32I fitting on an IceStick! (~1182 LUTs with OLED controller).
 
