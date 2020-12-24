@@ -1,15 +1,19 @@
 // SL 2020-12-02 @sylefeb
 // ------------------------- 
 
+// for simulation
+$$if SIMULATION then
+$$ sdcard_extra_files = {'tests/c/xmas_bkg.rawraw'}
+$$end
+
 // pre-compilation script, embeds compile code within sdcard image
 $$dofile('pre_include_asm.lua')
 
 // basic palette
 $$palette = {}
-$$for i=1,256 do
-$$  palette[i] = (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
+$$for i=0,255 do
+$$  palette[1+i] = (i) | (i<<8) | (i<<16)
 $$end
-$$ palette[256] = 255 | (255<<8) | (255<<16)
 
 $include('../common/video_sdram_main.ice')
 $include('../common/audio_pwm.ice')

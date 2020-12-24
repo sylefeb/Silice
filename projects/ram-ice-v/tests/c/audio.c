@@ -64,8 +64,6 @@ void pause(int cycles)
 
 void main() 
 {
-  *(FRAMEBUFFER + 512 + cpuid()) = 0; // clear synch sentinels
-
   int wave_table[14] = {
     0     , 34296, // hi left
     34296 , 28536, // hi right

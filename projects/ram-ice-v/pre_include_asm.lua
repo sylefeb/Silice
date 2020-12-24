@@ -55,15 +55,32 @@ while sdcard_size < (1<<17) do
   data_hex = data_hex .. '8h0,'
 end
 
--- DEBUG
---for i=0,256 do  
---  data_hex = data_hex .. '8d' .. i .. ','
---end
+-- for simulation, add extra files
+path,_1,_2 = string.match(findfile('pre_include_asm.lua'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+print('PATH is ' .. path)
+
+if sdcard_extra_files then
+  for _,fname in pairs(sdcard_extra_files) do
+    print('adding file ' .. fname)
+    local all_hex   = {}
+    local inp = assert(io.open(path .. fname, "rb"))
+    while true do
+      local r = inp:read(1)
+      if not r then break end
+      local b = string.unpack('B',r)
+      all_hex[1+#all_hex] = '8h' .. string.format("%02x",b):sub(-2) .. ','
+    end
+    inp:close()
+    data_hex = data_hex .. table.concat(all_hex)
+  end
+end
 
 out:close()
 
 print('sdcard image is ' .. init_data_bytes .. ' bytes.')
 
-init_data_bytes = math.max(init_data_bytes,(1<<20)) -- we load 1 MB to be sure we can append stuff
+init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
+
+-- init_data_bytes = math.max(init_data_bytes,(1<<18)) -- DEBUG
 
 --error('stop')
