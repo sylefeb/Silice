@@ -68,7 +68,7 @@ The graphics framework is targeting boards with HDMI/VGA and SDRAM. This is typi
 
 The ways SDRAM is split is interesting. My approach to this is to not worry about wasting memory -- I mean, 32 MB is huge, right?
 
-Memory addresses are 26 bits, with the two highest bits indicated the memory banks. We have the following organization:
+Memory addresses are 26 bits, with the two highest bits indicating the memory banks. We have the following organization:
 - **Bank 0** [0x0000000 - 0x0ffffff] Framebuffer 0
 - **Bank 1** [0x1000000 - 0x1ffffff] Framebuffer 1
 - **Bank 2** [0x2000000 - 0x2ffffff] Data loaded from sdcard at startup.
@@ -86,7 +86,7 @@ Here is a diagram of the architecture with the main modules.
 
 The CPUs run at 50 MHz, while the external SDRAM interface runs at 100MHz and the HDMI controller at 125MHz.  Let us discuss a few components.
 
-The reason for the 128 burst reads in the main SDRAM controller is to allow for higher efficiency when the framebuffer memory is read during screen refresh. The 8-bit write makes it simpler to write data for individual pixels in the framebuffer. In the future I'll make this configurable, are allow for variable width reads/writes. For now, this means the read/write interface has to be adapted for the 32 bits CPUs, which is the role of the `32 bits RAM interface` components.
+The reason for the 128 burst reads in the main SDRAM controller is to allow for higher efficiency when the framebuffer memory is read during screen refresh. The 8-bit write makes it simpler to write data for individual pixels in the framebuffer. In the future I'll make this configurable, and allow for variable width reads/writes. For now, this means the read/write interface has to be adapted for the 32 bits CPUs, which is the role of the `32 bits RAM interface` components.
 
 The main SDRAM controller runs at 100MHz in the framework, while our CPUs runs at 50MHz. Therefore I created a clock-domain adaptor for half-speed access, `SDRAM half speed interface`. 
 
@@ -94,9 +94,11 @@ The SDRAM is shared throughout the design. The first 3-way arbiter shares betwee
 
 The audio PWMs are here to smooth out the rough 4-bits DAC output. Read more about this in the [audio streaming tutorial](../audio_sdcard_streamer/).
 
+The HDMI controller generates the video signal from a 125 MHz clock. Read more about this in the [HDMI project notes](../hdmi/).
+
 ### Using the framework with RISC-V: Code walkthrough
 
-Here is a walkthrough the Silice code assembling this design within the framework.
+Here is a walkthrough of the Silice code assembling this design within the framework.
 
 The algorithm to implement when using the framework is `frame_drawer`, with the following signature:
 
@@ -168,7 +170,7 @@ Due to the SDRAM interface being 128 bits for reads and 8 bits for write, we nee
   );
 ```
 
-We know have two 32-bits memory interfaces, one for each CPUs. Almost there, but first let's add the instructions caches:
+We know have two 32-bits memory interfaces, one for each CPUs. Almost there, but first let's add the instruction caches:
 
 ```c
   // basic instruction caches
@@ -217,7 +219,7 @@ And now let's create our two RV32I CPUs!
 
 Note the boot addresses being specified.
 
-Finally, to obtain reasonable audio from the 4-bits DAC, we create the PWMs, on for each left/right channel.
+Finally, to obtain reasonable audio from the 4-bits DAC, we create the PWMs, one for each left/right channel.
 
 ```c
   // audio pwms
@@ -240,7 +242,7 @@ We are ready to write some code ... but in fact not much since the CPUs will do 
 ```
 The `:=` syntax means `fbuffer` is always set to this value, at every cycle.
 
-An finally the main program:
+And finally the main program:
 
 ```c
   always {  

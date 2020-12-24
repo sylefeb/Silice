@@ -280,7 +280,7 @@ We are almost done, but there is a last very important details. SDRAM chips stor
 
 This requests a refresh of the memory chip. Meanwhile nothing else can happen...
 
-And that's it , a basic, functional SDRAM controller.
+And that's it. A basic, functional SDRAM controller.
 
 ## Notes
 
@@ -290,4 +290,5 @@ The SDRAM model Semiconductor cannot be directly imported (too complex for Silic
 
 - The Verilator framework uses a SDRAM simulator embedded with the `verilator_sdram_vga` framework. It was authored by Frederic Requin.
 
-
+## Links
+- Josh Bassett SDRAM controller (source on github, follow links) https://www.joshbassett.info/sdram-controller/
