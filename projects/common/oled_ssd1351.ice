@@ -119,6 +119,7 @@ $$end
   // Intializing
   //---------------
 
+  enable  := 0; // pulses high when needed
   io.ready = 0;
   
   // reset high
@@ -127,7 +128,7 @@ $$end
   // reset low
   oled_resn = 0;  
   // wait some
-  () <- wait <- (1000);
+  () <- wait <- (2500000);
   // reset high
   oled_resn = 1;
   

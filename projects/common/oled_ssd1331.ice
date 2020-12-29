@@ -1,0 +1,297 @@
+// SL 2020-07
+// ------------------------- 
+// OLED RGB screen driver (SSD1331)
+// ------------------------- 
+
+group oledio {
+  uint9  x_start = 0,
+  uint9  x_end   = 0,
+  uint9  y_start = 0,
+  uint9  y_end   = 0,
+  uint18 color       = 0,
+  uint1  start_rect  = 0,
+  uint1  next_pixel  = 0,
+  uint1  ready   = 0 
+}
+
+// ------------------------- 
+
+$$oled_send_delay = 8*2
+
+algorithm oled_send(
+  input!  uint1 enable,
+  input!  uint1 data_or_command,
+  input!  uint8 byte,
+  output  uint1 oled_clk,
+  output  uint1 oled_mosi,
+  output  uint1 oled_dc,
+) <autorun> {
+
+  uint2  osc        = 1;
+  uint1  dc         = 0;
+  uint10 sending    = 0;
+
+  always {
+    oled_dc  =  dc;
+    osc      =  (sending>1) ? {osc[0,1],osc[1,1]} : 1;
+    oled_clk =  (!(sending>1)) || (osc[1,1]); // SPI Mode 3
+    if (enable) {
+      dc         = data_or_command;
+      oled_dc    = dc;
+      sending    = {1b1,
+        byte[0,1],byte[1,1],byte[2,1],byte[3,1],
+        byte[4,1],byte[5,1],byte[6,1],byte[7,1],1b0};
+    } else {
+      oled_mosi = sending[0,1];
+      if (osc[1,1]) {
+        sending   = {1b0,sending[1,9]};
+      }
+    }
+  }
+}
+
+// ------------------------- 
+
+algorithm oled(
+  output uint1 oled_clk,
+  output uint1 oled_mosi,
+  output uint1 oled_dc,
+  output uint1 oled_resn,
+  output uint1 oled_csn,
+  oledio io {
+    input  x_start,
+    input  x_end,
+    input  y_start,
+    input  y_end,
+    input  color,
+    input  start_rect,
+    input  next_pixel,
+    output ready
+  }
+) <autorun> {
+
+  subroutine wait(input uint32 delay)
+  {
+    uint32 count = 0;
+$$if SIMULATION then
+    while (count < $oled_send_delay$) {
+$$else
+    while (count < delay) { 
+$$end
+      count = count + 1;
+    }   
+  }
+
+  uint1 enable          = 0;
+  uint1 data_or_command = 0;
+  uint8 byte            = 0;
+  oled_send sender(
+    enable          <:: enable,
+    data_or_command <:: data_or_command,
+    byte            <:: byte,
+    oled_clk        :> oled_clk,
+    oled_mosi       :> oled_mosi,
+    oled_dc         :> oled_dc,
+  );  
+
+  subroutine sendCommand(input uint8 val,
+    writes enable,writes data_or_command,writes byte,calls wait)
+  {
+    data_or_command = 0;
+    byte            = val;
+    enable          = 1;    
+    () <- wait <- ($oled_send_delay-4$);
+  }
+
+  subroutine sendData(input uint8 val,
+    writes enable,writes data_or_command,writes byte,calls wait)
+  {
+    data_or_command = 1;
+    byte            = val;
+    enable          = 1;    
+    () <- wait <- ($oled_send_delay-4$);
+  }
+  
+uint8  SET_COLUMN_ADDRESS              = 8h15;
+uint8  SET_ROW_ADDRESS                 = 8h75;
+uint8  SET_CONTRAST_A                  = 8h81;
+uint8  SET_CONTRAST_B                  = 8h82;
+uint8  SET_CONTRAST_C                  = 8h83;
+uint8  MASTER_CURRENT_CONTROL          = 8h87;
+uint8  SET_PRECHARGE_SPEED_A           = 8h8A;
+uint8  SET_PRECHARGE_SPEED_B           = 8h8B;
+uint8  SET_PRECHARGE_SPEED_C           = 8h8C;
+uint8  SET_REMAP                       = 8hA0;
+uint8  SET_DISPLAY_START_LINE          = 8hA1;
+uint8  SET_DISPLAY_OFFSET              = 8hA2;
+uint8  NORMAL_DISPLAY                  = 8hA4;
+uint8  ENTIRE_DISPLAY_ON               = 8hA5;
+uint8  ENTIRE_DISPLAY_OFF              = 8hA6;
+uint8  INVERSE_DISPLAY                 = 8hA7;
+uint8  SET_MULTIPLEX_RATIO             = 8hA8;
+uint8  DIM_MODE_SETTING                = 8hAB;
+uint8  SET_MASTER_CONFIGURE            = 8hAD;
+uint8  DIM_MODE_DISPLAY_ON             = 8hAC;
+uint8  DISPLAY_OFF                     = 8hAE;
+uint8  NORMAL_BRIGHTNESS_DISPLAY_ON    = 8hAF;
+uint8  POWER_SAVE_MODE                 = 8hB0;
+uint8  PHASE_PERIOD_ADJUSTMENT         = 8hB1;
+uint8  DISPLAY_CLOCK_DIV               = 8hB3;
+uint8  SET_GRAy_SCALE_TABLE            = 8hB8;
+uint8  ENABLE_LINEAR_GRAY_SCALE_TABLE  = 8hB9;
+uint8  SET_PRECHARGE_VOLTAGE           = 8hBB;
+uint8  SET_V_VOLTAGE                   = 8hBE;
+uint8  DRAW_LINE                       = 8h21;
+uint8  DRAW_RECTANGLE                  = 8h22;
+uint8  COPY_WINDOW                     = 8h23;
+uint8  DIM_WINDOW                      = 8h24;
+uint8  CLEAR_WINDOW                    = 8h25;
+uint8  FILL_WINDOW                     = 8h26;
+uint8  DISABLE_FILL                    = 8h00;
+uint8  ENABLE_FILL                     = 8h01;
+uint8  CONTINUOUS_SCROLLING_SETUP      = 8h27;
+uint8  DEACTIVE_SCROLLING              = 8h2E;
+uint8  ACTIVE_SCROLLING                = 8h2F;
+
+  // always enabled
+  oled_csn := 0;
+  
+  //---------------
+  // Intializing
+  //---------------
+
+  enable  := 0;
+  io.ready = 0;
+  
+  // reset high
+  oled_resn = 1;
+  () <- wait <- (2500000); // 100 msec @25Mhz  
+  // reset low
+  oled_resn = 0;
+  () <- wait <- (2500000); // 100 msec @25Mhz  
+  // reset high
+  oled_resn = 1;      
+  () <- wait <- (2500000); // 100 msec
+/*
+  () <- sendCommand <- (DISPLAY_OFF);              //Display Off
+  () <- sendCommand <- (SET_CONTRAST_A);           //Set contrast for color A
+  () <- sendCommand <- (8hFF);                     //145 8h91
+  () <- sendCommand <- (SET_CONTRAST_B);           //Set contrast for color B
+  () <- sendCommand <- (8hFF);                     //80 8h50
+  () <- sendCommand <- (SET_CONTRAST_C);           //Set contrast for color C
+  () <- sendCommand <- (8hFF);                     //125 8h7D
+  () <- sendCommand <- (MASTER_CURRENT_CONTROL);   //master current control
+  () <- sendCommand <- (8h06);                     //6
+  () <- sendCommand <- (SET_PRECHARGE_SPEED_A);    //Set Second Pre-change Speed For ColorA
+  () <- sendCommand <- (8h64);                     //100
+  () <- sendCommand <- (SET_PRECHARGE_SPEED_B);    //Set Second Pre-change Speed For ColorB
+  () <- sendCommand <- (8h78);                     //120
+  () <- sendCommand <- (SET_PRECHARGE_SPEED_C);    //Set Second Pre-change Speed For ColorC
+  () <- sendCommand <- (8h64);                     //100
+  () <- sendCommand <- (SET_REMAP);                //set remap & data format
+  () <- sendCommand <- (8h72);                     //8h72              
+  () <- sendCommand <- (SET_DISPLAY_START_LINE);   //Set display Start Line
+  () <- sendCommand <- (8h0);
+  () <- sendCommand <- (SET_DISPLAY_OFFSET);       //Set display offset
+  () <- sendCommand <- (8h0);
+  () <- sendCommand <- (NORMAL_DISPLAY);           //Set display mode
+  () <- sendCommand <- (SET_MULTIPLEX_RATIO);      //Set multiplex ratio
+  () <- sendCommand <- (8h3F);                     
+  () <- sendCommand <- (SET_MASTER_CONFIGURE);     //Set master configuration
+  () <- sendCommand <- (8h8E);                     
+  () <- sendCommand <- (POWER_SAVE_MODE);          //Set Power Save Mode
+  () <- sendCommand <- (8h00);                     //8h00
+  () <- sendCommand <- (PHASE_PERIOD_ADJUSTMENT);  //phase 1 and 2 period adjustment
+  () <- sendCommand <- (8h31);                     //8h31
+  () <- sendCommand <- (DISPLAY_CLOCK_DIV);        //display clock divider/oscillator frequency
+  () <- sendCommand <- (8hF0);
+  () <- sendCommand <- (SET_PRECHARGE_VOLTAGE);    //Set Pre-Change Level
+  () <- sendCommand <- (8h3A);
+  () <- sendCommand <- (SET_V_VOLTAGE);            //Set vcomH
+  () <- sendCommand <- (8h3E);                    
+  () <- sendCommand <- (DEACTIVE_SCROLLING);       //disable scrolling
+  () <- sendCommand <- (NORMAL_BRIGHTNESS_DISPLAY_ON);    //set display on
+*/
+
+  () <- sendCommand <- (SET_DISPLAY_START_LINE);   //Set display Start Line
+  () <- sendCommand <- (8h0);
+  () <- sendCommand <- (SET_DISPLAY_OFFSET);       //Set display offset
+  () <- sendCommand <- (8h0);
+  () <- sendCommand <- (DEACTIVE_SCROLLING);       //disable scrolling
+  // select auto horiz. increment, 666 RGB 
+  () <- sendCommand <- (8ha0);
+  () <- sendData    <- (8b10100000);
+  () <- sendCommand <- (NORMAL_DISPLAY);           //Set display mode
+
+  // send screen-on command
+  () <- sendCommand <- (8haf);
+  // 300 msec @100Mhz
+  () <- wait <- (7500000);
+
+  
+  // select auto horiz. increment, 666 RGB 
+  //() <- sendCommand <- (8ha0);
+  //() <- sendData    <- (8b10100000);
+  
+  // unlock
+  //() <- sendCommand <- (8hfd);
+  //() <- sendData    <- (8hb1);
+  
+  // set vertical scroll to 0
+  //() <- sendCommand <- (8ha2);
+  //() <- sendData    <- (8h00);
+
+  //() <- sendCommand <- (ENTIRE_DISPLAY_ON);
+  //() <- sendData    <- (8b10100100);
+
+  // select auto horiz. increment, 666 RGB 
+  //() <- sendCommand <- (8ha0);
+  //() <- sendData    <- (8b10100000);
+
+  // unlock
+  //() <- sendCommand <- (8hfd);
+  //() <- sendData    <- (8hb1);
+
+  // set vertical scroll to 0
+  //() <- sendCommand <- (8ha2);
+  //() <- sendData    <- (8h00);
+
+  //---------------
+  // Init done!
+  //--------------  
+
+  // ready to accept commands
+  io.ready = 1;
+
+//  while (1) { }
+
+  while (1) {
+
+    if (io.start_rect) {
+      io.ready = 0;
+      // set col addr
+      () <- sendCommand <- (8h15);
+      () <- sendData    <- (io.x_start);
+      () <- sendData    <- (io.x_end);
+      // set row addr
+      () <- sendCommand <- (8h75);
+      () <- sendData    <- (io.y_start);
+      () <- sendData    <- (io.y_end);
+      // initiate write
+      () <- sendCommand <- (8h5c);
+      io.ready = 1;
+    } else { // this else is important to ensure the loop remain a one-cycle loop when not entering the if-s
+      if (io.next_pixel) {
+        io.ready = 0;
+        // send pixel
+        () <- sendData <- (io.color[12,6]);
+        () <- sendData <- (io.color[ 6,6]);
+        () <- sendData <- (io.color[ 0,6]);
+        io.ready = 1;
+      }
+    }
+  }
+
+}
+
+// ------------------------- 
