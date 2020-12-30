@@ -219,6 +219,9 @@ $$end
     ram_done_pulsed = ram_done_pulsed | ram.done;
     alu_wait        = (alu_wait != 1 && alu_wait != 0) ? alu_wait - 1 : alu_wait;
     cycle           = cycle + 1;
+    // read registers
+    xregsA.addr0 = Rtype(instr).rs1;
+    xregsB.addr0 = Rtype(instr).rs2;    
   } 
   
   // boot
@@ -391,9 +394,6 @@ $$end
         halt         = (instr == 0);
         // wait for decode+ALU
         alu_wait     = 3; // 1 (tag) + 1 for decode +1 for ALU        
-        // read registers
-        xregsA.addr0 = Rtype(instr).rs1;
-        xregsB.addr0 = Rtype(instr).rs2;        
     }
     
 $$if SIMULATION then  
