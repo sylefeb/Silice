@@ -654,9 +654,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   always { // this part of the algorithm is executed every clock  
     switch (select) {
       case 3b000: { // ADD / SUB
-        int32 tmp = uninitialized;
-        if (select2) { tmp = -b; } else { tmp = b; }
-        r = a + tmp;
+        r = a + (select2 ? -b : b);
       }
       case 3b010: { // SLTI
         if (__signed(a) < __signed(b)) { r = 32b1; } else { r = 32b0; }
