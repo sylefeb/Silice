@@ -1,7 +1,11 @@
 // SL 2020-12-02 @sylefeb
 //
-// RISC-V with SDRAM IO
+// RISC-V with RAM IO
 // Based on the ice-v
+//
+// Note: rdinstret and rdcycle are limited to 32 bits
+//       rdtime reports cpuid instead of time
+//
 //
 // RV32I cpu, see README.txt
 //
@@ -128,7 +132,7 @@ algorithm rv32i_cpu(
   uint1  load_store  = uninitialized;
   uint1  store       = uninitialized;
   
-  uint1  csr         = uninitialized;
+  uint3  csr         = uninitialized;
   
   uint3  select      = uninitialized;  
   uint1  select2     = uninitialized;
@@ -195,8 +199,8 @@ $$end
     j      :>  cmp
   ); 
 
-  uint64 cycle   = 0;
-  uint64 instret = 0;
+  uint32 cycle   = 0;
+  uint32 instret = 0;
 
 $$if SIMULATION then
   uint64 cycle_last_exec = 0;
@@ -338,20 +342,17 @@ $$end
                  
           // store ALU result in registers
           // -> what do we write in register? (pc or alu or csr? -- loads are handled above)
-          uint32 from_csr = uninitialized;
+          uint32 from_csr = 0;
           // csr
-          switch (select) {
-            case 3b000: { from_csr = cycle[ 0,32]; }
-            case 3b100: { from_csr = cycle[32,32]; }
-            case 3b001: { from_csr = cpu_id; }
-            case 3b101: { from_csr = cpu_id; }
-            case 3b010: { from_csr = instret[ 0,32]; }
-            case 3b110: { from_csr = instret[32,32]; }
+          switch (csr[0,2]) {
+            case 2b00: { from_csr = cycle;   }
+            case 2b01: { from_csr = cpu_id;  }
+            case 2b10: { from_csr = instret; }
             default: { }
           }
           // write result to register
-          xregsA.wdata1   = csr ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
-          xregsB.wdata1   = csr ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
+          xregsA.wdata1   = csr[2,1] ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
+          xregsB.wdata1   = csr[2,1] ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
           xregsA.wenable1 = write_rd != 0;
           xregsB.wenable1 = write_rd != 0;
           xregsA.addr1    = write_rd;
@@ -432,7 +433,7 @@ algorithm decode(
   output uint1   forceZero,
   output uint1   regOrPc,
   output uint1   regOrImm,
-  output uint1   csr,
+  output uint3   csr,
 ) {
   always {
     switch (instr[ 0, 7])
@@ -601,13 +602,14 @@ algorithm decode(
         branch      = 0;
         load_store  = 0;
         store       = 0;
-        select      = {instr[27,1],instr[20,2]}; // we grab only the bits for rdcycle (0xc00 and 0cx80), rdtime (0xc01 and 0cx81), instret (0xc02 and 0cx82)
+        select      = 0; 
         select2     = 0;
         imm         = 0;
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 0; // reg  
-        csr         = 1;                
+        csr         = {1b1,instr[20,2]};// we grab only the bits for 
+        // low bits of rdcycle (0xc00), rdtime (0xc01), instret (0xc02)
       }
       
       default: {
