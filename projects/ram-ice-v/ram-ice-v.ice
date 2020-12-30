@@ -155,8 +155,8 @@ $$end
   uint1 regOrImm    = uninitialized;
   uint3 loadStoreOp = uninitialized;
   decode dec(
-    instr       <: instr,     // the <:: indicates we bind the variable as it was at the last
-    write_rd    :> write_rd,  // clock edge (as opposed to its value being modified in this cycle)
+    instr       <: instr,
+    write_rd    :> write_rd,
     jump        :> jump,
     branch      :> branch,
     load_store  :> load_store,
@@ -174,8 +174,8 @@ $$end
   int32  alu_out     = uninitialized;
   intops alu(
     pc        <:: pc, // <:: since not needed before 1 cycle while decoder works
-    xa        <:: xregsA.rdata0, // same
-    xb        <:: xregsB.rdata0, // same
+    xa        <: xregsA.rdata0,
+    xb        <: xregsB.rdata0,
     imm       <: imm,
     forceZero <: forceZero,
     regOrPc   <: regOrPc,
@@ -188,8 +188,8 @@ $$end
   uint3 funct3   ::= Btype(instr).funct3;
   
   intcmp cmps(
-    a      <:: xregsA.rdata0, // <:: since not needed before 1 cycle while decoder works
-    b      <:: xregsB.rdata0, // same
+    a      <:  xregsA.rdata0,
+    b      <:  xregsB.rdata0,
     select <:  funct3,
     enable <:  branch,
     j      :>  cmp
