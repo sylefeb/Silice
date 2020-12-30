@@ -207,6 +207,8 @@ $$if SIMULATION then
 $$end
 
   uint1  ram_done_pulsed = 0;
+  
+  uint3  case_select     = uninitialized;
 
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid   := 0; 
@@ -218,9 +220,20 @@ $$end
   always {
     ram_done_pulsed = ram_done_pulsed | ram.done;
     alu_wait        = (alu_wait != 1 && alu_wait != 0) ? alu_wait - 1 : alu_wait;
-    // read registers
+    // read/write registers
     xregsA.addr0 = Rtype(instr).rs1;
     xregsB.addr0 = Rtype(instr).rs2;    
+    xregsA.addr1 = write_rd;
+    xregsB.addr1 = write_rd;
+    // produces a case number for each of the three different possibilities:
+    // [case 4] a load store completed
+    // [case 2] a next instruction is available
+    // [case 1] the decode+ALU completed, a next instruction is available
+    case_select = {
+      enable && ram_done_pulsed && load_store  && alu_wait == 0, // load store completed
+      enable && ram_done_pulsed && !load_store && alu_wait == 0, // next instruction available
+      enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
+    };
   } 
   
   // boot
@@ -231,22 +244,7 @@ $$end
   
   while (!halt) {
 
-    uint1  exec       = 0;
-
-    // produces a case number for each of the three different possibilities:
-    // [case 4] a load store completed
-    // [case 2] a next instruction is available
-    // [case 1] the decode+ALU completed, a next instruction is available
-    uint3 case_select = uninitialized;
-    case_select = {
-      enable && ram_done_pulsed && load_store  && alu_wait == 0, // load store completed
-      enable && ram_done_pulsed && !load_store && alu_wait == 0, // next instruction available
-      enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
-    };
-
-    //if (enable && alu_wait == 1 && !ram_done_pulsed) {
-    //  __display("[decode+ALU done, waiting] cycle %d",cycle);
-    //}
+    uint1  exec = 0;
 
     switch (case_select) {
     
@@ -277,8 +275,6 @@ $$end
           xregsB.wenable1 = write_rd != 0;
           xregsA.wdata1   = tmp;
           xregsB.wdata1   = tmp;
-          xregsA.addr1    = write_rd;
-          xregsB.addr1    = write_rd;
         }
         // prepare load next instruction
         instr           = 0; // resets decoder
@@ -356,9 +352,6 @@ $$end
           xregsB.wdata1   = csr[2,1] ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
           xregsA.wenable1 = write_rd != 0;
           xregsB.wenable1 = write_rd != 0;
-          xregsA.addr1    = write_rd;
-          xregsB.addr1    = write_rd;
-
           // what's next?
           ram.in_valid    = 1;
           ram.rw          = 0;            

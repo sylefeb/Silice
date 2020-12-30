@@ -43,13 +43,11 @@ $$cache_size  = 1<<cache_depth
   
   while (1) {
   
-    if (pram.in_valid 
+    if (work_todo
+    || (pram.in_valid 
     && (predicted_addr == pram.addr)
-    &&  cache_predicted) {
-      work_todo  = 1;
-    }
-    
-    if (work_todo) {
+    &&  cache_predicted)    
+    ) {
       work_todo     = 0;      
       if (in_cache && cached_map.rdata0) {
         if (pram.rw) {
