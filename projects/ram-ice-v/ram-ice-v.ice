@@ -218,7 +218,6 @@ $$end
   always {
     ram_done_pulsed = ram_done_pulsed | ram.done;
     alu_wait        = (alu_wait != 1 && alu_wait != 0) ? alu_wait - 1 : alu_wait;
-    cycle           = cycle + 1;
     // read registers
     xregsA.addr0 = Rtype(instr).rs1;
     xregsB.addr0 = Rtype(instr).rs2;    
@@ -304,7 +303,6 @@ $$end
       case 1: {      
         ram_done_pulsed = 0;
         alu_wait        = 0;  
-        instret         = instret + 1;
 
 $$if SIMULATION then
         // __display("[decode+ALU done, instruction received] cycle %d",cycle);
@@ -377,6 +375,8 @@ $$end
           // __display("[FETCH2] @%h cycle %d",ram.addr,cycle);
 
         }
+
+        instret         = instret + 1;
         
       } // case 1
       
@@ -396,6 +396,8 @@ $$end
         alu_wait     = 3; // 1 (tag) + 1 for decode +1 for ALU        
     }
     
+    cycle           = cycle + 1;
+
 $$if SIMULATION then  
 $$if SHOW_REGS then  
 ++:
