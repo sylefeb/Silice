@@ -7,6 +7,7 @@
 // ------------------------- 
 
 $$ if ST7789 then
+
 $$   -- st7789_no_cs     = true
 $$   -- st7789_transpose = true
 $include('oled_st7789.ice')
@@ -18,15 +19,29 @@ $$   if st7789_transpose then
 $$     oled_width,oled_height = oled_height,oled_width
 $$   end
 $$   print('[oled] ST7789 driver on ' .. oled_width .. 'x' .. oled_height .. ' display')
+
 $$ elseif SSD1351 then
+
 $include('oled_ssd1351.ice')
 $$   if not oled_width then
 $$     oled_width      = 128
 $$     oled_height     = 128
 $$   end
 $$   print('[oled] SSD1351 driver on ' .. oled_width .. 'x' .. oled_height .. ' display')
+
+$$ elseif SSD1331 then
+
+$include('oled_ssd1331.ice')
+$$   if not oled_width then
+$$     oled_width      = 96
+$$     oled_height     = 64
+$$   end
+$$   print('[oled] SSD1331 driver on ' .. oled_width .. 'x' .. oled_height .. ' display')
+
 $$ else
-$$error('[oled] please specify driver, either ST7789 or SSD1351\n                      (e.g. add ' .. string.char(36) .. string.char(36) .. 'ST7789=1 before including this file)')
+
+$$error('[oled] please specify driver, either ST7789 or SSD1351 or SSD1331\n                      (e.g. add ' .. string.char(36) .. string.char(36) .. 'ST7789=1 before including this file)')
+
 $$ end
 
 $$if not OLED then

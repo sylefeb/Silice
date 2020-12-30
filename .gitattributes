@@ -9,4 +9,6 @@
 *.hpp text eol=lf
 *.ucf text eol=lf
 *.pcf text eol=lf
+*.raw binary
+*.rawraw binary
 .gitattributes text eol=lf

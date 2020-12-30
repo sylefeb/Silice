@@ -19,11 +19,11 @@ module top(
   output D4,
   output D5,
 `ifdef OLED
-  output BR3,
-  output BR4,
-  output BR5,
-  output BR6,
-  output BR7,
+  output PMOD1,
+  output PMOD7,
+  output PMOD8,
+  output PMOD9,
+  output PMOD10,
 `endif
 `ifdef VGA
   output PMOD1, // r0
@@ -61,6 +61,9 @@ wire __main_oled_mosi;
 wire __main_oled_csn;
 wire __main_oled_resn;
 wire __main_oled_dc;
+`ifdef VGA
+`error_cannot_use_both_OLED_and_VGA_not_enough_pins
+`endif
 `endif
 
 `ifdef VGA
@@ -70,6 +73,9 @@ wire __main_out_vga_v0;
 wire [5:0] __main_out_vga_r;
 wire [5:0] __main_out_vga_g;
 wire [5:0] __main_out_vga_b;
+`ifdef OLED
+`error_cannot_use_both_OLED_and_VGA_not_enough_pins
+`endif
 `endif
 
 // the init sequence pauses for some cycles
@@ -128,11 +134,11 @@ assign D5 = __main_leds[4+:1];
 
 `ifdef OLED
 
-assign BR3 = __main_oled_mosi;
-assign BR4 = __main_oled_clk;
-assign BR5 = __main_oled_csn;
-assign BR6 = __main_oled_dc;
-assign BR7 = __main_oled_resn;
+assign PMOD10 = __main_oled_mosi;
+assign PMOD9  = __main_oled_clk;
+assign PMOD8  = __main_oled_csn;
+assign PMOD7  = __main_oled_dc;
+assign PMOD1  = __main_oled_resn;
 
 `endif
 

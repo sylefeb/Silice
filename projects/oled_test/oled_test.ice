@@ -1,86 +1,41 @@
 // SL 2020-07
 
 // vvvvvvvvvvvvv select screen driver below
+$$ SSD1331=1
 $$ -- SSD1351=1
-$$ ST7789=1
+$$ -- ST7789=1
 //               vvvvv adjust to your screen
-$$ oled_width   = 240
-$$ oled_height  = 240
+$$ oled_width   = 96
+$$ oled_height  = 64
 //               vvvvv set to false if the screen uses the CS pin
-$$ st7789_no_cs = true
+$$ st7789_no_cs = false
+
+// ------------------------- 
 
 $include('../common/oled.ice')
 
-$$if not ULX3S and not DE10NANO and not ICARUS then
-$$error('only tested on ULX3S and DE10NANO, small changes likely required to main input/outputs for other boards')
+$$if not OLED then
+$$error('This project requires an OLED screen')
 $$end
 
 // ------------------------- 
 
 algorithm main(
   output! uint$NUM_LEDS$ leds,
-$$if ULX3S then
-  input   uint7 btn,
   output! uint1 oled_clk,
   output! uint1 oled_mosi,
   output! uint1 oled_dc,
   output! uint1 oled_resn,
   output! uint1 oled_csn,
-$$end
-$$if ICARUS then
-  input   uint7 btn,
-  output! uint1 oled_clk,
-  output! uint1 oled_mosi,
-  output! uint1 oled_dc,
-  output! uint1 oled_resn,
-  output! uint1 oled_csn,
-$$end
-$$if DE10NANO then
-  output! uint4 kpadC,
-  input   uint4 kpadR,
-  output! uint1 lcd_rs,
-  output! uint1 lcd_rw,
-  output! uint1 lcd_e,
-  output! uint8 lcd_d,
-  output! uint1 oled_din,
-  output! uint1 oled_clk,
-  output! uint1 oled_cs,
-  output! uint1 oled_dc,
-  output! uint1 oled_rst,  
-  output! uint1  sdram_cle,
-  output! uint1  sdram_dqm,
-  output! uint1  sdram_cs,
-  output! uint1  sdram_we,
-  output! uint1  sdram_cas,
-  output! uint1  sdram_ras,
-  output! uint2  sdram_ba,
-  output! uint13 sdram_a,
-  output! uint1  sdram_clk,
-  inout   uint8  sdram_dq,
-  output! uint$color_depth$ video_r,
-  output! uint$color_depth$ video_g,
-  output! uint$color_depth$ video_b,
-  output! uint1 video_hs,
-  output! uint1 video_vs
-$$end
 ) {
 
   oledio io;
   oled   display(
-$$if ULX3S then
     oled_clk  :> oled_clk,
     oled_mosi :> oled_mosi,
     oled_dc   :> oled_dc,
     oled_resn :> oled_resn,
     oled_csn  :> oled_csn,
-$$end
-$$if DE10NANO then
-    oled_clk  :> oled_clk,
-    oled_mosi :> oled_din,
-    oled_dc   :> oled_dc,
-    oled_resn :> oled_rst,
-    oled_csn  :> oled_cs,
-$$end
     io       <:> io
   );
 
@@ -106,6 +61,7 @@ $$end
     io.y_start = 0;
     io.y_end   = $oled_height-1$;
     io.start_rect = 1;
+
     while (io.ready == 0) { }
 
     // simple test pattern
