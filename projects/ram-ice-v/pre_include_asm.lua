@@ -1,15 +1,17 @@
 -- include ASM code as a BROM
 
-path,_1,_2 = string.match(findfile('pre_include_asm.lua'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
-print('PATH is ' .. path)
+if not path then
+  path,_1,_2 = string.match(findfile('pre_include_asm.lua'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+  print('PATH is ' .. path)
+end
 
 data_hex = ''
 init_data_bytes = 0
-prev_addr = -1
+local prev_addr = -1
 
 local out = assert(io.open(path .. '/data.img', "wb"))
 for cpu=0,1 do
-  in_asm = io.open(findfile('build/code' .. cpu .. '.hex'), 'r')
+  local in_asm = io.open(findfile('build/code' .. cpu .. '.hex'), 'r')
   if not in_asm then
     if cpu == 0 then
       error('please compile code first using the compile_asm.sh / compile_c.sh scripts')
@@ -17,7 +19,7 @@ for cpu=0,1 do
       break
     end
   end
-  code = in_asm:read("*all")
+  local code = in_asm:read("*all")
   in_asm:close()
   for str in string.gmatch(code, "([^ \r\n]+)") do
     if string.sub(str,1,1) == '@' then
@@ -48,16 +50,17 @@ end
 
 -- pad with zeros until 128KB
 -- so we can append other stuff after!
+if not sdcard_image_pad_size then
+  sdcard_image_pad_size = (1<<17)
+end
+print('pad size is ' .. sdcard_image_pad_size .. ' bytes')
+
 sdcard_size = init_data_bytes
-while sdcard_size < (1<<17) do
+while sdcard_size < sdcard_image_pad_size do
   out:write(string.pack('B', 0 ))
   sdcard_size = sdcard_size + 1
   data_hex = data_hex .. '8h0,'
 end
-
--- for simulation, add extra files
-path,_1,_2 = string.match(findfile('pre_include_asm.lua'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
-print('PATH is ' .. path)
 
 if sdcard_extra_files then
   for _,fname in pairs(sdcard_extra_files) do
@@ -73,14 +76,12 @@ if sdcard_extra_files then
     inp:close()
     data_hex = data_hex .. table.concat(all_hex)
   end
+else
+  print('no extra files')  
 end
 
 out:close()
 
 print('sdcard image is ' .. init_data_bytes .. ' bytes.')
-
-init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
-
--- init_data_bytes = math.max(init_data_bytes,(1<<18)) -- DEBUG
 
 --error('stop')

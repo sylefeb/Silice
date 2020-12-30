@@ -26,7 +26,6 @@ algorithm sdcard_streamer(
   // Offset to store/read either in the first or second part (one is read while the other is written to)
   uint10 write_offset     = 0;
   uint10 read_offset      = 512;
-  uint23 last_read_sector = 23h11111111111111111111111;
 
   // SD-card interface, load sectors
   sdcardio sdcio;

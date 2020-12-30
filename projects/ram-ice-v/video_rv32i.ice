@@ -3,6 +3,9 @@
 
 // pre-compilation script, embeds compile code within sdcard image
 $$dofile('pre_include_asm.lua')
+$$if not SIMULATION then
+$$  init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
+$$end
 
 // basic palette
 $$palette = {}

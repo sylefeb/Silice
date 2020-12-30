@@ -50,8 +50,7 @@ $$cache_size  = 1<<cache_depth
     }
     
     if (work_todo) {
-      work_todo     = 0;        
-      // previous_addr = request_addr;
+      work_todo     = 0;      
       if (in_cache && cached_map.rdata0) {
         if (pram.rw) {
           // write in cache
