@@ -121,7 +121,8 @@ algorithm frame_drawer(
   vsync_filtered ::= vsync;
   fbuffer        := 0;
 
-  always {  
+  always {
+  
     cpu0_enable = 1;
     cpu1_enable = 1;
 
