@@ -1,4 +1,5 @@
 // SL 2020-12-22 @sylefeb
+//
 // ------------------------- 
 
 algorithm basic_cache_ram_32bits(
@@ -44,7 +45,7 @@ $$cache_size  = 1<<cache_depth
   while (1) {
   
     if (pram.in_valid 
-    && (predicted_addr == pram.addr)
+    &&  predicted_addr == pram.addr
     &&  cache_predicted) {
       work_todo  = 1;
     }
@@ -74,11 +75,11 @@ $$cache_size  = 1<<cache_depth
         cache_predicted  = 1;
       } else {
         // relay to used interface
-        uram.addr     = {pram.addr[2,30],2b00};
-        uram.data_in  = pram.data_in;
-        uram.wmask    = pram.wmask;
-        uram.rw       = pram.rw;
-        uram.in_valid = 1;        
+        uram.addr      = {pram.addr[2,30],2b00};
+        uram.data_in   = pram.data_in;
+        uram.wmask     = pram.wmask;
+        uram.rw        = pram.rw;
+        uram.in_valid  = 1;        
       }
     }
    
