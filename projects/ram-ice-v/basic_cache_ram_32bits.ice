@@ -20,9 +20,9 @@ $$cache_size  = 1<<cache_depth
   
   uint32 predicted_addr           = uninitialized;  
   // track when address is in cache region and onto which entry   
-  uint1  in_cache                ::=     ((pram.addr   >> 2) | $cache_size-1$) 
+  uint1  in_cache                :=     ((pram.addr   >> 2) | $cache_size-1$) 
                                       == ((cache_start >> 2) | $cache_size-1$);
-  uint$cache_depth$  cache_entry ::= (pram.addr >> 2) & ($cache_size-1$);
+  uint$cache_depth$  cache_entry := (pram.addr >> 2) & ($cache_size-1$);
   
   uint1  work_todo       = 0;
   uint1  cache_predicted = 0;
