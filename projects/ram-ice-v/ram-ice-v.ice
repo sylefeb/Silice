@@ -1,7 +1,11 @@
 // SL 2020-12-02 @sylefeb
 //
-// RISC-V with SDRAM IO
+// RISC-V with RAM IO
 // Based on the ice-v
+//
+// Note: rdinstret and rdcycle are limited to 32 bits
+//       rdtime reports cpuid instead of time
+//
 //
 // RV32I cpu, see README.txt
 //
@@ -128,7 +132,7 @@ algorithm rv32i_cpu(
   uint1  load_store  = uninitialized;
   uint1  store       = uninitialized;
   
-  uint1  csr         = uninitialized;
+  uint3  csr         = uninitialized;
   
   uint3  select      = uninitialized;  
   uint1  select2     = uninitialized;
@@ -155,8 +159,8 @@ $$end
   uint1 regOrImm    = uninitialized;
   uint3 loadStoreOp = uninitialized;
   decode dec(
-    instr       <: instr,     // the <:: indicates we bind the variable as it was at the last
-    write_rd    :> write_rd,  // clock edge (as opposed to its value being modified in this cycle)
+    instr       <: instr,
+    write_rd    :> write_rd,
     jump        :> jump,
     branch      :> branch,
     load_store  :> load_store,
@@ -174,8 +178,8 @@ $$end
   int32  alu_out     = uninitialized;
   intops alu(
     pc        <:: pc, // <:: since not needed before 1 cycle while decoder works
-    xa        <:: xregsA.rdata0, // same
-    xb        <:: xregsB.rdata0, // same
+    xa        <: xregsA.rdata0,
+    xb        <: xregsB.rdata0,
     imm       <: imm,
     forceZero <: forceZero,
     regOrPc   <: regOrPc,
@@ -188,21 +192,23 @@ $$end
   uint3 funct3   ::= Btype(instr).funct3;
   
   intcmp cmps(
-    a      <:: xregsA.rdata0, // <:: since not needed before 1 cycle while decoder works
-    b      <:: xregsB.rdata0, // same
+    a      <:  xregsA.rdata0,
+    b      <:  xregsB.rdata0,
     select <:  funct3,
     enable <:  branch,
     j      :>  cmp
   ); 
 
-  uint64 cycle   = 0;
-  uint64 instret = 0;
+  uint32 cycle   = 0;
+  uint32 instret = 0;
 
 $$if SIMULATION then
   uint64 cycle_last_exec = 0;
 $$end
 
   uint1  ram_done_pulsed = 0;
+  
+  uint3  case_select     = uninitialized;
 
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid   := 0; 
@@ -214,7 +220,20 @@ $$end
   always {
     ram_done_pulsed = ram_done_pulsed | ram.done;
     alu_wait        = (alu_wait != 1 && alu_wait != 0) ? alu_wait - 1 : alu_wait;
-    cycle           = cycle + 1;
+    // read/write registers
+    xregsA.addr0 = Rtype(instr).rs1;
+    xregsB.addr0 = Rtype(instr).rs2;    
+    xregsA.addr1 = write_rd;
+    xregsB.addr1 = write_rd;
+    // produces a case number for each of the three different possibilities:
+    // [case 4] a load store completed
+    // [case 2] a next instruction is available
+    // [case 1] the decode+ALU completed, a next instruction is available
+    case_select = {
+      enable && ram_done_pulsed && load_store  && alu_wait == 0, // load store completed
+      enable && ram_done_pulsed && !load_store && alu_wait == 0, // next instruction available
+      enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
+    };
   } 
   
   // boot
@@ -225,22 +244,7 @@ $$end
   
   while (!halt) {
 
-    uint1  exec       = 0;
-
-    // produces a case number for each of the three different possibilities:
-    // [case 4] a load store completed
-    // [case 2] a next instruction is available
-    // [case 1] the decode+ALU completed, a next instruction is available
-    uint3 case_select = uninitialized;
-    case_select = {
-      enable && ram_done_pulsed && load_store  && alu_wait == 0, // load store completed
-      enable && ram_done_pulsed && !load_store && alu_wait == 0, // next instruction available
-      enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
-    };
-
-    //if (enable && alu_wait == 1 && !ram_done_pulsed) {
-    //  __display("[decode+ALU done, waiting] cycle %d",cycle);
-    //}
+    uint1  exec = 0;
 
     switch (case_select) {
     
@@ -271,8 +275,6 @@ $$end
           xregsB.wenable1 = write_rd != 0;
           xregsA.wdata1   = tmp;
           xregsB.wdata1   = tmp;
-          xregsA.addr1    = write_rd;
-          xregsB.addr1    = write_rd;
         }
         // prepare load next instruction
         instr           = 0; // resets decoder
@@ -297,7 +299,6 @@ $$end
       case 1: {      
         ram_done_pulsed = 0;
         alu_wait        = 0;  
-        instret         = instret + 1;
 
 $$if SIMULATION then
         // __display("[decode+ALU done, instruction received] cycle %d",cycle);
@@ -338,25 +339,19 @@ $$end
                  
           // store ALU result in registers
           // -> what do we write in register? (pc or alu or csr? -- loads are handled above)
-          uint32 from_csr = uninitialized;
+          uint32 from_csr = 0;
           // csr
-          switch (select) {
-            case 3b000: { from_csr = cycle[ 0,32]; }
-            case 3b100: { from_csr = cycle[32,32]; }
-            case 3b001: { from_csr = cpu_id; }
-            case 3b101: { from_csr = cpu_id; }
-            case 3b010: { from_csr = instret[ 0,32]; }
-            case 3b110: { from_csr = instret[32,32]; }
+          switch (csr[0,2]) {
+            case 2b00: { from_csr = cycle;   }
+            case 2b01: { from_csr = cpu_id;  }
+            case 2b10: { from_csr = instret; }
             default: { }
           }
           // write result to register
-          xregsA.wdata1   = csr ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
-          xregsB.wdata1   = csr ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
+          xregsA.wdata1   = csr[2,1] ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
+          xregsB.wdata1   = csr[2,1] ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
           xregsA.wenable1 = write_rd != 0;
           xregsB.wenable1 = write_rd != 0;
-          xregsA.addr1    = write_rd;
-          xregsB.addr1    = write_rd;
-
           // what's next?
           ram.in_valid    = 1;
           ram.rw          = 0;            
@@ -373,6 +368,8 @@ $$end
           // __display("[FETCH2] @%h cycle %d",ram.addr,cycle);
 
         }
+
+        instret         = instret + 1;
         
       } // case 1
       
@@ -390,11 +387,10 @@ $$end
         halt         = (instr == 0);
         // wait for decode+ALU
         alu_wait     = 3; // 1 (tag) + 1 for decode +1 for ALU        
-        // read registers
-        xregsA.addr0 = Rtype(instr).rs1;
-        xregsB.addr0 = Rtype(instr).rs2;        
     }
     
+    cycle           = cycle + 1;
+
 $$if SIMULATION then  
 $$if SHOW_REGS then  
 ++:
@@ -432,7 +428,7 @@ algorithm decode(
   output uint1   forceZero,
   output uint1   regOrPc,
   output uint1   regOrImm,
-  output uint1   csr,
+  output uint3   csr,
 ) {
   always {
     switch (instr[ 0, 7])
@@ -601,13 +597,14 @@ algorithm decode(
         branch      = 0;
         load_store  = 0;
         store       = 0;
-        select      = {instr[27,1],instr[20,2]}; // we grab only the bits for rdcycle (0xc00 and 0cx80), rdtime (0xc01 and 0cx81), instret (0xc02 and 0cx82)
+        select      = 0; 
         select2     = 0;
         imm         = 0;
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 0; // reg  
-        csr         = 1;                
+        csr         = {1b1,instr[20,2]};// we grab only the bits for 
+        // low bits of rdcycle (0xc00), rdtime (0xc01), instret (0xc02)
       }
       
       default: {
@@ -654,9 +651,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   always { // this part of the algorithm is executed every clock  
     switch (select) {
       case 3b000: { // ADD / SUB
-        int32 tmp = uninitialized;
-        if (select2) { tmp = -b; } else { tmp = b; }
-        r = a + tmp;
+        r = a + (select2 ? -b : b);
       }
       case 3b010: { // SLTI
         if (__signed(a) < __signed(b)) { r = 32b1; } else { r = 32b0; }

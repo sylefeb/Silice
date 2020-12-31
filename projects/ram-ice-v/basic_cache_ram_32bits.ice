@@ -21,9 +21,9 @@ $$cache_size  = 1<<cache_depth
   
   uint32 predicted_addr           = uninitialized;  
   // track when address is in cache region and onto which entry   
-  uint1  in_cache                ::=     ((pram.addr   >> 2) | $cache_size-1$) 
+  uint1  in_cache                :=     ((pram.addr   >> 2) | $cache_size-1$) 
                                       == ((cache_start >> 2) | $cache_size-1$);
-  uint$cache_depth$  cache_entry ::= (pram.addr >> 2) & ($cache_size-1$);
+  uint$cache_depth$  cache_entry := (pram.addr >> 2) & ($cache_size-1$);
   
   uint1  work_todo       = 0;
   uint1  cache_predicted = 0;
@@ -44,6 +44,7 @@ $$cache_size  = 1<<cache_depth
   
   while (1) {
   
+<<<<<<< HEAD
     if (pram.in_valid 
     &&  predicted_addr == pram.addr
     &&  cache_predicted) {
@@ -51,6 +52,13 @@ $$cache_size  = 1<<cache_depth
     }
     
     if (work_todo) {
+=======
+    if (work_todo
+    || (pram.in_valid 
+    && (predicted_addr == pram.addr)
+    &&  cache_predicted)    
+    ) {
+>>>>>>> af55662db9877e0e853b77d097a263f1aba7e7ad
       work_todo     = 0;      
       if (in_cache && cached_map.rdata0) {
         if (pram.rw) {
