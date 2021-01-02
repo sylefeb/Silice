@@ -3346,6 +3346,8 @@ int  Algorithm::toFSMState(int state) const
 
 int Algorithm::width(int val) const
 {
+  sl_assert(val > 0);
+  if (val == 1) return 1;
   int w = 0;
   while (val > (1 << w)) {
     w++;

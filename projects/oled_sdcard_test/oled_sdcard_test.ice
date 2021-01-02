@@ -25,7 +25,7 @@ algorithm text_display(
   input   uint10 pix_x,
   input   uint10 pix_y,
   output  uint1  white,
-  simple_dualbram_port0 letter,
+  simple_dualport_bram_port0 letter,
 ) <autorun> {
 
   // ---------- font  
