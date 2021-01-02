@@ -428,6 +428,18 @@ $$end
   // dual clock crosses from sdram to vga
   simple_dualport_bram uint128 fbr0<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
   simple_dualport_bram uint128 fbr1<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
+
+  // --- Palette
+  simple_dualport_bram uint24 palette[] = {
+    // palette from pre-processor table
+$$  for i=0,255 do
+$$if palette then    
+  $palette[1+i]$,
+$$else  
+  $(i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)$,
+$$  end
+$$end
+  };  
   
   // --- Display
   uint1 row_busy = 0;
@@ -442,6 +454,7 @@ $$end
     video_r    :> video_r,
     video_g    :> video_g,
     video_b    :> video_b,
+    palette   <:> palette,
     <:auto:>
   );
 
@@ -503,7 +516,7 @@ $$else
 $$if ICARUS then
   while (frame < 4) {
 $$else
-  while (frame < 8) {
+  while (frame < 32) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }

@@ -1,4 +1,4 @@
-unsigned char* const FRAMEBUFFER = (unsigned char*)0x4000000;
+#include "../mylibc/mylibc.h"
 
 void main() 
 {

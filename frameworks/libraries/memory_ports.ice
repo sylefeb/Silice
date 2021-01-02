@@ -21,14 +21,25 @@ interface brom_port {
 
 // dual port BRAM
 
-interface dualbram_port0 {
+interface dualport_bram_port0 {
   output! addr0,
   output! wenable0,
   input   rdata0,
   output! wdata0,
 }
 
-interface dualbram_port1 {
+interface dualport_bram_port1 {
+  output! addr1,
+  output! wenable1,
+  input   rdata1,
+  output! wdata1,
+}
+
+interface dualport_bram_ports {
+  output! addr0,
+  output! wenable0,
+  input   rdata0,
+  output! wdata0,
   output! addr1,
   output! wenable1,
   input   rdata1,
@@ -37,25 +48,14 @@ interface dualbram_port1 {
 
 // simple dual port BRAM
 
-interface simple_dualbram_port0 {
+interface simple_dualport_bram_port0 {
   output! addr0,
   input   rdata0,
 }
 
-interface simple_dualbram_port1 {
+interface simple_dualport_bram_port1 {
   output! addr1,
   output! wenable1,
-  output! wdata1,
-}
-
-interface bram_ports {
-  output! addr0,
-  output! wenable0,
-  input   rdata0,
-  output! wdata0,
-  output! addr1,
-  output! wenable1,
-  input   rdata1,
   output! wdata1,
 }
 

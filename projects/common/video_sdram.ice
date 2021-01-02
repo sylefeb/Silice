@@ -26,15 +26,10 @@ algorithm frame_display(
   input   uint128  pixdata0_r,
   output! uint10   pixaddr1,
   input   uint128  pixdata1_r,
+  simple_dualport_bram_port0 palette,
   output! uint1    row_busy
 ) <autorun> {
 
-  bram uint24 palette[] = {
-    // palette from pre-processor table
-$$  for i=1,256 do
-    $palette[i]$,
-$$  end
-  };  
   uint8  palidx = 0;
   uint8  pix_j  = 0;
   uint2  sub_j  = 0;
@@ -67,12 +62,12 @@ $$  end
       if (pix_j != 0 && pix_j != 201) {
         // set palette address
         if (row_busy) {
-          palette.addr = pixdata1_r[sub_a,8];
+          palette.addr0 = pixdata1_r[sub_a,8];
         } else {
-          palette.addr = pixdata0_r[sub_a,8];
+          palette.addr0 = pixdata0_r[sub_a,8];
         }
         // read color from previous
-        color    = palette.rdata;
+        color    = palette.rdata0;
 $$if HDMI then        
         video_r  = color[ 0,8];
         video_g  = color[ 8,8];

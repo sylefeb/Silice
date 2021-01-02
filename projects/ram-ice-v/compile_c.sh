@@ -20,9 +20,11 @@ $ARCH-elf-gcc -fno-unroll-loops -O2 -fno-pic -march=rv32i -mabi=ilp32 -c -o buil
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o div.o tests/mylibc/div.s
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0.s
 
-$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_cpu$2.ld --no-relax -o build/code.elf build/code.o div.o mylibc.o
+CPU=${2:-0}
 
-$ARCH-elf-objcopy -O verilog build/code.elf build/code$2.hex
+$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_cpu$CPU.ld --no-relax -o build/code.elf build/code.o div.o mylibc.o
+
+$ARCH-elf-objcopy -O verilog build/code.elf build/code$CPU.hex
 
 # uncomment to see the actual code, usefull for debugging
 # $ARCH-elf-objcopy.exe -O binary build/code.elf build/code.bin

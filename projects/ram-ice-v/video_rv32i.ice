@@ -7,16 +7,14 @@ $$if not SIMULATION then
 $$  init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
 $$end
 
-// basic palette
+$include('../common/video_sdram_main.ice')
+
+// default palette
 $$palette = {}
 $$for i=1,256 do
 $$  palette[i] = (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
 $$end
 $$ palette[256] = 255 | (255<<8) | (255<<16)
-
-$include('../common/video_sdram_main.ice')
-
-$$SHOW_REGS = false
 
 $include('ram-ice-v.ice')
 $include('sdram_ram_32bits.ice')
@@ -30,6 +28,7 @@ algorithm frame_drawer(
   input  uint1  sdram_reset,
   input  uint1  vsync,
   output uint1  fbuffer,
+  simple_dualport_bram_port1 palette,
 ) <autorun> {
 
   sameas(sd) sdh;
@@ -68,15 +67,19 @@ algorithm frame_drawer(
     ram      <:> cram
   );
 
-  uint1  vsync_filtered = 0;
-  
-  vsync_filtered ::= vsync;
-  fbuffer        := 0;
+  fbuffer          := 0;
 
-  while (1) {
+  always {
   
     cpu_enable      = 1;
-    
+
+    if (cram.in_valid & cram.rw & cram.addr[31,1]) {
+      __display("palette %h = %h",cram.addr[2,8],cram.data_in[0,24]);
+      palette.addr1    = cram.addr[2,8];
+      palette.wdata1   = cram.data_in[0,24];
+      palette.wenable1 = 1;
+    }
+
   }
 }
 

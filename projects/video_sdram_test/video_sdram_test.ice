@@ -3,7 +3,7 @@
 // debug palette
 $$palette = {}
 $$for i=0,255 do
-$$  palette[1+i]= (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
+$$  palette[1+i] = (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
 $$end
 
 $include('../common/video_sdram_main.ice')
@@ -65,7 +65,7 @@ algorithm frame_drawer(
       pix_x  = 0;
       while (pix_x < 320) {
 
-        pix_palidx = (pix_y == 0 || pix_y == 199) ? 255 : (pix_x + pix_y + shift);
+        pix_palidx     = (pix_y == 0 || pix_y == 199) ? 255 : (pix_x + pix_y + shift);
         // write to sdram
         sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 9); 
         sdh.data_in    = pix_palidx;

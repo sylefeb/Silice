@@ -37,7 +37,7 @@ algorithm sdcard(
   // read io
   sdcardio_ctrl  io,
   // storage
-  simple_dualbram_port1 store
+  simple_dualport_bram_port1 store
 ) <autorun> {
   
   // assert(sizeof(io.addr_sector) == 32);
