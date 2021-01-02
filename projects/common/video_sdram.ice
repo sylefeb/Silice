@@ -9,10 +9,12 @@
 // ------------------------- 
 
 // 320x200
-// Actual resolution is      640x480
-//   we divide by 2   down to 320x240
-// and the use rows 1 to 200 (as opposed to 0 to 199)
+//
+// Actual resolution is   640x480
+// we divide by 2 down to 320x240
+// we draw rows 1 to 200 (as opposed to 0 to 199)
 // the first row (0) is used to pre-load row 1
+// 
 algorithm frame_display(
   input   uint11   video_x,
   input   uint10   video_y,
@@ -27,7 +29,7 @@ algorithm frame_display(
   output! uint1    row_busy
 ) <autorun> {
 
-  uint24 palette[] = {
+  bram uint24 palette[] = {
     // palette from pre-processor table
 $$  for i=1,256 do
     $palette[i]$,
@@ -39,8 +41,10 @@ $$  end
   uint9  pix_a  = 0;
   uint24 color  = 0;
 
-  uint9 sub_a := {(video_x>>1) & 6d15,3b000};
+  uint9 sub_a := {((video_x+1d1)>>1) & 6d15,3b000};
 
+  // default pixel color to zero
+  // (black unless overriden during clock cycle)
   video_r := 0;
   video_g := 0;
   video_b := 0;
@@ -55,18 +59,20 @@ $$  end
     pixaddr1 = 0;
   
     if (video_active) {
-
+    
       // display
 	    // -> screen row 0 is skipped as we preload row 0, we draw rows 1-200
 	    //    the row loader loads row   0 for display in screen row   1
 	    //    ...            loads row 199 for display in screen row 200
-      if (pix_j > 0 && pix_j <= 200) {
+      if (pix_j != 0 && pix_j != 201) {
+        // set palette address
         if (row_busy) {
-          palidx = pixdata1_r[sub_a,8];
+          palette.addr = pixdata1_r[sub_a,8];
         } else {
-          palidx = pixdata0_r[sub_a,8];
+          palette.addr = pixdata0_r[sub_a,8];
         }
-        color    = palette[palidx];
+        // read color from previous
+        color    = palette.rdata;
 $$if HDMI then        
         video_r  = color[ 0,8];
         video_g  = color[ 8,8];
@@ -82,40 +88,23 @@ $$end
         sub_j = sub_j + 1;
         if (sub_j == 2) {
           sub_j = 0;
-          if (pix_j <= 200) {
-            // increment row
-            pix_j = pix_j + 1;
-          } else {
-			      pix_j = 201;
-		      }
-        }
-		
+          pix_j = (pix_j == 201) ? 201 : pix_j + 1;
+        }		
         if (video_y == 479) {
           // end of frame
           sub_j = 0;
           pix_j = 0;          
         }
-      }
-      
-    } 
-
-    // busy row
-    if (pix_j < 200) {		
+      }      
       row_busy = ~(pix_j[0,1]);
-    }
 
-    // prepare next read
-    // note the use of video_x + 1 to trigger 
-	  // read one clock step ahead so that result 
-    // is avail right on time
-    if (video_x < 639) {
-		  pix_a = ((video_x+1) >> 1);
-	  } else {
-	    pix_a = 0;
-	  }
+      // prepare next read
+      pix_a = (video_x != 638 && video_x != 639) ? ((video_x+2) >> 1) : 0;
+      // __display("x %d, pix_a %d",video_x,pix_a);
+      pixaddr0 = pix_a>>4;
+      pixaddr1 = pix_a>>4;
     
-    pixaddr0 = pix_a>>4;
-    pixaddr1 = pix_a>>4;
+    }
 
   }
 
