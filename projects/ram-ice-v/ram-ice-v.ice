@@ -530,7 +530,7 @@ algorithm decode(
         // __display("LOAD");
         write_rd    = Rtype(instr).rd;
         jump        = 0;
-        branch      = 1;
+        branch      = 0;
         load_store  = 1;
         store       = 0;
         loadStoreOp = Itype(instr).funct3;
