@@ -119,6 +119,7 @@ algorithm rv32i_cpu(
   rv32i_ram_user ram
 ) <autorun> {
   
+  // does not have to be simple_dualport_bram, but results in smaller design
   simple_dualport_bram int32 xregsA[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   simple_dualport_bram int32 xregsB[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   
@@ -391,11 +392,11 @@ $$end
     
     cycle           = cycle + 1;
 
+  } // while
+
 $$if SIMULATION then  
 $$if SHOW_REGS then  
 ++:
-  xregsA.wenable = 0;
-  xregsB.wenable = 0;
   __display("------------------ registers A ------------------");
 $$for i=0,31 do
       xregsA.addr0 = $i$;
@@ -406,8 +407,6 @@ $$end
       __display("%h %h %h %h\\n%h %h %h %h\\n%h %h %h %h\\n%h %h %h %h",xv16,xv17,xv18,xv19,xv20,xv21,xv22,xv23,xv24,xv25,xv26,xv27,xv28,xv29,xv30,xv31);
 $$end
 $$end
-
-  } // while
 
 }
 
