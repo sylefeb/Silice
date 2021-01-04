@@ -30,8 +30,8 @@ algorithm tmds_encoder(
   output  uint10 tmds
 ) <autorun> {
 
-  uint9 q_m             = 0;
-  int5  dc_bias         = 0;
+  uint9 q_m             = uninitialized;
+  int5  dc_bias         = uninitialized;
 
   // tracks 'number on ones' in input
   uint4 num_ones        := data[0,1] + data[1,1] + data[2,1] + data[3,1]
@@ -115,7 +115,7 @@ algorithm hdmi_ddr_shifter(
     shift_r   = (mod5[0,1] == 1) ? data_r : shift_r[2,8];
     shift_g   = (mod5[0,1] == 1) ? data_g : shift_g[2,8];
     shift_b   = (mod5[0,1] == 1) ? data_b : shift_b[2,8];
-    clkbits   = mod5[2,1] ? 2b01 : {2{mod5[0,1]}};
+    clkbits   = mod5[2,1] ? 2b01 : {2{mod5[0,1]|mod5[1,1]}};
     p_outbits = { clkbits , shift_b[0,2] , shift_g[0,2] , shift_r[0,2] };
     mod5      = {mod5[0,4],mod5[4,1]};
   }
@@ -133,7 +133,7 @@ algorithm hdmi(
   input   uint8  red,
   input   uint8  green,
   input   uint8  blue,
-) <autorun> {
+)  {
     
   uint10 cntx  = 0;
   uint9  cnty  = 0;
@@ -141,7 +141,7 @@ algorithm hdmi(
   uint1 hsync      := (cntx > 655) && (cntx < 752);
   uint1 vsync      := (cnty > 489) && (cnty < 492);
   
-  uint2 sync_ctrl   = 0;
+  uint2 sync_ctrl   = uninitialized;
   uint2 null_ctrl  := 0;
 
   // pll for tmds
