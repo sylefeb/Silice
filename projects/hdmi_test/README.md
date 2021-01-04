@@ -139,7 +139,7 @@ A few other notes:
 <a name="footnote1">1</a>: as a reminder, the always block of an algorithm in Silice is executed at each clock cycle, before anything else ; the `hdmi` algorithm only contains an always block.
 
 # Links and further reading
-- https://www.fpga4fun.com/HDMI.html
-- https://www.digikey.com/eewiki/pages/viewpage.action?pageId=36569119
-- https://github.com/lawrie/ulx3s_examples/blob/master/hdmi/tmds_encoder.v
-
+- fpga4fun as a very compact TMDS encoder (Verilog) https://www.fpga4fun.com/HDMI.html
+- the flow chart of a TMDS (the one I used for reimplementation) https://www.digikey.com/eewiki/pages/viewpage.action?pageId=36569119
+- Lawrie's Verilog examples are always a good resource for the ULX3S! https://github.com/lawrie/ulx3s_examples/blob/master/hdmi/tmds_encoder.v
+- Bruno Levy's compact and fast ULX3S HDMI Verilog implementation https://github.com/BrunoLevy/learn-fpga/tree/master/Basic/ULX3S_hdmi
