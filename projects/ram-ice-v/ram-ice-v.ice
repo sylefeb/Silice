@@ -211,7 +211,8 @@ $$end
 
   uint1  ram_done_pulsed = 0;
   
-  uint3  case_select     = uninitialized;
+  uint3  case_select   = uninitialized;
+  uint1  do_load_store = uninitialized;
 
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid   := 0; 
@@ -233,8 +234,8 @@ $$end
     // [case 2] a next instruction is available
     // [case 1] the decode+ALU completed, a next instruction is available
     case_select = {
-      enable && ram_done_pulsed && load_store  && alu_wait == 0, // load store completed
-      enable && ram_done_pulsed && !load_store && alu_wait == 0, // next instruction available
+      enable && ram_done_pulsed && do_load_store  && alu_wait == 0, // load store completed
+      enable && ram_done_pulsed && !do_load_store && alu_wait == 0, // next instruction available
       enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
     };
   } 
@@ -252,6 +253,7 @@ $$end
     
       case 4: {
         ram_done_pulsed = 0;
+        do_load_store   = 0;
 $$if SIMULATION then
         // __display("[load_store done] cycle %d",cycle);
 $$end        
@@ -279,7 +281,6 @@ $$end
           xregsB.wdata1   = tmp;
         }
         // prepare load next instruction
-        instr           = 0; // resets decoder
         ram.in_valid    = 1;
         ram.rw          = 0;
         ram.addr        = next_pc;
@@ -304,7 +305,7 @@ $$end
 
         ram_done_pulsed = 0;
         alu_wait        = 0;  
-
+        do_load_store   = load_store;
 $$if SIMULATION then
         __display("========> [ALU done] (cycle %d) select:%b select2:%b branch:%b jump:%b load_store:%b branch_or_jump:%b alu:%h regOrPc:%b regOrImm:%b pc:%h imm:%h",cycle,select,select2,branch,jump,load_store,branch_or_jump,alu_out,regOrPc,regOrImm,pc,imm);
 $$end                        
@@ -349,10 +350,11 @@ $$end
           case 2b10: { from_csr = instret; }
           default: { }
         }
+        
         // write result to register
         xregsA.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
         xregsB.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
-        xregsA.wenable1 = (write_rd != 0);
+        xregsA.wenable1 = (write_rd != 0); // 0 on store
         xregsB.wenable1 = (write_rd != 0);
         // __display("[FETCH2] @%h cycle %d",ram.addr,cycle);
 
