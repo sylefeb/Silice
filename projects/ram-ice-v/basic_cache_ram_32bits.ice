@@ -3,9 +3,9 @@
 // ------------------------- 
 
 algorithm basic_cache_ram_32bits(
-  rv32i_ram_provider_comb pram,       // provided ram interface
-  rv32i_ram_user          uram,       // used ram interface
-  input uint26            cache_start // where the cache is locate
+  rv32i_ram_provider pram,       // provided ram interface
+  rv32i_ram_user     uram,       // used ram interface
+  input uint26       cache_start // where the cache is locate
 ) <autorun> {
 
 $$if SIMULATION then
@@ -21,7 +21,7 @@ $$cache_size  = 1<<cache_depth
   
   uint32 predicted_addr           = uninitialized;  
   // track when address is in cache region and onto which entry   
-  uint1  in_cache                :=     ((pram.addr   >> 2) | $cache_size-1$) 
+  uint1  in_cache                :=      ((pram.addr   >> 2) | $cache_size-1$) 
                                       == ((cache_start >> 2) | $cache_size-1$);
   uint$cache_depth$  cache_entry := (pram.addr >> 2) & ($cache_size-1$);
   

@@ -8,7 +8,7 @@ The example outputs an on-screen pattern through a 640x480 HDMI signal, with a p
 To try it, open a command line in this directory and type `make ulx3s`.
 
 **Note:** This project was primarily designed for the ULX3S board ; it is possible to adapt it for other boards but will require to replace
-ECP5/Lattice specific primitives in [differential_pair.v](../common/differential_pair.v) and update the PLL / clock in [hdmi_clock.v](../common/hdmi_clock.v).
+ECP5/Lattice specific primitives in [ddr.v](../common/ddr.v) and update the PLL / clock in [hdmi_clock.v](../common/hdmi_clock.v).
 
 <p align="center">
   <img width="600" src="hdmi_test.jpg">
@@ -37,8 +37,7 @@ From this point on, the variables are bound to the HDMI controller and directly 
     y       :> y,
     active  :> active,
     vblank  :> vblank,
-    gpdi_dp :> gpdi_dp,
-    gpdi_dn :> gpdi_dn,
+    gpdi_dp :> gpdi_dp, // only the positive side of the differential pairs is needed
     red     <: r,
     green   <: g,
     blue    <: b
@@ -46,9 +45,9 @@ From this point on, the variables are bound to the HDMI controller and directly 
 ```
 
 The controller forms the HDMI signal, which is output on the pins `gpdi_dp` and `gpdi_dn`. The HDMI protocol uses a 4 bits signal (RGBC: red, green, blue, pixel clock), but this signal is sent to the screen through two sets of pins (for a total of eight pins): four positive and four negative. The corresponding positive and negative bits form pairs, called *differential pairs*. This is done to strongly improve the signal quality and integrity. Thus, `gpdi_dp` encodes the signals on four bits and `gpdi_dn` are their negated counterpart: `gpdi_dn = ~gpdi_dp`.
+However, you might have noticed that `gpdi_dn` are not in the design! Why? It turns out there is a way to configure the pins so that the differential pair (and its negative side in particular) is done automatically. This is configured in the (pin configuration file)[../../frameworks/boards/ulx3s/ulx3s.lpf], in the case of the ULX3S asking for a `LVCMOS33D` pin type.
 
-Now we are ready to draw on screen! We enter an infinite loop, that computes `r`,`g`,`b` from `x`,`y`. If you have
-done GPU shaders in the past, this is very similar to a pixel shader in concept.
+Now we are ready to draw on screen! We enter an infinite loop, that computes `r`,`g`,`b` from `x`,`y`. If you have done GPU shaders in the past, this is very similar to a pixel shader in concept.
 
 The example draws simple red-green ramp along x/y as well as blue diagonals, with the following code:
 
@@ -106,8 +105,7 @@ The high speed clock is then used by the shifter that serializes the RGB compone
     data_r    <: tmds_red,
     data_g    <: tmds_green,
     data_b    <: tmds_blue,
-    p_outbits :> crgb_pos,
-    n_outbits :> crgb_neg,
+    p_outbits :> crgb_pos
   );
 ```
 Where `tmds_red`, `tmds_green` and `tmds_blue` are each 10 bits output by three instances of the TMDS encoder. Here is the TMDS instance for red:
@@ -134,7 +132,6 @@ And that's about it! Regarding the TMDS encoder, please refer to [wikipedia](htt
 A few other notes:
 - The TMDS signals can be in data or control mode. They switch to control when the signal is not in the screen area (horizontal and vertical blank).
 - During the horizontal and vertical blanks, the green signal carries the state of vsync/hsync encoded in the control bits.
-- The positive/negative pairs are produced with the same logic paths to minimize the chance they would get different delays (we want them to be in sync). To ensure this, vendor specific primitives could be used for true differential pairs.
 
 <a name="footnote1">1</a>: as a reminder, the always block of an algorithm in Silice is executed at each clock cycle, before anything else ; the `hdmi` algorithm only contains an always block.
 
