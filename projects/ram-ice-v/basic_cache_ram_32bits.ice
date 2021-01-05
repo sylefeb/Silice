@@ -3,9 +3,9 @@
 // ------------------------- 
 
 algorithm basic_cache_ram_32bits(
-  rv32i_ram_provider pram,       // provided ram interface
-  rv32i_ram_user     uram,       // used ram interface
-  input uint26       cache_start // where the cache is locate
+  rv32i_ram_provider_comb pram,       // provided ram interface
+  rv32i_ram_user          uram,       // used ram interface
+  input uint26            cache_start // where the cache is locate
 ) <autorun> {
 
 $$if SIMULATION then

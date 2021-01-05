@@ -253,7 +253,6 @@ $$end
 $$if HDMI then
 $$if ULX3S then
   output uint4 gpdi_dp,
-  output uint4 gpdi_dn,
 $$else
 $$  error('no HDMI support')
 $$end
@@ -372,7 +371,6 @@ $$if HDMI then
     green   <: video_g,
     blue    <: video_b,
     gpdi_dp :> gpdi_dp,
-    gpdi_dn :> gpdi_dn,
   );
 $$end
 
@@ -516,7 +514,7 @@ $$else
 $$if ICARUS then
   while (frame < 4) {
 $$else
-  while (frame < 32) {
+  while (frame < 8) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }

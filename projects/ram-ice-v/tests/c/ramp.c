@@ -1,4 +1,3 @@
-#include "../mylibc/mylibc.h"
 
 void main() 
 {
@@ -9,7 +8,7 @@ void main()
   
     for (int j = 0 ; j < 200 ; j++) {
       for (int i = 0 ; i < 320 ; i++) {
-        *(FRAMEBUFFER + i + (j << 9)) = (unsigned char)(offset+i);
+        *(volatile unsigned char*)(i + (j << 9)) = (unsigned char)(offset+i);
       }
     }
     ++offset;

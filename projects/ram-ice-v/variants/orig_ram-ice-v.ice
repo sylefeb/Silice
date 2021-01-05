@@ -108,15 +108,6 @@ interface rv32i_ram_provider {
   output  done
 }
 
-interface rv32i_ram_provider_comb {
-  input   addr,
-  input   rw,
-  input   wmask,
-  input   data_in,
-  output! data_out,
-  input   in_valid,
-  output  done
-}
 
 // --------------------------------------------------
 // The Risc-V RV32I CPU
@@ -128,10 +119,11 @@ algorithm rv32i_cpu(
   rv32i_ram_user ram
 ) <autorun> {
   
+  // does not have to be simple_dualport_bram, but results in smaller design
   simple_dualport_bram int32 xregsA[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   simple_dualport_bram int32 xregsB[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   
-  uint1  branch_or_jump = uninitialized;
+  uint1  cmp         = uninitialized;
   uint1  halt        = 0;
   
   uint5  write_rd    = uninitialized;
@@ -146,12 +138,13 @@ algorithm rv32i_cpu(
   uint3  select      = uninitialized;  
   uint1  select2     = uninitialized;
   
+  uint2  alu_wait    = 0;
+
+  uint32 instr       = 0;    // initialize with null instruction, which sets everything to 0
   uint26 pc          = uninitialized;
   
   uint26 next_pc   ::= pc + 4; // next_pc tracks the expression 'pc + 4' using the
                                // value of pc from the last clock edge (due to ::)
-                               
-  uint26 reload_addr = uninitialized;
 
 $$if SIMULATION then  
 $$if SHOW_REGS then
@@ -161,16 +154,13 @@ $$end
 $$end
 $$end
 
-  int32 regA        = uninitialized;
-  int32 regB        = uninitialized;
-
   int32 imm         = uninitialized;
   uint1 forceZero   = uninitialized;
   uint1 regOrPc     = uninitialized;
   uint1 regOrImm    = uninitialized;
   uint3 loadStoreOp = uninitialized;
   decode dec(
-    instr       <: ram.data_out,
+    instr       <: instr,
     write_rd    :> write_rd,
     jump        :> jump,
     branch      :> branch,
@@ -188,9 +178,9 @@ $$end
  
   int32  alu_out     = uninitialized;
   intops alu(
-    pc        <: pc,
-    xa        <: regA,
-    xb        <: regB,
+    pc        <:: pc, // <:: since not needed before 1 cycle while decoder works
+    xa        <: xregsA.rdata0,
+    xb        <: xregsB.rdata0,
     imm       <: imm,
     forceZero <: forceZero,
     regOrPc   <: regOrPc,
@@ -200,230 +190,205 @@ $$end
     r         :> alu_out,
   );
 
-  uint3 funct3   := Btype(ram.data_out).funct3;
+  uint3 funct3   ::= Btype(instr).funct3;
   
   intcmp cmps(
-    a      <:  regA,
-    b      <:  regB,
+    a      <:  xregsA.rdata0,
+    b      <:  xregsB.rdata0,
     select <:  funct3,
-    branch <:  branch,
-    jump   <:  jump,
-    j      :>  branch_or_jump
+    enable <:  branch,
+    j      :>  cmp
   ); 
 
   uint32 cycle   = 0;
   uint32 instret = 0;
 
 $$if SIMULATION then
-  uint64 cycle_last_exec     = 0;
-  uint64 cycle_last_displ    = 0;
+  uint64 cycle_last_exec = 0;
 $$end
 
-  uint1  ram_done_pulsed     = 0;
+  uint1  ram_done_pulsed = 0;
   
-  uint1  saved_load_store    = uninitialized;
-  uint1  saved_store         = uninitialized;
-  uint5  saved_write_rd      = uninitialized;
-  uint3  saved_load_store_op = uninitialized;
-  uint3  saved_csr           = uninitialized;
-  
-  // uint1  write_enabled       = 0;
-  // int32  write_value         = uninitialized;
-  
-  uint4  state               = 1; // decode
+  uint3  case_select     = uninitialized;
 
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid   := 0; 
   
-  // read registers
-  xregsA.addr0   := Rtype(ram.data_out).rs1;
-  xregsB.addr0   := Rtype(ram.data_out).rs2;    
+  // maintain bram registers
+  xregsA.wenable1 := 0;
+  xregsB.wenable1 := 0;
 
   always {
-
     ram_done_pulsed = ram_done_pulsed | ram.done;
-
-    regA = (xregsA.addr0 == xregsA.addr1 & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
-    regB = (xregsB.addr0 == xregsB.addr1 & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;
-
+    alu_wait        = (alu_wait != 1 && alu_wait != 0) ? alu_wait - 1 : alu_wait;
+    // read/write registers
+    xregsA.addr0 = Rtype(instr).rs1;
+    xregsB.addr0 = Rtype(instr).rs2;    
+    xregsA.addr1 = write_rd;
+    xregsB.addr1 = write_rd;
+    // produces a case number for each of the three different possibilities:
+    // [case 4] a load store completed
+    // [case 2] a next instruction is available
+    // [case 1] the decode+ALU completed, a next instruction is available
+    case_select = {
+      enable && ram_done_pulsed && load_store  && alu_wait == 0, // load store completed
+      enable && ram_done_pulsed && !load_store && alu_wait == 0, // next instruction available
+      enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
+    };
   } 
   
   // boot
+  pc           = boot_at - 4;
   ram.addr     = boot_at;
+  ram.rw       = 0;
   ram.in_valid = 1;
   
-  // while (!halt) {
-  while (/*instret < 128 && */!halt) {
+  while (!halt) {
 
-    __display("[cycle %d, instr %d] @%h = %h",cycle,instret,ram.addr,ram.data_out);
-     
-    switch (state) {
+    uint1  exec = 0;
 
-      case 1: { // decode done
-        if (ram_done_pulsed) {
-          halt = (ram.data_out == 0);
-          __display("========> [decode done] (cycle %d) select:%b select2:%b branch:%b jump:%b load_store:%b store:%b branch_or_jump:%b alu:%h regOrPc:%b regOrImm:%b pc:%h imm:%h",cycle,select,select2,branch,jump,load_store,store,branch_or_jump,alu_out,regOrPc,regOrImm,pc,imm);
-          ram_done_pulsed = 0;
-          // start ALU
-          pc              = ram.addr;        
-__display("[regs READ] regA[%d]=%h regB[%d]=%h",xregsA.addr0,regA,xregsB.addr0,regB);
-          // be optimistic, start reading next if not a load_store
-          ram.in_valid        = ~load_store;
-          ram.addr            = (pc + 4);
-          // save what is needed for later
-          saved_csr           = csr;
-          saved_store         = store;
-          saved_load_store    = load_store;
-          saved_write_rd      = write_rd;
-          saved_load_store_op = loadStoreOp;
-          // next: ALU
-          state           = 2;
-        }
-      }
-
-      case 2: { // ALU done
-$$if SIMULATION then
-        __display("========> [ALU done] (cycle %d) select:%b select2:%b branch:%b jump:%b load_store:%b branch_or_jump:%b alu:%h regOrPc:%b regOrImm:%b pc:%h imm:%h",cycle,select,select2,branch,jump,load_store,branch_or_jump,alu_out,regOrPc,regOrImm,pc,imm);
-        __display("========> [exec] @%h [cycle %d (%d since)]",pc,cycle,cycle - cycle_last_exec);
-        cycle_last_exec = cycle;
-        __display("-");
-$$end
-__display("[regs READ] regA[%d]=%h regB[%d]=%h",xregsA.addr0,regA,xregsB.addr0,regB);
-        if (saved_load_store) {
-
-          // prepare store
-          if (saved_store) {
-            switch (saved_load_store_op) {
-              case 3b000: { // SB
-                  switch (alu_out[0,2]) {
-                    case 2b00: { ram.data_in[ 0,8] = regB[ 0,8]; ram.wmask = 4b0001; }
-                    case 2b01: { ram.data_in[ 8,8] = regB[ 0,8]; ram.wmask = 4b0010; }
-                    case 2b10: { ram.data_in[16,8] = regB[ 0,8]; ram.wmask = 4b0100; }
-                    case 2b11: { ram.data_in[24,8] = regB[ 0,8]; ram.wmask = 4b1000; }
-                  }
-              }
-              case 3b001: { // SH
-                  switch (alu_out[1,1]) {
-                    case 1b0: { ram.data_in[ 0,16] = regB[ 0,16]; ram.wmask = 4b0011; }
-                    case 1b1: { ram.data_in[16,16] = regB[ 0,16]; ram.wmask = 4b1100; }
-                  }
-              }
-              case 3b010: { // SW
-                ram.data_in = regB; ram.wmask = 4b1111;
-              }
-              default: { ram.data_in = 0; }
-            }         
-            // __display("STORE %b %h [%b] @%h",loadStoreOp,ram.data_in,ram.wmask,ram.addr);            
-          }
-          // issue load/store
-          ram.in_valid = 1;
-          ram.rw       = saved_store;
-          ram.addr     = alu_out;
-          state = 4;
-
-        } else {
-
-          // store ALU result in registers
-          // -> what do we write in register? (pc or alu or csr? -- loads are handled above)
-          uint32 from_csr = 0;
-          // csr
-          switch (saved_csr[0,2]) {
-            case 2b00: { from_csr = cycle;   }
-            case 2b01: { from_csr = cpu_id;  }
-            case 2b10: { from_csr = instret; }
-            default: { }
-          }
-          {
-            uint1  write_enabled = uninitialized;
-            uint32 tmp = uninitialized;
-            tmp       = saved_csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
-            write_enabled   = saved_write_rd != 0;
-            xregsA.wenable1 = write_enabled;
-            xregsB.wenable1 = write_enabled;
-            xregsA.wdata1   = tmp;
-            xregsB.wdata1   = tmp;
-            // write_value     = tmp;
-            xregsA.addr1    = saved_write_rd;
-            xregsB.addr1    = saved_write_rd;    
-          }
-__display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
-          // what's next?
-          if (branch_or_jump) {
-__display("misprediction!! Neo, the oracle was wrong");
-            // we mis-predicted, load a different address from scratch
-            state         = 8;
-            reload_addr   = alu_out[0,26];
-          } else {
-__display("good prediction");
-            // prediction is correct, nothing to adjust for, next: decode
-            state = 1;            
-          }
-          
-        }
-
-        instret         = instret + 1;
-        
-      }
-      
+    switch (case_select) {
+    
       case 4: {
-      
-        if (ram_done_pulsed) {
-          uint1  write_enabled = uninitialized;
+        ram_done_pulsed = 0;
+$$if SIMULATION then
+        // __display("[load_store done] cycle %d",cycle);
+$$end        
+        // data with memory access
+        if (~store) { 
+          // finalize load
           uint32 tmp = uninitialized;
-          ram.rw          = 0; // back to reading
-          ram_done_pulsed = 0;        
-  $$if SIMULATION then
-          __display("========> [load_store] cycle %d, saved_store:%b",cycle,saved_store);
-  $$end
-          // data with memory access
-          // finalize load (write is not done if this was a store)
-          switch ( saved_load_store_op[0,2] ) {
+          switch ( loadStoreOp[0,2] ) {
             case 2b00: { // LB / LBU
-              tmp = { {24{saved_load_store_op[2,1]&ram.data_out[ 7,1]}},ram.data_out[ 0,8]};
+              tmp = { {24{loadStoreOp[2,1]&ram.data_out[ 7,1]}},ram.data_out[ 0,8]};
             }
             case 2b01: { // LH / LHU
-              tmp = { {16{saved_load_store_op[2,1]&ram.data_out[15,1]}},ram.data_out[ 0,16]};
+              tmp = { {16{loadStoreOp[2,1]&ram.data_out[15,1]}},ram.data_out[ 0,16]};
             }
             case 2b10: { // LW
               tmp = ram.data_out;  
             }
             default: { tmp = 0; }
           }            
-          // __display("[LOAD] %b %h (%h) @%h",saved_load_store_op,tmp,ram.data_out,ram.addr);
+          // __display("[LOAD] %b %h (%h) @%h",loadStoreOp,tmp,ram.data_out,ram.addr);
           // write result to register
-          write_enabled   = (saved_write_rd != 0) & ~saved_store;
-          xregsA.wenable1 = write_enabled;
-          xregsB.wenable1 = write_enabled;
+          xregsA.wenable1 = write_rd != 0;
+          xregsB.wenable1 = write_rd != 0;
           xregsA.wdata1   = tmp;
           xregsB.wdata1   = tmp;
-          // write_value     = tmp;
-          xregsA.addr1    = saved_write_rd;
-          xregsB.addr1    = saved_write_rd;          
-__display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
-          // prepare load next instruction
+        }
+        // prepare load next instruction
+        instr           = 0; // resets decoder
+        ram.in_valid    = 1;
+        ram.rw          = 0;
+        ram.addr        = next_pc;
+        // __display("[FETCH3] @%h cycle %d",ram.addr,cycle);
+      } // case 4
+
+      case 2: {
+        ram_done_pulsed = 0;
+        // start executing instruction (below)
+        pc              = ram.addr;        
+        exec            = 1;
+        // be optimistic, start reading next
+        ram.in_valid    = 1;
+        ram.rw          = 0;            
+        ram.addr        = pc + 4;
+        // __display("[FETCH1] @%h cycle %d",ram.addr,cycle);
+      } // case 2
+
+      case 1: {      
+        ram_done_pulsed = 0;
+        alu_wait        = 0;  
+
+$$if SIMULATION then
+        // __display("[decode+ALU done, instruction received] cycle %d",cycle);
+$$end                        
+        if (load_store) {
+        
+          // prepare load/store
           ram.in_valid    = 1;
-          ram.addr        = next_pc;
-          state           = 1;
-          // __display("[FETCH3] @%h cycle %d",ram.addr,cycle);
+          ram.rw          = store;
+          ram.addr        = alu_out;
+          // __display("[FETCH4] @%h cycle %d",ram.addr,cycle);          
+          if (store) { 
+            // prepare store
+            switch (loadStoreOp) {
+              case 3b000: { // SB
+                  switch (alu_out[0,2]) {
+                    case 2b00: { ram.data_in[ 0,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0001; }
+                    case 2b01: { ram.data_in[ 8,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0010; }
+                    case 2b10: { ram.data_in[16,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0100; }
+                    case 2b11: { ram.data_in[24,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b1000; }
+                  }
+              }
+              case 3b001: { // SH
+                  switch (alu_out[1,1]) {
+                    case 1b0: { ram.data_in[ 0,16] = xregsB.rdata0[ 0,16]; ram.wmask = 4b0011; }
+                    case 1b1: { ram.data_in[16,16] = xregsB.rdata0[ 0,16]; ram.wmask = 4b1100; }
+                  }
+              }
+              case 3b010: { // SW
+                ram.data_in = xregsB.rdata0; ram.wmask = 4b1111;
+              }
+              default: { ram.data_in = 0; }
+            }         
+            // __display("STORE %b %h [%b] @%h",loadStoreOp,ram.data_in,ram.wmask,ram.addr);            
+          }        
+          
+        } else {
+                 
+          // store ALU result in registers
+          // -> what do we write in register? (pc or alu or csr? -- loads are handled above)
+          uint32 from_csr = 0;
+          // csr
+          switch (csr[0,2]) {
+            case 2b00: { from_csr = cycle;   }
+            case 2b01: { from_csr = cpu_id;  }
+            case 2b10: { from_csr = instret; }
+            default: { }
+          }
+          // write result to register
+          xregsA.wdata1   = csr[2,1] ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
+          xregsB.wdata1   = csr[2,1] ? from_csr : ((jump | cmp) ? (next_pc) : alu_out);
+          xregsA.wenable1 = write_rd != 0;
+          xregsB.wenable1 = write_rd != 0;
+          // what's next?
+          ram.in_valid    = 1;
+          ram.rw          = 0;            
+          if (jump | cmp) {
+            // prepare to load next instruction after jump
+            ram.addr      = alu_out[0,26];
+          } else {
+            // start executing instruction as we already have it!
+            pc            = ram.addr;        
+            exec          = 1;
+            // be optimistic, start reading next
+            ram.addr      = pc + 4;
+          }
+          // __display("[FETCH2] @%h cycle %d",ram.addr,cycle);
+
         }
-      }
-      
-      case 8: {
-        if (ram_done_pulsed) { // wait for now useless fetch
-          ram_done_pulsed   = 0;     
-  $$if SIMULATION then
-          __display("========> [play again] cycle %d, @%h",cycle,reload_addr);
-  $$end
-          // too bad, play again
-          ram.addr     = reload_addr;
-          ram.in_valid = 1;
-          state        = 1;
-        }
-      }
+
+        instret         = instret + 1;
+        
+      } // case 1
       
       default: {}
       
     } // switch
+    
+    if (exec) {
+$$if SIMULATION then    
+//        __display("[exec] @%h instr = %h [cycle %d (%d since)]",ram.addr,ram.data_out,cycle,cycle - cycle_last_exec);
+        cycle_last_exec = cycle;
+$$end
+        // instruction available, start decode+ALU
+        instr        = ram.data_out;
+        halt         = (instr == 0);
+        // wait for decode+ALU
+        alu_wait     = 3; // 1 (tag) + 1 for decode +1 for ALU        
+    }
     
     cycle           = cycle + 1;
 
@@ -662,9 +627,9 @@ algorithm decode(
 // --------------------------------------------------
 // Performs integer computations
 
-algorithm intops(
-  input!  uint26 pc,
-  input!  int32  xa,
+algorithm intops(         // input! tells the compiler that the input does not                            
+  input!  uint26 pc,      // need to be latched, so we can save registers
+  input!  int32  xa,      // caller has to ensure consistency
   input!  int32  xb,
   input!  int32  imm,
   input!  uint3  select,
@@ -672,16 +637,15 @@ algorithm intops(
   input!  uint1  forceZero,
   input!  uint1  regOrPc,
   input!  uint1  regOrImm,
-  output  int32  r,
+  output! int32  r,
 ) {
   
-  int32 a  := regOrPc  ? __signed({6b0,pc[0,26]}) : (forceZero ? xa : __signed(32b0));
-  int32 b  := regOrImm ? imm : (xb);
+  int32 a := regOrPc  ? __signed({6b0,pc[0,26]}) : (forceZero ? xa : __signed(32b0));
+  int32 b := regOrImm ? imm : (xb);
   //      ^^
   // using := during a declaration means that the variable now constantly tracks
   // the declared expression (but it is no longer assignable)
   // In other words, this is a wire!
-  
   
   always { // this part of the algorithm is executed every clock  
     switch (select) {
@@ -711,19 +675,18 @@ algorithm intcmp(
   input!  int32 a,
   input!  int32 b,
   input!  uint3 select,
-  input!  uint1 branch,
-  input!  uint1 jump,
-  output  uint1 j,
+  input!  uint1 enable,
+  output! uint1 j,
 ) {
   always {  
     switch (select) {
-      case 3b000: { j = jump | (branch & (a == b)); } // BEQ
-      case 3b001: { j = jump | (branch & (a != b)); } // BNE
-      case 3b100: { j = jump | (branch & (__signed(a)   <  __signed(b)));   } // BLT
-      case 3b110: { j = jump | (branch & (__unsigned(a) <  __unsigned(b))); } // BLTU
-      case 3b101: { j = jump | (branch & (__signed(a)   >= __signed(b)));   } // BGE
-      case 3b111: { j = jump | (branch & (__unsigned(a) >= __unsigned(b))); } // BGEU
-      default:    { j = jump; }
+      case 3b000: { j = enable & (a == b); } // BEQ
+      case 3b001: { j = enable & (a != b); } // BNE
+      case 3b100: { j = enable & (__signed(a)   <  __signed(b));   } // BLT
+      case 3b110: { j = enable & (__unsigned(a) <  __unsigned(b)); } // BLTU
+      case 3b101: { j = enable & (__signed(a)   >= __signed(b));   } // BGE
+      case 3b111: { j = enable & (__unsigned(a) >= __unsigned(b)); } // BGEU
+      default:    { j = 0; }
     }
   }
 }

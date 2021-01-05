@@ -1,6 +1,8 @@
 // SL 2020-12-02 @sylefeb
 // ------------------------- 
 
+$$sdcard_image_pad_size = 0
+
 // pre-compilation script, embeds compile code within sdcard image
 $$dofile('pre_include_asm.lua')
 $$if not SIMULATION then
@@ -15,6 +17,8 @@ $$for i=1,256 do
 $$  palette[i] = (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
 $$end
 $$ palette[256] = 255 | (255<<8) | (255<<16)
+
+$$SHOW_REGS = true
 
 $include('ram-ice-v.ice')
 $include('sdram_ram_32bits.ice')
