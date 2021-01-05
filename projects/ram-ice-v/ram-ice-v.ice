@@ -317,30 +317,28 @@ $$end
                         ? next_addr // be optimistic, start reading next
                         : alu_out;
 
-        if (load_store && store) { 
-          // prepare store
-          switch (loadStoreOp) {
-            case 3b000: { // SB
-                switch (alu_out[0,2]) {
-                  case 2b00: { ram.data_in[ 0,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0001; }
-                  case 2b01: { ram.data_in[ 8,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0010; }
-                  case 2b10: { ram.data_in[16,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0100; }
-                  case 2b11: { ram.data_in[24,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b1000; }
-                }
-            }
-            case 3b001: { // SH
-                switch (alu_out[1,1]) {
-                  case 1b0: { ram.data_in[ 0,16] = xregsB.rdata0[ 0,16]; ram.wmask = 4b0011; }
-                  case 1b1: { ram.data_in[16,16] = xregsB.rdata0[ 0,16]; ram.wmask = 4b1100; }
-                }
-            }
-            case 3b010: { // SW
-              ram.data_in = xregsB.rdata0; ram.wmask = 4b1111;
-            }
-            default: { ram.data_in = 0; }
-          }         
-          // __display("STORE %b %h [%b] @%h",loadStoreOp,ram.data_in,ram.wmask,ram.addr);            
-        }        
+        // prepare a potential store
+        switch (loadStoreOp) {
+          case 3b000: { // SB
+              switch (alu_out[0,2]) {
+                case 2b00: { ram.data_in[ 0,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0001; }
+                case 2b01: { ram.data_in[ 8,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0010; }
+                case 2b10: { ram.data_in[16,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b0100; }
+                case 2b11: { ram.data_in[24,8] = xregsB.rdata0[ 0,8]; ram.wmask = 4b1000; }
+              }
+          }
+          case 3b001: { // SH
+              switch (alu_out[1,1]) {
+                case 1b0: { ram.data_in[ 0,16] = xregsB.rdata0[ 0,16]; ram.wmask = 4b0011; }
+                case 1b1: { ram.data_in[16,16] = xregsB.rdata0[ 0,16]; ram.wmask = 4b1100; }
+              }
+          }
+          case 3b010: { // SW
+            ram.data_in = xregsB.rdata0; ram.wmask = 4b1111;
+          }
+          default: { ram.data_in = 0; }
+        }         
+        // __display("STORE %b %h [%b] @%h",loadStoreOp,ram.data_in,ram.wmask,ram.addr);            
           
         // store ALU result in registers
         // -> what do we write in register? (pc or alu or csr? -- loads are handled above)
@@ -354,8 +352,8 @@ $$end
         // write result to register
         xregsA.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
         xregsB.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
-        xregsA.wenable1 = ~load_store && (write_rd != 0);
-        xregsB.wenable1 = ~load_store && (write_rd != 0);
+        xregsA.wenable1 = (write_rd != 0);
+        xregsB.wenable1 = (write_rd != 0);
         // __display("[FETCH2] @%h cycle %d",ram.addr,cycle);
 
         instret         = instret + 1;
