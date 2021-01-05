@@ -138,8 +138,6 @@ algorithm rv32i_cpu(
   uint3  select      = uninitialized;  
   uint1  select2     = uninitialized;
   
-  uint2  alu_wait    = 0;
-
   uint32 instr       = 0;    // initialize with null instruction, which sets everything to 0
   uint26 pc          = uninitialized;
   
@@ -210,9 +208,10 @@ $$if SIMULATION then
 $$end
 
   uint1  ram_done_pulsed = 0;
+  uint1  wait_one        = 0;
+  uint1  do_load_store   = 0;
   
-  uint3  case_select   = uninitialized;
-  uint1  do_load_store = uninitialized;
+  uint2  case_select   = uninitialized;
 
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid   := 0; 
@@ -223,7 +222,6 @@ $$end
 
   always {
     ram_done_pulsed = ram_done_pulsed | ram.done;
-    alu_wait        = (alu_wait != 1 && alu_wait != 0) ? alu_wait - 1 : alu_wait;
     // read/write registers
     xregsA.addr0 = Rtype(instr).rs1;
     xregsB.addr0 = Rtype(instr).rs2;    
@@ -234,10 +232,10 @@ $$end
     // [case 2] a next instruction is available
     // [case 1] the decode+ALU completed, a next instruction is available
     case_select = {
-      enable && ram_done_pulsed && do_load_store  && alu_wait == 0, // load store completed
-      enable && ram_done_pulsed && !do_load_store && alu_wait == 0, // next instruction available
-      enable && ram_done_pulsed && alu_wait == 1                 // decode+ALU done
-    };
+                   do_load_store, // performing load store, else instruction available, decode+ALU done
+                   enable & ram_done_pulsed & ~wait_one // ready to work
+                  };
+    wait_one = 0;
   } 
   
   // boot
@@ -246,16 +244,15 @@ $$end
   ram.in_valid = 1;
   
   while (!halt) {
-
-    uint1  exec = 0;
+  // while (cycle < 500) {
 
     switch (case_select) {
     
-      case 4: {
+      case 3: {
         ram_done_pulsed = 0;
         do_load_store   = 0;
 $$if SIMULATION then
-        // __display("[load_store done] cycle %d",cycle);
+        __display("[load store] (cycle %d) load_store %b store %b",cycle,load_store,store);
 $$end        
         // data with memory access
         if (~store) { 
@@ -279,39 +276,45 @@ $$end
           xregsB.wenable1 = write_rd != 0;
           xregsA.wdata1   = tmp;
           xregsB.wdata1   = tmp;
+$$if SIMULATION then
+__display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
+$$end
         }
         // prepare load next instruction
         ram.in_valid    = 1;
         ram.rw          = 0;
         ram.addr        = next_pc;
+        // reset decoder
+        instr           = 0;
         // __display("[FETCH3] @%h cycle %d",ram.addr,cycle);
       } // case 4
 
-      case 2: {
-        ram_done_pulsed = 0;
-        // start executing instruction (below)
-        pc              = ram.addr;        
-        exec            = 1;
-        // be optimistic, start reading next
-        ram.in_valid    = 1;
-        ram.rw          = 0;            
-        ram.addr        = pc + 4;
-        // __display("[FETCH1] @%h cycle %d",ram.addr,cycle);
-      } // case 2
-
-      case 1: {      
+      case 1: {
+        uint1  exec      = uninitialized;
         uint26 next_addr = uninitialized;
         uint32 from_csr  = uninitialized;
 
         ram_done_pulsed = 0;
-        alu_wait        = 0;  
+        
+$$if SIMULATION then
+        __display("-");
+        if (instr == 0) {
+          __display("[next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
+        } else {
+          __display("[decode + ALU done (%h)] (cycle %d) load_store %b branch_or_jump %b",instr,cycle,load_store,branch_or_jump);
+        }
+        __display("[regs READ] regA[%d]=%h regB[%d]=%h",xregsA.addr0,xregsA.rdata0,xregsB.addr0,xregsB.rdata0);
+$$end                
+        ram.in_valid    = 1;
+        ram.rw          = store; // Note: (instr == 0) => store = 0
+        exec            = ~(load_store | branch_or_jump); // Note: (instr == 0) => exec = 1
         do_load_store   = load_store;
 $$if SIMULATION then
-        __display("========> [ALU done] (cycle %d) select:%b select2:%b branch:%b jump:%b load_store:%b branch_or_jump:%b alu:%h regOrPc:%b regOrImm:%b pc:%h imm:%h",cycle,select,select2,branch,jump,load_store,branch_or_jump,alu_out,regOrPc,regOrImm,pc,imm);
-$$end                        
-        ram.in_valid    = 1;
-        ram.rw          = store;
-        exec            = ~(load_store | branch_or_jump);
+        if (exec) {
+            __display("[exec] @%h ***instr = %h*** alu = %h [cycle %d (%d since)]",pc,instr,alu_out,cycle,cycle - cycle_last_exec);
+            cycle_last_exec = cycle;
+        }
+$$end                
         pc              = exec ? ram.addr : pc;
         next_addr       = (ram.addr[0,26] + 4);
         ram.addr        = exec
@@ -350,34 +353,31 @@ $$end
           case 2b10: { from_csr = instret; }
           default: { }
         }
-        
         // write result to register
         xregsA.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
         xregsB.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
-        xregsA.wenable1 = (write_rd != 0); // 0 on store
+        xregsA.wenable1 = (write_rd != 0); // 0 on store or when instr == 0
         xregsB.wenable1 = (write_rd != 0);
-        // __display("[FETCH2] @%h cycle %d",ram.addr,cycle);
-
-        instret         = instret + 1;
+$$if SIMULATION then
+__display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
+$$end
+        // instruction available ? start decode+ALU : reset decoder
+        halt         = exec && (ram.data_out == 0); 
+        instr        = exec ? ram.data_out : (branch_or_jump ? 0 : instr);
+        wait_one     = exec; // wait for decode + ALU
+        instret      = exec ? instret + 1 : instret;
         
+$$if SIMULATION then    
+        if (branch_or_jump) {
+            __display("[jump] from @%h to @%h",pc,ram.addr);
+        }
+$$end          
       } // case 1
       
       default: {}
       
     } // switch
-    
-    if (exec) {
-$$if SIMULATION then    
-        __display("[exec] @%h instr = %h [cycle %d (%d since)]",ram.addr,ram.data_out,cycle,cycle - cycle_last_exec);
-        cycle_last_exec = cycle;
-$$end
-        // instruction available, start decode+ALU
-        instr        = ram.data_out;
-        halt         = (instr == 0);
-        // wait for decode+ALU
-        alu_wait     = 3; // 1 (tag) + 1 for decode +1 for ALU        
-    }
-    
+        
     cycle           = cycle + 1;
 
   } // while
