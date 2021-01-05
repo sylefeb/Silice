@@ -100,7 +100,7 @@ wire [12:0] __main_out_sdram_a;
 `endif
 
 `ifdef UART
-wire        __main_out_uart_tx;
+wire        __main_out_uart_rx;
 `endif
 
 `ifdef VGA
@@ -194,7 +194,7 @@ M_main __main(
 `endif  
 `endif  
 `ifdef UART
-  .out_uart_tx  (__main_out_uart_tx),
+  .out_uart_tx  (__main_out_uart_rx),
   .in_uart_rx   (ftdi_txd),
 `endif  
 `ifdef VGA
@@ -267,7 +267,7 @@ assign oled_csn      = __main_oled_csn;
 `endif
 
 `ifdef UART
-assign ftdi_rxd      = __main_out_uart_tx;
+assign ftdi_rxd      = __main_out_uart_rx;
 `endif  
 
 `ifdef HDMI
