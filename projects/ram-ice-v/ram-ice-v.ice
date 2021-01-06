@@ -376,7 +376,7 @@ $$if SIMULATION then
         if (branch_or_jump) {
             __display("[jump] from @%h to @%h",pc,ram.addr);
         }
-$$end          
+$$end
       } // case 1
       
       default: {}
@@ -465,7 +465,7 @@ algorithm decode(
         regOrImm    = 1; // imm
         csr         = 0;
       }
-      
+
       case 7b1101111: { // JAL
         //__display("JAL");
         write_rd    = Rtype(instr).rd;
