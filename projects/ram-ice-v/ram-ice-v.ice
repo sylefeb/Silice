@@ -458,10 +458,7 @@ algorithm decode(
   7b1110011  timers
 */
   
-  uint1 has_rd := (opcode == 7b0010111 || opcode == 7b0110111 
-                || opcode == 7b1100111 || opcode == 7b1101111
-                || opcode == 7b0000011 || opcode == 7b0010011
-                || opcode == 7b0110011 || opcode == 7b1110011);
+  uint1 no_rd  := (opcode == 7b1100011 || opcode == 7b0100011);
 
   next_pc      := pc + 4;
 
@@ -477,13 +474,12 @@ algorithm decode(
   
   loadStoreOp  := Itype(instr).funct3;
 
-  write_rd     := has_rd ? Rtype(instr).rd : 0;
-  rd_enable    := write_rd != 0;  
+  write_rd     := Rtype(instr).rd;
+  rd_enable    := (write_rd != 0) & ~no_rd;  
   
   forceZero    := (opcode == 7b0110111);
 
-  regOrPc      := (opcode == 7b0010111 || opcode == 7b1101111
-                || opcode == 7b1100011);
+  regOrPc      := (opcode == 7b0010111 || opcode == 7b1101111 || opcode == 7b1100011);
                 
   regOrImm     := (opcode == 7b0110011);
 
