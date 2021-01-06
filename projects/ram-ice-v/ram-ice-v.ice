@@ -153,7 +153,7 @@ $$end
 
   int32 imm         = uninitialized;
   uint1 forceZero   = uninitialized;
-  uint1 regOrPc     = uninitialized;
+  uint1 pcOrReg     = uninitialized;
   uint1 regOrImm    = uninitialized;
   uint3 loadStoreOp = uninitialized;
   uint1 rd_enable   = uninitialized;
@@ -171,7 +171,7 @@ $$end
     select2     :> select2,
     imm         :> imm,
     forceZero   :> forceZero,
-    regOrPc     :> regOrPc,
+    pcOrReg     :> pcOrReg,
     regOrImm    :> regOrImm,
     csr         :> csr,
     rd_enable   :> rd_enable,
@@ -184,7 +184,7 @@ $$end
     xb        <: xregsB.rdata0,
     imm       <: imm,
     forceZero <: forceZero,
-    regOrPc   <: regOrPc,
+    pcOrReg   <: pcOrReg,
     regOrImm  <: regOrImm,
     select    <: select,
     select2   <: select2,
@@ -420,7 +420,7 @@ algorithm decode(
   output uint1   select2,
   output int32   imm,
   output uint1   forceZero,
-  output uint1   regOrPc,
+  output uint1   pcOrReg,
   output uint1   regOrImm,
   output uint3   csr,
   output uint1   rd_enable,
@@ -479,7 +479,7 @@ algorithm decode(
   
   forceZero    := (opcode == 7b0110111);
 
-  regOrPc      := (opcode == 7b0010111 || opcode == 7b1101111 || opcode == 7b1100011);
+  pcOrReg      := (opcode == 7b0010111 || opcode == 7b1101111 || opcode == 7b1100011);
                 
   regOrImm     := (opcode == 7b0110011);
 
@@ -511,7 +511,7 @@ algorithm decode(
         imm         = imm_s;
       }
       case 7b0010011: { // integer, immediate  
-        imm         = imm_i;        
+        imm         = imm_i;
       }
       default: {
       }
@@ -545,19 +545,56 @@ algorithm intops(         // input! tells the compiler that the input does not
   input!  uint3  select,
   input!  uint1  select2,
   input!  uint1  forceZero,
-  input!  uint1  regOrPc,
+  input!  uint1  pcOrReg,
   input!  uint1  regOrImm,
   output! int32  r,
 ) {
   
-  int32 a := regOrPc  ? __signed({6b0,pc[0,26]}) : (forceZero ? __signed(32b0) : xa);
-  int32 b := regOrImm ? (xb) : imm;
+  // 3 cases
+  // reg +/- reg (intops)
+  // reg +/- imm (intops)
+  // pc  + imm   (else)
+  
+  //int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : (forceZero ? __signed(32b0) : xa);
+  int32 b          := regOrImm ? (xb) : imm;
+  
+  int32 reg_regimm := select2 ? (xa - b) : (xa + b);
+  int32 pc_imm     := (__signed({6b0,pc[0,26]}) + imm);
   
   always { // this part of the algorithm is executed every clock  
     switch (select) {
       case 3b000: { // ADD / SUB
         // r = a + (select2 ? -b : b);
-        r = select2 ? (a - b) : (a + b);
+        // r = select2 ? (a - b) : (a + b);        
+        switch ({pcOrReg,regOrImm}) {
+          case 2b00: { r = forceZero ? imm : reg_regimm; }
+          case 2b01: { r = reg_regimm; }
+          case 2b10: { r = pc_imm;  }
+          default:   { }
+        }
+      }
+      case 3b010: { // SLTI
+        if (__signed(xa) < __signed(b)) { r = 32b1; } else { r = 32b0; }
+      }
+      case 3b011: { // SLTU
+        if (__unsigned(xa) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
+      }
+      case 3b100: { r = xa ^ b;} // XOR
+      case 3b110: { r = xa | b;} // OR
+      case 3b111: { r = xa & b;} // AND
+      case 3b001: { r = (xa <<< b[0,5]); } // SLLI
+      case 3b101: { r = select2 ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
+    }
+  }
+  
+  /*
+  int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : (forceZero ? __signed(32b0) : xa);
+  int32 b := regOrImm ? (xb) : imm;
+  
+  always { // this part of the algorithm is executed every clock  
+    switch (select) {
+      case 3b000: { // ADD / SUB
+        r = a + (select2 ? -b : b);
       }
       case 3b010: { // SLTI
         if (__signed(a) < __signed(b)) { r = 32b1; } else { r = 32b0; }
@@ -572,7 +609,7 @@ algorithm intops(         // input! tells the compiler that the input does not
       case 3b101: { r = select2 ? (a >>> b[0,5]) : (a >> b[0,5]); } // SRLI / SRAI
     }
   }
-  
+  */
 }
 
 // --------------------------------------------------
