@@ -141,9 +141,8 @@ algorithm rv32i_cpu(
   uint32 instr       = 0;    // initialize with null instruction, which sets everything to 0
   uint26 pc          = uninitialized;
   
-  uint26 next_pc   ::= pc + 4; // next_pc tracks the expression 'pc + 4' using the
-                               // value of pc from the last clock edge (due to ::)
-
+  uint26 next_pc     = uninitialized;
+  
 $$if SIMULATION then  
 $$if SHOW_REGS then
 $$for i=0,31 do
@@ -157,9 +156,11 @@ $$end
   uint1 regOrPc     = uninitialized;
   uint1 regOrImm    = uninitialized;
   uint3 loadStoreOp = uninitialized;
+  uint1 rd_enable   = uninitialized;
   decode dec(
     instr       <: instr,
     pc          <: pc,
+    next_pc     :> next_pc,
     write_rd    :> write_rd,
     jump        :> jump,
     branch      :> branch,
@@ -172,7 +173,8 @@ $$end
     forceZero   :> forceZero,
     regOrPc     :> regOrPc,
     regOrImm    :> regOrImm,
-    csr         :> csr
+    csr         :> csr,
+    rd_enable   :> rd_enable,
   );
  
   int32  alu_out     = uninitialized;
@@ -273,8 +275,8 @@ $$end
           }            
           // __display("[LOAD] %b %h (%h) @%h",loadStoreOp,tmp,ram.data_out,ram.addr);
           // write result to register
-          xregsA.wenable1 = write_rd != 0;
-          xregsB.wenable1 = write_rd != 0;
+          xregsA.wenable1 = rd_enable;
+          xregsB.wenable1 = rd_enable;
           xregsA.wdata1   = tmp;
           xregsB.wdata1   = tmp;
 $$if SIMULATION then
@@ -364,8 +366,8 @@ $$end
         // write result to register
         xregsA.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
         xregsB.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
-        xregsA.wenable1 = (write_rd != 0); // 0 on store or when instr == 0
-        xregsB.wenable1 = (write_rd != 0);
+        xregsA.wenable1 = rd_enable; // 0 on store or when instr == 0
+        xregsB.wenable1 = rd_enable;
 $$if SIMULATION then
 __display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
 $$end
@@ -406,7 +408,8 @@ $$end
 
 algorithm decode(
   input! uint32  instr,
-  input  uint26  pc,
+  input! uint26  pc,
+  output uint26  next_pc,
   output uint5   write_rd,
   output uint1   jump,
   output uint1   branch,
@@ -420,13 +423,18 @@ algorithm decode(
   output uint1   regOrPc,
   output uint1   regOrImm,
   output uint3   csr,
+  output uint1   rd_enable,
 ) {
+
+  next_pc := pc + 4;
+
   always {
     switch (instr[ 0, 7])
     {    
       case 7b0010111: { // AUIPC
         //__display("AUIPC");
         write_rd    = Rtype(instr).rd;
+        rd_enable   = write_rd != 0;
         jump        = 0;
         branch      = 0;
         load_store  = 0;
@@ -444,6 +452,7 @@ algorithm decode(
       case 7b0110111: { // LUI
         //__display("LUI");
         write_rd    = Rtype(instr).rd;
+        rd_enable   = write_rd != 0;
         jump        = 0;
         branch      = 0;
         load_store  = 0;
@@ -460,6 +469,7 @@ algorithm decode(
       case 7b1101111: { // JAL
         //__display("JAL");
         write_rd    = Rtype(instr).rd;
+        rd_enable   = write_rd != 0;
         jump        = 1;
         branch      = 0;
         load_store  = 0;
@@ -481,6 +491,7 @@ algorithm decode(
       case 7b1100111: { // JALR
         //__display("JALR");
         write_rd    = Rtype(instr).rd;
+        rd_enable   = write_rd != 0;
         jump        = 1;
         branch      = 0;
         load_store  = 0;
@@ -498,6 +509,7 @@ algorithm decode(
       case 7b1100011: { // branch
         // __display("BR*");
         write_rd    = 0;
+        rd_enable   = 0;
         jump        = 0;
         branch      = 1;
         load_store  = 0;
@@ -520,6 +532,7 @@ algorithm decode(
       case 7b0000011: { // load
         // __display("LOAD");
         write_rd    = Rtype(instr).rd;
+        rd_enable   = write_rd != 0;
         jump        = 0;
         branch      = 0;
         load_store  = 1;
@@ -537,6 +550,7 @@ algorithm decode(
       case 7b0100011: { // store
         // __display("STORE");
         write_rd    = 0;
+        rd_enable   = 0;
         jump        = 0;
         branch      = 0;
         load_store  = 1;
@@ -553,6 +567,7 @@ algorithm decode(
 
       case 7b0010011: { // integer, immediate  
         write_rd    = Rtype(instr).rd;
+        rd_enable   = write_rd != 0;
         jump        = 0;
         branch      = 0;
         load_store  = 0;
@@ -569,6 +584,7 @@ algorithm decode(
       case 7b0110011: { // integer, registers
         // __display("REGOPS");
         write_rd    = Rtype(instr).rd;
+        rd_enable   = write_rd != 0;
         jump        = 0;
         branch      = 0;
         load_store  = 0;
@@ -584,6 +600,7 @@ algorithm decode(
       
       case 7b1110011: { // timers
         write_rd    = Rtype(instr).rd;
+        rd_enable   = write_rd != 0;
         jump        = 0;
         branch      = 0;
         load_store  = 0;
@@ -600,6 +617,7 @@ algorithm decode(
       
       default: {
         write_rd    = 0;        
+        rd_enable   = 0;
         jump        = 0;
         branch      = 0;
         load_store  = 0;
