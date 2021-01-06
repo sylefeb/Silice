@@ -159,6 +159,7 @@ $$end
   uint3 loadStoreOp = uninitialized;
   decode dec(
     instr       <: instr,
+    pc          <: pc,
     write_rd    :> write_rd,
     jump        :> jump,
     branch      :> branch,
@@ -304,20 +305,27 @@ $$if SIMULATION then
           __display("[decode + ALU done (%h)] (cycle %d) load_store %b branch_or_jump %b",instr,cycle,load_store,branch_or_jump);
         }
         __display("[regs READ] regA[%d]=%h regB[%d]=%h",xregsA.addr0,xregsA.rdata0,xregsB.addr0,xregsB.rdata0);
-$$end                
+$$end       
+        
         ram.in_valid    = 1;
         ram.rw          = store; // Note: (instr == 0) => store = 0
         exec            = ~(load_store | branch_or_jump); // Note: (instr == 0) => exec = 1
         do_load_store   = load_store;
+        
 $$if SIMULATION then
         if (exec) {
             __display("[exec] @%h ***instr = %h*** alu = %h [cycle %d (%d since)]",pc,instr,alu_out,cycle,cycle - cycle_last_exec);
             cycle_last_exec = cycle;
         }
 $$end                
-        pc              = exec ? ram.addr : pc;
-        next_addr       = (ram.addr[0,26] + 4);
-        ram.addr        = exec
+        // instruction available ? start decode+ALU : reset decoder
+        halt         = exec && (ram.data_out == 0); 
+        instr        = branch_or_jump ? 0 : (exec ? ram.data_out : instr);
+        wait_one     = exec; // wait for decode + ALU
+        instret      = exec ? instret + 1 : instret;        
+        pc           = exec ? ram.addr : pc;
+        next_addr    = (ram.addr[0,26] + 4);
+        ram.addr     = exec
                         ? next_addr // be optimistic, start reading next
                         : alu_out;  // branch_or_jump or load_store
 
@@ -361,12 +369,7 @@ $$end
 $$if SIMULATION then
 __display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
 $$end
-        // instruction available ? start decode+ALU : reset decoder
-        halt         = exec && (ram.data_out == 0); 
-        instr        = branch_or_jump ? 0 : (exec ? ram.data_out : instr);
-        wait_one     = exec; // wait for decode + ALU
-        instret      = exec ? instret + 1 : instret;
-        
+
 $$if SIMULATION then    
         if (branch_or_jump) {
             __display("[jump] from @%h to @%h",pc,ram.addr);
@@ -403,6 +406,7 @@ $$end
 
 algorithm decode(
   input! uint32  instr,
+  input  uint26  pc,
   output uint5   write_rd,
   output uint1   jump,
   output uint1   branch,
