@@ -319,7 +319,7 @@ $$end
         next_addr       = (ram.addr[0,26] + 4);
         ram.addr        = exec
                         ? next_addr // be optimistic, start reading next
-                        : alu_out;
+                        : alu_out;  // branch_or_jump or load_store
 
         // prepare a potential store
         switch (loadStoreOp) {
@@ -363,7 +363,7 @@ __display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xreg
 $$end
         // instruction available ? start decode+ALU : reset decoder
         halt         = exec && (ram.data_out == 0); 
-        instr        = exec ? ram.data_out : (branch_or_jump ? 0 : instr);
+        instr        = branch_or_jump ? 0 : (exec ? ram.data_out : instr);
         wait_one     = exec; // wait for decode + ALU
         instret      = exec ? instret + 1 : instret;
         
