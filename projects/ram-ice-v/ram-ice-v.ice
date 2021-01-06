@@ -424,7 +424,7 @@ algorithm decode(
   output uint1   regOrImm,
   output uint3   csr,
   output uint1   rd_enable,
-) {
+) <autorun> {
 
   int32 imm_u  := {Utype(instr).imm31_12,12b0};
   int32 imm_j  := {
@@ -556,7 +556,8 @@ algorithm intops(         // input! tells the compiler that the input does not
   always { // this part of the algorithm is executed every clock  
     switch (select) {
       case 3b000: { // ADD / SUB
-        r = a + (select2 ? -b : b);
+        // r = a + (select2 ? -b : b);
+        r = select2 ? (a - b) : (a + b);
       }
       case 3b010: { // SLTI
         if (__signed(a) < __signed(b)) { r = 32b1; } else { r = 32b0; }
