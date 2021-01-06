@@ -554,7 +554,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   // reg +/- reg (intops)
   // reg +/- imm (intops)
   // pc  + imm   (else)
-  
+  /*
   //int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : (forceZero ? __signed(32b0) : xa);
   int32 b          := regOrImm ? (xb) : imm;
   
@@ -586,8 +586,8 @@ algorithm intops(         // input! tells the compiler that the input does not
       case 3b101: { r = select2 ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
     }
   }
+  */
   
-  /*
   int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : (forceZero ? __signed(32b0) : xa);
   int32 b := regOrImm ? (xb) : imm;
   
@@ -609,7 +609,7 @@ algorithm intops(         // input! tells the compiler that the input does not
       case 3b101: { r = select2 ? (a >>> b[0,5]) : (a >> b[0,5]); } // SRLI / SRAI
     }
   }
-  */
+  
 }
 
 // --------------------------------------------------
