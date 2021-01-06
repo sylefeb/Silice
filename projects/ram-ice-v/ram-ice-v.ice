@@ -428,7 +428,7 @@ algorithm decode(
 
   next_pc := pc + 4;
 
-  jump    := (instr & 7b1100111) == 7b1100111;
+  // jump    := (instr & 7b1100111) == 7b1100111;
 
   always {
     switch (instr[ 0, 7])
@@ -437,7 +437,7 @@ algorithm decode(
         //__display("AUIPC");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        //jump        = 0;
+        jump        = 0;
         branch      = 0;
         load_store  = 0;
         // store       = 0;
@@ -455,7 +455,7 @@ algorithm decode(
         //__display("LUI");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        //jump        = 0;
+        jump        = 0;
         branch      = 0;
         load_store  = 0;
         // store       = 0;
@@ -472,7 +472,7 @@ algorithm decode(
         //__display("JAL");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        //jump        = 1;
+        jump        = 1;
         branch      = 0;
         load_store  = 0;
         // store       = 0;
@@ -494,7 +494,7 @@ algorithm decode(
         //__display("JALR");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        //jump        = 1;
+        jump        = 1;
         branch      = 0;
         load_store  = 0;
         // store       = 0;
@@ -512,7 +512,7 @@ algorithm decode(
         // __display("BR*");
         // write_rd    = 0;
         rd_enable   = 0;
-        //jump        = 0;
+        jump        = 0;
         branch      = 1;
         load_store  = 0;
         // store       = 0;
@@ -535,7 +535,7 @@ algorithm decode(
         // __display("LOAD");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        //jump        = 0;
+        jump        = 0;
         branch      = 0;
         load_store  = 1;
         store       = 0;
@@ -553,7 +553,7 @@ algorithm decode(
         // __display("STORE");
         // write_rd    = 0;
         rd_enable   = 0;
-        //jump        = 0;
+        jump        = 0;
         branch      = 0;
         load_store  = 1;
         store       = 1;
@@ -570,7 +570,7 @@ algorithm decode(
       case 7b0010011: { // integer, immediate  
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        //jump        = 0;
+        jump        = 0;
         branch      = 0;
         load_store  = 0;
         // store       = 0;
@@ -587,7 +587,7 @@ algorithm decode(
         // __display("REGOPS");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        //jump        = 0;
+        jump        = 0;
         branch      = 0;
         load_store  = 0;
         // store       = 0;
@@ -603,7 +603,7 @@ algorithm decode(
       case 7b1110011: { // timers
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        //jump        = 0;
+        jump        = 0;
         branch      = 0;
         load_store  = 0;
         // store       = 0;
@@ -620,7 +620,7 @@ algorithm decode(
       default: {
         // write_rd    = 0;        
         rd_enable   = 0;
-        //jump        = 0;
+        jump        = 0;
         branch      = 0;
         load_store  = 0;
         // store       = 0;    
