@@ -310,7 +310,7 @@ $$if SIMULATION then
 $$end       
         
         ram.in_valid    = 1;
-        ram.rw          = store; // Note: (instr == 0) => store = 0
+        ram.rw          = load_store & store; // Note: (instr == 0) => load_store = 0
         exec            = ~(load_store | branch_or_jump); // Note: (instr == 0) => exec = 1
         do_load_store   = load_store;
         
@@ -428,6 +428,8 @@ algorithm decode(
 
   next_pc := pc + 4;
 
+  jump    := (instr & 7b1100111) == 7b1100111;
+
   always {
     switch (instr[ 0, 7])
     {    
@@ -435,17 +437,17 @@ algorithm decode(
         //__display("AUIPC");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        jump        = 0;
+        //jump        = 0;
         branch      = 0;
         load_store  = 0;
-        store       = 0;
+        // store       = 0;
         select      = 0;
         select2     = 0;           
         imm         = {Utype(instr).imm31_12,12b0};
         forceZero   = 1;
         regOrPc     = 1; // pc
         regOrImm    = 1; // imm
-        csr         = 0;
+        csr[2,1]    = 0;        
         //__display("AUIPC %x",imm);
       }
       
@@ -453,27 +455,27 @@ algorithm decode(
         //__display("LUI");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        jump        = 0;
+        //jump        = 0;
         branch      = 0;
         load_store  = 0;
-        store       = 0;
+        // store       = 0;
         select      = 0;
         select2     = 0;
         imm         = {Utype(instr).imm31_12,12b0};
         forceZero   = 0; // force x0
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
-        csr         = 0;
+        csr[2,1]    = 0;        
       }
 
       case 7b1101111: { // JAL
         //__display("JAL");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        jump        = 1;
+        //jump        = 1;
         branch      = 0;
         load_store  = 0;
-        store       = 0;
+        // store       = 0;
         select      = 0;
         select2     = 0;        
         imm         = {
@@ -485,35 +487,35 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 1; // pc
         regOrImm    = 1; // imm 
-        csr         = 0;        
+        csr[2,1]    = 0;        
       }
       
       case 7b1100111: { // JALR
         //__display("JALR");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        jump        = 1;
+        //jump        = 1;
         branch      = 0;
         load_store  = 0;
-        store       = 0;
+        // store       = 0;
         select      = 0;
         select2     = 0;        
         imm         = {{20{instr[31,1]}},Itype(instr).imm};
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
-        csr         = 0;        
+        csr[2,1]    = 0;        
         //__display("JALR %x",imm);
       }
       
       case 7b1100011: { // branch
         // __display("BR*");
-        write_rd    = 0;
+        // write_rd    = 0;
         rd_enable   = 0;
-        jump        = 0;
+        //jump        = 0;
         branch      = 1;
         load_store  = 0;
-        store       = 0;
+        // store       = 0;
         select      = 0;
         select2     = 0;        
         imm         = {
@@ -526,14 +528,14 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 1; // pc
         regOrImm    = 1; // imm
-        csr         = 0;        
+        csr[2,1]    = 0;        
       }
  
       case 7b0000011: { // load
         // __display("LOAD");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        jump        = 0;
+        //jump        = 0;
         branch      = 0;
         load_store  = 1;
         store       = 0;
@@ -544,14 +546,14 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
-        csr         = 0;        
+        csr[2,1]    = 0;        
       }
       
       case 7b0100011: { // store
         // __display("STORE");
-        write_rd    = 0;
+        // write_rd    = 0;
         rd_enable   = 0;
-        jump        = 0;
+        //jump        = 0;
         branch      = 0;
         load_store  = 1;
         store       = 1;
@@ -562,73 +564,73 @@ algorithm decode(
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
-        csr         = 0;        
+        csr[2,1]    = 0;        
       }
 
       case 7b0010011: { // integer, immediate  
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        jump        = 0;
+        //jump        = 0;
         branch      = 0;
         load_store  = 0;
-        store       = 0;
+        // store       = 0;
         select      = Itype(instr).funct3;
         select2     = instr[30,1] /*SRLI/SRAI*/ & (Itype(instr).funct3 != 3b000) /*not ADD*/;
         imm         = {{20{instr[31,1]}},Itype(instr).imm};        
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 1; // imm
-        csr         = 0;        
+        csr[2,1]    = 0;        
       }
       
       case 7b0110011: { // integer, registers
         // __display("REGOPS");
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        jump        = 0;
+        //jump        = 0;
         branch      = 0;
         load_store  = 0;
-        store       = 0;
+        // store       = 0;
         select      = Itype(instr).funct3;
         select2     = Rtype(instr).select2;
-        imm         = 0;        
+        // imm         = 0;        
         forceZero   = 1;
         regOrPc     = 0; // reg
         regOrImm    = 0; // reg
-        csr         = 0;        
+        csr[2,1]    = 0;        
       }
       
       case 7b1110011: { // timers
         write_rd    = Rtype(instr).rd;
         rd_enable   = write_rd != 0;
-        jump        = 0;
+        //jump        = 0;
         branch      = 0;
         load_store  = 0;
-        store       = 0;
-        select      = 0; 
-        select2     = 0;
-        imm         = 0;
-        forceZero   = 1;
-        regOrPc     = 0; // reg
-        regOrImm    = 0; // reg  
+        // store       = 0;
+        // select      = 0; 
+        // select2     = 0;
+        // imm         = 0;
+        // forceZero   = 1;
+        // regOrPc     = 0; // reg
+        // regOrImm    = 0; // reg  
         csr         = {1b1,instr[20,2]};// we grab only the bits for 
         // low bits of rdcycle (0xc00), rdtime (0xc01), instret (0xc02)
       }
       
       default: {
-        write_rd    = 0;        
+        // write_rd    = 0;        
         rd_enable   = 0;
-        jump        = 0;
+        //jump        = 0;
         branch      = 0;
         load_store  = 0;
-        store       = 0;    
-        select      = 0;
-        select2     = 0;
-        imm         = 0;
-        forceZero   = 0;
-        regOrPc     = 0; // reg
-        regOrImm    = 0; // reg        
-        csr         = 0;        
+        // store       = 0;    
+        // select      = 0;
+        // select2     = 0;
+        // imm         = 0;
+        // forceZero   = 0;
+        // regOrPc     = 0; // reg
+        // regOrImm    = 0; // reg        
+        csr[2,1]    = 0;        
       }
     }
   }
