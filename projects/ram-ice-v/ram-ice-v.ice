@@ -445,6 +445,19 @@ algorithm decode(
   
   uint7 opcode := instr[ 0, 7];
   
+/*
+  7b0010111  AUIPC
+  7b0110111  LUI
+  7b1101111  JAL
+  7b1100111  JALR
+  7b1100011  branch
+  7b0000011  load
+  7b0100011  store
+  7b0010011  integer, immediate  
+  7b0110011  integer, registers
+  7b1110011  timers
+*/
+  
   uint1 has_rd := (opcode == 7b0010111 || opcode == 7b0110111 
                 || opcode == 7b1100111 || opcode == 7b1101111
                 || opcode == 7b0000011 || opcode == 7b0010011
@@ -467,21 +480,16 @@ algorithm decode(
   write_rd     := has_rd ? Rtype(instr).rd : 0;
   rd_enable    := write_rd != 0;  
   
-  forceZero    := (opcode == 7b0010111 || opcode == 7b1101111 
-                || opcode == 7b1100111 || opcode == 7b1100011
-                || opcode == 7b0000011 || opcode == 7b0100011
-                || opcode == 7b0010011 || opcode == 7b0110011);
-  
+  forceZero    := (opcode == 7b0110111);
+
   regOrPc      := (opcode == 7b0010111 || opcode == 7b1101111
                 || opcode == 7b1100011);
                 
-  regOrImm     := (opcode == 7b0010111 || opcode == 7b0110111
-                || opcode == 7b1101111 || opcode == 7b1100111
-                || opcode == 7b1100011 || opcode == 7b0000011
-                || opcode == 7b0100011 || opcode == 7b0010011);
-  
+  regOrImm     := (opcode == 7b0110011);
+
   csr          := {opcode == 7b1110011,instr[20,2]}; // we grab only the bits for 
                // low bits of rdcycle (0xc00), rdtime (0xc01), instret (0xc02)
+  
   always {
     switch (opcode)
     {    
@@ -513,6 +521,21 @@ algorithm decode(
       }
     }
   }
+  /*
+    always {  
+      if (opcode == 7b0010111 || opcode == 7b0110111) {
+        imm = imm_u;
+      } else { if (opcode == 7b1101111) {
+        imm = imm_j;    
+      } else { if (opcode == 7b1100111 || opcode == 7b0000011 || opcode == 7b0010011) {
+        imm = imm_i;
+      } else { if (opcode == 7b1100011) {
+        imm = imm_b;
+      } else { if (opcode == 7b0100011) {
+        imm = imm_s;
+      } } } } }
+    }
+  */  
 }
 
 // --------------------------------------------------
@@ -531,12 +554,8 @@ algorithm intops(         // input! tells the compiler that the input does not
   output! int32  r,
 ) {
   
-  int32 a := regOrPc  ? __signed({6b0,pc[0,26]}) : (forceZero ? xa : __signed(32b0));
-  int32 b := regOrImm ? imm : (xb);
-  //      ^^
-  // using := during a declaration means that the variable now constantly tracks
-  // the declared expression (but it is no longer assignable)
-  // In other words, this is a wire!
+  int32 a := regOrPc  ? __signed({6b0,pc[0,26]}) : (forceZero ? __signed(32b0) : xa);
+  int32 b := regOrImm ? (xb) : imm;
   
   always { // this part of the algorithm is executed every clock  
     switch (select) {
