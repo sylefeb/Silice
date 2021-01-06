@@ -1,0 +1,51 @@
+{
+  "name": "ecpix5",
+  "variants": [
+    {
+      "name": "85k",
+      "framework" : "ecpix5.v",
+      "pins": [
+        {"set"    : "basic"},
+        {"set"    : "uart",   "define" : "UART=1"}
+      ],
+      "builders": [
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize",
+        "tool": "trellis",
+        "tool_options": [
+          {
+              "yosys_synth_options": ["-abc9"],
+              "nextpnr_options": ["--um5g-85k", "--freq 100", "--package CABGA554", "--timing-allow-fail"],
+              "pnr": "next"
+          }
+        ],
+        "bitstream"  : "build.bit",
+        "constraints": [{"name": "ecpix5.lpf", "file_type": "LPF"}],
+        "program": [{"cmd" : "openFPGAloader", "args" : " -b ecpix5 build.bit"}]
+      }
+      ]
+    }
+  ],
+  "pins": {
+    "basic": [
+      {
+        "name": "leds",
+        "type": "uint12",
+        "io": "output"
+      }
+    ],
+    "uart": [
+      {
+        "name": "uart_tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "uart_rx",
+        "type": "uint1",
+        "io"  : "input"
+      }
+    ]
+  }
+}
