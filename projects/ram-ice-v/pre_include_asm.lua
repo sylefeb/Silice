@@ -6,6 +6,8 @@ if not path then
 end
 
 data_hex = ''
+data_bram = ''
+word = ''
 init_data_bytes = 0
 local prev_addr = -1
 
@@ -39,6 +41,11 @@ for cpu=0,1 do
       end
       prev_addr = addr
     else 
+      word     = str .. word;
+      if #word == 8 then 
+        data_bram = data_bram  .. '32h' .. word .. ','
+        word = ''
+      end
       data_hex = data_hex .. '8h' .. str .. ','
       out:write(string.pack('B', tonumber(str,16) ))
       init_data_bytes = init_data_bytes + 1

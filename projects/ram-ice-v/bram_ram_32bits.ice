@@ -12,7 +12,11 @@ algorithm bram_ram_32bits(
   
   always {
     if (wait_one) {
-      __display("========> MEMORY %b addr_in %h addr %h data %h rw %b",wait_one,pram.addr,mem.addr0,mem.rdata0,pram.rw);
+      if (pram.rw) {
+        __display("========> MEM WRITE %b addr_in %h addr %h data %h rw %b",wait_one,pram.addr,mem.addr0,pram.data_in,pram.rw);
+      } else {
+        __display("========> MEM READ  %b addr_in %h addr %h data %h rw %b",wait_one,pram.addr,mem.addr0,mem.rdata0,pram.rw);
+      }
     }
     mem.addr0           = pram.addr>>2;
     mem.addr1           = pram.addr>>2;

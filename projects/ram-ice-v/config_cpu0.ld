@@ -1,6 +1,6 @@
 MEMORY
 {
-   ram (rwx) : ORIGIN = 0x2000000, LENGTH = 0x1000000 /* remember to change crt0 for stack init as well */
+   ram (rwx) : ORIGIN = 0x2000000, LENGTH = 0x1000000
 }
 
 ENTRY(_start)
