@@ -124,7 +124,7 @@ algorithm rv32i_cpu(
   simple_dualport_bram int32 xregsB[32] = {0,pad(uninitialized)};
   
   uint1  cmp         = uninitialized;
-  uint1  halt        = 0;
+  uint1  halt(0);
   
   uint5  write_rd    = uninitialized;
   uint1  jump        = uninitialized;  
@@ -138,7 +138,7 @@ algorithm rv32i_cpu(
   uint3  select      = uninitialized;  
   uint1  select2     = uninitialized;
   
-  uint32 instr       = 0;    // initialize with null instruction, which sets everything to 0
+  uint32 instr(0);    // initialize with null instruction, which sets everything to 0
   uint26 pc          = uninitialized;
   
   uint26 next_pc     = uninitialized;
@@ -203,16 +203,16 @@ $$end
     j      :>  branch_or_jump
   ); 
 
-  uint32 cycle   = 0;
-  uint32 instret = 0;
+  uint32 cycle(0);
+  uint32 instret(0);
 
 $$if SIMULATION then
-  uint64 cycle_last_exec = 0;
+  uint64 cycle_last_exec(0);
 $$end
 
-  uint1  ram_done_pulsed = 0;
-  uint1  wait_one        = 0;
-  uint1  do_load_store   = 0;
+  uint1  ram_done_pulsed(0);
+  uint1  wait_one(0);
+  uint1  do_load_store(0);
   
   uint2  case_select   = uninitialized;
 
@@ -357,15 +357,15 @@ $$end
         // store ALU result in registers
         // -> what do we write in register? (pc or alu or csr? -- loads are handled above)
         // csr
-        switch (csr[0,2]) {
+        /*switch (csr[0,2]) {
           case 2b00: { from_csr = cycle;   }
           case 2b01: { from_csr = cpu_id;  }
           case 2b10: { from_csr = instret; }
           default: { }
-        }
+        }*/
         // write result to register
-        xregsA.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
-        xregsB.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? (next_pc) : alu_out);
+        xregsA.wdata1   = /*csr[2,1] ? from_csr :*/ (branch_or_jump ? (next_pc) : alu_out);
+        xregsB.wdata1   = /*csr[2,1] ? from_csr :*/ (branch_or_jump ? (next_pc) : alu_out);
         xregsA.wenable1 = rd_enable; // 0 on store or when instr == 0
         xregsB.wenable1 = rd_enable;
 $$if SIMULATION then
