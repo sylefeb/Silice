@@ -151,13 +151,15 @@ memClocks           : (clk0=sclock ',' clk1=sclock) ;
 memModifier         : memClocks | memNoInputLatch | memDelayed ;
 memModifiers        : '<' memModifier (',' memModifier)* ','? '>' ;
 
-type                 : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')') ;
-declarationWire      : type alwaysAssigned;
-declarationVar       : type IDENTIFIER ('=' (value | UNINITIALIZED))? ATTRIBS? ;
-declarationTable     : type IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
-declarationMemory    : (BRAM | BROM | DUALBRAM | SIMPLEDUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
-declarationGrpModAlg : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ? ;
-declaration          : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire;
+type                   : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')') ;
+declarationWire        : type alwaysAssigned;
+declarationVarInitSet  : '=' (value | UNINITIALIZED) ;
+declarationVarInitCstr : '(' (value | UNINITIALIZED) ')';
+declarationVar         : type IDENTIFIER ( declarationVarInitSet | declarationVarInitCstr )? ATTRIBS? ;
+declarationTable       : type IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
+declarationMemory      : (BRAM | BROM | DUALBRAM | SIMPLEDUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
+declarationGrpModAlg   : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ? ;
+declaration            : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire;
 
 modalgBinding        : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
 modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;

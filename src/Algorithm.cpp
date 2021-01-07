@@ -728,15 +728,35 @@ void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nf
     return;
   } else {
     // init values
-    if (decl->value() != nullptr) {
-      _nfo.init_values.push_back("0");
-      _nfo.init_values[0] = gatherValue(decl->value());
-    } else {
-      if (decl->UNINITIALIZED() != nullptr || default_no_init) {
-        _nfo.do_not_initialize = true;
+    if (decl->declarationVarInitSet()) {
+      if (decl->declarationVarInitSet()->value() != nullptr) {
+        _nfo.init_values.push_back("0");
+        _nfo.init_values[0] = gatherValue(decl->declarationVarInitSet()->value());
       } else {
+        if (decl->declarationVarInitSet()->UNINITIALIZED() != nullptr || default_no_init) {
+          _nfo.do_not_initialize = true;
+        } else {
+          reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable has no initializer, use '= uninitialized' if you really don't want to initialize it.");
+        }
+      }
+      _nfo.init_at_startup = false;
+    } else if (decl->declarationVarInitCstr()) {
+      if (decl->declarationVarInitCstr()->value() != nullptr) {
+        _nfo.init_values.push_back("0");
+        _nfo.init_values[0] = gatherValue(decl->declarationVarInitCstr()->value());
+      } else {
+        if (decl->declarationVarInitCstr()->UNINITIALIZED() != nullptr || default_no_init) {
+          _nfo.do_not_initialize = true;
+        } else {
+          reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable has no initializer, use '= uninitialized' if you really don't want to initialize it.");
+        }
+      }
+      _nfo.init_at_startup = true;
+    } else {
+      if (!default_no_init) {
         reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable has no initializer, use '= uninitialized' if you really don't want to initialize it.");
       }
+      _nfo.do_not_initialize = true;
     }
     if (decl->ATTRIBS() != nullptr) {
       _nfo.attribs = decl->ATTRIBS()->getText();
@@ -753,7 +773,7 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
   std::string is_group;
   gatherVarNfo(decl, var, false, _current, _context, is_group);
   if (!is_group.empty()) {
-    if (decl->value() != nullptr || decl->UNINITIALIZED() != nullptr || decl->ATTRIBS() != nullptr) {
+    if (decl->declarationVarInitSet() != nullptr || decl->declarationVarInitCstr() != nullptr || decl->ATTRIBS() != nullptr) {
       reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable is declared as 'sameas' a group or interface, it cannot have initializers.");
     }
     // find group (should be here, according to gatherTypeNfo)
@@ -1050,6 +1070,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     }
     v.table_size = 0;
     v.init_values.push_back("0");
+    v.init_at_startup = true;
     if (m.is_input) {
       v.access = e_InternalFlipFlop; // for internal flip-flop to circumvent issue #102 (see also Yosys #2473)
     }
@@ -3795,8 +3816,8 @@ void Algorithm::verifyMemberBitfield(std::string member, siliceParser::BitfieldC
   for (auto v : field->varList()->var()) {
     if (v->declarationVar()->IDENTIFIER()->getText() == member) {
       // verify there is no initializer
-      if (v->declarationVar()->value() != nullptr) {
-        reportError(v->declarationVar()->getSourceInterval(), (int)v->declarationVar()->value()->getStart()->getLine(),
+      if (v->declarationVar()->declarationVarInitSet() != nullptr || v->declarationVar()->declarationVarInitCstr() != nullptr) {
+        reportError(v->declarationVar()->getSourceInterval(), (int)v->declarationVar()->getStart()->getLine(),
           "bitfield members should not be given initial values (field '%s', member '%s')",
           field->IDENTIFIER()->getText().c_str(), member.c_str());
       }
@@ -5623,7 +5644,11 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
   for (const auto& v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
     if (v.table_size == 0) {
-      writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name);
+      std::string init;
+      if (v.init_at_startup && !v.init_values.empty()) {
+        init = " = " + v.init_values[0];
+      }
+      writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + init);
       writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name);
     } else {
       writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
@@ -6468,6 +6493,7 @@ void Algorithm::writeVarInits(std::string prefix, std::ostream& out, const std::
     if (v.usage  != e_FlipFlop && v.usage != e_Temporary)  continue;
     if (v.access == e_WriteOnly) continue;
     if (v.do_not_initialize)     continue;
+    if (v.init_at_startup)       continue;
     string ff = (v.usage == e_FlipFlop) ? FF_D : FF_TMP;
     if (v.table_size == 0) {
       out << ff << prefix << v.name << " = " << varInitValue(v) << ';' << nxl;

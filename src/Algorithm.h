@@ -179,6 +179,7 @@ public:
       std::vector<std::string> init_values;
       int          table_size; // 0: not a table, otherwise size
       bool         do_not_initialize = false;
+      bool         init_at_startup   = false;
       e_Access     access = e_NotAccessed;
       e_VarUsage   usage = e_Undetermined;
       std::string  attribs;
