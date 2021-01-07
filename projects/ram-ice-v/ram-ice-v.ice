@@ -210,6 +210,9 @@ $$end
   uint1  ram_done_pulsed(0);
   uint1  wait_one(0);
   uint1  do_load_store(0);
+  uint1  write_next_pc(1);
+  uint26 saved_next_pc  = uninitialized;
+  uint26 saved_write_rd = uninitialized;
   
   uint2  case_select   = uninitialized;
 
@@ -362,8 +365,13 @@ $$end
           default: { }
         }
         // write result to register
-        xregsA.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? next_pc : alu_out); // slightly faster?
-        xregsB.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? next_pc : alu_out);
+        xregsA.wdata1   = csr[2,1] ? from_csr : alu_out;
+        xregsB.wdata1   = csr[2,1] ? from_csr : alu_out;
+        
+        write_next_pc   = branch_or_jump & rd_enable;
+        saved_next_pc   = next_pc;
+        saved_write_rd  = write_rd;
+        
         // xregsA.wdata1   = branch_or_jump ? next_pc : (csr[2,1] ? from_csr :  alu_out);
         // xregsB.wdata1   = branch_or_jump ? next_pc : (csr[2,1] ? from_csr :  alu_out);
         // xregsA.wdata1   = (branch_or_jump ? next_pc : alu_out); // skip csr
@@ -382,7 +390,18 @@ $$if SIMULATION then
 $$end
       } // case 1
       
-      default: {}
+      default: {
+        if (write_next_pc) {
+        __display("write next_pc after jump reg[%d]=%h",saved_write_rd,saved_next_pc);
+          write_next_pc = 0;
+          xregsA.wdata1   = saved_next_pc;
+          xregsB.wdata1   = saved_next_pc;
+          xregsA.addr1    = saved_write_rd;
+          xregsB.addr1    = saved_write_rd;
+          xregsA.wenable1 = 1;
+          xregsB.wenable1 = 1;          
+        }
+      }
       
     } // switch
         
