@@ -152,13 +152,12 @@ $$end
 $$end
 
   int32 imm         = uninitialized;
-  uint1 forceZero   = uninitialized;
   uint1 pcOrReg     = uninitialized;
   uint1 regOrImm    = uninitialized;
   uint3 loadStoreOp = uninitialized;
   uint1 rd_enable   = uninitialized;
   decode dec(
-    instr       <: instr,
+    instr       <:: instr, // <:: since not needed before 1 cycle
     pc          <: pc,
     next_pc     :> next_pc,
     write_rd    :> write_rd,
@@ -170,7 +169,6 @@ $$end
     select      :> select,
     select2     :> select2,
     imm         :> imm,
-    forceZero   :> forceZero,
     pcOrReg     :> pcOrReg,
     regOrImm    :> regOrImm,
     csr         :> csr,
@@ -179,11 +177,10 @@ $$end
  
   int32  alu_out     = uninitialized;
   intops alu(
-    pc        <:: pc, // <:: since not needed before 1 cycle while decoder works
+    pc        <:: pc, // <:: since not needed before 1 cycle (waiting for regs)
     xa        <: xregsA.rdata0,
     xb        <: xregsB.rdata0,
     imm       <: imm,
-    forceZero <: forceZero,
     pcOrReg   <: pcOrReg,
     regOrImm  <: regOrImm,
     select    <: select,
@@ -226,7 +223,7 @@ $$end
   always {
     ram_done_pulsed = ram_done_pulsed | ram.done;
     // read/write registers
-    xregsA.addr0 = Rtype(instr).rs1;
+    xregsA.addr0 = (instr[ 0, 7] == 7b0110111) ? 0 : Rtype(instr).rs1;
     xregsB.addr0 = Rtype(instr).rs2;    
     xregsA.addr1 = write_rd;
     xregsB.addr1 = write_rd;
@@ -246,6 +243,7 @@ $$end
   ram.rw       = 0;
   ram.in_valid = 1;
   
+  // while (1) {
   while (!halt) {
   // while (cycle < 500) {
 
@@ -357,15 +355,20 @@ $$end
         // store ALU result in registers
         // -> what do we write in register? (pc or alu or csr? -- loads are handled above)
         // csr
-        /*switch (csr[0,2]) {
+        switch (csr[0,2]) {
           case 2b00: { from_csr = cycle;   }
           case 2b01: { from_csr = cpu_id;  }
           case 2b10: { from_csr = instret; }
           default: { }
-        }*/
+        }
         // write result to register
-        xregsA.wdata1   = /*csr[2,1] ? from_csr :*/ (branch_or_jump ? (next_pc) : alu_out);
-        xregsB.wdata1   = /*csr[2,1] ? from_csr :*/ (branch_or_jump ? (next_pc) : alu_out);
+        xregsA.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? next_pc : alu_out); // slightly faster?
+        xregsB.wdata1   = csr[2,1] ? from_csr : (branch_or_jump ? next_pc : alu_out);
+        // xregsA.wdata1   = branch_or_jump ? next_pc : (csr[2,1] ? from_csr :  alu_out);
+        // xregsB.wdata1   = branch_or_jump ? next_pc : (csr[2,1] ? from_csr :  alu_out);
+        // xregsA.wdata1   = (branch_or_jump ? next_pc : alu_out); // skip csr
+        // xregsB.wdata1   = (branch_or_jump ? next_pc : alu_out);
+        
         xregsA.wenable1 = rd_enable; // 0 on store or when instr == 0
         xregsB.wenable1 = rd_enable;
 $$if SIMULATION then
@@ -419,7 +422,6 @@ algorithm decode(
   output uint3   select,
   output uint1   select2,
   output int32   imm,
-  output uint1   forceZero,
   output uint1   pcOrReg,
   output uint1   regOrImm,
   output uint3   csr,
@@ -477,8 +479,6 @@ algorithm decode(
   write_rd     := Rtype(instr).rd;
   rd_enable    := (write_rd != 0) & ~no_rd;  
   
-  forceZero    := (opcode == 7b0110111);
-
   pcOrReg      := (opcode == 7b0010111 || opcode == 7b1101111 || opcode == 7b1100011);
                 
   regOrImm     := (opcode == 7b0110011);
@@ -544,7 +544,6 @@ algorithm intops(         // input! tells the compiler that the input does not
   input!  int32  imm,
   input!  uint3  select,
   input!  uint1  select2,
-  input!  uint1  forceZero,
   input!  uint1  pcOrReg,
   input!  uint1  regOrImm,
   output! int32  r,
@@ -555,7 +554,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   // reg +/- imm (intops)
   // pc  + imm   (else)
   
-  int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : (forceZero ? __signed(32b0) : xa);
+  int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
   int32 b := regOrImm ? (xb) : imm;
   
   always { // this part of the algorithm is executed every clock  
