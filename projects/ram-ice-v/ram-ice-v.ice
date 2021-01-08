@@ -575,7 +575,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   
   int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
   int32 b := regOrImm ? (xb) : imm;
-  
+
   always { // this part of the algorithm is executed every clock  
     switch (select) {
       case 3b000: { // ADD / SUB
@@ -583,19 +583,18 @@ algorithm intops(         // input! tells the compiler that the input does not
         // r = select2 ? (a - b) : (a + b);
       }
       case 3b010: { // SLTI
-        if (__signed(a) < __signed(b)) { r = 32b1; } else { r = 32b0; }
+        if (__signed(xa) < __signed(b)) { r = 32b1; } else { r = 32b0; }
       }
       case 3b011: { // SLTU
-        if (__unsigned(a) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
+        if (__unsigned(xa) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
       }
-      case 3b100: { r = a ^ b;} // XOR
-      case 3b110: { r = a | b;} // OR
-      case 3b111: { r = a & b;} // AND
-      case 3b001: { r = (a <<< b[0,5]); } // SLLI
-      case 3b101: { r = select2 ? (a >>> b[0,5]) : (a >> b[0,5]); } // SRLI / SRAI
+      case 3b100: { r = xa ^ b;} // XOR
+      case 3b110: { r = xa | b;} // OR
+      case 3b111: { r = xa & b;} // AND
+      case 3b001: { r = (xa <<< b[0,5]); } // SLLI
+      case 3b101: { r = select2 ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
     }
   }
-  
 }
 
 // --------------------------------------------------

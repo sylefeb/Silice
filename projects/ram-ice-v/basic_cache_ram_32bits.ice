@@ -11,7 +11,7 @@ algorithm basic_cache_ram_32bits(
 $$if SIMULATION then
 $$  cache_depth = 11               -- 11 => 8 KB + 2 KB (tag bits)
 $$else
-$$  cache_depth = 14
+$$  cache_depth = 11
 $$end
 $$cache_size  = 1<<cache_depth
 
@@ -21,9 +21,9 @@ $$cache_size  = 1<<cache_depth
   
   uint26 predicted_addr           = uninitialized;  
   // track when address is in cache region and onto which entry   
-  uint1  in_cache                :=      ((pram.addr[0,26] >> 2) | $cache_size-1$) 
-                                      == ((cache_start     >> 2) | $cache_size-1$);
-  uint$cache_depth$  cache_entry := (pram.addr[0,26] >> 2) & ($cache_size-1$);
+  uint1  in_cache                :=      (pram.addr   >> $2+cache_depth$)
+                                      == (cache_start >> $2+cache_depth$);
+  uint$cache_depth$  cache_entry := (pram.addr[0,26] >> 2);
   
   uint1  work_todo(0);
   uint1  cache_predicted(0);
@@ -41,9 +41,9 @@ $$cache_size  = 1<<cache_depth
     cached_map.wenable1 = uram.done & ((~uram.rw) || (pram.wmask == 4b1111)) & in_cache;
     cached_map.wdata1   = 1;
 
-  //}
+  }
   
-  //while (1) {
+  while (1) {
   
     if (work_todo
     || (pram.in_valid 
