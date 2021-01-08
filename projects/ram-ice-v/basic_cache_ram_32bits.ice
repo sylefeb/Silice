@@ -40,6 +40,7 @@ $$cache_size  = 1<<cache_depth
     cached_map.addr1    = cache_entry;
     cached_map.wenable1 = uram.done & ((~uram.rw) || (pram.wmask == 4b1111)) & in_cache;
     cached_map.wdata1   = 1;
+
   //}
   
   //while (1) {

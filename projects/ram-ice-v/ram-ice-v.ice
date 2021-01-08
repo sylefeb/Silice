@@ -105,6 +105,7 @@ interface rv32i_ram_provider {
   input   data_in,
   output  data_out,
   input   in_valid,
+  // input   next, // pulses with in_valid in the next (from previous addr) is asked, addr is then ignored
   output  done
 }
 
@@ -246,9 +247,9 @@ $$end
   ram.rw       = 0;
   ram.in_valid = 1;
   
-  // while (1) {
   while (!halt) {
   // while (cycle < 500) {
+  // while (instret < 256) {
 
     switch (case_select) {
     
@@ -325,7 +326,6 @@ $$end
         halt         = exec && (ram.data_out == 0); 
         instr        = branch_or_jump ? 0 : (exec ? ram.data_out : instr);
         wait_one     = exec; // wait for decode + ALU
-        instret      = exec ? instret + 1 : instret;        
         pc           = exec ? ram.addr : pc;
         next_addr    = (ram.addr[0,26] + 4);
         ram.addr     = exec
@@ -379,11 +379,11 @@ $$end
         
         xregsA.wenable1 = rd_enable; // 0 on store or when instr == 0
         xregsB.wenable1 = rd_enable;
+        
+        instret      = exec ? instret + 1 : instret;
+
 $$if SIMULATION then
 __display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
-$$end
-
-$$if SIMULATION then    
         if (branch_or_jump) {
             __display("[jump] from @%h to @%h",pc,ram.addr);
         }

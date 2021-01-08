@@ -5387,6 +5387,7 @@ void Algorithm::writeWireAssignements(
     // mixing these two is forbidden, as this quickly leads to confusion without real benefits
     for (const auto &d : _dependencies.dependencies.at(var)) {
       // is this dependency a wire?
+      /*
       auto W = m_WireAssignments.find(d);
       if (W != m_WireAssignments.end()) {
         auto w_alw    = dynamic_cast<siliceParser::AlwaysAssignedContext *>(W->second.instr);
@@ -5396,6 +5397,7 @@ void Algorithm::writeWireAssignements(
             "inconsistent use of ::= and := between bound expressions (with '%s')",d.c_str());
         }
       }
+      */
       // update usage of dependencies to q
       // NOTE: could be done only if wire is used ...
       updateFFUsage(e_Q, true, _ff_usage.ff_usage[d]);
