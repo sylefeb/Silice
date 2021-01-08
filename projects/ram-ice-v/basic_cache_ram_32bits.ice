@@ -19,11 +19,11 @@ $$cache_size  = 1<<cache_depth
   simple_dualport_bram uint1  cached_map[$cache_size$] = {pad(0)};
   simple_dualport_bram uint32 cached    [$cache_size$] = uninitialized;
   
-  uint32 predicted_addr           = uninitialized;  
+  uint26 predicted_addr           = uninitialized;  
   // track when address is in cache region and onto which entry   
-  uint1  in_cache                :=      ((pram.addr   >> 2) | $cache_size-1$) 
-                                      == ((cache_start >> 2) | $cache_size-1$);
-  uint$cache_depth$  cache_entry := (pram.addr >> 2) & ($cache_size-1$);
+  uint1  in_cache                :=      ((pram.addr[0,26] >> 2) | $cache_size-1$) 
+                                      == ((cache_start     >> 2) | $cache_size-1$);
+  uint$cache_depth$  cache_entry := (pram.addr[0,26] >> 2) & ($cache_size-1$);
   
   uint1  work_todo(0);
   uint1  cache_predicted(0);
@@ -46,28 +46,28 @@ $$cache_size  = 1<<cache_depth
   
     if (work_todo
     || (pram.in_valid 
-    && (predicted_addr == pram.addr)
+    && (predicted_addr == pram.addr[0,26])
     &&  cache_predicted)    
     ) {
       work_todo     = 0;      
       if (in_cache && cached_map.rdata0) {
-        if (pram.rw) {
+        //if (pram.rw) {
           // write in cache
-          cached    .wenable1 = 1;
+          cached    .wenable1 = pram.rw;
           cached    .wdata1   = {
                                  pram.wmask[3,1] ? pram.data_in[24,8] : cached.rdata0[24,8],
                                  pram.wmask[2,1] ? pram.data_in[16,8] : cached.rdata0[16,8],
                                  pram.wmask[1,1] ? pram.data_in[ 8,8] : cached.rdata0[ 8,8],
                                  pram.wmask[0,1] ? pram.data_in[ 0,8] : cached.rdata0[ 0,8]
                                };
-        } else {
+        //} else {
           // read from cache
           pram.data_out = cached.rdata0 >> {pram.addr[0,2],3b000};
-        }
+        //}
         // done
         pram.done        = 1;          
         // prediction
-        predicted_addr   = pram.addr + 4;
+        predicted_addr   = pram.addr[0,26] + 4;
         cached    .addr0 = (predicted_addr>>2) & $cache_size-1$;
         cached_map.addr0 = (predicted_addr>>2) & $cache_size-1$;
         cache_predicted  = 1;
