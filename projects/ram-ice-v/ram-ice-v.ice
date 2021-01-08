@@ -332,6 +332,8 @@ $$end
                         ? next_addr // be optimistic, start reading next
                         : alu_out;  // branch_or_jump or load_store
 
+        instret      = exec ? instret + 1 : instret;
+
         // prepare a potential store
         switch (loadStoreOp) {
           case 3b000: { // SB
@@ -380,8 +382,6 @@ $$end
         xregsA.wenable1 = rd_enable; // 0 on store or when instr == 0
         xregsB.wenable1 = rd_enable;
         
-        instret      = exec ? instret + 1 : instret;
-
 $$if SIMULATION then
 __display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
         if (branch_or_jump) {
