@@ -4,7 +4,7 @@
 //
 // ------------------------- 
 
-$$TEST_r128w8_else_r16w16 = false
+$$TEST_r128w8_else_r16w16 = true
 $$TEST_with_autoprecharge = true
 
 $include('../common/sdram_interfaces.ice')
@@ -84,10 +84,12 @@ $$if ULX3S then
 $$end
 {
 
+$$if not ICARUS then
 uint1 rst = uninitialized;
 clean_reset rstcond<@sdram_clock,!reset> (
   out   :> rst
 );  
+$$end
 
 // --- SDRAM
 

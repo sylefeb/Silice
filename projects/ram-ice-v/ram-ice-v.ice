@@ -212,8 +212,8 @@ $$end
   
   uint1  branch_or_jump = uninitialized;
   intcmp cmps(
-    a      <:  aluA,
-    b      <:  aluB,
+    a      <:: regA,
+    b      <:: regB,
     select <:  funct3,
     branch <:  branch,
     jump   <:  jump,
@@ -266,28 +266,28 @@ $$end
   // while (cycle < 400) {
   // while (instret < 128) {
 
-    if (ram_done_pulsed) {
-      __display("[ram_done_pulsed] ram.data_out %h",ram.data_out);        
-    }
+    //if (ram_done_pulsed) {
+    //  __display("[ram_done_pulsed] ram.data_out %h",ram.data_out);        
+    //}
 
     switch (case_select) {
     
       case 8: {
       ram_done_pulsed = 0;
-      __display("----------- CASE 8 ------------- (cycle %d)",cycle);     
+      //__display("----------- CASE 8 ------------- (cycle %d)",cycle);     
 $$if SIMULATION then
-        __display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
+        //__display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
 $$end
         refetch         = 0;
 
         // record next instruction
         next_instr      = ram.data_out;
         next_instr_pc   = ram.addr;
-__display("[NEXT instr] %h @%h",next_instr,next_instr_pc);
+//__display("[NEXT instr] %h @%h",next_instr,next_instr_pc);
         // prepare load registers for next instruction
         xregsA.addr0    = Rtype(next_instr).rs1;
         xregsB.addr0    = Rtype(next_instr).rs2;
-__display("[setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
+//__display("[setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
 
         // refetch
         ram.addr        = refetch_addr;
@@ -299,10 +299,10 @@ __display("[setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);
       }
     
       case 4: {
-      __display("----------- CASE 4 ------------- (cycle %d)",cycle);
+      //__display("----------- CASE 4 ------------- (cycle %d)",cycle);
         ram_done_pulsed = 0;
 $$if SIMULATION then
-        __display("[load store] (cycle %d) store %b",cycle,saved_store);
+        //__display("[load store] (cycle %d) store %b",cycle,saved_store);
 $$end        
         do_load_store   = 0;
         // data with memory access
@@ -327,21 +327,23 @@ $$end
           xregsA.wdata1   = tmp;
           xregsB.wdata1   = tmp;
 $$if SIMULATION then
-if (xregsA.wenable1) {
-__display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
-}
+//if (xregsA.wenable1) {
+//__display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
+//}
 $$end
         }
         
         if ((Rtype(next_instr).rs1 == xregsA.addr1
           || Rtype(next_instr).rs2 == xregsB.addr1) & saved_rd_enable) {
+          // too bad, but we have to write a register that was already
+          // read for the prefetched instruction ... play again!
           ram.addr        = pc;
           wait_next_instr = 1;
           instr           = 0; // reset decoder
         } else {
           // be optimistic: request next-next instruction
           ram.addr        = next_instr_pc + 4;
-__display("[RAM ADDR] @%h",ram.addr);
+//__display("[RAM ADDR] @%h",ram.addr);
           commit_decode     = 1;
         }
         ram.in_valid    = 1;
@@ -353,31 +355,31 @@ __display("[RAM ADDR] @%h",ram.addr);
 
       case 2: {
       ram_done_pulsed = 0;
-      __display("----------- CASE 2 ------------- (cycle %d)",cycle);
-      __display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
+//      __display("----------- CASE 2 ------------- (cycle %d)",cycle);
+//      __display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
         // Note: ALU for previous (if any) is running ...
         wait_next_instr = 0;
         // record next instruction
         next_instr      = ram.data_out;
         next_instr_pc   = ram.addr;
-__display("[NEXT instr] %h @%h",next_instr,next_instr_pc);
+//__display("[NEXT instr] %h @%h",next_instr,next_instr_pc);
         // prepare load registers for next instruction
         xregsA.addr0    = Rtype(next_instr).rs1;
         xregsB.addr0    = Rtype(next_instr).rs2;
-__display("[setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
+//__display("[setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
         commit_decode   = 1;
         // be optimistic: request next-next instruction
         ram.addr        = (ram.addr[0,26] + 4);
-__display("[RAM ADDR] @%h",ram.addr);
+//__display("[RAM ADDR] @%h",ram.addr);
         ram.in_valid    = 1;
         ram.rw          = 0;
       }
       
       case 1: {
         int32 from_csr = uninitialized;
-      __display("----------- CASE 1 ------------- (cycle %d)",cycle);
+      //__display("----------- CASE 1 ------------- (cycle %d)",cycle);
         if (instr == 0) {
-          __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
+//          __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
         } else {
           __display("========> [ALU done (%h)   ] (cycle %d) pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,cycle,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
         }
@@ -387,8 +389,8 @@ __display("[RAM ADDR] @%h",ram.addr);
         if (instr != 0) {
           instret = instret + 1;
 $$if SIMULATION then          
-          __display("========> [retired instruction] *** %d since ***",cycle-cycle_last_retired);
-          cycle_last_retired = cycle;
+//          __display("========> [retired instruction] *** %d since ***",cycle-cycle_last_retired);
+//          cycle_last_retired = cycle;
 $$end          
         }
         
@@ -403,9 +405,9 @@ $$end
         refetch_addr      = alu_out;
         refetch_rw        = load_store & store;            // Note: (instr == 0) => load_store = 0
 $$if SIMULATION then
-if (refetch) {
-  __display("[refetch from] %h",refetch_addr);
-}
+//if (refetch) {
+//  __display("[refetch from] %h",refetch_addr);
+//}
 $$end
         // wait for next instr?
         wait_next_instr = ~refetch & ~do_load_store;
@@ -446,16 +448,16 @@ $$end
         xregsB.addr1    = write_rd;
         xregsA.wenable1 = (~refetch | jump) & rd_enable; // Note: instr == 0 => rd_enable == 0 
         xregsB.wenable1 = (~refetch | jump) & rd_enable; // postpone write if refetch (load)
-if (xregsA.wenable1) {        
-__display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
-}
+//if (xregsA.wenable1) {        
+//__display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
+//}
         // setup decoder and ALU for instruction i+1
         instr = next_instr;
         pc    = next_instr_pc;
-__display("[instr setup] %h @%h",instr,pc);
+//__display("[instr setup] %h @%h",instr,pc);
         regA  = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
         regB  = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   
-__display("[regs READ] regA[%d]=%h (%h) regB[%d]=%h (%h)",xregsA.addr0,regA,xregsA.rdata0,xregsB.addr0,regB,xregsB.rdata0);        
+//__display("[regs READ] regA[%d]=%h (%h) regB[%d]=%h (%h)",xregsA.addr0,regA,xregsA.rdata0,xregsB.addr0,regB,xregsB.rdata0);        
       }
     } // switch
         

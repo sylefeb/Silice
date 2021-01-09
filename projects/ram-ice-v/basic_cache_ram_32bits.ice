@@ -19,14 +19,13 @@ $$cache_size  = 1<<cache_depth
   simple_dualport_bram uint1  cached_map[$cache_size$] = {pad(0)};
   simple_dualport_bram uint32 cached    [$cache_size$] = uninitialized;
   
-  uint26 predicted_addr           = uninitialized;  
+  uint24 predicted_addr(24hffffff);
   // track when address is in cache region and onto which entry   
   uint1  in_cache                :=      (pram.addr   >> $2+cache_depth$)
                                       == (cache_start >> $2+cache_depth$);
   uint$cache_depth$  cache_entry := (pram.addr[0,26] >> 2);
   
   uint1  work_todo(0);
-  uint1  cache_predicted(0);
   
   uram.in_valid := 0; // pulsed high when needed
   
@@ -40,22 +39,19 @@ $$cache_size  = 1<<cache_depth
     cached_map.addr1    = cache_entry;
     cached_map.wenable1 = uram.done & ((~uram.rw) || (pram.wmask == 4b1111)) & in_cache;
     cached_map.wdata1   = 1;
-
   }
   
   while (1) {
   
     if (work_todo
-    || (pram.in_valid 
-    && (predicted_addr == pram.addr[0,26])
-    &&  cache_predicted)    
+    || (pram.in_valid && (predicted_addr == pram.addr[2,24]))    
     ) {
-      __display("CACHED MEM access @%h rw:%b datain:%h",pram.addr,pram.rw,pram.data_in);
+      // __display("CACHED MEM access @%h rw:%b datain:%h",pram.addr,pram.rw,pram.data_in);
       work_todo     = 0;      
       if (in_cache && cached_map.rdata0) {
         if (pram.rw) {
           // write in cache
-          cached    .wenable1 = pram.rw;
+          cached    .wenable1 = 1;
           cached    .wdata1   = {
                                  pram.wmask[3,1] ? pram.data_in[24,8] : cached.rdata0[24,8],
                                  pram.wmask[2,1] ? pram.data_in[16,8] : cached.rdata0[16,8],
@@ -69,10 +65,9 @@ $$cache_size  = 1<<cache_depth
         // done
         pram.done        = 1;          
         // prediction
-        predicted_addr   = pram.addr[0,26] + 4;
-        cached    .addr0 = (predicted_addr>>2) & $cache_size-1$;
-        cached_map.addr0 = (predicted_addr>>2) & $cache_size-1$;
-        cache_predicted  = 1;
+        predicted_addr   = pram.addr[2,24] + 1;
+        cached    .addr0 = (predicted_addr);
+        cached_map.addr0 = (predicted_addr);
       } else {
         // relay to used interface
         uram.addr      = {pram.addr[2,30],2b00};
@@ -87,7 +82,7 @@ $$cache_size  = 1<<cache_depth
     if (pram.in_valid && !pram.done && !uram.in_valid) {
       cached.addr0     = cache_entry;
       cached_map.addr0 = cache_entry;
-      cache_predicted  = 0;
+      predicted_addr   = 24hffffff;
       work_todo        = 1;
     }
 

@@ -203,7 +203,7 @@ $$ cmd_active_delay    = 2
 $$ cmd_precharge_delay = 3
 $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
 
-  uint10 refresh_count = 0;
+  int11 refresh_count = 0;
   
   // wait for incount cycles, incount >= 3
   subroutine wait(input uint16 incount)
@@ -212,9 +212,9 @@ $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_
     // +1 for sub entry,
     // +1 for sub exit,
     // +1 for proper loop length
-    uint17 count = uninitialized;
+    uint16 count = uninitialized;
     count = incount;
-    while (count > 0) {
+    while (count != 0) {
       count = count - 1;      
     }
   }
@@ -261,7 +261,7 @@ $$end
   reg_sdram_a  = 0;
   reg_sdram_ba = 0;
   reg_dq_en    = 0;
-  () <- wait <- (131071); // 1+ msec at 100MHz
+  () <- wait <- (65535); // ~0.5 msec at 100MHz
  
   // precharge all
   cmd      = CMD_PRECHARGE;
@@ -273,14 +273,14 @@ $$end
   cmd      = CMD_LOAD_MODE_REG;
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   reg_sdram_ba = 0;
-  reg_sdram_a  = {3b000, 1b1, 2b00, 3b011/*CAS*/, 1b0, $burst_config$ /*burst x8*/};
+  reg_sdram_a  = {3b000, 1b1, 2b00, 3b011/*CAS*/, 1b0, $burst_config$ };
   () <- wait <- (0);
   
   // init done, start answering requests  
   while (1) {
 
     // refresh?
-    if (refresh_count == 0) {
+    if (refresh_count[10,1] == 1) { // became negative!
 
       // refresh
       cmd           = CMD_REFRESH;
