@@ -50,6 +50,7 @@ $$cache_size  = 1<<cache_depth
     && (predicted_addr == pram.addr[0,26])
     &&  cache_predicted)    
     ) {
+      __display("CACHED MEM access @%h rw:%b datain:%h",pram.addr,pram.rw,pram.data_in);
       work_todo     = 0;      
       if (in_cache && cached_map.rdata0) {
         //if (pram.rw) {

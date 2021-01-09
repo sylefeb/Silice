@@ -11,12 +11,11 @@ algorithm bram_ram_32bits(
   uint1 wait_one(0);
   
   always {
-    if (wait_one) {
-      if (pram.rw) {
-        __display("========> MEM WRITE %b addr_in %h addr %h data %h rw %b",wait_one,pram.addr,mem.addr0,pram.data_in,pram.rw);
-      } else {
-        __display("========> MEM READ  %b addr_in %h addr %h data %h rw %b",wait_one,pram.addr,mem.addr0,mem.rdata0,pram.rw);
-      }
+    if (pram.rw & pram.in_valid) {
+        __display("MEM WRITE %b addr_in %h data %h rw %b",wait_one,pram.addr,pram.data_in,pram.rw);
+    }
+    if (wait_one & ~pram.rw) {
+      __display("MEM READ  %b addr_in %h data %h rw %b",wait_one,pram.addr,mem.rdata0,pram.rw);
     }
     mem.addr0           = pram.addr>>2;
     mem.addr1           = pram.addr>>2;

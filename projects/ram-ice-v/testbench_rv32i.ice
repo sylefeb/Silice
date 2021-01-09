@@ -6,6 +6,7 @@ $$sdcard_image_pad_size = 0
 // pre-compilation script, embeds compile code within sdcard image
 $$dofile('pre_include_asm.lua')
 
+$$SHOW_REGS=true
 $include('ram-ice-v.ice')
 $include('bram_ram_32bits.ice')
 
@@ -35,7 +36,7 @@ algorithm main(
   );
 
   uint16 iter = 0;
-  while (iter < 512) {
+  while (iter < 1024) {
   
     leds       = ram.addr[0,8];
     cpu_enable = 1;
