@@ -279,11 +279,23 @@ $$if SIMULATION then
         __display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
 $$end
         refetch         = 0;
+
+        // record next instruction
+        next_instr      = ram.data_out;
+        next_instr_pc   = ram.addr;
+__display("[NEXT instr] %h @%h",next_instr,next_instr_pc);
+        // prepare load registers for next instruction
+        xregsA.addr0    = Rtype(next_instr).rs1;
+        xregsB.addr0    = Rtype(next_instr).rs2;
+__display("[setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
+
+        // refetch
         ram.addr        = refetch_addr;
         ram.rw          = refetch_rw;
         ram.in_valid    = 1;
         instr           = do_load_store ? instr : 0; // reset decoder
         wait_next_instr = ~do_load_store ;
+
       }
     
       case 4: {
@@ -309,7 +321,6 @@ $$end
             }
             default: { tmp = 0; }
           }            
-          // __display("[LOAD] %b %h (%h) @%h",loadStoreOp,tmp,ram.data_out,ram.addr);
           // write result to register
           xregsA.wenable1 = saved_rd_enable;
           xregsB.wenable1 = saved_rd_enable;
@@ -321,12 +332,23 @@ __display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xreg
 }
 $$end
         }
-        // prepare load next instruction
+        
+        if ((Rtype(next_instr).rs1 == xregsA.addr1
+          || Rtype(next_instr).rs2 == xregsB.addr1) & saved_rd_enable) {
+          ram.addr        = pc;
+          wait_next_instr = 1;
+          instr           = 0; // reset decoder
+        } else {
+          // be optimistic: request next-next instruction
+          ram.addr        = next_instr_pc + 4;
+__display("[RAM ADDR] @%h",ram.addr);
+          commit_decode     = 1;
+        }
         ram.in_valid    = 1;
         ram.rw          = 0;
-        ram.addr        = pc;
-        wait_next_instr = 1;
-        instr           = 0; // reset decoder
+        //ram.addr        = pc
+        //wait_next_instr = 1;
+        //instr           = 0; // reset decoder        
       } // case 4
 
       case 2: {
@@ -346,7 +368,7 @@ __display("[setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);
         commit_decode   = 1;
         // be optimistic: request next-next instruction
         ram.addr        = (ram.addr[0,26] + 4);
-__display("[RAM ADDR] @%h",ram.addr);        
+__display("[RAM ADDR] @%h",ram.addr);
         ram.in_valid    = 1;
         ram.rw          = 0;
       }
@@ -371,8 +393,6 @@ $$end
         }
         
         // commit previous instruction
-        // uint1 do_commit = (instr != 0);
-        
         // load store next?
         do_load_store     = load_store; // Note instr == 0 => load_store == 0        
         saved_store       = store;
