@@ -364,8 +364,10 @@ __display("[RAM ADDR] @%h",ram.addr);
         
         if (instr != 0) {
           instret = instret + 1;
+$$if SIMULATION then          
           __display("========> [retired instruction] *** %d since ***",cycle-cycle_last_retired);
           cycle_last_retired = cycle;
+$$end          
         }
         
         // commit previous instruction
