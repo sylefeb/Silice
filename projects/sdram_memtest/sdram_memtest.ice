@@ -4,9 +4,16 @@
 //
 // ------------------------- 
 
+$$TEST_r128w8_else_r16w16 = false
+
 $include('../common/sdram_interfaces.ice')
-// include('../common/sdram_controller_autoprecharge_r128_w8.ice')
+
+$$if TEST_r128w8_else_r16w16 then
+$include('../common/sdram_controller_autoprecharge_r128_w8.ice')
+$$else 
 $include('../common/sdram_controller_autoprecharge_r16_w16.ice')
+$$end
+
 $include('../common/sdram_utils.ice')
 
 $$if ICARUS then
@@ -23,8 +30,10 @@ $$end
 $$if SIMULATION then
 $$  TEST_SIZE = 1<<16
 $$else
-$$  TEST_SIZE = 1<<24
+$$  TEST_SIZE = 1<<26
 $$end
+
+$include('../common/clean_reset.ice')
 
 // ------------------------- 
 
@@ -59,9 +68,14 @@ $$end
 $$end
 ) 
 $$if ULX3S then
-<@sdram_clock>
+<@sdram_clock,!rst>
 $$end
 {
+
+uint1 rst = uninitialized;
+clean_reset rstcond<@sdram_clock,!reset> (
+  out   :> rst
+);  
 
 // --- SDRAM
 
@@ -93,12 +107,17 @@ simul_sdram simul(
 $$end
 
   // SDRAM interface
+$$if TEST_r128w8_else_r16w16 then  
+  sdram_r128w8_io sio;
+$$else  
   sdram_r16w16_io sio;
-  // sdram_r128w8_io sio;
-  
+$$end
   // algorithm
+$$if TEST_r128w8_else_r16w16 then  
+  sdram_controller_autoprecharge_r128_w8 sdram(
+$$else  
   sdram_controller_autoprecharge_r16_w16 sdram(
-  // sdram_controller_autoprecharge_r128_w8 sdram(
+$$end
     sd        <:> sio,
     sdram_cle :>  sdram_cle,
     sdram_dqm :>  sdram_dqm,
@@ -117,7 +136,7 @@ $$end
   $$end
   );
 
-  uint26               count = 0;
+  uint27               count = 0;
   sameas(sio.data_out) read  = 0;
 
 $$if VERILATOR then
@@ -162,8 +181,11 @@ $$if SIMULATION then
       __display("write [%x] = %x",count,sio.data_in);
     }
 $$end    
-    // count          = count + 1; // r128w8
+$$if TEST_r128w8_else_r16w16 then  
+    count = count + 1;
+$$else   
     count = count + 2;
+$$end
   }
 
   __display("=== readback ===");
@@ -185,8 +207,11 @@ $$if SIMULATION then
       __display("read  [%x] = %x",count,read);
     }
 $$end
-    // count = count + 16; // r128w8
+$$if TEST_r128w8_else_r16w16 then  
+    count = count + 16;
+$$else   
     count = count + 2;
+$$end
   }  
 
 }
