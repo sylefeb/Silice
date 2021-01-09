@@ -53,7 +53,7 @@ $$cache_size  = 1<<cache_depth
       __display("CACHED MEM access @%h rw:%b datain:%h",pram.addr,pram.rw,pram.data_in);
       work_todo     = 0;      
       if (in_cache && cached_map.rdata0) {
-        //if (pram.rw) {
+        if (pram.rw) {
           // write in cache
           cached    .wenable1 = pram.rw;
           cached    .wdata1   = {
@@ -62,10 +62,10 @@ $$cache_size  = 1<<cache_depth
                                  pram.wmask[1,1] ? pram.data_in[ 8,8] : cached.rdata0[ 8,8],
                                  pram.wmask[0,1] ? pram.data_in[ 0,8] : cached.rdata0[ 0,8]
                                };
-        //} else {
+        } else {
           // read from cache
           pram.data_out = cached.rdata0 >> {pram.addr[0,2],3b000};
-        //}
+        }
         // done
         pram.done        = 1;          
         // prediction
