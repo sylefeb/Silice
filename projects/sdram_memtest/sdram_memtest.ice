@@ -4,9 +4,28 @@
 //
 // ------------------------- 
 
+$$TEST_r128w8_else_r16w16 = false
+$$TEST_with_autoprecharge = true
+
 $include('../common/sdram_interfaces.ice')
-// include('../common/sdram_controller_autoprecharge_r128_w8.ice')
+
+$$if TEST_r128w8_else_r16w16 then
+$$  if TEST_with_autoprecharge then
+$$    print('TESTING sdram_controller_autoprecharge_r128_w8')
+$include('../common/sdram_controller_autoprecharge_r128_w8.ice')
+$$  else
+$$    print('TESTING sdram_controller_r128_w8')
+$include('../common/sdram_controller_r128_w8.ice')
+$$  end
+$$else 
+$$  if TEST_with_autoprecharge then
+$$    print('TESTING sdram_controller_autoprecharge_r16_w16')
 $include('../common/sdram_controller_autoprecharge_r16_w16.ice')
+$$  else
+$$    error('controller not yet implemented')
+$$  end
+$$end
+
 $include('../common/sdram_utils.ice')
 
 $$if ICARUS then
@@ -23,8 +42,10 @@ $$end
 $$if SIMULATION then
 $$  TEST_SIZE = 1<<16
 $$else
-$$  TEST_SIZE = 1<<24
+$$  TEST_SIZE = 1<<26
 $$end
+
+$include('../common/clean_reset.ice')
 
 // ------------------------- 
 
@@ -59,9 +80,14 @@ $$end
 $$end
 ) 
 $$if ULX3S then
-<@sdram_clock>
+<@sdram_clock,!rst>
 $$end
 {
+
+uint1 rst = uninitialized;
+clean_reset rstcond<@sdram_clock,!reset> (
+  out   :> rst
+);  
 
 // --- SDRAM
 
@@ -93,12 +119,21 @@ simul_sdram simul(
 $$end
 
   // SDRAM interface
+$$if TEST_r128w8_else_r16w16 then  
+  sdram_r128w8_io sio;
+$$else  
   sdram_r16w16_io sio;
-  // sdram_r128w8_io sio;
-  
+$$end
   // algorithm
+$$if TEST_r128w8_else_r16w16 then  
+$$  if TEST_with_autoprecharge then
+  sdram_controller_autoprecharge_r128_w8 sdram(
+$$  else
+  sdram_controller_r128_w8 sdram(
+$$  end  
+$$else  
   sdram_controller_autoprecharge_r16_w16 sdram(
-  // sdram_controller_autoprecharge_r128_w8 sdram(
+$$end
     sd        <:> sio,
     sdram_cle :>  sdram_cle,
     sdram_dqm :>  sdram_dqm,
@@ -117,8 +152,8 @@ $$end
   $$end
   );
 
-  uint26               count = 0;
-  sameas(sio.data_out) read  = 0;
+  uint27               count = uninitialized;
+  uint2                pass  = 0;
 
 $$if VERILATOR then
   // sdram clock for verilator simulation
@@ -146,47 +181,41 @@ $$end
   // maintain low (pulses when ready, see below)
   sio.in_valid := 0;
 
-  __display("=== writing ===");
-
-  // write
-  sio.rw = 1;
-  while (count < $TEST_SIZE$) {
-    // write to sdram
-    sio.data_in    = count[0,8];            
-    sio.addr       = count;
-    sio.in_valid   = 1; // go ahead!
-    while (!sio.done) { }
-    leds = count[16,8];
-$$if SIMULATION then    
-    if (count < 16 || count > $TEST_SIZE-16$) {
-      __display("write [%x] = %x",count,sio.data_in);
+  while (pass < 2) {  
+    sio.rw = ~pass[0,1];
+    leds   = 8b01000100;
+    count  = 0;
+    while (count < $TEST_SIZE$) {
+      // write to sdram
+      sio.data_in    = count[0,8];            
+      sio.addr       = count;
+      sio.in_valid   = 1; // go ahead!
+      while (!sio.done) { }
+      if (~pass[0,1]) {
+        leds = count[16,8];
+        $$if SIMULATION then    
+        if (count < 16 || count > $TEST_SIZE-16$) {
+          __display("write [%x] = %x",count,sio.data_in);
+        }      
+        $$end
+      } else {
+        if (sio.data_out[0,8] != count[0,8]) {
+          leds = 8b00010001;
+          __display("ERROR AT %h",count);
+        }
+        $$if SIMULATION then    
+        if (count < 16 || count >= $TEST_SIZE-16$) {
+          __display("read  [%x] = %x",count,sio.data_out);
+        }
+        $$end
+      }
+  $$if TEST_r128w8_else_r16w16 then  
+      count = count + (pass ? 16 : 1);
+  $$else   
+      count = count + 2;
+  $$end
     }
-$$end    
-    // count          = count + 1; // r128w8
-    count = count + 2;
+    pass = pass + 1;
   }
-
-  __display("=== readback ===");
-  // read back
-  sio.rw = 0;
-  count  = 0;
-  leds   = 8b01000100;
-  while (count < $TEST_SIZE$) {
-    sio.addr     = count;
-    sio.in_valid = 1; // go ahead!
-    while (!sio.done) { }
-    read = sio.data_out;
-    if (read[0,8] != count[0,8]) {
-      leds = 8b00010001;
-      __display("ERROR AT %h",count);
-    }
-$$if SIMULATION then    
-    if (count < 16 || count >= $TEST_SIZE-16$) {
-      __display("read  [%x] = %x",count,read);
-    }
-$$end
-    // count = count + 16; // r128w8
-    count = count + 2;
-  }  
 
 }

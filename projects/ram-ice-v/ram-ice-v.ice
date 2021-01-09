@@ -418,12 +418,12 @@ $$end
           default: { }
         }
         // write result to register
-        xregsA.wdata1   = branch_or_jump ? next_pc : (csr[2,1] ? from_csr :  alu_out);
-        xregsB.wdata1   = branch_or_jump ? next_pc : (csr[2,1] ? from_csr :  alu_out);
+        xregsA.wdata1   = branch_or_jump ? next_instr_pc : (csr[2,1] ? from_csr :  alu_out);
+        xregsB.wdata1   = branch_or_jump ? next_instr_pc : (csr[2,1] ? from_csr :  alu_out);
         xregsA.addr1    = write_rd;
         xregsB.addr1    = write_rd;
-        xregsA.wenable1 = ~refetch & rd_enable; // Note: instr == 0 => rd_enable == 0 
-        xregsB.wenable1 = ~refetch & rd_enable; // postpone write if refetch (load)
+        xregsA.wenable1 = (~refetch | jump) & rd_enable; // Note: instr == 0 => rd_enable == 0 
+        xregsB.wenable1 = (~refetch | jump) & rd_enable; // postpone write if refetch (load)
 if (xregsA.wenable1) {        
 __display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
 }

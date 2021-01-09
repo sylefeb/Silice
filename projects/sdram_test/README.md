@@ -2,7 +2,7 @@
 
 This project shows how to use the simplest SDRAM controller, which reads and writes 16 bits words. This typically matches the width of the ULX3S and de10nano MiSTer SDRAM chips. 
 
-We will both discuss how to use the controller and give some details on the controller itself, which is defined in [dram_controller_autoprecharge_r16_w16.ice](../common/dram_controller_autoprecharge_r16_w16.ice).
+We will both discuss how to use the controller and give some details on the controller itself, which is defined in [sdram_controller_autoprecharge_r16_w16.ice](../common/sdram_controller_autoprecharge_r16_w16.ice).
 
 But first, let's run this project in simulation!
 
@@ -143,7 +143,7 @@ And that's it!
 
 ## A closer look at the SDRAM controller
 
-We are now looking inside [dram_controller_autoprecharge_r16_w16.ice](../common/dram_controller_autoprecharge_r16_w16.ice).
+We are now looking inside [sdram_controller_autoprecharge_r16_w16.ice](../common/sdram_controller_autoprecharge_r16_w16.ice).
 
 Writing an SDRAM controller might be intimidating, but the basics are in fact relatively simple. What makes it more complex, in terms of hardware, are the quite strict requirements on delays when the FPGA and SDRAM chip communicate synchronously -- Josh Basset has a [good writeup on this](https://www.joshbassett.info/sdram-controller/#clocking) in his SDRAM article. What makes it interesting, in terms of design, are the many possible approaches to try to achieve higher bandwidth and lower latencies. This will depend on how your design uses memory of course, and I am still learning and experimenting with this. The [MiSTer cores](https://github.com/MiSTer-devel/Main_MiSTer/wiki) are a good source of examples for SDRAM controllers.
 
@@ -294,3 +294,5 @@ The SDRAM model Semiconductor cannot be directly imported (too complex for Silic
 
 ## Links
 - Josh Bassett SDRAM controller (source on github, follow links) https://www.joshbassett.info/sdram-controller/
+- Alchitry SDRAM tutorial https://alchitry.com/blogs/tutorials/sdram-verilog
+
