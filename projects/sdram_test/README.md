@@ -294,3 +294,5 @@ The SDRAM model Semiconductor cannot be directly imported (too complex for Silic
 
 ## Links
 - Josh Bassett SDRAM controller (source on github, follow links) https://www.joshbassett.info/sdram-controller/
+- Alchitry SDRAM tutorial https://alchitry.com/blogs/tutorials/sdram-verilog
+
