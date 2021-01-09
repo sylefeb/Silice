@@ -221,13 +221,13 @@ $$if SIMULATION then
   error := 0;
 $$end        
 
+  sdram_dqm := 2b00; // dqm (byte mask) is not used in this controller
 $$if not ULX3S_IO then
   sdram_cle := reg_sdram_cle;
   sdram_cs  := reg_sdram_cs;
   sdram_cas := reg_sdram_cas;
   sdram_ras := reg_sdram_ras;
   sdram_we  := reg_sdram_we;
-  sdram_dqm := 2b00; // dqm (byte mask) is not used in this controller
   sdram_ba  := reg_sdram_ba;
   sdram_a   := reg_sdram_a;
 $$if VERILATOR then  
@@ -348,12 +348,12 @@ $$end
 ++:       // wait CAS cycles
 ++:
 ++:
-++:
 $$if ULX3S_IO then
 ++: // dq_i 2 cycles latency due to flip-flops on output and input path
 ++:
 $$end
           // data is available
+++:
           sd.data_out = dq_i;
           sd.done     = 1;
         }
