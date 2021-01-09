@@ -199,7 +199,7 @@ $$ cmd_active_delay    = 2
 $$ cmd_precharge_delay = 3
 $$ print('SDRAM r16w16 configured for 100 MHz (default)')
 
-  uint10 refresh_count = $refresh_cycles$;
+  uint10 refresh_count = 0;
   
   // wait for incount cycles, incount >= 3
   subroutine wait(input uint16 incount)

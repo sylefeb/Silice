@@ -203,7 +203,7 @@ $$ cmd_active_delay    = 2
 $$ cmd_precharge_delay = 3
 $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
 
-  uint10 refresh_count = $refresh_cycles$;
+  uint10 refresh_count = 0;
   
   // wait for incount cycles, incount >= 3
   subroutine wait(input uint16 incount)
