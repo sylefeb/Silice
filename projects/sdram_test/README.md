@@ -2,7 +2,7 @@
 
 This project shows how to use the simplest SDRAM controller, which reads and writes 16 bits words. This typically matches the width of the ULX3S and de10nano MiSTer SDRAM chips. 
 
-We will both discuss how to use the controller and give some details on the controller itself, which is defined in [dram_controller_autoprecharge_r16_w16.ice](../common/dram_controller_autoprecharge_r16_w16.ice).
+We will both discuss how to use the controller and give some details on the controller itself, which is defined in [sdram_controller_autoprecharge_r16_w16.ice](../common/sdram_controller_autoprecharge_r16_w16.ice).
 
 But first, let's run this project in simulation!
 
