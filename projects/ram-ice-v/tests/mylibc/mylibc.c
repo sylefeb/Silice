@@ -10,9 +10,10 @@ The rest is hastily composed from a variety of sources (referenced in code) to g
 #include "mylibc.h"
 #include "tama_mini02_font.h"
 
-volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x0000000;
-volatile unsigned char* const AUDIO       = (unsigned char*)0xC000000;
-volatile unsigned char* const DATA        = (unsigned char*)0x2020000;
+volatile unsigned char* const LEDS        = (unsigned char*)0x80000000;
+volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x40000000;
+volatile unsigned char* const AUDIO       = (unsigned char*)0x4C000000;
+volatile unsigned char* const DATA        = (unsigned char*)0x42020000;
 
 int cursor_x = 0x00000000;
 int cursor_y = 0x00000000;

@@ -1,5 +1,6 @@
 #pragma once
 
+extern volatile unsigned char* const LEDS;
 extern volatile unsigned char* const FRAMEBUFFER;
 extern volatile unsigned char* const AUDIO;
 extern volatile unsigned char* const DATA;

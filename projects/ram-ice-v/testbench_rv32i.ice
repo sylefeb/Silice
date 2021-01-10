@@ -37,7 +37,7 @@ $$end
 
   rv32i_ram_io ram;
 
-  // sdram io
+  // bram io
   bram_ram_32bits bram_ram(
     pram <:> ram,
   );
@@ -63,7 +63,7 @@ $$end
 
     cpu_reset = 0;
 
-    if ((ram.addr == 0) & ram.rw) {
+    if (ram.addr[31,1] & ram.rw) {
       leds       = ram.data_in[0,8];
       __display("LEDs = %b",leds);
     }
