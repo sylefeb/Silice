@@ -12,7 +12,7 @@ algorithm bram_ram_32bits(
   
   always {
     if (pram.rw & pram.in_valid) {
-        __display("MEM WRITE %b addr_in %h data %h rw %b",wait_one,pram.addr,pram.data_in,pram.rw);
+      __display("MEM WRITE %b addr_in %h data %h rw %b",wait_one,pram.addr,pram.data_in,pram.rw);
     }
     if (wait_one & ~pram.rw) {
       __display("MEM READ  %b addr_in %h data %h rw %b",wait_one,pram.addr,mem.rdata0,pram.rw);
