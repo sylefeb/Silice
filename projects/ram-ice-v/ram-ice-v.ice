@@ -310,10 +310,10 @@ $$end
           uint32 tmp = uninitialized;
           switch ( saved_loadStoreOp[0,2] ) {
             case 2b00: { // LB / LBU
-              tmp = { {24{saved_loadStoreOp[2,1]&ram.data_out[ 7,1]}},ram.data_out[ 0,8]};
+              tmp = { {24{(~saved_loadStoreOp[2,1])&ram.data_out[ 7,1]}},ram.data_out[ 0,8]};
             }
             case 2b01: { // LH / LHU
-              tmp = { {16{saved_loadStoreOp[2,1]&ram.data_out[15,1]}},ram.data_out[ 0,16]};
+              tmp = { {16{(~saved_loadStoreOp[2,1])&ram.data_out[15,1]}},ram.data_out[ 0,16]};
             }
             case 2b10: { // LW
               tmp = ram.data_out;  

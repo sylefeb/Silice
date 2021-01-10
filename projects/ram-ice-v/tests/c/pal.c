@@ -14,7 +14,7 @@ void main()
       *(volatile unsigned char*)(FRAMEBUFFER + i + (j << 9)) = (unsigned char)(i);
     }
   }
-
+  
   // rotate palette
   int offset = 0;
   while (1) {

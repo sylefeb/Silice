@@ -14,8 +14,8 @@ echo "using $ARCH"
 
 $ARCH-elf-gcc -w -DRISCV -DTIME -DUSE_MYSTDLIB -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/mylibc/mylibc.c
 
-$ARCH-elf-gcc -fno-unroll-loops -O0 -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
-$ARCH-elf-gcc -fno-unroll-loops -O0 -fno-pic -march=rv32i -mabi=ilp32 -c -o build/code.o $1
+$ARCH-elf-gcc -fno-unroll-loops -O2 -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
+$ARCH-elf-gcc -fno-unroll-loops -O2 -fno-pic -march=rv32i -mabi=ilp32 -c -o build/code.o $1
 
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o div.o tests/mylibc/div.s
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0.s

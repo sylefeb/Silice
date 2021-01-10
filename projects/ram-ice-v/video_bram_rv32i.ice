@@ -62,9 +62,10 @@ algorithm frame_drawer(
     ram      <:> mem
   );
 
-  fbuffer        := 0;
-  sdram.in_valid := 0;
-  sdram.rw       := 0;
+  fbuffer          := 0;
+  sdram.in_valid   := 0;
+  sdram.rw         := 0;
+  palette.wenable1 := 0;
   
   while (1) {
 

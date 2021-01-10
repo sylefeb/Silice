@@ -349,17 +349,17 @@ $$end
             switch ( loadStoreOp[0,2] ) {
               case 2b00: { // LB / LBU
                   switch (alu_out[0,2]) {
-                    case 2b00: { tmp = { {24{loadStoreOp[2,1]&mem_rdata[ 7,1]}},mem_rdata[ 0,8]}; }
-                    case 2b01: { tmp = { {24{loadStoreOp[2,1]&mem_rdata[15,1]}},mem_rdata[ 8,8]}; }
-                    case 2b10: { tmp = { {24{loadStoreOp[2,1]&mem_rdata[23,1]}},mem_rdata[16,8]}; }
-                    case 2b11: { tmp = { {24{loadStoreOp[2,1]&mem_rdata[31,1]}},mem_rdata[24,8]}; }
+                    case 2b00: { tmp = { {24{(~loadStoreOp[2,1])&mem_rdata[ 7,1]}},mem_rdata[ 0,8]}; }
+                    case 2b01: { tmp = { {24{(~loadStoreOp[2,1])&mem_rdata[15,1]}},mem_rdata[ 8,8]}; }
+                    case 2b10: { tmp = { {24{(~loadStoreOp[2,1])&mem_rdata[23,1]}},mem_rdata[16,8]}; }
+                    case 2b11: { tmp = { {24{(~loadStoreOp[2,1])&mem_rdata[31,1]}},mem_rdata[24,8]}; }
                     default:   { tmp = 0; }
                   }
               }
               case 2b01: { // LH / LHU
                   switch (alu_out[1,1]) {
-                    case 1b0: { tmp = { {16{loadStoreOp[2,1]&mem_rdata[15,1]}},mem_rdata[ 0,16]}; }
-                    case 1b1: { tmp = { {16{loadStoreOp[2,1]&mem_rdata[31,1]}},mem_rdata[16,16]}; }
+                    case 1b0: { tmp = { {16{(~loadStoreOp[2,1])&mem_rdata[15,1]}},mem_rdata[ 0,16]}; }
+                    case 1b1: { tmp = { {16{(~loadStoreOp[2,1])&mem_rdata[31,1]}},mem_rdata[16,16]}; }
                     default:  { tmp = 0; }
                   }
               }
