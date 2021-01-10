@@ -32,8 +32,6 @@ $$cache_size  = 1<<cache_depth
   uram.in_valid := 0; // pulsed high when needed
   
   always {
-    pram.done           = uram.done;
-    // pram.data_out       = uram.done ? (uram.data_out >> {pram.addr[0,2],3b000}) : pram.data_out;
     // cache update rules
     cached.addr1        = cache_entry;
     cached.wenable1     = uram.done & (~uram.rw) & in_cache;
@@ -55,20 +53,17 @@ $$cache_size  = 1<<cache_depth
       } else {
         wait_one         = 0;
         if (in_cache & (cached_map.rdata0 | (pram.rw & pram.wmask == 4b1111))) {
-          //if (pram.rw) {
-            // write in cache
-            cached    .wenable1 = pram.rw;
-            cached_map.wenable1 = pram.rw;
-            cached    .wdata1   = {
-                                   pram.wmask[3,1] ? pram.data_in[24,8] : cached.rdata0[24,8],
-                                   pram.wmask[2,1] ? pram.data_in[16,8] : cached.rdata0[16,8],
-                                   pram.wmask[1,1] ? pram.data_in[ 8,8] : cached.rdata0[ 8,8],
-                                   pram.wmask[0,1] ? pram.data_in[ 0,8] : cached.rdata0[ 0,8]
-                                 };
-          //} else {
-            // read from cache
-            pram.data_out = cached.rdata0 >> {pram.addr[0,2],3b000};
-          //}
+          // write in cache
+          cached    .wenable1 = pram.rw;
+          cached_map.wenable1 = pram.rw;
+          cached    .wdata1   = {
+                                 pram.wmask[3,1] ? pram.data_in[24,8] : cached.rdata0[24,8],
+                                 pram.wmask[2,1] ? pram.data_in[16,8] : cached.rdata0[16,8],
+                                 pram.wmask[1,1] ? pram.data_in[ 8,8] : cached.rdata0[ 8,8],
+                                 pram.wmask[0,1] ? pram.data_in[ 0,8] : cached.rdata0[ 0,8]
+                               };
+          // read from cache
+          pram.data_out = cached.rdata0 >> {pram.addr[0,2],3b000};
           // done
           pram.done        = 1;          
           // prediction
@@ -86,6 +81,7 @@ $$cache_size  = 1<<cache_depth
       }
     } else {
       pram.data_out = uram.data_out >> {pram.addr[0,2],3b000};
+      pram.done     = uram.done;
     }
   }
  
