@@ -1,5 +1,7 @@
 // SL 2020-12-22 @sylefeb
 //
+// Note: clamps addresses to uint26 (beware of mapped adresses using higher bits)
+//
 // ------------------------- 
 
 algorithm basic_cache_ram_32bits(
@@ -21,8 +23,8 @@ $$cache_size  = 1<<cache_depth
   
   uint24 predicted_addr(24hffffff);
   // track when address is in cache region and onto which entry   
-  uint1  in_cache                :=      (pram.addr   >> $2+cache_depth$)
-                                      == (cache_start >> $2+cache_depth$);
+  uint1  in_cache                :=      (pram.addr[0,26]   >> $2+cache_depth$)
+                                      == (cache_start[0,26] >> $2+cache_depth$);
   uint$cache_depth$  cache_entry := (pram.addr[0,26] >> 2);
   
   uint1  work_todo(0);
@@ -51,7 +53,7 @@ $$cache_size  = 1<<cache_depth
       if (in_cache && cached_map.rdata0) {
         if (pram.rw) {
           // write in cache
-          cached    .wenable1 = 1;
+          cached    .wenable1 = pram.rw;
           cached    .wdata1   = {
                                  pram.wmask[3,1] ? pram.data_in[24,8] : cached.rdata0[24,8],
                                  pram.wmask[2,1] ? pram.data_in[16,8] : cached.rdata0[16,8],
@@ -70,11 +72,11 @@ $$cache_size  = 1<<cache_depth
         cached_map.addr0 = (predicted_addr);
       } else {
         // relay to used interface
-        uram.addr      = {pram.addr[2,30],2b00};
-        uram.data_in   = pram.data_in;
-        uram.wmask     = pram.wmask;
-        uram.rw        = pram.rw;
-        uram.in_valid  = 1;        
+        uram.addr[0,26] = {pram.addr[2,24],2b00};
+        uram.data_in    = pram.data_in;
+        uram.wmask      = pram.wmask;
+        uram.rw         = pram.rw;
+        uram.in_valid   = 1;        
       }
     }
    
