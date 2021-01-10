@@ -151,7 +151,6 @@ $$end
 $$end
 $$end
 
-  int32 imm         = uninitialized;
   uint1 pcOrReg     = uninitialized;
   uint1 regOrImm    = uninitialized;
   
@@ -186,7 +185,6 @@ $$end
     loadStoreOp :> loadStoreOp,
     select      :> select,
     select2     :> select2,
-    imm         :> imm,
     pcOrReg     :> pcOrReg,
     regOrImm    :> regOrImm,
     csr         :> csr,
@@ -200,7 +198,6 @@ $$end
     pc        <:: pc,
     xa        <: aluA,
     xb        <: aluB,
-    imm       <: imm,
     pcOrReg   <: pcOrReg,
     regOrImm  <: regOrImm,
     select    <: select,
@@ -412,20 +409,20 @@ $$end
         switch (loadStoreOp) {
           case 3b000: { // SB
               switch (alu_out[0,2]) {
-                case 2b00: { ram.data_in[ 0,8] = aluB[ 0,8]; ram.wmask = 4b0001; }
-                case 2b01: { ram.data_in[ 8,8] = aluB[ 0,8]; ram.wmask = 4b0010; }
-                case 2b10: { ram.data_in[16,8] = aluB[ 0,8]; ram.wmask = 4b0100; }
-                case 2b11: { ram.data_in[24,8] = aluB[ 0,8]; ram.wmask = 4b1000; }
+                case 2b00: { ram.data_in[ 0,8] = regB[ 0,8]; ram.wmask = 4b0001; }
+                case 2b01: { ram.data_in[ 8,8] = regB[ 0,8]; ram.wmask = 4b0010; }
+                case 2b10: { ram.data_in[16,8] = regB[ 0,8]; ram.wmask = 4b0100; }
+                case 2b11: { ram.data_in[24,8] = regB[ 0,8]; ram.wmask = 4b1000; }
               }
           }
           case 3b001: { // SH
               switch (alu_out[1,1]) {
-                case 1b0: { ram.data_in[ 0,16] = aluB[ 0,16]; ram.wmask = 4b0011; }
-                case 1b1: { ram.data_in[16,16] = aluB[ 0,16]; ram.wmask = 4b1100; }
+                case 1b0: { ram.data_in[ 0,16] = regB[ 0,16]; ram.wmask = 4b0011; }
+                case 1b1: { ram.data_in[16,16] = regB[ 0,16]; ram.wmask = 4b1100; }
               }
           }
           case 3b010: { // SW
-            ram.data_in = aluB; ram.wmask = 4b1111;
+            ram.data_in = regB; ram.wmask = 4b1111;
           }
           default: { ram.data_in = 0; }
         }        
@@ -503,7 +500,6 @@ algorithm decode(
   output uint3   loadStoreOp,
   output uint3   select,
   output uint1   select2,
-  output int32   imm,
   output uint1   pcOrReg,
   output uint1   regOrImm,
   output uint3   csr,
@@ -571,37 +567,38 @@ algorithm decode(
                // low bits of rdcycle (0xc00), rdtime (0xc01), instret (0xc02)
   
   aluA         := (opcode == 7b0110111) ? 0 : regA;
-  aluB         := regB;
+  // aluB         := regB;
 
   always {
 // __display("DECODE %d %d",regA,regB);
-    switch (opcode)
+    switch ({regOrImm,opcode})
     {    
-      case 7b0010111: { // AUIPC
-        imm         = imm_u;
+      case 8b00010111: { // AUIPC
+        aluB        = imm_u;
       }
-      case 7b0110111: { // LUI
-        imm         = imm_u;
+      case 8b00110111: { // LUI
+        aluB        = imm_u;
       }
-      case 7b1101111: { // JAL
-        imm         = imm_j;
+      case 8b01101111: { // JAL
+        aluB        = imm_j;
       }
-      case 7b1100111: { // JALR
-        imm         = imm_i;
+      case 8b01100111: { // JALR
+        aluB        = imm_i;
       }
-      case 7b1100011: { // branch
-        imm         = imm_b;
+      case 8b01100011: { // branch
+        aluB        = imm_b;
       } 
-      case 7b0000011: { // load
-        imm         = imm_i;
+      case 8b00000011: { // load
+        aluB        = imm_i;
       }      
-      case 7b0100011: { // store
-        imm         = imm_s;
+      case 8b00100011: { // store
+        aluB        = imm_s;
       }
-      case 7b0010011: { // integer, immediate  
-        imm         = imm_i;
+      case 8b00010011: { // integer, immediate  
+        aluB        = imm_i;
       }
       default: {
+        aluB        = regB;
       }
     }
   }
@@ -629,7 +626,6 @@ algorithm intops(         // input! tells the compiler that the input does not
   input!  uint26 pc,      // need to be latched, so we can save registers
   input!  int32  xa,      // caller has to ensure consistency
   input!  int32  xb,
-  input!  int32  imm,
   input!  uint3  select,
   input!  uint1  select2,
   input!  uint1  pcOrReg,
@@ -643,7 +639,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   // pc  + imm   (else)
   
   int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
-  int32 b := regOrImm ? (xb) : imm;
+  int32 b := xb; // regOrImm ? (xb) : imm;
 
   always { // this part of the algorithm is executed every clock  
     switch (select) {

@@ -18,8 +18,8 @@
 //  the distribution, please refer to it for details.
 
 import('hdmi_clock.v')
-import('ddr.v')
-import('hdmi_ddr_crgb.v')
+import('differential_pair.v')
+import('hdmi_differential_pairs.v')
 
 // ----------------------------------------------------
 
@@ -30,8 +30,8 @@ algorithm tmds_encoder(
   output  uint10 tmds
 ) <autorun> {
 
-  uint9 q_m             = uninitialized;
-  int5  dc_bias         = uninitialized;
+  uint9 q_m             = 0;
+  int5  dc_bias         = 0;
 
   // tracks 'number on ones' in input
   uint4 num_ones        := data[0,1] + data[1,1] + data[2,1] + data[3,1]
@@ -105,19 +105,21 @@ algorithm hdmi_ddr_shifter(
   input   uint10 data_g,
   input   uint10 data_b,
   output  uint8  p_outbits,
+  output  uint8  n_outbits,
 ) <autorun> {
-  uint5  mod5    = 1; // circular mod5 buffer, same trick as the oled 'osc' in ice-v!
-  uint10 shift_r = uninitialized;
-  uint10 shift_g = uninitialized;
-  uint10 shift_b = uninitialized;
-  uint2  clkbits = uninitialized;
+  uint3  mod5    = 0;
+  uint10 shift_r = 0;
+  uint10 shift_g = 0;
+  uint10 shift_b = 0;
+  uint2  clkbits = 0;
   always {
-    shift_r   = (mod5[0,1] == 1) ? data_r : shift_r[2,8];
-    shift_g   = (mod5[0,1] == 1) ? data_g : shift_g[2,8];
-    shift_b   = (mod5[0,1] == 1) ? data_b : shift_b[2,8];
-    clkbits   = mod5[2,1] ? 2b01 : {2{mod5[0,1]|mod5[1,1]}};
+    shift_r   = (mod5 == 0) ?  data_r : shift_r[2,8];
+    shift_g   = (mod5 == 0) ?  data_g : shift_g[2,8];
+    shift_b   = (mod5 == 0) ?  data_b : shift_b[2,8];
+    clkbits   = (mod5[0,2] < 2) ? 2b11 : ( (mod5 > 2) ? 2b00 : 2b01 );
     p_outbits = { clkbits , shift_b[0,2] , shift_g[0,2] , shift_r[0,2] };
-    mod5      = {mod5[0,4],mod5[4,1]};
+    n_outbits = {~clkbits ,~shift_b[0,2] ,~shift_g[0,2] ,~shift_r[0,2] };
+    mod5      = (mod5 == 4) ? 0 : (mod5 + 1);
   }
 }
 
@@ -130,36 +132,36 @@ algorithm hdmi(
   output  uint1  active,
   output  uint1  vblank,
   output! uint4  gpdi_dp,
+  output! uint4  gpdi_dn,
   input   uint8  red,
   input   uint8  green,
   input   uint8  blue,
-)  {
+) <autorun> {
     
   uint10 cntx  = 0;
-  uint9  cnty  = 0;
+  uint10 cnty  = 0;
   
-  uint1 hsync      := (cntx > 655) && (cntx < 752);
-  uint1 vsync      := (cnty > 489) && (cnty < 492);
+  uint1  hsync = 0;
+  uint1  vsync = 0;
   
-  uint2 sync_ctrl   = uninitialized;
-  uint2 null_ctrl  := 0;
-
   // pll for tmds
   uint1  half_hdmi_clk = uninitialized;
   hdmi_clock pll(
-    clk           <: clock,         //  25 MHz
+    clk      <: clock,              //  25 MHz
     half_hdmi_clk :> half_hdmi_clk, // 125 MHz (half 250MHz HDMI, double data rate output)
   );
+  
+  uint2  null_ctrl  = 0;
+  uint2  sync_ctrl  = 0;
+  uint10 tmds_red   = 0;
+  uint10 tmds_green = 0;
+  uint10 tmds_blue  = 0;
 
-  uint10 tmds_red       = uninitialized;
-  uint10 tmds_green     = uninitialized;
-  uint10 tmds_blue      = uninitialized;
-
-  uint8  latch_red      = uninitialized;
-  uint8  latch_green    = uninitialized;
-  uint8  latch_blue     = uninitialized;
-  uint2  prev_sync_ctrl = uninitialized;
-  uint1  prev_active    = uninitialized;
+  uint8  latch_red   = 0;
+  uint8  latch_green = 0;
+  uint8  latch_blue  = 0;
+  uint2  prev_sync_ctrl = 0;
+  uint1  prev_active    = 0;
 
   // encoders
   // => we use <:: to bind values from cycle start (ignoring changes during current cycle)
@@ -184,18 +186,21 @@ algorithm hdmi(
 
   // shifter
   uint8 crgb_pos = 0;
+  uint8 crgb_neg = 0;
   hdmi_ddr_shifter shift<@half_hdmi_clk>(
     data_r  <: tmds_red,
     data_g  <: tmds_green,
     data_b  <: tmds_blue,
-    p_outbits :> crgb_pos
+    p_outbits :> crgb_pos,
+    n_outbits :> crgb_neg,
   );
 
-  hdmi_ddr_crgb hdmi_out( 
-    clock      <: half_hdmi_clk,
-    crgb_twice <: crgb_pos, 
-    out_pin    :> gpdi_dp
-  );
+  hdmi_differential_pairs hdmi_out( 
+    clock   <: half_hdmi_clk,
+    pos     <: crgb_pos, 
+    neg     <: crgb_neg, 
+    out_pos :> gpdi_dp, 
+    out_neg :> gpdi_dn );
 
   always {
 
@@ -205,8 +210,11 @@ algorithm hdmi(
     // thus we have to delay corresponding sync and active two cycles
     prev_sync_ctrl = sync_ctrl;
     prev_active    = active;
+
     // synchronization bits
-    sync_ctrl      = {vsync,hsync};
+    hsync          = (cntx > 655) && (cntx < 752);
+    vsync          = (cnty > 489) && (cnty < 492);
+    sync_ctrl      = {vsync,hsync};    
     // output active area
     active         = (cntx < 640) && (cnty < 480);    
     // output vblank
