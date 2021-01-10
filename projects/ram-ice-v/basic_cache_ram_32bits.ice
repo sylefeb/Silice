@@ -59,7 +59,7 @@ $$cache_size  = 1<<cache_depth
       if (in_cache) {
         //__display("CACHED rw:%b @%h pred:@%h",pram.rw,pram.addr,predicted_addr<<2);
         if ((predicted_addr == pram.addr[2,24]) || pram.rw) {
-          __display("ok");
+          // __display("ok");
           // write in cache
           cached    .addr1    = cache_entry;
           cached    .wenable1 = pram.rw;
