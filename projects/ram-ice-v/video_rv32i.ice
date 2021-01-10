@@ -1,8 +1,6 @@
 // SL 2020-12-02 @sylefeb
 // ------------------------- 
 
-$$sdcard_image_pad_size = 0
-
 // pre-compilation script, embeds compile code within sdcard image
 $$dofile('pre_include_asm.lua')
 $$if not SIMULATION then

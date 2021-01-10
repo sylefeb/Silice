@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for i in {1..2}
+for i in {1..20}
 do
   make ulx3s tool=shell > foo.txt 2>&1
   VAR="`grep "Max frequency for clock" foo.txt | tail -5`"
