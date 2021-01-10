@@ -7,7 +7,8 @@
 algorithm basic_cache_ram_32bits(
   rv32i_ram_provider pram,       // provided ram interface
   rv32i_ram_user     uram,       // used ram interface
-  input uint26       cache_start // where the cache is locate
+  input uint26       cache_start, // where the cache is locate
+  output uint1       cache_init = 1
 ) <autorun> {
 
 $$if SIMULATION then
@@ -42,7 +43,7 @@ $$cache_size  = 1<<cache_depth
   }
   
   while (1) {
-  
+  cache_init = 0;
     if (pram.in_valid || wait_one) {
       // __display("CACHED MEM access @%h rw:%b datain:%h",pram.addr,pram.rw,pram.data_in);
       if (~wait_one && (predicted_addr != pram.addr[2,24])) {

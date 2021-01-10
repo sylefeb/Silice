@@ -14,7 +14,7 @@ algorithm main(
   output uint8  leds,
   // video
   output uint4  gpdi_dp,
-  output uint4  gpdi_dn,
+//  output uint4  gpdi_dn,
 )
 {
 
@@ -32,7 +32,7 @@ algorithm main(
     active  :> active,
     vblank  :> vblank,
     gpdi_dp :> gpdi_dp,
-    gpdi_dn :> gpdi_dn,
+//    gpdi_dn :> gpdi_dn,
     red     <: r,
     green   <: g,
     blue    <: b

@@ -58,7 +58,7 @@ module top(
 `ifdef HDMI
   // hdmi
   output [3:0]  gpdi_dp, // {clock,R,G,B}
-  output [3:0]  gpdi_dn,
+  // output [3:0]  gpdi_dn, // not used explicitely, using true differential with LVCMOS33D (see lpf file)
 `endif  
 `ifdef UART
   // uart
@@ -100,7 +100,7 @@ wire [12:0] __main_out_sdram_a;
 `endif
 
 `ifdef UART
-wire        __main_out_uart_tx;
+wire        __main_out_uart_rx;
 `endif
 
 `ifdef VGA
@@ -119,7 +119,6 @@ wire        __main_sd_mosi;
 
 `ifdef HDMI
 wire [3:0]  __main_out_gpdi_dp;
-wire [3:0]  __main_out_gpdi_dn;
 `endif
 
 `ifdef AUDIO
@@ -195,7 +194,7 @@ M_main __main(
 `endif  
 `endif  
 `ifdef UART
-  .out_uart_tx  (__main_out_uart_tx),
+  .out_uart_tx  (__main_out_uart_rx),
   .in_uart_rx   (ftdi_txd),
 `endif  
 `ifdef VGA
@@ -207,7 +206,6 @@ M_main __main(
 `endif  
 `ifdef HDMI
   .out_gpdi_dp  (__main_out_gpdi_dp),
-  .out_gpdi_dn  (__main_out_gpdi_dn),
 `endif
   .clock         (clk_25mhz)
 );
@@ -269,12 +267,11 @@ assign oled_csn      = __main_oled_csn;
 `endif
 
 `ifdef UART
-assign ftdi_rxd      = __main_out_uart_tx;
+assign ftdi_rxd      = __main_out_uart_rx;
 `endif  
 
 `ifdef HDMI
 assign gpdi_dp       = __main_out_gpdi_dp;
-assign gpdi_dn       = __main_out_gpdi_dn;
 `endif
 
 endmodule

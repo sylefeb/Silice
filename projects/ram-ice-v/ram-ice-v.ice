@@ -113,7 +113,6 @@ interface rv32i_ram_provider {
 // The Risc-V RV32I CPU
 
 algorithm rv32i_cpu(
-  input uint1    enable,
   input uint26   boot_at,
   input uint3    cpu_id,
   rv32i_ram_user ram
@@ -254,10 +253,13 @@ $$end
                   
   } 
   
+  //if (~reset) {
+  //  __display("CPU START");  
+  //}
   // boot
   ram.addr     = boot_at;
   ram.rw       = 0;
-  ram.in_valid = 1;
+  ram.in_valid = ~reset;
   
   while (!halt) {
   // while (cycle < 400) {
@@ -271,9 +273,9 @@ $$end
     
       case 8: {
       ram_done_pulsed = 0;
-      //__display("----------- CASE 8 ------------- (cycle %d)",cycle);     
 $$if SIMULATION then
-        //__display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
+      //__display("----------- CASE 8 ------------- (cycle %d)",cycle);     
+      //__display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
 $$end
         refetch         = 0;
 
@@ -296,9 +298,9 @@ $$end
       }
     
       case 4: {
-      //__display("----------- CASE 4 ------------- (cycle %d)",cycle);
         ram_done_pulsed = 0;
 $$if SIMULATION then
+        //__display("----------- CASE 4 ------------- (cycle %d)",cycle);
         //__display("[load store] (cycle %d) store %b",cycle,saved_store);
 $$end        
         do_load_store   = 0;
@@ -354,8 +356,8 @@ $$end
 
       case 2: {
       ram_done_pulsed = 0;
-//      __display("----------- CASE 2 ------------- (cycle %d)",cycle);
-//      __display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
+      //__display("----------- CASE 2 ------------- (cycle %d)",cycle);
+      //__display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
         // Note: ALU for previous (if any) is running ...
         wait_next_instr = 0;
         // record next instruction
@@ -377,12 +379,14 @@ $$end
       case 1: {
         int32 from_csr = uninitialized;
         uint1 retire   = uninitialized;
-      //__display("----------- CASE 1 ------------- (cycle %d)",cycle);
+$$if SIMULATION then     
+//        __display("----------- CASE 1 ------------- (cycle %d)",cycle);
         if (instr == 0) {
 //          __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
         } else {
           __display("========> [ALU done (%h)   ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
         }
+$$end        
         commit_decode = 0;
         // Note: nothing received from memory
         
@@ -456,8 +460,8 @@ $$end
         if (retire) {
           instret = instret + 1;
 $$if SIMULATION then          
-//          __display("========> [retired instruction] *** %d since ***",cycle-cycle_last_retired);
-//          cycle_last_retired = cycle;
+          __display("========> [retired instruction] *** %d since ***",cycle-cycle_last_retired);
+          cycle_last_retired = cycle;
 $$end          
         }
       }

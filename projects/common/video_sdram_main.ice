@@ -253,7 +253,7 @@ $$end
 $$if HDMI then
 $$if ULX3S then
   output uint4 gpdi_dp,
-  output uint4 gpdi_dn,
+//  output uint4 gpdi_dn,
 $$else
 $$  error('no HDMI support')
 $$end
@@ -361,9 +361,7 @@ $$if HDMI then
   uint8 video_g = 0;
   uint8 video_b = 0;
 
-  hdmi hdmi_driver<@video_clock,!video_reset>( // NOTE: should be @video_clock,!video_reset, but ...
-                                   // does not work for some reason on ULX3S
-  //hdmi hdmi_driver<@video_clock,!video_reset>(                                 
+  hdmi hdmi_driver<@video_clock,!video_reset>(
     x       :> video_x,
     y       :> video_y,
     vblank  :> video_vblank,
@@ -372,7 +370,7 @@ $$if HDMI then
     green   <: video_g,
     blue    <: video_b,
     gpdi_dp :> gpdi_dp,
-    gpdi_dn :> gpdi_dn,
+//    gpdi_dn :> gpdi_dn,
   );
 $$end
 
@@ -516,7 +514,7 @@ $$else
 $$if ICARUS then
   while (frame < 4) {
 $$else
-  while (frame < 10) {
+  while (frame < 12) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }

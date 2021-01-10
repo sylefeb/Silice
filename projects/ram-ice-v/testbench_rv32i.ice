@@ -42,13 +42,12 @@ $$end
     pram <:> ram,
   );
 
-  uint1  cpu_enable     = 0;
+  uint1  cpu_reset      = 1;
   uint26 cpu_start_addr = 26h0000000;
   uint3  cpu_id         = 0;
 
   // cpu 
-  rv32i_cpu cpu(
-    enable   <:  cpu_enable,
+  rv32i_cpu cpu<!cpu_reset>(
     boot_at  <:  cpu_start_addr,
     cpu_id   <:  cpu_id,
     ram      <:> ram
@@ -62,7 +61,7 @@ $$else
   while (1) {
 $$end
 
-    cpu_enable = 1;
+    cpu_reset = 0;
 
     if ((ram.addr == 0) & ram.rw) {
       leds       = ram.data_in[0,8];
