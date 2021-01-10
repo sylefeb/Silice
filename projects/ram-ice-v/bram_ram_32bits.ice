@@ -11,7 +11,7 @@ algorithm bram_ram_32bits(
 
   simple_dualport_bram uint32 mem[$bram_size$] = { $data_bram$ pad(uninitialized) };
   
-  uint1 not_mapped := (pram.addr[30,2] == 2b00); // Note: memory mapped addresses use the top most bits
+  uint1 not_mapped := (pram.addr[29,3] == 3b00); // Note: memory mapped addresses use the top most bits
   
   uint1 wait_one = 0;
   

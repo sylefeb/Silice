@@ -10,7 +10,7 @@ The rest is hastily composed from a variety of sources (referenced in code) to g
 #include "mylibc.h"
 #include "tama_mini02_font.h"
 
-volatile unsigned char* const LEDS        = (unsigned char*)0x80000000;
+volatile unsigned char* const LEDS        = (unsigned char*)0x20000000;
 volatile unsigned int*  const PALETTE     = (unsigned int* )0x83000000;
 // Why 0x83000000 ? We set bit 31 so video_rv32i knows we are using a mapped address, 
 // but still write to the last memory bank (0x03000000) where nothing is used.

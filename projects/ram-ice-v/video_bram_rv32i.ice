@@ -31,6 +31,7 @@ algorithm frame_drawer(
   input  uint1  sdram_reset,
   input  uint1  vsync,
   output uint1  fbuffer,
+  output uint8  leds,
   simple_dualport_bram_port1 palette,
 ) <autorun> {
 
@@ -85,6 +86,11 @@ algorithm frame_drawer(
       sdram.addr     = mem.addr[0,26];
       sdram.rw       = 1;
       sdram.in_valid = 1;
+    }
+
+    if (mem.in_valid & mem.rw & mem.addr[29,1]) {
+      __display("LEDs = %h",mem.data_in[0,8]);
+      leds = mem.data_in[0,8];
     }
 
   }
