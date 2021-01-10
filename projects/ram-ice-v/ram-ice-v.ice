@@ -334,7 +334,9 @@ $$end
         }
         
         if ((Rtype(next_instr).rs1 == xregsA.addr1
-          || Rtype(next_instr).rs2 == xregsB.addr1) & saved_rd_enable) {
+          || Rtype(next_instr).rs2 == xregsB.addr1
+          || Rtype(instr     ).rs1 == xregsA.addr1
+          || Rtype(instr     ).rs2 == xregsB.addr1) & saved_rd_enable) {
           // too bad, but we have to write a register that was already
           // read for the prefetched instruction ... play again!
           ram.addr        = pc;
@@ -381,7 +383,7 @@ $$end
         if (instr == 0) {
 //          __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
         } else {
-          __display("========> [ALU done (%h)   ] (cycle %d) pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,cycle,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
+          __display("========> [ALU done (%h)   ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
         }
         commit_decode = 0;
         // Note: nothing received from memory
