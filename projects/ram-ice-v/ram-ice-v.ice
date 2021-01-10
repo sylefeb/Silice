@@ -379,6 +379,7 @@ $$end
       
       case 1: {
         int32 from_csr = uninitialized;
+        uint1 retire   = uninitialized;
       //__display("----------- CASE 1 ------------- (cycle %d)",cycle);
         if (instr == 0) {
 //          __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
@@ -388,13 +389,7 @@ $$end
         commit_decode = 0;
         // Note: nothing received from memory
         
-        if (instr != 0) {
-          instret = instret + 1;
-$$if SIMULATION then          
-//          __display("========> [retired instruction] *** %d since ***",cycle-cycle_last_retired);
-//          cycle_last_retired = cycle;
-$$end          
-        }
+        retire = (instr != 0);
         
         // commit previous instruction
         // load store next?
@@ -460,6 +455,14 @@ $$end
         regA  = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
         regB  = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   
 //__display("[regs READ] regA[%d]=%h (%h) regB[%d]=%h (%h)",xregsA.addr0,regA,xregsA.rdata0,xregsB.addr0,regB,xregsB.rdata0);        
+
+        if (retire) {
+          instret = instret + 1;
+$$if SIMULATION then          
+//          __display("========> [retired instruction] *** %d since ***",cycle-cycle_last_retired);
+//          cycle_last_retired = cycle;
+$$end          
+        }
       }
     } // switch
         

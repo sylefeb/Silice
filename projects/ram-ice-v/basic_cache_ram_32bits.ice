@@ -27,67 +27,66 @@ $$cache_size  = 1<<cache_depth
                                       == (cache_start[0,26] >> $2+cache_depth$);
   uint$cache_depth$  cache_entry := (pram.addr[0,26] >> 2);
   
-  uint1  work_todo(0);
+  uint1  wait_one(0);
   
   uram.in_valid := 0; // pulsed high when needed
   
   always {
     pram.done           = uram.done;
-    pram.data_out       = uram.done ? (uram.data_out >> {pram.addr[0,2],3b000}) : pram.data_out;
+    // pram.data_out       = uram.done ? (uram.data_out >> {pram.addr[0,2],3b000}) : pram.data_out;
     // cache update rules
     cached.addr1        = cache_entry;
-    cached.wenable1     = uram.done & ((~uram.rw) || (pram.wmask == 4b1111)) & in_cache;
-    cached.wdata1       = (~uram.rw) ? uram.data_out : pram.data_in;
+    cached.wenable1     = uram.done & (~uram.rw) & in_cache;
+    cached.wdata1       = uram.data_out;
     cached_map.addr1    = cache_entry;
-    cached_map.wenable1 = uram.done & ((~uram.rw) || (pram.wmask == 4b1111)) & in_cache;
+    cached_map.wenable1 = uram.done & (~uram.rw) & in_cache;
     cached_map.wdata1   = 1;
   }
   
   while (1) {
   
-    if (work_todo
-    || (pram.in_valid && (predicted_addr == pram.addr[2,24]))    
-    ) {
+    if (pram.in_valid || wait_one) {
       // __display("CACHED MEM access @%h rw:%b datain:%h",pram.addr,pram.rw,pram.data_in);
-      work_todo     = 0;      
-      if (in_cache && cached_map.rdata0) {
-        if (pram.rw) {
-          // write in cache
-          cached    .wenable1 = pram.rw;
-          cached    .wdata1   = {
-                                 pram.wmask[3,1] ? pram.data_in[24,8] : cached.rdata0[24,8],
-                                 pram.wmask[2,1] ? pram.data_in[16,8] : cached.rdata0[16,8],
-                                 pram.wmask[1,1] ? pram.data_in[ 8,8] : cached.rdata0[ 8,8],
-                                 pram.wmask[0,1] ? pram.data_in[ 0,8] : cached.rdata0[ 0,8]
-                               };
-        } else {
-          // read from cache
-          pram.data_out = cached.rdata0 >> {pram.addr[0,2],3b000};
-        }
-        // done
-        pram.done        = 1;          
-        // prediction
-        predicted_addr   = pram.addr[2,24] + 1;
-        cached    .addr0 = (predicted_addr);
-        cached_map.addr0 = (predicted_addr);
+      if (~wait_one && (predicted_addr != pram.addr[2,24])) {
+        cached.addr0     = cache_entry;
+        cached_map.addr0 = cache_entry;
+        predicted_addr   = 24hffffff;
+        wait_one         = 1;        
       } else {
-        // relay to used interface
-        uram.addr[0,26] = {pram.addr[2,24],2b00};
-        uram.data_in    = pram.data_in;
-        uram.wmask      = pram.wmask;
-        uram.rw         = pram.rw;
-        uram.in_valid   = 1;        
+        wait_one         = 0;
+        if (in_cache & (cached_map.rdata0 | (pram.rw & pram.wmask == 4b1111))) {
+          //if (pram.rw) {
+            // write in cache
+            cached    .wenable1 = pram.rw;
+            cached_map.wenable1 = pram.rw;
+            cached    .wdata1   = {
+                                   pram.wmask[3,1] ? pram.data_in[24,8] : cached.rdata0[24,8],
+                                   pram.wmask[2,1] ? pram.data_in[16,8] : cached.rdata0[16,8],
+                                   pram.wmask[1,1] ? pram.data_in[ 8,8] : cached.rdata0[ 8,8],
+                                   pram.wmask[0,1] ? pram.data_in[ 0,8] : cached.rdata0[ 0,8]
+                                 };
+          //} else {
+            // read from cache
+            pram.data_out = cached.rdata0 >> {pram.addr[0,2],3b000};
+          //}
+          // done
+          pram.done        = 1;          
+          // prediction
+          predicted_addr   = pram.addr[2,24] + 1;
+          cached    .addr0 = (predicted_addr);
+          cached_map.addr0 = (predicted_addr);
+        } else {
+          // relay to used interface
+          uram.addr[0,26] = {pram.addr[2,24],2b00};
+          uram.data_in    = pram.data_in;
+          uram.wmask      = pram.wmask;
+          uram.rw         = pram.rw;
+          uram.in_valid   = 1;        
+        }
       }
+    } else {
+      pram.data_out = uram.data_out >> {pram.addr[0,2],3b000};
     }
-   
-    // done at the end so the next cycle reads the cache brams
-    if (pram.in_valid && !pram.done && !uram.in_valid) {
-      cached.addr0     = cache_entry;
-      cached_map.addr0 = cache_entry;
-      predicted_addr   = 24hffffff;
-      work_todo        = 1;
-    }
-
   }
  
 }
