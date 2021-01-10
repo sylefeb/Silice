@@ -12,6 +12,7 @@ The rest is hastily composed from a variety of sources (referenced in code) to g
 
 volatile unsigned char* const LEDS        = (unsigned char*)0x80000000;
 volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x40000000;
+volatile unsigned char* const PALETTE     = (unsigned char*)0x80000000;
 volatile unsigned char* const AUDIO       = (unsigned char*)0x4C000000;
 volatile unsigned char* const DATA        = (unsigned char*)0x42020000;
 

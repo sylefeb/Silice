@@ -384,7 +384,7 @@ $$if SIMULATION then
         if (instr == 0) {
 //          __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
         } else {
-          //__display("========> [ALU done (%h)   ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
+//          __display("========> [ALU done (%h)   ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
         }
 $$end        
         commit_decode = 0;
@@ -470,21 +470,6 @@ $$end
     cycle           = cycle + 1;
 
   } // while
-
-$$if SIMULATION then  
-$$if SHOW_REGS then  
-++:
-  __display("------------------ registers A ------------------");
-$$for i=0,31 do
-      xregsA.addr0 = $i$;
-++:
-      xv$i$ = xregsA.rdata0;
-$$end
-      __display("%h %h %h %h\\n%h %h %h %h\\n%h %h %h %h\\n%h %h %h %h",xv0,xv1,xv2,xv3,xv4,xv5,xv6,xv7,xv8,xv9,xv10,xv11,xv12,xv13,xv14,xv15);
-      __display("%h %h %h %h\\n%h %h %h %h\\n%h %h %h %h\\n%h %h %h %h",xv16,xv17,xv18,xv19,xv20,xv21,xv22,xv23,xv24,xv25,xv26,xv27,xv28,xv29,xv30,xv31);
-$$end
-$$end
-
 }
 
 // --------------------------------------------------

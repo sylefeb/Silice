@@ -5415,7 +5415,7 @@ void Algorithm::writeWireAssignements(
 
 void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
 {
-  if (!v.do_not_initialize) {
+  if (!v.do_not_initialize && !v.init_at_startup) {
     if (v.table_size == 0) {
       out << FF_Q << prefix << v.name << " <= " << varInitValue(v) << ';' << nxl;
     } else {
@@ -5651,7 +5651,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
         init = " = " + v.init_values[0];
       }
       writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + init);
-      writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name);
+      writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + init);
     } else {
       writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
       writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
@@ -6733,6 +6733,7 @@ void copyToVarNfo(Algorithm::t_var_nfo &_nfo, const T &src)
   _nfo.init_values = src.init_values;
   _nfo.table_size = src.table_size;
   _nfo.do_not_initialize = src.do_not_initialize;
+  _nfo.init_at_startup   = src.init_at_startup;
   _nfo.access = src.access;
   _nfo.usage = src.usage;
   _nfo.attribs = src.attribs;

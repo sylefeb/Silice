@@ -2,7 +2,7 @@
 //
 // ------------------------- 
 
-$$ bram_depth = 12
+$$ bram_depth = 13
 $$ bram_size  = 1<<bram_depth
 
 algorithm bram_ram_32bits(
@@ -25,7 +25,7 @@ $$if false then
       __display("[cycle%d] MEM WRITE %b addr_in %h data %h rw %b",cycle,wait_one,pram.addr[2,24],pram.data_in,pram.rw);
     }
 $$end
-    pram.data_out       =  mem.rdata0;    
+    pram.data_out       =  mem.rdata0 >> {pram.addr[0,2],3b000};    
     pram.done           = (((mem.addr0 == pram.addr[2,$bram_depth$]) && not_mapped) || pram.rw)
                           ? (pram.in_valid | wait_one) : 0;
     wait_one            = (pram.in_valid & ~pram.done);

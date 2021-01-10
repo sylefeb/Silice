@@ -8,17 +8,23 @@ void pause(int cycles)
 
 void main() 
 {
-
-  int i = 0;
-  while (1) {
-    *(FRAMEBUFFER + i) = i++;
-    // pause(40);
-    if (i > 320<<9) {
-      i=0;
+  /*while (1)*/ {
+    for (int i = 0 ; i < 320<<9 ; i++) {
+      *(FRAMEBUFFER + i) = i;
     }
     set_cursor(0,0);
     printf("Hello how are you?");
+  }
 
+  // rotate palette
+  int offset = 0;
+  while (1) {
+    for (int p = 0 ; p < 256 ; p++) {
+      unsigned char clr = p + offset;
+      *(PALETTE + p) = clr | (clr << 8) | (clr << 16);
+    }
+    ++offset;
+    pause(1000000); // 0.02 sec @50 MHz
   }
 
 }
