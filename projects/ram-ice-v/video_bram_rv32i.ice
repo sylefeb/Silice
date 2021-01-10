@@ -73,14 +73,14 @@ algorithm frame_drawer(
     cpu_reset = 0;
 
     if (mem.in_valid & mem.rw & mem.addr[31,1]) {
-      __display("palette %h = %h",mem.addr[2,8],mem.data_in[0,24]);
+      //__display("palette %h = %h",mem.addr[2,8],mem.data_in[0,24]);
       palette.addr1    = mem.addr[2,8];
       palette.wdata1   = mem.data_in[0,24];
       palette.wenable1 = 1;
     }
 
     if (mem.in_valid & mem.rw & mem.addr[30,1]) {
-      __display("SDRAM %h = %h",mem.addr[0,26],mem.data_in);
+      //__display("SDRAM %h = %h",mem.addr[0,26],mem.data_in);
       sdram.data_in  = mem.data_in;
       sdram.wmask    = mem.wmask;
       sdram.addr     = mem.addr[0,26];
@@ -89,7 +89,7 @@ algorithm frame_drawer(
     }
 
     if (mem.in_valid & mem.rw & mem.addr[29,1]) {
-      __display("LEDs = %h",mem.data_in[0,8]);
+      //__display("LEDs = %h",mem.data_in[0,8]);
       leds = mem.data_in[0,8];
     }
 

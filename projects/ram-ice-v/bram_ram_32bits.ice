@@ -2,7 +2,7 @@
 //
 // ------------------------- 
 
-$$ bram_depth = 13
+$$ bram_depth = 12
 $$ bram_size  = 1<<bram_depth
 $$ verbose = nil
 
@@ -27,7 +27,7 @@ $$end
     pram.data_out       = mem.rdata0 >> {pram.addr[0,2],3b000};    
     pram.done           = ((pred_correct & pram.in_valid) | wait_one);
     mem.addr0           = (~pred_correct & pram.in_valid)
-                          ? pram.addr[2,$bram_depth$] : (pram.addr[2,$bram_depth$] + 1); // predict
+                          ? pram.addr[2,$bram_depth$] : (pram.done ? (mem.addr0 + 1) : mem.addr0); // predict
     mem.addr1           = pram.addr[2,$bram_depth$];
     mem.wenable1        = pram.rw & ((pred_correct & pram.in_valid) | wait_one) & in_scope;
     mem.wdata1          = {
@@ -39,17 +39,6 @@ $$end
     wait_one            = (pram.in_valid & ~pred_correct);
 $$if verbose then                          
     __display("          done:%b wait:%b pred:@%h out:%h wen:%b",pram.done,wait_one,mem.addr0,pram.data_out,mem.wenable1);  
-/*
-    if (~pram.rw & pram.done) {
-      __display("[cycle%d] MEM READ in_valid:%b done:%b wait:%b addr_in:%h data:%h rw:%b pred:@%h",cycle,pram.in_valid,pram.done,wait_one,pram.addr[2,24],mem.rdata0,pram.rw,mem.addr0);
-    }
-    if (pram.rw & pram.done) {
-      __display("[cycle%d] MEM WRITE %b addr_in %h data %h rw %b",cycle,wait_one,pram.addr[2,24],pram.data_in,pram.rw);
-    }
-    if (wait_one) {
-      __display("[cycle%d] MISPRED in_valid:%b done:%b wait:%b addr_in:%h data:%h rw:%b pred:@%h",cycle,pram.in_valid,pram.done,wait_one,pram.addr[2,24],mem.rdata0,pram.rw,mem.addr0);
-    }
-*/
     cycle = cycle + 1;
 $$end    
   }
