@@ -7,14 +7,14 @@ $$if not SIMULATION then
 $$  init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
 $$end
 
-$include('../common/video_sdram_main.ice')
-
 // default palette
 $$palette = {}
 $$for i=1,256 do
 $$  palette[i] = (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
 $$end
 $$ palette[256] = 255 | (255<<8) | (255<<16)
+
+$include('../common/video_sdram_main.ice')
 
 $$SHOW_REGS = true
 
@@ -30,7 +30,7 @@ algorithm frame_drawer(
   input  uint1  sdram_reset,
   input  uint1  vsync,
   output uint1  fbuffer,
-  simple_dualport_bram_port1 palette,
+  // simple_dualport_bram_port1 palette,
 ) <autorun> {
 
   sameas(sd) sdh;

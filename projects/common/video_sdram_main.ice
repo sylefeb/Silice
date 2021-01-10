@@ -361,7 +361,7 @@ $$if HDMI then
   uint8 video_g = 0;
   uint8 video_b = 0;
 
-  hdmi hdmi_driver<@clock,!reset>( // NOTE: should be @video_clock,!video_reset, but ...
+  hdmi hdmi_driver<@video_clock,!video_reset>( // NOTE: should be @video_clock,!video_reset, but ...
                                    // does not work for some reason on ULX3S
   //hdmi hdmi_driver<@video_clock,!video_reset>(                                 
     x       :> video_x,
@@ -372,7 +372,7 @@ $$if HDMI then
     green   <: video_g,
     blue    <: video_b,
     gpdi_dp :> gpdi_dp,
-    gpdi_dp :> gpdi_dn,
+    gpdi_dn :> gpdi_dn,
   );
 $$end
 
