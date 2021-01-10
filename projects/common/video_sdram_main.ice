@@ -494,7 +494,11 @@ $$else
 $$end
 
   // --- Frame drawer
+$$if frame_drawer_at_sdram_speed then
+  frame_drawer drawer<@sdram_clock,!sdram_reset>(
+$$else  
   frame_drawer drawer<@compute_clock,!frame_drawer_reset>(
+$$end  
     vsync       <:  video_vblank,
     sd          <:> sdd,
     fbuffer     :>  onscreen_fbuffer,
@@ -514,7 +518,7 @@ $$else
 $$if ICARUS then
   while (frame < 4) {
 $$else
-  while (frame < 12) {
+  while (frame < 16) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }

@@ -555,7 +555,7 @@ algorithm decode(
   csr          := {opcode == 7b1110011,instr[20,2]}; // we grab only the bits for 
                // low bits of rdcycle (0xc00), rdtime (0xc01), instret (0xc02)
   
-  aluA         := (opcode == 7b0110111) ? 0 : regA;
+  aluA         := (opcode == 7b0110111) ? 0 : (pcOrReg ? __signed({6b0,pc[0,26]}) : regA);
   // aluB         := regB;
 
   always {
@@ -627,7 +627,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   // reg +/- imm (intops)
   // pc  + imm   (else)
   
-  int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
+  int32 a := xa; // pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
   int32 b := xb; // regOrImm ? (xb) : imm;
 
   always { // this part of the algorithm is executed every clock  

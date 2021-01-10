@@ -14,6 +14,7 @@ $$  palette[i] = (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
 $$end
 $$ palette[256] = 255 | (255<<8) | (255<<16)
 
+$$frame_drawer_at_sdram_speed = true
 $include('../common/video_sdram_main.ice')
 
 $$SHOW_REGS = true
@@ -33,17 +34,11 @@ algorithm frame_drawer(
   simple_dualport_bram_port1 palette,
 ) <autorun> {
 
-  sameas(sd) sdh;
-  sdram_half_speed_access sdram_slower<@sdram_clock,!sdram_reset>(
-    sd  <:> sd,
-    sdh <:> sdh
-  );
-  
   rv32i_ram_io sdram;
 
   // sdram io
   sdram_ram_32bits bridge(
-    sdr <:> sdh,
+    sdr <:> sd,
     r32 <:> sdram,
   );
 
@@ -61,7 +56,7 @@ algorithm frame_drawer(
   uint1  sdram_done_pulsed = 0;
 
   // cpu 
-  rv32i_cpu cpu<!cpu_reset>(
+  rv32i_cpu cpu(
     boot_at  <:  cpu_start_addr,
     cpu_id   <:  cpu_id,
     ram      <:> mem
