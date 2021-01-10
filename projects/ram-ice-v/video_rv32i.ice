@@ -74,14 +74,14 @@ algorithm frame_drawer(
   always {
   
     cpu_enable      = 1;
-
+/*
     if (cram.in_valid & cram.rw & cram.addr[31,1]) {
       __display("palette %h = %h",cram.addr[2,8],cram.data_in[0,24]);
       palette.addr1    = cram.addr[2,8];
       palette.wdata1   = cram.data_in[0,24];
       palette.wenable1 = 1;
     }
-
+*/
   }
 }
 

@@ -253,6 +253,7 @@ $$end
 $$if HDMI then
 $$if ULX3S then
   output uint4 gpdi_dp,
+  output uint4 gpdi_dn,
 $$else
 $$  error('no HDMI support')
 $$end
@@ -371,6 +372,7 @@ $$if HDMI then
     green   <: video_g,
     blue    <: video_b,
     gpdi_dp :> gpdi_dp,
+    gpdi_dp :> gpdi_dn,
   );
 $$end
 
