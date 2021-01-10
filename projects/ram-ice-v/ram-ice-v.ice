@@ -201,6 +201,10 @@ $$end
     regOrImm  <: regOrImm,
     select    <: select,
     select2   <: select2,
+    csr       <: csr,
+    cycle    <:: cycle,
+    instret  <:: instret,
+    cpu_id   <:: cpu_id,
     r         :> alu_out,
   );
 
@@ -377,7 +381,6 @@ $$end
       }
       
       case 1: {
-        int32 from_csr = uninitialized;
         uint1 retire   = uninitialized;
 $$if SIMULATION then     
 //        __display("----------- CASE 1 ------------- (cycle %d)",cycle);
@@ -430,18 +433,9 @@ $$end
           }
           default: { ram.data_in = 0; }
         }        
-        // store result in registers
-        // -> what do we write in register? (pc or alu or csr? -- loads are handled above)
-        // csr
-        switch (csr[0,2]) {
-          case 2b00: { from_csr = cycle;   }
-          case 2b01: { from_csr = cpu_id;  }
-          case 2b10: { from_csr = instret; }
-          default: { }
-        }
         // write result to register
-        xregsA.wdata1   = branch_or_jump ? next_instr_pc : (csr[2,1] ? from_csr :  alu_out);
-        xregsB.wdata1   = branch_or_jump ? next_instr_pc : (csr[2,1] ? from_csr :  alu_out);
+        xregsA.wdata1   = branch_or_jump ? next_instr_pc : alu_out;
+        xregsB.wdata1   = branch_or_jump ? next_instr_pc : alu_out;
         xregsA.addr1    = write_rd;
         xregsB.addr1    = write_rd;
         xregsA.wenable1 = (~refetch | jump) & rd_enable; // Note: instr == 0 => rd_enable == 0 
@@ -537,13 +531,16 @@ algorithm decode(
   branch       := (opcode == 7b1100011);
   load_store   := (opcode == 7b0000011 || opcode == 7b0100011);
   store        := (opcode == 7b0100011);
-  select       := (opcode == 7b0010011 || opcode == 7b0110011) ? Itype(instr).funct3 : 0;
+  select       := (opcode == 7b0010011 || opcode == 7b0110011) ? Itype(instr).funct3 : 3b000;
   select2      := (opcode == 7b0010011 
                    && instr[30,1] /*SRLI/SRAI*/ 
                    && (Itype(instr).funct3 != 3b000) /*not ADD*/) 
                || (opcode == 7b0110011 && Rtype(instr).select2);
   
   loadStoreOp  := Itype(instr).funct3;
+
+  csr          := {opcode == 7b1110011,instr[20,2]}; // we grab only the bits for 
+               // low bits of rdcycle (0xc00), rdtime (0xc01), instret (0xc02)
 
   write_rd     := Rtype(instr).rd;
   rd_enable    := (write_rd != 0) & ~no_rd;  
@@ -552,11 +549,7 @@ algorithm decode(
                 
   regOrImm     := (opcode == 7b0110011);
 
-  csr          := {opcode == 7b1110011,instr[20,2]}; // we grab only the bits for 
-               // low bits of rdcycle (0xc00), rdtime (0xc01), instret (0xc02)
-  
-  aluA         := (opcode == 7b0110111) ? 0 : (pcOrReg ? __signed({6b0,pc[0,26]}) : regA);
-  // aluB         := regB;
+  aluA         := (opcode == 7b0110111) ? 0 : regA; // (pcOrReg ? __signed({6b0,pc[0,26]}) : regA);
 
   always {
 // __display("DECODE %d %d",regA,regB);
@@ -591,21 +584,6 @@ algorithm decode(
       }
     }
   }
-  /*
-    always {  
-      if (opcode == 7b0010111 || opcode == 7b0110111) {
-        imm = imm_u;
-      } else { if (opcode == 7b1101111) {
-        imm = imm_j;    
-      } else { if (opcode == 7b1100111 || opcode == 7b0000011 || opcode == 7b0010011) {
-        imm = imm_i;
-      } else { if (opcode == 7b1100011) {
-        imm = imm_b;
-      } else { if (opcode == 7b0100011) {
-        imm = imm_s;
-      } } } } }
-    }
-  */  
 }
 
 // --------------------------------------------------
@@ -619,6 +597,10 @@ algorithm intops(         // input! tells the compiler that the input does not
   input!  uint1  select2,
   input!  uint1  pcOrReg,
   input!  uint1  regOrImm,
+  input!  uint3  csr,
+  input!  uint32 cycle,
+  input!  uint32 instret,
+  input!  uint3  cpu_id,
   output  int32  r,
 ) {
   
@@ -627,26 +609,34 @@ algorithm intops(         // input! tells the compiler that the input does not
   // reg +/- imm (intops)
   // pc  + imm   (else)
   
-  int32 a := xa; // pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
+  int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
   int32 b := xb; // regOrImm ? (xb) : imm;
 
   always { // this part of the algorithm is executed every clock  
-    switch (select) {
-      case 3b000: { // ADD / SUB
+    switch ({csr[2,1],select}) {
+      case 4b0000: { // ADD / SUB
         r = a + (select2 ? -b : b);
         // r = select2 ? (a - b) : (a + b);
       }
-      case 3b010: { // SLTI
+      case 4b0010: { // SLTI
         if (__signed(xa) < __signed(b)) { r = 32b1; } else { r = 32b0; }
       }
-      case 3b011: { // SLTU
+      case 4b0011: { // SLTU
         if (__unsigned(xa) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
       }
-      case 3b100: { r = xa ^ b;} // XOR
-      case 3b110: { r = xa | b;} // OR
-      case 3b111: { r = xa & b;} // AND
-      case 3b001: { r = (xa <<< b[0,5]); } // SLLI
-      case 3b101: { r = select2 ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
+      case 4b0100: { r = xa ^ b;} // XOR
+      case 4b0110: { r = xa | b;} // OR
+      case 4b0111: { r = xa & b;} // AND
+      case 4b0001: { r = (xa <<< b[0,5]); } // SLLI
+      case 4b0101: { r = select2 ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
+      default: {
+        switch (csr[0,2]) {
+          case 2b00: { r = cycle;   }
+          case 2b01: { r = cpu_id;  }
+          case 2b10: { r = instret; }
+          default: { }
+        }
+      }
     }
   }
 }
