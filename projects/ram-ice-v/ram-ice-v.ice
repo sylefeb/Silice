@@ -148,8 +148,8 @@ $$end
 $$end
 $$end
 
-  uint1 pcOrReg     = uninitialized;
-  uint1 regOrImm    = uninitialized;
+  //uint1 pcOrReg     = uninitialized;
+  //uint1 regOrImm    = uninitialized;
   
   uint1 load_store  = uninitialized;
   uint1 store       = uninitialized;
@@ -181,8 +181,8 @@ $$end
     loadStoreOp :> loadStoreOp,
     select      :> select,
     select2     :> select2,
-    pcOrReg     :> pcOrReg,
-    regOrImm    :> regOrImm,
+    //pcOrReg     :> pcOrReg,
+    //regOrImm    :> regOrImm,
     csr         :> csr,
     rd_enable   :> rd_enable,
     aluA        :> aluA,
@@ -194,8 +194,8 @@ $$end
     pc        <:: pc,
     xa        <: aluA,
     xb        <: aluB,
-    pcOrReg   <: pcOrReg,
-    regOrImm  <: regOrImm,
+    //pcOrReg   <: pcOrReg,
+    //regOrImm  <: regOrImm,
     select    <: select,
     select2   <: select2,
     csr       <: csr,
@@ -481,8 +481,8 @@ algorithm decode(
   output uint3   loadStoreOp,
   output uint3   select,
   output uint1   select2,
-  output uint1   pcOrReg,
-  output uint1   regOrImm,
+  //output uint1   pcOrReg,
+  //output uint1   regOrImm,
   output uint3   csr,
   output uint1   rd_enable,
   output int32   aluA,
@@ -508,7 +508,6 @@ algorithm decode(
   
   uint7 opcode := instr[ 0, 7];
   
-
   uint1 AUIPC  := opcode == 7b0010111;
   uint1 LUI    := opcode == 7b0110111;
   uint1 JAL    := opcode == 7b1101111;
@@ -520,7 +519,7 @@ algorithm decode(
   uint1 IntReg := opcode == 7b0110011;
   uint1 CSR    := opcode == 7b1110011;
 
-  uint1 no_rd  := (Branch || Store);
+  uint1 no_rd  := (Branch | Store);
 
   jump         := (JAL | JALR);
   branch       := (Branch);
@@ -540,11 +539,11 @@ algorithm decode(
   write_rd     := Rtype(instr).rd;
   rd_enable    := (write_rd != 0) & ~no_rd;  
   
-  pcOrReg      := (AUIPC | JAL || Branch);
+  //pcOrReg      := (AUIPC | JAL | Branch);
                 
-  regOrImm     := (IntReg);
+  //regOrImm     := (IntReg);
 
-  aluA         := (LUI) ? 0 : regA; // (pcOrReg ? __signed({6b0,pc[0,26]}) : regA);
+  aluA         := (LUI) ? 0 : ((AUIPC | JAL | Branch) ? __signed({6b0,pc[0,26]}) : regA);
 
   always {
 // __display("DECODE %d %d",regA,regB);
@@ -590,8 +589,8 @@ algorithm intops(         // input! tells the compiler that the input does not
   input!  int32  xb,
   input!  uint3  select,
   input!  uint1  select2,
-  input!  uint1  pcOrReg,
-  input!  uint1  regOrImm,
+  //input!  uint1  pcOrReg,
+  //input!  uint1  regOrImm,
   input!  uint3  csr,
   input!  uint32 cycle,
   input!  uint32 instret,
@@ -604,7 +603,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   // reg +/- imm (intops)
   // pc  + imm   (else)
   
-  int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
+  int32 a := xa; // pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
   int32 b := xb; // regOrImm ? (xb) : imm;
 
   always { // this part of the algorithm is executed every clock  
