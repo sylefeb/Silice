@@ -1,6 +1,8 @@
 // SL 2020-12-22 @sylefeb
 //
 // ------------------------- 
+$$config['simple_dualport_bram_template']       = 'simple_dualport_bram_wmask_byte.v.in'
+$$config['simple_dualport_bram_wenable1_width'] = 'data'
 
 $$ bram_depth = 12
 $$ bram_size  = 1<<bram_depth
@@ -19,7 +21,7 @@ algorithm bram_ram_32bits(
   uint24 pred_reg = uninitialized;
 
 $$if verbose then                          
-  uint20 cycle = 0;
+  uint32 cycle = 0;
 $$end  
   
   while (1) {
@@ -29,18 +31,13 @@ $$if verbose then
     }
 $$end
     pram.data_out       = mem.rdata0 >> {pram.addr[0,2],3b000};    
-    pram.done           = ((pred_correct & pram.in_valid) | wait_one);
+    pram.done           = (pred_correct & pram.in_valid) | wait_one | pram.rw;
     mem.addr0           = (~pred_correct & pram.in_valid)
                           ? pram.addr[2,$bram_depth$] : pred_reg[0,$bram_depth$]; // predict
     pred_reg            = predicted_addr[2,$bram_depth$];
     mem.addr1           = pram.addr[2,$bram_depth$];
-    mem.wenable1        = pram.rw & ((pred_correct & pram.in_valid) | wait_one) & in_scope;
-    mem.wdata1          = {
-                            pram.wmask[3,1] ? pram.data_in[24,8] : mem.rdata0[24,8],
-                            pram.wmask[2,1] ? pram.data_in[16,8] : mem.rdata0[16,8],
-                            pram.wmask[1,1] ? pram.data_in[ 8,8] : mem.rdata0[ 8,8],
-                            pram.wmask[0,1] ? pram.data_in[ 0,8] : mem.rdata0[ 0,8]
-                          };   
+    mem.wenable1        = pram.wmask & {4{pram.rw & pram.in_valid & in_scope}};
+    mem.wdata1          = pram.data_in;    
 $$if verbose then  
     if (pram.in_valid | wait_one) {                        
       __display("          done:%b wait:%b pred:@%h out:%h wen:%b",pram.done,wait_one,mem.addr0,pram.data_out,mem.wenable1);  

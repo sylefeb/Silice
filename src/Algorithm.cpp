@@ -1037,6 +1037,50 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   case SIMPLEDUALBRAM: members = c_SimpleDualPortBRAMmembers; break;
   default: reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration"); break;
   }
+  // modifiers
+  if (decl->memModifiers() != nullptr) {
+    for (auto mod : decl->memModifiers()->memModifier()) {
+      if (mod->memClocks() != nullptr) { // clocks
+        // check clock signal exist
+        if (!isVIO(mod->memClocks()->clk0->IDENTIFIER()->getText())
+          && mod->memClocks()->clk0->IDENTIFIER()->getText() != ALG_CLOCK
+          && mod->memClocks()->clk0->IDENTIFIER()->getText() != m_Clock) {
+          reportError(mod->memClocks()->clk0->IDENTIFIER()->getSymbol(),
+            (int)mod->memClocks()->clk0->getStart()->getLine(),
+            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk0->getText().c_str());
+        }
+        if (!isVIO(mod->memClocks()->clk1->IDENTIFIER()->getText())
+          && mod->memClocks()->clk1->IDENTIFIER()->getText() != ALG_CLOCK
+          && mod->memClocks()->clk1->IDENTIFIER()->getText() != m_Clock) {
+          reportError(mod->memClocks()->clk1->IDENTIFIER()->getSymbol(),
+            (int)mod->memClocks()->clk1->getStart()->getLine(),
+            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk1->getText().c_str());
+        }
+        // add
+        mem.clocks.push_back(mod->memClocks()->clk0->IDENTIFIER()->getText());
+        mem.clocks.push_back(mod->memClocks()->clk1->IDENTIFIER()->getText());
+      } else if (mod->memNoInputLatch() != nullptr) { // no input latch
+        if (mod->memDelayed() != nullptr) {
+          reportError(mod->memNoInputLatch()->getSourceInterval(),
+            (int)mod->memNoInputLatch()->getStart()->getLine(),
+            "memory cannot use both 'input!' and 'delayed' options");
+        }
+        mem.no_input_latch = true;
+      } else if (mod->memDelayed() != nullptr) { // delayed input ( <:: )
+        if (mod->memNoInputLatch() != nullptr) {
+          reportError(mod->memDelayed()->getSourceInterval(),
+            (int)mod->memDelayed()->getStart()->getLine(),
+            "memory cannot use both 'input!' and 'delayed' options");
+        }
+        mem.delayed = true;
+      } else if (mod->STRING() != nullptr) {
+        mem.custom_template = mod->STRING()->getText();
+        mem.custom_template = mem.custom_template.substr(1, mem.custom_template.size() - 2);
+      } else {
+        reportError(mod->getSourceInterval(), (int)mod->getStart()->getLine(), "unkonwn modifier");
+      }
+    }
+  }
   // members
   for (const auto& m : members) {
     t_var_nfo v;
@@ -1048,7 +1092,10 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
       v.type_nfo.width     = justHigherPow2(mem.table_size);
     } else {
       // search config for width
-      auto C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
+      auto C = CONFIG.keyValues().find(mem.custom_template + "_" + m.name + "_width");
+      if (C == CONFIG.keyValues().end() || mem.custom_template.empty()) {
+        C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
+      }
       if (C == CONFIG.keyValues().end()) {
         v.type_nfo.width     = mem.type_nfo.width;
       } else if (C->second == "1") {
@@ -1057,7 +1104,11 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
         v.type_nfo.width     = mem.type_nfo.width;
       }
       // search config for type
-      auto T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
+      string sgnd = "";
+      auto T = CONFIG.keyValues().find(mem.custom_template + "_" + m.name + "_type");
+      if (T == CONFIG.keyValues().end() || mem.custom_template.empty()) {
+        T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
+      }
       if (T == CONFIG.keyValues().end()) {
         v.type_nfo.base_type = mem.type_nfo.base_type;
       } else if (T->second == "uint") {
@@ -1081,45 +1132,6 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
       mem.out_vars.push_back(v.name);
     }
     m_VIOBoundToModAlgOutputs[v.name] = WIRE "_mem_" + v.name;
-  }
-  // clocks
-  if (decl->memModifiers() != nullptr) {
-    for (auto mod : decl->memModifiers()->memModifier()) {
-      if (mod->memClocks() != nullptr) {
-        // check clock signal exist
-        if (!isVIO(mod->memClocks()->clk0->IDENTIFIER()->getText())
-          && mod->memClocks()->clk0->IDENTIFIER()->getText() != ALG_CLOCK
-          && mod->memClocks()->clk0->IDENTIFIER()->getText() != m_Clock) {
-          reportError(mod->memClocks()->clk0->IDENTIFIER()->getSymbol(),
-            (int)mod->memClocks()->clk0->getStart()->getLine(),
-            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk0->getText().c_str());
-        }
-        if (!isVIO(mod->memClocks()->clk1->IDENTIFIER()->getText())
-          && mod->memClocks()->clk1->IDENTIFIER()->getText() != ALG_CLOCK
-          && mod->memClocks()->clk1->IDENTIFIER()->getText() != m_Clock) {
-          reportError(mod->memClocks()->clk1->IDENTIFIER()->getSymbol(),
-            (int)mod->memClocks()->clk1->getStart()->getLine(),
-            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk1->getText().c_str());
-        }
-        // add
-        mem.clocks.push_back(mod->memClocks()->clk0->IDENTIFIER()->getText());
-        mem.clocks.push_back(mod->memClocks()->clk1->IDENTIFIER()->getText());
-      } else if (mod->memNoInputLatch() != nullptr) {
-        if (mod->memDelayed() != nullptr) {
-          reportError(mod->memNoInputLatch()->getSourceInterval(),
-            (int)mod->memNoInputLatch()->getStart()->getLine(),
-            "memory cannot use both 'input!' and 'delayed' options");
-        }
-        mem.no_input_latch = true;
-      } else if (mod->memDelayed() != nullptr) {
-        if (mod->memNoInputLatch() != nullptr) {
-          reportError(mod->memDelayed()->getSourceInterval(),
-            (int)mod->memDelayed()->getStart()->getLine(),
-            "memory cannot use both 'input!' and 'delayed' options");
-        }
-        mem.delayed = true;
-      }
-    }
   }
   // add memory
   m_Memories.emplace_back(mem);
@@ -5385,9 +5397,10 @@ void Algorithm::writeWireAssignements(
     updateAndCheckDependencies(_dependencies, a.second.instr, &empty);
     // we take the opportunity to check that if the wire depends on other wires, they are either all := or all ::=
     // mixing these two is forbidden, as this quickly leads to confusion without real benefits
+    // ( Note: I encounter a corner-case use for this ... but it would be best resolved with explicit reference to 
+    //         a variable 'at cycle start' (Q) state, e.g. ::a )
     for (const auto &d : _dependencies.dependencies.at(var)) {
       // is this dependency a wire?
-      /*
       auto W = m_WireAssignments.find(d);
       if (W != m_WireAssignments.end()) {
         auto w_alw    = dynamic_cast<siliceParser::AlwaysAssignedContext *>(W->second.instr);
@@ -5397,7 +5410,6 @@ void Algorithm::writeWireAssignements(
             "inconsistent use of ::= and := between bound expressions (with '%s')",d.c_str());
         }
       }
-      */
       // update usage of dependencies to q
       // NOTE: could be done only if wire is used ...
       updateFFUsage(e_Q, true, _ff_usage.ff_usage[d]);
@@ -6517,9 +6529,9 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, s
   string memid;
   std::vector<t_mem_member> members;
   switch (bram.mem_type) {
-  case BRAM:     members = c_BRAMmembers; memid = "bram";  break;
-  case BROM:     members = c_BROMmembers; memid = "brom"; break;
-  case DUALBRAM: members = c_DualPortBRAMmembers; memid = "dualport_bram"; break;
+  case BRAM:           members = c_BRAMmembers; memid = "bram";  break;
+  case BROM:           members = c_BROMmembers; memid = "brom"; break;
+  case DUALBRAM:       members = c_DualPortBRAMmembers; memid = "dualport_bram"; break;
   case SIMPLEDUALBRAM: members = c_SimpleDualPortBRAMmembers; memid = "simple_dualport_bram";  break;
   default: reportError(nullptr, -1, "internal error, memory type"); break;
   }
@@ -6531,22 +6543,28 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, s
       [](unsigned char c) { return std::toupper(c); }
     );
     if (m.is_addr) {
-      _replacements[nameup + "_WIDTH"] = std::to_string(justHigherPow2(bram.table_size) - 1);
+      _replacements[nameup + "_WIDTH"] = std::to_string(justHigherPow2(bram.table_size));
     } else {
       // search config
-      string width = ""; // bit-width - 1 (written as top of verilog range)
-      auto C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
+      string width = "";
+      auto C = CONFIG.keyValues().find(bram.custom_template + "_" + m.name + "_width");
+      if (C == CONFIG.keyValues().end() || bram.custom_template.empty()) {
+        C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
+      }
       if (C == CONFIG.keyValues().end()) {
-        width = std::to_string(bram.type_nfo.width - 1);
+        width = std::to_string(bram.type_nfo.width);
       } else if (C->second == "1") {
-        width = "0";
+        width = "1";
       } else if (C->second == "data") {
-        width = std::to_string(bram.type_nfo.width - 1);
+        width = std::to_string(bram.type_nfo.width);
       }
       _replacements[nameup + "_WIDTH"] = width;
       // search config
       string sgnd = "";
-      auto T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
+      auto T = CONFIG.keyValues().find(bram.custom_template + "_" + m.name + "_type");
+      if (T == CONFIG.keyValues().end() || bram.custom_template.empty()) {
+        T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
+      }
       if (T == CONFIG.keyValues().end()) {
         sgnd = typeString(bram.type_nfo.base_type);
       } else if (T->second == "uint") {
@@ -6560,8 +6578,8 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, s
     }
   }
   _replacements["DATA_TYPE"] = typeString(bram.type_nfo.base_type);
-  _replacements["DATA_WIDTH"] = std::to_string(bram.type_nfo.width - 1);
-  _replacements["DATA_SIZE"] = std::to_string(bram.table_size - 1);
+  _replacements["DATA_WIDTH"] = std::to_string(bram.type_nfo.width);
+  _replacements["DATA_SIZE"] = std::to_string(bram.table_size);
   ostringstream initial;
   if (!bram.do_not_initialize) {
     initial << "initial begin" << nxl;
@@ -6583,7 +6601,8 @@ void Algorithm::writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) 
   prepareModuleMemoryTemplateReplacements(bram, replacements);
   // load template
   VerilogTemplate tmplt;
-  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["bram_template"],
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" +
+    (bram.custom_template.empty() ? CONFIG.keyValues()["bram_template"] : (bram.custom_template + ".v.in")),
     replacements);
   // write to output
   out << tmplt.code();
@@ -6599,7 +6618,8 @@ void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& bram) 
   prepareModuleMemoryTemplateReplacements(bram, replacements);
   // load template
   VerilogTemplate tmplt;
-  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["brom_template"],
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" +
+    (bram.custom_template.empty() ? CONFIG.keyValues()["brom_template"] : (bram.custom_template + ".v.in")),
     replacements);
   // write to output
   out << tmplt.code();
@@ -6615,7 +6635,8 @@ void Algorithm::writeModuleMemoryDualPortBRAM(std::ostream& out, const t_mem_nfo
   prepareModuleMemoryTemplateReplacements(bram, replacements);
   // load template
   VerilogTemplate tmplt;
-  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["dualport_bram_template"],
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" +
+    (bram.custom_template.empty() ? CONFIG.keyValues()["dualport_bram_template"] : (bram.custom_template + ".v.in")),
     replacements);
   // write to output
   out << tmplt.code();
@@ -6631,7 +6652,8 @@ void Algorithm::writeModuleMemorySimpleDualPortBRAM(std::ostream &out, const t_m
   prepareModuleMemoryTemplateReplacements(bram, replacements);
   // load template
   VerilogTemplate tmplt;
-  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["simple_dualport_bram_template"],
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" +
+    (bram.custom_template.empty() ? CONFIG.keyValues()["simple_dualport_bram_template"] : (bram.custom_template + ".v.in")),
     replacements);
   // write to output
   out << tmplt.code();

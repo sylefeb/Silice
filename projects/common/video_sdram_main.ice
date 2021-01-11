@@ -519,7 +519,7 @@ $$if ICARUS then
   while (frame < 4) {
 $$else
 $$if verbose then
-  while (frame < 1) {
+  while (frame < 4) {
 $$else
   while (frame < 10) {
 $$end  

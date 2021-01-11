@@ -124,6 +124,7 @@ algorithm rv32i_cpu(
   simple_dualport_bram int32 xregsB[32] = {0,pad(uninitialized)};
   
   uint1  cmp         = uninitialized;
+  uint1  instr_ready(0);
   uint1  halt(0);
   
   uint5  write_rd    = uninitialized;
@@ -269,7 +270,7 @@ $$end
   // while (instret < 128) {
 $$if verbose then
     if (ram_done_pulsed) {
-      __display("[ram_done_pulsed (cycle %d)] ram.data_out %h",cycle,ram.data_out);        
+      // __display("[ram_done_pulsed (cycle %d)] ram.data_out %h",cycle,ram.data_out);        
     }
 $$end
     switch (case_select) {
@@ -277,8 +278,8 @@ $$end
       case 8: {
       ram_done_pulsed = 0;
 $$if verbose then
-      __display("----------- CASE 8 ------------- (cycle %d)",cycle);     
-      __display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
+      // __display("----------- CASE 8 ------------- (cycle %d)",cycle);     
+      // __display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
 $$end
         refetch         = 0;
 
@@ -297,15 +298,16 @@ $$end
         ram.rw          = refetch_rw;
         ram.in_valid    = 1;
         instr           = do_load_store ? instr : 0; // reset decoder
-        wait_next_instr = ~do_load_store ;
+        instr_ready     = do_load_store;
+        wait_next_instr = ~do_load_store;
 
       }
     
       case 4: {
         ram_done_pulsed = 0;
 $$if verbose then
-        __display("----------- CASE 4 ------------- (cycle %d)",cycle);
-        __display("[load store] (cycle %d) store %b",cycle,saved_store);
+        // __display("----------- CASE 4 ------------- (cycle %d)",cycle);
+        // __display("[load store] (cycle %d) store %b",cycle,saved_store);
 $$end        
         do_load_store   = 0;
         // data with memory access
@@ -341,13 +343,14 @@ $$end
           || Rtype(instr     ).rs1 == xregsA.addr1
           || Rtype(instr     ).rs2 == xregsB.addr1) & saved_rd_enable) {
           // too bad, but we have to write a register that was already
-          // read for the prefetched instruction ... play again!
+          // read for the prefetched instructions ... play again!
           ram.addr        = pc;
           predicted_addr  = pc + 4;
           wait_next_instr = 1;
           instr           = 0; // reset decoder
+          instr_ready     = 0;
 $$if verbose then
-          __display("****** register conflict *******");
+          // __display("****** register conflict *******");
 $$end          
         } else {
           // be optimistic: request next-next instruction
@@ -358,16 +361,13 @@ $$end
         }
         ram.in_valid    = 1;
         ram.rw          = 0;
-        //ram.addr        = pc
-        //wait_next_instr = 1;
-        //instr           = 0; // reset decoder        
       } // case 4
 
       case 2: {
       ram_done_pulsed = 0;
 $$if verbose then      
-      __display("----------- CASE 2 ------------- (cycle %d)",cycle);
-      __display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
+      // __display("----------- CASE 2 ------------- (cycle %d)",cycle);
+      // __display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
 $$end      
         // Note: ALU for previous (if any) is running ...
         wait_next_instr = 0;
@@ -391,19 +391,23 @@ $$end
       case 1: {
         uint1 retire   = uninitialized;
 $$if verbose then     
-        __display("----------- CASE 1 ------------- (cycle %d)",cycle);
+        // __display("----------- CASE 1 ------------- (cycle %d | instret %d)",cycle,instret);
         if (instr == 0) {
-          __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
+          // __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
         } else {
-          __display("========> [ALU done (%h) <<%d>> ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,cycle-cycle_last_retired,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
+          // __display("========> [ALU done (%h) <<%d>> ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,cycle-cycle_last_retired,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
+          __display("========> [ALU done (%h) <<%d>> cycle %d instret %d] pc %h load_store:%b store:%b branch_or_jump:%b",instr,cycle-cycle_last_retired,cycle,instret,pc,load_store,store,branch_or_jump);
           cycle_last_retired = cycle;
         }
 $$end        
         commit_decode = 0;
         // Note: nothing received from memory
-        
+        halt   = instr_ready & (instr == 0);
         retire = (instr != 0);
         
+$$if SIMULATION then
+        if (halt) { __display("HALT on zero-instruction"); }
+$$end
         // commit previous instruction
         // load store next?
         do_load_store     = load_store; // Note instr == 0 => load_store == 0        
@@ -453,20 +457,45 @@ $$end
 //__display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
 //}
         // setup decoder and ALU for instruction i+1
+        // => decoder starts immediately, ALU on next cycle
         instr = next_instr;
         pc    = next_instr_pc;
+        instr_ready = 1;
 //__display("[instr setup] %h @%h",instr,pc);
         regA  = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
         regB  = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   
 //__display("[regs READ] regA[%d]=%h (%h) regB[%d]=%h (%h)",xregsA.addr0,regA,xregsA.rdata0,xregsB.addr0,regB,xregsB.rdata0);        
-
+/*
+        // check if next instruction is a trivial jump, and this one is neither a jump nor store        
+        if (next_instr[2,5] == 5b11001 && Itype(next_instr).imm == 0 && refetch == 0) {
+          // yes: refetch!
+$$if verbose then          
+          // __display("========> JR detected, to @%h",regA);
+$$end          
+          refetch      = 1;
+          refetch_addr = regA;
+          refetch_rw   = 0;
+          if (retire) {
+            instret = instret + 2;
+          } else {
+            instret = instret + 1;
+          }
+        } else {
+          if (retire) {
+            instret = instret + 1;
+          }
+        }
+*/
         if (retire) {
           instret = instret + 1;
+        }
+
 $$if SIMULATION then          
+//      if (retire) {
 //          __display("========> [retired instruction] *** %d since ***",cycle-cycle_last_retired);
 //          cycle_last_retired = cycle;
+//      }
 $$end          
-        }
       }
     } // switch
         

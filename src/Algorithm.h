@@ -209,6 +209,7 @@ private:
       bool        do_not_initialize = false;
       bool        no_input_latch    = false;
       bool        delayed           = false;
+      std::string custom_template;
       int         line;
       std::vector<std::string> clocks;
       std::vector<std::string> in_vars;

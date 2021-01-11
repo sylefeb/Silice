@@ -62,7 +62,7 @@ $$end
   uint16 iter = 0;
   
 $$if SIMULATION then  
-  while (iter < 1024) {
+  while (iter < 4096) {
 $$else
   while (1) {
 $$end

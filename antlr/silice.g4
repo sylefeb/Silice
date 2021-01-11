@@ -148,7 +148,7 @@ initList            : '{' value (',' value)* (',' pad)? ','? '}' | '{' pad '}'  
 memNoInputLatch     : 'input' '!' ;
 memDelayed          : 'delayed' ;
 memClocks           : (clk0=sclock ',' clk1=sclock) ;
-memModifier         : memClocks | memNoInputLatch | memDelayed ;
+memModifier         : memClocks | memNoInputLatch | memDelayed | STRING;
 memModifiers        : '<' memModifier (',' memModifier)* ','? '>' ;
 
 type                   : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')') ;
