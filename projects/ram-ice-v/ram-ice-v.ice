@@ -148,8 +148,8 @@ $$end
 $$end
 $$end
 
-  //uint1 pcOrReg     = uninitialized;
-  //uint1 regOrImm    = uninitialized;
+  uint1 pcOrReg     = uninitialized;
+  uint1 regOrImm    = uninitialized;
   
   uint1 load_store  = uninitialized;
   uint1 store       = uninitialized;
@@ -181,8 +181,8 @@ $$end
     loadStoreOp :> loadStoreOp,
     select      :> select,
     select2     :> select2,
-    //pcOrReg     :> pcOrReg,
-    //regOrImm    :> regOrImm,
+    pcOrReg     :> pcOrReg,
+    regOrImm    :> regOrImm,
     csr         :> csr,
     rd_enable   :> rd_enable,
     aluA        :> aluA,
@@ -194,8 +194,8 @@ $$end
     pc        <:: pc,
     xa        <: aluA,
     xb        <: aluB,
-    //pcOrReg   <: pcOrReg,
-    //regOrImm  <: regOrImm,
+    pcOrReg   <: pcOrReg,
+    regOrImm  <: regOrImm,
     select    <: select,
     select2   <: select2,
     csr       <: csr,
@@ -481,8 +481,8 @@ algorithm decode(
   output uint3   loadStoreOp,
   output uint3   select,
   output uint1   select2,
-  //output uint1   pcOrReg,
-  //output uint1   regOrImm,
+  output uint1   pcOrReg,
+  output uint1   regOrImm,
   output uint3   csr,
   output uint1   rd_enable,
   output int32   aluA,
@@ -539,10 +539,10 @@ algorithm decode(
   write_rd     := Rtype(instr).rd;
   rd_enable    := (write_rd != 0) & ~no_rd;  
   
-  //pcOrReg      := (AUIPC | JAL | Branch);
-  //regOrImm     := (IntReg);
+  pcOrReg      := (AUIPC | JAL | Branch);
+  regOrImm     := (IntReg);
 
-  aluA         := (LUI) ? 0 : ((AUIPC | JAL | Branch) ? __signed({6b0,pc[0,26]}) : regA);
+  aluA         := (LUI) ? 0 : regA; // ((AUIPC | JAL | Branch) ? __signed({6b0,pc[0,26]}) : regA);
 
   always {
 // __display("DECODE %d %d",regA,regB);
@@ -576,6 +576,29 @@ algorithm decode(
         aluB        = regB;
       }
     }
+
+    // switch ({AUIPC|LUI,JAL,JALR|Load|IntImm,Branch,Store})
+    // {    
+    //   case 5b10000: {
+    //     aluB        = imm_u;
+    //   }
+    //   case 5b01000: {
+    //     aluB        = imm_j;
+    //   }
+    //   case 5b00100: {
+    //     aluB        = imm_i;
+    //   }
+    //   case 5b00010: {
+    //     aluB        = imm_b;
+    //   } 
+    //   case 5b00001: {
+    //     aluB        = imm_s;
+    //   }
+    //   default: {
+    //     aluB        = regB;
+    //   }
+    // }
+
   }
 }
 
@@ -588,8 +611,8 @@ algorithm intops(         // input! tells the compiler that the input does not
   input!  int32  xb,
   input!  uint3  select,
   input!  uint1  select2,
-  //input!  uint1  pcOrReg,
-  //input!  uint1  regOrImm,
+  input!  uint1  pcOrReg,
+  input!  uint1  regOrImm,
   input!  uint3  csr,
   input!  uint32 cycle,
   input!  uint32 instret,
@@ -602,7 +625,7 @@ algorithm intops(         // input! tells the compiler that the input does not
   // reg +/- imm (intops)
   // pc  + imm   (else)
   
-  int32 a := xa; // pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
+  int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
   int32 b := xb; // regOrImm ? (xb) : imm;
 
   always { // this part of the algorithm is executed every clock  
