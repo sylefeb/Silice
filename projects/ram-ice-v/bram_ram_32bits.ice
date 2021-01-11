@@ -1,8 +1,8 @@
 // SL 2020-12-22 @sylefeb
 //
 // ------------------------- 
-$$config['simple_dualport_bram_template']       = 'simple_dualport_bram_wmask_byte.v.in'
-$$config['simple_dualport_bram_wenable1_width'] = 'data'
+
+$$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 
 $$ bram_depth = 12
 $$ bram_size  = 1<<bram_depth
@@ -12,7 +12,7 @@ algorithm bram_ram_32bits(
   input uint26 predicted_addr,         // next predicted address
 ) <autorun> {
 
-  simple_dualport_bram uint32 mem[$bram_size$] = { $data_bram$ pad(uninitialized) };
+  simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { $data_bram$ pad(uninitialized) };
   
   uint1 in_scope     ::= (pram.addr[29,3] == 3b00); // Note: memory mapped addresses use the top most bits
   uint1 pred_correct ::= (mem.addr0 == pram.addr[2,$bram_depth$]);

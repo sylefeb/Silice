@@ -465,7 +465,8 @@ $$end
         regA  = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
         regB  = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   
 //__display("[regs READ] regA[%d]=%h (%h) regB[%d]=%h (%h)",xregsA.addr0,regA,xregsA.rdata0,xregsB.addr0,regB,xregsB.rdata0);        
-/*
+
+
         // check if next instruction is a trivial jump, and this one is neither a jump nor store        
         if (next_instr[2,5] == 5b11001 && Itype(next_instr).imm == 0 && refetch == 0) {
           // yes: refetch!
@@ -485,10 +486,10 @@ $$end
             instret = instret + 1;
           }
         }
-*/
-        if (retire) {
-          instret = instret + 1;
-        }
+
+//        if (retire) {
+//          instret = instret + 1;
+//        }
 
 $$if SIMULATION then          
 //      if (retire) {
