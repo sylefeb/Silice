@@ -140,8 +140,6 @@ algorithm rv32i_cpu(
   uint32 next_instr(0);
   uint26 next_instr_pc = uninitialized;
   
-  uint26 next_pc     = uninitialized;
-  
 $$if SIMULATION then  
 $$if SHOW_REGS then
 $$for i=0,31 do
@@ -175,7 +173,6 @@ $$end
     pc          <: pc,
     regA        <: regA,
     regB        <: regB,
-    next_pc     :> next_pc,
     write_rd    :> write_rd,
     jump        :> jump,
     branch      :> branch,
@@ -476,7 +473,6 @@ algorithm decode(
   input  uint26  pc,
   input  int32   regA,
   input  int32   regB,
-  output uint26  next_pc,
   output uint5   write_rd,
   output uint1   jump,
   output uint1   branch,
@@ -526,8 +522,6 @@ algorithm decode(
 
   uint1 no_rd  := (Branch || Store);
 
-  next_pc      := pc + 4;
-
   jump         := (JAL | JALR);
   branch       := (Branch);
   load_store   := (Load | Store);
@@ -554,30 +548,30 @@ algorithm decode(
 
   always {
 // __display("DECODE %d %d",regA,regB);
-    switch ({regOrImm,opcode})
+    switch ({AUIPC,LUI,JAL,JALR,Branch,Load,Store,IntImm})
     {    
-      case 8b00010111: { // AUIPC
+      case 8b10000000: { // AUIPC
         aluB        = imm_u;
       }
-      case 8b00110111: { // LUI
+      case 8b01000000: { // LUI
         aluB        = imm_u;
       }
-      case 8b01101111: { // JAL
+      case 8b00100000: { // JAL
         aluB        = imm_j;
       }
-      case 8b01100111: { // JALR
+      case 8b00010000: { // JALR
         aluB        = imm_i;
       }
-      case 8b01100011: { // branch
+      case 8b00001000: { // branch
         aluB        = imm_b;
       } 
-      case 8b00000011: { // load
+      case 8b00000100: { // load
         aluB        = imm_i;
       }      
-      case 8b00100011: { // store
+      case 8b00000010: { // store
         aluB        = imm_s;
       }
-      case 8b00010011: { // integer, immediate  
+      case 8b00000001: { // integer, immediate  
         aluB        = imm_i;
       }
       default: {
