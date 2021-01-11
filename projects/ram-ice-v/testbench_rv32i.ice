@@ -38,12 +38,12 @@ $$else
 ) {
 $$end
 
-  rv32i_ram_io ram;
+  rv32i_ram_io mem;
   uint26 predicted_addr = uninitialized;
 
   // bram io
   bram_ram_32bits bram_ram(
-    pram <:> ram,
+    pram <:> mem,
     predicted_addr <: predicted_addr,
   );
 
@@ -55,7 +55,7 @@ $$end
   rv32i_cpu cpu<!cpu_reset>(
     boot_at  <:  cpu_start_addr,
     cpu_id   <:  cpu_id,
-    ram      <:> ram,
+    ram      <:> mem,
     predicted_addr :> predicted_addr,
   );
 
@@ -69,8 +69,8 @@ $$end
 
     cpu_reset = 0;
 
-    if (ram.addr[31,1] & ram.rw) {
-      leds       = ram.data_in[0,8];
+    if (mem.addr[31,1] & mem.rw) {
+      leds       = mem.data_in[0,8];
       __display("LEDs = %b",leds);
     }
     
