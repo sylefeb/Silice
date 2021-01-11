@@ -61,7 +61,7 @@ algorithm frame_drawer(
   uint1  sdram_done_pulsed = 0;
 
   // cpu 
-  rv32i_cpu cpu(
+  rv32i_cpu cpu<!cpu_reset>(
     boot_at  <:  cpu_start_addr,
     predicted_addr :> predicted_addr,
     cpu_id   <:  cpu_id,
