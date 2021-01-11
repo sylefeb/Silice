@@ -467,29 +467,29 @@ $$end
 //__display("[regs READ] regA[%d]=%h (%h) regB[%d]=%h (%h)",xregsA.addr0,regA,xregsA.rdata0,xregsB.addr0,regB,xregsB.rdata0);        
 
 
-        // check if next instruction is a trivial jump, and this one is neither a jump nor store        
-        if (next_instr[2,5] == 5b11001 && Itype(next_instr).imm == 0 && refetch == 0) {
-          // yes: refetch!
+//         // check if next instruction is a trivial jump, and this one is neither a jump nor store        
+//         if (next_instr[2,5] == 5b11001 && Itype(next_instr).imm == 0 && refetch == 0) {
+//           // yes: refetch!
 $$if verbose then          
-          // __display("========> JR detected, to @%h",regA);
+//           // __display("========> JR detected, to @%h",regA);
 $$end          
-          refetch      = 1;
-          refetch_addr = regA;
-          refetch_rw   = 0;
-          if (retire) {
-            instret = instret + 2;
-          } else {
-            instret = instret + 1;
-          }
-        } else {
-          if (retire) {
-            instret = instret + 1;
-          }
-        }
+//           refetch      = 1;
+//           refetch_addr = regA;
+//           refetch_rw   = 0;
+//           if (retire) {
+//             instret = instret + 2;
+//           } else {
+//             instret = instret + 1;
+//           }
+//         } else {
+//           if (retire) {
+//             instret = instret + 1;
+//           }
+//         }
 
-//        if (retire) {
-//          instret = instret + 1;
-//        }
+       if (retire) {
+         instret = instret + 1;
+       }
 
 $$if SIMULATION then          
 //      if (retire) {
