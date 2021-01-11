@@ -540,7 +540,6 @@ algorithm decode(
   rd_enable    := (write_rd != 0) & ~no_rd;  
   
   //pcOrReg      := (AUIPC | JAL | Branch);
-                
   //regOrImm     := (IntReg);
 
   aluA         := (LUI) ? 0 : ((AUIPC | JAL | Branch) ? __signed({6b0,pc[0,26]}) : regA);
