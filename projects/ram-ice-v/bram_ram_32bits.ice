@@ -12,7 +12,7 @@ algorithm bram_ram_32bits(
 
   simple_dualport_bram uint32 mem[$bram_size$] = { $data_bram$ pad(uninitialized) };
   
-  uint1 in_scope      := (pram.addr[29,3] == 3b00); // Note: memory mapped addresses use the top most bits
+  uint1 in_scope     ::= (pram.addr[29,3] == 3b00); // Note: memory mapped addresses use the top most bits
   uint1 pred_correct ::= (mem.addr0 == pram.addr[2,$bram_depth$]);
   uint1 wait_one(0);
   
@@ -30,7 +30,7 @@ $$if verbose then
 $$end
     pram.data_out       = mem.rdata0 >> {pram.addr[0,2],3b000};    
     pram.done           = ((pred_correct & pram.in_valid) | wait_one);
-    mem.addr0           = (~pred_correct & (pram.in_valid | wait_one))
+    mem.addr0           = (~pred_correct & pram.in_valid)
                           ? pram.addr[2,$bram_depth$] : pred_reg[0,$bram_depth$]; // predict
     pred_reg            = predicted_addr[2,$bram_depth$];
     mem.addr1           = pram.addr[2,$bram_depth$];
