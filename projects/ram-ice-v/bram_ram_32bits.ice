@@ -18,8 +18,6 @@ algorithm bram_ram_32bits(
   uint1 pred_correct ::= (mem.addr0 == pram.addr[2,$bram_depth$]);
   uint1 wait_one(0);
   
-  uint24 pred_reg = uninitialized;
-
 $$if verbose then                          
   uint32 cycle = 0;
 $$end  
@@ -32,10 +30,9 @@ $$if verbose then
 $$end
     pram.data_out       = mem.rdata0 >> {pram.addr[0,2],3b000};    
     pram.done           = (pred_correct & pram.in_valid) | wait_one | pram.rw;
-    mem.addr0           = (pram.in_valid & ~pred_correct & ~pram.rw) // removing pram.rw, doesnot hurt, simpler logic
+    mem.addr0           = (pram.in_valid & ~pred_correct & ~pram.rw) // Note: removing pram.rw does not hurt ...
                           ? pram.addr[2,$bram_depth$] // read addr next (wait_one)
-                          : pred_reg[0,$bram_depth$]; // predict
-    pred_reg            = predicted_addr[2,$bram_depth$];
+                          : predicted_addr[2,$bram_depth$]; // predict
     mem.addr1           = pram.addr[2,$bram_depth$];
     mem.wenable1        = pram.wmask & {4{pram.rw & pram.in_valid & in_scope}};
     mem.wdata1          = pram.data_in;    

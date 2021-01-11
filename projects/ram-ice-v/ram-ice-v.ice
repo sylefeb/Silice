@@ -422,6 +422,7 @@ $$end
         // what to request from RAM next?
         refetch           = instr_ready & (branch_or_jump | load_store); // ask to fetch from the new address (cannot do it now, memory is busy with prefetch)
         refetch_addr      = alu_out;
+        predicted_addr    = refetch ? alu_out : predicted_addr; // attempt to predict read ...
         refetch_rw        = load_store & store;            // Note: (instr == 0) => load_store = 0
 $$if SIMULATION then
 //if (refetch) {
