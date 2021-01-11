@@ -134,8 +134,8 @@ algorithm rv32i_cpu(
   uint3  csr         = uninitialized;
   
   uint3  select      = uninitialized;  
-  uint1  select2     = uninitialized;
-  
+  uint1  sub         = uninitialized;
+  uint1  signedShift = uninitialized; 
   
   uint32 instr(0);    // initialize with null instruction, which sets everything to 0
   uint26 pc            = uninitialized;
@@ -167,6 +167,7 @@ $$end
   
   int32 aluA        = uninitialized;
   int32 aluB        = uninitialized;
+  int32 imm         = uninitialized;
   int32 regA        = uninitialized;
   int32 regB        = uninitialized;
   
@@ -182,29 +183,33 @@ $$end
     store       :> store,
     loadStoreOp :> loadStoreOp,
     select      :> select,
-    select2     :> select2,
+    sub         :> sub,
+    signedShift :> signedShift,
     pcOrReg     :> pcOrReg,
     regOrImm    :> regOrImm,
     csr         :> csr,
     rd_enable   :> rd_enable,
     aluA        :> aluA,
     aluB        :> aluB,
+    imm         :> imm,
   );
  
   int32  alu_out     = uninitialized;
   intops alu(
-    pc        <:: pc,
-    xa        <: aluA,
-    xb        <: aluB,
-    pcOrReg   <: pcOrReg,
-    regOrImm  <: regOrImm,
-    select    <: select,
-    select2   <: select2,
-    csr       <: csr,
-    cycle    <:: cycle,
-    instret  <:: instret,
-    cpu_id   <:: cpu_id,
-    r         :> alu_out,
+    pc          <:: pc,
+    xa          <: aluA,
+    xb          <: aluB,
+    imm         <: imm,
+    pcOrReg     <: pcOrReg,
+    regOrImm    <: regOrImm,
+    select      <: select,
+    sub         <: sub,
+    signedShift <: signedShift,
+    csr         <: csr,
+    cycle      <:: cycle,
+    instret    <:: instret,
+    cpu_id     <:: cpu_id,
+    r           :> alu_out,
   );
 
   uint3 funct3   ::= Btype(instr).funct3;
@@ -297,7 +302,7 @@ $$end
         predicted_addr  = do_load_store ? (next_instr_pc + 4) : (refetch_addr + 4);
         ram.rw          = refetch_rw;
         ram.in_valid    = 1;
-        instr           = do_load_store ? instr : 0; // reset decoder
+        // instr           = do_load_store ? instr : 0; // reset decoder
         instr_ready     = do_load_store;
         wait_next_instr = ~do_load_store;
 
@@ -347,7 +352,7 @@ $$end
           ram.addr        = pc;
           predicted_addr  = pc + 4;
           wait_next_instr = 1;
-          instr           = 0; // reset decoder
+          // instr           = 0; // reset decoder
           instr_ready     = 0;
 $$if verbose then
           // __display("****** register conflict *******");
@@ -403,19 +408,19 @@ $$end
         commit_decode = 0;
         // Note: nothing received from memory
         halt   = instr_ready & (instr == 0);
-        retire = (instr != 0);
+        retire = instr_ready; // (instr != 0);
         
 $$if SIMULATION then
         if (halt) { __display("HALT on zero-instruction"); }
 $$end
         // commit previous instruction
         // load store next?
-        do_load_store     = load_store; // Note instr == 0 => load_store == 0        
+        do_load_store     = instr_ready & load_store; // Note instr == 0 => load_store == 0        
         saved_store       = store;
         saved_loadStoreOp = loadStoreOp;
         saved_rd_enable   = rd_enable;
         // what to request from RAM next?
-        refetch           = (branch_or_jump | load_store); // ask to fetch from the new address (cannot do it now, memory is busy with prefetch)
+        refetch           = instr_ready & (branch_or_jump | load_store); // ask to fetch from the new address (cannot do it now, memory is busy with prefetch)
         refetch_addr      = alu_out;
         refetch_rw        = load_store & store;            // Note: (instr == 0) => load_store = 0
 $$if SIMULATION then
@@ -424,7 +429,7 @@ $$if SIMULATION then
 //}
 $$end
         // wait for next instr?
-        wait_next_instr = ~refetch & ~do_load_store;
+        wait_next_instr = (~refetch & ~do_load_store) | ~instr_ready;
         // prepare a potential store     // Note: it is ok to manipulate ram.data_in as only reads can concourrently occur
         switch (loadStoreOp) {
           case 3b000: { // SB
@@ -451,15 +456,15 @@ $$end
         xregsB.wdata1   = branch_or_jump ? next_instr_pc : alu_out;
         xregsA.addr1    = write_rd;
         xregsB.addr1    = write_rd;
-        xregsA.wenable1 = (~refetch | jump) & rd_enable; // Note: instr == 0 => rd_enable == 0 
-        xregsB.wenable1 = (~refetch | jump) & rd_enable; // postpone write if refetch (load)
+        xregsA.wenable1 = instr_ready & (~refetch | jump) & rd_enable; // Note: instr == 0 => rd_enable == 0 
+        xregsB.wenable1 = instr_ready & (~refetch | jump) & rd_enable; // postpone write if refetch (load)
 //if (xregsA.wenable1) {        
 //__display("[regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
 //}
         // setup decoder and ALU for instruction i+1
         // => decoder starts immediately, ALU on next cycle
-        instr = next_instr;
-        pc    = next_instr_pc;
+        instr       = next_instr;
+        pc          = next_instr_pc;
         instr_ready = 1;
 //__display("[instr setup] %h @%h",instr,pc);
         regA  = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
@@ -520,13 +525,15 @@ algorithm decode(
   output uint1   store,
   output uint3   loadStoreOp,
   output uint3   select,
-  output uint1   select2,
+  output uint1   sub,
+  output uint1   signedShift,
   output uint1   pcOrReg,
   output uint1   regOrImm,
   output uint3   csr,
   output uint1   rd_enable,
   output int32   aluA,
   output int32   aluB,
+  output int32   imm,
 ) <autorun> {
 
   int32 imm_u  := {Utype(instr).imm31_12,12b0};
@@ -546,18 +553,18 @@ algorithm decode(
             };
   int32 imm_s  := {{20{instr[31,1]}},Stype(instr).imm11_5,Stype(instr).imm4_0};
   
-  uint7 opcode := instr[ 0, 7];
+  uint5 opcode := instr[ 2, 5];
   
-  uint1 AUIPC  := opcode == 7b0010111;
-  uint1 LUI    := opcode == 7b0110111;
-  uint1 JAL    := opcode == 7b1101111;
-  uint1 JALR   := opcode == 7b1100111;
-  uint1 Branch := opcode == 7b1100011;
-  uint1 Load   := opcode == 7b0000011;
-  uint1 Store  := opcode == 7b0100011;
-  uint1 IntImm := opcode == 7b0010011;
-  uint1 IntReg := opcode == 7b0110011;
-  uint1 CSR    := opcode == 7b1110011;
+  uint1 AUIPC  := opcode == 5b00101;
+  uint1 LUI    := opcode == 5b01101;
+  uint1 JAL    := opcode == 5b11011;
+  uint1 JALR   := opcode == 5b11001;
+  uint1 Branch := opcode == 5b11000;
+  uint1 Load   := opcode == 5b00000;
+  uint1 Store  := opcode == 5b01000;
+  uint1 IntImm := opcode == 5b00100;
+  uint1 IntReg := opcode == 5b01100;
+  uint1 CSR    := opcode == 5b11100;
 
   uint1 no_rd  := (Branch | Store);
 
@@ -566,11 +573,9 @@ algorithm decode(
   load_store   := (Load | Store);
   store        := (Store);
   select       := (IntImm | IntReg) ? Itype(instr).funct3 : 3b000;
-  select2      := (IntImm 
-                   && instr[30,1] /*SRLI/SRAI*/ 
-                   && (Itype(instr).funct3 != 3b000) /*not ADD*/) 
-               || (IntReg && Rtype(instr).select2);
-  
+  sub          := (IntReg & Rtype(instr).select2);
+  signedShift  := IntImm & instr[30,1]; /*SRLI/SRAI*/
+
   loadStoreOp  := Itype(instr).funct3;
 
   csr          := {CSR,instr[20,2]}; // we grab only the bits for 
@@ -583,39 +588,69 @@ algorithm decode(
   regOrImm     := (IntReg);
 
   aluA         := (LUI) ? 0 : regA; // ((AUIPC | JAL | Branch) ? __signed({6b0,pc[0,26]}) : regA);
+  aluB         := regB;
 
   always {
+
+    switch (opcode)
+     {
+      case 5b00101: { // AUIPC
+        imm         = imm_u;
+       }
+      case 5b01101: { // LUI
+        imm         = imm_u;
+       }
+      case 5b11011: { // JAL
+        imm         = imm_j;
+       }
+      case 5b11001: { // JALR
+        imm         = imm_i;
+       }
+      case 5b11000: { // branch
+        imm         = imm_b;
+       }
+      case 5b00000: { // load
+        imm         = imm_i;
+       }
+      case 5b01000: { // store
+        imm         = imm_s;
+       }
+      case 5b00100: { // integer, immediate
+        imm         = imm_i;
+       }
+       default: {
+       }
+     }
+
 // __display("DECODE %d %d",regA,regB);
-    switch ({AUIPC,LUI,JAL,JALR,Branch,Load,Store,IntImm})
-    {    
-      case 8b10000000: { // AUIPC
-        aluB        = imm_u;
-      }
-      case 8b01000000: { // LUI
-        aluB        = imm_u;
-      }
-      case 8b00100000: { // JAL
-        aluB        = imm_j;
-      }
-      case 8b00010000: { // JALR
-        aluB        = imm_i;
-      }
-      case 8b00001000: { // branch
-        aluB        = imm_b;
-      } 
-      case 8b00000100: { // load
-        aluB        = imm_i;
-      }      
-      case 8b00000010: { // store
-        aluB        = imm_s;
-      }
-      case 8b00000001: { // integer, immediate  
-        aluB        = imm_i;
-      }
-      default: {
-        aluB        = regB;
-      }
-    }
+    // switch ({AUIPC,LUI,JAL,JALR,Branch,Load,Store,IntImm})
+    // {    
+    //   case 8b10000000: { // AUIPC
+    //     imm         = imm_u;
+    //   }
+    //   case 8b01000000: { // LUI
+    //     imm        = imm_u;
+    //   }
+    //   case 8b00100000: { // JAL
+    //     imm        = imm_j;
+    //   }
+    //   case 8b00010000: { // JALR
+    //     imm        = imm_i;
+    //   }
+    //   case 8b00001000: { // branch
+    //     imm        = imm_b;
+    //   } 
+    //   case 8b00000100: { // load
+    //     imm        = imm_i;
+    //   }      
+    //   case 8b00000010: { // store
+    //     imm        = imm_s;
+    //   }
+    //   case 8b00000001: { // integer, immediate  
+    //     imm        = imm_i;
+    //   }
+    //   default: { }
+    // }
 
     // switch ({AUIPC|LUI,JAL,JALR|Load|IntImm,Branch,Store})
     // {    
@@ -649,10 +684,13 @@ algorithm intops(         // input! tells the compiler that the input does not
   input!  uint26 pc,      // need to be latched, so we can save registers
   input!  int32  xa,      // caller has to ensure consistency
   input!  int32  xb,
+  input!  int32  imm,
   input!  uint3  select,
   input!  uint1  select2,
   input!  uint1  pcOrReg,
   input!  uint1  regOrImm,
+  input!  uint1  sub,
+  input!  uint1  signedShift,
   input!  uint3  csr,
   input!  uint32 cycle,
   input!  uint32 instret,
@@ -665,14 +703,14 @@ algorithm intops(         // input! tells the compiler that the input does not
   // reg +/- imm (intops)
   // pc  + imm   (else)
   
-  int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
-  int32 b := xb; // regOrImm ? (xb) : imm;
+  int32 a := pcOrReg ? __signed({6b0,pc[0,26]}) : xa;
+  int32 b := regOrImm ? (xb) : imm;
 
   always { // this part of the algorithm is executed every clock  
     switch ({csr[2,1],select}) {
       case 4b0000: { // ADD / SUB
-        r = a + (select2 ? -b : b);
-        // r = select2 ? (a - b) : (a + b);
+        r = a + (sub ? -b : b);
+        // r = sub ? (a - b) : (a + b);
       }
       case 4b0010: { // SLTI
         if (__signed(xa) < __signed(b)) { r = 32b1; } else { r = 32b0; }
@@ -684,7 +722,7 @@ algorithm intops(         // input! tells the compiler that the input does not
       case 4b0110: { r = xa | b;} // OR
       case 4b0111: { r = xa & b;} // AND
       case 4b0001: { r = (xa <<< b[0,5]); } // SLLI
-      case 4b0101: { r = select2 ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
+      case 4b0101: { r = signedShift ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
       default: {
         switch (csr[0,2]) {
           case 2b00: { r = cycle;   }

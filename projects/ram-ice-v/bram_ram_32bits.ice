@@ -32,7 +32,7 @@ $$if verbose then
 $$end
     pram.data_out       = mem.rdata0 >> {pram.addr[0,2],3b000};    
     pram.done           = (pred_correct & pram.in_valid) | wait_one | pram.rw;
-    mem.addr0           = (pram.in_valid & ~pred_correct /* & ~pram.rw */) // removing pram.rw, doesnot hurt, simpler logic
+    mem.addr0           = (pram.in_valid & ~pred_correct & ~pram.rw) // removing pram.rw, doesnot hurt, simpler logic
                           ? pram.addr[2,$bram_depth$] // read addr next (wait_one)
                           : pred_reg[0,$bram_depth$]; // predict
     pred_reg            = predicted_addr[2,$bram_depth$];
@@ -45,6 +45,6 @@ $$if verbose then
     }
     cycle = cycle + 1;
 $$end    
-    wait_one            = (pram.in_valid & ~pred_correct /* & ~pram.rw*/ );
+    wait_one            = (pram.in_valid & ~pred_correct & ~pram.rw );
   }
 }
