@@ -115,7 +115,8 @@ interface rv32i_ram_provider {
 algorithm rv32i_cpu(
   input uint26   boot_at,
   input uint3    cpu_id,
-  rv32i_ram_user ram
+  rv32i_ram_user ram,
+  output uint26  predicted_addr, // next predicted address
 ) <autorun> {
   
   // does not have to be simple_dualport_bram, but results in smaller design
@@ -258,25 +259,26 @@ $$end
   //  __display("CPU START");  
   //}
   // boot
-  ram.addr     = boot_at;
-  ram.rw       = 0;
-  ram.in_valid = ~reset;
+  ram.addr       = boot_at;
+  predicted_addr = boot_at + 4;
+  ram.rw         = 0;
+  ram.in_valid   = ~reset;
   
   while (!halt) {
   // while (cycle < 400) {
   // while (instret < 128) {
-
-    //if (ram_done_pulsed) {
-    //  __display("[ram_done_pulsed] ram.data_out %h",ram.data_out);        
-    //}
-
+$$if verbose then
+    if (ram_done_pulsed) {
+      __display("[ram_done_pulsed (cycle %d)] ram.data_out %h",cycle,ram.data_out);        
+    }
+$$end
     switch (case_select) {
     
       case 8: {
       ram_done_pulsed = 0;
-$$if SIMULATION then
-      //__display("----------- CASE 8 ------------- (cycle %d)",cycle);     
-      //__display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
+$$if verbose then
+      __display("----------- CASE 8 ------------- (cycle %d)",cycle);     
+      __display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
 $$end
         refetch         = 0;
 
@@ -291,6 +293,7 @@ $$end
 
         // refetch
         ram.addr        = refetch_addr;
+        predicted_addr  = do_load_store ? (next_instr_pc + 4) : (refetch_addr + 4);
         ram.rw          = refetch_rw;
         ram.in_valid    = 1;
         instr           = do_load_store ? instr : 0; // reset decoder
@@ -300,9 +303,9 @@ $$end
     
       case 4: {
         ram_done_pulsed = 0;
-$$if SIMULATION then
-        //__display("----------- CASE 4 ------------- (cycle %d)",cycle);
-        //__display("[load store] (cycle %d) store %b",cycle,saved_store);
+$$if verbose then
+        __display("----------- CASE 4 ------------- (cycle %d)",cycle);
+        __display("[load store] (cycle %d) store %b",cycle,saved_store);
 $$end        
         do_load_store   = 0;
         // data with memory access
@@ -340,12 +343,16 @@ $$end
           // too bad, but we have to write a register that was already
           // read for the prefetched instruction ... play again!
           ram.addr        = pc;
+          predicted_addr  = pc + 4;
           wait_next_instr = 1;
           instr           = 0; // reset decoder
-          //__display("****** register conflict *******");
+$$if verbose then
+          __display("****** register conflict *******");
+$$end          
         } else {
           // be optimistic: request next-next instruction
-          ram.addr        = next_instr_pc + 4;
+          ram.addr       = next_instr_pc + 4;
+          predicted_addr = next_instr_pc + 8;
 //__display("[RAM ADDR] @%h",ram.addr);
           commit_decode     = 1;
         }
@@ -358,8 +365,10 @@ $$end
 
       case 2: {
       ram_done_pulsed = 0;
-      //__display("----------- CASE 2 ------------- (cycle %d)",cycle);
-      //__display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
+$$if verbose then      
+      __display("----------- CASE 2 ------------- (cycle %d)",cycle);
+      __display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
+$$end      
         // Note: ALU for previous (if any) is running ...
         wait_next_instr = 0;
         // record next instruction
@@ -372,6 +381,7 @@ $$end
 //__display("[setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
         commit_decode   = 1;
         // be optimistic: request next-next instruction
+        predicted_addr  = (ram.addr[0,26] + 8);
         ram.addr        = (ram.addr[0,26] + 4);
 //__display("[RAM ADDR] @%h",ram.addr);
         ram.in_valid    = 1;
@@ -380,12 +390,12 @@ $$end
       
       case 1: {
         uint1 retire   = uninitialized;
-$$if SIMULATION then     
-        //__display("----------- CASE 1 ------------- (cycle %d)",cycle);
+$$if verbose then     
+        __display("----------- CASE 1 ------------- (cycle %d)",cycle);
         if (instr == 0) {
-          //__display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
+          __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
         } else {
-          //__display("========> [ALU done (%h) <<%d>> ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,cycle-cycle_last_retired,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
+          __display("========> [ALU done (%h) <<%d>> ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,cycle-cycle_last_retired,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
           cycle_last_retired = cycle;
         }
 $$end        

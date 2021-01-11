@@ -6,7 +6,10 @@ $$sdcard_image_pad_size = 0
 // pre-compilation script, embeds compile code within sdcard image
 $$dofile('pre_include_asm.lua')
 
-$$SHOW_REGS=true
+$$if SIMULATION then
+$$verbose = 1
+$$end
+
 $include('ram-ice-v.ice')
 $include('bram_ram_32bits.ice')
 
@@ -36,10 +39,12 @@ $$else
 $$end
 
   rv32i_ram_io ram;
+  uint26 predicted_addr = uninitialized;
 
   // bram io
   bram_ram_32bits bram_ram(
     pram <:> ram,
+    predicted_addr <: predicted_addr,
   );
 
   uint1  cpu_reset      = 1;
@@ -50,7 +55,8 @@ $$end
   rv32i_cpu cpu<!cpu_reset>(
     boot_at  <:  cpu_start_addr,
     cpu_id   <:  cpu_id,
-    ram      <:> ram
+    ram      <:> ram,
+    predicted_addr :> predicted_addr,
   );
 
   uint16 iter = 0;

@@ -16,7 +16,7 @@ void main()
   for (int j = 0 ; j < 200 ; j++) {
     for (int i = 0 ; i < 320 ; i++) {
       *(volatile unsigned char*)(FRAMEBUFFER + i + (j << 9)) = (unsigned char)(i);
-      pause(5);
+      pause(0);
     }
   }
 

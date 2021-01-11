@@ -15,8 +15,8 @@ void main()
 {
   while (1) {  
     *(volatile unsigned char*)0x80000000 = 0xaa;
-    pause(10000000);
+    pause(/*10000000*/10);
     *(volatile unsigned char*)0x80000000 = 0x55;
-    pause(10000000);
+    pause(/*10000000*/10);
   }
 }

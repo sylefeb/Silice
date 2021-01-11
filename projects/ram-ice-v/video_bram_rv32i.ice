@@ -1,6 +1,10 @@
 // SL 2020-12-02 @sylefeb
 // ------------------------- 
 
+$$if SIMULATION then
+$$verbose = nil
+$$end
+
 // pre-compilation script, embeds compile code within sdcard image
 $$dofile('pre_include_asm.lua')
 $$if not SIMULATION then
@@ -16,8 +20,6 @@ $$ palette[256] = 255 | (255<<8) | (255<<16)
 
 $$frame_drawer_at_sdram_speed = true
 $include('../common/video_sdram_main.ice')
-
-$$SHOW_REGS = true
 
 $include('ram-ice-v.ice')
 $include('bram_ram_32bits.ice')
@@ -44,10 +46,12 @@ algorithm frame_drawer(
   );
 
   rv32i_ram_io mem;
+  uint26 predicted_addr = uninitialized;
 
   // bram io
   bram_ram_32bits bram_ram(
     pram <:> mem,
+    predicted_addr <: predicted_addr,
   );
 
   uint1  cpu_reset      = 1;
@@ -59,6 +63,7 @@ algorithm frame_drawer(
   // cpu 
   rv32i_cpu cpu(
     boot_at  <:  cpu_start_addr,
+    predicted_addr :> predicted_addr,
     cpu_id   <:  cpu_id,
     ram      <:> mem
   );
@@ -89,7 +94,7 @@ algorithm frame_drawer(
           sdram.in_valid = 1;
         }
         case 3b001: {
-          //__display("LEDs = %h",mem.data_in[0,8]);
+          __display("LEDs = %h",mem.data_in[0,8]);
           leds = mem.data_in[0,8];
         }
         default: { }
