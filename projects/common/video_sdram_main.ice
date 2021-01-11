@@ -518,7 +518,7 @@ $$else
 $$if ICARUS then
   while (frame < 4) {
 $$else
-  while (frame < 10) {
+  while (frame < 12) {
 $$end    
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }

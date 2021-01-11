@@ -224,7 +224,7 @@ $$end
   uint32 instret(0);
 
 $$if SIMULATION then
-  uint64 cycle_last_retired(0);
+  uint32 cycle_last_retired(0);
 $$end
 
   uint1  ram_done_pulsed(0);
@@ -278,8 +278,8 @@ $$end
       case 8: {
       ram_done_pulsed = 0;
 $$if SIMULATION then
-      __display("----------- CASE 8 ------------- (cycle %d)",cycle);     
-      __display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
+      //__display("----------- CASE 8 ------------- (cycle %d)",cycle);     
+      //__display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
 $$end
         refetch         = 0;
 
@@ -304,8 +304,8 @@ $$end
       case 4: {
         ram_done_pulsed = 0;
 $$if SIMULATION then
-        __display("----------- CASE 4 ------------- (cycle %d)",cycle);
-        __display("[load store] (cycle %d) store %b",cycle,saved_store);
+        //__display("----------- CASE 4 ------------- (cycle %d)",cycle);
+        //__display("[load store] (cycle %d) store %b",cycle,saved_store);
 $$end        
         do_load_store   = 0;
         // data with memory access
@@ -345,6 +345,7 @@ $$end
           ram.addr        = pc;
           wait_next_instr = 1;
           instr           = 0; // reset decoder
+          //__display("****** register conflict *******");
         } else {
           // be optimistic: request next-next instruction
           ram.addr        = next_instr_pc + 4;
@@ -360,8 +361,8 @@ $$end
 
       case 2: {
       ram_done_pulsed = 0;
-      __display("----------- CASE 2 ------------- (cycle %d)",cycle);
-      __display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
+      //__display("----------- CASE 2 ------------- (cycle %d)",cycle);
+      //__display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
         // Note: ALU for previous (if any) is running ...
         wait_next_instr = 0;
         // record next instruction
@@ -383,11 +384,12 @@ $$end
       case 1: {
         uint1 retire   = uninitialized;
 $$if SIMULATION then     
-        __display("----------- CASE 1 ------------- (cycle %d)",cycle);
+        //__display("----------- CASE 1 ------------- (cycle %d)",cycle);
         if (instr == 0) {
-          __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
+          //__display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
         } else {
-          __display("========> [ALU done (%h)   ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
+          //__display("========> [ALU done (%h) <<%d>> ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,cycle-cycle_last_retired,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
+          cycle_last_retired = cycle;
         }
 $$end        
         commit_decode = 0;
@@ -455,7 +457,7 @@ $$end
           instret = instret + 1;
 $$if SIMULATION then          
 //          __display("========> [retired instruction] *** %d since ***",cycle-cycle_last_retired);
-          cycle_last_retired = cycle;
+//          cycle_last_retired = cycle;
 $$end          
         }
       }
@@ -510,46 +512,45 @@ algorithm decode(
   
   uint7 opcode := instr[ 0, 7];
   
-/*
-  7b0010111  AUIPC
-  7b0110111  LUI
-  7b1101111  JAL
-  7b1100111  JALR
-  7b1100011  branch
-  7b0000011  load
-  7b0100011  store
-  7b0010011  integer, immediate  
-  7b0110011  integer, registers
-  7b1110011  timers
-*/
-  
-  uint1 no_rd  := (opcode == 7b1100011 || opcode == 7b0100011);
+
+  uint1 AUIPC  := opcode == 7b0010111;
+  uint1 LUI    := opcode == 7b0110111;
+  uint1 JAL    := opcode == 7b1101111;
+  uint1 JALR   := opcode == 7b1100111;
+  uint1 Branch := opcode == 7b1100011;
+  uint1 Load   := opcode == 7b0000011;
+  uint1 Store  := opcode == 7b0100011;
+  uint1 IntImm := opcode == 7b0010011;
+  uint1 IntReg := opcode == 7b0110011;
+  uint1 CSR    := opcode == 7b1110011;
+
+  uint1 no_rd  := (Branch || Store);
 
   next_pc      := pc + 4;
 
-  jump         := (opcode == 7b1101111 || opcode == 7b1100111);
-  branch       := (opcode == 7b1100011);
-  load_store   := (opcode == 7b0000011 || opcode == 7b0100011);
-  store        := (opcode == 7b0100011);
-  select       := (opcode == 7b0010011 || opcode == 7b0110011) ? Itype(instr).funct3 : 3b000;
-  select2      := (opcode == 7b0010011 
+  jump         := (JAL | JALR);
+  branch       := (Branch);
+  load_store   := (Load | Store);
+  store        := (Store);
+  select       := (IntImm | IntReg) ? Itype(instr).funct3 : 3b000;
+  select2      := (IntImm 
                    && instr[30,1] /*SRLI/SRAI*/ 
                    && (Itype(instr).funct3 != 3b000) /*not ADD*/) 
-               || (opcode == 7b0110011 && Rtype(instr).select2);
+               || (IntReg && Rtype(instr).select2);
   
   loadStoreOp  := Itype(instr).funct3;
 
-  csr          := {opcode == 7b1110011,instr[20,2]}; // we grab only the bits for 
+  csr          := {CSR,instr[20,2]}; // we grab only the bits for 
                // low bits of rdcycle (0xc00), rdtime (0xc01), instret (0xc02)
 
   write_rd     := Rtype(instr).rd;
   rd_enable    := (write_rd != 0) & ~no_rd;  
   
-  pcOrReg      := (opcode == 7b0010111 || opcode == 7b1101111 || opcode == 7b1100011);
+  pcOrReg      := (AUIPC | JAL || Branch);
                 
-  regOrImm     := (opcode == 7b0110011);
+  regOrImm     := (IntReg);
 
-  aluA         := (opcode == 7b0110111) ? 0 : regA; // (pcOrReg ? __signed({6b0,pc[0,26]}) : regA);
+  aluA         := (LUI) ? 0 : regA; // (pcOrReg ? __signed({6b0,pc[0,26]}) : regA);
 
   always {
 // __display("DECODE %d %d",regA,regB);

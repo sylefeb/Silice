@@ -10,14 +10,16 @@ void main()
 {
   *LEDS = 5;
   
-  // draw screen
+  pause(1000000); // wait for SDRAM init
+
+  // draw screen  
   for (int j = 0 ; j < 200 ; j++) {
     for (int i = 0 ; i < 320 ; i++) {
       *(volatile unsigned char*)(FRAMEBUFFER + i + (j << 9)) = (unsigned char)(i);
-      pause(0);
+      pause(5);
     }
   }
-  
+
   // rotate palette
   int offset = 0;
   while (1) {
