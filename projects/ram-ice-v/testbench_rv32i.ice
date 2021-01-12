@@ -15,7 +15,7 @@ $include('bram_ram_32bits.ice')
 
 $include('../common/clean_reset.ice')
 
-import('pll100.v')
+import('pll200.v')
 
 // ------------------------- 
 
