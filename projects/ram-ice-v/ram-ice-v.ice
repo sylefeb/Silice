@@ -194,9 +194,14 @@ $$end
     imm         :> imm,
   );
  
+  uint3 funct3   ::= Btype(instr).funct3; 
+  uint1  branch_or_jump = uninitialized;
+
   int32  alu_out     = uninitialized;
+  int32  wreg        = uninitialized;
   intops alu(
     pc          <:: pc,
+    next_pc     <: next_instr_pc,
     xa          <: aluA,
     xb          <: aluB,
     imm         <: imm,
@@ -210,19 +215,14 @@ $$end
     instret    <:: instret,
     cpu_id     <:: cpu_id,
     r           :> alu_out,
+    ra         <:: regA,
+    rb         <:: regB,
+    funct3     <:  funct3,
+    branch     <:  branch,
+    jump       <:  jump,
+    j          :>  branch_or_jump,
+    w          :>  wreg,
   );
-
-  uint3 funct3   ::= Btype(instr).funct3;
-  
-  uint1  branch_or_jump = uninitialized;
-  intcmp cmps(
-    a      <:: regA,
-    b      <:: regB,
-    select <:  funct3,
-    branch <:  branch,
-    jump   <:  jump,
-    j      :>  branch_or_jump
-  ); 
 
   uint32 cycle(0);
   uint32 instret(0);
@@ -457,8 +457,8 @@ $$end
           default: { ram.data_in = 0; }
         }        
         // write result to register
-        xregsA.wdata1   = branch_or_jump ? next_instr_pc : alu_out;
-        xregsB.wdata1   = branch_or_jump ? next_instr_pc : alu_out;
+        xregsA.wdata1   = wreg;
+        xregsB.wdata1   = wreg;
         xregsA.addr1    = write_rd;
         xregsB.addr1    = write_rd;
         xregsA.wenable1 = instr_ready & (~refetch | jump) & rd_enable; // Note: instr == 0 => rd_enable == 0 
@@ -707,9 +707,10 @@ algorithm decode(
 // --------------------------------------------------
 // Performs integer computations
 
-algorithm intops(         // input! tells the compiler that the input does not                            
-  input!  uint26 pc,      // need to be latched, so we can save registers
-  input!  int32  xa,      // caller has to ensure consistency
+algorithm intops(
+  input!  uint26 pc,
+  input!  uint26 next_pc,
+  input!  int32  xa,
   input!  int32  xb,
   input!  int32  imm,
   input!  uint3  select,
@@ -723,6 +724,13 @@ algorithm intops(         // input! tells the compiler that the input does not
   input!  uint32 instret,
   input!  uint3  cpu_id,
   output  int32  r,
+  input!  int32 ra,
+  input!  int32 rb,
+  input!  uint3 funct3,
+  input!  uint1 branch,
+  input!  uint1 jump,
+  output  uint1 j,
+  output  int32 w,
 ) {
   
   // 3 cases
@@ -740,7 +748,7 @@ algorithm intops(         // input! tells the compiler that the input does not
         r = sub ? (a - b) : (a + b);
       }
       case 4b0010: { // SLTI
-        if (__signed(xa) < __signed(b)) { r = 32b1; } else { r = 32b0; }
+        if (__signed(xa)   < __signed(b)) { r = 32b1; } else { r = 32b0; }
       }
       case 4b0011: { // SLTU
         if (__unsigned(xa) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
@@ -759,30 +767,19 @@ algorithm intops(         // input! tells the compiler that the input does not
         }
       }
     }
-  }
-}
 
-// --------------------------------------------------
-// Performs integer comparisons
-
-algorithm intcmp(
-  input!  int32 a,
-  input!  int32 b,
-  input!  uint3 select,
-  input!  uint1 branch,
-  input!  uint1 jump,
-  output  uint1 j,
-) {
-  always {  
-    switch (select) {
-      case 3b000: { j = jump | (branch & (a == b)); } // BEQ
-      case 3b001: { j = jump | (branch & (a != b)); } // BNE
-      case 3b100: { j = jump | (branch & (__signed(a)   <  __signed(b)));   } // BLT
-      case 3b110: { j = jump | (branch & (__unsigned(a) <  __unsigned(b))); } // BLTU
-      case 3b101: { j = jump | (branch & (__signed(a)   >= __signed(b)));   } // BGE
-      case 3b111: { j = jump | (branch & (__unsigned(a) >= __unsigned(b))); } // BGEU
+    switch (funct3) {
+      case 3b000: { j = jump | (branch & (ra == rb)); } // BEQ
+      case 3b001: { j = jump | (branch & (ra != rb)); } // BNE
+      case 3b100: { j = jump | (branch & (__signed(ra)   <  __signed(rb)));   } // BLT
+      case 3b110: { j = jump | (branch & (__unsigned(ra) <  __unsigned(rb))); } // BLTU
+      case 3b101: { j = jump | (branch & (__signed(ra)   >= __signed(rb)));   } // BGE
+      case 3b111: { j = jump | (branch & (__unsigned(ra) >= __unsigned(rb))); } // BGEU
       default:    { j = jump; }
     }
+
+    w = j ? next_pc : r;
+
   }
 }
 

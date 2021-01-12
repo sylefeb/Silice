@@ -31,6 +31,28 @@ $include('bram_ram_32bits.ice')
 $include('sdram_ram_32bits.ice')
 
 // ------------------------- 
+/*
+$$div_width=16
+include('../common/divint_std.ice')
+
+algorithm edge_intersect(
+  input  uint9  y,
+  input  uint16 x0, // 9+7 fixed point
+  input  uint16 y0,
+  input  uint16 x1,
+  input  uint16 y1,
+  output uint16 xi,
+  output uint1  intersects
+) {
+
+  uint1 in_edge ::= (y0 < y && y1 >= y) || (y1 < y && y0 >= y);
+
+  if (in_edge) {
+    () <- 
+  }
+}
+*/
+// ------------------------- 
 
 algorithm frame_drawer(
   sdram_user    sd,
@@ -78,7 +100,8 @@ algorithm frame_drawer(
 $$if SIMULATION then  
   sdram.in_valid       := 0;
 $$else
-  sdram.in_valid       := sdram_pulse_in_valid[0,1];
+  sdram.in_valid       := 0;
+//  sdram.in_valid       := sdram_pulse_in_valid[0,1];
 $$end
 
   while (1) {
@@ -88,13 +111,13 @@ $$end
     if (mem.in_valid & mem.rw) {
       switch (mem.addr[29,3]) {
         case 3b100: {
-          //__display("palette %h = %h",mem.addr[2,8],mem.data_in[0,24]);
+          // __display("palette %h = %h",mem.addr[2,8],mem.data_in[0,24]);
           palette.addr1    = mem.addr[2,8];
           palette.wdata1   = mem.data_in[0,24];
           palette.wenable1 = 1;
         }
         case 3b010: {
-          __display("SDRAM %h = %h",mem.addr[0,26],mem.data_in);
+          // __display("SDRAM %h = %h",mem.addr[0,26],mem.data_in);
           sdram.data_in  = mem.data_in;
           sdram.wmask    = mem.wmask;
           sdram.addr     = mem.addr[0,26];
@@ -102,7 +125,8 @@ $$end
 $$if SIMULATION then  
           sdram.in_valid = 1;
 $$end
-          sdram_pulse_in_valid = 2b11;
+          sdram.in_valid = 1;
+//          sdram_pulse_in_valid = 2b11;
         }
         case 3b001: {
           __display("LEDs = %h",mem.data_in[0,8]);
