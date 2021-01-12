@@ -93,6 +93,7 @@ $$read_burst_length = 8 -- NOTE: mandatory for the framebuffer!
 $include('sdram_interfaces.ice')
 $include('sdram_controller_autoprecharge_r128_w8.ice')
 // include('sdram_controller_r128_w8.ice')
+$$Nway = 4
 $include('sdram_arbitrers.ice')
 $include('sdram_utils.ice')
 
@@ -431,15 +432,17 @@ $$end
 
   sdram_r128w8_io sdf; // framebuffer
   sdram_r128w8_io sdd; // drawer
+  sdram_r128w8_io sda; // aux
   sdram_r128w8_io sdi; // init
 
   // --- SDRAM arbitrer, framebuffer (0) / drawer (1) / init (2)
   
-  sdram_arbitrer_3way sd_switcher<@sdram_clock,!sdram_reset>(
+  sdram_arbitrer_4way sd_switcher<@sdram_clock,!sdram_reset>(
     sd         <:>  sdm,
     sd0        <:>  sdf,
     sd1        <:>  sdd,
-    sd2        <:>  sdi,
+    sd2        <:>  sda,
+    sd3        <:>  sdi,
   );
 
   // --- Frame buffer row memory
@@ -539,9 +542,9 @@ $$if ICARUS then
   while (frame < 4) {
 $$else
 $$if verbose then
-  while (frame < 4) {
-$$else
   while (frame < 1) {
+$$else
+  while (frame < 4) {
 $$end  
 $$end    
     while (video_vblank == 1) { }

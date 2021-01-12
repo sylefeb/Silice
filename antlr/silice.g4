@@ -59,6 +59,8 @@ TOSIGNED            : '__signed' ;
 
 TOUNSIGNED          : '__unsigned' ;
 
+DONE                : 'isdone' ;
+
 ALWAYS              : 'always' ;
 
 BRAM                : 'bram' ;
@@ -265,6 +267,7 @@ atom                : CONSTANT
                     | TOSIGNED '(' expression_0 ')'
                     | TOUNSIGNED '(' expression_0 ')'
                     | WIDTHOF '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')'
+                    | DONE '(' algo=IDENTIFIER ')'
                     | concatenation ;
 
 /* -- Accesses to VIO -- */

@@ -359,6 +359,9 @@ void ExpressionLinter::typeNfo(
     } else if (atom->expression_0()) {
       // recurse on parenthesis
       typeNfo(atom->expression_0(), bctx, _nfo);
+    } else if (atom->DONE() != nullptr) {
+      _nfo.width = 1;
+      _nfo.base_type = UInt;
     } else {
       // recurse on terminal symbol
       typeNfo(child<0>(expr), bctx, _nfo);

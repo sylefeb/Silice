@@ -1640,6 +1640,17 @@ std::string Algorithm::rewriteExpression(
           std::string vio = atom->base->getText() + (atom->member != nullptr ? "_" + atom->member->getText() : "");
           std::string wo  = resolveWidthOf(vio, atom->getSourceInterval());
           result = result + "(" + wo + ")";
+        } else if (atom->DONE() != nullptr) {
+          recurse = false;
+          // find algorithm
+          auto A = m_InstancedAlgorithms.find(atom->algo->getText());
+          if (A == m_InstancedAlgorithms.end()) {
+            reportError(atom->getSourceInterval(),-1,
+              "cannot find algorithm '%s'",
+              atom->algo->getText().c_str());
+          } else {
+            result = result + "(" + WIRE + A->second.instance_prefix + "_" + ALG_DONE ")";
+          }
         }
       }
       // recurse?
