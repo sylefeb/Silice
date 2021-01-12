@@ -195,10 +195,10 @@ algorithm frame_drawer(
       uint10 second = uninitialized;
       uint1  skip   = 0;
       switch (~{it2,it1,it0}) {
-        case 3b001: {first = xi1; second = xi2; }
-        case 3b010: {first = xi0; second = xi2; }
-        case 3b100: {first = xi0; second = xi1; }
-        default: { skip = 1; }
+        case 3b001: { first = xi1; second = xi2; }
+        case 3b010: { first = xi0; second = xi2; }
+        case 3b100: { first = xi0; second = xi1; }
+        default:    { skip = 1; }
       }
       if (first < second) {
         start = first;
@@ -258,7 +258,7 @@ algorithm frame_drawer(
           palette.wenable1 = 1;
         }
         case 4b0100: {
-          // __display("SDRAM %h = %h",mem.addr[0,26],mem.data_in);
+//          __display("SDRAM %h = %h",mem.addr[0,26],mem.data_in);
           sdram.data_in  = mem.data_in;
           sdram.wmask    = mem.wmask;
           sdram.addr     = mem.addr[0,26];
@@ -266,7 +266,7 @@ algorithm frame_drawer(
           sdram.in_valid = 1;
         }
         case 4b0010: {
-          __display("LEDs = %h",mem.data_in[0,8]);
+//          __display("LEDs = %h",mem.data_in[0,8]);
           leds = mem.data_in[0,8];
         }
         case 4b0001: {
