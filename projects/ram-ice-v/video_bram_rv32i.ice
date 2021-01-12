@@ -143,7 +143,6 @@ algorithm frame_drawer(
 
   uint1   in_span = uninitialized;
   int11   span_x(-1);
-  uint10  start   = uninitialized;
   uint10  stop    = uninitialized;
   uint1   prepare(0);
   uint1   draw_triangle(0);
@@ -190,28 +189,24 @@ algorithm frame_drawer(
   always {
 
     if (draw_triangle) {      
-      // find the span bounds
-      uint10 first  = uninitialized;
-      uint10 second = uninitialized;
-      uint1  skip   = 0;
-      switch (~{it2,it1,it0}) {
-        case 3b001: { first = xi1; second = xi2; }
-        case 3b010: { first = xi0; second = xi2; }
-        case 3b100: { first = xi0; second = xi1; }
-        default:    { skip = 1; }
-      }
-      if (first < second) {
-        start = first;
-        stop  = second;
-      } else {
-        start = second;
-        stop  = first;        
-      }
-      if (!skip) {
         // __display("span %d [%d-%d] %b %b %b",y,start,stop,it0,it1,it2);      
         if (span_x[10,1]) {
-          // start drawing span
-          span_x  = start;
+          // find the span bounds, start drawing
+          uint10 first  = uninitialized;
+          uint10 second = uninitialized;
+          switch (~{it2,it1,it0}) {
+            case 3b001: { first = xi1; second = xi2; }
+            case 3b010: { first = xi0; second = xi2; }
+            case 3b100: { first = xi0; second = xi1; }
+            default:    {  }
+          }
+          if (first < second) {
+            span_x = first;
+            stop   = second;
+          } else {
+            span_x = second;
+            stop   = first;        
+          }
           sd.addr = 17h1FFFF;
           __display("start span, x %d y %d",span_x,y);
         } else {
@@ -233,17 +228,16 @@ algorithm frame_drawer(
             }
           }
         }
-      } else {
+      draw_triangle = (y == ystop) ? 0 : 1;
+    } else {// draw_triangle
+
+      if (prepare) {
+        draw_triangle = 1;
+        prepare = 0;
         y = y + 1;
       }
-      draw_triangle = (y == ystop) ? 0 : 1;
-    } // draw_triangle
 
-    if (prepare) {
-      draw_triangle = 1;
-      prepare = 0;
     }
-
   }
 
   while (1) {
