@@ -77,6 +77,7 @@ $$else
 import('ulx3s_clk_150_25_100_100ph180.v')
 import('ulx3s_clk_200_25_100_100ph180.v')
 import('ulx3s_clk_160_25_160_160ph90.v')
+// import('ulx3s_test_pll.v')
 $$end
 $$end
 
@@ -333,6 +334,7 @@ $$if not fast_compute then
   ); 
 $$else
   $$print('ULX3S at 160 MHz SDRAM, 160 MHz compute')
+  // pll clk_gen(
   ulx3s_clk_160_25_160_160ph90 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
@@ -513,7 +515,7 @@ $$end
 
   // --- Frame drawer
 $$if frame_drawer_at_sdram_speed then
-  frame_drawer drawer<@sdram_clock,!sdram_reset>(
+  frame_drawer drawer<@sdram_clock,!frame_drawer_reset>(
 $$else  
   frame_drawer drawer<@compute_clock,!frame_drawer_reset>(
 $$end  
@@ -539,7 +541,7 @@ $$else
 $$if verbose then
   while (frame < 4) {
 $$else
-  while (frame < 10) {
+  while (frame < 1) {
 $$end  
 $$end    
     while (video_vblank == 1) { }

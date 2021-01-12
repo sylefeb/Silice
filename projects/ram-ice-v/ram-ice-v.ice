@@ -457,8 +457,8 @@ $$end
           default: { ram.data_in = 0; }
         }        
         // write result to register
-        xregsA.wdata1   = wreg;
-        xregsB.wdata1   = wreg;
+        xregsA.wdata1   = branch_or_jump ? next_instr_pc : alu_out; // wreg;
+        xregsB.wdata1   = branch_or_jump ? next_instr_pc : alu_out; // wreg;
         xregsA.addr1    = write_rd;
         xregsB.addr1    = write_rd;
         xregsA.wenable1 = instr_ready & (~refetch | jump) & rd_enable; // Note: instr == 0 => rd_enable == 0 
@@ -778,7 +778,7 @@ algorithm intops(
       default:    { j = jump; }
     }
 
-    w = j ? next_pc : r;
+    // w = j ? next_pc : r;
 
   }
 }

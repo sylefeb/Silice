@@ -20,7 +20,7 @@ volatile unsigned int*  const PALETTE     = (unsigned int* )0x83000000;
 volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x40000000;
 volatile unsigned char* const AUDIO       = (unsigned char*)0x4C000000;
 volatile unsigned char* const DATA        = (unsigned char*)0x42020000;
-
+volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x10000000;
 
 int cursor_x = 0x00000000;
 int cursor_y = 0x00000000;

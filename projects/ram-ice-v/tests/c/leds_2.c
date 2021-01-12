@@ -1,10 +1,10 @@
-#include "../mylibc/mylibc.h"
-/*long time() 
+//#include "../mylibc/mylibc.h"
+long time() 
 {
    int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
    return cycles;
-}*/
+}
 
 void pause(int cycles)
 { 
