@@ -269,8 +269,12 @@ $$end
   predicted_addr = boot_at + 4;
   ram.rw         = 0;
   ram.in_valid   = ~reset;
-  
+
+$$if HARDWARE then  
+  while (1) {
+$$else    
   while (!halt) {
+$$end    
   // while (cycle < 400) {
   // while (instret < 128) {
 $$if verbose then
@@ -571,8 +575,9 @@ algorithm decode(
 
   jump         := (JAL | JALR);
   branch       := (Branch);
-  load_store   := (Load | Store);
   store        := (Store);
+  load_store   := (Load | Store);
+  regOrImm     := (IntReg);
   select       := (IntImm | IntReg) ? Itype(instr).funct3 : 3b000;
   sub          := (IntReg & Rtype(instr).select2);
   signedShift  := IntImm & instr[30,1]; /*SRLI/SRAI*/
@@ -586,7 +591,6 @@ algorithm decode(
   rd_enable    := (write_rd != 0) & ~no_rd;  
   
   pcOrReg      := (AUIPC | JAL | Branch);
-  regOrImm     := (IntReg);
 
   aluA         := (LUI) ? 0 : regA; // ((AUIPC | JAL | Branch) ? __signed({6b0,pc[0,26]}) : regA);
   aluB         := regB;
@@ -672,6 +676,28 @@ algorithm decode(
     //   }
     //   default: {
     //     aluB        = regB;
+    //   }
+    // }
+
+    // if (AUIPC|LUI) {
+    //   aluB        = imm_u;
+    // } else {
+    //   if (JALR|Load|IntImm) {
+    //     aluB        = imm_i;
+    //   } else {
+    //     if (JAL) {
+    //       aluB        = imm_j;
+    //     } else {
+    //       if (Branch) {
+    //         aluB        = imm_b;
+    //       } else {
+    //         if (Store) {
+    //           aluB        = imm_s;
+    //         } else {
+    //          aluB        = regB; 
+    //         }
+    //       }
+    //     }        
     //   }
     // }
 

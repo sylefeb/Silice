@@ -8,15 +8,20 @@ void pause(int cycles)
 
 void main() 
 {
-  *LEDS = 5;
-  
-  pause(1000000); // wait for SDRAM init
+  // signal alive
+  int iter = 0;
+  while (++iter < 16) {  
+    *(volatile unsigned char*)0x20000000 = 0xaa;
+    pause(10000000);
+    *(volatile unsigned char*)0x20000000 = 0x55;
+    pause(10000000);
+  }
 
   // draw screen  
   for (int j = 0 ; j < 200 ; j++) {
     for (int i = 0 ; i < 320 ; i++) {
       *(volatile unsigned char*)(FRAMEBUFFER + i + (j << 9)) = (unsigned char)(i);
-      pause(0);
+      pause(6);
     }
   }
 

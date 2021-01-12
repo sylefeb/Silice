@@ -71,7 +71,13 @@ $$end
 
 $$if ULX3S then
 // Clock
+$$if not fast_compute then
 import('ulx3s_clk_50_25_100_100ph180.v')
+$$else
+import('ulx3s_clk_150_25_100_100ph180.v')
+import('ulx3s_clk_175_25_100_100ph180.v')
+import('ulx3s_clk_200_25_100_100ph180.v')
+$$end
 $$end
 
 $$if SDCARD then
@@ -315,6 +321,7 @@ $$elseif ULX3S then
   uint1 pll_lock      = 0;
   uint1 compute_clock = 0;
   uint1 compute_reset = 0;
+$$if not fast_compute then
   $$print('ULX3S at 50 MHz compute clock, 100 MHz SDRAM')
   ulx3s_clk_50_25_100_100ph180 clk_gen(
     clkin    <: clock,
@@ -324,6 +331,17 @@ $$elseif ULX3S then
     clkout3  :> sdram_clk,   // chip
     locked   :> pll_lock
   ); 
+$$else
+  $$print('ULX3S at 175 MHz compute clock, 100 MHz SDRAM')
+  pll clk_gen(
+    clkin    <: clock,
+    clkout0  :> compute_clock,
+    clkout1  :> video_clock,
+    clkout2  :> sdram_clock, // controller
+    clkout3  :> sdram_clk,   // chip
+    locked   :> pll_lock
+  ); 
+$$end
   // --- video clean reset
   clean_reset video_rstcond<@video_clock,!reset> (
     out   :> video_reset

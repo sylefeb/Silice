@@ -16,8 +16,6 @@ $$ palette[256] = 255 | (255<<8) | (255<<16)
 
 $include('../common/video_sdram_main.ice')
 
-$$SHOW_REGS = true
-
 $include('ram-ice-v.ice')
 $include('sdram_ram_32bits.ice')
 $include('basic_cache_ram_32bits.ice')
