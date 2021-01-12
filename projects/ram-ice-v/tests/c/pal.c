@@ -8,6 +8,7 @@ void pause(int cycles)
 
 void main() 
 {
+  /*
   // signal alive
   int iter = 0;
   while (++iter < 16) {  
@@ -16,12 +17,14 @@ void main()
     *(volatile unsigned char*)0x20000000 = 0x55;
     pause(10000000);
   }
-
+  */
+  pause(10000000);
+    
   // draw screen  
   for (int j = 0 ; j < 200 ; j++) {
     for (int i = 0 ; i < 320 ; i++) {
       *(volatile unsigned char*)(FRAMEBUFFER + i + (j << 9)) = (unsigned char)(i);
-      pause(6);
+      pause(10);
     }
   }
 

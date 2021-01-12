@@ -45,11 +45,7 @@ algorithm frame_drawer(
   rv32i_ram_io sdram;
   uint2        sdram_pulse_in_valid(2b00);
   // sdram io
-$$if SIMULATION then  
-  sdram_ram_32bits bridge(
-$$else
   sdram_ram_32bits bridge<@sdram_clock,!sdram_reset>(
-$$end
     sdr <:> sd,
     r32 <:> sdram,
   );
@@ -79,10 +75,10 @@ $$end
   sdram.rw             := 0;
   palette.wenable1     := 0;
   sdram_pulse_in_valid := {1b0,sdram_pulse_in_valid[1,1]};
-$$if HARDWARE then  
-  sdram.in_valid       := sdram_pulse_in_valid[0,1];
-$$else
+$$if SIMULATION then  
   sdram.in_valid       := 0;
+$$else
+  sdram.in_valid       := sdram_pulse_in_valid[0,1];
 $$end
 
   while (1) {
@@ -98,7 +94,7 @@ $$end
           palette.wenable1 = 1;
         }
         case 3b010: {
-          //__display("SDRAM %h = %h",mem.addr[0,26],mem.data_in);
+          __display("SDRAM %h = %h",mem.addr[0,26],mem.data_in);
           sdram.data_in  = mem.data_in;
           sdram.wmask    = mem.wmask;
           sdram.addr     = mem.addr[0,26];
