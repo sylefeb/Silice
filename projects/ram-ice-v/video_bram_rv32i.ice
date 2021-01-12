@@ -40,7 +40,7 @@ algorithm edge_walk(
   input  uint10 y1,
   input  int20  interp,
   input  uint1  prepare,
-  output int20  xi,
+  output uint10 xi,
   output uint1  intersects
 ) <autorun> {
 $$if SIMULATION then
@@ -50,8 +50,10 @@ $$end
 
   uint1  in_edge  ::= (y0 < y && y1 >= y) || (y1 < y && y0 >= y);
   uint10 last_y     = uninitialized;
+  int20  xi_full    = uninitialized;
 
   intersects := in_edge;
+  xi         := xi_full >> 10;
 
  always {
 $$if SIMULATION then
@@ -61,14 +63,14 @@ $$end
 
   while (1) {
     if (prepare) {
-      last_y = y0;
-      xi     = x0 << 10;
+      last_y  = y0;
+      xi_full = x0 << 10;
       __display("prepared! (x0=%d y0=%d xi=%d interp=%d)",x0,y0,xi>>10,interp);
     } else {
        // __display("[%d cycles] y %d last_y %d",cycle-cycle_last,y,last_y);
       if (y == last_y + 1) {
-        xi     = xi + interp;
-        last_y = y;
+        xi_full = xi_full + interp;
+        last_y  = y;
   $$if SIMULATION then
   __display("  next [%d cycles] : y:%d interp:%d xi:%d)",cycle-cycle_last,y,interp,xi>>10);
   $$end
@@ -118,7 +120,7 @@ algorithm frame_drawer(
     ram      <:> mem
   );
 
- uint24 cycle = 0;
+   //uint24 cycle = 0;
 
   // fun
   uint10  y  = uninitialized;
@@ -132,9 +134,9 @@ algorithm frame_drawer(
   int20   ei0 = uninitialized;
   int20   ei1 = uninitialized;
   int20   ei2 = uninitialized;
-  int20   xi0 = uninitialized;
-  int20   xi1 = uninitialized;
-  int20   xi2 = uninitialized;
+  uint10  xi0 = uninitialized;
+  uint10  xi1 = uninitialized;
+  uint10  xi2 = uninitialized;
   uint1   it0 = uninitialized;
   uint1   it1 = uninitialized;
   uint1   it2 = uninitialized;
@@ -153,8 +155,8 @@ algorithm frame_drawer(
     x0 <:: x0, y0 <:: y0,
     x1 <:: x1, y1 <:: y1,
     interp  <:: ei0,
-    prepare <: prepare,
-    y       <: y,
+    prepare <:: prepare,
+    y       <:: y,
     intersects   :> it0,
     xi           :> xi0,
     <:auto:>);
@@ -163,8 +165,8 @@ algorithm frame_drawer(
     x0 <:: x1, y0 <:: y1,
     x1 <:: x2, y1 <:: y2,
     interp  <:: ei1,
-    prepare <: prepare,
-    y       <: y,
+    prepare <:: prepare,
+    y       <:: y,
     intersects   :> it1,
     xi           :> xi1,
     <:auto:>);
@@ -173,8 +175,8 @@ algorithm frame_drawer(
     x0 <:: x0, y0 <:: y0,
     x1 <:: x2, y1 <:: y2,
     interp  <:: ei2,
-    prepare <: prepare,
-    y       <: y,
+    prepare <:: prepare,
+    y       <:: y,
     intersects :> it2,
     xi         :> xi2,
     <:auto:>);
@@ -187,15 +189,15 @@ algorithm frame_drawer(
 
   always {
 
-    if (draw_triangle) {
+    if (draw_triangle) {      
       // find the span bounds
       uint10 first  = uninitialized;
       uint10 second = uninitialized;
       uint1  skip   = 0;
       switch (~{it2,it1,it0}) {
-        case 3b001: {first = xi1>>10; second = xi2>>10; }
-        case 3b010: {first = xi0>>10; second = xi2>>10; }
-        case 3b100: {first = xi0>>10; second = xi1>>10; }
+        case 3b001: {first = xi1; second = xi2; }
+        case 3b010: {first = xi0; second = xi2; }
+        case 3b100: {first = xi0; second = xi1; }
         default: { skip = 1; }
       }
       if (first < second) {
@@ -241,6 +243,7 @@ algorithm frame_drawer(
       draw_triangle = 1;
       prepare = 0;
     }
+
   }
 
   while (1) {
@@ -267,7 +270,7 @@ algorithm frame_drawer(
           leds = mem.data_in[0,8];
         }
         case 4b0001: {
-          __display("(cycle %d) triangle (%b) = %d %d",cycle,mem.addr[2,5],mem.data_in[0,16],mem.data_in[16,16]);
+//          __display("(cycle %d) triangle (%b) = %d %d",cycle,mem.addr[2,5],mem.data_in[0,16],mem.data_in[16,16]);
           switch (mem.addr[2,7]) {
             case 7b0000001: { x0  = mem.data_in[0,16]; y0  = mem.data_in[16,16]; }
             case 7b0000010: { x1  = mem.data_in[0,16]; y1  = mem.data_in[16,16]; }
@@ -284,7 +287,7 @@ algorithm frame_drawer(
       }
     }
 
-cycle = cycle + 1;
+    // cycle = cycle + 1;
   }
 }
 
