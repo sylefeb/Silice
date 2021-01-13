@@ -39,7 +39,7 @@ algorithm edge_walk(
   input  uint10 x1,
   input  uint10 y1,
   input  int20  interp,
-  input  uint1  prepare,
+  input  uint2  prepare,
   output uint10 xi,
   output uint1  intersects
 ) <autorun> {
@@ -48,12 +48,12 @@ $$if SIMULATION then
   uint16 cycle_last = 0;
 $$end
 
-  uint1  in_edge  ::= (y0 < y && y1 >= y) || (y1 < y && y0 >= y);
+  uint1  in_edge  ::= ((y0 <= y && y1 >= y) || (y1 <= y && y0 >= y)) && (y0 != y1);
   uint10 last_y     = uninitialized;
   int20  xi_full    = uninitialized;
 
   intersects := in_edge;
-  xi         := xi_full >> 10;
+  xi         := (y == y1) ? x1 : (xi_full >> 10);
 
  always {
 $$if SIMULATION then
@@ -62,18 +62,18 @@ $$end
  }
 
   while (1) {
-    if (prepare) {
-      last_y  = y0;
+    if (prepare[1,1]) {
+      last_y  = y0 - 1;
       xi_full = x0 << 10;
   $$if SIMULATION then
-//      __display("prepared! (x0=%d y0=%d xi=%d interp=%d)",x0,y0,xi>>10,interp);
+      __display("prepared! (x0=%d y0=%d last_y=%d xi=%d interp=%d)",x0,y0,last_y,xi>>10,interp);
   $$end
     } else {
       if (y == last_y + 1) {
-        xi_full = xi_full + interp;
+        xi_full = (xi_full + interp);
         last_y  = y;
   $$if SIMULATION then
-//  __display("  next [%d cycles] : y:%d interp:%d xi:%d)",cycle-cycle_last,y,interp,xi>>10);
+  __display("  next [%d cycles] : y:%d interp:%d xi:%d it:%b)",cycle-cycle_last,y,interp,xi,intersects);
   $$end
       }
     }
@@ -148,8 +148,9 @@ $$end
   uint1   in_span = uninitialized;
   int11   span_x(-1);
   uint10  stop    = uninitialized;
-  uint1   prepare(0);
+  uint2   prepare(0);
   uint1   draw_triangle(0);
+  uint1   wait_one(0);
 
   uint17 addr ::= span_x + (y << 9);
 
@@ -192,58 +193,66 @@ $$end
 
   always {
 
-    if (draw_triangle) {      
-        if (span_x[10,1]) {
-          // find the span bounds, start drawing
-          uint10 first  = uninitialized;
-          uint10 second = uninitialized;
-          switch (~{it2,it1,it0}) {
-            case 3b001: { first = xi1; second = xi2; }
-            case 3b010: { first = xi0; second = xi2; }
-            case 3b100: { first = xi0; second = xi1; }
-            default:    {  }
-          }
-          if (first < second) {
-            span_x = first;
-            stop   = second;
-          } else {
-            span_x = second;
-            stop   = first;        
-          }
-          sd.addr = 17h1FFFF;
-          __display("start span, x %d to %d, y %d",span_x,stop,y);
-        } else {
-          // write current to sdram
-          if (sd.addr[0,17] != addr) {
-            sd.addr     = {1b0,~fbuffer,7b0,addr};
-            sd.in_valid = 1;
-            sd.data_in  = color;
-          //__display("write x %d y %d",span_x,y);
-          } else {
-            if (sd.done) {
-              if (span_x == stop) {
-          __display("stop span, x %d y %d",span_x,y);
-                y      = y + 1;
-                span_x = -1;
-              } else {
-                span_x = span_x + 1;
-              }
+    if (draw_triangle & ~wait_one) {      
+      if (span_x[10,1]) {
+        // find the span bounds, start drawing
+        uint10 first  = uninitialized;
+        uint10 second = uninitialized;
+        uint1  nop = 0;
+        __display("xi0:%d xi1:%d xi2:%d it0:%b it1:%b it2:%b",xi0,xi1,xi2,it0,it1,it2);
+        switch (~{it2,it1,it0}) {
+          case 3b001: { first = xi1; second = xi2; }
+          case 3b010: { first = xi0; second = xi2; }
+          case 3b100: { first = xi0; second = xi1; }
+          case 3b000: { 
+            if (xi0 == xi1) {
+              first = xi0; second = xi2; 
             } else {
-              //__display("mem wait");
+              first = xi0; second = xi1; 
+            }
+          }
+          default:    { nop = 1; }
+        }        
+        if (first < second) {
+          span_x = ~nop ? first : span_x;
+          stop   = second;
+        } else {
+          span_x = ~nop ? second : span_x;
+          stop   = first;        
+        }
+        sd.addr = 17h1FFFF;
+        // __display("start span, x %d to %d, y %d",span_x,stop,y);
+      } else {
+        // write current to sdram
+        if (sd.addr[0,17] != addr) {
+          sd.addr     = {1b0,~fbuffer,7b0,addr};
+          sd.in_valid = 1;
+          sd.data_in  = color;
+        //__display("write x %d y %d",span_x,y);
+        } else {
+          if (sd.done) {
+            if (span_x == stop) {
+              //__display("stop span, x %d y %d",span_x,y);
+              y        = y + 1;
+              span_x   = -1;
+              wait_one = 1; // wait one cycle due to latency of edge walker
+            } else {
+              span_x = span_x + 1;
             }
           }
         }
-      draw_triangle = (y == ystop) ? 0 : 1;      
-      if (draw_triangle == 0) {
-        __display("done");
       }
+      draw_triangle = (y == ystop) ? 0 : 1;      
+      //if (draw_triangle == 0) {
+      //  __display("done");
+      //}
     } else {// draw_triangle
 
-      if (prepare) {
-        draw_triangle = 1;
-        prepare = 0;
-        y = y + 1;
+      if (prepare[0,1]) {
+        prepare       = {1b0,prepare[1,1]};
+        draw_triangle = ~prepare[0,1];
       }
+      wait_one = 0;
 
     }
   }
@@ -277,7 +286,9 @@ $$end
               leds = mem.data_in[0,8];
             }
             case 2b01: {
+$$if SIMULATION then
               __display("swap buffers");
+$$end                               
               fbuffer = ~fbuffer;
             }
             default: { }
@@ -294,7 +305,7 @@ $$end
             case 7b0010000: { ei1 = mem.data_in; }
             case 7b0100000: { ei2 = mem.data_in; }
             case 7b1000000: { y = mem.data_in[0,16]; ystop = mem.data_in[16,16]; 
-                              prepare = 1; draw_triangle = 0;
+                              prepare = 2b11; draw_triangle = 0;
 $$if SIMULATION then
                                __display("new triangle (color %d), cycle %d",color,cycle);
 $$end                               
