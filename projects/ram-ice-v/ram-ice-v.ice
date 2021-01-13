@@ -250,13 +250,13 @@ $$end
 
   always {
   
-    ram_done_pulsed = ram_done_pulsed | ram.done;
+    ram_done_pulsed = /*ram_done_pulsed |*/ ram.done;
         
     case_select = {
-                    refetch        & ram_done_pulsed,
+                    refetch                          & ram_done_pulsed,
                    ~refetch        & do_load_store   & ram_done_pulsed, // performing load store, data available
-                   ~refetch        & wait_next_instr & ram_done_pulsed,    // instruction avalable
-                   ~refetch        & commit_decode
+                    wait_next_instr                  & ram_done_pulsed,    // instruction avalable
+                    commit_decode
                   };
                   
   } 
@@ -472,10 +472,8 @@ $$end
         pc           = next_instr_pc;
         instr_ready  = 1;
 //__display("[instr setup] %h @%h",instr,pc);
-        regA_conflict = (xregsA.addr0 == xregsA.addr1);
-        regB_conflict = (xregsB.addr0 == xregsB.addr1);
-        regA  = (regA_conflict & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
-        regB  = (regB_conflict & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   
+        regA  = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
+        regB  = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   
 //__display("[regs READ] regA[%d]=%h (%h) regB[%d]=%h (%h)",xregsA.addr0,regA,xregsA.rdata0,xregsB.addr0,regB,xregsB.rdata0);        
 
 
