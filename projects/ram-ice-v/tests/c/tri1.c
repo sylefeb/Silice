@@ -54,12 +54,11 @@ void rotX(int *M, int angle)
   M[6] =            0; M[7] =             0; M[8] = 128;
 }
 
-void aspect(int *M)
+void scale(int *M,int scale)
 {
-  int ratio = 80; // 128*200/320
-  M[0] =  128; M[1] =     0; M[2] = 0;
-  M[3] =    0; M[4] = ratio; M[5] = 0;
-  M[6] =    0; M[7] =     0; M[8] = 128;
+  M[0] = scale; M[1] =     0; M[2] = 0;
+  M[3] =     0; M[4] = scale; M[5] = 0;
+  M[6] =     0; M[7] =     0; M[8] = scale;
 }
 
 void transform(const int *M,int p)
@@ -151,13 +150,13 @@ void clear()
 {
   draw_triangle(0,
       0,  0, 
-    319,  0, 
-    319, 199 
+    320,  0, 
+    320, 200 
     );
   draw_triangle(0,
       0,  0, 
-    319, 199,
-      0, 199
+    320, 200,
+      0, 200
     );
 }
 
@@ -167,19 +166,19 @@ void main()
  char b = 3;
  while(1) {
   clear();
-  set_cursor(0,0);
   int Ry[9];
   rotY(Ry,a);
-  printf("angles ry:%d rx:%d\n",a,b);
+  //set_cursor(1,1);
+  //printf("angles ry:%d rx:%d\n",a,b);
   a = a + 2;
   int Rx[9];
   rotX(Rx,b);
   b = b + 3;
   int M[9];
   mulM(M,Rx,Ry);
-  printf("%d %d %d\n",M[0],M[1],M[2]);
-  printf("%d %d %d\n",M[3],M[4],M[5]);
-  printf("%d %d %d\n",M[6],M[7],M[8]);
+  //printf("%d %d %d\n",M[0],M[1],M[2]);
+  //printf("%d %d %d\n",M[3],M[4],M[5]);
+  //printf("%d %d %d\n",M[6],M[7],M[8]);
   transform_points(M);
   for (int t = 0; t < 36 ; t+=3) {
     draw_triangle(31+t, 

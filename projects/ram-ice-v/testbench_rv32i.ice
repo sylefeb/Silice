@@ -39,7 +39,7 @@ $$else
 $$end
 
   rv32i_ram_io mem;
-  uint26 predicted_addr = uninitialized;
+  uint27 predicted_addr = uninitialized;
 
   // bram io
   bram_ram_32bits bram_ram(

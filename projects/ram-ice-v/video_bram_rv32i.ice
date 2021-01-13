@@ -101,7 +101,7 @@ algorithm frame_drawer(
   );
 
   rv32i_ram_io mem;
-  uint26 predicted_addr = uninitialized;
+  uint27 predicted_addr = uninitialized;
   uint32 data_override(0);
 
   // bram io
