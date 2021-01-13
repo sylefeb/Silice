@@ -8,8 +8,9 @@ $$ bram_depth = 12
 $$ bram_size  = 1<<bram_depth
 
 algorithm bram_ram_32bits(
-  rv32i_ram_provider pram,       // provided ram interface
-  input uint26 predicted_addr,         // next predicted address
+  rv32i_ram_provider pram,     // provided ram interface
+  input uint26 predicted_addr, // next predicted address
+  input uint32 data_override,  // data used as an override by memory mapper
 ) <autorun> {
 
   simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { $data_bram$ pad(uninitialized) };
@@ -28,7 +29,7 @@ $$if verbose then
       __display("[cycle%d] in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h",cycle,pram.in_valid,wait_one,pram.addr[2,24],pram.rw,mem.addr0,pred_correct,predicted_addr[2,$bram_depth$]);  
     }
 $$end
-    pram.data_out       = mem.rdata0 >> {pram.addr[0,2],3b000};    
+    pram.data_out       = in_scope ? (mem.rdata0 >> {pram.addr[0,2],3b000}) : data_override;
     pram.done           = (pred_correct & pram.in_valid) | wait_one | pram.rw;
     mem.addr0           = (pram.in_valid & ~pred_correct & ~pram.rw) // Note: removing pram.rw does not hurt ...
                           ? pram.addr[2,$bram_depth$] // read addr next (wait_one)

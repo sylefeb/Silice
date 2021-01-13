@@ -101,11 +101,13 @@ algorithm frame_drawer(
 
   rv32i_ram_io mem;
   uint26 predicted_addr = uninitialized;
+  uint32 data_override  = 32d1234567;
 
   // bram io
   bram_ram_32bits bram_ram(
     pram <:> mem,
     predicted_addr <: predicted_addr,
+    data_override <: data_override
   );
 
   uint1  cpu_reset      = 1;
@@ -183,6 +185,7 @@ algorithm frame_drawer(
   fbuffer              := 0;
   palette.wenable1     := 0;
   sdram.in_valid       := 0;
+  sdram.rw             := 0;
   sd.in_valid          := 0;
   sd.rw                := 1;
 
@@ -228,7 +231,7 @@ algorithm frame_drawer(
             }
           }
         }
-      draw_triangle = (y == ystop) ? 0 : 1;
+      draw_triangle = (y == ystop) ? 0 : 1;      
     } else {// draw_triangle
 
       if (prepare) {
@@ -260,7 +263,7 @@ algorithm frame_drawer(
           sdram.in_valid = 1;
         }
         case 4b0010: {
-//          __display("LEDs = %h",mem.data_in[0,8]);
+          __display("LEDs = %h",mem.data_in[0,8]);
           leds = mem.data_in[0,8];
         }
         case 4b0001: {

@@ -745,8 +745,7 @@ algorithm intops(
     switch ({csr[2,1],select}) {
       case 4b0000: { // ADD / SUB
         // r = a + (sub ? -b : b); // smaller, slower...
-        // r = sub ? (a - b) : (a + b);
-        r = a + b;
+        r = sub ? (a - b) : (a + b);
       }
       case 4b0010: { // SLTI
         if (__signed(xa)   < __signed(b)) { r = 32b1; } else { r = 32b0; }
