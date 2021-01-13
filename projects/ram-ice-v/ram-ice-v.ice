@@ -116,7 +116,7 @@ algorithm rv32i_cpu(
   input uint26   boot_at,
   input uint3    cpu_id,
   rv32i_ram_user ram,
-  output uint27  predicted_addr, // next predicted address
+  output uint27  predicted_addr = 27h4000000 /*{1b1,26b0}*/, // next predicted address (set to 'auto' be default)
 ) <autorun> {
   
   // does not have to be simple_dualport_bram, but results in smaller design
@@ -263,7 +263,7 @@ $$end
   //}
   // boot
   ram.addr       = boot_at;
-  predicted_addr = {1b1,26b0}; // auto
+  // predicted_addr = {1b1,26b0}; // auto
   ram.rw         = 0;
   ram.in_valid   = ~reset;
 
