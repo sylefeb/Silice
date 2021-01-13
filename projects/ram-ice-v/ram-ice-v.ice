@@ -231,7 +231,6 @@ $$if SIMULATION then
   uint32 cycle_last_retired(0);
 $$end
 
-  uint1  ram_done_pulsed(0);
   uint1  wait_next_instr(1);
   uint1  commit_decode(0);
 
@@ -250,12 +249,10 @@ $$end
 
   always {
   
-    ram_done_pulsed = /*ram_done_pulsed |*/ ram.done;
-        
     case_select = {
-                    refetch                          & ram_done_pulsed,
-                   ~refetch        & do_load_store   & ram_done_pulsed, // performing load store, data available
-                    wait_next_instr                  & ram_done_pulsed,    // instruction avalable
+                    refetch                         & ram.done,
+                   ~refetch         & do_load_store & ram.done, // performing load store, data available
+                    wait_next_instr                 & ram.done,    // instruction avalable
                     commit_decode
                   };
                   
@@ -278,14 +275,13 @@ $$end
   // while (cycle < 400) {
   // while (instret < 128) {
 $$if verbose then
-    if (ram_done_pulsed) {
-      // __display("[ram_done_pulsed (cycle %d)] ram.data_out %h",cycle,ram.data_out);        
+    if (ram.done) {
+      // __display("[ram done (cycle %d)] ram.data_out %h",cycle,ram.data_out);        
     }
 $$end
     switch (case_select) {
     
       case 8: {
-      ram_done_pulsed = 0;
 $$if verbose then
       // __display("----------- CASE 8 ------------- (cycle %d)",cycle);     
       // __display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
@@ -313,7 +309,6 @@ $$end
       }
     
       case 4: {
-        ram_done_pulsed = 0;
 $$if verbose then
         // __display("----------- CASE 4 ------------- (cycle %d)",cycle);
         // __display("[load store] (cycle %d) store %b",cycle,saved_store);
@@ -373,7 +368,6 @@ $$end
       } // case 4
 
       case 2: {
-      ram_done_pulsed = 0;
 $$if verbose then      
       // __display("----------- CASE 2 ------------- (cycle %d)",cycle);
       // __display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
