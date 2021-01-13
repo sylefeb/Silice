@@ -19,6 +19,8 @@ algorithm bram_ram_32bits(
   uint1 pred_correct ::= (mem.addr0 == pram.addr[2,$bram_depth$]);
   uint1 wait_one(0);
   
+//  uint26 predicted   := predicted_addr[27,1] ? predicted_addr[2,$bram_depth$] : (pram.addr + 4);
+
 $$if verbose then                          
   uint32 cycle = 0;
 $$end  

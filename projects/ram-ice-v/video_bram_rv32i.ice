@@ -65,14 +65,15 @@ $$end
     if (prepare) {
       last_y  = y0;
       xi_full = x0 << 10;
-      __display("prepared! (x0=%d y0=%d xi=%d interp=%d)",x0,y0,xi>>10,interp);
+  $$if SIMULATION then
+//      __display("prepared! (x0=%d y0=%d xi=%d interp=%d)",x0,y0,xi>>10,interp);
+  $$end
     } else {
-       // __display("[%d cycles] y %d last_y %d",cycle-cycle_last,y,last_y);
       if (y == last_y + 1) {
         xi_full = xi_full + interp;
         last_y  = y;
   $$if SIMULATION then
-  __display("  next [%d cycles] : y:%d interp:%d xi:%d)",cycle-cycle_last,y,interp,xi>>10);
+//  __display("  next [%d cycles] : y:%d interp:%d xi:%d)",cycle-cycle_last,y,interp,xi>>10);
   $$end
       }
     }
@@ -87,7 +88,7 @@ algorithm frame_drawer(
   input  uint1  sdram_clock,
   input  uint1  sdram_reset,
   input  uint1  vsync,
-  output uint1  fbuffer,
+  output uint1  fbuffer = 0,
   output uint8  leds,
   simple_dualport_bram_port1 palette,
 ) <autorun> {
@@ -101,7 +102,7 @@ algorithm frame_drawer(
 
   rv32i_ram_io mem;
   uint26 predicted_addr = uninitialized;
-  uint32 data_override  = 32d1234567;
+  uint32 data_override(0);
 
   // bram io
   bram_ram_32bits bram_ram(
@@ -121,11 +122,12 @@ algorithm frame_drawer(
     cpu_id   <:  cpu_id,
     ram      <:> mem
   );
-
-   //uint24 cycle = 0;
-
+$$if SIMULATION then
+   uint24 cycle = 0;
+$$end
   // fun
-  uint10  y  = uninitialized;
+  uint8   color = uninitialized;
+  uint10  y     = uninitialized;
   uint10  ystop = uninitialized;
   uint10  x0  = uninitialized;
   uint10  y0  = uninitialized;
@@ -182,7 +184,6 @@ algorithm frame_drawer(
     xi         :> xi2,
     <:auto:>);
 
-  fbuffer              := 0;
   palette.wenable1     := 0;
   sdram.in_valid       := 0;
   sdram.rw             := 0;
@@ -192,7 +193,6 @@ algorithm frame_drawer(
   always {
 
     if (draw_triangle) {      
-        // __display("span %d [%d-%d] %b %b %b",y,start,stop,it0,it1,it2);      
         if (span_x[10,1]) {
           // find the span bounds, start drawing
           uint10 first  = uninitialized;
@@ -211,14 +211,14 @@ algorithm frame_drawer(
             stop   = first;        
           }
           sd.addr = 17h1FFFF;
-          __display("start span, x %d y %d",span_x,y);
+          __display("start span, x %d to %d, y %d",span_x,stop,y);
         } else {
           // write current to sdram
-          if (sd.addr != addr) {
-            sd.addr     = addr;
+          if (sd.addr[0,17] != addr) {
+            sd.addr     = {1b0,~fbuffer,7b0,addr};
             sd.in_valid = 1;
-            sd.data_in  = 255;
-          __display("write x %d y %d",span_x,y);
+            sd.data_in  = color;
+          //__display("write x %d y %d",span_x,y);
           } else {
             if (sd.done) {
               if (span_x == stop) {
@@ -228,10 +228,15 @@ algorithm frame_drawer(
               } else {
                 span_x = span_x + 1;
               }
+            } else {
+              //__display("mem wait");
             }
           }
         }
       draw_triangle = (y == ystop) ? 0 : 1;      
+      if (draw_triangle == 0) {
+        __display("done");
+      }
     } else {// draw_triangle
 
       if (prepare) {
@@ -244,7 +249,10 @@ algorithm frame_drawer(
   }
 
   while (1) {
+    
     cpu_reset = 0;
+    
+    data_override = {{30{1b0}},vsync,draw_triangle};
 
     if (mem.in_valid & mem.rw) {
       switch (mem.addr[28,4]) {
@@ -263,8 +271,18 @@ algorithm frame_drawer(
           sdram.in_valid = 1;
         }
         case 4b0010: {
-          __display("LEDs = %h",mem.data_in[0,8]);
-          leds = mem.data_in[0,8];
+          switch (mem.addr[2,2]) {
+            case 2b00: {
+              //__display("LEDs = %h",mem.data_in[0,8]);
+              leds = mem.data_in[0,8];
+            }
+            case 2b01: {
+              __display("swap buffers");
+              fbuffer = ~fbuffer;
+            }
+            default: { }
+          }
+          //__display("data_override: %d",data_override);
         }
         case 4b0001: {
 //          __display("(cycle %d) triangle (%b) = %d %d",cycle,mem.addr[2,5],mem.data_in[0,16],mem.data_in[16,16]);
@@ -272,19 +290,24 @@ algorithm frame_drawer(
             case 7b0000001: { x0  = mem.data_in[0,16]; y0  = mem.data_in[16,16]; }
             case 7b0000010: { x1  = mem.data_in[0,16]; y1  = mem.data_in[16,16]; }
             case 7b0000100: { x2  = mem.data_in[0,16]; y2  = mem.data_in[16,16]; }
-            case 7b0001000: { ei0 = mem.data_in; }
+            case 7b0001000: { ei0 = mem.data_in; color = mem.data_in[24,8]; }
             case 7b0010000: { ei1 = mem.data_in; }
             case 7b0100000: { ei2 = mem.data_in; }
             case 7b1000000: { y = mem.data_in[0,16]; ystop = mem.data_in[16,16]; 
-                              prepare = 1; draw_triangle = 0; }
+                              prepare = 1; draw_triangle = 0;
+$$if SIMULATION then
+                               __display("new triangle (color %d), cycle %d",color,cycle);
+$$end                               
+                               }
             default: { }
           }
         }
         default: { }
       }
     }
-
-    // cycle = cycle + 1;
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end    
   }
 }
 
