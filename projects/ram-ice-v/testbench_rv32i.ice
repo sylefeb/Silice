@@ -74,7 +74,8 @@ $$end
       __display("LEDs = %b",leds);
     }
     
-    iter = iter + 1;
+    iter = iter + 1; // NOTE: strangely removing this increases design size? (happy accident that I left it I guess...
+                     //        plus it seems completely removed as unused)
 
   }
 }

@@ -11,5 +11,6 @@ do
   echo -e "$i -------------------\n" >> stats.txt
   echo -e "$FREQ" >> stats.txt
   echo -e "$SIZE" >> stats.txt
-  cp BUILD_ulx3s/build.bit BUILD_ulx3s/$i_build.bit
+  echo "saving to ${i}_build.bit"
+  cp BUILD_ulx3s/build.bit BUILD_ulx3s/${i}_build.bit
 done

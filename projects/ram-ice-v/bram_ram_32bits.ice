@@ -4,18 +4,20 @@
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 
-$$ bram_depth = 12
+$$ bram_depth = 14 -- 14 : 16K ints - 16 : 64K ints
 $$ bram_size  = 1<<bram_depth
 
 algorithm bram_ram_32bits(
-  rv32i_ram_provider pram,     // provided ram interface
-  input uint27 predicted_addr, // next predicted address
-  input uint32 data_override,  // data used as an override by memory mapper
+  rv32i_ram_provider pram,           // provided ram interface
+  input uint27       predicted_addr, // next predicted address
+  input uint32       data_override,  // data used as an override by memory mapper
 ) <autorun> {
 
   simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { $data_bram$ pad(uninitialized) };
   
-  uint1 in_scope     ::= (pram.addr[28,3] == 4b000); // Note: memory mapped addresses use the top most bits
+  uint1 in_scope     ::= (pram.addr[28,4] == 4b000); // Note: memory mapped addresses use the top most bits
+                                                     // ==> might be better to simply write in a specifc addr (0?)
+                                                     // ==> data_override could be written always in some other addr
   uint1 pred_correct ::= (mem.addr0 == pram.addr[2,$bram_depth$]);
   uint1 wait_one(0);
   

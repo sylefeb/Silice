@@ -116,7 +116,7 @@ algorithm rv32i_cpu(
   input uint26   boot_at,
   input uint3    cpu_id,
   rv32i_ram_user ram,
-  output uint27  predicted_addr = 27h4000000 /*{1b1,26b0}*/, // next predicted address (set to 'auto' be default)
+  output uint27  predicted_addr, // next predicted address
 ) <autorun> {
   
   // does not have to be simple_dualport_bram, but results in smaller design
@@ -141,14 +141,6 @@ algorithm rv32i_cpu(
   uint26 pc            = uninitialized;
   uint32 next_instr(0);
   uint26 next_instr_pc = uninitialized;
-  
-$$if SIMULATION then  
-$$if SHOW_REGS then
-$$for i=0,31 do
-  int32 xv$i$ = uninitialized;
-$$end
-$$end
-$$end
 
   uint1 pcOrReg     = uninitialized;
   uint1 regOrImm    = uninitialized;
@@ -231,12 +223,10 @@ $$if SIMULATION then
   uint32 cycle_last_retired(0);
 $$end
 
-  uint1  wait_next_instr(1);
+  uint1  refetch(1);  
+  uint1  wait_next_instr(0);
   uint1  commit_decode(0);
-
   uint1  do_load_store(0);
-
-  uint1  refetch(0);  
   
   uint4  case_select   = uninitialized;
 
@@ -262,10 +252,11 @@ $$end
   //  __display("CPU START");  
   //}
   // boot
-  ram.addr       = boot_at;
-  // predicted_addr = {1b1,26b0}; // auto
-  ram.rw         = 0;
-  ram.in_valid   = ~reset;
+  refetch_addr   = boot_at;
+  //ram.addr       = boot_at;
+  //predicted_addr = {1b1,26b0}; // auto
+  //ram.rw         = 0;
+  ram.in_valid   = ~reset; // triggers refetch
 
 $$if HARDWARE then  
   while (1) {
@@ -342,24 +333,27 @@ $$if SIMULATION then
 $$end
         }
         
+        // be optimistic: request next-next instruction
+        ram.addr       = next_instr_pc + 4;
+        predicted_addr = {1b1,26b0} /*auto*/;
+        
         if ((Rtype(next_instr).rs1 == xregsA.addr1
           || Rtype(next_instr).rs2 == xregsB.addr1
           || Rtype(instr     ).rs1 == xregsA.addr1
           || Rtype(instr     ).rs2 == xregsB.addr1) & saved_rd_enable) {
           // too bad, but we have to write a register that was already
           // read for the prefetched instructions ... play again!
-          ram.addr        = pc;
-          predicted_addr  = {1b1,26b0} /*auto*/;
-          wait_next_instr = 1;
-          // instr           = 0; // reset decoder
+          // ram.addr        = pc;
+          // predicted_addr  = {1b1,26b0} /*auto*/;
+          // wait_next_instr = 1;
+          refetch         = 1;
+          refetch_addr    = pc;
+          predicted_addr  = pc;
           instr_ready     = 0;
 $$if verbose then
           // __display("****** register conflict *******");
 $$end          
         } else {
-          // be optimistic: request next-next instruction
-          ram.addr       = next_instr_pc + 4;
-          predicted_addr = {1b1,26b0} /*auto*/;
 //__display("[RAM ADDR] @%h",ram.addr);
           commit_decode     = 1;
         }
@@ -732,7 +726,7 @@ algorithm intops(
   // reg +/- imm (intops)
   // pc  + imm   (else)
   
-  int32 a := pcOrReg ? __signed({6b0,pc[0,26]}) : xa;
+  int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
   int32 b := regOrImm ? (xb) : imm;
 
   always { // this part of the algorithm is executed every clock  
