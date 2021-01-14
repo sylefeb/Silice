@@ -485,7 +485,7 @@ $$end
 $$if verbose then
 //__display("  [instr ready:%b] PC set to @%h <<%h>>,  next @%h",instr_ready,next_instr_pc,instr,next_instr_pc+4);
 $$end
-        next_instr_pc     = (branch_or_jump ? refetch_addr : next_instr_pc + 4);
+        next_instr_pc     = (branch_or_jump & instr_ready) ? refetch_addr : next_instr_pc + 4;
 $$if verbose then
 //__display("  [decode] NEXT PC @%h",next_instr_pc);        
 $$end
