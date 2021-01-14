@@ -6,6 +6,6 @@ int f(int v) {
 void main() 
 {
   for (int i = 0; i < 10 ; i ++) {
-    *(int*)0 = i;
+    *(int*)0x20000000 = i;
   }
 }

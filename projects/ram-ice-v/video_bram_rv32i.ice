@@ -2,7 +2,7 @@
 // ------------------------- 
 
 $$if SIMULATION then
-$$verbose = nil
+$$verbose = 1
 $$end
 
 // pre-compilation script, embeds compile code within sdcard image

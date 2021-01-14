@@ -19,7 +19,7 @@ algorithm bram_ram_32bits(
   uint1 in_scope     ::= (pram.addr[28,4] == 4b000); // Note: memory mapped addresses use the top most bits
                                                      // ==> might be better to simply write in a specifc addr (0?)
                                                      // ==> data_override could be written always in some other addr
-  uint1 pred_correct ::= predicted_correct;
+  uint1 pred_correct ::= 0; // predicted_correct;
   uint1 wait_one(0);
   
   uint$bram_depth$ predicted ::= (predicted_addr[26,1]) ? (pram.addr[2,$bram_depth$] + 1) : predicted_addr[2,$bram_depth$];
@@ -30,12 +30,12 @@ $$end
   
   /*while (1)*/ always {
 $$if verbose then  
-    if (pram.in_valid | wait_one) {
-      __display("[cycle%d] in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h",cycle,pram.in_valid,wait_one,pram.addr[2,24],pram.rw,mem.addr0,pred_correct,predicted);
-    }
-    if (pram.in_valid && ~predicted_correct && (mem.addr0 == pram.addr[2,$bram_depth$])) {
-      __display("########################################### missed opportunity");
-    }
+     if (pram.in_valid | wait_one) {
+       __display("[cycle%d] in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h data_in:%h",cycle,pram.in_valid,wait_one,pram.addr[2,24],pram.rw,mem.addr0,pred_correct,predicted,pram.data_in);
+     }
+     if (pram.in_valid && ~predicted_correct && (mem.addr0 == pram.addr[2,$bram_depth$])) {
+       __display("########################################### missed opportunity");
+     }
 $$end
     pram.data_out       = in_scope ? (mem.rdata0 >> {pram.addr[0,2],3b000}) : data_override;
     pram.done           = (pred_correct & pram.in_valid) | wait_one | pram.rw;
@@ -46,9 +46,9 @@ $$end
     mem.wenable1        = pram.wmask & {4{pram.rw & pram.in_valid & in_scope}};
     mem.wdata1          = pram.data_in;    
 $$if verbose then  
-    if (pram.in_valid | wait_one) {                        
-      __display("          done:%b wait:%b pred:@%h out:%h wen:%b",pram.done,wait_one,mem.addr0,pram.data_out,mem.wenable1);  
-    }
+     if (pram.in_valid | wait_one) {                        
+       __display("          done:%b wait:%b pred:@%h out:%h wen:%b",pram.done,wait_one,mem.addr0,pram.data_out,mem.wenable1);  
+     }
     cycle = cycle + 1;
 $$end    
     wait_one            = (pram.in_valid & ~pred_correct & ~pram.rw );
