@@ -358,7 +358,7 @@ $$end
           instr_ready     = 0;
 $$if verbose then
           //__display("  [load store] NEXT PC @%h",next_instr_pc);        
-          //__display("****** register conflict *******");
+          __display("****** register conflict *******");
 $$end          
         } else {
           commit_decode     = 1;
@@ -405,7 +405,7 @@ $$if verbose then
         if (instr == 0) {
           // __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
         } else {
-           __display("========> [ALU done <<%h>>] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
+           __display("========> [ALU done <<%h>>] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d regA:%d regB:%d",instr,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB,regA,regB);
           //__display("========> [ALU done <<%h>> (%d since) cycle %d instret %d] pc %h load_store:%b store:%b branch_or_jump:%b",instr,cycle-cycle_last_retired,cycle,instret,pc,load_store,store,branch_or_jump);
           cycle_last_retired = cycle;
         }
