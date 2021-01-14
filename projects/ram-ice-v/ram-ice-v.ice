@@ -354,7 +354,7 @@ $$end
           refetch         = 1;
           refetch_addr    = pc;
           predicted_addr  = pc;
-          next_instr_pc   = pc;
+          next_instr_pc   = pc + 4;
           instr_ready     = 0;
 $$if verbose then
           //__display("  [load store] NEXT PC @%h",next_instr_pc);        
@@ -402,8 +402,8 @@ $$end
         uint1 retire   = uninitialized;
 $$if verbose then     
         __display("----------- CASE 1 -------------");
-        if (instr == 0) {
-          // __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
+        if (~instr_ready) {
+          __display("========> [next instruction] load_store %b branch_or_jump %b",load_store,branch_or_jump);
         } else {
            __display("========> [ALU done <<%h>>] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d regA:%d regB:%d",instr,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB,regA,regB);
           //__display("========> [ALU done <<%h>> (%d since) cycle %d instret %d] pc %h load_store:%b store:%b branch_or_jump:%b",instr,cycle-cycle_last_retired,cycle,instret,pc,load_store,store,branch_or_jump);
@@ -485,7 +485,9 @@ $$end
 $$if verbose then
 //__display("  [instr ready:%b] PC set to @%h <<%h>>,  next @%h",instr_ready,next_instr_pc,instr,next_instr_pc+4);
 $$end
-        next_instr_pc     = branch_or_jump ? refetch_addr : next_instr_pc + 4;
+        next_instr_pc     = ~instr_ready 
+                          ? next_instr_pc 
+                          : (branch_or_jump ? refetch_addr : next_instr_pc + 4);
 $$if verbose then
 //__display("  [decode] NEXT PC @%h",next_instr_pc);        
 $$end
