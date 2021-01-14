@@ -117,6 +117,7 @@ algorithm rv32i_cpu(
   input uint3    cpu_id,
   rv32i_ram_user ram,
   output uint27  predicted_addr, // next predicted address
+  output uint1   predicted_correct = 0,
 ) <autorun> {
   
   // does not have to be simple_dualport_bram, but results in smaller design
@@ -233,9 +234,10 @@ $$end
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid    := 0; 
   
+  predicted_correct := 1;
   // maintain bram registers
-  xregsA.wenable1 := 0;
-  xregsB.wenable1 := 0;
+  //xregsA.wenable1 := 0;
+  //xregsB.wenable1 := 0;
 
   always {
   
@@ -274,8 +276,8 @@ $$end
     
       case 8: {
 $$if verbose then
-      // __display("----------- CASE 8 ------------- (cycle %d)",cycle);     
-      // __display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
+      __display("----------- CASE 8 ------------- (cycle %d)",cycle);     
+      __display("[refetch] (cycle %d) @%h",cycle,ram.addr);        
 $$end
         refetch         = 0;
 
@@ -290,6 +292,7 @@ $$end
 
         // refetch
         ram.addr        = refetch_addr;
+        predicted_correct = instr_ready; // do_load_store;
         predicted_addr  = do_load_store ? {1b0,(next_instr_pc[0,26] + 26d4)} : {1b1,26b0} /*auto*/;
         ram.rw          = refetch_rw;
         ram.in_valid    = 1;
@@ -301,8 +304,8 @@ $$end
     
       case 4: {
 $$if verbose then
-        // __display("----------- CASE 4 ------------- (cycle %d)",cycle);
-        // __display("[load store] (cycle %d) store %b",cycle,saved_store);
+        __display("----------- CASE 4 ------------- (cycle %d)",cycle);
+        __display("[load store] (cycle %d) store %b",cycle,saved_store);
 $$end        
         do_load_store   = 0;
         // data with memory access
@@ -336,7 +339,6 @@ $$end
         // be optimistic: request next-next instruction
         ram.addr       = next_instr_pc + 4;
         predicted_addr = {1b1,26b0} /*auto*/;
-        
         if ((Rtype(next_instr).rs1 == xregsA.addr1
           || Rtype(next_instr).rs2 == xregsB.addr1
           || Rtype(instr     ).rs1 == xregsA.addr1
@@ -359,12 +361,13 @@ $$end
         }
         ram.in_valid    = 1;
         ram.rw          = 0;
+        //predicted_correct = 1;
       } // case 4
 
       case 2: {
 $$if verbose then      
-      // __display("----------- CASE 2 ------------- (cycle %d)",cycle);
-      // __display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
+      __display("----------- CASE 2 ------------- (cycle %d)",cycle);
+      __display("========> (cycle %d) ram.data_out:%h",cycle,ram.data_out);
 $$end      
         // Note: ALU for previous (if any) is running ...
         wait_next_instr = 0;
@@ -378,7 +381,8 @@ $$end
 //__display("[setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
         commit_decode   = 1;
         // be optimistic: request next-next instruction
-        predicted_addr  = {1b1,26b0} /*auto*/;
+        // predicted_addr  = {1b1,26b0} /*auto*/;
+        //predicted_correct = 1;
         ram.addr        = (ram.addr[0,26] + 4);
 //__display("[RAM ADDR] @%h",ram.addr);
         ram.in_valid    = 1;
@@ -388,7 +392,7 @@ $$end
       case 1: {
         uint1 retire   = uninitialized;
 $$if verbose then     
-        // __display("----------- CASE 1 ------------- (cycle %d | instret %d)",cycle,instret);
+        __display("----------- CASE 1 ------------- (cycle %d | instret %d)",cycle,instret);
         if (instr == 0) {
           // __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
         } else {
@@ -399,7 +403,9 @@ $$if verbose then
 $$end        
         commit_decode = 0;
         // Note: nothing received from memory
+$$if SIMULATION then
         halt   = instr_ready & (instr == 0);
+$$end
         retire = instr_ready; // (instr != 0);
         
 $$if SIMULATION then
@@ -414,7 +420,8 @@ $$end
         // what to request from RAM next?
         refetch           = instr_ready & (branch_or_jump | load_store); // ask to fetch from the new address (cannot do it now, memory is busy with prefetch)
         refetch_addr      = alu_out;
-        predicted_addr    = refetch ? {1b0,alu_out[0,26]} : predicted_addr; // attempt to predict read ...
+        predicted_addr    = refetch ? {1b0,alu_out[0,26]} : {1b1,26b0}; // attempt to predict read ...
+        //predicted_correct = 1;
         refetch_rw        = load_store & store;            // Note: (instr == 0) => load_store = 0
 $$if SIMULATION then
 //if (refetch) {
@@ -456,9 +463,9 @@ $$end
 //}
         // setup decoder and ALU for instruction i+1
         // => decoder starts immediately, ALU on next cycle
-        instr        = next_instr;
-        pc           = next_instr_pc;
-        instr_ready  = 1;
+        instr             = next_instr;
+        pc                = next_instr_pc;
+        instr_ready       = 1;
 //__display("[instr setup] %h @%h",instr,pc);
         regA  = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
         regB  = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   

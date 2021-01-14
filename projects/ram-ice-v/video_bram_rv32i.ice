@@ -102,12 +102,14 @@ algorithm frame_drawer(
 
   rv32i_ram_io mem;
   uint27 predicted_addr = uninitialized;
+  uint1  predicted_correct = uninitialized;
   uint32 data_override(0);
 
   // bram io
   bram_ram_32bits bram_ram(
     pram <:> mem,
     predicted_addr <: predicted_addr,
+    predicted_correct <: predicted_correct,
     data_override <: data_override
   );
 
@@ -119,6 +121,7 @@ algorithm frame_drawer(
   rv32i_cpu cpu<!cpu_reset>(
     boot_at  <:  cpu_start_addr,
     predicted_addr :> predicted_addr,
+    predicted_correct :> predicted_correct,
     cpu_id   <:  cpu_id,
     ram      <:> mem
   );

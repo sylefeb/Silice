@@ -10,6 +10,7 @@ $$ bram_size  = 1<<bram_depth
 algorithm bram_ram_32bits(
   rv32i_ram_provider pram,           // provided ram interface
   input uint27       predicted_addr, // next predicted address
+  input uint1        predicted_correct,
   input uint32       data_override,  // data used as an override by memory mapper
 ) <autorun> {
 
@@ -18,7 +19,7 @@ algorithm bram_ram_32bits(
   uint1 in_scope     ::= (pram.addr[28,4] == 4b000); // Note: memory mapped addresses use the top most bits
                                                      // ==> might be better to simply write in a specifc addr (0?)
                                                      // ==> data_override could be written always in some other addr
-  uint1 pred_correct ::= (mem.addr0 == pram.addr[2,$bram_depth$]);
+  uint1 pred_correct ::= predicted_correct;
   uint1 wait_one(0);
   
   uint$bram_depth$ predicted ::= (predicted_addr[26,1]) ? (pram.addr[2,$bram_depth$] + 1) : predicted_addr[2,$bram_depth$];
@@ -30,7 +31,10 @@ $$end
   while (1) {
 $$if verbose then  
     if (pram.in_valid | wait_one) {
-      __display("[cycle%d] in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h",cycle,pram.in_valid,wait_one,pram.addr[2,24],pram.rw,mem.addr0,pred_correct,predicted_addr[2,$bram_depth$]);  
+      __display("[cycle%d] in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h",cycle,pram.in_valid,wait_one,pram.addr[2,24],pram.rw,mem.addr0,pred_correct,predicted);
+    }
+    if (pram.in_valid && ~predicted_correct && (mem.addr0 == pram.addr[2,$bram_depth$])) {
+      __display("########################################### missed opportunity");
     }
 $$end
     pram.data_out       = in_scope ? (mem.rdata0 >> {pram.addr[0,2],3b000}) : data_override;

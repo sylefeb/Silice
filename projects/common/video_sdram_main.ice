@@ -544,7 +544,7 @@ $$else
 $$if verbose then
   while (frame < 1) {
 $$else
-  while (frame < 16) {
+  while (frame < 8) {
 $$end  
 $$end    
     while (video_vblank == 1) { }
