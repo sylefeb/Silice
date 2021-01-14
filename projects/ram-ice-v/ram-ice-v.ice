@@ -117,7 +117,7 @@ algorithm rv32i_cpu(
   input uint3    cpu_id,
   rv32i_ram_user ram,
   output uint27  predicted_addr, // next predicted address
-  output uint1   predicted_correct = 0,
+  output uint1   predicted_correct,
 ) <autorun> {
   
   // does not have to be simple_dualport_bram, but results in smaller design
@@ -234,7 +234,6 @@ $$end
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid    := 0; 
   
-  predicted_correct := 1;
   // maintain bram registers
   //xregsA.wenable1 := 0;
   //xregsB.wenable1 := 0;
@@ -361,7 +360,7 @@ $$end
         }
         ram.in_valid    = 1;
         ram.rw          = 0;
-        //predicted_correct = 1;
+        predicted_correct = 1;
       } // case 4
 
       case 2: {
@@ -382,7 +381,7 @@ $$end
         commit_decode   = 1;
         // be optimistic: request next-next instruction
         // predicted_addr  = {1b1,26b0} /*auto*/;
-        //predicted_correct = 1;
+        predicted_correct = 1;
         ram.addr        = (ram.addr[0,26] + 4);
 //__display("[RAM ADDR] @%h",ram.addr);
         ram.in_valid    = 1;
@@ -421,7 +420,7 @@ $$end
         refetch           = instr_ready & (branch_or_jump | load_store); // ask to fetch from the new address (cannot do it now, memory is busy with prefetch)
         refetch_addr      = alu_out;
         predicted_addr    = refetch ? {1b0,alu_out[0,26]} : {1b1,26b0}; // attempt to predict read ...
-        //predicted_correct = 1;
+        predicted_correct = 1;
         refetch_rw        = load_store & store;            // Note: (instr == 0) => load_store = 0
 $$if SIMULATION then
 //if (refetch) {
