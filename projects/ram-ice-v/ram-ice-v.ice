@@ -353,9 +353,9 @@ $$end
           // read for the prefetched instructions ... play again!
           refetch         = 1;
           refetch_addr    = pc;
-          predicted_addr  = pc;
-          next_instr_pc   = pc + 4;
+          next_instr_pc   = pc;
           instr_ready     = 0;
+          predicted_addr  = pc;
 $$if verbose then
           //__display("  [load store] NEXT PC @%h",next_instr_pc);        
           __display("****** register conflict *******");
@@ -485,9 +485,7 @@ $$end
 $$if verbose then
 //__display("  [instr ready:%b] PC set to @%h <<%h>>,  next @%h",instr_ready,next_instr_pc,instr,next_instr_pc+4);
 $$end
-        next_instr_pc     = ~instr_ready 
-                          ? next_instr_pc 
-                          : (branch_or_jump ? refetch_addr : next_instr_pc + 4);
+        next_instr_pc     = (branch_or_jump ? refetch_addr : next_instr_pc + 4);
 $$if verbose then
 //__display("  [decode] NEXT PC @%h",next_instr_pc);        
 $$end
@@ -782,9 +780,9 @@ algorithm intops(
       case 4b0101: { r = signedShift ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
       default: {
         switch (csr[0,2]) {
-          case 2b00: { r = cycle;   }
-          case 2b01: { r = cpu_id;  }
-          case 2b10: { r = instret; }
+          case 2b00: { r = 0;}//cycle;   }
+          case 2b01: { r = 0;}//cpu_id;  }
+          case 2b10: { r = 0;}//instret; }
           default: { }
         }
       }
