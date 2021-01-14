@@ -31,7 +31,7 @@ $$end
   /*while (1)*/ always {
 $$if verbose then  
      if (pram.in_valid | wait_one) {
-       __display("[cycle%d] in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h data_in:%h",cycle,pram.in_valid,wait_one,pram.addr[2,24],pram.rw,mem.addr0,pred_correct,predicted,pram.data_in);
+       __display("[cycle%d] in_scope:%b in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h data_in:%h",in_scope,cycle,pram.in_valid,wait_one,pram.addr[2,24],pram.rw,mem.addr0,pred_correct,predicted,pram.data_in);
      }
      if (pram.in_valid && ~predicted_correct && (mem.addr0 == pram.addr[2,$bram_depth$])) {
        __display("########################################### missed opportunity");
@@ -47,7 +47,7 @@ $$end
     mem.wdata1          = pram.data_in;    
 $$if verbose then  
      if (pram.in_valid | wait_one) {                        
-       __display("          done:%b wait:%b pred:@%h out:%h wen:%b",pram.done,wait_one,mem.addr0,pram.data_out,mem.wenable1);  
+       __display("          done:%b wait:%b pred:@%h out:%h wen:%b",pram.done,wait_one,mem.addr0,pram.data_out,mem.wenable1[0,4]);  
      }
     cycle = cycle + 1;
 $$end    
