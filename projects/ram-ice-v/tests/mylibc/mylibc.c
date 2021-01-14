@@ -55,10 +55,12 @@ int    putchar(int c)
       for (int i=0;i<5;i++) {
         *(FRAMEBUFFER + (cursor_x + i + ((cursor_y+j)<<9)) ) 
           = (font[c-32][i] & (1<<j)) ? 255 : 31;
+          /*
         // Note: this is only important for the BRAM version  ...
         //       we wait to ensure SDRAM writes are completed ...
         long tm_start = time();
         while (time() - tm_start < 1) { }        
+        */
       }
     }
   }
