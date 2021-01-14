@@ -240,7 +240,7 @@ $$end
   always {
   
     case_select = {
-                    refetch                         & (ram.done | start | reset),
+                    refetch                         & (ram.done | start),
                    ~refetch         & do_load_store & ram.done, // performing load store, data available
                     wait_next_instr                 & ram.done,    // instruction avalable
                     commit_decode
