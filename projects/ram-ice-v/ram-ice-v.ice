@@ -370,7 +370,7 @@ $$end
 
       case 2: {
 $$if verbose then      
-      __display("----------- CASE 2 -------------",cycle);
+      __display("----------- CASE 2 -------------");
       //__display("  (cycle %d) ram.data_out:%h",cycle,ram.data_out);
       //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_instr_pc,next_instr_pc+4);
 $$end      
