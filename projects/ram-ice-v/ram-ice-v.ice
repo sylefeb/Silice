@@ -756,32 +756,32 @@ algorithm intops(
   int32 b := regOrImm ? (xb) : imm;
 
   always { // this part of the algorithm is executed every clock  
-    switch ({csr[2,1],select}) {
-      case 4b0000: { // ADD / SUB
+    switch ({select}) {
+      case 3b000: { // ADD / SUB
         // r = a + (sub ? -b : b); // smaller, slower...
         r = sub ? (a - b) : (a + b);
       }
-      case 4b0010: { // SLTI
+      case 3b010: { // SLTI
         if (__signed(xa)   < __signed(b)) { r = 32b1; } else { r = 32b0; }
       }
-      case 4b0011: { // SLTU
+      case 3b011: { // SLTU
         if (__unsigned(xa) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
       }
-      case 4b0100: { r = xa ^ b;} // XOR
-      case 4b0110: { r = xa | b;} // OR
-      case 4b0111: { r = xa & b;} // AND
-      case 4b0001: { r = (xa <<< b[0,5]); } // SLLI
-      case 4b0101: { r = signedShift ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
-      default: {
-        switch (csr[0,2]) {
-          case 2b00: { r = cycle;   }
-          case 2b01: { r = cpu_id;  }
-          case 2b10: { r = instret; }
-          default: { }
-        }
-      }
+      case 3b100: { r = xa ^ b;} // XOR
+      case 3b110: { r = xa | b;} // OR
+      case 3b111: { r = xa & b;} // AND
+      case 3b001: { r = (xa <<< b[0,5]); } // SLLI
+      case 3b101: { r = signedShift ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
+      default: { }
     }
-
+    if (csr[2,1]) {
+    switch (csr[0,2]) {
+      case 2b00: { r = cycle;   }
+      case 2b01: { r = cpu_id;  }
+      case 2b10: { r = instret; }
+      default: { }
+    }
+    }
     switch (funct3) {
       case 3b000: { j = jump | (branch & (ra == rb)); } // BEQ
       case 3b001: { j = jump | (branch & (ra != rb)); } // BNE

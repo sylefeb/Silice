@@ -39,7 +39,7 @@ $$if verbose then
 $$end
     pram.data_out       = in_scope ? (mem.rdata0 >> {pram.addr[0,2],3b000}) : data_override;
     pram.done           = (pred_correct & pram.in_valid) | wait_one | pram.rw;
-    mem.addr0           = (pram.in_valid & ~pred_correct /*& ~pram.rw*/) // Note: removing pram.rw does not hurt ...
+    mem.addr0           = (pram.in_valid & ~pred_correct & ~pram.rw) // Note: removing pram.rw does not hurt ...
                           ? pram.addr[2,$bram_depth$] // read addr next (wait_one)
                           : predicted; // predict
     mem.addr1           = pram.addr[2,$bram_depth$];
@@ -51,6 +51,6 @@ $$if verbose then
      }
     cycle = cycle + 1;
 $$end    
-    wait_one            = (pram.in_valid & ~pred_correct /*& ~pram.rw*/);
+    wait_one            = (pram.in_valid & ~pred_correct & ~pram.rw);
   }
 }
