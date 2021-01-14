@@ -101,29 +101,30 @@ algorithm frame_drawer(
   );
 
   rv32i_ram_io mem;
-  uint26 predicted_addr = uninitialized;
+
+  uint26 predicted_addr    = uninitialized;
   uint1  predicted_correct = uninitialized;
   uint32 data_override(0);
 
   // bram io
   bram_ram_32bits bram_ram(
-    pram <:> mem,
-    predicted_addr <: predicted_addr,
-    predicted_correct <: predicted_correct,
-    data_override <: data_override
+    pram              <:> mem,
+    predicted_addr    <:  predicted_addr,
+    predicted_correct <:  predicted_correct,
+    data_override     <:  data_override
   );
 
   uint1  cpu_reset      = 1;
-  uint26 cpu_start_addr = 26h0000000;
-  uint3  cpu_id         = 0;
+  uint26 cpu_start_addr(26h0000000);
+  uint3  cpu_id(0);
   
   // cpu 
   rv32i_cpu cpu<!cpu_reset>(
-    boot_at  <:  cpu_start_addr,
-    predicted_addr :> predicted_addr,
-    predicted_correct :> predicted_correct,
-    cpu_id   <:  cpu_id,
-    ram      <:> mem
+    boot_at           <:  cpu_start_addr,
+    predicted_addr    :>  predicted_addr,
+    predicted_correct :>  predicted_correct,
+    cpu_id            <:  cpu_id,
+    ram               <:> mem
   );
 $$if SIMULATION then
    uint24 cycle = 0;
@@ -267,7 +268,7 @@ $$end
     data_override = {{30{1b0}},vsync,draw_triangle};
 
     if (mem.in_valid & mem.rw) {
-      switch (mem.addr[28,4]) {
+      switch (mem.addr[27,4]) {
         case 4b1000: {
           // __display("palette %h = %h",mem.addr[2,8],mem.data_in[0,24]);
           palette.addr1    = mem.addr[2,8];

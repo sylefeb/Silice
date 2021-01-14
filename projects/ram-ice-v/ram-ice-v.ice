@@ -230,55 +230,41 @@ $$end
   uint1  wait_next_instr(0);
   uint1  commit_decode(0);
   uint1  do_load_store(0);
-  
+  uint1  start = 1;
+
   uint4  case_select   = uninitialized;
 
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid    := 0; 
   
-  // maintain bram registers
-  //xregsA.wenable1 := 0;
-  //xregsB.wenable1 := 0;
-
   always {
   
     case_select = {
-                    refetch                         & ram.done,
+                    refetch                         & (ram.done | start | reset),
                    ~refetch         & do_load_store & ram.done, // performing load store, data available
                     wait_next_instr                 & ram.done,    // instruction avalable
                     commit_decode
                   };
                   
-  } 
-  
-  //if (~reset) {
-  //  __display("CPU START");  
-  //}
-  // boot
-  refetch_addr  = boot_at;
-  next_pc       = boot_at;
-  //ram.addr       = boot_at;
-  //predicted_addr = {1b1,26b0}; // auto
-  //ram.rw         = 0;
-  ram.in_valid  = ~reset; // triggers refetch
+  //} 
 
 $$if HARDWARE then  
-  while (1) {
+  //while (1) {
 $$else    
-  while (!halt) {
+  //while (!halt) {
 $$end    
   // while (cycle < 400) {
   // while (instret < 128) {
 $$if verbose then
     if (ram.done) {
-      //__display("**** ram done (cycle %d) **** ram.data_out @%h = %h",cycle,ram.addr,ram.data_out);        
+      __display("**** ram done (cycle %d) **** ram.data_out @%h = %h",cycle,ram.addr,ram.data_out);        
     }
 $$end
     switch (case_select) {
-    
+
       case 8: {
 $$if verbose then
-      __display("----------- CASE 8 -------------");     
+      __display("----------- CASE 8 -------------");
       //__display("  [refetch] (cycle %d) @%h load_store %b",cycle,ram.addr,do_load_store);        
       //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_pc,next_pc+4);
       //__display("  [refetch] NEXT PC @%h",next_pc);        
@@ -297,12 +283,19 @@ $$end
         predicted_addr    = next_pc_p4;
 
         // refetch
-        ram.addr          = refetch_addr;
+        ram.addr          = start ? boot_at : refetch_addr;
+        // cold start?
+        if (start & ~reset) {
+          __display("CPU RESET %d (@%h) start:%b",case_select,next_pc,start);
+        }        
+        next_pc           = start ? boot_at : next_pc;
+        start             = reset;
+
 $$if verbose then
 //__display("  [RAM ADDR] @%h",ram.addr);
 $$end        
         ram.rw            = refetch_rw;
-        ram.in_valid      = 1;
+        ram.in_valid      = ~reset;
         instr_ready       = do_load_store;
         wait_next_instr   = ~do_load_store;
 
@@ -419,7 +412,7 @@ $$end
         retire = instr_ready;
         
 $$if SIMULATION then
-        if (halt) { __display("HALT on zero-instruction"); }
+        // if (halt) { __display("HALT on zero-instruction"); }
 $$end
         // commit previous instruction
         // load store next?

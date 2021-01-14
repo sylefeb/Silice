@@ -10,17 +10,17 @@ The rest is hastily composed from a variety of sources (referenced in code) to g
 #include "mylibc.h"
 #include "tama_mini02_font.h"
 
-volatile unsigned char* const LEDS        = (unsigned char*)0x20000000;
-volatile unsigned int*  const PALETTE     = (unsigned int* )0x83000000;
+volatile unsigned char* const LEDS        = (unsigned char*)0x90000000;
+volatile unsigned int*  const PALETTE     = (unsigned int* )0xC3000000;
 // Why 0x83000000 ? We set bit 31 so video_rv32i knows we are using a mapped address, 
 // but still write to the last memory bank (0x03000000) where nothing is used.
 // The reason is that video_rv32i does not mask addresses and therefore a SDRAM write still
 // occurs; we don't want this to end in the framebuffer! 
 
-volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x40000000;
-volatile unsigned char* const AUDIO       = (unsigned char*)0x4C000000;
-volatile unsigned char* const DATA        = (unsigned char*)0x42020000;
-volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x10000000;
+volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0xA0000000;
+//volatile unsigned char* const AUDIO       = (unsigned char*)0xAC000000;
+//volatile unsigned char* const DATA        = (unsigned char*)0xA2020000;
+volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x88000000;
 
 int cursor_x = 0x00000000;
 int cursor_y = 0x00000000;

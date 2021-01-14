@@ -14,9 +14,9 @@ void pause(int cycles)
 void main() 
 {
   while (1) {  
-    *(volatile unsigned char*)0x20000000 = 0xaa;
+    *(volatile unsigned char*)0xA0000000 = 0xaa;
     pause(10000000);
-    *(volatile unsigned char*)0x20000000 = 0x55;
+    *(volatile unsigned char*)0xA0000000 = 0x55;
     pause(10000000);
   }
 }

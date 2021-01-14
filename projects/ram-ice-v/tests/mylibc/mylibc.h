@@ -2,8 +2,8 @@
 
 extern volatile unsigned char* const LEDS;
 extern volatile unsigned char* const FRAMEBUFFER;
-extern volatile unsigned char* const AUDIO;
-extern volatile unsigned char* const DATA;
+//extern volatile unsigned char* const AUDIO;
+//extern volatile unsigned char* const DATA;
 extern volatile unsigned int*  const PALETTE;
 extern volatile unsigned int*  const TRIANGLE;
 
