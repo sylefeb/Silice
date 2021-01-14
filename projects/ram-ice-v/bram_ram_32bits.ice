@@ -19,7 +19,7 @@ algorithm bram_ram_32bits(
   uint1 in_scope     ::= (pram.addr[28,4] == 4b000); // Note: memory mapped addresses use the top most bits
                                                      // ==> might be better to simply write in a specifc addr (0?)
                                                      // ==> data_override could be written always in some other addr
-  uint1 pred_correct ::= 0; // predicted_correct;
+  uint1 pred_correct ::= predicted_correct;
   uint1 wait_one(0);
   
   uint$bram_depth$ predicted ::= (predicted_addr[26,1]) ? (pram.addr[2,$bram_depth$] + 1) : predicted_addr[2,$bram_depth$];

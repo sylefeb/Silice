@@ -780,9 +780,9 @@ algorithm intops(
       case 4b0101: { r = signedShift ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
       default: {
         switch (csr[0,2]) {
-          case 2b00: { r = 0;}//cycle;   }
-          case 2b01: { r = 0;}//cpu_id;  }
-          case 2b10: { r = 0;}//instret; }
+          case 2b00: { r = cycle;   }
+          case 2b01: { r = cpu_id;  }
+          case 2b10: { r = instret; }
           default: { }
         }
       }
