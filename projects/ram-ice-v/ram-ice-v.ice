@@ -268,17 +268,17 @@ $$end
   // while (instret < 128) {
 $$if verbose then
     if (ram.done) {
-      __display("**** ram done (cycle %d) **** ram.data_out @%h = %h",cycle,ram.addr,ram.data_out);        
+      //__display("**** ram done (cycle %d) **** ram.data_out @%h = %h",cycle,ram.addr,ram.data_out);        
     }
 $$end
     switch (case_select) {
     
       case 8: {
 $$if verbose then
-      __display("----------- CASE 8 ------------- (cycle %d)",cycle);     
-      __display("  [refetch] (cycle %d) @%h load_store %b",cycle,ram.addr,do_load_store);        
-      __display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_instr_pc,next_instr_pc+4);
-      __display("  [refetch] NEXT PC @%h",next_instr_pc);        
+      __display("----------- CASE 8 -------------");     
+      //__display("  [refetch] (cycle %d) @%h load_store %b",cycle,ram.addr,do_load_store);        
+      //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_instr_pc,next_instr_pc+4);
+      //__display("  [refetch] NEXT PC @%h",next_instr_pc);        
 $$end
         refetch         = 0;
 
@@ -288,7 +288,7 @@ $$end
         xregsA.addr0    = Rtype(next_instr).rs1;
         xregsB.addr0    = Rtype(next_instr).rs2;
 $$if verbose then        
-__display("  [setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
+//__display("  [setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
 $$end
         predicted_correct = instr_ready; // do_load_store;
         predicted_addr    = do_load_store ? {1b0,next_instr_pc+26d4} : {1b1,26b0} /*auto*/;
@@ -296,7 +296,7 @@ $$end
         // refetch
         ram.addr          = refetch_addr;
 $$if verbose then
-__display("  [RAM ADDR] @%h",ram.addr);
+//__display("  [RAM ADDR] @%h",ram.addr);
 $$end        
         ram.rw            = refetch_rw;
         ram.in_valid      = 1;
@@ -307,8 +307,8 @@ $$end
     
       case 4: {
 $$if verbose then
-        __display("----------- CASE 4 ------------- (cycle %d)",cycle);
-        __display("  [load store] (cycle %d) store %b",cycle,saved_store);
+        __display("----------- CASE 4 -------------");
+        //__display("  [load store] (cycle %d) store %b",cycle,saved_store);
 $$end        
         do_load_store   = 0;
         // data with memory access
@@ -334,7 +334,7 @@ $$end
           xregsB.wdata1   = tmp;
 $$if verbose then
 if (xregsA.wenable1) {
-__display("  [regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
+//__display("  [regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
 }
 $$end
         }
@@ -342,7 +342,7 @@ $$end
         // be optimistic: request next-next instruction
         ram.addr       = next_instr_pc + 4;
 $$if verbose then
-__display("  [RAM ADDR] @%h",ram.addr);
+//__display("  [RAM ADDR] @%h",ram.addr);
 $$end
         predicted_addr = {1b1,26b0} /*auto*/;
         if ((Rtype(next_instr).rs1 == xregsA.addr1
@@ -357,8 +357,8 @@ $$end
           next_instr_pc   = pc;
           instr_ready     = 0;
 $$if verbose then
-          __display("  [load store] NEXT PC @%h",next_instr_pc);        
-          __display("****** register conflict *******");
+          //__display("  [load store] NEXT PC @%h",next_instr_pc);        
+          //__display("****** register conflict *******");
 $$end          
         } else {
           commit_decode     = 1;
@@ -370,9 +370,9 @@ $$end
 
       case 2: {
 $$if verbose then      
-      __display("----------- CASE 2 ------------- (cycle %d)",cycle);
-      __display("  (cycle %d) ram.data_out:%h",cycle,ram.data_out);
-      __display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_instr_pc,next_instr_pc+4);
+      __display("----------- CASE 2 -------------",cycle);
+      //__display("  (cycle %d) ram.data_out:%h",cycle,ram.data_out);
+      //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_instr_pc,next_instr_pc+4);
 $$end      
         // Note: ALU for previous (if any) is running ...
         wait_next_instr   = 0;
@@ -382,7 +382,7 @@ $$end
         xregsA.addr0      = Rtype(next_instr).rs1;
         xregsB.addr0      = Rtype(next_instr).rs2;
 $$if verbose then
-__display("  [setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
+//__display("  [setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
 $$end
         commit_decode     = 1;
 
@@ -392,7 +392,7 @@ $$end
         // be optimistic: request next-next instruction
         ram.addr          = next_instr_pc + 4;
 $$if verbose then
-__display("  [RAM ADDR] @%h",ram.addr);
+//__display("  [RAM ADDR] @%h",ram.addr);
 $$end
         ram.in_valid      = 1;
         ram.rw            = 0;
@@ -401,11 +401,11 @@ $$end
       case 1: {
         uint1 retire   = uninitialized;
 $$if verbose then     
-        __display("----------- CASE 1 ------------- (cycle %d | instret %d)",cycle,instret);
+        __display("----------- CASE 1 -------------");
         if (instr == 0) {
           // __display("========> [next instruction] (cycle %d) load_store %b branch_or_jump %b",cycle,load_store,branch_or_jump);
         } else {
-           __display("========> [ALU done <<%h>> (%d since) ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,cycle-cycle_last_retired,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
+           __display("========> [ALU done <<%h>> ] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d",instr,cycle-cycle_last_retired,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB);
           //__display("========> [ALU done <<%h>> (%d since) cycle %d instret %d] pc %h load_store:%b store:%b branch_or_jump:%b",instr,cycle-cycle_last_retired,cycle,instret,pc,load_store,store,branch_or_jump);
           cycle_last_retired = cycle;
         }
@@ -433,7 +433,7 @@ $$end
 
 $$if verbose then
 if (refetch) {
-  __display("  [refetch from] %h",refetch_addr);
+  //__display("  [refetch from] %h",refetch_addr);
 }
 $$end
         // attempt to predict read ...
@@ -474,7 +474,7 @@ $$end
         xregsB.wenable1 = instr_ready & (~refetch | jump) & rd_enable;
 $$if verbose then
 if (xregsA.wenable1) {        
-__display("  [regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
+//__display("  [regs WRITE] regA[%d]=%h regB[%d]=%h",xregsA.addr1,xregsA.wdata1,xregsB.addr1,xregsB.wdata1);
 }
 $$end
 
@@ -483,18 +483,18 @@ $$end
         instr             = next_instr;
         pc                = next_instr_pc;
 $$if verbose then
-__display("  [instr ready:%b] PC set to @%h <<%h>>,  next @%h",instr_ready,next_instr_pc,instr,next_instr_pc+4);
+//__display("  [instr ready:%b] PC set to @%h <<%h>>,  next @%h",instr_ready,next_instr_pc,instr,next_instr_pc+4);
 $$end
         next_instr_pc     = branch_or_jump ? refetch_addr : next_instr_pc + 4;
 $$if verbose then
-__display("  [decode] NEXT PC @%h",next_instr_pc);        
+//__display("  [decode] NEXT PC @%h",next_instr_pc);        
 $$end
         instr_ready       = 1;
 //__display("[instr setup] %h @%h",instr,pc);
         regA  = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
         regB  = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   
 $$if verbose then
-  __display("[regs READ] regA[%d]=%h (%h) regB[%d]=%h (%h)",xregsA.addr0,regA,xregsA.rdata0,xregsB.addr0,regB,xregsB.rdata0);        
+  //__display("[regs READ] regA[%d]=%h (%h) regB[%d]=%h (%h)",xregsA.addr0,regA,xregsA.rdata0,xregsB.addr0,regB,xregsB.rdata0);        
 $$end
 
 
