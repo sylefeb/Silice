@@ -116,7 +116,7 @@ algorithm rv32i_cpu(
   input uint26   boot_at,
   input uint3    cpu_id,
   rv32i_ram_user ram,
-  output uint27  predicted_addr, // next predicted address
+  output uint26  predicted_addr, // next predicted address
   output uint1   predicted_correct,
 ) <autorun> {
   
@@ -144,6 +144,7 @@ algorithm rv32i_cpu(
   uint26 next_pc = uninitialized;
 
   uint26 next_pc_p4 ::= next_pc + 4;
+  uint26 next_pc_p8 ::= next_pc + 8;
 
   uint1 pcOrReg     = uninitialized;
   uint1 regOrImm    = uninitialized;
@@ -293,7 +294,7 @@ $$if verbose then
 //__display("  [setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
 $$end
         predicted_correct = instr_ready;
-        predicted_addr    = do_load_store ? {1b0,next_pc_p4} : {1b1,26b0} /*auto*/;
+        predicted_addr    = next_pc_p4;
 
         // refetch
         ram.addr          = refetch_addr;
@@ -346,7 +347,7 @@ $$end
 $$if verbose then
 //__display("  [RAM ADDR] @%h",ram.addr);
 $$end
-        predicted_addr = {1b1,26b0} /*auto*/;
+        predicted_addr = next_pc_p8;
         if ((Rtype(next_instr).rs1 == xregsA.addr1
           || Rtype(next_instr).rs2 == xregsB.addr1
           || Rtype(instr     ).rs1 == xregsA.addr1
@@ -387,8 +388,6 @@ $$if verbose then
 //__display("  [setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
 $$end
         commit_decode     = 1;
-
-        // predicted_addr  = {1b1,26b0} /*auto*/;
         predicted_correct = 1;
 
         // be optimistic: request next-next instruction
@@ -439,7 +438,7 @@ if (refetch) {
 }
 $$end
         // attempt to predict read ...
-        predicted_addr    = refetch ? {1b0,alu_out[0,26]} : {1b1,26b0};
+        predicted_addr    = refetch ? alu_out[0,26] : next_pc_p8;
         predicted_correct = 1;
         
         // wait for next instr?

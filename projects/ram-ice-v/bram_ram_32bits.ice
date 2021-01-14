@@ -9,7 +9,7 @@ $$ bram_size  = 1<<bram_depth
 
 algorithm bram_ram_32bits(
   rv32i_ram_provider pram,           // provided ram interface
-  input uint27       predicted_addr, // next predicted address
+  input uint26       predicted_addr, // next predicted address
   input uint1        predicted_correct,
   input uint32       data_override,  // data used as an override by memory mapper
 ) <autorun> {
@@ -22,7 +22,7 @@ algorithm bram_ram_32bits(
   uint1 pred_correct ::= predicted_correct;
   uint1 wait_one(0);
   
-  uint$bram_depth$ predicted ::= (predicted_addr[26,1]) ? (pram.addr[2,$bram_depth$] + 1) : predicted_addr[2,$bram_depth$];
+  uint$bram_depth$ predicted ::= predicted_addr[2,$bram_depth$];
 
 $$if verbose then                          
   uint32 cycle = 0;
