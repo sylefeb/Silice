@@ -141,7 +141,9 @@ algorithm rv32i_cpu(
   uint32 instr(0);    // initialize with null instruction, which sets everything to 0
   uint26 pc            = uninitialized;
   uint32 next_instr(0);
-  uint26 next_instr_pc = uninitialized;
+  uint26 next_pc = uninitialized;
+
+  uint26 next_pc_p4 ::= next_pc + 4;
 
   uint1 pcOrReg     = uninitialized;
   uint1 regOrImm    = uninitialized;
@@ -252,12 +254,12 @@ $$end
   //  __display("CPU START");  
   //}
   // boot
-  refetch_addr   = boot_at;
-  next_instr_pc  = boot_at;
+  refetch_addr  = boot_at;
+  next_pc       = boot_at;
   //ram.addr       = boot_at;
   //predicted_addr = {1b1,26b0}; // auto
   //ram.rw         = 0;
-  ram.in_valid   = ~reset; // triggers refetch
+  ram.in_valid  = ~reset; // triggers refetch
 
 $$if HARDWARE then  
   while (1) {
@@ -277,8 +279,8 @@ $$end
 $$if verbose then
       __display("----------- CASE 8 -------------");     
       //__display("  [refetch] (cycle %d) @%h load_store %b",cycle,ram.addr,do_load_store);        
-      //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_instr_pc,next_instr_pc+4);
-      //__display("  [refetch] NEXT PC @%h",next_instr_pc);        
+      //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_pc,next_pc+4);
+      //__display("  [refetch] NEXT PC @%h",next_pc);        
 $$end
         refetch         = 0;
 
@@ -290,8 +292,8 @@ $$end
 $$if verbose then        
 //__display("  [setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
 $$end
-        predicted_correct = instr_ready; // do_load_store;
-        predicted_addr    = do_load_store ? {1b0,next_instr_pc+26d4} : {1b1,26b0} /*auto*/;
+        predicted_correct = instr_ready;
+        predicted_addr    = do_load_store ? {1b0,next_pc_p4} : {1b1,26b0} /*auto*/;
 
         // refetch
         ram.addr          = refetch_addr;
@@ -340,7 +342,7 @@ $$end
         }
         
         // be optimistic: request next-next instruction
-        ram.addr       = next_instr_pc + 4;
+        ram.addr       = next_pc_p4;
 $$if verbose then
 //__display("  [RAM ADDR] @%h",ram.addr);
 $$end
@@ -353,11 +355,11 @@ $$end
           // read for the prefetched instructions ... play again!
           refetch         = 1;
           refetch_addr    = pc;
-          next_instr_pc   = pc;
+          next_pc         = pc;
           instr_ready     = 0;
           predicted_addr  = pc;
 $$if verbose then
-          //__display("  [load store] NEXT PC @%h",next_instr_pc);        
+          //__display("  [load store] NEXT PC @%h",next_pc);        
           __display("****** register conflict *******");
 $$end          
         } else {
@@ -372,7 +374,7 @@ $$end
 $$if verbose then      
       __display("----------- CASE 2 -------------");
       //__display("  (cycle %d) ram.data_out:%h",cycle,ram.data_out);
-      //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_instr_pc,next_instr_pc+4);
+      //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_pc,next_pc+4);
 $$end      
         // Note: ALU for previous (if any) is running ...
         wait_next_instr   = 0;
@@ -390,7 +392,7 @@ $$end
         predicted_correct = 1;
 
         // be optimistic: request next-next instruction
-        ram.addr          = next_instr_pc + 4;
+        ram.addr          = next_pc_p4;
 $$if verbose then
 //__display("  [RAM ADDR] @%h",ram.addr);
 $$end
@@ -466,8 +468,8 @@ $$end
         }
 
         // write result to register
-        xregsA.wdata1   = branch_or_jump ? next_instr_pc : alu_out;
-        xregsB.wdata1   = branch_or_jump ? next_instr_pc : alu_out;
+        xregsA.wdata1   = branch_or_jump ? next_pc : alu_out;
+        xregsB.wdata1   = branch_or_jump ? next_pc : alu_out;
         xregsA.addr1    = write_rd;
         xregsB.addr1    = write_rd;
         xregsA.wenable1 = instr_ready & (~refetch | jump) & rd_enable;
@@ -481,13 +483,13 @@ $$end
         // setup decoder and ALU for instruction i+1
         // => decoder starts immediately, ALU on next cycle
         instr             = next_instr;
-        pc                = next_instr_pc;
+        pc                = next_pc;
 $$if verbose then
-//__display("  [instr ready:%b] PC set to @%h <<%h>>,  next @%h",instr_ready,next_instr_pc,instr,next_instr_pc+4);
+//__display("  [instr ready:%b] PC set to @%h <<%h>>,  next @%h",instr_ready,next_pc,instr,next_pc+4);
 $$end
-        next_instr_pc     = (branch_or_jump & instr_ready) ? refetch_addr : next_instr_pc + 4;
+        next_pc     = (branch_or_jump & instr_ready) ? refetch_addr : next_pc_p4;
 $$if verbose then
-//__display("  [decode] NEXT PC @%h",next_instr_pc);        
+//__display("  [decode] NEXT PC @%h",next_pc);        
 $$end
         instr_ready       = 1;
 //__display("[instr setup] %h @%h",instr,pc);
