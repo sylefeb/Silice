@@ -290,11 +290,11 @@ $$end
 //__display("[setup regs read] regA[%d] regB[%d]",xregsA.addr0,xregsB.addr0);        
 
         // refetch
-        ram.addr        = refetch_addr;
+        ram.addr          = refetch_addr;
         predicted_correct = instr_ready; // do_load_store;
-        predicted_addr  = do_load_store ? {1b0,(next_instr_pc[0,26] + 26d4)} : {1b1,26b0} /*auto*/;
-        ram.rw          = refetch_rw;
-        ram.in_valid    = 1;
+        predicted_addr    = do_load_store ? {1b0,(next_instr_pc[0,26] + 26d4)} : {1b1,26b0} /*auto*/;
+        ram.rw            = refetch_rw;
+        ram.in_valid      = 1;
         // instr           = do_load_store ? instr : 0; // reset decoder
         instr_ready     = do_load_store;
         wait_next_instr = ~do_load_store;

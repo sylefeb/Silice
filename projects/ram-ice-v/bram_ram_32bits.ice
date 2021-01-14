@@ -28,7 +28,7 @@ $$if verbose then
   uint32 cycle = 0;
 $$end  
   
-  while (1) {
+  /*while (1)*/ always {
 $$if verbose then  
     if (pram.in_valid | wait_one) {
       __display("[cycle%d] in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h",cycle,pram.in_valid,wait_one,pram.addr[2,24],pram.rw,mem.addr0,pred_correct,predicted);
