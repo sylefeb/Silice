@@ -59,8 +59,8 @@ algorithm frame_drawer(
     input   uint1 buffer
   ) {
     uint10 pix_x   = 0;
-    uint9 pix_y   = 0;
-    uint8 pix_palidx = 0;
+    uint9  pix_y   = 0;
+    uint8  pix_palidx = 0;
 
     pix_y = 0;  
     while (pix_y < 480) {
@@ -99,7 +99,7 @@ algorithm frame_drawer(
     () <- bands <- (~fbuffer);
   
     // increment shift    
-    shift = (shift >= 640) ? 0 : shift+1;
+    shift = (shift == 639) ? 0 : shift+1;
     
     // wait for frame to end
     while (vsync_filtered == 0) {}

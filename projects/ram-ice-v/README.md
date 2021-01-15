@@ -1,16 +1,26 @@
-# Silice RISC-V framework with SDRAM, graphics, audio, sdcard and multiple CPUs
+# Fire-V: RISC-V FPGA framework for old-school graphics.
 
-The purpose of this project is to demonstrate how the various demo components coming with Silice can be composed into a full fledged small computer (with multiple CPUs!).
+*If you are reading this in the draft branch, this is very much being written as you look at it.*
 
-The two main designs are:
+**Objective:** writing a framework to create old-school demos in Silice, validated at a good fmax (>90 MHz) and supporting overclocking to much higher frequencies (>150 MHz), with a RISC-V core in less than 2K LUTs.
+
+What we will discuss:
+- How the framework is assembled from components written in Silice, and how to create your own flavor.
+- How to create your own demos!
+- The internals of these components, most notably the Risc-V processor and the hardware rasterizer.
+
+The three main designs are:
 - [video_rv32i.ice](video_rv32i.ice): a single processor design.
 - [video_dual_rv32i.ice](video_dual_rv32i.ice): a dual processor design with audio.
+- [testbench_rv32i.ice](testbench_rv32i.ice): the processor in isolation with only access to LEDs, this is mostly used for debugging and LUT counting.
 
 This comes with a minimalist (and quite horrible) 'libc' providing the basics such as printf and a few low level functions. And yes, *you compile code for these CPUs directly from gcc*, one of the many things that makes RISC-V great!
 
-**Note:** I am absolutely not a CPU design expert, I am just learning, playing and sharing :) There is surely much to improve here. Please let me know your thoughts!
+**Note:** I am absolutely not a CPU design expert --  I am just learning, playing and sharing :). (I know a thing or two about Computer Graphics though ;) ). There is surely much to improve here. Please let me know your thoughts!
 
 **Note:** This is still work in progress, this documentation will improve in the coming days.
+
+**Final note:** There are many resources on hardware design and RISC-V cores in particular. Be sure to checkout the [links section](#links).
 
 ## Build and run!
 
@@ -315,10 +325,11 @@ There is a myriad of refinements and subtleties to CPU design (like pipelining a
 For details on SDRAM controllers please refer to the [sdram_test project](https://github.com/sylefeb/Silice/tree/master/projects/sdram_test).
 
 ## Links
+* FemtoRV with RISC-V tutorials https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV
+* PicoRV https://github.com/cliffordwolf/picorv32
 * Demo project voices made with https://text-to-speech-demo.ng.bluemix.net/
 * RiscV toolchain https://github.com/riscv/riscv-gnu-toolchain
 * Pre-compiled riscv-toolchain for Linux https://matthieu-moy.fr/spip/?Pre-compiled-RISC-V-GNU-toolchain-and-spike&lang=en
 * Homebrew RISC-V toolchain for macOS https://github.com/riscv/homebrew-riscv
-* FemtoRV https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV
-* PicoRV  https://github.com/cliffordwolf/picorv32
 * Stackoverflow post on CPU design (see answer) https://stackoverflow.com/questions/51592244/implementation-of-simple-microprocessor-using-verilog
+* Fonts from http://www.pouet.net/topic.php?which=10710 and https://jared.geek.nz/2014/jan/custom-fonts-for-microcontrollers
