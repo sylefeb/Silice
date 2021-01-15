@@ -6,7 +6,8 @@
       "framework" : "ecpix5.v",
       "pins": [
         {"set"    : "basic"},
-        {"set"    : "uart",   "define" : "UART=1"}
+        {"set"    : "uart",   "define" : "UART=1"},
+        {"set"    : "vga", "define" : "VGA=1"} 
       ],
       "builders": [
       {
@@ -45,6 +46,33 @@
         "name": "uart_rx",
         "type": "uint1",
         "io"  : "input"
+      }
+    ],
+    "vga": [
+      {
+        "name": "vga_hs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_vs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_r",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_g",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_b",
+        "type": "uint6",
+        "io": "output"
       }
     ]
   }

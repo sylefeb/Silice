@@ -2,6 +2,8 @@
 $$ECPIX5   = 1
 $$HARDWARE = 1
 $$NUM_LEDS = 12
+$$color_depth=6
+$$color_max  =63
 $$config['dualport_bram_supported'] = 'no'
 `default_nettype none
 
@@ -12,6 +14,25 @@ module top(
   // uart
   output  uart_rx,
   input   uart_tx,
+`endif
+`ifdef VGA
+  output P0A1, // r0
+  output P0A2, // r1
+  output P0A3, // r2
+  output P0A4, // r3
+  
+  output P0A7,   // b0
+  output P0A8,   // b1
+  output P0A9,   // b2
+  output P0A10,  // b3
+  
+  output P1A1,  // g0
+  output P1A2,  // g1
+  output P1A3,  // g2
+  output P1A4,  // g3
+  
+  output P1A7,  // hs
+  output P1A8,  // vs
 `endif
   input  clk100
   );
@@ -36,6 +57,15 @@ end
 
 wire [11:0] __main_leds;
 
+`ifdef VGA
+wire __main_out_vga_hs;
+wire __main_out_vga_vs;
+wire __main_out_vga_v0;
+wire [5:0] __main_out_vga_r;
+wire [5:0] __main_out_vga_g;
+wire [5:0] __main_out_vga_b;
+`endif  
+
 wire run_main;
 assign run_main = 1'b1;
 
@@ -47,10 +77,37 @@ M_main __main(
   .out_uart_tx  (uart_tx),
   .in_uart_rx   (uart_rx),
 `endif  
+`ifdef VGA
+  .out_video_hs(__main_out_vga_hs),
+  .out_video_vs(__main_out_vga_vs),
+  .out_video_r(__main_out_vga_r),
+  .out_video_g(__main_out_vga_g),
+  .out_video_b(__main_out_vga_b),
+`endif
   .clock         (clk100)
 );
 
 assign leds = ~__main_leds;
+
+`ifdef VGA
+assign P0A1  = __main_out_vga_r[2+:1];
+assign P0A2  = __main_out_vga_r[3+:1];
+assign P0A3  = __main_out_vga_r[4+:1];
+assign P0A4  = __main_out_vga_r[5+:1];
+
+assign P0A7  = __main_out_vga_b[2+:1];
+assign P0A8  = __main_out_vga_b[3+:1];
+assign P0A9  = __main_out_vga_b[4+:1];
+assign P0A10 = __main_out_vga_b[5+:1];
+
+assign P1A1  = __main_out_vga_g[2+:1];
+assign P1A2  = __main_out_vga_g[3+:1];
+assign P1A3  = __main_out_vga_g[4+:1];
+assign P1A4  = __main_out_vga_g[5+:1];
+
+assign P1A7  = __main_out_vga_hs;
+assign P1A8  = __main_out_vga_vs;
+`endif
 
 endmodule
 
