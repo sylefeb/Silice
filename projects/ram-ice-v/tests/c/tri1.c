@@ -1,6 +1,10 @@
 #include "../mylibc/mylibc.h"
 #include "fonts/FCUBEF2.h"
 
+#define SCRW 640
+#define SCRH 480
+#define R    (SCRW/320)
+
 char fbuffer = 0;
 
 void pause(int cycles)
@@ -19,7 +23,7 @@ void print(int cursor_x,int cursor_y,const char *str)
       if (start > -1) {
         int w   = font_FCUBEF2_width[(*str)];
         int end = start + w;
-        end     = end > 639 ? 639 : end;
+        end     = end > (SCRW-1) ? (SCRW-1) : end;
         //if (end > start) {
           for (int j=0;j<font_FCUBEF2_height;j++) {
             for (int i=0;i<w;i++) {
@@ -39,14 +43,14 @@ void print(int cursor_x,int cursor_y,const char *str)
 }
 
 int pts[8*3] = {
-  -20,-20,-20,
-   20,-20,-20,
-   20, 20,-20,
-  -20, 20,-20,
-  -20,-20, 20,
-   20,-20, 20,
-   20, 20, 20,
-  -20, 20, 20,
+  -R*10,-R*10,-R*10,
+   R*10,-R*10,-R*10,
+   R*10, R*10,-R*10,
+  -R*10, R*10,-R*10,
+  -R*10,-R*10, R*10,
+   R*10,-R*10, R*10,
+   R*10, R*10, R*10,
+  -R*10, R*10, R*10,
 };
 
 int trpts[8*3];
@@ -138,7 +142,7 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
   int cross = d10x*d20y - d10y*d20x;
   if (cross <= 0) return;
   if (shade) {
-    color = 0 + (cross >> (13+2));
+    color = color + (cross >> (13 + R));
   }
 
   // reduce precision after shading
@@ -193,18 +197,39 @@ void fb_cleanup()
   }
 }
 
-void clear()
+void clear_full()
 {
   draw_triangle(8,0,
-      0,  0, 
-    640<<5,  0, 
-    640<<5, 480<<5
+          0,  0, 
+    SCRW<<5,  0, 
+    SCRW<<5, SCRH<<5
     );
   draw_triangle(8,0,
-      0,  0, 
- 640<<5, 480<<5,
-      0, 480<<5
+       0,  0, 
+ SCRW<<5, SCRH<<5,
+       0, SCRH<<5
     );
+}
+
+void clear(int xm,int ym,int xM,int yM)
+{
+  draw_triangle(8,0,
+    xm,  ym, 
+    xM,  ym, 
+    xM,  yM
+    );
+  draw_triangle(8,0,
+    xm,  ym, 
+    xM,  yM,
+    xm,  yM
+    );
+}
+
+void swap_buffers()
+{
+    while (((*LEDS)&2) == 0) { (*LEDS)++; } // wait for vsync
+  *(LEDS+4) = 1; // swap buffers
+    fbuffer = 1-fbuffer;
 }
 
 void main()
@@ -214,16 +239,24 @@ void main()
   char b = 31;
   int time = 0;
   
-  //pause(1000000);
+  pause(1000000);
   //fb_cleanup();
 
+  clear_full();
+  print(0, 0,"firev: 160mhz framework");
+  swap_buffers();  
+  clear_full();
+  print(0, 0,"firev: 160mhz framework");
+
   while(1) {
-    //clear();
+    
+    clear(SCRW/2-150,SCRH/2-150,SCRW/2+150,SCRH/2+150);
+
     //a = a + 1;
     //b = b + 1;
     int pos = 0;
-    for (int posy = -128; posy <= 128 ; posy += 64) {
-      for (int posx = -128; posx <= 128 ; posx += 64) {
+    for (int posy = -64*R; posy <= 64*R ; posy += 32*R) {
+      for (int posx = -64*R; posx <= 64*R ; posx += 32*R) {
         int Ry[9];
         rotY(Ry,a + costbl[((posx>>2) + (posy>>2) + (time>>1))&255]);
         int Rx[9];
@@ -232,22 +265,17 @@ void main()
         mulM(M,Rx,Ry);
         transform_points(M);
         for (int t = 0; t < 36 ; t+=3) {
-          draw_triangle(0,1,
-            trpts[idx[t+0]+0] + ((320 + posx)<<5), trpts[idx[t+0]+1] + ((240 + posy)<<5), 
-            trpts[idx[t+1]+0] + ((320 + posx)<<5), trpts[idx[t+1]+1] + ((240 + posy)<<5), 
-            trpts[idx[t+2]+0] + ((320 + posx)<<5), trpts[idx[t+2]+1] + ((240 + posy)<<5) 
+          draw_triangle(t<6 ? 64 : 0,1,
+            trpts[idx[t+0]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+0]+1] + ((SCRH/2 + posy)<<5), 
+            trpts[idx[t+1]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+1]+1] + ((SCRH/2 + posy)<<5), 
+            trpts[idx[t+2]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+2]+1] + ((SCRH/2 + posy)<<5) 
             );
         }
       }    
     }
 
-    print(0, 0,"firev: 160mhz framework");
-    // print(0,16,"overclocked!");
+    swap_buffers();
 
-    while (((*LEDS)&2) == 0) { (*LEDS)++; } // wait for vsync
-    *(LEDS+4) = 1; // swap buffers
-
-    fbuffer = 1-fbuffer;
     ++time;
   }
 
