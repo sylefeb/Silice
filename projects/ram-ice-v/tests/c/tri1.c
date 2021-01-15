@@ -13,29 +13,47 @@ void pause(int cycles)
   while (time() - tm_start < cycles) { }
 }
 
-void print(int cursor_x,int cursor_y,const char *str)
+const char *text = "                            firev: riscv framework with hardware rasterization, 640x480 at 160mhz cpu and sdram, written in silice";
+const char *curr = 0;
+int scroll_x = 0;
+
+void scroll()
 {
+  if (curr == 0) curr = text;
+  scroll_x = -- scroll_x;
+  const char *str = curr;
+  int cursor_x = 0;
   while (*str) {
     if (*str == 32) {
       cursor_x += 12;
-    } else {
-      int start = font_FCUBEF2_ascii[(*str)];
-      if (start > -1) {
-        int w   = font_FCUBEF2_width[(*str)];
-        int end = start + w;
-        end     = end > (SCRW-1) ? (SCRW-1) : end;
-        //if (end > start) {
-          for (int j=0;j<font_FCUBEF2_height;j++) {
-            for (int i=0;i<w;i++) {
+    } else {      
+      int lpos = font_FCUBEF2_ascii[(*str)];
+      if (lpos > -1) {
+        int w            = font_FCUBEF2_width[(*str)];
+        int screen_start = cursor_x + scroll_x;
+        if (screen_start > SCRW) {
+          return; // reached end of screen
+        }
+        int screen_end   = cursor_x + scroll_x + (w<<1);
+        if (screen_end < 0) {
+          ++ curr;
+          if (*curr == 0) {
+            curr = text; // restart scrolling
+          }
+        } else {
+          // draw letter
+          screen_start = (screen_start<0)    ? 0      : screen_start;
+          screen_end   = (screen_end>SCRW-1) ? SCRW-1 : 0;
+          for (int j=0;j<(font_FCUBEF2_height<<1);j++) {
+            for (int i=screen_start,li=0;i<screen_end;i++,li++) {
               *( (FRAMEBUFFER + (fbuffer ? 0 : 0x1000000))
-               + (cursor_x + i + ((cursor_y+j)<<10)) ) = font_FCUBEF2[start+i+(j<<9)];
-              pause(1);
+                + (i + (j<<10)) ) = font_FCUBEF2[lpos+(li>>1)+((j>>1)<<9)];
+              pause(10);
             }
           } 
-          cursor_x += w+1;
-        //} else {
-        //  return;
-        //}
+          // next position
+          cursor_x += (w<<1)+1;
+        }
       }
     }
     ++str;
@@ -191,24 +209,12 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
 // cleanup the framebuffers
 void fb_cleanup()
 {
-  for (int i=0;i<(480<<10);i+=4) {
-    *(( (volatile unsigned int*)FRAMEBUFFER)               + i ) = 0;
-    *(( (volatile unsigned int*)(FRAMEBUFFER + 0x1000000)) + i ) = 0;
+  for (int i=0;i<(480<<10)/4;i++) {
+    *(( FRAMEBUFFER)               + i ) = 8;
+    pause(10);
+    *(( (FRAMEBUFFER + 0x0400000)) + i ) = 8;
+    pause(10);
   }
-}
-
-void clear_full()
-{
-  draw_triangle(8,0,
-          0,  0, 
-    SCRW<<5,  0, 
-    SCRW<<5, SCRH<<5
-    );
-  draw_triangle(8,0,
-       0,  0, 
- SCRW<<5, SCRH<<5,
-       0, SCRH<<5
-    );
 }
 
 void clear(int xm,int ym,int xM,int yM)
@@ -227,9 +233,13 @@ void clear(int xm,int ym,int xM,int yM)
 
 void swap_buffers()
 {
-    while (((*LEDS)&2) == 0) { (*LEDS)++; } // wait for vsync
-  *(LEDS+4) = 1; // swap buffers
-    fbuffer = 1-fbuffer;
+  // wait for any pending draw to complete
+  while (((*LEDS)&1) == 1) { (*LEDS)++; }
+  // wait for vsync
+  //  while (((*LEDS)&2) == 0) { (*LEDS)++; }
+  // swap buffers
+  *(LEDS+4) = 1;
+  fbuffer = 1-fbuffer;
 }
 
 void main()
@@ -240,32 +250,28 @@ void main()
   int time = 0;
   
   pause(1000000);
-  //fb_cleanup();
-
-  clear_full();
-  print(0, 0,"firev: 160mhz framework");
-  swap_buffers();  
-  clear_full();
-  print(0, 0,"firev: 160mhz framework");
+  fb_cleanup();
 
   while(1) {
     
-    clear(SCRW/2-150,SCRH/2-150,SCRW/2+150,SCRH/2+150);
+    clear((SCRW/2-175)<<5,(SCRH/2-175)<<5,(SCRW/2+175)<<5,(SCRH/2+175)<<5);
+
+    scroll();
 
     //a = a + 1;
     //b = b + 1;
     int pos = 0;
-    for (int posy = -64*R; posy <= 64*R ; posy += 32*R) {
-      for (int posx = -64*R; posx <= 64*R ; posx += 32*R) {
+    for (int posy = -70*R; posy <= 70*R ; posy += 35*R) {
+      for (int posx = -70*R; posx <= 70*R ; posx += 35*R) {
         int Ry[9];
-        rotY(Ry,a + costbl[((posx>>2) + (posy>>2) + (time>>1))&255]);
+        rotY(Ry,a + costbl[((posx>>2) + (posy>>2) + (time))&255]);
         int Rx[9];
-        rotX(Rx,b + (costbl[((posx>>2) - (posy>>2) + (time>>1))&255]>>1));
+        rotX(Rx,b + (costbl[((posx>>2) - (posy>>2) + (time))&255]>>1));
         int M[9];
         mulM(M,Rx,Ry);
         transform_points(M);
         for (int t = 0; t < 36 ; t+=3) {
-          draw_triangle(t<6 ? 64 : 0,1,
+          draw_triangle(t<6 ? 64 : (t<12 ? 128 : 0),1,
             trpts[idx[t+0]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+0]+1] + ((SCRH/2 + posy)<<5), 
             trpts[idx[t+1]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+1]+1] + ((SCRH/2 + posy)<<5), 
             trpts[idx[t+2]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+2]+1] + ((SCRH/2 + posy)<<5) 
