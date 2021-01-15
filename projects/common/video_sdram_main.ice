@@ -1,5 +1,20 @@
 // SL 2019-10
 
+// Options
+// -- 
+// -- mode_640_480
+//
+
+$$if mode_640_480 then
+$$  FB_row_size        = 640//16
+$$  FB_row_stride_pow2 = 10
+$$else
+$$  FB_row_size        = 320//16  
+$$  FB_row_stride_pow2 = 9
+$$end
+
+// ------------------------- 
+
 $$if ICARUS then
   // SDRAM simulator
   append('mt48lc16m16a2.v')
@@ -447,8 +462,8 @@ $$end
 
   // --- Frame buffer row memory
   // dual clock crosses from sdram to vga
-  simple_dualport_bram uint128 fbr0<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
-  simple_dualport_bram uint128 fbr1<@video_clock,@sdram_clock>[$320//16$] = uninitialized;
+  simple_dualport_bram uint128 fbr0<@video_clock,@sdram_clock>[$FB_row_size$] = uninitialized;
+  simple_dualport_bram uint128 fbr1<@video_clock,@sdram_clock>[$FB_row_size$] = uninitialized;
 
   // --- Palette
   simple_dualport_bram uint24 palette[] = {
@@ -496,17 +511,23 @@ $$end
   );
 
   // --- Init from SDCARD
+$$if not fast_compute then  
   sdram_r128w8_io sdh;
   
   sdram_half_speed_access sdaccess<@sdram_clock,!sdram_reset>(
     sd      <:> sdi,
     sdh     <:> sdh,
   );
+$$end
 
   uint1 data_ready = 0;
 $$if (SDCARD and init_data_bytes) or (SIMULATION and init_data_bytes) then
   init_data init<@compute_clock,!compute_reset>(
+$$if not fast_compute then  
     sd    <:> sdh,
+$$else
+    sd    <:> sdi,
+$$end    
     ready  :> data_ready,
     <:auto:>
   );

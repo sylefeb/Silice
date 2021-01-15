@@ -12,5 +12,8 @@ verilator: video_rv32i.ice
 sdcard: make_sdcard.ice
 		silice-make.py -s make_sdcard.ice -b verilator -p basic,vga,sdram -o BUILD_$(subst :,_,$@)
 
+font: make_font.ice
+		silice-make.py -s make_font.ice -b verilator -p basic,vga,sdram -o BUILD_$(subst :,_,$@)
+
 clean:
 	rm -rf BUILD_*

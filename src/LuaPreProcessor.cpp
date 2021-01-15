@@ -326,7 +326,7 @@ static luabind::object lua_get_image_as_table(lua_State* L, std::string str, int
     throw Fatal("[get_image_as_table] internal error");
   }
   if (component_depth < 0 || component_depth > 8) {
-    throw Fatal("[get_image_as_table] component depth can only in ]0,8]");
+    throw Fatal("[get_image_as_table] component depth can only be in ]0,8]");
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
