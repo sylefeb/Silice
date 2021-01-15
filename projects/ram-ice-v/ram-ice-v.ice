@@ -1,11 +1,9 @@
 // SL 2020-12-02 @sylefeb
 //
 // RISC-V with RAM IO
-// Based on the ice-v
 //
 // Note: rdinstret and rdcycle are limited to 32 bits
 //       rdtime reports cpuid instead of time
-//
 //
 // RV32I cpu, see README.txt
 //

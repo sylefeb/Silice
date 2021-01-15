@@ -19,11 +19,12 @@ void print(int cursor_x,int cursor_y,const char *str)
       if (start > -1) {
         int w   = font_FCUBEF2_width[(*str)];
         int end = start + w;
-        end     = end > 320 ? 320 : end;
+        end     = end > 639 ? 639 : end;
         //if (end > start) {
           for (int j=0;j<font_FCUBEF2_height;j++) {
             for (int i=0;i<w;i++) {
-              *( (FRAMEBUFFER + (fbuffer ? 0 : 0x1000000)) + (cursor_x + i + ((cursor_y+j)<<9)) ) = font_FCUBEF2[start+i+(j<<9)];
+              *( (FRAMEBUFFER + (fbuffer ? 0 : 0x1000000))
+               + (cursor_x + i + ((cursor_y+j)<<10)) ) = font_FCUBEF2[start+i+(j<<9)];
               pause(1);
             }
           } 
@@ -38,14 +39,14 @@ void print(int cursor_x,int cursor_y,const char *str)
 }
 
 int pts[8*3] = {
-  -10,-10,-10,
-   10,-10,-10,
-   10, 10,-10,
-  -10, 10,-10,
-  -10,-10, 10,
-   10,-10, 10,
-   10, 10, 10,
-  -10, 10, 10,
+  -20,-20,-20,
+   20,-20,-20,
+   20, 20,-20,
+  -20, 20,-20,
+  -20,-20, 20,
+   20,-20, 20,
+   20, 20, 20,
+  -20, 20, 20,
 };
 
 int trpts[8*3];
@@ -95,9 +96,9 @@ void scale(int *M,int scale)
 
 void transform(const int *M,int p)
 {
-  trpts[p+0] = (pts[p+0]*M[0] + pts[p+1]*M[1] + pts[p+2]*M[2]); // keeping precision (<<7)
-  trpts[p+1] = (pts[p+0]*M[3] + pts[p+1]*M[4] + pts[p+2]*M[5]); // for better shading
-  trpts[p+2] = (pts[p+0]*M[6] + pts[p+1]*M[7] + pts[p+2]*M[8]);
+  trpts[p+0] = (pts[p+0]*M[0] + pts[p+1]*M[1] + pts[p+2]*M[2]) >> 2; // keeping precision (<<5)
+  trpts[p+1] = (pts[p+0]*M[3] + pts[p+1]*M[4] + pts[p+2]*M[5]) >> 2; // for better shading
+  trpts[p+2] = (pts[p+0]*M[6] + pts[p+1]*M[7] + pts[p+2]*M[8]) >> 2;
 }
 
 void mulM(int *M,const int *A,const int *B)
@@ -137,13 +138,13 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
   int cross = d10x*d20y - d10y*d20x;
   if (cross <= 0) return;
   if (shade) {
-    color = 0 + (cross >> 17);
+    color = 0 + (cross >> (13+2));
   }
 
   // reduce precision after shading
-  px0 >>= 7; py0 >>= 7;
-  px1 >>= 7; py1 >>= 7;
-  px2 >>= 7; py2 >>= 7;
+  px0 >>= 5; py0 >>= 5;
+  px1 >>= 5; py1 >>= 5;
+  px2 >>= 5; py2 >>= 5;
 
   // 0 smallest y , 2 largest y
   if (py0 > py1) {
@@ -186,9 +187,9 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
 // cleanup the framebuffers
 void fb_cleanup()
 {
-  for (int i=0;i<(480<<9)/4;i++) {
-    *(( (volatile unsigned int*)FRAMEBUFFER) + i ) = 0xffffffff;
-    *(( (volatile unsigned int*)(FRAMEBUFFER + 0x1000000)) + i ) = 0xffffffff;
+  for (int i=0;i<(480<<10);i+=4) {
+    *(( (volatile unsigned int*)FRAMEBUFFER)               + i ) = 0;
+    *(( (volatile unsigned int*)(FRAMEBUFFER + 0x1000000)) + i ) = 0;
   }
 }
 
@@ -196,29 +197,33 @@ void clear()
 {
   draw_triangle(8,0,
       0,  0, 
-    320<<7,  0, 
-    320<<7, 200<<7
+    640<<5,  0, 
+    640<<5, 480<<5
     );
   draw_triangle(8,0,
       0,  0, 
-    320<<7, 200<<7,
-      0, 200<<7
+ 640<<5, 480<<5,
+      0, 480<<5
     );
 }
 
 void main()
 {
+
   char a = 66;
   char b = 31;
   int time = 0;
-  fb_cleanup();
+  
+  //pause(1000000);
+  //fb_cleanup();
+
   while(1) {
-    clear();
+    //clear();
     //a = a + 1;
     //b = b + 1;
     int pos = 0;
-    for (int posy = -64; posy <= 64 ; posy += 32) {
-      for (int posx = -64; posx <= 64 ; posx += 32) {
+    for (int posy = -128; posy <= 128 ; posy += 64) {
+      for (int posx = -128; posx <= 128 ; posx += 64) {
         int Ry[9];
         rotY(Ry,a + costbl[((posx>>2) + (posy>>2) + (time>>1))&255]);
         int Rx[9];
@@ -228,15 +233,15 @@ void main()
         transform_points(M);
         for (int t = 0; t < 36 ; t+=3) {
           draw_triangle(0,1,
-            trpts[idx[t+0]+0] + ((160 + posx)<<7), trpts[idx[t+0]+1] + ((100 + posy)<<7), 
-            trpts[idx[t+1]+0] + ((160 + posx)<<7), trpts[idx[t+1]+1] + ((100 + posy)<<7), 
-            trpts[idx[t+2]+0] + ((160 + posx)<<7), trpts[idx[t+2]+1] + ((100 + posy)<<7) 
+            trpts[idx[t+0]+0] + ((320 + posx)<<5), trpts[idx[t+0]+1] + ((240 + posy)<<5), 
+            trpts[idx[t+1]+0] + ((320 + posx)<<5), trpts[idx[t+1]+1] + ((240 + posy)<<5), 
+            trpts[idx[t+2]+0] + ((320 + posx)<<5), trpts[idx[t+2]+1] + ((240 + posy)<<5) 
             );
         }
       }    
     }
 
-    // print(0, 0,"firev: 160mhz framework");
+    print(0, 0,"firev: 160mhz framework");
     // print(0,16,"overclocked!");
 
     while (((*LEDS)&2) == 0) { (*LEDS)++; } // wait for vsync

@@ -1,5 +1,10 @@
 // SL 2020-12-02 @sylefeb
 // ------------------------- 
+//
+//
+// TODO: write bursts for filling the spans.
+//
+//
 
 $$if SIMULATION then
 $$verbose = nil
@@ -24,6 +29,8 @@ $$  frame_drawer_at_sdram_speed = true
 $$else
 $$  fast_compute = true
 $$end
+
+$$mode_640_480 = true
 
 $include('../common/video_sdram_main.ice')
 
@@ -50,7 +57,7 @@ $$if SIMULATION then
 $$end
 
   uint1  in_edge  ::= ((y0 <= y && y1 >= y) || (y1 <= y && y0 >= y)) && (y0 != y1);
-  uint10 last_y     = uninitialized;
+  int10  last_y     = uninitialized;
   int20  xi_full    = uninitialized;
 
   intersects := in_edge;
@@ -64,13 +71,13 @@ $$end
 
   while (1) {
     if (prepare[1,1]) {
-      last_y  = y0 - 1;
+      last_y  = __signed(y0) - 1;
       xi_full = x0 << 10;
   $$if SIMULATION then
       __display("prepared! (x0=%d y0=%d last_y=%d xi=%d interp=%d)",x0,y0,last_y,xi>>10,interp);
   $$end
     } else {
-      if (y == last_y + 1) {
+      if (__signed(y) == last_y + __signed(1)) {
         xi_full = (xi_full + interp);
         last_y  = y;
   $$if SIMULATION then
@@ -157,7 +164,7 @@ $$end
   uint1   draw_triangle(0);
   uint1   wait_one(0);
 
-  uint17 addr ::= span_x + (y << 9);
+  uint19 addr ::= span_x + (y << 10);
 
 
   edge_walk e0(
@@ -204,7 +211,7 @@ $$end
         uint10 first  = uninitialized;
         uint10 second = uninitialized;
         uint1  nop = 0;
-        __display("xi0:%d xi1:%d xi2:%d it0:%b it1:%b it2:%b",xi0,xi1,xi2,it0,it1,it2);
+        // __display("xi0:%d xi1:%d xi2:%d it0:%b it1:%b it2:%b",xi0,xi1,xi2,it0,it1,it2);
         switch (~{it2,it1,it0}) {
           case 3b001: { first = xi1; second = xi2; }
           case 3b010: { first = xi0; second = xi2; }
@@ -226,11 +233,11 @@ $$end
           stop   = first;        
         }
         sd.addr = 17h1FFFF;
-        // __display("start span, x %d to %d, y %d",span_x,stop,y);
+         __display("start span, x %d to %d (y %d)",span_x,stop,y);
       } else {
         // write current to sdram
-        if (sd.addr[0,17] != addr) {
-          sd.addr     = {1b0,~fbuffer,7b0,addr};
+        if (sd.addr[0,19] != addr) {
+          sd.addr     = {1b0,~fbuffer,5b0,addr};
           sd.in_valid = 1;
           sd.data_in  = color;
         //__display("write x %d y %d",span_x,y);
@@ -312,7 +319,7 @@ $$end
             case 7b1000000: { y = mem.data_in[0,16]; ystop = mem.data_in[16,16]; 
                               prepare = 2b11; draw_triangle = 0;
 $$if SIMULATION then
-                               __display("new triangle (color %d), cycle %d",color,cycle);
+                               __display("new triangle (color %d), cycle %d, %d,%d %d,%d %d,%d",color,cycle,x0,y0,x1,y1,x2,y2);
 $$end                               
                                }
             default: { }

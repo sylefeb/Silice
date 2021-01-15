@@ -33,13 +33,13 @@ algorithm frame_display(
   uint8  palidx = 0;
   uint9  pix_j  = 0;
   uint2  sub_j  = 0;
-  uint9  pix_a  = 0;
+  uint10 pix_a  = 0;
   uint24 color  = 0;
 
 $$if mode_640_480 then
-  uint9 sub_a := {(video_x+1d1)      & 6d15,3b000};
+  uint10 sub_a := {(video_x+1d1)      & 6d15,3b000};
 $$else
-  uint9 sub_a := {((video_x+1d1)>>1) & 6d15,3b000};
+  uint10 sub_a := {((video_x+1d1)>>1) & 6d15,3b000};
 $$end
 
 
@@ -65,9 +65,9 @@ $$end
 	    //    the row loader loads row   0 for display in screen row   1
 	    //    ...            loads row 199 for display in screen row 200
 $$if mode_640_480 then
-      if (pix_j != 0 && pix_j != 201) {
+      if (pix_j != 0 && pix_j != 480) { // we will have 479 row in total (as we skip first)
 $$else
-      if (pix_j != 0 && pix_j != 481) {
+      if (pix_j != 0 && pix_j != 201) { // 201 so that we get 200 rows indeed
 $$end
         // set palette address
         if (row_busy) {
@@ -89,7 +89,7 @@ $$end
       }
       if (video_x == 639) { // end of row
 $$if mode_640_480 then
-        pix_j = (pix_j == 481) ? 481 : pix_j + 1;
+        pix_j = (pix_j == 480) ? 480 : pix_j + 1;
 $$else
         // increment pix_j
         sub_j = sub_j + 1;
@@ -208,9 +208,9 @@ algorithm frame_buffer_row_updater(
     // change working row
     working_row = ~working_row;
 $$if mode_640_480 then
-	  if (row < 199) {
+	  if (row != 479) {
 $$else
-	  if (row < 479) {
+	  if (row != 199) {
 $$end      
       row = row + 1;
 	  } else {    
