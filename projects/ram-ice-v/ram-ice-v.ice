@@ -264,7 +264,9 @@ $$end
 
       case 8: {
 $$if verbose then
-      __display("----------- CASE 8 -------------");
+      if (~reset) {
+        __display("----------- CASE 8 -------------");
+      }
       //__display("  [refetch] (cycle %d) @%h load_store %b",cycle,ram.addr,do_load_store);        
       //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_pc,next_pc+4);
       //__display("  [refetch] NEXT PC @%h",next_pc);        
@@ -399,7 +401,7 @@ $$if verbose then
         if (~instr_ready) {
           __display("========> [next instruction] load_store %b branch_or_jump %b",load_store,branch_or_jump);
         } else {
-           __display("========> [ALU done <<%h>>] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d regA:%d regB:%d",instr,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB,regA,regB);
+           __display("========> [ALU done <<%h>> (%d since)] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d regA:%d regB:%d",instr,cycle-cycle_last_retired,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB,regA,regB);
           //__display("========> [ALU done <<%h>> (%d since) cycle %d instret %d] pc %h load_store:%b store:%b branch_or_jump:%b",instr,cycle-cycle_last_retired,cycle,instret,pc,load_store,store,branch_or_jump);
           cycle_last_retired = cycle;
         }

@@ -4,87 +4,84 @@
 //
 // ------------------------- 
 
+$$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
+
 algorithm basic_cache_ram_32bits(
-  rv32i_ram_provider pram,       // provided ram interface
-  rv32i_ram_user     uram,       // used ram interface
-  input uint26       cache_start, // where the cache is locate
-  output uint1       cache_init = 1
+  rv32i_ram_provider pram,              // provided ram interface
+  rv32i_ram_user     uram,              // used ram interface
+  input uint26       cache_start,       // where the cache is locate
+  input uint26       predicted_addr,    // next predicted address
+  input uint1        predicted_correct, // was the prediction correct?
+  input uint32       data_override,     // data used as an override by memory mapper
 ) <autorun> {
 
 $$if SIMULATION then
-$$  cache_depth = 11               -- 11 => 8 KB + 2 KB (tag bits)
+$$ bram_depth = 14
 $$else
-$$  cache_depth = 11
+$$ bram_depth = 14
 $$end
-$$cache_size  = 1<<cache_depth
+$$ bram_size  = 1<<bram_depth
 
-  // cache brams
-  simple_dualport_bram uint1  cached_map[$cache_size$] = {pad(0)};
-  simple_dualport_bram uint32 cached    [$cache_size$] = uninitialized;
-  
-  uint24 predicted_addr(24hffffff);
   // track when address is in cache region and onto which entry   
-  uint1  in_cache                :=      (pram.addr[0,26]   >> $2+cache_depth$)
-                                      == (cache_start[0,26] >> $2+cache_depth$);
-  uint$cache_depth$  cache_entry := (pram.addr[0,26] >> 2);
+  uint1  in_cache               :=    (pram.addr  [$2+bram_depth$,$26-2-bram_depth$])
+                                   == (cache_start[$2+bram_depth$,$26-2-bram_depth$]);
+  uint$bram_depth$  cache_entry := (pram.addr[2,$bram_depth$]);
   
-  uint1  wait_one(0);
+  simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { $data_bram$ pad(uninitialized) };
+  
+  uint1 in_scope             ::= ~pram.addr[31,1]; // Note: memory mapped addresses use the top most bits 
+  uint$bram_depth$ predicted ::= predicted_addr[2,$bram_depth$];
+
+  uint1 wait_one(0);
+
+$$if verbose then                          
+  uint32 cycle = 0;
+$$end  
   
   uram.in_valid := 0; // pulsed high when needed
   
   always {
-    // cache update rules
-    cached.addr1        = cache_entry;
-    cached.wenable1     = uram.done & (~uram.rw) & in_cache;
-    cached.wdata1       = uram.data_out;
-    cached_map.addr1    = cache_entry;
-    cached_map.wenable1 = uram.done & (~uram.rw) & in_cache;
-    cached_map.wdata1   = 1;
-  }
-  
-  while (1) {
-  cache_init = 0;
-    if (pram.in_valid || wait_one) {
-      // __display("CACHED MEM access @%h rw:%b datain:%h",pram.addr,pram.rw,pram.data_in);
-      if (~wait_one && (predicted_addr != pram.addr[2,24])) {
-        cached.addr0     = cache_entry;
-        cached_map.addr0 = cache_entry;
-        predicted_addr   = 24hffffff;
-        wait_one         = 1;        
-      } else {
-        wait_one         = 0;
-        if (in_cache & (cached_map.rdata0 | (pram.rw & pram.wmask == 4b1111))) {
-          // write in cache
-          cached    .wenable1 = pram.rw;
-          cached_map.wenable1 = pram.rw;
-          cached    .wdata1   = {
-                                 pram.wmask[3,1] ? pram.data_in[24,8] : cached.rdata0[24,8],
-                                 pram.wmask[2,1] ? pram.data_in[16,8] : cached.rdata0[16,8],
-                                 pram.wmask[1,1] ? pram.data_in[ 8,8] : cached.rdata0[ 8,8],
-                                 pram.wmask[0,1] ? pram.data_in[ 0,8] : cached.rdata0[ 0,8]
-                               };
-          // read from cache
-          pram.data_out = cached.rdata0 >> {pram.addr[0,2],3b000};
-          // done
-          pram.done        = 1;          
-          // prediction
-          predicted_addr   = pram.addr[2,24] + 1;
-          cached    .addr0 = (predicted_addr);
-          cached_map.addr0 = (predicted_addr);
-        } else {
-          // relay to used interface
-          uram.addr[0,26] = {pram.addr[2,24],2b00};
-          uram.data_in    = pram.data_in;
-          uram.wmask      = pram.wmask;
-          uram.rw         = pram.rw;
-          uram.in_valid   = 1;        
-        }
-      }
-    } else {
-      pram.data_out = uram.data_out >> {pram.addr[0,2],3b000};
-      pram.done     = uram.done;
-    }
+$$if verbose then  
+     if (pram.in_valid | wait_one) {
+       __display("[cycle%d] in_cache:%b in_scope:%b in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h data_in:%h",cycle,in_cache,in_scope,pram.in_valid,wait_one,pram.addr[2,24],pram.rw,mem.addr0,predicted_correct,predicted,pram.data_in);
+     }
+     if (pram.in_valid && ~predicted_correct && (mem.addr0 == pram.addr[2,$bram_depth$])) {
+       __display("########################################### missed opportunity");
+     }
+     if (~in_cache & pram.in_valid) {
+       __display("########################################### in RAM @%h = %h (%b) cycle %d",pram.addr,pram. data_in,pram.rw,cycle);
+     } 
+$$end
+    // access cache
+    pram.data_out       = uram.done 
+                        ? (uram.data_out >> {pram.addr[0,2],3b000})
+                        : (mem.rdata0    >> {pram.addr[0,2],3b000});
+      // in_scope ? (mem.rdata0 >> {pram.addr[0,2],3b000}) : data_override;
+    pram.done           = (predicted_correct & pram.in_valid & in_cache) | wait_one | (pram.rw & in_cache) | uram.done;
+//    if (pram.done) {
+//__display("#### done cycle %d pred:%b wait:%b uram:%b",cycle,predicted_correct & pram.in_valid & in_cache,wait_one,uram.done);
+    //}
+    mem.addr0           = (pram.in_valid & ~predicted_correct & ~pram.rw) // Note: removing pram.rw does not hurt ...
+                          ? pram.addr[2,$bram_depth$] // read addr next (wait_one)
+                          : predicted; // predict
+    mem.addr1           = pram.addr[2,$bram_depth$];
+    mem.wenable1        = pram.wmask & {4{pram.rw & pram.in_valid & in_scope & in_cache}};
+    mem.wdata1          = pram.data_in;    
+    // access global ram
+    uram.addr           = {6b0,pram.addr[0,26]};
+    uram.data_in        = pram.data_in;
+    uram.rw             = pram.rw;
+    uram.wmask          = pram.wmask;
+    uram.in_valid       = ~in_cache & pram.in_valid;
+
+$$if verbose then  
+     if (pram.in_valid | wait_one) {                        
+       __display("          done:%b wait_one:%b pred:@%h out:%h wen:%b",pram.done,wait_one,mem.addr0,pram.data_out,mem.wenable1[0,4]);  
+     }
+    cycle = cycle + 1;
+$$end    
+
+    wait_one            = (pram.in_valid & ~predicted_correct & ~pram.rw & in_cache);
   }
  
 }
-

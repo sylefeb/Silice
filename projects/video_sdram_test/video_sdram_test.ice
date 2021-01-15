@@ -6,6 +6,8 @@ $$for i=0,255 do
 $$  palette[1+i] = (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
 $$end
 
+$$mode_640_480 = true
+
 $include('../common/video_sdram_main.ice')
 
 // ------------------------- 
@@ -32,17 +34,17 @@ algorithm frame_drawer(
     readwrites sdh,
     input   uint1 buffer
   ) {
-    uint9 pix_x   = 0;
-    uint8 pix_y   = 0;
-    uint8 pix_palidx = 0;
+    uint10 pix_x   = 0;
+    uint9  pix_y   = 0;
+    uint8  pix_palidx = 0;
     	
     pix_y = 0;  
-    while (pix_y < 200) {
+    while (pix_y < 480) {
       pix_x  = 0;
-      while (pix_x < 320) {		
+      while (pix_x < 640) {		
         // write to sdram
         sdh.data_in    = pix_palidx;
-        sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 9);             
+        sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 10);             
         sdh.in_valid   = 1; // go ahead!
         while (!sdh.done) { }
         pix_x = pix_x + 1;
@@ -56,18 +58,18 @@ algorithm frame_drawer(
     readwrites sdh,
     input   uint1 buffer
   ) {
-    uint9 pix_x   = 0;
-    uint8 pix_y   = 0;
+    uint10 pix_x   = 0;
+    uint9 pix_y   = 0;
     uint8 pix_palidx = 0;
 
     pix_y = 0;  
-    while (pix_y < 200) {
+    while (pix_y < 480) {
       pix_x  = 0;
-      while (pix_x < 320) {
+      while (pix_x < 640) {
 
-        pix_palidx     = (pix_y == 0 || pix_y == 199) ? 255 : (pix_x + pix_y + shift);
+        pix_palidx     = (pix_y == 0 || pix_y == 479) ? 255 : (pix_x + pix_y + shift);
         // write to sdram
-        sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 9); 
+        sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 10); 
         sdh.data_in    = pix_palidx;
         sdh.in_valid = 1; // go ahead!
         while (!sdh.done) { }
@@ -97,7 +99,7 @@ algorithm frame_drawer(
     () <- bands <- (~fbuffer);
   
     // increment shift    
-    shift = (shift >= 320) ? 0 : shift+1;
+    shift = (shift >= 640) ? 0 : shift+1;
     
     // wait for frame to end
     while (vsync_filtered == 0) {}

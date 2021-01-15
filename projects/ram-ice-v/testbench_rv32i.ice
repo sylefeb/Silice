@@ -74,7 +74,7 @@ $$end
 
     cpu_reset = 0;
 
-    if (mem.addr[29,1]/* & mem.rw */) {
+    if (mem.addr[28,1]/* & mem.rw */) {
       leds = mem.data_in[0,8];
       __display("LEDs = %b",leds);
     }
