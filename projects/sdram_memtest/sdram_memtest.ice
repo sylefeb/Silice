@@ -46,7 +46,7 @@ import('ulx3s_clk_50_25_100_100ph180.v')
 $$end
 
 $$if SIMULATION then
-$$  TEST_SIZE = 1<<10
+$$  TEST_SIZE = 16
 $$else
 $$  TEST_SIZE = 1<<26
 $$end
@@ -196,9 +196,14 @@ $$if ULX3S then
   ); 
 $$end
 
-$$if false then
+$$if true then
   // maintain low (pulses when ready, see below)
   sio.in_valid := 0;
+
+  iter = 0;
+  while (iter < 32) { // init
+  iter         = iter + 1;
+  }
 
   iter = 0;
   while (iter < 64) {
@@ -218,7 +223,7 @@ $$if false then
   __display("sio.data_out = %h",sio.data_out);
 $$end
 
-$$if true then
+$$if false then
   while (pass < 2) {
     sio.rw = ~pass[0,1];
     leds   = 8b01000100;
