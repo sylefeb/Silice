@@ -323,13 +323,16 @@ $$end
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           reg_dq_en       = 0;
           reg_sdram_a     = {2b0, 1b1/*auto-precharge*/, col};          
-++:       // wait CAS cycles
+++:       // wait CAS cycles + 1 input latency
 ++:
 ++:
 ++:
 $$if ULX3S_IO then
 ++: // dq_i 2 cycles latency due to flip-flops on output and input path
 ++:
+$$end
+$$if ICARUS then
+++: // flip-flop on input path
 $$end
           // data is available
           sd.data_out = dq_i;

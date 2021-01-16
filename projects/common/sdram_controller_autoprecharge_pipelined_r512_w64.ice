@@ -51,29 +51,29 @@ $$ burst_config      = '3b011'
 $$ read_burst_length = 8
 
 algorithm sdram_controller_autoprecharge_pipelined_r512_w64(
-        // sdram pins
-        // => we use immediate (combinational) outputs as these are registered 
-        //    explicitely using dedicqted primitives when available / implemented
-        output! uint1   sdram_cle,
-        output! uint1   sdram_cs,
-        output! uint1   sdram_cas,
-        output! uint1   sdram_ras,
-        output! uint1   sdram_we,
-        output! uint2   sdram_dqm,
-        output! uint2   sdram_ba,
-        output! uint13  sdram_a,
-        // data bus
+    // sdram pins
+    // => we use immediate (combinational) outputs as these are registered 
+    //    explicitely using dedicqted primitives when available / implemented
+    output! uint1   sdram_cle,
+    output! uint1   sdram_cs,
+    output! uint1   sdram_cas,
+    output! uint1   sdram_ras,
+    output! uint1   sdram_we,
+    output! uint2   sdram_dqm,
+    output! uint2   sdram_ba,
+    output! uint13  sdram_a,
+    // data bus
 $$if VERILATOR then
-        input   uint16  dq_i,
-        output! uint16  dq_o,
-        output! uint1   dq_en,
+    input   uint16  dq_i,
+    output! uint16  dq_o,
+    output! uint1   dq_en,
 $$else
-        inout   uint16  sdram_dq,
+    inout   uint16  sdram_dq,
 $$end
-        // interface
-        sdram_provider sd,
+    // interface
+    sdram_provider sd, // TODO: add a wmask
 $$if SIMULATION then        
-        output uint1 error,
+    output uint1 error,
 $$end        
 ) <autorun>
 {
@@ -95,12 +95,12 @@ $$end
   uint1   reg_sdram_we  = uninitialized;
   uint2   reg_sdram_ba  = uninitialized;
   uint13  reg_sdram_a   = uninitialized;
-  uint16  reg_dq_o      = 0;
-  uint1   reg_dq_en     = 0;
+  uint16  reg_dq_o(0);
+  uint1   reg_dq_en(0);
 
 $$if not VERILATOR then
 
-  uint16 dq_i      = 0;
+  uint16 dq_i = uninitialized;
 
 $$if ULX3S_IO then
 
@@ -232,8 +232,7 @@ $$end
 
     // refresh?
     if (refresh_count[10,1] == 1) { // became negative!
-        //__display("[cycle %d] refresh",cycle);
-
+      //__display("[cycle %d] refresh",cycle);
       // refresh
       cmd           = CMD_REFRESH;
       (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
@@ -249,7 +248,7 @@ $$end
       if (work_todo) {
         uint3  stage     = 0;
         uint6  length    = 0;
-        uint8  casmodulo = 8b1;
+        uint8  opmodulo  = 8b1;
         uint2  read_bk   = 0;
         uint3  read_br   = 0;
         //__display("[cycle %d] work_todo: rw:%b",cycle,do_rw);
@@ -268,38 +267,38 @@ $$end
         } // TODO: one cycle wasted here!
         // -> send commands to banks
         stage  = 0;
-        length = do_rw 
+        length = do_rw
                ? 4 
 $$if ULX3S then
                : $4 + 8*4 + 2$;
 $$elseif ICARUS then
-               : $4 + 8*4 + 0$;
+               : $4 + 8*4 + 1$;
 $$else
                : $4 + 8*4 + 0$;
 $$end               
         reg_dq_en     = do_rw;
         reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
         while (length != 0) {
-          //__display("[cycle %d] length %d -- casmodulo: %b -- data_in: %h",cycle,length,casmodulo,dq_i);
+          //__display("[cycle %d] length %d -- opmodulo: %b -- data_in: %h",cycle,length,casmodulo,dq_i);
           reg_sdram_ba  = stage;
           reg_dq_o      = data[{stage,4b0000},16];
-          if ((do_rw | casmodulo[0,1]) & ~stage[2,1]) {
-            //__display("[cycle %d] send command bank: %d (data %h)",cycle,stage,reg_dq_o);
-            casmodulo     = 8b10000000;
+          if ((do_rw | opmodulo[0,1]) & ~stage[2,1]) {
+$$if SIMULATION then
+            __display("[cycle %d] send command bank: %d (data %h)",cycle,stage,reg_dq_o);
+$$end            
+            opmodulo      = 8b10000000;
             stage         = stage + 1;
             cmd           = do_rw ? CMD_WRITE : CMD_READ;
           } else {
-            casmodulo = {casmodulo[0,1],casmodulo[1,8]};
+            opmodulo = {opmodulo[0,1],opmodulo[1,7]};
           }
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           sd.data_out[{read_br,read_bk,4b0000},16] = dq_i;
 $$if ULX3S then
           if (~do_rw & (length < $8*4+1$)) {
-$$elseif ICARUS then
+$$else            
           if (~do_rw & (length < $8*4+1$)) {
-$$else
-          if (~do_rw & (length < $8*4+1$)) {
-$$end
+$$end            
             // burst data in
             //__display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
             read_br = read_br + 1;
@@ -308,10 +307,13 @@ $$end
           // write: signal done when writing to last or reading last
           sd.done   = (do_rw & (stage[0,2] == 2b11)) | (~do_rw & length == 1);
           length    = length - 1;
+          if (do_rw) {
+            ++:
+          }
         }
-//++: // enforce tRP // TODO: still necessary?
-//++:
-//++:
+++: // enforce tRP
+// ++:
+// ++:
 
       } // work_todo
     } // refresh

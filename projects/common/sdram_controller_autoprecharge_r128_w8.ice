@@ -336,6 +336,9 @@ $$if ULX3S_IO then
 ++: // dq_i latency
 ++:
 $$end
+$$if ICARUS then
+++:
+$$end
           // burst 8 x 16 bytes
           {
             uint8 read_cnt = 0;

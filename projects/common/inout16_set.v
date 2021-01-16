@@ -19,12 +19,12 @@ module inout16_set(
   reg [15:0] ff_write;
 
   always @(posedge clock) begin
-    ff_read  <= io_read;
+    ff_read  <= io_pin;
     ff_write <= io_write;
   end
 
   assign io_pin  = io_write_enable ? ff_write : 16'hZZ;
-  assign io_read = io_pin; 
+  assign io_read = ff_read; 
   
 `endif
 

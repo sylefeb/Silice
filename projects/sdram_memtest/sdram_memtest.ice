@@ -4,9 +4,9 @@
 //
 // ------------------------- 
 
-$$TEST_r512w64           = true
-$$TEST_r128w8            = false
-$$TEST_r16w16            = false
+$$TEST_r512w64            = true
+$$TEST_r128w8             = false
+$$TEST_r16w16             = false
 
 $$TEST_with_autoprecharge = true
 
@@ -42,13 +42,13 @@ $$end
 
 $$if ULX3S then
 // Clock
-import('ulx3s_clk_50_25_100_100ph180.v')
+import('ulx3s_clk_50_25_100_100ph90.v')
 $$end
 
 $$if SIMULATION then
-$$  TEST_SIZE = 1<<10
+$$  TEST_SIZE = 2
 $$else
-$$  TEST_SIZE = 1<<20
+$$  TEST_SIZE = 1<<24
 $$end
 
 $include('../common/clean_reset.ice')
@@ -186,7 +186,7 @@ $$if ULX3S then
   uint1 compute_clock = 0;
   uint1 compute_reset = 0;
   $$print('ULX3S at 50 MHz compute clock, 100 MHz SDRAM')
-  ulx3s_clk_50_25_100_100ph180 clk_gen(
+  ulx3s_clk_50_25_100_100ph90 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
     clkout1  :> video_clock,
@@ -206,11 +206,11 @@ $$if false then
   }
 
   iter = 0;
-  while (iter < 64) {
+  while (iter < 1) {
     sio.rw       = 1;
     sio.addr     = iter;
-    sio.data_in  = 64h1122aabbccddeeff;
-    sio.in_valid = 1;    
+    sio.data_in  = 64h0807060504030201;
+    sio.in_valid = 1; 
     while (!sio.done) { }
     iter         = iter + 8;
   }
@@ -221,6 +221,7 @@ $$if false then
   sio.in_valid = 1;
   while (!sio.done) { }
   __display("sio.data_out = %h",sio.data_out);
+  leds = sio.data_out[56,8];
 $$end
 
 $$if true then
@@ -233,7 +234,7 @@ $$if true then
   $$if TEST_r128w8 or TEST_r16w16 then  
       sio.data_in    = count[0,8];
   $$else
-      sio.data_in    = 64h1122aabbccddeeff ^ count;
+      sio.data_in    = 64h1122aabbccddeeff ^ count ^ (count<<32);
   $$end      
       sio.addr       = count;
       sio.in_valid   = 1; // go ahead!
@@ -252,7 +253,7 @@ $$if TEST_r128w8 or TEST_r16w16 then
           __display("ERROR AT %h",count);
         }
 $$else
-        if (sio.data_out[0,64] != (64h1122aabbccddeeff ^ count)) {
+        if (sio.data_out[0,64] != (64h1122aabbccddeeff ^ count ^ (count<<32))) {
           leds = 8b00010001;
           __display("ERROR AT %h",count);
         }
