@@ -121,7 +121,7 @@ $$end
     
     // wait for frame to end
     while (vsync_filtered == 0) {}
-__display("shift %d",shift);
+
     // swap buffers
     fbuffer = ~fbuffer;
 
