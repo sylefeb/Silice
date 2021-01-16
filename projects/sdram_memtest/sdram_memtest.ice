@@ -46,9 +46,9 @@ import('ulx3s_clk_50_25_100_100ph180.v')
 $$end
 
 $$if SIMULATION then
-$$  TEST_SIZE = 16
+$$  TEST_SIZE = 1<<10
 $$else
-$$  TEST_SIZE = 1<<26
+$$  TEST_SIZE = 1<<20
 $$end
 
 $include('../common/clean_reset.ice')
@@ -196,7 +196,7 @@ $$if ULX3S then
   ); 
 $$end
 
-$$if true then
+$$if false then
   // maintain low (pulses when ready, see below)
   sio.in_valid := 0;
 
@@ -223,7 +223,7 @@ $$if true then
   __display("sio.data_out = %h",sio.data_out);
 $$end
 
-$$if false then
+$$if true then
   while (pass < 2) {
     sio.rw = ~pass[0,1];
     leds   = 8b01000100;
@@ -241,7 +241,7 @@ $$if false then
       if (~pass[0,1]) {
         leds = count[16,8];
         $$if SIMULATION then    
-        if (count < 16 || count > $TEST_SIZE-16$) {
+        if (count < 128 || count > $TEST_SIZE-128$) {
           __display("write [%x] = %x",count,sio.data_in);
         }      
         $$end
@@ -258,7 +258,7 @@ $$else
         }
 $$end
         $$if SIMULATION then    
-        if (count < 16 || count >= $TEST_SIZE-16$) {
+        if (count < 128 || count >= $TEST_SIZE-128$) {
           __display("read  [%x] = %x",count,sio.data_out);
         }
         $$end

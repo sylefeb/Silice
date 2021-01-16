@@ -148,7 +148,7 @@ $$ cmd_active_delay    = 2
 $$ cmd_precharge_delay = 3
 $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
 
-  int11 refresh_count = $refresh_cycles$; // -1; DEBUG
+  int11 refresh_count = -1;
   
   // wait for incount cycles, incount >= 3
   subroutine wait(input uint16 incount)
@@ -195,7 +195,7 @@ $$end
       col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$];
       row       = sd.addr[$SDRAM_COLUMNS_WIDTH+3$, 13];
       byte      = sd.addr[ 0, 1];
-      __display("ADDR %h row: %d col: %d byte: %b bank: %d",sd.addr,row,col,byte,bank);
+      //__display("ADDR %h row: %d col: %d byte: %b bank: %d",sd.addr,row,col,byte,bank);
       data      = sd.data_in;
       do_rw     = sd.rw;    
       // -> signal work to do
@@ -206,13 +206,13 @@ $$if SIMULATION then
 $$end
   }
 
-/* //// DEBUG
+$$if HARDWARE then
   // wait after powerup
   reg_sdram_a  = 0;
   reg_sdram_ba = 0;
   reg_dq_en    = 0;
   () <- wait <- (65535); // ~0.5 msec at 100MHz
-*/
+$$end
 
   // precharge all
   cmd      = CMD_PRECHARGE;
@@ -247,20 +247,20 @@ $$end
       refresh_count = refresh_count - 1;
 
       if (work_todo) {
-        uint8  stage     = 0;
-        uint8  length    = 0;
-        uint9  casmodulo = 8b1;
+        uint3  stage     = 0;
+        uint6  length    = 0;
+        uint8  casmodulo = 8b1;
         uint2  read_bk   = 0;
         uint3  read_br   = 0;
         //__display("[cycle %d] work_todo: rw:%b",cycle,do_rw);
 
         work_todo      = 0;
+        reg_sdram_a    = row;
+        reg_dq_en      = 0;
         // -> activate (pipelined, one for each bank)
         while (~stage[2,1]) {
-          __display("[cycle %d] activate bank: %d row: %d col: %d",cycle,stage,row,col);
+          //__display("[cycle %d] activate bank: %d row: %d col: %d",cycle,stage,row,col);
           reg_sdram_ba = stage;
-          reg_sdram_a  = row;
-          reg_dq_en    = 0;
           cmd          = CMD_ACTIVE;
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           stage       = stage + 1;
@@ -278,20 +278,21 @@ $$else
                : $4 + 8*4 + 0$;
 $$end               
         reg_dq_en     = do_rw;
+        reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
         while (length != 0) {
           //__display("[cycle %d] length %d -- casmodulo: %b -- data_in: %h",cycle,length,casmodulo,dq_i);
           reg_sdram_ba  = stage;
-          reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
           reg_dq_o      = data[{stage,4b0000},16];
           if ((do_rw | casmodulo[0,1]) & ~stage[2,1]) {
             //__display("[cycle %d] send command bank: %d (data %h)",cycle,stage,reg_dq_o);
-            casmodulo     = stage == 0 ? 9b010000000 : 9b010000000;
+            casmodulo     = 8b10000000;
             stage         = stage + 1;
             cmd           = do_rw ? CMD_WRITE : CMD_READ;
           } else {
             casmodulo = {casmodulo[0,1],casmodulo[1,8]};
           }
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+          sd.data_out[{read_br,read_bk,4b0000},16] = dq_i;
 $$if ULX3S then
           if (~do_rw & (length < $8*4+1$)) {
 $$elseif ICARUS then
@@ -301,13 +302,12 @@ $$else
 $$end
             // burst data in
             //__display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
-            sd.data_out[{read_br,read_bk,4b0000},16] = dq_i;
             read_br = read_br + 1;
             read_bk = (read_br == 0) ? read_bk + 1 : read_bk;
           }
-          length    = length - 1;
           // write: signal done when writing to last or reading last
-          sd.done   = (do_rw & (stage[0,2] == 2b11)) | (~do_rw & length == 0);
+          sd.done   = (do_rw & (stage[0,2] == 2b11)) | (~do_rw & length == 1);
+          length    = length - 1;
         }
 //++: // enforce tRP // TODO: still necessary?
 //++:

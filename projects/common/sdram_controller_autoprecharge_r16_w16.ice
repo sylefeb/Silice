@@ -175,6 +175,7 @@ $$else
 
   // simulation (Icarus)
   inout16_set ioset(
+    clock           <:  clock,
     io_pin          <:> sdram_dq,
     io_write        <:  reg_dq_o,
     io_read         :>  dq_i,
@@ -325,12 +326,12 @@ $$end
 ++:       // wait CAS cycles
 ++:
 ++:
+++:
 $$if ULX3S_IO then
 ++: // dq_i 2 cycles latency due to flip-flops on output and input path
 ++:
 $$end
           // data is available
-++:
           sd.data_out = dq_i;
           sd.done     = 1;
         }

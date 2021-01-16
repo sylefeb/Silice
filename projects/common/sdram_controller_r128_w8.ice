@@ -157,6 +157,7 @@ $$if ULX3S_IO then
 $$elseif DE10NANO then
 
   inout16_set ioset(
+    clock           <:  clock,
     io_pin          <:> sdram_dq,
     io_write        <:  reg_dq_o,
     io_read         :>  dq_i,
@@ -166,6 +167,7 @@ $$elseif DE10NANO then
 $$else
 
   inout16_set ioset(
+    clock           <:  clock,
     io_pin          <:> sdram_dq,
     io_write        <:  reg_dq_o,
     io_read         :>  dq_i,
