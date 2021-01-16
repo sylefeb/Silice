@@ -46,7 +46,7 @@ import('ulx3s_clk_50_25_100_100ph90.v')
 $$end
 
 $$if SIMULATION then
-$$  TEST_SIZE = 2
+$$  TEST_SIZE = 1<<10
 $$else
 $$  TEST_SIZE = 1<<24
 $$end
