@@ -5,11 +5,24 @@
 // -- mode_640_480
 //
 
+$$if not SDRAM_r512_w64 then
+$$ SDRAM_r128_w8  = true
+$$end
+
+$$if SDRAM_r512_w64 then
+$$ sdram_read_bytes = 64
+$$ sdram_read_width = 512
+$$end
+$$if SDRAM_r128_w8 then
+$$ sdram_read_bytes = 16
+$$ sdram_read_width = 128
+$$end
+
 $$if mode_640_480 then
-$$  FB_row_size        = 640//16
+$$  FB_row_size        = 640//sdram_read_bytes
 $$  FB_row_stride_pow2 = 10
 $$else
-$$  FB_row_size        = 320//16  
+$$  FB_row_size        = 320//sdram_read_bytes  
 $$  FB_row_stride_pow2 = 9
 $$end
 
@@ -104,10 +117,14 @@ $$end
 // ------------------------- 
 
 // SDRAM controller
-$$read_burst_length = 8 -- NOTE: mandatory for the framebuffer!
 $include('sdram_interfaces.ice')
+$$if SDRAM_r512_w64 then
+$include('sdram_controller_autoprecharge_pipelined_r512_w64.ice')
+$$end
+$$if SDRAM_r128_w8 then
 $include('sdram_controller_autoprecharge_r128_w8.ice')
 // include('sdram_controller_r128_w8.ice')
+$$end
 $$Nway = 4
 $include('sdram_arbitrers.ice')
 $include('sdram_utils.ice')
@@ -430,10 +447,15 @@ $$end
 
   // --- SDRAM raw interface
 
+$$if SDRAM_r512_w64 then
+  sdram_r512w64_io sdm;
+  sdram_controller_autoprecharge_pipelined_r512_w64 memory<@sdram_clock,!sdram_reset>(
+$$end
+$$if SDRAM_r128_w8 then
   sdram_r128w8_io sdm;
-  
-  sdram_controller_autoprecharge_r128_w8 memory<@sdram_clock,!sdram_reset>(
+  sdram_controller_autoprecharge_r128_w8  memory<@sdram_clock,!sdram_reset>(
   // sdram_controller_r128_w8 memory<@sdram_clock,!sdram_reset>(
+$$end    
     sd         <:> sdm,
   $$if VERILATOR then
     dq_i       <: sdram_dq_i,
@@ -445,13 +467,12 @@ $$end
 
   // --- SDRAM byte memory interface
 
-  sdram_r128w8_io sdf; // framebuffer
-  sdram_r128w8_io sdd; // drawer
-  sdram_r128w8_io sda; // aux
-  sdram_r128w8_io sdi; // init
+  sameas(sdm) sdf; // framebuffer
+  sameas(sdm) sdd; // drawer
+  sameas(sdm) sda; // aux
+  sameas(sdm) sdi; // init
 
   // --- SDRAM arbitrer, framebuffer (0) / drawer (1) / init (2)
-  
   sdram_arbitrer_4way sd_switcher<@sdram_clock,!sdram_reset>(
     sd         <:>  sdm,
     sd0        <:>  sdf,
@@ -462,8 +483,8 @@ $$end
 
   // --- Frame buffer row memory
   // dual clock crosses from sdram to vga
-  simple_dualport_bram uint128 fbr0<@video_clock,@sdram_clock>[$FB_row_size$] = uninitialized;
-  simple_dualport_bram uint128 fbr1<@video_clock,@sdram_clock>[$FB_row_size$] = uninitialized;
+  simple_dualport_bram uint$sdram_read_width$ fbr0<@video_clock,@sdram_clock>[$FB_row_size$] = uninitialized;
+  simple_dualport_bram uint$sdram_read_width$ fbr1<@video_clock,@sdram_clock>[$FB_row_size$] = uninitialized;
 
   // --- Palette
   simple_dualport_bram uint24 palette[] = {
@@ -512,7 +533,7 @@ $$end
 
   // --- Init from SDCARD
 $$if not fast_compute then  
-  sdram_r128w8_io sdh;
+  sameas(sdm) sdh;
   
   sdram_half_speed_access sdaccess<@sdram_clock,!sdram_reset>(
     sd      <:> sdi,
@@ -522,6 +543,9 @@ $$end
 
   uint1 data_ready = 0;
 $$if (SDCARD and init_data_bytes) or (SIMULATION and init_data_bytes) then
+$$if SDRAM_r512_w64 then
+$$ error('not yet implemented')
+$$end
   init_data init<@compute_clock,!compute_reset>(
 $$if not fast_compute then  
     sd    <:> sdh,
@@ -565,7 +589,7 @@ $$else
 $$if verbose then
   while (frame < 1) {
 $$else
-  while (frame < 64) {
+  while (frame < 16) {
 $$end  
 $$end    
     while (video_vblank == 1) { }

@@ -23,9 +23,9 @@ algorithm frame_display(
   output! uint8    video_g,
   output! uint8    video_b,
   output! uint10   pixaddr0,
-  input   uint128  pixdata0_r,
+  input   uint$sdram_read_width$ pixdata0_r,
   output! uint10   pixaddr1,
-  input   uint128  pixdata1_r,
+  input   uint$sdram_read_width$ pixdata1_r,
   simple_dualport_bram_port0 palette,
   output! uint1    row_busy
 ) <autorun> {
@@ -36,12 +36,21 @@ algorithm frame_display(
   uint10 pix_a  = 0;
   uint24 color  = 0;
 
+$$if SDRAM_r128_w8 then      
 $$if mode_640_480 then
-  uint10 sub_a := {(video_x+1d1)      & 6d15,3b000};
+  uint10 sub_a := {(video_x+1d1)      & 4d15,3b000};
 $$else
-  uint10 sub_a := {((video_x+1d1)>>1) & 6d15,3b000};
+  uint10 sub_a := {((video_x+1d1)>>1) & 4d15,3b000};
+$$end
 $$end
 
+$$if SDRAM_r512_w64 then      
+$$if mode_640_480 then
+  uint10 sub_a := {(video_x+1d1)      & 6d63,3b000};
+$$else
+  uint10 sub_a := {((video_x+1d1)>>1) & 6d63,3b000};
+$$end
+$$end
 
   // default pixel color to zero
   // (black unless overriden during clock cycle)
@@ -113,9 +122,15 @@ $$else
       pix_a = (video_x != 638 && video_x != 639) ? ((video_x+2) >> 1) : 0;
 $$end      
       // __display("x %d, pix_a %d",video_x,pix_a);
+$$if SDRAM_r128_w8 then      
       pixaddr0 = pix_a>>4;
       pixaddr1 = pix_a>>4;
-    
+$$end
+$$if SDRAM_r512_w64 then      
+      pixaddr0 = pix_a>>6;
+      pixaddr1 = pix_a>>6;
+$$end
+
     }
 
   }
@@ -127,10 +142,10 @@ $$end
 algorithm frame_buffer_row_updater(
   sdram_user       sd,
   output! uint10   pixaddr0,
-  output! uint128  pixdata0_w,
+  output! uint$sdram_read_width$ pixdata0_w,
   output! uint1    pixwenable0,
   output! uint10   pixaddr1,
-  output! uint128  pixdata1_w,
+  output! uint$sdram_read_width$ pixdata1_w,
   output! uint1    pixwenable1,
   input   uint1    row_busy,
   input   uint1    vsync,
@@ -189,10 +204,15 @@ algorithm frame_buffer_row_updater(
     //       in any case the display cannot wait, so apart from error
     //       detection there is no need for a sync mechanism    
     count = 0;
-    while (count < $FB_row_size$) { // we read 16 bytes at once
+    while (count < $FB_row_size$) { // we read 16/64 bytes at once
 	
-      // address to read from (count + row * 320)        
+      // address to read from (count + row * 320)
+$$if SDRAM_r128_w8 then      
       sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<4) | (row << $FB_row_stride_pow2$); 
+$$end
+$$if SDRAM_r512_w64 then
+      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<6) | (row << $FB_row_stride_pow2$); 
+$$end
       sd.in_valid  = 1;             // go ahead!      
       while (sd.done == 0) { }      // wait for value
       // __display("<read %x>",sd.data_out);

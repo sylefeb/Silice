@@ -81,19 +81,8 @@ circuitry command(
 
 // -----------------------------------------------------------
 
-$$if not read_burst_length then
-$$ read_burst_length = 8 -- max
-$$end
-$$ if read_burst_length == 8 then
-$$    burst_config = '3b011'
-$$ elseif read_burst_length == 4 then
-$$    burst_config = '3b010'
-$$ elseif read_burst_length == 2 then
-$$    burst_config = '3b001'
-$$ elseif read_burst_length == 1 then
-$$    burst_config = '3b000'
-$$ else
-$$end
+$$ read_burst_length = 8
+$$ burst_config      = '3b011'
 
 algorithm sdram_controller_autoprecharge_r128_w8(
         // sdram pins

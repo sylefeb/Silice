@@ -7,7 +7,8 @@
 // - reads bursts of 32 x 16 bits
 //
 // if using directly the controller: 
-//  - reads/writes have to align with 16 bits boundaries (even byte addresses)
+//  - reads  have to align with 512 bits boundaries (64 bytes)
+//  - writes have to align with  64 bits boundaries ( 8 bytes)
 
 // 4 banks, 8192 rows,  512 columns, 16 bits words
 // (larger chips will be left unused, see comments in other controllers)
@@ -138,9 +139,9 @@ $$end
   
   uint1   work_todo   = 0;
   uint13  row         = uninitialized;
-  uint2   bank        = uninitialized;
+  // uint2   bank        = uninitialized;
   uint10  col         = uninitialized;
-  uint512 data        = uninitialized;
+  uint64  data        = uninitialized;
   uint1   do_rw       = uninitialized;
   uint8   wmask       = uninitialized;
 
@@ -193,7 +194,7 @@ $$end
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
     if (sd.in_valid) {
       // -> copy inputs
-      bank      = sd.addr[1, 2]; // bits 1-2
+      // bank      = sd.addr[1, 2]; // bits 1-2
       col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$];
       row       = sd.addr[$SDRAM_COLUMNS_WIDTH+3$, 13];
       wmask     = sd.wmask;
@@ -283,12 +284,12 @@ $$end
         reg_dq_en     = do_rw;
         reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
         while (length != 0) {
-          //__display("[cycle %d] length %d -- opmodulo: %b -- data_in: %h",cycle,length,casmodulo,dq_i);
+          //__display("[cycle %d] length %d -- opmodulo: %b -- data_in: %h",cycle,length,opmodulo,dq_i);
           if (opmodulo[0,1] & ~stage[2,1]) {
-$$if SIMULATION then            
-            //__display("[cycle %d] send command bank: %d (data %h)",cycle,stage,reg_dq_o);
-$$end            
             reg_dq_o      = data[{stage,4b0000},16];
+$$if SIMULATION then            
+            //__display("[cycle %d] send command bank: %d (data %h) rw:%b",cycle,stage,reg_dq_o,do_rw);
+$$end            
             reg_sdram_ba  = stage;
             reg_sdram_dqm = wmask[{stage,1b0},2];
             opmodulo      = do_rw ? 8b00000010 : 8b10000000;
@@ -306,7 +307,7 @@ $$end
             read_br = read_br + 1;
           }
           reading   = reading | (~do_rw & (length == $8*4+1$));
-          sd.done   = (do_rw & (stage[0,2] == 2b11)) | (~do_rw & length == 1);
+          sd.done   = length == 1;
           length    = length - 1;
         }
 ++: // enforce tRP
