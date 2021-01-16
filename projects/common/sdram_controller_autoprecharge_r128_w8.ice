@@ -312,7 +312,7 @@ $$end
         if (do_rw) {
           // __display("<sdram: write %x>",data);
           // write
-          cmd       = CMD_WRITE;
+          cmd           = CMD_WRITE;
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           reg_dq_en     = 1;
           reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
@@ -323,7 +323,7 @@ $$end
 ++:       // wait one cycle to enforce tWR
         } else {
           // read
-          cmd         = CMD_READ;
+          cmd             = CMD_READ;
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           reg_dq_en       = 0;
           reg_sdram_dqm   = 2b0;

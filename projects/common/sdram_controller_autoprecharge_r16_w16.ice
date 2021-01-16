@@ -86,7 +86,7 @@ circuitry command(
 algorithm sdram_controller_autoprecharge_r16_w16(
         // sdram pins
         // => we use immediate (combinational) outputs as these are registered 
-        //    explicitely using dedicqted primitives when available / implemented
+        //    explicitely using dedicated primitives when available / implemented
         output! uint1   sdram_cle,
         output! uint1   sdram_cs,
         output! uint1   sdram_cas,

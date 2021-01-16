@@ -53,7 +53,7 @@ $$ read_burst_length = 8
 algorithm sdram_controller_autoprecharge_pipelined_r512_w64(
     // sdram pins
     // => we use immediate (combinational) outputs as these are registered 
-    //    explicitely using dedicqted primitives when available / implemented
+    //    explicitely using dedicated primitives when available / implemented
     output! uint1   sdram_cle,
     output! uint1   sdram_cs,
     output! uint1   sdram_cas,
@@ -93,6 +93,7 @@ $$end
   uint1   reg_sdram_cas = uninitialized;
   uint1   reg_sdram_ras = uninitialized;
   uint1   reg_sdram_we  = uninitialized;
+  uint2   reg_sdram_dqm = uninitialized;
   uint2   reg_sdram_ba  = uninitialized;
   uint13  reg_sdram_a   = uninitialized;
   uint16  reg_dq_o(0);
@@ -116,6 +117,7 @@ $$if ULX3S_IO then
   out1_ff_ulx3s  off_sdram_cas(clock <: clock, pin :> sdram_cas, d <:: reg_sdram_cas);
   out1_ff_ulx3s  off_sdram_ras(clock <: clock, pin :> sdram_ras, d <:: reg_sdram_ras);
   out1_ff_ulx3s  off_sdram_we (clock <: clock, pin :> sdram_we , d <:: reg_sdram_we );
+  out2_ff_ulx3s  off_sdram_dqm(clock <: clock, pin :> sdram_dqm, d <:: reg_sdram_dqm);
   out2_ff_ulx3s  off_sdram_ba (clock <: clock, pin :> sdram_ba , d <:: reg_sdram_ba );
   out13_ff_ulx3s off_sdram_a  (clock <: clock, pin :> sdram_a  , d <:: reg_sdram_a  );
 
@@ -135,12 +137,12 @@ $$end
   uint4  cmd = 7;
   
   uint1   work_todo   = 0;
-  uint13  row         = 0;
-  uint2   bank        = 0;
-  uint10  col         = 0;
-  uint512 data        = 0;
-  uint1   do_rw       = 0;
-  uint1   byte        = 0;
+  uint13  row         = uninitialized;
+  uint2   bank        = uninitialized;
+  uint10  col         = uninitialized;
+  uint512 data        = uninitialized;
+  uint1   do_rw       = uninitialized;
+  uint8   wmask       = uninitialized;
 
 $$ refresh_cycles      = 750 -- assume 100 MHz
 $$ refresh_wait        = 7
@@ -170,12 +172,12 @@ $$if SIMULATION then
 $$end        
 
   sdram_cle := 1;
-  sdram_dqm := 2b00;
 $$if not ULX3S_IO then
   sdram_cs  := reg_sdram_cs;
   sdram_cas := reg_sdram_cas;
   sdram_ras := reg_sdram_ras;
   sdram_we  := reg_sdram_we;
+  sdram_dqm := reg_sdram_dqm;
   sdram_ba  := reg_sdram_ba;
   sdram_a   := reg_sdram_a;
 $$if VERILATOR then  
@@ -194,7 +196,8 @@ $$end
       bank      = sd.addr[1, 2]; // bits 1-2
       col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$];
       row       = sd.addr[$SDRAM_COLUMNS_WIDTH+3$, 13];
-      byte      = sd.addr[ 0, 1];
+      wmask     = sd.wmask;
+      //byte      = sd.addr[ 0, 1];
       //__display("ADDR %h row: %d col: %d byte: %b bank: %d",sd.addr,row,col,byte,bank);
       data      = sd.data_in;
       do_rw     = sd.rw;    
@@ -287,6 +290,7 @@ $$if SIMULATION then
 $$end            
             reg_dq_o      = data[{stage,4b0000},16];
             reg_sdram_ba  = stage;
+            reg_sdram_dqm = wmask[{stage,1b0},2];
             opmodulo      = do_rw ? 8b00000010 : 8b10000000;
             stage         = stage + 1;
             cmd           = do_rw ? CMD_WRITE : CMD_READ;

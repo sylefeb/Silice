@@ -209,7 +209,8 @@ $$if false then
   while (iter < 1) {
     sio.rw       = 1;
     sio.addr     = iter;
-    sio.data_in  = 64h0807060504030201;
+    sio.data_in  = 64h8877665544332211;
+    sio.wmask    = 8b10101010;
     sio.in_valid = 1; 
     while (!sio.done) { }
     iter         = iter + 8;
