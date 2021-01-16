@@ -5,8 +5,8 @@
 // ------------------------- 
 
 $$TEST_r512w64           = true
-$$TEST_r128w8             = false
-$$TEST_r16w16             = false
+$$TEST_r128w8            = false
+$$TEST_r16w16            = false
 
 $$TEST_with_autoprecharge = true
 
@@ -46,7 +46,7 @@ import('ulx3s_clk_50_25_100_100ph180.v')
 $$end
 
 $$if SIMULATION then
-$$  TEST_SIZE = 2
+$$  TEST_SIZE = 1<<10
 $$else
 $$  TEST_SIZE = 1<<26
 $$end
@@ -195,7 +195,8 @@ $$if ULX3S then
     locked   :> pll_lock
   ); 
 $$end
-  
+
+$$if false then
   // maintain low (pulses when ready, see below)
   sio.in_valid := 0;
 
@@ -215,15 +216,9 @@ $$end
   sio.in_valid = 1;
   while (!sio.done) { }
   __display("sio.data_out = %h",sio.data_out);
-++:
-++:
-++:
-++:
-++:
-++:
+$$end
 
-/*
-
+$$if true then
   while (pass < 2) {
     sio.rw = ~pass[0,1];
     leds   = 8b01000100;
@@ -233,7 +228,7 @@ $$end
   $$if TEST_r128w8 or TEST_r16w16 then  
       sio.data_in    = count[0,8];
   $$else
-      sio.data_in    = 64h1122aabbccddeeff;
+      sio.data_in    = 64h1122aabbccddeeff ^ count;
   $$end      
       sio.addr       = count;
       sio.in_valid   = 1; // go ahead!
@@ -252,7 +247,7 @@ $$if TEST_r128w8 or TEST_r16w16 then
           __display("ERROR AT %h",count);
         }
 $$else
-        if (sio.data_out[0,64] != 64h1122aabbccddeeff) {
+        if (sio.data_out[0,64] != (64h1122aabbccddeeff ^ count)) {
           leds = 8b00010001;
           __display("ERROR AT %h",count);
         }
@@ -269,9 +264,11 @@ $$end
   $$if TEST_r16w16 then  
       count = count + 2;
   $$end
+  $$if TEST_r512w64 then  
+      count = count + (pass ? 64 : 8);
+  $$end
     }
     pass = pass + 1;
   }
-*/
-
+$$end
 }
