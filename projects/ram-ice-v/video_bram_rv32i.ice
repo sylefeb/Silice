@@ -82,14 +82,14 @@ $$end
       last_y  = __signed(y0) - 1;
       xi_full = x0 << 10;
   $$if SIMULATION then
-      __display("prepared! (x0=%d y0=%d last_y=%d xi=%d interp=%d)",x0,y0,last_y,xi>>10,interp);
+//      __display("prepared! (x0=%d y0=%d last_y=%d xi=%d interp=%d)",x0,y0,last_y,xi>>10,interp);
   $$end
     } else {
       if (__signed(y) == last_y + __signed(1)) {
         xi_full = (xi_full + interp);
         last_y  = y;
   $$if SIMULATION then
-  __display("  next [%d cycles] : y:%d interp:%d xi:%d it:%b)",cycle-cycle_last,y,interp,xi,intersects);
+  //__display("  next [%d cycles] : y:%d interp:%d xi:%d it:%b)",cycle-cycle_last,y,interp,xi,intersects);
   $$end
       }
     }
@@ -241,7 +241,7 @@ $$end
           stop   = first;        
         }
         sd.addr = 17h1FFFF;
-         __display("start span, x %d to %d (y %d)",span_x,stop,y);
+        // __display("start span, x %d to %d (y %d)",span_x,stop,y);
       } else {
         // write current to sdram
         if (sd.addr[0,19] != addr) {
@@ -307,7 +307,7 @@ $$end
             }
             case 2b01: {
 $$if SIMULATION then
-              __display("swap buffers");
+//              __display("swap buffers");
 $$end                               
               fbuffer = ~fbuffer;
             }
@@ -327,7 +327,7 @@ $$end
             case 7b1000000: { y = mem.data_in[0,16]; ystop = mem.data_in[16,16]; 
                               prepare = 2b11; draw_triangle = 0;
 $$if SIMULATION then
-                               __display("new triangle (color %d), cycle %d, %d,%d %d,%d %d,%d",color,cycle,x0,y0,x1,y1,x2,y2);
+//                               __display("new triangle (color %d), cycle %d, %d,%d %d,%d %d,%d",color,cycle,x0,y0,x1,y1,x2,y2);
 $$end                               
                                }
             default: { }

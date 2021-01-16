@@ -13,48 +13,50 @@ void pause(int cycles)
   while (time() - tm_start < cycles) { }
 }
 
-const char *text = "                            firev: riscv framework with hardware rasterization, 640x480 at 160mhz cpu and sdram, written in silice";
+const char *text = "                                firev: riscv framework with hardware rasterization, 640x480 at 160mhz cpu and sdram, written in silice";
+//const char *text = "fi";
 const char *curr = 0;
 int scroll_x = 0;
 
 void scroll()
 {
   if (curr == 0) curr = text;
-  scroll_x = -- scroll_x;
+  // -- scroll_x;
+  scroll_x -= 3;
   const char *str = curr;
   int cursor_x = 0;
   while (*str) {
-    if (*str == 32) {
-      cursor_x += 12;
-    } else {      
-      int lpos = font_FCUBEF2_ascii[(*str)];
-      if (lpos > -1) {
-        int w            = font_FCUBEF2_width[(*str)];
-        int screen_start = cursor_x + scroll_x;
-        if (screen_start > SCRW) {
-          return; // reached end of screen
+    int lpos = font_FCUBEF2_ascii[(*str)];
+    if (lpos > -1) {
+      int w            = font_FCUBEF2_width[(*str)];
+      int screen_start = cursor_x + scroll_x;
+      if (screen_start > SCRW-1) {
+        return; // reached end of screen
+      }
+      int screen_end   = cursor_x + scroll_x + (w<<1);
+      if (screen_end < 0) {
+        if (cursor_x == 0) {
+          curr = text; // restart scrolling on next frame
+          scroll_x = 0;
+          return;
         }
-        int screen_end   = cursor_x + scroll_x + (w<<1);
-        if (screen_end < 0) {
-          ++ curr;
-          if (*curr == 0) {
-            curr = text; // restart scrolling
+      } else {
+        // draw letter
+        screen_start = (screen_start<0)    ? 0      : screen_start;
+        screen_end   = (screen_end>SCRW-1) ? SCRW-1 : screen_end;
+        for (int j=0;j<(font_FCUBEF2_height<<1);j++) {
+          for (int i=screen_start;i<screen_end;i++) {
+            int li = i - (cursor_x + scroll_x);
+            *( (FRAMEBUFFER + (fbuffer ? 0 : 0x1000000))
+              + (i + (j<<10)) ) = font_FCUBEF2[lpos+(li>>1)+((j>>1)<<9)];
+            pause(30);
           }
-        } else {
-          // draw letter
-          screen_start = (screen_start<0)    ? 0      : screen_start;
-          screen_end   = (screen_end>SCRW-1) ? SCRW-1 : 0;
-          for (int j=0;j<(font_FCUBEF2_height<<1);j++) {
-            for (int i=screen_start,li=0;i<screen_end;i++,li++) {
-              *( (FRAMEBUFFER + (fbuffer ? 0 : 0x1000000))
-                + (i + (j<<10)) ) = font_FCUBEF2[lpos+(li>>1)+((j>>1)<<9)];
-              pause(10);
-            }
-          } 
-          // next position
-          cursor_x += (w<<1)+1;
         }
       }
+      // next position
+      cursor_x += (w<<1)+1;
+    } else {
+      cursor_x += 12;
     }
     ++str;
   }
@@ -249,8 +251,8 @@ void main()
   char b = 31;
   int time = 0;
   
-  pause(1000000);
-  fb_cleanup();
+  //pause(1000000);
+  //fb_cleanup();
 
   while(1) {
     
