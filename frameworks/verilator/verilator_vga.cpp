@@ -59,8 +59,8 @@ int main(int argc,char **argv)
     sdram_flags |= FLAG_DATA_WIDTH_64;
   }
   
-  SDRAM* sdr  = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); 
-                                                              // "sdram.txt");
+  SDRAM* sdr  = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, //NULL); 
+                                                                "sdram.txt");
   vluint64_t sdram_dq = 0;
   
   vluint8_t prev_vga_vs = 0;
