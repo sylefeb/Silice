@@ -11,9 +11,6 @@ $$if not SIMULATION then
 $$  init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
 $$end
 
-// DEBUG
-$$init_data_bytes = nil
-
 // default palette
 $$palette = {}
 $$for i=1,256 do
@@ -53,7 +50,6 @@ algorithm frame_drawer(
   input  uint1  sdram_clock,
   input  uint1  sdram_reset,
   input  uint1  vsync,
-  input  uint1  data_ready,
   output uint1  fbuffer = 0,
   output uint8  leds,
   simple_dualport_bram_port1 palette,
@@ -68,7 +64,6 @@ algorithm frame_drawer(
 
   uint26 predicted_addr    = uninitialized;
   uint1  predicted_correct = uninitialized;
-  uint32 data_override(0);
 
   // basic cache  
   rv32i_ram_io mem;
@@ -79,18 +74,18 @@ algorithm frame_drawer(
     cache_start       <:  cache_start,
     predicted_addr    <:  predicted_addr,
     predicted_correct <:  predicted_correct,
-    data_override     <:  data_override
   );
 
+  uint1  cpu_reset      = 1;
   uint26 cpu_start_addr(26h2000000);
-  uint3  cpu_id(0);
+  uint32 user_data(0);
 
   // cpu 
-  rv32i_cpu cpu(
+  rv32i_cpu cpu<!cpu_reset>(
     boot_at           <:  cpu_start_addr,
     predicted_addr    :>  predicted_addr,
     predicted_correct :>  predicted_correct,
-    cpu_id            <:  cpu_id,
+    user_data         <:  user_data,
     ram               <:> mem
   );
 
@@ -124,7 +119,9 @@ $$end
 
   while (1) {
 
-    data_override = {{30{1b0}},vsync,drawing};
+    cpu_reset = 0;
+
+    user_data = {{30{1b0}},vsync,drawing};
 
     if (mem.in_valid & mem.rw) {
       switch (mem.addr[27,4]) {
@@ -146,7 +143,6 @@ $$end
             }
             default: { }
           }
-          // __display("data_override: %d",data_override);
         }
         case 4b0001: {
 //          __display("(cycle %d) triangle (%b) = %d %d",cycle,mem.addr[2,5],mem.data_in[0,16],mem.data_in[16,16]);

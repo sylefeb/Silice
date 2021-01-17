@@ -1,7 +1,7 @@
 // SL 2020-12-22 @sylefeb
 //
 // Note: clamps addresses to uint26 (beware of mapped adresses using higher bits)
-//
+// TODO: a better mechanism for data_override?
 // ------------------------- 
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
@@ -12,14 +12,9 @@ algorithm basic_cache_ram_32bits(
   input uint26       cache_start,       // where the cache is locate
   input uint26       predicted_addr,    // next predicted address
   input uint1        predicted_correct, // was the prediction correct?
-  input uint32       data_override,     // data used as an override by memory mapper
 ) <autorun> {
 
-$$if SIMULATION then
 $$ bram_depth = 14
-$$else
-$$ bram_depth = 14
-$$end
 $$ bram_size  = 1<<bram_depth
 
   // track when address is in cache region and onto which entry   
@@ -55,8 +50,7 @@ $$end
     // access cache
     pram.data_out       = uram.done 
                         ? (uram.data_out >> {pram.addr[0,2],3b000})
-                        : (not_mapped ? (mem.rdata0    >> {pram.addr[0,2],3b000}) : data_override);
-      // not_mapped ? (mem.rdata0 >> {pram.addr[0,2],3b000}) : data_override;
+                        : (mem.rdata0    >> {pram.addr[0,2],3b000});
     pram.done           = (predicted_correct & pram.in_valid & in_cache) | wait_one | (pram.rw & in_cache) | uram.done;
     //if (pram.done) {
     //  __display("#### done cycle %d pred:%b wait:%b uram:%b",cycle,predicted_correct & pram.in_valid & in_cache,wait_one,uram.done);

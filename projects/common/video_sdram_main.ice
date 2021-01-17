@@ -339,7 +339,7 @@ $$elseif DE10NANO then
   // --- video clean reset
   clean_reset video_rstcond<@video_clock,!reset> (
     out   :> video_reset
-  );  
+  );
   // --- SDRAM clean reset
   clean_reset sdram_rstcond<@sdram_clock,!reset> (
     out   :> sdram_reset
@@ -589,7 +589,7 @@ $$else
 $$if verbose then
   while (frame < 2) {
 $$else
-  while (frame < 8) {
+  while (frame <16) {
 $$end  
 $$end    
     while (video_vblank == 1) { }

@@ -17,7 +17,7 @@ volatile unsigned int*  const PALETTE     = (unsigned int* )0xC3000000;
 // The reason is that video_rv32i does not mask addresses and therefore a SDRAM write still
 // occurs; we don't want this to end in the framebuffer! 
 
-volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0xA0000000;
+volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x00000000;
 //volatile unsigned char* const AUDIO       = (unsigned char*)0xAC000000;
 //volatile unsigned char* const DATA        = (unsigned char*)0xA2020000;
 volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x88000000;
@@ -117,9 +117,8 @@ long insn()
    return insns;
 }
 
-long cpuid() 
+long userdata() 
 {
-  // SL: This is non standard, find another way
   int id;
   asm volatile ("rdtime %0" : "=r"(id));
   return id;

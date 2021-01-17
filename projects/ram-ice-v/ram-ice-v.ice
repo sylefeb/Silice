@@ -4,7 +4,7 @@
 // ------------------------- 
 // 
 // Note: rdinstret and rdcycle are limited to 32 bits
-//       rdtime reports cpuid instead of time
+//       rdtime reports user_data instead of time
 //
 // --------------------------------------------------
 //
@@ -112,7 +112,7 @@ interface rv32i_ram_provider {
 
 algorithm rv32i_cpu(
   input uint26   boot_at,
-  input uint3    cpu_id,
+  input uint32   user_data,
   rv32i_ram_user ram,
   output uint26  predicted_addr, // next predicted address
   output uint1   predicted_correct,
@@ -206,7 +206,7 @@ algorithm rv32i_cpu(
     csr         <: csr,
     cycle      <:: cycle,
     instret    <:: instret,
-    cpu_id     <:: cpu_id,
+    user_data  <:: user_data,
     r           :> alu_out,
     ra         <:: regA,
     rb         <:: regB,
@@ -713,7 +713,7 @@ algorithm intops(
   input!  uint3  csr,
   input!  uint32 cycle,
   input!  uint32 instret,
-  input!  uint3  cpu_id,
+  input!  uint3  user_data,
   output  int32  r,
   input!  int32 ra,
   input!  int32 rb,
@@ -753,9 +753,9 @@ algorithm intops(
     }
     if (csr[2,1]) {
     switch (csr[0,2]) {
-      case 2b00: { r = cycle;   }
-      case 2b01: { r = cpu_id;  }
-      case 2b10: { r = instret; }
+      case 2b00: { r = cycle;     }
+      case 2b01: { r = user_data; }
+      case 2b10: { r = instret;   }
       default: { }
     }
     }

@@ -14,7 +14,6 @@ void pause(int cycles)
 }
 
 const char *text = "                                firev: riscv framework with hardware rasterization, 640x480 at 160mhz cpu and sdram, written in silice";
-//const char *text = "fi";
 const char *curr = 0;
 int scroll_x = 0;
 
@@ -196,7 +195,7 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
   }
 
   // wait for any pending draw to complete
-  while (((*LEDS)&1) == 1) { (*LEDS)++; }
+  while ((userdata()&1) == 1) {  }
 
   // send commands
   *(TRIANGLE+  1) = px0 | (py0 << 16);
@@ -213,7 +212,7 @@ void fb_cleanup()
 {
   for (int i=0;i<(480<<10)/4;i++) {
     *(( FRAMEBUFFER)               + i ) = 8;
-    *(( (FRAMEBUFFER + 0x0400000)) + i ) = 8;
+    *(( (FRAMEBUFFER + 0x0400000)) + i ) = 255;
   }
 }
 
@@ -234,9 +233,9 @@ void clear(int xm,int ym,int xM,int yM)
 void swap_buffers()
 {
   // wait for any pending draw to complete
-  while (((*LEDS)&1) == 1) { (*LEDS)++; }
+  while ((userdata()&1) == 1) {  }
   // wait for vsync
-  // while (((*LEDS)&2) == 0) { (*LEDS)++; }
+  // while ((userdata()&2) == 0) {  }
   // swap buffers
   *(LEDS+4) = 1;
   fbuffer = 1-fbuffer;
@@ -245,14 +244,16 @@ void swap_buffers()
 void main()
 {
 
-  char a = 66;
-  char b = 31;
+  char a   = 66;
+  char b   = 31;
   int time = 0;
   
-  //pause(1000000);
+  // pause(1000000);
   //fb_cleanup();
 
-  (*LEDS) = 5;
+  clear(0<<5,0<<5,SCRW<<5,SCRH<<5);
+  swap_buffers();
+  clear(0<<5,0<<5,SCRW<<5,SCRH<<5);
 
   while(1) {
     
