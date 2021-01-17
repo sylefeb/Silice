@@ -49,7 +49,7 @@ void scroll()
             int li = i - (cursor_x + scroll_x);
             *( (FRAMEBUFFER + (fbuffer ? 0 : 0x1000000))
               + (i + (j<<10)) ) = font_FCUBEF2[lpos+(li>>1)+((j>>1)<<9)];
-            pause(30);
+            // pause(30);
           }
         }
       }
@@ -213,9 +213,7 @@ void fb_cleanup()
 {
   for (int i=0;i<(480<<10)/4;i++) {
     *(( FRAMEBUFFER)               + i ) = 8;
-    pause(10);
     *(( (FRAMEBUFFER + 0x0400000)) + i ) = 8;
-    pause(10);
   }
 }
 
@@ -253,6 +251,8 @@ void main()
   
   //pause(1000000);
   //fb_cleanup();
+
+  (*LEDS) = 5;
 
   while(1) {
     

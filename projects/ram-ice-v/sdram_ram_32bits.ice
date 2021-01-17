@@ -59,4 +59,3 @@ algorithm sdram_ram_32bits(
   }
  
 }
-

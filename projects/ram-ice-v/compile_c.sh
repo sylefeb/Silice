@@ -22,6 +22,9 @@ $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0.s
 
 CPU=${2:-0}
 
+rm build/code0.hex
+rm build/code1.hex
+
 $ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_cpu$CPU.ld --no-relax -o build/code.elf build/code.o div.o mylibc.o
 
 $ARCH-elf-objcopy -O verilog build/code.elf build/code$CPU.hex

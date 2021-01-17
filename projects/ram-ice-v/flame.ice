@@ -139,7 +139,7 @@ $$end
         // find the span bounds, start drawing
         uint10 first  = uninitialized;
         uint10 second = uninitialized;
-        uint1  nop = 0;
+        uint1  nop    = 0;
         // __display("xi0:%d xi1:%d xi2:%d it0:%b it1:%b it2:%b",xi0,xi1,xi2,it0,it1,it2);
         switch (~{it2,it1,it0}) {
           case 3b001: { first = xi1; second = xi2; }
@@ -185,7 +185,7 @@ $$end
       }
       drawing = (y == ystop) ? 0 : 1;      
       if (drawing == 0) {
-        __display("[cycle %d] done",cycle);
+        // __display("[cycle %d] done",cycle);
       }
     } else { // draw_triangle
 
@@ -198,7 +198,7 @@ $$end
     }
 
     if (triangle_in) {
-        __display("[cycle %d] incoming triangle",cycle);
+      // __display("[cycle %d] incoming triangle",cycle);
       prepare = 2b11;
       drawing = 0;
       y       = ystart;

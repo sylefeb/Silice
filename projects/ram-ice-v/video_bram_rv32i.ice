@@ -116,8 +116,9 @@ $$end
   uint1   triangle_in(0);
 
   flame gpu(
-    fbuffer <: fbuffer,
-    drawing :> drawing,
+    sd      <:> sd,
+    fbuffer <:  fbuffer,
+    drawing :>  drawing,
     <:auto:>
   );
 

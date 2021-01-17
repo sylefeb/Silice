@@ -138,9 +138,9 @@ $include('video_sdram.ice')
 
 $$if init_data_bytes then
 
-$$if SDCARD then
-
 $$print('setting up for SDRAM initialization from SDCARD')
+
+$$if SDCARD then
 
 algorithm init_data(
   output  uint1 sd_clk,
@@ -587,9 +587,9 @@ $$if ICARUS then
   while (frame < 2) {
 $$else
 $$if verbose then
-  while (frame < 4) {
+  while (frame < 2) {
 $$else
-  while (frame <16) {
+  while (frame < 8) {
 $$end  
 $$end    
     while (video_vblank == 1) { }

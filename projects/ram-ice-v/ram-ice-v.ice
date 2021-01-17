@@ -246,6 +246,8 @@ $$end
                   
   //} 
 
+//  __display("cycle %d case_select %d refetch %b wait_next_instr %b commit_decode %b",cycle,case_select,refetch,wait_next_instr,commit_decode);
+
 $$if HARDWARE then  
   //while (1) {
 $$else    
@@ -285,10 +287,10 @@ $$end
         // refetch
         ram.addr          = start ? boot_at : refetch_addr;
         // cold start?
+        next_pc           = start ? boot_at : next_pc;
         if (start & ~reset) {
           __display("CPU RESET %d (@%h) start:%b",case_select,next_pc,start);
         }        
-        next_pc           = start ? boot_at : next_pc;
         start             = reset;
 
 $$if verbose then
@@ -408,10 +410,7 @@ $$end
         // Note: nothing received from memory
 $$if SIMULATION then
         halt   = instr_ready & (instr == 0);
-$$end
-        
-$$if SIMULATION then
-        // if (halt) { __display("HALT on zero-instruction"); }
+        if (halt) { __display("HALT on zero-instruction"); }
 $$end
         // commit previous instruction
         // load store next?
