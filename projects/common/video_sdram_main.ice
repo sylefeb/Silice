@@ -584,12 +584,12 @@ $$if HARDWARE then
 $$else
   // we count a number of frames and stop
 $$if ICARUS then
-  while (frame < 4) {
+  while (frame < 2) {
 $$else
 $$if verbose then
-  while (frame < 1) {
+  while (frame < 4) {
 $$else
-  while (frame < 16) {
+  while (frame <16) {
 $$end  
 $$end    
     while (video_vblank == 1) { }

@@ -1,18 +1,18 @@
 // SL 2020-12-02 @sylefeb
-//
-// RISC-V with RAM IO
-//
+// ------------------------- 
+// The Fire-V core - RV32I CPU
+// ------------------------- 
+// 
 // Note: rdinstret and rdcycle are limited to 32 bits
 //       rdtime reports cpuid instead of time
 //
-// RV32I cpu, see README.txt
+// --------------------------------------------------
 //
 //      GNU AFFERO GENERAL PUBLIC LICENSE
 //        Version 3, 19 November 2007
 //      
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
-// --------------------------------------------------
 
 // bitfields for easier decoding of instructions ; these
 // define views on a uint32, that are used upon 

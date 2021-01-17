@@ -238,7 +238,7 @@ void swap_buffers()
   // wait for any pending draw to complete
   while (((*LEDS)&1) == 1) { (*LEDS)++; }
   // wait for vsync
-  //  while (((*LEDS)&2) == 0) { (*LEDS)++; }
+  // while (((*LEDS)&2) == 0) { (*LEDS)++; }
   // swap buffers
   *(LEDS+4) = 1;
   fbuffer = 1-fbuffer;

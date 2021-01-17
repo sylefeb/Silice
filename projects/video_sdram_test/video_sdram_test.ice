@@ -112,7 +112,7 @@ $$end
   //() <- bands <- (1);
 
   while (1) {
-
+/*
     // draw a frame
     () <- bands <- (~fbuffer);
   
@@ -124,7 +124,7 @@ $$end
 
     // swap buffers
     fbuffer = ~fbuffer;
-
+*/
   }
   
 }

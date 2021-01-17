@@ -43,21 +43,19 @@ algorithm frame_drawer(
 ) <autorun> {
 
   rv32i_ram_io sdram;
-
-  uint26 predicted_addr    = uninitialized;
-  uint1  predicted_correct = uninitialized;
-  uint32 data_override(0);
-
   // sdram io
   sdram_ram_32bits bridge<@sdram_clock,!sdram_reset>(
     sdr <:> sd,
     r32 <:> sdram,
   );
 
+  uint26 predicted_addr    = uninitialized;
+  uint1  predicted_correct = uninitialized;
+  uint32 data_override(0);
+
   // basic cache  
   rv32i_ram_io cram;
-  uint26 cache_start = 26h2000000;  
-
+  uint26 cache_start = 26h2000000;
   basic_cache_ram_32bits cache(
     pram              <:> cram,
     uram              <:> sdram,
