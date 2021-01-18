@@ -8,8 +8,10 @@ $$end
 $$dofile('pre_include_asm.lua')
 
 $$if not SIMULATION then
-$$  init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
+$$ init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
+$$ init_data_bytes = nil
 $$end
+
 
 // default palette
 $$palette = {}
@@ -110,8 +112,21 @@ $$end
 
   flame gpu(
     sd      <:> sd,
-    fbuffer <: fbuffer,
-    drawing :> drawing,
+    fbuffer <:: fbuffer,
+    x0      <:: x0,
+    y0      <:: y0,
+    x1      <:: x1,
+    y1      <:: y1,
+    x2      <:: x2,
+    y2      <:: y2,
+    ei0     <:: ei0,
+    ei1     <:: ei1,
+    ei2     <:: ei2,
+    ystart  <:: ystart,
+    ystop   <:: ystop,
+    color   <:: color,
+    triangle_in <:: triangle_in,
+    drawing     :> drawing,
     <:auto:>
   );
 

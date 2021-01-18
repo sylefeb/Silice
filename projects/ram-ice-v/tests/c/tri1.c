@@ -259,6 +259,8 @@ void main()
     
     clear((SCRW/2-175)<<5,(SCRH/2-175)<<5,(SCRW/2+175)<<5,(SCRH/2+175)<<5);
 
+    clear(0,0,SCRW<<5,font_FCUBEF2_height<<6);
+
     scroll();
 
     //a = a + 1;

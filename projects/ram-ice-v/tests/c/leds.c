@@ -1,11 +1,10 @@
-long time();
-/*
+long time()
 {
    int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
    return cycles;
 }
-*/
+
 void pause(int cycles)
 { 
   long tm_start = time();

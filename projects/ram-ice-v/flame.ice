@@ -129,6 +129,8 @@ $$end
     xi         :> xi2,
     <:auto:>);
 
+  uint10  y_p1  ::= y+1;
+
   sd.in_valid          := 0;
   sd.rw                := 1;
 
@@ -174,7 +176,8 @@ $$end
           if (sd.done) {
             if (span_x == stop) {
               //__display("stop span, x %d y %d",span_x,y);
-              y        = y + 1;
+              drawing  = (y_p1 == ystop) ? 0 : 1;
+              y        = y_p1;
               span_x   = -1;
               wait_one = 1; // wait one cycle due to latency of edge walker
             } else {
@@ -183,10 +186,9 @@ $$end
           }
         }
       }
-      drawing = (y == ystop) ? 0 : 1;      
-      if (drawing == 0) {
-        // __display("[cycle %d] done",cycle);
-      }
+      //if (drawing == 0) {
+      //  __display("[cycle %d] done",cycle);
+      //}
     } else { // draw_triangle
 
       if (prepare[0,1]) {

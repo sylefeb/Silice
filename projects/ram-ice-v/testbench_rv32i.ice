@@ -42,24 +42,22 @@ $$end
 
   uint26 predicted_addr    = uninitialized;
   uint1  predicted_correct = uninitialized;
-  uint32 data_override(0);
+  uint32 user_data(0);
 
   // bram io
   bram_ram_32bits bram_ram(
     pram              <:> mem,
     predicted_addr    <:  predicted_addr,
     predicted_correct <:  predicted_correct,
-    data_override     <:  data_override
   );
 
   uint1  cpu_reset      = 1;
   uint26 cpu_start_addr(26h0000000);
-  uint3  cpu_id(0);
 
   // cpu 
   rv32i_cpu cpu<!cpu_reset>(
     boot_at          <:  cpu_start_addr,
-    cpu_id           <:  cpu_id,
+    user_data        <:  user_data,
     ram              <:> mem,
     predicted_addr    :> predicted_addr,
     predicted_correct :> predicted_correct,
