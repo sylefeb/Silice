@@ -16,6 +16,7 @@ algorithm basic_cache_ram_32bits(
 
 $$ bram_depth = 13
 $$ bram_size  = 1<<bram_depth
+$$ print('##### code size: ' .. code_size_bytes .. ' BRAM capacity: ' .. 4*bram_size .. '#####')
 
   // track when address is in cache region and onto which entry   
   uint1  in_cache               :=    (pram.addr  [$2+bram_depth$,$26-2-bram_depth$])

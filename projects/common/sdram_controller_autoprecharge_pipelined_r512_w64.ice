@@ -269,7 +269,8 @@ $$end
         reg_dq_en      = 0;        
         // -> activate (pipelined, one for each bank)
         // TODO: this could be merged with the main loop below
-
+        // NOTE: for writes tRCD/tRRD limit the interest ; but this would ultimately simplify the controller
+        //       (both are ~2 cycles at 100MHz)
         while (~stage[2,1]) {
           //__display("[cycle %d] activate bank: %d row: %d col: %d",cycle,stage,row,col);
           reg_sdram_ba = stage;
@@ -326,7 +327,6 @@ $$end
           //__display("length %d, delay %b",length,delay);
           reading   = reading | delay[0,1];
           delay     = {1b0,delay[1,5]};
-          //sd.done   = length == 0;
           length    = length - 1;
           sd.done   = length[6,1];
 //           if (sd.done) {

@@ -13,7 +13,7 @@ void pause(int cycles)
   while (time() - tm_start < cycles) { }
 }
 
-const char *text = "                                               firev: riscv framework with hardware rasterization, 640x480 at 160mhz cpu and sdram, written in silice";
+const char *text = "                                               firev: riscv framework with hardware accelerated rasterization, 640x480 at 160mhz cpu and sdram, written in silice.";
 const char *curr = 0;
 int scroll_x = 0;
 
@@ -235,7 +235,7 @@ void swap_buffers()
   // wait for any pending draw to complete
   while ((userdata()&1) == 1) {  }
   // wait for vsync
-  // while ((userdata()&2) == 0) {  }
+  while ((userdata()&2) == 0) {  }
   // swap buffers
   *(LEDS+4) = 1;
   fbuffer = 1-fbuffer;
@@ -257,9 +257,9 @@ void main()
 
   while(1) {
     
-    clear((SCRW/2-175)<<5,(SCRH/2-175)<<5,(SCRW/2+175)<<5,(SCRH/2+175)<<5);
-
-    clear(0,0,SCRW<<5,font_FCUBEF2_height<<6);
+    //clear((SCRW/2-175)<<5,(SCRH/2-175)<<5,(SCRW/2+175)<<5,(SCRH/2+175)<<5);
+    //clear(0,0,SCRW<<5,font_FCUBEF2_height<<6);
+    clear(0<<5,0<<5,SCRW<<5,SCRH<<5);
 
     scroll();
 
@@ -267,11 +267,11 @@ void main()
     //b = b + 1;
     int pos = 0;
     for (int posy = -70*R; posy <= 70*R ; posy += 35*R) {
-      for (int posx = -70*R; posx <= 70*R ; posx += 35*R) {
+      for (int posx = -140*R; posx <= 140*R ; posx += 35*R) {
         int Ry[9];
-        rotY(Ry,a + costbl[((posx>>2) + (posy>>2) + (time))&255]);
+        rotY(Ry,a + costbl[((posx>>2) + (posy>>2) + (time<<1))&255]);
         int Rx[9];
-        rotX(Rx,b + (costbl[((posx>>2) - (posy>>2) + (time))&255]>>1));
+        rotX(Rx,b + (costbl[((posx>>2) - (posy>>2) + (time<<1))&255]>>1));
         int M[9];
         mulM(M,Rx,Ry);
         transform_points(M);
