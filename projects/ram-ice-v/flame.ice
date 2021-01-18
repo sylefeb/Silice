@@ -60,6 +60,47 @@ $$end
 
 // ------------------------- 
 
+algorithm sdram_writer( 
+  sdram_user     sd,
+  input  uint1   fbuffer,
+  input  uint1   start,
+  input  uint1   end,
+  input  uint1   next,
+  input  uint8   color,
+  input  uint10  x,
+  input  uint10  y,
+  output uint1   done
+) <autorun> {
+
+  uint19 addr ::= {x[3,7],3b000} + (y << 10);
+
+  always {
+    // if (next) {
+    //   __display("sdram_writer NEXT %d",x);
+    // }
+    sd.rw = 1;
+    sd.data_in[{x[0,3],3b000},8] = color;
+    if (start | x[0,3]==3b000) {
+//      __display("sdram_writer START %d",x);
+      sd.wmask = start ? 8b00000000 : 8b00000001;
+    } else {
+      sd.wmask[x[0,3],1] = next ? 1 : sd.wmask[x[0,3],1];
+    }
+//if (next) {
+//    __display("sdram_writer NEXT %d",x);    
+//}    
+    sd.in_valid      = end     || (next && ((x[0,3])==7));
+    done             = sd.done || (next && ((x[0,3])!=7));
+    sd.addr          = end ? sd.addr : {1b0,~fbuffer,5b0,addr};
+//  if (sd.in_valid & sd.wmask != 8b11111111) {
+//   if (end) {
+//     __display("sdram_writer %d (end:%b) in_valid=1  @%h = %h  %b",x,end,sd.addr,sd.data_in,sd.wmask);
+//     }
+  }
+}
+
+// ------------------------- 
+
 algorithm flame(
   sdram_user    sd,
   input  uint1  fbuffer,
@@ -93,9 +134,10 @@ $$end
 
   uint1   in_span = uninitialized;
   int11   span_x(-1);
-  uint10  stop    = uninitialized;
+  uint10  stop_x = uninitialized;
   uint2   prepare(0);
-  uint1   wait_one(0);
+  uint1   wait_done(0);
+  uint1   sent(0);
 
   uint19 addr ::= span_x + (y << 10);
 
@@ -129,14 +171,34 @@ $$end
     xi         :> xi2,
     <:auto:>);
 
+  uint1   start    = uninitialized;
+  uint1   end      = uninitialized;
+  uint1   next     = uninitialized;
+  uint1   done     = uninitialized;
+  sdram_writer writer(
+    sd      <:> sd,
+    fbuffer <: fbuffer,
+    start   <: start,
+    end     <: end,
+    next    <: next,
+    color   <: color,
+    x       <: span_x,
+    y       <: y,
+    done    :> done
+  );
+
   uint10  y_p1  ::= y+1;
 
-  sd.in_valid          := 0;
-  sd.rw                := 1;
+  // sd.in_valid          := 0;
+  // sd.rw                := 1;
+
+  start                := 0;
+  end                  := 0;
+  next                 := 0;
 
   always {
 
-    if (drawing & ~wait_one) {      
+    if (drawing & ~wait_done) {      
       if (span_x[10,1]) {
         // find the span bounds, start drawing
         uint10 first  = uninitialized;
@@ -155,31 +217,36 @@ $$end
             }
           }
           default:    { nop = 1; }
-        }        
+        }
         if (first < second) {
           span_x = ~nop ? first : span_x;
-          stop   = second;
+          stop_x = second;
         } else {
           span_x = ~nop ? second : span_x;
-          stop   = first;        
+          stop_x = first;
         }
-        sd.addr = 17h1FFFF;
-        // __display("start span, x %d to %d (y %d)",span_x,stop,y);
+        start    = ~nop;
+        // sd.addr = 17h1FFFF;
+        // __display("start span, x %d to %d (y %d)",span_x,stop_x,y);
       } else {
         // write current to sdram
-        if (sd.addr[0,19] != addr) {
-          sd.addr     = {1b0,~fbuffer,5b0,addr};
-          sd.in_valid = 1;
-          sd.data_in  = color;
-        //__display("write x %d y %d",span_x,y);
+        if (~sent) {
+          sent        = 1;
+          next        = 1;
+          //sd.addr     = {1b0,~fbuffer,5b0,addr};
+          //sd.in_valid = 1;
+          //sd.data_in  = color;
+          //__display("write x %d y %d",span_x,y);
         } else {
-          if (sd.done) {
-            if (span_x == stop) {
-              //__display("stop span, x %d y %d",span_x,y);
-              drawing  = (y_p1 == ystop) ? 0 : 1;
-              y        = y_p1;
-              span_x   = -1;
-              wait_one = 1; // wait one cycle due to latency of edge walker
+          if (done) {
+            sent = 0;
+            if (span_x == stop_x) {
+              //__display("stop_x span, x %d y %d",span_x,y);
+              drawing   = (y_p1 == ystop) ? 0 : 1;
+              y         = y_p1;
+              span_x    = -1;
+              end       = 1;
+              wait_done = 1; // wait last write to be done (edge_writer also needs 1 cycle)
             } else {
               span_x = span_x + 1;
             }
@@ -195,7 +262,7 @@ $$end
         prepare = {1b0,prepare[1,1]};
         drawing = ~prepare[0,1];
       }
-      wait_one  = 0;
+      wait_done = wait_done & ~sd.done;
 
     }
 

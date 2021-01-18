@@ -19,9 +19,9 @@ algorithm sdram_ram_32bits(
     sdr.in_valid  = r32.in_valid;
     r32.done      = sdr.done;
 $$if SIMULATION then
-    if (r32.in_valid & r32.rw) {
+//    if (r32.in_valid & r32.rw) {
 //      __display("[in_valid] @%h wmask_in:%b wmask:%b din:%h sdrdin:%h",r32.addr,r32.wmask,sdr.wmask,r32.data_in,sdr.data_in);
-    }
+//    }
 $$end    
   }
  

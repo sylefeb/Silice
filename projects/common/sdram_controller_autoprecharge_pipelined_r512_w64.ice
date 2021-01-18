@@ -256,7 +256,7 @@ $$end
         uint2  read_bk   = 0;
         uint3  read_br   = 0;
         uint1  reading   = 0;
-        //__display("[cycle %d] work_todo: rw:%b",cycle,do_rw);
+        // __display("[cycle %d] work_todo: rw:%b",cycle,do_rw);
 
         work_todo      = 0;
         reg_sdram_a    = row;
@@ -289,7 +289,7 @@ $$end
             reg_dq_o      = data[{stage,4b0000},16];
 $$if SIMULATION then            
             //__display("[cycle %d] send command bank: %d (data %h) rw:%b",cycle,stage,reg_dq_o,do_rw);
-$$end            
+$$end
             reg_sdram_ba  = stage;
             reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
             opmodulo      = do_rw ? 8b00000010 : 8b10000000;
