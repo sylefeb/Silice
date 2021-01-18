@@ -31,7 +31,6 @@ $$end
   int20  xi_full    = uninitialized;
 
   intersects := in_edge;
-  xi         := (y == y1) ? x1 : (xi_full >> 10);
 
  always {
 $$if SIMULATION then
@@ -48,10 +47,11 @@ $$end
   $$end
     } else {
       if (__signed(y) == last_y + __signed(1)) {
+        xi      = (y == y1) ? x1 : (xi_full >> 10);
         xi_full = (xi_full + interp);
         last_y  = y;
   $$if SIMULATION then
-  //__display("  next [%d cycles] : y:%d interp:%d xi:%d it:%b)",cycle-cycle_last,y,interp,xi,intersects);
+  // __display("  next [%d cycles] : y:%d interp:%d xi:%d it:%b)",cycle-cycle_last,y,interp,xi_full>>10,intersects);
   $$end
       }
     }
@@ -226,17 +226,12 @@ $$end
           stop_x = first;
         }
         start    = ~nop;
-        // sd.addr = 17h1FFFF;
-        // __display("start span, x %d to %d (y %d)",span_x,stop_x,y);
+        //__display("start span, x %d to %d (y %d)",span_x,stop_x,y);
       } else {
         // write current to sdram
         if (~sent) {
           sent        = 1;
           next        = 1;
-          //sd.addr     = {1b0,~fbuffer,5b0,addr};
-          //sd.in_valid = 1;
-          //sd.data_in  = color;
-          //__display("write x %d y %d",span_x,y);
         } else {
           if (done) {
             sent = 0;

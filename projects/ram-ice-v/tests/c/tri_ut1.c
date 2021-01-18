@@ -48,7 +48,7 @@ void draw_triangle(char color,int px0,int py0,int px1,int py1,int px2,int py2)
   }
 
   // wait for any pending draw to complete
-  while (((*LEDS)&1) == 1) { (*LEDS)++; }
+  while ((userdata()&1) == 1) {  }
 
   // send commands
   *(TRIANGLE+  1) = px0 | (py0 << 16);
@@ -66,6 +66,6 @@ void main()
 
   draw_triangle(31, 10,10, 40,50, 10,100);
 
-  while (((*LEDS)&1) == 1) { (*LEDS)++; }
+  while ((userdata()&1) == 1) {  }
   *(LEDS+4) = 1; // swap buffers
 }

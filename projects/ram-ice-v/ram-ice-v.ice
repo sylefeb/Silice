@@ -410,7 +410,7 @@ $$end
         // Note: nothing received from memory
 $$if SIMULATION then
         halt   = instr_ready & (instr == 0);
-        if (halt) { __display("HALT on zero-instruction"); }
+        // if (halt) { __display("HALT on zero-instruction"); }
 $$end
         // commit previous instruction
         // load store next?
