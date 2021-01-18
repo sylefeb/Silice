@@ -14,7 +14,7 @@ algorithm basic_cache_ram_32bits(
   input uint1        predicted_correct, // was the prediction correct?
 ) <autorun> {
 
-$$ bram_depth = 14
+$$ bram_depth = 13
 $$ bram_size  = 1<<bram_depth
 
   // track when address is in cache region and onto which entry   

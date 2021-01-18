@@ -36,9 +36,7 @@ $$end
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
- }
-
-  while (1) {
+ 
     if (prepare[1,1]) {
       last_y  = __signed(y0) - 1;
       xi_full = x0 << 10;

@@ -219,13 +219,13 @@ $$if HARDWARE then
 $$end
 
   // precharge all
-  cmd      = CMD_PRECHARGE;
+  cmd          = CMD_PRECHARGE;
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   reg_sdram_a  = {2b0,1b1,10b0};
   () <- wait <- ($cmd_precharge_delay-3$);
 
   // load mod reg
-  cmd      = CMD_LOAD_MODE_REG;
+  cmd          = CMD_LOAD_MODE_REG;
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   reg_sdram_ba = 0;
   reg_sdram_a  = {3b000, 1b1/*single write*/, 2b00, 3b011/*CAS*/, 1b0, 3b011 /*burst=8x*/ };
@@ -236,6 +236,7 @@ $$end
 
     // refresh?
     if (refresh_count[10,1] == 1) { // became negative!
+
       //__display("[cycle %d] refresh",cycle);
       // refresh
       cmd           = CMD_REFRESH;
@@ -250,48 +251,60 @@ $$end
       refresh_count = refresh_count - 1;
 
       if (work_todo) {
+
         uint3  stage     = 0;
-        uint6  length    = uninitialized;
+        int7   length    = uninitialized;
+        uint1  wait_one  = 0;
         uint8  opmodulo  = 8b1;
         uint2  read_bk   = 0;
         uint3  read_br   = 0;
         uint1  reading   = 0;
+        uint6  delay     = uninitialized;
         // __display("[cycle %d] work_todo: rw:%b",cycle,do_rw);
 
         work_todo      = 0;
         reg_sdram_a    = row;
-        reg_dq_en      = 0;
+        reg_dq_en      = 0;        
         // -> activate (pipelined, one for each bank)
+        // TODO: this could be merged with the main loop below
         while (~stage[2,1]) {
           //__display("[cycle %d] activate bank: %d row: %d col: %d",cycle,stage,row,col);
           reg_sdram_ba = stage;
-          cmd          = CMD_ACTIVE;
+          cmd          = ~wait_one ? CMD_ACTIVE : CMD_NOP;
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-          stage       = stage + 1;
-++: // tRRD
+          stage       = ~wait_one ? stage + 1 : stage;
+          wait_one    = ~wait_one; // tRRD (time between ACTIVATE bank a and ACTIVATE bank b)
         } // TODO: one cycle wasted here!
         // -> send commands to banks
         stage  = 0;
         length = do_rw
                ? 8 
 $$if ULX3S then
-               : $4 + 8*4 + 2$;
-$$elseif ICARUS then
                : $4 + 8*4 + 1$;
-$$else
+$$elseif ICARUS then
                : $4 + 8*4 + 0$;
-$$end               
+$$else
+               : $4 + 8*4 - 1$;
+$$end
+        delay         = 
+$$if ULX3S then
+               6b100000;
+$$elseif ICARUS then
+               6b010000;
+$$else
+               6b001000;
+$$end
         reg_dq_en     = do_rw;
         reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
-        while (length != 0) {
+        while (~length[6,1]) {
           //__display("[cycle %d] length %d -- opmodulo: %b -- data_in: %h",cycle,length,opmodulo,dq_i);
           if (opmodulo[0,1] & ~stage[2,1]) {
             reg_dq_o      = data[{stage,4b0000},16];
+            reg_sdram_ba  = stage;
+            reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
 $$if SIMULATION then            
             //__display("[cycle %d] send command bank: %d (data %h) rw:%b",cycle,stage,reg_dq_o,do_rw);
 $$end
-            reg_sdram_ba  = stage;
-            reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
             opmodulo      = do_rw ? 8b00000010 : 8b10000000;
             stage         = stage + 1;
             cmd           = do_rw ? CMD_WRITE : CMD_READ;
@@ -306,8 +319,10 @@ $$end
             read_bk = (read_br == 7) ? read_bk + 1 : read_bk;
             read_br = read_br + 1;
           }
-          reading   = reading | (~do_rw & (length == $8*4+1$));
-          sd.done   = length == 1;
+          //__display("length %d, delay %b",length,delay);
+          reading   = reading | delay[0,1];
+          delay     = {1b0,delay[1,5]};
+          sd.done   = length == 0;
           length    = length - 1;
         }
 ++: // enforce tRP
