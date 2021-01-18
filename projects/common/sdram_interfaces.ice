@@ -36,7 +36,7 @@ group sdram_r512w64_io
   uint26  addr       = 0,  // addressable bytes (internally deals with 16 bits wide sdram)
   uint1   rw         = 0,  // 0: read 1: write
   uint64  data_in    = 0,  //
-  uint8   wmask      = 0,  // write mask: 0 write byte, 1 skip byte
+  uint8   wmask      = 0,  // write mask: 1 write byte, 0 skip byte
   uint1   in_valid   = 0,  // pulse high to request a read/write
   uint512 data_out   = 0,  //
   uint1   done       = 0   // pulses high when done, both for reads and writes

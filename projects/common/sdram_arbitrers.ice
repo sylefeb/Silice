@@ -50,6 +50,7 @@ $$for i=0,Nway-1 do
       buffered_sd$i$.addr       = sd$i$.addr;
       buffered_sd$i$.rw         = sd$i$.rw;
       buffered_sd$i$.data_in    = sd$i$.data_in;
+      buffered_sd$i$.wmask      = sd$i$.wmask;
       buffered_sd$i$.in_valid   = 1;
     }
 $$end    
@@ -73,6 +74,7 @@ $$for i=0,Nway-1 do
                 sd.addr     = buffered_sd$i$.addr;
                 sd.rw       = buffered_sd$i$.rw;
                 sd.data_in  = buffered_sd$i$.data_in;
+                sd.wmask    = buffered_sd$i$.wmask;
                 sd.in_valid = 1;
                 working     = $1<<i$; // wait for done
               }            

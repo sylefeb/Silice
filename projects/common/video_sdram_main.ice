@@ -44,10 +44,8 @@ $$if HDMI then
 $include('hdmi.ice')
 $$end
 
-$$if HARDWARE then
 // Reset
 $include('clean_reset.ice')
-$$end
 
 // ------------------------- 
 
@@ -60,23 +58,17 @@ NOTE: sdram_clock cannot use a normal output as this would mean sampling
 */
 algorithm pll(
   output  uint1 video_clock,
-  output  uint1 video_reset,
   output! uint1 sdram_clock,
-  output! uint1 sdram_reset,
-  output  uint1 compute_clock,
-  output  uint1 compute_reset
+  output  uint1 compute_clock
 ) <autorun> {
   uint3 counter = 0;
   uint8 trigger = 8b11111111;
   
   sdram_clock   := clock;
-  sdram_reset   := (trigger > 0);
   
   compute_clock := ~counter[0,1]; // x2 slower
-  compute_reset := (trigger > 0);
 
   video_clock   := counter[1,1]; // x4 slower
-  video_reset   := (trigger > 0);
   
   while (1) {	  
     counter = counter + 1;
@@ -302,21 +294,18 @@ $$end
 
   uint1 video_reset   = 0;
   uint1 sdram_reset   = 0;
+  uint1 compute_reset = 0;
 
 $$if ICARUS or VERILATOR then
   // --- PLL
-  uint1 compute_reset = 0;
   uint1 compute_clock = 0;
   $$if ICARUS then
   uint1 sdram_clock   = 0;
   $$end
   pll clockgen<@clock,!reset>(
     video_clock   :> video_clock,
-    video_reset   :> video_reset,
     sdram_clock   :> sdram_clock,
-    sdram_reset   :> sdram_reset,
-    compute_clock :> compute_clock,
-    compute_reset :> compute_reset
+    compute_clock :> compute_clock
   );
 $$elseif DE10NANO then
   // --- clock
@@ -325,7 +314,6 @@ $$elseif DE10NANO then
   uint1 pll_lock     = 0;
   uint1 not_pll_lock = 0;
   uint1 compute_clock = 0;
-  uint1 compute_reset = 0;
   $$print('DE10NANO at 50 MHz compute clock, 100 MHz SDRAM')
   de10nano_clk_50_25_100_100ph180 clk_gen(
     refclk    <: clock,
@@ -336,25 +324,12 @@ $$elseif DE10NANO then
     outclk_3  :> sdram_clk,   // chip
     locked    :> pll_lock
   );
-  // --- video clean reset
-  clean_reset video_rstcond<@video_clock,!reset> (
-    out   :> video_reset
-  );
-  // --- SDRAM clean reset
-  clean_reset sdram_rstcond<@sdram_clock,!reset> (
-    out   :> sdram_reset
-  );
-  // --- compute clean reset
-  clean_reset compute_rstcond<@compute_clock,!reset> (
-    out   :> compute_reset
-  );
 $$elseif ULX3S then
   // --- clock
   uint1 video_clock   = 0;
   uint1 sdram_clock   = 0;
   uint1 pll_lock      = 0;
   uint1 compute_clock = 0;
-  uint1 compute_reset = 0;
 $$if not fast_compute then
   $$print('ULX3S at 50 MHz compute clock, 100 MHz SDRAM')
   ulx3s_clk_50_25_100_100ph180 clk_gen(
@@ -377,10 +352,12 @@ $$else
     locked   :> pll_lock
   ); 
 $$end
+$$end
+
   // --- video clean reset
   clean_reset video_rstcond<@video_clock,!reset> (
     out   :> video_reset
-  );  
+  );
   // --- SDRAM clean reset
   clean_reset sdram_rstcond<@sdram_clock,!reset> (
     out   :> sdram_reset
@@ -389,7 +366,6 @@ $$end
   clean_reset compute_rstcond<@compute_clock,!reset> (
     out   :> compute_reset
   );
-$$end
 
   uint1  video_active = 0;
   uint1  video_vblank = 0;
@@ -556,13 +532,23 @@ $$end
     <:auto:>
   );
 
+$$  if frame_drawer_at_sdram_speed then
+  uint1 frame_drawer_reset ::= sdram_reset || (~data_ready);
+$$  else
   uint1 frame_drawer_reset ::= compute_reset || (~data_ready);
+$$  end
+
 $$else
+$$  if frame_drawer_at_sdram_speed then
+  uint1 frame_drawer_reset ::= sdram_reset;
+$$  else
   uint1 frame_drawer_reset ::= compute_reset;
+$$  end
 $$end
 
   // --- Frame drawer
 $$if frame_drawer_at_sdram_speed then
+$$print('** using frame_drawer_at_sdram_speed')
   frame_drawer drawer<@sdram_clock,!frame_drawer_reset>(
 $$else  
   frame_drawer drawer<@compute_clock,!frame_drawer_reset>(
@@ -589,7 +575,7 @@ $$else
 $$if verbose then
   while (frame < 2) {
 $$else
-  while (frame <16) {
+  while (frame < 6) {
 $$end  
 $$end    
     while (video_vblank == 1) { }

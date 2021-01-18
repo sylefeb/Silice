@@ -7,8 +7,7 @@
 // - reads bursts of 32 x 16 bits
 //
 // if using directly the controller: 
-//  - reads  have to align with 512 bits boundaries (64 bytes)
-//  - writes have to align with  64 bits boundaries ( 8 bytes)
+//  - reads/writes have to aligned with 64 bits boundaries (8 bytes)
 
 // 4 banks, 8192 rows,  512 columns, 16 bits words
 // (larger chips will be left unused, see comments in other controllers)
@@ -198,10 +197,11 @@ $$end
       col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$];
       row       = sd.addr[$SDRAM_COLUMNS_WIDTH+3$, 13];
       wmask     = sd.wmask;
-      //byte      = sd.addr[ 0, 1];
-      //__display("ADDR %h row: %d col: %d byte: %b bank: %d",sd.addr,row,col,byte,bank);
       data      = sd.data_in;
       do_rw     = sd.rw;    
+      if (do_rw) {
+//        __display("ADDR %h rw:%b row: %d col: %d din: %h wmask:%b",sd.addr,do_rw,row,col,sd.data_in,wmask);
+      }
       // -> signal work to do
       work_todo = 1;
     }
@@ -291,7 +291,7 @@ $$if SIMULATION then
             //__display("[cycle %d] send command bank: %d (data %h) rw:%b",cycle,stage,reg_dq_o,do_rw);
 $$end            
             reg_sdram_ba  = stage;
-            reg_sdram_dqm = wmask[{stage,1b0},2];
+            reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
             opmodulo      = do_rw ? 8b00000010 : 8b10000000;
             stage         = stage + 1;
             cmd           = do_rw ? CMD_WRITE : CMD_READ;

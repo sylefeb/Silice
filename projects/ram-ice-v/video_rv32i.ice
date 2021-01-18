@@ -9,9 +9,9 @@ $$dofile('pre_include_asm.lua')
 
 $$if not SIMULATION then
 $$ init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
-$$ init_data_bytes = nil
 $$end
 
+$$ init_data_bytes = nil
 
 // default palette
 $$palette = {}
@@ -35,7 +35,8 @@ $$else
 $$  fast_compute = true
 $$end
 
-$$mode_640_480 = true
+$$mode_640_480   = true
+$$SDRAM_r512_w64 = true
 
 $include('../common/video_sdram_main.ice')
 
