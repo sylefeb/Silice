@@ -11,7 +11,7 @@ algorithm sdram_ram_32bits(
 ) <autorun> {
   
   always {
-    r32.data_out  = sdr.data_out >> {r32.addr[0,2],3b000};
+    r32.data_out  = sdr.data_out >> {r32.addr[2,1],5b00000};
     sdr.addr      = {r32.addr[3,23],3b000};
     sdr.rw        = r32.rw;
     sdr.data_in   = r32.data_in << {r32.addr[2,1],5b00000};
