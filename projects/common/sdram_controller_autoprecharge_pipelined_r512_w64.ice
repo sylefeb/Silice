@@ -192,6 +192,9 @@ $$end
     cmd = CMD_NOP;
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
     if (sd.in_valid) {
+$$if SIMULATION then            
+//      __display("[cycle %d] in_valid rw:%b",cycle,sd.rw);
+$$end
       // -> copy inputs
       // bank      = sd.addr[1, 2]; // bits 1-2
       col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$];
@@ -199,9 +202,9 @@ $$end
       wmask     = sd.wmask;
       data      = sd.data_in;
       do_rw     = sd.rw;    
-      if (do_rw) {
+//      if (do_rw) {
 //        __display("ADDR %h rw:%b row: %d col: %d din: %h wmask:%b",sd.addr,do_rw,row,col,sd.data_in,wmask);
-      }
+//      }
       // -> signal work to do
       work_todo = 1;
     }
@@ -251,7 +254,6 @@ $$end
       refresh_count = refresh_count - 1;
 
       if (work_todo) {
-
         uint3  stage     = 0;
         int7   length    = uninitialized;
         uint1  wait_one  = 0;
@@ -260,13 +262,14 @@ $$end
         uint3  read_br   = 0;
         uint1  reading   = 0;
         uint6  delay     = uninitialized;
-        // __display("[cycle %d] work_todo: rw:%b",cycle,do_rw);
 
+//__display("[cycle %d] work_todo: rw:%b",cycle,do_rw);
         work_todo      = 0;
         reg_sdram_a    = row;
         reg_dq_en      = 0;        
         // -> activate (pipelined, one for each bank)
         // TODO: this could be merged with the main loop below
+
         while (~stage[2,1]) {
           //__display("[cycle %d] activate bank: %d row: %d col: %d",cycle,stage,row,col);
           reg_sdram_ba = stage;
@@ -275,10 +278,11 @@ $$end
           stage       = ~wait_one ? stage + 1 : stage;
           wait_one    = ~wait_one; // tRRD (time between ACTIVATE bank a and ACTIVATE bank b)
         } // TODO: one cycle wasted here!
+//__display("[cycle %d] activate done",cycle);
         // -> send commands to banks
         stage  = 0;
         length = do_rw
-               ? 8 
+               ? 6
 $$if ULX3S then
                : $4 + 8*4 + 1$;
 $$elseif ICARUS then
@@ -303,7 +307,7 @@ $$end
             reg_sdram_ba  = stage;
             reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
 $$if SIMULATION then            
-            //__display("[cycle %d] send command bank: %d (data %h) rw:%b",cycle,stage,reg_dq_o,do_rw);
+//            __display("[cycle %d] send command bank: %d (data %h) rw:%b",cycle,stage,reg_dq_o,do_rw);
 $$end
             opmodulo      = do_rw ? 8b00000010 : 8b10000000;
             stage         = stage + 1;
@@ -322,13 +326,13 @@ $$end
           //__display("length %d, delay %b",length,delay);
           reading   = reading | delay[0,1];
           delay     = {1b0,delay[1,5]};
-          sd.done   = length == 0;
+          //sd.done   = length == 0;
           length    = length - 1;
+          sd.done   = length[6,1];
+//           if (sd.done) {
+// __display("[cycle %d] done:%b rw:%b stage:%b length:%d",cycle,sd.done,do_rw,stage[0,2],length);
+//           }
         }
-++: // enforce tRP
-// ++:
-// ++:
-
       } // work_todo
     } // refresh
 

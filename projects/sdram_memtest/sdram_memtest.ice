@@ -196,9 +196,10 @@ $$if ULX3S then
   ); 
 $$end
 
-$$if false then
   // maintain low (pulses when ready, see below)
   sio.in_valid := 0;
+
+$$if false then
 
   iter = 0;
   while (iter < 32) { // init
