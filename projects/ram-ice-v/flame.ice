@@ -177,13 +177,13 @@ $$end
   uint1   done     = uninitialized;
   sdram_writer writer(
     sd      <:> sd,
-    fbuffer <: fbuffer,
-    start   <: start,
-    end     <: end,
-    next    <: next,
-    color   <: color,
-    x       <: span_x,
-    y       <: y,
+    fbuffer <:: fbuffer,
+    start   <:: start,
+    end     <:: end,
+    next    <:: next,
+    color   <:: color,
+    x       <:: span_x,
+    y       <:: y,
     done    :> done
   );
 
