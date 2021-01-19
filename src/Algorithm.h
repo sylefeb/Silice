@@ -609,7 +609,7 @@ private:
 
     /// \brief always blocks
     t_combinational_block                                             m_AlwaysPre;
-    t_combinational_block                                             m_AlwaysPost; // empty, used only to track post-reads (bindings)
+    t_combinational_block                                             m_AlwaysPost;
     /// \brief wire assignments
     std::unordered_map<std::string,t_instr_nfo>                       m_WireAssignments;
     /// \brief all combinational blocks

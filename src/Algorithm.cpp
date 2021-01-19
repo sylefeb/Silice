@@ -3168,6 +3168,15 @@ Algorithm::t_combinational_block *Algorithm::gather(
           "always block can only be combinational");
       }
     }
+    m_AlwaysPost.context.parent_scope = _current;
+    if (algbody->alwaysAfterBlock() != nullptr) {
+      gather(algbody->alwaysAfterBlock(), &m_AlwaysPost, _context);
+      if (!isStateLessGraph(&m_AlwaysPost)) {
+        reportError(algbody->alwaysAfterBlock()->ALWAYS_AFTER()->getSymbol(),
+          (int)algbody->alwaysAfterBlock()->getStart()->getLine(),
+          "always_after block can only be combinational");
+      }
+    }
     // recurse on instruction list
     _current = gather(algbody->instructionList(), _current, _context);
     recurse  = false;
@@ -4291,6 +4300,7 @@ void Algorithm::determineVariablesAndOutputsAccess(
   }
   // determine variable access for always blocks
   determineVariablesAndOutputsAccess(&m_AlwaysPre);
+  determineVariablesAndOutputsAccess(&m_AlwaysPost);
   // determine variable access for wires
   determineVariablesAndOutputsAccessForWires(_global_in_read, _global_out_written);
   // determine variable access due to algorithm and module instances
@@ -4548,8 +4558,10 @@ Algorithm::Algorithm(
   m_KnownInterfaces(known_interfaces), m_KnownBitFields(known_bitfield)
 {
   // init with empty always blocks
-  m_AlwaysPre.id = 0;
-  m_AlwaysPre.block_name = "_always_pre";
+  m_AlwaysPre.id = -1;
+  m_AlwaysPre .block_name = "_always_pre";
+  m_AlwaysPost.id = -1;
+  m_AlwaysPost.block_name = "_always_post";
 }
 
 // -------------------------------------------------
@@ -4625,6 +4637,9 @@ void Algorithm::checkPermissions()
   // check permissions on all instructions of all blocks
   for (const auto &i : m_AlwaysPre.instructions) {
     checkPermissions(i.instr, &m_AlwaysPre);
+  }
+  for (const auto &i : m_AlwaysPost.instructions) {
+    checkPermissions(i.instr, &m_AlwaysPost);
   }
   for (const auto &b : m_Blocks) {
     for (const auto &i : b->instructions) {
@@ -4761,7 +4776,10 @@ void Algorithm::checkExpressions()
 {
   // check permissions on all instructions of all blocks
   for (const auto &i : m_AlwaysPre.instructions) {
-    checkExpressions(i.instr, &m_AlwaysPre);
+    checkExpressions(i.instr, &m_AlwaysPost);
+  }
+  for (const auto &i : m_AlwaysPost.instructions) {
+    checkExpressions(i.instr, &m_AlwaysPost);
   }
   for (const auto &b : m_Blocks) {
     for (const auto &i : b->instructions) {
@@ -6391,10 +6409,13 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
     } else if (current->pipeline_next()) {
       // write pipeline
       current = writeStatelessPipeline(prefix,out,current, _q,_dependencies, _ff_usage);
-    } else { // necessary as m_AlwaysPre reaches this
-      if (!hasNoFSM()) { 
-        // no action, goto end
-        out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << nxl;
+    } else { 
+      // necessary as m_AlwaysPre/m_AlwaysPost reaches this
+      if (block != &m_AlwaysPre && block != &m_AlwaysPost) {
+        if (!hasNoFSM()) {
+          // no action, goto end
+          out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << nxl;
+        }
       }
       return;
     }
@@ -7172,6 +7193,11 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   if (!hasNoFSM()) {
     // write all states
     writeCombinationalStates("_", out, always_dependencies, _ff_usage);
+  }
+  // always after block
+  {  
+    std::queue<size_t> q;
+    writeStatelessBlockGraph("_", out, &m_AlwaysPost, nullptr, q, always_dependencies, _ff_usage);
   }
   out << "end" << nxl;
 

@@ -59,7 +59,8 @@ TOUNSIGNED          : '__unsigned' ;
 
 DONE                : 'isdone' ;
 
-ALWAYS              : 'always' ;
+ALWAYS              : 'always' | 'always_before' ;
+ALWAYS_AFTER        : 'always_after' ;
 
 BRAM                : 'bram' ;
 
@@ -335,7 +336,9 @@ instruction         : assignment
                     | display
                     ;
 
-alwaysBlock         : ALWAYS '{' instructionList '}';
+alwaysBlock         : ALWAYS       '{' instructionList '}';
+alwaysAfterBlock    : ALWAYS_AFTER '{' instructionList '}';
+
 repeatBlock         : REPEATCNT '{' instructionList '}' ;
 
 pipeline            : block ('->' block) +;
@@ -378,6 +381,7 @@ subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = 
 declAndInstrList    : (declaration ';' | subroutine ) *
                       alwaysPre = alwaysAssignedList 
                       alwaysBlock?
+                      alwaysAfterBlock?
                       instructionList
 					  ;
 

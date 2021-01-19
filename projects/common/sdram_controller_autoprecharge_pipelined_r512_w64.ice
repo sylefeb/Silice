@@ -188,9 +188,15 @@ $$end
 
   sd.done := 0;
   
-  always { // always block tracks in_valid  
+  // always set NOP as default command, before anything else
+  always_before { 
     cmd = CMD_NOP;
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+  }
+
+  // always track incoming requests, after everything else
+  // (introduces a one cycle latency but beneficial to timing)
+  always_after {
     if (sd.in_valid) {
 $$if SIMULATION then            
 //      __display("[cycle %d] in_valid rw:%b",cycle,sd.rw);
@@ -280,7 +286,7 @@ $$end
           reg_sdram_ba = stage;          
           switch ({opmodulo[0,1],actmodulo[0,1],~stage[2,1]}) {
             case 3b011: {
-              //__display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
+              // __display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
               //reg_sdram_ba = stage;
               reg_sdram_a  = row;
               cmd          = CMD_ACTIVE;
@@ -304,7 +310,7 @@ $$end
               shift         = shift >> 16;
             }
             default: {
-              // __display("[cycle %d] ... stage %d, din %h",cycle,stage,dq_i);
+              // __display("[cycle %d] ___ stage %d, din %h",cycle,stage,dq_i);
               opmodulo  = {opmodulo[0,1],opmodulo[1,7]};
               actmodulo = {actmodulo[0,1],actmodulo[1,7]};
             }
@@ -322,12 +328,11 @@ $$end
           //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
           if ((do_rw & stage[2,1]) | (read_bk[2,1])) {
             sd.done = 1;
+$$if SIMULATION then
+//            __display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
+$$end          
             break;
           }
-          // sd.done   = (do_rw & stage[2,1]) | (read_bk[2,1]);
-          //if (sd.done) {
-          //  __display("[cycle %d] done:%b rw:%b stage:%b length:%d",cycle,sd.done,do_rw,stage[0,2],length);
-          //}
         }
       } // work_todo
     } // refresh
