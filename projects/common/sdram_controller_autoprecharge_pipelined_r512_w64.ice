@@ -227,15 +227,15 @@ $$end
   cmd          = CMD_PRECHARGE;
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   reg_sdram_a  = {2b0,1b1,10b0};
-  () <- wait <- ($cmd_precharge_delay-3$);
+  () <- wait <- ($math.max(0,cmd_precharge_delay-4)$);
 
   // load mod reg
   cmd          = CMD_LOAD_MODE_REG;
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   reg_sdram_ba = 0;
   reg_sdram_a  = {3b000, 1b1/*single write*/, 2b00, 3b011/*CAS*/, 1b0, 3b011 /*burst=8x*/ };
-  () <- wait <- (0);
-  
+++: // tMRD
+
   // init done, start answering requests  
   while (1) {
 
@@ -247,7 +247,7 @@ $$end
       cmd           = CMD_REFRESH;
       (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
       // wait
-      () <- wait <- ($refresh_wait-3$);
+      () <- wait <- ($refresh_wait-4$);
       // -> reset count
       refresh_count = $refresh_cycles$;  
 
