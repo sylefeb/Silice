@@ -47,8 +47,6 @@ SUB                 : 'subroutine' ;
 
 RETURN              : 'return' ;
 
-CALL                : 'call' ;
-
 BREAK               : 'break' ;
 
 DISPLAY             : '$display' | '__display' ;
@@ -314,7 +312,6 @@ circuitryInst       : '(' outs=identifierList ')' '=' IDENTIFIER '(' ins=identif
 
 state               : state_name=IDENTIFIER ':' | NEXT ;
 jump                : GOTO IDENTIFIER ;
-call                : CALL IDENTIFIER ;
 returnFrom          : RETURN ;
 breakLoop           : BREAK ;
 
@@ -332,7 +329,6 @@ instruction         : assignment
                     | asyncExec
                     | joinExec
                     | jump
-                    | call
                     | circuitryInst
                     | returnFrom
                     | breakLoop

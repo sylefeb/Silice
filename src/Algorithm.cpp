@@ -2255,33 +2255,6 @@ Algorithm::t_combinational_block* Algorithm::gatherJump(siliceParser::JumpContex
 
 // -------------------------------------------------
 
-Algorithm::t_combinational_block *Algorithm::gatherCall(siliceParser::CallContext* call, t_combinational_block *_current, t_gather_context *_context)
-{
-  // start a new block just after the call
-  t_combinational_block* after = addBlock(generateBlockName(), _current);
-  // has to be a state to return to
-  after->is_state = true;
-  // find the destination
-  std::string name = call->IDENTIFIER()->getText();
-  auto B = m_State2Block.find(name);
-  if (B == m_State2Block.end()) {
-    // forward reference
-    _current->goto_and_return_to(nullptr, after);
-    t_forward_jump j;
-    j.from = _current;
-    j.jump = call;
-    m_JumpForwardRefs[name].push_back(j);
-  } else {
-    // current goes there and return on next
-    _current->goto_and_return_to(B->second, after);
-    B->second->is_state = true; // destination has to be a state
-  }
-  // return block after call
-  return after;
-}
-
-// -------------------------------------------------
-
 Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::ReturnFromContext* ret, t_combinational_block* _current, t_gather_context* _context)
 {
   if (_current->context.subroutine == nullptr) {
@@ -3164,7 +3137,6 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto circinst = dynamic_cast<siliceParser::CircuitryInstContext*>(tree);
   auto repeat   = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
   auto pip      = dynamic_cast<siliceParser::PipelineContext*>(tree);
-  auto call     = dynamic_cast<siliceParser::CallContext*>(tree);
   auto ret      = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
   auto breakL   = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
   auto block    = dynamic_cast<siliceParser::BlockContext *>(tree);
@@ -3208,7 +3180,6 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (pip)      { _current = gatherPipeline(pip, _current, _context);           recurse = false;
   } else if (sync)     { _current = gatherSyncExec(sync, _current, _context);          recurse = false;
   } else if (join)     { _current = gatherJoinExec(join, _current, _context);          recurse = false;
-  } else if (call)     { _current = gatherCall(call, _current, _context);              recurse = false;
   } else if (circinst) { _current = gatherCircuitryInst(circinst, _current, _context); recurse = false;
   } else if (jump)     { _current = gatherJump(jump, _current, _context);              recurse = false; 
   } else if (ret)      { _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
@@ -3256,10 +3227,6 @@ void Algorithm::resolveForwardJumpRefs()
         if (dynamic_cast<siliceParser::JumpContext*>(j.jump)) {
           // update jump
           j.from->next(B->second);
-        } else if (dynamic_cast<siliceParser::CallContext*>(j.jump)) {
-          // update call
-          const end_action_goto_and_return_to* gaf = j.from->goto_and_return_to();
-          j.from->goto_and_return_to(B->second, gaf->return_to);
         } else {
           sl_assert(false);
         }
