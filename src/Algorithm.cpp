@@ -2289,8 +2289,9 @@ Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::Retu
   }
   // add return at end of current
   _current->return_from(_current->context.subroutine->name,m_SubroutinesCallerReturnStates);
-  // start a new block
+  // start a new block with a new state
   t_combinational_block* block = addBlock(generateBlockName(), _current);
+  _current->is_state = true;
   return block;
 }
 
