@@ -260,8 +260,7 @@ $$end
         uint3  stage     = 0;
         uint8  actmodulo = 8b00000001;
         uint8  opmodulo  = 8b00000100;
-        uint3  read_bk   = 0;
-        uint3  read_br   = 0;
+        uint6  read_cnt  = 0;
         uint1  reading   = 0;
         uint8  delay     = uninitialized;
 
@@ -310,17 +309,14 @@ $$end
             }
           }
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-          sd.data_out[{read_br,read_bk[0,2],4b0000},16] = dq_i;
-          if (reading) {
-            // burst data in
-            //__display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
-            read_bk = (read_br == 7) ? read_bk + 1 : read_bk;
-            read_br = read_br + 1;
-          }
+          // burst data in
+          sd.data_out[{read_cnt[0,3],read_cnt[3,2],4b0000},16] = dq_i;
+          read_cnt = reading ? read_cnt + 1 : read_cnt;
+          //__display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
           reading   = reading | delay[0,1];
           delay     = {1b0,delay[1,7]};
           //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
-          if ((do_rw & stage[2,1]) | (read_bk[2,1])) {
+          if ((do_rw & stage[2,1]) | (read_cnt[5,1])) {
             sd.done = 1;
 $$if SIMULATION then
 //            __display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
