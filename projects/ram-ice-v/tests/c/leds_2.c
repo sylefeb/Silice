@@ -17,21 +17,21 @@ void main()
   while (1) {
     int iter = 0;
     while (++iter < 64) {  
-      *(volatile unsigned char*)0x20000000 = 0xaa;
+      *(volatile unsigned char*)0x90000000 = 0xaa;
       pause(10000000);
-      *(volatile unsigned char*)0x20000000 = 0x55;
+      *(volatile unsigned char*)0x90000000 = 0x55;
       pause(10000000);
     }
     for (int i = 0; i < 128 ; i++) {
-      *(volatile unsigned char*)0x20000000 = -i;
+      *(volatile unsigned char*)0x90000000 = -i;
       pause(10000000);
     }
     for (int i = 0; i < 8 ; i++) {
-      *(volatile unsigned char*)0x20000000 = (1<<i);
+      *(volatile unsigned char*)0x90000000 = (1<<i);
       pause(50000000);
     }
     for (int i = 0; i < 8 ; i++) {
-      *(volatile unsigned char*)0x20000000 = (128>>i);
+      *(volatile unsigned char*)0x90000000 = (128>>i);
       pause(50000000);
     }
   }

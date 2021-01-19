@@ -128,8 +128,8 @@ wire [3:0]  __main_out_audio_r;
 
 wire ready = btns[0];
 
-reg [31:0] RST_d;
-reg [31:0] RST_q;
+reg [15:0] RST_d;
+reg [15:0] RST_q;
 
 always @* begin
   RST_d = RST_q >> 1;
@@ -139,7 +139,7 @@ always @(posedge clk_25mhz) begin
   if (ready) begin
     RST_q <= RST_d;
   end else begin
-    RST_q <= 32'b111111111111111111111111111111;
+    RST_q <= 16'b111111111111111;
   end
 end
 
