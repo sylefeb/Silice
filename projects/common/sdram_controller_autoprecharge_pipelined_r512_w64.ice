@@ -255,25 +255,15 @@ $$end
 
       if (work_todo) {
         uint3  stage     = 0;
-        int7   length    = uninitialized;
         uint8  actmodulo = 8b00000001;
         uint8  opmodulo  = 8b00000100;
-        uint2  read_bk   = 0;
+        uint3  read_bk   = 0;
         uint3  read_br   = 0;
         uint1  reading   = 0;
         uint8  delay     = uninitialized;
 
         work_todo      = 0;
 
-        length = do_rw
-               ? 14
-$$if ULX3S then
-               : $6 + 8*4 + 1$;
-$$elseif ICARUS then
-               : $6 + 8*4 + 0$;
-$$else
-               : $6 + 8*4 - 1$;
-$$end
         delay         = 
 $$if ULX3S then
                8b10000000;
@@ -283,7 +273,7 @@ $$else
                8b00100000;
 $$end
         reg_dq_en     = do_rw;
-        while (~length[6,1]) {
+        while (1) {
           // __display("[cycle %d] length %d -- opmodulo: %b -- actmodulo: %b -- data_in: %h",cycle,length,opmodulo,actmodulo,dq_i);
           switch ({opmodulo[0,1],actmodulo[0,1],~stage[2,1]}) {
             case 3b011: {
@@ -316,21 +306,24 @@ $$end
             }
           }
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-          sd.data_out[{read_br,read_bk,4b0000},16] = dq_i;
+          sd.data_out[{read_br,read_bk[0,2],4b0000},16] = dq_i;
           if (reading) {
             // burst data in
             //__display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
             read_bk = (read_br == 7) ? read_bk + 1 : read_bk;
             read_br = read_br + 1;
           }
-          //__display("length %d, delay %b",length,delay);
           reading   = reading | delay[0,1];
           delay     = {1b0,delay[1,7]};
-          length    = length - 1;
-          sd.done   = length[6,1];
-//           if (sd.done) {
-// __display("[cycle %d] done:%b rw:%b stage:%b length:%d",cycle,sd.done,do_rw,stage[0,2],length);
-//           }
+          //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
+          if ((do_rw & stage[2,1]) | (read_bk[2,1])) {
+            sd.done = 1;
+            break;
+          }
+          // sd.done   = (do_rw & stage[2,1]) | (read_bk[2,1]);
+          //if (sd.done) {
+          //  __display("[cycle %d] done:%b rw:%b stage:%b length:%d",cycle,sd.done,do_rw,stage[0,2],length);
+          //}
         }
       } // work_todo
     } // refresh
