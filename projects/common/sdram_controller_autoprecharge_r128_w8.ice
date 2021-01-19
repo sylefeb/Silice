@@ -196,13 +196,9 @@ $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_
 
   int11 refresh_count = -1;
   
-  // wait for incount cycles, incount >= 3
+  // waits for incount + 4 cycles
   subroutine wait(input uint16 incount)
   {
-    // NOTE: waits 3 more than incount
-    // +1 for sub entry,
-    // +1 for sub exit,
-    // +1 for proper loop length
     uint16 count = uninitialized;
     count = incount;
     while (count != 0) {

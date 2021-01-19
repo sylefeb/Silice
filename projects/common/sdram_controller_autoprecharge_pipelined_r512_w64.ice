@@ -152,13 +152,9 @@ $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_
 
   int11 refresh_count = -1;
   
-  // wait for incount cycles, incount >= 3
+  // waits for incount + 4 cycles
   subroutine wait(input uint16 incount)
   {
-    // NOTE: waits 3 more than incount
-    // +1 for sub entry,
-    // +1 for sub exit,
-    // +1 for proper loop length
     uint16 count = uninitialized;
     count = incount;
     while (count != 0) {
@@ -268,10 +264,8 @@ $$end
         uint3  read_br   = 0;
         uint1  reading   = 0;
         uint8  delay     = uninitialized;
-        uint64 shift     = uninitialized;
 
         work_todo     = 0;
-        shift         = data;
         delay         = 
 $$if ULX3S then
                8b10000000;
@@ -299,7 +293,7 @@ $$end
               // } else {
               //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
               // }
-              reg_dq_o      = shift; //[{stage,4b0000},16];
+              reg_dq_o      = data; //[{stage,4b0000},16];
               reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
               //reg_sdram_ba  = stage;
               reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
@@ -307,7 +301,7 @@ $$end
               opmodulo      = do_rw ? 8b00001000 : 8b10000000;
               actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
               stage         = stage + 1;             
-              shift         = shift >> 16;
+              data          = data >> 16;
             }
             default: {
               // __display("[cycle %d] ___ stage %d, din %h",cycle,stage,dq_i);

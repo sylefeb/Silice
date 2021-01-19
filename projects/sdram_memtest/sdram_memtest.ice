@@ -170,6 +170,7 @@ $$end
   $$end
   );
 
+  uint16               cycle = 0;
   uint27               count = uninitialized;
   uint2                pass  = 0;
 
@@ -198,6 +199,21 @@ $$end
 
   // maintain low (pulses when ready, see below)
   sio.in_valid := 0;
+
+/*
+always_before {
+  if (sio.done) {
+    __display("[cycle %d] DONE",cycle);
+  }
+}
+
+always_after {
+  if (sio.in_valid) {
+    __display("[cycle %d] REQ",cycle);
+  }
+  cycle = cycle + 1;
+}
+*/
 
 $$if false then
 
