@@ -256,65 +256,64 @@ $$end
       if (work_todo) {
         uint3  stage     = 0;
         int7   length    = uninitialized;
-        uint1  wait_one  = 0;
-        uint8  opmodulo  = 8b1;
+        uint8  actmodulo = 8b00000001;
+        uint8  opmodulo  = 8b00000100;
         uint2  read_bk   = 0;
         uint3  read_br   = 0;
         uint1  reading   = 0;
-        uint6  delay     = uninitialized;
+        uint8  delay     = uninitialized;
 
-//__display("[cycle %d] work_todo: rw:%b",cycle,do_rw);
         work_todo      = 0;
-        reg_sdram_a    = row;
-        reg_dq_en      = 0;        
-        // -> activate (pipelined, one for each bank)
-        // TODO: this could be merged with the main loop below
-        // NOTE: for writes tRCD/tRRD limit the interest ; but this would ultimately simplify the controller
-        //       (both are ~2 cycles at 100MHz)
-        while (~stage[2,1]) {
-          //__display("[cycle %d] activate bank: %d row: %d col: %d",cycle,stage,row,col);
-          reg_sdram_ba = stage;
-          cmd          = ~wait_one ? CMD_ACTIVE : CMD_NOP;
-          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-          stage       = ~wait_one ? stage + 1 : stage;
-          wait_one    = ~wait_one; // tRRD (time between ACTIVATE bank a and ACTIVATE bank b)
-        } // TODO: one cycle wasted here!
-//__display("[cycle %d] activate done",cycle);
-        // -> send commands to banks
-        stage  = 0;
+
         length = do_rw
-               ? 6
+               ? 14
 $$if ULX3S then
-               : $4 + 8*4 + 1$;
+               : $6 + 8*4 + 1$;
 $$elseif ICARUS then
-               : $4 + 8*4 + 0$;
+               : $6 + 8*4 + 0$;
 $$else
-               : $4 + 8*4 - 1$;
+               : $6 + 8*4 - 1$;
 $$end
         delay         = 
 $$if ULX3S then
-               6b100000;
+               8b10000000;
 $$elseif ICARUS then
-               6b010000;
+               8b01000000;
 $$else
-               6b001000;
+               8b00100000;
 $$end
         reg_dq_en     = do_rw;
-        reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
         while (~length[6,1]) {
-          //__display("[cycle %d] length %d -- opmodulo: %b -- data_in: %h",cycle,length,opmodulo,dq_i);
-          if (opmodulo[0,1] & ~stage[2,1]) {
-            reg_dq_o      = data[{stage,4b0000},16];
-            reg_sdram_ba  = stage;
-            reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
-$$if SIMULATION then            
-//            __display("[cycle %d] send command bank: %d (data %h) rw:%b",cycle,stage,reg_dq_o,do_rw);
-$$end
-            opmodulo      = do_rw ? 8b00000010 : 8b10000000;
-            stage         = stage + 1;
-            cmd           = do_rw ? CMD_WRITE : CMD_READ;
-          } else {
-            opmodulo = {opmodulo[0,1],opmodulo[1,7]};
+          // __display("[cycle %d] length %d -- opmodulo: %b -- actmodulo: %b -- data_in: %h",cycle,length,opmodulo,actmodulo,dq_i);
+          switch ({opmodulo[0,1],actmodulo[0,1],~stage[2,1]}) {
+            case 3b011: {
+              //__display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
+              reg_sdram_ba = stage;
+              reg_sdram_a  = row;
+              cmd          = CMD_ACTIVE;
+              actmodulo    = do_rw ? 8b00001000 : 8b10000000;
+              opmodulo     = {opmodulo[0,1],opmodulo[1,7]};
+            }
+            case 3b101: {
+              // if (do_rw) {
+              //   __display("[cycle %d] WR stage %d",cycle,stage);
+              // } else {
+              //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
+              // }
+              reg_dq_o      = data[{stage,4b0000},16];
+              reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
+              reg_sdram_ba  = stage;
+              reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
+              cmd           = do_rw ? CMD_WRITE : CMD_READ;
+              opmodulo      = do_rw ? 8b00001000 : 8b10000000;
+              actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
+              stage         = stage + 1;             
+            }
+            default: {
+              // __display("[cycle %d] ... stage %d, din %h",cycle,stage,dq_i);
+              opmodulo  = {opmodulo[0,1],opmodulo[1,7]};
+              actmodulo = {actmodulo[0,1],actmodulo[1,7]};
+            }
           }
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           sd.data_out[{read_br,read_bk,4b0000},16] = dq_i;
@@ -326,7 +325,7 @@ $$end
           }
           //__display("length %d, delay %b",length,delay);
           reading   = reading | delay[0,1];
-          delay     = {1b0,delay[1,5]};
+          delay     = {1b0,delay[1,7]};
           length    = length - 1;
           sd.done   = length[6,1];
 //           if (sd.done) {

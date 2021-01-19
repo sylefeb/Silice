@@ -47,7 +47,7 @@ $$else
       while (pix_x != 640) {
 $$end        
         // write to sdram
-        sdh.data_in    = 0; // 64hffffffffffffffff;
+        sdh.data_in    = 0;
 $$if SDRAM_r512_w64 then 
         sdh.addr       = {1b0,buffer,24b0} | (pix_x<<3) | (pix_y << 10);
 $$else
