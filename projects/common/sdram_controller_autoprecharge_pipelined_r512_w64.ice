@@ -274,30 +274,30 @@ $$elseif ICARUS then
 $$else
                8b00100000;
 $$end
-        reg_dq_en     = do_rw;
         while (1) {
           // __display("[cycle %d] length %d -- opmodulo: %b -- actmodulo: %b -- data_in: %h",cycle,length,opmodulo,actmodulo,dq_i);
           reg_sdram_ba = stage;          
-          switch ({opmodulo[0,1],actmodulo[0,1],~stage[2,1]}) {
-            case 3b011: {
+          switch ({opmodulo[0,1],actmodulo[0,1]}) {
+            case 2b01: {
               // __display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
               //reg_sdram_ba = stage;
               reg_sdram_a  = row;
-              cmd          = CMD_ACTIVE;
+              cmd          = stage[2,1] ? CMD_NOP : CMD_ACTIVE;
               actmodulo    = do_rw ? 8b00001000 : 8b10000000;
               opmodulo     = {opmodulo[0,1],opmodulo[1,7]};
             }
-            case 3b101: {
+            case 2b10: {
               // if (do_rw) {
               //   __display("[cycle %d] WR stage %d",cycle,stage);
               // } else {
               //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
               // }
-              reg_dq_o      = data; //[{stage,4b0000},16];
+              reg_dq_o      = data;
+              reg_dq_en     = do_rw;
               reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
               //reg_sdram_ba  = stage;
               reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
-              cmd           = do_rw ? CMD_WRITE : CMD_READ;
+              cmd           = stage[2,1] ? CMD_NOP : (do_rw ? CMD_WRITE : CMD_READ);
               opmodulo      = do_rw ? 8b00001000 : 8b10000000;
               actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
               stage         = stage + 1;             
