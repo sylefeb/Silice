@@ -254,6 +254,7 @@ $$end
       refresh_count = refresh_count - 1;
 
       if (work_todo) {
+        
         uint3  stage     = 0;
         uint8  actmodulo = 8b00000001;
         uint8  opmodulo  = 8b00000100;
@@ -261,9 +262,10 @@ $$end
         uint3  read_br   = 0;
         uint1  reading   = 0;
         uint8  delay     = uninitialized;
+        uint64 shift     = uninitialized;
 
-        work_todo      = 0;
-
+        work_todo     = 0;
+        shift         = data;
         delay         = 
 $$if ULX3S then
                8b10000000;
@@ -275,10 +277,11 @@ $$end
         reg_dq_en     = do_rw;
         while (1) {
           // __display("[cycle %d] length %d -- opmodulo: %b -- actmodulo: %b -- data_in: %h",cycle,length,opmodulo,actmodulo,dq_i);
+          reg_sdram_ba = stage;          
           switch ({opmodulo[0,1],actmodulo[0,1],~stage[2,1]}) {
             case 3b011: {
               //__display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
-              reg_sdram_ba = stage;
+              //reg_sdram_ba = stage;
               reg_sdram_a  = row;
               cmd          = CMD_ACTIVE;
               actmodulo    = do_rw ? 8b00001000 : 8b10000000;
@@ -290,14 +293,15 @@ $$end
               // } else {
               //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
               // }
-              reg_dq_o      = data[{stage,4b0000},16];
+              reg_dq_o      = shift; //[{stage,4b0000},16];
               reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
-              reg_sdram_ba  = stage;
+              //reg_sdram_ba  = stage;
               reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
               cmd           = do_rw ? CMD_WRITE : CMD_READ;
               opmodulo      = do_rw ? 8b00001000 : 8b10000000;
               actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
               stage         = stage + 1;             
+              shift         = shift >> 16;
             }
             default: {
               // __display("[cycle %d] ... stage %d, din %h",cycle,stage,dq_i);
