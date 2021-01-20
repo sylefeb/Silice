@@ -134,11 +134,10 @@ $$else
 $$end
 $$end
 
-  uint4  cmd = 7;
+  uint4  cmd(7);
   
-  uint1   work_todo   = 0;
+  uint1   work_todo(0);
   uint13  row         = uninitialized;
-  // uint2   bank        = uninitialized;
   uint10  col         = uninitialized;
   uint64  data        = uninitialized;
   uint1   do_rw       = uninitialized;
@@ -150,7 +149,7 @@ $$ cmd_active_delay    = 2
 $$ cmd_precharge_delay = 3
 $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
 
-  int11 refresh_count = -1;
+  int11 refresh_count(-1);
   
   // waits for incount + 4 cycles
   subroutine wait(input uint16 incount)
