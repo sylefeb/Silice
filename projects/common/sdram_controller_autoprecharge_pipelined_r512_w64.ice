@@ -134,9 +134,9 @@ $$else
 $$end
 $$end
 
-  uint4  cmd = 7;
+  uint4  cmd          = uninitialized;
   
-  uint1   work_todo   = 0;
+  uint1   work_todo(0);
   uint13  row         = uninitialized;
   // uint2   bank        = uninitialized;
   uint10  col         = uninitialized;
@@ -150,8 +150,9 @@ $$ cmd_active_delay    = 2
 $$ cmd_precharge_delay = 3
 $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
 
-  int11 refresh_count = -1;
-  
+  int11 refresh_count(-1);
+  uint1 needs_refresh ::= refresh_count[10,1];
+
   // waits for incount + 4 cycles
   subroutine wait(input uint16 incount)
   {
@@ -188,6 +189,7 @@ $$end
   always_before { 
     cmd = CMD_NOP;
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+    refresh_count = refresh_count - 1;
   }
 
   // always track incoming requests, after everything else
@@ -240,7 +242,7 @@ $$end
   while (1) {
 
     // refresh?
-    if (refresh_count[10,1] == 1) { // became negative!
+    if (needs_refresh) { // became negative!
 
       //__display("[cycle %d] refresh",cycle);
       // refresh
@@ -253,9 +255,7 @@ $$end
 
     } else {
 
-      refresh_count = refresh_count - 1;
-
-      if (work_todo) {
+      /*if (work_todo)*/ {
         
         uint3  stage     = uninitialized;
         uint8  actmodulo = uninitialized;
@@ -264,7 +264,6 @@ $$end
         uint1  reading   = uninitialized;
         uint8  delay     = uninitialized;
 
-        work_todo     = 0;
         delay         = 
 $$if ULX3S then
                8b10000000;
@@ -278,10 +277,12 @@ $$end
         reading   = 0;
         actmodulo = 8b00000001;
         opmodulo  = 8b00000100;
-        while (1) {
+        while (work_todo) {
           // __display("[cycle %d] length %d -- opmodulo: %b -- actmodulo: %b -- data_in: %h",cycle,length,opmodulo,actmodulo,dq_i);
           reg_sdram_ba  = stage;
           reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
+          reg_dq_o      = opmodulo[0,1] ? data  : reg_dq_o;
+          reg_dq_en     = opmodulo[0,1] ? do_rw : reg_dq_en;
           switch ({opmodulo[0,1],actmodulo[0,1]}) {
             case 2b01: {
               // __display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
@@ -297,8 +298,6 @@ $$end
               // } else {
               //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
               // }
-              reg_dq_o      = data;
-              reg_dq_en     = do_rw;
               reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
               //reg_sdram_ba  = stage;
               cmd           = stage[2,1] ? CMD_NOP : (do_rw ? CMD_WRITE : CMD_READ);
@@ -327,10 +326,11 @@ $$end
           delay     = {1b0,delay[1,7]};
           //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
           if ((do_rw & stage[2,1]) | (read_cnt[5,1])) {
-            sd.done = 1;
+            sd.done   = 1;
 $$if SIMULATION then
 //            __display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
 $$end          
+            work_todo = 0;
             break;
           }
         }

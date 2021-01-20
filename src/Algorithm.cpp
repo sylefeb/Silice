@@ -2029,6 +2029,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         reportError(type->getSourceInterval(), (int)type->getStart()->getLine(), "'sameas' in subroutine declaration cannot be refering to a group or interface");
       }
       // init values
+      var.do_not_initialize = true;
       var.init_values.resize(max(var.table_size, 1), "0");
       // insert var
       insertVar(var, _current, true /*no init*/);
@@ -6815,7 +6816,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
       out << "parameter " << str << "_WIDTH=1,";
       out << "parameter " << str << "_SIGNED=0,";
-      out << "parameter " << str << "_INIT=0";
+      out << "parameter " << str << "_INIT={"<< str <<"_WIDTH{1'bx}}";
       if (i + 1 < m_Parameterized.size()) {
         out << ',';
       }
