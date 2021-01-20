@@ -3,9 +3,9 @@
 algorithm clean_reset(  
   output uint1 out
 ) <autorun> {
-  int8  trigger(8b10000000);
+  uint4  trigger(15);
   always {
-    out     = ~ trigger[0,1];
-    trigger = trigger >>> 1;
+    out     = trigger[0,1];
+    trigger = trigger >> 1;
   }
 }
