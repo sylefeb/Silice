@@ -257,11 +257,11 @@ $$end
 
       if (work_todo) {
         
-        uint3  stage     = 0;
-        uint8  actmodulo = 8b00000001;
-        uint8  opmodulo  = 8b00000100;
-        uint6  read_cnt  = 0;
-        uint1  reading   = 0;
+        uint3  stage     = uninitialized;
+        uint8  actmodulo = uninitialized;
+        uint8  opmodulo  = uninitialized;
+        uint6  read_cnt  = uninitialized;
+        uint1  reading   = uninitialized;
         uint8  delay     = uninitialized;
 
         work_todo     = 0;
@@ -273,9 +273,15 @@ $$elseif ICARUS then
 $$else
                8b00100000;
 $$end
+        stage     = 0;
+        read_cnt  = 0;
+        reading   = 0;
+        actmodulo = 8b00000001;
+        opmodulo  = 8b00000100;
         while (1) {
           // __display("[cycle %d] length %d -- opmodulo: %b -- actmodulo: %b -- data_in: %h",cycle,length,opmodulo,actmodulo,dq_i);
-          reg_sdram_ba = stage;          
+          reg_sdram_ba  = stage;
+          reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
           switch ({opmodulo[0,1],actmodulo[0,1]}) {
             case 2b01: {
               // __display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
@@ -295,7 +301,6 @@ $$end
               reg_dq_en     = do_rw;
               reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
               //reg_sdram_ba  = stage;
-              reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
               cmd           = stage[2,1] ? CMD_NOP : (do_rw ? CMD_WRITE : CMD_READ);
               opmodulo      = do_rw ? 8b00001000 : 8b10000000;
               actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
@@ -304,14 +309,19 @@ $$end
             }
             default: {
               // __display("[cycle %d] ___ stage %d, din %h",cycle,stage,dq_i);
-              opmodulo  = {opmodulo[0,1],opmodulo[1,7]};
+              opmodulo  = {opmodulo [0,1],opmodulo [1,7]};
               actmodulo = {actmodulo[0,1],actmodulo[1,7]};
             }
           }
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           // burst data in
-          sd.data_out[{read_cnt[0,3],read_cnt[3,2],4b0000},16] = dq_i;
-          read_cnt = reading ? read_cnt + 1 : read_cnt;
+          switch ({read_cnt[0,3],read_cnt[3,2]}) {
+$$for i = 0,31 do            
+            case $i$: {sd.data_out[$i*16$,16] = dq_i;}
+$$end            
+          }
+          // sd.data_out[{read_cnt[0,3],read_cnt[3,2],4b0000},16] = dq_i;
+          read_cnt  = reading ? read_cnt + 1 : read_cnt;
           //__display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
           reading   = reading | delay[0,1];
           delay     = {1b0,delay[1,7]};
