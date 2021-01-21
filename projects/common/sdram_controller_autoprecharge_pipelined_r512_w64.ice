@@ -151,7 +151,7 @@ $$ cmd_precharge_delay = 3
 $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
 
   uint10 refresh_delay(0);
-  uint5  refresh_trigger = uninitialized;
+  uint3  refresh_trigger = uninitialized;
   int11  refresh_count($refresh_cycles$);
 
   uint1 needs_refresh ::= refresh_count[10,1];
@@ -199,7 +199,7 @@ $$end
   always_before { 
     cmd = CMD_NOP;
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-    refresh_count = refresh_count - 1; 
+    refresh_count = refresh_delay[0,1] ? $refresh_cycles$ : (refresh_count - 1);
     // __display("[cycle %d] needs_refresh:%b refreshing:%b work_todo:%b working:%b ",cycle,needs_refresh,refreshing,work_todo,working);
   }
 
@@ -221,9 +221,13 @@ $$end
       work_todo = 1;
     }
 
+    refresh_delay   = (refresh_delay>>1);
+    refresh_trigger = (refresh_trigger>>1);    
     if (needs_refresh & ~working) {
-      refresh_delay = 10b1111111111;
+      refresh_delay   = 10b1111111111;
+      refresh_trigger = 3b100;
     }
+
     if (work_todo & ~refresh_delay[0,1]) {
       working = 1;
       work_todo = 0;
@@ -253,6 +257,7 @@ $$if HARDWARE then
   //reg_sdram_a  = 0;
   //reg_sdram_ba = 0;
   //reg_dq_en    = 0;
+
   () <- wait <- (65535); // ~0.5 msec at 100MHz
 $$end
 
@@ -267,30 +272,25 @@ $$end
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   reg_sdram_ba = 0;
   reg_sdram_a  = {3b000, 1b1/*single write*/, 2b00, 3b011/*CAS*/, 1b0, 3b011 /*burst=8x*/ };
+++: // tMRC
 
   // init done, start answering requests  
   while (1) {
 
+    // sdram pins for read/write
     reg_sdram_ba  = stage;
-    // reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
     reg_sdram_dqm = do_rw          ? ~wmask[0,2] : 2b00;
     reg_dq_o      = opmodulo[0,1]  ? data        : reg_dq_o;
     reg_dq_en     = opmodulo[0,1]  ? do_rw       : reg_dq_en;
     reg_sdram_a   = actmodulo[0,1] ? row         : {2b0, 1b1/*auto-precharge*/, col};
 
-    // refresh?
-    if (refresh_delay[0,1]) {
+    if (refresh_delay[0,1]) { // refresh
 
       // __display("[cycle %d] refresh %b  %b",cycle,needs_refresh,refresh_delay);
       // refresh
-      refresh_delay   = needs_refresh ? 10b1111111111 : (refresh_delay>>1);
-      refresh_trigger = needs_refresh ? 5b10000     : (refresh_trigger>>1);
       cmd             = refresh_trigger[0,1] ? CMD_REFRESH : CMD_NOP;
-      (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-      // reset count
-      refresh_count   = $refresh_cycles$;
 
-    } else {
+    } else { // read/write pipeline sequence
 
         switch ({opmodulo[0,1],actmodulo[0,1]}) {
           case 2b01: {
@@ -322,34 +322,35 @@ $$end
             actmodulo = {actmodulo[0,1],actmodulo[1,7]};
           }
         }
-
-        (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-
     }
-
-    {
-          // burst data in
-          switch ({~working,read_cnt[0,3],read_cnt[3,2]}) {
+    
+    // issue command
+    (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+    
+    // burst data in
+    { 
+          
+      switch ({~working,read_cnt[0,3],read_cnt[3,2]}) {
 $$for i = 0,31 do            
-            case $i$: {sd.data_out[$i*16$,16] = dq_i;}
+        case $i$: {sd.data_out[$i*16$,16] = dq_i;}
 $$end            
-            default: {}
-          }
+        default: {}
+      }
 
-          // sd.data_out[{read_cnt[0,3],read_cnt[3,2],4b0000},16] = dq_i;
-          // __display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
-          //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
-          if ((do_rw & stage[2,1]) | (/*read_cnt[5,1]*/read_cnt == 31)) {
-            sd.done   = working;
-            working   = 0;
+      // sd.data_out[{read_cnt[0,3],read_cnt[3,2],4b0000},16] = dq_i;
+      // __display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
+      //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
+      if ((do_rw & stage[2,1]) | (/*read_cnt[5,1]*/read_cnt == 31)) {
+        sd.done   = working;
+        working   = 0;
 $$if SIMULATION then
-            // __display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
+        // __display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
 $$end          
-            // break;
-          }
+        // break;
+      }
 
-        read_cnt  = burst[0,1] ? (read_cnt + 1) : read_cnt;
-        burst     = burst >>> 1;
+      read_cnt  = burst[0,1] ? (read_cnt + 1) : read_cnt;
+      burst     = burst >>> 1;
 
     }
 
