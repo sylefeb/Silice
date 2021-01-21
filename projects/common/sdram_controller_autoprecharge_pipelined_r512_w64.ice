@@ -149,10 +149,17 @@ $$ cmd_active_delay    = 2
 $$ cmd_precharge_delay = 3
 $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
 
-  int11 refresh_count($refresh_cycles$);
-  uint1 needs_refresh ::= refresh_count[10,1];
   uint9 refresh_delay(0);
   uint5 refresh_trigger = uninitialized;
+  int11 refresh_count($refresh_cycles$);
+  uint1 needs_refresh ::= refresh_count[10,1];
+
+  uint3  stage     = uninitialized;
+  uint8  actmodulo = uninitialized;
+  uint8  opmodulo  = uninitialized;
+  uint6  read_cnt  = uninitialized;
+  uint1  reading   = uninitialized;
+  int9   burst     = uninitialized;
 
   // waits for incount + 4 cycles
   subroutine wait(input uint16 incount)
@@ -212,6 +219,20 @@ $$end
 //      }
       // -> signal work to do
       work_todo = 1;
+      // -> prepare read/write sequence
+      burst         = 
+$$if ULX3S then
+              9b100000000;
+$$elseif ICARUS then
+              9b110000000;
+$$else
+              9b111000000;
+$$end
+      stage     = 0;
+      read_cnt  = 0;
+      reading   = 0;
+      actmodulo = 8b00000001;
+      opmodulo  = 8b00000100;
     }
 $$if SIMULATION then
    cycle = cycle + 1;
@@ -237,18 +258,17 @@ $$end
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   reg_sdram_ba = 0;
   reg_sdram_a  = {3b000, 1b1/*single write*/, 2b00, 3b011/*CAS*/, 1b0, 3b011 /*burst=8x*/ };
-++: // tMRD
 
   // init done, start answering requests  
   while (1) {
 
     // refresh?
-    if (needs_refresh | refresh_delay[0,1]) {
+    if ((needs_refresh | refresh_delay[0,1])) {
 
       //__display("[cycle %d] refresh %b  %b",cycle,needs_refresh,refresh_delay);
       // refresh
       refresh_delay   = needs_refresh ? 9b111111111 : (refresh_delay>>1);
-      refresh_trigger = needs_refresh ? 5b10000 : (refresh_trigger>>1);
+      refresh_trigger = needs_refresh ? 5b10000     : (refresh_trigger>>1);
       cmd             = refresh_trigger[0,1] ? CMD_REFRESH : CMD_NOP;
       (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
       // -> reset count
@@ -256,26 +276,6 @@ $$end
 
     } else {
 
-        uint3  stage     = uninitialized;
-        uint8  actmodulo = uninitialized;
-        uint8  opmodulo  = uninitialized;
-        uint6  read_cnt  = uninitialized;
-        uint1  reading   = uninitialized;
-        uint8  delay     = uninitialized;
-
-        delay         = 
-$$if ULX3S then
-               8b10000000;
-$$elseif ICARUS then
-               8b01000000;
-$$else
-               8b00100000;
-$$end
-        stage     = 0;
-        read_cnt  = 0;
-        reading   = 0;
-        actmodulo = 8b00000001;
-        opmodulo  = 8b00000100;
         while (work_todo) {
           reg_sdram_ba  = stage;
           reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
@@ -318,16 +318,15 @@ $$for i = 0,31 do
 $$end            
           }
           // sd.data_out[{read_cnt[0,3],read_cnt[3,2],4b0000},16] = dq_i;
-          read_cnt  = reading ? read_cnt + 1 : read_cnt;
-          //__display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
-          reading   = reading | delay[0,1];
-          delay     = {1b0,delay[1,7]};
+          read_cnt  = burst[0,1] ? read_cnt + 1 : read_cnt;
+          // __display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
+          burst     = burst >>> 1;
           //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
           if ((do_rw & stage[2,1]) | (read_cnt[5,1])) {
             sd.done   = 1;
             work_todo = 0;
 $$if SIMULATION then
-//            __display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
+            //__display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
 $$end          
             break;
           }
