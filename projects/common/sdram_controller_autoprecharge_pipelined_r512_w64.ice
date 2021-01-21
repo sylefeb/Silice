@@ -137,6 +137,7 @@ $$end
   uint4  cmd          = uninitialized;
   
   uint1   work_todo(0);
+  uint1   working(0);
   uint13  row         = uninitialized;
   uint10  col         = uninitialized;
   uint64  data        = uninitialized;
@@ -149,15 +150,16 @@ $$ cmd_active_delay    = 2
 $$ cmd_precharge_delay = 3
 $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
 
-  uint9 refresh_delay(0);
-  uint5 refresh_trigger = uninitialized;
-  int11 refresh_count($refresh_cycles$);
+  uint10 refresh_delay(0);
+  uint5  refresh_trigger = uninitialized;
+  int11  refresh_count($refresh_cycles$);
+
   uint1 needs_refresh ::= refresh_count[10,1];
 
   uint3  stage     = uninitialized;
   uint8  actmodulo = uninitialized;
   uint8  opmodulo  = uninitialized;
-  uint6  read_cnt  = uninitialized;
+  uint5  read_cnt  = uninitialized;
   uint1  reading   = uninitialized;
   int9   burst     = uninitialized;
 
@@ -197,7 +199,8 @@ $$end
   always_before { 
     cmd = CMD_NOP;
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-    refresh_count = refresh_count - 1;
+    refresh_count = refresh_count - 1; 
+    // __display("[cycle %d] needs_refresh:%b refreshing:%b work_todo:%b working:%b ",cycle,needs_refresh,refreshing,work_todo,working);
   }
 
   // always track incoming requests, after everything else
@@ -205,7 +208,7 @@ $$end
   always_after {
     if (sd.in_valid) {
 $$if SIMULATION then            
-      //__display("[cycle %d] in_valid rw:%b",cycle,sd.rw);
+      // __display("[cycle %d] ---------- in_valid rw:%b",cycle,sd.rw);
 $$end
       // -> copy inputs
       // bank      = sd.addr[1, 2]; // bits 1-2
@@ -214,11 +217,16 @@ $$end
       wmask     = sd.wmask;
       data      = sd.data_in;
       do_rw     = sd.rw;    
-//      if (do_rw) {
-//        __display("ADDR %h rw:%b row: %d col: %d din: %h wmask:%b",sd.addr,do_rw,row,col,sd.data_in,wmask);
-//      }
       // -> signal work to do
       work_todo = 1;
+    }
+
+    if (needs_refresh & ~working) {
+      refresh_delay = 10b1111111111;
+    }
+    if (work_todo & ~refresh_delay[0,1]) {
+      working = 1;
+      work_todo = 0;
       // -> prepare read/write sequence
       burst         = 
 $$if ULX3S then
@@ -234,6 +242,7 @@ $$end
       actmodulo = 8b00000001;
       opmodulo  = 8b00000100;
     }
+
 $$if SIMULATION then
    cycle = cycle + 1;
 $$end
@@ -262,79 +271,87 @@ $$end
   // init done, start answering requests  
   while (1) {
 
-    // refresh?
-    if ((needs_refresh | refresh_delay[0,1])) {
+    reg_sdram_ba  = stage;
+    // reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
+    reg_sdram_dqm = do_rw          ? ~wmask[0,2] : 2b00;
+    reg_dq_o      = opmodulo[0,1]  ? data        : reg_dq_o;
+    reg_dq_en     = opmodulo[0,1]  ? do_rw       : reg_dq_en;
+    reg_sdram_a   = actmodulo[0,1] ? row         : {2b0, 1b1/*auto-precharge*/, col};
 
-      //__display("[cycle %d] refresh %b  %b",cycle,needs_refresh,refresh_delay);
+    // refresh?
+    if (refresh_delay[0,1]) {
+
+      // __display("[cycle %d] refresh %b  %b",cycle,needs_refresh,refresh_delay);
       // refresh
-      refresh_delay   = needs_refresh ? 9b111111111 : (refresh_delay>>1);
+      refresh_delay   = needs_refresh ? 10b1111111111 : (refresh_delay>>1);
       refresh_trigger = needs_refresh ? 5b10000     : (refresh_trigger>>1);
       cmd             = refresh_trigger[0,1] ? CMD_REFRESH : CMD_NOP;
       (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-      // -> reset count
-      refresh_count = $refresh_cycles$;
+      // reset count
+      refresh_count   = $refresh_cycles$;
 
     } else {
 
-        while (work_todo) {
-          reg_sdram_ba  = stage;
-          reg_sdram_dqm = do_rw ? ~wmask[{stage,1b0},2] : 2b00;
-          reg_dq_o      = opmodulo[0,1] ? data  : reg_dq_o;
-          reg_dq_en     = opmodulo[0,1] ? do_rw : reg_dq_en;
-          switch ({opmodulo[0,1],actmodulo[0,1]}) {
-            case 2b01: {
-              //__display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
-              //reg_sdram_ba = stage;
-              reg_sdram_a  = row;
-              cmd          = stage[2,1] ? CMD_NOP : CMD_ACTIVE;
-              actmodulo    = do_rw ? 8b00001000 : 8b10000000;
-              opmodulo     = {opmodulo[0,1],opmodulo[1,7]};
-            }
-            case 2b10: {
-              // if (do_rw) {
-              //   __display("[cycle %d] WR stage %d",cycle,stage);
-              // } else {
-              //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
-              // }
-              reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
-              //reg_sdram_ba  = stage;
-              cmd           = stage[2,1] ? CMD_NOP : (do_rw ? CMD_WRITE : CMD_READ);
-              opmodulo      = do_rw ? 8b00001000 : 8b10000000;
-              actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
-              stage         = stage + 1;             
-              data          = data >> 16;
-            }
-            default: {
-              // __display("[cycle %d] ___ stage %d, din %h",cycle,stage,dq_i);
-              opmodulo  = {opmodulo [0,1],opmodulo [1,7]};
-              actmodulo = {actmodulo[0,1],actmodulo[1,7]};
-            }
+        switch ({opmodulo[0,1],actmodulo[0,1]}) {
+          case 2b01: {
+            // __display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
+            //reg_sdram_ba = stage;
+            //reg_sdram_a  = row;
+            cmd          = (stage[2,1] | ~working) ? CMD_NOP : CMD_ACTIVE;
+            actmodulo    = do_rw ? 8b00001000 : 8b10000000;
+            opmodulo     = {opmodulo[0,1],opmodulo[1,7]};
           }
-          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-          // burst data in          
-          switch ({read_cnt[0,3],read_cnt[3,2]}) {
-$$for i = 0,31 do            
-            case $i$: {sd.data_out[$i*16$,16] = dq_i;}
-$$end            
+          case 2b10: {
+            // if (do_rw) {
+            //   __display("[cycle %d] WR stage %d",cycle,stage);
+            // } else {
+            //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
+            // }
+            //reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
+            //reg_sdram_ba  = stage;
+            cmd           = (stage[2,1] | ~working) ? CMD_NOP : (do_rw ? CMD_WRITE : CMD_READ);
+            opmodulo      = do_rw ? 8b00001000 : 8b10000000;
+            actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
+            stage         = stage + 1;             
+            data          = data  >> 16;
+            wmask         = wmask >> 2;
           }
-          //__display("######### [cycle %d] data in %h read_cnt:%d",cycle,dq_i,read_cnt);
-          //  sd.data_out = {sd.data_out[0,$512-16$],dq_i};
-          //__display("%h",sd.data_out);          
-          // sd.data_out[{read_cnt[0,3],read_cnt[3,2],4b0000},16] = dq_i;
-          read_cnt  = burst[0,1] ? read_cnt + 1 : read_cnt;
-          burst     = burst >>> 1;
-          //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
-          if ((do_rw & stage[2,1]) | (read_cnt[5,1])) {
-            sd.done   = 1;
-            work_todo = 0;
-$$if SIMULATION then
-            //__display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
-$$end          
-            break;
+          default: {
+            // __display("[cycle %d] ___ stage %d, din %h",cycle,stage,dq_i);
+            opmodulo  = {opmodulo [0,1],opmodulo [1,7]};
+            actmodulo = {actmodulo[0,1],actmodulo[1,7]};
           }
         }
 
-    } // refresh
+        (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+
+    }
+
+    {
+          // burst data in
+          switch ({~working,read_cnt[0,3],read_cnt[3,2]}) {
+$$for i = 0,31 do            
+            case $i$: {sd.data_out[$i*16$,16] = dq_i;}
+$$end            
+            default: {}
+          }
+
+          // sd.data_out[{read_cnt[0,3],read_cnt[3,2],4b0000},16] = dq_i;
+          // __display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
+          //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
+          if ((do_rw & stage[2,1]) | (/*read_cnt[5,1]*/read_cnt == 31)) {
+            sd.done   = working;
+            working   = 0;
+$$if SIMULATION then
+            // __display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
+$$end          
+            // break;
+          }
+
+        read_cnt  = burst[0,1] ? (read_cnt + 1) : read_cnt;
+        burst     = burst >>> 1;
+
+    }
 
   }
 }
