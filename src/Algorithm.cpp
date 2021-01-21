@@ -4358,7 +4358,7 @@ void Algorithm::determineVariablesAndOutputsAccess(
   all_blocks.push_front(&m_AlwaysPre);
   all_blocks.push_front(&m_AlwaysPost);
   for (const auto &b : all_blocks) {
-    _global_in_read.insert(b->in_vars_read.begin(), b->in_vars_read.end());
+    _global_in_read    .insert(b->in_vars_read.begin(), b->in_vars_read.end());
     _global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
   }
 }
@@ -7196,8 +7196,15 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
     writeCombinationalStates("_", out, always_dependencies, _ff_usage);
   }
   // always after block
-  {  
+  {
     std::queue<size_t> q;
+    /*for (auto ff : always_dependencies.dependencies) {
+      cerr << "***********************" << ff.first << " - ";
+      for (auto d : ff.second) {
+        cerr << d << ',';
+      }
+      cerr << std::endl;
+    }*/
     writeStatelessBlockGraph("_", out, &m_AlwaysPost, nullptr, q, always_dependencies, _ff_usage);
   }
   out << "end" << nxl;
