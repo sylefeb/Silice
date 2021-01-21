@@ -311,19 +311,17 @@ $$end
             }
           }
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-          // burst data in
-          /*
+          // burst data in          
           switch ({read_cnt[0,3],read_cnt[3,2]}) {
 $$for i = 0,31 do            
             case $i$: {sd.data_out[$i*16$,16] = dq_i;}
 $$end            
           }
-          */
-          sd.data_out = {sd.data_out[16,$512-16$],dq_i};
-
+          //__display("######### [cycle %d] data in %h read_cnt:%d",cycle,dq_i,read_cnt);
+          //  sd.data_out = {sd.data_out[0,$512-16$],dq_i};
+          //__display("%h",sd.data_out);          
           // sd.data_out[{read_cnt[0,3],read_cnt[3,2],4b0000},16] = dq_i;
           read_cnt  = burst[0,1] ? read_cnt + 1 : read_cnt;
-          // __display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
           burst     = burst >>> 1;
           //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
           if ((do_rw & stage[2,1]) | (read_cnt[5,1])) {
