@@ -71,7 +71,7 @@ $$else
     inout   uint16  sdram_dq,
 $$end
     // interface
-    sdram_provider sd, // TODO: add a wmask
+    sdram_provider sd,
 $$if SIMULATION then        
     output uint1 error,
 $$end        
@@ -210,14 +210,13 @@ $$end
 $$if SIMULATION then            
       // __display("[cycle %d] ---------- in_valid rw:%b",cycle,sd.rw);
 $$end
-      // -> copy inputs
-      // bank      = sd.addr[1, 2]; // bits 1-2
+      // copy inputs
       col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$];
       row       = sd.addr[$SDRAM_COLUMNS_WIDTH+3$, 13];
       wmask     = sd.wmask;
       data      = sd.data_in;
       do_rw     = sd.rw;    
-      // -> signal work to do
+      // note there is work todo
       work_todo = 1;
     }
 
@@ -229,9 +228,9 @@ $$end
     }
 
     if (work_todo & ~refresh_delay[0,1]) {
-      working = 1;
+      working   = 1;
       work_todo = 0;
-      // -> prepare read/write sequence
+      // prepare read/write sequence
       burst         = 
 $$if ULX3S then
               9b100000000;
@@ -254,10 +253,6 @@ $$end
 
 $$if HARDWARE then
   // wait after powerup
-  //reg_sdram_a  = 0;
-  //reg_sdram_ba = 0;
-  //reg_dq_en    = 0;
-
   () <- wait <- (65535); // ~0.5 msec at 100MHz
 $$end
 
@@ -295,8 +290,6 @@ $$end
         switch ({opmodulo[0,1],actmodulo[0,1]}) {
           case 2b01: {
             // __display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
-            //reg_sdram_ba = stage;
-            //reg_sdram_a  = row;
             cmd          = (stage[2,1] | ~working) ? CMD_NOP : CMD_ACTIVE;
             actmodulo    = do_rw ? 8b00001000 : 8b10000000;
             opmodulo     = {opmodulo[0,1],opmodulo[1,7]};
@@ -307,8 +300,6 @@ $$end
             // } else {
             //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
             // }
-            //reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
-            //reg_sdram_ba  = stage;
             cmd           = (stage[2,1] | ~working) ? CMD_NOP : (do_rw ? CMD_WRITE : CMD_READ);
             opmodulo      = do_rw ? 8b00001000 : 8b10000000;
             actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
@@ -337,10 +328,7 @@ $$end
         default: {}
       }
 
-      // sd.data_out[{read_cnt[0,3],read_cnt[3,2],4b0000},16] = dq_i;
-      // __display("######### rw:%d [cycle %d] data in %h read_br:%d read_bk:%d",do_rw,cycle,dq_i,read_br,read_bk);
-      //__display("length %d, delay %b, read_bk %b",length,delay,read_bk);
-      if ((do_rw & stage[2,1]) | (/*read_cnt[5,1]*/read_cnt == 31)) {
+      if ((do_rw & stage[2,1]) | (read_cnt == 31)) {
         sd.done   = working;
         working   = 0;
 $$if SIMULATION then
