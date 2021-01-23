@@ -42,22 +42,14 @@ unsigned char sdcard_miso()
     return (userdata()>>3)&1;
 }
 
-#define DELAY() \
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");
+#define DELAY() asm volatile ("addi t0,zero,1; 0: addi t0,t0,-1; bne t0,zero,0b;");
 
 #define sdcard_send_step(data) \
     mosi        = (data >> 7)&1;\
     data        = data << clk;\
     *SDCARD     = (mosi<<1) | clk;\
     clk         = 1-clk;\
-    asm volatile ("nop; nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop; nop;");\
+    asm volatile ("nop; nop; nop; addi t0,zero,3; 0: addi t0,t0,-1; bne t0,zero,0b;");\
     DELAY()
 
     /*asm volatile ("nop");*/
@@ -109,15 +101,13 @@ void sdcard_send(int indata)
     *SDCARD     = 2;\
     asm volatile ("rdtime %0" : "=r"(ud));\
     answer      = (answer << 1) | ((ud>>3)&1);\
-    asm volatile ("nop; nop; nop; nop; nop; nop; nop;");\
+    asm volatile ("addi t0,zero,2; 0: addi t0,t0,-1; bne t0,zero,0b;");\
     DELAY()
 
 #define sdcard_read_step_H() \
     *SDCARD     = 3;\
     n ++;\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop; nop;");\
+    asm volatile ("addi t0,zero,5; 0: addi t0,t0,-1; bne t0,zero,0b;");\
     DELAY()
 
 unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
@@ -188,7 +178,6 @@ void main()
 #if 1
   *LEDS=0;
   sdcard_select();
-  /*
   {
     register int clk = 0;
     for (int i = 0; i < 6 ; i++) {
@@ -202,8 +191,6 @@ void main()
   *LEDS=3;
   sdcard_get(8,1);
   *LEDS=255;
-  */
-  sdcard_get(1,1);
   sdcard_unselect();
   *LEDS=1;
 #else

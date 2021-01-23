@@ -18,8 +18,6 @@ void main()
     *LEDS = 0;
   }
 
-  unsigned char status;
-
   *LEDS = 1;
 
   fb_cleanup();
@@ -32,26 +30,15 @@ void main()
 
   while (1) {
     set_cursor(0,0);
-  *LEDS = 4;
-    status = sdcard_start_sector(1);
-  *LEDS = 5;
-    printf("---- sdcard content ----\n");
-    if (status != 0) {
-      printf("sdcard ERROR -- cycle %d\n",time());
-    } else {
-  *LEDS = 6;
-      sdcard_get(1,1); // start token
-  *LEDS = 7;
-      for (int i=0;i<512;i++) {
-        unsigned char by = sdcard_get(8,0);
-        putchar("0123456789ABCDEF"[(by >> 4)&15]);
-        putchar("0123456789ABCDEF"[(by >> 0)&15]);
-        putchar(' ');
-        if ((i&15) == 15) { printf("\n"); }
-      }
-  *LEDS = 8;
-      sdcard_get(16,1); // CRC
-  *LEDS = 9;
+    unsigned char data[512];
+    sdcard_copy_sector(1,data);
+    printf("---- sdcard content, sector 1 ----\n");
+    for (int i=0;i<512;i++) {
+      unsigned char by = data[i];
+      putchar("0123456789ABCDEF"[(by >> 4)&15]);
+      putchar("0123456789ABCDEF"[(by >> 0)&15]);
+      putchar(' ');
+      if ((i&15) == 15) { printf("\n"); }
     }
     swap_buffers();
   }

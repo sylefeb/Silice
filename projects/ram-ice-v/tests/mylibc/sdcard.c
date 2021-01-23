@@ -1,5 +1,3 @@
-#include "../mylibc/mylibc.h"
-
 const unsigned char cmd0[]   = {0x40,0x00,0x00,0x00,0x00,0x95};
 const unsigned char cmd8[]   = {0x48,0x00,0x00,0x01,0xAA,0x87};
 const unsigned char cmd55[]  = {0x77,0x00,0x00,0x00,0x00,0x01};
@@ -7,19 +5,7 @@ const unsigned char acmd41[] = {0x69,0x40,0x00,0x00,0x00,0x01};
 const unsigned char cmd16[]  = {0x50,0x00,0x00,0x02,0x00,0x15};
 const unsigned char cmd17[]  = {0x51,0x00,0x00,0x00,0x00,0x55};
 
-unsigned char sdcard_miso()
-{
-    return (userdata()>>3)&1;
-}
-
-#define DELAY() \
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");
+#define DELAY() asm volatile ("addi t0,zero,1; 0: addi t0,t0,-1; bne t0,zero,0b;");
 
 void sdcard_select()
 {
@@ -48,8 +34,7 @@ void sdcard_unselect()
     data        = data << clk;\
     *SDCARD     = (mosi<<1) | clk;\
     clk         = 1-clk;\
-    asm volatile ("nop; nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop; nop;");\
+    asm volatile ("nop; nop; nop; addi t0,zero,3; 0: addi t0,t0,-1; bne t0,zero,0b;");\
     DELAY()
 
     /*asm volatile ("nop");*/
@@ -74,15 +59,13 @@ void sdcard_send(int indata)
     *SDCARD     = 2;\
     asm volatile ("rdtime %0" : "=r"(ud));\
     answer      = (answer << 1) | ((ud>>3)&1);\
-    asm volatile ("nop; nop; nop; nop; nop; nop; nop;");\
+    asm volatile ("addi t0,zero,2; 0: addi t0,t0,-1; bne t0,zero,0b;");\
     DELAY()
 
 #define sdcard_read_step_H() \
     *SDCARD     = 3;\
     n ++;\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    asm volatile ("nop; nop; nop; nop; nop; nop; nop;");\
+    asm volatile ("addi t0,zero,5; 0: addi t0,t0,-1; bne t0,zero,0b;");\
     DELAY()
 
 unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
@@ -133,6 +116,22 @@ unsigned char sdcard_start_sector(int sector)
     sdcard_send(cmd17[5]);
     sdcard_unselect();  
     return sdcard_get(8,1);
+}
+
+unsigned char *sdcard_copy_sector(int sector,unsigned char *dst)
+{
+  unsigned char status = sdcard_start_sector(sector);
+  if (status != 0) {
+    return dst;
+  } else {
+    sdcard_get(1,1); // start token
+    for (int i=0;i<512;i++) {
+      unsigned char by = sdcard_get(8,0);
+      *(dst++)         = by;
+    }
+    sdcard_get(16,1); // CRC
+  }
+  return dst;
 }
 
 void sdcard_preinit()
