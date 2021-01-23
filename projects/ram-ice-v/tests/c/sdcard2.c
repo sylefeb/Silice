@@ -40,7 +40,7 @@ void main()
       printf("sdcard ERROR -- cycle %d\n",time());
     } else {
   *LEDS = 6;
-      sdcard_get(2,1); // start token
+      sdcard_get(1,1); // start token
   *LEDS = 7;
       for (int i=0;i<512;i++) {
         unsigned char by = sdcard_get(8,0);

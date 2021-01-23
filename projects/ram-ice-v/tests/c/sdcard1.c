@@ -151,7 +151,7 @@ unsigned char sdcard_get(unsigned char len,unsigned char wait)
 {
     unsigned char status;
     sdcard_select();
-    status = sdcard_read(8,wait);
+    status = sdcard_read(len,wait);
     for (int i=1;i<len>>3;i++) {
         status = sdcard_read(8,0);
     }
@@ -185,9 +185,10 @@ void sdcard_init()
 
 void main()
 {
-#if 0
+#if 1
   *LEDS=0;
   sdcard_select();
+  /*
   {
     register int clk = 0;
     for (int i = 0; i < 6 ; i++) {
@@ -201,6 +202,8 @@ void main()
   *LEDS=3;
   sdcard_get(8,1);
   *LEDS=255;
+  */
+  sdcard_get(1,1);
   sdcard_unselect();
   *LEDS=1;
 #else

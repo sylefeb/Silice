@@ -105,7 +105,7 @@ unsigned char sdcard_get(unsigned char len,unsigned char wait)
 {
     unsigned char status;
     sdcard_select();
-    status = sdcard_read(8,wait);
+    status = sdcard_read(len,wait);
     for (int i=1;i<len>>3;i++) {
         status = sdcard_read(8,0);
     }
