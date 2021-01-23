@@ -4,6 +4,7 @@ extern volatile unsigned char* const LEDS;
 extern volatile unsigned char* const FRAMEBUFFER;
 //extern volatile unsigned char* const AUDIO;
 //extern volatile unsigned char* const DATA;
+extern volatile unsigned int*  const SDCARD;
 extern volatile unsigned int*  const PALETTE;
 extern volatile unsigned int*  const TRIANGLE;
 
@@ -17,4 +18,13 @@ void*  memcpy(void *dest, const void *src, size_t n);
 int    strcmp(const char *p1, const char *p2);
 long   userdata();
 long   insn();
+
 long   time();
+void   pause(int cycles);
+
+// GPU
+extern char fbuffer;
+void   swap_buffers();
+
+// SDCARD
+#include "sdcard.h"

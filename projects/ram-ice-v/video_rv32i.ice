@@ -49,13 +49,19 @@ $include('flame.ice')
 // ------------------------- 
 
 algorithm frame_drawer(
-  sdram_user    sd,
-  sdram_user    sda,
+  sdram_user    sd,  // main
+  sdram_user    sda, // aux
   input  uint1  sdram_clock,
   input  uint1  sdram_reset,
   input  uint1  vsync,
   output uint1  fbuffer = 0,
   output uint8  leds,
+$$if SDCARD then  
+  output uint1  sd_clk,
+  output uint1  sd_mosi,
+  output uint1  sd_csn,
+  input  uint1  sd_miso,
+$$end  
   simple_dualport_bram_port1 palette,
 ) <autorun> {
 
@@ -92,6 +98,9 @@ algorithm frame_drawer(
     user_data         <:  user_data,
     ram               <:> mem
   );
+
+  // sdcard
+  uint1  reg_miso(0);
 
 $$if SIMULATION then
    uint24 cycle = 0;
@@ -137,8 +146,16 @@ $$end
   while (1) {
 
     cpu_reset = 0;
-
-    user_data = {{30{1b0}},vsync,drawing};
+$$if SDCARD then    
+    user_data = {{28{1b0}},reg_miso,1b0,vsync,drawing};
+    reg_miso  = sd_miso;
+$$else    
+    user_data = {{28{1b0}},1b0,1b0,vsync,drawing};
+$$end
+    //if(sdcard_done) {
+    //  __display("[cycle %d] SDCARD DONE user_data: %b",cycle,user_data);
+      // sdcard_done=0;
+    //}
 
     if (mem.in_valid & mem.rw) {
       switch (mem.addr[27,4]) {
@@ -151,13 +168,22 @@ $$end
         case 4b0010: {
           switch (mem.addr[2,2]) {
             case 2b00: {
-              // __display("LEDs = %h",mem.data_in[0,8]);
+              __display("LEDs = %h",mem.data_in[0,8]);
               leds = mem.data_in[0,8];
             }
             case 2b01: {
               __display("swap buffers");
               fbuffer = ~fbuffer;
             }
+$$if SDCARD then    
+            case 2b10: {
+              // SDCARD
+              __display("SDCARD %b",mem.data_in[0,3]);
+              sd_clk  = mem.data_in[0,1];
+              sd_mosi = mem.data_in[1,1];
+              sd_csn  = mem.data_in[2,1];
+            }           
+$$end            
             default: { }
           }
         }

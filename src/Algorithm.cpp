@@ -3171,6 +3171,9 @@ Algorithm::t_combinational_block *Algorithm::gather(
     }
     m_AlwaysPost.context.parent_scope = _current;
     if (algbody->alwaysAfterBlock() != nullptr) {
+      cerr << Console::yellow << nxl << nxl << nxl
+        << "[[WARNING]] your design is using always_after which is only partially implemented!!" 
+        << nxl << nxl << nxl << Console::gray;
       gather(algbody->alwaysAfterBlock(), &m_AlwaysPost, _context);
       if (!isStateLessGraph(&m_AlwaysPost)) {
         reportError(algbody->alwaysAfterBlock()->ALWAYS_AFTER()->getSymbol(),

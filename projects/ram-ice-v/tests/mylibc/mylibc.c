@@ -21,6 +21,7 @@ volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x00000000;
 //volatile unsigned char* const AUDIO       = (unsigned char*)0xAC000000;
 //volatile unsigned char* const DATA        = (unsigned char*)0xA2020000;
 volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x88000000;
+volatile unsigned int*  const SDCARD      = (unsigned int* )0x90000008;
 
 int cursor_x = 0x00000000;
 int cursor_y = 0x00000000;
@@ -44,7 +45,7 @@ int    putchar(int c)
     // next line
     cursor_x = 0;
     cursor_y += 8;
-    if (cursor_y > 200) {
+    if (cursor_y > 480) {
       cursor_y = 0;
     }
     return c;
@@ -53,7 +54,7 @@ int    putchar(int c)
   if (c >= 32) {
     for (int j=0;j<8;j++) {
       for (int i=0;i<5;i++) {
-        *(FRAMEBUFFER + (cursor_x + i + ((cursor_y+j)<<9)) ) 
+        *((FRAMEBUFFER + (fbuffer ? 0 : 0x1000000)) + (cursor_x + i + ((cursor_y+j)<<10)) ) 
           = (font[c-32][i] & (1<<j)) ? 255 : 31;
           /*
         // Note: this is only important for the BRAM version  ...
@@ -66,10 +67,10 @@ int    putchar(int c)
   }
   
   cursor_x += 5;
-  if (cursor_x > 320) {
+  if (cursor_x > 640) {
     cursor_x = 0;
     cursor_y += 8;
-    if (cursor_y > 200) {
+    if (cursor_y > 480) {
       cursor_y = 0;
     }
   }
@@ -92,6 +93,30 @@ int strcmp(const char *p1, const char *p2) {
   }
   return *(const unsigned char*)p1 - *(const unsigned char*)p2;
 }
+
+void pause(int cycles)
+{ 
+  long tm_start = time();
+  while (time() - tm_start < cycles) { }
+}
+
+char fbuffer = 0;
+
+void swap_buffers()
+{
+  // wait for any pending draw to complete
+  while ((userdata()&1) == 1) {  }
+  // wait for vsync
+  while ((userdata()&2) == 0) {  }
+  // swap buffers
+  *(LEDS+4) = 1;
+  fbuffer = 1-fbuffer;
+}
+
+/*
+Included for simplicity
+*/
+#include "sdcard.c"
 
 /*
 ==========================================

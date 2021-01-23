@@ -5,15 +5,7 @@
 #define SCRH 480
 #define R    (SCRW/320)
 
-char fbuffer = 0;
-
-void pause(int cycles)
-{ 
-  long tm_start = time();
-  while (time() - tm_start < cycles) { }
-}
-
-const char *text = "                                               firev: riscv framework with hardware accelerated rasterization, 640x480 at 160mhz cpu and sdram, written in silice.";
+const char *text = "                                               firev: riscv framework with hardware accelerated rasterization, 640x480 8bits palette, overclocked at 160mhz cpu and sdram, passes timing at 90 mhz cpu and 135 mhz sdram, written in silice.";
 const char *curr = 0;
 int scroll_x = 0;
 
@@ -42,7 +34,7 @@ void scroll()
           for (int i=screen_start;i<screen_end;i++) {
             int li = i - (cursor_x + scroll_x);
             *( (FRAMEBUFFER + (fbuffer ? 0 : 0x1000000))
-              + (i + (j<<10)) ) = font_FCUBEF2[lpos+(li>>1)+((j>>1)<<9)];
+              + (i + ((j+16)<<10)) ) = font_FCUBEF2[lpos+(li>>1)+((j>>1)<<9)];
             // pause(30);
           }
         }
@@ -210,9 +202,9 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
 // cleanup the framebuffers
 void fb_cleanup()
 {
-  for (int i=0;i<(480<<10)/4;i++) {
+  for (int i=0;i<(480<<10);i++) {
     *(( FRAMEBUFFER)               + i ) = 8;
-    *(( (FRAMEBUFFER + 0x0400000)) + i ) = 255;
+    *(( (FRAMEBUFFER + 0x0400000)) + i ) = 8;
   }
 }
 
@@ -228,17 +220,6 @@ void clear(int xm,int ym,int xM,int yM)
     xM,  yM,
     xm,  yM
     );
-}
-
-void swap_buffers()
-{
-  // wait for any pending draw to complete
-  while ((userdata()&1) == 1) {  }
-  // wait for vsync
-  while ((userdata()&2) == 0) {  }
-  // swap buffers
-  *(LEDS+4) = 1;
-  fbuffer = 1-fbuffer;
 }
 
 void main()

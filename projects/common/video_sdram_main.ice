@@ -508,7 +508,7 @@ $$end
   );
 
   // --- Init from SDCARD
-$$if not fast_compute then  
+$$if not fast_compute and not frame_drawer_at_sdram_speed then  
   sameas(sdm) sdh;
   
   sdram_half_speed_access sdaccess<@sdram_clock,!sdram_reset>(
@@ -523,7 +523,7 @@ $$if SDRAM_r512_w64 then
 $$ error('not yet implemented')
 $$end
   init_data init<@compute_clock,!compute_reset>(
-$$if not fast_compute then  
+$$if not fast_compute and not frame_drawer_at_sdram_speed then  
     sd    <:> sdh,
 $$else
     sd    <:> sdi,
@@ -563,6 +563,15 @@ $$end
 
   uint8 frame       = 0;
 
+  always {
+    if (sdi.in_valid) {
+__display("SDI INVALID %b @%h",sdi.in_valid,sdi.addr);
+    }
+    if (sdi.done) {
+__display("SDI DONE %b",sdi.done);
+    }
+  }
+ 
   // ---------- let's go (all modules autorun)
  
 $$if HARDWARE then
@@ -575,7 +584,7 @@ $$else
 $$if verbose then
   while (frame < 2) {
 $$else
-  while (frame < 3) {
+  while (frame < 2) {
 $$end  
 $$end    
     while (video_vblank == 1) { }

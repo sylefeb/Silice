@@ -137,9 +137,9 @@ algorithm rv32i_cpu(
   uint1  signedShift = uninitialized; 
   
   uint32 instr(0);    // initialize with null instruction, which sets everything to 0
-  uint26 pc            = uninitialized;
+  uint26 pc(0);
   uint32 next_instr(0);
-  uint26 next_pc = uninitialized;
+  uint26 next_pc(0);
 
   uint26 next_pc_p4 ::= next_pc + 4;
   uint26 next_pc_p8 ::= next_pc + 8;
@@ -157,7 +157,7 @@ algorithm rv32i_cpu(
   uint1 saved_rd_enable   = uninitialized;
   
   uint32 refetch_addr = uninitialized;
-  uint1  refetch_rw   = uninitialized;
+  uint1  refetch_rw(0);
   
   int32 aluA        = uninitialized;
   int32 aluB        = uninitialized;
@@ -224,11 +224,11 @@ $$if SIMULATION then
   uint32 cycle_last_retired(0);
 $$end
 
-  uint1  refetch(1);  
-  uint1  wait_next_instr(0);
-  uint1  commit_decode(0);
-  uint1  do_load_store(0);
-  uint1  start = 1;
+  uint1  refetch         = 1;
+  uint1  wait_next_instr = 0;
+  uint1  commit_decode   = 0;
+  uint1  do_load_store   = 0;
+  uint1  start           = 1;
 
   uint4  case_select   = uninitialized;
 
@@ -713,7 +713,7 @@ algorithm intops(
   input!  uint3  csr,
   input!  uint32 cycle,
   input!  uint32 instret,
-  input!  uint3  user_data,
+  input!  uint32 user_data,
   output  int32  r,
   input!  int32 ra,
   input!  int32 rb,
