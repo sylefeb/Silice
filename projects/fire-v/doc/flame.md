@@ -1,11 +1,11 @@
 # The Flame GPU
 
-Let's now dive into the framework's GPU called *Flame*.
+Let's dive into the framework's GPU called *Flame*.
 
 **Note:** This is work in progress, for now I focus on the overview, will expand with a code walkthrough soon.
 **Note:** The code is still very rough, I will polish, cleanup and comment.
 
-Source code: [flame.ice](../flame/flame.ice).
+Source code: [flame.ice](../flame/flame.ice) (hardware) and [flame.c](../smoke/mylibc/flame.c) (software).
 
 ## Overview
 
@@ -14,11 +14,11 @@ Flame is a very simple hardware accelerator currently only drawing triangles. It
 The principle is easily illustrated:
 <center><img src="edge-walk-spans.png" width="300px"></center>
 
-In this Figure, `e0`, `e1`, `e2` are *edge walkers*. These are three instances of a same algorithm. This algorithm takes as input a current `y` coordinate that is expected to start below the edge and to increment one by one. Given a current `y` coordinate the edge walker computes a current position on the edge, or indicates that `y` is above the edge.
+In this Figure, `e0`, `e1`, `e2` are *edge walkers*. These are three instances of a same algorithm. This algorithm takes as input a current `y` coordinate that is expected to start below the triangle and to increment one by one. Given a current `y` coordinate the edge walkers compute a current `x` position along the edge, or indicates that `y` is below/above the edge.
 
-The edge walkers perform computations in fixed point precision. They need as input the end point coordinates as well as an increment, which is computed by the CPU and send alongside the triangle coordinates. `x` is updated by this increment every time `y` changes (it is the ratio `x/y`).
+The edge walkers perform computations in fixed point precision. They need as input the end point coordinates as well as an increment, which is computed by the CPU and sent alongside the triangle coordinates. `x` is updated by this increment every time `y` changes (it is the ratio `dx/dy` with `dx` and `dy` the x/y differences in endpoint coordinates, see [flame.c](../smoke/mylibc/flame.c)).
 
-Now, given a current `y` and the coordinates returned by the edge walkers, we have the endpoints of a *pixel span*: the purple arrow in the picture. Flame decomposes the span into chunks of 8 bytes (with a write mask) so they can be sent efficiently through the SDRAM controller. Flame has its own SDRAM interface, which goes through a memory arbiter between the CPU, Flame and the framebuffer (see the [architecture diagram](wildfire-arch.png)).
+Now, given a current `y` and the coordinates returned by the edge walkers, we have the endpoints of a *pixel span*: the dark purple arrow in the Figure above (the light purple arrows are those processed before). Flame decomposes the span into chunks of 8 bytes (with a write mask) so they can be sent efficiently through the SDRAM controller. Flame has its own SDRAM interface, which goes through a memory arbiter between the CPU, Flame and the framebuffer (see the [architecture diagram](wildfire-arch.png)).
 
 Here is how a span might be decomposed for a chunk size of 4:
 <center><img src="span-chunks.png" width="600px"></center>
@@ -32,6 +32,6 @@ And that's it for the core principles!
 
 ## CPU side
 
-It is interesting to look at the interplay between Fire-V (the CPU) and Flame (the GPU). The CPU has a few things to do, in particular computing the edge increments, but then it is free to do something else while the triangle is being rasterized. 
+It is interesting to look at the interplay between Fire-V (the CPU) and Flame (the GPU). The CPU has a few things to do, in particular computing the edge increments, but then it is free to do something else while the triangle is being rasterized. The support code is in [flame.c](../smoke/mylibc/flame.c).
 
 **TODO** 

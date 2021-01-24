@@ -1,15 +1,13 @@
 # Wildfire / Inferno memory map
 
-The memory is using the following organization. There is a little bit a inheritance from
-prior iteration, so this may no longer be the best approach. In particular, each of the four
-sections below used to be in a same SDRAM bank, while now the controller is pipelined and interleaves bank addresses.
+The memory is using the following organization. There is some inheritance from prior iterations, so this may no longer be the most sound approach. In particular, each of the four sections below used to be in a same SDRAM bank, while now the controller is pipelined and interleaves bank addresses.
 
 Nevertheless, here is what we have:
 
 SDRAM memory addresses are 26 bits. We have the following organization:
-- [0x0000000 - 0x0077FFF] Framebuffer 0
-- [0x1000000 - 0x1077FFF] Framebuffer 1
-- [0x2000000 - 0x200FFFF] Code (fast memory)
+- [0x0000000 - 0x0077FFF]() Framebuffer 0
+- [0x1000000 - 0x1077FFF]() Framebuffer 1
+- [0x2000000 - 0x200FFFF]() Code (fast memory)
 
 Everything else is free to be used!
 

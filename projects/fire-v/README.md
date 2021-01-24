@@ -2,16 +2,18 @@
 
 *If you are reading this in the draft branch, this is very much being written as you look at it.*
 
-**Objective:** A framework validated at a good fmax ( ULX3S: CPU >90 MHz, SDRAM >140 MHz), supporting overclocking to much higher frequencies ( ULX3S: 160 MHz, CPU alone 200 MHz ), with a RISC-V core in 2K LUTs, HDMI output, a pipelined SDRAM controller, and seamless access to the entire memory space. Oh, and there is a hardware rasterizer for triangles as well, for good measure.
+**Design goal:** A framework validated at a good fmax ( ULX3S: CPU >90 MHz, SDRAM >140 MHz), supporting overclocking to much higher frequencies ( ULX3S: 160 MHz, CPU alone 200 MHz ), with a RISC-V core in 2K LUTs, HDMI output, a pipelined SDRAM controller, and seamless access to the entire memory space. Oh, and there is a hardware rasterizer for triangles as well, for good measure.
 
-As always, designing hardware is a compromise. Here I attempt to maintain a simple, easy to read Silice code while achieving good fmax and a relatively compact design. I am sure this can be further improved! 
+*But really, this is about having fun revisiting some old-schools effects and rendering tricks!*
 
-**Note:** I am absolutely not a CPU design expert --  I am just learning, playing and sharing :). There is surely much to improve here. Please let me know your thoughts! This is work in progress, this documentation will improve in the coming days.
+As always, designing hardware is a compromise. Here I attempt to maintain a simple, easy to read Silice code while achieving good fmax and a relatively compact design. No doubt this can be further improved! 
+
+**Note:** I am not a CPU design expert --  I am just learning, playing and sharing :). Please let me know your thoughts! This is work in progress, this documentation will improve in the coming days.
 
 **Note:** There are many resources on hardware design and RISC-V cores in particular. Be sure to checkout the [links section](#links).
 
 **Features and quick links:**
-- [RV32I core](fire-v/fire-v.ice) in about 2K LUTs (Dhrystone CPI ~4.043, best case instructions in 2 cycles, full access to SDRAM with fast-memory (BRAM) mapped on a specific address range). Has 32 bits `rdcycle` and `rdinstret` plus a special `userdata` (hack of `rdtime`), uses barrel shifters for 1 cycle ALU operations.
+- [RV32I core](fire-v/fire-v.ice) in about 2K LUTs, Dhrystone CPI ~4.043, best case instructions in 2 cycles, full access to SDRAM with fast-memory (BRAM) mapped on a specific address range. Has 32 bits `rdcycle` and `rdinstret` plus a special `userdata` (hijacks `rdtime`), uses barrel shifters for 1 cycle ALU operations.
 - [Pipelined SDRAM controller](../common/sdram_controller_autoprecharge_pipelined_r512_w64.ice).
 - [A fast memory segment](ash/bram_segment_ram_32bits.ice) catching an address range in BRAM, falling back to SDRAM outside.
 - A [hardware triangle rasterizer](doc/flame.md), exploiting the SDRAM wide write capability.
@@ -68,8 +70,7 @@ Plug your board, open a command line in this folder and run:
 ./compile_boot.sh
 make ulx3s
 ```
-The first line compiles the [boot loader](smoke/boot/boot.c). The second lines produces the bitstream for the board, using Silice build system.
-The board is programmed at the end.
+The first line compiles the [boot loader](smoke/boot/boot.c). The second lines produces the bitstream for the board, using Silice build system. The board is programmed at the end.
 
 To run something, you have to compile code and write it to an sdcard image, see next (you may also use any of the pre-compiled images in `bin/sdcard/`).
 
