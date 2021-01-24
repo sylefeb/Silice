@@ -1,3 +1,14 @@
+/*
+SL - 2020-01-24
+
+SDCARD bit-banging from CPU
+
+I went through the trouble of equalizing all delays to have a clean
+sdcard clock period, but maybe that was not necessary.
+These delays are tunned to the Fire-V and likely not portable.
+
+*/
+
 const unsigned char cmd0[]   = {0x40,0x00,0x00,0x00,0x00,0x95};
 const unsigned char cmd8[]   = {0x48,0x00,0x00,0x01,0xAA,0x87};
 const unsigned char cmd55[]  = {0x77,0x00,0x00,0x00,0x00,0x01};
@@ -152,38 +163,31 @@ void sdcard_preinit()
 void sdcard_init()
 {
   unsigned char status;
-  *LEDS = 128 | 1;
   while (1) {
     sdcard_preinit();
     sdcard_cmd(cmd0);
     status = sdcard_get(8,1);
     sdcard_ponder();    
-  *LEDS = 128 | 2;
     if (status != 0xff) {
         break;
     }
     pause(10000000); 
   }  
-  *LEDS = 128 | 3;
   sdcard_cmd(cmd8);
   status = sdcard_get(40,1);
   sdcard_ponder();
-  *LEDS = 128 | 4;  
   while (1) {
     sdcard_cmd(cmd55);
     sdcard_get(8,1);
-  *LEDS = 128 | 5;  
     sdcard_ponder();
     sdcard_cmd(acmd41);
     status = sdcard_get(8,1);
-  *LEDS = 128 | 6;  
     sdcard_ponder();    
     if (status == 0) {
       break;
     }
     pause(1000000);
   }
-  *LEDS = 128 | 7;  
   sdcard_cmd(cmd16);
   sdcard_get(8,1);
   sdcard_ponder();
