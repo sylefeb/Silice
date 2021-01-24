@@ -28,8 +28,8 @@ void sdcard_select()
     *SDCARD = 2;
 }
 
-// keep the clock running a bit
-// https://electronics.stackexchange.com/questions/303745/sd-card-initialization-problem-cmd8-wrong-response
+// Keep the clock running a bit
+//   unclear whether this is really important https://electronics.stackexchange.com/questions/303745/sd-card-initialization-problem-cmd8-wrong-response
 void sdcard_ponder()
 {
   register int clk = 0;
