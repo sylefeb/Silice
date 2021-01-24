@@ -38,6 +38,10 @@ $$for i=1,64 do
 $$  c = (i-1)<<2
 $$  palette[128+i] = (c&255)<<16
 $$end
+$$for i=1,64 do
+$$  c = (i-1)<<2
+$$  palette[192+i] = (c&255)<<8
+$$end
 $$ palette[256] = 255 | (255<<8) | (255<<16)
 
 $$if SIMULATION then

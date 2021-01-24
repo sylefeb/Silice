@@ -1,11 +1,16 @@
 // SL 2020-12-22 @sylefeb
 //
 // ------------------------- 
-
-$$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
 
 $$ bram_depth = 13 -- 13 : 8K ints, ~100 MHz   14 : 16K ints ~90 MHz
 $$ bram_size  = 1<<bram_depth
+
+$$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 
 algorithm bram_ram_32bits(
   rv32i_ram_provider pram,              // provided ram interface

@@ -1,5 +1,5 @@
-#include "../mylibc/mylibc.h"
 #include "fonts/FCUBEF2.h"
+#include "../mylibc/mylibc.h"
 
 #define SCRW 640
 #define SCRH 480
@@ -13,7 +13,7 @@ void scroll()
 {
   if (curr == 0) curr = text;
   // -- scroll_x;
-  scroll_x -= 3;
+  scroll_x -= 5;
   const char *str = curr;
   int cursor_x = 0;
   int screen_end = 0;
@@ -28,14 +28,15 @@ void scroll()
       screen_end = cursor_x + scroll_x + (w<<1);
       if (screen_end >= 0) {
         // draw letter
-        screen_start = (screen_start<0)    ? 0      : screen_start;
-        screen_end   = (screen_end>SCRW-1) ? SCRW-1 : screen_end;
+        screen_start = (screen_start<1)    ? 1      : screen_start;
+        screen_end   = (screen_end>SCRW-2) ? SCRW-2 : screen_end;
         for (int j=0;j<(font_FCUBEF2_height<<1);j++) {
           for (int i=screen_start;i<screen_end;i++) {
             int li = i - (cursor_x + scroll_x);
-            *( (FRAMEBUFFER + (fbuffer ? 0 : 0x1000000))
-              + (i + ((j+16)<<10)) ) = font_FCUBEF2[lpos+(li>>1)+((j>>1)<<9)];
-            // pause(30);
+            unsigned char f = font_FCUBEF2[lpos+(li>>1)+((j>>1)<<9)];
+            if (f) {
+              *( (FRAMEBUFFER + (fbuffer ? 0 : 0x1000000)) + (i + ((j+16)<<10)) ) = f;
+            }
           }
         }
       }
@@ -94,13 +95,14 @@ void main()
 
   char a   = 66;
   char b   = 31;
+  char c   = 0;
   int time = 0;
   
   // pause(1000000);
   //fb_cleanup();
 
   clear(0,0,SCRW,SCRH);
-  swap_buffers();
+  swap_buffers(0);
   clear(0,0,SCRW,SCRH);
 
   while(1) {
@@ -109,20 +111,24 @@ void main()
 
     scroll();
 
-    //a = a + 1;
-    //b = b + 1;
     int pos = 0;
     for (int posy = -70*R; posy <= 70*R ; posy += 35*R) {
       for (int posx = -140*R; posx <= 140*R ; posx += 35*R) {
         int Ry[9];
         rotY(Ry,a + costbl[((posx>>2) + (posy>>2) + (time<<1))&255]);
+        int Rz[9];
+        rotZ(Rz,b + (costbl[((posx>>2) - (posy>>2) + (time<<1))&255]>>1));
         int Rx[9];
-        rotX(Rx,b + (costbl[((posx>>2) - (posy>>2) + (time<<1))&255]>>1));
+        rotX(Rx,c + (costbl[((posx>>3) + (posy>>4) + (time<<2))&255]>>1)>>2 );
+        int Ra[9];
+        mulM(Ra,Rz,Ry);
         int M[9];
-        mulM(M,Rx,Ry);
+        mulM(M,Ra,Rx);
         transform_points(M);
         for (int t = 0; t < 36 ; t+=3) {
-          draw_triangle(t<6 ? 64 : (t<12 ? 128 : 0),1,
+          draw_triangle(
+            t<6 ? 64 : (t<12 ? 128 : 0),
+            1,
             trpts[idx[t+0]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+0]+1] + ((SCRH/2 + posy)<<5), 
             trpts[idx[t+1]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+1]+1] + ((SCRH/2 + posy)<<5), 
             trpts[idx[t+2]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+2]+1] + ((SCRH/2 + posy)<<5) 
@@ -131,7 +137,7 @@ void main()
       }    
     }
 
-    swap_buffers();
+    swap_buffers(1);
 
     ++time;
   }

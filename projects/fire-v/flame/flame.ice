@@ -7,7 +7,6 @@
 //      
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
-
 // ------------------------- 
 
 algorithm edge_walk(

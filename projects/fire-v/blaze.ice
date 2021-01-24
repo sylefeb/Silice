@@ -6,9 +6,14 @@
 //  - validates at ~100 MHz with a 32KB BRAM
 //  - overclocks up to 200 MHz on the ULX3S
 //
-// Test on: ULX3S, Verilator, Icarus
+// Tested on: ULX3S, Verilator, Icarus
 //
 // ------------------------- 
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
 
 $$if SIMULATION then
 $$verbose = nil

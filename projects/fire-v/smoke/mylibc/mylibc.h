@@ -31,7 +31,7 @@ void   pause(int cycles);
 
 // framebuffer
 extern char fbuffer;
-void   swap_buffers();
+void   swap_buffers(char wait_vsynch);
 void   set_draw_buffer(char buffer);
 char   get_draw_buffer();
 

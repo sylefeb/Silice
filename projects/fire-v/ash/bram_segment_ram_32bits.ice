@@ -1,8 +1,15 @@
 // SL 2020-12-22 @sylefeb
 //
-// Note: clamps addresses to uint26 (beware of mapped adresses using higher bits)
-// TODO: a better mechanism for data_override?
 // ------------------------- 
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
+
+$$ bram_depth = 13 --  13: 32 KB, ~90 MHz   14: 64 KB, ~85 MHz
+$$ bram_size  = 1<<bram_depth
+$$ print('##### code size: ' .. code_size_bytes .. ' BRAM capacity: ' .. 4*bram_size .. '#####')
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 
@@ -13,10 +20,6 @@ algorithm bram_segment_ram_32bits(
   input uint26       predicted_addr,    // next predicted address
   input uint1        predicted_correct, // was the prediction correct?
 ) <autorun> {
-
-$$ bram_depth = 13 --  13: 32 KB, ~90 MHz   14: 64 KB, ~85 MHz
-$$ bram_size  = 1<<bram_depth
-$$ print('##### code size: ' .. code_size_bytes .. ' BRAM capacity: ' .. 4*bram_size .. '#####')
 
   // track when address is in cache region and onto which entry   
   uint1  in_cache               :=    (pram.addr  [$2+bram_depth$,$26-2-bram_depth$])

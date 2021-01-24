@@ -101,12 +101,14 @@ char get_draw_buffer()
   return fbuffer;
 }
 
-void swap_buffers()
+void swap_buffers(char wait_vsynch)
 {
   // wait for any pending draw to complete
   while ((userdata()&1) == 1) {  }
   // wait for vsync
-  while ((userdata()&2) == 0) {  }
+  if (wait_vsynch) {
+    while ((userdata()&2) == 0) {  }
+  }
   // swap buffers
   *(LEDS+4) = 1;
   fbuffer = 1-fbuffer;
