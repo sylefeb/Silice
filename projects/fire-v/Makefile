@@ -1,19 +1,19 @@
 
-.DEFAULT: video_rv32i.ice
+.DEFAULT: wildfire.ice
 ifdef tool
-		silice-make.py -s video_rv32i.ice -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) -t $(tool)
+		silice-make.py -s wildfire.ice -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) -t $(tool)
 else
-		silice-make.py -s video_rv32i.ice -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@)
+		silice-make.py -s wildfire.ice -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@)
 endif
 
-ulx3s: video_rv32i.ice
-		silice-make.py -s video_rv32i.ice -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) -t shell
+ulx3s: wildfire.ice
+		silice-make.py -s wildfire.ice -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) -t shell
 
-verilator: video_rv32i.ice
-		silice-make.py -s video_rv32i.ice -b $@ -p basic,vga,sdram -o BUILD_$(subst :,_,$@)
+verilator: wildfire.ice
+		silice-make.py -s wildfire.ice -b $@ -p basic,vga,sdram -o BUILD_$(subst :,_,$@)
 
-icarus: video_rv32i.ice
-		silice-make.py -s video_rv32i.ice -b $@ -p basic,vga -o BUILD_$(subst :,_,$@)
+icarus: wildfire.ice
+		silice-make.py -s wildfire.ice -b $@ -p basic,vga -o BUILD_$(subst :,_,$@)
 
 sdcard: make_sdcard.ice
 		silice-make.py -s make_sdcard.ice -b verilator -p basic,vga,sdram -o BUILD_$(subst :,_,$@)

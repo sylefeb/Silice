@@ -1,6 +1,8 @@
 // SL 2020-12-02 @sylefeb
 // ------------------------- 
 
+$$error('Inferno is not yet ready!')
+
 // pre-compilation script, embeds compile code within sdcard image
 $$dofile('pre_include_asm.lua')
 $$if not SIMULATION then

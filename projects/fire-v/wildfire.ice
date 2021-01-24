@@ -1,18 +1,28 @@
 // SL 2020-12-02 @sylefeb
+//
+// Wildfire - Risc-V framework in Silice, with:
+//  - pipelined SDRAM
+//  - fast code memory (from 26h2000000 to BRAM size)
+//  - hardware accelerated triangle rasterizer (why not?)
+//  - overclocks up to 160 MHz un ULX3S
+// 
+// Supported by: ULX3S, Verilator, Icarus
+//
 // ------------------------- 
+
 $$if SIMULATION then
 $$ verbose = nil
 $$end
 
-// pre-compilation script, embeds compile code within sdcard image
-$$dofile('pre_include_asm.lua')
-$$ code_size_bytes = init_data_bytes
-
-$$if not SIMULATION then
-$$ init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
+$$if not (ULX3S or ICARUS or VERILATOR) then
+$$error('Sorry, Wildfire is currently not supported on this board.')
 $$end
 
-$$ init_data_bytes = nil
+// pre-compilation script, embeds compile code within sdcard image
+$$dofile('pre/pre_include_asm.lua')
+$$code_size_bytes = init_data_bytes
+
+$$init_data_bytes = nil
 
 // default palette
 $$palette = {}
@@ -41,10 +51,10 @@ $$SDRAM_r512_w64 = true
 
 $include('../common/video_sdram_main.ice')
 
-$include('ram-ice-v.ice')
-$include('sdram_ram_32bits.ice')
-$include('basic_cache_ram_32bits.ice')
-$include('flame.ice')
+$include('fire-v/fire-v.ice')
+$include('ash/sdram_ram_32bits.ice')
+$include('ash/bram_cache_ram_32bits.ice')
+$include('flame/flame.ice')
 
 // ------------------------- 
 
@@ -152,10 +162,6 @@ $$if SDCARD then
 $$else    
     user_data = {{28{1b0}},1b0,1b0,vsync,drawing};
 $$end
-    //if(sdcard_done) {
-    //  __display("[cycle %d] SDCARD DONE user_data: %b",cycle,user_data);
-      // sdcard_done=0;
-    //}
 
     if (mem.in_valid & mem.rw) {
       switch (mem.addr[27,4]) {

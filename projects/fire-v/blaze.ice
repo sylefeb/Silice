@@ -70,7 +70,9 @@ $$end
   );
 
   uint1  cpu_reset      = 1;
-  uint26 cpu_start_addr(26h0000000);
+  uint26 cpu_start_addr(26h2000000); // NOTE: the BRAM ignores the high part of the address
+                                     //       but for bit 32 (mapped memory)
+                                     //       26h2000000 is chosen for compatibility with Wildfire
 
   // cpu 
   rv32i_cpu cpu<!cpu_reset>(

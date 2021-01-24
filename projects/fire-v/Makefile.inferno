@@ -1,9 +1,9 @@
 
-.DEFAULT: video_dual_rv32i.ice
-		silice-make.py -s video_dual_rv32i.ice -b $@ -p basic,sdram,hdmi,sdcard,audio -o BUILD_$(subst :,_,$@) -t shell
+.DEFAULT: inferno.ice
+		silice-make.py -s inferno.ice -b $@ -p basic,sdram,hdmi,sdcard,audio -o BUILD_$(subst :,_,$@) -t shell
 
-verilator: video_dual_rv32i.ice
-		silice-make.py -s video_dual_rv32i.ice -b $@ -p basic,vga,sdram -o BUILD_$(subst :,_,$@)
+verilator: inferno.ice
+		silice-make.py -s inferno.ice -b $@ -p basic,vga,sdram -o BUILD_$(subst :,_,$@)
 
 clean:
 	rm -rf BUILD_*
