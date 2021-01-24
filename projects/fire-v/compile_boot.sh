@@ -14,7 +14,6 @@ echo "using $ARCH"
 
 $ARCH-elf-gcc -w -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/boot/boot.c
 
-# $ARCH-elf-as -march=rv32i -mabi=ilp32 -o div.o tests/mylibc/div.s
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0_boot.s
 
 CPU=${2:-0}
