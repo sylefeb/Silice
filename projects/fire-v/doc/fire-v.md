@@ -21,7 +21,7 @@ Fire-V is an example RV32I core written in [Silice](../../). While simple to rea
 
 ## Operation
 
-Let's see how the processor operates for various scenarios.
+Let's see how the processor operates under various scenarios.
 
 ### Ideal case
 

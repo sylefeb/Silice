@@ -18,10 +18,13 @@ As always, designing hardware is a compromise. Here I attempt to maintain a simp
 - An [SDRAM framebuffer](../common/video_sdram_main.ice), also exploiting the SDRAM wide write capability, with double buffering, 8 bit palette of 24bits RGB colors at 640x480 (can be configured for 320x200 as well).
 - Three variants: [Blaze](blaze.ice) (minimalist), [Wildfire](wildfire.ice) (full framework), [Inferno](inferno.ice) (dual-core version).
 
+<center><img src="doc/wildfire-arch.png" width="400px"></center>
+
 **Detailed explanations:**
-*Coming soon!*
-- [in progress](doc/fire-v.md) The RISC-V processor design.
-- [in progress](doc/flame.md) The hardware triangle rasterizer.
+*Work in progress!*
+- [The RISC-V processor design](doc/fire-v.md).
+- [The hardware triangle rasterizer](doc/flame.md).
+- [Framework memory mapping](doc/MemoryMap.md).
 - [TODO]() How the framework is assembled from components written in Silice, and how to create your own flavor.
 - [TODO]() How to create your own demos!
 

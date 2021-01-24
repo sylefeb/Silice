@@ -83,7 +83,7 @@ Where will the CPU code endup? This is specified in `config_cpu0.ld` and `config
 
 Here is a diagram of the architecture with the main modules. 
 
-<img src="architecture.png">
+<img src="inferno-arch.png">
 
 The CPUs run at 50 MHz, while the external SDRAM interface runs at 100MHz and the HDMI controller at 125MHz.  Let us discuss a few components.
 
