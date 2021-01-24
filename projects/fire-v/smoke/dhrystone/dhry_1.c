@@ -120,6 +120,7 @@ main ()
         /* Warning: With 16-Bit processors and Number_Of_Runs > 32000,  */
         /* overflow may occur for this array element.                   */
 
+  set_draw_buffer(1);
   if(SHOW_PRINTF) printf ("\n");
   if(SHOW_PRINTF) printf ("Dhrystone Benchmark, Version 2.1 (Language: C)\n");
   if(SHOW_PRINTF) printf ("\n");

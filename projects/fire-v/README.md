@@ -11,7 +11,7 @@ As always, designing hardware is a compromise. Here I attempt to maintain a simp
 **Note:** There are many resources on hardware design and RISC-V cores in particular. Be sure to checkout the [links section](#links).
 
 **Features and quick links:**
-- [RISC-V RV32I core](fire-v/fire-v.ice) in about 2K LUTs (Dhrystone CPI 3.9, best case instructions in 2 cycles, full access to SDRAM with fast-memory (BRAM) on a specific address range).
+- [RV32I core](fire-v/fire-v.ice) in about 2K LUTs (Dhrystone CPI ~4.043, best case instructions in 2 cycles, full access to SDRAM with fast-memory (BRAM) mapped on a specific address range). Has 32 bits `rdcycle` and `rdinstret` plus a special `userdata` (hack of `rdtime`), uses barrel shifters for 1 cycle ALU operations.
 - [Pipelined SDRAM controller](../common/sdram_controller_autoprecharge_pipelined_r512_w64.ice).
 - [A fast memory segment](ash/bram_segment_ram_32bits.ice) catching an address range in BRAM, falling back to SDRAM outside.
 - A [hardware triangle rasterizer](flame/flame.ice), exploiting the SDRAM wide write capability.
@@ -20,9 +20,9 @@ As always, designing hardware is a compromise. Here I attempt to maintain a simp
 
 **Detailed explanations:**
 *Coming soon!*
-- [WIP](doc/fire-v.md) The RISC-V processor design.
+- [in progress](doc/fire-v.md) The RISC-V processor design.
+- [in progress](doc/flame.md) The hardware triangle rasterizer.
 - [TODO]() How the framework is assembled from components written in Silice, and how to create your own flavor.
-- [TODO]() The hardware triangle rasterizer.
 - [TODO]() How to create your own demos!
 
 **Running the framework**

@@ -4,7 +4,7 @@
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 
-$$ bram_depth = 14 -- 13 : 8K ints   14 : 16K ints    16 : 64K ints
+$$ bram_depth = 13 -- 13 : 8K ints   14 : 16K ints    16 : 64K ints
 $$ bram_size  = 1<<bram_depth
 
 algorithm bram_ram_32bits(

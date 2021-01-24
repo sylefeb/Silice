@@ -2,8 +2,8 @@
 
 for i in {1..20}
 do
-  make ulx3s tool=shell > foo.txt 2>&1
-  FREQ="`grep "Max frequency for clock" foo.txt | tail -4`"
+  make ulx3s -f Makefile.blaze > foo.txt 2>&1
+  FREQ="`grep "Max frequency for clock" foo.txt | tail -1`"
   SIZE="`grep "Total LUT4s" foo.txt | tail -1`"
   echo -e "$i -------------------\n"
   echo -e "$FREQ"

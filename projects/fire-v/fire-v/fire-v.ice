@@ -106,7 +106,6 @@ interface rv32i_ram_provider {
   output  done
 }
 
-
 // --------------------------------------------------
 // The Risc-V RV32I CPU
 
@@ -136,7 +135,7 @@ algorithm rv32i_cpu(
   uint1  sub         = uninitialized;
   uint1  signedShift = uninitialized; 
   
-  uint32 instr(0);    // initialize with null instruction, which sets everything to 0
+  uint32 instr(0);
   uint26 pc(0);
   uint32 next_instr(0);
   uint26 next_pc(0);

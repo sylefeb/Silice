@@ -36,16 +36,10 @@ int    putchar(int c)
 {
   
   if (c == 10) {
-    // clear rest of line
-    //for (int j=0;j<8;j++) {
-    //  for (int i=cursor_x;i<320;i++) {
-    //    *(FRAMEBUFFER + (i + ((cursor_y+j)<<9)) ) = 0;
-    //  }
-    //}
     // next line
     cursor_x = 0;
     cursor_y += 8;
-    if (cursor_y > 480) {
+    if (cursor_y > 400) {
       cursor_y = 0;
     }
     return c;
@@ -54,14 +48,9 @@ int    putchar(int c)
   if (c >= 32) {
     for (int j=0;j<8;j++) {
       for (int i=0;i<5;i++) {
-        *((FRAMEBUFFER + (fbuffer ? 0 : 0x1000000)) + (cursor_x + i + ((cursor_y+j)<<10)) ) 
+        *((FRAMEBUFFER + (fbuffer ? 0 : 0x1000000)) 
+          + (cursor_x + i + ((cursor_y+j)<<10)) ) 
           = (font[c-32][i] & (1<<j)) ? 255 : 31;
-          /*
-        // Note: this is only important for the BRAM version  ...
-        //       we wait to ensure SDRAM writes are completed ...
-        long tm_start = time();
-        while (time() - tm_start < 1) { }        
-        */
       }
     }
   }
@@ -70,7 +59,7 @@ int    putchar(int c)
   if (cursor_x > 640) {
     cursor_x = 0;
     cursor_y += 8;
-    if (cursor_y > 480) {
+    if (cursor_y > 400) {
       cursor_y = 0;
     }
   }
@@ -102,6 +91,16 @@ void pause(int cycles)
 
 char fbuffer = 0;
 
+void set_draw_buffer(char buffer)
+{
+  fbuffer = buffer;
+}
+
+char get_draw_buffer()
+{
+  return fbuffer;
+}
+
 void swap_buffers()
 {
   // wait for any pending draw to complete
@@ -114,9 +113,10 @@ void swap_buffers()
 }
 
 /*
-Included for simplicity
+Included for build simplicity
 */
 #include "sdcard.c"
+#include "flame.c"
 
 /*
 ==========================================
