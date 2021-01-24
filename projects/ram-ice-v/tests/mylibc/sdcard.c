@@ -1,11 +1,16 @@
 /*
 SL - 2020-01-24
 
-SDCARD bit-banging from CPU
+SDCARD bit-banging from RV32I CPU
 
 I went through the trouble of equalizing all delays to have a clean
 sdcard clock period, but maybe that was not necessary.
 These delays are tunned to the Fire-V and likely not portable.
+
+Useful Links
+http://www.rjhcoding.com/avrc-sd-interface-1.php
+http://www.dejazzer.com/ee379/lecture_notes/lec12_sd_card.pdf
+http://chlazza.nfshost.com/sdcardinfo.html
 
 */
 
