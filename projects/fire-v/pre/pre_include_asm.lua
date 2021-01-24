@@ -1,7 +1,7 @@
 -- include ASM code as a BROM
 
 if not path then
-  path,_1,_2 = string.match(findfile('pre_include_asm.lua'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+  path,_1,_2 = string.match(findfile('make_sdcard.ice'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
   print('PATH is ' .. path)
 end
 

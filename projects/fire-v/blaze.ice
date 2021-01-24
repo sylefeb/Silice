@@ -1,22 +1,32 @@
 // SL 2020-12-02 @sylefeb
+//
+// Blaze - a small fast Risc-V framework in Silice
+// 
+// Supported by: ULX3S, Verilator, Icarus
+//
+// Currently very limited, only has access to LEDs and SDCARD
+//
 // ------------------------- 
-
-$$sdcard_image_pad_size = 0
-
-// pre-compilation script, embeds compile code within sdcard image
-$$dofile('pre_include_asm.lua')
 
 $$if SIMULATION then
 $$verbose = nil
 $$end
 
-$include('ram-ice-v.ice')
-$include('bram_ram_32bits.ice')
+$$if not (ULX3S or ICARUS or VERILATOR) then
+$$error('Sorry, Blaze is currently not supported on this board.')
+$$end
+
+// pre-compilation script, embeds code within string for BRAM and outputs sdcard image
+$$sdcard_image_pad_size = 0
+$$dofile('pre/pre_include_asm.lua')
+
+$include('fire-v/fire-v.ice')
+$include('ash/bram_ram_32bits.ice')
 
 $include('../common/clean_reset.ice')
 
 $$if ULX3S then
-import('pll200.v')
+import('plls/pll200.v')
 $$end
 
 // ------------------------- 

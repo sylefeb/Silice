@@ -12,19 +12,19 @@ fi
 
 echo "using $ARCH"
 
-$ARCH-elf-gcc -w -O2 -fno-pic -march=rv32i -mabi=ilp32 -c tests/boot/boot.c
+$ARCH-elf-gcc -w -O2 -fno-pic -march=rv32i -mabi=ilp32 -c smoke/boot/boot.c -o build/boot.o
 
-$ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0_boot.s
+$ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o smoke/crt0_boot.s
 
 CPU=${2:-0}
 
-rm build/code0.hex
-rm build/code1.hex
+rm build/code0.hex 2> /dev/null
+rm build/code1.hex 2> /dev/null
 
-$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tconfig_cpu$CPU.ld --no-relax -o build/code.elf boot.o
+$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tsmoke/config_cpu$CPU.ld --no-relax crt0.o -o build/code.elf build/boot.o
 
 $ARCH-elf-objcopy -O verilog build/code.elf build/code$CPU.hex
 
 # uncomment to see the actual code, usefull for debugging
-$ARCH-elf-objcopy.exe -O binary build/code.elf build/code.bin
-$ARCH-elf-objdump.exe -D -b binary -m riscv build/code.bin 
+# $ARCH-elf-objcopy.exe -O binary build/code.elf build/code.bin
+# $ARCH-elf-objdump.exe -D -b binary -m riscv build/code.bin 
