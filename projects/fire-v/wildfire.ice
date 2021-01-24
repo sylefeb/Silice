@@ -1,12 +1,12 @@
 // SL 2020-12-02 @sylefeb
 //
-// Wildfire - Risc-V framework in Silice, with:
+// Wildfire --- Risc-V framework in Silice, with:
 //  - pipelined SDRAM
 //  - fast code memory (from 26h2000000 to BRAM size)
 //  - hardware accelerated triangle rasterizer (why not?)
-//  - overclocks up to 160 MHz un ULX3S
+//  - overclocks up to 160 MHz on the ULX3S
 // 
-// Supported by: ULX3S, Verilator, Icarus
+// Test on: ULX3S, Verilator, Icarus
 //
 // ------------------------- 
 

@@ -21,6 +21,28 @@ Fire-V is an example RV32I core written in [Silice](../../). While simple to rea
 
 ## Operation
 
+The processor is organized in a main loop with four main states:
+
+```c
+while (1) {
+  // ...
+  switch (case_select) {
+
+    case 8: { /* refetch */  }
+
+    case 4: { /* load / store */  }
+
+    case 2: { /* ALU / fetch */ }
+
+    case 1: { /* commit + decode */ }
+
+    default: { /*wait*/ }
+
+  }
+  // ...
+}
+```
+
 Let's see how the processor operates under various scenarios.
 
 ### Ideal case

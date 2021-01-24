@@ -123,7 +123,7 @@ algorithm rv32i_cpu(
   
   uint1  cmp         = uninitialized;
   uint1  instr_ready(0);
-  uint1  halt(0);
+  // uint1  halt(0);
   
   uint5  write_rd    = uninitialized;
   uint1  jump        = uninitialized;  
@@ -408,7 +408,7 @@ $$end
         commit_decode = 0;
         // Note: nothing received from memory
 $$if SIMULATION then
-        halt   = instr_ready & (instr == 0);
+        // halt   = instr_ready & (instr == 0);
         // if (halt) { __display("HALT on zero-instruction"); }
 $$end
         // commit previous instruction

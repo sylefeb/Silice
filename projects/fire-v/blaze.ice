@@ -1,10 +1,11 @@
 // SL 2020-12-02 @sylefeb
 //
-// Blaze - a small fast Risc-V framework in Silice
-// 
-// Supported by: ULX3S, Verilator, Icarus
+// Blaze --- a small, fast but limited Risc-V framework in Silice
+//  - runs solely in BRAM
+//  - access to LEDs and SDCARD
+//  - overclocks up to 200 MHz on the ULX3S
 //
-// Currently very limited, only has access to LEDs and SDCARD
+// Test on: ULX3S, Verilator, Icarus
 //
 // ------------------------- 
 
