@@ -264,7 +264,7 @@ $$end
       case 8: {
 $$if verbose then
       if (~reset) {
-        __display("----------- CASE 8 -------------");
+        __display("----------- CASE 8: refetch ------------- (cycle %d)",cycle);
       }
       //__display("  [refetch] (cycle %d) @%h load_store %b",cycle,ram.addr,do_load_store);        
       //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_pc,next_pc+4);
@@ -304,7 +304,7 @@ $$end
     
       case 4: {
 $$if verbose then
-        __display("----------- CASE 4 -------------");
+        __display("----------- CASE 4: load / store ------------- (cycle %d)",cycle);
         //__display("  [load store] (cycle %d) store %b",cycle,saved_store);
 $$end        
         do_load_store   = 0;
@@ -368,7 +368,7 @@ $$end
 
       case 2: {
 $$if verbose then      
-      __display("----------- CASE 2 -------------");
+      __display("----------- CASE 2 : ALU / fetch ------------- (cycle %d)",cycle);
       //__display("  (cycle %d) ram.data_out:%h",cycle,ram.data_out);
       //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_pc,next_pc+4);
 $$end      
@@ -396,7 +396,7 @@ $$end
       
       case 1: {
 $$if verbose then     
-        __display("----------- CASE 1 -------------");
+        __display("----------- CASE 1 : commit / decode ------------- (cycle %d)",cycle);
         if (~instr_ready) {
           __display("========> [next instruction] load_store %b branch_or_jump %b",load_store,branch_or_jump);
         } else {

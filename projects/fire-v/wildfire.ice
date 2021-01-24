@@ -11,7 +11,7 @@
 // ------------------------- 
 
 $$if SIMULATION then
-$$ verbose = nil
+$$ verbose = 1
 $$end
 
 $$if not (ULX3S or ICARUS or VERILATOR) then

@@ -70,7 +70,7 @@ $$end
   );
 
   uint1  cpu_reset      = 1;
-  uint26 cpu_start_addr(26h2000000); // NOTE: the BRAM ignores the high part of the address
+  uint26 cpu_start_addr(26h0000000); // NOTE: the BRAM ignores the high part of the address
                                      //       but for bit 32 (mapped memory)
                                      //       26h2000000 is chosen for compatibility with Wildfire
 
@@ -88,7 +88,7 @@ $$end
 
 $$if SIMULATION then  
   uint32 iter = 0;
-  while (iter != 8192) {
+  while (iter != 32768) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -99,8 +99,8 @@ $$if SDCARD then
     user_data[3,1] = reg_miso;
     reg_miso       = sd_miso;
 $$end
-
-    if (mem.addr[28,1] & mem.done) {
+    if (mem.addr[28,1] & mem.in_valid & mem.rw) {
+//      __display("[iter %d] mem.addr %h mem.data_in %h",iter,mem.addr,mem.data_in);
       if (~mem.addr[3,1]) {
         leds = mem.data_in[0,8];
 $$if SIMULATION then            
@@ -108,6 +108,9 @@ $$if SIMULATION then
 $$end
       } else {
         // SDCARD
+$$if SIMULATION then            
+        __display("[iter %d] SDCARD = %b",iter,mem.data_in[0,3]);
+$$end
 $$if SDCARD then
         sd_clk  = mem.data_in[0,1];
         sd_mosi = mem.data_in[1,1];

@@ -28,15 +28,6 @@ void pause(int cycles)
   while (time() - tm_start < cycles) { }
 }
 
-unsigned char sdcard_clk  = 0;
-unsigned char sdcard_mosi = 1;
-unsigned char sdcard_csn  = 1;
-
-void sdcard_set_pins()
-{
-  *SDCARD = (sdcard_csn<<2) | (sdcard_mosi<<1) | sdcard_clk;
-}
-
 unsigned char sdcard_miso()
 {
     return (userdata()>>3)&1;
@@ -52,8 +43,6 @@ unsigned char sdcard_miso()
     asm volatile ("nop; nop; nop; addi t0,zero,3; 0: addi t0,t0,-1; bne t0,zero,0b;");\
     DELAY()
 
-    /*asm volatile ("nop");*/
-
 void sdcard_select()
 {
     *SDCARD = 2;
@@ -62,14 +51,6 @@ void sdcard_select()
 void sdcard_unselect()
 {
     *SDCARD = 4 | 2;
-/*    {
-        register int clk = 0;
-        for (int i = 0; i < 16 ; i++) {
-            *SDCARD = 4 | 2 | clk;
-            clk     = 1 - clk;
-            DELAY();
-        }
-    }*/
 }
 
 void sdcard_send(int indata)
@@ -85,15 +66,6 @@ void sdcard_send(int indata)
   sdcard_send_step(data); sdcard_send_step(data);
   sdcard_send_step(data); sdcard_send_step(data);
   sdcard_send_step(data); sdcard_send_step(data);
-/*
-  for (int i=0;i<16;i++) {
-    sdcard_mosi = data >> 7;
-    data        = data << sdcard_clk;
-    sdcard_set_pins();
-    sdcard_clk  = 1-sdcard_clk;
-  }
-*/
-  sdcard_set_pins();
 //  *LEDS = 127;
 }
 
@@ -123,16 +95,6 @@ unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
         sdcard_read_step_H();
         sdcard_read_step_L();
     }
-    /*
-    while (
-          (wait && (answer&(1<<(len-1)))) || (!wait && n < len)) {        
-        sdcard_clk  = 1-sdcard_clk;
-        sdcard_set_pins();
-//if (1-sdcard_clk) *LEDS = 33;
-        n           = n + (1-sdcard_clk);
-        answer      = (answer << (1-sdcard_clk)) | (sdcard_miso() & (1-sdcard_clk));
-    }
-    */
 //    *LEDS = 255;
     return answer;
 }
@@ -176,7 +138,8 @@ void sdcard_init()
 void main()
 {
 #if 1
-  *LEDS=0;
+
+  *LEDS = 255;
   sdcard_select();
   {
     register int clk = 0;
@@ -193,6 +156,7 @@ void main()
   *LEDS=255;
   sdcard_unselect();
   *LEDS=1;
+
 #else
 
   for (int k=0;k<4;k++) {

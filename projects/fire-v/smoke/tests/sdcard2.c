@@ -11,16 +11,16 @@ void fb_cleanup()
 
 void main()
 {
-  for (int k=0;k<4;k++) {
+/*  for (int k=0;k<4;k++) {
     pause(10000000); 
     *LEDS = 255;
     pause(10000000); 
     *LEDS = 0;
   }
-
+*/
   *LEDS = 1;
 
-  fb_cleanup();
+//  fb_cleanup();
 
   *LEDS = 2;
 
