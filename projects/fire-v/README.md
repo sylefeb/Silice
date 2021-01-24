@@ -1,36 +1,62 @@
-# Fire-V: RISC-V FPGA framework for old-school graphics.
+# Fire-V: RISC-V FPGA framework written in Silice
 
 *If you are reading this in the draft branch, this is very much being written as you look at it.*
 
-**Objective:** writing a framework to create old-school demos in Silice, validated at a good fmax (>90 MHz) and supporting overclocking to much higher frequencies (>150 MHz), with a RISC-V core in less than 2K LUTs.
+**Objective:** A framework validated at a good fmax ( ULX3S: CPU >90 MHz, SDRAM >140 MHz), supporting overclocking to much higher frequencies ( ULX3S: 160 MHz, CPU alone 200 MHz ), with a RISC-V core in 2K LUTs, HDMI output, a pipelined SDRAM controller, and seamless access to the entire memory space. Oh, and there is a hardware rasterizer for triangles as well, for good measure.
 
-What we will discuss:
-- How the framework is assembled from components written in Silice, and how to create your own flavor.
-- How to create your own demos!
-- The internals of these components, most notably the Risc-V processor and the hardware rasterizer.
+As always, designing hardware is a compromise. Here I attempt to maintain a simple, easy to read Silice code while achieving good fmax and a relatively compact design. I am sure this can be further improved! 
 
-The three main designs are:
-- [video_rv32i.ice](video_rv32i.ice): a single processor design.
-- [video_dual_rv32i.ice](video_dual_rv32i.ice): a dual processor design with audio.
-- [testbench_rv32i.ice](testbench_rv32i.ice): the processor in isolation with only access to LEDs, this is mostly used for debugging and LUT counting.
+**Note:** I am absolutely not a CPU design expert --  I am just learning, playing and sharing :). There is surely much to improve here. Please let me know your thoughts! This is work in progress, this documentation will improve in the coming days.
 
-This comes with a minimalist (and quite horrible) 'libc' providing the basics such as printf and a few low level functions. And yes, *you compile code for these CPUs directly from gcc*, one of the many things that makes RISC-V great!
+**Note:** There are many resources on hardware design and RISC-V cores in particular. Be sure to checkout the [links section](#links).
 
-**Note:** I am absolutely not a CPU design expert --  I am just learning, playing and sharing :). (I know a thing or two about Computer Graphics though ;) ). There is surely much to improve here. Please let me know your thoughts!
+**Features and quick links:**
+- [RISC-V RV32I core](fire-v/fire-v.ice) in about 2K LUTs (Dhrystone CPI 3.9, best case instructions in 2 cycles, full access to SDRAM with fast-memory (BRAM) on a specific address range).
+- [Pipelined SDRAM controller](../common/sdram_controller_autoprecharge_pipelined_r512_w64.ice).
+- [A fast memory segment](ash/bram_segment_ram_32bits.ice) catching an address range in BRAM, falling back to SDRAM outside.
+- A [hardware triangle rasterizer](flame/flame.ice), exploiting the SDRAM wide write capability.
+- An [SDRAM framebuffer](../common/video_sdram_main.ice), also exploiting the SDRAM wide write capability, with double buffering, 8 bit palette of 24bits RGB colors at 640x480 (can be configured for 320x200 as well).
+- Three variants: [Blaze](blaze.ice) (minimalist), [Wildfire](wildfire.ice) (full framework), [Inferno](inferno.ice) (dual-core version).
 
-**Note:** This is still work in progress, this documentation will improve in the coming days.
+**Detailed explanations:**
+*Coming soon!*
+- [WIP](doc/fire-v.md) The RISC-V processor design.
+- [TODO]() How the framework is assembled from components written in Silice, and how to create your own flavor.
+- [TODO]() The hardware triangle rasterizer.
+- [TODO]() How to create your own demos!
 
-**Final note:** There are many resources on hardware design and RISC-V cores in particular. Be sure to checkout the [links section](#links).
+**Running the framework**
+
+There are three flavors of the framework:
+- [Blaze](blaze.ice): minimalistic, RISC-V core, BRAM, access to LEDs and SDCARD.
+- [Wildfire](wildfire.ice): RISC-V core with SDRAM, HDMI output, 640x480 framebuffer (8 bit palette of 24 bits RGB colors), full SDRAM access with fast memory segment.
+- [Inferno](inferno.ice): dual core version of Wildfire (*work in progress*).
+
+This comes with a minimalist (and quite horrible) software environment, providing the basics such as SDCARD access and boot, printf, swapping frame buffers, drawing triangles, and a few other low level functions. And yes, *you compile code for the framework directly from gcc*, one of the many things that makes RISC-V great!
+
+**Directory structure**
+
+- The RISC-V core is in the [fire-v](fire-v/) directory.
+- The rasterizer is in the [flame](flame/) directory.
+- The memory components are in the [ash](ash/) directory.
+- The software components of the project are in the [smoke](smoke/) directory.
 
 ## Build and run!
 
 If you have never used Silice before, see [getting started](../../GetStarted.md) for initial setup (Windows, Linux, MacOS).
 
-### The dual CPU demo (has sound)
+The build process has two separate steps. First, build the framework with a boot loader in BRAM. Second, compile C code, write it on an SDCARD and run it.
+
+In the following we describe instructions for the Wildfire variant, but things are similar for all three variants.
+
+### Building Wildfire
+
+**Note** the framework was primarily designed on the ULX3S (ECP5) ; I'll port it to other boards soon.
 
 Plug your board, open a command line in this folder and run:
 ```
-./compile_dual_demo.sh
+./compile_boot.sh
+make ulx3s
 ```
 The board is programmed, but you also have to write the (just produced) file `sdcard.img` on an sdcard and insert the sdcard in the board. On the ULX3S press 'PWR' to reset. Please use a SDHC card.
 

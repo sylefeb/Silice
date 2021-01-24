@@ -53,7 +53,7 @@ $include('../common/video_sdram_main.ice')
 
 $include('fire-v/fire-v.ice')
 $include('ash/sdram_ram_32bits.ice')
-$include('ash/bram_cache_ram_32bits.ice')
+$include('ash/bram_segment_ram_32bits.ice')
 $include('flame/flame.ice')
 
 // ------------------------- 
@@ -88,7 +88,7 @@ $$end
   // basic cache  
   rv32i_ram_io mem;
   uint26 cache_start = 26h2000000;
-  basic_cache_ram_32bits cache(
+  bram_segment_ram_32bits cache(
     pram              <:> mem,
     uram              <:> sdram,
     cache_start       <:  cache_start,

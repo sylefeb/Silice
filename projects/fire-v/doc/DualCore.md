@@ -1,13 +1,4 @@
-# Fire-V: RISC-V FPGA framework for old-school graphics.
-
-*If you are reading this in the draft branch, this is very much being written as you look at it.*
-
-**Objective:** writing a framework to create old-school demos in Silice, validated at a good fmax (>90 MHz) and supporting overclocking to much higher frequencies (>150 MHz), with a RISC-V core in less than 2K LUTs.
-
-What we will discuss:
-- How the framework is assembled from components written in Silice, and how to create your own flavor.
-- How to create your own demos!
-- The internals of these components, most notably the Risc-V processor and the hardware rasterizer.
+**Note**: This content is outdated but kept while updating the main README.
 
 The three main designs are:
 - [video_rv32i.ice](video_rv32i.ice): a single processor design.
@@ -16,7 +7,7 @@ The three main designs are:
 
 This comes with a minimalist (and quite horrible) 'libc' providing the basics such as printf and a few low level functions. And yes, *you compile code for these CPUs directly from gcc*, one of the many things that makes RISC-V great!
 
-**Note:** I am absolutely not a CPU design expert --  I am just learning, playing and sharing :). (I know a thing or two about Computer Graphics though ;) ). There is surely much to improve here. Please let me know your thoughts!
+**Note:** I am absolutely not a CPU design expert --  I am just learning, playing and sharing :). There is surely much to improve here. Please let me know your thoughts!
 
 **Note:** This is still work in progress, this documentation will improve in the coming days.
 
