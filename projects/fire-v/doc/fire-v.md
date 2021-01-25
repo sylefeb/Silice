@@ -1,15 +1,16 @@
 # The Fire-V RV32I core
 
-**Note:** This is work in progress, for now I focus on the overview, will expand with a code walkthrough soon.
-**Note:** The code is still very rough, I will polish,cleanup and comment.
-
 Source code: [fire-v.ice](../fire-v/fire-v.ice).
+
+**Note:** *The code is still rough, Needs cleanup and comment.*
+
+**Note:** *This document is a work in progress, for now I focus on the overview, will expand with a code walkthrough soon.*
 
 ## Overview
 
 Fire-V is an example RV32I core written in [Silice](../../). While simple to read and understand, it has some interesting and hopefully useful characteristics:
-- Compromise between (in this order): code clarity, fmax, simplicity and compactness.
-- Passes timing at 90 MHz (100 MHZ depending on environment), overclocked successfully at 200 MHz on ULX3S
+- Compromise between (in this order): fmax, simplicity and compactness.
+- Passes timing at 90 MHz (100 MHZ depending on environment), overclocked in a framework at 160 MHz on the ulx3s, and still working fine at 200 MHz in isolation.
 - Assumes a memory controller with unknown latency, plugs easily to e.g. an SDRAM controller.
 - Predicts next fetched address and indicates whether prediction was correct. The memory controller may exploit this prediction to reach as low as two cycles per instruction in coherent flow. Branches are not predicted.
 - Registers in BRAM
@@ -17,7 +18,7 @@ Fire-V is an example RV32I core written in [Silice](../../). While simple to rea
 - Relatively compact, ~2K LUTs on ECP5 (2005 LUTs as of latest).
 - Dhrystone CPI: 4.043
 
-**Note:** While I am quite happy with these results, please note that there are way smaller RISC-V cores out there (SERV / PicoRV / FemtoRV) and faster ones with multiscalar architectures. Nevertheless it is quite capable and explores - I think - an interesting compromise in fmax / LUTs / simplicity. Also, it is written in Silice :-)
+**Note:** While I am quite happy with these results, there are way smaller RISC-V cores out there (SERV / PicoRV / FemtoRV) and faster ones with multiscalar architectures. Nevertheless it is quite capable and explores - I think - an interesting compromise in fmax / LUTs / simplicity. Also, it is written in Silice :-)
 
 ## Operation
 

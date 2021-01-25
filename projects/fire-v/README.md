@@ -1,19 +1,19 @@
 # Fire-V: RISC-V FPGA framework written in Silice
 
-*If you are reading this in the draft branch, this is very much being written as you look at it.*
+*The documentation effort is ongoing, this page will be updated regularly.*
 
-**Design goal:** A framework validated at a good fmax ( ULX3S: CPU >90 MHz, SDRAM >140 MHz), supporting overclocking to much higher frequencies ( ULX3S: 160 MHz, CPU alone 200 MHz ), with a RISC-V core in 2K LUTs, HDMI output, a pipelined SDRAM controller, and seamless access to the entire memory space. Oh, and there is a hardware rasterizer for triangles as well, for good measure.
+**Design goals:** A video framework validated at a good fmax ( ulx3s: CPU >90 MHz, SDRAM >140 MHz), supporting overclocking to much higher frequencies ( ulx3s: full framework at 160 MHz, CPU alone seems still ok at 200 MHz ), with a RISC-V core in 2K LUTs, HDMI output, a pipelined SDRAM controller, and seamless access to the entire memory space. Oh, and there is a hardware rasterizer for triangles as well, for good measure. Everything will be documented, to serve as a detailed example for Silice.
 
 *But really, this is about having fun revisiting some old-schools effects and rendering tricks!*
 
-As always, designing hardware is a compromise. Here I attempt to maintain a simple, easy to read Silice code while achieving good fmax and a relatively compact design. No doubt this can be further improved! 
+As always, designing hardware is a compromise. Here I attempt to maintain a simple, easy to read Silice code while achieving a good fmax and a relatively compact design. No doubt this can be further improved! 
 
-**Note:** I am not a CPU design expert --  I am just learning, playing and sharing. Please let me know your thoughts! This is work in progress, this documentation will improve in the coming days.
+**Note:** *I am not a CPU design expert --  I am just learning, playing and sharing. Please let me know your thoughts! This remains a work in progress.*
 
-**Note:** There are many resources on hardware design and RISC-V cores in particular. Be sure to checkout the [links section](#links).
+**Note:** *There are many resources on hardware design and RISC-V cores in particular. Be sure to checkout the [links section](#links).*
 
 **Features and quick links:**
-- [RV32I core](doc/fire-v.md) in about 2K LUTs, Dhrystone CPI ~4.043, best case instructions in 2 cycles, full access to SDRAM with fast-memory (BRAM) mapped on a specific address range. Has 32 bits `rdcycle` and `rdinstret` plus a special `userdata` (hijacks `rdtime`), uses barrel shifters for 1 cycle ALU operations.
+- [RV32I core](doc/fire-v.md) in about 2K LUTs, Dhrystone CPI ~4.043, best case: instruction in 2 cycles, full access to SDRAM with fast-memory (BRAM) mapped on a specific address range. Has 32 bits `rdcycle` and `rdinstret` plus a special `userdata` (hijacks `rdtime`), uses barrel shifters for 1 cycle ALU operations.
 - [Pipelined SDRAM controller](../common/sdram_controller_autoprecharge_pipelined_r512_w64.ice).
 - [A fast memory segment](ash/bram_segment_ram_32bits.ice) catching an address range in BRAM, falling back to SDRAM outside.
 - A [hardware triangle rasterizer](doc/flame.md), exploiting the SDRAM wide write capability.
