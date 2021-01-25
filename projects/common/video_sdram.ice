@@ -8,7 +8,7 @@
 
 // ------------------------- 
 
-// 320x200
+// 320x200 or 640x480
 //
 // Actual resolution is   640x480
 // we divide by 2 down to 320x240
@@ -23,20 +23,34 @@ algorithm frame_display(
   output! uint8    video_g,
   output! uint8    video_b,
   output! uint10   pixaddr0,
-  input   uint128  pixdata0_r,
+  input   uint$sdram_read_width$ pixdata0_r,
   output! uint10   pixaddr1,
-  input   uint128  pixdata1_r,
+  input   uint$sdram_read_width$ pixdata1_r,
   simple_dualport_bram_port0 palette,
   output! uint1    row_busy
 ) <autorun> {
 
   uint8  palidx = 0;
-  uint8  pix_j  = 0;
+  uint9  pix_j  = 0;
   uint2  sub_j  = 0;
-  uint9  pix_a  = 0;
+  uint10 pix_a  = 0;
   uint24 color  = 0;
 
-  uint9 sub_a := {((video_x+1d1)>>1) & 6d15,3b000};
+$$if SDRAM_r128_w8 then      
+$$if mode_640_480 then
+  uint10 sub_a := {(video_x+1d1)      & 4d15,3b000};
+$$else
+  uint10 sub_a := {((video_x+1d1)>>1) & 4d15,3b000};
+$$end
+$$end
+
+$$if SDRAM_r512_w64 then      
+$$if mode_640_480 then
+  uint10 sub_a := {(video_x+1d1)      & 6d63,3b000};
+$$else
+  uint10 sub_a := {((video_x+1d1)>>1) & 6d63,3b000};
+$$end
+$$end
 
   // default pixel color to zero
   // (black unless overriden during clock cycle)
@@ -59,7 +73,11 @@ algorithm frame_display(
 	    // -> screen row 0 is skipped as we preload row 0, we draw rows 1-200
 	    //    the row loader loads row   0 for display in screen row   1
 	    //    ...            loads row 199 for display in screen row 200
-      if (pix_j != 0 && pix_j != 201) {
+$$if mode_640_480 then
+      if (pix_j != 0 && pix_j != 480) { // we will have 479 row in total (as we skip first)
+$$else
+      if (pix_j != 0 && pix_j != 201) { // 201 so that we get 200 rows indeed
+$$end
         // set palette address
         if (row_busy) {
           palette.addr0 = pixdata1_r[sub_a,8];
@@ -79,12 +97,16 @@ $$else
 $$end        
       }
       if (video_x == 639) { // end of row
+$$if mode_640_480 then
+        pix_j = (pix_j == 480) ? 480 : pix_j + 1;
+$$else
         // increment pix_j
         sub_j = sub_j + 1;
         if (sub_j == 2) {
           sub_j = 0;
           pix_j = (pix_j == 201) ? 201 : pix_j + 1;
         }		
+$$end        
         if (video_y == 479) {
           // end of frame
           sub_j = 0;
@@ -94,11 +116,21 @@ $$end
       row_busy = ~(pix_j[0,1]);
 
       // prepare next read
+$$if mode_640_480 then
+      pix_a = (video_x != 638 && video_x != 639) ? (video_x+2)        : 0;
+$$else
       pix_a = (video_x != 638 && video_x != 639) ? ((video_x+2) >> 1) : 0;
+$$end      
       // __display("x %d, pix_a %d",video_x,pix_a);
+$$if SDRAM_r128_w8 then      
       pixaddr0 = pix_a>>4;
       pixaddr1 = pix_a>>4;
-    
+$$end
+$$if SDRAM_r512_w64 then      
+      pixaddr0 = pix_a>>6;
+      pixaddr1 = pix_a>>6;
+$$end
+
     }
 
   }
@@ -110,10 +142,10 @@ $$end
 algorithm frame_buffer_row_updater(
   sdram_user       sd,
   output! uint10   pixaddr0,
-  output! uint128  pixdata0_w,
+  output! uint$sdram_read_width$ pixdata0_w,
   output! uint1    pixwenable0,
   output! uint10   pixaddr1,
-  output! uint128  pixdata1_w,
+  output! uint$sdram_read_width$ pixdata1_w,
   output! uint1    pixwenable1,
   input   uint1    row_busy,
   input   uint1    vsync,
@@ -122,7 +154,7 @@ algorithm frame_buffer_row_updater(
 ) <autorun> {
   // frame update counters
   uint9  count             = 0;
-  uint8  row               = 0; // 0 .. 200 (0 loads 1, but 0 is not displayed, we display 1 - 200)
+  uint9  row               = 0; // 0 .. 200 (0 loads 1, but 0 is not displayed, we display 1 - 200)
   uint1  working_row       = 0; // parity of row in which we write
   uint1  row_busy_filtered = 0;
   uint1  vsync_filtered    = 0;
@@ -172,10 +204,15 @@ algorithm frame_buffer_row_updater(
     //       in any case the display cannot wait, so apart from error
     //       detection there is no need for a sync mechanism    
     count = 0;
-    while (count < $320//16$) { // we read 16 bytes at once
+    while (count < $FB_row_size$) { // we read 16/64 bytes at once
 	
-      // address to read from (count + row * 320)        
-      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<4) | (row << 9); 
+      // address to read from (count + row * 320)
+$$if SDRAM_r128_w8 then      
+      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<4) | (row << $FB_row_stride_pow2$); 
+$$end
+$$if SDRAM_r512_w64 then
+      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<6) | (row << $FB_row_stride_pow2$); 
+$$end
       sd.in_valid  = 1;             // go ahead!      
       while (sd.done == 0) { }      // wait for value
       // __display("<read %x>",sd.data_out);
@@ -190,7 +227,11 @@ algorithm frame_buffer_row_updater(
 
     // change working row
     working_row = ~working_row;
-	  if (row < 199) {
+$$if mode_640_480 then
+	  if (row != 479) {
+$$else
+	  if (row != 199) {
+$$end      
       row = row + 1;
 	  } else {    
       row = 0;

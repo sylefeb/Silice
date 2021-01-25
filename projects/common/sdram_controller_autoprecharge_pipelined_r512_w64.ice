@@ -1,0 +1,348 @@
+// -----------------------------------------------------------
+// @sylefeb A SDRAM controller in Silice
+//
+// Pipelined SDRAM controller with auto-precharge
+// - expects a 16 bits wide SDRAM interface
+// - writes           4 x 16 bits
+// - reads bursts of 32 x 16 bits
+//
+// if using directly the controller: 
+//  - reads/writes have to aligned with 64 bits boundaries (8 bytes)
+
+// 4 banks, 8192 rows,  512 columns, 16 bits words
+// (larger chips will be left unused, see comments in other controllers)
+// ============== addr ================================
+//   | 24 -------- 12 | 11 ----- 3 | 2--1 | 0
+//   |     row        |   column   | bank | byte (H/L)
+// ====================================================
+
+//      GNU AFFERO GENERAL PUBLIC LICENSE
+//        Version 3, 19 November 2007
+//      
+//  A copy of the license full text is included in 
+//  the distribution, please refer to it for details.
+
+$$ SDRAM_COLUMNS_WIDTH =  9
+
+import('inout16_set.v')
+
+$$if ULX3S then
+import('inout16_ff_ulx3s.v')
+import('out1_ff_ulx3s.v')
+import('out2_ff_ulx3s.v')
+import('out13_ff_ulx3s.v')
+$$ULX3S_IO = true
+$$end
+
+// -----------------------------------------------------------
+
+circuitry command(
+  output sdram_cs,output sdram_ras,output sdram_cas,output sdram_we,input cmd)
+{
+  sdram_cs  = cmd[3,1];
+  sdram_ras = cmd[2,1];
+  sdram_cas = cmd[1,1];
+  sdram_we  = cmd[0,1];
+}
+
+// -----------------------------------------------------------
+
+$$ burst_config      = '3b011'
+$$ read_burst_length = 8
+
+algorithm sdram_controller_autoprecharge_pipelined_r512_w64(
+    // sdram pins
+    // => we use immediate (combinational) outputs as these are registered 
+    //    explicitely using dedicated primitives when available / implemented
+    output! uint1   sdram_cle,
+    output! uint1   sdram_cs,
+    output! uint1   sdram_cas,
+    output! uint1   sdram_ras,
+    output! uint1   sdram_we,
+    output! uint2   sdram_dqm,
+    output! uint2   sdram_ba,
+    output! uint13  sdram_a,
+    // data bus
+$$if VERILATOR then
+    input   uint16  dq_i,
+    output! uint16  dq_o,
+    output! uint1   dq_en,
+$$else
+    inout   uint16  sdram_dq,
+$$end
+    // interface
+    sdram_provider sd,
+$$if SIMULATION then        
+    output uint1 error,
+$$end        
+) <autorun>
+{
+
+  // SDRAM commands
+  uint4 CMD_UNSELECTED    = 4b1000;
+  uint4 CMD_NOP           = 4b0111;
+  uint4 CMD_ACTIVE        = 4b0011;
+  uint4 CMD_READ          = 4b0101;
+  uint4 CMD_WRITE         = 4b0100;
+  uint4 CMD_TERMINATE     = 4b0110;
+  uint4 CMD_PRECHARGE     = 4b0010;
+  uint4 CMD_REFRESH       = 4b0001;
+  uint4 CMD_LOAD_MODE_REG = 4b0000;
+
+  uint1   reg_sdram_cs  = uninitialized;
+  uint1   reg_sdram_cas = uninitialized;
+  uint1   reg_sdram_ras = uninitialized;
+  uint1   reg_sdram_we  = uninitialized;
+  uint2   reg_sdram_dqm = uninitialized;
+  uint2   reg_sdram_ba  = uninitialized;
+  uint13  reg_sdram_a   = uninitialized;
+  uint16  reg_dq_o(0);
+  uint1   reg_dq_en(0);
+
+$$if not VERILATOR then
+
+  uint16 dq_i = uninitialized;
+
+$$if ULX3S_IO then
+
+  inout16_ff_ulx3s ioset(
+    clock           <:  clock,
+    io_pin          <:> sdram_dq,
+    io_write        <:: reg_dq_o,
+    io_read         :>  dq_i,
+    io_write_enable <:: reg_dq_en
+  );
+
+  out1_ff_ulx3s  off_sdram_cs (clock <: clock, pin :> sdram_cs , d <:: reg_sdram_cs );
+  out1_ff_ulx3s  off_sdram_cas(clock <: clock, pin :> sdram_cas, d <:: reg_sdram_cas);
+  out1_ff_ulx3s  off_sdram_ras(clock <: clock, pin :> sdram_ras, d <:: reg_sdram_ras);
+  out1_ff_ulx3s  off_sdram_we (clock <: clock, pin :> sdram_we , d <:: reg_sdram_we );
+  out2_ff_ulx3s  off_sdram_dqm(clock <: clock, pin :> sdram_dqm, d <:: reg_sdram_dqm);
+  out2_ff_ulx3s  off_sdram_ba (clock <: clock, pin :> sdram_ba , d <:: reg_sdram_ba );
+  out13_ff_ulx3s off_sdram_a  (clock <: clock, pin :> sdram_a  , d <:: reg_sdram_a  );
+
+$$else
+
+  inout16_set ioset(
+    clock           <:  clock,
+    io_pin          <:> sdram_dq,
+    io_write        <:  reg_dq_o,
+    io_read         :>  dq_i,
+    io_write_enable <:  reg_dq_en
+  );
+
+$$end
+$$end
+
+  uint4  cmd          = uninitialized;
+  
+  uint1   work_todo(0);
+  uint1   working(0);
+  uint13  row         = uninitialized;
+  uint10  col         = uninitialized;
+  uint64  data        = uninitialized;
+  uint1   do_rw       = uninitialized;
+  uint8   wmask       = uninitialized;
+
+$$ refresh_cycles      = 750 -- assume 100 MHz
+$$ refresh_wait        = 7
+$$ cmd_active_delay    = 2
+$$ cmd_precharge_delay = 3
+$$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
+
+  uint10 refresh_delay(0);
+  uint3  refresh_trigger = uninitialized;
+  int11  refresh_count($refresh_cycles$);
+
+  uint1 needs_refresh ::= refresh_count[10,1];
+
+  uint3  stage     = uninitialized;
+  uint8  actmodulo = uninitialized;
+  uint8  opmodulo  = uninitialized;
+  uint5  read_cnt  = uninitialized;
+  uint1  reading   = uninitialized;
+  int9   burst     = uninitialized;
+
+  // waits for incount + 4 cycles
+  subroutine wait(input uint16 incount)
+  {
+    uint16 count = uninitialized;
+    count = incount;
+    while (count != 0) {
+      count = count - 1;      
+    }
+  }
+  
+$$if SIMULATION then
+  uint32 cycle = 0;
+  error := 0;
+$$end        
+
+  sdram_cle := 1;
+$$if not ULX3S_IO then
+  sdram_cs  := reg_sdram_cs;
+  sdram_cas := reg_sdram_cas;
+  sdram_ras := reg_sdram_ras;
+  sdram_we  := reg_sdram_we;
+  sdram_dqm := reg_sdram_dqm;
+  sdram_ba  := reg_sdram_ba;
+  sdram_a   := reg_sdram_a;
+$$if VERILATOR then  
+  dq_o      := reg_dq_o;
+  dq_en     := reg_dq_en;
+$$end  
+$$end
+
+  sd.done := 0;
+  
+  // always set NOP as default command, before anything else
+  always_before { 
+    cmd = CMD_NOP;
+    (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+    refresh_count = refresh_delay[0,1] ? $refresh_cycles$ : (refresh_count - 1);
+    // __display("[cycle %d] needs_refresh:%b refreshing:%b work_todo:%b working:%b ",cycle,needs_refresh,refreshing,work_todo,working);
+  }
+
+  // always track incoming requests, after everything else
+  // (introduces a one cycle latency but beneficial to timing)
+  always_after {
+    if (sd.in_valid) {
+$$if SIMULATION then            
+      // __display("[cycle %d] ---------- in_valid rw:%b",cycle,sd.rw);
+$$end
+      // copy inputs
+      col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$];
+      row       = sd.addr[$SDRAM_COLUMNS_WIDTH+3$, 13];
+      wmask     = sd.wmask;
+      data      = sd.data_in;
+      do_rw     = sd.rw;    
+      // note there is work todo
+      work_todo = 1;
+    }
+
+    refresh_delay   = (refresh_delay>>1);
+    refresh_trigger = (refresh_trigger>>1);    
+    if (needs_refresh & ~working) {
+      refresh_delay   = 10b1111111111;
+      refresh_trigger = 3b100;
+    }
+
+    if (work_todo & ~refresh_delay[0,1]) {
+      working   = 1;
+      work_todo = 0;
+      // prepare read/write sequence
+      burst         = 
+$$if ULX3S then
+              9b100000000;
+$$elseif ICARUS then
+              9b110000000;
+$$else
+              9b111000000;
+$$end
+      stage     = 0;
+      read_cnt  = 0;
+      reading   = 0;
+      actmodulo = 8b00000001;
+      opmodulo  = 8b00000100;
+    }
+
+$$if SIMULATION then
+   cycle = cycle + 1;
+$$end
+  }
+
+$$if HARDWARE then
+  // wait after powerup
+  () <- wait <- (65535); // ~0.5 msec at 100MHz
+$$end
+
+  // precharge all
+  cmd          = CMD_PRECHARGE;
+  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
+  reg_sdram_a  = {2b0,1b1,10b0};
+  () <- wait <- ($math.max(0,cmd_precharge_delay-4)$);
+
+  // load mod reg
+  cmd          = CMD_LOAD_MODE_REG;
+  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
+  reg_sdram_ba = 0;
+  reg_sdram_a  = {3b000, 1b1/*single write*/, 2b00, 3b011/*CAS*/, 1b0, 3b011 /*burst=8x*/ };
+++: // tMRC
+
+  // init done, start answering requests  
+  while (1) {
+
+    // sdram pins for read/write
+    reg_sdram_ba  = stage;
+    reg_sdram_dqm = do_rw          ? ~wmask[0,2] : 2b00;
+    reg_dq_o      = opmodulo[0,1]  ? data        : reg_dq_o;
+    reg_dq_en     = opmodulo[0,1]  ? do_rw       : reg_dq_en;
+    reg_sdram_a   = actmodulo[0,1] ? row         : {2b0, 1b1/*auto-precharge*/, col};
+
+    if (refresh_delay[0,1]) { // refresh
+
+      // __display("[cycle %d] refresh %b  %b",cycle,needs_refresh,refresh_delay);
+      // refresh
+      cmd             = refresh_trigger[0,1] ? CMD_REFRESH : CMD_NOP;
+
+    } else { // read/write pipeline sequence
+
+        switch ({opmodulo[0,1],actmodulo[0,1]}) {
+          case 2b01: {
+            // __display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
+            cmd          = (stage[2,1] | ~working) ? CMD_NOP : CMD_ACTIVE;
+            actmodulo    = do_rw ? 8b00001000 : 8b10000000;
+            opmodulo     = {opmodulo[0,1],opmodulo[1,7]};
+          }
+          case 2b10: {
+            // if (do_rw) {
+            //   __display("[cycle %d] WR stage %d",cycle,stage);
+            // } else {
+            //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
+            // }
+            cmd           = (stage[2,1] | ~working) ? CMD_NOP : (do_rw ? CMD_WRITE : CMD_READ);
+            opmodulo      = do_rw ? 8b00001000 : 8b10000000;
+            actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
+            stage         = stage + 1;             
+            data          = data  >> 16;
+            wmask         = wmask >> 2;
+          }
+          default: {
+            // __display("[cycle %d] ___ stage %d, din %h",cycle,stage,dq_i);
+            opmodulo  = {opmodulo [0,1],opmodulo [1,7]};
+            actmodulo = {actmodulo[0,1],actmodulo[1,7]};
+          }
+        }
+    }
+    
+    // issue command
+    (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+    
+    // burst data in
+    { 
+          
+      switch ({~working,read_cnt[0,3],read_cnt[3,2]}) {
+$$for i = 0,31 do            
+        case $i$: {sd.data_out[$i*16$,16] = dq_i;}
+$$end            
+        default: {}
+      }
+
+      if ((do_rw & stage[2,1]) | (read_cnt == 31)) {
+        sd.done   = working;
+        working   = 0;
+$$if SIMULATION then
+        // __display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
+$$end          
+        // break;
+      }
+
+      read_cnt  = burst[0,1] ? (read_cnt + 1) : read_cnt;
+      burst     = burst >>> 1;
+
+    }
+
+  }
+}
+
+// -----------------------------------------------------------

@@ -1037,6 +1037,50 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   case SIMPLEDUALBRAM: members = c_SimpleDualPortBRAMmembers; break;
   default: reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration"); break;
   }
+  // modifiers
+  if (decl->memModifiers() != nullptr) {
+    for (auto mod : decl->memModifiers()->memModifier()) {
+      if (mod->memClocks() != nullptr) { // clocks
+        // check clock signal exist
+        if (!isVIO(mod->memClocks()->clk0->IDENTIFIER()->getText())
+          && mod->memClocks()->clk0->IDENTIFIER()->getText() != ALG_CLOCK
+          && mod->memClocks()->clk0->IDENTIFIER()->getText() != m_Clock) {
+          reportError(mod->memClocks()->clk0->IDENTIFIER()->getSymbol(),
+            (int)mod->memClocks()->clk0->getStart()->getLine(),
+            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk0->getText().c_str());
+        }
+        if (!isVIO(mod->memClocks()->clk1->IDENTIFIER()->getText())
+          && mod->memClocks()->clk1->IDENTIFIER()->getText() != ALG_CLOCK
+          && mod->memClocks()->clk1->IDENTIFIER()->getText() != m_Clock) {
+          reportError(mod->memClocks()->clk1->IDENTIFIER()->getSymbol(),
+            (int)mod->memClocks()->clk1->getStart()->getLine(),
+            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk1->getText().c_str());
+        }
+        // add
+        mem.clocks.push_back(mod->memClocks()->clk0->IDENTIFIER()->getText());
+        mem.clocks.push_back(mod->memClocks()->clk1->IDENTIFIER()->getText());
+      } else if (mod->memNoInputLatch() != nullptr) { // no input latch
+        if (mod->memDelayed() != nullptr) {
+          reportError(mod->memNoInputLatch()->getSourceInterval(),
+            (int)mod->memNoInputLatch()->getStart()->getLine(),
+            "memory cannot use both 'input!' and 'delayed' options");
+        }
+        mem.no_input_latch = true;
+      } else if (mod->memDelayed() != nullptr) { // delayed input ( <:: )
+        if (mod->memNoInputLatch() != nullptr) {
+          reportError(mod->memDelayed()->getSourceInterval(),
+            (int)mod->memDelayed()->getStart()->getLine(),
+            "memory cannot use both 'input!' and 'delayed' options");
+        }
+        mem.delayed = true;
+      } else if (mod->STRING() != nullptr) {
+        mem.custom_template = mod->STRING()->getText();
+        mem.custom_template = mem.custom_template.substr(1, mem.custom_template.size() - 2);
+      } else {
+        reportError(mod->getSourceInterval(), (int)mod->getStart()->getLine(), "unkonwn modifier");
+      }
+    }
+  }
   // members
   for (const auto& m : members) {
     t_var_nfo v;
@@ -1048,7 +1092,10 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
       v.type_nfo.width     = justHigherPow2(mem.table_size);
     } else {
       // search config for width
-      auto C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
+      auto C = CONFIG.keyValues().find(mem.custom_template + "_" + m.name + "_width");
+      if (C == CONFIG.keyValues().end() || mem.custom_template.empty()) {
+        C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
+      }
       if (C == CONFIG.keyValues().end()) {
         v.type_nfo.width     = mem.type_nfo.width;
       } else if (C->second == "1") {
@@ -1057,7 +1104,11 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
         v.type_nfo.width     = mem.type_nfo.width;
       }
       // search config for type
-      auto T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
+      string sgnd = "";
+      auto T = CONFIG.keyValues().find(mem.custom_template + "_" + m.name + "_type");
+      if (T == CONFIG.keyValues().end() || mem.custom_template.empty()) {
+        T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
+      }
       if (T == CONFIG.keyValues().end()) {
         v.type_nfo.base_type = mem.type_nfo.base_type;
       } else if (T->second == "uint") {
@@ -1081,45 +1132,6 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
       mem.out_vars.push_back(v.name);
     }
     m_VIOBoundToModAlgOutputs[v.name] = WIRE "_mem_" + v.name;
-  }
-  // clocks
-  if (decl->memModifiers() != nullptr) {
-    for (auto mod : decl->memModifiers()->memModifier()) {
-      if (mod->memClocks() != nullptr) {
-        // check clock signal exist
-        if (!isVIO(mod->memClocks()->clk0->IDENTIFIER()->getText())
-          && mod->memClocks()->clk0->IDENTIFIER()->getText() != ALG_CLOCK
-          && mod->memClocks()->clk0->IDENTIFIER()->getText() != m_Clock) {
-          reportError(mod->memClocks()->clk0->IDENTIFIER()->getSymbol(),
-            (int)mod->memClocks()->clk0->getStart()->getLine(),
-            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk0->getText().c_str());
-        }
-        if (!isVIO(mod->memClocks()->clk1->IDENTIFIER()->getText())
-          && mod->memClocks()->clk1->IDENTIFIER()->getText() != ALG_CLOCK
-          && mod->memClocks()->clk1->IDENTIFIER()->getText() != m_Clock) {
-          reportError(mod->memClocks()->clk1->IDENTIFIER()->getSymbol(),
-            (int)mod->memClocks()->clk1->getStart()->getLine(),
-            "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk1->getText().c_str());
-        }
-        // add
-        mem.clocks.push_back(mod->memClocks()->clk0->IDENTIFIER()->getText());
-        mem.clocks.push_back(mod->memClocks()->clk1->IDENTIFIER()->getText());
-      } else if (mod->memNoInputLatch() != nullptr) {
-        if (mod->memDelayed() != nullptr) {
-          reportError(mod->memNoInputLatch()->getSourceInterval(),
-            (int)mod->memNoInputLatch()->getStart()->getLine(),
-            "memory cannot use both 'input!' and 'delayed' options");
-        }
-        mem.no_input_latch = true;
-      } else if (mod->memDelayed() != nullptr) {
-        if (mod->memNoInputLatch() != nullptr) {
-          reportError(mod->memDelayed()->getSourceInterval(),
-            (int)mod->memDelayed()->getStart()->getLine(),
-            "memory cannot use both 'input!' and 'delayed' options");
-        }
-        mem.delayed = true;
-      }
-    }
   }
   // add memory
   m_Memories.emplace_back(mem);
@@ -1628,6 +1640,17 @@ std::string Algorithm::rewriteExpression(
           std::string vio = atom->base->getText() + (atom->member != nullptr ? "_" + atom->member->getText() : "");
           std::string wo  = resolveWidthOf(vio, atom->getSourceInterval());
           result = result + "(" + wo + ")";
+        } else if (atom->DONE() != nullptr) {
+          recurse = false;
+          // find algorithm
+          auto A = m_InstancedAlgorithms.find(atom->algo->getText());
+          if (A == m_InstancedAlgorithms.end()) {
+            reportError(atom->getSourceInterval(),-1,
+              "cannot find algorithm '%s'",
+              atom->algo->getText().c_str());
+          } else {
+            result = result + "(" + WIRE + A->second.instance_prefix + "_" + ALG_DONE ")";
+          }
         }
       }
       // recurse?
@@ -2006,6 +2029,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         reportError(type->getSourceInterval(), (int)type->getStart()->getLine(), "'sameas' in subroutine declaration cannot be refering to a group or interface");
       }
       // init values
+      var.do_not_initialize = true;
       var.init_values.resize(max(var.table_size, 1), "0");
       // insert var
       insertVar(var, _current, true /*no init*/);
@@ -2232,33 +2256,6 @@ Algorithm::t_combinational_block* Algorithm::gatherJump(siliceParser::JumpContex
 
 // -------------------------------------------------
 
-Algorithm::t_combinational_block *Algorithm::gatherCall(siliceParser::CallContext* call, t_combinational_block *_current, t_gather_context *_context)
-{
-  // start a new block just after the call
-  t_combinational_block* after = addBlock(generateBlockName(), _current);
-  // has to be a state to return to
-  after->is_state = true;
-  // find the destination
-  std::string name = call->IDENTIFIER()->getText();
-  auto B = m_State2Block.find(name);
-  if (B == m_State2Block.end()) {
-    // forward reference
-    _current->goto_and_return_to(nullptr, after);
-    t_forward_jump j;
-    j.from = _current;
-    j.jump = call;
-    m_JumpForwardRefs[name].push_back(j);
-  } else {
-    // current goes there and return on next
-    _current->goto_and_return_to(B->second, after);
-    B->second->is_state = true; // destination has to be a state
-  }
-  // return block after call
-  return after;
-}
-
-// -------------------------------------------------
-
 Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::ReturnFromContext* ret, t_combinational_block* _current, t_gather_context* _context)
 {
   if (_current->context.subroutine == nullptr) {
@@ -2266,8 +2263,9 @@ Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::Retu
   }
   // add return at end of current
   _current->return_from(_current->context.subroutine->name,m_SubroutinesCallerReturnStates);
-  // start a new block
+  // start a new block with a new state
   t_combinational_block* block = addBlock(generateBlockName(), _current);
+  _current->is_state = true;
   return block;
 }
 
@@ -3140,7 +3138,6 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto circinst = dynamic_cast<siliceParser::CircuitryInstContext*>(tree);
   auto repeat   = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
   auto pip      = dynamic_cast<siliceParser::PipelineContext*>(tree);
-  auto call     = dynamic_cast<siliceParser::CallContext*>(tree);
   auto ret      = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
   auto breakL   = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
   auto block    = dynamic_cast<siliceParser::BlockContext *>(tree);
@@ -3172,6 +3169,18 @@ Algorithm::t_combinational_block *Algorithm::gather(
           "always block can only be combinational");
       }
     }
+    m_AlwaysPost.context.parent_scope = _current;
+    if (algbody->alwaysAfterBlock() != nullptr) {
+      cerr << Console::yellow << nxl << nxl << nxl
+        << "[[WARNING]] your design is using always_after which is only partially implemented!!" 
+        << nxl << nxl << nxl << Console::gray;
+      gather(algbody->alwaysAfterBlock(), &m_AlwaysPost, _context);
+      if (!isStateLessGraph(&m_AlwaysPost)) {
+        reportError(algbody->alwaysAfterBlock()->ALWAYS_AFTER()->getSymbol(),
+          (int)algbody->alwaysAfterBlock()->getStart()->getLine(),
+          "always_after block can only be combinational");
+      }
+    }
     // recurse on instruction list
     _current = gather(algbody->instructionList(), _current, _context);
     recurse  = false;
@@ -3184,7 +3193,6 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (pip)      { _current = gatherPipeline(pip, _current, _context);           recurse = false;
   } else if (sync)     { _current = gatherSyncExec(sync, _current, _context);          recurse = false;
   } else if (join)     { _current = gatherJoinExec(join, _current, _context);          recurse = false;
-  } else if (call)     { _current = gatherCall(call, _current, _context);              recurse = false;
   } else if (circinst) { _current = gatherCircuitryInst(circinst, _current, _context); recurse = false;
   } else if (jump)     { _current = gatherJump(jump, _current, _context);              recurse = false; 
   } else if (ret)      { _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
@@ -3232,10 +3240,6 @@ void Algorithm::resolveForwardJumpRefs()
         if (dynamic_cast<siliceParser::JumpContext*>(j.jump)) {
           // update jump
           j.from->next(B->second);
-        } else if (dynamic_cast<siliceParser::CallContext*>(j.jump)) {
-          // update call
-          const end_action_goto_and_return_to* gaf = j.from->goto_and_return_to();
-          j.from->goto_and_return_to(B->second, gaf->return_to);
         } else {
           sl_assert(false);
         }
@@ -4300,6 +4304,7 @@ void Algorithm::determineVariablesAndOutputsAccess(
   }
   // determine variable access for always blocks
   determineVariablesAndOutputsAccess(&m_AlwaysPre);
+  determineVariablesAndOutputsAccess(&m_AlwaysPost);
   // determine variable access for wires
   determineVariablesAndOutputsAccessForWires(_global_in_read, _global_out_written);
   // determine variable access due to algorithm and module instances
@@ -4356,7 +4361,7 @@ void Algorithm::determineVariablesAndOutputsAccess(
   all_blocks.push_front(&m_AlwaysPre);
   all_blocks.push_front(&m_AlwaysPost);
   for (const auto &b : all_blocks) {
-    _global_in_read.insert(b->in_vars_read.begin(), b->in_vars_read.end());
+    _global_in_read    .insert(b->in_vars_read.begin(), b->in_vars_read.end());
     _global_out_written.insert(b->out_vars_written.begin(), b->out_vars_written.end());
   }
 }
@@ -4557,8 +4562,10 @@ Algorithm::Algorithm(
   m_KnownInterfaces(known_interfaces), m_KnownBitFields(known_bitfield)
 {
   // init with empty always blocks
-  m_AlwaysPre.id = 0;
-  m_AlwaysPre.block_name = "_always_pre";
+  m_AlwaysPre.id = -1;
+  m_AlwaysPre .block_name = "_always_pre";
+  m_AlwaysPost.id = -1;
+  m_AlwaysPost.block_name = "_always_post";
 }
 
 // -------------------------------------------------
@@ -4634,6 +4641,9 @@ void Algorithm::checkPermissions()
   // check permissions on all instructions of all blocks
   for (const auto &i : m_AlwaysPre.instructions) {
     checkPermissions(i.instr, &m_AlwaysPre);
+  }
+  for (const auto &i : m_AlwaysPost.instructions) {
+    checkPermissions(i.instr, &m_AlwaysPost);
   }
   for (const auto &b : m_Blocks) {
     for (const auto &i : b->instructions) {
@@ -4770,7 +4780,10 @@ void Algorithm::checkExpressions()
 {
   // check permissions on all instructions of all blocks
   for (const auto &i : m_AlwaysPre.instructions) {
-    checkExpressions(i.instr, &m_AlwaysPre);
+    checkExpressions(i.instr, &m_AlwaysPost);
+  }
+  for (const auto &i : m_AlwaysPost.instructions) {
+    checkExpressions(i.instr, &m_AlwaysPost);
   }
   for (const auto &b : m_Blocks) {
     for (const auto &i : b->instructions) {
@@ -5385,9 +5398,10 @@ void Algorithm::writeWireAssignements(
     updateAndCheckDependencies(_dependencies, a.second.instr, &empty);
     // we take the opportunity to check that if the wire depends on other wires, they are either all := or all ::=
     // mixing these two is forbidden, as this quickly leads to confusion without real benefits
+    // ( Note: I encounter a corner-case use for this ... but it would be best resolved with explicit reference to 
+    //         a variable 'at cycle start' (Q) state, e.g. ::a )
     for (const auto &d : _dependencies.dependencies.at(var)) {
       // is this dependency a wire?
-      /*
       auto W = m_WireAssignments.find(d);
       if (W != m_WireAssignments.end()) {
         auto w_alw    = dynamic_cast<siliceParser::AlwaysAssignedContext *>(W->second.instr);
@@ -5397,7 +5411,6 @@ void Algorithm::writeWireAssignements(
             "inconsistent use of ::= and := between bound expressions (with '%s')",d.c_str());
         }
       }
-      */
       // update usage of dependencies to q
       // NOTE: could be done only if wire is used ...
       updateFFUsage(e_Q, true, _ff_usage.ff_usage[d]);
@@ -5415,7 +5428,7 @@ void Algorithm::writeWireAssignements(
 
 void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_var_nfo& v) const
 {
-  if (!v.do_not_initialize) {
+  if (!v.do_not_initialize && !v.init_at_startup) {
     if (v.table_size == 0) {
       out << FF_Q << prefix << v.name << " <= " << varInitValue(v) << ';' << nxl;
     } else {
@@ -5651,7 +5664,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out)
         init = " = " + v.init_values[0];
       }
       writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + init);
-      writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name);
+      writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + init);
     } else {
       writeVerilogDeclaration(out, "reg", v, string(FF_D) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
       writeVerilogDeclaration(out, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
@@ -6400,10 +6413,13 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
     } else if (current->pipeline_next()) {
       // write pipeline
       current = writeStatelessPipeline(prefix,out,current, _q,_dependencies, _ff_usage);
-    } else { // necessary as m_AlwaysPre reaches this
-      if (!hasNoFSM()) { 
-        // no action, goto end
-        out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << nxl;
+    } else { 
+      // necessary as m_AlwaysPre/m_AlwaysPost reaches this
+      if (block != &m_AlwaysPre && block != &m_AlwaysPost) {
+        if (!hasNoFSM()) {
+          // no action, goto end
+          out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << nxl;
+        }
       }
       return;
     }
@@ -6517,9 +6533,9 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, s
   string memid;
   std::vector<t_mem_member> members;
   switch (bram.mem_type) {
-  case BRAM:     members = c_BRAMmembers; memid = "bram";  break;
-  case BROM:     members = c_BROMmembers; memid = "brom"; break;
-  case DUALBRAM: members = c_DualPortBRAMmembers; memid = "dualport_bram"; break;
+  case BRAM:           members = c_BRAMmembers; memid = "bram";  break;
+  case BROM:           members = c_BROMmembers; memid = "brom"; break;
+  case DUALBRAM:       members = c_DualPortBRAMmembers; memid = "dualport_bram"; break;
   case SIMPLEDUALBRAM: members = c_SimpleDualPortBRAMmembers; memid = "simple_dualport_bram";  break;
   default: reportError(nullptr, -1, "internal error, memory type"); break;
   }
@@ -6531,22 +6547,28 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, s
       [](unsigned char c) { return std::toupper(c); }
     );
     if (m.is_addr) {
-      _replacements[nameup + "_WIDTH"] = std::to_string(justHigherPow2(bram.table_size) - 1);
+      _replacements[nameup + "_WIDTH"] = std::to_string(justHigherPow2(bram.table_size));
     } else {
       // search config
-      string width = ""; // bit-width - 1 (written as top of verilog range)
-      auto C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
+      string width = "";
+      auto C = CONFIG.keyValues().find(bram.custom_template + "_" + m.name + "_width");
+      if (C == CONFIG.keyValues().end() || bram.custom_template.empty()) {
+        C = CONFIG.keyValues().find(memid + "_" + m.name + "_width");
+      }
       if (C == CONFIG.keyValues().end()) {
-        width = std::to_string(bram.type_nfo.width - 1);
+        width = std::to_string(bram.type_nfo.width);
       } else if (C->second == "1") {
-        width = "0";
+        width = "1";
       } else if (C->second == "data") {
-        width = std::to_string(bram.type_nfo.width - 1);
+        width = std::to_string(bram.type_nfo.width);
       }
       _replacements[nameup + "_WIDTH"] = width;
       // search config
       string sgnd = "";
-      auto T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
+      auto T = CONFIG.keyValues().find(bram.custom_template + "_" + m.name + "_type");
+      if (T == CONFIG.keyValues().end() || bram.custom_template.empty()) {
+        T = CONFIG.keyValues().find(memid + "_" + m.name + "_type");
+      }
       if (T == CONFIG.keyValues().end()) {
         sgnd = typeString(bram.type_nfo.base_type);
       } else if (T->second == "uint") {
@@ -6560,8 +6582,8 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(const t_mem_nfo& bram, s
     }
   }
   _replacements["DATA_TYPE"] = typeString(bram.type_nfo.base_type);
-  _replacements["DATA_WIDTH"] = std::to_string(bram.type_nfo.width - 1);
-  _replacements["DATA_SIZE"] = std::to_string(bram.table_size - 1);
+  _replacements["DATA_WIDTH"] = std::to_string(bram.type_nfo.width);
+  _replacements["DATA_SIZE"] = std::to_string(bram.table_size);
   ostringstream initial;
   if (!bram.do_not_initialize) {
     initial << "initial begin" << nxl;
@@ -6583,7 +6605,8 @@ void Algorithm::writeModuleMemoryBRAM(std::ostream& out, const t_mem_nfo& bram) 
   prepareModuleMemoryTemplateReplacements(bram, replacements);
   // load template
   VerilogTemplate tmplt;
-  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["bram_template"],
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" +
+    (bram.custom_template.empty() ? CONFIG.keyValues()["bram_template"] : (bram.custom_template + ".v.in")),
     replacements);
   // write to output
   out << tmplt.code();
@@ -6599,7 +6622,8 @@ void Algorithm::writeModuleMemoryBROM(std::ostream& out, const t_mem_nfo& bram) 
   prepareModuleMemoryTemplateReplacements(bram, replacements);
   // load template
   VerilogTemplate tmplt;
-  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["brom_template"],
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" +
+    (bram.custom_template.empty() ? CONFIG.keyValues()["brom_template"] : (bram.custom_template + ".v.in")),
     replacements);
   // write to output
   out << tmplt.code();
@@ -6615,7 +6639,8 @@ void Algorithm::writeModuleMemoryDualPortBRAM(std::ostream& out, const t_mem_nfo
   prepareModuleMemoryTemplateReplacements(bram, replacements);
   // load template
   VerilogTemplate tmplt;
-  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["dualport_bram_template"],
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" +
+    (bram.custom_template.empty() ? CONFIG.keyValues()["dualport_bram_template"] : (bram.custom_template + ".v.in")),
     replacements);
   // write to output
   out << tmplt.code();
@@ -6631,7 +6656,8 @@ void Algorithm::writeModuleMemorySimpleDualPortBRAM(std::ostream &out, const t_m
   prepareModuleMemoryTemplateReplacements(bram, replacements);
   // load template
   VerilogTemplate tmplt;
-  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" + CONFIG.keyValues()["simple_dualport_bram_template"],
+  tmplt.load(CONFIG.keyValues()["templates_path"] + "/" +
+    (bram.custom_template.empty() ? CONFIG.keyValues()["simple_dualport_bram_template"] : (bram.custom_template + ".v.in")),
     replacements);
   // write to output
   out << tmplt.code();
@@ -6733,6 +6759,7 @@ void copyToVarNfo(Algorithm::t_var_nfo &_nfo, const T &src)
   _nfo.init_values = src.init_values;
   _nfo.table_size = src.table_size;
   _nfo.do_not_initialize = src.do_not_initialize;
+  _nfo.init_at_startup   = src.init_at_startup;
   _nfo.access = src.access;
   _nfo.usage = src.usage;
   _nfo.attribs = src.attribs;
@@ -6792,7 +6819,7 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
       out << "parameter " << str << "_WIDTH=1,";
       out << "parameter " << str << "_SIGNED=0,";
-      out << "parameter " << str << "_INIT=0";
+      out << "parameter " << str << "_INIT={"<< str <<"_WIDTH{1'bx}}";
       if (i + 1 < m_Parameterized.size()) {
         out << ',';
       }
@@ -7170,6 +7197,18 @@ void Algorithm::writeAsModule(ostream& out, t_vio_ff_usage& _ff_usage) const
   if (!hasNoFSM()) {
     // write all states
     writeCombinationalStates("_", out, always_dependencies, _ff_usage);
+  }
+  // always after block
+  {
+    std::queue<size_t> q;
+    /*for (auto ff : always_dependencies.dependencies) {
+      cerr << "***********************" << ff.first << " - ";
+      for (auto d : ff.second) {
+        cerr << d << ',';
+      }
+      cerr << std::endl;
+    }*/
+    writeStatelessBlockGraph("_", out, &m_AlwaysPost, nullptr, q, always_dependencies, _ff_usage);
   }
   out << "end" << nxl;
 

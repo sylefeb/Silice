@@ -209,6 +209,7 @@ private:
       bool        do_not_initialize = false;
       bool        no_input_latch    = false;
       bool        delayed           = false;
+      std::string custom_template;
       int         line;
       std::vector<std::string> clocks;
       std::vector<std::string> in_vars;
@@ -608,7 +609,7 @@ private:
 
     /// \brief always blocks
     t_combinational_block                                             m_AlwaysPre;
-    t_combinational_block                                             m_AlwaysPost; // empty, used only to track post-reads (bindings)
+    t_combinational_block                                             m_AlwaysPost;
     /// \brief wire assignments
     std::unordered_map<std::string,t_instr_nfo>                       m_WireAssignments;
     /// \brief all combinational blocks
@@ -736,8 +737,6 @@ private:
     t_combinational_block *gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a jump
     t_combinational_block* gatherJump(siliceParser::JumpContext* jump, t_combinational_block* _current, t_gather_context* _context);
-    /// \brief gather a call
-    t_combinational_block *gatherCall(siliceParser::CallContext* call, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a circuitry instanciation
     t_combinational_block* gatherCircuitryInst(siliceParser::CircuitryInstContext* ci, t_combinational_block* _current, t_gather_context* _context);
     /// \brief gather a return

@@ -36,6 +36,12 @@ wire [3:0] __main_out_gpdi_dp;
 wire [3:0] __main_out_gpdi_dn;
 `endif
 
+`ifdef SDCARD
+wire        __main_sd_clk;
+wire        __main_sd_csn;
+wire        __main_sd_mosi;
+`endif
+
 initial begin
   clk = 1'b0;
   rst_n = 1'b0;
@@ -91,6 +97,12 @@ M_main __main(
   .out_video_b(__main_video_b),
   .out_video_hs(__main_video_hs),
   .out_video_vs(__main_video_vs),  
+`endif  
+`ifdef SDCARD
+  .out_sd_csn    (__main_sd_csn),
+  .out_sd_clk    (__main_sd_clk),
+  .out_sd_mosi   (__main_sd_mosi),
+  .in_sd_miso    (1'b0),
 `endif  
 `ifdef UART
   .out_uart_tx(__main_uart_tx),

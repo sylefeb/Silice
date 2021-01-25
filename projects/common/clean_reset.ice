@@ -3,12 +3,9 @@
 algorithm clean_reset(  
   output uint1 out
 ) <autorun> {
-  uint8 counter       = 1;
-  uint1 done         ::= (counter == 0);
-  uint8 counter_next ::= done ? 0 : counter + 1;
+  uint4  trigger = 15;
   always {
-    counter = counter_next;
-    out     = ~ done;
+    out     = trigger[0,1];
+    trigger = trigger >> 1;
   }
 }
-

@@ -47,8 +47,6 @@ SUB                 : 'subroutine' ;
 
 RETURN              : 'return' ;
 
-CALL                : 'call' ;
-
 BREAK               : 'break' ;
 
 DISPLAY             : '$display' | '__display' ;
@@ -59,7 +57,10 @@ TOSIGNED            : '__signed' ;
 
 TOUNSIGNED          : '__unsigned' ;
 
-ALWAYS              : 'always' ;
+DONE                : 'isdone' ;
+
+ALWAYS              : 'always' | 'always_before' ;
+ALWAYS_AFTER        : 'always_after' ;
 
 BRAM                : 'bram' ;
 
@@ -148,7 +149,7 @@ initList            : '{' value (',' value)* (',' pad)? ','? '}' | '{' pad '}'  
 memNoInputLatch     : 'input' '!' ;
 memDelayed          : 'delayed' ;
 memClocks           : (clk0=sclock ',' clk1=sclock) ;
-memModifier         : memClocks | memNoInputLatch | memDelayed ;
+memModifier         : memClocks | memNoInputLatch | memDelayed | STRING;
 memModifiers        : '<' memModifier (',' memModifier)* ','? '>' ;
 
 type                   : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')') ;
@@ -265,6 +266,7 @@ atom                : CONSTANT
                     | TOSIGNED '(' expression_0 ')'
                     | TOUNSIGNED '(' expression_0 ')'
                     | WIDTHOF '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')'
+                    | DONE '(' algo=IDENTIFIER ')'
                     | concatenation ;
 
 /* -- Accesses to VIO -- */
@@ -311,7 +313,6 @@ circuitryInst       : '(' outs=identifierList ')' '=' IDENTIFIER '(' ins=identif
 
 state               : state_name=IDENTIFIER ':' | NEXT ;
 jump                : GOTO IDENTIFIER ;
-call                : CALL IDENTIFIER ;
 returnFrom          : RETURN ;
 breakLoop           : BREAK ;
 
@@ -329,14 +330,15 @@ instruction         : assignment
                     | asyncExec
                     | joinExec
                     | jump
-                    | call
                     | circuitryInst
                     | returnFrom
                     | breakLoop
                     | display
                     ;
 
-alwaysBlock         : ALWAYS '{' instructionList '}';
+alwaysBlock         : ALWAYS       '{' instructionList '}';
+alwaysAfterBlock    : ALWAYS_AFTER '{' instructionList '}';
+
 repeatBlock         : REPEATCNT '{' instructionList '}' ;
 
 pipeline            : block ('->' block) +;
@@ -379,6 +381,7 @@ subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = 
 declAndInstrList    : (declaration ';' | subroutine ) *
                       alwaysPre = alwaysAssignedList 
                       alwaysBlock?
+                      alwaysAfterBlock?
                       instructionList
 					  ;
 

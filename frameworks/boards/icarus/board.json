@@ -9,6 +9,7 @@
         {"set"    : "vga", "define"  : "VGA=1"},
         {"set"    : "hdmi", "define" : "HDMI=1"},
         {"set"    : "uart", "define" : "UART=1"},
+        {"set"    : "sdcard", "define" : "SDCARD=1"},
         {"set"    : "top_only", "define" : "DUMP_TOP_ONLY=1"}
       ],
       "builders": [

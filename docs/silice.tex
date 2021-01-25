@@ -1085,12 +1085,11 @@ This has several important applications such as waiting for a memory read/write,
 
 \subsection{Control flow}
 
-The core control flow operations are \texttt{goto}, \texttt{call} and \texttt{return} (\texttt{call} is a \texttt{goto} preparing a return address for \texttt{return}). 
-%
-While \texttt{goto} and \texttt{call} may be used directly, it is recommended to prefer higher level primitives such as \texttt{while} and subroutines, because \texttt{goto} often leads to harder to read and maintain code\footnote{See the famous Dijkstra's paper about this~\cite{dijkstra}}. 
+The most basic control flow operation is \texttt{goto}.
+While it may be used directly, it is recommended to prefer higher level primitives such as \texttt{while} and subroutines, because \texttt{goto} often leads to harder to read and maintain code\footnote{See the famous Dijkstra's paper about this~\cite{dijkstra}}. 
 Yet, they are a fundamental low-level operation and \silice{} is happy to expose them for your enjoyment!
 
-\texttt{goto} and \texttt{call} always require one cycle to 'jump': this is a change of state in the FSM. Entering a \texttt{while} takes one cycle and then, if there is a single combinational chain inside, it takes exactly one cycle per iteration. 
+\texttt{goto} always requires one cycle to 'jump': this is a change of state in the FSM. Entering a \texttt{while} takes one cycle and then, if there is a single combinational chain inside, it takes exactly one cycle per iteration. Exiting a \texttt{while} takes one cycle ; however when chaining loops only one cycle is required to enter the next loop. So the first loop adds two cycles, any additional loop afterwards adds a single cycle if there is nothing in between them. 
 
 Now, \texttt{if-then-else} is slightly more subtle. When applied to sequences of operations not requiring any control flow, an \texttt{if-then-else} synthesizes to a combinational \texttt{if-then-else}. This means that both the 'if' and 'else' code are evaluated in parallel as combinational chains, and a multiplexer selects which one is the result based on the condition. This applies recursively, so combinational \texttt{if-then-else} may be nested.
 

@@ -4,9 +4,34 @@
 //
 // ------------------------- 
 
+$$TEST_r512w64            = true
+$$TEST_r128w8             = false
+$$TEST_r16w16             = false
+
+$$TEST_with_autoprecharge = true
+
 $include('../common/sdram_interfaces.ice')
-// include('../common/sdram_controller_autoprecharge_r128_w8.ice')
+
+$$if TEST_r128w8 then
+$$  if TEST_with_autoprecharge then
+$$      print('TESTING sdram_controller_autoprecharge_r128_w8')
+$include('../common/sdram_controller_autoprecharge_r128_w8.ice')
+$$  else
+$$    print('TESTING sdram_controller_r128_w8')
+$include('../common/sdram_controller_r128_w8.ice')
+$$  end
+$$end
+
+$$if TEST_r16w16 then
+$$  print('TESTING sdram_controller_autoprecharge_r16_w16')
 $include('../common/sdram_controller_autoprecharge_r16_w16.ice')
+$$end
+
+$$if TEST_r512w64 then
+$$  print('TESTING sdram_controller_autoprecharge_pipelined_r512_w64')
+$include('../common/sdram_controller_autoprecharge_pipelined_r512_w64.ice')
+$$end
+
 $include('../common/sdram_utils.ice')
 
 $$if ICARUS then
@@ -17,14 +42,16 @@ $$end
 
 $$if ULX3S then
 // Clock
-import('ulx3s_clk_50_25_100_100ph180.v')
+import('ulx3s_clk_50_25_100_100ph90.v')
 $$end
 
 $$if SIMULATION then
-$$  TEST_SIZE = 1<<16
+$$  TEST_SIZE = 1<<10
 $$else
 $$  TEST_SIZE = 1<<24
 $$end
+
+$include('../common/clean_reset.ice')
 
 // ------------------------- 
 
@@ -59,9 +86,18 @@ $$end
 $$end
 ) 
 $$if ULX3S then
-<@sdram_clock>
+<@sdram_clock,!rst>
 $$end
 {
+
+$$if not ICARUS then
+uint1 rst = uninitialized;
+clean_reset rstcond<@sdram_clock,!reset> (
+  out   :> rst
+);  
+$$end
+
+uint16 iter = 0;
 
 // --- SDRAM
 
@@ -93,12 +129,29 @@ simul_sdram simul(
 $$end
 
   // SDRAM interface
+$$if TEST_r128w8 then  
+  sdram_r128w8_io sio;
+$$end
+$$if TEST_r16w16 then  
   sdram_r16w16_io sio;
-  // sdram_r128w8_io sio;
-  
+$$end
+$$if TEST_r512w64 then  
+  sdram_r512w64_io sio;
+$$end
   // algorithm
+$$if TEST_r128w8 then  
+$$  if TEST_with_autoprecharge then
+  sdram_controller_autoprecharge_r128_w8 sdram(
+$$  else
+  sdram_controller_r128_w8 sdram(
+$$  end  
+$$end
+$$if TEST_r16w16 then  
   sdram_controller_autoprecharge_r16_w16 sdram(
-  // sdram_controller_autoprecharge_r128_w8 sdram(
+$$end
+$$if TEST_r512w64 then  
+  sdram_controller_autoprecharge_pipelined_r512_w64 sdram(
+$$end
     sd        <:> sio,
     sdram_cle :>  sdram_cle,
     sdram_dqm :>  sdram_dqm,
@@ -117,8 +170,9 @@ $$end
   $$end
   );
 
-  uint26               count = 0;
-  sameas(sio.data_out) read  = 0;
+  uint16               cycle = 0;
+  uint27               count = uninitialized;
+  uint2                pass  = 0;
 
 $$if VERILATOR then
   // sdram clock for verilator simulation
@@ -133,7 +187,7 @@ $$if ULX3S then
   uint1 compute_clock = 0;
   uint1 compute_reset = 0;
   $$print('ULX3S at 50 MHz compute clock, 100 MHz SDRAM')
-  ulx3s_clk_50_25_100_100ph180 clk_gen(
+  ulx3s_clk_50_25_100_100ph90 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
     clkout1  :> video_clock,
@@ -142,51 +196,103 @@ $$if ULX3S then
     locked   :> pll_lock
   ); 
 $$end
-  
+
   // maintain low (pulses when ready, see below)
   sio.in_valid := 0;
 
-  __display("=== writing ===");
+/*
+always_before {
+  if (sio.done) {
+    __display("[cycle %d] DONE",cycle);
+  }
+}
 
-  // write
-  sio.rw = 1;
-  while (count < $TEST_SIZE$) {
-    // write to sdram
-    sio.data_in    = count[0,8];            
-    sio.addr       = count;
-    sio.in_valid   = 1; // go ahead!
-    while (!sio.done) { }
-    leds = count[16,8];
-$$if SIMULATION then    
-    if (count < 16 || count > $TEST_SIZE-16$) {
-      __display("write [%x] = %x",count,sio.data_in);
-    }
-$$end    
-    // count          = count + 1; // r128w8
-    count = count + 2;
+always_after {
+  if (sio.in_valid) {
+    __display("[cycle %d] REQ",cycle);
+  }
+  cycle = cycle + 1;
+}
+*/
+
+$$if false then
+
+  iter = 0;
+  while (iter < 32) { // init
+  iter         = iter + 1;
   }
 
-  __display("=== readback ===");
-  // read back
-  sio.rw = 0;
-  count  = 0;
-  leds   = 8b01000100;
-  while (count < $TEST_SIZE$) {
-    sio.addr     = count;
-    sio.in_valid = 1; // go ahead!
+  iter = 0;
+  while (iter < 1) {
+    sio.rw       = 1;
+    sio.addr     = iter;
+    sio.data_in  = 64h8877665544332211;
+    sio.wmask    = 8b10101010;
+    sio.in_valid = 1; 
     while (!sio.done) { }
-    read = sio.data_out;
-    if (read[0,8] != count[0,8]) {
-      leds = 8b00010001;
-      __display("ERROR AT %h",count);
-    }
-$$if SIMULATION then    
-    if (count < 16 || count >= $TEST_SIZE-16$) {
-      __display("read  [%x] = %x",count,read);
-    }
-$$end
-    // count = count + 16; // r128w8
-    count = count + 2;
-  }  
+    iter         = iter + 8;
+  }
 
+  sio.rw       = 0;
+  sio.addr     = 0;
+  sio.data_in  = 0;
+  sio.in_valid = 1;
+  while (!sio.done) { }
+  __display("sio.data_out = %h",sio.data_out);
+  leds = sio.data_out[56,8];
+$$end
+
+$$if true then
+  while (pass < 2) {
+    sio.rw = ~pass[0,1];
+    leds   = 8b01000100;
+    count  = 0;
+    while (count < $TEST_SIZE$) {
+      // write to sdram
+  $$if TEST_r128w8 or TEST_r16w16 then  
+      sio.data_in    = count[0,8];
+  $$else
+      sio.data_in    = 64h1122aabbccddeeff ^ count ^ (count<<32);
+  $$end      
+      sio.addr       = count;
+      sio.in_valid   = 1; // go ahead!
+      while (!sio.done) { }
+      if (~pass[0,1]) {
+        leds = count[16,8];
+        $$if SIMULATION then    
+        if (count < 128 || count > $TEST_SIZE-128$) {
+          __display("write [%x] = %x",count,sio.data_in);
+        }      
+        $$end
+      } else {
+$$if TEST_r128w8 or TEST_r16w16 then  
+        if (sio.data_out[0,8] != count[0,8]) {
+          leds = 8b00010001;
+          __display("ERROR AT %h",count);
+        }
+$$else
+        if (sio.data_out[0,64] != (64h1122aabbccddeeff ^ count ^ (count<<32))) {
+          leds = 8b00010001;
+          __display("ERROR AT %h",count);
+        }
+$$end
+        $$if SIMULATION then    
+        if (count < 128 || count >= $TEST_SIZE-128$) {
+          __display("read  [%x] = %x",count,sio.data_out);
+        }
+        $$end
+      }
+  $$if TEST_r128w8 then  
+      count = count + (pass ? 16 : 1);
+  $$end
+  $$if TEST_r16w16 then  
+      count = count + 2;
+  $$end
+  $$if TEST_r512w64 then  
+      count = count + (pass ? 64 : 8);
+  $$end
+    }
+    pass = pass + 1;
+  }
+$$end
 }

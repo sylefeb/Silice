@@ -81,19 +81,8 @@ circuitry command(
 
 // -----------------------------------------------------------
 
-$$if not read_burst_length then
-$$ read_burst_length = 8 -- max
-$$end
-$$ if read_burst_length == 8 then
-$$    burst_config = '3b011'
-$$ elseif read_burst_length == 4 then
-$$    burst_config = '3b010'
-$$ elseif read_burst_length == 2 then
-$$    burst_config = '3b001'
-$$ elseif read_burst_length == 1 then
-$$    burst_config = '3b000'
-$$ else
-$$end
+$$ read_burst_length = 8
+$$ burst_config      = '3b011'
 
 algorithm sdram_controller_autoprecharge_r128_w8(
         // sdram pins
@@ -134,7 +123,6 @@ $$end
   uint4 CMD_REFRESH       = 4b0001;
   uint4 CMD_LOAD_MODE_REG = 4b0000;
 
-  uint1   reg_sdram_cle = uninitialized;
   uint1   reg_sdram_cs  = uninitialized;
   uint1   reg_sdram_cas = uninitialized;
   uint1   reg_sdram_ras = uninitialized;
@@ -144,7 +132,6 @@ $$end
   uint13  reg_sdram_a   = uninitialized;
   uint16  reg_dq_o      = 0;
   uint1   reg_dq_en     = 0;
-
 
 $$if not VERILATOR then
 
@@ -160,7 +147,6 @@ $$if ULX3S_IO then
     io_write_enable <:: reg_dq_en
   );
 
-  out1_ff_ulx3s  off_sdram_cle(clock <: clock, pin :> sdram_cle, d <:: reg_sdram_cle);
   out1_ff_ulx3s  off_sdram_cs (clock <: clock, pin :> sdram_cs , d <:: reg_sdram_cs );
   out1_ff_ulx3s  off_sdram_cas(clock <: clock, pin :> sdram_cas, d <:: reg_sdram_cas);
   out1_ff_ulx3s  off_sdram_ras(clock <: clock, pin :> sdram_ras, d <:: reg_sdram_ras);
@@ -172,6 +158,7 @@ $$if ULX3S_IO then
 $$elseif DE10NANO then
 
   inout16_set ioset(
+    clock           <:  clock,
     io_pin          <:> sdram_dq,
     io_write        <:  reg_dq_o,
     io_read         :>  dq_i,
@@ -181,6 +168,7 @@ $$elseif DE10NANO then
 $$else
 
   inout16_set ioset(
+    clock           <:  clock,
     io_pin          <:> sdram_dq,
     io_write        <:  reg_dq_o,
     io_read         :>  dq_i,
@@ -206,18 +194,14 @@ $$ cmd_active_delay    = 2
 $$ cmd_precharge_delay = 3
 $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_length)
 
-  uint10 refresh_count = $refresh_cycles$;
+  int11 refresh_count = -1;
   
-  // wait for incount cycles, incount >= 3
+  // waits for incount + 4 cycles
   subroutine wait(input uint16 incount)
   {
-    // NOTE: waits 3 more than incount
-    // +1 for sub entry,
-    // +1 for sub exit,
-    // +1 for proper loop length
     uint16 count = uninitialized;
     count = incount;
-    while (count > 0) {
+    while (count != 0) {
       count = count - 1;      
     }
   }
@@ -226,8 +210,8 @@ $$if SIMULATION then
   error := 0;
 $$end        
 
+  sdram_cle := 1;
 $$if not ULX3S_IO then
-  sdram_cle := reg_sdram_cle;
   sdram_cs  := reg_sdram_cs;
   sdram_cas := reg_sdram_cas;
   sdram_ras := reg_sdram_ras;
@@ -259,59 +243,37 @@ $$end
       work_todo = 1;
     }
   }
-  
-  // pre-init, wait before enabling clock
-  reg_sdram_cle = 0;
-  () <- wait <- (10100);
-  reg_sdram_cle = 1;
 
-  // init
+  // wait after powerup
   reg_sdram_a  = 0;
   reg_sdram_ba = 0;
   reg_dq_en    = 0;
-  () <- wait <- (10100);
-  
+  () <- wait <- (65535); // ~0.5 msec at 100MHz
+ 
   // precharge all
   cmd      = CMD_PRECHARGE;
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   reg_sdram_a  = {2b0,1b1,10b0};
-  () <- wait <- ($cmd_precharge_delay-3$);
-  
-  // refresh 1
-  cmd     = CMD_REFRESH;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
-  () <- wait <- ($refresh_wait-3$);
-  
-  // refresh 2
-  cmd     = CMD_REFRESH;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd); 
-  () <- wait <- ($refresh_wait-3$);
-  
+  () <- wait <- ($math.max(0,cmd_precharge_delay-4)$);
+
   // load mod reg
   cmd      = CMD_LOAD_MODE_REG;
   (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
   reg_sdram_ba = 0;
-  reg_sdram_a  = {3b000, 1b1, 2b00, 3b011/*CAS*/, 1b0, $burst_config$ /*burst x8*/};
-  () <- wait <- (0);
-
-  reg_sdram_ba = 0;
-  reg_sdram_a  = 0;
-  cmd      = CMD_NOP;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
-  refresh_count = $refresh_cycles$;
+  reg_sdram_a  = {3b000, 1b1, 2b00, 3b011/*CAS*/, 1b0, $burst_config$ };
+++:
   
-  // init done
-  
+  // init done, start answering requests  
   while (1) {
 
     // refresh?
-    if (refresh_count == 0) {
+    if (refresh_count[10,1] == 1) { // became negative!
 
       // refresh
       cmd           = CMD_REFRESH;
       (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
       // wait
-      () <- wait <- ($refresh_wait-3$);
+      () <- wait <- ($refresh_wait-4$);
       // -> reset count
       refresh_count = $refresh_cycles$;  
 
@@ -335,7 +297,7 @@ $$end
         if (do_rw) {
           // __display("<sdram: write %x>",data);
           // write
-          cmd       = CMD_WRITE;
+          cmd           = CMD_WRITE;
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           reg_dq_en     = 1;
           reg_sdram_a   = {2b0, 1b1/*auto-precharge*/, col};
@@ -346,7 +308,7 @@ $$end
 ++:       // wait one cycle to enforce tWR
         } else {
           // read
-          cmd         = CMD_READ;
+          cmd             = CMD_READ;
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           reg_dq_en       = 0;
           reg_sdram_dqm   = 2b0;
@@ -357,6 +319,9 @@ $$end
 ++:
 $$if ULX3S_IO then
 ++: // dq_i latency
+++:
+$$end
+$$if ICARUS then
 ++:
 $$end
           // burst 8 x 16 bytes
