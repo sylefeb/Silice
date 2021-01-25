@@ -17,15 +17,15 @@ Fire-V is an example RV32I core written in [Silice](../../). While simple to rea
 - Relatively compact, ~2K LUTs on ECP5 (2005 LUTs as of latest).
 - Dhrystone CPI: 4.043
 
-**Note:** I honestly do not know whether this is good or not. As a baseline my first RISC-V, the tiny [ice-v](../ice-v) could barely pass timing beyond 60 MHz. It has a better CPI though thanks to a BRAM exclusive memory model.
+**Note:** While I am quite happy with these results, please note that there are way smaller RISC-V cores out there (SERV / PicoRV / FemtoRV) and faster ones with multiscalar architectures. Nevertheless it is quite capable and explores - I think - an interesting compromise in fmax / LUTs / simplicity. Also, it is written in Silice :-)
 
 ## Operation
 
 The processor is organized in a main loop with four main states:
 
 ```c
-while (1) {
-  // ...
+always {
+  
   switch (case_select) {
 
     case 8: { /* refetch */  }
@@ -39,7 +39,7 @@ while (1) {
     default: { /*wait*/ }
 
   }
-  // ...
+  
 }
 ```
 
@@ -47,9 +47,7 @@ Let's see how the processor operates under various scenarios.
 
 ### Ideal case
 
-The Fire-V executes a coherent flow of instructions as follows, assuming the
-memory controller is capable of sending a prefetch instruction in two cycles
-(which is the case of the [BRAM fast-mem segment](../ash/bram_segment_ram_32bits.ice)).
+The Fire-V executes a coherent flow of instructions as follows, assuming the memory controller is capable of sending a prefetch instruction in two cycles (which is the case of the [BRAM fast-mem segment](../ash/bram_segment_ram_32bits.ice)).
 
 Each column is a cycle, time goes left to right:
 |  ALU / fetch    | commit / decode  | ALU / fetch      | commit / decode |
@@ -68,11 +66,11 @@ Each column is a cycle, time goes left to right:
 - setup regW: setup writing registers (into dedicated BRAM)
 - In: means something becomes available, either instructions (from RAM) or registers (from dedicated BRAM).
 
-Note how the ALU has a full cycle to operate, with both inputs and outputs registered. This explains the fmax and (I think?) the robustness to overclocking.
+Note how the ALU has a full cycle to operate, with both inputs and outputs registered. This explains the fmax and - I think - the robustness to overclocking.
 
 ### Slow memory
 
-If the memory cannot follow (e.g. SDRAM) cycles are wasted waiting for data to come in (In: `instr n`), just before the ALU/prefetch stage in the diagram above. 
+If the memory cannot follow (e.g. SDRAM) cycles are wasted waiting for data to come in just before the ALU/prefetch stage in the diagram above (waiting for *In: `instr n`*).
 
 ### Branches and jumps
 
@@ -88,7 +86,7 @@ On a jump, the next instruction prediction is incorrect and breaks the execution
 | setup ALU `i+1`        |                 |       | fetch `j+1`      | setup ALU `j`   | fetch `j+2`      | setup ALU `j+1` |
 | predict `j`            | predict `j+1`   |       | predict `j+2`    |                 | predict `j+3`    |                 |
 
-As you can see some cycles are wasted to recover from the break in the flow. The refetch step interrupts everything, and resumes from a different address. In the current framework, it typically take 6 cycles: 1 for refetch, 1 to obtain `instr j`, and then 2 steps of *ALU / fetch* and 1 of *commit / decode*. So these are 4 cycles in excess of the best case scenario of 2 cycles. (Of course assuming a memory that can use the predictions! These timings are for a BRAM memory cache).
+As you can see some cycles are wasted to recover from the break in the flow. The refetch step interrupts everything, and resumes from a different address. In the current framework, it typically take 6 cycles: 1 for refetch, 1 to obtain `instr j`, and then 2 steps of *ALU / fetch* and 2 of *commit / decode*. So these are 4 cycles in excess of the best case scenario of 2 cycles. (Of course assuming a memory that can use the predictions ; these timings are for a BRAM memory cache).
 
 ### Load / store
 
@@ -96,8 +94,8 @@ When a load store occurs we also have to interrupt the execution flow. However w
 
 | commit / decode        | Refetch         | (+1)  | Load / store     | commit / decode   | ALU / prefetch   |
 | -------------          | ----------------| ---   |----------------  | ----------------  |----------------  |
-| In: Regs `i+1`         | In: `instr i+2` |       | In: `data d`     | In: Regs `i+2`    | In: `instr i+3`  |
-|                        | fetch `d`       |       | (In: Regs `i+2`) |                   |                  |
+| In: Regs `i+1`         | In: `instr i+2` |       | In: `data d`     |                   | In: `instr i+3`  |
+|                        | fetch `d`       |       |                  |                   |                  |
 | decode `i+1`           | ALU `i+1`       |       |                  |  decode `i+2`     | ALU `i+2`        |
 | commit `i` **(load/store!)** |           |       |                  |  commit `i+1`     |                  |
 | setup regW `i`         | setup regR `i+2`|       | setup regW (load)|  setup regW `i+1` | setup regR `i+3` |
@@ -105,13 +103,11 @@ When a load store occurs we also have to interrupt the execution flow. However w
 | predict `d`            | predict `i+3`   |       | predict `i+4`    |                   | predict `i+5`    |
 
 In this case, 4 cycles are required to perform the *load / store*, as we keep other things running in parallel.
-(Again assuming a memory that can use the predictions! These timings are for a BRAM memory cache).
+(Again assuming a memory that can use the predictions ; these timings are for a BRAM memory cache).
 
 ### Register conflicts
 
-Things can go wrong due to one important detail. I am using BRAM for register, and even though this is a simple dual BRAM, reading and writing
-at the same address is problematic: the read will not see the result of the write. This is an issue during a *load /store*, as the values we read for the `i+1` and `i+2` registers may not reflect the result of the store for instruction `i`. In such cases we have to issue a refetch in the middle
-of the *load / store*, triggering a refetch. I call this event a *register conflict*. I such instances we pay a whopping 11 cycles ; that is fortunately relatively rare (0.6% of instructions on Dhrystone), but I guess one could build pathological cases.
+Things can go wrong due to one important detail. I am using BRAM for registers, and even though this is a simple-dual BRAM, reading and writing at the same address at the same cycle is problematic: the read will not see the result of the write. This is an issue during a *load /store*, as the values we read for the `i+1` and `i+2` registers may not reflect the result of the store for instruction `i`. In such cases we have to issue a refetch in the middle of the *load / store*, triggering a refetch. I call this event a *register conflict*. In such instances we pay a whopping 11 cycles ; that is fortunately rare (0.6% of instructions on Dhrystone), but I guess one could build pathological cases.
 
 ## Notes and thoughts
 

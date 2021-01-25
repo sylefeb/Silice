@@ -8,12 +8,12 @@
 
 As always, designing hardware is a compromise. Here I attempt to maintain a simple, easy to read Silice code while achieving good fmax and a relatively compact design. No doubt this can be further improved! 
 
-**Note:** I am not a CPU design expert --  I am just learning, playing and sharing :). Please let me know your thoughts! This is work in progress, this documentation will improve in the coming days.
+**Note:** I am not a CPU design expert --  I am just learning, playing and sharing. Please let me know your thoughts! This is work in progress, this documentation will improve in the coming days.
 
 **Note:** There are many resources on hardware design and RISC-V cores in particular. Be sure to checkout the [links section](#links).
 
 **Features and quick links:**
-- [RV32I core](fire-v/fire-v.ice) in about 2K LUTs, Dhrystone CPI ~4.043, best case instructions in 2 cycles, full access to SDRAM with fast-memory (BRAM) mapped on a specific address range. Has 32 bits `rdcycle` and `rdinstret` plus a special `userdata` (hijacks `rdtime`), uses barrel shifters for 1 cycle ALU operations.
+- [RV32I core](doc/fire-v.md) in about 2K LUTs, Dhrystone CPI ~4.043, best case instructions in 2 cycles, full access to SDRAM with fast-memory (BRAM) mapped on a specific address range. Has 32 bits `rdcycle` and `rdinstret` plus a special `userdata` (hijacks `rdtime`), uses barrel shifters for 1 cycle ALU operations.
 - [Pipelined SDRAM controller](../common/sdram_controller_autoprecharge_pipelined_r512_w64.ice).
 - [A fast memory segment](ash/bram_segment_ram_32bits.ice) catching an address range in BRAM, falling back to SDRAM outside.
 - A [hardware triangle rasterizer](doc/flame.md), exploiting the SDRAM wide write capability.
