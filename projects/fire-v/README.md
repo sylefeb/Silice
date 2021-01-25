@@ -2,7 +2,7 @@
 
 *The documentation effort is ongoing, this page will be updated regularly.*
 
-**Design goals:** A video framework validated at a good fmax ( ulx3s: CPU >90 MHz, SDRAM >140 MHz), supporting overclocking to much higher frequencies ( ulx3s: full framework at 160 MHz, CPU alone seems still ok at 200 MHz ), with a RISC-V core in 2K LUTs, HDMI output, a pipelined SDRAM controller, and seamless access to the entire memory space. Oh, and there is a hardware rasterizer for triangles as well, for good measure. Everything will be documented, to serve as a detailed example for Silice.
+**Design goals:** A video framework validated at a good fmax ( ulx3s: CPU ~90 MHz, SDRAM ~135 MHz), supporting overclocking to much higher frequencies ( ulx3s: full framework at 160 MHz, CPU alone seems still ok at 200 MHz ), with a RISC-V core in 2K LUTs, HDMI output, a pipelined SDRAM controller, and seamless access to the entire memory space. Oh, and there is a hardware rasterizer for triangles as well, for good measure. Everything will be documented, to serve as a detailed example for Silice.
 
 *But really, this is about having fun revisiting some old-schools effects and rendering tricks!*
 
