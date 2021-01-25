@@ -28,6 +28,11 @@ $$if ULX3S then
 import('../common/ulx3s_clk_100_25.v')
 $$end
 
+$$if ECPIX5 then
+// Clock
+import('../common/ecpix5_clk_100_25.v')
+$$end
+
 $$if HARDWARE then
 // Reset
 $include('../common/clean_reset.ice')
@@ -145,6 +150,16 @@ $$elseif ULX3S then
   uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
   ulx3s_clk_100_25 clk_gen(
+    clkin    <: clock,
+    clkout0  :> sdram_clock,
+    clkout1  :> video_clock,
+    locked   :> pll_lock
+  ); 
+$$elseif ECPIX5 then
+  // --- clock
+  uint1 sdram_clock = 0;
+  uint1 pll_lock = 0;
+  ecpix5_clk_100_25 clk_gen(
     clkin    <: clock,
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,

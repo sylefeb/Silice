@@ -23,6 +23,11 @@ $$if DE10NANO then
 import('../common/de10nano_clk_100_25.v')
 $$end
 
+$$if ECPIX5 then
+// Clock
+import('../common/ecpix5_clk_100_25.v')
+$$end
+
 $$if HARDWARE then
 // Reset
 $include('../common/clean_reset.ice')
@@ -84,7 +89,7 @@ $$end
   int12 rand_x = 0;
 
   // ---------- string
-  uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ICEBREAKER#-ULX3S#-DE10-NANO";
+  uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ICEBREAKER#-ULX3S#-DE10-NANO#-ECPIX-5";
 
   // --------- print string
   subroutine print_string( 
@@ -303,6 +308,16 @@ $$elseif DE10NANO then
     outclk_1 :> video_clock,
     locked   :> pll_lock
   );   
+$$elseif ECPIX5 then
+  // --- clock
+  uint1 sdram_clock = 0;
+  uint1 pll_lock = 0;
+  ecpix5_clk_100_25 clk_gen(
+    clkin    <: clock,
+    clkout0  :> sdram_clock,
+    clkout1  :> video_clock,
+    locked   :> pll_lock
+  ); 
 $$end
   // --- video reset
   clean_reset vga_rstcond<@video_clock,!reset>(

@@ -30,6 +30,11 @@ $$if DE10NANO then
 import('../common/de10nano_clk_100_25.v')
 $$end
 
+$$if ECPIX5 then
+// Clock
+import('../common/ecpix5_clk_100_25.v')
+$$end
+
 $$if HARDWARE then
 // Reset
 $include('../common/clean_reset.ice')
@@ -120,6 +125,16 @@ $$elseif DE10NANO then
     rst      <: reset,
     outclk_0 :> sdram_clock,
     outclk_1 :> video_clock,
+    locked   :> pll_lock
+  ); 
+$$elseif ECPIX5 then
+  // --- clock
+  uint1 sdram_clock = 0;
+  uint1 pll_lock = 0;
+  ecpix5_clk_100_25 clk_gen(
+    clkin    <: clock,
+    clkout0  :> sdram_clock,
+    clkout1  :> video_clock,
     locked   :> pll_lock
   ); 
 $$end
