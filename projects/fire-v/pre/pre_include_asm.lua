@@ -6,6 +6,7 @@ if not path then
 end
 
 data_hex = ''
+c_hex = ''
 data_bram = ''
 word = ''
 init_data_bytes = 0
@@ -34,10 +35,16 @@ for cpu=0,1 do
       delta = addr - prev_addr
       for i=1,delta do
         -- pad with zeros
-        data_hex = data_hex .. '8h' .. 0 .. ','
+        word     = '00' .. word;
+        if #word == 8 then 
+          data_bram = data_bram  .. '32h' .. word .. ','
+          word = ''
+        end
+        data_hex        = data_hex .. '8h' .. 0 .. ','
+        c_hex           = c_hex .. '0x00,'
         out:write(string.pack('B', 0 ))
         init_data_bytes = init_data_bytes + 1
-        prev_addr = prev_addr + 1
+        prev_addr       = prev_addr + 1
       end
       prev_addr = addr
     else 
@@ -47,6 +54,7 @@ for cpu=0,1 do
         word = ''
       end
       data_hex = data_hex .. '8h' .. str .. ','
+      c_hex    = c_hex .. '0x' .. str .. ','
       out:write(string.pack('B', tonumber(str,16) ))
       init_data_bytes = init_data_bytes + 1
       prev_addr = prev_addr + 1
@@ -67,6 +75,7 @@ while sdcard_size < sdcard_image_pad_size do
   out:write(string.pack('B', 0 ))
   sdcard_size = sdcard_size + 1
   data_hex = data_hex .. '8h0,'
+  c_hex    = c_hex .. '0x00,'
 end
 
 if sdcard_extra_files then
@@ -90,5 +99,13 @@ end
 out:close()
 
 print('sdcard image is ' .. init_data_bytes .. ' bytes.')
+
+
+local out = assert(io.open(path .. '/smoke/data.h', "wb"))
+out:write('unsigned char code[]={')
+out:write(c_hex)
+out:write('0x00};')
+out:close()
+
 
 --error('stop')
