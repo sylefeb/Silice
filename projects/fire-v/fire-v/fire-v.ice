@@ -123,8 +123,9 @@ algorithm rv32i_cpu(
   
   uint1  cmp         = uninitialized;
   uint1  instr_ready(0);
-  // uint1  halt(0);
-  
+$$if SIMULATION then  
+  uint1  halt(0);
+$$end
   uint5  write_rd    = uninitialized;
   uint1  jump        = uninitialized;  
   uint1  branch      = uninitialized;
@@ -242,23 +243,21 @@ $$end
                     wait_next_instr                 & ram.done,    // instruction avalable
                     commit_decode
                   };
-                  
+$$if SIMULATION then
+    if (halt) {
+      case_select = 0;
+    }
+$$end                  
   //} 
 
 //  __display("cycle %d case_select %d refetch %b wait_next_instr %b commit_decode %b",cycle,case_select,refetch,wait_next_instr,commit_decode);
 
-$$if HARDWARE then  
-  //while (1) {
-$$else    
-  //while (!halt) {
-$$end    
-  // while (cycle < 400) {
-  // while (instret < 128) {
 $$if verbose then
     if (ram.done) {
       __display("**** ram done (cycle %d) **** ram.data_out @%h = %h",cycle,ram.addr,ram.data_out);        
     }
 $$end
+
     switch (case_select) {
 
       case 8: {
@@ -408,8 +407,8 @@ $$end
         commit_decode = 0;
         // Note: nothing received from memory
 $$if SIMULATION then
-        // halt   = instr_ready & (instr == 0);
-        // if (halt) { __display("HALT on zero-instruction"); }
+        halt   = instr_ready & (instr == 0);
+        if (halt) { __display("HALT on zero-instruction"); }
 $$end
         // commit previous instruction
         // load store next?

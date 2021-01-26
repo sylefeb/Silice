@@ -48,7 +48,7 @@ $$if verbose then
        __display("########################################### missed opportunity");
      }
      if (~in_cache & pram.in_valid) {
-       __display("########################################### in RAM @%h = %h (%b) cycle %d",pram.addr,pram. data_in,pram.rw,cycle);
+       __display("########################################### outside @%h = %h (%b) cycle %d",pram.addr,pram. data_in,pram.rw,cycle);
      } 
 $$end
     // access cache
