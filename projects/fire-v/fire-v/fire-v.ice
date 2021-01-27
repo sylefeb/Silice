@@ -423,7 +423,7 @@ $$end
 
 $$if verbose then
 if (refetch) {
-  //__display("  [refetch from] %h",refetch_addr);
+  __display("  [refetch from] %h",refetch_addr);
 }
 $$end
         // attempt to predict read ...

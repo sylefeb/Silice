@@ -18,9 +18,7 @@ void pause(int cycles)
 
 void main()
 {
-  *LEDS=128;
   sdcard_init();
-  *LEDS=170;
   // copy to the start of the fast-memory segment (BRAM cache)  
   unsigned char *code = (unsigned char *)0x2000000;
   // 58 sectors so that we do not override the boot sector itself!
@@ -29,7 +27,5 @@ void main()
     *LEDS=sector;
     code = sdcard_copy_sector(sector,code);
   }
-  *LEDS=0;
   asm volatile ("lui t0,0x2000; jalr x0,0(t0);");
-  *LEDS=255;
 }

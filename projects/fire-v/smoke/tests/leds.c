@@ -1,15 +1,4 @@
-long time()
-{
-   int cycles;
-   asm volatile ("rdcycle %0" : "=r"(cycles));
-   return cycles;
-}
-
-void pause(int cycles)
-{ 
-  long tm_start = time();
-  while (time() - tm_start < cycles) { }
-}
+// compile_c.sh smoke/tests/leds.c --nolibc
 
 void main() 
 {
@@ -20,3 +9,4 @@ void main()
     pause(10000000);
   }
 }
+

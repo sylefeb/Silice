@@ -19,6 +19,7 @@ $$error('Sorry, Wildfire is currently not supported on this board.')
 $$end
 
 // pre-compilation script, embeds compile code within sdcard image
+$$sdcard_image_pad_size = 0
 $$dofile('pre/pre_include_asm.lua')
 $$code_size_bytes = init_data_bytes
 

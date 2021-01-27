@@ -23,8 +23,8 @@ volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x00000000;
 volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x88000000;
 volatile unsigned int*  const SDCARD      = (unsigned int* )0x90000008;
 
-int cursor_x = 0x00000000;
-int cursor_y = 0x00000000;
+int cursor_x = 1;
+int cursor_y = 0;
 
 void set_cursor(int x,int y)
 {
@@ -37,7 +37,7 @@ int    putchar(int c)
   
   if (c == 10) {
     // next line
-    cursor_x = 0;
+    cursor_x = 1;
     cursor_y += 8;
     if (cursor_y > 400) {
       cursor_y = 0;
@@ -57,7 +57,7 @@ int    putchar(int c)
   
   cursor_x += 5;
   if (cursor_x > 640) {
-    cursor_x = 0;
+    cursor_x = 1;
     cursor_y += 8;
     if (cursor_y > 400) {
       cursor_y = 0;

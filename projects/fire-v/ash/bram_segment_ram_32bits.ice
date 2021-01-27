@@ -42,7 +42,7 @@ $$end
   always {
 $$if verbose then  
      if (pram.in_valid | wait_one) {
-       __display("[cycle%d] in_cache:%b not_mapped:%b in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h data_in:%h",cycle,in_cache,not_mapped,pram.in_valid,wait_one,pram.addr[2,24],pram.rw,mem.addr0,predicted_correct,predicted,pram.data_in);
+       __display("[cycle%d] in_cache:%b not_mapped:%b in_valid:%b wait:%b addr_in:%h rw:%b prev:@%h predok:%b newpred:@%h data_in:%h",cycle,in_cache,not_mapped,pram.in_valid,wait_one,pram.addr[0,24],pram.rw,mem.addr0<<2,predicted_correct,predicted<<2,pram.data_in);
      }
      if (pram.in_valid && ~predicted_correct && (mem.addr0 == pram.addr[2,$bram_depth$])) {
        __display("########################################### missed opportunity");
