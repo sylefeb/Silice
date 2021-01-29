@@ -103,7 +103,7 @@ $$if ULX3S then
     out :> fast_reset
   );
 $$elseif ICEBREAKER then
-) <@fast_clock,!fast_reset> {
+) <@vga_clock> {
 
   uint1 fast_clock = uninitialized;
   pll pllgen(
@@ -116,12 +116,16 @@ $$elseif ICEBREAKER then
     clock_in  <: fast_clock,
     clock_out :> vga_clock,
   );
-  
+/*  
   uint1 fast_reset = uninitialized;
-  clean_reset rst<!reset>(
+  clean_reset rst<@fast_clock,!reset>(
     out :> fast_reset
   );  
-  
+  uint1 vga_reset = uninitialized;
+  clean_reset rst2<@vga_clock,!reset>(
+    out :> vga_reset
+  );  
+ */
 $$else
 ) {
 $$end
@@ -208,7 +212,8 @@ $$for i=1,256 do
 $$end  
   };
 
-  uint14 pix_fetch := (pix_x[1,9]*50) + pix_y[3,7];
+  // uint14 pix_fetch := (pix_x[1,9]*50) + pix_y[3,7];
+  uint14 pix_fetch := (pix_y[1,9]<<5) + (pix_y[1,9]<<4) + pix_x[3,7];
   // pix_y[3,7] => skipping 1 (240 in 480) then +2 as we pack pixels four by four
 
   uint1  pix_fb0   := pix_y[2,1];

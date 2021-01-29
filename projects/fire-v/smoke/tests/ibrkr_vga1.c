@@ -35,20 +35,19 @@ void main()
   while (1) {
 
     if ((userdata()&4) == 0) {  // not writing already
-      register unsigned int addr = o + y;
+      register unsigned int addr = o + x;
       *(volatile unsigned int*)(ptr | (addr<<4)) = 
-          ((255) << 24) | (((x+shift)&255) << 16) | ((255) << 8) | (y);
-      ++y;
-      if (y == 50) { // 200/4
-        o += 50;
-        ++x;
-        y = 0;
-        if (x == 320) {
+          ((255) << 24) | ((((x<<2)+shift)&255) << 16) | ((255) << 8) | (y);
+      ++x;
+      if (x == 80) { // 320/4
+        o += 80;
+        ++y;
+        x = 0;
+        if (y == 200) {
           o = 0;
           x = 0;
           y = 0;
           shift = shift + 1;
-          while ((userdata()&2) == 0) { } // wait vsync
         }
       }
     }
