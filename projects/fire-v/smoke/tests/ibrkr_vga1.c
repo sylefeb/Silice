@@ -36,7 +36,8 @@ void main()
 
     if ((userdata()&16) == 0) { 
       register unsigned int addr = o + y;
-      *(volatile unsigned int*)(ptr | (addr<<4)) = ((y*4) << 24) | ((y*4+1) << 16) | ((y*4+2) << 8) | (y*4+3);
+      *(volatile unsigned int*)(ptr | (addr<<4)) = 
+          ((255) << 24) | ((x) << 16) | ((255) << 8) | (y);
       ++y;
       if (y == 50) { // 200/4
         o += 50;
@@ -46,7 +47,7 @@ void main()
           o = 0;
           x = 0;
           y = 0;
-                     break;
+//                     break;
         }
       }
     }

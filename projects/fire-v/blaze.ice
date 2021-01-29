@@ -209,6 +209,8 @@ $$end
   };
 
   uint14 pix_fetch := (pix_x[1,9]*50) + pix_y[3,7];
+  // pix_y[3,7] => skipping 1 (240 in 480) then +2 as we pack pixels four by four
+
   uint1  pix_fb0   := pix_y[2,1];
   uint1  pix_hilo  := pix_y[1,1];
   uint1  pix_wok  ::= (~active & pix_write);
@@ -233,16 +235,14 @@ $$if VGA then
   fb0_addr       := ~pix_wok ? pix_fetch : pix_waddr;
   fb0_data_in    := pix_data[ 0,16];
   fb0_wenable    := pix_wok;
-  fb0_wmask      := 4b1111; // {pix_mask[1,1],pix_mask[1,1],pix_mask[0,1],pix_mask[0,1]};
+  fb0_wmask      := {pix_mask[1,1],pix_mask[1,1],pix_mask[0,1],pix_mask[0,1]};
   
   fb1_addr       := ~pix_wok ? pix_fetch : pix_waddr;
   fb1_data_in    := pix_data[16,16];
   fb1_wenable    := pix_wok;
-  fb1_wmask      := 4b1111; //{pix_mask[3,1],pix_mask[3,1],pix_mask[2,1],pix_mask[2,1]};
+  fb1_wmask      := {pix_mask[3,1],pix_mask[3,1],pix_mask[2,1],pix_mask[2,1]};
   
   pix_write      := pix_wok ? 0 : pix_write;
-  // pix_fetch      := ~active ? 0 : (pix_fetch + 50);
-  // pix_y[3,9] => skipping 1 (240 in 480) then +2 as we pack pixels four by four
 $$end
 
 $$if SIMULATION then  
@@ -278,7 +278,7 @@ $$if VGA then
           leds[0,1] = 1;
         }
         pix_waddr = mem.addr[ 4,14];
-        pix_mask  = 4b1111; //mem.addr[20, 4];
+        pix_mask  = mem.addr[20, 4];
         pix_data  = mem.data_in;
         pix_write = 1;
 $$end
