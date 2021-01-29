@@ -103,7 +103,7 @@ $$if ULX3S then
     out :> fast_reset
   );
 $$elseif ICEBREAKER then
-) <@vga_clock> {
+) <@fast_clock> {
 
   uint1 fast_clock = uninitialized;
   pll pllgen(
@@ -211,13 +211,15 @@ $$for i=1,256 do
     $palette[i]$,
 $$end  
   };
+  
 
   // uint14 pix_fetch := (pix_x[1,9]*50) + pix_y[3,7];
-  uint14 pix_fetch := (pix_y[1,9]<<5) + (pix_y[1,9]<<4) + pix_x[3,7];
-  // pix_y[3,7] => skipping 1 (240 in 480) then +2 as we pack pixels four by four
-
-  uint1  pix_fb0   := pix_y[2,1];
-  uint1  pix_hilo  := pix_y[1,1];
+  uint14 pix_fetch := (pix_y[1,9]<<6) + (pix_y[1,9]<<4) + pix_x[3,7];
+  // pix_n[3,7] => skipping 1 (240 in 480) then +2 as we pack pixels four by four
+  uint10 xprev(0);
+  uint1  pix_fb1   := xprev[2,1];
+  uint1  pix_hilo  := xprev[1,1];
+  
   uint1  pix_wok  ::= (~active & pix_write);
  
 $$end
@@ -234,8 +236,8 @@ $$if VGA then
   video_g        := active ? palette.rdata[ 8,16] : 0;
   video_b        := active ? palette.rdata[16,24] : 0;  
   
-  palette.addr   := pix_fb0 ? (fb0_data_out >> {pix_hilo,3b000})
-                            : (fb1_data_out >> {pix_hilo,3b000});
+  palette.addr   := pix_fb1 ? (fb1_data_out >> {pix_hilo,3b000})
+                            : (fb0_data_out >> {pix_hilo,3b000});
   
   fb0_addr       := ~pix_wok ? pix_fetch : pix_waddr;
   fb0_data_in    := pix_data[ 0,16];
@@ -248,6 +250,9 @@ $$if VGA then
   fb1_wmask      := {pix_mask[3,1],pix_mask[3,1],pix_mask[2,1],pix_mask[2,1]};
   
   pix_write      := pix_wok ? 0 : pix_write;
+  
+  always_after { xprev = pix_x-1; }
+  
 $$end
 
 $$if SIMULATION then  
