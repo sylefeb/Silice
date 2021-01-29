@@ -25,7 +25,7 @@ int main(int argc,char **argv)
 
   Vtop    *bare_test = new Vtop();
 
-  char foo[1<<17]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
+  char foo[1<<18]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
 
   while (!Verilated::gotFinish()) {
 

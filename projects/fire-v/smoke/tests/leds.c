@@ -1,5 +1,18 @@
 // compile_c.sh smoke/tests/leds.c --nolibc
 
+long time() 
+{
+   int cycles;
+   asm volatile ("rdcycle %0" : "=r"(cycles));
+   return cycles;
+}
+
+void pause(int cycles)
+{ 
+  long tm_start = time();
+  while (time() - tm_start < cycles) { }
+}
+
 void main() 
 {
   while (1) {  

@@ -26,15 +26,9 @@ $$V_SYNCH     = 2
 $$V_BCK_PORCH = 33
 $$V_RES       = 480
 //
-$$HS_START = 0
-$$HS_END   = 0
-$$HA_START = 0
-$$H_END    = 0
-//
-$$VS_START = 0
-$$VS_END   = 0
-$$VA_START = 0
-$$V_END    = 0
+$$if not VGA_VA_END then
+$$VGA_VA_END = V_RES
+$$end
 //
 $$HS_START = H_FRT_PORCH
 $$HS_END   = H_FRT_PORCH + H_SYNCH
@@ -53,7 +47,7 @@ $$V_END    = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH + V_RES
   vga_vs := ~((ycount >= $VS_START$ && ycount < $VS_END$));
 
   active := (xcount >= $HA_START$ && xcount < $H_END$)
-         && (ycount >= $VA_START$ && ycount < $V_END$);
+         && (ycount >= $VA_START$ && ycount < $VA_START + VGA_VA_END$);
   vblank := (ycount < $VA_START$);
 
   xcount = 0;

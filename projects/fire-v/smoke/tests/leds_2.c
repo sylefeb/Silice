@@ -16,13 +16,13 @@ void main()
 {
   while (1) {
     int iter = 0;
-    while (++iter < 64) {  
+    while (++iter < 8) {  
       *(volatile unsigned char*)0x90000000 = 0xaa;
-      pause(10000000);
+      pause(25000000);
       *(volatile unsigned char*)0x90000000 = 0x55;
-      pause(10000000);
+      pause(25000000);
     }
-    for (int i = 0; i < 128 ; i++) {
+    for (int i = 0; i < 8 ; i++) {
       *(volatile unsigned char*)0x90000000 = -i;
       pause(10000000);
     }

@@ -7,7 +7,11 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
+$$if ICEBREAKER then
+$$ bram_depth = 10
+$$else
 $$ bram_depth = 13 -- 13 : 8K ints, ~100 MHz   14 : 16K ints ~90 MHz
+$$end
 $$ bram_size  = 1<<bram_depth
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'

@@ -17,7 +17,7 @@
           "tool": "icestorm",
           "tool_options": [
             {
-                "nextpnr_options": ["--up5k", "--freq 13", "--package sg48", "--timing-allow-fail"],
+                "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "--timing-allow-fail"],
                 "pnr": "next"
             }
           ],

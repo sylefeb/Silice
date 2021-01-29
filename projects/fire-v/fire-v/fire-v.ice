@@ -129,9 +129,9 @@ $$end
   uint5  write_rd    = uninitialized;
   uint1  jump        = uninitialized;  
   uint1  branch      = uninitialized;
-   
+
   uint3  csr         = uninitialized;
-  
+
   uint3  select      = uninitialized;  
   uint1  sub         = uninitialized;
   uint1  signedShift = uninitialized; 
@@ -205,7 +205,9 @@ $$end
     signedShift <: signedShift,
     csr         <: csr,
     cycle      <:: cycle,
+$$if not FIREV_NO_INSTRET then    
     instret    <:: instret,
+$$end    
     user_data  <:: user_data,
     r           :> alu_out,
     ra         <:: regA,
@@ -218,7 +220,9 @@ $$end
   );
 
   uint32 cycle(0);
+$$if not FIREV_NO_INSTRET then     
   uint32 instret(0);
+$$end
 
 $$if SIMULATION then
   uint32 cycle_last_retired(0);
@@ -486,9 +490,11 @@ $$if verbose then
   //__display("[regs READ] regA[%d]=%h (%h) regB[%d]=%h (%h)",xregsA.addr0,regA,xregsA.rdata0,xregsB.addr0,regB,xregsB.rdata0);        
 $$end
 
+$$if not FIREV_NO_INSTRET then    
        if (instr_ready) {
          instret = instret + 1;
        }
+$$end       
        instr_ready       = 1;
 
 $$if SIMULATION then          
@@ -582,8 +588,15 @@ algorithm decode(
   
   pcOrReg      := (AUIPC | JAL | Branch);
 
-  aluA         := (LUI) ? 0 : regA; // ((AUIPC | JAL | Branch) ? __signed({6b0,pc[0,26]}) : regA);
+$$if FIREV_MUX_A_DECODER then
+  aluA         := (LUI) ? 0 : ((AUIPC | JAL | Branch) ? __signed({6b0,pc[0,26]}) : regA);
+$$else
+  aluA         := (LUI) ? 0 : regA;
+$$end
+  
+$$if not FIREV_MUX_B_DECODER then    
   aluB         := regB;
+$$end
 
   always {
 
@@ -616,6 +629,10 @@ algorithm decode(
        default: {
        }
      }
+
+$$if FIREV_MUX_B_DECODER then    
+     aluB = regOrImm ? (regB) : imm;
+$$end
 
 // __display("DECODE %d %d",regA,regB);
     // switch ({AUIPC,LUI,JAL,JALR,Branch,Load,Store,IntImm})
@@ -710,7 +727,9 @@ algorithm intops(
   input!  uint1  signedShift,
   input!  uint3  csr,
   input!  uint32 cycle,
+$$if not FIREV_NO_INSTRET then      
   input!  uint32 instret,
+$$end  
   input!  uint32 user_data,
   output  int32  r,
   input!  int32 ra,
@@ -727,15 +746,27 @@ algorithm intops(
   // reg +/- imm (intops)
   // pc  + imm   (else)
   
+$$if FIREV_MUX_A_DECODER then      
+  int32 a := xa;
+$$else
   int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
+$$end
+  
+$$if FIREV_MUX_B_DECODER then      
+  int32 b := xb;
+$$else
   int32 b := regOrImm ? (xb) : imm;
+$$end
 
   always { // this part of the algorithm is executed every clock  
     switch ({select}) {
       case 3b000: { // ADD / SUB
-        // r = a + (sub ? -b : b); // smaller, slower...
+$$if FIREV_MERGE_ADD_SUB then      
+        r = a + (sub ? -b : b); // smaller, slower...
+$$else        
         r = sub ? (a - b) : (a + b);
-      }
+$$end        
+      }     
       case 3b010: { // SLTI
         if (__signed(xa)   < __signed(b)) { r = 32b1; } else { r = 32b0; }
       }
@@ -753,10 +784,14 @@ algorithm intops(
     switch (csr[0,2]) {
       case 2b00: { r = cycle;     }
       case 2b01: { r = user_data; }
+$$if not FIREV_NO_INSTRET then    
       case 2b10: { r = instret;   }
+$$end      
       default: { }
     }
     }
+    
+    
     switch (funct3) {
       case 3b000: { j = jump | (branch & (ra == rb)); } // BEQ
       case 3b001: { j = jump | (branch & (ra != rb)); } // BNE

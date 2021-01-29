@@ -4,12 +4,13 @@ $$ICEBREAKER=1
 $$HARDWARE=1
 $$NUM_LEDS=5
 $$NUM_BTNS=3
-$$VGA=1
 $$color_depth=6
 $$color_max  =63
 $$config['bram_wenable_width'] = 'data'
 $$config['dualport_bram_wenable0_width'] = 'data'
 $$config['dualport_bram_wenable1_width'] = 'data'
+$$config['simple_dualport_bram_wenable0_width'] = 'data'
+$$config['simple_dualport_bram_wenable1_width'] = 'data'
 
 module top(
   output LED1,
