@@ -28,16 +28,16 @@ void main()
   register int x = 0;  
   register int y = 0;
 
+  register int shift = 0;
+
   unsigned int ptr = (unsigned int)PIX | (15<<20);
 
   while (1) {
 
-    /*while ((userdata()&16) == 1) { }*/
-
-    if ((userdata()&16) == 0) { 
+    if ((userdata()&4) == 0) {  // not writing already
       register unsigned int addr = o + y;
       *(volatile unsigned int*)(ptr | (addr<<4)) = 
-          ((255) << 24) | ((x) << 16) | ((255) << 8) | (y);
+          ((255) << 24) | (((x+shift)&255) << 16) | ((255) << 8) | (y);
       ++y;
       if (y == 50) { // 200/4
         o += 50;
@@ -47,7 +47,8 @@ void main()
           o = 0;
           x = 0;
           y = 0;
-//                     break;
+          shift = shift + 1;
+          while ((userdata()&2) == 0) { } // wait vsync
         }
       }
     }

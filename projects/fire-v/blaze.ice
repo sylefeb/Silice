@@ -103,7 +103,7 @@ $$if ULX3S then
     out :> fast_reset
   );
 $$elseif ICEBREAKER then
-) <@vga_clock,!fast_reset> {
+) <@fast_clock,!fast_reset> {
 
   uint1 fast_clock = uninitialized;
   pll pllgen(
@@ -258,7 +258,7 @@ $$if SDCARD then
     reg_miso       = sd_miso;
 $$end
 $$if VGA then
-    user_data[4,1] = pix_write;
+    user_data[0,3] = {pix_write,video_vs,1b0};
 $$end
 
     if (mem.addr[28,1] & mem.in_valid & mem.rw) {
