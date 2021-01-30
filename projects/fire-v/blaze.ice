@@ -47,7 +47,7 @@ group spram_r32_w32_io
   uint14  addr       = 0,
   uint1   rw         = 0,
   uint32  data_in    = 0,
-  uint8   wmask      = 0,
+  uint4   wmask      = 0,
   uint1   in_valid   = 0,
   uint32  data_out   = uninitialized,
   uint1   done       = 0
@@ -372,8 +372,10 @@ $$if VGA then
   fb1_wenable    := pix_wok;
   fb1_wmask      := {pix_mask[3,1],pix_mask[3,1],pix_mask[2,1],pix_mask[2,1]};
   
-  sd.done        := pix_wok ? 1 : 0; // TODO: update if CPU writes as well
+  sd.done        := pix_wok; // TODO: update if CPU writes as well
   pix_write      := pix_wok ? 0 : pix_write;
+  
+  triangle_in    := 0;
   
   always {
     // updates the four pixels, either reading from spram of shifting them to go to the next one
@@ -389,10 +391,11 @@ $$if VGA then
     frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,7]};
     next_pixel       = {next_pixel[0,1],next_pixel[1,1]};
   }
+  
 $$end
 
 $$if SIMULATION then  
-  /*while (iter != 32768)*/ while (1) {
+  while (iter != 3276800) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -409,6 +412,10 @@ $$end
 
     // leds = sd.addr[0,8];
     if (sd.in_valid) {
+      /*__display("(cycle %d) write %h mask %b",iter,sd.addr,sd.wmask);
+      if (pix_write) {
+        __display("ERROR ##########################################");
+      }*/
       pix_waddr = sd.addr;
       pix_mask  = sd.wmask; 
       pix_data  = sd.data_in;

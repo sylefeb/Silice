@@ -104,7 +104,7 @@ algorithm ram_writer_blaze(
   output uint1   done
 ) <autorun> {
 
-  uint14 addr ::= {x[2,7],2b00} + (y << 6) + (y << 4); // x + y * 80
+  uint14 addr ::= x[2,7] + (y << 6) + (y << 4); // x + y * 80
 
   always {
     sd.rw = 1;
@@ -258,7 +258,7 @@ $$end
           stop_x = first;
         }
         start    = ~nop;
-        //__display("start span, x %d to %d (y %d)",span_x,stop_x,y);
+        __display("start span, x %d to %d (y %d)",span_x,stop_x,y);
       } else {
         // write current to sdram
         if (~sent) {
