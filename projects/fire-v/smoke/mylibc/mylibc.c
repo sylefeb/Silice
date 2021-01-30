@@ -139,21 +139,21 @@ Included for build simplicity
 
 // from https://github.com/cliffordwolf/picorv32/blob/f9b1beb4cfd6b382157b54bc8f38c61d5ae7d785/dhrystone/stdlib.c
 
-long time() 
+inline long time() 
 {
    int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
    return cycles;
 }
 
-long insn() 
+inline long insn() 
 {
    int insns;
    asm volatile ("rdinstret %0" : "=r"(insns));
    return insns;
 }
 
-long userdata() 
+inline long userdata() 
 {
   int id;
   asm volatile ("rdtime %0" : "=r"(id));
