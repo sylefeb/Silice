@@ -339,8 +339,8 @@ $$end
   uint32 four_pixs(0);
   
   // uint14 pix_fetch := (pix_x[1,9]*50) + pix_y[3,7];
-  uint14 pix_fetch := (pix_y[1,9]<<6) + (pix_y[1,9]<<4) + pix_x[3,7];
-  // pix_n[3,7] => skipping 1 (240 in 480) then +2 as we pack pixels four by four
+  uint14 pix_fetch := (pix_y[2,7]<<6) + (pix_y[2,7]<<4) + pix_x[3,7] + (fbuffer ? 8000 : 0);
+  // pix_n[3,7] => skipping 1 then +2 as we pack pixels four by four
   
   // we can write whenever the framebuffer is not reading
   uint1  pix_wok  ::= (~frame_fetch_sync[1,1] & pix_write);
@@ -407,7 +407,7 @@ $$if SDCARD then
     reg_miso       = sd_miso;
 $$end
 $$if VGA then
-    user_data[0,3] = {pix_write,video_vs,drawing};
+    user_data[0,3] = {pix_write,vblank,drawing};
 $$end
 
     // leds = sd.addr[0,8];
@@ -423,8 +423,7 @@ $$end
       leds      = 5b11110;
     } else {
       leds      = 5b0;
-    }
-    
+    }    
     
     if (mem.in_valid & mem.rw) {
       switch (mem.addr[27,4]) {
@@ -440,6 +439,10 @@ $$end
               __display("LEDs = %h",mem.data_in[0,8]);
               leds = mem.data_in[0,8];
             }
+            case 2b01: {
+              __display("swap buffers");
+              fbuffer = ~fbuffer;
+            }            
 $$if VGA then
             case 2b10: {
               __display("PIXELs %h = %h",mem.addr,mem.data_in);

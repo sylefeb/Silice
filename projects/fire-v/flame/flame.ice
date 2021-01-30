@@ -104,7 +104,7 @@ algorithm ram_writer_blaze(
   output uint1   done
 ) <autorun> {
 
-  uint14 addr ::= x[2,7] + (y << 6) + (y << 4); // x + y * 80
+  uint14 addr ::= x[2,7] + (y << 6) + (y << 4) + (~fbuffer ? 8000 : 0); // x + y * 80
 
   always {
     sd.rw = 1;
