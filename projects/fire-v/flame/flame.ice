@@ -8,6 +8,11 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 // ------------------------- 
+/*
+
+ - parameter: FLAME_BLAZE=1 if on Blaze, nil otherwise (Wildfire)
+
+*/
 
 algorithm edge_walk(
   input  uint10  y,
@@ -57,7 +62,7 @@ $$end
 
 // ------------------------- 
 
-algorithm sdram_writer( 
+algorithm ram_writer_wildfire( 
   sdram_user     sd,
   input  uint1   fbuffer,
   input  uint1   start,
@@ -72,27 +77,46 @@ algorithm sdram_writer(
   uint19 addr ::= {x[3,7],3b000} + (y << 10);
 
   always {
-    // if (next) {
-    //   __display("sdram_writer NEXT %d",x);
-    // }
     sd.rw = 1;
     sd.data_in[{x[0,3],3b000},8] = color;
     if (start | x[0,3]==3b000) {
-//      __display("sdram_writer START %d",x);
       sd.wmask = start ? 8b00000000 : 8b00000001;
     } else {
       sd.wmask[x[0,3],1] = next ? 1 : sd.wmask[x[0,3],1];
     }
-//if (next) {
-//    __display("sdram_writer NEXT %d",x);    
-//}    
     sd.in_valid      = end     || (next && ((x[0,3])==7));
     done             = sd.done || (next && ((x[0,3])!=7));
     sd.addr          = end ? sd.addr : {1b0,~fbuffer,5b0,addr};
-//  if (sd.in_valid & sd.wmask != 8b11111111) {
-//   if (end) {
-//     __display("sdram_writer %d (end:%b) in_valid=1  @%h = %h  %b",x,end,sd.addr,sd.data_in,sd.wmask);
-//     }
+  }
+}
+
+// ------------------------- 
+
+algorithm ram_writer_blaze( 
+  sdram_user     sd,
+  input  uint1   fbuffer,
+  input  uint1   start,
+  input  uint1   end,
+  input  uint1   next,
+  input  uint8   color,
+  input  uint10  x,
+  input  uint10  y,
+  output uint1   done
+) <autorun> {
+
+  uint14 addr ::= {x[2,7],2b00} + (y << 6) + (y << 4); // x + y * 80
+
+  always {
+    sd.rw = 1;
+    sd.data_in[{x[0,2],3b000},8] = color;
+    if (start | x[0,2]==2b00) {
+      sd.wmask = start ? 4b0000 : 4b0001;
+    } else {
+      sd.wmask[x[0,2],1] = next ? 1 : sd.wmask[x[0,2],1];
+    }
+    sd.in_valid      = end     || (next && ((x[0,2])==2b11));
+    done             = sd.done || (next && ((x[0,2])!=2b11));
+    sd.addr          = end ? sd.addr : addr;
   }
 }
 
@@ -172,7 +196,8 @@ $$end
   uint1   end      = uninitialized;
   uint1   next     = uninitialized;
   uint1   done     = uninitialized;
-  sdram_writer writer(
+$$if not FLAME_BLAZE then
+  ram_writer_wildfire writer(
     sd      <:> sd,
     fbuffer <:: fbuffer,
     start   <:: start,
@@ -183,11 +208,21 @@ $$end
     y       <:: y,
     done    :> done
   );
+$$else
+  ram_writer_blaze writer(
+    sd      <:> sd,
+    fbuffer <:: fbuffer,
+    start   <:: start,
+    end     <:: end,
+    next    <:: next,
+    color   <:: color,
+    x       <:: span_x,
+    y       <:: y,
+    done    :> done
+  );
+$$end
 
   uint10  y_p1  ::= y+1;
-
-  // sd.in_valid          := 0;
-  // sd.rw                := 1;
 
   start                := 0;
   end                  := 0;

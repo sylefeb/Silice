@@ -34,7 +34,7 @@ void main()
 
   while (1) {
 
-    if ((userdata()&4) == 0) {  // not writing already
+    //if ((userdata()&4) == 0) {  // not writing already
       register unsigned int addr = o + x;
       int x0 = ((x<<2)+0+shift) & 255;
       int x1 = ((x<<2)+1+shift) & 255;
@@ -42,7 +42,7 @@ void main()
       int x3 = ((x<<2)+3+shift) & 255;
       *(volatile unsigned int*)(ptr | (addr<<4)) = 
           (x3 << 24) | (x2 << 16) | (x1 << 8) | (x0);
-      ++x;
+      x += ((userdata()&4) == 0) ? 1 : 0;
       if (x == 80) { // 320/4
         o += 80;
         x = 0;
@@ -51,10 +51,11 @@ void main()
           o = 0;
           x = 0;
           y = 0;
-          shift = shift + 1;
+          shift = shift + 1;          
         }
       }
-    }
+    //}
     
   }
+  
 }

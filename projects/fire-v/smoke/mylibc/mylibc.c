@@ -8,7 +8,10 @@ The rest is hastily composed from a variety of sources (referenced in code) to g
 */
 
 #include "mylibc.h"
+
+#ifndef MYLIBC_SMALL
 #include "tama_mini02_font.h"
+#endif
 
 volatile unsigned char* const LEDS        = (unsigned char*)0x90000000;
 volatile unsigned int*  const PALETTE     = (unsigned int* )0xC3000000;
@@ -23,18 +26,19 @@ volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x00000000;
 volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x88000000;
 volatile unsigned int*  const SDCARD      = (unsigned int* )0x90000008;
 
+#ifndef MYLIBC_SMALL
+
 int cursor_x = 1;
 int cursor_y = 0;
 
 void set_cursor(int x,int y)
 {
   cursor_x = x;
-  cursor_y = y;  
+  cursor_y = y;
 }
 
 int    putchar(int c)
 {
-  
   if (c == 10) {
     // next line
     cursor_x = 1;
@@ -63,9 +67,9 @@ int    putchar(int c)
       cursor_y = 0;
     }
   }
-  
   return c;
 }
+#endif
 
 void*  memcpy(void *dest, const void *src, size_t n) { 
   const void *end = src + n;
@@ -88,6 +92,8 @@ void pause(int cycles)
   long tm_start = time();
   while (time() - tm_start < cycles) { }
 }
+
+#ifndef MYLIBC_SMALL
 
 char fbuffer = 0;
 
@@ -118,6 +124,9 @@ void swap_buffers(char wait_vsynch)
 Included for build simplicity
 */
 #include "sdcard.c"
+
+#endif
+
 #include "flame.c"
 
 /*
@@ -152,6 +161,8 @@ long userdata()
 }
 
 // from https://github.com/BrunoLevy/learn-fpga/blob/master/FemtoRV/FIRMWARE/LIBFEMTOC/printf.c
+
+#ifndef MYLIBC_SMALL
 
 void print_string(const char* s) {
    for(const char* p = s; *p; ++p) {
@@ -209,6 +220,8 @@ int printf(const char *fmt,...)
   }
   va_end(ap);
 }
+
+#endif
 
 // from https://raw.githubusercontent.com/gcc-mirror/gcc/master/libgcc/config/epiphany/mulsi3.c
 
