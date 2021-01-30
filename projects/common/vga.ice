@@ -55,8 +55,8 @@ $$V_END    = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH + V_RES
 
   while (1) {
 
-    vga_x = xcount - $HA_START$;
-    vga_y = ycount - $VA_START$;
+    vga_x = active ? (xcount - $HA_START$) : 0;
+    vga_y = active ? (ycount - $VA_START$) : 0;
 
     if (xcount == $H_END-1$) {
       xcount = 0;

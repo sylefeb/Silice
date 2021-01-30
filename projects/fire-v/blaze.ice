@@ -338,8 +338,9 @@ $$end
   uint2  next_pixel(2b1);
   uint32 four_pixs(0);
   
+  uint10 py := pix_y + {fbuffer,1b0};
   // uint14 pix_fetch := (pix_x[1,9]*50) + pix_y[3,7];
-  uint14 pix_fetch := (pix_y[2,7]<<6) + (pix_y[2,7]<<4) + pix_x[3,7] + (fbuffer ? 8000 : 0);
+  uint14 pix_fetch := (py[2,7]<<6) + (py[2,7]<<4) + pix_x[3,7] + (fbuffer ? 8000 : 0);
   // pix_n[3,7] => skipping 1 then +2 as we pack pixels four by four
   
   // we can write whenever the framebuffer is not reading
