@@ -20,7 +20,7 @@ inline int userdata()
 }
 
 volatile unsigned int*  const LEDS = (unsigned int* )0x90000000;
-volatile unsigned int*  const PIX  = (unsigned int* )0x90000008;
+// volatile unsigned int*  const PIX  = (unsigned int* )0x90000008; // FIXME: change this! now spiflash
 
 void main() 
 {

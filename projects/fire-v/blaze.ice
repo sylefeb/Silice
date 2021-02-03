@@ -425,11 +425,18 @@ $$end
               fbuffer = ~fbuffer;
             }            
             case 2b10: {
+/*            
               __display("PIXELs %h = %h",mem.addr,mem.data_in);
               pix_waddr = mem.addr[ 4,14];
               pix_mask  = mem.addr[20, 4];
               pix_data  = mem.data_in;
               pix_write = 1;
+*/
+              // SPIFLASH
+              __display("SPIFLASH %b",mem.data_in[0,3]);
+              sf_clk  = mem.data_in[0,1];
+              sf_mosi = mem.data_in[1,1];
+              sf_csn  = mem.data_in[2,1];              
             }        
             default: { }
           }

@@ -73,8 +73,8 @@ algorithm frame_drawer(
   output uint8  leds,
 $$if SDCARD then  
   output uint1  sd_clk,
-  output uint1  sd_mosi,
   output uint1  sd_csn,
+  output uint1  sd_mosi,
   input  uint1  sd_miso,
 $$end  
   simple_dualport_bram_port1 palette,
