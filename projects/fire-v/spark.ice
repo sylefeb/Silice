@@ -6,7 +6,7 @@
 //  - validates at ~100 MHz with a 32KB BRAM
 //  - overclocks up to 200 MHz on the ULX3S
 //
-// Tested on: ULX3S, Verilator, Icarus, IceBreaker
+// Tested on: ULX3S, Verilator, Icarus
 //
 // ------------------------- 
 //      GNU AFFERO GENERAL PUBLIC LICENSE
@@ -19,8 +19,8 @@ $$if SIMULATION then
 $$verbose = nil
 $$end
 
-$$if not (ULX3S or ICARUS or VERILATOR or ICEBREAKER) then
-$$error('Sorry, Blaze is currently not supported on this board.')
+$$if not (ULX3S or ICARUS or VERILATOR) then
+$$error('Sorry, Spark is currently not supported on this board.')
 $$end
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
@@ -34,9 +34,6 @@ $include('../common/clean_reset.ice')
 
 $$if ULX3S then
 import('plls/pll200.v')
-$$end
-$$if ICEBREAKER then
-import('../common/icebreaker_clk_25.v')
 $$end
 
 // ------------------------- 
@@ -62,17 +59,6 @@ $$if ULX3S then
   clean_reset rst<!reset>(
     out :> fast_reset
   );
-$$elseif ICEBREAKER then
-) <@fast_clock,!fast_reset> {
-  uint1 fast_clock = 0;
-  icebreaker_clk_25 pllgen(
-    clock_in  <: clock,
-    clock_out :> fast_clock,
-  );
-  uint1 fast_reset = 0;
-  clean_reset rst<!reset>(
-    out :> fast_reset
-  );  
 $$else
 ) {
 $$end

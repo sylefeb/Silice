@@ -1,12 +1,10 @@
 // SL 2020-12-02 @sylefeb
 //
-// Blaze --- a small, fast but limited Risc-V framework in Silice
+// Blaze --- VGA + GPU on the IceBreaker
 //  - runs solely in BRAM
-//  - access to LEDs and SDCARD
-//  - validates at ~100 MHz with a 32KB BRAM
-//  - overclocks up to 200 MHz on the ULX3S
+//  - access to LEDs and SPIFLASH
 //
-// Tested on: ULX3S, Verilator, Icarus, IceBreaker
+// Tested on: Verilator, IceBreaker
 //
 // ------------------------- 
 //      GNU AFFERO GENERAL PUBLIC LICENSE
@@ -19,12 +17,8 @@ $$if SIMULATION then
 $$verbose = nil
 $$end
 
-$$if not (ULX3S or ICARUS or VERILATOR or ICEBREAKER) then
+$$if not ((ICEBREAKER and VGA and SPIFLASH) or (VERILATOR and VGA)) then
 $$error('Sorry, Blaze is currently not supported on this board.')
-$$end
-
-$$if ULX3S then
-import('plls/pll200.v')
 $$end
 
 $$if ICEBREAKER then
@@ -36,8 +30,6 @@ $$FIREV_MERGE_ADD_SUB = nil
 $$FIREV_MUX_A_DECODER = 1
 $$FIREV_MUX_B_DECODER = 1
 $$end
-
-$$if VGA then
 
 $$VGA_VA_END = 400
 $include('../common/vga.ice')
@@ -78,7 +70,6 @@ interface sdram_provider {
 $$FLAME_BLAZE = 1
 $include('flame/flame.ice')
 
-$$end
 
 // default palette
 $$palette = {}
@@ -109,10 +100,6 @@ $include('ash/bram_ram_32bits.ice')
 
 $include('../common/clean_reset.ice')
 
-$$if VGA and SDCARD then
-error('oops, expecting either VGA or SDCARD, not both')
-$$end
-
 // ------------------------- 
 
 $$if VERILATOR then
@@ -140,13 +127,6 @@ $$end
 
 algorithm main(
   output uint$NUM_LEDS$ leds,
-$$if SDCARD then
-  output! uint1  sd_clk,
-  output! uint1  sd_mosi,
-  output! uint1  sd_csn,
-  input   uint1  sd_miso,
-$$end  
-$$if VGA then
   output uint$color_depth$ video_r,
   output uint$color_depth$ video_g,
   output uint$color_depth$ video_b,
@@ -155,21 +135,13 @@ $$if VGA then
 $$if VERILATOR then
   output uint1             video_clock,
 $$end  
-$$end
-$$if ULX3S then
-) <@fast_clock,!fast_reset> {
-  uint1 fast_clock = 0;
-  uint1 locked     = 0;
-  pll pllgen(
-    clkin   <: clock,
-    clkout0 :> fast_clock,
-    locked  :> locked,
-  );
-  uint1 fast_reset = 0;
-  clean_reset rst<!reset>(
-    out :> fast_reset
-  );
-$$elseif ICEBREAKER then
+$$if SPIFLASH then
+  output uint1             sf_clk,
+  output uint1             sf_csn,
+  output uint1             sf_mosi,
+  input  uint1             sf_miso,
+$$end  
+$$if ICEBREAKER then
 ) <@vga_clock,!fast_reset> {
 
   uint1 fast_clock = uninitialized;
@@ -200,7 +172,6 @@ $$else
 ) {
 $$end
 
-$$if VGA then
   spram_r32_w32_io sd;
 
   uint10  x0      = uninitialized;
@@ -238,7 +209,6 @@ $$if VGA then
     drawing     :> drawing,
     <:auto:>
   );
-$$end
 
   rv32i_ram_io mem;
 
@@ -266,8 +236,6 @@ $$end
     predicted_addr    :> predicted_addr,
     predicted_correct :> predicted_correct,
   );
-
-$$if VGA then
 
   // vga
   uint1  active(0);
@@ -358,16 +326,13 @@ $$end
                     : (~frame_fetch_sync_4[1,1] & pix_write);
   //                                    ^^^ cycle before we need the value
  
-$$end
-
-  // sdcard
+  // spiflash
   uint1  reg_miso(0);
 
 $$if SIMULATION then  
   uint32 iter = 0;
 $$end
 
-$$if VGA then
   video_r        := active ? palette.rdata[ 0, 8] : 0;
   video_g        := active ? palette.rdata[ 8, 8] : 0;
   video_b        := active ? palette.rdata[16, 8] : 0;  
@@ -411,8 +376,6 @@ $$if VGA then
     next_pixel_2       = {next_pixel_2[0,1],next_pixel_2[1,1]};
     next_pixel_4       = {next_pixel_4[0,1],next_pixel_4[1,3]};
   }
-  
-$$end
 
 $$if SIMULATION then  
   while (iter != 3276800) {
@@ -422,12 +385,10 @@ $$else
 $$end
 
     cpu_reset = 0;
-$$if SDCARD then
-    user_data[3,1] = reg_miso;
-    reg_miso       = sd_miso;
-$$end
-$$if VGA then
-    user_data[0,3] = {pix_write,vblank,drawing};
+
+    user_data[0,3] = {reg_miso,pix_write,vblank,drawing};
+$$if SPIFLASH then    
+    reg_miso       = sf_miso;
 $$end
 
     // leds = sd.addr[0,8];
@@ -463,7 +424,6 @@ $$end
               __display("swap buffers");
               fbuffer = ~fbuffer;
             }            
-$$if VGA then
             case 2b10: {
               __display("PIXELs %h = %h",mem.addr,mem.data_in);
               pix_waddr = mem.addr[ 4,14];
@@ -471,7 +431,6 @@ $$if VGA then
               pix_data  = mem.data_in;
               pix_write = 1;
             }        
-$$end
             default: { }
           }
         }

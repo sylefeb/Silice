@@ -4,7 +4,7 @@ module ice40_spram(
   input  [15:0] data_in,  // 16 bits
   input  [3:0]  wmask,
   input         wenable,
-  output [15:0] data_out, // 16 bits  
+  output [15:0] data_out  // 16 bits  
 	);
 
 SB_SPRAM256KA spram (

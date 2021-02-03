@@ -53,19 +53,17 @@ void main()
   
   while(1) {
     
-    int slow = time >> 4;
-    
     clear(0,0,SCRW,SCRH);
 
     int posy = 0;
     int posx = 0;
 
     int Ry[9];
-    rotY(Ry,(a + slow)&255);
+    rotY(Ry,(a + time)&255);
     int Rz[9];
-    rotZ(Rz,b + (costbl[((posx>>2) - (posy>>2) + (slow))&255]>>1));
+    rotZ(Rz,b + (costbl[((posx>>2) - (posy>>2) + (time))&255]>>1));
     int Rx[9];
-    rotX(Rx,c + (costbl[((posx>>3) + (posy>>4) + (slow))&255]>>1)>>2 );
+    rotX(Rx,c + (costbl[((posx>>3) + (posy>>4) + (time))&255]>>1)>>2 );
     int Ra[9];
     mulM(Ra,Rz,Ry);
     int M[9];
