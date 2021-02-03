@@ -93,9 +93,9 @@ void pause(int cycles)
   while (time() - tm_start < cycles) { }
 }
 
-#ifndef MYLIBC_SMALL
-
 char fbuffer = 0;
+
+#ifndef MYLIBC_SMALL
 
 void set_draw_buffer(char buffer)
 {

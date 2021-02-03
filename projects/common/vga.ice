@@ -7,12 +7,12 @@
 //  the distribution, please refer to it for details.
 
 algorithm vga(
-  output! uint1  vga_hs,
-  output! uint1  vga_vs,
-  output! uint1  active,
-  output! uint1  vblank,
-  output! uint10 vga_x,
-  output! uint10 vga_y
+  output uint1  vga_hs,
+  output uint1  vga_vs,
+  output uint1  active,
+  output uint1  vblank,
+  output uint10 vga_x,
+  output uint10 vga_y
 ) <autorun> {
 
 // we use the pre-processor to compute some bounds
@@ -40,8 +40,8 @@ $$VS_END   = V_FRT_PORCH + V_SYNCH
 $$VA_START = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH
 $$V_END    = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH + V_RES
 
-  uint10 xcount = 0;
-  uint10 ycount = 0;
+  uint10 xcount(0);
+  uint10 ycount(0);
 
   vga_hs := ~((xcount >= $HS_START$ && xcount < $HS_END$));
   vga_vs := ~((ycount >= $VS_START$ && ycount < $VS_END$));
@@ -50,10 +50,7 @@ $$V_END    = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH + V_RES
          && (ycount >= $VA_START$ && ycount < $VA_START + VGA_VA_END$);
   vblank := (ycount < $VA_START$);
 
-  xcount = 0;
-  ycount = 0;
-
-  while (1) {
+  always {
 
     vga_x = active ? (xcount - $HA_START$) : 0;
     vga_y = active ? (ycount - $VA_START$) : 0;

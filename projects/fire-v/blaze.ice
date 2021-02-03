@@ -334,17 +334,28 @@ $$for i=1,256 do
 $$end  
   };
   
-  uint8  frame_fetch_sync(8b1);
-  uint2  next_pixel(2b1);
+  uint8  frame_fetch_sync_2(                8b1);
+  uint16 frame_fetch_sync_4(               16b1);
+  uint2  next_pixel_2      (                2b1);
+  uint4  next_pixel_4      (                4b1);
   uint32 four_pixs(0);
   
-  uint10 py := pix_y + {fbuffer,1b0};
-  // uint14 pix_fetch := (pix_x[1,9]*50) + pix_y[3,7];
-  uint14 pix_fetch := (py[2,7]<<6) + (py[2,7]<<4) + pix_x[3,7] + (fbuffer ? 8000 : 0);
-  // pix_n[3,7] => skipping 1 then +2 as we pack pixels four by four
+  // buffer 0  320 x 100   
+  // buffer 1  160 x 200   
+  uint14 pix_fetch := fbuffer
+                    ? ((pix_y[2,8]<<6) + (pix_y[2,8]<<4) + pix_x[3,7]       )  // read from 0 (fbuffer == 1)
+                    : ((pix_y[1,9]<<5) + (pix_y[1,9]<<3) + pix_x[4,6] + 8000); // read from 1
+  // buffer 0
+  //  - pix_x[3,7] => half res (320) then +2 as we pack pixels four by four
+  //  - pix_y[2,8] => quarter vertical res (100)
+  // buffer 1
+  //  - pix_x[4,6] => quarter res (160) then +2 as we pack pixels four by four
+  //  - pix_y[1,9] => half vertical res (200)
   
   // we can write whenever the framebuffer is not reading
-  uint1  pix_wok  ::= (~frame_fetch_sync[1,1] & pix_write);
+  uint1  pix_wok  ::= fbuffer 
+                    ? (~frame_fetch_sync_2[1,1] & pix_write)
+                    : (~frame_fetch_sync_4[1,1] & pix_write);
   //                                    ^^^ cycle before we need the value
  
 $$end
@@ -382,15 +393,23 @@ $$if VGA then
     // updates the four pixels, either reading from spram of shifting them to go to the next one
     // this is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo)
     // as we render 320x200, there are 8 clock cycles of the 640x480 clock for four frame pixels
-    four_pixs = frame_fetch_sync[0,1] 
-              ? {fb1_data_out,fb0_data_out} 
-              : (next_pixel[0,1] ? (four_pixs >> 8) : four_pixs);
+    if (fbuffer) {
+      four_pixs = frame_fetch_sync_2[0,1] 
+                ? {fb1_data_out,fb0_data_out} 
+                : (next_pixel_2[0,1] ? (four_pixs >> 8) : four_pixs);      
+    } else {    
+      four_pixs = frame_fetch_sync_4[0,1] 
+                ? {fb1_data_out,fb0_data_out} 
+                : (next_pixel_4[0,1] ? (four_pixs >> 8) : four_pixs);
+    }
   }
   
   always_after   {
     // updates synchronization variables
-    frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,7]};
-    next_pixel       = {next_pixel[0,1],next_pixel[1,1]};
+    frame_fetch_sync_2 = {frame_fetch_sync_2[0,1],frame_fetch_sync_2[1,7]};
+    frame_fetch_sync_4 = {frame_fetch_sync_4[0,1],frame_fetch_sync_4[1,15]};
+    next_pixel_2       = {next_pixel_2[0,1],next_pixel_2[1,1]};
+    next_pixel_4       = {next_pixel_4[0,1],next_pixel_4[1,3]};
   }
   
 $$end
@@ -464,7 +483,7 @@ $$end
             case 7b0000001: { x0  = mem.data_in[0,16]; y0  = mem.data_in[16,16]; }
             case 7b0000010: { x1  = mem.data_in[0,16]; y1  = mem.data_in[16,16]; }
             case 7b0000100: { x2  = mem.data_in[0,16]; y2  = mem.data_in[16,16]; }
-            case 7b0001000: { ei0 = mem.data_in; color = mem.data_in[24,8]; }
+            case 7b0001000: { ei0 = mem.data_in;       color = mem.data_in[24,8]; }
             case 7b0010000: { ei1 = mem.data_in; }
             case 7b0100000: { ei2 = mem.data_in; }
             case 7b1000000: { ystart      = mem.data_in[0,16]; 

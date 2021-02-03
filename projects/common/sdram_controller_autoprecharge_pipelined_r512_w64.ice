@@ -287,6 +287,16 @@ $$end
 
     } else { // read/write pipeline sequence
 
+        // burst controls time before burst read starts
+        // opmodulo controls when Read or Write are sent
+        // actmodulo controls when Activate are sent
+        // Write sequence is
+        // AC0 ___ WR0 ___ AC1 ___ WR1 ___ AC2 __ WR2 __ ...        
+        // Read sequence is
+        // AC0 ___ RD0 ___ ___ ___ ___ BR0 BR1 BR2 BR3 BR4 ....
+        //         <-------------------> ...   AC1 ___ RD1 ___ ....
+        //    depends on CAS + ff on IO path
+
         switch ({opmodulo[0,1],actmodulo[0,1]}) {
           case 2b01: {
             // __display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);

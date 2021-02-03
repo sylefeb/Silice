@@ -77,9 +77,26 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
   }
 
   // reduce precision after shading
+#ifdef BLAZE
+  if (fbuffer) {
+    // drawing onto 160x200
+    px0 >>= 6; py0 >>= 5;
+    px1 >>= 6; py1 >>= 5;
+    px2 >>= 6; py2 >>= 5;
+  } else {
+    // drawing onto 320x100
+    px0 += 112; // 3.5
+    px1 += 112;
+    px2 += 112;
+    px0 >>= 5; py0 >>= 6;
+    px1 >>= 5; py1 >>= 6;
+    px2 >>= 5; py2 >>= 6;
+  }
+#else
   px0 >>= 5; py0 >>= 5;
   px1 >>= 5; py1 >>= 5;
   px2 >>= 5; py2 >>= 5;
+#endif
 
   // 0 smallest y , 2 largest y
   if (py0 > py1) {

@@ -103,8 +103,14 @@ algorithm ram_writer_blaze(
   input  uint10  y,
   output uint1   done
 ) <autorun> {
-
-  uint14 addr ::= x[2,7] + (y << 6) + (y << 4) + (~fbuffer ? 8000 : 0); // x + y * 80
+  // buffer 0
+  //  320 x 100   x>>2 + y*80
+  // buffer 1
+  //  160 x 200   x>>2 + y*40 + 8000 // 8000: skip buffer 0
+  
+  uint14 addr ::= ~fbuffer 
+                ? (x[2,8] + (y << 6) + (y << 4)       )  // write to 0 (fbuffer == 0)
+                : (x[2,8] + (y << 5) + (y << 3) + 8000); // write to 1
 
   always {
     sd.rw = 1;

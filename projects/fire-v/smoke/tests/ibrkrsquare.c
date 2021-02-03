@@ -3,17 +3,17 @@
 
 void main()
 {
-  int fbuffer = 0;
   int time = 0;
 
    while (1) {    
    
-    int xmin=120,xmax=200;
-    int ymin=30,ymax=70;
+    int xmin=120,xmax=200; // 320/2 +/- 40
+    int ymin=60,ymax =140; // 200/2 +/- 40
    
-    clear(0,0,320,100);
+    clear(0,0,320,200);
    
-    int yoffs = - (fbuffer<<5) + (costbl[(time)&255]);
+    int yoffs = (costbl[(time)&255]);
+
     draw_triangle(31,0, 
       xmin<<5,(ymin<<5) + yoffs, 
       xmax<<5,(ymin<<5) + yoffs, 
