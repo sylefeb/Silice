@@ -1,4 +1,4 @@
-// A more standard division, very compact, 1 cycle per bit
+// A more standard division, compact, 1 cycle per bit
 // see also https://projectf.io/posts/division-in-verilog/
 // define: div_width    for the division bit width
 // define: div_unsigned if unsigned, for a more compact result
