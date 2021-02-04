@@ -40,3 +40,5 @@ char   get_draw_buffer();
 #include "sdcard.h"
 // Flame (GPU)
 #include "flame.h"
+// SPI-Flash
+#include "spiflash.h"

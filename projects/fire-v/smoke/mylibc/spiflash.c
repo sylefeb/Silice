@@ -15,7 +15,7 @@ These delays are tunned to the Fire-V and likely not portable.
 
 */
 
-#define DELAY() asm volatile ("addi t0,zero,1; 0: addi t0,t0,-1; bne t0,zero,0b;");
+#define DELAY()
 
 void spiflash_select()
 {
@@ -50,7 +50,6 @@ void spiflash_send(int indata)
   spiflash_send_step(data); spiflash_send_step(data);
   spiflash_send_step(data); spiflash_send_step(data);
   spiflash_send_step(data); spiflash_send_step(data);
-  *SPIFLASH = 2; // mosi = 1
 }
 
 #define spiflash_read_step_L() \
@@ -80,5 +79,23 @@ unsigned char spiflash_read()
 
 void spiflash_init()
 {
+  spiflash_select();
+  spiflash_send(0xAB);
+  spiflash_unselect();
+}
 
+unsigned char *spiflash_copy(int addr,unsigned char *dst,int len)
+{
+  spiflash_select();
+  spiflash_send(0x03);
+  spiflash_send((addr>>16)&255);
+  spiflash_send((addr>> 8)&255);
+  spiflash_send((addr    )&255);
+  while (len > 0) {
+    *dst = spiflash_read();
+    ++ dst;
+    -- len;
+  }
+  spiflash_unselect();
+  return dst;
 }

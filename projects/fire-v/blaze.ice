@@ -104,29 +104,13 @@ $include('../common/clean_reset.ice')
 
 $$if VERILATOR then
 import('../common/passthrough.v')
-$$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
-algorithm verilator_spram(
-  input  uint14 addr,
-  input  uint16 data_in,
-  input  uint4  wmask,
-  input  uint1  wenable,
-  output uint16 data_out
-) {
-  simple_dualport_bram uint16 mem<"simple_dualport_bram_wmask_byte">[16384] = uninitialized;
-  always {
-    mem.addr0    = addr;
-    mem.addr1    = addr;
-    mem.wenable1 = {4{wenable}} & wmask;
-    mem.wdata1   = data_in;
-    data_out     = mem.rdata0;
-  }
-}
+$include('verilator_spram.ice')
 $$end
 
 // ------------------------- 
 
 algorithm main(
-  output uint$NUM_LEDS$ leds,
+  output uint$NUM_LEDS$    leds,
   output uint$color_depth$ video_r,
   output uint$color_depth$ video_g,
   output uint$color_depth$ video_b,
@@ -378,7 +362,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (iter != 3276800) {
+  while (iter != 800000) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -386,12 +370,11 @@ $$end
 
     cpu_reset = 0;
 
-    user_data[0,3] = {reg_miso,pix_write,vblank,drawing};
+    user_data[0,4] = {reg_miso,pix_write,vblank,drawing};
 $$if SPIFLASH then    
     reg_miso       = sf_miso;
 $$end
 
-    // leds = sd.addr[0,8];
     if (sd.in_valid) {
       /*__display("(cycle %d) write %h mask %b",iter,sd.addr,sd.wmask);
       if (pix_write) {
@@ -401,9 +384,6 @@ $$end
       pix_mask  = sd.wmask; 
       pix_data  = sd.data_in;
       pix_write = 1;
-      leds      = 5b11110;
-    } else {
-      leds      = 5b0;
     }    
     
     if (mem.in_valid & mem.rw) {
@@ -433,10 +413,14 @@ $$end
               pix_write = 1;
 */
               // SPIFLASH
-              __display("SPIFLASH %b",mem.data_in[0,3]);
+$$if SIMULATION then
+              __display("(cycle %d) SPIFLASH %b",iter,mem.data_in[0,3]);
+$$end              
+$$if SPIFLASH then
               sf_clk  = mem.data_in[0,1];
               sf_mosi = mem.data_in[1,1];
               sf_csn  = mem.data_in[2,1];              
+$$end              
             }        
             default: { }
           }
