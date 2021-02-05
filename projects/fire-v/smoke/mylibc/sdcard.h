@@ -12,3 +12,4 @@ unsigned char *sdcard_copy_sector(int sector,unsigned char *dst,int len);
 
 void           sdcard_cmd(const unsigned char *cmd);
 unsigned char  sdcard_get(unsigned char len,unsigned char wait);
+ 

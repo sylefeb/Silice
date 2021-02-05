@@ -68,7 +68,7 @@ void spiflash_send(int indata)
 unsigned char spiflash_read()
 {
     register int ud;
-    register int n = 0;
+    register int n = 0; 
     register int answer = 0xff;
     while (n < 8) {
         spiflash_read_step_H();
@@ -92,6 +92,7 @@ unsigned char *spiflash_copy(int addr,unsigned char *dst,int len)
   spiflash_send((addr>> 8)&255);
   spiflash_send((addr    )&255);
   while (len > 0) {
+    *LEDS = len;
     *dst = spiflash_read();
     ++ dst;
     -- len;

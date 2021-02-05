@@ -10,3 +10,4 @@
 
 void           spiflash_init();
 unsigned char *spiflash_copy(int addr,unsigned char *dst,int len);
+ 

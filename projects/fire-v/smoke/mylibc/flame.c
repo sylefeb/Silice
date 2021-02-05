@@ -45,7 +45,7 @@ void scale(int *M,int scale)
   M[3] =     0; M[4] = scale; M[5] = 0;
   M[6] =     0; M[7] =     0; M[8] = scale;
 }
-
+ 
 void mulM(int *M,const int *A,const int *B)
 {
   M[0] = (A[0]*B[0] + A[1]*B[3] + A[2]*B[6]) >> 7;

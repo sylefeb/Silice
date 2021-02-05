@@ -5,7 +5,7 @@
 //  - access to LEDs and SDCARD
 //  - validates at ~100 MHz with a 32KB BRAM
 //  - overclocks up to 200 MHz on the ULX3S
-//
+// 
 // Tested on: ULX3S, Verilator, Icarus
 //
 // ------------------------- 

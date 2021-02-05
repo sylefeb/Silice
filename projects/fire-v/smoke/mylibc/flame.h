@@ -1,5 +1,5 @@
 // SL 2021-01-22 @sylefeb
-
+ 
 //      GNU AFFERO GENERAL PUBLIC LICENSE
 //        Version 3, 19 November 2007
 //      

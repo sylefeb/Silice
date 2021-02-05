@@ -12,7 +12,7 @@ fi
 
 echo "using $ARCH"
 
-if [ -z "$2" ]; then
+if [ -z "$2" ]; then 
   echo "Adding mylibc"
   $ARCH-elf-gcc -w -O2 -fno-pic -march=rv32i -mabi=ilp32 -c -DBLAZE -DMYLIBC_SMALL smoke/mylibc/mylibc.c -o build/mylibc.o
   OBJECTS="build/code.o build/div.o build/mylibc.o"

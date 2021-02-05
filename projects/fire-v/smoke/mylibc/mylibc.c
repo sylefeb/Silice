@@ -109,7 +109,7 @@ char get_draw_buffer()
 }
 
 void swap_buffers(char wait_vsynch)
-{
+{ 
   // wait for any pending draw to complete
   while ((userdata()&1) == 1) {  }
   // wait for vsync

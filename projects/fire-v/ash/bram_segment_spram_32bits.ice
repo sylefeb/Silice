@@ -53,7 +53,7 @@ $$if VERILATOR then
   verilator_spram spram0(
 $$else
   ice40_spram spram0(
-    clock    <: clock,
+    clock    <: clock, 
 $$end  
     addr     <: sp0_addr,
     data_in  <: sp0_data_in,
@@ -81,19 +81,23 @@ $$end
   uint1 not_mapped           ::= ~pram.addr[31,1]; // Note: memory mapped addresses flagged by bit 31
   uint$bram_depth$ predicted ::= predicted_addr[2,$bram_depth$];
 
-  uint14 addr                ::= (pram.in_valid & ~predicted_correct)
+  uint14 addr                ::= (pram.in_valid & (~predicted_correct | pram.rw))
                                ? pram.addr[2,$bram_depth$] // read addr next (wait_one)
                                : predicted; // predict
 
   uint1 wait_one(0);
 
   always {
-
+$$if SIMULATION then
+   if (pram.in_valid) {
+     __display("RAM %h",pram.addr);
+   }
+$$end
     // result
     pram.data_out       = in_bram
                         ? (mem.rdata0                  >> {pram.addr[0,2],3b000})
                         : ({sp1_data_out,sp0_data_out} >> {pram.addr[0,2],3b000});
-    pram.done           = (predicted_correct & pram.in_valid) | (pram.rw & pram.in_valid & in_bram) | wait_one;
+    pram.done           = (predicted_correct & pram.in_valid) | (pram.rw & pram.in_valid) | wait_one;
 
     // access bram
     mem.addr0           = addr;
@@ -104,10 +108,10 @@ $$end
     // access sprams
     sp0_addr            = addr;
     sp1_addr            = addr;
-    sp0_data_in         = pram.data_in;
-    sp1_data_in         = pram.data_in;
-    sp0_wenable         = pram.rw & pram.in_valid;
-    sp1_wenable         = pram.rw & pram.in_valid;
+    sp0_data_in         = pram.data_in[ 0,16];
+    sp1_data_in         = pram.data_in[16,16];
+    sp0_wenable         = pram.rw & pram.in_valid & ~in_bram;
+    sp1_wenable         = pram.rw & pram.in_valid & ~in_bram;
     sp0_wmask           = {pram.wmask[1,1],pram.wmask[1,1],pram.wmask[0,1],pram.wmask[0,1]};
     sp1_wmask           = {pram.wmask[3,1],pram.wmask[3,1],pram.wmask[2,1],pram.wmask[2,1]};
 

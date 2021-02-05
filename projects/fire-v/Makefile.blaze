@@ -1,4 +1,4 @@
-
+ 
 .DEFAULT: blaze.ice
 		silice-make.py -s blaze.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@)
 
@@ -13,3 +13,4 @@ verilator: blaze.ice
 
 clean:
 	rm -rf BUILD_*
+ 

@@ -1,5 +1,5 @@
 // SL 2020-12-22 @sylefeb
-//
+// 
 // ------------------------- 
 //      GNU AFFERO GENERAL PUBLIC LICENSE
 //        Version 3, 19 November 2007
@@ -8,7 +8,7 @@
 //  the distribution, please refer to it for details.
 
 $$if ICEBREAKER then
-$$ bram_depth = 11
+$$ bram_depth = 11 
 $$else
 $$ bram_depth = 13 -- 13 : 8K ints, ~100 MHz   14 : 16K ints ~90 MHz
 $$end

@@ -1,5 +1,5 @@
 #pragma once
-
+ 
 // special addresses
 extern volatile unsigned char* const LEDS;
 extern volatile unsigned char* const FRAMEBUFFER;

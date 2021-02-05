@@ -121,7 +121,7 @@ M_main __main(
 `endif
 `ifdef SPIFLASH
   .out_sf_clk(__main_out_sf_clk),
-  .out_sf_csn(__main_out_sf_csn),
+  .out_sf_csn(__main_out_sf_csn), 
   .out_sf_mosi(__main_out_sf_mosi),
   .in_sf_miso(FLASH_IO1),
 `endif

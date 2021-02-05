@@ -1,5 +1,5 @@
 //#include "../mylibc/mylibc.h"
-int time() 
+int time()  
 {
    int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));

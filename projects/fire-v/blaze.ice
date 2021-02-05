@@ -171,7 +171,7 @@ $$end
   uint1   drawing = uninitialized;
   uint1   triangle_in(0);
   uint1   fbuffer(0);
-
+ 
   flame gpu(
     sd      <:> sd,
     fbuffer <:: fbuffer,
