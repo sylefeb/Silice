@@ -24,7 +24,6 @@ $$end
 $$if ICEBREAKER then
 import('plls/icebrkr50.v')
 import('../common/ice40_half_clock.v')
-import('../common/ice40_spram.v')
 $$FIREV_NO_INSTRET    = 1
 $$FIREV_MERGE_ADD_SUB = nil
 $$FIREV_MUX_A_DECODER = 1
@@ -70,7 +69,6 @@ interface sdram_provider {
 $$FLAME_BLAZE = 1
 $include('flame/flame.ice')
 
-
 // default palette
 $$palette = {}
 $$for i=1,256 do
@@ -94,9 +92,10 @@ $$ palette[256] = 255 | (255<<8) | (255<<16)
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
 $$sdcard_image_pad_size = 0
 $$dofile('pre/pre_include_asm.lua')
+$$code_size_bytes = init_data_bytes
 
 $include('fire-v/fire-v.ice')
-$include('ash/bram_ram_32bits.ice')
+$include('ash/bram_segment_spram_32bits.ice')
 
 $include('../common/clean_reset.ice')
 
@@ -104,7 +103,6 @@ $include('../common/clean_reset.ice')
 
 $$if VERILATOR then
 import('../common/passthrough.v')
-$include('verilator_spram.ice')
 $$end
 
 // ------------------------- 
@@ -200,18 +198,16 @@ $$end
   uint1  predicted_correct = uninitialized;
   uint32 user_data(0);
 
-  // bram io
-  bram_ram_32bits bram_ram(
+  // CPU RAM
+  bram_segment_spram_32bits bram_ram(
     pram              <:> mem,
     predicted_addr    <:  predicted_addr,
     predicted_correct <:  predicted_correct,
   );
 
   uint1  cpu_reset      = 1;
-  uint26 cpu_start_addr(26h0000000); // NOTE: the BRAM ignores the high part of the address
-                                     //       but for bit 32 (mapped memory)
-                                     //       26h2000000 is chosen for compatibility with Wildfire
-
+  uint26 cpu_start_addr(26h0010000); // NOTE: this starts in the boot sector
+  
   // cpu 
   rv32i_cpu cpu<!cpu_reset>(
     boot_at          <:  cpu_start_addr,

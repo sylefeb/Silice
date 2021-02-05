@@ -40,8 +40,7 @@ $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o smoke/crt0.s
 rm build/code0.hex 2> /dev/null
 rm build/code1.hex 2> /dev/null
 
-$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tsmoke/config_cpu$CPU.ld --no-relax -o build/code.elf $OBJECTS
-# $ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tsmoke/config_test.ld --no-relax -o build/code.elf $OBJECTS
+$ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tsmoke/config_blaze.ld --no-relax -o build/code.elf $OBJECTS
 
 $ARCH-elf-objcopy -O verilog build/code.elf build/code$CPU.hex
 
