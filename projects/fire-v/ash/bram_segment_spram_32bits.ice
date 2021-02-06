@@ -17,7 +17,12 @@ Two sprams are used, spram0 for bits 0-15, spram1 for bits 16-31
 
 */ 
 
+$$if VERILATOR then
+$$ bram_depth = 12
+$$else
 $$ bram_depth = 11
+$$end
+
 $$ bram_size  = 1<<bram_depth
 $$ print('##### code size: ' .. code_size_bytes .. ' BRAM capacity: ' .. 4*bram_size .. '#####')
 
@@ -88,16 +93,20 @@ $$end
   uint1 wait_one(0);
 
   always {
-$$if SIMULATION then
-   if (pram.in_valid) {
-     __display("RAM %h",pram.addr);
+$$if verbose then
+   if (pram.in_valid & not_mapped) {
+     if (pram.rw) {
+       __display("RAM %h | %h (bram:%b) (in: %h wm: %b)",pram.addr,addr,in_bram,pram.data_in,pram.wmask);
+     } else {
+       __display("RAM %h predok:%b (bram:%b) spram@%h next@%h data:%h|%h",pram.addr,predicted_correct,in_bram,sp0_addr,addr,sp0_data_out,sp1_data_out);
+     }
    }
 $$end
     // result
     pram.data_out       = in_bram
                         ? (mem.rdata0                  >> {pram.addr[0,2],3b000})
                         : ({sp1_data_out,sp0_data_out} >> {pram.addr[0,2],3b000});
-    pram.done           = (predicted_correct & pram.in_valid) | (pram.rw & pram.in_valid) | wait_one;
+    pram.done           = (/*in_bram &*/ predicted_correct & pram.in_valid) | (pram.rw & pram.in_valid) | wait_one;
 
     // access bram
     mem.addr0           = addr;
@@ -110,13 +119,27 @@ $$end
     sp1_addr            = addr;
     sp0_data_in         = pram.data_in[ 0,16];
     sp1_data_in         = pram.data_in[16,16];
-    sp0_wenable         = pram.rw & pram.in_valid & ~in_bram;
-    sp1_wenable         = pram.rw & pram.in_valid & ~in_bram;
+    sp0_wenable         = pram.rw & pram.in_valid & ~in_bram & not_mapped;
+    sp1_wenable         = pram.rw & pram.in_valid & ~in_bram & not_mapped;
     sp0_wmask           = {pram.wmask[1,1],pram.wmask[1,1],pram.wmask[0,1],pram.wmask[0,1]};
     sp1_wmask           = {pram.wmask[3,1],pram.wmask[3,1],pram.wmask[2,1],pram.wmask[2,1]};
 
+$$if verbose then
+   if (wait_one) {
+     __display("RAM waited");
+   }
+   if (pram.done & not_mapped) {
+     if (~pram.rw) {
+       __display("RAM %h read: %h",pram.addr,pram.data_out);
+     }
+     if (~in_bram) {
+      __display("spram rw:%b addr: %h data: %h,%h wm:%b|%b we:%b",sp0_wenable,sp0_addr,sp1_data_in,sp0_data_in,sp1_wmask,sp0_wmask,sp0_wenable);
+     }
+   }
+$$end
+
     // wait next cycle?
-    wait_one            = pram.in_valid & ((in_bram & ~predicted_correct & ~pram.rw) | ~not_mapped);
+    wait_one            = pram.in_valid & ((~predicted_correct & ~pram.rw) | ~not_mapped /*| (~in_bram & ~pram.rw)*/);
 
   }
  
