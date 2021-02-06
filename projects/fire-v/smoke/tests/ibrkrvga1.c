@@ -20,7 +20,7 @@ inline int userdata()
 }
 
 volatile unsigned int*  const LEDS = (unsigned int* )0x90000000;
-// volatile unsigned int*  const PIX  = (unsigned int* )0x90000008; // FIXME: change this! now spiflash
+volatile unsigned int*  const PIX  = (unsigned int* )0x9000000C;
 
 void main() 
 {
@@ -30,31 +30,29 @@ void main()
 
   register int shift = 0;
 
-  unsigned int ptr = (unsigned int)PIX | (15<<20);
+  unsigned int ptr = ((unsigned int)PIX + (8000<<4)) | (15<<20);
 
   while (1) {
 
-    //if ((userdata()&4) == 0) {  // not writing already
-      register unsigned int addr = o + x;
-      int x0 = ((x<<2)+0+shift) & 255;
-      int x1 = ((x<<2)+1+shift) & 255;
-      int x2 = ((x<<2)+2+shift) & 255;
-      int x3 = ((x<<2)+3+shift) & 255;
-      *(volatile unsigned int*)(ptr | (addr<<4)) = 
-          (x3 << 24) | (x2 << 16) | (x1 << 8) | (x0);
-      x += ((userdata()&4) == 0) ? 1 : 0;
-      if (x == 80) { // 320/4
-        o += 80;
+    register unsigned int addr = o + x;
+    int x0 = ((x<<2)+0+shift) & 255;
+    int x1 = ((x<<2)+1+shift) & 255;
+    int x2 = ((x<<2)+2+shift) & 255;
+    int x3 = ((x<<2)+3+shift) & 255;
+    *(volatile unsigned int*)(ptr + (addr<<4)) = 
+        (x3 << 24) | (x2 << 16) | (x1 << 8) | (x0);
+    x += ((userdata()&4) == 0) ? 1 : 0;
+    if (x == 40) { 
+      o += 40;
+      x = 0;
+      ++y;
+      if (y == 200) {
+        o = 0;
         x = 0;
-        ++y;
-        if (y == 100) {
-          o = 0;
-          x = 0;
-          y = 0;
-          shift = shift + 1;          
-        }
+        y = 0;
+        shift = shift + 1;          
       }
-    //}
+    }
     
   }
   

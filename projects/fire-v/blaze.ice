@@ -358,7 +358,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (iter != 800000) {
+  while (iter != 1600000) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -401,13 +401,6 @@ $$end
               fbuffer = ~fbuffer;
             }            
             case 2b10: {
-/*            
-              __display("PIXELs %h = %h",mem.addr,mem.data_in);
-              pix_waddr = mem.addr[ 4,14];
-              pix_mask  = mem.addr[20, 4];
-              pix_data  = mem.data_in;
-              pix_write = 1;
-*/
               // SPIFLASH
 $$if SIMULATION then
               __display("(cycle %d) SPIFLASH %b",iter,mem.data_in[0,3]);
@@ -418,6 +411,13 @@ $$if SPIFLASH then
               sf_csn  = mem.data_in[2,1];              
 $$end              
             }        
+            case 2b11: {           
+              pix_waddr = mem.addr[ 4,14];
+              pix_mask  = mem.addr[20, 4];
+              pix_data  = mem.data_in;
+              pix_write = 1;
+              __display("PIXELs @%h wm:%b %h",pix_waddr,pix_mask,pix_data);
+            }
             default: { }
           }
         }

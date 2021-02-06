@@ -5,7 +5,7 @@
 
 void main()
 {
-  set_draw_buffer(1);
+  // set_draw_buffer(1);
 
   volatile unsigned char *ptr = (unsigned char *)ADDR;
 

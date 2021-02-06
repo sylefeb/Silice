@@ -9,8 +9,8 @@ The rest is hastily composed from a variety of sources (referenced in code) to g
 
 #include "mylibc.h"
 
-#ifndef MYLIBC_SMALL
 #include "tama_mini02_font.h"
+#ifndef MYLIBC_SMALL
 #endif
 
 volatile unsigned char* const LEDS        = (unsigned char*)0x90000000;
@@ -20,14 +20,16 @@ volatile unsigned int*  const PALETTE     = (unsigned int* )0xC3000000;
 // The reason is that video_rv32i does not mask addresses and therefore a SDRAM write still
 // occurs; we don't want this to end in the framebuffer! 
 
+#ifdef BLAZE
+volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x9000000C;
+#else
 volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x00000000;
+#endif
 //volatile unsigned char* const AUDIO       = (unsigned char*)0xAC000000;
 //volatile unsigned char* const DATA        = (unsigned char*)0xA2020000;
 volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x88000000;
 volatile unsigned int*  const SDCARD      = (unsigned int* )0x90000008;
 volatile unsigned int*  const SPIFLASH    = (unsigned int* )0x90000008;
-
-#ifndef MYLIBC_SMALL
 
 int cursor_x = 1;
 int cursor_y = 0;
@@ -53,9 +55,21 @@ int    putchar(int c)
   if (c >= 32) {
     for (int j=0;j<8;j++) {
       for (int i=0;i<5;i++) {
+#ifdef BLAZE
+        int pixaddr = fbuffer
+                    ? (( ((cursor_x+i)>>2) + ((cursor_y+j)<<5) + ((cursor_y+j)<<3)) <<4)
+                    : (( ((cursor_x+i)>>2) + ((cursor_y+j)<<6) + ((cursor_y+j)<<4)) <<4);
+        int mask    = 1 << (((cursor_x+i)&3)+20);                    
+        *(volatile unsigned int*)(  FRAMEBUFFER 
+          + mask
+          + (fbuffer ? (8000<<4) : 0)
+          + pixaddr
+         )  = (int)((font[c-32][i] & (1<<j)) ? 255 : 0) << (((cursor_x+i)&3)<<3);
+#else
         *((FRAMEBUFFER + (fbuffer ? 0 : 0x1000000)) 
-          + (cursor_x + i + ((cursor_y+j)<<10)) ) 
+          + (cursor_x + i + ((cursor_y+j)<<10)) )
           = (font[c-32][i] & (1<<j)) ? 255 : 31;
+#endif
       }
     }
   }
@@ -70,6 +84,8 @@ int    putchar(int c)
   }
   return c;
 }
+
+#ifndef MYLIBC_SMALL
 #endif
 
 void*  memcpy(void *dest, const void *src, size_t n) { 
