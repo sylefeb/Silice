@@ -26,6 +26,8 @@ $$end
 $$ bram_size  = 1<<bram_depth
 $$ print('##### code size: ' .. code_size_bytes .. ' BRAM capacity: ' .. 4*bram_size .. '#####')
 
+$$if bram_depth > 14 then error('bram larger than spram') end
+
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 
 import('../common/ice40_spram.v')
@@ -87,7 +89,7 @@ $$end
   uint$bram_depth$ predicted ::= predicted_addr[2,$bram_depth$];
 
   uint14 addr                ::= (pram.in_valid & (~predicted_correct | pram.rw))
-                               ? pram.addr[2,$bram_depth$] // read addr next (wait_one)
+                               ? pram.addr[2,14] // read addr next (wait_one)
                                : predicted; // predict
 
   uint1 wait_one(0);
@@ -101,7 +103,11 @@ $$if verbose then
        __display("RAM %h predok:%b (bram:%b) spram@%h next@%h data:%h|%h",pram.addr,predicted_correct,in_bram,sp0_addr,addr,sp0_data_out,sp1_data_out);
      }
    }
+   //if (pram.in_valid & pram.rw & ~in_bram & not_mapped) {
+   //  __display("RAM %h (bram:%b) (in: %h wm: %b)",pram.addr,in_bram,pram.data_in,pram.wmask);
+   //}
 $$end
+
     // result
     pram.data_out       = in_bram
                         ? (mem.rdata0                  >> {pram.addr[0,2],3b000})

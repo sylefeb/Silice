@@ -358,7 +358,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (iter != 1600000) {
+  while (iter != 16000000) {
     iter = iter + 1;
 $$else
   while (1) {
