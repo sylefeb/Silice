@@ -27,11 +27,11 @@ group transform
 }
 
 algorithm edge_walk(
-  input  int10  y,
-  input  int10  x0,
-  input  int10  y0,
-  input  int10  x1,
-  input  int10  y1,
+  input  uint10  y,
+  input  uint10 x0,
+  input  uint10 y0,
+  input  uint10 x1,
+  input  uint10 y1,
   input  int20  interp,
   input  uint2  prepare,
   output uint10 xi,
@@ -149,6 +149,8 @@ algorithm flame(
   input  int20  ei0,
   input  int20  ei1,
   input  int20  ei2,
+  input  uint10 ystart,
+  input  uint10 ystop,
   input  uint8  color,
   input  uint1  triangle_in,
   output uint1  drawing=0,
@@ -164,13 +166,11 @@ $$end
   uint1   it0 = uninitialized;
   uint1   it1 = uninitialized;
   uint1   it2 = uninitialized;
-
-  int10   y       = uninitialized;
-  int10   y_p1  ::= y+1;
+  uint10  y   = uninitialized;
 
   uint1   in_span = uninitialized;
   int11   span_x(-1);
-  int10   stop_x = uninitialized;
+  uint10  stop_x = uninitialized;
   uint2   prepare(0);
   uint1   wait_done(0);
   uint1   sent(0);
@@ -237,6 +237,8 @@ $$else
   );
 $$end
 
+  uint10  y_p1  ::= y+1;
+
   start                := 0;
   end                  := 0;
   next                 := 0;
@@ -281,8 +283,8 @@ $$end
           if (done) {
             sent = 0;
             if (span_x == stop_x) {
-              __display("stop_x span, x %d y %d",span_x,y);
-              drawing   = ~(it2|it1|it0) ? 0 : 1;
+              //__display("stop_x span, x %d y %d",span_x,y);
+              drawing   = (y_p1 == ystop) ? 0 : 1;
               y         = y_p1;
               span_x    = -1;
               end       = 1;
@@ -307,11 +309,10 @@ $$end
     }
 
     if (triangle_in) {
+      // __display("[cycle %d] incoming triangle",cycle);
       prepare = 2b11;
       drawing = 0;
-      y       = (v0.y < v1.y) ? (v0.y < v2.y ? v0.y : (v1.y < v2.y ? v1.y : v2.y))
-                               : (v1.y < v2.y ? v1.y : (v0.y < v2.y ? v0.y : v2.y));
-      __display("[cycle %d] incoming triangle, ystart = %d",cycle,y);
+      y       = ystart;
     }
 $$if SIMULATION then
     cycle = cycle + 1;
