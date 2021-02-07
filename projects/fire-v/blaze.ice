@@ -168,7 +168,6 @@ $$end
   uint1   drawing = uninitialized;
   uint1   triangle_in(0);
   uint1   fbuffer(0);
-  transform mx;
  
   flame gpu(
     sd      <:>  sd,
@@ -184,9 +183,11 @@ $$end
     color   <:: color,
     triangle_in <:: triangle_in,
     drawing     :> drawing,
-    mx      <::> mx,
     <:auto:>
   );
+
+  transform mx;
+  
 
   rv32i_ram_io mem;
 
