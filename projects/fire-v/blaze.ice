@@ -13,6 +13,8 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
+// ./compile_boot_spiflash.sh ; make icebreaker -f Makefile.blaze
+
 $$if SIMULATION then
 $$verbose = nil
 $$end
@@ -169,7 +171,7 @@ $$end
   uint1   triangle_in(0);
   uint1   fbuffer(0);
  
-  flame gpu(
+  flame_rasterizer gpu_raster(
     sd      <:>  sd,
     fbuffer <::  fbuffer,
     v0      <::> v0,
@@ -187,7 +189,14 @@ $$end
   );
 
   transform mx;
-  
+  vertex    v;
+  vertex    t;
+  flame_transform gpu_trsf(
+    t  <::> mx,
+    v  <::> v,
+    tv <::> t,
+  );
+  uint4 do_transform(0);
 
   rv32i_ram_io mem;
 
@@ -195,11 +204,18 @@ $$end
   uint1  predicted_correct = uninitialized;
   uint32 user_data(0);
 
+  uint1            bram_override_we(0);
+  uint$bram_depth$ bram_override_addr(0);
+  uint32           bram_override_data = uninitialized;
+
   // CPU RAM
   bram_segment_spram_32bits bram_ram(
-    pram              <:> mem,
-    predicted_addr    <:  predicted_addr,
-    predicted_correct <:  predicted_correct,
+    pram               <:> mem,
+    predicted_addr     <:  predicted_addr,
+    predicted_correct  <:  predicted_correct,
+    bram_override_we   <:  bram_override_we,
+    bram_override_addr <:  bram_override_addr,
+    bram_override_data <:  bram_override_data
   );
 
   uint1  cpu_reset      = 1;
@@ -355,7 +371,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (iter != 16000000) {
+  while (iter != 1600000) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -377,7 +393,18 @@ $$end
       pix_mask  = sd.wmask; 
       pix_data  = sd.data_in;
       pix_write = 1;
-    }    
+    }
+    
+    if (do_transform[0,1]) {
+      // transform is done, write back result
+      __display("transform done, write back %d,%d,%d at @%h  (%h)",t.x,t.y,t.z,bram_override_addr,{2b00,t.z,t.y,t.x});
+      bram_override_we   = 1;
+      bram_override_data = {2b00,t.z,t.y,t.x};
+      do_transform       = 0;
+    } else {
+      bram_override_we   = 0;
+      do_transform       = do_transform >> 1;
+    }
     
     if (mem.in_valid & mem.rw) {
       switch (mem.addr[27,4]) {
@@ -413,39 +440,54 @@ $$end
               pix_mask  = mem.addr[20, 4];
               pix_data  = mem.data_in;
               pix_write = 1;
-              __display("PIXELs @%h wm:%b %h",pix_waddr,pix_mask,pix_data);
+              // __display("PIXELs @%h wm:%b %h",pix_waddr,pix_mask,pix_data);
             }
             default: { }
           }
         }
         case 4b0001: {
 $$if SIMULATION then
-          __display("(cycle %d) triangle (%b) = %d %d",iter,mem.addr[2,5],mem.data_in[0,16],mem.data_in[16,16]);
+//          __display("(cycle %d) triangle (%b) = %d %d",iter,mem.addr[2,5],mem.data_in[0,16],mem.data_in[16,16]);
 $$end
           switch (mem.addr[2,4]) {
             case 0: { v0.x = mem.data_in[0,10]; v0.y = mem.data_in[10,10]; v0.z = mem.data_in[20,10]; }
             case 1: { v1.x = mem.data_in[0,10]; v1.y = mem.data_in[10,10]; v1.z = mem.data_in[20,10]; }
             case 2: { v2.x = mem.data_in[0,10]; v2.y = mem.data_in[10,10]; v2.z = mem.data_in[20,10]; }
-            case 3: { ei0 = mem.data_in;       color = mem.data_in[24,8]; }
+            case 3: { ei0 = mem.data_in;        color = mem.data_in[24,8]; }
             case 4: { ei1 = mem.data_in; }
             case 5: { ei2 = mem.data_in; }
             case 6: { ystart      = mem.data_in[0,16]; 
                       ystop       = mem.data_in[16,16]; 
                       triangle_in = 1;
 $$if SIMULATION then
-                      __display("new triangle (color %d), cycle %d, %d,%d %d,%d %d,%d",color,iter,v0.x,v0.y,v1.x,v1.y,v2.x,v2.y);
+                      __display("(cycle %d) new triangle, color %d, (%d,%d) (%d,%d) (%d,%d)",iter,color,v0.x,v0.y,v1.x,v1.y,v2.x,v2.y);
 $$end                               
                     }
             case 7:  {
                         mx.m00 = mem.data_in[0,8]; mx.m01 = mem.data_in[8,8]; mx.m02 = mem.data_in[16,8]; 
-                        mx.tx  = mem.data_in[24,8];
                      }
             case 8:  {
                         mx.m10 = mem.data_in[0,8]; mx.m11 = mem.data_in[8,8]; mx.m12 = mem.data_in[16,8];
-                        mx.ty  = mem.data_in[24,8];
                      }
             case 9:  {
                         mx.m20 = mem.data_in[0,8]; mx.m21 = mem.data_in[8,8]; mx.m22 = mem.data_in[16,8];
+                     }
+            case 10: {
+                       bram_override_addr = $(1<<bram_depth)-1$;
+$$if SIMULATION then
+                       __display("(cycle %d) bram write back addr reset %h",iter,bram_override_addr);
+$$end                               
+                     }
+            case 11: {
+                        v.x = mem.data_in[0,10]; v.y = mem.data_in[10,10]; v.z = mem.data_in[20,10];
+                        do_transform       = 4b1000;
+                        bram_override_addr = bram_override_addr + 1;
+$$if SIMULATION then
+                      __display("(cycle %d) transform %d,%d,%d",iter,v.x,v.y,v.z);
+                      __display("mx %d,%d,%d",mx.m00,mx.m01,mx.m02);
+                      __display("mx %d,%d,%d",mx.m10,mx.m11,mx.m12);
+                      __display("mx %d,%d,%d",mx.m20,mx.m21,mx.m22);
+$$end                               
                      }
             default: { }
           }      

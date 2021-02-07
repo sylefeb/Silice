@@ -9,11 +9,17 @@
 
 /*
 
+Dedicated memory for the IceBreaker Ice40 with SPRAM
+
 Implements a memory space with:
 - 0x0000 to 0xFFFF mapped to SPRAM
 - 0x1000 to 0x17FF mapped to bram (boot)
 
 Two sprams are used, spram0 for bits 0-15, spram1 for bits 16-31
+
+A bram override is provided: after booting from the bram segments,
+it can be used to exchange data between co-processors and CPU.
+Co-processors write through the override, while the CPU reads only.
 
 */ 
 
@@ -37,9 +43,13 @@ $include('verilator_spram.ice')
 $$end
 
 algorithm bram_segment_spram_32bits(
-  rv32i_ram_provider pram,              // provided ram interface
-  input uint26       predicted_addr,    // next predicted address
-  input uint1        predicted_correct, // was the prediction correct?
+  rv32i_ram_provider     pram,               // provided ram interface
+  input uint26           predicted_addr,     // next predicted address
+  input uint1            predicted_correct,  // was the prediction correct?
+  // 
+  input uint1            bram_override_we,   // bram override: write enable
+  input uint$bram_depth$ bram_override_addr, // bram override: write address
+  input uint32           bram_override_data, // bram override: data to be written
 ) <autorun> {
 
   simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { $data_bram$ pad(uninitialized) };
@@ -116,9 +126,9 @@ $$end
 
     // access bram
     mem.addr0           = addr;
-    mem.addr1           = pram.addr[2,$bram_depth$];
-    mem.wenable1        = pram.wmask & {4{pram.rw & pram.in_valid & not_mapped & in_bram}};
-    mem.wdata1          = pram.data_in;
+    mem.addr1           = bram_override_we ? bram_override_addr : pram.addr[2,$bram_depth$];
+    mem.wenable1        = (pram.wmask & {4{pram.rw & pram.in_valid & not_mapped & in_bram}}) | {4{bram_override_we}};
+    mem.wdata1          = bram_override_we ? bram_override_data : pram.data_in;
 
     // access sprams
     sp0_addr            = addr;

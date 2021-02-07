@@ -21,8 +21,8 @@ group vertex
 
 group transform 
 {
-  int8 m00 = 127, int8 m01 = 0,   int8 m02 = 0,   int8 tx  = 0,
-  int8 m10 = 0,   int8 m11 = 127, int8 m12 = 0,   int8 ty  = 0,
+  int8 m00 = 127, int8 m01 = 0,   int8 m02 = 0,
+  int8 m10 = 0,   int8 m11 = 127, int8 m12 = 0,
   int8 m20 = 0,   int8 m21 = 0,   int8 m22 = 127,
 }
 
@@ -140,7 +140,7 @@ algorithm ram_writer_blaze(
 
 // ------------------------- 
 
-algorithm flame(
+algorithm flame_rasterizer(
   sdram_user    sd,
   input  uint1  fbuffer,
   input  vertex v0,
@@ -273,7 +273,7 @@ $$end
           stop_x = first;
         }
         start    = ~nop;
-        __display("start span, x %d to %d (y %d)",span_x,stop_x,y);
+        // __display("start span, x %d to %d (y %d)",span_x,stop_x,y);
       } else {
         // write current to sdram
         if (~sent) {
@@ -320,7 +320,33 @@ $$end
 
   }
 
-  
+}
+
+// ------------------------- 
+
+algorithm flame_transform(
+  input  transform t,
+  input  vertex    v,
+  output vertex    tv
+) {
+
+  uint3 step(3b1);
+  int8  a=uninitialized; int8  b=uninitialized; int8  c=uninitialized; int8  d=uninitialized;
+  int16 r=uninitialized;
+
+  always {
+    r = ((a*v.x + b*v.y + c*v.z) >>> 7) + 128; // NOTE: this could be using the DSP slices ...
+                                     //  ^^^^^ TODO: should not be there; problem is decoding from CPU ...
+                                     //  move raster init to flame?
+    switch (step) {
+      case 3b001: { a = t.m00; b = t.m01; c = t.m02; tv.z = r; }
+      case 3b010: { a = t.m10; b = t.m11; c = t.m12; tv.x = r; }
+      case 3b100: { a = t.m20; b = t.m21; c = t.m22; tv.y = r; }
+      default: {}
+    }
+    step = {step[0,2],step[2,1]};
+    // __display("trsf %d * %d + %d * %d + %d * %d",a,v.x,b,v.y,c,v.z);
+  }
 
 }
 
