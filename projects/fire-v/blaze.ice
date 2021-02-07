@@ -432,7 +432,7 @@ $$end
                       ystop       = mem.data_in[16,16]; 
                       triangle_in = 1;
 $$if SIMULATION then
-                      __display("new triangle (color %d), cycle %d, %d,%d %d,%d %d,%d",color,iter,x0,y0,x1,y1,x2,y2);
+                      __display("new triangle (color %d), cycle %d, %d,%d %d,%d %d,%d",color,iter,v0.x,v0.y,v1.x,v1.y,v2.x,v2.y);
 $$end                               
                     }
             case 7:  {
