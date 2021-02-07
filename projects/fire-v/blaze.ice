@@ -156,12 +156,9 @@ $$end
 
   spram_r32_w32_io sd;
 
-  uint10  x0      = uninitialized;
-  uint10  y0      = uninitialized;
-  uint10  x1      = uninitialized;
-  uint10  y1      = uninitialized;
-  uint10  x2      = uninitialized;
-  uint10  y2      = uninitialized;
+  vertex  v0;
+  vertex  v1;
+  vertex  v2;
   int20   ei0     = uninitialized;
   int20   ei1     = uninitialized;
   int20   ei2     = uninitialized;
@@ -171,16 +168,14 @@ $$end
   uint1   drawing = uninitialized;
   uint1   triangle_in(0);
   uint1   fbuffer(0);
+  transform mx;
  
   flame gpu(
-    sd      <:> sd,
-    fbuffer <:: fbuffer,
-    x0      <:: x0,
-    y0      <:: y0,
-    x1      <:: x1,
-    y1      <:: y1,
-    x2      <:: x2,
-    y2      <:: y2,
+    sd      <:>  sd,
+    fbuffer <::  fbuffer,
+    v0      <::> v0,
+    v1      <::> v1,
+    v2      <::> v2,
     ei0     <:: ei0,
     ei1     <:: ei1,
     ei2     <:: ei2,
@@ -189,6 +184,7 @@ $$end
     color   <:: color,
     triangle_in <:: triangle_in,
     drawing     :> drawing,
+    mx      <::> mx,
     <:auto:>
   );
 
@@ -425,20 +421,31 @@ $$end
 $$if SIMULATION then
           __display("(cycle %d) triangle (%b) = %d %d",iter,mem.addr[2,5],mem.data_in[0,16],mem.data_in[16,16]);
 $$end
-          switch (mem.addr[2,7]) {
-            case 7b0000001: { x0  = mem.data_in[0,16]; y0  = mem.data_in[16,16]; }
-            case 7b0000010: { x1  = mem.data_in[0,16]; y1  = mem.data_in[16,16]; }
-            case 7b0000100: { x2  = mem.data_in[0,16]; y2  = mem.data_in[16,16]; }
-            case 7b0001000: { ei0 = mem.data_in;       color = mem.data_in[24,8]; }
-            case 7b0010000: { ei1 = mem.data_in; }
-            case 7b0100000: { ei2 = mem.data_in; }
-            case 7b1000000: { ystart      = mem.data_in[0,16]; 
-                              ystop       = mem.data_in[16,16]; 
-                              triangle_in = 1;
+          switch (mem.addr[2,4]) {
+            case 0: { v0.x = mem.data_in[0,10]; v0.y = mem.data_in[10,10]; v0.z = mem.data_in[20,10]; }
+            case 1: { v1.x = mem.data_in[0,10]; v1.y = mem.data_in[10,10]; v1.z = mem.data_in[20,10]; }
+            case 2: { v2.x = mem.data_in[0,10]; v2.y = mem.data_in[10,10]; v2.z = mem.data_in[20,10]; }
+            case 3: { ei0 = mem.data_in;       color = mem.data_in[24,8]; }
+            case 4: { ei1 = mem.data_in; }
+            case 5: { ei2 = mem.data_in; }
+            case 6: { ystart      = mem.data_in[0,16]; 
+                      ystop       = mem.data_in[16,16]; 
+                      triangle_in = 1;
 $$if SIMULATION then
-                               __display("new triangle (color %d), cycle %d, %d,%d %d,%d %d,%d",color,iter,x0,y0,x1,y1,x2,y2);
+                      __display("new triangle (color %d), cycle %d, %d,%d %d,%d %d,%d",color,iter,x0,y0,x1,y1,x2,y2);
 $$end                               
-                              }                              
+                    }
+            case 7:  {
+                        mx.m00 = mem.data_in[0,8]; mx.m01 = mem.data_in[8,8]; mx.m02 = mem.data_in[16,8]; 
+                        mx.tx  = mem.data_in[24,8];
+                     }
+            case 8:  {
+                        mx.m10 = mem.data_in[0,8]; mx.m11 = mem.data_in[8,8]; mx.m12 = mem.data_in[16,8];
+                        mx.ty  = mem.data_in[24,8];
+                     }
+            case 9:  {
+                        mx.m20 = mem.data_in[0,8]; mx.m21 = mem.data_in[8,8]; mx.m22 = mem.data_in[16,8];
+                     }
             default: { }
           }      
 

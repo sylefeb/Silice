@@ -127,13 +127,13 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
   while ((userdata()&1) == 1) {  }
 
   // send commands
-  *(TRIANGLE+  1) = px0 | (py0 << 16);
-  *(TRIANGLE+  2) = px1 | (py1 << 16);
-  *(TRIANGLE+  4) = px2 | (py2 << 16);
-  *(TRIANGLE+  8) = (e_incr0&0xffffff) | (color << 24);
-  *(TRIANGLE+ 16) = (e_incr1&0xffffff);
-  *(TRIANGLE+ 32) = (e_incr2&0xffffff);
-  *(TRIANGLE+ 64) = (py2 << 16) | py0;
+  *(TRIANGLE+  0) = (px0&1023) | ((py0&1023) << 10);
+  *(TRIANGLE+  1) = (px1&1023) | ((py1&1023) << 10);
+  *(TRIANGLE+  2) = (px2&1023) | ((py2&1023) << 10);
+  *(TRIANGLE+  3) = (e_incr0&0xffffff) | (color << 24);
+  *(TRIANGLE+  4) = (e_incr1&0xffffff);
+  *(TRIANGLE+  5) = (e_incr2&0xffffff);
+  *(TRIANGLE+  6) = (py2 << 16) | py0;
 }
 
 void clear(int xm,int ym,int xM,int yM)

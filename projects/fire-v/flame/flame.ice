@@ -14,6 +14,18 @@
 
 */
 
+group vertex
+{
+  int10 x = uninitialized, int10 y = uninitialized, int10 z = uninitialized
+}
+
+group transform 
+{
+  int8 m00 = 127, int8 m01 = 0,   int8 m02 = 0,   int8 tx  = 0,
+  int8 m10 = 0,   int8 m11 = 127, int8 m12 = 0,   int8 ty  = 0,
+  int8 m20 = 0,   int8 m21 = 0,   int8 m22 = 127,
+}
+
 algorithm edge_walk(
   input  uint10  y,
   input  uint10 x0,
@@ -131,12 +143,9 @@ algorithm ram_writer_blaze(
 algorithm flame(
   sdram_user    sd,
   input  uint1  fbuffer,
-  input  uint10 x0,
-  input  uint10 y0,
-  input  uint10 x1,
-  input  uint10 y1,
-  input  uint10 x2,
-  input  uint10 y2,
+  input  vertex v0,
+  input  vertex v1,
+  input  vertex v2,
   input  int20  ei0,
   input  int20  ei1,
   input  int20  ei2,
@@ -144,6 +153,7 @@ algorithm flame(
   input  uint10 ystop,
   input  uint8  color,
   input  uint1  triangle_in,
+  input  transform mx,
   output uint1  drawing=0,
 ) <autorun> {
 
@@ -169,28 +179,28 @@ $$end
   uint19 addr ::= span_x + (y << 10);
 
   edge_walk e0(
-    x0 <:: x0, y0 <:: y0,
-    x1 <:: x1, y1 <:: y1,
+    x0 <:: v0.x, y0 <:: v0.y,
+    x1 <:: v1.x, y1 <:: v1.y,
     interp  <:: ei0,
     prepare <:: prepare,
     y       <:: y,
-    intersects   :> it0,
-    xi           :> xi0,
+    intersects :> it0,
+    xi         :> xi0,
     <:auto:>);
 
   edge_walk e1(
-    x0 <:: x1, y0 <:: y1,
-    x1 <:: x2, y1 <:: y2,
+    x0 <:: v1.x, y0 <:: v1.y,
+    x1 <:: v2.x, y1 <:: v2.y,
     interp  <:: ei1,
     prepare <:: prepare,
     y       <:: y,
-    intersects   :> it1,
-    xi           :> xi1,
+    intersects :> it1,
+    xi         :> xi1,
     <:auto:>);
 
   edge_walk e2(
-    x0 <:: x0, y0 <:: y0,
-    x1 <:: x2, y1 <:: y2,
+    x0 <:: v0.x, y0 <:: v0.y,
+    x1 <:: v2.x, y1 <:: v2.y,
     interp  <:: ei2,
     prepare <:: prepare,
     y       <:: y,
