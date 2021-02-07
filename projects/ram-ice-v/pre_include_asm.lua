@@ -1,7 +1,9 @@
 -- include ASM code as a BROM
 
+if not path then
 path,_1,_2 = string.match(findfile('pre_include_asm.lua'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
 print('PATH is ' .. path)
+end
 
 data_hex = ''
 init_data_bytes = 0
