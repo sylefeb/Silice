@@ -85,8 +85,8 @@ $$end
   // track when address is in bram region and onto which entry   
   uint1  in_bram              := pram.addr [16,1];
   
-  uint1 not_mapped           ::= ~pram.addr[31,1]; // Note: memory mapped addresses flagged by bit 31
-  uint$bram_depth$ predicted ::= predicted_addr[2,$bram_depth$];
+  uint1  not_mapped          ::= ~pram.addr[31,1]; // Note: memory mapped addresses flagged by bit 31
+  uint14 predicted           ::= predicted_addr[2,14];
 
   uint14 addr                ::= (pram.in_valid & (~predicted_correct | pram.rw))
                                ? pram.addr[2,14] // read addr next (wait_one)
