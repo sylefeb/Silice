@@ -39,13 +39,20 @@ void rotZ(int *M, int angle)
   M[6] =            0; M[7] =             0; M[8] = 128;
 }
 
-void scale(int *M,int scale)
+void scale(int *M,int sc)
 {
-  M[0] = scale; M[1] =     0; M[2] = 0;
-  M[3] =     0; M[4] = scale; M[5] = 0;
-  M[6] =     0; M[7] =     0; M[8] = scale;
+  M[0] = sc; M[1] =  0; M[2] = 0;
+  M[3] =  0; M[4] = sc; M[5] = 0;
+  M[6] =  0; M[7] =  0; M[8] = sc;
 }
  
+void scale3(int *M,int sx,int sy,int sz)
+{
+  M[0] = sx; M[1] =  0; M[2] = 0;
+  M[3] =  0; M[4] = sy; M[5] = 0;
+  M[6] =  0; M[7] =  0; M[8] = sz;
+}
+
 void mulM(int *M,const int *A,const int *B)
 {
   M[0] = (A[0]*B[0] + A[1]*B[3] + A[2]*B[6]) >> 7;

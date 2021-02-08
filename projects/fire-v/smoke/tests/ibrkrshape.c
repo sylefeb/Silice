@@ -60,9 +60,17 @@ void transform_points(const int *M)
   }
 }
 
-void draw_triangle_raw(char color,int inv_area,int px0,int py0,int px1,int py1,int px2,int py2)
+void draw_triangle_raw(char color,int inv_area,unsigned int p0,unsigned int p1,unsigned int p2)
 {
   int tmp;
+  
+  int px0 = p0 & 1023;
+  int px1 = p1 & 1023;
+  int px2 = p2 & 1023;
+  int py0 = (p0>>10) & 1023;
+  int py1 = (p1>>10) & 1023;
+  int py2 = (p2>>10) & 1023;
+  
   // front facing?
   int d10x  = px1 - px0;
   int d10y  = py1 - py0;
@@ -181,9 +189,7 @@ void main()
       int t3 = t + (t<<1);
       draw_triangle_raw(
         0,inv_area[t],
-        (((trpts[idx[t3+0]]&1023))), (((trpts[idx[t3+0]]>>10)&1023)), 
-        (((trpts[idx[t3+1]]&1023))), (((trpts[idx[t3+1]]>>10)&1023)), 
-        (((trpts[idx[t3+2]]&1023))), (((trpts[idx[t3+2]]>>10)&1023)) 
+        trpts[idx[t3+0]],trpts[idx[t3+1]],trpts[idx[t3+2]]
         );
     }
     int tm_tris_end = time();
