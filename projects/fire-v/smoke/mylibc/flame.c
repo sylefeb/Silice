@@ -133,7 +133,6 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
   *(TRIANGLE+  3) = (e_incr0&0xffffff) | (color << 24);
   *(TRIANGLE+  4) = (e_incr1&0xffffff);
   *(TRIANGLE+  5) = (e_incr2&0xffffff);
-  *(TRIANGLE+  6) = (py2 << 16) | py0;
 }
 
 void clear(int xm,int ym,int xM,int yM)

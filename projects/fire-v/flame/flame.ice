@@ -340,7 +340,7 @@ algorithm flame_transform(
     switch (step) {
       case 3b001: { a = t.m00; b = t.m01; c = t.m02; d = t.tx; tv.z = r; }
       case 3b010: { a = t.m10; b = t.m11; c = t.m12; d = t.ty; tv.x = r; }
-      case 3b100: { a = t.m20; b = t.m21; c = t.m22; d =    0; tv.y = r; }
+      case 3b100: { a = t.m20; b = t.m21; c = t.m22; d =  128; tv.y = r; }
       default: {}
     }
     step = {step[0,2],step[2,1]};

@@ -12,11 +12,12 @@ int fxcos(int angle);   // angles in [0,255]
 int fxsin(int angle);
 
 // matrix transforms (fixed precision: 7 bits - a unit = 128)
-void rotX (int *M, int angle);
-void rotY (int *M, int angle);
-void rotZ (int *M, int angle);
-void scale(int *M, int scale);
-void mulM (int *M, const int *A,const int *B);
+void rotX  (int *M, int angle);
+void rotY  (int *M, int angle);
+void rotZ  (int *M, int angle);
+void scale (int *M, int sc);
+void scale3(int *M,int sx,int sy,int sz);
+void mulM  (int *M, const int *A,const int *B);
 
 // draw a triangle (fixed precision: 5 bits - a unit = 32)
 // color: base palette color
