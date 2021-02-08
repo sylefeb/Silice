@@ -313,9 +313,10 @@ $$if SIMULATION then
   uint32 iter = 0;
 $$end
 
-  video_r        := active ? palette.rdata[ 0, 8] : 0;
-  video_g        := active ? palette.rdata[ 8, 8] : 0;
-  video_b        := active ? palette.rdata[16, 8] : 0;  
+  //                          vvvvvvvv TODO FIXME this margin should not be needed
+  video_r        := (active & pix_x>16) ? palette.rdata[ 0, 8] : 0;
+  video_g        := (active & pix_x>16) ? palette.rdata[ 8, 8] : 0;
+  video_b        := (active & pix_x>16) ? palette.rdata[16, 8] : 0;  
   
   palette.addr   := four_pixs;
   
