@@ -473,12 +473,15 @@ $$end
                         mx.m20 = mem.data_in[0,8]; mx.m21 = mem.data_in[8,8]; mx.m22 = mem.data_in[16,8];
                      }
             case 10: {
+                        mx.tx  = mem.data_in[0,10]; mx.ty = mem.data_in[16,10];
+                     }
+            case 11: {
                        bram_override_addr = $(1<<bram_depth)-1$;
 $$if SIMULATION then
                        __display("(cycle %d) bram write back addr reset %h",iter,bram_override_addr);
 $$end                               
                      }
-            case 11: {
+            case 12: {
                         v.x = mem.data_in[0,10]; v.y = mem.data_in[10,10]; v.z = mem.data_in[20,10];
                         do_transform       = 4b1000;
                         bram_override_addr = bram_override_addr + 1;

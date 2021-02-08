@@ -29,9 +29,10 @@ void transform_points(const int *M)
   *(TRIANGLE+ 7) = (M[0]&1023) | ((M[1]&1023)<<8) | ((M[2]&1023)<<16);
   *(TRIANGLE+ 8) = (M[3]&1023) | ((M[4]&1023)<<8) | ((M[5]&1023)<<16);
   *(TRIANGLE+ 9) = (M[6]&1023) | ((M[7]&1023)<<8) | ((M[8]&1023)<<16);
-  *(TRIANGLE+10) = 1; // reinit write address
+  *(TRIANGLE+10) = (SCRW/2) | ((SCRH/2)<<16);
+  *(TRIANGLE+11) = 1; // reinit write address
   for (int p = 0; p < 24 ; p = p + 3) {
-    *(TRIANGLE+11) = (pts[p+0]&1023) | ((pts[p+1]&1023) << 10) | ((pts[p+2]&1023) << 20);
+    *(TRIANGLE+12) = (pts[p+0]&1023) | ((pts[p+1]&1023) << 10) | ((pts[p+2]&1023) << 20);
   }
 }
 

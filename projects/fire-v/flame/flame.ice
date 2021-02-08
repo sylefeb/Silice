@@ -24,6 +24,7 @@ group transform
   int8 m00 = 127, int8 m01 = 0,   int8 m02 = 0,
   int8 m10 = 0,   int8 m11 = 127, int8 m12 = 0,
   int8 m20 = 0,   int8 m21 = 0,   int8 m22 = 127,
+  int10 tx = 0,   int10 ty = 0,
 }
 
 algorithm edge_walk(
@@ -331,17 +332,15 @@ algorithm flame_transform(
 ) {
 
   uint3 step(3b1);
-  int8  a=uninitialized; int8  b=uninitialized; int8  c=uninitialized; int8  d=uninitialized;
+  int8  a=uninitialized; int8  b=uninitialized; int8  c=uninitialized; int10  d=uninitialized;
   int16 r=uninitialized;
 
   always {
-    r = ((a*v.x + b*v.y + c*v.z) >>> 7) + 128; // NOTE: this could be using the DSP slices ...
-                                     //  ^^^^^ TODO: should not be there; problem is decoding from CPU ...
-                                     //  move raster init to flame?
+    r = ((a*v.x + b*v.y + c*v.z) >>> 7) + d; // NOTE: this could be using the DSP slices ...
     switch (step) {
-      case 3b001: { a = t.m00; b = t.m01; c = t.m02; tv.z = r; }
-      case 3b010: { a = t.m10; b = t.m11; c = t.m12; tv.x = r; }
-      case 3b100: { a = t.m20; b = t.m21; c = t.m22; tv.y = r; }
+      case 3b001: { a = t.m00; b = t.m01; c = t.m02; d = t.tx; tv.z = r; }
+      case 3b010: { a = t.m10; b = t.m11; c = t.m12; d = t.ty; tv.x = r; }
+      case 3b100: { a = t.m20; b = t.m21; c = t.m22; d =    0; tv.y = r; }
       default: {}
     }
     step = {step[0,2],step[2,1]};

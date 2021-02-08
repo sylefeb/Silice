@@ -7,10 +7,10 @@ void main()
   int py =  27;
   int pz = -13;
   
-  *(TRIANGLE+10) = 1; // reinit write address  
-  *(TRIANGLE+11) = (px&1023) | ((py&1023) << 10) | ((pz&1023) << 20);
+  *(TRIANGLE+11) = 1; // reinit write address  
+  *(TRIANGLE+12) = (px&1023) | ((py&1023) << 10) | ((pz&1023) << 20);
   px = 0; py = 0; pz = 0;
-  *(TRIANGLE+11) = (px&1023) | ((py&1023) << 10) | ((pz&1023) << 20);
+  *(TRIANGLE+12) = (px&1023) | ((py&1023) << 10) | ((pz&1023) << 20);
 
   // print data from bram segment
   unsigned int *ptr = (unsigned int *)0x10000;
