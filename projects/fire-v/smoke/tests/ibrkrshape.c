@@ -64,7 +64,7 @@ void transform_points(const int *M)
   }
 }
 
-void draw_triangle_raw(int t,char color,unsigned int p0,unsigned int p1,unsigned int p2)
+void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
 { 
   register int px0 = p0 & 1023;
   register int px1 = p1 & 1023;
@@ -81,7 +81,8 @@ void draw_triangle_raw(int t,char color,unsigned int p0,unsigned int p1,unsigned
   register int cross = d10x*d20y - d10y*d20x;  
   if (cross <= 0) return;
   
-  color    = color + (cross*inv_area[t])>>12;
+  int color    = (cross*inv_area[t])>>9;
+  if (color > 254) color = 254;
 
   // reduce precision after shading
   if (fbuffer) {
@@ -113,6 +114,7 @@ void draw_triangle_raw(int t,char color,unsigned int p0,unsigned int p1,unsigned
   int e_incr0 = (py1-py0 == 0) ? 0xFFFFF : ((px1-px0)<<10) / (py1-py0);
   int e_incr1 = (py2-py1 == 0) ? 0xFFFFF : ((px2-px1)<<10) / (py2-py1);
   int e_incr2 = (py2-py0 == 0) ? 0xFFFFF : ((px2-px0)<<10) / (py2-py0);
+
 /*
   if ((e_incr0 == 0xFFFFF && e_incr1 == 0xFFFFF) 
    || (e_incr0 == 0xFFFFF && e_incr2 == 0xFFFFF) 
@@ -121,6 +123,7 @@ void draw_triangle_raw(int t,char color,unsigned int p0,unsigned int p1,unsigned
     return; 
   }
 */
+
   // wait for any pending draw to complete
   while ((userdata()&1) == 1) {  }
 
@@ -156,50 +159,40 @@ void main()
     
     clear(0,0,SCRW,SCRH);
 
+    ///////////////////////// update matrices
     int Rx[9];
     rotX(Rx,64);
     int Ry[9];
     rotY(Ry,(a + frame)&255);
-    /*int Sc[9];
-    if (fbuffer) {
-      scale3(Sc,64,127,127);
-    } else {
-      scale3(Sc,127,64,127);
-    }*/
     int M[9];
     mulM(M,Ry,Rx);
-    //int F[9];
-    //mulM(F,Sc,M);
 
     ///////////////////////// transform
-    int tm_trsf_start = time();
+//    int tm_trsf_start = time();
     transform_points(M);
-    int tm_trsf_end   = time();
+//    int tm_trsf_end   = time();
 
-    ///////////////////////// frame buffer 0
-    int tm_tris_start = time();
+    ///////////////////////// sort
+//    int tm_sort_start = time();
+    update_sort();
+//    int tm_sort_mid = time();
+    sort();
+//    int tm_sort_end = time();
+
+    ///////////////////////// draw
+//    int tm_tris_start = time();
     for (int i = 0; i < NTRIS ; i++) {    
       int t  = sorted[i]&65535;
       int t3 = t + (t<<1);
-      draw_triangle_raw(
-        t,0,
-        trpts[idx[t3+0]],trpts[idx[t3+1]],trpts[idx[t3+2]]
-        );
+      draw_triangle_raw(t,trpts[idx[t3+0]],trpts[idx[t3+1]],trpts[idx[t3+2]]);
     }
-    int tm_tris_end = time();
-
-    ///////////////////////// sort
-    int tm_sort_start = time();
-    update_sort();
-    int tm_sort_mid = time();
-    sort();
-    int tm_sort_end = time();
-
+//    int tm_tris_end = time();
+/*
     if (fbuffer == 0) {
       printf("trsf %d sort1 %d sort2 %d tris %d",tm_trsf_end-tm_trsf_start,tm_sort_mid-tm_sort_start,tm_sort_end-tm_sort_mid,tm_tris_end-tm_tris_start);
       set_cursor(4,0);
     }
-
+*/
     // wait for any pending draw to complete
     while ((userdata()&1) == 1) {  }     
     // wait for vblank
@@ -208,31 +201,12 @@ void main()
     *(LEDS+4) = 1;
     fbuffer = 1 - fbuffer;
     
-    
-/*
-    ///////////////////////// frame buffer 1
-
-    clear(0,0,SCRW,SCRH);
-    
-    for (int i = 0; i < NTRIS ; i++) {    
-      int t = sorted[i]&65535;
-      t += (t<<1);
-      draw_triangle_raw(
-        0,
-        (((trpts[idx[t+0]]&1023))), (((trpts[idx[t+0]]>>10)&1023)), 
-        (((trpts[idx[t+1]]&1023))), (((trpts[idx[t+1]]>>10)&1023)), 
-        (((trpts[idx[t+2]]&1023))), (((trpts[idx[t+2]]>>10)&1023)) 
-        );
+    // rotate palette
+    for (int p = 0 ; p < 256 ; p++) {
+      unsigned char clr = p + frame;
+      *(PALETTE + p) = clr | (clr << 8) | (clr << 16);
     }
 
-    // wait for any pending draw to complete
-    while ((userdata()&1) == 1) {  }
-    // wait for vblank
-    while ((userdata()&2) == 0) {  }
-    // swap buffers
-    *(LEDS+4) = 1;  
-    fbuffer = 1 - fbuffer;
-*/   
     ///////////////////////// next
     ++frame;
   

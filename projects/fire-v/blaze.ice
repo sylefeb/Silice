@@ -72,10 +72,10 @@ $$FLAME_BLAZE = 1
 $include('flame/flame.ice')
 
 // default palette
-$$palette = {}
-$$for i=1,256 do
-$$  c = (i-1)
-$$  palette[i] = (c&255) | ((c&255)<<8) | ((c&255)<<16)
+$$palette = get_palette_as_table('smoke/tests/gold.tga',8)
+
+$$for i = 1,256 do
+$$ print('r = ' .. (palette[i]&255) .. ' g = ' .. ((palette[i]>>8)&255)  .. ' b = ' .. ((palette[i]>>16)&255))
 $$end
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
@@ -314,9 +314,9 @@ $$if SIMULATION then
 $$end
 
   //                          vvvvvvvv TODO FIXME this margin should not be needed
-  video_r        := (active & pix_x>16) ? palette.rdata[ 0, 8] : 0;
-  video_g        := (active & pix_x>16) ? palette.rdata[ 8, 8] : 0;
-  video_b        := (active & pix_x>16) ? palette.rdata[16, 8] : 0;  
+  video_r        := (active & pix_x>16) ? palette.rdata[ 2, 6] : 0;
+  video_g        := (active & pix_x>16) ? palette.rdata[10, 6] : 0;
+  video_b        := (active & pix_x>16) ? palette.rdata[18, 6] : 0;  
   
   palette.addr   := four_pixs;
   
@@ -398,9 +398,12 @@ $$end
       switch (mem.addr[27,4]) {
         case 4b1000: {
           // __display("palette %h = %h",mem.addr[2,8],mem.data_in[0,24]);
-          //palette.addr1    = mem.addr[2,8];
-          //palette.wdata1   = mem.data_in[0,24];
-          //palette.wenable1 = 1;
+          // TODO FIXME: yosys fails to infer simple_dual_port on palette, investigate
+          /*
+          palette.addr1    = mem.addr[2,8];
+          palette.wdata1   = mem.data_in[0,24];
+          palette.wenable1 = 1;
+          */
         }
         case 4b0010: {
           switch (mem.addr[2,2]) {
