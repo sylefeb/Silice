@@ -74,22 +74,9 @@ $include('flame/flame.ice')
 // default palette
 $$palette = {}
 $$for i=1,256 do
-$$  c = (i-1)<<2
+$$  c = (i-1)
 $$  palette[i] = (c&255) | ((c&255)<<8) | ((c&255)<<16)
 $$end
-$$for i=1,64 do
-$$  c = (i-1)<<2
-$$  palette[64+i] = (c&255)
-$$end
-$$for i=1,64 do
-$$  c = (i-1)<<2
-$$  palette[128+i] = (c&255)<<16
-$$end
-$$for i=1,64 do
-$$  c = (i-1)<<2
-$$  palette[192+i] = (c&255)<<8
-$$end
-$$ palette[256] = 255 | (255<<8) | (255<<16)
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
 $$sdcard_image_pad_size = 0

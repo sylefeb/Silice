@@ -53,14 +53,18 @@ void transform_points(const int *M)
   *(TRIANGLE+ 7) = (M[0]&1023) | ((M[1]&1023)<<8) | ((M[2]&1023)<<16);
   *(TRIANGLE+ 8) = (M[3]&1023) | ((M[4]&1023)<<8) | ((M[5]&1023)<<16);
   *(TRIANGLE+ 9) = (M[6]&1023) | ((M[7]&1023)<<8) | ((M[8]&1023)<<16);
-  *(TRIANGLE+10) = (SCRW/2) | ((SCRH/2)<<16);
+  if (fbuffer) {
+    *(TRIANGLE+10) = (SCRW/4)     | ((SCRH/2)<<16);
+  } else {
+    *(TRIANGLE+10) = (SCRW/2 + 4) | ((SCRH/4)<<16);
+  }
   *(TRIANGLE+11) = 1; // reinit write address
   for (int p = 0; p < NVERTS*3 ; p = p + 3) {
     *(TRIANGLE+12) = (pts[p+0]&1023) | ((pts[p+1]&1023) << 10) | ((pts[p+2]&1023) << 20);
   }
 }
 
-void draw_triangle_raw(char color,int inv_area,unsigned int p0,unsigned int p1,unsigned int p2)
+void draw_triangle_raw(int t,char color,unsigned int p0,unsigned int p1,unsigned int p2)
 {
   int tmp;
   
@@ -79,25 +83,7 @@ void draw_triangle_raw(char color,int inv_area,unsigned int p0,unsigned int p1,u
   int cross = d10x*d20y - d10y*d20x;  
   if (cross <= 0) return;
   
-  color = color + (cross*inv_area)>>8;
-
-  // TODO: one matrix per-frame! shift should be 3.5 (fixed point)
-
-  // reduce precision after shading
-  if (fbuffer) {
-    // drawing onto 160x200
-    px0 >>= 1;
-    px1 >>= 1;
-    px2 >>= 1;
-  } else {
-    // drawing onto 320x100
-    px0 += 3;
-    px1 += 3;
-    px2 += 3;
-    py0 >>= 1;
-    py1 >>= 1;
-    py2 >>= 1;
-  }
+  color    = color + (cross*inv_area[t])>>11;
 
   // 0 smallest y , 2 largest y
   if (py0 > py1) {
@@ -159,20 +145,24 @@ void main()
     
     clear(0,0,SCRW,SCRH);
 
-    //int Rz[9];
-    //rotZ(Rz,b + (costbl[((posx>>2) - (posy>>2) + (time))&255]>>1));
     int Rx[9];
     rotX(Rx,64);
     int Ry[9];
     rotY(Ry,(a + frame)&255);
-    //int Ra[9];
-    //mulM(Ra,Rz,Ry);
+    int Sc[9];
+    if (fbuffer) {
+      scale3(Sc,64,127,127);
+    } else {
+      scale3(Sc,127,64,127);
+    }
     int M[9];
     mulM(M,Ry,Rx);
+    int F[9];
+    mulM(F,Sc,M);
 
     ///////////////////////// transform
     int tm_trsf_start = time();
-    transform_points(M);
+    transform_points(F);
     int tm_trsf_end   = time();
 
     ///////////////////////// sort
@@ -188,7 +178,7 @@ void main()
       int t  = sorted[i]&65535;
       int t3 = t + (t<<1);
       draw_triangle_raw(
-        0,inv_area[t],
+        t,0,
         trpts[idx[t3+0]],trpts[idx[t3+1]],trpts[idx[t3+2]]
         );
     }
