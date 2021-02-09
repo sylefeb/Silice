@@ -8,7 +8,8 @@
         {"set"    : "basic"},
         {"set"    : "buttons", "define" : "BUTTONS=1"},
         {"set"    : "uart", "define" : "UART=1"},
-        {"set"    : "vga", "define" : "VGA=1"} 
+        {"set"    : "vga", "define" : "VGA=1"},
+        {"set"    : "spiflash", "define" : "SPIFLASH=1"}
       ],
       "builders": [
         {
@@ -17,7 +18,7 @@
           "tool": "icestorm",
           "tool_options": [
             {
-                "nextpnr_options": ["--up5k", "--freq 13", "--package sg48", "--timing-allow-fail"],
+                "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "--timing-allow-fail"],
                 "pnr": "next"
             }
           ],
@@ -86,6 +87,28 @@
         "type": "uint6",
         "io": "output"
       }
+    ],
+    "spiflash": [
+      {
+        "name" : "sf_sck",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_csn",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_mosi",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_miso",
+        "type" : "uint1",
+        "io"   : "input"
+      }      
     ]
   }
 }

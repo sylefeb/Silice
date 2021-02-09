@@ -11,7 +11,7 @@
 // ------------------------- 
 
 $$if SIMULATION then
-$$ verbose = 1
+$$ verbose = nil
 $$end
 
 $$if not (ULX3S or ICARUS or VERILATOR) then
@@ -19,6 +19,7 @@ $$error('Sorry, Wildfire is currently not supported on this board.')
 $$end
 
 // pre-compilation script, embeds compile code within sdcard image
+$$sdcard_image_pad_size = 0
 $$dofile('pre/pre_include_asm.lua')
 $$code_size_bytes = init_data_bytes
 
@@ -72,8 +73,8 @@ algorithm frame_drawer(
   output uint8  leds,
 $$if SDCARD then  
   output uint1  sd_clk,
-  output uint1  sd_mosi,
   output uint1  sd_csn,
+  output uint1  sd_mosi,
   input  uint1  sd_miso,
 $$end  
   simple_dualport_bram_port1 palette,

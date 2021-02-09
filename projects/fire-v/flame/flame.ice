@@ -8,6 +8,24 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 // ------------------------- 
+/*
+
+ - parameter: FLAME_BLAZE=1 if on Blaze, nil otherwise (Wildfire)
+
+*/
+
+group vertex
+{
+  int10 x = uninitialized, int10 y = uninitialized, int10 z = uninitialized
+}
+
+group transform 
+{
+  int8 m00 = 127, int8 m01 = 0,   int8 m02 = 0,
+  int8 m10 = 0,   int8 m11 = 127, int8 m12 = 0,
+  int8 m20 = 0,   int8 m21 = 0,   int8 m22 = 127,
+  int10 tx = 0,   int10 ty = 0,
+}
 
 algorithm edge_walk(
   input  uint10  y,
@@ -57,7 +75,7 @@ $$end
 
 // ------------------------- 
 
-algorithm sdram_writer( 
+algorithm ram_writer_wildfire( 
   sdram_user     sd,
   input  uint1   fbuffer,
   input  uint1   start,
@@ -72,41 +90,63 @@ algorithm sdram_writer(
   uint19 addr ::= {x[3,7],3b000} + (y << 10);
 
   always {
-    // if (next) {
-    //   __display("sdram_writer NEXT %d",x);
-    // }
     sd.rw = 1;
     sd.data_in[{x[0,3],3b000},8] = color;
     if (start | x[0,3]==3b000) {
-//      __display("sdram_writer START %d",x);
       sd.wmask = start ? 8b00000000 : 8b00000001;
     } else {
       sd.wmask[x[0,3],1] = next ? 1 : sd.wmask[x[0,3],1];
     }
-//if (next) {
-//    __display("sdram_writer NEXT %d",x);    
-//}    
     sd.in_valid      = end     || (next && ((x[0,3])==7));
     done             = sd.done || (next && ((x[0,3])!=7));
     sd.addr          = end ? sd.addr : {1b0,~fbuffer,5b0,addr};
-//  if (sd.in_valid & sd.wmask != 8b11111111) {
-//   if (end) {
-//     __display("sdram_writer %d (end:%b) in_valid=1  @%h = %h  %b",x,end,sd.addr,sd.data_in,sd.wmask);
-//     }
   }
 }
 
 // ------------------------- 
 
-algorithm flame(
+algorithm ram_writer_blaze( 
+  sdram_user     sd,
+  input  uint1   fbuffer,
+  input  uint1   start,
+  input  uint1   end,
+  input  uint1   next,
+  input  uint8   color,
+  input  uint10  x,
+  input  uint10  y,
+  output uint1   done
+) <autorun> {
+  // buffer 0
+  //  320 x 100   x>>2 + y*80
+  // buffer 1
+  //  160 x 200   x>>2 + y*40 + 8000 // 8000: skip buffer 0
+  
+  uint14 addr ::= ~fbuffer
+                ? (x[2,8] + (y << 6) + (y << 4)       )  // write to 0 (fbuffer == 0)
+                : (x[2,8] + (y << 5) + (y << 3) + 8000); // write to 1
+
+  always {
+    sd.rw = 1;
+    sd.data_in[{x[0,2],3b000},8] = color;
+    if (start | x[0,2]==2b00) {
+      sd.wmask = start ? 4b0000 : 4b0001;
+    } else {
+      sd.wmask[x[0,2],1] = next ? 1 : sd.wmask[x[0,2],1];
+    }
+    sd.in_valid      = end     || (next && ((x[0,2])==2b11));
+    done             = sd.done || (next && ((x[0,2])!=2b11));
+    sd.addr          = end ? sd.addr : addr;
+  }
+}
+
+// ------------------------- 
+
+algorithm flame_rasterizer(
   sdram_user    sd,
   input  uint1  fbuffer,
-  input  uint10 x0,
-  input  uint10 y0,
-  input  uint10 x1,
-  input  uint10 y1,
-  input  uint10 x2,
-  input  uint10 y2,
+  input  vertex v0,
+  input  vertex v1,
+  input  vertex v2,
   input  int20  ei0,
   input  int20  ei1,
   input  int20  ei2,
@@ -139,28 +179,28 @@ $$end
   uint19 addr ::= span_x + (y << 10);
 
   edge_walk e0(
-    x0 <:: x0, y0 <:: y0,
-    x1 <:: x1, y1 <:: y1,
+    x0 <:: v0.x, y0 <:: v0.y,
+    x1 <:: v1.x, y1 <:: v1.y,
     interp  <:: ei0,
     prepare <:: prepare,
     y       <:: y,
-    intersects   :> it0,
-    xi           :> xi0,
+    intersects :> it0,
+    xi         :> xi0,
     <:auto:>);
 
   edge_walk e1(
-    x0 <:: x1, y0 <:: y1,
-    x1 <:: x2, y1 <:: y2,
+    x0 <:: v1.x, y0 <:: v1.y,
+    x1 <:: v2.x, y1 <:: v2.y,
     interp  <:: ei1,
     prepare <:: prepare,
     y       <:: y,
-    intersects   :> it1,
-    xi           :> xi1,
+    intersects :> it1,
+    xi         :> xi1,
     <:auto:>);
 
   edge_walk e2(
-    x0 <:: x0, y0 <:: y0,
-    x1 <:: x2, y1 <:: y2,
+    x0 <:: v0.x, y0 <:: v0.y,
+    x1 <:: v2.x, y1 <:: v2.y,
     interp  <:: ei2,
     prepare <:: prepare,
     y       <:: y,
@@ -172,7 +212,8 @@ $$end
   uint1   end      = uninitialized;
   uint1   next     = uninitialized;
   uint1   done     = uninitialized;
-  sdram_writer writer(
+$$if not FLAME_BLAZE then
+  ram_writer_wildfire writer(
     sd      <:> sd,
     fbuffer <:: fbuffer,
     start   <:: start,
@@ -183,11 +224,21 @@ $$end
     y       <:: y,
     done    :> done
   );
+$$else
+  ram_writer_blaze writer(
+    sd      <:> sd,
+    fbuffer <:: fbuffer,
+    start   <:: start,
+    end     <:: end,
+    next    <:: next,
+    color   <:: color,
+    x       <:: span_x,
+    y       <:: y,
+    done    :> done
+  );
+$$end
 
   uint10  y_p1  ::= y+1;
-
-  // sd.in_valid          := 0;
-  // sd.rw                := 1;
 
   start                := 0;
   end                  := 0;
@@ -223,7 +274,7 @@ $$end
           stop_x = first;
         }
         start    = ~nop;
-        //__display("start span, x %d to %d (y %d)",span_x,stop_x,y);
+        // __display("start span, x %d to %d (y %d)",span_x,stop_x,y);
       } else {
         // write current to sdram
         if (~sent) {
@@ -270,7 +321,31 @@ $$end
 
   }
 
-  
+}
+
+// ------------------------- 
+
+algorithm flame_transform(
+  input  transform t,
+  input  vertex    v,
+  output vertex    tv
+) {
+
+  uint3 step(3b1);
+  int8  a=uninitialized; int8  b=uninitialized; int8  c=uninitialized; int10  d=uninitialized;
+  int16 r=uninitialized;
+
+  always {
+    r = ((a*v.x + b*v.y + c*v.z) >>> 7) + d; // NOTE: this could be using the DSP slices ...
+    switch (step) {
+      case 3b001: { a = t.m00; b = t.m01; c = t.m02; d = t.tx; tv.z = r; }
+      case 3b010: { a = t.m10; b = t.m11; c = t.m12; d = t.ty; tv.x = r; }
+      case 3b100: { a = t.m20; b = t.m21; c = t.m22; d =  128; tv.y = r; }
+      default: {}
+    }
+    step = {step[0,2],step[2,1]};
+    // __display("trsf %d * %d + %d * %d + %d * %d",a,v.x,b,v.y,c,v.z);
+  }
 
 }
 

@@ -39,11 +39,18 @@ void rotZ(int *M, int angle)
   M[6] =            0; M[7] =             0; M[8] = 128;
 }
 
-void scale(int *M,int scale)
+void scale(int *M,int sc)
 {
-  M[0] = scale; M[1] =     0; M[2] = 0;
-  M[3] =     0; M[4] = scale; M[5] = 0;
-  M[6] =     0; M[7] =     0; M[8] = scale;
+  M[0] = sc; M[1] =  0; M[2] = 0;
+  M[3] =  0; M[4] = sc; M[5] = 0;
+  M[6] =  0; M[7] =  0; M[8] = sc;
+}
+ 
+void scale3(int *M,int sx,int sy,int sz)
+{
+  M[0] = sx; M[1] =  0; M[2] = 0;
+  M[3] =  0; M[4] = sy; M[5] = 0;
+  M[6] =  0; M[7] =  0; M[8] = sz;
 }
 
 void mulM(int *M,const int *A,const int *B)
@@ -73,13 +80,30 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
   int cross = d10x*d20y - d10y*d20x;
   if (cross <= 0) return;
   if (shade) {
-    color = color + (cross >> 15);
+    color = color + (cross >> shade);
   }
 
   // reduce precision after shading
+#ifdef BLAZE
+  if (fbuffer) {
+    // drawing onto 160x200
+    px0 >>= 6; py0 >>= 5;
+    px1 >>= 6; py1 >>= 5;
+    px2 >>= 6; py2 >>= 5;
+  } else {
+    // drawing onto 320x100
+    px0 += 112; // 3.5
+    px1 += 112;
+    px2 += 112;
+    px0 >>= 5; py0 >>= 6;
+    px1 >>= 5; py1 >>= 6;
+    px2 >>= 5; py2 >>= 6;
+  }
+#else
   px0 >>= 5; py0 >>= 5;
   px1 >>= 5; py1 >>= 5;
   px2 >>= 5; py2 >>= 5;
+#endif
 
   // 0 smallest y , 2 largest y
   if (py0 > py1) {
@@ -110,23 +134,22 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
   while ((userdata()&1) == 1) {  }
 
   // send commands
-  *(TRIANGLE+  1) = px0 | (py0 << 16);
-  *(TRIANGLE+  2) = px1 | (py1 << 16);
-  *(TRIANGLE+  4) = px2 | (py2 << 16);
-  *(TRIANGLE+  8) = (e_incr0&0xffffff) | (color << 24);
-  *(TRIANGLE+ 16) = (e_incr1&0xffffff);
-  *(TRIANGLE+ 32) = (e_incr2&0xffffff);
-  *(TRIANGLE+ 64) = (py2 << 16) | py0;
+  *(TRIANGLE+  0) = (px0&1023) | ((py0&1023) << 10);
+  *(TRIANGLE+  1) = (px1&1023) | ((py1&1023) << 10);
+  *(TRIANGLE+  2) = (px2&1023) | ((py2&1023) << 10);
+  *(TRIANGLE+  3) = (e_incr0&0xffffff) | (color << 24);
+  *(TRIANGLE+  4) = (e_incr1&0xffffff);
+  *(TRIANGLE+  5) = (e_incr2&0xffffff);
 }
 
 void clear(int xm,int ym,int xM,int yM)
 {
-  draw_triangle(8,0,
+  draw_triangle(255,0,
     xm<<5,  ym<<5, 
     xM<<5,  ym<<5, 
     xM<<5,  yM<<5
     );
-  draw_triangle(8,0,
+  draw_triangle(255,0,
     xm<<5,  ym<<5, 
     xM<<5,  yM<<5,
     xm<<5,  yM<<5

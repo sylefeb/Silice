@@ -8,7 +8,10 @@ The rest is hastily composed from a variety of sources (referenced in code) to g
 */
 
 #include "mylibc.h"
+
 #include "tama_mini02_font.h"
+#ifndef MYLIBC_SMALL
+#endif
 
 volatile unsigned char* const LEDS        = (unsigned char*)0x90000000;
 volatile unsigned int*  const PALETTE     = (unsigned int* )0xC3000000;
@@ -17,27 +20,31 @@ volatile unsigned int*  const PALETTE     = (unsigned int* )0xC3000000;
 // The reason is that video_rv32i does not mask addresses and therefore a SDRAM write still
 // occurs; we don't want this to end in the framebuffer! 
 
+#ifdef BLAZE
+volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x9000000C;
+#else
 volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x00000000;
+#endif
 //volatile unsigned char* const AUDIO       = (unsigned char*)0xAC000000;
 //volatile unsigned char* const DATA        = (unsigned char*)0xA2020000;
 volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x88000000;
 volatile unsigned int*  const SDCARD      = (unsigned int* )0x90000008;
+volatile unsigned int*  const SPIFLASH    = (unsigned int* )0x90000008;
 
-int cursor_x = 0x00000000;
-int cursor_y = 0x00000000;
+int cursor_x = 1;
+int cursor_y = 0;
 
 void set_cursor(int x,int y)
 {
   cursor_x = x;
-  cursor_y = y;  
+  cursor_y = y;
 }
 
 int    putchar(int c)
 {
-  
   if (c == 10) {
     // next line
-    cursor_x = 0;
+    cursor_x = 1;
     cursor_y += 8;
     if (cursor_y > 400) {
       cursor_y = 0;
@@ -48,24 +55,38 @@ int    putchar(int c)
   if (c >= 32) {
     for (int j=0;j<8;j++) {
       for (int i=0;i<5;i++) {
+#ifdef BLAZE
+        int pixaddr = fbuffer
+                    ? (( ((cursor_x+i)>>2) + ((cursor_y+j)<<5) + ((cursor_y+j)<<3)) <<4)
+                    : (( ((cursor_x+i)>>2) + ((cursor_y+j)<<6) + ((cursor_y+j)<<4)) <<4);
+        int mask    = 1 << (((cursor_x+i)&3)+20);                    
+        *(volatile unsigned int*)(  FRAMEBUFFER 
+          + mask
+          + (fbuffer ? (8000<<4) : 0)
+          + pixaddr
+         )  = (int)((font[c-32][i] & (1<<j)) ? 255 : 0) << (((cursor_x+i)&3)<<3);
+#else
         *((FRAMEBUFFER + (fbuffer ? 0 : 0x1000000)) 
-          + (cursor_x + i + ((cursor_y+j)<<10)) ) 
+          + (cursor_x + i + ((cursor_y+j)<<10)) )
           = (font[c-32][i] & (1<<j)) ? 255 : 31;
+#endif
       }
     }
   }
   
   cursor_x += 5;
   if (cursor_x > 640) {
-    cursor_x = 0;
+    cursor_x = 1;
     cursor_y += 8;
     if (cursor_y > 400) {
       cursor_y = 0;
     }
   }
-  
   return c;
 }
+
+#ifndef MYLIBC_SMALL
+#endif
 
 void*  memcpy(void *dest, const void *src, size_t n) { 
   const void *end = src + n;
@@ -91,6 +112,8 @@ void pause(int cycles)
 
 char fbuffer = 0;
 
+#ifndef MYLIBC_SMALL
+
 void set_draw_buffer(char buffer)
 {
   fbuffer = buffer;
@@ -102,7 +125,7 @@ char get_draw_buffer()
 }
 
 void swap_buffers(char wait_vsynch)
-{
+{ 
   // wait for any pending draw to complete
   while ((userdata()&1) == 1) {  }
   // wait for vsync
@@ -118,7 +141,11 @@ void swap_buffers(char wait_vsynch)
 Included for build simplicity
 */
 #include "sdcard.c"
+
+#endif
+
 #include "flame.c"
+#include "spiflash.c"
 
 /*
 ==========================================
@@ -130,21 +157,21 @@ Included for build simplicity
 
 // from https://github.com/cliffordwolf/picorv32/blob/f9b1beb4cfd6b382157b54bc8f38c61d5ae7d785/dhrystone/stdlib.c
 
-long time() 
+inline long time() 
 {
    int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
    return cycles;
 }
 
-long insn() 
+inline long insn() 
 {
    int insns;
    asm volatile ("rdinstret %0" : "=r"(insns));
    return insns;
 }
 
-long userdata() 
+inline long userdata() 
 {
   int id;
   asm volatile ("rdtime %0" : "=r"(id));
@@ -152,6 +179,8 @@ long userdata()
 }
 
 // from https://github.com/BrunoLevy/learn-fpga/blob/master/FemtoRV/FIRMWARE/LIBFEMTOC/printf.c
+
+#ifndef MYLIBC_SMALL
 
 void print_string(const char* s) {
    for(const char* p = s; *p; ++p) {
@@ -210,38 +239,61 @@ int printf(const char *fmt,...)
   va_end(ap);
 }
 
-// from https://raw.githubusercontent.com/gcc-mirror/gcc/master/libgcc/config/epiphany/mulsi3.c
+#endif
 
-/* Generic 32 bit multiply.
-   Copyright (C) 2009-2020 Free Software Foundation, Inc.
-   Contributed by Embecosm on behalf of Adapteva, Inc.
-This file is part of GCC.
-This file is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 3, or (at your option) any
-later version.
-This file is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-Under Section 7 of GPL version 3, you are granted additional
-permissions described in the GCC Runtime Library Exception, version
-3.1, as published by the Free Software Foundation.
-You should have received a copy of the GNU General Public License and
-a copy of the GCC Runtime Library Exception along with this program;
-see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
-<http://www.gnu.org/licenses/>.  */
-
-unsigned int __mulsi3 (unsigned int a, unsigned int b)
+unsigned int __mulsi3 (unsigned int ia, unsigned int ib)
 {
-  unsigned int r = 0;
+  register unsigned int a = ia;
+  register unsigned int b = ib;
+  register unsigned int r = 0;
 
-  while (a) {
-      if (a & 1) {
-        r += b;
-      }
-      a >>= 1;
-      b <<= 1;
-  }
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  if (!a) return r;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  if (!a) return r;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  if (!a) return r;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  if (!a) return r;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  if (!a) return r;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
   return r;
 }

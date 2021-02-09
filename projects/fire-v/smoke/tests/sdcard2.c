@@ -40,7 +40,7 @@ void main()
       putchar(' ');
       if ((i&15) == 15) { printf("\n"); }
     }
-    swap_buffers();
+    swap_buffers(1);
   }
 
 }

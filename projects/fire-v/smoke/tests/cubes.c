@@ -128,7 +128,7 @@ void main()
         for (int t = 0; t < 36 ; t+=3) {
           draw_triangle(
             t<6 ? 64 : (t<12 ? 128 : 0),
-            1,
+            15,
             trpts[idx[t+0]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+0]+1] + ((SCRH/2 + posy)<<5), 
             trpts[idx[t+1]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+1]+1] + ((SCRH/2 + posy)<<5), 
             trpts[idx[t+2]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+2]+1] + ((SCRH/2 + posy)<<5) 

@@ -580,9 +580,9 @@ $$if ICARUS then
   while (frame < 2) {
 $$else
 $$if verbose then
-  while (frame < 2) {
+  while (frame < 4) {
 $$else
-  while (frame < 2) {
+  while (frame < 4) {
 $$end  
 $$end    
     while (video_vblank == 1) { }

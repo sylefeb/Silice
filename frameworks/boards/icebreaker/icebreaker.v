@@ -4,12 +4,13 @@ $$ICEBREAKER=1
 $$HARDWARE=1
 $$NUM_LEDS=5
 $$NUM_BTNS=3
-$$VGA=1
 $$color_depth=6
 $$color_max  =63
 $$config['bram_wenable_width'] = 'data'
 $$config['dualport_bram_wenable0_width'] = 'data'
 $$config['dualport_bram_wenable1_width'] = 'data'
+$$config['simple_dualport_bram_wenable0_width'] = 'data'
+$$config['simple_dualport_bram_wenable1_width'] = 'data'
 
 module top(
   output LED1,
@@ -44,7 +45,15 @@ module top(
   
   output P1B7, // hs
   output P1B8,  // vs
-`endif  
+`endif
+`ifdef SPIFLASH
+  output FLASH_SCK,
+  output FLASH_SSB,
+  output FLASH_IO0,
+  input  FLASH_IO1,
+  output FLASH_IO2,
+  output FLASH_IO3,
+`endif
   input  CLK
   );
 
@@ -63,6 +72,12 @@ wire __main_out_vga_v0;
 wire [5:0] __main_out_vga_r;
 wire [5:0] __main_out_vga_g;
 wire [5:0] __main_out_vga_b;
+`endif  
+
+`ifdef SPIFLASH
+wire __main_out_sf_clk;
+wire __main_out_sf_csn;
+wire __main_out_sf_mosi;
 `endif  
 
 reg ready = 0;
@@ -104,6 +119,12 @@ M_main __main(
   .out_video_g(__main_out_vga_g),
   .out_video_b(__main_out_vga_b),
 `endif
+`ifdef SPIFLASH
+  .out_sf_clk(__main_out_sf_clk),
+  .out_sf_csn(__main_out_sf_csn), 
+  .out_sf_mosi(__main_out_sf_mosi),
+  .in_sf_miso(FLASH_IO1),
+`endif
   .in_run(run_main)
 );
 
@@ -131,6 +152,14 @@ assign P1B4  = __main_out_vga_g[5+:1];
 
 assign P1B7  = __main_out_vga_hs;
 assign P1B8  = __main_out_vga_vs;
+`endif
+
+`ifdef SPIFLASH
+assign FLASH_SCK = __main_out_sf_clk;
+assign FLASH_SSB = __main_out_sf_csn;
+assign FLASH_IO0 = __main_out_sf_mosi;
+assign FLASH_IO2 = 1;
+assign FLASH_IO3 = 1;
 `endif
 
 endmodule

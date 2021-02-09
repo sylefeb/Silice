@@ -12,7 +12,7 @@ fi
 
 echo "using $ARCH"
 
-$ARCH-elf-gcc -w -O2 -fno-pic -march=rv32i -mabi=ilp32 -c smoke/boot/boot.c -o build/boot.o
+$ARCH-elf-gcc -w -O2 -fno-pic -DMYLIBC_SMALL -march=rv32i -mabi=ilp32 -c smoke/boot/boot_sdcard.c -o build/boot.o
 
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o smoke/crt0_boot.s
 

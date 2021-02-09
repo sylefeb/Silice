@@ -1,9 +1,10 @@
 #pragma once
-
+ 
 // special addresses
 extern volatile unsigned char* const LEDS;
 extern volatile unsigned char* const FRAMEBUFFER;
 extern volatile unsigned int*  const SDCARD;
+extern volatile unsigned int*  const SPIFLASH;
 extern volatile unsigned int*  const PALETTE;
 extern volatile unsigned int*  const TRIANGLE;
 //extern volatile unsigned char* const AUDIO;
@@ -39,3 +40,5 @@ char   get_draw_buffer();
 #include "sdcard.h"
 // Flame (GPU)
 #include "flame.h"
+// SPI-Flash
+#include "spiflash.h"
