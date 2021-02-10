@@ -359,7 +359,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (iter != 1600000) {
+  while (iter != 3200000) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -441,9 +441,9 @@ $$if SIMULATION then
 //          __display("(cycle %d) triangle (%b) = %d %d",iter,mem.addr[2,5],mem.data_in[0,16],mem.data_in[16,16]);
 $$end
           switch (mem.addr[2,4]) {
-            case 0:  { v0.x = mem.data_in[0,10]; v0.y = mem.data_in[10,10]; v0.z = mem.data_in[20,10]; }
-            case 1:  { v1.x = mem.data_in[0,10]; v1.y = mem.data_in[10,10]; v1.z = mem.data_in[20,10]; }
-            case 2:  { v2.x = mem.data_in[0,10]; v2.y = mem.data_in[10,10]; v2.z = mem.data_in[20,10]; }
+            case 0:  { v0.x = mem.data_in[0,10]; v0.y = mem.data_in[10,10]; /*v0.z = mem.data_in[20,10];*/ }
+            case 1:  { v1.x = mem.data_in[0,10]; v1.y = mem.data_in[10,10]; /*v1.z = mem.data_in[20,10];*/ }
+            case 2:  { v2.x = mem.data_in[0,10]; v2.y = mem.data_in[10,10]; /*v2.z = mem.data_in[20,10];*/ }
             case 3:  { ei0 = mem.data_in;        color = mem.data_in[24,8]; }
             case 4:  { ei1 = mem.data_in; }
             case 5:  { ei2 = mem.data_in;

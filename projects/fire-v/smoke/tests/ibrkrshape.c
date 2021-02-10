@@ -144,8 +144,6 @@ void main()
   char c     = 64;
   int  frame = 0;
   
-  // clear(0,0,SCRW,SCRH);
-  
   *LEDS = 0;
 
   int posy = 0;
@@ -157,7 +155,7 @@ void main()
 
   while(1) {
     
-    clear(0,0,SCRW,SCRH);
+    clear(255, 0,0,SCRW,SCRH);
 
     ///////////////////////// update matrices
     int Rx[9];

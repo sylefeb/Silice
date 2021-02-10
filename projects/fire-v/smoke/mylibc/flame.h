@@ -25,4 +25,4 @@ void mulM  (int *M, const int *A,const int *B);
 void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2,int py2);
 
 // clear screen (uses triangles)
-void clear(int xm,int ym,int xM,int yM);
+void clear(char color,int xm,int ym,int xM,int yM);

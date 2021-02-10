@@ -142,14 +142,14 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
   *(TRIANGLE+  5) = (e_incr2&0xffffff);
 }
 
-void clear(int xm,int ym,int xM,int yM)
+void clear(char color,int xm,int ym,int xM,int yM)
 {
-  draw_triangle(255,0,
+  draw_triangle(color,0,
     xm<<5,  ym<<5, 
     xM<<5,  ym<<5, 
     xM<<5,  yM<<5
     );
-  draw_triangle(255,0,
+  draw_triangle(color,0,
     xm<<5,  ym<<5, 
     xM<<5,  yM<<5,
     xm<<5,  yM<<5
