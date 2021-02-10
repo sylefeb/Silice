@@ -111,30 +111,25 @@ algorithm ram_writer_blaze(
   input  uint1   start,
   input  uint1   end,
   input  uint1   next,
-  input  uint8   color,
+  input  uint4   color,
   input  uint10  x,
   input  uint10  y,
   output uint1   done
 ) <autorun> {
-  // buffer 0
-  //  320 x 100   x>>2 + y*80
-  // buffer 1
-  //  160 x 200   x>>2 + y*40 + 8000 // 8000: skip buffer 0
-  
-  uint14 addr ::= ~fbuffer
-                ? (x[2,8] + (y << 6) + (y << 4)       )  // write to 0 (fbuffer == 0)
-                : (x[2,8] + (y << 5) + (y << 3) + 8000); // write to 1
+
+  //  320 x 200, 4bpp    x>>2 + y*80  
+  uint14 addr ::= x[3,7] + (y << 5) + (y << 3) + (~fbuffer ? 0 : 8000);
 
   always {
     sd.rw = 1;
-    sd.data_in[{x[0,2],3b000},8] = color;
-    if (start | x[0,2]==2b00) {
-      sd.wmask = start ? 4b0000 : 4b0001;
+    sd.data_in[{x[0,3],2b00},4] = color;
+    if (start | x[0,3]==3b000) {
+      sd.wmask = start ? 8b00000000 : 8b0000001;
     } else {
-      sd.wmask[x[0,2],1] = next ? 1 : sd.wmask[x[0,2],1];
+      sd.wmask[x[0,3],1] = next ? 1 : sd.wmask[x[0,3],1];
     }
-    sd.in_valid      = end     || (next && ((x[0,2])==2b11));
-    done             = sd.done || (next && ((x[0,2])!=2b11));
+    sd.in_valid      = end     || (next && ((x[0,3])==3b111));
+    done             = sd.done || (next && ((x[0,3])!=3b111));
     sd.addr          = end ? sd.addr : addr;
   }
 }

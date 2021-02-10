@@ -40,7 +40,7 @@ group spram_r32_w32_io
   uint14  addr       = 0,
   uint1   rw         = 0,
   uint32  data_in    = 0,
-  uint4   wmask      = 0,
+  uint8   wmask      = 0,
   uint1   in_valid   = 0,
   uint32  data_out   = uninitialized,
   uint1   done       = 0
@@ -74,8 +74,8 @@ $include('flame/flame.ice')
 // default palette
 $$palette = get_palette_as_table('smoke/tests/gold.tga',8)
 
-$$for i = 1,256 do
-$$ print('r = ' .. (palette[i]&255) .. ' g = ' .. ((palette[i]>>8)&255)  .. ' b = ' .. ((palette[i]>>16)&255))
+$$for i = 1,16 do
+$$ print('r = ' .. (palette[i*16]&255) .. ' g = ' .. ((palette[i*16]>>8)&255)  .. ' b = ' .. ((palette[i*16]>>16)&255))
 $$end
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
@@ -239,12 +239,25 @@ $$end
   uint14 pix_waddr(0);
   uint32 pix_data(0);
   uint1  pix_write(0);
-  uint4  pix_mask(0);
+  uint8  pix_mask(0);
+  
+  /*
+    Each frame buffer holds a 320x200 4bpp frame
+    
+    Each frame buffer uses both SPRAM for wider throughput:
+      SPRAM0 : 16 bits => 4 pixels
+      SPRAM1 : 16 bits => 4 pixels
+      So we get eight pixels at each read      
+      As we generate a 640x480 signal we have to read every 16 VGA pixels along a row
+      
+    Frame buffer 0: [    0,7999]
+    Frame buffer 1: [8000,15999]
+  */
   
   uint14 fb0_addr(0);
   uint16 fb0_data_in(0);
   uint1  fb0_wenable(0);
-  uint4  fb0_wmask(0);
+  uint8  fb0_wmask(0);
   uint16 fb0_data_out(0);
 $$if VERILATOR then
   verilator_spram frame0(
@@ -261,7 +274,7 @@ $$end
   uint14 fb1_addr(0);
   uint16 fb1_data_in(0);
   uint1  fb1_wenable(0);
-  uint4  fb1_wmask(0);
+  uint8  fb1_wmask(0);
   uint16 fb1_data_out(0);
 $$if VERILATOR then
   verilator_spram frame1(
@@ -276,35 +289,25 @@ $$end
     data_out :> fb1_data_out
   );
 
-  bram uint24 palette[256] = {
-$$for i=1,256 do
-    $palette[i]$,
+  bram uint24 palette[16] = {
+$$for i=1,16 do
+    $palette[i*16]$,
 $$end  
   };
   
-  uint8  frame_fetch_sync_2(                8b1);
-  uint16 frame_fetch_sync_4(               16b1);
-  uint2  next_pixel_2      (                2b1);
-  uint4  next_pixel_4      (                4b1);
-  uint32 four_pixs(0);
+  uint16 frame_fetch_sync(               16b1);
+  uint2  next_pixel      (                2b1);
+  uint32 eight_pixs(0);
   
-  // buffer 0  320 x 100   
-  // buffer 1  160 x 200   
-  uint14 pix_fetch := fbuffer
-                    ? ((pix_y[2,8]<<6) + (pix_y[2,8]<<4) + pix_x[3,7]       )  // read from 0 (fbuffer == 1)
-                    : ((pix_y[1,9]<<5) + (pix_y[1,9]<<3) + pix_x[4,6] + 8000); // read from 1
-  // buffer 0
-  //  - pix_x[3,7] => half res (320) then +2 as we pack pixels four by four
-  //  - pix_y[2,8] => quarter vertical res (100)
-  // buffer 1
-  //  - pix_x[4,6] => quarter res (160) then +2 as we pack pixels four by four
+  // buffers are 320 x 200, 4bpp
+  uint14 pix_fetch := (pix_y[1,9]<<5) + (pix_y[1,9]<<3) + pix_x[4,6] + (fbuffer ? 0 : 8000);
+
+  //  - pix_x[4,6] => read every 16 VGA pixels
   //  - pix_y[1,9] => half vertical res (200)
   
   // we can write whenever the framebuffer is not reading
-  uint1  pix_wok  ::= fbuffer 
-                    ? (~frame_fetch_sync_2[1,1] & pix_write)
-                    : (~frame_fetch_sync_4[1,1] & pix_write);
-  //                                    ^^^ cycle before we need the value
+  uint1  pix_wok  ::= (~frame_fetch_sync[1,1] & pix_write);
+     //                                    ^^^ cycle before we need the value
  
   // spiflash
   uint1  reg_miso(0);
@@ -313,22 +316,21 @@ $$if SIMULATION then
   uint32 iter = 0;
 $$end
 
-  //                          vvvvvvvv TODO FIXME this margin should not be needed
-  video_r        := (active & pix_x>16) ? palette.rdata[ 2, 6] : 0;
-  video_g        := (active & pix_x>16) ? palette.rdata[10, 6] : 0;
-  video_b        := (active & pix_x>16) ? palette.rdata[18, 6] : 0;  
+  video_r        := (active) ? palette.rdata[ 2, 6] : 0;
+  video_g        := (active) ? palette.rdata[10, 6] : 0;
+  video_b        := (active) ? palette.rdata[18, 6] : 0;  
   
-  palette.addr   := four_pixs;
+  palette.addr   := eight_pixs[0,4];
   
   fb0_addr       := ~pix_wok ? pix_fetch : pix_waddr;
   fb0_data_in    := pix_data[ 0,16];
   fb0_wenable    := pix_wok;
-  fb0_wmask      := {pix_mask[1,1],pix_mask[1,1],pix_mask[0,1],pix_mask[0,1]};
+  fb0_wmask      := {pix_mask[3,1],pix_mask[2,1],pix_mask[1,1],pix_mask[0,1]};
   
   fb1_addr       := ~pix_wok ? pix_fetch : pix_waddr;
   fb1_data_in    := pix_data[16,16];
   fb1_wenable    := pix_wok;
-  fb1_wmask      := {pix_mask[3,1],pix_mask[3,1],pix_mask[2,1],pix_mask[2,1]};
+  fb1_wmask      := {pix_mask[7,1],pix_mask[6,1],pix_mask[5,1],pix_mask[4,1]};
   
   sd.done        := pix_wok; // TODO: update if CPU writes as well
   pix_write      := pix_wok ? 0 : pix_write;
@@ -336,26 +338,18 @@ $$end
   triangle_in    := 0;
   
   always {
-    // updates the four pixels, either reading from spram of shifting them to go to the next one
-    // this is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo)
-    // as we render 320x200, there are 8 clock cycles of the 640x480 clock for four frame pixels
-    if (fbuffer) {
-      four_pixs = frame_fetch_sync_2[0,1] 
-                ? {fb1_data_out,fb0_data_out} 
-                : (next_pixel_2[0,1] ? (four_pixs >> 8) : four_pixs);      
-    } else {    
-      four_pixs = frame_fetch_sync_4[0,1] 
-                ? {fb1_data_out,fb0_data_out} 
-                : (next_pixel_4[0,1] ? (four_pixs >> 8) : four_pixs);
-    }
+    // updates the eight pixels, either reading from spram of shifting them to go to the next one
+    // this is controlled through the frame_fetch_sync (16 modulo) and next_pixel (2 modulo)
+    // as we render 320x200 4bpp, there are 16 clock cycles of the 640x480 clock for eight frame pixels
+    eight_pixs = frame_fetch_sync[0,1]
+              ? {fb1_data_out,fb0_data_out} 
+              : (next_pixel[0,1] ? (eight_pixs >> 4) : eight_pixs);      
   }
   
   always_after   {
     // updates synchronization variables
-    frame_fetch_sync_2 = {frame_fetch_sync_2[0,1],frame_fetch_sync_2[1,7]};
-    frame_fetch_sync_4 = {frame_fetch_sync_4[0,1],frame_fetch_sync_4[1,15]};
-    next_pixel_2       = {next_pixel_2[0,1],next_pixel_2[1,1]};
-    next_pixel_4       = {next_pixel_4[0,1],next_pixel_4[1,3]};
+    frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,15]};
+    next_pixel       = {next_pixel[0,1],next_pixel[1,1]};
   }
 
 $$if SIMULATION then  

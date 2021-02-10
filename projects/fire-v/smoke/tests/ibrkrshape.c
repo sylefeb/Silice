@@ -52,11 +52,6 @@ void transform_points(const int *M)
   *(TRIANGLE+ 7) = (M[0]&1023) | ((M[1]&1023)<<8) | ((M[2]&1023)<<16);
   *(TRIANGLE+ 8) = (M[3]&1023) | ((M[4]&1023)<<8) | ((M[5]&1023)<<16);
   *(TRIANGLE+ 9) = (M[6]&1023) | ((M[7]&1023)<<8) | ((M[8]&1023)<<16);
-  /*if (fbuffer) {
-    *(TRIANGLE+10) = (SCRW/4)     | ((SCRH/2)<<16);
-  } else {
-    *(TRIANGLE+10) = (SCRW/2 + 4) | ((SCRH/4)<<16);
-  }*/
   *(TRIANGLE+10) = (SCRW/2) | ((SCRH/2)<<16);
   *(TRIANGLE+11) = 1; // reinit write address
   for (int p = 0; p < NVERTS*3 ; p = p + 3) {
@@ -81,18 +76,8 @@ void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
   register int cross = d10x*d20y - d10y*d20x;  
   if (cross <= 0) return;
   
-  int color    = (cross*inv_area[t])>>9;
-  if (color > 254) color = 254;
-
-  // reduce precision after shading
-  if (fbuffer) {
-    // drawing onto 160x200
-    px0 >>= 1; px1 >>= 1; px2 >>= 1;
-  } else {
-    // drawing onto 320x100
-    px0 += 3; px1 += 3; px2 += 3;
-    py0 >>= 1; py1 >>= 1; py2 >>= 1;
-  }
+  int color    = (cross*inv_area[t])>>13;
+  if (color > 14) color = 14;
 
   // 0 smallest y , 2 largest y
   if (py0 > py1) {
@@ -155,7 +140,7 @@ void main()
 
   while(1) {
     
-    clear(255, 0,0,SCRW,SCRH);
+    clear(15, 0,0,SCRW,SCRH);
 
     ///////////////////////// update matrices
     int Rx[9];
@@ -198,12 +183,6 @@ void main()
     // swap buffers
     *(LEDS+4) = 1;
     fbuffer = 1 - fbuffer;
-    
-    // rotate palette
-    for (int p = 0 ; p < 256 ; p++) {
-      unsigned char clr = p + frame;
-      *(PALETTE + p) = clr | (clr << 8) | (clr << 16);
-    }
 
     ///////////////////////// next
     ++frame;
