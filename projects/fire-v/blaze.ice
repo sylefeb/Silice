@@ -381,7 +381,7 @@ $$end
       // transform is done, write back result
       __display("transform done, write back %d,%d,%d at @%h  (%h)",t.x,t.y,t.z,bram_override_addr,{2b00,t.z,t.y,t.x});
       bram_override_we   = 1;
-      bram_override_data = {2b00,t.z,t.y,t.x};
+      bram_override_data = {2b00,t.z[6,10],t.y[6,10],t.x[6,10]};
       do_transform       = 0;
     } else {
       bram_override_we   = 0;
@@ -422,7 +422,7 @@ $$end
             }        
             case 2b11: {           
               pix_waddr = mem.addr[ 4,14];
-              pix_mask  = mem.addr[20, 4];
+              pix_mask  = mem.addr[18, 8];
               pix_data  = mem.data_in;
               pix_write = 1;
               // __display("PIXELs @%h wm:%b %h",pix_waddr,pix_mask,pix_data);
@@ -458,7 +458,7 @@ $$end
                         mx.m20 = mem.data_in[0,8]; mx.m21 = mem.data_in[8,8]; mx.m22 = mem.data_in[16,8];
                      }
             case 10: {
-                        mx.tx  = mem.data_in[0,10]; mx.ty = mem.data_in[16,10];
+                        mx.tx  = mem.data_in[0,16]; mx.ty = mem.data_in[16,16];
                      }
             case 11: {
                        bram_override_addr = $(1<<bram_depth)-1$;
@@ -467,7 +467,11 @@ $$if SIMULATION then
 $$end                               
                      }
             case 12: {
-                        v.x = mem.data_in[0,10]; v.y = mem.data_in[10,10]; v.z = mem.data_in[20,10];
+                        v.x = mem.data_in[0,16]; v.y = mem.data_in[16,16]; 
+                     }
+            case 13: {
+                        v.z                = mem.data_in[0,16];
+                        // NOTE: mem.data_in[16,16]; available
                         do_transform       = 4b1000;
                         bram_override_addr = bram_override_addr + 1;
 $$if SIMULATION then

@@ -52,14 +52,22 @@ void transform_points(const int *M)
   *(TRIANGLE+ 7) = (M[0]&1023) | ((M[1]&1023)<<8) | ((M[2]&1023)<<16);
   *(TRIANGLE+ 8) = (M[3]&1023) | ((M[4]&1023)<<8) | ((M[5]&1023)<<16);
   *(TRIANGLE+ 9) = (M[6]&1023) | ((M[7]&1023)<<8) | ((M[8]&1023)<<16);
-  *(TRIANGLE+10) = (SCRW/2) | ((SCRH/2)<<16);
+  *(TRIANGLE+10) = ((SCRW/2)<<6) | (((SCRH/2)<<6)<<16);
   *(TRIANGLE+11) = 1; // reinit write address
   for (int p = 0; p < NVERTS*3 ; p = p + 3) {
-    *(TRIANGLE+12) = (pts[p+0]&1023) | ((pts[p+1]&1023) << 10) | ((pts[p+2]&1023) << 20);
+    *(TRIANGLE+12) = ((pts[p+0]<<6)&65535) | (((pts[p+1]<<6)&65535) << 16);
+    *(TRIANGLE+13) = ((pts[p+2]<<6)&65535);
   }
 }
 
-void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
+inline long my_userdata() 
+{
+  int id;
+  asm volatile ("rdtime %0" : "=r"(id));
+  return id;
+}
+
+inline void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
 { 
   register int px0 = p0 & 1023;
   register int px1 = p1 & 1023;
@@ -110,7 +118,7 @@ void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
 */
 
   // wait for any pending draw to complete
-  while ((userdata()&1) == 1) {  }
+  while ((my_userdata()&1) == 1) {  }
 
   // send commands
   *(TRIANGLE+  0) = (px0) | ((py0) << 10);
@@ -151,35 +159,32 @@ void main()
     mulM(M,Ry,Rx);
 
     ///////////////////////// transform
-//    int tm_trsf_start = time();
+    int tm_trsf_start = time();
     transform_points(M);
-//    int tm_trsf_end   = time();
+    int tm_trsf_end   = time();
 
     ///////////////////////// sort
-//    int tm_sort_start = time();
+    int tm_sort_start = time();
     update_sort();
-//    int tm_sort_mid = time();
+    int tm_sort_mid = time();
     sort();
-//    int tm_sort_end = time();
+    int tm_sort_end = time();
 
     ///////////////////////// draw
-//    int tm_tris_start = time();
+    int tm_tris_start = time();
     for (int i = 0; i < NTRIS ; i++) {    
       int t  = sorted[i]&65535;
       int t3 = t + (t<<1);
       draw_triangle_raw(t,trpts[idx[t3+0]],trpts[idx[t3+1]],trpts[idx[t3+2]]);
     }
-//    int tm_tris_end = time();
-/*
-    if (fbuffer == 0) {
-      printf("trsf %d sort1 %d sort2 %d tris %d",tm_trsf_end-tm_trsf_start,tm_sort_mid-tm_sort_start,tm_sort_end-tm_sort_mid,tm_tris_end-tm_tris_start);
-      set_cursor(4,0);
-    }
-*/
+    int tm_tris_end = time();
+    printf("trsf %d sort1 %d sort2 %d tris %d",tm_trsf_end-tm_trsf_start,tm_sort_mid-tm_sort_start,tm_sort_end-tm_sort_mid,tm_tris_end-tm_tris_start);
+    set_cursor(4,0);
+
     // wait for any pending draw to complete
-    while ((userdata()&1) == 1) {  }     
+    while ((my_userdata()&1) == 1) {  }     
     // wait for vblank
-    while ((userdata()&2) == 0) {  }
+    while ((my_userdata()&2) == 0) {  }
     // swap buffers
     *(LEDS+4) = 1;
     fbuffer = 1 - fbuffer;

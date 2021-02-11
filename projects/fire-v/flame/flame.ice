@@ -16,7 +16,7 @@
 
 group vertex
 {
-  int10 x = uninitialized, int10 y = uninitialized, int10 z = uninitialized
+  int16 x = uninitialized, int16 y = uninitialized, int16 z = uninitialized
 }
 
 group transform 
@@ -24,7 +24,7 @@ group transform
   int8 m00 = 127, int8 m01 = 0,   int8 m02 = 0,
   int8 m10 = 0,   int8 m11 = 127, int8 m12 = 0,
   int8 m20 = 0,   int8 m21 = 0,   int8 m22 = 127,
-  int10 tx = 0,   int10 ty = 0,
+  int16 tx = 0,   int16 ty = 0,
 }
 
 algorithm edge_walk(
@@ -139,9 +139,9 @@ algorithm ram_writer_blaze(
 algorithm flame_rasterizer(
   sdram_user    sd,
   input  uint1  fbuffer,
-  input  vertex v0,
-  input  vertex v1,
-  input  vertex v2,
+  input  vertex v0, // uses 10 bits precision
+  input  vertex v1, // uses 10 bits precision
+  input  vertex v2, // uses 10 bits precision
   input  int20  ei0,
   input  int20  ei1,
   input  int20  ei2,
@@ -322,20 +322,20 @@ $$end
 
 algorithm flame_transform(
   input  transform t,
-  input  vertex    v,
-  output vertex    tv
+  input  vertex    v, // uses 10.6 bits precision
+  output vertex    tv // uses 10.6 bits precision
 ) {
 
   uint3 step(3b1);
-  int8  a=uninitialized; int8  b=uninitialized; int8  c=uninitialized; int10  d=uninitialized;
-  int16 r=uninitialized;
+  int8  a=uninitialized; int8  b=uninitialized; int8  c=uninitialized; int16  d=uninitialized;
+  int24 r=uninitialized;
 
   always {
-    r = ((a*v.x + b*v.y + c*v.z) >>> 7) + d; // NOTE: this could be using the DSP slices ...
+    r = ((a*v.x + b*v.y + c*v.z) >>> $7$) + d; // NOTE: this could be using the DSP slices ...
     switch (step) {
-      case 3b001: { a = t.m00; b = t.m01; c = t.m02; d = t.tx; tv.z = r; }
-      case 3b010: { a = t.m10; b = t.m11; c = t.m12; d = t.ty; tv.x = r; }
-      case 3b100: { a = t.m20; b = t.m21; c = t.m22; d =  128; tv.y = r; }
+      case 3b001: { a = t.m00; b = t.m01; c = t.m02; d =  t.tx; tv.z = r; }
+      case 3b010: { a = t.m10; b = t.m11; c = t.m12; d =  t.ty; tv.x = r; }
+      case 3b100: { a = t.m20; b = t.m21; c = t.m22; d = 32767; tv.y = r; }
       default: {}
     }
     step = {step[0,2],step[2,1]};
