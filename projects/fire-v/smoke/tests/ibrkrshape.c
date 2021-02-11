@@ -159,27 +159,27 @@ void main()
     mulM(M,Ry,Rx);
 
     ///////////////////////// transform
-    int tm_trsf_start = time();
+    //int tm_trsf_start = time();
     transform_points(M);
-    int tm_trsf_end   = time();
+    //int tm_trsf_end   = time();
 
     ///////////////////////// sort
-    int tm_sort_start = time();
+    //int tm_sort_start = time();
     update_sort();
-    int tm_sort_mid = time();
+    //int tm_sort_mid = time();
     sort();
-    int tm_sort_end = time();
+    ///int tm_sort_end = time();
 
     ///////////////////////// draw
-    int tm_tris_start = time();
+    //int tm_tris_start = time();
     for (int i = 0; i < NTRIS ; i++) {    
       int t  = sorted[i]&65535;
       int t3 = t + (t<<1);
       draw_triangle_raw(t,trpts[idx[t3+0]],trpts[idx[t3+1]],trpts[idx[t3+2]]);
     }
-    int tm_tris_end = time();
-    printf("trsf %d sort1 %d sort2 %d tris %d",tm_trsf_end-tm_trsf_start,tm_sort_mid-tm_sort_start,tm_sort_end-tm_sort_mid,tm_tris_end-tm_tris_start);
-    set_cursor(4,0);
+    //int tm_tris_end = time();
+    //printf("trsf %d sort1 %d sort2 %d tris %d",tm_trsf_end-tm_trsf_start,tm_sort_mid-tm_sort_start,tm_sort_end-tm_sort_mid,tm_tris_end-tm_tris_start);
+    //set_cursor(4,0);
 
     // wait for any pending draw to complete
     while ((my_userdata()&1) == 1) {  }     
