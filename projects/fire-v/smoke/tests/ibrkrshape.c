@@ -1,6 +1,7 @@
 #include "../mylibc/mylibc.h"
 
-#include "model3d.h"
+#include "bunny3d.h"
+// #include "dino3d.h" // NOTE: triangles are flipped, revert comparison in sort()
 
 #define SCRW 320
 #define SCRH 200
@@ -39,7 +40,7 @@ void sort() // bubble sort, assumes order is almost always correct
       register int n  = i + 1;
       register int sn = sorted[n];
       register int si = sorted[i];
-      if (sn > si) {
+      if (sn < si) {
         sorted[n] = si;
         sorted[i] = sn;
       }
@@ -196,7 +197,7 @@ void main()
     // wait for any pending draw to complete
     while ((my_userdata()&1) == 1) {  }     
     // wait for vblank
-    while ((my_userdata()&2) == 0) {  }
+    // while ((my_userdata()&2) == 0) {  }
     // swap buffers
     *(LEDS+4) = 1;
     fbuffer = 1 - fbuffer;
