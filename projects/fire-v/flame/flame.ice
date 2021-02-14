@@ -33,7 +33,7 @@ algorithm edge_walk(
   input  uint10 y0,
   input  uint10 x1,
   input  uint10 y1,
-  input  int20  interp,
+  input  int24  interp,
   input  uint2  prepare,
   output uint10 xi,
   output uint1  intersects
@@ -142,9 +142,9 @@ algorithm flame_rasterizer(
   input  vertex v0, // uses 10 bits precision
   input  vertex v1, // uses 10 bits precision
   input  vertex v2, // uses 10 bits precision
-  input  int20  ei0,
-  input  int20  ei1,
-  input  int20  ei2,
+  input  int24  ei0,
+  input  int24  ei1,
+  input  int24  ei2,
   input  uint10 ystart,
   input  uint10 ystop,
   input  uint8  color,
@@ -170,8 +170,6 @@ $$end
   uint2   prepare(0);
   uint1   wait_done(0);
   uint1   sent(0);
-
-  uint19 addr ::= span_x + (y << 10);
 
   edge_walk e0(
     x0 <:: v0.x, y0 <:: v0.y,

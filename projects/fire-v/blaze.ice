@@ -35,6 +35,9 @@ $$end
 $$VGA_VA_END = 400
 $include('../common/vga.ice')
 
+$$div_width = 24
+$include('../common/divint_std.ice')
+
 group spram_r32_w32_io
 {
   uint14  addr       = 0,
@@ -148,9 +151,9 @@ $$end
   vertex  v0;
   vertex  v1;
   vertex  v2;
-  int20   ei0     = uninitialized;
-  int20   ei1     = uninitialized;
-  int20   ei2     = uninitialized;
+  int24   ei0     = uninitialized;
+  int24   ei1     = uninitialized;
+  int24   ei2     = uninitialized;
   uint10  ystart  = uninitialized;
   uint10  ystop   = uninitialized;
   uint8   color   = uninitialized;
@@ -312,6 +315,36 @@ $$end
   // spiflash
   uint1  reg_miso(0);
 
+  // divisions
+  uint24 div0_n(0);
+  uint24 div0_d(0);
+  uint24 div0_r(0);
+  div24 div0(
+    inum <:: div0_n,
+    iden <:: div0_d,
+    ret  :>  div0_r
+  );  
+  uint24 div1_n(0);
+  uint24 div1_d(0);
+  uint24 div1_r(0);
+  div24 div1(
+    inum <:: div1_n,
+    iden <:: div1_d,
+    ret  :>  div1_r
+  );  
+  uint24 div2_n(0);
+  uint24 div2_d(0);
+  uint24 div2_r(0);
+  div24 div2(
+    inum <:: div2_n,
+    iden <:: div2_d,
+    ret  :>  div2_r
+  );  
+  uint1 do_div0(0);
+  uint1 do_div1(0);
+  uint1 do_div2(0);
+
+
 $$if SIMULATION then  
   uint32 iter = 0;
 $$end
@@ -384,8 +417,29 @@ $$end
       bram_override_data = {2b00,t.z[6,10],t.y[6,10],t.x[6,10]};
       do_transform       = 0;
     } else {
+      // update transform state
       bram_override_we   = 0;
       do_transform       = do_transform >> 1;
+    }
+    // divisions done?
+    if (do_div0 & isdone(div0)) {
+      bram_override_we   = 1;
+      bram_override_data = {8b0,div0_r};
+      do_div0 = 0;
+    }
+    if (do_div1 & isdone(div1)) {
+      bram_override_we   = 1;
+      bram_override_data = {8b0,div1_r};
+      do_div1 = 0;
+    }
+    if (do_div2 & isdone(div2)) {
+      bram_override_we   = 1;
+      bram_override_data = {8b0,div2_r};
+      do_div2 = 0;
+    }
+    // increment write back address
+    if (bram_override_we) {
+      bram_override_addr = bram_override_addr + 1;
     }
     
     if (mem.in_valid & mem.rw) {
@@ -435,12 +489,13 @@ $$if SIMULATION then
 //          __display("(cycle %d) triangle (%b) = %d %d",iter,mem.addr[2,5],mem.data_in[0,16],mem.data_in[16,16]);
 $$end
           switch (mem.addr[2,4]) {
-            case 0:  { v0.x = mem.data_in[0,10]; v0.y = mem.data_in[10,10]; /*v0.z = mem.data_in[20,10];*/ }
-            case 1:  { v1.x = mem.data_in[0,10]; v1.y = mem.data_in[10,10]; /*v1.z = mem.data_in[20,10];*/ }
-            case 2:  { v2.x = mem.data_in[0,10]; v2.y = mem.data_in[10,10]; /*v2.z = mem.data_in[20,10];*/ }
-            case 3:  { ei0 = mem.data_in;        color = mem.data_in[24,8]; }
-            case 4:  { ei1 = mem.data_in; }
-            case 5:  { ei2 = mem.data_in;
+            // triangles
+            case 0:  { v0.x = mem.data_in[0,10];  v0.y  = mem.data_in[10,10]; /*v0.z = mem.data_in[20,10];*/ }
+            case 1:  { v1.x = mem.data_in[0,10];  v1.y  = mem.data_in[10,10]; /*v1.z = mem.data_in[20,10];*/ }
+            case 2:  { v2.x = mem.data_in[0,10];  v2.y  = mem.data_in[10,10]; /*v2.z = mem.data_in[20,10];*/ }
+            case 3:  { ei0  = mem.data_in;        color = mem.data_in[24,8]; }
+            case 4:  { ei1  = mem.data_in; }
+            case 5:  { ei2  = mem.data_in;
                       ystart      = v0.y; 
                       ystop       = v2.y; 
                       triangle_in = 1;
@@ -448,6 +503,7 @@ $$if SIMULATION then
                       __display("(cycle %d) new triangle, color %d, (%d,%d) (%d,%d) (%d,%d)",iter,color,v0.x,v0.y,v1.x,v1.y,v2.x,v2.y);
 $$end                               
                      }
+            // matrix transform
             case 7:  {
                         mx.m00 = mem.data_in[0,8]; mx.m01 = mem.data_in[8,8]; mx.m02 = mem.data_in[16,8]; 
                      }
@@ -462,9 +518,6 @@ $$end
                      }
             case 11: {
                        bram_override_addr = $(1<<bram_depth)-1$;
-$$if SIMULATION then
-                       __display("(cycle %d) bram write back addr reset %h",iter,bram_override_addr);
-$$end                               
                      }
             case 12: {
                         v.x = mem.data_in[0,16]; v.y = mem.data_in[16,16]; 
@@ -473,7 +526,6 @@ $$end
                         v.z                = mem.data_in[0,16];
                         // NOTE: mem.data_in[16,16]; available
                         do_transform       = 4b1000;
-                        bram_override_addr = bram_override_addr + 1;
 $$if SIMULATION then
                       __display("(cycle %d) transform %d,%d,%d",iter,v.x,v.y,v.z);
                       __display("mx %d,%d,%d",mx.m00,mx.m01,mx.m02);
@@ -481,6 +533,25 @@ $$if SIMULATION then
                       __display("mx %d,%d,%d",mx.m20,mx.m21,mx.m22);
 $$end                               
                      }
+            // divisions
+            case 14: {
+                     div0_n  = mem.data_in[ 0,16] <<< 8;
+                     div0_d  = mem.data_in[16,16];
+                     do_div0 = 1;
+                     div0 <- ();
+            }
+            case 15: {
+                     div1_n  = mem.data_in[ 0,16] <<< 8;
+                     div1_d  = mem.data_in[16,16];
+                     do_div1 = 1;
+                     div1 <- ();
+            }
+            case  6: { // TODO: renumber all!
+                     div2_n  = mem.data_in[ 0,16] <<< 8;
+                     div2_d  = mem.data_in[16,16];
+                     do_div2 = 1;
+                     div2 <- ();
+            }
             default: { }
           }      
 
