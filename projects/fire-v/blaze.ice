@@ -316,25 +316,25 @@ $$end
   uint1  reg_miso(0);
 
   // divisions
-  uint24 div0_n(0);
-  uint24 div0_d(0);
-  uint24 div0_r(0);
+  int24 div0_n(0);
+  int24 div0_d(0);
+  int24 div0_r(0);
   div24 div0(
     inum <:: div0_n,
     iden <:: div0_d,
     ret  :>  div0_r
   );  
-  uint24 div1_n(0);
-  uint24 div1_d(0);
-  uint24 div1_r(0);
+  int24 div1_n(0);
+  int24 div1_d(0);
+  int24 div1_r(0);
   div24 div1(
     inum <:: div1_n,
     iden <:: div1_d,
     ret  :>  div1_r
   );  
-  uint24 div2_n(0);
-  uint24 div2_d(0);
-  uint24 div2_r(0);
+  int24 div2_n(0);
+  int24 div2_d(0);
+  int24 div2_r(0);
   div24 div2(
     inum <:: div2_n,
     iden <:: div2_d,
@@ -386,7 +386,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (iter != 3200000) {
+  while (iter != 320000) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -394,7 +394,7 @@ $$end
 
     cpu_reset = 0;
 
-    user_data[0,4] = {reg_miso,pix_write,vblank,drawing};
+    user_data[0,5] = {do_div0|do_div1|do_div2,reg_miso,pix_write,vblank,drawing};
 $$if SPIFLASH then    
     reg_miso       = sf_miso;
 $$end
@@ -424,17 +424,26 @@ $$end
     // divisions done?
     if (do_div0 & isdone(div0)) {
       bram_override_we   = 1;
-      bram_override_data = {8b0,div0_r};
+      bram_override_data = {{8{div0_r[23,1]}},div0_r};
+$$if SIMULATION then
+      __display("(cycle %d) div0 done %d / %d = %d",iter,div0_n,div0_d,div0_r);
+$$end      
       do_div0 = 0;
     }
     if (do_div1 & isdone(div1)) {
       bram_override_we   = 1;
-      bram_override_data = {8b0,div1_r};
+      bram_override_data = {{8{div1_r[23,1]}},div1_r};
+$$if SIMULATION then
+      __display("(cycle %d) div1 done %d / %d = %d",iter,div1_n,div1_d,div1_r);
+$$end      
       do_div1 = 0;
     }
     if (do_div2 & isdone(div2)) {
       bram_override_we   = 1;
-      bram_override_data = {8b0,div2_r};
+      bram_override_data = {{8{div2_r[23,1]}},div2_r};
+$$if SIMULATION then
+      __display("(cycle %d) div2 done %d / %d = %d",iter,div2_n,div2_d,div2_r);
+$$end      
       do_div2 = 0;
     }
     // increment write back address
@@ -517,7 +526,7 @@ $$end
                         mx.tx  = mem.data_in[0,16]; mx.ty = mem.data_in[16,16];
                      }
             case 11: {
-                       bram_override_addr = $(1<<bram_depth)-1$;
+                       bram_override_addr = mem.data_in;
                      }
             case 12: {
                         v.x = mem.data_in[0,16]; v.y = mem.data_in[16,16]; 
@@ -535,20 +544,29 @@ $$end
                      }
             // divisions
             case 14: {
-                     div0_n  = mem.data_in[ 0,16] <<< 8;
-                     div0_d  = mem.data_in[16,16];
+                     div0_n  = mem.data_in[ 0,16] <<< 10;
+                     div0_d  = {{16{mem.data_in[31,1]}},mem.data_in[16,16]};
+$$if SIMULATION then
+                      __display("(cycle %d) div0 %d / %d",iter,div0_n,div0_d);
+$$end                      
                      do_div0 = 1;
                      div0 <- ();
             }
             case 15: {
-                     div1_n  = mem.data_in[ 0,16] <<< 8;
-                     div1_d  = mem.data_in[16,16];
+                     div1_n  = mem.data_in[ 0,16] <<< 10;
+                     div1_d  = {{16{mem.data_in[31,1]}},mem.data_in[16,16]};
+$$if SIMULATION then
+                      __display("(cycle %d) div1 %d / %d",iter,div1_n,div1_d);
+$$end                      
                      do_div1 = 1;
                      div1 <- ();
             }
             case  6: { // TODO: renumber all!
-                     div2_n  = mem.data_in[ 0,16] <<< 8;
-                     div2_d  = mem.data_in[16,16];
+                     div2_n  = mem.data_in[ 0,16] <<< 10;
+                     div2_d  = {{16{mem.data_in[31,1]}},mem.data_in[16,16]};
+$$if SIMULATION then
+                      __display("(cycle %d) div2 %d / %d",iter,div2_n,div2_d);
+$$end                      
                      do_div2 = 1;
                      div2 <- ();
             }

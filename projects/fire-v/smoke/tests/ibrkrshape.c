@@ -19,7 +19,7 @@ void init_sort()
 
 void update_sort()
 {
-  unsigned int *trpts = (unsigned int *)0x10000;  
+  unsigned int *trpts = (unsigned int *)0x10004;
   for (int i = 0; i < NTRIS ; i++) {    
     int t  = sorted[i]&65535;
     int t3 = t + (t<<1); // t*3
@@ -49,11 +49,11 @@ void sort() // bubble sort, assumes order is almost always correct
 
 void transform_points(const int *M)
 {
+  *(TRIANGLE+11) = 0; // set write address (due to internals, first is written on next, so 1)
   *(TRIANGLE+ 7) = (M[0]&1023) | ((M[1]&1023)<<8) | ((M[2]&1023)<<16);
   *(TRIANGLE+ 8) = (M[3]&1023) | ((M[4]&1023)<<8) | ((M[5]&1023)<<16);
   *(TRIANGLE+ 9) = (M[6]&1023) | ((M[7]&1023)<<8) | ((M[8]&1023)<<16);
   *(TRIANGLE+10) = ((SCRW/2)<<6) | (((SCRH/2)<<6)<<16);
-  *(TRIANGLE+11) = 1; // reinit write address
   for (int p = 0; p < NVERTS*3 ; p = p + 3) {
     *(TRIANGLE+12) = ((pts[p+0]<<6)&65535) | (((pts[p+1]<<6)&65535) << 16);
     *(TRIANGLE+13) = ((pts[p+2]<<6)&65535);
@@ -103,10 +103,22 @@ inline void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int
     tmp = py2; py2 = py1; py1 = tmp;
     tmp = px2; px2 = px1; px1 = tmp;
   }
-
+  /*
   int e_incr0 = (py1-py0 == 0) ? 0xFFFFF : ((px1-px0)<<10) / (py1-py0);
   int e_incr1 = (py2-py1 == 0) ? 0xFFFFF : ((px2-px1)<<10) / (py2-py1);
   int e_incr2 = (py2-py0 == 0) ? 0xFFFFF : ((px2-px0)<<10) / (py2-py0);
+  */
+  
+  *(TRIANGLE+11) = NVERTS; // reinit write address, skip all transformed vertices
+  *(TRIANGLE+14) = ((px1-px0)&65535) | ((py1-py0)<<16);
+  *(TRIANGLE+15) = ((px2-px1)&65535) | ((py2-py1)<<16);
+  *(TRIANGLE+ 6) = ((px2-px0)&65535) | ((py2-py0)<<16);
+
+  // wait for divisions to complete
+  while ((my_userdata()&32) == 32) {  }
+
+  // result address
+  unsigned int *e_incr = ((unsigned int *)0x10004) + NVERTS;
 
 /*
   if ((e_incr0 == 0xFFFFF && e_incr1 == 0xFFFFF) 
@@ -124,9 +136,9 @@ inline void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int
   *(TRIANGLE+  0) = (px0) | ((py0) << 10);
   *(TRIANGLE+  1) = (px1) | ((py1) << 10);
   *(TRIANGLE+  2) = (px2) | ((py2) << 10);
-  *(TRIANGLE+  3) = (e_incr0&0xffffff) | (color << 24);
-  *(TRIANGLE+  4) = (e_incr1&0xffffff);
-  *(TRIANGLE+  5) = (e_incr2&0xffffff);
+  *(TRIANGLE+  3) = (e_incr[0]&0xffffff) | (color << 24);
+  *(TRIANGLE+  4) = (e_incr[1]&0xffffff);
+  *(TRIANGLE+  5) = (e_incr[2]&0xffffff);
 }
 
 void main()
@@ -144,7 +156,7 @@ void main()
 
   init_sort();
 
-  unsigned int *trpts = (unsigned int *)0x10000;
+  unsigned int *trpts = (unsigned int *)0x10004;
 
   while(1) {
     
@@ -159,27 +171,27 @@ void main()
     mulM(M,Ry,Rx);
 
     ///////////////////////// transform
-    int tm_trsf_start = time();
+    //int tm_trsf_start = time();
     transform_points(M);
-    int tm_trsf_end   = time();
+    //int tm_trsf_end   = time();
 
     ///////////////////////// sort
-    int tm_sort_start = time();
+    //int tm_sort_start = time();
     update_sort();
-    int tm_sort_mid = time();
+    //int tm_sort_mid = time();
     sort();
-    /int tm_sort_end = time();
+    //int tm_sort_end = time();
 
     ///////////////////////// draw
-    int tm_tris_start = time();
+    //int tm_tris_start = time();
     for (int i = 0; i < NTRIS ; i++) {    
       int t  = sorted[i]&65535;
       int t3 = t + (t<<1);
       draw_triangle_raw(t,trpts[idx[t3+0]],trpts[idx[t3+1]],trpts[idx[t3+2]]);
     }
-    int tm_tris_end = time();
-    printf("trsf %d sort1 %d sort2 %d tris %d",tm_trsf_end-tm_trsf_start,tm_sort_mid-tm_sort_start,tm_sort_end-tm_sort_mid,tm_tris_end-tm_tris_start);
-    set_cursor(4,0);
+    //int tm_tris_end = time();
+    //printf("trsf %d sort1 %d sort2 %d tris %d",tm_trsf_end-tm_trsf_start,tm_sort_mid-tm_sort_start,tm_sort_end-tm_sort_mid,tm_tris_end-tm_tris_start);
+    //set_cursor(4,0);
 
     // wait for any pending draw to complete
     while ((my_userdata()&1) == 1) {  }     

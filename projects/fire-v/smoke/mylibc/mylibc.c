@@ -27,7 +27,7 @@ volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x00000000;
 #endif
 //volatile unsigned char* const AUDIO       = (unsigned char*)0xAC000000;
 //volatile unsigned char* const DATA        = (unsigned char*)0xA2020000;
-volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x88000000;
+volatile unsigned int*  const TRIANGLE    = (unsigned int*)0x88000000;
 volatile unsigned int*  const SDCARD      = (unsigned int* )0x90000008;
 volatile unsigned int*  const SPIFLASH    = (unsigned int* )0x90000008;
 
