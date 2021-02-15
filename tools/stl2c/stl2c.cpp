@@ -42,8 +42,8 @@ int main(int argc,char **argv)
       for (int j=0;j<3;j++) {
         pts[j] = mesh->posAt(mesh->triangleAt(i)[j]);
       }
-      float area = length(cross(pts[1]-pts[0],pts[2]-pts[0])/2.0f);
-      f << round(65536/area);
+      float area = max(1.0f,length(cross(pts[1]-pts[0],pts[2]-pts[0])/2.0f));
+      f << (int)round(65536/area);
       if (i != mesh->numTriangles() -1) f << ',';
     }    
     f << "};\n";

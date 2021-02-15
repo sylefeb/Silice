@@ -101,13 +101,13 @@ void main()
   // pause(1000000);
   //fb_cleanup();
 
-  clear(0,0,SCRW,SCRH);
+  clear(8, 0,0,SCRW,SCRH);
   swap_buffers(0);
-  clear(0,0,SCRW,SCRH);
+  clear(8, 0,0,SCRW,SCRH);
 
   while(1) {
     
-    clear(0,0,SCRW,SCRH);
+    clear(8, 0,0,SCRW,SCRH);
 
     scroll();
 

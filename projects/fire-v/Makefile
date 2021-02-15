@@ -15,8 +15,12 @@ verilator: wildfire.ice
 icarus: wildfire.ice
 		silice-make.py -s wildfire.ice -b $@ -p basic,vga -o BUILD_$(subst :,_,$@)
 
+spiflash: make_sdcard.ice
+		silice-make.py -s make_sdcard.ice -b verilator -p basic,vga,sdram -o BUILD_$(subst :,_,$@)
+
 sdcard: make_sdcard.ice
 		silice-make.py -s make_sdcard.ice -b verilator -p basic,vga,sdram -o BUILD_$(subst :,_,$@)
+
 
 font: make_font.ice
 		silice-make.py -s make_font.ice -b verilator -p basic,vga,sdram -o BUILD_$(subst :,_,$@)

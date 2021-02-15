@@ -1,6 +1,7 @@
 #include "../mylibc/mylibc.h"
 
-#include "model3d.h"
+#include "bunny3d.h"
+// #include "dino3d.h" // NOTE: triangles are flipped, revert comparison in sort()
 
 #define SCRW 320
 #define SCRH 200
@@ -19,7 +20,7 @@ void init_sort()
 
 void update_sort()
 {
-  unsigned int *trpts = (unsigned int *)0x10000;  
+  unsigned int *trpts = (unsigned int *)0x10004;
   for (int i = 0; i < NTRIS ; i++) {    
     int t  = sorted[i]&65535;
     int t3 = t + (t<<1); // t*3
@@ -39,7 +40,7 @@ void sort() // bubble sort, assumes order is almost always correct
       register int n  = i + 1;
       register int sn = sorted[n];
       register int si = sorted[i];
-      if (sn > si) {
+      if (sn < si) {
         sorted[n] = si;
         sorted[i] = sn;
       }
@@ -49,22 +50,25 @@ void sort() // bubble sort, assumes order is almost always correct
 
 void transform_points(const int *M)
 {
+  *(TRIANGLE+11) = 0; // set write address (due to internals, first is written on next, so 1)
   *(TRIANGLE+ 7) = (M[0]&1023) | ((M[1]&1023)<<8) | ((M[2]&1023)<<16);
   *(TRIANGLE+ 8) = (M[3]&1023) | ((M[4]&1023)<<8) | ((M[5]&1023)<<16);
   *(TRIANGLE+ 9) = (M[6]&1023) | ((M[7]&1023)<<8) | ((M[8]&1023)<<16);
-  /*if (fbuffer) {
-    *(TRIANGLE+10) = (SCRW/4)     | ((SCRH/2)<<16);
-  } else {
-    *(TRIANGLE+10) = (SCRW/2 + 4) | ((SCRH/4)<<16);
-  }*/
-  *(TRIANGLE+10) = (SCRW/2) | ((SCRH/2)<<16);
-  *(TRIANGLE+11) = 1; // reinit write address
+  *(TRIANGLE+10) = ((SCRW/2)<<6) | (((SCRH/2)<<6)<<16);
   for (int p = 0; p < NVERTS*3 ; p = p + 3) {
-    *(TRIANGLE+12) = (pts[p+0]&1023) | ((pts[p+1]&1023) << 10) | ((pts[p+2]&1023) << 20);
+    *(TRIANGLE+12) = ((pts[p+0]<<6)&65535) | (((pts[p+1]<<6)&65535) << 16);
+    *(TRIANGLE+13) = ((pts[p+2]<<6)&65535);
   }
 }
 
-void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
+inline long my_userdata() 
+{
+  int id;
+  asm volatile ("rdtime %0" : "=r"(id));
+  return id;
+}
+
+inline void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
 { 
   register int px0 = p0 & 1023;
   register int px1 = p1 & 1023;
@@ -81,18 +85,8 @@ void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
   register int cross = d10x*d20y - d10y*d20x;  
   if (cross <= 0) return;
   
-  int color    = (cross*inv_area[t])>>9;
-  if (color > 254) color = 254;
-
-  // reduce precision after shading
-  if (fbuffer) {
-    // drawing onto 160x200
-    px0 >>= 1; px1 >>= 1; px2 >>= 1;
-  } else {
-    // drawing onto 320x100
-    px0 += 3; px1 += 3; px2 += 3;
-    py0 >>= 1; py1 >>= 1; py2 >>= 1;
-  }
+  int color    = (cross*inv_area[t])>>13;
+  if (color > 14) color = 14;
 
   // 0 smallest y , 2 largest y
   if (py0 > py1) {
@@ -110,10 +104,22 @@ void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
     tmp = py2; py2 = py1; py1 = tmp;
     tmp = px2; px2 = px1; px1 = tmp;
   }
-
+  /*
   int e_incr0 = (py1-py0 == 0) ? 0xFFFFF : ((px1-px0)<<10) / (py1-py0);
   int e_incr1 = (py2-py1 == 0) ? 0xFFFFF : ((px2-px1)<<10) / (py2-py1);
   int e_incr2 = (py2-py0 == 0) ? 0xFFFFF : ((px2-px0)<<10) / (py2-py0);
+  */
+  
+  *(TRIANGLE+11) = NVERTS; // reinit write address, skip all transformed vertices
+  *(TRIANGLE+14) = ((px1-px0)&65535) | ((py1-py0)<<16);
+  *(TRIANGLE+15) = ((px2-px1)&65535) | ((py2-py1)<<16);
+  *(TRIANGLE+ 6) = ((px2-px0)&65535) | ((py2-py0)<<16);
+
+  // wait for divisions to complete
+  while ((my_userdata()&32) == 32) {  }
+
+  // result address
+  unsigned int *e_incr = ((unsigned int *)0x10004) + NVERTS;
 
 /*
   if ((e_incr0 == 0xFFFFF && e_incr1 == 0xFFFFF) 
@@ -125,15 +131,15 @@ void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
 */
 
   // wait for any pending draw to complete
-  while ((userdata()&1) == 1) {  }
+  while ((my_userdata()&1) == 1) {  }
 
   // send commands
   *(TRIANGLE+  0) = (px0) | ((py0) << 10);
   *(TRIANGLE+  1) = (px1) | ((py1) << 10);
   *(TRIANGLE+  2) = (px2) | ((py2) << 10);
-  *(TRIANGLE+  3) = (e_incr0&0xffffff) | (color << 24);
-  *(TRIANGLE+  4) = (e_incr1&0xffffff);
-  *(TRIANGLE+  5) = (e_incr2&0xffffff);
+  *(TRIANGLE+  3) = (e_incr[0]&0xffffff) | (color << 24);
+  *(TRIANGLE+  4) = (e_incr[1]&0xffffff);
+  *(TRIANGLE+  5) = (e_incr[2]&0xffffff);
 }
 
 void main()
@@ -144,8 +150,6 @@ void main()
   char c     = 64;
   int  frame = 0;
   
-  // clear(0,0,SCRW,SCRH);
-  
   *LEDS = 0;
 
   int posy = 0;
@@ -153,11 +157,11 @@ void main()
 
   init_sort();
 
-  unsigned int *trpts = (unsigned int *)0x10000;
+  unsigned int *trpts = (unsigned int *)0x10004;
 
   while(1) {
     
-    clear(0,0,SCRW,SCRH);
+    clear(15, 0,0,SCRW,SCRH);
 
     ///////////////////////// update matrices
     int Rx[9];
@@ -168,44 +172,35 @@ void main()
     mulM(M,Ry,Rx);
 
     ///////////////////////// transform
-//    int tm_trsf_start = time();
+    //int tm_trsf_start = time();
     transform_points(M);
-//    int tm_trsf_end   = time();
+    //int tm_trsf_end   = time();
 
     ///////////////////////// sort
-//    int tm_sort_start = time();
+    //int tm_sort_start = time();
     update_sort();
-//    int tm_sort_mid = time();
+    //int tm_sort_mid = time();
     sort();
-//    int tm_sort_end = time();
+    //int tm_sort_end = time();
 
     ///////////////////////// draw
-//    int tm_tris_start = time();
+    //int tm_tris_start = time();
     for (int i = 0; i < NTRIS ; i++) {    
       int t  = sorted[i]&65535;
       int t3 = t + (t<<1);
       draw_triangle_raw(t,trpts[idx[t3+0]],trpts[idx[t3+1]],trpts[idx[t3+2]]);
     }
-//    int tm_tris_end = time();
-/*
-    if (fbuffer == 0) {
-      printf("trsf %d sort1 %d sort2 %d tris %d",tm_trsf_end-tm_trsf_start,tm_sort_mid-tm_sort_start,tm_sort_end-tm_sort_mid,tm_tris_end-tm_tris_start);
-      set_cursor(4,0);
-    }
-*/
+    //int tm_tris_end = time();
+    //printf("trsf %d sort1 %d sort2 %d tris %d",tm_trsf_end-tm_trsf_start,tm_sort_mid-tm_sort_start,tm_sort_end-tm_sort_mid,tm_tris_end-tm_tris_start);
+    //set_cursor(4,0);
+
     // wait for any pending draw to complete
-    while ((userdata()&1) == 1) {  }     
+    while ((my_userdata()&1) == 1) {  }     
     // wait for vblank
-    while ((userdata()&2) == 0) {  }
+    // while ((my_userdata()&2) == 0) {  }
     // swap buffers
     *(LEDS+4) = 1;
     fbuffer = 1 - fbuffer;
-    
-    // rotate palette
-    for (int p = 0 ; p < 256 ; p++) {
-      unsigned char clr = p + frame;
-      *(PALETTE + p) = clr | (clr << 8) | (clr << 16);
-    }
 
     ///////////////////////// next
     ++frame;

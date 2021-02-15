@@ -14,7 +14,7 @@ echo "using $ARCH"
 
 if [ -z "$2" ]; then 
   echo "Adding mylibc"
-  $ARCH-elf-gcc -w -O2 -fno-pic -march=rv32i -mabi=ilp32 -c -DBLAZE smoke/mylibc/mylibc.c -o build/mylibc.o
+  $ARCH-elf-gcc -w -O3 -fno-pic -march=rv32i -mabi=ilp32 -c -DBLAZE smoke/mylibc/mylibc.c -o build/mylibc.o
   OBJECTS="build/code.o build/div.o build/mylibc.o"
   CPU=0
 elif [ "$2" == "--nolibc" -o "$3" == "--nolibc" ]; then

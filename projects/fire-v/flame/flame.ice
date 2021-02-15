@@ -16,7 +16,7 @@
 
 group vertex
 {
-  int10 x = uninitialized, int10 y = uninitialized, int10 z = uninitialized
+  int16 x = uninitialized, int16 y = uninitialized, int16 z = uninitialized
 }
 
 group transform 
@@ -24,7 +24,7 @@ group transform
   int8 m00 = 127, int8 m01 = 0,   int8 m02 = 0,
   int8 m10 = 0,   int8 m11 = 127, int8 m12 = 0,
   int8 m20 = 0,   int8 m21 = 0,   int8 m22 = 127,
-  int10 tx = 0,   int10 ty = 0,
+  int16 tx = 0,   int16 ty = 0,
 }
 
 algorithm edge_walk(
@@ -33,7 +33,7 @@ algorithm edge_walk(
   input  uint10 y0,
   input  uint10 x1,
   input  uint10 y1,
-  input  int20  interp,
+  input  int24  interp,
   input  uint2  prepare,
   output uint10 xi,
   output uint1  intersects
@@ -111,30 +111,25 @@ algorithm ram_writer_blaze(
   input  uint1   start,
   input  uint1   end,
   input  uint1   next,
-  input  uint8   color,
+  input  uint4   color,
   input  uint10  x,
   input  uint10  y,
   output uint1   done
 ) <autorun> {
-  // buffer 0
-  //  320 x 100   x>>2 + y*80
-  // buffer 1
-  //  160 x 200   x>>2 + y*40 + 8000 // 8000: skip buffer 0
-  
-  uint14 addr ::= ~fbuffer
-                ? (x[2,8] + (y << 6) + (y << 4)       )  // write to 0 (fbuffer == 0)
-                : (x[2,8] + (y << 5) + (y << 3) + 8000); // write to 1
+
+  //  320 x 200, 4bpp    x>>2 + y*80  
+  uint14 addr ::= x[3,7] + (y << 5) + (y << 3) + (~fbuffer ? 0 : 8000);
 
   always {
     sd.rw = 1;
-    sd.data_in[{x[0,2],3b000},8] = color;
-    if (start | x[0,2]==2b00) {
-      sd.wmask = start ? 4b0000 : 4b0001;
+    sd.data_in[{x[0,3],2b00},4] = color;
+    if (start | x[0,3]==3b000) {
+      sd.wmask = start ? 8b00000000 : 8b0000001;
     } else {
-      sd.wmask[x[0,2],1] = next ? 1 : sd.wmask[x[0,2],1];
+      sd.wmask[x[0,3],1] = next ? 1 : sd.wmask[x[0,3],1];
     }
-    sd.in_valid      = end     || (next && ((x[0,2])==2b11));
-    done             = sd.done || (next && ((x[0,2])!=2b11));
+    sd.in_valid      = end     || (next && ((x[0,3])==3b111));
+    done             = sd.done || (next && ((x[0,3])!=3b111));
     sd.addr          = end ? sd.addr : addr;
   }
 }
@@ -144,12 +139,12 @@ algorithm ram_writer_blaze(
 algorithm flame_rasterizer(
   sdram_user    sd,
   input  uint1  fbuffer,
-  input  vertex v0,
-  input  vertex v1,
-  input  vertex v2,
-  input  int20  ei0,
-  input  int20  ei1,
-  input  int20  ei2,
+  input  vertex v0, // uses 10 bits precision
+  input  vertex v1, // uses 10 bits precision
+  input  vertex v2, // uses 10 bits precision
+  input  int24  ei0,
+  input  int24  ei1,
+  input  int24  ei2,
   input  uint10 ystart,
   input  uint10 ystop,
   input  uint8  color,
@@ -175,8 +170,6 @@ $$end
   uint2   prepare(0);
   uint1   wait_done(0);
   uint1   sent(0);
-
-  uint19 addr ::= span_x + (y << 10);
 
   edge_walk e0(
     x0 <:: v0.x, y0 <:: v0.y,
@@ -327,20 +320,20 @@ $$end
 
 algorithm flame_transform(
   input  transform t,
-  input  vertex    v,
-  output vertex    tv
+  input  vertex    v, // uses 10.6 bits precision
+  output vertex    tv // uses 10.6 bits precision
 ) {
 
   uint3 step(3b1);
-  int8  a=uninitialized; int8  b=uninitialized; int8  c=uninitialized; int10  d=uninitialized;
-  int16 r=uninitialized;
+  int8  a=uninitialized; int8  b=uninitialized; int8  c=uninitialized; int16  d=uninitialized;
+  int24 r=uninitialized;
 
   always {
-    r = ((a*v.x + b*v.y + c*v.z) >>> 7) + d; // NOTE: this could be using the DSP slices ...
+    r = ((a*v.x + b*v.y + c*v.z) >>> $7$) + d; // NOTE: this could be using the DSP slices ...
     switch (step) {
-      case 3b001: { a = t.m00; b = t.m01; c = t.m02; d = t.tx; tv.z = r; }
-      case 3b010: { a = t.m10; b = t.m11; c = t.m12; d = t.ty; tv.x = r; }
-      case 3b100: { a = t.m20; b = t.m21; c = t.m22; d =  128; tv.y = r; }
+      case 3b001: { a = t.m00; b = t.m01; c = t.m02; d =  t.tx; tv.z = r; }
+      case 3b010: { a = t.m10; b = t.m11; c = t.m12; d =  t.ty; tv.x = r; }
+      case 3b100: { a = t.m20; b = t.m21; c = t.m22; d = 32767; tv.y = r; }
       default: {}
     }
     step = {step[0,2],step[2,1]};

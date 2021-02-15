@@ -18,6 +18,7 @@
           "tool": "icestorm",
           "tool_options": [
             {
+                "yosys_synth_options": ["-dsp"],
                 "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "--timing-allow-fail"],
                 "pnr": "next"
             }

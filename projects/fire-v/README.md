@@ -18,7 +18,7 @@ As always, designing hardware is a compromise. Here I attempt to maintain a simp
 - [A fast memory segment](ash/bram_segment_ram_32bits.ice) catching an address range in BRAM, falling back to SDRAM outside.
 - A [hardware triangle rasterizer](doc/flame.md), exploiting the SDRAM wide write capability.
 - An [SDRAM framebuffer](../common/video_sdram_main.ice), also exploiting the SDRAM wide write capability, with double buffering, 8 bit palette of 24bits RGB colors at 640x480 (can be configured for 320x200 as well).
-- Three variants: [Blaze](blaze.ice) (minimalist), [Wildfire](wildfire.ice) (full framework), [Inferno](inferno.ice) (dual-core version).
+- Four variants: [Spark](spark.ice) (minimalist), [Blaze](blaze.ice) (geared towards IceBreaker), [Wildfire](wildfire.ice) (geared towards ULX3S), [Inferno](inferno.ice) (dual-core version of Wildfire).
 
 <center><img src="doc/wildfire-arch.png" width="400px"></center>
 
@@ -32,12 +32,13 @@ As always, designing hardware is a compromise. Here I attempt to maintain a simp
 
 **Running the framework**
 
-There are three flavors of the framework:
-- [Blaze](blaze.ice): minimalistic, RISC-V core, BRAM, access to LEDs and SDCARD.
-- [Wildfire](wildfire.ice): RISC-V core with SDRAM, HDMI output, 640x480 framebuffer (8 bit palette of 24 bits RGB colors), full SDRAM access with fast memory segment.
-- [Inferno](inferno.ice): dual core version of Wildfire (*work in progress*).
+There are four flavors of the framework:
+- [Spark](spark.ice): minimalistic, RISC-V core, BRAM, access to LEDs and SDCARD.
+- [Blaze](blaze.ice): (for IceBreaker) RISC-V core, BRAM + SPRAM in continuous memory segment, access to LEDs and SPIFLASH, VGA output (via PMOD) and hardware rasterizer.
+- [Wildfire](wildfire.ice): (for ULX3S)  RISC-V core with SDRAM, HDMI output, 640x480 framebuffer (8 bit palette of 24 bits RGB colors), full SDRAM access with fast memory segment and hardware rasterizer.
+- [Inferno](inferno.ice): dual core version of Wildfire (*needs update*).
 
-This comes with a minimalist (and quite horrible) software environment, providing the basics such as SDCARD access and boot, printf, swapping frame buffers, drawing triangles, and a few other low level functions. And yes, *you compile code for the framework directly from gcc*, one of the many things that makes RISC-V great!
+This comes with a minimalist (and quite horrible) software environment, providing the basics such as SDCARD / SPIFLASH access (bitbanging), boot, printf, swapping frame buffers, drawing triangles, and a few other low level functions. And yes, *you compile code for the framework directly from gcc*, one of the many things that makes RISC-V great!
 
 **Directory structure**
 
@@ -56,28 +57,28 @@ The `bin` directory contains pre-built binaries for the ULX3S as well as pre-com
 
 If you have never used Silice before, see [getting started](../../GetStarted.md) for initial setup (Windows, Linux, MacOS).
 
-The build process has two separate steps. First, build the framework with a boot loader in BRAM. Second, compile C code, write it on an sdcard and run it.
-(*Note:* any program can be burned into BRAM at startup, but of course the boot loader allows to run different codes from sdcard images).
+The build process has two separate steps. First, build the framework with a boot loader in BRAM. Second, compile C code, write it on an sdcard or spiflash and run it.
+(*Note:* any program can be burned into BRAM at startup, but of course the boot loader allows to run different codes from sdcard/spiflash images).
 
-In the following I describe instructions for the Wildfire variant, but things are similar for all three variants.
+In the following I describe instructions for the Wildfire and Blaze variants, but things are similar for all three variants.
 
 ### Building Wildfire
 
-**Note:** the framework was primarily designed on the ULX3S (ECP5) ; I'll port it to other boards as soon as possible.
+**Note:** the framework was primarily designed on the ULX3S (ECP5) ; I'll try to port it to other boards.
 
 Plug your board, open a command line in this folder and run:
 ```
-./compile_boot.sh
+./compile_boot_sdcard.sh
 make ulx3s
 ```
-The first line compiles the [boot loader](smoke/boot/boot.c). The second lines produces the bitstream for the board, using Silice build system. The board is programmed at the end.
+The first line compiles the [boot loader](smoke/boot/boot_sdcard.c). The second line produces the bitstream for the board, using Silice build system. The board is programmed at the end.
 
 To run something, you have to compile code and write it to an sdcard image, see next (you may also use any of the pre-compiled images in `bin/sdcard/`).
 
-### Compiling code for the framework
+**Compiling code for Wildfire**
 
 ```
-./compile_c.sh smoke/tests/cubes.c
+./compile_to_wildfire.sh smoke/tests/cubes.c
 make sdcard
 ```
 This produces a `data.img` image for an sdcard.
@@ -91,15 +92,44 @@ The `compile_c.sh` takes a `--nolibc` option if you'd like to compile without th
 - The sdcard sometimes fails to initialize. If this happens, try a reset (press 'PWR'). Next, try to carefully remove and re-insert the card after 1-2 seconds. Another option is to flash the board with `fujprog -j flash BUILD_ulx3s/built.bin`, usually the sdcard works fine on power up.
 - If you update the sdcard image, reset won't reload it properly, you'll have to power cycle the board (or reprogram it). Fixing this is on my TODO list!
 
-### Your own code
+**Simulating Wildfire**
 
-If you write code in a file `mycode.c` you can then produce the sdcard image as follows:
 ```
-./compile_c.sh tests/c/mycode.c
-make sdcard
+./compile_to_wildfire.sh smoke/tests/cubes.c
+make verilator
 ```
 
-### Architecture diagram
+This will output images in `BUILD_verilator/`.
+
+### Building Blaze
+
+**Note:** the framework was primarily designed on the IceBreaker (iCE40UP5k) with a VGA PMOD.
+
+Plug your board, open a command line in this folder and run:
+```
+./compile_boot_spiflash.sh
+make icebreaker -f Makefile.blaze
+```
+The first line compiles the [boot loader](smoke/boot/boot_spiflash.c). The second line produces the bitstream for the board, using Silice build system. The board is programmed at the end.
+
+To run something, you have to compile code and write it to spiflash at offset 1M (2^20 bytes), see next.
+
+**Compiling code for Blaze**
+
+```
+./compile_to_blaze.sh smoke/tests/cubes.c
+make spiflash
+```
+This produces a `data.img` image for the spiflash.
+Write the image to spiflash with:
+
+```
+iceprog -o 1M data.img
+```
+
+The board will reset and immediately execute your code.
+
+## Architecture diagram
 
 Here is a diagram of the architecture with the main modules. 
 

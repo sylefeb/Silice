@@ -27,7 +27,7 @@ volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x00000000;
 #endif
 //volatile unsigned char* const AUDIO       = (unsigned char*)0xAC000000;
 //volatile unsigned char* const DATA        = (unsigned char*)0xA2020000;
-volatile unsigned int*  const TRIANGLE    = (unsigned char*)0x88000000;
+volatile unsigned int*  const TRIANGLE    = (unsigned int*)0x88000000;
 volatile unsigned int*  const SDCARD      = (unsigned int* )0x90000008;
 volatile unsigned int*  const SPIFLASH    = (unsigned int* )0x90000008;
 
@@ -56,15 +56,13 @@ int    putchar(int c)
     for (int j=0;j<8;j++) {
       for (int i=0;i<5;i++) {
 #ifdef BLAZE
-        int pixaddr = fbuffer
-                    ? (( ((cursor_x+i)>>2) + ((cursor_y+j)<<5) + ((cursor_y+j)<<3)) <<4)
-                    : (( ((cursor_x+i)>>2) + ((cursor_y+j)<<6) + ((cursor_y+j)<<4)) <<4);
-        int mask    = 1 << (((cursor_x+i)&3)+20);                    
+        int pixaddr = ( ((cursor_x+i)>>3) + ((cursor_y+j)<<5) + ((cursor_y+j)<<3)) << 4;
+        int mask    = 1 << (((cursor_x+i)&7)+18);
         *(volatile unsigned int*)(  FRAMEBUFFER 
           + mask
           + (fbuffer ? (8000<<4) : 0)
           + pixaddr
-         )  = (int)((font[c-32][i] & (1<<j)) ? 255 : 0) << (((cursor_x+i)&3)<<3);
+         )  = (int)((font[c-32][i] & (1<<j)) ? 15 : 0) << (((cursor_x+i)&7)<<2);
 #else
         *((FRAMEBUFFER + (fbuffer ? 0 : 0x1000000)) 
           + (cursor_x + i + ((cursor_y+j)<<10)) )

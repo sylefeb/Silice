@@ -24,7 +24,7 @@ Co-processors write through the override, while the CPU reads only.
 */ 
 
 $$if VERILATOR then
-$$ bram_depth = 12
+$$ bram_depth = 13
 $$else
 $$ bram_depth = 11
 $$end
