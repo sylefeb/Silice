@@ -320,13 +320,14 @@ void SiliceCompiler::run(
           auto m = m_Modules.at(miordr);
           m->writeModule(out);
         }
-        // write algorithms as modules
-        for (auto aiordr : m_AlgorithmsInDeclOrder) {
-          auto a = m_Algorithms.at(aiordr);
-          a->writeAsModule(out);
-          // experimental FSM ouptut for analysis
-          // a->outputFSMGraph(fresult + "_" + a->name() + ".dot");
-        }
+        // write top algorithm (recurses from there)
+        m_Algorithms["main"]->writeAsModule("",out);
+        //for (auto aiordr : m_AlgorithmsInDeclOrder) {
+        //  auto a = m_Algorithms.at(aiordr);
+        //  a->writeAsModule(out);
+        //  // experimental FSM ouptut for analysis
+        //  // a->outputFSMGraph(fresult + "_" + a->name() + ".dot");
+        //}
       }
     
     } catch (Algorithm::LanguageError& le) {

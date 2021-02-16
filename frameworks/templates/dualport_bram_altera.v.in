@@ -1,4 +1,4 @@
-module M_%MODULE%_mem_%NAME%(
+module %MODULE%(
 input      [%WENABLE0_WIDTH%-1:0]             in_%NAME%_wenable0,
 input      %DATA_TYPE% [%DATA_WIDTH%-1:0]     in_%NAME%_wdata0,
 input      [%ADDR0_WIDTH%-1:0]                in_%NAME%_addr0,
