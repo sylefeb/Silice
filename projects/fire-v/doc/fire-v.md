@@ -18,7 +18,7 @@ Fire-V is an example RV32I core written in [Silice](../../). While simple to rea
 - Relatively compact, ~2K LUTs on ECP5 (2005 LUTs as of latest).
 - Dhrystone CPI: 4.043
 
-**Note:** *While I am quite happy with these results, there are way smaller RISC-V cores out there (SERV / PicoRV / FemtoRV) and faster ones with pipelined and multiscalar architectures. Nevertheless it is quite capable and explores - I think - an interesting compromise in fmax / LUTs / simplicity. Also, it is written in Silice :-)*
+**Note:** *While I am quite happy with these results, there are way smaller RISC-V cores out there (SERV / PicoRV / FemtoRV) and faster ones with pipelined and multiscalar architectures. Nevertheless it is quite capable and provides a fun CPU to play with. Also, it is written in Silice :-)*
 
 ## Operation
 
