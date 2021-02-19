@@ -40,8 +40,13 @@ namespace Silice
   {
   private:
 
+    /// \brief Host algorithm
     const Algorithm *m_Host;
 
+    /// \brief Instantiation context for parameterized VIOs
+    const Algorithm::t_instantiation_context& m_Ictx;
+
+    /// \brief Does the Linter warn about width mismatches in assignments? (there are very frequent)
     bool m_WarnAssignWidth = false;
 
     /// \brief issues a warning
@@ -88,6 +93,9 @@ namespace Silice
       const Algorithm::t_combinational_block_context *bctx,
       t_type_nfo& _nfo) const;
 
+    /// \brief resolves a parameterized VIO knowing the instantiation context
+    void resolveParameterized(t_type_nfo &_nfo) const;
+
     /// \brief Token stream for warning reporting, optionally set
     static antlr4::TokenStream *s_TokenStream;
     /// \brief Pre-processor for warning line reporting, optionally set
@@ -95,8 +103,7 @@ namespace Silice
 
   public:
 
-
-    ExpressionLinter(const Algorithm *host) : m_Host(host) {}
+    ExpressionLinter(const Algorithm *host, const Algorithm::t_instantiation_context& ictx) : m_Host(host), m_Ictx(ictx) { }
 
     /// \brief Lint an expression
     void lint(

@@ -625,7 +625,9 @@ private:
     /// \brief integer name of the next block
     int m_NextBlockName = 1;
 
-    /// \brief information about instantiation
+  public:
+
+    /// \brief information about instantiation (public for linter)
     typedef struct {
       std::unordered_map<std::string, std::string> parameters;
     } t_instantiation_context;
@@ -765,14 +767,20 @@ private:
     t_combinational_block *gatherRepeatBlock(siliceParser::RepeatBlockContext* repeat, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather always assigned
     void gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always);
+    ///\brief Runs the linter on the algorithm, at instantiation time
+    void lint(const t_instantiation_context &ictx);
     /// \brief check access permissions (recursively) from a specific node
     void checkPermissions(antlr4::tree::ParseTree *node, t_combinational_block *_current);
     /// \brief check access permissions on all block instructions
     void checkPermissions();
     /// \brief check expressions (recursively) from node
-    void checkExpressions(antlr4::tree::ParseTree *node, const t_combinational_block *_current);
+    void checkExpressions(const t_instantiation_context &ictx,antlr4::tree::ParseTree *node, const t_combinational_block *_current);
     /// \brief check expressions on all blocks
-    void checkExpressions();
+    void checkExpressions(const t_instantiation_context &ictx);
+    /// \brief Verifies validity of bindings on instanced modules
+    void checkModulesBindings() const;
+    /// \brief Verifies validity of bindings on instanced algorithms
+    void checkAlgorithmsBindings(const t_instantiation_context &ictx) const;
     /// \brief gather info about an input
     void gatherInputNfo(siliceParser::InputContext* input, t_inout_nfo& _io, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather info about an output
@@ -887,10 +895,6 @@ private:
     void analyzeSubroutineCalls();
     /// \brief analyze usage of inputs of instanced algorithms
     void analyzeInstancedAlgorithmsInputs();
-    /// \brief Verifies validity of bindings on instanced modules
-    void checkModulesBindings() const;
-    /// \brief Verifies validity of bindings on instanced algorithms
-    void checkAlgorithmsBindings() const;
     /// \brief autobind algorithm
     void autobindInstancedAlgorithm(t_algo_nfo& _alg);
     /// \brief autobind a module
@@ -1031,10 +1035,10 @@ private:
     std::string memoryModuleName(std::string instance_name, const t_mem_nfo &bram) const;
     /// \brief prepare replacements for a memory module template
     void prepareModuleMemoryTemplateReplacements(std::string instance_name, const t_mem_nfo& bram, std::unordered_map<std::string, std::string>& _replacements) const;
-    /// \brief writes the algorithm as a Verilog module
-    void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes the algorithm as a Verilog module, recurses through instanced algorithms
     void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx);
+    /// \brief writes the algorithm as a Verilog module, calls the version above twice in a two pass optimization process
+    void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage) const;
 
   public:
 

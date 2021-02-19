@@ -104,7 +104,7 @@ void Algorithm::checkModulesBindings() const
 
 // -------------------------------------------------
 
-void Algorithm::checkAlgorithmsBindings() const
+void Algorithm::checkAlgorithmsBindings(const t_instantiation_context &ictx) const
 {
   for (auto& ia : m_InstancedAlgorithms) {
     set<string> inbound;
@@ -149,7 +149,7 @@ void Algorithm::checkAlgorithmsBindings() const
         inbound.insert(br);
       }
       // lint
-      ExpressionLinter linter(this);
+      ExpressionLinter linter(this,ictx);
       linter.lintBinding(
         sprint("instanced algorithm '%s', binding '%s' to '%s'", ia.first.c_str(), br.c_str(), b.left.c_str()),
         b.dir,b.line,
@@ -4644,7 +4644,7 @@ void Algorithm::checkPermissions()
 
 // -------------------------------------------------
 
-void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinational_block *_current)
+void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tree::ParseTree *node, const t_combinational_block *_current)
 {
   auto expr   = dynamic_cast<siliceParser::Expression_0Context*>(node);
   auto assign = dynamic_cast<siliceParser::AssignmentContext*>(node);
@@ -4653,13 +4653,13 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
   auto sync   = dynamic_cast<siliceParser::SyncExecContext *>(node);
   auto join   = dynamic_cast<siliceParser::JoinExecContext *>(node);
   if (expr) {
-    ExpressionLinter linter(this);
+    ExpressionLinter linter(this,ictx);
     linter.lint(expr, &_current->context);
   } else if (assign) {
-    ExpressionLinter linter(this);
+    ExpressionLinter linter(this,ictx);
     linter.lintAssignment(assign->access(),assign->IDENTIFIER(), assign->expression_0(), &_current->context);
   } else if (alwasg) { 
-    ExpressionLinter linter(this);
+    ExpressionLinter linter(this,ictx);
     linter.lintAssignment(alwasg->access(), alwasg->IDENTIFIER(), alwasg->expression_0(), &_current->context);
   } else if (async) {
     if (async->callParamList()) {
@@ -4674,7 +4674,7 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
           // lint each
           int p = 0;
           for (const auto &ins : A->second.algo->m_Inputs) {
-            ExpressionLinter linter(this);
+            ExpressionLinter linter(this,ictx);
             linter.lintInputParameter(ins.name, ins.type_nfo, matches[p++], &_current->context);
           }
         }
@@ -4693,7 +4693,7 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
           // lint each
           int p = 0;
           for (const auto &ins : A->second.algo->m_Inputs) {
-            ExpressionLinter linter(this);
+            ExpressionLinter linter(this,ictx);
             linter.lintInputParameter(ins.name, ins.type_nfo, matches[p++], &_current->context);
           }
         }
@@ -4707,7 +4707,7 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
           int p = 0;
           for (const auto& ins : S->second->inputs) {
             const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(ins))];
-            ExpressionLinter linter(this);
+            ExpressionLinter linter(this,ictx);
             linter.lintInputParameter(ins, info.type_nfo, matches[p++], &_current->context);
           }
         }
@@ -4726,7 +4726,7 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
           // lint each
           int p = 0;
           for (const auto &outs : A->second.algo->m_Outputs) {
-            ExpressionLinter linter(this);
+            ExpressionLinter linter(this,ictx);
             linter.lintReadback(outs.name, matches[p++], outs.type_nfo, &_current->context);
           }
         }
@@ -4739,7 +4739,7 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
           // lint each
           int p = 0;
           for (const auto& outs : S->second->outputs) {
-            ExpressionLinter linter(this);
+            ExpressionLinter linter(this,ictx);
             const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(outs))];
             linter.lintReadback(outs, matches[p++], info.type_nfo, &_current->context);
             ++p;
@@ -4749,37 +4749,48 @@ void Algorithm::checkExpressions(antlr4::tree::ParseTree *node, const t_combinat
     }
   } else {
     for (auto c : node->children) {
-      checkExpressions(c, _current);
+      checkExpressions(ictx, c, _current);
     }
   }
 }
 
 // -------------------------------------------------
 
-void Algorithm::checkExpressions()
+void Algorithm::checkExpressions(const t_instantiation_context &ictx)
 {
   // check permissions on all instructions of all blocks
   for (const auto &i : m_AlwaysPre.instructions) {
-    checkExpressions(i.instr, &m_AlwaysPost);
+    checkExpressions(ictx, i.instr, &m_AlwaysPost);
   }
   for (const auto &i : m_AlwaysPost.instructions) {
-    checkExpressions(i.instr, &m_AlwaysPost);
+    checkExpressions(ictx, i.instr, &m_AlwaysPost);
   }
   for (const auto &b : m_Blocks) {
     for (const auto &i : b->instructions) {
-      checkExpressions(i.instr, b);
+      checkExpressions(ictx, i.instr, b);
     }
     // check expressions in flow control
     if (b->if_then_else()) {
-      checkExpressions(b->if_then_else()->test.instr, b);
+      checkExpressions(ictx, b->if_then_else()->test.instr, b);
     }
     if (b->switch_case()) {
-      checkExpressions(b->switch_case()->test.instr, b);
+      checkExpressions(ictx, b->switch_case()->test.instr, b);
     }
     if (b->while_loop()) {
-      checkExpressions(b->while_loop()->test.instr, b);
+      checkExpressions(ictx, b->while_loop()->test.instr, b);
     }
   }
+}
+
+// -------------------------------------------------
+
+void Algorithm::lint(const t_instantiation_context &ictx)
+{
+  // check bindings
+  checkModulesBindings();
+  checkAlgorithmsBindings(ictx);
+  // check expressions (lint)
+  checkExpressions(ictx);
 }
 
 // -------------------------------------------------
@@ -4788,13 +4799,8 @@ void Algorithm::optimize()
 {
   // generate states
   generateStates();
-  // check bindings
-  checkModulesBindings();
-  checkAlgorithmsBindings();
   // check var access permissions
   checkPermissions();
-  // check expressions (lint)
-  checkExpressions();
   // determine which VIO are assigned to wires
   determineModAlgBoundVIO();
   // analyze variables access 
@@ -6634,7 +6640,10 @@ void Algorithm::writeAsModule(std::string instance_name, std::ostream &out)
 
 void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx)
 {
-  // first pass, discarded but used to fine tune detection of temporary vars
+  // lint upon instantiation
+  lint(ictx);
+
+  // first pass, discarded but used to fine tune detection of temporary VIOs
   {
     t_vio_ff_usage ff_usage;
     std::ofstream null;
@@ -6681,6 +6690,7 @@ void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, cons
 
   }
 
+  // second pass, now that VIO usage is refined
   {
     t_vio_ff_usage ff_usage;
     writeAsModule(instance_name, out, ictx, ff_usage);

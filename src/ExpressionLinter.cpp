@@ -194,7 +194,7 @@ void ExpressionLinter::checkConcatenation(
   t_type_nfo t0 = tns.front();
   ForIndex(t, tns.size()) {
     if (tns[t].base_type != t0.base_type) {
-warn(expr->getSourceInterval(), -1, "signedness of expressions differs in concatenation");
+      warn(expr->getSourceInterval(), -1, "signedness of expressions differs in concatenation");
     }
     if (tns[t].width == -1) {
       m_Host->reportError(expr->getSourceInterval(), -1, "concatenation contains expression of unkown bit-width");
@@ -307,16 +307,16 @@ void ExpressionLinter::typeNfo(
   auto cexpr  = dynamic_cast<siliceParser::ConcatexprContext*>(expr);
   auto concat = dynamic_cast<siliceParser::ConcatenationContext*>(expr);
   auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
-  auto expr0 = dynamic_cast<siliceParser::Expression_0Context*>(expr);
-  auto expr1 = dynamic_cast<siliceParser::Expression_1Context*>(expr);
-  auto expr2 = dynamic_cast<siliceParser::Expression_2Context*>(expr);
-  auto expr3 = dynamic_cast<siliceParser::Expression_3Context*>(expr);
-  auto expr4 = dynamic_cast<siliceParser::Expression_4Context*>(expr);
-  auto expr5 = dynamic_cast<siliceParser::Expression_5Context*>(expr);
-  auto expr6 = dynamic_cast<siliceParser::Expression_6Context*>(expr);
-  auto expr7 = dynamic_cast<siliceParser::Expression_7Context*>(expr);
-  auto expr8 = dynamic_cast<siliceParser::Expression_8Context*>(expr);
-  auto expr9 = dynamic_cast<siliceParser::Expression_9Context*>(expr);
+  auto expr0  = dynamic_cast<siliceParser::Expression_0Context*>(expr);
+  auto expr1  = dynamic_cast<siliceParser::Expression_1Context*>(expr);
+  auto expr2  = dynamic_cast<siliceParser::Expression_2Context*>(expr);
+  auto expr3  = dynamic_cast<siliceParser::Expression_3Context*>(expr);
+  auto expr4  = dynamic_cast<siliceParser::Expression_4Context*>(expr);
+  auto expr5  = dynamic_cast<siliceParser::Expression_5Context*>(expr);
+  auto expr6  = dynamic_cast<siliceParser::Expression_6Context*>(expr);
+  auto expr7  = dynamic_cast<siliceParser::Expression_7Context*>(expr);
+  auto expr8  = dynamic_cast<siliceParser::Expression_8Context*>(expr);
+  auto expr9  = dynamic_cast<siliceParser::Expression_9Context*>(expr);
   auto expr10 = dynamic_cast<siliceParser::Expression_10Context*>(expr);
   if (term) {
     if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
@@ -426,6 +426,13 @@ void ExpressionLinter::typeNfo(
   } else {
     throw Fatal("internal error [%s, %d] '%s'", __FILE__, __LINE__,expr->getText().c_str());
   }
+}
+
+// -------------------------------------------------
+
+void ExpressionLinter::resolveParameterized(t_type_nfo &_nfo) const
+{
+
 }
 
 // -------------------------------------------------
