@@ -29,9 +29,9 @@ double sc_time_stamp()
 
 int main(int argc,char **argv)
 {
-  Verilated::commandArgs(argc,argv);
-  
   Vtop    *vga_test = new Vtop();
+
+  Verilated::commandArgs(argc,argv);
 
   vga_test->clk = 0;
 
@@ -46,8 +46,6 @@ int main(int argc,char **argv)
 
   VgaChip *vga_chip = new VgaChip((int)vga_test->video_color_depth);
 
-  char foo[1<<18]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
-  
   vluint8_t sdram_flags = 0;
   if ((int)vga_test->sdram_word_width == 8) {
     sdram_flags |= FLAG_DATA_WIDTH_8;

@@ -21,11 +21,9 @@ the distribution, please refer to it for details.
 int main(int argc,char **argv)
 {
 
-  Verilated::commandArgs(argc,argv);
-
   Vtop    *bare_test = new Vtop();
 
-  char foo[1<<18]; // DEBUG FIXME: there is an access violation that makes this necessary. I have not been able to track it down so far!! Terrible.
+  Verilated::commandArgs(argc,argv);
 
   while (!Verilated::gotFinish()) {
 
