@@ -31,7 +31,7 @@ int main(int argc,char **argv)
 {
   Vtop    *vga_test = new Vtop();
 
-  Verilated::commandArgs(argc,argv);
+  // Verilated::commandArgs(argc,argv);
 
   vga_test->clk = 0;
 

@@ -94,7 +94,7 @@ namespace Silice
       t_type_nfo& _nfo) const;
 
     /// \brief resolves a parameterized VIO knowing the instantiation context
-    void resolveParameterized(t_type_nfo &_nfo) const;
+    void resolveParameterized(std::string idnt, const Algorithm::t_combinational_block_context *bctx, t_type_nfo &_nfo) const;
 
     /// \brief Token stream for warning reporting, optionally set
     static antlr4::TokenStream *s_TokenStream;

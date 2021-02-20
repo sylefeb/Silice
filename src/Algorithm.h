@@ -307,7 +307,7 @@ private:
     /// 
     /// a group identifier
     /// expression is always the source expression (even if a group)
-    typedef struct {
+    typedef struct s_call_param  {
       antlr4::tree::ParseTree  *expression = nullptr;
       std::variant<
         std::monostate,                     // empty
@@ -508,7 +508,7 @@ private:
     t_SubroutinesCallerReturnStates                                 m_SubroutinesCallerReturnStates;
 
     /// \brief combinational block context
-    typedef struct {
+    typedef struct s_combinational_block_context  {
       t_subroutine_nfo            *subroutine   = nullptr; // if block belongs to a subroutine
       t_pipeline_stage_nfo        *pipeline     = nullptr; // if block belongs to a pipeline
       const t_combinational_block *parent_scope = nullptr; // parent block in scope
@@ -948,8 +948,9 @@ private:
     std::string varBitWidth(const t_var_nfo &v, const t_instantiation_context &ictx) const;
     /// \brief returns a variable init value for verilog use (non-tables only)
     std::string varInitValue(const t_var_nfo &v, const t_instantiation_context &ictx) const;
+    /// \brief returns the base type of a variable
+    e_Type      varType     (const t_var_nfo& v, const t_instantiation_context &ictx) const;
     /// \brief returns a type dependent string for resource declaration
-    std::string typeString(const t_var_nfo& v, const t_instantiation_context &ictx) const;
     std::string typeString(e_Type type) const;
     /// \brief finds the root of a same_as chain
     std::string findSameAsRoot(std::string vio, const t_combinational_block_context *bctx) const;

@@ -5543,7 +5543,7 @@ std::string Algorithm::varInitValue(const t_var_nfo &v,const t_instantiation_con
 
 // -------------------------------------------------
 
-std::string Algorithm::typeString(const t_var_nfo &v, const t_instantiation_context &ictx) const
+e_Type Algorithm::varType(const t_var_nfo &v, const t_instantiation_context &ictx) const
 {
   if (v.type_nfo.base_type == Parameterized) {
     bool ok = false;
@@ -5559,12 +5559,12 @@ std::string Algorithm::typeString(const t_var_nfo &v, const t_instantiation_cont
         reportError(nullptr, -1, "cannot find value of '%s' during instantiation of algorithm '%s'", str.c_str(), m_Name.c_str());
       }
       str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
-      return str;
+      return (str == "signed") ? Int : UInt;
     } else {
-      return typeString(base.type_nfo.base_type);
+      return base.type_nfo.base_type;
     }
   } else {
-    return typeString(v.type_nfo.base_type);
+    return v.type_nfo.base_type;
   }
 }
 
@@ -5572,7 +5572,7 @@ std::string Algorithm::typeString(const t_var_nfo &v, const t_instantiation_cont
 
 void Algorithm::writeVerilogDeclaration(std::ostream &out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const
 {
-  out << base << " " << typeString(v,ictx) << " " << varBitRange(v,ictx) << " " << postfix << ';' << nxl;
+  out << base << " " << typeString(varType(v,ictx)) << " " << varBitRange(v,ictx) << " " << postfix << ';' << nxl;
 }
 
 // -------------------------------------------------
@@ -5638,10 +5638,8 @@ void Algorithm::writeWireDeclarations(std::string prefix, std::ostream& out, con
       if (v.access == e_NotAccessed) { continue; }
       if (v.table_size == 0) {
         writeVerilogDeclaration(out, ictx, "wire", v, string(WIRE) + prefix + v.name);
-        //out << "wire " << typeString(v) << " " << varBitRange(v) << " " << WIRE << prefix << v.name << ';' << nxl;
       } else {
         writeVerilogDeclaration(out, ictx, "wire", v, string(WIRE) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
-        //out << "wire " << typeString(v) << " " << varBitRange(v) << " " << WIRE << prefix << v.name << '[' << v.table_size - 1 << ":0]" << ';' << nxl;
       }
     }
   }
@@ -6800,7 +6798,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
       string str_signed = var + "_SIGNED";
       local_ictx.parameters[str_width ] = varBitWidth(bnfo,ictx);
       local_ictx.parameters[str_init  ] = varInitValue(bnfo,ictx);
-      local_ictx.parameters[str_signed] = typeString(bnfo,ictx);
+      local_ictx.parameters[str_signed] = typeString(varType(bnfo,ictx));
     }
     // -> write instance
     nfo.algo->writeAsModule(instance_name + "_" + nfo.instance_name, out, local_ictx);

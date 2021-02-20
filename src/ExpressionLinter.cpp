@@ -326,6 +326,7 @@ void ExpressionLinter::typeNfo(
       _nfo.width     = -1; // undetermined (NOTE: verilog default to 32 bits ...)
     } else if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
       _nfo = m_Host->determineIdentifierTypeAndWidth(bctx, term, term->getSourceInterval(), (int)term->getSymbol()->getLine());
+      resolveParameterized(term->getText(), bctx, _nfo);
     } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
       _nfo.base_type = UInt;
       _nfo.width = -1; // unspecified
@@ -335,6 +336,9 @@ void ExpressionLinter::typeNfo(
   } else if (access) {
     // ask host to determine access type
     _nfo = m_Host->determineAccessTypeAndWidth(bctx, access, nullptr);
+    if (_nfo.base_type == Parameterized) {
+      resolveParameterized(m_Host->determineAccessedVar(access, bctx), bctx, _nfo);
+    }
   } else if (atom) {
     auto concat_ = dynamic_cast<siliceParser::ConcatenationContext*>(atom->concatenation());
     auto access_ = dynamic_cast<siliceParser::AccessContext*>(atom->access());
@@ -430,9 +434,23 @@ void ExpressionLinter::typeNfo(
 
 // -------------------------------------------------
 
-void ExpressionLinter::resolveParameterized(t_type_nfo &_nfo) const
+void ExpressionLinter::resolveParameterized(std::string idnt, const Algorithm::t_combinational_block_context *bctx, t_type_nfo &_nfo) const
 {
-
+  if (_nfo.base_type != Parameterized) {
+    return;
+  }
+  // translate
+  idnt = m_Host->translateVIOName(idnt, bctx);
+  // get definition
+  bool found = false;
+  Algorithm::t_var_nfo v = m_Host->getVIODefinition(idnt, found);
+  if (!found) {
+    throw Fatal("internal error [%s, %d] '%s'", __FILE__, __LINE__, idnt.c_str());
+  }
+  // fill parameter values
+  _nfo.base_type = m_Host->varType(v, m_Ictx);
+  _nfo.width     = std::atoi(m_Host->varBitWidth(v, m_Ictx).c_str());
+  _nfo.same_as   = "";
 }
 
 // -------------------------------------------------
@@ -443,6 +461,7 @@ void ExpressionLinter::typeNfo(
   t_type_nfo& _nfo) const
 {
   _nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(bctx, idnt, antlr4::misc::Interval::INVALID , -1));
+  resolveParameterized(idnt, bctx, _nfo);
 }
 
 // -------------------------------------------------
