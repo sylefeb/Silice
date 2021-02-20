@@ -29,9 +29,9 @@ double sc_time_stamp()
 
 int main(int argc,char **argv)
 {
-  Vtop    *vga_test = new Vtop();
-
   // Verilated::commandArgs(argc,argv);
+
+  Vtop    *vga_test = new Vtop();
 
   vga_test->clk = 0;
 

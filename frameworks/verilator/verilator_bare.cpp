@@ -21,9 +21,9 @@ the distribution, please refer to it for details.
 int main(int argc,char **argv)
 {
 
-  Vtop    *bare_test = new Vtop();
-
   // Verilated::commandArgs(argc,argv);
+
+  Vtop    *bare_test = new Vtop();
 
   while (!Verilated::gotFinish()) {
 
