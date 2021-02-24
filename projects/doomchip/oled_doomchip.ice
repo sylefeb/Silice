@@ -1,8 +1,17 @@
 // SL 2020-04-28
 // DoomChip, OLED wrapper
 
+
 $$if ULX3S then
-$$  ST7789=1
+// vvvvvvvvvvvvv select screen driver below
+$$ -- SSD1331=1
+$$ -- SSD1351=1
+$$ ST7789=1
+//               vvvvv adjust to your screen
+$$ oled_width   = 240
+$$ oled_height  = 240
+//               vvvvv set to false if the screen uses the CS pin
+$$ st7789_no_cs = true
 $include('../common/oled.ice')
 $$elseif ICARUS then
 $$  ST7789=1

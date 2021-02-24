@@ -18,7 +18,7 @@ else
   USE_BRAM = false -- RAM or ROM
   memory_budget_bits = 500000 -- 3000000
   reduce_switches    = true
-  default_shrink     = 0 -- 2 is very low res, for quicker testing, use 0 for native res
+  default_shrink     = 2 -- 2 is very low res, for quicker testing, use 0 for native res
 end
 
 ALL_IN_ONE = false
