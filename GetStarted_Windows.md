@@ -20,6 +20,10 @@ Then, from the prompt, enter the Silice directory and type: `./get_started_mingw
 
 **Note:** this automatically downloads a pre-compiled FPGA + RiscV toolchain from https://github.com/sylefeb/fpga-binutils/ (~290MB) as well as installs required MinGW64 packages. For details please refer to the [script source code](get_started_mingw64.sh).
 
+## Path
+
+The shell path has to include `Silice/bin` for proper operation. Under a bash shell, this can be set with `export PATH=$PATH:<path-to-silice>/Silice/bin` where `<path-to-silice>` is to be replaced with the path on your system. 
+
 ## Testing
 
 Time to [run a few tests](GetStarted.md#testing) and [start having fun!](projects/README.md)

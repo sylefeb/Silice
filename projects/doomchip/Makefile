@@ -10,6 +10,9 @@ icarus: vga_doomchip.ice
 ulx3s: hdmi_doomchip.ice
 		silice-make.py -s hdmi_doomchip.ice -b $@ -p basic,hdmi,sdram,buttons -o BUILD_$(subst :,_,$@) -t shell
 
+ulx3s-oled: oled_doomchip.ice
+		silice-make.py -s oled_doomchip.ice -b $@ -p basic,oled,sdram,buttons -o BUILD_$(subst :,_,$@) -t shell
+
 de10nano: vga_doomchip.ice
 		silice-make.py -s vga_doomchip.ice -b $@ -p basic,vga,sdram,buttons -o BUILD_$(subst :,_,$@)
 
