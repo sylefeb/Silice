@@ -9,6 +9,8 @@ $$ oled_width   = 240
 $$ oled_height  = 240
 //               vvvvv set to false if the screen uses the CS pin
 $$ st7789_no_cs = true
+//                   vvvvv set to true to rotate view 90 degrees
+$$ st7789_transpose = true
 
 // ------------------------- 
 

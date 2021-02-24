@@ -9,6 +9,12 @@ The instructions depend on your target platform, please follow the links below!
 - [Getting started under Windows](GetStarted_Windows.md).
 - [Getting started under macOS](GetStarted_macOS.md).
 
+# Path
+
+The shell `PATH` has to include `Silice/bin` for proper operation. Under a bash shell, this can be set with `export PATH=$PATH:<path-to-silice>/Silice/bin` where `<path-to-silice>` is to be replaced with the path on your system.
+
+The build system also expects all tools to be available from the `PATH`: yosys, nextpnr, etc. (under *Windows / MinGW64* this is done automatically using the [recommended setup](GetStarted_Windows.md)).
+
 # Testing
 
 Once everything is installed, let's run a couple tests:
@@ -55,4 +61,4 @@ Look at them in sequence :-)
 <img width="400" src="docs/figures/vga_demo_frame.png">
 </p>
 
-*Note*: there is an embarassing known issue in my Verilator simulation code which may result in a segfault on simulation startup. So if this happens, you've just hit the bug. Working on it, but it is a non trivial issue unfortunately.
+*Note*: there is an embarrassing known issue (#12) in my Verilator simulation code which may result in a segfault on simulation startup. So if this happens, you've just hit the bug. Working on it, but it is a non trivial issue unfortunately.

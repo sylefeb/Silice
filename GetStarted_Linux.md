@@ -2,24 +2,18 @@
 
 ## Compiling Silice
 
-Compiling Silice should be as simple as:
-```
+First, some dependencies are required. To install all of them you may run the script `install_dependencies_linux.sh` that uses `apt`, or inspect the script content and manually add the missing packages. Note that the Java jre/jdk are only required for compilation.
+
+Compiling Silice should then be as simple as:
+```shell
 git clone --recurse-submodules https://github.com/sylefeb/Silice.git
 cd Silice
 ./compile_silice_linux.sh
 ```
 
-Done! This compiled and installed the Silice executable in silice/bin/
+Done! This compiled and installed the Silice executable in `Silice/bin/`.
 
-**Note:** The script will attempt to install the following dependencies using apt ; you may have to adapt package names and package manager to your Linux distribution, and/or edit the script to remove any dependency you do not wish to install: 
-```
-default-jre default-jdk iverilog verilator fpga-icestorm arachne-pnr 
-yosys gtkwave git gcc g++ make cmake pkg-config uuid uuid-dev
-```
-
-(the Java jre/jdk is only used during compilation)
-
-**Note:** It is highly recommended for all tools to be available from the PATH (yosys, nextpnr, dfu-utils, fujprog, etc.). This is required by the default build system.
+**Note:** It is highly recommended for all tools to be available from the PATH (Silice/bin, yosys, nextpnr, dfu-utils, fujprog, etc.). This is required by the default build system.
 
 ## Getting the toolchain
 
@@ -43,7 +37,7 @@ Yosys, icestorm, trellis, nextpnr, verilator are not difficult to compile and in
 
 Note that trellis and icestorm have to be compiled and installed before nextpnr (please refer to the NextPNR setup instructions). 
 
-These tools take a bit of time to compile, but is worth doing as they constantly improve.
+These tools take a bit of time to compile, but it is worth doing as they constantly improve.
 
 ### Use compiled binaries
 
