@@ -8,11 +8,11 @@ This is the DooM-chip! A partial recreation of Doom 1993 in hardware: there is n
 
 This is the first version I worked on, that was released in May-June 2020. Note that this is *not* the last version, as the Doom-chip is still evolving: a more advanced version is in the works in a different repository, but it is not yet stable enough for release.
 
-This first version allows to interact with the environment: you can walk around levels, open/close doors and lifts, turn switches on/off. However, there is only one monster type (mostly to test sprite rendering), they do not move, and there are no weapons. As everything is stored in BRAM, textures are downsampled. This can be controled in [pre_do_textures.lua](pre_do_textures.lua), parameter `default_shrink` (0: highest resolution, 2: lowest).
+This first version allows to interact with the environment: you can walk around levels, open/close doors and lifts, turn switches on/off. However, there is only one monster type (mostly to test sprite rendering), they do not move, and there are no weapons. As everything is stored in BRAM, textures are downsampled. This can be controlled in [pre_do_textures.lua](pre_do_textures.lua), parameter `default_shrink` (0: highest resolution, 2: lowest).
 
-This version was my first take at the Doom-chip, developped as a proof-of-concept for Silice (itself still under active development). The synthesized hardware is large and quite low frequency, and some latest Silice features are not used. But the focus was first and foremost on making it happen!
+This version was my first take at the Doom-chip, developed as a proof-of-concept for Silice (itself still under active development). The synthesized hardware is large and quite low frequency, and some latest Silice features are not used. But the focus was first and foremost on making it happen!
 
-The DooM-chip is a great example of what the Lua pre-processor has to offer. Indeed, the pre-processor automatically parses the game file data, extracts and generates all datastructures that are then embedded into brams/broms.
+The DooM-chip is a great example of what the Lua pre-processor has to offer. Indeed, the pre-processor automatically parses the game file data, extracts and generates all data-structures that are then embedded into BRAMs.
 
 ## Where's All the Data?
 
@@ -22,7 +22,7 @@ The DooM-chip also works with WAD files from the [freedoom project](https://free
 
 ## How to run
 
-###In simulation
+### In simulation
 
 Open a shell in this directory and launch ```make verilator```
 
@@ -38,7 +38,7 @@ Done! (takes ~ 0.5 hour)
 
 ### Running on the ULX3S + OLED screen
 
-The default is a ST7789 240x240 screen ; these are innexpensive (~ $6) and some models plug directly into the OLED connector of the ULX3S (you'll have to solder the connector if not present, it is located just below the ECP5).
+The default is a ST7789 240x240 screen ; these are inexpensive (~ $6) and some models plug directly into the OLED connector of the ULX3S (you'll have to solder the connector if not present, it is located just below the ECP5).
 
 The OLED library supports also an SSD1351 driver, and other resolutions, but you'll have to edit the source code to customize for that: see configuration at the top of [oled_doomchip.ice](oled_doomchip.ice).
 
@@ -50,4 +50,4 @@ Done! (takes ~ 0.5 hour)
 
 ### Other boards?
 
-The Doom-chip was initially developped on a de10-nano ([MiSTer setup](https://github.com/MiSTer-devel/Main_MiSTer/wiki)) with [VGA DAC](../DIYVGA.md) (or MiSTer IO board) and SDRAM. This should still work, compiling with `make de10nano`, but has not been throughly tested in a while.
+The Doom-chip was initially developed on a de10-nano ([MiSTer setup](https://github.com/MiSTer-devel/Main_MiSTer/wiki)) with [VGA DAC](../DIYVGA.md) (or MiSTer IO board) and SDRAM. This should still work, compiling with `make de10nano`, but has not been thoroughly tested in a while.
