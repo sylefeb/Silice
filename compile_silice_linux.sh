@@ -23,3 +23,15 @@ make -j16 install
 cd ..
 
 cd ..
+
+echo " "
+echo " "
+echo "==================================" 
+echo "Please compile and install:"
+echo "- yosys"
+echo "- trellis, icestorm, nextpnr"
+echo "- verilator"
+echo "- icarus verilog"
+echo " "
+echo "See also GetStarted_Linux.md"
+echo "==================================" 
