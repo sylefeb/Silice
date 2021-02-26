@@ -15,7 +15,8 @@
         {"set"    : "gpio",   "define" : "GPIO=1"},
         {"set"    : "audio",  "define" : "AUDIO=1"},
         {"set"    : "uart",   "define" : "UART=1"},
-        {"set"    : "uart2",  "define" : "UART2=1"}
+        {"set"    : "uart2",  "define" : "UART2=1"},
+        {"set"    : "us2_ps2","define" : "US2_PS2=1"}
       ],
       "builders": [
       {
@@ -213,6 +214,18 @@
       },
       {
         "name": "uart2_rx",
+        "type": "uint1",
+        "io"  : "input"
+      }
+    ],
+    "us2_ps2": [
+      {
+        "name": "us2_bd_dp",
+        "type": "uint1",
+        "io"  : "input"
+      },
+      {
+        "name": "us2_bd_dn",
         "type": "uint1",
         "io"  : "input"
       }

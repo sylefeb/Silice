@@ -46,7 +46,7 @@ interface io_uart_out
 
 algorithm uart_sender(
   io_uart_out  io,
-  output uint1 uart_tx
+  output uint1 uart_tx = 1
 ) <autorun> {
   
   uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / 115200)$;
@@ -75,8 +75,6 @@ algorithm uart_sender(
       }
     }
   }
-
-  uart_tx = 1;
 
 }
 

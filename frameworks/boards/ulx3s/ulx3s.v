@@ -27,6 +27,7 @@ module top(
   inout  [15:0] sdram_d,
 `endif  
 `ifdef AUDIO
+  // audio jack
   output [3:0] audio_l,
   output [3:0] audio_r,
 `endif  
@@ -60,6 +61,13 @@ module top(
   output [3:0]  gpdi_dp, // {clock,R,G,B}
   // output [3:0]  gpdi_dn, // not used explicitely, using true differential with LVCMOS33D (see lpf file)
 `endif  
+`ifdef US2_PS2
+  // us2 connector for PS/2 peripheral
+  input  usb_fpga_bd_dp,
+  input  usb_fpga_bd_dn,
+  output usb_fpga_pu_dp,
+  output usb_fpga_pu_dn,
+`endif 
 `ifdef UART
   // uart
   output  ftdi_rxd,
@@ -164,6 +172,10 @@ M_main __main(
   .out_sdram_ras (__main_out_sdram_ras),
   .out_sdram_ba  (__main_out_sdram_ba),
   .out_sdram_a   (__main_out_sdram_a),
+`endif  
+`ifdef US2_PS2
+  .in_us2_bd_dp(usb_fpga_bd_dp),
+  .in_us2_bd_dn(usb_fpga_bd_dn),
 `endif  
 `ifdef SDCARD
   .out_sd_csn    (__main_sd_csn),
@@ -273,5 +285,10 @@ assign ftdi_rxd      = __main_out_uart_rx;
 `ifdef HDMI
 assign gpdi_dp       = __main_out_gpdi_dp;
 `endif
+
+`ifdef US2_PS2
+assign usb_fpga_pu_dp = 1;
+assign usb_fpga_pu_dn = 1;
+`endif 
 
 endmodule
