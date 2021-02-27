@@ -46,17 +46,15 @@ interface io_uart_out
 
 algorithm uart_sender(
   io_uart_out  io,
-  output uint1 uart_tx = 1
+  output uint1 uart_tx = 0
 ) <autorun> {
   
   uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / 115200)$;
   uint10 counter       = 0;
-
   uint11 transmit      = 0;
 
-  always {    
-
-    if (transmit > 1) {
+  always {
+    if (transmit[1,10] != 0) {
       // keep transmitting
       if (counter == 0) {
         // keep going
