@@ -29,8 +29,8 @@ algorithm main(
 
   // NOTE: We only have to be carefull to wait for a previous
   // transmission to be done before starting a new one.
-  // There is no need for buffering since receive/transmit have
-  // the same speed.
+  // There is no real need for buffering since receive/transmit have
+  // the same overall speed.
 
   while (1) {
     if (send_asap) {
