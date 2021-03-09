@@ -8,9 +8,28 @@ module ddr(
         output       out_pin
     );
 
+`ifdef MOJO
+
+ODDR2 #(
+    .DDR_ALIGNMENT("C0"),
+    .INIT(1'b0),
+    .SRTYPE("ASYNC")
+) mddr (
+    .D0(twice[0]),
+    .D1(twice[1]),
+    .Q(out_pin),
+    .C0( clock),
+    .C1(~clock),
+    .CE(1),
+    .S(0),
+    .R(0)     
+  );
+
+`else
+
 `ifdef ULX3S
 
-ODDRX1F ddr_pos
+ODDRX1F mddr
       (
         .D0(twice[0]),
         .D1(twice[1]),
@@ -27,6 +46,7 @@ assign out_pin = twice[0];
 
 `endif
 
+`endif
 `endif
 
 endmodule

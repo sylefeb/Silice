@@ -26,9 +26,9 @@ module top(
     output sdram_we,
     output sdram_cas,
     output sdram_ras,
-    output [1:0] sdram_ba,
+    output [1:0]  sdram_ba,
     output [12:0] sdram_a,
-    inout [7:0] sdram_dq,
+    inout [7:0]   sdram_dq,
     // HDMI
     output [3:0] gpdi_dp,
     output [3:0] gpdi_dn,
@@ -50,8 +50,6 @@ wire        __main_out_sdram_cas;
 wire        __main_out_sdram_ras;
 wire [1:0]  __main_out_sdram_ba;
 wire [12:0] __main_out_sdram_a;
-wire [3:0]  __main_out_hdmi1_tmds;
-wire [3:0]  __main_out_hdmi1_tmdsb;
 
 wire run_main;
 assign run_main = 1'b1;
@@ -74,7 +72,7 @@ M_main __main(
 `endif  
 `ifdef HDMI
   .out_gpdi_dp  (__main_out_gpdi_dp),
-  .out_gpdi_dn  (__main_out_gpdi_dn),
+//  .out_gpdi_dn  (__main_out_gpdi_dn),
 `endif
   .clock(clk)
 );
@@ -108,8 +106,15 @@ assign sdram_a       = 12'bzzzzzzzzzzzz;
 `endif
   
 `ifdef HDMI
-assign gpdi_dp       = __main_out_gpdi_dp;
-assign gpdi_dn       = __main_out_gpdi_dn;
+// assign gpdi_dp       = __main_out_gpdi_dp;
+// assign gpdi_dn       = __main_out_gpdi_dn;
+
+OBUFDS gpdi_pairs[3:0](
+  .I (__main_out_gpdi_dp),
+  .O (gpdi_dp),
+  .OB(gpdi_dn)
+);
+
 `else
 assign gpdi_dp       = 4'bzzzz;
 assign gpdi_dn       = 4'bzzzz;

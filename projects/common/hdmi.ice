@@ -21,6 +21,10 @@ import('hdmi_clock.v')
 import('ddr.v')
 import('hdmi_ddr_crgb.v')
 
+$$if MOJO then
+append('mojo_clk_50_25_125.v')
+$$end
+
 // ----------------------------------------------------
 
 algorithm tmds_encoder(
@@ -133,7 +137,7 @@ algorithm hdmi(
   input   uint8  red,
   input   uint8  green,
   input   uint8  blue,
-)  {
+) <@pixel_clk> {
     
   uint10 cntx  = 0;
   uint9  cnty  = 0;
@@ -145,9 +149,11 @@ algorithm hdmi(
   uint2 null_ctrl  := 0;
 
   // pll for tmds
+  uint1  pixel_clk     = uninitialized;
   uint1  half_hdmi_clk = uninitialized;
   hdmi_clock pll(
-    clk           <: clock,         //  25 MHz
+    clk           <: clock,
+    pixel_clk     :> pixel_clk,     //  25 MHz
     half_hdmi_clk :> half_hdmi_clk, // 125 MHz (half 250MHz HDMI, double data rate output)
   );
 

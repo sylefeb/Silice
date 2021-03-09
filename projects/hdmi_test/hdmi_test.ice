@@ -5,7 +5,7 @@ $include('../common/hdmi.ice')
 
 // ----------------------------------------------------
 
-$$if not ULX3S then
+$$if not ULX3S and not MOJO then
 $$ -- error('this project has been only tested for the ULX3S, other boards will require some changes')
 $$end
 
@@ -15,8 +15,7 @@ algorithm main(
   // video
   output uint4  gpdi_dp,
 //  output uint4  gpdi_dn,
-)
-{
+) {
 
   uint10 x      = 0; // (output) the active pixel x coordinate
   uint10 y      = 0; // (output) the active pixel y coordinate

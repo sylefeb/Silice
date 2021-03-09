@@ -172,7 +172,7 @@
     ],
     "hdmi": [
       {
-        "name": "gpdi_dq",
+        "name": "gpdi_dp",
         "type": "uint1",
         "io": "output"
       },
