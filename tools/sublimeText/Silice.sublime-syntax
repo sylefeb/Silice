@@ -1,15 +1,15 @@
 %YAML 1.2
 ---
 name: Silice
-file_extensions: [ice]
-scope: embedding.php
+file_extensions: [ice, lpp]
+scope: source.c
 
 contexts:
   main:
     - include: comments
     - include: strings
-    - include: scoped
     - include: algorithm
+    - include: interface
 
     - match: (\$\$if|\$\$else|\$\$for|\$\$while|\$\$end)\b|\b(do)\b|\$
       scope: variable.function.c
@@ -18,24 +18,47 @@ contexts:
       scope: keyword.control.c
 
     - match: \+\+\:|\b(input|output)\b|<-
-      scope: variable.language.php
+      scope: variable.language.c
 
     - match: '//'
-      scope: comment.php
+      scope: comment.example-c
 
 
     - match: \/\/[^\n\r]+?(?:\*\)|[\n\r])
       scope: comment.example-c 
 
-    - match: \+|\-|\*|\/|==|<|<=|>|>=|!=|\|\||\&\&|\|
-      scope: keyword.operator.php 
+    - match: \+|\-|\*|\/|==|<|<=|>|>=|!=|\|\||\&\&|\||\=
+      scope: keyword.control.example-c 
+    
+    - match: ":=" 
+      scope: keyword.control.example-c
+
 
     - match: \b([0-9]*)\b
       scope: constant.numeric.example-c 
 
     - match: \b(uint([0-9]*)|int([0-9]*))\b
       scope: entity.name.type.example-c
-    
+
+  interface:
+    - match: interface
+      scope: keyword.control.php
+      push : 
+        ## algorithm signature
+        
+        - match: \b([^\{]*)
+          scope: entity.name.type.example-c
+        - match: \{ 
+          push:
+            - match: \b(input|output)\b
+              scope: variable.language.c
+            - match : \}
+              pop: true
+        - match: '\n'
+          pop: true
+
+        - match: '\{'
+          pop: true
 
   algorithm:
     - match: algorithm
@@ -53,6 +76,8 @@ contexts:
               scope: variable.language.c
             - match : \)
               pop: true
+        - match: '\n'
+          pop: true
 
         - match: '\{'
           pop: true
