@@ -4,6 +4,7 @@
 
 module ddr(
         input        clock,
+        input        clock_n,
         input  [1:0] twice,
         output       out_pin
     );
@@ -17,8 +18,8 @@ ODDR2 #(
 ) mddr (
     .D0(twice[0]),
     .D1(twice[1]),
-    .Q(out_pin),
-    .C0( clock),
+    .Q (out_pin),
+    .C0(clock),
     .C1(~clock),
     .CE(1),
     .S(0),

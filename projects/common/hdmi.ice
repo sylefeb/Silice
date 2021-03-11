@@ -21,10 +21,6 @@ import('hdmi_clock.v')
 import('ddr.v')
 import('hdmi_ddr_crgb.v')
 
-$$if MOJO then
-append('mojo_clk_50_25_125.v')
-$$end
-
 // ----------------------------------------------------
 
 algorithm tmds_encoder(
@@ -133,11 +129,13 @@ algorithm hdmi(
   output  uint10 y,
   output  uint1  active,
   output  uint1  vblank,
-  output! uint4  gpdi_dp,
+  output! uint4  gpdi_dp,  
   input   uint8  red,
   input   uint8  green,
   input   uint8  blue,
-) <@pixel_clk> {
+  input   uint1  half_hdmi_clk,
+  input   uint1  half_hdmi_clk_n,
+) /*<@pixel_clk>*/ {
     
   uint10 cntx  = 0;
   uint9  cnty  = 0;
@@ -149,13 +147,14 @@ algorithm hdmi(
   uint2 null_ctrl  := 0;
 
   // pll for tmds
-  uint1  pixel_clk     = uninitialized;
-  uint1  half_hdmi_clk = uninitialized;
-  hdmi_clock pll(
-    clk           <: clock,
-    pixel_clk     :> pixel_clk,     //  25 MHz
-    half_hdmi_clk :> half_hdmi_clk, // 125 MHz (half 250MHz HDMI, double data rate output)
-  );
+  
+  //uint1  pixel_clk     = uninitialized;
+  //uint1  half_hdmi_clk = uninitialized;
+  //hdmi_clock pll(
+  //  clk           <: clock,
+  //  pixel_clk     :> pixel_clk,     //  25 MHz
+  //  half_hdmi_clk :> half_hdmi_clk, // 125 MHz (half 250MHz HDMI, double data rate output)
+  //);
 
   uint10 tmds_red       = uninitialized;
   uint10 tmds_green     = uninitialized;
@@ -191,14 +190,15 @@ algorithm hdmi(
   // shifter
   uint8 crgb_pos = 0;
   hdmi_ddr_shifter shift<@half_hdmi_clk>(
-    data_r  <: tmds_red,
-    data_g  <: tmds_green,
-    data_b  <: tmds_blue,
+    data_r    <: tmds_red,
+    data_g    <: tmds_green,
+    data_b    <: tmds_blue,
     p_outbits :> crgb_pos
   );
 
   hdmi_ddr_crgb hdmi_out( 
     clock      <: half_hdmi_clk,
+    clock_n    <: half_hdmi_clk_n,
     crgb_twice <: crgb_pos, 
     out_pin    :> gpdi_dp
   );

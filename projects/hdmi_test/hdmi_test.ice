@@ -3,6 +3,12 @@
 // HDMI driver
 $include('../common/hdmi.ice')
 
+$$if MOJO then
+import('mojo_clk_25_125_125n.v')
+$$end
+
+$include('clean_reset.ice')
+
 // ----------------------------------------------------
 
 $$if not ULX3S and not MOJO then
@@ -15,7 +21,17 @@ algorithm main(
   // video
   output uint4  gpdi_dp,
 //  output uint4  gpdi_dn,
-) {
+) <@pixel_clk> {
+
+uint1  pixel_clk       = uninitialized;
+uint1  half_hdmi_clk   = uninitialized;
+uint1  half_hdmi_clk_n = uninitialized;
+mojo_clk_25_125_125n mclk(
+  CLK_IN1  <: clock,
+  CLK_OUT1 :> pixel_clk,
+  CLK_OUT2 :> half_hdmi_clk,
+  CLK_OUT3 :> half_hdmi_clk_n
+);
 
   uint10 x      = 0; // (output) the active pixel x coordinate
   uint10 y      = 0; // (output) the active pixel y coordinate
@@ -25,7 +41,7 @@ algorithm main(
   uint8  g      = 0; // (input) the green value of the active pixel
   uint8  b      = 0; // (input) the blue value of the active pixel
   
-  hdmi video(
+  hdmi video<@pixel_clk>(
     x       :> x,
     y       :> y,
     active  :> active,
@@ -34,7 +50,9 @@ algorithm main(
 //    gpdi_dn :> gpdi_dn,
     red     <: r,
     green   <: g,
-    blue    <: b
+    blue    <: b,
+    half_hdmi_clk   <: half_hdmi_clk,
+    half_hdmi_clk_n <: half_hdmi_clk_n
   );
   
 $$if SIMULATION then
@@ -49,6 +67,8 @@ $$else
   while (1) { 
 $$end
   
+    leds = x;
+
     if (active) {
       r = x;
       g = y;

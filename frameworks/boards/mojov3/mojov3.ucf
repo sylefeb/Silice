@@ -62,11 +62,11 @@ NET "sdram_dq<5>" LOC = P35 | IOSTANDARD = LVTTL | SLEW = FAST;
 NET "sdram_dq<6>" LOC = P40 | IOSTANDARD = LVTTL | SLEW = FAST;
 NET "sdram_dq<7>" LOC = P41 | IOSTANDARD = LVTTL | SLEW = FAST;
 
-NET "gpdi_dp(3)"  LOC = "P144" |IOSTANDARD = TMDS_33 | CLOCK_DEDICATED_ROUTE = FALSE ; # Clock	
-NET "gpdi_dn(3)"  LOC = "P143" |IOSTANDARD = TMDS_33 | CLOCK_DEDICATED_ROUTE = FALSE ;
-NET "gpdi_dp(2)"  LOC = "P138" |IOSTANDARD = TMDS_33 ; # Red 	
-NET "gpdi_dn(2)"  LOC = "P137" |IOSTANDARD = TMDS_33 ;
-NET "gpdi_dp(1)"  LOC = "P140" |IOSTANDARD = TMDS_33 ; # Green	
-NET "gpdi_dn(1)"  LOC = "P139" |IOSTANDARD = TMDS_33 ;
-NET "gpdi_dp(0)"  LOC = "P142" |IOSTANDARD = TMDS_33 ; # Blue
-NET "gpdi_dn(0)"  LOC = "P141" |IOSTANDARD = TMDS_33 ;
+NET "gpdi_dp(3)"  LOC = "P144" |IOSTANDARD = TMDS_33 | SLEW = FAST | CLOCK_DEDICATED_ROUTE = FALSE ; # Clock	
+NET "gpdi_dn(3)"  LOC = "P143" |IOSTANDARD = TMDS_33 | SLEW = FAST | CLOCK_DEDICATED_ROUTE = FALSE ;
+NET "gpdi_dp(2)"  LOC = "P138" |IOSTANDARD = TMDS_33 | SLEW = FAST ; # Red 	
+NET "gpdi_dn(2)"  LOC = "P137" |IOSTANDARD = TMDS_33 | SLEW = FAST ;
+NET "gpdi_dp(1)"  LOC = "P140" |IOSTANDARD = TMDS_33 | SLEW = FAST ; # Green	
+NET "gpdi_dn(1)"  LOC = "P139" |IOSTANDARD = TMDS_33 | SLEW = FAST ;
+NET "gpdi_dp(0)"  LOC = "P142" |IOSTANDARD = TMDS_33 | SLEW = FAST ; # Blue
+NET "gpdi_dn(0)"  LOC = "P141" |IOSTANDARD = TMDS_33 | SLEW = FAST ;

@@ -6,12 +6,6 @@ module hdmi_clock (
 
 `ifdef MOJO
 
-mojo_clk_50_25_125 mclk(
-  .CLK_IN1(clk),
-  .CLK_OUT1(pixel_clk),
-  .CLK_OUT2(half_hdmi_clk)
-);
-
 `else
 
 `ifdef DE10NANO

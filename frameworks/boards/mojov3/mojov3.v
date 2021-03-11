@@ -54,6 +54,8 @@ wire [12:0] __main_out_sdram_a;
 wire run_main;
 assign run_main = 1'b1;
 
+wire [3:0] __main_out_gpdi_dp;
+
 M_main __main(
   .reset(~rst_n),
   .in_run(run_main),
@@ -108,11 +110,35 @@ assign sdram_a       = 12'bzzzzzzzzzzzz;
 `ifdef HDMI
 // assign gpdi_dp       = __main_out_gpdi_dp;
 // assign gpdi_dn       = __main_out_gpdi_dn;
-
+/*
 OBUFDS gpdi_pairs[3:0](
   .I (__main_out_gpdi_dp),
   .O (gpdi_dp),
   .OB(gpdi_dn)
+);
+*/
+OBUFDS gpdi_pairs_0(
+  .I (__main_out_gpdi_dp[0]),
+  .O (gpdi_dp[0]),
+  .OB(gpdi_dn[0])
+);
+
+OBUFDS gpdi_pairs_1(
+  .I (__main_out_gpdi_dp[1]),
+  .O (gpdi_dp[1]),
+  .OB(gpdi_dn[1])
+);
+
+OBUFDS gpdi_pairs_2(
+  .I (__main_out_gpdi_dp[2]),
+  .O (gpdi_dp[2]),
+  .OB(gpdi_dn[2])
+);
+
+OBUFDS gpdi_pairs_3(
+  .I (__main_out_gpdi_dp[3]),
+  .O (gpdi_dp[3]),
+  .OB(gpdi_dn[3])
 );
 
 `else
