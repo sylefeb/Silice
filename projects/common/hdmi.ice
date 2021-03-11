@@ -21,6 +21,8 @@ import('hdmi_clock.v')
 import('ddr.v')
 import('hdmi_ddr_crgb.v')
 
+$include('clean_reset.ice')
+
 // ----------------------------------------------------
 
 algorithm tmds_encoder(
@@ -133,7 +135,7 @@ algorithm hdmi(
   input   uint8  red,
   input   uint8  green,
   input   uint8  blue,
-) <@pixel_clk> {
+) <@pixel_clk,!rst> {
     
   uint10 cntx  = 0;
   uint9  cnty  = 0;
@@ -144,8 +146,12 @@ algorithm hdmi(
   uint2 sync_ctrl   = uninitialized;
   uint2 null_ctrl  := 0;
 
-  // pll for tmds
-  
+  uint1  rst  = uninitialized;
+  clean_reset cr<@pixel_clk,!reset>(
+    out :> rst
+  );
+
+  // pll for tmds  
   uint1  pixel_clk     = uninitialized;
   uint1  half_hdmi_clk = uninitialized;
   hdmi_clock pll(
