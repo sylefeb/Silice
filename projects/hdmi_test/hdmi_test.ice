@@ -4,7 +4,7 @@
 $include('../common/hdmi.ice')
 
 $$if MOJO then
-import('mojo_clk_25_125_125n.v')
+import('mojo_clk_50_25_125_125n.v')
 $$end
 
 $include('clean_reset.ice')
@@ -21,16 +21,21 @@ algorithm main(
   // video
   output uint4  gpdi_dp,
 //  output uint4  gpdi_dn,
-) <@pixel_clk> {
+) <@pixel_clk,!rst> {
 
 uint1  pixel_clk       = uninitialized;
 uint1  half_hdmi_clk   = uninitialized;
 uint1  half_hdmi_clk_n = uninitialized;
-mojo_clk_25_125_125n mclk(
+mojo_clk_50_25_125_125n mclk(
   CLK_IN1  <: clock,
-  CLK_OUT1 :> pixel_clk,
-  CLK_OUT2 :> half_hdmi_clk,
-  CLK_OUT3 :> half_hdmi_clk_n
+  CLK_OUT2 :> pixel_clk,
+  CLK_OUT3 :> half_hdmi_clk,
+  CLK_OUT4 :> half_hdmi_clk_n,
+  RESET    <: reset,
+);
+uint1  rst  = uninitialized;
+clean_reset cr<@pixel_clk,!reset>(
+  out :> rst
 );
 
   uint10 x      = 0; // (output) the active pixel x coordinate
