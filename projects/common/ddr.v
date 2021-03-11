@@ -4,7 +4,6 @@
 
 module ddr(
         input        clock,
-        input        clock_n,
         input  [1:0] twice,
         output       out_pin
     );

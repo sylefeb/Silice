@@ -7,8 +7,6 @@ $$if MOJO then
 import('mojo_clk_50_25_125_125n.v')
 $$end
 
-$include('clean_reset.ice')
-
 // ----------------------------------------------------
 
 $$if not ULX3S and not MOJO then
@@ -21,22 +19,7 @@ algorithm main(
   // video
   output uint4  gpdi_dp,
 //  output uint4  gpdi_dn,
-) <@pixel_clk,!rst> {
-
-uint1  pixel_clk       = uninitialized;
-uint1  half_hdmi_clk   = uninitialized;
-uint1  half_hdmi_clk_n = uninitialized;
-mojo_clk_50_25_125_125n mclk(
-  CLK_IN1  <: clock,
-  CLK_OUT2 :> pixel_clk,
-  CLK_OUT3 :> half_hdmi_clk,
-  CLK_OUT4 :> half_hdmi_clk_n,
-  RESET    <: reset,
-);
-uint1  rst  = uninitialized;
-clean_reset cr<@pixel_clk,!reset>(
-  out :> rst
-);
+) {
 
   uint10 x      = 0; // (output) the active pixel x coordinate
   uint10 y      = 0; // (output) the active pixel y coordinate
@@ -46,7 +29,7 @@ clean_reset cr<@pixel_clk,!reset>(
   uint8  g      = 0; // (input) the green value of the active pixel
   uint8  b      = 0; // (input) the blue value of the active pixel
   
-  hdmi video<@pixel_clk>(
+  hdmi video(
     x       :> x,
     y       :> y,
     active  :> active,
@@ -55,9 +38,7 @@ clean_reset cr<@pixel_clk,!reset>(
 //    gpdi_dn :> gpdi_dn,
     red     <: r,
     green   <: g,
-    blue    <: b,
-    half_hdmi_clk   <: half_hdmi_clk,
-    half_hdmi_clk_n <: half_hdmi_clk_n
+    blue    <: b
   );
   
 $$if SIMULATION then

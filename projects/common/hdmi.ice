@@ -133,9 +133,7 @@ algorithm hdmi(
   input   uint8  red,
   input   uint8  green,
   input   uint8  blue,
-  input   uint1  half_hdmi_clk,
-  input   uint1  half_hdmi_clk_n,
-) /*<@pixel_clk>*/ {
+) <@pixel_clk> {
     
   uint10 cntx  = 0;
   uint9  cnty  = 0;
@@ -148,13 +146,13 @@ algorithm hdmi(
 
   // pll for tmds
   
-  //uint1  pixel_clk     = uninitialized;
-  //uint1  half_hdmi_clk = uninitialized;
-  //hdmi_clock pll(
-  //  clk           <: clock,
-  //  pixel_clk     :> pixel_clk,     //  25 MHz
-  //  half_hdmi_clk :> half_hdmi_clk, // 125 MHz (half 250MHz HDMI, double data rate output)
-  //);
+  uint1  pixel_clk     = uninitialized;
+  uint1  half_hdmi_clk = uninitialized;
+  hdmi_clock pll(
+    clk           <: clock,
+    pixel_clk     :> pixel_clk,     //  25 MHz
+    half_hdmi_clk :> half_hdmi_clk, // 125 MHz (half 250MHz HDMI, double data rate output)
+  );
 
   uint10 tmds_red       = uninitialized;
   uint10 tmds_green     = uninitialized;
@@ -198,7 +196,6 @@ algorithm hdmi(
 
   hdmi_ddr_crgb hdmi_out( 
     clock      <: half_hdmi_clk,
-    clock_n    <: half_hdmi_clk_n,
     crgb_twice <: crgb_pos, 
     out_pin    :> gpdi_dp
   );
