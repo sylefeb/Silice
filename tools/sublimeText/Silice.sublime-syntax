@@ -74,6 +74,10 @@ contexts:
               scope: entity.name.type.example-c
             - match: \b(input|output)\b
               scope: variable.language.c
+            - match: \+|\-|\*|\/
+              scope: keyword.control.example-c 
+            - match: (\$)
+              scope: variable.function.c
             - match : \)
               pop: true
         - match: '\n'
