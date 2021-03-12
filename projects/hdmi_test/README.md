@@ -7,8 +7,7 @@ The example outputs an on-screen pattern through a 640x480 HDMI signal, with a p
 
 To try it, open a command line in this directory and type `make ulx3s`.
 
-**Note:** This project was primarily designed for the ULX3S board ; it is possible to adapt it for other boards but will require to replace
-ECP5/Lattice specific primitives in [ddr.v](../common/ddr.v) and update the PLL / clock in [hdmi_clock.v](../common/hdmi_clock.v).
+**Note:** This project was primarily designed for the ULX3S and MojoV3 boards ; it is possible to adapt it for other boards but will require to replace vendor specific primitives in [ddr.v](../common/ddr.v) and update the PLL / clock in [hdmi_clock.v](../common/hdmi_clock.v).
 
 <p align="center">
   <img width="600" src="hdmi_test.jpg">
@@ -45,7 +44,9 @@ From this point on, the variables are bound to the HDMI controller and directly 
 ```
 
 The controller forms the HDMI signal, which is output on the pins `gpdi_dp` and `gpdi_dn`. The HDMI protocol uses a 4 bits signal (RGBC: red, green, blue, pixel clock), but this signal is sent to the screen through two sets of pins (for a total of eight pins): four positive and four negative. The corresponding positive and negative bits form pairs, called *differential pairs*. This is done to strongly improve the signal quality and integrity. Thus, `gpdi_dp` encodes the signals on four bits and `gpdi_dn` are their negated counterpart: `gpdi_dn = ~gpdi_dp`.
-However, you might have noticed that `gpdi_dn` are not in the design! Why? It turns out there is a way to configure the pins so that the differential pair (and its negative side in particular) is done automatically. This is configured in the (pin configuration file)[../../frameworks/boards/ulx3s/ulx3s.lpf], in the case of the ULX3S asking for a `LVCMOS33D` pin type.
+However, you might have noticed that `gpdi_dn` are not in the design! Why? 
+On the ULX3S (ECP5) it turns out there is a way to configure the pins so that the differential pair (and its negative side in particular) is done automatically. This is configured in the [pin configuration file](../../frameworks/boards/ulx3s/ulx3s.lpf), asking for a `LVCMOS33D` pin type.
+On the MojoV3 (Spartan6) this is done from the [Verilog glue](https://github.com/sylefeb/Silice/blob/f8f5581587c6a5c7f91214739b85783db973a765/frameworks/boards/mojov3/mojov3.v#L120) in the board framework, instantiating OBUFDS primitives which are wired to a [TMDS pin](https://github.com/sylefeb/Silice/blob/f8f5581587c6a5c7f91214739b85783db973a765/frameworks/boards/mojov3/mojov3.ucf#L67).
 
 Now we are ready to draw on screen! We enter an infinite loop, that computes `r`,`g`,`b` from `x`,`y`. If you have done GPU shaders in the past, this is very similar to a pixel shader in concept.
 
@@ -118,7 +119,7 @@ Where `tmds_red`, `tmds_green` and `tmds_blue` are each 10 bits output by three 
   );
 ```
 
-Note how `crgb_pos` and `crgb_neg` are both 8 bits. Each encode the (respectively) positive and negative side of the RGBC differential pairs for **two** cycles of a 250 MHz clock. The [`hdmi_differential_pairs.v`](../common/hdmi_differential_pairs.v) module (in Verilog) takes care of instantiating the four specialized DDR output cells, defined in [`differential_pair.v`](../common/differential_pair.v), that output the four differential pairs at twice the 125 MHz clock. For the ULX3S, the specialized DDR cell is called `ODDRX1F`.
+Note how `crgb_pos` and `crgb_neg` are both 8 bits. Each encode the (respectively) positive and negative side of the RGBC differential pairs for **two** cycles of a 250 MHz clock. The [`hdmi_ddr_crgb.v`](../common/hdmi_ddr_crgb.v) module (in Verilog) takes care of instantiating the four specialized DDR output cells, defined in [`ddr.v`](../common/ddr.v), that output the four signals at twice the 125 MHz clock. For the ULX3S, the specialized DDR cell is called `ODDRX1F`.
 
 Finally, the `always` block<sup>[1](#footnote1)</sup> of the `hdmi` algorithm updates the various internal states: 
 - The internal pixel coordinates counters `cntx`,`cnty`.
