@@ -33,6 +33,8 @@ int main(int argc,char **argv)
 
   Vtop    *vga_test = new Vtop();
 
+  char foo[1<<18];
+
   vga_test->clk = 0;
 
   // we need to step simulation until we get the parameters

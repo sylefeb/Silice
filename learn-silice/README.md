@@ -1,5 +1,7 @@
 # Learn FPGA programming with Silice
 
+This page covers introduction topics. For more advanced topics please checkout the [advanced topics](Advanced.md) page as well as the [efficient design guidelines](Guidelines.md).
+
 ## What do you need?
 
 This series of tutorials works with any of the following boards: IceStick, IceBreaker, ULX3S. (*Note:* and on many other boards with minimal changes). 
@@ -13,9 +15,9 @@ The first parts of the tutorial require only the boards, while the second part e
 We will cover the following topics, each introducing new concepts of Silice:
 - (*coming soon*) blinking LEDs (the *Hello world* of FPGA)
 - (*coming soon*) UART communication
-- (*Coming soon*) OLED screens
-- (*Coming soon*) matrix LED panel
-- (*Coming soon*) VGA
+- (*coming soon*) OLED screens
+- (*coming soon*) matrix LED panel
+- (*coming soon*) VGA
 
 [Let's start!](blinky/README.md)
 
