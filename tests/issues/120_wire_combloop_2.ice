@@ -1,3 +1,4 @@
+
 algorithm foo(input uint8 pcpo,output! uint8 newPc)
 {
   always {
@@ -17,12 +18,11 @@ algorithm main(output uint8 leds)
 
   foo f(pcpo <: pcPlusOne);
 
-  
   while (iter < 16) {
   
-    // nextPc = pcPlusOne;
-    nextPc = f.newPc;
-    pc     = nextPc; // iter[1,1] ? nextPc : pc;
+    //nextPc = pcPlusOne; // detected
+    nextPc = f.newPc; // missed
+    pc     = nextPc;
     iter   = iter + 1;
     
   }

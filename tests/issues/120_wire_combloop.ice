@@ -1,5 +1,6 @@
 
-algorithm foo(input uint8 pcpo,output uint8 newPc)
+algorithm foo(input   uint8 pcpo,
+              output! uint8 newPc)
 {
   always {
     newPc = pcpo;

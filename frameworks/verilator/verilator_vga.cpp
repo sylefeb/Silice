@@ -31,7 +31,7 @@ int main(int argc,char **argv)
 {
   // Verilated::commandArgs(argc,argv);
 
-  Vtop    *vga_test = new Vtop();
+  Vtop    *vga_test = new Vtop("");
 
   char foo[1<<18];
 

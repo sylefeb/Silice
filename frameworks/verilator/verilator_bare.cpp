@@ -23,7 +23,7 @@ int main(int argc,char **argv)
 
   // Verilated::commandArgs(argc,argv);
 
-  Vtop    *bare_test = new Vtop();
+  Vtop    *bare_test = new Vtop("");
 
   while (!Verilated::gotFinish()) {
 
