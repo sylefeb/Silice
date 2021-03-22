@@ -1749,7 +1749,7 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
     }
     t_combinational_block *block = addBlock(name, _current, nullptr, (int)ilist->state()->getStart()->getLine());
     block->is_state     = true;    // block explicitely required to be a state (may become a sub-state)
-    block->could_be_sub = false;   // TODO command line option // no_skip; // could become a sub-state
+    block->could_be_sub = false;   /// TODO command line option // no_skip; // could become a sub-state
     block->no_skip      = no_skip;
     _current->next(block);
     return block;
@@ -1861,8 +1861,7 @@ int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decll
 // -------------------------------------------------
 
 bool Algorithm::isIdentifierAvailable(std::string name) const
-{
-  
+{  
   if (m_Subroutines.count(name) > 0) {
     return false;
   }
@@ -1889,7 +1888,7 @@ bool Algorithm::isIdentifierAvailable(std::string name) const
 
 // -------------------------------------------------
 
-// TODO: group as parameter?
+/// TODO: group as parameter?
 Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context)
 {
   if (_current->context.subroutine != nullptr) {
@@ -2156,7 +2155,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
         }
       }
       if ( last_write == -1 // not written in stages before, have to assume it is before pipeline
-                            // TODO: this ignores the case of a read masked by a write before in same stage (temp)
+                            /// TODO: this ignores the case of a read masked by a write before in same stage (temp)
         || read_stage - last_write > 1) {
         trickling = true;
       }
@@ -3323,7 +3322,7 @@ int Algorithm::maxState() const
 
 int Algorithm::entryState() const
 {
-  // TODO: fastforward, but not so simple, can lead to trouble with var inits, 
+  /// TODO: fastforward, but not so simple, can lead to trouble with var inits, 
   // for instance if the entry state becomes the first in a loop
   // fastForward(m_Blocks.front())->state_id 
   return 0;
@@ -3531,7 +3530,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   }
 
   /// DEBUG
-  if (0) {
+  if (1) {
     std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << nxl;
     for (auto w : _depds.dependencies) {
       std::cerr << "var " << w.first << " depds on ";
@@ -3576,7 +3575,9 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
         }
       }
     }
+
     // now check for combinational cycles through algorithm bindings
+    /// NOTE: this only works if binding exists, too limited! (algorithm in/out can be read in expressions with dot syntax)
     for (const auto& alg : m_InstancedAlgorithms) {      
       // gather bindings potentially creating comb. cycles
       unordered_set<string> i_bounds,o_bounds;
@@ -3598,10 +3599,11 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
         }
       }
       // now check
-      for (const auto& i : i_bounds) {
+      for (const auto &i : i_bounds) {
         if (_depds.dependencies.count(i) > 0) { // input is being written
+                                                /// NOTE: should be anything that modifies the input is being written, not only the input directly
           // depends on a combinational output?
-          for (const auto& o : o_bounds) {
+          for (const auto &o : o_bounds) {
             if (_depds.dependencies.at(i).count(o) > 0) {
               // cycle!
               reportError(
@@ -4931,7 +4933,7 @@ t_type_nfo Algorithm::determineBitfieldAccessTypeAndWidth(const t_combinational_
   // get member
   verifyMemberBitfield(bfaccess->member->getText(), F->second, (int)bfaccess->getStart()->getLine());
   pair<t_type_nfo, int> ow = bitfieldMemberTypeAndOffset(F->second, bfaccess->member->getText());
-  if (packed.base_type != Parameterized) { // TODO: linter after generics are resolved
+  if (packed.base_type != Parameterized) { /// TODO: linter after generics are resolved
     if (ow.first.width + ow.second > packed.width) {
       reportError(bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine(), "bitfield access '%s.%s' is out of bounds", bfaccess->field->getText().c_str(), bfaccess->member->getText().c_str());
     }
@@ -5228,7 +5230,7 @@ void Algorithm::writeTableAccess(
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   suffix = "[" + rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) + "]" + suffix;
-  // TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
+  /// TODO: if the expression can be evaluated at compile time, we could check for access validity using table_size
   if (tblaccess->ioAccess() != nullptr) {
     auto tws = writeIOAccess(prefix, out, assigning, tblaccess->ioAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
     if (get<1>(tws) == 0) {
@@ -5285,7 +5287,7 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
   int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
-  // TODO: check access validity
+  /// TODO: check access validity
   std::string suffix = "[" + rewriteExpression(prefix, bitaccess->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) + "+:" + gatherConstValue(bitaccess->num) + "]";
   if (bitaccess->ioAccess() != nullptr) {
     writeIOAccess(prefix, out, assigning, bitaccess->ioAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);

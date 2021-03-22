@@ -14,16 +14,17 @@ algorithm main(output uint8 leds)
   
   uint8 iter(0);
 
-  uint8 pcPlusOne := pc + 1;
+  uint8 pcPlusOne(0);
 
-  foo f(pcpo <: pcPlusOne);
+  foo f(pcpo  <: pcPlusOne,
+        newPc :> nextPc // missed
+  );
 
-  while (iter < 16) {
-  
-    //nextPc = pcPlusOne; // detected
-    nextPc = f.newPc; // missed
-    pc     = nextPc;
-    iter   = iter + 1;
+  while (iter < 16) {  
+    pc        = pc + 1;
+    pcPlusOne = pc + 1;
+    pc        = nextPc;
+    iter      = iter + 1;
     
   }
 }
