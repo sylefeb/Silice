@@ -1,0 +1,116 @@
+%YAML 1.2
+---
+name: Silice
+file_extensions: [ice, lpp]
+scope: source.c
+
+contexts:
+  main:
+    - include: comments
+    - include: strings
+    - include: algorithm
+    - include: interface
+
+    - match: (\$\$if|\$\$else|\$\$for|\$\$while|\$\$end)\b|\b(do)\b|\$
+      scope: variable.function.c
+
+    - match: \b(if|else|for|while|algorithm)\b
+      scope: keyword.control.c
+
+    - match: \+\+\:|\b(input|output)\b|<-
+      scope: variable.language.c
+
+    - match: '//'
+      scope: comment.example-c
+
+
+    - match: \/\/[^\n\r]+?(?:\*\)|[\n\r])
+      scope: comment.example-c 
+
+    - match: \+|\-|\*|\/|==|<|<=|>|>=|!=|\|\||\&\&|\||\=
+      scope: keyword.control.example-c 
+    
+    - match: ":=" 
+      scope: keyword.control.example-c
+
+
+    - match: \b([0-9]*)\b
+      scope: constant.numeric.example-c 
+
+    - match: \b(uint([0-9]*)|int([0-9]*))\b
+      scope: entity.name.type.example-c
+
+  interface:
+    - match: interface
+      scope: keyword.control.php
+      push : 
+        ## algorithm signature
+        
+        - match: \b([^\{]*)
+          scope: entity.name.type.example-c
+        - match: \{ 
+          push:
+            - match: \b(input|output)\b
+              scope: variable.language.c
+            - match : \}
+              pop: true
+        - match: '\n'
+          pop: true
+
+        - match: '\{'
+          pop: true
+
+  algorithm:
+    - match: algorithm
+      scope: keyword.control.php
+      push : 
+        ## algorithm signature
+        
+        - match: \b([^\(]*)
+          scope: variable.function.c
+        - match: \( 
+          push:
+            - match: \b(uint([0-9]*)|int([0-9]*))\b
+              scope: entity.name.type.example-c
+            - match: \b(input|output)\b
+              scope: variable.language.c
+            - match: \+|\-|\*|\/
+              scope: keyword.control.example-c 
+            - match: (\$)
+              scope: variable.function.c
+            - match : \)
+              pop: true
+        - match: '\n'
+          pop: true
+
+        - match: '\{'
+          pop: true
+        
+
+  strings:
+    - match: '\"'
+      scope: punctuation.definition.comment.c
+      push: 
+        - meta_scope: string.example-c
+        - match: '\"'
+          pop: true
+
+      
+  comments:
+    # Block comments begin with !* and ends with *!
+    - match: '/\*'
+      scope: punctuation.definition.comment.c
+      push: 
+        - meta_scope: comment.block.c
+        - match: '\*/'
+          pop: true
+    # Inline comments begin with a '!' and finish at the end of the line.
+    - match: '//[^\*]'
+      scope: punctuation.definition.comment.c
+      push:
+        # This is an anonymous context push for brevity.
+        - meta_scope: comment.line.double-slash.c
+        - match: $\n?
+          pop: true
+
+    
