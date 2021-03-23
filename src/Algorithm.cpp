@@ -662,7 +662,7 @@ void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current
 
 // -------------------------------------------------
 
-void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, int line)
+void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *, int line)
 {
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
@@ -3535,7 +3535,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
     unordered_set<string> i_bounds, o_bounds;
     for (const auto &b : alg.second.bindings) {
       if (b.dir == e_Left) { // NOTE: we ignore e_LeftQ as these cannot produce comb. cycles
-        // find right indentifier
+        // find right identifier
         std::string i_bound = bindingRightIdentifier(b);
         if (_depds.dependencies.count(i_bound) > 0) {
           i_bounds.insert(i_bound);
@@ -3548,6 +3548,12 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
             o_bounds.insert(o_bound);
           }
         }
+      }
+    }
+    // add all defaults combinational outputs (dot syntax)
+    for (const auto &o : alg.second.algo->m_Outputs) {
+      if (o.combinational) {
+        o_bounds.insert(alg.second.instance_prefix + "_" + o.name);
       }
     }
     // dependency closure: anything depending on the output also depends on the inputs, and their dependencies
@@ -3572,7 +3578,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   }
 
   /// DEBUG
-  if (1) {
+  if (0) {
     std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << nxl;
     for (auto w : _depds.dependencies) {
       std::cerr << "var " << w.first << " depds on ";
@@ -3892,8 +3898,7 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
   // find algorithm
   auto A = m_InstancedAlgorithms.find(base);
   if (A != m_InstancedAlgorithms.end()) {
-    ////////////////////////////////////////////////////////// /// FIXME FIXME
-    return ""; // no var accessed in this case
+    return A->second.instance_prefix + "_" + member;
   } else {
     auto G = m_VIOGroups.find(base);
     if (G != m_VIOGroups.end()) {
@@ -4632,6 +4637,13 @@ void Algorithm::resolveAlgorithmRefs(const std::unordered_map<std::string, AutoP
         nfo.second.instance_name.c_str());
     }
     nfo.second.algo = A->second;
+    // create vars for outputs, these are used with the 'dot' access syntax and allow access pattern analysis
+    for (const auto& o : nfo.second.algo->m_Outputs) {
+      t_var_nfo vnfo = o;
+      vnfo.name = nfo.second.instance_prefix + "_" + o.name;
+      addVar(vnfo, m_Blocks.front(), nullptr, -1);
+      m_VIOBoundToModAlgOutputs[vnfo.name] = WIRE + nfo.second.instance_prefix + "_" + o.name;
+    }
     // resolve any automatic directional bindings
     resolveInstancedAlgorithmBindingDirections(nfo.second);
     // perform autobind
