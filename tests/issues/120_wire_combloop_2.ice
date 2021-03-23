@@ -17,14 +17,15 @@ algorithm main(output uint8 leds)
   uint8 pcPlusOne(0);
 
   foo f(pcpo  <: pcPlusOne,
-        newPc :> nextPc // missed
+        newPc :> nextPc
   );
 
   while (iter < 16) {  
-    pc        = pc + 1;
-    pcPlusOne = pc + 1;
-    pc        = nextPc;
+  
+    pc        = pc + 1; // this makes pc depend on self so that next reads d_pc
+    pcPlusOne = pc + 1; // pcPlusOne depends on d_pc
+    pc        = nextPc; // nextPc depends on pcPlusOne which depends on d_pc -- missed!
     iter      = iter + 1;
-    
+
   }
 }

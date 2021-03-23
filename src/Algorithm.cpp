@@ -3529,6 +3529,48 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
     _depds.dependencies[w] = upstream;
   }
 
+  // -> transport dependencies through algorithm combinational outputs
+  for (const auto &alg : m_InstancedAlgorithms) {
+    // gather bindings potentially creating comb. cycles
+    unordered_set<string> i_bounds, o_bounds;
+    for (const auto &b : alg.second.bindings) {
+      if (b.dir == e_Left) { // NOTE: we ignore e_LeftQ as these cannot produce comb. cycles
+        // find right indentifier
+        std::string i_bound = bindingRightIdentifier(b);
+        if (_depds.dependencies.count(i_bound) > 0) {
+          i_bounds.insert(i_bound);
+        }
+      } else if (b.dir == e_Right) {
+        const auto &O = alg.second.algo->m_OutputNames.find(b.left);
+        if (O != alg.second.algo->m_OutputNames.end()) {
+          if (alg.second.algo->m_Outputs[O->second].combinational) { // combinational output only
+            std::string o_bound = bindingRightIdentifier(b);
+            o_bounds.insert(o_bound);
+          }
+        }
+      }
+    }
+    // dependency closure: anything depending on the output also depends on the inputs, and their dependencies
+    for (const auto &w : written) {
+      auto dw = _depds.dependencies.at(w); // copy
+      for (const auto &o : o_bounds) {
+        if (_depds.dependencies.at(w).count(o) > 0) {
+          // add all inputs as dependencies
+          dw.insert(i_bounds.begin(), i_bounds.end());
+          // as well as their own dependencies if written before
+          for (const auto &i : i_bounds) {
+            if (written_before.count(i) > 0) {
+              const auto &di = _depds.dependencies.at(i);
+              dw.insert(di.begin(), di.end());
+            }
+          }
+          break; // stop here since all are added anyway
+        }
+      }
+      _depds.dependencies.at(w) = dw;
+    }
+  }
+
   /// DEBUG
   if (1) {
     std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << nxl;
@@ -3575,7 +3617,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
         }
       }
     }
-
+#if 0
     // now check for combinational cycles through algorithm bindings
     /// NOTE: this only works if binding exists, too limited! (algorithm in/out can be read in expressions with dot syntax)
     for (const auto& alg : m_InstancedAlgorithms) {      
@@ -3616,6 +3658,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
         }
       }
     }
+#endif
   }
 }
 
@@ -3849,6 +3892,7 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
   // find algorithm
   auto A = m_InstancedAlgorithms.find(base);
   if (A != m_InstancedAlgorithms.end()) {
+    ////////////////////////////////////////////////////////// /// FIXME FIXME
     return ""; // no var accessed in this case
   } else {
     auto G = m_VIOGroups.find(base);
