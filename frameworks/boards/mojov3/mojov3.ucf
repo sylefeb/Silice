@@ -1,6 +1,8 @@
 NET "clk" TNM_NET = clk;
 TIMESPEC TS_clk = PERIOD "clk" 50 MHz HIGH 50%;
 
+CONFIG VCCAUX=3.3; 
+
 NET "clk" LOC = P56 | IOSTANDARD = LVTTL;
 NET "rst_n" LOC = P38 | IOSTANDARD = LVTTL;
 
@@ -62,11 +64,25 @@ NET "sdram_dq<5>" LOC = P35 | IOSTANDARD = LVTTL | SLEW = FAST;
 NET "sdram_dq<6>" LOC = P40 | IOSTANDARD = LVTTL | SLEW = FAST;
 NET "sdram_dq<7>" LOC = P41 | IOSTANDARD = LVTTL | SLEW = FAST;
 
-NET "gpdi_dp(3)"  LOC = "P144" |IOSTANDARD = TMDS_33 | SLEW = FAST | CLOCK_DEDICATED_ROUTE = FALSE ; # Clock	
-NET "gpdi_dn(3)"  LOC = "P143" |IOSTANDARD = TMDS_33 | SLEW = FAST | CLOCK_DEDICATED_ROUTE = FALSE ;
-NET "gpdi_dp(2)"  LOC = "P138" |IOSTANDARD = TMDS_33 | SLEW = FAST ; # Red 	
-NET "gpdi_dn(2)"  LOC = "P137" |IOSTANDARD = TMDS_33 | SLEW = FAST ;
-NET "gpdi_dp(1)"  LOC = "P140" |IOSTANDARD = TMDS_33 | SLEW = FAST ; # Green	
-NET "gpdi_dn(1)"  LOC = "P139" |IOSTANDARD = TMDS_33 | SLEW = FAST ;
-NET "gpdi_dp(0)"  LOC = "P142" |IOSTANDARD = TMDS_33 | SLEW = FAST ; # Blue
-NET "gpdi_dn(0)"  LOC = "P141" |IOSTANDARD = TMDS_33 | SLEW = FAST ;
+NET "gpdi_dp(3)"  LOC = "P144" | IOSTANDARD = TMDS_33 | SLEW = FAST | CLOCK_DEDICATED_ROUTE = FALSE ; # Clock	
+NET "gpdi_dn(3)"  LOC = "P143" | IOSTANDARD = TMDS_33 | SLEW = FAST | CLOCK_DEDICATED_ROUTE = FALSE ;
+NET "gpdi_dp(2)"  LOC = "P138" | IOSTANDARD = TMDS_33 | SLEW = FAST ; # Red 	
+NET "gpdi_dn(2)"  LOC = "P137" | IOSTANDARD = TMDS_33 | SLEW = FAST ;
+NET "gpdi_dp(1)"  LOC = "P140" | IOSTANDARD = TMDS_33 | SLEW = FAST ; # Green	
+NET "gpdi_dn(1)"  LOC = "P139" | IOSTANDARD = TMDS_33 | SLEW = FAST ;
+NET "gpdi_dp(0)"  LOC = "P142" | IOSTANDARD = TMDS_33 | SLEW = FAST ; # Blue
+NET "gpdi_dn(0)"  LOC = "P141" | IOSTANDARD = TMDS_33 | SLEW = FAST ;
+
+NET "gpdi_in_sda" LOC = P111 | IOSTANDARD = LVTTL;
+NET "gpdi_in_scl" LOC = P112 | IOSTANDARD = LVTTL;
+
+NET "gpdi_in_dp(3)" LOC = "P121" | IOSTANDARD = TMDS_33 | CLOCK_DEDICATED_ROUTE = FALSE ; # Clock  
+NET "gpdi_in_dn(3)" LOC = "P120" | IOSTANDARD = TMDS_33 | CLOCK_DEDICATED_ROUTE = FALSE ;
+NET "gpdi_in_dp(2)" LOC = "P115" | IOSTANDARD = TMDS_33 ; # Red  
+NET "gpdi_in_dn(2)" LOC = "P114" | IOSTANDARD = TMDS_33 ;
+NET "gpdi_in_dp(1)" LOC = "P117" | IOSTANDARD = TMDS_33 ; # Green  
+NET "gpdi_in_dn(1)" LOC = "P116" | IOSTANDARD = TMDS_33 ;
+NET "gpdi_in_dp(0)" LOC = "P119" | IOSTANDARD = TMDS_33 ; # Blue
+NET "gpdi_in_dn(0)" LOC = "P118" | IOSTANDARD = TMDS_33 ;
+
+NET "gpdi_in_dp(3)" PERIOD = 80 MHz HIGH 50%;

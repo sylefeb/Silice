@@ -6,7 +6,8 @@
       "framework" : "mojov3.v",
       "pins": [
         {"set"    : "basic"},
-        {"set"    : "hdmi",   "define" : "HDMI=1"}
+        {"set"    : "hdmi",   "define" : "HDMI=1"},
+        {"set"    : "hdmi_in",   "define" : "HDMI_IN=1"}
       ],
       "builders": [
       {
@@ -46,13 +47,35 @@
     "hdmi": [
       {
         "name": "gpdi_dp",
-        "type": "uint1",
+        "type": "uint4",
         "io": "output"
       },
       {
         "name": "gpdi_dn",
-        "type": "uint1",
+        "type": "uint4",
         "io": "output"
+      }
+    ],
+    "hdmi_in": [
+      {
+        "name": "gpdi_in_dp",
+        "type": "uint4",
+        "io": "input"
+      },
+      {
+        "name": "gpdi_in_dn",
+        "type": "uint4",
+        "io": "input"
+      },
+      {
+        "name": "gpdi_in_sda",
+        "type": "uint1",
+        "io": "inout"
+      },
+      {
+        "name": "gpdi_in_scl",
+        "type": "uint1",
+        "io": "input"
       }
     ]
   }
