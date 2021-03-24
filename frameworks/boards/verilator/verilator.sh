@@ -55,7 +55,7 @@ fi
 
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --top-module top
+verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top
 cd obj_dir
 $MAKE -f Vtop.mk
 $MAKE -f Vtop.mk $SILICE_DIR/../frameworks/verilator/$VERILATOR_LIB.o verilated.o 

@@ -3578,7 +3578,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   }
 
   /// DEBUG
-  if (0) {
+  if (1) {
     std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << nxl;
     for (auto w : _depds.dependencies) {
       std::cerr << "var " << w.first << " depds on ";
@@ -3589,7 +3589,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
     }
     std::cerr << nxl;
   }
-  
+#if 1
   // check if everything is legit
   // for each written variable
   for (const auto& w : written) {
@@ -3623,49 +3623,8 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
         }
       }
     }
-#if 0
-    // now check for combinational cycles through algorithm bindings
-    /// NOTE: this only works if binding exists, too limited! (algorithm in/out can be read in expressions with dot syntax)
-    for (const auto& alg : m_InstancedAlgorithms) {      
-      // gather bindings potentially creating comb. cycles
-      unordered_set<string> i_bounds,o_bounds;
-      for (const auto& b : alg.second.bindings) {        
-        if (b.dir == e_Left) { // NOTE: we ignore e_LeftQ as these cannot produce comb. cycles
-          // find right indentifier
-          std::string i_bound = bindingRightIdentifier(b);
-          if (_depds.dependencies.count(i_bound) > 0) {
-            i_bounds.insert(i_bound);
-          }
-        } else if (b.dir == e_Right) {
-          const auto& O = alg.second.algo->m_OutputNames.find(b.left);
-          if (O != alg.second.algo->m_OutputNames.end()) {
-            if (alg.second.algo->m_Outputs[O->second].combinational) {
-              std::string o_bound = bindingRightIdentifier(b);
-              o_bounds.insert(o_bound);
-            }
-          }
-        }
-      }
-      // now check
-      for (const auto &i : i_bounds) {
-        if (_depds.dependencies.count(i) > 0) { // input is being written
-                                                /// NOTE: should be anything that modifies the input is being written, not only the input directly
-          // depends on a combinational output?
-          for (const auto &o : o_bounds) {
-            if (_depds.dependencies.at(i).count(o) > 0) {
-              // cycle!
-              reportError(
-                dynamic_cast<antlr4::ParserRuleContext *>(instr)->getSourceInterval(),
-                (int)(dynamic_cast<antlr4::ParserRuleContext *>(instr)->getStart()->getLine()),
-                "assignement to algorithm input leads to a combinational cycle\n\n(input '%s' instance '%s' through output '%s')",
-                i.c_str(), alg.second.algo_name.c_str(), o.c_str());
-            }
-          }
-        }
-      }
-    }
-#endif
   }
+#endif
 }
 
 // -------------------------------------------------
@@ -4847,7 +4806,7 @@ void Algorithm::lint(const t_instantiation_context &ictx)
   // check bindings
   checkModulesBindings();
   checkAlgorithmsBindings(ictx);
-  // check expressions (lint)
+  // check expressions
   checkExpressions(ictx);
 }
 

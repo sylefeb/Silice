@@ -21,8 +21,6 @@ algorithm main(output uint8 leds)
 
   while (iter < 16) {
   
-//    nextPc = pcPlusOne;
-//++:
     nextPc = f.newPc;
     pc     = nextPc;
     iter   = iter + 1;
