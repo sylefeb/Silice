@@ -1,8 +1,9 @@
 -- include ASM code as a BROM
 
 if not path then
-  path,_1,_2 = string.match(findfile('make_sdcard.ice'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
-  print('PATH is ' .. path)
+  path,_1,_2 = string.match(findfile('Makefile'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+  print('********************* firmware written to     ' .. path .. '/data.img')
+  print('********************* compiled code read from ' .. path .. '/build/code*.hex')
 end
 
 data_hex = ''
@@ -101,10 +102,10 @@ out:close()
 print('sdcard image is ' .. init_data_bytes .. ' bytes.')
 
 
-local out = assert(io.open(path .. '/smoke/data.h', "wb"))
-out:write('unsigned char code[]={')
-out:write(c_hex)
-out:write('0x00};')
-out:close()
+--local out = assert(io.open(path .. '/smoke/data.h', "wb"))
+--out:write('unsigned char code[]={')
+--out:write(c_hex)
+--out:write('0x00};')
+--out:close()
 
 -- error('stop')

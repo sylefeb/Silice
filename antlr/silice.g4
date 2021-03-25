@@ -39,7 +39,7 @@ WRITE               : 'writes' ;
 READWRITE           : 'readwrites' ;
 CALLS               : 'calls' ;
 
-FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/')* '\'' ;
+FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/'|'-')* '\'' ;
 
 REPEATCNT           : NUMBER 'x' ;
 

@@ -3578,7 +3578,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   }
 
   /// DEBUG
-  if (1) {
+  if (0) {
     std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << nxl;
     for (auto w : _depds.dependencies) {
       std::cerr << "var " << w.first << " depds on ";
@@ -3589,6 +3589,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
     }
     std::cerr << nxl;
   }
+
 #if 1
   // check if everything is legit
   // for each written variable
@@ -4295,8 +4296,6 @@ void Algorithm::determineVariablesAndOutputsAccess(
   // determine variable access for always blocks
   determineVariablesAndOutputsAccess(&m_AlwaysPre);
   determineVariablesAndOutputsAccess(&m_AlwaysPost);
-  // determine variable access for wires
-  determineVariablesAndOutputsAccessForWires(_global_in_read, _global_out_written);
   // determine variable access due to algorithm and module instances
   // bindings are considered as belonging to the always pre block
   std::vector<t_binding_nfo> all_bindings;
@@ -4346,6 +4345,8 @@ void Algorithm::determineVariablesAndOutputsAccess(
       m_Vars[m_VarNames[ouv]].access = (e_Access)(m_Vars[m_VarNames[ouv]].access | e_WriteBinded);
     }
   }
+  // determine variable access for wires
+  determineVariablesAndOutputsAccessForWires(_global_in_read, _global_out_written);
   // merge all in_reads and out_written
   auto all_blocks = m_Blocks;
   all_blocks.push_front(&m_AlwaysPre);
@@ -5652,7 +5653,9 @@ void Algorithm::writeWireDeclarations(std::string prefix, std::ostream& out, con
   for (const auto& v : m_Vars) {
     if ((v.usage == e_Bound && v.access == e_ReadWriteBinded) || v.usage == e_Wire) {
       // skip if not used
-      if (v.access == e_NotAccessed) { continue; }
+      if (v.access == e_NotAccessed) {
+        continue; 
+      }
       if (v.table_size == 0) {
         writeVerilogDeclaration(out, ictx, "wire", v, string(WIRE) + prefix + v.name);
       } else {

@@ -1,8 +1,7 @@
 // SL 2020-12-02 @sylefeb
 //
 // Blaze --- VGA + GPU on the IceBreaker
-//  - runs solely in BRAM
-//  - access to LEDs and SPIFLASH
+//  - runs in BRAM + SPRAM
 //
 // Tested on: Verilator, IceBreaker
 //

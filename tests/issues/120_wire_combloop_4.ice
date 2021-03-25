@@ -12,13 +12,11 @@ algorithm main(output  uint8   leds)
     dstack.wenable1 := 1;
 
     while( iter < 16 ) {
-
-__write(".");
-
         instruction = 0;
         if( dstackWrite ) {
             dstack.wdata1 = 0;
         }
-iter = iter + 1;
+        iter = iter + 1;
     }
+    __write(".");
 }

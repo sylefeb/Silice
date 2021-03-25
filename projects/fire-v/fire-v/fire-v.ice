@@ -234,14 +234,14 @@ $$end
   uint1  do_load_store   = 0;
   uint1  start           = 1;
 
-  uint4  case_select   = uninitialized;
+  uint4  state   = uninitialized;
 
   // maintain ram in_valid low (pulses high when needed)
   ram.in_valid    := 0; 
   
   always {
   
-    case_select = {
+    state = {
                     refetch                         & (ram.done | start),
                    ~refetch         & do_load_store & ram.done, // performing load store, data available
                     wait_next_instr                 & ram.done,    // instruction avalable
@@ -249,12 +249,12 @@ $$end
                   };
 $$if SIMULATION then
     if (halt) {
-      case_select = 0;
+      state = 0;
     }
 $$end                  
   //} 
 
-//  __display("cycle %d case_select %d refetch %b wait_next_instr %b commit_decode %b",cycle,case_select,refetch,wait_next_instr,commit_decode);
+//  __display("cycle %d state %d refetch %b wait_next_instr %b commit_decode %b",cycle,state,refetch,wait_next_instr,commit_decode);
 
 $$if verbose then
     if (ram.done) {
@@ -262,12 +262,12 @@ $$if verbose then
     }
 $$end
 
-    switch (case_select) {
+    switch (state) {
 
       case 8: {
 $$if verbose then
       if (~reset) {
-        __display("----------- CASE 8: refetch ------------- (cycle %d)",cycle);
+        __display("----------- STATE 8: refetch ------------- (cycle %d)",cycle);
       }
       //__display("  [refetch] (cycle %d) @%h load_store %b",cycle,ram.addr,do_load_store);        
       //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_pc,next_pc+4);
@@ -291,7 +291,7 @@ $$end
         // cold start?
         next_pc           = start ? boot_at : next_pc;
         if (start & ~reset) {
-          __display("CPU RESET %d (@%h) start:%b",case_select,next_pc,start);
+          __display("CPU RESET %d (@%h) start:%b",state,next_pc,start);
         }        
         start             = reset;
 
@@ -307,7 +307,7 @@ $$end
     
       case 4: {
 $$if verbose then
-        __display("----------- CASE 4: load / store ------------- (cycle %d)",cycle);
+        __display("----------- STATE 4: load / store ------------- (cycle %d)",cycle);
         //__display("  [load store] (cycle %d) store %b",cycle,saved_store);
 $$end        
         do_load_store   = 0;
@@ -371,7 +371,7 @@ $$end
 
       case 2: {
 $$if verbose then      
-      __display("----------- CASE 2 : ALU / fetch ------------- (cycle %d)",cycle);
+      __display("----------- STATE 2 : ALU / fetch ------------- (cycle %d)",cycle);
       //__display("  (cycle %d) ram.data_out:%h",cycle,ram.data_out);
       //__display("  [instr ready:%b] pc @%h   next_pc @%h  next_pc+4 @%h",instr_ready,pc,next_pc,next_pc+4);
 $$end      
@@ -399,7 +399,7 @@ $$end
       
       case 1: {
 $$if verbose then     
-        __display("----------- CASE 1 : commit / decode ------------- (cycle %d)",cycle);
+        __display("----------- STATE 1 : commit / decode ------------- (cycle %d)",cycle);
         if (~instr_ready) {
           __display("========> [next instruction] load_store %b branch_or_jump %b",load_store,branch_or_jump);
         } else {
@@ -633,80 +633,6 @@ $$end
 $$if FIREV_MUX_B_DECODER then    
      aluB = regOrImm ? (regB) : imm;
 $$end
-
-// __display("DECODE %d %d",regA,regB);
-    // switch ({AUIPC,LUI,JAL,JALR,Branch,Load,Store,IntImm})
-    // {    
-    //   case 8b10000000: { // AUIPC
-    //     imm         = imm_u;
-    //   }
-    //   case 8b01000000: { // LUI
-    //     imm        = imm_u;
-    //   }
-    //   case 8b00100000: { // JAL
-    //     imm        = imm_j;
-    //   }
-    //   case 8b00010000: { // JALR
-    //     imm        = imm_i;
-    //   }
-    //   case 8b00001000: { // branch
-    //     imm        = imm_b;
-    //   } 
-    //   case 8b00000100: { // load
-    //     imm        = imm_i;
-    //   }      
-    //   case 8b00000010: { // store
-    //     imm        = imm_s;
-    //   }
-    //   case 8b00000001: { // integer, immediate  
-    //     imm        = imm_i;
-    //   }
-    //   default: { }
-    // }
-
-    // switch ({AUIPC|LUI,JAL,JALR|Load|IntImm,Branch,Store})
-    // {    
-    //   case 5b10000: {
-    //     aluB        = imm_u;
-    //   }
-    //   case 5b01000: {
-    //     aluB        = imm_j;
-    //   }
-    //   case 5b00100: {
-    //     aluB        = imm_i;
-    //   }
-    //   case 5b00010: {
-    //     aluB        = imm_b;
-    //   } 
-    //   case 5b00001: {
-    //     aluB        = imm_s;
-    //   }
-    //   default: {
-    //     aluB        = regB;
-    //   }
-    // }
-
-    // if (AUIPC|LUI) {
-    //   aluB        = imm_u;
-    // } else {
-    //   if (JALR|Load|IntImm) {
-    //     aluB        = imm_i;
-    //   } else {
-    //     if (JAL) {
-    //       aluB        = imm_j;
-    //     } else {
-    //       if (Branch) {
-    //         aluB        = imm_b;
-    //       } else {
-    //         if (Store) {
-    //           aluB        = imm_s;
-    //         } else {
-    //          aluB        = regB; 
-    //         }
-    //       }
-    //     }        
-    //   }
-    // }
 
   }
 }
