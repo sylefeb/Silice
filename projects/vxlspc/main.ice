@@ -103,13 +103,20 @@ algorithm vxlspc(
   //  320 x 200, 4bpp    x>>2 + y*80
   uint14 addr ::= x[3,7] + (y << 5) + (y << 3) + (~fbuffer ? 0 : 8000);
   
+  uint1 ready(1);
+  
   always {
-    sd.rw = 1;
-    sd.data_in  = 16ha0a0a0a0;
+    sd.rw       = 1;
+    sd.data_in  = 32hfedcba9;
     sd.wmask    = 8b11111111;
-    sd.in_valid = 1;
-    y           = (x == 79) ? ( y == 199 ? 0 : (y+1) ) : y;
-    x           = (x == 79) ? 0 : (x+1);
+    sd.in_valid = ready;
+    sd.addr     = addr;
+    if (sd.done) {
+      y     = (x == 316) ? ( y == 199 ? 0 : (y+1) ) : y;
+      x     = (x == 316) ? 0 : (x+4);
+      //__display("x=%d y=%d",x,y);
+      ready = 1;
+    }
   }
   
 }
@@ -401,10 +408,10 @@ $$if SPIFLASH then
 $$end
 
     if (sd.in_valid) {
-      /*__display("(cycle %d) write %h mask %b",iter,sd.addr,sd.wmask);
-      if (pix_write) {
-        __display("ERROR ##########################################");
-      }*/
+      //__display("(cycle %d) write %h mask %b",iter,sd.addr,sd.wmask);
+      //if (pix_write) {
+      //  __display("ERROR ##########################################");
+      //}
       pix_waddr = sd.addr;
       pix_mask  = sd.wmask; 
       pix_data  = sd.data_in;

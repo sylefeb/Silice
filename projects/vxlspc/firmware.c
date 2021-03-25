@@ -12,14 +12,14 @@ void main()
     // putchar('0');
     
     // wait for vblank
-    //while ((userdata()&2) == 0) {  }
+    while ((userdata()&2) == 0) {  }
     // swap buffers
-    //*(LEDS+4) = 1;
+    *(LEDS+4) = 1;
 
-    *LEDS = 0xaa;
+/*    *LEDS = 0xaa;
     pause(10000000);
     *LEDS = 0x55;
     pause(10000000);    
-
+*/
   }
 }

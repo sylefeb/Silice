@@ -16,7 +16,7 @@ algorithm verilator_spram(
     data_out     = mem.rdata0;
 
     //if (wenable) {
-    //  __display("SPRAM addr: %h data: %h wm:%b we:%b",addr,data_in,wmask,wenable);
+    //  __display("SPRAM waddr: %h data: %h wm:%b we:%b",addr,data_in,wmask,wenable);
     //}
 
   }
