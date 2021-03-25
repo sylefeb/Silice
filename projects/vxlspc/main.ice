@@ -1,7 +1,6 @@
 // SL 2020-12-02 @sylefeb
 //
-// Blaze --- VGA + GPU on the IceBreaker
-//  - runs in BRAM + SPRAM
+// VGA + RISC-V 'Voxel Space' on the IceBreaker
 //
 // Tested on: Verilator, IceBreaker
 //
@@ -12,19 +11,20 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
-// ./compile_boot_spiflash.sh ; make icebreaker -f Makefile.blaze
+// ./compile_boot_spiflash.sh ; make icebreaker
+
 
 $$if SIMULATION then
 $$verbose = nil
 $$end
 
 $$if not ((ICEBREAKER and VGA and SPIFLASH) or (VERILATOR and VGA)) then
-$$error('Sorry, Blaze is currently not supported on this board.')
+$$error('Sorry, currently not supported on this board.')
 $$end
 
 $$if ICEBREAKER then
-import('plls/icebrkr50.v')
 import('../common/ice40_half_clock.v')
+import('../fire-v/plls/icebrkr50.v')
 $$FIREV_NO_INSTRET    = 1
 $$FIREV_MERGE_ADD_SUB = nil
 $$FIREV_MUX_A_DECODER = 1
@@ -61,22 +61,8 @@ interface sdram_user {
   input   done,
 }
 
-// (SD)RAM interface for provider
-interface sdram_provider {
-  input   addr,
-  input   rw,
-  input   data_in,
-  input   in_valid,
-  input   wmask,
-  output  data_out,
-  output  done
-}
-
-$$FLAME_BLAZE = 1
-$include('flame/flame.ice')
-
-// default palette
-$$palette = get_palette_as_table('smoke/tests/gold.tga',8)
+$$palette={}
+$$for i = 1,256 do palette[i]=(i-1)|((i-1)<<8)|((i-1)<<16) end
 
 $$for i = 1,16 do
 $$ print('r = ' .. (palette[i*16]&255) .. ' g = ' .. ((palette[i*16]>>8)&255)  .. ' b = ' .. ((palette[i*16]>>16)&255))
@@ -84,19 +70,49 @@ $$end
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
 $$sdcard_image_pad_size = 0
-$$dofile('pre/pre_include_asm.lua')
+$$dofile('../fire-v/pre/pre_include_asm.lua')
 $$code_size_bytes = init_data_bytes
 
-$include('fire-v/fire-v.ice')
-$include('ash/bram_segment_spram_32bits.ice')
+$include('../fire-v/fire-v/fire-v.ice')
+$include('../fire-v/ash/bram_ram_32bits.ice')
 
 $include('../common/clean_reset.ice')
+
+import('../common/ice40_spram.v')
 
 // ------------------------- 
 
 $$if VERILATOR then
 import('../common/passthrough.v')
+$include('../fire-v/ash/verilator_spram.ice')
 $$end
+
+// ------------------------- 
+
+algorithm vxlspc(
+    sdram_user     sd,
+    input   uint1  fbuffer,
+    output! uint14 map0_raddr,
+    input   uint16 map0_rdata,
+    output! uint14 map1_raddr,
+    input   uint16 map1_rdata,
+) <autorun> {
+
+  uint10 x(0);
+  uint10 y(0); 
+  //  320 x 200, 4bpp    x>>2 + y*80
+  uint14 addr ::= x[3,7] + (y << 5) + (y << 3) + (~fbuffer ? 0 : 8000);
+  
+  always {
+    sd.rw = 1;
+    sd.data_in  = 16ha0a0a0a0;
+    sd.wmask    = 8b11111111;
+    sd.in_valid = 1;
+    y           = (x == 79) ? ( y == 199 ? 0 : (y+1) ) : y;
+    x           = (x == 79) ? 0 : (x+1);
+  }
+  
+}
 
 // ------------------------- 
 
@@ -136,10 +152,6 @@ $$if ICEBREAKER then
     out :> fast_reset
   );
   
-  //uint1 vga_reset = uninitialized;
-  //clean_reset rst2<@vga_clock,!reset>(
-  //  out :> vga_reset
-  //);  
 $$elseif VERILATOR then
 ) {
   passthrough p( inv <: clock, outv :> video_clock );
@@ -147,67 +159,17 @@ $$else
 ) {
 $$end
 
-  // interface for GPU writes in framebuffer
-  spram_r32_w32_io sd;
-
-  vertex  v0;
-  vertex  v1;
-  vertex  v2;
-  int24   ei0     = uninitialized;
-  int24   ei1     = uninitialized;
-  int24   ei2     = uninitialized;
-  uint10  ystart  = uninitialized;
-  uint10  ystop   = uninitialized;
-  uint8   color   = uninitialized;
-  uint1   drawing = uninitialized;
-  uint1   triangle_in(0);
-  uint1   fbuffer(0);
- 
-  flame_rasterizer gpu_raster(
-    sd      <:>  sd,
-    fbuffer <::  fbuffer,
-    v0      <::> v0,
-    v1      <::> v1,
-    v2      <::> v2,
-    ei0     <:: ei0,
-    ei1     <:: ei1,
-    ei2     <:: ei2,
-    ystart  <:: ystart,
-    ystop   <:: ystop,
-    color   <:: color,
-    triangle_in <:: triangle_in,
-    drawing     :> drawing,
-    <:auto:>
-  );
-
-  transform mx;
-  vertex    v;
-  vertex    t;
-  flame_transform gpu_trsf(
-    t  <::> mx,
-    v  <::> v,
-    tv <::> t,
-  );
-  uint4 do_transform(0);
-
   rv32i_ram_io mem;
 
   uint26 predicted_addr    = uninitialized;
   uint1  predicted_correct = uninitialized;
   uint32 user_data(0);
 
-  uint1            bram_override_we(0);
-  uint$bram_depth$ bram_override_addr(0);
-  uint32           bram_override_data = uninitialized;
-
   // CPU RAM
-  bram_segment_spram_32bits bram_ram(
+  bram_ram_32bits bram_ram(
     pram               <:> mem,
     predicted_addr     <:  predicted_addr,
     predicted_correct  <:  predicted_correct,
-    bram_override_we   <:  bram_override_we,
-    bram_override_addr <:  bram_override_addr,
-    bram_override_data <:  bram_override_data
   );
 
   uint1  cpu_reset      = 1;
@@ -259,6 +221,7 @@ $$end
     Frame buffer 1: [8000,15999]
   */
   
+  // SPRAM 0 for framebuffers
   uint14 fb0_addr(0);
   uint16 fb0_data_in(0);
   uint1  fb0_wenable(0);
@@ -276,6 +239,8 @@ $$end
     wmask    <: fb0_wmask,
     data_out :> fb0_data_out
   );
+  
+  // SPRAM 1 for framebuffers  
   uint14 fb1_addr(0);
   uint16 fb1_data_in(0);
   uint1  fb1_wenable(0);
@@ -294,6 +259,69 @@ $$end
     data_out :> fb1_data_out
   );
 
+  // SPRAMs for packed color + heightmap
+  // - height [0, 8]
+  // - color  [8,12]
+  // NOTE: 4 bits are unused
+  // map0 contains 128x64 top half
+  // map1 contains 128x64 bottom half
+  //
+  // -> write to maps (loading data)
+  uint1  map_write(0);
+  uint1  map_select(0);
+  uint14 map_waddr(0);
+  uint16 map_data(0);
+  // -> map0
+  uint14 map0_raddr(0);
+  uint1  map0_write   := (map_write & ~map_select);
+  uint14 map0_addr    := map0_write ? map_waddr : map0_raddr;
+  uint1  map0_wenable := map0_write;
+  uint4  map0_wmask   := 4b1111;
+  uint16 map0_data_out(0);
+$$if VERILATOR then
+  verilator_spram map0(
+$$else  
+  ice40_spram map0(
+    clock    <: vga_clock,
+$$end
+    addr     <: map0_addr,
+    data_in  <: map_data,
+    wenable  <: map0_wenable,
+    wmask    <: map0_wmask,
+    data_out :> map0_data_out
+  );
+  // -> map1
+  uint14 map1_raddr(0);
+  uint1  map1_write   := (map_write & map_select);
+  uint14 map1_addr    := map1_write ? map_waddr : map1_raddr;
+  uint1  map1_wenable := map1_write;
+  uint4  map1_wmask   := 4b1111;
+  uint16 map1_data_out(0);
+$$if VERILATOR then
+  verilator_spram map1(
+$$else  
+  ice40_spram map1(
+    clock    <: vga_clock,
+$$end
+    addr     <: map1_addr,
+    data_in  <: map_data,
+    wenable  <: map1_wenable,
+    wmask    <: map1_wmask,
+    data_out :> map1_data_out
+  );
+
+  // interface for GPU writes in framebuffer
+  spram_r32_w32_io sd;
+  
+  vxlspc vs(
+    sd          <:> sd,
+    fbuffer     <:: fbuffer,
+    map0_raddr   :> map0_raddr,
+    map0_rdata   <: map0_data_out,
+    map1_raddr   :> map1_raddr,
+    map1_rdata   <: map1_data_out,
+  );
+
   bram uint24 palette[16] = {
 $$for i=1,16 do
     $palette[i*16]$,
@@ -304,6 +332,8 @@ $$end
   uint2  next_pixel      (                2b1);
   uint32 eight_pixs(0);
   
+  uint1 fbuffer(0);
+  
   // buffers are 320 x 200, 4bpp
   uint14 pix_fetch := (pix_y[1,9]<<5) + (pix_y[1,9]<<3) + pix_x[4,6] + (fbuffer ? 0 : 8000);
 
@@ -312,40 +342,10 @@ $$end
   
   // we can write whenever the framebuffer is not reading
   uint1  pix_wok  ::= (~frame_fetch_sync[1,1] & pix_write);
-     //                                    ^^^ cycle before we need the value
+  //                                    ^^^ cycle before we need the value
  
   // spiflash
   uint1  reg_miso(0);
-
-  // divisions
-  int24 div0_n(0);
-  int24 div0_d(0);
-  int24 div0_r(0);
-  div24 div0(
-    inum <:: div0_n,
-    iden <:: div0_d,
-    ret  :>  div0_r
-  );  
-  int24 div1_n(0);
-  int24 div1_d(0);
-  int24 div1_r(0);
-  div24 div1(
-    inum <:: div1_n,
-    iden <:: div1_d,
-    ret  :>  div1_r
-  );  
-  int24 div2_n(0);
-  int24 div2_d(0);
-  int24 div2_r(0);
-  div24 div2(
-    inum <:: div2_n,
-    iden <:: div2_d,
-    ret  :>  div2_r
-  );  
-  uint1 do_div0(0);
-  uint1 do_div1(0);
-  uint1 do_div2(0);
-
 
 $$if SIMULATION then  
   uint32 iter = 0;
@@ -369,8 +369,7 @@ $$end
   
   sd.done        := pix_wok; // TODO: update if CPU writes as well
   pix_write      := pix_wok ? 0 : pix_write;
-  
-  triangle_in    := 0;
+  map_write      := 0;
   
   always {
     // updates the eight pixels, either reading from spram of shifting them to go to the next one
@@ -396,7 +395,7 @@ $$end
 
     cpu_reset = 0;
 
-    user_data[0,5] = {do_div0|do_div1|do_div2,reg_miso,pix_write,vblank,drawing};
+    user_data[0,5] = {1b0,reg_miso,pix_write,vblank,1b0};
 $$if SPIFLASH then    
     reg_miso       = sf_miso;
 $$end
@@ -410,47 +409,6 @@ $$end
       pix_mask  = sd.wmask; 
       pix_data  = sd.data_in;
       pix_write = 1;
-    }
-    
-    if (do_transform[0,1]) {
-      // transform is done, write back result
-      __display("transform done, write back %d,%d,%d at @%h  (%h)",t.x,t.y,t.z,bram_override_addr,{2b00,t.z,t.y,t.x});
-      bram_override_we   = 1;
-      bram_override_data = {2b00,t.z[6,10],t.y[6,10],t.x[6,10]};
-      do_transform       = 0;
-    } else {
-      // update transform state
-      bram_override_we   = 0;
-      do_transform       = do_transform >> 1;
-    }
-    // divisions done?
-    if (do_div0 & isdone(div0)) {
-      bram_override_we   = 1;
-      bram_override_data = {{8{div0_r[23,1]}},div0_r};
-$$if SIMULATION then
-      __display("(cycle %d) div0 done %d / %d = %d",iter,div0_n,div0_d,div0_r);
-$$end      
-      do_div0 = 0;
-    }
-    if (do_div1 & isdone(div1)) {
-      bram_override_we   = 1;
-      bram_override_data = {{8{div1_r[23,1]}},div1_r};
-$$if SIMULATION then
-      __display("(cycle %d) div1 done %d / %d = %d",iter,div1_n,div1_d,div1_r);
-$$end      
-      do_div1 = 0;
-    }
-    if (do_div2 & isdone(div2)) {
-      bram_override_we   = 1;
-      bram_override_data = {{8{div2_r[23,1]}},div2_r};
-$$if SIMULATION then
-      __display("(cycle %d) div2 done %d / %d = %d",iter,div2_n,div2_d,div2_r);
-$$end      
-      do_div2 = 0;
-    }
-    // increment write back address
-    if (bram_override_we) {
-      bram_override_addr = bram_override_addr + 1;
     }
     
     if (mem.in_valid & mem.rw) {
@@ -496,85 +454,10 @@ $$end
           }
         }
         case 4b0001: {
-$$if SIMULATION then
-//          __display("(cycle %d) triangle (%b) = %d %d",iter,mem.addr[2,5],mem.data_in[0,16],mem.data_in[16,16]);
-$$end
-          switch (mem.addr[2,4]) {
-            // triangles
-            case 0:  { v0.x = mem.data_in[0,10];  v0.y  = mem.data_in[10,10]; /*v0.z = mem.data_in[20,10];*/ }
-            case 1:  { v1.x = mem.data_in[0,10];  v1.y  = mem.data_in[10,10]; /*v1.z = mem.data_in[20,10];*/ }
-            case 2:  { v2.x = mem.data_in[0,10];  v2.y  = mem.data_in[10,10]; /*v2.z = mem.data_in[20,10];*/ }
-            case 3:  { ei0  = mem.data_in;        color = mem.data_in[24,8]; }
-            case 4:  { ei1  = mem.data_in; }
-            case 5:  { ei2  = mem.data_in;
-                      ystart      = v0.y; 
-                      ystop       = v2.y; 
-                      triangle_in = 1;
-$$if SIMULATION then
-                      __display("(cycle %d) new triangle, color %d, (%d,%d) (%d,%d) (%d,%d)",iter,color,v0.x,v0.y,v1.x,v1.y,v2.x,v2.y);
-$$end                               
-                     }
-            // matrix transform
-            case 7:  {
-                        mx.m00 = mem.data_in[0,8]; mx.m01 = mem.data_in[8,8]; mx.m02 = mem.data_in[16,8]; 
-                     }
-            case 8:  {
-                        mx.m10 = mem.data_in[0,8]; mx.m11 = mem.data_in[8,8]; mx.m12 = mem.data_in[16,8];
-                     }
-            case 9:  {
-                        mx.m20 = mem.data_in[0,8]; mx.m21 = mem.data_in[8,8]; mx.m22 = mem.data_in[16,8];
-                     }
-            case 10: {
-                        mx.tx  = mem.data_in[0,16]; mx.ty = mem.data_in[16,16];
-                     }
-            case 11: {
-                       bram_override_addr = mem.data_in;
-                     }
-            case 12: {
-                        v.x = mem.data_in[0,16]; v.y = mem.data_in[16,16]; 
-                     }
-            case 13: {
-                        v.z                = mem.data_in[0,16];
-                        // NOTE: mem.data_in[16,16]; available
-                        do_transform       = 4b1000;
-$$if SIMULATION then
-                      __display("(cycle %d) transform %d,%d,%d",iter,v.x,v.y,v.z);
-                      __display("mx %d,%d,%d",mx.m00,mx.m01,mx.m02);
-                      __display("mx %d,%d,%d",mx.m10,mx.m11,mx.m12);
-                      __display("mx %d,%d,%d",mx.m20,mx.m21,mx.m22);
-$$end                               
-                     }
-            // divisions
-            case 14: {
-                     div0_n  = mem.data_in[ 0,16] <<< 10;
-                     div0_d  = {{16{mem.data_in[31,1]}},mem.data_in[16,16]};
-$$if SIMULATION then
-                      __display("(cycle %d) div0 %d / %d",iter,div0_n,div0_d);
-$$end                      
-                     do_div0 = 1;
-                     div0 <- ();
-            }
-            case 15: {
-                     div1_n  = mem.data_in[ 0,16] <<< 10;
-                     div1_d  = {{16{mem.data_in[31,1]}},mem.data_in[16,16]};
-$$if SIMULATION then
-                      __display("(cycle %d) div1 %d / %d",iter,div1_n,div1_d);
-$$end                      
-                     do_div1 = 1;
-                     div1 <- ();
-            }
-            case  6: { // TODO: renumber all!
-                     div2_n  = mem.data_in[ 0,16] <<< 10;
-                     div2_d  = {{16{mem.data_in[31,1]}},mem.data_in[16,16]};
-$$if SIMULATION then
-                      __display("(cycle %d) div2 %d / %d",iter,div2_n,div2_d);
-$$end                      
-                     do_div2 = 1;
-                     div2 <- ();
-            }
-            default: { }
-          }      
-
+          map_write  = 1;
+          map_data   = mem.data_in[ 0,16];
+          map_waddr  = mem.data_in[16,14];
+          map_select = mem.data_in[30, 1];          
         }
         default: { }
       }
