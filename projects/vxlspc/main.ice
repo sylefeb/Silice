@@ -270,8 +270,8 @@ $$end
   // - height [0, 8]
   // - color  [8,12]
   // NOTE: 4 bits are unused
-  // map0 contains 128x64 top half
-  // map1 contains 128x64 bottom half
+  // map0 contains a first  128x128 map
+  // map1 contains a second 128x128 map
   //
   // -> write to maps (loading data)
   uint1  map_write(0);
