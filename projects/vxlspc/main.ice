@@ -94,9 +94,13 @@ algorithm vxlspc(
     output! uint14 map1_raddr,
     input   uint16 map1_rdata,
 ) <autorun> {
-  
-$$one_over_width = 2048//320  
-  
+
+$$fp         = 11
+$$fp_scl     = 1<<fp
+$$one_over_width = fp_scl//320  
+$$z_step     = fp_scl*2
+$$z_num_step = 64
+    
   int24  z(0); // 12.12 fp
   int24  l_x(0);
   int24  l_y(0);
@@ -104,42 +108,49 @@ $$one_over_width = 2048//320
   int24  r_y(0);
   int24  dx(0);
   int24  inv_z(0);
+  int24  offs(0);
   uint10 x(0);
 
-  div48 div;
+  uint24 one = $fp_scl*fp_scl - 1$;
+  div48 div(
+    inum <:: one,
+    iden <:: z,
+  );
   
   fb.in_valid := 0;
 
-$$z_step     = 2048
-$$z_num_step = 64
-
   while (1) {
-    z = $z_step * z_num_step + (z_step // 2)$;
-    while (~z[23,1]) {
-__display("next z : %d", z); 
-      l_x   = $63*2048$ - z;
-      l_y   = $63*2048$ + z;
-      r_x   = $63*2048$ + z;
-      r_y   = $63*2048$ + z;      
-__display("l_x: %d l_y: %d r_x: %d r_y: %d", l_x,l_y,r_x,r_y);
-      dx    = ((r_x - l_x) * $one_over_width$) >> 11;
-__display("dx: %d", dx);
-      (inv_z) <- div <- ($2048*2048$,z);
-__display("z: %d inv_z: %d", z, inv_z);
+  
+    uint8 iz = 0;
+  __display("--------- frame ------------");
+    z = $z_step * z_num_step + z_step * 8$;
+    while (iz != $z_num_step$) {
+      l_x   = $128*fp_scl + 63*fp_scl$        - (z>>2);
+      l_y   = $128*fp_scl + 63*fp_scl$ + offs + (z>>2);
+      r_x   = $128*fp_scl + 63*fp_scl$        + (z>>2);
+      r_y   = $128*fp_scl + 63*fp_scl$ + offs + (z>>2);      
+      dx    = ((r_x - l_x) * $one_over_width$) >> $fp$;
+__display("z: %d [l_x: %d r_x: %d] y: %d dx: %d",z,l_x>>>$fp$,r_x>>>$fp$,l_y>>>$fp$,dx);
+//__display("dx: %d", dx);
+      (inv_z) <- div <- ();
+//__display("z: %d inv_z: %d", z, inv_z);
       x     = 0;
-      while (x < 320) {
+__write("[");
+      while (x != 320) {
         int11 y_ground = uninitialized;
         int11 y        = uninitialized;
-        uint1 in_sky   = 1;
-        y_ground = ((__signed(128) - __signed(map0_rdata[0,8])) * inv_z) >> 11;
+        uint1 in_sky   = 0;
+        int24 hmap     = uninitialized;
+        hmap     = map0_rdata[0,8];
+        y_ground = (((128 - hmap) * inv_z) >>> $fp-5$) + 128;
 ++:        
         y_ground = (y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground);
-__display("column [0,%d]", y_ground);
+// __display("column [0,%d]", y_ground);
+//__write("%d,", y_ground);
         y = 199;
-        while (y > 0) {
+        while (y != y_ground) {
           fb.rw       = 1;
-          fb.data_in  = in_sky ? 0 : ((map0_rdata[8,4]) << ({x[0,2],2b0}));
-          in_sky      = (y == y_ground) ? 0 : in_sky;
+          fb.data_in  = ((map0_rdata[8,4]) << ({x[0,2],2b0}));
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = 1;
           fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 4bpp    x>>2 + y*80          
@@ -147,12 +158,15 @@ __display("column [0,%d]", y_ground);
         }
         x   = x + 1;
         l_x = l_x + dx;
-        map0_raddr  = {l_y[11,7],l_x[11,7]};
-//__display("sampling: %d,%d", l_x[11,7], l_y[11,7]);
+        map0_raddr = {l_y[$fp$,7],l_x[$fp$,7]};
+        __write("%d,", l_x[$fp$,7]);
       }      
-      z     = z - $z_step$;
+__display("]");
+      z  = z - $z_step$;
+      iz = iz + 1;
     }
     fbuffer = ~fbuffer;
+    offs    = offs + $fp_scl$;
   }
 
 /*
