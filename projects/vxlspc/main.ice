@@ -80,18 +80,83 @@ $$end
 
 // ------------------------- 
 
+$$div_width    = 48
+$$div_unsigned = 1
+$include('../common/divint_std.ice')
+
+// ------------------------- 
+
 algorithm vxlspc(
     fb_user        fb,
+    output  uint1  fbuffer = 0,
     output! uint14 map0_raddr,
     input   uint16 map0_rdata,
     output! uint14 map1_raddr,
     input   uint16 map1_rdata,
 ) <autorun> {
-
+  
+$$one_over_width = 2048//320  
+  
+  int24  z(0); // 12.12 fp
+  int24  l_x(0);
+  int24  l_y(0);
+  int24  r_x(0);
+  int24  r_y(0);
+  int24  dx(0);
+  int24  inv_z(0);
   uint10 x(0);
-  uint10 y(0); 
 
-  always {
+  div48 div;
+  
+  fb.in_valid := 0;
+
+$$z_step     = 2048
+$$z_num_step = 64
+
+  while (1) {
+    z = $z_step * z_num_step + (z_step // 2)$;
+    while (~z[23,1]) {
+__display("next z : %d", z); 
+      l_x   = $63*2048$ - z;
+      l_y   = $63*2048$ + z;
+      r_x   = $63*2048$ + z;
+      r_y   = $63*2048$ + z;      
+__display("l_x: %d l_y: %d r_x: %d r_y: %d", l_x,l_y,r_x,r_y);
+      dx    = ((r_x - l_x) * $one_over_width$) >> 11;
+__display("dx: %d", dx);
+      (inv_z) <- div <- ($2048*2048$,z);
+__display("z: %d inv_z: %d", z, inv_z);
+      x     = 0;
+      while (x < 320) {
+        int11 y_ground = uninitialized;
+        int11 y        = uninitialized;
+        uint1 in_sky   = 1;
+        y_ground = ((__signed(128) - __signed(map0_rdata[0,8])) * inv_z) >> 11;
+++:        
+        y_ground = (y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground);
+__display("column [0,%d]", y_ground);
+        y = 199;
+        while (y > 0) {
+          fb.rw       = 1;
+          fb.data_in  = in_sky ? 0 : ((map0_rdata[8,4]) << ({x[0,2],2b0}));
+          in_sky      = (y == y_ground) ? 0 : in_sky;
+          fb.wmask    = 1 << x[0,2];
+          fb.in_valid = 1;
+          fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 4bpp    x>>2 + y*80          
+          y = y - 1;
+        }
+        x   = x + 1;
+        l_x = l_x + dx;
+        map0_raddr  = {l_y[11,7],l_x[11,7]};
+//__display("sampling: %d,%d", l_x[11,7], l_y[11,7]);
+      }      
+      z     = z - $z_step$;
+    }
+    fbuffer = ~fbuffer;
+  }
+
+/*
+  always {    
     
     fb.rw       = 1;
     fb.data_in  = ((map0_rdata[8,4]) << ({x[0,2],2b0}));
@@ -107,7 +172,7 @@ algorithm vxlspc(
 
     // __display("x=%d y=%d",x,y);
   }
-  
+*/
 }
 
 // ------------------------- 
@@ -314,8 +379,11 @@ $$end
   // interface for GPU writes in framebuffer
   fb_r16_w16_io fb;
   
+  uint1 fbuffer(0); // frame bnuffer selected for display (writes can occur in ~fbuffer)
+  
   vxlspc vs(
     fb          <:> fb,
+    fbuffer      :> fbuffer,
     map0_raddr   :> map0_raddr,
     map0_rdata   <: map0_data_out,
     map1_raddr   :> map1_raddr,
@@ -331,8 +399,6 @@ $$end
   uint8  frame_fetch_sync(                8b1);
   uint2  next_pixel      (                2b1);
   uint16 four_pixs(0);
-  
-  uint1 fbuffer(0); // frame bnuffer selected for display (writes can occur in ~fbuffer)
   
   // buffers are 320 x 200, 4bpp
   uint14 pix_fetch := (pix_y[1,9]<<6) + (pix_y[1,9]<<4) + pix_x[3,7];
@@ -424,13 +490,13 @@ $$end
               // leds = mem.data_in[0,8];
             }
             case 2b01: {
-              __display("swap buffers");
-              fbuffer = ~fbuffer;
+              // __display("swap buffers");
+              // fbuffer = ~fbuffer;
             }            
             case 2b10: {
               // SPIFLASH
 $$if SIMULATION then
-              __display("(cycle %d) SPIFLASH %b",iter,mem.data_in[0,3]);
+              // __display("(cycle %d) SPIFLASH %b",iter,mem.data_in[0,3]);
 $$end              
 $$if SPIFLASH then
               sf_clk  = mem.data_in[0,1];
