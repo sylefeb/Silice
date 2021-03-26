@@ -37,28 +37,24 @@ $include('../common/vga.ice')
 $$div_width = 24
 $include('../common/divint_std.ice')
 
-group spram_r32_w32_io
+group fb_r16_w16_io
 {
   uint14  addr       = 0,
   uint1   rw         = 0,
-  uint32  data_in    = 0,
-  uint8   wmask      = 0,
+  uint16  data_in    = 0,
+  uint4   wmask      = 0,
   uint1   in_valid   = 0,
-  uint32  data_out   = uninitialized,
-  uint1   done       = 0
+  uint16  data_out   = uninitialized,
 }
 
-// (SD)RAM interface for user 
-// NOTE: there is no SDRAM in this design, but we hijack
-//       the interface for easier portability
-interface sdram_user {
+// interface for frame buffer user 
+interface fb_user {
   output  addr,
   output  rw,
   output  data_in,
   output  in_valid,
   output  wmask,
   input   data_out,
-  input   done,
 }
 
 $$palette={}
@@ -90,7 +86,7 @@ $$end
 // ------------------------- 
 
 algorithm vxlspc(
-    sdram_user     sd,
+    fb_user        fb,
     input   uint1  fbuffer,
     output! uint14 map0_raddr,
     input   uint16 map0_rdata,
@@ -101,22 +97,17 @@ algorithm vxlspc(
   uint10 x(0);
   uint10 y(0); 
   //  320 x 200, 4bpp    x>>2 + y*80
-  uint14 addr ::= x[3,7] + (y << 5) + (y << 3) + (~fbuffer ? 0 : 8000);
-  
-  uint1 ready(1);
+  uint14 addr ::= x[2,7] + (y << 5) + (y << 3);
   
   always {
-    sd.rw       = 1;
-    sd.data_in  = 32hfedcba9;
-    sd.wmask    = 8b11111111;
-    sd.in_valid = ready;
-    sd.addr     = addr;
-    if (sd.done) {
-      y     = (x == 316) ? ( y == 199 ? 0 : (y+1) ) : y;
-      x     = (x == 316) ? 0 : (x+4);
-      //__display("x=%d y=%d",x,y);
-      ready = 1;
-    }
+    fb.rw       = 1;
+    fb.data_in  = 16hfedc;
+    fb.wmask    = 4b1111;
+    fb.in_valid = 1;
+    fb.addr     = addr;
+    y     = (x == 316) ? ( y == 199 ? 0 : (y+1) ) : y;
+    x     = (x == 316) ? 0 : (x+4);
+    //__display("x=%d y=%d",x,y);
   }
   
 }
@@ -211,21 +202,26 @@ $$end
   );
 
   uint14 pix_waddr(0);
-  uint32 pix_data(0);
+  uint16 pix_data(0);
   uint1  pix_write(0);
-  uint8  pix_mask(0);
+  uint4  pix_mask(0);
   
   /*
+  
     Each frame buffer holds a 320x200 4bpp frame
-    
-    Each frame buffer uses both SPRAM for wider throughput:
-      SPRAM0 : 16 bits => 4 pixels
-      SPRAM1 : 16 bits => 4 pixels
-      So we get eight pixels at each read      
-      As we generate a 640x480 signal we have to read every 16 VGA pixels along a row
+    Framebuffer 0 is in SPRAM 0, framebuffer 1 in SPRAM 1
+
+    This means we can read/write 4 pixels at once
+    As we generate a 640x480 signal we have to read every 8 VGA pixels along a row
+
+    (Blaze goes up to height at the cost of a more complex addressing
+     and sharing write/reads, here we keep things simpler)
       
-    Frame buffer 0: [    0,7999]
-    Frame buffer 1: [8000,15999]
+    Frame buffer 0: [0,15999]
+    Frame buffer 1: [0,15999]
+    
+    Writes always occur into the framebuffer not being displayed.
+    
   */
   
   // SPRAM 0 for framebuffers
@@ -318,10 +314,10 @@ $$end
   );
 
   // interface for GPU writes in framebuffer
-  spram_r32_w32_io sd;
+  fb_r16_w16_io fb;
   
   vxlspc vs(
-    sd          <:> sd,
+    fb          <:> fb,
     fbuffer     <:: fbuffer,
     map0_raddr   :> map0_raddr,
     map0_rdata   <: map0_data_out,
@@ -335,22 +331,18 @@ $$for i=1,16 do
 $$end  
   };
   
-  uint16 frame_fetch_sync(               16b1);
+  uint8  frame_fetch_sync(                8b1);
   uint2  next_pixel      (                2b1);
-  uint32 eight_pixs(0);
+  uint16 four_pixs(0);
   
-  uint1 fbuffer(0);
+  uint1 fbuffer(0); // frame bnuffer selected for display (writes can occur in ~fbuffer)
   
   // buffers are 320 x 200, 4bpp
-  uint14 pix_fetch := (pix_y[1,9]<<5) + (pix_y[1,9]<<3) + pix_x[4,6] + (fbuffer ? 0 : 8000);
+  uint14 pix_fetch := (pix_y[1,9]<<5) + (pix_y[1,9]<<3) + pix_x[3,6];
 
-  //  - pix_x[4,6] => read every 16 VGA pixels
-  //  - pix_y[1,9] => half vertical res (200)
+  //  - pix_x[3,6] => read every 8 VGA pixels
+  //  - pix_y[1,9] => half VGA vertical res (200)
   
-  // we can write whenever the framebuffer is not reading
-  uint1  pix_wok  ::= (~frame_fetch_sync[1,1] & pix_write);
-  //                                    ^^^ cycle before we need the value
- 
   // spiflash
   uint1  reg_miso(0);
 
@@ -362,34 +354,33 @@ $$end
   video_g        := (active) ? palette.rdata[10, 6] : 0;
   video_b        := (active) ? palette.rdata[18, 6] : 0;  
   
-  palette.addr   := eight_pixs[0,4];
+  palette.addr   := four_pixs[0,4];
   
-  fb0_addr       := ~pix_wok ? pix_fetch : pix_waddr;
+  fb0_addr       := ~fbuffer ? pix_fetch : pix_waddr;
   fb0_data_in    := pix_data[ 0,16];
-  fb0_wenable    := pix_wok;
+  fb0_wenable    := pix_write & fbuffer;
   fb0_wmask      := {pix_mask[3,1],pix_mask[2,1],pix_mask[1,1],pix_mask[0,1]};
   
-  fb1_addr       := ~pix_wok ? pix_fetch : pix_waddr;
-  fb1_data_in    := pix_data[16,16];
-  fb1_wenable    := pix_wok;
-  fb1_wmask      := {pix_mask[7,1],pix_mask[6,1],pix_mask[5,1],pix_mask[4,1]};
+  fb1_addr       := fbuffer ? pix_fetch : pix_waddr;
+  fb1_data_in    := pix_data[0,16];
+  fb1_wenable    := pix_write & ~fbuffer;
+  fb1_wmask      := {pix_mask[3,1],pix_mask[2,1],pix_mask[1,1],pix_mask[0,1]};
   
-  sd.done        := pix_wok; // TODO: update if CPU writes as well
-  pix_write      := pix_wok ? 0 : pix_write;
-  map_write      := 0;
+  map_write      := 0; // reset map write
+  pix_write      := 0; // reset pix_write
   
   always {
     // updates the eight pixels, either reading from spram of shifting them to go to the next one
     // this is controlled through the frame_fetch_sync (16 modulo) and next_pixel (2 modulo)
     // as we render 320x200 4bpp, there are 16 clock cycles of the 640x480 clock for eight frame pixels
-    eight_pixs = frame_fetch_sync[0,1]
-              ? {fb1_data_out,fb0_data_out} 
-              : (next_pixel[0,1] ? (eight_pixs >> 4) : eight_pixs);      
+    four_pixs = frame_fetch_sync[0,1]
+              ? (~fbuffer ? fb0_data_out : fb1_data_out)
+              : (next_pixel[0,1] ? (four_pixs >> 4) : four_pixs);      
   }
   
   always_after   {
     // updates synchronization variables
-    frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,15]};
+    frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,7]};
     next_pixel       = {next_pixel[0,1],next_pixel[1,1]};
   }
 
@@ -407,14 +398,11 @@ $$if SPIFLASH then
     reg_miso       = sf_miso;
 $$end
 
-    if (sd.in_valid) {
+    if (fb.in_valid) {
       //__display("(cycle %d) write %h mask %b",iter,sd.addr,sd.wmask);
-      //if (pix_write) {
-      //  __display("ERROR ##########################################");
-      //}
-      pix_waddr = sd.addr;
-      pix_mask  = sd.wmask; 
-      pix_data  = sd.data_in;
+      pix_waddr = fb.addr;
+      pix_mask  = fb.wmask; 
+      pix_data  = fb.data_in;
       pix_write = 1;
     }
     
@@ -452,7 +440,7 @@ $$end
             }        
             case 2b11: {           
               pix_waddr = mem.addr[ 4,14];
-              pix_mask  = mem.addr[18, 8];
+              pix_mask  = mem.addr[18, 4];
               pix_data  = mem.data_in;
               pix_write = 1;
               // __display("PIXELs @%h wm:%b %h",pix_waddr,pix_mask,pix_data);

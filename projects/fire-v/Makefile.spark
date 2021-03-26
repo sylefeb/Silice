@@ -1,15 +1,15 @@
 
-.DEFAULT: blaze.ice
-		silice-make.py -s blaze.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@)
+.DEFAULT: spark.ice
+		silice-make.py -s spark.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@)
 
-ulx3s: blaze.ice
-		silice-make.py -s blaze.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@) -t shell
+ulx3s: spark.ice
+		silice-make.py -s spark.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@) -t shell
 
-icebreaker: blaze.ice
-		silice-make.py -s blaze.ice -b $@ -p basic -o BUILD_$(subst :,_,$@)
+icebreaker: spark.ice
+		silice-make.py -s spark.ice -b $@ -p basic -o BUILD_$(subst :,_,$@)
 
-verilator: blaze.ice
-		silice-make.py -s blaze.ice -b $@ -p basic -o BUILD_$(subst :,_,$@) -t shell
+verilator: spark.ice
+		silice-make.py -s spark.ice -b $@ -p basic -o BUILD_$(subst :,_,$@) -t shell
 
 clean:
 	rm -rf BUILD_*
