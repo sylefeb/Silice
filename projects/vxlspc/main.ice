@@ -100,13 +100,15 @@ algorithm vxlspc(
   uint14 addr ::= x[2,7] + (y << 5) + (y << 3);
   
   always {
+    
     fb.rw       = 1;
-    fb.data_in  = 16hfedc;
-    fb.wmask    = 4b1111;
+    fb.data_in  = (4+x[0,2]) << {x[0,2],2b0};
+    fb.wmask    = 1 << x[0,2];
     fb.in_valid = 1;
     fb.addr     = addr;
-    y     = (x == 316) ? ( y == 199 ? 0 : (y+1) ) : y;
-    x     = (x == 316) ? 0 : (x+4);
+    
+    y     = (x == 319) ? ( y == 199 ? 0 : (y+1) ) : y;
+    x     = (x == 319) ? 0 : (x+1);
     //__display("x=%d y=%d",x,y);
   }
   
