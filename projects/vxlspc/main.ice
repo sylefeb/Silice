@@ -87,7 +87,6 @@ $$end
 
 algorithm vxlspc(
     fb_user        fb,
-    input   uint1  fbuffer,
     output! uint14 map0_raddr,
     input   uint16 map0_rdata,
     output! uint14 map1_raddr,
@@ -96,20 +95,22 @@ algorithm vxlspc(
 
   uint10 x(0);
   uint10 y(0); 
-  //  320 x 200, 4bpp    x>>2 + y*80
-  uint14 addr ::= x[2,7] + (y << 5) + (y << 3);
-  
+
   always {
     
     fb.rw       = 1;
-    fb.data_in  = (4+x[0,2]) << {x[0,2],2b0};
+    fb.data_in  = (x < 32 && y < 32) ? ((x[0,4]) << ({x[0,2],2b0})) : 0;
     fb.wmask    = 1 << x[0,2];
     fb.in_valid = 1;
-    fb.addr     = addr;
-    
+    fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 4bpp    x>>2 + y*80
+            
     y     = (x == 319) ? ( y == 199 ? 0 : (y+1) ) : y;
     x     = (x == 319) ? 0 : (x+1);
-    //__display("x=%d y=%d",x,y);
+    
+    // read next
+    map0_raddr  = {y[0,7],x[0,7]};
+
+    // __display("x=%d y=%d",x,y);
   }
   
 }
@@ -320,7 +321,6 @@ $$end
   
   vxlspc vs(
     fb          <:> fb,
-    fbuffer     <:: fbuffer,
     map0_raddr   :> map0_raddr,
     map0_rdata   <: map0_data_out,
     map1_raddr   :> map1_raddr,
@@ -340,9 +340,9 @@ $$end
   uint1 fbuffer(0); // frame bnuffer selected for display (writes can occur in ~fbuffer)
   
   // buffers are 320 x 200, 4bpp
-  uint14 pix_fetch := (pix_y[1,9]<<5) + (pix_y[1,9]<<3) + pix_x[3,6];
+  uint14 pix_fetch := (pix_y[1,9]<<6) + (pix_y[1,9]<<4) + pix_x[3,7];
 
-  //  - pix_x[3,6] => read every 8 VGA pixels
+  //  - pix_x[3,7] => read every 8 VGA pixels
   //  - pix_y[1,9] => half VGA vertical res (200)
   
   // spiflash
@@ -352,6 +352,8 @@ $$if SIMULATION then
   uint32 iter = 0;
 $$end
 
+  leds           := {4b0,fbuffer};
+
   video_r        := (active) ? palette.rdata[ 2, 6] : 0;
   video_g        := (active) ? palette.rdata[10, 6] : 0;
   video_b        := (active) ? palette.rdata[18, 6] : 0;  
@@ -359,24 +361,24 @@ $$end
   palette.addr   := four_pixs[0,4];
   
   fb0_addr       := ~fbuffer ? pix_fetch : pix_waddr;
-  fb0_data_in    := pix_data[ 0,16];
+  fb0_data_in    := pix_data;
   fb0_wenable    := pix_write & fbuffer;
-  fb0_wmask      := {pix_mask[3,1],pix_mask[2,1],pix_mask[1,1],pix_mask[0,1]};
+  fb0_wmask      := pix_mask;
   
-  fb1_addr       := fbuffer ? pix_fetch : pix_waddr;
-  fb1_data_in    := pix_data[0,16];
+  fb1_addr       := fbuffer  ? pix_fetch : pix_waddr;
+  fb1_data_in    := pix_data;
   fb1_wenable    := pix_write & ~fbuffer;
-  fb1_wmask      := {pix_mask[3,1],pix_mask[2,1],pix_mask[1,1],pix_mask[0,1]};
+  fb1_wmask      := pix_mask;
   
   map_write      := 0; // reset map write
   pix_write      := 0; // reset pix_write
   
   always {
-    // updates the eight pixels, either reading from spram of shifting them to go to the next one
-    // this is controlled through the frame_fetch_sync (16 modulo) and next_pixel (2 modulo)
-    // as we render 320x200 4bpp, there are 16 clock cycles of the 640x480 clock for eight frame pixels
+    // updates the four pixels, either reading from spram of shifting them to go to the next one
+    // this is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo)
+    // as we render 320x200 4bpp, there are 8 clock cycles of the 640x480 clock for four frame pixels
     four_pixs = frame_fetch_sync[0,1]
-              ? (~fbuffer ? fb0_data_out : fb1_data_out)
+              ? (~fbuffer        ? fb0_data_out     : fb1_data_out)
               : (next_pixel[0,1] ? (four_pixs >> 4) : four_pixs);      
   }
   
@@ -387,7 +389,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (iter != 320000) {
+  while (iter != 3200000) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -396,12 +398,13 @@ $$end
     cpu_reset = 0;
 
     user_data[0,5] = {1b0,reg_miso,pix_write,vblank,1b0};
+
 $$if SPIFLASH then    
     reg_miso       = sf_miso;
 $$end
 
     if (fb.in_valid) {
-      //__display("(cycle %d) write %h mask %b",iter,sd.addr,sd.wmask);
+      // __display("(cycle %d) write @%d mask %b",iter,fb.addr,fb.wmask);
       pix_waddr = fb.addr;
       pix_mask  = fb.wmask; 
       pix_data  = fb.data_in;
@@ -423,7 +426,7 @@ $$end
           switch (mem.addr[2,2]) {
             case 2b00: {
               __display("LEDs = %h",mem.data_in[0,8]);
-              leds = mem.data_in[0,8];
+              // leds = mem.data_in[0,8];
             }
             case 2b01: {
               __display("swap buffers");

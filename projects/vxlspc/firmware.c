@@ -2,7 +2,7 @@
 
 void main()
 {
-  spiflash_init();
+  //spiflash_init();
 
   //unsigned char *code = (unsigned char *)0x0000004;
   //spiflash_copy(0x100000/*1MB offset*/,code,16/*SPRAM size*/);
@@ -14,6 +14,8 @@ void main()
     
     // swap buffers
     *(LEDS+4) = 1;
+    while ((userdata()&2) == 2) {  }
     
   }
+  
 }
