@@ -93,3 +93,22 @@ unsigned char *spiflash_copy(int addr,unsigned char *dst,int len)
   spiflash_unselect();
   return dst;
 }
+
+void spiflash_read_begin(int addr)
+{
+  spiflash_select();
+  spiflash_send(0x03);
+  spiflash_send((addr>>16)&255);
+  spiflash_send((addr>> 8)&255);
+  spiflash_send((addr    )&255); 
+}
+
+unsigned char spiflash_read_next()
+{
+  return spiflash_read();
+}
+
+void spiflash_read_end()
+{
+  spiflash_unselect();
+}

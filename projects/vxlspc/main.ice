@@ -57,12 +57,7 @@ interface fb_user {
   input   data_out,
 }
 
-$$palette={}
-$$for i = 1,256 do palette[i]=(i-1)|((i-1)<<8)|((i-1)<<16) end
-
-$$for i = 1,16 do
-$$ print('r = ' .. (palette[i*16]&255) .. ' g = ' .. ((palette[i*16]>>8)&255)  .. ' b = ' .. ((palette[i*16]>>16)&255))
-$$end
+$$palette = get_palette_as_table('data/color.tga')
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
 $$sdcard_image_pad_size = 0
@@ -99,7 +94,7 @@ algorithm vxlspc(
   always {
     
     fb.rw       = 1;
-    fb.data_in  = (x < 32 && y < 32) ? ((x[0,4]) << ({x[0,2],2b0})) : 0;
+    fb.data_in  = ((map0_rdata[8,4]) << ({x[0,2],2b0}));
     fb.wmask    = 1 << x[0,2];
     fb.in_valid = 1;
     fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 4bpp    x>>2 + y*80
@@ -329,7 +324,7 @@ $$end
 
   bram uint24 palette[16] = {
 $$for i=1,16 do
-    $palette[i*16]$,
+    $palette[i]$,
 $$end  
   };
   

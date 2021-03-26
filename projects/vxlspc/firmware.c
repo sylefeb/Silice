@@ -2,9 +2,19 @@
 
 void main()
 {
-  //spiflash_init();
+  
+  // copy data into SPRAM
+  spiflash_init();
+  spiflash_read_begin(0x100000/*1MB offset*/);
+  for (int i=0;i<16384;++i) {
+    int vl = spiflash_read_next();
+    int vh = spiflash_read_next();
+    *(TRIANGLE) = ((0<<30) | (i<<16) | (vh<<8) | vl);
+    //              ^ SPRAM 0
+    // ^^^^^^^ name inherited from fire-v + flame, but this is writting to SPRAM maps 0/1
+  }
+  spiflash_read_end();
 
-  //unsigned char *code = (unsigned char *)0x0000004;
   //spiflash_copy(0x100000/*1MB offset*/,code,16/*SPRAM size*/);
 
   while (1) {  
