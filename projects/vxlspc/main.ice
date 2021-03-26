@@ -80,6 +80,12 @@ $$end
 
 // ------------------------- 
 
+$$fp           = 11
+$$fp_scl       = 1<<fp
+$$one_over_width = fp_scl//320  
+$$z_step       = fp_scl
+$$z_num_step   = 128
+    
 $$div_width    = 48
 $$div_unsigned = 1
 $include('../common/divint_std.ice')
@@ -95,12 +101,6 @@ algorithm vxlspc(
     input   uint16 map1_rdata,
 ) <autorun> {
 
-$$fp         = 11
-$$fp_scl     = 1<<fp
-$$one_over_width = fp_scl//320  
-$$z_step     = fp_scl*2
-$$z_num_step = 64
-    
   int24  z(0); // 12.12 fp
   int24  l_x(0);
   int24  l_y(0);
@@ -125,10 +125,10 @@ $$z_num_step = 64
   __display("--------- frame ------------");
     z = $z_step * z_num_step + z_step * 8$;
     while (iz != $z_num_step$) {
-      l_x   = $128*fp_scl + 63*fp_scl$        - (z>>2);
-      l_y   = $128*fp_scl + 63*fp_scl$ + offs + (z>>2);
-      r_x   = $128*fp_scl + 63*fp_scl$        + (z>>2);
-      r_y   = $128*fp_scl + 63*fp_scl$ + offs + (z>>2);      
+      l_x   = $128*fp_scl + 63*fp_scl$        - (z>>1);
+      l_y   = $128*fp_scl + 63*fp_scl$ + offs + (z>>1);
+      r_x   = $128*fp_scl + 63*fp_scl$        + (z>>1);
+      r_y   = $128*fp_scl + 63*fp_scl$ + offs + (z>>1);      
       dx    = ((r_x - l_x) * $one_over_width$) >> $fp$;
 __display("z: %d [l_x: %d r_x: %d] y: %d dx: %d",z,l_x>>>$fp$,r_x>>>$fp$,l_y>>>$fp$,dx);
 //__display("dx: %d", dx);
@@ -142,15 +142,15 @@ __write("[");
         uint1 in_sky   = 0;
         int24 hmap     = uninitialized;
         hmap     = map0_rdata[0,8];
-        y_ground = (((128 - hmap) * inv_z) >>> $fp-5$) + 128;
+        y_ground = (((128 - hmap) * inv_z) >>> $fp-5$) + 64;
 ++:        
-        y_ground = (y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground);
+        y_ground = (iz == 0) ? 0 : ((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground));
 // __display("column [0,%d]", y_ground);
 //__write("%d,", y_ground);
         y = 199;
         while (y != y_ground) {
           fb.rw       = 1;
-          fb.data_in  = ((map0_rdata[8,4]) << ({x[0,2],2b0}));
+          fb.data_in  = (iz == 0) ? 2 : ((map0_rdata[8,4]) << ({x[0,2],2b0}));
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = 1;
           fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 4bpp    x>>2 + y*80          
