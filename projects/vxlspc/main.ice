@@ -94,6 +94,17 @@ $include('../common/divint_std.ice')
 
 // ------------------------- 
 
+algorithm interpolator(
+  input  uint8 a,
+  input  uint8 b,
+  input  uint7 i,
+  output uint8 v
+) <autorun> {
+  always {
+    v = ( (a * i) + (b * (127 - i)) ) >> 7;
+  }  
+}
+
 algorithm vxlspc(
     fb_user        fb,
     output  uint1  fbuffer = 0,
@@ -115,6 +126,18 @@ algorithm vxlspc(
   uint8  vheight(0);
   uint8  gheight(0);
   uint10 x(0);
+  uint12 h(0);
+
+  uint8 interp_a(0);
+  uint8 interp_b(0);
+  uint7 interp_i(0);
+  uint8 interp_v(0);
+  interpolator interp(
+    a <: interp_a,
+    b <: interp_b,
+    i <: interp_i,
+    v :> interp_v
+  );
 
   bram int11 y_last[320] = uninitialized;
 
@@ -154,7 +177,7 @@ algorithm vxlspc(
         int11 y        = uninitialized;
         int24 hmap     = uninitialized;
         // get elevation
-        hmap           = map0_rdata[0,8];
+        hmap           = h[0,8];
         // apply perspective to obtain y_ground on screen
         y_ground       = (((vheight + 120 - hmap) * inv_z) >>> $fp-4$) - 8;
         // retrieve last altitude at this column, if first reset to 199
@@ -170,7 +193,7 @@ algorithm vxlspc(
         // fill column
         while (y >= y_ground) { // geq is needed as y_ground might be 'above' (below on screen)
           fb.rw       = 1;
-          fb.data_in  = (iz == $z_num_step-1$) ? $sky_pal_id$ : ((map0_rdata[8,4]) << ({x[0,2],2b0}));
+          fb.data_in  = (iz == $z_num_step-1$) ? $sky_pal_id$ : ((h[8,4]) << ({x[0,2],2b0}));
           //             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = 1;
@@ -183,8 +206,46 @@ algorithm vxlspc(
         // update position
         x   =   x +  1;
         l_x = l_x + dx;
-        // sample next elevation
-        map0_raddr = {l_y[$fp$,7],l_x[$fp$,7]};
+        // sample next elevations
+        {
+          uint12 h00(0);
+          uint12 h10(0);
+          uint12 h11(0);
+          uint12 h01(0);
+          uint12 hv0(0);
+          uint12 hv1(0);
+          //uint8  avg_c(0);
+          uint12 avg_h(0);
+          // texture interpolation  
+          map0_raddr = {l_y[$fp$,7],l_x[$fp$,7]};
+++:          
+          h00        = map0_rdata;
+          map0_raddr = {l_y[$fp$,7],l_x[$fp$,7]+7b1};
+++:          
+          h10        = map0_rdata;
+          interp_a   = h00;
+          interp_b   = h10;
+          interp_i   = l_x[$fp-7$,$fp$];
+          map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
+++:       
+          hv0        = interp_v;         
+          h11        = map0_rdata;
+          map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
+++:          
+          h01        = map0_rdata;
+          interp_a   = h01;
+          interp_b   = h11;
+++:
+          hv1        = interp_v;
+          interp_a   = hv0;
+          interp_b   = hv1;
+          interp_i   = l_y[$fp-7$,$fp$];
+++:
+          avg_h      = interp_v;
+          // color needs dithering!
+          //avg_c      = (h00[8,4] + h10[8,4] + h11[8,4] + h01[8,4])>>2;
+          h          = {h00[8,4],interp_v[0,8]};
+        }
       }      
       z  = z + $z_step$;
       iz = iz + 1;
