@@ -28,4 +28,7 @@ void main()
     
   }
   
+  // TODO: load palette from code
+  // TODO: change paletter for night / day (shadows...?)
+
 }

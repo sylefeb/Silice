@@ -57,7 +57,7 @@ interface fb_user {
   input   data_out,
 }
 
-$$palette = get_palette_as_table('data/color.tga')
+$$palette = get_palette_as_table('data/color2.tga')
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
 $$sdcard_image_pad_size = 0
@@ -87,6 +87,7 @@ $$fp_scl         = 1<<fp
 $$one_over_width = fp_scl//320  
 $$z_step         = fp_scl
 $$z_num_step     = 256
+$$z_step_init    = z_step
     
 $$div_width    = 48
 $$div_unsigned = 1
@@ -131,7 +132,8 @@ algorithm vxlspc(
     input   uint16 map1_rdata,
 ) <autorun> {
 
-  int24  z(0); // 12.12 fp
+  int24  z(0);
+  int24  z_div(0);
   int24  l_x(0);
   int24  l_y(0);
   int24  r_x(0);
@@ -176,12 +178,16 @@ $$for n=1,127 do
 $$end
   };
 
+  // y coordinate of the previous iso-z in frame buffer
   bram uint8 y_last[320] = uninitialized;
+  // color along the previous iso-z in frame buffer
+  bram uint4 c_last[320] = uninitialized;
 
   uint24 one = $fp_scl*fp_scl$;
   div48 div(
     inum <:: one,
-    iden <:: z,
+    iden <:: z_div,
+    ret  :> inv_z
   );
   
   // register input buttons
@@ -191,16 +197,19 @@ $$end
   fb.in_valid    := 0;
   y_last.wenable := 0;
   y_last.addr    := x;
+  c_last.wenable := 0;
+  c_last.addr    := x;
 
   while (1) {
   
     uint9 iz   = 0;
-    z          = $z_step * 6$;
-    // sample ground height
+    // init z stepping
+    z          = $z_step_init$;
+    // sample ground height to position view altitude automatically
     map0_raddr = {v_y[$fp$,7],v_x[$fp$,7]};
 ++:
     gheight    = map0_rdata[0,8];
-    // adjust view height
+    // smoothly adjust view height
     // NOTE: this below is very expensive in size due to < >
     vheight    = (vheight < gheight) ? vheight + 3 : ((vheight > gheight) ? vheight - 1 : vheight);
     while (iz != $z_num_step$) {
@@ -213,17 +222,21 @@ $$end
       r_y   = v_y + (z);      
       // generate sampling increment along z-iso
       dx    = ((r_x - l_x) * $one_over_width$) >>> $fp$;
-      // compute z inverse  TODO: this can be done in parallel for next row
-      (inv_z) <- div <- ();
+      // launch next division to obtain inv_z (done in parallel for next z-step)
+      // NOTE0: we assume inv_z is ready, division has plenty of time to terminate
+      // NOTE1: the last step starts the division for the next frame first steop
+      // NOTE2: on very first frame inv_z will be incorrect ... no consequence
+      z_div = (iz == $z_num_step-1$) ? $z_step_init$ : z + $z_step$;
+      div <- ();
       // go through screen columns
       x     = 0;
       while (x != 320) {
-        int12  y_ground = uninitialized;
-        int12  y_screen = uninitialized;
-        int11  y        = uninitialized;
-        int9   delta_y  = uninitialized;
-        int24  hmap     = uninitialized;
-        uint10 v_interp = uninitialized;
+        int12  y_ground = uninitialized;  // y ground after projection
+        int12  y_screen = uninitialized;  // same clamped on screen
+        int11  y        = uninitialized;  // iterates between previous and current
+        int9   delta_y  = uninitialized;  // y delta between previous and current
+        int24  hmap     = uninitialized;  // height
+        uint10 v_interp = uninitialized;  // vert. interpolation (dithering)
         // get elevation from interpolator
         hmap           = interp_v;
         // apply perspective to obtain y_ground on screen
@@ -231,6 +244,9 @@ $$end
         // retrieve last altitude at this column, if first reset to 199
         y_last.wenable = (iz == 0);
         y_last.wdata   = 199;
+        // retrieve last color at this column, if first set to current
+        c_last.wenable = (iz == 0);
+        c_last.wdata   = h00[8,4];
 ++: // wait for y_last to be updated
         // restart drawing from last one (or 199 if first)
         y              = (iz == 0) ? 199 : y_last.rdata;
@@ -246,13 +262,17 @@ $$end
         // fill column
         while (y >= y_screen) { // geq is needed as y_screen might be 'above' (below on screen)
           // color dithering
-          uint4 clr(0); uint1 l_or_r(0); uint1 t_or_b(0);          
-          l_or_r = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x     [$fp-6$,6];
-          t_or_b = bayer_8x8[ { x[0,3] , y[0,3] } ] > v_interp[4,6];
-          clr    = l_or_r ? ( t_or_b ? h00[8,4] : h01[8,4] ) : (t_or_b ? h10[8,4] : h11[8,4]);          
+          uint4 clr(0); uint1 l_or_r(0); uint1 t_or_b(0);
+          l_or_r = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x     [$fp-6$,6]; // horizontal
+          t_or_b = bayer_8x8[ { x[0,3] , y[0,3] } ] < v_interp[4,6];      // vertical
+          clr    = l_or_r ? ( t_or_b ? h00[8,4] : c_last.rdata ) : (t_or_b ? h10[8,4] : c_last.rdata);          
+          // clr    = t_or_b ? ( l_or_r ? h00[8,4] : h10[8,4] ) : (l_or_r ? h01[8,4] : h11[8,4]);
+
           // clr        = h00[8,4];      // uncomment to visualize nearest mode
           // clr        = l_x[$fp-4$,4]; // uncomment to visualize u interpolator
+
           // clr        = v_interp[6,4]; // uncomment to visualize v interpolator
+
           // update v interpolator
           v_interp    = v_interp + inv_n.rdata;
           // write to framebuffer
@@ -267,6 +287,13 @@ $$end
         // write current altitude for next
         y_last.wenable = 1;
         y_last.wdata   = (y_screen[0,8] < y_last.rdata) ? y_screen[0,8] : y_last.rdata;
+        // write current color for next
+        c_last.wenable = 1;
+        {
+          uint1 l_or_r(0);
+          l_or_r       = bayer_8x8[ { h00[5,3] , x[0,3] } ] > l_x[$fp-6$,6];
+          c_last.wdata = l_or_r ? h00[8,4] : h10[8,4];
+        }
         // update position
         x   =   x +  1;
         l_x = l_x + dx;
@@ -285,14 +312,14 @@ $$end
           interp_b   = h10[0,8];
           interp_i   = l_x[$fp-8$,8];
           map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
-++:       
-           hv0        = interp_v;
-           h11        = map0_rdata;
-           map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
- ++:          
-           h01        = map0_rdata;
 // NOTE: we don't need to interpolate height along the second line
 //       this would become necessary with partial advance or free rotation
+// ++:       
+//          hv0        = interp_v;
+//          h11        = map0_rdata;
+//          map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
+// ++:          
+//          h01        = map0_rdata;
 //           interp_a   = h01[0,8]; // second interpolation
 //           interp_b   = h11[0,8];
 // ++:
@@ -302,16 +329,20 @@ $$end
 //           interp_i   = l_y[$fp-8$,8];
         }
       }      
-      z  = z + $z_step$;
+      z  = z_div;
       iz = iz + 1;
     }
     fbuffer = ~fbuffer;
 $$if NUM_BTNS then 
-    // use buttons   
+    // use buttons
+    // NOTE: moving by less (or non-multiples) of fp_scl 
+    //       will require offseting the interpolators
     switch (r_btns) {
-      case 1: { v_x   = v_x - $fp_scl//2$; }
-      case 2: { v_x   = v_x + $fp_scl//2$; }
-      case 4: { v_y   = v_y + $fp_scl$;    }
+      case 1: { v_x = v_x - $fp_scl // 4$; }
+      case 2: { v_x = v_x + $fp_scl // 4$; }
+      case 4: {                            v_y = v_y + $fp_scl$; }
+      case 5: { v_x = v_x - $fp_scl // 4$; v_y = v_y + $fp_scl$; }
+      case 6: { v_x = v_x + $fp_scl // 4$; v_y = v_y + $fp_scl$; }
     }
 $$else
     // auto advance
