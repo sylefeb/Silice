@@ -141,14 +141,23 @@ algorithm vxlspc(
 
   // https://en.wikipedia.org/wiki/Ordered_dithering
   int6 bayer_8x8[64] = {
-  0, 32, 8, 40, 2, 34, 10, 42,
-  48, 16, 56, 24, 50, 18, 58, 26,
-  12, 44, 4, 36, 14, 46, 6, 38,
-  60, 28, 52, 20, 62, 30, 54, 22,
-  3, 35, 11, 43, 1, 33, 9, 41,
-  51, 19, 59, 27, 49, 17, 57, 25,
-  15, 47, 7, 39, 13, 45, 5, 37,
-  63, 31, 55, 23, 61, 29, 53, 21}; 
+    0, 32, 8, 40, 2, 34, 10, 42,
+    48, 16, 56, 24, 50, 18, 58, 26,
+    12, 44, 4, 36, 14, 46, 6, 38,
+    60, 28, 52, 20, 62, 30, 54, 22,
+    3, 35, 11, 43, 1, 33, 9, 41,
+    51, 19, 59, 27, 49, 17, 57, 25,
+    15, 47, 7, 39, 13, 45, 5, 37,
+    63, 31, 55, 23, 61, 29, 53, 21
+  }; 
+
+  // 1/n table for vertical interpolation  
+  bram uint10 inv_n[128]={
+    0, // 0: unused
+$$for n=1,127 do
+    $1023 // n$, // the double slash in Lua pre-processor is tne integer division
+$$end
+  };
 
   bram uint8 y_last[320] = uninitialized;
 
@@ -167,7 +176,7 @@ algorithm vxlspc(
     uint9 iz   = 0;
     z          = $z_step * 6$;
     // sample ground height
-    map0_raddr = {v_y[$fp$,7],v_x[$fp$,7]};
+    map0_raddr = {v_y[$fp$,7],v_x[$fp$,7] - 7d6};
 ++:
     gheight    = map0_rdata[0,8];
     // adjust view height
@@ -188,9 +197,12 @@ algorithm vxlspc(
       // go through screen columns
       x     = 0;
       while (x != 320) {
-        int12 y_ground = uninitialized;
-        int11 y        = uninitialized;
-        int24 hmap     = uninitialized;
+        int12  y_ground = uninitialized;
+        int12  y_screen = uninitialized;
+        int11  y        = uninitialized;
+        int9   delta_y  = uninitialized;
+        int24  hmap     = uninitialized;
+        uint10 v_interp = uninitialized;
         // get elevation from interpolator
         hmap           = interp_v;
         // apply perspective to obtain y_ground on screen
@@ -198,24 +210,28 @@ algorithm vxlspc(
         // retrieve last altitude at this column, if first reset to 199
         y_last.wenable = (iz == 0);
         y_last.wdata   = 199;
-++: // wait for y_last   TODO: probably can remove this cycle, prefetching at previous iter
-        // clamp on screen
-        y_ground       = (iz == $z_num_step-1$) ? 0 : (((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground)));
-        //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
-        // restart from last one (or 199 if first)
+++: // wait for y_last to be updated
+        // restart drawing from last one (or 199 if first)
         y              = (iz == 0) ? 199 : y_last.rdata;
+        // prepare vertical interpolation factor (color dithering)
+        delta_y        = (y - y_ground); // y gap that will be drawn
+        inv_n.addr     = delta_y;        // one over the gap size
+        v_interp       = 0;              // interpolator accumulation
+        // clamp on screen
+        y_screen       = (iz == $z_num_step-1$) ? 0 : (((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground)));
+        //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
         // fill column
-        while (y >= y_ground) { // geq is needed as y_ground might be 'above' (below on screen)
+        while (y >= y_screen) { // geq is needed as y_screen might be 'above' (below on screen)
           // color dithering
-          uint4  clr(0); 
-          
-          uint6 l_or_r(0); uint6 t_or_b(0);
-          l_or_r = bayer_8x8[ { y[0,3] , l_x[0,3] } ];
-          clr    = l_or_r[5,1] ? h01[8,4] : h00[8,4];
-          // t_or_b = bayer_8x8[ { x[0,3] , y[0,3] } ];
-          // clr    = l_or_r[5,1] ? ( t_or_b[5,1] ? h01[8,4] : h00[8,4] ) : (t_or_b[5,1] ? h11[8,4] : h10[8,4]);
-          //clr         = h00[8,4];
-          
+          uint4 clr(0); uint1 l_or_r(0); uint1 t_or_b(0);          
+          l_or_r = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x     [$fp-6$,6];
+          t_or_b = bayer_8x8[ { x[0,3] , y[0,3] } ] > v_interp[4,6];
+          clr    = l_or_r ? ( t_or_b ? h00[8,4] : h01[8,4] ) : (t_or_b ? h10[8,4] : h11[8,4]);          
+          // clr        = h00[8,4];      // uncomment to visualize nearest mode
+          // clr        = l_x[$fp-4$,4]; // uncomment to visualize u interpolator
+          // clr        = v_interp[6,4]; // uncomment to visualize v interpolator
+          // update v interpolator
+          v_interp    = v_interp + inv_n.rdata;
           // write to framebuffer
           fb.rw       = 1;
           fb.data_in  = (iz == $z_num_step-1$) ? $sky_pal_id$ : ((clr) << ({x[0,2],2b0}));
@@ -227,7 +243,7 @@ algorithm vxlspc(
         }
         // write current altitude for next
         y_last.wenable = 1;
-        y_last.wdata   = (y_ground[0,8] < y_last.rdata) ? y_ground[0,8] : y_last.rdata;
+        y_last.wdata   = (y_screen[0,8] < y_last.rdata) ? y_screen[0,8] : y_last.rdata;
         // update position
         x   =   x +  1;
         l_x = l_x + dx;
@@ -245,13 +261,15 @@ algorithm vxlspc(
           interp_a   = h00[0,8];  // first interpolation
           interp_b   = h10[0,8];
           interp_i   = l_x[$fp-8$,8];
-//          map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
-//++:       
-//           hv0        = interp_v;
-//           h11        = map0_rdata;
-//           map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
-// ++:          
-//           h01        = map0_rdata;
+          map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
+++:       
+           hv0        = interp_v;
+           h11        = map0_rdata;
+           map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
+ ++:          
+           h01        = map0_rdata;
+// NOTE: we don't need to interpolate height along the second line
+//       this would become necessary with partial advance or free rotation
 //           interp_a   = h01[0,8]; // second interpolation
 //           interp_b   = h11[0,8];
 // ++:
@@ -486,6 +504,7 @@ $$end
 
   bram uint24 palette[16] = {
 $$for i=1,16 do
+//      $(i-1)*16$,
     $palette[i]$,
 $$end  
   };
