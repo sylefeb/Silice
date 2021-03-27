@@ -57,7 +57,8 @@ interface fb_user {
   input   data_out,
 }
 
-$$palette = get_palette_as_table('data/color2.tga')
+$$palette    = get_palette_as_table('data/color6.tga')
+$$sky_pal_id = 1
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
 $$sdcard_image_pad_size = 0
@@ -79,8 +80,6 @@ $include('../fire-v/ash/verilator_spram.ice')
 $$end
 
 // ------------------------- 
-
-$$sky_pal_id     = 4
 
 $$fp             = 11
 $$fp_scl         = 1<<fp
@@ -189,10 +188,6 @@ $$end
     iden <:: z,
   );
   
-  // register input buttons
-  uint3 r_btns(0);
-  r_btns        ::= btns;
-
   fb.in_valid    := 0;
   y_last.wenable := 0;
   y_last.addr    := x;
@@ -233,6 +228,7 @@ $$end
         int24  hmap     = uninitialized;  // height
         uint10 v_interp = uninitialized;  // vert. interpolation (dithering)
         // get elevation from interpolator
+        // NOTE: incorrect on first column
         hmap           = interp_v;
         // apply perspective to obtain y_ground on screen
         y_ground       = (((vheight + 50 - hmap) * inv_z) >>> $fp-4$) + 8;
@@ -272,7 +268,7 @@ $$end
           v_interp    = v_interp + inv_n.rdata;
           // write to framebuffer
           fb.rw       = 1;
-          fb.data_in  = ( (iz == $z_num_step-1$) ? $sky_pal_id$ : clr) << {x[0,2],2b0};
+          fb.data_in  = ((x == 0) ? $sky_pal_id$ : ( (iz == $z_num_step-1$) ? $sky_pal_id$ : clr) << {x[0,2],2b0});
           //             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = 1;
@@ -332,7 +328,7 @@ $$if NUM_BTNS then
     // use buttons
     // NOTE: moving by less (or non-multiples) of fp_scl 
     //       will require offseting the interpolators
-    switch (r_btns) {
+    switch (btns) {
       case 1: { v_x = v_x - $fp_scl // 4$; }
       case 2: { v_x = v_x + $fp_scl // 4$; }
       case 4: {                            v_y = v_y + $fp_scl$; }
@@ -454,9 +450,9 @@ $$end
     This means we can read/write 4 pixels at once
     As we generate a 640x480 signal we have to read every 8 VGA pixels along a row
 
-    (Blaze goes up to height at the cost of a more complex addressing
+    (Blaze goes up to eight at the cost of a more complex addressing
      and sharing write/reads, here we keep things simpler)
-      
+
     Frame buffer 0: [0,15999]
     Frame buffer 1: [0,15999]
     
@@ -560,7 +556,7 @@ $$end
   vxlspc vs(
     fb          <:> fb,
     fbuffer      :> fbuffer,
-    btns         <: btns,
+    btns         <: r_btns,
     map0_raddr   :> map0_raddr,
     map0_rdata   <: map0_data_out,
     map1_raddr   :> map1_raddr,
@@ -590,6 +586,10 @@ $$end
 $$if SIMULATION then  
   uint32 iter = 0;
 $$end
+
+  // register input buttons
+  uint3 r_btns(0);
+  r_btns        ::= btns;
 
   // leds           := {4b0,fbuffer};
 
@@ -623,8 +623,8 @@ $$end
   
   always_after   {
     // updates synchronization variables
-    frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,7]};
-    next_pixel       = {next_pixel[0,1],next_pixel[1,1]};
+    frame_fetch_sync = active ? {frame_fetch_sync[0,1],frame_fetch_sync[1,7]} : 8b1;
+    next_pixel       = active ? {next_pixel[0,1],next_pixel[1,1]}             : 2b1;
   }
 
 $$if SIMULATION then  
@@ -636,7 +636,7 @@ $$end
 
     cpu_reset = 0;
 
-    user_data[0,5] = {1b0,reg_miso,pix_write,vblank,1b0};
+    user_data[0,7] = {r_btns,reg_miso,pix_write,vblank,1b0};
 
 $$if SPIFLASH then    
     reg_miso       = sf_miso;
@@ -667,15 +667,9 @@ $$end
               __display("LEDs = %h",mem.data_in[0,8]);
               leds = mem.data_in[0,8];
             }
-            case 2b01: {
-              // __display("swap buffers");
-              // fbuffer = ~fbuffer;
-            }            
+            case 2b01: { /* swap buffer ignored */ }
             case 2b10: {
               // SPIFLASH
-$$if SIMULATION then
-              // __display("(cycle %d) SPIFLASH %b",iter,mem.data_in[0,3]);
-$$end              
 $$if SPIFLASH then
               sf_clk  = mem.data_in[0,1];
               sf_mosi = mem.data_in[1,1];

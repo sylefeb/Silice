@@ -43,17 +43,24 @@ $$V_END    = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH + V_RES
   uint10 xcount(0);
   uint10 ycount(0);
 
-  vga_hs := ~((xcount >= $HS_START$ && xcount < $HS_END$));
-  vga_vs := ~((ycount >= $VS_START$ && ycount < $VS_END$));
+  uint1  last_line ::= (ycount == $VA_START + VGA_VA_END - 1$);
+  uint10 pix_x     ::= (xcount - $HA_START$);
+  uint10 pix_y     ::= (ycount - $VA_START$);
 
-  active := (xcount >= $HA_START$ && xcount < $H_END$)
-         && (ycount >= $VA_START$ && ycount < $VA_START + VGA_VA_END$);
-  vblank := (ycount < $VA_START$);
+  uint1  active_h  ::= (xcount >= $HA_START$ && xcount < $H_END$);
+  uint1  active_v  ::= (ycount >= $VA_START$ && ycount < $VA_START + VGA_VA_END$);
+
+  active           := active_h && active_v;
+
+  vga_hs           := ~((xcount >= $HS_START$ && xcount < $HS_END$));
+  vga_vs           := ~((ycount >= $VS_START$ && ycount < $VS_END$));
+
+  vblank           := (ycount < $VA_START$);
 
   always {
 
-    vga_x = active ? (xcount - $HA_START$) : 0;
-    vga_y = active ? (ycount - $VA_START$) : 0;
+    vga_x = active_h ? pix_x : 0;
+    vga_y = active_v ? pix_y : 0;
 
     if (xcount == $H_END-1$) {
       xcount = 0;

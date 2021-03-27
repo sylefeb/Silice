@@ -1,7 +1,7 @@
 // SL 2020-12-23 @sylefeb
 // ------------------------- 
 
-$$terrain = 2
+$$terrain = 6
 
 $$dofile('pre/pre_packdata.lua')
 
