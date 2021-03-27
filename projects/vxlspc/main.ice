@@ -328,7 +328,7 @@ $$if NUM_BTNS then
     // use buttons
     // NOTE: moving by less (or non-multiples) of fp_scl 
     //       will require offseting the interpolators
-    switch (btns) {
+    switch ({~btns[2,1],btns[1,1],btns[0,1]}) {
       case 1: { v_x = v_x - $fp_scl // 4$; }
       case 2: { v_x = v_x + $fp_scl // 4$; }
       case 4: {                            v_y = v_y + $fp_scl$; }
@@ -623,8 +623,8 @@ $$end
   
   always_after   {
     // updates synchronization variables
-    frame_fetch_sync = active ? {frame_fetch_sync[0,1],frame_fetch_sync[1,7]} : 8b1;
-    next_pixel       = active ? {next_pixel[0,1],next_pixel[1,1]}             : 2b1;
+    frame_fetch_sync = active ? {frame_fetch_sync[0,1],frame_fetch_sync[1,7]} : 8b10000000;
+    next_pixel       = active ? {next_pixel[0,1],next_pixel[1,1]}             : 2b10;
   }
 
 $$if SIMULATION then  
