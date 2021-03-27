@@ -85,7 +85,7 @@ $$sky_pal_id     = 2
 $$fp             = 11
 $$fp_scl         = 1<<fp
 $$one_over_width = fp_scl//320  
-$$z_step         = fp_scl//4
+$$z_step         = fp_scl
 $$z_num_step     = 256
     
 $$div_width    = 48
@@ -139,7 +139,7 @@ algorithm vxlspc(
     v :> interp_v
   );
 
-  bram int11 y_last[320] = uninitialized;
+  bram uint8 y_last[320] = uninitialized;
 
   uint24 one = $fp_scl*fp_scl$;
   div48 div(
@@ -147,19 +147,21 @@ algorithm vxlspc(
     iden <:: z,
   );
   
-  fb.in_valid := 0;
+  fb.in_valid    := 0;
+  y_last.wenable := 0;
+  y_last.addr    := x;
 
   while (1) {
   
     uint9 iz   = 0;
-    z          = $z_step * 8$;
+    z          = $z_step * 6$;
     // sample ground height
     map0_raddr = {v_y[$fp$,7],v_x[$fp$,7]};
 ++:
     gheight    = map0_rdata[0,8];
     // adjust view height
     // NOTE: this below is very expensive in size due to < >
-    vheight    = (vheight < gheight) ? vheight + 1 : ((vheight > gheight) ? vheight - 1 : vheight);
+    vheight    = (vheight < gheight) ? vheight + 3 : ((vheight > gheight) ? vheight - 1 : vheight);
     while (iz != $z_num_step$) {
       // generate frustum coordinates
       l_x   = v_x - (z);
@@ -173,15 +175,14 @@ algorithm vxlspc(
       // go through screen columns
       x     = 0;
       while (x != 320) {
-        int11 y_ground = uninitialized;
+        int12 y_ground = uninitialized;
         int11 y        = uninitialized;
         int24 hmap     = uninitialized;
         // get elevation
         hmap           = h[0,8];
         // apply perspective to obtain y_ground on screen
-        y_ground       = (((vheight + 100 - hmap) * inv_z) >>> $fp-5$) - 16;
+        y_ground       = (((vheight + 50 - hmap) * inv_z) >>> $fp-4$) + 8;
         // retrieve last altitude at this column, if first reset to 199
-        y_last.addr    = x;
         y_last.wenable = (iz == 0);
         y_last.wdata   = 199;
 ++: // wait for y_last   TODO: probably can remove this cycle, prefetching at previous iter
@@ -198,11 +199,11 @@ algorithm vxlspc(
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = 1;
           fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 4bpp    x>>2 + y*80          
-          y = y - 1;
+          y           = y - 1;
         }
         // write current altitude for next
         y_last.wenable = 1;
-        y_last.wdata   = y_ground;        
+        y_last.wdata   = (y_ground[0,8] < y_last.rdata) ? y_ground[0,8] : y_last.rdata;
         // update position
         x   =   x +  1;
         l_x = l_x + dx;
@@ -215,27 +216,28 @@ algorithm vxlspc(
           uint8  hv0(0);
           uint8  hv1(0);
           // texture interpolation  
+          // interleaves access and interpolator computations
           map0_raddr = {l_y[$fp$,7],l_x[$fp$,7]};
 ++:          
           h00        = map0_rdata;
           map0_raddr = {l_y[$fp$,7],l_x[$fp$,7]+7b1};
 ++:          
           h10        = map0_rdata;
-          interp_a   = h00[0,8];
+          interp_a   = h00[0,8];  // first interpolation
           interp_b   = h10[0,8];
           interp_i   = l_x[$fp-8$,$fp$];
           map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
 ++:       
-          hv0        = interp_v;         
+          hv0        = interp_v;
           h11        = map0_rdata;
           map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
 ++:          
           h01        = map0_rdata;
-          interp_a   = h01[0,8];
+          interp_a   = h01[0,8]; // second interpolation
           interp_b   = h11[0,8];
 ++:
           hv1        = interp_v;
-          interp_a   = hv0;
+          interp_a   = hv0;      // third interpolation
           interp_b   = hv1;
           interp_i   = l_y[$fp-8$,$fp$];
 ++:
