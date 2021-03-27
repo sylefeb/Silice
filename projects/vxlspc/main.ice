@@ -242,20 +242,20 @@ algorithm vxlspc(
           interp_a   = h00[0,8];  // first interpolation
           interp_b   = h10[0,8];
           interp_i   = l_x[$fp-8$,8];
-          map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
-++:       
-          hv0        = interp_v;
-          h11        = map0_rdata;
-          map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
-++:          
-          h01        = map0_rdata;
-          interp_a   = h01[0,8]; // second interpolation
-          interp_b   = h11[0,8];
-++:
-          hv1        = interp_v;
-          interp_a   = hv0;      // third interpolation
-          interp_b   = hv1;
-          interp_i   = l_y[$fp-8$,8];
+//          map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
+//++:       
+//           hv0        = interp_v;
+//           h11        = map0_rdata;
+//           map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
+// ++:          
+//           h01        = map0_rdata;
+//           interp_a   = h01[0,8]; // second interpolation
+//           interp_b   = h11[0,8];
+// ++:
+//           hv1        = interp_v;
+//           interp_a   = hv0;      // third interpolation
+//           interp_b   = hv1;
+//           interp_i   = l_y[$fp-8$,8];
         }
       }      
       z  = z + $z_step$;
