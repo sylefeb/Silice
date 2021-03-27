@@ -208,11 +208,14 @@ algorithm vxlspc(
         while (y >= y_ground) { // geq is needed as y_ground might be 'above' (below on screen)
           // color dithering
           uint4  clr(0); 
-          //uint6 l_or_r(0); uint6 t_or_b(0);
-          //l_or_r = bayer_8x8[ { y[0,3] , x[0,3] } ];
-          //t_or_b = bayer_8x8[ { x[0,3] , y[0,3] } ];
-          //clr    = l_or_r[5,1] ? ( t_or_b[5,1] ? h01[8,4] : h00[8,4] ) : (t_or_b[5,1] ? h11[8,4] : h10[8,4]);
-          clr         = h00[8,4];
+          
+          uint6 l_or_r(0); uint6 t_or_b(0);
+          l_or_r = bayer_8x8[ { y[0,3] , l_x[0,3] } ];
+          clr    = l_or_r[5,1] ? h01[8,4] : h00[8,4];
+          // t_or_b = bayer_8x8[ { x[0,3] , y[0,3] } ];
+          // clr    = l_or_r[5,1] ? ( t_or_b[5,1] ? h01[8,4] : h00[8,4] ) : (t_or_b[5,1] ? h11[8,4] : h10[8,4]);
+          //clr         = h00[8,4];
+          
           // write to framebuffer
           fb.rw       = 1;
           fb.data_in  = (iz == $z_num_step-1$) ? $sky_pal_id$ : ((clr) << ({x[0,2],2b0}));
