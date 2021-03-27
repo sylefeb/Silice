@@ -186,8 +186,7 @@ $$end
   uint24 one = $fp_scl*fp_scl$;
   div48 div(
     inum <:: one,
-    iden <:: z_div,
-    ret  :> inv_z
+    iden <:: z,
   );
   
   // register input buttons
@@ -222,16 +221,12 @@ $$end
       r_y   = v_y + (z);      
       // generate sampling increment along z-iso
       dx    = ((r_x - l_x) * $one_over_width$) >>> $fp$;
-      // launch next division to obtain inv_z (done in parallel for next z-step)
-      // NOTE0: we assume inv_z is ready, division has plenty of time to terminate
-      // NOTE1: the last step starts the division for the next frame first steop
-      // NOTE2: on very first frame inv_z will be incorrect ... no consequence
-      z_div = (iz == $z_num_step-1$) ? $z_step_init$ : z + $z_step$;
-      div <- ();
+      // division to obtain inv_z (could be in parallel for next z-step ... complexity / gain not favorable)
+      (inv_z) <- div <- ();
       // go through screen columns
       x     = 0;
       while (x != 320) {
-        int12  y_ground = uninitialized;  // y ground after projection
+        int14  y_ground = uninitialized;  // y ground after projection
         int12  y_screen = uninitialized;  // same clamped on screen
         int11  y        = uninitialized;  // iterates between previous and current
         int9   delta_y  = uninitialized;  // y delta between previous and current
@@ -277,7 +272,7 @@ $$end
           v_interp    = v_interp + inv_n.rdata;
           // write to framebuffer
           fb.rw       = 1;
-          fb.data_in  = (iz == $z_num_step-1$) ? $sky_pal_id$ : ((clr) << ({x[0,2],2b0}));
+          fb.data_in  = ( (iz == $z_num_step-1$) ? $sky_pal_id$ : clr) << {x[0,2],2b0};
           //             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = 1;
@@ -328,10 +323,10 @@ $$end
 //           interp_b   = hv1;
 //           interp_i   = l_y[$fp-8$,8];
         }
-      }      
-      z  = z_div;
+      } // x
+      z  = z + $z_step$;
       iz = iz + 1;
-    }
+    } // z-steps
     fbuffer = ~fbuffer;
 $$if NUM_BTNS then 
     // use buttons
