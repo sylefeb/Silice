@@ -94,6 +94,13 @@ $include('../common/divint_std.ice')
 
 // ------------------------- 
 
+//////////////////////////////////////////////
+// interpolator
+// computes the interpolation from a to b
+// according to i in [0,255]
+// maps to DSP blocks
+//////////////////////////////////////////////
+
 algorithm interpolator(
   input  uint8 a,
   input  uint8 b,
@@ -105,9 +112,19 @@ algorithm interpolator(
   }  
 }
 
+//////////////////////////////////////////////
+// voxel space renderer
+// - this is similar but not quite exactly the same
+//   as the famous Voxel Space engine from Novalogic
+//   see e.g. https://github.com/s-macke/VoxelSpace
+// - the key different lies in the in interpolation
+//   that takes place for height and color
+//////////////////////////////////////////////
+
 algorithm vxlspc(
     fb_user        fb,
     output  uint1  fbuffer = 0,
+    input   uint3  btns,
     output! uint14 map0_raddr,
     input   uint16 map0_rdata,
     output! uint14 map1_raddr,
@@ -167,6 +184,10 @@ $$end
     iden <:: z,
   );
   
+  // register input buttons
+  uint3 r_btns(0);
+  r_btns        ::= btns;
+
   fb.in_valid    := 0;
   y_last.wenable := 0;
   y_last.addr    := x;
@@ -176,7 +197,7 @@ $$end
     uint9 iz   = 0;
     z          = $z_step * 6$;
     // sample ground height
-    map0_raddr = {v_y[$fp$,7],v_x[$fp$,7] - 7d6};
+    map0_raddr = {v_y[$fp$,7],v_x[$fp$,7]};
 ++:
     gheight    = map0_rdata[0,8];
     // adjust view height
@@ -215,6 +236,8 @@ $$end
         y              = (iz == 0) ? 199 : y_last.rdata;
         // prepare vertical interpolation factor (color dithering)
         delta_y        = (y - y_ground); // y gap that will be drawn
+        // NOTE: this is not correct around silouhettes, but visually
+        //       did not seem to produce artifacts, so keep it simple!
         inv_n.addr     = delta_y;        // one over the gap size
         v_interp       = 0;              // interpolator accumulation
         // clamp on screen
@@ -283,7 +306,17 @@ $$end
       iz = iz + 1;
     }
     fbuffer = ~fbuffer;
-    v_y     = v_y + $fp_scl$;
+$$if NUM_BTNS then 
+    // use buttons   
+    switch (r_btns) {
+      case 1: { v_x   = v_x - $fp_scl//2$; }
+      case 2: { v_x   = v_x + $fp_scl//2$; }
+      case 4: { v_y   = v_y + $fp_scl$;    }
+    }
+$$else
+    // auto advance
+    v_y   = v_y + $fp_scl$;
+$$end    
   }
 }
 
@@ -305,6 +338,9 @@ $$if SPIFLASH then
   output uint1             sf_mosi,
   input  uint1             sf_miso,
 $$end  
+$$if NUM_BTNS then
+  input  uint$NUM_BTNS$    btns,
+$$end  
 $$if ICEBREAKER then
 ) <@vga_clock,!fast_reset> {
 
@@ -324,13 +360,16 @@ $$if ICEBREAKER then
   clean_reset rst<@fast_clock,!reset>(
     out :> fast_reset
   );
-  
 $$elseif VERILATOR then
 ) {
   passthrough p( inv <: clock, outv :> video_clock );
 $$else
 ) {
 $$end
+
+$$if not NUM_BTNS then
+  uint3 btns(0); // placeholder for buttons
+$$end  
 
   rv32i_ram_io mem;
 
@@ -488,14 +527,14 @@ $$end
     data_out :> map1_data_out
   );
 
+  // ==== voxel space renderer instantiation
   // interface for GPU writes in framebuffer
   fb_r16_w16_io fb;
-  
-  uint1 fbuffer(0); // frame bnuffer selected for display (writes can occur in ~fbuffer)
-  
+  uint1 fbuffer(0); // frame bnuffer selected for display (writes can occur in ~fbuffer)  
   vxlspc vs(
     fb          <:> fb,
     fbuffer      :> fbuffer,
+    btns         <: btns,
     map0_raddr   :> map0_raddr,
     map0_rdata   <: map0_data_out,
     map1_raddr   :> map1_raddr,
