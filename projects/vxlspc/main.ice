@@ -110,7 +110,10 @@ algorithm vxlspc(
   int24  r_y(0);
   int24  dx(0);
   int24  inv_z(0);
-  int24  offs(0);
+  int24  v_x($(128   )*fp_scl$);
+  int24  v_y($(128+63)*fp_scl$);
+  uint8  vheight(0);
+  uint8  gheight(0);
   uint10 x(0);
 
   bram int11 y_last[320] = uninitialized;
@@ -125,14 +128,21 @@ algorithm vxlspc(
 
   while (1) {
   
-    uint9 iz = 0;
-    z = $z_step * 8$;
+    uint9 iz   = 0;
+    z          = $z_step * 8$;
+    // sample ground height
+    map0_raddr = {v_y[$fp$,7],v_x[$fp$,7]};
+++:
+    gheight    = map0_rdata[0,8];
+    // adjust view height
+    // NOTE: this below is very expensive in size due to < >
+    vheight    = (vheight < gheight) ? vheight + 1 : ((vheight > gheight) ? vheight - 1 : vheight);
     while (iz != $z_num_step$) {
       // generate frustum coordinates
-      l_x   = $(128+63)*fp_scl + 63*fp_scl$        - (z);
-      l_y   = $(128+63)*fp_scl + 63*fp_scl$ + offs + (z);
-      r_x   = $(128+63)*fp_scl + 63*fp_scl$        + (z);
-      r_y   = $(128+63)*fp_scl + 63*fp_scl$ + offs + (z);
+      l_x   = v_x - (z);
+      l_y   = v_y + (z);
+      r_x   = v_x + (z);
+      r_y   = v_y + (z);      
       // generate sampling increment along z-iso
       dx    = ((r_x - l_x) * $one_over_width$) >>> $fp$;
       // compute z inverse  TODO: this can be done in parallel for next row
@@ -146,7 +156,7 @@ algorithm vxlspc(
         // get elevation
         hmap           = map0_rdata[0,8];
         // apply perspective to obtain y_ground on screen
-        y_ground       = (((128 - hmap) * inv_z) >>> $fp-4$) - 8;
+        y_ground       = (((vheight + 120 - hmap) * inv_z) >>> $fp-4$) - 8;
         // retrieve last altitude at this column, if first reset to 199
         y_last.addr    = x;
         y_last.wenable = (iz == 0);
@@ -180,7 +190,7 @@ algorithm vxlspc(
       iz = iz + 1;
     }
     fbuffer = ~fbuffer;
-    offs    = offs + $fp_scl$;
+    v_y     = v_y + $fp_scl$;
   }
 }
 
