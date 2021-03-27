@@ -139,6 +139,17 @@ algorithm vxlspc(
     v :> interp_v
   );
 
+  // https://en.wikipedia.org/wiki/Ordered_dithering
+  int6 bayer_8x8[64] = {
+  0, 32, 8, 40, 2, 34, 10, 42,
+  48, 16, 56, 24, 50, 18, 58, 26,
+  12, 44, 4, 36, 14, 46, 6, 38,
+  60, 28, 52, 20, 62, 30, 54, 22,
+  3, 35, 11, 43, 1, 33, 9, 41,
+  51, 19, 59, 27, 49, 17, 57, 25,
+  15, 47, 7, 39, 13, 45, 5, 37,
+  63, 31, 55, 23, 61, 29, 53, 21}; 
+
   bram uint8 y_last[320] = uninitialized;
 
   uint24 one = $fp_scl*fp_scl$;
@@ -163,6 +174,8 @@ algorithm vxlspc(
     // NOTE: this below is very expensive in size due to < >
     vheight    = (vheight < gheight) ? vheight + 3 : ((vheight > gheight) ? vheight - 1 : vheight);
     while (iz != $z_num_step$) {
+      uint12 h00(0); uint12 h10(0); 
+      uint12 h11(0); uint12 h01(0);
       // generate frustum coordinates
       l_x   = v_x - (z);
       l_y   = v_y + (z);
@@ -178,8 +191,8 @@ algorithm vxlspc(
         int12 y_ground = uninitialized;
         int11 y        = uninitialized;
         int24 hmap     = uninitialized;
-        // get elevation
-        hmap           = h[0,8];
+        // get elevation from interpolator
+        hmap           = interp_v;
         // apply perspective to obtain y_ground on screen
         y_ground       = (((vheight + 50 - hmap) * inv_z) >>> $fp-4$) + 8;
         // retrieve last altitude at this column, if first reset to 199
@@ -193,8 +206,16 @@ algorithm vxlspc(
         y              = (iz == 0) ? 199 : y_last.rdata;
         // fill column
         while (y >= y_ground) { // geq is needed as y_ground might be 'above' (below on screen)
+          // color dithering
+          uint4  clr(0); 
+          //uint6 l_or_r(0); uint6 t_or_b(0);
+          //l_or_r = bayer_8x8[ { y[0,3] , x[0,3] } ];
+          //t_or_b = bayer_8x8[ { x[0,3] , y[0,3] } ];
+          //clr    = l_or_r[5,1] ? ( t_or_b[5,1] ? h01[8,4] : h00[8,4] ) : (t_or_b[5,1] ? h11[8,4] : h10[8,4]);
+          clr         = h00[8,4];
+          // write to framebuffer
           fb.rw       = 1;
-          fb.data_in  = (iz == $z_num_step-1$) ? $sky_pal_id$ : ((h[8,4]) << ({x[0,2],2b0}));
+          fb.data_in  = (iz == $z_num_step-1$) ? $sky_pal_id$ : ((clr) << ({x[0,2],2b0}));
           //             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = 1;
@@ -209,12 +230,7 @@ algorithm vxlspc(
         l_x = l_x + dx;
         // sample next elevations
         {
-          uint12 h00(0);
-          uint12 h10(0);
-          uint12 h11(0);
-          uint12 h01(0);
-          uint8  hv0(0);
-          uint8  hv1(0);
+          uint8  hv0(0); uint8  hv1(0);
           // texture interpolation  
           // interleaves access and interpolator computations
           map0_raddr = {l_y[$fp$,7],l_x[$fp$,7]};
@@ -225,7 +241,7 @@ algorithm vxlspc(
           h10        = map0_rdata;
           interp_a   = h00[0,8];  // first interpolation
           interp_b   = h10[0,8];
-          interp_i   = l_x[$fp-8$,$fp$];
+          interp_i   = l_x[$fp-8$,8];
           map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
 ++:       
           hv0        = interp_v;
@@ -239,10 +255,7 @@ algorithm vxlspc(
           hv1        = interp_v;
           interp_a   = hv0;      // third interpolation
           interp_b   = hv1;
-          interp_i   = l_y[$fp-8$,$fp$];
-++:
-          // color needs dithering!
-          h          = {h00[8,4],interp_v};
+          interp_i   = l_y[$fp-8$,8];
         }
       }      
       z  = z + $z_step$;
