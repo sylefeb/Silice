@@ -80,11 +80,13 @@ $$end
 
 // ------------------------- 
 
-$$fp           = 11
-$$fp_scl       = 1<<fp
+$$sky_pal_id     = 2
+
+$$fp             = 11
+$$fp_scl         = 1<<fp
 $$one_over_width = fp_scl//320  
-$$z_step       = fp_scl
-$$z_num_step   = 128
+$$z_step         = fp_scl
+$$z_num_step     = 256
     
 $$div_width    = 48
 $$div_unsigned = 1
@@ -111,7 +113,9 @@ algorithm vxlspc(
   int24  offs(0);
   uint10 x(0);
 
-  uint24 one = $fp_scl*fp_scl - 1$;
+  bram int11 y_last[320] = uninitialized;
+
+  uint24 one = $fp_scl*fp_scl$;
   div48 div(
     inum <:: one,
     iden <:: z,
@@ -121,72 +125,63 @@ algorithm vxlspc(
 
   while (1) {
   
-    uint8 iz = 0;
-  __display("--------- frame ------------");
-    z = $z_step * z_num_step + z_step * 8$;
+    uint9 iz = 0;
+    z = $z_step * 8$;
     while (iz != $z_num_step$) {
-      l_x   = $128*fp_scl + 63*fp_scl$        - (z>>1);
-      l_y   = $128*fp_scl + 63*fp_scl$ + offs + (z>>1);
-      r_x   = $128*fp_scl + 63*fp_scl$        + (z>>1);
-      r_y   = $128*fp_scl + 63*fp_scl$ + offs + (z>>1);      
-      dx    = ((r_x - l_x) * $one_over_width$) >> $fp$;
-__display("z: %d [l_x: %d r_x: %d] y: %d dx: %d",z,l_x>>>$fp$,r_x>>>$fp$,l_y>>>$fp$,dx);
-//__display("dx: %d", dx);
+      // generate frustum coordinates
+      l_x   = $(128+63)*fp_scl + 63*fp_scl$        - (z);
+      l_y   = $(128+63)*fp_scl + 63*fp_scl$ + offs + (z);
+      r_x   = $(128+63)*fp_scl + 63*fp_scl$        + (z);
+      r_y   = $(128+63)*fp_scl + 63*fp_scl$ + offs + (z);
+      // generate sampling increment along z-iso
+      dx    = ((r_x - l_x) * $one_over_width$) >>> $fp$;
+      // compute z inverse  TODO: this can be done in parallel for next row
       (inv_z) <- div <- ();
-//__display("z: %d inv_z: %d", z, inv_z);
+      // go through screen columns
       x     = 0;
-__write("[");
       while (x != 320) {
         int11 y_ground = uninitialized;
         int11 y        = uninitialized;
-        uint1 in_sky   = 0;
         int24 hmap     = uninitialized;
-        hmap     = map0_rdata[0,8];
-        y_ground = (((128 - hmap) * inv_z) >>> $fp-5$) + 64;
-++:        
-        y_ground = (iz == 0) ? 0 : ((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground));
-// __display("column [0,%d]", y_ground);
-//__write("%d,", y_ground);
-        y = 199;
-        while (y != y_ground) {
+        // get elevation
+        hmap           = map0_rdata[0,8];
+        // apply perspective to obtain y_ground on screen
+        y_ground       = (((128 - hmap) * inv_z) >>> $fp-4$) - 8;
+        // retrieve last altitude at this column, if first reset to 199
+        y_last.addr    = x;
+        y_last.wenable = (iz == 0);
+        y_last.wdata   = 199;
+++: // wait for y_last   TODO: probably can remove this cycle, prefetching at previous iter
+        // clamp on screen
+        y_ground       = (iz == $z_num_step-1$) ? 0 : (((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground)));
+        //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
+        // restart from last one (or 199 if first)
+        y              = (iz == 0) ? 199 : y_last.rdata;
+        // fill column
+        while (y >= y_ground) { // geq is needed as y_ground might be 'above' (below on screen)
           fb.rw       = 1;
-          fb.data_in  = (iz == 0) ? 2 : ((map0_rdata[8,4]) << ({x[0,2],2b0}));
+          fb.data_in  = (iz == $z_num_step-1$) ? $sky_pal_id$ : ((map0_rdata[8,4]) << ({x[0,2],2b0}));
+          //             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = 1;
           fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 4bpp    x>>2 + y*80          
           y = y - 1;
         }
-        x   = x + 1;
+        // write current altitude for next
+        y_last.wenable = 1;
+        y_last.wdata   = y_ground;        
+        // update position
+        x   =   x +  1;
         l_x = l_x + dx;
+        // sample next elevation
         map0_raddr = {l_y[$fp$,7],l_x[$fp$,7]};
-        __write("%d,", l_x[$fp$,7]);
       }      
-__display("]");
-      z  = z - $z_step$;
+      z  = z + $z_step$;
       iz = iz + 1;
     }
     fbuffer = ~fbuffer;
     offs    = offs + $fp_scl$;
   }
-
-/*
-  always {    
-    
-    fb.rw       = 1;
-    fb.data_in  = ((map0_rdata[8,4]) << ({x[0,2],2b0}));
-    fb.wmask    = 1 << x[0,2];
-    fb.in_valid = 1;
-    fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 4bpp    x>>2 + y*80
-            
-    y     = (x == 319) ? ( y == 199 ? 0 : (y+1) ) : y;
-    x     = (x == 319) ? 0 : (x+1);
-    
-    // read next
-    map0_raddr  = {y[0,7],x[0,7]};
-
-    // __display("x=%d y=%d",x,y);
-  }
-*/
 }
 
 // ------------------------- 
@@ -427,7 +422,7 @@ $$if SIMULATION then
   uint32 iter = 0;
 $$end
 
-  leds           := {4b0,fbuffer};
+  // leds           := {4b0,fbuffer};
 
   video_r        := (active) ? palette.rdata[ 2, 6] : 0;
   video_g        := (active) ? palette.rdata[10, 6] : 0;
@@ -501,7 +496,7 @@ $$end
           switch (mem.addr[2,2]) {
             case 2b00: {
               __display("LEDs = %h",mem.data_in[0,8]);
-              // leds = mem.data_in[0,8];
+              leds = mem.data_in[0,8];
             }
             case 2b01: {
               // __display("swap buffers");
