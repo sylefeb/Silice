@@ -216,7 +216,10 @@ $$end
         y_screen       = (iz == $z_num_step-1$) ? 0 : (((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground)));
         //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
         // fill column
-        while (y >= y_screen) { // geq is needed as y_screen might be 'above' (below on screen)
+        while (y_last.rdata != 0 && y >= y_screen) { 
+          //                        ^^^^^^^ geq is needed as y_screen might be 'above' (below on screen)
+          //  ^^^^^^^^^^^^^^^^^^ 
+          //  avoids sky on top row if already touched by terrain                      
           // color dithering
           uint4 clr(0); uint1 l_or_r(0); uint1 t_or_b(0);
           l_or_r      = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x     [$fp-6$,6]; // horizontal
