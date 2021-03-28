@@ -14,11 +14,15 @@ The rest is hastily composed from a variety of sources (referenced in code) to g
 #endif
 
 volatile unsigned char* const LEDS        = (unsigned char*)0x90000000;
+#ifdef BLAZE
+volatile unsigned int*  const PALETTE     = (unsigned int* )0xC0000000;
+#else
 volatile unsigned int*  const PALETTE     = (unsigned int* )0xC3000000;
 // Why 0x83000000 ? We set bit 31 so video_rv32i knows we are using a mapped address, 
 // but still write to the last memory bank (0x03000000) where nothing is used.
 // The reason is that video_rv32i does not mask addresses and therefore a SDRAM write still
 // occurs; we don't want this to end in the framebuffer! 
+#endif
 
 #ifdef BLAZE
 volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x9000000C;
@@ -27,7 +31,7 @@ volatile unsigned char* const FRAMEBUFFER = (unsigned char*)0x00000000;
 #endif
 //volatile unsigned char* const AUDIO       = (unsigned char*)0xAC000000;
 //volatile unsigned char* const DATA        = (unsigned char*)0xA2020000;
-volatile unsigned int*  const TRIANGLE    = (unsigned int*)0x88000000;
+volatile unsigned int*  const TRIANGLE    = (unsigned int* )0x88000000;
 volatile unsigned int*  const SDCARD      = (unsigned int* )0x90000008;
 volatile unsigned int*  const SPIFLASH    = (unsigned int* )0x90000008;
 

@@ -594,11 +594,9 @@ $$end
   uint3 r_btns(0);
   r_btns        ::= btns;
 
-  // leds           := {4b0,fbuffer};
-
   pix_fetch  := (active) ? (pix_y[1,9]<<6) + (pix_y[1,9]<<4) + pix_x[3,7] + 1 /*prefetch before needed on screen!*/
-                         : (pix_y[0,1] ? last_fetch - 80 : last_fetch)  /* prefetch next line, depends on y parity */;
-  last_fetch := (active) ? pix_fetch : last_fetch;
+                         : (pix_y[0,1] ? last_fetch - 80 : last_fetch)  /* prefetch next line, depends on y parity */;                         
+  last_fetch := (active) ? pix_fetch : last_fetch; // tracks last fetched address before going out of frame
 
   video_r        := (active) ? palette.rdata0[ 2, 6] : 0;
   video_g        := (active) ? palette.rdata0[10, 6] : 0;
@@ -618,16 +616,18 @@ $$end
   pix_write      := 0; // reset pix_write
   
   always_before {    
-    __display("active: %b fetch: %b next: %b, x: %d y: %d addr: %h",active,frame_fetch_sync[0,1],next_pixel[0,1],pix_x,pix_y,pix_fetch);
+
     // updates the four pixels, either reading from spram of shifting them to go to the next one
     // this is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo)
     // as we render 320x200 4bpp, there are 8 clock cycles of the 640x480 clock for four frame pixels    
     four_pixs = frame_fetch_sync[0,1]
               ? (~fbuffer        ? fb0_data_out     : fb1_data_out)
               : (next_pixel[0,1] ? (four_pixs >> 4) : four_pixs);      
+
     // query palette, pixel will be shown next cycle
     // NOTE: we are loosing the first column, but let's keep things simple!
     palette.addr0 = four_pixs[0,4];  
+
   }
   
   always_after   {
