@@ -117,7 +117,8 @@ algorithm interpolator(
 //   as the famous Voxel Space engine from Novalogic
 //   see e.g. https://github.com/s-macke/VoxelSpace
 // - the key different lies in the in interpolation
-//   that takes place for height and color
+//   that takes place for height and color, and 
+//   the dithering scheme for colors
 //////////////////////////////////////////////
 
 algorithm vxlspc(
@@ -127,8 +128,6 @@ algorithm vxlspc(
     input   uint4  sky_pal_id,
     output! uint14 map0_raddr,
     input   uint16 map0_rdata,
-    output! uint14 map1_raddr,
-    input   uint16 map1_rdata,
 ) <autorun> {
 
   int24  z(0);
@@ -204,7 +203,7 @@ $$end
 ++:
     gheight    = map0_rdata[0,8];
     // smoothly adjust view height
-    // NOTE: this below is very expensive in size due to < >
+    // NOTE: this below is expensive in size due to < >
     vheight    = (vheight < gheight) ? vheight + 3 : ((vheight > gheight) ? vheight - 1 : vheight);
     while (iz != $z_num_step$) {
       uint12 h00(0); uint12 h10(0); 
@@ -257,7 +256,6 @@ $$end
           l_or_r = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x     [$fp-6$,6]; // horizontal
           t_or_b = bayer_8x8[ { x[0,3] , y[0,3] } ] < v_interp[4,6];      // vertical
           clr    = l_or_r ? ( t_or_b ? h00[8,4] : c_last.rdata ) : (t_or_b ? h10[8,4] : c_last.rdata);          
-          // clr    = t_or_b ? ( l_or_r ? h00[8,4] : h10[8,4] ) : (l_or_r ? h01[8,4] : h11[8,4]);
 
           // clr        = h00[8,4];      // uncomment to visualize nearest mode
           // clr        = l_x[$fp-4$,4]; // uncomment to visualize u interpolator
@@ -303,8 +301,11 @@ $$end
           interp_b   = h10[0,8];
           interp_i   = l_x[$fp-8$,8];
           map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
-// NOTE: we don't need to interpolate height along the second line
-//       this would become necessary with partial advance or free rotation
+
+// NOTE: The following performs a full bi-linear interpolation
+//       however, with the simple x-aligned traversal we don't need
+//       to fully interpolate heights. 
+//       This will become necessary later.
 // ++:       
 //          hv0        = interp_v;
 //          h11        = map0_rdata;
@@ -442,23 +443,19 @@ $$end
   uint1  pix_write(0);
   uint4  pix_mask(0);
   
-  /*
-  
-    Each frame buffer holds a 320x200 4bpp frame
-    Framebuffer 0 is in SPRAM 0, framebuffer 1 in SPRAM 1
-
-    This means we can read/write 4 pixels at once
-    As we generate a 640x480 signal we have to read every 8 VGA pixels along a row
-
-    (Blaze goes up to eight at the cost of a more complex addressing
-     and sharing write/reads, here we keep things simpler)
-
-    Frame buffer 0: [0,15999]
-    Frame buffer 1: [0,15999]
-    
-    Writes always occur into the framebuffer not being displayed.
-    
-  */
+  // Each frame buffer holds a 320x200 4bpp frame.
+  // Framebuffer 0 is in SPRAM 0, framebuffer 1 in SPRAM 1.
+  //
+  // This means we can read/write 4 pixels at once.
+  // As we generate a 640x480 signal we have to read every 8 VGA pixels along a row.
+  //
+  // (Blaze goes up to eight at the cost of a more complex addressing
+  //  and sharing write/reads, here we keep things simpler.)
+  //
+  // Frame buffer 0: [0,15999]
+  // Frame buffer 1: [0,15999]
+  //
+  // Writes always occur into the framebuffer not being displayed.
   
   // SPRAM 0 for framebuffers
   uint14 fb0_addr(0);
@@ -498,12 +495,10 @@ $$end
     data_out :> fb1_data_out
   );
 
-  // SPRAMs for packed color + heightmap
+  // SPRAM for packed color + heightmap
   // - height [0, 8]
   // - color  [8,12]
   // NOTE: 4 bits are unused
-  // map0 contains a first  128x128 map
-  // map1 contains a second 128x128 map
   //
   // -> write to maps (loading data)
   uint1  map_write(0);
@@ -529,25 +524,6 @@ $$end
     wmask    <: map0_wmask,
     data_out :> map0_data_out
   );
-  // -> map1
-  uint14 map1_raddr(0);
-  uint1  map1_write   := (map_write & map_select);
-  uint14 map1_addr    := map1_write ? map_waddr : map1_raddr;
-  uint1  map1_wenable := map1_write;
-  uint4  map1_wmask   := 4b1111;
-  uint16 map1_data_out(0);
-$$if VERILATOR then
-  verilator_spram map1(
-$$else  
-  ice40_spram map1(
-    clock    <: vga_clock,
-$$end
-    addr     <: map1_addr,
-    data_in  <: map_data,
-    wenable  <: map1_wenable,
-    wmask    <: map1_wmask,
-    data_out :> map1_data_out
-  );
 
   // ==== voxel space renderer instantiation
   // interface for GPU writes in framebuffer
@@ -560,9 +536,7 @@ $$end
     sky_pal_id   <: sky_pal_id,
     btns         <: r_btns,
     map0_raddr   :> map0_raddr,
-    map0_rdata   <: map0_data_out,
-    map1_raddr   :> map1_raddr,
-    map1_rdata   <: map1_data_out,
+    map0_rdata   <: map0_data_out
   );
 
   simple_dualport_bram uint24 palette[16] = {

@@ -43,7 +43,7 @@ void main()
       upload_map(select);
     }
 
-    if (((userdata()&96) == 96) && delay == 0) { // two button pressed at once
+    if (((userdata()&48) == 48) && delay == 0) { // two button pressed at once
       ++ select;
       if (select >= NUM_MAPS) {
         select = 0;
