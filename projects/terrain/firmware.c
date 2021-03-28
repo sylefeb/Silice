@@ -3,7 +3,7 @@
 volatile unsigned int* const SPRAM = (unsigned int*)0x88000000;
 
 #define MAP_SIZE (16384*2+16*3+1)
-#define NUM_MAPS 6
+#define NUM_MAPS 7
 
 void upload_map(int id)
 {
