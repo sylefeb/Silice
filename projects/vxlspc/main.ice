@@ -58,7 +58,6 @@ interface fb_user {
 }
 
 $$palette    = get_palette_as_table('data/color6.tga')
-$$sky_pal_id = 1
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
 $$sdcard_image_pad_size = 0
@@ -125,6 +124,7 @@ algorithm vxlspc(
     fb_user        fb,
     output  uint1  fbuffer = 0,
     input   uint3  btns,
+    input   uint4  sky_pal_id,
     output! uint14 map0_raddr,
     input   uint16 map0_rdata,
     output! uint14 map1_raddr,
@@ -268,7 +268,7 @@ $$end
           v_interp    = v_interp + inv_n.rdata;
           // write to framebuffer
           fb.rw       = 1;
-          fb.data_in  = ((x == 0) ? $sky_pal_id$ : ( (iz == $z_num_step-1$) ? $sky_pal_id$ : clr) << {x[0,2],2b0});
+          fb.data_in  = ((x == 0) ? sky_pal_id : ( (iz == $z_num_step-1$) ? sky_pal_id : clr) << {x[0,2],2b0});
           //             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = 1;
@@ -552,10 +552,12 @@ $$end
   // ==== voxel space renderer instantiation
   // interface for GPU writes in framebuffer
   fb_r16_w16_io fb;
-  uint1 fbuffer(0); // frame bnuffer selected for display (writes can occur in ~fbuffer)  
+  uint1 fbuffer(0);    // frame bnuffer selected for display (writes can occur in ~fbuffer)  
+  uint4 sky_pal_id(0); // sky palette id
   vxlspc vs(
     fb          <:> fb,
     fbuffer      :> fbuffer,
+    sky_pal_id   <: sky_pal_id,
     btns         <: r_btns,
     map0_raddr   :> map0_raddr,
     map0_rdata   <: map0_data_out,
@@ -563,7 +565,7 @@ $$end
     map1_rdata   <: map1_data_out,
   );
 
-  bram uint24 palette[16] = {
+  simple_dualport_bram uint24 palette[16] = {
 $$for i=1,16 do
 //      $(i-1)*16$,
     $palette[i]$,
@@ -575,7 +577,8 @@ $$end
   uint16 four_pixs(0);
   
   // buffers are 320 x 200, 4bpp
-  uint14 pix_fetch := (pix_y[1,9]<<6) + (pix_y[1,9]<<4) + pix_x[3,7];
+  uint14 pix_fetch(0);
+  uint14 last_fetch(0);
 
   //  - pix_x[3,7] => read every 8 VGA pixels
   //  - pix_y[1,9] => half VGA vertical res (200)
@@ -593,11 +596,13 @@ $$end
 
   // leds           := {4b0,fbuffer};
 
-  video_r        := (active) ? palette.rdata[ 2, 6] : 0;
-  video_g        := (active) ? palette.rdata[10, 6] : 0;
-  video_b        := (active) ? palette.rdata[18, 6] : 0;  
-  
-  palette.addr   := four_pixs[0,4];
+  pix_fetch  := (active) ? (pix_y[1,9]<<6) + (pix_y[1,9]<<4) + pix_x[3,7] + 1 /*prefetch before needed on screen!*/
+                         : (pix_y[0,1] ? last_fetch - 80 : last_fetch)  /* prefetch next line, depends on y parity */;
+  last_fetch := (active) ? pix_fetch : last_fetch;
+
+  video_r        := (active) ? palette.rdata0[ 2, 6] : 0;
+  video_g        := (active) ? palette.rdata0[10, 6] : 0;
+  video_b        := (active) ? palette.rdata0[18, 6] : 0;  
   
   fb0_addr       := ~fbuffer ? pix_fetch : pix_waddr;
   fb0_data_in    := pix_data;
@@ -612,23 +617,27 @@ $$end
   map_write      := 0; // reset map write
   pix_write      := 0; // reset pix_write
   
-  always {
+  always_before {    
+    __display("active: %b fetch: %b next: %b, x: %d y: %d addr: %h",active,frame_fetch_sync[0,1],next_pixel[0,1],pix_x,pix_y,pix_fetch);
     // updates the four pixels, either reading from spram of shifting them to go to the next one
     // this is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo)
-    // as we render 320x200 4bpp, there are 8 clock cycles of the 640x480 clock for four frame pixels
+    // as we render 320x200 4bpp, there are 8 clock cycles of the 640x480 clock for four frame pixels    
     four_pixs = frame_fetch_sync[0,1]
               ? (~fbuffer        ? fb0_data_out     : fb1_data_out)
               : (next_pixel[0,1] ? (four_pixs >> 4) : four_pixs);      
+    // query palette, pixel will be shown next cycle
+    // NOTE: we are loosing the first column, but let's keep things simple!
+    palette.addr0 = four_pixs[0,4];  
   }
   
   always_after   {
     // updates synchronization variables
-    frame_fetch_sync = active ? {frame_fetch_sync[0,1],frame_fetch_sync[1,7]} : 8b10000000;
-    next_pixel       = active ? {next_pixel[0,1],next_pixel[1,1]}             : 2b10;
+    frame_fetch_sync = active ? {frame_fetch_sync[0,1],frame_fetch_sync[1,7]} : 8b00000001;
+    next_pixel       = active ? {next_pixel[0,1],next_pixel[1,1]}             : 2b01;
   }
 
 $$if SIMULATION then  
-  while (iter != 3200000) {
+  while (iter != 960000) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -654,12 +663,10 @@ $$end
       switch (mem.addr[27,4]) {
         case 4b1000: {
           // __display("palette %h = %h",mem.addr[2,8],mem.data_in[0,24]);
-          // TODO FIXME: yosys fails to infer simple_dual_port on palette, investigate
-          /*
-          palette.addr1    = mem.addr[2,8];
+          palette.addr1    = mem.addr[2,4];
           palette.wdata1   = mem.data_in[0,24];
           palette.wenable1 = 1;
-          */
+          sky_pal_id       = mem.data_in[24,1] ? mem.addr[2,4] : sky_pal_id;
         }
         case 4b0010: {
           switch (mem.addr[2,2]) {
@@ -667,7 +674,9 @@ $$end
               __display("LEDs = %h",mem.data_in[0,8]);
               leds = mem.data_in[0,8];
             }
-            case 2b01: { /* swap buffer ignored */ }
+            case 2b01: { 
+              /* swap buffer ignored */ 
+              }
             case 2b10: {
               // SPIFLASH
 $$if SPIFLASH then

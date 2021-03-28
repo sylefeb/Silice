@@ -43,7 +43,6 @@ $$V_END    = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH + V_RES
   uint10 xcount(0);
   uint10 ycount(0);
 
-  uint1  last_line ::= (ycount == $VA_START + VGA_VA_END - 1$);
   uint10 pix_x     ::= (xcount - $HA_START$);
   uint10 pix_y     ::= (ycount - $VA_START$);
 
