@@ -297,6 +297,8 @@ $$end
   // buffers are 320 x 200, 4bpp
   uint14 pix_fetch(0);
   uint14 last_fetch(0);
+  uint1  next_frame(0); // true when waiting for next frame
+  uint1  next_frame(0); // true when waiting for next frame
 
   //  - pix_x[3,7] => read every 8 VGA pixels
   //  - pix_y[1,9] => half VGA vertical res (200)
@@ -312,8 +314,11 @@ $$end
   uint3 r_btns(0);
   r_btns        ::= btns;
 
-  pix_fetch  := (active) ? (pix_y[1,9]<<6) + (pix_y[1,9]<<4) + pix_x[3,7] + 1 /*prefetch before needed on screen!*/
-                         : (pix_y[0,1] ? last_fetch - 80 : last_fetch)  /* prefetch next line, depends on y parity */;                         
+  next_frame := (~active) ? next_frame : ( pix_x == 639 && pix_y == 399 ? 1 : 0 ); // waiting for next frame?
+  pix_fetch  := (active) ? (pix_y[1,9]<<6) + (pix_y[1,9]<<4) + pix_x[3,7] + 1 // prefetch before needed on screen!
+                         : (~next_frame 
+                            ? (pix_y[0,1] ? last_fetch - 80 : last_fetch)     // prefetch next line, depends on y parity
+                          : 0);                                               // prefetch next frame, first top left corner pixel
   last_fetch := (active) ? pix_fetch : last_fetch; // tracks last fetched address before going out of frame
 
   video_r        := (active) ? palette.rdata0[ 2, 6] : 0;
@@ -334,7 +339,7 @@ $$end
   pix_write      := 0; // reset pix_write
   
   always_before {    
-
+__display("active: %b fetch: %b next: %b x: %d y: %d addr: %h vs: %b hs: %b vb: %b nf: %b",active,frame_fetch_sync[0,1],next_pixel[0,1],pix_x,pix_y,pix_fetch,video_vs,video_hs,vblank,next_frame);
     // updates the four pixels, either reading from spram of shifting them to go to the next one
     // this is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo)
     // as we render 320x200 4bpp, there are 8 clock cycles of the 640x480 clock for four frame pixels    
