@@ -233,8 +233,8 @@ $$end
           v_interp    = v_interp + inv_n.rdata;
           // write to framebuffer
           fb.rw       = 1;
-          fb.data_in  = ( (iz == $z_num_step-1$) ? sky_pal_id : clr) << {x[0,2],2b0};
-          //             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
+          fb.data_in  = ( y == 0 ? 0 : ((iz == $z_num_step-1$) ? sky_pal_id : clr)) << {x[0,2],2b0};
+          //     hide top ^^^^^^         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = 1;
           fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 4bpp    x>>2 + y*80          
