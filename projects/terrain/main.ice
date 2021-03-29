@@ -298,7 +298,6 @@ $$end
   uint14 pix_fetch(0);
   uint14 last_fetch(0);
   uint1  next_frame(0); // true when waiting for next frame
-  uint1  next_frame(0); // true when waiting for next frame
 
   //  - pix_x[3,7] => read every 8 VGA pixels
   //  - pix_y[1,9] => half VGA vertical res (200)

@@ -151,7 +151,7 @@ $$end
       x     = 0;
       while (x != 320) {
         int14  y_ground = uninitialized;  // y ground after projection
-        int12  y_screen = uninitialized;  // same clamped on screen
+        int11  y_screen = uninitialized;  // same clamped on screen
         int11  y        = uninitialized;  // iterates between previous and current
         int9   delta_y  = uninitialized;  // y delta between previous and current
         int24  hmap     = uninitialized;  // height
@@ -218,12 +218,13 @@ $$end
         // fill column
         while (y_last.rdata != 0 && y >= y_screen) { 
           //                        ^^^^^^^ geq is needed as y_screen might be 'above' (below on screen)
-          //  ^^^^^^^^^^^^^^^^^^ 
-          //  avoids sky on top row if already touched by terrain                      
+          //   ^^^^^^^^^^^^^^^^^^ 
+          //   avoids sky on top row if already touched by terrain                      
+          //
           // color dithering
           uint4 clr(0); uint1 l_or_r(0); uint1 t_or_b(0);
-          l_or_r      = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x     [$fp-6$,6]; // horizontal
-          t_or_b      = bayer_8x8[ { x[0,3] , y[0,3] } ] < v_interp[4,6];      // vertical
+          l_or_r      = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x[$fp-6$,6]; // horizontal
+          t_or_b      = bayer_8x8[ { x[0,3] , y[0,3] } ] < v_interp[4,6]; // vertical
           clr         = l_or_r ? ( t_or_b ? h00[8,4] : c_last.rdata ) : (t_or_b ? h10[8,4] : c_last.rdata);          
           // clr        = h00[8,4];      // uncomment to visualize nearest mode
           // clr        = l_x[$fp-4$,4]; // uncomment to visualize u interpolator
