@@ -57,8 +57,6 @@ interface fb_user {
   input   data_out,
 }
 
-$$palette    = get_palette_as_table('data/color6.tga')
-
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
 $$sdcard_image_pad_size = 0
 $$dofile('../fire-v/pre/pre_include_asm.lua')
@@ -285,8 +283,7 @@ $$end
 
   simple_dualport_bram uint24 palette[16] = {
 $$for i=1,16 do
-//      $(i-1)*16$,
-    $palette[i]$,
+    $(i-1)*16 + (i-1)*16*256 + (i-1)*16*65536$,
 $$end  
   };
   

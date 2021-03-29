@@ -37,13 +37,11 @@ void main()
   spiflash_init();
 
   while (1) {
-
     if (upload_next) {
       upload_next = 0;
       upload_map(select);
     }
-
-    if (((userdata()&48) == 48) && delay == 0) { // two button pressed at once
+    if (((userdata()&48) == 48) && delay == 0) { // two buttons pressed at once
       ++ select;
       if (select >= NUM_MAPS) {
         select = 0;
@@ -51,11 +49,6 @@ void main()
       upload_next = 1;
       delay       = 1000000;
     }
-
     if (delay > 0) --delay;
-
-    // TODO: change palette for night / day?
-
   }
-
 }
