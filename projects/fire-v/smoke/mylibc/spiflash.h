@@ -10,4 +10,7 @@
 
 void           spiflash_init();
 unsigned char *spiflash_copy(int addr,unsigned char *dst,int len);
- 
+
+void           spiflash_read_begin(int addr);
+unsigned char  spiflash_read_next();
+void           spiflash_read_end();

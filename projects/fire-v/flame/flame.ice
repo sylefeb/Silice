@@ -117,7 +117,7 @@ algorithm ram_writer_blaze(
   output uint1   done
 ) <autorun> {
 
-  //  320 x 200, 4bpp    x>>2 + y*80  
+  //  320 x 200, 4bpp    x>>2 + y*80
   uint14 addr ::= x[3,7] + (y << 5) + (y << 3) + (~fbuffer ? 0 : 8000);
 
   always {

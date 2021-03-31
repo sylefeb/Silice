@@ -48,7 +48,9 @@ group spram_r32_w32_io
   uint1   done       = 0
 }
 
-// interface for user
+// (SD)RAM interface for user 
+// NOTE: there is no SDRAM in this design, but we hijack
+//       the interface for easier portability
 interface sdram_user {
   output  addr,
   output  rw,
@@ -59,7 +61,7 @@ interface sdram_user {
   input   done,
 }
 
-// interface for provider
+// (SD)RAM interface for provider
 interface sdram_provider {
   input   addr,
   input   rw,
@@ -145,6 +147,7 @@ $$else
 ) {
 $$end
 
+  // interface for GPU writes in framebuffer
   spram_r32_w32_io sd;
 
   vertex  v0;

@@ -25,6 +25,8 @@ int main(int argc,char **argv)
 
   Vtop    *bare_test = new Vtop("");
 
+  char foo[1<<18];
+
   while (!Verilated::gotFinish()) {
 
     bare_test->clk = 1;
