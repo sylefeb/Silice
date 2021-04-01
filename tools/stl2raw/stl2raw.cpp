@@ -51,7 +51,7 @@ void toC_flat(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFor
 {
   ofstream f(fname);
   f << "#define NTRIS  " << mesh->numTriangles() << "\n";
-  f << "unsigned int tris[NTRIS*6] = {\n";
+  f << "unsigned char tris[NTRIS*6*4] = {\n";
   ForIndex(i, mesh->numTriangles()) {
     ForIndex(p, 3) {
       v3f pt = mesh->posAt(mesh->triangleAt(i)[p]);
@@ -61,8 +61,10 @@ void toC_flat(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFor
         sl_assert(v < (1 << 21));
         it = it | (v << uint64_t(21 * c));
       }
-      f << sprint("0x%08x", (it>>32)) << ',';
-      f << sprint("0x%08x", (it & ( (uint64_t(1) << uint64_t(32)) - uint64_t(1) )));
+      ForIndex(b, 8) {
+        f << sprint("0x%02x", (it >> (b * 8)) & 255);
+        if (b < 7) f << ',';
+      }
       if (i*3+p != mesh->numTriangles()*3 - 1) f << ',';
     }
     f << '\n';
