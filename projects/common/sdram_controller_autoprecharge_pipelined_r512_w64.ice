@@ -9,12 +9,8 @@
 // if using directly the controller: 
 //  - reads/writes have to aligned with 64 bits boundaries (8 bytes)
 
-// 4 banks, 8192 rows,  512 columns, 16 bits words
-// (larger chips will be left unused, see comments in other controllers)
-// ============== addr ================================
-//   | 24 -------- 12 | 11 ----- 3 | 2--1 | 0
-//   |     row        |   column   | bank | byte (H/L)
-// ====================================================
+// (for address mapping see comments in other controllers)
+// This is assuming a 32 MB chip, larger chips will be partially used
 
 //      GNU AFFERO GENERAL PUBLIC LICENSE
 //        Version 3, 19 November 2007

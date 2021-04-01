@@ -47,6 +47,31 @@ void toC(std::string fname,const TriangleMesh_generic<LibSL::Mesh::MeshFormat_st
 
 // ----------------------------------------------------------------------
 
+void toC_flat(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFormat_stl::t_VertexData> *mesh)
+{
+  ofstream f(fname);
+  f << "#define NTRIS  " << mesh->numTriangles() << "\n";
+  f << "uint64_t tris[NTRIS*3] = {\n";
+  ForIndex(i, mesh->numTriangles()) {
+    ForIndex(p, 3) {
+      v3f pt = mesh->posAt(mesh->triangleAt(i)[p]);
+      uint64_t it = 0;
+      ForIndex(c, 3) {
+        uint64_t v = (uint)(pt[c]);
+        sl_assert(v < (1 << 21));
+        it = it | (v << uint64_t(21 * c));
+      }
+      f << it;
+      if (i*3+p != mesh->numTriangles()*3 - 1) f << ',';
+    }
+    f << '\n';
+  }
+  f << "};\n";
+  f.close();
+}
+
+// ----------------------------------------------------------------------
+
 void toRaw(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFormat_stl::t_VertexData> *mesh)
 {
   FILE *f = NULL;
@@ -90,6 +115,8 @@ int main(int argc,char **argv)
     cmd.add(raw);
     TCLAP::SwitchArg ctr("c", "center", "Center model", false);
     cmd.add(ctr);
+    TCLAP::SwitchArg idx("i", "indexed", "Output as indexed mesh (C only)", false);
+    cmd.add(idx);
     TCLAP::SwitchArg unit("u", "unit", "Make model unit size before scaling", false);
     cmd.add(unit);
     TCLAP::ValueArg<float> scale("s", "scale", "Scale to apply to the model before encoding as integer", false, 1.0f, "float");
@@ -116,14 +143,20 @@ int main(int argc,char **argv)
     }
     // rescale
     mesh->applyTransform(scaleMatrix(v3f(scale.getValue())));
-
+    cerr << "scale factor : " << scale.getValue() << '\n';
     cerr << "mesh rescaled in " << mesh->bbox().minCorner() << 'x' << mesh->bbox().maxCorner() << '\n';
 
     if (!raw.isSet()) {
-      toC(output.getValue() + ".h", mesh);
+      if (idx.isSet()) {
+        toC(output.getValue() + ".h", mesh);
+      } else {
+        toC_flat(output.getValue() + ".h", mesh);
+      }
     } else {
       toRaw(output.getValue() + ".raw", mesh);
     }
+
+    cerr << "done.\n\n";
 
   } catch (Fatal& f) {
     cerr << f.message() << '\n';

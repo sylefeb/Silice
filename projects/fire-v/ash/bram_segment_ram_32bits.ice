@@ -7,7 +7,11 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
+$$if VERILATOR then
+$$ bram_depth = 20 -- use a very large bram for simulation purposes
+$$else
 $$ bram_depth = 13 --  13: 32 KB, ~90 MHz   14: 64 KB, ~85 MHz
+$$end
 $$ bram_size  = 1<<bram_depth
 $$ print('##### code size: ' .. code_size_bytes .. ' BRAM capacity: ' .. 4*bram_size .. '#####')
 
