@@ -7,8 +7,8 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
-$$if VERILATOR then
-$$ bram_depth = 20 -- use a very large bram for simulation purposes
+$$if SIMULATION then
+$$ bram_depth = 13 -- bram size during simulation 
 $$else
 $$ bram_depth = 13 --  13: 32 KB, ~90 MHz   14: 64 KB, ~85 MHz
 $$end
