@@ -315,7 +315,8 @@ breakLoop           : BREAK ;
 
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
-ifThenElse          : 'if' '(' expression_0 ')' if_block=block 'else' else_block=block ;
+ifThenElse          : 'if' '(' expression_0 ')' if_block=block 'else' else_block=elseBlock;
+elseBlock             : (block | ifThen | ifThenElse);
 switchCase          : 'switch' '(' expression_0 ')' '{' caseBlock * '}' ;
 caseBlock           : ('case' case_value=value ':' | DEFAULT ) case_block=block;
 whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
