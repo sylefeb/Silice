@@ -320,16 +320,17 @@ private:
     /// \brief instanced modules
     std::unordered_map< std::string, t_module_nfo > m_InstancedModules;
 
+    // forward definition
+    class t_combinational_block;
+
     /// \brief stores info for single instructions
     class t_instr_nfo {
     public:
+      t_combinational_block   *block = nullptr;
       antlr4::tree::ParseTree *instr = nullptr;
       int                       __id = -1;
-      t_instr_nfo(antlr4::tree::ParseTree *instr_, int __id_) : instr(instr_), __id(__id_) {}
+      t_instr_nfo(antlr4::tree::ParseTree *instr_, t_combinational_block *block_, int __id_) : instr(instr_), block(block_), __id(__id_) {}
     };
-
-    // forward definition
-    class t_combinational_block;
 
     /// \brief subroutines
     class t_subroutine_nfo {
@@ -1037,9 +1038,9 @@ private:
     /// \brief prepare replacements for a memory module template
     void prepareModuleMemoryTemplateReplacements(std::string instance_name, const t_mem_nfo& bram, std::unordered_map<std::string, std::string>& _replacements) const;
     /// \brief writes the algorithm as a Verilog module, recurses through instanced algorithms
-    void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx);
+    void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx, bool do_lint);
     /// \brief writes the algorithm as a Verilog module, calls the version above twice in a two pass optimization process
-    void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage) const;
+    void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage, bool do_lint) const;
 
   public:
 

@@ -59,18 +59,35 @@ void ExpressionLinter::lintAssignment(
   typeNfo(expr, bctx, rvalue_nfo);
   // check
   if (lvalue_nfo.base_type == Parameterized || rvalue_nfo.base_type == Parameterized) {
-    // warn(expr->getSourceInterval(), -1, "skipping check (parameterized variable : not yet implemented)");
+    //  warn(Standard, expr->getSourceInterval(), -1, "skipping check (parameterized variable : not yet implemented)");
   } else {
     if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
       if (rvalue_nfo.base_type == Int) {
-        warn(expr->getSourceInterval(), -1, "assigning signed expression to unsigned lvalue");
+         warn(Standard, expr->getSourceInterval(), -1, "assigning signed expression to unsigned lvalue");
       }
     }
     if (lvalue_nfo.width < rvalue_nfo.width) {
       if (m_WarnAssignWidth) {
-        warn(expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", rvalue_nfo.width, lvalue_nfo.width);
+         warn(Standard, expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", rvalue_nfo.width, lvalue_nfo.width);
       }
     }
+  }
+}
+
+// -------------------------------------------------
+
+void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_assign) const
+{
+  auto alwasg = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wire_assign.instr);
+  sl_assert(alwasg != nullptr);
+  sl_assert(alwasg->IDENTIFIER() != nullptr);
+  lintAssignment(nullptr, alwasg->IDENTIFIER(), alwasg->expression_0(), &wire_assign.block->context);
+  // check for deprecated symbols
+  if (alwasg->ALWSASSIGN() != nullptr) {
+     warn(Deprecation, alwasg->getSourceInterval(), -1, "use of deprecated syntax :=, please use <: instead.");
+  }
+  if (alwasg->ALWSASSIGNDBL() != nullptr) {
+     warn(Deprecation, alwasg->getSourceInterval(), -1, "use of deprecated syntax ::=, please use <:: instead.");
   }
 }
 
@@ -92,11 +109,11 @@ void ExpressionLinter::lintInputParameter(
   // check
   if (param.base_type != rvalue_nfo.base_type) {
     if (rvalue_nfo.base_type == Int) {
-      warn(inp.expression->getSourceInterval(), -1, "parameter '%s': assigning signed expression to unsigned lvalue", name.c_str());
+       warn(Standard, inp.expression->getSourceInterval(), -1, "parameter '%s': assigning signed expression to unsigned lvalue", name.c_str());
     }
   }
   if (param.width < rvalue_nfo.width) {
-    warn(inp.expression->getSourceInterval(), -1, "parameter '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, param.width);
+     warn(Standard, inp.expression->getSourceInterval(), -1, "parameter '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, param.width);
   }
 }
 
@@ -117,11 +134,11 @@ void ExpressionLinter::lintReadback(
   // check
   if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
     if (rvalue_nfo.base_type == Int) {
-      warn(outp.expression->getSourceInterval(), -1, "output '%s': assigning signed expression to unsigned lvalue", name.c_str());
+       warn(Standard, outp.expression->getSourceInterval(), -1, "output '%s': assigning signed expression to unsigned lvalue", name.c_str());
     }
   }
   if (lvalue_nfo.width < rvalue_nfo.width) {
-    warn(outp.expression->getSourceInterval(), -1, "output '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, lvalue_nfo.width);
+     warn(Standard, outp.expression->getSourceInterval(), -1, "output '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, lvalue_nfo.width);
   }
 }
 
@@ -140,10 +157,10 @@ void ExpressionLinter::lintBinding(
     return; // skip if parameterized
   }
   if (left.base_type != right.base_type) {
-    warn(antlr4::misc::Interval::INVALID, line, "%s, bindings have inconsistent signedness", msg.c_str());
+     warn(Standard, antlr4::misc::Interval::INVALID, line, "%s, bindings have inconsistent signedness", msg.c_str());
   }
   if (left.width != right.width) {
-    warn(antlr4::misc::Interval::INVALID, line, "%s, bindings have inconsistent bit-widths", msg.c_str());
+     warn(Standard, antlr4::misc::Interval::INVALID, line, "%s, bindings have inconsistent bit-widths", msg.c_str());
   }
 }
 
@@ -158,7 +175,7 @@ antlr4::tree::ParseTree *child(antlr4::tree::ParseTree *expr)
 
 // -------------------------------------------------
 
-void ExpressionLinter::warn(antlr4::misc::Interval interval, int line, const char *msg, ...) const
+void ExpressionLinter::warn(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...) const
 {
   const int messageBufferSize = 4096;
   char message[messageBufferSize];
@@ -168,20 +185,22 @@ void ExpressionLinter::warn(antlr4::misc::Interval interval, int line, const cha
   vsprintf_s(message, messageBufferSize, msg, args);
   va_end(args);
 
-  std::cerr << Console::yellow << "[warning] " << Console::gray;
+  switch (type) {
+  case Standard:    std::cerr << Console::yellow << "[warning]    " << Console::gray; break;
+  case Deprecation: std::cerr << Console::cyan   << "[deprecated] " << Console::gray; break;
+  }
   if (line > -1) {
   } else if (s_TokenStream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
     antlr4::Token *tk = s_TokenStream->get(interval.a);
     line = (int)tk->getLine();
   }
-
   if (s_LuaPreProcessor != nullptr) {
     auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
     std::cerr << "(" << Console::white << fl.first << Console::gray << ", line " << sprint("%4d",fl.second) << ") ";
   } else {
     std::cerr << "(" << line << ") ";
   }
-  std::cerr << message;
+  std::cerr << "\n             " << message;
   std::cerr << "\n";
 }
 
@@ -194,7 +213,7 @@ void ExpressionLinter::checkConcatenation(
   t_type_nfo t0 = tns.front();
   ForIndex(t, tns.size()) {
     if (tns[t].base_type != t0.base_type) {
-      warn(expr->getSourceInterval(), -1, "signedness of expressions differs in concatenation");
+       warn(Standard, expr->getSourceInterval(), -1, "signedness of expressions differs in concatenation");
     }
     if (tns[t].width == -1) {
       m_Host->reportError(expr->getSourceInterval(), -1, "concatenation contains expression of unkown bit-width");
@@ -210,10 +229,10 @@ void ExpressionLinter::checkTernary(
   const t_type_nfo& nfo_b
 ) const {
   if (nfo_a.width != nfo_b.width) {
-    warn(expr->getSourceInterval(), -1, "width of expressions differ in ternary return values");
+     warn(Standard, expr->getSourceInterval(), -1, "width of expressions differ in ternary return values");
   }
   if (nfo_a.base_type != nfo_b.base_type) {
-    warn(expr->getSourceInterval(), -1, "signedness of expressions differ in ternary return values");
+     warn(Standard, expr->getSourceInterval(), -1, "signedness of expressions differ in ternary return values");
   }
 }
 
@@ -248,13 +267,13 @@ void ExpressionLinter::checkAndApplyOperator(
     _nfo.width     = nfo_a.width + nfo_b.width;
   } else if (op == ">>") {
     if (nfo_a.base_type == Int) {
-      warn(expr->getSourceInterval(), -1, "unsigned shift used on signed value");
+       warn(Standard, expr->getSourceInterval(), -1, "unsigned shift used on signed value");
     }
     _nfo.base_type = UInt; // force unsigned
     _nfo.width     = nfo_a.width;
   } else if (op == "<<") {
     if (nfo_a.base_type == Int) {
-      warn(expr->getSourceInterval(), -1, "unsigned shift used on signed value");
+       warn(Standard, expr->getSourceInterval(), -1, "unsigned shift used on signed value");
     }
     _nfo.base_type = UInt; // force unsigned
     _nfo.width     = nfo_a.width;
@@ -262,7 +281,7 @@ void ExpressionLinter::checkAndApplyOperator(
        op == "==" || op == "===" || op == "!=" || op == "!=="
     || op == "<"  || op == ">"   || op == "<=" || op == ">=") {
     if (nfo_a.base_type != nfo_b.base_type) {
-      warn(expr->getSourceInterval(), -1, "mixed signedness in comparison");
+       warn(Standard, expr->getSourceInterval(), -1, "mixed signedness in comparison");
     }
     _nfo.base_type = UInt;
     _nfo.width     = 1;

@@ -284,10 +284,10 @@ idOrIoAccess        : (ioAccess | IDENTIFIER) ;
 assignment          : IDENTIFIER  '=' expression_0
                     | access      '=' expression_0 ;
 
-alwaysAssigned      : IDENTIFIER   ALWSASSIGN    expression_0
-                    | access       ALWSASSIGN    expression_0
-                    | IDENTIFIER   ALWSASSIGNDBL expression_0
-                    | access       ALWSASSIGNDBL expression_0
+alwaysAssigned      : IDENTIFIER   (ALWSASSIGN    | LDEFINE   ) expression_0
+                    | access        ALWSASSIGN                  expression_0
+                    | IDENTIFIER   (ALWSASSIGNDBL | LDEFINEDBL) expression_0
+                    | access        ALWSASSIGNDBL               expression_0
                     ;
 
 alwaysAssignedList  : alwaysAssigned ';' alwaysAssignedList | ;

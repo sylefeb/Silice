@@ -49,8 +49,11 @@ namespace Silice
     /// \brief Does the Linter warn about width mismatches in assignments? (there are very frequent)
     bool m_WarnAssignWidth = false;
 
+    /// \brief types of warnings
+    enum e_WarningType { Standard, Deprecation };
+
     /// \brief issues a warning
-    void warn(antlr4::misc::Interval interval, int line, const char *msg, ...) const;
+    void warn(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...) const;
 
     /// \brief check concatenation consistency
     void checkConcatenation(
@@ -116,6 +119,10 @@ namespace Silice
       antlr4::tree::TerminalNode                     *identifier,
       siliceParser::Expression_0Context              *expr,
       const Algorithm::t_combinational_block_context *bctx) const;
+
+    /// \brief Lint a wire assignment
+    void lintWireAssignment(
+      const Algorithm::t_instr_nfo& wire_assign) const;
 
     /// \brief Lint an input parameter
     void lintInputParameter(

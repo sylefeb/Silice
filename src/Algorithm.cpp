@@ -713,7 +713,7 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
   // add var
   addVar(nfo, _current, _context, (int)wire->getStart()->getLine());
   // insert wire assignment
-  m_WireAssignments.insert(make_pair(nfo.name,t_instr_nfo(wire->alwaysAssigned(),-1)));
+  m_WireAssignments.insert(make_pair(nfo.name, t_instr_nfo(wire->alwaysAssigned(), _current, -1)));
 }
 
 // -------------------------------------------------
@@ -1793,7 +1793,7 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
   // after iteration go back to header
   iter_last->next(while_header);
   // add while to header
-  while_header->while_loop(t_instr_nfo(loop->expression_0(), _context->__id), iter, after);
+  while_header->while_loop(t_instr_nfo(loop->expression_0(), _current, _context->__id), iter, after);
   // set states
   while_header->is_state = true; // header has to be a state
   after->is_state = true; // after has to be a state
@@ -2256,7 +2256,7 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
     reportError(sync->LARROW()->getSymbol(), (int)sync->getStart()->getLine(),"repeat blocks cannot wait for a parallel execution");
   }
   // add sync as instruction, will perform the call
-  _current->instructions.push_back(t_instr_nfo(sync, _context->__id));
+  _current->instructions.push_back(t_instr_nfo(sync, _current, _context->__id));
   // are we calling a subroutine?
   auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
   if (S != m_Subroutines.end()) {
@@ -2295,12 +2295,12 @@ Algorithm::t_combinational_block *Algorithm::gatherJoinExec(siliceParser::JoinEx
     // ask current block to wait the algorithm termination
     waiting_block->wait((int)join->getStart()->getLine(), join->IDENTIFIER()->getText(), waiting_block, next_block);
     // first instruction in next block will read result
-    next_block->instructions.push_back(t_instr_nfo(join, _context->__id));
+    next_block->instructions.push_back(t_instr_nfo(join, _current, _context->__id));
     // use this next block now
     return next_block;
   } else {
     // subroutine, simply readback results
-    _current->instructions.push_back(t_instr_nfo(join, _context->__id));
+    _current->instructions.push_back(t_instr_nfo(join, _current, _context->__id));
     return _current;
   }
 }
@@ -2459,7 +2459,7 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
   if_block_after->next(after);
   else_block_after->next(after);
   // add if_then_else to current
-  _current->if_then_else(t_instr_nfo(ifelse->expression_0(), _context->__id), if_block, else_block, after);
+  _current->if_then_else(t_instr_nfo(ifelse->expression_0(), _current, _context->__id), if_block, else_block, after);
   // checks whether after has to be a state
   after->is_state = !isStateLessGraph(if_block) || !isStateLessGraph(else_block);
   return after;
@@ -2478,7 +2478,7 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
   if_block_after->next(after);
   else_block->next(after);
   // add if_then_else to current
-  _current->if_then_else(t_instr_nfo(ifthen->expression_0(), _context->__id), if_block, else_block, after);
+  _current->if_then_else(t_instr_nfo(ifthen->expression_0(), _current, _context->__id), if_block, else_block, after);
   // checks whether after has to be a state
   after->is_state = !isStateLessGraph(if_block);
   return after;
@@ -2503,7 +2503,7 @@ Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::Swit
     case_block_after->next(after);
   }
   // add switch-case to current
-  _current->switch_case(t_instr_nfo(switchCase->expression_0(), _context->__id), case_blocks, after);
+  _current->switch_case(t_instr_nfo(switchCase->expression_0(), _current, _context->__id), case_blocks, after);
   // checks whether after has to be a state
   bool is_state = false;
   for (auto b : case_blocks) {
@@ -2541,7 +2541,11 @@ void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* al
   while (alws) {
     auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(alws->alwaysAssigned());
     if (alw) {
-      always->instructions.push_back(t_instr_nfo(alw, -1));
+      always->instructions.push_back(t_instr_nfo(alw, always, -1));
+      // check syntax
+      if (alw->LDEFINE() != nullptr || alw->LDEFINEDBL() != nullptr) {
+        reportError(alws->getSourceInterval(), -1, "always assignement can only use := or ::=");
+      }
       // check for double flip-flop
       if (alw->ALWSASSIGNDBL() != nullptr) {
         // insert temporary variable
@@ -3176,9 +3180,9 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (jump)     { _current = gatherJump(jump, _current, _context);              recurse = false; 
   } else if (ret)      { _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
   } else if (breakL)   { _current = gatherBreakLoop(breakL, _current, _context);       recurse = false;
-  } else if (async)    { _current->instructions.push_back(t_instr_nfo(async, _context->__id));   recurse = false; 
-  } else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _context->__id));  recurse = false;
-  } else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _context->__id)); recurse = false; 
+  } else if (async)    { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));   recurse = false;
+  } else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));  recurse = false;
+  } else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id)); recurse = false;
   } else if (block)    { _current = gatherBlock(block, _current, _context);            recurse = false;
   } else if (ilist)    { _current = splitOrContinueBlock(ilist, _current, _context); }
 
@@ -4230,19 +4234,19 @@ void Algorithm::determineVariablesAndOutputsAccessForWires(
   std::unordered_set<std::string> &_global_in_read,
   std::unordered_set<std::string> &_global_out_written
 ) {
-  t_combinational_block_context empty;
   // first we gather all wires (bound expressions)
-  std::unordered_map<std::string, siliceParser::AlwaysAssignedContext*> all_wires;
+  std::unordered_map<std::string, t_instr_nfo> all_wires;
   std::queue<std::string> q_wires;
   for (const auto &v : m_Vars) {
     if (v.usage == e_Wire) { // this is a wire (bound expression)
       // find corresponding wire assignement
-      auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(m_WireAssignments.at(v.name).instr);
+      const auto& wa = m_WireAssignments.at(v.name);
+      auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wa.instr);
       sl_assert(alw != nullptr);
       sl_assert(alw->IDENTIFIER() != nullptr);
-      string var = translateVIOName(alw->IDENTIFIER()->getText(), &empty);
+      string var = translateVIOName(alw->IDENTIFIER()->getText(), &wa.block->context);
       if (var == v.name) { // found it
-        all_wires.insert(make_pair(v.name, alw));
+        all_wires.insert(make_pair(v.name, wa));
         if (v.access != e_NotAccessed) { // used in design
           sl_assert(v.access == e_ReadOnly); // there should not be any other use for a bound expression
           // add to stack
@@ -4250,7 +4254,7 @@ void Algorithm::determineVariablesAndOutputsAccessForWires(
         }
       }
     }
-  }
+  }  
   // gather wires
   // -> these are bound expressions, accessed only if the corresp. variable is used
   unordered_set<std::string> processed;
@@ -4261,7 +4265,7 @@ void Algorithm::determineVariablesAndOutputsAccessForWires(
       processed.insert(w);
       // add access based on wire expression
       std::unordered_set<std::string> _,in_read;
-      determineVariablesAndOutputsAccess(all_wires.at(w), &empty, _, in_read, _global_out_written);
+      determineVariablesAndOutputsAccess(all_wires.at(w).instr, &all_wires.at(w).block->context, _, in_read, _global_out_written);
       // foreach read vio
       for (auto v : in_read) {
         // insert in global set
@@ -4778,11 +4782,17 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx)
 {
   // check permissions on all instructions of all blocks
   for (const auto &i : m_AlwaysPre.instructions) {
-    checkExpressions(ictx, i.instr, &m_AlwaysPost);
+    checkExpressions(ictx, i.instr, &m_AlwaysPre);
   }
   for (const auto &i : m_AlwaysPost.instructions) {
     checkExpressions(ictx, i.instr, &m_AlwaysPost);
   }
+  // check wire assignments
+  for (const auto &w : m_WireAssignments) {
+    ExpressionLinter linter(this, ictx);
+    linter.lintWireAssignment(w.second);
+  }
+  // check blocks
   for (const auto &b : m_Blocks) {
     for (const auto &i : b->instructions) {
       checkExpressions(ictx, i.instr, b);
@@ -5378,13 +5388,12 @@ void Algorithm::writeWireAssignements(
   std::string prefix, std::ostream &out,  
   t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const
 {
-  t_combinational_block_context empty;
   for (const auto &a : m_WireAssignments) {
     auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.second.instr);
     sl_assert(alw != nullptr);
     sl_assert(alw->IDENTIFIER() != nullptr);
     // -> determine assigned var
-    string var = translateVIOName(alw->IDENTIFIER()->getText(), &empty);
+    string var = translateVIOName(alw->IDENTIFIER()->getText(), &a.second.block->context);
     // double check that this always assignment is on a wire var
     bool wire_assign = false;
     if (m_VarNames.count(var) > 0) {
@@ -5396,14 +5405,14 @@ void Algorithm::writeWireAssignements(
       continue;
     }
     // type of assignment
-    bool d_or_q = (alw->ALWSASSIGNDBL() == nullptr);
+    bool d_or_q = (alw->ALWSASSIGNDBL() == nullptr && alw->LDEFINEDBL() == nullptr);
     out << "assign ";
-    writeAssignement(prefix, out, a.second, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &empty,
+    writeAssignement(prefix, out, a.second, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &a.second.block->context,
       d_or_q ? FF_D : FF_Q,
       _dependencies, _ff_usage);    
     // update dependencies
     t_vio_dependencies no_dependencies = _dependencies;
-    updateAndCheckDependencies(_dependencies, a.second.instr, &empty);
+    updateAndCheckDependencies(_dependencies, a.second.instr, &a.second.block->context);
     // we take the opportunity to check that if the wire depends on other wires, they are either all := or all ::=
     // mixing these two is forbidden, as this quickly leads to confusion without real benefits
     // ( Note: I encounter a corner-case use for this ... but it would be best resolved with explicit reference to 
@@ -5413,7 +5422,7 @@ void Algorithm::writeWireAssignements(
       auto W = m_WireAssignments.find(d);
       if (W != m_WireAssignments.end()) {
         auto w_alw    = dynamic_cast<siliceParser::AlwaysAssignedContext *>(W->second.instr);
-        bool w_d_or_q = (w_alw->ALWSASSIGNDBL() == nullptr);
+        bool w_d_or_q = (w_alw->ALWSASSIGNDBL() == nullptr && alw->LDEFINEDBL() == nullptr);
         if (d_or_q ^ w_d_or_q) {
           reportError(alw->getSourceInterval(), (int)alw->getStart()->getLine(), 
             "inconsistent use of ::= and := between bound expressions (with '%s')",d.c_str());
@@ -6651,21 +6660,23 @@ void Algorithm::writeModuleMemory(std::string instance_name, std::ostream& out, 
 void Algorithm::writeAsModule(std::string instance_name, std::ostream &out)
 {
   t_instantiation_context ictx; // empty instantiation context
-  writeAsModule(instance_name, out, ictx);
+  writeAsModule(instance_name, out, ictx, true);
 }
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx)
+void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx, bool do_lint)
 {
   // lint upon instantiation
-  lint(ictx);
+  if (do_lint) {
+    lint(ictx);
+  }
 
   // first pass, discarded but used to fine tune detection of temporary VIOs
   {
     t_vio_ff_usage ff_usage;
     std::ofstream null;
-    writeAsModule(instance_name, null, ictx, ff_usage);
+    writeAsModule(instance_name, null, ictx, ff_usage, do_lint);
 
     // update usage based on first pass
     for (const auto &v : ff_usage.ff_usage) {
@@ -6711,7 +6722,7 @@ void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, cons
   // second pass, now that VIO usage is refined
   {
     t_vio_ff_usage ff_usage;
-    writeAsModule(instance_name, out, ictx, ff_usage);
+    writeAsModule(instance_name, out, ictx, ff_usage, false);
   }
 }
 
@@ -6780,7 +6791,7 @@ bool Algorithm::getVIONfo(std::string vio, t_var_nfo& _nfo) const
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage) const
+void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool do_lint) const
 {
   out << nxl;
 
@@ -6821,7 +6832,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
       local_ictx.parameters[str_signed] = typeString(varType(bnfo,ictx));
     }
     // -> write instance
-    nfo.algo->writeAsModule(instance_name + "_" + nfo.instance_name, out, local_ictx);
+    nfo.algo->writeAsModule(instance_name + "_" + nfo.instance_name, out, local_ictx, do_lint);
   }
 
   // module header
