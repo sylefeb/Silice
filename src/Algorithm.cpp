@@ -3390,7 +3390,9 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
           if (A == m_InstancedAlgorithms.end()) {
             // return of subroutine?
             auto S = m_Subroutines.find(j->IDENTIFIER()->getText());
-            sl_assert(S != m_Subroutines.end());
+            if (S == m_Subroutines.end()) {
+              reportError(j->getSourceInterval(),-1,"unknown identifier '%s'", j->IDENTIFIER()->getText().c_str());
+            }
             if (S->second->outputs.empty()) {
               stop = false; // nothing returned, we can fast forward
             }
@@ -3947,8 +3949,19 @@ void Algorithm::determineVIOAccess(
       if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
         std::string var = term->getText();
         var = translateVIOName(var, bctx);
+        // is it a var?
         if (vios.find(var) != vios.end()) {
           _read.insert(var);
+        } else {
+          // is it a group? (in a call)
+          auto G = m_VIOGroups.find(var);
+          if (G != m_VIOGroups.end()) {
+            // add all members
+            for (auto mbr : getGroupMembers(G->second)) {
+              std::string name = var + "_" + mbr;
+              _read.insert(name);
+            }
+          }
         }
       }
     }
