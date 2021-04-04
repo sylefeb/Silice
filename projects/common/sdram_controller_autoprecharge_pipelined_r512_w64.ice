@@ -170,7 +170,7 @@ $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_
   }
   
 $$if SIMULATION then
-  uint32 cycle = 0;
+  uint32 cycle(0);
   error := 0;
 $$end        
 
