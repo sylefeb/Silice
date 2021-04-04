@@ -2,7 +2,7 @@
 // ------------------------- 
 
 $$num_terrains = 7
-$$terrain_sky_id = {2,4,10,0,1,1,1}
+$$terrain_sky_id = {31,54,198,0,239,90,144}
 
 $$dofile('pre/pre_packdata.lua')
 

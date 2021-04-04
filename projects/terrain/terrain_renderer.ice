@@ -55,7 +55,7 @@ $$z_step_init    = z_step        -- distance of first z-step
 algorithm terrain_renderer(
     fb_user        fb,
     input   uint3  btns,
-    input   uint4  sky_pal_id,
+    input   uint8  sky_pal_id,
     output! uint14 map0_raddr,
     input   uint16 map0_rdata,
     input   uint1  write_en,
