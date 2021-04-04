@@ -13,9 +13,10 @@ algorithm foo(input grp f,output uint8 o)
   o = test(f.b).one;
 }
 
-algorithm bar(input uint8 i,output uint8 o)
+algorithm bar(input uint8 i,output grp o)
 {
-  o = i;
+  o.a = i;
+  o.b = i;
 }
 
 algorithm main(output uint8 leds)
@@ -23,6 +24,8 @@ algorithm main(output uint8 leds)
   grp g;
   foo ff;
   bar bb;
+// ++:  
+  // (leds) <- ff <- (g);
 ++:  
-  (leds) <- ff <- (g);
+  (g) <- bb <- (16);
 }

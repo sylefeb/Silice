@@ -4053,6 +4053,16 @@ void Algorithm::determineVIOAccess(
             string var = S->second->vios.at(i);
             if (vios.find(var) != vios.end()) {
               _written.insert(var);
+            } else {
+              // is it a group? (in a call)
+              auto G = m_VIOGroups.find(var);
+              if (G != m_VIOGroups.end()) {
+                // add all members
+                for (auto mbr : getGroupMembers(G->second)) {
+                  std::string name = var + "_" + mbr;
+                  _written.insert(name);
+                }
+              }
             }
           }
         }
@@ -4087,6 +4097,16 @@ void Algorithm::determineVIOAccess(
             var = translateVIOName(var, bctx);
             if (!var.empty() && vios.find(var) != vios.end()) {
               _written.insert(var);
+            } else {
+              // is it a group? (in a call)
+              auto G = m_VIOGroups.find(var);
+              if (G != m_VIOGroups.end()) {
+                // add all members
+                for (auto mbr : getGroupMembers(G->second)) {
+                  std::string name = var + "_" + mbr;
+                  _written.insert(name);
+                }
+              }
             }
           }
           // recurse on lhs expression, if any
