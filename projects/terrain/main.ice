@@ -261,7 +261,7 @@ $$end
   // interface for GPU writes in framebuffer
   fb_r16_w16_io fb;
   uint8 sky_pal_id(0); // sky palette id
-  uint1 write_en <: ~frame_fetch_sync[0,1]; // renderer cqn write only when framebuffer is not read
+  uint1 write_en <: ~(frame_fetch_sync[0,1] & active); // renderer can write only when framebuffer is not read
   terrain_renderer vs(
     fb          <:> fb,
     sky_pal_id   <: sky_pal_id,
