@@ -54,11 +54,11 @@ $$z_step_init    = z_step        -- distance of first z-step
 
 algorithm terrain_renderer(
     fb_user        fb,
-    output  uint1  fbuffer = 0,
     input   uint3  btns,
     input   uint4  sky_pal_id,
     output! uint14 map0_raddr,
     input   uint16 map0_rdata,
+    input   uint1  write_en,
 ) <autorun> {
 
   int24  z(0);
@@ -111,7 +111,7 @@ $$end
   // y coordinate of the previous iso-z in frame buffer
   bram uint8 y_last[320] = uninitialized;
   // color along the previous iso-z in frame buffer, for color dithering
-  bram uint4 c_last[320] = uninitialized;
+  bram uint8 c_last[320] = uninitialized;
 
   uint24 one = $fp_scl*fp_scl$;
   div48 div(
@@ -157,8 +157,8 @@ $$end
         int24  hmap     = uninitialized;  // height
         uint10 v_interp = uninitialized;  // vert. interpolation (dithering)
         // vars for interpolation
-        uint12 h00(0); uint12 h10(0); 
-        uint12 h11(0); uint12 h01(0);
+        uint16 h00(0); uint16 h10(0); 
+        uint16 h11(0); uint16 h01(0);
         uint8  hv0(0); uint8  hv1(0);
         // sample next elevations, with texture interpolation  
         // interleaves access and interpolator computations
@@ -202,7 +202,7 @@ $$end
         y_last.wdata   = 199;
         // retrieve last color at this column, if first set to current
         c_last.wenable = (iz == 0);
-        c_last.wdata   = h00[8,4];
+        c_last.wdata   = h00[8,8];
 ++: // wait for y_last and c_last to be updated
         // restart drawing from last one (or 199 if first)
         y              = (iz == 0) ? 199 : y_last.rdata;
@@ -222,23 +222,23 @@ $$end
           //   avoids sky on top row if already touched by terrain                      
           //
           // color dithering
-          uint4 clr(0); uint1 l_or_r(0); uint1 t_or_b(0);
+          uint8 clr(0); uint1 l_or_r(0); uint1 t_or_b(0);
           l_or_r      = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x[$fp-6$,6]; // horizontal
           t_or_b      = bayer_8x8[ { x[0,3] , y[0,3] } ] < v_interp[4,6]; // vertical
-          clr         = l_or_r ? ( t_or_b ? h00[8,4] : c_last.rdata ) : (t_or_b ? h10[8,4] : c_last.rdata);          
-          // clr        = h00[8,4];      // uncomment to visualize nearest mode
-          // clr        = l_x[$fp-4$,4]; // uncomment to visualize u interpolator
-          // clr        = v_interp[6,4]; // uncomment to visualize v interpolator
-          // update v interpolator
-          v_interp    = v_interp + inv_n.rdata;
+          clr         = l_or_r ? ( t_or_b ? h00[8,8] : c_last.rdata ) : (t_or_b ? h10[8,8] : c_last.rdata);          
+          // clr        = h00[8,8];      // uncomment to visualize nearest mode
+          // clr        = l_x[$fp-4$,8]; // uncomment to visualize u interpolator
+          // clr        = v_interp[6,8]; // uncomment to visualize v interpolator
           // write to framebuffer
-          fb.rw       = 1;
-          fb.data_in  = ( y == 0 ? 0 : ((iz == $z_num_step-1$) ? sky_pal_id : clr)) << {x[0,2],2b0};
+          fb.data_in  = ( y == 0 ? 0 : ((iz == $z_num_step-1$) ? sky_pal_id : clr)) << {x[0,2],3b0};
           //     hide top ^^^^^^         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           fb.wmask    = 1 << x[0,2];
-          fb.in_valid = 1;
-          fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 4bpp    x>>2 + y*80          
-          y           = y - 1;
+          fb.in_valid = write_en;
+          fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 8bpp    x>>2 + y*80          
+          // update v interpolator
+          v_interp    = write_en ? v_interp + inv_n.rdata : v_interp;
+          // next
+          y           = write_en ? y - 1 : y;
         }
         // write current altitude for next
         y_last.wenable = 1;
@@ -249,7 +249,7 @@ $$end
           // perform dithering according to interpolator
           uint1 l_or_r(0);
           l_or_r       = bayer_8x8[ { h00[5,3] , x[0,3] } ] > l_x[$fp-6$,6];
-          c_last.wdata = l_or_r ? h00[8,4] : h10[8,4];
+          c_last.wdata = l_or_r ? h00[8,8] : h10[8,8];
         }
         // update position
         x   =   x +  1;
@@ -258,7 +258,6 @@ $$end
       z  = z + $z_step$;
       iz = iz + 1;
     } // z-steps
-    fbuffer = ~fbuffer;
 $$if NUM_BTNS then 
     // use buttons
     // NOTE: moving by less (or non-multiples) of fp_scl 

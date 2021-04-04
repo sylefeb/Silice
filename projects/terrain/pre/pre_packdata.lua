@@ -37,10 +37,10 @@ for t=1,num_terrains do
   print('sky: ' .. terrain_sky_id[t])
   out:write(string.pack('B', terrain_sky_id[t] ))
   
-  for c = 1,16 do
-    print('r = ' .. (palette[c]     &255))
-    print('g = ' .. ((palette[c]>> 8)&255))
-    print('b = ' .. ((palette[c]>>16)&255))
+  for c = 1,256 do
+    --print('r = ' .. (palette[c]     &255))
+    --print('g = ' .. ((palette[c]>> 8)&255))
+    --print('b = ' .. ((palette[c]>>16)&255))
     out:write(string.pack('B',  palette[c]     &255 ))
     out:write(string.pack('B', (palette[c]>> 8)&255 ))
     out:write(string.pack('B', (palette[c]>>16)&255 ))

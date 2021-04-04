@@ -2,7 +2,7 @@
 
 volatile unsigned int* const SPRAM = (unsigned int*)0x88000000;
 
-#define MAP_SIZE (16384*2+16*3+1)
+#define MAP_SIZE (16384*2+256*3+1)
 #define NUM_MAPS 7
 
 void upload_map(int id)
@@ -18,7 +18,7 @@ void upload_map(int id)
   // sky index
   int sky = spiflash_read_next();
   // read palette
-  for (int i=0 ; i<16 ; ++i) {
+  for (int i=0 ; i<256 ; ++i) {
     int r = spiflash_read_next();
     int g = spiflash_read_next();
     int b = spiflash_read_next();
