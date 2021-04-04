@@ -43,7 +43,7 @@ $$if SIMULATION then
   uint16 cycle_last = 0;
 $$end
 
-  uint1  in_edge  ::= ((y0 <= y && y1 >= y) || (y1 <= y && y0 >= y)) && (y0 != y1);
+  uint1  in_edge  <:: ((y0 <= y && y1 >= y) || (y1 <= y && y0 >= y)) && (y0 != y1);
   int10  last_y     = uninitialized;
   int20  xi_full    = uninitialized;
 
@@ -87,7 +87,7 @@ algorithm ram_writer_wildfire(
   output uint1   done
 ) <autorun> {
 
-  uint19 addr ::= {x[3,7],3b000} + (y << 10);
+  uint19 addr <:: {x[3,7],3b000} + (y << 10);
 
   always {
     sd.rw = 1;
@@ -118,7 +118,7 @@ algorithm ram_writer_blaze(
 ) <autorun> {
 
   //  320 x 200, 4bpp    x>>2 + y*80
-  uint14 addr ::= x[3,7] + (y << 5) + (y << 3) + (~fbuffer ? 0 : 8000);
+  uint14 addr <:: x[3,7] + (y << 5) + (y << 3) + (~fbuffer ? 0 : 8000);
 
   always {
     sd.rw = 1;
@@ -231,7 +231,7 @@ $$else
   );
 $$end
 
-  uint10  y_p1  ::= y+1;
+  uint10  y_p1  <:: y+1;
 
   start                := 0;
   end                  := 0;

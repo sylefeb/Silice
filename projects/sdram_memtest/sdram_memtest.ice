@@ -170,7 +170,7 @@ $$end
   $$end
   );
 
-  uint16               cycle = 0;
+  uint16               cycle(0);
   uint27               count = uninitialized;
   uint2                pass  = 0;
 

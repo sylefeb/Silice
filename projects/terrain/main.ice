@@ -249,10 +249,10 @@ $$end
   uint16 map_data(0);
   // -> map0
   uint14 map0_raddr(0);
-  uint1  map0_write   := (map_write & ~map_select);
-  uint14 map0_addr    := map0_write ? map_waddr : map0_raddr;
-  uint1  map0_wenable := map0_write;
-  uint4  map0_wmask   := 4b1111;
+  uint1  map0_write   <: (map_write & ~map_select);
+  uint14 map0_addr    <: map0_write ? map_waddr : map0_raddr;
+  uint1  map0_wenable <: map0_write;
+  uint4  map0_wmask   <: 4b1111;
   uint16 map0_data_out(0);
 $$if VERILATOR then
   verilator_spram map0(
@@ -307,7 +307,7 @@ $$if SIMULATION then
 $$end
 
   // register input buttons
-  uint3 r_btns(0);
+  uint3 r_btns(0);  
   r_btns        ::= btns;
 
   next_frame := (~active) ? next_frame : ( pix_x == 639 && pix_y == 399 ? 1 : 0 ); // waiting for next frame?

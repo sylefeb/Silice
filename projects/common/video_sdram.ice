@@ -38,17 +38,17 @@ algorithm frame_display(
 
 $$if SDRAM_r128_w8 then      
 $$if mode_640_480 then
-  uint10 sub_a := {(video_x+1d1)      & 4d15,3b000};
+  uint10 sub_a <: {(video_x+1d1)      & 4d15,3b000};
 $$else
-  uint10 sub_a := {((video_x+1d1)>>1) & 4d15,3b000};
+  uint10 sub_a <: {((video_x+1d1)>>1) & 4d15,3b000};
 $$end
 $$end
 
 $$if SDRAM_r512_w64 then      
 $$if mode_640_480 then
-  uint10 sub_a := {(video_x+1d1)      & 6d63,3b000};
+  uint10 sub_a <: {(video_x+1d1)      & 6d63,3b000};
 $$else
-  uint10 sub_a := {((video_x+1d1)>>1) & 6d63,3b000};
+  uint10 sub_a <: {((video_x+1d1)>>1) & 6d63,3b000};
 $$end
 $$end
 

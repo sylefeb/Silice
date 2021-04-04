@@ -21,8 +21,6 @@ import('hdmi_clock.v')
 import('ddr.v')
 import('hdmi_ddr_crgb.v')
 
-$include('clean_reset.ice')
-
 // ----------------------------------------------------
 
 algorithm tmds_encoder(
@@ -36,29 +34,29 @@ algorithm tmds_encoder(
   int5  dc_bias         = uninitialized;
 
   // tracks 'number on ones' in input
-  uint4 num_ones        := data[0,1] + data[1,1] + data[2,1] + data[3,1]
+  uint4 num_ones        <: data[0,1] + data[1,1] + data[2,1] + data[3,1]
                          + data[4,1] + data[5,1] + data[6,1] + data[7,1];
   // tracks 'numbers of ones minus number of zeros' in internal byte
-  int5  diff_ones_zeros := q_m[0,1] + q_m[1,1] + q_m[2,1] + q_m[3,1] 
+  int5  diff_ones_zeros <: q_m[0,1] + q_m[1,1] + q_m[2,1] + q_m[3,1] 
                          + q_m[4,1] + q_m[5,1] + q_m[6,1] + q_m[7,1] - 6d4;
 
   // XOR chain on input
-  int1  xored1          := data[1,1] ^ data[0,1];
-  int1  xored2          := data[2,1] ^ xored1;
-  int1  xored3          := data[3,1] ^ xored2;
-  int1  xored4          := data[4,1] ^ xored3;
-  int1  xored5          := data[5,1] ^ xored4;
-  int1  xored6          := data[6,1] ^ xored5;
-  int1  xored7          := data[7,1] ^ xored6;
+  int1  xored1          <: data[1,1] ^ data[0,1];
+  int1  xored2          <: data[2,1] ^ xored1;
+  int1  xored3          <: data[3,1] ^ xored2;
+  int1  xored4          <: data[4,1] ^ xored3;
+  int1  xored5          <: data[5,1] ^ xored4;
+  int1  xored6          <: data[6,1] ^ xored5;
+  int1  xored7          <: data[7,1] ^ xored6;
 
   // XNOR chain on input
-  int1  xnored1         := ~(data[1,1] ^ data[0,1]);
-  int1  xnored2         := ~(data[2,1] ^ xnored1);
-  int1  xnored3         := ~(data[3,1] ^ xnored2);
-  int1  xnored4         := ~(data[4,1] ^ xnored3);
-  int1  xnored5         := ~(data[5,1] ^ xnored4);
-  int1  xnored6         := ~(data[6,1] ^ xnored5);
-  int1  xnored7         := ~(data[7,1] ^ xnored6);
+  int1  xnored1         <: ~(data[1,1] ^ data[0,1]);
+  int1  xnored2         <: ~(data[2,1] ^ xnored1);
+  int1  xnored3         <: ~(data[3,1] ^ xnored2);
+  int1  xnored4         <: ~(data[4,1] ^ xnored3);
+  int1  xnored5         <: ~(data[5,1] ^ xnored4);
+  int1  xnored6         <: ~(data[6,1] ^ xnored5);
+  int1  xnored7         <: ~(data[7,1] ^ xnored6);
   
   always {
     // choice of encoding scheme (xor / xnor)
@@ -140,11 +138,11 @@ algorithm hdmi(
   uint10 cntx  = 0;
   uint9  cnty  = 0;
   
-  uint1 hsync      := (cntx > 655) && (cntx < 752);
-  uint1 vsync      := (cnty > 489) && (cnty < 492);
+  uint1 hsync      <: (cntx > 655) && (cntx < 752);
+  uint1 vsync      <: (cnty > 489) && (cnty < 492);
   
   uint2 sync_ctrl   = uninitialized;
-  uint2 null_ctrl  := 0;
+  uint2 null_ctrl  <: 0;
 
   uint1  rst  = uninitialized;
   clean_reset cr<@pixel_clk,!reset>(

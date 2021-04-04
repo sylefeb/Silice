@@ -87,8 +87,8 @@ $$end
   uint32 next_instr(0);
   uint26 next_pc(0);
 
-  uint26 next_pc_p4 ::= next_pc + 4;
-  uint26 next_pc_p8 ::= next_pc + 8;
+  uint26 next_pc_p4 <:: next_pc + 4;
+  uint26 next_pc_p8 <:: next_pc + 8;
 
   uint1 pcOrReg     = uninitialized;
   uint1 regOrImm    = uninitialized;
@@ -134,7 +134,7 @@ $$end
     imm         :> imm,
   );
  
-  uint3 funct3   ::= Btype(instr).funct3; 
+  uint3 funct3   <:: Btype(instr).funct3; 
   uint1  branch_or_jump = uninitialized;
 
   int32  alu_out     = uninitialized;
@@ -483,37 +483,37 @@ algorithm decode(
   output int32   imm,
 ) <autorun> {
 
-  int32 imm_u  := {Utype(instr).imm31_12,12b0};
-  int32 imm_j  := {
+  int32 imm_u  <: {Utype(instr).imm31_12,12b0};
+  int32 imm_j  <: {
            {12{Jtype(instr).imm20}},
            Jtype(instr).imm_19_12,
            Jtype(instr).imm11,
            Jtype(instr).imm10_1,
            1b0};
-  int32 imm_i  := {{20{instr[31,1]}},Itype(instr).imm};
-  int32 imm_b  :=  {
+  int32 imm_i  <: {{20{instr[31,1]}},Itype(instr).imm};
+  int32 imm_b  <:  {
             {20{Btype(instr).imm12}},
             Btype(instr).imm11,
             Btype(instr).imm10_5,
             Btype(instr).imm4_1,
             1b0
             };
-  int32 imm_s  := {{20{instr[31,1]}},Stype(instr).imm11_5,Stype(instr).imm4_0};
+  int32 imm_s  <: {{20{instr[31,1]}},Stype(instr).imm11_5,Stype(instr).imm4_0};
   
-  uint5 opcode := instr[ 2, 5];
+  uint5 opcode <: instr[ 2, 5];
   
-  uint1 AUIPC  := opcode == 5b00101;
-  uint1 LUI    := opcode == 5b01101;
-  uint1 JAL    := opcode == 5b11011;
-  uint1 JALR   := opcode == 5b11001;
-  uint1 Branch := opcode == 5b11000;
-  uint1 Load   := opcode == 5b00000;
-  uint1 Store  := opcode == 5b01000;
-  uint1 IntImm := opcode == 5b00100;
-  uint1 IntReg := opcode == 5b01100;
-  uint1 CSR    := opcode == 5b11100;
+  uint1 AUIPC  <: opcode == 5b00101;
+  uint1 LUI    <: opcode == 5b01101;
+  uint1 JAL    <: opcode == 5b11011;
+  uint1 JALR   <: opcode == 5b11001;
+  uint1 Branch <: opcode == 5b11000;
+  uint1 Load   <: opcode == 5b00000;
+  uint1 Store  <: opcode == 5b01000;
+  uint1 IntImm <: opcode == 5b00100;
+  uint1 IntReg <: opcode == 5b01100;
+  uint1 CSR    <: opcode == 5b11100;
 
-  uint1 no_rd  := (Branch | Store);
+  uint1 no_rd  <: (Branch | Store);
 
   jump         := (JAL | JALR);
   branch       := (Branch);
@@ -619,15 +619,15 @@ $$end
   // pc  + imm   (else)
   
 $$if FIREV_MUX_A_DECODER then      
-  int32 a := xa;
+  int32 a <: xa;
 $$else
-  int32 a := pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
+  int32 a <: pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
 $$end
   
 $$if FIREV_MUX_B_DECODER then      
-  int32 b := xb;
+  int32 b <: xb;
 $$else
-  int32 b := regOrImm ? (xb) : imm;
+  int32 b <: regOrImm ? (xb) : imm;
 $$end
 
   always { // this part of the algorithm is executed every clock  

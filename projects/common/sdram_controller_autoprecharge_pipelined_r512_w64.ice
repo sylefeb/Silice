@@ -150,7 +150,7 @@ $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_
   uint3  refresh_trigger = uninitialized;
   int11  refresh_count($refresh_cycles$);
 
-  uint1 needs_refresh ::= refresh_count[10,1];
+  uint1 needs_refresh <:: refresh_count[10,1];
 
   uint3  stage     = uninitialized;
   uint8  actmodulo = uninitialized;

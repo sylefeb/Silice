@@ -26,14 +26,14 @@ algorithm bram_segment_ram_32bits(
 ) <autorun> {
 
   // track when address is in cache region and onto which entry   
-  uint1  in_cache               :=    (pram.addr  [$2+bram_depth$,$26-2-bram_depth$])
+  uint1  in_cache               <:    (pram.addr  [$2+bram_depth$,$26-2-bram_depth$])
                                    == (cache_start[$2+bram_depth$,$26-2-bram_depth$]);
-  uint$bram_depth$  cache_entry := (pram.addr[2,$bram_depth$]);
+  uint$bram_depth$  cache_entry <: (pram.addr[2,$bram_depth$]);
   
   simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { $data_bram$ pad(uninitialized) };
   
-  uint1 not_mapped           ::= ~pram.addr[31,1]; // Note: memory mapped addresses use the top most bits 
-  uint$bram_depth$ predicted ::= predicted_addr[2,$bram_depth$];
+  uint1 not_mapped           <:: ~pram.addr[31,1]; // Note: memory mapped addresses use the top most bits 
+  uint$bram_depth$ predicted <:: predicted_addr[2,$bram_depth$];
 
   uint1 wait_one(0);
 

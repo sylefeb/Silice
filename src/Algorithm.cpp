@@ -3601,11 +3601,16 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
       const auto& d = _depds.dependencies.at(w);
       if (d.count(w) > 0) {
         // yes: this would produce a combinational cycle, error!
+        string msg = "variable assignement leads to a combinational cycle (variable: '%s')\n\n";
+        if (bctx == &m_AlwaysPost.context) { // checks whether in always_after
+          msg += "Variables written in always_after can only be initialized at powerup.\nExample: 'uint8 v(0);' in place of 'uint8 v=0;'";
+        } else {
+          msg += "Consider inserting a sequential split with '++:'";
+        }
         reportError(
           dynamic_cast<antlr4::ParserRuleContext *>(instr)->getSourceInterval(),
           (int)(dynamic_cast<antlr4::ParserRuleContext *>(instr)->getStart()->getLine()),
-          "variable assignement leads to a combinational cycle (variable: '%s')\n\nConsider inserting a sequential split with '++:'",
-          w.c_str());
+          msg.c_str(),w.c_str());
       }
     }
     // check if the variable depends on a wire, that depends on the variable itself

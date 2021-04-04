@@ -43,18 +43,18 @@ $$V_END    = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH + V_RES
   uint10 xcount(0);
   uint10 ycount(0);
 
-  uint10 pix_x     ::= (xcount - $HA_START$);
-  uint10 pix_y     ::= (ycount - $VA_START$);
+  uint10 pix_x     <:: (xcount - $HA_START$);
+  uint10 pix_y     <:: (ycount - $VA_START$);
 
-  uint1  active_h  ::= (xcount >= $HA_START$ && xcount < $H_END$);
-  uint1  active_v  ::= (ycount >= $VA_START$ && ycount < $VA_START + VGA_VA_END$);
+  uint1  active_h  <:: (xcount >= $HA_START$ && xcount < $H_END$);
+  uint1  active_v  <:: (ycount >= $VA_START$ && ycount < $VA_START + VGA_VA_END$);
 
-  active           := active_h && active_v;
+  active           :=  active_h && active_v;
 
-  vga_hs           := ~((xcount >= $HS_START$ && xcount < $HS_END$));
-  vga_vs           := ~((ycount >= $VS_START$ && ycount < $VS_END$));
+  vga_hs           :=  ~((xcount >= $HS_START$ && xcount < $HS_END$));
+  vga_vs           :=  ~((ycount >= $VS_START$ && ycount < $VS_END$));
 
-  vblank           := (ycount < $VA_START$);
+  vblank           :=  (ycount < $VA_START$);
 
   always {
 

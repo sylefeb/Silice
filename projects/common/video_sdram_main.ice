@@ -531,16 +531,16 @@ $$end
   );
 
 $$  if frame_drawer_at_sdram_speed then
-  uint1 frame_drawer_reset ::= sdram_reset || (~data_ready);
+  uint1 frame_drawer_reset <:: sdram_reset || (~data_ready);
 $$  else
-  uint1 frame_drawer_reset ::= compute_reset || (~data_ready);
+  uint1 frame_drawer_reset <:: compute_reset || (~data_ready);
 $$  end
 
 $$else
 $$  if frame_drawer_at_sdram_speed then
-  uint1 frame_drawer_reset ::= sdram_reset;
+  uint1 frame_drawer_reset <:: sdram_reset;
 $$  else
-  uint1 frame_drawer_reset ::= compute_reset;
+  uint1 frame_drawer_reset <:: compute_reset;
 $$  end
 $$end
 
