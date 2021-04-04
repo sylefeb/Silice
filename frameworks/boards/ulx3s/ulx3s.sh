@@ -39,8 +39,6 @@ nextpnr-ecp5 --85k --package CABGA381 --freq 25 --json build.json --textcfg buil
 # --seed 73
 #  --placer sa --starttemp 2 --cstrweight 20
 
-# sed -i '/.sysconfig/d' build.config # see #115
-
 ecppack --compress --svf-rowsize 100000 --svf build.svf build.config build.bit
 
 fujprog build.bit
