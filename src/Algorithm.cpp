@@ -3154,9 +3154,6 @@ Algorithm::t_combinational_block *Algorithm::gather(
     }
     m_AlwaysPost.context.parent_scope = _current;
     if (algbody->alwaysAfterBlock() != nullptr) {
-      cerr << Console::yellow << nxl << nxl << nxl
-        << "[[WARNING]] your design is using always_after which is only partially implemented!!" 
-        << nxl << nxl << nxl << Console::gray;
       gather(algbody->alwaysAfterBlock(), &m_AlwaysPost, _context);
       if (!isStateLessGraph(&m_AlwaysPost)) {
         reportError(algbody->alwaysAfterBlock()->ALWAYS_AFTER()->getSymbol(),
@@ -5872,7 +5869,12 @@ void Algorithm::writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ost
 
 // -------------------------------------------------
 
-void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, t_vio_dependencies& _always_dependencies, t_vio_ff_usage &_ff_usage) const
+void Algorithm::writeCombinationalAlwaysPre(
+  std::string prefix,  std::ostream& out, 
+  const                t_instantiation_context &ictx, 
+  t_vio_dependencies& _always_dependencies, 
+  t_vio_ff_usage&     _ff_usage,
+  t_vio_dependencies& _post_dependencies) const
 {
   // flip-flops
   for (const auto& v : m_Vars) {
@@ -5970,7 +5972,7 @@ void Algorithm::writeCombinationalAlwaysPre(std::string prefix, std::ostream& ou
   }
   // always block
   std::queue<size_t> q;
-  writeStatelessBlockGraph(prefix, out, ictx, &m_AlwaysPre, nullptr, q, _always_dependencies, _ff_usage);
+  writeStatelessBlockGraph(prefix, out, ictx, &m_AlwaysPre, nullptr, q, _always_dependencies, _ff_usage, _post_dependencies);
 }
 
 // -------------------------------------------------
@@ -5986,8 +5988,11 @@ void Algorithm::pushState(const t_combinational_block* b, std::queue<size_t>& _q
 // -------------------------------------------------
 
 void Algorithm::writeCombinationalStates(
-  std::string prefix, std::ostream &out, const t_instantiation_context &ictx, 
-  const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage) const
+  std::string prefix, std::ostream &out, 
+  const t_instantiation_context& ictx, 
+  const t_vio_dependencies&      always_dependencies, 
+  t_vio_ff_usage&                _ff_usage,
+  t_vio_dependencies&            _post_dependencies) const
 {
   vector<t_vio_ff_usage> ff_usages;
   unordered_set<size_t>  produced;
@@ -6042,7 +6047,7 @@ void Algorithm::writeCombinationalStates(
         t_vio_dependencies depds = always_dependencies;
         // -> write block instructions
         ff_usages.push_back(_ff_usage);
-        writeStatelessBlockGraph(prefix, out, ictx, cur, nullptr, q, depds, ff_usages.back());
+        writeStatelessBlockGraph(prefix, out, ictx, cur, nullptr, q, depds, ff_usages.back(), _post_dependencies);
         // -> goto next
         if (cur->sub_state_id == b->num_sub_states-1) { 
           // -> if last, reinit local index
@@ -6086,7 +6091,7 @@ void Algorithm::writeCombinationalStates(
       t_vio_dependencies depds = always_dependencies;
       // write block instructions
       ff_usages.push_back(_ff_usage);
-      writeStatelessBlockGraph(prefix, out, ictx, b, nullptr, q, depds, ff_usages.back());
+      writeStatelessBlockGraph(prefix, out, ictx, b, nullptr, q, depds, ff_usages.back(), _post_dependencies);
       // track states ff usage
       for (auto ff : ff_usages.back().ff_usage) {
         ff_usage_counts[ff.first].first += ((ff.second & e_Q) ? 1 : 0);
@@ -6276,7 +6281,15 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
 
 // -------------------------------------------------
 
-void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const
+void Algorithm::writeStatelessBlockGraph(
+  std::string prefix, std::ostream& out, 
+  const t_instantiation_context &ictx, 
+  const t_combinational_block* block, 
+  const t_combinational_block* stop_at, 
+  std::queue<size_t>& _q, 
+  t_vio_dependencies& _dependencies, 
+  t_vio_ff_usage&     _ff_usage, 
+  t_vio_dependencies& _post_dependencies) const
 {
   // recursive call?
   if (stop_at != nullptr) {
@@ -6286,11 +6299,12 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       // yes: index the state directly
       out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(block)->state_id) << ";" << nxl;
       pushState(block, _q);
-      // return
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     }
     // if called on a sub-state, no nothing but stop here
     if (block->is_sub_state) {
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     }
   }
@@ -6299,6 +6313,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
   while (true) {
     // write current block
     writeBlock(prefix, out, ictx, current, _dependencies, _ff_usage);
+    // merge 
     // goto next in chain
     if (current->next()) {
       current = current->next()->next;
@@ -6308,12 +6323,12 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       // recurse if
       t_vio_dependencies depds_if = _dependencies; 
       usage_branches.push_back(t_vio_ff_usage());
-      writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back());
+      writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back(), _post_dependencies);
       out << "end else begin" << nxl;
       // recurse else
       t_vio_dependencies depds_else = _dependencies;
       usage_branches.push_back(t_vio_ff_usage());
-      writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_branches.back());
+      writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_branches.back(), _post_dependencies);
       out << "end" << nxl;
       // merge dependencies
       mergeDependenciesInto(depds_if, _dependencies);
@@ -6322,6 +6337,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       combineFFUsageInto(_ff_usage, usage_branches, _ff_usage);
       // follow after?
       if (current->if_then_else()->after->is_state) {
+        mergeDependenciesInto(_dependencies, _post_dependencies);
         return; // no: already indexed by recursive calls
       } else {
         current = current->if_then_else()->after; // yes!
@@ -6338,7 +6354,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
         // recurse case
         t_vio_dependencies depds_case = depds_before_case;
         usage_branches.push_back(t_vio_ff_usage());
-        writeStatelessBlockGraph(prefix, out, ictx, cb.second, current->switch_case()->after, _q, depds_case, usage_branches.back());
+        writeStatelessBlockGraph(prefix, out, ictx, cb.second, current->switch_case()->after, _q, depds_case, usage_branches.back(), _post_dependencies);
         // merge sets of written vars
         mergeDependenciesInto(depds_case, _dependencies);
         out << "  end" << nxl;
@@ -6353,6 +6369,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       combineFFUsageInto(_ff_usage, usage_branches, _ff_usage);
       // follow after?
       if (current->switch_case()->after->is_state) {
+        mergeDependenciesInto(_dependencies, _post_dependencies);
         return; // no: already indexed by recursive calls
       } else {
         current = current->switch_case()->after; // yes!
@@ -6360,11 +6377,12 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
     } else if (current->while_loop()) {
       // while
       out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
-      writeStatelessBlockGraph(prefix, out, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage);
+      writeStatelessBlockGraph(prefix, out, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage, _post_dependencies);
       out << "end else begin" << nxl;
       out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->while_loop()->after)->state_id) << ";" << nxl;
       pushState(current->while_loop()->after, _q);
       out << "end" << nxl;
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     } else if (current->return_from()) {
       // return to caller (goes to termination of algorithm is not set)
@@ -6398,6 +6416,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
         // this subroutine is never called??
         out << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << nxl;
       }
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
@@ -6413,6 +6432,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       sl_assert(C != m_SubroutineCallerIds.end());
       out << FF_D << prefix << ALG_CALLER << " = " << C->second << ";" << nxl;
       pushState(current->goto_and_return_to()->return_to, _q);
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     } else if (current->wait()) {
       // wait for algorithm
@@ -6435,10 +6455,11 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
         pushState(current->wait()->waiting, _q);
         out << "end" << nxl;
       }
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     } else if (current->pipeline_next()) {
       // write pipeline
-      current = writeStatelessPipeline(prefix, out, ictx, current, _q, _dependencies, _ff_usage);
+      current = writeStatelessPipeline(prefix, out, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies);
     } else { 
       // necessary as m_AlwaysPre/m_AlwaysPost reaches this
       if (block != &m_AlwaysPre && block != &m_AlwaysPost) {
@@ -6447,6 +6468,7 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
           out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << nxl;
         }
       }
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     }
     // check whether next is a state
@@ -6454,18 +6476,22 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
       // yes: index and stop
       out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current)->state_id) << ";" << nxl;
       pushState(current, _q);
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     }
     // check whether next is a sub-state
     if (current->is_sub_state) {
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     }
     // reached stop?
     if (current == stop_at) {
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     }
     // keep going
   }
+  mergeDependenciesInto(_dependencies, _post_dependencies);
 }
 
 // -------------------------------------------------
@@ -6473,7 +6499,10 @@ void Algorithm::writeStatelessBlockGraph(std::string prefix, std::ostream& out, 
 const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   std::string prefix, std::ostream& out, const t_instantiation_context &ictx,
   const t_combinational_block* block_before, 
-  std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const
+  std::queue<size_t>& _q, 
+  t_vio_dependencies& _dependencies, 
+  t_vio_ff_usage&     _ff_usage,
+  t_vio_dependencies& _post_dependencies) const
 {
   // follow the chain
   out << "// pipeline" << nxl;
@@ -6489,7 +6518,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     // write code
     t_vio_dependencies deps = _dependencies;
     if (current != after) { // this is the more complex case of multiple blocks in stage
-      writeStatelessBlockGraph(prefix, out, ictx, current, after, _q, deps, _ff_usage); // NOTE: q will not be changed since this is a combinational block
+      writeStatelessBlockGraph(prefix, out, ictx, current, after, _q, deps, _ff_usage, _post_dependencies); // NOTE: q will not be changed since this is a combinational block
       current = after;
     } else {
       writeBlock(prefix, out, ictx, current, deps, _ff_usage);
@@ -7150,27 +7179,30 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
   }
   out << nxl;
 
-  // wire assignments
+  // track dependencies
   t_vio_dependencies always_dependencies;
+  t_vio_dependencies post_dependencies;
+  // wire assignments
   writeWireAssignements("_", out, always_dependencies, _ff_usage);
   // combinational
   out << "always @* begin" << nxl;
-  writeCombinationalAlwaysPre("_", out, ictx, always_dependencies, _ff_usage);
+  writeCombinationalAlwaysPre("_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
   if (!hasNoFSM()) {
     // write all states
-    writeCombinationalStates("_", out, ictx, always_dependencies, _ff_usage);
+    writeCombinationalStates("_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
   }
   // always after block
   {
-    std::queue<size_t> q;
-    /*for (auto ff : always_dependencies.dependencies) {
+    /*for (auto ff : post_dependencies.dependencies) {
       cerr << "***********************" << ff.first << " - ";
       for (auto d : ff.second) {
         cerr << d << ',';
       }
       cerr << std::endl;
     }*/
-    writeStatelessBlockGraph("_", out, ictx, &m_AlwaysPost, nullptr, q, always_dependencies, _ff_usage);
+    std::queue<size_t> q;
+    t_vio_dependencies _; // unusued
+    writeStatelessBlockGraph("_", out, ictx, &m_AlwaysPost, nullptr, q, post_dependencies, _ff_usage, _);
   }
   out << "end" << nxl;
 
