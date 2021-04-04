@@ -2,7 +2,7 @@
 
 if not path then
   path,_1,_2 = string.match(findfile('Makefile'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
-  print('********************* data written to  ' .. path .. '/data.img')
+  print('********************* data written to  ' .. path .. '/terrains.img')
   print('********************* images read from ' .. path .. '/data/*.tga')
 end
 
@@ -12,7 +12,7 @@ if not terrain then
   terrain = ''
 end   
 
-local out = assert(io.open(path .. '/data.img', "wb"))
+local out = assert(io.open(path .. '/terrains.img', "wb"))
 
 for t=1,num_terrains do
 
