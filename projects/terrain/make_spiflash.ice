@@ -1,7 +1,7 @@
 // SL 2020-12-23 @sylefeb
 // ------------------------- 
 
-$$num_terrains = 7
+$$num_terrains = 1
 $$terrain_sky_id = {31,49,198,0,239,90,144}
 
 $$dofile('pre/pre_packdata.lua')

@@ -55,7 +55,6 @@ The view is renderer front to back in a sequence of *z-steps*. Each z-step trave
 
 
 
-
 ### Interpolation to the rescue
 
 Tbw
@@ -68,3 +67,7 @@ Tbw
 
 Tbw
 
+## Credits
+
+- Comanche data extraction thanks to [s-macke](https://github.com/s-macke/VoxelSpace)
+- Textures and heightfields are downsampled versions of the originals (from 1024x1024 down to 128x128)
