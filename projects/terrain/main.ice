@@ -59,6 +59,9 @@ $$dofile('../fire-v/pre/pre_include_asm.lua')
 $$code_size_bytes = init_data_bytes
 
 $include('../fire-v/fire-v/fire-v.ice')
+$$if SIMULATION then
+$$ bram_depth=14
+$$end
 $include('../fire-v/ash/bram_ram_32bits.ice')
 $include('../common/clean_reset.ice')
 
@@ -194,7 +197,7 @@ $$end
   uint14 fb0_addr(0);
   uint16 fb0_data_in(0);
   uint1  fb0_wenable(0);
-  uint8  fb0_wmask(0);
+  uint4  fb0_wmask(0);
   uint16 fb0_data_out(0);
 $$if VERILATOR then
   verilator_spram frame0(
@@ -213,7 +216,7 @@ $$end
   uint14 fb1_addr(0);
   uint16 fb1_data_in(0);
   uint1  fb1_wenable(0);
-  uint8  fb1_wmask(0);
+  uint4  fb1_wmask(0);
   uint16 fb1_data_out(0);
 $$if VERILATOR then
   verilator_spram frame1(
@@ -239,10 +242,10 @@ $$end
   uint16 map_data(0);
   // -> map0
   uint14 map0_raddr(0);
-  uint1  map0_write   <: (map_write & ~map_select);
-  uint14 map0_addr    <: map0_write ? map_waddr : map0_raddr;
-  uint1  map0_wenable <: map0_write;
-  uint4  map0_wmask   <: 4b1111;
+  uint1  map0_write   <:: (map_write & ~map_select);
+  uint14 map0_addr    <:: map0_write ? map_waddr : map0_raddr;
+  uint1  map0_wenable <:: map0_write;
+  uint4  map0_wmask   <:: 4b1111;
   uint16 map0_data_out(0);
 $$if VERILATOR then
   verilator_spram map0(
@@ -261,7 +264,9 @@ $$end
   // interface for GPU writes in framebuffer
   fb_r16_w16_io fb;
   uint8 sky_pal_id(0); // sky palette id
-  uint1 write_en <: ~(frame_fetch_sync[0,1] & active); // renderer can write only when framebuffer is not read
+  uint1 write_en <:: ~ frame_fetch_sync[3,1]; // renderer can write only when framebuffer is not read
+  //                                    ^ we cancel writes just at the right time to ensure that when
+  //                                      the framebuffer value is read a write is not occuring
   terrain_renderer vs(
     fb          <:> fb,
     sky_pal_id   <: sky_pal_id,
@@ -341,12 +346,12 @@ $$end
   
   always_after   {
     // updates synchronization variables
-    frame_fetch_sync = active ? {frame_fetch_sync[0,1],frame_fetch_sync[1,7]} : 8b00000001;
-    next_pixel       = active ? {next_pixel[0,1],next_pixel[1,1]}             : 2b01;
+    frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,7]}; //active ? {frame_fetch_sync[0,1],frame_fetch_sync[1,7]} : 8b00000001;
+    next_pixel       = {next_pixel[0,1],next_pixel[1,1]}; //active ? {next_pixel[0,1],next_pixel[1,1]}             : 2b01;
   }
 
 $$if SIMULATION then  
-  while (iter != 960000) {
+  while (iter != 6000000) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -387,7 +392,7 @@ $$end
               /* swap buffer ignored */ 
               }
             case 2b10: {
-              // SPIFLASH
+              // spiflash
 $$if SPIFLASH then
               sf_clk  = mem.data_in[0,1];
               sf_mosi = mem.data_in[1,1];
@@ -408,7 +413,8 @@ $$end
           map_write  = 1;
           map_data   = mem.data_in[ 0,16];
           map_waddr  = mem.data_in[16,14];
-          map_select = mem.data_in[30, 1];          
+          map_select = mem.data_in[30, 1];        
+          // __display("SPRAM [@%h]=%h",map_waddr,map_data);  
         }
         default: { }
       }

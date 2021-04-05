@@ -4,16 +4,22 @@ This project is a recreation in FPGA hardware of the classic Voxel Space terrain
 
 It was developed and tested on an IceBreaker board with VGA PMOD.
 
-## How to test
+### How to test
 
 Plug your board, then from a command line in this directory `./build.sh`
+
+### Design files
+
+- [`main.ice`](main.ice) is the main framework
+- [`terrain_renderer.ice`](terrain_renderer.ice) is the hardware renderer
+- [`firmware.c`](firmware.c) is the RISC-V firmware code
 
 ## Revisiting the Voxel Space algorithm in hardware
 
 The main principle of the terrain renderer is similar to the Voxel Space
-renderer. This [github repo by s-macke](https://github.com/s-macke/VoxelSpace) gives an excellent overview of the algorithm. I will not repeat this here and instead focus on the specificities of my implementation, as well as the hardware elements.
+renderer. This [github repo by s-macke](https://github.com/s-macke/VoxelSpace) gives an excellent overview of the algorithm. I give below a quick overview to make this README self-contained but please checkout [s-macke](https://github.com/s-macke/VoxelSpace)'s page for more details.
 
-## Memory considerations
+### Memory considerations
 
 A key challenge in fitting this on an UP5K is the limited memory. A terrain renderer typically uses a large amount of memory to store the terrain data: elevation and color map. 
 
@@ -35,14 +41,30 @@ This also fits nicely in four SPRAMs:
 - SPRAM C, 32KB, interleaved height + color data (16bits per pixel)
 - SPRAM D, 32KB, free!
 
-## Interpolation to the rescue
+### Overall algorithm
+
+This demo implements the simplest form of the algorithm, which renderers a viewpoint
+aligned with the y-axis. This means we are looking along y, and that the screen x-axis is aligned with x-spans of the terrain data.
+
+Rotations are thus not yet possible (but of course a natural extension!).
+
+The view is renderer front to back in a sequence of *z-steps*. Each z-step traverses the data along the x-axis.
+
+
+### The framebuffer
+
+
+
+
+### Interpolation to the rescue
 
 Tbw
 
-## Indexed color palette?
+### Indexed color palette?
 
 Tbw
 
-## Dithering tricks
+### Dithering tricks
 
 Tbw
+

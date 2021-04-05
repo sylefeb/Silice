@@ -13,7 +13,7 @@ if not terrain then
 end   
 
 local out = assert(io.open(path .. '/terrains.img', "wb"))
-
+c_hex = ''
 for t=1,num_terrains do
 
   colormap  = get_image_as_table  (path .. '/data/color' .. t .. '.tga')
@@ -31,12 +31,19 @@ for t=1,num_terrains do
       local hgt = heightmap[j][i]
       out:write(string.pack('B', hgt ))
       out:write(string.pack('B', clr ))
+      if t == 1 then
+        c_hex = c_hex .. string.format("0x%x,", hgt)
+        c_hex = c_hex .. string.format("0x%x,", clr)
+      end
     end
   end
 
   print('sky: ' .. terrain_sky_id[t])
   out:write(string.pack('B', terrain_sky_id[t] ))
-  
+  if t == 1 then
+    c_hex = c_hex .. string.format("0x%x,",  terrain_sky_id[t])
+  end
+
   for c = 1,256 do
     --print('r = ' .. (palette[c]     &255))
     --print('g = ' .. ((palette[c]>> 8)&255))
@@ -44,8 +51,20 @@ for t=1,num_terrains do
     out:write(string.pack('B',  palette[c]     &255 ))
     out:write(string.pack('B', (palette[c]>> 8)&255 ))
     out:write(string.pack('B', (palette[c]>>16)&255 ))
-  end
+    if t == 1 then
+      c_hex = c_hex .. string.format("0x%x,",   palette[c]     &255)
+      c_hex = c_hex .. string.format("0x%x,",  (palette[c]>> 8)&255)
+      c_hex = c_hex .. string.format("0x%x,",  (palette[c]>>16)&255)
+    end
+end
 
 end
 
+out:close()
+
+-- also generates a header with first terrain for inclusion in simulation
+local out = assert(io.open(path .. '/terrains.h', "wb"))
+out:write('unsigned char terrains[]={')
+out:write(c_hex)
+out:write('0x00};')
 out:close()

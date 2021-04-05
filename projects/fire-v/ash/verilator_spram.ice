@@ -1,4 +1,4 @@
-$$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
+$$config['simple_dualport_bram_wmask_half_bytes_wenable1_width'] = 'data'
 
 algorithm verilator_spram(
   input   uint14 addr,
@@ -7,11 +7,11 @@ algorithm verilator_spram(
   input   uint1  wenable,
   output! uint16 data_out
 ) {
-  simple_dualport_bram uint16 mem<"simple_dualport_bram_wmask_byte">[16384] = uninitialized;
+  simple_dualport_bram uint16 mem<"simple_dualport_bram_wmask_half_bytes">[16384] = uninitialized;
   always {
     mem.addr0    = addr;
     mem.addr1    = addr;
-    mem.wenable1 = {2{wenable}} & {wmask[2,1],wmask[0,1]};
+    mem.wenable1 = {4{wenable}} & wmask;
     mem.wdata1   = data_in;
     data_out     = mem.rdata0;
 

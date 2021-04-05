@@ -7,10 +7,12 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
-$$if ICEBREAKER then
-$$ bram_depth = 11 
-$$else
-$$ bram_depth = 13 -- 13 : 8K ints, ~100 MHz   14 : 16K ints ~90 MHz
+$$if not bram_depth then
+$$ if ICEBREAKER then
+$$  bram_depth = 11 
+$$ else
+$$  bram_depth = 13 -- 13 : 8K ints, ~100 MHz   14 : 16K ints ~90 MHz
+$$ end
 $$end
 $$ bram_size  = 1<<bram_depth
 

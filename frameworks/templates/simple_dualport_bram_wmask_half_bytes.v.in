@@ -1,0 +1,24 @@
+module %MODULE%(
+input      [%ADDR0_WIDTH%-1:0]                in_%NAME%_addr0,
+output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]     out_%NAME%_rdata0,
+output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]     out_%NAME%_rdata1,
+input      [(%WENABLE1_WIDTH%)/4-1:0]         in_%NAME%_wenable1,
+input      [%DATA_WIDTH%-1:0]                 in_%NAME%_wdata1,
+input      [%ADDR1_WIDTH%-1:0]                in_%NAME%_addr1,
+input      %CLOCK%0,
+input      %CLOCK%1
+);
+reg %DATA_TYPE% [%DATA_WIDTH%-1:0] buffer[%DATA_SIZE%-1:0];
+always @(posedge %CLOCK%0) begin
+  out_%NAME%_rdata0 <= buffer[in_%NAME%_addr0];
+end
+integer i;
+always @(posedge %CLOCK%1) begin
+  for (i = 0; i < (%DATA_WIDTH%)/4; i = i + 1) begin
+    if (in_%NAME%_wenable1[i]) begin
+      buffer[in_%NAME%_addr1][i*4+:4] <= in_%NAME%_wdata1[i*4+:4];
+    end
+  end
+end
+%INITIAL%
+endmodule
