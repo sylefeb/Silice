@@ -1,1 +1,1 @@
-$$z_num_step = 88
+$$z_num_step = 160

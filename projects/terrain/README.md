@@ -20,9 +20,9 @@ A RISC-V environment is needed, see [Getting Started](../../GetStarted.md).
 ## Revisiting the Voxel Space algorithm in hardware
 
 The main principle of the terrain renderer is similar to the Voxel Space
-renderer. This [github repo by s-macke](https://github.com/s-macke/VoxelSpace) gives an excellent overview of the algorithm. I give below a quick overview to make this README self-contained but please checkout [s-macke](https://github.com/s-macke/VoxelSpace)'s page for more details.
+renderer. This [github repo by s-macke](https://github.com/s-macke/VoxelSpace) gives an excellent overview of the algorithm. I give below some explanations to make this README self-contained but please checkout [s-macke](https://github.com/s-macke/VoxelSpace)'s page for more details and illustrations.
 
-### Memory considerations
+### First, some memory considerations
 
 A key challenge in fitting this on an UP5K is the limited memory. A terrain renderer typically uses a large amount of memory to store the terrain data: elevation and color map. 
 
@@ -46,18 +46,58 @@ This also fits nicely in four SPRAMs:
 
 ### Overall algorithm
 
+The design for the renderer is in [`terrain_renderer.ice`](terrain_renderer.ice).
+
 This demo implements the simplest form of the algorithm, which renderers a viewpoint
 aligned with the y-axis. This means we are looking along y, and that the screen x-axis is aligned with x-spans of the terrain data.
 
 Rotations are thus not yet possible (but of course a natural extension!).
 
-The view is renderer front to back in a sequence of *z-steps*. Each z-step traverses the data along the x-axis.
+The view is renderer front to back in a sequence of *z-steps*. Each z-step traverses the data along the x-axis as shown below: each white line (one z-step) is sampled 320 times (the screen width) to get the terrain height on a given screen column while the x-axis is traversed.
+
+<p align="center">
+  <img width="400" src="figure_zsteps.png">
+</p>
+
+Given the height for the screen column at x, we compute the y position on screen by perspective projection (division by the distance from view). We then draw a vertical segment, from the position of the last z-step to the new one.
+The animation below reveals the z-steps, drawn one after the other from front to back.
+
+<p align="center">
+  <img width="400" src="figure_zsteps.gif">
+</p>
+
+Between each z-step, two arrays `y_last` and `c_last` record the color and screen height reached by the previous z-step. The height is used to restart from this height when drawing the next z-step. Note that the height of the next z-step could be below due to a downward slope and/or the effect of perspective, in which case nothing is drawn. A nice property of this approach is that pixels are drawn only once!
+
+<p align="center">
+  <img width="400" src="figure_yc.png">
+</p>
+
+When the last z-step is reached, we draw a sky segment up to the top of the screen, completing the frame.
+
+Colors are recorded along the z-step for dithering. More on this below, but first let's talk about the framebuffer!
 
 ### The framebuffer
 
-Tbw
+The design generates a 640x480 VGA signal, fed into the VGA PMOD which implements a 6 bits Digital to Analog Converter (DAC). While the DAC is 6bits, we have an 8bit RGB palette internally, so if you have a better DAC, you can get the full color depth.
 
-### Interpolation to the rescue
+The VGA signal is created by the design coming with Silice: [`../common/vga.ice`](../common/vga.ice).
+
+As the VGA signal is produced, the VGA module gives us a screen coordinates and expects a RGB color in return. We will store our framebuffer in SPRAMs, and thus have to access the memory as the VGA signal is produced (e.g. we'll be *racing the beam*).
+
+A SPRAM is used as follows: at a given cycle we set an address and ask either to read or write -- we cannot do both at once. On the next cycle the memory transaction is done (data is available if we were reading), and we can immediately do another. So we can read or write one value every cycle, at any address. A huge luxury when it comes to memory!
+
+As discussed earlier, we will use a single 320x200 8 bits framebuffer stored across two 32 kilobytes SPRAMs. The 8 bits of a pixel are split as 4 bits in each SPRAM. This has the advantage that both SPRAM are accessed with the same addresses: to retrieve pixel 0 we read address 0 and get the four least significant in the first SPRAM and the four most significant bits in the other.
+
+The ice40 SPRAMs are 16 bits wide. This means that we read 16 bits at once at a given address. As we read two SPRAMs simultaneously we get 32 bits, or four 8 bits pixels. This is great, because it means that we will not have to read often from the framebuffer as the VGA signal is produced. It gets even better: our VGA signal has a 640 pixels horizontal resolution, while we want to output only 320 pixels horizontally. So we only have to read once in the SPRAMs to cover 8 screen pixels. That is one read every 8 clock cycles. During the seven other cycles the SPRAMs are free. Why does it matter? Well we also have to write the rendered image into the framebuffer!
+
+The table below shows what happens every eight cycles. On cycle 7 we read (R) four pixels. Every two other cycles we shift (>>) the read values to obtain the next pixel. 
+| 7 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| R |   |>> |   |>> |   |>> |   |R  |   |>> |   |>> |   |>> |   | R |
+
+It is important to understand why we read on cycle 7: the SPRAM takes one cycle to retrieve the data. If we ask for pixel 0 on cycle 0 it is already too late! We need to be one cycle in advance. 
+
+### Blocky results and interpolation to the rescue
 
 Tbw
 

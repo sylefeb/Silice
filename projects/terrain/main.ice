@@ -331,9 +331,10 @@ $$end
   
   always_before {    
 
-    // updates the four pixels, either reading from spram of shifting them to go to the next one
-    // this is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo)
-    // as we render 320x200 4bpp, there are 8 clock cycles of the 640x480 clock for four frame pixels    
+    // Updates the four pixels, either getting data from spram or shifting them to go to the next one.
+    // This is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo).
+    // As we render 320x200 4bpp, there are 8 clock cycles of the 640x480 clock for four frame pixels.   
+    // Note that the read from SPRAM is prepared on the cycle before, when frame_fetch_sync[1,1] == 1
     four_pixs = frame_fetch_sync[0,1]
               ? {fb1_data_out[12,4],fb0_data_out[12,4], fb1_data_out[8,4],fb0_data_out[8,4], 
                  fb1_data_out[ 4,4],fb0_data_out[ 4,4], fb1_data_out[0,4],fb0_data_out[0,4]}
