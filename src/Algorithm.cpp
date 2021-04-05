@@ -3885,7 +3885,9 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
 
 std::string Algorithm::determineAccessedVar(siliceParser::BitfieldAccessContext* bfaccess, const t_combinational_block_context* bctx) const
 {
-  if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
+  if (bfaccess->tableAccess() != nullptr) {
+    return determineAccessedVar(bfaccess->tableAccess(), bctx);
+  } else if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
     return determineAccessedVar(bfaccess->idOrIoAccess()->ioAccess(), bctx);
   } else {
     return translateVIOName(bfaccess->idOrIoAccess()->IDENTIFIER()->getText(),bctx);
@@ -4986,7 +4988,9 @@ t_type_nfo Algorithm::determineBitfieldAccessTypeAndWidth(const t_combinational_
   }
   // either identifier or ioaccess
   t_type_nfo packed;
-  if (bfaccess->idOrIoAccess()->IDENTIFIER() != nullptr) {
+  if (bfaccess->tableAccess() != nullptr) {
+    packed = determineTableAccessTypeAndWidth(bctx, bfaccess->tableAccess());
+  } else if (bfaccess->idOrIoAccess()->IDENTIFIER() != nullptr) {
     packed = determineIdentifierTypeAndWidth(bctx, bfaccess->idOrIoAccess()->IDENTIFIER(), bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine());
   } else {
     packed = determineIOAccessTypeAndWidth(bctx, bfaccess->idOrIoAccess()->ioAccess());
@@ -5329,7 +5333,9 @@ void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool 
     out << "$signed(";
   }
   std::string suffix = "[" + std::to_string(ow.second) + "+:" + std::to_string(ow.first.width) + "]";
-  if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
+  if (bfaccess->tableAccess() != nullptr) {
+    writeTableAccess(prefix, out, assigning, bfaccess->tableAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
+  } else if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
     writeIOAccess(prefix, out, assigning, bfaccess->idOrIoAccess()->ioAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
   } else {
     sl_assert(bfaccess->idOrIoAccess()->IDENTIFIER() != nullptr);

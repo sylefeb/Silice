@@ -271,7 +271,7 @@ atom                : CONSTANT
 
 /* -- Accesses to VIO -- */
 
-bitfieldAccess      : field=IDENTIFIER '(' idOrIoAccess ')' '.' member=IDENTIFIER ;
+bitfieldAccess      : field=IDENTIFIER '(' (idOrIoAccess | tableAccess) ')' '.' member=IDENTIFIER ;
 ioAccess            : base=IDENTIFIER ('.' IDENTIFIER)+ ;
 bitAccess           : (ioAccess | tableAccess | IDENTIFIER) '[' first=expression_0 ',' num=constValue ']' ;
 tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;

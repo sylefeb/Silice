@@ -132,7 +132,7 @@ $$else
 $$end
 
 $$if not NUM_BTNS then
-  uint3 btns(0); // placeholder for buttons
+  uint3 btns(3b100); // placeholder for buttons
 $$end  
 
   rv32i_ram_io mem;
@@ -237,19 +237,18 @@ $$end
   //
   // -> write to maps (loading data)
   uint1  map_write(0);
-  uint1  map_select(0);
   uint14 map_waddr(0);
   uint16 map_data(0);
   // -> map0
   uint14 map0_raddr(0);
-  uint1  map0_write   <:: (map_write & ~map_select);
+  uint1  map0_write   <:: map_write;
   uint14 map0_addr    <:: map0_write ? map_waddr : map0_raddr;
   uint1  map0_wenable <:: map0_write;
   uint4  map0_wmask   <:: 4b1111;
   uint16 map0_data_out(0);
 $$if VERILATOR then
   verilator_spram map0(
-$$else  
+$$else
   ice40_spram map0(
     clock    <: vga_clock,
 $$end
@@ -273,7 +272,8 @@ $$end
     btns         <: r_btns,
     map0_raddr   :> map0_raddr,
     map0_rdata   <: map0_data_out,
-    write_en     <: write_en
+    write_en     <: write_en,
+    vblank       <: vblank
   );
 
   simple_dualport_bram uint24 palette[256] = {
@@ -302,7 +302,7 @@ $$if SIMULATION then
 $$end
 
   // register input buttons
-  uint3 r_btns(0);  
+  uint3 r_btns(0);
   r_btns        ::= btns;
 
   next_frame := (~active) ? next_frame : ( pix_x == 639 && pix_y == 399 ? 1 : 0 ); // waiting for next frame?
@@ -312,9 +312,9 @@ $$end
                           : 0);                                               // prefetch next frame, first top left corner pixel
   last_fetch := (active) ? pix_fetch : last_fetch; // tracks last fetched address before going out of frame
 
-  video_r        := (active) ? palette.rdata0[ 2, 6] : 0;
-  video_g        := (active) ? palette.rdata0[10, 6] : 0;
-  video_b        := (active) ? palette.rdata0[18, 6] : 0;  
+  video_r        := (active) ? palette.rdata0[$ 8-color_depth$, $color_depth$] : 0;
+  video_g        := (active) ? palette.rdata0[$16-color_depth$, $color_depth$] : 0;
+  video_b        := (active) ? palette.rdata0[$24-color_depth$, $color_depth$] : 0;  
   
   fb0_addr       := pix_write ? pix_waddr : pix_fetch;
   fb0_data_in    := {pix_data[24,4],pix_data[16,4],pix_data[8,4],pix_data[0,4]};
@@ -346,8 +346,8 @@ $$end
   
   always_after   {
     // updates synchronization variables
-    frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,7]}; //active ? {frame_fetch_sync[0,1],frame_fetch_sync[1,7]} : 8b00000001;
-    next_pixel       = {next_pixel[0,1],next_pixel[1,1]}; //active ? {next_pixel[0,1],next_pixel[1,1]}             : 2b01;
+    frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,7]};
+    next_pixel       = {next_pixel[0,1],next_pixel[1,1]};
   }
 
 $$if SIMULATION then  
@@ -413,7 +413,7 @@ $$end
           map_write  = 1;
           map_data   = mem.data_in[ 0,16];
           map_waddr  = mem.data_in[16,14];
-          map_select = mem.data_in[30, 1];        
+          // map_select = mem.data_in[30, 1];        
           // __display("SPRAM [@%h]=%h",map_waddr,map_data);  
         }
         default: { }

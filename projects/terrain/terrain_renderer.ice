@@ -49,7 +49,11 @@ $$fp             = 11            -- fixed point log multiplier
 $$fp_scl         = 1<<fp         -- fixed point scale factor
 $$one_over_width = fp_scl//320   -- ratio 1 / screen width
 $$z_step         = fp_scl        -- z-step size (one in map space)
+$$if SIMULATION then
+$include('param.ice')
+$$else
 $$z_num_step     = 256           -- number of z-step (view distance)
+$$end
 $$z_step_init    = z_step        -- distance of first z-step
 
 algorithm terrain_renderer(
@@ -59,6 +63,7 @@ algorithm terrain_renderer(
     output! uint14 map0_raddr,
     input   uint16 map0_rdata,
     input   uint1  write_en,
+    input   uint1  vblank,
 ) <autorun> {
 
   int24  z(0);
@@ -125,8 +130,7 @@ $$end
   c_last.wenable := 0;
   c_last.addr    := x;
 
-  while (1) {
-  
+  while (1) {    
     uint9 iz   = 0;
     // init z stepping
     z          = $z_step_init$;
@@ -203,7 +207,7 @@ $$end
         // retrieve last color at this column, if first set to current
         c_last.wenable = (iz == 0);
         c_last.wdata   = h00[8,8];
-++: // wait for y_last and c_last to be updated
+  ++: // wait for y_last and c_last to be updated
         // restart drawing from last one (or 199 if first)
         y              = (iz == 0) ? 199 : y_last.rdata;
         // prepare vertical interpolation factor (color dithering)
@@ -216,7 +220,7 @@ $$end
         y_screen       = (iz == $z_num_step-1$) ? 0 : (((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground)));
         //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
         // fill column
-        while (y_last.rdata != 0 && y >= y_screen) { 
+        while (y_last.rdata != 0 && y > y_screen) { 
           //                        ^^^^^^^ geq is needed as y_screen might be 'above' (below on screen)
           //   ^^^^^^^^^^^^^^^^^^ 
           //   avoids sky on top row if already touched by terrain                      
@@ -258,8 +262,8 @@ $$end
       z  = z + $z_step$;
       iz = iz + 1;
     } // z-steps
-$$if NUM_BTNS then 
-    // use buttons
+
+    // button inputs
     // NOTE: moving by less (or non-multiples) of fp_scl 
     //       will require offseting the interpolators
     switch ({~btns[2,1],btns[1,1],btns[0,1]}) {
@@ -269,10 +273,7 @@ $$if NUM_BTNS then
       case 5: { v_x = v_x - $fp_scl // 2$; v_y = v_y + $fp_scl$; }
       case 6: { v_x = v_x + $fp_scl // 2$; v_y = v_y + $fp_scl$; }
     }
-$$else
-    // auto advance
-    v_y   = v_y + $fp_scl$;
-$$end    
+
   }
 }
 

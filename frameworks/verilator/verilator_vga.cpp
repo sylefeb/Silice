@@ -79,12 +79,14 @@ int main(int argc,char **argv)
 
     vga_test->sdram_dq_i = (vga_test->sdram_dq_en) ? vga_test->sdram_dq_o : sdram_dq;
 
+/*
     if (prev_vga_vs == 0 && vga_test->video_vs != 0) {
       static int cnt = 0;
       char str[256];
       snprintf(str,256,"dump_%04d.raw",cnt++);
       sdr->save(str,4*8192*1024*2,0);
     }
+*/
     prev_vga_vs = vga_test->video_vs;
     
     vga_chip->eval(
