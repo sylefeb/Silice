@@ -6,7 +6,10 @@ It was developed and tested on an IceBreaker board with VGA PMOD.
 
 ### How to test
 
-Plug your board, then from a command line in this directory `./build.sh`
+A RISC-V environment is needed, see [Getting Started](../../GetStarted.md).
+
+- **With an Icebreaker**: plug your board, then from a command line in this directory `./build.sh`
+- **In simulation**: from a command line in this directory `./simul.sh` ; this requires the [Verilator framework](../../GetStarted.md).
 
 ### Design files
 
@@ -50,10 +53,9 @@ Rotations are thus not yet possible (but of course a natural extension!).
 
 The view is renderer front to back in a sequence of *z-steps*. Each z-step traverses the data along the x-axis.
 
-
 ### The framebuffer
 
-
+Tbw
 
 ### Interpolation to the rescue
 
@@ -69,5 +71,5 @@ Tbw
 
 ## Credits
 
-- Comanche data extraction thanks to [s-macke](https://github.com/s-macke/VoxelSpace)
-- Textures and heightfields are downsampled versions of the originals (from 1024x1024 down to 128x128)
+- Comanche data extraction thanks to [s-macke](https://github.com/s-macke/VoxelSpace).
+- One example, downsampled from 1024x1024 to 128x128 is provided under fair use for educational purposes.
