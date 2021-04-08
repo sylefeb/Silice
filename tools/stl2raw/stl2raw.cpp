@@ -47,26 +47,61 @@ void toC(std::string fname,const TriangleMesh_generic<LibSL::Mesh::MeshFormat_st
 
 // ----------------------------------------------------------------------
 
+class UInt256
+{
+public:
+  uint8_t data[32];
+  UInt256() { memset(data, 0x00, 32); }
+  void shift_or(uint32_t v, int shift) {
+    int k       = shift / 8;
+    int k_shift = shift & 7;
+    ForIndex(i, 5) {
+      data[k] = data[k] | (v << k_shift);
+      k       += 1;
+      v        = v >> (8 - k_shift);
+      k_shift  = 0;
+      if (k + i >= 32) break;
+    }
+  }
+  void print()
+  {
+    ForIndex(i, 32) {
+      uint8_t v = data[31-i];
+      ForIndex(j, 8) {
+        cout << (((v>>(7-j)) & 1) ? '1' : '0');
+      }
+    }
+    cout << '\n';
+  }
+};
+
 void toC_flat(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFormat_stl::t_VertexData> *mesh)
 {
   ofstream f(fname);
   f << "#define NTRIS  " << mesh->numTriangles() << "\n";
-  f << "unsigned char tris[NTRIS*6*4] = {\n";
+  f << "unsigned char tris[NTRIS*8*4] = {\n";
   ForIndex(i, mesh->numTriangles()) {
+    //cout << "====\n";
+    UInt256  tri256b;
     ForIndex(p, 3) {
-      v3f pt = mesh->posAt(mesh->triangleAt(i)[p]);
-      uint64_t it = 0;
+      v3f      pt    = mesh->posAt(mesh->triangleAt(i)[p]);
+      //cout << '\n';
       ForIndex(c, 3) {
-        uint64_t v = (uint)(pt[c]);
-        sl_assert(v < (1 << 21));
-        it = it | (v << uint64_t(21 * c));
+        uint32_t v = (uint)(pt[c]);
+        sl_assert(v < (1 << 28));
+        //ForIndex(d,28) {
+        //  cout << (((v>>(27-d)) & 1) ? '1' : '0');
+        //}
+        //cout << '\n';
+        tri256b.shift_or(v,28*c + 28*3*p);
+        //tri256b.print();
       }
-      ForIndex(b, 8) {
-        f << sprint("0x%02x", (it >> (b * 8)) & 255);
-        if (b < 7) f << ',';
-      }
-      if (i*3+p != mesh->numTriangles()*3 - 1) f << ',';
     }
+    ForIndex(b, 32) {
+      f << sprint("0x%02x", tri256b.data[b]);
+      if (b < 31) f << ',';
+    }
+    if (i + 1 != mesh->numTriangles()) f << ',';
     f << '\n';
   }
   f << "};\n";
@@ -77,6 +112,9 @@ void toC_flat(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFor
 
 void toRaw(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFormat_stl::t_VertexData> *mesh)
 {
+
+  sl_assert(false); /// NEEDS UPDATE
+
   FILE *f = NULL;
   f = fopen(fname.c_str(), "wb");
   // write number of triangles

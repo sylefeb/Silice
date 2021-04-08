@@ -7,9 +7,7 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
-$$if SIMULATION then
-$$ bram_depth = 13 -- bram size during simulation 
-$$else
+$$if not bram_depth then
 $$ bram_depth = 13 --  13: 32 KB, ~90 MHz   14: 64 KB, ~85 MHz
 $$end
 $$ bram_size  = 1<<bram_depth

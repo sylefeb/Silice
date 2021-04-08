@@ -2096,7 +2096,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     snfo->pipeline = nfo;
     snfo->stage_id = stage;
     // blocks
-    t_combinational_block_context ctx  = { _current->context.subroutine, snfo, _current->context.parent_scope };
+    t_combinational_block_context ctx  = { _current->context.subroutine, snfo, _current->context.parent_scope, _current->context.vio_rewrites };
     t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, (int)b->getStart()->getLine());
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
     // check this is a combinational chain
