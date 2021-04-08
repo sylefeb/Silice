@@ -2070,6 +2070,14 @@ std::string Algorithm::tricklingVIOName(std::string vio, const t_pipeline_stage_
 
 // -------------------------------------------------
 
+/*
+Pipelining rules
+- a variable starts trickly when written in a stage
+- a variable read before being written has its value at exact moment
+- a variable bound to an output is never trickled
+  => should necessarily be the case and these cannot be written!
+- inputs and outputs never trickle, outputs can be written from a single stage
+*/
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
   if (_current->context.pipeline != nullptr) {
@@ -2085,6 +2093,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   // go through the pipeline
   // -> track read/written
   std::unordered_map<std::string,std::vector<int> > read_at, written_at;
+  std::unordered_set<std::string> written_outputs;
   // -> for each stage block
   t_combinational_block *prev = _current;
   // -> stage number
@@ -2107,13 +2116,13 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // -> gather read/written for block
     std::unordered_set<std::string> read, written;
     determineVIOAccess(b, m_VarNames,    &_current->context, read, written);
-    determineVIOAccess(b, m_OutputNames, &_current->context, read, written);
-    determineVIOAccess(b, m_InputNames,  &_current->context, read, written);
-    // -> check for anything wrong: no stage should *read* a value *written* by a later stage
-    for (auto w : written) {
-      if (read_at.count(w) > 0) {
-        reportError(nullptr,(int)b->getStart()->getLine(),"pipeline inconsistency.\n       stage reads a value written by a later stage (write on '%s')",w.c_str());
+    std::unordered_set<std::string> o_read, o_written; // used to check no output is written from two stages
+    determineVIOAccess(b, m_OutputNames, &_current->context, o_read, o_written);
+    for (auto ow : o_written) {
+      if (written_outputs.count(ow) > 0) {
+        reportError(nullptr, (int)b->getStart()->getLine(), "output '%s' is written from two different pipeline stages");
       }
+      written_outputs.insert(ow);
     }
     // -> merge
     for (auto r : read) {
@@ -2132,70 +2141,56 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   prev->next(after);
   // set of trickling variable
   std::set<std::string> trickling_vios;
-  // report on read variables
-  for (auto r : read_at) {
+  // check written variables
+  for (auto w : written_at) {
     // trickling?
     bool trickling = false;
-    if (r.second.size() > 1) {
+    // min/max for read
+    int minr = std::numeric_limits<int>::max(), maxr = std::numeric_limits<int>::min();
+    if (read_at.count(w.first) > 0) {
+      minr = read_at.at(w.first).front();
+      maxr = read_at.at(w.first).back();
+    }
+    // min/max for write
+    int minw = w.second.front();
+    int maxw = w.second.back();
+    // decide
+    if (minw < maxr) {
+      // the variable is read after being written, it has to trickle
+      sl_assert(read_at.count(w.first) > 0);
       trickling = true;
-    } else {
-      sl_assert(!r.second.empty());
-      int read_stage = r.second[0]; // only one if here
-      // search max write
-      // (there can be multiple successive writes ... but no read in between
-      //  otherwise the constraint no stage should *read* a value *written* by a later stage
-      //  is violated)
-      int last_write = -1;
-      if (written_at.count(r.first)) {
-        // has been written
-        for (auto ws : written_at[r.first]) {
-          if (ws < read_stage) { // ignore write at same stage
-            last_write = max(last_write, ws);
-          }
-        }
-      }
-      if ( last_write == -1 // not written in stages before, have to assume it is before pipeline
-                            /// TODO: this ignores the case of a read masked by a write before in same stage (temp)
-        || read_stage - last_write > 1) {
-        trickling = true;
-      }
+      trickling_vios.insert(w.first);
+      // std::cerr << "vio " << w.first << " trickling" << nxl;
     }
-    if (trickling) {
-      trickling_vios.insert(r.first);
-    }
+  }
+  // report on read and written variables
+#if 0
+  for (auto r : read_at) {
     for (auto s : r.second) {
       std::cerr << "vio " << r.first << " read at stage " << s << nxl;
     }
   }
-  // report on written variables
   for (auto w : written_at) {
     for (auto s : w.second) {
       std::cerr << "vio " << w.first << " written at stage " << s;
       std::cerr << nxl;
     }
   }
+#endif
   // create trickling variables
   for (auto tv : trickling_vios) {
-    // the 'deepest' stage it is read
-    int last_read = 0;
-    for (auto rs : read_at[tv]) {
-      last_read = max(last_read, rs);
-    }
-    // the 'deepest' stage it is written
-    int last_write = 0;
-    if (written_at.count(tv)) {
-      for (auto ws : written_at[tv]) {
-        last_write = max(last_write, ws);
-      }
-    }
+    // the first stage it is written
+    int first_write = written_at.at(tv).front();
+    // the last stage it is read
+    int last_read = read_at.at(tv).back();
     // register in pipeline info
-    nfo->trickling_vios.insert(std::make_pair(tv, v2i(last_write,last_read)));
+    nfo->trickling_vios.insert(std::make_pair(tv, v2i(first_write,last_read)));
     // report
-    std::cerr << tv << " trickling from " << last_write << " to " << last_read << nxl;
+    std::cerr << tv << " trickling from " << first_write << " to " << last_read << nxl;
     // info from source var
     auto tws = determineVIOTypeWidthAndTableSize(&_current->context, tv, pip->getSourceInterval(), (int)pip->getStart()->getLine());
     // generate one flip-flop per stage
-    ForRange(s, last_write+1, last_read) {
+    ForRange(s, first_write +1, last_read) {
       // -> add variable
       t_var_nfo var;
       var.name = tricklingVIOName(tv,nfo,s);
