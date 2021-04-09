@@ -5821,8 +5821,11 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     }
     for (const auto &v : m_Outputs) {
       if (v.usage != e_FlipFlop) continue;
-      if (v.do_not_initialize)   continue;
-      writeVarFlipFlopInit(prefix, out, ictx, v);
+      if (v.do_not_initialize) {
+        writeVarFlipFlopUpdate(prefix, out, v);
+      } else {
+        writeVarFlipFlopInit(prefix, out, ictx, v);
+      }
     }
     // state machine 
     if (!hasNoFSM()) {
