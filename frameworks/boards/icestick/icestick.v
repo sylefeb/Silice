@@ -25,6 +25,16 @@ module top(
   output PMOD9,
   output PMOD10,
 `endif
+`ifdef PMOD
+  inout PMOD1,
+  inout PMOD2,
+  inout PMOD3,
+  inout PMOD4,
+  inout PMOD7,
+  inout PMOD8,
+  inout PMOD9,
+  inout PMOD10,
+`endif
 `ifdef VGA
   output PMOD1, // r0
   output PMOD2, // r1
@@ -64,6 +74,9 @@ wire __main_oled_dc;
 `ifdef VGA
 `error_cannot_use_both_OLED_and_VGA_not_enough_pins
 `endif
+`ifdef PMOD
+`error_cannot_use_both_PMOD_and_OLED_not_enough_pins
+`endif
 `endif
 
 `ifdef VGA
@@ -75,6 +88,9 @@ wire [5:0] __main_out_vga_g;
 wire [5:0] __main_out_vga_b;
 `ifdef OLED
 `error_cannot_use_both_OLED_and_VGA_not_enough_pins
+`endif
+`ifdef PMOD
+`error_cannot_use_both_PMOD_and_VGA_not_enough_pins
 `endif
 `endif
 
@@ -120,6 +136,16 @@ M_main __main(
   .out_video_r(__main_out_vga_r),
   .out_video_g(__main_out_vga_g),
   .out_video_b(__main_out_vga_b),
+`endif
+`ifdef PMOD
+  .inout_pmod1(PMOD1),
+  .inout_pmod2(PMOD2),
+  .inout_pmod3(PMOD3),
+  .inout_pmod4(PMOD4),
+  .inout_pmod7(PMOD7),
+  .inout_pmod8(PMOD8),
+  .inout_pmod9(PMOD9),
+  .inout_pmod10(PMOD10),
 `endif
   .in_run(run_main)
 );

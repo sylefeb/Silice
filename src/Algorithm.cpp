@@ -2182,7 +2182,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // the first stage it is written
     int first_write = written_at.at(tv).front();
     // the last stage it is read
-    int last_read = read_at.at(tv).back();
+    int last_read   = read_at.at(tv).back();
     // register in pipeline info
     nfo->trickling_vios.insert(std::make_pair(tv, v2i(first_write,last_read)));
     // report
@@ -2190,7 +2190,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // info from source var
     auto tws = determineVIOTypeWidthAndTableSize(&_current->context, tv, pip->getSourceInterval(), (int)pip->getStart()->getLine());
     // generate one flip-flop per stage
-    ForRange(s, first_write +1, last_read) {
+    ForRange(s, first_write, last_read) {
       // -> add variable
       t_var_nfo var;
       var.name = tricklingVIOName(tv,nfo,s);
@@ -6556,28 +6556,36 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     sl_assert(pip == current->context.pipeline->pipeline);
     // write stage
     int stage = current->context.pipeline->stage_id;
-    out << "// stage " << stage << nxl;
-    // write code
+    out << "// -------- stage " << stage << nxl;
     t_vio_dependencies deps = _dependencies;
+    // trickle vars: get from previous
+    for (auto tv : pip->trickling_vios) {
+      if (stage > tv.second[0] && stage <= tv.second[1]) {
+        std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
+        out << FF_D << prefix << tricklingdst << " = ";
+        std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage-1);
+        out << FF_Q << prefix << tricklingsrc;
+        updateFFUsage(e_D, false, _ff_usage.ff_usage[tricklingdst]);
+        updateFFUsage(e_Q, true , _ff_usage.ff_usage[tricklingsrc]);
+        out << ';' << nxl;
+        deps.dependencies[tricklingdst].insert(tricklingsrc);
+      }
+    }
+    // write code
     if (current != after) { // this is the more complex case of multiple blocks in stage
       writeStatelessBlockGraph(prefix, out, ictx, current, after, _q, deps, _ff_usage, _post_dependencies); // NOTE: q will not be changed since this is a combinational block
       current = after;
     } else {
       writeBlock(prefix, out, ictx, current, deps, _ff_usage);
     }
-    // trickle vars
+    // trickle vars: start
     for (auto tv : pip->trickling_vios) {
-      if (stage >= tv.second[0] && stage < tv.second[1]) {
-        out << FF_D << prefix << tricklingVIOName(tv.first, pip, stage + 1)
+      if (stage == tv.second[0]) {
+        updateFFUsage(e_D, false, _ff_usage.ff_usage[tricklingVIOName(tv.first, pip, stage)]);
+        out << FF_D << prefix << tricklingVIOName(tv.first, pip, stage)
           << " = ";
-        updateFFUsage(e_D, false, _ff_usage.ff_usage[tricklingVIOName(tv.first, pip, stage + 1)]);
-        std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage);
-        if (stage == tv.second[0]) {
-          out << rewriteIdentifier(prefix, tv.first, "", &current->context, -1, FF_D, true, _dependencies, _ff_usage);
-        } else {
-          out << FF_Q << prefix << tricklingsrc;
-          updateFFUsage(e_Q, true, _ff_usage.ff_usage[tricklingsrc]);
-        }
+        std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage - 1);
+        out << rewriteIdentifier(prefix, tv.first, "", &current->context, -1, FF_D, true, _dependencies, _ff_usage);
         out << ';' << nxl;
       }
     }
