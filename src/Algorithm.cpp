@@ -2197,7 +2197,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       var.type_nfo   = get<0>(tws);
       var.table_size = get<1>(tws);
       var.init_values.resize(var.table_size > 0 ? var.table_size : 1, "0");
-      var.access = e_InternalFlipFlop;
+      var.access     = e_InternalFlipFlop;
       insertVar(var, _current, true /*no init*/);
     }
   }
@@ -2397,7 +2397,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
       ins .push_back(io->IDENTIFIER()->getText());
       outs.push_back(io->IDENTIFIER()->getText());
     } else {
-      reportError(C->second->IDENTIFIER()->getSymbol(), (int)C->second->getStart()->getLine(), "internal error");
+      reportError(C->second->IDENTIFIER()->getSymbol(), (int)C->second->getStart()->getLine(), "internal error, gatherCircuitryInst");
     }
   }
   // -> get identifiers
@@ -4413,7 +4413,7 @@ void Algorithm::determineVariableAndOutputsUsage()
     if (v.usage != e_Undetermined) {
       switch (v.usage) {
       case e_Wire: if (report) std::cerr << v.name << " => wire (by def)" << nxl; break;
-      default: throw Fatal("interal error");
+      default: throw Fatal("internal error");
       }
       continue; // usage is fixed by definition
     }
@@ -6562,11 +6562,9 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     for (auto tv : pip->trickling_vios) {
       if (stage > tv.second[0] && stage <= tv.second[1]) {
         std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
-        out << FF_D << prefix << tricklingdst << " = ";
+        out << rewriteIdentifier(prefix, tricklingdst, "", &current->context, -1, FF_D, true, deps, _ff_usage) << " = ";
         std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage-1);
-        out << FF_Q << prefix << tricklingsrc;
-        updateFFUsage(e_D, false, _ff_usage.ff_usage[tricklingdst]);
-        updateFFUsage(e_Q, true , _ff_usage.ff_usage[tricklingsrc]);
+        out << rewriteIdentifier(prefix, tricklingsrc, "", &current->context, -1, FF_Q, true, deps, _ff_usage);
         out << ';' << nxl;
         deps.dependencies[tricklingdst].insert(tricklingsrc);
       }
@@ -6581,11 +6579,10 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     // trickle vars: start
     for (auto tv : pip->trickling_vios) {
       if (stage == tv.second[0]) {
-        updateFFUsage(e_D, false, _ff_usage.ff_usage[tricklingVIOName(tv.first, pip, stage)]);
-        out << FF_D << prefix << tricklingVIOName(tv.first, pip, stage)
-          << " = ";
+        std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
+        out << rewriteIdentifier(prefix, tricklingdst, "", &current->context, -1, FF_D, true, deps, _ff_usage) << " = ";
         std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage - 1);
-        out << rewriteIdentifier(prefix, tv.first, "", &current->context, -1, FF_D, true, _dependencies, _ff_usage);
+        out << rewriteIdentifier(prefix, tv.first, "", &current->context, -1, FF_D, true, deps, _ff_usage);
         out << ';' << nxl;
       }
     }
@@ -7057,7 +7054,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
     } else if (v.usage == e_Bound) {
         out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << nxl;
     } else {
-      throw Fatal("internal error");
+      throw Fatal("internal error (output assigments)");
     }
   }
 

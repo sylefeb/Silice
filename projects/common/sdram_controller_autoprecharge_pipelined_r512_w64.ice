@@ -204,7 +204,7 @@ $$end
   always_after {
     if (sd.in_valid) {
 $$if SIMULATION then            
-      // __display("[cycle %d] ---------- in_valid rw:%b",cycle,sd.rw);
+      // __display("[cycle %d] ---------- in_valid rw:%b data:%h",cycle,sd.rw,sd.data_in);
 $$end
       // copy inputs
       col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$];
@@ -338,7 +338,9 @@ $$end
         sd.done   = working;
         working   = 0;
 $$if SIMULATION then
-        // __display("[cycle %d] done:%b rw:%b stage:%b",cycle,sd.done,do_rw,stage[0,2]);
+        //if (sd.done) {
+        //__display("[cycle %d] done:%b rw:%b stage:%b data_out:%h",cycle,sd.done,do_rw,stage[0,2],sd.data_out);
+        //}
 $$end          
         // break;
       }
