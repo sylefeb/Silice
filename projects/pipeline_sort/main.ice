@@ -13,7 +13,7 @@ $$end
 
   // Here, we create for each pipeline stage the result value of the sort (sorted_n)
 $$for n=0,N do
-  uint8 sorted_$n$ = 0;
+  uint8 sorted_$n$ = 255;
 $$end
   // NOTE: It would be more convenient for 'sorted' to be an array,
   //       however Silice will reject the pipeline as it will consider
@@ -38,20 +38,21 @@ $$end
     //    final stage
     // } 
     {
-      // the streamed value to insert is placed at the top of the pipeline    
-      to_insert = i < $N$ ? in_values[i] : 0;
-      __display("to_insert at [%d] = %d",i,to_insert);
+      // the value to insert is placed at the top of the pipeline
+      // as soon as to_insert is written it trickles down the pipeline
+      to_insert = i < $N$ ? in_values[i] : 255;
     } ->
 $$for n=0,N-1 do
     {
       // at stage n we compare the value to insert to the current value
-      if (to_insert > sorted_$n$) {  // if the value to insert is smaller, we insert here
-        uint8 tmp = uninitialized;
+      if (  i > $n$                    // do nothing before the pipeline reached this stage
+         && to_insert < sorted_$n$ ) { // if the value to insert is smaller, we insert here
+        // the current value is evicted and becomes the next one to insert
+        uint8 tmp  = uninitialized;
         tmp        = sorted_$n$;
         sorted_$n$ = to_insert;
-        to_insert  = tmp;    // the current value is evicted and becomes the next one to insert
+        to_insert  = tmp;
       }
-      __display("stage %d, stored %d, to_insert next = %d",$n$,sorted_$n$,to_insert);
     }
 $$if n < N-1 then
     -> // pipe to next stage (if not last)
