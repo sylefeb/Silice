@@ -117,7 +117,7 @@ M_main __main(
 );
 
 always @* begin
-  if (done_main && !RST_d[0]) $finish;
+  if (done_main && ~RST_d[0]) $finish;
 end
 
 endmodule

@@ -5748,24 +5748,24 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   // state machine index
   if (!hasNoFSM()) {
     if (!m_OneHot) {
-      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << nxl;
+      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "=0," FF_Q << prefix << ALG_IDX << "=0;" << nxl;
     } else {
-      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ';' << nxl;
+      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "=0," FF_Q << prefix << ALG_IDX << "=0;" << nxl;
     }
     // sub-state indices (one-hot)
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
-        out << "reg  [" << width(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "," FF_Q << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
+        out << "reg  [" << width(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "=0," FF_Q << prefix << b->block_name << '_' << ALG_IDX << "=0;" << nxl;
       }
     }
   }
   // state machine caller id (subroutine)
   if (!doesNotCallSubroutines()) {
-    out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ";" << nxl;
+    out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << ALG_CALLER << "=0," FF_Q << prefix << ALG_CALLER << "=0;" << nxl;
     // per-subroutine caller id backup (subroutine making nested calls)
     for (auto sub : m_Subroutines) {
       if (sub.second->contains_calls) {
-        out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ";" << nxl;
+        out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER << "=0," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << "=0;" << nxl;
       }
     }
   }
@@ -5774,7 +5774,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
     // check for call on purely combinational
     if (!ia.algo->hasNoFSM()) {
-      out << "reg  " << ia.instance_prefix + "_" ALG_RUN << ';' << nxl;
+      out << "reg  " << ia.instance_prefix + "_" ALG_RUN << "=0;" << nxl;
     }
   }
 }
