@@ -47,6 +47,7 @@ void toC(std::string fname,const TriangleMesh_generic<LibSL::Mesh::MeshFormat_st
 
 // ----------------------------------------------------------------------
 
+/// \brief Helper class to encode into 256 bits words
 class UInt256
 {
 public:
@@ -75,26 +76,29 @@ public:
   }
 };
 
+// ----------------------------------------------------------------------
+
 void toC_flat(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFormat_stl::t_VertexData> *mesh)
 {
   ofstream f(fname);
   f << "#define NTRIS  " << mesh->numTriangles() << "\n";
-  f << "unsigned char tris[NTRIS*8*4] = {\n";
+  f << "unsigned char tris[NTRIS*8*4+4] = {\n";
+  // number of triangles
+  uint numt = mesh->numTriangles();
+  f << sprint("0x%02x,",  numt      & 255);
+  f << sprint("0x%02x,", (numt>> 8) & 255);
+  f << sprint("0x%02x,", (numt>>16) & 255);
+  f << sprint("0x%02x,", (numt>>24) & 255);
+  f << '\n';
+  // triangles
   ForIndex(i, mesh->numTriangles()) {
-    //cout << "====\n";
     UInt256  tri256b;
     ForIndex(p, 3) {
       v3f      pt    = mesh->posAt(mesh->triangleAt(i)[p]);
-      //cout << '\n';
       ForIndex(c, 3) {
         uint32_t v = (uint)(pt[c]);
         sl_assert(v < (1 << 28));
-        //ForIndex(d,28) {
-        //  cout << (((v>>(27-d)) & 1) ? '1' : '0');
-        //}
-        //cout << '\n';
-        tri256b.shift_or(v,28*c + 28*3*p);
-        //tri256b.print();
+        tri256b.shift_or(v, 28 * c + 28 * 3 * p);
       }
     }
     ForIndex(b, 32) {
@@ -112,9 +116,6 @@ void toC_flat(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFor
 
 void toRaw(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFormat_stl::t_VertexData> *mesh)
 {
-
-  sl_assert(false); /// NEEDS UPDATE
-
   FILE *f = NULL;
   f = fopen(fname.c_str(), "wb");
   // write number of triangles
@@ -122,15 +123,17 @@ void toRaw(std::string fname, const TriangleMesh_generic<LibSL::Mesh::MeshFormat
   fwrite(&numt,sizeof(uint),1,f);
   // write triangles
   ForIndex(i, numt) {
+    UInt256  tri256b;
     ForIndex(p, 3) {
-      v3f pt      = mesh->posAt(mesh->triangleAt(i)[p]);
-      uint64_t it = 0;
+      v3f      pt = mesh->posAt(mesh->triangleAt(i)[p]);
       ForIndex(c, 3) {
-        uint64_t v = (uint)(pt[c]);
-        sl_assert(v < (1 << 21));
-        it = it | (v << uint64_t(21*c));
+        uint32_t v = (uint)(pt[c]);
+        sl_assert(v < (1 << 28));
+        tri256b.shift_or(v, 28 * c + 28 * 3 * p);
       }
-      fwrite(&it, sizeof(uint64_t), 1, f);
+    }
+    ForIndex(b, 32) {
+      fwrite(&tri256b.data[b], sizeof(uchar), 1, f);
     }
   }
   fclose(f);
