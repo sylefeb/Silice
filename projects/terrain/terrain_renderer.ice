@@ -76,7 +76,7 @@ algorithm terrain_renderer(
   int24  inv_z(0);
   int24  v_x($(128   )*fp_scl$);
   int24  v_y($(128+63)*fp_scl$);
-  uint8  vheight(0);
+  uint8  vheight(64);
   uint8  gheight(0);
   uint10 x(0);
   uint12 h(0);
@@ -199,6 +199,7 @@ $$end
         //
         // get elevation from interpolator
         hmap           = interp_v;
+        // hmap        = h00[0,8]; // uncomment to disable height interpolation
         // apply perspective to obtain y_ground on screen
         y_ground       = (((vheight + 50 - hmap) * inv_z) >>> $fp-4$) + 8;
         // retrieve last altitude at this column, if first reset to 199
@@ -229,7 +230,7 @@ $$end
           uint8 clr(0); uint1 l_or_r(0); uint1 t_or_b(0);
           l_or_r      = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x[$fp-6$,6]; // horizontal
           t_or_b      = bayer_8x8[ { x[0,3] , y[0,3] } ] < v_interp[4,6]; // vertical
-          clr         = l_or_r ? ( t_or_b ? h00[8,8] : c_last.rdata ) : (t_or_b ? h10[8,8] : c_last.rdata);          
+          clr         = l_or_r ? ( t_or_b ? h00[8,8] : c_last.rdata ) : (t_or_b ? h10[8,8] : c_last.rdata);
           // clr        = h00[8,8];      // uncomment to visualize nearest mode
           // clr        = l_x[$fp-4$,8]; // uncomment to visualize u interpolator
           // clr        = v_interp[6,8]; // uncomment to visualize v interpolator
