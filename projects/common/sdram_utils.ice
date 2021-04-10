@@ -10,15 +10,17 @@
 // the wrapper runs full speed, the provided interface at half-speed
 algorithm sdram_half_speed_access(
   sdram_provider sdh,
-  sdram_user     sd
+  sdram_user     sd,
 ) <autorun> {
 
-  uint1 half_clock = 0;
-  uint2 done       = 0;
+  uint1 half_clock(0);
+  uint2 done(0);
+
+  uint32 cycle(0);
 
   sdh.done     := 0; // pulses high when ready
   sd .in_valid := 0; // pulses high when ready
-  
+    
   always {
     // buffer requests
     if (half_clock) { // read only on slow clock
@@ -27,6 +29,7 @@ algorithm sdram_half_speed_access(
         sd.addr       = sdh.addr;
         sd.rw         = sdh.rw;
         sd.data_in    = sdh.data_in;
+        sd.wmask      = sdh.wmask;
         sd.in_valid   = 1;
       }
     }
@@ -35,13 +38,15 @@ algorithm sdram_half_speed_access(
     // check if operation terminated
     if (sd.done == 1) {
       // done
-      sdh.data_out = sd.rw ? sdh.data_out : sd.data_out; // update data_out on a read
       done         = 2b11;
+      sdh.data_out = sd.rw ? sdh.data_out : sd.data_out; // update data_out on a read
     }
     // two-cycle out done
     sdh.done      = done[0,1];
     // half clock
     half_clock    = ~ half_clock;
+    
+    cycle = cycle  + 1;
   } // always
 
 }
