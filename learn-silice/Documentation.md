@@ -431,7 +431,7 @@ algorithm adder(
   
   a = 15;
   b = 3;
-  o = a_plus_b;
+  o = a_plus_b; // line 11
 }
 ```
 
@@ -1331,7 +1331,7 @@ while(...) {
 ++:
     ...    
   }
-  a = b + 1;
+  a = b + 1; // line 7
 }
 ```
 

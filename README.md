@@ -15,7 +15,7 @@ To setup Silice, see the [getting started](GetStarted.md) guide. To start writin
 
 [Watch the introduction video on programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube).
 
-The Silice [documentation is here](docs/silice.pdf). Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
+The Silice [documentation is here](learn-silice/Documentation.md). Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
 
 You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 and ULX3S examples](projects/README.md).
 
