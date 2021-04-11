@@ -1,7 +1,7 @@
 // SL 2020-10-25
 
 algorithm clean_reset(  
-  output uint1 out(0)
+  output uint1 out(1)
 ) <autorun> {
   uint4  trigger = 15;
   always {
