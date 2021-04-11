@@ -5747,10 +5747,11 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   }
   // state machine index
   if (!hasNoFSM()) {
+    int init_state = m_AutoRun ? toFSMState(entryState()) : toFSMState(terminationState());
     if (!m_OneHot) {
-      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "=0," FF_Q << prefix << ALG_IDX << "=0;" << nxl;
+      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "=" << init_state << "," FF_Q << prefix << ALG_IDX << "=" << init_state << ";" << nxl;
     } else {
-      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "=0," FF_Q << prefix << ALG_IDX << "=0;" << nxl;
+      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "=" << init_state << "," FF_Q << prefix << ALG_IDX << "=" << init_state << ";" << nxl;
     }
     // sub-state indices (one-hot)
     for (auto b : m_Blocks) {
