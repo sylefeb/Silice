@@ -18,21 +18,6 @@
 
 \maketitle
 
-\silice{} makes it possible to write algorithms for FPGAs in the same way we write them for processors: defining sequences of operations, subroutines that can be called, and using control flow statements such as \texttt{while} and \texttt{break} (even good old \texttt{goto}s are available!). 
-At the same time, \silice{} lets you fully exploit the parallelism and niceties of FPGA architectures, describing operations and algorithms that run in parallel and are always active, as well as pipelines.
-\silice{} \textit{remains close to the hardware}. When writing an algorithm you are in control of what happens at which clock cycle, with predictable rules for flow control. Clock domains are exposed. 
-
-\silice{} is only a thin layer above the hardware: nothing gets obfuscated away. In fact, \silice{} compiles to and inter-operates with \verilog{}: you can directly instantiate and bind with existing modules. When \verilog{} makes more sense, use it!
-
-\silice{} is reminiscent of high performance programming in the late 90s (in the demo scene in particular): the then considered high-level C language was commonly interfaced with time-critical ASM routines. This enabled a best-of-both-worlds situation, with C being used for the overall program flow and ASM used only on carefully optimized hardware dependent routines.
-%
-\silice{} aims to do the same, providing a thin programmer friendly layer on top of \verilog{}, while allowing to call low level \verilog{} modules whenever needed.
-\silice{} also favors and exposes parallelism, so as to fully utilize the FPGA architecture.\\
-
-Oh, and it features a powerful LUA-based pre-processor.\\
-
-\noindent While I developed \silice{} for my own needs, I hope you'll find it useful for your projects!
-
 \vspace*{5mm}
 \noindent
 {\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{GitHub repository: \url{https://github.com/sylefeb/Silice/}}}\\
@@ -89,10 +74,9 @@ Of course this last version is needlessly complicated (the previous one was mini
 Some terminology we use next:
 \begin{itemize}
 \item \textbf{VIO}: a Variable, Input or Output.
-\item \textbf{Combinational chain}: A chain of dependent operations implemented
-as combinational hardware.
-\item \textbf{Combinational loop}: A combinational chain where a cyclic dependency exists. These lead to unstable hardware synthesis and have to be avoided (but in a few rare cases).
+\item \textbf{One-cycle block}: A block of operations that require a single cycle (no loops, breaks, etc.).
 \item \textbf{Host hardware framework}: The \verilog{} glue to the hardware meant to run the design. This can also be a glue to Icarus\footnote{http://iverilog.icarus.com/} or Verilator\footnote{https://www.veripool.org/wiki/verilator}, both frameworks are provided.
+\item \textbf{Combinational loop}: A combinational chain where a cyclic dependency exists. These lead to unstable hardware synthesis and have to be avoided.
 \end{itemize}
 
 % ==============================================
@@ -130,7 +114,10 @@ Supported base identifiers are: \texttt{b} for binary, \texttt{h} for hexadecima
 
 Variables are declared with the following pattern:
 
-\texttt{TYPE ID = VALUE;}
+\begin{itemize}
+\item \texttt{TYPE ID = VALUE;} initializes the variable with value on algorithm start / reset.
+\item \texttt{TYPE ID(VALUE);} initializes the variable with value on \textit{power-up} (when the FPGA is configured).
+\end{itemize}
 
 \noindent where \texttt{TYPE} is a type definition (Section~\ref{sec:types}), \texttt{ID} a variable identifier (starting with a letter followed by alphanumeric or underscores) and \texttt{VALUE} a constant (Section~\ref{sec:csts}).
 
@@ -165,7 +152,12 @@ In this case, only the first part of the table will be initialized, the state of
 
 \texttt{bram intN tbl[M] = \{...\} }
 
-\noindent Block RAMs are declared in a way similar to tables. Block RAMs map to special FPGA blocks and avoid using FPGA LUTs to store data. However, accessing a block RAM typically requires a one cycle latency.
+\noindent Block RAMs are declared in a way similar to tables. Block RAMs map to special FPGA blocks and avoid using FPGA LUTs to store data. However, accessing a block RAM typically requires a one-cycle latency.
+
+\vspace*{5mm}
+\noindent
+\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
+		\textbf{Important:}  Block RAMs are only initialized at \textit{power-up} (when the FPGA is configured) .}}\\
 
 A block RAM variable has four members accessible with the 'dot' syntax: 
 \begin{enumerate}
@@ -329,12 +321,12 @@ algorithm writer(
 
 
 \textbf{Important:} the assignment is performed immediately after the clock rising edge. If the value of the expression in the right hand side is later changing (during the clock cycle), this will not change the value of the left hand side.
-To achieve this use \textit{expression tracking} (see next).
+To achieve this use \textit{bound expressions} (see next).
 
-\subsubsection{Expression tracking}
+\subsubsection{Bound expressions}
 \label{sec:exprtrack}
 
-Variables can be defined to constantly track the value of an expression. This is done during the variable declaration, using either the \textit{:=} or \textit{::=} operators. Example:
+Variables can be defined to constantly track the value of an expression, hence \textit{binding the variable} and the expression. This is done during the variable declaration, using either the \textit{<:} or \textit{<::} binding operators. Example:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 algorithm adder(
@@ -343,7 +335,7 @@ algorithm adder(
 ) {
   uint8 a = 1;
   uint8 b = 2;
-  uint9 a_plus_b := a + b;
+  uint9 a_plus_b <: a + b;
   
   a = 15;
   b = 3;
@@ -353,9 +345,9 @@ algorithm adder(
 
 In this case \textit{o} gets assigned 15+3 on line 11, as it tracks immediate changes to the expression \textit{a+b}. Note that the variable \textit{a\_plus\_b} becomes read only (in Verilog terms, this is now a wire). We call \textit{o} an expression tracker.
 
-The second operator, \textit{::=} tracks the expression using the values of the variables as they where at the previous clock rising edge. If used in this example, o would be assigned 1+2.
+The second operator, \textit{<::} tracks the expression using the values of the variables \textit{as they where at the previous clock rising edge}. If used in this example, o would be assigned 1+2.
 
-Expression trackers can refer to other trackers, however trackers using \textit{:=} and \textit{::=} cannot be mixed.
+Bound expression can refer to other bound expressions, however \textit{<:} and \textit{<::=} cannot be mixed. (They could be in technical terms, but this was found to quickly lead to confusion).
 
 % --------------------------
 
@@ -490,7 +482,7 @@ The \texttt{sdramctrl} controller can adjust to this change, using \texttt{samea
 \vspace*{5mm}
 \noindent
 \framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
-		\textbf{Note:} In the future Silice will provide compile time checks, for instance verifying the width of a signal is a specifc value.}}
+		\textbf{Note:} In the future Silice will provide compile time checks, for instance verifying the width of a signal is a specific value.}}
 
 % --------------------------
 
@@ -597,7 +589,12 @@ algorithm adder(intput uint8 a,intput uint8 b,output uint8 v)
 Inputs and outputs may be declared in any order, however the order matters when calling the algorithms (parameters are given in the order of inputs, results are read back in the order of outputs). Input and outputs can be single variables or tables.
 A third type \texttt{inout} exists for compatibility with \verilog{} modules, however these can only be passed and bound to imported modules (i.e. they cannot be used in expressions and instructions for now).
 
-Note that there are two types of output: \texttt{output} and \texttt{output!}. These distinguish between a standard and a combinational output (exclamation mark). A standard output sees its value updated at the next clock cycle. A combinational output ensures that callers sees the results within the same combinational chain. This is for instance important when implementing a video driver; e.g. a HDMI module generates a pixel coordinate on its output and expects to see the corresponding color on its input within the same clock step. Thus, the algorithm outputting the color to the HDMI driver will input the coordinate and use \texttt{output!} for the color. However, using only \texttt{output!} will in some cases result in combinational loops, leading to unstable circuits.
+Note that there are two types of output: \texttt{output} and \texttt{output!}. These distinguish between a standard and an immediate output (exclamation mark). A standard output sees its value updated at the next clock cycle. An immediate output ensures that callers sees the results within the same cycle. This can be for instance important when implementing a video driver; e.g. a HDMI module generates a pixel coordinate on its output and expects to see the corresponding color on its input within the same clock cycle (even though a better design would allow a one-cycle latency). In such a scenario the algorithm outputting the color to the HDMI driver will input the coordinate and use \texttt{output!} for the color. However, using only \texttt{output!} will in some cases result in combinational loops: a cycle in the described circuitry (that is generally bad). Silice detects such cases and will issue an error (see also Section~\ref{combloops}).
+
+\vspace*{5mm}
+\noindent
+\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
+		\textbf{Note:} Silice combinational loop detection is not perfect yet. Such a problem would typically result in simulation hanging (unable to stabilize the circuit) with Verilator issuing a \texttt{UNOPTFLAT} warning.}}
 
 % ----------------------------------------------
 
@@ -642,7 +639,7 @@ where \texttt{ID\_left}
 is the identifier of an instance input or output, \texttt{OP} a binding
 operator (Section~\ref{sec:bindings}) and \texttt{ID\_right} a variable identifier.
 
-Note that only identifiers are allowed in bindings: access to tables and swizzling are not allowed. This can be alleviated using expression tracking, see Section~\ref{sec:exprtrack}.
+Note that only identifiers are allowed in bindings: access to tables and swizzling are not allowed. This can be alleviated using bound expressions, see Section~\ref{sec:exprtrack}.
 
 Combined with \texttt{autorun} such bindings allow to instantiate and immediately run an algorithm to drive some of the parent algorithm variables. 
 Here is an example:
@@ -672,8 +669,8 @@ algorithm main(output int8 led)
   );
 
   led := 0;      // turn off all eight LEDs
-  led[0,1] := a; // first LED tracks slow blink
-  led[1,1] := b; // second LED tracks fast blink
+  led[0,1] := a; // first LED  always assigned first bit (slow blink)
+  led[1,1] := b; // second LED always assigned second bit (faster blink)
 
   while (1) { } // inifinite loop, blink runs in parallel
 }
@@ -681,9 +678,9 @@ algorithm main(output int8 led)
 %
 This example reveals some interesting possibilities, and a constraint.
 As algorithm \texttt{blink} is instanced as \texttt{b0}, it starts running immediately (due to the \texttt{autorun} modifier in the declaration of \texttt{blink}). Hence, the variables \texttt{a} and \texttt{b}
-are immediately tracking the \texttt{b\_slow} and \texttt{b\_fast} outputs of \texttt{b0}. The always assignment to \texttt{led} then use \texttt{a} and \texttt{b} to output to the \texttt{led} 8-bit variable, which we assume is physically connected to LEDs. The first assignment sets \texttt{led} to zero, and then its two first bits to \texttt{a} and \texttt{b}. As the always assignments are order dependent, this behaves properly with the two first bits always assigned at each clock cycle. Since all updates in \texttt{main} are done through bindings and alway assignments, and because \textit{algorithms run in parallel}, there is nothing else to do, and \texttt{main} enters an infinite loop (runs as long as there is power).
+are immediately reflecting the \texttt{b\_slow} and \texttt{b\_fast} outputs of \texttt{b0}. The always assignment to \texttt{led} then use \texttt{a} and \texttt{b} to output to the \texttt{led} 8-bit variable, which we assume is physically connected to LEDs. The first assignment sets \texttt{led} to zero, and then its two first bits to \texttt{a} and \texttt{b}. As the always assignments are order dependent, this behaves properly with the two first bits always assigned at each clock cycle. Since all updates in \texttt{main} are done through bindings and always assignments, and because \textit{algorithms run in parallel}, there is nothing else to do, and \texttt{main} enters an infinite loop (runs as long as there is power).
 
-The constraint, however, is that \texttt{a} and \texttt{b} are necessary. This is due to the fact that we cannot directly bind \texttt{led[0,1]} and \texttt{led[1,1]} to the instance of \texttt{blink}. Only identifiers can be specified during bindings. This can be alleviated by using expression tracking (see Section~\ref{sec:exprtrack}).
+The constraint, however, is that \texttt{a} and \texttt{b} are necessary. This is due to the fact that we cannot directly bind \texttt{led[0,1]} and \texttt{led[1,1]} to the instance of \texttt{blink}. Only identifiers can be specified during bindings. This can be alleviated by using bound expressions (see Section~\ref{sec:exprtrack}).
 
 \paragraph{Automatic binding.}
 The optional \texttt{<:auto:>} tag allows to automatically bind matching identifiers:
@@ -897,18 +894,17 @@ in the order of declaration in the lists. An inout appears twice, both as output
 % ----------------------------------------------
 
 \subsection{Combinational loops}
-
+\label{combloops}
 When writing code, you may encounter a case where the \silice{} compiler
 raises an error due to an expression leading to a combinational loop. This
 indicates that the sequence of operations is leading to a cyclic dependency
-in the combinational chain. These are in most
+in the circuit being described. These are in most
 cases undesirable as they lead to unpredictable hardware behaviors.
 
-A trivial solution is such a situation is to split the combinational chain
-using the \textit{step} operator (see Section~\ref{sec:step}). However,
-doing so automatically would introduce sequencing 'behind the curtain'
-which we absolutely avoid in \silice{}, as this can lead to all sort of synchronization issues (see Section~\ref{sec:execflow} for more information). 
-Instead, an error is reported and you are invited to either manually add
+A trivial solution is such a situation is to split the circuit loop
+using the \textit{step} operator (see Section~\ref{sec:step}). 
+However, this will change you sequence of operations and the designer may choose
+a different approach. Therefore \silice{} reports and error and invites to either manually add
 a step, or to revise the code. In many cases a slight rewrite avoids the
 issue entirely.
 
@@ -927,7 +923,7 @@ So what happens? It might seem that \texttt{a = a + 1} is the problem here, as i
 The problem here comes from the initialization of $a$, in the declaration. This already set a new value to $a_{current}$, and thus the next expression \texttt{a = a + 1} would have to use this new value (otherwise it would be ignored entirely!). This now leads to $a_{current} = a_{current} + 1$ which this time is a combinational loop.
 
 \vspace*{2mm}
-\noindent The solution is simple:
+\noindent There are two possible solutions, first:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 algorithm main()
 {
@@ -937,11 +933,22 @@ algorithm main()
 }
 \end{minted}
 
+\vspace*{2mm}
+\noindent Second:
+\begin{minted}[linenos,frame=lines,framesep=2mm]{c}
+algorithm main()
+{
+uint8 a(0); // a is initialized at power-up
+a = a + 1;  // now this is fine
+}
+\end{minted}
+
 It would be difficult to manually keep track of all these potential chains, which is why \silice{} does it for you! In practice, such loops are rarely encountered, and in most cases easily resolved with slight changes to arithmetic and logic.
 
 \vspace*{5mm}
 \noindent
-\fbox{Note: combinational loops \textit{across} algorithms  (i.e. through \texttt{output!}) are currently not detected.}
+\framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
+		\textbf{Note:} Silice combinational loop detection is not perfect yet. Such a problem would typically result in simulation hanging (unable to stabilize the circuit) with Verilator issuing a \texttt{UNOPTFLAT} warning.}}
 
 % ----------------------------------------------
 
@@ -950,8 +957,10 @@ It would be difficult to manually keep track of all these potential chains, whic
 After declarations, optional always assignments can be specified.
 These use the operators defined in Section~\ref{sec:contassign}.
 %
-Always assignments allow to track the value of an expression
+Always assignments allow to follow the value of an expression
 in a variable, output, or instanced algorithm input or output.
+Contrary to bound expressions (Section~\ref{sec:exprtrack}), the assigned values can be changed
+during a cycle.
 
 \noindent Example:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
@@ -965,7 +974,7 @@ algorithm main(output uint8 led)
 }
 \end{minted}
 
-\noindent These assignments are performed immediately after each rising clock and are order dependent. For instance:
+\noindent These assignments are performed immediately after each rising clock, before anything else in the algorithm. They are order dependent. For instance:
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 b := a;
 c := b;
@@ -986,23 +995,24 @@ c ::= a;
 
 % ----------------------------------------------
 
-\subsection{Always block}
+\subsection{Always blocks}
 
-An algorithm can have an always block. This block has to be combinational (no goto, while or step operator inside). It is always running, regardless of the state of the rest of the algorithm, and is executed immediately after always assignments, and before anything else.
+Algorithms can have two always blocks: \texttt{always\_before} (or \texttt{always}) and \texttt{always\_after}. 
+An always block has to be single cycle (no goto, while or step operator inside). It is always running, regardless of the state of the rest of the algorithm. The \texttt{always\_before} block is executed immediately after always assignments, and before anything else. The \texttt{always\_after} block is executed after everything else.
 
 The syntax simply is:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
-always {
+always_before {
   // instructions
   // ...
 }
 \end{minted}
 
-Assigning a variable in an always block or using an always assignment is in fact equivalent, that is:
+Assigning a variable in an always before block or using an always assignment is in fact equivalent, that is:
 
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
-always {
+always_before {
   a = 0;
 }
 \end{minted}
@@ -1012,6 +1022,8 @@ always {
 \begin{minted}[linenos,frame=lines,framesep=2mm]{c}
 a := 0;
 \end{minted}
+
+\textit{Note:} variables changed in \texttt{always\_after} blocks have to use power-up initialization only.
 
 % ----------------------------------------------
 
@@ -1109,7 +1121,7 @@ while(...) {
 }
 \end{minted}
 
-When the \texttt{if} is not taken, we still have to pay one cycle to reach line 7. That is because it has been place into a separate state since the \texttt{if} contains non-combinational code that has to jump to reach it. Hence, the while loop will always take at least two cycles.
+When the \texttt{if} is not taken, we still have to pay one cycle to reach line 7. That is because it has been placed into a separate state to jump to it since the \texttt{if} is \textit{not} a one-cycle block (due to \texttt{++:}). Hence, the while loop will always take at least two cycles.
 
 However, you may choose to duplicate some code (and hence some circuitry!) to avoid the extra cycle, rewriting as:
 
@@ -1126,20 +1138,20 @@ while(...) {
 }
 \end{minted}
 
-This works because when the \texttt{if} is taken the execution simply goes back to the start of the \texttt{while}, a state that already exists. The \texttt{else} being combinational and also followed by the start of the \texttt{while} no extra cycle is necessary! We just tradeoff a bit of circuit size for extra performance.
+This works because when the \texttt{if} is taken the execution simply goes back to the start of the \texttt{while}, a state that already exists. The \texttt{else} being a one-cycle block followed by the start of the \texttt{while} no extra cycle is necessary! We just tradeoff a bit of circuit size for extra performance.
 
 % ----------------------------------------------
 
 \subsection{Cycle costs of calls to algorithms and subroutines}
 
-A synchronized call to an algorithm takes at best two cycles: one cycle for the algorithm to start processing, and one cycle to register that the algorithm is done. An asynchronous call is a combinational operation (and the algorithm will start running on the next clock cycle), while a synchronization inserts a state in the control flow and always requires at least one cycle, even if the algorithm is already finished.
+A synchronized call to an algorithm takes at best two cycles: one cycle for the algorithm to start processing, and one cycle to register that the algorithm is done. An asynchronous call does not require additional cycles (the called algorithm will start running on the next clock cycle), while a synchronization inserts a state in the control flow and always requires at least one additional cycle, even if the algorithm is already finished.
 
 A synchronized call to a subroutine takes at best two cycles: one cycle to jump to the subroutine initial state, and one cycle to jump back.
 
 \vspace*{5mm}
 \noindent
 \framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{
-		\textbf{Note:} Keep in mind that algorithms can also autorun and have their inputs/outputs bound to variables (see Section \ref{sec:instantiation}). Algorithms may also contain a combinational \texttt{always} block that is always running.}}
+		\textbf{Note:} Keep in mind that algorithms can also autorun and have their inputs/outputs bound to variables (see Section \ref{sec:instantiation}). Algorithms may also contain an \texttt{always} block that is always running.}}
 
 % ----------------------------------------------
 

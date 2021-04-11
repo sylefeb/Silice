@@ -1,10 +1,10 @@
-# Silice efficient design
+# Optimizing Silice designs
 
 Silice offers flexibility and ease of prototyping. But ultimately, when your design prototype works well you will start looking into efficiency. This often boils down to two things:
 - Max achievable frequency
 - Design size (in terms of FPGA resources, e.g. LUTs)
 
-Optimizing your designs for size and frequency is a difficult art form, whether it is in Silice or Verilog. It is also very exciting and rewarding. Be warned, you might end up entirely rewriting your design in a different style.
+Optimizing your designs for size and frequency is a difficult art form, whether it is in Silice or Verilog. It is also very exciting and rewarding. Be warned, you might end up entirely rewriting your design in a different style. However, you can do so without leaving the comfort of Silice.
 
 These guidelines are here to help you reduce your design size and increase max frequency. 
 
