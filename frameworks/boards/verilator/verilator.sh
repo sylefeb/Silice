@@ -59,7 +59,7 @@ verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-mo
 cd obj_dir
 $MAKE -f Vtop.mk
 $MAKE -f Vtop.mk $SILICE_DIR/../frameworks/verilator/$VERILATOR_LIB.o verilated.o 
-g++ -fpack-struct=4 -O3 $SILICE_DIR/../frameworks/verilator/$VERILATOR_LIB.o verilated.o Vtop__ALL.a $SILICE_DIR/../frameworks/verilator/libverilator_silice.a -o ../run_simul
+g++ -fpack-struct=8 -O3 $SILICE_DIR/../frameworks/verilator/$VERILATOR_LIB.o verilated.o Vtop__ALL.a $SILICE_DIR/../frameworks/verilator/libverilator_silice.a -o ../run_simul
 cd ..
 
 ./run_simul

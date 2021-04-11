@@ -5734,7 +5734,12 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   for (const auto& v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
     sl_assert(v.table_size == 0);
-    writeVerilogDeclaration(out, ictx, "reg", v, string(FF_D) + prefix + v.name + ',' + string(FF_Q) + prefix + v.name);
+    std::string init;
+    if (v.init_at_startup && !v.init_values.empty()) {
+      init = " = " + v.init_values[0];
+    }
+    writeVerilogDeclaration(out, ictx, "reg", v, string(FF_D) + prefix + v.name + init);
+    writeVerilogDeclaration(out, ictx, "reg", v, string(FF_Q) + prefix + v.name + init);
   }
   // flip-flops for algorithm inputs that are not bound
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
@@ -5747,26 +5752,25 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   }
   // state machine index
   if (!hasNoFSM()) {
-    int init_state = m_AutoRun ? toFSMState(entryState()) : toFSMState(terminationState());
     if (!m_OneHot) {
-      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "=" << init_state << "," FF_Q << prefix << ALG_IDX << "=" << init_state << ";" << nxl;
+      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ";" << nxl;
     } else {
-      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "=" << init_state << "," FF_Q << prefix << ALG_IDX << "=" << init_state << ";" << nxl;
+      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ";" << nxl;
     }
     // sub-state indices (one-hot)
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
-        out << "reg  [" << width(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "=0," FF_Q << prefix << b->block_name << '_' << ALG_IDX << "=0;" << nxl;
+        out << "reg  [" << width(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "," FF_Q << prefix << b->block_name << '_' << ALG_IDX << ";" << nxl;
       }
     }
   }
   // state machine caller id (subroutine)
   if (!doesNotCallSubroutines()) {
-    out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << ALG_CALLER << "=0," FF_Q << prefix << ALG_CALLER << "=0;" << nxl;
+    out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ";" << nxl;
     // per-subroutine caller id backup (subroutine making nested calls)
     for (auto sub : m_Subroutines) {
       if (sub.second->contains_calls) {
-        out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER << "=0," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << "=0;" << nxl;
+        out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ";" << nxl;
       }
     }
   }
@@ -6162,7 +6166,7 @@ void Algorithm::writeCombinationalStates(
   // default: internal error, should never happen
   {
     out << "default: begin " << nxl;
-    out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << nxl;
+    out << FF_D << prefix << ALG_IDX " = " << (m_AutoRun ? toFSMState(entryState()) : toFSMState(terminationState())) << ";" << nxl;
     out << " end" << nxl;
   }
   out << "endcase" << nxl;
