@@ -5,23 +5,44 @@
 
 **Important:** Latest changes occur in the 'wip' (work in progress) branch, check it out to enjoy the latest features. [Read more about development branches](#development-branches).
 
-*Silice* simplifies prototyping algorithms on FPGAs. It provides a thin abstraction above *Verilog* (a typical hardware description language). This allows to write parts of your design as sequences of operations, subroutines that can be called, and using control flow statements such as *while* and *break*. At the same time, Silice lets you fully exploit the parallelism and niceties of FPGA architectures, describing operations and algorithms that run in parallel and are always active, as well as [pipelines](projects/pipeline_sort/README.md). 
+*Silice* simplifies prototyping algorithms on FPGAs. It provides a thin abstraction above *Verilog* (a typical hardware description language). This allows to write parts of your design as sequences of operations, subroutines that can be called, and to use control flow statements such as *while* and *break*. At the same time, Silice lets you fully exploit the parallelism of FPGA architectures, describing operations and algorithms that run in parallel and are precisely in sync.
 
-Silice is *not* a high level synthesis language, and does not intend to become one: it *remains close to the hardware*. When designing hardware with Silice you remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when FSM states appear, how flip-flops map to variables, and what gets registered or not. Clock domains are also exposed. In fact, if you chose so you can design in a way that is very similar to *Verilog*, while still benefiting from Silice syntax. 
-This allows you to refine an initial prototype from concept to efficient implementation. Please refer to the [guidelines](learn-silice/Guidelines.md) for more details on optimizing Silice designs. 
+Silice is *not* a high level synthesis language, and does not intend to become one: it *remains close to the hardware*. When designing hardware with Silice you remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when FSM states appear, how flip-flops map to variables, and what gets registered or not. Clock domains are also exposed. In fact, if you chose so you can design in a way that is very similar to *Verilog*, while still benefiting from the syntax of Silice. This allows you to refine an initial prototype from concept to efficient implementation. 
 Silice compiles to and inter-operates with Verilog: you can directly instantiate and bind with existing modules.
 
 To setup Silice, see the [getting started](GetStarted.md) guide. To start writing code, see [writing your first design](FirstDesign.md). To see what can be done with Silice, checkout our [example projects](projects/README.md) (all are available in this repo).
 
+You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 and ULX3S examples](projects/README.md).
+
 [Watch the introduction video on programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube).
 
-The Silice [documentation is here](learn-silice/Documentation.md). Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
-
-You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 and ULX3S examples](projects/README.md).
+The Silice [reference documentation is here](learn-silice/Documentation.md). 
+Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
+Please refer to the [optimization guidelines](learn-silice/Guidelines.md) for fine tuning your Silice designs. 
 
 While I developed Silice for my own needs, I hope you'll find it useful for your projects!
 
-#### A first example:
+## Design principles and features
+
+Silice does not attempt to abstract away the hardware: the programmer remains in control and very close to hardware features. It provides syntactic helpers simplifying design and reuse (IO groups, generic interfaces, pipelining). Silice can also help you reason in terms of execution flow and operation sequences. However, this is not mandatory and you can also take full control and use a more direct hardware design style. When developing with Silice you can focus [optimization efforts](learn-silice/Guidelines.md) on critical parts, and use a simpler approach in other parts of the design.
+
+The main features are:
+- A syntax that clearly exposes the flow of operations and where clock cycles are spent.
+- Clearly defined rules regarding flow control (loops, calls) and their clock cycle consumption.
+- Enables a flow-control oriented design style, with automatic finite state machine generation. This is optional and a more classical style with always blocks is available. Both approaches complement each other in Silice, freely choose where to place the cursor!
+- Automatically takes care of creating flip-flops for variables, with automatic pruning (e.g. const or bindings).
+- Generic interfaces and grouped IOs for easy reuse and modular designs.
+- Explicit clock domains and reset signals.
+- Familiar syntax with both C and Verilog inspired elements.
+- Inter-operates with Verilog, allowing to import and reuse existing modules.
+- Powerful LUA-based pre-processor.
+
+These examples are different and representative of this approach:
+- The [Voxel space terrain](https://github.com/sylefeb/Silice/blob/master/projects/terrain/README.md) is relying on Silice sequential flow syntax.
+- The [ice-v](https://github.com/sylefeb/Silice/blob/master/projects/ice-v/ice-v.ice) is a RiscV RV32I processor that relies mostly on non-sequential constructs.
+- The [pipeline sort](projects/pipeline_sort/README.md) is an example of using the pipeline syntax (**experimental, may change**). 
+
+### A first example:
 
 ##### Code:
 ```c
@@ -50,9 +71,9 @@ make mojov3
 Line 1 is the entry point of any Silice hardware: the main algorithm. Line 2 we define
 a 28 bits unsigned int, initialized to 0. Initializers are mandatory and are always constants.
 Line 3 we request that the output led tracks the eight most significant bits of the counter variable.
-The syntax [20,8] means 8 bits wide starting from bit 20. The assignement to led
-uses the := operator which is an *always* assignement: led is now automatically 
-updated with counter after each rising clock. Such assignements have to appear
+The syntax [20,8] means 8 bits wide starting from bit 20. The assignment to led
+uses the := operator which is an *always* assignment: led is now automatically 
+updated with counter after each rising clock. Such assignments have to appear
 at the top of an algorithm, right before any other instruction.
 
 Finally, lines 4-6 define the infinite loop that increments the counter. Of course the
@@ -68,7 +89,7 @@ The -o parameter indicates where to write the Verilog output. In this example we
 the main file of a pre-existing project, which is then compiled using Xilinx ISE toolchain.
 Fear not, we also have examples working with yosys, nextpnr and [project icestorm](http://www.clifford.at/icestorm/)!
 
-#### Cycles and control flow:
+### Cycles and control flow:
 
 Here is another small example outlining a core principle of Silice:
 
@@ -100,26 +121,6 @@ This repo contains many [example projects](projects/), some including detailed c
 - [HDMI test framework](projects/hdmi_test/)
 - [streaming audio from sdcard](projects/audio_sdcard_streamer/)
 - [Pipelined sort](projects/pipeline_sort/)
-
-## Design principles
-
-Silice does not attempt to abstract away the hardware: the programmer remains in control and very close to hardware features. However, Silice makes it much easier to reason in terms of execution flow and operation sequences than when using Verilog directly. But when Verilog makes more sense, simply import Verilog directly into Silice!
-
-Silice is reminiscent of high performance programming in the late 90s (in the demo scene in particular): the then considered high-level C language was commonly interfaced with time-critical ASM routines. This enabled a best-of-both-worlds situation, with C being used for the overall program flow and ASM used only on carefully optimized hardware dependent routines.
-
-Silice does the same, providing a programmer friendly layer on top of Verilog with a familiar syntax, while allowing to use low level Verilog modules whenever needed. Silice also favors parallelism and performance everywhere, allowing to fully benefit from the natural parallelism of FPGA architectures.
-
-The main features are:
-- Prioritize combinational over sequential execution. Parallelism comes first!
-- Clearly defined rules regarding clock cycle consumption.
-- Explicit clock domains and reset signals.
-- Inter-operates easily with Verilog, allowing to import and reuse existing modules.
-- Familiar C-like syntax.
-- Powerful LUA-based pre-processor.
-
-These two examples are very different and representative of this approach:
-- The [WolfPGA](https://github.com/sylefeb/Silice/blob/master/projects/wolfpga/wolfpga.ice) is a raycaster essentially based on a sequential flow (but where each step is a relatively large combinational block).
-- The [ice-v](https://github.com/sylefeb/Silice/blob/master/projects/ice-v/ice-v.ice) is a RiscV RV32I processor that relies mostly on non-sequential constructs.
 
 ## Getting started with Silice
 
