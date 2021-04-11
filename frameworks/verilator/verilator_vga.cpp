@@ -33,7 +33,7 @@ int main(int argc,char **argv)
 
   Vtop    *vga_test = new Vtop("");
 
-  char foo[1<<19];
+  // char foo[1<<19];
 
   vga_test->clk = 0;
 
