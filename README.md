@@ -5,11 +5,11 @@
 
 **Important:** Latest changes occur in the 'wip' (work in progress) branch, check it out to enjoy the latest features. [Read more about development branches](#development-branches).
 
-*Silice* simplifies prototyping algorithms on FPGAs. It affords a thin abstraction above *Verilog* (a typical hardware description language). This allows to write parts of your design as sequences of operations, subroutines that can be called, and using control flow statements such as *while* and *break*. At the same time, Silice lets you fully exploit the parallelism and niceties of FPGA architectures, describing operations and algorithms that run in parallel and are always active, as well as pipelines. 
+*Silice* simplifies prototyping algorithms on FPGAs. It provides a thin abstraction above *Verilog* (a typical hardware description language). This allows to write parts of your design as sequences of operations, subroutines that can be called, and using control flow statements such as *while* and *break*. At the same time, Silice lets you fully exploit the parallelism and niceties of FPGA architectures, describing operations and algorithms that run in parallel and are always active, as well as pipelines. 
 
-Silice is *not* a high level synthesis language, and does not intend to become one: it *remains close to the hardware*. When designing hardware with *Silice* you remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when FSM states appear, how flip-flops map to variables, and what gets registered or not. Clock domains are also exposed. In fact, if you chose so you can design in a way that is very similar to *Verilog*, while still benefiting from *Silice* syntax. *Silice* compiles to and inter-operates with Verilog: you can directly instantiate and bind with existing modules.
-
+Silice is *not* a high level synthesis language, and does not intend to become one: it *remains close to the hardware*. When designing hardware with *Silice* you remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when FSM states appear, how flip-flops map to variables, and what gets registered or not. Clock domains are also exposed. In fact, if you chose so you can design in a way that is very similar to *Verilog*, while still benefiting from *Silice* syntax. 
 This allows you to refine an initial prototype from concept to efficient implementation. Please refer to the [guidelines](learn-silice/Guidelines.md) for more details on optimizing Silice designs. 
+*Silice* compiles to and inter-operates with Verilog: you can directly instantiate and bind with existing modules.
 
 To setup Silice, see the [getting started](GetStarted.md) guide. To start writing code, see [writing your first design](FirstDesign.md). To see what can be done with Silice, checkout our [example projects](projects/README.md) (all are available in this repo).
 
