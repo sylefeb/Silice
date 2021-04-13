@@ -7,7 +7,7 @@
 // - reads bursts of 8 x 16 bits
 //
 // if using directly the controller: 
-//  - reads (16x8 bits) have to align with 16 bits boundaries (even byte addresses)
+//  - reads (16x8 bits) have to align with 128 bits boundaries (16 bytes)
 //  - writes   (8 bits) do not have this restriction
 //
 // use the sdram_byte_readcache for a simple byte interface
