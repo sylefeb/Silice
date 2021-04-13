@@ -3662,10 +3662,10 @@ void Algorithm::updateFFUsage(e_FFUsage usage, bool read_access, e_FFUsage &_ff)
 
 // -------------------------------------------------
 
-void Algorithm::resetFFUsageLatches(t_vio_ff_usage &_ff) const
+void Algorithm::clearNoLatchFFUsage(t_vio_ff_usage &_ff) const
 {
   for (auto& v : _ff.ff_usage) {
-    v.second = (e_FFUsage)((int)v.second & (~e_Latch));
+    v.second = (e_FFUsage)((int)v.second & (~e_NoLatch));
   }
 }
 
@@ -3680,7 +3680,7 @@ void Algorithm::combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<
   for (const auto& br : ff_branches) {
     set<string> d_in_br;
     for (auto& v : br.ff_usage) {
-      if (v.second == e_D) { // exactly D (not Q, not latched next)
+      if (v.second == e_D || v.second == (e_D | e_NoLatch)) { // exactly D (not Q, not latched next)
         d_in_br.insert(v.first);
       }
     }
@@ -3718,6 +3718,11 @@ void Algorithm::combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<
       }
     }
   }
+  // all vars in d_in_all lost e_Latch and gain e_NoLatch for the current combinational state
+  // since they are /all/ written, there is no need to latch them anymore
+  for (auto v : d_in_all) {
+    ff_after.ff_usage[v] = (e_FFUsage)(((int)ff_after.ff_usage[v] & (~e_Latch)) | e_NoLatch);
+  }
   // the questions that remain are:
   // 1) which vars have to be promoted from D to Q?
   // => all vars that are not Q in branches, but were marked latched before
@@ -3737,7 +3742,7 @@ void Algorithm::combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<
   // => all vars that are D in a branch but not in another
   for (const auto& br : ff_branches) {
     for (auto& v : br.ff_usage) {
-      if ((v.second & e_D) && !(v.second & e_Q)) { // D but not Q
+      if ((v.second & e_D) && !(v.second & e_Q) && !(v.second & e_NoLatch)) { // D but not Q, and not tagged as nolatch
         if (d_in_all.count(v.first) == 0) { // not used in all branches? => latch if used next
           ff_after.ff_usage[v.first] = (e_FFUsage)((int)ff_after.ff_usage[v.first] | e_Latch);
         }
@@ -5940,6 +5945,7 @@ void Algorithm::writeCombinationalAlwaysPre(
       }
     }
   }
+
   if (!hasNoFSM()) {
     // state machine index
     out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << nxl;
@@ -6017,9 +6023,11 @@ void Algorithm::writeCombinationalAlwaysPre(
     if (v.usage != e_Temporary) continue;
     out << FF_TMP << prefix << v.name << " = 0;" << nxl;
   }
+
   // always block
   std::queue<size_t> q;
   writeStatelessBlockGraph(prefix, out, ictx, &m_AlwaysPre, nullptr, q, _always_dependencies, _ff_usage, _post_dependencies);
+  clearNoLatchFFUsage(_ff_usage);
 }
 
 // -------------------------------------------------
@@ -6053,8 +6061,6 @@ void Algorithm::writeCombinationalStates(
     out << "(* parallel_case, full_case *)" << nxl;
     out << "case (1'b1)" << nxl;
   }
-  // track per-ff state usage
-  std::unordered_map<std::string, std::pair<int, int> >  ff_usage_counts;
   // go ahead!
   while (!q.empty()) {
     size_t bid = q.front();
@@ -6095,6 +6101,7 @@ void Algorithm::writeCombinationalStates(
         // -> write block instructions
         ff_usages.push_back(_ff_usage);
         writeStatelessBlockGraph(prefix, out, ictx, cur, nullptr, q, depds, ff_usages.back(), _post_dependencies);
+        clearNoLatchFFUsage(ff_usages.back());
         // -> goto next
         if (cur->sub_state_id == b->num_sub_states-1) { 
           // -> if last, reinit local index
@@ -6110,12 +6117,20 @@ void Algorithm::writeCombinationalStates(
         }
         out << ';' << nxl;
         // -> close state
-        out << "end" << nxl;
-        // -> track states ff usage
+        out << "end" << nxl;               
+#if 0
+        /// DEBUG
         for (auto ff : ff_usages.back().ff_usage) {
-          ff_usage_counts[ff.first].first += ((ff.second & e_Q) ? 1 : 0);
-          ff_usage_counts[ff.first].second += ((ff.second & e_D) ? 1 : 0);
+          out << "// " << ff.first << " ";
+          if (ff.second & e_D) {
+            out << "D";
+          }
+          if (ff.second & e_Q) {
+            out << "Q";
+          }
+          out << nxl;
         }
+#endif        
         // keep going
         std::set<t_combinational_block*> leaves;
         findNonCombinationalLeaves(cur, leaves);
@@ -6139,21 +6154,23 @@ void Algorithm::writeCombinationalStates(
       // write block instructions
       ff_usages.push_back(_ff_usage);
       writeStatelessBlockGraph(prefix, out, ictx, b, nullptr, q, depds, ff_usages.back(), _post_dependencies);
-      // track states ff usage
+      clearNoLatchFFUsage(ff_usages.back());
+#if 0      
+      /// DEBUG
       for (auto ff : ff_usages.back().ff_usage) {
-        ff_usage_counts[ff.first].first += ((ff.second & e_Q) ? 1 : 0);
-        ff_usage_counts[ff.first].second += ((ff.second & e_D) ? 1 : 0);
+        out << "// " << ff.first << " ";
+        if (ff.second & e_D) {
+          out << "D";
+        }
+        if (ff.second & e_Q) {
+          out << "Q";
+        }
+        out << nxl;
       }
+#endif
     }
     // close state
     out << "end" << nxl;
-  }
-  // report on per-ff state use
-  if (0) {
-    std::cerr << "------ flip-flop per state usage ------" << nxl;
-    for (auto cnt : ff_usage_counts) {
-      std::cerr << setw(30) << cnt.first << " " << setw(30) << sprint("R:%03d W:%03d", cnt.second.first, cnt.second.second) << nxl;
-    }
   }
   // combine all ff usages
   combineFFUsageInto(_ff_usage, ff_usages, _ff_usage);
@@ -6369,12 +6386,12 @@ void Algorithm::writeStatelessBlockGraph(
       vector<t_vio_ff_usage> usage_branches;
       // recurse if
       t_vio_dependencies depds_if = _dependencies; 
-      usage_branches.push_back(t_vio_ff_usage());
+      usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
       writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back(), _post_dependencies);
       out << "end else begin" << nxl;
       // recurse else
       t_vio_dependencies depds_else = _dependencies;
-      usage_branches.push_back(t_vio_ff_usage());
+      usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
       writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_branches.back(), _post_dependencies);
       out << "end" << nxl;
       // merge dependencies
@@ -6400,7 +6417,7 @@ void Algorithm::writeStatelessBlockGraph(
         has_default = has_default | (cb.first == "default");
         // recurse case
         t_vio_dependencies depds_case = depds_before_case;
-        usage_branches.push_back(t_vio_ff_usage());
+        usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
         writeStatelessBlockGraph(prefix, out, ictx, cb.second, current->switch_case()->after, _q, depds_case, usage_branches.back(), _post_dependencies);
         // merge sets of written vars
         mergeDependenciesInto(depds_case, _dependencies);
@@ -6410,7 +6427,7 @@ void Algorithm::writeStatelessBlockGraph(
       out << "endcase" << nxl;
       // merge ff usage
       if (!has_default) {
-        usage_branches.push_back(t_vio_ff_usage()); // push an empty set
+        usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/); // push an empty set
         // NOTE: the case could be complete, currently not checked ; safe but missing an opportunity
       }
       combineFFUsageInto(_ff_usage, usage_branches, _ff_usage);
@@ -6581,6 +6598,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     } else {
       writeBlock(prefix, out, ictx, current, deps, _ff_usage);
     }
+    clearNoLatchFFUsage(_ff_usage);
     // trickle vars: start
     for (auto tv : pip->trickling_vios) {
       if (stage == tv.second[0]) {
@@ -7255,6 +7273,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
     std::queue<size_t> q;
     t_vio_dependencies _; // unusued
     writeStatelessBlockGraph("_", out, ictx, &m_AlwaysPost, nullptr, q, post_dependencies, _ff_usage, _);
+    clearNoLatchFFUsage(_ff_usage);
   }
   out << "end" << nxl;
 

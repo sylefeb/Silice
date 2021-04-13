@@ -329,7 +329,7 @@ $$end
   map_write      := 0; // reset map write
   pix_write      := 0; // reset pix_write
   
-  always_before {    
+  always_before {
 
     // Updates the four pixels, either getting data from spram or shifting them to go to the next one.
     // This is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo).

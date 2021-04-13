@@ -165,7 +165,8 @@ public:
     /// \brief enum for variable type
     enum e_FFUsage {
       e_None = 0, e_D = 1, e_Q = 2, e_DQ = 3,
-      e_Latch = 4, e_LatchD = 5, e_LatchQ = 6, e_LatchDQ = 7
+      e_Latch = 4, e_LatchD = 5, e_LatchQ = 6, e_LatchDQ = 7,
+      e_NoLatch = 8
     };
 
     /// \brief enum for IO types
@@ -848,10 +849,10 @@ private:
     void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
     /// \brief update flip-flop usage
     void updateFFUsage(e_FFUsage usage, bool read_access, e_FFUsage &_ff) const;
-    /// \brief reset ff usage latches
-    void resetFFUsageLatches(t_vio_ff_usage &_ff) const;
     /// \brief combine flip-flop usage
     void combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<t_vio_ff_usage> &ff_branches, t_vio_ff_usage& _ff_after) const;
+    /// \brief clear no latch from FF usage
+    void clearNoLatchFFUsage(t_vio_ff_usage &_ff) const;
     /// \brief determine binding right identifier
     std::string bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx = nullptr) const;
     /// \brief determine accessed variable
