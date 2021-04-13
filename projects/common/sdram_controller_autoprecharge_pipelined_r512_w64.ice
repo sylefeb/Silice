@@ -10,6 +10,10 @@
 //  - writes have to aligned with 64 bits boundaries (8 bytes)
 //  - reads have to be aligned with 512 bits boundaries (64 bytes)
 
+// NOTE: A misaligned read will have the first bytes correct until 
+//       reaching the 64 bytes boundary after which it wraps around
+//       Keeping that in mind, misalgined reads are possible.
+
 // (for address mapping see comments in other controllers)
 // This is assuming a 32 MB chip, larger chips will be partially used
 
