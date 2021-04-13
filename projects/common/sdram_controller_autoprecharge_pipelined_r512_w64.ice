@@ -206,8 +206,8 @@ $$end
     if (sd.in_valid) {
 $$if SIMULATION then            
       // __display("[cycle %d] ---------- in_valid rw:%b data:%h",cycle,sd.rw,sd.data_in);
-      if ( sd.rw) { if (sd.addr[0,3] != 0) { __display("[cycle %d] WARNING SDRAM misaligned write!",cycle); } }
-      if (~sd.rw) { if (sd.addr[0,6] != 0) { __display("[cycle %d] WARNING SDRAM misaligned read!",cycle); } }
+      //if ( sd.rw) { if (sd.addr[0,3] != 0) { __display("[cycle %d] WARNING SDRAM misaligned write!",cycle); } }
+      //if (~sd.rw) { if (sd.addr[0,6] != 0) { __display("[cycle %d] WARNING SDRAM misaligned read!",cycle); } }
 $$end
       // copy inputs
       col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$]; 
