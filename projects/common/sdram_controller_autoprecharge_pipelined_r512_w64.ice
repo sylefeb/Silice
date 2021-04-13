@@ -7,7 +7,8 @@
 // - reads bursts of 32 x 16 bits
 //
 // if using directly the controller: 
-//  - reads/writes have to aligned with 64 bits boundaries (8 bytes)
+//  - writes have to aligned with 64 bits boundaries (8 bytes)
+//  - reads have to be aligned with 512 bits boundaries (64 bytes)
 
 // (for address mapping see comments in other controllers)
 // This is assuming a 32 MB chip, larger chips will be partially used
@@ -205,9 +206,12 @@ $$end
     if (sd.in_valid) {
 $$if SIMULATION then            
       // __display("[cycle %d] ---------- in_valid rw:%b data:%h",cycle,sd.rw,sd.data_in);
+      if ( sd.rw) { if (sd.addr[0,3] != 0) { __display("[cycle %d] WARNING SDRAM misaligned write!",cycle); } }
+      if (~sd.rw) { if (sd.addr[0,6] != 0) { __display("[cycle %d] WARNING SDRAM misaligned read!",cycle); } }
 $$end
       // copy inputs
-      col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$];
+      col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$]; 
+      //                                       ^^^ 3: 1 due to 16 width + 2 due to four banks with interleaved addrs
       row       = sd.addr[$SDRAM_COLUMNS_WIDTH+3$, 13];
       wmask     = sd.wmask;
       data      = sd.data_in;
@@ -338,9 +342,9 @@ $$end
         sd.done   = working;
         working   = 0;
 $$if SIMULATION then
-        //if (sd.done) {
-        //__display("[cycle %d] done:%b rw:%b stage:%b data_out:%h",cycle,sd.done,do_rw,stage[0,2],sd.data_out);
-        //}
+        // if (sd.done) {
+        //     __display("[cycle %d] done:%b rw:%b stage:%b data_out:%h",cycle,sd.done,do_rw,stage[0,2],sd.data_out);
+        // }
 $$end          
         // break;
       }
