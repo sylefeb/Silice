@@ -322,6 +322,7 @@ void SiliceCompiler::run(
         }
         // write top algorithm (recurses from there)
         m_Algorithms["main"]->writeAsModule("",out);
+
       }
     
     } catch (Algorithm::LanguageError& le) {

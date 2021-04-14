@@ -184,6 +184,7 @@ public:
       e_Access     access = e_NotAccessed;
       e_VarUsage   usage = e_Undetermined;
       std::string  attribs;
+      antlr4::misc::Interval source_interval;
     };
 
 private:
@@ -674,7 +675,7 @@ private:
     /// \brief insert a variable in the data-structures (lower level than addVar, use to insert any var)
     void insertVar(const t_var_nfo &_var, t_combinational_block *_current, bool no_init = false);
     /// \brief add a variable from its definition (_var may be modified with an updated name)
-    void addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, int line);
+    void addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, antlr4::misc::Interval interval = antlr4::misc::Interval::INVALID);
     /// \brief check if an identifier is available
     bool isIdentifierAvailable(std::string name) const;
     /// \brief gather type nfo
@@ -1050,6 +1051,9 @@ private:
 
     /// \brief outputs the FSM graph in a file (graphviz dot format)
     void outputFSMGraph(std::string dotFile) const;
+
+    /// \brief outputs a report on the VIOs
+    void outputVIOReport(std::string file);
 
     /// \brief ExpressionLinter is a friend
     friend class ExpressionLinter;

@@ -159,6 +159,9 @@ namespace Silice
       s_LuaPreProcessor = lpp;
     }
 
+    /// \brief returns original source file and line
+    std::pair<std::string,int> getSourceFileAndLine(antlr4::misc::Interval interval, int line);
+
   };
 
   // -------------------------------------------------

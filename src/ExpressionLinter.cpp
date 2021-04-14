@@ -484,3 +484,20 @@ void ExpressionLinter::typeNfo(
 }
 
 // -------------------------------------------------
+
+std::pair<std::string,int> ExpressionLinter::getSourceFileAndLine(antlr4::misc::Interval interval,int line)
+{
+  if (line > -1) {
+  } else if (s_TokenStream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
+    antlr4::Token *tk = s_TokenStream->get(interval.a);
+    line = (int)tk->getLine();
+  }
+  if (s_LuaPreProcessor != nullptr) {
+    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
+    return fl;
+  } else {
+    return std::make_pair("", line);
+  }
+}
+
+// -------------------------------------------------

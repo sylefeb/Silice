@@ -662,7 +662,7 @@ void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current
 
 // -------------------------------------------------
 
-void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *, int line)
+void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *, antlr4::misc::Interval interval)
 {
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
@@ -683,9 +683,10 @@ void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gathe
     _var.name = blockVIOName(base_name,_current);
     _current->context.vio_rewrites[base_name] = _var.name;
   }
+  _var.source_interval = interval;
   // check for duplicates
   if (!isIdentifierAvailable(_var.name)) {
-    reportError(nullptr, line, "variable '%s': this name is already used by a prior declaration", _var.name.c_str());
+    reportError(interval, -1, "variable '%s': this name is already used by a prior declaration", _var.name.c_str());
   }
   // ok!
   insertVar(_var, _current);
@@ -711,7 +712,7 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
     reportError(wire->getSourceInterval(), (int)wire->getStart()->getLine(), "'sameas' wire declaration cannot be refering to a group or interface");
   }
   // add var
-  addVar(nfo, _current, _context, (int)wire->getStart()->getLine());
+  addVar(nfo, _current, _context, wire->getSourceInterval());
   // insert wire assignment
   m_WireAssignments.insert(make_pair(nfo.name, t_instr_nfo(wire->alwaysAssigned(), _current, -1)));
 }
@@ -795,10 +796,10 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
       vnfo.table_size = 0;
       vnfo.do_not_initialize = false;
       // add it
-      addVar(vnfo, _current, _context, (int)decl->getStart()->getLine());
+      addVar(vnfo, _current, _context, decl->getSourceInterval());
     }
   } else {
-    addVar(var, _current, _context, (int)decl->getStart()->getLine());
+    addVar(var, _current, _context, decl->getSourceInterval());
   }
 }
 
@@ -832,7 +833,7 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext *de
 {
   t_var_nfo var;
   gatherTableNfo(decl, var, _current, _context);
-  addVar(var, _current, _context, (int)decl->getStart()->getLine());
+  addVar(var, _current, _context, decl->getSourceInterval());
 }
 
 // -------------------------------------------------
@@ -1125,7 +1126,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     if (m.is_input) {
       v.access = e_InternalFlipFlop; // for internal flip-flop to circumvent issue #102 (see also Yosys #2473)
     }
-    addVar(v, _current, _context, (int)decl->getStart()->getLine());
+    addVar(v, _current, _context, decl->getSourceInterval());
     if (m.is_input) {
       mem.in_vars.push_back(v.name);
     } else {
@@ -1231,7 +1232,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
         reportError(v->getSourceInterval(), (int)v->getStart()->getLine(), "group '%s': group member declarations cannot use 'sameas'", grp->name->getText().c_str());
       }
       vnfo.name = grp->name->getText() + "_" + vnfo.name;
-      addVar(vnfo, _current, _context, (int)grp->getStart()->getLine());
+      addVar(vnfo, _current, _context, grp->getSourceInterval());
     }
   } else {
     reportError(grp->getSourceInterval(), (int)grp->getStart()->getLine(), "unkown group '%s'", grp->modalg->getText().c_str());
@@ -4642,7 +4643,7 @@ void Algorithm::resolveAlgorithmRefs(const std::unordered_map<std::string, AutoP
     for (const auto& o : nfo.second.algo->m_Outputs) {
       t_var_nfo vnfo = o;
       vnfo.name = nfo.second.instance_prefix + "_" + o.name;
-      addVar(vnfo, m_Blocks.front(), nullptr, -1);
+      addVar(vnfo, m_Blocks.front(), nullptr);
       m_VIOBoundToModAlgOutputs[vnfo.name] = WIRE + nfo.second.instance_prefix + "_" + o.name;
     }
     // resolve any automatic directional bindings
@@ -7311,6 +7312,35 @@ void Algorithm::outputFSMGraph(std::string dotFile) const
     }
   }
   out << "}" << nxl;
+}
+
+// -------------------------------------------------
+
+/// NOTE: work in progress
+/// TODO: should be an option and applied recursively during writeAsModule
+
+void Algorithm::outputVIOReport(std::string file) 
+{
+  /*
+  ExpressionLinter lint(this, ictx);
+
+  std::cerr << " === algorithm " << m_Name << " ====" << nxl;
+  for (const auto &v : report_ff_usage.ff_usage) {
+    bool found = false;
+    t_var_nfo def = getVIODefinition(v.first, found);
+    if (found) {
+      std::pair<std::string, int> fl = lint.getSourceFileAndLine(def.source_interval,-1);
+      std::cerr << "vio, file " << fl.first << " line " << fl.second << " " << v.first << " : ";
+      if (v.second & e_D) {
+        std::cerr << "D";
+      }
+      if (v.second & e_Q) {
+        std::cerr << "Q";
+      }
+      std::cerr << nxl;
+    }
+  }
+  */
 }
 
 // -------------------------------------------------
