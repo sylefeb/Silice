@@ -1375,7 +1375,7 @@ switch( <EXPR> ) {
 ```
 where `<EXPR>` is an expression and `<CONST>` are constants. 
 
-There is also a onehot version, which is more efficient in hardware:
+There is also a onehot version:
 ``` c
 switch( <IDENTFIER> ) {
   case 0: {  /* code for this case */    }
