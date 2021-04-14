@@ -426,11 +426,12 @@ private:
     class end_action_switch_case : public t_end_action
     {
     public:
+      bool                                                         onehot;
       t_instr_nfo                                                  test;
       std::vector<std::pair<std::string, t_combinational_block*> > case_blocks;
       t_combinational_block*                                       after;
-      end_action_switch_case(t_instr_nfo test_, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks_, t_combinational_block* after_)
-        : test(test_), case_blocks(case_blocks_), after(after_) {}
+      end_action_switch_case(bool is_onehot,t_instr_nfo test_, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks_, t_combinational_block* after_)
+        : onehot(is_onehot), test(test_), case_blocks(case_blocks_), after(after_) {}
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { for (auto b : case_blocks) { _ch.push_back(b.second); } _ch.push_back(after); }
       std::string name() const override { return "end_action_switch_case";}
     };
@@ -557,9 +558,9 @@ private:
       }
       const end_action_if_else *if_then_else() const { return dynamic_cast<const end_action_if_else*>(end_action); }
 
-      void switch_case(t_instr_nfo test, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks, t_combinational_block* after)
+      void switch_case(bool is_onehot,t_instr_nfo test, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks, t_combinational_block* after)
       {
-        swap_end(new end_action_switch_case(test, case_blocks, after));
+        swap_end(new end_action_switch_case(is_onehot,test, case_blocks, after));
       }
       const end_action_switch_case* switch_case() const { return dynamic_cast<const end_action_switch_case*>(end_action); }
 

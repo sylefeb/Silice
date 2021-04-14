@@ -33,6 +33,7 @@ GOTO                : 'goto' ;
 AUTORUN             : 'autorun' ;
 
 ONEHOT              : 'onehot' ;
+SWITCH              : 'switch' ;
 
 READ                : 'reads' ;
 WRITE               : 'writes' ;
@@ -319,7 +320,7 @@ breakLoop           : BREAK ;
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
 ifThenElse          : 'if' '(' expression_0 ')' if_block=block 'else' else_block=block ;
-switchCase          : 'switch' '(' expression_0 ')' '{' caseBlock * '}' ;
+switchCase          : (SWITCH | ONEHOT) '(' expression_0 ')' '{' caseBlock * '}' ;
 caseBlock           : ('case' case_value=value ':' | DEFAULT ) case_block=block;
 whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 

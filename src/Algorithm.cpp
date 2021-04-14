@@ -2497,8 +2497,17 @@ Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::Swit
     t_combinational_block* case_block_after = gather(cb->case_block, case_block, _context);
     case_block_after->next(after);
   }
+  // if onehot, verifies expression is a single identifier
+  bool is_onehot = (switchCase->ONEHOT() != nullptr);
+  if (is_onehot) {
+    string id;
+    bool   isid = isIdentifier(switchCase->expression_0(),id);
+    if (!isid) {
+      reportError(switchCase->getSourceInterval(), (int)switchCase->getStart()->getLine(), "onehot switch applies only to an identifer");
+    }
+  }
   // add switch-case to current
-  _current->switch_case(t_instr_nfo(switchCase->expression_0(), _current, _context->__id), case_blocks, after);
+  _current->switch_case(is_onehot,t_instr_nfo(switchCase->expression_0(), _current, _context->__id), case_blocks, after);
   // checks whether after has to be a state
   bool is_state = false;
   for (auto b : case_blocks) {
@@ -6407,13 +6416,30 @@ void Algorithm::writeStatelessBlockGraph(
         current = current->if_then_else()->after; // yes!
       }
     } else if (current->switch_case()) {
-      out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ")" << nxl;
+      if (current->switch_case()->onehot) {
+        out << "(* parallel_case, full_case *)" << nxl;
+        out << "  case (1'b1)" << nxl;
+      } else {
+        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ")" << nxl;
+      }
+      std::string identifier;
+      if (current->switch_case()->onehot) {
+        bool isidentifier = isIdentifier(current->switch_case()->test.instr, identifier);
+        if (!isidentifier) { throw Fatal("internal error (onehot switch)"); }
+      }
       // recurse block
       t_vio_dependencies depds_before_case = _dependencies;
       vector<t_vio_ff_usage> usage_branches;
       bool has_default = false;
       for (auto cb : current->switch_case()->case_blocks) {
-        out << "  " << cb.first << ": begin" << nxl;
+        if (current->switch_case()->onehot) {
+          out << "  "
+            << rewriteIdentifier(prefix, identifier, "", &current->context, -1, FF_Q, true, _dependencies, _ff_usage)
+            << "[" << cb.first << "]: begin" << nxl;
+          /// TODO: if cb.first is const, check it is below identifier bit width
+        } else {
+          out << "  " << cb.first << ": begin" << nxl;
+        }
         has_default = has_default | (cb.first == "default");
         // recurse case
         t_vio_dependencies depds_case = depds_before_case;
