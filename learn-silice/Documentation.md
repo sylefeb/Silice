@@ -1362,6 +1362,32 @@ being a one-cycle block followed by the start of the `while` no extra
 cycle is necessary! We just tradeoff a bit of circuit size for extra
 performance.
 
+### Switches
+
+Silice also supports the `switch-case` syntax, as follows:
+
+``` c
+switch( <EXPR> ) {
+  case <CONST>: {  /* code for this case */    }
+  case <CONST>: {  /* code for this case */    }
+  default:      {  /* code for default case */ }
+}  
+```
+where `<EXPR>` is an expression and `<CONST>` are constants. 
+
+There is also a onehot version, which is more efficient in hardware:
+``` c
+switch( <IDENTFIER> ) {
+  case 0: {  /* code for this case */    }
+  case 1: {  /* code for this case */    }
+  ...
+  case <W-1>: {  /* code for this case */    }
+}  
+```
+where `<IDENTFIER>` is a variable of width `W` and each case is activated for
+the corresponding bit of `<IDENTFIER>` being set to `1`, with all other bits set to `0`.
+
+
 ## Cycle costs of calls to algorithms and subroutines
 
 A synchronized call to an algorithm takes at best two cycles: one cycle
