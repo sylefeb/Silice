@@ -5,7 +5,7 @@ This project is a recreation in FPGA hardware of the classic Novalogic Voxel Spa
 It was developed and tested on an [IceBreaker board](https://1bitsquared.com/collections/fpga/products/icebreaker) with a Digilent VGA PMOD.
 
 <p align="center">
-  <img width="400" src="video.gif">
+  <img width="600" src="video.gif">
 </p>
 
 ### **How to test**
