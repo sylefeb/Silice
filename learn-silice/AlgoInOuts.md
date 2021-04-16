@@ -4,9 +4,9 @@ Here we explain how algorithms can be instantiated and called. This is an import
 
 Even if you are familiar with Silice call an binding syntax, make sure to read the [last section](#timings) on timing considerations.
 
-For these explanations let us assume an algorithm with *N* outputs and M *inputs* called respectively `out1 ... outN` and ` in1 ... inM`.
-
 ## Calls
+
+For these explanations let us assume an algorithm with *N* outputs and M *inputs* called respectively `out1 ... outN` and ` in1 ... inM`.
 
 A first way to use and call an algorithm is to use the call syntax. The algorithm is first instantiated as:
 
@@ -43,9 +43,9 @@ All or only parts of the inputs and outputs may be bound.  However, once at leas
 ## Timings
 <a href="#timings"></a>
 
-Here we discuss the different between using the `<:` and `<::` binding operators as well as using `output` and `output!` in an algorithm. Both relate to when the parent and instantiated algorithm see the changes in inputs and outputs. This has important implications for keeping things in sync (latencies), and in terms of the generated circuit depth (critical path and max frequency).
+Here we discuss the differences between using the `<:` and `<::` binding operators as well as using `output` and `output!` in an algorithm. Both relate to when the parent and instantiated algorithms see the changes in inputs and outputs. This has important implications for keeping things in sync (latencies), and in terms of the generated circuit depth (critical path and max frequency).
 
-To illustrate this, let us use a simple example case. In the design below, the algorithm `Algo` always copies its input to its output. Since the algorithm uses an `always` block it does not have to be called or started. In `main`, we create a cycle counter, bind it as input to an instance of `Algo` and display at every cycle the value of `value`.
+To illustrate this, let us use a simple example case. In the design below, the algorithm `Algo` always copies its input to its output. Since the algorithm uses an `always` block it does not have to be called or started. In `main`, we create a cycle counter, bind it as input to an instance of `Algo` and display at every cycle `value`.
 
 ```c
 algorithm Algo(
@@ -74,7 +74,7 @@ algorithm main(output uint8 leds)
 }
 ```
 
-From a binding point of view, there are four possible variants of this algorithm. The output `v` of `Algo` can use either `output` or `output!` (immediate). The input in `main` be bound using either `<:` (value as modified by the current cycle) or `<::` (value as it was at the cycle start).
+From a binding point of view, there are four possible variants of this design. The output `v` of `Algo` can use either `output` or `output!` (immediate). The input in `main` be bound using either `<:` (value as modified by the current cycle) or `<::` (value as it was at the cycle start).
 These variants offer different tradeoffs in latencies and resulting circuit depth.
 
 In the figures below we can see the signals over time, simulated by *Icarus Verilog* and visualized with *GtkWave*. In green `cycle` in `main`, in orange `i` as seen in `alg_inst`, in yellow `value` as seen in `main`.
@@ -89,21 +89,21 @@ B) **Using `<:` and `output!`.** All three waves are the same. Compared to the p
   <img width="800" src="figures/bind_b.png">
 </p>
 
-C) **Using `<::` and `output`.** The use of `<::` introduces a one cycle latency before the change of `cycle` in `main` is reflected in `i` as seen from `alg_inst`. The use of `output` introduces another additional one cycle latency before the change to `v` is reflected in `main`. This results in a two cycles delay between the green and yellow waves.
+C) **Using `<::` and `output`.** The use of `<::` introduces a one cycle latency before the change of `cycle` in `main` is reflected in `i` as seen from `alg_inst`. The use of `output` introduces another one cycle latency before the change to `v` is reflected in `main`. This results in a two cycles delay between the green and yellow waves.
 <p align="center">
   <img width="800" src="figures/bind_c.png">
 </p>
 
-D) **Using `<::` and `output!`.** Compared to the previous case, we keep on one cycle latency on the input, but the use of `output!` means that changes to `v` are reflected in `main`. Hence, there is a one cycle shift between the green and orange waves, while the orange and yellow waves are the same.
+D) **Using `<::` and `output!`.** Compared to the previous case, we keep one cycle latency on the input, but the use of `output!` means that changes to `v` are reflected immediately in `main`. Hence, there is a one cycle shift between the green and orange waves, while the orange and yellow waves are the same.
 <p align="center">
   <img width="800" src="figures/bind_d.png">
 </p>
 
-At this stage you might be wondering why we don't always use case B, since it produces no delays between the waves. Well of course there is a catch -- in fact two of them! Case B means, in essence, that the algorithm becomes a piece of circuitry connected between `cycle` and `value` in `main`, *without any flip-flop in the path*. Why does this matter? Circuits are physical devices and signals take time to propagate and stabilize through gates. This is why the frequency of a design is limited. Flip-flops mitigate this by enabling to store the values across cycles, resuming propagation on the next cycle. So long circuits without any flip-flip in the path lead to a lower design frequency. This longest path is referred to as the *critical path* in the design (and it is the worst case the matters). The critical path is reported after place and route, for instance by *NextPNR*. By using case B, we are likely to produce longer circuits.
+At this stage you might be wondering why we don't always use case B, since it produces no delays between the waves. Well of course there is a catch -- in fact two of them! Case B means, in essence, that the algorithm becomes a piece of circuitry connected between `cycle` and `value` in `main`, *without any flip-flop in the path*. Why does this matter? Circuits are physical devices and signals take time to propagate and stabilize through gates. This is why the frequency of a design is limited. Flip-flops mitigate this by enabling to store the values across cycles, resuming propagation on the next cycle. So long circuits without any flip-flip in the path lead to a lower design frequency. This longest path is referred to as the *critical path* in the design (and it is the worst case that matters). The critical path is reported after place and route, for instance by *NextPNR*. By using case B, we are likely to produce longer circuits.
 
-So that's the first catch, what is the second? Well, combinational loops! As we directly connect `cycle` and `value` in `main`, we now have to be very careful that `cycle` never depends in any way to a change in `value`, otherwise we create a loop in the circuit. This quickly becomes impractical -- nevertheless case B is definitely possible and useful in specific cases (but in terms of Silice you might consider using a `circuitry` instead).
+So that's the first catch, what is the second one? Well, combinational loops! As we directly connect `cycle` and `value` in `main`, we now have to be very careful that `cycle` never depends in any way to a change in `value`, otherwise we create a loop in the circuit. This quickly becomes impractical -- nevertheless case B is definitely possible and useful in specific cases (but in terms of Silice you might consider using a `circuitry` instead).
 
-Now, what use are the other cases? Case A is the standard setup in Silice, with inputs directly connected and outputs registered on a flip-flop. Case D is the opposite with inputs registered on a flip-flop and outputs directly connected. Case C is the most conservative, with both inputs and outputs registered on flip-flops. Let's have a look at time diagrams for each four cases to understand the implications:
+Now, what use are the other cases? Case A is the standard setup in Silice, with inputs directly connected and outputs registered on a flip-flop. Case D is the opposite with inputs registered on a flip-flop and outputs directly connected. Case C is the most conservative, with both inputs and outputs registered on flip-flops. Let's have a second look at time diagrams for each four cases to understand the implications. This time we fix the frequency, and consider how much time the algorithm has to perform its operations:
 
 **TODO**
 
