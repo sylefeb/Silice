@@ -1005,10 +1005,8 @@ private:
       std::string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes all wire assignements
     void writeWireAssignements(std::string prefix, std::ostream &out, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
-    /// \brief writes flip-flop value init for a variable
-    void writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_var_nfo& v) const;
     /// \brief writes flip-flop value update for a variable
-    void writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
+    void writeVarFlipFlopUpdate(std::string prefix, std::string reset, std::ostream& out, const t_instantiation_context &ictx, const t_var_nfo& v) const;
     /// \brief writes the const declarations
     void writeConstDeclarations(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const;
     /// \brief writes the temporary declarations

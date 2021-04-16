@@ -1,9 +1,9 @@
 void main() 
 {
-  int* const LEDS = (int*)0x1004;
+  volatile int* const LEDS = (int*)0x1004;
   volatile int i = 0;
 
-  //*LEDS = 0x0f;
+  *LEDS = 0x0f;
   
   int l = 1;
   while (1) {
@@ -13,10 +13,10 @@ void main()
       l = 1;
     }
     
-    *LEDS = (l | 16);
+    *LEDS = l; // (l | 16);
     
-    for (i=0;i<65536;i++) { }
+    // for (i=0;i<65536;i++) { }
   
   }
-
+  
 }

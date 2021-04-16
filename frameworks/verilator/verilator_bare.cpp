@@ -25,7 +25,7 @@ int main(int argc,char **argv)
 
   Vtop    *bare_test = new Vtop("");
 
-  char foo[1<<18];
+  // char foo[1<<19]; // uncomment if verilator crashes, see issue #12
 
   while (!Verilated::gotFinish()) {
 

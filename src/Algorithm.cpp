@@ -5493,38 +5493,6 @@ void Algorithm::writeWireAssignements(
 
 // -------------------------------------------------
 
-void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_var_nfo& v) const
-{
-  if (!v.do_not_initialize && !v.init_at_startup) {
-    if (v.table_size == 0) {
-      string initv = varInitValue(v, ictx);
-      if (!initv.empty()) { // this may happen on a parameterized var
-        out << FF_Q << prefix << v.name << " <= " << varInitValue(v, ictx) << ';' << nxl;
-      }
-    } else {
-      sl_assert(v.type_nfo.base_type != Parameterized);
-      ForIndex(i,v.init_values.size()) {
-        out << FF_Q << prefix << v.name << "[" << i << "] <= " << v.init_values[i] << ';' << nxl;
-      }
-    }
-  }
-}
-
-// -------------------------------------------------
-
-void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const
-{
-  if (v.table_size == 0) {
-    out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << nxl;
-  } else {
-    ForIndex(i, v.table_size) {
-      out << FF_Q << prefix << v.name << "[" << i << "] <= " << FF_D << prefix << v.name << "[" << i << "];" << nxl;
-    }
-  }
-}
-
-// -------------------------------------------------
-
 std::string Algorithm::varBitRange(const t_var_nfo& v,const t_instantiation_context &ictx) const
 {
   if (v.type_nfo.base_type == Parameterized) {
@@ -5800,6 +5768,41 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
 
 // -------------------------------------------------
 
+void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, std::ostream &out, const t_instantiation_context &ictx, const t_var_nfo &v) const
+{
+  std::string init_cond = reset;
+  if (reset.empty()) {
+    init_cond = "";
+  } else if (v.init_at_startup || v.do_not_initialize) {
+    init_cond = "";
+  } else if (!hasNoFSM()) {
+    init_cond = reset + (" || !" ALG_INPUT "_" ALG_RUN);
+  } else {
+    init_cond = reset;
+  }
+  if (v.table_size == 0) {
+    // not a table
+    string initv = varInitValue(v, ictx);
+    if (!init_cond.empty() && !initv.empty()) {
+      out << FF_Q << prefix << v.name << " <= (" << init_cond << ") ? " << initv << " : " << FF_D << prefix << v.name << ';' << nxl;
+    } else {
+      out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << nxl;
+    }
+  } else {
+    // table
+    sl_assert(v.type_nfo.base_type != Parameterized);
+    ForIndex(i, v.table_size) {
+      if (!init_cond.empty()) {
+        out << FF_Q << prefix << v.name << "[" << i << "] <= (" << init_cond << ") ? " << v.init_values[i] << " : " << FF_D << prefix << v.name << ';' << nxl;
+      } else {
+        out << FF_Q << prefix << v.name << "[" << i << "] <= " << FF_D << prefix << v.name << "[" << i << "];" << nxl;
+      }
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const
 {
   // output flip-flop init and update on clock
@@ -5817,77 +5820,45 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
 
   out << "always @(posedge " << clock << ") begin" << nxl;
 
-  /// init on hardware reset
-  if (!requiresNoReset()) {
-    std::string reset = m_Reset;
-    if (m_Reset != ALG_RESET) {
-      // in this case, reset has to be bound to a module/algorithm output
-      /// TODO: is this over-constrained? could it also be a variable?
-      auto R = m_VIOBoundToModAlgOutputs.find(m_Reset);
-      if (R == m_VIOBoundToModAlgOutputs.end()) {
-        reportError(nullptr, -1, "algorithm '%s', reset is not bound to a module or algorithm output", m_Name.c_str());
-      }
-      reset = R->second;
+  // determine var reset condition
+  std::string init_cond;
+  std::string reset = m_Reset;
+  if (m_Reset != ALG_RESET) {
+    // in this case, reset has to be bound to a module/algorithm output
+    /// TODO: is this over-constrained? could it also be a variable?
+    auto R = m_VIOBoundToModAlgOutputs.find(m_Reset);
+    if (R == m_VIOBoundToModAlgOutputs.end()) {
+      reportError(nullptr, -1, "algorithm '%s', reset is not bound to a module or algorithm output", m_Name.c_str());
     }
-    out << "  if (" << reset;
-    if (!hasNoFSM()) {
-      out << " || !" ALG_INPUT << "_" << ALG_RUN;
-    }
-    out << ") begin" << nxl;
-    for (const auto &v : m_Vars) {
-      if (v.usage != e_FlipFlop) continue;
-      writeVarFlipFlopInit(prefix, out, ictx, v);
-    }
-    for (const auto &v : m_Outputs) {
-      if (v.usage != e_FlipFlop) continue;
-      if (v.do_not_initialize) {
-        writeVarFlipFlopUpdate(prefix, out, v);
-      } else {
-        writeVarFlipFlopInit(prefix, out, ictx, v);
-      }
-    }
-    // state machine 
-    if (!hasNoFSM()) {
-      // -> on reset
-      out << "  if (" << reset << ") begin" << nxl;
-      if (!m_AutoRun) {
-        // no autorun: jump to halt state
-        out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(terminationState()) << ";" << nxl;
-      } else {
-        // autorun: jump to first state
-        out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << nxl;
-      }
-      // sub-states indices
-      for (auto b : m_Blocks) {
-        if (b->num_sub_states > 1) {
-          out << FF_Q << prefix << b->block_name << '_' << ALG_IDX   " <= 0;" << nxl;
-        }
-      }
-      out << "end else begin" << nxl;
-      // -> on restart, jump to first state
-      out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << nxl;
-      out << "end" << nxl;
-    }
-    /// updates on clockpos
-    out << "  end else begin" << nxl;
+    reset = R->second;
   }
-  // update var flip-flops
-  for (const auto& v : m_Vars) {
+  init_cond = reset;
+  if (!hasNoFSM()) {
+    init_cond  = init_cond + (" || !" ALG_INPUT "_" ALG_RUN);
+  }
+  for (const auto &v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
-    writeVarFlipFlopUpdate(prefix, out, v);
+    writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
   }
-  // update output flip-flops
   for (const auto &v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
-    writeVarFlipFlopUpdate(prefix, out, v);
+    writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
   }
   if (!hasNoFSM()) {
     // state machine index
-    out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << nxl;
+    out << FF_Q << prefix << ALG_IDX " <= (" << init_cond << ") ? "
+      << "( ~" << reset << " ? " << toFSMState(entryState()) << " : "
+      << (m_AutoRun ? toFSMState(entryState()) : toFSMState(terminationState()))
+      << ") "
+      << " : " << FF_D << prefix << ALG_IDX 
+      << ";" << nxl;
     // sub-states indices
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
-        out << FF_Q << prefix << b->block_name << '_' << ALG_IDX " <= " FF_D << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
+        out << FF_Q << prefix << b->block_name << '_' << ALG_IDX " <= (" << init_cond << ") ? " 
+          << " 0 "
+          << " : " 
+          << FF_D << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
       }
     }
     // caller ids for subroutines
@@ -5900,15 +5871,12 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       }
     }
   }
-  if (!requiresNoReset()) {
-    out << "  end" << nxl;
-  }
   // update instanced algorithms input flip-flops
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
     for (const auto &is : ia.algo->m_Inputs) {
       if (ia.boundinputs.count(is.name) == 0) {
-        writeVarFlipFlopUpdate(ia.instance_prefix + '_', out, is);
+        writeVarFlipFlopUpdate(ia.instance_prefix + '_', "", out, ictx, is);
       }
     }
   }
@@ -6208,7 +6176,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
   }
   out << nxl;
   // block variable initialization
-  if (!block->initialized_vars.empty()) {
+  if (!block->initialized_vars.empty() && block->block_name != "_top") {
     out << "// var inits" << nxl;
     writeVarInits(prefix, out, ictx, block->initialized_vars, _dependencies, _ff_usage);
     out << "// --" << nxl;
