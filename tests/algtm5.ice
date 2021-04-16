@@ -1,17 +1,16 @@
-algorithm Algo(input uint8 i,output! uint8 v)
+algorithm Algo(input uint8 i,output uint8 v)
 {
   always {
     v = i;
   }
 }
 
-
 algorithm main(output uint8 leds)
 {
   uint32 cycle = 0;
 
   Algo alg_inst(
-    i <:: cycle
+    i <: cycle
   );
 
   while (cycle != 16) {

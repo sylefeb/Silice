@@ -43,9 +43,9 @@ All or only parts of the inputs and outputs may be bound.  However, once at leas
 ## Timings
 <a href="#timings"></a>
 
-Here we discuss the different between using the `<:` and `<::` binding operators as well as using `output` and `output!` in an algorithm. Both relate to when the parent and instantiated algorithm see the changes in inputs and outputs. This has important implications for keeping things in sync, and also impact the generated circuit depth (critical path and max frequency).
+Here we discuss the different between using the `<:` and `<::` binding operators as well as using `output` and `output!` in an algorithm. Both relate to when the parent and instantiated algorithm see the changes in inputs and outputs. This has important implications for keeping things in sync (latencies), and in terms of the generated circuit depth (critical path and max frequency).
 
-To illustrate, let us use a simple example case:
+To illustrate this, let us use a simple example case. In the design below, the algorithm `Algo` always copies its input to its output. Since the algorithm uses an `always` block it does not have to be called or started. In `main`, we create a cycle counter, bind it as input to an instance of `Algo` and display at every cycle the value of `value`.
 
 ```c
 algorithm Algo(
@@ -60,22 +60,88 @@ algorithm Algo(
 algorithm main(output uint8 leds)
 {
   uint32 cycle = 0;
-
+  uint8  value = 0;
   Algo alg_inst(
-    i <: cycle  // can use <: or <::
+    i <: cycle,  // can use <: or <::
+    v :> value,
   );
 
   while (cycle != 16) {
-    __display("[cycle %d] (main) alg_inst.v = %d",cycle,alg_inst.v);
+    __display("[cycle %d] (main) value = %d",cycle,value);
     cycle = cycle + 1;
   }
 
 }
 ```
 
-There are four possible combinations in how the input `i` and output `o` can be written. The output can be either `output` or `output!` (immediate). The input can be bound using either `<:` (value as modified by current cycle) or `<::` (value as it was at cycle start).
+From a binding point of view, there are four possible variants of this algorithm. The output `v` of `Algo` can use either `output` or `output!` (immediate). The input in `main` be bound using either `<:` (value as modified by the current cycle) or `<::` (value as it was at the cycle start).
+These variants offer different tradeoffs in latencies and resulting circuit depth.
 
+In the figures below we can see the signals over time, simulated by *Icarus Verilog* and visualized with *GtkWave*. In green `cycle` in `main`, in orange `i` as seen in `alg_inst`, in yellow `value` as seen in `main`.
 
+A) **Using `<:` and `output`.** The input change in `main` is immediately visible in `alg_inst`: the green and orange waves are the same. However the yellow wave is delayed by one cycle: this is the effect of `output`, which introduces a one cycle latency before the change to `v` is reflected in `main`.
+<p align="center">
+  <img width="800" src="figures/bind_a.png">
+</p>
+
+B) **Using `<:` and `output!`.** All three waves are the same. Compared to the previous case, using `output!` implies that changes to `v` are immediately reflected in `main`.
+<p align="center">
+  <img width="800" src="figures/bind_b.png">
+</p>
+
+C) **Using `<::` and `output`.** The use of `<::` introduces a one cycle latency before the change of `cycle` in `main` is reflected in `i` as seen from `alg_inst`. The use of `output` introduces another additional one cycle latency before the change to `v` is reflected in `main`. This results in a two cycles delay between the green and yellow waves.
+<p align="center">
+  <img width="800" src="figures/bind_c.png">
+</p>
+
+D) **Using `<::` and `output!`.** Compared to the previous case, we keep on one cycle latency on the input, but the use of `output!` means that changes to `v` are reflected in `main`. Hence, there is a one cycle shift between the green and orange waves, while the orange and yellow waves are the same.
+<p align="center">
+  <img width="800" src="figures/bind_d.png">
+</p>
+
+At this stage you might be wondering why we don't always use case B, since it produces no delays between the waves. Well of course there is a catch -- in fact two of them! Case B means, in essence, that the algorithm becomes a piece of circuitry connected between `cycle` and `value` in `main`, *without any flip-flop in the path*. Why does this matter? Circuits are physical devices and signals take time to propagate and stabilize through gates. This is why the frequency of a design is limited. Flip-flops mitigate this by enabling to store the values across cycles, resuming propagation on the next cycle. So long circuits without any flip-flip in the path lead to a lower design frequency. This longest path is referred to as the *critical path* in the design (and it is the worst case the matters). The critical path is reported after place and route, for instance by *NextPNR*. By using case B, we are likely to produce longer circuits.
+
+So that's the first catch, what is the second? Well, combinational loops! As we directly connect `cycle` and `value` in `main`, we now have to be very careful that `cycle` never depends in any way to a change in `value`, otherwise we create a loop in the circuit. This quickly becomes impractical -- nevertheless case B is definitely possible and useful in specific cases (but in terms of Silice you might consider using a `circuitry` instead).
+
+Now, what use are the other cases? Case A is the standard setup in Silice, with inputs directly connected and outputs registered on a flip-flop. Case D is the opposite with inputs registered on a flip-flop and outputs directly connected. Case C is the most conservative, with both inputs and outputs registered on flip-flops. Let's have a look at time diagrams for each four cases to understand the implications:
+
+**TODO**
+
+### Inputs controlled from parent, outputs from instance?
+
+There is an asymmetry in the fact that the behavior of outputs are controlled in the algorithm definition (`output` or `output!`), while the
+behavior of the inputs is controlled at instantiation time (`<:` or `<::`). This reflects the fact that input flip-flops are indeed in the parent,
+while output flip-flops are indeed in the instance. But an algorithm may of course force register its inputs, as explained next.
+
+### Registering inputs 
+
+There are (many) cases where the inputs are actual wires from the outside, and are thus asynchronous signals. In such cases, the inputs have to be registered before being used (watch out for metastability...).
+
+```c
+algorithm Algo(input  uint8 i, output uint8 v)
+{
+  uint8 ri = 0;  
+  
+  ri ::= i; // note the use of :: before the equal sign, this makes ri track i with a one cycle latencly
+  
+  always { v = ri; }
+}
+```
+
+or equivalently:
+
+```c
+algorithm Algo(input  uint8 i, output uint8 v)
+{
+  uint8 ri = 0;  
+  
+  always_before { v  = ri; } // always done first
+  always_after  { ri = i;  } // always done last
+}
+```
 
 ### What about calls?
 
+So how do typical calls with the syntax `() <- alg <- ()` fit in this timing picture?
+
+**TODO**
