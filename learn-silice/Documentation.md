@@ -323,9 +323,7 @@ Silice defines operators for bindings the input/output of algorithms and
 modules:
 
 -   `<:` binds right to left,
-
 -   `:>` binds left to right,
-
 -   `<:>` binds both ways.
 
 The bound sides have to be VIO identifiers. To bind expressions you can
@@ -339,9 +337,8 @@ and modules.
 
 The bidirectional binding is reserved for two use cases:
 
-1.  binding `inout` variables,
-
-2.  binding groups (see
+-  binding `inout` variables,
+-  binding groups (see
     Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>)
     and interfaces (see
     Section <a href="#sec:interfaces" data-reference-type="ref" data-reference="sec:interfaces">3.8</a>).
@@ -357,6 +354,9 @@ tracking algorithm/module immediately gets new values (in other words,
 there is a direct connection). 
 This, however, produces deeper circuits and can reduce the max frequency of a design. These operators allow to bind the value as it was at the cycle start (positive clock edge). 
 This introduces a one cycle latency before the algorithm/module sees the change, but makes the resulting circuit less deep. See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
+
+> **Note:** when a VIO is bound both to an algorithm input and and algorithm output (making a direct connection between two instantiated algorithms), then using `<::` or `<:` will result in the same behavior, which is controlled by the use of `output` or `output!` on the algorithm driving the output. This will be clarified in the future, see [issue #49](https://github.com/sylefeb/Silice/issues/49).
+
 
 ### Always assign
 
@@ -425,7 +425,7 @@ the variables *as they where at the previous clock rising edge*. If used
 in this example, o would be assigned 1+2.
 
 Bound expression can refer to other bound expressions, however *&lt;:*
-and *&lt;::=* cannot be mixed. (They could be in technical terms, but
+and *&lt;::* cannot be mixed. (They could be in technical terms, but
 this was found to quickly lead to confusion).
 
 ## Groups
