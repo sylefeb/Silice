@@ -114,14 +114,11 @@ specific event (e.g. producing a pulse).
 Some terminology we use next:
 
 -   **VIO**: a Variable, Input or Output.
-
 -   **One-cycle block**: A block of operations that require a single
     cycle (no loops, breaks, etc.).
-
 -   **Host hardware framework**: The Verilog glue to the hardware meant
     to run the design. This can also be a glue to Icarus[1] or
     Verilator[2], both frameworks are provided.
-
 -   **Combinational loop**: A combinational chain where a cyclic
     dependency exists. These lead to unstable hardware synthesis and
     have to be avoided.
@@ -215,16 +212,13 @@ Block RAMs are declared in a way similar to tables. Block RAMs map to
 special FPGA blocks and avoid using FPGA LUTs to store data. However,
 accessing a block RAM typically requires a one-cycle latency.
 
-  
+> **Important:** Block RAMs are only initialized at *power-up* (when the FPGA is configured).
+
 A block RAM variable has four members accessible with the ’dot’ syntax:
-
-1.  `addr` the address being accessed,
-
-2.  `wenable` set to 1 if writing, set to 0 if reading,
-
-3.  `rdata` result of read,
-
-4.  `wdata` data to be written.
+- `addr` the address being accessed,
+- `wenable` set to 1 if writing, set to 0 if reading,
+- `rdata` result of read,
+-  `wdata` data to be written.
 
 Here is an example of using a block RAM in Silice:
 
@@ -260,21 +254,14 @@ ROMs use a similar syntax, using `brom` instead of `bram`.
 A dual-port block RAM has eight members accessible with the ’dot’
 syntax:
 
-1.  `addr0` the address being accessed on port 0,
-
-2.  `wenable0` write enable on port 0,
-
-3.  `rdata0` result of read on port 0,
-
-4.  `wdata0` data to be written on port 0,
-
-5.  `addr1` the address being accessed on port 1
-
-6.  `wenable1` write enable on port 1,
-
-7.  `rdata1` result of read on port 1,
-
-8.  `wdata1` data to be written on port1.
+- `addr0` the address being accessed on port 0,
+- `wenable0` write enable on port 0,
+- `rdata0` result of read on port 0,
+- `wdata0` data to be written on port 0,
+- `addr1` the address being accessed on port 1
+- `wenable1` write enable on port 1,
+- `rdata1` result of read on port 1,
+- `wdata1` data to be written on port1.
 
 The dual-port BRAM also has optional clock parameters for port0 and
 port1.
@@ -300,7 +287,7 @@ The first entry may be an expression, the second has to be a constant.
 
 ### Arithmetic, comparison, bit-wise, reduction, shift
 
-All standard verilog operators are supported, binary and unary.
+All standard Verilog operators are supported, binary and unary.
 
 ### Concatenation
 
@@ -333,11 +320,11 @@ Here the last eight bits of variable c are set to the second bit of a.
 Silice defines operators for bindings the input/output of algorithms and
 modules:
 
--   `<:` binds right to left
+-   `<:` binds right to left,
 
--   `:>` binds left to right
+-   `:>` binds left to right,
 
--   `<:>` binds both ways
+-   `<:>` binds both ways.
 
 The bound sides have to be VIO identifiers. To bind expressions you can
 use expression tracking (see
@@ -357,22 +344,17 @@ The bidirectional binding is reserved for two use cases:
     and interfaces (see
     Section <a href="#sec:interfaces" data-reference-type="ref" data-reference="sec:interfaces">3.8</a>).
 
-#### Advanced
+There are two other versions of the binding operators:
 
-There are two specialized versions of the binding operators:
+-   `<::` binds right to left, using value *at latest clock rising edge*,
 
--   `<::` binds right to left, using value at prior clock rising edge,
+-   `<::>` binds an IO group, using value *at latest clock rising edge for    inputs*.
 
--   `<::>` binds an IO group, using value at prior clock rising edge for
-    inputs.
-
-Normally, the bound inputs are tracking the value of the bound VIO as
-they are changing during the current clock cycle. Therefore, the
+Normally, the bound inputs are tracking the value of the bound VIO as changed during the current clock cycle. Therefore, the
 tracking algorithm/module immediately gets new values (in other words,
-there is a combinatorial connection). However, in specific cases one
-needs to bind the value as it was at the last (positive) clock edge,
-ignoring ongoing changes. This may, for instance, be necessary to avoid
-a combinatorial cycle.
+there is a direct connection). 
+This, however, produces deeper circuits and can reduce the max frequency of a design. These operators allow to bind the value as it was at the cycle start (positive clock edge). 
+This introduces a one cycle latency before the algorithm/module sees the change, but makes the resulting circuit less deep. See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
 
 ### Always assign
 
@@ -381,7 +363,7 @@ assignment is performed at each clock rising edge, regardless of the
 execution state of the algorithm. The left side of the assignment has to
 be a VIO identifier, while the right side may be an expression.
 
--   `:=` assign right to left at each rising clock.
+-   `:=` assign right to left at each rising clock,
 
 -   `::=` assign right to left with a one clock cycle delay (two stages
     flip-flop for e.g. clock domain crossing).
@@ -407,11 +389,7 @@ algorithm writer(
 }
 ```
 
-**Important:** the assignment is performed immediately after the clock
-rising edge. If the value of the expression in the right hand side is
-later changing (during the clock cycle), this will not change the value
-of the left hand side. To achieve this use *bound expressions* (see
-next).
+> **Note:** the assignment is performed immediately after the clock rising edge, before anything else. If the value of the expression in the right hand side is later changing (during the clock cycle), this will not change the value of the left hand side. To achieve this use *bound expressions* (see next).
 
 ### Bound expressions
 
@@ -451,7 +429,7 @@ this was found to quickly lead to confusion).
 ## Groups
 
 Often, we want to pass around variables that form conceptual groups,
-like the interface to a controller. Silice has a specific mechanism to
+like the interface to a controller or a 2D point. Silice has a specific mechanism to
 help with that. A group is declared as:
 
 ``` c
@@ -505,6 +483,10 @@ sdramctrl memory(
 );
 ```
 
+The `<::>` operator can also be used in the binding of an interface (see Section <a href="#sec:bindings" data-reference-type="ref" data-reference="sec:bindings">3.6.4</a>).
+
+> **Note:** A group cannot contain tables.
+
 ## Interfaces
 
 Interfaces are ways to describe what inputs and outputs an algorithm
@@ -512,11 +494,11 @@ expects, without knowing in advance the exact specification of these
 fields (e.g. their widths). Besides making algorithm IO description more
 compact, this provides genericity. Interfaces are meant to be bound to
 groups
-(Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>).
+(Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>). The binding does not have to be complete: it is possible to bind to an interface a group having **more** (not less) members than the interface.
 
 Reusing the example of
 Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>
-we can define an interface ahead of time:
+we can define a named interface ahead of time:
 
 ``` c
 interface sdram_provider {
@@ -572,16 +554,49 @@ The `sdramctrl` controller can adjust to this change, using `sameas` and
 another:
 
 ``` c
-  sameas(sd.data_in) tmp;
+sameas(sd.data_in) tmp;
 ```
 
 The second, `widthof`, returns the width of a signal:
 
 ``` c
-  while (i < (widthof(sd.data_in) >> 3)) {
-    // ...
-  }
+while (i < (widthof(sd.data_in) >> 3)) {
+  // ...
+}
 ```
+
+> **Note:** In the future Silice will provide compile time checks, for instance verifying the width of a signal is a specific value.
+
+Interfaces can be declared for a group during algorithm definition.  
+
+```c
+group point {
+  int16 x = 0,
+  int16 y = 0
+}
+
+algorithm foo(
+  point p0 {
+    input x,
+    input y,
+  },
+  point p1 {
+    input x,
+    input y,
+  }
+) {
+  // ..
+```
+
+To make this above cleaner we could create a named interface for an input point, but in cases where all group members are bound either as input or output as simpler syntax exists:
+```c
+algorithm foo(
+  input point p0,
+  input point p1
+) {
+  // ..
+```
+
 
 ## Bitfields
 
@@ -718,6 +733,8 @@ However, using only `output!` will in some cases result in combinational
 loops: a cycle in the described circuitry (that is generally bad).
 Silice detects such cases and will issue an error (see also
 Section <a href="#combloops" data-reference-type="ref" data-reference="combloops">4.6</a>).
+
+> **Note:** Silice combinational loop detection is not perfect yet. Such a problem would typically result in simulation hanging (unable to stabilize the circuit) with Verilator issuing a `UNOPTFLAT` warning.
 
 #### Declarations.
 
@@ -882,6 +899,8 @@ result, the join syntax is used:
 () <- ID; // without receiving variables
 ```
 
+> **Note:** Calling algorithms across clock domains is not yet supported. For such cases, autorun with bindings is recommended.
+
 ## Subroutines
 
 Algorithms can contain subroutines. These are local routines that can be
@@ -1043,6 +1062,8 @@ instantiation from an algorithm:
 (sd) = writeData(sd,myaddr,abyte);
 ```
 
+> **Note:** currently circuitry instantiation can only be made on VIO identifiers (no expressions, no bit-select or part-select). This restriction will be removed at some point. In the meantime bound expressions provide a work around, first defining a bound expression with an identifier then giving it to the circuitry (these can be defined in a block around the circuit instantiation).
+
 ## Combinational loops
 
 When writing code, you may encounter a case where the Silice compiler
@@ -1109,6 +1130,8 @@ It would be difficult to manually keep track of all these potential
 chains, which is why Silice does it for you! In practice, such loops are
 rarely encountered, and in most cases easily resolved with slight
 changes to arithmetic and logic.
+
+> **Note:** Silice combinational loop detection is not perfect yet. Such a problem would typically result in simulation hanging (unable to stabilize the circuit) with Verilator issuing a `UNOPTFLAT` warning.
 
 ## Always assignments
 
@@ -1400,6 +1423,8 @@ already finished.
 
 A synchronized call to a subroutine takes at best two cycles: one cycle
 to jump to the subroutine initial state, and one cycle to jump back.
+
+> **Note:** Keep in mind that algorithms can also autorun and have their inputs/outputs bound to variables. Algorithms may also contain an `always_before` or `always_after` blocks that are always running.
 
 ## Pipelining
 
