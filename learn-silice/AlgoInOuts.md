@@ -27,13 +27,17 @@ The join both waits for the algorithm to be done and read its outputs. However, 
 of an algorithm at any time using the `alg_inst.out1` syntax. In such cases, it is of course your responsibility to know whether the outputs are valid when read.
 Similarly, the inputs can be written using the `alg_inst.in1 = ...` syntax.
 
-For these reasons, an algorithm instance can also be called without any parameter, e.g.: `() <- alg_inst <- ()`, and the same is true of separate async / join calls.
+For these reasons, an algorithm instance can also be called without any parameter on either side, e.g.: `() <- alg_inst <- ()` or `() <- alg_inst <- (in1,...,inM)` or  `(out1,...,outN) <- alg_inst <- ()`. The same is true of separate async / join calls.
 
-When called with `alg_inst <- (...)` it takes exactly one cycle for the algorithm to start. Upon termination, it takes one cycle for the caller to be notified. Thus, calling an algorithm that executes in exactly `C` cycles will take `C+2` cycles when called as `(...) <- alg_inst <- (...)`.
+When called with `alg_inst <- (...)` it takes one cycle for the algorithm to start. Upon termination, it takes one cycle for the caller to be notified. Thus, calling an algorithm that executes in exactly `C` cycles will take `C+2` cycles when called as `(...) <- alg_inst <- (...)`.
 
 Note that input/output interfaces have to be bound: they cannot be passed in a call (see next).
 
 ## Bindings
+
+Algorithms input and outputs can be bound upon algorithm instantiation (the same of true of imported Verilog modules).
+
+All or only parts of the inputs and outputs may be bound. However, once at least one binding exists, the only way to call the algorithm is with empty parameter lists: `() <- alg_inst <- ()`. The 'dot' syntax remains available for all but bound inputs/outputs.
 
 
 

@@ -3,6 +3,8 @@
 
 This is the Silice main documentation.
 
+When designing with Silice your code describes circuits. If not done already, it is highly recommended to [watch the introductory video](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube) to get more familiar with this notion and what it entails.
+
 ## Table of content
 
 -   [A first example](#a-first-example)
