@@ -4,6 +4,10 @@ This project is a recreation in FPGA hardware of the classic Novalogic Voxel Spa
 
 It was developed and tested on an [IceBreaker board](https://1bitsquared.com/collections/fpga/products/icebreaker) with a Digilent VGA PMOD.
 
+<p align="center">
+  <img width="600" src="video.gif">
+</p>
+
 ### **How to test**
 
 In addition to Silice, a RISC-V environment is needed, see [Getting Started](../../GetStarted.md).
@@ -47,6 +51,75 @@ This also fits nicely in four SPRAMs:
 - SPRAM C, 32KB, interleaved height + color data (16bits per pixel)
 - SPRAM D, 32KB, free!
 
+In Silice, creating the SPRAMs first requires to include a Verilog module instantiating the vendor-specific primitive (we are looking at [main.ice](main.ice)):
+```c
+import('../common/ice40_spram.v')
+```
+(quick look at [ice40_spram.v](../common/ice40_spram.v), quite simple)
+
+Then we instantiate all three SPRAMs. Two for the framebuffer:
+
+```c
+// SPRAM 0 for framebuffer
+uint14 fb0_addr(0);
+uint16 fb0_data_in(0);
+uint1  fb0_wenable(0);
+uint4  fb0_wmask(0);
+uint16 fb0_data_out(0);
+ice40_spram frame0(
+  clock    <: vga_clock,
+  addr     <: fb0_addr,
+  data_in  <: fb0_data_in,
+  wenable  <: fb0_wenable,
+  wmask    <: fb0_wmask,
+  data_out :> fb0_data_out
+);
+
+// SPRAM 1 for framebuffer
+uint14 fb1_addr(0);
+uint16 fb1_data_in(0);
+uint1  fb1_wenable(0);
+uint4  fb1_wmask(0);
+uint16 fb1_data_out(0);
+ice40_spram frame1(
+  clock    <: vga_clock,
+  addr     <: fb1_addr,
+  data_in  <: fb1_data_in,
+  wenable  <: fb1_wenable,
+  wmask    <: fb1_wmask,
+  data_out :> fb1_data_out
+);
+```
+
+Note how we create Silice variables before binding them with the `<:` and `:>` syntax for inputs/outputs. By reading/writing these variables we will control these modules.
+
+And then one for color and heightmap:
+
+```c
+// SPRAM for packed color + heightmap
+// - height [0, 8]
+// - color  [8,16]
+//
+uint1  map_write(0);
+uint14 map_waddr(0);
+uint16 map_data(0);
+uint14 map_raddr(0);
+uint14 map_addr    <:: map_write ? map_waddr : map_raddr;
+uint1  map_wenable <:: map_write;
+uint4  map_wmask   <:: 4b1111;
+uint16 map_data_out(0);
+ice40_spram map(
+    clock    <: vga_clock,
+    addr     <: map_addr,
+    data_in  <: map_data,
+    wenable  <: map_wenable,
+    wmask    <: map_wmask,
+    data_out :> map_data_out
+);
+```
+
+This last one has some of its inputs using bound expressions (with the `<::` syntax). For instance `map_addr` will be either `map_waddr` or `map_raddr` depending on the value of `map_write`.
+
 ### **Algorithm overview**
 
 The design for the renderer is in [`terrain_renderer.ice`](terrain_renderer.ice).
@@ -62,12 +135,32 @@ The view is renderer front to back in a sequence of *z-steps*. Each z-step trave
   <img width="400" src="figure_zsteps.png">
 </p>
 
+The z-steps are produced in the loops:
+```c
+while (iz != $z_num_step$) {
+  ... 
+  // go through screen columns
+  x = 0;
+  while (x != 320) {
+    ... 
+  }
+}
+```
+
 Given the height for the screen column at x, we compute the y position on screen by perspective projection (division by the distance from view). We then draw a vertical segment, from the position of the last z-step to the new one.
 The animation below reveals the z-steps, drawn one after the other from front to back.
 
 <p align="center">
   <img width="400" src="figure_zsteps.gif">
 </p>
+
+The vertical spans are written in the loop:
+```c
+// fill column
+while (y_last.rdata != 0 && y > y_screen) { 
+  ...
+}
+```
 
 Between each z-step, two arrays `y_last` and `c_last` record the color and screen height reached by the previous z-step. The height is used to restart from this height when drawing the next z-step. Note that the height of the next z-step could be below due to a downward slope and/or the effect of perspective, in which case nothing is drawn. A nice property of this approach is that pixels are drawn only once!
 
@@ -100,6 +193,44 @@ The table below shows what happens every eight cycles. On cycle 7 we read (R) fo
 
 It is important to understand why we read on cycle 7: the SPRAM takes one cycle to retrieve the data. If we ask for pixel 0 on cycle 0 it is already too late! We need to be one cycle in advance. 
 
+How do we implement this in practice? 
+
+In [`main.ice`](main.ice) we have two variables controlling the synchronization: `frame_fetch_sync` and  `next_pixel`.
+
+`frame_fetch_sync` is a `uint8` initialized to `1` and is updated each cycle as 
+```c
+frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,7]};
+``` 
+in the `always_after`, at the end of each cycle.
+
+`next_pixel` is a `uint2` initialized to `1` and is updated each cycle as 
+```c
+next_pixel = {next_pixel[0,1],next_pixel[1,1]};
+```
+in the `always_after`, at the end of each cycle.
+
+By testing `frame_fetch_sync[0,1]` we determine when to read in the framebuffer SPRAM (the `R` step above). By testing `next_pixel[0,1]` we determine when to shift to obtain the next pixel (`>>` step above). This is performed in the `always_before` block:
+
+```c
+always_before {
+
+    // Updates the four pixels, either getting data from spram or shifting them to go to the next one.
+    // This is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo).
+    // As we render 320x200 4bpp, there are 8 clock cycles of the 640x480 clock for four frame pixels.   
+    // Note that the read from SPRAM is prepared on the cycle before, when frame_fetch_sync[1,1] == 1
+    four_pixs = frame_fetch_sync[0,1]
+              ? {fb1_data_out[12,4],fb0_data_out[12,4], fb1_data_out[8,4],fb0_data_out[8,4], 
+                 fb1_data_out[ 4,4],fb0_data_out[ 4,4], fb1_data_out[0,4],fb0_data_out[0,4]}
+              : (next_pixel[0,1] ? (four_pixs >> 8) : four_pixs);      
+
+    // query palette, pixel will be shown next cycle
+    palette.addr0 = four_pixs[0,8];  
+
+  }
+```
+
+Now there are some slight complications to ensure everything happens in sync and is ready at the start of every frame and row. I won't go through all details, but checkout `pix_fetch` and `next_frame` if interested.
+
 ### **Blocky results and interpolation to the rescue**
 
 If implemented as described so far, the results would be very blocky:
@@ -125,6 +256,30 @@ algorithm interpolator(
 ```
 
 This take 8 bits values `a` and `b` and another 8 bit interpolator `i`. It outputs an 8 bits `v` such that `v == a` if `i == 0` and `v == b` if `i == 255`. In fact, linear interpolation is indeed very simple (and gets nicely mapped to DSP blocks by Yosys!).
+
+The actual interpolation of elevation is done here:
+```c
+  // sample next elevations, with texture interpolation  
+  // interleaves access and interpolator computations
+  map_raddr  = {l_y[$fp$,7],l_x[$fp$,7]};
+++:          
+  h00        = map_rdata;
+  map_raddr  = {l_y[$fp$,7],l_x[$fp$,7]+7b1};
+++:          
+  h10        = map_rdata;
+  interp_a   = h00[0,8];  // trigger interpolation
+  interp_b   = h10[0,8];
+  interp_i   = l_x[$fp-8$,8];
+  map_raddr  = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
+```
+
+Remember that `map_raddr` is bound to the SPRAM for the terrain map. So when we set an address there we are getting ready to retrieve a value from the map. Then we use Silice `++:` operator to wait one cycle, and get the value from `map_rdata` into `h00`. This is our first value to interpolate from. We then retrieve the second value in `h10` in a similar manner, using the coordinates with +1 in x: `{l_y[$fp$,7],l_x[$fp$,7]+7b1}` (this is a concatenation of y,x that produces an address in row (x) major order). Now we are ready to call the interpolator that is bound to `interp_a` , `interp_b` and `interp_i`: 
+```c
+  interp_a   = h00[0,8];  // trigger interpolation
+  interp_b   = h10[0,8];
+  interp_i   = l_x[$fp-8$,8];
+```
+We use only the first 8 bits of `h00` and `h10` as the higher 8 bits are the color palette index.
 
 Here is the linear interpolation applied to the view above:
 <p align="center">
@@ -155,7 +310,7 @@ Dithering is very effective, see for yourself!
   <img width="400" src="all_interp.png">
 </p>
 
-Now there is one complication here. As we walk along the x-axis we can easily select between the two colors (corresponding to the two maps pixels we are in-between). However, vertically (on-screen) we need to interpolate between the previous color along the z-step and the current color that has been select by dithering. That is why we have a second array `c_last` storing color for the previous z-step. And this is it! We now have a nicely smooth terrain, with the cool old-school dithering touch.
+Now there is one complication here. As we walk along the x-axis we can easily select between the two colors (corresponding to the two maps pixels `h00` and `h10` we are in-between). However, vertically (on-screen) we need to interpolate between the previous color along the z-step and the current color that has been select by dithering. That is why we have a second array `c_last` storing color for the previous z-step. And this is it! We now have a nicely smooth terrain, with the cool old-school dithering touch.
 
 The dithering Bayer matrix is stored in code:
 
@@ -174,17 +329,25 @@ The dithering Bayer matrix is stored in code:
   }; 
 ```
 
-It is accessed first between x-axis colors:
+It is accessed first choosing between x-axis colors:
 ```c
-l_or_r      = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x[$fp-6$,6]; // horizontal
+l_or_r = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x[$fp-6$,6]; // horizontal
 ```
 
-and then between y(screen)-axis vertical colors:
+and then choosing between y(screen)-axis vertical colors:
 ```c
-t_or_b      = bayer_8x8[ { x[0,3] , y[0,3] } ] < v_interp[4,6]; // vertical
+t_or_b = bayer_8x8[ { x[0,3] , y[0,3] } ] < v_interp[4,6]; // vertical
 ```
 
-Note how in both cases the screen `x` and `y` coordinates are used to access the matrix -- this is done for better visual temporal coherence. Then the value in the matrix is compared to the interpolation threshold, which is used used to decide  which of three colors to select: left/right of the new z-step, or the color from the previous step.
+with the final color selection being:
+
+```c
+clr = l_or_r ? ( t_or_b ? h00[8,8] : c_last.rdata ) : (t_or_b ? h10[8,8] : c_last.rdata);
+```
+
+This select either the left (`h00`), right (`h10`) or bottom (previous z-step) color (`c_last.rdata`). The bottom color was retrieved from a BRAM (`c_last`) storing `uint8` indices in the palette. The BRAM is 320 pixel wide (one entry per screen column). It is access by first setting an address `c_last.addr := x;` ; this continuously sets the address to be the current value of `x`. When `x` changes, the new value is available at the next cycle. As `x` is updated at the end of the `while` loop (`x = x +  1;`), when the loop resumes we have the new value in `c_last.rdata`.
+
+Going back to the Bayer matrices and `l_or_r`, `t_or_b`, note how in both cases the screen `x` and `y` coordinates are used to access the matrix. This is done for better visual temporal coherence. Then the value in the matrix is compared to the interpolation threshold, which is used used to decide  which of three colors to select: left/right of the new z-step, or the color from the previous step.
 
 ```c
 clr         = l_or_r ? ( t_or_b ? h00[8,8] : c_last.rdata ) : (t_or_b ? h10[8,8] : c_last.rdata);

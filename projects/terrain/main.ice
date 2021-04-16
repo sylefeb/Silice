@@ -235,28 +235,25 @@ $$end
   // - height [0, 8]
   // - color  [8,16]
   //
-  // -> write to maps (loading data)
   uint1  map_write(0);
   uint14 map_waddr(0);
   uint16 map_data(0);
-  // -> map0
-  uint14 map0_raddr(0);
-  uint1  map0_write   <:: map_write;
-  uint14 map0_addr    <:: map0_write ? map_waddr : map0_raddr;
-  uint1  map0_wenable <:: map0_write;
-  uint4  map0_wmask   <:: 4b1111;
-  uint16 map0_data_out(0);
+  uint14 map_raddr(0);
+  uint14 map_addr    <:: map_write ? map_waddr : map_raddr;
+  uint1  map_wenable <:: map_write;
+  uint4  map_wmask   <:: 4b1111;
+  uint16 map_data_out(0);
 $$if VERILATOR then
-  verilator_spram map0(
+  verilator_spram map(
 $$else
-  ice40_spram map0(
+  ice40_spram map(
     clock    <: vga_clock,
 $$end
-    addr     <: map0_addr,
+    addr     <: map_addr,
     data_in  <: map_data,
-    wenable  <: map0_wenable,
-    wmask    <: map0_wmask,
-    data_out :> map0_data_out
+    wenable  <: map_wenable,
+    wmask    <: map_wmask,
+    data_out :> map_data_out
   );
 
   // ==== voxel space renderer instantiation
@@ -270,8 +267,8 @@ $$end
     fb          <:> fb,
     sky_pal_id   <: sky_pal_id,
     btns         <: r_btns,
-    map0_raddr   :> map0_raddr,
-    map0_rdata   <: map0_data_out,
+    map_raddr    :> map_raddr,
+    map_rdata    <: map_data_out,
     write_en     <: write_en,
     vblank       <: vblank
   );
