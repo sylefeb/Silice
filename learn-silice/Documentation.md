@@ -448,6 +448,8 @@ group sdram_32b_io
 }
 ```
 
+Note that group declarations are made *outside* of algorithms.
+
 A group variable can be declared directly:
 
 ``` c
@@ -462,7 +464,7 @@ This will further specify which group members are input and outputs:
 ``` c
 algorithm sdramctrl(
   // ..
-  // interface
+  // anonymous interface
   sdram_provider sd {
     input   addr,       // address to read/write
     input   rw,         // 1 = write, 0 = read
@@ -487,16 +489,51 @@ sdramctrl memory(
 
 The `<::>` operator can also be used in the binding of an interface (see Section <a href="#sec:bindings" data-reference-type="ref" data-reference="sec:bindings">3.6.4</a>).
 
-> **Note:** A group cannot contain tables.
+A group can be passed in a call if the algorithm describes an anonymous interface. If the interface has both inputs and outputs, the group can appear both as an input and an output in the call.
 
-## Interfaces
+> **Note:** A group cannot contain tables nor other groups.
 
-Interfaces are ways to describe what inputs and outputs an algorithm
-expects, without knowing in advance the exact specification of these
-fields (e.g. their widths). Besides making algorithm IO description more
-compact, this provides genericity. Interfaces are meant to be bound to
-groups
-(Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>). The binding does not have to be complete: it is possible to bind to an interface a group having **more** (not less) members than the interface.
+## Anonymous interfaces
+
+Interfaces can be declared for a group during algorithm definition.  
+
+```c
+group point {
+  int16 x = 0,
+  int16 y = 0
+}
+
+algorithm foo(
+  point p0 {
+    input x,
+    input y,
+  },
+  point p1 {
+    input x,
+    input y,
+  }
+) {
+  // ..
+```
+
+To simplify the above, and when group members are all bound either as inputs or outputs, as simpler syntax exists:
+```c
+algorithm foo(
+  input point p0,
+  input point p1
+) {
+  // ..
+```
+
+Anonymous interfaces allow groups to be given as parameters during calls.
+
+## Named interfaces
+
+Named interfaces are ways to describe what inputs and outputs an algorithm expects, without knowing in advance the exact specification of these fields (e.g. their widths). 
+Besides making algorithm IO description more compact, this provides genericity. 
+
+Named interfaces **have** to be bound to a group
+(Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>) or an interface upon algorithm instantiation. They cannot be used to pass a group in a call. The binding does not have to be complete: it is possible to bind to an interface a group having **more** (not less) members than the interface.
 
 Reusing the example of
 Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>
@@ -525,7 +562,7 @@ And then the sdram controller algorithm declaration simply becomes:
     // ..
 ```
 
-Note than the algorithm is now using a generic interface, it does not
+Note than the algorithm is now using a named interface, it does not
 know in advance the width of the signals in the interface. This is
 determined at binding time, when a group is bound to the interface.
 Interfaces can be bound to other interfaces, the information is
@@ -568,36 +605,6 @@ while (i < (widthof(sd.data_in) >> 3)) {
 ```
 
 > **Note:** In the future Silice will provide compile time checks, for instance verifying the width of a signal is a specific value.
-
-Interfaces can be declared for a group during algorithm definition.  
-
-```c
-group point {
-  int16 x = 0,
-  int16 y = 0
-}
-
-algorithm foo(
-  point p0 {
-    input x,
-    input y,
-  },
-  point p1 {
-    input x,
-    input y,
-  }
-) {
-  // ..
-```
-
-To make this above cleaner we could create a named interface for an input point, but in cases where all group members are bound either as input or output as simpler syntax exists:
-```c
-algorithm foo(
-  input point p0,
-  input point p1
-) {
-  // ..
-```
 
 
 ## Bitfields
@@ -658,7 +665,7 @@ Silice has convenient intrinsics:
 
 # Algorithms
 
-Algorithms are the main elements of a Silice design. An algorithm is a
+Algorithms are the main elements of a Silice design. An algorithm is a 
 specification of a circuit implementation. Thus, like modules in
 Verilog, algorithms have to be instanced before being used. Each
 instance becomes an actual physical layout on the final design. An
@@ -851,6 +858,8 @@ having the same name and binds them directly. While this is convenient
 when many bindings are repeated and passed around, it is recommended to
 use groups for brevity and make all bindings explicit.
 
+> **Note** automatic binding can be convenient, but is discouraged as it relies a name matching and changes can introduce silent errors. When a large number of inputs/outputs have to be bound, consider using groups and interfaces.
+
 #### Direct access to inputs and outputs.
 
 The inputs and outputs of instanced algorithms, when not bound, can be
@@ -877,10 +886,12 @@ algorithm main(output uint8 led)
 Algorithms may be called synchronously or asynchronously, with or
 without parameters. Only instanced algorithms may be called.
 
+See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
+
 The asynchronous call syntax is as follows:
 
 ``` verilog
-ID <- (|$P_0,...,P_{N-1}$|); // with parameters
+ID <- (P_1,...,P_N); // with parameters
 ID <- (); // without parameters
 ```
 
@@ -897,7 +908,7 @@ the caller and any other instanced algorithm. To wait and obtain the
 result, the join syntax is used:
 
 ``` verilog
-(|$V_0,...,V_{N-1}$|) <- ID; // with receiving variables
+(V_1,...,V_N) <- ID; // with receiving variables
 () <- ID; // without receiving variables
 ```
 
@@ -939,7 +950,7 @@ calls ID
 }
 ```
 
-(return is optional)
+(a final return is optional)
 
 Here are simple examples:
 
@@ -1088,6 +1099,9 @@ Example of a combinational loop:
 algorithm main()
 {
   uint8 a = 0;
+  uint8 b = 0;
+  // ...
+  a = b + 1;
   a = a + 1; // triggers a combinational loop error
 }
 ```
@@ -1095,41 +1109,32 @@ algorithm main()
 So what happens? It might seem that `a = a + 1` is the problem here, as
 it writes as a cyclic dependency. In fact, that is not the sole cause.
 On its own, this expression is perfectly fine: for each variable Silice
-tracks to versions, the one of the previous clock tick and the one of
-the current. So `a = a + 1` in fact means
-*a*<sub>*c**u**r**r**e**n**t*</sub> = *a*<sub>*p**r**e**v**i**o**u**s*</sub> + 1.
+tracks to versions, the value at the cycle start and the value being modified (corresponding to a hardware flip-flip DQ pair). So `a = a + 1` in fact means
+*a*<sub>current</sub> = *a*<sub>previous</sub> + 1. In fact, the code describes the circuit to update *a*<sub>previous</sub> from *a*<sub>current</sub>.
 
-The problem here comes from the initialization of *a*, in the
-declaration. This already set a new value to
-*a*<sub>*c**u**r**r**e**n**t*</sub>, and thus the next expression
-`a = a + 1` would have to use this new value (otherwise it would be
-ignored entirely!). This now leads to
-*a*<sub>*c**u**r**r**e**n**t*</sub> = *a*<sub>*c**u**r**r**e**n**t*</sub> + 1
-which this time is a combinational loop.
+The problem here comes from the prior assignment to *a*, `a = b + 1`. 
+This already sets a new value for *a*<sub>current</sub>, and thus the next expression
+`a = a + 1` would have to use this new value. This now leads to
+*a*<sub>current</sub> = *a*<sub>current</sub> + 1
+which this time is a combinational loop: a circuit that forms a closed loop.
 
-There are two possible solutions, first:
+A possible solution is to insert a cycle in between:
 
 ``` c
-algorithm main()
-{
-  uint8 a = 0;
-  ++: // wait one cycle
-  a = a + 1; // now this is fine
-}
+a = b + 1;
+++: // wait one cycle
+a = a + 1; // now this is fine
 ```
 
-Second:
-
+Another is to rewrite as (!):
 ``` c
-algorithm main()
-{
-uint8 a(0); // a is initialized at power-up
-a = a + 1;  // now this is fine
-}
+a = b + 2;
 ```
 
-It would be difficult to manually keep track of all these potential
-chains, which is why Silice does it for you! In practice, such loops are
+> **Note:** Silice does not attempt to fix loops on its own, even in such simple cases. This may change in the future. However Silice has a gold rule to *never* introduce cycles or flip-flops that could not be predicted by the designer.
+
+It would be difficult to manually keep track of all potential
+chains, especially as they can occur through bindings, which is why Silice does it for you! In practice, such loops are
 rarely encountered, and in most cases easily resolved with slight
 changes to arithmetic and logic.
 
