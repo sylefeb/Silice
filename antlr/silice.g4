@@ -337,8 +337,8 @@ instruction         : assignment
                     | display
                     ;
 
-alwaysBlock         : ALWAYS       '{' instructionList '}';
-alwaysAfterBlock    : ALWAYS_AFTER '{' instructionList '}';
+alwaysBlock         : ALWAYS       block;
+alwaysAfterBlock    : ALWAYS_AFTER block;
 
 repeatBlock         : REPEATCNT '{' instructionList '}' ;
 

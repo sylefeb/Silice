@@ -624,9 +624,11 @@ private:
     /// \brief stores encountered forwards refs for later resolution
     std::unordered_map< std::string, std::vector< t_forward_jump > >  m_JumpForwardRefs;
     /// \brief maximum state value of the algorithm
-    int m_MaxState = -1;
+    int m_MaxState      = -1;
     /// \brief integer name of the next block
     int m_NextBlockName = 1;
+    /// \brief indicates whether this algorithm is the topmost in the design
+    bool m_TopMost      = false;
 
   public:
 

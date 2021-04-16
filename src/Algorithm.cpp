@@ -5831,7 +5831,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     }
     out << "  if (" << reset;
     if (!hasNoFSM()) {
-      out << " || !in_run";
+      out << " || !" ALG_INPUT << "_" << ALG_RUN;
     }
     out << ") begin" << nxl;
     for (const auto &v : m_Vars) {
@@ -6785,6 +6785,7 @@ void Algorithm::writeModuleMemory(std::string instance_name, std::ostream& out, 
 void Algorithm::writeAsModule(std::string instance_name, std::ostream &out)
 {
   t_instantiation_context ictx; // empty instantiation context
+  m_TopMost = true;
   writeAsModule(instance_name, out, ictx, true);
 }
 
@@ -6974,7 +6975,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
   for (const auto &v : m_InOuts) {
     out << string(ALG_INOUT) << '_' << v.name << ',' << nxl;
   }
-  if (!hasNoFSM()) {
+  if (!hasNoFSM() || m_TopMost /*topmost keeps these for glue convenience*/) {
     out << ALG_INPUT << "_" << ALG_RUN << ',' << nxl;
     out << ALG_OUTPUT << "_" << ALG_DONE << ',' << nxl;
   }
@@ -6997,7 +6998,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
     sl_assert(v.table_size == 0);
     writeVerilogDeclaration(out, ictx, "inout", v, string(ALG_INOUT) + "_" + v.name);
   }
-  if (!hasNoFSM()) {
+  if (!hasNoFSM() || m_TopMost) {
     out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
     out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ';' << nxl;
   }
@@ -7109,7 +7110,11 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
 
   // algorithm done
   if (!hasNoFSM()) {
+    // track whenever algorithm reaches termination
     out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << toFSMState(terminationState()) << ");" << nxl;
+  } else if (m_TopMost) {
+    // a top most always will never be done
+    out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = 0;" << nxl;
   }
 
   // flip-flops update
