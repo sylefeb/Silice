@@ -1,6 +1,6 @@
 # Learn FPGA programming with Silice
 
-This page covers introductory topics. For more advanced topics please checkout the [advanced topics](Advanced.md) page as well as the [efficient design guidelines](Guidelines.md).
+This page covers introductory topics. For more advanced topics please checkout the [advanced topics](Advanced.md) page.
 
 Silice has a [reference documentation](Documentation.md).
 
