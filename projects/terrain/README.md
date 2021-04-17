@@ -5,23 +5,23 @@ This project is a recreation in FPGA hardware of the classic Novalogic Voxel Spa
 It was developed and tested on an [IceBreaker board](https://1bitsquared.com/collections/fpga/products/icebreaker) with a Digilent VGA PMOD.
 
 <p align="center">
-  <img width="600" src="video.gif">
+  <img width="500" src="video.gif">
 </p>
 
 ### **How to test**
 
-In addition to Silice, a RISC-V environment is needed, see [Getting Started](../../GetStarted.md).
+In addition to Silice, a RISC-V compilation environment is needed, see [Getting Started](../../GetStarted.md).
 
 - **With an Icebreaker**: plug your board, then from a command line in this directory `./build.sh`
 - **In simulation**: from a command line in this directory `./simul.sh` ; this requires the [Verilator framework](../../GetStarted.md).
 
 ### **Design files**
 
-- [`main.ice`](main.ice) is the main framework
-- [`terrain_renderer.ice`](terrain_renderer.ice) is the hardware renderer
-- [`firmware.c`](firmware.c) is the RISC-V firmware code
+- [`main.ice`](main.ice) is the main framework.
+- [`terrain_renderer.ice`](terrain_renderer.ice) is the hardware renderer.
+- [`firmware.c`](firmware.c) is the RISC-V firmware code.
 
-For more details on the Risc-V implementation see the [fire-v project](../fire-v/).
+For more details on the Risc-V implementation see the [fire-v project](../fire-v/) (but here it is only used for copying data around).
 
 ## Revisiting the Voxel Space algorithm in hardware
 
@@ -32,7 +32,7 @@ renderer. The [github repo by s-macke](https://github.com/s-macke/VoxelSpace) gi
 
 A first challenge in fitting this on an UP5K is the limited memory. A terrain renderer typically uses a large amount of memory to store the terrain data: elevation and color map. 
 
-Our UP5K FPGA features two types of specialized memories: BRAM ([Block RAM](https://www.nandland.com/articles/block-ram-in-fpga.html)) and SPRAM (Single Port RAM). These are very fast, returning a value in a single clock cycle, but they are also in limited supply: we have 128 kilobytes in four SPRAMs (each 32 kilobytes), plus 120 kilobits (*bits* not *bytes*) of dual-port BRAM. That's not much. In contrast, a single map of the original Comanche game is 2 megabytes (color + height), and a 320x200 framebuffer is already 64 kilobytes (320 x 200 x 8 bits for a 256 colors palette).
+Our UP5K FPGA features two types of specialized memories: BRAM ([Block RAM](https://www.nandland.com/articles/block-ram-in-fpga.html)) and SPRAM (Single Port RAM). These are very fast, returning a value in a single clock cycle, but they are also in limited supply: we have 128 kilobytes in four SPRAMs (each 32 kilobytes), plus 120 kilobits (*bits* not *bytes*) of dual-port BRAM. That's not much. In contrast, a single map of the original Comanche game is 2 *Mega*bytes (color + height), and a 320x200 framebuffer is already 64 kilobytes (320 x 200 x 8 bits for a 256 colors palette).
 
 Of course we can always downsample the maps, and we will do just that, using maps of 128x128 pixels. However the loss in resolution is extreme, and the results on screen would be far from pleasing using the original algorithm. So we cannot stop there, we need some tricks. In particular, we will resort on both interpolation and dithering. More on that later.
 
@@ -40,9 +40,9 @@ Many rendering algorithms require two framebuffers: one is displayed while the n
 This means we can allocate 64 kilobytes to a single full 320x200 8 bits framebuffer. (*Note:* a first version was using two 4 bits framebuffers, and it was looking quite good! but the extra color depth can be useful for future extensions and a more varied terrain.)
 
 Alright, so we've settled on a 8bits color palette, maps of 128x128 and screen resolution of 320x200. Our memory budget looks like that:
-- 128x128 8bits terrain height (16KB)
-- 128x128 8bits terrain color  (16KB)
-- one 320x200 8bits framebuffer (64KB)
+- 128x128 8 bits terrain height (16KB)
+- 128x128 8 bits terrain color  (16KB)
+- one 320x200 8 bits framebuffer (64KB)
 So that's a grand total of 96KB, leaving some free SPRAM for future expansions.
 
 This also fits nicely in four SPRAMs:
@@ -180,9 +180,9 @@ The VGA signal is created using the VGA controller provided with Silice: [`../co
 
 As the VGA signal is produced, the VGA module gives us screen coordinates and expects a RGB color in return. We will store our framebuffer in SPRAMs, and thus have to access the memory as the VGA signal is produced (e.g. we'll be *racing the beam*).
 
-An SPRAM is used as follows: at a given cycle we set an address and ask either to read or write -- we cannot do both at once. On the next cycle the memory transaction is done (data is available if we were reading), and we can immediately do another. So we can read or write one value every cycle, at any address. A huge luxury when it comes to memory!
+An SPRAM is used as follows: at a given cycle we set an address and ask either to read or write -- we cannot do both at once. On the next cycle the memory transaction is done (data is available if we were reading), and we can immediately do another memory request. So we can read or write one value every cycle, at any address. A huge luxury when it comes to memory!
 
-As discussed earlier, we will use a single 320x200 8 bits framebuffer stored across two 32 kilobytes SPRAMs. The 8 bits of a pixel are split as 4 bits in each SPRAM. This has the advantage that both SPRAM are accessed with the same addresses: to retrieve pixel 0 we read address 0 and get the four least significant in the first SPRAM and the four most significant bits in the other.
+As discussed earlier, we will use a single 320x200 8 bits framebuffer stored across two 32 kilobytes SPRAMs. The 8 bits of a pixel are split as 4 bits in each SPRAM. This has the advantage that both SPRAM are accessed with the same addresses: to retrieve pixel 0 we read address 0 and get the four least significant in the first SPRAM and the four most significant bits in the second SPRAM.
 
 The ice40 SPRAMs are 16 bits wide. This means that we read 16 bits at once at a given address. As we read two SPRAMs simultaneously we get 32 bits, or four 8 bits pixels. This is great, because it means that we will not have to read often from the framebuffer as the VGA signal is produced. It gets even better: our VGA signal has a 640 pixels horizontal resolution, while we want to output only 320 pixels horizontally. So we only have to read once in the SPRAMs to cover 8 screen pixels. That is one read every 8 clock cycles. During the seven other cycles the SPRAMs are free. Why does it matter? Well we also have to write the rendered image into the framebuffer!
 
@@ -231,6 +231,22 @@ always_before {
 
 Now there are some slight complications to ensure everything happens in sync and is ready at the start of every frame and row. I won't go through all details, but checkout `pix_fetch` and `next_frame` if interested.
 
+As we read from the SPRAMs every eight cycles, we let the terrain renderer know when it can write through the `write_en` variable.
+The terrain renderer then disables its writes (skipping one cycle) whenever `writen_end` is low:
+
+```c
+fb.in_valid = write_en;
+// ...
+y           = write_en ? y - 1 : y; // incremented only if we could write
+```
+This has to happen in advance, taking into account latencies throughout the design which is why `write_en` is:
+
+```c
+  uint1 write_en <:: ~ frame_fetch_sync[3,1]; // renderer can write only when framebuffer is not read
+  //                                    ^ we cancel writes just at the right time to ensure that when
+  //                                      the framebuffer value is read a write is not occuring
+```
+
 ### **Blocky results and interpolation to the rescue**
 
 If implemented as described so far, the results would be very blocky:
@@ -238,9 +254,9 @@ If implemented as described so far, the results would be very blocky:
   <img width="400" src="no_interp.png">
 </p>
 
-This, of course, is due to the low 128x128 resolution of the height map and color map. In computer graphics (and many other fields!) the first thing that comes to ming is 'let's interpolate the data!'. Btw, this was one of the huge steps forward when GPU were introduced. I vividly remember the jump in quality between the *Tomb Raider* software renderer and the *3dfx* one -- a lot of it was due to the nice smooth bi-linear texture interpolation! So, we know what to do, let's interpolate.
+This, of course, is due to the low 128x128 resolution of the height map and color map. In computer graphics (and many other fields!) the first thing that comes to ming is 'let's interpolate the data!'. Btw, this was one of the huge steps forward when GPUs were introduced. I vividly remember the jump in quality between the *Tomb Raider* software renderer and the *3dfx* one -- a lot of it was due to the nice smooth bi-linear texture interpolation! So, we know what to do, let's interpolate.
 
-Interpolating the z-coordinates is relatively straightforward, and in this axis aligned version, we actually only have to interpolate between two samples during the x traversal of each z-step (but the code has a full bi-linear traversal commented out, for future use ;) ). The linear interpolator is simply:
+Interpolating the z-coordinates is relatively straightforward, and in this axis aligned version, we actually only have to interpolate between two samples during the x traversal of each z-step (but the code has a full bilinear traversal commented out, for future use ;) ). The linear interpolator is simply:
 
 ```c
 algorithm interpolator(
@@ -255,7 +271,7 @@ algorithm interpolator(
 }
 ```
 
-This take 8 bits values `a` and `b` and another 8 bit interpolator `i`. It outputs an 8 bits `v` such that `v == a` if `i == 0` and `v == b` if `i == 255`. In fact, linear interpolation is indeed very simple (and gets nicely mapped to DSP blocks by Yosys!).
+This takes 8 bits values `a` and `b` and another 8 bit interpolator `i`. It outputs an 8 bits `v` such that `v == a` if `i == 0` and `v == b` if `i == 255`. In fact, linear interpolation is indeed very simple (and gets nicely mapped to DSP blocks by Yosys!).
 
 The actual interpolation of elevation is done here:
 ```c
@@ -281,7 +297,7 @@ Remember that `map_raddr` is bound to the SPRAM for the terrain map. So when we 
 ```
 We use only the first 8 bits of `h00` and `h10` as the higher 8 bits are the color palette index.
 
-Here is the linear interpolation applied to the view above:
+Here is the linear interpolation of heights applied to the view above. See the 'polygonal look'? Just an illusion resulting from interpolating the height values, there are no triangles here:
 <p align="center">
   <img width="400" src="z_interp.png">
 </p>
@@ -298,7 +314,7 @@ The reason we cannot easily interpolate colors is because each value we retrieve
   <img width="200" src="palette.png">
 </p>
 
-As it lacks any order, selecting a color in between two others makes little sense. Of course, some palette can be carefully designed to support interpolation (*Doom 1994* does [amazing palette tricks](https://fabiensanglard.net/gebbdoom/) for lighting), but here that is not the case.
+As it lacks any order, selecting a color in between two others makes little sense. Of course, a palette can be carefully designed to support interpolation (*Doom 1994* does [amazing palette tricks](https://fabiensanglard.net/gebbdoom/) for lighting), but here that is not the case.
 
 So what can we do? Well, we can rely on a different kind of interpolation, called *dithering*. You are likely already very familiar with dithering -- well at least your eyes are! -- because this is the technique used by printed newspapers and inkjet printers. The idea is to give the illusion of a gradient even though only few colors are available. This works by interleaving point spreads of the different colors, such that locally the proportion (as seen in a small neighborhood) give the correct average. Dithering and stippling are huge topics on their own, but here we will be using a simple old-shool technique, specifically [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering) with a Bayer matrix. 
 
@@ -310,14 +326,15 @@ Dithering is very effective, see for yourself!
   <img width="400" src="all_interp.png">
 </p>
 
-Now there is one complication here. As we walk along the x-axis we can easily select between the two colors (corresponding to the two maps pixels `h00` and `h10` we are in-between). However, vertically (on-screen) we need to interpolate between the previous color along the z-step and the current color that has been select by dithering. That is why we have a second array `c_last` storing color for the previous z-step. And this is it! We now have a nicely smooth terrain, with the cool old-school dithering touch.
+Now there is one complication here. As we walk along the x-axis we can easily select between the two colors (corresponding to the two maps pixels `h00` and `h10` we are in-between). However, vertically (on-screen) we need to interpolate between the previous color along the z-step and the current color that has been selected by dithering. 
+That is why we have a second array (in BRAM) `c_last` storing colors from the previous z-step. And this is it! We now have a nicely smooth terrain, with the cool old-school dithering touch.
 
 The dithering Bayer matrix is stored in code:
 
 ```c
   // 8x8 matrix for dithering  
   // https://en.wikipedia.org/wiki/Ordered_dithering
-  int6 bayer_8x8[64] = {
+  uint6 bayer_8x8[64] = {
     0, 32, 8, 40, 2, 34, 10, 42,
     48, 16, 56, 24, 50, 18, 58, 26,
     12, 44, 4, 36, 14, 46, 6, 38,
@@ -334,7 +351,7 @@ It is accessed first choosing between x-axis colors:
 l_or_r = bayer_8x8[ { y[0,3] , x[0,3] } ] > l_x[$fp-6$,6]; // horizontal
 ```
 
-and then choosing between y(screen)-axis vertical colors:
+and then choosing between y (screen)-axis vertical colors:
 ```c
 t_or_b = bayer_8x8[ { x[0,3] , y[0,3] } ] < v_interp[4,6]; // vertical
 ```
@@ -345,7 +362,7 @@ with the final color selection being:
 clr = l_or_r ? ( t_or_b ? h00[8,8] : c_last.rdata ) : (t_or_b ? h10[8,8] : c_last.rdata);
 ```
 
-This select either the left (`h00`), right (`h10`) or bottom (previous z-step) color (`c_last.rdata`). The bottom color was retrieved from a BRAM (`c_last`) storing `uint8` indices in the palette. The BRAM is 320 pixel wide (one entry per screen column). It is access by first setting an address `c_last.addr := x;` ; this continuously sets the address to be the current value of `x`. When `x` changes, the new value is available at the next cycle. As `x` is updated at the end of the `while` loop (`x = x +  1;`), when the loop resumes we have the new value in `c_last.rdata`.
+This selects either the left (`h00`), right (`h10`) or bottom (previous z-step) color (`c_last.rdata`). The bottom color was retrieved from a BRAM (`c_last`) storing `uint8` indices in the palette. The BRAM is 320 pixel wide (one entry per screen column). It is access by first setting an address `c_last.addr := x;`. This continuously sets the address to be the current value of `x`. When `x` changes, the new value is available at the next cycle. `x` is updated at the end of the `while` loop (`x = x +  1;`). When the loop resumes we have the new value in `c_last.rdata`.
 
 Going back to the Bayer matrices and `l_or_r`, `t_or_b`, note how in both cases the screen `x` and `y` coordinates are used to access the matrix. This is done for better visual temporal coherence. Then the value in the matrix is compared to the interpolation threshold, which is used used to decide  which of three colors to select: left/right of the new z-step, or the color from the previous step.
 
