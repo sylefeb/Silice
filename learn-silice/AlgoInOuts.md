@@ -156,4 +156,4 @@ algorithm Algo(input  uint8 i, output uint8 v)
 
 The 'dot' syntax always writes inputs directly (no delay) and reads outputs as defined by the use of `output` or `output!`. The `() <- alg <- ()` behaves similarly to case C above, with one cycle before the algorithm starts, and one cycle between the time it stops and outputs are read.
 
-> **Note:**: there is currently an inefficiency in the way `() <- alg <- ()` is compiled, making it similar to case A in terms of circuitry while having the correct case C behavior. See [issue #126](https://github.com/sylefeb/Silice/issues/126).
+> **Note:**: there is currently an inefficiency in `() <- alg <- ()`, making it similar to case A in terms of circuitry while having the correct case C behavior. See [issue #126](https://github.com/sylefeb/Silice/issues/126).
