@@ -1,14 +1,14 @@
 # Algorithm calls, bindings and timings
 
-Here we explain how algorithms can be instantiated and called. This is an important topic with direct implication on synchronization between parallel operations, and the max frequency of your design.
+Here we explain how algorithms can be instantiated and called. This is an important topic with direct implications on synchronization between parallel operations, and the max frequency of your design.
 
-Even if you are familiar with Silice call an binding syntax, make sure to read the [last section](#timings) on timing considerations.
+Even if you are familiar with Silice call and binding syntax, make sure to read the [last section](#timings) on timing considerations.
 
 ## Calls
 
 For these explanations let us assume an algorithm with *N* outputs and M *inputs* called respectively `out1 ... outN` and ` in1 ... inM`.
 
-A first way to use and call an algorithm is to use the call syntax. The algorithm is first instantiated as:
+A first way to use an algorithm is through the call syntax. The algorithm is first instantiated as:
 
 `Algo alg_inst;`
 
@@ -16,11 +16,11 @@ And then called as:
 
  `(out1,...,outN) <- alg_inst <- (in1,...,inM)`
 
-This call is *synchronous*: we wait for the algorithm to terminate before getting its outputs. In fact, it can be decomposed in two parts:
+This call is *synchronous*: we wait for the algorithm to terminate before getting its outputs. In fact, it can be decomposed in two parts that can be called separately as well:
 - the async call `alg_inst <- (in1,...,inM)` which starts the algorithm,
-- the join `(out1,...,outN) <- alg_inst` which waits for the output.
+- the join `(out1,...,outN) <- alg_inst` which waits for termination and reads the output.
 
-Between call and join the caller continues its operations. Also note that the async call does not introduce any cycle for the caller. The join, however, waits for as many cycles as necessary. Hence, a join in an instruction block makes it a non *one-cycle* block -- one implication, for instance, is that join cannot be used in an always block which has to be a one-cycle block.
+Between call and join the caller continues its operations. Also note that the async call does not introduce any cycle for the caller. The join, however, waits for as many cycles as necessary. Hence, a join in an instruction block makes it a non *one-cycle* block -- one implication, for instance, is that join cannot be used in an always block which *has to* be a one-cycle block.
 
 Instead, test whether the algorithm is done using `isdone(alg_inst)`. This is a simple test and can therefore be used anywhere.
 
@@ -36,7 +36,7 @@ Note that input/output interfaces have to be bound: they cannot be passed in a c
 
 ## Bindings
 
-Algorithms input and outputs can be bound upon algorithm instantiation (the same of true of imported Verilog modules).
+Algorithms input and outputs can be bound upon algorithm instantiation (the same is true of imported Verilog modules).
 
 All or only parts of the inputs and outputs may be bound.  However, once at least one *input* binding exists, the only way to call the algorithm is with empty parameter lists: `alg_inst <- ()`. The 'dot' syntax is no longer available for bound inputs. There is no impact on outputs.
 
@@ -45,7 +45,7 @@ All or only parts of the inputs and outputs may be bound.  However, once at leas
 
 Here we discuss the differences between using the `<:` and `<::` binding operators as well as using `output` and `output!` in an algorithm. Both relate to when the parent and instantiated algorithms see the changes in inputs and outputs. This has important implications for keeping things in sync (latencies), and in terms of the generated circuit depth (critical path and max frequency).
 
-To illustrate this, let us use a simple example case. In the design below, the algorithm `Algo` always copies its input to its output. Since the algorithm uses an `always` block it does not have to be called or started. In `main`, we create a cycle counter, bind it as input to an instance of `Algo` and display at every cycle `value`.
+To illustrate this, let us use a simple example case. In the design below, the algorithm `Algo` always copies its input to its output. Since the algorithm uses an `always` block it does not have to be called or started. In `main`, we create a cycle counter, bind it as input to an instance of `Algo` and display `value` at every cycle.
 
 ```c
 algorithm Algo(
@@ -70,7 +70,6 @@ algorithm main(output uint8 leds)
     __display("[cycle %d] (main) value = %d",cycle,value);
     cycle = cycle + 1;
   }
-
 }
 ```
 
@@ -108,7 +107,7 @@ Now, what use are the other cases? Case A is the standard setup in Silice, with 
 In the figure below the blue segment represents the algorithm's circuit and the time it takes. The left endpoint is when inputs change, the right endpoint when outputs are available at the other end of the circuit. The arrows represent latencies added by `<::` and `output` (through flip-flops). Note that if the blue segment would ever cross a clock raising edge, the results would be incorrect as the signal would not have propagated through the circuit: a lower frequency would have to be used.
 
 <p align="center">
-  <img width="800" src="figures/bind_timings.png">
+  <img width="700" src="figures/bind_timings.png">
 </p>
 
 - A) The inputs are available within the same cycle, the outputs are registered on a flip-flop. Thus, the algorithm has up to the cycle end to perform its operations (for signals to propagate through the circuit it defines). This is the standard choice, but if the circuit setting up the inputs in the parent is too complex, the algorithm will be left with little time for itself.
@@ -131,7 +130,7 @@ In any case an algorithm may of course force register its inputs, as explained n
 There are (many) cases where the inputs are actual wires from the outside, and are thus asynchronous signals. In such cases, the inputs have to be registered before being used (otherwise they can change mid-cycle, wreaking havoc in the logic in most cases...).
 
 ```c
-algorithm Algo(input  uint8 i, output uint8 v)
+algorithm Algo(input uint8 i, output uint8 v)
 {
   uint8 ri = 0;  
   
@@ -153,8 +152,8 @@ algorithm Algo(input  uint8 i, output uint8 v)
 }
 ```
 
-### What about calls?
+### What about the 'dot' syntax and calls?
 
-So how do typical calls with the syntax `() <- alg <- ()` fit in this timing picture?
+The 'dot' syntax always writes inputs directly (no delay) and reads outputs as defined by the use of `output` or `output!`. The `() <- alg <- ()` behaves similarly to case C above, with one cycle before the algorithm starts, and one cycle between the time it stops and outputs are read.
 
-**TODO**
+> **Note:**: there is currently an inefficiency in the way `() <- alg <- ()` is compiled, making it similar to case A in terms of circuitry while having the correct case C behavior. See [issue #126](https://github.com/sylefeb/Silice/issues/126).

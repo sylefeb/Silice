@@ -19,8 +19,9 @@ Silice has only few layers of abstraction: the flip-flops are automatically gene
 For general FPGA design rules see [this post](http://www.fpgacpu.org/log/sep00.html#000919). The gist of it is to favor simplicity of code, which often translates to efficient designs. 
 
 To make a design more efficient, we first and foremost want to reduce the need for multiplexers. These are expensive in terms of routing, and interconnect is a major factor in a lower max frequency on an FPGA. This implies:
-- Reduce the number of steps in algorithms (++:), which simplifies the state machine multiplexer
-- Split your code in smaller, more efficient algorithms
+- Reduce the number of steps in algorithms (++:), which simplifies the state machine multiplexer.
+- Split your code in smaller, more efficient algorithms.
+- Reread the [notes on algorithms calls, bindings and timings](AlgoInOuts.md) and in particular the timing section, check your algorithm bindings.
 - Reduce simple algorithms into a single loop (`while(1)` or `always`) that executes in a single cycle
 - Restrict conditionals only where really necessary: it is better to update a variable if this has no effect, rather than trying to not do it. This is very different from CPU programming: we attempt to minimize logic, circuit depth and interconnect.
 - Use `uninitialized` or power up initialization (`uint8 v(0);`) as much as possible.

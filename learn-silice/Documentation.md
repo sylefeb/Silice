@@ -886,7 +886,7 @@ algorithm main(output uint8 led)
 Algorithms may be called synchronously or asynchronously, with or
 without parameters. Only instanced algorithms may be called.
 
-See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
+See also the detailed [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
 
 The asynchronous call syntax is as follows:
 
