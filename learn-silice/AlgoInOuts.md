@@ -79,22 +79,22 @@ These variants offer different tradeoffs in latencies and resulting circuit dept
 
 In the figures below we can see the signals over time, simulated by *Icarus Verilog* and visualized with *GtkWave*. In green `cycle` in `main`, in orange `i` as seen in `alg_inst`, in yellow `value` as seen in `main`.
 
-A) **Using `<:` and `output`.** The input change in `main` is immediately visible in `alg_inst`: the green and orange waves are the same. However the yellow wave is delayed by one cycle: this is the effect of `output`, which introduces a one cycle latency before the change to `v` is reflected in `main`.
+- A) **Using `<:` and `output`.** The input change in `main` is immediately visible in `alg_inst`: the green and orange waves are the same. However the yellow wave is delayed by one cycle: this is the effect of `output`, which introduces a one cycle latency before the change to `v` is reflected in `main`.
 <p align="center">
   <img width="800" src="figures/bind_a.png">
 </p>
 
-B) **Using `<:` and `output!`.** All three waves are the same. Compared to the previous case, using `output!` implies that changes to `v` are immediately reflected in `main`.
+- B) **Using `<:` and `output!`.** All three waves are the same. Compared to the previous case, using `output!` implies that changes to `v` are immediately reflected in `main`.
 <p align="center">
   <img width="800" src="figures/bind_b.png">
 </p>
 
-C) **Using `<::` and `output`.** The use of `<::` introduces a one cycle latency before the change of `cycle` in `main` is reflected in `i` as seen from `alg_inst`. The use of `output` introduces another one cycle latency before the change to `v` is reflected in `main`. This results in a two cycles delay between the green and yellow waves.
+- C) **Using `<::` and `output`.** The use of `<::` introduces a one cycle latency before the change of `cycle` in `main` is reflected in `i` as seen from `alg_inst`. The use of `output` introduces another one cycle latency before the change to `v` is reflected in `main`. This results in a two cycles delay between the green and yellow waves.
 <p align="center">
   <img width="800" src="figures/bind_c.png">
 </p>
 
-D) **Using `<::` and `output!`.** Compared to the previous case, we keep one cycle latency on the input, but the use of `output!` means that changes to `v` are reflected immediately in `main`. Hence, there is a one cycle shift between the green and orange waves, while the orange and yellow waves are the same.
+- D) **Using `<::` and `output!`.** Compared to the previous case, we keep one cycle latency on the input, but the use of `output!` means that changes to `v` are reflected immediately in `main`. Hence, there is a one cycle shift between the green and orange waves, while the orange and yellow waves are the same.
 <p align="center">
   <img width="800" src="figures/bind_d.png">
 </p>
@@ -103,19 +103,32 @@ At this stage you might be wondering why we don't always use case B, since it pr
 
 So that's the first catch, what is the second one? Well, combinational loops! As we directly connect `cycle` and `value` in `main`, we now have to be very careful that `cycle` never depends in any way to a change in `value`, otherwise we create a loop in the circuit. This quickly becomes impractical -- nevertheless case B is definitely possible and useful in specific cases (but in terms of Silice you might consider using a `circuitry` instead).
 
-Now, what use are the other cases? Case A is the standard setup in Silice, with inputs directly connected and outputs registered on a flip-flop. Case D is the opposite with inputs registered on a flip-flop and outputs directly connected. Case C is the most conservative, with both inputs and outputs registered on flip-flops. Let's have a second look at time diagrams for each four cases to understand the implications. This time we fix the frequency, and consider how much time the algorithm has to perform its operations:
+Now, what use are the other cases? Case A is the standard setup in Silice, with inputs directly connected and outputs registered on a flip-flop. Case D is the opposite with inputs registered on a flip-flop and outputs directly connected. Case C is the most conservative, with both inputs and outputs registered on flip-flops. Let's have a second look at time diagrams for each four cases to understand the implications. This time we fix the frequency, and consider how much time the algorithm has to perform its operations, and how much time remains before the clock cycle ends. 
 
-**TODO**
+In the figure below the blue segment represents the algorithm's circuit and the time it takes. The left endpoint is when inputs change, the right endpoint when outputs are available at the other end of the circuit. The arrows represent latencies added by `<::` and `output` (through flip-flops). Note that if the blue segment would ever cross a clock raising edge, the results would be incorrect as the signal would not have propagated through the circuit: a lower frequency would have to be used.
+
+<p align="center">
+  <img width="800" src="figures/bind_timings.png">
+</p>
+
+- A) The inputs are available within the same cycle, the outputs are registered on a flip-flop. Thus, the algorithm has up to the cycle end to perform its operations (for signals to propagate through the circuit it defines). This is the standard choice, but if the circuit setting up the inputs in the parent is too complex, the algorithm will be left with little time for itself.
+- B) There are no flip-flops: the inputs are available within the same cycle, the algorithm has to finish within the same cycle, and thus whatever comes next also has to finish before the end of the cycle. This potentially puts a lot of time pressure on the circuit being defined.
+- C) The inputs are delayed until the next cycle starts, and the outputs are not expected before the cycle after that. Thus, the algorithm has the entire cycle to operate. This puts the least time pressure on the circuit being defined. To be preferred if the algorithm is complex.
+- D) The inputs are delayed until the next cycle starts, but the outputs are immediately available, and thus whatever comes next also has to finish before the end of the cycle.
+
+How to choose? Well there is not strict rule here, all these cases can be useful. A recommendation is to avoid Case B, use the standard Case A convention, and when time pressure starts to appear resort on Case C to give as much time as possible to the slower parts.
 
 ### Inputs controlled from parent, outputs from instance?
 
-There is an asymmetry in the fact that the behavior of outputs are controlled in the algorithm definition (`output` or `output!`), while the
-behavior of the inputs is controlled at instantiation time (`<:` or `<::`). This reflects the fact that input flip-flops are indeed in the parent,
-while output flip-flops are indeed in the instance. But an algorithm may of course force register its inputs, as explained next.
+There is currently an asymmetry in the fact that the behavior of outputs are controlled in the algorithm definition (`output` or `output!`), while the behavior of the inputs is controlled at instantiation time (`<:` or `<::`). This reflects the fact that input flip-flops are indeed in the parent, while output flip-flops are indeed in the instance. 
+
+> **Note:** This asymmetry is considered an issue and will likely be resolved in the future, see [issue #125](https://github.com/sylefeb/Silice/issues/125).
+
+In any case an algorithm may of course force register its inputs, as explained next.
 
 ### Registering inputs 
 
-There are (many) cases where the inputs are actual wires from the outside, and are thus asynchronous signals. In such cases, the inputs have to be registered before being used (watch out for metastability...).
+There are (many) cases where the inputs are actual wires from the outside, and are thus asynchronous signals. In such cases, the inputs have to be registered before being used (otherwise they can change mid-cycle, wreaking havoc in the logic in most cases...).
 
 ```c
 algorithm Algo(input  uint8 i, output uint8 v)
