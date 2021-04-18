@@ -94,7 +94,7 @@ algorithm terrain_renderer(
 
   // 8x8 matrix for dithering  
   // https://en.wikipedia.org/wiki/Ordered_dithering
-  int6 bayer_8x8[64] = {
+  uint6 bayer_8x8[64] = {
     0, 32, 8, 40, 2, 34, 10, 42,
     48, 16, 56, 24, 50, 18, 58, 26,
     12, 44, 4, 36, 14, 46, 6, 38,
@@ -218,11 +218,11 @@ $$end
         inv_n.addr     = delta_y;        // one over the gap size
         v_interp       = 0;              // interpolator accumulation
         // clamp on screen
-        y_screen       = (iz == $z_num_step-1$) ? 0 : (((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground)));
+        y_screen       = (iz == $z_num_step-1$) ? -1 : (((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground)));
         //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
         // fill column
         while (y_last.rdata != 0 && y > y_screen) { 
-          //                        ^^^^^^^ geq is needed as y_screen might be 'above' (below on screen)
+          //                        ^^^^^^^ gt is needed as y_screen might be 'above' (below on screen)
           //   ^^^^^^^^^^^^^^^^^^ 
           //   avoids sky on top row if already touched by terrain                      
           //
