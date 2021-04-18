@@ -45,7 +45,7 @@ All or only parts of the inputs and outputs may be bound.  However, once at leas
 
 Here we discuss the differences between using the `<:` and `<::` binding operators as well as using `output` and `output!` in an algorithm. Both relate to when the parent and instantiated algorithms see the changes in inputs and outputs. This has important implications for keeping things in sync (latencies), and in terms of the generated circuit depth (critical path and max frequency).
 
-To illustrate this, let us use a simple example case. In the design below, the algorithm `Algo` always copies its input to its output. Since the algorithm uses an `always` block it does not have to be called or started. In `main`, we create a cycle counter, bind it as input to an instance of `Algo` and display `value` at every cycle.
+To illustrate this, let us use a simple example case. In the design below, the algorithm `Algo` always copies its input to its output. Since the algorithm uses an `always` block it does not have to be called or started. In `main`, we create a cycle counter and bind it as an input to an instance of `Algo`.
 
 ```c
 algorithm Algo(
@@ -67,7 +67,6 @@ algorithm main(output uint8 leds)
   );
 
   while (cycle != 16) {
-    __display("[cycle %d] (main) value = %d",cycle,value);
     cycle = cycle + 1;
   }
 }
@@ -154,6 +153,8 @@ algorithm Algo(input  uint8 i, output uint8 v)
 
 ### What about the 'dot' syntax and calls?
 
-The 'dot' syntax always writes inputs directly (no delay) and reads outputs as defined by the use of `output` or `output!`. The `() <- alg <- ()` behaves similarly to case C above, with one cycle before the algorithm starts, and one cycle between the time it stops and outputs are read.
+The behavior depends on whether the algorithm is an instance of an *auto-start* algorithm. An auto-start algorithm does not have to be called (and calling it is an error) as it either uses `<autorun>` or is composed only of always blocks. 
 
-> **Note:**: there is currently an inefficiency in `() <- alg <- ()`, making it similar to case A in terms of circuitry while having the correct case C behavior. See [issue #126](https://github.com/sylefeb/Silice/issues/126).
+On an auto-start algorithm, the 'dot' syntax always writes inputs directly (no delay) and reads outputs as defined by the use of `output` or `output!`. 
+
+On an algorithm that has to be called, the 'dot' syntax write on inputs with a one cycle latency (as with `<::`). The `() <- alg <- ()` call behaves similarly to case C above, with one cycle before the algorithm starts, and one cycle between the time it stops and outputs are read. Both inputs and outputs are registered.

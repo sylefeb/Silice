@@ -3501,6 +3501,18 @@ bool Algorithm::requiresNoReset() const
 
 // -------------------------------------------------
 
+bool Algorithm::isNotCallable() const
+{
+  if (hasNoFSM()) {
+    return true;
+  } else if (m_AutoRun) {
+    return true;
+  }
+  return false; // this algorithm has to be called
+}
+
+// -------------------------------------------------
+
 void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context *bctx) const
 {
   if (instr == nullptr) {
@@ -5085,10 +5097,10 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
       "algorithm instance '%s' called accross clock-domain -- not yet supported",
       a.instance_name.c_str());
   }
-  // check for call on purely combinational
-  if (a.algo->hasNoFSM()) {
+  // check for call on non callable
+  if (a.algo->isNotCallable()) {
     reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
-      "algorithm instance '%s' called while being purely combinational",
+      "algorithm instance '%s' called while being on autorun or having only always blocks",
       a.instance_name.c_str());
   }
   // if params are empty we simply call, otherwise we set the inputs
@@ -5949,7 +5961,7 @@ void Algorithm::writeCombinationalAlwaysPre(
       out << ia.instance_prefix + "_" ALG_RUN " = 1;" << nxl;
     }
   }
-  // instanced modules input/output bindings with wires
+  // instanced modules output bindings with wires
   // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
   for (auto im : m_InstancedModules) {
     for (auto b : im.second.bindings) {
@@ -5968,7 +5980,7 @@ void Algorithm::writeCombinationalAlwaysPre(
       }
     }
   }
-  // instanced algorithms input/output bindings with wires
+  // instanced algorithms output bindings with wires
   // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
@@ -7104,11 +7116,11 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
       if (b.dir == e_Left || b.dir == e_LeftQ) {
         // input
         t_vio_dependencies _;
-        out << '.' << b.left << '('
-          << rewriteIdentifier("_", bindingRightIdentifier(b), "", nullptr, nfo.second.instance_line, 
-            b.dir == e_LeftQ ? FF_Q : FF_D, true, _, _ff_usage, e_DQ /*force module inputs to be latched*/
-          )
-          << ")";
+        out << '.' << b.left << '(';
+        out << rewriteIdentifier("_", bindingRightIdentifier(b), "", nullptr, nfo.second.instance_line,
+          b.dir == e_LeftQ ? FF_Q : FF_D, true, _, _ff_usage, e_DQ /*force module inputs to be latched*/
+        );
+        out << ")";
       } else if (b.dir == e_Right) {
         // output (wire)
         out << '.' << b.left << '(' << wire_prefix + "_" + b.left << ")";
@@ -7151,9 +7163,17 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
           nfo.boundinputs.at(is.name).second == e_Q ? e_Q : (is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/) );
       } else {
         // input is not bound and assigned in logic, a specifc flip-flop is created for this
-        out << FF_D << nfo.instance_prefix << "_" << is.name;
-        // add to usage
-        updateFFUsage(is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/, true, _ff_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
+        if (nfo.algo->isNotCallable()) {
+          // the instance is never called, we bind to D
+          out << FF_D << nfo.instance_prefix << "_" << is.name;
+          // add to usage
+          updateFFUsage(is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/, true, _ff_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
+        } else {
+          // the instance is only called, we bind to Q
+          out << FF_Q << nfo.instance_prefix << "_" << is.name;
+          // add to usage
+          updateFFUsage(e_Q, true, _ff_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
+        }
       }
       out << ')' << ',' << nxl;
     }

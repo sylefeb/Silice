@@ -912,6 +912,8 @@ private:
     bool requiresNoReset() const;
     /// \brief returns true if the algorithm does not call subroutines
     bool doesNotCallSubroutines() const;
+    /// \brief returns true if the algorithm is not callable
+    bool isNotCallable() const;
     /// \brief converts an internal state into a FSM state
     int  toFSMState(int state) const;
     /// \brief finds the binding to var
