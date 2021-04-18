@@ -51,11 +51,11 @@ void main()
   
   int fbuffer = 0;
   
-  // clear(0,0,SCRW,SCRH);
+  // clear(0,0,0,SCRW,SCRH);
   
   while(1) {
     
-    clear(0,0,SCRW,SCRH/2);
+    clear(0,0,0,SCRW,SCRH/2);
 
     int posy = 0;
     int posx = 0;

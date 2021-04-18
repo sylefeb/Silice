@@ -34,8 +34,14 @@ The pinout for the IceStick is:
 | PMOD1  (pin 78) | rst       |
 
 Equipped with this, you can test the Doom fire (tests/c/fire.c) or the starfield
-(tests/c/starfield.c). Use `make icestick -f Makefile.oled` to synthesize the
-design and program the board.
+(tests/c/starfield.c). 
+
+For the DooM fire:
+
+```
+./compile_c.sh tests/c/fire.c
+make icestick -f Makefile.oled
+```
 
 *Note:* the reset is not perfectly reliable; if nothing happens try unplugin/plugin
 the IceStick back after programming.
