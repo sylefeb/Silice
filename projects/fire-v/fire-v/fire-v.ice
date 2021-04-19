@@ -205,9 +205,14 @@ $$if verbose then
     }
 $$end
 
+$$state_REFETCH    = 8
+$$state_LOAD_STORE = 4
+$$state_ALU_FETCH  = 2
+$$state_COMMIT     = 1
+
     switch (state) {
 
-      case 8: {
+      case $state_REFETCH$: {
 $$if verbose then
       if (~reset) {
         __display("----------- STATE 8: refetch ------------- (cycle %d)",cycle);
@@ -238,7 +243,7 @@ $$end
 
       }
     
-      case 4: {
+      case $state_LOAD_STORE$: {
 $$if verbose then
         __display("----------- STATE 4: load / store ------------- (cycle %d)",cycle);
 $$end        
@@ -291,7 +296,7 @@ $$end
         predicted_correct = 1;
       } // case 4
 
-      case 2: {
+      case $state_ALU_FETCH$: {
 $$if verbose then      
       __display("----------- STATE 2 : ALU / fetch ------------- (cycle %d)",cycle);
 $$end      
@@ -304,14 +309,13 @@ $$end
         xregsB.addr0      = Rtype(next_instr).rs2;
         commit_decode     = 1;
         predicted_correct = 1;
-
         // be optimistic: request next-next instruction
         ram.addr          = next_pc_p4;
         ram.in_valid      = 1;
         ram.rw            = 0;
       }
       
-      case 1: {
+      case $state_COMMIT$: {
 $$if verbose then     
         __display("----------- STATE 1 : commit / decode ------------- (cycle %d)",cycle);
         if (~instr_ready) {
@@ -501,20 +505,20 @@ $$end
       case 5b11011: { // JAL
         imm         = imm_j;
        }
-      case 5b11001: { // JALR
-        imm         = imm_i;
-       }
       case 5b11000: { // branch
         imm         = imm_b;
+       }
+      case 5b11001: { // JALR
+        imm         = imm_i;
        }
       case 5b00000: { // load
         imm         = imm_i;
        }
-      case 5b01000: { // store
-        imm         = imm_s;
-       }
       case 5b00100: { // integer, immediate
         imm         = imm_i;
+       }
+      case 5b01000: { // store
+        imm         = imm_s;
        }
        default: {
        }

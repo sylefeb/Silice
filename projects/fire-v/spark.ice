@@ -23,6 +23,16 @@ $$if not (ULX3S or ICARUS or VERILATOR or ICEBREAKER) then
 $$error('Sorry, Spark is currently not supported on this board.')
 $$end
 
+$$if ULX3S then
+import('plls/pll200.v')
+$$end
+
+$$if ICEBREAKER then
+import('plls/icebrkr25.v')
+$$FIREV_MERGE_ADD_SUB = 1
+$$FIREV_NO_INSTRET    = 1
+$$end
+
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
 $$sdcard_image_pad_size = 0
 $$dofile('pre/pre_include_asm.lua')
@@ -31,14 +41,6 @@ $include('fire-v/fire-v.ice')
 $include('ash/bram_ram_32bits.ice')
 
 $include('../common/clean_reset.ice')
-
-$$if ULX3S then
-import('plls/pll200.v')
-$$end
-
-$$if ICEBREAKER then
-import('plls/icebrkr25.v')
-$$end
 
 // ------------------------- 
 
