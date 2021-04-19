@@ -19,7 +19,7 @@ $$if SIMULATION then
 $$verbose = nil
 $$end
 
-$$if not (ULX3S or ICARUS or VERILATOR) then
+$$if not (ULX3S or ICARUS or VERILATOR or ICEBREAKER) then
 $$error('Sorry, Spark is currently not supported on this board.')
 $$end
 
@@ -36,6 +36,10 @@ $$if ULX3S then
 import('plls/pll200.v')
 $$end
 
+$$if ICEBREAKER then
+import('plls/icebrkr25.v')
+$$end
+
 // ------------------------- 
 
 algorithm main(
@@ -47,17 +51,28 @@ $$if SDCARD then
   input   uint1  sd_miso,
 $$end  
 $$if ULX3S then
-) <@fast_clock,!fast_reset> {
-  uint1 fast_clock = 0;
-  uint1 locked     = 0;
+) <@sys_clock,!sys_reset> {
+  uint1 sys_clock = uninitialized;
+  uint1 locked    = uninitialized;
   pll pllgen(
     clkin   <: clock,
-    clkout0 :> fast_clock,
+    clkout0 :> sys_clock,
     locked  :> locked,
   );
-  uint1 fast_reset = 0;
+  uint1 sys_reset = uninitialized;
   clean_reset rst<!reset>(
-    out :> fast_reset
+    out :> sys_reset
+  );
+$$elseif ICEBREAKER then
+) <@sys_clock,!sys_reset> {
+  uint1 sys_clock = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> sys_clock,
+  );
+  uint1 sys_reset = uninitialized;
+  clean_reset rst<@sys_clock,!reset>(
+    out :> sys_reset
   );
 $$else
 ) {
@@ -67,7 +82,7 @@ $$end
 
   uint26 predicted_addr    = uninitialized;
   uint1  predicted_correct = uninitialized;
-  uint32 user_data(0);
+  uint32 user_data         = uninitialized;
 
   // bram io
   bram_ram_32bits bram_ram(
@@ -76,10 +91,9 @@ $$end
     predicted_correct <:  predicted_correct,
   );
 
-  uint1  cpu_reset      = 1;
+  uint1  cpu_reset = 1;
   uint26 cpu_start_addr(26h0000000); // NOTE: the BRAM ignores the high part of the address
                                      //       but for bit 32 (mapped memory)
-                                     //       26h2000000 is chosen for compatibility with Wildfire
 
   // cpu 
   rv32i_cpu cpu<!cpu_reset>(
@@ -108,6 +122,7 @@ $$if SDCARD then
 $$end
     if (mem.addr[28,1] & mem.in_valid & mem.rw) {
 //      __display("[iter %d] mem.addr %h mem.data_in %h",iter,mem.addr,mem.data_in);
+$$if SDCARD then
       if (~mem.addr[3,1]) {
         leds = mem.data_in[0,8];
 $$if SIMULATION then            
@@ -118,12 +133,13 @@ $$end
 $$if SIMULATION then            
         __display("[iter %d] SDCARD = %b",iter,mem.data_in[0,3]);
 $$end
-$$if SDCARD then
         sd_clk  = mem.data_in[0,1];
         sd_mosi = mem.data_in[1,1];
         sd_csn  = mem.data_in[2,1];
-$$end
       }
+$$else
+      leds = mem.data_in[0,8];
+$$end
     }
 
   }
