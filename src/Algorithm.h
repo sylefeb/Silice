@@ -630,6 +630,8 @@ private:
     int m_NextBlockName = 1;
     /// \brief indicates whether this algorithm is the topmost in the design
     bool m_TopMost      = false;
+    /// \brief indicates whether a report has to be generated and what the filename is (empty means none)
+    std::string m_VIOReportName;
 
   public:
 
@@ -1043,20 +1045,22 @@ private:
     /// \brief prepare replacements for a memory module template
     void prepareModuleMemoryTemplateReplacements(std::string instance_name, const t_mem_nfo& bram, std::unordered_map<std::string, std::string>& _replacements) const;
     /// \brief writes the algorithm as a Verilog module, recurses through instanced algorithms
-    void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx, bool do_lint);
+    void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx, bool first_pass);
     /// \brief writes the algorithm as a Verilog module, calls the version above twice in a two pass optimization process
     void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage, bool do_lint) const;
+    /// \brief outputs a report on the VIOs in the algorithm
+    void outputVIOReport(std::string instance_name, const t_instantiation_context &ictx) const;
 
   public:
+
+    /// \brief asks for a VIO report to be generated
+    void enableVIOReport(std::string reportname);
 
     /// \brief writes a topmost algorithm as a Verilog module, recurses through instanced algorithms
     void writeAsModule(std::string instance_name,std::ostream& out);
 
     /// \brief outputs the FSM graph in a file (graphviz dot format)
     void outputFSMGraph(std::string dotFile) const;
-
-    /// \brief outputs a report on the VIOs
-    void outputVIOReport(std::string file);
 
     /// \brief ExpressionLinter is a friend
     friend class ExpressionLinter;

@@ -712,7 +712,7 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
     reportError(wire->getSourceInterval(), (int)wire->getStart()->getLine(), "'sameas' wire declaration cannot be refering to a group or interface");
   }
   // add var
-  addVar(nfo, _current, _context, wire->getSourceInterval());
+  addVar(nfo, _current, _context, wire->alwaysAssigned()->IDENTIFIER()->getSourceInterval());
   // insert wire assignment
   m_WireAssignments.insert(make_pair(nfo.name, t_instr_nfo(wire->alwaysAssigned(), _current, -1)));
 }
@@ -796,10 +796,10 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
       vnfo.table_size = 0;
       vnfo.do_not_initialize = false;
       // add it
-      addVar(vnfo, _current, _context, decl->getSourceInterval());
+      addVar(vnfo, _current, _context, decl->IDENTIFIER()->getSourceInterval());
     }
   } else {
-    addVar(var, _current, _context, decl->getSourceInterval());
+    addVar(var, _current, _context, decl->IDENTIFIER()->getSourceInterval());
   }
 }
 
@@ -833,7 +833,7 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext *de
 {
   t_var_nfo var;
   gatherTableNfo(decl, var, _current, _context);
-  addVar(var, _current, _context, decl->getSourceInterval());
+  addVar(var, _current, _context, decl->IDENTIFIER()->getSourceInterval());
 }
 
 // -------------------------------------------------
@@ -1126,7 +1126,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     if (m.is_input) {
       v.access = e_InternalFlipFlop; // for internal flip-flop to circumvent issue #102 (see also Yosys #2473)
     }
-    addVar(v, _current, _context, decl->getSourceInterval());
+    addVar(v, _current, _context, decl->IDENTIFIER()->getSourceInterval());
     if (m.is_input) {
       mem.in_vars.push_back(v.name);
     } else {
@@ -1232,7 +1232,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
         reportError(v->getSourceInterval(), (int)v->getStart()->getLine(), "group '%s': group member declarations cannot use 'sameas'", grp->name->getText().c_str());
       }
       vnfo.name = grp->name->getText() + "_" + vnfo.name;
-      addVar(vnfo, _current, _context, grp->getSourceInterval());
+      addVar(vnfo, _current, _context, grp->IDENTIFIER()[1]->getSourceInterval());
     }
   } else {
     reportError(grp->getSourceInterval(), (int)grp->getStart()->getLine(), "unkown group '%s'", grp->modalg->getText().c_str());
@@ -6766,16 +6766,21 @@ void Algorithm::writeModuleMemory(std::string instance_name, std::ostream& out, 
 void Algorithm::writeAsModule(std::string instance_name, std::ostream &out)
 {
   t_instantiation_context ictx; // empty instantiation context
-  m_TopMost = true;
+  m_TopMost = true; // this is the topmost
+  if (!m_VIOReportName.empty()) {
+    // create report file, will delete if existing
+    std::ofstream freport(m_VIOReportName);
+  }
   writeAsModule(instance_name, out, ictx, true);
 }
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx, bool do_lint)
+void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx, bool first_pass)
 {
-  // lint upon instantiation
-  if (do_lint) {
+  // first pass from parent
+  if (first_pass) {
+    // lint upon instantiation
     lint(ictx);
   }
 
@@ -6783,7 +6788,7 @@ void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, cons
   {
     t_vio_ff_usage ff_usage;
     std::ofstream null;
-    writeAsModule(instance_name, null, ictx, ff_usage, do_lint);
+    writeAsModule(instance_name, null, ictx, ff_usage, first_pass);
 
     // update usage based on first pass
     for (const auto &v : ff_usage.ff_usage) {
@@ -6830,7 +6835,14 @@ void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, cons
   {
     t_vio_ff_usage ff_usage;
     writeAsModule(instance_name, out, ictx, ff_usage, false);
+
+    // first pass from parent
+    if (first_pass) {
+      // output report (controlled by enableReport)
+      outputVIOReport(instance_name, ictx);
+    }
   }
+
 }
 
 // -------------------------------------------------
@@ -7335,31 +7347,50 @@ void Algorithm::outputFSMGraph(std::string dotFile) const
 
 // -------------------------------------------------
 
-/// NOTE: work in progress
-/// TODO: should be an option and applied recursively during writeAsModule
-
-void Algorithm::outputVIOReport(std::string file) 
+void Algorithm::outputVIOReport(
+  std::string instance_name, const t_instantiation_context &ictx) const
 {
-  /*
+  if (m_VIOReportName.empty()) {
+    return;
+  }
+
   ExpressionLinter lint(this, ictx);
 
-  std::cerr << " === algorithm " << m_Name << " ====" << nxl;
-  for (const auto &v : report_ff_usage.ff_usage) {
-    bool found = false;
-    t_var_nfo def = getVIODefinition(v.first, found);
-    if (found) {
-      std::pair<std::string, int> fl = lint.getSourceFileAndLine(def.source_interval,-1);
-      std::cerr << "vio, file " << fl.first << " line " << fl.second << " " << v.first << " : ";
-      if (v.second & e_D) {
-        std::cerr << "D";
-      }
-      if (v.second & e_Q) {
-        std::cerr << "Q";
-      }
-      std::cerr << nxl;
+  std::ofstream freport(m_VIOReportName, std::ios_base::app);
+
+  // freport << "====> algorithm " << m_Name << nxl;
+  for (auto &v : m_Vars) {
+      auto tk = lint.getToken(v.source_interval);
+      if (tk) {
+        std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+        freport << fl.first << " "
+          << tk->getText()  << " " 
+          << fl.second << " "
+          << tk->getCharPositionInLine() << ";" << ((int)tk->getCharPositionInLine() + (int)tk->getStopIndex() - (int)tk->getStartIndex()) << " "
+          << " ";
+        switch (v.usage) 
+        {
+        case e_Undetermined: freport << "undetermined"; break;
+        case e_NotUsed:      freport << "notused"; break;
+        case e_Const:        freport << "const"; break;
+        case e_Temporary:    freport << "temp"; break;
+        case e_FlipFlop:     freport << "ff"; break;
+        case e_Bound:        freport << "bound"; break;
+        case e_Wire:         freport << "wire"; break;
+        }
+        freport << nxl;
     }
   }
-  */
+}
+
+// -------------------------------------------------
+
+void Algorithm::enableVIOReport(std::string reportname)
+{ 
+  m_VIOReportName = reportname;
+  for (auto alg : m_InstancedAlgorithms) {
+    alg.second.algo->enableVIOReport(reportname);
+  }
 }
 
 // -------------------------------------------------

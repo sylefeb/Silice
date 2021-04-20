@@ -320,6 +320,8 @@ void SiliceCompiler::run(
           auto m = m_Modules.at(miordr);
           m->writeModule(out);
         }
+        // ask for a report
+        m_Algorithms["main"]->enableVIOReport(fresult + ".vio.log");
         // write top algorithm (recurses from there)
         m_Algorithms["main"]->writeAsModule("",out);
 
