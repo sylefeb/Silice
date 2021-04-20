@@ -6,9 +6,8 @@ if not path then
   print('********************* compiled code read from ' .. path .. '/build/code*.hex')
 end
 
-data_hex = ''
-c_hex = ''
-data_bram = ''
+all_data_hex   = {}
+all_data_bram = {}
 word = ''
 init_data_bytes = 0
 local prev_addr = -1
@@ -38,11 +37,10 @@ for cpu=0,1 do
         -- pad with zeros
         word     = '00' .. word;
         if #word == 8 then 
-          data_bram = data_bram  .. '32h' .. word .. ','
+          all_data_bram[1+#all_data_bram] = '32h' .. word .. ','
           word = ''
         end
-        data_hex        = data_hex .. '8h' .. 0 .. ','
-        c_hex           = c_hex .. '0x00,'
+        all_data_hex[1+#all_data_hex] = '8h' .. 0 .. ','
         out:write(string.pack('B', 0 ))
         init_data_bytes = init_data_bytes + 1
         prev_addr       = prev_addr + 1
@@ -51,14 +49,13 @@ for cpu=0,1 do
     else 
       word     = str .. word;
       if #word == 8 then 
-        data_bram = data_bram  .. '32h' .. word .. ','
+        all_data_bram[1+#all_data_bram] = '32h' .. word .. ','
         word = ''
       end
-      data_hex = data_hex .. '8h' .. str .. ','
-      c_hex    = c_hex .. '0x' .. str .. ','
+      all_data_hex[1+#all_data_hex] = '8h' .. str .. ','
       out:write(string.pack('B', tonumber(str,16) ))
       init_data_bytes = init_data_bytes + 1
-      prev_addr = prev_addr + 1
+      prev_addr       = prev_addr + 1
     end
   end
 
@@ -75,23 +72,20 @@ sdcard_size = init_data_bytes
 while sdcard_size < sdcard_image_pad_size do
   out:write(string.pack('B', 0 ))
   sdcard_size = sdcard_size + 1
-  data_hex = data_hex .. '8h0,'
-  c_hex    = c_hex .. '0x00,'
+  all_data_hex[1+#all_data_hex] = '8h0,'
 end
 
 if sdcard_extra_files then
   for _,fname in pairs(sdcard_extra_files) do
     print('adding file ' .. fname)
-    local all_hex   = {}
     local inp = assert(io.open(path .. fname, "rb"))
     while true do
       local r = inp:read(1)
       if not r then break end
       local b = string.unpack('B',r)
-      all_hex[1+#all_hex] = '8h' .. string.format("%02x",b):sub(-2) .. ','
+      all_data_hex[1+#all_data_hex] = '8h' .. string.format("%02x",b):sub(-2) .. ','
     end
     inp:close()
-    data_hex = data_hex .. table.concat(all_hex)
   end
 else
   print('no extra files')  
@@ -99,13 +93,7 @@ end
 
 out:close()
 
+data_hex  = table.concat(all_data_hex)
+data_bram = table.concat(all_data_bram)
+
 print('sdcard image is ' .. init_data_bytes .. ' bytes.')
-
-
---local out = assert(io.open(path .. '/smoke/data.h', "wb"))
---out:write('unsigned char code[]={')
---out:write(c_hex)
---out:write('0x00};')
---out:close()
-
--- error('stop')
