@@ -24,6 +24,7 @@ holder must remain included in all distributions.
 #include "Config.h"
 #include "VerilogTemplate.h"
 #include "ExpressionLinter.h"
+#include "LuaPreProcessor.h"
 
 #include <cctype>
 
@@ -32,6 +33,8 @@ using namespace antlr4;
 using namespace Silice;
 
 #define SUB_ENTRY_BLOCK "__sub_"
+
+LuaPreProcessor *Algorithm::s_LuaPreProcessor = nullptr;
 
 // -------------------------------------------------
 
@@ -847,13 +850,50 @@ void Algorithm::gatherInitList(siliceParser::InitListContext* ilist, std::vector
 
 // -------------------------------------------------
 
+void Algorithm::gatherInitListFromFile(int width, siliceParser::InitListContext *ilist, std::vector<std::string> &_values_str)
+{
+  sl_assert(ilist->file() != nullptr);
+  // check variable width
+  if (width != 8 && width != 32) {
+    reportError(ilist->file()->getSourceInterval(), -1, "can only read int8/uint8 and int32/uint32 from files");
+  }
+  // get filename
+  std::string fname = ilist->file()->STRING()->getText();
+  fname = fname.substr(1, fname.length() - 2); // remove '"' and '"'
+  fname = s_LuaPreProcessor->findFile(fname);
+  if (!LibSL::System::File::exists(fname.c_str())) {
+    reportError(ilist->file()->getSourceInterval(), -1, "file '%s' not found", fname.c_str());
+  }
+  FILE *f = fopen(fname.c_str(),"rb");
+  std::cerr << "- reading " << width << " bits data from file " << fname << '.' << nxl;
+  if (width == 8) {
+    uchar v;
+    while (fread(&v, 1, 1, f)) {
+      _values_str.push_back(sprint("8'h%2x",v));
+    }
+  } else if (width == 32) {
+    uint v;
+    while (fread(&v, sizeof(uint), 1, f)) {
+      _values_str.push_back(sprint("32'h%4x", v));
+    }
+  }
+  std::cerr << Console::white << "- read " << _values_str.size() << " words." << nxl;
+  fclose(f);
+}
+
+// -------------------------------------------------
+
 template<typename D, typename T>
 void Algorithm::readInitList(D* decl,T& var)
 {
   // read init list
   std::vector<std::string> values_str;
   if (decl->initList() != nullptr) {
-    gatherInitList(decl->initList(), values_str);
+    if (decl->initList()->file() == nullptr) {
+      gatherInitList(decl->initList(), values_str);
+    } else {
+      gatherInitListFromFile(var.type_nfo.width, decl->initList(), values_str);
+    }
   } else if (decl->STRING() != nullptr) {
     std::string initstr = decl->STRING()->getText();
     initstr = initstr.substr(1, initstr.length() - 2); // remove '"' and '"'
@@ -4434,7 +4474,7 @@ void Algorithm::determineVariableAndOutputsUsage()
   std::unordered_set<std::string> global_out_written;
   determineVariablesAndOutputsAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = true;
+  const bool report = false;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {

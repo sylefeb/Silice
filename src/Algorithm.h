@@ -40,6 +40,8 @@ See GitHub Issues section for open/known issues.
 
 #include <LibSL/LibSL.h>
 
+class LuaPreProcessor;
+
 // -------------------------------------------------
 
 #define FF_D      "_d"
@@ -58,6 +60,8 @@ See GitHub Issues section for open/known issues.
 #define ALG_DONE   "done"
 #define ALG_CLOCK  "clock"
 #define ALG_RESET  "reset"
+
+// -------------------------------------------------
 
 namespace Silice
 {
@@ -693,6 +697,8 @@ private:
     void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather all values from an init list
     void gatherInitList(siliceParser::InitListContext* ilist, std::vector<std::string>& _values_str);
+    /// \brief gather all values from a file
+    void gatherInitListFromFile(int width, siliceParser::InitListContext *ilist, std::vector<std::string> &_values_str);
     /// \bried read initializer list
     template<typename D, typename T> void readInitList(D* decl, T& var);
     /// \brief gather table nfo
@@ -846,6 +852,8 @@ private:
     /// \brief report an error
     void reportError(antlr4::Token* what, int line, const char *msg, ...) const;
     void reportError(antlr4::misc::Interval interval, int line, const char *msg, ...) const;
+    /// \brief Pre-processor, optionally set
+    static LuaPreProcessor *s_LuaPreProcessor;
 
   private:
 
@@ -1067,7 +1075,13 @@ private:
 
     /// \brief return the algorithm name
     std::string name() const { return m_Name; }
-  };
+  
+    /// \brief set the pre-processor
+    static void setLuaPreProcessor(LuaPreProcessor *lpp)
+    {
+      s_LuaPreProcessor = lpp;
+    }
+};
 
   // -------------------------------------------------
 

@@ -282,6 +282,7 @@ void SiliceCompiler::run(
 
     ExpressionLinter::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
     ExpressionLinter::setLuaPreProcessor(&lpp);
+    Algorithm::setLuaPreProcessor(&lpp);
 
     try {
 
@@ -336,6 +337,7 @@ void SiliceCompiler::run(
 
     ExpressionLinter::setTokenStream(nullptr);
     ExpressionLinter::setLuaPreProcessor(nullptr);
+    Algorithm::setLuaPreProcessor(nullptr);
 
   } else {
     throw Fatal("cannot open source file '%s'", fsource.c_str());

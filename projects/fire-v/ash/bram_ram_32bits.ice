@@ -25,7 +25,7 @@ algorithm bram_ram_32bits(
   input uint32       data_override,     // data used as an override by memory mapper
 ) <autorun> {
 
-  simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { $data_bram$ pad(uninitialized) };
+  simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { file("data.img"), pad(uninitialized) };
   
   uint1 in_scope             <:: ~pram.addr[31,1]; // Note: memory mapped addresses use the top most bits 
   uint$bram_depth$ predicted <:: predicted_addr[2,$bram_depth$];

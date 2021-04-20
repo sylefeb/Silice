@@ -54,7 +54,7 @@ algorithm bram_segment_spram_32bits(
   input uint32           bram_override_data, // bram override: data to be written
 ) <autorun> {
 
-  simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { $data_bram$ pad(uninitialized) };
+  simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { file("data.img"), pad(uninitialized) };
   
   uint14 sp0_addr(0);
   uint16 sp0_data_in(0);

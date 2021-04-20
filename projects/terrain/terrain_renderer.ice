@@ -109,7 +109,7 @@ algorithm terrain_renderer(
   bram uint10 inv_n[128]={
     0, // 0: unused
 $$for n=1,127 do
-    $1023 // n$, // the double slash in Lua pre-processor is tne integer division
+    $1023 // n$, // the double slash in Lua pre-processor is the integer division
 $$end
   };
 

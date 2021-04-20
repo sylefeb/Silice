@@ -89,6 +89,8 @@ UNINITIALIZED       : 'uninitialized' | 'uninitialised' ;
 
 PAD                 : 'pad' ;
 
+FILE                : 'file' ;
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -144,8 +146,8 @@ algModifier         : sclock | sreset | sautorun | sonehot | sstacksz ;
 algModifiers        : '<' algModifier (',' algModifier)* '>' ;
 
 pad                 : PAD '(' (value | UNINITIALIZED) ')' ;
-
-initList            : '{' value (',' value)* (',' pad)? ','? '}' | '{' pad '}'  | '{' '}' ;
+file                : FILE '(' STRING ')' ;
+initList            : '{' value (',' value)* (',' pad)? ','? '}' | '{' (file ',')? pad '}'  | '{' '}' ;
 
 memNoInputLatch     : 'input' '!' ;
 memDelayed          : 'delayed' ;

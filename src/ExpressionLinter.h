@@ -101,7 +101,7 @@ namespace Silice
 
     /// \brief Token stream for warning reporting, optionally set
     static antlr4::TokenStream *s_TokenStream;
-    /// \brief Pre-processor for warning line reporting, optionally set
+    /// \brief Pre-processor, optionally set
     static LuaPreProcessor     *s_LuaPreProcessor;
 
   public:
