@@ -7365,8 +7365,9 @@ void Algorithm::outputVIOReport(
         std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
         freport << fl.first << " "
           << tk->getText()  << " " 
-          << fl.second << " "
-          << tk->getCharPositionInLine() << ";" << ((int)tk->getCharPositionInLine() + (int)tk->getStopIndex() - (int)tk->getStartIndex()) << " "
+          << fl.second
+          // << " " << tk->getCharPositionInLine() << ";" << ((int)tk->getCharPositionInLine() + (int)tk->getStopIndex() - (int)tk->getStartIndex()) << " "
+          //  ^^^^^^^^^ these are column numbers /after/ pre-processing, so they don't match the original source
           << " ";
         switch (v.usage) 
         {
