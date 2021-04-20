@@ -2498,8 +2498,17 @@ Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::Swit
     t_combinational_block* case_block_after = gather(cb->case_block, case_block, _context);
     case_block_after->next(after);
   }
+  // if onehot, verifies expression is a single identifier
+  bool is_onehot = (switchCase->ONEHOT() != nullptr);
+  if (is_onehot) {
+    string id;
+    bool   isid = isIdentifier(switchCase->expression_0(),id);
+    if (!isid) {
+      reportError(switchCase->getSourceInterval(), (int)switchCase->getStart()->getLine(), "onehot switch applies only to an identifer");
+    }
+  }
   // add switch-case to current
-  _current->switch_case(t_instr_nfo(switchCase->expression_0(), _current, _context->__id), case_blocks, after);
+  _current->switch_case(is_onehot,t_instr_nfo(switchCase->expression_0(), _current, _context->__id), case_blocks, after);
   // checks whether after has to be a state
   bool is_state = false;
   for (auto b : case_blocks) {
@@ -3489,6 +3498,18 @@ bool Algorithm::requiresNoReset() const
     }
   }
   return true;
+}
+
+// -------------------------------------------------
+
+bool Algorithm::isNotCallable() const
+{
+  if (hasNoFSM()) {
+    return true;
+  } else if (m_AutoRun) {
+    return true;
+  }
+  return false; // this algorithm has to be called
 }
 
 // -------------------------------------------------
@@ -5077,10 +5098,10 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
       "algorithm instance '%s' called accross clock-domain -- not yet supported",
       a.instance_name.c_str());
   }
-  // check for call on purely combinational
-  if (a.algo->hasNoFSM()) {
+  // check for call on non callable
+  if (a.algo->isNotCallable()) {
     reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
-      "algorithm instance '%s' called while being purely combinational",
+      "algorithm instance '%s' called while being on autorun or having only always blocks",
       a.instance_name.c_str());
   }
   // if params are empty we simply call, otherwise we set the inputs
@@ -5485,38 +5506,6 @@ void Algorithm::writeWireAssignements(
 
 // -------------------------------------------------
 
-void Algorithm::writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_var_nfo& v) const
-{
-  if (!v.do_not_initialize && !v.init_at_startup) {
-    if (v.table_size == 0) {
-      string initv = varInitValue(v, ictx);
-      if (!initv.empty()) { // this may happen on a parameterized var
-        out << FF_Q << prefix << v.name << " <= " << varInitValue(v, ictx) << ';' << nxl;
-      }
-    } else {
-      sl_assert(v.type_nfo.base_type != Parameterized);
-      ForIndex(i,v.init_values.size()) {
-        out << FF_Q << prefix << v.name << "[" << i << "] <= " << v.init_values[i] << ';' << nxl;
-      }
-    }
-  }
-}
-
-// -------------------------------------------------
-
-void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const
-{
-  if (v.table_size == 0) {
-    out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << nxl;
-  } else {
-    ForIndex(i, v.table_size) {
-      out << FF_Q << prefix << v.name << "[" << i << "] <= " << FF_D << prefix << v.name << "[" << i << "];" << nxl;
-    }
-  }
-}
-
-// -------------------------------------------------
-
 std::string Algorithm::varBitRange(const t_var_nfo& v,const t_instantiation_context &ictx) const
 {
   if (v.type_nfo.base_type == Parameterized) {
@@ -5792,6 +5781,41 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
 
 // -------------------------------------------------
 
+void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, std::ostream &out, const t_instantiation_context &ictx, const t_var_nfo &v) const
+{
+  std::string init_cond = reset;
+  if (reset.empty()) {
+    init_cond = "";
+  } else if (v.init_at_startup || v.do_not_initialize) {
+    init_cond = "";
+  } else if (!hasNoFSM()) {
+    init_cond = reset + (" || !" ALG_INPUT "_" ALG_RUN);
+  } else {
+    init_cond = reset;
+  }
+  if (v.table_size == 0) {
+    // not a table
+    string initv = varInitValue(v, ictx);
+    if (!init_cond.empty() && !initv.empty()) {
+      out << FF_Q << prefix << v.name << " <= (" << init_cond << ") ? " << initv << " : " << FF_D << prefix << v.name << ';' << nxl;
+    } else {
+      out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << nxl;
+    }
+  } else {
+    // table
+    sl_assert(v.type_nfo.base_type != Parameterized);
+    ForIndex(i, v.table_size) {
+      if (!init_cond.empty()) {
+        out << FF_Q << prefix << v.name << "[" << i << "] <= (" << init_cond << ") ? " << v.init_values[i] << " : " << FF_D << prefix << v.name << ';' << nxl;
+      } else {
+        out << FF_Q << prefix << v.name << "[" << i << "] <= " << FF_D << prefix << v.name << "[" << i << "];" << nxl;
+      }
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const
 {
   // output flip-flop init and update on clock
@@ -5809,77 +5833,45 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
 
   out << "always @(posedge " << clock << ") begin" << nxl;
 
-  /// init on hardware reset
-  if (!requiresNoReset()) {
-    std::string reset = m_Reset;
-    if (m_Reset != ALG_RESET) {
-      // in this case, reset has to be bound to a module/algorithm output
-      /// TODO: is this over-constrained? could it also be a variable?
-      auto R = m_VIOBoundToModAlgOutputs.find(m_Reset);
-      if (R == m_VIOBoundToModAlgOutputs.end()) {
-        reportError(nullptr, -1, "algorithm '%s', reset is not bound to a module or algorithm output", m_Name.c_str());
-      }
-      reset = R->second;
+  // determine var reset condition
+  std::string init_cond;
+  std::string reset = m_Reset;
+  if (m_Reset != ALG_RESET) {
+    // in this case, reset has to be bound to a module/algorithm output
+    /// TODO: is this over-constrained? could it also be a variable?
+    auto R = m_VIOBoundToModAlgOutputs.find(m_Reset);
+    if (R == m_VIOBoundToModAlgOutputs.end()) {
+      reportError(nullptr, -1, "algorithm '%s', reset is not bound to a module or algorithm output", m_Name.c_str());
     }
-    out << "  if (" << reset;
-    if (!hasNoFSM()) {
-      out << " || !in_run";
-    }
-    out << ") begin" << nxl;
-    for (const auto &v : m_Vars) {
-      if (v.usage != e_FlipFlop) continue;
-      writeVarFlipFlopInit(prefix, out, ictx, v);
-    }
-    for (const auto &v : m_Outputs) {
-      if (v.usage != e_FlipFlop) continue;
-      if (v.do_not_initialize) {
-        writeVarFlipFlopUpdate(prefix, out, v);
-      } else {
-        writeVarFlipFlopInit(prefix, out, ictx, v);
-      }
-    }
-    // state machine 
-    if (!hasNoFSM()) {
-      // -> on reset
-      out << "  if (" << reset << ") begin" << nxl;
-      if (!m_AutoRun) {
-        // no autorun: jump to halt state
-        out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(terminationState()) << ";" << nxl;
-      } else {
-        // autorun: jump to first state
-        out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << nxl;
-      }
-      // sub-states indices
-      for (auto b : m_Blocks) {
-        if (b->num_sub_states > 1) {
-          out << FF_Q << prefix << b->block_name << '_' << ALG_IDX   " <= 0;" << nxl;
-        }
-      }
-      out << "end else begin" << nxl;
-      // -> on restart, jump to first state
-      out << FF_Q << prefix << ALG_IDX   " <= " << toFSMState(entryState()) << ";" << nxl;
-      out << "end" << nxl;
-    }
-    /// updates on clockpos
-    out << "  end else begin" << nxl;
+    reset = R->second;
   }
-  // update var flip-flops
-  for (const auto& v : m_Vars) {
+  init_cond = reset;
+  if (!hasNoFSM()) {
+    init_cond  = init_cond + (" || !" ALG_INPUT "_" ALG_RUN);
+  }
+  for (const auto &v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
-    writeVarFlipFlopUpdate(prefix, out, v);
+    writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
   }
-  // update output flip-flops
   for (const auto &v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
-    writeVarFlipFlopUpdate(prefix, out, v);
+    writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
   }
   if (!hasNoFSM()) {
     // state machine index
-    out << FF_Q << prefix << ALG_IDX " <= " FF_D << prefix << ALG_IDX << ';' << nxl;
+    out << FF_Q << prefix << ALG_IDX " <= (" << init_cond << ") ? "
+      << "( ~" << reset << " ? " << toFSMState(entryState()) << " : "
+      << (m_AutoRun ? toFSMState(entryState()) : toFSMState(terminationState()))
+      << ") "
+      << " : " << FF_D << prefix << ALG_IDX 
+      << ";" << nxl;
     // sub-states indices
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
-        out << FF_Q << prefix << b->block_name << '_' << ALG_IDX " <= " FF_D << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
+        out << FF_Q << prefix << b->block_name << '_' << ALG_IDX " <= (" << init_cond << ") ? " 
+          << " 0 "
+          << " : " 
+          << FF_D << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
       }
     }
     // caller ids for subroutines
@@ -5892,15 +5884,12 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       }
     }
   }
-  if (!requiresNoReset()) {
-    out << "  end" << nxl;
-  }
   // update instanced algorithms input flip-flops
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
     for (const auto &is : ia.algo->m_Inputs) {
       if (ia.boundinputs.count(is.name) == 0) {
-        writeVarFlipFlopUpdate(ia.instance_prefix + '_', out, is);
+        writeVarFlipFlopUpdate(ia.instance_prefix + '_', "", out, ictx, is);
       }
     }
   }
@@ -5973,7 +5962,7 @@ void Algorithm::writeCombinationalAlwaysPre(
       out << ia.instance_prefix + "_" ALG_RUN " = 1;" << nxl;
     }
   }
-  // instanced modules input/output bindings with wires
+  // instanced modules output bindings with wires
   // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
   for (auto im : m_InstancedModules) {
     for (auto b : im.second.bindings) {
@@ -5992,7 +5981,7 @@ void Algorithm::writeCombinationalAlwaysPre(
       }
     }
   }
-  // instanced algorithms input/output bindings with wires
+  // instanced algorithms output bindings with wires
   // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
@@ -6200,7 +6189,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
   }
   out << nxl;
   // block variable initialization
-  if (!block->initialized_vars.empty()) {
+  if (!block->initialized_vars.empty() && block->block_name != "_top") {
     out << "// var inits" << nxl;
     writeVarInits(prefix, out, ictx, block->initialized_vars, _dependencies, _ff_usage);
     out << "// --" << nxl;
@@ -6408,13 +6397,30 @@ void Algorithm::writeStatelessBlockGraph(
         current = current->if_then_else()->after; // yes!
       }
     } else if (current->switch_case()) {
-      out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ")" << nxl;
+      if (current->switch_case()->onehot) {
+        out << "(* parallel_case, full_case *)" << nxl;
+        out << "  case (1'b1)" << nxl;
+      } else {
+        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ")" << nxl;
+      }
+      std::string identifier;
+      if (current->switch_case()->onehot) {
+        bool isidentifier = isIdentifier(current->switch_case()->test.instr, identifier);
+        if (!isidentifier) { throw Fatal("internal error (onehot switch)"); }
+      }
       // recurse block
       t_vio_dependencies depds_before_case = _dependencies;
       vector<t_vio_ff_usage> usage_branches;
       bool has_default = false;
       for (auto cb : current->switch_case()->case_blocks) {
-        out << "  " << cb.first << ": begin" << nxl;
+        if (current->switch_case()->onehot) {
+          out << "  "
+            << rewriteIdentifier(prefix, identifier, "", &current->context, -1, FF_Q, true, _dependencies, _ff_usage)
+            << "[" << cb.first << "]: begin" << nxl;
+          /// TODO: if cb.first is const, check it is below identifier bit width
+        } else {
+          out << "  " << cb.first << ": begin" << nxl;
+        }
         has_default = has_default | (cb.first == "default");
         // recurse case
         t_vio_dependencies depds_case = depds_before_case;
@@ -6760,6 +6766,7 @@ void Algorithm::writeModuleMemory(std::string instance_name, std::ostream& out, 
 void Algorithm::writeAsModule(std::string instance_name, std::ostream &out)
 {
   t_instantiation_context ictx; // empty instantiation context
+  m_TopMost = true;
   writeAsModule(instance_name, out, ictx, true);
 }
 
@@ -6949,7 +6956,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
   for (const auto &v : m_InOuts) {
     out << string(ALG_INOUT) << '_' << v.name << ',' << nxl;
   }
-  if (!hasNoFSM()) {
+  if (!hasNoFSM() || m_TopMost /*topmost keeps these for glue convenience*/) {
     out << ALG_INPUT << "_" << ALG_RUN << ',' << nxl;
     out << ALG_OUTPUT << "_" << ALG_DONE << ',' << nxl;
   }
@@ -6972,7 +6979,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
     sl_assert(v.table_size == 0);
     writeVerilogDeclaration(out, ictx, "inout", v, string(ALG_INOUT) + "_" + v.name);
   }
-  if (!hasNoFSM()) {
+  if (!hasNoFSM() || m_TopMost) {
     out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
     out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ';' << nxl;
   }
@@ -7084,7 +7091,11 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
 
   // algorithm done
   if (!hasNoFSM()) {
+    // track whenever algorithm reaches termination
     out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << toFSMState(terminationState()) << ");" << nxl;
+  } else if (m_TopMost) {
+    // a top most always will never be done
+    out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = 0;" << nxl;
   }
 
   // flip-flops update
@@ -7106,11 +7117,11 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
       if (b.dir == e_Left || b.dir == e_LeftQ) {
         // input
         t_vio_dependencies _;
-        out << '.' << b.left << '('
-          << rewriteIdentifier("_", bindingRightIdentifier(b), "", nullptr, nfo.second.instance_line, 
-            b.dir == e_LeftQ ? FF_Q : FF_D, true, _, _ff_usage, e_DQ /*force module inputs to be latched*/
-          )
-          << ")";
+        out << '.' << b.left << '(';
+        out << rewriteIdentifier("_", bindingRightIdentifier(b), "", nullptr, nfo.second.instance_line,
+          b.dir == e_LeftQ ? FF_Q : FF_D, true, _, _ff_usage, e_DQ /*force module inputs to be latched*/
+        );
+        out << ")";
       } else if (b.dir == e_Right) {
         // output (wire)
         out << '.' << b.left << '(' << wire_prefix + "_" + b.left << ")";
@@ -7153,9 +7164,17 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
           nfo.boundinputs.at(is.name).second == e_Q ? e_Q : (is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/) );
       } else {
         // input is not bound and assigned in logic, a specifc flip-flop is created for this
-        out << FF_D << nfo.instance_prefix << "_" << is.name;
-        // add to usage
-        updateFFUsage(is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/, true, _ff_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
+        if (nfo.algo->isNotCallable()) {
+          // the instance is never called, we bind to D
+          out << FF_D << nfo.instance_prefix << "_" << is.name;
+          // add to usage
+          updateFFUsage(is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/, true, _ff_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
+        } else {
+          // the instance is only called, we bind to Q
+          out << FF_Q << nfo.instance_prefix << "_" << is.name;
+          // add to usage
+          updateFFUsage(e_Q, true, _ff_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
+        }
       }
       out << ')' << ',' << nxl;
     }

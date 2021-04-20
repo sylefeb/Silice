@@ -210,7 +210,7 @@ $$end
 // The Risc-V RV32I CPU itself
 
 algorithm rv32i_cpu(
-  output! uint12 mem_addr,
+  output! uint12 mem_addr(0), // boot at 0x00
   input   uint32 mem_rdata,
   output! uint32 mem_wdata,
   output! uint1  mem_wen,
@@ -310,16 +310,16 @@ $$end
   xregsA.addr    := Rtype(instr).rs1;
   xregsB.addr    := Rtype(instr).rs2;  
   // boot at 0x00
-  mem_addr        = 0;
+//  mem_addr        = 0;
   
 $$if SIMULATION then
-  while (iter < 1024) {
+  while (iter < 4096) {
     iter = iter + 1;
 $$else
   while (1) {
 $$end
 
-// __display("pc %d",mem_addr);
+//    __display("pc %d",mem_addr);
 
     // mem_data is now available
     instr = mem_rdata;
@@ -398,6 +398,7 @@ $$end
               case 3b010: { // SW
                 mem_wdata   = xregsB.rdata;
               }            
+              default: {  }
             }
 //__display("STORE2 addr: %h op: %b write: %h",mem_addr,loadStoreOp,mem_wdata);
             mem_addr    = alu_out>>2;

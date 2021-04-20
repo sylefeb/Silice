@@ -19,8 +19,9 @@ Silice has only few layers of abstraction: the flip-flops are automatically gene
 For general FPGA design rules see [this post](http://www.fpgacpu.org/log/sep00.html#000919). The gist of it is to favor simplicity of code, which often translates to efficient designs. 
 
 To make a design more efficient, we first and foremost want to reduce the need for multiplexers. These are expensive in terms of routing, and interconnect is a major factor in a lower max frequency on an FPGA. This implies:
-- Reduce the number of steps in algorithms (++:), which simplifies the state machine multiplexer
-- Split your code in smaller, more efficient algorithms
+- Reduce the number of steps in algorithms (++:), which simplifies the state machine multiplexer.
+- Split your code in smaller, more efficient algorithms.
+- Reread the [notes on algorithms calls, bindings and timings](AlgoInOuts.md) and in particular the timing section, check your algorithms bindings.
 - Reduce simple algorithms into a single loop (`while(1)` or `always`) that executes in a single cycle
 - Restrict conditionals only where really necessary: it is better to update a variable if this has no effect, rather than trying to not do it. This is very different from CPU programming: we attempt to minimize logic, circuit depth and interconnect.
 - Use `uninitialized` or power up initialization (`uint8 v(0);`) as much as possible.
@@ -39,7 +40,7 @@ if that is all the same in the end.
 - Some operations can be split over multiple cycles to reduce design size; for instance a shift `<< N` can be done in shifts of `<< 1` over N cycles for a much smaller circuit.
 - Use micro-coding for initialization sequences: build a tiny processor that reads instructions in a BRAM (**TODO** example with OLED)
 - The max frequency can often be increased by paying in latency, ensuring less is done at each cycle. 
-- Using <:: for bindings is one way to add latency, as algorithm will see the new input only at next clock posedge. See also [algorithm inputs and outputs timings](AlgoInOuts.md).
-- Avoid increasing logic complexity, trying to keep computed quantities in a single place reused throughout the design.
+- Using <:: for bindings is one way to add latency, as algorithms will see the new input only at next clock posedge. See also [algorithm inputs and outputs timings](AlgoInOuts.md).
+- Try to keep computed quantities in a single place reused throughout the design, even though it is sometimes best to repeat than to multiplex.
 
-And again, keep that in mind: everything you put in your design is always there, up and running. If you attempt to not do something you are adding complexity (typically a multiplexer). Each time you introduce a condition, ask yourself whether it is truly necessary for proper operation.
+And again, keep that in mind: everything you put in your design is always there, up and running. If you attempt to not do something you are adding complexity (typically a multiplexer). Each time you introduce a condition, ask yourself whether it is truly necessary for proper operation, otherwise skip it.

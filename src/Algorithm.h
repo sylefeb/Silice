@@ -427,11 +427,12 @@ private:
     class end_action_switch_case : public t_end_action
     {
     public:
+      bool                                                         onehot;
       t_instr_nfo                                                  test;
       std::vector<std::pair<std::string, t_combinational_block*> > case_blocks;
       t_combinational_block*                                       after;
-      end_action_switch_case(t_instr_nfo test_, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks_, t_combinational_block* after_)
-        : test(test_), case_blocks(case_blocks_), after(after_) {}
+      end_action_switch_case(bool is_onehot,t_instr_nfo test_, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks_, t_combinational_block* after_)
+        : onehot(is_onehot), test(test_), case_blocks(case_blocks_), after(after_) {}
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { for (auto b : case_blocks) { _ch.push_back(b.second); } _ch.push_back(after); }
       std::string name() const override { return "end_action_switch_case";}
     };
@@ -558,9 +559,9 @@ private:
       }
       const end_action_if_else *if_then_else() const { return dynamic_cast<const end_action_if_else*>(end_action); }
 
-      void switch_case(t_instr_nfo test, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks, t_combinational_block* after)
+      void switch_case(bool is_onehot,t_instr_nfo test, const std::vector<std::pair<std::string, t_combinational_block*> >& case_blocks, t_combinational_block* after)
       {
-        swap_end(new end_action_switch_case(test, case_blocks, after));
+        swap_end(new end_action_switch_case(is_onehot,test, case_blocks, after));
       }
       const end_action_switch_case* switch_case() const { return dynamic_cast<const end_action_switch_case*>(end_action); }
 
@@ -624,9 +625,11 @@ private:
     /// \brief stores encountered forwards refs for later resolution
     std::unordered_map< std::string, std::vector< t_forward_jump > >  m_JumpForwardRefs;
     /// \brief maximum state value of the algorithm
-    int m_MaxState = -1;
+    int m_MaxState      = -1;
     /// \brief integer name of the next block
     int m_NextBlockName = 1;
+    /// \brief indicates whether this algorithm is the topmost in the design
+    bool m_TopMost      = false;
 
   public:
 
@@ -910,6 +913,8 @@ private:
     bool requiresNoReset() const;
     /// \brief returns true if the algorithm does not call subroutines
     bool doesNotCallSubroutines() const;
+    /// \brief returns true if the algorithm is not callable
+    bool isNotCallable() const;
     /// \brief converts an internal state into a FSM state
     int  toFSMState(int state) const;
     /// \brief finds the binding to var
@@ -1003,10 +1008,8 @@ private:
       std::string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes all wire assignements
     void writeWireAssignements(std::string prefix, std::ostream &out, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
-    /// \brief writes flip-flop value init for a variable
-    void writeVarFlipFlopInit(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_var_nfo& v) const;
     /// \brief writes flip-flop value update for a variable
-    void writeVarFlipFlopUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
+    void writeVarFlipFlopUpdate(std::string prefix, std::string reset, std::ostream& out, const t_instantiation_context &ictx, const t_var_nfo& v) const;
     /// \brief writes the const declarations
     void writeConstDeclarations(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const;
     /// \brief writes the temporary declarations

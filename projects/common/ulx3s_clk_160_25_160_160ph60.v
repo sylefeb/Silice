@@ -2,7 +2,7 @@
 // diamond 3.8-3.9 is untested
 // diamond 3.10 or higher is likely to abort with error about unable to use feedback signal
 // cause of this could be from wrong CPHASE/FPHASE parameters
-module ulx3s_clk_160_25_160_160ph60
+module pll
 (
     input clkin, // 25 MHz, 0 deg
     output clkout0, // 160 MHz, 0 deg

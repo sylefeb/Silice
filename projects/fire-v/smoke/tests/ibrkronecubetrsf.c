@@ -161,7 +161,7 @@ void main()
   
   while(1) {
     
-    clear(0,0,SCRW,SCRH);
+    clear(0, 0,0,SCRW,SCRH);
 
     int Ry[9];
     rotY(Ry,(a + (time))&255);

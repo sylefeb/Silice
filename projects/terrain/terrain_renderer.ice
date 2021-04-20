@@ -60,8 +60,8 @@ algorithm terrain_renderer(
     fb_user        fb,
     input   uint3  btns,
     input   uint8  sky_pal_id,
-    output! uint14 map0_raddr,
-    input   uint16 map0_rdata,
+    output! uint14 map_raddr,
+    input   uint16 map_rdata,
     input   uint1  write_en,
     input   uint1  vblank,
 ) <autorun> {
@@ -94,7 +94,7 @@ algorithm terrain_renderer(
 
   // 8x8 matrix for dithering  
   // https://en.wikipedia.org/wiki/Ordered_dithering
-  int6 bayer_8x8[64] = {
+  uint6 bayer_8x8[64] = {
     0, 32, 8, 40, 2, 34, 10, 42,
     48, 16, 56, 24, 50, 18, 58, 26,
     12, 44, 4, 36, 14, 46, 6, 38,
@@ -135,9 +135,9 @@ $$end
     // init z stepping
     z          = $z_step_init$;
     // sample ground height to position view altitude automatically
-    map0_raddr = {v_y[$fp$,7],v_x[$fp$,7]};
+    map_raddr  = {v_y[$fp$,7],v_x[$fp$,7]};
 ++:
-    gheight    = map0_rdata[0,8];
+    gheight    = map_rdata[0,8];
     // smoothly adjust view height
     // NOTE: this below is expensive in size due to < >
     vheight    = (vheight < gheight) ? vheight + 3 : ((vheight > gheight) ? vheight - 1 : vheight);
@@ -166,26 +166,26 @@ $$end
         uint8  hv0(0); uint8  hv1(0);
         // sample next elevations, with texture interpolation  
         // interleaves access and interpolator computations
-        map0_raddr = {l_y[$fp$,7],l_x[$fp$,7]};
+        map_raddr  = {l_y[$fp$,7],l_x[$fp$,7]};
   ++:          
-        h00        = map0_rdata;
-        map0_raddr = {l_y[$fp$,7],l_x[$fp$,7]+7b1};
+        h00        = map_rdata;
+        map_raddr  = {l_y[$fp$,7],l_x[$fp$,7]+7b1};
   ++:          
-        h10        = map0_rdata;
+        h10        = map_rdata;
         interp_a   = h00[0,8];  // trigger interpolation
         interp_b   = h10[0,8];
         interp_i   = l_x[$fp-8$,8];
-        map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};        
   // NOTE: The following performs a full bi-linear interpolation
   //       however, with the simple x-aligned traversal we don't need
   //       to fully interpolate heights. 
   //       This will become necessary later.
+  //    map_raddr  = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};        
   // ++:       
   //    hv0        = interp_v;
-  //    h11        = map0_rdata;
-  //    map0_raddr = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
+  //    h11        = map_rdata;
+  //    map_raddr  = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
   // ++:          
-  //    h01        = map0_rdata;
+  //    h01        = map_rdata;
   //    interp_a   = h01[0,8]; // trigger second interpolation
   //    interp_b   = h11[0,8];
   // ++:
@@ -218,11 +218,11 @@ $$end
         inv_n.addr     = delta_y;        // one over the gap size
         v_interp       = 0;              // interpolator accumulation
         // clamp on screen
-        y_screen       = (iz == $z_num_step-1$) ? 0 : (((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground)));
+        y_screen       = (iz == $z_num_step-1$) ? -1 : (((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground)));
         //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
         // fill column
         while (y_last.rdata != 0 && y > y_screen) { 
-          //                        ^^^^^^^ geq is needed as y_screen might be 'above' (below on screen)
+          //                        ^^^^^^^ gt is needed as y_screen might be 'above' (below on screen)
           //   ^^^^^^^^^^^^^^^^^^ 
           //   avoids sky on top row if already touched by terrain                      
           //

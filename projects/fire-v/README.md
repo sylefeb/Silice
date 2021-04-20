@@ -117,7 +117,7 @@ To run something, you have to compile code and write it to spiflash at offset 1M
 **Compiling code for Blaze**
 
 ```
-./compile_to_blaze.sh smoke/tests/cubes.c
+./compile_to_blaze.sh smoke/tests/ibrkrshape.c
 make spiflash
 ```
 This produces a `data.img` image for the spiflash.

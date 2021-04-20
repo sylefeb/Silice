@@ -56,6 +56,8 @@ $$SDRAM_r512_w64 = true
 
 $include('../common/video_sdram_main.ice')
 
+$$bram_depth = 13
+
 $include('fire-v/fire-v.ice')
 $include('ash/sdram_ram_32bits.ice')
 $include('ash/bram_segment_ram_32bits.ice')
