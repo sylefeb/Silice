@@ -4,7 +4,7 @@ Here are the instructions to setup Silice from scratch. Once done, head out to [
 
 We will first compile Silice and then compile or install the Open Source tools we will be using to synthesize a working design from a Silice code. We will also install the tools to directly program the boards.
 
-The instructions depend on your target platform, please follow the links below!
+The instructions depend on your target platform, please follow the links below.
 - [Getting started under Linux](GetStarted_Linux.md).
 - [Getting started under Windows](GetStarted_Windows.md).
 - [Getting started under macOS](GetStarted_macOS.md).
