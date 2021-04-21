@@ -4,7 +4,7 @@
 $$error('Inferno is not yet ready!')
 
 // pre-compilation script, embeds compile code within sdcard image
-$$dofile('pre_include_asm.lua')
+$$dofile('pre/pre_include_asm.lua')
 $$if not SIMULATION then
 $$  init_data_bytes = math.max(init_data_bytes,(1<<21)) -- we load 2 MB to be sure we can append stuff
 $$end
@@ -15,14 +15,22 @@ $$for i=0,255 do
 $$  palette[1+i] = (i) | (i<<8) | (i<<16)
 $$end
 
+$$if SIMULATION then
+$$  frame_drawer_at_sdram_speed = true
+$$else
+$$  fast_compute = true
+$$end
+
+$$SDRAM_r512_w64 = true
+
 $include('../common/video_sdram_main.ice')
 $include('../common/audio_pwm.ice')
 
 $$SHOW_REGS = false
 
-$include('ram-ice-v.ice')
-$include('sdram_ram_32bits.ice')
-$include('basic_cache_ram_32bits.ice')
+$include('fire-v/fire-v.ice')
+$include('ash/sdram_ram_32bits.ice')
+$include('ash/bram_segment_ram_32bits.ice')
 
 $$Nway = 2
 $include('../common/sdram_arbitrers.ice')

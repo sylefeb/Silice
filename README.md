@@ -10,7 +10,7 @@
 Silice is *not* a high level synthesis language, and does not intend to become one: it *remains close to the hardware*. When designing hardware with Silice you remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when execution states appear, how flip-flops map to variables, and what gets registered or not. Clock domains are also exposed. In fact, if you chose so you can design in a way that is very similar to *Verilog*, while still benefiting from the syntax of Silice. This allows you to refine an initial prototype from concept to efficient implementation. 
 Silice compiles to and inter-operates with Verilog: you can directly instantiate and bind with existing modules.
 
-To setup Silice, see the [getting started](GetStarted.md) guide. To start writing code, see [writing your first design](FirstDesign.md). To see what can be done with Silice, checkout the [example projects](projects/README.md) (all are available in this repo).
+To setup Silice, see the [getting started](GetStarted.md) guide. To start writing code, see [learn Silice](learn-silice/README.md). To see what can be done with Silice, checkout the [example projects](projects/README.md) (all are available in this repo).
 
 You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 and ECP5 examples](projects/README.md).
 

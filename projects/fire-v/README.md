@@ -18,7 +18,7 @@ As always, designing hardware is a compromise. Here I attempt to maintain a simp
 - [A fast memory segment](ash/bram_segment_ram_32bits.ice) catching an address range in BRAM, falling back to SDRAM outside.
 - A [hardware triangle rasterizer](doc/flame.md), exploiting the SDRAM wide write capability.
 - An [SDRAM framebuffer](../common/video_sdram_main.ice), also exploiting the SDRAM wide write capability, with double buffering, 8 bit palette of 24bits RGB colors at 640x480 (can be configured for 320x200 as well).
-- Four variants: [Spark](spark.ice) (minimalist), [Blaze](blaze.ice) (geared towards IceBreaker), [Wildfire](wildfire.ice) (geared towards ULX3S), [Inferno](inferno.ice) (dual-core version of Wildfire).
+- Four variants: [Spark](spark.ice) (minimalist), [Blaze](blaze.ice) (geared towards IceBreaker), [Wildfire](wildfire.ice) (geared towards ULX3S), [Inferno](inferno.ice) (dual-core version of Wildfire -- *needs update*).
 
 <center><img src="doc/wildfire-arch.png" width="400px"></center>
 
