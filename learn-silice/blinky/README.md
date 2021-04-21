@@ -55,6 +55,7 @@ algorithm main(output uint5 leds = 5b11110)
 &nbsp;
 ### *A second blinky, that blinks (!)*
 ---
+Source code: [blinky1.ice](blinky1.ice).
 
 Our first blinky is a bit too static! Let's make a second version:
 
@@ -111,6 +112,7 @@ Try it, this works just as well.
 &nbsp;
 ### *A blinky that does not blind us*
 ---
+Source code: [blinky2.ice](blinky2.ice).
 
 Your board might be equipped with super-bright LEDs. Mine surely is, I can barely stand looking at them. Let's fix this!
 
@@ -173,3 +175,64 @@ And this is it, our blinker blinks all the same, but is less bright. Play with t
 > **Note:** The algorithm we defined,  `algorithm intensity`, is an *auto-start* algorithm. That means it does not need to be called or started, it always runs. The reason is that it only uses always assignments, and nothing else.
 
 > **Note:** `main` is also an *auto-start* and is automatically instantiated for us.
+
+&nbsp;
+### *Blink me five*
+---
+Source code: [blinky3.ice](blinky3.ice).
+
+Let's do a blinker that blinks five times in a short sequence, pauses for a longer time, and loops back.
+
+For this we need two delays. A short one for the five blinks sequence, and a longer one for the pause. To produce these delays we will define a `wait` algorithm:
+
+```c
+algorithm wait(input uint32 delay)
+{
+  uint32 cnt = 0;
+  while (cnt != delay) {
+    cnt = cnt + 1;
+  }
+}
+```
+This takes a delay as input (a 32 bits integer, likely overkill!), and increments a counter (`cnt`) until it reaches the same value.
+
+Now, lets see how the rest of our blinker looks:
+
+```c
+algorithm main(output uint5 leds)
+{
+  wait waste_cycles;
+
+  while (1) {
+    uint3 n = 0;
+    while (n != 5)  {
+      // turn LEDs on
+      leds = 5b11111;
+      () <- waste_cycles <- (3000000);
+      // turn LEDs off
+      leds = 5b00000;
+      () <- waste_cycles <- (3000000);
+      n = n + 1;
+    }
+    // long pause
+    () <- waste_cycles <- (50000000);
+  }
+}
+```
+
+First, we instantiate the algorithm with `wait waste_cycles`.
+
+Then we have two nested loops, the outer infinite loop `while (1) { ... }` and the inner loop for the five blinks `while (n != 5)  { ... n = n + 1; }`.
+
+Now to the interesting part, the calls to `wait`. This is an algorithm that defines a sequence of steps, so it has to be called to run. The calls use the syntax `(o0,...,oN) <- alg <- (i0,...,iM)` with outputs on the left and inputs on the right. Here, since we have one input and no outputs we call with `() <- waste_cycles <- (3000000)`. This starts the algorithm *and* waits for its completion, which takes 3000000 cycles (249 milliseconds at 12MHz). 
+
+Now that we can call the `wait` algorithm, things are simple:
+1. we turn the LEDs on: `leds = 5b11111`
+1. wait 3000000 cycles: `() <- waste_cycles <- (3000000)`
+1. we turn the LEDs off `leds = 5b11111`
+1. wait 3000000 cycles `() <- waste_cycles <- (3000000)`
+1. do this five times `while (n != 5)  { ... n = n + 1; }`
+1. wait 50000000 cycles `() <- waste_cycles <- (50000000)`
+1. loop forever! `while (1) { ... }`
+
+> **Note:** As an exercise, make a sequence of 5 blinks, then 10, then 5, etc.

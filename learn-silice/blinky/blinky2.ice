@@ -1,6 +1,6 @@
 algorithm intensity(output uint1 pwm_bit)
 {
-  uint16 ups_and_downs = 16b1110000000000000;
+  uint16 ups_and_downs = 16b1000000000000000;
 
   pwm_bit       := ups_and_downs[0,1];
   ups_and_downs := {ups_and_downs[0,1],ups_and_downs[1,15]};
