@@ -160,7 +160,7 @@ algorithm main(output uint5 leds)
 }
 ```
 
-The algorithm is instantiated by `intensity less_intense`. We give a name to the instance -- because of course you can run multiple instances in parallel!
+The algorithm is instantiated by `intensity less_intense`. We give a name to the instance -- because of course we could run multiple instances in parallel!
 
 Then, we use the output of the algorithm, which is accessed with the 'dot' syntax as `less_intense.pwm_bit`. 
 
