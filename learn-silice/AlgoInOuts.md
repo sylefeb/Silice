@@ -153,7 +153,7 @@ algorithm Algo(input  uint8 i, output uint8 v)
 
 ### What about the 'dot' syntax and calls?
 
-The behavior depends on whether the algorithm is an instance of an *auto-start* algorithm. An auto-start algorithm does not have to be called (and calling it is an error) as it either uses `<autorun>` or is composed only of always blocks. 
+The behavior depends on whether the algorithm is an instance of an *auto-start* algorithm. An auto-start algorithm does not have to be called (and calling it is an error) as it either uses `<autorun>` or is composed only of always blocks and/or always assignments. 
 
 On an auto-start algorithm, the 'dot' syntax always writes inputs directly (no delay) and reads outputs as defined by the use of `output` or `output!`. 
 

@@ -16,7 +16,9 @@ make file=blinky1.ice icebreaker
 
 This tells the makefile to call the Silice build system on file `blinky1.ice` (each version of blinky will be a separate file), and to compile for the `icebreaker`. If you have a different board, replace the last parameter by its name: `icestick`, `ulx3s`, etc. Supported boards are [listed here](../../frameworks/boards/boards.json).
 
+&nbsp;
 ### *A first blinky*
+---
 
 Our first blinky (spoiler: *it does not blink!*) is in [blinky0.ice](blinky0.ice). Here is the source code:
 
@@ -50,7 +52,9 @@ algorithm main(output uint5 leds = 5b11110)
 }
 ```
 
+&nbsp;
 ### *A second blinky, that blinks (!)*
+---
 
 Our first blinky is a bit too static! Let's make a second version:
 
@@ -104,3 +108,66 @@ Try it, this works just as well.
 
 > As an exercise, try to make the blinker go faster or slower by changing the bit-width of `cnt` and/or the assignment to `leds`.
 
+&nbsp;
+### *A blinky that does not blind us*
+---
+
+Your board might be equipped with super-bright LEDs. Mine surely is, I can barely stand looking at them. Let's fix this!
+
+In this third version we will define a second algorithm. The goal of this algorithm will be to produce a fast one-bit blink, that is `1` only some portion of the time. So let's say that across 16 cycles, we are going to have 3 cycles at `1` and 13 at `0`. This will happen so fast that we won't see any 'blink', but instead we will perceive a loss of intensity. What we are doing here has a fancy name: [Pulse Width Modulation](https://en.wikipedia.org/wiki/Pulse-width_modulation) (or PWM). It is a super-convenient technique to fake 'intensity levels' while having a single bit output. 
+
+First, let's define our algorithm. As it generates a signal it only has one output:
+
+```v
+algorithm intensity(output uint1 pwm_bit)
+{
+  uint16 ups_and_downs = 16b1110000000000000;
+
+  pwm_bit       := ups_and_downs[0,1];
+  ups_and_downs := {ups_and_downs[0,1],ups_and_downs[1,15]};
+}
+```
+
+So what happens here? First, we declare `ups_and_downs` and set it to a 16 bit value with three `1`s and eleven `0`s.
+Then we always set `pwm_bit` to the first bit of `ups_and_downs`. And finally, we *rotate* the bits of ups_and_downs by one. This is achieved with the concatenation operator (that comes from *Verilog* -- Silice support most of the same operators). The concatenation is a list given as `{a,b,c}`. The result is a value concatenating the bits of a, b, and c, with c in the least significant bits. (*Side note*: if constants are used they have to be given a size for this to make sense). 
+
+So let's have a look at this: `{ups_and_downs[0,1],ups_and_downs[1,15]}`. We are concatenating 1 bit with 15 bits (recall the second part of `[ , ]` is the bit-width). This results in a new 16 bits value assigned to `ups_and_downs`, so same width. Then we can see we select the first bit `ups_and_downs[0,1]` and the fifteen *others* bits `ups_and_downs[1,15]`, and put the first bit as new last bit! Imagine this happening over a few cycles (replacing bits by their initial ranks):
+```
+f,e,d,c,b,a,9,8,7,6,5,4,3,2,1,0
+0,f,e,d,c,b,a,9,8,7,6,5,4,3,2,1
+1,0,f,e,d,c,b,a,9,8,7,6,5,4,3,2
+2,1,0,f,e,d,c,b,a,9,8,7,6,5,4,3
+3,2,1,0,f,e,d,c,b,a,9,8,7,6,5,4
+```
+See how bits leave from the right and enter back from the left? This is called a bit *rotation*.
+
+The effect of this rotation is that `pwm_bit` will be assigned all the bits of `16b1110000000000000` in sequence, as they will all show up as the first bit of `ups_and_downs`, over and over again. So in the end the output will be `1` for 3/16th of the time
+
+Ok great, what do we do with this? 
+
+Next, we *instantiate* the algorithm in `main`. In Silice, because you describe hardware, any algorithm that is used has to be instantiated. This physically corresponds to allocating space on the FPGA for the circuit of the algorithm (actual allocation is done by place-and-route, *NextPNR* in our case).
+
+Here is how main is modified to integrate the PWM:
+```c
+algorithm main(output uint5 leds)
+{
+  intensity less_intense;
+
+  uint26 cnt = 0;
+  
+  leds := cnt[21,5] & {5{less_intense.pwm_bit}};
+  cnt  := cnt + 1;  
+}
+```
+
+The algorithm is instantiated by `intensity less_intense`. We give a name to the instance -- because of course you can run multiple instances in parallel!
+
+Then, we use the output of the algorithm, which is accessed with the 'dot' syntax as `less_intense.pwm_bit`. 
+
+Now, what's going on with this line? `leds := cnt[21,5] & {5{less_intense.pwm_bit}}`. 
+
+As before we assign 5 bits of `cnt` to `leds`, but now to diminish the intensity we combine the bits of `cnt` with `less_intense.pwm_bit` using a `&` (logical and). However, if we were to write `cnt[21,5] & less_intense.pwm_bit` we would only get LED0 to light up. That is because `cnt[21,5]` is five bits while `less_intense.pwm_bit` is a single bit wide, and would be considered 0 in higher bits. Instead, we expand `less_intense.pwm_bit` to become 5 bits wide, replicating its bit five times. This is done with the expression `{5{less_intense.pwm_bit}}` (also [inherited from Verilog](https://www.nandland.com/verilog/examples/example-replication-operator.html)).
+
+And this is it, our blinker blinks all the same, but is less bright. Play with the number of ones in `16b1110000000000000` to adjust the brightness.
+
+> **Note:** The algorithm we defined,  `algorithm intensity`, is an *auto-start* algorithm. That means it does not need to be called or started, it always runs. The reason is that it only uses always assignments, and nothing else.
