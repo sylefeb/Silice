@@ -14,7 +14,7 @@ void main()
 
   // print data from bram segment
   unsigned int *ptr = (unsigned int *)0x10000;
-  
+
   fbuffer = 1;
 
   for (int i = 0; i < 2 ; i++) {
