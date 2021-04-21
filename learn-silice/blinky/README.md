@@ -319,7 +319,89 @@ Instead we want the sequences to start *in parallel*. And we can just do that! I
 
 Here we call *at the same time* all five sequences. An *async* call takes no time, so all calls are done during the same cycle. Then we wait for the longest of the batch to be done, which is `s4`.
 
-And voilà! A fancy blinking sequence in hardware!
+And voilà! A fancy parallel blinking sequence in hardware!
+
+&nbsp;
+### *Blink smoothly*
+---
+Source code: [blinky5.ice](blinky5.ice).
+
+As a last example we will now create a smoothly pulsing sequence. This will reveal how an algorithm can be an auto-start, and yet continuously receive inputs and adapt its outputs.
+
+We first revisit the intensity (PWM) algorithm of [blinky2.ice](blinky2.ice), but modify it so that it takes an input defining how many `1`s and `0`s are in the 16 bits sequence:
+
+```c
+algorithm intensity(
+  input  uint4 threshold,
+  output uint1 pwm_bit)
+{
+  uint4 cnt = 0;
+
+  pwm_bit  := (cnt <= threshold);
+  cnt      := cnt + 1;
+}
+```
+
+The algorithm now has an internal counter (`uint4 cnt`) that is always incremented -- it wraps back to 0 after reaching 15, so it generates a sequence 0, 1, 2, ..., 15, 0, 1, 2, ...
+The counter is compared to a threshold, and the result in `pwm_bit` (a single bit) is used as the output. So if threshold == 0 then `pwm_bit` is `1` during 1/16 cycles ; if  threshold == 15 then `pwm_bit` is always `1`. This will control the LEDs intensity.
+
+Here is how we use this algorithm in `main`:
+
+```c
+algorithm main(output uint5 leds)
+{
+  uint4  th = 0;
+  uint1  pb = 0;
+  intensity pulse(
+    threshold <: th,
+    pwm_bit   :> pb
+  );
+
+  uint20 cnt          = 0;
+  uint1  down_else_up = 0;
+
+  leds := {5{pb}};
+  
+  while (1) {
+    if (cnt == 0) {      
+      if (down_else_up) {
+        if (th == 0) {
+          down_else_up = 0;
+        } else {
+          th = th - 1;
+        }
+      } else {
+        if (th == 15) {
+          down_else_up = 1;
+        } else {
+          th = th + 1;
+        }
+      }
+    }
+    cnt = cnt + 1;
+  }
+}
+```
+
+The important Silice feature being introduced here, is that variables `th` and `pb` are *bound* to the algorithm instance `intensity pulse`. 
+
+`th` is bound to the input `threshold` using the `<:` operator (`threshold <: th`). `pb` is bound to the output `pwm_bit` using the `:>` operator (`pwm_bit :> pb`). 
+
+This means that `th` and `pb` are now directly linked to the input/output of the algorithm. Any change to `th` in `main` is reflected onto `threshold` of `pulse`, and any change to `pwm_bit` of `pulse` is reflected onto `pb` in `main`. 
+
+Note that there is a one cycle latency between a change onto `pwm_bit` in `pulse` and the change on `pb` in `main`, see the [notes on algorithms calls, bindings and timings](AlgoInOuts.md) for all details. But here this has no impact.
+
+Alright, so `pulse` always runs in parallel to `main` and whenever we change `th` it adapts its output which we get in `pb`. The `leds` are set to the value of `pb` with `leds := {5{pb}}`. The rest of the algorithm simply implements a slow pulse, an increase/decrease sequence on `th`. 
+
+We use another `cnt` in `main` to slow things down, only acting when `cnt == 0`, while `cnt` is incremented every cycle (`cnt = cnt + 1`).  
+
+We use `down_else_up` to tag whether we should increment or decrement `th`. Then, we increment `th` to `15` and reverse direction (`down_else_up = 1`). We decrement `th` to `0` and reverse again  (`down_else_up = 0`). This keeps going forever.
+
+This is it, we have a slow pulse! 
+
+Binding algorithms to variables, as we did here with `threshold <: th` and `pwm_bit :> pb` is extremely common. In particular, these bindings can link together memory interfaces and CPUs, controllers and arbiters, outputs and signal drivers (VGA/HDMI/UART/etc.). 
+
+> **Note:** we could also have used `pulse.pwm_bit` and skip `pb`, but the goal was to demonstrate bindings both for input and outputs
 
 &nbsp;
 ### *Conclusion*
