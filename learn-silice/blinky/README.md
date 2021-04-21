@@ -41,7 +41,7 @@ So what can we do with `leds`? Each bit of `leds` controls one LED. So by giving
 
 `leds = 5b11110;` does exactly that. This line is actually the same as `leds = 5d30` or `leds = 5h1E` (try it!). That is because `5b11110`, `5d30` and `5h1E` all describe the same 5 bits wide constant (hence the leading 5) either in binary (*b*), decimal (*d*) or hexadecimal (*h*). We could also have simply written `leds = 30`, that is fine here, but it is generally better to indicate the size of the constants and avoid bad surprises (see [arithmetic rules and constant sizes](../ExprBitWidth.md)).
 
-So when we run this design, the only thing that happens is that we lit all LEDs but one (red LED0, in the center).
+So when we run this design, the only thing that happens is that we lit all LEDs but one (LED0, in the center).
 
 We could have written this more concisely. In Silice, outputs can have default value, so we can simply write:
 
