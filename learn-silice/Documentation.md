@@ -206,6 +206,12 @@ Similarly, the padding can be uninitialized:
 first part of the table will be initialized, the state of the other
 values will be unknown.
 
+Tables can also be initialized from file content, but only for specific bit-widths (currently 8 bits and 32 bits). 
+
+Example: `int32 tbl[256] = {file("data.img"), pad(0)};`
+
+This loads as many as possible 32 bits values from file `data.img` and pads the rest with zeros.
+
 ## Block RAMs / ROMs
 
 `bram intN tbl[M] = {...} `
