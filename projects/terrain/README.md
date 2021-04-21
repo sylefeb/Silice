@@ -15,6 +15,8 @@ In addition to Silice, a RISC-V compilation environment is needed, see [Getting 
 - **With an Icebreaker**: plug your board, then from a command line in this directory `./build.sh`
 - **In simulation**: from a command line in this directory `./simul.sh` ; this requires the [Verilator framework](../../GetStarted.md).
 
+> **Note:** As of writing there is an [open issue](https://github.com/YosysHQ/yosys/issues/2648) regarding yosys ice40 DSPs that will prevent the demo from running properly. I have [issued a patch](https://github.com/sylefeb/fpga-binutils/blob/master/patches/yosys_patch_ice40_dsp.diff). If you are under MinGW64 using my [pre-compiled toolchain](../../GetStarted_Windows.md) nothing to worry about, yosys is already patched.
+
 ### **Design files**
 
 - [`main.ice`](main.ice) is the main framework.

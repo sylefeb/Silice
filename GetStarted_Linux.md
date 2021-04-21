@@ -26,7 +26,7 @@ may come with your system. These are likely outdated and won't understand the la
 
 There are two options:
 
-### Compile from source
+### Compile from source (recommended)
 
 Yosys, icestorm, trellis, nextpnr, verilator are not difficult to compile and install, and have detailed instructions on their git pages:
 - [Yosys](https://github.com/YosysHQ/yosys)
@@ -38,6 +38,8 @@ Yosys, icestorm, trellis, nextpnr, verilator are not difficult to compile and in
 Note that trellis and icestorm have to be compiled and installed before nextpnr (please refer to the NextPNR setup instructions). 
 
 These tools take a bit of time to compile, but it is worth doing as they constantly improve.
+
+> **Note** You might want to apply my [ice40 DSP patch](https://github.com/sylefeb/fpga-binutils/blob/master/patches/yosys_patch_ice40_dsp.diff) on Yosys before compiling.
 
 ### Use compiled binaries
 

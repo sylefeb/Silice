@@ -1,7 +1,7 @@
 # Silice
 *A language for hardcoding Algorithms into FPGA hardware*
 
-**Important:** Silice is in alpha stages and under active development [read more](#project-status-alpha-release)
+**Important:** Silice is in alpha stages and under active development [read more](#project-status-alpha-release).
 
 **Important:** Latest changes occur in the 'wip' (work in progress) branch, check it out to enjoy the latest features. [Read more about development branches](#development-branches).
 
