@@ -171,3 +171,5 @@ As before we assign 5 bits of `cnt` to `leds`, but now to diminish the intensity
 And this is it, our blinker blinks all the same, but is less bright. Play with the number of ones in `16b1110000000000000` to adjust the brightness.
 
 > **Note:** The algorithm we defined,  `algorithm intensity`, is an *auto-start* algorithm. That means it does not need to be called or started, it always runs. The reason is that it only uses always assignments, and nothing else.
+
+> **Note:** `main` is also an *auto-start* and is automatically instantiated for us.
