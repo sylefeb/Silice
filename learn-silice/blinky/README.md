@@ -86,9 +86,9 @@ algorithm main(output uint5 leds)
   }
 }
 ```
-The `:=` means "always assign". This is done at the start of every cycle. This tells Silice we want to always do that regardless of the state of the algorithm. However, you remain free to conditionally override the value of `leds` in the algorithm.
+The `:=` means "always assign". This is done at the start of every cycle. This tells Silice we want to always do that regardless of the state of the algorithm. However, you remain free to conditionally override the value of `leds` in the algorithm. A typical use case is to maintain low (`:=0`) and pulse high on demand (`=1`).
 
-But then, why not also update `cnt` in this manner you ask? Well, excellent question, of course we can:
+But then, you ask, why not also update `cnt` in this manner ? Well, excellent question, of course we can:
 
 ```c
 algorithm main(output uint5 leds)
