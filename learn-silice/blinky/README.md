@@ -236,3 +236,93 @@ Now that we can call the `wait` algorithm, things are simple:
 1. loop forever! `while (1) { ... }`
 
 > **Note:** As an exercise, make a sequence of 5 blinks, then 10, then 5, etc.
+
+&nbsp;
+### *Blink them all!*
+---
+Source code: [blinky4.ice](blinky4.ice).
+
+Our goal now is to give different blink sequences to each of the five LEDs. We would like LED0 to blink once then pause, LED1 to blink twice then pause, etc. But we want these sequence to start at the same time and stay in sync, so shorter sequences wait for the longest one.
+
+There are many ways we could achieve this, and here we will took the opportunity to discover asynchronous calls to algorithms. Just note this is not be best way to achieve this result, simply an opportunity to introduce a new feature!
+
+So, we will reuse the blink sequence we defined in [blinky3.ice](blinky3.ice), and customize it for each LED.
+We move the blink sequence to an algorithm driving a single led (algorithm `wait` is unchanged):
+
+```c
+algorithm blink_sequence(output uint1 led,input uint3 times)
+{
+  wait waste_cycles;
+
+  uint3 n = 0;
+  while (n != times)  {
+    // turn LEDs on
+    led = 1;
+    () <- waste_cycles <- (3000000);
+    // turn LEDs off
+    led = 0;
+    () <- waste_cycles <- (3000000);
+    n = n + 1;
+  }
+  // long pause
+  () <- waste_cycles <- (50000000);
+}
+```
+
+This is the same as before, but we only output a one bit `led` value.
+
+Next, we instantiate this sequence five times in main (one per LED):
+
+```c
+algorithm main(output uint5 leds)
+{
+  blink_sequence s0;
+  blink_sequence s1;
+  blink_sequence s2;
+  blink_sequence s3;
+  blink_sequence s4;
+```
+
+We then always assign the outputs of these algorithms to `leds`:
+
+```c
+leds := {s4.led,s3.led,s2.led,s1.led,s0.led};
+```
+
+Finally, we are ready to call the algorithms generating the sequences. But what if we call them in sequence?
+
+```c
+  while (1) {
+    () <- s0 <- (1);
+    () <- s1 <- (2);
+    () <- s2 <- (3);
+    () <- s3 <- (4);
+    () <- s4 <- (5);
+  }
+```
+
+We won't get the desired effect. Instead, each LED will do its full sequence before the next one starts. 
+
+Instead we want the sequences to start *in parallel*. And we can just do that! In fact, the calls `() <- alg <- ()` are composed of two parts. First the call that triggers the algorithm `alg <- ()` (the *async call*) and then the wait for termination `() <- alg` (the *join*). Thus we can do the following:
+
+```c
+  while (1) {
+    s0 <- (1);
+    s1 <- (2);
+    s2 <- (3);
+    s3 <- (4);
+    s4 <- (5);
+    // wait for longest to be done
+    () <- s4;
+  }
+```
+
+Here we call *at the same time* all five sequences. An *async* call takes no time, so all calls are done during the same cycle. Then we wait for the longest of the batch to be done, which is `s4`.
+
+And voilà! A fancy blinking sequence in hardware!
+
+&nbsp;
+### *Conclusion*
+---
+
+Through these variations on blinky we have seen quite a few features of Silice already -- but not all ;) Time to experiment for yourself! Make something fun, explore the [many example projects](../../projects/README.md), and let me know what you come up with! (reach me on twitter, [@sylefeb](https://twitter.com/sylefeb)).
