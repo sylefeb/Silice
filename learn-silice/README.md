@@ -17,7 +17,7 @@ The first tutorial requires only the boards, while others explore using a few pe
 
 We will cover the following topics, each introducing new concepts of Silice and some fun peripherals. The first tutorial dives into many fundamentals of Silice, through six different versions of *blinky*. Read it first!
 
-1. [Blinky](blinky/README.md) explore variants of the *Hello world* of FPGA with Silice. Provides an introduction to many basic elements of Silice. Read first!
+1. [Blinky](blinky/README.md) explores variants of the *hello world* of FPGA with Silice. Provides an introduction to many basic elements of Silice. Read first!
 1. (*coming soon*) Simulating your designs.
 1. (*coming soon*) UART communication.
 1. (*coming soon*) OLED screens.

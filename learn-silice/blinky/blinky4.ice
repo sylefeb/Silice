@@ -12,10 +12,10 @@ algorithm blink_sequence(output uint1 led,input uint3 times)
 
   uint3 n = 0;
   while (n != times)  {
-    // turn LEDs on
+    // turn LED on
     led = 1;
     () <- waste_cycles <- (3000000);
-    // turn LEDs off
+    // turn LED off
     led = 0;
     () <- waste_cycles <- (3000000);
     n = n + 1;

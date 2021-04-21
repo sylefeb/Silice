@@ -256,10 +256,10 @@ algorithm blink_sequence(output uint1 led,input uint3 times)
 
   uint3 n = 0;
   while (n != times)  {
-    // turn LEDs on
+    // turn LED on
     led = 1;
     () <- waste_cycles <- (3000000);
-    // turn LEDs off
+    // turn LED off
     led = 0;
     () <- waste_cycles <- (3000000);
     n = n + 1;
@@ -283,7 +283,7 @@ algorithm main(output uint5 leds)
   blink_sequence s4;
 ```
 
-We then always assign the outputs of these algorithms to `leds`:
+We then always assign the outputs of these algorithms to `leds`, concatenating them in a 5 bits value:
 
 ```c
 leds := {s4.led,s3.led,s2.led,s1.led,s0.led};
@@ -317,9 +317,9 @@ Instead we want the sequences to start *in parallel*. And we can just do that! I
   }
 ```
 
-Here we call *at the same time* all five sequences. An *async* call takes no time, so all calls are done during the same cycle. Then we wait for the longest of the batch to be done, which is `s4`.
+Here we call *at the same time* all five sequences. An *async* call takes no time, so all algorithms are started during the same cycle. Then we wait for the longest of the batch to be done, which is `s4`.
 
-And voilà! A fancy parallel blinking sequence in hardware!
+And voilà! A fancy parallel blinking sequence in hardware.
 
 &nbsp;
 ### *Blink smoothly*
@@ -343,7 +343,7 @@ algorithm intensity(
 ```
 
 The algorithm now has an internal counter (`uint4 cnt`) that is always incremented -- it wraps back to 0 after reaching 15, so it generates a sequence 0, 1, 2, ..., 15, 0, 1, 2, ...
-The counter is compared to a threshold, and the result in `pwm_bit` (a single bit) is used as the output. So if threshold == 0 then `pwm_bit` is `1` during 1/16 cycles ; if  threshold == 15 then `pwm_bit` is always `1`. This will control the LEDs intensity.
+The counter is compared to a threshold, and the result in `pwm_bit` is used as the output (a single bit). So if threshold == 0 then `pwm_bit` is `1` during 1/16 cycles ; if  threshold == 15 then `pwm_bit` is always `1`. This will control the LEDs intensity.
 
 Here is how we use this algorithm in `main`:
 
