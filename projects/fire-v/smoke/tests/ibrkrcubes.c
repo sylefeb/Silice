@@ -30,7 +30,7 @@ void transform(const int *M,int p)
 {
   // keeping precision (<<5) for better shading
   trpts[p+0] = (pts[p+0]*M[0] + pts[p+1]*M[1] + pts[p+2]*M[2]) >> 2; 
-  trpts[p+1] = (pts[p+0]*M[3] + pts[p+1]*M[4] + pts[p+2]*M[5]) >> 3; // aspect ratio
+  trpts[p+1] = (pts[p+0]*M[3] + pts[p+1]*M[4] + pts[p+2]*M[5]) >> 2;
   trpts[p+2] = (pts[p+0]*M[6] + pts[p+1]*M[7] + pts[p+2]*M[8]) >> 2;
 }
 
@@ -55,7 +55,7 @@ void main()
   
   while(1) {
     
-    clear(0,0,0,SCRW,SCRH/2);
+    clear(15,0,0,SCRW,SCRH);
 
     int posy = 0;
     int posx = 0;
@@ -73,15 +73,15 @@ void main()
     
     transform_points(M);
 
-    for (posy = -30; posy <= 30 ; posy += 30) {
+    for (posy = -60; posy <= 60 ; posy += 60) {
       for (posx = -100; posx <= 100 ; posx += 50) {
         for (int t = 0; t < 36 ; t+=3) {
           draw_triangle(
             t<6 ? 64 : (t<12 ? 128 : 0),
             17,
-            trpts[idx[t+0]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+0]+1] + ((SCRH/4 + posy)<<5) - (fbuffer<<4), 
-            trpts[idx[t+1]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+1]+1] + ((SCRH/4 + posy)<<5) - (fbuffer<<4), 
-            trpts[idx[t+2]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+2]+1] + ((SCRH/4 + posy)<<5) - (fbuffer<<4) 
+            trpts[idx[t+0]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+0]+1] + ((SCRH/2 + posy)<<5) - (fbuffer<<4), 
+            trpts[idx[t+1]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+1]+1] + ((SCRH/2 + posy)<<5) - (fbuffer<<4), 
+            trpts[idx[t+2]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+2]+1] + ((SCRH/2 + posy)<<5) - (fbuffer<<4) 
             );
         }
       }

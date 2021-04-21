@@ -104,11 +104,6 @@ inline void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int
     tmp = py2; py2 = py1; py1 = tmp;
     tmp = px2; px2 = px1; px1 = tmp;
   }
-  /*
-  int e_incr0 = (py1-py0 == 0) ? 0xFFFFF : ((px1-px0)<<10) / (py1-py0);
-  int e_incr1 = (py2-py1 == 0) ? 0xFFFFF : ((px2-px1)<<10) / (py2-py1);
-  int e_incr2 = (py2-py0 == 0) ? 0xFFFFF : ((px2-px0)<<10) / (py2-py0);
-  */
   
   *(TRIANGLE+11) = NVERTS; // reinit write address, skip all transformed vertices
   *(TRIANGLE+14) = ((px1-px0)&65535) | ((py1-py0)<<16);
@@ -120,15 +115,6 @@ inline void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int
 
   // result address
   unsigned int *e_incr = ((unsigned int *)0x10004) + NVERTS;
-
-/*
-  if ((e_incr0 == 0xFFFFF && e_incr1 == 0xFFFFF) 
-   || (e_incr0 == 0xFFFFF && e_incr2 == 0xFFFFF) 
-   || (e_incr1 == 0xFFFFF && e_incr2 == 0xFFFFF)) {
-    // flat triangle
-    return; 
-  }
-*/
 
   // wait for any pending draw to complete
   while ((my_userdata()&1) == 1) {  }
