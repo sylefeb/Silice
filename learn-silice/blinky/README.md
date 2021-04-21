@@ -389,7 +389,7 @@ The important Silice feature being introduced here, is that variables `th` and `
 
 This means that `th` and `pb` are now directly linked to the input/output of the algorithm. Any change to `th` in `main` is reflected onto `threshold` of `pulse`, and any change to `pwm_bit` of `pulse` is reflected onto `pb` in `main`. 
 
-Note that there is a one cycle latency between a change onto `pwm_bit` in `pulse` and the change on `pb` in `main`, see the [notes on algorithms calls, bindings and timings](AlgoInOuts.md) for all details. But here this has no impact.
+Note that there is a one cycle latency between a change onto `pwm_bit` in `pulse` and the change on `pb` in `main`, see the [notes on algorithms calls, bindings and timings](../AlgoInOuts.md) for all details. But here this has no impact.
 
 Alright, so `pulse` always runs in parallel to `main` and whenever we change `th` it adapts its output which we get in `pb`. The `leds` are set to the value of `pb` with `leds := {5{pb}}`. The rest of the algorithm simply implements a slow pulse, an increase/decrease sequence on `th`. 
 
