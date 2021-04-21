@@ -55,11 +55,9 @@ fi
 
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top
+verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe $SILICE_DIR/../frameworks/verilator/$VERILATOR_LIB.cpp $SILICE_DIR/../frameworks/verilator/libverilator_silice.a
 cd obj_dir
 $MAKE -f Vtop.mk
-$MAKE -f Vtop.mk $SILICE_DIR/../frameworks/verilator/$VERILATOR_LIB.o verilated.o 
-g++ -fpack-struct=16 -O3 $SILICE_DIR/../frameworks/verilator/$VERILATOR_LIB.o verilated.o Vtop__ALL.a $SILICE_DIR/../frameworks/verilator/libverilator_silice.a -o ../run_simul
 cd ..
 
-./run_simul
+./obj_dir/Vtop
