@@ -82,7 +82,8 @@ SDRAM::SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *lo
     }
     mem_size    = s << (bus_log2 + SDRAM_BIT_BANKS);
     // Init message
-    std::cerr << "Instantiating " << (mem_size >> 20) << " MB SDRAM : " << SDRAM_NUM_BANKS << " banks x " << num_rows << " rows x " << num_cols << " cols x " << (8 << bus_log2) << " bits" << std::endl;
+    printf("Instantiating %d MB SDRAM : %d banks x %d rows x %d cols x %d bits\n",
+           (mem_size >> 20),SDRAM_NUM_BANKS,num_rows,num_cols,8<<bus_log2);
     // byte reading function
     switch (flags & (DATA_MSB | DATA_MSW | DATA_MSL | FLAG_BANK_INTERLEAVING | FLAG_BIG_ENDIAN))
     {

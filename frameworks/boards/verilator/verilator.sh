@@ -47,15 +47,20 @@ cd $BUILD_DIR
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
+LIBSL_DIR=$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/
+VERILATOR_LIB_DIR=$SILICE_DIR/../frameworks/verilator/
+
 if [[ -z "${VGA}" ]] && [[ -z "${SDRAM}" ]]; then
 VERILATOR_LIB="verilator_bare"
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_bare.cpp"
 else
 VERILATOR_LIB="verilator_vga"
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $VERILATOR_LIB_DIR/video_out.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
 fi
 
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe $SILICE_DIR/../frameworks/verilator/$VERILATOR_LIB.cpp $SILICE_DIR/../frameworks/verilator/libverilator_silice.a
+verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/  -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI"
 cd obj_dir
 $MAKE -f Vtop.mk
 cd ..

@@ -9,5 +9,3 @@ unzip -o fpga-binutils-64.zip -d tools/fpga-binutils/
 rm fpga-binutils-64.zip
 
 ./compile_silice_mingw64.sh
-
-./compile_verilator_framework_mingw64.sh

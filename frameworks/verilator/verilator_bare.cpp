@@ -16,11 +16,9 @@ the distribution, please refer to it for details.
 // SL 2019-10-09
 
 #include "Vtop.h"
-#include <iostream>
 
 int main(int argc,char **argv)
 {
-
   // Verilated::commandArgs(argc,argv);
 
   Vtop    *bare_test = new Vtop();

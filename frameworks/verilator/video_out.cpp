@@ -62,7 +62,7 @@ VideoOut::VideoOut(vluint8_t debug, vluint8_t depth, vluint8_t polarity,
     // debug mode
     dbg_on      = debug;
     // allocate the pixels
-    std::cerr << hactive << " x " << vactive << " x " << (int)depth << std::endl;
+    printf("%d x %d x %d\n",hactive,vactive,(int)depth);
     pixels.allocate((int)hactive, (int)vactive);
     // copy the filename
     filename    = std::string(file);

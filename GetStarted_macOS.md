@@ -71,17 +71,6 @@ To install gtkwave checkout this git [gtkwave](https://ughe.github.io/2018/11/06
 
 Checkout the [fpga-toolchain project](https://github.com/open-tool-forge/fpga-toolchain) as they provide nightly builds of many tools for multiple platforms. 
 
-## Verilator framework
-
-To run simulations with Verilator (**highly recommended**), including SDRAM and VGA output simulations, we have to compile the Silice Verilator framework.
-
-- Open a command line into the silice folder and type
-```
-./compile_verilator_framework_macos.sh
-```
-
-(installs new files in Silice/frameworks/verilator/)
-
 ## Testing
 
 Time to [run a few tests](GetStarted.md#testing).

@@ -16,7 +16,6 @@ the distribution, please refer to it for details.
 // SL 2019-09-23
 
 #include "Vtop.h"
-#include <iostream>
 
 #include "VgaChip.h"
 #include "sdr_sdram.h"
