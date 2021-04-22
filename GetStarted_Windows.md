@@ -18,7 +18,9 @@ The prompt should look like this (note the MinGW64 label in purple):
 
 Then, from the prompt, enter the Silice directory and type: `./get_started_mingw64.sh`.
 
-> **Note:** this automatically downloads a pre-compiled FPGA + RiscV toolchain from https://github.com/sylefeb/fpga-binutils/ (~290MB) as well as installs required MinGW64 packages. For details please refer to the [script source code](get_started_mingw64.sh).
+> **Note:** The script adds Silice and the FPGA toolchain to PATH in` ~/.bashrc`. Open a new MinGW64 prompt to start using Silice.
+
+> **Note:** This automatically downloads a pre-compiled FPGA + RiscV toolchain from https://github.com/sylefeb/fpga-binutils/ (~290MB) as well as installs required MinGW64 packages. For details please refer to the [script source code](get_started_mingw64.sh).
 
 ## Drivers
 

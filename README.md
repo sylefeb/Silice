@@ -7,7 +7,7 @@
 - To start designing hardware, see [learn Silice](learn-silice/README.md).
 - To see what can be done with Silice, checkout the [example projects](projects/README.md) (all are available in this repo).
 - Watch the introduction video on [programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube).
-- Browse through the [reference documentation](Documentation.md).
+- Browse through the [reference documentation](learn-silice/Documentation.md).
 - Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
 - Refer to the [optimization guidelines](learn-silice/Guidelines.md) for fine tuning your Silice designs. 
 - Read how to [add a new board](frameworks/boards/README.md) in the Silice build system.
