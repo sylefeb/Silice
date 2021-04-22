@@ -1,24 +1,31 @@
 # Silice
 *A language for hardcoding Algorithms into FPGA hardware*
 
+---
+**Quick links:**
+- To setup Silice, see the [getting started](GetStarted.md) guide. 
+- To start designing hardware, see [learn Silice](learn-silice/README.md).
+- To see what can be done with Silice, checkout the [example projects](projects/README.md) (all are available in this repo).
+- Watch the introduction video on [programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube).
+- Browse through the [reference documentation](Documentation.md).
+- Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
+- Refer to the [optimization guidelines](learn-silice/Guidelines.md) for fine tuning your Silice designs. 
+- Read how to [add a new board](frameworks/boards/README.md) in the Silice build system.
+
 **Important:** Silice is in alpha stages and under active development [read more](#project-status-alpha-release).
 
-**Important:** Latest changes occur in the 'wip' (work in progress) branch, check it out to enjoy the latest features. [Read more about development branches](#development-branches).
+**Important:** Latest changes occur in the *wip* (work in progress) and *draft* branches, check it out to enjoy the latest features. [Read more about development branches](#development-branches).
+
+---
+
+## What is Silice?
 
 *Silice* simplifies prototyping algorithms on FPGAs. It provides a thin abstraction above *Verilog* (a typical hardware description language), simplifying design without loosing precise control over the hardware. It gives the (optional) ability to write parts of your design as sequences of operations, subroutines that can be called, and to use control flow statements such as *while* and *break*. At the same time, Silice lets you fully exploit the parallelism of FPGA architectures, describing operations and algorithms that run in parallel and are precisely in sync.
 
 Silice is *not* a high level synthesis language, and does not intend to become one: it *remains close to the hardware*. When designing hardware with Silice you remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when execution states appear, how flip-flops map to variables, and what gets registered or not. Clock domains are also exposed. In fact, if you chose so you can design in a way that is very similar to *Verilog*, while still benefiting from the syntax of Silice. This allows you to refine an initial prototype from concept to efficient implementation. 
 Silice compiles to and inter-operates with Verilog: you can directly instantiate and bind with existing modules.
 
-To setup Silice, see the [getting started](GetStarted.md) guide. To start writing code, see [learn Silice](learn-silice/README.md). To see what can be done with Silice, checkout the [example projects](projects/README.md) (all are available in this repo).
-
 You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 and ECP5 examples](projects/README.md).
-
-[Watch the introduction video on programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube).
-
-The Silice [reference documentation is here](learn-silice/Documentation.md). 
-Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
-Please refer to the [optimization guidelines](learn-silice/Guidelines.md) for fine tuning your Silice designs. 
 
 While I developed Silice for my own needs, I hope you'll find it useful for your projects!
 

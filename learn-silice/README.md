@@ -1,9 +1,10 @@
 # Learn FPGA programming with Silice
 
 Want to learn how to design hardware with Silice? This is the right place! Before we dive into tutorials, a few pointers:
+- I recommend that you first [watch the introduction video on programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube).
 - Silice has a [reference documentation](Documentation.md) you might want to browse through after taking these first steps.
-- For quick links to advanced topics see the [advanced topics](Advanced.md) page.
-- Beyond the tutorials below, there are many [example projects to learn from](../projects/README.md).
+- Additional information is linked from the [advanced topics](Advanced.md) page.
+- Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
 
 ## What do you need?
 
