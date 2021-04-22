@@ -6488,8 +6488,23 @@ void Algorithm::writeStatelessBlockGraph(
       }
       // end of case
       out << "endcase" << nxl;
+      // checks
+      if (has_default && current->switch_case()->onehot) {
+        reportError(current->source_interval, -1, "onehot switch case should not have a default");
+      }
+      if (current->switch_case()->onehot) {
+        string var = translateVIOName(identifier,&current->context);
+        bool found = false;
+        auto def = getVIODefinition(var, found);
+        if (found) {
+          int width = atoi(varBitWidth(def, ictx).c_str());
+          if (current->switch_case()->case_blocks.size() != width) {
+            reportError(current->source_interval, -1, "onehot switch case does not have the correct number of entries\n     (%s is %d bits wide, expecting %d entries, found %d)",var.c_str(),width,width, current->switch_case()->case_blocks.size());
+          }
+        }
+      }
       // merge ff usage
-      if (!has_default) {
+      if (!has_default && !current->switch_case()->onehot) {
         usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/); // push an empty set
         // NOTE: the case could be complete, currently not checked ; safe but missing an opportunity
       }
