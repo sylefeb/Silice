@@ -3737,59 +3737,9 @@ void Algorithm::clearNoLatchFFUsage(t_vio_ff_usage &_ff) const
 
 // -------------------------------------------------
 
-bool Algorithm::debugFFUsage(const Algorithm::t_vio_ff_usage &ff) const
-{
-  bool stop = false;
-  for (const auto &v : ff.ff_usage) {
-    if (v.first == "lum") {
-      stop = true;
-      cerr << Console::green << Console::bold;
-    }
-    cerr << "- " << v.first << " ";
-    if (v.first == "lum") {
-      cerr << Console::gray << Console::normal;
-    }
-    if (v.second & e_D) {
-      cerr << "D";
-    }
-    if (v.second & e_Q) {
-      cerr << "Q";
-    }
-    if (v.second & e_Latch) {
-      cerr << " Latch";
-    }
-    if (v.second & e_NoLatch) {
-      cerr << " NOLatch";
-    }
-    cerr << nxl;
-  }
-  return stop;
-}
-
-// -------------------------------------------------
-
 void Algorithm::combineFFUsageInto(const t_combinational_block *debug_block, const t_vio_ff_usage &ff_before, std::vector<t_vio_ff_usage> &ff_branches, t_vio_ff_usage& _ff_after) const
 {
   t_vio_ff_usage ff_after; // do not manipulate _ff_after as it is typically a ref to ff_before as well
-
-  /// DEBUG
-  cerr << " ========= combineFFUsageInto =========" << nxl;
-  if (debug_block) {
-    t_instantiation_context empty;
-    ExpressionLinter lint(this,empty);
-    auto tk = lint.getToken(debug_block->source_interval);
-    if (tk) {
-      std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
-      cerr << "BLOCK " << fl.first << " " << fl.second << nxl;
-    }
-  }
-  cerr << "---- BEFORE" << nxl;
-  bool stop = false;
-  stop = stop | debugFFUsage(ff_before);
-  for (const auto &br : ff_branches) {
-    cerr << "----> branch" << nxl;
-    stop = stop | debugFFUsage(br);
-  }
 
   // find if some vars are e_D *only* in all branches
   set<string> d_in_all;
@@ -3878,13 +3828,6 @@ void Algorithm::combineFFUsageInto(const t_combinational_block *debug_block, con
     }
   }
   _ff_after = ff_after;
-
-  cerr << "---- AFTER" << nxl;
-  debugFFUsage(ff_after);
-
-  if (stop) {
-    LIBSL_TRACE;
-  }
 }
 
 // -------------------------------------------------
@@ -5551,21 +5494,6 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
         "cannot assign a value to an input of the algorithm, input '%s'",
         identifier->getText().c_str());
     }
-
-    /// DEBUG
-    if (identifier->getText() == "lum") {
-      t_instantiation_context empty;
-      ExpressionLinter lint(this, empty);
-      auto tk = lint.getToken(identifier->getSourceInterval());
-      if (tk) {
-        std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
-        cerr << fl.first << " "
-          << tk->getText() << " "
-          << fl.second;
-        cerr << nxl;
-      }
-    }
-
     out << rewriteIdentifier(prefix, identifier->getText(), "", bctx, identifier->getSymbol()->getLine(), FF_D, false, dependencies, _ff_usage);
   }
   out << " = " + rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage);
@@ -7408,10 +7336,6 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
     out << ");" << nxl;
   }
   out << nxl;
-
-  /// DEBUG
-  cerr << nxl << nxl << "================writeAsModule==============" << nxl << nxl;
-
   // track dependencies
   t_vio_dependencies always_dependencies;
   t_vio_dependencies post_dependencies;

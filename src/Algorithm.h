@@ -1083,9 +1083,7 @@ private:
       s_LuaPreProcessor = lpp;
     }
 
-
-    bool debugFFUsage(const Algorithm::t_vio_ff_usage &ff) const;
-};
+  };
 
   // -------------------------------------------------
 
