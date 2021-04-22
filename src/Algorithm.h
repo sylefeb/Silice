@@ -531,6 +531,7 @@ private:
     public:
       size_t                              id;                   // internal block id
       std::string                         block_name;           // internal block name (state name from source when applicable)
+      antlr4::misc::Interval              source_interval = antlr4::misc::Interval::INVALID; // block source interval
       bool                                is_state = false;     // true if block has to be a state, false otherwise
       bool                                is_sub_state = false; // true if block is a sub state in a linear seauence
       bool                                could_be_sub = false; // whether could be made a sub-state
@@ -666,7 +667,7 @@ private:
     std::string resolveWidthOf(std::string vio, antlr4::misc::Interval interval) const;
     /// \brief adds a combinational block to the list of blocks, performs book keeping
     template<class T_Block = t_combinational_block>
-    t_combinational_block *addBlock(std::string name, const t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, int line = -1);
+    t_combinational_block *addBlock(std::string name, const t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, antlr4::misc::Interval interval = antlr4::misc::Interval::INVALID);
     /// \brief resets the block name generator
     void resetBlockName();
     /// \brief generate the next block name
@@ -864,7 +865,7 @@ private:
     /// \brief update flip-flop usage
     void updateFFUsage(e_FFUsage usage, bool read_access, e_FFUsage &_ff) const;
     /// \brief combine flip-flop usage
-    void combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<t_vio_ff_usage> &ff_branches, t_vio_ff_usage& _ff_after) const;
+    void combineFFUsageInto(const t_combinational_block *debug_block,const t_vio_ff_usage &ff_before, std::vector<t_vio_ff_usage> &ff_branches, t_vio_ff_usage& _ff_after) const;
     /// \brief clear no latch from FF usage
     void clearNoLatchFFUsage(t_vio_ff_usage &_ff) const;
     /// \brief determine binding right identifier
@@ -1081,6 +1082,9 @@ private:
     {
       s_LuaPreProcessor = lpp;
     }
+
+
+    bool debugFFUsage(const Algorithm::t_vio_ff_usage &ff) const;
 };
 
   // -------------------------------------------------

@@ -492,16 +492,20 @@ bool Algorithm::isGroupVIO(std::string var) const
 
 template<class T_Block>
 Algorithm::t_combinational_block *Algorithm::addBlock(
-  std::string name, const t_combinational_block* parent, const t_combinational_block_context *bctx, int line)
+  std::string name, 
+  const t_combinational_block* parent, 
+  const t_combinational_block_context *bctx, 
+  antlr4::misc::Interval interval)
 {
   auto B = m_State2Block.find(name);
   if (B != m_State2Block.end()) {
-    reportError(nullptr, line, "state name '%s' already defined", name.c_str());
+    reportError(interval, -1, "state name '%s' already defined", name.c_str());
   }
   size_t next_id = m_Blocks.size();
   m_Blocks.emplace_back(new T_Block());
   m_Blocks.back()->block_name           = name;
   m_Blocks.back()->id                   = next_id;
+  m_Blocks.back()->source_interval      = interval;
   m_Blocks.back()->end_action           = nullptr;
   m_Blocks.back()->context.parent_scope = parent;
   if (bctx) {
@@ -1761,14 +1765,14 @@ std::string Algorithm::generateBlockName()
 
 Algorithm::t_combinational_block *Algorithm::gatherBlock(siliceParser::BlockContext *block, t_combinational_block *_current, t_gather_context *_context)
 {
-  t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, (int)block->getStart()->getLine());
+  t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, block->getSourceInterval());
   _current->next(newblock);
   // gather declarations in new block
   gatherDeclarationList(block->declarationList(), newblock, _context, true);
   // gather instructions in new block
   t_combinational_block *after     = gather(block->instructionList(), newblock, _context);
   // produce next block
-  t_combinational_block *nextblock = addBlock(generateBlockName(), _current, nullptr, (int)block->getStart()->getLine());
+  t_combinational_block *nextblock = addBlock(generateBlockName(), _current, nullptr, block->getSourceInterval());
   after->next(nextblock);
   return nextblock;
 }
@@ -1788,7 +1792,7 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
       name      = generateBlockName();
       no_skip   = true;
     }
-    t_combinational_block *block = addBlock(name, _current, nullptr, (int)ilist->state()->getStart()->getLine());
+    t_combinational_block *block = addBlock(name, _current, nullptr, ilist->getSourceInterval());
     block->is_state     = true;    // block explicitely required to be a state (may become a sub-state)
     block->could_be_sub = false;   /// TODO command line option // no_skip; // could become a sub-state
     block->no_skip      = no_skip;
@@ -1810,7 +1814,7 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
   _current->next(_context->break_to);
   _context->break_to->is_state = true;
   // start a new block after the break
-  t_combinational_block *block = addBlock(generateBlockName(), _current);
+  t_combinational_block *block = addBlock(generateBlockName(), _current, nullptr, brk->getSourceInterval());
   // return block
   return block;
 }
@@ -1820,10 +1824,10 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
 Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context)
 {
   // while header block
-  t_combinational_block *while_header = addBlock("__while" + generateBlockName(), _current);
+  t_combinational_block *while_header = addBlock("__while" + generateBlockName(), _current, nullptr, loop->getSourceInterval());
   _current->next(while_header);
   // iteration block
-  t_combinational_block *iter = addBlock(generateBlockName(), _current);
+  t_combinational_block *iter = addBlock(generateBlockName(), _current, nullptr, loop->getSourceInterval());
   // block for after the while
   t_combinational_block *after = addBlock(generateBlockName(), _current);
   // parse the iteration block
@@ -1943,7 +1947,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
     reportError(sub->IDENTIFIER()->getSymbol(), (int)sub->getStart()->getLine(),"subroutine '%s': this name is already used by a prior declaration", nfo->name.c_str());
   }
   // subroutine block
-  t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, _current, nullptr, (int)sub->getStart()->getLine());
+  t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, _current, nullptr, sub->getSourceInterval());
   subb->context.subroutine    = nfo;
   nfo->top_block              = subb;
   // subroutine local declarations
@@ -2147,7 +2151,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     snfo->stage_id = stage;
     // blocks
     t_combinational_block_context ctx  = { _current->context.subroutine, snfo, _current->context.parent_scope, _current->context.vio_rewrites };
-    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, (int)b->getStart()->getLine());
+    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, b->getSourceInterval());
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
     // check this is a combinational chain
     if (!isStateLessGraph(stage_start)) {
@@ -2264,7 +2268,7 @@ Algorithm::t_combinational_block* Algorithm::gatherJump(siliceParser::JumpContex
     B->second->is_state = true; // destination has to be a state
   }
   // start a new block just after the jump
-  t_combinational_block* after = addBlock(generateBlockName(), _current);
+  t_combinational_block *after = addBlock(generateBlockName(), _current, nullptr, jump->getSourceInterval());
   // return block after jump
   return after;
 }
@@ -2279,7 +2283,7 @@ Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::Retu
   // add return at end of current
   _current->return_from(_current->context.subroutine->name,m_SubroutinesCallerReturnStates);
   // start a new block with a new state
-  t_combinational_block* block = addBlock(generateBlockName(), _current);
+  t_combinational_block* block = addBlock(generateBlockName(), _current, nullptr, ret->getSourceInterval());
   _current->is_state = true;
   return block;
 }
@@ -2297,7 +2301,7 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
   auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
   if (S != m_Subroutines.end()) {
     // yes! create a new block, call subroutine
-    t_combinational_block* after = addBlock(generateBlockName(), _current);
+    t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, sync->getSourceInterval());
     // has to be a state to return to
     after->is_state = true;
     // call subroutine
@@ -2321,7 +2325,7 @@ Algorithm::t_combinational_block *Algorithm::gatherJoinExec(siliceParser::JoinEx
   auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
   if (S == m_Subroutines.end()) { // no, waiting for algorithm
     // block for the wait
-    t_combinational_block* waiting_block = addBlock(generateBlockName(), _current);
+    t_combinational_block* waiting_block = addBlock(generateBlockName(), _current, nullptr, join->getSourceInterval());
     waiting_block->is_state = true; // state for waiting
     // enter wait after current
     _current->next(waiting_block);
@@ -2420,7 +2424,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
     reportError(ci->IDENTIFIER()->getSymbol(), (int)ci->getStart()->getLine(), "circuitry not yet declared");
   }
   // instantiate in a new block
-  t_combinational_block* cblock = addBlock(generateBlockName() + "_" + name, _current);
+  t_combinational_block* cblock = addBlock(generateBlockName() + "_" + name, _current, nullptr, ci->getSourceInterval());
   _current->next(cblock);
   // produce io rewrite rules for the block
   // -> gather ins outs
@@ -2476,7 +2480,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   // gather code
   t_combinational_block* cblock_after = gather(C->second->block(), cblock, _context);
   // create a new block to continue with same context as _current
-  t_combinational_block* after = addBlock(generateBlockName(), _current);
+  t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, ci->getSourceInterval());
   cblock_after->next(after);
   return after;
 }
@@ -2485,8 +2489,8 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
 
 Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context)
 {
-  t_combinational_block *if_block = addBlock(generateBlockName(), _current);
-  t_combinational_block *else_block = addBlock(generateBlockName(), _current);
+  t_combinational_block *if_block = addBlock(generateBlockName(), _current, nullptr, ifelse->if_block->getSourceInterval());
+  t_combinational_block *else_block = addBlock(generateBlockName(), _current, nullptr, ifelse->else_block->getSourceInterval());
   // parse the blocks
   t_combinational_block *if_block_after = gather(ifelse->if_block, if_block, _context);
   t_combinational_block *else_block_after = gather(ifelse->else_block, else_block, _context);
@@ -2505,7 +2509,7 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
 
 Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenContext* ifthen, t_combinational_block *_current, t_gather_context *_context)
 {
-  t_combinational_block *if_block = addBlock(generateBlockName(), _current);
+  t_combinational_block *if_block = addBlock(generateBlockName(), _current, nullptr, ifthen->if_block->getSourceInterval());
   t_combinational_block *else_block = addBlock(generateBlockName(), _current);
   // parse the blocks
   t_combinational_block *if_block_after = gather(ifthen->if_block, if_block, _context);
@@ -2525,11 +2529,11 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
 Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::SwitchCaseContext* switchCase, t_combinational_block* _current, t_gather_context* _context)
 {
   // create a block for after the switch-case
-  t_combinational_block* after = addBlock(generateBlockName(), _current);
+  t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, switchCase->getSourceInterval());
   // create a block per case statement
   std::vector<std::pair<std::string, t_combinational_block*> > case_blocks;
   for (auto cb : switchCase->caseBlock()) {
-    t_combinational_block* case_block = addBlock(generateBlockName() + "_case", _current);
+    t_combinational_block* case_block = addBlock(generateBlockName() + "_case", _current, nullptr, cb->getSourceInterval());
     std::string            value = "default";
     if (cb->case_value != nullptr) {
       value = gatherValue(cb->case_value);
@@ -3733,9 +3737,60 @@ void Algorithm::clearNoLatchFFUsage(t_vio_ff_usage &_ff) const
 
 // -------------------------------------------------
 
-void Algorithm::combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<t_vio_ff_usage> &ff_branches, t_vio_ff_usage& _ff_after) const
+bool Algorithm::debugFFUsage(const Algorithm::t_vio_ff_usage &ff) const
 {
-  t_vio_ff_usage ff_after = _ff_after; // do not manipulate _ff_after as it is typically a ref to ff_before as well
+  bool stop = false;
+  for (const auto &v : ff.ff_usage) {
+    if (v.first == "lum") {
+      stop = true;
+      cerr << Console::green << Console::bold;
+    }
+    cerr << "- " << v.first << " ";
+    if (v.first == "lum") {
+      cerr << Console::gray << Console::normal;
+    }
+    if (v.second & e_D) {
+      cerr << "D";
+    }
+    if (v.second & e_Q) {
+      cerr << "Q";
+    }
+    if (v.second & e_Latch) {
+      cerr << " Latch";
+    }
+    if (v.second & e_NoLatch) {
+      cerr << " NOLatch";
+    }
+    cerr << nxl;
+  }
+  return stop;
+}
+
+// -------------------------------------------------
+
+void Algorithm::combineFFUsageInto(const t_combinational_block *debug_block, const t_vio_ff_usage &ff_before, std::vector<t_vio_ff_usage> &ff_branches, t_vio_ff_usage& _ff_after) const
+{
+  t_vio_ff_usage ff_after; // do not manipulate _ff_after as it is typically a ref to ff_before as well
+
+  /// DEBUG
+  cerr << " ========= combineFFUsageInto =========" << nxl;
+  if (debug_block) {
+    t_instantiation_context empty;
+    ExpressionLinter lint(this,empty);
+    auto tk = lint.getToken(debug_block->source_interval);
+    if (tk) {
+      std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+      cerr << "BLOCK " << fl.first << " " << fl.second << nxl;
+    }
+  }
+  cerr << "---- BEFORE" << nxl;
+  bool stop = false;
+  stop = stop | debugFFUsage(ff_before);
+  for (const auto &br : ff_branches) {
+    cerr << "----> branch" << nxl;
+    stop = stop | debugFFUsage(br);
+  }
+
   // find if some vars are e_D *only* in all branches
   set<string> d_in_all;
   bool first = true;
@@ -3780,7 +3835,7 @@ void Algorithm::combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<
       }
     }
   }
-  // all vars in d_in_all lost e_Latch and gain e_NoLatch for the current combinational state
+  // all vars in d_in_all loose e_Latch and gain e_NoLatch for the current combinational state
   // since they are /all/ written, there is no need to latch them anymore
   for (auto v : d_in_all) {
     ff_after.ff_usage[v] = (e_FFUsage)(((int)ff_after.ff_usage[v] & (~e_Latch)) | e_NoLatch);
@@ -3804,14 +3859,32 @@ void Algorithm::combineFFUsageInto(const t_vio_ff_usage &ff_before, std::vector<
   // => all vars that are D in a branch but not in another
   for (const auto& br : ff_branches) {
     for (auto& v : br.ff_usage) {
-      if ((v.second & e_D) && !(v.second & e_Q) && !(v.second & e_NoLatch)) { // D but not Q, and not tagged as nolatch
-        if (d_in_all.count(v.first) == 0) { // not used in all branches? => latch if used next
-          ff_after.ff_usage[v.first] = (e_FFUsage)((int)ff_after.ff_usage[v.first] | e_Latch);
+      if (((v.second & e_D) || (v.second & (e_D|e_NoLatch))) && !(v.second & e_Q)) { // D but not Q, and not tagged as nolatch
+        // verify it does not have e_NoLatch before
+        bool has_nolatch_before = false;
+        auto B = ff_before.ff_usage.find(v.first);
+        if (B != ff_before.ff_usage.end()) {
+          if (B->second & e_NoLatch) {
+            has_nolatch_before = true;
+          }
+        }
+        if ( ! has_nolatch_before ) {
+          // not used in all branches? => latch if used next
+          if (d_in_all.count(v.first) == 0) {
+            ff_after.ff_usage[v.first] = (e_FFUsage)((int)ff_after.ff_usage[v.first] | e_Latch);
+          }
         }
       }
     }
   }
   _ff_after = ff_after;
+
+  cerr << "---- AFTER" << nxl;
+  debugFFUsage(ff_after);
+
+  if (stop) {
+    LIBSL_TRACE;
+  }
 }
 
 // -------------------------------------------------
@@ -4667,7 +4740,7 @@ Algorithm::Algorithm(
 void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *declAndInstr)
 {
   // gather elements from source code
-  t_combinational_block *main = addBlock("_top", nullptr, nullptr, (int)inout->getStart()->getLine());
+  t_combinational_block *main = addBlock("_top", nullptr, nullptr, inout->getSourceInterval());
   main->is_state = true;
 
   // context
@@ -5478,6 +5551,21 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
         "cannot assign a value to an input of the algorithm, input '%s'",
         identifier->getText().c_str());
     }
+
+    /// DEBUG
+    if (identifier->getText() == "lum") {
+      t_instantiation_context empty;
+      ExpressionLinter lint(this, empty);
+      auto tk = lint.getToken(identifier->getSourceInterval());
+      if (tk) {
+        std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+        cerr << fl.first << " "
+          << tk->getText() << " "
+          << fl.second;
+        cerr << nxl;
+      }
+    }
+
     out << rewriteIdentifier(prefix, identifier->getText(), "", bctx, identifier->getSymbol()->getLine(), FF_D, false, dependencies, _ff_usage);
   }
   out << " = " + rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage);
@@ -6203,7 +6291,7 @@ void Algorithm::writeCombinationalStates(
     out << "end" << nxl;
   }
   // combine all ff usages
-  combineFFUsageInto(_ff_usage, ff_usages, _ff_usage);
+  combineFFUsageInto(nullptr,_ff_usage, ff_usages, _ff_usage);
   // initiate termination sequence
   // -> termination state
   {
@@ -6428,7 +6516,7 @@ void Algorithm::writeStatelessBlockGraph(
       mergeDependenciesInto(depds_if, _dependencies);
       mergeDependenciesInto(depds_else, _dependencies);
       // combine ff usage
-      combineFFUsageInto(_ff_usage, usage_branches, _ff_usage);
+      combineFFUsageInto(current,_ff_usage, usage_branches, _ff_usage);
       // follow after?
       if (current->if_then_else()->after->is_state) {
         mergeDependenciesInto(_dependencies, _post_dependencies);
@@ -6477,7 +6565,7 @@ void Algorithm::writeStatelessBlockGraph(
         usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/); // push an empty set
         // NOTE: the case could be complete, currently not checked ; safe but missing an opportunity
       }
-      combineFFUsageInto(_ff_usage, usage_branches, _ff_usage);
+      combineFFUsageInto(current,_ff_usage, usage_branches, _ff_usage);
       // follow after?
       if (current->switch_case()->after->is_state) {
         mergeDependenciesInto(_dependencies, _post_dependencies);
@@ -7320,6 +7408,9 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
     out << ");" << nxl;
   }
   out << nxl;
+
+  /// DEBUG
+  cerr << nxl << nxl << "================writeAsModule==============" << nxl << nxl;
 
   // track dependencies
   t_vio_dependencies always_dependencies;
