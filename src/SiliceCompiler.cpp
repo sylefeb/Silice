@@ -321,8 +321,9 @@ void SiliceCompiler::run(
           auto m = m_Modules.at(miordr);
           m->writeModule(out);
         }
-        // ask for a report
+        // ask for reports
         m_Algorithms["main"]->enableVIOReport(fresult + ".vio.log");
+        m_Algorithms["main"]->enableFSMReport(fresult + ".fsm.log");
         // write top algorithm (recurses from there)
         m_Algorithms["main"]->writeAsModule("",out);
 

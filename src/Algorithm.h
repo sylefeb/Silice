@@ -635,8 +635,12 @@ private:
     int m_NextBlockName = 1;
     /// \brief indicates whether this algorithm is the topmost in the design
     bool m_TopMost      = false;
-    /// \brief indicates whether a report has to be generated and what the filename is (empty means none)
+    /// \brief indicates whether a VIO report has to be generated and what the filename is (empty means none)
     std::string m_VIOReportName;
+    /// \brief indicates whether a FSM report has to be generated and what the filename is (empty means none)
+    std::string m_FSMReportName;
+    /// \brief internally set to true when the report has to be written
+    bool        m_FSMReportEnable;
 
   public:
 
@@ -1064,6 +1068,9 @@ private:
 
     /// \brief asks for a VIO report to be generated
     void enableVIOReport(std::string reportname);
+
+    /// \brief asks for an FSM report to be generated
+    void enableFSMReport(std::string reportname);
 
     /// \brief writes a topmost algorithm as a Verilog module, recurses through instanced algorithms
     void writeAsModule(std::string instance_name,std::ostream& out);

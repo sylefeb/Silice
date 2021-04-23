@@ -2155,7 +2155,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
     // check this is a combinational chain
     if (!isStateLessGraph(stage_start)) {
-      reportError(nullptr,(int)b->getStart()->getLine(),"pipeline stages have to be combinational only");
+      reportError(nullptr,(int)b->getStart()->getLine(),"pipeline stages have to be one-cycle only");
     }
     // check VIO access
     // -> gather read/written for block
@@ -2435,7 +2435,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
       ins.push_back(io->IDENTIFIER()->getText());
     } else if (io->is_output != nullptr) {
       if (io->combinational != nullptr) {
-        reportError(C->second->IDENTIFIER()->getSymbol(), (int)C->second->getStart()->getLine(),"a circuitry output is combinational by default");
+        reportError(C->second->IDENTIFIER()->getSymbol(), (int)C->second->getStart()->getLine(),"a circuitry output is immediate by default");
       }
       outs.push_back(io->IDENTIFIER()->getText());
     } else if (io->is_inout != nullptr) {
@@ -3154,6 +3154,10 @@ Algorithm::t_combinational_block *Algorithm::gather(
     return _current;
   }
 
+  if (_current->source_interval == antlr4::misc::Interval::INVALID) {
+    _current->source_interval = tree->getSourceInterval();
+  }
+
   auto algbody  = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
   auto decl     = dynamic_cast<siliceParser::DeclarationContext*>(tree);
   auto ilist    = dynamic_cast<siliceParser::InstructionListContext*>(tree);
@@ -3191,6 +3195,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     }
     // gather always assigned
     gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
+    m_AlwaysPre.source_interval = algbody->alwaysPre->getSourceInterval();
     m_AlwaysPre.context.parent_scope = _current;
     // gather always block if defined
     if (algbody->alwaysBlock() != nullptr) {
@@ -3198,19 +3203,21 @@ Algorithm::t_combinational_block *Algorithm::gather(
       if (!isStateLessGraph(&m_AlwaysPre)) {
         reportError(algbody->alwaysBlock()->ALWAYS()->getSymbol(),
           (int)algbody->alwaysBlock()->getStart()->getLine(),
-          "always block can only be combinational");
+          "always_before (always) block can only be a one-cycle block");
       }
     }
     m_AlwaysPost.context.parent_scope = _current;
     if (algbody->alwaysAfterBlock() != nullptr) {
       gather(algbody->alwaysAfterBlock(), &m_AlwaysPost, _context);
+      m_AlwaysPost.source_interval = algbody->alwaysAfterBlock()->getSourceInterval();
       if (!isStateLessGraph(&m_AlwaysPost)) {
         reportError(algbody->alwaysAfterBlock()->ALWAYS_AFTER()->getSymbol(),
           (int)algbody->alwaysAfterBlock()->getStart()->getLine(),
-          "always_after block can only be combinational");
+          "always_after block can only be a one-cycle block");
       }
     }
     // recurse on instruction list
+    _current->source_interval = algbody->instructionList()->getSourceInterval();
     _current = gather(algbody->instructionList(), _current, _context);
     recurse  = false;
   } else if (decl)     { gatherDeclaration(decl, _current, _context, true);  recurse = false;
@@ -4683,7 +4690,7 @@ Algorithm::Algorithm(
 void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *declAndInstr)
 {
   // gather elements from source code
-  t_combinational_block *main = addBlock("_top", nullptr, nullptr, inout->getSourceInterval());
+  t_combinational_block *main = addBlock("_top", nullptr);
   main->is_state = true;
 
   // context
@@ -5206,7 +5213,7 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
   // check for call on purely combinational
   if (a.algo->hasNoFSM()) {
     reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
-      "algorithm instance '%s' joined while being purely combinational",
+      "algorithm instance '%s' joined while being state-less",
       a.instance_name.c_str());
   }
   // if params are empty we simply wait, otherwise we set the outputs
@@ -6126,6 +6133,19 @@ void Algorithm::writeCombinationalStates(
     } else {
       out << FF_Q << prefix << ALG_IDX << '[' << b->state_id << "]: begin" << nxl;
     }
+    // FSM report
+    if (m_FSMReportEnable) {
+      std::ofstream freport(m_FSMReportName, std::ios_base::app);
+      ExpressionLinter lint(this, ictx);
+      freport << m_Name << " ";
+      freport << (m_OneHot ? b->state_id : toFSMState(b->state_id)) << " ";
+      auto tk = lint.getToken(b->source_interval);
+      if (tk) {
+        std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+        freport << fl.first << " " << fl.second;
+      }
+      freport << nxl;
+    }
     // if state contains sub-state
     if (b->num_sub_states > 1) {
       // by default stay in this state
@@ -6842,76 +6862,88 @@ void Algorithm::writeAsModule(std::string instance_name, std::ostream &out)
     // create report file, will delete if existing
     std::ofstream freport(m_VIOReportName);
   }
+  if (!m_FSMReportName.empty()) {
+    // create report file, will delete if existing
+    std::ofstream freport(m_FSMReportName);
+  }
   writeAsModule(instance_name, out, ictx, true);
+  writeAsModule(instance_name, out, ictx, false);
 }
 
 // -------------------------------------------------
 
 void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx, bool first_pass)
 {
-  // first pass from parent
   if (first_pass) {
+
+    /// first pass
+
     // lint upon instantiation
     lint(ictx);
-  }
 
-  // first pass, discarded but used to fine tune detection of temporary VIOs
-  {
-    t_vio_ff_usage ff_usage;
-    std::ofstream null;
-    writeAsModule(instance_name, null, ictx, ff_usage, first_pass);
+    // activate FSM report?
+    m_FSMReportEnable = (!m_FSMReportName.empty());
 
-    // update usage based on first pass
-    for (const auto &v : ff_usage.ff_usage) {
-      if (!(v.second & e_Q)) {
-        if (m_VarNames.count(v.first)) {
-          if (m_Vars.at(m_VarNames.at(v.first)).usage == e_FlipFlop) {
-            if (m_Vars.at(m_VarNames.at(v.first)).access == e_ReadOnly) {
-              m_Vars.at(m_VarNames.at(v.first)).usage = e_Const;
-            } else {
-              if (m_Vars.at(m_VarNames.at(v.first)).table_size == 0) { // if not a table (all entries have to be latched)
-                m_Vars.at(m_VarNames.at(v.first)).usage = e_Temporary;
+    // first pass, discarded but used to fine tune detection of temporary VIOs
+    {
+      t_vio_ff_usage ff_usage;
+      std::ofstream null;
+      writeAsModule(instance_name, null, ictx, ff_usage, first_pass);
+
+      // update usage based on first pass
+      for (const auto &v : ff_usage.ff_usage) {
+        if (!(v.second & e_Q)) {
+          if (m_VarNames.count(v.first)) {
+            if (m_Vars.at(m_VarNames.at(v.first)).usage == e_FlipFlop) {
+              if (m_Vars.at(m_VarNames.at(v.first)).access == e_ReadOnly) {
+                m_Vars.at(m_VarNames.at(v.first)).usage = e_Const;
+              } else {
+                if (m_Vars.at(m_VarNames.at(v.first)).table_size == 0) { // if not a table (all entries have to be latched)
+                  m_Vars.at(m_VarNames.at(v.first)).usage = e_Temporary;
+                }
+              }
+            }
+          }
+          if (hasNoFSM()) {
+            // if there is no FSM, the algorithm is combinational and outputs do not need to be latched
+            if (m_OutputNames.count(v.first)) {
+              if (m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop) {
+                m_Outputs.at(m_OutputNames.at(v.first)).usage = e_Temporary;
               }
             }
           }
         }
-        if (hasNoFSM()) {
-          // if there is no FSM, the algorithm is combinational and outputs do not need to be latched
-          if (m_OutputNames.count(v.first)) {
-            if (m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop) {
-              m_Outputs.at(m_OutputNames.at(v.first)).usage = e_Temporary;
-            }
-          }
-        }
       }
-    }
-    
+
 #if 0
-    std::cerr << " === algorithm " << m_Name << " ====" << nxl;
-    for (const auto &v : ff_usage.ff_usage) {
-      std::cerr << "vio " << v.first << " : ";
-      if (v.second & e_D) {
-        std::cerr << "D";
+      std::cerr << " === algorithm " << m_Name << " ====" << nxl;
+      for (const auto &v : ff_usage.ff_usage) {
+        std::cerr << "vio " << v.first << " : ";
+        if (v.second & e_D) {
+          std::cerr << "D";
+        }
+        if (v.second & e_Q) {
+          std::cerr << "Q";
+        }
+        std::cerr << nxl;
       }
-      if (v.second & e_Q) {
-        std::cerr << "Q";
-      }
-      std::cerr << nxl;
-    }
 #endif
 
-  }
-
-  // second pass, now that VIO usage is refined
-  {
-    t_vio_ff_usage ff_usage;
-    writeAsModule(instance_name, out, ictx, ff_usage, false);
-
-    // first pass from parent
-    if (first_pass) {
-      // output report (controlled by enableReport)
-      outputVIOReport(instance_name, ictx);
     }
+
+  } else {
+
+    /// second pass, now that VIO usage is refined
+
+    // turn reporting off in second pass
+    m_FSMReportEnable = false;
+
+    t_vio_ff_usage ff_usage;
+    writeAsModule(instance_name, out, ictx, ff_usage, first_pass);
+
+    // output VIO report (if enabled)
+    outputVIOReport(instance_name, ictx);
+
   }
 
 }
@@ -6981,7 +7013,7 @@ bool Algorithm::getVIONfo(std::string vio, t_var_nfo& _nfo) const
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool do_lint) const
+void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool first_pass) const
 {
   out << nxl;
 
@@ -7022,7 +7054,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
       local_ictx.parameters[str_signed] = typeString(varType(bnfo,ictx));
     }
     // -> write instance
-    nfo.algo->writeAsModule(instance_name + "_" + nfo.instance_name, out, local_ictx, do_lint);
+    nfo.algo->writeAsModule(instance_name + "_" + nfo.instance_name, out, local_ictx, first_pass);
   }
 
   // module header
@@ -7462,6 +7494,14 @@ void Algorithm::enableVIOReport(std::string reportname)
   m_VIOReportName = reportname;
   for (auto alg : m_InstancedAlgorithms) {
     alg.second.algo->enableVIOReport(reportname);
+  }
+}
+
+void Algorithm::enableFSMReport(std::string reportname)
+{
+  m_FSMReportName = reportname;
+  for (auto alg : m_InstancedAlgorithms) {
+    alg.second.algo->enableFSMReport(reportname);
   }
 }
 
