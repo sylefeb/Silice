@@ -22,7 +22,7 @@
 
 *Silice* simplifies prototyping algorithms on FPGAs. It provides a thin abstraction above *Verilog* (a typical hardware description language), simplifying design without loosing precise control over the hardware. It gives the (optional) ability to write parts of your design as sequences of operations, subroutines that can be called, and to use control flow statements such as *while* and *break*. At the same time, Silice lets you fully exploit the parallelism of FPGA architectures, describing operations and algorithms that run in parallel and are precisely in sync.
 
-Silice is *not* a high level synthesis language, and does not intend to become one: it *remains close to the hardware*. When designing hardware with Silice you remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when execution states appear, how flip-flops map to variables, and what gets registered or not. Clock domains are also exposed. In fact, if you chose so you can design in a way that is very similar to *Verilog*, while still benefiting from the syntax of Silice. This allows you to refine an initial prototype from concept to efficient implementation. 
+Silice does not aim to be a high level synthesis language: it *remains close to the hardware*. When designing hardware with Silice you remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when execution states appear, how flip-flops map to variables, and what gets registered or not. Clock domains are also exposed. In fact, if you chose so you can design in a way that is very similar to Verilog, while still benefiting from the syntax of Silice. This allows you to refine an initial prototype from concept to efficient implementation. 
 Silice compiles to and inter-operates with Verilog: you can directly instantiate and bind with existing modules.
 
 You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 and ECP5 examples](projects/README.md).
@@ -47,12 +47,13 @@ The main features are:
 - Powerful LUA-based pre-processor.
 
 These examples are different and representative of this approach:
-- The [Voxel space terrain](projects/terrain/README.md) is relying on Silice sequential flow syntax.
+- The [voxel space terrain](projects/terrain/README.md) is relying on Silice sequential flow syntax.
 - The [fire-v](projects/fire-v/README.md) project is a graphical RISCV framework with a [RV32I processor](projects/fire-v/doc/fire-v.md) that relies mostly on non-sequential constructs.
 - The [SDRAM controllers](projects/sdram_test/README.md) use a mixed style.
 - The [pipeline sort](projects/pipeline_sort/README.md) is an example of using the pipeline syntax (**experimental, may change**). 
 
 ### A first example:
+*(see also the full [blinky tutorial](learn-silice/blinky/README.md))*
 
 ##### Code:
 ```c
