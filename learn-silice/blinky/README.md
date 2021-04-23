@@ -407,4 +407,4 @@ Binding algorithms to variables, as we did here with `threshold <: th` and `pwm_
 ### *Conclusion*
 ---
 
-Through these variations on blinky we have seen quite a few features of Silice already -- but not all ;) Time to experiment for yourself! Make something fun, explore the [many example projects](../../projects/README.md), and let me know what you come up with! (reach me on twitter, [@sylefeb](https://twitter.com/sylefeb)).
+Through these variations on blinky we have seen quite a few features of Silice already -- but not all (most notably missing: *tables, brams, subroutines, circuits, groups and interfaces*). Time to experiment for yourself! Make something fun, explore the [many example projects](../../projects/README.md), and let me know what you come up with! (reach me on twitter, [@sylefeb](https://twitter.com/sylefeb)).
