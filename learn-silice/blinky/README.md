@@ -4,6 +4,10 @@ This tutorial is a gentle introduction to Silice. It shows how to setup a projec
 
 The project is designed for the IceStick and IceBreaker, but really it will compile for any supported board. It's just that it assumes 5 LEDs are present on the board.
 
+<p align="center">
+  <img width="400" src="../figures/blinky5.gif">
+</p>
+
 ### *Project structure*
 
 Each Silice project is a directory, with a [Makefile](Makefile). 
