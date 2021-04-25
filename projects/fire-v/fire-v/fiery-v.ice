@@ -46,7 +46,6 @@ algorithm rv32i_cpu(
     uint1 pip_halt(0);
     // F(fetch) stage
     uint32 F_instr(0); // fetched instruction
-    uint1  F_fetching(0);
     uint1  F_instr_valid(0);
     // D(decode) stage
     uint32 D_ALU_A(0);
@@ -61,6 +60,7 @@ algorithm rv32i_cpu(
     uint32 D_imm_u(0);
     uint5  D_write_rd(0);
     uint5  H_write_rd(0);
+    uint1  H_write_en(0);
     uint1  D_load(0);
     uint1  D_store(0);
     uint1  D_branch(0);
@@ -97,8 +97,7 @@ algorithm rv32i_cpu(
       if (ram.done) {
         __display("[F] [cycle %d] received @%h F_instr %h",cycle,ram.addr,ram.data_out);
       }
-      F_fetching    = fetch_next ? 1 : ~ram.done;
-      ram.in_valid  = fetch_next;
+      ram.in_valid  = predicted_correct; //fetch_next;
       pc            = pulse_start ? 0 : (fetch_next ? pc_p4 : pc);
       ram.addr      = fetch_next  ? pc : ram.addr;
       if (fetch_next) {
@@ -111,7 +110,8 @@ algorithm rv32i_cpu(
       if (F_instr_valid) {
         __display("[F] [cycle %d] regA[%d]? regB[%d]? (reg read setup)",cycle,Rtype(F_instr).rs1,Rtype(F_instr).rs2);
       }
-      if (F_instr_valid & (H_write_rd == Rtype(F_instr).rs1 || H_write_rd == Rtype(F_instr).rs2)) {
+      if (F_instr_valid & H_write_en & (H_write_rd == Rtype(F_instr).rs1 || H_write_rd == Rtype(F_instr).rs2)) {
+        // TODO: only if indeed writing!
         __display("[F] [cycle %d] HAZARD register read+write",cycle);
       }
 
@@ -201,7 +201,8 @@ algorithm rv32i_cpu(
       // Load-Store
 
 
-      // Register write hazard, warn before [C]
+      // Register write hazard detection
+      H_write_en = F_instr_valid & ~D_no_rd & (D_write_rd != 0);
       H_write_rd = D_write_rd;
 
     } -> {
@@ -226,8 +227,8 @@ algorithm rv32i_cpu(
       //////////////// TODO write hazard!
 
       // write back
-      xregsA.wenable1 = F_instr_valid & ~D_no_rd;
-      xregsB.wenable1 = F_instr_valid & ~D_no_rd;
+      xregsA.wenable1 = H_write_en;
+      xregsB.wenable1 = H_write_en;
       xregsA.addr1    = D_write_rd;
       xregsB.addr1    = D_write_rd;
       xregsA.wdata1   = rd_value;

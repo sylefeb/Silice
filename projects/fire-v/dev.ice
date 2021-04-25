@@ -103,7 +103,7 @@ $$end
 
 $$if SIMULATION then  
   uint32 iter = 0;
-  while (iter != 64) {
+  while (iter != 16) {
     iter = iter + 1;
 $$else
   while (1) {
