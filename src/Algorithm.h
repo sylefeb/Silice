@@ -185,6 +185,7 @@ public:
       int          table_size; // 0: not a table, otherwise size
       bool         do_not_initialize = false;
       bool         init_at_startup   = false;
+      std::string  pipeline_prev_name; // if not empty, name of previous in pipeline trickling
       e_Access     access = e_NotAccessed;
       e_VarUsage   usage = e_Undetermined;
       std::string  attribs;
@@ -663,6 +664,8 @@ private:
     bool isVIO(std::string var) const;
     /// \brief returns a VIO definition
     t_var_nfo getVIODefinition(std::string var, bool &_found) const;
+    /// \brief variant of above (historical reasons, TODO: cleanup)
+    bool getVIONfo(std::string vio, t_var_nfo &_nfo) const;
     /// \brief checks whether an identifier is a group VIO
     bool isGroupVIO(std::string var) const;
     /// \brief rewrites a constant
@@ -686,7 +689,7 @@ private:
     std::string gatherBitfieldValue(siliceParser::InitBitfieldContext* ival);
     /// \brief gather a value
     std::string gatherValue(siliceParser::ValueContext* ival);
-    /// \brief insert a variable in the data-structures (lower level than addVar, use to insert any var)
+    /// \brief insert a variable in the data-structures (lower level than addVar, use to insert any var), return the index in m_Vars of the inserted var
     void insertVar(const t_var_nfo &_var, t_combinational_block *_current, bool no_init = false);
     /// \brief add a variable from its definition (_var may be modified with an updated name)
     void addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, antlr4::misc::Interval interval = antlr4::misc::Interval::INVALID);
@@ -934,8 +937,6 @@ private:
     int  toFSMState(int state) const;
     /// \brief finds the binding to var
     const t_binding_nfo &findBindingTo(std::string var, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
-    /// \brief returns the var nfo of a VIO identifier
-    bool getVIONfo(std::string vio, t_var_nfo& _nfo) const;
 
   public:
 

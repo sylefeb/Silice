@@ -17,42 +17,6 @@
 $include('risc-v.ice')
 
 // --------------------------------------------------
-
-// memory 32 bits masked interface
-group rv32i_ram_io
-{
-  uint32  addr       = 0, // 32 bits address space
-  uint1   rw         = 0, // rw==1 on write, 0 on read
-  uint4   wmask      = 0, // write mask
-  uint32  data_in    = 0,
-  uint32  data_out   = 0,
-  uint1   in_valid   = 0,
-  uint1   done       = 0 // pulses when a read or write is done
-}
-
-// interface for user
-interface rv32i_ram_user {
-  output  addr,
-  output  rw,
-  output  wmask,
-  output  data_in,
-  output  in_valid,
-  input   data_out,
-  input   done,
-}
-
-// interface for provider
-interface rv32i_ram_provider {
-  input   addr,
-  input   rw,
-  input   wmask,
-  input   data_in,
-  output  data_out,
-  input   in_valid,
-  output  done
-}
-
-// --------------------------------------------------
 // The Risc-V RV32I CPU
 
 algorithm rv32i_cpu(
@@ -67,7 +31,6 @@ algorithm rv32i_cpu(
   simple_dualport_bram int32 xregsA[32] = {0,pad(uninitialized)};
   simple_dualport_bram int32 xregsB[32] = {0,pad(uninitialized)};
   
-  uint1  cmp         = uninitialized;
   uint1  instr_ready(0);
 $$if SIMULATION then  
   uint1  halt(0);
@@ -386,11 +349,11 @@ $$end
 
         // setup decoder and ALU for instruction i+1
         // => decoder starts immediately, ALU on next cycle
-        instr             = next_instr;
-        pc                = next_pc;
-        next_pc     = (branch_or_jump & instr_ready) ? refetch_addr : next_pc_p4;
-        regA  = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
-        regB  = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   
+        instr   = next_instr;
+        pc      = next_pc;
+        next_pc = (branch_or_jump & instr_ready) ? refetch_addr : next_pc_p4;
+        regA    = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
+        regB    = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   
 $$if not FIREV_NO_INSTRET then    
        if (instr_ready) {
          instret = instret + 1;

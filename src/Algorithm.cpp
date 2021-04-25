@@ -653,7 +653,7 @@ void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current
   if (_current) {
     sub = _current->context.subroutine;
   }
-  m_Vars.emplace_back(_var);
+  m_Vars    .emplace_back(_var);
   m_VarNames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
   if (sub != nullptr) {
     sub->varnames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
@@ -1168,7 +1168,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     v.init_values.push_back("0");
     v.init_at_startup = true;
     if (m.is_input) {
-      v.access = e_InternalFlipFlop; // for internal flip-flop to circumvent issue #102 (see also Yosys #2473)
+      v.access = e_InternalFlipFlop; // internal flip-flop to circumvent issue #102 (see also Yosys #2473)
     }
     addVar(v, _current, _context, decl->IDENTIFIER()->getSourceInterval());
     if (m.is_input) {
@@ -2235,10 +2235,13 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // info from source var
     auto tws = determineVIOTypeWidthAndTableSize(&_current->context, tv, pip->getSourceInterval(), (int)pip->getStart()->getLine());
     // generate one flip-flop per stage
+    std::string pipeline_prev_name;
     ForRange(s, first_write, last_read) {
       // -> add variable
       t_var_nfo var;
-      var.name = tricklingVIOName(tv,nfo,s);
+      var.name       = tricklingVIOName(tv,nfo,s);
+      var.pipeline_prev_name = pipeline_prev_name;
+      pipeline_prev_name     = var.name;
       var.type_nfo   = get<0>(tws);
       var.table_size = get<1>(tws);
       var.init_values.resize(var.table_size > 0 ? var.table_size : 1, "0");
@@ -5856,22 +5859,29 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
   } else {
     init_cond = reset;
   }
+  std::string d_var = FF_D + prefix + v.name;
+  if (!v.pipeline_prev_name.empty()) {
+    bool found = false;
+    auto pv    = getVIODefinition(v.pipeline_prev_name, found);
+    sl_assert(found);
+    d_var      = (pv.usage == e_Temporary) ? (FF_TMP + prefix + v.pipeline_prev_name) : (FF_D + prefix + v.pipeline_prev_name);
+  }
   if (v.table_size == 0) {
     // not a table
     string initv = varInitValue(v, ictx);
     if (!init_cond.empty() && !initv.empty()) {
-      out << FF_Q << prefix << v.name << " <= (" << init_cond << ") ? " << initv << " : " << FF_D << prefix << v.name << ';' << nxl;
+      out << FF_Q << prefix << v.name << " <= (" << init_cond << ") ? " << initv << " : " << d_var << ';' << nxl;
     } else {
-      out << FF_Q << prefix << v.name << " <= " << FF_D << prefix << v.name << ';' << nxl;
+      out << FF_Q << prefix << v.name << " <= " << d_var << ';' << nxl;
     }
   } else {
     // table
     sl_assert(v.type_nfo.base_type != Parameterized);
     ForIndex(i, v.table_size) {
       if (!init_cond.empty()) {
-        out << FF_Q << prefix << v.name << "[" << i << "] <= (" << init_cond << ") ? " << v.init_values[i] << " : " << FF_D << prefix << v.name << ';' << nxl;
+        out << FF_Q << prefix << v.name << "[" << i << "] <= (" << init_cond << ") ? " << v.init_values[i] << " : " << d_var << ';' << nxl;
       } else {
-        out << FF_Q << prefix << v.name << "[" << i << "] <= " << FF_D << prefix << v.name << "[" << i << "];" << nxl;
+        out << FF_Q << prefix << v.name << "[" << i << "] <= " << d_var << "[" << i << "];" << nxl;
       }
     }
   }
@@ -6679,16 +6689,18 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     out << "// -------- stage " << stage << nxl;
     t_vio_dependencies deps = _dependencies;
     // trickle vars: get from previous
+    /*
     for (auto tv : pip->trickling_vios) {
       if (stage > tv.second[0] && stage <= tv.second[1]) {
         std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
         out << rewriteIdentifier(prefix, tricklingdst, "", &current->context, -1, FF_D, true, deps, _ff_usage) << " = ";
-        std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage-1);
+        std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage - 1);
         out << rewriteIdentifier(prefix, tricklingsrc, "", &current->context, -1, FF_Q, true, deps, _ff_usage);
         out << ';' << nxl;
         deps.dependencies[tricklingdst].insert(tricklingsrc);
       }
     }
+    */
     // write code
     if (current != after) { // this is the more complex case of multiple blocks in stage
       writeStatelessBlockGraph(prefix, out, ictx, current, after, _q, deps, _ff_usage, _post_dependencies); // NOTE: q will not be changed since this is a combinational block
@@ -6702,7 +6714,6 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
       if (stage == tv.second[0]) {
         std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
         out << rewriteIdentifier(prefix, tricklingdst, "", &current->context, -1, FF_D, true, deps, _ff_usage) << " = ";
-        std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage - 1);
         out << rewriteIdentifier(prefix, tv.first, "", &current->context, -1, FF_D, true, deps, _ff_usage);
         out << ';' << nxl;
       }
@@ -6965,50 +6976,11 @@ const Algorithm::t_binding_nfo &Algorithm::findBindingTo(std::string var, const 
 
 // -------------------------------------------------
 
-template <typename T> 
-void copyToVarNfo(Algorithm::t_var_nfo &_nfo, const T &src)
-{
-  _nfo.name = src.name;
-  _nfo.type_nfo = src.type_nfo;
-  _nfo.init_values = src.init_values;
-  _nfo.table_size = src.table_size;
-  _nfo.do_not_initialize = src.do_not_initialize;
-  _nfo.init_at_startup   = src.init_at_startup;
-  _nfo.access = src.access;
-  _nfo.usage = src.usage;
-  _nfo.attribs = src.attribs;
-}
-
-// -------------------------------------------------
-
 bool Algorithm::getVIONfo(std::string vio, t_var_nfo& _nfo) const
 {
-  {
-    auto I = m_InputNames.find(vio);
-    if (I != m_InputNames.end()) {
-      copyToVarNfo(_nfo, m_Inputs[I->second]);
-      return true;
-    }
-  } {
-    auto Io = m_InOutNames.find(vio);
-    if (Io != m_InOutNames.end()) {
-      copyToVarNfo(_nfo, m_InOuts[Io->second]);
-      return true;
-    }
-  } {
-    auto O = m_OutputNames.find(vio);
-    if (O != m_OutputNames.end()) {
-      copyToVarNfo(_nfo, m_Outputs[O->second]);
-      return true;
-    }
-  } {
-    auto V = m_VarNames.find(vio);
-    if (V != m_VarNames.end()) {
-      copyToVarNfo(_nfo, m_Vars[V->second]);
-      return true;
-    }
-  }
-  return false;
+  bool found = false;
+  _nfo = getVIODefinition(vio,found);
+  return found;
 }
 
 // -------------------------------------------------

@@ -1,0 +1,15 @@
+
+.DEFAULT: dev.ice
+		silice-make.py -s dev.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@)
+
+ulx3s: dev.ice
+		silice-make.py -s dev.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@) -t shell
+
+icebreaker: dev.ice
+		silice-make.py -s dev.ice -b $@ -p basic -o BUILD_$(subst :,_,$@)
+
+verilator: dev.ice
+		silice-make.py -s dev.ice -b $@ -p basic -o BUILD_$(subst :,_,$@) -t shell
+
+clean:
+	rm -rf BUILD_*
