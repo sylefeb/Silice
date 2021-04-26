@@ -35,11 +35,6 @@ algorithm rv32i_cpu(
   uint1  pulse_start = 0;
   uint1  started     = 1;
 
-  // maintain ram in_valid low (pulses high when needed)
-  pulse_start  := ~ start & ~ started;
-  started      := ~ start;
-  start        := 0;
-  
   always {
     /// CPU pipeline
     // hazards
@@ -77,10 +72,13 @@ algorithm rv32i_cpu(
     uint26 pc(0);
     uint26 pc_p4 <:: pc + 4;
 
+
+    started = ~ start;
+    start   = 0;
+  
     // TESTING
     predicted_correct = ~ pulse_start; 
     predicted_addr    = pc_p4;
-
 
 // __display("[CPU] [cycle %d] ram.done %b pc %h pc_p4 %h",cycle,ram.done,pc,pc_p4);
 
@@ -115,7 +113,7 @@ algorithm rv32i_cpu(
         __display("[F] [cycle %d] HAZARD register read+write",cycle);
       }
 
-      // setup register read      
+      // setup register read
       xregsA.addr0  = ram.done ? Rtype(F_instr).rs1 : xregsA.addr0;
       xregsB.addr0  = ram.done ? Rtype(F_instr).rs2 : xregsB.addr0;
 
@@ -236,7 +234,8 @@ algorithm rv32i_cpu(
       
     }
         
-    cycle           = cycle + 1;
+    pulse_start = ~ start & ~ started;
+    cycle       = cycle + 1;
 
   } // always
 

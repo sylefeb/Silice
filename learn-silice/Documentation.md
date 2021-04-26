@@ -63,8 +63,8 @@ GitHub repository: <https://github.com/sylefeb/Silice/>
 
 # A first example
 
-This first example assumes two signals: a ’button’ input (high when
-pressed) and a ’led’ output, each one bit.
+This first example assumes two signals: a `button` input (high when
+pressed) and a `led` output, each one bit.
 
 The *main* algorithm – the one expected as top level – simply asks the
 led to turn on when the button is pressed. We will consider several
@@ -81,8 +81,8 @@ algorithm main(input uint1 button,output uint1 led) {
 }
 ```
 
-This sets ’led’ to the value of ’button’ every clock cycle. However, we
-could instead specify a *continuous assignment* between led and button:
+This sets `led` to the value of `button` every clock cycle. However, we
+could instead specify a *always assignment* between led and button:
 
 ``` c
 algorithm main(input uint1 button,output uint1 led) {  
@@ -90,8 +90,8 @@ algorithm main(input uint1 button,output uint1 led) {
 }
 ```
 
-This makes ’led’ constantly track the value of ’button’. A very
-convenient feature is that the continuous assignment can be overridden
+This makes `led` constantly track the value of `button`. A very
+convenient feature is that the always assignment can be overridden
 at some clock steps, for instance:
 
 ``` c
@@ -106,10 +106,20 @@ algorithm main(input uint1 button,output uint1 led) {
 ```
 
 Of course this last version is needlessly complicated (the previous one
-was minimal), but it shows the principle: ’led’ is continuously assigned
+was minimal), but it shows the principle: `led` is always assigned
 0, but this will be overridden whenever the button is pressed. This is
 useful to maintain an output to a value that must change only on some
 specific event (e.g. producing a pulse).
+
+This first example has an interesting subtlety. The `button` input, if it comes directly from an onboard button, is likely *asynchronous*. This means it can change at anytime, even during a clock cycle. That could lead to trouble with the logic that depends on it. To be safe, a better approach is to *register* the input button, this can be achieved as follows:
+
+``` c
+algorithm main(input uint1 button,output uint1 led) {  
+  led ::= button;
+}
+```
+
+Using the `::=` syntax introduces a one cycle latency and inserts a flip-flop between the asynchronous input and whatever comes after. This won't change our results in this toy example but is generally important.
 
 # Terminology
 
@@ -366,17 +376,18 @@ This introduces a one cycle latency before the algorithm/module sees the change,
 
 ### Always assign
 
-Silice defines operators for continuous assignment of VIOs. A continuous
-assignment is performed at each clock rising edge, regardless of the
-execution state of the algorithm. The left side of the assignment has to
-be a VIO identifier, while the right side may be an expression.
+Silice defines operators for always assignment of VIOs. An always
+assignment is performed regardless of the execution state. It happens
+before anything else and can be overridden from the algorithm. Always
+assignments are order dependent between them.
+The left side of the assignment has to be a VIO identifier, while the right side may be an expression.
 
 -   `:=` assign right to left at each rising clock,
 
 -   `::=` assign right to left with a one clock cycle delay (two stages
     flip-flop for e.g. clock domain crossing).
 
-Continuous assignments are specified just after variable declarations
+Always assignments are specified just after variable declarations
 and algorithms/modules instantiations. A typical use case is to make
 something pulse high, for instance:
 
@@ -397,7 +408,9 @@ algorithm writer(
 }
 ```
 
-> **Note:** the assignment is performed immediately after the clock rising edge, before anything else. If the value of the expression in the right hand side is later changing (during the clock cycle), this will not change the value of the left hand side. To achieve this use *bound expressions* (see next).
+> **Note:** the assignment is performed before anything else. If the value of the expression in the right hand side is later changing (during the clock cycle), this will not change the value of the left hand side. To achieve this use *bound expressions* (see next).
+
+> **Note:** If the right hand side of a `:=` contains an asynchronous input, the always assignement will not register it. The always assignment tracks the input value immediately as it changes. To register an input use `::=` instead.
 
 ### Bound expressions
 
@@ -1170,9 +1183,8 @@ algorithm main(output uint8 led)
 }
 ```
 
-These assignments are performed immediately after each rising clock,
-before anything else in the algorithm. They are order dependent. For
-instance:
+These assignments are always performed, before anything else in the algorithm. 
+They are order dependent. For instance:
 
 ``` c
 b := a;
