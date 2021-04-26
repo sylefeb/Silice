@@ -22,8 +22,8 @@ algorithm rv32i_cpu(
   input uint26   boot_at,
   input uint32   user_data,
   rv32i_ram_user ram,
-  output uint26  predicted_addr(0),    // next predicted address
-  output uint1   predicted_correct(0), // was the prediction correct?
+  output uint26  predicted_addr = 0,    // next predicted address
+  output uint1   predicted_correct = 0, // was the prediction correct?
 ) <autorun> {
   
   // does not have to be simple_dualport_bram, but results in a smaller design
@@ -34,6 +34,9 @@ algorithm rv32i_cpu(
   uint1  start       = 1;
   uint1  pulse_start = 0;
   uint1  started     = 1;
+
+  uint26 pc = 0;
+  uint26 pc_p4 <:: pc + 4;
 
   always {
     /// CPU pipeline
@@ -69,13 +72,6 @@ algorithm rv32i_cpu(
     uint26 A_result(0);
     uint1  A_TakeBranch(0);
 
-    uint26 pc(0);
-    uint26 pc_p4 <:: pc + 4;
-
-
-    started = ~ start;
-    start   = 0;
-  
     // TESTING
     predicted_correct = ~ pulse_start; 
     predicted_addr    = pc_p4;
@@ -96,7 +92,7 @@ algorithm rv32i_cpu(
         __display("[F] [cycle %d] received @%h F_instr %h",cycle,ram.addr,ram.data_out);
       }
       ram.in_valid  = predicted_correct; //fetch_next;
-      pc            = pulse_start ? 0 : (fetch_next ? pc_p4 : pc);
+      pc            = (fetch_next ? pc_p4 : pc);
       ram.addr      = fetch_next  ? pc : ram.addr;
       if (fetch_next) {
         __display("[F] [cycle %d] fetching @%h (pc = @%h)",cycle,ram.addr,pc);
@@ -218,7 +214,7 @@ algorithm rv32i_cpu(
       if (F_instr_valid) {
         __display("[C] [cycle %d] D_no_rd %b D_rd_ALU %d D_jump %d D_rd_LUI %b D_rd_AUIPC %b D_rd_CSR %b ",cycle,
               D_no_rd,D_rd_ALU,D_jump,D_rd_LUI,D_rd_AUIPC,D_rd_CSR);
-        __display("[C] retiring %h",F_instr);
+        __display("[C] ** retiring %h ** [cycle %d] ",F_instr,cycle);
         __display("[C] reg[%d] = %d",D_write_rd,__signed(A_result));
       }
 
@@ -235,6 +231,9 @@ algorithm rv32i_cpu(
     }
         
     pulse_start = ~ start & ~ started;
+    started     = ~ start;
+    start       = 0;
+
     cycle       = cycle + 1;
 
   } // always
