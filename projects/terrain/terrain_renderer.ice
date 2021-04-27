@@ -56,6 +56,15 @@ $$z_num_step     = 256           -- number of z-step (view distance)
 $$end
 $$z_step_init    = z_step        -- distance of first z-step
 
+// ------------------------- 
+
+// include division, 48 bits wide, unsigned
+$$div_width    = 48
+$$div_unsigned = 1
+$include('../common/divint_std.ice')
+
+// ------------------------- 
+
 algorithm terrain_renderer(
     fb_user        fb,
     input   uint3  btns,

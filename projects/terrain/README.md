@@ -25,7 +25,9 @@ In addition to Silice, a RISC-V compilation environment is needed, see [Getting 
 - [`terrain_renderer.ice`](terrain_renderer.ice) is the hardware renderer.
 - [`firmware.c`](firmware.c) is the RISC-V firmware code.
 
-For more details on the Risc-V implementation see the [fire-v project](../fire-v/) (but here it is only used for copying data around).
+Each file is commented, but I recommend reading through this first.
+
+For more details on the Risc-V implementation see the [fire-v project](../fire-v/README.md) (but here it is only used for copying data around).
 
 ## Revisiting the Voxel Space algorithm in hardware
 

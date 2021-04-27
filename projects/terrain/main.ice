@@ -2,7 +2,7 @@
 //
 // VGA + RISC-V 'Voxel Space' terrain renderer on the IceBreaker
 //
-// Tested on: Verilator, IceBreaker
+// Tested on: Verilator, IceBreaker + VGA PMOD
 //
 // ------------------------- 
 //      GNU AFFERO GENERAL PUBLIC LICENSE
@@ -11,34 +11,36 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
-// ./build.sh
+// ./build.sh for building (plug the icebreaker first)
+// ./simul.sh for simulation, results in BUILD_verilator
 
 $$if SIMULATION then
 $$verbose = nil
 $$end
 
+// test target is supported
 $$if not ((ICEBREAKER and VGA and SPIFLASH) or (VERILATOR and VGA)) then
 $$error('Sorry, currently not supported on this board.')
 $$end
 
+// if IceBreaker
 $$if ICEBREAKER then
+// import clock (PLL)
 import('../common/ice40_half_clock.v')
 import('../fire-v/plls/icebrkr50.v')
-$$FIREV_NO_INSTRET    = 1
-$$FIREV_MERGE_ADD_SUB = nil
-$$FIREV_MUX_A_DECODER = 1
-$$FIREV_MUX_B_DECODER = 1
+// setup the RISC-V processor
+$$FIREV_NO_INSTRET    = 1   -- we do not want instret
+$$FIREV_MERGE_ADD_SUB = nil -- variant of ALU (more compact)
+$$FIREV_MUX_A_DECODER = 1   -- mux ALU input in decoder
+$$FIREV_MUX_B_DECODER = 1   -- mux ALU input in decoder
 $$end
 
+// import VGA controller, ask for 400 pixels vertical resolution
 $$VGA_VA_END = 400
 $include('../common/vga.ice')
 
-$$div_width = 24
-$include('../common/divint_std.ice')
-
 // group for frame buffer interface
-group fb_r16_w16_io
-{
+group fb_r16_w16_io {
   uint14  addr       = 0,
   uint32  data_in    = 0,
   uint4   wmask      = 0,
@@ -53,59 +55,59 @@ interface fb_user {
   output  in_valid,
 }
 
-// pre-compilation script, embeds code within string for BRAM and outputs sdcard image
+// pre-compilation script, embeds code within string for BRAM and outputs spiflash image
 $$sdcard_image_pad_size = 0
 $$dofile('../fire-v/pre/pre_include_asm.lua')
 $$code_size_bytes = init_data_bytes
 
+// include RISC-V processor
 $include('../fire-v/fire-v/fire-v.ice')
 $$if SIMULATION then
-$$ bram_depth=14
+$$ bram_depth=14   -- in simulation we embed data into the code, so we use a large BRAM
 $$end
+// include memory segment for the processor (BRAM only)
 $include('../fire-v/ash/bram_ram_32bits.ice')
+// clean reset
 $include('../common/clean_reset.ice')
-
+// include ice40 SPRAM wrapper
 import('../common/ice40_spram.v')
 
 // ------------------------- 
 
 $$if VERILATOR then
-import('../common/passthrough.v')
-$include('../fire-v/ash/verilator_spram.ice')
+// verilator ice40 SPRAM simulation
+$include('../fire-v/ash/verilator_spram.ice') 
 $$end
 
 // ------------------------- 
-   
-$$div_width    = 48
-$$div_unsigned = 1
-$include('../common/divint_std.ice')
 
-// ------------------------- 
-
+// include the terrain renderer
 $include('terrain_renderer.ice')
 
 // ------------------------- 
 
+// top level algorithm
 algorithm main(
-  output uint$NUM_LEDS$    leds,
-  output uint$color_depth$ video_r,
-  output uint$color_depth$ video_g,
-  output uint$color_depth$ video_b,
-  output uint1             video_hs,
-  output uint1             video_vs,
+  output  uint$NUM_LEDS$    leds,
+  output  uint$color_depth$ video_r,
+  output  uint$color_depth$ video_g,
+  output  uint$color_depth$ video_b,
+  output  uint1             video_hs,
+  output  uint1             video_vs,
 $$if VERILATOR then
-  output uint1             video_clock,
+  output! uint1             video_clock,
 $$end  
 $$if SPIFLASH then
-  output uint1             sf_clk,
-  output uint1             sf_csn,
-  output uint1             sf_mosi,
-  input  uint1             sf_miso,
+  output  uint1             sf_clk,
+  output  uint1             sf_csn,
+  output  uint1             sf_mosi,
+  input   uint1             sf_miso,
 $$end  
 $$if NUM_BTNS then
-  input  uint$NUM_BTNS$    btns,
+  input   uint$NUM_BTNS$    btns,
 $$end  
 $$if ICEBREAKER then
+// on the IceBreaker we generate a clock from a PLL
 ) <@vga_clock,!fast_reset> {
 
   uint1 fast_clock = uninitialized;
@@ -124,9 +126,6 @@ $$if ICEBREAKER then
   clean_reset rst<@fast_clock,!reset>(
     out :> fast_reset
   );
-$$elseif VERILATOR then
-) {
-  passthrough p( inv <: clock, outv :> video_clock );
 $$else
 ) {
 $$end
@@ -135,23 +134,21 @@ $$if not NUM_BTNS then
   uint3 btns(3b100); // placeholder for buttons
 $$end  
 
-  rv32i_ram_io mem;
+  /// ==== RISC-V ====
 
-  uint26 predicted_addr    = uninitialized;
-  uint1  predicted_correct = uninitialized;
-  uint32 user_data(0);
-
-  // CPU RAM
+  rv32i_ram_io mem;    // ram interface between BRAM and CPU
+  uint26 predicted_addr    = uninitialized; // fire-v RV32I predicted next fetch
+  uint1  predicted_correct = uninitialized; // fire-v RV32I prediction correct?
+  uint32 user_data(0); // fire-v RV32I user_data (hooked to rdtime)  
+  // instantiate CPU RAM
   bram_ram_32bits bram_ram(
     pram               <:> mem,
     predicted_addr     <:  predicted_addr,
     predicted_correct  <:  predicted_correct,
   );
-
-  uint1  cpu_reset      = 1;
-  uint26 cpu_start_addr(26h0010000); // NOTE: this starts in the boot sector
-  
-  // cpu 
+  uint1  cpu_reset      = 1;         // CPU reset (pull low to run)
+  uint26 cpu_start_addr(26h0010000); // starts in the boot sector  
+  // instantiate CPU 
   rv32i_cpu cpu<!cpu_reset>(
     boot_at          <:  cpu_start_addr,
     user_data        <:  user_data,
@@ -160,30 +157,8 @@ $$end
     predicted_correct :> predicted_correct,
   );
 
-  // vga
-  uint1  active(0);
-  uint1  vblank(0);
-  uint10 pix_x(0);
-  uint10 pix_y(0);
+  /// ==== Framebuffer ====
 
-$$if VERILATOR then
-  vga vga_driver(
-$$else
-  vga vga_driver<@vga_clock>(
-$$end  
-    vga_hs :> video_hs,
-	  vga_vs :> video_vs,
-	  active :> active,
-	  vblank :> vblank,
-	  vga_x  :> pix_x,
-	  vga_y  :> pix_y
-  );
-
-  uint14 pix_waddr(0);
-  uint32 pix_data(0);
-  uint1  pix_write(0);
-  uint4  pix_mask(0);
-  
   // Single frame buffer for a 320x200 8bpp frame.
   // 4 LSB pixels are in SPRAM 0, 4 MSB are in SPRAM 1.
   //
@@ -192,6 +167,12 @@ $$end
   //
   // Writes can occur only when we are not reading the framebuffer, 
   // they are discarded otherwise
+  
+  // variables for writing to the framebuffer
+  uint14 pix_waddr(0);
+  uint32 pix_data(0);
+  uint1  pix_write(0);
+  uint4  pix_mask(0);
   
   // SPRAM 0 for framebuffer
   uint14 fb0_addr(0);
@@ -256,7 +237,8 @@ $$end
     data_out :> map_data_out
   );
 
-  // ==== voxel space renderer instantiation
+  // ==== Voxel space renderer instantiation ====
+
   // interface for GPU writes in framebuffer
   fb_r16_w16_io fb;
   uint8 sky_pal_id(0); // sky palette id
@@ -279,18 +261,35 @@ $$for i=1,256 do
 $$end  
   };
   
-  uint8  frame_fetch_sync(                8b1);
-  uint2  next_pixel      (                2b1);
-  uint32 four_pixs(0);
+  /// ==== VGA ====
+
+  uint1  active(0);
+  uint1  vblank(0);
+  uint10 pix_x(0);
+  uint10 pix_y(0);
+
+$$if VERILATOR then
+  vga vga_driver(
+$$else
+  vga vga_driver<@vga_clock>(
+$$end  
+    vga_hs :> video_hs,
+	  vga_vs :> video_vs,
+	  active :> active,
+	  vblank :> vblank,
+	  vga_x  :> pix_x,
+	  vga_y  :> pix_y
+  );
+
+  uint8  frame_fetch_sync(                8b1); // modulo eight for reading pixels
+  uint2  next_pixel      (                2b1); // modulo two to move to next pixel
+  uint32 four_pixs(0); // holds the value of four framebuffer pixels (8 screen pixels)
   
-  // buffers are 320 x 200, 4bpp
-  uint14 pix_fetch(0);
-  uint14 last_fetch(0);
+  // framebuffer is 320 x 200, 8bpp
+  uint14 pix_fetch(0);  // address of next pixel to fetch (given to SPRAMs)
+  uint14 last_fetch(0); // address of last fetched pixel (used to avoid defect between rows and frames)
   uint1  next_frame(0); // true when waiting for next frame
 
-  //  - pix_x[3,7] => read every 8 VGA pixels
-  //  - pix_y[1,9] => half VGA vertical res (200)
-  
   // spiflash
   uint1  reg_miso(0);
 
@@ -302,28 +301,34 @@ $$end
   uint3 r_btns(0);
   r_btns        ::= btns;
 
+$$if SIMULATION then  
+  video_clock := clock;
+$$end
+
   next_frame := (~active) ? next_frame : ( pix_x == 639 && pix_y == 399 ? 1 : 0 ); // waiting for next frame?
-  pix_fetch  := (active) ? (pix_y[1,9]<<6) + (pix_y[1,9]<<4) + pix_x[3,7] + 1 // prefetch before needed on screen!
+  pix_fetch  := (active) ? (pix_y[1,9]<<6) + (pix_y[1,9]<<4)      + pix_x[3,7] + 1 // + one: prefetch before needed on screen!
+  //                       ^^^^^^^^^^^ half VGA vertical res (200) ^^^^^^^^^^ read every 8 VGA pixels
                          : (~next_frame 
                             ? (pix_y[0,1] ? last_fetch - 80 : last_fetch)     // prefetch next line, depends on y parity
                           : 0);                                               // prefetch next frame, first top left corner pixel
   last_fetch := (active) ? pix_fetch : last_fetch; // tracks last fetched address before going out of frame
-
+  // get RGB output from palette
   video_r        := (active) ? palette.rdata0[$ 8-color_depth$, $color_depth$] : 0;
   video_g        := (active) ? palette.rdata0[$16-color_depth$, $color_depth$] : 0;
   video_b        := (active) ? palette.rdata0[$24-color_depth$, $color_depth$] : 0;  
-  
+  // read or write in framebuffer SPRAM 0
   fb0_addr       := pix_write ? pix_waddr : pix_fetch;
   fb0_data_in    := {pix_data[24,4],pix_data[16,4],pix_data[8,4],pix_data[0,4]};
   fb0_wenable    := pix_write;
   fb0_wmask      := pix_mask;
-  
+  // read or write in framebuffer SPRAM 1  
   fb1_addr       := pix_write ? pix_waddr : pix_fetch;
   fb1_data_in    := {pix_data[28,4],pix_data[20,4],pix_data[12,4],pix_data[4,4]};
   fb1_wenable    := pix_write;
   fb1_wmask      := pix_mask;
-  
+  // writing to map SPRAM from CPU
   map_write      := 0; // reset map write
+  // writing to framebuffer from renderer or CPU
   pix_write      := 0; // reset pix_write
   
   always_before {
@@ -349,22 +354,21 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (iter != 6000000) {
+  while (iter != 6000000) { // in siumlation we limit the number of cycles
     iter = iter + 1;
 $$else
   while (1) {
 $$end
 
-    cpu_reset = 0;
+    cpu_reset = 0; // CPU runs!
 
+    // update CPU user data (reported to firmware though rdtime hook)
     user_data[0,7] = {r_btns,reg_miso,pix_write,vblank,1b0};
-
 $$if SPIFLASH then    
-    reg_miso       = sf_miso;
+    reg_miso       = sf_miso; // register miso input
 $$end
 
-    if (fb.in_valid) {
-      // __display("(cycle %d) write @%d mask %b",iter,fb.addr,fb.wmask);
+    if (fb.in_valid) { // renderer wants to write (write_en ensures this is always legal)
       pix_waddr = fb.addr;
       pix_mask  = fb.wmask; 
       pix_data  = fb.data_in;
@@ -373,8 +377,7 @@ $$end
     
     if (mem.in_valid & mem.rw) {
       switch (mem.addr[27,4]) {
-        case 4b1000: {
-          // __display("palette %h = %h",mem.addr[2,8],mem.data_in[0,24]);
+        case 4b1000: { // CPU writes to palette
           palette.addr1    = mem.addr[2,8];
           palette.wdata1   = mem.data_in[0,24];
           palette.wenable1 = 1;
@@ -382,37 +385,31 @@ $$end
         }
         case 4b0010: {
           switch (mem.addr[2,2]) {
-            case 2b00: {
+            case 2b00: { // CPU writes to LEDs
               __display("LEDs = %h",mem.data_in[0,8]);
               leds = mem.data_in[0,8];
             }
-            case 2b01: { 
-              /* swap buffer ignored */ 
-              }
-            case 2b10: {
-              // spiflash
+            case 2b01: { /* ignored (swap buffer) */ }
+            case 2b10: { // CPU spiflash bit-banging              
 $$if SPIFLASH then
               sf_clk  = mem.data_in[0,1];
               sf_mosi = mem.data_in[1,1];
               sf_csn  = mem.data_in[2,1];              
 $$end              
             }        
-            case 2b11: {           
+            case 2b11: { // CPU writes to framebuffer
               pix_waddr = mem.addr[ 4,14];
               pix_mask  = mem.addr[18, 4];
               pix_data  = mem.data_in;
               pix_write = 1;
-              // __display("PIXELs @%h wm:%b %h",pix_waddr,pix_mask,pix_data);
             }
             default: { }
           }
         }
-        case 4b0001: {
+        case 4b0001: { // CPU writes to SPRAM, this is how map data is sent!
           map_write  = 1;
           map_data   = mem.data_in[ 0,16];
           map_waddr  = mem.data_in[16,14];
-          // map_select = mem.data_in[30, 1];        
-          // __display("SPRAM [@%h]=%h",map_waddr,map_data);  
         }
         default: { }
       }
