@@ -53,6 +53,8 @@
   "Syntax table used while in Silice mode.")
 
 ;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.ice\\.lpp\\'" . silice-mode))
+;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.ice\\'" . silice-mode))
 ;;;###autoload
 (define-derived-mode silice-mode prog-mode "Silice"
