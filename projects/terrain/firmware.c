@@ -8,7 +8,7 @@ volatile unsigned int* const SPRAM = (unsigned int*)0x88000000;
 #define NUM_MAPS 1
 #include "terrains.h"
 #else
-#define NUM_MAPS 7
+#define NUM_MAPS 1
 #endif
 
 unsigned char read_next()

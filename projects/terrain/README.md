@@ -12,6 +12,12 @@ The code is in Silice, but most concepts are general and will map directly to ot
 
 ### **How to test**
 
+**From pre-build binaries**
+
+Plug your Icebreaker + VGA PMOD, then from a command line in this directory `./try.sh`
+
+**From source**
+
 In addition to Silice, a RISC-V compilation environment is needed, see [Getting Started](../../GetStarted.md).
 
 - **With an Icebreaker**: plug your board, then from a command line in this directory `./build.sh`
