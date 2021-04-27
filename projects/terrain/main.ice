@@ -147,7 +147,7 @@ $$end
     predicted_correct  <:  predicted_correct,
   );
   uint1  cpu_reset      = 1;         // CPU reset (pull low to run)
-  uint26 cpu_start_addr(26h0010000); // starts in the boot sector  
+  uint26 cpu_start_addr(26h0000000); // start at zero
   // instantiate CPU 
   rv32i_cpu cpu<!cpu_reset>(
     boot_at          <:  cpu_start_addr,
