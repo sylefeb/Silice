@@ -12,11 +12,11 @@ The code is in Silice, but most concepts are general and will map directly to ot
 
 ### **How to test**
 
-**From pre-build binaries**
+*From pre-build binaries*
 
 Plug your Icebreaker + VGA PMOD, then from a command line in this directory `./try.sh`
 
-**From source**
+*From source*
 
 In addition to Silice, a RISC-V compilation environment is needed, see [Getting Started](../../GetStarted.md).
 
@@ -447,6 +447,8 @@ if (mem.in_valid & mem.rw) {
 The `miso` wire for SPIFlash is passed through the CPU `user_data`.
 
 The rest is done by the [firmware code](firmware.c).
+
+The raw terrain data is in `terrains.img` ; it is placed in SPIFlash using `iceprog` with an offset of 1MB (see [`build.sh`](build.sh)). See [here for details](data/README.md) on how `terrains.img` is built.
 
 ### **Conclusion**
 
