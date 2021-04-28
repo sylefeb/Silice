@@ -15,13 +15,13 @@
   :group 'languages)
 
 (defconst silice-font-lock-keywords
-  '(("\\b\\(uninitialized\\|import\\|algorithm\\|input\\|output\\|inout\\|if\\|else\\|while\\|autorun\\|auto\\|onehot\\|\\+\\+:\\|brom\\|bram\\|dualport_bram\\|case\\|default\\|break\\|switch\\|circuitry\\|always\\|bitfield\\|interface\\)\\b"
+  '(("\\b\\(uninitiali\\(s|z\\)ed\\|import\\|algorithm\\|input\\|output\\|inout\\|if\\|else\\|while\\|autorun\\|auto\\|onehot\\|\\+\\+:\\|brom\\|bram\\|dualport_bram\\|case\\|default\\|break\\|switch\\|circuitry\\|always\\|bitfield\\|interface\\|subroutine\\|readwrites\\|reads\\|writes\\|calls\\)\\b"
      . font-lock-keyword-face)
     ;; keywords
     ("\\(@\\|!\\)\\([[:alpha:]]\\|_\\)\\([[:alnum:]]\\|_\\)+"
      . font-lock-function-name-face)
     ;; algorithm meta-specifiers
-    ("\\b\\(__\\(display\\|write\\|\\(un\\)?signed\\)\\)\\b"
+    ("\\b\\(__\\(display\\|write\\|\\(un\\)?signed\\)\\|widthof\\|sameas\\)\\b"
      . font-lock-builtin-face)
     ;; intrisics
     ("\\b\\(u?int\\([[:digit:]]+\\)?\\)\\b"
