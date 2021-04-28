@@ -93,7 +93,7 @@ FILE                : 'file' ;
 
 ASSERT              : 'assert' ;
 
-// TODO: ASSUME : 'assume' ;
+ASSUME              : 'assume' ;
 
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
@@ -326,6 +326,7 @@ returnFrom          : RETURN ;
 breakLoop           : BREAK ;
 assert_             : ASSERT '(' expression_0 ')';
 // NOTE: keep the `_` here else it clashes with various keywords etc
+assume              : ASSUME '(' expression_0 ')';
 
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
@@ -346,6 +347,7 @@ instruction         : assignment
                     | breakLoop
                     | display
                     | assert_
+                    | assume
                     ;
 
 alwaysBlock         : ALWAYS       block;
