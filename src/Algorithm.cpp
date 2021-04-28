@@ -3222,6 +3222,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto ret      = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
   auto breakL   = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
   auto block    = dynamic_cast<siliceParser::BlockContext *>(tree);
+  auto assert_  = dynamic_cast<siliceParser::Assert_Context *>(tree);
 
   bool recurse  = true;
 
@@ -3281,6 +3282,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (async)    { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));   recurse = false;
   } else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));  recurse = false;
   } else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id)); recurse = false;
+  } else if (assert_)  { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id)); recurse = false;
   } else if (block)    { _current = gatherBlock(block, _current, _context);            recurse = false;
   } else if (ilist)    { _current = splitOrContinueBlock(ilist, _current, _context); }
 
@@ -5641,6 +5643,26 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
 
 // -------------------------------------------------
 
+void Algorithm::writeAssert(std::string prefix,
+                            std::ostream &out,
+                            const t_instr_nfo &a,
+                            siliceParser::Expression_0Context *expression_0,
+                            const t_combinational_block_context *bctx,
+                            std::string ff,
+                            const t_vio_dependencies &dependencies,
+                            t_vio_ff_usage &_ff_usage) const
+{
+  // nothing fancy, just output the assertion
+  // NOTE: we only want them in FORMAL mode, therefore need to enclose the assertion
+  // in a "`ifdef FORMAL ... `endif" block
+
+  out << "`ifdef FORMAL" << nxl
+      << "assert(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl
+      << "`endif" << nxl;
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeWireAssignements(
   std::string prefix, std::ostream &out,  
   t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const
@@ -6495,6 +6517,11 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
               writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, FF_Q, _dependencies, _ff_usage);
             }
           }
+      }
+    } {
+      auto assert = dynamic_cast<siliceParser::Assert_Context *>(a.instr);
+      if (assert) {
+        writeAssert(prefix, out, a, assert->expression_0(), &block->context, FF_Q, _dependencies, _ff_usage);
       }
     } {
       auto display = dynamic_cast<siliceParser::DisplayContext *>(a.instr);

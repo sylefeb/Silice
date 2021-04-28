@@ -91,6 +91,10 @@ PAD                 : 'pad' ;
 
 FILE                : 'file' ;
 
+ASSERT              : 'assert' ;
+
+// TODO: ASSUME : 'assume' ;
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -126,7 +130,7 @@ NEXT                : '++:' ;
 
 ATTRIBS             : '(*' ~[\r\n]* '*)' ;
 
-STRING              : '"' ~[\r\n"]* '"' ;
+STRING              : '"' ~[\r\n"]* '"' ; // ' // antlr-mode is broken and does not handle literal `"` in selectors
 
 ERROR_CHAR          : . ; // catch-all to move lexer errors to parser
 
@@ -320,6 +324,8 @@ state               : state_name=IDENTIFIER ':' | NEXT ;
 jump                : GOTO IDENTIFIER ;
 returnFrom          : RETURN ;
 breakLoop           : BREAK ;
+assert_             : ASSERT '(' expression_0 ')';
+// NOTE: keep the `_` here else it clashes with various keywords etc
 
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
@@ -339,6 +345,7 @@ instruction         : assignment
                     | returnFrom
                     | breakLoop
                     | display
+                    | assert_
                     ;
 
 alwaysBlock         : ALWAYS       block;
