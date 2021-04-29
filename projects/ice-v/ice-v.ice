@@ -102,7 +102,7 @@ $$end
 $$if ICESTICK then
   ) <@cpu_clock>
 {
-  // pll  
+  // clock  
   icestick_clk_60 clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
@@ -110,12 +110,13 @@ $$if ICESTICK then
 $$elseif FOMU then
   ) <@cpu_clock>
 {
-  // pll  
+  // clock  
   uint1 cpu_clock  = uninitialized;
   fomu_clk_20 clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
-  );   
+  );  
+  
 $$else
 ) {
 $$end
