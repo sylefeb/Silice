@@ -2,6 +2,23 @@
   "name": "fomu",
   "variants": [
     {
+      "name"      : "pvt1",
+      "framework" : "fomu.v",
+      "pins"      : [ 
+        {"set"    : "basic"},
+        {"set"    : "usb",  "define" : "USB=1"},
+        {"set"    : "spi",  "define" : "SPI=1"},
+        {"set"    : "pads", "define" : "PADS=1"}
+      ],
+      "builders": [
+        {
+          "builder" : "shell",
+          "command" : "fomu-pvt1.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        }
+      ]    
+    },
+    {
       "name"      : "hacker",
       "framework" : "fomu.v",
       "pins"      : [ 
@@ -13,7 +30,7 @@
       "builders": [
         {
           "builder" : "shell",
-          "command" : "fomu.sh",
+          "command" : "fomu-hacker.sh",
           "description": "Custom shell scripts using yosys and nextpnr"
         }
       ]    
