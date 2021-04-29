@@ -1053,6 +1053,15 @@ private:
                      std::string ff,
                      const t_vio_dependencies &dependencies,
                      t_vio_ff_usage &_ff_usage) const;
+    /// \brief writes an restriction
+    void writeRestrict(std::string prefix,
+                       std::ostream &out,
+                       const t_instr_nfo &a,
+                       siliceParser::Expression_0Context *expression_0,
+                       const t_combinational_block_context *bctx,
+                       std::string ff,
+                       const t_vio_dependencies &dependencies,
+                       t_vio_ff_usage &_ff_usage) const;
     /// \brief writes all wire assignements
     void writeWireAssignements(std::string prefix, std::ostream &out, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes flip-flop value update for a variable

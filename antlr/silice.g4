@@ -95,6 +95,8 @@ ASSERT              : 'assert' ;
 
 ASSUME              : 'assume' ;
 
+RESTRICT            : 'restrict';
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -130,7 +132,7 @@ NEXT                : '++:' ;
 
 ATTRIBS             : '(*' ~[\r\n]* '*)' ;
 
-STRING              : '"' ~[\r\n"]* '"' ; // ' // antlr-mode is broken and does not handle literal `"` in selectors
+STRING              : '"' ~[\r\n"]* '"' ; // '; // antlr-mode is broken and does not handle literal `"` in selectors
 
 ERROR_CHAR          : . ; // catch-all to move lexer errors to parser
 
@@ -327,6 +329,7 @@ breakLoop           : BREAK ;
 assert_             : ASSERT '(' expression_0 ')';
 // NOTE: keep the `_` here else it clashes with various keywords etc
 assume              : ASSUME '(' expression_0 ')';
+restrict            : RESTRICT '(' expression_0 ')';
 
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
@@ -348,6 +351,7 @@ instruction         : assignment
                     | display
                     | assert_
                     | assume
+                    | restrict
                     ;
 
 alwaysBlock         : ALWAYS       block;
