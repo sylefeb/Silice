@@ -62,7 +62,7 @@ echo "using verilator framework $VERILATOR_LIB"
 
 verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/  -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI"
 cd obj_dir
-$MAKE -f Vtop.mk
+$MAKE -f Vtop.mk -j$(nproc)
 cd ..
 
 ./obj_dir/Vtop

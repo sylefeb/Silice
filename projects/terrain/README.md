@@ -12,6 +12,12 @@ The code is in Silice, but most concepts are general and will map directly to ot
 
 ### **How to test**
 
+*From pre-build binaries*
+
+Plug your Icebreaker + VGA PMOD, then from a command line in this directory `./try.sh`
+
+*From source*
+
 In addition to Silice, a RISC-V compilation environment is needed, see [Getting Started](../../GetStarted.md).
 
 - **With an Icebreaker**: plug your board, then from a command line in this directory `./build.sh`
@@ -25,7 +31,9 @@ In addition to Silice, a RISC-V compilation environment is needed, see [Getting 
 - [`terrain_renderer.ice`](terrain_renderer.ice) is the hardware renderer.
 - [`firmware.c`](firmware.c) is the RISC-V firmware code.
 
-For more details on the Risc-V implementation see the [fire-v project](../fire-v/) (but here it is only used for copying data around).
+Each file is commented, but I recommend reading through this first.
+
+For more details on the Risc-V implementation see the [fire-v project](../fire-v/README.md) (but here it is only used for copying data around).
 
 ## Revisiting the Voxel Space algorithm in hardware
 
@@ -378,9 +386,69 @@ clr         = l_or_r ? ( t_or_b ? h00[8,8] : c_last.rdata ) : (t_or_b ? h10[8,8]
 
 Almost done! That's quite a few details for such a small piece of code ;)
 
-So what's left? Well, the SPRAMs are great, but contrary to BRAMs they cannot be initialized from the FPGA configuration bitstream. So, how are we going to put the height map and color data their in the first place?
+So what's left? Well, the SPRAMs are great, but contrary to BRAMs they cannot be initialized from the FPGA configuration bitstream. So, how are we going to put the height map and color data there in the first place?
 
-Here I went a bit overboard by adding a complete RISC-V CPU to the design just to do that. I known, total overkill but that is so easy!! Silice comes with a choice of RISC-V implementations and here I used the [fire-v](../fire-v/), just because it was ready, simple and fit the hardware (*Note:* I am working on a compatible version of the [ice-v](../ice-v/) which is much smaller and would be enough here). 
+Here I went a bit overboard by adding a complete RISC-V CPU to the design just to do that. I know, total overkill but that is so easy! Silice comes with a choice of RISC-V implementations and here I used the [fire-v](../fire-v/README.md), just because it was ready, simple and does fit the hardware (*Note:* I am working on a compatible version of the [ice-v](../ice-v/README.md) which is much smaller and would be enough here). 
+
+Silice makes the integration very easy. First, we instantiate the ram interface between memory and CPU (we are looking again at [`main.ice`](main.ice)):
+```c
+rv32i_ram_io mem;
+```
+We then instantiate the memory. There are [several choices](../fire-v/ash/) but here we simply use a BRAM memory:
+```c
+  // instantiate CPU RAM
+  bram_ram_32bits bram_ram(
+    pram               <:> mem,
+    predicted_addr     <:  predicted_addr,
+    predicted_correct  <:  predicted_correct,
+  );
+```
+`predicted_addr` and `predicted_correct` are given by the CPU and allow for faster fetching of instructions and data.
+
+We then instantiate the CPU:
+```c
+  uint1  cpu_reset      = 1;         // CPU reset (pull low to run)
+  uint26 cpu_start_addr(26h0000000); // starts at the first code address
+  // instantiate CPU 
+  rv32i_cpu cpu<!cpu_reset>(
+    boot_at          <:  cpu_start_addr,
+    user_data        <:  user_data,
+    ram              <:> mem,
+    predicted_addr    :> predicted_addr,
+    predicted_correct :> predicted_correct,
+  );
+```
+
+The `user_data` input to the CPU is a simple hack to allow the firmware to read 32 bits of 'design state' through the `rdtime` instruction, which is hijacked for this purpose.
+
+The BRAM size [defaults](../fire-v/ash/bram_ram_32bits.ice) to 2048 x 32bits words (8K bytes). That is enough for our [small firmware](firmware.c) that only copies data from SPIFlash to SPRAM. 
+
+But wait!? How does the firmware code end up in the BRAM? This is done first by the pre-compiler script [`pre_include_asm.lua`](../fire-v/pre/pre_include_asm.lua) which generates a raw file from the [compiled code](compile.sh). Then the [memory algorithm](../fire-v/ash/bram_ram_32bits.ice) automatically includes this data in the BRAM, initializing it with `... = { file("data.img"), pad(uninitialized) };`.
+
+Final details! How exactly does the CPU code access SPIFlash and SPRAM? This is done through simple memory mapping in [`main.ice`](main.ice). Precisely here:
+
+```c
+if (mem.in_valid & mem.rw) {
+    switch (mem.addr[27,4]) {
+    // ...
+        case 2b10: { // CPU spiflash bit-banging              
+            sf_clk  = mem.data_in[0,1];
+            sf_mosi = mem.data_in[1,1];
+            sf_csn  = mem.data_in[2,1];              
+        }        
+   // ...
+        case 4b0001: { // CPU writes to SPRAM, this is how map data is sent!
+          map_write  = 1;
+          map_data   = mem.data_in[ 0,16];
+          map_waddr  = mem.data_in[16,14];
+        }
+   // ...
+```
+The `miso` wire for SPIFlash is passed through the CPU `user_data`.
+
+The rest is done by the [firmware code](firmware.c).
+
+The raw terrain data is in `terrains.img` ; it is placed in SPIFlash using `iceprog` with an offset of 1MB (see [`build.sh`](build.sh)). See [here for details](data/README.md) on how `terrains.img` is built.
 
 ### **Conclusion**
 
