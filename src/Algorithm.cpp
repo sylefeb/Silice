@@ -7043,11 +7043,11 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
   for (const auto &v : m_InOuts) {
     out << string(ALG_INOUT) << '_' << v.name << ',' << nxl;
   }
-  if (!hasNoFSM() || m_TopMost /*topmost keeps these for glue convenience*/) {
+  if (!hasNoFSM() || m_TopMost /*keep for glue convenience*/) {
     out << ALG_INPUT << "_" << ALG_RUN << ',' << nxl;
     out << ALG_OUTPUT << "_" << ALG_DONE << ',' << nxl;
   }
-  if (!requiresNoReset()) {
+  if (!requiresNoReset() || m_TopMost /*keep for glue convenience*/) {
     out << ALG_RESET "," << nxl;
   }
   out << "out_" << ALG_CLOCK "," << nxl;
@@ -7070,7 +7070,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
     out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
     out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ';' << nxl;
   }
-  if (!requiresNoReset()) {
+  if (!requiresNoReset() || m_TopMost) {
     out << "input " ALG_RESET ";" << nxl;
   }
   out << "output out_" ALG_CLOCK << ";" << nxl;
