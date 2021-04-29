@@ -14,8 +14,8 @@ echo "using $ARCH"
 
 # Following based on FemtoRV compile scripts https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV
 
-$ARCH-elf-gcc -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
-$ARCH-elf-gcc -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -c -o build/code.o $1
+$ARCH-elf-gcc -fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
+$ARCH-elf-gcc -fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -c -o build/code.o $1
 
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o crt0.s
 

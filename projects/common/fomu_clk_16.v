@@ -10,7 +10,7 @@
  * Achieved output frequency:    16.000 MHz
  */
 
-module pll(
+module fomu_clk_16(
 	input  clock_in,
 	output clock_out,
 	output locked

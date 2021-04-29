@@ -13,9 +13,12 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
-// IceStick clock
+// Clocks
 $$if ICESTICK then
 import('../common/icestick_clk_60.v')
+$$end
+$$if FOMU then
+import('../common/fomu_clk_20.v')
 $$end
 
 // enable to see the registers during simulation
@@ -99,13 +102,20 @@ $$end
 $$if ICESTICK then
   ) <@cpu_clock>
 {
-
-  // clock  
+  // pll  
   icestick_clk_60 clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
   ); 
- 
+$$elseif FOMU then
+  ) <@cpu_clock>
+{
+  // pll  
+  uint1 cpu_clock  = uninitialized;
+  fomu_clk_20 clk_gen (
+    clock_in  <: clock,
+    clock_out :> cpu_clock
+  );   
 $$else
 ) {
 $$end
@@ -182,22 +192,22 @@ algorithm oled(
   uint1 dc         = 0;
   uint9 sending    = 0;
   
+  oled_cs := 0;
+  
   always {
     oled_dc  =  dc;
-    osc      =  {osc[0,3],osc[3,1]};
-    oled_clk =  (osc[2,1]|osc[3,1]);
-    oled_cs  = !(sending>1);
+    osc      =  (sending>1) ? {osc[0,1],osc[1,1]} : 1;
+    oled_clk =  (sending>1) && (osc[0,1]); // SPI Mode 0
     if (enable) {
-      dc = data_or_command;
+      dc         = data_or_command;
+      oled_dc    =  dc;
       sending    = {1b1,
         byte[0,1],byte[1,1],byte[2,1],byte[3,1],
         byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
     } else {
-      if (sending>1) {
-        oled_din = sending[0,1];
-      }
-      if (osc[2,1]) {
-        sending  = {1b0,sending[1,8]};
+      oled_din   = sending[0,1];
+      if (osc[0,1]) {
+        sending   = {1b0,sending[1,8]};
       }
     }
   }

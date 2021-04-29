@@ -37,9 +37,9 @@ silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}
 
 yosys -D PVT=1 -p 'synth_ice40 -top top -json build.json' build.v
 
-nextpnr-ice40 --up5k --package uwg30 --opt-timing --pcf $BOARD_DIR/fomu-pvt1.pcf --json build.json --asc build.asc
+nextpnr-ice40 --up5k --package uwg30 --pcf $BOARD_DIR/fomu-pvt1.pcf --json build.json --asc build.asc
 
-icepack build.asc build.bit
+icepack -s build.asc build.bit
 icetime -d up5k -mtr build.rpt build.asc
 
 cp build.bit build.dfu

@@ -12,9 +12,30 @@ nbytes = 0
 h32 = ''
 meminit = '{'
 numinit = 0
+local word = ''
+local prev_addr = -1
+
 for str in string.gmatch(code, "([^ \r\n]+)") do
-  -- 
-  if nentries > 0 then
+ if string.sub(str,1,1) == '@' then
+    addr = tonumber(string.sub(str,2), 16)
+    if prev_addr < 0 then
+      print('first addr = ' .. addr)
+      prev_addr = addr
+    end
+    print('addr delta = ' .. addr - prev_addr)
+    delta = addr - prev_addr
+    for i=1,delta do
+      -- pad with zeros
+      word     = '00' .. word;
+      if #word == 8 then 
+        meminit = meminit .. '32h' .. word .. ','
+        word = ''
+        numinit = numinit + 1
+      end
+      prev_addr       = prev_addr + 1
+    end
+    prev_addr = addr
+  else 
     h32 = str .. h32
     nbytes = nbytes + 1
     if nbytes == 4 then
@@ -25,7 +46,10 @@ for str in string.gmatch(code, "([^ \r\n]+)") do
       numinit = numinit + 1
     end
   end
-  nentries = nentries + 1
+end
+
+if numinit > memsize then
+  error('too much code!')
 end
 
 for i=numinit+1,memsize do
