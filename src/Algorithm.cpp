@@ -5661,7 +5661,7 @@ void Algorithm::writeAssert(std::string prefix,
   // in a "`ifdef FORMAL ... `endif" block
 
   out << "`ifdef FORMAL" << nxl
-      << "assert property(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl
+      << "assert(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl
       << "`endif" << nxl;
 }
 
@@ -5681,7 +5681,7 @@ void Algorithm::writeAssume(std::string prefix,
   // in a "`ifdef FORMAL ... `endif" block
 
   out << "`ifdef FORMAL" << nxl
-      << "assume property(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl
+      << "assume(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl
       << "`endif" << nxl;
 }
 
@@ -5701,7 +5701,7 @@ void Algorithm::writeRestrict(std::string prefix,
   // in a "`ifdef FORMAL ... `endif" block
 
   out << "`ifdef FORMAL" << nxl
-      << "restrict property(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl
+      << "restrict(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl
       << "`endif" << nxl;
 }
 
