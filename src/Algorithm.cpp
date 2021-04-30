@@ -2139,6 +2139,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   // -> track read/written
   std::unordered_map<std::string,std::vector<int> > read_at, written_at;
   std::unordered_set<std::string> written_outputs;
+  std::unordered_set<std::string> written_outside;
   // -> for each stage block
   t_combinational_block *prev = _current;
   // -> stage number
@@ -2158,16 +2159,43 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       reportError(nullptr,(int)b->getStart()->getLine(),"pipeline stages have to be one-cycle only");
     }
     // check VIO access
-    // -> gather read/written for block
+    // gather read/written for block
     std::unordered_set<std::string> read, written;
     determineVIOAccess(b, m_VarNames,    &_current->context, read, written);
-    std::unordered_set<std::string> o_read, o_written; // used to check no output is written from two stages
+    // check written vars (will start trickling) are not written  outside of pipeline before
+    for (auto w : written) {
+      if (written_outside.count(w) != 0) {
+        reportError(nullptr, (int)b->getStart()->getLine(), "variable '%s' is assigned to outside of pipeline (^=) by an earlier stage", w.c_str());
+      }
+    }
+    // check no output is written from two stages
+    std::unordered_set<std::string> o_read, o_written; 
     determineVIOAccess(b, m_OutputNames, &_current->context, o_read, o_written);
     for (auto ow : o_written) {
       if (written_outputs.count(ow) > 0) {
         reportError(nullptr, (int)b->getStart()->getLine(), "output '%s' is written from two different pipeline stages");
       }
       written_outputs.insert(ow);
+    }
+    // check outside of pipeline assignments: not written to outside from two stages, not written using both = and ^=
+    std::unordered_set<std::string> ex_written, not_ex_written;
+    determineOutOfPipelineAssignments(b, m_VarNames, &_current->context, ex_written, not_ex_written);
+    for (auto w : ex_written) {
+      // not written to outside from two stages
+      if (written_outside.count(w) > 0) {
+        reportError(nullptr, (int)b->getStart()->getLine(), "variable '%s' is assigned to outside of pipeline (^=) from two different stages", w.c_str());
+      }
+      written_outside.insert(w);
+      // not written with both = and ^= within same stage
+      if (not_ex_written.count(w) != 0) {
+        reportError(nullptr, (int)b->getStart()->getLine(), "variable '%s' cannot be assigned with both ^= and =",w.c_str());
+      }
+      // not trickling before
+      if (written_at.count(w) != 0) {
+        reportError(nullptr, (int)b->getStart()->getLine(), "variable '%s' is assigned to outside of pipeline (^=) while already trickling from a previous stage", w.c_str());
+      }
+      // exclude var from written set (cancels trickling)
+      written.erase(w);
     }
     // -> merge
     for (auto r : read) {
@@ -4254,6 +4282,42 @@ void Algorithm::determineVIOAccess(
 
 // -------------------------------------------------
 
+void Algorithm::determineOutOfPipelineAssignments(
+  antlr4::tree::ParseTree *node,
+  const std::unordered_map<std::string, int> &vios,
+  const t_combinational_block_context *bctx,
+  std::unordered_set<std::string> &_ex_written, std::unordered_set<std::string> &_not_ex_written) const
+{
+  auto assign = dynamic_cast<siliceParser::AssignmentContext *>(node);
+  if (assign) {
+      // retrieve var
+      std::string var;
+      if (assign->access() != nullptr) {
+        var = determineAccessedVar(assign->access(), bctx);
+      } else {
+        var = assign->IDENTIFIER()->getText();
+      }
+      // tag var as written
+      if (!var.empty()) {
+        var = translateVIOName(var, bctx);
+        if (!var.empty() && vios.find(var) != vios.end()) {
+          if (assign->OUTASSIGN() != nullptr) {
+            _ex_written.insert(var);
+          } else {
+            _not_ex_written.insert(var);
+          }
+        }
+      }
+  } else {
+    // recurse
+    for (auto c : node->children) {
+      determineOutOfPipelineAssignments(c, vios, bctx, _ex_written, _not_ex_written);
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::determineVariablesAndOutputsAccess(
   antlr4::tree::ParseTree             *instr,
   const t_combinational_block_context *context,
@@ -5493,6 +5557,17 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
   const t_combinational_block_context *bctx,
   string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
+  // verify type of assignement
+  auto assign = dynamic_cast<siliceParser::AssignmentContext *>(a.instr);
+  if (assign) {
+    if (assign->OUTASSIGN() != nullptr) {
+      // check in pipeline
+      if (bctx->pipeline == nullptr) {
+        reportError(a.instr->getSourceInterval(), -1,"cannot use outside of pipeline assign (^=) if not inside a pipeline");
+      }
+    }
+  }
+  // write access
   if (access) {
     // table, output or bits
     writeAccess(prefix, out, true, access, a.__id, bctx, ff, dependencies, _ff_usage);

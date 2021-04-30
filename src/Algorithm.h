@@ -889,6 +889,12 @@ private:
       const std::unordered_map<std::string, int>& vios,
       const t_combinational_block_context        *bctx,
       std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const;
+    /// \brief determine variables written outside of pipeline
+    void determineOutOfPipelineAssignments(
+      antlr4::tree::ParseTree *node,
+      const std::unordered_map<std::string, int> &vios,
+      const t_combinational_block_context *bctx,
+      std::unordered_set<std::string> &_ex_written,std::unordered_set<std::string> &_not_ex_written) const;
     /// \brief updates access to vars due to a binding
     template<typename T_nfo>
     void updateAccessFromBinding(const t_binding_nfo& b, const std::unordered_map<std::string, int > &names, std::vector< T_nfo > &_nfos);

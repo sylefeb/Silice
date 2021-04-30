@@ -106,6 +106,8 @@ AUTO                : '<:auto:>' ;
 ALWSASSIGNDBL       : '::=' ;
 ALWSASSIGN          : ':=' ;
 
+OUTASSIGN           : '^=' ;
+
 IDENTIFIER          : LETTER+ (DIGIT|LETTERU)* ;
 
 CONSTANT            : '-'? DIGIT+ ('b'|'h'|'d') (DIGIT|[a-fA-Fxz])+ ;
@@ -284,8 +286,8 @@ idOrIoAccess        : (ioAccess | IDENTIFIER) ;
 
 /* -- Assignments -- */
                     
-assignment          : IDENTIFIER  '=' expression_0
-                    | access      '=' expression_0 ;
+assignment          : IDENTIFIER  ('=' | OUTASSIGN) expression_0
+                    | access      ('=' | OUTASSIGN) expression_0 ;
 
 alwaysAssigned      : IDENTIFIER   (ALWSASSIGN    | LDEFINE   ) expression_0
                     | access        ALWSASSIGN                  expression_0
