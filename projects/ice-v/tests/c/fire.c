@@ -71,6 +71,8 @@ void update_fire()
 
 void main() 
 {
+  *(LEDS) = 7;
+  
   oled_init();
   oled_fullscreen();
   for (int v=0;v<32;v++) {
