@@ -18,7 +18,7 @@ Plug the icebreaker, then from a command line in this directory:
 
 ## Dynamic what?
 
-When the ice40 FPGA starts it loads its configuration from SPI flash. The cool thing is that multiple bitstreams can be stored in SPI (four by default but can be extended [with some tricks](https://twitter.com/juanmard/status/1388217639655313409)) *and your design can dynamically ask for a reboot, loading another bitstream*.
+When the ice40 FPGA starts it loads its configuration from SPI flash. The cool thing is that multiple bitstreams can be stored in SPI (four by default but [@juanmard found a way to extend that](https://twitter.com/juanmard/status/1388217639655313409)) *and your design can dynamically ask for a reboot, loading another bitstream*.
 
 This is huge! 
 
