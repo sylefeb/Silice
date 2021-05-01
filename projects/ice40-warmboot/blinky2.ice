@@ -4,10 +4,10 @@ algorithm main(output uint5 leds,input uint3 btns)
 {                                        
   uint28 cnt(0);
   uint3  rbtns(0);
-  uint1 pressed(0);
+  uint1  pressed(0);
 
-	uint1 boot(0);
-	uint2 slot(0);
+	uint1  boot(0);
+	uint2  slot(0);
   ice40_warmboot wb(boot <: boot,slot <: slot);
   
   slot    := 2b00; // go to blinky1
@@ -21,3 +21,4 @@ algorithm main(output uint5 leds,input uint3 btns)
   cnt     := cnt + 1;
 
 }
+
