@@ -1,6 +1,6 @@
-# ice40 SB_WARMBOOT test
+# ice40 warm boot tutorial
 
-This is a demo of the dynamic reboot + reconfigure-from-SPI-flash capability of the ice40 FPGA family, using the SB_WARMBOOT primitive.
+This is a tutorial explaining how to use the dynamic reboot + reconfigure-from-SPI-flash capability of the ice40 FPGA family, using the SB_WARMBOOT primitive.
 
 > **Note:** this should work on any ice40, but as I needed an onboard button I made the demo for the IceBreaker. This is expected work on Fomu and IceStick (and others) as long as a button is available.
 
