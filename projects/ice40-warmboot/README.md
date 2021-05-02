@@ -92,7 +92,8 @@ iceprog multi.bin
 This stuff is quite amazing, isn't it ?!
 
 ## Links
-- @juanmard extension to many images https://github.com/juanmard/icestorm/
+- @juanmard made a similar demo (back in 2014, great stuff!) using IceStudio/Verilog https://github.com/juanmard/screen-warmboot
+- @juanmard extension to many bitstreams https://github.com/juanmard/icestorm/
 - Twitter discussion about this with @unaimarcor
  and @juanmard: https://twitter.com/unaimarcor/status/1388154223280467971
 - SB_WARMBOOT documentation http://www.latticesemi.com/~/media/LatticeSemi/Documents/ApplicationNotes/IK/iCE40ProgrammingandConfiguration.pdf
