@@ -154,7 +154,7 @@ I hope you'll nevertheless enjoy diving into it, and will find it useful. Please
 - **draft** is heavy experimental work in progress, likely unstable, may not compile
 
 ## Directory structure
-- **docs** contains the LateX documentation sources, and pre-generated documentation pdf
+- **learn-silice** contains documentation and tutorials
 - **projects** contains many demo projects ([see README therein](projects/README.md)) as well as build scripts for several boards
 - **bin** contains the Silice binaries after compiling using the ```compile_silice_*.sh``` script
 - **frameworks** contains the frameworks for various boards and setups
