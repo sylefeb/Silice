@@ -40,10 +40,12 @@ $$end
   uint1  branch      = uninitialized;
 
   uint3  csr         = uninitialized;
-
-  uint3  select      = uninitialized;  
+  uint3  aluOp       = uninitialized;  
   uint1  sub         = uninitialized;
-  uint1  signedShift = uninitialized; 
+  uint1  signedShift = uninitialized;
+$$if FIREV_MUL then
+  uint1  muldiv      = uninitialized;
+$$end
   
   uint32 instr(0);
   uint26 pc(0);
@@ -85,8 +87,11 @@ $$end
     load_store  :> load_store,
     store       :> store,
     loadStoreOp :> loadStoreOp,
-    select      :> select,
+    aluOp       :> aluOp,
     sub         :> sub,
+$$if FIREV_MUL then
+    muldiv      :> muldiv,
+$$end    
     signedShift :> signedShift,
     pcOrReg     :> pcOrReg,
     regOrImm    :> regOrImm,
@@ -109,9 +114,12 @@ $$end
     imm         <: imm,
     pcOrReg     <: pcOrReg,
     regOrImm    <: regOrImm,
-    select      <: select,
-    sub         <: sub,
+    aluOp       <: aluOp,
+    sub         <: sub,    
     signedShift <: signedShift,
+$$if FIREV_MUL then
+    muldiv      <: muldiv,
+$$end    
     csr         <: csr,
     cycle      <:: cycle,
 $$if not FIREV_NO_INSTRET then    
@@ -382,9 +390,12 @@ algorithm decode(
   output uint1   load_store,
   output uint1   store,
   output uint3   loadStoreOp,
-  output uint3   select,
-  output uint1   sub,
+  output uint3   aluOp,
+  output uint1   sub,  
   output uint1   signedShift,
+$$if FIREV_MUL then
+  output uint1   muldiv,
+$$end  
   output uint1   pcOrReg,
   output uint1   regOrImm,
   output uint3   csr,
@@ -431,8 +442,11 @@ algorithm decode(
   store        := (Store);
   load_store   := (Load | Store);
   regOrImm     := (IntReg);
-  select       := (IntImm | IntReg) ? Itype(instr).funct3 : 3b000;
-  sub          := (IntReg & Rtype(instr).select2);
+  aluOp        := (IntImm | IntReg) ? {Itype(instr).funct3} : 4b0000;
+  sub          := (IntReg & Rtype(instr).sub);
+$$if FIREV_MUL then
+  muldiv       := (IntReg & Rtype(instr).muldiv);
+$$end  
   signedShift  := IntImm & instr[30,1]; /*SRLI/SRAI*/
 
   loadStoreOp  := Itype(instr).funct3;
@@ -502,11 +516,13 @@ algorithm intops(
   input   int32  xa,
   input   int32  xb,
   input   int32  imm,
-  input   uint3  select,
-  input   uint1  select2,
+  input   uint3  aluOp,
+  input   uint1  sub,
+$$if FIREV_MUL then
+  input   uint1  muldiv,
+$$end
   input   uint1  pcOrReg,
   input   uint1  regOrImm,
-  input   uint1  sub,
   input   uint1  signedShift,
   input   uint3  csr,
   input   uint32 cycle,
@@ -542,12 +558,21 @@ $$else
 $$end
 
   always { // this part of the algorithm is executed every clock  
-    switch ({select}) {
+    switch ({aluOp}) {
       case 3b000: { // ADD / SUB
+$$if FIREV_MUL then
+        if (muldiv) {
+            __display("MULTIPLICATION");
+        r = a * b;
+        } else {
+$$end
 $$if FIREV_MERGE_ADD_SUB then      
         r = a + (sub ? -b : b); // smaller, slower...
 $$else        
         r = sub ? (a - b) : (a + b);
+$$end        
+$$if FIREV_MUL then
+        }
 $$end        
       }     
       case 3b010: { // SLTI

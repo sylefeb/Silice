@@ -32,8 +32,9 @@ bitfield Stype {
 
 bitfield Rtype {
   uint1  unused_2,
-  uint1  select2,
-  uint5  unused_1,
+  uint1  sub,
+  uint4  unused_1,
+  uint1  muldiv,
   uint5  rs2,
   uint5  rs1,
   uint3  funct3,
