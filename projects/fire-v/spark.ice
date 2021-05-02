@@ -51,6 +51,12 @@ $$if SDCARD then
   output! uint1  sd_mosi,
   output! uint1  sd_csn,
   input   uint1  sd_miso,
+$$end
+$$if SPIFLASH then
+  output uint1   sf_clk,
+  output uint1   sf_csn,
+  output uint1   sf_mosi,
+  input  uint1   sf_miso,
 $$end  
 $$if ULX3S then
 ) <@sys_clock,!sys_reset> {
@@ -121,23 +127,32 @@ $$end
 $$if SDCARD then
     user_data[3,1] = reg_miso;
     reg_miso       = sd_miso;
+$$elseif SPIFLASH then    
+    user_data[3,1] = reg_miso;
+    reg_miso       = sf_miso;
 $$end
+
     if (mem.addr[28,1] & mem.in_valid & mem.rw) {
 //      __display("[iter %d] mem.addr %h mem.data_in %h",iter,mem.addr,mem.data_in);
-$$if SDCARD then
+$$if SDCARD or SPIFLASH then
       if (~mem.addr[3,1]) {
         leds = mem.data_in[0,8];
-$$if SIMULATION then            
+$$  if SIMULATION then            
         __display("[iter %d] LEDs = %b",iter,leds);
-$$end
+$$  end
       } else {
-        // SDCARD
-$$if SIMULATION then            
-        __display("[iter %d] SDCARD = %b",iter,mem.data_in[0,3]);
-$$end
+$$  if SDCARD then
         sd_clk  = mem.data_in[0,1];
         sd_mosi = mem.data_in[1,1];
         sd_csn  = mem.data_in[2,1];
+$$  elseif SPIFLASH then
+        sf_clk  = mem.data_in[0,1];
+        sf_mosi = mem.data_in[1,1];
+        sf_csn  = mem.data_in[2,1];
+$$  end      
+$$  if SIMULATION then
+        __display("[iter %d] SPI (flash/SD) = %b",iter,mem.data_in[0,3]);
+$$  end
       }
 $$else
       leds = mem.data_in[0,8];

@@ -14,7 +14,7 @@ echo "using $ARCH"
 
 $ARCH-elf-as.exe -march=rv32i -mabi=ilp32 -o build/code.o $1
 
-$ARCH-elf-ld.exe -m elf32lriscv -b elf32-littleriscv -Tconfig_asm.ld --no-relax -o build/code.elf build/code.o
+$ARCH-elf-ld.exe -m elf32lriscv -b elf32-littleriscv -Tsmoke/config_asm.ld --no-relax -o build/code.elf build/code.o
 
 $ARCH-elf-objcopy.exe -O verilog build/code.elf build/code0.hex
 

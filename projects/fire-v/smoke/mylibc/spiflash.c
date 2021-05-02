@@ -112,3 +112,54 @@ void spiflash_read_end()
 {
   spiflash_unselect();
 }
+
+unsigned char spiflash_status()
+{
+  spiflash_select();
+  spiflash_send(0x05);
+  unsigned char status = spiflash_read();
+  spiflash_unselect();
+  return status;
+}
+
+void spiflash_busy_wait()
+{
+  while (spiflash_status() & 1) { }
+}
+
+void spiflash_erase4KB(int addr)
+{
+  spiflash_select();
+  spiflash_send(0x06); // enable write
+  spiflash_unselect();
+  
+  spiflash_select();
+  spiflash_send(0x20);
+  spiflash_send((addr>>16)&255);
+  spiflash_send((addr>> 8)&255);
+  spiflash_send((addr    )&255); 
+	spiflash_unselect();
+}
+
+void spiflash_write_begin(int addr)
+{
+  spiflash_select();
+  spiflash_send(0x06); // enable write
+  spiflash_unselect();
+
+  spiflash_select();
+  spiflash_send(0x02);
+  spiflash_send((addr>>16)&255);
+  spiflash_send((addr>> 8)&255);
+  spiflash_send((addr    )&255);   
+}
+
+void spiflash_write_next(unsigned char v)
+{
+  spiflash_send(v);
+}
+
+void spiflash_write_end()
+{
+  spiflash_unselect();
+}

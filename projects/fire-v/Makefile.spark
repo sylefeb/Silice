@@ -6,7 +6,7 @@ ulx3s: spark.ice
 		silice-make.py -s spark.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@) -t shell
 
 icebreaker: spark.ice
-		silice-make.py -s spark.ice -b $@ -p basic -o BUILD_$(subst :,_,$@)
+		silice-make.py -s spark.ice -b $@ -p basic,spiflash -o BUILD_$(subst :,_,$@)
 
 verilator: spark.ice
 		silice-make.py -s spark.ice -b $@ -p basic -o BUILD_$(subst :,_,$@) -t shell
