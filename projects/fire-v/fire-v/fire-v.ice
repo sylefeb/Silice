@@ -562,7 +562,7 @@ $$end
       case 3b000: { // ADD / SUB
 $$if FIREV_MUL then
         if (muldiv) {
-            __display("MULTIPLICATION");
+        __display("MULTIPLICATION %d * %d",a,b);
         r = a * b;
         } else {
 $$end

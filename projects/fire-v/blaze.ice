@@ -140,9 +140,6 @@ $$if ICEBREAKER then
   //clean_reset rst2<@vga_clock,!reset>(
   //  out :> vga_reset
   //);  
-$$elseif VERILATOR then
-) {
-  passthrough p( inv <: clock, outv :> video_clock );
 $$else
 ) {
 $$end
@@ -350,6 +347,9 @@ $$end
 $$if SIMULATION then  
   uint32 iter = 0;
 $$end
+$$if VERILATOR then
+  video_clock    := clock;
+$$end  
 
   video_r        := (active) ? palette.rdata[ 2, 6] : 0;
   video_g        := (active) ? palette.rdata[10, 6] : 0;
