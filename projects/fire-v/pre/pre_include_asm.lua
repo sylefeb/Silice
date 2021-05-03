@@ -2,6 +2,9 @@
 
 if not path then
   path,_1,_2 = string.match(findfile('Makefile'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+	if path == '' then 
+	  path = '.'
+	end	
   print('********************* firmware written to     ' .. path .. '/data.img')
   print('********************* compiled code read from ' .. path .. '/build/code*.hex')
 end
