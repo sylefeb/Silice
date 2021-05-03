@@ -2,7 +2,9 @@
 
 This is a tutorial explaining how to use the dynamic reboot + reconfigure-from-SPI-flash capability of the ice40 FPGA family, using the SB_WARMBOOT primitive.
 
-> **Note:** this should work on any ice40, but as I needed an onboard button I made the demo for the IceBreaker. This is expected work on Fomu and IceStick (and others) as long as a button is available.
+> **Note:** this should work on any ice40, but as I needed an onboard button I made the demo for the IceBreaker. This is expected to work on Fomu and IceStick (and others) as long as a button is available.
+
+> **Note:** Special thanks to @juanmard and @unaimarcor for help doing this tutorial -- see links down below.
 
 ## Testing
 
@@ -49,7 +51,7 @@ module ice40_warmboot(
 endmodule
 ```
 
-What does this do? When `boot` goes to high it will *reset* the FPGA and load one of four configuration images as indicated by `slot`. These four configurations are of course stored in SPI flash, but how does the FPGA know the address? In fact, it expects the addresses to be at the start of the SPI flash, in a small table of four entries. That means we have to somehow create this data ... but of course [project icestorm](https://github.com/YosysHQ/icestorm) already has all the fancy tooling! In this case `icemulti`. More on that later, let's go back to the code of our blinkers.
+What does this do? When `boot` goes to high it will *reset* the FPGA and load one of four configuration bitstreams as indicated by `slot`. These four configurations are of course stored in SPI flash, but how does the FPGA know the address? In fact, it expects the addresses to be at the start of the SPI flash, in a small table of four entries. That means we have to somehow create this data ... but of course [project icestorm](https://github.com/YosysHQ/icestorm) already has all the fancy tooling! In this case `icemulti`. More on that later, let's go back to the code of our blinkers.
 
 Here is how we use `ice40_warmboot` (`blinky1`):
 
@@ -82,7 +84,13 @@ Now, we only have to synthesize both bitstreams and pack the files together with
 icemulti blinky1.bin blinky2.bin -o multi.bin
 ```
 
-This will work only up to four images, but @juanmard generalized the process! Check the links down below.
+This will work only up to four bitstreams with the default `icemulti`, but @juanmard generalized the process! Check the links down below.
+
+> **Note:** `icemulti` also allows to select which of the four bitstreams is loaded after a reset, using the `-pN` options (with N the image to use upon reset). 
+
+> **Note:** @juanmard suggests the following approach: place a bootloader with SB_WARMBOOT in this reset-selected image (e.g. a menu) which then jumps to the user-choosen image. This image does not need to jump back, a reset will do the trick. So the loaded bitsteams *do not even have to be specially written!*
+
+> **Note:** Technically the reset-selected bitstream could be a fifth one, but this is currently not supported by `icemulti` (@juanmard version does support this, and more). 
 
 And finally, we can program the icebreaker and test!
 ```
