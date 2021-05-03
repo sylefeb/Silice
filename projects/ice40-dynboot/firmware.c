@@ -41,6 +41,7 @@ void spiflash_copy_patch_4KB(int src,int dst,t_patch_func f)
     src = src + 256;
     dst = dst + 256;
   }
+	spiflash_busy_wait();
 }
 
 void no_patch(int start_addr,unsigned char *buf) { }
@@ -54,7 +55,7 @@ void patch_vector(int start_addr,unsigned char *buf)
     // image 1 at buf[73],buf[74],buf[75]
     // ... (we do not need the others!)
     int current = (buf[73]<<16) + (buf[74]<<8)  + buf[75];
-		if (current < (104250 + 104090*2)) {
+		if (current < (104250 + 104090)) {
 			current = current + 104090;
 		} else {
 			current = 104250;
