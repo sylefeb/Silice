@@ -20,18 +20,6 @@ void main()
 {
   spiflash_init();
 
-
-//  unsigned char buf[256];
-//  spiflash_copy(0x0/*from begining*/,buf,256);
-  
-//  unsigned char i = 0;
-//  *LEDS = 0;  
-//  while (1) { 
-//    *LEDS = buf[i];
-//    i = i + 1;
-//    pause(2500000); // 0.25 sec
-//  }
-
   spiflash_busy_wait();
   spiflash_erase4KB(0x100000 /*1MB offset*/);
   
