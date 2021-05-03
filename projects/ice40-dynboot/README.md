@@ -2,6 +2,18 @@
 
 **TL;DR** *I teamed up with @juanmard and @unaimarcor to explore the possibility of manipulating warm boot addresses dynamically, from a running design. And it works! You can now fit as many bitstreams as you can in SPI-flash, and dynamically reboot to any of them from a running design, for no more than the cost of updating 4KB of SPI-flash.*
 
+## Try it!
+
+This proof of concept is designed for the IceBreaker. 
+
+*From binary*
+
+Plug your board, open a command line in this folder and run `./try.sh`
+
+*From source*
+
+Plug your board, open a command line in this folder and run `make`
+
 ## Warm boot?
 
 If you are not familiar with the concept of *warm boot* on the ice40, do not worry, [read this tutorial first](../ice40-warmboot/README.md). I also recommend reading [@unaimarcor notes on the topic](https://umarcor.github.io/warmboot/).  
