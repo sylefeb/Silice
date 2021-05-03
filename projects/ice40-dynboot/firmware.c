@@ -55,7 +55,7 @@ void patch_vector(int start_addr,unsigned char *buf)
     // image 1 at buf[73],buf[74],buf[75]
     // ... (we do not need the others!)
     int current = (buf[73]<<16) + (buf[74]<<8)  + buf[75];
-		if (current < (104250 + 104090)) {
+		if (current < (104250 + 7*104090)) {
 			current = current + 104090;
 		} else {
 			current = 104250;
