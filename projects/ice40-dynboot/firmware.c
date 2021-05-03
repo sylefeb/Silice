@@ -64,7 +64,6 @@ void patch_vector(int dst_addr,unsigned char *buf)
 
 void main()
 {
-
   spiflash_init();
 
   // read address from current header
