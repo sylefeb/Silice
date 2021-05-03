@@ -50,14 +50,18 @@ The principle is quite direct, but SPI-flash write requirements makes it a bit m
 In this proof of concept (PoC) we will use three entries of the header:
 - The reset bitstream address (green in image above), this will be a *bootloader*.
 - The first bitstream address (first red) also pointing to the bootloader.
-- The second bitstream address (second red), which will be the address of the next design. This is the address we will manipulate directly. These are bytes 73, 74 and 75.
+- The second bitstream address (second red), which will be the address of the next bitstream. This is the address we will manipulate directly. These are bytes 73, 74 and 75 in the header.
 
 We will not use the other two entries in this proof of concept.
 
 > **Note:** it might still be useful to use all entries to avoid rewriting the header too often.
 
 Our goal is to make it so that the bootloader selects a new design to run, updating the second warm boot address (second red). It then resets and restarts from the new design using `SB_WARMBOOT`. When the design decides to stop it also uses `SB_WARMBOOT` to go back to the bootloader. This will select the first red entry, as `SB_WARMBOOT` cannot directly use the green one -- this one is selected upon an actual reset or power-up. 
-The bootloader then selects the next design again, and uses `SB_WARMBOOT` again to reset to it. This loops back infinitely, chaining all designs. The only limit is the SPI-flash size! 
+The bootloader then selects the next design again, and uses `SB_WARMBOOT` again to reset to it. This loops back infinitely, chaining all designs:
+
+*bootloader => design 0 => bootloader => design 1 => ... => design N => bootloader => ...*
+
+The only limit is the SPI-flash size! 
 Note how in this process only the second (second red in image) bitstream address is changed.
 
 So, in the end, the only thing the bootloader has to do is to write a new address in bytes 73, 74 and 75 of the SPI-flash header? Yes! But not so fast. There is a catch... 
