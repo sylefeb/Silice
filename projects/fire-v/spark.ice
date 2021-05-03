@@ -2,9 +2,10 @@
 //
 // Blaze --- a small, fast but limited Risc-V framework in Silice
 //  - runs solely in BRAM
-//  - access to LEDs and SDCARD
-//  - validates at ~100 MHz with a 32KB BRAM
-//  - overclocks up to 200 MHz on the ULX3S
+//  - access to LEDs, SDCARD, SPIFLASH
+//  - optional WARMBOOT on ice40
+//  - [ulx3s] validates at ~100 MHz with a 32KB BRAM
+//  - [ulx3s] overclocks up to 200 MHz on the ULX3S
 // 
 // Tested on: ULX3S, Verilator, Icarus
 //
@@ -31,6 +32,10 @@ $$if ICEBREAKER then
 import('plls/icebrkr25.v')
 $$FIREV_MERGE_ADD_SUB = 1
 $$FIREV_NO_INSTRET    = 1
+$$if WARMBOOT then
+import('../common/ice40_warmboot.v')
+$$print('enabling WARMBOOT')
+$$end
 $$end
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
@@ -112,6 +117,12 @@ $$end
     predicted_correct :> predicted_correct,
   );
 
+$$if WARMBOOT then
+  uint1  boot(0);
+  uint2  slot(0);
+  ice40_warmboot wb(boot <:: boot,slot <:: slot);
+$$end
+
   // sdcard
   uint1  reg_miso(0);
 
@@ -140,6 +151,10 @@ $$if SDCARD or SPIFLASH then
 $$  if SIMULATION then            
         __display("[iter %d] LEDs = %b",iter,leds);
 $$  end
+$$if WARMBOOT then
+        boot = boot | mem.data_in[9,1];
+				slot = mem.data_in[0,2];
+$$end
       } else {
 $$  if SDCARD then
         sd_clk  = mem.data_in[0,1];

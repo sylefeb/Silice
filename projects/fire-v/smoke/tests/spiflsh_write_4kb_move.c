@@ -45,7 +45,9 @@ void main()
 
   *LEDS = 31;
   
+  // copy to a free location
   spiflash_copy4KB(0x000000,0x100000);
+  // copy back
   spiflash_copy4KB(0x100000,0x000000); 
   
   *LEDS = 0;

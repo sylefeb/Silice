@@ -17,6 +17,7 @@ parser.add_argument('-p','--pins', help="Pins used in the design, comma separate
 parser.add_argument('-o','--outdir', help="Specify name of output directory.", default="BUILD")
 parser.add_argument('-l','--list_boards', help="List all available target boards.", action="store_true")
 parser.add_argument('-r','--root', help="Root directory, use to override default frameworks.")
+parser.add_argument('-D','--defines', help="List of comma-separated defines to pass to Silice, e.g. -D A=0,B=1")
 parser.add_argument('--no_build', help="Only generate verilog output file.", action="store_true")
 parser.add_argument('--no_program', help="Only generate verilog output file and build bitstream.",
                     action="store_true")
@@ -211,6 +212,10 @@ if target_builder['builder'] == 'shell':
                       os.environ[key_value[0]] = key_value[1]
                     elif len(key_value) == 1:
                       os.environ[key_value[0]] = 1
+    # adding command line defines
+    if args.defines:
+        for define in args.defines.split(','):
+            defines = defines + " -D " + define
     # execute
     command = script + " " + source_file
     print('launching command     ', colored(command,'cyan'))
@@ -244,7 +249,6 @@ elif target_builder['builder'] == 'edalize':
             else:
                 if 'define' in variant_pin_sets[pin_set]:
                     defines[pin_set] = variant_pin_sets[pin_set]['define']
-
     # prepare edam structure                    
     edam = {'name' : 'build',
             'files': files,
@@ -279,7 +283,11 @@ elif target_builder['builder'] == 'edalize':
         for d in defines:
             cmd.append("-D")
             cmd.append(defines[d])
-
+        # adding command line defines
+        if args.defines:
+            for define in args.defines.split(','):
+                cmd.append("-D")
+                cmd.append(define)
         try:
             subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)
         except FileNotFoundError as e:

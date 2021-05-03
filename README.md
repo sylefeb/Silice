@@ -163,3 +163,6 @@ I hope you'll nevertheless enjoy diving into it, and will find it useful. Please
 - **antlr** contains Silice grammar and parsing related source code
 - **tests** contains test scripts for Silice development
 
+## Credits
+
+- Silice logo by Pierre-Alexandre Hugron ([Twitter](https://www.twitter.com/@HugronPa))
