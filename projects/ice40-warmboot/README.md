@@ -101,6 +101,7 @@ This stuff is quite amazing, isn't it ?!
 
 ## Links
 - @juanmard made a similar demo (back in 2017, great stuff!) using IceStudio/Verilog https://github.com/juanmard/screen-warmboot
+- @unaimarcor notes on the warmboot process https://umarcor.github.io/warmboot/
 - @juanmard extension to many bitstreams https://github.com/juanmard/icestorm/
 - Twitter discussion about this with @unaimarcor
  and @juanmard: https://twitter.com/unaimarcor/status/1388154223280467971
