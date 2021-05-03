@@ -113,9 +113,11 @@ void main()
 }
 ```
 
-The address update assumes there are 8 bitstreams `104250 + 7*104090` but that could be any number. Note that the bitstream sizes are hard coded for what we've got (`104250` bytes for the base, and `104090` bytes for each of the eight designs), but their sizes could vary, requiring a more subtle mechanism.
+The address update assumes there are 8 bitstreams `104250 + 7*104090` but that could be any number. 
 
 And voilà!
+
+> **Note:** The bitstream sizes are hard coded for what we've got (`104250` bytes for the base, and `104090` bytes for each of the eight designs), but their sizes could vary, requiring a more subtle mechanism (for instance creating a table in SPI-flash with the actual sizes).
 
 ## But why is this great?
 
