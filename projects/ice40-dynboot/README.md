@@ -81,7 +81,7 @@ Here is the idea. First, we duplicate the first 4KB in a 'far away' location tha
 Then, the bootloader reads the three bytes at addresses 73, 74 and 75, getting the current address of the second warmboot bitstream. It increments it to go to the next design. 
 Then, it copies the 4KB from scratchpad and *patches the address while it copies*. This is very simple: the copy occurs by chunks of 256 bytes, so when the first chunk is copied we intercept the values and modify bytes 73, 74 and 75 to be the new address.
 
-In this IceBreaker PoC this is done with a RISC-V processor (I used my ~2K LUT [fire-v](../fire-v/README.md), but a much smaller [ice-v](../ice-v/README.md) or  [femtorv32](https://github.com/BrunoLevy/learn-fpga/blob/master/FemtoRV/TUTORIALS/DESIGN/FemtoRV32.md) would do!). I think a small hardware module could be design for that purpose as well.
+In this IceBreaker PoC this is done with a RISC-V processor (I used my ~2K LUT [fire-v](../fire-v/README.md), but a much smaller [ice-v](../ice-v/README.md) or  [femtorv32](https://github.com/BrunoLevy/learn-fpga/blob/master/FemtoRV/TUTORIALS/DESIGN/FemtoRV32.md) would do!). A small hardware module could be designed for that purpose as well.
 
 Let's have a look at the PoC bootloader firmware code (C code running on RISC-V):
 
