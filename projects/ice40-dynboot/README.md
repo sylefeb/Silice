@@ -16,7 +16,7 @@ Plug your board, open a command line in this folder and run `make`
 
 ## Warm boot?
 
-If you are not familiar with the concept of *warm boot* on the ice40, do not worry, [read this tutorial first](../ice40-warmboot/README.md). I also recommend reading [@unaimarcor notes on the topic](https://umarcor.github.io/warmboot/).  
+If you are not familiar with the concept of *warm boot* on the ice40, [read this tutorial first](../ice40-warmboot/README.md). I also highly recommend reading [@unaimarcor article on the topic](https://umarcor.github.io/warmboot/), which goes in more technical details.  
 
 In the following I assume the reader is familiar with these basic ideas: 
 - The ice40 can reboot itself and restart from any of four bitstreams stored in SPI-flash. This is achieved using the Verilog (ice40 specific) primitive `SB_WARMBOOT`.
@@ -31,7 +31,7 @@ This is great because writing a complete bitstream to SPI-flash is a relatively 
 
 Also, `SB_WARMBOOT` allows a design to select which bitstream will be next from logic, paving the way to interesting effects, one being a bootloader menu to select between different designs.
 
-## A bit of history
+## A bit of context
 
 Normally, the warm boot is limited to the four bitstreams which addresses have been written down in the header (red rectangles in image above).
 
@@ -42,6 +42,8 @@ A few days back, [I started to tinker with the Fomu](https://twitter.com/sylefeb
 I found the idea quite amazing and put together [the demo](https://twitter.com/sylefeb/status/1388586566591913985) and [tutorial](../ice40-warmboot/README.md) about `SB_WARMBOOT`. 
 
 But then, as we were discussing with @juanmard, we decided to investigate the hot-swap idea further. Here we are!
+
+> **Note:** @unaimarcor gives additional context on how `SB_WARMBOOT` has been used by the Open Source community [in his article](https://umarcor.github.io/warmboot/#_context).
 
 ## Hot-swapping addresses in the SPI-flash header
 
@@ -127,4 +129,4 @@ But then, what this really is, is a 'meta' finite state machine, where designs c
 
 One idea I want to pursue is to have one design that is packed (e.g. zipped), decompress itself in SPI-flash, and then jump to this new uncompressed version.
 
-I mean, this stuff is amazing! What will *you* do with it?
+I mean, this stuff is amazing! What would *you* do with it?
