@@ -46,6 +46,13 @@ module top(
   output P1B7, // hs
   output P1B8,  // vs
 `endif
+`ifdef OLED
+  output P1A1,
+  output P1A2,
+  output P1A3,
+  output P1A4,
+  output P1A7,
+`endif
 `ifdef SPIFLASH
   output FLASH_SCK,
   output FLASH_SSB,
@@ -73,6 +80,17 @@ wire [5:0] __main_out_vga_r;
 wire [5:0] __main_out_vga_g;
 wire [5:0] __main_out_vga_b;
 `endif  
+
+`ifdef OLED
+wire __main_oled_clk;
+wire __main_oled_mosi;
+wire __main_oled_csn;
+wire __main_oled_resn;
+wire __main_oled_dc;
+`ifdef VGA
+`error_cannot_use_both_OLED_and_VGA_not_enough_pins
+`endif
+`endif
 
 `ifdef SPIFLASH
 wire __main_out_sf_clk;
@@ -119,6 +137,13 @@ M_main __main(
   .out_video_g(__main_out_vga_g),
   .out_video_b(__main_out_vga_b),
 `endif
+`ifdef OLED
+  .out_oled_mosi(__main_oled_mosi),
+  .out_oled_clk(__main_oled_clk),
+  .out_oled_csn(__main_oled_csn),
+  .out_oled_dc(__main_oled_dc),
+  .out_oled_resn(__main_oled_resn),
+`endif
 `ifdef SPIFLASH
   .out_sf_clk(__main_out_sf_clk),
   .out_sf_csn(__main_out_sf_csn), 
@@ -152,6 +177,14 @@ assign P1B4  = __main_out_vga_g[5+:1];
 
 assign P1B7  = __main_out_vga_hs;
 assign P1B8  = __main_out_vga_vs;
+`endif
+
+`ifdef OLED
+assign P1A1  = __main_oled_mosi;
+assign P1A2  = __main_oled_clk;
+assign P1A3  = __main_oled_csn;
+assign P1A4  = __main_oled_dc;
+assign P1A7  = __main_oled_resn;
 `endif
 
 `ifdef SPIFLASH
