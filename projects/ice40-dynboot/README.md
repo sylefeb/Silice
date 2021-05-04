@@ -129,4 +129,4 @@ But then, what this really is, is a 'meta' finite state machine, where designs c
 
 One idea I want to pursue is to have one design that is packed (e.g. zipped), decompress itself in SPI-flash, and then jump to this new uncompressed version.
 
-I mean, this stuff is amazing! What would *you* do with it?
+So many possibilities!
