@@ -189,7 +189,7 @@ algorithm oled(
   output! uint1 oled_dc,
 ) <autorun> {
 
-  uint4 osc        = 1;
+  uint2 osc        = 1;
   uint1 dc         = 0;
   uint9 sending    = 0;
   
@@ -197,7 +197,7 @@ algorithm oled(
   
   always {
     oled_dc  =  dc;
-    osc      =  (sending>1) ? {osc[0,1],osc[1,1]} : 1;
+    osc      =  (sending>1) ? {osc[0,1],osc[1,1]} : 2b1;
     oled_clk =  (sending>1) && (osc[0,1]); // SPI Mode 0
     if (enable) {
       dc         = data_or_command;

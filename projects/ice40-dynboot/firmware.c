@@ -1,6 +1,8 @@
 volatile unsigned int* const WARMBOOT = (unsigned int*)0x90000000;
 volatile unsigned int* const SPIFLASH = (unsigned int*)0x90000008;
 
+#define NUM_DESIGNS 8 // number of designs in package
+
 long time() 
 {
   int cycles;
@@ -75,7 +77,7 @@ void main()
 	spiflash_read_end();
 	
 	// update it
-	if (next_bitstream_addr < (104250 + 7*104090)) {
+	if (next_bitstream_addr < (104250 + (NUM_DESIGNS-1)*104090)) {
 		next_bitstream_addr = next_bitstream_addr + 104090;
 	} else {
 		next_bitstream_addr = 104250;
