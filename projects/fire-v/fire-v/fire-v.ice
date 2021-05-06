@@ -16,6 +16,12 @@
 
 $include('risc-v.ice')
 
+$$if FIREV_MULDIV then
+$$div_width  = 32
+$$div_signed = 1
+$include('../common/divint_std.ice')
+$$end
+
 // --------------------------------------------------
 // The Risc-V RV32I CPU
 
@@ -43,7 +49,7 @@ $$end
   uint3  aluOp       = uninitialized;  
   uint1  sub         = uninitialized;
   uint1  signedShift = uninitialized;
-$$if FIREV_MUL then
+$$if FIREV_MULDIV then
   uint1  muldiv      = uninitialized;
 $$end
   
@@ -89,7 +95,7 @@ $$end
     loadStoreOp :> loadStoreOp,
     aluOp       :> aluOp,
     sub         :> sub,
-$$if FIREV_MUL then
+$$if FIREV_MULDIV then
     muldiv      :> muldiv,
 $$end    
     signedShift :> signedShift,
@@ -117,7 +123,7 @@ $$end
     aluOp       <: aluOp,
     sub         <: sub,    
     signedShift <: signedShift,
-$$if FIREV_MUL then
+$$if FIREV_MULDIV then
     muldiv      <: muldiv,
 $$end    
     csr         <: csr,
@@ -157,12 +163,17 @@ $$end
   ram.in_valid    := 0; 
   
   always {
-  
+$$if FIREV_MULDIV then
+    uint1 alu_wait <:: alu.aluPleaseWait;
+$$else
+    uint1 alu_wait <:: 0; // never wait ALU in RV32I
+$$end  
+
     state = {
                     refetch                         & (ram.done | start),
                    ~refetch         & do_load_store &  ram.done,  // performing load store, data available
                     wait_next_instr                 &  ram.done,  // instruction avalable
-                    commit_decode
+                    commit_decode   & ~alu_wait
                   };
 $$if SIMULATION then
     if (halt) {
@@ -288,7 +299,7 @@ $$end
       
       case $state_COMMIT$: {
 $$if verbose then     
-        __display("----------- STATE 1 : commit / decode ------------- (cycle %d)",cycle);
+        __display("----------- STATE 1 : commit / decode ------------- (cycle %d) [alu_wait %b]",cycle,alu_wait);
         if (~instr_ready) {
           __display("========> [next instruction] load_store %b branch_or_jump %b",load_store,branch_or_jump);
         } else {
@@ -393,7 +404,7 @@ algorithm decode(
   output uint3   aluOp,
   output uint1   sub,  
   output uint1   signedShift,
-$$if FIREV_MUL then
+$$if FIREV_MULDIV then
   output uint1   muldiv,
 $$end  
   output uint1   pcOrReg,
@@ -444,7 +455,7 @@ $$end
   regOrImm     := (IntReg);
   aluOp        := (IntImm | IntReg) ? {Itype(instr).funct3} : 4b0000;
   sub          := (IntReg & Rtype(instr).sub);
-$$if FIREV_MUL then
+$$if FIREV_MULDIV then
   muldiv       := (IntReg & Rtype(instr).muldiv);
 $$end  
   signedShift  := IntImm & instr[30,1]; /*SRLI/SRAI*/
@@ -498,6 +509,7 @@ $$end
         imm         = imm_s;
        }
        default: {
+         imm        = {32{1bx}};
        }
      }
 
@@ -518,8 +530,9 @@ algorithm intops(
   input   int32  imm,
   input   uint3  aluOp,
   input   uint1  sub,
-$$if FIREV_MUL then
+$$if FIREV_MULDIV then
   input   uint1  muldiv,
+  output  uint1  aluPleaseWait(0),
 $$end
   input   uint1  pcOrReg,
   input   uint1  regOrImm,
@@ -531,13 +544,13 @@ $$if not FIREV_NO_INSTRET then
 $$end  
   input   uint32 user_data,
   output  int32  r,
-  input   int32 ra,
-  input   int32 rb,
-  input   uint3 funct3,
-  input   uint1 branch,
-  input   uint1 jump,
-  output  uint1 j,
-  output  int32 w,
+  input   int32  ra,
+  input   int32  rb,
+  input   uint3  funct3,
+  input   uint1  branch,
+  input   uint1  jump,
+  output  uint1  j,
+  output  int32  w,
 ) {
   
   // 3 cases
@@ -557,22 +570,23 @@ $$else
   int32 b <: regOrImm ? (xb) : imm;
 $$end
 
+$$if FIREV_MULDIV then
+  int32 div_n(0);
+  int32 div_d(0);
+  div32 div(
+    inum <:: div_n,
+    iden <:: div_d,
+  );
+  uint1 dividing(0);
+$$end
+
   always { // this part of the algorithm is executed every clock  
     switch ({aluOp}) {
       case 3b000: { // ADD / SUB
-$$if FIREV_MUL then
-        if (muldiv) {
-        __display("MULTIPLICATION %d * %d",a,b);
-        r = a * b;
-        } else {
-$$end
 $$if FIREV_MERGE_ADD_SUB then      
         r = a + (sub ? -b : b); // smaller, slower...
 $$else        
         r = sub ? (a - b) : (a + b);
-$$end        
-$$if FIREV_MUL then
-        }
 $$end        
       }     
       case 3b010: { // SLTI
@@ -586,18 +600,47 @@ $$end
       case 3b111: { r = xa & b;} // AND
       case 3b001: { r = (xa <<< b[0,5]); } // SLLI
       case 3b101: { r = signedShift ? (xa >>> b[0,5]) : (xa >> b[0,5]); } // SRLI / SRAI
-      default: { }
+      default:    { r = {32{1bx}}; }
     }
+
     if (csr[2,1]) {
-    switch (csr[0,2]) {
-      case 2b00: { r = cycle;     }
-      case 2b01: { r = user_data; }
+      switch (csr[0,2]) {
+        case 2b00: { r = cycle;     }
+        case 2b01: { r = user_data; }
 $$if not FIREV_NO_INSTRET then    
-      case 2b10: { r = instret;   }
+        case 2b10: { r = instret;   }
 $$end      
-      default: { }
+        default:   { r = {32{1bx}}; }
+      }
     }
-    }
+
+$$if FIREV_MULDIV then
+    div_n    = a;
+    div_d    = b;
+    dividing = dividing & muldiv & aluOp[2,1];
+    if (muldiv) {
+      switch ({aluOp}) {
+        case 3b000: { // MUL
+          __display("MULTIPLICATION %d * %d",a,b);
+          r        = a * b;
+        }
+        case 3b100: { // DIV
+          if (~aluPleaseWait && ~dividing) {
+            __display("trigger");
+            aluPleaseWait = 1;
+            div <- ();
+          } else {
+            if (isdone(div)) {
+              __display("DIVISION %d / %d = %d",a,b,div.ret);
+            }
+            aluPleaseWait = ~ isdone(div);
+          }
+          dividing      = 1;
+        }
+        default:   { r = {32{1bx}}; }
+      }
+    } 
+$$end
 
     switch (funct3) {
       case 3b000: { j = jump | (branch & (ra == rb)); } // BEQ
@@ -609,6 +652,9 @@ $$end
       default:    { j = jump; }
     }
 
+$$if FIREV_MULDIV then
+    __display("[cycle %d] aluPleaseWait %b ",cycle,aluPleaseWait);
+$$end
   }
 }
 

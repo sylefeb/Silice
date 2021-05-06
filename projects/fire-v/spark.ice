@@ -17,7 +17,8 @@
 //  the distribution, please refer to it for details.
 
 $$if SIMULATION then
-$$verbose = nil
+$$verbose      = 1
+$$FIREV_MULDIV = 1
 $$end
 
 $$if not (ULX3S or ICARUS or VERILATOR or ICEBREAKER) then
@@ -128,7 +129,7 @@ $$end
 
 $$if SIMULATION then  
   uint32 iter = 0;
-  while (iter != 32768) {
+  while (iter != 48) {
     iter = iter + 1;
 $$else
   while (1) {

@@ -24,9 +24,11 @@ algorithm div$div_width$(
   
   uint$div_width_pow2+1$ i = 0;
   
-$$if not div_unsigned then  
-  uint$div_width$ num  <:: inum >= 0 ? inum : -inum;
-  uint$div_width$ den  <:: iden >= 0 ? iden : -iden;
+$$if not div_unsigned then
+  uint1           inum_neg <:: inum[$div_width-1$,1];
+  uint1           iden_neg <:: iden[$div_width-1$,1];
+  uint$div_width$ num      <:: inum_neg ? -inum : inum;
+  uint$div_width$ den      <:: iden_neg ? -iden : iden;
 $$else
   uint$div_width$ num  <:: inum;
   uint$div_width$ den  <:: iden;
@@ -45,6 +47,6 @@ $$end
     i = i + 1;
   }
 $$if not div_unsigned then
-  ret = ((inum >= 0) ^ (iden >= 0)) ? -ret : ret;
-$$end    
+  ret = ((inum_neg) ^ (iden_neg)) ? -ret : ret;
+$$end
 }
