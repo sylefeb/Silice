@@ -19,7 +19,7 @@ $include('risc-v.ice')
 $$if FIREV_MULDIV then
 $$div_width  = 32
 $$div_signed = 1
-$include('../common/divint_std.ice')
+$include('../../common/divint_std.ice')
 $$end
 
 // --------------------------------------------------
@@ -52,6 +52,7 @@ $$end
 $$if FIREV_MULDIV then
   uint1  muldiv      = uninitialized;
 $$end
+  uint1  dry_resume(0);
   
   uint32 instr(0);
   uint26 pc(0);
@@ -172,7 +173,7 @@ $$end
     state = {
                     refetch                         & (ram.done | start),
                    ~refetch         & do_load_store &  ram.done,  // performing load store, data available
-                    wait_next_instr                 &  ram.done,  // instruction avalable
+                    (wait_next_instr)               & (ram.done | dry_resume),  // instruction avalable
                     commit_decode   & ~alu_wait
                   };
 $$if SIMULATION then
@@ -320,13 +321,20 @@ $$end
         saved_loadStoreOp = loadStoreOp;
         saved_rd_enable   = rd_enable;
         // need to refetch from RAM next?
-        refetch           = instr_ready & (branch_or_jump | load_store); // ask to fetch from the new address (cannot do it now, memory is busy with prefetch)
+        refetch           = instr_ready & (branch_or_jump | load_store); // ask to fetch from the new address (cannot do it now, memory is busy with prefetch)        
         refetch_addr      = alu_out;
         refetch_rw        = load_store & store;
+
+$$if FIREV_MULDIV then
+        dry_resume        = (muldiv & aluOp[2,1]);
+$$end        
 
 $$if verbose then
 if (refetch) {
   __display("  [refetch from] %h",refetch_addr);
+}
+if (dry_resume) {
+  __display("  [dry_resume from] %h",next_pc);
 }
 $$end
         // attempt to predict read ...
@@ -621,21 +629,22 @@ $$if FIREV_MULDIV then
     if (muldiv) {
       switch ({aluOp}) {
         case 3b000: { // MUL
-          __display("MULTIPLICATION %d * %d",a,b);
+          //__display("MULTIPLICATION %d * %d",a,b);
           r        = a * b;
         }
         case 3b100: { // DIV
           if (~aluPleaseWait && ~dividing) {
-            __display("trigger");
+            //__display("trigger");
             aluPleaseWait = 1;
             div <- ();
           } else {
-            if (isdone(div)) {
-              __display("DIVISION %d / %d = %d",a,b,div.ret);
-            }
+            //if (isdone(div)) {
+              //__display("DIVISION %d / %d = %d",a,b,div.ret);
+            //}
             aluPleaseWait = ~ isdone(div);
           }
-          dividing      = 1;
+          r        = div.ret;
+          dividing = 1;
         }
         default:   { r = {32{1bx}}; }
       }
@@ -652,9 +661,6 @@ $$end
       default:    { j = jump; }
     }
 
-$$if FIREV_MULDIV then
-    __display("[cycle %d] aluPleaseWait %b ",cycle,aluPleaseWait);
-$$end
   }
 }
 
