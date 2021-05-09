@@ -119,7 +119,7 @@
     ],
     "spiflash": [
       {
-        "name" : "sf_sck",
+        "name" : "sf_clk",
         "type" : "uint1",
         "io"   : "output"
       },

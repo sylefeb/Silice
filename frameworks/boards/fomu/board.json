@@ -7,8 +7,8 @@
       "pins"      : [ 
         {"set"    : "basic"},
         {"set"    : "usb",  "define" : "USB=1"},
-        {"set"    : "spi",  "define" : "SPI=1"},
         {"set"    : "pads", "define" : "PADS=1"},
+        {"set"    : "spiflash", "define" : "SPIFLASH=1"},
         {"set"    : "oled", "define" : "OLED=1"}
       ],
       "builders": [
@@ -25,7 +25,7 @@
       "pins"      : [ 
         {"set"    : "basic"},
         {"set"    : "usb",  "define" : "USB=1"},
-        {"set"    : "spi",  "define" : "SPI=1"},
+        {"set"    : "spiflash",  "define" : "SPIFLASH=1"},
         {"set"    : "pads", "define" : "PADS=1"},
         {"set"    : "oled", "define" : "OLED=1"}
       ],
@@ -63,24 +63,24 @@
         "io": "output"
       }
     ],
-    "spi": [
+    "spiflash": [
       {
-        "name": "spi_mosi",
+        "name": "sf_mosi",
         "type": "uint1",
         "io": "output"
       },
       {
-        "name": "spi_miso",
+        "name": "sf_miso",
         "type": "uint1",
         "io": "input"
       },
       {
-        "name": "spi_clk",
+        "name": "sf_clk",
         "type": "uint1",
         "io": "output"
       },      
       {
-        "name": "spi_cs",
+        "name": "sf_csn",
         "type": "uint1",
         "io": "output"
       }

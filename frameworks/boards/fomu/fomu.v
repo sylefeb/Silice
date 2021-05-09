@@ -32,12 +32,12 @@ module top(
   output  usb_dp,
   output  usb_dn,
   output  usb_dp_pu,
-`ifdef SPI
+`ifdef SPIFLASH
   // SPI
-  output  spi_mosi,
-  input   spi_miso,
-  output  spi_clk,
-  output  spi_cs,
+  output  sf_mosi,
+  input   sf_miso,
+  output  sf_clk,
+  output  sf_csn,
 `endif
 `ifdef PADS
   // USER pads
@@ -75,13 +75,13 @@ module top(
     assign usb_dp_pu = 1'b0;
 `endif
 
-`ifdef SPI
-    wire __main_spi_mosi;
-    wire __main_spi_clk;
-    wire __main_spi_cs;
-    assign spi_mosi = __main_spi_mosi;
-    assign spi_clk  = __main_spi_clk;
-    assign spi_cs   = __main_spi_cs;
+`ifdef SPIFLASH
+    wire __main_sf_mosi;
+    wire __main_sf_clk;
+    wire __main_sf_csn;
+    assign sf_mosi = __main_sf_mosi;
+    assign sf_clk  = __main_sf_clk;
+    assign sf_csn  = __main_sf_csn;
 `endif
 
     // Connect to system clock (with buffering)
@@ -152,11 +152,11 @@ module top(
     .out_usb_dn   (__main_usb_dn),
     .out_usb_dp_pu(__main_usb_dp_pu),
 `endif
-`ifdef SPI
-    .out_spi_mosi (__main_spi_mosi),
-    .in_spi_miso  (spi_miso),
-    .out_spi_clk  (__main_spi_clk),
-    .out_spi_cs   (__main_spi_cs),
+`ifdef SPIFLASH
+    .out_sf_mosi (__main_sf_mosi),
+    .in_sf_miso  (sf_miso),
+    .out_sf_clk  (__main_sf_clk),
+    .out_sf_csn  (__main_sf_csn),
 `endif
 `ifdef OLED
     .out_oled_mosi(__main_oled_mosi),
