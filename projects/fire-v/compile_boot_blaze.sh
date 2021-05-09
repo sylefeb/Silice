@@ -16,14 +16,12 @@ $ARCH-elf-gcc -w -O2 -fno-pic -DMYLIBC_SMALL -march=rv32i -mabi=ilp32 -c $1 -o b
 
 $ARCH-elf-as -march=rv32i -mabi=ilp32 -o crt0.o smoke/crt0.s
 
-CPU=${2:-0}
-
 rm build/code0.hex 2> /dev/null
 rm build/code1.hex 2> /dev/null
 
 $ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tsmoke/config_blaze_boot.ld --no-relax crt0.o -o build/code.elf build/boot.o
 
-$ARCH-elf-objcopy -O verilog build/code.elf build/code$CPU.hex
+$ARCH-elf-objcopy -O verilog build/code.elf build/code0.hex
 
 # uncomment to see the actual code, usefull for debugging
 # $ARCH-elf-objcopy.exe -O binary build/code.elf build/code.bin
