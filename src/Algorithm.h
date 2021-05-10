@@ -114,6 +114,9 @@ namespace Silice
     /// \brief memory types
     enum e_MemType { BRAM, SIMPLEDUALBRAM, DUALBRAM, BROM };
 
+    /// \brief types of warnings
+    enum e_WarningType { Standard, Deprecation };
+
     /// \brief algorithm name
     std::string m_Name;
 
@@ -618,6 +621,14 @@ private:
       antlr4::ParserRuleContext *jump;
     } t_forward_jump;
 
+    /// \brief information about a past check ('#was_at(lbl, cycle_count)')
+    typedef struct {
+      std::string targeted_state;
+      int cycles_count;
+      t_combinational_block *current_state;
+      siliceParser::Was_atContext *ctx;
+    } t_past_check;
+
     /// \brief always blocks
     t_combinational_block                                             m_AlwaysPre;
     t_combinational_block                                             m_AlwaysPost;
@@ -645,6 +656,9 @@ private:
     std::string fsmReportName() const { return m_ReportBaseName  + ".fsm.log"; }
     std::string vioReportName() const { return m_ReportBaseName + ".vio.log"; }
     std::string algReportName() const { return m_ReportBaseName + ".alg.log"; }
+
+    /// \brief all #was_at constructs to be put in the clocked block
+    std::list < t_past_check > m_PastChecks;
 
   public:
 
@@ -731,6 +745,8 @@ private:
     void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather module declaration
     void gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather past checks
+    void gatherPastCheck(siliceParser::Was_atContext *chk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief expands the name of a subroutine vio
     std::string subroutineVIOName(std::string vio, const t_subroutine_nfo *sub);
     /// \brief expands the name of a block vio
@@ -865,6 +881,8 @@ private:
     /// \brief report an error
     void reportError(antlr4::Token* what, int line, const char *msg, ...) const;
     void reportError(antlr4::misc::Interval interval, int line, const char *msg, ...) const;
+    /// \brief report a warning
+    void reportWarning(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...) const;
     /// \brief Pre-processor, optionally set
     static LuaPreProcessor *s_LuaPreProcessor;
 
