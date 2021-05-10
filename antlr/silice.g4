@@ -97,6 +97,8 @@ ASSUME              : 'assume' ;
 
 RESTRICT            : 'restrict';
 
+WASAT               : 'was_at';
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -113,6 +115,8 @@ ALWSASSIGNDBL       : '::=' ;
 ALWSASSIGN          : ':=' ;
 
 OUTASSIGN           : '^=' ;
+
+HASH                : '#';
 
 IDENTIFIER          : LETTER+ (DIGIT|LETTERU)* ;
 
@@ -326,10 +330,11 @@ state               : state_name=IDENTIFIER ':' | NEXT ;
 jump                : GOTO IDENTIFIER ;
 returnFrom          : RETURN ;
 breakLoop           : BREAK ;
-assert_             : ASSERT '(' expression_0 ')';
+assert_             : HASH ASSERT '(' expression_0 ')';
 // NOTE: keep the `_` here else it clashes with various keywords etc
-assume              : ASSUME '(' expression_0 ')';
-restrict            : RESTRICT '(' expression_0 ')';
+assume              : HASH ASSUME '(' expression_0 ')';
+restrict            : HASH RESTRICT '(' expression_0 ')';
+was_at              : HASH WASAT '(' IDENTIFIER (',' NUMBER)? ')';
 
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
