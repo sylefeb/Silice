@@ -357,6 +357,7 @@ instruction         : assignment
                     | assert_
                     | assume
                     | restrict
+                    | was_at
                     ;
 
 alwaysBlock         : ALWAYS       block;
