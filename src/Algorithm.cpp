@@ -66,6 +66,33 @@ void Algorithm::reportError(antlr4::misc::Interval interval, int line, const cha
   throw LanguageError(line, nullptr,interval, "%s", message);
 }
 
+void Algorithm::reportWarning(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...) const
+{
+  const int messageBufferSize = 4096;
+  char message[messageBufferSize];
+
+  va_list args;
+  va_start(args, msg);
+  vsprintf_s(message, messageBufferSize, msg, args);
+  va_end(args);
+
+  switch (type) {
+  case Standard:    std::cerr << Console::yellow << "[warning]    " << Console::gray; break;
+  case Deprecation: std::cerr << Console::cyan   << "[deprecated] " << Console::gray; break;
+  }
+  if (line > -1) {
+  }
+  if (s_LuaPreProcessor != nullptr) {
+    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
+    std::cerr << "(" << Console::white << fl.first << Console::gray << ", line " << sprint("%4d",fl.second) << ") ";
+  } else {
+    std::cerr << "(" << line << ") ";
+  }
+  std::cerr << "\n             " << message;
+  std::cerr << "\n";
+}
+
+
 // -------------------------------------------------
 
 void Algorithm::checkModulesBindings() const
@@ -1887,6 +1914,23 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
 
 //-------------------------------------------------
 
+void Algorithm::gatherPastCheck(siliceParser::Was_atContext *chk, t_combinational_block *_current, t_gather_context *_context)
+{
+  std::string target = chk->IDENTIFIER()->getText();
+  int clock_cycles = 1;
+
+  if (auto n = chk->NUMBER())
+    clock_cycles = std::stoi(n->getText());
+
+  if (hasNoFSM()) {
+    reportWarning(Standard, chk->getSourceInterval(), -1, "'#was_at' assertions are ignored when no FSM is generated");
+  } else {
+    this->m_PastChecks.push_back({ target, clock_cycles, _current, chk });
+  }
+}
+
+//-------------------------------------------------
+
 int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context* _context,bool var_group_table_only)
 {
   if (decllist == nullptr) {
@@ -3225,6 +3269,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto assert_  = dynamic_cast<siliceParser::Assert_Context *>(tree);
   auto assume   = dynamic_cast<siliceParser::AssumeContext *>(tree);
   auto restrict = dynamic_cast<siliceParser::RestrictContext *>(tree);
+  auto was_at   = dynamic_cast<siliceParser::Was_atContext *>(tree);
 
   bool recurse  = true;
 
@@ -3287,6 +3332,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (assert_)  { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false;
   } else if (assume)   { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false;
   } else if (restrict) { _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false;
+  } else if (was_at)   { gatherPastCheck(was_at, _current, _context),                  recurse = false;
   } else if (block)    { _current = gatherBlock(block, _current, _context);            recurse = false;
   } else if (ilist)    { _current = splitOrContinueBlock(ilist, _current, _context); }
 
@@ -5698,7 +5744,6 @@ void Algorithm::writeRestrict(std::string prefix,
 
   out << "restrict(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl;
 }
-}
 
 // -------------------------------------------------
 
@@ -6164,6 +6209,21 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       }
     }
   }
+
+  if (!hasNoFSM()) {
+    for (const auto &chk : m_PastChecks) {
+      auto B = m_State2Block.find(chk.targeted_state);
+      if (B == m_State2Block.end())
+        reportError(chk.ctx->getSourceInterval(), -1, "State named %s not found", chk.targeted_state.c_str());
+      if (!B->second->is_state)
+        reportError(chk.ctx->getSourceInterval(), -1, "State named %s does not exist", chk.targeted_state.c_str());
+
+      out << "if (" << FF_Q << prefix << ALG_IDX << " == " << chk.current_state->state_id << " && !" << reset << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
+          << "assert($past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << ");" << nxl
+          << "end" << nxl;
+    }
+  }
+
   out << "end" << nxl;
 }
 
