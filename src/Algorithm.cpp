@@ -5660,9 +5660,7 @@ void Algorithm::writeAssert(std::string prefix,
   // NOTE: we only want them in FORMAL mode, therefore need to enclose the assumption
   // in a "`ifdef FORMAL ... `endif" block
 
-  out << "`ifdef FORMAL" << nxl
-      << "assert(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl
-      << "`endif" << nxl;
+  out << "assert(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl;
 }
 
 // -------------------------------------------------
@@ -5680,9 +5678,7 @@ void Algorithm::writeAssume(std::string prefix,
   // NOTE: we only want them in FORMAL mode, therefore need to enclose the assertion
   // in a "`ifdef FORMAL ... `endif" block
 
-  out << "`ifdef FORMAL" << nxl
-      << "assume(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl
-      << "`endif" << nxl;
+  out << "assume(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl;
 }
 
 // -------------------------------------------------
@@ -5700,9 +5696,8 @@ void Algorithm::writeRestrict(std::string prefix,
   // NOTE: we only want them in FORMAL mode, therefore need to enclose the restriction
   // in a "`ifdef FORMAL ... `endif" block
 
-  out << "`ifdef FORMAL" << nxl
-      << "restrict(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl
-      << "`endif" << nxl;
+  out << "restrict(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl;
+}
 }
 
 // -------------------------------------------------
