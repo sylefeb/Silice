@@ -7474,11 +7474,6 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = 0;" << nxl;
   }
 
-  // flip-flops update
-  writeFlipFlops("_", out, ictx);
-
-  out << nxl;
-
   // module instantiations (2/2)
   // -> module instances
   for (auto& nfo : m_InstancedModules) {
@@ -7672,6 +7667,11 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     clearNoLatchFFUsage(_ff_usage);
   }
   out << "end" << nxl;
+
+  // flip-flops update
+  writeFlipFlops("_", out, ictx);
+
+  out << nxl;
 
   out << "endmodule" << nxl;
   out << nxl;
