@@ -66,33 +66,6 @@ void Algorithm::reportError(antlr4::misc::Interval interval, int line, const cha
   throw LanguageError(line, nullptr,interval, "%s", message);
 }
 
-void Algorithm::reportWarning(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...) const
-{
-  const int messageBufferSize = 4096;
-  char message[messageBufferSize];
-
-  va_list args;
-  va_start(args, msg);
-  vsprintf_s(message, messageBufferSize, msg, args);
-  va_end(args);
-
-  switch (type) {
-  case Standard:    std::cerr << Console::yellow << "[warning]    " << Console::gray; break;
-  case Deprecation: std::cerr << Console::cyan   << "[deprecated] " << Console::gray; break;
-  }
-  if (line > -1) {
-  }
-  if (s_LuaPreProcessor != nullptr) {
-    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
-    std::cerr << "(" << Console::white << fl.first << Console::gray << ", line " << sprint("%4d",fl.second) << ") ";
-  } else {
-    std::cerr << "(" << line << ") ";
-  }
-  std::cerr << "\n             " << message;
-  std::cerr << "\n";
-}
-
-
 // -------------------------------------------------
 
 void Algorithm::checkModulesBindings() const
@@ -6226,7 +6199,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       out << "if (";
       if (chk.current_state != nullptr) { // if the block is not null, then we have to
                                           // specifically check for the predecessor state in the current state
-        out << FF_Q << prefix << ALG_IDX << " == " << chk.current_state->state_id << " &&";
+        out << FF_Q << prefix << ALG_IDX << " == " << chk.current_state->state_id << " && ";
       }
       out << "!" << reset << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
           << "assert($past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << ");" << nxl

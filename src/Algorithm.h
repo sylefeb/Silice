@@ -114,9 +114,6 @@ namespace Silice
     /// \brief memory types
     enum e_MemType { BRAM, SIMPLEDUALBRAM, DUALBRAM, BROM };
 
-    /// \brief types of warnings
-    enum e_WarningType { Standard, Deprecation };
-
     /// \brief algorithm name
     std::string m_Name;
 
@@ -891,8 +888,6 @@ private:
     /// \brief report an error
     void reportError(antlr4::Token* what, int line, const char *msg, ...) const;
     void reportError(antlr4::misc::Interval interval, int line, const char *msg, ...) const;
-    /// \brief report a warning
-    void reportWarning(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...) const;
     /// \brief Pre-processor, optionally set
     static LuaPreProcessor *s_LuaPreProcessor;
 
