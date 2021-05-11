@@ -1923,7 +1923,7 @@ void Algorithm::gatherPastCheck(siliceParser::Was_atContext *chk, t_combinationa
     clock_cycles = std::stoi(n->getText());
 
   if (hasNoFSM()) {
-    reportWarning(Standard, chk->getSourceInterval(), -1, "'#was_at' assertions are ignored when no FSM is generated");
+    reportWarning(Standard, chk->getSourceInterval(), chk->getStart()->getLine(), "'#was_at' assertions are ignored in a block without a accompanying FSM");
   } else {
     this->m_PastChecks.push_back({ target, clock_cycles, _current, chk });
   }
