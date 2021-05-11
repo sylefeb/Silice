@@ -99,6 +99,8 @@ RESTRICT            : 'restrict';
 
 WASAT               : 'was_at';
 
+STABLE              : 'stable';
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -335,6 +337,7 @@ assert_             : HASH ASSERT '(' expression_0 ')';
 assume              : HASH ASSUME '(' expression_0 ')';
 restrict            : HASH RESTRICT '(' expression_0 ')';
 was_at              : HASH WASAT '(' IDENTIFIER (',' NUMBER)? ')';
+stable              : HASH STABLE '(' expression_0 ')';
 
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
@@ -358,6 +361,7 @@ instruction         : assignment
                     | assume
                     | restrict
                     | was_at
+                    | stable
                     ;
 
 alwaysBlock         : ALWAYS       block;

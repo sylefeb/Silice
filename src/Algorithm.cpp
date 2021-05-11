@@ -1922,11 +1922,14 @@ void Algorithm::gatherPastCheck(siliceParser::Was_atContext *chk, t_combinationa
   if (auto n = chk->NUMBER())
     clock_cycles = std::stoi(n->getText());
 
-  if (hasNoFSM()) {
-    reportWarning(Standard, chk->getSourceInterval(), chk->getStart()->getLine(), "'#was_at' assertions are ignored in a block without a accompanying FSM");
-  } else {
-    this->m_PastChecks.push_back({ target, clock_cycles, _current, chk });
-  }
+  this->m_PastChecks.push_back({ target, clock_cycles, hasNoFSM() ? nullptr : _current, chk });
+}
+
+//-------------------------------------------------
+
+void Algorithm::gatherStableCheck(siliceParser::StableContext *chk, t_combinational_block *_current, t_gather_context *_context)
+{
+  this->m_StableChecks.push_back({ hasNoFSM() ? nullptr : _current, chk });
 }
 
 //-------------------------------------------------
@@ -3270,6 +3273,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto assume   = dynamic_cast<siliceParser::AssumeContext *>(tree);
   auto restrict = dynamic_cast<siliceParser::RestrictContext *>(tree);
   auto was_at   = dynamic_cast<siliceParser::Was_atContext *>(tree);
+  auto stable   = dynamic_cast<siliceParser::StableContext *>(tree);
 
   bool recurse  = true;
 
@@ -3333,6 +3337,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (assume)   { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false;
   } else if (restrict) { _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false;
   } else if (was_at)   { gatherPastCheck(was_at, _current, _context),                  recurse = false;
+  } else if (stable)   { gatherStableCheck(stable, _current, _context),                recurse = false;
   } else if (block)    { _current = gatherBlock(block, _current, _context);            recurse = false;
   } else if (ilist)    { _current = splitOrContinueBlock(ilist, _current, _context); }
 
@@ -6218,10 +6223,29 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       if (!B->second->is_state)
         reportError(chk.ctx->getSourceInterval(), -1, "State named %s does not exist", chk.targeted_state.c_str());
 
-      out << "if (" << FF_Q << prefix << ALG_IDX << " == " << chk.current_state->state_id << " && !" << reset << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
+      out << "if (";
+      if (chk.current_state != nullptr) { // if the block is not null, then we have to
+                                          // specifically check for the predecessor state in the current state
+        out << FF_Q << prefix << ALG_IDX << " == " << chk.current_state->state_id << " &&";
+      }
+      out << "!" << reset << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
           << "assert($past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << ");" << nxl
           << "end" << nxl;
     }
+  }
+
+  for (const auto &chk : m_StableChecks) {
+    t_vio_dependencies _deps;
+    t_vio_ff_usage _ff_usage;
+
+    out << "if (";
+    if (chk.current_state != nullptr) { // if the block is not null, then we have to
+                                        // specifically check for stability in the current state
+      out << FF_Q << prefix << ALG_IDX << " == " << chk.current_state->state_id << " &&";
+    }
+    out << "!" << reset << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
+        << "assert($stable(" << rewriteExpression(prefix, chk.ctx->expression_0(), 0, nullptr, FF_Q, true, _deps, _ff_usage) << "));" << nxl
+        << "end" << nxl;
   }
 
   out << "end" << nxl;

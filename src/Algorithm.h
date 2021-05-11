@@ -629,6 +629,12 @@ private:
       siliceParser::Was_atContext *ctx;
     } t_past_check;
 
+    /// \brief information about a stable check ('#stabel(expr, cycle_count)')
+    typedef struct {
+      t_combinational_block *current_state;
+      siliceParser::StableContext *ctx;
+    } t_stable_check;
+
     /// \brief always blocks
     t_combinational_block                                             m_AlwaysPre;
     t_combinational_block                                             m_AlwaysPost;
@@ -658,7 +664,9 @@ private:
     std::string algReportName() const { return m_ReportBaseName + ".alg.log"; }
 
     /// \brief all #was_at constructs to be put in the clocked block
-    std::list < t_past_check > m_PastChecks;
+    std::list< t_past_check > m_PastChecks;
+    /// \brief all #stable constructs to be put in the clocked block
+    std::list< t_stable_check > m_StableChecks;
 
   public:
 
@@ -747,6 +755,8 @@ private:
     void gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather past checks
     void gatherPastCheck(siliceParser::Was_atContext *chk, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather stable checks
+    void gatherStableCheck(siliceParser::StableContext *chk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief expands the name of a subroutine vio
     std::string subroutineVIOName(std::string vio, const t_subroutine_nfo *sub);
     /// \brief expands the name of a block vio
