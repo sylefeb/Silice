@@ -5683,8 +5683,10 @@ void Algorithm::writeAssert(std::string prefix,
   // nothing fancy, just output the assumption
   // NOTE: we only want them in FORMAL mode, therefore need to enclose the assumption
   // in a "`ifdef FORMAL ... `endif" block
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  std::string silice_position = file + ":" + std::to_string(line);
 
-  out << "assert(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl;
+  out << "assert(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
 }
 
 // -------------------------------------------------
@@ -5701,8 +5703,10 @@ void Algorithm::writeAssume(std::string prefix,
   // nothing fancy, just output the assertion
   // NOTE: we only want them in FORMAL mode, therefore need to enclose the assertion
   // in a "`ifdef FORMAL ... `endif" block
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  std::string silice_position = file + ":" + std::to_string(line);
 
-  out << "assume(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl;
+  out << "assume(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
 }
 
 // -------------------------------------------------
@@ -5719,8 +5723,10 @@ void Algorithm::writeRestrict(std::string prefix,
   // nothing fancy, just output the restriction
   // NOTE: we only want them in FORMAL mode, therefore need to enclose the restriction
   // in a "`ifdef FORMAL ... `endif" block
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  std::string silice_position = file + ":" + std::to_string(line);
 
-  out << "restrict(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ");" << nxl;
+  out << "restrict(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
 }
 
 // -------------------------------------------------
@@ -6196,13 +6202,16 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       if (!B->second->is_state)
         reportError(chk.ctx->getSourceInterval(), -1, "State named %s does not exist", chk.targeted_state.c_str());
 
+      auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
+      std::string silice_position = file + ":" + std::to_string(line);
+
       out << "if (";
       if (chk.current_state != nullptr) { // if the block is not null, then we have to
                                           // specifically check for the predecessor state in the current state
         out << FF_Q << prefix << ALG_IDX << " == " << chk.current_state->state_id << " && ";
       }
       out << "!" << reset << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
-          << "assert($past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << ");" << nxl
+          << "assert($past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << "); //%" << silice_position << nxl
           << "end" << nxl;
     }
   }
@@ -6211,13 +6220,16 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     t_vio_dependencies _deps;
     t_vio_ff_usage _ff_usage;
 
+    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
+    std::string silice_position = file + ":" + std::to_string(line);
+
     out << "if (";
     if (chk.current_state != nullptr) { // if the block is not null, then we have to
                                         // specifically check for stability in the current state
       out << FF_Q << prefix << ALG_IDX << " == " << chk.current_state->state_id << " &&";
     }
     out << "!" << reset << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
-        << "assert($stable(" << rewriteExpression(prefix, chk.ctx->expression_0(), 0, nullptr, FF_Q, true, _deps, _ff_usage) << "));" << nxl
+        << "assert($stable(" << rewriteExpression(prefix, chk.ctx->expression_0(), 0, nullptr, FF_Q, true, _deps, _ff_usage) << ")); //%" << silice_position << nxl
         << "end" << nxl;
   }
 
