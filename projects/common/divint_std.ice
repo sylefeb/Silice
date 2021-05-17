@@ -32,7 +32,13 @@ $$if not div_unsigned then
 $$else
   uint$div_width$ num  <:: inum;
   uint$div_width$ den  <:: iden;
-$$end  
+$$end
+
+$$if FORMAL then
+  // Preconditions:
+  // (*) x/0 = error
+  #assume(iden != 0);
+$$end
  
   ac  = {{$div_width-1${1b0}},num[$div_width-1$,1]};
   ret = {num[0,$div_width-1$],1b0};
@@ -49,4 +55,32 @@ $$end
 $$if not div_unsigned then
   ret = ((inum_neg) ^ (iden_neg)) ? -ret : ret;
 $$end
+
+$$if FORMAL then
+  // Properties:
+  // (*) 0/x = 0
+  if (inum == 0) {
+    #assert(ret == 0);
+  }
+  // (*) x/1 = x
+  if (iden == 1) {
+    #assert(ret == inum);
+  }
+  // (*) x/x = 1
+  if (iden == inum) {
+    #assert(ret == 1);
+  }
+  // (*) x/y = 0 if |y| > |x|
+$$if div_unsigned then
+  if (iden > inum) {
+    #assert(ret == 0);
+  }
+$$else
+  if ({1b0,iden[1,$div_width-1$]} > {1b0,inum[1,$div_width-1$]}) {
+    #assert(ret == 0);
+  }
+$$end
+// end div_unsigned
+$$end
+// end FORMAL
 }
