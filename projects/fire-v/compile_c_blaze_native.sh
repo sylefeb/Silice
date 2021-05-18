@@ -38,8 +38,8 @@ fi
 
 echo "Compiling for CPU $CPU"
 
-$ARCH-elf-gcc -fno-unroll-loops -O2 -fno-pic -march=$riscarch -mabi=ilp32 -DBLAZE  -S $1 -o build/code.s
-$ARCH-elf-gcc -fno-unroll-loops -O2 -fno-pic -march=$riscarch -mabi=ilp32 -DBLAZE  -c -o build/code.o $1
+$ARCH-elf-gcc -O3 -fno-pic -march=$riscarch -mabi=ilp32 -DBLAZE  -S $1 -o build/code.s
+$ARCH-elf-gcc -O3 -fno-pic -march=$riscarch -mabi=ilp32 -DBLAZE  -c -o build/code.o $1
 
 $ARCH-elf-as -march=$riscarch -mabi=ilp32 -o build/div.o smoke/mylibc/div.s
 $ARCH-elf-as -march=$riscarch -mabi=ilp32 -o crt0.o smoke/crt0.s
