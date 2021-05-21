@@ -16,7 +16,7 @@
 
 (defconst silice-font-lock-keywords
   '(("\\(\\(\\$\\$[^\n]*?$\\)\\|\\(\\$include\\([^\n]*?\\)$\\)\\|\\(\\$[^z-a]*?\\$\\)\\)"
-     . font-lock-preprocessor-face)
+     0 font-lock-preprocessor-face prepend)
     ;; preprocessor
     ("\\b\\(uninitiali\\(s|z\\)ed\\|import\\|algorithm\\|input\\|output\\|inout\\|if\\|else\\|while\\|autorun\\|auto\\|onehot\\|\\+\\+:\\|brom\\|bram\\|dualport_bram\\|case\\|default\\|break\\|switch\\|circuitry\\|always\\|bitfield\\|interface\\|subroutine\\|readwrites\\|reads\\|writes\\|calls\\)\\b"
      . font-lock-keyword-face)
@@ -50,8 +50,8 @@
     (modify-syntax-entry ?*  ". 23" st)
     (modify-syntax-entry ?_  "w" st)
     (modify-syntax-entry ?$  "_" st)
-;    (modify-syntax-entry ?\" "|" st)
-;    (modify-syntax-entry ?'  "|" st)
+    (modify-syntax-entry ?\" "|" st)
+    (modify-syntax-entry ?'  "|" st)
 ;    NOTE: this somehow breaks the font locks defined for the preprocessor if they contain strings
     st)
   "Syntax table used while in Silice mode.")
@@ -61,11 +61,11 @@
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.ice\\'" . silice-mode))
 ;;;###autoload
-(define-derived-mode silice-mode fundamental-mode "Silice"
+(define-derived-mode silice-mode prog-mode "Silice"
   "Major mode for editing simple Silice source files.
 Only provides syntax highlighting."
+  :syntax-table silice-mode-syntax-table
 
-  (set-syntax-table (make-syntax-table silice-mode-syntax-table))
   (setq-local font-lock-defaults '(silice-font-lock-keywords))
 
   (setq-local comment-start "//")
