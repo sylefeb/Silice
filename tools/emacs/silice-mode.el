@@ -15,7 +15,10 @@
   :group 'languages)
 
 (defconst silice-font-lock-keywords
-  '(("\\b\\(uninitiali\\(s|z\\)ed\\|import\\|algorithm\\|input\\|output\\|inout\\|if\\|else\\|while\\|autorun\\|auto\\|onehot\\|\\+\\+:\\|brom\\|bram\\|dualport_bram\\|case\\|default\\|break\\|switch\\|circuitry\\|always\\|bitfield\\|interface\\|subroutine\\|readwrites\\|reads\\|writes\\|calls\\)\\b"
+  '(("\\(\\(\\$\\$[^\n]*?$\\)\\|\\(\\$include\\([^\n]*?\\)$\\)\\|\\(\\$[^z-a]*?\\$\\)\\)"
+     . font-lock-preprocessor-face)
+    ;; preprocessor
+    ("\\b\\(uninitiali\\(s|z\\)ed\\|import\\|algorithm\\|input\\|output\\|inout\\|if\\|else\\|while\\|autorun\\|auto\\|onehot\\|\\+\\+:\\|brom\\|bram\\|dualport_bram\\|case\\|default\\|break\\|switch\\|circuitry\\|always\\|bitfield\\|interface\\|subroutine\\|readwrites\\|reads\\|writes\\|calls\\)\\b"
      . font-lock-keyword-face)
     ;; keywords
     ("\\(@\\|!\\)\\([[:alpha:]]\\|_\\)\\([[:alnum:]]\\|_\\)+"
@@ -27,9 +30,6 @@
     ("\\b\\(u?int\\([[:digit:]]+\\)?\\)\\b"
      . font-lock-type-face)
     ;; builtin types
-    ("\\(\\(^\\$\\$\\(.\\|[[:space:]]\\)*?$\\)\\|\\(^\\$include\\(.*?\\)$\\)\\|\\(\\$[^z-a]*?\\$\\)\\)"
-     . font-lock-preprocessor-face)
-    ;; preprocessor
     ("\".*?\""
      . font-lock-string-face)
     ("'.*?'"
@@ -37,6 +37,9 @@
     ;; strings
     ("[[:digit:]]+\\(b\\|h\\|d\\)[[:xdigit:]]+"
      . font-lock-constant-face)
+    ("[[:digit:]]+"
+     . font-lock-constant-face)
+    ;; numbers
     )
   "Additional expressions to highlight in Silice mode.")
 
@@ -58,12 +61,12 @@
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.ice\\'" . silice-mode))
 ;;;###autoload
-(define-derived-mode silice-mode prog-mode "Silice"
+(define-derived-mode silice-mode fundamental-mode "Silice"
   "Major mode for editing simple Silice source files.
 Only provides syntax highlighting."
 
-  (setq-local font-lock-defaults '(silice-font-lock-keywords))
   (set-syntax-table (make-syntax-table silice-mode-syntax-table))
+  (setq-local font-lock-defaults '(silice-font-lock-keywords))
 
   (setq-local comment-start "//")
   (setq-local comment-add 1)
