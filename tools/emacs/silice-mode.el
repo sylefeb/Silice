@@ -46,6 +46,7 @@
     (modify-syntax-entry ?/  ". 124b" st)
     (modify-syntax-entry ?*  ". 23" st)
     (modify-syntax-entry ?_  "w" st)
+    (modify-syntax-entry ?$  "_" st)
 ;    (modify-syntax-entry ?\" "|" st)
 ;    (modify-syntax-entry ?'  "|" st)
 ;    NOTE: this somehow breaks the font locks defined for the preprocessor if they contain strings
