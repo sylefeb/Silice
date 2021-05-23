@@ -4484,6 +4484,7 @@ void Algorithm::determineVariablesAndOutputsAccess(
     if (b->state_id == -1 && b->is_state) {
       continue; // block is never reached
     }
+
     determineVariablesAndOutputsAccess(b);
   }
   // determine variable access for always blocks
@@ -4564,12 +4565,13 @@ void Algorithm::determineVariableAndOutputsUsage()
   std::unordered_set<std::string> global_out_written;
   determineVariablesAndOutputsAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = false;
+  const bool report = true;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
       switch (v.usage) {
-      case e_Wire: if (report) std::cerr << v.name << " => wire (by def)" << nxl; break;
+      case e_Wire:  if (report) std::cerr << v.name << " => wire (by def)" << nxl; break;
+      case e_Bound: if (report) std::cerr << v.name << " => write-binded (by def)" << nxl; break;
       default: throw Fatal("internal error");
       }
       continue; // usage is fixed by definition
@@ -4795,6 +4797,8 @@ void Algorithm::resolveAlgorithmRefs(const std::unordered_map<std::string, AutoP
       t_var_nfo vnfo = o;
       vnfo.name = nfo.second.instance_prefix + "_" + o.name;
       addVar(vnfo, m_Blocks.front(), nullptr);
+      m_Vars.at(m_VarNames.at(vnfo.name)).access = e_WriteBinded;
+      m_Vars.at(m_VarNames.at(vnfo.name)).usage  = e_Bound;
       m_VIOBoundToModAlgOutputs[vnfo.name] = WIRE + nfo.second.instance_prefix + "_" + o.name;
     }
     // resolve any automatic directional bindings
@@ -7325,7 +7329,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
           nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, _ff_usage, 
           nfo.boundinputs.at(is.name).second == e_Q ? e_Q : (is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/) );
       } else {
-        // input is not bound and assigned in logic, a specifc flip-flop is created for this
+        // input is not bound and assigned in logic, a specific flip-flop is created for this
         if (nfo.algo->isNotCallable()) {
           // the instance is never called, we bind to D
           out << FF_D << nfo.instance_prefix << "_" << is.name;
