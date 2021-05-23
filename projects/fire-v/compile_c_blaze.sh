@@ -21,7 +21,7 @@ echo "targetting $riscarch"
 
 if [ -z "$2" ]; then 
   echo "Adding mylibc"
-  $ARCH-elf-gcc -w -O3 -fno-pic -march=$riscarch -mabi=ilp32 -c -DBLAZE smoke/mylibc/mylibc.c -o build/mylibc.o
+  $ARCH-elf-gcc -w -O3 -fno-pic -fno-builtin -march=$riscarch -mabi=ilp32 -c -DBLAZE smoke/mylibc/mylibc.c -o build/mylibc.o
   OBJECTS="build/code.o build/div.o build/mylibc.o"
   CPU=0
 elif [ "$2" == "--nolibc" -o "$3" == "--nolibc" ]; then
@@ -38,8 +38,8 @@ fi
 
 echo "Compiling for CPU $CPU"
 
-$ARCH-elf-gcc -O3 -fno-pic -fverbose-asm -march=$riscarch -mabi=ilp32 -DBLAZE -S $1 -o build/code.s
-$ARCH-elf-gcc -O3 -fno-pic -march=$riscarch -mabi=ilp32 -DBLAZE -c -o build/code.o $1
+$ARCH-elf-gcc -O3 -fno-pic -fno-builtin -fverbose-asm -march=$riscarch -mabi=ilp32 -DBLAZE -S $1 -o build/code.s
+$ARCH-elf-gcc -O3 -fno-pic -fno-builtin -march=$riscarch -mabi=ilp32 -DBLAZE -c -o build/code.o $1
 
 $ARCH-elf-as -march=$riscarch -mabi=ilp32 -o build/div.o smoke/mylibc/div.s
 $ARCH-elf-as -march=$riscarch -mabi=ilp32 -o crt0.o smoke/crt0.s
