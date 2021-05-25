@@ -33,8 +33,7 @@ rm build*
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
-yosys -p "synth_ice40 -dsp -json build.json -abc9 -device u" build.v
-nextpnr-ice40 --up5k --freq 12 --package sg48 --json build.json --pcf $BOARD_DIR/icebreaker.pcf --asc build.asc
-
-icepack build.asc build.bin
-iceprog build.bin
+yosys -p "synth_gowin -json build.json" build.v
+nextpnr-gowin --json build.json --write outbuild.json --device GW1NR-UV9QN881C6/I5 --cst $BOARD_DIR/littlebee.cst
+gowin_pack -d GW1N-9 -o pack.fs outbuild.json
+openFPGALoader -b tec0117 pack.fs
