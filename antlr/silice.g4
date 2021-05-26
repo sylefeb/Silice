@@ -97,7 +97,7 @@ ASSUME              : 'assume' ;
 
 RESTRICT            : 'restrict';
 
-WASAT               : 'was_at';
+WASAT               : 'wasat';
 
 STABLE              : 'stable';
 
