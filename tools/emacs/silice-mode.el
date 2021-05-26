@@ -64,7 +64,7 @@
     ;; strings
     ("[[:digit:]]+\\(b\\|h\\|d\\)[[:xdigit:]]+"
      . font-lock-constant-face)
-    ("[[:digit:]]+"
+    ("\\b[[:digit:]]+\\b"
      . font-lock-constant-face)
     ;; numbers
     )
