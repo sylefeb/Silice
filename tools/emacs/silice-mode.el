@@ -14,12 +14,39 @@
   :link '(custom-group-link :tag "Font lock faces group" font-lock-faces)
   :group 'languages)
 
+(defconst silice-keywords
+  '("uninitialized"
+    "uninitialised"
+    "import"
+    "algorithm"
+    "input"
+    "output"
+    "inout"
+    "if" "else"
+    "while"
+    "autorun" "auto" "onehot"
+    "brom" "bram" "dualport_bram" "simple_dualport_bram"
+    "case" "switch" "default" "break"
+    "circuitry"
+    "always" "always_before" "always_after"
+    "bitfield" "interface" "subroutine" "group"
+    "readwrites" "reads" "writes" "calls"
+    "goto" "return"
+    "isdone")
+  "List of Silice keywords.")
+
+
 (defconst silice-font-lock-keywords
-  '(("\\(\\(\\$\\$[^\n]*?$\\)\\|\\(\\$include\\([^\n]*?\\)$\\)\\|\\(\\$[^z-a]*?\\$\\)\\)"
+  `(("\\(\\(\\$\\$[^\n]*?$\\)\\|\\(\\$include\\([^\n]*?\\)$\\)\\|\\(\\$[^z-a]*?\\$\\)\\)"
      0 font-lock-preprocessor-face prepend)
     ;; preprocessor
-    ("\\b\\(uninitiali\\(s|z\\)ed\\|import\\|algorithm\\|input\\|output\\|inout\\|if\\|else\\|while\\|autorun\\|auto\\|onehot\\|\\+\\+:\\|brom\\|bram\\|dualport_bram\\|case\\|default\\|break\\|switch\\|circuitry\\|always\\|bitfield\\|interface\\|subroutine\\|readwrites\\|reads\\|writes\\|calls\\)\\b"
-     . font-lock-keyword-face)
+    (,(concat "\\b\\("
+              (mapconcat 'identity
+                         silice-keywords
+                         "\\|"
+                         )
+              "\\)\\b")
+        . font-lock-keyword-face)
     ;; keywords
     ("\\(@\\|!\\)\\([[:alpha:]]\\|_\\)\\([[:alnum:]]\\|_\\)+"
      . font-lock-function-name-face)
