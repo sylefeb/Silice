@@ -101,6 +101,8 @@ WASAT               : 'wasat';
 
 STABLE              : 'stable';
 
+STABLEINPUT         : 'stableinput';
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -338,6 +340,7 @@ assume              : HASH ASSUME '(' expression_0 ')';
 restrict            : HASH RESTRICT '(' expression_0 ')';
 was_at              : HASH WASAT '(' IDENTIFIER (',' NUMBER)? ')';
 stable              : HASH STABLE '(' expression_0 ')';
+stableinput         : HASH STABLEINPUT '(' IDENTIFIER ')';
 
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
@@ -361,6 +364,7 @@ instruction         : assignment
                     | assume
                     | restrict
                     | was_at
+                    | stableinput
                     | stable
                     ;
 

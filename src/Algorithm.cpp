@@ -1907,6 +1907,18 @@ void Algorithm::gatherStableCheck(siliceParser::StableContext *chk, t_combinatio
 
 //-------------------------------------------------
 
+void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_combinational_block *_current, t_gather_context *_context)
+{
+  std::string varName = ctx->IDENTIFIER()->getText();
+  auto var = translateVIOName(varName, &_current->context);
+  if (!isInput(var))
+    reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "Cannot check the input stability of variable '%s' because it is not an input", varName.c_str());
+  else
+    this->m_StableInputChecks.push_back({ ctx, var });
+}
+
+//-------------------------------------------------
+
 int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context* _context,bool var_group_table_only)
 {
   if (decllist == nullptr) {
@@ -3223,30 +3235,31 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current->source_interval = tree->getSourceInterval();
   }
 
-  auto algbody  = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
-  auto decl     = dynamic_cast<siliceParser::DeclarationContext*>(tree);
-  auto ilist    = dynamic_cast<siliceParser::InstructionListContext*>(tree);
-  auto ifelse   = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
-  auto ifthen   = dynamic_cast<siliceParser::IfThenContext*>(tree);
-  auto switchC  = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
-  auto loop     = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
-  auto jump     = dynamic_cast<siliceParser::JumpContext*>(tree);
-  auto assign   = dynamic_cast<siliceParser::AssignmentContext*>(tree);
-  auto display  = dynamic_cast<siliceParser::DisplayContext *>(tree);
-  auto async    = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
-  auto join     = dynamic_cast<siliceParser::JoinExecContext*>(tree);
-  auto sync     = dynamic_cast<siliceParser::SyncExecContext*>(tree);
-  auto circinst = dynamic_cast<siliceParser::CircuitryInstContext*>(tree);
-  auto repeat   = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
-  auto pip      = dynamic_cast<siliceParser::PipelineContext*>(tree);
-  auto ret      = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
-  auto breakL   = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
-  auto block    = dynamic_cast<siliceParser::BlockContext *>(tree);
-  auto assert_  = dynamic_cast<siliceParser::Assert_Context *>(tree);
-  auto assume   = dynamic_cast<siliceParser::AssumeContext *>(tree);
-  auto restrict = dynamic_cast<siliceParser::RestrictContext *>(tree);
-  auto was_at   = dynamic_cast<siliceParser::Was_atContext *>(tree);
-  auto stable   = dynamic_cast<siliceParser::StableContext *>(tree);
+  auto algbody     = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
+  auto decl        = dynamic_cast<siliceParser::DeclarationContext*>(tree);
+  auto ilist       = dynamic_cast<siliceParser::InstructionListContext*>(tree);
+  auto ifelse      = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
+  auto ifthen      = dynamic_cast<siliceParser::IfThenContext*>(tree);
+  auto switchC     = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
+  auto loop        = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
+  auto jump        = dynamic_cast<siliceParser::JumpContext*>(tree);
+  auto assign      = dynamic_cast<siliceParser::AssignmentContext*>(tree);
+  auto display     = dynamic_cast<siliceParser::DisplayContext *>(tree);
+  auto async       = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
+  auto join        = dynamic_cast<siliceParser::JoinExecContext*>(tree);
+  auto sync        = dynamic_cast<siliceParser::SyncExecContext*>(tree);
+  auto circinst    = dynamic_cast<siliceParser::CircuitryInstContext*>(tree);
+  auto repeat      = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
+  auto pip         = dynamic_cast<siliceParser::PipelineContext*>(tree);
+  auto ret         = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
+  auto breakL      = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
+  auto block       = dynamic_cast<siliceParser::BlockContext *>(tree);
+  auto assert_     = dynamic_cast<siliceParser::Assert_Context *>(tree);
+  auto assume      = dynamic_cast<siliceParser::AssumeContext *>(tree);
+  auto restrict    = dynamic_cast<siliceParser::RestrictContext *>(tree);
+  auto was_at      = dynamic_cast<siliceParser::Was_atContext *>(tree);
+  auto stable      = dynamic_cast<siliceParser::StableContext *>(tree);
+  auto stableinput = dynamic_cast<siliceParser::StableinputContext *>(tree);
 
   bool recurse  = true;
 
@@ -3311,6 +3324,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (restrict) { _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false;
   } else if (was_at)   { gatherPastCheck(was_at, _current, _context),                  recurse = false;
   } else if (stable)   { gatherStableCheck(stable, _current, _context),                recurse = false;
+  } else if (stableinput) { gatherStableinputCheck(stableinput, _current, _context);   recurse = false;
   } else if (block)    { _current = gatherBlock(block, _current, _context);            recurse = false;
   } else if (ilist)    { _current = splitOrContinueBlock(ilist, _current, _context); }
 
@@ -6230,6 +6244,15 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     }
     out << "!" << reset << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
         << "assert($stable(" << rewriteExpression(prefix, chk.ctx->expression_0(), 0, nullptr, FF_Q, true, _deps, _ff_usage) << ")); //%" << silice_position << nxl
+        << "end" << nxl;
+  }
+
+  for (auto const &chk : m_StableInputChecks) {
+    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
+    std::string silice_position = file + ":" + std::to_string(line);
+
+    out << "if (!" << ALG_RESET << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
+        << "assume($stable(" << encapsulateIdentifier(chk.varName, true, ALG_INPUT "_" + chk.varName, "") << ")); //%" << silice_position << nxl
         << "end" << nxl;
   }
 
