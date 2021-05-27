@@ -1,7 +1,6 @@
 # Silice HDMI tutorial
 
-This project showcases the [Silice HDMI implementation](../common/hdmi.ice). It explains the example using the HDMI controller and then provides
-details on the HDMI controller implementation itself.
+This project showcases the [Silice HDMI implementation](../common/hdmi.ice). It details an example using the HDMI controller and then dives into the HDMI controller implementation itself.
 
 The example outputs an on-screen pattern through a 640x480 HDMI signal, with a pixel clock of 25 MHz. The design assumes the base clock is 25 MHz, which is the case for instance on the ULX3S.
 
