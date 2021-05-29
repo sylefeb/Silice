@@ -107,7 +107,7 @@ Note how Silice takes care of ensuring that `to_insert` is passed from one stage
 to_insert = i < $N$ ? in_values[i] : 255;
 ```
 
-Please refer to the documentation for more details on pipelines.
+Please refer to the documentation for more details on pipelines (*Note: this part of the documentation is not yet written ;)* ).
 
 As our pipeline depth depends on the value of N, we build it with the preprocessor:
 ```c
