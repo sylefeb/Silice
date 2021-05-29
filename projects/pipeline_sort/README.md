@@ -58,7 +58,7 @@ $$N=16
 Using `$$` at the start of a line indicates that the entire line is preprocessor code, while using `$...$` within a line of 
 code inserts the preprocessor result within the current code line. So for instance `$2*N$` becomes `32` when N=16.
 
-This loop inserts (streams) the values from the `in_values` into the pipeline. For each iteration
+This loop inserts (streams) the values from the `in_values` array into the pipeline. For each iteration
 below N, a value is read from `in_value` and placed in front of the pipeline top stage. For iterations
 above N we insert the MAX value, which in our case is 255, so that they no longer influence the result.
 
@@ -69,11 +69,15 @@ to_insert = i < $N$ ? in_values[i] : 255;
 Again, the last N iterations are only here to flush the pipeline, ensuring the last inserted value
 can fully propagate ; with this simple algorithm this requires N cycles.
 
-Now, let's have a look at a single pipeline stage. From the point of view of a single stage things are fairly simple. 
-Stage $n$ is responsible for the value stored at rank $n$ in the sorted array. The stage receives a value to be inserted. 
-If the received value is larger than the one at rank $n$, it is simply passed further down the pipeline. 
-If the value to insert is smaller than the one at rank $n$, it evicts and replaces it. 
-The evicted value is passed to subsequent stages for further insertion.   
+From the point of view of a single pipeline stage things are fairly simple. 
+Stage `$n$` is responsible for the value stored at rank n in the sorted array, `sorted_$n$`. The variables `sorted_$n$` together are the result array: At the end `sorted_0` contains the smallest value and `sorted_$N-1$` the largest (we sort in ascending order). 
+
+The role of each pipeline stage is to maintain the value of `sorted_$n$` given incoming values. 
+
+At each clock cycle each stage receives a value to be inserted, `to_insert`. Each stage compares this incoming value to the value currently in its `sorted_$n$`.
+If the incoming value is larger, it is unchanged and passes further down the pipeline.
+If the incoming value is smaller, it replaces the current value in `sorted_$n$`, and the evicted value is passed to the next stage, for further insertion: next cycle the evicted value becomes the one to insert at stage n+1.
+Let's have a look at the code for a single stage:
 
 ```c
     if ( i > $n$                    // do nothing before the pipeline reached this stage
@@ -86,11 +90,7 @@ The evicted value is passed to subsequent stages for further insertion.
     }
 ```
 
-Each stage `$n$` uses a variable `sorted_$n$`. The variables `sorted_$n$` together are the result array. At the end `sorted_0` contains the smallest value and
-`sorted_$N-1$` the largest. The role of each pipeline stage is to compare the current value of `sorted_$n$`
-with the incoming value of `to_insert`. If `to_insert` is smaller, then the value of `sorted_$n$` is evicted, replaced by `to_insert`, and the evicted value becomes the one to insert at stage n+1.
-
-The really interesting thing here is that all stages execute in parallel, such that the evicted values *trickle* down the pipeline all together, at each clock cycle. It takes N cycles to flush the pipeline, as if the last inserted value is the largest one it has to trickle down all N stages.
+The really important thing here is that all stages execute in parallel, such that the evicted values *trickle* down the pipeline all together, at each clock cycle. There are, in fact, N versions of `to_insert` at all times, one per stage. It takes N cycles to flush the pipeline, as if the last inserted value is the largest one it has to trickle down all N stages.
 
 Now that we understand each stage, how do we tell Silice to build a pipeline? The syntax is simply:
 ```c
