@@ -70,12 +70,10 @@ Again, the last N iterations are only here to flush the pipeline, ensuring the l
 can fully propagate ; with this simple algorithm this requires N cycles.
 
 From the point of view of a single pipeline stage things are fairly simple. 
-Stage `$n$` is responsible for the value stored at rank n in the sorted array, `sorted_$n$`. The variables `sorted_$n$` together are the result array: At the end `sorted_0` contains the smallest value and `sorted_$N-1$` the largest (we sort in ascending order). 
-
-The role of each pipeline stage is to maintain the value of `sorted_$n$` given incoming values. 
+Stage `$n$` is responsible for the value stored at rank n in the sorted array, `sorted_$n$`. The variables `sorted_$n$` together are the result array: At the end `sorted_0` contains the smallest value and `sorted_$N-1$` the largest (we sort in ascending order). The role of each pipeline stage is to maintain the value of `sorted_$n$` given incoming values. 
 
 At each clock cycle each stage receives a value to be inserted, `to_insert`. Each stage compares this incoming value to the value currently in its `sorted_$n$`.
-If the incoming value is larger, it is unchanged and passes further down the pipeline.
+If the incoming value is larger, nothing is changed and the value is passed further down the pipeline.
 If the incoming value is smaller, it replaces the current value in `sorted_$n$`, and the evicted value is passed to the next stage, for further insertion: next cycle the evicted value becomes the one to insert at stage n+1.
 Let's have a look at the code for a single stage:
 
