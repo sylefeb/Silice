@@ -20,6 +20,7 @@
 import('hdmi_clock.v')
 import('ddr.v')
 import('hdmi_ddr_crgb.v')
+$include('clean_reset.ice')
 
 // ----------------------------------------------------
 
