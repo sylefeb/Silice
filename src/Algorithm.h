@@ -51,15 +51,16 @@ class LuaPreProcessor;
 #define REG_      "_r"
 #define WIRE      "_w"
 
-#define ALG_INPUT  "in"
-#define ALG_OUTPUT "out"
-#define ALG_INOUT  "inout"
-#define ALG_IDX    "index"
-#define ALG_RUN    "run"
-#define ALG_CALLER "caller"
-#define ALG_DONE   "done"
-#define ALG_CLOCK  "clock"
-#define ALG_RESET  "reset"
+#define ALG_INPUT   "in"
+#define ALG_OUTPUT  "out"
+#define ALG_INOUT   "inout"
+#define ALG_IDX     "index"
+#define ALG_RUN     "run"
+#define ALG_AUTORUN "autorun"
+#define ALG_CALLER  "caller"
+#define ALG_DONE    "done"
+#define ALG_CLOCK   "clock"
+#define ALG_RESET   "reset"
 
 // -------------------------------------------------
 

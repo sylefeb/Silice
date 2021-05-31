@@ -64,6 +64,8 @@ $$code_size_bytes = init_data_bytes
 $include('../fire-v/fire-v/fire-v.ice')
 $$if SIMULATION then
 $$ bram_depth=14   -- in simulation we embed data into the code, so we use a large BRAM
+$$else
+$$ bram_depth=11
 $$end
 // include memory segment for the processor (BRAM only)
 $include('../fire-v/ash/bram_ram_32bits.ice')

@@ -5893,15 +5893,19 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   // state machine index
   if (!hasNoFSM()) {
     if (!m_OneHot) {
-      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ";" << nxl;
+      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << " = " << toFSMState(terminationState()) << ";" << nxl;
     } else {
-      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << ";" << nxl;
+      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << " = " << toFSMState(terminationState()) << ";" << nxl;
     }
     // sub-state indices (one-hot)
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
         out << "reg  [" << width(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "," FF_Q << prefix << b->block_name << '_' << ALG_IDX << ";" << nxl;
       }
+    }
+    // autorun
+    if (m_AutoRun) {
+      out << "reg  " << prefix << ALG_AUTORUN << " = 0;" << nxl;
     }
   }
   // state machine caller id (subroutine)
@@ -5919,7 +5923,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
     // check for call on purely combinational
     if (!ia.algo->hasNoFSM()) {
-      out << "reg  " << ia.instance_prefix + "_" ALG_RUN << "=0;" << nxl;
+      out << "reg  " << ia.instance_prefix + "_" ALG_RUN << " = 0;" << nxl;
     }
   }
 }
@@ -5934,7 +5938,7 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
   } else if (v.init_at_startup || v.do_not_initialize) {
     init_cond = "";
   } else if (!hasNoFSM()) {
-    init_cond = reset + (" || !" ALG_INPUT "_" ALG_RUN);
+    init_cond = reset + (" | ~" ALG_INPUT "_" ALG_RUN);
   } else {
     init_cond = reset;
   }
@@ -5986,7 +5990,6 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
   out << "always @(posedge " << clock << ") begin" << nxl;
 
   // determine var reset condition
-  std::string init_cond;
   std::string reset = m_Reset;
   if (m_Reset != ALG_RESET) {
     // in this case, reset has to be bound to a module/algorithm output
@@ -5997,10 +6000,6 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     }
     reset = R->second;
   }
-  init_cond = reset;
-  if (!hasNoFSM()) {
-    init_cond  = init_cond + (" || !" ALG_INPUT "_" ALG_RUN);
-  }
   for (const auto &v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
     writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
@@ -6010,13 +6009,23 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
   }
   if (!hasNoFSM()) {
+
+    std::string init_cond = reset + (" | ~" ALG_INPUT "_" ALG_RUN);
+
+    // _q_index <= reset ? TERM : ((~in_run|autorun) ? 0 : _d_index);
+    // autorun  <= reset ? 1 : 0;
+
     // state machine index
-    out << FF_Q << prefix << ALG_IDX " <= (" << init_cond << ") ? "
-      << "( ~" << reset << " ? " << toFSMState(entryState()) << " : "
-      << (m_AutoRun ? toFSMState(entryState()) : toFSMState(terminationState()))
-      << ") "
-      << " : " << FF_D << prefix << ALG_IDX 
-      << ";" << nxl;
+    out << FF_Q << prefix << ALG_IDX " <= " << reset << " ? " << toFSMState(terminationState()) << " : ";
+    if (m_AutoRun) {
+        out << "( ~" << prefix << ALG_AUTORUN << " ? " << toFSMState(entryState());
+    } else {
+        out << "( ~" << ALG_INPUT "_" ALG_RUN << " ? " << toFSMState(entryState());
+    }
+    out << " : " << FF_D << prefix << ALG_IDX  << ");" << nxl;
+    if (m_AutoRun) {
+      out << prefix << ALG_AUTORUN << " <= " << reset << " ? 0 : 1;" << nxl;
+    }
     // sub-states indices
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
@@ -6338,7 +6347,7 @@ void Algorithm::writeCombinationalStates(
   // default: internal error, should never happen
   {
     out << "default: begin " << nxl;
-    out << FF_D << prefix << ALG_IDX " = " << (m_AutoRun ? toFSMState(entryState()) : toFSMState(terminationState())) << ";" << nxl;
+    out << FF_D << prefix << ALG_IDX " = {" << stateWidth() << "{1'bx}};" << nxl;
     out << " end" << nxl;
   }
   out << "endcase" << nxl;
@@ -7258,7 +7267,11 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
   // algorithm done
   if (!hasNoFSM()) {
     // track whenever algorithm reaches termination
-    out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << toFSMState(terminationState()) << ");" << nxl;
+    if (m_AutoRun) {
+      out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << toFSMState(terminationState()) << ") & _" << ALG_AUTORUN << ";" << nxl;
+    } else {
+      out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << toFSMState(terminationState()) << ");" << nxl;
+    }
   } else if (m_TopMost) {
     // a top most always will never be done
     out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = 0;" << nxl;
