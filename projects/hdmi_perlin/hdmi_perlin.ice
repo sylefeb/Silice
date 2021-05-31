@@ -53,12 +53,12 @@ $$permut = '208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247
   brom uint9 permut11[] = { $permut$ };
   brom uint9 permut10[] = { $permut$ };
 
-  uint10 vx00(0);
-  uint10 vx10(0);
+  uint12 vx00(0);
+  uint12 vx10(0);
   uint10 vx_0(0);
 
-  uint10 vx01(0);
-  uint10 vx11(0);
+  uint12 vx01(0);
+  uint12 vx11(0);
   uint10 vx_1(0);
 
   uint10 v(0);
