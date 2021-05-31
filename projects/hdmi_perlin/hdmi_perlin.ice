@@ -53,15 +53,15 @@ $$permut = '208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247
   brom uint9 permut11[] = { $permut$ };
   brom uint9 permut10[] = { $permut$ };
 
-  uint12 vx00(0);
-  uint12 vx10(0);
-  uint10 vx_0(0);
+  //uint12 vx00(0);
+  //uint12 vx10(0);
+  //uint12 vx_0(0);
 
-  uint12 vx01(0);
-  uint12 vx11(0);
-  uint10 vx_1(0);
+  //uint12 vx01(0);
+  //uint12 vx11(0);
+  //uint12 vx_1(0);
 
-  uint10 v(0);
+  uint12 v(0);
 
   always { 
     
@@ -70,27 +70,27 @@ $$permut = '208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247
     uint4 li <:: video.x & 15;
     uint4 lj <:: video.y & 15;
 
+    uint12 vx00 <:: unitVec_x[permut00.rdata[0,4]];
+    uint12 vx10 <:: unitVec_x[permut10.rdata[0,4]];
+    uint12 vx_0 <:: vx00 + (((vx10 - vx00) * li) >> 4);
+
+    uint12 vx01 <:: unitVec_x[permut01.rdata[0,4]];
+    uint12 vx11 <:: unitVec_x[permut11.rdata[0,4]];
+    uint12 vx_1 <:: vx01 + (((vx11 - vx01) * li) >> 4);
+
+    uint12 v    <:: vx_0 + (((vx_1 - vx_0) * lj) >> 4);
+
     permut00.addr = (mod4[3,1]) ?  ci    : (cj ^ permut00.rdata[0,8]);
     permut10.addr = (mod4[3,1]) ? (ci+1) : (cj ^ permut10.rdata[0,8]);
 
     permut01.addr = (mod4[3,1]) ?  ci    : ((cj+1) ^ permut01.rdata[0,8]);
     permut11.addr = (mod4[3,1]) ? (ci+1) : ((cj+1) ^ permut11.rdata[0,8]);
 
-    vx00          = unitVec_x[permut00.rdata[0,4]];
-    vx10          = unitVec_x[permut10.rdata[0,4]];
-    vx_0          = vx00 + (((vx10 - vx00) * li) >> 4);
-
-    vx01          = unitVec_x[permut01.rdata[0,4]];
-    vx11          = unitVec_x[permut11.rdata[0,4]];
-    vx_1          = vx01 + (((vx11 - vx01) * li) >> 4);
-
-//    v             = vx_0 + (((vx_1 - vx_0) * lj) >> 4);
-
     if (video.active) {
 
-      video.red   = vx_0;
-      video.green = vx_1;
-      video.blue  = vx_1;
+      video.red   = v;
+      video.green = v;
+      video.blue  = v;
 
     } else {
 
