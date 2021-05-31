@@ -53,20 +53,17 @@ $$permut = '208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247
   brom uint9 permut11[] = { $permut$ };
   brom uint9 permut10[] = { $permut$ };
 
-  uint8 r(0);
-  uint8 g(0);
+  //uint8 r(0);
+  //uint8 g(0);
 
   always { 
     
-    permut00.addr = (mod4[0,1]) ? video.x : (video.y ^ permut00.rdata[0,8]);
+    permut00.addr = (mod4[3,1]) ? video.x : (video.y ^ permut00.rdata[0,8]);
 
     if (video.active) {
 
-      r           = (mod4[3,1]) ? unitVec_x[permut00.rdata[0,4]] : r;
-      g           = (mod4[3,1]) ? unitVec_y[permut00.rdata[0,4]] : g;
-
-      video.red   = r;
-      video.green = g;
+      video.red   = unitVec_x[permut00.rdata[0,4]];
+      video.green = unitVec_y[permut00.rdata[0,4]];
       video.blue  = 0;
 
     } else {
