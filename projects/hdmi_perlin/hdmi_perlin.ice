@@ -36,12 +36,12 @@ algorithm main(
 $$N_UVECS = 16
   uint8 unitVec_x[] = {
 $$for n=0,N_UVECS do
-    $math.floor(255.0*math.cos(math.pi*2.0*n/N_UVECS))$,
+    $math.floor(math.min(255.0,math.max(0.0,128.0 + 128.0*math.cos(math.pi*2.0*n/N_UVECS))))$,
 $$end
   };
   uint8 unitVec_y[] = {
 $$for n=0,N_UVECS do
-    $math.floor(255.0*math.sin(math.pi*2.0*n/N_UVECS))$,
+    $math.floor(math.min(255.0,math.max(0.0,128.0 + 128.0*math.sin(math.pi*2.0*n/N_UVECS))))$,
 $$end
   };
 
@@ -53,18 +53,40 @@ $$permut = '208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247
   brom uint9 permut11[] = { $permut$ };
   brom uint9 permut10[] = { $permut$ };
 
-  //uint8 r(0);
-  //uint8 g(0);
+  uint12 vx00(0);
+  uint12 vx10(0);
+  uint10 vx_0(0);
+
+  //uint12 vx01(0);
+  //uint12 vx11(0);
+  //uint10 vx_1(0);
 
   always { 
     
-    permut00.addr = (mod4[3,1]) ? video.x : (video.y ^ permut00.rdata[0,8]);
+    uint7 ci <:: video.x >> 4;
+    uint7 cj <:: video.y >> 4;
+    uint4 li <:: video.x & 15;
+    uint4 lj <:: video.y & 15;
+
+    permut00.addr = (mod4[3,1]) ?  ci    : (cj ^ permut00.rdata[0,8]);
+    permut10.addr = (mod4[3,1]) ? (ci+1) : (cj ^ permut10.rdata[0,8]);
+
+    permut01.addr = (mod4[3,1]) ?  ci    : ((cj+1) ^ permut00.rdata[0,8]);
+    permut11.addr = (mod4[3,1]) ? (ci+1) : ((cj+1) ^ permut10.rdata[0,8]);
+
+    vx00          = unitVec_x[permut00.rdata[0,4]];
+    vx10          = unitVec_x[permut10.rdata[0,4]];
+    vx_0          = vx00 + (((vx10 - vx00) * li) >> 4);
+
+    //vx01          = unitVec_x[permut01.rdata[0,4]];
+    //vx11          = unitVec_x[permut11.rdata[0,4]];
+    //vx_1          = vx01 + (((vx11 - vx01) * li) >> 4);
 
     if (video.active) {
 
-      video.red   = unitVec_x[permut00.rdata[0,4]];
-      video.green = unitVec_y[permut00.rdata[0,4]];
-      video.blue  = 0;
+      video.red   = vx_0;
+      video.green = vx_0;
+      video.blue  = vx_0;
 
     } else {
 
