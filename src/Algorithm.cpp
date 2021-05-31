@@ -3260,6 +3260,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto was_at      = dynamic_cast<siliceParser::Was_atContext *>(tree);
   auto stable      = dynamic_cast<siliceParser::StableContext *>(tree);
   auto stableinput = dynamic_cast<siliceParser::StableinputContext *>(tree);
+  auto cover       = dynamic_cast<siliceParser::CoverContext *>(tree);
 
   bool recurse  = true;
 
@@ -3322,6 +3323,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (assert_)  { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false;
   } else if (assume)   { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false;
   } else if (restrict) { _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false;
+  } else if (cover)    { _current->instructions.push_back(t_instr_nfo(cover, _current, _context->__id));    recurse = false;
   } else if (was_at)   { gatherPastCheck(was_at, _current, _context),                  recurse = false;
   } else if (stable)   { gatherStableCheck(stable, _current, _context),                recurse = false;
   } else if (stableinput) { gatherStableinputCheck(stableinput, _current, _context);   recurse = false;
@@ -5694,9 +5696,6 @@ void Algorithm::writeAssert(std::string prefix,
                             const t_vio_dependencies &dependencies,
                             t_vio_ff_usage &_ff_usage) const
 {
-  // nothing fancy, just output the assumption
-  // NOTE: we only want them in FORMAL mode, therefore need to enclose the assumption
-  // in a "`ifdef FORMAL ... `endif" block
   auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
@@ -5714,9 +5713,6 @@ void Algorithm::writeAssume(std::string prefix,
                             const t_vio_dependencies &dependencies,
                             t_vio_ff_usage &_ff_usage) const
 {
-  // nothing fancy, just output the assertion
-  // NOTE: we only want them in FORMAL mode, therefore need to enclose the assertion
-  // in a "`ifdef FORMAL ... `endif" block
   auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
@@ -5734,13 +5730,27 @@ void Algorithm::writeRestrict(std::string prefix,
                               const t_vio_dependencies &dependencies,
                               t_vio_ff_usage &_ff_usage) const
 {
-  // nothing fancy, just output the restriction
-  // NOTE: we only want them in FORMAL mode, therefore need to enclose the restriction
-  // in a "`ifdef FORMAL ... `endif" block
   auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
   out << "restrict(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
+}
+
+// -------------------------------------------------
+
+void Algorithm::writeCover(std::string prefix,
+                           std::ostream &out,
+                           const t_instr_nfo &a,
+                           siliceParser::Expression_0Context *expression_0,
+                           const t_combinational_block_context *bctx,
+                           std::string ff,
+                           const t_vio_dependencies &dependencies,
+                           t_vio_ff_usage &_ff_usage) const
+{
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  std::string silice_position = file + ":" + std::to_string(line);
+
+  out << "cover(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
 }
 
 // -------------------------------------------------
@@ -6663,6 +6673,11 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
       auto restrict = dynamic_cast<siliceParser::RestrictContext *>(a.instr);
       if (restrict) {
         writeRestrict(prefix, out, a, restrict->expression_0(), &block->context, FF_Q, _dependencies, _ff_usage);
+      }
+    } {
+      auto cover = dynamic_cast<siliceParser::CoverContext *>(a.instr);
+      if (cover) {
+        writeCover(prefix, out, a, cover->expression_0(), &block->context, FF_Q, _dependencies, _ff_usage);
       }
     } {
       auto display = dynamic_cast<siliceParser::DisplayContext *>(a.instr);

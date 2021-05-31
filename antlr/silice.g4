@@ -103,6 +103,8 @@ STABLE              : 'stable';
 
 STABLEINPUT         : 'stableinput';
 
+COVER               : 'cover';
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -341,6 +343,7 @@ restrict            : HASH RESTRICT '(' expression_0 ')';
 was_at              : HASH WASAT '(' IDENTIFIER (',' NUMBER)? ')';
 stable              : HASH STABLE '(' expression_0 ')';
 stableinput         : HASH STABLEINPUT '(' IDENTIFIER ')';
+cover               : HASH COVER '(' expression_0 ')';
 
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
@@ -366,6 +369,7 @@ instruction         : assignment
                     | was_at
                     | stableinput
                     | stable
+                    | cover
                     ;
 
 alwaysBlock         : ALWAYS       block;
