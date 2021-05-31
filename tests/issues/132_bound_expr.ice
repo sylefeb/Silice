@@ -1,15 +1,15 @@
-algorithm main(output uint8 leds)
+algorithm main(output uint$NUM_LEDS$ leds = 0)
 {
+  uint8 b(111);
+  uint8 a <: b + 1;
 
-  uint8 a(1);
-  uint8 c(0);
-
-  uint8 b <: a + 1;
+  b    = 0; // removing this makes everyone agree
+  leds = a;
+  b    = 28;
   
-  c = b;
-  a = 10;
+  // Q: is the value of leds 1, or 29 ?
 
-  leds = c;
-  // __display("c %d",c);
-
+++:
+  __display("======> %d", leds); 
+  
 }
