@@ -34,7 +34,8 @@ module top(
   output video_vs,
   output [5:0] sdram_word_width,
   output [4:0] video_color_depth,
-  input       clk
+  input        clk,
+  output [7:0] leds
   );
 
 // this is used by the verilator framework
@@ -137,6 +138,8 @@ assign video_g     = __main_video_g;
 assign video_b     = __main_video_b;
 assign video_hs    = __main_video_hs;
 assign video_vs    = __main_video_vs;
+
+assign leds        = __main_leds;
 
 always @* begin
   if (done_main && !RST_d[0]) $finish;

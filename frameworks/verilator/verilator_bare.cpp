@@ -35,6 +35,8 @@ int main(int argc,char **argv)
 
     bare_test->eval();
 
+    // fprintf(stderr,"leds:%d\n",bare_test->leds);
+
   }
 
   return 0;
