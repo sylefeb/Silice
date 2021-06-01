@@ -27,6 +27,7 @@ the distribution, please refer to it for details.
 #include <fstream>
 #include <regex>
 #include <queue>
+#include <filesystem>
 
 #include <LibSL/LibSL.h>
 
@@ -574,6 +575,15 @@ std::string robustExtractPath(const std::string& path)
 
 // -------------------------------------------------
 
+void LuaPreProcessor::enableFilesReport(std::string fname)
+{
+  m_FilesReportName = fname;
+  // create report file, will delete if existing
+  std::ofstream freport(m_FilesReportName);
+}
+
+// -------------------------------------------------
+
 std::string LuaPreProcessor::processCode(
   std::string parent_path,
   std::string src_file,
@@ -585,6 +595,12 @@ std::string LuaPreProcessor::processCode(
   }
   if (alreadyIncluded.find(src_file) != alreadyIncluded.end()) {
     throw Fatal("source file '%s' already included (cyclic dependency)", src_file.c_str());
+  }
+
+  // generate a report with all the loaded files
+  if (!m_FilesReportName.empty()) {
+    std::ofstream freport(m_FilesReportName, std::ios_base::app);
+    freport << std::filesystem::absolute(src_file).string() << '\n';
   }
 
   // add to already included
@@ -599,7 +615,7 @@ std::string LuaPreProcessor::processCode(
 
   m_SearchPaths.push_back(path);
 
-  m_Files.emplace_back(src_file);
+  m_Files.emplace_back(std::filesystem::absolute(src_file).string());
   int src_file_id = (int)m_Files.size() - 1;
 
   ANTLRFileStream   input(src_file);
@@ -728,7 +744,7 @@ void LuaPreProcessor::run(
   for (auto l : defaultLibraries) {
     std::string libfile = CONFIG.keyValues()["libraries_path"] + "/" + l;
     libfile = findFile(libfile);
-    code = code + "\n" + processCode(CONFIG.keyValues()["libraries_path"],libfile,inclusions);
+    code = code + "\n" + processCode(CONFIG.keyValues()["libraries_path"], libfile, inclusions);
   }
   // parse main file
   code = code + "\n" + processCode("", src_file, inclusions);

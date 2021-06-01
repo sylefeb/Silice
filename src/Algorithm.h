@@ -944,6 +944,8 @@ private:
     int  toFSMState(int state) const;
     /// \brief finds the binding to var
     const t_binding_nfo &findBindingTo(std::string var, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
+    /// \brief returns the line range of an instruction
+    v2i instructionLines(antlr4::tree::ParseTree *instr, const t_instantiation_context &ictx) const;
 
   public:
 
@@ -1052,11 +1054,11 @@ private:
     /// \brief writes all states in the output
     void writeCombinationalStates(std::string prefix, std::ostream &out, const t_instantiation_context &ictx, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
     /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
-    void writeStatelessBlockGraph(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
+    void writeStatelessBlockGraph(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
     /// \brief writes a stateless pipeline to the output, returns zhere to resume from
-    const t_combinational_block *writeStatelessPipeline(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
+    const t_combinational_block *writeStatelessPipeline(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
     /// \brief writes a single block to the output
-    void writeBlock(std::string prefix, std::ostream &out, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
+    void writeBlock(std::string prefix, std::ostream &out, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const;
     /// \brief writes variable inits
     void writeVarInits(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes a memory module
