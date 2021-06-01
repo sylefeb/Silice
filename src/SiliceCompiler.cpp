@@ -257,6 +257,7 @@ void SiliceCompiler::run(
   CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
   // preprocessor
   LuaPreProcessor lpp;
+  lpp.enableFilesReport(fresult + ".files.log");
   std::string preprocessed = std::string(fsource) + ".lpp";
   lpp.run(fsource, c_DefaultLibraries, header, preprocessed);
   // display config

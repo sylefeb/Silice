@@ -1,5 +1,7 @@
 # HDMI and hardware Perlin noise
 
+# This is work in progress
+
 This project relies on [Silice HDMI implementation](../common/hdmi.ice). For a tutorial on the HDMI framework and HDMI controller [please refer to this example](../hdmi_test/).
 
 **Note:** *This project targets the ULX3S ; adapting to other boards should not be difficult but requires reworking the clocks and possibly the HDMI controller.*

@@ -40,6 +40,8 @@ private:
   std::vector<std::string>           m_Files;
   std::vector<LibSL::Math::v3i>      m_FileLineRemapping; // [0] is line after, [1] is file id, [2] is line before
 
+  std::string                        m_FilesReportName;   // if empty, no files report, otherwise name of the report
+
 public:
 
   LuaPreProcessor();
@@ -56,6 +58,8 @@ public:
   std::pair<std::string,int> lineAfterToFileAndLineBefore(int line_after) const;
 
   void addingLines(int num,int src_line, int src_file);
+
+  void enableFilesReport(std::string fname);
 
 };
 
