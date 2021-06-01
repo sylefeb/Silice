@@ -7569,18 +7569,16 @@ void Algorithm::outputVIOReport(
           << tk->getText() << " "
           << v.name << " " 
           << fl.second << " "
-          // << tk->getCharPositionInLine() << ";" << ((int)tk->getCharPositionInLine() + (int)tk->getStopIndex() - (int)tk->getStartIndex()) << " "
-          //  ^^^^^^^^^ these are column numbers /after/ pre-processing, so they don't match the original source
           ;
         switch (v.usage) 
         {
-        case e_Undetermined: freport << "undetermined"; break;
-        case e_NotUsed:      freport << "notused"; break;
-        case e_Const:        freport << "const"; break;
-        case e_Temporary:    freport << "temp"; break;
-        case e_FlipFlop:     freport << "ff"; break;
-        case e_Bound:        freport << "bound"; break;
-        case e_Wire:         freport << "wire"; break;
+        case e_Undetermined: freport << "undetermined #"; break;
+        case e_NotUsed:      freport << "notused #"; break;
+        case e_Const:        freport << "const " << FF_CST << '_' << v.name; break;
+        case e_Temporary:    freport << "temp" << FF_TMP << '_' << v.name; break;
+        case e_FlipFlop:     freport << "ff " << FF_D << '_' << v.name << ',' << FF_Q << '_' << v.name; break;
+        case e_Bound:        freport << "bound " << WIRE << '_' << v.name; break;
+        case e_Wire:         freport << "wire " << WIRE << '_' << v.name; break;
         }
         freport << nxl;
     }
