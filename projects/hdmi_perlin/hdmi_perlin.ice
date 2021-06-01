@@ -28,8 +28,12 @@ algorithm main(
     clkout1 :> clock_25mhz   // video signal runs at 25MHz (640x480)
   );
  
+  uint8 v(0);
   hdmi video<@clock_25mhz>(
     gpdi_dp :> gpdi_dp,
+		red     <:: v,
+		green   <:: v,
+		blue    <:: v,
   );
 
   uint4 mod4(4b0001); // indicates which sub-cycle of video signal we are in
@@ -62,8 +66,6 @@ $$permut = '208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247
   uint16 vx11(0);
   uint16 vx_1(0);
 
-  uint8  v(0);
-
   uint10 cntx  = 0;
   uint9  cnty  = 0;
 
@@ -81,27 +83,27 @@ $$permut = '208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247
     permut01.addr = (mod4[0,1]) ?  ci    : ((cj+1) ^ permut01.rdata[0,8]);
     permut11.addr = (mod4[0,1]) ? (ci+1) : ((cj+1) ^ permut11.rdata[0,8]);
 
+    v    = (vx_0 * (15-lj) + vx_1 * lj) >> 4;
+    vx_0 = (vx00 * (15-li) + vx10 * li) >> 4;
+    vx_1 = (vx01 * (15-li) + vx11 * li) >> 4;
+
+    //v    = vx_0 + (((vx_1 - vx_0) * lj) >> 4);
+    //vx_0 = vx00 + (((vx10 - vx00) * li) >> 4);
+    //vx_1 = vx01 + (((vx11 - vx01) * li) >> 4);
+
     vx00 = mod4[2,1] ? unitVec_x[permut00.rdata[0,4]] : vx00;
     vx10 = mod4[2,1] ? unitVec_x[permut10.rdata[0,4]] : vx10;
-    vx_0 = vx00 + (((vx10 - vx00) * li) >> 4);
 
     vx01 = mod4[2,1] ? unitVec_x[permut01.rdata[0,4]] : vx01;
     vx11 = mod4[2,1] ? unitVec_x[permut11.rdata[0,4]] : vx11;
-    vx_1 = vx01 + (((vx11 - vx01) * li) >> 4);
 
-    v    = (vx_0 + (((vx_1 - vx_0) * lj) >> 4));
-		
-    video.red   = v;
-    video.green = v;
-    video.blue  = v;
-
-    mod4 = {mod4[0,3],mod4[3,1]};
-    
     // update coordinates
 		if (mod4[3,1]) {
       cnty        = (cntx == 799) ? (cnty == 524 ? 0 : (cnty + 1)) : cnty;
       cntx        = (cntx == 799) ? 0 : (cntx + 1);
 		}
+
+    mod4 = {mod4[0,3],mod4[3,1]};   
 		
   }
   
