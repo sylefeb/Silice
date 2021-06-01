@@ -6267,24 +6267,11 @@ void Algorithm::writeCombinationalStates(
     } else {
       out << FF_Q << prefix << ALG_IDX << '[' << b->state_id << "]: begin" << nxl;
     }
-    // FSM report
-    if (m_FSMReportEnable) {
-      std::ofstream freport(m_FSMReportName, std::ios_base::app);
-      ExpressionLinter lint(this, ictx);
-      freport << m_Name << " ";
-      freport << (m_OneHot ? b->state_id : toFSMState(b->state_id)) << " ";
-      auto tk = lint.getToken(b->source_interval);
-      if (tk) {
-        std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
-        freport << fl.first << " " << fl.second;
-      }
-      freport << nxl;
-    }
     // if state contains sub-state
     if (b->num_sub_states > 1) {
       // by default stay in this state
       out << FF_D << prefix << ALG_IDX << " = " << b->state_id << ';' << nxl;
-      // produce a local one-hot FSM for the sequence
+      // produce a local FSM for the sequence
       // out << "(* parallel_case, full_case *)" << nxl;
       // out << "case (1'b1)" << nxl;
       out << "case (" << FF_Q << prefix << b->block_name << '_' << ALG_IDX << ")" << nxl;
@@ -6295,7 +6282,7 @@ void Algorithm::writeCombinationalStates(
         // -> case value
         //out << FF_Q << prefix << b->block_name << '_' << ALG_IDX << '[' << cur->sub_state_id << ']'
         out << cur->sub_state_id
-            << ": begin" << nxl;
+          << ": begin" << nxl;
         // -> track dependencies, starting with those of always block
         t_vio_dependencies depds = always_dependencies;
         // -> write block instructions
@@ -6303,7 +6290,7 @@ void Algorithm::writeCombinationalStates(
         writeStatelessBlockGraph(prefix, out, ictx, cur, nullptr, q, depds, ff_usages.back(), _post_dependencies);
         clearNoLatchFFUsage(ff_usages.back());
         // -> goto next
-        if (cur->sub_state_id == b->num_sub_states-1) { 
+        if (cur->sub_state_id == b->num_sub_states - 1) {
           // -> if last, reinit local index
           // out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << b->num_sub_states << "'b1";
           out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << "0";
@@ -6317,7 +6304,7 @@ void Algorithm::writeCombinationalStates(
         }
         out << ';' << nxl;
         // -> close state
-        out << "end" << nxl;               
+        out << "end" << nxl;
 #if 0
         /// DEBUG
         for (auto ff : ff_usages.back().ff_usage) {
@@ -6332,7 +6319,7 @@ void Algorithm::writeCombinationalStates(
         }
 #endif        
         // keep going
-        std::set<t_combinational_block*> leaves;
+        std::set<t_combinational_block *> leaves;
         findNonCombinationalLeaves(cur, leaves);
         ++sanity;
         if (leaves.size() == 1) {
@@ -6371,6 +6358,34 @@ void Algorithm::writeCombinationalStates(
     }
     // close state
     out << "end" << nxl;
+    // FSM report
+    if (m_FSMReportEnable) {
+      ExpressionLinter lint(this, ictx);
+      int block_end_line = numeric_limits<int>::max();
+      {
+        std::set<t_combinational_block *> leaves;
+        findNonCombinationalLeaves(b, leaves);
+        for (auto l : leaves) {
+          auto tk = lint.getToken(l->source_interval);
+          if (tk) {
+            std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+            block_end_line = min(block_end_line, fl.second);
+          }
+        }
+      }
+      if (block_end_line == numeric_limits<int>::max()) {
+        block_end_line = -1;
+      }
+      std::ofstream freport(m_FSMReportName, std::ios_base::app);
+      freport << m_Name << " ";
+      freport << (m_OneHot ? b->state_id : toFSMState(b->state_id)) << " ";
+      auto tk = lint.getToken(b->source_interval);
+      if (tk) {
+        std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+        freport << fl.first << " " << fl.second << " " << block_end_line;
+      }
+      freport << nxl;
+    }
   }
   // combine all ff usages
   combineFFUsageInto(nullptr,_ff_usage, ff_usages, _ff_usage);
@@ -7575,7 +7590,7 @@ void Algorithm::outputVIOReport(
         case e_Undetermined: freport << "undetermined #"; break;
         case e_NotUsed:      freport << "notused #"; break;
         case e_Const:        freport << "const " << FF_CST << '_' << v.name; break;
-        case e_Temporary:    freport << "temp" << FF_TMP << '_' << v.name; break;
+        case e_Temporary:    freport << "temp " << FF_TMP << '_' << v.name; break;
         case e_FlipFlop:     freport << "ff " << FF_D << '_' << v.name << ',' << FF_Q << '_' << v.name; break;
         case e_Bound:        freport << "bound " << WIRE << '_' << v.name; break;
         case e_Wire:         freport << "wire " << WIRE << '_' << v.name; break;
