@@ -64,12 +64,16 @@ $$permut = '208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247
 
   uint8  v(0);
 
+  uint10 cntx  = 0;
+  uint9  cnty  = 0;
+
   always { 
     
-    uint7 ci <:: video.x >> 4;
-    uint7 cj <:: video.y >> 4;
-    uint4 li <:: video.x & 15;
-    uint4 lj <:: video.y & 15;
+    uint7 ci     <:: cntx >> 4;
+    uint7 cj     <:: cnty >> 4;
+    uint4 li     <:: cntx & 15;
+    uint4 lj     <:: cnty & 15;
+		// uint1 active <:: (cntx < 640) && (cnty < 480);    
 
     permut00.addr = (mod4[0,1]) ?  ci    : (cj ^ permut00.rdata[0,8]);
     permut10.addr = (mod4[0,1]) ? (ci+1) : (cj ^ permut10.rdata[0,8]);
@@ -93,6 +97,12 @@ $$permut = '208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247
 
     mod4 = {mod4[0,3],mod4[3,1]};
     
+    // update coordinates
+		if (mod4[3,1]) {
+      cnty        = (cntx == 799) ? (cnty == 524 ? 0 : (cnty + 1)) : cnty;
+      cntx        = (cntx == 799) ? 0 : (cntx + 1);
+		}
+		
   }
   
 }
