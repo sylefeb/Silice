@@ -600,7 +600,7 @@ std::string LuaPreProcessor::processCode(
   // generate a report with all the loaded files
   if (!m_FilesReportName.empty()) {
     std::ofstream freport(m_FilesReportName, std::ios_base::app);
-    freport << std::filesystem::absolute(src_file) << '\n';
+    freport << std::filesystem::absolute(src_file).string() << '\n';
   }
 
   // add to already included
@@ -615,7 +615,7 @@ std::string LuaPreProcessor::processCode(
 
   m_SearchPaths.push_back(path);
 
-  m_Files.emplace_back(src_file);
+  m_Files.emplace_back(std::filesystem::absolute(src_file).string());
   int src_file_id = (int)m_Files.size() - 1;
 
   ANTLRFileStream   input(src_file);
