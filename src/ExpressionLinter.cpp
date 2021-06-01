@@ -485,10 +485,10 @@ void ExpressionLinter::typeNfo(
 
 // -------------------------------------------------
 
-antlr4::Token *ExpressionLinter::getToken(antlr4::misc::Interval interval)
+antlr4::Token *ExpressionLinter::getToken(antlr4::misc::Interval interval,bool last_else_first)
 {
   if (s_TokenStream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
-    antlr4::Token *tk = s_TokenStream->get(interval.a);
+    antlr4::Token *tk = s_TokenStream->get(last_else_first ? interval.b : interval.a);
     return tk;
   } else {
     return nullptr;
@@ -499,7 +499,7 @@ antlr4::Token *ExpressionLinter::getToken(antlr4::misc::Interval interval)
 
 std::pair<std::string, int> ExpressionLinter::getTokenSourceFileAndLine(antlr4::Token *tk)
 {
-  int line = tk->getLine();
+  int line = (int)tk->getLine();
   if (s_LuaPreProcessor != nullptr) {
     auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
     return fl;
