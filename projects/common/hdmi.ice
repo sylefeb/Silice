@@ -38,8 +38,8 @@ algorithm tmds_encoder(
   uint4 num_ones        <: data[0,1] + data[1,1] + data[2,1] + data[3,1]
                          + data[4,1] + data[5,1] + data[6,1] + data[7,1];
   // tracks 'numbers of ones minus number of zeros' in internal byte
-  int5  diff_ones_zeros <: q_m[0,1] + q_m[1,1] + q_m[2,1] + q_m[3,1] 
-                         + q_m[4,1] + q_m[5,1] + q_m[6,1] + q_m[7,1] - 6d4;
+  int5  diff_ones_zeros <:: q_m[0,1] + q_m[1,1] + q_m[2,1] + q_m[3,1] 
+                          + q_m[4,1] + q_m[5,1] + q_m[6,1] + q_m[7,1] - 6d4;
 
   // XOR chain on input
   int1  xored1          <: data[1,1] ^ data[0,1];

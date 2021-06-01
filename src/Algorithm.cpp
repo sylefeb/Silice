@@ -3630,7 +3630,6 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   for (const auto& w : written) {
     _depds.dependencies[w] = upstream;
   }
-
   // -> transport dependencies through algorithm combinational outputs
   for (const auto &alg : m_InstancedAlgorithms) {
     // gather bindings potentially creating comb. cycles
@@ -3682,6 +3681,11 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   /// DEBUG
   if (0) {
     std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << nxl;
+    std::cerr << "written: ";
+    for (auto w : written) {
+      std::cerr << w << ' ';
+    }
+    std::cerr << nxl;
     for (auto w : _depds.dependencies) {
       std::cerr << "var " << w.first << " depds on ";
       for (auto r : w.second) {
@@ -3692,7 +3696,6 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
     std::cerr << nxl;
   }
 
-#if 1
   // check if everything is legit
   // for each written variable
   for (const auto& w : written) {
@@ -3731,8 +3734,41 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
         }
       }
     }
+    // check if the variable is a dependency of a wire that has been assigned before
+    // -> find wires that depend on this variable
+    for (const auto &a : m_WireAssignments) {
+      auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.second.instr);
+      sl_assert(alw != nullptr);
+      sl_assert(alw->IDENTIFIER() != nullptr);
+      // -> determine assigned var
+      string wire = translateVIOName(alw->IDENTIFIER()->getText(), &a.second.block->context);
+      // -> does it depend on written var?
+      if (_depds.dependencies.count(wire) > 0) {
+        if (_depds.dependencies.at(wire).count(w) > 0) {
+          // std::cerr << "wire " << wire << " depends on written " << w << nxl;
+          // yes, check if any other variable depends on this wire
+          for (const auto &d : _depds.dependencies) {
+            if (d.second.count(wire) > 0) {
+              // yes, but maybe that's another wire (which is ok)
+              bool wire_assign = false;
+              if (m_VarNames.count(wire) > 0) {
+                wire_assign = (m_Vars.at(m_VarNames.at(wire)).usage == e_Wire);
+              }
+              if (!wire_assign) {
+                // no: leads to problematic case (ambiguity in final value), error!
+                reportError(
+                  dynamic_cast<antlr4::ParserRuleContext *>(instr)->getSourceInterval(),
+                  (int)(dynamic_cast<antlr4::ParserRuleContext *>(instr)->getStart()->getLine()),
+                  "variable assignement changes the value of a <: tracked expression that was assigned before\n\n(variable: '%s', through tracker '%s' assigned before to '%s').",
+                  w.c_str(), wire.c_str(), d.first.c_str());
+              }
+            }
+          }
+        }
+      }
+    }
   }
-#endif
+
 }
 
 // -------------------------------------------------

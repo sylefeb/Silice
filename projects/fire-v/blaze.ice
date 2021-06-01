@@ -302,7 +302,7 @@ $$end
   uint32 eight_pixs(0);
   
   // buffers are 320 x 200, 4bpp
-  uint14 pix_fetch <: (pix_y[1,9]<<5) + (pix_y[1,9]<<3) + pix_x[4,6] + (fbuffer ? 0 : 8000);
+  uint14 pix_fetch <:: (pix_y[1,9]<<5) + (pix_y[1,9]<<3) + pix_x[4,6] + (fbuffer ? 0 : 8000);
 
   //  - pix_x[4,6] => read every 16 VGA pixels
   //  - pix_y[1,9] => half vertical res (200)

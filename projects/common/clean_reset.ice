@@ -1,5 +1,8 @@
 // SL 2020-10-25
 
+$$if not CLEAN_RESET_ICE then
+$$  CLEAN_RESET_ICE = 1
+
 algorithm clean_reset(  
   output uint1 out(1)
 ) <autorun> {
@@ -9,3 +12,5 @@ algorithm clean_reset(
     trigger = trigger >> 1;
   }
 }
+
+$$end
