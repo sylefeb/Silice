@@ -19,8 +19,8 @@ algorithm div$div_width$(
   input  int$div_width$ iden,
   output int$div_width$ ret = 0)
 {
-  uint$div_width$ ac = uninitialized;
-  uint$div_width$ diff <:: ac - den;
+  uint$div_width+1$ ac = uninitialized;
+  uint$div_width+1$ diff <:: ac - den;
   
   uint$div_width_pow2+1$ i = 0;
   
@@ -37,7 +37,7 @@ $$end
   ac  = {{$div_width-1${1b0}},num[$div_width-1$,1]};
   ret = {num[0,$div_width-1$],1b0};
   while (i != $div_width$) {
-    if (diff[$div_width-1$,1] == 0) { // positive
+    if (diff[$div_width$,1] == 0) { // positive
       ac  = {diff[0,$div_width-1$],ret[$div_width-1$,1]};
       ret = {ret [0,$div_width-1$],1b1};
     } else {
