@@ -651,6 +651,7 @@ private:
     /// \brief information about instantiation (public for linter)
     typedef struct {
       std::string                                  instance_name;
+      std::string                                  local_instance_name;
       std::unordered_map<std::string, std::string> parameters;
     } t_instantiation_context;
 

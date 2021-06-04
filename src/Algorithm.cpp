@@ -7089,7 +7089,10 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
       auto tk = linter.getToken(m_Blocks.front()->source_interval);
       if (tk) {
         std::pair<std::string, int> fl = linter.getTokenSourceFileAndLine(tk);
-        freport << (ictx.instance_name.empty() ? "_main" : ictx.instance_name) << " " << m_Name << " " << fl.first << nxl;
+        freport 
+          << (ictx.instance_name.empty() ? "__main" : ictx.instance_name) << " " 
+          << (ictx.local_instance_name.empty() ? "main" : ictx.local_instance_name) << " " 
+          << m_Name << " " << fl.first << nxl;
       }
     }
 
@@ -7227,6 +7230,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     }
     // -> write instance
     local_ictx.instance_name = ictx.instance_name + "_" + nfo.instance_name;
+    local_ictx.local_instance_name = nfo.instance_name;
     nfo.algo->writeAsModule(out, local_ictx, first_pass);
   }
 
