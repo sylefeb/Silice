@@ -888,7 +888,7 @@ private:
     std::string determineAccessedVar(siliceParser::BitAccessContext* access, const t_combinational_block_context* bctx) const;
     std::string determineAccessedVar(siliceParser::BitfieldAccessContext* access, const t_combinational_block_context* bctx) const;
     std::string determineAccessedVar(siliceParser::TableAccessContext* access, const t_combinational_block_context* bctx) const;
-    /// \brief determine variables/inputs/outputs access within an instruction (from its tree)
+    /// \brief determine which VIO are accessed by an instruction (from its tree)
     void determineVIOAccess(
       antlr4::tree::ParseTree*                    node,
       const std::unordered_map<std::string, int>& vios,
@@ -904,26 +904,26 @@ private:
     template<typename T_nfo>
     void updateAccessFromBinding(const t_binding_nfo& b, const std::unordered_map<std::string, int > &names, std::vector< T_nfo > &_nfos);
     /// \brief determines variable access for an instruction
-    void determineVariablesAndOutputsAccess(
+    void determineAccess(
       antlr4::tree::ParseTree             *instr,
       const t_combinational_block_context *context,
       std::unordered_set<std::string> &_already_written, 
       std::unordered_set<std::string> &_in_vars_read,
       std::unordered_set<std::string> &_out_vars_written);
     /// \brief determines variable access within a block
-    void determineVariablesAndOutputsAccess(t_combinational_block *block);
+    void determineAccess(t_combinational_block *block);
     /// \brief determine variable access due to wires within the algorithm
-    void determineVariablesAndOutputsAccessForWires(
+    void determineAccessForWires(
       std::unordered_set<std::string> &_global_in_read,
       std::unordered_set<std::string> &_global_out_written
     );
     /// \brief determine variable access within the algorithm
-    void determineVariablesAndOutputsAccess(
+    void determineAccess(
       std::unordered_set<std::string> &_global_in_read,
       std::unordered_set<std::string> &_global_out_written
     );
     /// \brief analyze variables access and classifies variables
-    void determineVariableAndOutputsUsage();
+    void determineUsage();
     /// \brief determines the list of bound VIO
     void determineModAlgBoundVIO();
     /// \brief analyze the subroutine calls

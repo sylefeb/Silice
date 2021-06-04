@@ -4368,12 +4368,12 @@ void Algorithm::determineOutOfPipelineAssignments(
 
 // -------------------------------------------------
 
-void Algorithm::determineVariablesAndOutputsAccess(
+void Algorithm::determineAccess(
   antlr4::tree::ParseTree             *instr,
   const t_combinational_block_context *context,
-  std::unordered_set<std::string>& _already_written,
-  std::unordered_set<std::string>& _in_vars_read,
-  std::unordered_set<std::string>& _out_vars_written
+  std::unordered_set<std::string>&   _already_written,
+  std::unordered_set<std::string>&   _in_vars_read,
+  std::unordered_set<std::string>&   _out_vars_written
   )
 {
   std::unordered_set<std::string> read;
@@ -4411,7 +4411,7 @@ void Algorithm::determineVariablesAndOutputsAccess(
 
 // -------------------------------------------------
 
-void Algorithm::determineVariablesAndOutputsAccess(t_combinational_block *block)
+void Algorithm::determineAccess(t_combinational_block *block)
 {
   // determine variable access
   std::unordered_set<std::string> already_written;
@@ -4426,7 +4426,7 @@ void Algorithm::determineVariablesAndOutputsAccess(t_combinational_block *block)
     instr.push_back(block->while_loop()->test);
   }
   for (const auto& i : instr) {
-    determineVariablesAndOutputsAccess(i.instr, &block->context, already_written, block->in_vars_read, block->out_vars_written);
+    determineAccess(i.instr, &block->context, already_written, block->in_vars_read, block->out_vars_written);
   }
 }
 
@@ -4469,7 +4469,7 @@ void Algorithm::updateAccessFromBinding(const t_binding_nfo &b,
 
 // -------------------------------------------------
 
-void Algorithm::determineVariablesAndOutputsAccessForWires(
+void Algorithm::determineAccessForWires(
   std::unordered_set<std::string> &_global_in_read,
   std::unordered_set<std::string> &_global_out_written
 ) {
@@ -4504,7 +4504,7 @@ void Algorithm::determineVariablesAndOutputsAccessForWires(
       processed.insert(w);
       // add access based on wire expression
       std::unordered_set<std::string> _,in_read;
-      determineVariablesAndOutputsAccess(all_wires.at(w).instr, &all_wires.at(w).block->context, _, in_read, _global_out_written);
+      determineAccess(all_wires.at(w).instr, &all_wires.at(w).block->context, _, in_read, _global_out_written);
       // foreach read vio
       for (auto v : in_read) {
         // insert in global set
@@ -4524,7 +4524,7 @@ void Algorithm::determineVariablesAndOutputsAccessForWires(
 
 // -------------------------------------------------
 
-void Algorithm::determineVariablesAndOutputsAccess(
+void Algorithm::determineAccess(
   std::unordered_set<std::string>& _global_in_read,
   std::unordered_set<std::string>& _global_out_written
 )
@@ -4534,12 +4534,11 @@ void Algorithm::determineVariablesAndOutputsAccess(
     if (b->state_id == -1 && b->is_state) {
       continue; // block is never reached
     }
-
-    determineVariablesAndOutputsAccess(b);
+    determineAccess(b);
   }
   // determine variable access for always blocks
-  determineVariablesAndOutputsAccess(&m_AlwaysPre);
-  determineVariablesAndOutputsAccess(&m_AlwaysPost);
+  determineAccess(&m_AlwaysPre);
+  determineAccess(&m_AlwaysPost);
   // determine variable access due to algorithm and module instances
   // bindings are considered as belonging to the always pre block
   std::vector<t_binding_nfo> all_bindings;
@@ -4590,7 +4589,7 @@ void Algorithm::determineVariablesAndOutputsAccess(
     }
   }
   // determine variable access for wires
-  determineVariablesAndOutputsAccessForWires(_global_in_read, _global_out_written);
+  determineAccessForWires(_global_in_read, _global_out_written);
   // merge all in_reads and out_written
   auto all_blocks = m_Blocks;
   all_blocks.push_front(&m_AlwaysPre);
@@ -4603,7 +4602,7 @@ void Algorithm::determineVariablesAndOutputsAccess(
 
 // -------------------------------------------------
 
-void Algorithm::determineVariableAndOutputsUsage()
+void Algorithm::determineUsage()
 {
 
   // NOTE The notion of block here ignores combinational chains. For this reason this is only a 
@@ -4613,7 +4612,7 @@ void Algorithm::determineVariableAndOutputsUsage()
   // determine variables access
   std::unordered_set<std::string> global_in_read;
   std::unordered_set<std::string> global_out_written;
-  determineVariablesAndOutputsAccess(global_in_read, global_out_written);
+  determineAccess(global_in_read, global_out_written);
   // set and report
   const bool report = true;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
@@ -5075,7 +5074,7 @@ void Algorithm::optimize()
   // determine which VIO are assigned to wires
   determineModAlgBoundVIO();
   // analyze variables access 
-  determineVariableAndOutputsUsage();
+  determineUsage();
   // analyze instanced algorithms inputs
   analyzeInstancedAlgorithmsInputs();
 }
