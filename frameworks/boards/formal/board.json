@@ -1,0 +1,28 @@
+{
+  "name": "formal",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "",
+      "pins"      : [ 
+        {"set"    : "basic"}
+      ],
+      "builders": [
+        {
+          "builder" : "shell",
+          "command" : "formal.sh",
+          "description": "Run Symbiyosys and get useful results about your assertions"
+        }
+      ]
+    }
+  ],
+  "pins": {
+    "basic": [
+        {
+          "name": "leds",
+          "type": "uint8",
+          "io": "output"
+        }
+    ]
+  }
+}
