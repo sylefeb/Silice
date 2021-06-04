@@ -2695,6 +2695,7 @@ void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _i
 {
   _io.name = input->IDENTIFIER()->getText();
   _io.table_size = 0;
+  _io.source_interval = input->IDENTIFIER()->getSourceInterval();
   // type
   std::string is_group;
   gatherTypeNfo(input->type(), _io.type_nfo, _current, _context, is_group);
@@ -2714,6 +2715,7 @@ void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _i
 void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nfo& _io, t_combinational_block *_current, t_gather_context *_context)
 {
   if (output->declarationVar() != nullptr) {
+    _io.source_interval = output->declarationVar()->IDENTIFIER()->getSourceInterval();
     std::string is_group;
     gatherVarNfo(output->declarationVar(), _io, true, _current, _context, is_group);
     if (_io.type_nfo.base_type == Parameterized) {
@@ -2732,6 +2734,7 @@ void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nf
 
 void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io)
 {
+  _io.source_interval = inout->IDENTIFIER()->getSourceInterval();
   _io.name = inout->IDENTIFIER()->getText();
   _io.table_size = 0;
   splitType(inout->TYPE()->getText(), _io.type_nfo);
@@ -2777,6 +2780,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
     t_var_nfo vnfo;
     std::string is_group;
     gatherVarNfo(v->declarationVar(), vnfo, false, _current, _context,is_group);
+    vnfo.source_interval = iog->IDENTIFIER()[1]->getSourceInterval();
     // sameas?
     if (vnfo.type_nfo.base_type == Parameterized) {
       reportError(v->declarationVar()->IDENTIFIER()->getSymbol(), (int)v->declarationVar()->getStart()->getLine(),
@@ -2801,6 +2805,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
           "'%s' not in group '%s'", io->IDENTIFIER()->getText().c_str(), iog->defid->getText().c_str());
       }
       // add it where it belongs
+      // TODO: here, and everywhere below, these lists of assignment are ugly, and break if a member is added to t_var_nfo
       if (io->is_input != nullptr) {
         t_inout_nfo inp;
         inp.name = grpre + "_" + V->second.name;
@@ -2808,6 +2813,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
         inp.init_values = V->second.init_values;
         inp.do_not_initialize = V->second.do_not_initialize;
         inp.type_nfo = V->second.type_nfo;
+        inp.source_interval = V->second.source_interval;
         m_Inputs.emplace_back(inp);
         m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
       } else if (io->is_inout != nullptr) {
@@ -2817,6 +2823,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
         inp.init_values = V->second.init_values;
         inp.do_not_initialize = V->second.do_not_initialize;
         inp.type_nfo = V->second.type_nfo;
+        inp.source_interval = V->second.source_interval;
         inp.nolatch = (io->nolatch != nullptr);
         m_InOuts.emplace_back(inp);
         m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
@@ -2827,6 +2834,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
         oup.init_values = V->second.init_values;
         oup.do_not_initialize = V->second.do_not_initialize;
         oup.type_nfo = V->second.type_nfo;
+        oup.source_interval = V->second.source_interval;
         oup.combinational = (io->combinational != nullptr);
         m_Outputs.emplace_back(oup);
         m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
@@ -2841,6 +2849,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
         inp.table_size = v.second.table_size;
         inp.init_values = v.second.init_values;
         inp.do_not_initialize = v.second.do_not_initialize;
+        inp.source_interval = v.second.source_interval;
         inp.type_nfo = v.second.type_nfo;
         m_Inputs.emplace_back(inp);
         m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
@@ -2854,6 +2863,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
         oup.table_size = v.second.table_size;
         oup.init_values = v.second.init_values;
         oup.do_not_initialize = v.second.do_not_initialize;
+        oup.source_interval = v.second.source_interval;
         oup.type_nfo = v.second.type_nfo;
         oup.combinational = (iog->combinational != nullptr);
         m_Outputs.emplace_back(oup);
@@ -2885,6 +2895,7 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
     vnfo.type_nfo.width     = 0;
     vnfo.table_size         = 0;
     vnfo.do_not_initialize  = false;
+    vnfo.source_interval    = itrf->IDENTIFIER()[1]->getSourceInterval();
     if (vars.count(vnfo.name)) {
       reportError(io->IDENTIFIER()->getSymbol(), (int)io->getStart()->getLine(),
         "entry '%s' declared twice in interface definition '%s'",
@@ -2899,6 +2910,7 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
       inp.init_values       = vnfo.init_values;
       inp.type_nfo          = vnfo.type_nfo;
       inp.do_not_initialize = vnfo.do_not_initialize;
+      inp.source_interval   = vnfo.source_interval;
       m_Inputs.emplace_back(inp);
       m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
       m_Parameterized.push_back(inp.name);
@@ -2909,6 +2921,7 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
       inp.init_values       = vnfo.init_values;
       inp.type_nfo          = vnfo.type_nfo;
       inp.do_not_initialize = vnfo.do_not_initialize;
+      inp.source_interval   = vnfo.source_interval;
       inp.nolatch           = (io->nolatch != nullptr);
       m_InOuts.emplace_back(inp);
       m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
@@ -2920,6 +2933,7 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
       oup.init_values       = vnfo.init_values;
       oup.type_nfo          = vnfo.type_nfo;
       oup.do_not_initialize = vnfo.do_not_initialize;
+      oup.source_interval   = vnfo.source_interval;
       oup.combinational     = (io->combinational != nullptr);
       m_Outputs.emplace_back(oup);
       m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
@@ -6362,21 +6376,11 @@ void Algorithm::writeCombinationalStates(
     // close state
     out << "end" << nxl;
     // FSM report
-    if (m_FSMReportEnable) {
-      ExpressionLinter lint(this, ictx);
-      string file;
-      {
-        auto tk = lint.getToken(b->source_interval, true);
-        if (tk) {
-          std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
-          file = fl.first;
-        }
-      }
-      std::ofstream freport(m_FSMReportName, std::ios_base::app);
-      freport << m_Name << " ";
+    if (m_ReportingEnabled) {
+      std::ofstream freport(fsmReportName(), std::ios_base::app);
+      freport << ictx.instance_name << " ";
       freport << (m_OneHot ? b->state_id : toFSMState(b->state_id)) << " ";
-      auto tk = lint.getToken(b->source_interval, false);
-      freport << file << ' ' << lines.size() << ' ';
+      freport << ' ' << lines.size() << ' ';
       for (auto l : lines) {
         if (l[0] == l[1]) {
           freport << l[0] << " ";
@@ -6436,7 +6440,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
   }
   for (const auto &a : block->instructions) {
     // add to lines
-    if (m_FSMReportEnable) {
+    if (m_ReportingEnabled) {
       v2i lns = instructionLines(a.instr, ictx);
       if (lns != v2i(-1)) {
         _lines.insert(lns);
@@ -6623,7 +6627,7 @@ void Algorithm::writeStatelessBlockGraph(
       vector<t_vio_ff_usage> usage_branches;
       out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, &current->context, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
       // add to lines
-      if (m_FSMReportEnable) {
+      if (m_ReportingEnabled) {
         v2i lns = instructionLines(current->if_then_else()->test.instr, ictx);
         if (lns != v2i(-1)) {
           _lines.insert(lns);
@@ -6664,7 +6668,7 @@ void Algorithm::writeStatelessBlockGraph(
         if (!isidentifier) { throw Fatal("internal error (onehot switch)"); }
       }
       // add to lines
-      if (m_FSMReportEnable) {
+      if (m_ReportingEnabled) {
         v2i lns = instructionLines(current->switch_case()->test.instr, ictx);
         if (lns != v2i(-1)) {
           _lines.insert(lns);
@@ -6732,7 +6736,7 @@ void Algorithm::writeStatelessBlockGraph(
       out << "end" << nxl;
       mergeDependenciesInto(_dependencies, _post_dependencies);
       // add to lines
-      if (m_FSMReportEnable) {
+      if (m_ReportingEnabled) {
         v2i lns = instructionLines(current->while_loop()->test.instr, ictx);
         if (lns != v2i(-1)) {
           _lines.insert(lns);
@@ -7052,22 +7056,21 @@ void Algorithm::writeModuleMemory(std::string instance_name, std::ostream& out, 
 void Algorithm::writeAsModule(std::string instance_name, std::ostream &out)
 {
   t_instantiation_context ictx; // empty instantiation context
+  ictx.instance_name = instance_name;
   m_TopMost = true; // this is the topmost
-  if (!m_VIOReportName.empty()) {
-    // create report file, will delete if existing
-    std::ofstream freport(m_VIOReportName);
+  if (!m_ReportBaseName.empty()) {
+    // create report files, will delete if existing
+    std::ofstream freport_a(algReportName());
+    std::ofstream freport_v(vioReportName());
+    std::ofstream freport_f(fsmReportName());
   }
-  if (!m_FSMReportName.empty()) {
-    // create report file, will delete if existing
-    std::ofstream freport(m_FSMReportName);
-  }
-  writeAsModule(instance_name, out, ictx, true);
-  writeAsModule(instance_name, out, ictx, false);
+  writeAsModule(out, ictx, true);
+  writeAsModule(out, ictx, false);
 }
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx, bool first_pass)
+void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass)
 {
   if (first_pass) {
 
@@ -7076,14 +7079,25 @@ void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, cons
     // lint upon instantiation
     lint(ictx);
 
-    // activate FSM report?
-    m_FSMReportEnable = (!m_FSMReportName.empty());
+    // activate reporting?
+    m_ReportingEnabled = (!m_ReportBaseName.empty());
+    if (m_ReportingEnabled) {
+      // algorithm report
+      ExpressionLinter linter(this, ictx);
+      std::ofstream freport(algReportName(), std::ios_base::app);
+      sl_assert(!m_Blocks.empty());
+      auto tk = linter.getToken(m_Blocks.front()->source_interval);
+      if (tk) {
+        std::pair<std::string, int> fl = linter.getTokenSourceFileAndLine(tk);
+        freport << (ictx.instance_name.empty() ? "_main" : ictx.instance_name) << " " << m_Name << " " << fl.first << nxl;
+      }
+    }
 
     // first pass, discarded but used to fine tune detection of temporary VIOs
     {
       t_vio_ff_usage ff_usage;
       std::ofstream null;
-      writeAsModule(instance_name, null, ictx, ff_usage, first_pass);
+      writeAsModule(null, ictx, ff_usage, first_pass);
 
       // update usage based on first pass
       for (const auto &v : ff_usage.ff_usage) {
@@ -7131,13 +7145,15 @@ void Algorithm::writeAsModule(std::string instance_name, std::ostream &out, cons
     /// second pass, now that VIO usage is refined
 
     // turn reporting off in second pass
-    m_FSMReportEnable = false;
+    m_ReportingEnabled = false;
 
     t_vio_ff_usage ff_usage;
-    writeAsModule(instance_name, out, ictx, ff_usage, first_pass);
+    writeAsModule(out, ictx, ff_usage, first_pass);
 
     // output VIO report (if enabled)
-    outputVIOReport(instance_name, ictx);
+    if (!m_ReportBaseName.empty()) {
+      outputVIOReport(ictx);
+    }
 
   }
 
@@ -7169,13 +7185,13 @@ bool Algorithm::getVIONfo(std::string vio, t_var_nfo& _nfo) const
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool first_pass) const
+void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool first_pass) const
 {
   out << nxl;
 
   // write memory modules
   for (const auto& mem : m_Memories) {
-    writeModuleMemory(instance_name, out, mem);
+    writeModuleMemory(ictx.instance_name, out, mem);
   }
 
   // write instantiated algorithms
@@ -7210,11 +7226,12 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
       local_ictx.parameters[str_signed] = typeString(varType(bnfo,ictx));
     }
     // -> write instance
-    nfo.algo->writeAsModule(instance_name + "_" + nfo.instance_name, out, local_ictx, first_pass);
+    local_ictx.instance_name = ictx.instance_name + "_" + nfo.instance_name;
+    nfo.algo->writeAsModule(out, local_ictx, first_pass);
   }
 
   // module header
-  out << "module M_" << m_Name + (instance_name.empty() ? "" : ("_" + instance_name)) + ' ';
+  out << "module M_" << m_Name + (ictx.instance_name.empty() ? "" : ("_" + ictx.instance_name)) + ' ';
 
   // list ports names
   out << '(' << nxl;
@@ -7423,7 +7440,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &nfo = m_InstancedAlgorithms.at(iaiordr);
     // algorithm module
-    out << "M_" << nfo.algo_name << '_' << instance_name + '_' + nfo.instance_name << ' ';
+    out << "M_" << nfo.algo_name << '_' << ictx.instance_name + '_' + nfo.instance_name << ' ';
     // instance name
     out << nfo.instance_name << ' ';
     // ports
@@ -7503,7 +7520,7 @@ void Algorithm::writeAsModule(std::string instance_name,ostream& out, const t_in
   // memory instantiations (2/2)
   for (const auto& mem : m_Memories) {
     // module
-    out << memoryModuleName(instance_name,mem) << " __mem__" << mem.name << '(' << nxl;
+    out << memoryModuleName(ictx.instance_name,mem) << " __mem__" << mem.name << '(' << nxl;
     // clocks
     if (mem.clocks.empty()) {
       if (mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) {
@@ -7610,57 +7627,89 @@ void Algorithm::outputFSMGraph(std::string dotFile) const
 
 // -------------------------------------------------
 
-void Algorithm::outputVIOReport(
-  std::string instance_name, const t_instantiation_context &ictx) const
+void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
 {
-  if (m_VIOReportName.empty()) {
-    return;
-  }
-
   ExpressionLinter lint(this, ictx);
 
-  std::ofstream freport(m_VIOReportName, std::ios_base::app);
+  std::ofstream freport(vioReportName(), std::ios_base::app);
 
-  // freport << "====> algorithm " << m_Name << nxl;
+  freport << ictx.instance_name << " " << (m_Vars.size() + m_Outputs.size() + m_Inputs.size()) << " " << nxl;
   for (auto &v : m_Vars) {
-      auto tk = lint.getToken(v.source_interval);
-      if (tk) {
-        std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
-        freport << fl.first << " "
-          << tk->getText() << " "
-          << v.name << " " 
-          << fl.second << " "
-          ;
-        switch (v.usage) 
-        {
-        case e_Undetermined: freport << "undetermined #"; break;
-        case e_NotUsed:      freport << "notused #"; break;
-        case e_Const:        freport << "const " << FF_CST << '_' << v.name; break;
-        case e_Temporary:    freport << "temp " << FF_TMP << '_' << v.name; break;
-        case e_FlipFlop:     freport << "ff " << FF_D << '_' << v.name << ',' << FF_Q << '_' << v.name; break;
-        case e_Bound:        freport << "bound " << WIRE << '_' << v.name; break;
-        case e_Wire:         freport << "wire " << WIRE << '_' << v.name; break;
-        }
-        freport << nxl;
+    auto tk = lint.getToken(v.source_interval);
+    std::string tk_text = v.name;
+    int         tk_line = -1;
+    if (tk) {
+      std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+      tk_text = tk->getText();
+      tk_line = fl.second;
     }
+    freport
+      << tk_text << " "
+      << v.name << " "
+      << tk_line << " "
+      << "var "
+      ;
+    switch (v.usage) {
+    case e_Undetermined: freport << "undetermined #"; break;
+    case e_NotUsed:      freport << "notused #"; break;
+    case e_Const:        freport << "const " << FF_CST << '_' << v.name; break;
+    case e_Temporary:    freport << "temp " << FF_TMP << '_' << v.name; break;
+    case e_FlipFlop:     freport << "ff " << FF_D << '_' << v.name << ',' << FF_Q << '_' << v.name; break;
+    case e_Bound:        freport << "bound " << WIRE << '_' << v.name; break;
+    case e_Wire:         freport << "wire " << WIRE << '_' << v.name; break;
+    }
+    freport << nxl;
+  }
+  for (auto &v : m_Outputs) {
+    auto tk = lint.getToken(v.source_interval);
+    std::string tk_text = v.name;
+    int         tk_line = -1;
+    if (tk) {
+      std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+      tk_text = tk->getText();
+      tk_line = fl.second;
+    }
+    freport
+      << tk_text << " "
+      << v.name << " "
+      << tk_line << " "
+      << "output ";
+    switch (v.usage) {
+    case e_Undetermined: freport << "undetermined #"; break;
+    case e_NotUsed:      freport << "notused #"; break;
+    case e_Const:        freport << "const " << FF_CST << '_' << v.name; break;
+    case e_Temporary:    freport << "temp " << FF_TMP << '_' << v.name; break;
+    case e_FlipFlop:     freport << "ff " << FF_D << '_' << v.name << ',' << FF_Q << '_' << v.name; break;
+    case e_Bound:        freport << "bound " << WIRE << '_' << v.name; break;
+    case e_Wire:         freport << "wire " << WIRE << '_' << v.name; break;
+    }
+    freport << nxl;
+  }
+  for (auto &v : m_Inputs) {
+    auto tk = lint.getToken(v.source_interval);
+    std::string tk_text = v.name;
+    int         tk_line = -1;
+    if (tk) {
+      std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+      tk_text = tk->getText();
+      tk_line = fl.second;
+    }
+    freport
+      << tk_text << " "
+      << v.name << " "
+      << tk_line << " "
+      << "input wire " << ALG_INPUT << '_' << v.name;
+    freport << nxl;
   }
 }
 
 // -------------------------------------------------
 
-void Algorithm::enableVIOReport(std::string reportname)
+void Algorithm::enableReporting(std::string reportname)
 { 
-  m_VIOReportName = reportname;
+  m_ReportBaseName = reportname;
   for (auto alg : m_InstancedAlgorithms) {
-    alg.second.algo->enableVIOReport(reportname);
-  }
-}
-
-void Algorithm::enableFSMReport(std::string reportname)
-{
-  m_FSMReportName = reportname;
-  for (auto alg : m_InstancedAlgorithms) {
-    alg.second.algo->enableFSMReport(reportname);
+    alg.second.algo->enableReporting(reportname);
   }
 }
 

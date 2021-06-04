@@ -637,17 +637,20 @@ private:
     int m_NextBlockName = 1;
     /// \brief indicates whether this algorithm is the topmost in the design
     bool m_TopMost      = false;
-    /// \brief indicates whether a VIO report has to be generated and what the filename is (empty means none)
-    std::string m_VIOReportName;
     /// \brief indicates whether a FSM report has to be generated and what the filename is (empty means none)
-    std::string m_FSMReportName;
+    std::string m_ReportBaseName;
     /// \brief internally set to true when the report has to be written
-    bool        m_FSMReportEnable;
+    bool        m_ReportingEnabled;
+
+    std::string fsmReportName() const { return m_ReportBaseName  + ".fsm.log"; }
+    std::string vioReportName() const { return m_ReportBaseName + ".vio.log"; }
+    std::string algReportName() const { return m_ReportBaseName + ".alg.log"; }
 
   public:
 
     /// \brief information about instantiation (public for linter)
     typedef struct {
+      std::string                                  instance_name;
       std::unordered_map<std::string, std::string> parameters;
     } t_instantiation_context;
 
@@ -1068,19 +1071,16 @@ private:
     /// \brief prepare replacements for a memory module template
     void prepareModuleMemoryTemplateReplacements(std::string instance_name, const t_mem_nfo& bram, std::unordered_map<std::string, std::string>& _replacements) const;
     /// \brief writes the algorithm as a Verilog module, recurses through instanced algorithms
-    void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context &ictx, bool first_pass);
+    void writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass);
     /// \brief writes the algorithm as a Verilog module, calls the version above twice in a two pass optimization process
-    void writeAsModule(std::string instance_name, std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage, bool do_lint) const;
+    void writeAsModule(std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage, bool do_lint) const;
     /// \brief outputs a report on the VIOs in the algorithm
-    void outputVIOReport(std::string instance_name, const t_instantiation_context &ictx) const;
+    void outputVIOReport(const t_instantiation_context &ictx) const;
 
   public:
 
-    /// \brief asks for a VIO report to be generated
-    void enableVIOReport(std::string reportname);
-
-    /// \brief asks for an FSM report to be generated
-    void enableFSMReport(std::string reportname);
+    /// \brief asks reports to be generated
+    void enableReporting(std::string reportname);
 
     /// \brief writes a topmost algorithm as a Verilog module, recurses through instanced algorithms
     void writeAsModule(std::string instance_name,std::ostream& out);
