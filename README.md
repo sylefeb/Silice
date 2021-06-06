@@ -20,7 +20,7 @@
 
 ## What is Silice?
 
-*Silice* simplifies prototyping algorithms on FPGAs. It provides a comfortable yet thin abstraction above *Verilog* (a typical hardware description language), simplifying design without loosing precise control over the hardware. It provides "quality of life" features to group signals, define generic interfaces and circuitries, instantiate block RAMs, describe pipelines, deal with multiple clock domains and automatically manage flip-flops. 
+*Silice* simplifies prototyping and implementing algorithms on FPGAs. It provides a comfortable yet thin abstraction above *Verilog* (a typical hardware description language), simplifying design without loosing precise control over the hardware. It provides "quality of life" features to group signals, define generic interfaces and circuitries, instantiate block RAMs, describe pipelines, deal with multiple clock domains and automatically manage flip-flops. 
 It gives the (optional) ability to write parts of your design as sequences of operations, subroutines that can be called, and to use control flow statements such as while and break, describing operations and algorithms that run in parallel and are precisely in sync.
 Silice detects combinatorial loops and many other error-prone cases, and features a Lua-preprocessor enabling advanced code generation.
 
