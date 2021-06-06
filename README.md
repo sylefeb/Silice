@@ -20,9 +20,13 @@
 
 ## What is Silice?
 
-*Silice* simplifies prototyping algorithms on FPGAs. It provides a comfortable yet thin abstraction above *Verilog* (a typical hardware description language), simplifying design without loosing precise control over the hardware. It gives the (optional) ability to write parts of your design as sequences of operations, subroutines that can be called, and to use control flow statements such as *while* and *break*. At the same time, Silice lets you fully exploit the parallelism of FPGA architectures, describing operations and algorithms that run in parallel and are precisely in sync.
+*Silice* simplifies prototyping algorithms on FPGAs. It provides a comfortable yet thin abstraction above *Verilog* (a typical hardware description language), simplifying design without loosing precise control over the hardware. It provides "quality of life" features to group signals, define generic interfaces and circuitries, deal with multiple clock domains and automatically manage flip-flops. 
+It gives the (optional) ability to write parts of your design as sequences of operations, subroutines that can be called, and to use control flow statements such as while and break, describing operations and algorithms that run in parallel and are precisely in sync.
+Silice detects combinatorial loops and many other error-prone cases, and features a Lua-preprocessor enabling advanced code generation.
 
-Silice does not aim to be a high level synthesis language: it *remains close to the hardware*. When designing hardware with Silice you remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when execution states appear, how flip-flops map to variables, and what gets registered or not. Clock domains are also exposed. In fact, if you chose so you can design in a way that is very similar to Verilog, while still benefiting from the syntax of Silice. This allows you to refine an initial prototype from concept to efficient implementation. 
+Silice does not aim to be a high level synthesis language: it *remains close to the hardware* and lets you fully exploit FPGA architectures, with a fine grain control on how your design maps to the hardware: You remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when execution states appear, how flip-flops map to variables, and what gets registered or not. In fact, if you chose so you can design in a way that is very similar to Verilog, while still benefiting from the "quality of life" improvements of Silice syntax. 
+This allows to refine an initial prototype from concept to efficient implementation. 
+
 Silice compiles to and inter-operates with Verilog: you can directly instantiate and bind with existing modules.
 
 You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 and ECP5 examples](projects/README.md).
