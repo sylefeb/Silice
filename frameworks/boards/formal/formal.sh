@@ -134,7 +134,7 @@ if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
 match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
   build_v = "build.v"
 
-  split($3, n, /formal_/)
+  gsub(/formal_/, "", $3)
   gsub(/[0-9]+\.[0-9]+-/, "", gr[2])
   gsub(/\.[0-9]+/, "", gr[2])
 
@@ -149,14 +149,21 @@ match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
   }
   close(build_v)
 
-  print "* " sprintf("%" LEN "-s", n[1] n[2]) gr[1] gr[2]
+  print "* " sprintf("%" LEN "-s", $3) gr[1] gr[2]
+  next
+}
+match($0, /(Writing trace to VCD file: )(.*)$/, gr) {
+  gsub(/(\[|\])/, "", $3)
+  gr[2] = PWD "/" $3 "/" gr[2]
+
+  print "  " sprintf("%" LEN "-s", "") gr[1] gr[2]
 }
 match($0, /(Assumptions are unsatisfiable!)$/, gr) {
-  split($3, n, /formal_/)
+  gsub(/formal_/, "", $3)
 
-  print "* " sprintf("%" LEN "-s", n[1] n[2]) gr[1]
+  print "* " sprintf("%" LEN "-s", $3) gr[1]
 }
     '
-    awk -v LEN=$MAX_LENGTH "$AWKSCRIPT" < logfile.txt
+    awk -v LEN=$MAX_LENGTH -v PWD="$PWD" "$AWKSCRIPT" < logfile.txt
     exit 1
 fi
