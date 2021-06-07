@@ -5,7 +5,7 @@
       "name"      : "configurable",
       "framework" : "",
       "pins"      : [ 
-        {"set"    : "basic"}
+        {"set"    : "basic", "define" : "FORMAL=1"}
       ],
       "builders": [
         {
