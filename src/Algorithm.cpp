@@ -2758,6 +2758,24 @@ void Algorithm::gatherIoDef(siliceParser::IoDefContext *iod, t_combinational_blo
 
 // -------------------------------------------------
 
+template <typename T>
+void var_nfo_copy(T& _dst,const Algorithm::t_var_nfo &src)
+{
+  _dst.name = src.name;
+  _dst.type_nfo = src.type_nfo;
+  _dst.init_values = src.init_values;
+  _dst.table_size = src.table_size;
+  _dst.do_not_initialize = src.do_not_initialize;
+  _dst.init_at_startup = src.init_at_startup;
+  _dst.pipeline_prev_name = src.pipeline_prev_name;
+  _dst.access = src.access;
+  _dst.usage = src.usage;
+  _dst.attribs = src.attribs;
+  _dst.source_interval = src.source_interval;
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_block *_current, t_gather_context *_context)
 {
   // find group declaration
@@ -2805,36 +2823,23 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
           "'%s' not in group '%s'", io->IDENTIFIER()->getText().c_str(), iog->defid->getText().c_str());
       }
       // add it where it belongs
-      // TODO: here, and everywhere below, these lists of assignment are ugly, and break if a member is added to t_var_nfo
       if (io->is_input != nullptr) {
         t_inout_nfo inp;
+        var_nfo_copy(inp, V->second);
         inp.name = grpre + "_" + V->second.name;
-        inp.table_size = V->second.table_size;
-        inp.init_values = V->second.init_values;
-        inp.do_not_initialize = V->second.do_not_initialize;
-        inp.type_nfo = V->second.type_nfo;
-        inp.source_interval = V->second.source_interval;
         m_Inputs.emplace_back(inp);
         m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
       } else if (io->is_inout != nullptr) {
         t_inout_nfo inp;
+        var_nfo_copy(inp, V->second);
         inp.name = grpre + "_" + V->second.name;
-        inp.table_size = V->second.table_size;
-        inp.init_values = V->second.init_values;
-        inp.do_not_initialize = V->second.do_not_initialize;
-        inp.type_nfo = V->second.type_nfo;
-        inp.source_interval = V->second.source_interval;
         inp.nolatch = (io->nolatch != nullptr);
         m_InOuts.emplace_back(inp);
         m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
       } else if (io->is_output != nullptr) {
         t_output_nfo oup;
+        var_nfo_copy(oup, V->second);
         oup.name = grpre + "_" + V->second.name;
-        oup.table_size = V->second.table_size;
-        oup.init_values = V->second.init_values;
-        oup.do_not_initialize = V->second.do_not_initialize;
-        oup.type_nfo = V->second.type_nfo;
-        oup.source_interval = V->second.source_interval;
         oup.combinational = (io->combinational != nullptr);
         m_Outputs.emplace_back(oup);
         m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
@@ -2845,12 +2850,8 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
       // all input
       for (auto v : vars) {
         t_inout_nfo inp;
+        var_nfo_copy(inp, v.second);
         inp.name = grpre + "_" + v.second.name;
-        inp.table_size = v.second.table_size;
-        inp.init_values = v.second.init_values;
-        inp.do_not_initialize = v.second.do_not_initialize;
-        inp.source_interval = v.second.source_interval;
-        inp.type_nfo = v.second.type_nfo;
         m_Inputs.emplace_back(inp);
         m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
       }
@@ -2859,12 +2860,8 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
       // all output
       for (auto v : vars) {
         t_output_nfo oup;
+        var_nfo_copy(oup, v.second);
         oup.name = grpre + "_" + v.second.name;
-        oup.table_size = v.second.table_size;
-        oup.init_values = v.second.init_values;
-        oup.do_not_initialize = v.second.do_not_initialize;
-        oup.source_interval = v.second.source_interval;
-        oup.type_nfo = v.second.type_nfo;
         oup.combinational = (iog->combinational != nullptr);
         m_Outputs.emplace_back(oup);
         m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
@@ -2905,35 +2902,23 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
     // add it where it belongs
     if (io->is_input != nullptr) {
       t_inout_nfo inp;
+      var_nfo_copy(inp, vnfo);
       inp.name              = grpre + "_" + vnfo.name;
-      inp.table_size        = vnfo.table_size;
-      inp.init_values       = vnfo.init_values;
-      inp.type_nfo          = vnfo.type_nfo;
-      inp.do_not_initialize = vnfo.do_not_initialize;
-      inp.source_interval   = vnfo.source_interval;
       m_Inputs.emplace_back(inp);
       m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
       m_Parameterized.push_back(inp.name);
     } else if (io->is_inout != nullptr) {
       t_inout_nfo inp;
+      var_nfo_copy(inp, vnfo);
       inp.name              = grpre + "_" + vnfo.name;
-      inp.table_size        = vnfo.table_size;
-      inp.init_values       = vnfo.init_values;
-      inp.type_nfo          = vnfo.type_nfo;
-      inp.do_not_initialize = vnfo.do_not_initialize;
-      inp.source_interval   = vnfo.source_interval;
       inp.nolatch           = (io->nolatch != nullptr);
       m_InOuts.emplace_back(inp);
       m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
       m_Parameterized.push_back(inp.name);
     } else if (io->is_output != nullptr) {
       t_output_nfo oup;
+      var_nfo_copy(oup, vnfo);
       oup.name              = grpre + "_" + vnfo.name;
-      oup.table_size        = vnfo.table_size;
-      oup.init_values       = vnfo.init_values;
-      oup.type_nfo          = vnfo.type_nfo;
-      oup.do_not_initialize = vnfo.do_not_initialize;
-      oup.source_interval   = vnfo.source_interval;
       oup.combinational     = (io->combinational != nullptr);
       m_Outputs.emplace_back(oup);
       m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
@@ -6058,12 +6043,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
   }
   if (!hasNoFSM()) {
-
     std::string init_cond = reset + (" | ~" ALG_INPUT "_" ALG_RUN);
-
-    // _q_index <= reset ? TERM : ((~in_run|autorun) ? 0 : _d_index);
-    // autorun  <= reset ? 1 : 0;
-
     // state machine index
     out << FF_Q << prefix << ALG_IDX " <= " << reset << " ? " << toFSMState(terminationState()) << " : ";
     if (m_AutoRun) {
