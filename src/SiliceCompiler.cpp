@@ -332,7 +332,7 @@ void SiliceCompiler::run(
         for (auto const &[algname, alg] : m_Algorithms) {
           if (alg->isFormal()) {
             alg->enableReporting(fresult);
-            alg->writeAsModule("formal", out);
+            alg->writeAsModule("formal_" + algname + "$", out);
           }
         }
       }

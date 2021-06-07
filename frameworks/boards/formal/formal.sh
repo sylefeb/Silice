@@ -36,7 +36,7 @@ silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}
 
 
 if ! [[ -f build.v.alg.log ]]; then
-    >&2 echo "File '$PWD/formal.log' not found. Did the compiler generate one?"
+    >&2 echo "File '$PWD/build.v.alg.log' not found. Did the compiler generate one?"
     exit 1
 fi
 
@@ -61,7 +61,7 @@ touch formal.sby
 I=0
 echo "[tasks]" > formal.sby
 while IFS= read -r LOG; do
-    awk '$2 == "formal" { print $4 " task" $1 }' <<< "$I $LOG" >> formal.sby
+    awk '$2 ~ /^formal/ { print $4 " task" $1 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
@@ -74,10 +74,10 @@ timeout 120
 wait on" >> formal.sby
 while IFS= read -r LOG; do
     SMTC_FILENAME=$(cut -d' ' -f3 <<< "$LOG")
-    if [ "$(cut -d' ' -f1 <<< "$LOG")" == "formal" ]; then
+    if [[ "$(cut -d' ' -f1 <<< "$LOG")" =~ ^formal(.*) ]]; then
        echo "$SMTC" > "$SMTC_FILENAME.smtc"
     fi
-    awk '$2 == "formal" { print "task" $1 ": smtc " $4 ".smtc" }' <<< "$I $LOG" >> formal.sby
+    awk '$2 ~ /^formal/ { print "task" $1 ": smtc " $4 ".smtc" }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
@@ -91,7 +91,7 @@ echo "
 read_verilog -formal build.v
 " >> formal.sby
 while IFS= read -r LOG; do
-    awk '$2 == "formal" { print "task" $1 ": prep -top M_" $4 "_" $2 }' <<< "$I $LOG" >> formal.sby
+    awk '$2 ~ /^formal/ { print "task" $1 ": prep -top M_" $4 "_" $2 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
