@@ -6377,7 +6377,7 @@ void Algorithm::writeCombinationalStates(
     // FSM report
     if (m_ReportingEnabled) {
       std::ofstream freport(fsmReportName(), std::ios_base::app);
-      freport << ictx.instance_name << " ";
+      freport << (ictx.instance_name.empty() ? "__main" : ictx.instance_name) << " ";
       freport << (m_OneHot ? b->state_id : toFSMState(b->state_id)) << " ";
       freport << ' ' << lines.size() << ' ';
       for (auto l : lines) {
@@ -7636,7 +7636,7 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
 
   std::ofstream freport(vioReportName(), std::ios_base::app);
 
-  freport << ictx.instance_name << " " << (m_Vars.size() + m_Outputs.size() + m_Inputs.size()) << " " << nxl;
+  freport << (ictx.instance_name.empty()?"__main":ictx.instance_name) << " " << (m_Vars.size() + m_Outputs.size() + m_Inputs.size()) << " " << nxl;
   for (auto &v : m_Vars) {
     auto tk = lint.getToken(v.source_interval);
     std::string tk_text = v.name;
