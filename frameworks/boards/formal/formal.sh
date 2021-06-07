@@ -35,12 +35,12 @@ rm -r formal* *.smtc  # formal.log formal.sby *.smtc formal_*/
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
 
-if ! [[ -f formal.log ]]; then
+if ! [[ -f build.v.alg.log ]]; then
     >&2 echo "File '$PWD/formal.log' not found. Did the compiler generate one?"
     exit 1
 fi
 
-LOG_LINES="$(cat formal.log)"
+LOG_LINES="$(cat build.v.alg.log)"
 LOG_LINES="$(sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;ba' -e '}' <<< "$LOG_LINES")"
 # adaptated from: https://unix.stackexchange.com/a/552195
 # Remove empty lines at the beginning and end of the string
@@ -61,7 +61,7 @@ touch formal.sby
 I=0
 echo "[tasks]" > formal.sby
 while IFS= read -r LOG; do
-    awk '{ print $2 " task" $1 }' <<< "$I $LOG" >> formal.sby
+    awk '$2 == "formal" { print $4 " task" $1 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
@@ -73,9 +73,11 @@ depth 50
 timeout 120
 wait on" >> formal.sby
 while IFS= read -r LOG; do
-    SMTC_FILENAME=$(cut -d' ' -f1 <<< "$LOG")
-    echo "$SMTC" > "$SMTC_FILENAME.smtc"
-    awk '{ print "task" $1 ": smtc " $2 ".smtc" }' <<< "$I $LOG" >> formal.sby
+    SMTC_FILENAME=$(cut -d' ' -f3 <<< "$LOG")
+    if [ "$(cut -d' ' -f1 <<< "$LOG")" == "formal" ]; then
+       echo "$SMTC" > "$SMTC_FILENAME.smtc"
+    fi
+    awk '$2 == "formal" { print "task" $1 ": smtc " $4 ".smtc" }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
@@ -89,7 +91,7 @@ echo "
 read_verilog -formal build.v
 " >> formal.sby
 while IFS= read -r LOG; do
-    awk '{ print "task" $1 ": prep -top " $3 }' <<< "$I $LOG" >> formal.sby
+    awk '$2 == "formal" { print "task" $1 ": prep -top M_" $4 "_" $2 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
@@ -121,7 +123,9 @@ match($0, /Status: (failed|passed|PREUNSAT)/, gr) {
 { printf "" }
 '
 
-if sby -f formal.sby | tee logfile.txt | awk -v LEN=$MAX_LENGTH "$AWKSCRIPT"; then
+sby -f formal.sby | tee logfile.txt | awk -v LEN=$MAX_LENGTH "$AWKSCRIPT"
+# Because we're piping, we need to check if the status of the pipe is not ok.
+if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
     echo ""
     echo "---< Results >---"
     AWKSCRIPT='
