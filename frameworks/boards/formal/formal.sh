@@ -61,7 +61,7 @@ touch formal.sby
 I=0
 echo "[tasks]" > formal.sby
 while IFS= read -r LOG; do
-    awk '$2 ~ /^formal/ { print $4 " task" $1 }' <<< "$I $LOG" >> formal.sby
+    awk '$2 ~ /^formal(.*?)\$$/ { print $4 " task" $1 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
@@ -73,11 +73,13 @@ depth 50
 timeout 120
 wait on" >> formal.sby
 while IFS= read -r LOG; do
-    SMTC_FILENAME=$(cut -d' ' -f3 <<< "$LOG")
-    if [[ "$(cut -d' ' -f1 <<< "$LOG")" =~ ^formal(.*) ]]; then
-       echo "$SMTC" > "$SMTC_FILENAME.smtc"
-    fi
-    awk '$2 ~ /^formal/ { print "task" $1 ": smtc " $4 ".smtc" }' <<< "$I $LOG" >> formal.sby
+    awk -v SMTC="$SMTC" '
+$2 ~ /^formal(.*?)\$$/ {
+   SMTC_NAME=$4 ".smtc"
+
+   print "task" $1 ": smtc " $4 ".smtc"
+   print SMTC >SMTC_NAME
+}' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
@@ -91,7 +93,7 @@ echo "
 read_verilog -formal build.v
 " >> formal.sby
 while IFS= read -r LOG; do
-    awk '$2 ~ /^formal/ { print "task" $1 ": prep -top M_" $4 "_" $2 }' <<< "$I $LOG" >> formal.sby
+    awk '$2 ~ /^formal(.*?)\$$/ { print "task" $1 ": prep -top M_" $4 "_" $2 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
