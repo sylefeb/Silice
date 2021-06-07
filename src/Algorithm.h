@@ -117,6 +117,9 @@ namespace Silice
     /// \brief algorithm name
     std::string m_Name;
 
+    /// \brief is the algorithm supposed to be for formal verification?
+    bool m_hasHash;
+
     /// \brief algorithm clock
     std::string m_Clock = ALG_CLOCK;
 
@@ -988,7 +991,7 @@ private:
 
     /// \brief constructor
     Algorithm(
-      std::string name,
+      std::string name, bool hasHash,
       std::string clock, std::string reset,
       bool autorun, bool onehot,
       const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
@@ -1169,6 +1172,9 @@ private:
     {
       s_LuaPreProcessor = lpp;
     }
+
+    // check whether an algorithm is used for formal verification or not
+    bool isFormal() { return m_hasHash; }
 
   };
 

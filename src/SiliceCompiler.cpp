@@ -92,6 +92,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     bool onehot = false;
     std::string clock = ALG_CLOCK;
     std::string reset = ALG_RESET;
+    bool hasHash = alg->HASH() != nullptr;
     if (alg->algModifiers() != nullptr) {
       for (auto m : alg->algModifiers()->algModifier()) {
         if (m->sclock() != nullptr) {
@@ -112,7 +113,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
       }
     }
     AutoPtr<Algorithm> algorithm(new Algorithm(
-      name, clock, reset, autorun, onehot,
+      name, hasHash, clock, reset, autorun, onehot,
       m_Modules, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
     );
     if (m_Algorithms.find(name) != m_Algorithms.end()) {
@@ -322,11 +323,18 @@ void SiliceCompiler::run(
           auto m = m_Modules.at(miordr);
           m->writeModule(out);
         }
+
         // ask for reports
         m_Algorithms["main"]->enableReporting(fresult);
         // write top algorithm (recurses from there)
         m_Algorithms["main"]->writeAsModule("",out);
 
+        for (auto const &[algname, alg] : m_Algorithms) {
+          if (alg->isFormal()) {
+            alg->enableReporting(fresult);
+            alg->writeAsModule("formal", out);
+          }
+        }
       }
     
     } catch (Algorithm::LanguageError& le) {

@@ -4826,7 +4826,7 @@ void Algorithm::analyzeInstancedAlgorithmsInputs()
 // -------------------------------------------------
 
 Algorithm::Algorithm(
-  std::string name, 
+  std::string name, bool hasHash,
   std::string clock, std::string reset, 
   bool autorun, bool onehot,
   const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
@@ -4836,7 +4836,7 @@ Algorithm::Algorithm(
   const std::unordered_map<std::string, siliceParser::IntrfaceContext *>&  known_interfaces,
   const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield
 )
-  : m_Name(name), m_Clock(clock), m_Reset(reset), 
+  : m_Name(name), m_hasHash(hasHash), m_Clock(clock), m_Reset(reset),
     m_AutoRun(autorun), m_OneHot(onehot), 
   m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), 
   m_KnownCircuitries(known_circuitries), m_KnownGroups(known_groups), 
@@ -7240,7 +7240,7 @@ void Algorithm::writeAsModule(std::string instance_name, std::ostream &out)
   t_instantiation_context ictx; // empty instantiation context
   ictx.instance_name = instance_name;
   m_TopMost = true; // this is the topmost
-  if (!m_ReportBaseName.empty()) {
+  if (!m_ReportBaseName.empty() && !m_hasHash) {
     // create report files, will delete if existing
     std::ofstream freport_a(algReportName());
     std::ofstream freport_v(vioReportName());

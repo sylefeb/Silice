@@ -433,7 +433,7 @@ circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' block ;
 
 /* -- Algorithm -- */
 
-algorithm           : 'algorithm' IDENTIFIER '(' inOutList ')' algModifiers? '{' declAndInstrList '}' ;
+algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' algModifiers? '{' declAndInstrList '}' ;
 
 /* -- Overall structure -- */
 
