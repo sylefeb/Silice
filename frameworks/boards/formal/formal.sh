@@ -117,14 +117,25 @@ fi
 echo "---< Running Symbiyosys >---"
 
 AWKSCRIPT='
+BEGIN {
+  TOLEFT = "\033[0G\033[0K\033[0m"
+}
 match($0, /Status: (failed|passed|PREUNSAT)/, gr) {
   gsub(/formal_/, "", $3)
   gsub("PREUNSAT", "failed", gr[1])
-  print "* " sprintf("%" LEN "-s", $3) gr[1]
+
+  print TOLEFT "* " sprintf("%" LEN "-s", $3) ((gr[1] == "passed") ? "\033[32m" gr[1] : "\033[31m" gr[1]) "\033[0m"
+  next
 };
 $0 ~ /Reached TIMEOUT/ {
   gsub(/formal_/, "", $3)
-  print "* " sprintf("%" LEN "-s", $3) "timeout"
+  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[33mtimeout\033[0m"
+}
+$5 == "##" {
+  gsub(/formal_/, "", $3)
+  printf "%s", TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[34m"
+  for (i = 7; i <= NF; i++)
+    printf "%s", $i " "
 }
 { printf "" }
 '
@@ -133,7 +144,7 @@ sby -f formal.sby | tee logfile.txt | awk -v LEN=$MAX_LENGTH "$AWKSCRIPT"
 # Because we're piping, we need to check if the status of the pipe is not ok.
 if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
     echo ""
-    echo "---< Results >---"
+    echo "---<       Results      >---"
     AWKSCRIPT='
 match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
   build_v = "build.v"
