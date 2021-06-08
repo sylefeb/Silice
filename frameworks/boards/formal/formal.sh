@@ -85,7 +85,7 @@ done <<< "$LOG_LINES"
 
 echo "
 [engines]
-smtbmc --stbv --syn z3" >> formal.sby
+smtbmc --stbv --progress yices" >> formal.sby
 
 I=0
 echo "
