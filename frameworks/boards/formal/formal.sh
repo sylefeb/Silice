@@ -118,10 +118,14 @@ echo "---< Running Symbiyosys >---"
 
 AWKSCRIPT='
 match($0, /Status: (failed|passed|PREUNSAT)/, gr) {
-  split($3, n, /formal_/)
+  gsub(/formal_/, "", $3)
   gsub("PREUNSAT", "failed", gr[1])
-  print "* " sprintf("%" LEN "-s", n[1] n[2]) gr[1]
+  print "* " sprintf("%" LEN "-s", $3) gr[1]
 };
+$0 ~ /Reached TIMEOUT/ {
+  gsub(/formal_/, "", $3)
+  print "* " sprintf("%" LEN "-s", $3) "timeout"
+}
 { printf "" }
 '
 
@@ -162,6 +166,11 @@ match($0, /(Assumptions are unsatisfiable!)$/, gr) {
   gsub(/formal_/, "", $3)
 
   print "* " sprintf("%" LEN "-s", $3) gr[1]
+}
+match($0, /Reached TIMEOUT \((.*?)\)\./, gr) {
+  gsub(/formal_/, "", $3)
+
+  print "* " sprintf("%" LEN "-s", $3) "Timed out after " gr[1]
 }
     '
     awk -v LEN=$MAX_LENGTH -v PWD="$PWD" "$AWKSCRIPT" < logfile.txt
