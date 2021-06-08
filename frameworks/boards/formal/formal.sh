@@ -164,24 +164,24 @@ match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
   }
   close(build_v)
 
-  print "* " sprintf("%" LEN "-s", $3) gr[1] gr[2]
+  print "* " sprintf("%" LEN "-s", $3) "\033[31m" gr[1] gr[2] "\033[0m"
   next
 }
 match($0, /(Writing trace to VCD file: )(.*)$/, gr) {
   gsub(/(\[|\])/, "", $3)
   gr[2] = PWD "/" $3 "/" gr[2]
 
-  print "  " sprintf("%" LEN "-s", "") gr[1] gr[2]
+  print "  " sprintf("%" LEN "-s", "") "\033[31m" r[1] gr[2] "\033[0m"
 }
 match($0, /(Assumptions are unsatisfiable!)$/, gr) {
   gsub(/formal_/, "", $3)
 
-  print "* " sprintf("%" LEN "-s", $3) gr[1]
+  print "* " sprintf("%" LEN "-s", $3) "\033[31m" gr[1] "\033[0m"
 }
 match($0, /Reached TIMEOUT \((.*?)\)\./, gr) {
   gsub(/formal_/, "", $3)
 
-  print "* " sprintf("%" LEN "-s", $3) "Timed out after " gr[1]
+  print "* " sprintf("%" LEN "-s", $3) "\033[33mTimed out after " gr[1] "\033[0m"
 }
     '
     awk -v LEN=$MAX_LENGTH -v PWD="$PWD" "$AWKSCRIPT" < logfile.txt
