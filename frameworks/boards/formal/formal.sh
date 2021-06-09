@@ -75,7 +75,7 @@ while IFS= read -r LOG; do
 $2 ~ /^formal(.*?)\$$/ {
    SMTC_NAME=$4 ".smtc"
 
-   print "task" $1 ":\n  smtc " $4 ".smtc\ndepth " $6 "\ntimeout " $7
+   print "task" $1 ":\n  smtc " $4 ".smtc\n  depth " $6 "\n  timeout " $7
    print SMTC >SMTC_NAME
 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
