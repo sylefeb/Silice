@@ -132,6 +132,12 @@ namespace Silice
     /// \brief whether algorithm uses onehot state encoding
     bool m_OneHot = false;
 
+    /// \brief specified depth to use for the formal verification
+    std::string m_FormalDepth = "";
+
+    /// \brief specified timeout for the formal verification
+    std::string m_FormalTimeout = "";
+
     /// \brief Set of known modules
     const std::unordered_map<std::string, AutoPtr<Module> >& m_KnownModules;
     /// \brief Set of known subroutines
@@ -993,7 +999,7 @@ private:
     Algorithm(
       std::string name, bool hasHash,
       std::string clock, std::string reset,
-      bool autorun, bool onehot,
+      bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout,
       const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
       const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
       const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,

@@ -90,6 +90,8 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     std::cerr << "parsing algorithm " << name << nxl;
     bool autorun = (name == "main");
     bool onehot = false;
+    std::string formalDepth = "";
+    std::string formalTimeout = "";
     std::string clock = ALG_CLOCK;
     std::string reset = ALG_RESET;
     bool hasHash = alg->HASH() != nullptr;
@@ -110,10 +112,16 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
         if (m->sstacksz() != nullptr) {
           // deprecated, ignore
         }
+        if (m->sformdepth() != nullptr) {
+          formalDepth = m->sformdepth()->NUMBER()->getText();
+        }
+        if (m->sformtimeout() != nullptr) {
+          formalTimeout = m->sformtimeout()->NUMBER()->getText();
+        }
       }
     }
     AutoPtr<Algorithm> algorithm(new Algorithm(
-      name, hasHash, clock, reset, autorun, onehot,
+      name, hasHash, clock, reset, autorun, onehot, formalDepth, formalTimeout,
       m_Modules, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
     );
     if (m_Algorithms.find(name) != m_Algorithms.end()) {
