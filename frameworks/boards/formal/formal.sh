@@ -69,23 +69,22 @@ I=0
 echo "
 [options]
 mode bmc
-depth 50
-timeout 120
 wait on" >> formal.sby
 while IFS= read -r LOG; do
     awk -v SMTC="$SMTC" '
 $2 ~ /^formal(.*?)\$$/ {
    SMTC_NAME=$4 ".smtc"
 
-   print "task" $1 ": smtc " $4 ".smtc"
+   print "task" $1 ":\n  smtc " $4 ".smtc\ndepth " $6 "\ntimeout " $7
    print SMTC >SMTC_NAME
 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
-echo "
+echo '--
+
 [engines]
-smtbmc --stbv --progress yices" >> formal.sby
+smtbmc --stbv --progress yices' >> formal.sby
 
 I=0
 echo "
@@ -126,7 +125,7 @@ match($0, /Status: (failed|passed|PREUNSAT)/, gr) {
 
   print TOLEFT "* " sprintf("%" LEN "-s", $3) ((gr[1] == "passed") ? "\033[32m" gr[1] : "\033[31m" gr[1]) "\033[0m"
   next
-};
+}
 $0 ~ /Reached TIMEOUT/ {
   gsub(/formal_/, "", $3)
   print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[33mtimeout\033[0m"
@@ -165,7 +164,6 @@ match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
   close(build_v)
 
   print "* " sprintf("%" LEN "-s", $3) "\033[31m" gr[1] gr[2] "\033[0m"
-  next
 }
 match($0, /(Writing trace to VCD file: )(.*)$/, gr) {
   gsub(/(\[|\])/, "", $3)
