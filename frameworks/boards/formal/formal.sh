@@ -130,6 +130,10 @@ $0 ~ /Reached TIMEOUT/ {
   gsub(/formal_/, "", $3)
   print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[33mtimeout\033[0m"
 }
+$0 ~ /(build\.v:[0-9]+: ERROR: .*)$/ {
+  gsub(/formal_/, "", $3)
+  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
+}
 $5 == "##" {
   gsub(/formal_/, "", $3)
   printf "%s", TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[34m"
@@ -180,6 +184,11 @@ match($0, /Reached TIMEOUT \((.*?)\)\./, gr) {
   gsub(/formal_/, "", $3)
 
   print "* " sprintf("%" LEN "-s", $3) "\033[33mTimed out after " gr[1] "\033[0m"
+}
+match ($0, /(build\.v:[0-9]+: ERROR: .*)$/, gr) {
+  gsub(/formal_/, "", $3)
+
+  print "* " sprintf("%" LEN "-s", $3) "\033[31;1m" gr[1] "\033[0m"
 }
     '
     awk -v LEN=$MAX_LENGTH -v PWD="$PWD" "$AWKSCRIPT" < logfile.txt
