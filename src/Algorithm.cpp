@@ -2761,17 +2761,17 @@ void Algorithm::gatherIoDef(siliceParser::IoDefContext *iod, t_combinational_blo
 template <typename T>
 void var_nfo_copy(T& _dst,const Algorithm::t_var_nfo &src)
 {
-  _dst.name = src.name;
-  _dst.type_nfo = src.type_nfo;
-  _dst.init_values = src.init_values;
-  _dst.table_size = src.table_size;
-  _dst.do_not_initialize = src.do_not_initialize;
-  _dst.init_at_startup = src.init_at_startup;
+  _dst.name               = src.name;
+  _dst.type_nfo           = src.type_nfo;
+  _dst.init_values        = src.init_values;
+  _dst.table_size         = src.table_size;
+  _dst.do_not_initialize  = src.do_not_initialize;
+  _dst.init_at_startup    = src.init_at_startup;
   _dst.pipeline_prev_name = src.pipeline_prev_name;
-  _dst.access = src.access;
-  _dst.usage = src.usage;
-  _dst.attribs = src.attribs;
-  _dst.source_interval = src.source_interval;
+  _dst.access             = src.access;
+  _dst.usage              = src.usage;
+  _dst.attribs            = src.attribs;
+  _dst.source_interval    = src.source_interval;
 }
 
 // -------------------------------------------------
@@ -5996,7 +5996,7 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
     sl_assert(v.type_nfo.base_type != Parameterized);
     ForIndex(i, v.table_size) {
       if (!init_cond.empty()) {
-        out << FF_Q << prefix << v.name << "[" << i << "] <= (" << init_cond << ") ? " << v.init_values[i] << " : " << d_var << ';' << nxl;
+        out << FF_Q << prefix << v.name << "[" << i << "] <= (" << init_cond << ") ? " << v.init_values[i] << " : " << d_var << "[" << i << "];" << nxl;
       } else {
         out << FF_Q << prefix << v.name << "[" << i << "] <= " << d_var << "[" << i << "];" << nxl;
       }
