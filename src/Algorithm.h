@@ -187,7 +187,7 @@ public:
     enum e_IOType { e_Input, e_Output, e_InOut, e_NotIO };
 
     /// \brief base info about variables, inputs, outputs
-    class t_var_nfo {
+    class t_var_nfo { // NOTE: if changed, remember to check var_nfo_copy
     public:
       std::string  name;
       t_type_nfo   type_nfo;
