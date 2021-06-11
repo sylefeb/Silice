@@ -1064,7 +1064,7 @@ void SDRAM::eval
                     if (dbg_on)
                     {
                         if (bst_ctr_rd) fprintf(fh_log, "\n");
-                        if (log_size && fh_log) fprintf(fh_log, log_buf);
+                        if (log_size && fh_log) fprintf(fh_log, "%s", log_buf);
                         log_size = 0;
                     }
                         
@@ -1194,18 +1194,18 @@ void SDRAM::eval
                     // Auto-precharge case
                     if (ap_bank[bank])
                     {
-                        if (fh_log) fprintf(fh_log, "PRE\n\n");
+                        if (fh_log) fprintf(fh_log, "%s", "PRE\n\n");
                         ap_bank[bank] = (vluint8_t)0;
                         row_act[bank] = (vluint8_t)0;
                         row_pre[bank] = (vluint8_t)1;
                     }
                     else
                     {
-                        if (fh_log) fprintf(fh_log, "\n");
+                        if (fh_log) fprintf(fh_log, "%s", "\n");
                     }
                     if (log_size && fh_log)
                     {
-                        fprintf(fh_log, log_buf);
+                        fprintf(fh_log, "%s", log_buf);
                         log_size = 0;
                     }
                 }
@@ -1344,7 +1344,7 @@ void SDRAM::eval
                     }
                     if (log_size && fh_log)
                     {
-                        fprintf(fh_log, log_buf);
+                        fprintf(fh_log, "%s", log_buf);
                         log_size = 0;
                     }
                 }
@@ -1354,7 +1354,7 @@ void SDRAM::eval
         if ((bst_ctr_wr == (int)0) && (bst_ctr_rd == (int)0) && (log_size != (int)0))
         {
             if (log_buf) {
-                fprintf(fh_log, log_buf);
+                fprintf(fh_log, "%s", log_buf);
             }
             log_size = 0;
         }
