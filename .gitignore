@@ -11,3 +11,10 @@ antlr/*.tokens
 antlr/*Listener.*
 antlr/*Lexer.*
 antlr/*Parser.*
+
+# CCLS, the C/C++ LSP
+.ccls
+.ccls-cache/
+
+# Nix
+result
