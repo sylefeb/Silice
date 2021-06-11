@@ -212,6 +212,11 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
 
 void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog)
 {
+  // if we don't have a framework (as for the formal board),
+  // don't try to open a file located at the empty path "".
+  if (fframework.empty())
+    return;
+
   // gather 
   // - pre-processor header (all lines starting with $$)
   // - verilog code (all other lines)
