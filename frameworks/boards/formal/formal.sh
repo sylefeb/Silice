@@ -180,7 +180,7 @@ match($0, /(Writing trace to VCD file: )(.*)$/, gr) {
   gsub(/(\[|\])/, "", $3)
   gr[2] = PWD "/" $3 "/" gr[2]
 
-  print "  " sprintf("%" LEN "-s", "") "\033[31m" r[1] gr[2] "\033[0m"
+  print "  " sprintf("%" LEN "-s", "") "\033[31m" gr[1] gr[2] "\033[0m"
 }
 match($0, /(Assumptions are unsatisfiable!)$/, gr) {
   gsub(/formal_/, "", $3)
