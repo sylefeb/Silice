@@ -73,10 +73,9 @@ void VgaChip::eval(
         green << (8-m_color_depth),
         blue  << (8-m_color_depth),
         255);
-      if (x == m_h_res - 1 && y == m_v_res - 1) {        
-        // save image
-        static int num = 0;
-        saveImage(LibSL::CppHelpers::sprint("vga_%04d.tga",num++),&m_framebuffer);
+        if (x == m_h_res - 1 && y == m_v_res - 1) {        
+          // save image
+          saveImage("last_frame.tga",&m_framebuffer);
       }
     }
     // update horizontal coordinate
