@@ -25,3 +25,7 @@ This works with most projects, including [WolFPGA](../../projects/wolfpga/README
 ## Reusing the framework
 
 You are welcome to do so ([Affero GPL license](../../LICENSE)). The framework is not specifically tied to Silice. A good starting point is the bash script [verilator.sh](../boards/verilator/verilator.sh) where all command lines are called. Silice produces a Verilog output (`build.v`) which is then fed into Verilator. All generated source files are then compiled and linked against the framework, and the resulting executable is launched.
+
+## Credits
+
+- The SDRAM c++ simulation code ([sdr_sdram.cpp](sdr_sdram.cpp)/[sdr_sdram.h](sdr_sdram.h)) is from https://github.com/fredrequin/fpga_1943
