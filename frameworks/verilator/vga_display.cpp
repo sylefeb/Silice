@@ -13,7 +13,7 @@ the distribution, please refer to it for details.
 
 (header_1_0)
 */
-// SL 2019-09-23
+// SL 2021-06-12
 
 #include "VgaChip.h"
 
@@ -23,13 +23,18 @@ the distribution, please refer to it for details.
 #include <GL/gl.h>
 #include <GL/glut.h>
 
-// external definitions
+// ----------------------------------------------------------------------------
 
+// external definitions
 extern VgaChip *g_VgaChip;
 void step();
 
+// ----------------------------------------------------------------------------
+
 GLuint     g_FBtexture = 0; // OpenGL texture
 std::mutex g_Mutex;         // Mutex to lock VgaChip during rendering
+
+// ----------------------------------------------------------------------------
 
 void simul()
 {
@@ -38,6 +43,8 @@ void simul()
     step(); 
   }
 }
+
+// ----------------------------------------------------------------------------
 
 void render()
 {  
@@ -61,7 +68,9 @@ void render()
   glutPostRedisplay();
 }
 
-void vga_loop()
+// ----------------------------------------------------------------------------
+
+void vga_display_loop()
 {
   // glut window
   int   argc=0;
@@ -98,3 +107,4 @@ void vga_loop()
   glutMainLoop();
 }
 
+// ----------------------------------------------------------------------------
