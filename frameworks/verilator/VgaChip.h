@@ -44,6 +44,8 @@ private:
 
   vluint8_t m_prev_clk = 0;
 
+  bool m_framebuffer_changed = false;
+
   void set640x480();
 
 public:
@@ -58,5 +60,8 @@ public:
             vluint8_t  green, 
             vluint8_t  blue);
   
+  LibSL::Image::ImageRGBA& framebuffer() { return m_framebuffer; }
+
+  bool framebufferChanged();
 };
 

@@ -19,8 +19,13 @@ the distribution, please refer to it for details.
 
 #include "VgaChip.h"
 
+#include <GL/gl.h>
+#include <GL/glut.h>
+
 Vtop    *g_VgaTest = nullptr;
 VgaChip *g_VgaChip = nullptr;
+
+GLuint   g_FBtexture = 0;
 
 unsigned int g_MainTime = 0;
 double sc_time_stamp()
@@ -46,6 +51,29 @@ void step()
   g_MainTime ++;
 }
 
+void render()
+{
+  // step simulation
+  step();
+  
+  if (g_VgaChip->framebufferChanged()) {
+
+    // refresh frame
+    glTexSubImage2D( GL_TEXTURE_2D,0,0,0, 640,480, GL_RGBA,GL_UNSIGNED_BYTE, 
+                  g_VgaChip->framebuffer().pixels().raw());
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
+    glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, 0.0f);
+    glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, 1.0f);
+    glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 1.0f);
+    glEnd();
+    
+    glutSwapBuffers();
+  }
+
+  glutPostRedisplay();
+}
+
 int main(int argc,char **argv)
 {
   // Verilated::commandArgs(argc,argv);
@@ -53,6 +81,7 @@ int main(int argc,char **argv)
   // instantiate design
   g_VgaTest = new Vtop();
   g_VgaTest->clk = 0;
+  
   // we need to step simulation until we get the parameters
   do {
     g_VgaTest->clk = 1 - g_VgaTest->clk;
@@ -62,7 +91,35 @@ int main(int argc,char **argv)
   // instantiate VGA chip
   g_VgaChip = new VgaChip((int)g_VgaTest->video_color_depth);
 
-  while (1) { step(); }
+  // glut window
+  glutInit(&argc, argv);
+  glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+  glutInitWindowSize(640, 480);
+  glutCreateWindow("Silice verilator framework");
+  glutDisplayFunc(render);
+  // prepare texture
+  glGenTextures(1,&g_FBtexture);
+  glBindTexture(GL_TEXTURE_2D,g_FBtexture);
+  glTexImage2D( GL_TEXTURE_2D,0, GL_RGBA, 640,480,0, GL_RGBA,GL_UNSIGNED_BYTE, 
+                NULL);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+  // setup rendering
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_LIGHTING);
+  glDisable(GL_CULL_FACE);
+  glEnable(GL_TEXTURE_2D);
+  glColor3f(1.0f,1.0f,1.0f);
+  // setup view
+  glViewport(0,0,640,480);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0.0f, 1.0f, 1.0f, 0.0f, -1.0f, 1.0f);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+
+  // enter main loop
+  glutMainLoop();
 
   return 0;
 }

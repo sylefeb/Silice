@@ -1,7 +1,7 @@
 #!/bin/bash
 
 case "$(uname -s)" in
-MINGW*|CYGWIN*) 
+MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
 BUILD_DIR=`cygpath $BUILD_DIR`
 FRAMEWORKS_DIR=`cygpath $FRAMEWORKS_DIR`
@@ -9,6 +9,11 @@ FRAMEWORK_FILE=`cygpath $FRAMEWORK_FILE`
 BOARD_DIR=`cygpath $BOARD_DIR`
 ;;
 *)
+esac
+
+case "$(uname -s)" in
+MINGW*) GL_LIB="opengl32" ;;
+*) GL_LIB="GL" ;;
 esac
 
 echo "build script: SILICE_DIR     = $SILICE_DIR"
@@ -65,7 +70,7 @@ fi
 
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/  -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI"
+verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/  -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI" -LDFLAGS "-lfreeglut -l$GL_LIB"
 cd obj_dir
 $MAKE -f Vtop.mk -j$(nproc)
 cd ..
