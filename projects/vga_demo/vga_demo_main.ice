@@ -177,7 +177,7 @@ $$end
 
   uint8 frame  = 0;
 
-$$if SIMULATION then
+$$if ICARUS then
   // we count a number of frames and stop
   while (frame < 32) {
 $$else
