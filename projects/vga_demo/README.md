@@ -12,6 +12,8 @@ All demos run on the IceStick (with [VGA DAC page](../DIYVGA.md)), IceBreaker (w
 To build: `make icestick` or `make icebreaker` or `make de10nano`.
 Other demos can be built using the corresponding makefile, for instance `make icebreaker -f Makefile.flyover3d`.
 
+To simulate the design with VGA output in a window, use `make verilator`, or `make verilator -f Makefile.flyover3d` to select another demo.
+
 Available demos:
 <p align="center">
   <img width="300" src="vga_demo_copperbars.png">

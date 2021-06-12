@@ -26,7 +26,7 @@ The DooM-chip also works with WAD files from the [freedoom project](https://free
 
 Open a shell in this directory and launch ```make verilator```
 
-Images will be produced in the directory, the third one (`vgaout_0002.tga`) should reveal a view of E1M1! (the two first are black as this corresponds to memory and chip reset/warmup).
+A window will open with VGA output, and after a few empty frames it should reveal a view of E1M1! (the first frames are black as this corresponds to memory and chip reset/warmup).
 
 ### Running on the ULX3S + HDMI
 
