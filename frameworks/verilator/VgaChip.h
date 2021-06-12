@@ -19,14 +19,32 @@ the distribution, please refer to it for details.
 
 #include "verilated.h"
 
-class VideoOut;
+#include <vector>
+
+#include "LibSL/Image/Image.h"
+#include "LibSL/Image/ImageFormat_TGA.h"
+#include "LibSL/Math/Vertex.h"
 
 /// \brief Isolates the implementation to simplify build
 class VgaChip
 {
 private:
 
-  VideoOut *m_VideoOut = nullptr;
+  LibSL::Image::ImageRGBA m_framebuffer;
+
+  int m_color_depth  = 0;
+
+  int m_h_res        = 0;
+  int m_h_bck_porch  = 0;
+  int m_v_res        = 0;
+  int m_v_bck_porch  = 0;
+
+  int m_h_coord = 0;
+  int m_v_coord = 0;
+
+  vluint8_t m_prev_clk = 0;
+
+  void set640x480();
 
 public:
 
