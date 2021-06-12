@@ -22,6 +22,9 @@ the distribution, please refer to it for details.
 #include <GL/gl.h>
 #include <GL/glut.h>
 
+#include <mutex>
+#include <thread>
+
 Vtop    *g_VgaTest = nullptr;
 VgaChip *g_VgaChip = nullptr;
 
@@ -33,6 +36,8 @@ double sc_time_stamp()
   return g_MainTime;
 }
 
+std::mutex g_Mutex;
+
 void step()
 {
   if (Verilated::gotFinish()) {
@@ -43,19 +48,27 @@ void step()
 
   g_VgaTest->eval();
 
-  g_VgaChip->eval(
-      g_VgaTest->video_clock,
-      g_VgaTest->video_vs,g_VgaTest->video_hs,
-      g_VgaTest->video_r, g_VgaTest->video_g,g_VgaTest->video_b);
+  {
+    std::lock_guard<std::mutex> lock(g_Mutex);
+    g_VgaChip->eval(
+        g_VgaTest->video_clock,
+        g_VgaTest->video_vs,g_VgaTest->video_hs,
+        g_VgaTest->video_r, g_VgaTest->video_g,g_VgaTest->video_b);
+  }
 
   g_MainTime ++;
 }
 
-void render()
+void simul()
 {
-  // step simulation
-  step();
-  
+  while (1) { step(); }
+}
+
+
+void render()
+{  
+  std::lock_guard<std::mutex> lock(g_Mutex);
+
   if (g_VgaChip->framebufferChanged()) {
 
     // refresh frame
@@ -117,6 +130,8 @@ int main(int argc,char **argv)
   glOrtho(0.0f, 1.0f, 1.0f, 0.0f, -1.0f, 1.0f);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
+
+  std::thread th(simul);
 
   // enter main loop
   glutMainLoop();
