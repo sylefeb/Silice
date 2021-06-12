@@ -17,11 +17,15 @@ the distribution, please refer to it for details.
 
 #include "VgaChip.h"
 
+// ----------------------------------------------------------------------------
+
 VgaChip::VgaChip(int color_depth)
 {
   m_color_depth = color_depth;
   set640x480();
 }
+
+// ----------------------------------------------------------------------------
 
 void VgaChip::set640x480()
 {
@@ -32,10 +36,14 @@ void VgaChip::set640x480()
   m_v_bck_porch  = 33;
 }
 
+// ----------------------------------------------------------------------------
+
 VgaChip::~VgaChip()
 {
 
 }
+
+// ----------------------------------------------------------------------------
 
 void VgaChip::eval(
             vluint8_t  clk,
@@ -65,7 +73,7 @@ void VgaChip::eval(
         green << (8-m_color_depth),
         blue  << (8-m_color_depth),
         255);
-      if (x == m_h_res - 1 && y == m_v_res - 1) {
+      if (x == m_h_res - 1 && y == m_v_res - 1) {        
         // save image
         static int num = 0;
         saveImage(LibSL::CppHelpers::sprint("vga_%04d.tga",num++),&m_framebuffer);
@@ -79,8 +87,20 @@ void VgaChip::eval(
     if (vs) {
       if (m_h_coord == m_h_bck_porch + m_h_res) {
         ++ m_v_coord;
+        m_framebuffer_changed = true;
       }
     }
   }
   m_prev_clk = clk;
 }
+
+// ----------------------------------------------------------------------------
+
+bool VgaChip::framebufferChanged() 
+{ 
+  bool changed = m_framebuffer_changed; 
+  m_framebuffer_changed = false; 
+  return changed;
+}
+
+// ----------------------------------------------------------------------------
