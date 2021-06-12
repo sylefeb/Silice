@@ -24,6 +24,8 @@ Vtop    *g_VgaTest = nullptr;
 VgaChip *g_VgaChip = nullptr;
 SDRAM   *g_SDRAM   = nullptr;
 
+void vga_loop(); // from vga_glut.cpp
+
 unsigned int g_MainTime = 0;
 double sc_time_stamp()
 {
@@ -101,7 +103,8 @@ int main(int argc,char **argv)
   g_SDRAM = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); 
                                                              //"sdram.txt");
 
-  while (1) { step(); }
+  // enter VGA loop
+  vga_loop();
 
   return 0;
 }
