@@ -14,7 +14,7 @@ For more details on how the graphical output is performed see comments in [VgaCh
 
 To see how this gets compiled from Silice to Verilog and then Verilator see the bash script [verilator.sh](../boards/verilator/verilator.sh).
 
-Here is an example of [`projects/vga_demo/vga_flyover3d.ice`](../../projects/vga_demo/README.md)
+Here is an example of [`projects/vga_demo/vga_flyover3d.ice`](../../projects/vga_demo/README.md) (simulation runs much slower than hardware, where this demo is otherwise perfectly smooth).
 
 <p align="center">
   <img width="500" src="flyover_simul.gif">
