@@ -220,99 +220,51 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
   //                 v          writes have to be setup during the same clock cycle
   bram int32 xregsA<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   bram int32 xregsB<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-     
+  
+  //uint5  write_rd    = uninitialized;
+  //uint1  jump        = uninitialized;  
+  //uint1  branch      = uninitialized;
+  
   uint32 instr       = uninitialized;
   uint12 pc          = uninitialized;
-  uint1  cmp         = uninitialized;
-  uint1  alu_enable  = uninitialized;
-  uint1  alu_working = uninitialized;
-  int32  alu_r       = uninitialized;
-
+  
   uint12 next_pc   <:: pc+1; // next_pc tracks the expression 'pc + 1' using the
                              // value of pc from the last clock edge (due to ::)
 
   uint3 funct3     <: Btype(instr).funct3;
   
+  intops alu(
+    pc          <: pc,
+    xa          <: xregsA.rdata,
+    xb          <: xregsB.rdata,
+    imm         <: dec.imm,
+    forceZero   <: dec.forceZero,
+    regOrPc     <: dec.regOrPc,
+    regOrImm    <: dec.regOrImm,
+    select      <: dec.select,
+    select2     <: dec.select2,
+  );
+
+  intcmp cmps(
+    a      <: xregsA.rdata,
+    b      <: xregsB.rdata,
+    select <: funct3,
+    enable <: dec.branch,
+  ); 
+
   decode dec( instr <:: instr );
  
   // maintain write enable low (pulses high when needed)
   mem.wenable    := 0; 
-
   // maintain alu enable low (pulses high when needed)
-  alu_enable     := 0;
-
+  alu.enable     := 0;
   // maintain read registers (no latched, see bram parameter)
   xregsA.wenable := 0;
   xregsB.wenable := 0;
   xregsA.addr    := Rtype(instr).rs1;
   xregsB.addr    := Rtype(instr).rs2;  
 
-  always_after { 
-
-    int32 xa <: xregsA.rdata; int32 xb <: xregsB.rdata;
-      
-    mem.addr = wide_addr[0,10]; /* track memory address */
-      
-    // Performs integer comparisons
-    switch (funct3) {
-      case 3b000: { cmp=dec.branch & (xa == xb); } // BEQ
-      case 3b001: { cmp=dec.branch & (xa != xb); } // BNE
-      case 3b100: { cmp=dec.branch & (__signed(xa)   <  __signed(xb));   } // BLT
-      case 3b110: { cmp=dec.branch & (__unsigned(xa) <  __unsigned(xb)); } // BLTU
-      case 3b101: { cmp=dec.branch & (__signed(xa)   >= __signed(xb));   } // BGE
-      case 3b111: { cmp=dec.branch & (__unsigned(xa) >= __unsigned(xb)); } // BGEU
-      default:    { cmp=0; }
-   }
-
-    // Performs ALU computations
-    {
-    uint1 signed = uninitialized; 
-    uint1 dir    = uninitialized; 
-    uint5 shamt  = uninitialized;
-
-    int32 a  <: dec.regOrPc  ? __signed({20b0,pc[0,10],2b0})
-                            : (dec.forceZero ? xa : __signed(32b0));
-    int32 b  <: dec.regOrImm ? dec.imm : (xb);
-  
-    if (shamt > 0) {    
-      // process the shift one bit at a time
-      alu_r = dir ? (signed ? {alu_r[31,1],alu_r[1,31]} : {__signed(1b0),alu_r[1,31]}) 
-                  : {alu_r[0,31],__signed(1b0)};
-      shamt = shamt - 1;      
-    } else {
-        switch (dec.select) {
-          case 3b000: { // ADD / SUB
-            int32 tmp = uninitialized;
-            if (dec.select2) { tmp = -b; } else { tmp = b; }
-            alu_r = a + tmp;
-          }
-          case 3b010: { // SLTI
-            if (__signed(a) < __signed(b)) { alu_r = 32b1; } else { alu_r = 32b0; }
-          }
-          case 3b011: { // SLTU
-            if (__unsigned(a) < __unsigned(b)) { alu_r = 32b1; } else { alu_r = 32b0; }
-          }
-          case 3b100: { alu_r = a ^ b;} // XOR
-          case 3b110: { alu_r = a | b;} // OR
-          case 3b111: { alu_r = a & b;} // AND
-          case 3b001: { // SLLI
-            alu_r   = a;
-            shamt   = alu_enable ? __unsigned(b[0,5]) : 0;
-            signed  = dec.select2;
-            dir     = 0;
-          }
-          case 3b101: { // SRLI / SRAI
-            alu_r   = a;
-            shamt   = alu_enable ? __unsigned(b[0,5]) : 0;
-            signed  = dec.select2;
-            dir     = 1;
-          }
-        }        
-    }  
-    alu_working = (shamt > 0);
-    }
-
-  }
+  always_after { mem.addr = wide_addr[0,10]; /* track memory address */}
 
   while (1) {
 
@@ -326,7 +278,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
 ++: // decode
 
     // decode is now available, ALU is running
-    alu_enable = 1;
+    alu.enable = 1;
 
     while (1) {
 
@@ -337,15 +289,13 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
         // across architectures).
         if (dec.load_store) {        
           // load data (NOTE: could skip if followed by SW)
-          wide_addr   = alu_r>>2;
-
+          wide_addr   = alu.r>>2;
 ++: // wait data
-
           if (~dec.store) {
             uint32 tmp = uninitialized;
             switch ( dec.loadStoreOp[0,2] ) {
               case 2b00: { // LB / LBU
-                  switch (alu_r[0,2]) {
+                  switch (alu.r[0,2]) {
                     case 2b00: { tmp = { {24{(~dec.loadStoreOp[2,1])&mem.rdata[ 7,1]}},mem.rdata[ 0,8]}; }
                     case 2b01: { tmp = { {24{(~dec.loadStoreOp[2,1])&mem.rdata[15,1]}},mem.rdata[ 8,8]}; }
                     case 2b10: { tmp = { {24{(~dec.loadStoreOp[2,1])&mem.rdata[23,1]}},mem.rdata[16,8]}; }
@@ -354,7 +304,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
                   }
               }
               case 2b01: { // LH / LHU
-                  switch (alu_r[1,1]) {
+                  switch (alu.r[1,1]) {
                     case 1b0: { tmp = { {16{(~dec.loadStoreOp[2,1])&mem.rdata[15,1]}},mem.rdata[ 0,16]}; }
                     case 1b1: { tmp = { {16{(~dec.loadStoreOp[2,1])&mem.rdata[31,1]}},mem.rdata[16,16]}; }
                     default:  { tmp = 0; }
@@ -377,7 +327,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
           
             switch (dec.loadStoreOp) {
               case 3b000: { // SB
-                  switch (alu_r[0,2]) {
+                  switch (alu.r[0,2]) {
                     case 2b00: { mem.wdata = { mem.rdata[ 8,24] , xregsB.rdata[ 0,8] };                }
                     case 2b01: { mem.wdata = { mem.rdata[16,16] , xregsB.rdata[ 0,8] , mem.rdata[0, 8] }; }
                     case 2b10: { mem.wdata = { mem.rdata[24, 8] , xregsB.rdata[ 0,8] , mem.rdata[0,16] }; }
@@ -385,7 +335,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
                   }
               }
               case 3b001: { // SH
-                  switch (alu_r[1,1]) {
+                  switch (alu.r[1,1]) {
                     case 1b0: { mem.wdata = {   mem.rdata[16,16] , xregsB.rdata[ 0,16] }; }
                     case 1b1: { mem.wdata = { xregsB.rdata[0,16] , mem.rdata[0,16] }; }
                   }
@@ -395,7 +345,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
               }            
               default: {  }
             }
-            wide_addr   = alu_r>>2;
+            wide_addr   = alu.r>>2;
             mem.wenable = 1;
 
 ++: // wait write
@@ -408,13 +358,13 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
           
         } else {
         
-          if (alu_working == 0) { // ALU done?
+          if (alu.working == 0) { // ALU done?
 
             // next instruction
-            wide_addr    = (dec.jump | cmp) ? alu_r[2,12]  : next_pc;
+            wide_addr    = (dec.jump | cmps.j) ? alu.r[2,12]  : next_pc;
             // what do we write in register (pc or alu, load is handled above)
-            xregsA.wdata = (dec.jump | cmp) ? (next_pc) << 2 : alu_r;
-            xregsB.wdata = (dec.jump | cmp) ? (next_pc) << 2 : alu_r;
+            xregsA.wdata = (dec.jump | cmps.j) ? (next_pc) << 2 : alu.r;
+            xregsB.wdata = (dec.jump | cmps.j) ? (next_pc) << 2 : alu.r;
             
             // store result   
             if (dec.write_rd) {
@@ -619,4 +569,106 @@ algorithm decode(
   }
 }
 
+// --------------------------------------------------
+// Performs integer computations
+
+algorithm intops(
+  input!  uint1  enable,  // input! tells the compiler that the input does not 
+  input!  uint12 pc,      // need to be latched, so we can save registers
+  input!  int32  xa,      // caller has to ensure consistency
+  input!  int32  xb,
+  input!  int32  imm,
+  input!  uint3  select,
+  input!  uint1  select2,
+  input!  uint1  forceZero,
+  input!  uint1  regOrPc,
+  input!  uint1  regOrImm,
+  output  int32  r,
+  output  uint1  working,
+) {
+  uint1 signed = 0;
+  uint1 dir    = 0;
+  uint5 shamt  = 0;
+  
+  int32 a := regOrPc  ? __signed({20b0,pc[0,10],2b0}) : (forceZero ? xa : __signed(32b0));
+  int32 b := regOrImm ? imm : (xb);
+  //      ^^
+  // using := during a declaration means that the variable now constantly tracks
+  // the declared expression (but it is no longer assignable)
+  // In other words, this is a wire!
+  
+  always { // this part of the algorithm is executed every clock
+  
+    if (shamt > 0) {
+    
+      // process the shift one bit at a time
+      r     = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
+      shamt = shamt - 1;
+      
+    } else {
+
+      if (enable) {      
+        switch (select) {
+          case 3b000: { // ADD / SUB
+            int32 tmp = uninitialized;
+            if (select2) { tmp = -b; } else { tmp = b; }
+            r = a + tmp;
+          }
+          case 3b010: { // SLTI
+            if (__signed(a) < __signed(b)) { r = 32b1; } else { r = 32b0; }
+          }
+          case 3b011: { // SLTU
+            if (__unsigned(a) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
+          }
+          case 3b100: { r = a ^ b;} // XOR
+          case 3b110: { r = a | b;} // OR
+          case 3b111: { r = a & b;} // AND
+          case 3b001: { // SLLI
+            r       = a;
+            shamt   = __unsigned(b[0,5]);
+            signed  = select2;
+            dir     = 0;
+          }
+          case 3b101: { // SRLI / SRAI
+            r       = a;
+            shamt   = __unsigned(b[0,5]);
+            signed  = select2;
+            dir     = 1;
+          }
+        }        
+      }    
+      
+    }
+  
+    working = (shamt > 0);
+
+  }
+  
+}
+
+// --------------------------------------------------
+// Performs integer comparisons
+
+algorithm intcmp(
+  input!  int32 a,
+  input!  int32 b,
+  input!  uint3 select,
+  input!  uint1 enable,
+  output! uint1 j,
+) {
+  always {  
+    switch (select) {
+      case 3b000: { j = enable & (a == b); } // BEQ
+      case 3b001: { j = enable & (a != b); } // BNE
+      case 3b100: { j = enable & (__signed(a)   <  __signed(b));   } // BLT
+      case 3b110: { j = enable & (__unsigned(a) <  __unsigned(b)); } // BLTU
+      case 3b101: { j = enable & (__signed(a)   >= __signed(b));   } // BGE
+      case 3b111: { j = enable & (__unsigned(a) >= __unsigned(b)); } // BGEU
+      default:    { j = 0; }
+    }
+$$if SIMULATION then
+//__display("a = %d b = %d j = %d select=%d",a,b,j,select);
+$$end
+  }
+}
 // --------------------------------------------------
