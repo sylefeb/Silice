@@ -38,8 +38,11 @@ std::mutex g_Mutex;         // Mutex to lock VgaChip during rendering
 
 void simul()
 {
+  // thread running the simulation forever
   while (1) {
-    std::lock_guard<std::mutex> lock(g_Mutex);
+    // lock for safe concurrent use between drawer and simulation
+    std::lock_guard<std::mutex> lock(g_Mutex); 
+    // step
     step(); 
   }
 }
@@ -48,11 +51,11 @@ void simul()
 
 void render()
 {  
+  // lock the mutex before accessing g_VgaChip
   std::lock_guard<std::mutex> lock(g_Mutex);
-
+  // has the framebuffer changed?
   if (g_VgaChip->framebufferChanged()) {
-
-    // refresh frame
+    // yes: refresh frame
     glTexSubImage2D( GL_TEXTURE_2D,0,0,0, 640,480, GL_RGBA,GL_UNSIGNED_BYTE, 
                   g_VgaChip->framebuffer().pixels().raw());
     glBegin(GL_QUADS);
@@ -61,10 +64,10 @@ void render()
     glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, 1.0f);
     glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 1.0f);
     glEnd();
-    
+    // swap buffers
     glutSwapBuffers();
   }
-
+  // ask glut to immediately redraw
   glutPostRedisplay();
 }
 
@@ -100,9 +103,8 @@ void vga_display_loop()
   glOrtho(0.0f, 1.0f, 1.0f, 0.0f, -1.0f, 1.0f);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-
+  // start simulation in a thread
   std::thread th(simul);
-
   // enter main loop
   glutMainLoop();
 }
