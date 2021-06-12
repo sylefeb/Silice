@@ -12,8 +12,12 @@ BOARD_DIR=`cygpath $BOARD_DIR`
 esac
 
 case "$(uname -s)" in
-MINGW*) GL_LIB="opengl32" ;;
-*) GL_LIB="GL" ;;
+MINGW*) 
+LDFLAGS="-lopengl32 -lfreeglut"
+;;
+*) 
+LDFLAGS="-lGL -lglut -pthread"
+;;
 esac
 
 echo "build script: SILICE_DIR     = $SILICE_DIR"
@@ -70,7 +74,7 @@ fi
 
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/  -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI" -LDFLAGS "-lfreeglut -l$GL_LIB"
+verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/  -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI" -LDFLAGS "$LDFLAGS"
 cd obj_dir
 $MAKE -f Vtop.mk -j$(nproc)
 cd ..
