@@ -20,4 +20,4 @@ Here is an example of [`projects/vga_demo/vga_flyover3d.ice`](../../projects/vga
   <img width="500" src="flyover_simul.gif">
 </p>
 
-This works with most projects, including [`wolfpga`](../../projects/wolfpga/README.md) and the [Doom-chip](../../projects/doomchip/README.md).
+This works with most projects, including [WolFPGA](../../projects/wolfpga/README.md) and the [Doom-chip](../../projects/doomchip/README.md).
