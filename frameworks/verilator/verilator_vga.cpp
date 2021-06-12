@@ -20,81 +20,89 @@ the distribution, please refer to it for details.
 #include "VgaChip.h"
 #include "sdr_sdram.h"
 
-unsigned int main_time = 0;
+Vtop    *g_VgaTest = nullptr;
+VgaChip *g_VgaChip = nullptr;
+SDRAM   *g_SDRAM   = nullptr;
+
+unsigned int g_MainTime = 0;
 double sc_time_stamp()
 {
-  return main_time;
+  return g_MainTime;
+}
+
+void step()
+{
+  static vluint64_t sdram_dq = 0;  
+  static vluint8_t  prev_vga_vs = 0;
+  
+  if (Verilated::gotFinish()) {
+    exit (0);
+  }
+
+  g_VgaTest->clk = 1 - g_VgaTest->clk;
+
+  g_VgaTest->eval();
+
+  g_SDRAM->eval(g_MainTime,
+            g_VgaTest->sdram_clock, 1,
+            g_VgaTest->sdram_cs,  g_VgaTest->sdram_ras, g_VgaTest->sdram_cas, g_VgaTest->sdram_we,
+            g_VgaTest->sdram_ba,  g_VgaTest->sdram_a,
+            g_VgaTest->sdram_dqm, (vluint64_t)g_VgaTest->sdram_dq_o, sdram_dq);
+
+  g_VgaTest->sdram_dq_i = (g_VgaTest->sdram_dq_en) ? g_VgaTest->sdram_dq_o : sdram_dq;
+
+/*
+  // this is to dump SDRAM in a raw file
+  
+  if (prev_vga_vs == 0 && vga_test->video_vs != 0) {
+    static int cnt = 0;
+    char str[256];
+    snprintf(str,256,"dump_%04d.raw",cnt++);
+    sdr->save(str,4*8192*1024*2,0);
+  }
+*/
+
+  prev_vga_vs = g_VgaTest->video_vs;
+  
+  g_VgaChip->eval(
+      g_VgaTest->video_clock,
+      g_VgaTest->video_vs,g_VgaTest->video_hs,
+      g_VgaTest->video_r, g_VgaTest->video_g,g_VgaTest->video_b);
+
+  g_MainTime ++;
 }
 
 int main(int argc,char **argv)
 {
   // Verilated::commandArgs(argc,argv);
 
-  Vtop    *vga_test = new Vtop();
-
-  // char foo[1<<19]; // uncomment if verilator crashes, see issue #12
-
-  vga_test->clk = 0;
-
+  // instantiate design
+  g_VgaTest = new Vtop();
+  g_VgaTest->clk = 0;
   // we need to step simulation until we get the parameters
   do {
+    g_VgaTest->clk = 1 - g_VgaTest->clk;
+    g_VgaTest->eval();
+  } while ((int)g_VgaTest->video_color_depth == 0);
 
-    vga_test->clk = 1 - vga_test->clk;
+  // instantiate VGA chip
+  g_VgaChip = new VgaChip((int)g_VgaTest->video_color_depth);
 
-    vga_test->eval();
-
-  } while ((int)vga_test->video_color_depth == 0);
-
-  VgaChip *vga_chip = new VgaChip((int)vga_test->video_color_depth);
-
+  // instantiate SDRAM
   vluint8_t sdram_flags = 0;
-  if ((int)vga_test->sdram_word_width == 8) {
+  if ((int)g_VgaTest->sdram_word_width == 8) {
     sdram_flags |= FLAG_DATA_WIDTH_8;
-  } else if ((int)vga_test->sdram_word_width == 16) {
+  } else if ((int)g_VgaTest->sdram_word_width == 16) {
     sdram_flags |= FLAG_DATA_WIDTH_16;
-  } else if ((int)vga_test->sdram_word_width == 32) {
+  } else if ((int)g_VgaTest->sdram_word_width == 32) {
     sdram_flags |= FLAG_DATA_WIDTH_32;
-  } else if ((int)vga_test->sdram_word_width == 64) {
+  } else if ((int)g_VgaTest->sdram_word_width == 64) {
     sdram_flags |= FLAG_DATA_WIDTH_64;
   }
-  
-  SDRAM* sdr  = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); 
-                                                                //"sdram.txt");
-  vluint64_t sdram_dq = 0;
-  
-  vluint8_t prev_vga_vs = 0;
-  
-  while (!Verilated::gotFinish()) {
+  g_SDRAM = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); 
+                                                             //"sdram.txt");
 
-    vga_test->clk = 1 - vga_test->clk;
-
-    vga_test->eval();
-
-    sdr->eval(main_time,
-              vga_test->sdram_clock, 1,
-              vga_test->sdram_cs,  vga_test->sdram_ras, vga_test->sdram_cas, vga_test->sdram_we,
-              vga_test->sdram_ba,  vga_test->sdram_a,
-              vga_test->sdram_dqm, (vluint64_t)vga_test->sdram_dq_o, sdram_dq);
-
-    vga_test->sdram_dq_i = (vga_test->sdram_dq_en) ? vga_test->sdram_dq_o : sdram_dq;
-
-/*
-    if (prev_vga_vs == 0 && vga_test->video_vs != 0) {
-      static int cnt = 0;
-      char str[256];
-      snprintf(str,256,"dump_%04d.raw",cnt++);
-      sdr->save(str,4*8192*1024*2,0);
-    }
-*/
-    prev_vga_vs = vga_test->video_vs;
-    
-    vga_chip->eval(
-       vga_test->video_clock,
-       vga_test->video_vs,vga_test->video_hs,
-       vga_test->video_r,vga_test->video_g,vga_test->video_b);
-
-    main_time ++;
-  }
+  while (1) { step(); }
 
   return 0;
 }

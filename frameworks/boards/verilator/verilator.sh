@@ -55,7 +55,7 @@ VERILATOR_LIB="verilator_bare"
 VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_bare.cpp"
 else
 VERILATOR_LIB="verilator_vga"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $VERILATOR_LIB_DIR/video_out.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
 fi
 
 echo "using verilator framework $VERILATOR_LIB"
