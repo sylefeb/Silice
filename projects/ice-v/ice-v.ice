@@ -448,36 +448,17 @@ algorithm decode(
   forceZero    := LUI;
 
   always {
-
     switch (opcode)
      {
-      case 5b00101: { // AUIPC
-        imm         = imm_u;
-       }
-      case 5b01101: { // LUI
-        imm         = imm_u;
-       }
-      case 5b11011: { // JAL
-        imm         = imm_j;
-       }
-      case 5b11000: { // branch
-        imm         = imm_b;
-       }
-      case 5b11001: { // JALR
-        imm         = imm_i;
-       }
-      case 5b00000: { // load
-        imm         = imm_i;
-       }
-      case 5b00100: { // integer, immediate
-        imm         = imm_i;
-       }
-      case 5b01000: { // store
-        imm         = imm_s;
-       }
-       default: {
-         imm        = {32{1bx}};
-       }
+      case 5b00101: { imm = imm_u; } // AUIPC
+      case 5b01101: { imm = imm_u; } // LUI
+      case 5b11011: { imm = imm_j; } // JAL
+      case 5b11000: { imm = imm_b; } // branch
+      case 5b11001: { imm = imm_i; } // JALR
+      case 5b00000: { imm = imm_i; } // load
+      case 5b00100: { imm = imm_i; } // integer, immediate
+      case 5b01000: { imm = imm_s; } // store
+      default:      { imm = {32{1bx}}; }
      }
   }
 
