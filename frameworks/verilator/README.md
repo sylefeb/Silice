@@ -26,6 +26,14 @@ This works with most projects, including [WolFPGA](../../projects/wolfpga/README
 
 You are welcome to do so ([Affero GPL license](../../LICENSE)). The framework is not specifically tied to Silice. A good starting point is the bash script [verilator.sh](../boards/verilator/verilator.sh) where all command lines are called. Silice produces a Verilog output (`build.v`) which is then fed into Verilator. All generated source files are then compiled and linked against the framework, and the resulting executable is launched.
 
+## Links
+
+To learn more about graphical simulation of Verilator outputs, the following projects.
+- [A tutorial on the topic by Will Flux](https://projectf.io/posts/verilog-sim-verilator-sdl/) (Verilator, SDL).
+- [VGA Clock project by Matthew Venn](https://github.com/mattvenn/vga-clock) (Verilator, SDL).
+- [Frederic Requin's 1943 FPGA recreation](https://github.com/fredrequin/fpga_1943) features a simulation framework, both VGA and SDRAM (was a great inspiration for this framework) ; it outputs images and raw data.
+
 ## Credits
 
 - The SDRAM c++ simulation code ([sdr_sdram.cpp](sdr_sdram.cpp)/[sdr_sdram.h](sdr_sdram.h)) is from https://github.com/fredrequin/fpga_1943
+
