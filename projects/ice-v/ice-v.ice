@@ -233,31 +233,32 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
 
   uint3 funct3     <: Btype(instr).funct3;
   
+  decode dec( instr <:: instr );
+
   intops alu(
     pc          <: pc,
     xa          <: xregsA.rdata,
     xb          <: xregsB.rdata,
     imm         <: dec.imm,
     forceZero   <: dec.forceZero,
-    regOrPc     <: dec.regOrPc,
+    pcOrReg     <: dec.pcOrReg,
     regOrImm    <: dec.regOrImm,
-    select      <: dec.select,
-    select2     <: dec.select2,
+    aluOp       <: dec.aluOp,
+    sub         <: dec.sub,
+    signedShift <: dec.signedShift,
   );
 
   intcmp cmps(
     a      <: xregsA.rdata,
     b      <: xregsB.rdata,
-    select <: funct3,
+    funct3 <: funct3,
     enable <: dec.branch,
   ); 
 
-  decode dec( instr <:: instr );
- 
-  // maintain write enable low (pulses high when needed)
-  mem.wenable    := 0; 
   // maintain alu enable low (pulses high when needed)
   alu.enable     := 0;
+  // maintain write enable low (pulses high when needed)
+  mem.wenable    := 0; 
   // maintain read registers (no latched, see bram parameter)
   xregsA.wenable := 0;
   xregsB.wenable := 0;
@@ -277,7 +278,6 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
 
 ++: // decode
 
-    // decode is now available, ALU is running
     alu.enable = 1;
 
     while (1) {
@@ -367,7 +367,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
             xregsB.wdata = (dec.jump | cmps.j) ? (next_pc) << 2 : alu.r;
             
             // store result   
-            if (dec.write_rd) {
+            if (dec.write_rd != 5b0) {
               // commit result
               xregsA.wenable = 1;
               xregsB.wenable = 1;
@@ -395,194 +395,109 @@ algorithm decode(
   output! uint1   load_store,
   output! uint1   store,
   output! uint3   loadStoreOp,
-  output! uint3   select,
-  output! uint1   select2,
+  output! uint3   aluOp,
+  output! uint1   sub,  
+  output! uint1   signedShift,
   output! int32   imm,
   output! uint1   forceZero,
-  output! uint1   regOrPc,
+  output! uint1   pcOrReg,
   output! uint1   regOrImm
 ) {
-  always {
-    switch (instr[ 0, 7])
-    {    
-      case 7b0010111: { // AUIPC
-        //__display("AUIPC");
-        write_rd    = Rtype(instr).rd;
-        jump        = 0;
-        branch      = 0;
-        load_store  = 0;
-        store       = 0;
-        select      = 0;
-        select2     = 0;           
-        imm         = {Utype(instr).imm31_12,12b0};
-        forceZero   = 1;
-        regOrPc     = 1; // pc
-        regOrImm    = 1; // imm
-      }
-      
-      case 7b0110111: { // LUI
-        //__display("LUI");
-        write_rd    = Rtype(instr).rd;
-        jump        = 0;
-        branch      = 0;
-        load_store  = 0;
-        store       = 0;
-        select      = 0;
-        select2     = 0;
-        imm         = {Utype(instr).imm31_12,12b0};
-        forceZero   = 0; // force x0
-        regOrPc     = 0; // reg
-        regOrImm    = 1; // imm
-      }
-      
-      case 7b1101111: { // JAL
-        //__display("JAL");
-        write_rd    = Rtype(instr).rd;
-        jump        = 1;
-        branch      = 0;
-        load_store  = 0;
-        store       = 0;
-        select      = 0;
-        select2     = 0;        
-        imm         = {
+
+  int32 imm_u  <: {Utype(instr).imm31_12,12b0};
+  int32 imm_j  <: {
            {12{Jtype(instr).imm20}},
            Jtype(instr).imm_19_12,
            Jtype(instr).imm11,
            Jtype(instr).imm10_1,
            1b0};
-        forceZero   = 1;
-        regOrPc     = 1; // pc
-        regOrImm    = 1; // imm           
-      }
-      
-      case 7b1100111: { // JALR
-        //__display("JALR");
-        write_rd    = Rtype(instr).rd;
-        jump        = 1;
-        branch      = 0;
-        load_store  = 0;
-        store       = 0;
-        select      = 0;
-        select2     = 0;        
-        imm         = {{20{instr[31,1]}},Itype(instr).imm};
-        forceZero   = 1;
-        regOrPc     = 0; // reg
-        regOrImm    = 1; // imm
-      }
-      
-      case 7b1100011: { // branch
-        // __display("BR*");
-        write_rd    = 0;
-        jump        = 0;
-        branch      = 1;
-        load_store  = 0;
-        store       = 0;
-        select      = 0;
-        select2     = 0;        
-        imm         = {
+  int32 imm_i  <: {{20{instr[31,1]}},Itype(instr).imm};
+  int32 imm_b  <:  {
             {20{Btype(instr).imm12}},
             Btype(instr).imm11,
             Btype(instr).imm10_5,
             Btype(instr).imm4_1,
             1b0
             };
-        forceZero   = 1;
-        regOrPc     = 1; // pc
-        regOrImm    = 1; // imm
-      }
- 
-      case 7b0000011: { // load
-        // __display("LOAD");
-        write_rd    = Rtype(instr).rd;
-        jump        = 0;
-        branch      = 1;
-        load_store  = 1;
-        store       = 0;
-        loadStoreOp = Itype(instr).funct3;
-        select      = 0;
-        select2     = 0;
-        imm         = {{20{instr[31,1]}},Itype(instr).imm};
-        forceZero   = 1;
-        regOrPc     = 0; // reg
-        regOrImm    = 1; // imm
-      }
-      
-      case 7b0100011: { // store
-        // __display("STORE");
-        write_rd    = 0;
-        jump        = 0;
-        branch      = 0;
-        load_store  = 1;
-        store       = 1;
-        loadStoreOp = Itype(instr).funct3;
-        select      = 0;
-        select2     = 0;        
-        imm         = {{20{instr[31,1]}},Stype(instr).imm11_5,Stype(instr).imm4_0};
-        forceZero   = 1;
-        regOrPc     = 0; // reg
-        regOrImm    = 1; // imm
-      }
+  int32 imm_s  <: {{20{instr[31,1]}},Stype(instr).imm11_5,Stype(instr).imm4_0};
+  
+  uint5 opcode <: instr[ 2, 5];
+  
+  uint1 AUIPC  <: opcode == 5b00101;
+  uint1 LUI    <: opcode == 5b01101;
+  uint1 JAL    <: opcode == 5b11011;
+  uint1 JALR   <: opcode == 5b11001;
+  uint1 Branch <: opcode == 5b11000;
+  uint1 Load   <: opcode == 5b00000;
+  uint1 Store  <: opcode == 5b01000;
+  uint1 IntImm <: opcode == 5b00100;
+  uint1 IntReg <: opcode == 5b01100;
+  uint1 no_rd  <: (Branch | Store);
 
-      case 7b0010011: { // integer, immediate  
-        write_rd    = Rtype(instr).rd;
-        jump        = 0;
-        branch      = 0;
-        load_store  = 0;
-        store       = 0;
-        select      = Itype(instr).funct3;
-        select2     = instr[30,1] /*SRLI/SRAI*/ & (Itype(instr).funct3 != 3b000) /*not ADD*/;
-        imm         = {{20{instr[31,1]}},Itype(instr).imm};        
-        forceZero   = 1;
-        regOrPc     = 0; // reg
-        regOrImm    = 1; // imm
-      }
-      
-      case 7b0110011: { // integer, registers
-        // __display("REGOPS");
-        write_rd    = Rtype(instr).rd;
-        jump        = 0;
-        branch      = 0;
-        load_store  = 0;
-        store       = 0;
-        select      = Itype(instr).funct3;
-        select2     = Rtype(instr).select2;
-        imm         = 0;        
-        forceZero   = 1;
-        regOrPc     = 0; // reg
-        regOrImm    = 0; // reg
-      }
-      
-      default: {
-        write_rd    = 0;        
-        jump        = 0;
-        branch      = 0;
-        load_store  = 0;
-        store       = 0;    
-        select      = 0;
-        select2     = 0;
-        imm         = 0;
-        forceZero   = 0;
-        regOrPc     = 0; // reg
-        regOrImm    = 0; // reg        
-      }
-    }
+  jump         := (JAL | JALR);
+  branch       := (Branch);
+  store        := (Store);
+  load_store   := (Load | Store);
+  regOrImm     := (IntReg);
+  aluOp        := (IntImm | IntReg) ? {Itype(instr).funct3} : 3b000;
+  sub          := (IntReg & Rtype(instr).select2);
+  signedShift  := IntImm & instr[30,1]; /*SRLI/SRAI*/
+  loadStoreOp  := Itype(instr).funct3;
+  write_rd     := no_rd ? 5b0 : Rtype(instr).rd;
+  pcOrReg      := (AUIPC | JAL | Branch);
+  forceZero    := LUI;
+
+  always {
+
+    switch (opcode)
+     {
+      case 5b00101: { // AUIPC
+        imm         = imm_u;
+       }
+      case 5b01101: { // LUI
+        imm         = imm_u;
+       }
+      case 5b11011: { // JAL
+        imm         = imm_j;
+       }
+      case 5b11000: { // branch
+        imm         = imm_b;
+       }
+      case 5b11001: { // JALR
+        imm         = imm_i;
+       }
+      case 5b00000: { // load
+        imm         = imm_i;
+       }
+      case 5b00100: { // integer, immediate
+        imm         = imm_i;
+       }
+      case 5b01000: { // store
+        imm         = imm_s;
+       }
+       default: {
+         imm        = {32{1bx}};
+       }
+     }
   }
+
 }
 
 // --------------------------------------------------
 // Performs integer computations
 
 algorithm intops(
-  input!  uint1  enable,  // input! tells the compiler that the input does not 
-  input!  uint12 pc,      // need to be latched, so we can save registers
-  input!  int32  xa,      // caller has to ensure consistency
-  input!  int32  xb,
-  input!  int32  imm,
-  input!  uint3  select,
-  input!  uint1  select2,
-  input!  uint1  forceZero,
-  input!  uint1  regOrPc,
-  input!  uint1  regOrImm,
+  input   uint12 pc,
+  input   int32  xa,
+  input   int32  xb,
+  input   int32  imm,
+  input   uint3  aluOp,
+  input   uint1  sub,  
+  input   uint1  signedShift,
+  input   uint1  forceZero,
+  input   uint1  pcOrReg,
+  input   uint1  regOrImm,
+  input   uint1  enable,
   output  int32  r,
   output  uint1  working,
 ) {
@@ -590,57 +505,47 @@ algorithm intops(
   uint1 dir    = 0;
   uint5 shamt  = 0;
   
-  int32 a := regOrPc  ? __signed({20b0,pc[0,10],2b0}) : (forceZero ? xa : __signed(32b0));
-  int32 b := regOrImm ? imm : (xb);
-  //      ^^
-  // using := during a declaration means that the variable now constantly tracks
-  // the declared expression (but it is no longer assignable)
-  // In other words, this is a wire!
+  int32 a <: forceZero ?  __signed(32b0) : (pcOrReg  ? __signed({20b0,pc[0,10],2b0}) : xa);
+  int32 b <: regOrImm ? (xb) : imm;
   
   always { // this part of the algorithm is executed every clock
   
-    if (shamt > 0) {
-    
+    signed  = signedShift;
+    dir     = aluOp[2,1];
+    shamt   = working ? shamt - 1 : ((aluOp[0,2] == 2b01) ? __unsigned(b[0,5]) : 0);
+
+    if (working) {    
       // process the shift one bit at a time
-      r     = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
-      shamt = shamt - 1;
-      
+      r       = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) 
+                    : {r[0,31],__signed(1b0)};      
     } else {
 
-      if (enable) {      
-        switch (select) {
-          case 3b000: { // ADD / SUB
-            int32 tmp = uninitialized;
-            if (select2) { tmp = -b; } else { tmp = b; }
-            r = a + tmp;
-          }
-          case 3b010: { // SLTI
-            if (__signed(a) < __signed(b)) { r = 32b1; } else { r = 32b0; }
-          }
-          case 3b011: { // SLTU
-            if (__unsigned(a) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
-          }
-          case 3b100: { r = a ^ b;} // XOR
-          case 3b110: { r = a | b;} // OR
-          case 3b111: { r = a & b;} // AND
-          case 3b001: { // SLLI
-            r       = a;
-            shamt   = __unsigned(b[0,5]);
-            signed  = select2;
-            dir     = 0;
-          }
-          case 3b101: { // SRLI / SRAI
-            r       = a;
-            shamt   = __unsigned(b[0,5]);
-            signed  = select2;
-            dir     = 1;
-          }
+      switch (aluOp) {
+        case 3b000: { // ADD / SUB
+          // int32 tmp = uninitialized;
+          // if (select2) { tmp = -b; } else { tmp = b; }
+          r = sub ? a - b : a + b;
+        }
+        case 3b010: { // SLTI
+          if (__signed(a) < __signed(b))     { r = 32b1; } else { r = 32b0; }
+        }
+        case 3b011: { // SLTU
+          if (__unsigned(a) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
+        }
+        case 3b100: { r = a ^ b;} // XOR
+        case 3b110: { r = a | b;} // OR
+        case 3b111: { r = a & b;} // AND
+        case 3b001: { // SLLI
+          r       = a;
+        }
+        case 3b101: { // SRLI / SRAI
+          r       = a;
         }        
       }    
       
     }
-  
-    working = (shamt > 0);
+
+    working = (shamt != 0);
 
   }
   
@@ -650,14 +555,14 @@ algorithm intops(
 // Performs integer comparisons
 
 algorithm intcmp(
-  input!  int32 a,
-  input!  int32 b,
-  input!  uint3 select,
-  input!  uint1 enable,
+  input   int32 a,
+  input   int32 b,
+  input   uint3 funct3,
+  input   uint1 enable,
   output! uint1 j,
 ) {
   always {  
-    switch (select) {
+    switch (funct3) {
       case 3b000: { j = enable & (a == b); } // BEQ
       case 3b001: { j = enable & (a != b); } // BNE
       case 3b100: { j = enable & (__signed(a)   <  __signed(b));   } // BLT
@@ -666,9 +571,6 @@ algorithm intcmp(
       case 3b111: { j = enable & (__unsigned(a) >= __unsigned(b)); } // BGEU
       default:    { j = 0; }
     }
-$$if SIMULATION then
-//__display("a = %d b = %d j = %d select=%d",a,b,j,select);
-$$end
   }
 }
 // --------------------------------------------------

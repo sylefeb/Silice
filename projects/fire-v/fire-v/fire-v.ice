@@ -461,7 +461,7 @@ $$end
   store        := (Store);
   load_store   := (Load | Store);
   regOrImm     := (IntReg);
-  aluOp        := (IntImm | IntReg) ? {Itype(instr).funct3} : 4b0000;
+  aluOp        := (IntImm | IntReg) ? {Itype(instr).funct3} : 3b000;
   sub          := (IntReg & Rtype(instr).sub);
 $$if FIREV_MULDIV then
   muldiv       := (IntReg & Rtype(instr).muldiv);
