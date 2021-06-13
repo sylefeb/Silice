@@ -29,7 +29,7 @@ You are welcome to do so ([Affero GPL license](../../LICENSE)). The framework is
 ## Links
 
 To learn more about graphical simulation of Verilator outputs, I recommend the following projects.
-- [A tutorial on the topic by Will Flux](https://projectf.io/posts/verilog-sim-verilator-sdl/) (Verilator, SDL).
+- [A tutorial on the topic by @WillFlux](https://projectf.io/posts/verilog-sim-verilator-sdl/) (Verilator, SDL).
 - [VGA Clock project by Matthew Venn](https://github.com/mattvenn/vga-clock) (Verilator, SDL).
 - [Frederic Requin's 1943 FPGA recreation](https://github.com/fredrequin/fpga_1943) features a simulation framework, both VGA and SDRAM (was a great inspiration for this framework) ; it outputs images and raw data.
 

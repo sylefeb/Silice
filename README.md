@@ -14,7 +14,7 @@
 
 **Important:** Silice is in alpha stages and under active development [read more](#project-status-alpha-release).
 
-**Important:** Latest changes occur in the *wip* (work in progress) and *draft* branches, check it out to enjoy the latest features. [Read more about development branches](#development-branches).
+**Important:** To enjoy the latest features please use the *draft* branch. [Read more about development branches](#development-branches).
 
 ---
 
