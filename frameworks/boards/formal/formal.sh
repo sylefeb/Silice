@@ -64,18 +64,11 @@ I=0
 echo "[tasks]" > formal.sby
 while IFS= read -r LOG; do
     awk '
-function to_mode(mode) {
-  switch (mode) {
-    case "tind": return "prove"
-    default: return mode
-  }
-}
-
 $2 ~ /^formal(.*?)\$$/ && $8 != "" {
   split($8, modes, /,/)
 
   for (mode in modes) {
-    printf "%s-%s task-%d-%d\n", $4, to_mode(modes[mode]), $1, mode
+    printf "%s-%s task-%d-%d\n", $4, modes[mode], $1, mode
   }
 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
@@ -180,16 +173,15 @@ AWKSCRIPT='
 BEGIN {
   TOLEFT = "\033[0G\033[0K\033[0m"
 }
-match($0, /Status: (failed|passed|PREUNSAT)/, gr) {
-  gsub(/formal_/, "", $3)
-  gsub("PREUNSAT", "failed", gr[1])
-
-  print TOLEFT "* " sprintf("%" LEN "-s", $3) ((gr[1] == "passed") ? "\033[32m" gr[1] : "\033[31m" gr[1]) "\033[0m"
-  next
-}
 $0 ~ /Reached TIMEOUT/ {
   gsub(/formal_/, "", $3)
   print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[33mtimeout\033[0m"
+}
+match($0, /Status returned by engine: (PASS|pass|FAIL|ERROR)/, gr) {
+  gsub(/formal_/, "", $3)
+
+  print TOLEFT "* " sprintf("%" LEN "-s", $3) ((toupper(gr[1]) == "PASS") ? "\033[32mpassed" : "\033[31mfailed") "\033[0m"
+  next
 }
 $0 ~ /(build\.v:[0-9]+: ERROR: .*)$/ {
   gsub(/formal_/, "", $3)
@@ -204,6 +196,22 @@ $0 ~ /(yosys-abc: command not found)$/ {
   gsub(/formal_/, "", $3)
   print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
   next
+}
+match($0, /(Verification of invariant .*)$/, gr) {
+  gsub(/formal_/, "", $3)
+  printf TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[34m" gr[1] "\033[0m"
+}
+match($0, /(Invariant .*)$/, gr) {
+  gsub(/formal_/, "", $3)
+  printf TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[34m" gr[1] "\033[0m"
+}
+match($0, /(Property proved\. .*)$/, gr) {
+  gsub(/formal_/, "", $3)
+  printf TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[34m" gr[1] "\033[0m"
+}
+match($0, /(Counter-example .*)$/, gr) {
+  gsub(/formal_/, "", $3)
+  printf TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[34m" gr[1] "\033[0m"
 }
 $5 == "##" {
   gsub(/formal_/, "", $3)
