@@ -92,6 +92,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     bool onehot = false;
     std::string formalDepth = "";
     std::string formalTimeout = "";
+    std::vector<std::string> formalModes{};
     std::string clock = ALG_CLOCK;
     std::string reset = ALG_RESET;
     bool hasHash = alg->HASH() != nullptr;
@@ -118,10 +119,24 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
         if (m->sformtimeout() != nullptr) {
           formalTimeout = m->sformtimeout()->NUMBER()->getText();
         }
+        if (m->sformmode() != nullptr) {
+          for (auto i : m->sformmode()->IDENTIFIER()) {
+            std::string mode = i->getText();
+            if (mode != "bmc" && mode != "tind" && mode != "cover") {
+              throw Fatal("Unknown formal mode '%s' (line %d).", mode.c_str(), (int)m->sformmode()->getStart()->getLine());
+            }
+            formalModes.push_back(mode);
+          }
+        }
       }
     }
+    if (formalModes.empty()) {
+      // default to a simple BMC if no mode is specified
+      formalModes.push_back("bmc");
+    }
+
     AutoPtr<Algorithm> algorithm(new Algorithm(
-      name, hasHash, clock, reset, autorun, onehot, formalDepth, formalTimeout,
+      name, hasHash, clock, reset, autorun, onehot, formalDepth, formalTimeout, formalModes,
       m_Modules, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
     );
     if (m_Algorithms.find(name) != m_Algorithms.end()) {

@@ -4813,7 +4813,7 @@ void Algorithm::analyzeInstancedAlgorithmsInputs()
 Algorithm::Algorithm(
   std::string name, bool hasHash,
   std::string clock, std::string reset,
-  bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout,
+  bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes,
   const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
@@ -4821,7 +4821,7 @@ Algorithm::Algorithm(
   const std::unordered_map<std::string, siliceParser::IntrfaceContext *>&  known_interfaces,
   const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield
 )
-  : m_Name(name), m_hasHash(hasHash), m_Clock(clock), m_Reset(reset), m_FormalDepth(formalDepth), m_FormalTimeout(formalTimeout),
+  : m_Name(name), m_hasHash(hasHash), m_Clock(clock), m_Reset(reset), m_FormalDepth(formalDepth), m_FormalTimeout(formalTimeout), m_FormalModes(modes),
     m_AutoRun(autorun), m_OneHot(onehot), 
   m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), 
   m_KnownCircuitries(known_circuitries), m_KnownGroups(known_groups), 
@@ -7254,7 +7254,12 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
           << (ictx.local_instance_name.empty() ? "main" : ictx.local_instance_name) << " " 
           << m_Name << " " << fl.first << " "
           << (m_FormalDepth.empty() ? "30" : m_FormalDepth) << " "
-          << (m_FormalTimeout.empty() ? "120" : m_FormalTimeout) << nxl;
+          << (m_FormalTimeout.empty() ? "120" : m_FormalTimeout) << " ";
+        auto end = m_FormalModes.size();
+        for (size_t i{0}; i < end - 1; ++i) {
+          freport << m_FormalModes[i] << ",";
+        }
+        freport << m_FormalModes[end - 1] << nxl;
       }
     }
 

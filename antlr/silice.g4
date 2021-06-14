@@ -32,10 +32,6 @@ GOTO                : 'goto' ;
 
 AUTORUN             : 'autorun' ;
 
-DEPTH               : 'depth';
-
-TIMEOUT             : 'timeout';
-
 ONEHOT              : 'onehot' ;
 SWITCH              : 'switch' ;
 
@@ -163,10 +159,11 @@ sreset              :  '!' IDENTIFIER ;
 sautorun            :  AUTORUN ;
 sonehot             :  ONEHOT ;
 sstacksz            :  'stack:' NUMBER ;
-sformdepth          :  HASH DEPTH '=' NUMBER;
-sformtimeout        :  HASH TIMEOUT '=' NUMBER;
+sformdepth          :  HASH 'depth' '=' NUMBER ;
+sformtimeout        :  HASH 'timeout' '=' NUMBER ;
+sformmode           :  HASH 'mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
 
-algModifier         : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout ;
+algModifier         : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode ;
 algModifiers        : '<' algModifier (',' algModifier)* '>' ;
 
 pad                 : PAD '(' (value | UNINITIALIZED) ')' ;

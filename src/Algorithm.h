@@ -138,6 +138,9 @@ namespace Silice
     /// \brief specified timeout for the formal verification
     std::string m_FormalTimeout = "";
 
+    /// \brief all the modes the algorithm is supposed to be verified in
+    std::vector<std::string> m_FormalModes{};
+
     /// \brief Set of known modules
     const std::unordered_map<std::string, AutoPtr<Module> >& m_KnownModules;
     /// \brief Set of known subroutines
@@ -999,7 +1002,7 @@ private:
     Algorithm(
       std::string name, bool hasHash,
       std::string clock, std::string reset,
-      bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout,
+      bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes,
       const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
       const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
       const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
