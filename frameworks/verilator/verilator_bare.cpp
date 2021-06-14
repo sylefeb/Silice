@@ -21,22 +21,23 @@ int main(int argc,char **argv)
 {
   // Verilated::commandArgs(argc,argv);
 
+  // instantiate design
   Vtop    *bare_test = new Vtop();
-
-  // char foo[1<<19]; // uncomment if verilator crashes, see issue #12
 
   while (!Verilated::gotFinish()) {
 
+    // raise clock
     bare_test->clk = 1;
-
+    // evaluate design
     bare_test->eval();
-
+    // lower clock
     bare_test->clk = 0;
-
+    // evaluate design
     bare_test->eval();
 
-    // fprintf(stderr,"leds:%d\n",bare_test->leds);
-
+    if (0) { // enable to trace the status of LEDs 
+      fprintf(stderr,"leds:%d\n",bare_test->leds);
+    }
   }
 
   return 0;

@@ -54,11 +54,8 @@ cd vga_demo
 make verilator
 ```
 
-This executes the simulation, which outputs image files (tga format) in the subdirectory *BUILD_verilator*.
-Look at them in sequence :-)
+This executes the simulation, which opens a window showing the graphical output. It also outputs the last frame (tga format) in the subdirectory *BUILD_verilator*.
 
 <p align="center">
 <img width="400" src="docs/figures/vga_demo_frame.png">
 </p>
-
-*Note*: there is an embarrassing known issue (#12) in my Verilator simulation code which may result in a segfault on simulation startup. So if this happens, you've just hit the bug. Working on it, but it is a non trivial issue unfortunately.

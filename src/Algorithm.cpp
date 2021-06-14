@@ -5494,12 +5494,10 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
       } else {
         sl_assert(false); // cannot read from input
       }
-      out << A->second.instance_prefix << "_" << member;
-      // return A->second.algo->m_Inputs[A->second.algo->m_InputNames.at(member)].width;
+      out << A->second.instance_prefix << "_" << member << suffix;
       return A->second.algo->determineVIOTypeWidthAndTableSize(bctx, member, ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
     } else if (A->second.algo->isOutput(member)) {
-      out << WIRE << A->second.instance_prefix << "_" << member;
-      // return A->second.algo->m_Outputs[A->second.algo->m_OutputNames.at(member)].width;
+      out << WIRE << A->second.instance_prefix << "_" << member << suffix;
       return A->second.algo->determineVIOTypeWidthAndTableSize(bctx, member, ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
     } else {
       sl_assert(false);

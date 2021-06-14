@@ -355,8 +355,8 @@ $$end
     next_pixel       = {next_pixel[0,1],next_pixel[1,1]};
   }
 
-$$if SIMULATION then  
-  while (iter != 6000000) { // in siumlation we limit the number of cycles
+$$if ICARUS then  
+  while (iter != 2000000) { // in siumlation we limit the number of cycles
     iter = iter + 1;
 $$else
   while (1) {

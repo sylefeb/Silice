@@ -1,7 +1,7 @@
 #!/bin/bash
 
 case "$(uname -s)" in
-MINGW*|CYGWIN*) 
+MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
 BUILD_DIR=`cygpath $BUILD_DIR`
 FRAMEWORKS_DIR=`cygpath $FRAMEWORKS_DIR`
@@ -9,6 +9,15 @@ FRAMEWORK_FILE=`cygpath $FRAMEWORK_FILE`
 BOARD_DIR=`cygpath $BOARD_DIR`
 ;;
 *)
+esac
+
+case "$(uname -s)" in
+MINGW*) 
+LDFLAGS="-lopengl32 -lfreeglut"
+;;
+*) 
+LDFLAGS="-lGL -lglut -pthread"
+;;
 esac
 
 echo "build script: SILICE_DIR     = $SILICE_DIR"
@@ -54,13 +63,18 @@ if [[ -z "${VGA}" ]] && [[ -z "${SDRAM}" ]]; then
 VERILATOR_LIB="verilator_bare"
 VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_bare.cpp"
 else
+if [[ -z "${SDRAM}" ]]; then
 VERILATOR_LIB="verilator_vga"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $VERILATOR_LIB_DIR/video_out.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga.cpp $VERILATOR_LIB_DIR/vga_display.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
+else
+VERILATOR_LIB="verilator_vga_sdram"
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga_sdram.cpp $VERILATOR_LIB_DIR/vga_display.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
+fi
 fi
 
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/  -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI"
+verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/  -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI" -LDFLAGS "$LDFLAGS"
 cd obj_dir
 $MAKE -f Vtop.mk -j$(nproc)
 cd ..

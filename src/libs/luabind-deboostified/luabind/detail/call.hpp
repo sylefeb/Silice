@@ -12,6 +12,7 @@
 #include <luabind/yield_policy.hpp>
 #include <luabind/detail/decorate_type.hpp>
 #include <luabind/detail/object.hpp>
+#include <limits>
 
 #ifdef LUABIND_NO_INTERNAL_TAG_ARGUMENTS
 #include <tuple>
