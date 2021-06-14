@@ -164,7 +164,7 @@ for FILE in $(find . -maxdepth 1 -type f -name '*.smtc' -print | cut -c3-); do
     echo "$FILE" >> formal.sby
 done
 
-MAX_LENGTH=$(awk '{ n = length($3); if (n > len) len = n } END { print len + 3 }' <<< "$LOG_LINES")
+MAX_LENGTH=$(awk '{ n = length($3); if (n > len) len = n } END { print len + 9 }' <<< "$LOG_LINES")
 
 if ! command -v sby &>/dev/null; then
     >&2 echo "##### Symbiyosys (sby) not found! #####"
