@@ -37,7 +37,7 @@ if ! silice --frameworks_dir $FRAMEWORKS_DIR -f '' -o build.v $1 "${@:2}"; then
 fi
 
 
-if ! [[ -f build.v.alg.log ]]; then
+if ! [ -f "build.v.alg.log" ]; then
     >&2 echo "File '$PWD/build.v.alg.log' not found. Did the compiler generate one?"
     exit 1
 fi
@@ -59,6 +59,27 @@ final
 assume (= [in_run] false)'
 
 touch formal.sby
+
+COVER="false"
+while [ "$COVER" = "false" ] && IFS= read -r LOG; do
+  COVER=$(awk '
+BEGIN {
+  found = 0
+}
+$1 ~ /formal(.*?)\$$/ && $7 != "" {
+  split($7, modes, /,/)
+
+  for (m in modes) {
+    if ("cover" == modes[m]) {
+      found = 1
+      exit
+    }
+  }
+}
+END {
+  print (found ? "true" : "false")
+}' <<< "$LOG")
+done <<< "$LOG_LINES"
 
 I=0
 echo "[tasks]" > formal.sby
@@ -224,7 +245,7 @@ $5 == "##" {
 
 sby -f formal.sby | tee logfile.txt | awk -v LEN=$MAX_LENGTH "$AWKSCRIPT"
 # Because we're piping, we need to check if the status of the pipe is not ok.
-if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+if [ "${PIPESTATUS[0]}" != "0" -o "$COVER" = "true" ]; then
     echo ""
     echo "---<       Results      >---"
     AWKSCRIPT='
@@ -248,11 +269,31 @@ match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
 
   print "* " sprintf("%" LEN "-s", $3) "\033[31m" gr[1] gr[2] "\033[0m"
 }
+match($0, /(Reached cover statement at )build\.v:([0-9\-\.]+)( in step [0-9]+\.)$/, gr) {
+  build_v = "build.v"
+
+  gsub(/formal_/, "", $3)
+  gsub(/[0-9]+\.[0-9]+-/, "", gr[2])
+  gsub(/\.[0-9]+/, "", gr[2])
+
+  line = gr[2]
+  NR_ = 0
+  gr[2] = "<original file not found>"
+  while ((getline build_v_line < build_v) > 0) {
+    if (++NR_ == line && match(build_v_line, /\/\/%(.*)$/, gr_)) {
+      gr[2] = gr_[1]
+      break
+    }
+  }
+  close(build_v)
+
+  print "* " sprintf("%" LEN "-s", $3) "\033[32m" gr[1] gr[2] gr[3] "\033[0m"
+}
 match($0, /(Writing trace to VCD file: )(.*)$/, gr) {
   gsub(/(\[|\])/, "", $3)
   gr[2] = PWD "/" $3 "/" gr[2]
 
-  print "  " sprintf("%" LEN "-s", "") "\033[31m" gr[1] gr[2] "\033[0m"
+  print "  " sprintf("%" LEN "-s", "") ($3 ~ /-cover$/ ? "\033[32m" : "\033[31m") gr[1] gr[2] "\033[0m"
 }
 match($0, /(Assumptions are unsatisfiable!)$/, gr) {
   gsub(/formal_/, "", $3)
