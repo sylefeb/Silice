@@ -63,30 +63,82 @@ touch formal.sby
 I=0
 echo "[tasks]" > formal.sby
 while IFS= read -r LOG; do
-    awk '$2 ~ /^formal(.*?)\$$/ { print $4 " task" $1 }' <<< "$I $LOG" >> formal.sby
+    awk '
+function to_mode(mode) {
+  switch (mode) {
+    case "tind": return "prove"
+    default: return mode
+  }
+}
+
+$2 ~ /^formal(.*?)\$$/ && $8 != "" {
+  split($8, modes, /,/)
+
+  for (mode in modes) {
+    printf "%s-%s task-%d-%d\n", $4, to_mode(modes[mode]), $1, mode
+  }
+}' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
 I=0
 echo "
 [options]
-mode bmc
 wait on" >> formal.sby
 while IFS= read -r LOG; do
     awk -v SMTC="$SMTC" '
-$2 ~ /^formal(.*?)\$$/ {
+function to_mode(mode) {
+  switch (mode) {
+    case "tind": return "prove"
+    default: return mode
+  }
+}
+
+$2 ~ /^formal(.*?)\$$/ && $8 != "" {
    SMTC_NAME=$4 ".smtc"
 
-   print "task" $1 ":\n  smtc " $4 ".smtc\n  depth " $6 "\n  timeout " $7
+   split($8, modes, /,/)
+   for (mode in modes) {
+     printf "task-%d-%d:\n  depth %d\n  timeout %d\n  mode %s\n", $1, mode, $6, $7, to_mode(modes[mode])
+     if (modes[mode] == "bmc") {
+       printf "  smtc %s.smtc\n", $4
+     }
+   }
    print SMTC >SMTC_NAME
 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
+I=0
 echo '--
 
-[engines]
-smtbmc --stbv --progress yices' >> formal.sby
+[engines]' >> formal.sby
+while IFS= read -r LOG; do
+  awk '
+$2 ~ /^formal(.*?)\$$/ && $8 != "" {
+  split($8, modes, /,/)
+
+  for (mode in modes) {
+    printf "task-%d-%d: ", $1, mode
+    switch(modes[mode]) {
+      case "bmc":
+        print "smtbmc --stbv --progress yices"
+        break
+      case "tind":
+        print "abc pdr"
+        break
+      case "cover":
+        print "smtbmc --progress z3"
+        break
+      default:
+        print "smtbmc --stbv --progress yices # default"
+        break
+    }
+  }
+}
+' <<< "$I $LOG" >> formal.sby
+  I=$((I + 1))
+done <<< "$LOG_LINES"
 
 I=0
 echo "
@@ -94,7 +146,14 @@ echo "
 read_verilog -formal build.v
 " >> formal.sby
 while IFS= read -r LOG; do
-    awk '$2 ~ /^formal(.*?)\$$/ { print "task" $1 ": prep -top M_" $4 "_" $2 }' <<< "$I $LOG" >> formal.sby
+    awk '
+$2 ~ /^formal(.*?)\$$/ && $8 != "" {
+  split($8, modes, /,/)
+
+  for (mode in modes) {
+    print "task-" $1 "-" mode ": prep -top M_" $4 "_" $2
+  }
+}' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
 
@@ -137,6 +196,11 @@ $0 ~ /(build\.v:[0-9]+: ERROR: .*)$/ {
   print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
 }
 $0 ~ /(SMT Solver '"'"'.*?'"'"' not found in path.)$/ {
+  gsub(/formal_/, "", $3)
+  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
+  next
+}
+$0 ~ /(yosys-abc: command not found)$/ {
   gsub(/formal_/, "", $3)
   print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
   next
@@ -202,7 +266,11 @@ match($0, /(SMT Solver '"'"'.*?'"'"' not found in path.)$/, gr) {
 
   print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1m" gr[1] "\033[0m"
 }
-    '
+match($0, /(yosys-abc: command not found)$/, gr) {
+  gsub(/formal_/, "", $3)
+  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1m" gr[1] "\033[0m"
+  next
+}'
     awk -v LEN=$MAX_LENGTH -v PWD="$PWD" "$AWKSCRIPT" < logfile.txt
     exit 1
 fi
