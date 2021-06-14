@@ -13,13 +13,6 @@
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
-
-// lines:  657
-// decode: 55 + 184 = 239
-// SOC:    118
-
-
-
 // Clocks
 $$if ICESTICK then
 import('../common/icestick_clk_60.v')
@@ -28,6 +21,8 @@ $$if FOMU then
 import('../common/fomu_clk_20.v')
 $$end
 
+$$config['bram_wmask_byte_wenable_width'] = 'data'
+
 // --------------------------------------------------
 
 // pre-compilation script, embeds compile code within BRAM
@@ -35,61 +30,10 @@ $$dofile('pre_include_asm.lua')
 
 // --------------------------------------------------
 
-// bitfields for easier decoding of instructions ; these
-// define views on a uint32, that are used upon 
-// access, avoiding hard coded values in part-selects
-bitfield Itype {
-  uint12 imm,
-  uint5  rs1,
-  uint3  funct3,
-  uint5  rd,
-  uint7  opcode
-}
-
-bitfield Stype {
-  uint7  imm11_5,
-  uint5  rs2,
-  uint5  rs1,
-  uint3  funct3,
-  uint5  imm4_0,
-  uint7  opcode
-}
-
-bitfield Rtype {
-  uint1  unused_2,
-  uint1  select2,
-  uint5  unused_1,
-  uint5  rs2,
-  uint5  rs1,
-  uint3  funct3,
-  uint5  rd,
-  uint7  opcode
-}
-
-bitfield Utype {
-  uint20  imm31_12,
-  uint12  zero
-}
-
-bitfield Jtype {
-  uint1  imm20,
-  uint10 imm10_1,
-  uint1  imm11,
-  uint8  imm_19_12,
-  uint5  rd,
-  uint7  opcode
-}
-
-bitfield Btype {
-  uint1  imm12,
-  uint6  imm10_5,
-  uint5  rs2,
-  uint5  rs1,
-  uint3  funct3,
-  uint4  imm4_1,
-  uint1  imm11,
-  uint7  opcode
-}
+// bitfield for easier decoding of instruction
+// defines a view on a uint32, avoids hard coded values in part-selects
+bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, uint5 rs1,
+                 uint3 op,      uint5 rd,   uint7 opcode}
 
 // --------------------------------------------------
 
@@ -140,8 +84,8 @@ $$if OLED then
 $$end
 
   // ram
-  bram uint32 mem<input!>[] = $meminit$;
-    
+  bram uint32 mem<"bram_wmask_byte",input!>[] = $meminit$;
+
   // cpu
   rv32i_cpu cpu( mem <:> mem );
 
@@ -150,8 +94,9 @@ $$end
 $$if OLED then
     displ_en = 0;
 $$end
-    if (mem.wenable & cpu.wide_addr[10,1]) {
+    if (mem.wenable[0,1] & cpu.wide_addr[10,1]) {
       leds = mem.wdata[0,5] & {5{cpu.wide_addr[0,1]}};
+      __display("LEDS %b",leds);
 $$if OLED then
       // command
       displ_en = (mem.wdata[9,1] | mem.wdata[10,1]) & cpu.wide_addr[1,1];
@@ -210,65 +155,65 @@ algorithm oled(
 
 $$end
 
-
 // --------------------------------------------------
 // The Risc-V RV32I CPU itself
 
 algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
   //                                           boot address  ^
+
   //                 |--------- indicates we don't want the bram inputs to be latched
   //                 v          writes have to be setup during the same clock cycle
   bram int32 xregsA<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   bram int32 xregsB<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-  
-  //uint5  write_rd    = uninitialized;
-  //uint1  jump        = uninitialized;  
-  //uint1  branch      = uninitialized;
-  
-  uint32 instr       = uninitialized;
-  uint12 pc          = uninitialized;
-  
-  uint12 next_pc   <:: pc+1; // next_pc tracks the expression 'pc + 1' using the
-                             // value of pc from the last clock edge (due to ::)
 
-  uint3 funct3     <: Btype(instr).funct3;
+$$if SIMULATION then
+  uint32 cycle(0);
+$$end  
+
+  uint32 instr(0);
+  uint12 pc = uninitialized;
   
+  uint12 next_pc <:: pc+1; // next_pc tracks the expression 'pc + 1' using the
+                           // value of pc from the last clock edge (due to ::)
+
   decode dec( instr <:: instr );
 
   intops alu(
     pc          <: pc,
     xa          <: xregsA.rdata,
     xb          <: xregsB.rdata,
-    imm         <: dec.imm,
-    forceZero   <: dec.forceZero,
-    pcOrReg     <: dec.pcOrReg,
-    regOrImm    <: dec.regOrImm,
-    aluOp       <: dec.aluOp,
+    aluImm      <: dec.aluImm,
+    aluOp       <: dec.op,
+    aluEnable   <: dec.aluEnable,
     sub         <: dec.sub,
     signedShift <: dec.signedShift,
+    regOrImm    <: dec.regOrImm,
+    forceZero   <: dec.forceZero,
+    pcOrReg     <: dec.pcOrReg,
+    addrImm     <: dec.addrImm,
   );
 
-  intcmp cmps(
-    a      <: xregsA.rdata,
-    b      <: xregsB.rdata,
-    funct3 <: funct3,
-    enable <: dec.branch,
-  ); 
-
-  // maintain alu enable low (pulses high when needed)
-  alu.enable     := 0;
   // maintain write enable low (pulses high when needed)
-  mem.wenable    := 0; 
-  // maintain read registers (no latched, see bram parameter)
+  mem.wenable    := 4b0000; 
+  // maintain read registers (not latched, see bram input! parameter)  
   xregsA.wenable := 0;
   xregsB.wenable := 0;
+
   xregsA.addr    := Rtype(instr).rs1;
   xregsB.addr    := Rtype(instr).rs2;  
 
-  always_after { mem.addr = wide_addr[0,10]; /* track memory address */}
+  always_after { 
+    mem.addr       = wide_addr[0,10]; // track memory address in interface
+    xregsB.wdata   = xregsA.wdata;    // xregsB is always paired with xregsA
+    xregsB.wenable = xregsA.wenable;  // when writting to registers
+  }
 
+$$if SIMULATION then  
+  while (cycle != 256) {
+    cycle = cycle + 1;
+$$else    
   while (1) {
-
+$$end
     // data is now available
     instr = mem.rdata;
     pc    = wide_addr;
@@ -276,80 +221,48 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
     xregsA.addr = Rtype(instr).rs1;
     xregsB.addr = Rtype(instr).rs2;  
 
-++: // decode
+$$if SIMULATION then  
+    __display("[cycle %d] instr: %h",cycle,instr);
+$$end
 
-    alu.enable = 1;
+++: // read registers
 
-    while (1) {
+$$if SIMULATION then  
+    __display("[cycle %d] reg[%d] = %h  reg[%d] = %h",cycle,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
+$$end    
+
+    while (1) { // decode occurs during the cycle entering the while
 
         // load/store?        
-        // What happens here: we always load, and mask and store on SB,SH,SW.
-        // the reason being that the BRAM design currently does not support
-        // write masks (likely to evolve, but have to worry about compatibility 
-        // across architectures).
-        if (dec.load_store) {        
-          // load data (NOTE: could skip if followed by SW)
-          wide_addr   = alu.r>>2;
-++: // wait data
-          if (~dec.store) {
+        if (dec.load_store) {   
+
+          wide_addr = alu.nextAddr>>2;
+          mem.wdata = xregsB.rdata;
+          
+          { // Store
+            // build write mask depending on SB, SH, SW
+            // assumes aligned, e.g. SW => next_addr[0,2] == 2
+            mem.wenable = {4{dec.store}} &
+                          {{2{dec.op[0,2]==2b10}},
+                           dec.op[0,1]|dec.op[1,1],
+                           1b1} << alu.nextAddr[0,2]; 
+          }
+
+++: // wait data transaction
+
+          { // Load (note: if Store, no_rd == 1, canceling reg. write below)
             uint32 tmp = uninitialized;
-            switch ( dec.loadStoreOp[0,2] ) {
-              case 2b00: { // LB / LBU
-                  switch (alu.r[0,2]) {
-                    case 2b00: { tmp = { {24{(~dec.loadStoreOp[2,1])&mem.rdata[ 7,1]}},mem.rdata[ 0,8]}; }
-                    case 2b01: { tmp = { {24{(~dec.loadStoreOp[2,1])&mem.rdata[15,1]}},mem.rdata[ 8,8]}; }
-                    case 2b10: { tmp = { {24{(~dec.loadStoreOp[2,1])&mem.rdata[23,1]}},mem.rdata[16,8]}; }
-                    case 2b11: { tmp = { {24{(~dec.loadStoreOp[2,1])&mem.rdata[31,1]}},mem.rdata[24,8]}; }
-                    default:   { tmp = 0; }
-                  }
-              }
-              case 2b01: { // LH / LHU
-                  switch (alu.r[1,1]) {
-                    case 1b0: { tmp = { {16{(~dec.loadStoreOp[2,1])&mem.rdata[15,1]}},mem.rdata[ 0,16]}; }
-                    case 1b1: { tmp = { {16{(~dec.loadStoreOp[2,1])&mem.rdata[31,1]}},mem.rdata[16,16]}; }
-                    default:  { tmp = 0; }
-                  }
-              }
-              case 2b10: { // LW
-                tmp = mem.rdata;  
-              }
-              default: { tmp = 0; }
-            }            
+            switch ( dec.op[0,2] ) {
+              case 2b00: { tmp = { {24{(~dec.op[2,1])&mem.rdata[ 7,1]}},mem.rdata[ 0,8]};  } // LB / LBU
+              case 2b01: { tmp = { {16{(~dec.op[2,1])&mem.rdata[15,1]}},mem.rdata[ 0,16]}; } // LH / LHU
+              case 2b10: { tmp = mem.rdata; } // LW
+              default:   { tmp = {32{1bx}}; } // should not occur, decalre tmp as 'don't care'
+            }
             // commit result
-            xregsA.wenable = 1;
-            xregsB.wenable = 1;
             xregsA.wdata   = tmp;
-            xregsB.wdata   = tmp;
+            xregsA.wenable = ~dec.no_rd;
             xregsA.addr    = dec.write_rd;
             xregsB.addr    = dec.write_rd;
-
-          } else {
-          
-            switch (dec.loadStoreOp) {
-              case 3b000: { // SB
-                  switch (alu.r[0,2]) {
-                    case 2b00: { mem.wdata = { mem.rdata[ 8,24] , xregsB.rdata[ 0,8] };                }
-                    case 2b01: { mem.wdata = { mem.rdata[16,16] , xregsB.rdata[ 0,8] , mem.rdata[0, 8] }; }
-                    case 2b10: { mem.wdata = { mem.rdata[24, 8] , xregsB.rdata[ 0,8] , mem.rdata[0,16] }; }
-                    case 2b11: { mem.wdata = {     xregsB.rdata[ 0,8] , mem.rdata[0,24] };             }
-                  }
-              }
-              case 3b001: { // SH
-                  switch (alu.r[1,1]) {
-                    case 1b0: { mem.wdata = {   mem.rdata[16,16] , xregsB.rdata[ 0,16] }; }
-                    case 1b1: { mem.wdata = { xregsB.rdata[0,16] , mem.rdata[0,16] }; }
-                  }
-              }
-              case 3b010: { // SW
-                mem.wdata   = xregsB.rdata;
-              }            
-              default: {  }
-            }
-            wide_addr   = alu.r>>2;
-            mem.wenable = 1;
-
-++: // wait write
-
           }
           
           wide_addr = next_pc;
@@ -357,26 +270,27 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
           break;
           
         } else {
-        
+          uint1 do_jump <: dec.jump | (dec.branch & alu.j);
+          // next instruction
+          wide_addr      = do_jump ? (alu.nextAddr>>2) : next_pc;
+          // commit result   
+          // - what do we write in register? (pc or alu, load is handled above)
+          xregsA.wdata   = do_jump ? (next_pc<<2) : (dec.storeAddr ? alu.nextAddr : alu.r);
+          xregsA.wenable = ~dec.no_rd;
+          xregsA.addr    = dec.write_rd;
+          xregsB.addr    = dec.write_rd;
+
+$$if SIMULATION then  
+          if (~dec.no_rd) {
+            __display("[cycle %d] reg write [%d] = %h (alu working:%b)",cycle,dec.write_rd,xregsA.wdata,alu.working);
+          }
+$$end          
+
           if (alu.working == 0) { // ALU done?
+            // yes: all is correct, stop here
+            break; // write to registers occurs as we jump back to loop start
+          }
 
-            // next instruction
-            wide_addr    = (dec.jump | cmps.j) ? alu.r[2,12]  : next_pc;
-            // what do we write in register (pc or alu, load is handled above)
-            xregsA.wdata = (dec.jump | cmps.j) ? (next_pc) << 2 : alu.r;
-            xregsB.wdata = (dec.jump | cmps.j) ? (next_pc) << 2 : alu.r;
-            
-            // store result   
-            if (dec.write_rd != 5b0) {
-              // commit result
-              xregsA.wenable = 1;
-              xregsB.wenable = 1;
-              xregsA.addr    = dec.write_rd;
-              xregsB.addr    = dec.write_rd;
-            }        
-
-            break;
-          }      
         }
       }
 
@@ -390,36 +304,28 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
 algorithm decode(
   input   uint32  instr,
   output! uint5   write_rd,
+  output! uint1   no_rd,
   output! uint1   jump,
   output! uint1   branch,
   output! uint1   load_store,
   output! uint1   store,
-  output! uint3   loadStoreOp,
-  output! uint3   aluOp,
+  output! uint1   storeAddr,
+  output! uint3   op,
+  output! uint1   aluEnable,
+  output! int32   aluImm,
   output! uint1   sub,  
   output! uint1   signedShift,
-  output! int32   imm,
   output! uint1   forceZero,
   output! uint1   pcOrReg,
-  output! uint1   regOrImm
+  output! uint1   regOrImm,
+  output! int32   addrImm,
 ) {
 
-  int32 imm_u  <: {Utype(instr).imm31_12,12b0};
-  int32 imm_j  <: {
-           {12{Jtype(instr).imm20}},
-           Jtype(instr).imm_19_12,
-           Jtype(instr).imm11,
-           Jtype(instr).imm10_1,
-           1b0};
-  int32 imm_i  <: {{20{instr[31,1]}},Itype(instr).imm};
-  int32 imm_b  <:  {
-            {20{Btype(instr).imm12}},
-            Btype(instr).imm11,
-            Btype(instr).imm10_5,
-            Btype(instr).imm4_1,
-            1b0
-            };
-  int32 imm_s  <: {{20{instr[31,1]}},Stype(instr).imm11_5,Stype(instr).imm4_0};
+  int32 imm_u  <: {instr[12,20],12b0};
+  int32 imm_j  <: {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
+  int32 imm_i  <: {{20{instr[31,1]}},instr[20,12]};
+  int32 imm_b  <: {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
+  int32 imm_s  <: {{20{instr[31,1]}},instr[25,7],instr[7,5]};
   
   uint5 opcode <: instr[ 2, 5];
   
@@ -432,36 +338,36 @@ algorithm decode(
   uint1 Store  <: opcode == 5b01000;
   uint1 IntImm <: opcode == 5b00100;
   uint1 IntReg <: opcode == 5b01100;
-  uint1 no_rd  <: (Branch | Store);
 
-  jump         := (JAL | JALR);
-  branch       := (Branch);
-  store        := (Store);
-  load_store   := (Load | Store);
-  regOrImm     := (IntReg);
-  aluOp        := (IntImm | IntReg) ? {Itype(instr).funct3} : 3b000;
-  sub          := (IntReg & Rtype(instr).select2);
-  signedShift  := IntImm & instr[30,1]; /*SRLI/SRAI*/
-  loadStoreOp  := Itype(instr).funct3;
-  write_rd     := no_rd ? 5b0 : Rtype(instr).rd;
-  pcOrReg      := (AUIPC | JAL | Branch);
+  jump         := JAL | JALR;
+  branch       := Branch;
+  store        := Store;
+  load_store   := Load   | Store;
+  regOrImm     := IntReg | Branch;
+  op           := Rtype(instr).op;
+  aluEnable    := (IntImm | IntReg);
+  aluImm       := imm_i;
+  sub          := IntReg & Rtype(instr).sign;
+  signedShift  := Rtype(instr).sign; /*SRLI/SRAI*/
+  write_rd     := Rtype(instr).rd;
+  no_rd        := Branch | Store | (Rtype(instr).rd == 5b0);
+  pcOrReg      := AUIPC | JAL | Branch;
   forceZero    := LUI;
+  storeAddr    := LUI | AUIPC;
 
   always {
     switch (opcode)
      {
-      case 5b00101: { imm = imm_u; } // AUIPC
-      case 5b01101: { imm = imm_u; } // LUI
-      case 5b11011: { imm = imm_j; } // JAL
-      case 5b11000: { imm = imm_b; } // branch
-      case 5b11001: { imm = imm_i; } // JALR
-      case 5b00000: { imm = imm_i; } // load
-      case 5b00100: { imm = imm_i; } // integer, immediate
-      case 5b01000: { imm = imm_s; } // store
-      default:      { imm = {32{1bx}}; }
+      case 5b00101: { addrImm = imm_u; } // AUIPC
+      case 5b01101: { addrImm = imm_u; } // LUI
+      case 5b11011: { addrImm = imm_j; } // JAL
+      case 5b11000: { addrImm = imm_b; } // branch
+      case 5b11001: { addrImm = imm_i; } // JALR
+      case 5b00000: { addrImm = imm_i; } // load
+      case 5b01000: { addrImm = imm_s; } // store
+      default:  { addrImm = {32{1bx}}; } // don't care
      }
   }
-
 }
 
 // --------------------------------------------------
@@ -471,87 +377,82 @@ algorithm intops(
   input   uint12 pc,
   input   int32  xa,
   input   int32  xb,
-  input   int32  imm,
+  input   int32  aluImm,
   input   uint3  aluOp,
+  input   uint1  aluEnable,
   input   uint1  sub,  
   input   uint1  signedShift,
   input   uint1  forceZero,
   input   uint1  pcOrReg,
   input   uint1  regOrImm,
-  input   uint1  enable,
+  input   int32  addrImm,
+  output  uint32 nextAddr,
   output  int32  r,
-  output  uint1  working,
+  output  uint1  j,
+  output  uint1  working(0),
 ) {
-  uint1 signed = 0;
-  uint1 dir    = 0;
-  uint5 shamt  = 0;
+  uint1 signed(0);
+  uint1 dir(0);
+  uint5 shamt(0);
   
-  int32 a <: forceZero ?  __signed(32b0) : (pcOrReg  ? __signed({20b0,pc[0,10],2b0}) : xa);
-  int32 b <: regOrImm ? (xb) : imm;
+  // select next address adder inputs
+  uint32 next_addr_a <:: forceZero ? __signed(32b0) 
+                      : (pcOrReg   ? __signed({20b0,pc[0,10],2b0}) 
+                      :              xa);
+  uint32 next_addr_b <:: addrImm;
+
+  // select ALU inputs
+  int32 a <: xa;
+  int32 b <: regOrImm ? (xb) : aluImm;
   
-  always { // this part of the algorithm is executed every clock
+  // trick from femtorv32/swapforth/J1
+  // allows to do minus and all comparisons with a single adder
+  int33 a_minus_b <: {1b1,~b} + {1b0,a} + 33b1;
+  uint1 a_lt_b    <: (a[31,1]^b[31,1]) ? a[31,1] : a_minus_b[32,1];
+  uint1 a_lt_b_u  <: a_minus_b[32,1];
+  uint1 a_eq_b    <: a_minus_b[0,32] == 0;
+
+  always {
   
+    // ALU
     signed  = signedShift;
     dir     = aluOp[2,1];
-    shamt   = working ? shamt - 1 : ((aluOp[0,2] == 2b01) ? __unsigned(b[0,5]) : 0);
-
-    if (working) {    
+    shamt   = working ? shamt - 1 : ((aluEnable & aluOp[0,2] == 2b01) ? __unsigned(b[0,5]) : 0);
+    //                                ^^^^^^^^^ prevents ALU to trigger when low
+    if (working) {
       // process the shift one bit at a time
       r       = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) 
                     : {r[0,31],__signed(1b0)};      
     } else {
-
       switch (aluOp) {
-        case 3b000: { // ADD / SUB
-          // int32 tmp = uninitialized;
-          // if (select2) { tmp = -b; } else { tmp = b; }
-          r = sub ? a - b : a + b;
-        }
-        case 3b010: { // SLTI
-          if (__signed(a) < __signed(b))     { r = 32b1; } else { r = 32b0; }
-        }
-        case 3b011: { // SLTU
-          if (__unsigned(a) < __unsigned(b)) { r = 32b1; } else { r = 32b0; }
-        }
-        case 3b100: { r = a ^ b;} // XOR
-        case 3b110: { r = a | b;} // OR
-        case 3b111: { r = a & b;} // AND
-        case 3b001: { // SLLI
-          r       = a;
-        }
-        case 3b101: { // SRLI / SRAI
-          r       = a;
-        }        
-      }    
-      
+        case 3b000: { r = sub ? a_minus_b : a + b; } // ADD / SUB
+        case 3b010: { r = {32{a_lt_b}};            } // SLTI
+        case 3b011: { r = {32{a_lt_b_u}};          } // SLTU
+        case 3b100: { r = a ^ b;                   } // XOR
+        case 3b110: { r = a | b;                   } // OR
+        case 3b111: { r = a & b;                   } // AND
+        case 3b001: { r = a;                       } // SLLI
+        case 3b101: { r = a;                       } // SRLI / SRAI
+      }      
+    }
+    working = (shamt != 0);
+    
+    // Branch comparisons
+    switch (aluOp) {
+      case 3b000: { j =   a_eq_b;   } // BEQ
+      case 3b001: { j = ~ a_eq_b;   } // BNE
+      case 3b100: { j =   a_lt_b;   } // BLT
+      case 3b110: { j =   a_lt_b_u; } // BLTU
+      case 3b101: { j = ~ a_lt_b;   } // BGE
+      case 3b111: { j = ~ a_lt_b_u; } // BGEU
+      default:    { j = 0; }
     }
 
-    working = (shamt != 0);
+    // Next address adder
+    nextAddr = next_addr_a + next_addr_b;
 
   }
   
 }
 
-// --------------------------------------------------
-// Performs integer comparisons
-
-algorithm intcmp(
-  input   int32 a,
-  input   int32 b,
-  input   uint3 funct3,
-  input   uint1 enable,
-  output! uint1 j,
-) {
-  always {  
-    switch (funct3) {
-      case 3b000: { j = enable & (a == b); } // BEQ
-      case 3b001: { j = enable & (a != b); } // BNE
-      case 3b100: { j = enable & (__signed(a)   <  __signed(b));   } // BLT
-      case 3b110: { j = enable & (__unsigned(a) <  __unsigned(b)); } // BLTU
-      case 3b101: { j = enable & (__signed(a)   >= __signed(b));   } // BGE
-      case 3b111: { j = enable & (__unsigned(a) >= __unsigned(b)); } // BGEU
-      default:    { j = 0; }
-    }
-  }
-}
 // --------------------------------------------------

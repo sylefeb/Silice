@@ -4599,7 +4599,7 @@ void Algorithm::determineUsage()
   std::unordered_set<std::string> global_out_written;
   determineAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = true;
+  const bool report = false;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
@@ -4663,30 +4663,6 @@ void Algorithm::determineUsage()
     }
     if (report) std::cerr << nxl;
   }
-
-#if 0
-  /////////// DEBUG
-  for (const auto& v : m_Vars) {
-    cerr << v.name << " access: ";
-    if (v.access & e_ReadOnly) cerr << 'R';
-    if (v.access & e_WriteOnly) cerr << 'W';
-    std::cerr << nxl;
-  }
-  for (const auto& b : all_blocks) {
-    std::cerr << "== block " << b->block_name << "==" << nxl;
-    std::cerr << "   read from before: ";
-    for (auto i : b->in_vars_read) {
-      std::cerr << i << ' ';
-    }
-    std::cerr << nxl;
-    std::cerr << "   changed within: ";
-    for (auto i : b->out_vars_written) {
-      std::cerr << i << ' ';
-    }
-    std::cerr << nxl;
-  }
-  /////////////////
-#endif
 
 }
 
@@ -6336,7 +6312,7 @@ void Algorithm::writeCombinationalStates(
       ff_usages.push_back(_ff_usage);
       writeStatelessBlockGraph(prefix, out, ictx, b, nullptr, q, depds, ff_usages.back(), _post_dependencies, lines);
       clearNoLatchFFUsage(ff_usages.back());
-#if 0      
+#if 0
       /// DEBUG
       for (auto ff : ff_usages.back().ff_usage) {
         out << "// " << ff.first << " ";
