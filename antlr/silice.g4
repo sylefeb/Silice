@@ -91,19 +91,19 @@ PAD                 : 'pad' ;
 
 FILE                : 'file' ;
 
-ASSERT              : 'assert' ;
+ASSERT              : '#assert' ;
 
-ASSUME              : 'assume' ;
+ASSUME              : '#assume' ;
 
-RESTRICT            : 'restrict';
+RESTRICT            : '#restrict';
 
-WASAT               : 'wasat';
+WASAT               : '#wasat';
 
-STABLE              : 'stable';
+STABLE              : '#stable';
 
-STABLEINPUT         : 'stableinput';
+STABLEINPUT         : '#stableinput';
 
-COVER               : 'cover';
+COVER               : '#cover';
 
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
@@ -159,9 +159,9 @@ sreset              :  '!' IDENTIFIER ;
 sautorun            :  AUTORUN ;
 sonehot             :  ONEHOT ;
 sstacksz            :  'stack:' NUMBER ;
-sformdepth          :  HASH 'depth' '=' NUMBER ;
-sformtimeout        :  HASH 'timeout' '=' NUMBER ;
-sformmode           :  HASH 'mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
+sformdepth          :  '#depth' '=' NUMBER ;
+sformtimeout        :  '#timeout' '=' NUMBER ;
+sformmode           :  '#mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
 
 algModifier         : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode ;
 algModifiers        : '<' algModifier (',' algModifier)* '>' ;
@@ -339,14 +339,14 @@ state               : state_name=IDENTIFIER ':' | NEXT ;
 jump                : GOTO IDENTIFIER ;
 returnFrom          : RETURN ;
 breakLoop           : BREAK ;
-assert_             : HASH ASSERT '(' expression_0 ')';
+assert_             : ASSERT '(' expression_0 ')';
 // NOTE: keep the `_` here else it clashes with various keywords etc
-assume              : HASH ASSUME '(' expression_0 ')';
-restrict            : HASH RESTRICT '(' expression_0 ')';
-was_at              : HASH WASAT '(' IDENTIFIER (',' NUMBER)? ')';
-stable              : HASH STABLE '(' expression_0 ')';
-stableinput         : HASH STABLEINPUT '(' IDENTIFIER ')';
-cover               : HASH COVER '(' expression_0 ')';
+assume              : ASSUME '(' expression_0 ')';
+restrict            : RESTRICT '(' expression_0 ')';
+was_at              : WASAT '(' IDENTIFIER (',' NUMBER)? ')';
+stable              : STABLE '(' expression_0 ')';
+stableinput         : STABLEINPUT '(' IDENTIFIER ')';
+cover               : COVER '(' expression_0 ')';
 
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
