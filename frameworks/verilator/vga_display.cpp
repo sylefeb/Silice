@@ -79,7 +79,7 @@ void vga_display_loop()
   int   argc=0;
   char *argv[1] = {NULL};
   glutInit(&argc, argv);
-  glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+  glutInitDisplayMode(GLUT_RGBA | GLUT_SINGLE);
   glutInitWindowSize(640, 480);
   glutCreateWindow("Silice verilator framework");
   glutDisplayFunc(render);
