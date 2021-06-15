@@ -46,7 +46,7 @@ label2:
   addi  t1, zero, 0
   lw    t1, mydata2
 
-  addi  t0, zero, 0x11
+  addi  t0, zero, 0x13
   la    t1, myhalf
   sh    t0, 0(t1)
 

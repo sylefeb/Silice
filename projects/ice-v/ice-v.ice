@@ -175,6 +175,8 @@ $$end
   uint12 pc      = uninitialized;  
   uint12 next_pc <:: pc+1; // next_pc tracks the expression 'pc + 1' using the
                            // value of pc from the last clock edge (due to ::)
+  // triggers ALU when required
+  uint1 aluTrigger(0);
   // decoder
   decode dec( instr <:: instr );
   // all integer operations (ALU + comparisons + next address)
@@ -182,7 +184,7 @@ $$end
     pc          <: pc,
     xa          <: xregsA.rdata,    xb          <: xregsB.rdata,
     aluImm      <: dec.aluImm,      aluOp       <: dec.op,
-    aluEnable   <: dec.aluEnable,   sub         <: dec.sub,
+    aluTrigger  <: aluTrigger,      sub         <: dec.sub,
     signedShift <: dec.signedShift, regOrImm    <: dec.regOrImm,
     forceZero   <: dec.forceZero,   pcOrReg     <: dec.pcOrReg,
     addrImm     <: dec.addrImm,
@@ -195,6 +197,8 @@ $$end
   // maintain addr on rs1/rs2 by default (bram is not latched, see input!)
   xregsA.addr    := Rtype(instr).rs1;
   xregsB.addr    := Rtype(instr).rs2;  
+  // maintain alu trigger low
+  aluTrigger     := 0;
 
   // this 'always_after' block is executed at the end of every cycle
   always_after { 
@@ -204,7 +208,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (cycle != 256) {
+  while (cycle != 100) {
     cycle = cycle + 1;
 $$else
   // CPU runs forever
@@ -218,15 +222,17 @@ $$end
     xregsB.addr = Rtype(instr).rs2;  
 
 $$if SIMULATION then  
-    __display("[cycle %d] instr: %h",cycle,instr);
+    __display("[cycle %d] ========= instr: %h (pc %h) =========",cycle,instr,pc<<2);
 $$end
 
 ++: // read registers, BRAM takes one cycle
 
 $$if SIMULATION then  
-    __display("[cycle %d] reg[%d] = %h  reg[%d] = %h",cycle,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
+    __display("[cycle %d] reg[%d] = %d  reg[%d] = %d",cycle,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
 $$end    
     
+    aluTrigger = 1;
+
     // decode occurs during the cycle entering the while below
     while (1) { 
         // this operations loop allows to wait for ALU when needed
@@ -240,10 +246,39 @@ $$end
           { // Store (enabled below if dec.store == 1)
             // build write mask depending on SB, SH, SW
             // assumes aligned, e.g. SW => next_addr[0,2] == 2
-            mem.wenable = {4{dec.store}} & { { 2{dec.op[0,2]==2b10} },
+/*
+            mem.wenable = {4{dec.store}} & ({ { 2{dec.op[0,2]==2b10} },
                                               dec.op[0,1] | dec.op[1,1], 1b1 
-                                           } << alu.n[0,2]; 
-            mem.wdata = xregsB.rdata;
+                                            } << alu.n[0,2]);
+            mem.wdata  = xregsB.rdata << alu.n[0,2];
+*/
+            switch (dec.op) {
+              case 3b000: { // SB
+                  switch (alu.n[0,2]) {
+                    case 2b00: { mem.wdata [ 0,8] = xregsB.rdata[ 0,8]; mem.wenable = 4b0001 & {4{dec.store}}; }
+                    case 2b01: { mem.wdata [ 8,8] = xregsB.rdata[ 0,8]; mem.wenable = 4b0010 & {4{dec.store}}; }
+                    case 2b10: { mem.wdata [16,8] = xregsB.rdata[ 0,8]; mem.wenable = 4b0100 & {4{dec.store}}; }
+                    case 2b11: { mem.wdata [24,8] = xregsB.rdata[ 0,8]; mem.wenable = 4b1000 & {4{dec.store}}; }
+                  }
+              }
+              case 3b001: { // SH
+                  switch (alu.n[1,1]) {
+                    case 1b0: { mem.wdata [ 0,16] = xregsB.rdata[ 0,16]; mem.wenable = 4b0011 & {4{dec.store}}; }
+                    case 1b1: { mem.wdata [16,16] = xregsB.rdata[ 0,16]; mem.wenable = 4b1100 & {4{dec.store}}; }
+                  }
+              }
+              case 3b010: { // SW
+                mem.wdata  = xregsB.rdata; mem.wenable = 4b1111 & {4{dec.store}};
+              }
+              default: { }
+            }
+
+$$if SIMULATION then
+            if (dec.store) {
+              __display("STORE %b %b @%h = %h mask=%b",dec.op,alu.n[0,2],wide_addr<<2,xregsB.rdata,mem.wenable[0,4]);
+            }
+$$end            
+
           }
 ++: // wait for data transaction
           { // Load (enabled below if no_rd == 0)
@@ -259,6 +294,11 @@ $$end
             xregsA.wenable = ~dec.no_rd;
             xregsA.addr    = dec.write_rd;
             xregsB.addr    = dec.write_rd;
+$$if SIMULATION then
+            if (~dec.no_rd) {
+              __display("LOAD @%h = %h",wide_addr<<2,mem.rdata);
+            }
+$$end            
           }
           // restore address to program counter
           wide_addr = next_pc;
@@ -279,7 +319,7 @@ $$end
 
 $$if SIMULATION then  
           if (~dec.no_rd) {
-            __display("[cycle %d] reg write [%d] = %h (alu working:%b)",cycle,dec.write_rd,xregsA.wdata,alu.working);
+            __display("[cycle %d] reg write [%d] = %d (alu working:%b)",cycle,dec.write_rd,xregsA.wdata,alu.working);
           }
 $$end          
 
@@ -362,7 +402,7 @@ algorithm decode(
 
 algorithm intops(
   input   uint12 pc,      input   int32  xa,          input   int32  xb,
-  input   int32  aluImm,  input   uint3  aluOp,       input   uint1  aluEnable,
+  input   int32  aluImm,  input   uint3  aluOp,       input   uint1  aluTrigger,
   input   uint1  sub,     input   uint1  signedShift, input   uint1  forceZero,
   input   uint1  pcOrReg, input   uint1  regOrImm,    input   int32  addrImm,
   output  uint32 n,          // result of next address computation
@@ -396,7 +436,8 @@ algorithm intops(
     // ====================== ALU
     signed  = signedShift;
     dir     = aluOp[2,1];
-    shamt   = working ? shamt - 1 : ((aluEnable & aluOp[0,2] == 2b01) ? __unsigned(b[0,5]) : 0);
+    shamt   = working ? shamt - 1 : ((aluTrigger & aluOp[0,2] == 2b01) ? __unsigned(b[0,5]) : 0);
+__display("shamt %d working %b",shamt,working);
     //                                ^^^^^^^^^ prevents ALU to trigger when low
     if (working) {
       // process the shift one bit at a time
@@ -405,8 +446,8 @@ algorithm intops(
     } else {
       switch (aluOp) {
         case 3b000: { r = sub ? a_minus_b : a + b; } // ADD / SUB
-        case 3b010: { r = {32{a_lt_b}};            } // SLTI
-        case 3b011: { r = {32{a_lt_b_u}};          } // SLTU
+        case 3b010: { r = a_lt_b;                  } // SLTI
+        case 3b011: { r = a_lt_b_u;                } // SLTU
         case 3b100: { r = a ^ b;                   } // XOR
         case 3b110: { r = a | b;                   } // OR
         case 3b111: { r = a & b;                   } // AND
@@ -414,8 +455,9 @@ algorithm intops(
         case 3b101: { r = a;                       } // SRLI / SRAI
       }      
     }
-    working = (shamt != 0);
     
+    working = (shamt != 0);
+
     // ====================== Branch comparisons
     switch (aluOp) {
       case 3b000: { j =   a_eq_b;   } // BEQ
