@@ -106,3 +106,11 @@ The `-f` option indicates that we are okay discarding the old results of previou
 
 <!-- Some quick examples of verification -->
 ## Examples
+
+This directory contains several example of verifying code, for different algorithms:
+
+- [divint_verif.ice](./divint-verif.ice) verifies some properties of integral division (the division used can be replaced quite easily)
+- [mulint_verif.ice](./mulint_verif.ice) verifies some properties of integral multiplication
+
+You can run the verification process using the provided [Makefile](./Makefile), by simply running the command
+`make file`, where `file` is the file without the `.ice` extension you want to run the whole process on.

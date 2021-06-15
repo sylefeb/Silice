@@ -1,0 +1,180 @@
+$$FORMAL = 1
+
+$$mul_width = 8
+$include('../common/mulint_any.ice')
+$$INPUT="int" .. mul_width
+$$OUTPUT="int" .. (mul_width*2)
+$$MULT="mul" .. mul_width
+
+$$max_int=mul_width .. "b0" .. string.rep("1", mul_width - 1)
+
+$$mul_width = 16
+$include('../common/mulint_any.ice')
+$$INPUT2="int" .. mul_width
+$$OUTPUT2="int" .. (mul_width*2)
+$$MULT2="mul" .. mul_width
+
+algorithm main()
+{
+  __display("OK");
+}
+
+$$if FORMAL then
+/////////////// Properties of multiplication: //////////////
+
+// commutativity: x · y = y · x
+algorithm #commutative(
+  input $INPUT$ x,
+  input $INPUT$ y
+) <#depth=35>
+{
+  $OUTPUT$ r1 = uninitialized;
+  $OUTPUT$ r2 = uninitialized;
+  $MULT$ multiply1;
+  $MULT$ multiply2;
+
+  #stableinput(x);
+  #stableinput(y);
+
+  (r1) <- multiply1 <- (x, y);
+  (r2) <- multiply2 <- (y, x);
+
+  #assert(r1 == r2);
+}
+
+// associativity: (x · y) · z = x · (y · z)
+algorithm #associative(
+  input $INPUT$ x,
+  input $INPUT$ y,
+  input $INPUT$ z
+) <#depth=35>
+{
+  $OUTPUT$ r1 = uninitialized;
+  $OUTPUT$ r2 = uninitialized;
+  $MULT$ multiply1;
+  $MULT$ multiply2;
+
+  #stableinput(x);
+  #stableinput(y);
+  #stableinput(z);
+
+  (r1) <- multiply1 <- (x, y);
+  (r2) <- multiply2 <- (y, z);
+  (r1) <- multiply1 <- (r1, z);
+  (r2) <- multiply1 <- (x, r2);
+
+  #assume(r1 <= $max_int$);
+  #assume(r2 <= $max_int$);
+  #assert(r1 == r2);
+}
+
+// distributivity: x · (y + z) = x · y + x · z
+algorithm #distributive(
+  input $INPUT$ x,
+  input $INPUT$ y,
+  input $INPUT$ z
+) <#timeout=240, #depth=50>
+{
+  $OUTPUT2$ r1 = uninitialized;
+  $OUTPUT2$ r2 = uninitialized;
+  $OUTPUT2$ r3 = uninitialized;
+  $MULT2$ multiply1;
+  $MULT$ multiply2;
+  $MULT$ multiply3;
+
+  #stableinput(x);
+  #stableinput(y);
+  #stableinput(z);
+
+  (r1) <- multiply1 <- (x, y + z);
+  (r2) <- multiply2 <- (x, y);
+  (r3) <- multiply3 <- (x, z);
+
+  #assert(r1 == r2 + r3);
+}
+
+// identity: x · 1 = x
+algorithm #identity(
+  input $INPUT$ x
+)
+{
+  $OUTPUT$ r1 = uninitialized;
+  $MULT$ multiply1;
+
+  #stableinput(x);
+
+  (r1) <- multiply1 <- (x, 1);
+
+  #assert(r1 == x);
+}
+
+// zero: x · 0 = 0
+algorithm #zero(
+  input $INPUT$ x
+)
+{
+  $OUTPUT$ r1 = uninitialized;
+  $MULT$ multiply1;
+
+  #stableinput(x);
+
+  (r1) <- multiply1 <- (x, 0);
+
+  #assert(r1 == 0);
+}
+
+// negation: (-1) · x = -x
+algorithm #negation(
+  input $INPUT$ x
+)
+{
+  $OUTPUT$ r1 = uninitialized;
+  $MULT$ multiply1;
+
+  #stableinput(x);
+
+  (r1) <- multiply1 <- (-1, x);
+
+  #assert(r1 == (-x));
+}
+
+// order preservation: (*) for a > 0, if b > c then ab > ac
+//                     (*) for a < 0, if b > c then ab < ac
+algorithm #order_preserve(
+  input $INPUT$ a,
+  input $INPUT$ b,
+  input $INPUT$ c
+) <#timeout=240, #depth=50>
+{
+  $OUTPUT$ r1 = uninitialized;
+  $OUTPUT$ r2 = uninitialized;
+
+  $MULT$ multiply1;
+  $MULT$ multiply2;
+
+  #stableinput(a);
+  #stableinput(b);
+  #stableinput(c);
+  #restrict(a != 0);
+
+  (r1) <- multiply1 <- (a, b);
+  (r2) <- multiply2 <- (a, c);
+
+  if (a > 0)
+  {
+    if (b > c)
+    {
+      #assert(r1 > r2);
+    }
+  }
+  else
+  {
+    if (b > c)
+    {
+      #assert(r1 < r2);
+    }
+  }
+}
+
+
+$$end
