@@ -1784,13 +1784,13 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
   if (ilist->state() != nullptr) {
     // start a new block
     std::string name = "++";
+    bool no_skip = false;
     if (ilist->state()->state_name != nullptr) {
-      name = ilist->state()->state_name->getText();
+      name    = ilist->state()->state_name->getText();
+      no_skip = true;
     }
-    bool no_skip   = false;
     if (name == "++") {
-      name      = generateBlockName();
-      no_skip   = true;
+      name    = generateBlockName();
     }
     t_combinational_block *block = addBlock(name, _current, nullptr, ilist->getSourceInterval());
     block->is_state     = true;    // block explicitely required to be a state (may become a sub-state)
