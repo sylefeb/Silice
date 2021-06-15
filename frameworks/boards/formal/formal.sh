@@ -249,25 +249,39 @@ if [ "${PIPESTATUS[0]}" != "0" -o "$COVER" = "true" ]; then
     echo ""
     echo "---<       Results      >---"
     AWKSCRIPT='
-match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
+function try_read_silice_position(line) {
   build_v = "build.v"
 
-  gsub(/formal_/, "", $3)
-  gsub(/[0-9]+\.[0-9]+-/, "", gr[2])
-  gsub(/\.[0-9]+/, "", gr[2])
-
-  line = gr[2]
   NR_ = 0
-  gr[2] = "<original file not found>"
+  file = "<original file not found>"
   while ((getline build_v_line < build_v) > 0) {
     if (++NR_ == line && match(build_v_line, /\/\/%(.*)$/, gr_)) {
-      gr[2] = gr_[1]
+      file = gr_[1]
       break
     }
   }
   close(build_v)
 
+  return file
+}
+
+match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
+  gsub(/formal_/, "", $3)
+  gsub(/[0-9]+\.[0-9]+-/, "", gr[2])
+  gsub(/\.[0-9]+/, "", gr[2])
+
+  gr[2] = try_read_silice_position(gr[2])
+
   print "* " sprintf("%" LEN "-s", $3) "\033[31m" gr[1] gr[2] "\033[0m"
+}
+match($0, /(Unreached cover statement at )build\.v:([0-9\-\.]+)\.$/, gr) {
+  gsub(/formal_/, "", $3)
+  gsub(/[0-9]+\.[0-9]+-/, "", gr[2])
+  gsub(/\.[0-9]+/, "", gr[2])
+
+  gr[2] = try_read_silice_position(gr[2])
+
+  print "* " sprintf("%" LEN "-s", $3) "\033[31m" gr[1] gr[2] ".\033[0m"
 }
 match($0, /(Reached cover statement at )build\.v:([0-9\-\.]+)( in step [0-9]+\.)$/, gr) {
   build_v = "build.v"
@@ -276,16 +290,7 @@ match($0, /(Reached cover statement at )build\.v:([0-9\-\.]+)( in step [0-9]+\.)
   gsub(/[0-9]+\.[0-9]+-/, "", gr[2])
   gsub(/\.[0-9]+/, "", gr[2])
 
-  line = gr[2]
-  NR_ = 0
-  gr[2] = "<original file not found>"
-  while ((getline build_v_line < build_v) > 0) {
-    if (++NR_ == line && match(build_v_line, /\/\/%(.*)$/, gr_)) {
-      gr[2] = gr_[1]
-      break
-    }
-  }
-  close(build_v)
+  gr[2] = try_read_silice_position(gr[2])
 
   print "* " sprintf("%" LEN "-s", $3) "\033[32m" gr[1] gr[2] gr[3] "\033[0m"
 }
