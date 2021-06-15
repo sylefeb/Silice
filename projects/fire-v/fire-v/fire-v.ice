@@ -345,6 +345,7 @@ $$end
         wait_next_instr = (~refetch & ~do_load_store) | ~instr_ready;
 
         // prepare a potential store     // Note: it is ok to manipulate ram.data_in as only reads can concurrently occur
+        // TODO: simplify (see ice-v)
         switch (loadStoreOp) {
           case 3b000: { // SB
               switch (alu_out[0,2]) {
@@ -461,7 +462,7 @@ $$end
   store        := (Store);
   load_store   := (Load | Store);
   regOrImm     := (IntReg);
-  aluOp        := (IntImm | IntReg) ? {Itype(instr).funct3} : 4b0000;
+  aluOp        := (IntImm | IntReg) ? {Itype(instr).funct3} : 3b000;
   sub          := (IntReg & Rtype(instr).sub);
 $$if FIREV_MULDIV then
   muldiv       := (IntReg & Rtype(instr).muldiv);
