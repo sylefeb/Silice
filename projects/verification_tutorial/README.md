@@ -63,6 +63,16 @@ it must be preceded by a sequence of maximum `k` valid states.
 
 ### Programs needed
 
+Symbiyosys is a front-end for Yosys to make formal verification easier.
+As such, you will also need Yosys, which you can get [here](https://github.com/YosysHQ/yosys).
+Note that, if you choose to build it yourself, you may need to create a symlink for yosys-abc,
+depending on whether you installed it with yosys or on its own (because some programs expect a `yosys-abc` executable,
+which isn't created if you have an external ABC solver).
+You can get Symbiyosys [here](https://symbiyosys.readthedocs.io/en/latest/).
+
+You will also need the SMT solver Yices2, which is available [here](https://yices.csl.sri.com/).
+This solver handles BMC and cover tests quite fine, and fast enough (compared to e.g. z3).
+
 <!-- Describe implemented features (#assert, #assume, #restrict, #cover, #wasat, #stable, #stableinput, #mode, #depth, #timeout, algorithm#) -->
 ## Syntax and semantics
 
@@ -80,6 +90,19 @@ it must be preceded by a sequence of maximum `k` valid states.
 
 <!-- Introduce the formal board, what it does, how it is useful -->
 ## Easy verification with the formal board
+
+Because writing a `.sby` file to instruct symbiyosys to work correctly (together with some needed SMT constraints files)
+is a pain, we chose to develop a Silice board in charge of generating every needed file and running Symbiyosys with correct parameters.
+
+It also runs Symbiyosys in a minimal interface, because it generates *a lot* of logs.
+
+If you feel brave enough, or feel like you missed something that the interface should have reported, you may dive into the full
+log file named `logfile.txt` generated in the build folder.
+Please note however that you may also have to dive into the Verilog code to fetch the correct positions in the Silice files.
+
+In case you want to modify the file `formal.sby` (which is also generated), you will have to run Symbiyosys by hand
+(re-running the formal board will override all your modifications) using the command `sby -f formal.sby`.
+The `-f` option indicates that we are okay discarding the old results of previous runs.
 
 <!-- Some quick examples of verification -->
 ## Examples
