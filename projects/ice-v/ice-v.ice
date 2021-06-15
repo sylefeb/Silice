@@ -112,7 +112,7 @@ $$end
 }
 
 // --------------------------------------------------
-// Help send bytes to the OLED screen
+// Sends bytes to the OLED screen
 // produces a quarter freq clock with one bit traveling a four bit ring
 // data is sent one main clock cycle before the OLED clock raises
 
@@ -226,8 +226,11 @@ $$end
 $$if SIMULATION then  
     __display("[cycle %d] reg[%d] = %h  reg[%d] = %h",cycle,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
 $$end    
-
-    while (1) { // decode occurs during the cycle entering the while
+    
+    // decode occurs during the cycle entering the while below
+    while (1) { 
+        // this operations loop allows to wait for ALU when needed
+        // it is built such that no cycles are wasted
 
         // load/store?        
         if (dec.load_store) {   
@@ -259,14 +262,15 @@ $$end
           }
           // restore address to program counter
           wide_addr = next_pc;
-          
+          // exit the operations loop
           break;
           
         } else {
+          // shall the CPU jump to a new address?
           uint1 do_jump <: dec.jump | (dec.branch & alu.j);
-          // next instruction
+          // next instruction address
           wide_addr      = do_jump ? (alu.n>>2) : next_pc;
-          // commit result   
+          // commit result
           // - what do we write in register? (pc or alu, load is handled above)
           xregsA.wdata   = do_jump ? (next_pc<<2) : (dec.storeAddr ? alu.n : alu.r);
           xregsA.wenable = ~dec.no_rd;
@@ -281,7 +285,9 @@ $$end
 
           if (alu.working == 0) { // ALU done?
             // yes: all is correct, stop here
-            break; // write to registers occurs as we jump back to loop start
+            break; 
+            //  intruction read from BRAM and write to registers 
+            //  occurs as we jump back to loop start
           }
 
         }
@@ -314,14 +320,10 @@ algorithm decode(
   
   uint5 opcode <: instr[ 2, 5];
   
-  uint1 AUIPC  <: opcode == 5b00101;
-  uint1 LUI    <: opcode == 5b01101;
-  uint1 JAL    <: opcode == 5b11011;
-  uint1 JALR   <: opcode == 5b11001;
-  uint1 Branch <: opcode == 5b11000;
-  uint1 Load   <: opcode == 5b00000;
-  uint1 Store  <: opcode == 5b01000;
-  uint1 IntImm <: opcode == 5b00100;
+  uint1 AUIPC  <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
+  uint1 JAL    <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
+  uint1 Branch <: opcode == 5b11000;  uint1 Load   <: opcode == 5b00000;
+  uint1 Store  <: opcode == 5b01000;  uint1 IntImm <: opcode == 5b00100;
   uint1 IntReg <: opcode == 5b01100;
 
   jump         := JAL | JALR;
