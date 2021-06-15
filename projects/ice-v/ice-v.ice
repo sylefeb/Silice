@@ -169,39 +169,34 @@ algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
 $$if SIMULATION then
   uint32 cycle(0);
 $$end  
-
+  // current instruction
   uint32 instr(0);
-  uint12 pc = uninitialized;
-  
+  // program counter
+  uint12 pc      = uninitialized;  
   uint12 next_pc <:: pc+1; // next_pc tracks the expression 'pc + 1' using the
                            // value of pc from the last clock edge (due to ::)
-
+  // decoder
   decode dec( instr <:: instr );
-
+  // all integer operations (ALU + comparisons + next address)
   intops alu(
     pc          <: pc,
-    xa          <: xregsA.rdata,
-    xb          <: xregsB.rdata,
-    aluImm      <: dec.aluImm,
-    aluOp       <: dec.op,
-    aluEnable   <: dec.aluEnable,
-    sub         <: dec.sub,
-    signedShift <: dec.signedShift,
-    regOrImm    <: dec.regOrImm,
-    forceZero   <: dec.forceZero,
-    pcOrReg     <: dec.pcOrReg,
+    xa          <: xregsA.rdata,    xb          <: xregsB.rdata,
+    aluImm      <: dec.aluImm,      aluOp       <: dec.op,
+    aluEnable   <: dec.aluEnable,   sub         <: dec.sub,
+    signedShift <: dec.signedShift, regOrImm    <: dec.regOrImm,
+    forceZero   <: dec.forceZero,   pcOrReg     <: dec.pcOrReg,
     addrImm     <: dec.addrImm,
   );
 
   // maintain write enable low (pulses high when needed)
   mem.wenable    := 4b0000; 
-  // maintain read registers (not latched, see bram input! parameter)  
+  // maintain register wenable low
   xregsA.wenable := 0;
-  xregsB.wenable := 0;
-
+  // maintain addr on rs1/rs2 by default (bram is not latched, see input!)
   xregsA.addr    := Rtype(instr).rs1;
   xregsB.addr    := Rtype(instr).rs2;  
 
+  // this 'always_after' block is executed at the end of every cycle
   always_after { 
     mem.addr       = wide_addr[0,10]; // track memory address in interface
     xregsB.wdata   = xregsA.wdata;    // xregsB is always paired with xregsA
@@ -211,12 +206,13 @@ $$end
 $$if SIMULATION then  
   while (cycle != 256) {
     cycle = cycle + 1;
-$$else    
+$$else
+  // CPU runs forever
   while (1) {
 $$end
     // data is now available
-    instr = mem.rdata;
-    pc    = wide_addr;
+    instr       = mem.rdata;
+    pc          = wide_addr;
     // update register immediately
     xregsA.addr = Rtype(instr).rs1;
     xregsB.addr = Rtype(instr).rs2;  
@@ -225,7 +221,7 @@ $$if SIMULATION then
     __display("[cycle %d] instr: %h",cycle,instr);
 $$end
 
-++: // read registers
+++: // read registers, BRAM takes one cycle
 
 $$if SIMULATION then  
     __display("[cycle %d] reg[%d] = %h  reg[%d] = %h",cycle,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
@@ -236,21 +232,18 @@ $$end
         // load/store?        
         if (dec.load_store) {   
 
-          wide_addr = alu.nextAddr>>2;
-          mem.wdata = xregsB.rdata;
-          
-          { // Store
+          // address to fetch in memory (either load or store)
+          wide_addr = alu.n >> 2;
+          { // Store (enabled below if dec.store == 1)
             // build write mask depending on SB, SH, SW
             // assumes aligned, e.g. SW => next_addr[0,2] == 2
-            mem.wenable = {4{dec.store}} &
-                          {{2{dec.op[0,2]==2b10}},
-                           dec.op[0,1]|dec.op[1,1],
-                           1b1} << alu.nextAddr[0,2]; 
+            mem.wenable = {4{dec.store}} & { { 2{dec.op[0,2]==2b10} },
+                                              dec.op[0,1] | dec.op[1,1], 1b1 
+                                           } << alu.n[0,2]; 
+            mem.wdata = xregsB.rdata;
           }
-
-++: // wait data transaction
-
-          { // Load (note: if Store, no_rd == 1, canceling reg. write below)
+++: // wait for data transaction
+          { // Load (enabled below if no_rd == 0)
             uint32 tmp = uninitialized;
             switch ( dec.op[0,2] ) {
               case 2b00: { tmp = { {24{(~dec.op[2,1])&mem.rdata[ 7,1]}},mem.rdata[ 0,8]};  } // LB / LBU
@@ -264,7 +257,7 @@ $$end
             xregsA.addr    = dec.write_rd;
             xregsB.addr    = dec.write_rd;
           }
-          
+          // restore address to program counter
           wide_addr = next_pc;
           
           break;
@@ -272,10 +265,10 @@ $$end
         } else {
           uint1 do_jump <: dec.jump | (dec.branch & alu.j);
           // next instruction
-          wide_addr      = do_jump ? (alu.nextAddr>>2) : next_pc;
+          wide_addr      = do_jump ? (alu.n>>2) : next_pc;
           // commit result   
           // - what do we write in register? (pc or alu, load is handled above)
-          xregsA.wdata   = do_jump ? (next_pc<<2) : (dec.storeAddr ? alu.nextAddr : alu.r);
+          xregsA.wdata   = do_jump ? (next_pc<<2) : (dec.storeAddr ? alu.n : alu.r);
           xregsA.wenable = ~dec.no_rd;
           xregsA.addr    = dec.write_rd;
           xregsB.addr    = dec.write_rd;
@@ -303,22 +296,14 @@ $$end
 
 algorithm decode(
   input   uint32  instr,
-  output! uint5   write_rd,
-  output! uint1   no_rd,
-  output! uint1   jump,
-  output! uint1   branch,
-  output! uint1   load_store,
-  output! uint1   store,
-  output! uint1   storeAddr,
-  output! uint3   op,
-  output! uint1   aluEnable,
-  output! int32   aluImm,
-  output! uint1   sub,  
-  output! uint1   signedShift,
-  output! uint1   forceZero,
-  output! uint1   pcOrReg,
-  output! uint1   regOrImm,
-  output! int32   addrImm,
+  output! uint5   write_rd,   output! uint1   no_rd,
+  output! uint1   jump,       output! uint1   branch,
+  output! uint1   load_store, output! uint1   store,
+  output! uint1   storeAddr,  output! uint3   op,
+  output! uint1   aluEnable,  output! int32   aluImm,
+  output! uint1   sub,        output! uint1   signedShift,
+  output! uint1   forceZero,  output! uint1   pcOrReg,
+  output! uint1   regOrImm,   output! int32   addrImm,
 ) {
 
   int32 imm_u  <: {instr[12,20],12b0};
@@ -374,22 +359,14 @@ algorithm decode(
 // Performs integer computations
 
 algorithm intops(
-  input   uint12 pc,
-  input   int32  xa,
-  input   int32  xb,
-  input   int32  aluImm,
-  input   uint3  aluOp,
-  input   uint1  aluEnable,
-  input   uint1  sub,  
-  input   uint1  signedShift,
-  input   uint1  forceZero,
-  input   uint1  pcOrReg,
-  input   uint1  regOrImm,
-  input   int32  addrImm,
-  output  uint32 nextAddr,
-  output  int32  r,
-  output  uint1  j,
-  output  uint1  working(0),
+  input   uint12 pc,      input   int32  xa,          input   int32  xb,
+  input   int32  aluImm,  input   uint3  aluOp,       input   uint1  aluEnable,
+  input   uint1  sub,     input   uint1  signedShift, input   uint1  forceZero,
+  input   uint1  pcOrReg, input   uint1  regOrImm,    input   int32  addrImm,
+  output  uint32 n,          // result of next address computation
+  output  int32  r,          // result of ALU
+  output  uint1  j,          // result of branch comparisons
+  output  uint1  working(0), // are we busy performing integer operations?
 ) {
   uint1 signed(0);
   uint1 dir(0);
@@ -414,7 +391,7 @@ algorithm intops(
 
   always {
   
-    // ALU
+    // ====================== ALU
     signed  = signedShift;
     dir     = aluOp[2,1];
     shamt   = working ? shamt - 1 : ((aluEnable & aluOp[0,2] == 2b01) ? __unsigned(b[0,5]) : 0);
@@ -437,7 +414,7 @@ algorithm intops(
     }
     working = (shamt != 0);
     
-    // Branch comparisons
+    // ====================== Branch comparisons
     switch (aluOp) {
       case 3b000: { j =   a_eq_b;   } // BEQ
       case 3b001: { j = ~ a_eq_b;   } // BNE
@@ -448,8 +425,8 @@ algorithm intops(
       default:    { j = 0; }
     }
 
-    // Next address adder
-    nextAddr = next_addr_a + next_addr_b;
+    // ====================== Next address adder
+    n = next_addr_a + next_addr_b;
 
   }
   
