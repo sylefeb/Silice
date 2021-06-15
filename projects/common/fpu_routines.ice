@@ -28,6 +28,17 @@ bitfield floatingpointnumber{
     uint23  fraction
 }
 
+// COMBINE COMPONENTS INTO FLOATING POINT NUMBER
+// NOTE exp from addsub multiply divide is 16 bit biased ( ie, exp + 127 )
+// small numbers return 0, bit numbers return max
+circuitry combinecomponents( input sign, input exp, input fraction, output f32 ) {
+    if( ( exp > 254 ) || ( exp < 0 ) ) {
+        f32 = ( exp < 0 ) ? 0 : { sign, 8b01111111, 23h7fffff };
+    } else {
+        f32 = { sign, exp[0,8], fraction[0,23] };
+    }
+}
+
 // CLASSIFY EXPONENT AND FRACTION or EXPONENT
 circuitry classEF( output E, output F, input N ) {
     E = { ( floatingpointnumber(N).exponent ) == 8hff, ( floatingpointnumber(N).exponent ) == 8h00 };
@@ -98,7 +109,7 @@ algorithm inttofloat(
                                 ( zeros ) = countleadingzeros( number );
                                 number = ( zeros < 8 ) ? number >> ( 8 - zeros ) : ( zeros > 8 ) ? number << ( zeros - 8 ) : number;
                                 exp = 158 - zeros;
-                                result = { sign, exp, number[0,23] };
+                                ( result ) = combinecomponents( sign, exp, number );
                             }
                         }
                     }
@@ -290,11 +301,7 @@ algorithm floataddsub(
                                     }
                                     newfraction = sigA[24,23] + ( sigA[23,1] & round );
                                     expA = 127 + expA + ( round & ( newfraction == 0 ) & sigA[23,1] );
-                                    if( ( expA > 254 ) || ( expA < 0 ) ) {
-                                        result = ( expA < 0 ) ? 0 : { sign, 8b01111111, 23h7fffff };
-                                    } else {
-                                        result = { sign, expA[0,8], newfraction };
-                                    }
+                                    ( result ) = combinecomponents( sign, expA, newfraction );
                                 }
                             }
                             case 2b01: { result = ( classEb == 2b01 ) ? a : addsub ? { ~b[31,1], b[0,31] } : b; }
@@ -362,11 +369,7 @@ algorithm floatmultiply(
                                 }
                                 newfraction = product[24,23] + product[23,1];
                                 productexp = 127 + productexp + ( ( newfraction == 0 ) & product[23,1] );
-                                if( ( productexp > 254 ) || ( productexp < 0 ) ) {
-                                    result = ( productexp < 0 ) ? 0 : { productsign, 8b01111111, 23h7fffff };
-                                } else {
-                                    result = { productsign, productexp[0,8], newfraction };
-                                }
+                                ( result ) = combinecomponents( productsign, productexp, newfraction );
                             }
                             case 2b01: { result = { productsign, 31b0 }; }
                             default: { result = { productsign, 8b11111111, 23b0 }; }
@@ -451,12 +454,8 @@ algorithm floatdivide(
                                             quotient = { quotient[0,31], 1b0 };
                                         }
                                         newfraction = quotient[8,23] + quotient[7,1];
-                                        quotientexp = 127 + quotientexp + ( floatingpointnumber(b).fraction > floatingpointnumber(a).fraction ) + ( ( newfraction == 0 ) & quotient[7,1] );
-                                        if( ( quotientexp > 254 ) || ( quotientexp < 0 ) ) {
-                                            result = ( quotientexp < 0 ) ? 0 : { quotientsign, 8b01111111, 23h7fffff };
-                                        } else {
-                                            result = { quotientsign, quotientexp[0,8], newfraction };
-                                        }
+                                        quotientexp = 127 + quotientexp - ( floatingpointnumber(b).fraction > floatingpointnumber(a).fraction ) + ( ( newfraction == 0 ) & quotient[7,1] );
+                                        ( result ) = combinecomponents( quotientsign, quotientexp, newfraction );
                                     }
                                 }
                             }
@@ -468,4 +467,51 @@ algorithm floatdivide(
             busy = 0;
         }
     }
+}
+
+// FLOATING POINT COMPARISONS - ADAPTED FROM SOFT-FLOAT
+
+/*============================================================================
+
+This C source file is part of the SoftFloat IEEE Floating-Point Arithmetic
+Package, Release 3e, by John R. Hauser.
+
+Copyright 2011, 2012, 2013, 2014 The Regents of the University of California.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+ 1. Redistributions of source code must retain the above copyright notice,
+    this list of conditions, and the following disclaimer.
+
+ 2. Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions, and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+
+ 3. Neither the name of the University nor the names of its contributors may
+    be used to endorse or promote products derived from this software without
+    specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS "AS IS", AND ANY
+EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ARE
+DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+=============================================================================*/
+
+circuitry floatless( input a, input b, output lessthan ) {
+    lessthan = ( a[31,1] != b[31,1] ) ? a[31,1] & ((( a | b ) << 1) != 0 ) : ( a != b ) & ( a[31,1] ^ ( a < b));
+}
+circuitry floatequal( input a, input b, output equalto ) {
+    equalto = ( a == b ) | ((( a | b ) << 1) == 0 );
+}
+circuitry floatlessequal( input a, input b, output lessequal, ) {
+    lessequal = ( a[31,1] != b[31,1] ) ? a[31,1] | ((( a | b ) << 1) == 0 ) : ( a == b ) | ( a[31,1] ^ ( a < b ));
 }
