@@ -46,7 +46,7 @@ LOG_LINES="$(cat build.v.alg.log)"
 LOG_LINES="$(sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;ba' -e '}' <<< "$LOG_LINES")"
 # adaptated from: https://unix.stackexchange.com/a/552195
 # Remove empty lines at the beginning and end of the string
-SMTC='initial
+echo 'initial
 assume (= [reset] true)
 
 state 1:*
@@ -56,7 +56,7 @@ state 2:*
 assume (= [in_run] true)
 
 final
-assume (= [in_run] false)'
+assume (= [in_run] false)' > constraints.smtc
 
 touch formal.sby
 
@@ -109,24 +109,21 @@ function to_mode(mode) {
 }
 
 $2 ~ /^formal(.*?)\$$/ && $8 != "" {
-   SMTC_NAME=$4 ".smtc"
-
    split($8, modes, /,/)
    for (mode in modes) {
      printf "task-%d-%d:\n  depth %d\n  timeout %d\n  mode %s\n", $1, mode, $6, $7, to_mode(modes[mode])
      switch(modes[mode]) {
        case "tind":
        case "bmc":
-         printf "  smtc %s.smtc\n", $4
+         print "  smtc constraints.smtc"
          break
        case "cover":
-         printf "  append 10\n"
+         print "  append 10"
          break
        default:
          break
      }
    }
-   print SMTC >SMTC_NAME
 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
@@ -147,7 +144,7 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
         print "smtbmc --stbv --progress yices"
         break
       case "tind":
-        print "smtbmc --progress yices" #"abc pdr"
+        print "smtbmc --stbv --progress yices" #"abc pdr"
         break
       case "cover":
         print "smtbmc --progress z3"
