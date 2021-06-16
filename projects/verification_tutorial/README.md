@@ -104,6 +104,13 @@ It can be used anywhere an instruction is allowed (at the top-level, in an `alwa
 
 ### Assumptions and restrictions (`#assume`, `#restrict`)
 
+Assumptions allow specifying side conditions which either are disallowed or should not be considered as reachable states.
+Dividing by 0 is a good example of such condition.
+Failure to satisfy an assumption *may* yield an error, but most of the time the path will simply not be taken in account.
+
+There are two constructs for assumptions: `#assume(<condition>);` and `#restrict(<condition>);`.
+Use `#assume` when any following `#assert` depends on it, otherwise use `#restrict` when it's just to help with the verification process.
+
 ### Path assertions (`#wasin`)
 
 ### Stability checking (`#stableinput`, `#stable`)
