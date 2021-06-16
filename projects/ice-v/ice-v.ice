@@ -208,7 +208,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (cycle != 100) {
+  while (cycle != 64) {
     cycle = cycle + 1;
 $$else
   // CPU runs forever
@@ -403,6 +403,7 @@ algorithm decode(
 algorithm intops(
   input   uint12 pc,      input   int32  xa,          input   int32  xb,
   input   int32  aluImm,  input   uint3  aluOp,       input   uint1  aluTrigger,
+  input   uint1  aluEnable,
   input   uint1  sub,     input   uint1  signedShift, input   uint1  forceZero,
   input   uint1  pcOrReg, input   uint1  regOrImm,    input   int32  addrImm,
   output  uint32 n,          // result of next address computation
@@ -436,8 +437,10 @@ algorithm intops(
     // ====================== ALU
     signed  = signedShift;
     dir     = aluOp[2,1];
-    shamt   = working ? shamt - 1 : ((aluTrigger & aluOp[0,2] == 2b01) ? __unsigned(b[0,5]) : 0);
-__display("shamt %d working %b",shamt,working);
+    shamt   = working ? shamt - 1 
+                      : ((aluEnable & aluTrigger & aluOp[0,2] == 2b01) 
+                      ? __unsigned(b[0,5]) : 0);
+// __display("shamt %d working %b",shamt,working);
     //                                ^^^^^^^^^ prevents ALU to trigger when low
     if (working) {
       // process the shift one bit at a time
