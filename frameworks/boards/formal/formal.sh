@@ -140,17 +140,11 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
   for (mode in modes) {
     printf "task-%d-%d: ", $1, mode
     switch(modes[mode]) {
-      case "bmc":
-        print "smtbmc --stbv --progress yices"
-        break
-      case "tind":
-        print "smtbmc --stbv --progress yices" #"abc pdr"
-        break
       case "cover":
         print "smtbmc --progress z3"
         break
       default:
-        print "smtbmc --stbv --progress yices # default"
+        print "smtbmc --stbv --progress yices"
         break
     }
   }
