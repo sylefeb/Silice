@@ -246,32 +246,10 @@ $$end
           { // Store (enabled below if dec.store == 1)
             // build write mask depending on SB, SH, SW
             // assumes aligned, e.g. SW => next_addr[0,2] == 2
-/*
-            mem.wenable = {4{dec.store}} & ({ { 2{dec.op[0,2]==2b10} },
+            mem.wenable = ({4{dec.store}} & { { 2{dec.op[0,2]==2b10} },
                                               dec.op[0,1] | dec.op[1,1], 1b1 
-                                            } << alu.n[0,2]);
-            mem.wdata  = xregsB.rdata << alu.n[0,2];
-*/
-            switch (dec.op) {
-              case 3b000: { // SB
-                  switch (alu.n[0,2]) {
-                    case 2b00: { mem.wdata [ 0,8] = xregsB.rdata[ 0,8]; mem.wenable = 4b0001 & {4{dec.store}}; }
-                    case 2b01: { mem.wdata [ 8,8] = xregsB.rdata[ 0,8]; mem.wenable = 4b0010 & {4{dec.store}}; }
-                    case 2b10: { mem.wdata [16,8] = xregsB.rdata[ 0,8]; mem.wenable = 4b0100 & {4{dec.store}}; }
-                    case 2b11: { mem.wdata [24,8] = xregsB.rdata[ 0,8]; mem.wenable = 4b1000 & {4{dec.store}}; }
-                  }
-              }
-              case 3b001: { // SH
-                  switch (alu.n[1,1]) {
-                    case 1b0: { mem.wdata [ 0,16] = xregsB.rdata[ 0,16]; mem.wenable = 4b0011 & {4{dec.store}}; }
-                    case 1b1: { mem.wdata [16,16] = xregsB.rdata[ 0,16]; mem.wenable = 4b1100 & {4{dec.store}}; }
-                  }
-              }
-              case 3b010: { // SW
-                mem.wdata  = xregsB.rdata; mem.wenable = 4b1111 & {4{dec.store}};
-              }
-              default: { }
-            }
+                                           }) << alu.n[0,2];
+            mem.wdata  = xregsB.rdata << {alu.n[0,2],3b000};
 
 $$if SIMULATION then
             if (dec.store) {
