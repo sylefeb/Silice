@@ -131,6 +131,8 @@ namespace Silice
 
     /// \brief Set of known modules
     const std::unordered_map<std::string, AutoPtr<Module> >& m_KnownModules;
+    /// \brief Set of known algorithms
+    const std::unordered_map<std::string, AutoPtr<Algorithm> >& m_KnownAlgorithms;
     /// \brief Set of known subroutines
     const std::unordered_map<std::string, siliceParser::SubroutineContext*>& m_KnownSubroutines;
     /// \brief Set of known circuitries
@@ -232,9 +234,11 @@ private:
       siliceParser::GroupContext    *group           = nullptr; // from an actual group declaration
       siliceParser::IntrfaceContext *intrface        = nullptr; // from an interface declaration
       siliceParser::DeclarationMemoryContext *memory = nullptr; // from a memory declaration
+      const Algorithm               *alg             = nullptr; // from an algorithm
       t_group_definition(siliceParser::GroupContext *g) : group(g)    {}
       t_group_definition(siliceParser::IntrfaceContext *i) : intrface(i) {}
       t_group_definition(siliceParser::DeclarationMemoryContext *m) : memory(m) {}
+      t_group_definition(const Algorithm *a) : alg(a) {}
     };
 
     /// \brief inputs
@@ -816,6 +820,8 @@ private:
     void gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io);
     /// \brief gather infos about an io definition (group/interface)
     void gatherIoDef(siliceParser::IoDefContext *iod, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather infos about outputs of an algorithm
+    void gatherAllOutputsNfo(siliceParser::OutputsContext *allouts, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather infos about an io group
     void gatherIoGroup(siliceParser::IoDefContext * iog, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather infos about an io interface
@@ -959,10 +965,11 @@ private:
       std::string clock, std::string reset,
       bool autorun, bool onehot,
       const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
+      const std::unordered_map<std::string, AutoPtr<Algorithm> >&              known_algorithms,
       const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
       const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
       const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
-      const std::unordered_map<std::string, siliceParser::IntrfaceContext *>& known_interfaces,
+      const std::unordered_map<std::string, siliceParser::IntrfaceContext *>&  known_interfaces,
       const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield);
     /// \brief destructor
     virtual ~Algorithm();

@@ -85,6 +85,8 @@ INPUT               : 'input' ;
 
 OUTPUT              : 'output' ;
 
+OUTPUTS             : 'outputs' ;
+
 UNINITIALIZED       : 'uninitialized' | 'uninitialised' ;
 
 PAD                 : 'pad' ;
@@ -356,7 +358,8 @@ input               : 'input' nolatch='!'? type IDENTIFIER
                     | 'input' nolatch='!'? type IDENTIFIER '[' NUMBER ']';
 output              : 'output' combinational='!'? declarationVar
                     | 'output' combinational='!'? declarationTable ; 
-inOrOut             :  input | output | inout | ioDef;
+outputs             : 'input' OUTPUTS '(' alg=IDENTIFIER ')' grp=IDENTIFIER ;
+inOrOut             :  input | output | inout | ioDef | outputs ;
 inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 
 /* -- Declarations, subroutines, instruction lists -- */

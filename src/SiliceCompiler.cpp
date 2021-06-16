@@ -113,7 +113,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     }
     AutoPtr<Algorithm> algorithm(new Algorithm(
       name, clock, reset, autorun, onehot,
-      m_Modules, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
+      m_Modules, m_Algorithms, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
     );
     if (m_Algorithms.find(name) != m_Algorithms.end()) {
       throw Fatal("an algorithm with same name already exists (line %d)!", (int)alg->getStart()->getLine());

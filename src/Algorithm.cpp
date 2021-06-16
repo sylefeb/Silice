@@ -118,7 +118,7 @@ void Algorithm::checkAlgorithmsBindings(const t_instantiation_context &ictx) con
       bool is_inout  = ia.second.algo->isInOut (b.left);
       if (!is_input && !is_output && !is_inout) {
         if (m_VIOGroups.count(bindingRightIdentifier(b)) > 0) {
-          reportError(nullptr, b.line, "instanced module '%s', binding '%s': use <:> to bind groups and interfaces",
+          reportError(nullptr, b.line, "instanced algorithm '%s', binding '%s': use <:> to bind groups and interfaces",
             ia.first.c_str(), b.left.c_str());
         } else {
           reportError(nullptr, b.line, "instanced algorithm '%s', binding '%s': wrong binding point (neither input nor output)",
@@ -578,7 +578,7 @@ std::string Algorithm::gatherBitfieldValue(siliceParser::InitBitfieldContext* if
   // find field definition
   auto F = m_KnownBitFields.find(ifield->field->getText());
   if (F == m_KnownBitFields.end()) {
-    reportError(ifield->getSourceInterval(), (int)ifield->getStart()->getLine(), "unkown bitfield '%s'", ifield->field->getText().c_str());
+    reportError(ifield->getSourceInterval(), (int)ifield->getStart()->getLine(), "unknown bitfield '%s'", ifield->field->getText().c_str());
   }
   // gather const values for each named entry
   unordered_map<string, pair<bool,string> > named_values;
@@ -1122,7 +1122,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
         mem.custom_template = mod->STRING()->getText();
         mem.custom_template = mem.custom_template.substr(1, mem.custom_template.size() - 2);
       } else {
-        reportError(mod->getSourceInterval(), (int)mod->getStart()->getLine(), "unkonwn modifier");
+        reportError(mod->getSourceInterval(), (int)mod->getStart()->getLine(), "unknown modifier");
       }
     }
   }
@@ -1199,16 +1199,16 @@ void Algorithm::getBindings(
         _autobind = true;
       } else {
         // check if this is a group binding
-        if (bindings->modalgBinding()->BDEFINE() != nullptr || bindings->modalgBinding()->BDEFINEDBL() != nullptr) {
+        if ((bindings->modalgBinding()->BDEFINE() != nullptr || bindings->modalgBinding()->BDEFINEDBL() != nullptr)) {
+          // verify right is an identifier
+          if (bindings->modalgBinding()->right->IDENTIFIER() == nullptr) {
+            reportError(
+              bindings->modalgBinding()->getSourceInterval(),
+              (int)bindings->modalgBinding()->right->getStart()->getLine(),
+              "expecting an identifier on the right side of a group binding");
+          }
           auto G = m_VIOGroups.find(bindings->modalgBinding()->right->getText());
           if (G != m_VIOGroups.end()) {
-            // verify right is an identifier
-            if (bindings->modalgBinding()->right->IDENTIFIER() == nullptr) {
-              reportError(
-                bindings->modalgBinding()->getSourceInterval(),
-                (int)bindings->modalgBinding()->right->getStart()->getLine(), 
-                "expecting an identifier on the right side of a group binding");
-            }
             // unfold all bindings, select direction automatically
             // NOTE: some members may not be used, these are excluded during auto-binding
             for (auto v : getGroupMembers(G->second)) {
@@ -1225,6 +1225,31 @@ void Algorithm::getBindings(
             continue;
           }
         }
+        // check if this binds an instance (e.g. through 'outputs()')
+        if ((bindings->modalgBinding()->LDEFINE() != nullptr || bindings->modalgBinding()->LDEFINEDBL() != nullptr) 
+          && bindings->modalgBinding()->right->IDENTIFIER() != nullptr) {
+          auto I = m_InstancedAlgorithms.find(bindings->modalgBinding()->right->getText());
+          if (I != m_InstancedAlgorithms.end()) {
+            auto A = m_KnownAlgorithms.find(I->second.algo_name);
+            if (A != m_KnownAlgorithms.end()) {
+              for (const auto &o : A->second->m_Outputs) {
+                string member = o.name;
+                t_binding_nfo nfo;
+                nfo.left = bindings->modalgBinding()->left->getText() + "_" + member;
+                nfo.right = I->second.instance_prefix + "_" + member;
+                nfo.line = (int)bindings->modalgBinding()->getStart()->getLine();
+                nfo.dir = (bindings->modalgBinding()->LDEFINE() != nullptr) ? e_Left : e_LeftQ;
+                _vec_bindings.push_back(nfo);
+              }
+            } else {
+              reportError(nullptr, (int)I->second.instance_line, "algorithm '%s' not yet declared or unknown", I->second.algo_name.c_str());
+            }
+            // skip to next
+            bindings = bindings->modalgBindingList();
+            continue;
+          }
+        }
+        // standard binding
         t_binding_nfo nfo;
         nfo.left = bindings->modalgBinding()->left->getText();
         if (bindings->modalgBinding()->right->IDENTIFIER() != nullptr) {
@@ -1279,7 +1304,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
       addVar(vnfo, _current, _context, grp->IDENTIFIER()[1]->getSourceInterval());
     }
   } else {
-    reportError(grp->getSourceInterval(), (int)grp->getStart()->getLine(), "unkown group '%s'", grp->modalg->getText().c_str());
+    reportError(grp->getSourceInterval(), (int)grp->getStart()->getLine(), "unknown group '%s'", grp->modalg->getText().c_str());
   }
 }
 
@@ -2927,6 +2952,34 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
 
 // -------------------------------------------------
 
+void Algorithm::gatherAllOutputsNfo(siliceParser::OutputsContext *allouts, t_combinational_block *_current, t_gather_context *_context)
+{
+  // find algorithm (has to be known / declared before)
+  auto I = m_KnownAlgorithms.find(allouts->alg->getText());
+  if (I == m_KnownAlgorithms.end()) {
+    reportError(allouts->alg, (int)allouts->getStart()->getLine(),
+      "algorithm '%s' not yet declared or unknown", allouts->alg->getText().c_str());
+  }
+  // group prefix
+  string grpre = allouts->grp->getText();
+  m_VIOGroups.insert(make_pair(grpre, I->second.raw()));
+  // get member list from interface
+  for (const auto& o : I->second->m_Outputs) {
+    if (o.type_nfo.base_type == Parameterized) {
+      reportError(allouts->alg, (int)allouts->getStart()->getLine(),
+        "using 'outputs(%s)' when one output is generic (sameas or interface) is not supported", allouts->alg->getText().c_str());
+    }
+    // create input
+    t_inout_nfo inp;
+    var_nfo_copy(inp, o);
+    inp.name = grpre + "_" + o.name;
+    m_Inputs.emplace_back(inp);
+    m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational_block *_current, t_gather_context *_context)
 {
   if (inout == nullptr) {
@@ -2935,10 +2988,11 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
   for (auto io : inout->inOrOut()) {
     bool found;
     int line         = (int)io->getStart()->getLine();
-    auto input       = dynamic_cast<siliceParser::InputContext*>(io->input());
-    auto output      = dynamic_cast<siliceParser::OutputContext*>(io->output());
-    auto inout       = dynamic_cast<siliceParser::InoutContext*>(io->inout());
-    auto iodef       = dynamic_cast<siliceParser::IoDefContext*>(io->ioDef());
+    auto input       = dynamic_cast<siliceParser::InputContext*>   (io->input());
+    auto output      = dynamic_cast<siliceParser::OutputContext*>  (io->output());
+    auto inout       = dynamic_cast<siliceParser::InoutContext*>   (io->inout());
+    auto iodef       = dynamic_cast<siliceParser::IoDefContext*>   (io->ioDef());
+    auto allouts     = dynamic_cast<siliceParser::OutputsContext *>(io->outputs());
     if (input) {
       t_inout_nfo io;
       gatherInputNfo(input, io, _current, _context);
@@ -2968,6 +3022,8 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
       m_InOutNames.insert(make_pair(io.name, (int)m_InOuts.size() - 1));
     } else if (iodef) {
       gatherIoDef(iodef,_current,_context);
+    } else if (allouts) {
+      gatherAllOutputsNfo(allouts, _current, _context);
     } else {
       // symbol, ignore
     }
@@ -3937,6 +3993,11 @@ void Algorithm::verifyMemberGroup(std::string member, const t_group_definition &
     verifyMemberGroup(member, gd.group, line);
   } else if (gd.intrface != nullptr) {
     verifyMemberInterface(member, gd.intrface, line);
+  } else {
+    std::vector<std::string> mbrs = getGroupMembers(gd);
+    if (std::find(mbrs.begin(), mbrs.end(), member) == mbrs.end()) {
+      reportError(nullptr, line, "group does not contain a member '%s'", member.c_str());
+    }
   }
 }
 
@@ -3956,6 +4017,12 @@ std::vector<std::string> Algorithm::getGroupMembers(const t_group_definition &gd
   } else if (gd.memory != nullptr) {
     const t_mem_nfo &nfo = m_Memories.at(m_MemoryNames.at(gd.memory->name->getText()));
     return nfo.members;
+  } else if (gd.alg != nullptr) {
+    std::vector<std::string> names;
+    for (const auto &o : gd.alg->m_OutputNames) {
+      names.push_back(o.first);
+    }
+    return names;
   }
   return mbs;
 }
@@ -4743,6 +4810,7 @@ Algorithm::Algorithm(
   std::string clock, std::string reset, 
   bool autorun, bool onehot,
   const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
+  const std::unordered_map<std::string, AutoPtr<Algorithm> >&              known_algorithms,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
   const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
@@ -4751,9 +4819,9 @@ Algorithm::Algorithm(
 )
   : m_Name(name), m_Clock(clock), m_Reset(reset), 
     m_AutoRun(autorun), m_OneHot(onehot), 
-  m_KnownModules(known_modules), m_KnownSubroutines(known_subroutines), 
-  m_KnownCircuitries(known_circuitries), m_KnownGroups(known_groups), 
-  m_KnownInterfaces(known_interfaces), m_KnownBitFields(known_bitfield)
+    m_KnownModules(known_modules), m_KnownAlgorithms(known_algorithms),
+    m_KnownSubroutines(known_subroutines),m_KnownCircuitries(known_circuitries), 
+    m_KnownGroups(known_groups), m_KnownInterfaces(known_interfaces), m_KnownBitFields(known_bitfield)
 {
   // init with empty always blocks
   m_AlwaysPre.id = -1;
@@ -5148,7 +5216,7 @@ t_type_nfo Algorithm::determineBitfieldAccessTypeAndWidth(const t_combinational_
   // check field definition exists
   auto F = m_KnownBitFields.find(bfaccess->field->getText());
   if (F == m_KnownBitFields.end()) {
-    reportError(bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine(), "unkown bitfield '%s'", bfaccess->field->getText().c_str());
+    reportError(bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine(), "unknown bitfield '%s'", bfaccess->field->getText().c_str());
   }
   // either identifier or ioaccess
   t_type_nfo packed;
@@ -5486,7 +5554,7 @@ void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool 
   // find field definition
   auto F = m_KnownBitFields.find(bfaccess->field->getText());
   if (F == m_KnownBitFields.end()) {
-    reportError(bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine(), "unkown bitfield '%s'", bfaccess->field->getText().c_str());
+    reportError(bfaccess->getSourceInterval(), (int)bfaccess->getStart()->getLine(), "unknown bitfield '%s'", bfaccess->field->getText().c_str());
   }
   verifyMemberBitfield(bfaccess->member->getText(), F->second, (int)bfaccess->getStart()->getLine());
   pair<t_type_nfo, int> ow = bitfieldMemberTypeAndOffset(F->second, bfaccess->member->getText());
@@ -6990,7 +7058,7 @@ void Algorithm::writeModuleMemory(std::string instance_name, std::ostream& out, 
   case BROM:           base = "brom_template"; break;
   case DUALBRAM:       base = "dualport_bram_template"; break;
   case SIMPLEDUALBRAM: base = "simple_dualport_bram_template"; break;
-  default: throw Fatal("internal error (unkown memory type)"); break;
+  default: throw Fatal("internal error (unknown memory type)"); break;
   }
   // load template
   VerilogTemplate tmplt;

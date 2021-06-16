@@ -23,18 +23,11 @@ $$end
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
 
-// --------------------------------------------------
-
-// pre-compilation script, embeds compile code within BRAM
+// pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_asm.lua')
 
 // --------------------------------------------------
-
-// bitfield for easier decoding of instructions
-// defines a view on a uint32, avoids hard coded values in part-selects
-bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, uint5 rs1,
-                 uint3 op,      uint5 rd,   uint7 opcode}
-
+// SOC
 // --------------------------------------------------
 
 algorithm main( // I guess this is the SOC :-D
@@ -70,8 +63,8 @@ $$end
 
 $$if OLED then
   uint1 displ_en = uninitialized;
-  uint1 displ_dta_or_cmd := mem.wdata[10,1];
-  uint8 displ_byte       := mem.wdata[0,8];
+  uint1 displ_dta_or_cmd <: mem.wdata[10,1];
+  uint8 displ_byte       <: mem.wdata[0,8];
   oled display(
     enable          <: displ_en,
     data_or_command <: displ_dta_or_cmd,
@@ -156,6 +149,158 @@ algorithm oled(
 $$end
 
 // --------------------------------------------------
+// Processor
+// --------------------------------------------------
+
+// bitfield for easier decoding of instructions
+// defines a view on a uint32, avoids hard coded values in part-selects
+bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, uint5 rs1,
+                 uint3 op,      uint5 rd,   uint7 opcode}
+
+// --------------------------------------------------
+// Decoder, decode next instruction
+
+algorithm decode(
+  input   uint32  instr,
+  output! uint5   write_rd,   output! uint1   no_rd,
+  output! uint1   jump,       output! uint1   branch,
+  output! uint1   load_store, output! uint1   store,
+  output! uint1   storeAddr,  output! uint3   op,
+  output! uint1   aluShift,   output! int32   aluImm,
+  output! uint1   sub,        output! uint1   signedShift,
+  output! uint1   forceZero,  output! uint1   pcOrReg,
+  output! uint1   regOrImm,   output! int32   addrImm,
+) {
+
+  int32 imm_u  <: {instr[12,20],12b0};
+  int32 imm_j  <: {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
+  int32 imm_i  <: {{20{instr[31,1]}},instr[20,12]};
+  int32 imm_b  <: {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
+  int32 imm_s  <: {{20{instr[31,1]}},instr[25,7],instr[7,5]};
+  
+  uint5 opcode <: instr[ 2, 5];
+  
+  uint1 AUIPC  <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
+  uint1 JAL    <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
+  uint1 Branch <: opcode == 5b11000;  uint1 Load   <: opcode == 5b00000;
+  uint1 Store  <: opcode == 5b01000;  uint1 IntImm <: opcode == 5b00100;
+  uint1 IntReg <: opcode == 5b01100;
+
+  jump         := JAL | JALR;
+  branch       := Branch;
+  store        := Store;
+  load_store   := Load   | Store;
+  regOrImm     := IntReg | Branch;
+  op           := Rtype(instr).op;
+  aluImm       := imm_i;
+  sub          := IntReg & Rtype(instr).sign;
+  aluShift     := (IntImm | IntReg) & op[0,2] == 2b01;
+  signedShift  := Rtype(instr).sign; /*SRLI/SRAI*/
+  write_rd     := Rtype(instr).rd;
+  no_rd        := Branch | Store | (Rtype(instr).rd == 5b0);
+  pcOrReg      := AUIPC | JAL | Branch;
+  forceZero    := LUI;
+  storeAddr    := LUI | AUIPC;
+
+  always {
+    switch (opcode)
+     {
+      case 5b00101: { addrImm = imm_u; } // AUIPC
+      case 5b01101: { addrImm = imm_u; } // LUI
+      case 5b11011: { addrImm = imm_j; } // JAL
+      case 5b11000: { addrImm = imm_b; } // branch
+      case 5b11001: { addrImm = imm_i; } // JALR
+      case 5b00000: { addrImm = imm_i; } // load
+      case 5b01000: { addrImm = imm_s; } // store
+      default:  { addrImm = {32{1bx}}; } // don't care
+     }
+  }
+}
+
+// --------------------------------------------------
+// IntOps: performs all integer computations
+
+algorithm intops(
+  input   outputs(decode) dec, // all outputs of the decoder as inputs
+  input   uint12 pc,         input   int32 xa,  input   int32 xb, 
+  input   uint1  aluTrigger, // pulses high when the ALU should start
+  output  int32  n,          // result of next address computation
+  output  int32  r,          // result of ALU
+  output  uint1  j,          // result of branch comparisons
+  output  uint1  working(0), // are we busy performing integer operations?
+) {
+  uint1 signed(0);
+  uint1 dir(0);
+  uint5 shamt(0);
+  int32 shift(0);
+  
+  // select next address adder inputs
+  int32 next_addr_a <:: dec.forceZero ? __signed(32b0) 
+                      : (dec.pcOrReg  ? __signed({20b0,pc[0,10],2b0}) 
+                      : xa);
+  int32 next_addr_b <:: dec.addrImm;
+
+  // select ALU inputs
+  int32 a <: xa;
+  int32 b <: dec.regOrImm ? (xb) : dec.aluImm;
+  
+  // trick from femtorv32/swapforth/J1
+  // allows to do minus and all comparisons with a single adder
+  int33 a_minus_b <: {1b1,~b} + {1b0,a} + 33b1;
+  uint1 a_lt_b    <: (a[31,1]^b[31,1]) ? a[31,1] : a_minus_b[32,1];
+  uint1 a_lt_b_u  <: a_minus_b[32,1];
+  uint1 a_eq_b    <: a_minus_b[0,32] == 0;
+
+  always {
+
+    // ====================== ALU
+
+    signed  = dec.signedShift;
+    dir     = dec.op[2,1];
+    shamt   = working ? shamt - 1                    // decrease shift counter
+                      : ((dec.aluShift & aluTrigger) // start shifting?
+                      ? __unsigned(b[0,5]) : 0);
+    if (working) {
+      // shift one bit
+      shift  = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) 
+                   : {r[0,31],__signed(1b0)};      
+    } else {
+      // store value to be shifted
+      shift  = a;      
+    }
+
+    switch (dec.op) {
+      case 3b000: { r = dec.sub ? a_minus_b : a + b; } // ADD / SUB
+      case 3b010: { r = a_lt_b;                      } // SLTI
+      case 3b011: { r = a_lt_b_u;                    } // SLTU
+      case 3b100: { r = a ^ b;                       } // XOR
+      case 3b110: { r = a | b;                       } // OR
+      case 3b111: { r = a & b;                       } // AND
+      case 3b001: { r = shift;                       } // SLLI
+      case 3b101: { r = shift;                       } // SRLI / SRAI
+    }      
+    
+    working = (shamt != 0);
+
+    // ====================== Branch comparisons
+    switch (dec.op) {
+      case 3b000: { j =   a_eq_b;   } // BEQ
+      case 3b001: { j = ~ a_eq_b;   } // BNE
+      case 3b100: { j =   a_lt_b;   } // BLT
+      case 3b110: { j =   a_lt_b_u; } // BLTU
+      case 3b101: { j = ~ a_lt_b;   } // BGE
+      case 3b111: { j = ~ a_lt_b_u; } // BGEU
+      default:    { j = 0; }
+    }
+
+    // ====================== Next address adder
+    n = next_addr_a + next_addr_b;
+
+  }
+  
+}
+
+// --------------------------------------------------
 // The Risc-V RV32I CPU itself
 
 algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
@@ -182,13 +327,9 @@ $$end
   decode dec( instr <:: instr );
   // all integer operations (ALU + comparisons + next address)
   intops alu(
-    pc          <: pc,
+    pc          <: pc,              aluTrigger  <: aluTrigger,
     xa          <: xregsA.rdata,    xb          <: xregsB.rdata,
-    aluImm      <: dec.aluImm,      aluOp       <: dec.op,
-    aluTrigger  <: aluTrigger,      sub         <: dec.sub,
-    signedShift <: dec.signedShift, regOrImm    <: dec.regOrImm,
-    forceZero   <: dec.forceZero,   pcOrReg     <: dec.pcOrReg,
-    addrImm     <: dec.addrImm,     aluShift    <: dec.aluShift
+    dec         <: dec
   );
   // value that has been loaded from memory
   int32 loaded(0);
@@ -249,8 +390,8 @@ $$end
     
     aluTrigger = 1;
 
-    // decode occurs during the cycle entering the while below
-    while (1) { 
+    // decode + ALU occur during the cycle entering the while below
+    while (1) {       
         // this operations loop allows to wait for ALU when needed
         // it is built such that no cycles are wasted
 
@@ -325,151 +466,6 @@ $$end
 
   }
 
-}
-
-// --------------------------------------------------
-// decode next instruction
-
-algorithm decode(
-  input   uint32  instr,
-  output! uint5   write_rd,   output! uint1   no_rd,
-  output! uint1   jump,       output! uint1   branch,
-  output! uint1   load_store, output! uint1   store,
-  output! uint1   storeAddr,  output! uint3   op,
-  output! uint1   aluShift,   output! int32   aluImm,
-  output! uint1   sub,        output! uint1   signedShift,
-  output! uint1   forceZero,  output! uint1   pcOrReg,
-  output! uint1   regOrImm,   output! int32   addrImm,
-) {
-
-  int32 imm_u  <: {instr[12,20],12b0};
-  int32 imm_j  <: {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
-  int32 imm_i  <: {{20{instr[31,1]}},instr[20,12]};
-  int32 imm_b  <: {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
-  int32 imm_s  <: {{20{instr[31,1]}},instr[25,7],instr[7,5]};
-  
-  uint5 opcode <: instr[ 2, 5];
-  
-  uint1 AUIPC  <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
-  uint1 JAL    <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
-  uint1 Branch <: opcode == 5b11000;  uint1 Load   <: opcode == 5b00000;
-  uint1 Store  <: opcode == 5b01000;  uint1 IntImm <: opcode == 5b00100;
-  uint1 IntReg <: opcode == 5b01100;
-
-  jump         := JAL | JALR;
-  branch       := Branch;
-  store        := Store;
-  load_store   := Load   | Store;
-  regOrImm     := IntReg | Branch;
-  op           := Rtype(instr).op;
-  aluImm       := imm_i;
-  sub          := IntReg & Rtype(instr).sign;
-  aluShift     := (IntImm | IntReg) & op[0,2] == 2b01;
-  signedShift  := Rtype(instr).sign; /*SRLI/SRAI*/
-  write_rd     := Rtype(instr).rd;
-  no_rd        := Branch | Store | (Rtype(instr).rd == 5b0);
-  pcOrReg      := AUIPC | JAL | Branch;
-  forceZero    := LUI;
-  storeAddr    := LUI | AUIPC;
-
-  always {
-    switch (opcode)
-     {
-      case 5b00101: { addrImm = imm_u; } // AUIPC
-      case 5b01101: { addrImm = imm_u; } // LUI
-      case 5b11011: { addrImm = imm_j; } // JAL
-      case 5b11000: { addrImm = imm_b; } // branch
-      case 5b11001: { addrImm = imm_i; } // JALR
-      case 5b00000: { addrImm = imm_i; } // load
-      case 5b01000: { addrImm = imm_s; } // store
-      default:  { addrImm = {32{1bx}}; } // don't care
-     }
-  }
-}
-
-// --------------------------------------------------
-// Performs integer computations
-
-algorithm intops(
-  input   uint12 pc,        input   int32 xa,          input   int32 xb,
-  input   uint1  sub,       input   uint1 signedShift, input   uint1 forceZero,
-  input   uint1  pcOrReg,   input   uint1 regOrImm,    input   int32 addrImm,
-  input   int32  aluImm,    input   uint3 aluOp,       
-  input   uint1  aluShift,  input   uint1 aluTrigger,
-  output  int32  n,          // result of next address computation
-  output  int32  r,          // result of ALU
-  output  uint1  j,          // result of branch comparisons
-  output  uint1  working(0), // are we busy performing integer operations?
-) {
-  uint1 signed(0);
-  uint1 dir(0);
-  uint5 shamt(0);
-  int32 shift(0);
-  
-  // select next address adder inputs
-  int32 next_addr_a <:: forceZero ? __signed(32b0) 
-                      : (pcOrReg   ? __signed({20b0,pc[0,10],2b0}) 
-                      :              xa);
-  int32 next_addr_b <:: addrImm;
-
-  // select ALU inputs
-  int32 a <: xa;
-  int32 b <: regOrImm ? (xb) : aluImm;
-  
-  // trick from femtorv32/swapforth/J1
-  // allows to do minus and all comparisons with a single adder
-  int33 a_minus_b <: {1b1,~b} + {1b0,a} + 33b1;
-  uint1 a_lt_b    <: (a[31,1]^b[31,1]) ? a[31,1] : a_minus_b[32,1];
-  uint1 a_lt_b_u  <: a_minus_b[32,1];
-  uint1 a_eq_b    <: a_minus_b[0,32] == 0;
-
-  always {
-
-    // ====================== ALU
-
-    signed  = signedShift;
-    dir     = aluOp[2,1];
-    shamt   = working ? shamt - 1                // decrease shift counter
-                      : ((aluShift & aluTrigger) // start shifting?
-                      ? __unsigned(b[0,5]) : 0);
-    if (working) {
-      // shift one bit
-      shift  = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) 
-                   : {r[0,31],__signed(1b0)};      
-    } else {
-      // store value to be shifted
-      shift  = a;      
-    }
-
-    switch (aluOp) {
-      case 3b000: { r = sub ? a_minus_b : a + b; } // ADD / SUB
-      case 3b010: { r = a_lt_b;                  } // SLTI
-      case 3b011: { r = a_lt_b_u;                } // SLTU
-      case 3b100: { r = a ^ b;                   } // XOR
-      case 3b110: { r = a | b;                   } // OR
-      case 3b111: { r = a & b;                   } // AND
-      case 3b001: { r = shift;                   } // SLLI
-      case 3b101: { r = shift;                   } // SRLI / SRAI
-    }      
-    
-    working = (shamt != 0);
-
-    // ====================== Branch comparisons
-    switch (aluOp) {
-      case 3b000: { j =   a_eq_b;   } // BEQ
-      case 3b001: { j = ~ a_eq_b;   } // BNE
-      case 3b100: { j =   a_lt_b;   } // BLT
-      case 3b110: { j =   a_lt_b_u; } // BLTU
-      case 3b101: { j = ~ a_lt_b;   } // BGE
-      case 3b111: { j = ~ a_lt_b_u; } // BGEU
-      default:    { j = 0; }
-    }
-
-    // ====================== Next address adder
-    n = next_addr_a + next_addr_b;
-
-  }
-  
 }
 
 // --------------------------------------------------
