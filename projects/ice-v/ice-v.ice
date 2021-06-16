@@ -304,10 +304,6 @@ algorithm intops(
 algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   //                                           boot address  ^
 
-$$if SIMULATION then
-  uint32 cycle(0);
-$$end  
-
   // register file
   //                 |---- indicates we don't want the bram inputs to be latched
   //                 v     writes have to be setup during the same clock cycle
@@ -323,7 +319,7 @@ $$end
   // triggers ALU when required
   uint1 aluTrigger = uninitialized;
   // value that has been loaded from memory
-  int32 loaded    = uninitialized;
+  int32 loaded     = uninitialized;
 
   // decoder
   decoder dec( instr <:: instr );
@@ -365,13 +361,8 @@ $$end
     xregsB.wenable = xregsA.wenable;  // when writing to registers
   }
 
-$$if SIMULATION then  
-  while (cycle != 32) {
-    cycle = cycle + 1;
-$$else
-  // CPU runs forever
-  while (1) {
-$$end
+  while (1) { // CPU runs forever
+
     // data is now available
     instr       = mem.rdata;
     pc          = wide_addr;
@@ -379,16 +370,8 @@ $$end
     xregsA.addr = Rtype(instr).rs1;
     xregsB.addr = Rtype(instr).rs2;  
 
-$$if SIMULATION then  
-    __display("[cycle %d] ========= instr: %h (pc %h) =========",cycle,instr,pc<<2);
-$$end
-
 ++: // read registers, BRAM takes one cycle
 
-$$if SIMULATION then  
-    __display("[cycle %d] reg[%d] = %d  reg[%d] = %d",cycle,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
-$$end    
-    
     aluTrigger = 1;
 
     // decode + ALU occur during the cycle entering the while below
@@ -408,13 +391,6 @@ $$end
             mem.wenable = ({4{dec.store}} & { { 2{dec.op[0,2]==2b10} },
                                               dec.op[0,1] | dec.op[1,1], 1b1 
                                            }) << alu.n[0,2];
-
-$$if SIMULATION then
-            if (dec.store) {
-              __display("STORE %b %b @%h = %h",dec.op,alu.n[0,2],wide_addr<<2,xregsB.rdata);
-            }
-$$end            
-
           }
 
 ++: // wait for data transaction
@@ -425,12 +401,6 @@ $$end
             xregsA.wenable = ~dec.no_rd;
             xregsA.addr    = dec.write_rd;
             xregsB.addr    = dec.write_rd;
-$$if SIMULATION then
-            if (~dec.no_rd) {
-              __display("LOAD @%h = %h",wide_addr<<2,mem.rdata);
-              __display("[cycle %d] reg write [%d] = %d (load)",cycle,dec.write_rd,xregsA.wdata);
-            }
-$$end            
           }
           // restore address to program counter
           wide_addr = next_pc;
@@ -451,11 +421,6 @@ $$end
           xregsB.addr    = dec.write_rd;
 
           if (alu.working == 0) { // ALU done?
-$$if SIMULATION then  
-          if (~dec.no_rd) {
-            __display("[cycle %d] reg write [%d] = %d (alu working:%b)",cycle,dec.write_rd,xregsA.wdata,alu.working);
-          }
-$$end          
             // yes: all is correct, stop here
             break; 
             //  intruction read from BRAM and write to registers 
