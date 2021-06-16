@@ -96,7 +96,7 @@ $$if OLED then
 $$end
     if (mem.wenable[0,1] & cpu.wide_addr[10,1]) {
       leds = mem.wdata[0,5] & {5{cpu.wide_addr[0,1]}};
-      __display("LEDS %b",leds);
+      // __display("LEDS %b",leds);
 $$if OLED then
       // command
       displ_en = (mem.wdata[9,1] | mem.wdata[10,1]) & cpu.wide_addr[1,1];
@@ -187,7 +187,7 @@ $$end
     aluTrigger  <: aluTrigger,      sub         <: dec.sub,
     signedShift <: dec.signedShift, regOrImm    <: dec.regOrImm,
     forceZero   <: dec.forceZero,   pcOrReg     <: dec.pcOrReg,
-    addrImm     <: dec.addrImm,
+    addrImm     <: dec.addrImm,     aluEnable   <: dec.aluEnable
   );
 
   // maintain write enable low (pulses high when needed)
@@ -208,7 +208,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (cycle != 65536) {
+  while (cycle != 4096) {
     cycle = cycle + 1;
 $$else
   // CPU runs forever
@@ -283,11 +283,36 @@ $$end
 ++: // wait for data transaction
           { // Load (enabled below if no_rd == 0)
             uint32 tmp = uninitialized;
+            /*
             switch ( dec.op[0,2] ) {
               case 2b00: { tmp = { {24{(~dec.op[2,1])&mem.rdata[ 7,1]}},mem.rdata[ 0,8]};  } // LB / LBU
               case 2b01: { tmp = { {16{(~dec.op[2,1])&mem.rdata[15,1]}},mem.rdata[ 0,16]}; } // LH / LHU
               case 2b10: { tmp = mem.rdata; } // LW
               default:   { tmp = {32{1bx}}; } // should not occur, decalre tmp as 'don't care'
+            }
+            */
+
+            switch ( dec.op[0,2] ) {
+              case 2b00: { // LB / LBU
+                  switch (alu.n[0,2]) {
+                    case 2b00: { tmp = { {24{(~dec.op[2,1])&mem.rdata[ 7,1]}},mem.rdata[ 0,8]}; }
+                    case 2b01: { tmp = { {24{(~dec.op[2,1])&mem.rdata[15,1]}},mem.rdata[ 8,8]}; }
+                    case 2b10: { tmp = { {24{(~dec.op[2,1])&mem.rdata[23,1]}},mem.rdata[16,8]}; }
+                    case 2b11: { tmp = { {24{(~dec.op[2,1])&mem.rdata[31,1]}},mem.rdata[24,8]}; }
+                    default:   { tmp = 0; }
+                  }
+              }
+              case 2b01: { // LH / LHU
+                  switch (alu.n[1,1]) {
+                    case 1b0: { tmp = { {16{(~dec.op[2,1])&mem.rdata[15,1]}},mem.rdata[ 0,16]}; }
+                    case 1b1: { tmp = { {16{(~dec.op[2,1])&mem.rdata[31,1]}},mem.rdata[16,16]}; }
+                    default:  { tmp = 0; }
+                  }
+              }
+              case 2b10: { // LW
+                tmp = mem.rdata;  
+              }
+              default: { tmp = 0; }
             }
             // commit result
             xregsA.wdata   = tmp;
@@ -297,6 +322,7 @@ $$end
 $$if SIMULATION then
             if (~dec.no_rd) {
               __display("LOAD @%h = %h",wide_addr<<2,mem.rdata);
+              __display("[cycle %d] reg write [%d] = %d (load)",cycle,dec.write_rd,xregsA.wdata);
             }
 $$end            
           }
@@ -317,13 +343,12 @@ $$end
           xregsA.addr    = dec.write_rd;
           xregsB.addr    = dec.write_rd;
 
+          if (alu.working == 0) { // ALU done?
 $$if SIMULATION then  
           if (~dec.no_rd) {
             __display("[cycle %d] reg write [%d] = %d (alu working:%b)",cycle,dec.write_rd,xregsA.wdata,alu.working);
           }
 $$end          
-
-          if (alu.working == 0) { // ALU done?
             // yes: all is correct, stop here
             break; 
             //  intruction read from BRAM and write to registers 
@@ -433,16 +458,20 @@ algorithm intops(
   uint1 a_eq_b    <: a_minus_b[0,32] == 0;
 
   always {
-  
+
+    //if (aluEnable & aluTrigger & aluOp[0,2] == 2b01) {
+    //  __display("SHIFT ============================");
+    //}
+
     // ====================== ALU
     signed  = signedShift;
     dir     = aluOp[2,1];
     shamt   = working ? shamt - 1 
                       : ((aluEnable & aluTrigger & aluOp[0,2] == 2b01) 
                       ? __unsigned(b[0,5]) : 0);
-// __display("shamt %d working %b",shamt,working);
     //                                ^^^^^^^^^ prevents ALU to trigger when low
     if (working) {
+      //__display("A shamt %d working %b",shamt,working);
       // process the shift one bit at a time
       r       = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) 
                     : {r[0,31],__signed(1b0)};      
@@ -460,6 +489,7 @@ algorithm intops(
     }
     
     working = (shamt != 0);
+    //__display("B shamt %d working %b",shamt,working);
 
     // ====================== Branch comparisons
     switch (aluOp) {
