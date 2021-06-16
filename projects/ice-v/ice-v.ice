@@ -30,7 +30,7 @@ $$dofile('pre_include_asm.lua')
 
 // --------------------------------------------------
 
-// bitfield for easier decoding of instruction
+// bitfield for easier decoding of instructions
 // defines a view on a uint32, avoids hard coded values in part-selects
 bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, uint5 rs1,
                  uint3 op,      uint5 rd,   uint7 opcode}
@@ -84,7 +84,7 @@ $$if OLED then
 $$end
 
   // ram
-  bram uint32 mem<"bram_wmask_byte",input!>[] = $meminit$;
+  bram uint32 mem<"bram_wmask_byte",input!>[1024] = $meminit$;
 
   // cpu
   rv32i_cpu cpu( mem <:> mem );
@@ -193,18 +193,6 @@ $$end
   // value that has been loaded from memory
   int32 loaded(0);
 
-  // maintain write enable low (pulses high when needed)
-  mem.wenable    := 4b0000; 
-  // maintain register wenable low
-  xregsA.wenable := 0;
-  // maintain addr on rs1/rs2 by default (bram is not latched, see input!)
-  xregsA.addr    := Rtype(instr).rs1;
-  xregsB.addr    := Rtype(instr).rs2;  
-  // maintain alu trigger low
-  aluTrigger     := 0;
-  // what to write on a store (correct when needed)
-  mem.wdata      := xregsB.rdata << {alu.n[0,2],3b000};
-
   // the 'always_before' block is executed at the start of every cycle
   always_before {
     // decodes values loaded from memory (correct when needed)
@@ -215,6 +203,17 @@ $$end
       case 2b10: { loaded = aligned;   } // LW
       default:   { loaded = {32{1bx}}; } // don't care (does not occur)
     }
+    // maintain write enable low (pulses high when needed)
+    mem.wenable    = 4b0000; 
+    // maintain register wenable low
+    xregsA.wenable = 0;
+    // maintain addr on rs1/rs2 by default (bram is not latched, see input!)
+    xregsA.addr    = Rtype(instr).rs1;
+    xregsB.addr    = Rtype(instr).rs2;  
+    // maintain alu trigger low
+    aluTrigger     = 0;
+    // encodes what to write on a store (correct when needed)
+    mem.wdata      = xregsB.rdata << {alu.n[0,2],3b000};
   }
 
   // the 'always_after' block is executed at the end of every cycle

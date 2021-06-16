@@ -1,5 +1,5 @@
 -- include ASM code as a BROM
-memsize = 1024
+memsize = 1536 -- max on an icestick
 
 in_asm = io.open(findfile('build/code.hex'), 'r')
 if not in_asm then
@@ -52,7 +52,4 @@ if numinit > memsize then
   error('too much code!')
 end
 
-for i=numinit+1,memsize do
-  meminit = meminit .. '32h0,'
-end
-meminit = meminit .. '}'
+meminit = meminit .. 'pad(0)}'
