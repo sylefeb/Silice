@@ -158,7 +158,7 @@ $$end
 // --------------------------------------------------
 // The Risc-V RV32I CPU itself
 
-algorithm rv32i_cpu( bram_port mem, output! uint11 wide_addr(0) ) <onehot> {
+algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   //                                           boot address  ^
 
   //                 |--------- indicates we don't want the bram inputs to be latched
@@ -208,7 +208,7 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (cycle != 64) {
+  while (cycle != 65536) {
     cycle = cycle + 1;
 $$else
   // CPU runs forever
@@ -275,7 +275,7 @@ $$end
 
 $$if SIMULATION then
             if (dec.store) {
-              __display("STORE %b %b @%h = %h mask=%b",dec.op,alu.n[0,2],wide_addr<<2,xregsB.rdata,mem.wenable[0,4]);
+              __display("STORE %b %b @%h = %h",dec.op,alu.n[0,2],wide_addr<<2,xregsB.rdata);
             }
 $$end            
 
@@ -406,7 +406,7 @@ algorithm intops(
   input   uint1  aluEnable,
   input   uint1  sub,     input   uint1  signedShift, input   uint1  forceZero,
   input   uint1  pcOrReg, input   uint1  regOrImm,    input   int32  addrImm,
-  output  uint32 n,          // result of next address computation
+  output  int32  n,          // result of next address computation
   output  int32  r,          // result of ALU
   output  uint1  j,          // result of branch comparisons
   output  uint1  working(0), // are we busy performing integer operations?
@@ -416,10 +416,10 @@ algorithm intops(
   uint5 shamt(0);
   
   // select next address adder inputs
-  uint32 next_addr_a <:: forceZero ? __signed(32b0) 
+  int32 next_addr_a <:: forceZero ? __signed(32b0) 
                       : (pcOrReg   ? __signed({20b0,pc[0,10],2b0}) 
                       :              xa);
-  uint32 next_addr_b <:: addrImm;
+  int32 next_addr_b <:: addrImm;
 
   // select ALU inputs
   int32 a <: xa;
