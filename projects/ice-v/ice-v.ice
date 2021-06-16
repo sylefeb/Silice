@@ -415,10 +415,6 @@ algorithm intops(
 
   always {
 
-    //if (aluEnable & aluTrigger & aluOp[0,2] == 2b01) {
-    //  __display("SHIFT ============================");
-    //}
-
     // ====================== ALU
     signed  = signedShift;
     dir     = aluOp[2,1];
@@ -427,7 +423,6 @@ algorithm intops(
                       ? __unsigned(b[0,5]) : 0);
     //                                ^^^^^^^^^ prevents ALU to trigger when low
     if (working) {
-      //__display("A shamt %d working %b",shamt,working);
       // process the shift one bit at a time
       r       = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) 
                     : {r[0,31],__signed(1b0)};      
@@ -445,7 +440,6 @@ algorithm intops(
     }
     
     working = (shamt != 0);
-    //__display("B shamt %d working %b",shamt,working);
 
     // ====================== Branch comparisons
     switch (aluOp) {
