@@ -121,7 +121,7 @@ assign run_main = 1'b1;
 
 M_main __main(
   .clock(CLK),
-  .reset(RST_d),
+  .reset(RST_q[0]),
   .out_leds(__main_leds),
 `ifdef OLED
   .out_oled_mosi(__main_oled_mosi),
