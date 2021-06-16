@@ -721,7 +721,8 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
   // add var
   addVar(nfo, _current, _context, wire->alwaysAssigned()->IDENTIFIER()->getSourceInterval());
   // insert wire assignment
-  m_WireAssignments.insert(make_pair(nfo.name, t_instr_nfo(wire->alwaysAssigned(), _current, -1)));
+  m_WireAssignmentNames.insert( make_pair(nfo.name, m_WireAssignments.size()) );
+  m_WireAssignments    .push_back( make_pair(nfo.name, t_instr_nfo(wire->alwaysAssigned(), _current, -1)) );
 }
 
 // -------------------------------------------------
@@ -4529,7 +4530,8 @@ void Algorithm::determineAccessForWires(
   for (const auto &v : m_Vars) {
     if (v.usage == e_Wire) { // this is a wire (bound expression)
       // find corresponding wire assignement
-      const auto& wa = m_WireAssignments.at(v.name);
+      int wai        = m_WireAssignmentNames.at(v.name);
+      const auto &wa = m_WireAssignments[wai].second;
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wa.instr);
       sl_assert(alw != nullptr);
       sl_assert(alw->IDENTIFIER() != nullptr);
@@ -5701,9 +5703,10 @@ void Algorithm::writeWireAssignements(
     //         a variable 'at cycle start' (Q) state, e.g. ::a )
     for (const auto &d : _dependencies.dependencies.at(var)) {
       // is this dependency a wire?
-      auto W = m_WireAssignments.find(d);
-      if (W != m_WireAssignments.end()) {
-        auto w_alw    = dynamic_cast<siliceParser::AlwaysAssignedContext *>(W->second.instr);
+      auto W = m_WireAssignmentNames.find(d);
+      if (W != m_WireAssignmentNames.end()) {
+        const auto &wa = m_WireAssignments[W->second].second;
+        auto w_alw    = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wa.instr);
         bool w_d_or_q = (w_alw->ALWSASSIGNDBL() == nullptr && alw->LDEFINEDBL() == nullptr);
         if (d_or_q ^ w_d_or_q) {
           reportError(alw->getSourceInterval(), (int)alw->getStart()->getLine(), 

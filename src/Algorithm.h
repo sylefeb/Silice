@@ -626,7 +626,8 @@ private:
     t_combinational_block                                             m_AlwaysPre;
     t_combinational_block                                             m_AlwaysPost;
     /// \brief wire assignments
-    std::unordered_map<std::string,t_instr_nfo>                       m_WireAssignments;
+    std::unordered_map<std::string, int>                              m_WireAssignmentNames;
+    std::vector<std::pair<std::string,t_instr_nfo> >                  m_WireAssignments;
     /// \brief all combinational blocks
     std::list< t_combinational_block* >                               m_Blocks;
     /// \brief state name to combinational block
