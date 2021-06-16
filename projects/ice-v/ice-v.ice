@@ -163,8 +163,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
   //                 |--------- indicates we don't want the bram inputs to be latched
   //                 v          writes have to be setup during the same clock cycle
-  bram int32 xregsA<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-  bram int32 xregsB<input!>[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  bram int32 xregsA<input!>[32] = {pad(0)};
+  bram int32 xregsB<input!>[32] = {pad(0)};
 
 $$if SIMULATION then
   uint32 cycle(0);
@@ -382,11 +382,11 @@ algorithm decode(
 // Performs integer computations
 
 algorithm intops(
-  input   uint12 pc,      input   int32  xa,          input   int32  xb,
-  input   int32  aluImm,  input   uint3  aluOp,       input   uint1  aluTrigger,
-  input   uint1  aluEnable,
-  input   uint1  sub,     input   uint1  signedShift, input   uint1  forceZero,
-  input   uint1  pcOrReg, input   uint1  regOrImm,    input   int32  addrImm,
+  input   uint12 pc,        input   int32 xa,          input   int32 xb,
+  input   uint1  sub,       input   uint1 signedShift, input   uint1 forceZero,
+  input   uint1  pcOrReg,   input   uint1 regOrImm,    input   int32 addrImm,
+  input   int32  aluImm,    input   uint3 aluOp,       
+  input   uint1  aluEnable, input   uint1 aluTrigger,
   output  int32  n,          // result of next address computation
   output  int32  r,          // result of ALU
   output  uint1  j,          // result of branch comparisons
