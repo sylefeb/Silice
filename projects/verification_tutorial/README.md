@@ -130,6 +130,11 @@ which would not necessarily happen when “normally” using a Silice algorithm.
 
 ### Cover tests (`#cover`)
 
+Cover tests allow outputting specific VCD traces (which can be analyzed later using e.g. GTKWave) that satisfy a given condition.
+Any unreached cover test is considered an error, and indicates that the depth may not have been big enough.
+
+Specifying a cover test follows this syntax: `#cover(<condition>)` where `<condition>` is any valid condition.
+
 ### Algorithm meta-specifiers (`#mode`, `#depth`, `#timeout`)
 
 Every algorithm does not need the same number of cycles to terminate (some may take 10, others 1500), or may take more time
