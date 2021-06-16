@@ -188,7 +188,7 @@ $$end
     aluTrigger  <: aluTrigger,      sub         <: dec.sub,
     signedShift <: dec.signedShift, regOrImm    <: dec.regOrImm,
     forceZero   <: dec.forceZero,   pcOrReg     <: dec.pcOrReg,
-    addrImm     <: dec.addrImm,     aluEnable   <: dec.aluEnable
+    addrImm     <: dec.addrImm,     aluShift    <: dec.aluShift
   );
   // value that has been loaded from memory
   int32 loaded(0);
@@ -257,7 +257,7 @@ $$end
         // load/store?        
         if (dec.load_store) {   
 
-          // address to fetch in memory (either load or store)
+          // memory address from wich to load/store
           wide_addr = alu.n >> 2;
 
           { // Store (enabled below if dec.store == 1)
@@ -336,7 +336,7 @@ algorithm decode(
   output! uint1   jump,       output! uint1   branch,
   output! uint1   load_store, output! uint1   store,
   output! uint1   storeAddr,  output! uint3   op,
-  output! uint1   aluEnable,  output! int32   aluImm,
+  output! uint1   aluShift,   output! int32   aluImm,
   output! uint1   sub,        output! uint1   signedShift,
   output! uint1   forceZero,  output! uint1   pcOrReg,
   output! uint1   regOrImm,   output! int32   addrImm,
@@ -362,9 +362,9 @@ algorithm decode(
   load_store   := Load   | Store;
   regOrImm     := IntReg | Branch;
   op           := Rtype(instr).op;
-  aluEnable    := (IntImm | IntReg);
   aluImm       := imm_i;
   sub          := IntReg & Rtype(instr).sign;
+  aluShift     := (IntImm | IntReg) & op[0,2] == 2b01;
   signedShift  := Rtype(instr).sign; /*SRLI/SRAI*/
   write_rd     := Rtype(instr).rd;
   no_rd        := Branch | Store | (Rtype(instr).rd == 5b0);
@@ -395,7 +395,7 @@ algorithm intops(
   input   uint1  sub,       input   uint1 signedShift, input   uint1 forceZero,
   input   uint1  pcOrReg,   input   uint1 regOrImm,    input   int32 addrImm,
   input   int32  aluImm,    input   uint3 aluOp,       
-  input   uint1  aluEnable, input   uint1 aluTrigger,
+  input   uint1  aluShift,  input   uint1 aluTrigger,
   output  int32  n,          // result of next address computation
   output  int32  r,          // result of ALU
   output  uint1  j,          // result of branch comparisons
@@ -428,7 +428,7 @@ algorithm intops(
     signed  = signedShift;
     dir     = aluOp[2,1];
     shamt   = working ? shamt - 1 
-                      : ((aluEnable & aluTrigger & aluOp[0,2] == 2b01) 
+                      : ((aluShift & aluTrigger) 
                       ? __unsigned(b[0,5]) : 0);
     //                                ^^^^^^^^^ prevents ALU to trigger when low
     if (working) {

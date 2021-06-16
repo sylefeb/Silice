@@ -2811,7 +2811,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
     }
     vars.insert(make_pair(vnfo.name,vnfo));
   }
-
+  // create vars
   if (iog->ioList() != nullptr) {
     for (auto io : iog->ioList()->io()) {
       // -> check for existence
@@ -2897,7 +2897,7 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
         vnfo.name.c_str(), itrf->defid->getText().c_str());
     }
     vars.insert(vnfo.name);
-    // add it where it belongs
+    // create vars
     if (io->is_input != nullptr) {
       t_inout_nfo inp;
       var_nfo_copy(inp, vnfo);
