@@ -229,7 +229,6 @@ algorithm intops(
   output  uint1  j,          // result of branch comparisons
   output  uint1  working(0), // are we busy performing integer operations?
 ) {
-  uint1 signed(0);
   uint1 dir(0);
   uint5 shamt(0);
   int32 shift(0);
@@ -255,15 +254,14 @@ algorithm intops(
 
     // ====================== ALU
 
-    signed  = dec.signedShift;
     dir     = dec.op[2,1];
     shamt   = working ? shamt - 1                    // decrease shift counter
                       : ((dec.aluShift & aluTrigger) // start shifting?
                       ? __unsigned(b[0,5]) : 0);
     if (working) {
       // shift one bit
-      shift  = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) 
-                   : {r[0,31],__signed(1b0)};      
+      shift = dir ? (dec.signedShift ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) 
+                  : {r[0,31],__signed(1b0)};      
     } else {
       // store value to be shifted
       shift  = a;      
@@ -311,28 +309,31 @@ $$if SIMULATION then
 $$end  
 
   // register file
-  //                 |--------- indicates we don't want the bram inputs to be latched
-  //                 v          writes have to be setup during the same clock cycle
+  //                 |---- indicates we don't want the bram inputs to be latched
+  //                 v     writes have to be setup during the same clock cycle
   bram int32 xregsA<input!>[32] = {pad(0)};
   bram int32 xregsB<input!>[32] = {pad(0)};
+
   // current instruction
   uint32 instr(0);
   // program counter
-  uint12 pc      = uninitialized;  
+  uint12 pc        = uninitialized;  
   uint12 next_pc <:: pc+1; // next_pc tracks the expression 'pc + 1' using the
-                           // value of pc from the last clock edge (due to ::)
+                           // value of pc from the last clock edge (<::)
   // triggers ALU when required
-  uint1 aluTrigger(0);
+  uint1 aluTrigger = uninitialized;
+  // value that has been loaded from memory
+  int32 loaded    = uninitialized;
+
   // decoder
   decoder dec( instr <:: instr );
+
   // all integer operations (ALU + comparisons + next address)
   intops alu(
-    pc          <: pc,              aluTrigger  <: aluTrigger,
-    xa          <: xregsA.rdata,    xb          <: xregsB.rdata,
+    pc          <: pc,            aluTrigger  <: aluTrigger,
+    xa          <: xregsA.rdata,  xb          <: xregsB.rdata,
     dec         <: dec
   );
-  // value that has been loaded from memory
-  int32 loaded(0);
 
   // the 'always_before' block is executed at the start of every cycle
   always_before {
@@ -353,7 +354,7 @@ $$end
     xregsB.addr    = Rtype(instr).rs2;  
     // maintain alu trigger low
     aluTrigger     = 0;
-    // encodes what to write on a store (correct when needed)
+    // what to write on a store (correct when needed)
     mem.wdata      = xregsB.rdata << {alu.n[0,2],3b000};
   }
 
@@ -361,7 +362,7 @@ $$end
   always_after { 
     mem.addr       = wide_addr[0,11]; // track memory address in interface
     xregsB.wdata   = xregsA.wdata;    // xregsB is always paired with xregsA
-    xregsB.wenable = xregsA.wenable;  // when writting to registers
+    xregsB.wenable = xregsA.wenable;  // when writing to registers
   }
 
 $$if SIMULATION then  
