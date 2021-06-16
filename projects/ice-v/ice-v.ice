@@ -94,9 +94,9 @@ $$end
 $$if OLED then
     displ_en = 0;
 $$end
-    if (mem.wenable[0,1] & cpu.wide_addr[10,1]) {
+    if (mem.wenable[0,1] & cpu.wide_addr[11,1]) {
       leds = mem.wdata[0,5] & {5{cpu.wide_addr[0,1]}};
-      // __display("LEDS %b",leds);
+      __display("LEDS %b",leds);
 $$if OLED then
       // command
       displ_en = (mem.wdata[9,1] | mem.wdata[10,1]) & cpu.wide_addr[1,1];
@@ -218,13 +218,13 @@ $$end
 
   // the 'always_after' block is executed at the end of every cycle
   always_after { 
-    mem.addr       = wide_addr[0,10]; // track memory address in interface
+    mem.addr       = wide_addr[0,11]; // track memory address in interface
     xregsB.wdata   = xregsA.wdata;    // xregsB is always paired with xregsA
     xregsB.wenable = xregsA.wenable;  // when writting to registers
   }
 
 $$if SIMULATION then  
-  while (cycle != 4096) {
+  while (cycle != 32) {
     cycle = cycle + 1;
 $$else
   // CPU runs forever
@@ -404,6 +404,7 @@ algorithm intops(
   uint1 signed(0);
   uint1 dir(0);
   uint5 shamt(0);
+  int32 shift(0);
   
   // select next address adder inputs
   int32 next_addr_a <:: forceZero ? __signed(32b0) 
@@ -425,28 +426,31 @@ algorithm intops(
   always {
 
     // ====================== ALU
+
     signed  = signedShift;
     dir     = aluOp[2,1];
-    shamt   = working ? shamt - 1 
-                      : ((aluShift & aluTrigger) 
+    shamt   = working ? shamt - 1                // decrease shift counter
+                      : ((aluShift & aluTrigger) // start shifting?
                       ? __unsigned(b[0,5]) : 0);
-    //                                ^^^^^^^^^ prevents ALU to trigger when low
     if (working) {
-      // process the shift one bit at a time
-      r       = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) 
-                    : {r[0,31],__signed(1b0)};      
+      // shift one bit
+      shift  = dir ? (signed ? {r[31,1],r[1,31]} : {__signed(1b0),r[1,31]}) 
+                   : {r[0,31],__signed(1b0)};      
     } else {
-      switch (aluOp) {
-        case 3b000: { r = sub ? a_minus_b : a + b; } // ADD / SUB
-        case 3b010: { r = a_lt_b;                  } // SLTI
-        case 3b011: { r = a_lt_b_u;                } // SLTU
-        case 3b100: { r = a ^ b;                   } // XOR
-        case 3b110: { r = a | b;                   } // OR
-        case 3b111: { r = a & b;                   } // AND
-        case 3b001: { r = a;                       } // SLLI
-        case 3b101: { r = a;                       } // SRLI / SRAI
-      }      
+      // store value to be shifted
+      shift  = a;      
     }
+
+    switch (aluOp) {
+      case 3b000: { r = sub ? a_minus_b : a + b; } // ADD / SUB
+      case 3b010: { r = a_lt_b;                  } // SLTI
+      case 3b011: { r = a_lt_b_u;                } // SLTU
+      case 3b100: { r = a ^ b;                   } // XOR
+      case 3b110: { r = a | b;                   } // OR
+      case 3b111: { r = a & b;                   } // AND
+      case 3b001: { r = shift;                   } // SLLI
+      case 3b101: { r = shift;                   } // SRLI / SRAI
+    }      
     
     working = (shamt != 0);
 

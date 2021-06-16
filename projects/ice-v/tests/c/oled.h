@@ -1,6 +1,6 @@
-volatile int* const LEDS     = (int*)0x1004;
-volatile int* const OLED     = (int*)0x1008;
-volatile int* const OLED_RST = (int*)0x1010;
+volatile int* const LEDS     = (int*)0x2004;
+volatile int* const OLED     = (int*)0x2008;
+volatile int* const OLED_RST = (int*)0x2010;
 
 #define OLED_CMD   (1<< 9)
 #define OLED_DTA   (1<<10)
