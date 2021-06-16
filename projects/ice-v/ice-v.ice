@@ -160,7 +160,7 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, uint5 rs1,
 // --------------------------------------------------
 // Decoder, decode next instruction
 
-algorithm decode(
+algorithm decoder(
   input   uint32  instr,
   output! uint5   write_rd,   output! uint1   no_rd,
   output! uint1   jump,       output! uint1   branch,
@@ -221,7 +221,7 @@ algorithm decode(
 // IntOps: performs all integer computations
 
 algorithm intops(
-  input   outputs(decode) dec, // all outputs of the decoder as inputs
+  input   outputs(decoder) dec, // all outputs of the decoder as inputs
   input   uint12 pc,         input   int32 xa,  input   int32 xb, 
   input   uint1  aluTrigger, // pulses high when the ALU should start
   output  int32  n,          // result of next address computation
@@ -324,7 +324,7 @@ $$end
   // triggers ALU when required
   uint1 aluTrigger(0);
   // decoder
-  decode dec( instr <:: instr );
+  decoder dec( instr <:: instr );
   // all integer operations (ALU + comparisons + next address)
   intops alu(
     pc          <: pc,              aluTrigger  <: aluTrigger,
