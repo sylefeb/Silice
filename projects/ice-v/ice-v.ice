@@ -84,7 +84,7 @@ $$if OLED then
 $$end
 
   // ram
-  bram uint32 mem<"bram_wmask_byte",input!>[1024] = $meminit$;
+  bram uint32 mem<"bram_wmask_byte",input!>[1536] = $meminit$;
 
   // cpu
   rv32i_cpu cpu( mem <:> mem );

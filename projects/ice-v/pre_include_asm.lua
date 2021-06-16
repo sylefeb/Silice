@@ -52,4 +52,4 @@ if numinit > memsize then
   error('too much code!')
 end
 
-meminit = meminit .. 'pad(0)}'
+meminit = meminit .. 'pad(uninitialized)}'
