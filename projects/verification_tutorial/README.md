@@ -76,6 +76,24 @@ This solver handles BMC and cover tests quite fine, and fast enough (compared to
 <!-- Describe implemented features (#assert, #assume, #restrict, #cover, #wasat, #stable, #stableinput, #mode, #depth, #timeout, algorithm#) -->
 ## Syntax and semantics
 
+In this section, we will describe the implemented features for design verification.
+All of these features can be used in special `algorithm#`s.
+
+An `algorithm#` is a normal algorithm (it can be instantiated like a normal one) that is necessarily written in the output file,
+with a `formal_` prefix (the formal board will try to generate tests for all `algorithm#` in the design).
+Because of the potential size overhead (potential because Yosys may optimize those away if they are not instantiated),
+it is usually a good idea to surround those algorithms with `$$if FORMAL` blocks.
+The `FORMAL` macro is automatically defined when using the formal board.
+
+Be also aware that all the features described above are not necessarily synthesizable, leading to errors like this if some remain[[1]](#ref-1):
+
+> ```
+> 2.3.2. Executing AST frontend in derive mode using pre-parsed AST for module `\M_main'.
+> Generating RTLIL representation for module `\M_main'.
+> build.v:0: Warning: System task `$display' outside initial block is unsupported.
+> build.v:0: ERROR: Can't resolve task name `\assert'.
+> ```
+
 ### Immediate assertions (`#assert`)
 
 ### Assumptions and restrictions (`#assume`, `#restrict`)
@@ -114,3 +132,15 @@ This directory contains several example of verifying code, for different algorit
 
 You can run the verification process using the provided [Makefile](./Makefile), by simply running the command
 `make file`, where `file` is the file without the `.ice` extension you want to run the whole process on.
+
+--------------------
+
+<a name="ref-1"></a>[1]: This example was compiled:
+
+``` c
+algorithm main(output uint8 leds)
+{
+    __display("OK");
+    #assert(1);
+}
+```
