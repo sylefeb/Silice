@@ -115,6 +115,7 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
    for (mode in modes) {
      printf "task-%d-%d:\n  depth %d\n  timeout %d\n  mode %s\n", $1, mode, $6, $7, to_mode(modes[mode])
      switch(modes[mode]) {
+       case "tind":
        case "bmc":
          printf "  smtc %s.smtc\n", $4
          break
@@ -146,7 +147,7 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
         print "smtbmc --stbv --progress yices"
         break
       case "tind":
-        print "abc pdr"
+        print "smtbmc --progress yices" #"abc pdr"
         break
       case "cover":
         print "smtbmc --progress z3"
@@ -198,6 +199,14 @@ fi
 echo "---< Running Symbiyosys >---"
 
 AWKSCRIPT='
+function to_result(r) {
+  switch(r) {
+    case "FAIL":
+    case "UNKNOWN": return "\033[31mfailed\033[0m"
+    case "PASS": return "\033[32mpassed\033[0m"
+  }
+}
+
 BEGIN {
   TOLEFT = "\033[0G\033[0K\033[0m"
 }
@@ -205,11 +214,10 @@ $0 ~ /Reached TIMEOUT/ {
   gsub(/formal_/, "", $3)
   print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[33mtimeout\033[0m"
 }
-match($0, /Status returned by engine: (PASS|pass|FAIL|ERROR)/, gr) {
+match($0, /DONE \((UNKNOWN|PASS|FAIL),/, gr) {
   gsub(/formal_/, "", $3)
 
-  print TOLEFT "* " sprintf("%" LEN "-s", $3) ((toupper(gr[1]) == "PASS") ? "\033[32mpassed" : "\033[31mfailed") "\033[0m"
-  next
+  print TOLEFT "* " sprintf("%" LEN "-s", $3) to_result(gr[1])
 }
 $0 ~ /(build\.v:[0-9]+: ERROR: .*)$/ {
   gsub(/formal_/, "", $3)
@@ -272,6 +280,16 @@ function try_read_silice_position(line) {
   return file
 }
 
+match($0, /((BMC|Temporal induction) failed!)/, gr) {
+  gsub(/formal_/, "", $3)
+
+  step = ""
+  if (match($4, /\.(basecase|induction)/, gr_)) {
+    step = gr_[1]
+  }
+
+  print "* " sprintf("%" LEN "-s", $3) "\033[31m" (step == "" ? "" : "\033[4m" step ":" "\033[0m\033[31m ") gr[1] "\033[0m"
+}
 match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
   gsub(/formal_/, "", $3)
   gsub(/[0-9]+\.[0-9]+-/, "", gr[2])
@@ -279,7 +297,7 @@ match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
 
   gr[2] = try_read_silice_position(gr[2])
 
-  print "* " sprintf("%" LEN "-s", $3) "\033[31m" gr[1] gr[2] "\033[0m"
+  print sprintf("%" (LEN + 2) "-s", "") "\033[31m" gr[1] gr[2] "\033[0m"
 }
 match($0, /(Unreached cover statement at )build\.v:([0-9\-\.]+)\.$/, gr) {
   gsub(/formal_/, "", $3)
