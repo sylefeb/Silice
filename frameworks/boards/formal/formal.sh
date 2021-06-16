@@ -114,8 +114,15 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
    split($8, modes, /,/)
    for (mode in modes) {
      printf "task-%d-%d:\n  depth %d\n  timeout %d\n  mode %s\n", $1, mode, $6, $7, to_mode(modes[mode])
-     if (modes[mode] == "bmc") {
-       printf "  smtc %s.smtc\n", $4
+     switch(modes[mode]) {
+       case "bmc":
+         printf "  smtc %s.smtc\n", $4
+         break
+       case "cover":
+         printf "  append 10\n"
+         break
+       default:
+         break
      }
    }
    print SMTC >SMTC_NAME
