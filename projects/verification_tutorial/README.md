@@ -113,6 +113,10 @@ Use `#assume` when any following `#assert` depends on it, otherwise use `#restri
 
 ### Path assertions (`#wasin`)
 
+Sometimes, you need to verify whether the algorithm was in a specific state `N` cycles before.
+Using named blocks (labels really), the `#wasin(<label>, <integer>)` construct allows checking whether the FSM index was 
+the FSM index of `<label>` `<integer>` cycles before (defaults to 1 if not specified).
+
 ### Stability checking (`#stableinput`, `#stable`)
 
 ### Cover tests (`#cover`)
