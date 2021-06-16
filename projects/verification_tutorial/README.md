@@ -132,6 +132,35 @@ which would not necessarily happen when “normally” using a Silice algorithm.
 
 ### Algorithm meta-specifiers (`#mode`, `#depth`, `#timeout`)
 
+Every algorithm does not need the same number of cycles to terminate (some may take 10, others 1500), or may take more time
+to actually end.
+
+The three meta-specifiers control different aspects of the verification process:
+
+- The `#depth` controls the `k` parameter when performing a BMC and/or a temporal induct, and the number of cycles
+  to perform when performing a cover test.
+  Ideally, this parameter should be at least equal to the maximum number of cycles an algorithm may take to complete.
+  
+  Defaults to `30` if not specified.
+- The `#timeout` specifies the maximum number of seconds a solver is allowed to run for before being considered timed out.
+  Note that a timeout is considered an error, but really means that no error could be found in the time window.
+  Chances are that the solver needed a little bit more time to find a good conclusion, in which case you can specify a greater timeout.
+  
+  Defaults to `120` if not specified.
+- The `#mode` specifier controls which method to use to test the algorithm.
+  You may specify any of the three modes `bmc`, `tind` and `cover`, separated by `&`.
+  If a mode is given multiple times (e.g. `#mode=bmc & bmc`), it is considered as if it was only specified once.
+  
+  Note that the order in which you specify modes does not change anything. 
+  Modes will always be executed in this order: `bmc` then `tind` then `cover` (if all are specified).
+  
+  Defaults to `bmc` if not specified.
+
+Note that those meta-specifiers have absolutely no effect on non-hash algorithm.
+
+All three meta-specifiers are put in the modifiers of the algorithm, between angles.
+See the example files for where to put them.
+
 <!-- Introduce the formal board, what it does, how it is useful -->
 ## Easy verification with the formal board
 
