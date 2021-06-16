@@ -119,6 +119,15 @@ the FSM index of `<label>` `<integer>` cycles before (defaults to 1 if not speci
 
 ### Stability checking (`#stableinput`, `#stable`)
 
+Ensuring that an expression does not change value in a specific state may be required, e.g. when designing a SDRAM arbiters
+(when transvasing data from outside to inside the SDRAM, it must remain constant in the bus, otherwise causing trouble).
+
+There are two kinds of stability checks: `#stable(<expr>)` and `#stableinput(<identifier>)`.
+A `#stable` check asserts that a given expression does not change value in a given state (or never if in an `always` block),
+whereas a `#stableinput` check assumes that an algorithm input does not change throughoutt its execution.
+Because inputs are not registered, this is very useful to prevent from some side effects due to uncontroled mutability,
+which would not necessarily happen when “normally” using a Silice algorithm.
+
 ### Cover tests (`#cover`)
 
 ### Algorithm meta-specifiers (`#mode`, `#depth`, `#timeout`)
