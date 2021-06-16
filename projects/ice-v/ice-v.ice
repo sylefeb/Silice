@@ -283,15 +283,17 @@ $$end
 ++: // wait for data transaction
           { // Load (enabled below if no_rd == 0)
             uint32 tmp = uninitialized;
-            /*
+
+            uint8 byte <: mem.rdata >> {alu.n[0,2], 3b000};
+            uint8 half <: mem.rdata >> {alu.n[1,1],4b0000};
             switch ( dec.op[0,2] ) {
-              case 2b00: { tmp = { {24{(~dec.op[2,1])&mem.rdata[ 7,1]}},mem.rdata[ 0,8]};  } // LB / LBU
-              case 2b01: { tmp = { {16{(~dec.op[2,1])&mem.rdata[15,1]}},mem.rdata[ 0,16]}; } // LH / LHU
+              case 2b00: { tmp = { {24{(~dec.op[2,1])&byte[ 7,1]}},byte[ 0,8]};  } // LB / LBU
+              case 2b01: { tmp = { {16{(~dec.op[2,1])&half[15,1]}},half[ 0,16]}; } // LH / LHU
               case 2b10: { tmp = mem.rdata; } // LW
               default:   { tmp = {32{1bx}}; } // should not occur, decalre tmp as 'don't care'
             }
-            */
 
+/*
             switch ( dec.op[0,2] ) {
               case 2b00: { // LB / LBU
                   switch (alu.n[0,2]) {
@@ -314,6 +316,7 @@ $$end
               }
               default: { tmp = 0; }
             }
+*/            
             // commit result
             xregsA.wdata   = tmp;
             xregsA.wenable = ~dec.no_rd;
