@@ -161,14 +161,15 @@ $$end
 algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   //                                           boot address  ^
 
+$$if SIMULATION then
+  uint32 cycle(0);
+$$end  
+
+  // register file
   //                 |--------- indicates we don't want the bram inputs to be latched
   //                 v          writes have to be setup during the same clock cycle
   bram int32 xregsA<input!>[32] = {pad(0)};
   bram int32 xregsB<input!>[32] = {pad(0)};
-
-$$if SIMULATION then
-  uint32 cycle(0);
-$$end  
   // current instruction
   uint32 instr(0);
   // program counter
@@ -189,6 +190,8 @@ $$end
     forceZero   <: dec.forceZero,   pcOrReg     <: dec.pcOrReg,
     addrImm     <: dec.addrImm,     aluEnable   <: dec.aluEnable
   );
+  // value that has been loaded from memory
+  int32 loaded(0);
 
   // maintain write enable low (pulses high when needed)
   mem.wenable    := 4b0000; 
@@ -199,8 +202,22 @@ $$end
   xregsB.addr    := Rtype(instr).rs2;  
   // maintain alu trigger low
   aluTrigger     := 0;
+  // what to write on a store (correct when needed)
+  mem.wdata      := xregsB.rdata << {alu.n[0,2],3b000};
 
-  // this 'always_after' block is executed at the end of every cycle
+  // the 'always_before' block is executed at the start of every cycle
+  always_before {
+    // decodes values loaded from memory (correct when needed)
+    uint32 aligned <: mem.rdata >> {alu.n[0,2],3b000};
+    switch ( dec.op[0,2] ) {
+      case 2b00: { loaded = { {24{(~dec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]};  } // LB / LBU
+      case 2b01: { loaded = { {16{(~dec.op[2,1])&aligned[15,1]}},aligned[ 0,16]}; } // LH / LHU
+      case 2b10: { loaded = aligned;   } // LW
+      default:   { loaded = {32{1bx}}; } // don't care (does not occur)
+    }
+  }
+
+  // the 'always_after' block is executed at the end of every cycle
   always_after { 
     mem.addr       = wide_addr[0,10]; // track memory address in interface
     xregsB.wdata   = xregsA.wdata;    // xregsB is always paired with xregsA
@@ -243,13 +260,13 @@ $$end
 
           // address to fetch in memory (either load or store)
           wide_addr = alu.n >> 2;
+
           { // Store (enabled below if dec.store == 1)
             // build write mask depending on SB, SH, SW
             // assumes aligned, e.g. SW => next_addr[0,2] == 2
             mem.wenable = ({4{dec.store}} & { { 2{dec.op[0,2]==2b10} },
                                               dec.op[0,1] | dec.op[1,1], 1b1 
                                            }) << alu.n[0,2];
-            mem.wdata  = xregsB.rdata << {alu.n[0,2],3b000};
 
 $$if SIMULATION then
             if (dec.store) {
@@ -258,20 +275,12 @@ $$if SIMULATION then
 $$end            
 
           }
+
 ++: // wait for data transaction
+
           { // Load (enabled below if no_rd == 0)
-            uint32 tmp = uninitialized;
-
-            uint32 aligned <: mem.rdata >> {alu.n[0,2],3b000};
-            switch ( dec.op[0,2] ) {
-              case 2b00: { tmp = { {24{(~dec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]};  } // LB / LBU
-              case 2b01: { tmp = { {16{(~dec.op[2,1])&aligned[15,1]}},aligned[ 0,16]}; } // LH / LHU
-              case 2b10: { tmp = aligned; } // LW
-              default:   { tmp = {32{1bx}}; } // should not occur, decalre tmp as 'don't care'
-            }
-
             // commit result
-            xregsA.wdata   = tmp;
+            xregsA.wdata   = loaded;
             xregsA.wenable = ~dec.no_rd;
             xregsA.addr    = dec.write_rd;
             xregsB.addr    = dec.write_rd;
@@ -289,12 +298,13 @@ $$end
           
         } else {
           // shall the CPU jump to a new address?
-          uint1 do_jump <: dec.jump | (dec.branch & alu.j);
+          uint1 do_jump    <:: dec.jump | (dec.branch & alu.j);
+          // what do we write in register? (pc or alu, load is handled above)
+          int32 write_back <:: do_jump ? (next_pc<<2) : (dec.storeAddr ? alu.n : alu.r);
           // next instruction address
-          wide_addr      = do_jump ? (alu.n>>2) : next_pc;
+          wide_addr      = do_jump ? (alu.n >> 2) : next_pc;
           // commit result
-          // - what do we write in register? (pc or alu, load is handled above)
-          xregsA.wdata   = do_jump ? (next_pc<<2) : (dec.storeAddr ? alu.n : alu.r);
+          xregsA.wdata   = write_back;
           xregsA.wenable = ~dec.no_rd;
           xregsA.addr    = dec.write_rd;
           xregsB.addr    = dec.write_rd;
