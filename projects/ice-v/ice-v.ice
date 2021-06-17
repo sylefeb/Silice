@@ -301,13 +301,9 @@ algorithm intops(
 
 algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   //                                           boot address  ^
-
   // register file
-  //                 |---- indicates we don't want the bram inputs to be latched
-  //                 v     writes have to be setup during the same clock cycle
   bram int32 xregsA[32] = {pad(0)};
   bram int32 xregsB[32] = {pad(0)};
-
   // current instruction
   uint32 instr(0);
   // program counter
@@ -329,9 +325,20 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
     dec         <: dec
   );
 
-  // the 'always_before' block is executed at the start of every cycle
+  // shall the CPU jump to a new address?
+  uint1 do_jump    <:: dec.jump | (dec.branch & alu.j);
+
+  // what do we write in register? (pc or alu, load is handled above)
+  int32 write_back <:: do_jump ? (next_pc<<2) 
+                                : (dec.storeAddr ? alu.n : alu.r);
+
+  // The 'always_before' block is applied at the start of every cycle.
+  // This is a good place to set default values, which also indicates
+  // to Silice that some variables (e.g. xregsA.wdata) are fully set
+  // every cycle, enabling further optimizations.
+  // Default values are overriden from within the algorithm loop.
   always_before {
-    // decodes values loaded from memory (correct when needed)
+    // decodes values loaded from memory (used when dec.load == 1)
     uint32 aligned <:: mem.rdata >> {alu.n[0,2],3b000};
     switch ( dec.op[0,2] ) {
     case 2b00: { loaded = { {24{(~dec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; } // LB / LBU
@@ -339,17 +346,22 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
     case 2b10: { loaded = aligned;   } // LW
     default:   { loaded = {32{1bx}}; } // don't care (does not occur)
     }
+    // what to write on a store (used when dec.store == 1)
+    mem.wdata      = xregsB.rdata << {alu.n[0,2],3b000};
     // maintain write enable low (pulses high when needed)
     mem.wenable    = 4b0000; 
-    // maintain register wenable low
-    xregsA.wenable = 0;
-    // maintain addr on rs1/rs2 by default (bram is not latched, see input!)
-    xregsA.addr    = Rtype(instr).rs1;
-    xregsB.addr    = Rtype(instr).rs2;  
     // maintain alu trigger low
     aluTrigger     = 0;
-    // what to write on a store (correct when needed)
-    mem.wdata      = xregsB.rdata << {alu.n[0,2],3b000};
+    // keep reading registers at rs1/rs2 by default
+    // so that decoder and ALU see them for multiple cycles
+    xregsA.addr    = Rtype(instr).rs1;
+    xregsB.addr    = Rtype(instr).rs2;  
+    // maintain register wenable low
+    // (overriden when necessary)
+    xregsA.wenable = 0;
+    // by default, write write_back to registers
+    // (overriden during a load)
+    xregsA.wdata   = write_back;
   }
 
   // the 'always_after' block is executed at the end of every cycle
@@ -406,15 +418,9 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
         
       } else {
 
-        // shall the CPU jump to a new address?
-        uint1 do_jump    <:: dec.jump | (dec.branch & alu.j);
-        // what do we write in register? (pc or alu, load is handled above)
-        int32 write_back <:: do_jump ? (next_pc<<2) 
-                                     : (dec.storeAddr ? alu.n : alu.r);
         // next instruction address
         wide_addr      = do_jump ? (alu.n >> 2) : next_pc;
         // commit result
-        xregsA.wdata   = write_back;
         xregsA.wenable = ~dec.no_rd;
         xregsA.addr    = dec.write_rd;
         xregsB.addr    = dec.write_rd;

@@ -7597,9 +7597,9 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   vector<t_vio_ff_usage> post_ff_usage;
   post_ff_usage.push_back(t_vio_ff_usage());
   for (auto &v : ff_input_bindings_usage.ff_usage) {
-    if (v.second == e_D) {
+    if (v.second & e_D) {
       post_ff_usage.back().ff_usage[v.first] = e_D;
-    } else if (v.second == e_Q) {
+    } else if (v.second & e_Q) {
       _ff_usage.ff_usage[v.first] = e_Q; 
     } else {
       reportError(nullptr, -1, "internal error, input bindings usage case");
