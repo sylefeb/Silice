@@ -1,11 +1,7 @@
 // SL 2020-06-12 @sylefeb
 //
 // Fun with RISC-V!
-// Fits an IceStick
-//
-// (can be further reduced!)
-//
-// RV32I cpu, see README.txt
+// RV32I cpu, see README.md
 //
 //      GNU AFFERO GENERAL PUBLIC LICENSE
 //        Version 3, 19 November 2007
@@ -110,13 +106,9 @@ $$end
 $$if OLED then
 
 algorithm oled(
-  input!  uint1 enable,
-  input!  uint1 data_or_command,
-  input!  uint8 byte,
-  output! uint1 oled_clk,
-  output! uint1 oled_din,
-  output! uint1 oled_cs,
-  output! uint1 oled_dc,
+  input   uint1 enable,    input   uint1 data_or_command,  input  uint8 byte,
+  output! uint1 oled_clk,  output! uint1 oled_din,
+  output! uint1 oled_cs,   output! uint1 oled_dc,
 ) <autorun> {
 
   uint2 osc        = 1;
@@ -162,7 +154,7 @@ algorithm decoder(
   input   uint32  instr,
   output! uint5   write_rd,   output! uint1   no_rd,
   output! uint1   jump,       output! uint1   branch,
-  output! uint1   load_store, output! uint1   store,
+  output! uint1   load,       output! uint1   store,
   output! uint1   storeAddr,  output! uint3   op,
   output! uint1   aluShift,   output! int32   aluImm,
   output! uint1   sub,        output! uint1   signedShift,
@@ -177,28 +169,25 @@ algorithm decoder(
   int32 imm_s  <: {{20{instr[31,1]}},instr[25,7],instr[7,5]};
   // decode opcode
   uint5 opcode <: instr[ 2, 5];
-  // decode all nine instructions
   uint1 AUIPC  <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
   uint1 JAL    <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
-  uint1 Branch <: opcode == 5b11000;  uint1 Load   <: opcode == 5b00000;
-  uint1 Store  <: opcode == 5b01000;  uint1 IntImm <: opcode == 5b00100;
-  uint1 IntReg <: opcode == 5b01100;
+  uint1 IntImm <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
   // set decoder outputs depending on incoming instructions
-  jump         := JAL | JALR;
-  branch       := Branch;
-  store        := Store;
-  load_store   := Load   | Store;
-  regOrImm     := IntReg | Branch;
+  branch       := opcode == 5b11000;
+  store        := opcode == 5b01000;
+  load         := opcode == 5b00000;
   op           := Rtype(instr).op;
   aluImm       := imm_i;
   sub          := IntReg & Rtype(instr).sign;
   aluShift     := (IntImm | IntReg) & op[0,2] == 2b01;
   signedShift  := Rtype(instr).sign; /*SRLI/SRAI*/
   write_rd     := Rtype(instr).rd;
-  no_rd        := Branch | Store | (Rtype(instr).rd == 5b0);
-  pcOrReg      := AUIPC | JAL | Branch;
+  regOrImm     := IntReg | branch;
+  no_rd        := branch | store | (Rtype(instr).rd == 5b0);
+  jump         := JAL    | JALR;
+  pcOrReg      := AUIPC  | JAL   | branch;
   forceZero    := LUI;
-  storeAddr    := LUI | AUIPC;
+  storeAddr    := LUI    | AUIPC;
   // select immediate for the next address computation
   always {
     switch (opcode)
@@ -308,8 +297,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   uint32 instr(0);
   // program counter
   uint12 pc        = uninitialized;  
-  uint12 next_pc <:: pc+1; // next_pc tracks the expression 'pc + 1' using the
-                           // value of pc from the last clock edge (<::)
+  uint12 next_pc <:: pc + 1; // next_pc tracks the expression 'pc + 1' using the
+                             // value of pc from the last clock edge (<::)
   // triggers ALU when required
   uint1 aluTrigger = uninitialized;
   // value that has been loaded from memory
@@ -340,10 +329,10 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   always_before {
     // decodes values loaded from memory (used when dec.load == 1)
     uint32 aligned <:: mem.rdata >> {alu.n[0,2],3b000};
-    switch ( dec.op[0,2] ) {
-    case 2b00: { loaded = { {24{(~dec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; } // LB / LBU
-    case 2b01: { loaded = { {16{(~dec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};} // LH / LHU
-    case 2b10: { loaded = aligned;   } // LW
+    switch ( dec.op[0,2] ) { // LB / LBU, LH / LHU, LW
+    case 2b00: { loaded = { {24{(~dec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
+    case 2b01: { loaded = { {16{(~dec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
+    case 2b10: { loaded = aligned;   }
     default:   { loaded = {32{1bx}}; } // don't care (does not occur)
     }
     // what to write on a store (used when dec.store == 1)
@@ -371,7 +360,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
     xregsB.wenable = xregsA.wenable;  // when writing to registers
   }
 
-  while (1) { // CPU runs forever
+  // =========== CPU runs forever
+  while (1) { 
 
     // data is now available
     instr       = mem.rdata;
@@ -380,44 +370,37 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
     xregsA.addr = Rtype(instr).rs1;
     xregsB.addr = Rtype(instr).rs2;  
 
-++: // read registers, BRAM takes one cycle
+++: // wait for register read (BRAM takes one cycle)
 
     aluTrigger = 1;
 
-    // decode + ALU occur during the cycle entering the while below
-    while (1) {       
+    while (1) { // decode + ALU occur during the cycle entering the loop
+
       // this operations loop allows to wait for ALU when needed
-      // it is built such that no cycles are wasted
+      // it is built such that no cycles are wasted    
 
       // load/store?        
-      if (dec.load_store) {   
-
+      if (dec.load | dec.store) {   
         // memory address from wich to load/store
         wide_addr = alu.n >> 2;
-
-        // Store (enabled below if dec.store == 1)
+        // == Store (enabled below if dec.store == 1)
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
         mem.wenable = ({4{dec.store}} & { { 2{dec.op[0,2]==2b10} },
                                           dec.op[0,1] | dec.op[1,1], 1b1 
                                         }) << alu.n[0,2];
-
 ++: // wait for data transaction
-
-        // Load (enabled below if no_rd == 0)
+        // == Load (enabled below if no_rd == 0)
         // commit result
         xregsA.wdata   = loaded;
         xregsA.wenable = ~dec.no_rd;
         xregsA.addr    = dec.write_rd;
-        xregsB.addr    = dec.write_rd;
-        
+        xregsB.addr    = dec.write_rd;        
         // restore address to program counter
         wide_addr = next_pc;
         // exit the operations loop
-        break;
-        
+        break;        
       } else {
-
         // next instruction address
         wide_addr      = do_jump ? (alu.n >> 2) : next_pc;
         // commit result
@@ -431,7 +414,6 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
           //  intruction read from BRAM and write to registers 
           //  occurs as we jump back to loop start
         }
-
       }
     }
   }
