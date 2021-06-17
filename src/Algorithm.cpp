@@ -4666,7 +4666,7 @@ void Algorithm::determineUsage()
   std::unordered_set<std::string> global_out_written;
   determineAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = false;
+  const bool report = true;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
@@ -7214,6 +7214,8 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
 {
   out << nxl;
 
+  t_vio_ff_usage ff_input_bindings_usage;
+
   // write memory modules
   for (const auto& mem : m_Memories) {
     writeModuleMemory(ictx.instance_name, out, mem);
@@ -7307,7 +7309,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   {
     t_vio_dependencies _1, _2;
     out << "assign out_" ALG_CLOCK << " = " 
-      << rewriteIdentifier("_", m_Clock, "", nullptr, -1, FF_Q, true, _1, _ff_usage) 
+      << rewriteIdentifier("_", m_Clock, "", nullptr, -1, FF_Q, true, _1, ff_input_bindings_usage)
       << ';' << nxl;
   }
 
@@ -7390,16 +7392,16 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
       out << (v.combinational ? FF_D : FF_Q);
       out << "_" << v.name << ';' << nxl;
       if (v.combinational) {
-        updateFFUsage(e_D, true, _ff_usage.ff_usage[v.name]);
+        updateFFUsage(e_D, true, ff_input_bindings_usage.ff_usage[v.name]);
       } else {
-        updateFFUsage(e_Q, true, _ff_usage.ff_usage[v.name]);
+        updateFFUsage(e_Q, true, ff_input_bindings_usage.ff_usage[v.name]);
       }
     } else if (v.usage == e_Temporary) {
         out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << FF_TMP << "_" << v.name << ';' << nxl;
     } else if (v.usage == e_Bound) {
         out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToModAlgOutputs.at(v.name) << ';' << nxl;
     } else {
-      throw Fatal("internal error (output assigments)");
+      throw Fatal("internal error (output assignments)");
     }
   }
 
@@ -7437,7 +7439,8 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
         t_vio_dependencies _;
         out << '.' << b.left << '(';
         out << rewriteIdentifier("_", bindingRightIdentifier(b), "", nullptr, nfo.second.instance_line,
-          b.dir == e_LeftQ ? FF_Q : FF_D, true, _, _ff_usage, e_DQ /*force module inputs to be latched*/
+          b.dir == e_LeftQ ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
+          b.dir == e_LeftQ ?  e_Q : e_D
         );
         out << ")";
       } else if (b.dir == e_Right) {
@@ -7478,20 +7481,21 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
         // input is bound, directly map bound VIO
         t_vio_dependencies _;
         out << rewriteIdentifier("_", nfo.boundinputs.at(is.name).first, "", nullptr, nfo.instance_line, 
-          nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, _ff_usage, 
-          nfo.boundinputs.at(is.name).second == e_Q ? e_Q : (is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/) );
+          nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
+          nfo.boundinputs.at(is.name).second == e_Q ?  e_Q : e_D
+        );
       } else {
         // input is not bound and assigned in logic, a specific flip-flop is created for this
         if (nfo.algo->isNotCallable()) {
           // the instance is never called, we bind to D
           out << FF_D << nfo.instance_prefix << "_" << is.name;
           // add to usage
-          updateFFUsage(is.nolatch ? e_D : e_DQ /*force inputs to be latched by default*/, true, _ff_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
+          updateFFUsage(e_D, true, ff_input_bindings_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
         } else {
           // the instance is only called, we bind to Q
           out << FF_Q << nfo.instance_prefix << "_" << is.name;
           // add to usage
-          updateFFUsage(e_Q, true, _ff_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
+          updateFFUsage(e_Q, true, ff_input_bindings_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
         }
       }
       out << ')' << ',' << nxl;
@@ -7531,12 +7535,12 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     // reset
     if (!nfo.algo->requiresNoReset()) {
       t_vio_dependencies _;
-      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, "", nullptr, nfo.instance_line, FF_Q, true, _, _ff_usage) << ")," << nxl;
+      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")," << nxl;
     }
     // clock
     {
       t_vio_dependencies _;
-      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, nfo.instance_line, FF_Q, true, _, _ff_usage) << ")" << nxl;
+      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")" << nxl;
     }
     // end of instantiation      
     out << ");" << nxl;
@@ -7551,25 +7555,25 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     if (mem.clocks.empty()) {
       if (mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) {
         t_vio_dependencies _1,_2;
-        out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", m_Clock, "", nullptr, mem.line, FF_Q, true, _1, _ff_usage) << ")," << nxl;
-        out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", m_Clock, "", nullptr, mem.line, FF_Q, true, _2, _ff_usage) << ")," << nxl;
+        out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", m_Clock, "", nullptr, mem.line, FF_Q, true, _1, ff_input_bindings_usage) << ")," << nxl;
+        out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", m_Clock, "", nullptr, mem.line, FF_Q, true, _2, ff_input_bindings_usage) << ")," << nxl;
       } else {
         t_vio_dependencies _;
-        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", m_Clock, "", nullptr, mem.line, FF_Q, true, _, _ff_usage) << ")," << nxl;
+        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", m_Clock, "", nullptr, mem.line, FF_Q, true, _, ff_input_bindings_usage) << ")," << nxl;
       }
     } else {
       sl_assert((mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) && mem.clocks.size() == 2);
       std::string clk0 = mem.clocks[0];
       std::string clk1 = mem.clocks[1];
       t_vio_dependencies _1, _2;
-      out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", clk0, "", nullptr, mem.line, FF_D, true, _1, _ff_usage) << ")," << nxl;
-      out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", clk1, "", nullptr, mem.line, FF_D, true, _2, _ff_usage) << ")," << nxl;
+      out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", clk0, "", nullptr, mem.line, FF_Q, true, _1, ff_input_bindings_usage) << ")," << nxl;
+      out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", clk1, "", nullptr, mem.line, FF_Q, true, _2, ff_input_bindings_usage) << ")," << nxl;
     }
     // inputs
     for (const auto& inv : mem.in_vars) {
       t_vio_dependencies _;
-      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, "", nullptr, mem.line, mem.delayed ? FF_Q : FF_D, true, _, _ff_usage,
-      mem.delayed ? e_Q : (mem.no_input_latch ? e_D : e_DQ /*latch inputs*/ )
+      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, "", nullptr, mem.line, mem.delayed ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
+        mem.delayed ? e_Q : e_D
       ) << ")," << nxl;
     }
     // output wires
@@ -7586,6 +7590,22 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     out << ");" << nxl;
   }
   out << nxl;
+
+  // split the input bindings usage into pre / post
+  // Q are considered read at cycle start ('top' of the cycle circuit)
+  // D are considered read at cycle end   ('bottom' of the cycle circuit)
+  vector<t_vio_ff_usage> post_ff_usage;
+  post_ff_usage.push_back(t_vio_ff_usage());
+  for (auto &v : ff_input_bindings_usage.ff_usage) {
+    if (v.second == e_D) {
+      post_ff_usage.back().ff_usage[v.first] = e_D;
+    } else if (v.second == e_Q) {
+      _ff_usage.ff_usage[v.first] = e_Q; 
+    } else {
+      reportError(nullptr, -1, "internal error, input bindings usage case");
+    }
+  }
+
   // track dependencies
   t_vio_dependencies always_dependencies;
   t_vio_dependencies post_dependencies;
@@ -7614,6 +7634,25 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     clearNoLatchFFUsage(_ff_usage);
   }
   out << "end" << nxl;
+
+  combineFFUsageInto(nullptr, _ff_usage, post_ff_usage, _ff_usage);
+
+#if 0
+  std::cerr << " === usage for algorithm " << m_Name << " ====" << nxl;
+  for (const auto &v : _ff_usage.ff_usage) {
+    std::cerr << "vio " << v.first << " : ";
+    if (v.second & e_D) {
+      std::cerr << "D";
+    }
+    if (v.second & e_Q) {
+      std::cerr << "Q";
+    }
+    if (v.second & e_Latch) {
+      std::cerr << "latch";
+    }
+    std::cerr << nxl;
+  }
+#endif
 
   out << "endmodule" << nxl;
   out << nxl;

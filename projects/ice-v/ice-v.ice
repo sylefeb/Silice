@@ -39,8 +39,8 @@ $$if OLED then
   output! uint1 oled_resn,
   output! uint1 oled_csn,
 $$end
-  ) <@cpu_clock> {
 $$if not SIMULATION then    
+  ) <@cpu_clock> {
   // clock  
 $$if ICESTICK then
   icestick_clk_60 clk_gen (
@@ -305,8 +305,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   // register file
   //                 |---- indicates we don't want the bram inputs to be latched
   //                 v     writes have to be setup during the same clock cycle
-  bram int32 xregsA<input!>[32] = {pad(0)};
-  bram int32 xregsB<input!>[32] = {pad(0)};
+  bram int32 xregsA[32] = {pad(0)};
+  bram int32 xregsB[32] = {pad(0)};
 
   // current instruction
   uint32 instr(0);
