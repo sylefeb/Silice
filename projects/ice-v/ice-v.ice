@@ -81,11 +81,10 @@ $$if OLED then
     displ_en = 0;
 $$end
     if (mem.wenable[0,1] & cpu.wide_addr[11,1]) {
-      leds = mem.wdata[0,5] & {5{cpu.wide_addr[0,1]}};
-      __display("LEDS %b",leds);
+      leds      = mem.wdata[0,5] & {5{cpu.wide_addr[0,1]}};
 $$if OLED then
       // command
-      displ_en = (mem.wdata[9,1] | mem.wdata[10,1]) & cpu.wide_addr[1,1];
+      displ_en  = (mem.wdata[9,1] | mem.wdata[10,1]) & cpu.wide_addr[1,1];
       // reset
       oled_resn = !(mem.wdata[0,1] & cpu.wide_addr[2,1]);
 $$end
