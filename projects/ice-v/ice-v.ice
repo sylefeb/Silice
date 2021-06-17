@@ -1,7 +1,6 @@
 // SL 2020-06-12 @sylefeb
 //
-// Fun with RISC-V!
-// RV32I cpu, see README.md
+// Fun with RISC-V!   RV32I cpu, see README.md
 //
 //      GNU AFFERO GENERAL PUBLIC LICENSE
 //        Version 3, 19 November 2007
@@ -14,12 +13,13 @@
 // --------------------------------------------------
 
 // bitfield for easier decoding of instructions
-// defines a view on a uint32, avoids hard coded values in part-selects
-bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, uint5 rs1,
-                 uint3 op,      uint5 rd,   uint7 opcode}
+bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, 
+                 uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
 
 // --------------------------------------------------
 // Decoder, decode next instruction
+// the use of output! ensures outputs are immediately available to the ALU
+// see https://github.com/sylefeb/Silice/blob/master/learn-silice/AlgoInOuts.md
 
 algorithm decoder(
   input   uint32  instr,     output! uint3   op,       output! uint1   sub,       
@@ -44,18 +44,18 @@ algorithm decoder(
   uint1 Cycles <: opcode == 5b11100;  branch       := opcode == 5b11000;
   store        := opcode == 5b01000;  load         := opcode == 5b00000;
   // set decoder outputs depending on incoming instructions
-  op           := Rtype(instr).op;
-  aluImm       := imm_i;
-  sub          := IntReg & Rtype(instr).sign;
-  aluShift     := (IntImm | IntReg) & op[0,2] == 2b01;
-  negShift     := Rtype(instr).sign; /*SRLI/SRAI*/
-  write_rd     := Rtype(instr).rd;
-  regOrImm     := IntReg | branch;
-  no_rd        := branch | store | (Rtype(instr).rd == 5b0);
-  jump         := JAL    | JALR;
-  pcOrReg      := AUIPC  | JAL   | branch;
-  storeVal     := LUI    | Cycles;
-  storeAddr    := AUIPC;
+  op           := Rtype(instr).op;    aluImm       := imm_i;
+  write_rd     := Rtype(instr).rd;    storeAddr    := AUIPC;
+  regOrImm     := IntReg  | branch;                  // reg or imm in ALU?
+  sub          := IntReg  & Rtype(instr).sign;       // sub request
+  aluShift     := (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
+  negShift     := Rtype(instr).sign;                 // SRLI/SRAI
+  no_rd        := branch  | store  | (Rtype(instr).rd == 5b0); // no write back
+  jump         := JAL     | JALR;                    // should jump
+  pcOrReg      := AUIPC   | JAL    | branch;         // pc or reg in next addr
+  storeVal     := LUI     | Cycles;                  // store value from decoder
+  val          := LUI ? imm_u : cycle;               // value from decoder
+  cycle        := cycle + 1;                         // increment cycle counter
   // select immediate for the next address computation
   always {
     switch (opcode)
@@ -67,16 +67,14 @@ algorithm decoder(
       case 5b00000: { addrImm = imm_i;  } // load
       case 5b01000: { addrImm = imm_s;  } // store
       default:  { addrImm = {32{1bx}};  } // don't care
-    }
-    val   = LUI ? imm_u : cycle;
-    cycle = cycle + 1;
+    }        
   }
 }
 
 // --------------------------------------------------
-// IntOps: performs all integer computations
+// ALU: performs all integer computations
 
-algorithm intops(
+algorithm ALU(
   input   outputs(decoder) dec, // all outputs of the decoder as inputs
   input   uint12 pc,         input   int32 xa,  input   int32 xb, 
   input   uint1  aluTrigger, // pulses high when the ALU should start
@@ -157,17 +155,21 @@ algorithm intops(
 
 algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   //                                           boot address  ^
-  // register file
-  bram int32 xregsA[32] = {pad(0)};
-  bram int32 xregsB[32] = {pad(0)};
+
+  // register file, uses two BRAMs to fetch two registers at once
+  bram int32 xregsA[32] = {pad(0)}; bram int32 xregsB[32] = {pad(0)};
+
   // current instruction
   uint32 instr(0);
+
   // program counter
   uint12 pc        = uninitialized;  
   uint12 next_pc <:: pc + 1; // next_pc tracks the expression 'pc + 1' using the
                              // value of pc from the last clock edge (<::)
+
   // triggers ALU when required
   uint1 aluTrigger = uninitialized;
+
   // value that has been loaded from memory
   int32 loaded     = uninitialized;
 
@@ -175,7 +177,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   decoder dec( instr <:: instr );
 
   // all integer operations (ALU + comparisons + next address)
-  intops alu(
+  ALU alu(
     pc          <: pc,            aluTrigger  <: aluTrigger,
     xa          <: xregsA.rdata,  xb          <: xregsB.rdata,
     dec         <: dec
@@ -199,10 +201,10 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
     // decodes values loaded from memory (used when dec.load == 1)
     uint32 aligned <:: mem.rdata >> {alu.n[0,2],3b000};
     switch ( dec.op[0,2] ) { // LB / LBU, LH / LHU, LW
-    case 2b00: { loaded = { {24{(~dec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
-    case 2b01: { loaded = { {16{(~dec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
-    case 2b10: { loaded = aligned;   }
-    default:   { loaded = {32{1bx}}; } // don't care (does not occur)
+      case 2b00:{ loaded = {{24{(~dec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
+      case 2b01:{ loaded = {{16{(~dec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
+      case 2b10:{ loaded = aligned;   }
+      default:  { loaded = {32{1bx}}; } // don't care (does not occur)
     }
     // what to write on a store (used when dec.store == 1)
     mem.wdata      = xregsB.rdata << {alu.n[0,2],3b000};
@@ -261,7 +263,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
 ++: // wait for data transaction
 
-        // == Load (enabled below if no_rd == 0)
+        // == Load (enabled below if dec.load == 1)
         // commit result
         xregsA.wdata   = loaded;
         xregsA.wenable = dec.load;
@@ -289,5 +291,3 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
     }
   }
 }
-
-// --------------------------------------------------
