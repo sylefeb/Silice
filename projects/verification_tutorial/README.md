@@ -15,8 +15,6 @@
 ## Table of contents
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
-**Table of Contents**
-
 - [Verifying designs written in Silice](#verifying-designs-written-in-silice)
     - [Table of contents](#table-of-contents)
     - [Prerequisites](#prerequisites)
