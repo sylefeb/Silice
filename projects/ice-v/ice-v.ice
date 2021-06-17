@@ -18,6 +18,7 @@ import('../common/fomu_clk_20.v')
 $$end
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
+$$addrW = 14
 
 // pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_asm.lua')
@@ -110,23 +111,23 @@ algorithm oled(
 
   uint2 osc        = 1;
   uint1 dc         = 0;
-  uint9 sending    = 0;
+  uint8 sending    = 0;
+  uint8 busy       = 0;
   
   always {
     oled_dc  =  dc;
-    osc      =  (sending>1) ? {osc[0,1],osc[1,1]} : 2b1;
-    oled_clk =  (sending>1) && (osc[0,1]); // SPI Mode 0
+    osc      =  busy[0,1] ? {osc[0,1],osc[1,1]} : 2b1;
+    oled_clk =  busy[0,1] && (osc[0,1]); // SPI Mode 0
     if (enable) {
       dc         = data_or_command;
-      oled_dc    =  dc;
-      sending    = {1b1,
-        byte[0,1],byte[1,1],byte[2,1],byte[3,1],
-        byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
+      oled_dc    = dc;
+      sending    = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],
+                    byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
+      busy       = 8b11111111;
     } else {
       oled_din   = sending[0,1];
-      if (osc[0,1]) {
-        sending   = {1b0,sending[1,8]};
-      }
+      sending    = osc[0,1] ? {1b0,sending[1,7]} : sending;
+      busy       = osc[0,1] ? busy>>1 : busy;
     }
   }
 }
@@ -314,7 +315,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
   // what do we write in register? (pc or alu, load is handled above)
   int32 write_back <::  do_jump       ? (next_pc<<2) 
-                     :  dec.storeAddr ? alu.n[0,14]
+                     :  dec.storeAddr ? alu.n[0,$addrW$]
                      :  dec.storeVal  ? dec.val
                      :  alu.r;
 
