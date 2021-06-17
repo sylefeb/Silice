@@ -33,7 +33,7 @@ $$if OLED then
   output! uint1 oled_mosi,
   output! uint1 oled_dc,
   output! uint1 oled_resn,
-  output! uint1 oled_csn,
+  output! uint1 oled_csn(0),
 $$end
 $$if not SIMULATION then    
   ) <@cpu_clock> {
@@ -64,7 +64,6 @@ $$if OLED then
     byte            <: displ_byte,
     oled_din        :> oled_mosi,
     oled_clk        :> oled_clk,
-    oled_cs         :> oled_csn,
     oled_dc         :> oled_dc,
   );
 $$end
@@ -106,16 +105,13 @@ $$end
 $$if OLED then
 
 algorithm oled(
-  input   uint1 enable,    input   uint1 data_or_command,  input  uint8 byte,
-  output! uint1 oled_clk,  output! uint1 oled_din,
-  output! uint1 oled_cs,   output! uint1 oled_dc,
+  input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
+  output  uint1 oled_clk, output  uint1 oled_din,        output uint1 oled_dc,
 ) <autorun> {
 
   uint2 osc        = 1;
   uint1 dc         = 0;
   uint9 sending    = 0;
-  
-  oled_cs := 0;
   
   always {
     oled_dc  =  dc;
@@ -158,7 +154,7 @@ algorithm decoder(
   output! uint1   storeAddr,  output! uint1   storeVal,
   output! uint1   aluShift,   output! int32   aluImm,
   output! uint1   sub,        output! uint1   signedShift,
-  output! uint1   pcOrReg,    output! int32   v,
+  output! uint1   pcOrReg,    output! int32   val,
   output! uint1   regOrImm,   output! int32   addrImm,
 ) {
   uint32 cycle(0);
@@ -200,7 +196,7 @@ algorithm decoder(
       case 5b01000: { addrImm = imm_s;  } // store
       default:  { addrImm = {32{1bx}};  } // don't care
     }
-    v     = LUI ? imm_u : cycle;
+    val   = LUI ? imm_u : cycle;
     cycle = cycle + 1;
   }
 }
@@ -289,7 +285,6 @@ algorithm intops(
 // The Risc-V RV32I CPU itself
 
 algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
-  // uint32 iter(0);
   //                                           boot address  ^
   // register file
   bram int32 xregsA[32] = {pad(0)};
@@ -320,8 +315,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
   // what do we write in register? (pc or alu, load is handled above)
   int32 write_back <::  do_jump       ? (next_pc<<2) 
-                     :  dec.storeAddr ? {18b0,alu.n[0,14]}
-                     :  dec.storeVal  ? dec.v
+                     :  dec.storeAddr ? alu.n[0,14]
+                     :  dec.storeVal  ? dec.val
                      :  alu.r;
 
   // The 'always_before' block is applied at the start of every cycle.
@@ -364,7 +359,6 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   }
 
   // =========== CPU runs forever
-  // while (iter < 64) {  iter = iter + 1;
   while (1) {
 
     // data is now available
@@ -399,7 +393,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
         // == Load (enabled below if no_rd == 0)
         // commit result
         xregsA.wdata   = loaded;
-        xregsA.wenable = ~dec.no_rd;
+        xregsA.wenable = dec.load;
         xregsA.addr    = dec.write_rd;
         xregsB.addr    = dec.write_rd;        
         // restore address to program counter
@@ -407,15 +401,14 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
         // exit the operations loop
         break;        
       } else {
-        // next instruction address
-        wide_addr      = do_jump ? (alu.n >> 2) : next_pc;
         // commit result
         xregsA.wenable = ~dec.no_rd;
         xregsA.addr    = dec.write_rd;
         xregsB.addr    = dec.write_rd;
+        // next instruction address
+        wide_addr      = do_jump ? (alu.n >> 2) : next_pc;
         // ALU done?
-        if (alu.working == 0) { 
-__display("instr %h write back [%d] = %d",instr,dec.write_rd,write_back);          
+        if (alu.working == 0) {
           // yes: all is correct, stop here
           break; 
           //  intruction read from BRAM and write to registers 
