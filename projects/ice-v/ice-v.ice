@@ -161,6 +161,7 @@ algorithm decoder(
   output! uint1   forceZero,  output! uint1   pcOrReg,
   output! uint1   regOrImm,   output! int32   addrImm,
 ) {
+  uint32 cycle(0);
   // decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
   int32 imm_j  <: {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
@@ -172,10 +173,9 @@ algorithm decoder(
   uint1 AUIPC  <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
   uint1 JAL    <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
   uint1 IntImm <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
+  uint1 Cycles <: opcode == 5b11100;  branch       := opcode == 5b11000;
+  store        := opcode == 5b01000;  load         := opcode == 5b00000;
   // set decoder outputs depending on incoming instructions
-  branch       := opcode == 5b11000;
-  store        := opcode == 5b01000;
-  load         := opcode == 5b00000;
   op           := Rtype(instr).op;
   aluImm       := imm_i;
   sub          := IntReg & Rtype(instr).sign;
@@ -186,21 +186,23 @@ algorithm decoder(
   no_rd        := branch | store | (Rtype(instr).rd == 5b0);
   jump         := JAL    | JALR;
   pcOrReg      := AUIPC  | JAL   | branch;
-  forceZero    := LUI;
+  forceZero    := LUI    | Cycles;
   storeAddr    := LUI    | AUIPC;
   // select immediate for the next address computation
   always {
     switch (opcode)
-     {
-      case 5b00101: { addrImm = imm_u; } // AUIPC
-      case 5b01101: { addrImm = imm_u; } // LUI
-      case 5b11011: { addrImm = imm_j; } // JAL
-      case 5b11000: { addrImm = imm_b; } // branch
-      case 5b11001: { addrImm = imm_i; } // JALR
-      case 5b00000: { addrImm = imm_i; } // load
-      case 5b01000: { addrImm = imm_s; } // store
-      default:  { addrImm = {32{1bx}}; } // don't care
-     }
+    {
+      case 5b00101: { addrImm = imm_u;  } // AUIPC
+      case 5b01101: { addrImm = imm_u;  } // LUI
+      case 5b11011: { addrImm = imm_j;  } // JAL
+      case 5b11000: { addrImm = imm_b;  } // branch
+      case 5b11001: { addrImm = imm_i;  } // JALR
+      case 5b00000: { addrImm = imm_i;  } // load
+      case 5b01000: { addrImm = imm_s;  } // store
+      case 5b11100: { addrImm = cycle;  }
+      default:  { addrImm = {32{1bx}};  } // don't care
+    }
+    cycle = cycle + 1;
   }
 }
 
@@ -219,10 +221,10 @@ algorithm intops(
   uint5 shamt(0);
   
   // select next address adder inputs
-  int32 next_addr_a <:: dec.forceZero ? __signed(32b0) 
-                      : (dec.pcOrReg  ? __signed({20b0,pc[0,10],2b0}) 
-                      : xa);
-  int32 next_addr_b <:: dec.addrImm;
+  int32 next_addr_a <: dec.forceZero ? __signed(32b0) 
+                     : (dec.pcOrReg  ? __signed({20b0,pc[0,10],2b0}) 
+                     : xa);
+  int32 next_addr_b <: dec.addrImm;
 
   // select ALU inputs
   int32 a         <: xa;
@@ -244,6 +246,7 @@ algorithm intops(
     dir     = dec.op[2,1];
     shamt   = working ? shamt - 1                    // decrease shift counter
                       : ((dec.aluShift & aluTrigger) // start shifting?
+
                       ? __unsigned(b[0,5]) : 0);
     if (working) {
       // shift one bit
@@ -318,8 +321,9 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   uint1 do_jump    <:: dec.jump | (dec.branch & alu.j);
 
   // what do we write in register? (pc or alu, load is handled above)
-  int32 write_back <:: do_jump ? (next_pc<<2) 
-                                : (dec.storeAddr ? alu.n : alu.r);
+  int32 write_back <::  do_jump       ? (next_pc<<2) 
+                     :  dec.storeAddr ? alu.n[0,24]
+                     :  alu.r;
 
   // The 'always_before' block is applied at the start of every cycle.
   // This is a good place to set default values, which also indicates
@@ -397,7 +401,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
         xregsA.addr    = dec.write_rd;
         xregsB.addr    = dec.write_rd;        
         // restore address to program counter
-        wide_addr = next_pc;
+        wide_addr      = next_pc;
         // exit the operations loop
         break;        
       } else {
