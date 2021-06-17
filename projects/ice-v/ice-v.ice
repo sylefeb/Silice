@@ -74,7 +74,8 @@ $$if OLED then
 $$end
 
   // ram
-  bram uint32 mem<"bram_wmask_byte",input!>[1536] = $meminit$;
+  // - uses template "bram_wmask_byte", that turns wenable into a byte mask
+  bram uint32 mem<"bram_wmask_byte">[1536] = $meminit$;
 
   // cpu
   rv32i_cpu cpu( mem <:> mem );
