@@ -161,7 +161,7 @@ algorithm decoder(
   output! uint1   forceZero,  output! uint1   pcOrReg,
   output! uint1   regOrImm,   output! int32   addrImm,
 ) {
-  uint32 cycle(0);
+  //uint32 cycle(0);
   // decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
   int32 imm_j  <: {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
@@ -186,7 +186,7 @@ algorithm decoder(
   no_rd        := branch | store | (Rtype(instr).rd == 5b0);
   jump         := JAL    | JALR;
   pcOrReg      := AUIPC  | JAL   | branch;
-  forceZero    := LUI    | Cycles;
+  forceZero    := LUI/*    | Cycles*/;
   storeAddr    := LUI    | AUIPC;
   // select immediate for the next address computation
   always {
@@ -199,10 +199,10 @@ algorithm decoder(
       case 5b11001: { addrImm = imm_i;  } // JALR
       case 5b00000: { addrImm = imm_i;  } // load
       case 5b01000: { addrImm = imm_s;  } // store
-      case 5b11100: { addrImm = cycle;  }
+      //case 5b11100: { addrImm = cycle;  }
       default:  { addrImm = {32{1bx}};  } // don't care
     }
-    cycle = cycle + 1;
+    //cycle = cycle + 1;
   }
 }
 
