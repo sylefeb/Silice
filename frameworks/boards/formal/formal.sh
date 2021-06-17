@@ -138,15 +138,7 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
   split($8, modes, /,/)
 
   for (mode in modes) {
-    printf "task-%d-%d: ", $1, mode
-    switch(modes[mode]) {
-      case "cover":
-        print "smtbmc --progress z3"
-        break
-      default:
-        print "smtbmc --stbv --progress yices"
-        break
-    }
+    printf "task-%d-%d: smtbmc --stbv --progress yices\n", $1, mode
   }
 }
 ' <<< "$I $LOG" >> formal.sby
