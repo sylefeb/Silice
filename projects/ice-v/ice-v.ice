@@ -151,17 +151,17 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, uint5 rs1,
 // Decoder, decode next instruction
 
 algorithm decoder(
-  input   uint32  instr,
+  input   uint32  instr,      output! uint3   op,
   output! uint5   write_rd,   output! uint1   no_rd,
   output! uint1   jump,       output! uint1   branch,
   output! uint1   load,       output! uint1   store,
-  output! uint1   storeAddr,  output! uint3   op,
+  output! uint1   storeAddr,  output! uint1   storeVal,
   output! uint1   aluShift,   output! int32   aluImm,
   output! uint1   sub,        output! uint1   signedShift,
-  output! uint1   forceZero,  output! uint1   pcOrReg,
+  output! uint1   pcOrReg,    output! int32   v,
   output! uint1   regOrImm,   output! int32   addrImm,
 ) {
-  //uint32 cycle(0);
+  uint32 cycle(0);
   // decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
   int32 imm_j  <: {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
@@ -186,23 +186,22 @@ algorithm decoder(
   no_rd        := branch | store | (Rtype(instr).rd == 5b0);
   jump         := JAL    | JALR;
   pcOrReg      := AUIPC  | JAL   | branch;
-  forceZero    := LUI/*    | Cycles*/;
-  storeAddr    := LUI    | AUIPC;
+  storeVal     := LUI    | Cycles;
+  storeAddr    := AUIPC;
   // select immediate for the next address computation
   always {
     switch (opcode)
     {
       case 5b00101: { addrImm = imm_u;  } // AUIPC
-      case 5b01101: { addrImm = imm_u;  } // LUI
       case 5b11011: { addrImm = imm_j;  } // JAL
       case 5b11000: { addrImm = imm_b;  } // branch
       case 5b11001: { addrImm = imm_i;  } // JALR
       case 5b00000: { addrImm = imm_i;  } // load
       case 5b01000: { addrImm = imm_s;  } // store
-      //case 5b11100: { addrImm = cycle;  }
       default:  { addrImm = {32{1bx}};  } // don't care
     }
-    //cycle = cycle + 1;
+    v     = LUI ? imm_u : cycle;
+    cycle = cycle + 1;
   }
 }
 
@@ -221,9 +220,7 @@ algorithm intops(
   uint5 shamt(0);
   
   // select next address adder inputs
-  int32 next_addr_a <: dec.forceZero ? __signed(32b0) 
-                     : (dec.pcOrReg  ? __signed({20b0,pc[0,10],2b0}) 
-                     : xa);
+  int32 next_addr_a <: dec.pcOrReg ? __signed({20b0,pc[0,10],2b0}) : xa;
   int32 next_addr_b <: dec.addrImm;
 
   // select ALU inputs
@@ -292,6 +289,7 @@ algorithm intops(
 // The Risc-V RV32I CPU itself
 
 algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
+  // uint32 iter(0);
   //                                           boot address  ^
   // register file
   bram int32 xregsA[32] = {pad(0)};
@@ -322,7 +320,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
   // what do we write in register? (pc or alu, load is handled above)
   int32 write_back <::  do_jump       ? (next_pc<<2) 
-                     :  dec.storeAddr ? alu.n[0,24]
+                     :  dec.storeAddr ? {18b0,alu.n[0,14]}
+                     :  dec.storeVal  ? dec.v
                      :  alu.r;
 
   // The 'always_before' block is applied at the start of every cycle.
@@ -365,7 +364,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   }
 
   // =========== CPU runs forever
-  while (1) { 
+  // while (iter < 64) {  iter = iter + 1;
+  while (1) {
 
     // data is now available
     instr       = mem.rdata;
@@ -393,7 +393,9 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
         mem.wenable = ({4{dec.store}} & { { 2{dec.op[0,2]==2b10} },
                                           dec.op[0,1] | dec.op[1,1], 1b1 
                                         }) << alu.n[0,2];
+
 ++: // wait for data transaction
+
         // == Load (enabled below if no_rd == 0)
         // commit result
         xregsA.wdata   = loaded;
@@ -413,6 +415,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
         xregsB.addr    = dec.write_rd;
         // ALU done?
         if (alu.working == 0) { 
+__display("instr %h write back [%d] = %d",instr,dec.write_rd,write_back);          
           // yes: all is correct, stop here
           break; 
           //  intruction read from BRAM and write to registers 
