@@ -159,7 +159,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
   // all integer operations (ALU + comparisons + next address)
   ALU alu(
-    pc          <: pc,            dec         <: dec
+    pc          <: pc,            dec         <: dec,
     xa          <: xregsA.rdata,  xb          <: xregsB.rdata,    
   );
 
