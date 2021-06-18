@@ -68,7 +68,7 @@ algorithm decoder(
 algorithm ALU(
   input   outputs(decoder) dec, // all outputs of the decoder as inputs
   input   uint12 pc,         input   int32 xa,  input   int32 xb, 
-  input   uint1  aluTrigger, // pulses high when the ALU should start
+  input   uint1  trigger,    // pulses high when the ALU should start
   output  int32  n,          // result of next address computation
   output  int32  r,          // result of ALU
   output  uint1  j,          // result of branch comparisons
@@ -98,7 +98,7 @@ algorithm ALU(
     // shift (one bit per clock)
     dir     = dec.op[2,1];
     shamt   = working ? shamt - 1                    // decrease shift counter
-                      : ((dec.aluShift & aluTrigger) // start shifting?
+                      : ((dec.aluShift & trigger) // start shifting?
                       ? __unsigned(b[0,5]) : 0);
     if (working) {
       // shift one bit
@@ -151,9 +151,6 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   uint12 next_pc <:: pc + 1; // next_pc tracks the expression 'pc + 1' using the
                              // value of pc from the last clock edge (<::)
 
-  // triggers ALU when required
-  uint1 aluTrigger = uninitialized;
-
   // value that has been loaded from memory
   int32 loaded     = uninitialized;
 
@@ -162,9 +159,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
   // all integer operations (ALU + comparisons + next address)
   ALU alu(
-    pc          <: pc,            aluTrigger  <: aluTrigger,
-    xa          <: xregsA.rdata,  xb          <: xregsB.rdata,
-    dec         <: dec
+    pc          <: pc,            dec         <: dec
+    xa          <: xregsA.rdata,  xb          <: xregsB.rdata,    
   );
 
   // shall the CPU jump to a new address?
@@ -195,7 +191,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
     // maintain write enable low (pulses high when needed)
     mem.wenable    = 4b0000; 
     // maintain alu trigger low
-    aluTrigger     = 0;
+    alu.trigger    = 0;
     // keep reading registers at rs1/rs2 by default
     // so that decoder and ALU see them for multiple cycles
     xregsA.addr    = Rtype(instr).rs1;
@@ -227,7 +223,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
 ++: // wait for register read (BRAM takes one cycle)
 
-    aluTrigger = 1;
+    alu.trigger = 1;
 
     while (1) { // decode + ALU occur during the cycle entering the loop
 
