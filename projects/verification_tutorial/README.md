@@ -1,15 +1,13 @@
 # Verifying designs written in Silice
 
-> __Disclaimer:__ most tools refer to those techniques as “formal verification”.
-> While this is not quite a false claim in our case (we are still trying to ensure correctness of our designs through the use of maths),
-> we feel that there is some sort of “proof” connotation under this term.
-> We believe that the features implemented are more under the “Property checking” theme, which itself is
-> a subset of formal verification.
->
-> Please also note that, if all your tests pass, this does not necessarily mean that your design is “proved” to be correct 
-> at any time in any situation.
-> For example, performing a BMC with a very low depth parameter may result in false-positives
-> (e.g. no false assertion has been reached yet, therefore nothing is not correct, leading to a passing test).
+> __Disclaimer:__
+> The techniques presented here fall within the domain of [“formal verification”](http://www.clifford.at/papers/2017/smtbmc-sby/slides.pdf), 
+> and more precisely “property checking”.
+> These methods would only provide a *proof* a correctness if the space of possible outcomes is exhaustively search. In practice, there are bounds
+> on how long the solver will try to find flaws in the design, so a design that *passes* is not *proven*: it may still not be correct at any time in any situation.
+> But if it fails, it is flawed!
+> For example, performing a BMC with a very low depth parameter may result in a passing design, even if flawed
+> (e.g. no false assertion has been reached yet, therefore nothing is incorrect, leading to a passing test).
 
 
 ## Table of contents
