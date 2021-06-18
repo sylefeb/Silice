@@ -328,23 +328,25 @@ of the other components.
 ### Register file(s)
 
 We have mentioned that registers are stored in the BRAM `xregsA`. But in fact, two
-BRAMS are used: `xregsA` and `xregsB`. They are declared at the beginning of the
+BRAMS are used: `xregsA` and `xregsB`. They are instantiated at the beginning of the
 processor:
 ```c
 bram int32 xregsA[32] = {pad(0)}; bram int32 xregsB[32] = {pad(0)};
 ```
-(`pad(0)` fills the arrays with zeros).
+
+> `pad(0)` fills the arrays with zeros.
 
 `xregsA` and `xregsB` are always written to together, so they
-hold the same values. For this, the design uses and `always_after` block, that is 
-always appended at the end of every cycle. These lines replicate what is written
+hold the same values. For this, the design uses an `always_after` block, that is 
+always applied at the end of every cycle. These lines replicate what is written
 to `xregsA` in `xregsB`:
 ```c
-xregsB.wdata   = xregsA.wdata;    // xregsB is always paired with xregsA
-xregsB.wenable = xregsA.wenable;  // when writing to registers
+xregsB.wdata   = xregsA.wdata;   // xregsB is always paired with xregsA
+xregsB.wenable = xregsA.wenable; // when writing to registers
 ```
 
-The reason we use two BRAMs is because we want to read two registers at once. So these two BRAMs always contain the same values, but at a given clock cycle we read from two different addresses:
+The reason we use two BRAMs is because we want to read two registers in a single cycle. 
+So these two BRAMs always contain the same values, but at a given clock cycle we read from two different addresses:
 ```c
 xregsA.addr = Rtype(instr).rs1;
 xregsB.addr = Rtype(instr).rs2;
@@ -354,7 +356,7 @@ xregsB.addr = Rtype(instr).rs2;
 
 The decoder is a relatively straightforward affair. It starts by decoding all
 the possible *immediate* values -- these are constants encoded in the different
-type of instructions:
+types of instructions:
 ```c
 // decode immediates
 int32 imm_u  <: {instr[12,20],12b0};
@@ -376,32 +378,35 @@ uint1 IntImm <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
 uint1 Cycles <: opcode == 5b11100;  branch       := opcode == 5b11000;
 store        := opcode == 5b01000;  load         := opcode == 5b00000;
 ```
-The are of course mutually-exclusive, so only one of these is `1` at a given
+These are of course mutually-exclusive, so only one of these is `1` at a given
 cycle.
-We may have noticed there is a different between e.g. `uint1 IntReg <: opcode == 5b01100;`
-and `branch := opcode == 5b11000;`, where either `<:` or `:=` are used. In the case
-of the wiring operator `<:` we are defining an expression tracker. In the second
+
+> You may have noticed there is a difference between e.g. `uint1 IntReg <: opcode == 5b01100`
+and `branch := opcode == 5b11000`, where either `<:` or `:=` is used. In the case
+of the *wiring operator* `<:` we are defining an expression tracker. In the second
 case we are *always assigning* `:=` to an output. Always assigning means that
 the output is set to this value first thing every cycle (this is a shortcut
 equivalent to a normal assignment `=` in an `always_before` block).
 
-Finally we set all other outputs, telling the processor what to do with the instruction.
-For instance `write_rd := Rtype(instr).rd;` is the index of the destination 
-register for the instruction, while `no_rd := branch  | store  | (Rtype(instr).rd == 5b0)`
+Finally we set the decoder outputs, telling the processor what to do with the instruction.
+For instance `write_rd := Rtype(instr).rd` is the index of the destination 
+register for the instruction, while `no_rd := branch | store | (Rtype(instr).rd == 5b0)`
 indicates whether the write to the register is enabled or not. 
 
-Also note the condition `Rtype(instr).rd == 5b0` in `no_rd`. That is because
-register zero, in the RISC-V spec, should always stay zero.
+> Note the condition `Rtype(instr).rd == 5b0` in `no_rd`. That is because
+register zero, as per the RISC-V spec, should always remain zero.
+
+> The Ice-V as-is has small flaw regarding this prior remark, can you spot it?
 
 ### The ALU
 
 The ALU performs all integer computations. It consists of three parts. The 
-integer operators such as add,sub,shift,and,or (output `r`) ; the comparator for conditional 
+integer operations such as ADD, SUB, SLLI, SRLI, AND, XOR (output `r`) ; the comparator for conditional 
 branches (output `j`) ; the next address adder (output `n`).
 
 Due to the way the data flow is setup we can use a nice trick. The ALU as well
 as the comparator select two integers for their operations. The setup of the Ice-V
-is such that both can use the same integers, so they can use the same circuits
+is such that both can input the same integers, so they can share the same circuits
 to perform similar operations. And what is common to `<`,`<=`,`>`,`>=`? They
 can all be done with a single subtraction! This trick is implemented as follows:
 ```c
@@ -419,14 +424,13 @@ The integers are selected above based on results from the decoder:
 int32 a         <: xa;
 int32 b         <: dec.regOrImm ? (xb) : dec.aluImm;
 ```
-For `a` it is always the same, but `b` may be either the register or immediate.
-Note that on a branch instruction `b` is in fact always `xb` (register). This
-can be seen from this line in the decoder:
+`a` is always the register, but `b` may be either the register or the immediate.
+The choice is made by this line in the decoder:
 ```c
 regOrImm := IntReg  | branch;
 ```
 
-Similarly, the next address adder selects it two inputs based on the decoder
+Similarly, the next address adder selects its two inputs based on the decoder
 indications:
 ```c
 // select next address adder inputs
@@ -434,13 +438,13 @@ int32 next_addr_a <: dec.pcOrReg ? __signed({20b0,pc[0,10],2b0}) : xa;
 int32 next_addr_b <: dec.addrImm;
 ```
 For instance, instructions `AUIPC, JAL` and `branch` will select the program 
-counter `pc` as can be seen in the decoder:
+counter `pc` for `a` as can be seen in the decoder:
 ```c
 pcOrReg      := AUIPC   | JAL    | branch;         // pc or reg in next addr
 ```
-The next address is then simply the sum of both: `n = next_addr_a + next_addr_b;`.
+The next address is then simply the sum of both: `n = next_addr_a + next_addr_b`.
 
-The comparator and most of the ALU are a switch case returning the selected
+The comparator and most of the ALU are switch cases returning the selected
 computation from `dec.op`.
 For the comparator:
 ```c
@@ -464,7 +468,7 @@ switch (dec.op) {
 }      
 ```
 
-However, something is going on for the shifts. Indeed, integer shifts `<<` and `>>`
+However, something is going on for the shifts (SLLI, SRLI, SRAI). Indeed, integer shifts `<<` and `>>`
 can be performed in one cycle but at the expense of a large circuit (many LUTs!).
 Instead, we want a compact design. So the rest of the code in the ALU describes
 a shifter shifting one bit per cycle. Here it is:
@@ -489,18 +493,18 @@ The idea is that `shift` is the result of shifting `r` by one bit
 each cycle. `r` is updated with `shift` in the ALU switch case: 
 `case 3b001: { r = shift; } case 3b101: { r = shift; }`. 
 At the beginning, the shifter is not `working` and `shift` is assigned `a`. 
-After that, `shift` is `r` shifted one bit with proper signedness: `shift = dec.op[2,1] ? ...`.
+After that, `shift` is `r` shifted by one bit with proper signedness: `shift = dec.op[2,1] ? ...`
 
 `shamt` is the number of bits by which to shift. It starts with the amount read
 from the decoder `((dec.aluShift & trigger) ? __unsigned(b[0,5]) : 0)` and then
-decreases by one each cycle when `working`. Not how `trigger` is used in the
-test. This ensures the shifter only starts at the right cycle, when `alu.trigger`
-is pulsed to `1` by the processor.
+decreases by one each cycle when `working`. 
+
+> Note how `trigger` is used in the test initializing `shamt` and starting the shifter. This ensures the shifter only triggers at the right cycle, when `alu.trigger` is pulsed to `1` by the processor.
 
 And voilà, our ALU is complete! We are almost done, but one important aspect
 remains. How do we make all this work together?
 
-### Plugging the decoder and the ALU to the processor
+### Plugging the decoder and the ALU together
 
 The decoder and ALU are instantiated within the processor (they are internal
 circuitries):
@@ -510,49 +514,66 @@ decoder dec( instr <:: instr );
 // all integer operations (ALU + comparisons + next address)
 ALU alu(
   pc          <:: pc,            dec        <: dec,
-  xa          <:  xregsA.rdata,  xb          <: xregsB.rdata,    
+  xa          <:  xregsA.rdata,  xb         <: xregsB.rdata,    
 );
 ```
 
-The only thing the decoder gets as input is the current instruction (does
-not change during the processor loop iteration), while the ALU gets
+The only thing the decoder gets as input is the current instruction `instr`, which does
+not change during the processor loop iteration. The ALU gets
 the program counter `pc` and the two registers `xregsA.rdata` and `xregsB.rdata`.
 Their value is also constant during the processor loop iteration, this is guaranteed
-by 
+by this code in the `always_before` block of the processor:
 ```c
 // keep reading registers at rs1/rs2 by default
 // so that decoder and ALU see them for multiple cycles
 xregsA.addr    = Rtype(instr).rs1;
 xregsB.addr    = Rtype(instr).rs2;  
 ```
-in the `always_before` block of the processor.
 
-Both decoder and ALU work at all times. However, we have seen when studying the 
-processor that both have to operate one after the other within a single cycle:
+Both decoder and ALU are active at all times. However, we have seen when studying the 
+processor that both operate one after the other within a single cycle:
 ```c
     while (1) { // decode + ALU occur during the cycle entering the loop
 ```
+One reason to do this is to avoid storing the many outputs of the decoder that
+are used by the ALU. This would make the design bigger. A potential drawback will
+be a perhaps lower frequency as the ALU operates after the decoder within the same cycle. 
+But as it turns out this choice is quite ok.
 
-How is this achieved? By carefully selecting how the input and output are registered
-between them. First, the instruction is wire to the decoder using the `<::` operator.
-This means the decoder inputs the instruction as it is *before* modified by the processor
-in the cycle. During the cycle, the data flows through the decoder and reaches
+So how do we plug the decoder and ALU together to achieved this? By carefully selecting how the inputs and outputs are registered between them. 
+
+First, the instruction is wired to the decoder using the `<::` operator.
+This means the decoder sees `instr` as it is *before* any change by 
+the processor in the cycle. So there is nothing, in terms of circuitry, between
+the value of `instr` and what the decoder does from it in the cycle.
+
+During the cycle, the data flows through the decoder and reaches
 its outputs. The decoder outputs are all declared as `output!`. The exclamation
 mark indicates that the outputs are not registered: they are directly the output
 of the decoder circuit. Then, when the ALU is wired to the decoder, the ALU sees
-what the decoder did during the same cycle. Instead the ALU outputs are all `output`, without
-the `!`. These outputs are registered, so the processor will see the result only 
-at the start of the next cycle. This leaves enough time for the data to flow through
-the ALU circuit (which is somewhat complex), ensuring we obtain a reasonable maximum
-frequency. Some other designs, such as the [fire-v](../fire-v/doc/fire-v.md), choose
-to put decoder and ALU in separate cycles. This is simple to achieve here by changing
-the outputs of the decoder for `output`, but then the processor has to account for 
-the extra cycle being introduced.
+on its inputs what the decoder did during the same cycle. Any circuitry added 
+by the ALU comes *after* the circuitry of the decoder.
 
-For all details on this (important!) topic [please refer to the dedicated page](../../learn-silice/AlgoInOuts).
+In contrast, the ALU outputs are all `output`, without the `!`. 
+These outputs are registered: so the processor will see the result only 
+at the start of the next cycle, but without any circuitry in between.
+
+The the data flow from the decoder circuit to the ALU circuit and stops there.
+One the next cycle the processor sees the new values on the output of the ALU.
+
+The maximum frequency is likely determined by the longest path through decoder and ALU,
+which is somewhat complex.
+
+> Indeed, nextpnr critical path confirms that it occurs through the ALU.
+
+Some other designs, such as the [fire-v](../fire-v/doc/fire-v.md), choose
+to put decoder and ALU in separate cycles to obtain a higher frequency.
 
 And that's it! There are a few more details I'll likely add below in the future,
 but we have seen 90% of the processor operations!
+
+> For all details on the (important!) topic of algorithm bindings and timings [please refer to the dedicated page](../../learn-silice/AlgoInOuts).
+
 
 ## Other implementation details
 
