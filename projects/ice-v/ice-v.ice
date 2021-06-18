@@ -120,26 +120,20 @@ algorithm ALU(
     }
     // all ALU operations
     switch (dec.op) {
-      case 3b000: { r = dec.sub ? a_minus_b : a + b; } // ADD / SUB
-      case 3b010: { r = a_lt_b;                      } // SLTI
-      case 3b011: { r = a_lt_b_u;                    } // SLTU
-      case 3b100: { r = a ^ b;                       } // XOR
-      case 3b110: { r = a | b;                       } // OR
-      case 3b111: { r = a & b;                       } // AND
-      case 3b001: { r = shift;                       } // SLLI
-      case 3b101: { r = shift;                       } // SRLI / SRAI
+      case 3b000: { r = dec.sub ? a_minus_b : a + b; }         // ADD / SUB
+      case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
+      case 3b100: { r = a ^ b;  } case 3b110: { r = a | b;    }// XOR / OR
+      case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
+      case 3b111: { r = a & b;  } // AND
     }      
     // are we working? (shifting)
     working = (shamt != 0);
 
     // ====================== Branch comparisons
     switch (dec.op) {
-      case 3b000: { j =   a_eq_b;   } // BEQ
-      case 3b001: { j = ~ a_eq_b;   } // BNE
-      case 3b100: { j =   a_lt_b;   } // BLT
-      case 3b110: { j =   a_lt_b_u; } // BLTU
-      case 3b101: { j = ~ a_lt_b;   } // BGE
-      case 3b111: { j = ~ a_lt_b_u; } // BGEU
+      case 3b000: { j =  a_eq_b; } case 3b001: { j = ~a_eq_b;   } // BEQ / BNE
+      case 3b100: { j =  a_lt_b; } case 3b110: { j =  a_lt_b_u; } // BLT / BLTU
+      case 3b101: { j = ~a_lt_b; } case 3b111: { j = ~a_lt_b_u; } // BGE / BGEU
       default:    { j = 0; }
     }
 
