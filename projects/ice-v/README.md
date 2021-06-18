@@ -562,9 +562,7 @@ The the data flow from the decoder circuit to the ALU circuit and stops there.
 One the next cycle the processor sees the new values on the output of the ALU.
 
 The maximum frequency is likely determined by the longest path through decoder and ALU,
-which is somewhat complex.
-
-> Indeed, nextpnr critical path confirms that it occurs through the ALU.
+which is somewhat complex. And indeed, nextpnr critical path confirms that.
 
 And that's it! There are a few more details I'll likely add below in the future,
 but we have seen 90% of the processor operations!
