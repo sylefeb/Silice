@@ -1,16 +1,18 @@
-# Silice risc-v RV32I implementation
+# The Ice-V: a simple RV32I that packs a punch
 
-Fits in an IceStick!
+## What is this?
 
-Requires the RiscV toolchain. Under Windows, this is included in the binary 
-package from my fpga-binutils repo (see [Getting
-started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md)). Under
-macOS, you can install from Homebrew; see below. Under Linux you will
-have to compile from source (afaik there is no package yet?), see links below.
+The Ice-V is a processor that implements the RiscV RV32I specification. It is simple and compact, yet demonstrates many features of Silice and can be useful in simple designs. It is specialized to execute code from BRAM, where the code is backed into the BRAM upon synthesis. However, it would be quite easy to extend the Ice-V to boot from SPI or execute code from a RAM.
 
-Builds in two steps, first compile some code for the processor to run:
+## Testing
 
-In the *projects/ice-v* folder (here!) run
+Testing requires the RiscV toolchain. Under Windows, this is included in the binary package from my fpga-binutils repo. Under macOS, you can install from Homebrew. Under Linux you will
+have to compile from source. See see [getting
+started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md) for more detailed instructions.
+
+The build is performed in two steps, first compile some code for the processor to run:
+
+From `projects/ice-v` (this directory) run:
 ```
 ./compile_c.sh tests/c/test_leds.c
 ```
@@ -45,6 +47,12 @@ make icestick -f Makefile.oled
 
 *Note:* the reset is not perfectly reliable; if nothing happens try unplugin/plugin
 the IceStick back after programming.
+
+## The Ice-V design
+
+Now that we have tested the Ice-V let's dive into the code! The entire processor fits in [less than 200 lines of Silice code](ice-v.ice) (excl. comments), but there are many things to discuss.
+
+
 
 ## Links
 
