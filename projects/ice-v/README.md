@@ -4,7 +4,7 @@
 
 ## What is this?
 
-The Ice-V is a processor that implements the [RISC-V RV32I specification](https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf). It is simple and compact (~170 lines without comments), demonstrates many features of Silice and can be a good companion in projects. It is specialized to execute code from BRAM, where the code is baked into the BRAM upon synthesis (can be a boot loader later loading from other sources). 
+The Ice-V is a processor that implements the [RISC-V RV32I specification](https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf). It is simple and compact (~160 lines without comments), demonstrates many features of Silice and can be a good companion in projects. It is specialized to execute code from BRAM, where the code is baked into the BRAM upon synthesis (can be a boot loader later loading from other sources). 
 
 It is easily hackable and would be quite easy to extend to boot from SPI, execute code from a RAM, and connect to various peripherals. The example drives LEDs and an external SPI screen.
 
@@ -16,7 +16,7 @@ The version here runs out of the box on the IceStick ice40 1HK, and can adapted 
 - executes instructions in 3 cycles, load/store in 4
 - less than 1K LUTs
 - validates at around 65 Mz on the IceStick
-- < 300 lines of commented code (~ 170 without comments)
+- < 300 lines of commented code (~ 160 without comments)
 - 1 bit per cycle shifter
 - 32 bits RDCYCLE
 - comes with a DooM fire demo ;)
@@ -85,7 +85,7 @@ started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md) for more d
 
 ## The Ice-V design: code walkthrough
 
-Now that we have tested the Ice-V let's dive into the code! The [entire design](ice-v.ice) fits in less than 300 lines of Silice code (~170 without comments). 
+Now that we have tested the Ice-V let's dive into the code! The [entire design](ice-v.ice) fits in less than 300 lines of Silice code (~160 without comments). 
 
 A Risc-V processor is surprisingly simple! This is also a good opportunity to discover some Silice syntax and features.
 
