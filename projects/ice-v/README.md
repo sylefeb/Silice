@@ -14,7 +14,7 @@ The version here runs out of the box on the IceStick ice40 1HK.
 - implements the RV32I specifications
 - executes instructions in 3 cycles, load/store in 4
 - less than 1K LUTs with SPI-screen controller
-- validates at around 70 Mz on the IceStick
+- validates at around 65 Mz on the IceStick
 - < 300 lines of commented code (~ 170 without comments)
 - 1 bit per cycle shifter
 - 32 bits RDCYCLE
