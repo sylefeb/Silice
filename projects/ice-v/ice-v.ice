@@ -56,10 +56,11 @@ algorithm decoder(
   storeVal     := LUI     | Cycles;                  // store value from decoder
   val          := LUI ? imm_u : cycle;               // value from decoder
   cycle        := cycle + 1;                         // increment cycle counter
-  // select immediate for the next address computation 
-  addrImm := (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
-          |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
-          |  (store  ? imm_s : 32b0);
+  // select immediate for the next address computation
+  // 'or trick' inspired from femtorv32
+  addrImm      := (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+               |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
+               |  (store  ? imm_s : 32b0);
 }
 
 // --------------------------------------------------
@@ -80,7 +81,7 @@ algorithm ALU(
   int32 next_addr_a <: dec.pcOrReg ? __signed({20b0,pc[0,10],2b0}) : xa;
   int32 next_addr_b <: dec.addrImm;
 
-  // select ALU inputs
+  // select ALU and Comparator inputs
   int32 a         <: xa;
   int32 b         <: dec.regOrImm ? (xb) : dec.aluImm;
   
@@ -119,7 +120,7 @@ algorithm ALU(
     // are we working? (shifting)
     working = (shamt != 0);
 
-    // ====================== Branch comparisons
+    // ====================== Comparator for branching
     switch (dec.op) {
       case 3b000: { j =  a_eq_b; } case 3b001: { j = ~a_eq_b;   } // BEQ / BNE
       case 3b100: { j =  a_lt_b; } case 3b110: { j =  a_lt_b_u; } // BLT / BLTU
@@ -166,11 +167,11 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   // shall the CPU jump to a new address?
   uint1 do_jump    <:: dec.jump | (dec.branch & alu.j);
 
-  // what do we write in register? (pc or alu, load is handled above)
-  int32 write_back <::  do_jump       ? (next_pc<<2) 
-                     :  dec.storeAddr ? alu.n[0,$addrW$]
-                     :  dec.storeVal  ? dec.val
-                     :  alu.r;
+  // what do we write in register? (pc or alu, load is handled separately)
+  int32 write_back <:: do_jump       ? (next_pc<<2) 
+                     : dec.storeAddr ? alu.n[0,$addrW$]
+                     : dec.storeVal  ? dec.val
+                     : alu.r;
 
   // The 'always_before' block is applied at the start of every cycle.
   // This is a good place to set default values, which also indicates
@@ -249,10 +250,12 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
         xregsA.wenable = dec.load;
         xregsA.addr    = dec.write_rd;
         xregsB.addr    = dec.write_rd;        
+        
         // restore address to program counter
         wide_addr      = next_pc;
         // exit the operations loop
-        break;        
+        break;
+
       } else {
         // commit result
         xregsA.wenable = ~dec.no_rd;
