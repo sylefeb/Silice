@@ -562,7 +562,7 @@ The the data flow from the decoder circuit to the ALU circuit and stops there.
 One the next cycle the processor sees the new values on the output of the ALU.
 
 The maximum frequency is likely determined by the longest path through decoder and ALU,
-which is somewhat complex. And indeed, nextpnr critical path confirms that.
+which is somewhat complex. Nextpnr critical path analysis indeed confirms that.
 
 And that's it! There are a few more details I'll likely add below in the future,
 but we have seen 90% of the processor operations!
@@ -586,7 +586,7 @@ in source):
 * PicoRV  https://github.com/cliffordwolf/picorv32
 * Stackoverflow post on CPU design (see answer) https://stackoverflow.com/questions/51592244/implementation-of-simple-microprocessor-using-verilog
 
-Other great RISC-V projects
+A few other great RISC-V projects (there are many! happy to add links, let me know)
 
 * The smallest processor in the world: [SERV](https://github.com/olofk/serv)
 * [vexriscv](https://github.com/SpinalHDL/VexRiscv)
