@@ -3618,9 +3618,11 @@ bool Algorithm::doesNotCallSubroutines() const
 
 bool Algorithm::requiresNoReset() const
 {
+  // has an FSM?
   if (!hasNoFSM()) {
     return false;
   }
+  // has var or outputs with init?
   for (const auto &v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
     if (!v.do_not_initialize) {
@@ -3630,6 +3632,12 @@ bool Algorithm::requiresNoReset() const
   for (const auto &v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
     if (!v.do_not_initialize) {
+      return false;
+    }
+  }
+  // do any of the instantiated algorithms require a reset?
+  for (const auto &I : m_InstancedAlgorithms) {
+    if (!I.second.algo->requiresNoReset()) {
       return false;
     }
   }

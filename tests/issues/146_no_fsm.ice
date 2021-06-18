@@ -15,10 +15,18 @@ algorithm foo(output uint8 v)
 	}
 }
 
+algorithm count2(output uint8 v)
+{
+  always {
+	  v = v + 1;
+	}
+}
+
 algorithm main(output uint8 leds)
 {
   foo f;
+	count2 c2;
   always {
-	  leds = f.v;
+	  leds = f.v | c2.v;
 	}
 }
