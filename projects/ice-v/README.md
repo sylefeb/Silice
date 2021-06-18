@@ -465,7 +465,7 @@ For all details on this (important!) topic [please refer to the dedicated page](
 And that's it! There are a few more details I'll likely add below in the future,
 but we have seen 90% of the processor operations!
 
-## Implementation details
+## Other implementation details
 
 To be written ...
 
