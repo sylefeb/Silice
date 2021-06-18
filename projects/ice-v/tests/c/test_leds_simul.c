@@ -13,10 +13,9 @@ void main()
       l = 1;
     }
     
-    *LEDS = l;    
+    *LEDS = l;
     
-    for (i=0;i<655360;i++) { }
-
+    for (i=0;i<512;i++) { }
   }
   
 }

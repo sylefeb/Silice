@@ -87,6 +87,9 @@ $$if OLED then
 $$end
     if (mem.wenable[0,1] & cpu.wide_addr[11,1]) {
       leds      = mem.wdata[0,5] & {5{cpu.wide_addr[0,1]}};
+$$if SIMULATION then
+      if (mem.wdata[0,5]) { __display("LEDs: %b",leds); }
+$$end      
 $$if OLED then
       // command
       displ_en  = (mem.wdata[9,1] | mem.wdata[10,1]) & cpu.wide_addr[1,1];

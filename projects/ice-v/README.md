@@ -1,29 +1,27 @@
 # The Ice-V: a simple, compact RISC-V RV32I implementation in Silice
 
-**TL;DR** A small CPU that can come in handy, a detailed code walkthrough, a good place to start learning about both Silice and RISC-V.
+**TL;DR** A small CPU design that can come in handy, a detailed code walkthrough, a good place to start learning about both Silice and RISC-V.
 
 ## What is this?
 
-The Ice-V is a processor that implements the simplest [RISC-V RV32I specification](https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf). It is simple and compact (~ 170 lines without comments), yet demonstrates many features of Silice and can be useful in simple designs. It is specialized to execute code from BRAM, where the code is baked into the BRAM upon synthesis (can be a boot loader then loading from other sources). 
+The Ice-V is a processor that implements the [RISC-V RV32I specification](https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf). It is simple and compact (~170 lines without comments), demonstrates many features of Silice and can be a good companion in projects. It is specialized to execute code from BRAM, where the code is baked into the BRAM upon synthesis (can be a boot loader later loading from other sources). 
 
 It is easily hackable and would be quite easy to extend to boot from SPI, execute code from a RAM, and connect to various peripherals. The example drives LEDs and an external SPI screen.
 
-The version here runs out of the box on the IceStick ice40 1HK.
+The version here runs out of the box on the IceStick ice40 1HK, and can adapted to other boards with minimum effort.
 
 ## Features
 - implements the RV32I specifications
+- runs code compiled with gcc RISC-V (build scripts included)
 - executes instructions in 3 cycles, load/store in 4
-- less than 1K LUTs with SPI-screen controller
+- less than 1K LUTs
 - validates at around 65 Mz on the IceStick
 - < 300 lines of commented code (~ 170 without comments)
 - 1 bit per cycle shifter
 - 32 bits RDCYCLE
 - comes with a DooM fire demo ;)
 
-## Testing
-
-Testing requires a RISC-V toolchain to compile code for the processor. Under Windows, this is included in the binary package from my [fpga-binutils](https://github.com/sylefeb/fpga-binutils) repo. Under macOS, you can install from Homebrew. Under Linux you will have to compile from source. See see [getting
-started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md) for more detailed instructions.
+## Running the design
 
 The build is performed in two steps, first compile some code for the processor to run:
 
@@ -37,7 +35,23 @@ Plug your board tp the computer for programming and, from the project folder run
 make icestick
 ```
 
-On an IceStick the LEDs will blink around the center one.
+On an IceStick the LEDs will blink around the center one in a rotating pattern.
+
+You may also simulate the design with:
+```
+./compile_c.sh tests/c/test_leds_simul.c
+make verilator
+```
+The console will output the LEDs pattern until you press CTRL+C to interrupt
+the simulation.
+```
+LEDs: 00001
+LEDs: 00010
+LEDs: 00100
+LEDs: 01000
+LEDs: 00001
+...
+```
 
 Optionally you can plug a small OLED screen (I used [this one](https://www.waveshare.com/1.5inch-rgb-oled-module.htm), 128x128 RGB with SSD1351 driver).
 
@@ -59,61 +73,84 @@ For the DooM fire:
 make icestick -f Makefile.oled
 ```
 
+<p align="center">
+  <img width="400" src="ice-v-doom-fire.png">
+</p>
+
+
+> **Note:** Compling code for the processor requires a RISC-V toolchain. Under Windows, this is included in the binary package from my [fpga-binutils](https://github.com/sylefeb/fpga-binutils) repo. Under macOS and Linux there are precompiled packages, or you may prefer to compile from source. See see [getting
+started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md) for more detailed instructions.
+
+&nbsp;<br>
+
 ## The Ice-V design: code walkthrough
 
-Now that we have tested the Ice-V let's dive into the code! The [entire design](ice-v.ice) fits in less than 300 lines of Silice code (~ 170 without comments). 
+Now that we have tested the Ice-V let's dive into the code! The [entire design](ice-v.ice) fits in less than 300 lines of Silice code (~170 without comments). 
 
-A Risc-V processor is surprisingly simple! This is also a good opportunity to see some and learn about some Silice syntax.
+A Risc-V processor is surprisingly simple! This is also a good opportunity to discover some Silice syntax and features.
+
+The processor is in file [ice-v.ice](ice-v.ice). For the demos, it is included in
+a minimalist SOC in file [ice-v-soc.ice](ice-v-soc.ice).
 
 The processor is made of three algorithms:
-- `algorithm decoder` is responsible for splitting a 32 bit instruction into information used by the rest of the processor.
-- `algorithm ALU` is responsible for all integer arithmetic: add, sub, shifts, bitwise operators, etc.
-- `algorithm rv32i_cpu` is the main processor loop.
+- `algorithm decoder` is responsible for splitting a 32 bit instruction just read from memory into information used by the rest of the processor.
+- `algorithm ALU` is responsible for performing all integer arithmetic: add, sub, shifts, bitwise operators, etc.
+- `algorithm rv32i_cpu` is the main processor loop. It fetches instructions from memory, reads registers, setups the decoder and ALU with this data, performs additional memory load/stores as required, and stores results in registers.
 
-Let's start with an overview and thus start with the processor loop in `rv32i_cpu`.
+Let's start with an overview of the processor loop in `algorithm rv32i_cpu`.
 
-We will skip everything at the beginning (we'll come back to that later!) and focus on the infinite loop that runs code. It has the following structure:
+### Processor loop
+
+We will skip everything at the beginning (we'll come back to that when needed) 
+and focus on the infinite loop that executes instructions. It has the following structure:
 
 ```c
 while (1) {
 
-    // 1. an instruction just became available
-    //    setup register read
+    // 1. - an instruction just became available
+    //    - setup register read
 
-++: // wait for registers to be read 
+++: // wait for registers to be read (1 cycle)
 
-    // 2. registers data is available, trigger ALU
+    // 2. - register data is available
+    //    - trigger ALU
 
-    while (1) { // decode + ALU while entering the loop
+    while (1) { // decode + ALU while entering the loop (1 cycle)
+
+        // results from decoder and ALU available
 
         if (dec.load | dec.store) {   
 
-            // 4. setup load/store RAM address
-            //    enable store?
+            // 4. - setup load/store RAM address
+            //    - enable memory store?
 
-++: // wait for memory transaction
+++: // wait for memory transaction (1 cycle)
             
-            // 5. write loaded data to register?
-            //    restore next instruction RAM address
+            // 5. - write loaded data to register?
+            //    - restore next instruction address
             
-            break;
+            break; // done
+            // next instruction read while looping back (1 cycle)
         
         } else {
 
-            // 6. store result of instruction in register
-            //    setup next instruction RAM address
+            // 6. - store result of instruction in register
+            //    - setup next instruction address
 
-            if (alu.working == 0) {
+            if (alu.working == 0) { // ALU done?
                 break; // done
-                // next instruction is read while looping back
+                // next instruction read while looping back (1 cycle)
             }
         }
     }
 }
 ```
-The loop structure is constructed such that most instructions take three cycles, with load/store require an additional one. It also allows to wait for the ALU which sometimes needs multiple cycles (shifts). Silice [has precise rules](../../learn-silice/Documentation.md#sec:execflow) on how cycles are used in control flow (while/if/else), which allows us to write the loop so that no cycles are wasted.
+The loop structure is constructed such that most instructions take three cycles, with load/store requiring an additional cycle. It also allows to wait for the ALU which sometimes needs multiple cycles (shifts proceed one bit per cycle). 
+Silice [has precise rules](../../learn-silice/Documentation.md#sec:execflow) on how cycles are used in control flow (while/break/if/else), which allows us to write the loop so that no cycles are wasted.
 
-Let's go through this step by step. The first `while (1)` is the main processor loop. At the start of the iteration (`1.`) an instruction is available in memory, either from the boot address at startup, or from the previous iteration setup. The first thing to do is to read from the registers. In the implementation this is done with this code:
+Let's go through this step by step. The first `while (1)` is the main processor loop. At the start of the iteration (marker `1.` above) an instruction is available from memory, either from the boot address at startup, or from the previous iteration setup. 
+We first copy the data read from memory into a local `instr` variable, so that we
+are free to do other memory transactions. Given the instruction we also know which registers will be needed, so we immediately setup a read from the registers. In the implementation this is done with this code:
 ```c
 // data is now available
 instr       = mem.rdata;
@@ -122,61 +159,118 @@ pc          = wide_addr;
 xregsA.addr = Rtype(instr).rs1;
 xregsB.addr = Rtype(instr).rs2;
 ```
-Then, we wait for one cycle (`++:`) for the register values to be available at the BRAM outputs. Once the register values are available (`2.`), the decoder and ALU will start working. The ALU needs to be told it should trigger its computations at this specific cycle:
+The registers are stored in two BRAMs, `xregsA` and `xregsB`, so by setting their
+`addr` field, we known that the values of the registers will be in their `rdata`
+field at the next clock cycle.
+
+The `Rtype(instr).rs1` syntax is using the bitfield declared at the top of the file:
+```c
+// bitfield for easier decoding of instructions
+bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, 
+                 uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
+```
+Writing `Rtype(instr).rs1` is the same as `instr[15,5]` (5 bits width from bit 15), but in an 
+easier to read/modify format.
+
+After this setup, we wait for one cycle (`++:`) for the register values to be available at the BRAM outputs. Once the register values are available (marker `2.`), the ALU will start refreshing from these updated values. The ALU needs to be told it should trigger its computations at this specific cycle:
 ```c
 alu.trigger = 1;
 ```
-Then we enter a second `while(1)` loop. In many cases we will break out of the loop immediately, but sometimes the ALU needs to work over multiple cycles, so the loop allows to wait. Entering a loop takes one cycle, so while we enter the loop, data flows through the decoder and ALU, and their outputs are ready when we are in the loop. I'll explain later the setup between decoder and ALU.
+Meanwhile, the decoder which tracks `instr` also started to refresh.
 
-In the loop we distinguish two cases: either a load/store has to be performed `if (dec.load | dec.store)` or else another instruction is running. Let's first consider the second case (`6.`). A non load/store instruction ran through the decoder and ALU, so we consider writing its output to a register. This is done with the following code:
+Then we enter a second `while(1)` loop. In many cases we will break out of this second loop after just one cycle, but sometimes the ALU needs to work over multiple cycles, so the loop allows to wait. Entering a loop takes one cycle, so while we enter the loop, data flows through the decoder and ALU, and their outputs are ready when we are in the loop. I'll explain later the timing setup between decoder and ALU.
+
+In the loop we distinguish two cases: either a load/store has to be performed `if (dec.load | dec.store)` or else another instruction is running. Let's first consider the second case (marker `6.`). A non load/store instruction ran through the decoder and ALU.
+
+### Other than load/store
+
+First, we consider writing the instruction result to a register. This is done with the following code:
 ```c
-// commit result
+// store result in register
 xregsA.wenable = ~dec.no_rd;
-xregsA.addr    = dec.write_rd;
+xregsA.addr    =  dec.write_rd;
 ```
-`xregsA` is a BRAM holding register values and its member `addr` indicates which address to read/write to while `wenable` indicates whether we write (1) or read (0). But that seems a bit short? For instance where do we tell *what* to write? This is in fact done earlier in the algorithm, with the following code:
+Recall `xregsA` is a BRAM holding register values and its field `addr` indicates which address to read/write to. Its `wenable` field indicates whether we write (1) or read (0). Here, it will be enabled if the decoder output `dec.no_rd` is low. But that seems a bit short? For instance where do we tell *what* to write? This is in fact done earlier in the algorithm, with the following line:
 ```c
-// what do we write in register? (pc or alu, load is handled separately)
-int32 write_back <::  do_jump       ? (next_pc<<2) 
+xregsA.wdata   = write_back;
+```
+This appears in the `always_before` block. This means that at every cycle, before anything else, `xregsA.wdata` is assigned `write_back`, which we explain next. This may be later overwritten in the algorithm, but if not that will be the value of `xregsA.wdata`. This explains why we don't need to set it again when writing the result of the instruction to the register.
+
+But why do that? Why not simply write this code in `6.` alongside the rest? This is for efficiency, both in terms of circuit size and frequency. If the assignment was in `6.` a more complex circuit would be generated to ensure it is only done in this specific state. This would require a more complex multiplexer circuit, and therefore it is best to always blindly set this value. As long as we do not set `xregsA.wenable = 1` nothing gets written anyway. This is a very important aspect of efficient hardware design, and by carefully avoiding uncessary conditions your designs will be made much more efficient. Please also refer to [Silice design guidelines](../../learn-silice/Guidelines.md).
+
+So what is the value of `write_back`? It is defined with the following code:
+```c
+// what do we write in register? (pc or alu or val, load is handled separately)
+int32 write_back <:   do_jump       ? (next_pc<<2) 
                    :  dec.storeAddr ? alu.n[0,$addrW$]
                    :  dec.storeVal  ? dec.val
                    :  alu.r;
-
-// ...
-xregsA.wdata   = write_back;
 ```
-The first line (`int32 write_back <::` ...) is an expression tracker: the read-only variable `write_back` is an alias to the expression written in its definition. The second line `xregsA.wdata = write_back;` appears in the `always_before` block. This means that at every cycle, before anything else, `xregsA.wdata` is assigned `write_back`. This may be later overwritten in the algorithm, but if not that will be its value. This explains why we don't need to set it again when writing the result of the instruction to the register.
+`write_back <: ...` defines an expression tracker: the read-only variable `write_back` is an alias to the expression given in its definition (a *wire* in Verilog terms).
+`write_back` gives the value to write back based on the decoder outputs.
+`dec.storeAddr` indicates to write back the address computed by the ALU in `alu.n` (AUIPC). `dec.storeVal` indicates to write back the value `dec.val` from the decoder (LUI or RDCYCLE).
+`do_jump` indicates to write back `next_pc<<2` (the shift transform 32-bits instruction pointer into byte addresses). 
 
-But why do that? Why not simply write this code in `6.` alongside the rest? This is for efficiency, in terms of both circuit size and frequency. If the assignment was in `6.` a more complex circuit would be generated to ensure it is only done in this specific state. This would require a more complex multiplexer circuit, and therefore it is best to always set this value. As long as we do not set `xregsA.wenable = 1` nothing gets written anyway. This is a very important aspect of efficient hardware design, and by carefully avoiding uncessary conditions your designs will be made much more efficient. Please also refer to [Silice design guidelines](../../learn-silice/Guidelines.md).
+`do_jump` is defined earlier as `do_jump <:  dec.jump | (dec.branch & alu.j)`, it combines decoder and ALU
+outputs to decide on a jump. `dec.jump` is JAL or JALR and always jumps. `dec.branch`
+indicates a conditional branch and the jump is only performed if the ALU output `alu.j`
+is set to one -- this is the result of a comparison from the branch condition.
 
-Alright, so the register is updated. However the ALU may not be done. This is why we
-only break `if (alu.working == 0)`. If not, the loop iterates again, waiting for the ALU. 
-Note that `6.` will be done again, so we'll write again to the register. And yes, if the 
+Alright! the register is updated. Back to marker `6.`. Next we set the address of the next instruction to fetch and execute:
+```c
+// next instruction address
+wide_addr      = do_jump ? (alu.n >> 2) : next_pc;
+```
+This is either the address computed from the ALU in case of a jump/branch
+as indicated by (again) `do_jump`, of the value of `next_pc` which is simply `pc + 1`:
+the instruction following the current one.
+
+Almost done, but first we have to check whether the ALU is not in a multi-cycle
+operations. 
+This is why we only break `if (alu.working == 0)`. 
+If not, the loop iterates again, waiting for the ALU. 
+Note that `6.` will be visited again, so we'll write again to the register. And yes, if the 
 ALU is not yet done the write we did before might be an incorrect value. But that is
-all fine: the result will be correct at the last iteration, and it cost us nothing
+all fine: the result will be correct at the last iteration, and it costs us nothing
 to do these writes. In fact *it costs us less* because not doing them would again 
 require more multiplexer circuitry!
 
+After we break, it takes one cycle to go back to the start of the loop. During this
+cycle the next instruction is read from `mem` and the result (if any) is written to
+the register in `xregsA`. 
+
+> You may have noticed that we wrote the next address in `wide_addr` while the
+memory interface is `mem`, so we should have written to `mem.addr`? This is to allow
+the SOC to see a wider address bus and perform memory mapping. The address we set
+in `wide_addr` is assigned to `mem.addr` in the `always_after` block, that is 
+applied at the end of every cycle: `mem.addr = wide_addr[0,11];`. It is also output
+from the algorithm to the SOC: `output! uint12 wide_addr(0)`.
+
+### Load/store
+
 That's it for non load/store instructions. Now let us go back to `if (dec.load | dec.store)`
-and see how load/store are handled. Because the Ice-V is specialized for BRAM, we
+and see how a load/store is handled. Because the Ice-V is specialized for BRAM, we
 know all memory transactions take a single cycle. While we'll have to account
 for this cycle, this is a big luxury compared to having to wait for an unknown
 number of cycles an external memory controller. 
 
-When reaching `.4` we first setup the address of the load/store. This address
+When reaching marker `.4` we first setup the address of the load/store. This address
 comes from the ALU:
 ```c
 // memory address from wich to load/store
 wide_addr = alu.n >> 2;
 ```
+The sift by two is due to the fact that computed addresses are in bytes, while 
+the memory interface addresses are in 32-bits words.
+
 Then, this is either a store or a load. If that is a store, we need to enable
-writing to memory. The memory is called `mem` and is a BRAM, given to the CPU: `algorithm rv32i_cpu( bram_port mem, ... )`. The BRAM hold 32 bits words at each address.
+writing to memory. The memory is called `mem` and is a BRAM, given to the CPU: `algorithm rv32i_cpu( bram_port mem, ... )`. The BRAM holds 32 bits words at each address.
 To enable writing we set its `wenable` member. However this BRAM has a specificity: 
 it allows a write mask. So `wenable` is not a single bit, but four bits, which 
 allows to selectively write any of the four bytes at each memory address. 
 
 And we need that! The RISC-V RV32I specification features load/store for bytes,
-16-bits and 32-bits words. That means that depending on the instruction (LB/LH/LW)
+16-bits and 32-bits words. That means that depending on the instruction (SB/SH/SW)
 we need to setup the write mask appropriately. This is done with this code:
 ```c
 // == Store (enabled below if dec.store == 1)
@@ -185,15 +279,16 @@ mem.wenable = ({4{dec.store}} & { { 2{dec.op[0,2]==2b10} },
                                   dec.op[0,1] | dec.op[1,1], 1b1 
                                 }) << alu.n[0,2];
 ```
-That might seem a bit cryptic, but what this does is depending on `dec.op[0,2]` (load type) and `alu.n[0,2]` (address lowest bits), it produces a write mask of the form `4b0001, 4b0010, 4b0100, 4b1000` (LB) or `4b0011, 4b1100` (LH) or `4b1111` (LW).
-As this may not be a store after all, a and between the mask and `dec.store` is
+That might seem a bit cryptic but what this does is to produces a write mask of the form `4b0001, 4b0010, 4b0100, 4b1000` (SB) or `4b0011, 4b1100` (SH) or `4b1111` (SW) depending on `dec.op[0,2]` (load type) and `alu.n[0,2]` (address lowest bits).
+As this may not be a store after all, an AND between the mask and `dec.store` is
 applied. The syntax `{4{dec.store}}` means that the bit `dec.store` is replicated
 four times to obtain a `uint4`.
 
-Next we wait one cycle for the memory transaction to occur in BRAM with `++:`.
+Next we wait one cycle for the memory transaction to occur in BRAM with `++:`. If
+that was a store we just wrote and we are done when we reach marker `5.` 
 
-When we reach `5.` if that was a store we are done. But if that was a load we need
-to store the result in a selected register. This is done by this code:
+If that was a load we just read from memory and now have to store the result 
+in the selected register. This is done by this code:
 ```c
 // == Load (enabled below if dec.load == 1)
 // commit result
@@ -205,7 +300,7 @@ Note that here we explicitly set `xregsA.wdata` this time, as the default (`writ
 is not what we want to write. `loaded` is set in the `always_before` block as:
 ```c
 // decodes values loaded from memory (used when dec.load == 1)
-uint32 aligned <:: mem.rdata >> {alu.n[0,2],3b000};
+uint32 aligned <: mem.rdata >> {alu.n[0,2],3b000};
 switch ( dec.op[0,2] ) { // LB / LBU, LH / LHU, LW
   case 2b00:{ loaded = {{24{(~dec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
   case 2b01:{ loaded = {{16{(~dec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
@@ -213,11 +308,12 @@ switch ( dec.op[0,2] ) { // LB / LBU, LH / LHU, LW
   default:  { loaded = {32{1bx}}; } // don't care (does not occur)
 }
 ```
-This selects the loaded value depending of whether a byte (LB/LBU), 16-bits (LH/LHU) or 32-bits (LW) were accessed. `mem.rdata` is the value right out of memory, and
+This selects the loaded value depending of whether a byte (LB/LBU), 16-bits (LH/LHU) or 32-bits (LW) were accessed (U indicates unsigned). `mem.rdata` is the value right out of memory, and
 it is shifted in `aligned` to be the part selected by the address lowest bits `alu.n[0,2]`.
-Note that `{alu.n[0,2],3b000}` is simply `alu.n[0,2] * 8` (a shift by three bits, or equivalently concatenating three 0 bits to the right).
 
-After the load/store is complete we restore the next instruction address, 
+> Note that `{alu.n[0,2],3b000}` is simply `alu.n[0,2] << 3` (a left shift by three bits is  equivalent to concatenating three 0 bits to the right).
+
+After the load/store is completed we restore the next instruction address, 
 so that the processor is ready to proceed with the next iteration after the break:
 ```c
 // restore address to program counter
@@ -229,8 +325,9 @@ break;
 And that's it! We have seen the entire processor logic. Let's now dive into some
 of the other components.
 
-### Register file
-We have mentioned that registers are store in the BRAM `xregsA`. But in fact, two
+### Register file(s)
+
+We have mentioned that registers are stored in the BRAM `xregsA`. But in fact, two
 BRAMS are used: `xregsA` and `xregsB`. They are declared at the beginning of the
 processor:
 ```c
@@ -291,15 +388,7 @@ equivalent to a normal assignment `=` in an `always_before` block).
 Finally we set all other outputs, telling the processor what to do with the instruction.
 For instance `write_rd := Rtype(instr).rd;` is the index of the destination 
 register for the instruction, while `no_rd := branch  | store  | (Rtype(instr).rd == 5b0)`
-indicates whether the write to the register is enabled or not. Btw, note the `Rtype(instr).rd`
-syntax which is using the bitfield declared at the top of the file:
-```c
-// bitfield for easier decoding of instructions
-bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, 
-                 uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
-```
-This is the same as writing `instr[7,5]` (5 bits width from bit 7), but in an 
-easier to read/modify format. 
+indicates whether the write to the register is enabled or not. 
 
 Also note the condition `Rtype(instr).rd == 5b0` in `no_rd`. That is because
 register zero, in the RISC-V spec, should always stay zero.
@@ -420,8 +509,8 @@ circuitries):
 decoder dec( instr <:: instr );
 // all integer operations (ALU + comparisons + next address)
 ALU alu(
-  pc          <:: pc,            dec         <: dec,
-  xa          <:: xregsA.rdata,  xb          <:: xregsB.rdata,    
+  pc          <:: pc,            dec        <: dec,
+  xa          <:  xregsA.rdata,  xb          <: xregsB.rdata,    
 );
 ```
 

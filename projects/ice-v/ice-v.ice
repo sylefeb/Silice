@@ -159,14 +159,14 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   // all integer operations (ALU + comparisons + next address)
   ALU alu(
     pc          <:: pc,            dec         <: dec,
-    xa          <:: xregsA.rdata,  xb          <:: xregsB.rdata,    
+    xa          <:  xregsA.rdata,  xb          <: xregsB.rdata,    
   );
 
   // shall the CPU jump to a new address?
-  uint1 do_jump    <:: dec.jump | (dec.branch & alu.j);
+  uint1 do_jump    <:  dec.jump | (dec.branch & alu.j);
 
-  // what do we write in register? (pc or alu, load is handled separately)
-  int32 write_back <:: do_jump       ? (next_pc<<2) 
+  // what do we write in register? (pc, alu or val, load is handled separately)
+  int32 write_back <:  do_jump       ? (next_pc<<2) 
                      : dec.storeAddr ? alu.n[0,$addrW$]
                      : dec.storeVal  ? dec.val
                      : alu.r;
@@ -178,7 +178,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   // Default values are overriden from within the algorithm loop.
   always_before {
     // decodes values loaded from memory (used when dec.load == 1)
-    uint32 aligned <:: mem.rdata >> {alu.n[0,2],3b000};
+    uint32 aligned <: mem.rdata >> {alu.n[0,2],3b000};
     switch ( dec.op[0,2] ) { // LB / LBU, LH / LHU, LW
       case 2b00:{ loaded = {{24{(~dec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
       case 2b01:{ loaded = {{16{(~dec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
@@ -224,7 +224,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
     alu.trigger = 1;
 
-    while (1) { // decode + ALU occur during the cycle entering the loop
+    while (1) { // decode + ALU refresh during the cycle entering the loop
 
       // this operations loop allows to wait for ALU when needed
       // it is built such that no cycles are wasted    
@@ -253,6 +253,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
         wide_addr      = next_pc;
         // exit the operations loop
         break;
+        //  intruction read from BRAM and write to registers 
+        //  occurs as we jump back to loop start
 
       } else {
         // commit result
