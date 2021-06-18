@@ -3,12 +3,11 @@
 > __Disclaimer:__
 > The techniques presented here fall within the domain of [“formal verification”](http://www.clifford.at/papers/2017/smtbmc-sby/slides.pdf), 
 > and more precisely “property checking”.
-> These methods would only provide a *proof* a correctness if the space of possible outcomes is exhaustively search. In practice, there are bounds
+> These methods would only provide a *proof* a correctness if the space of possible outcomes is exhaustively searched. In practice, there are bounds
 > on how long the solver will try to find flaws in the design, so a design that *passes* is not *proven*: it may still not be correct at any time in any situation.
 > But if it fails, it is flawed!
 > For example, performing a BMC with a very low depth parameter may result in a passing design, even if flawed
 > (e.g. no false assertion has been reached yet, therefore nothing is incorrect, leading to a passing test).
-
 
 ## Table of contents
 
