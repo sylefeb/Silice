@@ -93,22 +93,23 @@ algorithm ALU(
   uint1 a_eq_b    <: a_minus_b[0,32] == 0;
 
   always {
-    uint1 dir(0); int32 shift(0);
+    int32 shift(0);
 
     // ====================== ALU
     // shift (one bit per clock)
-    dir     = dec.op[2,1];
     shamt   = working ? shamt - 1                    // decrease shift counter
                       : ((dec.aluShift & trigger) // start shifting?
                       ? __unsigned(b[0,5]) : 0);
     if (working) {
       // shift one bit
-      shift = dir ? (dec.negShift ? {r[31,1],r[1,31]} 
-                  : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};      
+      shift = dec.op[2,1] ? (dec.negShift ? {r[31,1],r[1,31]} 
+                          : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};      
     } else {
       // store value to be shifted
       shift = a;
     }
+    // are we still working? (shifting)
+    working = (shamt != 0);
     // all ALU operations
     switch (dec.op) {
       case 3b000: { r = dec.sub ? a_minus_b : a + b; }         // ADD / SUB
@@ -117,8 +118,6 @@ algorithm ALU(
       case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
       case 3b111: { r = a & b;  } // AND
     }      
-    // are we working? (shifting)
-    working = (shamt != 0);
 
     // ====================== Comparator for branching
     switch (dec.op) {
@@ -157,11 +156,10 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
   // decoder
   decoder dec( instr <:: instr );
-
   // all integer operations (ALU + comparisons + next address)
   ALU alu(
-    pc          <: pc,            dec         <: dec,
-    xa          <: xregsA.rdata,  xb          <: xregsB.rdata,    
+    pc          <:: pc,            dec         <: dec,
+    xa          <:: xregsA.rdata,  xb          <:: xregsB.rdata,    
   );
 
   // shall the CPU jump to a new address?

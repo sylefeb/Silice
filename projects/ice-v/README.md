@@ -380,20 +380,94 @@ can be performed in one cycle but at the expense of a large circuit (many LUTs!)
 Instead, we want a compact design. So the rest of the code in the ALU describes
 a shifter shifting one bit per cycle. Here it is:
 ```c
-// shift (one bit per clock)
-dir     = dec.op[2,1];
-shamt   = working ? shamt - 1                    // decrease shift counter
-                  : ((dec.aluShift & trigger) // start shifting?
-                  ? __unsigned(b[0,5]) : 0);
-if (working) {
-  // shift one bit
-  shift = dir ? (dec.negShift ? {r[31,1],r[1,31]} 
-              : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};      
-} else {
-  // store value to be shifted
-  shift = a;
-}
+  int32 shift(0);
+  // shift (one bit per clock)
+  shamt   = working ? shamt - 1                    // decrease shift counter
+                    : ((dec.aluShift & trigger) // start shifting?
+                    ? __unsigned(b[0,5]) : 0);
+  if (working) {
+    // shift one bit
+    shift = dec.op[2,1] ? (dec.negShift ? {r[31,1],r[1,31]} 
+                        : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};      
+  } else {
+    // store value to be shifted
+    shift = a;
+  }
+  // are we still working? (shifting)
+  working = (shamt != 0);  
 ```
+The idea is that `shift` is the result of shifting `r` by one bit 
+each cycle. `r` is updated with `shift` in the ALU switch case: 
+`case 3b001: { r = shift; } case 3b101: { r = shift; }`. 
+At the beginning, the shifter is not `working` and `shift` is assigned `a`. 
+After that, `shift` is `r` shifted one bit with proper signedness: `shift = dec.op[2,1] ? ...`.
+
+`shamt` is the number of bits by which to shift. It starts with the amount read
+from the decoder `((dec.aluShift & trigger) ? __unsigned(b[0,5]) : 0)` and then
+decreases by one each cycle when `working`. Not how `trigger` is used in the
+test. This ensures the shifter only starts at the right cycle, when `alu.trigger`
+is pulsed to `1` by the processor.
+
+And voilà, our ALU is complete! We are almost done, but one important aspect
+remains. How do we make all this work together?
+
+### Plugging the decoder and the ALU to the processor
+
+The decoder and ALU are instantiated within the processor (they are internal
+circuitries):
+```c
+// decoder
+decoder dec( instr <:: instr );
+// all integer operations (ALU + comparisons + next address)
+ALU alu(
+  pc          <:: pc,            dec         <: dec,
+  xa          <:: xregsA.rdata,  xb          <:: xregsB.rdata,    
+);
+```
+
+The only thing the decoder gets as input is the current instruction (does
+not change during the processor loop iteration), while the ALU gets
+the program counter `pc` and the two registers `xregsA.rdata` and `xregsB.rdata`.
+Their value is also constant during the processor loop iteration, this is guaranteed
+by 
+```c
+// keep reading registers at rs1/rs2 by default
+// so that decoder and ALU see them for multiple cycles
+xregsA.addr    = Rtype(instr).rs1;
+xregsB.addr    = Rtype(instr).rs2;  
+```
+in the `always_before` block of the processor.
+
+Both decoder and ALU work at all times. However, we have seen when studying the 
+processor that both have to operate one after the other within a single cycle:
+```c
+    while (1) { // decode + ALU occur during the cycle entering the loop
+```
+
+How is this achieved? By carefully selecting how the input and output are registered
+between them. First, the instruction is wire to the decoder using the `<::` operator.
+This means the decoder inputs the instruction as it is *before* modified by the processor
+in the cycle. During the cycle, the data flows through the decoder and reaches
+its outputs. The decoder outputs are all declared as `output!`. The exclamation
+mark indicates that the outputs are not registered: they are directly the output
+of the decoder circuit. Then, when the ALU is wired to the decoder, the ALU sees
+what the decoder did during the same cycle. Instead the ALU outputs are all `output`, without
+the `!`. These outputs are registered, so the processor will see the result only 
+at the start of the next cycle. This leaves enough time for the data to flow through
+the ALU circuit (which is somewhat complex), ensuring we obtain a reasonable maximum
+frequency. Some other designs, such as the [fire-v](../fire-v/doc/fire-v.md), choose
+to put decoder and ALU in separate cycles. This is simple to achieve here by changing
+the outputs of the decoder for `output`, but then the processor has to account for 
+the extra cycle being introduced.
+
+For all details on this (important!) topic [please refer to the dedicated page](../../learn-silice/AlgoInOuts).
+
+And that's it! There are a few more details I'll likely add below in the future,
+but we have seen 90% of the processor operations!
+
+## Implementation details
+
+To be written ...
 
 ## Links
 
