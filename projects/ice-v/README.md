@@ -1,19 +1,20 @@
 # The Ice-V: a simple, compact RISC-V RV32I implementation in Silice
 
-**TL;DR** A small CPU that can come in handy, a detailed code walkthrough, a good place to start learning about both Silice and RISC-V.
+**TL;DR** A small CPU design that can come in handy, a detailed code walkthrough, a good place to start learning about both Silice and RISC-V.
 
 ## What is this?
 
-The Ice-V is a processor that implements the simplest [RISC-V RV32I specification](https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf). It is simple and compact (~ 170 lines without comments), yet demonstrates many features of Silice and can be useful in simple designs. It is specialized to execute code from BRAM, where the code is baked into the BRAM upon synthesis (can be a boot loader then loading from other sources). 
+The Ice-V is a processor that implements the [RISC-V RV32I specification](https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf). It is simple and compact (~170 lines without comments), demonstrates many features of Silice and can be a good companion in projects. It is specialized to execute code from BRAM, where the code is baked into the BRAM upon synthesis (can be a boot loader later loading from other sources). 
 
 It is easily hackable and would be quite easy to extend to boot from SPI, execute code from a RAM, and connect to various peripherals. The example drives LEDs and an external SPI screen.
 
-The version here runs out of the box on the IceStick ice40 1HK.
+The version here runs out of the box on the IceStick ice40 1HK, and can adapted to other boards with minimum effort.
 
 ## Features
 - implements the RV32I specifications
+- runs code compiled with gcc RISC-V (build scripts included)
 - executes instructions in 3 cycles, load/store in 4
-- less than 1K LUTs with SPI-screen controller
+- less than 1K LUTs
 - validates at around 70 Mz on the IceStick
 - < 300 lines of commented code (~ 170 without comments)
 - 1 bit per cycle shifter
