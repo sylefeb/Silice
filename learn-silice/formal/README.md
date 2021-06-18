@@ -1,7 +1,7 @@
 # Verifying designs written in Silice
 
 > __Disclaimer:__
-> The techniques presented here fall within the domain of [“formal verification”](http://www.clifford.at/papers/2017/smtbmc-sby/slides.pdf), 
+> The techniques presented here fall within the domain of “formal verification”, 
 > and more precisely “property checking”.
 > These methods would only provide a *proof* a correctness if the space of possible outcomes is exhaustively searched. In practice, there are bounds
 > on how long the solver will try to find flaws in the design, so a design that *passes* is not *proven*: it may still not be correct at any time in any situation.
@@ -40,75 +40,72 @@
 Getting started with design verification requires a bit of knowledge about the methods and programs that are used.
 Please make sure that all the programs required are installed!
 
+For more information on formal verification, see also this presentation on [Yosys and Symbiyosys](http://www.clifford.at/papers/2017/smtbmc-sby/slides.pdf).
+
 <!-- Explain: BMC, temporal induction (what it does + input parameters -- with interactive drawings) -->
-### Verification methods
+### **Verification methods**
 
-#### Bounded Model Checking (BMC)
+#### *Bounded Model Checking (BMC)*
 
-A Bounded model Checking (or BMC for short) of depth `k` is a method trying to ensure that, for `i` going from `0` to `k - 1`,
-if the state `i` is valid (where “valid” means that all assertions hold under all assumptions), then all of its successor states `i + 1`
-must also be valid.
+A Bounded model Checking (or BMC for short) of depth `k` is a method trying to verify that for `i` going from `0` to `k - 1`,
+if the state `i` is valid -- where “valid” means that all assertions hold under all assumptions -- then all of its successor states `i + 1` are also valid.
 
-In other words: starting from a valid state does not drive us through an invalid state in `k` steps.
+In other words, if verifies that starting from a valid state no invalid state is reached in `k` steps.
 
 ![bmc](./bmc.png)
+*Figure from [Formal Verification with SymbiYosys and Yosys-SMTBMC](http://www.clifford.at/papers/2017/smtbmc-sby/slides.pdf) by Claire Wolf.*
 
-#### Temporal k-induction
+#### *Temporal k-induction*
 
-A temporal k-induction is the opposite of the spectrum compared to the BMC. It states that, for any valid state `s`,
-it must be preceded by a sequence of maximum `k` valid states.
+A temporal k-induction takes the opposite point of view. It verifies that any valid state `s` is preceded by a sequence of (at most) `k` valid states.
 
 ![k-induction](./tind.png)
+*Figure from [Formal Verification with SymbiYosys and Yosys-SMTBMC](http://www.clifford.at/papers/2017/smtbmc-sby/slides.pdf) by Claire Wolf.*
 
-### Programs needed
+### **Programs needed**
 
-Symbiyosys is a front-end for Yosys to make formal verification easier.
-As such, you will also need Yosys, which you can get [here](https://github.com/YosysHQ/yosys).
-Note that, if you choose to build it yourself, you may need to create a symlink for yosys-abc,
-depending on whether you installed it with yosys or on its own (because some programs expect a `yosys-abc` executable,
-which isn't created if you have an external ABC solver).
-You can get Symbiyosys [here](https://symbiyosys.readthedocs.io/en/latest/).
+This tutorial assumes that you have the FPGA toolchain already installed, if not please see [getting started](../../GetStarted.md).
+In addition you have to install [Symbiyosys](https://symbiyosys.readthedocs.io/en/latest/), a front-end for Yosys to facilitate formal verification.
 
-You will also need the SMT solver Yices2, which is available [here](https://yices.csl.sri.com/).
-This solver handles BMC and cover tests quite fine, and fast enough (compared to e.g. z3).
+> **Note:** verify that *yosys-abc* is in the path ; if you build yosys yourself, you may need to create a symlink to it.
+
+In addition to Yosys and Symbiyosys, you have to install the SMT solver Yices2, which is available [here](https://yices.csl.sri.com/). This solver handles BMC and cover tests quite fine, and fast enough (compared to e.g. z3).
 
 <!-- Introduce the formal board, what it does, how it is useful -->
-## Easy verification with the formal board
+## Easy verification with `make formal`
 
-Because writing a `.sby` file to instruct symbiyosys to work correctly (together with some needed SMT constraints files)
-is a pain, we chose to develop a Silice board in charge of generating every needed file and running Symbiyosys with correct parameters.
+Running Symbiyosys requires writing a `.sby` file, and in our case SMT constraints files. This can be quite tedious, but worry not! Silice build system takes care of everything for you and makes it very easy to apply formal verification to your designs.
 
-It also runs Symbiyosys in a minimal interface, because it generates *a lot* of logs.
+The build system also presents a summary of Symbiyosys logs for easier interpretation
+of the results, linking them to your Silice code 
 
-If you feel brave enough, or feel like you missed something that the interface should have reported, you may dive into the full
-log file named `logfile.txt` generated in the build folder.
-Please note however that you may also have to dive into the Verilog code to fetch the correct positions in the Silice files.
+> **Note:** All Symbiyosys logs are kept if in-depth analysis is later required: see
+`logfile.txt` file in the build directory.
 
-In case you want to modify the file `formal.sby` (which is also generated), you will have to run Symbiyosys by hand
-(re-running the formal board will override all your modifications) using the command `sby -f formal.sby`.
-The `-f` option indicates that we are okay discarding the old results of previous runs.
+> **Note:** In case you want to modify the file `formal.sby` (which is also generated), you will have to run Symbiyosys by hand using the command `sby -f formal.sby` (re-running the formal board will override all your modifications). The `-f` option indicates that we are okay discarding the old results of previous runs.
 
 <!-- Describe implemented features (#assert, #assume, #restrict, #cover, #wasat, #stable, #stableinput, #mode, #depth, #timeout, algorithm#) -->
 ## Verifying designs, what to know and how to use 
 
-In this section, we will describe implemented features for design verification, through an interactive design example
-that we will complete at each step.
-Please note that an algorithm that can be verified is marked with a `#`, like `algorithm#`, and is necessarily output 
-in the end design.
-Because this behavior may not be correct (and can be space-consuming, even though most tools will optimize those away because
-they are never instantiated), it is a good practice to surround those algorithms with `$$if FORMAL` blocks.
-The `FORMAL` macro is automatically defined by the formal board, therefore you do not need to write `$$FORMAL=1` anywhere.
+In this section, we describe Silice features for design verification, and go 
+through an actual design example, completing each step.
 
-We will try to verify the following property on the unsigned 8-bit integer division implemented in [common/divint_std.ice](../common/divint_std.ice): `x ÷ x = 1`.
-We can also verify [common/divint_any.ice](../common/divint_any.ice) with this algorithm but a simple `include` needs to be changed for this to work.
-The base algorithm skeleton is this:
+Throughout Silice the `#` symbol indicates something related to formal verification.
+
+For instance, an algorithm that can be verified is marked with a `#`, like `algorithm#`. It is likely that you may not want to always include these algorithms
+in your design, in which case it is a good practice to surround those algorithms with `$$if FORMAL then ... end` blocks. The `FORMAL` macro is automatically defined by the formal board.
+
+Next, we are going to verify the unsigned 8-bit integer division implemented in [common/divint_std.ice](../common/divint_std.ice). Well, in fact a previous version of it as we've found a bug thanks to formal verification!
+To make this short, we will only verify the following property: `x ÷ x = 1`. 
+
+First, we write the skeleton of the algorithm that performs the verification (think *unit test*):
 ```c
 $$div_width=8
 $$div_unsigned=1
 $include('../common/divint_std.ice')
 
-// Having no `main` algorithm somehow breaks the compiler...
-algorithm main(output uint8 leds) {}
+// Silice needs a `main` algorithm
+algorithm main(output uint8 leds) { /*do nothing*/ }
 
 $$if FORMAL then
 algorithm# x_div_x_eq_1(input uint$div_width$ x) {
@@ -125,30 +122,33 @@ algorithm# x_div_x_eq_1(input uint$div_width$ x) {
 $$end
 ```
 
-### Algorithm modifiers for verification
+> **Note:** We can also verify [common/divint_any.ice](../common/divint_any.ice) with this algorithm by changing the `include` at the top.
+
+### *Algorithm modifiers for verification*
 
 Our algorithm skeleton looks great, but...it doesn't verify anything.
 It just computes `x ÷ x` for any `x` it is given, and that's it.
 The result is even discarded because it is put in a local variable declared at the beginning of the algorithm, which is therefore
 not accessible outside of it.
 
-But before trying to verify anything, we must sit down and study our algorithm:
+But before trying to verify anything, we must sit down and study our algorithm. In particular,
+to setup the property checker we need an estimation of the number of cycles that the
+algorithm takes to complete.
 
 - The standard division takes about 1 cycle per bit to complete, so about 8 cycles in our case;
-- Our algorithm only performs this division for now, so it takes 2 more cycles (for the algorithm “call”) to complete;
+- Our algorithm only performs this division for now, so it takes 2 more cycles for the algorithm call;
 - Because we will add some verifying code, this will take some more cycles (around 2 in this case, trust me);
 
-All this information leads us to the fact that the algorithm `x_div_x_eq_1` takes about 12 cycles to fully complete.
+All this leads us to the fact that the algorithm `x_div_x_eq_1` takes about 12 cycles to fully complete.
 It is usually a good idea to round up this value to the next 5, which gives 15 in this case.
 This allows us to get an error margin on the number of cycles we computed (or guessed?).
 
-> __Note:__ overestimating the number of cycles should not hurt the verification process, i.e. putting 20 instead of 15 does not break the verification.
+> __Note:__ overestimating the number of cycles should not hurt the verification process, i.e. putting 20 instead of 15 works as well. Underestimating may lead to the test passing when the algorithm is actually flawed.
 
-Let's talk about what we call algorithm modifiers.
+To setup the property checker we use algorithm *modifiers*:
 
-#### The `#depth` modifier
+#### *The `#depth` modifier*
 
-Obviously, we did not compute the number of cycles needed for the algorithm to complete for nothing.
 Remember the `k` parameter for the BMC or the temporal induction?
 This specific parameter can be specified on a per-algorithm basis using the `#depth` modifier.
 When doing a cover test, it corresponds to the number of cycles to take in account.
@@ -174,7 +174,7 @@ algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=15> {
 $$end
 ```
 
-#### The `#timeout` modifier
+#### *The `#timeout` modifier*
 
 <details><summary>Click me to reveal the spoiler (please don't)</summary>
 
@@ -182,14 +182,11 @@ $$end
 
 </details>
 
-Sometimes, verifying an algorithm takes too much time because there are so much constraints and the solver struggles with them.
-Or there is an infinite loop somewhere that a verification statement depends on, which may lead to complex constraints to solve.
-Or you may even want to restrict the maximum time an algorithm is allowed to “run” for before failing.
+Sometimes, verifying an algorithm takes too much time as too many constraints burden the solver.
+There can also be an infinite loop somewhere that a verification statement depends on. 
+For these reasons you may want to restrict the maximum time a verification algorithm is allowed to “run” for before declared as failing.
 
-In any case, it is needed to be able to customize the timeout also on a per-algorithm basis.
-This is where the `#timeout` modifier comes in handy.
-Just like the `#depth` modifier, it takes a single integer as argument to specify the solver timeout (in seconds),
-and defaults to 120 if not specified.
+Therefore you can customize the timeout on a per-algorithm basis through the `#timeout` modifier. Just like the `#depth` modifier, it takes a single integer as argument to specify the solver timeout (in seconds), and defaults to 120 if not specified.
 
 > __Note:__ if your test algorithm times out, it *might* be a good idea to increase this parameter.
 > However, sometimes the algorithm may take too much time to be verified, because of complex generated constraints.
@@ -198,20 +195,17 @@ and defaults to 120 if not specified.
 > that it's alright and most probably is correct (else it would have failed already).
 > Obviously nothing can be concluded from a timeout, so it is up to you to decide.
 
-#### Choosing which method to use with the `#mode` modifier
+#### *Choosing which method to use with the `#mode` modifier*
 
-There are multiple ways to verify an algorithm: a simple BMC, a temporal induction and/or a cover test.
-All of these are not mutually exclusive (i.e. you may perform a BMC **and** a temporal induction).
+There are multiple ways to verify an algorithm: a simple BMC, a temporal induction and/or a cover test. All of these are *not* mutually exclusive (i.e. you may perform a BMC **and** a temporal induction).
 
-Just as for other modifiers, it is possible to use the `#mode` modifiers to specify what methods are used to verify an algorithm.
-It takes a `&` separated list of modes (either `bmc` to perform a BMC, `tind` for a temporal induction or `cover` for a cover test) as argument,
-and transforms it in order to satisfy those predicates:
+Just as with other modifiers, it is possible to use the `#mode` modifier to specify what methods are used to verify an algorithm.
+It takes a `&` separated list of modes  as argument (`bmc` to perform a BMC, `tind` for a temporal induction, `cover` for a cover test).
 
-- There is at most one of each mode in the list (i.e. `#mode = bmc & bmc` is interpreted as `#mode = bmc`).
-- Modes are sorted using the partial order `bmc ≺ tind ≺ cover`. 
+> **Note:** Modes are sorted using the partial order `bmc ≺ tind ≺ cover`. 
   This ensures that tests are always run in the same order no matter what happens.
   
-If not specified, the `#mode` modifier takes the singleton list `bmc` as a default argument.
+If not specified, the `#mode` modifier defaults to`bmc`.
 
 Going back to our example, we would like to perform both a BMC and a temporal induction.
 The code thus looks like this:
@@ -235,10 +229,10 @@ algorithm# x_div_x_eq_1(input uint$div_width$ x)
 $$end
 ```
 
-### Assertions and assumptions
+### **Assertions and assumptions**
 
 Great!
-Now that we learned about all the available algorithm modifiers, it's time to verify that the division works correctly as expected.
+Now that we have learned about all the available algorithm modifiers, it's time to verify that the division works correctly as expected (spoiler: *it does not*).
 Remember that we want to check that `x ÷ x = 1`.
 This is an undeniable fact of modern mathematics (assuming `÷` is the integral division only returning the quotient, not the remainder;
 else we would have had to write `x ÷ x = (q=1, r=0)`).
@@ -272,17 +266,17 @@ $$end
 ```
 
 But what if `x = 0`?
-Anything divided by `0` is supposed to be undefined (turns out that `0 ÷ 0 = 255` when executed using Icarus).
+Anything divided by `0` is supposed to be undefined (turns out that `x ÷ 0 = 255` when this design is simulated using Icarus).
 
-Luckily, the division algorithm already restricts this case to never happen using the `#restrict` construct.
-But we would like to write great tests, and not necessarily rely on any external verification.
+The division algorithm could already restricts this case to never happen by using the `#restrict` construct. But this older version did not ... so we will add this constraint.
 Because `x ÷ x = 1` only if `x ≠ 0`, we can provide the assumption that `x ≠ 0` in our test.
-This makes so that Symbiyosys will not try to find counter-examples where `x = 0`.
+This makes it so that Symbiyosys will not try to find counter-examples where `x = 0`.
 
-An assumption, much like a restriction, is introduced in the same way an assertion is, replacing `assert` with respectively `assume` and `restrict`.
-The only difference between an assumption and a restriction lies in this property:
+We add an assumption with the `#assume` construct. Assume and
+restrict are quite similar. The only difference between them lies in this property:
 
-> If any assertion depends on an assumption, use `#assume`, else use `#restrict`.
+> If any assertion depends on an assumption use `#assume`, else use `#restrict`.
+In doubt use `#assume`.
 
 In our test algorithm, the assertion depends on the assumption that `x ≠ 0`, therefore it must be modified as follows:
 ```c
@@ -298,8 +292,7 @@ algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=15, #mode=bmc & tind> {
   div$div_width$ div;
   uint$div_width$ result = uninitialized;
  
-  #assume(x != 0);
-  // Please don't consider states leading to `0 ÷ 0`...
+  #assume(x != 0); // Please don't consider states leading to `0 ÷ 0`...
  
   (result) <- div <- (x, x);
   
@@ -308,7 +301,7 @@ algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=15, #mode=bmc & tind> {
 $$end
 ```
 
-### Stability checks
+### **Stable values**
 
 <details><summary>Click me to reveal the spoiler (please don't)</summary>
 
@@ -319,17 +312,15 @@ $$end
 
 </details>
 
-Our verification algorithm works...but only if the value of the parameter `x` does not change while the algorithm is running
-(which can happen, and in fact Symbiyosys will try to!).
+Our verification algorithm works ... but it will also try to change the parameter `x` while the division is running.
 
-To prevent this, there is a special construct equivalent to saying that an input is assumed to be stable (i.e. to not change).
-If you did not already infer its namme, it is `#stableinput`.
-Note that it only takes a single identifier as an argument, and works only if this identifier is bound to an `input` cell.
+To prevent this, there is a special construct equivalent to saying that an input is assumed to be stable (i.e. to not change). If you did not already infer its name, it is `#stableinput`.
+Note that it only takes a single identifier as an argument, and works only if this identifier is bound to an `input`.
 
 There is also a counterpart to *assert* the stability of an expression, where “stability” means that the expression is expected not to change in the current state 
 (or always, if in an `always` block).
 
-Let us now also assume the stability of our input variable `x`, by modifying the algorithm as follows:
+To assume the stability of our input variable `x` we modify the algorithm as follows:
 ```c
 $$div_width=8
 $$div_unsigned=1
@@ -354,7 +345,15 @@ algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=15, #mode=bmc & tind> {
 $$end
 ```
 
-### State checking
+### **Verifying**
+
+Alright, we are now ready to verify that this division is correct!
+
+
+
+## Other verification features
+
+### **State checking**
 
 > *But where did I come from?*
 
@@ -403,7 +402,7 @@ Please be aware that an unreached `#cover` statement is considered a failure to 
 by Symbiyosys and the formal board.
 
 <!-- Some quick examples of verification -->
-## Examples
+## Other examples
 
 This directory contains several example of verifying code, for different algorithms:
 
