@@ -56,19 +56,10 @@ algorithm decoder(
   storeVal     := LUI     | Cycles;                  // store value from decoder
   val          := LUI ? imm_u : cycle;               // value from decoder
   cycle        := cycle + 1;                         // increment cycle counter
-  // select immediate for the next address computation
-  always {
-    switch (opcode)
-    {
-      case 5b00101: { addrImm = imm_u;  } // AUIPC
-      case 5b11011: { addrImm = imm_j;  } // JAL
-      case 5b11000: { addrImm = imm_b;  } // branch
-      case 5b11001: { addrImm = imm_i;  } // JALR
-      case 5b00000: { addrImm = imm_i;  } // load
-      case 5b01000: { addrImm = imm_s;  } // store
-      default:  { addrImm = {32{1bx}};  } // don't care
-    }        
-  }
+  // select immediate for the next address computation 
+  addrImm := (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+          |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
+          |  (store  ? imm_s : 32b0);
 }
 
 // --------------------------------------------------
@@ -101,8 +92,7 @@ algorithm ALU(
   uint1 a_eq_b    <: a_minus_b[0,32] == 0;
 
   always {
-    uint1 dir(0);
-    int32 shift(0);
+    uint1 dir(0); int32 shift(0);
 
     // ====================== ALU
     // shift (one bit per clock)

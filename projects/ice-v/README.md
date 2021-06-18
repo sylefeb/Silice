@@ -2,7 +2,14 @@
 
 ## What is this?
 
-The Ice-V is a processor that implements the RiscV RV32I specification. It is simple and compact, yet demonstrates many features of Silice and can be useful in simple designs. It is specialized to execute code from BRAM, where the code is backed into the BRAM upon synthesis. However, it would be quite easy to extend the Ice-V to boot from SPI or execute code from a RAM.
+The Ice-V is a processor that implements the RiscV RV32I specification. It is simple and compact, yet demonstrates many features of Silice and can be useful in simple designs. It is specialized to execute code from BRAM, where the code is baked into the BRAM upon synthesis. However, it would be quite easy to extend the Ice-V to boot from SPI or execute code from a RAM.
+
+## Features
+
+- executes instructions in 3 cycles, load/store in 4
+- < 300 lines of commented code (~ 170 without comments)
+- 1 bit per cycle shifter
+- 32 bits RDCYCLE
 
 ## Testing
 
