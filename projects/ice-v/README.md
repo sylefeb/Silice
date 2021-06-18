@@ -566,14 +566,14 @@ which is somewhat complex.
 
 > Indeed, nextpnr critical path confirms that it occurs through the ALU.
 
-Some other designs, such as the [fire-v](../fire-v/doc/fire-v.md), choose
-to put decoder and ALU in separate cycles to obtain a higher frequency.
-
 And that's it! There are a few more details I'll likely add below in the future,
 but we have seen 90% of the processor operations!
 
 > For all details on the (important!) topic of algorithm bindings and timings [please refer to the dedicated page](../../learn-silice/AlgoInOuts).
 
+> Some other designs, such as the [fire-v](../fire-v/doc/fire-v.md), choose
+to put decoder and ALU in separate cycles to obtain a higher frequency. The Ice-V
+can also be modified to experiment with such an approach, feel free to experiment!
 
 ## Other implementation details
 
