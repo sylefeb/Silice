@@ -25,8 +25,8 @@ algorithm Execute(
   input  uint32 instr,   input  uint$addrW$ pc, // instruction and prog. counter
   input  int32  xa,      input  int32       xb, // registers
   input  uint1  trigger, // pulsed high when the ALU should start
-  output uint3  op,      output uint5  write_rd, output  uint1   no_rd, 
-  output uint1  jump,    output uint1  load,     output  uint1   store,  
+  output uint3  op,      output uint5  write_rd, output  uint1  no_rd, 
+  output uint1  jump,    output uint1  load,     output  uint1  store,  
   output int32  val,     output uint1  storeVal, output  uint1  working(0),
   output uint32 n,       output uint1  storeAddr, // next address adder
   output uint1  intop,   output int32  r,         // integer operations
@@ -65,7 +65,7 @@ algorithm Execute(
 
   // ==== select immediate for the next address computation
   // 'or trick' inspired from femtorv32
-  int32 addrImm <:  (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+  int32 addr_imm <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
                  |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
                  |  (store  ? imm_s : 32b0);
   // ==== set decoder outputs depending on incoming instructions
@@ -104,11 +104,11 @@ algorithm Execute(
 
     // all ALU operations
     switch (op) {
-      case 3b000: { r = sub ? a_minus_b : xa + b; }        // ADD / SUB
+      case 3b000: { r = sub ? a_minus_b : xa + b; }            // ADD / SUB
       case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
-      case 3b100: { r = xa ^ b;  } case 3b110: { r = xa | b;  }// XOR / OR
+      case 3b100: { r = xa ^ b; } case 3b110: { r = xa | b;   }// XOR / OR
       case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
-      case 3b111: { r = xa & b;  }    // AND
+      case 3b111: { r = xa & b; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
     }      
 
@@ -121,7 +121,7 @@ algorithm Execute(
     //                                   ^^^^^^^ negates comparator result
 
     // ====================== Next address adder
-    n = addr_a + addrImm;
+    n = addr_a + addr_imm;
 
   }
   
@@ -147,8 +147,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
 
   // decoder + ALU, executes the instruction and tells processor what to do
   Execute exec(
-    instr <:: instr,         pc <:: pc,
-    xa    <:  xregsA.rdata,  xb <: xregsB.rdata,    
+    instr <:: instr, pc <:: pc, xa <: xregsA.rdata, xb <: xregsB.rdata
   );
 
   // The 'always_before' block is applied at the start of every cycle.
@@ -186,7 +185,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
                       | (exec.storeVal  ? exec.val            : 32b0)
                       | (exec.load      ? loaded              : 32b0)
                       | (exec.intop     ? exec.r              : 32b0);
-    xregsA.wdata   = write_back;
+    xregsA.wdata   = write_back;     
     xregsB.wdata   = write_back;     
     xregsB.wenable = xregsA.wenable; // xregsB written when xregsA is
     // always write to write_rd, else track instruction register
