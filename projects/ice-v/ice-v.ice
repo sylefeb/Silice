@@ -64,7 +64,7 @@ algorithm ALU(
 
   // select ALU and Comparator second input 
   int32 b           <: regOrImm ? (xb) : imm_i;
-  
+    
   // trick from femtorv32/swapforth/J1
   // allows to do minus and all comparisons with a single adder
   int33 a_minus_b <: {1b1,~b} + {1b0,xa} + 33b1;
@@ -83,8 +83,8 @@ algorithm ALU(
   cycle        := cycle + 1;                         // increment cycle counter
   
   always {
-    int32 shift(0);
-    uint1 j(0);
+    int32 shift = uninitialized;
+    uint1 j     = uninitialized;
 
     // ====================== ALU
     // shift (one bit per clock)
@@ -141,7 +141,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr(0) ) <onehot> {
   uint32 instr(0);
 
   // program counter
-  uint$addrW$ pc        = uninitialized;  
+  uint$addrW$ pc   = uninitialized;  
   uint$addrW$ next_pc <:: pc + 1; // next_pc tracks the expression 'pc + 1'
 
   // value that has been loaded from memory
