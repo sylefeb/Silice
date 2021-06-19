@@ -2,7 +2,7 @@
 
 **TL;DR** A small CPU design that can come in handy, a detailed code walkthrough, a good place to start learning about both Silice and RISC-V.
 
-**Please note:** The walkthrough is out of sync as I just made many improvements to the design. Will update soon!
+**Please note:** (2021-06-19) The walkthrough is out of sync as I just made many improvements to the design. Will update soon!
 
 ## What is this?
 
