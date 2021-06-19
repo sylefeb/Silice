@@ -43,20 +43,20 @@ algorithm Execute(
   int32 imm_s  <: {{20{instr[31,1]}},instr[25,7],instr[7,5]};
 
   // ==== decode opcode
-  uint5 opcode   <: instr[ 2, 5];
-  uint1 AUIPC    <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
-  uint1 JAL      <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
-  uint1 IntImm   <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
-  uint1 Cycles   <: opcode == 5b11100;  uint1 branch <: opcode == 5b11000;
-  uint1 regOrImm <: IntReg  | branch;                    // reg or imm in ALU?
-  uint1 pcOrReg  <: AUIPC   | JAL    | branch;           // pc or reg in next addr
-  uint1 sub      <: IntReg  & Rtype(instr).sign;         // subtract
-  uint1 aluShift <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
+  uint5 opcode    <: instr[ 2, 5];
+  uint1 AUIPC     <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
+  uint1 JAL       <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
+  uint1 IntImm    <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
+  uint1 Cycles    <: opcode == 5b11100;  uint1 branch <: opcode == 5b11000;
+  uint1 regOrImm  <: IntReg  | branch;                    // reg or imm in ALU?
+  uint1 pcOrReg   <: AUIPC   | JAL    | branch;           // pc or reg in addr?
+  uint1 sub       <: IntReg  & Rtype(instr).sign;         // subtract
+  uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
 
   // ==== select next address adder first input
-  int32 addr_a      <: pcOrReg ? __signed({20b0,pc[0,$addrW-2$],2b0}) : xa;
+  int32 addr_a    <: pcOrReg ? __signed({20b0,pc[0,$addrW-2$],2b0}) : xa;
   // ==== select ALU and Comparator second input 
-  int32 b           <: regOrImm ? (xb) : imm_i;
+  int32 b         <: regOrImm ? (xb) : imm_i;
     
   // ==== allows to do subtraction and all comparisons with a single adder
   // trick from femtorv32/swapforth/J1
@@ -67,9 +67,9 @@ algorithm Execute(
 
   // ==== select immediate for the next address computation
   // 'or trick' inspired from femtorv32
-  int32 addr_imm <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
-                 |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
-                 |  (store  ? imm_s : 32b0);
+  int32 addr_imm  <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+                  |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
+                  |  (store  ? imm_s : 32b0);
   // ==== set decoder outputs depending on incoming instructions
   // load/store?
   load         := opcode == 5b00000;   store        := opcode == 5b01000;   
@@ -116,8 +116,8 @@ algorithm Execute(
 
     // ====================== Comparator for branching
     switch (op[1,2]) {
-      case 2b00: { j = a_eq_b;  } /*BEQ*/  case 2b10: { j=a_lt_b;} /*BLT*/ 
-      case 2b11: { j = a_lt_b_u;} /*BLTU*/ default:   { j = 1bx; }
+      case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/ 
+      case 2b11:  { j = a_lt_b_u;} /*BLTU*/ default:   { j = 1bx; }
     }
     jump = (JAL | JALR) | (branch & (j ^ op[0,1]));
     //                                   ^^^^^^^ negates comparator result
@@ -171,7 +171,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
     // maintain write enable low (pulses high when needed)
     mem.wenable    = 4b0000; 
     // maintain alu trigger low
-    exec.trigger    = 0;
+    exec.trigger   = 0;
     // maintain register wenable low
     // (pulsed when necessary)
     xregsA.wenable = 0;
@@ -202,12 +202,12 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
   while (1) {
 
     // data is now available
-    instr       = mem.rdata;
-    pc          = mem.addr;
+    instr           = mem.rdata;
+    pc              = mem.addr;
 
 ++: // wait for register read (BRAM takes one cycle)
 
-    exec.trigger = 1;
+    exec.trigger    = 1;
 
     while (1) { // decode + ALU refresh during the cycle entering the loop
 
@@ -217,7 +217,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
       // load/store?        
       if (exec.load | exec.store) {   
         // memory address from wich to load/store
-        wide_addr = exec.n >> 2;
+        wide_addr   = exec.n >> 2;
         // == Store (enabled below if exec.store == 1)
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
