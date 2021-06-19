@@ -77,18 +77,15 @@ algorithm ALU(
 ) {
   uint5 shamt(0);
   
-  // select next address adder inputs
+  // select next address adder first input
   int32 next_addr_a <: dec.pcOrReg ? __signed({20b0,pc[0,10],2b0}) : xa;
-  int32 next_addr_b <: dec.addrImm;
-
-  // select ALU and Comparator inputs
-  int32 a         <: xa;
+  // select ALU and Comparator second input 
   int32 b         <: dec.regOrImm ? (xb) : dec.aluImm;
   
   // trick from femtorv32/swapforth/J1
   // allows to do minus and all comparisons with a single adder
-  int33 a_minus_b <: {1b1,~b} + {1b0,a} + 33b1;
-  uint1 a_lt_b    <: (a[31,1] ^ b[31,1]) ? a[31,1] : a_minus_b[32,1];
+  int33 a_minus_b <: {1b1,~b} + {1b0,xa} + 33b1;
+  uint1 a_lt_b    <: (xa[31,1] ^ b[31,1]) ? xa[31,1] : a_minus_b[32,1];
   uint1 a_lt_b_u  <: a_minus_b[32,1];
   uint1 a_eq_b    <: a_minus_b[0,32] == 0;
 
@@ -97,26 +94,28 @@ algorithm ALU(
 
     // ====================== ALU
     // shift (one bit per clock)
-    shamt   = working ? shamt - 1                    // decrease shift counter
-                      : ((dec.aluShift & trigger) // start shifting?
-                      ? __unsigned(b[0,5]) : 0);
     if (working) {
+      // decrease shift size
+      shamt = shamt - 1;
       // shift one bit
       shift = dec.op[2,1] ? (dec.negShift ? {r[31,1],r[1,31]} 
                           : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};      
     } else {
+      // start shifting?
+      shamt = ((dec.aluShift & trigger) ? __unsigned(b[0,5]) : 0);
       // store value to be shifted
-      shift = a;
+      shift = xa;
     }
-    // are we still working? (shifting)
+    // are we still shifting?
     working = (shamt != 0);
     // all ALU operations
     switch (dec.op) {
-      case 3b000: { r = dec.sub ? a_minus_b : a + b; }         // ADD / SUB
+      case 3b000: { r = dec.sub ? a_minus_b : xa + b; }        // ADD / SUB
       case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
-      case 3b100: { r = a ^ b;  } case 3b110: { r = a | b;    }// XOR / OR
+      case 3b100: { r = xa ^ b;  } case 3b110: { r = xa | b;  }// XOR / OR
       case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
-      case 3b111: { r = a & b;  } // AND
+      case 3b111: { r = xa & b;  }    // AND
+      default:    { j = {32{1bx}}; } // don't care
     }      
 
     // ====================== Comparator for branching
@@ -124,11 +123,11 @@ algorithm ALU(
       case 3b000: { j =  a_eq_b; }   case 3b001: { j = ~a_eq_b;   } // BEQ  / BNE
       case 3b100: { j =  a_lt_b; }   case 3b101: { j = ~a_lt_b; }   // BLT  / BGE 
       case 3b110: { j =  a_lt_b_u; } case 3b111: { j = ~a_lt_b_u; } // BLTU / BGEU
-      default:    { j = 1bx; }      
+      default:    { j = 1bx; } // don't care
     }
 
     // ====================== Next address adder
-    n = next_addr_a + next_addr_b;
+    n = next_addr_a + dec.addrImm;
 
   }
   
