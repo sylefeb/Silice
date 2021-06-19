@@ -121,10 +121,10 @@ algorithm ALU(
 
     // ====================== Comparator for branching
     switch (dec.op) {
-      case 3b000: { j =  a_eq_b; } case 3b001: { j = ~a_eq_b;   } // BEQ / BNE
-      case 3b100: { j =  a_lt_b; } case 3b110: { j =  a_lt_b_u; } // BLT / BLTU
-      case 3b101: { j = ~a_lt_b; } case 3b111: { j = ~a_lt_b_u; } // BGE / BGEU
-      default:    { j = 0; }
+      case 3b000: { j =  a_eq_b; }   case 3b001: { j = ~a_eq_b;   } // BEQ  / BNE
+      case 3b100: { j =  a_lt_b; }   case 3b101: { j = ~a_lt_b; }   // BLT  / BGE 
+      case 3b110: { j =  a_lt_b_u; } case 3b111: { j = ~a_lt_b_u; } // BLTU / BGEU
+      default:    { j = 1bx; }      
     }
 
     // ====================== Next address adder
