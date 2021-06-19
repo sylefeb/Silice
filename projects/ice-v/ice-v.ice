@@ -22,7 +22,7 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
 // - performs all integer computations
 
 algorithm ALU(
-  input   uint32 instr,     input   uint12 pc, // instruction and prog. counter
+  input   uint32 instr,     input   uint$addrW$ pc, // instruction and prog. counter
   input   int32  xa,        input   int32  xb, // registers
   input   uint1  trigger,   // pulses high when the ALU should start
   output  uint3  op,        output uint5   write_rd, output uint1   no_rd, 
@@ -48,19 +48,19 @@ algorithm ALU(
   uint1 JAL      <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
   uint1 IntImm   <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
   uint1 Cycles   <: opcode == 5b11100;  uint1 branch <: opcode == 5b11000;
-  uint1 regOrImm <: IntReg  | branch;                  // reg or imm in ALU?
-  uint1 pcOrReg  <: AUIPC   | JAL    | branch;         // pc or reg in next addr
-  uint1 sub      <: IntReg  & Rtype(instr).sign;       // sub request
+  uint1 regOrImm <: IntReg  | branch;                    // reg or imm in ALU?
+  uint1 pcOrReg  <: AUIPC   | JAL    | branch;           // pc or reg in next addr
+  uint1 sub      <: IntReg  & Rtype(instr).sign;         // subtract
   uint1 aluShift <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
 
   // select immediate for the next address computation
   // 'or trick' inspired from femtorv32
-  int32 addrImm <:  (AUIPC  ? imm_u : 32b0)  | (JAL         ? imm_j : 32b0)
+  int32 addrImm <:  (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
                  |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
                  |  (store  ? imm_s : 32b0);
 
   // select next address adder first input
-  int32 next_addr_a <: pcOrReg ? __signed({20b0,pc[0,10],2b0}) : xa;
+  int32 next_addr_a <: pcOrReg ? __signed({20b0,pc[0,$addrW-2$],2b0}) : xa;
 
   // select ALU and Comparator second input 
   int32 b           <: regOrImm ? (xb) : imm_i;
@@ -110,17 +110,16 @@ algorithm ALU(
       case 3b100: { r = xa ^ b;  } case 3b110: { r = xa | b;  }// XOR / OR
       case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
       case 3b111: { r = xa & b;  }    // AND
-      // default:    { r = {32{1bx}}; } // don't care
+      default:    { r = {32{1bx}}; }  // don't care
     }      
 
     // ====================== Comparator for branching
-    switch (op) {
-      case 3b000: { j =  a_eq_b; }   case 3b001: { j = ~a_eq_b;   } // BEQ  / BNE
-      case 3b100: { j =  a_lt_b; }   case 3b101: { j = ~a_lt_b; }   // BLT  / BGE 
-      case 3b110: { j =  a_lt_b_u; } case 3b111: { j = ~a_lt_b_u; } // BLTU / BGEU
-      default:    { j = 1bx; } // don't care
+    switch (op[1,2]) {
+      case 2b00: { j = a_eq_b;  } /*BEQ*/  case 2b10: { j=a_lt_b;} /*BLT*/ 
+      case 2b11: { j = a_lt_b_u;} /*BLTU*/ default:   { j = 1bx; }
     }
-    jump = (JAL | JALR) | (branch & j);
+    jump = (JAL | JALR) | (branch & (j ^ op[0,1]));
+    //                                   ^^^^^^^ negates comparator result
 
     // ====================== Next address adder
     n = next_addr_a + addrImm;
@@ -132,7 +131,7 @@ algorithm ALU(
 // --------------------------------------------------
 // The Risc-V RV32I CPU itself
 
-algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
+algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr(0) ) <onehot> {
   //                                           boot address  ^
 
   // register file, uses two BRAMs to fetch two registers at once
@@ -142,9 +141,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
   uint32 instr(0);
 
   // program counter
-  uint12 pc        = uninitialized;  
-  uint12 next_pc <:: pc + 1; // next_pc tracks the expression 'pc + 1' using the
-                             // value of pc from the last clock edge (<::)
+  uint$addrW$ pc        = uninitialized;  
+  uint$addrW$ next_pc <:: pc + 1; // next_pc tracks the expression 'pc + 1'
 
   // value that has been loaded from memory
   int32 loaded     = uninitialized;
@@ -157,7 +155,7 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
   // what do we write in register? (pc, alu or val, load is handled separately)
   int32 write_back <:  alu.jump      ? (next_pc<<2) 
-                     : alu.storeAddr ? alu.n[0,$addrW$]
+                     : alu.storeAddr ? alu.n[0,$addrW+2$]
                      : alu.storeVal  ? alu.val
                      : alu.r;
 
@@ -195,9 +193,9 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
 
   // the 'always_after' block is executed at the end of every cycle
   always_after { 
-    mem.addr       = wide_addr[0,11]; // track memory address in interface
-    xregsB.wdata   = xregsA.wdata;    // xregsB is always paired with xregsA
-    xregsB.wenable = xregsA.wenable;  // when writing to registers
+    mem.addr       = wide_addr;      // track memory address in interface
+    xregsB.wdata   = xregsA.wdata;   // xregsB is always paired with xregsA
+    xregsB.wenable = xregsA.wenable; // when writing to registers
   }
 
   // =========== CPU runs forever
@@ -227,8 +225,8 @@ algorithm rv32i_cpu( bram_port mem, output! uint12 wide_addr(0) ) <onehot> {
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
         mem.wenable = ({4{alu.store}} & { { 2{alu.op[0,2]==2b10} },
-                                          alu.op[0,1] | alu.op[1,1], 1b1 
-                                        }) << alu.n[0,2];
+                                              alu.op[0,1] | alu.op[1,1], 1b1 
+                                        } ) << alu.n[0,2];
 
 ++: // wait for data transaction
 

@@ -22,7 +22,7 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 // pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_asm.lua')
 
-$$addrW = 14
+$$addrW = 12
 
 // include the processor
 $include('ice-v.ice')
