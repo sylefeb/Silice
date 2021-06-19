@@ -28,6 +28,7 @@ algorithm ALU(
   output  uint3  op,        output uint5   write_rd, output uint1   no_rd, 
   output  uint1  jump,      output uint1   load,     output uint1   store,  
   output  uint1  storeAddr, output uint1   storeVal, output int32  val,
+  output  uint1  intop,
   output  int32  n,          // result of next address computation
   output  int32  r,          // result of ALU
   output  uint1  working(0), // are we busy performing integer operations?
@@ -53,15 +54,8 @@ algorithm ALU(
   uint1 sub      <: IntReg  & Rtype(instr).sign;         // subtract
   uint1 aluShift <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
 
-  // select immediate for the next address computation
-  // 'or trick' inspired from femtorv32
-  int32 addrImm <:  (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
-                 |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
-                 |  (store  ? imm_s : 32b0);
-
   // select next address adder first input
-  int32 next_addr_a <: pcOrReg ? __signed({20b0,pc[0,$addrW-2$],2b0}) : xa;
-
+  int32 addr_a      <: pcOrReg ? __signed({20b0,pc[0,$addrW-2$],2b0}) : xa;
   // select ALU and Comparator second input 
   int32 b           <: regOrImm ? (xb) : imm_i;
     
@@ -71,13 +65,19 @@ algorithm ALU(
   uint1 a_lt_b    <: (xa[31,1] ^ b[31,1]) ? xa[31,1] : a_minus_b[32,1];
   uint1 a_lt_b_u  <: a_minus_b[32,1];
   uint1 a_eq_b    <: a_minus_b[0,32] == 0;
- 
-  store        := opcode == 5b01000;  load         := opcode == 5b00000;
+
+  // select immediate for the next address computation
+  // 'or trick' inspired from femtorv32
+  int32 addrImm <:  (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+                 |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
+                 |  (store  ? imm_s : 32b0);
+
   // set decoder outputs depending on incoming instructions
-  op           := Rtype(instr).op;
-  write_rd     := Rtype(instr).rd;    
-  storeAddr    := AUIPC;
+  store        := opcode == 5b01000;  load         := opcode == 5b00000;
+  op           := Rtype(instr).op;    write_rd     := Rtype(instr).rd;    
   no_rd        := branch  | store  | (Rtype(instr).rd == 5b0); // no write back
+  intop        := (IntImm | IntReg);
+  storeAddr    := AUIPC;
   storeVal     := LUI     | Cycles;                  // store value from decoder
   val          := LUI ? imm_u : cycle;               // value from decoder
   cycle        := cycle + 1;                         // increment cycle counter
@@ -122,7 +122,7 @@ algorithm ALU(
     //                                   ^^^^^^^ negates comparator result
 
     // ====================== Next address adder
-    n = next_addr_a + addrImm;
+    n = addr_a + addrImm;
 
   }
   
@@ -182,11 +182,11 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
   // the 'always_after' block is executed at the end of every cycle
   always_after { 
     // what do we write in register? (pc, alu or val, load is handled separately)
-    int32 write_back <: alu.jump      ? (next_pc<<2) 
-                      : alu.storeAddr ? alu.n[0,$addrW+2$]
-                      : alu.storeVal  ? alu.val
-                      : alu.load      ? loaded
-                      : alu.r;
+    int32 write_back <: (alu.jump      ? (next_pc<<2)       : 32b0)
+                      | (alu.storeAddr ? alu.n[0,$addrW+2$] : 32b0)
+                      | (alu.storeVal  ? alu.val            : 32b0)
+                      | (alu.load      ? loaded             : 32b0)
+                      | (alu.intop     ? alu.r              : 32b0);
     xregsA.wdata   = write_back;
     xregsB.wdata   = write_back;     
     xregsB.wenable = xregsA.wenable; // xregsB written when xregsA is

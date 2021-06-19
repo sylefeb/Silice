@@ -32,13 +32,13 @@ $include('ice-v.ice')
 // --------------------------------------------------
 
 algorithm main( // I guess this is the SOC :-D
-  output! uint5 leds,
+  output uint5 leds,
 $$if OLED then
-  output! uint1 oled_clk,
-  output! uint1 oled_mosi,
-  output! uint1 oled_dc,
-  output! uint1 oled_resn,
-  output! uint1 oled_csn(0),
+  output uint1 oled_clk,
+  output uint1 oled_mosi,
+  output uint1 oled_dc,
+  output uint1 oled_resn,
+  output uint1 oled_csn(0),
 $$end
 $$if not SIMULATION then    
   ) <@cpu_clock> {
