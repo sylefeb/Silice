@@ -22,14 +22,16 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
 // - performs all integer computations
 
 algorithm Execute(
-  input  uint32 instr,   input  uint$addrW$ pc, // instruction and prog. counter
-  input  int32  xa,      input  int32       xb, // registers
-  input  uint1  trigger, // pulsed high when the ALU should start
-  output uint3  op,      output uint5  write_rd, output  uint1  no_rd, 
-  output uint1  jump,    output uint1  load,     output  uint1  store,  
-  output int32  val,     output uint1  storeVal, output  uint1  working(0),
-  output uint32 n,       output uint1  storeAddr, // next address adder
-  output uint1  intop,   output int32  r,         // integer operations
+  // instruction, program counter and registers
+  input  uint32 instr, input  uint$addrW$ pc, input int32 xa, input int32 xb,
+  // trigger: pulsed high when the decoder + ALU should start
+  input  uint1  trigger, 
+  // outputs all information the processor needs to decide what to do next 
+  output uint3  op,    output uint5  write_rd, output  uint1  no_rd, 
+  output uint1  jump,  output uint1  load,     output  uint1  store,  
+  output int32  val,   output uint1  storeVal, output  uint1  working(0),
+  output uint32 n,     output uint1  storeAddr, // next address adder
+  output uint1  intop, output int32  r,         // integer operations
 ) {
   uint5  shamt(0);  uint32 cycle(0); // shifter status and cycle counter
 
@@ -185,13 +187,15 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
                       | (exec.storeVal  ? exec.val            : 32b0)
                       | (exec.load      ? loaded              : 32b0)
                       | (exec.intop     ? exec.r              : 32b0);
-    xregsA.wdata   = write_back;     
-    xregsB.wdata   = write_back;     
-    xregsB.wenable = xregsA.wenable; // xregsB written when xregsA is
-    // always write to write_rd, else track instruction register
+    // write back data to both register BRAMs
+    xregsA.wdata   = write_back;      xregsB.wdata   = write_back;     
+    // xregsB written when xregsA is
+    xregsB.wenable = xregsA.wenable; 
+    // write to write_rd, else track instruction register
     xregsA.addr    = xregsA.wenable ? exec.write_rd : Rtype(instr).rs1;
     xregsB.addr    = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
-    mem.addr       = wide_addr;      // track memory address in interface
+    // track memory address in interface
+    mem.addr       = wide_addr;      
   }
 
   // =========== CPU runs forever
@@ -218,7 +222,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
         mem.wenable = ({4{exec.store}} & { { 2{exec.op[0,2]==2b10} },
-                                              exec.op[0,1] | exec.op[1,1], 1b1 
+                                               exec.op[0,1] | exec.op[1,1], 1b1 
                                         } ) << exec.n[0,2];
 
 ++: // wait for data transaction
