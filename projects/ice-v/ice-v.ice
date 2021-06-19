@@ -30,7 +30,6 @@ algorithm ALU(
   output  uint1  storeAddr, output uint1   storeVal, output int32  val,
   output  int32  n,          // result of next address computation
   output  int32  r,          // result of ALU
-  output  uint1  j,          // result of branch comparisons
   output  uint1  working(0), // are we busy performing integer operations?
 ) {
   uint5  shamt(0);  
@@ -85,6 +84,7 @@ algorithm ALU(
   
   always {
     int32 shift(0);
+    uint1 j(0);
 
     // ====================== ALU
     // shift (one bit per clock)
@@ -110,7 +110,7 @@ algorithm ALU(
       case 3b100: { r = xa ^ b;  } case 3b110: { r = xa | b;  }// XOR / OR
       case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
       case 3b111: { r = xa & b;  }    // AND
-      default:    { j = {32{1bx}}; } // don't care
+      // default:    { r = {32{1bx}}; } // don't care
     }      
 
     // ====================== Comparator for branching
