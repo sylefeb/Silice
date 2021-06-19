@@ -153,12 +153,6 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr(0) ) <onehot> {
     xa    <:  xregsA.rdata,  xb <: xregsB.rdata,    
   );
 
-  // what do we write in register? (pc, alu or val, load is handled separately)
-  int32 write_back <:  alu.jump      ? (next_pc<<2) 
-                     : alu.storeAddr ? alu.n[0,$addrW+2$]
-                     : alu.storeVal  ? alu.val
-                     : alu.r;
-
   // The 'always_before' block is applied at the start of every cycle.
   // This is a good place to set default values, which also indicates
   // to Silice that some variables (e.g. xregsA.wdata) are fully set
@@ -179,23 +173,26 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr(0) ) <onehot> {
     mem.wenable    = 4b0000; 
     // maintain alu trigger low
     alu.trigger    = 0;
-    // keep reading registers at rs1/rs2 by default
-    // so that decoder and ALU see them for multiple cycles
-    xregsA.addr    = Rtype(instr).rs1;
-    xregsB.addr    = Rtype(instr).rs2;  
     // maintain register wenable low
-    // (overriden when necessary)
+    // (pulsed when necessary)
     xregsA.wenable = 0;
-    // by default, write write_back to registers
-    // (overriden during a load)
-    xregsA.wdata   = write_back;
   }
 
   // the 'always_after' block is executed at the end of every cycle
   always_after { 
+    // what do we write in register? (pc, alu or val, load is handled separately)
+    int32 write_back <: alu.jump      ? (next_pc<<2) 
+                      : alu.storeAddr ? alu.n[0,$addrW+2$]
+                      : alu.storeVal  ? alu.val
+                      : alu.load      ? loaded
+                      : alu.r;
+    xregsA.wdata   = write_back;
+    xregsB.wdata   = write_back;     
+    xregsB.wenable = xregsA.wenable; // xregsB written when xregsA is
+    // always write to write_rd, else track instruction register
+    xregsA.addr    = xregsA.wenable ? alu.write_rd : Rtype(instr).rs1;
+    xregsB.addr    = xregsA.wenable ? alu.write_rd : Rtype(instr).rs2;
     mem.addr       = wide_addr;      // track memory address in interface
-    xregsB.wdata   = xregsA.wdata;   // xregsB is always paired with xregsA
-    xregsB.wenable = xregsA.wenable; // when writing to registers
   }
 
   // =========== CPU runs forever
@@ -204,9 +201,6 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr(0) ) <onehot> {
     // data is now available
     instr       = mem.rdata;
     pc          = wide_addr;
-    // update register immediately
-    xregsA.addr = Rtype(instr).rs1;
-    xregsB.addr = Rtype(instr).rs2;  
 
 ++: // wait for register read (BRAM takes one cycle)
 
@@ -232,11 +226,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr(0) ) <onehot> {
 
         // == Load (enabled below if alu.load == 1)
         // commit result
-        xregsA.wdata   = loaded;
-        xregsA.wenable = ~alu.no_rd;
-        xregsA.addr    = alu.write_rd;
-        xregsB.addr    = alu.write_rd;        
-        
+        xregsA.wenable = ~alu.no_rd;        
         // restore address to program counter
         wide_addr      = next_pc;
         // exit the operations loop
@@ -247,8 +237,6 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr(0) ) <onehot> {
       } else {
         // commit result
         xregsA.wenable = ~alu.no_rd;
-        xregsA.addr    = alu.write_rd;
-        xregsB.addr    = alu.write_rd;
         // next instruction address
         wide_addr      = alu.jump ? (alu.n >> 2) : next_pc;
         // ALU done?
