@@ -31,7 +31,7 @@ algorithm Execute(
   output uint32 n,       output uint1  storeAddr, // next address adder
   output uint1  intop,   output int32  r,         // integer operations
 ) {
-  uint5  shamt(0);  uint32 cycle(0);
+  uint5  shamt(0);  uint32 cycle(0); // shifter status and cycle counter
 
   // ==== decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
@@ -83,8 +83,7 @@ algorithm Execute(
   cycle        := cycle + 1; 
   
   always {
-    int32 shift = uninitialized;
-    uint1 j     = uninitialized;
+    int32 shift(0);  uint1 j(0); // temp variables for shifter and comparator
 
     // ====================== ALU
     // shift (one bit per clock)
@@ -182,10 +181,10 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
   // the 'always_after' block is executed at the end of every cycle
   always_after { 
     // what do we write in register? (pc, alu or val, load is handled separately)
-    int32 write_back <: (exec.jump      ? (next_pc<<2)       : 32b0)
+    int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
                       | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
                       | (exec.storeVal  ? exec.val            : 32b0)
-                      | (exec.load      ? loaded             : 32b0)
+                      | (exec.load      ? loaded              : 32b0)
                       | (exec.intop     ? exec.r              : 32b0);
     xregsA.wdata   = write_back;
     xregsB.wdata   = write_back;     
