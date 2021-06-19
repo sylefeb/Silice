@@ -7148,9 +7148,17 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
             }
           }
           if (hasNoFSM()) {
-            // if there is no FSM, the algorithm is combinational and outputs do not need to be latched
+            // if there is no FSM, the algorithm is combinational and outputs do not need to be registered
             if (m_OutputNames.count(v.first)) {
               if (m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop) {
+                m_Outputs.at(m_OutputNames.at(v.first)).usage = e_Temporary;
+              }
+            }
+          } else {
+            // check if combinational output can be turned into a temporary
+            if (m_OutputNames.count(v.first)) {
+              if ( m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop 
+                && m_Outputs.at(m_OutputNames.at(v.first)).combinational) {
                 m_Outputs.at(m_OutputNames.at(v.first)).usage = e_Temporary;
               }
             }
