@@ -483,7 +483,7 @@ Similarly, the next address adder selects its first input based on the decoder
 indications:
 ```c
 // ==== select next address adder first input
-int32 addr_a    <: pcOrReg ? __signed({20b0,pc[0,$addrW-2$],2b0}) : xa;
+int32 addr_a    <: pcOrReg ? __signed({pc[0,$addrW-2$],2b0}) : xa;
 ```
 For instance, instructions `AUIPC, JAL` and `branch` will select the program 
 counter `pc` for `addr_a` as can be seen in the decoder:
