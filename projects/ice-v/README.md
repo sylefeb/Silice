@@ -23,6 +23,7 @@ The version here runs out of the box on the IceStick ice40 1HK, and can adapted 
 - 32 bits RDCYCLE
 - comes with a DooM fire demo ;)
 
+*The entire processor code*
 <p align="center">
   <img src="ice-v-98.png">
 </p>
