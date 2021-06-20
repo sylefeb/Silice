@@ -5705,26 +5705,23 @@ void Algorithm::writeWireAssignements(
     // update dependencies
     t_vio_dependencies no_dependencies = _dependencies;
     updateAndCheckDependencies(_dependencies, a.second.instr, &a.second.block->context);
-    // we take the opportunity to check that if the wire depends on other wires, they are either all <: or all <::
-    // mixing these two is forbidden, as this quickly leads to confusion without real benefits
-    // ( Note: I encountered a corner-case use for this ... but it would be best resolved with explicit reference to 
-    //         a variable 'at cycle start' (Q) state, e.g. ::a ? )
+    // run check on dependencies
     for (const auto &dep : _dependencies.dependencies.at(var)) {
       // is this dependency a wire?
       auto W = m_WireAssignmentNames.find(dep);
       if (W != m_WireAssignmentNames.end()) {
         const auto &wa = m_WireAssignments[W->second].second;
         auto w_alw    = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wa.instr);
-        bool w_d_or_q = (w_alw->ALWSASSIGNDBL() == nullptr && alw->LDEFINEDBL() == nullptr);
+        bool w_d_or_q = (w_alw->ALWSASSIGNDBL() == nullptr && w_alw->LDEFINEDBL() == nullptr);
         if (d_or_q ^ w_d_or_q) {
-          reportError(alw->getSourceInterval(), (int)alw->getStart()->getLine(), 
-            "inconsistent use of <:: and <: between bound expressions (with '%s')", dep.c_str());
+          // indicates we are mixing <: and <::, which is in fact useful
+          // issue a warning still?
         }
       }
       // update usage of dependencies to q if q is used
-      //if (!d_or_q) {
-      //  updateFFUsage(e_Q, true, _ff_usage.ff_usage[dep]); // NOTE: only required of mixing <: <:: is allowed
-      //}
+      if (!d_or_q) {
+        updateFFUsage(e_Q, true, _ff_usage.ff_usage[dep]);
+      }
     }
     if (!d_or_q) {
       // ignore dependencies if reading from Q: we can ignore them safely
