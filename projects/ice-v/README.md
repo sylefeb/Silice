@@ -6,9 +6,9 @@
 
 ## What is this?
 
-The Ice-V is a processor that implements the [RISC-V RV32I specification](https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf). It is simple and compact (~130 lines without comments), demonstrates many features of Silice and can be a good companion in projects. It is specialized to execute code from BRAM, where the code is baked into the BRAM upon synthesis (can be a boot loader later loading from other sources). 
+The Ice-V is a processor that implements the [RISC-V RV32I specification](https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf). It is simple and compact (~100 lines when reduced, see image below), demonstrates many features of Silice and can be a good companion in projects. It is specialized to execute code from BRAM, where the code is baked into the BRAM upon synthesis (can be a boot loader later loading from other sources). 
 
-It is easily hackable and would be quite easy to extend to boot from SPI, execute code from a RAM, and connect to various peripherals. The example drives LEDs and an external SPI screen.
+It is easily hackable and would be extendable to boot from SPI, execute code from a RAM, and connect to various peripherals. The example drives LEDs and an external SPI screen.
 
 The version here runs out of the box on the IceStick ice40 1HK, and can adapted to other boards with minimal effort.
 
@@ -18,10 +18,14 @@ The version here runs out of the box on the IceStick ice40 1HK, and can adapted 
 - executes instructions in 3 cycles, load/store in 4
 - less than 1K LUTs
 - validates at around 65 Mz on the IceStick
-- < 300 lines of commented code (~130 without comments)
+- < 300 lines of commented code (~100 lines compacted)
 - 1 bit per cycle shifter
 - 32 bits RDCYCLE
 - comes with a DooM fire demo ;)
+
+<p align="center">
+  <img src="ice-v-98.png">
+</p>
 
 ## Running the design
 
@@ -78,7 +82,6 @@ make icestick -f Makefile.oled
 <p align="center">
   <img width="400" src="ice-v-doom-fire.png">
 </p>
-
 
 > **Note:** Compling code for the processor requires a RISC-V toolchain. Under Windows, this is included in the binary package from my [fpga-binutils](https://github.com/sylefeb/fpga-binutils) repo. Under macOS and Linux there are precompiled packages, or you may prefer to compile from source. See see [getting
 started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md) for more detailed instructions.
@@ -572,7 +575,7 @@ setups of decoder and ALU. There are so many possibilities and tradeoffs!
 This implementation greatly benefited from other projects (see also comments
 in source):
 
-* Ice-V's best friend: FemtoRV https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV
+* Ice-V's best friend: FemtoRV https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV, also fits easily in less than 100 Verilog lines.
 * PicoRV  https://github.com/cliffordwolf/picorv32
 * Ibex  https://github.com/lowRISC/ibex
 * Stackoverflow post on CPU design (see answer) https://stackoverflow.com/questions/51592244/implementation-of-simple-microprocessor-using-verilog
