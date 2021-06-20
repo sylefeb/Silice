@@ -17,11 +17,11 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
 
 // --------------------------------------------------
-// Execute: Decoder + ALU
+// execute: decoder + ALU
 // - decodes instructions
 // - performs all integer computations
 
-algorithm Execute(
+algorithm execute(
   // instruction, program counter and registers
   input  uint32 instr, input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
@@ -55,7 +55,7 @@ algorithm Execute(
 
   // ==== select next address adder first input
   int32 addr_a    <: pcOrReg ? __signed({20b0,pc[0,$addrW-2$],2b0}) : xa;
-  // ==== select ALU and Comparator second input 
+  // ==== select ALU second input 
   int32 b         <: regOrImm ? (xb) : imm_i;
     
   // ==== allows to do subtraction and all comparisons with a single adder
@@ -66,7 +66,7 @@ algorithm Execute(
   uint1 a_eq_b    <: a_minus_b[0,32] == 0;
 
   // ==== select immediate for the next address computation
-  // 'or trick' inspired from femtorv32
+  // 'or trick' from femtorv32
   int32 addr_imm  <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
                   |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
                   |  (store  ? imm_s : 32b0);
@@ -148,7 +148,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
   int32 loaded     = uninitialized;
 
   // decoder + ALU, executes the instruction and tells processor what to do
-  Execute exec(
+  execute exec(
     instr <:: instr, pc <:: pc, xa <: xregsA.rdata, xb <: xregsB.rdata
   );
 
@@ -182,6 +182,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
   // the 'always_after' block is executed at the end of every cycle
   always_after { 
     // what do we write in register? (pc, alu or val, load is handled separately)
+    // 'or trick' from femtorv32
     int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
                       | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
                       | (exec.storeVal  ? exec.val            : 32b0)
