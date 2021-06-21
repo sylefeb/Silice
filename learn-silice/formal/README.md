@@ -140,9 +140,10 @@ algorithm takes to complete.
 - The standard division takes about 1 cycle per bit to complete, so about 8 cycles in our case;
 - Our algorithm only performs this division for now, so it takes 2 more cycles for the algorithm call;
 - Because we will add some verifying code, this will take some more cycles (around 2 in this case, trust me);
+- The formal board also requires at least 3 more cycles to correctly initialize the circuit;
 
-All this leads us to the fact that the algorithm `x_div_x_eq_1` takes about 12 cycles to fully complete.
-It is usually a good idea to round up this value to the next 5, which gives 15 in this case.
+All this leads us to the fact that the algorithm `x_div_x_eq_1` takes about 15 cycles to fully complete.
+It is usually a good idea to round up this value to the next 5, which gives 20 in this case.
 This allows us to get an error margin on the number of cycles we computed (or guessed?).
 
 > __Note:__ overestimating the number of cycles should not hurt the verification process, i.e. putting 20 instead of 15 works as well. Underestimating may lead to the test passing when the algorithm is actually flawed.
@@ -166,8 +167,8 @@ $include('../common/divint_std.ice')
 algorithm main(output uint8 leds) {}
 
 $$if FORMAL then
-algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=15> {
-                                             //   ^^^^^^^^^ 15 cycles, as said earlier
+algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=20> {
+                                             //   ^^^^^^^^^ 20 cycles, as said earlier
   div$div_width$ div;
   uint$div_width$ result = uninitialized;
   
@@ -180,7 +181,7 @@ $$end
 
 <details><summary>Click me to reveal the spoiler (please don't)</summary>
 
-> We don't need it for our algorithm because it takes less than the default timeout to complete (around 2-3 seconds for a depth of 15).
+> We don't need it for our algorithm because it takes less than the default timeout to complete (around 2-3 seconds for a depth of 20).
 
 </details>
 
@@ -221,7 +222,7 @@ algorithm main(output uint8 leds) {}
 
 $$if FORMAL then
 algorithm# x_div_x_eq_1(input uint$div_width$ x)
-  <#depth=15, #mode=bmc & tind> { 
+  <#depth=20, #mode=bmc & tind> { 
          //   ^^^^^^^^^^^^^^^^ Perform a BMC and a temporal induction
   div$div_width$ div;
   uint$div_width$ result = uninitialized;
@@ -255,7 +256,7 @@ $include('../common/divint_std.ice')
 algorithm main(output uint8 leds) {}
 
 $$if FORMAL then
-algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=15, #mode=bmc & tind> {
+algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=20, #mode=bmc & tind> {
   div$div_width$ div;
   uint$div_width$ result = uninitialized;
   
@@ -290,7 +291,7 @@ $include('../common/divint_std.ice')
 algorithm main(output uint8 leds) {}
 
 $$if FORMAL then
-algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=15, #mode=bmc & tind> {
+algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=20, #mode=bmc & tind> {
   div$div_width$ div;
   uint$div_width$ result = uninitialized;
  
@@ -332,7 +333,7 @@ $include('../common/divint_std.ice')
 algorithm main(output uint8 leds) {}
 
 $$if FORMAL then
-algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=15, #mode=bmc & tind> {
+algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=20, #mode=bmc & tind> {
   div$div_width$ div;
   uint$div_width$ result = uninitialized;
 
