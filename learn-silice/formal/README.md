@@ -369,14 +369,14 @@ Visualizing the generated VCD trace in GTKWave yields a strange result: it appea
 After a bit of research, minutes of debugging and researching in similar implementations, it turns out that the accumulator should be 1 bit wider.
 This caused an overflow when computing the difference, leading to such incorrect results.
 
-Fixing this bug (this has already been done in 099a7f06ab7445ad3c2eea31499e269938be10e5) and re-running the tutorial on the new compact division
-now yields correct results, for the BMC as well as the temporal induction!
+Fixing this bug (this has already been done in 099a7f06ab7445ad3c2eea31499e269938be10e5 but we were using the compact division from before this commit)
+and re-running the tutorial on the new compact division now yields correct results, for the BMC as well as the temporal induction!
 
 ![new tutorial results](./tutorial-results-2.png)
 
-Therefore, our division should be working in most cases.
-
 ## Other verification features
+
+Here are some other features that have not been discussed earlier because they were not needed in the interactive example.
 
 ### **State checking**
 
