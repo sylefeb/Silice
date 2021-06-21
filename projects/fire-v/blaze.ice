@@ -388,8 +388,9 @@ $$end
   }
 
 $$if SIMULATION then  
-  while (iter != 320000) {
-    iter = iter + 1;
+  //while (iter != 320000) {
+  //  iter = iter + 1;
+	while (1) {
 $$else
   while (1) {
 $$end
