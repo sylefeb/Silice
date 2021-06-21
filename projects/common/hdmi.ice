@@ -173,13 +173,13 @@ algorithm hdmi(
   // => we use <:: to bind values from cycle start (ignoring changes during current cycle)
   tmds_encoder tmdsR(
     data        <:: latch_red,
-    ctrl        <:: null_ctrl,
+    ctrl        <:  null_ctrl,
     data_or_ctrl<:: prev_active,
     tmds         :> tmds_red
   );
   tmds_encoder tmdsG(
     data        <:: latch_green,
-    ctrl        <:: null_ctrl,
+    ctrl        <:  null_ctrl,
     data_or_ctrl<:: prev_active,
     tmds         :> tmds_green
   );
