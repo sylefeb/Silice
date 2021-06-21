@@ -131,7 +131,7 @@ Some terminology we use next:
 -   **Host hardware framework**: The Verilog glue to the hardware meant
     to run the design. This can also be a glue to Icarus[1] or
     Verilator[2], both frameworks are provided.
--   **Combinational loop**: A combinational chain where a cyclic
+-   **Combinational loop**: A circuit where a cyclic
     dependency exists. These lead to unstable hardware synthesis and
     have to be avoided.
 
@@ -1307,12 +1307,15 @@ architecture and vendor toolchain.
 # Execution flow and cycle utilization rules
 
 Upon compilation, Silice breaks down the code into a finite state
-machine (FSM) and corresponding combinational chains. Silice attempts to
-form the longest combinational chains, or equivalently to minimize the
-number of states in the FSM. That is because going from one state to the
-next requires one clock cycle, delaying further computations. Of course,
-longer combinational chains also lead to reduced clock frequency, so
-there is a tradeoff. This is why Silice lets you explicitly specify
+machine (FSM). Each state corresponds to a circuit that updates the variables 
+within a single cycle, and selects the next state. 
+We next call these circuits *combinational chains*.
+
+Silice attempts to form the longest combinational chains, or equivalently 
+to minimize the number of states in the FSM. That is because going from one 
+state to the next requires one clock cycle, delaying further computations. 
+Of course, longer combinational chains also lead to reduced clock frequency, 
+so there is a tradeoff. This is why Silice lets you explicitly specify
 where to cut a combinational chain using the step operator `++:`
 
 Note that if a state contains several independent combinational chain,
