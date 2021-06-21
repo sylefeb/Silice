@@ -7457,6 +7457,21 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
           b.dir == e_LeftQ ?  e_Q : e_D
         );
         out << ")";
+        // check whether the bound variable is a wire or another bound var, in which case <:: does not make sense
+        if (b.dir == e_LeftQ) {
+          std::string bid = bindingRightIdentifier(b);
+          const auto &vio = m_VIOBoundToModAlgOutputs.find(bid);
+          bool bound_or_wire = false;
+          if (vio != m_VIOBoundToModAlgOutputs.end()) {
+            bound_or_wire = true;
+          }
+          if (m_WireAssignmentNames.count(bid) > 0) {
+            bound_or_wire = true;
+          }
+          if (bound_or_wire) {
+            reportError(nullptr, b.line, "using <:: on tracked expression or bound vio '%s', use <: instead", bid.c_str());
+          }
+        }
       } else if (b.dir == e_Right) {
         // output (wire)
         out << '.' << b.left << '(' << wire_prefix + "_" + b.left << ")";
@@ -7498,6 +7513,21 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
           nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
           nfo.boundinputs.at(is.name).second == e_Q ?  e_Q : e_D
         );
+        // check whether the bound variable is a wire or another bound var, in which case <:: does not make sense
+        if (nfo.boundinputs.at(is.name).second == e_Q) {
+          std::string bid = nfo.boundinputs.at(is.name).first;
+          const auto &vio = m_VIOBoundToModAlgOutputs.find(bid);
+          bool bound_or_wire = false;
+          if (vio != m_VIOBoundToModAlgOutputs.end()) {
+            bound_or_wire = true;
+          }
+          if (m_WireAssignmentNames.count(bid) > 0) {
+            bound_or_wire = true;
+          }
+          if (bound_or_wire) {
+            reportError(nullptr, nfo.instance_line, "using <:: on tracked expression or bound vio '%s', use <: instead",bid.c_str());
+          }
+        }
       } else {
         // input is not bound and assigned in logic, a specific flip-flop is created for this
         if (nfo.algo->isNotCallable()) {
