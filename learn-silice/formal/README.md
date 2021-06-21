@@ -27,7 +27,7 @@
             - [*Choosing which method to use with the `#mode` modifier*](#choosing-which-method-to-use-with-the-mode-modifier)
         - [**Assertions and assumptions**](#assertions-and-assumptions)
         - [**Stable values**](#stable-values)
-        - [**Verifying**](#verifying)
+        - [**Verifying our interactive example**](#verifying-our-interactive-example)
     - [Other verification features](#other-verification-features)
         - [**State checking**](#state-checking)
         - [**Cover tests and trace generation**](#cover-tests-and-trace-generation)
@@ -349,11 +349,32 @@ algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=20, #mode=bmc & tind> {
 $$end
 ```
 
-### **Verifying**
+### **Verifying our interactive example**
 
-Alright, we are now ready to verify that this division is correct!
+Yay! Our example algorithm is finally ready to be run!
 
+A Makefile is provided in this directory to automatically compile and run the verification process using the formal board.
+Running `make tutorial` (there should be a file name `tutorial.ice` in this folder containing the complete example developed in this tutorial)
+does not yield the correct results: our compact division is flawed at least on 8-bits!
 
+![tutorial results](./tutorial-results.png)
+> **Note:** Temporal induction fails in both cases here. The basecase *should* always fail whenever a simple BMC fails.
+> The induction case is however much harder to debug, and make pass.
+
+Visualizing the generated VCD trace in GTKWave yields a strange result: it appears that `192 ÷ 192 = 169`! That's strange...
+![gtkwave vcd tutorial trace](./tutorial-trace.png)
+> **Note:** I am using GTKWave here for simplicity's sake. More in-depth code exploration can be achieved 
+> using the newly developed Silice debugger!
+
+After a bit of research, minutes of debugging and researching in similar implementations, it turns out that the accumulator should be 1 bit wider.
+This caused an overflow when computing the difference, leading to such incorrect results.
+
+Fixing this bug (this has already been done in 099a7f06ab7445ad3c2eea31499e269938be10e5) and re-running the tutorial on the new compact division
+now yields correct results, for the BMC as well as the temporal induction!
+
+![new tutorial results](./tutorial-results-2.png)
+
+Therefore, our division should be working in most cases.
 
 ## Other verification features
 
