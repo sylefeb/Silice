@@ -7469,7 +7469,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
             bound_or_wire = true;
           }
           if (bound_or_wire) {
-            reportError(nullptr, b.line, "using <:: on tracked expression or bound vio '%s', use <: instead", bid.c_str());
+            reportError(nullptr, b.line, "using <:: on tracked expression or bound vio '%s' has no effect, use <: instead", bid.c_str());
           }
         }
       } else if (b.dir == e_Right) {
@@ -7525,7 +7525,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
             bound_or_wire = true;
           }
           if (bound_or_wire) {
-            reportError(nullptr, nfo.instance_line, "using <:: on tracked expression or bound vio '%s', use <: instead",bid.c_str());
+            reportError(nullptr, nfo.instance_line, "using <:: on tracked expression or bound vio '%s' has no effect, use <: instead",bid.c_str());
           }
         }
       } else {
