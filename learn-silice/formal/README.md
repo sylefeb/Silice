@@ -146,7 +146,8 @@ All this leads us to the fact that the algorithm `x_div_x_eq_1` takes about 15 c
 It is usually a good idea to round up this value to the next 5, which gives 20 in this case.
 This allows us to get an error margin on the number of cycles we computed (or guessed?).
 
-> __Note:__ overestimating the number of cycles should not hurt the verification process, i.e. putting 20 instead of 15 works as well. Underestimating may lead to the test passing when the algorithm is actually flawed.
+> __Note:__ overestimating the number of cycles should not hurt the verification process, i.e. putting 25 instead of 20 works as well. Underestimating may lead to the test passing when the algorithm is actually flawed.
+> As an example of a false-positive, please see [false-positive.ice](./false-positive.ice) which is a test passing despite the `#assert(0);` at the end of the algorithm.
 
 To setup the property checker we use algorithm *modifiers*:
 
@@ -409,8 +410,10 @@ by Symbiyosys and the formal board.
 
 This directory contains several example of verifying code, for different algorithms:
 
-- [divint_verif.ice](./divint_verif.ice) verifies some properties of unsigned integral division (the division used can be replaced quite easily by modifying the `$include` statement at the top of the file)
-- [mulint_verif.ice](./mulint_verif.ice) verifies some properties of integral multiplication
+- [divint_verif.ice](./divint_verif.ice) verifies some properties of unsigned integral division (the division used can be replaced quite easily by modifying the `$include` statement at the top of the file);
+- [mulint_verif.ice](./mulint_verif.ice) verifies some properties of integral multiplication;
+- [tutorial.ice](./tutorial.ice) is the final state of the interactive example presented here;
+- [false-positive.ice](./false-positive.ice) reports a false result based on an incorrect `#depth` parameter;
 
 You can run the verification process using the provided [Makefile](./Makefile), by simply running the command
 `make file`, where `file` is the file without the `.ice` extension you want to run the whole process on.
