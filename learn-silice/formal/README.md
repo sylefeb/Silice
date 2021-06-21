@@ -15,21 +15,23 @@
 - [Verifying designs written in Silice](#verifying-designs-written-in-silice)
     - [Table of contents](#table-of-contents)
     - [Prerequisites](#prerequisites)
-        - [Verification methods](#verification-methods)
-            - [Bounded Model Checking (BMC)](#bounded-model-checking-bmc)
-            - [Temporal k-induction](#temporal-k-induction)
-        - [Programs needed](#programs-needed)
-    - [Easy verification with the formal board](#easy-verification-with-the-formal-board)
+        - [**Verification methods**](#verification-methods)
+            - [*Bounded Model Checking (BMC)*](#bounded-model-checking-bmc)
+            - [*Temporal k-induction*](#temporal-k-induction)
+        - [**Programs needed**](#programs-needed)
+    - [Easy verification with `make formal`](#easy-verification-with-make-formal)
     - [Verifying designs, what to know and how to use](#verifying-designs-what-to-know-and-how-to-use)
-        - [Algorithm modifiers for verification](#algorithm-modifiers-for-verification)
-            - [The `#depth` modifier](#the-depth-modifier)
-            - [The `#timeout` modifier](#the-timeout-modifier)
-            - [Choosing which method to use with the `#mode` modifier](#choosing-which-method-to-use-with-the-mode-modifier)
-        - [Assertions and assumptions](#assertions-and-assumptions)
-        - [Stability checks](#stability-checks)
-        - [State checking](#state-checking)
-        - [Cover tests and trace generation](#cover-tests-and-trace-generation)
-    - [Examples](#examples)
+        - [**Algorithm modifiers for verification**](#algorithm-modifiers-for-verification)
+            - [*The `#depth` modifier*](#the-depth-modifier)
+            - [*The `#timeout` modifier*](#the-timeout-modifier)
+            - [*Choosing which method to use with the `#mode` modifier*](#choosing-which-method-to-use-with-the-mode-modifier)
+        - [**Assertions and assumptions**](#assertions-and-assumptions)
+        - [**Stable values**](#stable-values)
+        - [**Verifying**](#verifying)
+    - [Other verification features](#other-verification-features)
+        - [**State checking**](#state-checking)
+        - [**Cover tests and trace generation**](#cover-tests-and-trace-generation)
+    - [Other examples](#other-examples)
 
 <!-- markdown-toc end -->
 
@@ -124,7 +126,7 @@ $$end
 
 > **Note:** We can also verify [common/divint_any.ice](../common/divint_any.ice) with this algorithm by changing the `include` at the top.
 
-### *Algorithm modifiers for verification*
+### **Algorithm modifiers for verification**
 
 Our algorithm skeleton looks great, but...it doesn't verify anything.
 It just computes `x ÷ x` for any `x` it is given, and that's it.
@@ -389,7 +391,7 @@ Instead of the comment at the end, we can write `#wasin(init, 3)` to verify the 
 > __Note:__ while the `#wasin` is accepted everywhere an instruction is expected (even in `always` blocks),
 > it is most likely to always fail in an `always` block or when it isn't part of a specific state.
 
-### Cover tests and trace generation
+### **Cover tests and trace generation**
 
 Cover tests are some specific kind of verification allowing to potentially debug situations by generating specific VCD traces,
 according to some test.
