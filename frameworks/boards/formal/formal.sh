@@ -140,7 +140,7 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
   split($8, modes, /,/)
 
   for (mode in modes) {
-    printf "task-%d-%d: smtbmc --stbv --nomem --syn --progress yices\n", $1, mode
+    printf "task-%d-%d: smtbmc --stbv --nomem --syn --progress --presat yices -- --binary\n", $1, mode
   }
 }
 ' <<< "$I $LOG" >> formal.sby
@@ -189,6 +189,7 @@ function to_result(r) {
     case "FAIL":
     case "UNKNOWN": return "\033[31mfailed\033[0m"
     case "PASS": return "\033[32mpassed\033[0m"
+    case "ERROR": return "\033[31;1mfatal\033[0m"
   }
 }
 
@@ -199,25 +200,25 @@ $0 ~ /Reached TIMEOUT/ {
   gsub(/formal_/, "", $3)
   print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[33mtimeout\033[0m"
 }
-match($0, /DONE \((UNKNOWN|PASS|FAIL),/, gr) {
+match($0, /DONE \((UNKNOWN|PASS|FAIL|ERROR),/, gr) {
   gsub(/formal_/, "", $3)
 
   print TOLEFT "* " sprintf("%" LEN "-s", $3) to_result(gr[1])
 }
-$0 ~ /(build\.v:[0-9]+: ERROR: .*)$/ {
-  gsub(/formal_/, "", $3)
-  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
-}
-$0 ~ /(SMT Solver '"'"'.*?'"'"' not found in path.)$/ {
-  gsub(/formal_/, "", $3)
-  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
-  next
-}
-$0 ~ /(yosys-abc: command not found)$/ {
-  gsub(/formal_/, "", $3)
-  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
-  next
-}
+#$0 ~ /(build\.v:[0-9]+: ERROR: .*)$/ {
+#  gsub(/formal_/, "", $3)
+#  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
+#}
+#$0 ~ /(SMT Solver '"'"'.*?'"'"' not found in path.)$/ {
+#  gsub(/formal_/, "", $3)
+#  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
+#  next
+#}
+#$0 ~ /(yosys-abc: command not found)$/ {
+#  gsub(/formal_/, "", $3)
+#  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mfatal\033[0m"
+#  next
+#}
 match($0, /(Verification of invariant .*)$/, gr) {
   gsub(/formal_/, "", $3)
   printf TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[34m" gr[1] "\033[0m"
