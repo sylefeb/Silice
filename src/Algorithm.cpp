@@ -7491,19 +7491,22 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
           b.dir == e_LeftQ ?  e_Q : e_D
         );
         out << ")";
-        // check whether the bound variable is a wire or another bound var, in which case <:: does not make sense
+        // check whether the bound variable is a wire, another bound var or an input in which case <:: does not make sense
         if (b.dir == e_LeftQ) {
           std::string bid = bindingRightIdentifier(b);
           const auto &vio = m_VIOBoundToModAlgOutputs.find(bid);
-          bool bound_or_wire = false;
+          bool bound_wire_input = false;
           if (vio != m_VIOBoundToModAlgOutputs.end()) {
-            bound_or_wire = true;
+            bound_wire_input = true;
           }
           if (m_WireAssignmentNames.count(bid) > 0) {
-            bound_or_wire = true;
+            bound_wire_input = true;
           }
-          if (bound_or_wire) {
-            reportError(nullptr, b.line, "using <:: on tracked expression or bound vio '%s' has no effect, use <: instead", bid.c_str());
+          if (isInput(bid)) {
+            bound_wire_input = true;
+          }
+          if (bound_wire_input) {
+            reportError(nullptr, b.line, "using <:: on input, tracked expression or bound vio '%s' has no effect, use <: instead", bid.c_str());
           }
         }
       } else if (b.dir == e_Right) {
@@ -7551,15 +7554,18 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
         if (nfo.boundinputs.at(is.name).second == e_Q) {
           std::string bid = nfo.boundinputs.at(is.name).first;
           const auto &vio = m_VIOBoundToModAlgOutputs.find(bid);
-          bool bound_or_wire = false;
+          bool bound_wire_input = false;
           if (vio != m_VIOBoundToModAlgOutputs.end()) {
-            bound_or_wire = true;
+            bound_wire_input = true;
           }
           if (m_WireAssignmentNames.count(bid) > 0) {
-            bound_or_wire = true;
+            bound_wire_input = true;
           }
-          if (bound_or_wire) {
-            reportError(nullptr, nfo.instance_line, "using <:: on tracked expression or bound vio '%s' has no effect, use <: instead",bid.c_str());
+          if (isInput(bid)) {
+            bound_wire_input = true;
+          }
+          if (bound_wire_input) {
+            reportError(nullptr, nfo.instance_line, "using <:: on input, tracked expression or bound vio '%s' has no effect, use <: instead",bid.c_str());
           }
         }
       } else {

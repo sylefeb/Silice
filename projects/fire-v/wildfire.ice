@@ -85,8 +85,8 @@ $$end
   rv32i_ram_io sdram;
   // sdram io
   sdram_ram_32bits bridge<@sdram_clock,!sdram_reset>(
-    sdr <::> sda,
-    r32 <::> sdram,
+    sdr <:> sda,
+    r32 <:> sdram,
   );
 
   uint26 predicted_addr    = uninitialized;

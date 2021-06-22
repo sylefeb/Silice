@@ -172,9 +172,9 @@ $$end
   uint1   sent(0);
 
   edge_walk e0(
-    x0 <:: v0.x, y0 <:: v0.y,
-    x1 <:: v1.x, y1 <:: v1.y,
-    interp  <:: ei0,
+    x0 <: v0.x, y0 <: v0.y,
+    x1 <: v1.x, y1 <: v1.y,
+    interp  <:  ei0,
     prepare <:: prepare,
     y       <:: y,
     intersects :> it0,
@@ -182,9 +182,9 @@ $$end
     <:auto:>);
 
   edge_walk e1(
-    x0 <:: v1.x, y0 <:: v1.y,
-    x1 <:: v2.x, y1 <:: v2.y,
-    interp  <:: ei1,
+    x0 <: v1.x, y0 <: v1.y,
+    x1 <: v2.x, y1 <: v2.y,
+    interp  <:  ei1,
     prepare <:: prepare,
     y       <:: y,
     intersects :> it1,
@@ -192,9 +192,9 @@ $$end
     <:auto:>);
 
   edge_walk e2(
-    x0 <:: v0.x, y0 <:: v0.y,
-    x1 <:: v2.x, y1 <:: v2.y,
-    interp  <:: ei2,
+    x0 <: v0.x, y0 <: v0.y,
+    x1 <: v2.x, y1 <: v2.y,
+    interp  <:  ei2,
     prepare <:: prepare,
     y       <:: y,
     intersects :> it2,
@@ -208,11 +208,11 @@ $$end
 $$if not FLAME_BLAZE then
   ram_writer_wildfire writer(
     sd      <:> sd,
-    fbuffer <:: fbuffer,
+    fbuffer <:  fbuffer,
     start   <:: start,
     end     <:: end,
     next    <:: next,
-    color   <:: color,
+    color   <:  color,
     x       <:: span_x,
     y       <:: y,
     done    :> done
@@ -220,11 +220,11 @@ $$if not FLAME_BLAZE then
 $$else
   ram_writer_blaze writer(
     sd      <:> sd,
-    fbuffer <:: fbuffer,
+    fbuffer <:  fbuffer,
     start   <:: start,
     end     <:: end,
     next    <:: next,
-    color   <:: color,
+    color   <:  color,
     x       <:: span_x,
     y       <:: y,
     done    :> done
