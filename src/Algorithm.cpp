@@ -4749,9 +4749,17 @@ void Algorithm::determineModAlgBoundVIO()
   for (const auto& im : m_InstancedModules) {
     for (const auto& b : im.second.bindings) {
       if (b.dir == e_Right) {
+        // check not already bound
+        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) == m_VIOBoundToModAlgOutputs.end()) {
+          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module",b.right);
+        }
         // record wire name for this output
         m_VIOBoundToModAlgOutputs[bindingRightIdentifier(b)] = WIRE + im.second.instance_prefix + "_" + b.left;
       } else if (b.dir == e_BiDir) {
+        // check not already bound
+        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) == m_VIOBoundToModAlgOutputs.end()) {
+          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", b.right);
+        }
         // record wire name for this inout
         std::string bindpoint = im.second.instance_prefix + "_" + b.left;
         m_ModAlgInOutsBoundToVIO[bindpoint] = bindingRightIdentifier(b);
@@ -4762,9 +4770,17 @@ void Algorithm::determineModAlgBoundVIO()
   for (const auto& ia : m_InstancedAlgorithms) {
     for (const auto& b : ia.second.bindings) {
       if (b.dir == e_Right) {
+        // check not already bound
+        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) == m_VIOBoundToModAlgOutputs.end()) {
+          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", b.right);
+        }
         // record wire name for this output
         m_VIOBoundToModAlgOutputs[bindingRightIdentifier(b)] = WIRE + ia.second.instance_prefix + "_" + b.left;
       } else if (b.dir == e_BiDir) {
+        // check not already bound
+        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) == m_VIOBoundToModAlgOutputs.end()) {
+          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", b.right);
+        }
         // record wire name for this inout
         std::string bindpoint = ia.second.instance_prefix + "_" + b.left;
         m_ModAlgInOutsBoundToVIO[bindpoint] = bindingRightIdentifier(b);
