@@ -296,11 +296,6 @@ void SiliceCompiler::run(
         alg.second->resolveModuleRefs(m_Modules);
       }
 
-      // optimize
-      for (const auto& alg : m_Algorithms) {
-        alg.second->optimize();
-      }
-
       // save the result
       {
         std::ofstream out(fresult);

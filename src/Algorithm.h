@@ -645,7 +645,9 @@ private:
     /// \brief indicates whether a FSM report has to be generated and what the filename is (empty means none)
     std::string m_ReportBaseName;
     /// \brief internally set to true when the report has to be written
-    bool        m_ReportingEnabled;
+    bool        m_ReportingEnabled = false;
+    /// \brief recalls whether the algorithm is already optimized
+    bool        m_Optimized = false;
 
     std::string fsmReportName() const { return m_ReportBaseName  + ".fsm.log"; }
     std::string vioReportName() const { return m_ReportBaseName + ".vio.log"; }
@@ -799,8 +801,6 @@ private:
     t_combinational_block *gatherRepeatBlock(siliceParser::RepeatBlockContext* repeat, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather always assigned
     void gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always);
-    ///\brief Runs the linter on the algorithm, at instantiation time
-    void lint(const t_instantiation_context &ictx);
     /// \brief check access permissions (recursively) from a specific node
     void checkPermissions(antlr4::tree::ParseTree *node, t_combinational_block *_current);
     /// \brief check access permissions on all block instructions
@@ -872,6 +872,11 @@ private:
     /// \brief report an error
     void reportError(antlr4::Token* what, int line, const char *msg, ...) const;
     void reportError(antlr4::misc::Interval interval, int line, const char *msg, ...) const;
+    /// \brief run optimizations
+    void optimize();
+    ///\brief Runs the linter on the algorithm, at instantiation time
+    void lint(const t_instantiation_context &ictx);
+
     /// \brief Pre-processor, optionally set
     static LuaPreProcessor *s_LuaPreProcessor;
 
@@ -982,8 +987,6 @@ private:
     void resolveModuleRefs(const std::unordered_map<std::string, AutoPtr<Module> >& modules);
     /// \brief resolve instanced algorithms refs
     void resolveAlgorithmRefs(const std::unordered_map<std::string, AutoPtr<Algorithm> >& algorithms);
-    /// \brief run optimizations
-    void optimize();
 
   private:
 

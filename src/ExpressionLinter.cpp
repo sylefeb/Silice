@@ -46,7 +46,8 @@ void ExpressionLinter::lintAssignment(
   siliceParser::AccessContext                    *access,
   antlr4::tree::TerminalNode                     *identifier,
   siliceParser::Expression_0Context              *expr,
-  const Algorithm::t_combinational_block_context *bctx) const
+  const Algorithm::t_combinational_block_context *bctx,
+  bool                                            wire_definition) const
 {
   t_type_nfo lvalue_nfo;
   if (access != nullptr) {
@@ -61,6 +62,20 @@ void ExpressionLinter::lintAssignment(
   if (lvalue_nfo.base_type == Parameterized || rvalue_nfo.base_type == Parameterized) {
     //  warn(Standard, expr->getSourceInterval(), -1, "skipping check (parameterized variable : not yet implemented)");
   } else {
+    if (!wire_definition) {
+      // check not assigning a wire
+      std::string vio;
+      if (access != nullptr) {
+        vio = m_Host->determineAccessedVar(access, bctx);
+      } else {
+        vio = m_Host->translateVIOName(identifier->getText(), bctx);
+      }
+      if (m_Host->m_WireAssignmentNames.count(vio) != 0) {
+        m_Host->reportError(access != nullptr ? access->getSourceInterval() : identifier->getSourceInterval(), -1,
+          "cannot assign to an expression tracker (read only)");
+      }
+    }
+    // warnings
     if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
       if (rvalue_nfo.base_type == Int) {
          warn(Standard, expr->getSourceInterval(), -1, "assigning signed expression to unsigned lvalue");
@@ -81,7 +96,7 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
   auto alwasg = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wire_assign.instr);
   sl_assert(alwasg != nullptr);
   sl_assert(alwasg->IDENTIFIER() != nullptr);
-  lintAssignment(nullptr, alwasg->IDENTIFIER(), alwasg->expression_0(), &wire_assign.block->context);
+  lintAssignment(nullptr, alwasg->IDENTIFIER(), alwasg->expression_0(), &wire_assign.block->context, true);
   // check for deprecated symbols
   if (alwasg->ALWSASSIGN() != nullptr) {
      warn(Deprecation, alwasg->getSourceInterval(), -1, "use of deprecated syntax :=, please use <: instead.");

@@ -1176,8 +1176,8 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
       mem.in_vars.push_back(v.name);
     } else {
       mem.out_vars.push_back(v.name);
+      m_VIOBoundToModAlgOutputs[v.name] = WIRE "_mem_" + v.name;
     }
-    m_VIOBoundToModAlgOutputs[v.name] = WIRE "_mem_" + v.name;
   }
   // add memory
   m_Memories.emplace_back(mem);
@@ -4750,14 +4750,14 @@ void Algorithm::determineModAlgBoundVIO()
     for (const auto& b : im.second.bindings) {
       if (b.dir == e_Right) {
         // check not already bound
-        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) == m_VIOBoundToModAlgOutputs.end()) {
+        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToModAlgOutputs.end()) {
           reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module",b.right);
         }
         // record wire name for this output
         m_VIOBoundToModAlgOutputs[bindingRightIdentifier(b)] = WIRE + im.second.instance_prefix + "_" + b.left;
       } else if (b.dir == e_BiDir) {
         // check not already bound
-        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) == m_VIOBoundToModAlgOutputs.end()) {
+        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToModAlgOutputs.end()) {
           reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", b.right);
         }
         // record wire name for this inout
@@ -4771,14 +4771,14 @@ void Algorithm::determineModAlgBoundVIO()
     for (const auto& b : ia.second.bindings) {
       if (b.dir == e_Right) {
         // check not already bound
-        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) == m_VIOBoundToModAlgOutputs.end()) {
+        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToModAlgOutputs.end()) {
           reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", b.right);
         }
         // record wire name for this output
         m_VIOBoundToModAlgOutputs[bindingRightIdentifier(b)] = WIRE + ia.second.instance_prefix + "_" + b.left;
       } else if (b.dir == e_BiDir) {
         // check not already bound
-        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) == m_VIOBoundToModAlgOutputs.end()) {
+        if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToModAlgOutputs.end()) {
           reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", b.right);
         }
         // record wire name for this inout
@@ -5120,16 +5120,21 @@ void Algorithm::lint(const t_instantiation_context &ictx)
 
 void Algorithm::optimize()
 {
-  // generate states
-  generateStates();
-  // check var access permissions
-  checkPermissions();
-  // determine which VIO are assigned to wires
-  determineModAlgBoundVIO();
-  // analyze variables access 
-  determineUsage();
-  // analyze instanced algorithms inputs
-  analyzeInstancedAlgorithmsInputs();
+  if (!m_Optimized) {
+    // NOTE: recalls the algorithm is optimize, as it can be used by multiple instances
+    // this paves the ways to having different optimizations for different instances
+    m_Optimized = true;
+    // generate states
+    generateStates();
+    // check var access permissions
+    checkPermissions();
+    // determine which VIO are assigned to wires
+    determineModAlgBoundVIO();
+    // analyze variables access 
+    determineUsage();
+    // analyze instanced algorithms inputs
+    analyzeInstancedAlgorithmsInputs();
+  }
 }
 
 // -------------------------------------------------
@@ -7122,6 +7127,8 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
 
     // lint upon instantiation
     lint(ictx);
+    // optimize
+    optimize();
 
     // activate reporting?
     m_ReportingEnabled = (!m_ReportBaseName.empty());
