@@ -4685,7 +4685,7 @@ void Algorithm::determineUsage()
   std::unordered_set<std::string> global_out_written;
   determineAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = true;
+  const bool report = false;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {

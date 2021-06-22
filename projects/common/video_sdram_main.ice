@@ -237,22 +237,22 @@ algorithm main(
   output uint8 leds,
 $$if not ICARUS then
   // SDRAM
-  output uint1  sdram_cle,
-  output uint2  sdram_dqm,
-  output uint1  sdram_cs,
-  output uint1  sdram_we,
-  output uint1  sdram_cas,
-  output uint1  sdram_ras,
-  output uint2  sdram_ba,
-  output uint13 sdram_a,
+  output! uint1  sdram_cle,
+  output! uint2  sdram_dqm,
+  output! uint1  sdram_cs,
+  output! uint1  sdram_we,
+  output! uint1  sdram_cas,
+  output! uint1  sdram_ras,
+  output! uint2  sdram_ba,
+  output! uint13 sdram_a,
 $$if VERILATOR then
-  output uint1  sdram_clock, // sdram controller clock
-  input  uint16 sdram_dq_i,
-  output uint16 sdram_dq_o,
-  output uint1  sdram_dq_en,
+  output! uint1  sdram_clock, // sdram controller clock
+  input   uint16 sdram_dq_i,
+  output! uint16 sdram_dq_o,
+  output! uint1  sdram_dq_en,
 $$else
-  output uint1  sdram_clk,  // sdram chip clock != internal sdram_clock
-  inout  uint16 sdram_dq,
+  output! uint1  sdram_clk,  // sdram chip clock != internal sdram_clock
+  inout   uint16 sdram_dq,
 $$end
 $$end
 $$if ICARUS or VERILATOR then
@@ -270,9 +270,9 @@ $$if SDCARD then
 $$end  
 $$if VGA then  
   // VGA
-  output uint$color_depth$ video_r,
-  output uint$color_depth$ video_g,
-  output uint$color_depth$ video_b,
+  output! uint$color_depth$ video_r,
+  output! uint$color_depth$ video_g,
+  output! uint$color_depth$ video_b,
   output uint1 video_hs,
   output uint1 video_vs,
 $$end
@@ -282,7 +282,7 @@ $$if AUDIO then
 $$end
 $$if HDMI then
 $$if ULX3S then
-  output uint4 gpdi_dp,
+  output! uint4 gpdi_dp,
 //  output uint4 gpdi_dn,
 $$else
 $$  error('no HDMI support')
