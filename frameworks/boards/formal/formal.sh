@@ -53,10 +53,9 @@ state 1:*
 assume (= [reset] false)
 
 state 2:*
-assume (= [in_run] true)
-
-final
-assume (= [in_run] false)' > constraints.smtc
+assume (= [in_run] true)' > bmc.smtc
+cp bmc.smtc cover.smtc
+cp bmc.smtc tind.smtc
 
 touch formal.sby
 
@@ -113,12 +112,11 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
    for (mode in modes) {
      printf "task-%d-%d:\n  depth %d\n  timeout %d\n  mode %s\n", $1, mode, $6, $7, to_mode(modes[mode])
      switch(modes[mode]) {
-       case "tind":
-       case "bmc":
-         print "  smtc constraints.smtc"
-         break
        case "cover":
          print "  append 10"
+       case "tind":
+       case "bmc":
+         print "  smtc " modes[mode] ".smtc"
          break
        default:
          break
@@ -138,7 +136,7 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
   split($8, modes, /,/)
 
   for (mode in modes) {
-    printf "task-%d-%d: smtbmc --stbv --progress yices\n", $1, mode
+    printf "task-%d-%d: smtbmc --stbv --nomem --syn --progress yices\n", $1, mode
   }
 }
 ' <<< "$I $LOG" >> formal.sby
