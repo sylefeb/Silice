@@ -46,8 +46,12 @@ LOG_LINES="$(cat build.v.alg.log)"
 LOG_LINES="$(sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;ba' -e '}' <<< "$LOG_LINES")"
 # adaptated from: https://unix.stackexchange.com/a/552195
 # Remove empty lines at the beginning and end of the string
-echo 'initial
+echo 'state 0
 assume (= [reset] true)
+assume (= [in_run] false)
+
+state 1
+assume (= [in_run] false)
 
 state 1:*
 assume (= [reset] false)
