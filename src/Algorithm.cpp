@@ -151,6 +151,17 @@ void Algorithm::checkAlgorithmsBindings(const t_instantiation_context &ictx) con
         // track inbound
         inbound.insert(br);
       }
+      // check combinational output consistency
+      if (is_output && isOutput(br)) {
+        sl_assert(b.dir == e_Right);
+        // instance output is bound to an algorithm output
+        bool instr_comb = ia.second.algo->m_Outputs.at(ia.second.algo->m_OutputNames.at(b.left)).combinational;
+        if ( m_Outputs.at(m_OutputNames.at(br)).combinational ^ instr_comb) {
+          reportError(nullptr, b.line, "instanced algorithm '%s', binding instance output '%s' to algorithm output '%s'\n"
+            "using a mix of output! and output. Consider adjusting the parent algorithm output to '%s'.",
+            ia.first.c_str(), b.left.c_str(), br.c_str(), instr_comb ? "output!" : "output");
+        }
+      }
       // lint
       ExpressionLinter linter(this,ictx);
       linter.lintBinding(
