@@ -1,7 +1,7 @@
 $$FORMAL = 1
 
 $$mul_width = 8
-$include('../common/mulint_any.ice')
+$include('../../projects/common/mulint_any.ice')
 $$INPUT="int" .. mul_width
 $$OUTPUT="int" .. (mul_width*2)
 $$MULT="mul" .. mul_width
@@ -26,7 +26,7 @@ $$if FORMAL then
 algorithm #commutative(
   input $INPUT$ x,
   input $INPUT$ y
-) <#depth=35>
+) <#depth=25, #mode=bmc & tind>
 {
   $OUTPUT$ r1 = uninitialized;
   $OUTPUT$ r2 = uninitialized;
@@ -47,7 +47,7 @@ algorithm #associative(
   input $INPUT$ x,
   input $INPUT$ y,
   input $INPUT$ z
-) <#depth=35>
+) <#depth=45, #mode=bmc & tind>
 {
   $OUTPUT$ r1 = uninitialized;
   $OUTPUT$ r2 = uninitialized;
@@ -73,7 +73,7 @@ algorithm #distributive(
   input $INPUT$ x,
   input $INPUT$ y,
   input $INPUT$ z
-) <#timeout=240, #depth=50>
+) <#timeout=240, #depth=40, #mode=bmc & tind>
 {
   $OUTPUT2$ r1 = uninitialized;
   $OUTPUT2$ r2 = uninitialized;
@@ -96,7 +96,7 @@ algorithm #distributive(
 // identity: x · 1 = x
 algorithm #identity(
   input $INPUT$ x
-)
+) <#depth=15, #mode=bmc & tind>
 {
   $OUTPUT$ r1 = uninitialized;
   $MULT$ multiply1;
@@ -111,7 +111,7 @@ algorithm #identity(
 // zero: x · 0 = 0
 algorithm #zero(
   input $INPUT$ x
-)
+) <#depth=15, #mode=bmc & tind>
 {
   $OUTPUT$ r1 = uninitialized;
   $MULT$ multiply1;
@@ -126,7 +126,7 @@ algorithm #zero(
 // negation: (-1) · x = -x
 algorithm #negation(
   input $INPUT$ x
-)
+) <#depth=15, #mode=bmc & tind>
 {
   $OUTPUT$ r1 = uninitialized;
   $MULT$ multiply1;
@@ -144,7 +144,7 @@ algorithm #order_preserve(
   input $INPUT$ a,
   input $INPUT$ b,
   input $INPUT$ c
-) <#timeout=240, #depth=50>
+) <#timeout=240, #depth=30, #mode=bmc & tind>
 {
   $OUTPUT$ r1 = uninitialized;
   $OUTPUT$ r2 = uninitialized;

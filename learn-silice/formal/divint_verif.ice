@@ -1,6 +1,6 @@
 $$div_width = 8
 $$div_unsigned = 1
-$include('../common/divint_std.ice')
+$include('../../projects/common/divint_std.ice')
 
 $$INPUT="uint" .. div_width
 $$OUTPUT=INPUT
@@ -19,22 +19,23 @@ $$if FORMAL then
 // right identity: x / 1 = x
 algorithm #right_identity(
   input $INPUT$ x
-)
+) <#mode=bmc & tind, #depth=20>
 {
   $OUTPUT$ r1 = uninitialized;
   $DIV$ div1;
+  $INPUT$ x_ <:: x;
 
   #stableinput(x);
 
-  (r1) <- div1 <- (x, 1);
+  (r1) <- div1 <- (x_, 1);
 
-  #assert(r1 == x);
+  #assert(r1 == x_);
 }
 
 // left zero: 0 / x = 0
 algorithm #left_zero(
   input $INPUT$ x
-)
+) <#mode=bmc & tind, #depth=20>
 {
   $OUTPUT$ r1 = uninitialized;
   $DIV$ div1;
@@ -50,7 +51,7 @@ algorithm #left_zero(
 // nullability: x / x = 1
 algorithm #nullability(
   input $INPUT$ x
-)
+) <#mode=bmc & tind, #depth=20>
 {
   $OUTPUT$ r1 = uninitialized;
 
@@ -68,7 +69,7 @@ algorithm #nullability(
 algorithm #some_property(
   input $INPUT$ x,
   input $INPUT$ y
-)
+) <#mode=bmc & tind, #depth=20>
 {
   $OUTPUT$ r1 = uninitialized;
   $DIV$ div1;
