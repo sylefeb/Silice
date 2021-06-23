@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pacman -S --noconfirm --needed unzip wget 
+pacman -S --noconfirm --needed unzip wget make python3 python-pip
 
 wget -c https://github.com/sylefeb/fpga-binutils/releases/download/v20210419-1/fpga-binutils-64.zip 
 
