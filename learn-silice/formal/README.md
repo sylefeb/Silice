@@ -358,13 +358,10 @@ Running `make tutorial` (there should be a file name `tutorial.ice` in this fold
 does not yield the correct results: our compact division is flawed at least on 8-bits!
 
 ![tutorial results](./tutorial-results.png)
-> **Note:** Temporal induction fails in both cases here. The basecase *should* always fail whenever a simple BMC fails.
-> The induction case is however much harder to debug, and make pass.
+> **Note:** Temporal induction fails in both cases here. The basecase *should* always fail whenever a simple BMC fails, because it is proven using a BMC.
 
 Visualizing the generated VCD trace in GTKWave yields a strange result: it appears that `192 ÷ 192 = 169`! That's strange...
 ![gtkwave vcd tutorial trace](./tutorial-trace.png)
-> **Note:** I am using GTKWave here for simplicity's sake. More in-depth code exploration can be achieved 
-> using the newly developed Silice debugger!
 
 After a bit of research, minutes of debugging and researching in similar implementations, it turns out that the accumulator should be 1 bit wider.
 This caused an overflow when computing the difference, leading to such incorrect results.
