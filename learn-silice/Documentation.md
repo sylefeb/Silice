@@ -1433,11 +1433,14 @@ switch( <IDENTFIER> ) {
   case 1: {  /* code for this case */    }
   ...
   case <W-1>: {  /* code for this case */    }
+  default:    {  /* code for default case */ }
 }  
 ```
 where `<IDENTFIER>` is a variable of width `W` and each case is activated for
 the corresponding bit of `<IDENTFIER>` being set to `1`, with all other bits set to `0`.
-
+The `default` is only mandatory if not all bits are tested, and otherwise 
+only necessary if `<IDENTFIER>` may be zero (not having a default while `<IDENTFIER>`
+may be zero leads to undefined behaviors).
 
 ## Cycle costs of calls to algorithms and subroutines
 

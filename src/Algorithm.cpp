@@ -6739,7 +6739,7 @@ void Algorithm::writeStatelessBlockGraph(
       vector<t_vio_ff_usage> usage_branches;
       bool has_default = false;
       for (auto cb : current->switch_case()->case_blocks) {
-        if (current->switch_case()->onehot) {
+        if (current->switch_case()->onehot && cb.first != "default") {
           out << "  "
             << rewriteIdentifier(prefix, identifier, "", &current->context, -1, FF_Q, true, _dependencies, _ff_usage)
             << "[" << cb.first << "]: begin" << nxl;
@@ -6759,17 +6759,16 @@ void Algorithm::writeStatelessBlockGraph(
       // end of case
       out << "endcase" << nxl;
       // checks
-      if (has_default && current->switch_case()->onehot) {
-        reportError(current->source_interval, -1, "onehot switch case should not have a default");
-      }
       if (current->switch_case()->onehot) {
-        string var = translateVIOName(identifier,&current->context);
-        bool found = false;
-        auto def = getVIODefinition(var, found);
-        if (found) {
-          int width = atoi(varBitWidth(def, ictx).c_str());
-          if (current->switch_case()->case_blocks.size() != width) {
-            reportError(current->source_interval, -1, "onehot switch case does not have the correct number of entries\n     (%s is %d bits wide, expecting %d entries, found %d)",var.c_str(),width,width, current->switch_case()->case_blocks.size());
+        if (!has_default) {
+          string var = translateVIOName(identifier, &current->context);
+          bool found = false;
+          auto def = getVIODefinition(var, found);
+          if (found) {
+            int width = atoi(varBitWidth(def, ictx).c_str());
+            if (current->switch_case()->case_blocks.size() != width) {
+              reportError(current->source_interval, -1, "onehot switch case without default does not have the correct number of entries\n     (%s is %d bits wide, expecting %d entries, found %d)", var.c_str(), width, width, current->switch_case()->case_blocks.size());
+            }
           }
         }
       }
