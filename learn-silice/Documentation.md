@@ -737,7 +737,7 @@ algorithm adder(intput uint8 a,intput uint8 b,output uint8 v)
 
 Let us now discuss each element of the declaration.
 
-#### Inputs and outputs.
+#### *Inputs and outputs.*
 
 Inputs and outputs may be declared in any order, however the order
 matters when calling the algorithms (parameters are given in the order
@@ -764,7 +764,7 @@ Section <a href="#combloops" data-reference-type="ref" data-reference="combloop
 
 > **Note:** Silice combinational loop detection is not perfect yet. Such a problem would typically result in simulation hanging (unable to stabilize the circuit) with Verilator issuing a `UNOPTFLAT` warning.
 
-#### Declarations.
+#### *Declarations.*
 
 Variables, instanced algorithms and instanced modules have to be
 declared first (in any order). A simple example:
