@@ -188,8 +188,8 @@ echo "---< Running Symbiyosys >---"
 AWKSCRIPT='
 function to_result(r) {
   switch(r) {
-    case "FAIL":
-    case "UNKNOWN": return "\033[31mfailed\033[0m"
+    case "FAIL": return "\033[31mfailed\033[0m"
+    case "UNKNOWN": return "\033[35munknown\033[0m"
     case "PASS": return "\033[32mpassed\033[0m"
     case "ERROR": return "\033[31;1mfatal\033[0m"
   }
@@ -277,6 +277,11 @@ match($0, /((BMC|Temporal induction) failed!)/, gr) {
   }
 
   print "* " sprintf("%" LEN "-s", $3) "\033[31m" (step == "" ? "" : "\033[4m" step ":" "\033[0m\033[31m ") gr[1] "\033[0m"
+}
+match($0, /(Temporal induction successful\.)/, gr) {i
+  gsub(/formal_/, "", $3)
+
+  print "* " sprintf("%" LEN "-s", $3) "\033[32m" gr[0] "\033[0m"
 }
 match($0, /(Assert failed in ).*?: build\.v:(.*)$/, gr) {
   gsub(/formal_/, "", $3)
