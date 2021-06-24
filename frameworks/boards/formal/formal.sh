@@ -140,7 +140,7 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
   split($8, modes, /,/)
 
   for (mode in modes) {
-    printf "task-%d-%d: smtbmc --stbv --nomem --syn --progress --presat yices -- --binary\n", $1, mode
+    printf "task-%d-%d: smtbmc --stbv --nomem --syn --progress --presat %s yices -- --binary\n", $1, mode, (modes[mode] == "tind" ? "--induction" : "")
   }
 }
 ' <<< "$I $LOG" >> formal.sby
@@ -163,6 +163,8 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
 done <<< "$LOG_LINES"
+echo "assertpmux
+" >> formal.sby
 
 echo "
 [files]
