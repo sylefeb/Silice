@@ -121,7 +121,7 @@ assign run_main = 1'b1;
 M_main __main(
   .clock(CLK),
   .out_clock(design_clk),
-  .reset(RST_d[0]),
+  .reset(RST_q[0]),
   .out_leds(__main_leds),
 `ifdef BUTTONS
   .in_btns({BTN3,BTN2,BTN1}),

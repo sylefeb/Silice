@@ -66,18 +66,18 @@ $include('flame/flame.ice')
 // ------------------------- 
 
 algorithm frame_drawer(
-  sdram_user    sd,  // main
-  sdram_user    sda, // aux
-  input  uint1  sdram_clock,
-  input  uint1  sdram_reset,
-  input  uint1  vsync,
-  output uint1  fbuffer = 0,
-  output uint8  leds,
+  sdram_user     sd,  // main
+  sdram_user     sda, // aux
+  input   uint1  sdram_clock,
+  input   uint1  sdram_reset,
+  input   uint1  vsync,
+  output  uint1  fbuffer = 0,
+  output  uint8  leds,
 $$if SDCARD then  
-  output uint1  sd_clk,
-  output uint1  sd_csn,
-  output uint1  sd_mosi,
-  input  uint1  sd_miso,
+  output! uint1  sd_clk,
+  output! uint1  sd_csn,
+  output! uint1  sd_mosi,
+  input   uint1  sd_miso,
 $$end  
   simple_dualport_bram_port1 palette,
 ) <autorun> {
@@ -85,8 +85,8 @@ $$end
   rv32i_ram_io sdram;
   // sdram io
   sdram_ram_32bits bridge<@sdram_clock,!sdram_reset>(
-    sdr <::> sda,
-    r32 <::> sdram,
+    sdr <:> sda,
+    r32 <:> sdram,
   );
 
   uint26 predicted_addr    = uninitialized;

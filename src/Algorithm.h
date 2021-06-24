@@ -143,6 +143,8 @@ namespace Silice
 
     /// \brief Set of known modules
     const std::unordered_map<std::string, AutoPtr<Module> >& m_KnownModules;
+    /// \brief Set of known algorithms
+    const std::unordered_map<std::string, AutoPtr<Algorithm> >& m_KnownAlgorithms;
     /// \brief Set of known subroutines
     const std::unordered_map<std::string, siliceParser::SubroutineContext*>& m_KnownSubroutines;
     /// \brief Set of known circuitries
@@ -244,9 +246,11 @@ private:
       siliceParser::GroupContext    *group           = nullptr; // from an actual group declaration
       siliceParser::IntrfaceContext *intrface        = nullptr; // from an interface declaration
       siliceParser::DeclarationMemoryContext *memory = nullptr; // from a memory declaration
+      const Algorithm               *alg             = nullptr; // from an algorithm
       t_group_definition(siliceParser::GroupContext *g) : group(g)    {}
       t_group_definition(siliceParser::IntrfaceContext *i) : intrface(i) {}
       t_group_definition(siliceParser::DeclarationMemoryContext *m) : memory(m) {}
+      t_group_definition(const Algorithm *a) : alg(a) {}
     };
 
     /// \brief inputs
@@ -654,7 +658,8 @@ private:
     t_combinational_block                                             m_AlwaysPre;
     t_combinational_block                                             m_AlwaysPost;
     /// \brief wire assignments
-    std::unordered_map<std::string,t_instr_nfo>                       m_WireAssignments;
+    std::unordered_map<std::string, int>                              m_WireAssignmentNames;
+    std::vector<std::pair<std::string,t_instr_nfo> >                  m_WireAssignments;
     /// \brief all combinational blocks
     std::list< t_combinational_block* >                               m_Blocks;
     /// \brief state name to combinational block
@@ -672,7 +677,9 @@ private:
     /// \brief indicates whether a FSM report has to be generated and what the filename is (empty means none)
     std::string m_ReportBaseName;
     /// \brief internally set to true when the report has to be written
-    bool        m_ReportingEnabled;
+    bool        m_ReportingEnabled = false;
+    /// \brief recalls whether the algorithm is already optimized
+    bool        m_Optimized = false;
 
     std::string fsmReportName() const { return m_ReportBaseName  + ".fsm.log"; }
     std::string vioReportName() const { return m_ReportBaseName + ".vio.log"; }
@@ -839,8 +846,6 @@ private:
     t_combinational_block *gatherRepeatBlock(siliceParser::RepeatBlockContext* repeat, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather always assigned
     void gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always);
-    ///\brief Runs the linter on the algorithm, at instantiation time
-    void lint(const t_instantiation_context &ictx);
     /// \brief check access permissions (recursively) from a specific node
     void checkPermissions(antlr4::tree::ParseTree *node, t_combinational_block *_current);
     /// \brief check access permissions on all block instructions
@@ -861,6 +866,8 @@ private:
     void gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io);
     /// \brief gather infos about an io definition (group/interface)
     void gatherIoDef(siliceParser::IoDefContext *iod, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather infos about outputs of an algorithm
+    void gatherAllOutputsNfo(siliceParser::OutputsContext *allouts, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather infos about an io group
     void gatherIoGroup(siliceParser::IoDefContext * iog, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather infos about an io interface
@@ -910,6 +917,11 @@ private:
     /// \brief report an error
     void reportError(antlr4::Token* what, int line, const char *msg, ...) const;
     void reportError(antlr4::misc::Interval interval, int line, const char *msg, ...) const;
+    /// \brief run optimizations
+    void optimize();
+    ///\brief Runs the linter on the algorithm, at instantiation time
+    void lint(const t_instantiation_context &ictx);
+
     /// \brief Pre-processor, optionally set
     static LuaPreProcessor *s_LuaPreProcessor;
 
@@ -1004,10 +1016,11 @@ private:
       std::string clock, std::string reset,
       bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes,
       const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
+      const std::unordered_map<std::string, AutoPtr<Algorithm> >&              known_algorithms,
       const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
       const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
       const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
-      const std::unordered_map<std::string, siliceParser::IntrfaceContext *>& known_interfaces,
+      const std::unordered_map<std::string, siliceParser::IntrfaceContext *>&  known_interfaces,
       const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield);
     /// \brief destructor
     virtual ~Algorithm();
@@ -1019,8 +1032,6 @@ private:
     void resolveModuleRefs(const std::unordered_map<std::string, AutoPtr<Module> >& modules);
     /// \brief resolve instanced algorithms refs
     void resolveAlgorithmRefs(const std::unordered_map<std::string, AutoPtr<Algorithm> >& algorithms);
-    /// \brief run optimizations
-    void optimize();
 
   private:
 

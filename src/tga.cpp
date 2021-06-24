@@ -441,11 +441,15 @@ t_image_nfo *ReadTGAFile(const char *filename)
 
   /* Read color map */
   texinfo->colormap = NULL;
+  texinfo->colormap_size = 0;
+  texinfo->colormap_chans = 0;
   if (header.colormap_type)
   {
     /* NOTE: color map is stored in BGR format */
     texinfo->colormap = new uchar[ header.cm_length * (header.cm_size >> 3) ];
     fread (texinfo->colormap, sizeof (uchar), header.cm_length * (header.cm_size >> 3), fp);
+    texinfo->colormap_size  = header.cm_length;
+    texinfo->colormap_chans = header.cm_size >> 3;
   }
 
   /* Read image data */

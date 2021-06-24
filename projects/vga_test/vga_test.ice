@@ -93,15 +93,15 @@ algorithm frame_display(
 algorithm main(
   output! uint$NUM_LEDS$ leds,
 $$if SIMULATION then
-  output! uint1 video_clock,
+  output  uint1 video_clock,
 $$end
 $$if VGA then  
   // VGA
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
   output! uint$color_depth$ video_b,
-  output! uint1 video_hs,
-  output! uint1 video_vs
+  output  uint1 video_hs,
+  output  uint1 video_vs
 $$end
 ) 
 $$if not ULX3S then

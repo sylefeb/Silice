@@ -64,17 +64,17 @@ $$end
 // -------------------------
 
 algorithm main(
-  output! uint$NUM_LEDS$    leds,
+  output  uint$NUM_LEDS$    leds,
 $$if BUTTONS then
   input   uint$NUM_BTNS$    btns,
 $$end
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
   output! uint$color_depth$ video_b,
-  output! uint1             video_hs,
-  output! uint1             video_vs,
+  output  uint1             video_hs,
+  output  uint1             video_vs,
 $$if SIMULATION then
-  output! uint1             video_clock,
+  output  uint1             video_clock,
 $$end
 ) 
 $$if not ULX3S then

@@ -99,7 +99,7 @@ The `compile_c.sh` takes a `--nolibc` option if you'd like to compile without th
 make verilator
 ```
 
-This will output images in `BUILD_verilator/`.
+This will open the Verilator framework display window.
 
 ### Building Blaze
 

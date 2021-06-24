@@ -131,7 +131,7 @@ Some terminology we use next:
 -   **Host hardware framework**: The Verilog glue to the hardware meant
     to run the design. This can also be a glue to Icarus[1] or
     Verilator[2], both frameworks are provided.
--   **Combinational loop**: A combinational chain where a cyclic
+-   **Combinational loop**: A circuit where a cyclic
     dependency exists. These lead to unstable hardware synthesis and
     have to be avoided.
 
@@ -737,7 +737,7 @@ algorithm adder(intput uint8 a,intput uint8 b,output uint8 v)
 
 Let us now discuss each element of the declaration.
 
-#### Inputs and outputs.
+#### *Inputs and outputs.*
 
 Inputs and outputs may be declared in any order, however the order
 matters when calling the algorithms (parameters are given in the order
@@ -764,7 +764,7 @@ Section <a href="#combloops" data-reference-type="ref" data-reference="combloop
 
 > **Note:** Silice combinational loop detection is not perfect yet. Such a problem would typically result in simulation hanging (unable to stabilize the circuit) with Verilator issuing a `UNOPTFLAT` warning.
 
-#### Declarations.
+#### *Declarations.*
 
 Variables, instanced algorithms and instanced modules have to be
 declared first (in any order). A simple example:
@@ -1307,12 +1307,15 @@ architecture and vendor toolchain.
 # Execution flow and cycle utilization rules
 
 Upon compilation, Silice breaks down the code into a finite state
-machine (FSM) and corresponding combinational chains. Silice attempts to
-form the longest combinational chains, or equivalently to minimize the
-number of states in the FSM. That is because going from one state to the
-next requires one clock cycle, delaying further computations. Of course,
-longer combinational chains also lead to reduced clock frequency, so
-there is a tradeoff. This is why Silice lets you explicitly specify
+machine (FSM). Each state corresponds to a circuit that updates the variables 
+within a single cycle, and selects the next state. 
+We next call these circuits *combinational chains*.
+
+Silice attempts to form the longest combinational chains, or equivalently 
+to minimize the number of states in the FSM. That is because going from one 
+state to the next requires one clock cycle, delaying further computations. 
+Of course, longer combinational chains also lead to reduced clock frequency, 
+so there is a tradeoff. This is why Silice lets you explicitly specify
 where to cut a combinational chain using the step operator `++:`
 
 Note that if a state contains several independent combinational chain,
@@ -1430,11 +1433,14 @@ switch( <IDENTFIER> ) {
   case 1: {  /* code for this case */    }
   ...
   case <W-1>: {  /* code for this case */    }
+  default:    {  /* code for default case */ }
 }  
 ```
 where `<IDENTFIER>` is a variable of width `W` and each case is activated for
 the corresponding bit of `<IDENTFIER>` being set to `1`, with all other bits set to `0`.
-
+The `default` is only mandatory if not all bits are tested, and otherwise 
+only necessary if `<IDENTFIER>` may be zero (not having a default while `<IDENTFIER>`
+may be zero leads to undefined behaviors).
 
 ## Cycle costs of calls to algorithms and subroutines
 

@@ -132,7 +132,7 @@ $$end
 $$if not FIREV_NO_INSTRET then    
     instret    <:: instret,
 $$end    
-    user_data  <:: user_data,
+    user_data  <:  user_data,
     r           :> alu_out,
     ra         <:: regA,
     rb         <:: regB,
