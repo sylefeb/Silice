@@ -82,7 +82,7 @@ The build system also presents a summary of Symbiyosys logs for easier interpret
 of the results, linking them to your Silice code 
 
 > **Note:** All Symbiyosys logs are kept if in-depth analysis is later required: see
-`logfile.txt` file in the build directory.
+> the `logfile.txt` file in the build directory.
 
 > **Note:** In case you want to modify the file `formal.sby` (which is also generated), you will have to run Symbiyosys by hand using the command `sby -f formal.sby` (re-running the formal board will override all your modifications). The `-f` option indicates that we are okay discarding the old results of previous runs.
 
@@ -280,7 +280,7 @@ We add an assumption with the `#assume` construct. Assume and
 restrict are quite similar. The only difference between them lies in this property:
 
 > If any assertion depends on an assumption use `#assume`, else use `#restrict`.
-In doubt use `#assume`.
+> In doubt use `#assume`.
 
 In our test algorithm, the assertion depends on the assumption that `x ≠ 0`, therefore it must be modified as follows:
 ```c
@@ -358,7 +358,12 @@ Running `make tutorial` (there should be a file name `tutorial.ice` in this fold
 does not yield the correct results: our compact division is flawed at least on 8-bits!
 
 ![tutorial results](./tutorial-results.png)
-> **Note:** Temporal induction fails in both cases here. The basecase *should* always fail whenever a simple BMC fails, because it is proven using a BMC.
+> **Note:** Temporal induction is *expected* to fail when a simple BMC already fails before.
+> 
+> In the case of a BMC timeout, temporal induction may or may not fail. 
+> A non-failing BMC can be unsafely assumed in such case.
+>
+> When both the BMC and the temporal induction timeout, nothing can be concluded.
 
 Visualizing the generated VCD trace in GTKWave yields a strange result: it appears that `192 ÷ 192 = 169`! That's strange...
 ![gtkwave vcd tutorial trace](./tutorial-trace.png)
@@ -381,8 +386,8 @@ Here are some other features that have not been discussed earlier because they w
 
 <details><summary>Click me to reveal the spoiler (please don't)</summary>
 
-> It doesn't quite make sens to verify this in our interactive example.
-> Therefore, a dumb example will most likely be given, to illustrate how one may use `#wasin`.
+> It doesn't quite make sense to verify this in our interactive example.
+> Therefore a dumb example will be given to illustrate how one may use `#wasin`.
 
 </details>
 
