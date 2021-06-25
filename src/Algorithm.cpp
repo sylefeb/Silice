@@ -5777,7 +5777,7 @@ void Algorithm::writeAssert(std::string prefix,
   auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
-  out << "assert(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
+  out << "assert(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
 }
 
 // -------------------------------------------------
@@ -5794,7 +5794,7 @@ void Algorithm::writeAssume(std::string prefix,
   auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
-  out << "assume(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
+  out << "assume(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
 }
 
 // -------------------------------------------------
@@ -5811,7 +5811,7 @@ void Algorithm::writeRestrict(std::string prefix,
   auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
-  out << "restrict(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
+  out << "restrict(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
 }
 
 // -------------------------------------------------
@@ -6301,14 +6301,10 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
       std::string silice_position = file + ":" + std::to_string(line);
 
-      out << "if (";
-      if (chk.current_state != nullptr) { // if the block is not null, then we have to
-                                          // specifically check for the predecessor state in the current state
-        out << FF_Q << prefix << ALG_IDX << " == " << chk.current_state->state_id << " && ";
-      }
-      out << "!" << reset << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
-          << "assert($past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << "); //%" << silice_position << nxl
-          << "end" << nxl;
+      const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
+      const std::string condition = "(" + inState + " && !" + reset + " && " + ALG_INPUT "_" ALG_RUN + " && !$initstate)";
+
+      out << "assert(!" << condition << " || $past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << "); //%" << silice_position << nxl;
     }
   }
 
@@ -6319,23 +6315,18 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
     std::string silice_position = file + ":" + std::to_string(line);
 
-    out << "if (";
-    if (chk.current_state != nullptr) { // if the block is not null, then we have to
-                                        // specifically check for stability in the current state
-      out << FF_Q << prefix << ALG_IDX << " == " << chk.current_state->state_id << " &&";
-    }
-    out << "!" << reset << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
-        << "assert($stable(" << rewriteExpression(prefix, chk.ctx->expression_0(), 0, nullptr, FF_Q, true, _deps, _ff_usage) << ")); //%" << silice_position << nxl
-        << "end" << nxl;
+    const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
+    const std::string condition = "(" + inState + " && !" + reset + " && " + ALG_INPUT "_" ALG_RUN + " && !$initstate)";
+
+    out << "assert(!" << condition << " || $stable(" << rewriteExpression(prefix, chk.ctx->expression_0(), 0, nullptr, FF_Q, true, _deps, _ff_usage) << ")); //%" << silice_position << nxl;
   }
 
   for (auto const &chk : m_StableInputChecks) {
     auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
     std::string silice_position = file + ":" + std::to_string(line);
 
-    out << "if (!" << ALG_RESET << " && " << ALG_INPUT "_" ALG_RUN << ") begin" << nxl
-        << "assume($stable(" << encapsulateIdentifier(chk.varName, true, ALG_INPUT "_" + chk.varName, "") << ")); //%" << silice_position << nxl
-        << "end" << nxl;
+    const std::string condition = "(!" + reset + " && " + ALG_INPUT "_" ALG_RUN " && !$initstate)";
+    out << "assume(!" << condition << " || $stable(" << encapsulateIdentifier(chk.varName, true, ALG_INPUT "_" + chk.varName, "") << ")); //%" << silice_position << nxl;
   }
 
   out << "end" << nxl;
@@ -6635,9 +6626,12 @@ void Algorithm::writeCombinationalStates(
   }
   // default: internal error, should never happen
   {
-    out << "default: begin " << nxl;
-    out << FF_D << prefix << ALG_IDX " = {" << stateWidth() << "{1'bx}};" << nxl;
-    out << " end" << nxl;
+    out << "default: begin " << nxl
+        << FF_D << prefix << ALG_IDX " = {" << stateWidth() << "{1'bx}};" << nxl
+        << "`ifdef FORMAL" << nxl
+        << "assume(0);" << nxl
+        << "`endif" << nxl
+        << " end" << nxl;
   }
   out << "endcase" << nxl;
 }
@@ -7884,6 +7878,16 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
       reportError(nullptr, -1, "internal error, input bindings usage case");
     }
   }
+
+  // correctly setup the formal stuff:
+  //   - reset on the initial state
+  //   - always assume that the algorithm is either running or finished
+  out << "`ifdef FORMAL" << nxl
+      << "initial begin" << nxl
+      << "assume(" << ALG_RESET << ");" << nxl
+      << "end" << nxl
+      << "assume property($initstate || (" << ALG_INPUT << "_" << ALG_RUN << " || " << ALG_OUTPUT << "_" << ALG_DONE << "));" << nxl
+      << "`endif" << nxl;
 
   // track dependencies
   t_vio_dependencies always_dependencies;

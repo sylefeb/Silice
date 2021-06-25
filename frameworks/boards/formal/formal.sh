@@ -30,7 +30,7 @@ esac
 cd $BUILD_DIR
 
 rm build*
-rm -r formal* *.smtc  # formal.log formal.sby *.smtc formal_*/
+rm -r formal*  # formal.log formal.sby formal_*/
 
 if ! silice --frameworks_dir $FRAMEWORKS_DIR -f '' -o build.v $1 "${@:2}"; then
   exit 1
@@ -46,20 +46,15 @@ LOG_LINES="$(cat build.v.alg.log)"
 LOG_LINES="$(sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;ba' -e '}' <<< "$LOG_LINES")"
 # adaptated from: https://unix.stackexchange.com/a/552195
 # Remove empty lines at the beginning and end of the string
-echo 'state 0
-assume (= [reset] true)
-assume (= [in_run] false)
-
-state 1
-assume (= [in_run] false)
-
-state 1:*
-assume (= [reset] false)
-
-state 2:*
-assume (= [in_run] true)' > bmc.smtc
-cp bmc.smtc cover.smtc
-cp bmc.smtc tind.smtc
+if ! [ -f bmc.smtc ]; then
+  touch bmc.smtc
+fi
+if ! [ -f cover.smtc ]; then
+  touch cover.smtc
+fi
+if ! [ -f tind.smtc ]; then
+  touch tind.smtc
+fi
 
 touch formal.sby
 
@@ -140,7 +135,7 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
   split($8, modes, /,/)
 
   for (mode in modes) {
-    printf "task-%d-%d: smtbmc --stbv --nomem --syn --progress --presat %s yices -- --binary\n", $1, mode, (modes[mode] == "tind" ? "--induction" : "")
+    printf "task-%d-%d: smtbmc --stbv --progress --presat %s yices -- --binary\n", $1, mode, (modes[mode] == "tind" ? "--induction" : "")
   }
 }
 ' <<< "$I $LOG" >> formal.sby
