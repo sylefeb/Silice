@@ -47,12 +47,16 @@ algorithm #associative(
   input $INPUT$ x,
   input $INPUT$ y,
   input $INPUT$ z
-) <#depth=45, #mode=bmc & tind>
+) <#depth=45, #mode=bmc & tind, #timeout=240>
 {
   $OUTPUT$ r1 = uninitialized;
   $OUTPUT$ r2 = uninitialized;
+  $OUTPUT2$ r3 = uninitialized;
+  $OUTPUT2$ r4 = uninitialized;
   $MULT$ multiply1;
   $MULT$ multiply2;
+  $MULT2$ multiply3;
+  $MULT2$ multiply4;
 
   #stableinput(x);
   #stableinput(y);
@@ -60,12 +64,10 @@ algorithm #associative(
 
   (r1) <- multiply1 <- (x, y);
   (r2) <- multiply2 <- (y, z);
-  (r1) <- multiply1 <- (r1, z);
-  (r2) <- multiply1 <- (x, r2);
+  (r3) <- multiply3 <- (r1, z);
+  (r4) <- multiply4 <- (x, r2);
 
-  #assume(r1 <= $max_int$);
-  #assume(r2 <= $max_int$);
-  #assert(r1 == r2);
+  #assert(r3 == r4);
 }
 
 // distributivity: x · (y + z) = x · y + x · z
