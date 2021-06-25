@@ -35,9 +35,11 @@ $$else
 $$end
 
 $$if FORMAL then
+  #stableinput(inum);
+  #stableinput(iden);
   // Preconditions:
   // (*) x/0 = error
-  #restrict(iden != 0);
+  #assume(iden != 0);
 $$end
  
   ac  = {{$div_width-1${1b0}},num[$div_width-1$,1]};
