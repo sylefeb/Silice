@@ -23,10 +23,10 @@ $$if FORMAL then
 /////////////// Properties of multiplication: //////////////
 
 // commutativity: x · y = y · x
-algorithm #commutative(
+algorithm# commutative(
   input $INPUT$ x,
   input $INPUT$ y
-) <#depth=25, #mode=bmc & tind>
+) <#depth=25, #mode=bmc & tind, #timeout=240>
 {
   $OUTPUT$ r1 = uninitialized;
   $OUTPUT$ r2 = uninitialized;
@@ -43,7 +43,7 @@ algorithm #commutative(
 }
 
 // associativity: (x · y) · z = x · (y · z)
-algorithm #associative(
+algorithm# associative(
   input $INPUT$ x,
   input $INPUT$ y,
   input $INPUT$ z
@@ -71,7 +71,7 @@ algorithm #associative(
 }
 
 // distributivity: x · (y + z) = x · y + x · z
-algorithm #distributive(
+algorithm# distributive(
   input $INPUT$ x,
   input $INPUT$ y,
   input $INPUT$ z
@@ -96,7 +96,7 @@ algorithm #distributive(
 }
 
 // identity: x · 1 = x
-algorithm #identity(
+algorithm# identity(
   input $INPUT$ x
 ) <#depth=15, #mode=bmc & tind>
 {
@@ -111,7 +111,7 @@ algorithm #identity(
 }
 
 // zero: x · 0 = 0
-algorithm #zero(
+algorithm# zero(
   input $INPUT$ x
 ) <#depth=15, #mode=bmc & tind>
 {
@@ -126,7 +126,7 @@ algorithm #zero(
 }
 
 // negation: (-1) · x = -x
-algorithm #negation(
+algorithm# negation(
   input $INPUT$ x
 ) <#depth=15, #mode=bmc & tind>
 {
@@ -142,7 +142,7 @@ algorithm #negation(
 
 // order preservation: (*) for a > 0, if b > c then ab > ac
 //                     (*) for a < 0, if b > c then ab < ac
-algorithm #order_preserve(
+algorithm# order_preserve(
   input $INPUT$ a,
   input $INPUT$ b,
   input $INPUT$ c

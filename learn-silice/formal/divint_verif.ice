@@ -17,7 +17,7 @@ $$if FORMAL then
 /////////////// Properties of division: //////////////
 
 // right identity: x / 1 = x
-algorithm #right_identity(
+algorithm# right_identity(
   input $INPUT$ x
 ) <#mode=bmc & tind, #depth=20>
 {
@@ -33,7 +33,7 @@ algorithm #right_identity(
 }
 
 // left zero: 0 / x = 0
-algorithm #left_zero(
+algorithm# left_zero(
   input $INPUT$ x
 ) <#mode=bmc & tind, #depth=20>
 {
@@ -49,7 +49,7 @@ algorithm #left_zero(
 }
 
 // nullability: x / x = 1
-algorithm #nullability(
+algorithm# nullability(
   input $INPUT$ x
 ) <#mode=bmc & tind, #depth=20>
 {
@@ -66,7 +66,7 @@ algorithm #nullability(
 }
 
 // : x / y = 0 iff |y| > |x|
-algorithm #some_property(
+algorithm# some_property(
   input $INPUT$ x,
   input $INPUT$ y
 ) <#mode=bmc & tind, #depth=20>
