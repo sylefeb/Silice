@@ -266,12 +266,7 @@ function try_read_silice_position(line) {
 match($0, /((BMC|Temporal induction) failed!)/, gr) {
   gsub(/formal_/, "", $3)
 
-  step = ""
-  if (match($4, /\.(basecase|induction)/, gr_)) {
-    step = gr_[1]
-  }
-
-  print "* " sprintf("%" LEN "-s", $3) "\033[31m" (step == "" ? "" : "\033[4m" step ":" "\033[0m\033[31m ") gr[1] "\033[0m"
+  print "* " sprintf("%" LEN "-s", $3) "\033[31m" gr[1] "\033[0m"
 }
 match($0, /(Temporal induction successful\.)/, gr) {i
   gsub(/formal_/, "", $3)
