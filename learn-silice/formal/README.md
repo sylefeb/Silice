@@ -12,6 +12,7 @@
 ## Table of contents
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+
 - [Verifying designs written in Silice](#verifying-designs-written-in-silice)
     - [Table of contents](#table-of-contents)
     - [Prerequisites](#prerequisites)
@@ -28,6 +29,7 @@
         - [**Assertions and assumptions**](#assertions-and-assumptions)
         - [**Stable values**](#stable-values)
         - [**Verifying our interactive example**](#verifying-our-interactive-example)
+            - [*Fixing a flawed algorithm*](#fixing-a-flawed-algorithm)
     - [Other verification features](#other-verification-features)
         - [**State checking**](#state-checking)
         - [**Cover tests and trace generation**](#cover-tests-and-trace-generation)
@@ -377,6 +379,23 @@ Fixing this bug (this has already been done in [`099a7f0`](https://github.com/sy
 and re-running the tutorial on the new compact division now yields correct results, for the BMC as well as the temporal induction!
 
 ![new tutorial results](./tutorial-results-2.png)
+
+#### *Fixing a flawed algorithm*
+
+Formal verification can break at different points, according to what is not working.
+We provide a quick guide to fixing your algorithm in case of a failing test:
+
+- **Step 1:** run the BMC
+  - If it failed, fix the design, add assumptions or loosen assertions.
+    The error can generally be seen in the generated counterexample.
+  - If it passed, proceed to step 2.
+- **Step 2:** run a temporal induction
+  - If it failed, investigate the counterexample given, and check if it is reachable.
+    - If reachable, fix the design, add assumptions or loosen assertions.
+    - If not reachable, add restrictions, strengthen assertions or increase the induction length.
+  - If it passed, either reduce the induction length and remove restrictions, or consider you are done.
+- **Step 3:** be happy of yourself, you probably found many bugs or proved there are none in your design.
+  Either way, formal verification was a success!
 
 ## Other verification features
 
