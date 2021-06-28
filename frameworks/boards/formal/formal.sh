@@ -29,8 +29,8 @@ esac
 
 cd $BUILD_DIR
 
-rm build*
-rm -r formal*  # formal.log formal.sby formal_*/
+rm build* &>/dev/null
+rm -r formal* &>/dev/null  # formal.log formal.sby formal_*/
 
 if ! silice --frameworks_dir $FRAMEWORKS_DIR -f '' -o build.v $1 "${@:2}"; then
   exit 1
