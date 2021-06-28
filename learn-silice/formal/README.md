@@ -64,14 +64,16 @@ A temporal k-induction takes the opposite point of view. It verifies that any va
 ![k-induction](./tind.png)
 *Figure from [Formal Verification with SymbiYosys and Yosys-SMTBMC](http://www.clifford.at/papers/2017/smtbmc-sby/slides.pdf) by Claire Wolf.*
 
+> **Note:** it is necessary to perform a BMC of depth `≥ k` before a temporal induction in order to end up with a complete proof.
+
 ### **Programs needed**
 
 This tutorial assumes that you have the FPGA toolchain already installed, if not please see [getting started](../../GetStarted.md).
 In addition you have to install [Symbiyosys](https://symbiyosys.readthedocs.io/en/latest/), a front-end for Yosys to facilitate formal verification.
 
-> **Note:** verify that *yosys-abc* is in the path ; if you build yosys yourself, you may need to create a symlink to it.
+> **Note:** verify that *yosys-abc* is in the path ; if you built yosys yourself, you may need to create a symlink to it.
 
-In addition to Yosys and Symbiyosys, you have to install the SMT solver Yices2, which is available [here](https://yices.csl.sri.com/). This solver handles BMC and cover tests quite fine, and fast enough (compared to e.g. z3).
+In addition to Yosys and Symbiyosys, you have to install the SMT solver Yices2, which is available [here](https://yices.csl.sri.com/). This solver handles BMC and cover tests quite fine, and fast enough in most cases (compared to e.g. z3).
 
 <!-- Introduce the formal board, what it does, how it is useful -->
 ## Easy verification with `make formal`
@@ -95,7 +97,7 @@ through an actual design example, completing each step.
 Throughout Silice the `#` symbol indicates something related to formal verification.
 
 For instance, an algorithm that can be verified is marked with a `#`, like `algorithm#`. It is likely that you may not want to always include these algorithms
-in your design, in which case it is a good practice to surround those algorithms with `$$if FORMAL then ... end` blocks. The `FORMAL` macro is automatically defined by the formal board.
+in your design, in which case it is a good practice to surround these algorithms with `$$if FORMAL then ... end` blocks. The `FORMAL` macro is automatically defined by the formal board.
 
 Next, we are going to verify the unsigned 8-bit integer division implemented in [common/divint_std.ice](../common/divint_std.ice). Well, in fact a previous version of it as we've found a bug thanks to formal verification!
 To make this short, we will only verify the following property: `x ÷ x = 1`. 
@@ -365,7 +367,7 @@ does not yield the correct results: our compact division is flawed at least on 8
 >
 > When both the BMC and the temporal induction timeout, nothing can be concluded.
 
-Visualizing the generated VCD trace in GTKWave yields a strange result: it appears that `192 ÷ 192 = 169`! That's strange...
+Visualizing the generated VCD trace in GTKWave yields a strange result: it appears that `192 ÷ 192 = 169`! 
 ![gtkwave vcd tutorial trace](./tutorial-trace.png)
 
 After a bit of research, minutes of debugging and researching in similar implementations, it turns out that the accumulator should be 1 bit wider.
