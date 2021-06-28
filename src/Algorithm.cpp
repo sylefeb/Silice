@@ -6604,7 +6604,7 @@ void Algorithm::writeCombinationalStates(
     if (m_ReportingEnabled) {
       std::ofstream freport(fsmReportName(), std::ios_base::app);
       freport << (ictx.instance_name.empty() ? "__main" : ictx.instance_name) << " ";
-      freport << (m_OneHot ? b->state_id : toFSMState(b->state_id)) << " ";
+      freport << toFSMState(b->state_id) << " ";
       freport << ' ' << lines.size() << ' ';
       for (auto l : lines) {
         if (l[0] == l[1]) {
