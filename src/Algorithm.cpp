@@ -5450,7 +5450,6 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
   // set inputs
   int p = 0;
   for (const auto& ins : called->inputs) {
-    // out << FF_D << prefix << called->vios.at(ins);
     out << rewriteIdentifier(prefix, called->vios.at(ins), "", bctx, (int)plist->getStart()->getLine(), FF_D, false, dependencies, _ff_usage);
     if (std::holds_alternative<std::string>(matches[p].what)) {
       out << " = " << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), "", bctx, (int)plist->getStart()->getLine(), FF_Q, true, dependencies, _ff_usage);
