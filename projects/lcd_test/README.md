@@ -7,14 +7,16 @@ Tested on:
 
 ## Pinout for the iCEstick
 
+See [connector pins layout](../../frameworks/boards/icestick/icestick.pcf).
+
 | iCEstick | LCD 1602 |
 |----------|----------|
-| PMOD08   | E        |
-| PMOD07   | RS       |
-| PMOD04   | D7       |
-| PMOD03   | D6       |
-| PMOD02   | D5       |
-| PMOD01   | D4       |
+| PMOD8    | E        |
+| PMOD7    | RS       |
+| PMOD4    | D7       |
+| PMOD3    | D6       |
+| PMOD2    | D5       |
+| PMOD1    | D4       |
 
 ## Full schematic
 

@@ -6,12 +6,6 @@ $include('../common/lcd.ice')
 
 algorithm main(
   output uint$NUM_LEDS$ leds = 1,
-$$if PMOD then
-// FIXME: The framework for the iCEstick expects those pins to be 'inout's
-// But support for them is not done for now (#19), so this needs some modifications
-//
-// All the `inout_pmodN` in `frameworks/icestick/icestick.v` need to be changed to `out_pmodN` for this
-// code to compile.
   output uint1 pmod1,
   output uint1 pmod2,
   output uint1 pmod3,
@@ -20,7 +14,6 @@ $$if PMOD then
   output uint1 pmod8,
   output uint1 pmod9,
   output uint1 pmod10,
-$$end
 ) {
   uint8 data = 0;
   uint1 dummy_rw = uninitialized;
@@ -93,5 +86,5 @@ $$end
     i = i + 1;
   }
 
-  leds = 0;
+  leds = 1;
 }

@@ -8,7 +8,8 @@
         {"set"    : "basic"},
         {"set"    : "vga",  "define" : "VGA=1"},
         {"set"    : "oled", "define" : "OLED=1"},
-        {"set"    : "pmod", "define" : "PMOD=1"}
+        {"set"    : "pmod", "define" : "PMOD=1"},
+        {"set"    : "pmod_out", "define" : "PMOD_OUT=1"}
       ],
       "builders": [
         {
@@ -145,6 +146,58 @@
         "name": "pmod10",
         "type": "uint1",
         "io": "input_output"
+      }
+    ],
+    "pmod_out": [
+      {
+        "name": "pmod1",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "pmod2",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "pmod3",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "pmod4",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "pmod5",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "pmod6",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "pmod7",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "pmod8",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "pmod9",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "pmod10",
+        "type": "uint1",
+        "io": "output"
       }
     ]
   }

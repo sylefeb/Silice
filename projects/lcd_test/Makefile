@@ -1,8 +1,8 @@
 .DEFAULT: main.ice
 ifdef tool
-		silice-make.py -s main.ice -b $@ -p basic,pmod -o BUILD_$(subst :,_,$@) -t $(tool)
+		silice-make.py -s main.ice -b $@ -p basic,pmod_out -o BUILD_$(subst :,_,$@) -t $(tool)
 else
-		silice-make.py -s main.ice -b $@ -p basic,pmod -o BUILD_$(subst :,_,$@)
+		silice-make.py -s main.ice -b $@ -p basic,pmod_out -o BUILD_$(subst :,_,$@)
 endif
 
 clean:
