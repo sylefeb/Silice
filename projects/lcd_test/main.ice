@@ -7,6 +7,11 @@ $include('../common/lcd.ice')
 algorithm main(
   output uint$NUM_LEDS$ leds = 1,
 $$if PMOD then
+// FIXME: The framework for the iCEstick expects those pins to be 'inout's
+// But support for them is not done for now (#19), so this needs some modifications
+//
+// All the `inout_pmodN` in `frameworks/icestick/icestick.v` need to be changed to `out_pmodN` for this
+// code to compile.
   output uint1 pmod1,
   output uint1 pmod2,
   output uint1 pmod3,
@@ -34,7 +39,7 @@ $$end
   // Instanciate our LCD 1602 controller and bind its parameters to the correct pins
   // (see schematic at the top)
   lcdio io;
-  lcd_4_5X11 controller(
+  lcd_4_5X8 controller(
     lcd_rs        :> pmod7,
     lcd_rw        :> dummy_rw,  // The RW pin is grounded
     lcd_e         :> pmod8,

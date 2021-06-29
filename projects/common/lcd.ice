@@ -66,13 +66,13 @@ $$         group_name .. ".set_cursor    := 0;\n"
 $$end
 
 $$__LCD_SIZE=''
-$$if LCD_4BITS then
+$$if LCD_4BITS ~= nil and LCD_4BITS == 1 then
 $$  __LCD_SIZE='4'
 $$else
 $$  __LCD_SIZE='8'
 $$end
 $$__LCD_PIXEL_RATIO=''
-$$if LCD_MODE then
+$$if LCD_MODE ~= nil and LCD_MODE == 1 then
 $$  __LCD_PIXEL_RATIO='5X11'
 $$else
 $$  __LCD_PIXEL_RATIO='5X8'
