@@ -1,5 +1,5 @@
 // SL 2020-07-13
-// Wave function collapse (with image output)
+// Wave function collapse / Model synthesis (with image output)
 
 $$if DE10NANO or SIMULATION then
 $$N = 8
