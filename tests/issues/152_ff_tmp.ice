@@ -1,9 +1,13 @@
-algorithm main(output uint8 leds) {
-  subroutine f(
-    input uint1 bool
-  ) {
-    uint1 x <: bool;
-  }
+algorithm main(output uint8 leds) 
+{
 
-  () <- f <- (0);
+  uint1 foo = 0;
+	uint1 x <: foo;
+	
+	foo := 5;
+	
+++:
+  
+  leds = x;	
+
 }

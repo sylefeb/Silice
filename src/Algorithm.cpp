@@ -5369,7 +5369,7 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
         "algorithm instance '%s' cannot be called with parameters as its input '%s' is bound",
           a.instance_name.c_str(), ins.name.c_str());
       }
-      out << FF_D << a.instance_prefix << "_" << ins.name;
+      out << FF_D << a.instance_prefix << "_" << ins.name; // NOTE: we are certain a flip-flop is produced as the algorithm is bound to the 'Q' side
       if (std::holds_alternative<std::string>(matches[p].what)) {
         out << " = " << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), "", bctx, (int)plist->getStart()->getLine(), FF_Q, true, dependencies, _ff_usage);
       } else {
@@ -5450,7 +5450,8 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
   // set inputs
   int p = 0;
   for (const auto& ins : called->inputs) {
-    out << FF_D << prefix << called->vios.at(ins);
+    // out << FF_D << prefix << called->vios.at(ins);
+    out << rewriteIdentifier(prefix, called->vios.at(ins), "", bctx, (int)plist->getStart()->getLine(), FF_D, false, dependencies, _ff_usage);
     if (std::holds_alternative<std::string>(matches[p].what)) {
       out << " = " << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), "", bctx, (int)plist->getStart()->getLine(), FF_Q, true, dependencies, _ff_usage);
     } else {
@@ -7674,6 +7675,14 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   }
   out << nxl;
 
+  // track dependencies
+  t_vio_dependencies always_dependencies;
+  t_vio_dependencies post_dependencies;
+
+  // wire assignments
+  // NOTE: wires also produce D usage that is to be considered as an input binding
+  writeWireAssignements("_", out, always_dependencies, ff_input_bindings_usage);
+
   // split the input bindings usage into pre / post
   // Q are considered read at cycle start ('top' of the cycle circuit)
   // D are considered read at cycle end   ('bottom' of the cycle circuit)
@@ -7689,11 +7698,6 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     }
   }
 
-  // track dependencies
-  t_vio_dependencies always_dependencies;
-  t_vio_dependencies post_dependencies;
-  // wire assignments
-  writeWireAssignements("_", out, always_dependencies, _ff_usage);
   // combinational
   out << "always @* begin" << nxl;
   writeCombinationalAlwaysPre("_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
@@ -7719,6 +7723,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   out << "end" << nxl;
 
   combineFFUsageInto(nullptr, _ff_usage, post_ff_usage, _ff_usage);
+  clearNoLatchFFUsage(_ff_usage);
 
 #if 0
   std::cerr << " === usage for algorithm " << m_Name << " ====" << nxl;
