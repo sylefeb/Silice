@@ -82,7 +82,7 @@ $$end
 //!   - LCD_MODE: indicates whether the pixel size of characters is 5x8 or 5x11
 //!   - LCD_4BITS: do we control the LCD display on a 4 or 8 bits wide bus?
 //!   - LCD_2LINES: is there two lines on the LCd display?
-algorithm lcd_$__LCD_SIZE$_$__LCD_PIXEL_RATIO$ (
+algorithm lcd_$__LCD_SIZE$_$LCD_2LINES+1$_$__LCD_PIXEL_RATIO$ (
   output uint1 lcd_rs,
   output uint1 lcd_rw,
   output uint1 lcd_e,

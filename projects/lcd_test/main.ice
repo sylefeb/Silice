@@ -39,7 +39,7 @@ $$end
   // Instanciate our LCD 1602 controller and bind its parameters to the correct pins
   // (see schematic at the top)
   lcdio io;
-  lcd_4_5X8 controller(
+  lcd_4_2_5X8 controller(
     lcd_rs        :> pmod7,
     lcd_rw        :> dummy_rw,  // The RW pin is grounded
     lcd_e         :> pmod8,
