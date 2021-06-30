@@ -326,8 +326,10 @@ Our verification algorithm works ... but it will also try to change the paramete
 To prevent this, there is a special construct equivalent to saying that an input is assumed to be stable (i.e. to not change). If you did not already infer its name, it is `#stableinput`.
 Note that it only takes a single identifier as an argument, and works only if this identifier is bound to an `input`.
 
-There is also a counterpart to *assert* the stability of an expression, where “stability” means that the expression is expected not to change in the current state 
-(or always, if in an `always` block).
+There are also two other means of asserting and assuming the stability of expressions:
+- `#assertstable(e)` allows asserting that an expression `e` always has the same value between one cycle and the next one in the current state (or always, if not in an FSM). 
+- `#assumestable` is a generalized version of `#stableinput`, which allows to assume that any expression is stable (instead of just an input variable).
+  `#stableinput` can be simulated by putting `#assumestable` in a state-less `always` block (where no FSM is generated from it), but it is better to simply use `#stableinput` in those cases.
 
 To assume the stability of our input variable `x` we modify the algorithm as follows:
 ```c
