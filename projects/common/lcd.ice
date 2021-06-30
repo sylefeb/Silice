@@ -102,7 +102,7 @@ algorithm lcd_$__LCD_SIZE$_$LCD_2LINES+1$_$__LCD_PIXEL_RATIO$ (
 ) <autorun> {
   subroutine wait(input uint27 delay) {
     uint27 count = 0;
-    while (count < delay) {
+    while (count != delay) {
       count = count + 1;
     }
   }
@@ -144,7 +144,6 @@ $$end
   subroutine display_on_off(
     readwrites current_display_state,
     writes lcd_rs,
-    writes lcd_rw,
     calls send_command,
     input uint1 display,
     input uint1 cursor,
@@ -163,17 +162,16 @@ $$end
     current_display_state = cmd[0, 3];
 
     lcd_rs = 0;
-    lcd_rw = 0;
     () <- send_command <- (cmd, 3700);
   }
 
   uint3 current_display_state = 3b100;
 
-  io.ready = 0;
+  lcd_rw  := 0;
 
-  lcd_rs = 0;
-  lcd_rw = 0;
-  lcd_d  = 0;
+  io.ready = 0;
+  lcd_rs   = 0;
+  lcd_d    = 0;
 
   /// Step 1: power on, then delay >100ms
   () <- wait <- (10000000);
@@ -250,13 +248,11 @@ $$end
         case 5: {
           // Clear display: RS, RW=0; D = 00000001; delay 1.52ms
           lcd_rs = 0;
-          lcd_rw = 0;
           () <- send_command <- (8b00000001, 15200);
         }
         case 4: {
           // Return Home: RS, RW=0; D = 0000001_; delay 1.52ms
           lcd_rs = 0;
-          lcd_rw = 0;
           () <- send_command <- (8b00000010, 15200);
         }
         case 3: {
@@ -266,14 +262,11 @@ $$end
         case 2: {
           // Cursor or Display Shift: RS, RW=0; D = 0001SR__; delay 37us
           lcd_rs = 0;
-          lcd_rw = 0;
           () <- send_command <- ({5b00011, ~io.data[0, 1], 2b00}, 3700);
         }
         case 1: {
           // Write data to RAM: RS=1; RW=0; D = 'data'; delay 37us
           lcd_rs = 1;
-          lcd_rw = 0;
-
           () <- send_command <- (io.data, 3700);
         }
         case 0: {
@@ -284,7 +277,6 @@ $$end
           uint7 offset = uninitialized;
 
           lcd_rs = 0;
-          lcd_rw = 0;
 
           switch (row) {
             case 0:  { offset = 7h00 + io.data[0, 4]; } // first line starts the same for both 1- and 2-line displays
