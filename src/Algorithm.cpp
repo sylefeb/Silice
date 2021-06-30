@@ -1944,12 +1944,34 @@ void Algorithm::gatherStableCheck(siliceParser::StableContext *chk, t_combinatio
 
 void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_combinational_block *_current, t_gather_context *_context)
 {
-  std::string varName = ctx->IDENTIFIER()->getText();
-  auto var = translateVIOName(varName, &_current->context);
-  if (!isInput(var))
-    reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "Cannot check the input stability of variable '%s' because it is not an input", varName.c_str());
-  else
-    this->m_StableInputChecks.push_back({ ctx, var });
+  if (auto id = ctx->idOrIoAccess()->IDENTIFIER()) {
+    // single identifier
+    std::string base = id->getText();
+    base = translateVIOName(base, &_current->context);
+
+    if (!isInput(base) || !isInOut(base)) {
+      reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "%s is not an input/inout", base.c_str());
+    } else {
+      this->m_StableInputChecks.push_back({ ctx, base });
+    }
+  } else {
+    // group identifier
+    auto id_ = ctx->idOrIoAccess()->ioAccess();
+    std::string base = id_->base->getText();
+    std::string member = id_->IDENTIFIER(1)->getText();
+
+    auto G = m_VIOGroups.find(base);
+    if (G != m_VIOGroups.end()) {
+      verifyMemberGroup(member, G->second, (int)id_->getStart()->getLine());
+      // produce the variable name
+      std::string vname = base + "_" + member;
+
+      this->m_StableInputChecks.push_back({ ctx, vname });
+    } else {
+      reportError(id_->getSourceInterval(), (int)id_->getStart()->getLine(),
+        "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
+    }
+  }
 }
 
 //-------------------------------------------------

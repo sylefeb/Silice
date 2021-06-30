@@ -347,7 +347,7 @@ assume              : ASSUME '(' expression_0 ')';
 restrict            : RESTRICT '(' expression_0 ')';
 was_at              : WASAT '(' IDENTIFIER (',' NUMBER)? ')';
 stable              : STABLE '(' expression_0 ')';
-stableinput         : STABLEINPUT '(' IDENTIFIER ')';
+stableinput         : STABLEINPUT '(' idOrIoAccess ')';
 cover               : COVER '(' expression_0 ')';
 
 block               : '{' declarationList instructionList '}';
