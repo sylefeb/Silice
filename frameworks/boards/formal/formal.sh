@@ -332,6 +332,10 @@ match($0, /(yosys-abc: command not found)$/, gr) {
   gsub(/formal_/, "", $3)
   print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1m" gr[1] "\033[0m"
   next
+}
+match($0, /(ERROR: sby file syntax error: \[tasks\])$/, gr) {
+  gsub(/formal_/, "", $3)
+  print TOLEFT "* " sprintf("%" LEN "-s", $3) "\033[31;1mNo formal algorithm# found.\033[0m"
 }'
     awk -v LEN=$MAX_LENGTH -v PWD="$PWD" "$AWKSCRIPT" < logfile.txt
     exit 1
