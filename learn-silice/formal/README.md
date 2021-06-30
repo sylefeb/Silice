@@ -389,15 +389,15 @@ Formal verification can break at different points, according to what is not work
 We provide a quick guide to fixing your algorithm in case of a failing test:
 
 - **Step 1:** run the BMC
-  - If it failed, fix the design, add assumptions or loosen assertions.
+  - If it fails, fix the design, add assumptions or loosen assertions.
     The error can generally be seen in the generated counterexample.
-  - If it passed, proceed to step 2.
+  - If it passes, proceed to step 2.
 - **Step 2:** run a temporal induction
-  - If it failed, investigate the counterexample given, and check if it is reachable.
+  - If it fails, investigate the counterexample given, and check if it is reachable.
     - If reachable, fix the design, add assumptions or loosen assertions.
     - If not reachable, add restrictions, strengthen assertions or increase the induction length.
-  - If it passed, either reduce the induction length and remove restrictions, or consider you are done and proceed to step 3.
-- **Step 3:** be happy of yourself, you probably found many bugs or proved there are none in your design.
+  - If it passes, either reduce the induction length and remove restrictions, or consider you are done and proceed to step 3.
+- **Step 3:** be happy of yourself, you probably found many bugs or proved there are close to none in your design.
   Either way, formal verification was a success!
 
 ## Other verification features
