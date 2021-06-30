@@ -7,6 +7,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Dependency
 
+(require 'rx)
+(require 'font-lock)
+
 ;;; Code:
 
 (defgroup silice nil
@@ -35,38 +38,41 @@
     "isdone")
   "List of Silice keywords.")
 
+(defconst silice-formal-keywords
+  '("assertstable" "assert"
+    "assumestable" "assume"
+    "restrict"
+    "wasin"
+    "stableinput"
+    "cover"
+    "depth" "timeout" "mode")
+  "List of silice formal keywords.")
+
 
 (defconst silice-font-lock-keywords
-  `(("\\(\\(\\$\\$[^\n]*?$\\)\\|\\(\\$include\\([^\n]*?\\)$\\)\\|\\(\\$[^z-a]*?\\$\\)\\)"
+  `((,(rx-to-string '(: "$" (| (: "include" "(" (*? anychar) ")")
+                              (: (+? not-newline) "$")
+                              (: "$" (*? not-newline) "\n"))))
      0 font-lock-preprocessor-face prepend)
-    ("#\\(\\(assert\\(stable\\)?\\|assume\\(stable\\)?\\|restrict\\|wasat\\|stableinput\\|cover\\|mode\\|depth\\|timeout\\)\\b\\)?"
-     . font-lock-preprocessor-face)
     ;; preprocessor
-    (,(concat "\\b\\("
-              (mapconcat 'identity
-                         silice-keywords
-                         "\\|"
-                         )
-              "\\)\\b")
-        . font-lock-keyword-face)
+    (,(rx-to-string `(: "#" (? (: (| ,@silice-formal-keywords) eow))))
+     . font-lock-preprocessor-face)
+    ;; formal stuff
+    (,(rx-to-string `(: bow (| ,@silice-keywords) eow))
+     . font-lock-keyword-face)
     ;; keywords
-    ("\\(@\\|!\\)\\([[:alpha:]]\\|_\\)\\([[:alnum:]]\\|_\\)+"
+    (,(rx-to-string '(: bow (| "@" "!") (| alpha "_") (* (| alnum "_")) eow))
      . font-lock-function-name-face)
     ;; algorithm meta-specifiers
-    ("\\b\\(__\\(display\\|write\\|\\(un\\)?signed\\)\\|widthof\\|sameas\\)\\b"
+    (,(rx-to-string '(: bow (| "__" "$") (| "display" "write" "unsigned" "signed" "widthof" "sameas") eow))
      . font-lock-builtin-face)
-    ;; intrisics
-    ("\\b\\(u?int\\([[:digit:]]+\\)?\\)\\b"
+    ;; intrinsics
+    (,(rx-to-string '(: bow (? "u") "int" (* digit) eow))
      . font-lock-type-face)
     ;; builtin types
-    ("\".*?\""
-     . font-lock-string-face)
-    ("'.*?'"
-     . font-lock-string-face)
-    ;; strings
-    ("[[:digit:]]+\\(b\\|h\\|d\\)[[:xdigit:]]+"
+    (,(rx-to-string '(: (+ digit) (| "b" "B" "h" "H" "d" "D") (+ xdigit) eow))
      . font-lock-constant-face)
-    ("\\b[[:digit:]]+\\b"
+    (,(rx-to-string '(: bow (+ digit) eow))
      . font-lock-constant-face)
     ;; numbers
     )
