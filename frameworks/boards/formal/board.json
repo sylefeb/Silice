@@ -3,7 +3,7 @@
   "variants": [
     {
       "name"      : "configurable",
-      "framework" : "",
+      "framework" : "formal.v",
       "pins"      : [ 
         {"set"    : "basic", "define" : "FORMAL=1"}
       ],

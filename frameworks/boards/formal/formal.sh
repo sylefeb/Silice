@@ -32,7 +32,7 @@ cd $BUILD_DIR
 rm build* &>/dev/null
 rm -r formal* &>/dev/null  # formal.log formal.sby formal_*/
 
-if ! silice --frameworks_dir $FRAMEWORKS_DIR -f '' -o build.v $1 "${@:2}"; then
+if ! silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"; then
   exit 1
 fi
 
