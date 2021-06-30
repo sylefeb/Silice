@@ -101,7 +101,9 @@ RESTRICT            : '#restrict';
 
 WASAT               : '#wasin';
 
-STABLE              : '#stable';
+ASSERTSTABLE        : '#assertstable';
+
+ASSUMESTABLE        : '#assumestable';
 
 STABLEINPUT         : '#stableinput';
 
@@ -346,7 +348,8 @@ assert_             : ASSERT '(' expression_0 ')';
 assume              : ASSUME '(' expression_0 ')';
 restrict            : RESTRICT '(' expression_0 ')';
 was_at              : WASAT '(' IDENTIFIER (',' NUMBER)? ')';
-stable              : STABLE '(' expression_0 ')';
+assertstable        : ASSERTSTABLE '(' expression_0 ')';
+assumestable        : ASSUMESTABLE '(' expression_0 ')';
 stableinput         : STABLEINPUT '(' idOrIoAccess ')';
 cover               : COVER '(' expression_0 ')';
 
@@ -372,8 +375,8 @@ instruction         : assignment
                     | assume
                     | restrict
                     | was_at
-//                    | stableinput
-                    | stable
+                    | assumestable
+                    | assertstable
                     | cover
                     ;
 

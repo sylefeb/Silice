@@ -1935,9 +1935,14 @@ void Algorithm::gatherPastCheck(siliceParser::Was_atContext *chk, t_combinationa
 
 //-------------------------------------------------
 
-void Algorithm::gatherStableCheck(siliceParser::StableContext *chk, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherStableCheck(siliceParser::AssumestableContext *chk, t_combinational_block *_current, t_gather_context *_context)
 {
-  this->m_StableChecks.push_back({ hasNoFSM() ? nullptr : _current, chk });
+  this->m_StableChecks.push_back({ hasNoFSM() ? nullptr : _current, { .assume_ctx = chk }, true });
+}
+
+void Algorithm::gatherStableCheck(siliceParser::AssertstableContext *chk, t_combinational_block *_current, t_gather_context *_context)
+{
+  this->m_StableChecks.push_back({ hasNoFSM() ? nullptr : _current, { .assert_ctx = chk }, false });
 }
 
 //-------------------------------------------------
@@ -3312,31 +3317,32 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current->source_interval = tree->getSourceInterval();
   }
 
-  auto algbody     = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
-  auto decl        = dynamic_cast<siliceParser::DeclarationContext*>(tree);
-  auto ilist       = dynamic_cast<siliceParser::InstructionListContext*>(tree);
-  auto ifelse      = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
-  auto ifthen      = dynamic_cast<siliceParser::IfThenContext*>(tree);
-  auto switchC     = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
-  auto loop        = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
-  auto jump        = dynamic_cast<siliceParser::JumpContext*>(tree);
-  auto assign      = dynamic_cast<siliceParser::AssignmentContext*>(tree);
-  auto display     = dynamic_cast<siliceParser::DisplayContext *>(tree);
-  auto async       = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
-  auto join        = dynamic_cast<siliceParser::JoinExecContext*>(tree);
-  auto sync        = dynamic_cast<siliceParser::SyncExecContext*>(tree);
-  auto circinst    = dynamic_cast<siliceParser::CircuitryInstContext*>(tree);
-  auto repeat      = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
-  auto pip         = dynamic_cast<siliceParser::PipelineContext*>(tree);
-  auto ret         = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
-  auto breakL      = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
-  auto block       = dynamic_cast<siliceParser::BlockContext *>(tree);
-  auto assert_     = dynamic_cast<siliceParser::Assert_Context *>(tree);
-  auto assume      = dynamic_cast<siliceParser::AssumeContext *>(tree);
-  auto restrict    = dynamic_cast<siliceParser::RestrictContext *>(tree);
-  auto was_at      = dynamic_cast<siliceParser::Was_atContext *>(tree);
-  auto stable      = dynamic_cast<siliceParser::StableContext *>(tree);
-  auto cover       = dynamic_cast<siliceParser::CoverContext *>(tree);
+  auto algbody      = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
+  auto decl         = dynamic_cast<siliceParser::DeclarationContext*>(tree);
+  auto ilist        = dynamic_cast<siliceParser::InstructionListContext*>(tree);
+  auto ifelse       = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
+  auto ifthen       = dynamic_cast<siliceParser::IfThenContext*>(tree);
+  auto switchC      = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
+  auto loop         = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
+  auto jump         = dynamic_cast<siliceParser::JumpContext*>(tree);
+  auto assign       = dynamic_cast<siliceParser::AssignmentContext*>(tree);
+  auto display      = dynamic_cast<siliceParser::DisplayContext *>(tree);
+  auto async        = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
+  auto join         = dynamic_cast<siliceParser::JoinExecContext*>(tree);
+  auto sync         = dynamic_cast<siliceParser::SyncExecContext*>(tree);
+  auto circinst     = dynamic_cast<siliceParser::CircuitryInstContext*>(tree);
+  auto repeat       = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
+  auto pip          = dynamic_cast<siliceParser::PipelineContext*>(tree);
+  auto ret          = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
+  auto breakL       = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
+  auto block        = dynamic_cast<siliceParser::BlockContext *>(tree);
+  auto assert_      = dynamic_cast<siliceParser::Assert_Context *>(tree);
+  auto assume       = dynamic_cast<siliceParser::AssumeContext *>(tree);
+  auto restrict     = dynamic_cast<siliceParser::RestrictContext *>(tree);
+  auto was_at       = dynamic_cast<siliceParser::Was_atContext *>(tree);
+  auto assertstable = dynamic_cast<siliceParser::AssertstableContext *>(tree);
+  auto assumestable = dynamic_cast<siliceParser::AssumestableContext *>(tree);
+  auto cover        = dynamic_cast<siliceParser::CoverContext *>(tree);
 
   bool recurse  = true;
 
@@ -3384,30 +3390,31 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current->source_interval = algbody->instructionList()->getSourceInterval();
     _current = gather(algbody->instructionList(), _current, _context);
     recurse  = false;
-  } else if (decl)     { gatherDeclaration(decl, _current, _context, true);  recurse = false;
-  } else if (ifelse)   { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
-  } else if (ifthen)   { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
-  } else if (switchC)  { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
-  } else if (loop)     { _current = gatherWhile(loop, _current, _context);             recurse = false;
-  } else if (repeat)   { _current = gatherRepeatBlock(repeat, _current, _context);     recurse = false;
-  } else if (pip)      { _current = gatherPipeline(pip, _current, _context);           recurse = false;
-  } else if (sync)     { _current = gatherSyncExec(sync, _current, _context);          recurse = false;
-  } else if (join)     { _current = gatherJoinExec(join, _current, _context);          recurse = false;
-  } else if (circinst) { _current = gatherCircuitryInst(circinst, _current, _context); recurse = false;
-  } else if (jump)     { _current = gatherJump(jump, _current, _context);              recurse = false; 
-  } else if (ret)      { _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
-  } else if (breakL)   { _current = gatherBreakLoop(breakL, _current, _context);       recurse = false;
-  } else if (async)    { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));    recurse = false;
-  } else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));   recurse = false;
-  } else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id));  recurse = false;
-  } else if (assert_)  { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false;
-  } else if (assume)   { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false;
-  } else if (restrict) { _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false;
-  } else if (cover)    { _current->instructions.push_back(t_instr_nfo(cover, _current, _context->__id));    recurse = false;
-  } else if (was_at)   { gatherPastCheck(was_at, _current, _context),                  recurse = false;
-  } else if (stable)   { gatherStableCheck(stable, _current, _context),                recurse = false;
-  } else if (block)    { _current = gatherBlock(block, _current, _context);            recurse = false;
-  } else if (ilist)    { _current = splitOrContinueBlock(ilist, _current, _context); }
+  } else if (decl)         { gatherDeclaration(decl, _current, _context, true);  recurse = false;
+  } else if (ifelse)       { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
+  } else if (ifthen)       { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
+  } else if (switchC)      { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
+  } else if (loop)         { _current = gatherWhile(loop, _current, _context);             recurse = false;
+  } else if (repeat)       { _current = gatherRepeatBlock(repeat, _current, _context);     recurse = false;
+  } else if (pip)          { _current = gatherPipeline(pip, _current, _context);           recurse = false;
+  } else if (sync)         { _current = gatherSyncExec(sync, _current, _context);          recurse = false;
+  } else if (join)         { _current = gatherJoinExec(join, _current, _context);          recurse = false;
+  } else if (circinst)     { _current = gatherCircuitryInst(circinst, _current, _context); recurse = false;
+  } else if (jump)         { _current = gatherJump(jump, _current, _context);              recurse = false;
+  } else if (ret)          { _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
+  } else if (breakL)       { _current = gatherBreakLoop(breakL, _current, _context);       recurse = false;
+  } else if (async)        { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));    recurse = false;
+  } else if (assign)       { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));   recurse = false;
+  } else if (display)      { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id));  recurse = false;
+  } else if (assert_)      { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false;
+  } else if (assume)       { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false;
+  } else if (restrict)     { _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false;
+  } else if (cover)        { _current->instructions.push_back(t_instr_nfo(cover, _current, _context->__id));    recurse = false;
+  } else if (was_at)       { gatherPastCheck(was_at, _current, _context);                  recurse = false;
+  } else if (assertstable) { gatherStableCheck(assertstable, _current, _context);          recurse = false;
+  } else if (assumestable) { gatherStableCheck(assumestable, _current, _context);          recurse = false;
+  } else if (block)        { _current = gatherBlock(block, _current, _context);            recurse = false;
+  } else if (ilist)        { _current = splitOrContinueBlock(ilist, _current, _context); }
 
   // recurse
   if (recurse) {
@@ -6340,13 +6347,14 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     t_vio_dependencies _deps;
     t_vio_ff_usage _ff_usage;
 
-    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
+    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((chk.isAssumption ? chk.ctx.assume_ctx->getStart() : chk.ctx.assert_ctx->getStart())->getLine());
     std::string silice_position = file + ":" + std::to_string(line);
 
     const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
     const std::string condition = "(" + inState + " && !" + reset + " && " + ALG_INPUT "_" ALG_RUN + " && !$initstate)";
 
-    out << "assert(!" << condition << " || $stable(" << rewriteExpression(prefix, chk.ctx->expression_0(), 0, nullptr, FF_Q, true, _deps, _ff_usage) << ")); //%" << silice_position << nxl;
+    out << (chk.isAssumption ? "assume" : "assert") << "(!" << condition
+        << " || $stable(" << rewriteExpression(prefix, (chk.isAssumption ? chk.ctx.assume_ctx->expression_0() : chk.ctx.assert_ctx->expression_0()), 0, nullptr, FF_Q, true, _deps, _ff_usage) << ")); //%" << silice_position << nxl;
   }
 
   for (auto const &chk : m_StableInputChecks) {

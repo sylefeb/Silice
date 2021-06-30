@@ -645,7 +645,11 @@ private:
     /// \brief information about a stable check ('#stable(expr, cycle_count)')
     typedef struct {
       t_combinational_block *current_state;
-      siliceParser::StableContext *ctx;
+      union {
+        siliceParser::AssumestableContext *assume_ctx;
+        siliceParser::AssertstableContext *assert_ctx;
+      } ctx;
+      bool isAssumption;
     } t_stable_check;
 
     /// \brief information about a stableinput check ('#stableinput(identifier)')
@@ -780,7 +784,9 @@ private:
     /// \brief gather past checks
     void gatherPastCheck(siliceParser::Was_atContext *chk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather stable checks
-    void gatherStableCheck(siliceParser::StableContext *chk, t_combinational_block *_current, t_gather_context *_context);
+    void gatherStableCheck(siliceParser::AssertstableContext *chk, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather stable checks
+    void gatherStableCheck(siliceParser::AssumestableContext *chk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather stableinput checks
     void gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_combinational_block *_current, t_gather_context *_context);
     /// \brief expands the name of a subroutine vio
