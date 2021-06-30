@@ -39,7 +39,7 @@
 (defconst silice-font-lock-keywords
   `(("\\(\\(\\$\\$[^\n]*?$\\)\\|\\(\\$include\\([^\n]*?\\)$\\)\\|\\(\\$[^z-a]*?\\$\\)\\)"
      0 font-lock-preprocessor-face prepend)
-    ("#\\(\\(assert\\|assume\\|restrict\\|wasat\\|stable\\(input\\)?\\|cover\\|mode\\|depth\\|timeout\\)\\b\\)?"
+    ("#\\(\\(assert\\(stable\\)?\\|assume\\(stable\\)?\\|restrict\\|wasat\\|stableinput\\|cover\\|mode\\|depth\\|timeout\\)\\b\\)?"
      . font-lock-preprocessor-face)
     ;; preprocessor
     (,(concat "\\b\\("
