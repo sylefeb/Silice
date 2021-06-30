@@ -3336,7 +3336,6 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto restrict    = dynamic_cast<siliceParser::RestrictContext *>(tree);
   auto was_at      = dynamic_cast<siliceParser::Was_atContext *>(tree);
   auto stable      = dynamic_cast<siliceParser::StableContext *>(tree);
-  auto stableinput = dynamic_cast<siliceParser::StableinputContext *>(tree);
   auto cover       = dynamic_cast<siliceParser::CoverContext *>(tree);
 
   bool recurse  = true;
@@ -3353,6 +3352,10 @@ Algorithm::t_combinational_block *Algorithm::gather(
     // gather local subroutines
     for (auto s : algbody->subroutine()) {
       gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), _current, _context);
+    }
+    // gather stableinput checks
+    for (auto s : algbody->stableinput()) {
+      gatherStableinputCheck(s, _current, _context);
     }
     // gather always assigned
     gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
@@ -3403,7 +3406,6 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (cover)    { _current->instructions.push_back(t_instr_nfo(cover, _current, _context->__id));    recurse = false;
   } else if (was_at)   { gatherPastCheck(was_at, _current, _context),                  recurse = false;
   } else if (stable)   { gatherStableCheck(stable, _current, _context),                recurse = false;
-  } else if (stableinput) { gatherStableinputCheck(stableinput, _current, _context);   recurse = false;
   } else if (block)    { _current = gatherBlock(block, _current, _context);            recurse = false;
   } else if (ilist)    { _current = splitOrContinueBlock(ilist, _current, _context); }
 

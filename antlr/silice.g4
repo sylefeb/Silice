@@ -372,7 +372,7 @@ instruction         : assignment
                     | assume
                     | restrict
                     | was_at
-                    | stableinput
+//                    | stableinput
                     | stable
                     | cover
                     ;
@@ -420,7 +420,7 @@ subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 subroutineParamList : subroutineParam (',' subroutineParam)* ','? | ;
 subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList (RETURN ';')? '}' ;
                     
-declAndInstrList    : (declaration ';' | subroutine ) *
+declAndInstrList    : (declaration ';' | subroutine | stableinput ';' ) *
                       alwaysPre = alwaysAssignedList 
                       alwaysBlock?
                       alwaysAfterBlock?
