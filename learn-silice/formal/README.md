@@ -1,14 +1,9 @@
 # Verifying designs written in Silice
 
-> __Disclaimer:__
+> __Important:__
 > The techniques presented here fall within the domain of “formal verification”, 
 > and more precisely “property checking”.
-> These methods would only provide a *proof* a correctness if the space of possible outcomes is exhaustively searched. In practice, there are bounds
-> on how long the solver will try to find flaws in the design.
-> However, so a design that *passes* a BMC **and** a temporal induction is *proven* correct.
-> But if it fails, it is flawed!
-> For example, performing a BMC or a temporal induction with a very low depth parameter may result in a passing design, even if flawed
-> (e.g. no false assertion has been reached yet, therefore nothing is incorrect, leading to a passing test).
+> These methods only provide a *proof* a correctness under very specific conditions that we explain below. In short, only the successful combination of two techniques leads to a proven design. In other cases the design is either flawed, or the verification algorithms could not successfully reach a conclusion. 
 
 ## Table of contents
 
@@ -327,9 +322,8 @@ To prevent this, there is a special construct equivalent to saying that an input
 Note that it only takes a single identifier as an argument, and works only if this identifier is bound to an `input`.
 
 There are also two other means of asserting and assuming the stability of expressions:
-- `#assertstable(e)` allows asserting that an expression `e` always has the same value between one cycle and the next one in the current state (or always, if not in an FSM). 
+- `#assertstable(e)` allows asserting that an expression `e` always has the same value between one cycle and the next one in the current state (or always, if outside of any state). 
 - `#assumestable` is a generalized version of `#stableinput`, which allows to assume that any expression is stable (instead of just an input variable).
-  `#stableinput` can be simulated by putting `#assumestable` in a state-less `always` block (where no FSM is generated from it), but it is better to simply use `#stableinput` in those cases.
 
 To assume the stability of our input variable `x` we modify the algorithm as follows:
 ```c
@@ -368,14 +362,14 @@ does not yield the correct results: our compact division is flawed at least on 8
 > **Note:** Temporal induction is *expected* to fail when a simple BMC already fails before.
 > 
 > In the case of a BMC timeout, temporal induction may or may not fail. 
-> A non-failing BMC can be unsafely assumed in such case.
+> If the BMC timeouts, a successful temporal induction can**not** be trusted to provide a proof.
 >
 > When both the BMC and the temporal induction timeout, nothing can be concluded.
 
 Visualizing the generated VCD trace in GTKWave yields a strange result: it appears that `192 ÷ 192 = 169`! 
 ![gtkwave vcd tutorial trace](./tutorial-trace.png)
 
-After a bit of research, minutes of debugging and researching in similar implementations, it turns out that the accumulator should be 1 bit wider.
+After a bit of research, debugging and looking at other implementations, it turns out that the accumulator should have been 1 bit wider.
 This caused an overflow when computing the difference, leading to such incorrect results.
 
 Fixing this bug (this has already been done in [`099a7f0`](https://github.com/sylefeb/Silice/commit/099a7f06ab7445ad3c2eea31499e269938be10e5) but we were using the compact division from before this commit)
@@ -385,19 +379,19 @@ and re-running the tutorial on the new compact division now yields correct resul
 
 #### *Fixing a flawed algorithm*
 
-Formal verification can break at different points, according to what is not working.
+Formal verification can break at different points, depending on what is not working.
 We provide a quick guide to fixing your algorithm in case of a failing test:
 
 - **Step 1:** run the BMC
   - If it fails, fix the design, add assumptions or loosen assertions.
-    The error can generally be seen in the generated counterexample.
+    The error can generally be seen in the generated counterexample trace.
   - If it passes, proceed to step 2.
 - **Step 2:** run a temporal induction
-  - If it fails, investigate the counterexample given, and check if it is reachable.
+  - If it fails, investigate the counterexample trace, and check if it is indeed a reachable state.
     - If reachable, fix the design, add assumptions or loosen assertions.
     - If not reachable, add restrictions, strengthen assertions or increase the induction length.
   - If it passes, either reduce the induction length and remove restrictions, or consider you are done and proceed to step 3.
-- **Step 3:** be happy of yourself, you probably found many bugs or proved there are close to none in your design.
+- **Step 3:** be happy! you probably found many bugs or proved there are close to none in your design.
   Either way, formal verification was a success!
 
 ## Other verification features
