@@ -1949,7 +1949,7 @@ void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_
     std::string base = id->getText();
     base = translateVIOName(base, &_current->context);
 
-    if (!isInput(base) || !isInOut(base)) {
+    if (!isInput(base) && !isInOut(base)) {
       reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "%s is not an input/inout", base.c_str());
     } else {
       this->m_StableInputChecks.push_back({ ctx, base });
@@ -1966,7 +1966,11 @@ void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_
       // produce the variable name
       std::string vname = base + "_" + member;
 
-      this->m_StableInputChecks.push_back({ ctx, vname });
+      if (!isInput(vname) && !isInOut(vname)) {
+        reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "%s is not an input/inout", (base + "." + member).c_str());
+      } else {
+        this->m_StableInputChecks.push_back({ ctx, base });
+      }
     } else {
       reportError(id_->getSourceInterval(), (int)id_->getStart()->getLine(),
         "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
