@@ -20,8 +20,6 @@ echo "build script: FRAMEWORK_FILE = $FRAMEWORK_FILE"
 export PATH=$PATH:$SILICE_DIR:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/
 case "$(uname -s)" in
 MINGW*)
-export PYTHONHOME=/mingw64/bin
-export PYTHONPATH=/mingw64/lib/python3.8/
 export QT_QPA_PLATFORM_PLUGIN_PATH=/mingw64/share/qt5/plugins
 ;;
 *)
@@ -170,13 +168,13 @@ done
 
 MAX_LENGTH=$(awk '{ n = length($3); if (n > len) len = n } END { print len + 9 }' <<< "$LOG_LINES")
 
-if ! command -v sby &>/dev/null; then
-    >&2 echo "##### Symbiyosys (sby) not found! #####"
-    >&2 echo ""
-    >&2 echo "Make sure it is installed and in your \$PATH."
-    >&2 echo "For more information about installing, see <https://symbiyosys.readthedocs.io/en/latest/install.html>."
-    exit 1
-fi
+#if ! command -v sby &>/dev/null; then
+#    >&2 echo "##### Symbiyosys (sby) not found! #####"
+#    >&2 echo ""
+#    >&2 echo "Make sure it is installed and in your \$PATH."
+#    >&2 echo "For more information about installing, see <https://symbiyosys.readthedocs.io/en/latest/install.html>."
+#    exit 1
+#fi
 
 echo "---< Running Symbiyosys >---"
 
@@ -241,7 +239,7 @@ $5 == "##" {
 { printf "" }
 '
 
-sby -f formal.sby | tee logfile.txt | awk -v LEN=$MAX_LENGTH "$AWKSCRIPT"
+python3 `which sby.py` -f formal.sby | tee logfile.txt | awk -v LEN=$MAX_LENGTH "$AWKSCRIPT"
 # Because we're piping, we need to check if the status of the pipe is not ok.
 if [ "${PIPESTATUS[0]}" != "0" -o "$COVER" = "true" ]; then
     echo ""
@@ -340,3 +338,4 @@ match($0, /(ERROR: sby file syntax error: \[tasks\])$/, gr) {
     awk -v LEN=$MAX_LENGTH -v PWD="$PWD" "$AWKSCRIPT" < logfile.txt
     exit 1
 fi
+
