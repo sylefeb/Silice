@@ -185,7 +185,7 @@ AWKSCRIPT='
 function to_result(r) {
   switch(r) {
     case "FAIL": return "\033[31mfailed\033[0m"
-    case "UNKNOWN": return "\033[35munknown\033[0m"
+    case "UNKNOWN": return "\033[35mdone (see below)\033[0m"
     case "PASS": return "\033[32mpassed\033[0m"
     case "ERROR": return "\033[31;1mfatal\033[0m"
   }
