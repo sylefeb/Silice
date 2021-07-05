@@ -18,9 +18,12 @@ echo "build script: FRAMEWORKS_DIR = $FRAMEWORKS_DIR"
 echo "build script: FRAMEWORK_FILE = $FRAMEWORK_FILE"
 
 export PATH=$PATH:$SILICE_DIR:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/
+SBY="sby"
 case "$(uname -s)" in
 MINGW*)
 export QT_QPA_PLATFORM_PLUGIN_PATH=/mingw64/share/qt5/plugins
+export PYTHONPATH=$SILICE_DIR/../tools/fpga-binutils/mingw64/share/python3/:$PYTHONPATH
+SBY="sby.py"
 ;;
 *)
 esac
@@ -239,7 +242,7 @@ $5 == "##" {
 { printf "" }
 '
 
-python3 `which sby.py` -f formal.sby | tee logfile.txt | awk -v LEN=$MAX_LENGTH "$AWKSCRIPT"
+python3 `which $SBY` -f formal.sby | tee logfile.txt | awk -v LEN=$MAX_LENGTH "$AWKSCRIPT"
 # Because we're piping, we need to check if the status of the pipe is not ok.
 if [ "${PIPESTATUS[0]}" != "0" -o "$COVER" = "true" ]; then
     echo ""
