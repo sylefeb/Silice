@@ -1922,6 +1922,69 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
 
 //-------------------------------------------------
 
+void Algorithm::gatherPastCheck(siliceParser::Was_atContext *chk, t_combinational_block *_current, t_gather_context *_context)
+{
+  std::string target = chk->IDENTIFIER()->getText();
+  int clock_cycles = 1;
+
+  if (auto n = chk->NUMBER())
+    clock_cycles = std::stoi(n->getText());
+
+  this->m_PastChecks.push_back({ target, clock_cycles, hasNoFSM() ? nullptr : _current, chk });
+}
+
+//-------------------------------------------------
+
+void Algorithm::gatherStableCheck(siliceParser::AssumestableContext *chk, t_combinational_block *_current, t_gather_context *_context)
+{
+  this->m_StableChecks.push_back({ hasNoFSM() ? nullptr : _current, { .assume_ctx = chk }, true });
+}
+
+void Algorithm::gatherStableCheck(siliceParser::AssertstableContext *chk, t_combinational_block *_current, t_gather_context *_context)
+{
+  this->m_StableChecks.push_back({ hasNoFSM() ? nullptr : _current, { .assert_ctx = chk }, false });
+}
+
+//-------------------------------------------------
+
+void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_combinational_block *_current, t_gather_context *_context)
+{
+  if (auto id = ctx->idOrIoAccess()->IDENTIFIER()) {
+    // single identifier
+    std::string base = id->getText();
+    base = translateVIOName(base, &_current->context);
+
+    if (!isInput(base) && !isInOut(base)) {
+      reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "%s is not an input/inout", base.c_str());
+    } else {
+      this->m_StableInputChecks.push_back({ ctx, base });
+    }
+  } else {
+    // group identifier
+    auto id_ = ctx->idOrIoAccess()->ioAccess();
+    std::string base = id_->base->getText();
+    std::string member = id_->IDENTIFIER(1)->getText();
+
+    auto G = m_VIOGroups.find(base);
+    if (G != m_VIOGroups.end()) {
+      verifyMemberGroup(member, G->second, (int)id_->getStart()->getLine());
+      // produce the variable name
+      std::string vname = base + "_" + member;
+
+      if (!isInput(vname) && !isInOut(vname)) {
+        reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "%s is not an input/inout", (base + "." + member).c_str());
+      } else {
+        this->m_StableInputChecks.push_back({ ctx, base });
+      }
+    } else {
+      reportError(id_->getSourceInterval(), (int)id_->getStart()->getLine(),
+        "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
+    }
+  }
+}
+
+//-------------------------------------------------
+
 int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context* _context,bool var_group_table_only)
 {
   if (decllist == nullptr) {
@@ -3254,25 +3317,32 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current->source_interval = tree->getSourceInterval();
   }
 
-  auto algbody  = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
-  auto decl     = dynamic_cast<siliceParser::DeclarationContext*>(tree);
-  auto ilist    = dynamic_cast<siliceParser::InstructionListContext*>(tree);
-  auto ifelse   = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
-  auto ifthen   = dynamic_cast<siliceParser::IfThenContext*>(tree);
-  auto switchC  = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
-  auto loop     = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
-  auto jump     = dynamic_cast<siliceParser::JumpContext*>(tree);
-  auto assign   = dynamic_cast<siliceParser::AssignmentContext*>(tree);
-  auto display  = dynamic_cast<siliceParser::DisplayContext *>(tree);
-  auto async    = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
-  auto join     = dynamic_cast<siliceParser::JoinExecContext*>(tree);
-  auto sync     = dynamic_cast<siliceParser::SyncExecContext*>(tree);
-  auto circinst = dynamic_cast<siliceParser::CircuitryInstContext*>(tree);
-  auto repeat   = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
-  auto pip      = dynamic_cast<siliceParser::PipelineContext*>(tree);
-  auto ret      = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
-  auto breakL   = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
-  auto block    = dynamic_cast<siliceParser::BlockContext *>(tree);
+  auto algbody      = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
+  auto decl         = dynamic_cast<siliceParser::DeclarationContext*>(tree);
+  auto ilist        = dynamic_cast<siliceParser::InstructionListContext*>(tree);
+  auto ifelse       = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
+  auto ifthen       = dynamic_cast<siliceParser::IfThenContext*>(tree);
+  auto switchC      = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
+  auto loop         = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
+  auto jump         = dynamic_cast<siliceParser::JumpContext*>(tree);
+  auto assign       = dynamic_cast<siliceParser::AssignmentContext*>(tree);
+  auto display      = dynamic_cast<siliceParser::DisplayContext *>(tree);
+  auto async        = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
+  auto join         = dynamic_cast<siliceParser::JoinExecContext*>(tree);
+  auto sync         = dynamic_cast<siliceParser::SyncExecContext*>(tree);
+  auto circinst     = dynamic_cast<siliceParser::CircuitryInstContext*>(tree);
+  auto repeat       = dynamic_cast<siliceParser::RepeatBlockContext*>(tree);
+  auto pip          = dynamic_cast<siliceParser::PipelineContext*>(tree);
+  auto ret          = dynamic_cast<siliceParser::ReturnFromContext*>(tree);
+  auto breakL       = dynamic_cast<siliceParser::BreakLoopContext*>(tree);
+  auto block        = dynamic_cast<siliceParser::BlockContext *>(tree);
+  auto assert_      = dynamic_cast<siliceParser::Assert_Context *>(tree);
+  auto assume       = dynamic_cast<siliceParser::AssumeContext *>(tree);
+  auto restrict     = dynamic_cast<siliceParser::RestrictContext *>(tree);
+  auto was_at       = dynamic_cast<siliceParser::Was_atContext *>(tree);
+  auto assertstable = dynamic_cast<siliceParser::AssertstableContext *>(tree);
+  auto assumestable = dynamic_cast<siliceParser::AssumestableContext *>(tree);
+  auto cover        = dynamic_cast<siliceParser::CoverContext *>(tree);
 
   bool recurse  = true;
 
@@ -3288,6 +3358,10 @@ Algorithm::t_combinational_block *Algorithm::gather(
     // gather local subroutines
     for (auto s : algbody->subroutine()) {
       gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), _current, _context);
+    }
+    // gather stableinput checks
+    for (auto s : algbody->stableinput()) {
+      gatherStableinputCheck(s, _current, _context);
     }
     // gather always assigned
     gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
@@ -3316,24 +3390,31 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current->source_interval = algbody->instructionList()->getSourceInterval();
     _current = gather(algbody->instructionList(), _current, _context);
     recurse  = false;
-  } else if (decl)     { gatherDeclaration(decl, _current, _context, true);  recurse = false;
-  } else if (ifelse)   { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
-  } else if (ifthen)   { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
-  } else if (switchC)  { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
-  } else if (loop)     { _current = gatherWhile(loop, _current, _context);             recurse = false;
-  } else if (repeat)   { _current = gatherRepeatBlock(repeat, _current, _context);     recurse = false;
-  } else if (pip)      { _current = gatherPipeline(pip, _current, _context);           recurse = false;
-  } else if (sync)     { _current = gatherSyncExec(sync, _current, _context);          recurse = false;
-  } else if (join)     { _current = gatherJoinExec(join, _current, _context);          recurse = false;
-  } else if (circinst) { _current = gatherCircuitryInst(circinst, _current, _context); recurse = false;
-  } else if (jump)     { _current = gatherJump(jump, _current, _context);              recurse = false; 
-  } else if (ret)      { _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
-  } else if (breakL)   { _current = gatherBreakLoop(breakL, _current, _context);       recurse = false;
-  } else if (async)    { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));   recurse = false;
-  } else if (assign)   { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));  recurse = false;
-  } else if (display)  { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id)); recurse = false;
-  } else if (block)    { _current = gatherBlock(block, _current, _context);            recurse = false;
-  } else if (ilist)    { _current = splitOrContinueBlock(ilist, _current, _context); }
+  } else if (decl)         { gatherDeclaration(decl, _current, _context, true);  recurse = false;
+  } else if (ifelse)       { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
+  } else if (ifthen)       { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
+  } else if (switchC)      { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
+  } else if (loop)         { _current = gatherWhile(loop, _current, _context);             recurse = false;
+  } else if (repeat)       { _current = gatherRepeatBlock(repeat, _current, _context);     recurse = false;
+  } else if (pip)          { _current = gatherPipeline(pip, _current, _context);           recurse = false;
+  } else if (sync)         { _current = gatherSyncExec(sync, _current, _context);          recurse = false;
+  } else if (join)         { _current = gatherJoinExec(join, _current, _context);          recurse = false;
+  } else if (circinst)     { _current = gatherCircuitryInst(circinst, _current, _context); recurse = false;
+  } else if (jump)         { _current = gatherJump(jump, _current, _context);              recurse = false;
+  } else if (ret)          { _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
+  } else if (breakL)       { _current = gatherBreakLoop(breakL, _current, _context);       recurse = false;
+  } else if (async)        { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));    recurse = false;
+  } else if (assign)       { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));   recurse = false;
+  } else if (display)      { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id));  recurse = false;
+  } else if (assert_)      { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false;
+  } else if (assume)       { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false;
+  } else if (restrict)     { _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false;
+  } else if (cover)        { _current->instructions.push_back(t_instr_nfo(cover, _current, _context->__id));    recurse = false;
+  } else if (was_at)       { gatherPastCheck(was_at, _current, _context);                  recurse = false;
+  } else if (assertstable) { gatherStableCheck(assertstable, _current, _context);          recurse = false;
+  } else if (assumestable) { gatherStableCheck(assumestable, _current, _context);          recurse = false;
+  } else if (block)        { _current = gatherBlock(block, _current, _context);            recurse = false;
+  } else if (ilist)        { _current = splitOrContinueBlock(ilist, _current, _context); }
 
   // recurse
   if (recurse) {
@@ -4843,9 +4924,9 @@ void Algorithm::analyzeInstancedAlgorithmsInputs()
 // -------------------------------------------------
 
 Algorithm::Algorithm(
-  std::string name, 
-  std::string clock, std::string reset, 
-  bool autorun, bool onehot,
+  std::string name, bool hasHash,
+  std::string clock, std::string reset,
+  bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes,
   const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
   const std::unordered_map<std::string, AutoPtr<Algorithm> >&              known_algorithms,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
@@ -4854,12 +4935,23 @@ Algorithm::Algorithm(
   const std::unordered_map<std::string, siliceParser::IntrfaceContext *>&  known_interfaces,
   const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield
 )
-  : m_Name(name), m_Clock(clock), m_Reset(reset), 
+  : m_Name(name), m_hasHash(hasHash), m_Clock(clock), m_Reset(reset), m_FormalDepth(formalDepth), m_FormalTimeout(formalTimeout), m_FormalModes(modes),
     m_AutoRun(autorun), m_OneHot(onehot), 
     m_KnownModules(known_modules), m_KnownAlgorithms(known_algorithms),
     m_KnownSubroutines(known_subroutines),m_KnownCircuitries(known_circuitries), 
     m_KnownGroups(known_groups), m_KnownInterfaces(known_interfaces), m_KnownBitFields(known_bitfield)
 {
+    // eliminate any duplicate mode
+    std::unique(std::begin(m_FormalModes), std::end(m_FormalModes));
+    // order modes so that they are always performed in the same order:
+    //  bmc --> temporal induction --> cover
+    std::sort(std::begin(m_FormalModes), std::end(m_FormalModes),
+              [] (std::string const &m1, std::string const &m2)
+              // a mode is less than another one if it either:
+              // - is a bmc (runs first)
+              // - is a temporal induction compared to a cover (temporal induction runs first)
+              { return (m1 == "bmc") || (m1 == "tind" && m2 == "cover"); });
+
   // init with empty always blocks
   m_AlwaysPre.id = -1;
   m_AlwaysPre .block_name = "_always_pre";
@@ -5708,6 +5800,74 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
 
 // -------------------------------------------------
 
+void Algorithm::writeAssert(std::string prefix,
+                            std::ostream &out,
+                            const t_instr_nfo &a,
+                            siliceParser::Expression_0Context *expression_0,
+                            const t_combinational_block_context *bctx,
+                            std::string ff,
+                            const t_vio_dependencies &dependencies,
+                            t_vio_ff_usage &_ff_usage) const
+{
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  std::string silice_position = file + ":" + std::to_string(line);
+
+  out << "assert(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
+}
+
+// -------------------------------------------------
+
+void Algorithm::writeAssume(std::string prefix,
+                            std::ostream &out,
+                            const t_instr_nfo &a,
+                            siliceParser::Expression_0Context *expression_0,
+                            const t_combinational_block_context *bctx,
+                            std::string ff,
+                            const t_vio_dependencies &dependencies,
+                            t_vio_ff_usage &_ff_usage) const
+{
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  std::string silice_position = file + ":" + std::to_string(line);
+
+  out << "assume(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
+}
+
+// -------------------------------------------------
+
+void Algorithm::writeRestrict(std::string prefix,
+                              std::ostream &out,
+                              const t_instr_nfo &a,
+                              siliceParser::Expression_0Context *expression_0,
+                              const t_combinational_block_context *bctx,
+                              std::string ff,
+                              const t_vio_dependencies &dependencies,
+                              t_vio_ff_usage &_ff_usage) const
+{
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  std::string silice_position = file + ":" + std::to_string(line);
+
+  out << "restrict(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
+}
+
+// -------------------------------------------------
+
+void Algorithm::writeCover(std::string prefix,
+                           std::ostream &out,
+                           const t_instr_nfo &a,
+                           siliceParser::Expression_0Context *expression_0,
+                           const t_combinational_block_context *bctx,
+                           std::string ff,
+                           const t_vio_dependencies &dependencies,
+                           t_vio_ff_usage &_ff_usage) const
+{
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  std::string silice_position = file + ":" + std::to_string(line);
+
+  out << "cover(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeWireAssignements(
   std::string prefix, std::ostream &out,  
   t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const
@@ -6164,6 +6324,47 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       }
     }
   }
+
+  if (!hasNoFSM()) {
+    for (const auto &chk : m_PastChecks) {
+      auto B = m_State2Block.find(chk.targeted_state);
+      if (B == m_State2Block.end())
+        reportError(chk.ctx->getSourceInterval(), -1, "State named %s not found", chk.targeted_state.c_str());
+      if (!B->second->is_state)
+        reportError(chk.ctx->getSourceInterval(), -1, "State named %s does not exist", chk.targeted_state.c_str());
+
+      auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
+      std::string silice_position = file + ":" + std::to_string(line);
+
+      const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
+      const std::string condition = "(" + inState + " && !" + reset + " && " + ALG_INPUT "_" ALG_RUN + " && !$initstate)";
+
+      out << "assert(!" << condition << " || $past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << "); //%" << silice_position << nxl;
+    }
+  }
+
+  for (const auto &chk : m_StableChecks) {
+    t_vio_dependencies _deps;
+    t_vio_ff_usage _ff_usage;
+
+    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((chk.isAssumption ? chk.ctx.assume_ctx->getStart() : chk.ctx.assert_ctx->getStart())->getLine());
+    std::string silice_position = file + ":" + std::to_string(line);
+
+    const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
+    const std::string condition = "(" + inState + " && !" + reset + " && " + ALG_INPUT "_" ALG_RUN + " && !$initstate)";
+
+    out << (chk.isAssumption ? "assume" : "assert") << "(!" << condition
+        << " || $stable(" << rewriteExpression(prefix, (chk.isAssumption ? chk.ctx.assume_ctx->expression_0() : chk.ctx.assert_ctx->expression_0()), 0, nullptr, FF_Q, true, _deps, _ff_usage) << ")); //%" << silice_position << nxl;
+  }
+
+  for (auto const &chk : m_StableInputChecks) {
+    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
+    std::string silice_position = file + ":" + std::to_string(line);
+
+    const std::string condition = "(!" + reset + " && " + ALG_INPUT "_" ALG_RUN " && !$initstate)";
+    out << "assume(!" << condition << " || $stable(" << encapsulateIdentifier(chk.varName, true, ALG_INPUT "_" + chk.varName, "") << ")); //%" << silice_position << nxl;
+  }
+
   out << "end" << nxl;
 }
 
@@ -6461,9 +6662,12 @@ void Algorithm::writeCombinationalStates(
   }
   // default: internal error, should never happen
   {
-    out << "default: begin " << nxl;
-    out << FF_D << prefix << ALG_IDX " = {" << stateWidth() << "{1'bx}};" << nxl;
-    out << " end" << nxl;
+    out << "default: begin " << nxl
+        << FF_D << prefix << ALG_IDX " = {" << stateWidth() << "{1'bx}};" << nxl
+        << "`ifdef FORMAL" << nxl
+        << "assume(0);" << nxl
+        << "`endif" << nxl
+        << " end" << nxl;
   }
   out << "endcase" << nxl;
 }
@@ -6556,6 +6760,26 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
               writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, FF_Q, _dependencies, _ff_usage);
             }
           }
+      }
+    } {
+      auto assert = dynamic_cast<siliceParser::Assert_Context *>(a.instr);
+      if (assert) {
+        writeAssert(prefix, out, a, assert->expression_0(), &block->context, FF_Q, _dependencies, _ff_usage);
+      }
+    } {
+      auto assume = dynamic_cast<siliceParser::AssumeContext *>(a.instr);
+      if (assume) {
+        writeAssume(prefix, out, a, assume->expression_0(), &block->context, FF_Q, _dependencies, _ff_usage);
+      }
+    } {
+      auto restrict = dynamic_cast<siliceParser::RestrictContext *>(a.instr);
+      if (restrict) {
+        writeRestrict(prefix, out, a, restrict->expression_0(), &block->context, FF_Q, _dependencies, _ff_usage);
+      }
+    } {
+      auto cover = dynamic_cast<siliceParser::CoverContext *>(a.instr);
+      if (cover) {
+        writeCover(prefix, out, a, cover->expression_0(), &block->context, FF_Q, _dependencies, _ff_usage);
       }
     } {
       auto display = dynamic_cast<siliceParser::DisplayContext *>(a.instr);
@@ -7117,7 +7341,7 @@ void Algorithm::writeAsModule(std::string instance_name, std::ostream &out)
   t_instantiation_context ictx; // empty instantiation context
   ictx.instance_name = instance_name;
   m_TopMost = true; // this is the topmost
-  if (!m_ReportBaseName.empty()) {
+  if (!m_ReportBaseName.empty() && !m_hasHash) {
     // create report files, will delete if existing
     std::ofstream freport_a(algReportName());
     std::ofstream freport_v(vioReportName());
@@ -7153,7 +7377,14 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
         freport 
           << (ictx.instance_name.empty() ? "__main" : ictx.instance_name) << " " 
           << (ictx.local_instance_name.empty() ? "main" : ictx.local_instance_name) << " " 
-          << m_Name << " " << fl.first << nxl;
+          << m_Name << " " << fl.first << " "
+          << (m_FormalDepth.empty() ? "30" : m_FormalDepth) << " "
+          << (m_FormalTimeout.empty() ? "120" : m_FormalTimeout) << " ";
+        auto end = m_FormalModes.size();
+        for (size_t i{0}; i < end - 1; ++i) {
+          freport << m_FormalModes[i] << ",";
+        }
+        freport << m_FormalModes[end - 1] << nxl;
       }
     }
 
@@ -7465,11 +7696,6 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = 0;" << nxl;
   }
 
-  // flip-flops update
-  writeFlipFlops("_", out, ictx);
-
-  out << nxl;
-
   // module instantiations (2/2)
   // -> module instances
   for (auto& nfo : m_InstancedModules) {
@@ -7697,6 +7923,16 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     }
   }
 
+  // correctly setup the formal stuff:
+  //   - reset on the initial state
+  //   - always assume that the algorithm is either running or finished
+  out << "`ifdef FORMAL" << nxl
+      << "initial begin" << nxl
+      << "assume(" << ALG_RESET << ");" << nxl
+      << "end" << nxl
+      << "assume property($initstate || (" << ALG_INPUT << "_" << ALG_RUN << " || " << ALG_OUTPUT << "_" << ALG_DONE << "));" << nxl
+      << "`endif" << nxl;
+
   // combinational
   out << "always @* begin" << nxl;
   writeCombinationalAlwaysPre("_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
@@ -7740,6 +7976,11 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     std::cerr << nxl;
   }
 #endif
+
+  // flip-flops update
+  writeFlipFlops("_", out, ictx);
+
+  out << nxl;
 
   out << "endmodule" << nxl;
   out << nxl;
