@@ -32,7 +32,15 @@ $$if not div_unsigned then
 $$else
   uint$div_width$ num  <:: inum;
   uint$div_width$ den  <:: iden;
-$$end  
+$$end
+
+$$if FORMAL then
+  #stableinput(inum);
+  #stableinput(iden);
+  // Preconditions:
+  // (*) x/0 = error
+  #assume(iden != 0);
+$$end
  
   ac  = {{$div_width-1${1b0}},num[$div_width-1$,1]};
   ret = {num[0,$div_width-1$],1b0};

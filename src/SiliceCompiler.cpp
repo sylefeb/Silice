@@ -90,8 +90,12 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     std::cerr << "parsing algorithm " << name << nxl;
     bool autorun = (name == "main");
     bool onehot = false;
+    std::string formalDepth = "";
+    std::string formalTimeout = "";
+    std::vector<std::string> formalModes{};
     std::string clock = ALG_CLOCK;
     std::string reset = ALG_RESET;
+    bool hasHash = alg->HASH() != nullptr;
     if (alg->algModifiers() != nullptr) {
       for (auto m : alg->algModifiers()->algModifier()) {
         if (m->sclock() != nullptr) {
@@ -109,10 +113,30 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
         if (m->sstacksz() != nullptr) {
           // deprecated, ignore
         }
+        if (m->sformdepth() != nullptr) {
+          formalDepth = m->sformdepth()->NUMBER()->getText();
+        }
+        if (m->sformtimeout() != nullptr) {
+          formalTimeout = m->sformtimeout()->NUMBER()->getText();
+        }
+        if (m->sformmode() != nullptr) {
+          for (auto i : m->sformmode()->IDENTIFIER()) {
+            std::string mode = i->getText();
+            if (mode != "bmc" && mode != "tind" && mode != "cover") {
+              throw Fatal("Unknown formal mode '%s' (line %d).", mode.c_str(), (int)m->sformmode()->getStart()->getLine());
+            }
+            formalModes.push_back(mode);
+          }
+        }
       }
     }
+    if (formalModes.empty()) {
+      // default to a simple BMC if no mode is specified
+      formalModes.push_back("bmc");
+    }
+
     AutoPtr<Algorithm> algorithm(new Algorithm(
-      name, clock, reset, autorun, onehot,
+      name, hasHash, clock, reset, autorun, onehot, formalDepth, formalTimeout, formalModes,
       m_Modules, m_Algorithms, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
     );
     if (m_Algorithms.find(name) != m_Algorithms.end()) {
@@ -203,6 +227,11 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
 
 void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog)
 {
+  // if we don't have a framework (as for the formal board),
+  // don't try to open a file located at the empty path "".
+  if (fframework.empty())
+    return;
+
   // gather 
   // - pre-processor header (all lines starting with $$)
   // - verilog code (all other lines)
@@ -317,11 +346,18 @@ void SiliceCompiler::run(
           auto m = m_Modules.at(miordr);
           m->writeModule(out);
         }
+
         // ask for reports
         m_Algorithms["main"]->enableReporting(fresult);
         // write top algorithm (recurses from there)
         m_Algorithms["main"]->writeAsModule("",out);
 
+        for (auto const &[algname, alg] : m_Algorithms) {
+          if (alg->isFormal()) {
+            alg->enableReporting(fresult);
+            alg->writeAsModule("formal_" + algname + "$", out);
+          }
+        }
       }
     
     } catch (Algorithm::LanguageError& le) {

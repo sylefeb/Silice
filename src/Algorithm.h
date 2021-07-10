@@ -117,6 +117,9 @@ namespace Silice
     /// \brief algorithm name
     std::string m_Name;
 
+    /// \brief is the algorithm supposed to be for formal verification?
+    bool m_hasHash;
+
     /// \brief algorithm clock
     std::string m_Clock = ALG_CLOCK;
 
@@ -128,6 +131,15 @@ namespace Silice
 
     /// \brief whether algorithm uses onehot state encoding
     bool m_OneHot = false;
+
+    /// \brief specified depth to use for the formal verification
+    std::string m_FormalDepth = "";
+
+    /// \brief specified timeout for the formal verification
+    std::string m_FormalTimeout = "";
+
+    /// \brief all the modes the algorithm is supposed to be verified in
+    std::vector<std::string> m_FormalModes{};
 
     /// \brief Set of known modules
     const std::unordered_map<std::string, AutoPtr<Module> >& m_KnownModules;
@@ -622,6 +634,30 @@ private:
       antlr4::ParserRuleContext *jump;
     } t_forward_jump;
 
+    /// \brief information about a past check ('#was_at(lbl, cycle_count)')
+    typedef struct {
+      std::string targeted_state;
+      int cycles_count;
+      t_combinational_block *current_state;
+      siliceParser::Was_atContext *ctx;
+    } t_past_check;
+
+    /// \brief information about a stable check ('#stable(expr, cycle_count)')
+    typedef struct {
+      t_combinational_block *current_state;
+      union {
+        siliceParser::AssumestableContext *assume_ctx;
+        siliceParser::AssertstableContext *assert_ctx;
+      } ctx;
+      bool isAssumption;
+    } t_stable_check;
+
+    /// \brief information about a stableinput check ('#stableinput(identifier)')
+    typedef struct {
+      siliceParser::StableinputContext *ctx;
+      std::string varName;
+    } t_stableinput_check;
+
     /// \brief always blocks
     t_combinational_block                                             m_AlwaysPre;
     t_combinational_block                                             m_AlwaysPost;
@@ -652,6 +688,13 @@ private:
     std::string fsmReportName() const { return m_ReportBaseName  + ".fsm.log"; }
     std::string vioReportName() const { return m_ReportBaseName + ".vio.log"; }
     std::string algReportName() const { return m_ReportBaseName + ".alg.log"; }
+
+    /// \brief all #was_at constructs to be put in the clocked block
+    std::list< t_past_check > m_PastChecks;
+    /// \brief all #stable constructs to be put in the clocked block
+    std::list< t_stable_check > m_StableChecks;
+    /// \brief all #stableinput checks to be put in the clocked block
+    std::list< t_stableinput_check > m_StableInputChecks;
 
   public:
 
@@ -738,6 +781,14 @@ private:
     void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather module declaration
     void gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather past checks
+    void gatherPastCheck(siliceParser::Was_atContext *chk, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather stable checks
+    void gatherStableCheck(siliceParser::AssertstableContext *chk, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather stable checks
+    void gatherStableCheck(siliceParser::AssumestableContext *chk, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather stableinput checks
+    void gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_combinational_block *_current, t_gather_context *_context);
     /// \brief expands the name of a subroutine vio
     std::string subroutineVIOName(std::string vio, const t_subroutine_nfo *sub);
     /// \brief expands the name of a block vio
@@ -967,9 +1018,9 @@ private:
 
     /// \brief constructor
     Algorithm(
-      std::string name,
+      std::string name, bool hasHash,
       std::string clock, std::string reset,
-      bool autorun, bool onehot,
+      bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes,
       const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
       const std::unordered_map<std::string, AutoPtr<Algorithm> >&              known_algorithms,
       const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
@@ -1046,6 +1097,42 @@ private:
       siliceParser::Expression_0Context *expression_0,
       const t_combinational_block_context *bctx,
       std::string ff, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
+    /// \brief writes an assertion
+    void writeAssert(std::string prefix,
+                     std::ostream &out,
+                     const t_instr_nfo &a,
+                     siliceParser::Expression_0Context *expression_0,
+                     const t_combinational_block_context *bctx,
+                     std::string ff,
+                     const t_vio_dependencies &dependencies,
+                     t_vio_ff_usage &_ff_usage) const;
+    /// \brief writes an assumption
+    void writeAssume(std::string prefix,
+                     std::ostream &out,
+                     const t_instr_nfo &a,
+                     siliceParser::Expression_0Context *expression_0,
+                     const t_combinational_block_context *bctx,
+                     std::string ff,
+                     const t_vio_dependencies &dependencies,
+                     t_vio_ff_usage &_ff_usage) const;
+    /// \brief writes a restriction
+    void writeRestrict(std::string prefix,
+                       std::ostream &out,
+                       const t_instr_nfo &a,
+                       siliceParser::Expression_0Context *expression_0,
+                       const t_combinational_block_context *bctx,
+                       std::string ff,
+                       const t_vio_dependencies &dependencies,
+                       t_vio_ff_usage &_ff_usage) const;
+    /// \brief writes a cover
+    void writeCover(std::string prefix,
+                    std::ostream &out,
+                    const t_instr_nfo &a,
+                    siliceParser::Expression_0Context *expression_0,
+                    const t_combinational_block_context *bctx,
+                    std::string ff,
+                    const t_vio_dependencies &dependencies,
+                    t_vio_ff_usage &_ff_usage) const;
     /// \brief writes all wire assignements
     void writeWireAssignements(std::string prefix, std::ostream &out, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes flip-flop value update for a variable
@@ -1111,6 +1198,9 @@ private:
     {
       s_LuaPreProcessor = lpp;
     }
+
+    // check whether an algorithm is used for formal verification or not
+    bool isFormal() { return m_hasHash; }
 
   };
 

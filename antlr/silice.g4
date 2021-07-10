@@ -93,6 +93,22 @@ PAD                 : 'pad' ;
 
 FILE                : 'file' ;
 
+ASSERT              : '#assert' ;
+
+ASSUME              : '#assume' ;
+
+RESTRICT            : '#restrict';
+
+WASAT               : '#wasin';
+
+ASSERTSTABLE        : '#assertstable';
+
+ASSUMESTABLE        : '#assumestable';
+
+STABLEINPUT         : '#stableinput';
+
+COVER               : '#cover';
+
 DEFAULT             : 'default' (' ' | '\t')* ':';
 
 LARROW              : '<-' ;
@@ -109,6 +125,8 @@ ALWSASSIGNDBL       : '::=' ;
 ALWSASSIGN          : ':=' ;
 
 OUTASSIGN           : '^=' ;
+
+HASH                : '#';
 
 IDENTIFIER          : LETTER+ (DIGIT|LETTERU)* ;
 
@@ -128,7 +146,7 @@ NEXT                : '++:' ;
 
 ATTRIBS             : '(*' ~[\r\n]* '*)' ;
 
-STRING              : '"' ~[\r\n"]* '"' ;
+STRING              : '"' ~[\r\n"]* '"' ; // '; // antlr-mode is broken and does not handle literal `"` in selectors
 
 ERROR_CHAR          : . ; // catch-all to move lexer errors to parser
 
@@ -145,8 +163,11 @@ sreset              :  '!' IDENTIFIER ;
 sautorun            :  AUTORUN ;
 sonehot             :  ONEHOT ;
 sstacksz            :  'stack:' NUMBER ;
+sformdepth          :  '#depth' '=' NUMBER ;
+sformtimeout        :  '#timeout' '=' NUMBER ;
+sformmode           :  '#mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
 
-algModifier         : sclock | sreset | sautorun | sonehot | sstacksz ;
+algModifier         : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode ;
 algModifiers        : '<' algModifier (',' algModifier)* '>' ;
 
 pad                 : PAD '(' (value | UNINITIALIZED) ')' ;
@@ -322,6 +343,15 @@ state               : state_name=IDENTIFIER ':' | NEXT ;
 jump                : GOTO IDENTIFIER ;
 returnFrom          : RETURN ;
 breakLoop           : BREAK ;
+assert_             : ASSERT '(' expression_0 ')';
+// NOTE: keep the `_` here else it clashes with various keywords etc
+assume              : ASSUME '(' expression_0 ')';
+restrict            : RESTRICT '(' expression_0 ')';
+was_at              : WASAT '(' IDENTIFIER (',' NUMBER)? ')';
+assertstable        : ASSERTSTABLE '(' expression_0 ')';
+assumestable        : ASSUMESTABLE '(' expression_0 ')';
+stableinput         : STABLEINPUT '(' idOrIoAccess ')';
+cover               : COVER '(' expression_0 ')';
 
 block               : '{' declarationList instructionList '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
@@ -341,6 +371,13 @@ instruction         : assignment
                     | returnFrom
                     | breakLoop
                     | display
+                    | assert_
+                    | assume
+                    | restrict
+                    | was_at
+                    | assumestable
+                    | assertstable
+                    | cover
                     ;
 
 alwaysBlock         : ALWAYS       block;
@@ -386,7 +423,7 @@ subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 subroutineParamList : subroutineParam (',' subroutineParam)* ','? | ;
 subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList (RETURN ';')? '}' ;
                     
-declAndInstrList    : (declaration ';' | subroutine ) *
+declAndInstrList    : (declaration ';' | subroutine | stableinput ';' ) *
                       alwaysPre = alwaysAssignedList 
                       alwaysBlock?
                       alwaysAfterBlock?
@@ -405,7 +442,7 @@ circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' block ;
 
 /* -- Algorithm -- */
 
-algorithm           : 'algorithm' IDENTIFIER '(' inOutList ')' algModifiers? '{' declAndInstrList '}' ;
+algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' algModifiers? '{' declAndInstrList '}' ;
 
 /* -- Overall structure -- */
 

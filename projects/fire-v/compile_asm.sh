@@ -18,5 +18,5 @@ $ARCH-elf-ld.exe -m elf32lriscv -b elf32-littleriscv -Tsmoke/config_asm.ld --no-
 
 $ARCH-elf-objcopy.exe -O verilog build/code.elf build/code0.hex
 
-$ARCH-elf-objcopy.exe -O binary build/code.elf build/code.bin
-$ARCH-elf-objdump.exe -D -b binary -m riscv build/code.bin 
+# $ARCH-elf-objcopy.exe -O binary build/code.elf build/code.bin
+# $ARCH-elf-objdump.exe -D -b binary -m riscv build/code.bin 

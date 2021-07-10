@@ -21,8 +21,8 @@ export PATH=$PATH:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/:$SILICE_DIR
 
 case "$(uname -s)" in
 MINGW*)
-export PYTHONHOME=/mingw64/bin
-export PYTHONPATH=/mingw64/lib/python3.8/
+#export PYTHONHOME=/mingw64/bin
+#export PYTHONPATH=/mingw64/lib/python3.8/
 export QT_QPA_PLATFORM_PLUGIN_PATH=/mingw64/share/qt5/plugins
 ;;
 *)
@@ -37,6 +37,8 @@ rm build*
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 yosys -p "synth_gowin -json build.json" build.v
+
+pip install apycula
 
 nextpnr-gowin --json build.json --write outbuild.json --device GW1NR-UV9QN881C6/I5 --cst $BOARD_DIR/littlebee.cst
 gowin_pack -d GW1N-9 -o pack.fs outbuild.json

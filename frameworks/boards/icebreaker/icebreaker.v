@@ -48,10 +48,10 @@ module top(
 `endif
 `ifdef OLED
   output P1A1,
-  output P1A2,
-  output P1A3,
-  output P1A4,
   output P1A7,
+  output P1A8,
+  output P1A9,
+  output P1A10,
 `endif
 `ifdef SPIFLASH
   output FLASH_SCK,
@@ -180,11 +180,11 @@ assign P1B8  = __main_out_vga_vs;
 `endif
 
 `ifdef OLED
-assign P1A1  = __main_oled_mosi;
-assign P1A2  = __main_oled_clk;
-assign P1A3  = __main_oled_csn;
-assign P1A4  = __main_oled_dc;
-assign P1A7  = __main_oled_resn;
+assign P1A1  = __main_oled_resn;
+assign P1A7  = __main_oled_dc;
+assign P1A8  = __main_oled_csn;
+assign P1A9  = __main_oled_clk;
+assign P1A10 = __main_oled_mosi;
 `endif
 
 `ifdef SPIFLASH
