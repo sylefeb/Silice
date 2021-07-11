@@ -74,6 +74,7 @@ algorithm inttofloat(
     input   uint1   start,
     output  uint1   busy,
     input   int16   a,
+    input   uint1   dounsigned,
     output  uint16  result
 ) <autorun> {
     uint2   FSM = uninitialised;
@@ -93,8 +94,8 @@ algorithm inttofloat(
                 onehot( FSM ) {
                     case 0: {
                         // SIGNED / UNSIGNED
-                        sign = a[15,1];
-                        number = a[15,1] ? -a : a ;
+                        sign = dounsigned ? 0 : a[15,1];
+                        number = dounsigned ? a : a[15,1] ? -a : a ;
                     }
                     case 1: {
                         switch( number == 0 ) {
@@ -144,10 +145,41 @@ algorithm floattoint(
                 case 2b00: {
                     exp = floatingpointnumber( a ).exponent - 15;
                     sig = ( exp < 11 ) ? { 5b1, a[0,10], 1b0 } >> ( 10 - exp ) : { 5b1, a[0,10], 1b0 } << ( exp - 11 );
-                    result = ( exp > 15 ) ? ( a[15,1] ? 16hffff : 16h7fff ) : a[15,1] ? -( sig[1,16] + sig[0,1] ) : ( sig[1,16] + sig[0,1] );
+                    result = ( exp > 14 ) ? ( a[15,1] ? 16hffff : 16h7fff ) : a[15,1] ? -( sig[1,16] + sig[0,1] ) : ( sig[1,16] + sig[0,1] );
                 }
                 case 2b01: { result = 0; }
                 default: { result = a[15,1] ? 16hffff : 16h7fff; }
+            }
+            busy = 0;
+        }
+    }
+}
+
+// CONVERT FLOAT TO UNSIGNED INTEGERS
+algorithm floattouint(
+    input   uint16  a,
+    output  int16   result,
+    output  uint1   busy,
+    input   uint1   start
+) <autorun> {
+    uint2   classEa = uninitialised;
+    int8    exp = uninitialised;
+    int17   sig = uninitialised;
+
+    busy = 0;
+
+    while(1) {
+        if( start ) {
+            busy = 1;
+            ( classEa ) = classE( a );
+            switch( classEa ) {
+                case 2b00: {
+                    exp = floatingpointnumber( a ).exponent - 15;
+                    sig = ( exp < 11 ) ? { 5b1, a[0,10], 1b0 } >> ( 10 - exp ) : { 5b1, a[0,10], 1b0 } << ( exp - 11 );
+                    result = ( exp > 15 ) ? 16hffff : a[15,1] ? 0 : ( sig[1,16] + sig[0,1] );
+                }
+                case 2b01: { result = 0; }
+                default: { result = 16hffff; }
             }
             busy = 0;
         }
@@ -529,4 +561,18 @@ circuitry floatequal( input a, input b, output equalto ) {
 }
 circuitry floatlessequal( input a, input b, output lessequal, ) {
     lessequal = ( a[15,1] != b[15,1] ) ? a[15,1] | ((( a | b ) << 1) == 0 ) : ( a == b ) | ( a[15,1] ^ ( a < b ));
+}
+
+algorithm floatcompare(
+    input   uint16  a,
+    input   uint16  b,
+    output  uint1   less,
+    output  uint1   lessequal,
+    output  uint1   equal
+) <autorun> {
+    while(1) {
+        ( less ) = floatless( a, b );
+        ( lessequal ) = floatlessequal( a, b );
+        ( equal ) = floatequal( a, b );
+    }
 }

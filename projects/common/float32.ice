@@ -301,7 +301,6 @@ algorithm floataddsub(
 }
 
 // MULTIPLY TWO FLOATING POINT NUMBERS
-
 $$if not uintmul_algo then
 $$uintmul_algo = 1
 algorithm douintmul(
@@ -584,4 +583,18 @@ circuitry floatequal( input a, input b, output equalto ) {
 }
 circuitry floatlessequal( input a, input b, output lessequal, ) {
     lessequal = ( a[31,1] != b[31,1] ) ? a[31,1] | ((( a | b ) << 1) == 0 ) : ( a == b ) | ( a[31,1] ^ ( a < b ));
+}
+
+algorithm floatcompare(
+    input   uint32  a,
+    input   uint32  b,
+    output  uint1   less,
+    output  uint1   lessequal,
+    output  uint1   equal
+) <autorun> {
+    while(1) {
+        ( less ) = floatless( a, b );
+        ( lessequal ) = floatlessequal( a, b );
+        ( equal ) = floatequal( a, b );
+    }
 }
