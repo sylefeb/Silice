@@ -1681,10 +1681,10 @@ std::string Algorithm::rewriteExpression(
       } else if (term->getSymbol()->getType() == siliceParser::TOSIGNED) {
         return "$signed";
       } else {
-        return expr->getText();
+        return expr->getText() == "?" ? " ? " : expr->getText();
       }
     } else {
-      return expr->getText();
+      return expr->getText() == "?" ? " ? " : expr->getText();
     }
   } else {
     auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
