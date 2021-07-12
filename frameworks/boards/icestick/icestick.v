@@ -45,6 +45,11 @@ module top(
   output PMOD9,
   output PMOD10,
 `endif
+`ifdef UART
+  // uart
+  input   RX,
+  output  TX,
+`endif
 `ifdef VGA
   output PMOD1, // r0
   output PMOD2, // r1
@@ -172,6 +177,10 @@ M_main __main(
   .out_pmod8(PMOD8),
   .out_pmod9(PMOD9),
   .out_pmod10(PMOD10),
+`endif
+`ifdef UART
+  .out_uart_tx  (TX),
+  .in_uart_rx   (RX),
 `endif
   .in_run(run_main)
 );
