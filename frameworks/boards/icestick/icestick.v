@@ -97,10 +97,6 @@ wire __main_oled_dc;
 `endif
 `endif
 
-`ifdef UART
-wire        __main_out_uart_rx;
-`endif
-
 `ifdef VGA
 wire __main_out_vga_hs;
 wire __main_out_vga_vs;
@@ -205,12 +201,6 @@ assign PMOD8  = __main_oled_csn;
 assign PMOD7  = __main_oled_dc;
 assign PMOD1  = __main_oled_resn;
 
-`endif
-
-// UART
-
-`ifdef UART
-//assign RX     = __main_out_uart_rx;
 `endif
 
 // VGA

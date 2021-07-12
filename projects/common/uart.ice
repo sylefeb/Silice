@@ -101,8 +101,8 @@ algorithm uart_receiver(
   input uint1 uart_rx
 ) <autorun> {
   
-  uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / 115200)$;
-  uint10 half_interval = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / 115200 / 2)$;
+  uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds)$;
+  uint10 half_interval = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds / 2)$;
   uint10 counter       = 0;
 
   uint10 receiving     = 0;
