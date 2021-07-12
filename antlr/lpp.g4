@@ -32,13 +32,15 @@ NEWLINE             : ('\r'? '\n' | '\r') ;
 
 ANY                 : ~[\r\n$]+ ;
 
+ANY_NO_DOLLAR       : ~[\r\n]+;
+
 FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/')* '\'' ;
 
 LUALINE_PREFIX      : (' ' | '\t')* '$$' ;
 
 /* ======== Parser ======== */
 
-lualine     : LUALINE_PREFIX code=ANY ;
+lualine     : LUALINE_PREFIX code=ANY_NO_DOLLAR? ;
 
 luacode     : '$' code=ANY '$' ;
 
