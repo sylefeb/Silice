@@ -45,6 +45,11 @@ module top(
   output PMOD9,
   output PMOD10,
 `endif
+`ifdef UART
+  // uart
+  input   RX,
+  output  TX,
+`endif
 `ifdef VGA
   output PMOD1, // r0
   output PMOD2, // r1
@@ -90,6 +95,10 @@ wire __main_oled_dc;
 `ifdef PMOD_OUT
 `error_cannot_use_both_PMOD_and_OLED_not_enough_pins
 `endif
+`endif
+
+`ifdef UART
+wire        __main_out_uart_rx;
 `endif
 
 `ifdef VGA
@@ -173,6 +182,10 @@ M_main __main(
   .out_pmod9(PMOD9),
   .out_pmod10(PMOD10),
 `endif
+`ifdef UART
+  .out_uart_tx  (TX),
+  .in_uart_rx   (RX),
+`endif
   .in_run(run_main)
 );
 
@@ -192,6 +205,12 @@ assign PMOD8  = __main_oled_csn;
 assign PMOD7  = __main_oled_dc;
 assign PMOD1  = __main_oled_resn;
 
+`endif
+
+// UART
+
+`ifdef UART
+//assign RX     = __main_out_uart_rx;
 `endif
 
 // VGA
