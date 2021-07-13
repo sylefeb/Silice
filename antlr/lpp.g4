@@ -38,9 +38,9 @@ LUALINE_PREFIX      : (' ' | '\t')* '$$' ;
 
 /* ======== Parser ======== */
 
-lualine     : LUALINE_PREFIX code=ANY ;
+lualine     : LUALINE_PREFIX code=ANY?;
 
-luacode     : '$' code=ANY '$' ;
+luacode     : '$' code=ANY '$' | '$$' ;
 
 siliceincl  : INCLUDE filename=ANY; 
 
