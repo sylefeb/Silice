@@ -640,7 +640,11 @@ std::string LuaPreProcessor::processCode(
     // pre-process
     if (l->lualine() != nullptr) {
 
-      code += l->lualine()->code->getText() + "\n";
+      if (auto code_ = l->lualine()->code) {
+        code += code_->getText() + "\n";
+      } else {
+        code += "\n";
+      }
 
     } else if (l->siliceline() != nullptr) {
 
