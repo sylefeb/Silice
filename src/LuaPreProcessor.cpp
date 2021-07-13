@@ -658,7 +658,7 @@ std::string LuaPreProcessor::processCode(
           code += luaProtectString(silcode->getText());
         }
         if (luacode) {
-          code += "' .. (" + luacode->code->getText() + ") .. '";
+          code += "' .. (" + (luacode->code ? luacode->code->getText() : "''") + ") .. '";
         }
       }
       code += "\\n'," + std::to_string(src_line-1) + "," + std::to_string(src_file_id) + ")\n";

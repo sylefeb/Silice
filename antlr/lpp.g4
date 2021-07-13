@@ -40,7 +40,7 @@ LUALINE_PREFIX      : (' ' | '\t')* '$$' ;
 
 lualine     : LUALINE_PREFIX code=ANY?;
 
-luacode     : '$' code=ANY '$' ;
+luacode     : '$' code=ANY '$' | '$$' ;
 
 siliceincl  : INCLUDE filename=ANY; 
 
