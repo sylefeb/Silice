@@ -41,6 +41,9 @@
     },
     {
       "name" : "formal"
+    },
+    {
+      "name" : "bare"
     }
   ]
 }
