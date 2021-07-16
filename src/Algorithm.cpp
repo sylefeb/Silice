@@ -1930,19 +1930,27 @@ void Algorithm::gatherPastCheck(siliceParser::Was_atContext *chk, t_combinationa
   if (auto n = chk->NUMBER())
     clock_cycles = std::stoi(n->getText());
 
-  this->m_PastChecks.push_back({ target, clock_cycles, hasNoFSM() ? nullptr : _current, chk });
+  m_PastChecks.push_back({ target, clock_cycles, hasNoFSM() ? nullptr : _current, chk });
 }
 
 //-------------------------------------------------
 
 void Algorithm::gatherStableCheck(siliceParser::AssumestableContext *chk, t_combinational_block *_current, t_gather_context *_context)
 {
-  this->m_StableChecks.push_back({ hasNoFSM() ? nullptr : _current, { .assume_ctx = chk }, true });
+  Algorithm::t_stable_check sc;
+  sc.current_state  = hasNoFSM() ? nullptr : _current;
+  sc.ctx.assume_ctx = chk;
+  sc.isAssumption   = true;
+  m_StableChecks.push_back(sc);
 }
 
 void Algorithm::gatherStableCheck(siliceParser::AssertstableContext *chk, t_combinational_block *_current, t_gather_context *_context)
 {
-  this->m_StableChecks.push_back({ hasNoFSM() ? nullptr : _current, { .assert_ctx = chk }, false });
+  Algorithm::t_stable_check sc;
+  sc.current_state  = hasNoFSM() ? nullptr : _current;
+  sc.ctx.assert_ctx = chk;
+  sc.isAssumption   = false;
+  m_StableChecks.push_back(sc);
 }
 
 //-------------------------------------------------
@@ -1957,7 +1965,7 @@ void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_
     if (!isInput(base) && !isInOut(base)) {
       reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "%s is not an input/inout", base.c_str());
     } else {
-      this->m_StableInputChecks.push_back({ ctx, base });
+      m_StableInputChecks.push_back({ ctx, base });
     }
   } else {
     // group identifier
@@ -1974,7 +1982,7 @@ void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_
       if (!isInput(vname) && !isInOut(vname)) {
         reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "%s is not an input/inout", (base + "." + member).c_str());
       } else {
-        this->m_StableInputChecks.push_back({ ctx, base });
+        m_StableInputChecks.push_back({ ctx, base });
       }
     } else {
       reportError(id_->getSourceInterval(), (int)id_->getStart()->getLine(),
