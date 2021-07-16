@@ -38,6 +38,51 @@ LuaPreProcessor *Algorithm::s_LuaPreProcessor = nullptr;
 
 // -------------------------------------------------
 
+const std::vector<std::string> c_InOutmembers = {
+  {"i"},{"o"},{"oenable"} // NOTE: first has to be the input
+};
+
+// -------------------------------------------------
+
+typedef struct {
+  bool        is_input;
+  bool        is_addr;
+  std::string name;
+} t_mem_member;
+
+const std::vector<t_mem_member> c_BRAMmembers = {
+  {true, false,"wenable"},
+  {false,false,"rdata"},
+  {true, false,"wdata"},
+  {true, true, "addr"}
+};
+
+const std::vector<t_mem_member> c_BROMmembers = {
+  {false,false,"rdata"},
+  {true, true, "addr"}
+};
+
+const std::vector<t_mem_member> c_DualPortBRAMmembers = {
+  {true, false,"wenable0"},
+  {false,false,"rdata0"},
+  {true, false,"wdata0"},
+  {true, true, "addr0"},
+  {true, false,"wenable1"},
+  {false,false,"rdata1"},
+  {true, false,"wdata1"},
+  {true, true, "addr1"},
+};
+
+const std::vector<t_mem_member> c_SimpleDualPortBRAMmembers = {
+  {false,false,"rdata0"},
+  {true, true, "addr0"},
+  {true, false,"wenable1"},
+  {true, false,"wdata1"},
+  {true, true, "addr1"},
+};
+
+// -------------------------------------------------
+
 void Algorithm::reportError(antlr4::Token *what, int line, const char *msg, ...) const
 {
   const int messageBufferSize = 4096;
@@ -680,7 +725,7 @@ void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current
 
 // -------------------------------------------------
 
-void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *, antlr4::misc::Interval interval)
+void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, antlr4::misc::Interval interval)
 {
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
@@ -730,7 +775,7 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
     reportError(wire->getSourceInterval(), (int)wire->getStart()->getLine(), "'sameas' wire declaration cannot be refering to a group or interface");
   }
   // add var
-  addVar(nfo, _current, _context, wire->alwaysAssigned()->IDENTIFIER()->getSourceInterval());
+  addVar(nfo, _current, wire->alwaysAssigned()->IDENTIFIER()->getSourceInterval());
   // insert wire assignment
   m_WireAssignmentNames.insert( make_pair(nfo.name, m_WireAssignments.size()) );
   m_WireAssignments    .push_back( make_pair(nfo.name, t_instr_nfo(wire->alwaysAssigned(), _current, -1)) );
@@ -815,10 +860,10 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
       vnfo.table_size = 0;
       vnfo.do_not_initialize = false;
       // add it
-      addVar(vnfo, _current, _context, decl->IDENTIFIER()->getSourceInterval());
+      addVar(vnfo, _current, decl->IDENTIFIER()->getSourceInterval());
     }
   } else {
-    addVar(var, _current, _context, decl->IDENTIFIER()->getSourceInterval());
+    addVar(var, _current, decl->IDENTIFIER()->getSourceInterval());
   }
 }
 
@@ -852,7 +897,7 @@ void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext *de
 {
   t_var_nfo var;
   gatherTableNfo(decl, var, _current, _context);
-  addVar(var, _current, _context, decl->IDENTIFIER()->getSourceInterval());
+  addVar(var, _current, decl->IDENTIFIER()->getSourceInterval());
 }
 
 // -------------------------------------------------
@@ -987,45 +1032,6 @@ static int justHigherPow2(int n)
   }
   return isp2 ? p2-1 : p2;
 }
-
-// -------------------------------------------------
-
-typedef struct {
-  bool        is_input;
-  bool        is_addr;
-  std::string name;
-} t_mem_member;
-
-const std::vector<t_mem_member> c_BRAMmembers = {
-  {true, false,"wenable"},
-  {false,false,"rdata"},
-  {true, false,"wdata"},
-  {true, true, "addr"}
-};
-
-const std::vector<t_mem_member> c_BROMmembers = {
-  {false,false,"rdata"},
-  {true, true, "addr"}
-};
-
-const std::vector<t_mem_member> c_DualPortBRAMmembers = {
-  {true, false,"wenable0"},
-  {false,false,"rdata0"},
-  {true, false,"wdata0"},
-  {true, true, "addr0"},
-  {true, false,"wenable1"},
-  {false,false,"rdata1"},
-  {true, false,"wdata1"},
-  {true, true, "addr1"},
-};
-
-const std::vector<t_mem_member> c_SimpleDualPortBRAMmembers = {
-  {false,false,"rdata0"},
-  {true, true, "addr0"},
-  {true, false,"wenable1"},
-  {true, false,"wdata1"},
-  {true, true, "addr1"},
-};
 
 // -------------------------------------------------
 
@@ -1182,7 +1188,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     if (m.is_input) {
       v.access = e_InternalFlipFlop; // internal flip-flop to circumvent issue #102 (see also Yosys #2473)
     }
-    addVar(v, _current, _context, decl->IDENTIFIER()->getSourceInterval());
+    addVar(v, _current, decl->IDENTIFIER()->getSourceInterval());
     if (m.is_input) {
       mem.in_vars.push_back(v.name);
     } else {
@@ -1313,7 +1319,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext
         reportError(v->getSourceInterval(), (int)v->getStart()->getLine(), "group '%s': group member declarations cannot use 'sameas'", grp->name->getText().c_str());
       }
       vnfo.name = grp->name->getText() + "_" + vnfo.name;
-      addVar(vnfo, _current, _context, grp->IDENTIFIER()[1]->getSourceInterval());
+      addVar(vnfo, _current, grp->IDENTIFIER()[1]->getSourceInterval());
     }
   } else {
     reportError(grp->getSourceInterval(), (int)grp->getStart()->getLine(), "unknown group '%s'", grp->modalg->getText().c_str());
@@ -1963,7 +1969,7 @@ void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_
     base = translateVIOName(base, &_current->context);
 
     if (!isInput(base) && !isInOut(base)) {
-      reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "%s is not an input/inout", base.c_str());
+      reportError(ctx->getSourceInterval(), (int)ctx->getStart()->getLine(), "%s is not an input/inout", base.c_str());
     } else {
       m_StableInputChecks.push_back({ ctx, base });
     }
@@ -1980,7 +1986,7 @@ void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_
       std::string vname = base + "_" + member;
 
       if (!isInput(vname) && !isInOut(vname)) {
-        reportError(ctx->getSourceInterval(), ctx->getStart()->getLine(), "%s is not an input/inout", (base + "." + member).c_str());
+        reportError(ctx->getSourceInterval(), (int)ctx->getStart()->getLine(), "%s is not an input/inout", (base + "." + member).c_str());
       } else {
         m_StableInputChecks.push_back({ ctx, base });
       }
@@ -4105,7 +4111,12 @@ void Algorithm::verifyMemberGroup(std::string member, const t_group_definition &
   } else {
     std::vector<std::string> mbrs = getGroupMembers(gd);
     if (std::find(mbrs.begin(), mbrs.end(), member) == mbrs.end()) {
-      reportError(nullptr, line, "group does not contain a member '%s'", member.c_str());
+      std::string grname = "group";
+      if      (gd.alg != nullptr)      grname = "algorithm";
+      else if (gd.inout != nullptr)    grname = "inout";
+      else if (gd.intrface != nullptr) grname = "interface";
+      else if (gd.memory != nullptr)   grname = "memory";
+      reportError(nullptr, line, "%s does not contain a member '%s'", grname.c_str(), member.c_str());
     }
   }
 }
@@ -4132,6 +4143,8 @@ std::vector<std::string> Algorithm::getGroupMembers(const t_group_definition &gd
       names.push_back(o.first);
     }
     return names;
+  } else if (gd.inout != nullptr) {
+    return c_InOutmembers;
   }
   return mbs;
 }
@@ -4636,7 +4649,7 @@ void Algorithm::determineAccessForWires(
   std::unordered_map<std::string, t_instr_nfo> all_wires;
   std::queue<std::string> q_wires;
   for (const auto &v : m_Vars) {
-    if (v.usage == e_Wire) { // this is a wire (bound expression)
+    if (v.usage == e_Wire && m_WireAssignmentNames.count(v.name) > 0) { // this is a wire (bound expression)
       // find corresponding wire assignement
       int wai        = m_WireAssignmentNames.at(v.name);
       const auto &wa = m_WireAssignments[wai].second;
@@ -4863,6 +4876,7 @@ void Algorithm::determineModAlgBoundVIO()
         // record wire name for this inout
         std::string bindpoint = im.second.instance_prefix + "_" + b.left;
         m_ModAlgInOutsBoundToVIO[bindpoint] = bindingRightIdentifier(b);
+        m_VIOToModAlgInOutsBound[bindingRightIdentifier(b)] = bindpoint;
       }
     }
   }
@@ -4884,6 +4898,7 @@ void Algorithm::determineModAlgBoundVIO()
         // record wire name for this inout
         std::string bindpoint = ia.second.instance_prefix + "_" + b.left;
         m_ModAlgInOutsBoundToVIO[bindpoint] = bindingRightIdentifier(b);
+        m_VIOToModAlgInOutsBound[bindingRightIdentifier(b)] = bindpoint;
       }
     }
   }
@@ -4991,6 +5006,7 @@ void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::Pars
 
   // determine return states for subroutine calls
   analyzeSubroutineCalls();
+
 }
 
 // -------------------------------------------------
@@ -5009,7 +5025,7 @@ void Algorithm::resolveAlgorithmRefs(const std::unordered_map<std::string, AutoP
     for (const auto& o : nfo.second.algo->m_Outputs) {
       t_var_nfo vnfo = o;
       vnfo.name = nfo.second.instance_prefix + "_" + o.name;
-      addVar(vnfo, m_Blocks.front(), nullptr);
+      addVar(vnfo, m_Blocks.front());
       m_Vars.at(m_VarNames.at(vnfo.name)).access = e_WriteBinded;
       m_Vars.at(m_VarNames.at(vnfo.name)).usage  = e_Bound;
       m_VIOBoundToModAlgOutputs[vnfo.name] = WIRE + nfo.second.instance_prefix + "_" + o.name;
@@ -5229,6 +5245,33 @@ void Algorithm::lint(const t_instantiation_context &ictx)
 
 // -------------------------------------------------
 
+void Algorithm::resolveInOuts()
+{
+  for (const auto& io : m_InOuts) {
+    if (m_VIOToModAlgInOutsBound.count(io.name) == 0) {
+      // inout io is possibly used in this algorithm as it is not bound to any modalg
+      // generate vars
+      t_var_nfo v;
+      var_nfo_copy(v, io);
+      bool is_input = true;
+      for (auto m : c_InOutmembers) {
+        v.name = io.name + "_" + m;
+        if (is_input) {
+          v.usage = e_Wire;
+          is_input = false;
+        } else {
+          v.usage = io.usage;
+        }
+        addVar(v, m_Blocks.front());
+      }
+      // add group for member access and bindings
+      m_VIOGroups.insert(make_pair(io.name, &io));
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::optimize()
 {
   if (!m_Optimized) {
@@ -5237,11 +5280,13 @@ void Algorithm::optimize()
     m_Optimized = true;
     // generate states
     generateStates();
+    // determine which VIO are bound
+    determineModAlgBoundVIO();
+    // resolve inouts
+    resolveInOuts();
     // check var access permissions
     checkPermissions();
-    // determine which VIO are assigned to wires
-    determineModAlgBoundVIO();
-    // analyze variables access 
+    // analyze variables access
     determineUsage();
     // analyze instanced algorithms inputs
     analyzeInstancedAlgorithmsInputs();
@@ -5817,7 +5862,7 @@ void Algorithm::writeAssert(std::string prefix,
                             const t_vio_dependencies &dependencies,
                             t_vio_ff_usage &_ff_usage) const
 {
-  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
   out << "assert(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
@@ -5834,7 +5879,7 @@ void Algorithm::writeAssume(std::string prefix,
                             const t_vio_dependencies &dependencies,
                             t_vio_ff_usage &_ff_usage) const
 {
-  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
   out << "assume(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
@@ -5851,7 +5896,7 @@ void Algorithm::writeRestrict(std::string prefix,
                               const t_vio_dependencies &dependencies,
                               t_vio_ff_usage &_ff_usage) const
 {
-  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
   out << "restrict(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
@@ -5868,7 +5913,7 @@ void Algorithm::writeCover(std::string prefix,
                            const t_vio_dependencies &dependencies,
                            t_vio_ff_usage &_ff_usage) const
 {
-  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(expression_0->getStart()->getLine());
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
   out << "cover(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
@@ -6341,7 +6386,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       if (!B->second->is_state)
         reportError(chk.ctx->getSourceInterval(), -1, "State named %s does not exist", chk.targeted_state.c_str());
 
-      auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
+      auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)chk.ctx->getStart()->getLine());
       std::string silice_position = file + ":" + std::to_string(line);
 
       const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
@@ -6355,7 +6400,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     t_vio_dependencies _deps;
     t_vio_ff_usage _ff_usage;
 
-    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((chk.isAssumption ? chk.ctx.assume_ctx->getStart() : chk.ctx.assert_ctx->getStart())->getLine());
+    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)(chk.isAssumption ? chk.ctx.assume_ctx->getStart() : chk.ctx.assert_ctx->getStart())->getLine());
     std::string silice_position = file + ":" + std::to_string(line);
 
     const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
@@ -6366,7 +6411,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
   }
 
   for (auto const &chk : m_StableInputChecks) {
-    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(chk.ctx->getStart()->getLine());
+    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)chk.ctx->getStart()->getLine());
     std::string silice_position = file + ":" + std::to_string(line);
 
     const std::string condition = "(!" + reset + " && " + ALG_INPUT "_" ALG_RUN " && !$initstate)";
@@ -7167,19 +7212,6 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     int stage = current->context.pipeline->stage_id;
     out << "// -------- stage " << stage << nxl;
     t_vio_dependencies deps = _dependencies;
-    // trickle vars: get from previous
-    /*
-    for (auto tv : pip->trickling_vios) {
-      if (stage > tv.second[0] && stage <= tv.second[1]) {
-        std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
-        out << rewriteIdentifier(prefix, tricklingdst, "", &current->context, -1, FF_D, true, deps, _ff_usage) << " = ";
-        std::string tricklingsrc = tricklingVIOName(tv.first, pip, stage - 1);
-        out << rewriteIdentifier(prefix, tricklingsrc, "", &current->context, -1, FF_Q, true, deps, _ff_usage);
-        out << ';' << nxl;
-        deps.dependencies[tricklingdst].insert(tricklingsrc);
-      }
-    }
-    */
     // write code
     if (current != after) { // this is the more complex case of multiple blocks in stage
       writeStatelessBlockGraph(prefix, out, ictx, current, after, _q, deps, _ff_usage, _post_dependencies, _lines); // NOTE: q will not be changed since this is a combinational block
@@ -7367,10 +7399,10 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
 
     /// first pass
 
-    // lint upon instantiation
-    lint(ictx);
     // optimize
     optimize();
+    // lint upon instantiation
+    lint(ictx);
 
     // activate reporting?
     m_ReportingEnabled = (!m_ReportBaseName.empty());
@@ -7907,6 +7939,31 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     out << ");" << nxl;
   }
   out << nxl;
+
+  // inouts used in algorithm
+  for (const auto &io : m_InOuts) {
+    if (m_VIOToModAlgInOutsBound.count(io.name) == 0) {
+      int width = atoi(varBitWidth(io, ictx).c_str());
+      // output used?
+      if (m_Vars.at(m_VarNames.at(io.name + "_o")).access != e_NotAccessed) {
+        // write bit by bit ternary assignment
+        for (int b = 0; b < width; ++b) {
+          out << "assign " << ALG_INOUT << "_" << io.name << "[" << std::to_string(b) << "] = ";
+          t_vio_dependencies _1, _2, _3;
+          out << rewriteIdentifier("_", io.name + "_oenable", "[" + std::to_string(b) + "]", nullptr, -1, FF_D, true, _1, ff_input_bindings_usage);
+          out << " ? ";
+          out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, -1, FF_D, true, _1, ff_input_bindings_usage);
+          out << " : 1'bz;" << nxl;
+        }
+      } else {
+        out << "assign " << ALG_INOUT << "_" << io.name << " = {" << width << "{1'bz}};" << nxl; 
+      }
+      // assign wire if used
+      if (m_Vars.at(m_VarNames.at(io.name + "_i")).access != e_NotAccessed) {
+        out << "assign " << WIRE << "_" << io.name + "_i" << " = " << ALG_INOUT << "_" << io.name << ';' << nxl;
+      }
+    }
+  }
 
   // track dependencies
   t_vio_dependencies always_dependencies;
