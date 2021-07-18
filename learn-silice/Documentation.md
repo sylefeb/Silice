@@ -1276,10 +1276,6 @@ declaration). This is a comma separated list of any of the following:
     be used, for instance, to filter the signal from a physical reset
     button.
 
--   **Stack.** Adding the `stack:N` modifier (with N an integer &gt; 1)
-    will allocate a stack of size N for the algorithm subroutine nested
-    calls.
-
 -   **One-hot.** Adding the `onehot` modifier will use a ’onehot’ state
     numbering for the algorithm state machine. On small algorithms with
     few states this can result in smaller, faster designs.
