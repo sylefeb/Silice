@@ -31,7 +31,7 @@ bitfield floatingpointnumber{
 // NOTE exp from addsub multiply divide is 8 bit biased ( ie, exp + 15 )
 // small numbers return 0, bit numbers return max
 circuitry combinecomponents( input sign, input exp, input fraction, output f16 ) {
-    switch( ( exp > 30 ) || ( exp < 0 ) ) {
+    switch( ( exp > 30 ) | ( exp < 0 ) ) {
         case 1: { f16 = ( exp < 0 ) ? 0 : { sign, 5b01111, 10h3ff }; }
         case 0: { f16 = { sign, exp[0,5], fraction[0,10] }; }
     }
@@ -87,39 +87,42 @@ algorithm inttofloat(
     busy = 0;
 
     while(1) {
-        if( start ) {
-            busy = 1;
-            FSM = 1;
-            while( FSM != 0 ) {
-                onehot( FSM ) {
-                    case 0: {
-                        // SIGNED / UNSIGNED
-                        sign = dounsigned ? 0 : a[15,1];
-                        number = dounsigned ? a : a[15,1] ? -a : a ;
-                    }
-                    case 1: {
-                        switch( number == 0 ) {
-                            case 1: { result = 0; }
-                            case 0: {
-                                FSM2 = 1;
-                                while( FSM2 !=0 ) {
-                                    onehot( FSM2 ) {
-                                        case 0: { zeros = 0; while( ~number[ 15-zeros, 1 ] ) { zeros = zeros + 1; } }
-                                        case 1: {
-                                            number = ( zeros < 5 ) ? number >> ( 5 - zeros ) : ( zeros > 5 ) ? number << ( zeros - 5 ) : number;
-                                            exp = 30 - zeros;
-                                            ( result ) = combinecomponents( sign, exp, number );
+        switch( start ) {
+            case 0: {}
+            case 1: {
+                busy = 1;
+                FSM = 1;
+                while( FSM != 0 ) {
+                    onehot( FSM ) {
+                        case 0: {
+                            // SIGNED / UNSIGNED
+                            sign = dounsigned ? 0 : a[15,1];
+                            number = dounsigned ? a : a[15,1] ? -a : a ;
+                        }
+                        case 1: {
+                            switch( number ) {
+                                case 0: { result = 0; }
+                                default: {
+                                    FSM2 = 1;
+                                    while( FSM2 !=0 ) {
+                                        onehot( FSM2 ) {
+                                            case 0: { zeros = 0; while( ~number[ 15-zeros, 1 ] ) { zeros = zeros + 1; } }
+                                            case 1: {
+                                                number = ( zeros < 5 ) ? number >> ( 5 - zeros ) : ( zeros > 5 ) ? number << ( zeros - 5 ) : number;
+                                                exp = 30 - zeros;
+                                                ( result ) = combinecomponents( sign, exp, number );
+                                            }
                                         }
+                                        FSM2 = { FSM2[0,1], 1b0 };
                                     }
-                                    FSM2 = { FSM2[0,1], 1b0 };
                                 }
                             }
                         }
                     }
+                    FSM = { FSM[0,1], 1b0 };
                 }
-                FSM = { FSM[0,1], 1b0 };
+                busy = 0;
             }
-            busy = 0;
         }
     }
 }
@@ -138,19 +141,22 @@ algorithm floattoint(
     busy = 0;
 
     while(1) {
-        if( start ) {
-            busy = 1;
-            ( classEa ) = classE( a );
-            switch( classEa ) {
-                case 2b00: {
-                    exp = floatingpointnumber( a ).exponent - 15;
-                    sig = ( exp < 11 ) ? { 5b1, a[0,10], 1b0 } >> ( 10 - exp ) : { 5b1, a[0,10], 1b0 } << ( exp - 11 );
-                    result = ( exp > 14 ) ? ( a[15,1] ? 16hffff : 16h7fff ) : a[15,1] ? -( sig[1,16] + sig[0,1] ) : ( sig[1,16] + sig[0,1] );
+        switch( start ) {
+            case 0: {}
+            case 1: {
+                busy = 1;
+                ( classEa ) = classE( a );
+                switch( classEa ) {
+                    case 2b00: {
+                        exp = floatingpointnumber( a ).exponent - 15;
+                        sig = ( exp < 11 ) ? { 5b1, a[0,10], 1b0 } >> ( 10 - exp ) : { 5b1, a[0,10], 1b0 } << ( exp - 11 );
+                        result = ( exp > 14 ) ? ( a[15,1] ? 16hffff : 16h7fff ) : a[15,1] ? -( sig[1,16] + sig[0,1] ) : ( sig[1,16] + sig[0,1] );
+                    }
+                    case 2b01: { result = 0; }
+                    default: { result = a[15,1] ? 16hffff : 16h7fff; }
                 }
-                case 2b01: { result = 0; }
-                default: { result = a[15,1] ? 16hffff : 16h7fff; }
+                busy = 0;
             }
-            busy = 0;
         }
     }
 }
@@ -169,19 +175,22 @@ algorithm floattouint(
     busy = 0;
 
     while(1) {
-        if( start ) {
-            busy = 1;
-            ( classEa ) = classE( a );
-            switch( classEa ) {
-                case 2b00: {
-                    exp = floatingpointnumber( a ).exponent - 15;
-                    sig = ( exp < 11 ) ? { 5b1, a[0,10], 1b0 } >> ( 10 - exp ) : { 5b1, a[0,10], 1b0 } << ( exp - 11 );
-                    result = ( exp > 15 ) ? 16hffff : a[15,1] ? 0 : ( sig[1,16] + sig[0,1] );
+        switch( start ) {
+            case 0: {}
+            case 1: {
+                busy = 1;
+                ( classEa ) = classE( a );
+                switch( classEa ) {
+                    case 2b00: {
+                        exp = floatingpointnumber( a ).exponent - 15;
+                        sig = ( exp < 11 ) ? { 5b1, a[0,10], 1b0 } >> ( 10 - exp ) : { 5b1, a[0,10], 1b0 } << ( exp - 11 );
+                        result = ( exp > 15 ) ? 16hffff : a[15,1] ? 0 : ( sig[1,16] + sig[0,1] );
+                    }
+                    case 2b01: { result = 0; }
+                    default: { result = 16hffff; }
                 }
-                case 2b01: { result = 0; }
-                default: { result = 16hffff; }
+                busy = 0;
             }
-            busy = 0;
         }
     }
 }
@@ -209,91 +218,91 @@ algorithm floataddsub(
     uint22  sigA = uninitialised;
     uint22  sigB = uninitialised;
     uint22  newfraction = uninitialised;
-    uint1   round = uninitialised;
 
     busy = 0;
 
     while(1) {
-        if( start ) {
-            busy = 1;
-            FSM = 1;
-            round = 1;
-            while( FSM != 0 ) {
-                onehot( FSM ) {
-                    case 0: {
-                        // FOR SUBTRACTION CHANGE SIGN OF SECOND VALUE
-                        signA = a[15,1]; signB = addsub ? ~b[15,1] : b[15,1];
-                        ( classEa ) = classE( a );
-                        ( classEb ) = classE( b );
-                    }
-                    case 1: {
-                        // EXTRACT COMPONENTS - HOLD TO LEFT TO IMPROVE FRACTIONAL ACCURACY
-                        expA = floatingpointnumber( a ).exponent - 15;
-                        expB = floatingpointnumber( b ).exponent - 15;
-                        sigA = { 2b01, floatingpointnumber(a).fraction, 10b0 };
-                        sigB = { 2b01, floatingpointnumber(b).fraction, 10b0 };
-                        sign = floatingpointnumber(a).sign;
-                    }
-                    case 2: {
-                        // ADJUST TO EQUAL EXPONENTS
-                        switch( { expA < expB, expB < expA } ) {
-                            case 2b10: { sigA = sigA >> ( expB - expA ); expA = expB; }
-                            case 2b01: { sigB = sigB >> ( expA - expB ); expB = expA; }
-                            default: {}
+        switch( start ) {
+            case 0: {}
+            case 1: {
+                busy = 1;
+                FSM = 1;
+                //round = 1;
+                while( FSM != 0 ) {
+                    onehot( FSM ) {
+                        case 0: {
+                            // FOR SUBTRACTION CHANGE SIGN OF SECOND VALUE
+                            signA = a[15,1]; signB = addsub ? ~b[15,1] : b[15,1];
+                            ( classEa ) = classE( a );
+                            ( classEb ) = classE( b );
                         }
-                    }
-                    case 3: {
-                        switch( classEa | classEb ) {
-                            case 2b00: {
-                                switch( { signA, signB } ) {
-                                    // PERFORM + HANDLING SIGNS
-                                    case 2b01: {
-                                        switch( sigB > sigA ) {
-                                            case 1: { sign = 1; round = ( sigA != 0 ); sigA = sigB - ( ~round ? 1 : sigA ); }
-                                            case 0: { sign = 0; round = ( sigB != 0 ); sigA = sigA - ( ~round ? 1 : sigB ); }
-                                        }
-                                    }
-                                    case 2b10: {
-                                        switch(  sigA > sigB ) {
-                                            case 1: { sign = 1; round = ( sigB != 0 ); sigA = sigA - ( ~round ? 1 : sigB ); }
-                                            case 0: { sign = 0; round = ( sigA != 0 ); sigA = sigB - ( ~round ? 1 : sigA ); }
-                                        }
-                                    }
-                                    default: { sign = signA; sigA = sigA + sigB; }
-                                }
+                        case 1: {
+                            // EXTRACT COMPONENTS - HOLD TO LEFT TO IMPROVE FRACTIONAL ACCURACY
+                            expA = floatingpointnumber( a ).exponent - 15;
+                            expB = floatingpointnumber( b ).exponent - 15;
+                            sigA = { 2b01, floatingpointnumber(a).fraction, 10b0 };
+                            sigB = { 2b01, floatingpointnumber(b).fraction, 10b0 };
+                        }
+                        case 2: {
+                            // ADJUST TO EQUAL EXPONENTS
+                            switch( { expA < expB, expB < expA } ) {
+                                case 2b10: { sigA = sigA >> ( expB - expA ); expA = expB; }
+                                case 2b01: { sigB = sigB >> ( expA - expB ); expB = expA; }
+                                default: {}
                             }
-                            case 2b01: { result = ( classEb == 2b01 ) ? a : addsub ? { ~b[15,1], b[0,15] } : b; }
-                            default: { result = { 1b0, 5b11111, 10b0 }; }
                         }
-                    }
-                    case 4: {
-                        switch( classEa | classEb ) {
-                            case 0: {
-                                switch( sigA ) {
-                                    case 0: { result = 0; }
-                                    default: {
-                                        // NORMALISE AND ROUND
-                                        switch( sigA[21,1] ) {
-                                            case 1: { expA = expA + 1; }
-                                            default: {
-                                                while( ~sigA[20,1] ) { sigA = { sigA[0,21], 1b0 }; expA = expA - 1; }
-                                                sigA = { sigA[0,21], 1b0 };
+                        case 3: {
+                            switch( classEa | classEb ) {
+                                case 2b00: {
+                                    switch( { signA, signB } ) {
+                                        // PERFORM + HANDLING SIGNS
+                                        case 2b01: {
+                                            switch( sigB > sigA ) {
+                                                case 1: { sign = 1; sigA = sigB - sigA; }
+                                                case 0: { sign = 0; sigA = sigA - sigB; }
                                             }
                                         }
-                                        sigA[10,1] = sigA[10,1] & round;
-                                        ( newfraction ) = round22( sigA );
-                                        ( expA ) = adjustexp22( exp, newfraction, sigA );
-                                        ( result ) = combinecomponents( sign, expA, newfraction );
+                                        case 2b10: {
+                                            switch(  sigA > sigB ) {
+                                                case 1: { sign = 1; sigA = sigA - sigB; }
+                                                case 0: { sign = 0; sigA = sigB - sigA; }
+                                            }
+                                        }
+                                        default: { sign = signA; sigA = sigA + sigB; }
                                     }
                                 }
+                                case 2b01: { result = ( classEb == 2b01 ) ? a : addsub ? { ~b[15,1], b[0,15] } : b; }
+                                default: { result = { 1b0, 5b11111, 10b0 }; }
                             }
-                            default: {}
+                        }
+                        case 4: {
+                            switch( classEa | classEb ) {
+                                case 0: {
+                                    switch( sigA ) {
+                                        case 0: { result = 0; }
+                                        default: {
+                                            // NORMALISE AND ROUND
+                                            switch( sigA[21,1] ) {
+                                                case 1: { expA = expA + 1; }
+                                                default: {
+                                                    while( ~sigA[20,1] ) { sigA = { sigA[0,21], 1b0 }; expA = expA - 1; }
+                                                    sigA = { sigA[0,21], 1b0 };
+                                                }
+                                            }
+                                            ( newfraction ) = round22( sigA );
+                                            ( expA ) = adjustexp22( exp, newfraction, sigA );
+                                            ( result ) = combinecomponents( sign, expA, newfraction );
+                                        }
+                                    }
+                                }
+                                default: {}
+                            }
                         }
                     }
+                    FSM = { FSM[0,5], 1b0 };
                 }
-                FSM = { FSM[0,5], 1b0 };
+                busy = 0;
             }
-            busy = 0;
         }
     }
 }
@@ -320,33 +329,36 @@ algorithm floatmultiply(
     busy = 0;
 
     while(1) {
-        if( start ) {
-            busy = 1;
-            FSM = 1;
-            while( FSM != 0 ) {
-                onehot( FSM ) {
-                    case 0: {
-                        ( classEa ) = classE( a );
-                        ( classEb ) = classE( b );
-                        product = { 6b1, a[0,10] } * { 6b1, b[0,10] };
-                        productexp = (floatingpointnumber( a ).exponent - 15) + (floatingpointnumber( b ).exponent - 15) + product[21,1];
-                    }
-                    case 1: {
-                        switch( classEa | classEb ) {
-                            case 2b00: {
-                                ( product ) = normalise22( product );
-                                ( newfraction ) = round22( product );
-                                ( productexp ) = adjustexp22( productexp, newfraction, product );
-                                ( result ) = combinecomponents( productsign, productexp, newfraction );
+        switch( start ) {
+            case 0: {}
+            case 1: {
+                busy = 1;
+                FSM = 1;
+                while( FSM != 0 ) {
+                    onehot( FSM ) {
+                        case 0: {
+                            ( classEa ) = classE( a );
+                            ( classEb ) = classE( b );
+                            product = { 6b1, a[0,10] } * { 6b1, b[0,10] };
+                            productexp = (floatingpointnumber( a ).exponent - 15) + (floatingpointnumber( b ).exponent - 15) + product[21,1];
+                        }
+                        case 1: {
+                            switch( classEa | classEb ) {
+                                case 2b00: {
+                                    ( product ) = normalise22( product );
+                                    ( newfraction ) = round22( product );
+                                    ( productexp ) = adjustexp22( productexp, newfraction, product );
+                                    ( result ) = combinecomponents( productsign, productexp, newfraction );
+                                }
+                                case 2b01: { result = { productsign, 15b0 }; }
+                                default: { result = { productsign, 5b11111, 10b0 }; }
                             }
-                            case 2b01: { result = { productsign, 15b0 }; }
-                            default: { result = { productsign, 5b11111, 10b0 }; }
                         }
                     }
+                    FSM = { FSM[0,1], 1b0 };
                 }
-                FSM = { FSM[0,1], 1b0 };
+                busy = 0;
             }
-            busy = 0;
         }
     }
 }
@@ -364,7 +376,7 @@ algorithm divbit22(
     uint22  temp = uninitialised;
     uint1   quobit = uninitialised;
     while(1) {
-        temp = ( rem << 1 ) + top[x,1];
+        temp = ( rem << 1 ) | top[x,1];
         quobit = __unsigned(temp) >= __unsigned(bottom);
         newremainder = __unsigned(temp) - ( quobit ? __unsigned(bottom) : 0 );
         newquotient = quo | ( quobit << x );
@@ -394,54 +406,57 @@ algorithm floatdivide(
     divbit22 DIVBIT22( quo <: quotient, rem <: remainder, top <: sigA, bottom <: sigB, x <: bit );
 
     while(1) {
-        if( start ) {
-            busy = 1;
-            FSM = 1;
-            while( FSM != 0 ) {
-                onehot( FSM ) {
-                    case 0: {
-                        ( classEa ) = classE( a );
-                        ( classEb ) = classE( b );
-                        sigA = { 1b1, floatingpointnumber(a).fraction, 11b0 };
-                        sigB = { 12b1, floatingpointnumber(b).fraction };
-                        quotientexp = (floatingpointnumber( a ).exponent - 15) - (floatingpointnumber( b ).exponent - 15);
-                        quotient = 0;
-                        remainder = 0;
-                        bit = 21;
-                    }
-                    case 1: { ( sigB ) = alignright22( sigB ); }
-                    case 2: {
-                        switch( classEa | classEb ) {
-                            case 2b00: {
-                                while( bit != 31 ) {
-                                    quotient = DIVBIT22.newquotient; remainder = DIVBIT22.newremainder;
-                                    bit = bit - 1;
-                                }
-                            }
-                            case 2b01: { result = ( classEb == 2b01 ) ? { quotientsign, 5b11111, 10b0 } : { quotientsign, 15b0 }; }
-                            default: { result = { quotientsign, 5b11111, 10b0 }; }
+        switch( start ) {
+            case 0: {}
+            case 1: {
+                busy = 1;
+                FSM = 1;
+                while( FSM != 0 ) {
+                    onehot( FSM ) {
+                        case 0: {
+                            ( classEa ) = classE( a );
+                            ( classEb ) = classE( b );
+                            sigA = { 1b1, floatingpointnumber(a).fraction, 11b0 };
+                            sigB = { 12b1, floatingpointnumber(b).fraction };
+                            quotientexp = (floatingpointnumber( a ).exponent - 15) - (floatingpointnumber( b ).exponent - 15);
+                            quotient = 0;
+                            remainder = 0;
+                            bit = 21;
                         }
-                    }
-                    case 3: {
-                        switch( classEa | classEb ) {
-                            case 0: {
-                                switch( quotient ) {
-                                    case 0: { result = { quotientsign, 15b0 }; }
-                                    default: {
-                                        ( quotient ) = normalise22( quotient );
-                                        ( newfraction ) = round22( quotient );
-                                        quotientexp = 15 + quotientexp - ( floatingpointnumber(b).fraction > floatingpointnumber(a).fraction ) + ( ( newfraction == 0 ) & quotient[12,1] );
-                                        ( result ) = combinecomponents( quotientsign, quotientexp, newfraction );
+                        case 1: { ( sigB ) = alignright22( sigB ); }
+                        case 2: {
+                            switch( classEa | classEb ) {
+                                case 2b00: {
+                                    while( bit != 31 ) {
+                                        quotient = DIVBIT22.newquotient; remainder = DIVBIT22.newremainder;
+                                        bit = bit - 1;
                                     }
                                 }
+                                case 2b01: { result = ( classEb == 2b01 ) ? { quotientsign, 5b11111, 10b0 } : { quotientsign, 15b0 }; }
+                                default: { result = { quotientsign, 5b11111, 10b0 }; }
                             }
-                            default: {}
+                        }
+                        case 3: {
+                            switch( classEa | classEb ) {
+                                case 0: {
+                                    switch( quotient ) {
+                                        case 0: { result = { quotientsign, 15b0 }; }
+                                        default: {
+                                            ( quotient ) = normalise22( quotient );
+                                            ( newfraction ) = round22( quotient );
+                                            quotientexp = 15 + quotientexp - ( floatingpointnumber(b).fraction > floatingpointnumber(a).fraction ) + ( ( newfraction == 0 ) & quotient[12,1] );
+                                            ( result ) = combinecomponents( quotientsign, quotientexp, newfraction );
+                                        }
+                                    }
+                                }
+                                default: {}
+                            }
                         }
                     }
+                    FSM = { FSM[0,3], 1b0 };
                 }
-                FSM = { FSM[0,3], 1b0 };
+                busy = 0;
             }
-            busy = 0;
         }
     }
 }
@@ -468,50 +483,53 @@ algorithm floatsqrt(
     uint23  newfraction = uninitialised;
 
     while(1) {
-        if( start ) {
-            busy = 1;
-            FSM = 1;
-            ( classEa ) = classE( a );
-            switch( a[15,1] ) {
-                case 1: { result = { a[15,1], 5b11111, 10h3ff }; }
-                default: {
-                    switch( classEa ) {
-                        case 2b00: {
-                            while( FSM != 0 ) {
-                                onehot( FSM ) {
-                                    case 0: {
-                                        i = 0;
-                                        q = 0;
-                                        exp = floatingpointnumber( a ).exponent - 15;
-                                        ac = ~exp[0,1] ? 1 : { 22b0, 1b1, a[9,1] };
-                                        x = ~exp[0,1] ? { a[0,10], 12b0 } : { a[0,9], 13b0 };
-                                    }
-                                    case 1: {
-                                        while( i != 21 ) {
-                                            test_res = ac - { q, 2b01 };
-                                            ac = { test_res[23,1] ? ac[0,21] : test_res[0,21], x[20,2] };
-                                            q = { q[0,21], ~test_res[23,1] };
-                                            x = { x[0,20], 2b00 };
-                                            i = i + 1;
+        switch( start ) {
+            case 0: {}
+            case 1: {
+                busy = 1;
+                FSM = 1;
+                ( classEa ) = classE( a );
+                switch( a[15,1] ) {
+                    case 1: { result = { a[15,1], 5b11111, 10h3ff }; }
+                    default: {
+                        switch( classEa ) {
+                            case 2b00: {
+                                while( FSM != 0 ) {
+                                    onehot( FSM ) {
+                                        case 0: {
+                                            i = 0;
+                                            q = 0;
+                                            exp = floatingpointnumber( a ).exponent - 15;
+                                            ac = ~exp[0,1] ? 1 : { 22b0, 1b1, a[9,1] };
+                                            x = ~exp[0,1] ? { a[0,10], 12b0 } : { a[0,9], 13b0 };
+                                        }
+                                        case 1: {
+                                            while( i != 21 ) {
+                                                test_res = ac - { q, 2b01 };
+                                                ac = { test_res[23,1] ? ac[0,21] : test_res[0,21], x[20,2] };
+                                                q = { q[0,21], ~test_res[23,1] };
+                                                x = { x[0,20], 2b00 };
+                                                i = i + 1;
+                                            }
+                                        }
+                                        case 2: {
+                                            ( q ) = normalise22( q );
+                                        }
+                                        case 3: {
+                                            exp = ( exp >>> 1 ) + 15;
+                                            ( newfraction ) = round22( q );
+                                            ( result ) = combinecomponents( sign, exp, newfraction );
                                         }
                                     }
-                                    case 2: {
-                                        ( q ) = normalise22( q );
-                                    }
-                                    case 3: {
-                                        exp = ( exp >>> 1 ) + 15;
-                                        ( newfraction ) = round22( q );
-                                        ( result ) = combinecomponents( sign, exp, newfraction );
-                                    }
-                                }
-                                FSM = { FSM[0,3], 1b0 };
-                            }                    }
-                        case 2b01: { result = 0; }
-                        default: { result = a; }
+                                    FSM = { FSM[0,3], 1b0 };
+                                }                    }
+                            case 2b01: { result = 0; }
+                            default: { result = a; }
+                        }
                     }
                 }
+                busy = 0;
             }
-            busy = 0;
         }
     }
 }
@@ -567,12 +585,10 @@ algorithm floatcompare(
     input   uint16  a,
     input   uint16  b,
     output  uint1   less,
-    output  uint1   lessequal,
     output  uint1   equal
 ) <autorun> {
     while(1) {
         ( less ) = floatless( a, b );
-        ( lessequal ) = floatlessequal( a, b );
         ( equal ) = floatequal( a, b );
     }
 }
