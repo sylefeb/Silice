@@ -2,7 +2,7 @@
 // ------------------------- 
 // The Fiery-V core - pipelined RV32I CPU
 //    
-//   WORK IN PROGRESS, not operational
+//  ***** WORK IN PROGRESS, not operational *****
 //
 // Note: rdinstret and rdcycle are limited to 32 bits
 //       rdtime reports user_data instead of time
