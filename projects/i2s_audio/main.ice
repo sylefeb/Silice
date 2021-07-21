@@ -26,7 +26,7 @@ $$end
   uint1  i2s_lck(1); // 44.1 MHz
   uint1  i2s_din(0);
 
-  uint16 data(0);
+  uint32 data(0); // {right,left}
 	uint16 mod16(1);
 	
 	uint8  count(0); // NOTE adjust width on higher base frequencies
@@ -51,23 +51,23 @@ $$end
 	
 	  // shift data out
 		if (period) {
-			if (mod16[0,1]) {
+			if (mod16[0,1] & ~i2s_lck) {
 				// next data
 				__display("(count:%d) next data",count);
-				data        = cosine.rdata;
+				data        = {cosine.rdata,cosine.rdata};
 				cosine.addr = cosine.addr + 1;
 			} else {
 				// next bit
-				data = (data<<1);
+				data = data << 1;
 			}
   	}
-    i2s_din = data[15,1];		
+    i2s_din = data[31,1];		
 		
 	  // update I2S clocks
 	  i2s_bck = (period | half_period) ? ~i2s_bck : i2s_bck;
 	  i2s_lck = (period & mod16[0,1])  ? ~i2s_lck : i2s_lck;
 
-		__display("(count:%d) %b %b  data:%b",count,i2s_bck,i2s_lck,data);
+		__display("(count:%d) %b %b  data:%b|%b",count,i2s_bck,i2s_lck,data[16,16],data[0,16]);
 
     // update counter
 		count   = (count == $bit_period_count-1$) ? 0 : count + 1;
