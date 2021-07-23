@@ -33,11 +33,11 @@ algorithm main(
   uint1  i2s_din(0); // bit being sent
 
   uint16 data(0);    // data being sent, shifted through i2s_din
-	uint3  count(0);   // counter for generating the serial bit clock
+  uint3  count(0);   // counter for generating the serial bit clock
                      // NOTE: width may require adjustment on other base freqs.
-	uint32 mod32(1);   // modulo 32, for audio clock
+  uint32 mod32(1);   // modulo 32, for audio clock
 
-  // the sound wave period is stored in a BROM	
+  // the sound wave period is stored in a BROM  
   brom int16 wave[] = {
 $$for i=1,num_samples do
     $math.floor(1024.0 * math.cos(2*math.pi*i/num_samples))$,
@@ -46,39 +46,39 @@ $$end
 
   // setup pmod as all outputs
   pmod.oenable := 8b11111111;
-	// output i2s signals
-	pmod.o       := {i2s_lck,i2s_din,i2s_bck,i2s_sck,1b0,1b0,1b0,1b0};
+  // output i2s signals
+  pmod.o       := {i2s_lck,i2s_din,i2s_bck,i2s_sck,1b0,1b0,1b0,1b0};
 
   always {
-	
+  
     // track expressions for posedge and negedge of serial bit clock
-	  uint1 negedge <:: (count == 0);
-	  uint1 posedge <:: (count == $bit_hperiod_count$);
-	
-	  // shift data out on negative edge
-		if (negedge) {
-			if (mod32[0,1]) {
-				// next data (twice per audio period, right then left)
-				data        = wave.rdata;
-				wave.addr   = ~i2s_lck ? (wave.addr + 1) : wave.addr;
-			} else {
-				// shift next bit (MSB first)
+    uint1 negedge <:: (count == 0);
+    uint1 posedge <:: (count == $bit_hperiod_count$);
+  
+    // shift data out on negative edge
+    if (negedge) {
+      if (mod32[0,1]) {
+        // next data (twice per audio period, right then left)
+        data        = wave.rdata;
+        wave.addr   = ~i2s_lck ? (wave.addr + 1) : wave.addr;
+      } else {
+        // shift next bit (MSB first)
         // NOTE: as we send 16 bits only, the remaining 16 bits are zeros
-				data = data << 1;
-			}
-  	}
+        data = data << 1;
+      }
+    }
     
     // data out (MSB first)
-    i2s_din = data[15,1];		
+    i2s_din = data[15,1];   
 
-	  // update I2S clocks
-	  i2s_bck = (negedge | posedge)    ? ~i2s_bck : i2s_bck;
-	  i2s_lck = (negedge & mod32[0,1]) ? ~i2s_lck : i2s_lck;
+    // update I2S clocks
+    i2s_bck = (negedge | posedge)    ? ~i2s_bck : i2s_bck;
+    i2s_lck = (negedge & mod32[0,1]) ? ~i2s_lck : i2s_lck;
     
     // update counter and modulo
-		count   = (count == $bit_hperiod_count*2-1$) ? 0 : count + 1;
-	  mod32   = negedge ? {mod32[0,1],mod32[1,31]} : mod32;
-		
-	}
+    count   = (count == $bit_hperiod_count*2-1$) ? 0 : count + 1;
+    mod32   = negedge ? {mod32[0,1],mod32[1,31]} : mod32;
+    
+  }
 
 }
