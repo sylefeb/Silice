@@ -1,0 +1,28 @@
+{
+  "name": "bare",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "bare.v",
+      "pins"      : [ 
+        {"set"    : "basic"}
+      ],
+      "builders": [
+        {
+          "builder" : "shell",
+          "command" : "bare.sh",
+          "description": "Custom shell script"
+        }
+      ]    
+    }
+  ],
+  "pins": {
+    "basic": [
+      {
+        "name": "leds",
+        "type": "uint5",
+        "io": "output"
+      }
+    ]
+  }
+}

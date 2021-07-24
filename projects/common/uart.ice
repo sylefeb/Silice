@@ -19,6 +19,8 @@ $$  elseif ULX3S then
 $$    uart_in_clock_freq_mhz = 25
 $$  elseif ICEBREAKER then
 $$    uart_in_clock_freq_mhz = 12
+$$  elseif ICESTICK then
+$$    uart_in_clock_freq_mhz = 12
 $$  else
 $$    error("[uart] clock frequency 'uart_in_clock_freq_mhz' not specified")
 $$  end
@@ -49,7 +51,7 @@ algorithm uart_sender(
   output uint1 uart_tx = 0
 ) <autorun> {
   
-  uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / 115200)$;
+  uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds)$;
   uint10 counter       = 0;
   uint11 transmit      = 0;
 
@@ -99,8 +101,8 @@ algorithm uart_receiver(
   input uint1 uart_rx
 ) <autorun> {
   
-  uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / 115200)$;
-  uint10 half_interval = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / 115200 / 2)$;
+  uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds)$;
+  uint10 half_interval = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds / 2)$;
   uint10 counter       = 0;
 
   uint10 receiving     = 0;

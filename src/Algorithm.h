@@ -247,10 +247,12 @@ private:
       siliceParser::IntrfaceContext *intrface        = nullptr; // from an interface declaration
       siliceParser::DeclarationMemoryContext *memory = nullptr; // from a memory declaration
       const Algorithm               *alg             = nullptr; // from an algorithm
+      const t_inout_nfo             *inout           = nullptr; // from an inout
       t_group_definition(siliceParser::GroupContext *g) : group(g)    {}
       t_group_definition(siliceParser::IntrfaceContext *i) : intrface(i) {}
       t_group_definition(siliceParser::DeclarationMemoryContext *m) : memory(m) {}
       t_group_definition(const Algorithm *a) : alg(a) {}
+      t_group_definition(const t_inout_nfo *io) : inout(io) {}
     };
 
     /// \brief inputs
@@ -275,6 +277,8 @@ private:
     std::unordered_map<std::string, std::string>  m_VIOBoundToModAlgOutputs;
     /// \brief module/algorithms inouts bound to VIO (inout => vio name)
     std::unordered_map<std::string, std::string > m_ModAlgInOutsBoundToVIO;
+    /// \brief VIO bound to module/algorithms inouts (vio name => inout)
+    std::unordered_map<std::string, std::string > m_VIOToModAlgInOutsBound;
 
     /// \brief all variables
     std::vector< t_var_nfo >              m_Vars;
@@ -747,7 +751,7 @@ private:
     /// \brief insert a variable in the data-structures (lower level than addVar, use to insert any var), return the index in m_Vars of the inserted var
     void insertVar(const t_var_nfo &_var, t_combinational_block *_current, bool no_init = false);
     /// \brief add a variable from its definition (_var may be modified with an updated name)
-    void addVar(t_var_nfo& _var, t_combinational_block *_current, t_gather_context *_context, antlr4::misc::Interval interval = antlr4::misc::Interval::INVALID);
+    void addVar(t_var_nfo& _var, t_combinational_block *_current, antlr4::misc::Interval interval = antlr4::misc::Interval::INVALID);
     /// \brief check if an identifier is available
     bool isIdentifierAvailable(std::string name) const;
     /// \brief gather type nfo
@@ -1038,6 +1042,8 @@ private:
     void resolveModuleRefs(const std::unordered_map<std::string, AutoPtr<Module> >& modules);
     /// \brief resolve instanced algorithms refs
     void resolveAlgorithmRefs(const std::unordered_map<std::string, AutoPtr<Algorithm> >& algorithms);
+    /// \brief resolve inouts
+    void resolveInOuts();
 
   private:
 

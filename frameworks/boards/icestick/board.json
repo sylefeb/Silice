@@ -9,7 +9,8 @@
         {"set"    : "vga",  "define" : "VGA=1"},
         {"set"    : "oled", "define" : "OLED=1"},
         {"set"    : "pmod", "define" : "PMOD=1"},
-        {"set"    : "pmod_out", "define" : "PMOD_OUT=1"}
+        {"set"    : "pmod_out", "define" : "PMOD_OUT=1"},
+        {"set"    : "uart",   "define" : "UART=1"}
       ],
       "builders": [
         {
@@ -198,6 +199,18 @@
         "name": "pmod10",
         "type": "uint1",
         "io": "output"
+      }
+    ],
+    "uart": [
+      {
+        "name": "uart_tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "uart_rx",
+        "type": "uint1",
+        "io"  : "input"
       }
     ]
   }

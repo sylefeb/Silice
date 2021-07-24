@@ -6,19 +6,11 @@ $include('../common/lcd.ice')
 
 algorithm main(
   output uint$NUM_LEDS$ leds = 1,
-  output uint1 pmod1,
-  output uint1 pmod2,
-  output uint1 pmod3,
-  output uint1 pmod4,
-  output uint1 pmod7,
-  output uint1 pmod8,
-  output uint1 pmod9,
-  output uint1 pmod10,
+  output uint8          pmod,
 ) {
   uint8 data = 0;
   uint1 dummy_rw = uninitialized;
 
-$$if SIMULATION then
   uint1 pmod1  = uninitialized;
   uint1 pmod2  = uninitialized;
   uint1 pmod3  = uninitialized;
@@ -27,6 +19,9 @@ $$if SIMULATION then
   uint1 pmod8  = uninitialized;
   uint1 pmod9  = uninitialized;
   uint1 pmod10 = uninitialized;
+
+$$if SIMULATION then
+  uint8 pmod   = uninitialized;
 $$end
 
   // Instanciate our LCD 1602 controller and bind its parameters to the correct pins
@@ -52,6 +47,8 @@ $$end
   pmod3 := data[6, 1]; // D6
   pmod2 := data[5, 1]; // D5
   pmod1 := data[4, 1]; // D4
+
+  pmod  := {pmod10,pmod9,pmod8,pmod7,pmod4,pmod3,pmod2,pmod1};
 
   // Wait for the LCD screen to be fully initialized
   while (!io.ready) {}

@@ -18,7 +18,6 @@
 
 $$if SIMULATION then
 $$verbose      = 1
-$$FIREV_MULDIV = 1
 $$end
 
 $$if not (ULX3S or ICARUS or VERILATOR or ICEBREAKER) then

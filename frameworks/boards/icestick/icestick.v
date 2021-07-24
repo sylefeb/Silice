@@ -45,6 +45,11 @@ module top(
   output PMOD9,
   output PMOD10,
 `endif
+`ifdef UART
+  // uart
+  input   RX,
+  output  TX,
+`endif
 `ifdef VGA
   output PMOD1, // r0
   output PMOD2, // r1
@@ -154,24 +159,14 @@ M_main __main(
   .out_video_b(__main_out_vga_b),
 `endif
 `ifdef PMOD
-  .inout_pmod1(PMOD1),
-  .inout_pmod2(PMOD2),
-  .inout_pmod3(PMOD3),
-  .inout_pmod4(PMOD4),
-  .inout_pmod7(PMOD7),
-  .inout_pmod8(PMOD8),
-  .inout_pmod9(PMOD9),
-  .inout_pmod10(PMOD10),
+  .inout_pmod({PMOD10,PMOD9,PMOD8,PMOD7,PMOD4,PMOD3,PMOD2,PMOD1}),
 `endif
 `ifdef PMOD_OUT
-  .out_pmod1(PMOD1),
-  .out_pmod2(PMOD2),
-  .out_pmod3(PMOD3),
-  .out_pmod4(PMOD4),
-  .out_pmod7(PMOD7),
-  .out_pmod8(PMOD8),
-  .out_pmod9(PMOD9),
-  .out_pmod10(PMOD10),
+  .out_pmod({PMOD10,PMOD9,PMOD8,PMOD7,PMOD4,PMOD3,PMOD2,PMOD1}),
+`endif
+`ifdef UART
+  .out_uart_tx  (TX),
+  .in_uart_rx   (RX),
 `endif
   .in_run(run_main)
 );

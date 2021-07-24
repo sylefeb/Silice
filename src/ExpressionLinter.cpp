@@ -338,7 +338,6 @@ void ExpressionLinter::typeNfo(
   auto atom   = dynamic_cast<siliceParser::AtomContext*>(expr);
   auto term   = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
   auto unary  = dynamic_cast<siliceParser::UnaryExpressionContext*>(expr);
-  auto cexpr  = dynamic_cast<siliceParser::ConcatexprContext*>(expr);
   auto concat = dynamic_cast<siliceParser::ConcatenationContext*>(expr);
   auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
   auto expr0  = dynamic_cast<siliceParser::Expression_0Context*>(expr);
@@ -418,28 +417,29 @@ void ExpressionLinter::typeNfo(
     // recurse and check signedness consitency
     sl_assert(!expr->children.empty());
     std::vector<t_type_nfo> tns;
-    for (auto c : concat->concatexpr()) {
-      tns.push_back(t_type_nfo());
-      typeNfo(c, bctx, tns.back());
+    if (concat->expression_0().size() > 0) {
+      for (auto e : concat->expression_0()) {
+        t_type_nfo nfo;
+        typeNfo(e, bctx, nfo);
+        tns.push_back(nfo);
+      }
+    } else {
+      t_type_nfo nfo;
+       // recurse on concatenation
+      typeNfo(concat->concatenation(), bctx, nfo);
+      // get number
+      int num    = std::stoi(concat->NUMBER()->getText());
+      _nfo.width = nfo.width * num;
+      tns.push_back(nfo);
     }
+
     checkConcatenation(expr, tns);
     _nfo.base_type = tns.front().base_type;
     _nfo.width = 0;
     for (auto tn : tns) {
       _nfo.width += tn.width;
     }
-  } else if (cexpr) {
-    if (cexpr->expression_0()) {
-      // recurse
-      typeNfo(cexpr->expression_0(), bctx, _nfo);
-    } else {
-      // recurse on concatenation
-      typeNfo(cexpr->concatenation(), bctx, _nfo);
-      // get number
-      int num    = std::stoi(cexpr->NUMBER()->getText());
-      _nfo.width = _nfo.width * num;
-    }
-  } else if (expr0 || expr1 || expr2 || expr3 || expr4 || expr5 
+  } else if (expr0 || expr1 || expr2 || expr3 || expr4 || expr5
           || expr6 || expr7 || expr8 || expr9 || expr10) {
     if (expr->children.size() == 1) {
       // recurse
