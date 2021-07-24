@@ -1362,8 +1362,8 @@ When the `if-then-else` contains additional control flow (e.g. a
 subroutine call, a `while`, a `++:`, a `goto`, etc.) it is automatically
 split into several states. It then takes one cycle to exit the ’if’ or
 ’else’ part and resume operations. If only the ’if’ or the ’else’
-requires additional states while the other is a single combinational
-chain (possibly empty), an additional state is still required to ’jump’
+requires additional states while the other is a one-cycle block (possibly empty), 
+an additional state is still required to ’jump’
 to what comes after the `if-then-else`. So in general this will cost one
 cycle. However, in cases where this next state already exists, for
 instance when the `if-then-else` is at the end of a `while` loop, this
