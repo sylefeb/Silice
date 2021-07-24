@@ -1343,12 +1343,12 @@ and maintain code[3]. Yet, they are a fundamental low-level operation
 and Silice is happy to expose them for your enjoyment!
 
 `goto` always requires one cycle to ’jump’: this is a change of state in
-the FSM. Entering a `while` takes one cycle and then, if there is a
-single combinational chain inside, it takes exactly one cycle per
-iteration. Exiting a `while` takes one cycle ; however when chaining
+the FSM. Entering a `while` takes one cycle and then, if the block inside is 
+a single combinational chain, it takes exactly one cycle per iteration. 
+Exiting a `while` takes one cycle ; however when chaining
 loops only one cycle is required to enter the next loop. So the first
-loop adds two cycles, any additional loop afterwards adds a single cycle
-if there is nothing in between them.
+loop takes one cycle to enter, any additional loop afterwards adds a single cycle
+if there is nothing in between them, the last loop takes one cycle to exit.
 
 Now, `if-then-else` is slightly more subtle. When applied to sequences
 of operations not requiring any control flow, an `if-then-else`
@@ -1362,8 +1362,8 @@ When the `if-then-else` contains additional control flow (e.g. a
 subroutine call, a `while`, a `++:`, a `goto`, etc.) it is automatically
 split into several states. It then takes one cycle to exit the ’if’ or
 ’else’ part and resume operations. If only the ’if’ or the ’else’
-requires additional states while the other is a single combinational
-chain (possibly empty), an additional state is still required to ’jump’
+requires additional states while the other is a one-cycle block (possibly empty), 
+an additional state is still required to ’jump’
 to what comes after the `if-then-else`. So in general this will cost one
 cycle. However, in cases where this next state already exists, for
 instance when the `if-then-else` is at the end of a `while` loop, this
