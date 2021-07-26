@@ -1,5 +1,5 @@
 $$
-algorithm main(output uint5 leds)
+algorithm main(output uint8 leds)
 {
   leds = 1;
 } 
