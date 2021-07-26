@@ -640,6 +640,7 @@ std::string LuaPreProcessor::processCode(
     // pre-process
     if (l->lualine() != nullptr) {
 
+      // code += l->lualine()->code->getText() + "\n";
       if (auto code_ = l->lualine()->code) {
         code += code_->getText() + "\n";
       } else {
@@ -657,8 +658,8 @@ std::string LuaPreProcessor::processCode(
         if (silcode) {
           code += luaProtectString(silcode->getText());
         }
-        if (luacode) {
-          code += "' .. (" + (luacode->code ? luacode->code->getText() : "''") + ") .. '";
+        if (luacode && luacode->code) {
+          code += "' .. (" + luacode->code->getText() + ") .. '";
         }
       }
       code += "\\n'," + std::to_string(src_line-1) + "," + std::to_string(src_file_id) + ")\n";

@@ -22,9 +22,13 @@ fragment LETTER     : [a-zA-Z_] ;
 fragment LETTERU    : [a-zA-Z_] ;
 fragment DIGIT      : [0-9] ;
 
-DISPLAY             : (' ' | '\t')* '$display' ~[\r\n]* ;
+DISPLAY             : '$display' ~[\r\n]* ;
 
-INCLUDE             : (' ' | '\t')* '$include' ;
+INCLUDE             : '$include' ;
+
+DOLLAR              : '$';
+DOUBLE_DOLLAR       : WHITESPACE* '$$';
+//                    ^^^^^^^^^^^ why tho???
 
 WHITESPACE          : (' ' | '\t') -> skip ;
 
@@ -34,13 +38,11 @@ ANY                 : ~[\r\n$]+ ;
 
 FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/')* '\'' ;
 
-LUALINE_PREFIX      : (' ' | '\t')* '$$' ;
-
 /* ======== Parser ======== */
 
-lualine     : LUALINE_PREFIX code=ANY?;
+lualine     : DOUBLE_DOLLAR code=ANY;
 
-luacode     : '$' code=ANY '$' | '$$' ;
+luacode     : DOLLAR code=ANY? DOLLAR | DOUBLE_DOLLAR ;
 
 siliceincl  : INCLUDE filename=ANY; 
 
