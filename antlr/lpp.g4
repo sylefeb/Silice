@@ -22,9 +22,11 @@ fragment LETTER     : [a-zA-Z_] ;
 fragment LETTERU    : [a-zA-Z_] ;
 fragment DIGIT      : [0-9] ;
 
-DISPLAY             : '$display' ~[\r\n]* ;
+DISPLAY             : WHITESPACE* '$display' ~[\r\n]* ;
+//                    ^^^^^^^^^^^ why tho???
 
-INCLUDE             : '$include' ;
+INCLUDE             : WHITESPACE* '$include' ;
+//                    ^^^^^^^^^^^ why tho???
 
 DOLLAR              : '$';
 DOUBLE_DOLLAR       : WHITESPACE* '$$';
