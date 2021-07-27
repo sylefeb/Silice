@@ -2420,15 +2420,18 @@ Algorithm::t_combinational_block* Algorithm::gatherJump(siliceParser::JumpContex
 
 Algorithm::t_combinational_block* Algorithm::gatherReturnFrom(siliceParser::ReturnFromContext* ret, t_combinational_block* _current, t_gather_context* _context)
 {
-  if (_current->context.subroutine == nullptr) {
-   reportError(ret->getSourceInterval(), -1, "return can only be used from within subroutines");
+  if (_current->context.subroutine != nullptr) {
+    // add return at end of current
+    _current->return_from(_current->context.subroutine->name,m_SubroutinesCallerReturnStates);
+    // start a new block with a new state
+    t_combinational_block* block = addBlock(generateBlockName(), _current, nullptr, ret->getSourceInterval());
+    _current->is_state = true;
+    return block;
+  } else {
+    _current->instructions.push_back(t_instr_nfo(ret, _current, _context->__id));
+    return _current;
+//     reportError(ret->getSourceInterval(), -1, "return can only be used from within subroutines and algorithms");
   }
-  // add return at end of current
-  _current->return_from(_current->context.subroutine->name,m_SubroutinesCallerReturnStates);
-  // start a new block with a new state
-  t_combinational_block* block = addBlock(generateBlockName(), _current, nullptr, ret->getSourceInterval());
-  _current->is_state = true;
-  return block;
 }
 
 // -------------------------------------------------
@@ -4864,14 +4867,14 @@ void Algorithm::determineModAlgBoundVIO()
       if (b.dir == e_Right) {
         // check not already bound
         if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToModAlgOutputs.end()) {
-          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module",b.right);
+          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module",bindingRightIdentifier(b).c_str());
         }
         // record wire name for this output
         m_VIOBoundToModAlgOutputs[bindingRightIdentifier(b)] = WIRE + im.second.instance_prefix + "_" + b.left;
       } else if (b.dir == e_BiDir) {
         // check not already bound
         if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToModAlgOutputs.end()) {
-          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", b.right);
+          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", bindingRightIdentifier(b).c_str());
         }
         // record wire name for this inout
         std::string bindpoint = im.second.instance_prefix + "_" + b.left;
@@ -4886,14 +4889,14 @@ void Algorithm::determineModAlgBoundVIO()
       if (b.dir == e_Right) {
         // check not already bound
         if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToModAlgOutputs.end()) {
-          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", b.right);
+          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", bindingRightIdentifier(b).c_str());
         }
         // record wire name for this output
         m_VIOBoundToModAlgOutputs[bindingRightIdentifier(b)] = WIRE + ia.second.instance_prefix + "_" + b.left;
       } else if (b.dir == e_BiDir) {
         // check not already bound
         if (m_VIOBoundToModAlgOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToModAlgOutputs.end()) {
-          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", b.right);
+          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another algorithm or module", bindingRightIdentifier(b).c_str());
         }
         // record wire name for this inout
         std::string bindpoint = ia.second.instance_prefix + "_" + b.left;
@@ -6914,6 +6917,15 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
         } else {
           writeAlgorithmReadback(a.instr, prefix, out, A->second, join->callParamList(), &block->context, _ff_usage);
         }
+      }
+    } {
+      auto ret = dynamic_cast<siliceParser::ReturnFromContext *>(a.instr);
+      if (ret) {
+        if (hasNoFSM()) {
+          reportError(ret->getSourceInterval(), (int)ret->getStart()->getLine(), "cannot return from a stateless algorithm");
+        }
+
+        out << FF_D << prefix << ALG_IDX << " = " << toFSMState(terminationState()) << ";" << nxl;
       }
     }
     // update dependencies
