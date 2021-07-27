@@ -81,7 +81,8 @@ make icestick -f Makefile.oled
 ```
 
 <p align="center">
-  <img width="400" src="ice-v-doom-fire.png">
+  <img width="400" src="ice-v-doom-fire.png"><br>
+  <i>Note that the pinout changed compared to this picture</i>
 </p>
 
 > **Note:** Compling code for the processor requires a RISC-V toolchain. Under Windows, this is included in the binary package from my [fpga-binutils](https://github.com/sylefeb/fpga-binutils) repo. Under macOS and Linux there are precompiled packages, or you may prefer to compile from source. See see [getting

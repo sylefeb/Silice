@@ -31,6 +31,14 @@ $include('ice-v.ice')
 // SOC
 // --------------------------------------------------
 
+group bram_io
+{
+  uint4       wenable(0),
+  uint32      wdata(0),
+  uint32      rdata(0),
+  uint$addrW$ addr(0),    // boot address
+}
+
 algorithm main( // I guess this is the SOC :-D
   output uint5 leds,
 $$if OLED then
@@ -39,6 +47,9 @@ $$if OLED then
   output uint1 oled_dc,
   output uint1 oled_resn,
   output uint1 oled_csn(0),
+$$end
+$$if PMOD then
+  inout  uint8 pmod,
 $$end
 $$if not SIMULATION then    
   ) <@cpu_clock> {
@@ -61,8 +72,8 @@ $$end
 
 $$if OLED then
   uint1 displ_en = uninitialized;
-  uint1 displ_dta_or_cmd <: mem.wdata[10,1];
-  uint8 displ_byte       <: mem.wdata[0,8];
+  uint1 displ_dta_or_cmd <: memio.wdata[10,1];
+  uint8 displ_byte       <: memio.wdata[0,8];
   oled display(
     enable          <: displ_en,
     data_or_command <: displ_dta_or_cmd,
@@ -73,30 +84,60 @@ $$if OLED then
   );
 $$end
 
+$$if PMOD then
+  int16 audio_sample(0);
+  audio_pcm_i2s audio( sample <: audio_sample );
+$$end
+
   // ram
+  // - intermediate interface to perform memory mapping
+  bram_io memio;  
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
   bram uint32 mem<"bram_wmask_byte">[1536] = $meminit$;
 
   // cpu
-  rv32i_cpu cpu( mem <:> mem );
+  rv32i_cpu cpu( mem <:> memio );
+
+$$if SIMULATION then
+  uint32 cycle(0);
+  uint32 last_cycle(0);
+$$end  
 
   // io mapping
   always {
+    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}}; // no write if in mapped addresses
+    memio.rdata = mem.rdata;
+    mem.wdata   = memio.wdata;
+    mem.addr    = memio.addr;
 $$if OLED then
     displ_en = 0;
 $$end
-    if (mem.wenable[0,1] & cpu.wide_addr[11,1]) {
-      leds      = mem.wdata[0,5] & {5{cpu.wide_addr[0,1]}};
+$$if PMOD then
+    pmod.oenable = 8b11111111;
+    pmod.o[4,4]  = audio.i2s;
+$$end
+    if (/* memio.wenable[0,1] & */ memio.addr[11,1]) {
+      leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
 $$if SIMULATION then
-      if (mem.wdata[0,5]) { __display("LEDs: %b",leds); }
-$$end      
+      if (memio.addr[0,1]) { __display("LEDs: %b",leds); }
+$$end
 $$if OLED then
       // command
-      displ_en  = (mem.wdata[9,1] | mem.wdata[10,1]) & cpu.wide_addr[1,1];
+      displ_en     = (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];
       // reset
-      oled_resn = !(mem.wdata[0,1] & cpu.wide_addr[2,1]);
+      oled_resn    = ~ (mem.wdata[0,1] & memio.addr[2,1]);
+$$end
+$$if PMOD then
+      audio_sample = memio.addr[3,1] ? memio.wdata[0,widthof(audio_sample)] : audio_sample;
+$$end
+$$if SIMULATION then
+      if (memio.addr[3,1])  { __display("[delta %d] SOUND: %d",cycle-last_cycle,__signed(memio.wdata[0,16])); last_cycle = cycle; }
 $$end
     }
+    
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
   }
 
   // run the CPU
@@ -105,11 +146,12 @@ $$end
 }
 
 // --------------------------------------------------
+
+$$if OLED then
+
 // Sends bytes to the OLED screen
 // produces a quarter freq clock with one bit traveling a four bit ring
 // data is sent one main clock cycle before the OLED clock raises
-
-$$if OLED then
 
 algorithm oled(
   input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
@@ -140,5 +182,79 @@ algorithm oled(
 }
 
 $$end
+
+// --------------------------------------------------
+
+$$ -- if PMOD then
+
+// Sends 16 bits words to the audio chip (PCM5102)
+//
+// we use the pre-processor to compute counters
+// based on the FPGA frequency and target audio frequency.
+// The audio frequency is likely to not be perfectly matched.
+//
+$$  base_freq_mhz      = 60   -- FPGA frequency
+$$  audio_freq_khz     = 44.1 -- Audio frequency (target)
+$$  base_cycle_period  = 1000/base_freq_mhz
+$$  target_audio_cycle_period = 1000000/audio_freq_khz
+$$  bit_hperiod_count  = math.floor(0.5 + (target_audio_cycle_period / base_cycle_period) / 64 / 2)
+$$  true_audio_cycle_period = bit_hperiod_count * 64 * 2 * base_cycle_period
+// Print out the periods and the effective audio frequency
+$$  print('main clock cycle period    : ' .. base_cycle_period .. ' nsec')
+$$  print('audio cycle period         : ' .. true_audio_cycle_period .. ' nsec')
+$$  print('audio effective freq       : ' .. 1000000 / true_audio_cycle_period .. ' kHz')
+$$  print('half period counter        : ' .. bit_hperiod_count)
+algorithm audio_pcm_i2s(
+  input  int16  sample,
+  output uint4  i2s // {i2s_lck,i2s_din,i2s_bck,i2s_sck}
+) {
+
+  uint1  i2s_sck(0); // kept low (uses PCM51 internal PLL)
+  uint1  i2s_bck(1); // serial clock (32 periods per audio half period)
+  uint1  i2s_lck(1); // audio clock (low: right, high: left)
+  uint1  i2s_din(0); // bit being sent
+  
+  uint16 data(0);    // data being sent, shifted through i2s_din
+  uint4  count(0);   // counter for generating the serial bit clock
+                     // NOTE: width may require adjustment on other base freqs.
+  uint32 mod32(1);   // modulo 32, for audio clock
+  
+  always {
+    
+    // track expressions for posedge and negedge of serial bit clock
+    uint1 negedge <:: (count == 0);
+    uint1 posedge <:: (count == $bit_hperiod_count$);
+  
+    // output i2s signals
+    i2s = {i2s_lck,i2s_din,i2s_bck,i2s_sck};
+
+    // shift data out on negative edge
+    if (negedge) {
+      if (mod32[0,1]) {
+        // next data
+        data        = sample;
+      } else {
+        // shift next bit (MSB first)
+        // NOTE: as we send 16 bits only, the remaining 16 bits are zeros
+        data = data << 1;
+      }
+    }
+    
+    // data out (MSB first)
+    i2s_din = data[15,1];   
+
+    // update I2S clocks
+    i2s_bck = (negedge | posedge)    ? ~i2s_bck : i2s_bck;
+    i2s_lck = (negedge & mod32[0,1]) ? ~i2s_lck : i2s_lck;
+    
+    // update counter and modulo
+    count   = (count == $bit_hperiod_count*2-1$) ? 0 : count + 1;
+    mod32   = negedge ? {mod32[0,1],mod32[1,31]} : mod32;
+    
+  }
+
+}
+
+$$ -- end
 
 // --------------------------------------------------

@@ -132,7 +132,7 @@ algorithm execute(
 // --------------------------------------------------
 // The Risc-V RV32I CPU itself
 
-algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
+algorithm rv32i_cpu(bram_port mem) <onehot> {
 
   // register file, uses two BRAMs to fetch two registers at once
   bram int32 xregsA[32] = {pad(0)}; bram int32 xregsB[32] = {pad(0)};
@@ -175,8 +175,6 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
     // maintain register wenable low
     // (pulsed when necessary)
     xregsA.wenable = 0;
-    // default wide_addr to boot address
-    wide_addr      = 0;  // boot address
   }
 
   // the 'always_after' block is executed at the end of every cycle
@@ -195,8 +193,6 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
     // write to write_rd, else track instruction register
     xregsA.addr    = xregsA.wenable ? exec.write_rd : Rtype(instr).rs1;
     xregsB.addr    = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
-    // track memory address in interface
-    mem.addr       = wide_addr;      
   }
 
   // =========== CPU runs forever
@@ -218,7 +214,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
       // load/store?        
       if (exec.load | exec.store) {   
         // memory address from wich to load/store
-        wide_addr   = exec.n >> 2;
+         mem.addr   = exec.n >> 2;
         // == Store (enabled below if exec.store == 1)
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
@@ -232,7 +228,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
         // commit result
         xregsA.wenable = ~exec.no_rd;        
         // restore address to program counter
-        wide_addr      = next_pc;
+         mem.addr      = next_pc;
         // exit the operations loop
         break;
         //  instruction read from BRAM and write to register 
@@ -242,7 +238,7 @@ algorithm rv32i_cpu(bram_port mem, output! uint$addrW$ wide_addr ) <onehot> {
         // commit result
         xregsA.wenable = ~exec.no_rd;
         // next instruction address
-        wide_addr      = exec.jump ? (exec.n >> 2) : next_pc;
+         mem.addr      = exec.jump ? (exec.n >> 2) : next_pc;
         // ALU done?
         if (exec.working == 0) {
           // yes: all is correct, stop here
