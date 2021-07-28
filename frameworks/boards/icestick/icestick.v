@@ -75,6 +75,12 @@ module top(
   output PMOD7,  // hs
   output PMOD10, // vs
 `endif
+`ifdef SPIFLASH
+  output FLASH_CLK,
+  output FLASH_MOSI,
+  input  FLASH_MISO,
+  output FLASH_CSN,
+`endif
   input  CLK
   );
 
@@ -162,11 +168,17 @@ M_main __main(
   .inout_pmod({PMOD10,PMOD9,PMOD8,PMOD7,PMOD4,PMOD3,PMOD2,PMOD1}),
 `endif
 `ifdef PMOD_OUT
-  .out_pmod({PMOD10,PMOD9,PMOD8,PMOD7,PMOD4,PMOD3,PMOD2,PMOD1}),
+  .out_pmod  ({PMOD10,PMOD9,PMOD8,PMOD7,PMOD4,PMOD3,PMOD2,PMOD1}),
 `endif
 `ifdef UART
   .out_uart_tx  (TX),
   .in_uart_rx   (RX),
+`endif
+`ifdef SPIFLASH
+  .out_sf_clk (FLASH_CLK),
+  .out_sf_csn (FLASH_CSN), 
+  .out_sf_mosi(FLASH_MOSI),
+  .in_sf_miso (FLASH_MISO),
 `endif
   .in_run(run_main)
 );

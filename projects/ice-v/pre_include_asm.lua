@@ -48,6 +48,7 @@ for str in string.gmatch(code, "([^ \r\n]+)") do
   end
 end
 
+print('code size: ' .. numinit .. ' 32bits words')
 if numinit > memsize then
   error('too much code!')
 end

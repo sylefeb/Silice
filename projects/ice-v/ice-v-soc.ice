@@ -51,6 +51,12 @@ $$end
 $$if PMOD then
   inout  uint8 pmod,
 $$end
+$$if SPIFLASH then
+  output uint1 sf_clk,
+  output uint1 sf_csn,
+  output uint1 sf_mosi,
+  input  uint1 sf_miso,
+$$end  
 $$if not SIMULATION then    
   ) <@cpu_clock> {
   // clock  
@@ -70,7 +76,7 @@ $$else
 ) {
 $$end
 
-$$if OLED then
+$$if OLED or PMOD then
   uint1 displ_en = uninitialized;
   uint1 displ_dta_or_cmd <: memio.wdata[10,1];
   uint8 displ_byte       <: memio.wdata[0,8];
@@ -85,10 +91,27 @@ $$if OLED then
 $$end
 
 $$if PMOD then
+  // audio
   int16 audio_sample(0);
   audio_pcm_i2s audio( sample <: audio_sample );
+	// oled
+	uint1 oled_clk(0);
+  uint1 oled_mosi(0);
+  uint1 oled_dc(0);
+  uint1 oled_resn(0);
 $$end
 
+$$if SPIFLASH or SIMULATION then
+  // spiflash
+  uint1  reg_miso(0);
+	// for spiflash memory mapping, need to record prev. cycle addr and rw
+	uint$addrW$ prev_mem_addr(0);
+	uint1       prev_mem_rw(0);
+$$end
+$$if SIMULATION then
+   uint32 cycle(0);
+$$end
+	 
   // ram
   // - intermediate interface to perform memory mapping
   bram_io memio;  
@@ -98,30 +121,41 @@ $$end
   // cpu
   rv32i_cpu cpu( mem <:> memio );
 
-$$if SIMULATION then
-  uint32 cycle(0);
-  uint32 last_cycle(0);
-$$end  
-
   // io mapping
   always {
-    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}}; // no write if in mapped addresses
-    memio.rdata = mem.rdata;
-    mem.wdata   = memio.wdata;
-    mem.addr    = memio.addr;
-$$if OLED then
-    displ_en = 0;
+	  // ---- memory access
+    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}}; 
+		//                            ^^^^^^^ no BRAM write if in peripheral addresses
+$$if SPIFLASH or SIMULATION then
+    memio.rdata = (prev_mem_addr[11,1] & prev_mem_addr[4,1]/* & ~prev_mem_rw*/) ? {31b0,reg_miso} : mem.rdata;
+$$if SMIULATION then		
+    if ( prev_mem_addr[11,1] & prev_mem_addr[4,1] & ~prev_mem_rw ) { __display("[cycle %d] SPI read: %d",cycle,memio.rdata); }
+$$end		
+		prev_mem_addr = memio.addr;
+		prev_mem_rw   = memio.wenable[0,1];
+$$else
+    memio.rdata   = mem.rdata;
+$$end		
+    mem.wdata     = memio.wdata;
+    mem.addr      = memio.addr;
+		// ---- peripherals
+$$if OLED or PMOD then
+    displ_en = 0; // maintain display enable low
 $$end
 $$if PMOD then
-    pmod.oenable = 8b11111111;
-    pmod.o[4,4]  = audio.i2s;
+    pmod.oenable = 8b11111111; // pmod all output
+    pmod.o       = {audio.i2s,oled_mosi,oled_clk,oled_dc,oled_resn}; // pmod pins
 $$end
-    if (/* memio.wenable[0,1] & */ memio.addr[11,1]) {
+$$if SPIFLASH then    
+    reg_miso     = sf_miso; // register flash miso
+$$end
+    // ---- memory mapping to peripherals: writes
+    if (/*memio.wenable[0,1] &*/ memio.addr[11,1]) {
       leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
 $$if SIMULATION then
-      if (memio.addr[0,1]) { __display("LEDs: %b",leds); }
+      if (memio.addr[0,1]) { __display("[cycle %d] LEDs: %b",cycle,leds); }
 $$end
-$$if OLED then
+$$if OLED or PMOD then
       // command
       displ_en     = (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];
       // reset
@@ -130,24 +164,35 @@ $$end
 $$if PMOD then
       audio_sample = memio.addr[3,1] ? memio.wdata[0,widthof(audio_sample)] : audio_sample;
 $$end
+$$if SPIFLASH then
+			sf_clk  = memio.addr[4,1] ? mem.wdata[0,1] : sf_clk;
+			sf_mosi = memio.addr[4,1] ? mem.wdata[1,1] : sf_mosi;
+			sf_csn  = memio.addr[4,1] ? mem.wdata[2,1] : sf_csn;
+$$end
 $$if SIMULATION then
-      if (memio.addr[3,1])  { __display("[delta %d] SOUND: %d",cycle-last_cycle,__signed(memio.wdata[0,16])); last_cycle = cycle; }
+      if (memio.addr[4,1]) {
+			  __display("[cycle %d] SPI write %b",cycle,mem.wdata[0,3]);
+			}
 $$end
     }
-    
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
   }
 
+$$if SIMULATION then
+  cpu <- ();
+	while (cycle < 2048) { }
+$$else
   // run the CPU
   () <- cpu <- ();
+$$end
 
 }
 
 // --------------------------------------------------
 
-$$if OLED then
+$$if OLED or PMOD then
 
 // Sends bytes to the OLED screen
 // produces a quarter freq clock with one bit traveling a four bit ring
@@ -185,7 +230,7 @@ $$end
 
 // --------------------------------------------------
 
-$$ -- if PMOD then
+$$if PMOD then
 
 // Sends 16 bits words to the audio chip (PCM5102)
 //
@@ -255,6 +300,6 @@ algorithm audio_pcm_i2s(
 
 }
 
-$$ -- end
+$$end
 
 // --------------------------------------------------
