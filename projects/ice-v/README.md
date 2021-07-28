@@ -15,7 +15,7 @@ The version here runs out of the box on the IceStick ice40 1HK, and can adapted 
 ## Features
 - implements the RV32I specifications
 - runs code compiled with gcc RISC-V (build scripts included)
-- executes instructions in 3 cycles, load/store in 4
+- executes load/store in 4, instructions in 3 cycles but for shifts which additionally take one cycle per shifted bit
 - less than 1K LUTs
 - validates at around 65 Mz on the IceStick
 - < 300 lines of commented code (~100 lines compacted)
