@@ -85,7 +85,7 @@ make icestick -f Makefile.oled
   <i>Note that the pinout changed compared to this picture</i>
 </p>
 
-> **Note:** Compling code for the processor requires a RISC-V toolchain. Under Windows, this is included in the binary package from my [fpga-binutils](https://github.com/sylefeb/fpga-binutils) repo. Under macOS and Linux there are precompiled packages, or you may prefer to compile from source. See see [getting
+> **Note:** Compiling code for the processor requires a RISC-V toolchain. Under Windows, this is included in the binary package from my [fpga-binutils](https://github.com/sylefeb/fpga-binutils) repo. Under macOS and Linux there are precompiled packages, or you may prefer to compile from source. See see [getting
 started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md) for more detailed instructions.
 
 &nbsp;<br>
