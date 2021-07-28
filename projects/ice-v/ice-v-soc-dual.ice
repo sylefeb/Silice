@@ -68,7 +68,7 @@ $$end
   // - intermediate interface to perform memory mapping
   bram_io memio;  
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
-  bram uint32 mem<"bram_wmask_byte">[1536] = $meminit$;
+  bram uint32 mem<"bram_wmask_byte">[1024] = $meminit$;
 
   // cpu
   rv32i_cpu cpu( mem <:> memio );

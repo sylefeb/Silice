@@ -137,11 +137,11 @@ algorithm execute(
 
 algorithm rv32i_cpu(bram_port mem) <onehot> {
 
-  uint32 cycle(0);
+  // uint32 cycle(0);
 
   // register files, two BRAMs to fetch two registers at once
-  bram int32 xregsA_0[32] = {pad(0)}; bram int32 xregsB_0[32] = {pad(0)};
-  bram int32 xregsA_1[32] = {pad(0)}; bram int32 xregsB_1[32] = {pad(0)};
+  bram int32 xregsA_0[32] = {0,pad(uninitialized)}; bram int32 xregsB_0[32] = {0,pad(uninitialized)};
+  bram int32 xregsA_1[32] = {0,pad(uninitialized)}; bram int32 xregsB_1[32] = {0,pad(uninitialized)};
 
   // current instruction
   uint32 instr_0(0);
@@ -153,23 +153,16 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
 
   // program counter
   uint$addrW$ pc_0(0);
-  uint$addrW$ next_pc_0 <:: pc_0 + 1; // next_pc tracks the expression 'pc + 1'
+  //uint$addrW$ next_pc_0 <:: pc_0 + 1; // next_pc tracks the expression 'pc + 1'
   uint$addrW$ pc_1(-1);
-  uint$addrW$ next_pc_1 <:: pc_1 + 1; // next_pc tracks the expression 'pc + 1'
+  //uint$addrW$ next_pc_1 <:: pc_1 + 1; // next_pc tracks the expression 'pc + 1'
+  uint$addrW$ next_pc <: ((stage_0[0,1]|stage_0[3,1]) ? pc_0 : pc_1) + 1;
 
   // value that has been loaded from memory
   int32 loaded     = uninitialized;
 
   // decoder + ALU, executes the instruction and tells processor what to do
   execute exec;
-
-    // what do we write in register? (pc, alu or val, load is handled separately)
-    uint$addrW$ next_pc <: stage_0[3,1] ? next_pc_0 : next_pc_1;
-    int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
-                      | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
-                      | (exec.storeVal  ? exec.val            : 32b0)
-                      | (exec.load      ? loaded              : 32b0)
-                      | (exec.intop     ? exec.r              : 32b0);
 
   // The 'always_before' block is applied at the start of every cycle.
   // This is a good place to set default values, which also indicates
@@ -200,6 +193,12 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
 
   // the 'always_after' block is executed at the end of every cycle
   always_after { 
+    // what do we write in register? (pc, alu or val, load is handled separately)
+    int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
+                      | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
+                      | (exec.storeVal  ? exec.val            : 32b0)
+                      | (exec.load      ? loaded              : 32b0)
+                      | (exec.intop     ? exec.r              : 32b0);
     // write back data to both register BRAMs
     xregsA_0.wdata   = write_back;      xregsB_0.wdata   = write_back;     
     xregsA_1.wdata   = write_back;      xregsB_1.wdata   = write_back;     
@@ -212,7 +211,7 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
     xregsA_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs1;
     xregsB_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs2;
 
-    cycle = cycle + 1;
+    // cycle = cycle + 1;
   }
 
   while (1) {
@@ -259,6 +258,7 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
           }
         }
 
+        // advance stage
         stage_0 = {stage_0[0,1],stage_0[1,3]};
         stage_1 = {stage_1[0,1],stage_1[1,3]};
 
@@ -302,7 +302,7 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
 
         // prepare instruction fetch
         mem.addr         = exec.jump ? (exec.n >> 2)
-                                     : (stage_0[0,1] ? next_pc_0 : next_pc_1);
+                                     : next_pc; // (stage_0[0,1] ? next_pc_0 : next_pc_1);
 
         // advance states unless stuck in ALU
         if (exec.working == 0) {
