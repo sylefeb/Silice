@@ -12,10 +12,11 @@ void main()
     if (l > 8) {
       l = 1;
     }
+    // l = l + 1;
     
     *LEDS = l;
     
-    for (i=0;i<512;i++) { }
+    // for (i=0;i<512;i++) { }
   }
   
 }
