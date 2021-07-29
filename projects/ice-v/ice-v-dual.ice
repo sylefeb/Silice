@@ -23,7 +23,7 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
 
 algorithm execute(
   // instruction, program counter and registers
-  input  uint32 instr, input  uint$addrW$ pc, input int32 xa, input int32 xb,
+  input  uint32 instr,   input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
   input  uint1  trigger, input   uint1  cpu_id,
   // outputs all information the processor needs to decide what to do next 

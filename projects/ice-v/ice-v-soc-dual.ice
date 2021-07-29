@@ -96,7 +96,7 @@ $$end
 
 $$if SIMULATION then
 //  cpu <- ();
-	while (cycle < 64) { }
+	while (cycle < 256) { }
 $$else
   // run the CPU
 //  () <- cpu <- ();
