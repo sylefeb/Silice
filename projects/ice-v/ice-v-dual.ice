@@ -139,9 +139,7 @@ $$end
 // --------------------------------------------------
 // The Risc-V RV32I CPU itself
 
-algorithm rv32i_cpu(bram_port mem) <onehot> {
-
-  // uint32 cycle(0);
+algorithm rv32i_cpu(bram_port mem) {
 
   // register files, two BRAMs to fetch two registers at once
   bram int32 xregsA_0[32] = {0,pad(uninitialized)}; bram int32 xregsB_0[32] = {0,pad(uninitialized)};
@@ -168,7 +166,7 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
   uint$addrW$ next_pc <:: (stage[1,1] ? pc_0 : pc_1) + 1;
 
   // value that has been loaded from memory
-  int32 loaded     = uninitialized;
+  int32 loaded = uninitialized;
 
   // decoder + ALU, executes the instruction and tells processor what to do
   execute exec;
@@ -210,114 +208,113 @@ $$end
     xregsA_0.wenable = 0;
     xregsA_1.wenable = 0;
 
-
     // dual state machine
     // four states: F, T, LS1, LS2/commit
 $$if SIMULATION then         
     __display("[cycle %d] stage:%b mem.addr:@%h mem.rdata:%h",cycle,stage,mem.addr,mem.rdata);
 $$end
 
-    if ( ~ stage[0,1] ) { // even stage
+  if ( ~ stage[0,1] ) { // even stage
 
-        // one CPU on F, one CPU on LS1
+      // one CPU on F, one CPU on LS1
 
-        // F
-        instr_0 = ~stage[1,1] ? mem.rdata : instr_0;
-        pc_0    = ~stage[1,1] ? mem.addr  : pc_0;
-        instr_1 =  stage[1,1] ? mem.rdata : instr_1;
-        pc_1    =  stage[1,1] ? mem.addr  : pc_1;
+      // F
+      instr_0 = ~stage[1,1] ? mem.rdata : instr_0;
+      pc_0    = ~stage[1,1] ? mem.addr  : pc_0;
+      instr_1 =  stage[1,1] ? mem.rdata : instr_1;
+      pc_1    =  stage[1,1] ? mem.addr  : pc_1;
 
 $$if SIMULATION then         
-        if (~stage[1,1]) {
-          __display("[cycle %d] (0) F instr_0:%h (@%h)",cycle,instr_0,pc_0<<2);
-        } else {
-          __display("[cycle %d] (1) F instr_1:%h (@%h)",cycle,instr_1,pc_1<<2);
-        }
+      if (~stage[1,1]) {
+        __display("[cycle %d] (0) F instr_0:%h (@%h)",cycle,instr_0,pc_0<<2);
+      } else {
+        __display("[cycle %d] (1) F instr_1:%h (@%h)",cycle,instr_1,pc_1<<2);
+      }
 $$end
 
-        // LS1
-        // no need to know which CPU, since we only read from exec
-        if (exec.load | exec.store) {   
-          // memory address from which to load/store
-          mem.addr    = exec.n >> 2;
-          // == Store (enabled if exec.store == 1)
-          // build write mask depending on SB, SH, SW
-          // assumes aligned, e.g. SW => next_addr[0,2] == 2
-          mem.wenable = ({4{exec.store}} & { { 2{exec.op[0,2]==2b10} },
-                                                 exec.op[0,1] | exec.op[1,1], 1b1 
-                                          } ) << exec.n[0,2];
-$$if SIMULATION then         
-          if (stage[1,1]) {
-            __display("[cycle %d] (0) LS1 @%h = %h",cycle,mem.addr,mem.wdata);
-          } else {
-            __display("[cycle %d] (1) LS1 @%h = %h",cycle,mem.addr,mem.wdata);
-          }
-$$end          
-        }
-
-        // advance stage
-        stage = stage + 1;
-
-      } else { // stage odd
-        
-        // one CPU on T, one CPU on LS2/commit
-
-        // T
-        // triggers exec for the CPU which has been selected at F cycle before
-        // registers are now in for it
-        exec.trigger = 1;
-        exec.cpu_id  = ~stage[1,1];
-        exec.instr   = ~stage[1,1] ? instr_0 : instr_1;
-        exec.pc      = ~stage[1,1] ? pc_0    : pc_1;
-        exec.xa      = ~stage[1,1] ? xregsA_0.rdata : xregsA_1.rdata;
-        exec.xb      = ~stage[1,1] ? xregsB_0.rdata : xregsB_1.rdata;
-
-$$if SIMULATION then         
-        if (~stage[1,1]) {
-          __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
-            ~stage[1,1] ? instr_0 : instr_1,
-            ~stage[1,1] ? pc_0    : pc_1,xregsA_0.addr,
-            xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
-        } else {
-          __display("[cycle %d] (1) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
-            stage[1,1] ? instr_0 : instr_1,
-            stage[1,1] ? pc_0    : pc_1,xregsA_1.addr,
-            xregsA_1.rdata,xregsB_1.addr,xregsB_1.rdata);
-        }
-$$end
-
-        // LS2/commit
-
-        // commit result
-        xregsA_0.wenable =  stage[1,1] ? ~exec.no_rd : 0;
-        xregsA_1.wenable = ~stage[1,1] ? ~exec.no_rd : 0;
-                        // ^^^^^^^^ could be ~stage_0[0,1]
-
+      // LS1
+      // no need to know which CPU, since we only read from exec
+      if (exec.load | exec.store) {   
+        // memory address from which to load/store
+        mem.addr    = exec.n >> 2;
+        // == Store (enabled if exec.store == 1)
+        // build write mask depending on SB, SH, SW
+        // assumes aligned, e.g. SW => next_addr[0,2] == 2
+        mem.wenable = ({4{exec.store}} & { { 2{exec.op[0,2]==2b10} },
+                                                exec.op[0,1] | exec.op[1,1], 1b1 
+                                        } ) << exec.n[0,2];
 $$if SIMULATION then         
         if (stage[1,1]) {
-          if (xregsA_0.wenable) {
-            __display("[cycle %d] (0) LS2/C xr[%d]=%h (alu:%h)",cycle,exec.write_rd,write_back,exec.r);
-          }
+          __display("[cycle %d] (0) LS1 @%h = %h",cycle,mem.addr,mem.wdata);
         } else {
-          if (xregsA_1.wenable) {
-            __display("[cycle %d] (1) LS2/C xr[%d]=%h (alu:%h)",cycle,exec.write_rd,write_back,exec.r);
-          }
+          __display("[cycle %d] (1) LS1 @%h = %h",cycle,mem.addr,mem.wdata);
         }
-$$end
-        // prepare instruction fetch
-        mem.addr         = exec.jump ? (exec.n >> 2)
-                                     : next_pc;
-
-        // advance states unless stuck in ALU
-        if (exec.working == 0) {
-          stage = stage + 1;
-        }
-$$if SIMULATION then               
-        else {
-          __display("[cycle %d] waiting for ALU",cycle);
-        }
-$$end        
+$$end          
       }
+
+      // advance stage
+      stage = stage + 1;
+
+    } else { // stage odd
+      
+      // one CPU on T, one CPU on LS2/commit
+
+      // T
+      // triggers exec for the CPU which has been selected at F cycle before
+      // registers are now in for it
+      exec.trigger = 1;
+      exec.cpu_id  = ~stage[1,1];
+      exec.instr   = ~stage[1,1] ? instr_0 : instr_1;
+      exec.pc      = ~stage[1,1] ? pc_0    : pc_1;
+      exec.xa      = ~stage[1,1] ? xregsA_0.rdata : xregsA_1.rdata;
+      exec.xb      = ~stage[1,1] ? xregsB_0.rdata : xregsB_1.rdata;
+
+$$if SIMULATION then         
+      if (~stage[1,1]) {
+        __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
+          ~stage[1,1] ? instr_0 : instr_1,
+          ~stage[1,1] ? pc_0    : pc_1,xregsA_0.addr,
+          xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
+      } else {
+        __display("[cycle %d] (1) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
+          stage[1,1] ? instr_0 : instr_1,
+          stage[1,1] ? pc_0    : pc_1,xregsA_1.addr,
+          xregsA_1.rdata,xregsB_1.addr,xregsB_1.rdata);
+      }
+$$end
+
+      // LS2/commit
+
+      // commit result
+      xregsA_0.wenable =  stage[1,1] ? ~exec.no_rd : 0;
+      xregsA_1.wenable = ~stage[1,1] ? ~exec.no_rd : 0;
+                      // ^^^^^^^^ could be ~stage_0[0,1]
+
+$$if SIMULATION then         
+      if (stage[1,1]) {
+        if (xregsA_0.wenable) {
+          __display("[cycle %d] (0) LS2/C xr[%d]=%h (alu:%h)",cycle,exec.write_rd,write_back,exec.r);
+        }
+      } else {
+        if (xregsA_1.wenable) {
+          __display("[cycle %d] (1) LS2/C xr[%d]=%h (alu:%h)",cycle,exec.write_rd,write_back,exec.r);
+        }
+      }
+$$end
+      // prepare instruction fetch
+      mem.addr         = exec.jump ? (exec.n >> 2)
+                                    : next_pc;
+
+      // advance states unless stuck in ALU
+      if (exec.working == 0) {
+        stage = stage + 1;
+      }
+$$if SIMULATION then               
+      else {
+        __display("[cycle %d] waiting for ALU",cycle);
+      }
+$$end        
+    }
 
     // write back data to both register BRAMs
     xregsA_0.wdata   = write_back;      xregsB_0.wdata   = write_back;     
