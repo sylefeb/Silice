@@ -93,12 +93,14 @@ $$if SIMULATION then
 $$end
   }
 
+
 $$if SIMULATION then
-  cpu <- ();
+//  cpu <- ();
 	while (cycle < 64) { }
 $$else
   // run the CPU
-  () <- cpu <- ();
+//  () <- cpu <- ();
+  while (1) { }
 $$end
 
 }

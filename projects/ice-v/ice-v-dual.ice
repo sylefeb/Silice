@@ -185,7 +185,7 @@ $$end
   // to Silice that some variables (e.g. xregsA.wdata) are fully set
   // every cycle, enabling further optimizations.
   // Default values are overriden from within the algorithm loop.
-  always_before {
+  always {
     // decodes values loaded from memory (used when exec.load == 1)
     uint32 aligned <: mem.rdata >> {exec.n[0,2],3b000};
     switch ( exec.op[0,2] ) { // LB / LBU, LH / LHU, LW
@@ -205,30 +205,9 @@ $$end
     // (pulsed when necessary)
     xregsA_0.wenable = 0;
     xregsA_1.wenable = 0;
-  }
 
-  // the 'always_after' block is executed at the end of every cycle
-  always_after { 
-    // write back data to both register BRAMs
-    xregsA_0.wdata   = write_back;      xregsB_0.wdata   = write_back;     
-    xregsA_1.wdata   = write_back;      xregsB_1.wdata   = write_back;     
-    // xregsB written when xregsA is
-    xregsB_0.wenable = xregsA_0.wenable; 
-    xregsB_1.wenable = xregsA_1.wenable; 
-    // write to write_rd, else track instruction register
-    xregsA_0.addr    = xregsA_0.wenable ? exec.write_rd : Rtype(instr_0).rs1;
-    xregsB_0.addr    = xregsA_0.wenable ? exec.write_rd : Rtype(instr_0).rs2;
-    xregsA_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs1;
-    xregsB_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs2;
-$$if SIMULATION then         
-    cycle = cycle + 1;
-$$end    
-  }
 
-  while (1) {
-    
-    // NOTE: move to always_before?
-
+    // dual state machine
     // four states: F, T, LS1, LS2/commit
 $$if SIMULATION then         
     __display("[cycle %d] stage_0:%b stage_1:%b",cycle,stage_0,stage_1);
@@ -331,6 +310,20 @@ $$if SIMULATION then
 $$end        
       }
 
+    // write back data to both register BRAMs
+    xregsA_0.wdata   = write_back;      xregsB_0.wdata   = write_back;     
+    xregsA_1.wdata   = write_back;      xregsB_1.wdata   = write_back;     
+    // xregsB written when xregsA is
+    xregsB_0.wenable = xregsA_0.wenable; 
+    xregsB_1.wenable = xregsA_1.wenable; 
+    // write to write_rd, else track instruction register
+    xregsA_0.addr    = xregsA_0.wenable ? exec.write_rd : Rtype(instr_0).rs1;
+    xregsB_0.addr    = xregsA_0.wenable ? exec.write_rd : Rtype(instr_0).rs2;
+    xregsA_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs1;
+    xregsB_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs2;
+$$if SIMULATION then         
+    cycle = cycle + 1;
+$$end    
   }
 
 }
