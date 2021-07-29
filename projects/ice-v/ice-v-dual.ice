@@ -25,7 +25,7 @@ algorithm execute(
   // instruction, program counter and registers
   input  uint32 instr, input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
-  input  uint1  trigger, 
+  input  uint1  trigger, input   uint1  cpu_id,
   // outputs all information the processor needs to decide what to do next 
   output uint3  op,    output uint5  write_rd, output  uint1  no_rd, 
   output uint1  jump,  output uint1  load,     output  uint1  store,  
@@ -33,7 +33,7 @@ algorithm execute(
   output uint32 n,     output uint1  storeAddr, // next address adder
   output uint1  intop, output int32  r,         // integer operations
 ) {
-  uint5  shamt(0);  uint32 cycle(0); // shifter status and cycle counter
+  uint5  shamt(0);  uint24 cycle(0); // shifter status and cycle counter
 
   // ==== decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
@@ -79,8 +79,10 @@ algorithm execute(
   no_rd        := branch  | store  | (Rtype(instr).rd == 5b0);
   // integer operations                // store next address?
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;  
-  // value to store directly           // store value?
-  val          := LUI ? imm_u : cycle; storeVal     := LUI     | Cycles;   
+  // value to store directly           
+  val          := LUI ? imm_u : {cpu_id,7b0,cycle}; 
+  // store value?
+  storeVal     := LUI     | Cycles;   
   
   always {
     int32 shift(0);  uint1 j(0); // temp variables for shifter and comparator
@@ -110,10 +112,12 @@ algorithm execute(
       case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
       case 3b111: { r = xa & b; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
-    }      
+    } 
+$$if SIMULATION then         
     if (trigger) {
-      //__display("[cycle %d] ALU xa:%h b:%h (shamt:%d r:%h)",cycle,xa,b,shamt,r);
+      __display("[cycle %d] ALU xa:%h b:%h (shamt:%d r:%h)",cycle,xa,b,shamt,r);
     }
+$$end    
     // ====================== Comparator for branching
     switch (op[1,2]) {
       case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/ 
@@ -150,6 +154,7 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
   // CPU states
   uint4  stage_0(4b1000); // F  , T  , LS1, LS2
   uint4  stage_1(4b0010); // 3    2    1    0
+  // TODO ^^^^^^^^^^^^^ merge? one is enough?
 
   // program counter
   uint$addrW$ pc_0(0);
@@ -163,6 +168,17 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
 
   // decoder + ALU, executes the instruction and tells processor what to do
   execute exec;
+
+$$if SIMULATION then         
+  uint32 cycle(0);
+$$end
+
+  // what do we write in register? (pc, alu or val, load is handled separately)
+  int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
+                    | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
+                    | (exec.storeVal  ? exec.val            : 32b0)
+                    | (exec.load      ? loaded              : 32b0)
+                    | (exec.intop     ? exec.r              : 32b0);
 
   // The 'always_before' block is applied at the start of every cycle.
   // This is a good place to set default values, which also indicates
@@ -193,12 +209,6 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
 
   // the 'always_after' block is executed at the end of every cycle
   always_after { 
-    // what do we write in register? (pc, alu or val, load is handled separately)
-    int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
-                      | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
-                      | (exec.storeVal  ? exec.val            : 32b0)
-                      | (exec.load      ? loaded              : 32b0)
-                      | (exec.intop     ? exec.r              : 32b0);
     // write back data to both register BRAMs
     xregsA_0.wdata   = write_back;      xregsB_0.wdata   = write_back;     
     xregsA_1.wdata   = write_back;      xregsB_1.wdata   = write_back;     
@@ -210,8 +220,9 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
     xregsB_0.addr    = xregsA_0.wenable ? exec.write_rd : Rtype(instr_0).rs2;
     xregsA_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs1;
     xregsB_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs2;
-
-    // cycle = cycle + 1;
+$$if SIMULATION then         
+    cycle = cycle + 1;
+$$end    
   }
 
   while (1) {
@@ -219,13 +230,11 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
     // NOTE: move to always_before?
 
     // four states: F, T, LS1, LS2/commit
+$$if SIMULATION then         
+    __display("[cycle %d] stage_0:%b stage_1:%b",cycle,stage_0,stage_1);
+$$end
 
-    // __display("[cycle %d] stage_0:%b stage_1:%b",cycle,stage_0,stage_1);
-
-    switch (stage_0 | stage_1) {
-
-      case 4b1010: {
-        
+    if ((stage_0 | stage_1) == 4b1010) {
         // one CPU on F, one CPU on LS1
 
         // F
@@ -234,11 +243,13 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
         instr_1 = stage_1[3,1] ? mem.rdata : instr_1;
         pc_1    = stage_1[3,1] ? mem.addr  : pc_1;
 
+$$if SIMULATION then         
         if (stage_0[3,1]) {
-          //__display("[cycle %d] (0) F instr_0:%h (@%h)",cycle,instr_0,pc_0<<2);
+          __display("[cycle %d] (0) F instr_0:%h (@%h)",cycle,instr_0,pc_0<<2);
         } else {
-          //__display("[cycle %d] (1) F instr_1:%h (@%h)",cycle,instr_1,pc_1<<2);
+          __display("[cycle %d] (1) F instr_1:%h (@%h)",cycle,instr_1,pc_1<<2);
         }
+$$end
 
         // LS1
         // no need to know which CPU, since we only read from exec
@@ -251,20 +262,20 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
           mem.wenable = ({4{exec.store}} & { { 2{exec.op[0,2]==2b10} },
                                                  exec.op[0,1] | exec.op[1,1], 1b1 
                                           } ) << exec.n[0,2];
+$$if SIMULATION then         
           if (stage_0[1,1]) {
-            //__display("[cycle %d] (0) LS1 @%h = %h",cycle,mem.addr,mem.wdata);
+            __display("[cycle %d] (0) LS1 @%h = %h",cycle,mem.addr,mem.wdata);
           } else {
-            //__display("[cycle %d] (1) LS1 @%h = %h",cycle,mem.addr,mem.wdata);
+            __display("[cycle %d] (1) LS1 @%h = %h",cycle,mem.addr,mem.wdata);
           }
+$$end          
         }
 
         // advance stage
         stage_0 = {stage_0[0,1],stage_0[1,3]};
         stage_1 = {stage_1[0,1],stage_1[1,3]};
 
-      }
-
-      case 4b0101: {
+      } else {
         
         // one CPU on T, one CPU on LS2/commit
 
@@ -272,16 +283,19 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
         // triggers exec for the CPU which has been selected at F cycle before
         // registers are now in for it
         exec.trigger = 1;
+        exec.cpu_id  = ~stage_0[2,1];
         exec.instr   = stage_0[2,1] ? instr_0 : instr_1;
         exec.pc      = stage_0[2,1] ? pc_0    : pc_1;
         exec.xa      = stage_0[2,1] ? xregsA_0.rdata : xregsA_1.rdata;
         exec.xb      = stage_0[2,1] ? xregsB_0.rdata : xregsB_1.rdata;
 
+$$if SIMULATION then         
         if (stage_0[2,1]) {
-          //__display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,stage_0[2,1] ? instr_0 : instr_1,stage_0[2,1] ? pc_0    : pc_1,xregsA_0.addr,xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
+          __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,stage_0[2,1] ? instr_0 : instr_1,stage_0[2,1] ? pc_0    : pc_1,xregsA_0.addr,xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
         } else {
-          //__display("[cycle %d] (1) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,stage_0[2,1] ? instr_0 : instr_1,stage_0[2,1] ? pc_0    : pc_1,xregsA_1.addr,xregsA_1.rdata,xregsB_1.addr,xregsB_1.rdata);
+          __display("[cycle %d] (1) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,stage_0[2,1] ? instr_0 : instr_1,stage_0[2,1] ? pc_0    : pc_1,xregsA_1.addr,xregsA_1.rdata,xregsB_1.addr,xregsB_1.rdata);
         }
+$$end
 
         // LS2/commit
 
@@ -290,16 +304,17 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
         xregsA_1.wenable = stage_1[0,1] ? ~exec.no_rd : 0;
                         // ^^^^^^^^ could be ~stage_0[0,1]
 
+$$if SIMULATION then         
         if (stage_0[0,1]) {
           if (xregsA_0.wenable) {
-            //__display("[cycle %d] (0) LS2/C xr[%d]=%h (alu:%h)",cycle,exec.write_rd,write_back,exec.r);
+            __display("[cycle %d] (0) LS2/C xr[%d]=%h (alu:%h)",cycle,exec.write_rd,write_back,exec.r);
           }
         } else {
           if (xregsA_1.wenable) {
-            //__display("[cycle %d] (1) LS2/C xr[%d]=%h (alu:%h)",cycle,exec.write_rd,write_back,exec.r);
+            __display("[cycle %d] (1) LS2/C xr[%d]=%h (alu:%h)",cycle,exec.write_rd,write_back,exec.r);
           }
         }
-
+$$end
         // prepare instruction fetch
         mem.addr         = exec.jump ? (exec.n >> 2)
                                      : next_pc; // (stage_0[0,1] ? next_pc_0 : next_pc_1);
@@ -308,15 +323,13 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
         if (exec.working == 0) {
           stage_0 = {stage_0[0,1],stage_0[1,3]};
           stage_1 = {stage_1[0,1],stage_1[1,3]};
-        } else {
-          //__display("[cycle %d] waiting for ALU",cycle);
         }
+$$if SIMULATION then               
+        else {
+          __display("[cycle %d] waiting for ALU",cycle);
+        }
+$$end        
       }
-
-      default: { }
-
-    }
-
 
   }
 
