@@ -4790,7 +4790,7 @@ void Algorithm::determineUsage()
   std::unordered_set<std::string> global_out_written;
   determineAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = false;
+  const bool report = true;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
@@ -7993,11 +7993,13 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   for (auto &v : ff_input_bindings_usage.ff_usage) {
     if (v.second & e_D) {
       post_ff_usage.back().ff_usage[v.first] = e_D;
-    } else if (v.second & e_Q) {
+    } 
+    if (v.second & e_Q) {
       _ff_usage.ff_usage[v.first] = e_Q; 
-    } else {
-      reportError(nullptr, -1, "internal error, input bindings usage case");
     }
+    //else {
+    //  reportError(nullptr, -1, "internal error, input bindings usage case");
+    //}
   }
 
   // correctly setup the formal stuff:
