@@ -121,7 +121,7 @@ $$if SIMULATION then
     //if (trigger) {
     //  __display("[cycle %d] ALU TRIGGER xa:%h b:%h",cycle,xa,b);
     //}
-    __display("[cycle %d] ALU working:%b shift:%h shamt:%d (instr:%h)",cycle,working,shift,shamt,instr);
+    __display("[cycle %d] ALU working:%b shift:%h shamt:%d (instr:%h)",{8b0,cycle},working,shift,shamt,instr);
 $$end
 
     // ====================== Comparator for branching
@@ -177,7 +177,9 @@ algorithm rv32i_cpu(bram_port mem) {
   // decoder + ALU, executes the instruction and tells processor what to do
   uint32 instr <:: (stage[0,1]^stage[1,1]) ? instr_0 : instr_1;
   uint32 pc    <:: (stage[0,1]^stage[1,1]) ? pc_0    : pc_1;
-  execute exec(instr <: instr,pc <: pc);
+  int32  xa    <:: (stage[0,1]^stage[1,1]) ? xregsA_0.rdata : xregsA_1.rdata;
+  int32  xb    <:: (stage[0,1]^stage[1,1]) ? xregsB_0.rdata : xregsB_1.rdata;
+  execute exec(instr <: instr,pc <: pc, xa <: xa, xb <: xb);
 
 $$if SIMULATION then         
   uint32 cycle(0);
@@ -189,7 +191,6 @@ $$end
                     | (exec.storeVal  ? exec.val            : 32b0)
                     | (exec.load      ? loaded              : 32b0)
                     | (exec.intop     ? exec.r              : 32b0);
-
   // The 'always_before' block is applied at the start of every cycle.
   // This is a good place to set default values, which also indicates
   // to Silice that some variables (e.g. xregsA.wdata) are fully set
@@ -232,7 +233,7 @@ $$end
       instr_1 =  stage[1,1] ? mem.rdata : instr_1;
       pc_1    =  stage[1,1] ? mem.addr  : pc_1;
 
-$$if SIMULATION then         
+$$if SIMULATION then
       if (~stage[1,1]) {
         __display("[cycle %d] (0) F instr_0:%h (@%h)",cycle,instr_0,pc_0<<2);
       } else {
@@ -240,22 +241,23 @@ $$if SIMULATION then
       }
 $$end
 
+      // memory address from which to load/store
+      mem.addr = ~ exec.working ? (exec.n >> 2) : mem.addr;
+
       // LS1
       // no need to know which CPU, since we only read from exec
-      if (exec.load | exec.store) {   
-        // memory address from which to load/store
-        mem.addr    = exec.n >> 2;
+      if (exec.store) {   
         // == Store (enabled if exec.store == 1)
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
-        mem.wenable = ({4{exec.store}} & { { 2{exec.op[0,2]==2b10} },
+        mem.wenable = ( { { 2{exec.op[0,2]==2b10} },
                                                exec.op[0,1] | exec.op[1,1], 1b1 
-                                        } ) << exec.n[0,2];
+                        } ) << exec.n[0,2];
 $$if SIMULATION then         
         if (stage[1,1]) {
-          __display("[cycle %d] (0) LS1 @%h = %h",cycle,mem.addr,mem.wdata);
+          __display("[cycle %d] (0) LS1 @%h = %h (wen:%b)",cycle,mem.addr,mem.wdata,mem.wenable);
         } else {
-          __display("[cycle %d] (1) LS1 @%h = %h",cycle,mem.addr,mem.wdata);
+          __display("[cycle %d] (1) LS1 @%h = %h (wen:%b)",cycle,mem.addr,mem.wdata,mem.wenable);
         }
 $$end          
       }
@@ -271,14 +273,14 @@ $$end
       exec.cpu_id  = ~stage[1,1];
       //exec.instr   = ~stage[1,1] ? instr_0 : instr_1;
       //exec.pc      = ~stage[1,1] ? pc_0    : pc_1;
-      exec.xa      = ~stage[1,1] ? xregsA_0.rdata : xregsA_1.rdata;
-      exec.xb      = ~stage[1,1] ? xregsB_0.rdata : xregsB_1.rdata;
+      //exec.xa      = ~stage[1,1] ? xregsA_0.rdata : xregsA_1.rdata;
+      //exec.xb      = ~stage[1,1] ? xregsB_0.rdata : xregsB_1.rdata;
 
 $$if SIMULATION then         
       if (~stage[1,1]) {
         __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
           instr,pc,
-          xregsA_1.addr,xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
+          xregsA_0.addr,xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
       } else {
         __display("[cycle %d] (1) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
           instr,pc,
@@ -293,15 +295,16 @@ $$end
       xregsA_1.wenable = ~stage[1,1] ? ~exec.no_rd : 0;
 
 $$if SIMULATION then         
-      if (stage[1,1]) {
-        if (xregsA_0.wenable) {
-          __display("[cycle %d] (0) LS2/C xr[%d]=%h (alu:%h)",cycle,exec.write_rd,write_back,exec.r);
-        }
-      } else {
-        if (xregsA_1.wenable) {
-          __display("[cycle %d] (1) LS2/C xr[%d]=%h (alu:%h)",cycle,exec.write_rd,write_back,exec.r);
-        }
+      if (xregsA_0.wenable) {
+        __display("[cycle %d] (0) LS2/C xr[%d]=%h (alu:%h loaded:%d)",
+          cycle,exec.write_rd,write_back,exec.r,loaded);
       }
+      if (xregsA_1.wenable) {
+        __display("[cycle %d] (1) LS2/C xr[%d]=%h (alu:%h loaded:%d)",
+          cycle,exec.write_rd,write_back,exec.r,loaded);
+      }
+      __display("[cycle %d] jump:%b storeAddr:%b storeVal:%b load:%b intop:%b",
+        cycle,exec.jump,exec.storeAddr,exec.storeVal,exec.load,exec.intop);
 $$end
       // prepare instruction fetch
       mem.addr = exec.jump ? (exec.n >> 2) : next_pc;
@@ -316,7 +319,7 @@ $$if SIMULATION then
     else {
       __display("[cycle %d] waiting for ALU",cycle);
     }
-$$end        
+$$end
 
     // write back data to both register BRAMs
     xregsA_0.wdata   = write_back;      xregsB_0.wdata   = write_back;     

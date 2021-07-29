@@ -107,14 +107,14 @@ $$if OLED then
     displ_en = 0; // maintain display enable low
 $$end
     // ---- memory mapping to peripherals: writes
-    if (/*memio.wenable[0,1] &*/ memio.addr[11,1]) {
+    if (memio.wenable[0,1] & memio.addr[11,1]) {
       leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
 $$if SIMULATION then
       if (memio.addr[0,1]) { __display("[cycle %d] LEDs: %b",cycle,leds); }
 $$end
 $$if OLED then
       // command
-      displ_en     = (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];
+      displ_en     =   (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];
       // reset
       oled_resn    = ~ (mem.wdata[0,1] & memio.addr[2,1]);
 $$end
@@ -127,7 +127,7 @@ $$end
 
 $$if SIMULATION then
 //  cpu <- ();
-	while (cycle < 256) { }
+	while (cycle < 200000) { }
 $$else
   // run the CPU
 //  () <- cpu <- ();
