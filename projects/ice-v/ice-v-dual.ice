@@ -81,7 +81,7 @@ algorithm execute(
   // integer operations                // store next address?
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;  
   // value to store directly           
-  val          := LUI ? imm_u : /*{cpu_id,7b0,cycle}*/{31b0,cpu_id}; 
+  val          := LUI ? imm_u : /*{cpu_id,7b0,cycle}*/ {cpu_id,31b0}; 
   // store value?
   storeVal     := LUI     | Cycles;   
   

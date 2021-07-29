@@ -1,3 +1,10 @@
+inline int cpu_id() 
+{
+   unsigned int cycles;
+   asm volatile ("rdcycle %0" : "=r"(cycles));
+   return cycles>>31;
+}
+
 void main() 
 {
   volatile int* const LEDS = (int*)0x2004;
@@ -6,7 +13,7 @@ void main()
   *LEDS = 0x0f;
   
   int l = 1;
-  while (1) {
+  while (cpu_id()) {
   
     l <<= 1;
     if (l > 8) {
@@ -15,8 +22,11 @@ void main()
     
     *LEDS = l;    
     
-    for (i=0;i<655360;i++) { }
+    // for (i=0;i<655360;i++) { }
+    for (i=0;i<3;i++) { }
 
   }
+
+  while (1) {}
   
 }
