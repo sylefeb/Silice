@@ -1,35 +1,44 @@
 #include "oled.h"
 
-inline int cpu_id() 
+static inline int time_cpu_id() 
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
-   return cycles>>31;
+   return cycles;
 }
 
 void main() 
 {
-  volatile int i = 0;
-  if (cpu_id()) {
-    /*
+  register int b = 0;
+  register int l = 1;
+  register int i = 0;
+
+  if (time_cpu_id()&1) {
+#if 0
     oled_init();
     oled_fullscreen();
-    int b = 0;
     while (1) {
       b+=7;
       oled_clear(b);
     }
-    */
-    while (1) {}
+#else
+    while (1) { }
+#endif
   } else {
-    int l = 1;
+
+#if 1
     while (1) {
       l <<= 1;
       if (l > 8) {
         l = 1;
       }
-      *LEDS = l;    
-      for (i=0;i<655360;i++) { }
-    }    
+      *LEDS = l;
+      while (i<655360) { i++; }
+      i = 0;
+    }
+#else
+    while (1) { }
+#endif
+
   }
 }

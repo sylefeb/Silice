@@ -81,7 +81,7 @@ algorithm execute(
   // integer operations                // store next address?
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;  
   // value to store directly           
-  val          := LUI ? imm_u : /*{cpu_id,7b0,cycle}*/ {cpu_id,31b0}; 
+  val          := LUI ? imm_u : /*{cpu_id,7b0,cycle}*/ {7b0,cycle,cpu_id}; 
   // store value?
   storeVal     := LUI     | Cycles;   
   
@@ -148,8 +148,8 @@ $$end
 algorithm rv32i_cpu(bram_port mem) {
 
   // register files, two BRAMs to fetch two registers at once
-  bram int32 xregsA_0[32] = {0,pad(uninitialized)}; bram int32 xregsB_0[32] = {0,pad(uninitialized)};
-  bram int32 xregsA_1[32] = {0,pad(uninitialized)}; bram int32 xregsB_1[32] = {0,pad(uninitialized)};
+  bram int32 xregsA_0[32] = {pad(0)}; bram int32 xregsB_0[32] = {pad(0)};
+  bram int32 xregsA_1[32] = {pad(0)}; bram int32 xregsB_1[32] = {pad(0)};
 
   // current instruction
   uint32 instr_0(uninitialized);

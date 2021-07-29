@@ -1,10 +1,3 @@
-inline int cpu_id() 
-{
-   unsigned int cycles;
-   asm volatile ("rdcycle %0" : "=r"(cycles));
-   return cycles>>31;
-}
-
 void main() 
 {
   volatile int* const LEDS = (int*)0x2004;

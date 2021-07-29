@@ -48,6 +48,9 @@ $$if OLED then
   output uint1 oled_resn,
   output uint1 oled_csn(0),
 $$end
+$$if PMOD then
+  inout  uint8 pmod,
+$$end
 $$if not SIMULATION then    
   ) <@cpu_clock> {
   // clock  
@@ -67,7 +70,7 @@ $$else
 ) {
 $$end
 
-$$if OLED then
+$$if OLED or PMOD then
   uint1 displ_en = uninitialized;
   uint1 displ_dta_or_cmd <: memio.wdata[10,1];
   uint8 displ_byte       <: memio.wdata[0,8];
@@ -79,6 +82,14 @@ $$if OLED then
     oled_clk        :> oled_clk,
     oled_dc         :> oled_dc,
   );
+$$end
+
+$$if PMOD then
+	// oled
+	uint1 oled_clk(0);
+  uint1 oled_mosi(0);
+  uint1 oled_dc(0);
+  uint1 oled_resn(0);
 $$end
 
 $$if SIMULATION then
@@ -103,8 +114,12 @@ $$end
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
 		// ---- peripherals
-$$if OLED then
+$$if OLED or PMOD then
     displ_en = 0; // maintain display enable low
+$$end
+$$if PMOD then
+    pmod.oenable = 8b11111111; // pmod all output
+    pmod.o       = {4b0,oled_mosi,oled_clk,oled_dc,oled_resn}; // pmod pins
 $$end
     // ---- memory mapping to peripherals: writes
     if (memio.wenable[0,1] & memio.addr[11,1]) {
@@ -112,7 +127,7 @@ $$end
 $$if SIMULATION then
       if (memio.addr[0,1]) { __display("[cycle %d] LEDs: %b",cycle,leds); }
 $$end
-$$if OLED then
+$$if OLED or PMOD then
       // command
       displ_en     =   (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];
       // reset
@@ -138,7 +153,7 @@ $$end
 
 // --------------------------------------------------
 
-$$if OLED then
+$$if OLED or PMOD then
 
 // Sends bytes to the OLED screen
 // produces a quarter freq clock with one bit traveling a four bit ring
