@@ -80,7 +80,7 @@ algorithm execute(
   // integer operations                // store next address?
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;  
   // value to store directly           
-  val          := LUI ? imm_u : {cpu_id,7b0,cycle}; 
+  val          := LUI ? imm_u : /*{cpu_id,7b0,cycle}*/{31b0,cpu_id}; 
   // store value?
   storeVal     := LUI     | Cycles;   
   
@@ -169,7 +169,9 @@ algorithm rv32i_cpu(bram_port mem) {
   int32 loaded = uninitialized;
 
   // decoder + ALU, executes the instruction and tells processor what to do
-  execute exec;
+  uint32 instr <:: (stage[0,1]^stage[1,1]) ? instr_0 : instr_1;
+  uint32 pc    <:: (stage[0,1]^stage[1,1]) ? pc_0    : pc_1;
+  execute exec(instr <: instr,pc <: pc);
 
 $$if SIMULATION then         
   uint32 cycle(0);
@@ -211,7 +213,7 @@ $$end
     // dual state machine
     // four states: F, T, LS1, LS2/commit
 $$if SIMULATION then         
-    __display("[cycle %d] stage:%b mem.addr:@%h mem.rdata:%h",cycle,stage,mem.addr,mem.rdata);
+    __display("[cycle %d] stage:%b mem.addr:@%h mem.rdata:%h instr:%h",cycle,stage,mem.addr,mem.rdata,instr);
 $$end
 
   if ( ~ stage[0,1] ) { // even stage
@@ -264,8 +266,8 @@ $$end
       // registers are now in for it
       exec.trigger = 1;
       exec.cpu_id  = ~stage[1,1];
-      exec.instr   = ~stage[1,1] ? instr_0 : instr_1;
-      exec.pc      = ~stage[1,1] ? pc_0    : pc_1;
+      //exec.instr   = ~stage[1,1] ? instr_0 : instr_1;
+      //exec.pc      = ~stage[1,1] ? pc_0    : pc_1;
       exec.xa      = ~stage[1,1] ? xregsA_0.rdata : xregsA_1.rdata;
       exec.xb      = ~stage[1,1] ? xregsB_0.rdata : xregsB_1.rdata;
 
