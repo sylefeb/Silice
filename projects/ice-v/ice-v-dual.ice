@@ -33,7 +33,8 @@ algorithm execute(
   output uint32 n,     output uint1  storeAddr, // next address adder
   output uint1  intop, output int32  r,         // integer operations
 ) {
-  uint5  shamt(0);  uint24 cycle(0); // shifter status and cycle counter
+  uint5  shamt(0); // uint1 shsign(0); uint1 shdir(0); // shifter status 
+  uint24 cycle(0); // cycle counter
 
   // ==== decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
@@ -88,20 +89,23 @@ algorithm execute(
     int32 shift(0);  uint1 j(0); // temp variables for shifter and comparator
 
     // ====================== ALU
+    // are we still shifting?
+    uint1 shiting <:: (shamt != 0);
     // shift (one bit per clock)
-    if (working) {
-      // decrease shift size
-      shamt = shamt - 1;
-      // shift one bit
-      shift = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]} 
-                          : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};      
-    } else {
+    if (trigger) {
       // start shifting?
-      shamt = ((aluShift & trigger) ? __unsigned(b[0,5]) : 0);
+      shamt  = aluShift ? __unsigned(b[0,5]) : 0;
       // store value to be shifted
       shift = xa;
+    } else {
+      if (shiting) {
+        // decrease shift size
+        shamt = shamt - 1;
+        // shift one bit
+        shift = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]} 
+                        : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
+      }
     }
-    // are we still shifting?
     working = (shamt != 0);
 
     // all ALU operations
@@ -114,10 +118,12 @@ algorithm execute(
       default:    { r = {32{1bx}}; }  // don't care
     } 
 $$if SIMULATION then         
-    if (trigger) {
-      __display("[cycle %d] ALU xa:%h b:%h (shamt:%d r:%h)",cycle,xa,b,shamt,r);
-    }
-$$end    
+    //if (trigger) {
+    //  __display("[cycle %d] ALU TRIGGER xa:%h b:%h",cycle,xa,b);
+    //}
+    __display("[cycle %d] ALU working:%b shift:%h shamt:%d (instr:%h)",cycle,working,shift,shamt,instr);
+$$end
+
     // ====================== Comparator for branching
     switch (op[1,2]) {
       case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/ 
@@ -213,7 +219,7 @@ $$end
     // dual state machine
     // four states: F, T, LS1, LS2/commit
 $$if SIMULATION then         
-    __display("[cycle %d] stage:%b mem.addr:@%h mem.rdata:%h instr:%h",cycle,stage,mem.addr,mem.rdata,instr);
+    __display("[cycle %d] ====== stage:%b mem.addr:@%h mem.rdata:%h instr:%h",cycle,stage,mem.addr,mem.rdata,instr);
 $$end
 
   if ( ~ stage[0,1] ) { // even stage
@@ -254,9 +260,6 @@ $$if SIMULATION then
 $$end          
       }
 
-      // advance stage
-      stage = stage + 1;
-
     } else { // stage odd
       
       // one CPU on T, one CPU on LS2/commit
@@ -274,14 +277,12 @@ $$end
 $$if SIMULATION then         
       if (~stage[1,1]) {
         __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
-          ~stage[1,1] ? instr_0 : instr_1,
-          ~stage[1,1] ? pc_0    : pc_1,xregsA_0.addr,
-          xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
+          instr,pc,
+          xregsA_1.addr,xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
       } else {
         __display("[cycle %d] (1) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
-          stage[1,1] ? instr_0 : instr_1,
-          stage[1,1] ? pc_0    : pc_1,xregsA_1.addr,
-          xregsA_1.rdata,xregsB_1.addr,xregsB_1.rdata);
+          instr,pc,
+          xregsA_1.addr,xregsA_1.rdata,xregsB_1.addr,xregsB_1.rdata);
       }
 $$end
 
@@ -305,16 +306,17 @@ $$end
       // prepare instruction fetch
       mem.addr = exec.jump ? (exec.n >> 2) : next_pc;
 
-      // advance states unless stuck in ALU
-      if (exec.working == 0) {
-        stage = stage + 1;
-      }
-$$if SIMULATION then               
-      else {
-        __display("[cycle %d] waiting for ALU",cycle);
-      }
-$$end        
     }
+
+    // advance states unless stuck in ALU
+    if (exec.working == 0) {
+      stage = stage + 1;
+    }
+$$if SIMULATION then               
+    else {
+      __display("[cycle %d] waiting for ALU",cycle);
+    }
+$$end        
 
     // write back data to both register BRAMs
     xregsA_0.wdata   = write_back;      xregsB_0.wdata   = write_back;     
