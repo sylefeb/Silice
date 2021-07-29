@@ -146,8 +146,8 @@ algorithm rv32i_cpu(bram_port mem) {
   bram int32 xregsA_1[32] = {0,pad(uninitialized)}; bram int32 xregsB_1[32] = {0,pad(uninitialized)};
 
   // current instruction
-  uint32 instr_0(0);
-  uint32 instr_1(0);
+  uint32 instr_0(uninitialized);
+  uint32 instr_1(uninitialized);
 
   // CPU dual stages
   uint2  stage(3);
@@ -241,7 +241,7 @@ $$end
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
         mem.wenable = ({4{exec.store}} & { { 2{exec.op[0,2]==2b10} },
-                                                exec.op[0,1] | exec.op[1,1], 1b1 
+                                               exec.op[0,1] | exec.op[1,1], 1b1 
                                         } ) << exec.n[0,2];
 $$if SIMULATION then         
         if (stage[1,1]) {
@@ -288,7 +288,6 @@ $$end
       // commit result
       xregsA_0.wenable =  stage[1,1] ? ~exec.no_rd : 0;
       xregsA_1.wenable = ~stage[1,1] ? ~exec.no_rd : 0;
-                      // ^^^^^^^^ could be ~stage_0[0,1]
 
 $$if SIMULATION then         
       if (stage[1,1]) {
@@ -302,8 +301,7 @@ $$if SIMULATION then
       }
 $$end
       // prepare instruction fetch
-      mem.addr         = exec.jump ? (exec.n >> 2)
-                                    : next_pc;
+      mem.addr = exec.jump ? (exec.n >> 2) : next_pc;
 
       // advance states unless stuck in ALU
       if (exec.working == 0) {
