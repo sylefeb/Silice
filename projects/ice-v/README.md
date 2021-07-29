@@ -15,7 +15,7 @@ The version here runs out of the box on the IceStick ice40 1HK, and can adapted 
 ## Features
 - implements the RV32I specifications
 - runs code compiled with gcc RISC-V (build scripts included)
-- executes instructions in 3 cycles, load/store in 4
+- executes load/store in 4, instructions in 3 cycles but for shifts which additionally take one cycle per shifted bit
 - less than 1K LUTs
 - validates at around 65 Mz on the IceStick
 - < 300 lines of commented code (~100 lines compacted)
@@ -85,7 +85,7 @@ make icestick -f Makefile.oled
   <i>Note that the pinout changed compared to this picture</i>
 </p>
 
-> **Note:** Compling code for the processor requires a RISC-V toolchain. Under Windows, this is included in the binary package from my [fpga-binutils](https://github.com/sylefeb/fpga-binutils) repo. Under macOS and Linux there are precompiled packages, or you may prefer to compile from source. See see [getting
+> **Note:** Compiling code for the processor requires a RISC-V toolchain. Under Windows, this is included in the binary package from my [fpga-binutils](https://github.com/sylefeb/fpga-binutils) repo. Under macOS and Linux there are precompiled packages, or you may prefer to compile from source. See see [getting
 started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md) for more detailed instructions.
 
 &nbsp;<br>

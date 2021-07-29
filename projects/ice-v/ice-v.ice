@@ -213,9 +213,9 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
 
       // load/store?        
       if (exec.load | exec.store) {   
-        // memory address from wich to load/store
-         mem.addr   = exec.n >> 2;
-        // == Store (enabled below if exec.store == 1)
+        // memory address from which to load/store
+        mem.addr   = exec.n >> 2;
+        // == Store (enabled if exec.store == 1)
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
         mem.wenable = ({4{exec.store}} & { { 2{exec.op[0,2]==2b10} },
@@ -224,11 +224,11 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
 
 ++: // wait for data transaction
 
-        // == Load (enabled below if exec.load == 1)
+        // == Load (enabled if exec.load == 1)
         // commit result
         xregsA.wenable = ~exec.no_rd;        
         // restore address to program counter
-         mem.addr      = next_pc;
+        mem.addr       = next_pc;
         // exit the operations loop
         break;
         //  instruction read from BRAM and write to register 
@@ -238,7 +238,7 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
         // commit result
         xregsA.wenable = ~exec.no_rd;
         // next instruction address
-         mem.addr      = exec.jump ? (exec.n >> 2) : next_pc;
+        mem.addr       = exec.jump ? (exec.n >> 2) : next_pc;
         // ALU done?
         if (exec.working == 0) {
           // yes: all is correct, stop here
