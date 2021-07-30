@@ -12,6 +12,12 @@
 // Processor
 // --------------------------------------------------
 
+$$CPU0  = 1
+$$KILL0 = nil
+
+$$CPU1  = 1
+$$KILL1 = nil
+
 // bitfield for easier decoding of instructions
 bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, 
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
@@ -118,10 +124,7 @@ algorithm execute(
       default:    { r = {32{1bx}}; }  // don't care
     } 
 $$if SIMULATION then         
-    //if (trigger) {
-    //  __display("[cycle %d] ALU TRIGGER xa:%h b:%h",cycle,xa,b);
-    //}
-    __display("[cycle %d] ALU working:%b shift:%h shamt:%d (instr:%h)",{8b0,cycle},working,shift,shamt,instr);
+    // __display("[cycle %d] ALU working:%b shift:%h shamt:%d (instr:%h)",{8b0,cycle},working,shift,shamt,instr);
 $$end
 
     // ====================== Comparator for branching
@@ -220,7 +223,7 @@ $$end
     // dual state machine
     // four states: F, T, LS1, LS2/commit
 $$if SIMULATION then         
-    __display("[cycle %d] ====== stage:%b mem.addr:@%h mem.rdata:%h instr:%h",cycle,stage,mem.addr,mem.rdata,instr);
+    __display("[cycle %d] ====== stage:%b ",cycle,stage);
 $$end
 
   if ( ~ stage[0,1] ) { // even stage
@@ -228,16 +231,30 @@ $$end
       // one CPU on F, one CPU on LS1
 
       // F
+$$if KILL0 then
+      instr_0 = 0;
+      pc_0    = 0;
+$$else
       instr_0 = ~stage[1,1] ? mem.rdata : instr_0;
       pc_0    = ~stage[1,1] ? mem.addr  : pc_0;
-      instr_1 =  stage[1,1] ? mem.rdata : instr_1;
-      pc_1    =  stage[1,1] ? mem.addr  : pc_1;
+$$end
+$$if KILL1 then
+      instr_1 = 0;
+      pc_1    = 0;
+$$else
+      instr_1 = stage[1,1] ? mem.rdata : instr_1;
+      pc_1    = stage[1,1] ? mem.addr  : pc_1;
+$$end
 
 $$if SIMULATION then
       if (~stage[1,1]) {
+$$if CPU0 then        
         __display("[cycle %d] (0) F instr_0:%h (@%h)",cycle,instr_0,pc_0<<2);
+$$end        
       } else {
+$$if CPU1 then        
         __display("[cycle %d] (1) F instr_1:%h (@%h)",cycle,instr_1,pc_1<<2);
+$$end        
       }
 $$end
 
@@ -253,14 +270,21 @@ $$end
         mem.wenable = ( { { 2{exec.op[0,2]==2b10} },
                                                exec.op[0,1] | exec.op[1,1], 1b1 
                         } ) << exec.n[0,2];
-$$if SIMULATION then         
-        if (stage[1,1]) {
-          __display("[cycle %d] (0) LS1 @%h = %h (wen:%b)",cycle,mem.addr,mem.wdata,mem.wenable);
-        } else {
-          __display("[cycle %d] (1) LS1 @%h = %h (wen:%b)",cycle,mem.addr,mem.wdata,mem.wenable);
-        }
-$$end          
       }
+
+$$if SIMULATION then  
+     if (exec.load | exec.store) {
+        if (stage[1,1]) {
+$$if CPU0 then        
+          __display("[cycle %d] (0) LS1 @%h = %h (wen:%b)",cycle,mem.addr,mem.wdata,mem.wenable);
+$$end        
+        } else {
+$$if CPU1 then        
+          __display("[cycle %d] (1) LS1 @%h = %h (wen:%b)",cycle,mem.addr,mem.wdata,mem.wenable);
+$$end        
+        }
+      }
+$$end          
 
     } else { // stage odd
       
@@ -270,21 +294,25 @@ $$end
       // triggers exec for the CPU which has been selected at F cycle before
       // registers are now in for it
       exec.trigger = 1;
-      exec.cpu_id  = ~stage[1,1];
+      exec.cpu_id  = stage[1,1];
       //exec.instr   = ~stage[1,1] ? instr_0 : instr_1;
       //exec.pc      = ~stage[1,1] ? pc_0    : pc_1;
       //exec.xa      = ~stage[1,1] ? xregsA_0.rdata : xregsA_1.rdata;
       //exec.xb      = ~stage[1,1] ? xregsB_0.rdata : xregsB_1.rdata;
 
-$$if SIMULATION then         
+$$if SIMULATION then
       if (~stage[1,1]) {
+$$if CPU0 then        
         __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
           instr,pc,
           xregsA_0.addr,xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
+$$end          
       } else {
+$$if CPU1 then        
         __display("[cycle %d] (1) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
           instr,pc,
           xregsA_1.addr,xregsA_1.rdata,xregsB_1.addr,xregsB_1.rdata);
+$$end
       }
 $$end
 
@@ -295,16 +323,20 @@ $$end
       xregsA_1.wenable = ~stage[1,1] ? ~exec.no_rd : 0;
 
 $$if SIMULATION then         
+$$if CPU0 then        
       if (xregsA_0.wenable) {
-        __display("[cycle %d] (0) LS2/C xr[%d]=%h (alu:%h loaded:%d)",
-          cycle,exec.write_rd,write_back,exec.r,loaded);
+        __display("[cycle %d] (0) LS2/C xr[%d]=%h",
+          cycle,exec.write_rd,write_back);
       }
+$$end
+$$if CPU1 then        
       if (xregsA_1.wenable) {
-        __display("[cycle %d] (1) LS2/C xr[%d]=%h (alu:%h loaded:%d)",
-          cycle,exec.write_rd,write_back,exec.r,loaded);
+        __display("[cycle %d] (1) LS2/C xr[%d]=%h",
+          cycle,exec.write_rd,write_back);
       }
-      __display("[cycle %d] jump:%b storeAddr:%b storeVal:%b load:%b intop:%b",
-        cycle,exec.jump,exec.storeAddr,exec.storeVal,exec.load,exec.intop);
+$$end      
+      //__display("[cycle %d] jump:%b storeAddr:%b storeVal:%b load:%b intop:%b",
+      //  cycle,exec.jump,exec.storeAddr,exec.storeVal,exec.load,exec.intop);
 $$end
       // prepare instruction fetch
       mem.addr = exec.jump ? (exec.n >> 2) : next_pc;
@@ -313,12 +345,15 @@ $$end
 
     // advance states unless stuck in ALU
     if (exec.working == 0) {
-      stage = stage + 1;
+      stage = reset ? stage : stage + 1;
     }
 $$if SIMULATION then               
-    else {
-      __display("[cycle %d] waiting for ALU",cycle);
+    if (reset) {
+      __display("[cycle %d] reset",cycle);
     }
+//    else {
+//      __display("[cycle %d] waiting for ALU",cycle);
+//    }
 $$end
 
     // write back data to both register BRAMs
@@ -334,7 +369,7 @@ $$end
     xregsB_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs2;
 
 $$if SIMULATION then         
-    __display("[cycle %d] AFTER stage:%b mem.addr:@%h mem.rdata:%h",cycle,stage,mem.addr,mem.rdata);
+//    __display("[cycle %d] AFTER stage:%b mem.addr:@%h mem.rdata:%h",cycle,stage,mem.addr,mem.rdata);
 $$end
 
 $$if SIMULATION then         

@@ -2,5 +2,8 @@
 .DEFAULT: ice-v-soc-dual.ice
 		silice-make.py -s ice-v-soc-dual.ice -b $@ -p basic,pmod -o BUILD_$(subst :,_,$@) -t shell
 
+verilator: ice-v-soc-dual.ice
+		silice-make.py -s ice-v-soc-dual.ice -b $@ -p basic -o BUILD_$(subst :,_,$@) -t shell
+
 clean:
 	rm -rf BUILD_*
