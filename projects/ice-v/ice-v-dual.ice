@@ -238,6 +238,7 @@ $$end
   if ( ~ stage[0,1] ) { // even stage
 
       // one CPU on F, one CPU on LS1
+      
       // F
 $$if KILL0 then
       instr_0 = 0;
