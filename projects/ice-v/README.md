@@ -28,6 +28,12 @@ The version here runs out of the box on the IceStick ice40 1HK, and can adapted 
   <img src="ice-v-98.png">
 </p>
 
+## The Ice-V dual
+
+A second version of the processor is included in this repo: [the Ice-V *dual*](ice-v-dual.ice).
+This is an only slightly larger design that implements *two* RV32I cores. The
+dual version is described on [this separate page](IceVDual.md).
+
 ## Running the design
 
 The build is performed in two steps, first compile some code for the processor to run:
