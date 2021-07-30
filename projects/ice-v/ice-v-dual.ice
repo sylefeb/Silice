@@ -1,6 +1,8 @@
-// SL 2020-06-12 @sylefeb
+// SL 2021-07-30 @sylefeb
 //
-// Fun with RISC-V!   RV32I cpu, see README.md
+// Fun with RISC-V! dual RV32I cpu, see README.md
+//
+// NOTE: please get familiar with the ice-v first!
 //
 //      GNU AFFERO GENERAL PUBLIC LICENSE
 //        Version 3, 19 November 2007
@@ -16,11 +18,11 @@ $$if SIMULATION then
 $$VERBOSE = nil
 $$end
 
-$$CPU0  = 1
-$$KILL0 = nil
+$$CPU0  = 1   -- set to nil to disable debug output for CPU0
+$$KILL0 = nil -- set to 1 to disable CPU0
 
-$$CPU1  = 1
-$$KILL1 = nil
+$$CPU1  = 1   -- set to nil to disable debug output for CPU1
+$$KILL1 = nil -- set to 1 to disable CPU1
 
 // bitfield for easier decoding of instructions
 bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, 
@@ -43,8 +45,8 @@ algorithm execute(
   output uint32 n,     output uint1  storeAddr, // next address adder
   output uint1  intop, output int32  r,         // integer operations
 ) {
-  uint5  shamt(0); // uint1 shsign(0); uint1 shdir(0); // shifter status 
-  uint24 cycle(0); // cycle counter
+  uint5  shamt(0); // shifter status 
+  uint32 cycle(0); // cycle counter
 
   // ==== decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
@@ -91,7 +93,7 @@ algorithm execute(
   // integer operations                // store next address?
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;  
   // value to store directly           
-  val          := LUI ? imm_u : /*{cpu_id,7b0,cycle}*/ {7b0,cycle,cpu_id}; 
+  val          := LUI ? imm_u : {cycle[0,31],cpu_id}; 
   // store value?
   storeVal     := LUI     | Cycles;   
   
@@ -127,9 +129,6 @@ algorithm execute(
       case 3b111: { r = xa & b; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
     } 
-$$if VERBOSE then         
-    // __display("[cycle %d] ALU working:%b shift:%h shamt:%d (instr:%h)",{8b0,cycle},working,shift,shamt,instr);
-$$end
 
     // ====================== Comparator for branching
     switch (op[1,2]) {
@@ -150,7 +149,20 @@ $$end
 }
 
 // --------------------------------------------------
-// The Risc-V RV32I CPU itself
+// Dual Risc-V RV32I CPU
+// 
+// ---- interleaved CPU stages ----
+// F:     instruction fetched
+// T:     trigger ALU+decode
+// LS1:   load/store stage 1
+// LS2/C: load/store stage 2, commit result to register
+//
+//  F  , T  , LS1, LS2/C
+//  0    x    1    x    // stage == 0  4b00
+//  x    0    x    1    // stage == 1  4b01
+//  1    x    0    x    // stage == 2  4b10
+//  x    1    x    0    // stage == 3  4b11
+// ---------------------------------
 
 algorithm rv32i_cpu(bram_port mem) {
 
@@ -164,13 +176,6 @@ algorithm rv32i_cpu(bram_port mem) {
 
   // CPU dual stages
   uint2  stage(3);
-
-  // ---- stages ----
-  //_  F  , T  , LS1, LS2/C
-  //_  0    x    1    x    // stage == 0  4b00
-  //_  x    0    x    1    // stage == 1  4b01
-  //_  1    x    0    x    // stage == 2  4b10
-  //_  x    1    x    0    // stage == 3  4b11
 
   // program counter
   uint$addrW$ pc_0(-1);
@@ -233,7 +238,6 @@ $$end
   if ( ~ stage[0,1] ) { // even stage
 
       // one CPU on F, one CPU on LS1
-
       // F
 $$if KILL0 then
       instr_0 = 0;
@@ -262,10 +266,9 @@ $$end
       }
 $$end
 
+      // LS1
       // memory address from which to load/store
       mem.addr = ~ exec.working ? (exec.n >> 2) : mem.addr;
-
-      // LS1
       // no need to know which CPU, since we only read from exec
       if (exec.store) {   
         // == Store (enabled if exec.store == 1)
@@ -299,10 +302,6 @@ $$end
       // registers are now in for it
       exec.trigger = 1;
       exec.cpu_id  = stage[1,1];
-      //exec.instr   = ~stage[1,1] ? instr_0 : instr_1;
-      //exec.pc      = ~stage[1,1] ? pc_0    : pc_1;
-      //exec.xa      = ~stage[1,1] ? xregsA_0.rdata : xregsA_1.rdata;
-      //exec.xb      = ~stage[1,1] ? xregsB_0.rdata : xregsB_1.rdata;
 
 $$if VERBOSE then
       if (~stage[1,1]) {
@@ -339,8 +338,6 @@ $$if CPU1 then
           cycle,exec.write_rd,write_back);
       }
 $$end      
-      //__display("[cycle %d] jump:%b storeAddr:%b storeVal:%b load:%b intop:%b",
-      //  cycle,exec.jump,exec.storeAddr,exec.storeVal,exec.load,exec.intop);
 $$end
       // prepare instruction fetch
       mem.addr = exec.jump ? (exec.n >> 2) : next_pc;
@@ -352,12 +349,7 @@ $$end
       stage = reset ? stage : stage + 1;
     }
 $$if VERBOSE then               
-    if (reset) {
-      __display("[cycle %d] reset",cycle);
-    }
-//    else {
-//      __display("[cycle %d] waiting for ALU",cycle);
-//    }
+    if (reset) { __display("[cycle %d] reset",cycle); }
 $$end
 
     // write back data to both register BRAMs
@@ -371,10 +363,6 @@ $$end
     xregsB_0.addr    = xregsA_0.wenable ? exec.write_rd : Rtype(instr_0).rs2;
     xregsA_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs1;
     xregsB_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs2;
-
-$$if VERBOSE then         
-//    __display("[cycle %d] AFTER stage:%b mem.addr:@%h mem.rdata:%h",cycle,stage,mem.addr,mem.rdata);
-$$end
 
 $$if VERBOSE then
     cycle = cycle + 1;
