@@ -18,22 +18,18 @@ void oled_init()
   *(OLED_RST) = 0;
   // wait > 100 msec
   for (i=0;i<DELAY;i++) {  }
-  *(LEDS) = 10;
   // reset low
   *(OLED_RST) = 1;
   // wait > 300us
   for (i=0;i<DELAY;i++) {  }
-  *(LEDS) = 5;
   // reset high
   *(OLED_RST) = 0;
   // wait > 300 msec
   for (i=0;i<DELAY;i++) {  }
-  *(LEDS) = 10;
   // send screen on
   *(OLED) = OLED_CMD | 0xAF;
   // wait > 300 msec
   for (i=0;i<DELAY;i++) {  }
-  *(LEDS) = 5;
   
   // select auto horiz. increment, 666 RGB 
   *(OLED) = OLED_CMD | 0xA0;

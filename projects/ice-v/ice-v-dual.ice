@@ -12,6 +12,10 @@
 // Processor
 // --------------------------------------------------
 
+$$if SIMULATION then
+$$VERBOSE = nil
+$$end
+
 $$CPU0  = 1
 $$KILL0 = nil
 
@@ -123,7 +127,7 @@ algorithm execute(
       case 3b111: { r = xa & b; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
     } 
-$$if SIMULATION then         
+$$if VERBOSE then         
     // __display("[cycle %d] ALU working:%b shift:%h shamt:%d (instr:%h)",{8b0,cycle},working,shift,shamt,instr);
 $$end
 
@@ -155,8 +159,8 @@ algorithm rv32i_cpu(bram_port mem) {
   bram int32 xregsA_1[32] = {pad(0)}; bram int32 xregsB_1[32] = {pad(0)};
 
   // current instruction
-  uint32 instr_0(uninitialized);
-  uint32 instr_1(uninitialized);
+  uint32 instr_0(0);
+  uint32 instr_1(0);
 
   // CPU dual stages
   uint2  stage(3);
@@ -184,7 +188,7 @@ algorithm rv32i_cpu(bram_port mem) {
   int32  xb    <:: (stage[0,1]^stage[1,1]) ? xregsB_0.rdata : xregsB_1.rdata;
   execute exec(instr <: instr,pc <: pc, xa <: xa, xb <: xb);
 
-$$if SIMULATION then         
+$$if VERBOSE then         
   uint32 cycle(0);
 $$end
 
@@ -222,7 +226,7 @@ $$end
 
     // dual state machine
     // four states: F, T, LS1, LS2/commit
-$$if SIMULATION then         
+$$if VERBOSE then         
     __display("[cycle %d] ====== stage:%b ",cycle,stage);
 $$end
 
@@ -246,7 +250,7 @@ $$else
       pc_1    = stage[1,1] ? mem.addr  : pc_1;
 $$end
 
-$$if SIMULATION then
+$$if VERBOSE then
       if (~stage[1,1]) {
 $$if CPU0 then        
         __display("[cycle %d] (0) F instr_0:%h (@%h)",cycle,instr_0,pc_0<<2);
@@ -272,7 +276,7 @@ $$end
                         } ) << exec.n[0,2];
       }
 
-$$if SIMULATION then  
+$$if VERBOSE then  
      if (exec.load | exec.store) {
         if (stage[1,1]) {
 $$if CPU0 then        
@@ -300,7 +304,7 @@ $$end
       //exec.xa      = ~stage[1,1] ? xregsA_0.rdata : xregsA_1.rdata;
       //exec.xb      = ~stage[1,1] ? xregsB_0.rdata : xregsB_1.rdata;
 
-$$if SIMULATION then
+$$if VERBOSE then
       if (~stage[1,1]) {
 $$if CPU0 then        
         __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
@@ -322,7 +326,7 @@ $$end
       xregsA_0.wenable =  stage[1,1] ? ~exec.no_rd : 0;
       xregsA_1.wenable = ~stage[1,1] ? ~exec.no_rd : 0;
 
-$$if SIMULATION then         
+$$if VERBOSE then         
 $$if CPU0 then        
       if (xregsA_0.wenable) {
         __display("[cycle %d] (0) LS2/C xr[%d]=%h",
@@ -347,7 +351,7 @@ $$end
     if (exec.working == 0) {
       stage = reset ? stage : stage + 1;
     }
-$$if SIMULATION then               
+$$if VERBOSE then               
     if (reset) {
       __display("[cycle %d] reset",cycle);
     }
@@ -368,13 +372,14 @@ $$end
     xregsA_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs1;
     xregsB_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs2;
 
-$$if SIMULATION then         
+$$if VERBOSE then         
 //    __display("[cycle %d] AFTER stage:%b mem.addr:@%h mem.rdata:%h",cycle,stage,mem.addr,mem.rdata);
 $$end
 
-$$if SIMULATION then         
+$$if VERBOSE then
     cycle = cycle + 1;
 $$end
+
   }
 
 }

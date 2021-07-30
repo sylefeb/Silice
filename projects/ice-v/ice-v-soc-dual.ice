@@ -123,19 +123,30 @@ $$if PMOD then
 $$end
     // ---- memory mapping to peripherals: writes
     if (memio.wenable[0,1] & memio.addr[11,1]) {
-      leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
+      uint3 select <: memio.addr[0,3];
+      onehot (select) {
+        case 0: {
+          leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
 $$if SIMULATION then
-      if (memio.addr[0,1]) { __display("[cycle %d] LEDs: %b",cycle,leds); }
+          __display("[cycle %d] LEDs: %b",cycle,leds);
 $$end
+        }
+        case 1: {
 $$if OLED or PMOD then
-      // command
-      displ_en     =   (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];      
-      // reset
-      oled_resn    = ~ (mem.wdata[0,1] & memio.addr[2,1]);
-$$end
+          // command
+          displ_en     =   (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];      
 $$if SIMULATION then
-      if (memio.addr[1,1]) { __display("[cycle %d] OLED: %b",cycle, memio.wdata[0,8]); }
+          __display("[cycle %d] OLED: %b", cycle, memio.wdata[0,8]);
 $$end
+$$end
+        }
+        case 2: {
+$$if OLED or PMOD then
+          // reset
+          oled_resn    = ~ (mem.wdata[0,1] & memio.addr[2,1]);
+$$end
+        }
+      }
     }
 $$if SIMULATION then
     cycle = cycle + 1;
@@ -145,7 +156,7 @@ $$end
 
 $$if SIMULATION then
 //  cpu <- ();
-	while (cycle < 20000) { }
+	while (cycle < 100000) { }
 $$else
   // run the CPU
 //  () <- cpu <- ();
