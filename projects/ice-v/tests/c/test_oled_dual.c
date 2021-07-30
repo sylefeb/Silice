@@ -9,18 +9,22 @@ static inline int cpu_id()
 
 void main() 
 {
-  register int b = 0;
+  register int o = 0;
   register int l = 1;
   register int i = 0;
 
   if (cpu_id()&1) {
-    
+
     // core 1 blinks screen
     oled_init();
     oled_fullscreen();
     while (1) {
-      b+=7;
-      oled_clear(b);
+      o+=4;
+      for (int v=0;v<128;v++) {
+        for (int u=0;u<128;u++) {
+          oled_pix(u+o,v+o,0);
+        }  
+      }
     }
 
   } else {
