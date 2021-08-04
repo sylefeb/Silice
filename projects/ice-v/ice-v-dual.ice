@@ -39,14 +39,14 @@ algorithm execute(
   // trigger: pulsed high when the decoder + ALU should start
   input  uint1  trigger, input   uint1  cpu_id,
   // outputs all information the processor needs to decide what to do next 
-  output uint3  op,    output uint5  write_rd, output  uint1  no_rd, 
+  output uint3  op,    output uint4  write_rd, output  uint1  no_rd, 
   output uint1  jump,  output uint1  load,     output  uint1  store,  
   output int32  val,   output uint1  storeVal, output  uint1  working(0),
   output uint32 n,     output uint1  storeAddr, // next address adder
   output uint1  intop, output int32  r,         // integer operations
 ) {
   uint5  shamt(0); // shifter status 
-  uint32 cycle(0); // cycle counter
+  uint24 cycle(0); // cycle counter
 
   // ==== decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
@@ -93,7 +93,7 @@ algorithm execute(
   // integer operations                // store next address?
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;  
   // value to store directly           
-  val          := LUI ? imm_u : {cycle[0,31],cpu_id}; 
+  val          := LUI ? imm_u : {7b0,cycle[0,24],cpu_id}; 
   // store value?
   storeVal     := LUI     | Cycles;   
   
