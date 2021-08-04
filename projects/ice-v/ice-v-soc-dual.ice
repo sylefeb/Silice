@@ -85,6 +85,9 @@ $$if OLED or PMOD then
 $$end
 
 $$if PMOD then
+  // audio
+  int8  audio_sample(0);
+  audio_pcm_i2s audio( sample <: audio_sample );
 	// oled
 	uint1 oled_clk(0);
   uint1 oled_mosi(0);
@@ -119,11 +122,11 @@ $$if OLED or PMOD then
 $$end
 $$if PMOD then
     pmod.oenable = 8b11111111; // pmod all output
-    pmod.o       = {4b0,oled_mosi,oled_clk,oled_dc,oled_resn}; // pmod pins
+    pmod.o       = {audio.i2s,oled_mosi,oled_clk,oled_dc,oled_resn}; // pmod pins
 $$end
     // ---- memory mapping to peripherals: writes
     if (memio.wenable[0,1] & memio.addr[11,1]) {
-      uint3 select <: memio.addr[0,3];
+      uint4 select <: memio.addr[0,4];
       onehot (select) {
         case 0: {
           leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
@@ -144,6 +147,12 @@ $$end
 $$if OLED or PMOD then
           // reset
           oled_resn    = ~ (mem.wdata[0,1] & memio.addr[2,1]);
+$$end
+        }
+        case 3: {
+$$if PMOD then
+          // audio sample
+          audio_sample =memio.wdata[0,widthof(audio_sample)];
 $$end
         }
       }
@@ -199,6 +208,76 @@ algorithm oled(
       busy       = osc[0,1] ? busy>>1 : busy;
     }
   }
+}
+
+$$end
+
+// --------------------------------------------------
+
+$$if PMOD then
+
+// Sends 16 bits words to the audio chip (PCM5102)
+//
+// we use the pre-processor to compute counters
+// based on the FPGA frequency and target audio frequency.
+// The audio frequency is likely to not be perfectly matched.
+//
+$$  base_freq_mhz      = 60   -- FPGA frequency
+$$  audio_freq_khz     = 44.1 -- Audio frequency (target)
+$$  base_cycle_period  = 1000/base_freq_mhz
+$$  target_audio_cycle_period = 1000000/audio_freq_khz
+$$  bit_hperiod_count  = math.floor(0.5 + (target_audio_cycle_period / base_cycle_period) / 64 / 2)
+$$  true_audio_cycle_period = bit_hperiod_count * 64 * 2 * base_cycle_period
+// Print out the periods and the effective audio frequency
+$$  print('main clock cycle period    : ' .. base_cycle_period .. ' nsec')
+$$  print('audio cycle period         : ' .. true_audio_cycle_period .. ' nsec')
+$$  print('audio effective freq       : ' .. 1000000 / true_audio_cycle_period .. ' kHz')
+$$  print('half period counter        : ' .. bit_hperiod_count)
+algorithm audio_pcm_i2s(
+  input  int8   sample,
+  output uint4  i2s // {i2s_lck,i2s_din,i2s_bck,i2s_sck}
+) {
+
+  uint1  i2s_bck(1); // serial clock (32 periods per audio half period)
+  uint1  i2s_lck(1); // audio clock (low: right, high: left)
+  
+  uint8  data(0);    // data being sent, shifted through i2s_din
+  uint4  count(0);   // counter for generating the serial bit clock
+                     // NOTE: width may require adjustment on other base freqs.
+  uint32 mod32(1);   // modulo 32, for audio clock
+  
+  always {
+    
+    // track expressions for posedge and negedge of serial bit clock
+    uint1 edge    <:: (count == $bit_hperiod_count-1$);
+    uint1 negedge <:: edge &  i2s_bck;
+    uint1 posedge <:: edge & ~i2s_bck;
+  
+    // output i2s signals
+    i2s = {i2s_lck,data[7,1],i2s_bck,1b0};
+
+    // shift data out on negative edge
+    if (negedge) {
+      if (mod32[0,1]) {
+        // next data
+        data = sample;
+      } else {
+        // shift next bit (MSB first)
+        // NOTE: as we send 16 bits only, the remaining 16 bits are zeros
+        data = data << 1;
+      }
+    }
+    
+    // update I2S clocks
+    i2s_bck = edge                   ? ~i2s_bck : i2s_bck;
+    i2s_lck = (negedge & mod32[0,1]) ? ~i2s_lck : i2s_lck;
+    
+    // update counter and modulo
+    count   = edge    ? 0 : count + 1;
+    mod32   = negedge ? {mod32[0,1],mod32[1,31]} : mod32;
+    
+  }
+
 }
 
 $$end
