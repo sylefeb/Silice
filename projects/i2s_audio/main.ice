@@ -13,6 +13,7 @@ $$  true_audio_cycle_period = bit_hperiod_count * 64 * 2 * base_cycle_period
 $$  print('main clock cycle period    : ' .. base_cycle_period .. ' nsec')
 $$  print('audio cycle period         : ' .. true_audio_cycle_period .. ' nsec')
 $$  print('audio effective freq       : ' .. 1000000 / true_audio_cycle_period .. ' kHz')
+$$  print('half period counter        : ' .. bit_hperiod_count)
 // Print out the sound frequency that will be heard
 // This depends on the number of samples along the wave and the audio frequency:
 $$  num_samples = 128   -- number of wave samples
@@ -27,16 +28,6 @@ algorithm main(
   inout  uint8 pmod, // we use a PMOD with inout pins
 ) {
 
-  uint1  i2s_sck(0); // kept low (uses PCM51 internal PLL)
-  uint1  i2s_bck(1); // serial clock (32 periods per audio half period)
-  uint1  i2s_lck(1); // audio clock (low: right, high: left)
-  uint1  i2s_din(0); // bit being sent
-
-  uint16 data(0);    // data being sent, shifted through i2s_din
-  uint3  count(0);   // counter for generating the serial bit clock
-                     // NOTE: width may require adjustment on other base freqs.
-  uint32 mod32(1);   // modulo 32, for audio clock
-
   // the sound wave period is stored in a BROM  
   brom int16 wave[] = {
 $$for i=1,num_samples do
@@ -44,20 +35,30 @@ $$for i=1,num_samples do
 $$end
   };
 
-  // setup pmod as all outputs
-  pmod.oenable := 8b11111111;
-  // output i2s signals
-  pmod.o       := {i2s_lck,i2s_din,i2s_bck,i2s_sck,1b0,1b0,1b0,1b0};
-
+  uint1  i2s_bck(1); // serial clock (32 periods per audio half period)
+  uint1  i2s_lck(1); // audio clock (low: right, high: left)
+  
+  uint16 data(0);    // data being sent, shifted through i2s_din
+  uint4  count(0);   // counter for generating the serial bit clock
+                     // NOTE: width may require adjustment on other base freqs.
+  uint5  mod32(1);   // modulo 32, for audio clock
+  
   always {
-  
+    
     // track expressions for posedge and negedge of serial bit clock
-    uint1 negedge <:: (count == 0);
-    uint1 posedge <:: (count == $bit_hperiod_count$);
-  
+    uint1 edge      <:: (count == $bit_hperiod_count-1$);
+    uint1 negedge   <:: edge &  i2s_bck;
+    uint1 posedge   <:: edge & ~i2s_bck;
+    uint1 allsent   <:: mod32 == 0;
+   
+    // setup pmod as all outputs
+    pmod.oenable = 8b11111111;
+    // output i2s signals
+    pmod.o       = {i2s_lck,data[15,1] /*serial bit*/,i2s_bck,1b0,4b0000};
+
     // shift data out on negative edge
     if (negedge) {
-      if (mod32[0,1]) {
+      if (allsent) {
         // next data (twice per audio period, right then left)
         data        = wave.rdata;
         wave.addr   = ~i2s_lck ? (wave.addr + 1) : wave.addr;
@@ -68,17 +69,13 @@ $$end
       }
     }
     
-    // data out (MSB first)
-    i2s_din = data[15,1];   
-
     // update I2S clocks
-    i2s_bck = (negedge | posedge)    ? ~i2s_bck : i2s_bck;
-    i2s_lck = (negedge & mod32[0,1]) ? ~i2s_lck : i2s_lck;
+    i2s_bck = edge                ? ~i2s_bck : i2s_bck;
+    i2s_lck = (negedge & allsent) ? ~i2s_lck : i2s_lck;
     
     // update counter and modulo
-    count   = (count == $bit_hperiod_count*2-1$) ? 0 : count + 1;
-    mod32   = negedge ? {mod32[0,1],mod32[1,31]} : mod32;
+    count   = edge    ? 0 : count + 1;
+    mod32   = negedge ? mod32 + 1 : mod32;
     
   }
-
 }
