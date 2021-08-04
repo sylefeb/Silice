@@ -9,7 +9,7 @@ void main()
 {
   volatile int* const LEDS = (int*)0x2004;
 
-  if (cpu_id()) {  
+  if (cpu_id()&1) {  
     while (1) {
       *LEDS = 2;
     }

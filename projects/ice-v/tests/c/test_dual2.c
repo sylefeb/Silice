@@ -15,7 +15,7 @@ void main()
   
   int l = 1;
   
-  if (cpu_id()) {  
+  if (cpu_id()&1) {  
     while (1) {}
   }
 
