@@ -25,6 +25,7 @@ $$dofile('pre_include_asm.lua')
 $$addrW = 12
 
 // include the processor
+$$ICE_V_RV32E=nil
 $include('ice-v-dual.ice')
 
 // --------------------------------------------------

@@ -24,6 +24,16 @@ $$KILL0 = nil -- set to 1 to disable CPU0
 $$CPU1  = 1   -- set to nil to disable debug output for CPU1
 $$KILL1 = nil -- set to 1 to disable CPU1
 
+$$if ICE_V_RV32E then
+$$ print("Ice-V configured for RV32E")
+$$ Nregs  = 16
+$$ cycleW = 24
+$$else
+$$ print("Ice-V configured for RV32I")
+$$ Nregs  = 32
+$$ cycleW = 32
+$$end
+
 // bitfield for easier decoding of instructions
 bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, 
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
@@ -45,8 +55,8 @@ algorithm execute(
   output uint32 n,     output uint1  storeAddr, // next address adder
   output uint1  intop, output int32  r,         // integer operations
 ) {
-  uint5  shamt(0); // shifter status 
-  uint24 cycle(0); // cycle counter
+  uint5        shamt(0); // shifter status 
+  uint$cycleW$ cycle(0); // cycle counter
 
   // ==== decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
@@ -92,8 +102,8 @@ algorithm execute(
   no_rd        := branch  | store  | (Rtype(instr).rd == 5b0);
   // integer operations                // store next address?
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;  
-  // value to store directly           
-  val          := LUI ? imm_u : {7b0,cycle[0,24],cpu_id}; 
+  // value to store directly       
+  val          := LUI ? imm_u : {cycle,cpu_id}; 
   // store value?
   storeVal     := LUI     | Cycles;   
   
@@ -167,8 +177,8 @@ algorithm execute(
 algorithm rv32i_cpu(bram_port mem) {
 
   // register files, two BRAMs to fetch two registers at once
-  bram int32 xregsA_0[16] = {pad(0)}; bram int32 xregsB_0[16] = {pad(0)};
-  bram int32 xregsA_1[16] = {pad(0)}; bram int32 xregsB_1[16] = {pad(0)};
+  bram int32 xregsA_0[$Nregs$]={pad(0)}; bram int32 xregsB_0[$Nregs$]={pad(0)};
+  bram int32 xregsA_1[$Nregs$]={pad(0)}; bram int32 xregsB_1[$Nregs$]={pad(0)};
 
   // current instruction
   uint32 instr_0(0);
