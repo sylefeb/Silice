@@ -139,9 +139,9 @@ $$end
 $$if OLED or PMOD then
           // command
           displ_en     =   (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];      
+$$end
 $$if SIMULATION then
           __display("[cycle %d] OLED: %b", cycle, memio.wdata[0,8]);
-$$end
 $$end
         }
         case 2: {
@@ -153,7 +153,10 @@ $$end
         case 3: {
 $$if PMOD then
           // audio sample
-          audio_sample =memio.wdata[0,widthof(audio_sample)];
+          audio_sample = memio.wdata[0,widthof(audio_sample)];
+$$end
+$$if SIMULATION then
+          __display("[cycle %d] AUDIO: %b", cycle, memio.wdata[0,8]);
 $$end
         }
       }
