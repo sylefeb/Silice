@@ -167,8 +167,8 @@ algorithm execute(
 algorithm rv32i_cpu(bram_port mem) {
 
   // register files, two BRAMs to fetch two registers at once
-  bram int32 xregsA_0[32] = {pad(0)}; bram int32 xregsB_0[32] = {pad(0)};
-  bram int32 xregsA_1[32] = {pad(0)}; bram int32 xregsB_1[32] = {pad(0)};
+  bram int32 xregsA_0[16] = {pad(0)}; bram int32 xregsB_0[16] = {pad(0)};
+  bram int32 xregsA_1[16] = {pad(0)}; bram int32 xregsB_1[16] = {pad(0)};
 
   // current instruction
   uint32 instr_0(0);
