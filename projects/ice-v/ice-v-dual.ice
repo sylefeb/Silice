@@ -49,7 +49,7 @@ algorithm execute(
   // trigger: pulsed high when the decoder + ALU should start
   input  uint1  trigger, input   uint1  cpu_id,
   // outputs all information the processor needs to decide what to do next 
-  output uint3  op,    output uint4  write_rd, output  uint1  no_rd, 
+  output uint3  op,    output uint5  write_rd, output  uint1  no_rd, 
   output uint1  jump,  output uint1  load,     output  uint1  store,  
   output int32  val,   output uint1  storeVal, output  uint1  working(0),
   output uint32 n,     output uint1  storeAddr, // next address adder
