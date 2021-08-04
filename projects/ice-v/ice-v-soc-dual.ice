@@ -244,37 +244,38 @@ algorithm audio_pcm_i2s(
   uint8  data(0);    // data being sent, shifted through i2s_din
   uint4  count(0);   // counter for generating the serial bit clock
                      // NOTE: width may require adjustment on other base freqs.
-  uint32 mod32(1);   // modulo 32, for audio clock
+  uint5  mod32(1);   // modulo 32, for audio clock
   
   always {
     
     // track expressions for posedge and negedge of serial bit clock
-    uint1 edge    <:: (count == $bit_hperiod_count-1$);
-    uint1 negedge <:: edge &  i2s_bck;
-    uint1 posedge <:: edge & ~i2s_bck;
+    uint1 edge      <:: (count == $bit_hperiod_count-1$);
+    uint1 negedge   <:: edge &  i2s_bck;
+    uint1 posedge   <:: edge & ~i2s_bck;
+    uint1 allsent   <:: mod32 == 0;
   
     // output i2s signals
     i2s = {i2s_lck,data[7,1],i2s_bck,1b0};
 
     // shift data out on negative edge
     if (negedge) {
-      if (mod32[0,1]) {
+      if (allsent) {
         // next data
         data = sample;
       } else {
         // shift next bit (MSB first)
-        // NOTE: as we send 16 bits only, the remaining 16 bits are zeros
+        // NOTE: as we send 8 bits only, the remaining 24 bits are zeros
         data = data << 1;
       }
     }
     
     // update I2S clocks
-    i2s_bck = edge                   ? ~i2s_bck : i2s_bck;
-    i2s_lck = (negedge & mod32[0,1]) ? ~i2s_lck : i2s_lck;
+    i2s_bck = edge                ? ~i2s_bck : i2s_bck;
+    i2s_lck = (negedge & allsent) ? ~i2s_lck : i2s_lck;
     
     // update counter and modulo
     count   = edge    ? 0 : count + 1;
-    mod32   = negedge ? {mod32[0,1],mod32[1,31]} : mod32;
+    mod32   = negedge ? mod32 + 1 : mod32;
     
   }
 
