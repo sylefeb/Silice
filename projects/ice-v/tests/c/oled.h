@@ -11,9 +11,9 @@ static inline void wait() { volatile int i; for (i=0;i<1;i++) { } }
 
 #define WAIT wait()
 
-static inline  void oled_init()
+void oled_init()
 {
-  volatile int i;
+  register int i;
   // reset high
   *(OLED_RST) = 0;
   // wait > 100 msec
@@ -49,7 +49,7 @@ static inline  void oled_init()
   // done!
 }
 
-static inline  void oled_fullscreen()
+void oled_fullscreen()
 {
   // set col addr
   *(OLED) = OLED_CMD | 0x15;
@@ -70,7 +70,7 @@ static inline  void oled_fullscreen()
   WAIT;
 }
 
-static inline  void oled_pix(unsigned char r,unsigned char g,unsigned char b)
+void oled_pix(unsigned char r,unsigned char g,unsigned char b)
 {
     *(OLED) = OLED_DTA | b;
     WAIT;
@@ -80,7 +80,7 @@ static inline  void oled_pix(unsigned char r,unsigned char g,unsigned char b)
     // WAIT;
 }
 
-static inline  void oled_clear(unsigned char c)
+void oled_clear(unsigned char c)
 {
   for (int v=0;v<128;v++) {
     for (int u=0;u<128;u++) {

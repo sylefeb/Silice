@@ -25,7 +25,6 @@ $$dofile('pre_include_asm.lua')
 $$addrW = 12
 
 // include the processor
-$$ICE_V_RV32E=nil
 $include('ice-v-dual.ice')
 
 // --------------------------------------------------
@@ -202,7 +201,7 @@ $$end
 
 $$if SIMULATION then
   // stop after some cycles
-	while (cycle < 1200) { }
+	while (cycle < 1024) { }
 $$else
   // CPU is running
   while (1) { }

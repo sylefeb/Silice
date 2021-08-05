@@ -4,7 +4,7 @@ static inline int cpu_id()
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
-   return cycles;
+   return cycles&1;
 }
 
 void main() 
@@ -13,7 +13,7 @@ void main()
   register int l = 1;
   register int i = 0;
 
-  if (cpu_id()&1) {
+  if (cpu_id() == 0) {
 
     // core 1 blinks screen
     oled_init();
