@@ -16,15 +16,15 @@ inline unsigned int cpu_id()
 
 void main() 
 {
-  volatile int* const LEDS  = (int*)0x2004;
+  // volatile int* const LEDS  = (int*)0x2004;
   volatile int* const SOUND = (int*)0x2020;
 
   int s   = 0;
   int dir = 1;
-
   unsigned int cy_last = time();
 
   if (cpu_id() == 0) {
+
     while (1) {
       unsigned int cy = time();
       if (cy < cy_last) { cy_last = cy; } // counter may wrap around
@@ -38,7 +38,9 @@ void main()
         *LEDS = cy; 
       }
     }
+    
   } else {
+
     int o = 0;
     oled_init();
     oled_fullscreen();
@@ -50,6 +52,7 @@ void main()
         }  
       }
     }
+    
   }
   
 }

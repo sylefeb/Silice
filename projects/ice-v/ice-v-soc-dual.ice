@@ -150,7 +150,7 @@ $$end
       uint5 select <: memio.addr[0,5];
       onehot (select) {
         case 0: {
-          leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
+          leds      = mem.wdata[0,5];
 $$if SIMULATION then
           __display("[cycle %d] LEDs: %b",cycle,leds);
 $$end
@@ -168,6 +168,9 @@ $$end
 $$if OLED or PMOD then
           // reset
           oled_resn    = ~ mem.wdata[0,1];
+$$end
+$$if SIMULATION then
+          __display("[cycle %d] OLED resn: %b", cycle, ~ mem.wdata[0,1]);
 $$end
         }
         case 3: {
@@ -199,7 +202,7 @@ $$end
 
 $$if SIMULATION then
   // stop after some cycles
-	while (cycle < 1024) { }
+	while (cycle < 1200) { }
 $$else
   // CPU is running
   while (1) { }

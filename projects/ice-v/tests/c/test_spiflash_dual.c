@@ -24,15 +24,15 @@ void main()
   int dir = 1;
   unsigned int cy_last = time();
 
-  if (cpu_id() == 1) {
+  if (cpu_id() == 0) {
 
     spiflash_init();
-    //spiflash_read_begin(0);	
+    spiflash_read_begin(0);	
     while (1) {
       unsigned int cy = time();
       if (cy < cy_last) { cy_last = cy; } // counter may wrap around
       if (cy > cy_last + 1407) {
-        *SOUND  = s; // spiflash_read_next();
+        *SOUND  = spiflash_read_next();
         cy_last = cy;
         s += dir;
         if (s > 127 || s < -127) {
@@ -47,14 +47,15 @@ void main()
     oled_fullscreen();
     
     while (1) {
+      o += 4;
       for (int v=0;v<128;v++) {
         for (int u=0;u<128;u++) {
           oled_pix(u+o,v,0);
         }
       }	
-      o += 4;
     }    
 
+    while (1) { }
   }
 
 }

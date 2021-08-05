@@ -13,12 +13,12 @@ SPIFLASH bit-banging from RV32I CPU
 
 volatile int* const SPIFLASH = (int*)0x2040;
 
-void spiflash_select()
+static inline void spiflash_select()
 {
   *SPIFLASH = 2;
 }
 
-void spiflash_unselect()
+static inline void spiflash_unselect()
 {
   *SPIFLASH = 4 | 2;
 }
@@ -29,7 +29,7 @@ void spiflash_unselect()
     *SPIFLASH   = (mosi<<1) | clk;\
     clk         = 1-clk;\
 
-void spiflash_send(int indata)
+static inline void spiflash_send(int indata)
 {
   register int clk  = 0;
   register int mosi = 0;
@@ -53,7 +53,7 @@ void spiflash_send(int indata)
     n ++;\
     asm volatile ("nop; nop; nop; nop; nop; nop;");\
 
-unsigned char spiflash_read()
+static inline  unsigned char spiflash_read()
 {
     register int n = 0; 
     register int answer = 0xff;
@@ -65,14 +65,14 @@ unsigned char spiflash_read()
     return answer & 255;
 }
 
-void spiflash_init()
+static inline  void spiflash_init()
 {
   spiflash_select();
   spiflash_send(0xAB);
   spiflash_unselect();
 }
 
-unsigned char *spiflash_copy(int addr,unsigned char *dst,int len)
+static inline  unsigned char *spiflash_copy(int addr,unsigned char *dst,int len)
 {
   spiflash_select();
   spiflash_send(0x03);
@@ -88,7 +88,7 @@ unsigned char *spiflash_copy(int addr,unsigned char *dst,int len)
   return dst;
 }
 
-void spiflash_read_begin(int addr)
+static inline  void spiflash_read_begin(int addr)
 {
   spiflash_select();
   spiflash_send(0x03);
@@ -97,17 +97,17 @@ void spiflash_read_begin(int addr)
   spiflash_send((addr    )&255); 
 }
 
-unsigned char spiflash_read_next()
+static inline  unsigned char spiflash_read_next()
 {
   return spiflash_read();
 }
 
-void spiflash_read_end()
+static inline  void spiflash_read_end()
 {
   spiflash_unselect();
 }
 
-unsigned char spiflash_status()
+static inline  unsigned char spiflash_status()
 {
   spiflash_select();
   spiflash_send(0x05);
@@ -116,7 +116,7 @@ unsigned char spiflash_status()
   return status;
 }
 
-void spiflash_busy_wait()
+static inline  void spiflash_busy_wait()
 {
   while (spiflash_status() & 1) { }
 }

@@ -15,7 +15,7 @@
 // --------------------------------------------------
 
 $$if SIMULATION then
-$$VERBOSE = 1
+$$VERBOSE = nil
 $$end
 
 $$CPU0  = 1   -- set to nil to disable debug output for CPU0
@@ -130,7 +130,11 @@ algorithm execute(
       }
     }
     working = (shamt != 0);
-
+$$if SIMULATION then
+if (working) {
+  __display("[cycle %d] ALU shifting",cycle);
+}
+$$end
     // all ALU operations
     switch (op) {
       case 3b000: { r = sub ? a_minus_b : xa + b; }            // ADD / SUB
