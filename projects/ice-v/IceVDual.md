@@ -24,7 +24,7 @@ parts of the logic is not used. This opens an interesting opportunity: could
 we squeeze a second CPU (let's call it a second *core*) and use this logic when its free?
 
 It turns out that yes, we can! But before we describe this in more details, let's
-first recall the Ice-V execution pattern. It comprises four states:
+first recall the Ice-V execution pattern (you might want to check out the [Ice-V code walkthrough](README.md) first). It comprises four states:
 1. `F` (fetched) when a next instruction becomes available. This requests registers
 from the instruction.
 2. `T` (trigger) when the register become available. This triggers the decoder and ALU.

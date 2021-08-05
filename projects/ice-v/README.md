@@ -2,6 +2,8 @@
 
 **TL;DR** A small CPU design that can come in handy, a detailed code walkthrough, a good place to start learning about both Silice and RISC-V.
 
+**Latest news:** Also check the [Ice-V-Dual](IceVDual.md) that fits two cores in less than 1.2K LUTs (with SoC).
+
 **Please note:** The text likely needs more polish, please send feedback!
 
 ## What is this?
