@@ -2,6 +2,22 @@
 
 **Note: writing in progress**
 
+The Ice-V-dual is a dual core version of the [Ice-V](README.md). It contains *two*
+RV32I cores that work independently but share the RAM (code + data). Like 
+the Ice-V it is specialized to run from BRAM. 
+
+With its SoC it uses 1250+ LUTs on the IceStick and validates at ~55 MHz. 
+Each core is 4 cycles per instruction but for shifts (both cores wait if one does 
+ALU shifts). Cores retire instructions with a 2 cycles delay between them. 
+`rdcycle` is supported with a 31 bits counter, the LSB of `rdcycle` returns the CPU id.
+
+<p align="center">
+  <img src="ice-v-dual-demo.png">
+</p>
+
+
+## How is this possible?
+
 It would seem that two CPUs should use twice the resources as one? Well not quite.
 If we look carefully at the execution pattern of the Ice-V there are times where 
 parts of the logic is not used. This opens an interesting opportunity: could
