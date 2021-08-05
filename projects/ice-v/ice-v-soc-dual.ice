@@ -52,6 +52,12 @@ $$end
 $$if PMOD then
   inout  uint8 pmod,
 $$end
+$$if SPIFLASH then
+  output uint1 sf_clk,
+  output uint1 sf_csn,
+  output uint1 sf_mosi,
+  input  uint1 sf_miso,
+$$end  
 $$if not SIMULATION then    
   ) <@cpu_clock> {
   // clock  
@@ -96,6 +102,12 @@ $$if PMOD then
   uint1 oled_resn(0);
 $$end
 
+$$if SPIFLASH or SIMULATION then
+  // spiflash
+  uint1       reg_miso(0);
+	// for spiflash memory mapping, need to record prev. cycle addr and rw
+	uint$addrW$ prev_mem_addr(0);
+$$end
 $$if SIMULATION then
    uint32 cycle(0);
 $$end
@@ -114,20 +126,28 @@ $$end
 	  // ---- memory access
     mem.wenable = memio.wenable & {4{~memio.addr[11,1]}}; 
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
+$$if SPIFLASH or SIMULATION then
+    memio.rdata   = (prev_mem_addr[11,1] & prev_mem_addr[4,1]) ? {31b0,reg_miso} : mem.rdata;
+		prev_mem_addr = memio.addr;
+$$else
     memio.rdata   = mem.rdata;
+$$end
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
 		// ---- peripherals
 $$if OLED or PMOD then
-    displ_en = 0; // maintain display enable low
+    displ_en      = 0; // maintain display enable low
 $$end
 $$if PMOD then
-    pmod.oenable = 8b11111111; // pmod all output
-    pmod.o       = {audio.i2s,oled_mosi,oled_clk,oled_dc,oled_resn}; // pmod pins
+    pmod.oenable  = 8b11111111; // pmod all output
+    pmod.o        = {audio.i2s,oled_mosi,oled_clk,oled_dc,oled_resn}; // pmod pins
+$$end
+$$if SPIFLASH then
+    reg_miso      = sf_miso; // register flash miso
 $$end
     // ---- memory mapping to peripherals: writes
     if (memio.wenable[0,1] & memio.addr[11,1]) {
-      uint4 select <: memio.addr[0,4];
+      uint5 select <: memio.addr[0,5];
       onehot (select) {
         case 0: {
           leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
@@ -138,7 +158,7 @@ $$end
         case 1: {
 $$if OLED or PMOD then
           // command
-          displ_en     =   (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];      
+          displ_en =  mem.wdata[9,1] | mem.wdata[10,1];
 $$end
 $$if SIMULATION then
           __display("[cycle %d] OLED: %b", cycle, memio.wdata[0,8]);
@@ -147,7 +167,7 @@ $$end
         case 2: {
 $$if OLED or PMOD then
           // reset
-          oled_resn    = ~ (mem.wdata[0,1] & memio.addr[2,1]);
+          oled_resn    = ~ mem.wdata[0,1];
 $$end
         }
         case 3: {
@@ -159,6 +179,16 @@ $$if SIMULATION then
           __display("[cycle %d] AUDIO: %b", cycle, memio.wdata[0,8]);
 $$end
         }
+        case 4: {
+$$if SPIFLASH then
+          sf_clk  = mem.wdata[0,1];
+          sf_mosi = mem.wdata[1,1];
+          sf_csn  = mem.wdata[2,1];
+$$end
+$$if SIMULATION then
+          __display("[cycle %d] SPI write %b",cycle,mem.wdata[0,3]);
+$$end
+        }
       }
     }
 $$if SIMULATION then
@@ -168,11 +198,10 @@ $$end
 
 
 $$if SIMULATION then
-//  cpu <- ();
-	while (cycle < 100000) { }
+  // stop after some cycles
+	while (cycle < 1024) { }
 $$else
-  // run the CPU
-//  () <- cpu <- ();
+  // CPU is running
   while (1) { }
 $$end
 
@@ -202,7 +231,6 @@ algorithm oled(
     oled_clk =  busy[0,1] && (osc[0,1]); // SPI Mode 0
     if (enable) {
       dc         = data_or_command;
-      oled_dc    = dc;
       sending    = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],
                     byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
       busy       = 8b11111111;
@@ -252,33 +280,27 @@ algorithm audio_pcm_i2s(
   
   always {
     
-    // track expressions for posedge and negedge of serial bit clock
+    // track expressions for serial bit clock, edge, negedge, all bits sent
     uint1 edge      <:: (count == $bit_hperiod_count-1$);
     uint1 negedge   <:: edge &  i2s_bck;
-    uint1 posedge   <:: edge & ~i2s_bck;
     uint1 allsent   <:: mod32 == 0;
   
     // output i2s signals
     i2s = {i2s_lck,data[7,1],i2s_bck,1b0};
 
     // shift data out on negative edge
-    if (negedge) {
-      if (allsent) {
-        // next data
-        data = sample;
-      } else {
-        // shift next bit (MSB first)
-        // NOTE: as we send 8 bits only, the remaining 24 bits are zeros
-        data = data << 1;
-      }
-    }
+    data = negedge ? ( 
+                       allsent ? sample         // next audio sample
+                               : (data << 1))   // shift next bit (MSB first)
+                   : data;
+    // NOTE: as we send 8 bits only, the remaining 24 bits are zeros            
     
     // update I2S clocks
     i2s_bck = edge                ? ~i2s_bck : i2s_bck;
     i2s_lck = (negedge & allsent) ? ~i2s_lck : i2s_lck;
     
     // update counter and modulo
-    count   = edge    ? 0 : count + 1;
+    count   = edge    ? 0         : count + 1;
     mod32   = negedge ? mod32 + 1 : mod32;
     
   }

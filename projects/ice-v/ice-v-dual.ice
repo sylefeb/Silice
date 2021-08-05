@@ -15,7 +15,7 @@
 // --------------------------------------------------
 
 $$if SIMULATION then
-$$VERBOSE = nil
+$$VERBOSE = 1
 $$end
 
 $$CPU0  = 1   -- set to nil to disable debug output for CPU0
@@ -39,9 +39,10 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
 
 // --------------------------------------------------
-// execute: decoder + ALU
+// execute: decoder + ALU 
 // - decodes instructions
 // - performs all integer computations
+// - similar to ice-v, adds cpu_id and revised shifter
 
 algorithm execute(
   // instruction, program counter and registers
@@ -108,7 +109,7 @@ algorithm execute(
   storeVal     := LUI     | Cycles;   
   
   always {
-    int32 shift(0);  uint1 j(0); // temp variables for shifter and comparator
+    uint1 j(0); // temp variables for and comparator
 
     // ====================== ALU
     // are we still shifting?
@@ -118,13 +119,13 @@ algorithm execute(
       // start shifting?
       shamt  = aluShift ? __unsigned(b[0,5]) : 0;
       // store value to be shifted
-      shift = xa;
+      r      = xa;
     } else {
       if (shiting) {
         // decrease shift size
         shamt = shamt - 1;
         // shift one bit
-        shift = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]} 
+        r     = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]} 
                         : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
       }
     }
@@ -135,7 +136,7 @@ algorithm execute(
       case 3b000: { r = sub ? a_minus_b : xa + b; }            // ADD / SUB
       case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
       case 3b100: { r = xa ^ b; } case 3b110: { r = xa | b;   }// XOR / OR
-      case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
+      case 3b001: { }             case 3b101: { }              // SLLI/SRLI/SRAI
       case 3b111: { r = xa & b; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
     } 

@@ -1,3 +1,5 @@
+#include "oled.h"
+
 inline unsigned int time() 
 {
    unsigned int cycles;
@@ -37,7 +39,17 @@ void main()
       }
     }
   } else {
-    while (1) { }
+    int o = 0;
+    oled_init();
+    oled_fullscreen();
+    while (1) {
+      o+=4;
+      for (int v=0;v<128;v++) {
+        for (int u=0;u<128;u++) {
+          oled_pix(u+o,v+o,0);
+        }  
+      }
+    }
   }
   
 }
