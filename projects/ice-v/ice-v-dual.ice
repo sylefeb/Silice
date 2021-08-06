@@ -78,7 +78,7 @@ algorithm execute(
   uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
 
   // ==== select next address adder first input
-  int32 addr_a    <: pcOrReg ? __signed({pc[0,$addrW-2$],2b0}) : xa;
+  int32 addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
   // ==== select ALU second input 
   int32 b         <: regOrImm ? (xb) : imm_i;
     
