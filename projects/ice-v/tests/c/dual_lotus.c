@@ -165,7 +165,7 @@ void main_sound()
       }
       cy_last = cy;
       len ++;
-      if (len > 473975 /*track length*/) {
+      if (len > 508352 /*track length*/) {
         spiflash_read_end();
         spiflash_read_begin(1<<20/*SPIflash offset*/);
         len = 0;
@@ -199,9 +199,10 @@ void main_oled()
   int frame = 0;
 #endif
 
-  int horizon = 64;
-	int dir     = 1;
 	int turn    = 0;
+	int tdir    = 1;
+	int bump    = 0;
+	int bdir    = 3;
 
   while (1) {
     
@@ -209,12 +210,14 @@ void main_oled()
   printf("<svg height=\"128\" width=\"128\" viewBox=\"0 0 128 128\">\n");  
 #endif
 
+    int horizon = 32<<8;
+
     // for each line
     for (register int y=127;y>=0;--y) {
 
-      offs_y = y - horizon + 8;
-
-      if (y < horizon) {
+      offs_y = y - (horizon>>8) + 8;
+			
+      if (y < (horizon>>8)) {
         floor  = 0;
       } else {
         floor  = 1;
@@ -223,7 +226,9 @@ void main_oled()
       // result from division
       cur_inv_y = inv_y;
 
-      register int clip  = ((cur_inv_y>>4) > 70 || floor == 0) ? 1 : 0;      
+			horizon += (cur_inv_y*bump)>>8;
+			
+      register int clip  = ((cur_inv_y>>4) > 70 || floor == 0) ? 1 : 0;
 
       // start divide for next line
       numerator = maxv; 
@@ -232,7 +237,7 @@ void main_oled()
       offs_y_4  = offs_y<<2;
       offs_y_8  = offs_y<<3;
 
-      int curve   = (floor?((cur_inv_y*turn)>>8):0);
+      int curve   = (floor?((cur_inv_y*turn)>>9):0);
 			u           = (pos_u<<6) + (( 0 - 64 + curve ) * cur_inv_y) - (turn<<8);
       v           = pos_v + cur_inv_y;
 
@@ -272,7 +277,7 @@ void main_oled()
         oled_pix(r,g,b);
 
         // step division 
-        // (indeed, we divide by subtracting the denominator!)
+        // (indeed, we divide by subtracting multiples of the denominator)
 
 #define STEP_DIV \
         if (numerator > offs_y_8) {       \
@@ -299,7 +304,7 @@ void main_oled()
     }	
 
     // prepare next frame
-    pos_v = pos_v + 24; 
+    pos_v = pos_v + 32; 
 
 #ifdef EMUL
     printf("</svg><br>&nbsp;<br>&nbsp;<br>\n");
@@ -312,9 +317,17 @@ void main_oled()
 		turn        += 8;
 #else
     frame_flash = flash>>3;
-		turn       += dir;
-		if (turn > 32 || turn < -32) {
-			dir = - dir;
+		turn += (frame_flash > 20) ? tdir : -tdir;
+		if (turn > 64) {
+			turn = 64;
+			tdir = -1;
+		} else if (turn < -64) {
+			turn = -64;
+			tdir = 1;
+		}
+		bump       += bdir;
+		if (bump > 96 || bump < -96) {
+			bdir = - bdir;
 		}
 #endif
 

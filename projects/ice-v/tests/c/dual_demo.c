@@ -186,7 +186,7 @@ void main_oled()
         v = pos_v + cur_inv_y;
 
         // step division 
-        // (yes! we divide by subtracting the denominator)
+        // (indeed, we divide by subtracting multiples of the denominator)
 
 #define STEP_DIV \
         if (numerator > offs_y_8) {       \
