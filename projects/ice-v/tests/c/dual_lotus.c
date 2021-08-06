@@ -199,10 +199,10 @@ void main_oled()
   int frame = 0;
 #endif
 
-	int turn    = 0;
-	int tdir    = 1;
-	int bump    = 0;
-	int bdir    = 3;
+  int turn    = 0;
+  int tdir    = 1;
+  int bump    = 0;
+  int bdir    = 3;
 
   while (1) {
     
@@ -216,7 +216,7 @@ void main_oled()
     for (register int y=127;y>=0;--y) {
 
       offs_y = y - (horizon>>8) + 8;
-			
+      
       if (y < (horizon>>8)) {
         floor  = 0;
       } else {
@@ -226,8 +226,8 @@ void main_oled()
       // result from division
       cur_inv_y = inv_y;
 
-			horizon += (cur_inv_y*bump)>>8;
-			
+      horizon += (cur_inv_y*bump)>>8;
+      
       register int clip  = ((cur_inv_y>>4) > 70 || floor == 0) ? 1 : 0;
 
       // start divide for next line
@@ -238,42 +238,42 @@ void main_oled()
       offs_y_8  = offs_y<<3;
 
       int curve   = (floor?((cur_inv_y*turn)>>9):0);
-			u           = (pos_u<<6) + (( 0 - 64 + curve ) * cur_inv_y) - (turn<<8);
+      u           = (pos_u<<6) + (( 0 - 64 + curve ) * cur_inv_y) - (turn<<8);
       v           = pos_v + cur_inv_y;
 
-			register int u_incr = cur_inv_y;
+      register int u_incr = cur_inv_y;
 
       for (register int x=0;x<128;x++) {
-				
+        
         register int r,g,b;
-				if (y == 127) {
-					r=g=b=0;
+        if (y == 127) {
+          r=g=b=0;
         } else if (clip) {
-					int sky = (y-32);
+          int sky = (y-32);
           r = g = sky<0 ? 0 : sky;
-					b = 255;
+          b = 255;
         } else {
-					int dctr = u <   0 ? -u : u;
-					dctr     = dctr >> 6;
-					int road = dctr < 250 ? 1 : 0; // road width
-					int band = ((dctr > 200 && dctr < 220) || dctr < 10) && (v&64) ? 1 : 0;
-					if (band) {
-						r = g = b = 63;
-					} else if (road == 1) {
-						if (v&64) { 
-							r=4; g=7; b=5; 
-						} else {
-							r=7;  g=7; b=6; 
-						}						
-					} else {
-						if (v&64) { 
-							r=8;  g=20; b=0; 
-						} else {
-							r=7; g=15; b=0; 
-						}
-					}
+          int dctr = u <   0 ? -u : u;
+          dctr     = dctr >> 6;
+          int road = dctr < 250 ? 1 : 0; // road width
+          int band = ((dctr > 200 && dctr < 220) || dctr < 10) && (v&64) ? 1 : 0;
+          if (band) {
+            r = g = b = 63;
+          } else if (road == 1) {
+            if (v&64) { 
+              r=4; g=7; b=5; 
+            } else {
+              r=7;  g=7; b=6; 
+            }           
+          } else {
+            if (v&64) { 
+              r=8;  g=20; b=0; 
+            } else {
+              r=7; g=15; b=0; 
+            }
+          }
         }
-				
+        
         oled_pix(r,g,b);
 
         // step division 
@@ -297,11 +297,11 @@ void main_oled()
         STEP_DIV;
         STEP_DIV;
         STEP_DIV;
-				
-				u += u_incr;
+        
+        u += u_incr;
       }
 
-    }	
+    } 
 
     // prepare next frame
     pos_v = pos_v + 32; 
@@ -314,21 +314,21 @@ void main_oled()
     }
     ++ frame;
     frame_flash += 16;
-		turn        += 8;
+    turn        += 8;
 #else
     frame_flash = flash>>3;
-		turn += (frame_flash > 20) ? tdir : -tdir;
-		if (turn > 64) {
-			turn = 64;
-			tdir = -1;
-		} else if (turn < -64) {
-			turn = -64;
-			tdir = 1;
-		}
-		bump       += bdir;
-		if (bump > 96 || bump < -96) {
-			bdir = - bdir;
-		}
+    turn += (frame_flash > 20) ? tdir : -tdir;
+    if (turn > 64) {
+      turn = 64;
+      tdir = -1;
+    } else if (turn < -64) {
+      turn = -64;
+      tdir = 1;
+    }
+    bump       += bdir;
+    if (bump > 96 || bump < -96) {
+      bdir = - bdir;
+    }
 #endif
 
   }
@@ -338,7 +338,7 @@ void main()
 {
   if (CPUID == 1) {
     main_oled();
-	} else {
+  } else {
     main_sound();
   }
 

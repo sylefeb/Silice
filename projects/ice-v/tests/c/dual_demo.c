@@ -164,7 +164,7 @@ void main_oled()
 
       // result from division
       cur_inv_y = inv_y;
-			// lighting
+      // lighting
       register int clip  = (cur_inv_y>>4) > 70 ? 1 : 0;      
       register int front = 60 + (frame_flash>>2) - (cur_inv_y>>4);
       register int back  = ( (cur_inv_y>>4) - 70 + frame_flash );
@@ -236,7 +236,7 @@ void main_oled()
         STEP_DIV;
       }
 
-    }	
+    } 
 
     // prepare next frame
     pos_u = pos_u + 1024;
@@ -261,7 +261,7 @@ void main()
 {
   if (CPUID == 1) {
     main_oled();
-	} else {
+  } else {
     main_sound();
   }
 
