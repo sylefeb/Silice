@@ -7,7 +7,7 @@ volatile int* const OLED_RST = (int*)0x2010;
 
 #define DELAY      (1<<16)
 
-static inline void wait() { volatile int i; for (i=0;i<1;i++) { } }
+static inline void wait() { /*volatile int i; for (i=0;i<1;i++) { }*/ asm volatile ("nop; nop; nop;"); }
 
 #define WAIT wait()
 
@@ -70,7 +70,7 @@ void oled_fullscreen()
   WAIT;
 }
 
-void oled_pix(unsigned char r,unsigned char g,unsigned char b)
+static inline void oled_pix(unsigned char r,unsigned char g,unsigned char b)
 {
     *(OLED) = OLED_DTA | b;
     WAIT;
@@ -78,6 +78,11 @@ void oled_pix(unsigned char r,unsigned char g,unsigned char b)
     WAIT;
     *(OLED) = OLED_DTA | r;
     // WAIT;
+}
+
+static inline void oled_comp(unsigned char c)
+{
+    *(OLED) = OLED_DTA | c;
 }
 
 void oled_clear(unsigned char c)

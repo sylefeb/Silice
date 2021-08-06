@@ -20,5 +20,5 @@ done:
 .global exit
 .type  exit, @function
 exit:
-   .word 0
+   j exit
    ret
