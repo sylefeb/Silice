@@ -5,9 +5,10 @@ volatile int* const OLED_RST = (int*)0x2010;
 #define OLED_CMD   (1<< 9)
 #define OLED_DTA   (1<<10)
 
-#define DELAY      (1<<16)
+#define DELAY      (1<<18)
 
-static inline void wait() { /*volatile int i; for (i=0;i<1;i++) { }*/ asm volatile ("nop; nop; nop;"); }
+// static inline void wait() { asm volatile ("nop; nop; nop; "); } // 60,70 MHz
+static inline void wait() { asm volatile ("nop; nop; nop; nop; nop; nop; nop;"); }
 
 #define WAIT wait()
 

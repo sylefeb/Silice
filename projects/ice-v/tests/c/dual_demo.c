@@ -1,11 +1,11 @@
 
-// == to test on desktop: 1) uncomment next line and 2) compile+launch with gcc
-// #define EMUL
+// == to test on desktop: use following command line to produce tmp.html,
+//    open in firefox to see a preview of the rendering
 // gcc tests/c/dual_demo.c ; ./a.exe > tmp.html
 
-// == music sample from
-// Demo group Sanity
-// http://modp3.mikendezign.com/index.php?modid=17
+#ifndef __riscv
+#define EMUL
+#endif
 
 volatile int* const SOUND = (int*)0x2020;
 
@@ -74,6 +74,8 @@ void spiflash_read_end(){}
 #define TIME  (rdcycle()>>1)
 #define CPUID (rdcycle()&1)
 
+volatile int flash = 0;
+
 void main_sound()
 {
   unsigned int cy_last = TIME;
@@ -86,11 +88,25 @@ void main_sound()
   while (1) {
     cy = TIME;
     if (cy < cy_last) { cy_last = cy; } // counter may wrap around
-    if (cy > cy_last + 1407 /*1641 70MHz*/) {
-      *SOUND  = spiflash_read_next();
+    if (cy > cy_last + 2110 ) {
+      //  60MHz => 1407
+      //  70MHz => 1641
+      //  80MHz => 1876
+      //  90MHz => 2110
+      // 100MHz => 2345
+      char smpl = spiflash_read_next();
+      *SOUND   = smpl;
+      if (smpl < 0) {
+         smpl = -smpl;
+      }
+      if (smpl > flash) {
+        flash = smpl;
+      } else if (flash > 8) {
+        flash -= 8;
+      }
       cy_last = cy;
       len ++;
-      if (len > 1266893 /*track length*/) {
+      if (len > 473975 /*track length*/) {
         spiflash_read_end();
         spiflash_read_begin(1<<20/*SPIflash offset*/);
         len = 0;
@@ -119,12 +135,15 @@ void main_oled()
   register int lum       = 0;
   register int floor     = 0;
 
+  int frame_flash = 0;
+#ifdef EMUL
   int frame = 0;
+#endif
 
   while (1) {
     
 #ifdef EMUL
-  printf("<svg height=\"128\" width=\"128\" viewBox=\"0 0 128 128\">\n");
+  printf("<svg height=\"128\" width=\"128\" viewBox=\"0 0 128 128\">\n");  
 #endif
 
     // for each line
@@ -140,19 +159,17 @@ void main_oled()
 
       // result from division
       cur_inv_y = inv_y;
-      lum = (cur_inv_y>>4);
-      if (lum < 70) {
-        lum = 70 - lum;
-        if (lum > 63) {
-          lum = 63;
-        }
-      } else {
-        lum = 0;
-      }
+      register int clip  = (cur_inv_y>>4) > 70 ? 1 : 0;      
+      register int front = 60 + (frame_flash>>2) - (cur_inv_y>>4);
+      register int back  = ( (cur_inv_y>>4) - 70 + frame_flash );
+      front = front < 0 ? 0 : front;
+      back  = back < 0 ? 0 : back;
+      register int lum   = (front>>1) + back;
+      lum   = lum > 63 ? 63 : lum;
 
       // start divide for next line
-      numerator = maxv; // when done, inv_y = maxv / offs_y
-      inv_y     = 0;
+      numerator = maxv; 
+      inv_y     = 0;    // when done, inv_y = maxv / offs_y
       offs_y_2  = offs_y<<1;
       offs_y_4  = offs_y<<2;
       offs_y_8  = offs_y<<3;
@@ -163,8 +180,7 @@ void main_oled()
         v = pos_v + cur_inv_y;
 
         // step division 
-        // (yes! we divide by subracting the denominator,
-        //  but we have plenty of time to do that)
+        // (yes! we divide by subracting the denominator)
 
 #define STEP_DIV \
         if (numerator > offs_y_8) {       \
@@ -204,6 +220,9 @@ void main_oled()
             }
           }
         }
+        if (clip) {
+          r=g=b= back > 63 ? 63 : back;
+        }
 
         oled_pix(r,g,b);
         STEP_DIV;
@@ -223,8 +242,11 @@ void main_oled()
       printf("</body></html>\n");
       exit (-1);
     }
-#endif    
     ++ frame;
+    frame_flash += 16;
+#else
+    frame_flash = flash>>3;
+#endif    
 
   }
 }

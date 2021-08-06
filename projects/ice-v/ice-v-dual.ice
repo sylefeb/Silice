@@ -2,7 +2,8 @@
 //
 // Fun with RISC-V! dual RV32I cpu, see README.md
 //
-// NOTE: please get familiar with the ice-v first!
+// NOTE: please get familiar with the ice-v first.
+//
 //
 //      GNU AFFERO GENERAL PUBLIC LICENSE
 //        Version 3, 19 November 2007
@@ -15,7 +16,7 @@
 // --------------------------------------------------
 
 $$if SIMULATION then
-$$VERBOSE = 1
+$$VERBOSE = nil
 $$end
 
 $$CPU0  = 1   -- set to nil to disable debug output for CPU0

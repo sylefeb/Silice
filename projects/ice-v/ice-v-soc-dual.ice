@@ -3,6 +3,10 @@
 // Fun with RISC-V!
 // RV32I cpu, see README.md
 //
+// NOTE: running at 90 MHz while validating ~55 MHz
+//       in case of trouble change PLL choice below
+//       (icestick_clk_XX)
+//
 //      GNU AFFERO GENERAL PUBLIC LICENSE
 //        Version 3, 19 November 2007
 //      
@@ -11,7 +15,7 @@
 
 // Clocks
 $$if ICESTICK then
-import('../common/icestick_clk_60.v')
+import('../common/icestick_clk_90.v')
 $$end
 $$if FOMU then
 import('../common/fomu_clk_20.v')
@@ -61,7 +65,7 @@ $$if not SIMULATION then
   ) <@cpu_clock> {
   // clock  
 $$if ICESTICK then
-  icestick_clk_60 clk_gen (
+  icestick_clk_90 clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
   ); 
@@ -222,6 +226,35 @@ algorithm oled(
   output  uint1 oled_clk, output  uint1 oled_din,        output uint1 oled_dc,
 ) <autorun> {
 
+  uint4 osc        = 1;
+  uint1 dc         = 0;
+  uint8 sending    = 0;
+  uint8 busy       = 0;
+  
+  always {
+    oled_dc  =  dc;
+    osc      =  busy[0,1] ?  {osc[0,3],osc[3,1]} : 4b0001;
+    oled_clk =  busy[0,1] && (osc[2,1]|osc[3,1]); // SPI Mode 0
+    if (enable) {
+      dc         = data_or_command;
+      sending    = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],
+                    byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
+      busy       = 8b11111111;
+    } else {
+      oled_din   = sending[0,1];
+      sending    = osc[0,1] ? {1b0,sending[1,7]} : sending;
+      busy       = osc[0,1] ? busy>>1 : busy;
+    }
+  }
+
+}
+
+/*
+algorithm oled(
+  input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
+  output  uint1 oled_clk, output  uint1 oled_din,        output uint1 oled_dc,
+) <autorun> {
+
   uint2 osc        = 1;
   uint1 dc         = 0;
   uint8 sending    = 0;
@@ -242,7 +275,10 @@ algorithm oled(
       busy       = osc[0,1] ? busy>>1 : busy;
     }
   }
+
 }
+*/
+
 
 $$end
 
@@ -256,7 +292,7 @@ $$if PMOD then
 // based on the FPGA frequency and target audio frequency.
 // The audio frequency is likely to not be perfectly matched.
 //
-$$  base_freq_mhz      = 60   -- FPGA frequency
+$$  base_freq_mhz      = 90  -- FPGA frequency
 $$  audio_freq_khz     = 44.1 -- Audio frequency (target)
 $$  base_cycle_period  = 1000/base_freq_mhz
 $$  target_audio_cycle_period = 1000000/audio_freq_khz
@@ -276,7 +312,7 @@ algorithm audio_pcm_i2s(
   uint1  i2s_lck(1); // audio clock (low: right, high: left)
   
   uint8  data(0);    // data being sent, shifted through i2s_din
-  uint4  count(0);   // counter for generating the serial bit clock
+  uint5  count(0);   // counter for generating the serial bit clock
                      // NOTE: width may require adjustment on other base freqs.
   uint5  mod32(1);   // modulo 32, for audio clock
   
