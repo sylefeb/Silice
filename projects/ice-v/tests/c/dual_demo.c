@@ -3,6 +3,11 @@
 //    open in firefox to see a preview of the rendering
 // gcc tests/c/dual_demo.c ; ./a.exe > tmp.html
 
+// == Music track has to be upload to SPIflash at offset 1 MB
+//   The track length (in bytes) can be set below, see marker [1] 
+//   PCM 8 bit signed, raw no header
+// iceprog -o 1M track.raw
+
 #ifndef __riscv
 #define EMUL
 #endif
@@ -106,7 +111,7 @@ void main_sound()
       }
       cy_last = cy;
       len ++;
-      if (len > 473975 /*track length*/) {
+      if (len > 473975 /*track length in bytes*/) { // [1]
         spiflash_read_end();
         spiflash_read_begin(1<<20/*SPIflash offset*/);
         len = 0;
@@ -254,13 +259,10 @@ void main_oled()
 void main()
 {
   if (CPUID == 1) {
-
     main_oled();
-
 	} else {
-
     main_sound();
-
   }
 
 }
+
