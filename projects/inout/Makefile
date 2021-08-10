@@ -1,10 +1,6 @@
 
 .DEFAULT: inout.ice
-ifdef tool
-		silice-make.py -s inout.ice -b $@ -p basic,pmod -o BUILD_$(subst :,_,$@) -t $(tool)
-else
-		silice-make.py -s inout.ice -b $@ -p basic,pmod -o BUILD_$(subst :,_,$@)
-endif
+		silice-make.py -s inout.ice -b $@ -p basic,pmod -o BUILD_$(subst :,_,$@) $(ARGS)
 
 clean:
 	rm -rf BUILD_*

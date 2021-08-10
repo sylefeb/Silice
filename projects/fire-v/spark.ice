@@ -25,11 +25,11 @@ $$error('Sorry, Spark is currently not supported on this board.')
 $$end
 
 $$if ULX3S then
-import('plls/pll200.v')
+import('../common/plls/ulx3s_200.v')
 $$end
 
 $$if ICEBREAKER then
-import('plls/icebrkr25.v')
+import('../common/plls/icebrkr_25.v')
 $$FIREV_MERGE_ADD_SUB = 1
 $$FIREV_NO_INSTRET    = 1
 $$if WARMBOOT then

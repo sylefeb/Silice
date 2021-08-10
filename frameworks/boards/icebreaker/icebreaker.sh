@@ -27,6 +27,11 @@ export QT_QPA_PLATFORM_PLUGIN_PATH=/mingw64/share/qt5/plugins
 *)
 esac
 
+if [[ ! -z "${NO_BUILD}" ]]; then
+  echo "Skipping build."
+  exit
+fi
+
 cd $BUILD_DIR
 
 rm build*

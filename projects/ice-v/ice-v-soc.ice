@@ -11,10 +11,10 @@
 
 // Clocks
 $$if ICESTICK then
-import('../common/icestick_clk_60.v')
+import('../common/plls/icestick_60.v')
 $$end
 $$if FOMU then
-import('../common/fomu_clk_20.v')
+import('../common/plls/fomu_20.v')
 $$end
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
@@ -61,13 +61,13 @@ $$if not SIMULATION then
   ) <@cpu_clock> {
   // clock  
 $$if ICESTICK then
-  icestick_clk_60 clk_gen (
+  pll clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
   ); 
 $$elseif FOMU then
   uint1 cpu_clock  = uninitialized;
-  fomu_clk_20 clk_gen (
+  pll clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
   );   
