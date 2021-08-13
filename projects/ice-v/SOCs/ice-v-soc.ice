@@ -21,7 +21,7 @@ $$end
 $$config['bram_wmask_byte_wenable_width'] = 'data'
 
 // pre-compilation script, embeds compiled code within a string
-$$dofile('pre_include_asm.lua')
+$$dofile('pre_include_compiled.lua')
 
 $$addrW = 12
 

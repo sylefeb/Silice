@@ -25,17 +25,32 @@ $$end
 $$config['bram_wmask_byte_wenable_width'] = 'data'
 
 // pre-compilation script, embeds compiled code within a string
-$$dofile('pre_include_asm.lua')
+$$dofile('pre_include_compiled.lua')
 
-$$if ICEBREAKER then
-$$  addrW    = 13
-$$  bramSize = 2816
-$$else
-$$  addrW    = 12    -- 1 additional bit for memory mapping
-$$  bramSize = 1024
+$$if (ICEBREAKER or VERILATOR) then
+$$  USE_SPRAM = 1
 $$end
+
+$$if (ICEBREAKER or VERILATOR) and USE_SPRAM then
+import('../../common/ice40_spram.v')
+$$  periph   = 17    -- bit indicating a peripheral is addressed
+$$  addrW    = 18    -- additional bits for memory mapping
+$$  Boot     = 65536
+$$  print('===========> address bus width: ' .. addrW)
+$$else
+$$  periph   = 11    -- bit indicating a peripheral is addressed
+$$  addrW    = 12    -- additional bits for memory mapping
+$$  Boot     = 0
+$$end
+
+$$bramSize = 1024
+
 $$if bramSize > 1<<(addrW-1) then
 $$  error("RAM is not fully addressable")
+$$end
+
+$$if VERILATOR then
+$include('../../common/verilator_spram.ice')
 $$end
 
 // include the processor
@@ -81,6 +96,37 @@ $$if not SIMULATION then
   ); 
 $$else
 ) {
+$$end
+
+$$if (ICEBREAKER or VERILATOR) and USE_SPRAM then
+  uint14 sp0_addr(0);    uint4  sp0_wmask(0);    uint1  sp0_wenable(0);
+  uint16 sp0_data_in(0); uint16 sp0_data_out(0);
+  uint14 sp1_addr(0);    uint4  sp1_wmask(0);    uint1  sp1_wenable(0);
+  uint16 sp1_data_in(0); uint16 sp1_data_out(0);
+$$  if VERILATOR then
+  verilator_spram spram0(
+$$  else
+  ice40_spram spram0(
+    clock    <: clock, 
+$$  end  
+    addr     <: sp0_addr,
+    data_in  <: sp0_data_in,
+    wenable  <: sp0_wenable,
+    wmask    <: sp0_wmask,
+    data_out :> sp0_data_out
+  );
+$$  if VERILATOR then
+  verilator_spram spram1(
+$$  else
+  ice40_spram spram1(
+    clock    <: clock,
+$$  end  
+    addr     <: sp1_addr,
+    data_in  <: sp1_data_in,
+    wenable  <: sp1_wenable,
+    wmask    <: sp1_wmask,
+    data_out :> sp1_data_out
+  );
 $$end
 
 $$if OLED or PMOD then
@@ -129,14 +175,34 @@ $$end
 
   // io mapping
   always {
+    uint4 mem_wmask <: memio.wenable & {4{~memio.addr[$periph$,1]}}; 
+		//                                     ^^^^^^^ no write if in peripheral addresses
 	  // ---- memory access
-    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}}; 
-		//                            ^^^^^^^ no BRAM write if in peripheral addresses
-$$if SPIFLASH or SIMULATION then
-    memio.rdata   = (prev_mem_addr[11,1] & prev_mem_addr[4,1]) ? {31b0,reg_miso} : mem.rdata;
-		prev_mem_addr = memio.addr;
+$$if USE_SPRAM then
+$$  if not SPIFLASH and not VERILATOR then error('USE_SPRAM requires SPIFLASH') end
+    uint1 in_bram  <: memio.addr[16,1]; // in BRAM if addr greater than 64KB
+    sp0_data_in   = memio.wdata;
+    sp1_data_in   = memio.wdata;
+    sp0_addr      = memio.addr;
+    sp1_addr      = memio.addr;
+    sp0_wmask     = mem_wmask;
+    sp1_wmask     = mem_wmask;
+    sp0_wenable   = in_bram & memio.wenable;
+    sp1_wenable   = in_bram & memio.wenable;
+    memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) 
+                  ? {31b0,reg_miso}            // ^^^^^^^^^^^^^^^^^ SPI flash
+                  : (prev_mem_addr[16,1] ? mem.rdata : {sp1_data_out,sp0_data_out});
+    prev_mem_addr = memio.addr;
+    // __display("[cycle %d] in_bram:%b @%h %h (write:%b)",cycle,in_bram,memio.addr,memio.rdata,memio.wenable);
 $$else
+$$  if SPIFLASH or SIMULATION then
+    memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) 
+                  ? {31b0,reg_miso} : mem.rdata; // ^^^^^^^^^^^^^^^ SPI flash
+		prev_mem_addr = memio.addr;
+$$  else
     memio.rdata   = mem.rdata;
+$$  end
+    mem.wenable   = mem_wmask;
 $$end
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
@@ -152,7 +218,7 @@ $$if SPIFLASH then
     reg_miso      = sf_miso; // register flash miso
 $$end
     // ---- memory mapping to peripherals: writes
-    if (memio.wenable[0,1] & memio.addr[11,1]) {
+    if (memio.wenable[0,1] & memio.addr[$periph$,1]) {
       uint5 select <: memio.addr[0,5];
       onehot (select) {
         case 0: {

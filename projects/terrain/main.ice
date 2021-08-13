@@ -28,6 +28,7 @@ $$if ICEBREAKER then
 // import clock (PLL)
 import('../common/ice40_half_clock.v')
 import('../fire-v/plls/icebrkr50.v')
+import('../common/ice40_spram.v')
 // setup the RISC-V processor
 $$FIREV_NO_INSTRET    = 1   -- we do not want instret
 $$FIREV_MERGE_ADD_SUB = nil -- variant of ALU (more compact)
@@ -78,7 +79,7 @@ import('../common/ice40_spram.v')
 
 $$if VERILATOR then
 // verilator ice40 SPRAM simulation
-$include('../fire-v/ash/verilator_spram.ice') 
+$include('../common/verilator_spram.ice') 
 $$end
 
 // ------------------------- 

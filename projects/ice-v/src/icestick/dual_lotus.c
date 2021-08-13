@@ -1,12 +1,7 @@
 
 // == to test on desktop: use following command line to produce tmp.html,
 //    open in firefox to see a preview of the rendering
-// gcc tests/c/dual_demo.c ; ./a.exe > tmp.html
-
-// == Music track has to be upload to SPIflash at offset 1 MB
-//   The track length (in bytes) can be set below, see marker [1] 
-//   PCM 8 bit signed, raw no header
-// iceprog -o 1M track.raw
+// gcc tests/c/dual_lotus.c ; ./a.exe > tmp.html
 
 #ifndef __riscv
 #define EMUL
@@ -16,8 +11,8 @@ volatile int* const SOUND = (int*)0x2020;
 
 #ifndef EMUL
 
-#include "oled.h"
-#include "spiflash.c"
+#include "../oled.h"
+#include "../spiflash.c"
 
 static inline unsigned int rdcycle() 
 {
@@ -45,7 +40,7 @@ void oled_fullscreen()
 }
 void oled_pix(unsigned char r,unsigned char g,unsigned char b) 
 {
-  printf("<circle cx=\"%d\" cy=\"%d\" r=\"1.0\" stroke=\"none\" fill=\"rgb(%d,%d,%d)\" />\n",oled_x,oled_y,(r&63)*4,(g&63)*4,(b&63)*4);
+  printf("<circle cx=\"%d\" cy=\"%d\" r=\"1.0\" stroke=\"none\" fill=\"rgb(%d,%d,%d)\" />\n",oled_x,127-oled_y,(r&63)*4,(g&63)*4,(b&63)*4);
   ++ oled_x;
   if (oled_x == 128) {
     oled_x = 0;
@@ -79,6 +74,65 @@ void spiflash_read_end(){}
 #define TIME  (rdcycle()>>1)
 #define CPUID (rdcycle()&1)
 
+
+unsigned int __mulsi3 (unsigned int ia, unsigned int ib)
+{
+  register unsigned int a = ia;
+  register unsigned int b = ib;
+  register unsigned int r = 0;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  if (!a) return r;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  if (!a) return r;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  if (!a) return r;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  if (!a) return r;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  if (!a) return r;
+
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+  if (a & 1) { r += b; } a >>= 1; b <<= 1;
+
+  return r;
+}
+
+
 volatile int flash = 0;
 
 void main_sound()
@@ -111,7 +165,7 @@ void main_sound()
       }
       cy_last = cy;
       len ++;
-      if (len > 473975 /*track length in bytes*/) { // [1]
+      if (len > 508352 /*track length*/) {
         spiflash_read_end();
         spiflash_read_begin(1<<20/*SPIflash offset*/);
         len = 0;
@@ -145,33 +199,36 @@ void main_oled()
   int frame = 0;
 #endif
 
+  int turn    = 0;
+  int tdir    = 1;
+  int bump    = 0;
+  int bdir    = 3;
+
   while (1) {
     
 #ifdef EMUL
   printf("<svg height=\"128\" width=\"128\" viewBox=\"0 0 128 128\">\n");  
 #endif
 
-    // for each line
-    for (register int y=0;y<128;y++) {
+    int horizon = 32<<8;
 
-      if (y < 64) {
-        offs_y = 64 - y + 8;
+    // for each line
+    for (register int y=127;y>=0;--y) {
+
+      offs_y = y - (horizon>>8) + 8;
+      
+      if (y < (horizon>>8)) {
         floor  = 0;
       } else {
-        offs_y = y - 64 + 8;
         floor  = 1;
       }
 
       // result from division
       cur_inv_y = inv_y;
-      // lighting
-      register int clip  = (cur_inv_y>>4) > 70 ? 1 : 0;      
-      register int front = 60 + (frame_flash>>2) - (cur_inv_y>>4);
-      register int back  = ( (cur_inv_y>>4) - 70 + frame_flash );
-      front = front < 0 ? 0 : front;
-      back  = back < 0 ? 0 : back;
-      register int lum   = (front>>1) + back;
-      lum   = lum > 63 ? 63 : lum;
+
+      horizon += (cur_inv_y*bump)>>8;
+      
+      register int clip  = ((cur_inv_y>>4) > 70 || floor == 0) ? 1 : 0;
 
       // start divide for next line
       numerator = maxv; 
@@ -180,10 +237,44 @@ void main_oled()
       offs_y_4  = offs_y<<2;
       offs_y_8  = offs_y<<3;
 
-      for (register int x=0;x<128;x++) {
+      int curve   = (floor?((cur_inv_y*turn)>>9):0);
+      u           = (pos_u<<6) + (( 0 - 64 + curve ) * cur_inv_y) - (turn<<8);
+      v           = pos_v + cur_inv_y;
 
-        u = pos_u + ((x - 64) * cur_inv_y) >> 6;
-        v = pos_v + cur_inv_y;
+      register int u_incr = cur_inv_y;
+
+      for (register int x=0;x<128;x++) {
+        
+        register int r,g,b;
+        if (y == 127) {
+          r=g=b=0;
+        } else if (clip) {
+          int sky = (y-32);
+          r = g = sky<0 ? 0 : sky;
+          b = 255;
+        } else {
+          int dctr = u <   0 ? -u : u;
+          dctr     = dctr >> 6;
+          int road = dctr < 250 ? 1 : 0; // road width
+          int band = ((dctr > 200 && dctr < 220) || dctr < 10) && (v&64) ? 1 : 0;
+          if (band) {
+            r = g = b = 63;
+          } else if (road == 1) {
+            if (v&64) { 
+              r=4; g=7; b=5; 
+            } else {
+              r=7;  g=7; b=6; 
+            }           
+          } else {
+            if (v&64) { 
+              r=8;  g=20; b=0; 
+            } else {
+              r=7; g=15; b=0; 
+            }
+          }
+        }
+        
+        oled_pix(r,g,b);
 
         // step division 
         // (indeed, we divide by subtracting multiples of the denominator)
@@ -203,44 +294,17 @@ void main_oled()
           inv_y += 1;                     \
         }
 
-        register int r,g,b;
-        if ((u&64) ^ (v&64)) {
-          if ((u&32) ^ (v&32)) {
-            r=g=b=lum;
-          } else {
-            r=g=b=lum>>1;
-          }
-        } else {
-          r=g=b=0;
-          if ((u&32) ^ (v&32)) {
-            if (floor) {
-              g = lum;
-            } else {
-              b = lum;
-            }
-          } else {
-            if (floor) {
-              g = lum>>1;
-            } else {
-              b = lum>>1;
-            }
-          }
-        }
-        if (clip) {
-          r=g=b= back > 63 ? 63 : back;
-        }
-
-        oled_pix(r,g,b);
         STEP_DIV;
         STEP_DIV;
         STEP_DIV;
+        
+        u += u_incr;
       }
 
     } 
 
     // prepare next frame
-    pos_u = pos_u + 1024;
-    pos_v = pos_v + 3; 
+    pos_v = pos_v + 32; 
 
 #ifdef EMUL
     printf("</svg><br>&nbsp;<br>&nbsp;<br>\n");
@@ -250,9 +314,22 @@ void main_oled()
     }
     ++ frame;
     frame_flash += 16;
+    turn        += 8;
 #else
     frame_flash = flash>>3;
-#endif    
+    turn += (frame_flash > 20) ? tdir : -tdir;
+    if (turn > 64) {
+      turn = 64;
+      tdir = -1;
+    } else if (turn < -64) {
+      turn = -64;
+      tdir = 1;
+    }
+    bump       += bdir;
+    if (bump > 96 || bump < -96) {
+      bdir = - bdir;
+    }
+#endif
 
   }
 }

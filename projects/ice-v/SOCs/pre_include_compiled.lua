@@ -52,5 +52,5 @@ print('code size: ' .. numinit .. ' 32bits words')
 if numinit > memsize then
   error('too much code!')
 end
-
+code_size_bytes = numinit * 4
 meminit = meminit .. 'pad(uninitialized)}'

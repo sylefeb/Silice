@@ -2,7 +2,7 @@
 
 **TL;DR** A small CPU design that can come in handy, a detailed code walkthrough, a good place to start learning about both Silice and RISC-V.
 
-**Latest news:** Also check the [Ice-V-Dual](IceVDual.md) that fits two cores in less than 1.2K LUTs (with SoC).
+**Latest news:** Also check the [Ice-V-Dual](IceVDual.md) that fits two cores in less than 1200 LUTs (with SoC).
 
 **Please note:** The text likely needs more polish, please send feedback!
 
@@ -18,7 +18,7 @@ The version here runs out of the box on the IceStick ice40 1HK, and can adapted 
 - implements the RV32I specifications
 - runs code compiled with gcc RISC-V (build scripts included)
 - executes load/store in 4, instructions in 3 cycles but for shifts which additionally take one cycle per shifted bit
-- less than 1K LUTs
+- less than 1000 LUTs
 - validates at around 65 Mz on the IceStick
 - < 300 lines of commented code (~100 lines compacted)
 - 1 bit per cycle shifter
@@ -42,9 +42,7 @@ The build is performed in two steps, first compile some code for the processor t
 
 From `projects/ice-v` (this directory) run:
 ```
-cd compile
-./compile_c.sh ../src/c/test_leds.c
-cd ..
+./compile/icestick/compile_c.sh src/icestick/test_leds.c
 ```
 
 Plug your board tp the computer for programming and, from the project folder run:
@@ -56,9 +54,7 @@ On an IceStick the LEDs will blink around the center one in a rotating pattern.
 
 You may also simulate the design with:
 ```
-cd compile
-./compile_c.sh ../src/c/test_leds_simul.c
-cd ..
+./compile/icestick/compile_c.sh src/icestick/test_leds_simul.c
 make verilator
 ```
 The console will output the LEDs pattern until you press CTRL+C to interrupt
@@ -88,7 +84,7 @@ Equipped with this, you can test the [DooM fire](tests/c/fire.c) or the [starfie
 For the DooM fire:
 
 ```
-./compile_c.sh tests/c/fire.c
+./compile/icestick/compile_c.sh src/icestick/fire.c
 make icestick -f Makefile.oled
 ```
 

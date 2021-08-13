@@ -1,4 +1,4 @@
-#include "oled.h"
+#include "../oled.h"
 
 inline unsigned int time() 
 {

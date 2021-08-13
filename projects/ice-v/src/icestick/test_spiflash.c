@@ -1,6 +1,5 @@
-#include "oled.h"
-
-#include "spiflash.c"
+#include "../oled.h"
+#include "../spiflash.c"
 
 void main() 
 {

@@ -35,6 +35,8 @@ $$ Nregs  = 32
 $$ cycleW = 32
 $$end
 
+$$if not Boot then Boot = 0 end
+
 // bitfield for easier decoding of instructions
 bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, 
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
@@ -79,7 +81,7 @@ algorithm execute(
   uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
 
   // ==== select next address adder first input
-  int32 addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
+  int32 addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
   // ==== select ALU second input 
   int32 b         <: regOrImm ? (xb) : imm_i;
     
@@ -131,10 +133,10 @@ algorithm execute(
       }
     }
     working = (shamt != 0);
-$$if SIMULATION then
-if (working) {
-  __display("[cycle %d] ALU shifting",cycle);
-}
+$$if VERBOSE then
+    if (working) {
+      __display("[cycle %d] ALU shifting",cycle);
+    }
 $$end
     // all ALU operations
     switch (op) {
@@ -194,8 +196,8 @@ algorithm rv32i_cpu(bram_port mem) {
   uint2  stage(3);
 
   // program counter
-  uint$addrW$ pc_0(-1);
-  uint$addrW$ pc_1(-1);
+  uint$addrW$ pc_0($Boot-1$);
+  uint$addrW$ pc_1($Boot-1$);
   // next program counter
   uint$addrW$ next_pc <:: (stage[1,1] ? pc_0 : pc_1) + 1;
 
