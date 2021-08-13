@@ -11,10 +11,11 @@
 
 // Clocks
 $$if ICESTICK then
-import('../common/plls/icestick_60.v')
-$$end
-$$if FOMU then
-import('../common/plls/fomu_20.v')
+import('../../common/plls/icestick_60.v')
+$$elseif FOMU then
+import('../../common/plls/fomu_20.v')
+$$elseif ICEBREAKER then
+import('../../common/plls/icebrkr_25.v')
 $$end
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
@@ -25,7 +26,7 @@ $$dofile('pre_include_asm.lua')
 $$addrW = 12
 
 // include the processor
-$include('ice-v.ice')
+$include('../CPUs/ice-v.ice')
 
 // --------------------------------------------------
 // SOC
@@ -60,18 +61,11 @@ $$end
 $$if not SIMULATION then    
   ) <@cpu_clock> {
   // clock  
-$$if ICESTICK then
-  pll clk_gen (
-    clock_in  <: clock,
-    clock_out :> cpu_clock
-  ); 
-$$elseif FOMU then
   uint1 cpu_clock  = uninitialized;
   pll clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
-  );   
-$$end
+  ); 
 $$else
 ) {
 $$end
@@ -103,7 +97,7 @@ $$end
 
 $$if SPIFLASH or SIMULATION then
   // spiflash
-  uint1  reg_miso(0);
+  uint1       reg_miso(0);
 	// for spiflash memory mapping, need to record prev. cycle addr and rw
 	uint$addrW$ prev_mem_addr(0);
 	uint1       prev_mem_rw(0);
@@ -111,7 +105,7 @@ $$end
 $$if SIMULATION then
    uint32 cycle(0);
 $$end
-	 
+
   // ram
   // - intermediate interface to perform memory mapping
   bram_io memio;  
@@ -130,12 +124,12 @@ $$if SPIFLASH or SIMULATION then
     memio.rdata = (prev_mem_addr[11,1] & prev_mem_addr[4,1]/* & ~prev_mem_rw*/) ? {31b0,reg_miso} : mem.rdata;
 $$if SMIULATION then		
     if ( prev_mem_addr[11,1] & prev_mem_addr[4,1] & ~prev_mem_rw ) { __display("[cycle %d] SPI read: %d",cycle,memio.rdata); }
-$$end		
+$$end
 		prev_mem_addr = memio.addr;
 		prev_mem_rw   = memio.wenable[0,1];
 $$else
     memio.rdata   = mem.rdata;
-$$end		
+$$end
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
 		// ---- peripherals

@@ -42,7 +42,9 @@ The build is performed in two steps, first compile some code for the processor t
 
 From `projects/ice-v` (this directory) run:
 ```
-./compile_c.sh tests/c/test_leds.c
+cd compile
+./compile_c.sh ../src/c/test_leds.c
+cd ..
 ```
 
 Plug your board tp the computer for programming and, from the project folder run:
@@ -54,7 +56,9 @@ On an IceStick the LEDs will blink around the center one in a rotating pattern.
 
 You may also simulate the design with:
 ```
-./compile_c.sh tests/c/test_leds_simul.c
+cd compile
+./compile_c.sh ../src/c/test_leds_simul.c
+cd ..
 make verilator
 ```
 The console will output the LEDs pattern until you press CTRL+C to interrupt

@@ -3,22 +3,23 @@
 // Fun with RISC-V!
 // RV32I cpu, see README.md
 //
-// NOTE: running at 90 MHz while validating ~55 MHz
+// NOTE: running at 70 MHz while validating ~55 MHz
 //       in case of trouble change PLL choice below
-//       (icestick_clk_XX)
+//       (plls/icestick_XX)
 //
 //      GNU AFFERO GENERAL PUBLIC LICENSE
 //        Version 3, 19 November 2007
-//      
+//
 //  A copy of the license full text is included in 
 //  the distribution, please refer to it for details.
 
 // Clocks
 $$if ICESTICK then
-import('../common/plls/icestick_90.v')
-$$end
-$$if FOMU then
-import('../common/plls/fomu_20.v')
+import('../../common/plls/icestick_70.v')
+$$elseif FOMU then
+import('../../common/plls/fomu_20.v')
+$$elseif ICEBREAKER then
+import('../../common/plls/icebrkr_20.v')
 $$end
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
@@ -26,10 +27,19 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 // pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_asm.lua')
 
-$$addrW = 12
+$$if ICEBREAKER then
+$$  addrW    = 13
+$$  bramSize = 2816
+$$else
+$$  addrW    = 12    -- 1 additional bit for memory mapping
+$$  bramSize = 1024
+$$end
+$$if bramSize > 1<<(addrW-1) then
+$$  error("RAM is not fully addressable")
+$$end
 
 // include the processor
-$include('ice-v-dual.ice')
+$include('../CPUs/ice-v-dual.ice')
 
 // --------------------------------------------------
 // SOC
@@ -64,18 +74,11 @@ $$end
 $$if not SIMULATION then    
   ) <@cpu_clock> {
   // clock  
-$$if ICESTICK then
-  pll clk_gen (
-    clock_in  <: clock,
-    clock_out :> cpu_clock
-  ); 
-$$elseif FOMU then
   uint1 cpu_clock  = uninitialized;
   pll clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
-  );   
-$$end
+  ); 
 $$else
 ) {
 $$end
@@ -119,7 +122,7 @@ $$end
   // - intermediate interface to perform memory mapping
   bram_io memio;  
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
-  bram uint32 mem<"bram_wmask_byte">[1024] = $meminit$;
+  bram uint32 mem<"bram_wmask_byte">[$bramSize$] = $meminit$;
 
   // cpu
   rv32i_cpu cpu( mem <:> memio );
@@ -221,6 +224,7 @@ $$if OLED or PMOD then
 // produces a quarter freq clock with one bit traveling a four bit ring
 // data is sent one main clock cycle before the OLED clock raises
 
+// version clock / 8 (freq >= 70 MHz)
 algorithm oled(
   input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
   output  uint1 oled_clk, output  uint1 oled_din,        output uint1 oled_dc,
@@ -250,6 +254,7 @@ algorithm oled(
 }
 
 /*
+// version clock / 4 (freq < 70 MHz)
 algorithm oled(
   input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
   output  uint1 oled_clk, output  uint1 oled_din,        output uint1 oled_dc,
@@ -292,7 +297,7 @@ $$if PMOD then
 // based on the FPGA frequency and target audio frequency.
 // The audio frequency is likely to not be perfectly matched.
 //
-$$  base_freq_mhz      = 90  -- FPGA frequency
+$$  base_freq_mhz      = 70  -- FPGA frequency
 $$  audio_freq_khz     = 44.1 -- Audio frequency (target)
 $$  base_cycle_period  = 1000/base_freq_mhz
 $$  target_audio_cycle_period = 1000000/audio_freq_khz

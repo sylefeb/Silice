@@ -1,9 +1,9 @@
 
 .DEFAULT: ice-v-soc-dual.ice
-		silice-make.py -s ice-v-soc-dual.ice -b $@ -p basic,pmod,spiflash -o BUILD_$(subst :,_,$@) $(ARGS)
+		silice-make.py -s SOCs/ice-v-soc-dual.ice -b $@ -p basic,pmod,spiflash -o BUILD_$(subst :,_,$@) $(ARGS)
 
 verilator: ice-v-soc-dual.ice
-		silice-make.py -s ice-v-soc-dual.ice -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+		silice-make.py -s SOCs/ice-v-soc-dual.ice -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
 
 clean:
 	rm -rf BUILD_*

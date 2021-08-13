@@ -1,7 +1,7 @@
 -- include ASM code as a BROM
 memsize = 1536 -- max on an icestick
 
-in_asm = io.open(findfile('build/code.hex'), 'r')
+in_asm = io.open(findfile('../compile/build/code.hex'), 'r')
 if not in_asm then
   error('please compile code first using the compile_asm.sh / compile_c.sh scripts')
 end

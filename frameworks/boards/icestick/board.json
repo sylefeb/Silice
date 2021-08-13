@@ -101,106 +101,16 @@
     ],
     "pmod": [
       {
-        "name": "pmod1",
-        "type": "uint1",
-        "io": "input_output"
-      },
-      {
-        "name": "pmod2",
-        "type": "uint1",
-        "io": "input_output"
-      },
-      {
-        "name": "pmod3",
-        "type": "uint1",
-        "io": "input_output"
-      },
-      {
-        "name": "pmod4",
-        "type": "uint1",
-        "io": "input_output"
-      },
-      {
-        "name": "pmod5",
-        "type": "uint1",
-        "io": "input_output"
-      },
-      {
-        "name": "pmod6",
-        "type": "uint1",
-        "io": "input_output"
-      },
-      {
-        "name": "pmod7",
-        "type": "uint1",
-        "io": "input_output"
-      },
-      {
-        "name": "pmod8",
-        "type": "uint1",
-        "io": "input_output"
-      },
-      {
-        "name": "pmod9",
-        "type": "uint1",
-        "io": "input_output"
-      },
-      {
-        "name": "pmod10",
-        "type": "uint1",
-        "io": "input_output"
+        "name": "pmod",
+        "type": "uint8",
+        "io"  : "input_output"
       }
     ],
     "pmod_out": [
       {
-        "name": "pmod1",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "pmod2",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "pmod3",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "pmod4",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "pmod5",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "pmod6",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "pmod7",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "pmod8",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "pmod9",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "pmod10",
-        "type": "uint1",
-        "io": "output"
+        "name": "pmod",
+        "type": "uint8",
+        "io"  : "output"
       }
     ],
     "uart": [
