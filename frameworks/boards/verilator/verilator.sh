@@ -40,7 +40,7 @@ Linux)
 unset VERILATOR_ROOT
 ;;
 *)
-export VERILATOR_ROOT=$SILICE_DIR/../tools/fpga-binutils/mingw64/
+# export VERILATOR_ROOT=$SILICE_DIR/../tools/fpga-binutils/mingw64/
 ;;
 esac
 echo "VERILATOR_ROOT is set to ${VERILATOR_ROOT}"
@@ -74,7 +74,7 @@ fi
 
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/  -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI" -LDFLAGS "$LDFLAGS"
+verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat -Wno-TIMESCALEMOD --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/  -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI" -LDFLAGS "$LDFLAGS"
 cd obj_dir
 $MAKE -f Vtop.mk -j$(nproc)
 cd ..

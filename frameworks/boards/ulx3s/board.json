@@ -32,7 +32,7 @@
         ],
         "bitstream"  : "build.bit",
         "constraints": [{"name": "ulx3s.lpf", "file_type": "LPF"}],
-        "program": [{"cmd" : "fujprog", "args" : "build.bit"}]
+        "program": [{"cmd" : "openFPGALoader", "args" : "-b ulx3s build.bit"}]
       },
       {
         "builder" : "shell",
