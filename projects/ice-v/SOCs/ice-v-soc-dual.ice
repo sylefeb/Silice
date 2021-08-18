@@ -65,7 +65,7 @@ group bram_io
   uint4       wenable(0),
   uint32      wdata(0),
   uint32      rdata(0),
-  uint$addrW$ addr(0),    // boot address
+  uint$addrW$ addr(0),
 }
 
 algorithm main( // I guess this is the SOC :-D
