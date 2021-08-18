@@ -18,17 +18,17 @@ $$dofile('pre_sdcard_image.lua')
 // ------------------------- 
 
 algorithm main(
-  output! uint8 leds,
-  input   uint7 btn,
-  output! uint1 oled_clk,
-  output! uint1 oled_mosi,
-  output! uint1 oled_dc,
-  output! uint1 oled_resn,
-  output! uint1 oled_csn,
-  output! uint1 sd_clk,
-  output! uint1 sd_mosi,
-  output! uint1 sd_csn,
-  input   uint1 sd_miso
+  output uint8 leds,
+  input  uint7 btn,
+  output uint1 oled_clk,
+  output uint1 oled_mosi,
+  output uint1 oled_dc,
+  output uint1 oled_resn,
+  output uint1 oled_csn,
+  output uint1 sd_clk,
+  output uint1 sd_mosi,
+  output uint1 sd_csn,
+  input  uint1 sd_miso
 ) {
 
   oledio io;

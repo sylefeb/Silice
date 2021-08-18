@@ -23,12 +23,17 @@ $$error('Sorry, Blaze is currently not supported on this board.')
 $$end
 
 $$if ICEBREAKER then
-import('plls/icebrkr50.v')
+import('../common/plls/icebrkr_50.v')
 import('../common/ice40_half_clock.v')
+import('../common/ice40_spram.v')
 $$FIREV_NO_INSTRET    = 1
 $$FIREV_MERGE_ADD_SUB = nil
 $$FIREV_MUX_A_DECODER = 1
 $$FIREV_MUX_B_DECODER = 1
+$$end
+
+$$if VERILATOR then
+$include('../common/verilator_spram.ice')
 $$end
 
 $$VGA_VA_END = 400

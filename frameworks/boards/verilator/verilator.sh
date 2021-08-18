@@ -52,6 +52,11 @@ u=$(echo "$1" | sed s:/:__:g | tr -d ".")
 
 echo "using directory $u"
 
+if [[ ! -z "${NO_BUILD}" ]]; then
+  echo "Skipping build."
+  exit
+fi
+
 cd $BUILD_DIR
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
@@ -79,4 +84,8 @@ cd obj_dir
 $MAKE -f Vtop.mk -j$(nproc)
 cd ..
 
-./obj_dir/Vtop
+if [[ -z "${NO_PROGRAM}" ]]; then
+  ./obj_dir/Vtop
+else
+  echo "Skipping execution."
+fi

@@ -42,7 +42,7 @@ $$end
 
 $$if ULX3S then
 // Clock
-import('ulx3s_clk_50_25_100_100ph90.v')
+import('../common/plls/ulx3s_50_25_100_100ph180.v')
 $$end
 
 $$if SIMULATION then
@@ -187,7 +187,7 @@ $$if ULX3S then
   uint1 compute_clock = 0;
   uint1 compute_reset = 0;
   $$print('ULX3S at 50 MHz compute clock, 100 MHz SDRAM')
-  ulx3s_clk_50_25_100_100ph90 clk_gen(
+  pll_50_25_100_100ph180 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
     clkout1  :> video_clock,

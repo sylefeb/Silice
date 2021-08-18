@@ -173,6 +173,12 @@ print('using build system    ',colored(target_builder['builder'],'cyan'))
 framework_file = os.path.realpath(os.path.join(board_path,target_variant['framework']))
 os.environ["FRAMEWORK_FILE"] = framework_file
 
+# options
+if args.no_build:
+    os.environ["NO_BUILD"] = "1"
+if args.no_program:
+    os.environ["NO_PROGRAM"] = "1"
+
 # ok, build!
 
 # convenience: under Windows/mingw extend path with known typical locations

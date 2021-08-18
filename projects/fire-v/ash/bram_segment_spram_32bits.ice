@@ -38,12 +38,6 @@ $$if bram_depth > 14 then error('bram larger than spram') end
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 
-import('../common/ice40_spram.v')
-
-$$if VERILATOR then
-$include('verilator_spram.ice')
-$$end
-
 algorithm bram_segment_spram_32bits(
   rv32i_ram_provider     pram,               // provided ram interface
   input uint26           predicted_addr,     // next predicted address
