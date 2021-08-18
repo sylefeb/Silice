@@ -20,15 +20,12 @@ Then, from the prompt, enter the Silice directory and type: `./get_started_mingw
 
 > **Note:** The script adds Silice and the FPGA toolchain to PATH in` ~/.bashrc`. Open a new MinGW64 prompt to start using Silice.
 
-> **Note:** This automatically downloads a pre-compiled FPGA + RiscV toolchain from https://github.com/sylefeb/fpga-binutils/ (~290MB) as well as installs required MinGW64 packages. For details please refer to the [script source code](get_started_mingw64.sh).
+> **Note:** This automatically downloads pre-compiled FPGA tools from https://github.com/sylefeb/fpga-binutils/ (~16MB) as well as installs required MinGW64 packages. For details please refer to the [script source code](get_started_mingw64.sh).
 
 ## Drivers
 
-### USB and ice40 (IceStick / IceBreaker) under Windows
-To program with *iceprog* under Windows, you may have to use the [Zadig USB tool](https://zadig.akeo.ie/) to swap the driver. To do this, connect the board, launch Zadig, select the board from the drop-down menu (interface 0), and change the driver for 'libusbK' (select it on the right side). Click replace, wait, disconnect the board, put it back, should be working now. I've done this several times without issues. If it still does not work, verify the USB port is not a hub (some USB ports on computer fronts are) and try again from a native USB port on your motherboard.
-
-### USB and ULX3S under Windows
-To program the ECP5 with *fujprog* make sure to install the [FTDI CDM drivers](https://www.ftdichip.com/Drivers/D2XX.htm) (available as a setup exe, see right most column under "comments").
+### USB programming (IceStick / IceBreaker / ULX3S) under Windows
+To program with *iceprog* and *openFPGAloader* under Windows, you may have to use the [Zadig USB tool](https://zadig.akeo.ie/) to swap the driver. To do this, connect the board, launch Zadig, select the board from the drop-down menu (interface 0), and change the driver for 'WinUSB' (select it on the right side). Click replace, wait, disconnect the board, put it back, should be working now. I've done this several times without issues. If it still does not work, verify the USB port is not a hub (some USB ports on computer fronts are) and try again from a native USB port on your motherboard.
 
 ## Testing
 
