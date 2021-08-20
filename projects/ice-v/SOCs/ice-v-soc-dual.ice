@@ -107,7 +107,7 @@ $$  if VERILATOR then
   verilator_spram spram0(
 $$  else
   ice40_spram spram0(
-    clock    <: clock, 
+    clock    <: cpu_clock, 
 $$  end  
     addr     <: sp0_addr,
     data_in  <: sp0_data_in,
@@ -119,7 +119,7 @@ $$  if VERILATOR then
   verilator_spram spram1(
 $$  else
   ice40_spram spram1(
-    clock    <: clock,
+    clock    <: cpu_clock,
 $$  end  
     addr     <: sp1_addr,
     data_in  <: sp1_data_in,
@@ -181,19 +181,19 @@ $$end
 $$if USE_SPRAM then
 $$  if not SPIFLASH and not VERILATOR then error('USE_SPRAM requires SPIFLASH') end
     uint1 in_bram  <: memio.addr[16,1]; // in BRAM if addr greater than 64KB
-    sp0_data_in   = memio.wdata;
-    sp1_data_in   = memio.wdata;
+    sp0_data_in   = memio.wdata[ 0,16];
+    sp1_data_in   = memio.wdata[16,16];
     sp0_addr      = memio.addr;
     sp1_addr      = memio.addr;
-    sp0_wmask     = mem_wmask;
-    sp1_wmask     = mem_wmask;
-    sp0_wenable   = in_bram & memio.wenable;
-    sp1_wenable   = in_bram & memio.wenable;
+    sp0_wmask     = {mem_wmask[1,1],mem_wmask[1,1],mem_wmask[0,1],mem_wmask[0,1]};
+    sp1_wmask     = {mem_wmask[3,1],mem_wmask[3,1],mem_wmask[2,1],mem_wmask[2,1]};
+    sp0_wenable   = ~in_bram & memio.wenable;
+    sp1_wenable   = ~in_bram & memio.wenable;
     memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) 
                   ? {31b0,reg_miso}            // ^^^^^^^^^^^^^^^^^ SPI flash
                   : (prev_mem_addr[16,1] ? mem.rdata : {sp1_data_out,sp0_data_out});
     prev_mem_addr = memio.addr;
-    // __display("[cycle %d] in_bram:%b @%h %h (write:%b)",cycle,in_bram,memio.addr,memio.rdata,memio.wenable);
+    // __display("[cycle %d] in_bram:%b @%h w:%h (write:%b) (spram out: %d)",cycle,in_bram,memio.addr,memio.wdata,memio.wenable,{sp1_data_out,sp0_data_out});
 $$else
 $$  if SPIFLASH or SIMULATION then
     memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) 
@@ -274,7 +274,7 @@ $$end
 
 $$if SIMULATION then
   // stop after some cycles
-	while (cycle < 1024) { }
+	while (cycle < 10000) { }
 $$else
   // CPU is running
   while (1) { }

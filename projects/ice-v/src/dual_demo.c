@@ -12,12 +12,10 @@
 #define EMUL
 #endif
 
-volatile int* const SOUND = (int*)0x2020;
-
 #ifndef EMUL
 
-#include "../oled.h"
-#include "../spiflash.c"
+#include "oled.h"
+#include "spiflash.c"
 
 static inline unsigned int rdcycle() 
 {

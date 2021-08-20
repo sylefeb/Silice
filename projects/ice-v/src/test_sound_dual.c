@@ -1,4 +1,4 @@
-#include "../oled.h"
+#include "oled.h"
 
 inline unsigned int time() 
 {
@@ -16,9 +16,6 @@ inline unsigned int cpu_id()
 
 void main() 
 {
-  // volatile int* const LEDS  = (int*)0x2004;
-  volatile int* const SOUND = (int*)0x2020;
-
   int s   = 0;
   int dir = 1;
   unsigned int cy_last = time();

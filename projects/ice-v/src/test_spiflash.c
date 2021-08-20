@@ -1,13 +1,9 @@
-#include "../oled.h"
-#include "../spiflash.c"
+#include "oled.h"
+#include "spiflash.c"
 
 void main() 
 {
-/*
-int v = 0;
-v = *SPIFLASH;
-*LEDS = v;
-*/
+
   oled_init();
   oled_fullscreen();
 	
@@ -17,14 +13,6 @@ v = *SPIFLASH;
   spiflash_read_begin(0);	
 *LEDS	 = 2;
   spiflash_read_next();
-
-/*
-	int b = 0;
-  while (1) {
-    b+=7;
-    oled_clear(b);
-  } 
-*/
 
 	spiflash_read_begin(0);	
   for (int v=0;v<128;v++) {

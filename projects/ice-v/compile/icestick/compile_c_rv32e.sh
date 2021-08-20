@@ -12,8 +12,8 @@ fi
 
 echo "using $ARCH"
 
-$ARCH-elf-gcc -fstack-reuse=none -fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32e -mabi=ilp32e -S $1 -o compile/build/code.s
-$ARCH-elf-gcc -fstack-reuse=none -fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32e -mabi=ilp32e -c -o compile/build/code.o $1
+$ARCH-elf-gcc -DICESTICK -fstack-reuse=none -fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32e -mabi=ilp32e -S $1 -o compile/build/code.s
+$ARCH-elf-gcc -DICESTICK -fstack-reuse=none -fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32e -mabi=ilp32e -c -o compile/build/code.o $1
 
 $ARCH-elf-as -march=rv32e -mabi=ilp32e -o crt0.o compile/icestick/crt0_dual.s
 

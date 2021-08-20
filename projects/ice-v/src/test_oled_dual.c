@@ -1,4 +1,4 @@
-#include "../oled.h"
+#include "oled.h"
 
 static inline int cpu_id() 
 {

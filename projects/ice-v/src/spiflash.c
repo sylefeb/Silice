@@ -11,7 +11,7 @@ SPIFLASH bit-banging from RV32I CPU
 
 */
 
-volatile int* const SPIFLASH = (int*)0x2040;
+#include "config.h"
 
 void spiflash_select()
 {

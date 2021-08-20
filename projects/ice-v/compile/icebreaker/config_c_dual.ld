@@ -1,12 +1,12 @@
 MEMORY
 {
-   ram (rwx) : ORIGIN = 0x0000004, LENGTH = 0x0001000
+   ram (rwx) : ORIGIN = 0x0000004, LENGTH = 0x0100000
 }
 
 ENTRY(_start)
 
 SECTIONS {
-  .text 0x0010000 : { 
+  .text 0x0000004 : { 
         crt0.o (.text) 
         *(.text) 
         *(.sdata)

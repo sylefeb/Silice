@@ -1,5 +1,5 @@
-#include "../oled.h"
-#include "../spiflash.c"
+#include "oled.h"
+#include "spiflash.c"
 
 inline unsigned int time() 
 {

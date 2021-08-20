@@ -1,5 +1,13 @@
 -- include ASM code as a BROM
-memsize = 1536 -- max on an icestick
+
+if not path then
+  path,_1,_2 = string.match(findfile('Makefile'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+	if path == '' then 
+	  path = '.'
+	end
+  print('********************* firmware written to     ' .. path .. 'data.img')
+  print('********************* compiled code read from ' .. path .. 'compile/build/code*.hex')
+end
 
 in_asm = io.open(findfile('../compile/build/code.hex'), 'r')
 if not in_asm then
@@ -14,6 +22,8 @@ meminit = '{'
 numinit = 0
 local word = ''
 local prev_addr = -1
+
+local out = assert(io.open(path .. '/data.img', "wb"))
 
 for str in string.gmatch(code, "([^ \r\n]+)") do
  if string.sub(str,1,1) == '@' then
@@ -32,11 +42,13 @@ for str in string.gmatch(code, "([^ \r\n]+)") do
         word = ''
         numinit = numinit + 1
       end
+      out:write(string.pack('B', 0 ))
       prev_addr       = prev_addr + 1
     end
     prev_addr = addr
   else 
     h32 = str .. h32
+    out:write(string.pack('B', tonumber(str,16) ))
     nbytes = nbytes + 1
     if nbytes == 4 then
       print('32h' .. h32)
@@ -48,9 +60,8 @@ for str in string.gmatch(code, "([^ \r\n]+)") do
   end
 end
 
+out:close()
+
 print('code size: ' .. numinit .. ' 32bits words')
-if numinit > memsize then
-  error('too much code!')
-end
 code_size_bytes = numinit * 4
 meminit = meminit .. 'pad(uninitialized)}'

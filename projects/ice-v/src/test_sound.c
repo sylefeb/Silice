@@ -1,3 +1,5 @@
+#include "config.h"
+
 inline long time() 
 {
    int cycles;
@@ -7,8 +9,6 @@ inline long time()
 
 void main() 
 {
-  volatile int* const LEDS  = (int*)0x2004;
-  volatile int* const SOUND = (int*)0x2020;
   volatile int i = 0;
 
   int s   = -2048;

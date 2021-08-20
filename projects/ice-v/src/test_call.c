@@ -1,4 +1,4 @@
-int* const LEDS = (int*)0x1004;
+#include "config.h"
 
 void leds(unsigned char l)
 {

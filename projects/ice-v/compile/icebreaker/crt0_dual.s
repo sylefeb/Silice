@@ -8,11 +8,10 @@ _start:
    rdcycle a5
    andi a5,a5,1
    bnez a5,cpu1
-   li sp,0x1000
+   li sp,0xFFFC
    j done
 cpu1:   
-   li sp,0x0f00 # leaves 256 bytes for CPU0 ...
-                # not a lot
+   li sp,0xFBFC # leaves 1024 bytes for CPU0
 done:   
    call main
    tail exit

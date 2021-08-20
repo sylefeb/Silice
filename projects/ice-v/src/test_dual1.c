@@ -1,3 +1,5 @@
+#include "config.h"
+
 inline int cpu_id() 
 {
    unsigned int cycles;
@@ -7,7 +9,6 @@ inline int cpu_id()
 
 void main() 
 {
-  volatile int* const LEDS = (int*)0x2004;
 
   if (cpu_id()&1) {  
     while (1) {

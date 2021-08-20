@@ -1,13 +1,12 @@
-volatile int* const LEDS     = (int*)0x2004;
-volatile int* const OLED     = (int*)0x2008;
-volatile int* const OLED_RST = (int*)0x2010;
+#include "config.h"
 
 #define OLED_CMD   (1<< 9)
 #define OLED_DTA   (1<<10)
-
 #define DELAY      (1<<18)
 
+// OLED 4x version ( < 70 MHz)
 // static inline void wait() { asm volatile ("nop; nop; nop; "); } // 60,70 MHz
+// OLED 8x version (>= 70 MHz)
 static inline void wait() { asm volatile ("nop; nop; nop; nop; nop; nop; nop;"); }
 
 #define WAIT wait()
