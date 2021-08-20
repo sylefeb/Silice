@@ -17,7 +17,6 @@ inline unsigned int cpu_id()
 
 void main() 
 {
-  volatile int* const SOUND = (int*)0x2020;
   int o   = 0;  
   int s   = 0;
   int dir = 1;
@@ -50,6 +49,7 @@ void main()
       for (int v=0;v<128;v++) {
         for (int u=0;u<128;u++) {
           oled_pix(u+o,v,0);
+          WAIT;
         }
       }	
     }    

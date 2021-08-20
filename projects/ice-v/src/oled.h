@@ -90,6 +90,7 @@ void oled_clear(unsigned char c)
   for (int v=0;v<128;v++) {
     for (int u=0;u<128;u++) {
       oled_pix(c,c,c);
+      WAIT;
     }  
   }
 }
