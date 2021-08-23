@@ -188,37 +188,7 @@ $$end
 
 $$if OLED or PMOD then
 
-// Sends bytes to the OLED screen
-// produces a quarter freq clock with one bit traveling a four bit ring
-// data is sent one main clock cycle before the OLED clock raises
-
-algorithm oled(
-  input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
-  output  uint1 oled_clk, output  uint1 oled_din,        output uint1 oled_dc,
-) <autorun> {
-
-  uint2 osc        = 1;
-  uint1 dc         = 0;
-  uint8 sending    = 0;
-  uint8 busy       = 0;
-  
-  always {
-    oled_dc  =  dc;
-    osc      =  busy[0,1] ? {osc[0,1],osc[1,1]} : 2b1;
-    oled_clk =  busy[0,1] && (osc[0,1]); // SPI Mode 0
-    if (enable) {
-      dc         = data_or_command;
-      oled_dc    = dc;
-      sending    = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],
-                    byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
-      busy       = 8b11111111;
-    } else {
-      oled_din   = sending[0,1];
-      sending    = osc[0,1] ? {1b0,sending[1,7]} : sending;
-      busy       = osc[0,1] ? busy>>1 : busy;
-    }
-  }
-}
+$include('ice-v-oled.ice')
 
 $$end
 

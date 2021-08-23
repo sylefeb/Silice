@@ -1,8 +1,3 @@
-/* 
-  Based on @BrunoLevy01 FemtoRV crt0
-  https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV 
-*/
-
 .text
 .global _start
 .type _start, @function

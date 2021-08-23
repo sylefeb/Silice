@@ -28,20 +28,22 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 $$dofile('pre_include_compiled.lua')
 
 $$if (ICEBREAKER or VERILATOR) then
-$$  USE_SPRAM = 1
+$$  USE_SPRAM = nil
 $$end
 
-$$if (ICEBREAKER or VERILATOR) and USE_SPRAM then
-import('../../common/ice40_spram.v')
+$$if (ICEBREAKER or VERILATOR) then
 $$  periph   = 17    -- bit indicating a peripheral is addressed
 $$  addrW    = 18    -- additional bits for memory mapping
 $$  Boot     = 65536
-$$  print('===========> address bus width: ' .. addrW)
+$$  if USE_SPRAM then
+import('../../common/ice40_spram.v')
+$$  end
 $$else
 $$  periph   = 11    -- bit indicating a peripheral is addressed
 $$  addrW    = 12    -- additional bits for memory mapping
 $$  Boot     = 0
 $$end
+$$print('===========> address bus width: ' .. addrW)
 
 $$bramSize = 1024
 
@@ -179,8 +181,9 @@ $$end
 		//                                     ^^^^^^^ no write if in peripheral addresses
 	  // ---- memory access
 $$if USE_SPRAM then
-$$  if not SPIFLASH and not VERILATOR then error('USE_SPRAM requires SPIFLASH') end
-    uint1 in_bram  <: memio.addr[16,1]; // in BRAM if addr greater than 64KB
+    $$if not SPIFLASH and not VERILATOR then error('USE_SPRAM requires SPIFLASH') end
+    uint1 in_bram      <:  memio.addr[16,1]; // in BRAM if addr greater than 64KB
+    uint1 prev_in_bram <:: prev_mem_addr[16,1];
     sp0_data_in   = memio.wdata[ 0,16];
     sp1_data_in   = memio.wdata[16,16];
     sp0_addr      = memio.addr;
@@ -191,8 +194,12 @@ $$  if not SPIFLASH and not VERILATOR then error('USE_SPRAM requires SPIFLASH') 
     sp1_wenable   = ~in_bram & memio.wenable;
     memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) 
                   ? {31b0,reg_miso}            // ^^^^^^^^^^^^^^^^^ SPI flash
-                  : (prev_mem_addr[16,1] ? mem.rdata : {sp1_data_out,sp0_data_out});
+                  : (prev_in_bram ? mem.rdata : {sp1_data_out,sp0_data_out});
     prev_mem_addr = memio.addr;
+    mem.wenable   = {4{in_bram}} & mem_wmask;
+    //if (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) {
+    //  __display("[cycle %d] SPI read %b",cycle,reg_miso);
+    //}
     // __display("[cycle %d] in_bram:%b @%h w:%h (write:%b) (spram out: %d)",cycle,in_bram,memio.addr,memio.wdata,memio.wenable,{sp1_data_out,sp0_data_out});
 $$else
 $$  if SPIFLASH or SIMULATION then
@@ -286,70 +293,7 @@ $$end
 
 $$if OLED or PMOD then
 
-// Sends bytes to the OLED screen
-// produces a quarter freq clock with one bit traveling a four bit ring
-// data is sent one main clock cycle before the OLED clock raises
-
-// version clock / 8 (freq >= 70 MHz)
-algorithm oled(
-  input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
-  output  uint1 oled_clk, output  uint1 oled_din,        output uint1 oled_dc,
-) <autorun> {
-
-  uint4 osc        = 1;
-  uint1 dc         = 0;
-  uint8 sending    = 0;
-  uint8 busy       = 0;
-  
-  always {
-    oled_dc  =  dc;
-    osc      =  busy[0,1] ?  {osc[0,3],osc[3,1]} : 4b0001;
-    oled_clk =  busy[0,1] && (osc[2,1]|osc[3,1]); // SPI Mode 0
-    if (enable) {
-      dc         = data_or_command;
-      sending    = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],
-                    byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
-      busy       = 8b11111111;
-    } else {
-      oled_din   = sending[0,1];
-      sending    = osc[0,1] ? {1b0,sending[1,7]} : sending;
-      busy       = osc[0,1] ? busy>>1 : busy;
-    }
-  }
-
-}
-
-/*
-// version clock / 4 (freq < 70 MHz)
-algorithm oled(
-  input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
-  output  uint1 oled_clk, output  uint1 oled_din,        output uint1 oled_dc,
-) <autorun> {
-
-  uint2 osc        = 1;
-  uint1 dc         = 0;
-  uint8 sending    = 0;
-  uint8 busy       = 0;
-  
-  always {
-    oled_dc  =  dc;
-    osc      =  busy[0,1] ? {osc[0,1],osc[1,1]} : 2b1;
-    oled_clk =  busy[0,1] && (osc[0,1]); // SPI Mode 0
-    if (enable) {
-      dc         = data_or_command;
-      sending    = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],
-                    byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
-      busy       = 8b11111111;
-    } else {
-      oled_din   = sending[0,1];
-      sending    = osc[0,1] ? {1b0,sending[1,7]} : sending;
-      busy       = osc[0,1] ? busy>>1 : busy;
-    }
-  }
-
-}
-*/
-
+$include('ice-v-oled.ice')
 
 $$end
 
