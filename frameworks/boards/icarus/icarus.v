@@ -66,8 +66,8 @@ initial begin
 end
 
 reg ready = 0;
-reg [3:0] RST_d;
-reg [3:0] RST_q;
+reg [3:0] RST_d = 4'b0000;
+reg [3:0] RST_q = 4'b1111;
 
 always @* begin
   RST_d = RST_q >> 1;
@@ -88,7 +88,7 @@ wire done_main;
 
 M_main __main(
   .clock(clk),
-  .reset(RST_d[0]),
+  .reset(RST_q[0]),
   .out_leds(__main_leds),
 `ifdef VGA  
   .out_video_clock(__main_video_clock),

@@ -33,7 +33,7 @@ rm build* icarus.fst icarus.fst.hier
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
-iverilog -o build build.v
+iverilog -o build -pfileline=1 build.v
 vvp build -fst
 
 gtkwave icarus.fst

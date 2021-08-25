@@ -6532,13 +6532,17 @@ void Algorithm::writeCombinationalAlwaysPre(
     }
   }
   // reset temp variables (to ensure no latch is created)
+  // NOTE CHECK: if everything else is correct, this should be unecessary?
   for (const auto &v : m_Vars) {
     if (v.usage != e_Temporary) continue;
+    if (m_Blocks.front()->initialized_vars.count(v.name) != 0) continue; // intialized in top block, so clearly fine
+                                                                         // NOTE: icarus simulation does not like the double change which trigger @always events
     sl_assert(v.table_size == 0);
     out << FF_TMP << prefix << v.name << " = 0;" << nxl;
   }
   for (const auto &v : m_Outputs) {
     if (v.usage != e_Temporary) continue;
+    if (m_Blocks.front()->initialized_vars.count(v.name) != 0) continue; // intialized in top block, so clearly fine
     out << FF_TMP << prefix << v.name << " = 0;" << nxl;
   }
 
