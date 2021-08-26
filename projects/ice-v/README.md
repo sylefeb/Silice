@@ -32,7 +32,7 @@ The version here runs out of the box on the IceStick ice40 1HK, and can adapted 
 
 ## The Ice-V dual
 
-A second version of the processor is included in this repo: [the Ice-V *dual*](ice-v-dual.ice).
+A second version of the processor is included in this repo: [the Ice-V *dual*](CPUs/ice-v-dual.ice).
 This is an only slightly larger design that implements *two* RV32I cores. The
 dual version is described on [this separate page](IceVDual.md).
 
@@ -100,12 +100,12 @@ started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md) for more d
 
 ## The Ice-V design: code walkthrough
 
-Now that we have tested the Ice-V let's dive into the code! The [entire processor](ice-v.ice) fits in less than 300 lines of Silice code (~130 without comments). 
+Now that we have tested the Ice-V let's dive into the code! The [entire processor](CPUs/ice-v.ice) fits in less than 300 lines of Silice code (~130 without comments). 
 
 A Risc-V processor is surprisingly simple! This is also a good opportunity to discover some Silice syntax and features.
 
-The processor is in file [ice-v.ice](ice-v.ice). For the demos, it is included in
-a minimalist SOC in file [ice-v-soc.ice](ice-v-soc.ice).
+The processor is in file [ice-v.ice](CPUs/ice-v.ice). For the demos, it is included in
+a minimalist SOC in file [ice-v-soc.ice](SOCs/ice-v-soc.ice).
 
 The processor is made of three algorithms:
 - `algorithm execute` is responsible for splitting a 32 bit instruction just read from memory into information used by the rest of the processor (decoder), as well as performing all integer arithmetic (ALU): add, sub, shifts, bitwise operators, etc. 
