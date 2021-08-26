@@ -6,15 +6,16 @@ The Ice-V-dual is a dual core version of the [Ice-V](README.md). It contains *tw
 RV32I cores that work independently but share the RAM (code + data). Like 
 the Ice-V it is specialized to run from BRAM. 
 
-With its SoC it uses 1250+ LUTs on the IceStick and validates at ~55 MHz. 
+With its SoC it uses ~1220 LUTs on the IceStick and validates at ~55 MHz. 
 Each core is 4 cycles per instruction but for shifts (both cores wait if one does 
 ALU shifts). Cores retire instructions with a 2 cycles delay between them. 
 `rdcycle` is supported with a 31 bits counter, the LSB of `rdcycle` returns the CPU id.
 
+The processor source code is there: [ice-v-dual.ice](CPUs/ice-v-dual.ice).
+
 <p align="center">
   <img src="ice-v-dual-demo.png">
 </p>
-
 
 ## How is this possible?
 
@@ -38,7 +39,7 @@ leave this aside for now, we'll come back to it later.
 
 In the Ice-V, `LS1` is skipped when the instruction is not a load-store, resulting
 in a pattern of 4 cycles for load-stores and 3 cycles for others. That's trying
-to be as fast as possible, however making the pattern always 4 cycles open interesting
+to be as fast as possible, however making the pattern always 4 cycles opens interesting
 opportunities. So let's consider the case where `LS1` is always done (and does nothing
 if the instruction is *not* a load-store).
 

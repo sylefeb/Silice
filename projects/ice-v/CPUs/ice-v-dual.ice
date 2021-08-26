@@ -16,7 +16,7 @@
 // --------------------------------------------------
 
 $$if SIMULATION then
-$$VERBOSE = 1
+$$VERBOSE = nil
 $$end
 
 $$CPU0  = 1   -- set to nil to disable debug output for CPU0

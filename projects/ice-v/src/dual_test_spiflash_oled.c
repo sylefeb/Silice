@@ -32,6 +32,7 @@ void main_oled_spiflash()
     }
     spiflash_read_end();
     offs = offs + 128;
+    
   }
 
 }
