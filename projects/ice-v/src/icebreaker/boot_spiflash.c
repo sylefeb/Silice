@@ -8,29 +8,29 @@ static inline int cpu_id()
    return cycles&1;
 }
 
+volatile int synch = 0;
+
 void main_load_code()
 {
-    *LEDS = 1;
-    spiflash_init();
-    *LEDS = 2;
+  *LEDS = 1;
+  spiflash_init();
+  *LEDS = 2;
 
-    // copy to the start of the memory segment
-    unsigned char *code = (unsigned char *)0x0000004;    
-    spiflash_copy(256000/*offset*/,code,4096/*SPRAM size*/);
-  
-    // jump!
-    *LEDS = 7;
-    asm volatile ("li t0,4; jalr x0,0(t0);");
+  // copy to the start of the memory segment
+  unsigned char *code = (unsigned char *)0x0000004;    
+  spiflash_copy(256000/*offset*/,code,4096/*SPRAM size*/);
 
-//    *LEDS = 0;
-    while (1) { }
+  // jump!    
+  *LEDS = 7;
+  synch = 1;
+  asm volatile ("li t0,4; jalr x0,0(t0);");
 }
 
-void main_nop()
+void main_wait_n_jump()
 {
-  while (1) { }
+  while (synch == 0) { }
+  asm volatile ("li t0,4; jalr x0,0(t0);");
 }
-
 
 void main()
 {
@@ -41,7 +41,7 @@ void main()
 
   } else {
 		
-		main_nop();
+		main_wait_n_jump();
 		
 	}
 }

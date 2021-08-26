@@ -19,7 +19,7 @@ import('../../common/plls/icestick_70.v')
 $$elseif FOMU then
 import('../../common/plls/fomu_20.v')
 $$elseif ICEBREAKER then
-import('../../common/plls/icebrkr_20.v')
+import('../../common/plls/icebrkr_25.v')
 $$end
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
