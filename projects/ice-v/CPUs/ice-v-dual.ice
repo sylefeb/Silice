@@ -16,7 +16,7 @@
 // --------------------------------------------------
 
 $$if SIMULATION then
-$$VERBOSE = nil
+$$VERBOSE = 1
 $$end
 
 $$CPU0  = 1   -- set to nil to disable debug output for CPU0
@@ -34,6 +34,8 @@ $$ print("Ice-V configured for RV32I")
 $$ Nregs  = 32
 $$ cycleW = 32
 $$end
+
+$$NOP=0x13
 
 $$if not Boot then Boot = 0 end
 
@@ -189,8 +191,8 @@ algorithm rv32i_cpu(bram_port mem) {
   bram int32 xregsA_1[$Nregs$]={pad(0)}; bram int32 xregsB_1[$Nregs$]={pad(0)};
 
   // current instruction
-  uint32 instr_0(0);
-  uint32 instr_1(0);
+  uint32 instr_0($NOP$);
+  uint32 instr_1($NOP$);
 
   // CPU dual stages
   uint2  stage(3);
@@ -221,6 +223,7 @@ $$end
                     | (exec.storeVal  ? exec.val            : 32b0)
                     | (exec.load      ? loaded              : 32b0)
                     | (exec.intop     ? exec.r              : 32b0);
+                    
   // The 'always_before' block is applied at the start of every cycle.
   // This is a good place to set default values, which also indicates
   // to Silice that some variables (e.g. xregsA.wdata) are fully set
@@ -250,7 +253,7 @@ $$end
     // dual state machine
     // four states: F, T, LS1, LS2/commit
 $$if VERBOSE then         
-    __display("[cycle %d] ====== stage:%b ",cycle,stage);
+    __display("[cycle %d] ====== stage:%b reset:%b pc_0:%h pc_1:%h",cycle,stage,reset,pc_0,pc_1);
 $$end
 
   if ( ~ stage[0,1] ) { // even stage
@@ -259,14 +262,14 @@ $$end
       
       // F
 $$if KILL0 then
-      instr_0 = 0;
+      instr_0 = $NOP$;
       pc_0    = 0;
 $$else
       instr_0 = ~stage[1,1] ? mem.rdata : instr_0;
       pc_0    = ~stage[1,1] ? mem.addr  : pc_0;
 $$end
 $$if KILL1 then
-      instr_1 = 0;
+      instr_1 = $NOP$;
       pc_1    = 0;
 $$else
       instr_1 = stage[1,1] ? mem.rdata : instr_1;

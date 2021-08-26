@@ -12,8 +12,8 @@
 Dedicated memory for the IceBreaker Ice40 with SPRAM
 
 Implements a memory space with:
-- 0x0000 to 0xFFFF mapped to SPRAM
-- 0x1000 to 0x17FF mapped to bram (boot)
+- 0x00000 to 0x0FFFF mapped to SPRAM
+- 0x10000 to 0x17FFF mapped to bram (boot)
 
 Two sprams are used, spram0 for bits 0-15, spram1 for bits 16-31
 
@@ -63,7 +63,7 @@ algorithm bram_segment_spram_32bits(
   uint16 sp1_data_out(0);
   
 $$if VERILATOR then
-  verilator_spram spram0(
+  simulation_spram spram0(
 $$else
   ice40_spram spram0(
     clock    <: clock, 
@@ -76,7 +76,7 @@ $$end
   );
 
 $$if VERILATOR then
-  verilator_spram spram1(
+  simulation_spram spram1(
 $$else
   ice40_spram spram1(
     clock    <: clock,

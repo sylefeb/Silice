@@ -915,8 +915,8 @@ void Algorithm::gatherInitListFromFile(int width, siliceParser::InitListContext 
 {
   sl_assert(ilist->file() != nullptr);
   // check variable width
-  if (width != 8 && width != 32) {
-    reportError(ilist->file()->getSourceInterval(), -1, "can only read int8/uint8 and int32/uint32 from files");
+  if (width != 8 && width != 32 && width != 16) {
+    reportError(ilist->file()->getSourceInterval(), -1, "can only read int8/uint8, int16/uint16 and int32/uint32 from files");
   }
   // get filename
   std::string fname = ilist->file()->STRING()->getText();
@@ -930,13 +930,20 @@ void Algorithm::gatherInitListFromFile(int width, siliceParser::InitListContext 
   if (width == 8) {
     uchar v;
     while (fread(&v, 1, 1, f)) {
-      _values_str.push_back(sprint("8'h%2x",v));
+      _values_str.push_back(sprint("8'h%02X",v));
+    }
+  } else if (width == 16) {
+    ushort v;
+    while (fread(&v, sizeof(ushort), 1, f)) {
+      _values_str.push_back(sprint("16'h%04X", v));
     }
   } else if (width == 32) {
     uint v;
     while (fread(&v, sizeof(uint), 1, f)) {
-      _values_str.push_back(sprint("32'h%4x", v));
+      _values_str.push_back(sprint("32'h%08X", v));
     }
+  } else {
+    sl_assert(false);
   }
   std::cerr << Console::white << "- read " << _values_str.size() << " words." << nxl;
   fclose(f);

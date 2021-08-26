@@ -66,8 +66,8 @@ initial begin
 end
 
 reg ready = 0;
-reg [3:0] RST_d = 4'b0000;
-reg [3:0] RST_q = 4'b1111;
+reg [7:0] RST_d = 8'b11111111;
+reg [7:0] RST_q = 8'b11111111;
 
 always @* begin
   RST_d = RST_q >> 1;
@@ -78,7 +78,7 @@ always @(posedge clk) begin
     RST_q <= RST_d;
   end else begin
     ready <= 1;
-    RST_q <= 4'b1111;
+    RST_q <= 8'b11111111;
   end
 end
 

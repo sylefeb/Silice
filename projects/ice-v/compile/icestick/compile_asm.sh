@@ -13,8 +13,8 @@ fi
 echo "using $ARCH"
 
 $ARCH-elf-as.exe -march=rv32i -mabi=ilp32 -o compile/build/code.o $1
-$ARCH-elf-ld.exe -m elf32lriscv -b elf32-littleriscv -Tcompile/config_asm.ld --no-relax -o compile/build/code.elf build/code.o
-$ARCH-elf-objcopy.exe -O verilog build/code.elf compile/build/code.hex
+$ARCH-elf-ld.exe -m elf32lriscv -b elf32-littleriscv -Tcompile/icestick/config_asm.ld --no-relax -o compile/build/code.elf compile/build/code.o
+$ARCH-elf-objcopy.exe -O verilog compile/build/code.elf compile/build/code.hex
 
-# $ARCH-elf-objcopy.exe -O binary compile/build/code.elf compile/build/code.bin
-# $ARCH-elf-objdump.exe -D -b binary -m riscv compile/build/code.bin 
+$ARCH-elf-objcopy.exe -O binary compile/build/code.elf compile/build/code.bin
+$ARCH-elf-objdump.exe -D -b binary -m riscv compile/build/code.bin 

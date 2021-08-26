@@ -18,7 +18,7 @@ $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 algorithm bram_segment_ram_32bits(
   rv32i_ram_provider pram,              // provided ram interface
   rv32i_ram_user     uram,              // used ram interface
-  input uint26       cache_start,       // where the cache is locate
+  input uint26       cache_start,       // where the cache is located
   input uint26       predicted_addr,    // next predicted address
   input uint1        predicted_correct, // was the prediction correct?
 ) <autorun> {

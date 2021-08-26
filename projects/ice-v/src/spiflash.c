@@ -13,12 +13,12 @@ SPIFLASH bit-banging from RV32I CPU
 
 #include "config.h"
 
-void spiflash_select()
+static inline void spiflash_select()
 {
   *SPIFLASH = 2;
 }
 
-void spiflash_unselect()
+static inline void spiflash_unselect()
 {
   *SPIFLASH = 4 | 2;
 }
@@ -46,12 +46,12 @@ void spiflash_send(int indata)
 
 #define spiflash_read_step_L() \
     *SPIFLASH    = 2;\
-    answer       = (answer << 1) | ((*SPIFLASH)&1);\
+    asm volatile ("nop; nop; nop; nop; nop; nop;");\
 
 #define spiflash_read_step_H() \
     *SPIFLASH    = 3;\
     n ++;\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
+    answer       = (answer << 1) | ((*SPIFLASH)&1);\
 
 unsigned char spiflash_read()
 {

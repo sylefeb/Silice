@@ -5,8 +5,8 @@ if not path then
 	if path == '' then 
 	  path = '.'
 	end
-  print('********************* firmware written to     ' .. path .. 'data.img')
-  print('********************* compiled code read from ' .. path .. 'compile/build/code*.hex')
+  print('********************* firmware written to     ' .. path .. '/data.img')
+  print('********************* compiled code read from ' .. path .. '/compile/build/code*.hex')
 end
 
 in_asm = io.open(findfile('../compile/build/code.hex'), 'r')
@@ -23,10 +23,17 @@ numinit = 0
 local word = ''
 local prev_addr = -1
 
-local out = assert(io.open(path .. '/data.img', "wb"))
+local out   = assert(io.open(path .. '/data.img', "wb"))
+--local out_l = assert(io.open(path .. '/spram_l.img', "wb"))
+--local out_h = assert(io.open(path .. '/spram_h.img', "wb"))
+
+--out_h:write(string.pack('B', tonumber("0",16) ))
+--out_h:write(string.pack('B', tonumber("0",16) ))
+--out_l:write(string.pack('B', tonumber("0",16) ))
+--out_l:write(string.pack('B', tonumber("0",16) ))
 
 for str in string.gmatch(code, "([^ \r\n]+)") do
- if string.sub(str,1,1) == '@' then
+  if string.sub(str,1,1) == '@' then
     addr = tonumber(string.sub(str,2), 16)
     if prev_addr < 0 then
       print('first addr = ' .. addr)
@@ -42,13 +49,18 @@ for str in string.gmatch(code, "([^ \r\n]+)") do
         word = ''
         numinit = numinit + 1
       end
-      out:write(string.pack('B', 0 ))
+      out:write(string.pack('B', 0 ))      
       prev_addr       = prev_addr + 1
     end
     prev_addr = addr
   else 
     h32 = str .. h32
     out:write(string.pack('B', tonumber(str,16) ))
+    if nbytes < 2 then
+      --out_h:write(string.pack('B', tonumber(str,16) ))
+    else
+      --out_l:write(string.pack('B', tonumber(str,16) ))
+    end    
     nbytes = nbytes + 1
     if nbytes == 4 then
       print('32h' .. h32)
@@ -60,7 +72,9 @@ for str in string.gmatch(code, "([^ \r\n]+)") do
   end
 end
 
-out:close()
+out  :close()
+--out_l:close()
+--out_h:close()
 
 print('code size: ' .. numinit .. ' 32bits words')
 code_size_bytes = numinit * 4

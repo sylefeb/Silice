@@ -27,15 +27,15 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 // pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_compiled.lua')
 
-$$if (ICEBREAKER or VERILATOR) then
-$$  USE_SPRAM = nil
+$$if (ICEBREAKER or SIMULATION) then
+$$  USE_SPRAM = 1
 $$end
 
-$$if (ICEBREAKER or VERILATOR) then
-$$  periph   = 17    -- bit indicating a peripheral is addressed
-$$  addrW    = 18    -- additional bits for memory mapping
-$$  Boot     = 65536
-$$  if USE_SPRAM then
+$$if (ICEBREAKER or SIMULATION) then
+$$  periph   = 17       -- bit indicating a peripheral is addressed
+$$  addrW    = 18       -- additional bits for memory mapping
+$$  Boot     = 65536//4 -- NOTE: address in 32bits words
+$$  if USE_SPRAM and not SIMULATION then
 import('../../common/ice40_spram.v')
 $$  end
 $$else
@@ -51,8 +51,13 @@ $$if bramSize > 1<<(addrW-1) then
 $$  error("RAM is not fully addressable")
 $$end
 
-$$if VERILATOR then
-$include('../../common/verilator_spram.ice')
+$$if SIMULATION then
+$$  SPRAM_INIT_FILE = nil -- '"../spram_h.img"'
+$$  SPRAM_POSTFIX = '_h'
+$include('../../common/simulation_spram.ice')
+$$  SPRAM_INIT_FILE = nil -- '"../spram_l.img"'
+$$  SPRAM_POSTFIX = '_l'
+$include('../../common/simulation_spram.ice')
 $$end
 
 // include the processor
@@ -67,7 +72,7 @@ group bram_io
   uint4       wenable(0),
   uint32      wdata(0),
   uint32      rdata(0),
-  uint$addrW$ addr(0),
+  uint$addrW$ addr($Boot$),
 }
 
 algorithm main( // I guess this is the SOC :-D
@@ -81,6 +86,9 @@ $$if OLED then
 $$end
 $$if PMOD then
   inout  uint8 pmod,
+$$end
+$$if BUTTONS then
+  input  uint3 btns,
 $$end
 $$if SPIFLASH then
   output uint1 sf_clk,
@@ -100,13 +108,14 @@ $$else
 ) {
 $$end
 
-$$if (ICEBREAKER or VERILATOR) and USE_SPRAM then
+$$if (ICEBREAKER or SIMULATION) and USE_SPRAM then
   uint14 sp0_addr(0);    uint4  sp0_wmask(0);    uint1  sp0_wenable(0);
   uint16 sp0_data_in(0); uint16 sp0_data_out(0);
   uint14 sp1_addr(0);    uint4  sp1_wmask(0);    uint1  sp1_wenable(0);
   uint16 sp1_data_in(0); uint16 sp1_data_out(0);
-$$  if VERILATOR then
-  verilator_spram spram0(
+
+$$  if SIMULATION then
+  simulation_spram_h spram0(
 $$  else
   ice40_spram spram0(
     clock    <: cpu_clock, 
@@ -117,8 +126,8 @@ $$  end
     wmask    <: sp0_wmask,
     data_out :> sp0_data_out
   );
-$$  if VERILATOR then
-  verilator_spram spram1(
+$$  if SIMULATION then
+  simulation_spram_l spram1(
 $$  else
   ice40_spram spram1(
     clock    <: cpu_clock,
@@ -159,6 +168,8 @@ $$end
 $$if SPIFLASH or SIMULATION then
   // spiflash
   uint1       reg_miso(0);
+  // buttons
+  uint3       reg_btns(0);
 	// for spiflash memory mapping, need to record prev. cycle addr and rw
 	uint$addrW$ prev_mem_addr(0);
 $$end
@@ -177,34 +188,41 @@ $$end
 
   // io mapping
   always {
-    uint4 mem_wmask <: memio.wenable & {4{~memio.addr[$periph$,1]}}; 
+    uint1 in_periph <: memio.addr[$periph$,1];
+    uint4 mem_wmask <: memio.wenable & {4{~in_periph}}; 
 		//                                     ^^^^^^^ no write if in peripheral addresses
 	  // ---- memory access
 $$if USE_SPRAM then
-    $$if not SPIFLASH and not VERILATOR then error('USE_SPRAM requires SPIFLASH') end
-    uint1 in_bram      <:  memio.addr[16,1]; // in BRAM if addr greater than 64KB
-    uint1 prev_in_bram <:: prev_mem_addr[16,1];
+    $$if not SPIFLASH and not SIMULATION then error('USE_SPRAM requires SPIFLASH or SIMULATION') end
+    uint1 in_bram      <:  memio.addr[14,1]; // in BRAM if addr greater than 64KB
+    uint1 prev_in_bram <:: prev_mem_addr[14,1]; // 14 as we address uint32 instr.
     sp0_data_in   = memio.wdata[ 0,16];
     sp1_data_in   = memio.wdata[16,16];
-    sp0_addr      = memio.addr;
-    sp1_addr      = memio.addr;
+    sp0_addr      = memio.addr[0,14];
+    sp1_addr      = memio.addr[0,14];
     sp0_wmask     = {mem_wmask[1,1],mem_wmask[1,1],mem_wmask[0,1],mem_wmask[0,1]};
     sp1_wmask     = {mem_wmask[3,1],mem_wmask[3,1],mem_wmask[2,1],mem_wmask[2,1]};
-    sp0_wenable   = ~in_bram & memio.wenable;
-    sp1_wenable   = ~in_bram & memio.wenable;
+    sp0_wenable   = (~in_bram) & (~in_periph) & (mem_wmask != 0);
+    sp1_wenable   = (~in_bram) & (~in_periph) & (mem_wmask != 0);
     memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) 
-                  ? {31b0,reg_miso}            // ^^^^^^^^^^^^^^^^^ SPI flash
+                  ? {28b0,reg_btns,reg_miso} // ^^^^^^^^^^^^^^^^^^ SPI flash
                   : (prev_in_bram ? mem.rdata : {sp1_data_out,sp0_data_out});
     prev_mem_addr = memio.addr;
     mem.wenable   = {4{in_bram}} & mem_wmask;
-    //if (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) {
-    //  __display("[cycle %d] SPI read %b",cycle,reg_miso);
-    //}
-    // __display("[cycle %d] in_bram:%b @%h w:%h (write:%b) (spram out: %d)",cycle,in_bram,memio.addr,memio.wdata,memio.wenable,{sp1_data_out,sp0_data_out});
+$$if SIMULATION then
+    if (sp0_wenable) {
+      __display("[cycle %d] SPRAM write @%h wmask:%b%b (value: %h)",cycle,
+                sp0_addr,sp1_wmask,sp0_wmask,{sp1_data_in,sp0_data_in});
+    } else {
+      if (~in_bram) {
+        __display("[cycle %d] SPRAM read @%h",cycle,sp0_addr<<2);
+      }
+    }
+$$end    
 $$else
 $$  if SPIFLASH or SIMULATION then
     memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) 
-                  ? {31b0,reg_miso} : mem.rdata; // ^^^^^^^^^^^^^^^ SPI flash
+                  ? {28b0,reg_btns,reg_miso} : mem.rdata; // ^^^^^^ SPI flash
 		prev_mem_addr = memio.addr;
 $$  else
     memio.rdata   = mem.rdata;
@@ -223,6 +241,9 @@ $$if PMOD then
 $$end
 $$if SPIFLASH then
     reg_miso      = sf_miso; // register flash miso
+$$if BUTTONS then    
+    reg_btns      = btns;    // register buttons
+$$end    
 $$end
     // ---- memory mapping to peripherals: writes
     if (memio.wenable[0,1] & memio.addr[$periph$,1]) {
@@ -281,7 +302,7 @@ $$end
 
 $$if SIMULATION then
   // stop after some cycles
-	while (cycle < 10000) { }
+	while (cycle < 100000) { }
 $$else
   // CPU is running
   while (1) { }

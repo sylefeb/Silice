@@ -11,7 +11,7 @@ _start:
    li sp,65532 # end of SPRAM
    j done
 cpu1:   
-   li sp,65508 # leaves 1024 bytes for CPU0
+   li sp,61436 # leaves 4096 bytes for CPU0
 done:   
    call main
    tail exit

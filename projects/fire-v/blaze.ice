@@ -33,7 +33,7 @@ $$FIREV_MUX_B_DECODER = 1
 $$end
 
 $$if VERILATOR then
-$include('../common/verilator_spram.ice')
+$include('../common/simulation_spram.ice')
 $$end
 
 $$VGA_VA_END = 400
@@ -267,7 +267,7 @@ $$end
   uint8  fb0_wmask(0);
   uint16 fb0_data_out(0);
 $$if VERILATOR then
-  verilator_spram frame0(
+  simulation_spram frame0(
 $$else  
   ice40_spram frame0(
     clock    <: vga_clock,
@@ -284,7 +284,7 @@ $$end
   uint8  fb1_wmask(0);
   uint16 fb1_data_out(0);
 $$if VERILATOR then
-  verilator_spram frame1(
+  simulation_spram frame1(
 $$else  
   ice40_spram frame1(
     clock    <: vga_clock,

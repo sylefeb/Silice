@@ -78,7 +78,7 @@ import('../common/ice40_spram.v')
 
 $$if VERILATOR then
 // verilator ice40 SPRAM simulation
-$include('../common/verilator_spram.ice') 
+$include('../common/simulation_spram.ice') 
 $$end
 
 // ------------------------- 
@@ -183,7 +183,7 @@ $$end
   uint4  fb0_wmask(0);
   uint16 fb0_data_out(0);
 $$if VERILATOR then
-  verilator_spram frame0(
+  simulation_spram frame0(
 $$else  
   ice40_spram frame0(
     clock    <: vga_clock,
@@ -202,7 +202,7 @@ $$end
   uint4  fb1_wmask(0);
   uint16 fb1_data_out(0);
 $$if VERILATOR then
-  verilator_spram frame1(
+  simulation_spram frame1(
 $$else  
   ice40_spram frame1(
     clock    <: vga_clock,
@@ -227,7 +227,7 @@ $$end
   uint4  map_wmask   <:: 4b1111;
   uint16 map_data_out(0);
 $$if VERILATOR then
-  verilator_spram map(
+  simulation_spram map(
 $$else
   ice40_spram map(
     clock    <: vga_clock,

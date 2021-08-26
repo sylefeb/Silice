@@ -92,7 +92,7 @@ wire done_main;
 
 M_main __main(
   .clock(clk),
-  .reset(RST_d[0]),
+  .reset(RST_q[0]),
   .out_leds(__main_leds),
 `ifdef SDRAM
   .out_sdram_clock(__main_sdram_clock),

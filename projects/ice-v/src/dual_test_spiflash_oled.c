@@ -16,10 +16,11 @@ void main_oled_spiflash()
 
   spiflash_init();
 
+  int offs = 0;
+
   while (1) {
 
-    *LEDS	 = 30;
-    spiflash_read_begin(0);	
+    spiflash_read_begin(offs);	
     for (register int v=0;v<128;v++) {
       for (register int u=0;u<128;u++) {
         unsigned char r = spiflash_read_next();
@@ -28,10 +29,9 @@ void main_oled_spiflash()
         oled_pix(r,g,b);
         WAIT;
       }
-    }	
+    }
     spiflash_read_end();
-    *LEDS	 = 1;
-
+    offs = offs + 128;
   }
 
 }
@@ -43,19 +43,32 @@ void main_nop()
 
 }
 
+void main_leds()
+{
+  int l = 1;
+  int i = 0;
+
+  while (1) {
+    l <<= 1;
+    if (l > 8) {
+      l = 1;
+    }
+    *LEDS = l;
+    for (i=0;i<500000;++i) { }
+  }
+}
+
 void main() 
 {
 
-  if (cpu_id() == 0) {
+  if (cpu_id() == 1) {
 
     main_oled_spiflash();
 
   } else {
 
-    main_nop();
-
+    main_leds();
+    
   }
-
-  
 	
 }
