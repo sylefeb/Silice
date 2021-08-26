@@ -31,8 +31,8 @@ void main_oled_spiflash()
       }
     }
     spiflash_read_end();
-    offs = offs + 128;
-    
+    offs = offs + 128*3;
+
   }
 
 }
@@ -44,21 +44,6 @@ void main_nop()
 
 }
 
-void main_leds()
-{
-  int l = 1;
-  int i = 0;
-
-  while (1) {
-    l <<= 1;
-    if (l > 8) {
-      l = 1;
-    }
-    *LEDS = l;
-    for (i=0;i<500000;++i) { }
-  }
-}
-
 void main() 
 {
 
@@ -68,7 +53,7 @@ void main()
 
   } else {
 
-    main_leds();
+    main_nop();
     
   }
 	
