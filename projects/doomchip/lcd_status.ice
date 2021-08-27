@@ -1,4 +1,6 @@
 // SL 2020-05
+// MIT license, see LICENSE_MIT in Silice repo root
+
 $include('../common/lcd.ice')
 
 // ------------------------- 

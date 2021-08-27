@@ -7,11 +7,7 @@
 //       in case of trouble change PLL choice below
 //       (plls/icestick_XX)
 //
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // Clocks
 $$if ICESTICK then
@@ -314,6 +310,7 @@ $$end
 
 $$if OLED or PMOD then
 
+$$OLED_SLOW = 1
 $include('ice-v-oled.ice')
 
 $$end

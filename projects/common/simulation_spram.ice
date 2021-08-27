@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 $$config['simple_dualport_bram_wmask_half_bytes_wenable1_width'] = 'data'
 
 algorithm simulation_spram$SPRAM_POSTFIX$(

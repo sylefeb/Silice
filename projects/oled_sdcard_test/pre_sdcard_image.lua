@@ -1,3 +1,5 @@
+-- MIT license, see LICENSE_MIT in Silice repo root
+
 print('preparing sdcard image')
 
 local path,_1,_2 = string.match(findfile('test.tga'), "(.-)([^\\/]-%.?([^%.\\/]*))$")

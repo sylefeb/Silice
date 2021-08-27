@@ -1,3 +1,4 @@
+// SL 2019, MIT license
 module %MODULE%(
 input      [%WENABLE0_WIDTH%-1:0]             in_%NAME%_wenable0,
 input      %DATA_TYPE% [%DATA_WIDTH%-1:0]     in_%NAME%_wdata0,

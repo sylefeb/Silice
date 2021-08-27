@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 #include "../spiflash.c"
 #include "../config.h"
 

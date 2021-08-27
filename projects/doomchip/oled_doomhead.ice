@@ -1,4 +1,5 @@
 // SL 2020-05
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$SSD1351=1
 $include('../common/oled.ice')

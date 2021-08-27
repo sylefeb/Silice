@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 #pragma once
 
 #ifdef ICESTICK

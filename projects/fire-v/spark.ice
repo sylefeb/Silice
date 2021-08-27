@@ -10,14 +10,10 @@
 // Tested on: ULX3S, Verilator, Icarus
 //
 // ------------------------- 
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$if SIMULATION then
-$$verbose      = 1
+$$verbose = nil
 $$end
 
 $$if not (ULX3S or ICARUS or VERILATOR or ICEBREAKER) then

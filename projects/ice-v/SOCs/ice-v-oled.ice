@@ -2,6 +2,10 @@
 // produces a quarter freq clock with one bit traveling a four bit ring
 // data is sent one main clock cycle before the OLED clock raises
 
+// MIT license, see LICENSE_MIT in Silice repo root
+
+$$if OLED_SLOW then
+
 // version clock / 8 (freq >= 70 MHz)
 algorithm oled(
   input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
@@ -31,7 +35,8 @@ algorithm oled(
 
 }
 
-/*
+$$else 
+
 // version clock / 4 (freq < 70 MHz)
 algorithm oled(
   input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
@@ -60,4 +65,5 @@ algorithm oled(
   }
 
 }
-*/
+
+$$end

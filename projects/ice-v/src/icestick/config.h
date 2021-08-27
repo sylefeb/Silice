@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 #pragma once
 
 volatile int* const LEDS     = (int*)0x2004;

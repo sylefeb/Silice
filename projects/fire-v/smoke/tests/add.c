@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 
 int f(int v) {
   return v + 10;

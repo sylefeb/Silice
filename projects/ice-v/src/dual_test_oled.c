@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 #include "oled.h"
 
 static inline int cpu_id() 

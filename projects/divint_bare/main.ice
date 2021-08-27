@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // integer division
 $$div_width=16

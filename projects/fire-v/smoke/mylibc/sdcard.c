@@ -12,11 +12,7 @@ http://www.rjhcoding.com/avrc-sd-interface-1.php
 http://www.dejazzer.com/ee379/lecture_notes/lec12_sd_card.pdf
 http://chlazza.nfshost.com/sdcardinfo.html
 
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 */
 

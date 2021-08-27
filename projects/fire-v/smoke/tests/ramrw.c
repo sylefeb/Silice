@@ -1,5 +1,7 @@
 //   ./compile_c.sh --nolibc
 
+// MIT license, see LICENSE_MIT in Silice repo root
+
 volatile unsigned char* const LEDS = (unsigned char*)0x90000000;
 
 void main()

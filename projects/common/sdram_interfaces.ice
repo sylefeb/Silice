@@ -3,7 +3,7 @@
 //
 // SDRAM interface definitions
 //
-
+// MIT license, see LICENSE_MIT in Silice repo root
 // -----------------------------------------------------------
 
 // SDRAM, r128w8 data exchange (1 byte write, 16 bytes burst read)

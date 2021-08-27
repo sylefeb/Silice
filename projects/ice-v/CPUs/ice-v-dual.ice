@@ -4,12 +4,7 @@
 //
 // NOTE: please get familiar with the ice-v first.
 //
-//
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // --------------------------------------------------
 // Processor
@@ -28,7 +23,7 @@ $$KILL1 = nil -- set to 1 to disable CPU1
 $$if ICE_V_RV32E then
 $$ print("Ice-V configured for RV32E")
 $$ Nregs  = 16
-$$ cycleW = 24
+$$ cycleW = 32
 $$else
 $$ print("Ice-V configured for RV32I")
 $$ Nregs  = 32
@@ -197,7 +192,7 @@ algorithm rv32i_cpu(bram_port mem) {
   // CPU dual stages
   uint2  stage(3);
 
-  // program counter
+  // program counters
   uint$addrW$ pc_0($Boot-1$);
   uint$addrW$ pc_1($Boot-1$);
   // next program counter
@@ -206,7 +201,7 @@ algorithm rv32i_cpu(bram_port mem) {
   // value that has been loaded from memory
   int32 loaded = uninitialized;
 
-  // decoder + ALU, executes the instruction and tells processor what to do
+  // decoder + ALU, executes the instruction and tells the processor what to do
   uint32 instr <:: (stage[0,1]^stage[1,1]) ? instr_0 : instr_1;
   uint32 pc    <:: (stage[0,1]^stage[1,1]) ? pc_0    : pc_1;
   int32  xa    <:: (stage[0,1]^stage[1,1]) ? xregsA_0.rdata : xregsA_1.rdata;
@@ -290,7 +285,7 @@ $$end
 
       // LS1
       // memory address from which to load/store
-      mem.addr = ~ exec.working ? (exec.n >> 2) : mem.addr;
+      mem.addr = ~exec.working ? (exec.n >> 2) : mem.addr;
       // no need to know which CPU, since we only read from exec
       if (exec.store) {   
         // == Store (enabled if exec.store == 1)
@@ -366,10 +361,8 @@ $$end
 
     }
 
-    // advance states unless stuck in ALU
-    if (exec.working == 0) {
-      stage = reset ? stage : stage + 1;
-    }
+    // advance states unless stuck in ALU or reset is high
+    stage = (exec.working | reset) ? stage : stage + 1;
 $$if VERBOSE then               
     if (reset) { __display("[cycle %d] reset",cycle); }
 $$end

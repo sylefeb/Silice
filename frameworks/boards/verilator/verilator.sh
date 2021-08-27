@@ -57,6 +57,8 @@ if [[ ! -z "${NO_BUILD}" ]]; then
   exit
 fi
 
+rm -rf $BUILD_DIR/obj_dir
+
 cd $BUILD_DIR
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"

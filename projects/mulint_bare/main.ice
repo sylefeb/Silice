@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // integer multiplication
 $$mul_width = 24

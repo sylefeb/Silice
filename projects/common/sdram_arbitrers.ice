@@ -7,6 +7,8 @@
 // N-way arbitrer for SDRAM
 // sd0 has highest priority, then sd1, then ...
 
+// MIT license, see LICENSE_MIT in Silice repo root
+
 $$if not Nway then
 $$  Nway = 3
 $$end

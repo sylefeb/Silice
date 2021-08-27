@@ -1,10 +1,12 @@
-VGA 6-6-6 bits RGB DAC
+## VGA 6-6-6 bits RGB DAC
 
-Quite the hack! Does the job.
+*Quite the hack! Does the job.*
 
 Bottom wires come from the VGA cable, white and brown are horizontal/vertical synch.
 
 This was tested on the Mojo v3, de10nano and IceStick.
+
+Note that on boards with two side-by-side PMOD connectors (e.g. IceBreaker, ECPIX5) you may use an existing VGA PMOD such as the one by *Digilent*.
 
 ![VGA DAC](vga_dac.jpg)
 
@@ -61,7 +63,7 @@ The de10nano pinout is now compatible with the VGA onboard the [MiSTer IO board]
 | pin AH21  | blue 5 |
 
 ## Pinout for the MojoV3
-(NOTE: the MojoV3 is not yet integrated in the new build system)
+(NOTE: the MojoV3 is not fully integrated in the new build system)
 
 | MojoV3 pins | VGA signal |
 |---------------|------------|

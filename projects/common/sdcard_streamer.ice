@@ -1,5 +1,6 @@
 // SL @sylefeb 2020-09
 // ------------------------- 
+// MIT license, see LICENSE_MIT in Silice repo root
 
 group streamio {
   uint1 next  = 0,

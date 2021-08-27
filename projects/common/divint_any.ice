@@ -1,5 +1,6 @@
 // Sylvain Lefebvre; simple parallel division; 2019-10-09
 // any width version; see divint.ice for more info
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // Returns largest positive/negative int on div by zero
 //

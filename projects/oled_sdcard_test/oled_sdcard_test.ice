@@ -1,4 +1,5 @@
 // SL 2020-07 @sylefeb
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // vvvvvvvvvvvvv select screen driver below
 $$ -- SSD1351=1

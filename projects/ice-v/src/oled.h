@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 #include "config.h"
 
 #define OLED_CMD   (1<< 9)

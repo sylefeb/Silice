@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 $$LCD_4BITS=1
 $$LCD_2LINES=1
 $$LCD_MODE=0

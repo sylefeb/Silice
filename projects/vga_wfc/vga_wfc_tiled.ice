@@ -1,5 +1,6 @@
 // SL 2020-07-13
 // Wave function collapse / Model synthesis (with image output)
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$if DE10NANO or SIMULATION then
 $$N = 8

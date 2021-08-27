@@ -1,4 +1,5 @@
 // SL 2020-12-02 @sylefeb
+// MIT license, see LICENSE_MIT in Silice repo root
 // ------------------------- 
 
 $$if not SDRAM_r512_w64 then

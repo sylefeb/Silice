@@ -1,4 +1,5 @@
 // SL 2020-12-23 @sylefeb
+// MIT license, see LICENSE_MIT in Silice repo root
 // ------------------------- 
 
 // pre-compilation script, embeds compiled code within spiflash image

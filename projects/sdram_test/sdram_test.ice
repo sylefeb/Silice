@@ -3,6 +3,7 @@
 // A simple test for SDRAM controllers, in simulation
 //
 // ------------------------- 
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $include('../common/sdram_interfaces.ice')
 $include('../common/sdram_controller_autoprecharge_r16_w16.ice')

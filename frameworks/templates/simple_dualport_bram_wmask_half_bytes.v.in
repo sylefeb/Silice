@@ -1,3 +1,4 @@
+// SL 2019, MIT license
 module %MODULE%(
 input      [%ADDR0_WIDTH%-1:0]                in_%NAME%_addr0,
 output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]     out_%NAME%_rdata0,

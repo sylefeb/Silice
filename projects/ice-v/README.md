@@ -42,7 +42,7 @@ The build is performed in two steps, first compile some code for the processor t
 
 From `projects/ice-v` (this directory) run:
 ```
-./compile/icestick/compile_c.sh src/icestick/test_leds.c
+./compile/icestick/compile_c.sh src/test_leds.c
 ```
 
 Plug your board tp the computer for programming and, from the project folder run:
@@ -54,7 +54,7 @@ On an IceStick the LEDs will blink around the center one in a rotating pattern.
 
 You may also simulate the design with:
 ```
-./compile/icestick/compile_c.sh src/icestick/test_leds_simul.c
+./compile/icestick/compile_c.sh src/test_leds_simul.c
 make verilator
 ```
 The console will output the LEDs pattern until you press CTRL+C to interrupt
@@ -68,24 +68,51 @@ LEDs: 00001
 ...
 ```
 
+### Adding a screen
+
 Optionally you can plug a small OLED screen (I used [this one](https://www.waveshare.com/1.5inch-rgb-oled-module.htm), 128x128 RGB with SSD1351 driver).
 
-The pinout for the IceStick is:
+Two different pinouts are supported. The first, shown next, uses all five wires
+of the OLED/LCD:
 | IceStick        | OLED      |
 |-----------------|-----------|
-| PMOD10 (pin 91) | din       |
-| PMOD9  (pin 90) | clk       |
-| PMOD8  (pin 88) | cs        |
-| PMOD7  (pin 87) | dc        |
 | PMOD1  (pin 78) | rst       |
+| PMOD7  (pin 87) | dc        |
+| PMOD8  (pin 88) | cs        |
+| PMOD9  (pin 90) | clk       |
+| PMOD10 (pin 91) | din       |
+
+> Using this pinout, build the design with the `Makefile.oled` makefile (see below).
+
+The second, recommended pinout uses only four wires of the OLED/LCD interface,
+leaving room for a second peripheral (such as a sound chip!). The pinout then is:
+| IceStick        | OLED      |
+|-----------------|-----------|
+| PMOD1  (pin 78) | rst       |
+| PMOD2  (pin 79) | dc        |
+| PMOD3  (pin 80) | clk       |
+| PMOD4  (pin 81) | din       |
+
+The CS pin of the screen has to be grounded. One way to do this is to plug it on top of the ground pin plug, see the orange wire in the picture below.
+
+<p align="center">
+  <img src="oled-pmod-4wires.jpg" width=400px>
+</p>
+
+> Using this pinout, build the design with the `Makefile.pmod` makefile (see below).
 
 Equipped with this, you can test the [DooM fire](tests/c/fire.c) or the [starfield](tests/c/starfield.c) demos. 
 
-For the DooM fire:
-
+For the DooM fire with the first OLED/LCD pinout:
 ```
-./compile/icestick/compile_c.sh src/icestick/fire.c
+./compile/icestick/compile_c.sh src/fire.c
 make icestick -f Makefile.oled
+```
+
+For the DooM fire with the second OLED/LCD pinout:
+```
+./compile/icestick/compile_c.sh src/fire.c
+make icestick -f Makefile.pmod
 ```
 
 <p align="center">

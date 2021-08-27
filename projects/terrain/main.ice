@@ -5,11 +5,7 @@
 // Tested on: Verilator, IceBreaker + VGA PMOD
 //
 // ------------------------- 
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // ./build.sh for building (plug the icebreaker first)
 // ./simul.sh for simulation, results in BUILD_verilator

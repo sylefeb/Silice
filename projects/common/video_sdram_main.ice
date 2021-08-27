@@ -5,6 +5,8 @@
 // -- mode_640_480
 //
 
+// MIT license, see LICENSE_MIT in Silice repo root
+
 $$if not SDRAM_r512_w64 then
 $$ SDRAM_r128_w8  = true
 $$end

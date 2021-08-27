@@ -7,11 +7,7 @@ I went through the trouble of equalizing all delays to have a clean
 spiflash clock period, but maybe that was not necessary.
 These delays are tunned to the Fire-V and likely not portable.
 
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 */
 

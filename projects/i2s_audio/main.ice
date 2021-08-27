@@ -1,4 +1,5 @@
 // SL 2021-07-20
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // First we use the pre-processor to compute counters
 // based on the FPGA frequency and target audio frequency.

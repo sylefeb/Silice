@@ -1,8 +1,8 @@
 // SL 2020-04-28
 // DoomChip, VGA wrapper
+// MIT license, see LICENSE_MIT in Silice repo root
 //
-// NOTE: there is tearing currently (unrestricted frame rate),
-//       will be fixed later
+// NOTE: there is tearing currently (unrestricted frame rate)
 //
 
 // -------------------------

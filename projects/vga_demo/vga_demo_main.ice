@@ -1,6 +1,7 @@
 // SL 2020-04-23
 // Main file for all vga demo projects
 // -------------------------
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // VGA driver
 $include('../common/vga.ice')

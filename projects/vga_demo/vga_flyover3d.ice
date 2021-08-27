@@ -1,5 +1,6 @@
 // SL 2020-04-22
 // Flying over 3D planes
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $include('vga_demo_main.ice')
 

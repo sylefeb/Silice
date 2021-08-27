@@ -6,14 +6,8 @@
 // Note: rdinstret and rdcycle are limited to 32 bits
 //       rdtime reports user_data instead of time
 //
-//
 // --------------------------------------------------
-//
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $include('risc-v.ice')
 

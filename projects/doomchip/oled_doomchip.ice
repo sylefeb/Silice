@@ -1,5 +1,6 @@
 // SL 2020-04-28
 // DoomChip, OLED wrapper
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$if ULX3S then
 // vvvvvvvvvvvvv select screen driver below

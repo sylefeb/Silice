@@ -22,5 +22,5 @@ $ARCH-elf-ld -m elf32lriscv -b elf32-littleriscv -Tcompile/icestick/config_c.ld 
 $ARCH-elf-objcopy -O verilog compile/build/code.elf compile/build/code.hex
 
 # uncomment to see the actual code, usefull for debugging
-$ARCH-elf-objcopy.exe -O binary compile/build/code.elf compile/build/code.bin
-$ARCH-elf-objdump.exe -D -b binary -m riscv compile/build/code.bin 
+# $ARCH-elf-objcopy.exe -O binary compile/build/code.elf compile/build/code.bin
+# $ARCH-elf-objdump.exe -D -b binary -m riscv compile/build/code.bin 

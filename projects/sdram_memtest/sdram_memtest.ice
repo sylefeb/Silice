@@ -3,6 +3,7 @@
 // A simple test for SDRAM controllers, in simulation
 //
 // ------------------------- 
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$TEST_r512w64            = true
 $$TEST_r128w8             = false

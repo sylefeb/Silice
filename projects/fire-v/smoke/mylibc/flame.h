@@ -1,10 +1,6 @@
 // SL 2021-01-22 @sylefeb
  
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // trigonometry (fixed precision: 7 bits - a unit = 128)
 extern int costbl[256]; // 256 entries

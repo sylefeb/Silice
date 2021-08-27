@@ -3,6 +3,8 @@
 //    open in firefox to see a preview of the rendering
 // gcc tests/c/dual_lotus.c ; ./a.exe > tmp.html
 
+// MIT license, see LICENSE_MIT in Silice repo root
+
 #ifndef __riscv
 #define EMUL
 #endif

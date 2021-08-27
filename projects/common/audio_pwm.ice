@@ -1,4 +1,5 @@
 // SL 12-2020
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // This is a nice trick to 'interpolate' through a 4-bits only DAC
 // I got this from emard: https://github.com/emard/ulx3s-misc/blob/master/examples/audio/hdl/dacpwm.v

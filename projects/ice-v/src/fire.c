@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 #include "oled.h"
 
 unsigned char tbl[32*32]={

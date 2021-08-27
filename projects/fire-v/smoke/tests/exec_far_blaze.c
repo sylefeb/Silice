@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 #include "code_blaze.h"
 
 volatile unsigned char* const LEDS        = (unsigned char*)0x90000000;

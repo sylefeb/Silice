@@ -1,4 +1,5 @@
 // -------------------------
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // VGA driver
 $include('../common/vga.ice')

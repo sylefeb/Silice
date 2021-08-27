@@ -4,6 +4,7 @@
 // not for speed.
 //
 // Donated to Silice by @sylefeb
+// MIT license, see LICENSE_MIT in Silice repo root
 //
 // Parameters for calculations: ( 32 bit float { sign, exponent, mantissa } format )
 // addsub, multiply and divide a and b ( as floating point numbers ), addsub flag == 0 for add, == 1 for sub

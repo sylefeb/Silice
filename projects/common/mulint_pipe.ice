@@ -3,6 +3,7 @@
 // Why? The goal is to achieve a multi-cycle multiplication
 // with small combinational chains
 //
+// MIT license, see LICENSE_MIT in Silice repo root
 
 algorithm mulpip(
   input  uint8 m0,

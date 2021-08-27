@@ -8,6 +8,8 @@
 //   PCM 8 bit signed, raw no header
 // iceprog -o 1M track.raw
 
+// MIT license, see LICENSE_MIT in Silice repo root
+
 #ifndef __riscv
 #define EMUL
 #endif
