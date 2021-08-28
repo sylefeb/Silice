@@ -101,6 +101,10 @@ PAD                 : 'pad' ;
 
 FILE                : 'file' ;
 
+COMPILE             : 'compile' ;
+
+RISCV               : 'riscv' ;
+
 ASSERT              : '#assert' ;
 
 ASSUME              : '#assume' ;
@@ -450,8 +454,20 @@ circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' block ;
 
 algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' algModifiers? '{' declAndInstrList '}' ;
 
+/* -- RISC-V -- */
+
+cblock_items        : cblock | ( ~( '{' | '}' )) + ;
+cblock              : '{' cblock_items * '}' ;
+
+riscvInstructions   : initList
+                    | COMPILE '(' ( file | cblock ) ')' ;
+
+riscvModifiers      : '<' '>';
+
+riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? '=' riscvInstructions ;
+
 /* -- Overall structure -- */
 
-topList       :  (algorithm | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
+topList       :  (algorithm | riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
 
 root                : topList EOF ;
