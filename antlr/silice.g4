@@ -461,7 +461,7 @@ cblock_items        : cblock | cblock_chunks;
 cblock              : '{' cblock_items * '}' ;
 
 riscvInstructions   : initList
-                    | COMPILE '(' ( file | cblock ) ')' ;
+                    | COMPILE '(' cblock ')' ;
 
 riscvModifiers      : '<' '>';
 

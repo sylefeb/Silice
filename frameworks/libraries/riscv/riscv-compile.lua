@@ -1,0 +1,109 @@
+gcc = 'riscv64-unknown-elf-gcc'
+as  = 'riscv64-unknown-elf-as'
+ld  = 'riscv64-unknown-elf-ld'
+oc  = 'riscv64-unknown-elf-objcopy'
+
+-- =========================================================================
+ 
+function test_compiler()
+  local h  = io.popen(gcc .. ' --version','r')
+  local r  = h:read('*all')
+  h:close()
+  if r == '' then
+    error('RISC-V compiler not found')
+  end
+end
+
+-- =========================================================================
+
+function compile(file)
+  local cmd
+  cmd =  gcc .. ' '
+      .. '-fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32e -mabi=ilp32e -c -o code.o '
+      .. SRC
+  os.execute(cmd)
+  cmd =  as .. ' '
+      .. '-march=rv32e -mabi=ilp32e -o crt0.o '
+      .. CRT0
+  os.execute(cmd)
+  cmd =  ld .. ' '
+      .. '-m elf32lriscv -b elf32-littleriscv -T' .. LD_CONFIG .. ' --no-relax -o code.elf code.o'
+  os.execute(cmd)
+  cmd =  oc .. ' '
+      .. '-O verilog code.elf code.hex'
+  os.execute(cmd)
+end
+
+-- =========================================================================
+
+function to_BRAM()
+  if not path then
+    path,_1,_2 = string.match(findfile('code.hex'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+    if path == '' then 
+      path = '.'
+    end
+    print('********************* firmware written to     ' .. path .. '/code.bin')
+    print('********************* compiled code read from ' .. path .. '/code.hex')
+  end
+  all_data_hex  = {}
+  all_data_bram = {}
+  word = ''
+  init_data_bytes = 0
+  local prev_addr = -1
+  local out       = assert(io.open(path .. '/data.bin', "wb"))
+  local in_asm    = io.open(findfile('code.hex'), 'r')
+  if not in_asm then
+    error('C code compilation failed')
+  end
+  local code = in_asm:read("*all")
+  in_asm:close()
+  for str in string.gmatch(code, "([^ \r\n]+)") do
+    if string.sub(str,1,1) == '@' then
+      addr = tonumber(string.sub(str,2), 16)
+      if prev_addr < 0 then
+        print('first addr = ' .. addr)
+        prev_addr = addr
+      end
+      print('addr delta = ' .. addr - prev_addr)
+      delta = addr - prev_addr
+      for i=1,delta do
+        -- pad with zeros
+        word     = '00' .. word;
+        if #word == 8 then 
+          all_data_bram[1+#all_data_bram] = '32h' .. word .. ','
+          word = ''
+        end
+        all_data_hex[1+#all_data_hex] = '8h' .. 0 .. ','
+        out:write(string.pack('B', 0 ))
+        init_data_bytes = init_data_bytes + 1
+        prev_addr       = prev_addr + 1
+      end
+      prev_addr = addr
+    else 
+      word     = str .. word;
+      if #word == 8 then 
+        all_data_bram[1+#all_data_bram] = '32h' .. word .. ','
+        word = ''
+      end
+      all_data_hex[1+#all_data_hex] = '8h' .. str .. ','
+      out:write(string.pack('B', tonumber(str,16) ))
+      init_data_bytes = init_data_bytes + 1
+      prev_addr       = prev_addr + 1
+    end
+  end
+
+  out:close()
+  data_hex  = table.concat(all_data_hex)
+  data_bram = table.concat(all_data_bram)
+
+end
+
+-- =========================================================================
+
+-- print('source file = ' .. SRC)
+
+test_compiler()
+
+compile(SRC)
+
+to_BRAM()
