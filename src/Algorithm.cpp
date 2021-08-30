@@ -720,10 +720,10 @@ void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current
   if (sub != nullptr) {
     sub->varnames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
   }
-  if (!no_init) {
+  if (!no_init && !_var.do_not_initialize && !_var.init_at_startup) {
     // add to block initialization set
     _current->initialized_vars.insert(make_pair(_var.name, (int)m_Vars.size() - 1));
-    _current->no_skip = true; // mark as cannot skip to honor var initializations
+    _current->no_skip = true; // mark block as cannot skip to honor var initializations
   }
   // add to block declared vios
   _current->declared_vios.insert(_var.name);
@@ -1569,7 +1569,7 @@ std::string Algorithm::rewriteIdentifier(
   size_t line,
   std::string ff, bool read_access,
   const t_vio_dependencies& dependencies,
-  t_vio_ff_usage &_ff_usage, e_FFUsage ff_Force) const
+  t_vio_ff_usage &_ff_usage, e_FFUsage ff_force) const
 {
   sl_assert(!(!read_access && ff == FF_Q));
   if (var == ALG_RESET || var == ALG_CLOCK) {
@@ -1597,19 +1597,20 @@ std::string Algorithm::rewriteIdentifier(
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_Temporary) {
         // temporary
+        updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _ff_usage.ff_usage[var]);
         return encapsulateIdentifier(var, read_access, FF_TMP + prefix + var, suffix);
       } else if (usage == e_FlipFlop) {
         // flip-flop
         if (ff == FF_Q) {
           if (dependencies.dependencies.count(var) > 0) {
-            updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
+            updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _ff_usage.ff_usage[var]);
             return encapsulateIdentifier(var, read_access, FF_D + prefix + var, suffix);
           } else {
-            updateFFUsage((e_FFUsage)((int)e_Q | ff_Force), read_access, _ff_usage.ff_usage[var]);
+            updateFFUsage((e_FFUsage)((int)e_Q | ff_force), read_access, _ff_usage.ff_usage[var]);
           }
         } else {
           sl_assert(ff == FF_D);
-          updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
+          updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _ff_usage.ff_usage[var]);
         }
         return encapsulateIdentifier(var, read_access, ff + prefix + var, suffix);
       } else if (usage == e_Bound) {
@@ -1633,6 +1634,7 @@ std::string Algorithm::rewriteIdentifier(
       } else {
         if (m_Vars.at(V->second).usage == e_Temporary) {
           // temporary
+          updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _ff_usage.ff_usage[var]);
           return encapsulateIdentifier(var, read_access, FF_TMP + prefix + var, suffix);
         } else if (m_Vars.at(V->second).usage == e_Const) {
           // const
@@ -1644,14 +1646,14 @@ std::string Algorithm::rewriteIdentifier(
           // flip-flop
           if (ff == FF_Q) {
             if (dependencies.dependencies.count(var) > 0) {
-              updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
+              updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _ff_usage.ff_usage[var]);
               return encapsulateIdentifier(var, read_access, FF_D + prefix + var, suffix);
             } else {
-              updateFFUsage((e_FFUsage)((int)e_Q | ff_Force), read_access, _ff_usage.ff_usage[var]);
+              updateFFUsage((e_FFUsage)((int)e_Q | ff_force), read_access, _ff_usage.ff_usage[var]);
             }
           } else {
             sl_assert(ff == FF_D);
-            updateFFUsage((e_FFUsage)((int)e_D | ff_Force), read_access, _ff_usage.ff_usage[var]);
+            updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _ff_usage.ff_usage[var]);
           }
           return encapsulateIdentifier(var, read_access, ff + prefix + var, suffix);
         }
@@ -6453,9 +6455,9 @@ void Algorithm::writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ost
 // -------------------------------------------------
 
 void Algorithm::writeCombinationalAlwaysPre(
-  std::string prefix,  std::ostream& out, 
-  const                t_instantiation_context &ictx, 
-  t_vio_dependencies& _always_dependencies, 
+  std::string prefix,  std::ostream& out,
+  const                t_instantiation_context& ictx,
+  t_vio_dependencies& _always_dependencies,
   t_vio_ff_usage&     _ff_usage,
   t_vio_dependencies& _post_dependencies) const
 {
@@ -6544,26 +6546,38 @@ void Algorithm::writeCombinationalAlwaysPre(
       }
     }
   }
-  // reset temp variables (to ensure no latch is created)
-  // NOTE CHECK: if everything else is correct, this should be unecessary?
+  // always before block
+  std::queue<size_t> q;
+  std::set<v2i> lines;
+  ostringstream ostr; // write in a string as we might have to interleave temp init /before/ depending on ff_usage
+  writeStatelessBlockGraph(prefix, ostr, ictx, &m_AlwaysPre, nullptr, q, _always_dependencies, _ff_usage, _post_dependencies, lines);
+  clearNoLatchFFUsage(_ff_usage);
+  // reset any temp variables that could result in a latch being created
+  // these are temp vars that have not been touched by m_AlwaysPre or only partially so
+  // NOTE: icarus simulation does not like the double change which trigger @always events
+  //       so I now filter these assignments which would normally have no effect
   for (const auto &v : m_Vars) {
     if (v.usage != e_Temporary) continue;
-    if (m_Blocks.front()->initialized_vars.count(v.name) != 0) continue; // intialized in top block, so clearly fine
-                                                                         // NOTE: icarus simulation does not like the double change which trigger @always events
-    sl_assert(v.table_size == 0);
-    out << FF_TMP << prefix << v.name << " = 0;" << nxl;
+    if (_ff_usage.ff_usage.count(v.name) != 0) {
+      if (_ff_usage.ff_usage[v.name] != e_D) {
+        out << FF_TMP << prefix << v.name << " = 0;" << nxl;
+      }
+    } else {
+      out << FF_TMP << prefix << v.name << " = 0;" << nxl;
+    }
   }
   for (const auto &v : m_Outputs) {
     if (v.usage != e_Temporary) continue;
-    if (m_Blocks.front()->initialized_vars.count(v.name) != 0) continue; // intialized in top block, so clearly fine
-    out << FF_TMP << prefix << v.name << " = 0;" << nxl;
+    if (_ff_usage.ff_usage.count(v.name) != 0) {
+      if (_ff_usage.ff_usage[v.name] != e_D) {
+        out << FF_TMP << prefix << v.name << " = 0;" << nxl;
+      }
+    } else {
+      out << FF_TMP << prefix << v.name << " = 0;" << nxl;
+    }
   }
-
-  // always block
-  std::queue<size_t> q;
-  std::set<v2i> lines;
-  writeStatelessBlockGraph(prefix, out, ictx, &m_AlwaysPre, nullptr, q, _always_dependencies, _ff_usage, _post_dependencies, lines);
-  clearNoLatchFFUsage(_ff_usage);
+  // output always block
+  out << ostr.str();
 }
 
 // -------------------------------------------------
@@ -7465,8 +7479,8 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
 
       // update usage based on first pass
       for (const auto &v : ff_usage.ff_usage) {
-        if (!(v.second & e_Q)) {
-          if (m_VarNames.count(v.first)) {
+        if (!(v.second & e_Q)) { // Q side is never used
+          if (m_VarNames.count(v.first)) { // variable?
             if (m_Vars.at(m_VarNames.at(v.first)).usage == e_FlipFlop) {
               if (m_Vars.at(m_VarNames.at(v.first)).access == e_ReadOnly) {
                 m_Vars.at(m_VarNames.at(v.first)).usage = e_Const;
@@ -7478,7 +7492,7 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
             }
           }
           if (hasNoFSM()) {
-            // if there is no FSM, the algorithm is combinational and outputs do not need to be registered
+            // if there is no FSM, the algorithm is combinational and this output does not need to be registered
             if (m_OutputNames.count(v.first)) {
               if (m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop) {
                 m_Outputs.at(m_OutputNames.at(v.first)).usage = e_Temporary;
