@@ -2,6 +2,10 @@
 
 $$config['simple_dualport_bram_wmask_half_bytes_wenable1_width'] = 'data'
 
+$$if not SPRAM_POSTFIX then
+$$  SPRAM_POSTFIX = ''
+$$end
+
 algorithm simulation_spram$SPRAM_POSTFIX$(
   input   uint14 addr,
   input   uint16 data_in,
