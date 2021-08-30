@@ -5,9 +5,9 @@ riscv cpu_test(input uint32 a,output uint32 b) = compile({
 
   #include "stdlib.h"
 
-  int f(int v) 
+  int f(int val) 
   {
-    return v+1;
+    return val + 1;
   }
 
   void main() { 

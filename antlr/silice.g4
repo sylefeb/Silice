@@ -456,7 +456,8 @@ algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' algModifier
 
 /* -- RISC-V -- */
 
-cblock_items        : cblock | ( ~( '{' | '}' )) + ;
+cblock_chunks       : ( ~( '{' | '}' )) + ;
+cblock_items        : cblock | cblock_chunks;
 cblock              : '{' cblock_items * '}' ;
 
 riscvInstructions   : initList

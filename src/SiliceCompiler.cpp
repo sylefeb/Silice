@@ -28,6 +28,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "SiliceCompiler.h"
 #include "Config.h"
 #include "ExpressionLinter.h"
+#include "RISCVSynthesizer.h"
 
 // -------------------------------------------------
 
@@ -74,15 +75,16 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     return;
   }
 
-  auto toplist = dynamic_cast<siliceParser::TopListContext*>(tree);
-  auto alg = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
-  auto circuit = dynamic_cast<siliceParser::CircuitryContext*>(tree);
-  auto imprt = dynamic_cast<siliceParser::ImportvContext*>(tree);
-  auto app = dynamic_cast<siliceParser::AppendvContext*>(tree);
-  auto sub = dynamic_cast<siliceParser::SubroutineContext*>(tree);
-  auto group = dynamic_cast<siliceParser::GroupContext*>(tree);
+  auto toplist  = dynamic_cast<siliceParser::TopListContext*>(tree);
+  auto alg      = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
+  auto circuit  = dynamic_cast<siliceParser::CircuitryContext*>(tree);
+  auto imprt    = dynamic_cast<siliceParser::ImportvContext*>(tree);
+  auto app      = dynamic_cast<siliceParser::AppendvContext*>(tree);
+  auto sub      = dynamic_cast<siliceParser::SubroutineContext*>(tree);
+  auto group    = dynamic_cast<siliceParser::GroupContext*>(tree);
   auto intrface = dynamic_cast<siliceParser::IntrfaceContext *>(tree);
   auto bitfield = dynamic_cast<siliceParser::BitfieldContext*>(tree);
+  auto riscv    = dynamic_cast<siliceParser::RiscvContext *>(tree);
 
   if (toplist) {
 
@@ -228,6 +230,11 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     }
     m_Subroutines.insert(std::make_pair(sub->IDENTIFIER()->getText(), sub));
 
+  } else if (riscv) {
+
+    /// RISC-V
+    AutoPtr<RISCVSynthesizer> riscv(new RISCVSynthesizer(riscv));
+
   }
 }
 
@@ -318,6 +325,7 @@ void SiliceCompiler::run(
     parser.removeErrorListeners();
     parser.addErrorListener(&parserErrorListener);
 
+    RISCVSynthesizer::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
     ExpressionLinter::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
     ExpressionLinter::setLuaPreProcessor(&lpp);
     Algorithm::setLuaPreProcessor(&lpp);
@@ -375,6 +383,7 @@ void SiliceCompiler::run(
 
     }
 
+    RISCVSynthesizer::setTokenStream(nullptr);
     ExpressionLinter::setTokenStream(nullptr);
     ExpressionLinter::setLuaPreProcessor(nullptr);
     Algorithm::setLuaPreProcessor(nullptr);
