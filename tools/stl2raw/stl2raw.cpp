@@ -176,7 +176,6 @@ int main(int argc,char **argv)
     TCLAP::CmdLine cmd(
       "STL to raw, rewrites STL 3D models as C headers or raw format images\n"
       "(c) Sylvain Lefebvre -- @sylefeb\n"
-      "Under Affero GPL License, source code on https://github.com/sylefeb/Silice\n"
       , ' ', "0.1");
 
     TCLAP::UnlabeledValueArg<std::string> source("source", "Input source file (.stl)", true, "", "string");
