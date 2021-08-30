@@ -4,6 +4,7 @@
 // not for speed.
 //
 // Donated to Silice by @sylefeb
+//
 // MIT license, see LICENSE_MIT in Silice repo root
 //
 // Parameters for calculations: ( 16 bit float { sign, exponent, mantissa } format )

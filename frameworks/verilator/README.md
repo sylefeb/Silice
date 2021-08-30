@@ -24,7 +24,7 @@ This works with most projects, including [WolFPGA](../../projects/wolfpga/README
 
 ## Reusing the framework
 
-You are welcome to do so ([Affero GPL license](../../LICENSE)). The framework is not specifically tied to Silice. A good starting point is the bash script [verilator.sh](../boards/verilator/verilator.sh) where all command lines are called. Silice produces a Verilog output (`build.v`) which is then fed into Verilator. All generated source files are then compiled and linked against the framework, and the resulting executable is launched.
+You are welcome to do so ([MIT license](../../LICENSE_MIT)). The framework is not specifically tied to Silice. A good starting point is the bash script [verilator.sh](../boards/verilator/verilator.sh) where all command lines are called. Silice produces a Verilog output (`build.v`) which is then fed into Verilator. All generated source files are then compiled and linked against the framework, and the resulting executable is launched.
 
 ## Links
 

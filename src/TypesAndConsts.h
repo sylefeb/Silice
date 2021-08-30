@@ -5,7 +5,7 @@
 
     List contributors with: git shortlog -n -s -- <filename>
 
-    GPLv3 license
+    GPLv3 license, see LICENSE_GPLv3 in Silice repo root
 
 This program is free software: you can redistribute it and/or modify it 
 under the terms of the GNU General Public License as published by the 

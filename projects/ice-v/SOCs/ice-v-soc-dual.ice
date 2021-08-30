@@ -205,7 +205,7 @@ $$if USE_SPRAM then
                   : (prev_in_bram ? mem.rdata : {sp1_data_out,sp0_data_out});
     prev_mem_addr = memio.addr;
     mem.wenable   = {4{in_bram}} & mem_wmask;
-$$if SIMULATION then
+$$if VERBOSE then
     if (sp0_wenable) {
       __display("[cycle %d] SPRAM write @%h wmask:%b%b (value: %h)",cycle,
                 sp0_addr,sp1_wmask,sp0_wmask,{sp1_data_in,sp0_data_in});
@@ -298,7 +298,7 @@ $$end
 
 $$if SIMULATION then
   // stop after some cycles
-	while (cycle < 100000) { }
+	while (cycle < 256) { }
 $$else
   // CPU is running
   while (1) { }
