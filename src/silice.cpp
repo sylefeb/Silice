@@ -5,7 +5,7 @@
 
     List contributors with: git shortlog -n -s -- <filename>
 
-    GPLv3 license
+    GPLv3 license, see LICENSE_GPLv3 in Silice repo root
 
 This program is free software: you can redistribute it and/or modify it 
 under the terms of the GNU General Public License as published by the 
@@ -49,7 +49,7 @@ int main(int argc, char **argv)
     TCLAP::CmdLine cmd(
       "<< Silice to Verilog compiler >>\n"
       "(c) Sylvain Lefebvre -- @sylefeb\n"
-      "Under GPLv3 License, source code on https://github.com/sylefeb/Silice\n"
+      "Under GPLv3 license, see LICENSE_GPLv3 in Silice repo root, source code on https://github.com/sylefeb/Silice\n"
       , ' ', "0.1");
 
     TCLAP::UnlabeledValueArg<std::string> source("source", "Input source file (.ice)", true, "","string");
