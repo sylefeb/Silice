@@ -34,6 +34,7 @@ See GitHub Issues section for open/known issues.
 #include "siliceParser.h"
 
 #include "TypesAndConsts.h"
+#include "Blueprint.h"
 
 #include <string>
 #include <iostream>
@@ -80,7 +81,7 @@ namespace Silice
   // -------------------------------------------------
 
   /// \brief class to parse, store and compile an algorithm definition
-  class Algorithm
+  class Algorithm : public Blueprint
   {
   private:
 
@@ -131,68 +132,14 @@ namespace Silice
 
 public:
 
-    /// \brief enum for variable access
-    /// e_ReadWrite = e_ReadOnly | e_WriteOnly
-    enum e_Access {
-      e_NotAccessed = 0,
-      e_ReadOnly = 1,
-      e_WriteOnly = 2,
-      e_ReadWrite = 3,
-      e_WriteBinded = 4,
-      e_ReadWriteBinded = 8,
-      e_InternalFlipFlop = 16
-    };
-
-    /// \brief enum for variable type
-    enum e_VarUsage {
-      e_Undetermined = 0,
-      e_NotUsed = 1,
-      e_Const = 2,
-      e_Temporary = 3,
-      e_FlipFlop = 4,
-      e_Bound = 5,
-      e_Wire = 6
-    };
-
-    /// \brief enum for variable type
+    /// \brief enum for flip-flop usage
     enum e_FFUsage {
       e_None = 0, e_D = 1, e_Q = 2, e_DQ = 3,
       e_Latch = 4, e_LatchD = 5, e_LatchQ = 6, e_LatchDQ = 7,
       e_NoLatch = 8
     };
 
-    /// \brief enum for IO types
-    enum e_IOType { e_Input, e_Output, e_InOut, e_NotIO };
-
-    /// \brief base info about variables, inputs, outputs
-    class t_var_nfo { // NOTE: if changed, remember to check var_nfo_copy
-    public:
-      std::string  name;
-      t_type_nfo   type_nfo;
-      std::vector<std::string> init_values;
-      int          table_size; // 0: not a table, otherwise size
-      bool         do_not_initialize = false;
-      bool         init_at_startup   = false;
-      std::string  pipeline_prev_name; // if not empty, name of previous in pipeline trickling
-      e_Access     access = e_NotAccessed;
-      e_VarUsage   usage = e_Undetermined;
-      std::string  attribs;
-      antlr4::misc::Interval source_interval;
-    };
-
 private:
-
-    /// \brief typedef to distinguish vars from ios
-    class t_inout_nfo : public t_var_nfo {
-    public:
-      bool nolatch = false;
-    };
-
-    /// \brief specialized info class for outputs
-    class t_output_nfo : public t_var_nfo {
-    public:
-      bool combinational = false;
-    };
 
     /// \brief base info about memory blocks
     class t_mem_nfo {
@@ -277,15 +224,16 @@ private:
 
     /// \brief info about an instanced algorithm
     typedef struct {
-      std::string                algo_name;
+      std::string                blueprint_name;
       std::string                instance_name;
-      std::string                instance_clock;
-      std::string                instance_reset;
       std::string                instance_prefix;
       int                        instance_line; // error reporting
-      AutoPtr<Algorithm>         algo;
+      AutoPtr<Algorithm>         blueprint;
       std::vector<t_binding_nfo> bindings;
       bool                       autobind;
+
+      std::string                instance_clock;
+      std::string                instance_reset;
       std::unordered_map<std::string, std::pair<std::string, e_FFUsage> > boundinputs;
     } t_algo_nfo;
 
@@ -295,14 +243,17 @@ private:
 
     /// \brief info about an instanced module
     typedef struct {
-      std::string                module_name;
+      std::string                blueprint_name;
       std::string                instance_name;
       std::string                instance_prefix;
       int                        instance_line; // error reporting
-      AutoPtr<Module>            mod;
+      AutoPtr<Module>            blueprint;
       std::vector<t_binding_nfo> bindings;
       bool                       autobind;
     } t_module_nfo;
+
+    /// \brief instanced modules
+    std::unordered_map< std::string, t_module_nfo > m_InstancedModules;
 
     /// \brief info about a call parameter
     /// 
@@ -317,9 +268,6 @@ private:
         siliceParser::AccessContext*        // access
         > what;
     } t_call_param;
-
-    /// \brief instanced modules
-    std::unordered_map< std::string, t_module_nfo > m_InstancedModules;
 
     // forward definition
     class t_combinational_block;

@@ -89,6 +89,8 @@ ADD_EXECUTABLE(silice
   src/RISCVSynthesizer.h
   src/Utils.cpp
   src/Utils.h
+  src/Blueprint.cpp
+  src/Blueprint.h
   antlr/siliceParser.cpp
   antlr/siliceParser.h
   antlr/siliceLexer.cpp
