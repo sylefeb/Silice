@@ -235,7 +235,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
   } else if (riscv) {
 
     /// RISC-V
-    AutoPtr<RISCVSynthesizer> riscv(new RISCVSynthesizer(riscv));
+    AutoPtr<RISCVSynthesizer> riscvsynth(new RISCVSynthesizer(riscv));
 
   }
 }

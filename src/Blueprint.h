@@ -93,15 +93,31 @@ namespace Silice
       bool combinational = false;
     };
 
-    /// \brief information about instantiation (public for linter)
+    /// \brief information about instantiation
     typedef struct {
       std::string                                  instance_name;
       std::string                                  local_instance_name;
       std::unordered_map<std::string, std::string> parameters;
     } t_instantiation_context;
 
-    /// \brief writes the blueprint as a Verilog module, recurses through instanced blueprints
+    /// \brief writes the blueprint as a Verilog module
     virtual void writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass) = 0;
+    /// \brief returns true if the blueprint is not callable with the (.) <- . <- (.) syntax
+    virtual bool isNotCallable() const = 0;
+    /// \brief inputs
+    virtual const std::vector<t_inout_nfo>&   inputs() const = 0;
+    /// \brief outputs
+    virtual const std::vector<t_output_nfo >& outputs() const = 0;
+    /// \brief inouts
+    virtual const std::vector<t_inout_nfo >&  inOuts() const = 0;
+    /// \brief parameterized vars
+    virtual const std::vector<std::string >&  parameterized() const = 0;
+    /// \brief all input names, map contains index in m_Inputs
+    virtual const std::unordered_map<std::string, int > inputNames() const = 0;
+    /// \brief all output names, map contains index in m_Outputs
+    virtual const std::unordered_map<std::string, int > outputNames() const = 0;
+    /// \brief all inout names, map contains index in m_InOuts
+    virtual const std::unordered_map<std::string, int > inOutNames() const = 0;
 
   };
 

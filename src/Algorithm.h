@@ -179,7 +179,7 @@ private:
     std::vector< t_inout_nfo  > m_Inputs;
     /// \brief outputs
     std::vector< t_output_nfo > m_Outputs;
-    /// \brief inouts NOTE: can only be passed around
+    /// \brief inouts
     std::vector< t_inout_nfo >  m_InOuts;
     /// \brief io groups
     std::unordered_map<std::string, t_group_definition> m_VIOGroups;
@@ -918,8 +918,6 @@ private:
     bool requiresNoReset() const;
     /// \brief returns true if the algorithm does not call subroutines
     bool doesNotCallSubroutines() const;
-    /// \brief returns true if the algorithm is not callable
-    bool isNotCallable() const;
     /// \brief converts an internal state into a FSM state
     int  toFSMState(int state) const;
     /// \brief finds the binding to var
@@ -1084,8 +1082,6 @@ private:
     std::string memoryModuleName(std::string instance_name, const t_mem_nfo &bram) const;
     /// \brief prepare replacements for a memory module template
     void prepareModuleMemoryTemplateReplacements(std::string instance_name, const t_mem_nfo& bram, std::unordered_map<std::string, std::string>& _replacements) const;
-    /// \brief writes the algorithm as a Verilog module, recurses through instanced algorithms
-    void writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass);
     /// \brief writes the algorithm as a Verilog module, calls the version above twice in a two pass optimization process
     void writeAsModule(std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage, bool do_lint) const;
     /// \brief outputs a report on the VIOs in the algorithm
@@ -1095,9 +1091,6 @@ private:
 
     /// \brief asks reports to be generated
     void enableReporting(std::string reportname);
-
-    /// \brief writes a topmost algorithm as a Verilog module, recurses through instanced algorithms
-    void writeAsModule(std::string instance_name,std::ostream& out);
 
     /// \brief outputs the FSM graph in a file (graphviz dot format)
     void outputFSMGraph(std::string dotFile) const;
@@ -1114,8 +1107,32 @@ private:
       s_LuaPreProcessor = lpp;
     }
 
-    // check whether an algorithm is used for formal verification or not
+    /// \brief writes the algorithm as the top-most Verilog module, recurses through instanced blueprints
+    void writeAsModule(std::string instance_name, std::ostream &out);
+
+    /// \brief check whether an algorithm is used for formal verification or not
     bool isFormal() { return m_hasHash; }
+
+    /// === from Blueprint
+
+    /// \brief writes the algorithm as a Verilog module, recurses through instanced blueprints
+    void writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass);
+    /// \brief inputs
+    const std::vector<t_inout_nfo> &inputs()         const override { return m_Inputs; }
+    /// \brief outputs
+    const std::vector<t_output_nfo > &outputs()      const override { return m_Outputs; }
+    /// \brief inouts
+    const std::vector<t_inout_nfo > &inOuts()        const override { return m_InOuts; }
+    /// \brief parameterized vars
+    const std::vector<std::string > &parameterized() const override { return m_Parameterized; }
+    /// \brief all input names, map contains index in m_Inputs
+    const std::unordered_map<std::string, int > inputNames()  const override { return m_InputNames; }
+    /// \brief all output names, map contains index in m_Outputs
+    const std::unordered_map<std::string, int > outputNames() const override { return m_OutputNames; }
+    /// \brief all inout names, map contains index in m_InOuts
+    const std::unordered_map<std::string, int > inOutNames()  const override { return m_InOutNames; }
+    /// \brief returns true if the algorithm is not callable
+    bool isNotCallable() const override;
 
   };
 

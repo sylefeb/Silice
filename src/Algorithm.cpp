@@ -178,7 +178,7 @@ void Algorithm::checkAlgorithmsBindings(const t_instantiation_context &ictx) con
       if (is_output && isOutput(br)) {
         sl_assert(b.dir == e_Right);
         // instance output is bound to an algorithm output
-        bool instr_comb = ia.second.blueprint->m_Outputs.at(ia.second.blueprint->m_OutputNames.at(b.left)).combinational;
+        bool instr_comb = ia.second.blueprint->outputs().at(ia.second.blueprint->outputNames().at(b.left)).combinational;
         if ( m_Outputs.at(m_OutputNames.at(br)).combinational ^ instr_comb) {
           reportError(nullptr, b.line, "instanced algorithm '%s', binding instance output '%s' to algorithm output '%s'\n"
             "using a mix of output! and output. Consider adjusting the parent algorithm output to '%s'.",
@@ -328,7 +328,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
     defined.insert(b.left);
   }
   // -> for each algorithm inputs
-  for (auto io : _alg.blueprint->m_Inputs) {
+  for (auto io : _alg.blueprint->inputs()) {
     if (defined.find(io.name) == defined.end()) {
       // not bound, check if host algorithm has an input with same name
       if (m_InputNames.find(io.name) != m_InputNames.end()) {
@@ -358,7 +358,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
   for (auto io : internals) {
     if (defined.find(io) == defined.end()) {
       // not bound, check if algorithm has an input with same name
-      if (_alg.blueprint->m_InputNames.find(io) != _alg.blueprint->m_InputNames.end()) {
+      if (_alg.blueprint->inputNames().find(io) != _alg.blueprint->inputNames().end()) {
         // yes: autobind
         t_binding_nfo bnfo;
         bnfo.line = _alg.instance_line;
@@ -370,7 +370,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
     }
   }
   // -> for each algorithm output
-  for (auto io : _alg.blueprint->m_Outputs) {
+  for (auto io : _alg.blueprint->outputs()) {
     if (defined.find(io.name) == defined.end()) {
       // not bound, check if host algorithm has an output with same name
       if (m_OutputNames.find(io.name) != m_OutputNames.end()) {
@@ -394,7 +394,7 @@ void Algorithm::autobindInstancedAlgorithm(t_algo_nfo& _alg)
     }
   }
   // -> for each algorithm inout
-  for (auto io : _alg.blueprint->m_InOuts) {
+  for (auto io : _alg.blueprint->inOuts()) {
     if (defined.find(io.name) == defined.end()) {
       // not bound
       // check if algorithm has an inout with same name
@@ -1219,7 +1219,7 @@ void Algorithm::getBindings(
           if (I != m_InstancedAlgorithms.end()) {
             auto A = m_KnownAlgorithms.find(I->second.blueprint_name);
             if (A != m_KnownAlgorithms.end()) {
-              for (const auto &o : A->second->m_Outputs) {
+              for (const auto &o : A->second->outputs()) {
                 string member = o.name;
                 t_binding_nfo nfo;
                 nfo.left = bindings->modalgBinding()->left->getText() + "_" + member;
@@ -3027,7 +3027,7 @@ void Algorithm::gatherAllOutputsNfo(siliceParser::OutputsContext *allouts, t_com
   string grpre = allouts->grp->getText();
   m_VIOGroups.insert(make_pair(grpre, I->second.raw()));
   // get member list from interface
-  for (const auto& o : I->second->m_Outputs) {
+  for (const auto& o : I->second->outputs()) {
     if (o.type_nfo.base_type == Parameterized) {
       reportError(allouts->alg, (int)allouts->getStart()->getLine(),
         "using 'outputs(%s)' when one output is generic (sameas or interface) is not supported", allouts->alg->getText().c_str());
@@ -3226,11 +3226,11 @@ void Algorithm::parseCallParams(
   getCallParams(params, given_params, bctx);
   std::vector<std::string> expected_params;
   if (input_else_output) {
-    for (auto I : alg->m_Inputs) {
+    for (auto I : alg->inputs()) {
       expected_params.push_back(I.name);
     }
   } else {
-    for (auto O : alg->m_Outputs) {
+    for (auto O : alg->outputs()) {
       expected_params.push_back(O.name);
     }
   }
@@ -3618,7 +3618,7 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
               stop = false; // nothing returned, we can fast forward
             }
           } else {
-            if (A->second.blueprint->m_Outputs.empty()) {
+            if (A->second.blueprint->outputs().empty()) {
               stop = false; // nothing returned, we can fast forward
             }
           }
@@ -3784,9 +3784,9 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
           i_bounds.insert(i_bound);
         }
       } else if (b.dir == e_Right) {
-        const auto &O = alg.second.blueprint->m_OutputNames.find(b.left);
-        if (O != alg.second.blueprint->m_OutputNames.end()) {
-          if (alg.second.blueprint->m_Outputs[O->second].combinational) { // combinational output only
+        const auto &O = alg.second.blueprint->outputNames().find(b.left);
+        if (O != alg.second.blueprint->outputNames().end()) {
+          if (alg.second.blueprint->outputs()[O->second].combinational) { // combinational output only
             std::string o_bound = bindingRightIdentifier(b);
             o_bounds.insert(o_bound);
           }
@@ -3794,7 +3794,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
       }
     }
     // add all defaults combinational outputs (dot syntax)
-    for (const auto &o : alg.second.blueprint->m_Outputs) {
+    for (const auto &o : alg.second.blueprint->outputs()) {
       if (o.combinational) {
         o_bounds.insert(alg.second.instance_prefix + "_" + o.name);
       }
@@ -4113,7 +4113,7 @@ std::vector<std::string> Algorithm::getGroupMembers(const t_group_definition &gd
     return nfo.members;
   } else if (gd.alg != nullptr) {
     std::vector<std::string> names;
-    for (const auto &o : gd.alg->m_OutputNames) {
+    for (const auto &o : gd.alg->outputNames()) {
       names.push_back(o.first);
     }
     return names;
@@ -4996,7 +4996,7 @@ void Algorithm::resolveAlgorithmRefs(const std::unordered_map<std::string, AutoP
     }
     nfo.second.blueprint = A->second;
     // create vars for outputs, these are used with the 'dot' access syntax and allow access pattern analysis
-    for (const auto& o : nfo.second.blueprint->m_Outputs) {
+    for (const auto& o : nfo.second.blueprint->outputs()) {
       t_var_nfo vnfo = o;
       vnfo.name = nfo.second.instance_prefix + "_" + o.name;
       addVar(vnfo, m_Blocks.front());
@@ -5091,7 +5091,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
           parseCallParams(async->callParamList(), A->second.blueprint.raw(), true, &_current->context, matches);
           // lint each
           int p = 0;
-          for (const auto &ins : A->second.blueprint->m_Inputs) {
+          for (const auto &ins : A->second.blueprint->inputs()) {
             ExpressionLinter linter(this,ictx);
             linter.lintInputParameter(ins.name, ins.type_nfo, matches[p++], &_current->context);
           }
@@ -5110,7 +5110,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
           parseCallParams(sync->callParamList(), A->second.blueprint.raw(), true, &_current->context, matches);
           // lint each
           int p = 0;
-          for (const auto &ins : A->second.blueprint->m_Inputs) {
+          for (const auto &ins : A->second.blueprint->inputs()) {
             ExpressionLinter linter(this,ictx);
             linter.lintInputParameter(ins.name, ins.type_nfo, matches[p++], &_current->context);
           }
@@ -5143,7 +5143,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
           parseCallParams(join->callParamList(), A->second.blueprint.raw(), false, &_current->context, matches);
           // lint each
           int p = 0;
-          for (const auto &outs : A->second.blueprint->m_Outputs) {
+          for (const auto &outs : A->second.blueprint->outputs()) {
             ExpressionLinter linter(this,ictx);
             linter.lintReadback(outs.name, matches[p++], outs.type_nfo, &_current->context);
           }
@@ -5345,9 +5345,9 @@ t_type_nfo Algorithm::determineIOAccessTypeAndWidth(const t_combinational_block_
         reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
           "cannot access bound input '%s' on instance '%s'", member.c_str(), base.c_str());
       }
-      return A->second.blueprint->m_Inputs[A->second.blueprint->m_InputNames.at(member)].type_nfo;
+      return A->second.blueprint->inputs()[A->second.blueprint->inputNames().at(member)].type_nfo;
     } else if (A->second.blueprint->isOutput(member)) {
-      return A->second.blueprint->m_Outputs[A->second.blueprint->m_OutputNames.at(member)].type_nfo;
+      return A->second.blueprint->outputs()[A->second.blueprint->outputNames().at(member)].type_nfo;
     } else {
       sl_assert(false);
     }
@@ -5482,7 +5482,7 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
     parseCallParams(plist, a.blueprint.raw(), true, bctx, matches);
     // set inputs
     int p = 0;
-    for (const auto& ins : a.blueprint->m_Inputs) {
+    for (const auto& ins : a.blueprint->inputs()) {
       if (a.boundinputs.count(ins.name) > 0) {
         reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
         "algorithm instance '%s' cannot be called with parameters as its input '%s' is bound",
@@ -5531,7 +5531,7 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
     parseCallParams(plist, a.blueprint.raw(), false, bctx, matches);
     // read outputs
     int p = 0;
-    for (const auto& outs : a.blueprint->m_Outputs) {
+    for (const auto& outs : a.blueprint->outputs()) {
       if (std::holds_alternative<std::string>(matches[p].what)) {
         // check if bound
         if (m_VIOBoundToModAlgOutputs.count(std::get<std::string>(matches[p].what))) {
@@ -6186,7 +6186,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   // flip-flops for algorithm inputs that are not bound
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
-    for (const auto &is : ia.blueprint->m_Inputs) {
+    for (const auto &is : ia.blueprint->inputs()) {
       if (ia.boundinputs.count(is.name) == 0) {
         writeVerilogDeclaration(out, ictx, "reg", is, string(FF_D) + ia.instance_prefix + '_' + is.name + ',' + string(FF_Q) + ia.instance_prefix + '_' + is.name);
       }
@@ -6345,7 +6345,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
   // update instanced algorithms input flip-flops
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
-    for (const auto &is : ia.blueprint->m_Inputs) {
+    for (const auto &is : ia.blueprint->inputs()) {
       if (ia.boundinputs.count(is.name) == 0) {
         writeVarFlipFlopUpdate(ia.instance_prefix + '_', "", out, ictx, is);
       }
@@ -6428,7 +6428,7 @@ void Algorithm::writeCombinationalAlwaysPre(
   }
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &ia = m_InstancedAlgorithms.at(iaiordr);
-    for (const auto &is : ia.blueprint->m_Inputs) {
+    for (const auto &is : ia.blueprint->inputs()) {
       if (ia.boundinputs.count(is.name) == 0) {
         writeVarFlipFlopCombinationalUpdate(ia.instance_prefix + '_', out, is);
       }
@@ -7650,7 +7650,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
     const auto &nfo = m_InstancedAlgorithms.at(iaiordr);
     // output wires
-    for (const auto& os : nfo.blueprint->m_Outputs) {
+    for (const auto& os : nfo.blueprint->outputs()) {
       sl_assert(os.table_size == 0);
       // is the output parameterized?
       if (os.type_nfo.base_type == Parameterized) {
@@ -7803,7 +7803,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     // ports
     out << '(' << nxl;
     // inputs
-    for (const auto &is : nfo.blueprint->m_Inputs) {
+    for (const auto &is : nfo.blueprint->inputs()) {
       out << '.' << ALG_INPUT << '_' << is.name << '(';
       if (nfo.boundinputs.count(is.name) > 0) {
         // input is bound, directly map bound VIO
@@ -7847,14 +7847,14 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
       out << ')' << ',' << nxl;
     }
     // outputs (wire)
-    for (const auto& os : nfo.blueprint->m_Outputs) {
+    for (const auto& os : nfo.blueprint->outputs()) {
       out << '.'
         << ALG_OUTPUT << '_' << os.name
         << '(' << WIRE << nfo.instance_prefix << '_' << os.name << ')';
       out << ',' << nxl;
     }
     // inouts (host algorithm inout or wire)
-    for (const auto& os : nfo.blueprint->m_InOuts) {
+    for (const auto& os : nfo.blueprint->inOuts()) {
       std::string bindpoint = nfo.instance_prefix + "_" + os.name;
       const auto& vio = m_ModAlgInOutsBoundToVIO.find(bindpoint);
       if (vio != m_ModAlgInOutsBoundToVIO.end()) {
