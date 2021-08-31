@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$letter_w_pow2 = 2
 $$letter_w      = 4

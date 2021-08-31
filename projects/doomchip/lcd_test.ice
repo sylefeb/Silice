@@ -1,4 +1,5 @@
 // SL 2020-05
+// MIT license, see LICENSE_MIT in Silice repo root
 
 import('../common/de10nano_clk_100_25.v')
 import('../common/reset_conditioner.v')

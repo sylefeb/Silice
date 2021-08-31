@@ -1,6 +1,7 @@
 // @sylefeb DDR module, wrapper around vendor specific primitive
 //
 // see also https://github.com/lawrie/ulx3s_examples/blob/master/hdmi/fake_differential.v
+// MIT license, see LICENSE_MIT in Silice repo root
 
 module ddr(
         input        clock,

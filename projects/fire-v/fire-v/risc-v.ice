@@ -2,12 +2,7 @@
 // Risc-V helpers
 // @sylefeb
 // --------------------------------------------------
-//
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 // --------------------------------------------------
 
 // bitfields for easier decoding of instructions ; these

@@ -1,0 +1,15 @@
+
+.DEFAULT: SOCs/ice-v-soc-dual.ice
+		silice-make.py -s SOCs/ice-v-soc-dual.ice -b $@ -p basic,pmod,spiflash -o BUILD_$(subst :,_,$@) $(ARGS)
+
+icebreaker: SOCs/ice-v-soc-dual.ice
+		silice-make.py -s SOCs/ice-v-soc-dual.ice -b $@ -p basic,pmod,spiflash,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
+
+verilator: SOCs/ice-v-soc-dual.ice
+		silice-make.py -s SOCs/ice-v-soc-dual.ice -b verilator -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+
+icarus: SOCs/ice-v-soc-dual.ice
+		silice-make.py -s SOCs/ice-v-soc-dual.ice -b icarus -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+
+clean:
+	rm -rf BUILD_*

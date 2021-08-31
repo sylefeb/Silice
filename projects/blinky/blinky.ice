@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 
 algorithm main(output uint$NUM_LEDS$ leds) // $NUM_LEDS$ is replaced by the preprocessor,
 {                                          // e.g. this becomes uint5 on the IceStick and IceBreaker

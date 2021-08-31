@@ -5,6 +5,8 @@
 // -- mode_640_480
 //
 
+// MIT license, see LICENSE_MIT in Silice repo root
+
 $$if not SDRAM_r512_w64 then
 $$ SDRAM_r128_w8  = true
 $$end
@@ -83,7 +85,7 @@ $$end
 
 $$if DE10NANO then
 $$if VGA then
-import('de10nano_clk_50_25_100_100ph180.v')
+import('../common/plls/de10nano_50_25_100_100ph180.v')
 $$else
 // TODO: hdmi
 $$end
@@ -92,10 +94,9 @@ $$end
 $$if ULX3S then
 // Clock
 $$if not fast_compute then
-import('ulx3s_clk_50_25_100_100ph180.v')
+import('../common/plls/ulx3s_50_25_100_100ph180.v')
 $$else
-import('ulx3s_clk_160_25_160_160ph60.v')
-import('ulx3s_test_pll.v')
+import('../common/plls/ulx3s_160_25_160_160ph60.v')
 $$end
 $$end
 
@@ -313,7 +314,7 @@ $$elseif DE10NANO then
   uint1 not_pll_lock = 0;
   uint1 compute_clock = 0;
   $$print('DE10NANO at 50 MHz compute clock, 100 MHz SDRAM')
-  de10nano_clk_50_25_100_100ph180 clk_gen(
+  pll_50_25_100_100ph180 clk_gen(
     refclk    <: clock,
     rst       <: not_pll_lock,
     outclk_0  :> compute_clock,
@@ -330,7 +331,7 @@ $$elseif ULX3S then
   uint1 compute_clock = 0;
 $$if not fast_compute then
   $$print('ULX3S at 50 MHz compute clock, 100 MHz SDRAM')
-  ulx3s_clk_50_25_100_100ph180 clk_gen(
+  pll_50_25_100_100ph180 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
     clkout1  :> video_clock,
@@ -340,8 +341,7 @@ $$if not fast_compute then
   ); 
 $$else
   $$print('ULX3S at 160 MHz SDRAM, 160 MHz compute')
-  // pll clk_gen(
-  ulx3s_clk_160_25_160_160ph60 clk_gen(
+  pll_160_25_160_160ph60 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock,
     clkout1  :> video_clock,

@@ -1,0 +1,15 @@
+
+icebreaker: SOCs/ice-v-soc-dual.ice
+	./compile/icebreaker/compile_boot_dual.sh
+	silice-make.py -s SOCs/ice-v-soc-dual.ice -b $@ -p basic,pmod,spiflash,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
+
+icestick: SOCs/ice-v-soc.ice
+	./compile/icestick/compile_c.sh src/test_leds.c
+	silice-make.py -s SOCs/ice-v-soc.ice -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+
+icestick2: SOCs/ice-v-soc-dual.ice
+	./compile/icestick/compile_c_dual.sh src/dual_test_oled.c
+	silice-make.py -s SOCs/ice-v-soc-dual.ice -b icestick -p basic,pmod,spiflash -o BUILD_$(subst :,_,$@) $(ARGS)
+
+clean:
+	rm -rf BUILD_*

@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 #include "../mylibc/mylibc.h"
 
 void draw(int xpos,int xlen,int y,unsigned char color)

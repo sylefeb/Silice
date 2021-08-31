@@ -10,6 +10,7 @@
         {"set"    : "uart", "define" : "UART=1"},
         {"set"    : "vga", "define" : "VGA=1"},
         {"set"    : "oled", "define" : "OLED=1"},
+        {"set"    : "pmod", "define" : "PMOD=1"},
         {"set"    : "spiflash", "define" : "SPIFLASH=1"}
       ],
       "builders": [
@@ -19,7 +20,7 @@
           "tool": "icestorm",
           "tool_options": [
             {
-                "yosys_synth_options": ["-dsp"],
+                "yosys_synth_options": ["-dsp","-abc9","-device u"],
                 "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "--timing-allow-fail"],
                 "pnr": "next"
             }
@@ -115,6 +116,13 @@
         "name": "oled_dc",
         "type": "uint1",
         "io": "output"
+      }
+    ],
+    "pmod": [
+      {
+        "name": "pmod",
+        "type": "uint8",
+        "io"  : "input_output"
       }
     ],
     "spiflash": [

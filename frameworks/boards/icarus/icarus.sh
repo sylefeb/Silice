@@ -20,8 +20,8 @@ echo "build script: FRAMEWORK_FILE = $FRAMEWORK_FILE"
 export PATH=$PATH:$SILICE_DIR:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/
 case "$(uname -s)" in
 MINGW*)
-export PYTHONHOME=/mingw64/bin
-export PYTHONPATH=/mingw64/lib/python3.8/
+# export PYTHONHOME=/mingw64/bin
+# export PYTHONPATH=/mingw64/lib/python3.8/
 export QT_QPA_PLATFORM_PLUGIN_PATH=/mingw64/share/qt5/plugins
 ;;
 *)
@@ -33,7 +33,7 @@ rm build* icarus.fst icarus.fst.hier
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
-iverilog -o build build.v
+iverilog -o build -pfileline=1 build.v
 vvp build -fst
 
 gtkwave icarus.fst

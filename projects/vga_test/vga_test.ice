@@ -1,36 +1,37 @@
 // -------------------------
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // VGA driver
 $include('../common/vga.ice')
 
 $$if MOJO then
 // Clock
-import('../common/mojo_clk_100_25.v')
+import('../common/plls/mojo_100_25.v')
 $$end
 
 $$if ICESTICK then
 // Clock
-import('../common/icestick_clk_25.v')
+import('../common/plls/icestick_25.v')
 $$end
 
 $$if ICEBREAKER then
 // Clock
-import('../common/icebreaker_clk_25.v')
+import('../common/plls/icebrkr_25.v')
 $$end
 
 $$if DE10NANO then
 // Clock
-import('../common/de10nano_clk_100_25.v')
+import('../common/plls/de10nano_100_25.v')
 $$end
 
 $$if ULX3S then
 // Clock
-import('../common/ulx3s_clk_100_25.v')
+import('../common/plls/ulx3s_100_25.v')
 $$end
 
 $$if ECPIX5 then
 // Clock
-import('../common/ecpix5_clk_100_25.v')
+import('../common/plls/ecpix5_100_25.v')
 $$end
 
 $$if HARDWARE then
@@ -115,7 +116,7 @@ $$if HARDWARE then
 $$if MOJO then
   uint1 sdram_clock = 0;
   // --- clock
-  clk_100_25 clk_gen (
+  pll_100_25 clk_gen (
     CLK_IN1  <: clock,
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> video_clock
@@ -123,14 +124,14 @@ $$if MOJO then
 $$elseif ICESTICK then
   // --- clock
   uint1 pll_lock = 0;
-  icestick_clk_25 clk_gen(
+  pll clk_gen(
     clock_in  <: clock,
     clock_out :> video_clock,
     lock      :> pll_lock
   );
 $$elseif ICEBREAKER then
   // --- clock
-  icebreaker_clk_25 clk_gen (
+  pll clk_gen (
     clock_in  <: clock,
     clock_out :> video_clock
   );
@@ -138,7 +139,7 @@ $$elseif DE10NANO then
   // --- clock
   uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
-  de10nano_clk_100_25 clk_gen(
+  pll_100_25 clk_gen(
     refclk    <: clock,
     outclk_0  :> sdram_clock,
     outclk_1  :> video_clock,
@@ -149,7 +150,7 @@ $$elseif ULX3S then
   // --- clock
   uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
-  ulx3s_clk_100_25 clk_gen(
+  pll_100_25 clk_gen(
     clkin    <: clock,
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,
@@ -159,7 +160,7 @@ $$elseif ECPIX5 then
   // --- clock
   uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
-  ecpix5_clk_100_25 clk_gen(
+  pll_100_25 clk_gen(
     clkin    <: clock,
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,

@@ -1,3 +1,30 @@
+/*
+
+Copyright 2019, (C) Sylvain Lefebvre and contributors
+List contributors with: git shortlog -n -s -- <filename>
+
+MIT license
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of 
+this software and associated documentation files (the "Software"), to deal in 
+the Software without restriction, including without limitation the rights to 
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so, 
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all 
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+(header_2_M)
+
+*/
 `define ICESTICK 1
 `default_nettype none
 $$ICESTICK=1
@@ -74,6 +101,12 @@ module top(
 
   output PMOD7,  // hs
   output PMOD10, // vs
+`endif
+`ifdef SPIFLASH
+  output FLASH_CLK,
+  output FLASH_MOSI,
+  input  FLASH_MISO,
+  output FLASH_CSN,
 `endif
   input  CLK
   );
@@ -162,11 +195,17 @@ M_main __main(
   .inout_pmod({PMOD10,PMOD9,PMOD8,PMOD7,PMOD4,PMOD3,PMOD2,PMOD1}),
 `endif
 `ifdef PMOD_OUT
-  .out_pmod({PMOD10,PMOD9,PMOD8,PMOD7,PMOD4,PMOD3,PMOD2,PMOD1}),
+  .out_pmod  ({PMOD10,PMOD9,PMOD8,PMOD7,PMOD4,PMOD3,PMOD2,PMOD1}),
 `endif
 `ifdef UART
   .out_uart_tx  (TX),
   .in_uart_rx   (RX),
+`endif
+`ifdef SPIFLASH
+  .out_sf_clk (FLASH_CLK),
+  .out_sf_csn (FLASH_CSN), 
+  .out_sf_mosi(FLASH_MOSI),
+  .in_sf_miso (FLASH_MISO),
 `endif
   .in_run(run_main)
 );

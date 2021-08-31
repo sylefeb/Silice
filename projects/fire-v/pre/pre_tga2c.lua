@@ -1,4 +1,5 @@
 -- include ASM code as a BROM
+-- MIT license, see LICENSE_MIT in Silice repo root
 
 if not path then
   path,_1,_2 = string.match(findfile('pre_tga2c.lua'), "(.-)([^\\/]-%.?([^%.\\/]*))$")

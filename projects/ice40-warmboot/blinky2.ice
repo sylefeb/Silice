@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 import('../common/ice40_warmboot.v')
 
 algorithm main(output uint5 leds,input uint3 btns)

@@ -1,17 +1,25 @@
 /*
 
     Silice FPGA language and compiler
-    (c) Sylvain Lefebvre - @sylefeb
+    Copyright 2019, (C) Sylvain Lefebvre and contributors 
 
-This work and all associated files are under the
+    List contributors with: git shortlog -n -s -- <filename>
 
-     GNU AFFERO GENERAL PUBLIC LICENSE
-        Version 3, 19 November 2007
+    GPLv3 license, see LICENSE_GPLv3 in Silice repo root
 
-A copy of the license full text is included in
-the distribution, please refer to it for details.
+This program is free software: you can redistribute it and/or modify it 
+under the terms of the GNU General Public License as published by the 
+Free Software Foundation, either version 3 of the License, or (at your option) 
+any later version.
 
-(header_1_0)
+This program is distributed in the hope that it will be useful, but WITHOUT 
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with 
+this program.  If not, see <https://www.gnu.org/licenses/>.
+
+(header_2_G)
 */
 // -------------------------------------------------
 //                                ... hardcoding ...
@@ -347,10 +355,14 @@ void SiliceCompiler::run(
           m->writeModule(out);
         }
 
-        // ask for reports
-        m_Algorithms["main"]->enableReporting(fresult);
-        // write top algorithm (recurses from there)
-        m_Algorithms["main"]->writeAsModule("",out);
+        if (m_Algorithms.count("main") > 0) {
+          // ask for reports
+          m_Algorithms["main"]->enableReporting(fresult);
+          // write top algorithm (recurses from there)
+          m_Algorithms["main"]->writeAsModule("", out);
+        } else {
+          throw Algorithm::LanguageError(-1, nullptr, antlr4::misc::Interval::INVALID, "'main' algorithm is not defined");
+        }
 
         for (auto const &[algname, alg] : m_Algorithms) {
           if (alg->isFormal()) {

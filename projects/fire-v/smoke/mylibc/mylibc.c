@@ -3,7 +3,10 @@ SL 2012-12-21
 
 A few custom functions (character on screen, etc.).
 
-The rest is hastily composed from a variety of sources (referenced in code) to get something up and running
+The rest is hastily composed from a variety of sources (referenced in code) to 
+get something up and running
+
+// MIT license, see LICENSE_MIT in Silice repo root
 
 */
 

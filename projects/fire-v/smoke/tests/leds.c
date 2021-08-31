@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 // compile_c.sh smoke/tests/leds.c --nolibc
 
 long time() 

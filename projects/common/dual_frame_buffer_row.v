@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 module dual_frame_buffer_row(
     input             rclk,
     input [9:0]       raddr,

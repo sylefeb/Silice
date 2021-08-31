@@ -4,6 +4,8 @@
 // with small combinational chains
 //
 // TODO: return twice as wide!
+//
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // find out power of 2 of mul_width
 $$mul_width_pow2=0

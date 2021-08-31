@@ -1,3 +1,5 @@
+-- MIT license, see LICENSE_MIT in Silice repo root
+
 local in_rules = io.open(findfile(PROBLEM .. 'rules.txt'), 'r')
 local lines = {}
 

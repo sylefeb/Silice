@@ -1,4 +1,5 @@
 // SL 2020-10-25
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$if not CLEAN_RESET_ICE then
 $$  CLEAN_RESET_ICE = 1

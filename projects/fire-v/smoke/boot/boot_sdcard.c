@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 volatile unsigned char* const LEDS        = (unsigned char*)0x90000000;
 volatile unsigned int*  const SDCARD      = (unsigned int* )0x90000008;
 

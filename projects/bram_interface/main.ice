@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 
 algorithm sequence(
   bram_port ext_mem, // this is how to receive an external bram, the interface

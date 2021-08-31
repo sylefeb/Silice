@@ -1,5 +1,6 @@
 // SL 2020-04-23
 // Roto-rubber-bar, old-school classic!
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $include('vga_demo_main.ice')
 

@@ -11,6 +11,7 @@
 - Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
 - Refer to the [optimization guidelines](learn-silice/Guidelines.md) for fine tuning your Silice designs. 
 - Read how to [add a new board](frameworks/boards/README.md) in the Silice build system.
+- See details [about the license](LICENSE.md).
 
 **Important:** Silice is in alpha stages and under active development [read more](#project-status-alpha-release).
 
@@ -168,6 +169,10 @@ I hope you'll nevertheless enjoy diving into it, and will find it useful. Please
 - **src** contains Silice core source code
 - **antlr** contains Silice grammar and parsing related source code
 - **tests** contains test scripts for Silice development
+
+## License
+
+GPLv3 (Silice compiler) and MIT (examples and glue code), but please refer to the [dedicated page](LICENSE.md).
 
 ## Credits
 

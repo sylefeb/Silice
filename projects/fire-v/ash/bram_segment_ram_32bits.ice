@@ -1,11 +1,6 @@
 // SL 2020-12-22 @sylefeb
 //
-// ------------------------- 
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$if not bram_depth then
 $$ bram_depth = 13 --  13: 32 KB, ~90 MHz   14: 64 KB, ~85 MHz
@@ -18,7 +13,7 @@ $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 algorithm bram_segment_ram_32bits(
   rv32i_ram_provider pram,              // provided ram interface
   rv32i_ram_user     uram,              // used ram interface
-  input uint26       cache_start,       // where the cache is locate
+  input uint26       cache_start,       // where the cache is located
   input uint26       predicted_addr,    // next predicted address
   input uint1        predicted_correct, // was the prediction correct?
 ) <autorun> {

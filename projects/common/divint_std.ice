@@ -2,6 +2,7 @@
 // see also https://projectf.io/posts/division-in-verilog/
 // define: div_width    for the division bit width
 // define: div_unsigned if unsigned, for a more compact result
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$if not div_width then
 $$error('please provide the bit width by defining the preprocessor var div_width')

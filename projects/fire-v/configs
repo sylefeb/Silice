@@ -1,0 +1,3 @@
+Makefile.test ulx3s
+Makefile.test verilator
+Makefile.test icebreaker

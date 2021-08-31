@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 volatile unsigned int* const WARMBOOT = (unsigned int*)0x90000000;
 volatile unsigned int* const SPIFLASH = (unsigned int*)0x90000008;
 

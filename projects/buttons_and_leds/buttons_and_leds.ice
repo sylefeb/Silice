@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 
 algorithm main(
   input  uint$NUM_BTNS$ btns,

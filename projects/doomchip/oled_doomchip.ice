@@ -1,5 +1,6 @@
 // SL 2020-04-28
 // DoomChip, OLED wrapper
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$if ULX3S then
 // vvvvvvvvvvvvv select screen driver below
@@ -53,7 +54,7 @@ $$print('------< OLED mode >------')
 // -------------------------
 
 $$if ULX3S then
-import('ulx3s_clk_50_25_100.v')
+import('../common/plls/ulx3s_50_25_100.v')
 $$end
 
 // ------------------------- 
@@ -223,7 +224,7 @@ $$if ULX3S then
   uint1 compute_clock = 0;
   uint1 unused_clock    = 0;
   uint1 pll_lock      = 0;
-  ulx3s_clk_50_25_100 clk_gen(
+  pll_50_25_100 clk_gen(
     clkin    <: clock,
     clkout0  :> compute_clock, // unused_clock,
     clkout1  :> unused_clock,  // compute_clock,

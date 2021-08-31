@@ -1,4 +1,5 @@
 // SL 2020-07 @sylefeb
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // vvvvvvvvvvvvv select screen driver below
 $$ -- SSD1351=1
@@ -69,16 +70,16 @@ $$end
 // ------------------------- 
 
 algorithm main(
-  output! uint8 leds,
+  output  uint8 leds,
   input   uint7 btns,
-  output! uint1 oled_clk,
-  output! uint1 oled_mosi,
-  output! uint1 oled_dc,
-  output! uint1 oled_resn,
-  output! uint1 oled_csn,
-  output! uint1 sd_clk,
-  output! uint1 sd_mosi,
-  output! uint1 sd_csn,
+  output  uint1 oled_clk,
+  output  uint1 oled_mosi,
+  output  uint1 oled_dc,
+  output  uint1 oled_resn,
+  output  uint1 oled_csn,
+  output  uint1 sd_clk,
+  output  uint1 sd_mosi,
+  output  uint1 sd_csn,
   input   uint1 sd_miso
 ) {
 

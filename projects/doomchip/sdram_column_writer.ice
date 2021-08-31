@@ -1,4 +1,5 @@
 // SL 2020-04-28
+// MIT license, see LICENSE_MIT in Silice repo root
 // -------------------------
 
 algorithm sdram_column_writer(

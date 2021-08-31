@@ -6,7 +6,10 @@ import json
 import argparse
 import platform
 import sysconfig
-from termcolor import colored
+# from termcolor import colored
+
+def colored(str,clr,attrs=0):
+  return str
 
 # command line
 parser = argparse.ArgumentParser(description='silice-make is the Silice build tool')
@@ -173,11 +176,17 @@ print('using build system    ',colored(target_builder['builder'],'cyan'))
 framework_file = os.path.realpath(os.path.join(board_path,target_variant['framework']))
 os.environ["FRAMEWORK_FILE"] = framework_file
 
+# options
+if args.no_build:
+    os.environ["NO_BUILD"] = "1"
+if args.no_program:
+    os.environ["NO_PROGRAM"] = "1"
+
 # ok, build!
 
 # convenience: under Windows/mingw extend path with known typical locations
 if platform.system() == "Windows":
-    if sysconfig.get_platform() == "mingw":
+    if sysconfig.get_platform().startswith("mingw"):
       os.environ["PATH"] += os.pathsep + os.path.realpath(make_dir)
       os.environ["PATH"] += os.pathsep + os.path.realpath(os.path.join(make_dir,"../tools/fpga-binutils/mingw64/bin/"))
       os.environ["PATH"] += os.pathsep + os.path.realpath("c:/intelFPGA_lite/19.1/quartus/bin64/")
@@ -188,7 +197,7 @@ if target_builder['builder'] == 'shell':
 
     # system checks
     if platform.system() == "Windows":
-        if not sysconfig.get_platform() == "mingw":
+        if not sysconfig.get_platform().startswith("mingw"):
             print(colored("to build from scripts please run MinGW python from a shell",'red'))
             sys.exit(-1)
 

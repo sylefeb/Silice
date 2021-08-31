@@ -5,6 +5,7 @@
 // st7789_no_cs     => true if CS is always grounded and CS pin used or backlight
 // st7789_transpose => true to transpose column/rows
 // ------------------------- 
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$ if ST7789 then
 

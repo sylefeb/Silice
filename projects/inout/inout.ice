@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 algorithm main(
   output uint$NUM_LEDS$ leds(0),
   inout  uint8          pmod)

@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 // SL 2020-07 @sylefeb
 
 $$if not ULX3S then

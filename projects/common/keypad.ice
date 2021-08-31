@@ -1,4 +1,5 @@
 // ---------------------------------------------------
+// MIT license, see LICENSE_MIT in Silice repo root
 
 algorithm keypad(
   output uint4  kpadC,

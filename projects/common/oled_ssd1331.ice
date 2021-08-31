@@ -2,6 +2,7 @@
 // ------------------------- 
 // OLED RGB screen driver (SSD1331)
 // ------------------------- 
+// MIT license, see LICENSE_MIT in Silice repo root
 
 group oledio {
   uint9  x_start = 0,

@@ -140,3 +140,9 @@ set_io --warn-no-port CTS 4
 set_io --warn-no-port RTS 7
 set_io --warn-no-port TX  8
 set_io --warn-no-port RX  9
+
+# -------------------------- SPI flash --------------------------------------------
+set_io FLASH_MOSI 67
+set_io FLASH_MISO 68
+set_io FLASH_CLK  70
+set_io FLASH_CSN  71

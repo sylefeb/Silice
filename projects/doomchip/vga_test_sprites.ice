@@ -4,6 +4,8 @@
 // References:
 // - "DooM black book" by Fabien Sanglard
 // - "DooM unofficial specs" http://www.gamers.org/dhs/helpdocs/dmsp1666.html
+//
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$print('---< written in Silice by @sylefeb >---')
 

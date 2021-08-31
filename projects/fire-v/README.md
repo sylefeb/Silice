@@ -62,7 +62,7 @@ The build process has two separate steps. First, build the framework with a boot
 
 In the following I describe instructions for the Wildfire and Blaze variants, but things are similar for all three variants.
 
-### Building Wildfire
+### **Building Wildfire (ULX3S)**
 
 **Note:** the framework was primarily designed on the ULX3S (ECP5) ; I'll try to port it to other boards.
 
@@ -101,7 +101,7 @@ make verilator
 
 This will open the Verilator framework display window.
 
-### Building Blaze
+### **Building Blaze (IceBreaker)**
 
 **Note:** the framework was primarily designed on the IceBreaker (iCE40UP5k) with a VGA PMOD.
 

@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 #include "../fire-v/smoke/mylibc/mylibc.h"
 
 volatile unsigned int* const SPRAM = (unsigned int*)0x88000000;

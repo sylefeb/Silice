@@ -1,0 +1,15 @@
+
+ulx3s: wildfire.ice
+	./compile_boot_sdcard.sh
+	silice-make.py -s wildfire.ice -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
+
+icebreaker: blaze.ice
+	./compile_boot_spiflash.sh
+	silice-make.py -s blaze.ice -b $@ -p basic,vga,spiflash -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
+
+verilator: wildfire.ice
+	./compile_to_wildfire.sh smoke/tests/cubes.c
+	silice-make.py -s wildfire.ice -b $@ -p basic,vga,sdram -o BUILD_$(subst :,_,$@) $(ARGS)
+
+clean:
+	rm -rf BUILD_*

@@ -1,4 +1,5 @@
 // SL 2020-07
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // vvvvvvvvvvvvv select screen driver below
 $$ -- SSD1331=1
@@ -23,12 +24,12 @@ $$end
 // ------------------------- 
 
 algorithm main(
-  output! uint$NUM_LEDS$ leds,
-  output! uint1 oled_clk,
-  output! uint1 oled_mosi,
-  output! uint1 oled_dc,
-  output! uint1 oled_resn,
-  output! uint1 oled_csn,
+  output uint$NUM_LEDS$ leds,
+  output uint1 oled_clk,
+  output uint1 oled_mosi,
+  output uint1 oled_dc,
+  output uint1 oled_resn,
+  output uint1 oled_csn,
 ) {
 
   oledio io;

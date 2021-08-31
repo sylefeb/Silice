@@ -1,19 +1,14 @@
 // SL 2020-12-22 @sylefeb
 //
-// ------------------------- 
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 /*
 
 Dedicated memory for the IceBreaker Ice40 with SPRAM
 
 Implements a memory space with:
-- 0x0000 to 0xFFFF mapped to SPRAM
-- 0x1000 to 0x17FF mapped to bram (boot)
+- 0x00000 to 0x0FFFF mapped to SPRAM
+- 0x10000 to 0x17FFF mapped to bram (boot)
 
 Two sprams are used, spram0 for bits 0-15, spram1 for bits 16-31
 
@@ -37,12 +32,6 @@ $$ print('##### code size: ' .. code_size_bytes .. ' BRAM capacity: ' .. 4*bram_
 $$if bram_depth > 14 then error('bram larger than spram') end
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
-
-import('../common/ice40_spram.v')
-
-$$if VERILATOR then
-$include('verilator_spram.ice')
-$$end
 
 algorithm bram_segment_spram_32bits(
   rv32i_ram_provider     pram,               // provided ram interface
@@ -69,7 +58,7 @@ algorithm bram_segment_spram_32bits(
   uint16 sp1_data_out(0);
   
 $$if VERILATOR then
-  verilator_spram spram0(
+  simulation_spram spram0(
 $$else
   ice40_spram spram0(
     clock    <: clock, 
@@ -82,7 +71,7 @@ $$end
   );
 
 $$if VERILATOR then
-  verilator_spram spram1(
+  simulation_spram spram1(
 $$else
   ice40_spram spram1(
     clock    <: clock,

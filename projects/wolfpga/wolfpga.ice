@@ -5,11 +5,7 @@
 // "Wolfenstein 3D black book" by Fabien Sanglard
 // https://github.com/id-Software/wolf3d/blob/master/WOLFSRC/WL_DR_A.ASM
 //
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$texfile = 'wolf.tga'
 // get pallette in pre-processor

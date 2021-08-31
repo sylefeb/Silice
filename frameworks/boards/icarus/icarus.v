@@ -1,3 +1,30 @@
+/*
+
+Copyright 2019, (C) Sylvain Lefebvre and contributors
+List contributors with: git shortlog -n -s -- <filename>
+
+MIT license
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of 
+this software and associated documentation files (the "Software"), to deal in 
+the Software without restriction, including without limitation the rights to 
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so, 
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all 
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+(header_2_M)
+
+*/
 `define ICARUS 1
 $$ICARUS      = 1
 $$SIMULATION  = 1
@@ -66,8 +93,8 @@ initial begin
 end
 
 reg ready = 0;
-reg [3:0] RST_d;
-reg [3:0] RST_q;
+reg [7:0] RST_d = 8'b11111111;
+reg [7:0] RST_q = 8'b11111111;
 
 always @* begin
   RST_d = RST_q >> 1;
@@ -78,7 +105,7 @@ always @(posedge clk) begin
     RST_q <= RST_d;
   end else begin
     ready <= 1;
-    RST_q <= 4'b1111;
+    RST_q <= 8'b11111111;
   end
 end
 
@@ -88,7 +115,7 @@ wire done_main;
 
 M_main __main(
   .clock(clk),
-  .reset(RST_d[0]),
+  .reset(RST_q[0]),
   .out_leds(__main_leds),
 `ifdef VGA  
   .out_video_clock(__main_video_clock),

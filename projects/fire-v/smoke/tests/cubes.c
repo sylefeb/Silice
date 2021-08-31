@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 #include "fonts/FCUBEF2.h"
 #include "../mylibc/mylibc.h"
 

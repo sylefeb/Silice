@@ -9,6 +9,7 @@
 // Test on: ULX3S, Verilator, Icarus
 //
 // ------------------------- 
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$if SIMULATION then
 $$ verbose = nil

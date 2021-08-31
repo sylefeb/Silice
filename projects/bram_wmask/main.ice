@@ -1,3 +1,4 @@
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 

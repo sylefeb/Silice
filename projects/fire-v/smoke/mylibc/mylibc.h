@@ -1,5 +1,7 @@
 #pragma once
  
+// MIT license, see LICENSE_MIT in Silice repo root
+
 // special addresses
 extern volatile unsigned char* const LEDS;
 extern volatile unsigned char* const FRAMEBUFFER;

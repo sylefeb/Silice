@@ -2,6 +2,8 @@
 
 **TL;DR** A small CPU design that can come in handy, a detailed code walkthrough, a good place to start learning about both Silice and RISC-V.
 
+**Latest news:** Also check the [Ice-V-Dual](IceVDual.md) that fits two cores in less than 1200 LUTs (with SoC).
+
 **Please note:** The text likely needs more polish, please send feedback!
 
 ## What is this?
@@ -15,8 +17,8 @@ The version here runs out of the box on the IceStick ice40 1HK, and can adapted 
 ## Features
 - implements the RV32I specifications
 - runs code compiled with gcc RISC-V (build scripts included)
-- executes instructions in 3 cycles, load/store in 4
-- less than 1K LUTs
+- executes load/store in 4, instructions in 3 cycles but for shifts which additionally take one cycle per shifted bit
+- less than 1000 LUTs
 - validates at around 65 Mz on the IceStick
 - < 300 lines of commented code (~100 lines compacted)
 - 1 bit per cycle shifter
@@ -28,13 +30,19 @@ The version here runs out of the box on the IceStick ice40 1HK, and can adapted 
   <img src="ice-v-98.png">
 </p>
 
+## The Ice-V dual
+
+A second version of the processor is included in this repo: [the Ice-V *dual*](CPUs/ice-v-dual.ice).
+This is an only slightly larger design that implements *two* RV32I cores. The
+dual version is described on [this separate page](IceVDual.md).
+
 ## Running the design
 
 The build is performed in two steps, first compile some code for the processor to run:
 
 From `projects/ice-v` (this directory) run:
 ```
-./compile_c.sh tests/c/test_leds.c
+./compile/icestick/compile_c.sh src/test_leds.c
 ```
 
 Plug your board tp the computer for programming and, from the project folder run:
@@ -46,7 +54,7 @@ On an IceStick the LEDs will blink around the center one in a rotating pattern.
 
 You may also simulate the design with:
 ```
-./compile_c.sh tests/c/test_leds_simul.c
+./compile/icestick/compile_c.sh src/test_leds_simul.c
 make verilator
 ```
 The console will output the LEDs pattern until you press CTRL+C to interrupt
@@ -60,43 +68,71 @@ LEDs: 00001
 ...
 ```
 
+### Adding a screen
+
 Optionally you can plug a small OLED screen (I used [this one](https://www.waveshare.com/1.5inch-rgb-oled-module.htm), 128x128 RGB with SSD1351 driver).
 
-The pinout for the IceStick is:
+Two different pinouts are supported. The first, shown next, uses all five wires
+of the OLED/LCD:
 | IceStick        | OLED      |
 |-----------------|-----------|
-| PMOD10 (pin 91) | din       |
-| PMOD9  (pin 90) | clk       |
-| PMOD8  (pin 88) | cs        |
-| PMOD7  (pin 87) | dc        |
 | PMOD1  (pin 78) | rst       |
+| PMOD7  (pin 87) | dc        |
+| PMOD8  (pin 88) | cs        |
+| PMOD9  (pin 90) | clk       |
+| PMOD10 (pin 91) | din       |
+
+> Using this pinout, build the design with the `Makefile.oled` makefile (see below).
+
+The second, recommended pinout uses only four wires of the OLED/LCD interface,
+leaving room for a second peripheral (such as a sound chip!). The pinout then is:
+| IceStick        | OLED      |
+|-----------------|-----------|
+| PMOD1  (pin 78) | rst       |
+| PMOD2  (pin 79) | dc        |
+| PMOD3  (pin 80) | clk       |
+| PMOD4  (pin 81) | din       |
+
+The CS pin of the screen has to be grounded. One way to do this is to plug it on top of the ground pin plug, see the orange wire in the picture below.
+
+<p align="center">
+  <img src="oled-pmod-4wires.jpg" width=400px>
+</p>
+
+> Using this pinout, build the design with the `Makefile.pmod` makefile (see below).
 
 Equipped with this, you can test the [DooM fire](tests/c/fire.c) or the [starfield](tests/c/starfield.c) demos. 
 
-For the DooM fire:
-
+For the DooM fire with the first OLED/LCD pinout:
 ```
-./compile_c.sh tests/c/fire.c
+./compile/icestick/compile_c.sh src/fire.c
 make icestick -f Makefile.oled
 ```
 
+For the DooM fire with the second OLED/LCD pinout:
+```
+./compile/icestick/compile_c.sh src/fire.c
+make icestick -f Makefile.pmod
+```
+
 <p align="center">
-  <img width="400" src="ice-v-doom-fire.png">
+  <img width="400" src="ice-v-doom-fire.png"><br>
+  <i>Note that the pinout changed compared to this picture</i>
 </p>
 
-> **Note:** Compling code for the processor requires a RISC-V toolchain. Under Windows, this is included in the binary package from my [fpga-binutils](https://github.com/sylefeb/fpga-binutils) repo. Under macOS and Linux there are precompiled packages, or you may prefer to compile from source. See see [getting
+> **Note:** Compiling code for the processor requires a RISC-V toolchain. Under Windows-MinGW, this is installed as a package by the `get_started_mingw64.sh` script. Under macOS and Linux there are precompiled packages, or you may prefer to compile from source. See see [getting
 started](https://github.com/sylefeb/Silice/blob/master/GetStarted.md) for more detailed instructions.
 
 &nbsp;<br>
 
 ## The Ice-V design: code walkthrough
 
-Now that we have tested the Ice-V let's dive into the code! The [entire processor](ice-v.ice) fits in less than 300 lines of Silice code (~130 without comments). 
+Now that we have tested the Ice-V let's dive into the code! The [entire processor](CPUs/ice-v.ice) fits in less than 300 lines of Silice code (~130 without comments). 
 
 A Risc-V processor is surprisingly simple! This is also a good opportunity to discover some Silice syntax and features.
 
-The processor is in file [ice-v.ice](ice-v.ice). For the demos, it is included in
-a minimalist SOC in file [ice-v-soc.ice](ice-v-soc.ice).
+The processor is in file [ice-v.ice](CPUs/ice-v.ice). For the demos, it is included in
+a minimalist SOC in file [ice-v-soc.ice](SOCs/ice-v-soc.ice).
 
 The processor is made of three algorithms:
 - `algorithm execute` is responsible for splitting a 32 bit instruction just read from memory into information used by the rest of the processor (decoder), as well as performing all integer arithmetic (ALU): add, sub, shifts, bitwise operators, etc. 

@@ -5,11 +5,7 @@
 // Tested on: Verilator, IceBreaker + VGA PMOD
 //
 // ------------------------- 
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // ./build.sh for building (plug the icebreaker first)
 // ./simul.sh for simulation, results in BUILD_verilator
@@ -27,7 +23,7 @@ $$end
 $$if ICEBREAKER then
 // import clock (PLL)
 import('../common/ice40_half_clock.v')
-import('../fire-v/plls/icebrkr50.v')
+import('../common/plls/icebrkr_50.v')
 // setup the RISC-V processor
 $$FIREV_NO_INSTRET    = 1   -- we do not want instret
 $$FIREV_MERGE_ADD_SUB = nil -- variant of ALU (more compact)
@@ -78,7 +74,7 @@ import('../common/ice40_spram.v')
 
 $$if VERILATOR then
 // verilator ice40 SPRAM simulation
-$include('../fire-v/ash/verilator_spram.ice') 
+$include('../common/simulation_spram.ice') 
 $$end
 
 // ------------------------- 
@@ -183,7 +179,7 @@ $$end
   uint4  fb0_wmask(0);
   uint16 fb0_data_out(0);
 $$if VERILATOR then
-  verilator_spram frame0(
+  simulation_spram frame0(
 $$else  
   ice40_spram frame0(
     clock    <: vga_clock,
@@ -202,7 +198,7 @@ $$end
   uint4  fb1_wmask(0);
   uint16 fb1_data_out(0);
 $$if VERILATOR then
-  verilator_spram frame1(
+  simulation_spram frame1(
 $$else  
   ice40_spram frame1(
     clock    <: vga_clock,
@@ -227,7 +223,7 @@ $$end
   uint4  map_wmask   <:: 4b1111;
   uint16 map_data_out(0);
 $$if VERILATOR then
-  verilator_spram map(
+  simulation_spram map(
 $$else
   ice40_spram map(
     clock    <: vga_clock,

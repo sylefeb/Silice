@@ -1,4 +1,5 @@
 // @sylefeb, 2020-10-08, UART example
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $include('../common/uart.ice')
 

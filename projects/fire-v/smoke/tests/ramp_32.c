@@ -1,3 +1,5 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+
 unsigned char* const FRAMEBUFFER = (unsigned char*)0x4000000;
 
 void main() 

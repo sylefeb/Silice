@@ -25,6 +25,7 @@
 //
 // done!  231/17 = 13
 //
+// MIT license, see LICENSE_MIT in Silice repo root
 
 algorithm mul_cmp(
    input   uint8 num,

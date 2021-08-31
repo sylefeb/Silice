@@ -5,6 +5,7 @@
 // - [sdram_half_speed_access] half speed bridge accross clock domains
 // - [sdram_byte_readcache]    implements a byte read/write interface, caching the larger read access
 // -----------------------------------------------------------
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // wrapper for sdram from design running half-speed clock
 // the wrapper runs full speed, the provided interface at half-speed

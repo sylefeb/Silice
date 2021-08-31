@@ -3,6 +3,7 @@
 // Why? The goal is to achieve a multi-cycle multiplication
 // with small combinational chains
 //
+// MIT license, see LICENSE_MIT in Silice repo root
 
 // find out power of 2 just larger than mul_width
 $$mul_width_pow2=0

@@ -10,14 +10,10 @@
 // Tested on: ULX3S, Verilator, Icarus
 //
 // ------------------------- 
-//      GNU AFFERO GENERAL PUBLIC LICENSE
-//        Version 3, 19 November 2007
-//      
-//  A copy of the license full text is included in 
-//  the distribution, please refer to it for details.
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$if SIMULATION then
-$$verbose      = 1
+$$verbose = nil
 $$end
 
 $$if not (ULX3S or ICARUS or VERILATOR or ICEBREAKER) then
@@ -25,11 +21,11 @@ $$error('Sorry, Spark is currently not supported on this board.')
 $$end
 
 $$if ULX3S then
-import('plls/pll200.v')
+import('../common/plls/ulx3s_200.v')
 $$end
 
 $$if ICEBREAKER then
-import('plls/icebrkr25.v')
+import('../common/plls/icebrkr_25.v')
 $$FIREV_MERGE_ADD_SUB = 1
 $$FIREV_NO_INSTRET    = 1
 $$if WARMBOOT then
