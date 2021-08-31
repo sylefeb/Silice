@@ -1,5 +1,5 @@
 
-riscv cpu_test(input uint32 a,output uint32 b) = compile({
+riscv cpu_test(input uint32 a,output uint32 b) <mem=512> = compile({
 
   #include "stdlib.h"
 

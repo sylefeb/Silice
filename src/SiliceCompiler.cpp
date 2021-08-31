@@ -29,6 +29,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "Config.h"
 #include "ExpressionLinter.h"
 #include "RISCVSynthesizer.h"
+#include "Utils.h"
 
 // -------------------------------------------------
 
@@ -42,6 +43,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <LibSL/LibSL.h>
 
 using namespace Silice;
+using namespace Silice::Utils;
 
 // -------------------------------------------------
 
@@ -378,7 +380,7 @@ void SiliceCompiler::run(
         }
       }
     
-    } catch (Algorithm::LanguageError& le) {
+    } catch (LanguageError& le) {
 
       ReportError err(lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()), le.token(), le.interval(), le.message());
       throw Fatal("Silice compiler stopped");

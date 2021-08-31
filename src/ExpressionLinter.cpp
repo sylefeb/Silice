@@ -27,10 +27,12 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "ExpressionLinter.h"
 #include "LuaPreProcessor.h"
+#include "Utils.h"
 
 // -------------------------------------------------
 
 using namespace Silice;
+using namespace Silice::Utils;
 
 // -------------------------------------------------
 
@@ -78,7 +80,7 @@ void ExpressionLinter::lintAssignment(
         vio = m_Host->translateVIOName(identifier->getText(), bctx);
       }
       if (m_Host->m_WireAssignmentNames.count(vio) != 0) {
-        m_Host->reportError(access != nullptr ? access->getSourceInterval() : identifier->getSourceInterval(), -1,
+        reportError(access != nullptr ? access->getSourceInterval() : identifier->getSourceInterval(), -1,
           "cannot assign to an expression tracker (read only)");
       }
     }
@@ -238,7 +240,7 @@ void ExpressionLinter::checkConcatenation(
        warn(Standard, expr->getSourceInterval(), -1, "signedness of expressions differs in concatenation");
     }
     if (tns[t].width == -1) {
-      m_Host->reportError(expr->getSourceInterval(), -1, "concatenation contains expression of unkown bit-width");
+      reportError(expr->getSourceInterval(), -1, "concatenation contains expression of unkown bit-width");
     }
   }
 }

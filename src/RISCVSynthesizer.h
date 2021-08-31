@@ -38,10 +38,12 @@ namespace Silice
     static antlr4::TokenStream *s_TokenStream;
 
     std::string cblockToString(siliceParser::CblockContext *cblock) const;
-
     std::string extractCodeBetweenTokens(std::string file, int stk, int etk) const;
 
     std::string generateCHeader(siliceParser::RiscvContext *riscv) const;
+    std::string generateSiliceCode(siliceParser::RiscvContext *riscv) const;
+
+    int         memorySize(siliceParser::RiscvContext *riscv) const;
 
   public:
 

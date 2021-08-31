@@ -87,6 +87,8 @@ ADD_EXECUTABLE(silice
   src/ExpressionLinter.h
   src/RISCVSynthesizer.cpp
   src/RISCVSynthesizer.h
+  src/Utils.cpp
+  src/Utils.h
   antlr/siliceParser.cpp
   antlr/siliceParser.h
   antlr/siliceLexer.cpp

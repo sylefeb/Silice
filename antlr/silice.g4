@@ -174,7 +174,7 @@ sclock              :  '@' IDENTIFIER ;
 sreset              :  '!' IDENTIFIER ;
 sautorun            :  AUTORUN ;
 sonehot             :  ONEHOT ;
-sstacksz            :  'stack:' NUMBER ;
+sstacksz            :  'stack:' NUMBER ; // deprecated
 sformdepth          :  '#depth' '=' NUMBER ;
 sformtimeout        :  '#timeout' '=' NUMBER ;
 sformmode           :  '#mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
@@ -463,7 +463,10 @@ cblock              : '{' cblock_items * '}' ;
 riscvInstructions   : initList
                     | COMPILE '(' cblock ')' ;
 
-riscvModifiers      : '<' '>';
+rmemsz              :  'mem' '=' NUMBER ;
+
+riscvModifier       : rmemsz ;
+riscvModifiers      : '<' riscvModifier (',' riscvModifier)* '>' ;
 
 riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? '=' riscvInstructions ;
 

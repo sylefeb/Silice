@@ -31,12 +31,14 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "VerilogTemplate.h"
 #include "ExpressionLinter.h"
 #include "LuaPreProcessor.h"
+#include "Utils.h"
 
 #include <cctype>
 
 using namespace std;
 using namespace antlr4;
 using namespace Silice;
+using namespace Silice::Utils;
 
 #define SUB_ENTRY_BLOCK "__sub_"
 
@@ -86,36 +88,6 @@ const std::vector<t_mem_member> c_SimpleDualPortBRAMmembers = {
   {true, false,"wdata1"},
   {true, true, "addr1"},
 };
-
-// -------------------------------------------------
-
-void Algorithm::reportError(antlr4::Token *what, int line, const char *msg, ...) const
-{
-  const int messageBufferSize = 4096;
-  char message[messageBufferSize];
-
-  va_list args;
-  va_start(args, msg);
-  vsprintf_s(message, messageBufferSize, msg, args);
-  va_end(args);
-
-  throw LanguageError(line, what, antlr4::misc::Interval::INVALID, "%s", message);
-}
-
-// -------------------------------------------------
-
-void Algorithm::reportError(antlr4::misc::Interval interval, int line, const char *msg, ...) const
-{
-  const int messageBufferSize = 4096;
-  char message[messageBufferSize];
-
-  va_list args;
-  va_start(args, msg);
-  vsprintf_s(message, messageBufferSize, msg, args);
-  va_end(args);
-
-  throw LanguageError(line, nullptr,interval, "%s", message);
-}
 
 // -------------------------------------------------
 
@@ -1028,22 +1000,6 @@ void Algorithm::readInitList(D* decl,T& var)
       var.init_values[i] = values_str[i];
     }
   }
-}
-
-// -------------------------------------------------
-
-static int justHigherPow2(int n)
-{
-  int  p2   = 0;
-  bool isp2 = true;
-  while (n > 0) {
-    if (n > 1 && (n & 1)) {
-      isp2 = false;
-    }
-    ++ p2;
-    n = n >> 1;
-  }
-  return isp2 ? p2-1 : p2;
 }
 
 // -------------------------------------------------

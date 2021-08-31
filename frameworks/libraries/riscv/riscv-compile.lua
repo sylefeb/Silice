@@ -35,13 +35,14 @@ end
 -- =========================================================================
 
 function compile(file)
+  print('********************* compiling from      ' .. file)
   local cmd
   cmd =  gcc .. ' '
-      .. '-fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32e -mabi=ilp32e -c -o code.o '
+      .. '-fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -c -o code.o '
       .. SRC
   os.execute(cmd)
   cmd =  as .. ' '
-      .. '-march=rv32e -mabi=ilp32e -o crt0.o '
+      .. '-march=rv32i -mabi=ilp32 -o crt0.o '
       .. CRT0
   os.execute(cmd)
   cmd =  ld .. ' '
