@@ -1,16 +1,34 @@
-gcc = 'riscv64-unknown-elf-gcc'
-as  = 'riscv64-unknown-elf-as'
-ld  = 'riscv64-unknown-elf-ld'
-oc  = 'riscv64-unknown-elf-objcopy'
+platforms = {'unknown','linux'}
+
+function set_toolchain_names(platform)
+  gcc = 'riscv64-' .. platform .. '-elf-gcc'
+  as  = 'riscv64-' .. platform .. '-elf-as'
+  ld  = 'riscv64-' .. platform .. '-elf-ld'
+  oc  = 'riscv64-' .. platform .. '-elf-objcopy'
+end
+
+-- =========================================================================
+
+function find_toolchain()
+  for _,p in pairs(platforms) do    
+    set_toolchain_names(p)
+    if test_toolchain() then
+      return true
+    end
+  end
+  error('RISC-V toolchain not found')
+end
 
 -- =========================================================================
  
-function test_compiler()
+function test_toolchain()
   local h  = io.popen(gcc .. ' --version','r')
   local r  = h:read('*all')
   h:close()
   if r == '' then
-    error('RISC-V compiler not found')
+    return false
+  else
+    return true
   end
 end
 
@@ -102,7 +120,7 @@ end
 
 -- print('source file = ' .. SRC)
 
-test_compiler()
+find_toolchain()
 
 compile(SRC)
 
