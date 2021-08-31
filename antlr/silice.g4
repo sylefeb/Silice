@@ -463,7 +463,7 @@ cblock              : '{' cblock_items * '}' ;
 riscvInstructions   : initList
                     | COMPILE '(' cblock ')' ;
 
-rmemsz              :  'mem' '=' NUMBER ;
+rmemsz              :  'mem=' NUMBER ; // NOTE: no space is allowed before '=' to avoid issues with identifiers
 
 riscvModifier       : rmemsz ;
 riscvModifiers      : '<' riscvModifier (',' riscvModifier)* '>' ;
@@ -475,3 +475,4 @@ riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? '=' ris
 topList       :  (algorithm | riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
 
 root                : topList EOF ;
+ 
