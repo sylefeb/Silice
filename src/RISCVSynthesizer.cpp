@@ -138,18 +138,50 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
 
 string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) const
 {
-  ostringstream code;
+  string io_decl;
+  string io_select;
+  string io_reads  = "{32{1b1}}";
+  string io_writes;
+  int idx = 0;
   for (auto io : riscv->inOutList()->inOrOut()) {
     auto input  = dynamic_cast<siliceParser::InputContext *>   (io->input());
     auto output = dynamic_cast<siliceParser::OutputContext *>  (io->output());
     auto inout  = dynamic_cast<siliceParser::InoutContext *>   (io->inout());
+    io_select   = io_select + "uint1 io_" + std::to_string(idx) + " <:: prev_mem_addr[" + std::to_string(idx) + ",1]; ";
+    string v;
     if (input) {
+      v         = input->IDENTIFIER()->getText();
+      io_reads  = io_reads  + " | (io_" + std::to_string(idx) + " ? " + v + " : 32b0)";
+      io_decl   = "input ";
     } else if (output) {
+      v         = output->declarationVar()->IDENTIFIER()->getText();
+      io_writes = io_writes + v + " = io_" + std::to_string(idx) + " ? memio.wdata : " + v + "; ";
+      io_decl   = "output ";
     } else if (inout) {
+      v         = inout->IDENTIFIER()->getText();
+      // NOTE: not so simple, has to be a true inout ...
+      //io_reads  = io_reads + " | (io_" + std::to_string(idx) + " ? " + v + " : 32b0)";
+      //io_writes = io_writes + v + " = io_" + std::to_string(idx) + " ? memio.wdata : " + v + "\n$$";
+      io_decl   = "inout ";
+      reportError(inout->getSourceInterval(), -1, "inout not yet supported");
     } else {
-      sl_assert(false); // RISC-V supports only input/output/inout   TODO error message
+      // TODO error message, actual checks!
+      reportError(inout->getSourceInterval(), -1, "[RISC-V] only 32bits input / output are support");
     }
+    io_decl += "uint32 " + v + ',';
+    ++ idx;
   }
+  ostringstream code;
+  code << "$$dofile('" << CONFIG.keyValues()["libraries_path"] + "/riscv/riscv-compile.lua');" << nxl;
+  code << "$$addrW     = " << 1+justHigherPow2(memorySize(riscv)) << nxl;
+  code << "$$memsz     = " << memorySize(riscv)/4 << nxl;
+  code << "$$meminit   = data_bram" << nxl;
+  code << "$$external  = " << justHigherPow2(memorySize(riscv)) << nxl;
+  code << "$$io_decl   = [[" << io_decl << "]]" << nxl;
+  code << "$$io_select = [[" << io_select << "]]" << nxl;
+  code << "$$io_reads  = [[" << io_reads << "]]" << nxl;
+  code << "$$io_writes = [[" << io_writes << "]]" << nxl;
+  code << "$include(\"" << CONFIG.keyValues()["libraries_path"] + "/riscv/riscv-ice-v-soc.ice\");" << nxl;
   return code.str();
 }
 
@@ -201,7 +233,8 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     string cmd =
         string(LibSL::System::Application::executablePath())
       + "/silice.exe "
-      + CONFIG.keyValues()["libraries_path"] + "/riscv/riscv-compile-rv32i.ice "
+      + "-o " + name + ".v "
+      + s_tempfile + " "
       + "-D SRC=\"\\\"" + c_tempfile + "\\\"\" "
       + "-D CRT0=\"\\\"" + CONFIG.keyValues()["libraries_path"] + "/riscv/crt0.s" + "\\\"\" "
       + "-D LD_CONFIG=\"\\\"" + CONFIG.keyValues()["libraries_path"] + "/riscv/config_c.ld" + "\\\"\" "

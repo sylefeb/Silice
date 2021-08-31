@@ -46,25 +46,30 @@ $$end
 
   // io mapping
   always {
+    uint1 wen      <:  (memio.wenable != 0);
+    uint1 io_write <:  (memio.addr[$external$,1]    &  wen);
+    uint1 io_read  <:: (prev_mem_addr[$external$,1] & ~prev_mem_rw);
+    $io_select$
 	  // ---- memory access
-    mem.wenable = memio.wenable & {4{~memio.addr[$external$,1]}}; 
-		//                            ^^^^^^^ no BRAM write if in peripheral addresses
-    memio.rdata = (prev_mem_addr[$external$,1] & prev_mem_addr[4,1] & ~prev_mem_rw) ? {31b0,reg_miso} : mem.rdata;
-$$if SMIULATION then		
-    if ( prev_mem_addr[$external$,1] & prev_mem_addr[4,1] & ~prev_mem_rw ) { 
-      __display("[cycle %d] SPI read: %d",cycle,memio.rdata); 
-    }
-$$end
-		prev_mem_addr = memio.addr;
-		prev_mem_rw   = memio.wenable[0,1];
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
-		// ---- peripherals
-    // ---- memory mapping to peripherals: writes
-    if (memio.addr[$external$,1]) {
-      leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
+    mem.wenable   = memio.wenable & {4{~memio.addr[$external$,1]}}; 
+		//                                ^^^^^^^ no BRAM write if in IO addresses
+    // ---- memory mapping to IO reads
+    memio.rdata = (~io_read ? mem.rdata : ($io_reads$));
+$$if SIMULATION then		
+    if ( io_read ) { 
+      __display("[cycle %d] IO read @b = %d ",cycle,prev_mem_addr,memio.rdata); 
+    }
+$$end
+    // ---- record addr and rw for next cycle
+		prev_mem_addr = memio.addr;
+		prev_mem_rw   = wen;
+    // ---- memory mapping to IO writes
+    if (io_write) {
+      $io_writes$
 $$if SIMULATION then
-      if (memio.addr[0,1]) { __display("[cycle %d] LEDs: %b",cycle,leds); }
+      __display("[cycle %d] IO write @b = %d ",cycle,memio.addr,memio.wdata); 
 $$end
     }
 $$if SIMULATION then
