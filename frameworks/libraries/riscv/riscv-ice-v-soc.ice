@@ -1,13 +1,6 @@
 // SL 2021-08-31 @sylefeb
 //
-// RV32I SOC
-//
-// Parameterized by
-// - addrW    : width of the address bus
-// - memsz    : size of BRAM in 32 bits words
-// - meminit  : initialization for BRAM
-// - external : bit indicating an IO is accessed
-// - io_decl  : io declatations
+// Generic RV32I SOC
 //
 // MIT license, see LICENSE_MIT in Silice repo root
 
@@ -28,7 +21,7 @@ group bram_io
   uint$addrW$ addr(0),    // boot address
 }
 
-algorithm riscv1($io_decl$) <autorun>
+algorithm $algorithm_name$($io_decl$) <autorun>
 {
 
 $$if SIMULATION then
@@ -40,7 +33,10 @@ $$end
   bram_io memio;  
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
   bram uint32 mem<"bram_wmask_byte">[$memsz$] = {$meminit$ pad(uninitialized)};
-
+  // - for IO mapping, need to record prev. cycle addr and rw
+	uint$addrW$ prev_mem_addr(0);
+	uint1       prev_mem_rw(0);
+  
   // cpu
   rv32i_cpu cpu( mem <:> memio );
 

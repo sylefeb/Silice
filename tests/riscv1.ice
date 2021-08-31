@@ -1,8 +1,6 @@
 
 riscv cpu_test(input uint32 a,output uint32 b) <mem=512> = compile({
 
-  #include "stdlib.h"
-
   int f(int val) 
   {
     return val + 1;
@@ -16,5 +14,5 @@ riscv cpu_test(input uint32 a,output uint32 b) <mem=512> = compile({
 
 algorithm main(output uint8 leds)
 {
-
+  
 }

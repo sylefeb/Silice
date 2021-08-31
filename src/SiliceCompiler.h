@@ -142,7 +142,8 @@ namespace Silice {
       std::string fresult,
       std::string fframework,
       std::string frameworks_dir,
-      const std::vector<std::string>& defines);
+      const std::vector<std::string>& defines,
+      std::string to_export);
 
   };
 

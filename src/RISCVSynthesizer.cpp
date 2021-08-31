@@ -152,23 +152,23 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
     if (input) {
       v         = input->IDENTIFIER()->getText();
       io_reads  = io_reads  + " | (io_" + std::to_string(idx) + " ? " + v + " : 32b0)";
-      io_decl   = "input ";
+      io_decl   = io_decl + "input ";
     } else if (output) {
       v         = output->declarationVar()->IDENTIFIER()->getText();
       io_writes = io_writes + v + " = io_" + std::to_string(idx) + " ? memio.wdata : " + v + "; ";
-      io_decl   = "output ";
+      io_decl   = io_decl + "output ";
     } else if (inout) {
       v         = inout->IDENTIFIER()->getText();
       // NOTE: not so simple, has to be a true inout ...
       //io_reads  = io_reads + " | (io_" + std::to_string(idx) + " ? " + v + " : 32b0)";
       //io_writes = io_writes + v + " = io_" + std::to_string(idx) + " ? memio.wdata : " + v + "\n$$";
-      io_decl   = "inout ";
+      io_decl   = io_decl + "inout ";
       reportError(inout->getSourceInterval(), -1, "inout not yet supported");
     } else {
       // TODO error message, actual checks!
       reportError(inout->getSourceInterval(), -1, "[RISC-V] only 32bits input / output are support");
     }
-    io_decl += "uint32 " + v + ',';
+    io_decl = io_decl + "uint32 " + v + ',';
     ++ idx;
   }
   ostringstream code;
@@ -181,6 +181,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
   code << "$$io_select = [[" << io_select << "]]" << nxl;
   code << "$$io_reads  = [[" << io_reads << "]]" << nxl;
   code << "$$io_writes = [[" << io_writes << "]]" << nxl;
+  code << "$$algorithm_name = '" << riscv->IDENTIFIER()->getText() << "'" << nxl;
   code << "$include(\"" << CONFIG.keyValues()["libraries_path"] + "/riscv/riscv-ice-v-soc.ice\");" << nxl;
   return code.str();
 }
@@ -234,6 +235,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
         string(LibSL::System::Application::executablePath())
       + "/silice.exe "
       + "-o " + name + ".v "
+      + "--export " + name + " "
       + s_tempfile + " "
       + "-D SRC=\"\\\"" + c_tempfile + "\\\"\" "
       + "-D CRT0=\"\\\"" + CONFIG.keyValues()["libraries_path"] + "/riscv/crt0.s" + "\\\"\" "

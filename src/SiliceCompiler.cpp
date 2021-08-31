@@ -273,7 +273,8 @@ void SiliceCompiler::run(
   std::string fresult,
   std::string fframework,
   std::string frameworks_dir,
-  const std::vector<std::string>& defines)
+  const std::vector<std::string>& defines,
+  std::string to_export)
 {
   // determine frameworks dir if needed
   if (frameworks_dir.empty()) {
@@ -365,15 +366,27 @@ void SiliceCompiler::run(
           m->writeModule(out);
         }
 
-        if (m_Algorithms.count("main") > 0) {
-          // ask for reports
-          m_Algorithms["main"]->enableReporting(fresult);
-          // write top algorithm (recurses from there)
-          m_Algorithms["main"]->writeAsModule("", out);
+        if (to_export.empty()) {
+          if (m_Algorithms.count("main") > 0) {
+            // ask for reports
+            m_Algorithms["main"]->enableReporting(fresult);
+            // write top algorithm (recurses from there)
+            m_Algorithms["main"]->writeAsModule("", out);
+          } else {
+            warn(Standard, antlr4::misc::Interval::INVALID, -1, "no main algorithm found, use --export to specify which algorithm to compile");
+          }
         } else {
-          warn(Standard,antlr4::misc::Interval::INVALID,-1,"no main algorithm found, use --export to specify which algorithm to compile");
+          if (m_Algorithms.count(to_export) > 0) {
+            // ask for reports
+            m_Algorithms[to_export]->enableReporting(fresult);
+            // write algorithm (recurses from there)
+            m_Algorithms[to_export]->writeAsModule("", out);
+          } else {
+            warn(Standard, antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s' to export");
+          }
         }
 
+        // formal unit tests
         for (auto const &[algname, alg] : m_Algorithms) {
           if (alg->isFormal()) {
             alg->enableReporting(fresult);
