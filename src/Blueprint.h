@@ -93,6 +93,16 @@ namespace Silice
       bool combinational = false;
     };
 
+    /// \brief information about instantiation (public for linter)
+    typedef struct {
+      std::string                                  instance_name;
+      std::string                                  local_instance_name;
+      std::unordered_map<std::string, std::string> parameters;
+    } t_instantiation_context;
+
+    /// \brief writes the blueprint as a Verilog module, recurses through instanced blueprints
+    virtual void writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass) = 0;
+
   };
 
 };
