@@ -47,8 +47,6 @@ See GitHub Issues section for open/known issues.
 
 #include <LibSL/LibSL.h>
 
-class LuaPreProcessor;
-
 // -------------------------------------------------
 
 #define FF_D      "_d"
@@ -76,6 +74,7 @@ namespace Silice
 
   // -------------------------------------------------
 
+  class LuaPreProcessor;
   class Module;
 
   // -------------------------------------------------

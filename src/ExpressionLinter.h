@@ -33,12 +33,9 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 // -------------------------------------------------
 
-class LuaPreProcessor;
-
-// -------------------------------------------------
-
 namespace Silice
 {
+  class LuaPreProcessor;
 
   // -------------------------------------------------
 
@@ -55,12 +52,6 @@ namespace Silice
 
     /// \brief Does the Linter warn about width mismatches in assignments? (there are very frequent)
     bool m_WarnAssignWidth = false;
-
-    /// \brief types of warnings
-    enum e_WarningType { Standard, Deprecation };
-
-    /// \brief issues a warning
-    void warn(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...) const;
 
     /// \brief check concatenation consistency
     void checkConcatenation(
@@ -106,11 +97,6 @@ namespace Silice
     /// \brief resolves a parameterized VIO knowing the instantiation context
     void resolveParameterized(std::string idnt, const Algorithm::t_combinational_block_context *bctx, t_type_nfo &_nfo) const;
 
-    /// \brief Token stream for warning reporting, optionally set
-    static antlr4::TokenStream *s_TokenStream;
-    /// \brief Pre-processor, optionally set
-    static LuaPreProcessor     *s_LuaPreProcessor;
-
   public:
 
     ExpressionLinter(const Algorithm *host, const Algorithm::t_instantiation_context& ictx) : m_Host(host), m_Ictx(ictx) { }
@@ -154,23 +140,6 @@ namespace Silice
       const t_type_nfo                               &left,
       const t_type_nfo                               &right
       ) const;
-
-    /// \brief set the token stream
-    static void setTokenStream(antlr4::TokenStream *tks)
-    {
-      s_TokenStream = tks;
-    }
-
-    /// \brief set the pre-processor
-    static void setLuaPreProcessor(LuaPreProcessor *lpp)
-    {
-      s_LuaPreProcessor = lpp;
-    }
-
-    /// \brief get a token from a source interval (helper)
-    antlr4::Token              *getToken(antlr4::misc::Interval interval,bool last_else_first = false);
-    /// \brief returns the source file and line for the given token (helper)
-    std::pair<std::string, int> getTokenSourceFileAndLine(antlr4::Token *tk);
 
   };
 

@@ -36,11 +36,6 @@ using namespace Silice::Utils;
 
 // -------------------------------------------------
 
-antlr4::TokenStream *ExpressionLinter::s_TokenStream     = nullptr;
-LuaPreProcessor     *ExpressionLinter::s_LuaPreProcessor = nullptr;
-
-// -------------------------------------------------
-
 void ExpressionLinter::lint(
   siliceParser::Expression_0Context              *expr,
   const Algorithm::t_combinational_block_context *bctx) const
@@ -195,37 +190,6 @@ antlr4::tree::ParseTree *child(antlr4::tree::ParseTree *expr)
 {
   sl_assert(expr->children.size() > C);
   return expr->children[C];
-}
-
-// -------------------------------------------------
-
-void ExpressionLinter::warn(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...) const
-{
-  const int messageBufferSize = 4096;
-  char message[messageBufferSize];
-
-  va_list args;
-  va_start(args, msg);
-  vsprintf_s(message, messageBufferSize, msg, args);
-  va_end(args);
-
-  switch (type) {
-  case Standard:    std::cerr << Console::yellow << "[warning]    " << Console::gray; break;
-  case Deprecation: std::cerr << Console::cyan   << "[deprecated] " << Console::gray; break;
-  }
-  if (line > -1) {
-  } else if (s_TokenStream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
-    antlr4::Token *tk = s_TokenStream->get(interval.a);
-    line = (int)tk->getLine();
-  }
-  if (s_LuaPreProcessor != nullptr) {
-    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
-    std::cerr << "(" << Console::white << fl.first << Console::gray << ", line " << sprint("%4d",fl.second) << ") ";
-  } else {
-    std::cerr << "(" << line << ") ";
-  }
-  std::cerr << "\n             " << message;
-  std::cerr << "\n";
 }
 
 // -------------------------------------------------
@@ -505,31 +469,6 @@ void ExpressionLinter::typeNfo(
 {
   _nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(bctx, idnt, antlr4::misc::Interval::INVALID , -1));
   resolveParameterized(idnt, bctx, _nfo);
-}
-
-// -------------------------------------------------
-
-antlr4::Token *ExpressionLinter::getToken(antlr4::misc::Interval interval,bool last_else_first)
-{
-  if (s_TokenStream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
-    antlr4::Token *tk = s_TokenStream->get(last_else_first ? interval.b : interval.a);
-    return tk;
-  } else {
-    return nullptr;
-  }
-}
-
-// -------------------------------------------------
-
-std::pair<std::string, int> ExpressionLinter::getTokenSourceFileAndLine(antlr4::Token *tk)
-{
-  int line = (int)tk->getLine();
-  if (s_LuaPreProcessor != nullptr) {
-    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
-    return fl;
-  } else {
-    return std::make_pair("", line);
-  }
 }
 
 // -------------------------------------------------

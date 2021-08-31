@@ -6719,12 +6719,11 @@ void Algorithm::writeCombinationalStates(
 
 v2i Algorithm::instructionLines(antlr4::tree::ParseTree *instr, const t_instantiation_context &ictx) const
 {
-  ExpressionLinter lint(this, ictx);
-  auto tk_start = lint.getToken(instr->getSourceInterval(), false);
-  auto tk_end = lint.getToken(instr->getSourceInterval(), true);
+  auto tk_start = getToken(instr->getSourceInterval(), false);
+  auto tk_end = getToken(instr->getSourceInterval(), true);
   if (tk_start && tk_end) {
-    std::pair<std::string, int> fl_start = lint.getTokenSourceFileAndLine(tk_start);
-    std::pair<std::string, int> fl_end = lint.getTokenSourceFileAndLine(tk_end);
+    std::pair<std::string, int> fl_start = getTokenSourceFileAndLine(tk_start);
+    std::pair<std::string, int> fl_end = getTokenSourceFileAndLine(tk_end);
     return v2i(fl_start.second, fl_end.second);
   }
   return v2i(-1);
@@ -7407,12 +7406,11 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
     m_ReportingEnabled = (!m_ReportBaseName.empty());
     if (m_ReportingEnabled) {
       // algorithm report
-      ExpressionLinter linter(this, ictx);
       std::ofstream freport(algReportName(), std::ios_base::app);
       sl_assert(!m_Blocks.empty());
-      auto tk = linter.getToken(m_Blocks.front()->source_interval);
+      auto tk = getToken(m_Blocks.front()->source_interval);
       if (tk) {
-        std::pair<std::string, int> fl = linter.getTokenSourceFileAndLine(tk);
+        std::pair<std::string, int> fl = getTokenSourceFileAndLine(tk);
         freport 
           << (ictx.instance_name.empty() ? "__main" : ictx.instance_name) << " " 
           << (ictx.local_instance_name.empty() ? "main" : ictx.local_instance_name) << " " 
@@ -8088,17 +8086,15 @@ void Algorithm::outputFSMGraph(std::string dotFile) const
 
 void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
 {
-  ExpressionLinter lint(this, ictx);
-
   std::ofstream freport(vioReportName(), std::ios_base::app);
 
   freport << (ictx.instance_name.empty()?"__main":ictx.instance_name) << " " << (m_Vars.size() + m_Outputs.size() + m_Inputs.size()) << " " << nxl;
   for (auto &v : m_Vars) {
-    auto tk = lint.getToken(v.source_interval);
+    auto tk = getToken(v.source_interval);
     std::string tk_text = v.name;
     int         tk_line = -1;
     if (tk) {
-      std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+      std::pair<std::string, int> fl = getTokenSourceFileAndLine(tk);
       tk_text = tk->getText();
       tk_line = fl.second;
     }
@@ -8120,11 +8116,11 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
     freport << nxl;
   }
   for (auto &v : m_Outputs) {
-    auto tk = lint.getToken(v.source_interval);
+    auto tk = getToken(v.source_interval);
     std::string tk_text = v.name;
     int         tk_line = -1;
     if (tk) {
-      std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+      std::pair<std::string, int> fl = getTokenSourceFileAndLine(tk);
       tk_text = tk->getText();
       tk_line = fl.second;
     }
@@ -8145,11 +8141,11 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
     freport << nxl;
   }
   for (auto &v : m_Inputs) {
-    auto tk = lint.getToken(v.source_interval);
+    auto tk = getToken(v.source_interval);
     std::string tk_text = v.name;
     int         tk_line = -1;
     if (tk) {
-      std::pair<std::string, int> fl = lint.getTokenSourceFileAndLine(tk);
+      std::pair<std::string, int> fl = getTokenSourceFileAndLine(tk);
       tk_text = tk->getText();
       tk_line = fl.second;
     }

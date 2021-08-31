@@ -29,6 +29,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace Silice
 {
+  class LuaPreProcessor;
 
   namespace Utils
   {
@@ -41,6 +42,22 @@ namespace Silice
     void reportError(antlr4::Token *what, int line, const char *msg, ...);
     /// \brief report an error using source interval or line number
     void reportError(antlr4::misc::Interval interval, int line, const char *msg, ...);
+    /// \brief types of warnings
+    enum e_WarningType { Standard, Deprecation };
+    /// \brief issues a warning
+    void warn(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...);
+    /// \brief get a token from a source interval (helper)
+    antlr4::Token *getToken(antlr4::misc::Interval interval, bool last_else_first = false);
+    /// \brief returns the source file and line for the given token (helper)
+    std::pair<std::string, int> getTokenSourceFileAndLine(antlr4::Token *tk);
+    /// \brief Token stream for warning reporting, optionally set
+    static antlr4::TokenStream *s_TokenStream;
+    /// \brief Pre-processor, optionally set
+    static LuaPreProcessor *s_LuaPreProcessor;
+    /// \brief set the token stream
+    void setTokenStream(antlr4::TokenStream *tks);
+    /// \brief set the pre-processor
+    void setLuaPreProcessor(LuaPreProcessor *lpp);
 
     // -------------------------------------------------
 

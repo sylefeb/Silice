@@ -328,8 +328,8 @@ void SiliceCompiler::run(
     parser.addErrorListener(&parserErrorListener);
 
     RISCVSynthesizer::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
-    ExpressionLinter::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
-    ExpressionLinter::setLuaPreProcessor(&lpp);
+    Utils::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
+    Utils::setLuaPreProcessor(&lpp);
     Algorithm::setLuaPreProcessor(&lpp);
 
     try {
@@ -370,6 +370,8 @@ void SiliceCompiler::run(
           m_Algorithms["main"]->enableReporting(fresult);
           // write top algorithm (recurses from there)
           m_Algorithms["main"]->writeAsModule("", out);
+        } else {
+          warn(Standard,antlr4::misc::Interval::INVALID,-1,"no main algorithm found, use --export to specify which algorithm to compile");
         }
 
         for (auto const &[algname, alg] : m_Algorithms) {
@@ -388,8 +390,8 @@ void SiliceCompiler::run(
     }
 
     RISCVSynthesizer::setTokenStream(nullptr);
-    ExpressionLinter::setTokenStream(nullptr);
-    ExpressionLinter::setLuaPreProcessor(nullptr);
+    Utils::setTokenStream(nullptr);
+    Utils::setLuaPreProcessor(nullptr);
     Algorithm::setLuaPreProcessor(nullptr);
 
   } else {
