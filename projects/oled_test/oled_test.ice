@@ -7,11 +7,13 @@ $$ -- SSD1351=1
 $$ ST7789=1
 //               vvvvv adjust to your screen
 $$ oled_width   = 240
-$$ oled_height  = 240
+$$ oled_height  = 320
 //               vvvvv set to false if the screen uses the CS pin
-$$ st7789_no_cs = true
+$$ st7789_no_cs = false
 //                   vvvvv set to true to rotate view 90 degrees
 $$ st7789_transpose = true
+
+// default configured for https://www.waveshare.com/wiki/2inch_LCD_Module
 
 // ------------------------- 
 

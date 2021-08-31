@@ -1,6 +1,6 @@
 // SL 2020
 //
-// A simple test for SDRAM controllers, in simulation
+// A simple test for SDRAM controllers (ULX3S / simulation)
 //
 // ------------------------- 
 // MIT license, see LICENSE_MIT in Silice repo root
