@@ -8,22 +8,59 @@ Note that these designs are entirely created from scratch with Silice, from SDRA
 To build a design please refer to the [building](#building-the-examples) section below and the README of the project.
 All designs can be simulated with Icarus/Verilator, and many will work right out of the box on real hardware. This directory also contains a `test_all.sh` script which is mostly meant for development: it allows to check that all projects still compile with the latest Silice version. It relies on a `configs` file defined in each project sub-directory.
 
-A few projects rely on some external hardware (typical, low cost things: OLED, keypad, LCD, etc.), this is all detailed in the README of the projects. See also the [peripherals](#peripherals) Section below.
+A few projects rely on some external hardware (typical low cost peripherals: OLED, keypad, LCD 1602, etc.), this is all detailed in the README of the projects. See also the [peripherals](#peripherals) Section below.
 
 <p align="center">
   <img width="600" src="gallery.png">
 </p>
 
+## All example projects
+
+For projects that do not have a README, please refer to [building the examples](#building-the-examples) below.
+
+- LEDs and basics
+  - [blinky](blinky/README.md) (detailed code walkthrough)
+  - [buttons_and_leds](buttons_and_leds/buttons_and_leds.ice)
+  - [using inout](inout/README.md)
+  - [UART echo](uart_echo/uart_echo.ice)
+- Audio
+  - [streaming audio from sdcard](audio_sdcard_streamer/README.md) (detailed code walkthrough)  
+  - [I2S PCM audio](i2s_audio/README.md) (detailed code walkthrough)
+- Graphics
+  - [HDMI tutorial](hdmi_test/README.md) (detailed code walkthrough)
+  - [Voxel terrain fly-over](terrain/README.md) (detailed code walkthrough)
+  - [DooM-chip](doomchip/README.md)
+  - [Wolfenstein 3D render loop](wolfpga/README.md)
+  - [VGA demo (text + starfield)](vga_text_buffer/vga_text_buffer.ice)
+  - [VGA old-school demos](vga_demo/README.md) (fun to try!)
+  - [VGA test](vga_test/vga_test.ice)
+  - [LCD driver](lcd_test/README.md)
+  - [SDRAM framebuffer framework test](video_sdram_test/video_sdram_test.ice)
+- OLED/LCD
+  - [sdcard raw dump and image viewer](oled_sdcard_test/README.md)
+  - [Text display (ULX3S)](oled_text/oled_text.ice)
+  - [Basic test](oled_test/oled_test.ice)
+- Memory
+  - [SDRAM tutorial](sdram_test/README.md) (detailed code walkthrough)
+  - [SDRAM test utility](sdram_memtest/sdram_memtest.ice)
+  - [bram interface](bram_interface/main.ice)
+  - [bram write mask](bram_wmask/main.ice)
+- RISC-V
+  - [The ice-v and ice-v-dual](ice-v/README.md) (detailed code walkthrough)
+  - [fire-v + graphics](fire-v/README.md) (detailed code walkthrough)
+- dynamic configuration (ice40)
+  - [ice40-warmboot](ice40-warmboot/README.md) (detailed explanations)
+  - [ice40-dynboot](ice40-dynboot/README.md) (detailed explanations)
+- Arithmetic
+  - [division, standard](divstd_bare/main.ice)
+  - [division, parallel](divint_bare/main.ice)
+- Algorithms
+  - [pipelined sort](pipeline_sort/README.md) (detailed code walkthrough) 
+  - [model synthesis / wave function collapse](vga_wfc/vga_wfc_basic.ice)
+
 ## Detailed tutorials
 
 Some of the projects have more detailed explanations and walk-throughs:
-- [HDMI tutorial](hdmi_test/README.md)
-- [The ice-v and ice-v-dual (RISC-V)](ice-v/README.md)
-- [Terrain fly-over demo](terrain/README.md)
-- [The fire-v (RISC-V + graphics)](fire-v/README.md)
-- [SDRAM tutorial](sdram_test/README.md)
-- [streaming audio from sdcard](audio_sdcard_streamer/README.md)
-- [pipelined sort](pipeline_sort/README.md)
 
 ## Building the examples
 

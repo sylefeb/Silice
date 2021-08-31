@@ -6,9 +6,11 @@ $$ -- SSD1351=1
 $$ ST7789=1
 //               vvvvv adjust to your screen
 $$ oled_width   = 240
-$$ oled_height  = 240
+$$ oled_height  = 320
 //               vvvvv set to false if the screen uses the CS pin
-$$ st7789_no_cs = true
+$$ st7789_no_cs = false
+
+// default configured for https://www.waveshare.com/wiki/2inch_LCD_Module
 
 $include('../common/oled.ice')
 
@@ -250,12 +252,13 @@ algorithm main(
     }
     
     // wait for sdcard
-    // while (sdcio.ready == 0) { }
+    while (sdcio.ready == 0) { }
     
     // write data on screen
     str_x = 0;
     str_y = 0;
     () <- print_string <- ();
+
     () <- print_hex    <- (sdcio.addr_sector[8,8]);
     () <- print_hex    <- (sdcio.addr_sector[0,8]);
     str_x = 0;
@@ -284,7 +287,7 @@ algorithm main(
     }
     // read sector
     sdcio.read_sector = 1;
-
+    
   }
 
 }
