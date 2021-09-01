@@ -118,6 +118,8 @@ namespace Silice
     virtual const std::unordered_map<std::string, int >& outputNames() const = 0;
     /// \brief all inout names, map contains index in m_InOuts
     virtual const std::unordered_map<std::string, int >& inOutNames()  const = 0;
+    /// \brief determines vio bit width and (if applicable) table size
+    virtual std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const;
 
     /// \brief utility accessor to output by name
     const t_output_nfo& output(std::string name) const

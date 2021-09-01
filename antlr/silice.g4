@@ -179,8 +179,8 @@ sformdepth          :  '#depth' '=' NUMBER ;
 sformtimeout        :  '#timeout' '=' NUMBER ;
 sformmode           :  '#mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
 
-algModifier         : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode ;
-algModifiers        : '<' algModifier (',' algModifier)* '>' ;
+bpModifier          : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode ;
+bpModifiers         : '<' bpModifier (',' bpModifier)* '>' ;
 
 pad                 : PAD '(' (value | UNINITIALIZED) ')' ;
 file                : FILE '(' STRING ')' ;
@@ -199,11 +199,11 @@ declarationVarInitCstr : '(' (value | UNINITIALIZED) ')';
 declarationVar         : type IDENTIFIER ( declarationVarInitSet | declarationVarInitCstr )? ATTRIBS? ;
 declarationTable       : type IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationMemory      : (BRAM | BROM | DUALBRAM | SIMPLEDUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
-declarationGrpModAlg   : modalg=IDENTIFIER name=IDENTIFIER algModifiers? ( '(' modalgBindingList ')' ) ? ;
-declaration            : declarationVar | declarationGrpModAlg | declarationTable | declarationMemory | declarationWire;
+declarationInstance    : blueprint=IDENTIFIER name=IDENTIFIER bpModifiers? ( '(' bpBindingList ')' ) ? ;
+declaration            : declarationVar | declarationInstance | declarationTable | declarationMemory | declarationWire;
 
-modalgBinding        : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
-modalgBindingList    : modalgBinding ',' modalgBindingList | modalgBinding | ;
+bpBinding              : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
+bpBindingList          : bpBinding ',' bpBindingList | bpBinding | ;
 
 /* -- io lists -- */
 
@@ -452,7 +452,7 @@ circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' block ;
 
 /* -- Algorithm -- */
 
-algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' algModifiers? '{' declAndInstrList '}' ;
+algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' bpModifiers? '{' declAndInstrList '}' ;
 
 /* -- RISC-V -- */
 

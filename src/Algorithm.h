@@ -115,10 +115,8 @@ namespace Silice
     /// \brief all the modes the algorithm is supposed to be verified in
     std::vector<std::string> m_FormalModes{};
 
-    /// \brief Set of known modules
-    const std::unordered_map<std::string, AutoPtr<Module> >& m_KnownModules;
-    /// \brief Set of known algorithms
-    const std::unordered_map<std::string, AutoPtr<Algorithm> >& m_KnownAlgorithms;
+    /// \brief Set of known blueprints
+    const std::unordered_map<std::string, AutoPtr<Blueprint> >& m_KnownBlueprints;
     /// \brief Set of known subroutines
     const std::unordered_map<std::string, siliceParser::SubroutineContext*>& m_KnownSubroutines;
     /// \brief Set of known circuitries
@@ -166,12 +164,12 @@ private:
       siliceParser::GroupContext    *group           = nullptr; // from an actual group declaration
       siliceParser::IntrfaceContext *intrface        = nullptr; // from an interface declaration
       siliceParser::DeclarationMemoryContext *memory = nullptr; // from a memory declaration
-      const Algorithm               *alg             = nullptr; // from an algorithm
+      const Blueprint               *blueprint       = nullptr; // from a blueprint
       const t_inout_nfo             *inout           = nullptr; // from an inout
       t_group_definition(siliceParser::GroupContext *g) : group(g)    {}
       t_group_definition(siliceParser::IntrfaceContext *i) : intrface(i) {}
       t_group_definition(siliceParser::DeclarationMemoryContext *m) : memory(m) {}
-      t_group_definition(const Algorithm *a) : alg(a) {}
+      t_group_definition(const Blueprint   *bp) : blueprint(bp) {}
       t_group_definition(const t_inout_nfo *io) : inout(io) {}
     };
 
@@ -194,11 +192,11 @@ private:
     std::unordered_map<std::string, int > m_InOutNames;
 
     /// \brief VIO (variable-or-input-or-output) bound to module/algorithms outputs (wires) (vio name => wire name)
-    std::unordered_map<std::string, std::string>  m_VIOBoundToModAlgOutputs;
+    std::unordered_map<std::string, std::string>  m_VIOBoundToBlueprintOutputs;
     /// \brief module/algorithms inouts bound to VIO (inout => vio name)
-    std::unordered_map<std::string, std::string > m_ModAlgInOutsBoundToVIO;
+    std::unordered_map<std::string, std::string > m_BlueprintInOutsBoundToVIO;
     /// \brief VIO bound to module/algorithms inouts (vio name => inout)
-    std::unordered_map<std::string, std::string > m_VIOToModAlgInOutsBound;
+    std::unordered_map<std::string, std::string > m_VIOToBlueprintInOutsBound;
 
     /// \brief all variables
     std::vector< t_var_nfo >              m_Vars;
@@ -228,32 +226,17 @@ private:
       std::string                instance_name;
       std::string                instance_prefix;
       int                        instance_line; // error reporting
-      AutoPtr<Algorithm>         blueprint;
+      AutoPtr<Blueprint>         blueprint;
       std::vector<t_binding_nfo> bindings;
       bool                       autobind;
-
       std::string                instance_clock;
       std::string                instance_reset;
       std::unordered_map<std::string, std::pair<std::string, e_FFUsage> > boundinputs;
-    } t_algo_nfo;
+    } t_instanced_nfo;
 
-    /// \brief instanced algorithms
-    std::unordered_map< std::string, t_algo_nfo > m_InstancedAlgorithms;
-    std::vector< std::string >                    m_InstancedAlgorithmsInDeclOrder;
-
-    /// \brief info about an instanced module
-    typedef struct {
-      std::string                blueprint_name;
-      std::string                instance_name;
-      std::string                instance_prefix;
-      int                        instance_line; // error reporting
-      AutoPtr<Module>            blueprint;
-      std::vector<t_binding_nfo> bindings;
-      bool                       autobind;
-    } t_module_nfo;
-
-    /// \brief instanced modules
-    std::unordered_map< std::string, t_module_nfo > m_InstancedModules;
+    /// \brief instanced blueprints
+    std::unordered_map< std::string, t_instanced_nfo > m_InstancedBlueprints;
+    std::vector< std::string >                         m_InstancedBlueprintsInDeclOrder;
 
     /// \brief info about a call parameter
     /// 
@@ -680,15 +663,13 @@ private:
     void gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, t_combinational_block *_current, t_gather_context *_context);
     /// \brief extract the list of bindings
     void getBindings(
-      siliceParser::ModalgBindingListContext *bindings,
+      siliceParser::BpBindingListContext *bindings,
       std::vector<t_binding_nfo>& _vec_bindings,
       bool& _autobind) const;
     /// \brief gather group declaration
-    void gatherDeclarationGroup(siliceParser::DeclarationGrpModAlgContext* grp, t_combinational_block *_current, t_gather_context *_context);
-    /// \brief gather algorithm declaration
-    void gatherDeclarationAlgo(siliceParser::DeclarationGrpModAlgContext* alg, t_combinational_block *_current, t_gather_context *_context);
-    /// \brief gather module declaration
-    void gatherDeclarationModule(siliceParser::DeclarationGrpModAlgContext* mod, t_combinational_block *_current, t_gather_context *_context);
+    void gatherDeclarationGroup(siliceParser::DeclarationInstanceContext* grp, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief gather blueprint instance declaration
+    void gatherDeclarationInstance(siliceParser::DeclarationInstanceContext* alg, t_combinational_block* _current, t_gather_context* _context);
     /// \brief gather past checks
     void gatherPastCheck(siliceParser::Was_atContext *chk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather stable checks
@@ -768,10 +749,8 @@ private:
     void checkExpressions(const t_instantiation_context &ictx,antlr4::tree::ParseTree *node, const t_combinational_block *_current);
     /// \brief check expressions on all blocks
     void checkExpressions(const t_instantiation_context &ictx);
-    /// \brief Verifies validity of bindings on instanced modules
-    void checkModulesBindings() const;
-    /// \brief Verifies validity of bindings on instanced algorithms
-    void checkAlgorithmsBindings(const t_instantiation_context &ictx) const;
+    /// \brief Verifies validity of bindings on instanced blueprints
+    void checkBlueprintsBindings(const t_instantiation_context &ictx) const;
     /// \brief gather info about an input
     void gatherInputNfo(siliceParser::InputContext* input, t_inout_nfo& _io, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather info about an output
@@ -893,17 +872,15 @@ private:
     /// \brief analyze variables access and classifies variables
     void determineUsage();
     /// \brief determines the list of bound VIO
-    void determineModAlgBoundVIO();
+    void determineBlueprintBoundVIO();
     /// \brief analyze the subroutine calls
     void analyzeSubroutineCalls();
-    /// \brief analyze usage of inputs of instanced algorithms
-    void analyzeInstancedAlgorithmsInputs();
-    /// \brief autobind algorithm
-    void autobindInstancedAlgorithm(t_algo_nfo& _alg);
-    /// \brief autobind a module
-    void autobindInstancedModule(t_module_nfo& _mod);
+    /// \brief analyze usage of inputs of instanced blueprints
+    void analyzeInstancedBlueprintInputs();
+    /// \brief autobind blueprint
+    void autobindInstancedBlueprint(t_instanced_nfo& _bp);
     /// \brief resove e_Auto binding directions
-    void resolveInstancedAlgorithmBindingDirections(t_algo_nfo& _alg);
+    void resolveInstancedBlueprintBindingDirections(t_instanced_nfo& _bp);
     /// \brief returns true if the algorithm does not have an FSM
     bool hasNoFSM() const;
     /// \brief returns true if the algorithm does not need a reset
@@ -924,8 +901,7 @@ private:
       std::string name, bool hasHash,
       std::string clock, std::string reset,
       bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes,
-      const std::unordered_map<std::string, AutoPtr<Module> >&                 known_modules,
-      const std::unordered_map<std::string, AutoPtr<Algorithm> >&              known_algorithms,
+      const std::unordered_map<std::string, AutoPtr<Blueprint> >&              known_blueprints,
       const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
       const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
       const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
@@ -937,10 +913,8 @@ private:
     /// \brief sets the input parsed tree
     void gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *declAndInstr);
 
-    /// \brief resolve instanced modules refs
-    void resolveModuleRefs(const std::unordered_map<std::string, AutoPtr<Module> >& modules);
-    /// \brief resolve instanced algorithms refs
-    void resolveAlgorithmRefs(const std::unordered_map<std::string, AutoPtr<Algorithm> >& algorithms);
+    /// \brief resolve instanced blueprint refs
+    void resolveInstancedBlueprintRefs(const std::unordered_map<std::string, AutoPtr<Blueprint> >& blueprints);
     /// \brief resolve inouts
     void resolveInOuts();
 
@@ -960,8 +934,6 @@ private:
     std::string findSameAsRoot(std::string vio, const t_combinational_block_context *bctx) const;
     /// \brief write a verilog wire/reg declaration, possibly parameterized
     void writeVerilogDeclaration(std::ostream &out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const;
-    /// \brief determines vio bit width and (if applicable) table size
-    std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(const t_combinational_block_context *bctx, std::string vname, antlr4::misc::Interval interval, int line) const;
     /// \brief determines identifier bit width and (if applicable) table size
     std::tuple<t_type_nfo, int> determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, antlr4::misc::Interval interval, int line) const;
     /// \brief determines identifier type and width
@@ -977,9 +949,9 @@ private:
     /// \brief determines access type/width
     t_type_nfo determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const;
     /// \brief writes a call to an algorithm
-    void writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::CallParamListContext *plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
+    void writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_instanced_nfo& a, siliceParser::CallParamListContext *plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes reading back the results of an algorithm
-    void writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_algo_nfo& a, siliceParser::CallParamListContext *plist, const t_combinational_block_context *bctx, t_vio_ff_usage &_ff_usage) const;
+    void writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_instanced_nfo& a, siliceParser::CallParamListContext *plist, const t_combinational_block_context *bctx, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes a call to a subroutine
     void writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, siliceParser::CallParamListContext *plist, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes reading back the results of a subroutine
@@ -1125,6 +1097,8 @@ private:
     const std::unordered_map<std::string, int >& inOutNames()  const override { return m_InOutNames; }
     /// \brief returns true if the algorithm is not callable
     bool isNotCallable() const override;
+    /// \brief determines vio bit width and (if applicable) table size
+    std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const override;
 
   };
 
