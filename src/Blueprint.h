@@ -101,7 +101,7 @@ namespace Silice
     } t_instantiation_context;
 
     /// \brief writes the blueprint as a Verilog module
-    virtual void writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass) = 0;
+    virtual void writeAsModule(std::ostream& out, const t_instantiation_context& ictx, bool first_pass) = 0;
     /// \brief returns true if the blueprint is not callable with the (.) <- . <- (.) syntax
     virtual bool isNotCallable() const = 0;
     /// \brief inputs
@@ -113,11 +113,59 @@ namespace Silice
     /// \brief parameterized vars
     virtual const std::vector<std::string >&  parameterized() const = 0;
     /// \brief all input names, map contains index in m_Inputs
-    virtual const std::unordered_map<std::string, int > inputNames() const = 0;
+    virtual const std::unordered_map<std::string, int >& inputNames()  const = 0;
     /// \brief all output names, map contains index in m_Outputs
-    virtual const std::unordered_map<std::string, int > outputNames() const = 0;
+    virtual const std::unordered_map<std::string, int >& outputNames() const = 0;
     /// \brief all inout names, map contains index in m_InOuts
-    virtual const std::unordered_map<std::string, int > inOutNames() const = 0;
+    virtual const std::unordered_map<std::string, int >& inOutNames()  const = 0;
+
+    /// \brief utility accessor to output by name
+    const t_output_nfo& output(std::string name) const
+    {
+      auto F = outputNames().find(name);
+      if (F == outputNames().end()) {
+        throw Fatal("cannot find output '%s'", name.c_str());
+      }
+      return outputs().at(F->second);
+    }
+    /// \brief utility accessor to input by name
+    const t_inout_nfo& input(std::string name) const
+    {
+      auto F = inputNames().find(name);
+      if (F == inputNames().end()) {
+        throw Fatal("cannot find input '%s'", name.c_str());
+      }
+      return inputs().at(F->second);
+    }
+    /// \brief utility accessor to inout by name
+    const t_inout_nfo& inout(std::string name) const
+    {
+      auto F = inOutNames().find(name);
+      if (F == inOutNames().end()) {
+        throw Fatal("cannot find inout '%s'", name.c_str());
+      }
+      return inOuts().at(F->second);
+    }
+    /// \brief returns true if var is an input
+    bool isInput(std::string var) const
+    {
+      return (inputNames().find(var) != inputNames().end());
+    }
+    /// \brief returns true if var is an output
+    bool isOutput(std::string var) const
+    {
+      return (outputNames().find(var) != outputNames().end());
+    }
+    /// \brief returns true if var is an inOut
+    bool isInOut(std::string var) const
+    {
+      return (inOutNames().find(var) != inOutNames().end());
+    }
+    /// \brief returns true if var is an input or an output
+    bool isInputOrOutput(std::string var) const
+    {
+      return isInput(var) || isOutput(var);
+    }
 
   };
 

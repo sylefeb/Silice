@@ -623,14 +623,6 @@ private:
 
   private:
 
-    /// \brief returns true if belongs to inputs
-    bool isInput(std::string var) const;
-    /// \brief returns true if belongs to outputs
-    bool isOutput(std::string var) const;
-    /// \brief returns true if belongs to inouts
-    bool isInOut(std::string var) const;
-    /// \brief checks whether an identifier is an input or output
-    bool isInputOrOutput(std::string var) const;
     /// \brief checks whether an identifier is a VIO
     bool isVIO(std::string var) const;
     /// \brief returns a VIO definition
@@ -1113,24 +1105,24 @@ private:
     /// \brief check whether an algorithm is used for formal verification or not
     bool isFormal() { return m_hasHash; }
 
-    /// === from Blueprint
+    /// === implements Blueprint
 
     /// \brief writes the algorithm as a Verilog module, recurses through instanced blueprints
-    void writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass);
+    void writeAsModule(std::ostream& out, const t_instantiation_context& ictx, bool first_pass);
     /// \brief inputs
-    const std::vector<t_inout_nfo> &inputs()         const override { return m_Inputs; }
+    const std::vector<t_inout_nfo>& inputs()         const override { return m_Inputs; }
     /// \brief outputs
-    const std::vector<t_output_nfo > &outputs()      const override { return m_Outputs; }
+    const std::vector<t_output_nfo >& outputs()      const override { return m_Outputs; }
     /// \brief inouts
-    const std::vector<t_inout_nfo > &inOuts()        const override { return m_InOuts; }
+    const std::vector<t_inout_nfo >& inOuts()        const override { return m_InOuts; }
     /// \brief parameterized vars
-    const std::vector<std::string > &parameterized() const override { return m_Parameterized; }
+    const std::vector<std::string >& parameterized() const override { return m_Parameterized; }
     /// \brief all input names, map contains index in m_Inputs
-    const std::unordered_map<std::string, int > inputNames()  const override { return m_InputNames; }
+    const std::unordered_map<std::string, int >& inputNames()  const override { return m_InputNames; }
     /// \brief all output names, map contains index in m_Outputs
-    const std::unordered_map<std::string, int > outputNames() const override { return m_OutputNames; }
+    const std::unordered_map<std::string, int >& outputNames() const override { return m_OutputNames; }
     /// \brief all inout names, map contains index in m_InOuts
-    const std::unordered_map<std::string, int > inOutNames()  const override { return m_InOutNames; }
+    const std::unordered_map<std::string, int >& inOutNames()  const override { return m_InOutNames; }
     /// \brief returns true if the algorithm is not callable
     bool isNotCallable() const override;
 

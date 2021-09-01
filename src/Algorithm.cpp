@@ -95,9 +95,9 @@ void Algorithm::checkModulesBindings() const
 {
   for (auto& im : m_InstancedModules) {
     for (const auto& b : im.second.bindings) {
-      bool is_input  = (im.second.blueprint->inputs() .find(b.left) != im.second.blueprint->inputs().end());
-      bool is_output = (im.second.blueprint->outputs().find(b.left) != im.second.blueprint->outputs().end());
-      bool is_inout  = (im.second.blueprint->inouts() .find(b.left) != im.second.blueprint->inouts().end());
+      bool is_input  = im.second.blueprint->isInput(b.left);
+      bool is_output = im.second.blueprint->isOutput(b.left);
+      bool is_inout  = im.second.blueprint->isInOut(b.left);
       if (!is_input && !is_output && !is_inout) {
         // check if right is a group/interface
         if (m_VIOGroups.count(bindingRightIdentifier(b)) > 0) {
@@ -218,25 +218,25 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
   }
   // -> for each module inputs
   for (auto io : _mod.blueprint->inputs()) {
-    if (defined.find(io.first) == defined.end()) {
+    if (defined.find(io.name) == defined.end()) {
       // not bound, check if algorithm has an input with same name
-      if (m_InputNames.find(io.first) != m_InputNames.end()) {
+      if (m_InputNames.find(io.name) != m_InputNames.end()) {
         // yes: autobind
         t_binding_nfo bnfo;
         bnfo.line  = _mod.instance_line;
-        bnfo.left  = io.first;
-        bnfo.right = io.first;
+        bnfo.left  = io.name;
+        bnfo.right = io.name;
         bnfo.dir = e_Left;
         _mod.bindings.push_back(bnfo);
       }
       // check if algorithm has a var with same name
       else {
-        if (m_VarNames.find(io.first) != m_VarNames.end()) {
+        if (m_VarNames.find(io.name) != m_VarNames.end()) {
           // yes: autobind
           t_binding_nfo bnfo;
           bnfo.line = _mod.instance_line;
-          bnfo.left = io.first;
-          bnfo.right = io.first;
+          bnfo.left = io.name;
+          bnfo.right = io.name;
           bnfo.dir = e_Left;
           _mod.bindings.push_back(bnfo);
         }
@@ -250,7 +250,7 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
   for (auto io : internals) {
     if (defined.find(io) == defined.end()) {
       // not bound, check if module has an input with same name
-      if (_mod.blueprint->inputs().find(io) != _mod.blueprint->inputs().end()) {
+      if (_mod.blueprint->isInput(io)) {
         // yes: autobind
         t_binding_nfo bnfo;
         bnfo.line = _mod.instance_line;
@@ -263,25 +263,25 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
   }
   // -> for each module output
   for (auto io : _mod.blueprint->outputs()) {
-    if (defined.find(io.first) == defined.end()) {
+    if (defined.find(io.name) == defined.end()) {
       // not bound, check if algorithm has an output with same name
-      if (m_OutputNames.find(io.first) != m_OutputNames.end()) {
+      if (m_OutputNames.find(io.name) != m_OutputNames.end()) {
         // yes: autobind
         t_binding_nfo bnfo;
         bnfo.line = _mod.instance_line;
-        bnfo.left = io.first;
-        bnfo.right = io.first;
+        bnfo.left = io.name;
+        bnfo.right = io.name;
         bnfo.dir = e_Right;
         _mod.bindings.push_back(bnfo);
       }
       // check if algorithm has a var with same name
       else {
-        if (m_VarNames.find(io.first) != m_VarNames.end()) {
+        if (m_VarNames.find(io.name) != m_VarNames.end()) {
           // yes: autobind
           t_binding_nfo bnfo;
           bnfo.line = _mod.instance_line;
-          bnfo.left = io.first;
-          bnfo.right = io.first;
+          bnfo.left = io.name;
+          bnfo.right = io.name;
           bnfo.dir = e_Right;
           _mod.bindings.push_back(bnfo);
         }
@@ -289,27 +289,27 @@ void Algorithm::autobindInstancedModule(t_module_nfo& _mod)
     }
   }
   // -> for each module inout
-  for (auto io : _mod.blueprint->inouts()) {
-    if (defined.find(io.first) == defined.end()) {
+  for (auto io : _mod.blueprint->inOuts()) {
+    if (defined.find(io.name) == defined.end()) {
       // not bound
       // check if algorithm has an inout with same name
-      if (m_InOutNames.find(io.first) != m_InOutNames.end()) {
+      if (m_InOutNames.find(io.name) != m_InOutNames.end()) {
         // yes: autobind
         t_binding_nfo bnfo;
         bnfo.line = _mod.instance_line;
-        bnfo.left = io.first;
-        bnfo.right = io.first;
+        bnfo.left = io.name;
+        bnfo.right = io.name;
         bnfo.dir = e_BiDir;
         _mod.bindings.push_back(bnfo);
       }
       // check if algorithm has a var with same name
       else {
-        if (m_VarNames.find(io.first) != m_VarNames.end()) {
+        if (m_VarNames.find(io.name) != m_VarNames.end()) {
           // yes: autobind
           t_binding_nfo bnfo;
           bnfo.line = _mod.instance_line;
-          bnfo.left = io.first;
-          bnfo.right = io.first;
+          bnfo.left = io.name;
+          bnfo.right = io.name;
           bnfo.dir = e_BiDir;
           _mod.bindings.push_back(bnfo);
         }
@@ -478,34 +478,6 @@ Algorithm::~Algorithm()
     delete (p);
   }
   m_Pipelines.clear();
-}
-
-// -------------------------------------------------
-
-bool Algorithm::isInput(std::string var) const
-{
-  return (m_InputNames.find(var) != m_InputNames.end());
-}
-
-// -------------------------------------------------
-
-bool Algorithm::isOutput(std::string var) const
-{
-  return (m_OutputNames.find(var) != m_OutputNames.end());
-}
-
-// -------------------------------------------------
-
-bool Algorithm::isInOut(std::string var) const
-{
-  return (m_InOutNames.find(var) != m_InOutNames.end());
-}
-
-// -------------------------------------------------
-
-bool Algorithm::isInputOrOutput(std::string var) const
-{
-  return isInput(var) || isOutput(var);
 }
 
 // -------------------------------------------------
@@ -7635,10 +7607,10 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     for (auto b : nfo.second.bindings) {
       if (b.dir == e_Right) {
         auto O = nfo.second.blueprint->output(b.left);
-        if (O.first == 0 && O.second == 0) {
+        if (O.type_nfo.width == 1) {
           out << "wire " << wire_prefix + "_" + b.left;
         } else {
-          out << "wire[" << O.first << ':' << O.second << "] " << wire_prefix + "_" + b.left;
+          out << "wire[" << O.type_nfo.width-1 << ':' << 0 << "] " << wire_prefix + "_" + b.left;
         }
         out << ';' << nxl;
       }
