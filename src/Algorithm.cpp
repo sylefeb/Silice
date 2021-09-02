@@ -1344,7 +1344,6 @@ std::string Algorithm::rewriteIdentifier(
       return encapsulateIdentifier(var, read_access, ALG_INPUT + prefix + var, suffix);
     } else if (isInOut(var)) {
       reportError(nullptr, (int)line, "cannot use inouts directly in expressions");
-      //return ALG_INOUT + prefix + var;
     } else if (isOutput(var)) {
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_Temporary) {
@@ -1482,7 +1481,7 @@ std::string Algorithm::rewriteExpression(
           if (A == m_InstancedBlueprints.end()) {
             reportError(atom->getSourceInterval(),-1,"cannot find instance '%s'",atom->algo->getText().c_str());
           } else {
-            Algorithm* alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
+            Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
             if (alg == nullptr) {
               reportError(atom->getSourceInterval(), -1, "instance '%s' does not support isdone", atom->algo->getText().c_str());
             } else {
@@ -3514,7 +3513,7 @@ bool Algorithm::requiresNoReset() const
   }
   // do any of the instantiated algorithms require a reset?
   for (const auto &I : m_InstancedBlueprints) {
-    Algorithm* alg = dynamic_cast<Algorithm*>(I.second.blueprint.raw());
+    Algorithm *alg = dynamic_cast<Algorithm*>(I.second.blueprint.raw());
     if (alg != nullptr) {
       if (!alg->requiresNoReset()) {
         return false;
@@ -4838,7 +4837,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
       // find algorithm
       auto A = m_InstancedBlueprints.find(async->IDENTIFIER()->getText());
       if (A != m_InstancedBlueprints.end()) {
-        Algorithm* alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
+        Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
         if (alg == nullptr) {
           reportError(async->getSourceInterval(), -1, "called instance '%s' is not an algorithm", async->IDENTIFIER()->getText());
         } else {
@@ -4862,7 +4861,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
       // find algorithm / subroutine
       auto A = m_InstancedBlueprints.find(sync->joinExec()->IDENTIFIER()->getText());
       if (A != m_InstancedBlueprints.end()) { // algorithm?
-        Algorithm* alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
+        Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
         if (alg == nullptr) {
           reportError(async->getSourceInterval(), -1, "called instance '%s' is not an algorithm", async->IDENTIFIER()->getText());
         } else {
@@ -4900,7 +4899,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
       // find algorithm / subroutine
       auto A = m_InstancedBlueprints.find(join->IDENTIFIER()->getText());
       if (A != m_InstancedBlueprints.end()) { // algorithm?
-        Algorithm* alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
+        Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
         if (alg == nullptr) {
           reportError(async->getSourceInterval(), -1, "joined instance '%s' is not an algorithm", async->IDENTIFIER()->getText());
         } else {
@@ -5221,7 +5220,7 @@ t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_co
 void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_instanced_nfo& a, siliceParser::CallParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   // check an algorithm is called
-  Algorithm* alg = dynamic_cast<Algorithm*>(a.blueprint.raw());
+  Algorithm *alg = dynamic_cast<Algorithm*>(a.blueprint.raw());
   if (alg == nullptr) {
     reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
       "called instance '%s' is not an algorithm",
@@ -5272,7 +5271,7 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
 void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_instanced_nfo& a, siliceParser::CallParamListContext* plist, const t_combinational_block_context* bctx, t_vio_ff_usage &_ff_usage) const
 {
   // check an algorithm is joined
-  Algorithm* alg = dynamic_cast<Algorithm*>(a.blueprint.raw());
+  Algorithm *alg = dynamic_cast<Algorithm*>(a.blueprint.raw());
   if (alg == nullptr) {
     reportError(node->getSourceInterval(), (int)plist->getStart()->getLine(),
       "joined instance '%s' is not an algorithm",
@@ -5994,7 +5993,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   // state machine run for instanced algorithms
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &ia = m_InstancedBlueprints.at(iaiordr);
-    Algorithm* alg = dynamic_cast<Algorithm*>(ia.blueprint.raw());
+    Algorithm *alg = dynamic_cast<Algorithm*>(ia.blueprint.raw());
     if (alg != nullptr) {
       // check for call on purely combinational
       if (!alg->hasNoFSM()) {
@@ -6231,7 +6230,7 @@ void Algorithm::writeCombinationalAlwaysPre(
   // instanced algorithms run, maintain high
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &ia = m_InstancedBlueprints.at(iaiordr);
-    Algorithm* alg = dynamic_cast<Algorithm*>(ia.blueprint.raw());
+    Algorithm *alg = dynamic_cast<Algorithm*>(ia.blueprint.raw());
     if (alg != nullptr) {
       if (!alg->hasNoFSM()) {
         out << ia.instance_prefix + "_" ALG_RUN " = 1;" << nxl;
@@ -6607,8 +6606,8 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
       auto async = dynamic_cast<siliceParser::AsyncExecContext *>(a.instr);
       if (async) {
         // find algorithm
-        auto A = m_InstancedAlgorithms.find(async->IDENTIFIER()->getText());
-        if (A == m_InstancedAlgorithms.end()) {
+        auto A = m_InstancedBlueprints.find(async->IDENTIFIER()->getText());
+        if (A == m_InstancedBlueprints.end()) {
           // check if this is an erronous call to a subroutine
           auto S = m_Subroutines.find(async->IDENTIFIER()->getText());
           if (S == m_Subroutines.end()) {
@@ -6628,8 +6627,8 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
       auto sync = dynamic_cast<siliceParser::SyncExecContext *>(a.instr);
       if (sync) {
         // find algorithm
-        auto A = m_InstancedAlgorithms.find(sync->joinExec()->IDENTIFIER()->getText());
-        if (A == m_InstancedAlgorithms.end()) {
+        auto A = m_InstancedBlueprints.find(sync->joinExec()->IDENTIFIER()->getText());
+        if (A == m_InstancedBlueprints.end()) {
           // call to a subroutine?
           auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
           if (S == m_Subroutines.end()) {
@@ -6647,8 +6646,8 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
       auto join = dynamic_cast<siliceParser::JoinExecContext *>(a.instr);
       if (join) {
         // find algorithm
-        auto A = m_InstancedAlgorithms.find(join->IDENTIFIER()->getText());
-        if (A == m_InstancedAlgorithms.end()) {
+        auto A = m_InstancedBlueprints.find(join->IDENTIFIER()->getText());
+        if (A == m_InstancedBlueprints.end()) {
           // return of subroutine?
           auto S = m_Subroutines.find(join->IDENTIFIER()->getText());
           if (S == m_Subroutines.end()) {
@@ -6887,8 +6886,8 @@ void Algorithm::writeStatelessBlockGraph(
       return;
     } else if (current->wait()) {
       // wait for algorithm
-      auto A = m_InstancedAlgorithms.find(current->wait()->algo_instance_name);
-      if (A == m_InstancedAlgorithms.end()) {
+      auto A = m_InstancedBlueprints.find(current->wait()->algo_instance_name);
+      if (A == m_InstancedBlueprints.end()) {
         reportError(nullptr,(int)current->wait()->line,
         "cannot find algorithm '%s' to join with",
           current->wait()->algo_instance_name.c_str());
@@ -7294,14 +7293,14 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     writeModuleMemory(ictx.instance_name, out, mem);
   }
 
-  // write instantiated algorithms
-  for (const auto &iaiordr : m_InstancedAlgorithmsInDeclOrder) {
-    const auto &nfo = m_InstancedAlgorithms.at(iaiordr);
+  // write instantiated blueprints
+  for (const auto &iaiordr : m_InstancedBlueprintsInDeclOrder) {
+    const auto &nfo = m_InstancedBlueprints.at(iaiordr);
     // -> create local context
     t_instantiation_context local_ictx;
     // parameters for parameterized variables
-    ForIndex(i, nfo.blueprint->m_Parameterized.size()) {
-      string var = nfo.blueprint->m_Parameterized[i];
+    ForIndex(i, nfo.blueprint->parameterized().size()) {
+      string var = nfo.blueprint->parameterized()[i];
       // find binding
       bool found = false;
       const auto &b = findBindingTo(var, nfo.bindings, found);
@@ -7386,27 +7385,10 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
       << ';' << nxl;
   }
 
-  // module instantiations (1/2)
+  // blueprint instantiations (1/2) 
   // -> required wires to hold outputs
-  for (auto& nfo : m_InstancedModules) {
-    std::string  wire_prefix = WIRE + nfo.second.instance_prefix;
-    for (auto b : nfo.second.bindings) {
-      if (b.dir == e_Right) {
-        auto O = nfo.second.blueprint->output(b.left);
-        if (O.type_nfo.width == 1) {
-          out << "wire " << wire_prefix + "_" + b.left;
-        } else {
-          out << "wire[" << O.type_nfo.width-1 << ':' << 0 << "] " << wire_prefix + "_" + b.left;
-        }
-        out << ';' << nxl;
-      }
-    }
-  }
-
-  // algorithm instantiations (1/2) 
-  // -> required wires to hold outputs
-  for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
-    const auto &nfo = m_InstancedAlgorithms.at(iaiordr);
+  for (const auto& bpiordr : m_InstancedBlueprintsInDeclOrder) {
+    const auto &nfo = m_InstancedBlueprints.at(bpiordr);
     // output wires
     for (const auto& os : nfo.blueprint->outputs()) {
       sl_assert(os.table_size == 0);
@@ -7430,9 +7412,13 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
         writeVerilogDeclaration(out, ictx, "wire", os, std::string(WIRE) + nfo.instance_prefix + '_' + os.name);
       }
     }
-    if (!nfo.blueprint->hasNoFSM()) {
-      // algorithm done
-      out << "wire " << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ';' << nxl;
+    // algorithm specific
+    Algorithm *alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
+    if (alg != nullptr) {
+      if (!alg->hasNoFSM()) {
+        // algorithm done
+        out << "wire " << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ';' << nxl;
+      }
     }
   }
 
@@ -7491,69 +7477,9 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = 0;" << nxl;
   }
 
-  // module instantiations (2/2)
-  // -> module instances
-  for (auto& nfo : m_InstancedModules) {
-    std::string  wire_prefix = WIRE + nfo.second.instance_prefix;
-    // write module instantiation
-    out << nxl;
-    out << nfo.second.blueprint_name << ' ' << nfo.second.instance_prefix << " (" << nxl;
-    bool first = true;
-    for (auto b : nfo.second.bindings) {
-      if (!first) out << ',' << nxl;
-      first = false;
-      if (b.dir == e_Left || b.dir == e_LeftQ) {
-        // input
-        t_vio_dependencies _;
-        out << '.' << b.left << '(';
-        out << rewriteIdentifier("_", bindingRightIdentifier(b), "", nullptr, nfo.second.instance_line,
-          b.dir == e_LeftQ ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
-          b.dir == e_LeftQ ?  e_Q : e_D
-        );
-        out << ")";
-        // check whether the bound variable is a wire, another bound var or an input in which case <:: does not make sense
-        if (b.dir == e_LeftQ) {
-          std::string bid = bindingRightIdentifier(b);
-          const auto &vio = m_VIOBoundToBlueprintOutputs.find(bid);
-          bool bound_wire_input = false;
-          if (vio != m_VIOBoundToBlueprintOutputs.end()) {
-            bound_wire_input = true;
-          }
-          if (m_WireAssignmentNames.count(bid) > 0) {
-            bound_wire_input = true;
-          }
-          if (isInput(bid)) {
-            bound_wire_input = true;
-          }
-          if (bound_wire_input) {
-            reportError(nullptr, b.line, "using <:: on input, tracked expression or bound vio '%s' has no effect, use <: instead", bid.c_str());
-          }
-        }
-      } else if (b.dir == e_Right) {
-        // output (wire)
-        out << '.' << b.left << '(' << wire_prefix + "_" + b.left << ")";
-      } else {
-        // inout (host algorithm inout or wire)
-        sl_assert(b.dir == e_BiDir);
-        std::string bindpoint = nfo.second.instance_prefix + "_" + b.left;
-        const auto& vio = m_BlueprintInOutsBoundToVIO.find(bindpoint);
-        if (vio != m_BlueprintInOutsBoundToVIO.end()) {
-          if (isInOut(bindingRightIdentifier(b))) {
-            out << '.' << b.left << '(' << ALG_INOUT << "_" << bindingRightIdentifier(b) << ")";
-          } else {
-            out << '.' << b.left << '(' << WIRE << "_" << bindingRightIdentifier(b) << ")";
-          }
-        } else {
-          reportError(nullptr,b.line,"cannot find module inout binding '%s'", b.left.c_str());
-        }
-      }
-    }
-    out << nxl << ");" << nxl;
-  }
-
-  // algorithm instantiations (2/2) 
-  for (const auto& iaiordr : m_InstancedAlgorithmsInDeclOrder) {
-    const auto &nfo = m_InstancedAlgorithms.at(iaiordr);
+  // blueprint instantiations (2/2) 
+  for (const auto& ibiordr : m_InstancedBlueprintsInDeclOrder) {
+    const auto &nfo = m_InstancedBlueprints.at(ibiordr);
     // algorithm module
     out << "M_" << nfo.blueprint_name << '_' << ictx.instance_name + '_' + nfo.instance_name << ' ';
     // instance name
@@ -7562,13 +7488,13 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     out << '(' << nxl;
     // inputs
     for (const auto &is : nfo.blueprint->inputs()) {
-      out << '.' << ALG_INPUT << '_' << is.name << '(';
+      out << '.' << nfo.blueprint->inputPortName(is.name) << '(';
       if (nfo.boundinputs.count(is.name) > 0) {
         // input is bound, directly map bound VIO
         t_vio_dependencies _;
-        out << rewriteIdentifier("_", nfo.boundinputs.at(is.name).first, "", nullptr, nfo.instance_line, 
+        out << rewriteIdentifier("_", nfo.boundinputs.at(is.name).first, "", nullptr, nfo.instance_line,
           nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
-          nfo.boundinputs.at(is.name).second == e_Q ?  e_Q : e_D
+          nfo.boundinputs.at(is.name).second == e_Q ? e_Q : e_D
         );
         // check whether the bound variable is a wire or another bound var, in which case <:: does not make sense
         if (nfo.boundinputs.at(is.name).second == e_Q) {
@@ -7585,7 +7511,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
             bound_wire_input = true;
           }
           if (bound_wire_input) {
-            reportError(nullptr, nfo.instance_line, "using <:: on input, tracked expression or bound vio '%s' has no effect, use <: instead",bid.c_str());
+            reportError(nullptr, nfo.instance_line, "using <:: on input, tracked expression or bound vio '%s' has no effect, use <: instead", bid.c_str());
           }
         }
       } else {
@@ -7607,7 +7533,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     // outputs (wire)
     for (const auto& os : nfo.blueprint->outputs()) {
       out << '.'
-        << ALG_OUTPUT << '_' << os.name
+        << nfo.blueprint->outputPortName(os.name)
         << '(' << WIRE << nfo.instance_prefix << '_' << os.name << ')';
       out << ',' << nxl;
     }
@@ -7617,34 +7543,38 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
       const auto& vio = m_BlueprintInOutsBoundToVIO.find(bindpoint);
       if (vio != m_BlueprintInOutsBoundToVIO.end()) {
         if (isInOut(vio->second)) {
-          out << '.' << ALG_INOUT << '_' << os.name << '(' << ALG_INOUT << "_" << vio->second << ")";
+          out << '.' << nfo.blueprint->inoutPortName(os.name) << '(' << ALG_INOUT << "_" << vio->second << ")";
         } else {
-          out << '.' << ALG_INOUT << '_' << os.name << '(' << WIRE << "_" << vio->second << ")";
+          out << '.' << nfo.blueprint->inoutPortName(os.name) << '(' << WIRE << "_" << vio->second << ")";
         }
         out << ',' << nxl;
       } else {
         reportError(nullptr, nfo.instance_line, "cannot find algorithm inout binding '%s'", os.name.c_str());
       }
     }
-    if (!nfo.blueprint->hasNoFSM()) {
-      // done
-      out << '.' << ALG_OUTPUT << '_' << ALG_DONE
-        << '(' << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ')';
-      out << ',' << nxl;
-      // run
-      out << '.' << ALG_INPUT << '_' << ALG_RUN
-        << '(' << nfo.instance_prefix << '_' << ALG_RUN << ')';
-      out << ',' << nxl;
-    }
-    // reset
-    if (!nfo.blueprint->requiresNoReset()) {
-      t_vio_dependencies _;
-      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")," << nxl;
-    }
-    // clock
-    {
-      t_vio_dependencies _;
-      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")" << nxl;
+    // algorithm specific
+    Algorithm *alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
+    if (alg != nullptr) {
+      if (!alg->hasNoFSM()) {
+        // done
+        out << '.' << ALG_OUTPUT << '_' << ALG_DONE
+          << '(' << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ')';
+        out << ',' << nxl;
+        // run
+        out << '.' << ALG_INPUT << '_' << ALG_RUN
+          << '(' << nfo.instance_prefix << '_' << ALG_RUN << ')';
+        out << ',' << nxl;
+      }
+      // reset
+      if (!alg->requiresNoReset()) {
+        t_vio_dependencies _;
+        out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")," << nxl;
+      }
+      // clock
+      {
+        t_vio_dependencies _;
+        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")" << nxl;
+      }
     }
     // end of instantiation      
     out << ");" << nxl;
@@ -7921,8 +7851,11 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
 void Algorithm::enableReporting(std::string reportname)
 { 
   m_ReportBaseName = reportname;
-  for (auto alg : m_InstancedAlgorithms) {
-    alg.second.blueprint->enableReporting(reportname);
+  for (auto bp : m_InstancedBlueprints) {
+    Algorithm *alg = dynamic_cast<Algorithm*>(bp.second.blueprint.raw());
+    if (alg != nullptr) {
+      alg->enableReporting(reportname);
+    }
   }
 }
 

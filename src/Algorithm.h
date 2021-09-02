@@ -1099,6 +1099,12 @@ private:
     bool isNotCallable() const override;
     /// \brief determines vio bit width and (if applicable) table size
     std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const override;
+    /// \brief returns the name of an input port from its internal name
+    virtual std::string inputPortName(std::string name)  const override { return ALG_INPUT + '_' + name; }
+    /// \brief returns the name of an output port from its internal name
+    virtual std::string outputPortName(std::string name) const override { return ALG_OUTPUT + '_' + name; }
+    /// \brief returns the name of an inout port from its internal name
+    virtual std::string inoutPortName(std::string name)  const override { return ALG_INOUT + '_' + name; }
 
   };
 

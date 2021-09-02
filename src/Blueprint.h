@@ -121,6 +121,13 @@ namespace Silice
     /// \brief determines vio bit width and (if applicable) table size
     virtual std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const;
 
+    /// \brief returns the name of an input port from its internal name
+    virtual std::string inputPortName(std::string name)  const { return name; }
+    /// \brief returns the name of an output port from its internal name
+    virtual std::string outputPortName(std::string name) const { return name; }
+    /// \brief returns the name of an inout port from its internal name
+    virtual std::string inoutPortName(std::string name)  const { return name; }
+
     /// \brief utility accessor to output by name
     const t_output_nfo& output(std::string name) const
     {
