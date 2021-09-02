@@ -37,33 +37,58 @@ using namespace Silice::Utils;
 
 // -------------------------------------------------
 
-antlr4::TokenStream *RISCVSynthesizer::s_TokenStream = nullptr;
+void RISCVSynthesizer::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo)
+{
+  if (type->TYPE() != nullptr) {
+    splitType(type->TYPE()->getText(), _nfo);
+  } else {
+    reportError(type->getSourceInterval(), (int)type->getStart()->getLine(), "[RISCV] complex types are not yet supported");
+  }
+}
 
 // -------------------------------------------------
 
-std::string RISCVSynthesizer::extractCodeBetweenTokens(std::string file, int stk, int etk) const
+/// \brief gather module information from parsed grammar
+void RISCVSynthesizer::gather(siliceParser::RiscvContext *riscv)
 {
-  int sidx = (int)s_TokenStream->get(stk)->getStartIndex();
-  int eidx = (int)s_TokenStream->get(etk)->getStopIndex();
-  FILE *f = NULL;
-  fopen_s(&f, file.c_str(), "rb");
-  if (f) {
-    char buffer[256];
-    fseek(f, sidx, SEEK_SET);
-    int read = (int)fread(buffer, 1, min(255, eidx - sidx + 1), f);
-    buffer[read] = '\0';
-    fclose(f);
-    return std::string(buffer);
+  siliceParser::InOutListContext *list = riscv->inOutList();
+  for (auto io : list->inOrOut()) {  
+    if (io->input()) {
+      t_inout_nfo nfo;
+      nfo.name               = io->input()->IDENTIFIER()->getText();
+      nfo.do_not_initialize  = true;
+      gatherTypeNfo(io->input()->type(), nfo.type_nfo);
+      m_Inputs.emplace_back(nfo);
+      m_InputNames.insert(make_pair(nfo.name, (int)m_Inputs.size() - 1));
+    } else if (io->output()) {
+      if (io->output()->declarationVar()->IDENTIFIER() == nullptr) {
+        reportError(io->getSourceInterval(), -1, "[RISCV] table outputs are not supported");
+      } else {
+        t_output_nfo nfo;
+        nfo.name = io->output()->declarationVar()->IDENTIFIER()->getText();
+        nfo.do_not_initialize = true;
+        gatherTypeNfo(io->output()->declarationVar()->type(), nfo.type_nfo);
+        m_Outputs.emplace_back(nfo);
+        m_OutputNames.insert(make_pair(nfo.name, (int)m_Outputs.size() - 1));
+      }
+    } else if (io->inout()) {
+      t_inout_nfo nfo;
+      nfo.name = io->inout()->IDENTIFIER()->getText();
+      nfo.do_not_initialize = true;
+      splitType(io->inout()->TYPE()->getText(), nfo.type_nfo);
+      m_InOuts.emplace_back(nfo);
+      m_InOutNames.insert(make_pair(nfo.name, (int)m_InOuts.size() - 1));
+    } else {
+      reportError(io->getSourceInterval(), -1, "[RISCV] io type '%s' not supported");
+    }
   }
-  return s_TokenStream->getText(s_TokenStream->get(stk), s_TokenStream->get(etk));
 }
 
 // -------------------------------------------------
 
 std::string RISCVSynthesizer::cblockToString(siliceParser::CblockContext *cblock) const
 {
-  std::string file = s_TokenStream->getTokenSource()->getInputStream()->getSourceName();
-  return extractCodeBetweenTokens(file, (int)cblock->getSourceInterval().a, (int)cblock->getSourceInterval().b);
+  return extractCodeBetweenTokens("", (int)cblock->getSourceInterval().a, (int)cblock->getSourceInterval().b);
 }
 
 // -------------------------------------------------
@@ -97,8 +122,8 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
   // bit indicating an IO (first after useful address width)
   int periph_bit = justHigherPow2(memorySize(riscv));
   // base address for input/outputs
-  int ptr_base   = 1 << (periph_bit + 1);
-  int ptr_next   = 1; // bit for the next IO
+  int ptr_base   = 1 << periph_bit;
+  int ptr_next   = 4; // bit for the next IO
   for (auto io : riscv->inOutList()->inOrOut()) {
     auto input  = dynamic_cast<siliceParser::InputContext *>   (io->input());
     auto output = dynamic_cast<siliceParser::OutputContext *>  (io->output());
@@ -110,13 +135,13 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
       header << "static inline int " << input->IDENTIFIER()->getText() << "() { " 
              << "return *__ptr__" << input->IDENTIFIER()->getText() << "; }" << nxl;
     } else if (output) {
-      sl_assert(output->declarationVar()->IDENTIFIER() != nullptr); // TODO: error message
+      sl_assert(output->declarationVar()->IDENTIFIER() != nullptr);
       header << "volatile int *__ptr__" << output->declarationVar()->IDENTIFIER()->getText() << addr << ';' << nxl;
       // setter
       header << "static inline void " << output->declarationVar()->IDENTIFIER()->getText() << "(int v) { "
         << "*__ptr__" << output->declarationVar()->IDENTIFIER()->getText() << "=v; }" << nxl;
     } else if (inout) {
-      header << "volatile int *__ptr__" << inout->IDENTIFIER()->getText() << addr << ';' << nxl; // TODO
+      header << "volatile int *__ptr__" << inout->IDENTIFIER()->getText() << addr << ';' << nxl;
       // getter
       header << "static inline int " << inout->IDENTIFIER()->getText() << "() { "
         << "return *__ptr__" << inout->IDENTIFIER()->getText() << "; }" << nxl;
@@ -126,7 +151,7 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
     } else {
       sl_assert(false); // RISC-V supports only input/output/inout   TODO error message
     }
-    ptr_next = ptr_next << 2;
+    ptr_next = ptr_next << 1;
     if (ptr_next >= ptr_base) {
       reportError(riscv->getSourceInterval(), -1, "[RISCV] address bust not wide enough for the number of input/outputs (one bit per IO is required)");
     }
@@ -136,11 +161,24 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
 
 // -------------------------------------------------
 
+static string normalizePath(const string& _path)
+{
+  string str = _path;
+  for (auto &c : str) {
+    if (c == '\\') {
+      c = '/';
+    }
+  }
+  return str;
+}
+
+// -------------------------------------------------
+
 string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) const
 {
   string io_decl;
   string io_select;
-  string io_reads  = "{32{1b1}}";
+  string io_reads  = "32b0";
   string io_writes;
   int idx = 0;
   for (auto io : riscv->inOutList()->inOrOut()) {
@@ -154,6 +192,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
       io_reads  = io_reads  + " | (io_" + std::to_string(idx) + " ? " + v + " : 32b0)";
       io_decl   = io_decl + "input ";
     } else if (output) {
+      sl_assert(output->declarationVar()->IDENTIFIER() != nullptr);
       v         = output->declarationVar()->IDENTIFIER()->getText();
       io_writes = io_writes + v + " = io_" + std::to_string(idx) + " ? memio.wdata : " + v + "; ";
       io_decl   = io_decl + "output ";
@@ -172,35 +211,27 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
     ++ idx;
   }
   ostringstream code;
-  code << "$$dofile('" << CONFIG.keyValues()["libraries_path"] + "/riscv/riscv-compile.lua');" << nxl;
+  code << "$$dofile('" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-compile.lua');" << nxl;
   code << "$$addrW     = " << 1+justHigherPow2(memorySize(riscv)) << nxl;
   code << "$$memsz     = " << memorySize(riscv)/4 << nxl;
   code << "$$meminit   = data_bram" << nxl;
-  code << "$$external  = " << justHigherPow2(memorySize(riscv)) << nxl;
+  code << "$$external  = " << justHigherPow2(memorySize(riscv))-2 << nxl;
   code << "$$io_decl   = [[" << io_decl << "]]" << nxl;
   code << "$$io_select = [[" << io_select << "]]" << nxl;
   code << "$$io_reads  = [[" << io_reads << "]]" << nxl;
   code << "$$io_writes = [[" << io_writes << "]]" << nxl;
   code << "$$algorithm_name = '" << riscv->IDENTIFIER()->getText() << "'" << nxl;
-  code << "$include(\"" << CONFIG.keyValues()["libraries_path"] + "/riscv/riscv-ice-v-soc.ice\");" << nxl;
+  code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-ice-v-soc.ice\");" << nxl;
   return code.str();
-}
-
-// -------------------------------------------------
-
-static void normalizePath(string& _path)
-{
-  for (auto &c : _path) {
-    if (c == '\\') c = '/';
-  }
 }
 
 // -------------------------------------------------
 
 RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
 {
-  string name = riscv->IDENTIFIER()->getText();
-  if (riscv->riscvInstructions()->initList() != nullptr) {    
+  m_Name = riscv->IDENTIFIER()->getText();
+  gather(riscv);
+  if (riscv->riscvInstructions()->initList() != nullptr) {
     // table initializer with instructions
     sl_assert(false); // TODO
   } else {
@@ -229,18 +260,19 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
       silicefile << generateSiliceCode(riscv);
     }
     // compile Silice source
-    normalizePath(c_tempfile);
-    normalizePath(s_tempfile);
+    c_tempfile = normalizePath(c_tempfile);
+    s_tempfile = normalizePath(s_tempfile);
+    string exe = string(LibSL::System::Application::executablePath());
     string cmd =
-        string(LibSL::System::Application::executablePath())
+      normalizePath(exe)
       + "/silice.exe "
-      + "-o " + name + ".v "
-      + "--export " + name + " "
+      + "-o " + m_Name + ".v "
+      + "--export " + m_Name + " "
       + s_tempfile + " "
       + "-D SRC=\"\\\"" + c_tempfile + "\\\"\" "
-      + "-D CRT0=\"\\\"" + CONFIG.keyValues()["libraries_path"] + "/riscv/crt0.s" + "\\\"\" "
-      + "-D LD_CONFIG=\"\\\"" + CONFIG.keyValues()["libraries_path"] + "/riscv/config_c.ld" + "\\\"\" "
-      + "--framework " + CONFIG.keyValues()["frameworks_dir"] + "/boards/bare/bare.v "
+      + "-D CRT0=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/crt0.s" + "\\\"\" "
+      + "-D LD_CONFIG=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/config_c.ld" + "\\\"\" "
+      + "--framework " + normalizePath(CONFIG.keyValues()["frameworks_dir"]) + "/boards/bare/bare.v "
       ;
     system(cmd.c_str());
   }

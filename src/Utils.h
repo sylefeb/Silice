@@ -58,6 +58,10 @@ namespace Silice
     void setTokenStream(antlr4::TokenStream *tks);
     /// \brief set the pre-processor
     void setLuaPreProcessor(LuaPreProcessor *lpp);
+    /// \brief extracts a piece of source code in between given tokens
+    std::string extractCodeBetweenTokens(std::string file, int stk, int etk);
+    /// \brief loads the content of file into a string
+    std::string fileToString(const char* file);
 
     // -------------------------------------------------
 

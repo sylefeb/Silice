@@ -79,7 +79,6 @@ namespace Silice {
       void        split(const std::string& s, char delim, std::vector<std::string>& elems) const;
       void        printReport(std::pair<std::string, int> where, std::string msg) const;
       int         lineFromInterval(antlr4::TokenStream *tk_stream, antlr4::misc::Interval interval) const;
-      std::string extractCodeBetweenTokens(std::string file, antlr4::TokenStream *tk_stream, int stk, int etk) const;
       std::string extractCodeAroundToken(std::string file, antlr4::Token *tk, antlr4::TokenStream *tk_stream, int &_offset) const;
       std::string prepareMessage(antlr4::TokenStream* tk_stream, antlr4::Token *offender, antlr4::misc::Interval tk_interval) const;
 

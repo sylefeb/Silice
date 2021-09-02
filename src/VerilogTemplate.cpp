@@ -41,7 +41,7 @@ void VerilogTemplate::load(std::string fname,
     throw Fatal("cannot find template file '%s'",fname.c_str());
   }
   // load in string
-  string code_in = Module::fileToString(fname.c_str());
+  string code_in = Utils::fileToString(fname.c_str());
   // apply variables
   for (auto kv : keyValues) {
     std::regex rexp("%" + kv.first + "%");

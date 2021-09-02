@@ -153,3 +153,44 @@ int Utils::justHigherPow2(int n)
 }
 
 // -------------------------------------------------
+
+std::string Utils::extractCodeBetweenTokens(std::string file, int stk, int etk)
+{
+  if (file.empty()) {
+    file = s_TokenStream->getTokenSource()->getInputStream()->getSourceName();
+  }
+  int sidx = (int)s_TokenStream->get(stk)->getStartIndex();
+  int eidx = (int)s_TokenStream->get(etk)->getStopIndex();
+  FILE *f = NULL;
+  fopen_s(&f, file.c_str(), "rb");
+  if (f) {
+    char buffer[256];
+    fseek(f, sidx, SEEK_SET);
+    int read = (int)fread(buffer, 1, min(255, eidx - sidx + 1), f);
+    buffer[read] = '\0';
+    fclose(f);
+    return std::string(buffer);
+  }
+  return s_TokenStream->getText(s_TokenStream->get(stk), s_TokenStream->get(etk));
+}
+
+// -------------------------------------------------
+
+std::string Utils::fileToString(const char* file)
+{
+  std::ifstream infile(file);
+  if (!infile) {
+    throw LibSL::Errors::Fatal("[Utils::fileToString] - file '%s' not found", file);
+  }
+  std::ostringstream strstream;
+  while (infile) { // TODO: improve efficienty
+    std::ifstream::int_type c = infile.get();
+    if (c != (-1)) // EOF
+      strstream << char(c);
+    else
+      break;
+  }
+  return strstream.str();
+}
+
+// -------------------------------------------------

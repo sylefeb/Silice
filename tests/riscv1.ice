@@ -7,12 +7,27 @@ riscv cpu_test(input uint32 a,output uint32 b) <mem=512> = compile({
   }
 
   void main() { 
-    b(f(a()));
+    int i=0;
+    while (1) {
+      // b(f(a()));
+      b(a());
+      ++i;
+    }
   }
   
 })
 
 algorithm main(output uint8 leds)
 {
+  uint8 iter = 0;
+  cpu_test cpu0;
+  
+  cpu0.a := iter;
+  leds   := cpu0.b;
+  
+  while (iter != 255) {
+    __display("LEDs = %x",leds);
+    iter = iter + 1;
+  }
   
 }

@@ -30,6 +30,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "vmoduleParser.h"
 
 #include "Blueprint.h"
+#include "Utils.h"
 
 #include <string>
 #include <iostream>
@@ -54,7 +55,6 @@ namespace Silice
     std::string m_FileName;
     /// \brief module name
     std::string m_Name;
-
     /// \brief inputs
     std::vector< t_inout_nfo  > m_Inputs;
     /// \brief outputs
@@ -151,27 +151,10 @@ namespace Silice
         throw Fatal("cannot find imported module file '%s'", m_FileName.c_str());
       }
       out << std::endl;
-      out << fileToString(m_FileName.c_str());
+      out << Utils::fileToString(m_FileName.c_str());
       out << std::endl;
     }
 
-    static std::string fileToString(const char* file)
-    {
-      std::ifstream infile(file);
-      if (!infile) {
-        throw LibSL::Errors::Fatal("[loadFileIntoString] - file '%s' not found", file);
-      }
-      std::ostringstream strstream;
-      while (infile) { // TODO: improve efficienty
-        std::ifstream::int_type c = infile.get();
-        if (c != (-1)) // EOF
-          strstream << char(c);
-        else
-          break;
-      }
-      return strstream.str();
-    }
-  
     /// === implements Blueprint
 
     /// \brief writes the algorithm as a Verilog module, recurses through instanced blueprints
@@ -192,6 +175,10 @@ namespace Silice
     const std::unordered_map<std::string, int >& inOutNames()  const override { return m_InOutNames; }
     /// \brief returns true if the algorithm is not callable
     bool isNotCallable() const override { return true; }
+    /// \brief returns true if the blueprint requires a reset
+    bool requiresReset() const override { return false; } // has to be manually provided from caller
+    /// \brief returns true if the blueprint requires a clock
+    bool requiresClock() const override { return false; } // has to be manually provided from caller
     /// \brief returns the name of the module
     std::string moduleName(std::string blueprint_name, std::string instance_name) const override { sl_assert(blueprint_name == m_Name);  return blueprint_name; }
     /// \brief returns true of the 'combinational' boolean is properly setup for outputs

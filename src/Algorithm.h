@@ -883,8 +883,6 @@ private:
     void resolveInstancedBlueprintBindingDirections(t_instanced_nfo& _bp);
     /// \brief returns true if the algorithm does not have an FSM
     bool hasNoFSM() const;
-    /// \brief returns true if the algorithm does not need a reset
-    bool requiresNoReset() const;
     /// \brief returns true if the algorithm does not call subroutines
     bool doesNotCallSubroutines() const;
     /// \brief converts an internal state into a FSM state
@@ -1097,6 +1095,10 @@ private:
     const std::unordered_map<std::string, int >& inOutNames()  const override { return m_InOutNames; }
     /// \brief returns true if the algorithm is not callable
     bool isNotCallable() const override;
+    /// \brief returns true if the blueprint requires a reset
+    bool requiresReset() const override;
+    /// \brief returns true if the blueprint requires a clock
+    bool requiresClock() const override { return true; }
     /// \brief determines vio bit width and (if applicable) table size
     std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const override;
     /// \brief returns the name of an input port from its internal name

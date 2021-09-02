@@ -13,6 +13,8 @@ $include('../../../projects/ice-v/CPUs/ice-v.ice')
 // SOC
 // --------------------------------------------------
 
+$$SIMULATION = 1
+
 group bram_io
 {
   uint4       wenable(0),
@@ -55,7 +57,7 @@ $$end
     memio.rdata = (~io_read ? mem.rdata : ($io_reads$));
 $$if SIMULATION then		
     if ( io_read ) { 
-      __display("[cycle %d] IO read @b = %d ",cycle,prev_mem_addr,memio.rdata); 
+      __display("[cycle %d] IO read @%b = %d",cycle,prev_mem_addr,memio.rdata); 
     }
 $$end
     // ---- record addr and rw for next cycle
@@ -65,7 +67,7 @@ $$end
     if (io_write) {
       $io_writes$
 $$if SIMULATION then
-      __display("[cycle %d] IO write @b = %d ",cycle,memio.addr,memio.wdata); 
+      __display("[cycle %d] IO write @%b = %d ",cycle,memio.addr,memio.wdata); 
 $$end
     }
 $$if SIMULATION then

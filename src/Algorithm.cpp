@@ -3321,7 +3321,7 @@ void Algorithm::generateStates()
   if (hasNoFSM()) {
     std::cerr << " (no FSM)";
   }
-  if (requiresNoReset()) {
+  if (!requiresReset()) {
     std::cerr << " (no reset)";
   }
   if (doesNotCallSubroutines()) {
@@ -3494,35 +3494,32 @@ bool Algorithm::doesNotCallSubroutines() const
 
 // -------------------------------------------------
 
-bool Algorithm::requiresNoReset() const
+bool Algorithm::requiresReset() const
 {
   // has an FSM?
   if (!hasNoFSM()) {
-    return false;
+    return true;
   }
   // has var or outputs with init?
   for (const auto &v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
     if (!v.do_not_initialize) {
-      return false;
+      return true;
     }
   }
   for (const auto &v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
     if (!v.do_not_initialize) {
-      return false;
+      return true;
     }
   }
-  // do any of the instantiated algorithms require a reset?
+  // do any of the instantiated blueprints require a reset?
   for (const auto &I : m_InstancedBlueprints) {
-    Algorithm *alg = dynamic_cast<Algorithm*>(I.second.blueprint.raw());
-    if (alg != nullptr) {
-      if (!alg->requiresNoReset()) {
-        return false;
-      }
+    if (I.second.blueprint->requiresReset()) {
+      return true;
     }
   }
-  return true;
+  return false;
 }
 
 // -------------------------------------------------
@@ -7350,7 +7347,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     out << ALG_INPUT << "_" << ALG_RUN << ',' << nxl;
     out << ALG_OUTPUT << "_" << ALG_DONE << ',' << nxl;
   }
-  if (!requiresNoReset() || m_TopMost /*keep for glue convenience*/) {
+  if (requiresReset() || m_TopMost /*keep for glue convenience*/) {
     out << ALG_RESET "," << nxl;
   }
   out << "out_" << ALG_CLOCK "," << nxl;
@@ -7373,7 +7370,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
     out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ';' << nxl;
   }
-  if (!requiresNoReset() || m_TopMost) {
+  if (requiresReset() || m_TopMost) {
     out << "input " ALG_RESET ";" << nxl;
   }
   out << "output out_" ALG_CLOCK << ";" << nxl;
@@ -7488,8 +7485,10 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     out << nfo.instance_name << ' ';
     // ports
     out << '(' << nxl;
+    bool first = true;
     // inputs
     for (const auto &is : nfo.blueprint->inputs()) {
+      if (!first) { out << ',' << nxl; } first = false;
       out << '.' << nfo.blueprint->inputPortName(is.name) << '(';
       if (nfo.boundinputs.count(is.name) > 0) {
         // input is bound, directly map bound VIO
@@ -7530,17 +7529,18 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
           updateFFUsage(e_Q, true, ff_input_bindings_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
         }
       }
-      out << ')' << ',' << nxl;
+      out << ')';
     }
     // outputs (wire)
     for (const auto& os : nfo.blueprint->outputs()) {
+      if (!first) { out << ',' << nxl; } first = false;
       out << '.'
         << nfo.blueprint->outputPortName(os.name)
         << '(' << WIRE << nfo.instance_prefix << '_' << os.name << ')';
-      out << ',' << nxl;
     }
     // inouts (host algorithm inout or wire)
     for (const auto& os : nfo.blueprint->inOuts()) {
+      if (!first) { out << ',' << nxl; } first = false;
       std::string bindpoint = nfo.instance_prefix + "_" + os.name;
       const auto& vio = m_BlueprintInOutsBoundToVIO.find(bindpoint);
       if (vio != m_BlueprintInOutsBoundToVIO.end()) {
@@ -7549,7 +7549,6 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
         } else {
           out << '.' << nfo.blueprint->inoutPortName(os.name) << '(' << WIRE << "_" << vio->second << ")";
         }
-        out << ',' << nxl;
       } else {
         reportError(nullptr, nfo.instance_line, "cannot find algorithm inout binding '%s'", os.name.c_str());
       }
@@ -7558,6 +7557,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     Algorithm *alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
     if (alg != nullptr) {
       if (!alg->hasNoFSM()) {
+        if (!first) { out << ',' << nxl; } first = false;
         // done
         out << '.' << ALG_OUTPUT << '_' << ALG_DONE
           << '(' << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ')';
@@ -7565,18 +7565,19 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
         // run
         out << '.' << ALG_INPUT << '_' << ALG_RUN
           << '(' << nfo.instance_prefix << '_' << ALG_RUN << ')';
-        out << ',' << nxl;
       }
-      // reset
-      if (!alg->requiresNoReset()) {
-        t_vio_dependencies _;
-        out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")," << nxl;
-      }
-      // clock
-      {
-        t_vio_dependencies _;
-        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")" << nxl;
-      }
+    }
+    // reset
+    if (nfo.blueprint->requiresReset()) {
+      if (!first) { out << ',' << nxl; } first = false;
+      t_vio_dependencies _;
+      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")";
+    }
+    // clock
+    if (nfo.blueprint->requiresClock()) {
+      t_vio_dependencies _;
+      if (!first) { out << ',' << nxl; } first = false;
+      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")";
     }
     // end of instantiation      
     out << ");" << nxl;

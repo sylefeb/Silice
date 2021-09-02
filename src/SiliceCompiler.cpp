@@ -235,7 +235,9 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
   } else if (riscv) {
 
     /// RISC-V
-    AutoPtr<RISCVSynthesizer> riscvsynth(new RISCVSynthesizer(riscv));
+    AutoPtr<RISCVSynthesizer> rv(new RISCVSynthesizer(riscv));
+    m_Blueprints.insert(std::make_pair(riscv->IDENTIFIER()->getText(), rv));
+    m_BlueprintsInDeclOrder.push_back(riscv->IDENTIFIER()->getText());
 
   }
 }
@@ -328,7 +330,6 @@ void SiliceCompiler::run(
     parser.removeErrorListeners();
     parser.addErrorListener(&parserErrorListener);
 
-    RISCVSynthesizer::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
     Utils::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
     Utils::setLuaPreProcessor(&lpp);
     Algorithm::setLuaPreProcessor(&lpp);
@@ -346,7 +347,7 @@ void SiliceCompiler::run(
         }
       }
 
-      // save the result
+      // generate the output
       {
         std::ofstream out(fresult);
         // wrtie cmd line defines
@@ -360,13 +361,17 @@ void SiliceCompiler::run(
         out << framework_verilog;
         // write includes
         for (auto fname : m_AppendsInDeclOrder) {
-          out << Module::fileToString(fname.c_str()) << nxl;
+          out << Utils::fileToString(fname.c_str()) << nxl;
         }
-        // write imported modules
+        // write 'global' blueprints
         for (auto miordr : m_BlueprintsInDeclOrder) {
           Module *mod = dynamic_cast<Module*>(m_Blueprints.at(miordr).raw());
           if (mod != nullptr) {
             mod->writeModule(out);
+          }
+          RISCVSynthesizer *rv = dynamic_cast<RISCVSynthesizer*>(m_Blueprints.at(miordr).raw());
+          if (rv != nullptr) {
+            rv->writeCompiled(out);
           }
         }
 
@@ -406,7 +411,6 @@ void SiliceCompiler::run(
 
     }
 
-    RISCVSynthesizer::setTokenStream(nullptr);
     Utils::setTokenStream(nullptr);
     Utils::setLuaPreProcessor(nullptr);
     Algorithm::setLuaPreProcessor(nullptr);
@@ -486,25 +490,6 @@ void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where,
 
 // -------------------------------------------------
 
-std::string SiliceCompiler::ReportError::extractCodeBetweenTokens(std::string file, antlr4::TokenStream *tk_stream, int stk, int etk) const
-{
-  int sidx = (int)tk_stream->get(stk)->getStartIndex();
-  int eidx = (int)tk_stream->get(etk)->getStopIndex();
-  FILE *f = NULL;
-  fopen_s(&f, file.c_str(), "rb");
-  if (f) {
-    char buffer[256];
-    fseek(f, sidx, SEEK_SET);
-    int read = (int)fread(buffer, 1, min(255, eidx - sidx + 1), f);
-    buffer[read] = '\0';
-    fclose(f);
-    return std::string(buffer);
-  }
-  return tk_stream->getText(tk_stream->get(stk), tk_stream->get(etk));
-}
-
-// -------------------------------------------------
-
 std::string SiliceCompiler::ReportError::extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset) const
 {
   antlr4::Token* first_tk = tk;
@@ -529,7 +514,7 @@ std::string SiliceCompiler::ReportError::extractCodeAroundToken(std::string file
   }
   _offset = (int)first_tk->getStartIndex();
   // now extract from file
-  return extractCodeBetweenTokens(file, tk_stream, (int)first_tk->getTokenIndex(), (int)last_tk->getTokenIndex());
+  return extractCodeBetweenTokens(file, (int)first_tk->getTokenIndex(), (int)last_tk->getTokenIndex());
 }
 
 // -------------------------------------------------
@@ -549,7 +534,7 @@ std::string SiliceCompiler::ReportError::prepareMessage(antlr4::TokenStream* tk_
       if (interval.a > interval.b) {
         std::swap(interval.a, interval.b);
       }
-      codeline = extractCodeBetweenTokens(file, tk_stream, (int)interval.a, (int)interval.b);
+      codeline = extractCodeBetweenTokens(file, (int)interval.a, (int)interval.b);
       offset = (int)tk_stream->get(interval.a)->getStartIndex();
     }
     msg += codeline;

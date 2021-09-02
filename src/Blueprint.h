@@ -102,6 +102,10 @@ namespace Silice
 
     /// \brief writes the blueprint as a Verilog module
     virtual void writeAsModule(std::ostream& out, const t_instantiation_context& ictx, bool first_pass) = 0;
+    /// \brief returns true if the blueprint requires a reset
+    virtual bool requiresReset() const = 0;
+    /// \brief returns true if the blueprint requires a clock
+    virtual bool requiresClock() const = 0;
     /// \brief returns true if the blueprint is not callable with the (.) <- . <- (.) syntax
     virtual bool isNotCallable() const = 0;
     /// \brief inputs
