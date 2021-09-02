@@ -4,10 +4,10 @@
 riscv cpu_blinky(output uint32 leds) <mem=256> = compile({
 
   // =============== firmware in C language ===========================
-	// The code below is actual C-code, not Silice code
-	// this code gets compiled with RISC-V gcc qnd used by the CPU
-	// ==================================================================
-	
+  // The code below is actual C-code, not Silice code
+  // this code gets compiled with RISC-V gcc qnd used by the CPU
+  // ==================================================================
+
   // C-function, goes to next value (just to show off a C pointer)
   void next(int *v) { ++(*v); }
   // C-function, wait for a while
@@ -30,9 +30,9 @@ $$end
       next(&i); // next value
     }
   }
-	
+  
   // =============== end of firmware ==================================
-	// ==================================================================
+  // ==================================================================
 })
 
 // now we are creating the hardware hosting the CPU
