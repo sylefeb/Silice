@@ -164,12 +164,13 @@ std::string Utils::extractCodeBetweenTokens(std::string file, int stk, int etk)
   FILE *f = NULL;
   fopen_s(&f, file.c_str(), "rb");
   if (f) {
-    char buffer[256];
+    Array<char> buffer;
+    buffer.allocate(eidx - sidx + 2);
     fseek(f, sidx, SEEK_SET);
-    int read = (int)fread(buffer, 1, min(255, eidx - sidx + 1), f);
+    int read = (int)fread(buffer.raw(), 1, eidx - sidx + 1, f);
     buffer[read] = '\0';
     fclose(f);
-    return std::string(buffer);
+    return std::string(buffer.raw());
   }
   return s_TokenStream->getText(s_TokenStream->get(stk), s_TokenStream->get(etk));
 }

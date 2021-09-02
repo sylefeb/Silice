@@ -21,7 +21,7 @@
           "tool_options": [
             {
                 "yosys_synth_options": ["-relut"],
-                "nextpnr_options": ["--force", "--opt-timing", "--hx1k", "--freq 12", "--package tq144", "--timing-allow-fail"],
+                "nextpnr_options": ["--force", "--hx1k", "--freq 12", "--package tq144", "--timing-allow-fail"],
                 "pnr": "next"
             }
           ],

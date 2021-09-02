@@ -77,7 +77,7 @@ $$end
 
 $$if SIMULATION then
   cpu <- ();
-	while (cycle < 2048) { }
+	while (cycle < 1000000) { }
 $$else
   // run the CPU
   () <- cpu <- ();
