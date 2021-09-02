@@ -13,8 +13,6 @@ $include('../../../projects/ice-v/CPUs/ice-v.ice')
 // SOC
 // --------------------------------------------------
 
-$$SIMULATION = 1
-
 group bram_io
 {
   uint4       wenable(0),
@@ -22,6 +20,8 @@ group bram_io
   uint32      rdata(0),
   uint$addrW$ addr(0),    // boot address
 }
+
+$$SIMULATION = 1
 
 algorithm $algorithm_name$($io_decl$) <autorun>
 {
@@ -75,13 +75,8 @@ $$if SIMULATION then
 $$end
   }
 
-$$if SIMULATION then
-  cpu <- ();
-	while (cycle < 1000000) { }
-$$else
   // run the CPU
   () <- cpu <- ();
-$$end
 
 }
 

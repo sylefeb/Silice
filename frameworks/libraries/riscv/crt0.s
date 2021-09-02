@@ -3,12 +3,12 @@
 .type _start, @function
 
 _start:
-   li sp,0x0200
+   li sp,0x0400
    call main
    tail exit
 
 .global exit
 .type  exit, @function
 exit:
-   .word 0
+   j exit
    ret

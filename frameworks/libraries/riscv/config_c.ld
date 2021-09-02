@@ -1,6 +1,6 @@
 MEMORY
 {
-   ram (rwx) : ORIGIN = 0x00000000, LENGTH = 0x00000200
+   ram (rwx) : ORIGIN = 0x00000000, LENGTH = 0x00000400
 }
 
 ENTRY(_start)

@@ -212,7 +212,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
   }
   ostringstream code;
   code << "$$dofile('" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-compile.lua');" << nxl;
-  code << "$$addrW     = " << 1+justHigherPow2(memorySize(riscv)) << nxl;
+  code << "$$addrW     = " << 1+justHigherPow2(memorySize(riscv)/4) << nxl;
   code << "$$memsz     = " << memorySize(riscv)/4 << nxl;
   code << "$$meminit   = data_bram" << nxl;
   code << "$$external  = " << justHigherPow2(memorySize(riscv))-2 << nxl;
