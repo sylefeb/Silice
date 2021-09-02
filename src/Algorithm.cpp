@@ -136,22 +136,24 @@ void Algorithm::checkBlueprintsBindings(const t_instantiation_context &ictx) con
         inbound.insert(br);
       }
       // check combinational output consistency
-      if (is_output && isOutput(br)) {
-        sl_assert(b.dir == e_Right);
-        // instance output is bound to an algorithm output
-        // NOTE: check only works for algorithms (e.g. there is no analysis of outputs on imported Verilog modules)
-        bool instr_comb = bp.second.blueprint->outputs().at(bp.second.blueprint->outputNames().at(b.left)).combinational;
-        if ( m_Outputs.at(m_OutputNames.at(br)).combinational ^ instr_comb ) {
-          reportError(nullptr, b.line, "instance '%s', binding instance output '%s' to algorithm output '%s'\n"
-            "using a mix of output! and output. Consider adjusting the parent algorithm output to '%s'.",
-            bp.first.c_str(), b.left.c_str(), br.c_str(), instr_comb ? "output!" : "output");
+      // NOTE only valid for blueprints providing output combinational informations
+      if (bp.second.blueprint->hasOutputCombinationalInfo()) {
+        if (is_output && isOutput(br)) {
+          sl_assert(b.dir == e_Right);
+          // instance output is bound to an algorithm output
+          bool instr_comb = bp.second.blueprint->outputs().at(bp.second.blueprint->outputNames().at(b.left)).combinational;
+          if (m_Outputs.at(m_OutputNames.at(br)).combinational ^ instr_comb) {
+            reportError(nullptr, b.line, "instance '%s', binding instance output '%s' to algorithm output '%s'\n"
+              "using a mix of output! and output. Consider adjusting the parent algorithm output to '%s'.",
+              bp.first.c_str(), b.left.c_str(), br.c_str(), instr_comb ? "output!" : "output");
+          }
         }
       }
-      // lint on Algorithms
+      // lint bindings
       {
         ExpressionLinter linter(this, ictx);
         linter.lintBinding(
-          sprint("instanced algorithm '%s', binding '%s' to '%s'", bp.first.c_str(), br.c_str(), b.left.c_str()),
+          sprint("instance '%s', binding '%s' to '%s'", bp.first.c_str(), br.c_str(), b.left.c_str()),
           b.dir, b.line,
           get<0>(bp.second.blueprint->determineVIOTypeWidthAndTableSize(translateVIOName(b.left, nullptr), antlr4::misc::Interval::INVALID, -1)),
           get<0>(determineVIOTypeWidthAndTableSize(translateVIOName(br, nullptr), antlr4::misc::Interval::INVALID, -1))
@@ -1685,7 +1687,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
     std::string name = instance->blueprint->getText();
     if (m_KnownGroups.find(name) != m_KnownGroups.end()) {
       gatherDeclarationGroup(instance, _current, _context);
-    } else if (m_KnownBlueprints.find(name) != m_KnownBlueprints.end()) {
+    } else {
       sl_assert(!var_group_table_only);
       gatherDeclarationInstance(instance, _current, _context);
     }
@@ -7480,8 +7482,8 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   // blueprint instantiations (2/2) 
   for (const auto& ibiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &nfo = m_InstancedBlueprints.at(ibiordr);
-    // algorithm module
-    out << "M_" << nfo.blueprint_name << '_' << ictx.instance_name + '_' + nfo.instance_name << ' ';
+    // module name
+    out << nfo.blueprint->moduleName(nfo.blueprint_name, ictx.instance_name + '_' + nfo.instance_name) << ' ';
     // instance name
     out << nfo.instance_name << ' ';
     // ports

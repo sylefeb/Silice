@@ -80,6 +80,7 @@ namespace Silice
           t_inout_nfo nfo;
           nfo.name = io->input()->IDENTIFIER()->getText();
           // nfo.reg = (io->input()->mod()->REG() != nullptr);
+          nfo.do_not_initialize = true;
           nfo.type_nfo.base_type = UInt; // TODO signed?
           if (io->input()->mod()->first != nullptr) {
             int f = atoi(io->input()->mod()->first->getText().c_str());
@@ -94,6 +95,7 @@ namespace Silice
           t_output_nfo nfo;
           nfo.name = io->output()->IDENTIFIER()->getText();
           // nfo.reg = (io->output()->mod()->REG() != nullptr);
+          nfo.do_not_initialize = true;
           nfo.type_nfo.base_type = UInt; // TODO signed?
           if (io->output()->mod()->first != nullptr) {
             int f = atoi(io->output()->mod()->first->getText().c_str());
@@ -108,6 +110,7 @@ namespace Silice
           t_inout_nfo nfo;
           nfo.name = io->inout()->IDENTIFIER()->getText();
           // nfo.reg = (io->inout()->mod()->REG() != nullptr);
+          nfo.do_not_initialize = true;
           nfo.type_nfo.base_type = UInt; // TODO signed?
           if (io->inout()->mod()->first != nullptr) {
             int f = atoi(io->inout()->mod()->first->getText().c_str());
@@ -189,6 +192,10 @@ namespace Silice
     const std::unordered_map<std::string, int >& inOutNames()  const override { return m_InOutNames; }
     /// \brief returns true if the algorithm is not callable
     bool isNotCallable() const override { return true; }
+    /// \brief returns the name of the module
+    std::string moduleName(std::string blueprint_name, std::string instance_name) const override { sl_assert(blueprint_name == m_Name);  return blueprint_name; }
+    /// \brief returns true of the 'combinational' boolean is properly setup for outputs
+    bool hasOutputCombinationalInfo() const override { return false; }
 
 };
 

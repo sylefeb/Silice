@@ -390,9 +390,11 @@ void SiliceCompiler::run(
         // write formal unit tests
         for (auto const &[algname, bp] : m_Blueprints) {
           Algorithm *alg = dynamic_cast<Algorithm*>(bp.raw());
-          if (alg->isFormal()) {
-            alg->enableReporting(fresult);
-            alg->writeAsModule("formal_" + algname + "$", out);
+          if (alg != nullptr) {
+            if (alg->isFormal()) {
+              alg->enableReporting(fresult);
+              alg->writeAsModule("formal_" + algname + "$", out);
+            }
           }
         }
       }

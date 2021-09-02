@@ -86,7 +86,7 @@ namespace Silice
   private:
 
     /// \brief memory types
-    enum e_MemType { BRAM, SIMPLEDUALBRAM, DUALBRAM, BROM };
+    enum e_MemType { UNDEF, BRAM, SIMPLEDUALBRAM, DUALBRAM, BROM };
 
     /// \brief algorithm name
     std::string m_Name;
@@ -143,14 +143,14 @@ private:
     class t_mem_nfo {
     public:
       std::string name;
-      e_MemType   mem_type;
+      e_MemType   mem_type          = UNDEF;
       t_type_nfo  type_nfo;
-      int         table_size;
+      int         table_size        = 0;
       bool        do_not_initialize = false;
       bool        no_input_latch    = false;
       bool        delayed           = false;
       std::string custom_template;
-      int         line;
+      int         line              = -1;
       std::vector<std::string> clocks;
       std::vector<std::string> in_vars;
       std::vector<std::string> out_vars;
@@ -1100,11 +1100,15 @@ private:
     /// \brief determines vio bit width and (if applicable) table size
     std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const override;
     /// \brief returns the name of an input port from its internal name
-    virtual std::string inputPortName(std::string name)  const override { return ALG_INPUT + '_' + name; }
+    std::string inputPortName(std::string name)  const override { return ALG_INPUT + '_' + name; }
     /// \brief returns the name of an output port from its internal name
-    virtual std::string outputPortName(std::string name) const override { return ALG_OUTPUT + '_' + name; }
+    std::string outputPortName(std::string name) const override { return ALG_OUTPUT + '_' + name; }
     /// \brief returns the name of an inout port from its internal name
-    virtual std::string inoutPortName(std::string name)  const override { return ALG_INOUT + '_' + name; }
+    std::string inoutPortName(std::string name)  const override { return ALG_INOUT + '_' + name; }
+    /// \brief returns the name of the module
+    std::string moduleName(std::string blueprint_name, std::string instance_name) const override { return "M_" + blueprint_name + '_' + instance_name; }
+    /// \brief returns true of the 'combinational' boolean is properly setup for outputs
+    bool hasOutputCombinationalInfo() const override { return true; }
 
   };
 

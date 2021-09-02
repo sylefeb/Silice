@@ -71,12 +71,12 @@ namespace Silice
       std::string  name;
       t_type_nfo   type_nfo;
       std::vector<std::string> init_values;
-      int          table_size; // 0: not a table, otherwise size
+      int          table_size        = 0; // 0: not a table, otherwise size
       bool         do_not_initialize = false;
-      bool         init_at_startup = false;
+      bool         init_at_startup   = false;
       std::string  pipeline_prev_name; // if not empty, name of previous in pipeline trickling
-      e_Access     access = e_NotAccessed;
-      e_VarUsage   usage = e_Undetermined;
+      e_Access     access            = e_NotAccessed;
+      e_VarUsage   usage             = e_Undetermined;
       std::string  attribs;
       antlr4::misc::Interval source_interval;
     };
@@ -121,12 +121,17 @@ namespace Silice
     /// \brief determines vio bit width and (if applicable) table size
     virtual std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const;
 
+    /// \brief returns the name of the module
+    virtual std::string moduleName(std::string blueprint_name,std::string instance_name) const = 0;
     /// \brief returns the name of an input port from its internal name
     virtual std::string inputPortName(std::string name)  const { return name; }
     /// \brief returns the name of an output port from its internal name
     virtual std::string outputPortName(std::string name) const { return name; }
     /// \brief returns the name of an inout port from its internal name
     virtual std::string inoutPortName(std::string name)  const { return name; }
+
+    /// \brief returns true of the 'combinational' boolean is properly setup for outputs
+    virtual bool hasOutputCombinationalInfo() const = 0;
 
     /// \brief utility accessor to output by name
     const t_output_nfo& output(std::string name) const

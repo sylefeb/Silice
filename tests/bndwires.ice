@@ -16,10 +16,12 @@ algorithm main(output uint8 leds)
   //vfoo f1(v <:: t,o :> o);// error
 	//vfoo f1(v <:: w,o :> o);// error
 
-  // foo  f1(v <:: i,o :> t); // error (dbl binding)
-	// vfoo f1(v <:: i,o :> t); // error (dbl binding)
+  //foo  f1(v <:: i,o :> t); // error (dbl binding)
+	//vfoo f2(v <:: i,o :> t); // error (dbl binding)
 	
-  foo f2(v <:: i,o :> t); // t bound
+  // foo f2(v <:: i,o :> t); // t bound
+	
+	vfoo f3(v <:: i,o :> t);
 	
   //foo f(v <:: t,o :> o); // error
 	//foo f(v <:: w,o :> o); // error
