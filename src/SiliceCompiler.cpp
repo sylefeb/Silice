@@ -108,8 +108,8 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     std::string clock = ALG_CLOCK;
     std::string reset = ALG_RESET;
     bool hasHash = alg->HASH() != nullptr;
-    if (alg->algModifiers() != nullptr) {
-      for (auto m : alg->algModifiers()->algModifier()) {
+    if (alg->bpModifiers() != nullptr) {
+      for (auto m : alg->bpModifiers()->bpModifier()) {
         if (m->sclock() != nullptr) {
           clock = m->sclock()->IDENTIFIER()->getText();
         }
@@ -149,14 +149,14 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
 
     AutoPtr<Algorithm> algorithm(new Algorithm(
       name, hasHash, clock, reset, autorun, onehot, formalDepth, formalTimeout, formalModes,
-      m_Modules, m_Algorithms, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
+      m_Blueprints, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
     );
-    if (m_Algorithms.find(name) != m_Algorithms.end()) {
-      throw Fatal("an algorithm with same name already exists (line %d)!", (int)alg->getStart()->getLine());
+    if (m_Blueprints.find(name) != m_Blueprints.end()) {
+      throw Fatal("an algorithm or module with the same name already exists (line %d)!", (int)alg->getStart()->getLine());
     }
     algorithm->gather(alg->inOutList(), alg->declAndInstrList());
-    m_Algorithms.insert(std::make_pair(name, algorithm));
-    m_AlgorithmsInDeclOrder.push_back(name);
+    m_Blueprints.insert(std::make_pair(name, algorithm));
+    m_BlueprintsInDeclOrder.push_back(name);
 
   } else if (circuit) {
 
@@ -204,12 +204,12 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
       throw Fatal("cannot find module file '%s' (line %d)", fname.c_str(), (int)imprt->getStart()->getLine());
     }
     AutoPtr<Module> vmodule(new Module(fname));
-    if (m_Modules.find(fname) != m_Modules.end()) {
-      throw Fatal("verilog module already imported! (line %d)", (int)imprt->getStart()->getLine());
+    if (m_Blueprints.find(fname) != m_Blueprints.end()) {
+      throw Fatal("an algorithm or module with the same name already exists (line %d)!", (int)imprt->getStart()->getLine());
     }
     std::cerr << "parsing module " << vmodule->name() << nxl;
-    m_Modules.insert(std::make_pair(vmodule->name(), vmodule));
-    m_ModulesInDeclOrder.push_back(vmodule->name());
+    m_Blueprints.insert(std::make_pair(vmodule->name(), vmodule));
+    m_BlueprintsInDeclOrder.push_back(vmodule->name());
 
   } else if (app) {
 
@@ -338,10 +338,12 @@ void SiliceCompiler::run(
       // analyze
       gatherAll(parser.topList());
 
-      // resolve refs between algorithms and modules
-      for (const auto& alg : m_Algorithms) {
-        alg.second->resolveAlgorithmRefs(m_Algorithms);
-        alg.second->resolveModuleRefs(m_Modules);
+      // resolve refs between algorithms and blueprints
+      for (const auto& bp : m_Blueprints) {
+        Algorithm *alg = dynamic_cast<Algorithm*>(bp.second.raw());
+        if (alg != nullptr) {
+          alg->resolveInstancedBlueprintRefs(m_Blueprints);
+        }
       }
 
       // save the result
@@ -361,33 +363,33 @@ void SiliceCompiler::run(
           out << Module::fileToString(fname.c_str()) << nxl;
         }
         // write imported modules
-        for (auto miordr : m_ModulesInDeclOrder) {
-          auto m = m_Modules.at(miordr);
-          m->writeModule(out);
+        for (auto miordr : m_BlueprintsInDeclOrder) {
+          Module *mod = dynamic_cast<Module*>(m_Blueprints.at(miordr).raw());
+          if (mod != nullptr) {
+            mod->writeModule(out);
+          }
         }
 
         if (to_export.empty()) {
-          if (m_Algorithms.count("main") > 0) {
-            // ask for reports
-            m_Algorithms["main"]->enableReporting(fresult);
-            // write top algorithm (recurses from there)
-            m_Algorithms["main"]->writeAsModule("", out);
+          to_export = "main"; // export main by default
+        }
+        if (m_Blueprints.count(to_export) > 0) {
+          Algorithm *alg = dynamic_cast<Algorithm*>(m_Blueprints[to_export].raw());
+          if (alg == nullptr) {
+            reportError(antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s'", to_export.c_str());
           } else {
-            warn(Standard, antlr4::misc::Interval::INVALID, -1, "no main algorithm found, use --export to specify which algorithm to compile");
+            // ask for reports
+            alg->enableReporting(fresult);
+            // write algorithm (recurses from there)
+            alg->writeAsModule("", out);
           }
         } else {
-          if (m_Algorithms.count(to_export) > 0) {
-            // ask for reports
-            m_Algorithms[to_export]->enableReporting(fresult);
-            // write algorithm (recurses from there)
-            m_Algorithms[to_export]->writeAsModule("", out);
-          } else {
-            warn(Standard, antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s' to export");
-          }
+          warn(Standard, antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s'", to_export.c_str());
         }
 
-        // formal unit tests
-        for (auto const &[algname, alg] : m_Algorithms) {
+        // write formal unit tests
+        for (auto const &[algname, bp] : m_Blueprints) {
+          Algorithm *alg = dynamic_cast<Algorithm*>(bp.raw());
           if (alg->isFormal()) {
             alg->enableReporting(fresult);
             alg->writeAsModule("formal_" + algname + "$", out);

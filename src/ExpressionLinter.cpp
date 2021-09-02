@@ -148,7 +148,7 @@ void ExpressionLinter::lintReadback(
   if (std::holds_alternative<siliceParser::AccessContext*>(outp.what)) {
     typeNfo(std::get<siliceParser::AccessContext *>(outp.what), bctx, lvalue_nfo);
   } else if (std::holds_alternative<std::string>(outp.what)) {
-    lvalue_nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(bctx, std::get<std::string>(outp.what), outp.expression->getSourceInterval(), -1));
+    lvalue_nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(m_Host->translateVIOName(std::get<std::string>(outp.what), bctx), outp.expression->getSourceInterval(), -1));
   }
   // check
   if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
@@ -467,7 +467,7 @@ void ExpressionLinter::typeNfo(
   const Algorithm::t_combinational_block_context *bctx,
   t_type_nfo& _nfo) const
 {
-  _nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(bctx, idnt, antlr4::misc::Interval::INVALID , -1));
+  _nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(m_Host->translateVIOName(idnt, bctx), antlr4::misc::Interval::INVALID , -1));
   resolveParameterized(idnt, bctx, _nfo);
 }
 

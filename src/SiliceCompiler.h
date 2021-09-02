@@ -50,10 +50,8 @@ namespace Silice {
   private:
 
     std::vector<std::string>                                           m_Paths;
-    std::unordered_map<std::string, AutoPtr<Algorithm> >               m_Algorithms;
-    std::vector<std::string>                                           m_AlgorithmsInDeclOrder;
-    std::unordered_map<std::string, AutoPtr<Module> >                  m_Modules;
-    std::vector<std::string>                                           m_ModulesInDeclOrder;
+    std::unordered_map<std::string, AutoPtr<Blueprint> >               m_Blueprints;
+    std::vector<std::string>                                           m_BlueprintsInDeclOrder;
     std::unordered_map<std::string, siliceParser::SubroutineContext* > m_Subroutines;
     std::unordered_map<std::string, siliceParser::CircuitryContext* >  m_Circuitries;
     std::unordered_map<std::string, siliceParser::GroupContext* >      m_Groups;
