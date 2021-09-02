@@ -1100,11 +1100,11 @@ private:
     /// \brief determines vio bit width and (if applicable) table size
     std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const override;
     /// \brief returns the name of an input port from its internal name
-    std::string inputPortName(std::string name)  const override { return ALG_INPUT + '_' + name; }
+    std::string inputPortName(std::string name)  const override { return std::string(ALG_INPUT) + '_' + name; }
     /// \brief returns the name of an output port from its internal name
-    std::string outputPortName(std::string name) const override { return ALG_OUTPUT + '_' + name; }
+    std::string outputPortName(std::string name) const override { return std::string(ALG_OUTPUT) + '_' + name; }
     /// \brief returns the name of an inout port from its internal name
-    std::string inoutPortName(std::string name)  const override { return ALG_INOUT + '_' + name; }
+    std::string inoutPortName(std::string name)  const override { return std::string(ALG_INOUT) + '_' + name; }
     /// \brief returns the name of the module
     std::string moduleName(std::string blueprint_name, std::string instance_name) const override { return "M_" + blueprint_name + '_' + instance_name; }
     /// \brief returns true of the 'combinational' boolean is properly setup for outputs
