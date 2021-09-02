@@ -21,12 +21,10 @@ group bram_io
   uint$addrW$ addr(0),    // boot address
 }
 
-$$SIMULATION = 1
-
 algorithm $algorithm_name$($io_decl$) <autorun>
 {
 
-$$if SIMULATION then
+$$if verbose then
    uint32 cycle(0);
 $$end
 
@@ -55,8 +53,8 @@ $$end
 		//                                ^^^^^^^ no BRAM write if in IO addresses
     // ---- memory mapping to IO reads
     memio.rdata = (~io_read ? mem.rdata : ($io_reads$));
-$$if SIMULATION then		
-    if ( io_read ) { 
+$$if verbose then		
+    if (io_read) { 
       __display("[cycle %d] IO read @%b = %d",cycle,prev_mem_addr,memio.rdata); 
     }
 $$end
@@ -66,11 +64,11 @@ $$end
     // ---- memory mapping to IO writes
     if (io_write) {
       $io_writes$
-$$if SIMULATION then
-      __display("[cycle %d] IO write @%b = %d ",cycle,memio.addr,memio.wdata); 
+$$if verbose then
+      __display("[cycle %d] IO write @%b = %d",cycle,memio.addr,memio.wdata); 
 $$end
     }
-$$if SIMULATION then
+$$if verbose then
     cycle = cycle + 1;
 $$end
   }

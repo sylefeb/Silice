@@ -3,7 +3,7 @@
 .type _start, @function
 
 _start:
-   li sp,0x0400
+   li sp,STACK_START
    call main
    tail exit
 

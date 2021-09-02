@@ -185,23 +185,21 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
     auto input  = dynamic_cast<siliceParser::InputContext *>   (io->input());
     auto output = dynamic_cast<siliceParser::OutputContext *>  (io->output());
     auto inout  = dynamic_cast<siliceParser::InoutContext *>   (io->inout());
-    io_select   = io_select + "uint1 io_" + std::to_string(idx) + " <:: prev_mem_addr[" + std::to_string(idx) + ",1]; ";
+    io_select   = io_select + "uint1 ior_" + std::to_string(idx) + " <:: prev_mem_addr[" + std::to_string(idx) + ",1]; ";
+    io_select   = io_select + "uint1 iow_" + std::to_string(idx) + " <:  memio.addr[" + std::to_string(idx) + ",1]; ";
     string v;
     if (input) {
       v         = input->IDENTIFIER()->getText();
-      io_reads  = io_reads  + " | (io_" + std::to_string(idx) + " ? " + v + " : 32b0)";
+      io_reads  = io_reads  + " | (ior_" + std::to_string(idx) + " ? " + v + " : 32b0)";
       io_decl   = io_decl + "input ";
     } else if (output) {
       sl_assert(output->declarationVar()->IDENTIFIER() != nullptr);
       v         = output->declarationVar()->IDENTIFIER()->getText();
-      io_writes = io_writes + v + " = io_" + std::to_string(idx) + " ? memio.wdata : " + v + "; ";
+      io_writes = io_writes + v + " = iow_" + std::to_string(idx) + " ? memio.wdata : " + v + "; ";
       io_decl   = io_decl + "output ";
     } else if (inout) {
       v         = inout->IDENTIFIER()->getText();
-      // NOTE: not so simple, has to be a true inout ...
-      //io_reads  = io_reads + " | (io_" + std::to_string(idx) + " ? " + v + " : 32b0)";
-      //io_writes = io_writes + v + " = io_" + std::to_string(idx) + " ? memio.wdata : " + v + "\n$$";
-      io_decl   = io_decl + "inout ";
+      // TODO
       reportError(inout->getSourceInterval(), -1, "inout not yet supported");
     } else {
       // TODO error message, actual checks!
@@ -259,6 +257,8 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
       ofstream silicefile(s_tempfile);
       silicefile << generateSiliceCode(riscv);
     }
+    // compute stack start
+    int stack_start = 1 << justHigherPow2(memorySize(riscv));
     // compile Silice source
     c_tempfile = normalizePath(c_tempfile);
     s_tempfile = normalizePath(s_tempfile);
@@ -272,6 +272,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
       + "-D SRC=\"\\\"" + c_tempfile + "\\\"\" "
       + "-D CRT0=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/crt0.s" + "\\\"\" "
       + "-D LD_CONFIG=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/config_c.ld" + "\\\"\" "
+      + "-D STACK_START=" + std::to_string(stack_start) + " "
       + "--framework " + normalizePath(CONFIG.keyValues()["frameworks_dir"]) + "/boards/bare/bare.v "
       ;
     system(cmd.c_str());

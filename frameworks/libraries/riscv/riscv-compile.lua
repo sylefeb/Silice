@@ -42,7 +42,7 @@ function compile(file)
       .. SRC
   os.execute(cmd)
   cmd =  as .. ' '
-      .. '-march=rv32i -mabi=ilp32 -o crt0.o '
+      .. '-march=rv32i -mabi=ilp32 --defsym STACK_START=' .. STACK_START ..' -o crt0.o '
       .. CRT0
   os.execute(cmd)
   cmd =  ld .. ' '
