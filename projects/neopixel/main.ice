@@ -22,7 +22,7 @@ $$ print('t1h_cycles = ' .. t1h_cycles)
 $$ print('t1l_cycles = ' .. t1l_cycles)
 $$ print('res_cycles = ' .. res_cycles)
 
-// A Risc-V CPU generates the color pattern
+// A Risc-V CPU generating the color pattern
 riscv cpu_fun(output uint24 clr) <mem=512> = compile({
   // ====== C firmware ======
   void wait() {
@@ -52,9 +52,10 @@ riscv cpu_fun(output uint24 clr) <mem=512> = compile({
   // =========================
 })
 
+// The hardware implements the LED driver
 algorithm main(output uint8 leds,inout uint8 pmod)
 {
-  cpu_fun cpu0;
+  cpu_fun cpu0;   // instantiates our CPU
   
   uint10 cnt(0);  // counter for generating the control signal
   uint1  ctrl(0); // control signal state
