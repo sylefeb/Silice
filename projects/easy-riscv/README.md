@@ -6,10 +6,11 @@
 
 Include RISC-V processors and their firmware in a few lines of code in your Silice designs!
 
-This example is a complete RISC-V blinky, and it is crazy short:
+This example is a complete RISC-V blinky (the CPU counts and outputs the counter
+onto the LEDs):
 ```c
 riscv cpu_blinky(output uint32 leds) <mem=256> = compile({
-  // ========= firmware C-code below
+  // ========= start of firmware C-code
   void main() { 
     int i = 0;
     while (1) { // until the end of times
@@ -52,3 +53,11 @@ Plug your favorite board, open a command line in this folder and type `make <boa
 ## RISC-V cores
 
 Currently Silice uses the [ice-v](../ice-v/README.md) RISC-V core (small and simple). The plan is of course to make this configurable. Many options are planned, from using other cores to enabling access to external memory.
+
+## Behind the scene
+
+Have a look in the [frameworks/libraries/riscv](../../frameworks/libraries/riscv) folder. There you will find the SOC template as well as the Lua pre-processor
+script calling *gcc*. Silice produces the RISC-V instructions from the C 
+firmware code and embeds the machine code into the SOC, calling itself to produce
+the Verilog code of the softcore. This code is then added to the design being 
+compiled in the first place.
