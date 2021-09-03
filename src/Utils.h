@@ -80,15 +80,7 @@ namespace Silice
 #if !defined(_WIN32) && !defined(_WIN64)
         __attribute__((format(printf, 5, 6)))
 #endif
-      {
-        m_Line = line;
-        m_Token = tk;
-        m_Interval = interval;
-        va_list args;
-        va_start(args, msg);
-        vsprintf_s(m_Message, e_MessageBufferSize, msg, args);
-        va_end(args);
-      }
+      ;
       int line() const { return m_Line; }
       const char *message()  const { return (m_Message); }
       antlr4::Token *token() { return m_Token; }

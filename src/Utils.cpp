@@ -195,3 +195,16 @@ std::string Utils::fileToString(const char* file)
 }
 
 // -------------------------------------------------
+
+Utils::LanguageError::LanguageError(int line, antlr4::Token *tk, antlr4::misc::Interval interval, const char *msg, ...)
+{
+    m_Line = line;
+    m_Token = tk;
+    m_Interval = interval;
+    va_list args;
+    va_start(args, msg);
+    vsprintf_s(m_Message, e_MessageBufferSize, msg, args);
+    va_end(args);
+}
+
+// -------------------------------------------------
