@@ -265,7 +265,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     string exe = string(LibSL::System::Application::executablePath());
     string cmd =
       normalizePath(exe)
-      + "/silice.exe "
+      + "/silice "
       + "-o " + m_Name + ".v "
       + "--export " + m_Name + " "
       + s_tempfile + " "
