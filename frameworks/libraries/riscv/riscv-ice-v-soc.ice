@@ -34,8 +34,8 @@ $$end
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
   bram uint32 mem<"bram_wmask_byte">[$memsz$] = {$meminit$ pad(uninitialized)};
   // - for IO mapping, need to record prev. cycle addr and rw
-	uint$addrW$ prev_mem_addr(0);
-	uint1       prev_mem_rw(0);
+  uint$addrW$ prev_mem_addr(0);
+  uint1       prev_mem_rw(0);
   
   // cpu
   rv32i_cpu cpu( mem <:> memio );
@@ -46,11 +46,11 @@ $$end
     uint1 io_write <:  (memio.addr[$external$,1]    &  wen);
     uint1 io_read  <:: (prev_mem_addr[$external$,1] & ~prev_mem_rw);
     $io_select$
-	  // ---- memory access
+    // ---- memory access
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
     mem.wenable   = memio.wenable & {4{~memio.addr[$external$,1]}}; 
-		//                                ^^^^^^^ no BRAM write if in IO addresses
+    //                                ^^^^^^^ no BRAM write if in IO addresses
     // ---- memory mapping to IO reads
     memio.rdata = (~io_read ? mem.rdata : ($io_reads$));
 $$if verbose then		
@@ -59,8 +59,8 @@ $$if verbose then
     }
 $$end
     // ---- record addr and rw for next cycle
-		prev_mem_addr = memio.addr;
-		prev_mem_rw   = wen;
+    prev_mem_addr = memio.addr;
+    prev_mem_rw   = wen;
     // ---- memory mapping to IO writes
     if (io_write) {
       $io_writes$

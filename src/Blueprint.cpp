@@ -21,7 +21,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 (header_2_G)
 */
-#pragma once
+
 // -------------------------------------------------
 //                                ... hardcoding ...
 // -------------------------------------------------
