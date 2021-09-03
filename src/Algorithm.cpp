@@ -2053,7 +2053,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     determineVIOAccess(b, m_OutputNames, &_current->context, o_read, o_written);
     for (auto ow : o_written) {
       if (written_outputs.count(ow) > 0) {
-        reportError(nullptr, (int)b->getStart()->getLine(), "output '%s' is written from two different pipeline stages");
+        reportError(nullptr, (int)b->getStart()->getLine(), "output '%s' is written from two different pipeline stages", ow.c_str());
       }
       written_outputs.insert(ow);
     }
