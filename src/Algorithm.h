@@ -1070,7 +1070,9 @@ private:
     }
 
     /// \brief writes the algorithm as the top-most Verilog module, recurses through instanced blueprints
-    void writeAsModule(std::string instance_name, std::ostream &out);
+    void writeAsModule(std::string top_instance_name, std::ostream &out);
+    /// \brief same as above, with a pre-existing instantiation context (used for exports)
+    void writeAsModule(std::string top_instance_name, std::ostream &out, const t_instantiation_context &pre_ictx);
 
     /// \brief check whether an algorithm is used for formal verification or not
     bool isFormal() { return m_hasHash; }

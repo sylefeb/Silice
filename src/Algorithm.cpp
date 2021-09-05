@@ -7130,10 +7130,18 @@ void Algorithm::writeModuleMemory(std::string instance_name, std::ostream& out, 
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(std::string instance_name, std::ostream &out)
+void Algorithm::writeAsModule(std::string top_instance_name, std::ostream &out)
 {
   t_instantiation_context ictx; // empty instantiation context
-  ictx.instance_name = instance_name;
+  writeAsModule(top_instance_name, out, ictx);
+}
+
+// -------------------------------------------------
+
+void Algorithm::writeAsModule(std::string top_instance_name, std::ostream &out, const t_instantiation_context &pre_ictx)
+{
+  t_instantiation_context ictx = pre_ictx;
+  ictx.instance_name = top_instance_name;
   m_TopMost = true; // this is the topmost
   if (!m_ReportBaseName.empty() && !m_hasHash) {
     // create report files, will delete if existing

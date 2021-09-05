@@ -276,7 +276,8 @@ void SiliceCompiler::run(
   std::string fframework,
   std::string frameworks_dir,
   const std::vector<std::string>& defines,
-  std::string to_export)
+  std::string to_export,
+  const std::vector<std::string>& export_params)
 {
   // determine frameworks dir if needed
   if (frameworks_dir.empty()) {
@@ -350,7 +351,7 @@ void SiliceCompiler::run(
       // generate the output
       {
         std::ofstream out(fresult);
-        // wrtie cmd line defines
+        // write cmd line defines
         for (auto d : defines) {
           auto eq = d.find('=');
           if (eq != std::string::npos) {
@@ -383,10 +384,18 @@ void SiliceCompiler::run(
           if (alg == nullptr) {
             reportError(antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s'", to_export.c_str());
           } else {
+            Algorithm::t_instantiation_context ictx;
             // ask for reports
             alg->enableReporting(fresult);
+            // add instantiation parameters to context
+            for (auto p : export_params) {
+              auto eq = p.find('=');
+              if (eq != std::string::npos) {
+                ictx.parameters[ p.substr(0, eq) ] = p.substr(eq + 1);
+              }
+            }
             // write algorithm (recurses from there)
-            alg->writeAsModule("", out);
+            alg->writeAsModule("", out, ictx);
           }
         } else {
           warn(Standard, antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s'", to_export.c_str());

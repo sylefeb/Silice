@@ -64,6 +64,8 @@ int main(int argc, char **argv)
     cmd.add(defines);
     TCLAP::ValueArg<std::string> toExport("", "export", "Name of the algorithm to export (ignores main when specified)", false, "", "string");
     cmd.add(toExport);
+    TCLAP::MultiArg<std::string> exportParam("P", "export_param", "specifies an export parameter for algorithm instantiation, e.g. -P name=value", false, "string");
+    cmd.add(exportParam);
 
     cmd.parse(argc, argv);
 
@@ -74,7 +76,8 @@ int main(int argc, char **argv)
       framework.getValue(),
       frameworks_dir.getValue(),
       defines.getValue(),
-      toExport.getValue());
+      toExport.getValue(),
+      exportParam.getValue());
 
   } catch (TCLAP::ArgException& err) {
     std::cerr << "command line error: " << err.what() << "\n";
