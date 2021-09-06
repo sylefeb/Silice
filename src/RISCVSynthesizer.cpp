@@ -97,13 +97,17 @@ int RISCVSynthesizer::memorySize(siliceParser::RiscvContext *riscv) const
 {
   if (riscv->riscvModifiers() != nullptr) {
     for (auto m : riscv->riscvModifiers()->riscvModifier()) {
-      if (m->rmemsz() != nullptr) {
-        int sz = atoi(m->rmemsz()->NUMBER()->getText().c_str());
-        if (sz <= 0 || (sz%4) != 0) {
-          reportError(riscv->getSourceInterval(), -1, "[RISCV] memory size (in bytes) should be > 0 and multiple of four (got %d).",sz);
+      if (m->IDENTIFIER()->getText() == "mem") {
+        if (m->NUMBER() == nullptr) {
+          reportError(riscv->getSourceInterval(), -1, "[RISCV] memory size should be a number, got '%s'.", m->STRING()->getText());
+        } else {
+          int sz = atoi(m->NUMBER()->getText().c_str());
+          if (sz <= 0 || (sz % 4) != 0) {
+            reportError(riscv->getSourceInterval(), -1, "[RISCV] memory size (in bytes) should be > 0 and multiple of four (got %d).", sz);
+          }
+          return sz;
+          break;
         }
-        return sz;
-        break;
       }
     }
   }
@@ -118,13 +122,17 @@ int RISCVSynthesizer::stackSize(siliceParser::RiscvContext *riscv) const
 {
   if (riscv->riscvModifiers() != nullptr) {
     for (auto m : riscv->riscvModifiers()->riscvModifier()) {
-      if (m->rstacksz() != nullptr) {
-        int sz = atoi(m->rstacksz()->NUMBER()->getText().c_str());
-        if (sz <= 0 || (sz % 4) != 0) {
-          reportError(riscv->getSourceInterval(), -1, "[RISCV] stack size (in bytes) should be > 0 and multiple of four (got %d).", sz);
+      if (m->IDENTIFIER()->getText() == "stack") {
+        if (m->NUMBER() == nullptr) {
+          reportError(riscv->getSourceInterval(), -1, "[RISCV] stack size should be a number.");
+        } else {
+          int sz = atoi(m->NUMBER()->getText().c_str());
+          if (sz <= 0 || (sz % 4) != 0) {
+            reportError(riscv->getSourceInterval(), -1, "[RISCV] stack size (in bytes) should be > 0 and multiple of four (got %d).", sz);
+          }
+          return sz;
+          break;
         }
-        return sz;
-        break;
       }
     }
   }
@@ -138,10 +146,14 @@ std::string RISCVSynthesizer::coreName(siliceParser::RiscvContext *riscv) const
 {
   if (riscv->riscvModifiers() != nullptr) {
     for (auto m : riscv->riscvModifiers()->riscvModifier()) {
-      if (m->rcore() != nullptr) {
-        string core = m->rcore()->STRING()->getText();
-        core = core.substr(1, core.length() - 2); // remove '"' and '"'
-        return core;
+      if (m->IDENTIFIER()->getText() == "core") {
+        if (m->STRING() == nullptr) {
+          reportError(riscv->getSourceInterval(), -1, "[RISCV] core name should be a string.");
+        } else {
+          string core = m->STRING()->getText();
+          core = core.substr(1, core.length() - 2); // remove '"' and '"'
+          return core;
+        }
       }
     }
   }
