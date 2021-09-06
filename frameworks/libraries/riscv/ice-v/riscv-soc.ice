@@ -7,7 +7,7 @@
 $$config['bram_wmask_byte_wenable_width'] = 'data'
 
 // include the processor
-$include('../../../projects/ice-v/CPUs/ice-v.ice')
+$include('../../../../projects/ice-v/CPUs/ice-v.ice')
 
 // --------------------------------------------------
 // SOC

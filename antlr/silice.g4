@@ -463,9 +463,11 @@ cblock              : '{' cblock_items * '}' ;
 riscvInstructions   : initList
                     | COMPILE '(' cblock ')' ;
 
-rmemsz              :  'mem=' NUMBER ; // NOTE: no space is allowed before '=' to avoid issues with identifiers
+rmemsz              : 'mem=' NUMBER ; // NOTE: no space is allowed before '=' to avoid issues with identifiers
+rstacksz            : 'stack=' NUMBER ;
+rcore               : 'core=' STRING ;
 
-riscvModifier       : rmemsz ;
+riscvModifier       : rmemsz | rstacksz | rcore;
 riscvModifiers      : '<' riscvModifier (',' riscvModifier)* '>' ;
 
 riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? '=' riscvInstructions ;

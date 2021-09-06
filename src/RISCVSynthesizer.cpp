@@ -107,8 +107,59 @@ int RISCVSynthesizer::memorySize(siliceParser::RiscvContext *riscv) const
       }
     }
   }
+  // memory size is mandatory, issue an error if not found
   reportError(riscv->getSourceInterval(), -1, "[RISCV] no memory size specified, please use a modifier e.g. <mem=1024>");
   return 0;
+}
+
+// -------------------------------------------------
+
+int RISCVSynthesizer::stackSize(siliceParser::RiscvContext *riscv) const
+{
+  if (riscv->riscvModifiers() != nullptr) {
+    for (auto m : riscv->riscvModifiers()->riscvModifier()) {
+      if (m->rstacksz() != nullptr) {
+        int sz = atoi(m->rstacksz()->NUMBER()->getText().c_str());
+        if (sz <= 0 || (sz % 4) != 0) {
+          reportError(riscv->getSourceInterval(), -1, "[RISCV] stack size (in bytes) should be > 0 and multiple of four (got %d).", sz);
+        }
+        return sz;
+        break;
+      }
+    }
+  }
+  // optional, return 0 if not found
+  return 0;
+}
+
+// -------------------------------------------------
+
+std::string RISCVSynthesizer::coreName(siliceParser::RiscvContext *riscv) const
+{
+  if (riscv->riscvModifiers() != nullptr) {
+    for (auto m : riscv->riscvModifiers()->riscvModifier()) {
+      if (m->rcore() != nullptr) {
+        string core = m->rcore()->STRING()->getText();
+        core = core.substr(1, core.length() - 2); // remove '"' and '"'
+        return core;
+      }
+    }
+  }
+  // optional, return default core if not found
+  return "ice-v";
+}
+
+// -------------------------------------------------
+
+static string normalizePath(const string& _path)
+{
+  string str = _path;
+  for (auto &c : str) {
+    if (c == '\\') {
+      c = '/';
+    }
+  }
+  return str;
 }
 
 // -------------------------------------------------
@@ -156,20 +207,9 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
       reportError(riscv->getSourceInterval(), -1, "[RISCV] address bust not wide enough for the number of input/outputs (one bit per IO is required)");
     }
   }
+  // concatenate core specific header
+  header << Utils::fileToString((normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + coreName(riscv) + "/header.h").c_str());
   return header.str();
-}
-
-// -------------------------------------------------
-
-static string normalizePath(const string& _path)
-{
-  string str = _path;
-  for (auto &c : str) {
-    if (c == '\\') {
-      c = '/';
-    }
-  }
-  return str;
 }
 
 // -------------------------------------------------
@@ -219,7 +259,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
   code << "$$io_reads  = [[" << io_reads << "]]" << nxl;
   code << "$$io_writes = [[" << io_writes << "]]" << nxl;
   code << "$$algorithm_name = '" << riscv->IDENTIFIER()->getText() << "'" << nxl;
-  code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-ice-v-soc.ice\");" << nxl;
+  code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + coreName(riscv) + "/riscv-soc.ice\");" << nxl;
   return code.str();
 }
 
@@ -259,6 +299,10 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     }
     // compute stack start
     int stack_start = 1 << justHigherPow2(memorySize(riscv));
+    // get stack size
+    int stack_size = stackSize(riscv);
+    // get core name
+    std::string core = coreName(riscv);
     // compile Silice source
     c_tempfile = normalizePath(c_tempfile);
     s_tempfile = normalizePath(s_tempfile);
@@ -270,9 +314,10 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
       + "--export " + m_Name + " "
       + s_tempfile + " "
       + "-D SRC=\"\\\"" + c_tempfile + "\\\"\" "
-      + "-D CRT0=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/crt0.s" + "\\\"\" "
-      + "-D LD_CONFIG=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/config_c.ld" + "\\\"\" "
+      + "-D CRT0=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + core + "/crt0.s" + "\\\"\" "
+      + "-D LD_CONFIG=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + core + "/config_c.ld" + "\\\"\" "
       + "-D STACK_START=" + std::to_string(stack_start) + " "
+      + "-D STACK_SIZE=" + std::to_string(stack_size) + " "
       + "--framework " + normalizePath(CONFIG.keyValues()["frameworks_dir"]) + "/boards/bare/bare.v "
       ;
     system(cmd.c_str());

@@ -12,8 +12,8 @@ riscv cpu_blinky(output uint32 leds) <mem=256> = compile({
   void next(int *v) { ++(*v); }
   // C-function, wait for a while
 $$if SIMULATION then  -- even C-code can be changed by the Silice pre-processor!
-  // in simulation we wait only a short time
-  void wait() { for (int w = 0 ; w < 10 ; ++w)     { asm volatile ("nop;"); } }
+  // in simulation we do not wait
+  void wait() {  }
 $$else  
   // on actual hardware we wait much longer
   void wait() { for (int w = 0 ; w < 100000 ; ++w) { asm volatile ("nop;"); } }
@@ -45,9 +45,12 @@ algorithm main(output uint8 leds)
   }
   
 $$if SIMULATION then  
-  // run only 1000 cycles in simulation
-  uint32 iter(0);
-  while (iter != 1000) { iter = iter + 1; }
+  // run only 256 cycles in simulation
+  {
+    uint32 iter(0);
+    while (iter != 256) { __display("[cycle %d] leds %d",iter,leds); 
+                         iter = iter + 1; }
+  }
 $$else
   // run forever in hardware
   while (1) { }

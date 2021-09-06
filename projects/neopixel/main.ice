@@ -76,19 +76,29 @@ algorithm main(output uint8 leds,inout uint8 pmod)
     send_clr = cpu0.clr;
     // send the 24 bits
     while (i != 24) {
+      
       uint10 th <:: send_clr[23,1] ? $t1h_cycles-2$ : $t0h_cycles-2$;
+      //                                        ^^^              ^^^
+      // this accounts for the two cycles entering and exiting a while
       uint10 tl <:: send_clr[23,1] ? $t1l_cycles-3$ : $t0l_cycles-3$;
-      // '1'
+      //                                        ^^^              ^^^
+      // this accounts for the two cycles entering and exiting a while and
+      // the additional cycle it takes to loop back in the main loop
+      
+      // generates a '1'
       ctrl = 1;
       cnt  = 0;
       while (cnt != th) {
         cnt  = cnt + 1;
       }
+      
+      // generates a '0'
       ctrl = 0;
       cnt  = 0;
       while (cnt != tl) {
         cnt  = cnt + 1;
       }
+
       // shift clr to send next bit
       send_clr = send_clr << 1;
       // count sent bits
