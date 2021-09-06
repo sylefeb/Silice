@@ -129,6 +129,10 @@ M_sdram_controller_autoprecharge_r16_w16 sdram_controller(
 );
 ```
 
+Note that the name of the exported algorithm is prefixed by `M_` in Verilog: we instance the controller as `M_sdram_controller_autoprecharge_r16_w16`. We also
+have to provide `clock`, `reset` and `in_run`, a Silice internal signal that
+tells the module to execute. Here we simply keep it high to get things running.
+
 Then, the bulk of the example is performed in this Verilog `always` block:
 ```v
 // this test value will be
