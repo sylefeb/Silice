@@ -228,8 +228,11 @@ if target_builder['builder'] == 'shell':
     # execute
     command = script + " " + source_file
     print('launching command     ', colored(command,'cyan'))
-    bash = "env bash"
-    os.system(bash + " " + command + " " + defines)
+    if platform.system() == "Windows":
+        bash = "env bash"
+        os.system(bash + " " + command + " " + defines)
+    else:
+        os.system(command + " " + defines)
 
 elif target_builder['builder'] == 'edalize':
 
