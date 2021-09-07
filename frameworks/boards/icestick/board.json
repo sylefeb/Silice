@@ -20,7 +20,7 @@
           "tool": "icestorm",
           "tool_options": [
             {
-                "yosys_synth_options": ["-relut"],
+                "yosys_synth_options": ["-abc9","-relut"],
                 "nextpnr_options": ["--force", "--hx1k", "--freq 12", "--package tq144", "--timing-allow-fail"],
                 "pnr": "next"
             }

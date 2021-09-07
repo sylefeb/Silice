@@ -20,10 +20,9 @@ nentries = 0
 nbytes = 0
 h32 = ''
 meminit = '{'
-numinit = 0
+numwords = 0
 local word = ''
-local prev_addr = -1
-
+local written = 0
 local out   = assert(io.open(path .. '/data.img', "wb"))
 --local out_l = assert(io.open(path .. '/spram_l.img', "wb"))
 --local out_h = assert(io.open(path .. '/spram_h.img', "wb"))
@@ -36,24 +35,18 @@ local out   = assert(io.open(path .. '/data.img', "wb"))
 for str in string.gmatch(code, "([^ \r\n]+)") do
   if string.sub(str,1,1) == '@' then
     addr = tonumber(string.sub(str,2), 16)
-    if prev_addr < 0 then
-      print('first addr = ' .. addr)
-      prev_addr = addr
-    end
-    print('addr delta = ' .. addr - prev_addr)
-    delta = addr - prev_addr
+    print('addr delta = ' .. addr - written)
+    delta = addr - written
     for i=1,delta do
       -- pad with zeros
       word     = '00' .. word;
       if #word == 8 then 
         meminit = meminit .. '32h' .. word .. ','
         word = ''
-        numinit = numinit + 1
+        numwords = numwords + 1
       end
       out:write(string.pack('B', 0 ))      
-      prev_addr       = prev_addr + 1
     end
-    prev_addr = addr
   else 
     h32 = str .. h32
     out:write(string.pack('B', tonumber(str,16) ))
@@ -62,13 +55,14 @@ for str in string.gmatch(code, "([^ \r\n]+)") do
     else
       --out_l:write(string.pack('B', tonumber(str,16) ))
     end    
-    nbytes = nbytes + 1
+    nbytes  = nbytes + 1
+    written = written + 1
     if nbytes == 4 then
       print('32h' .. h32)
       meminit = meminit .. '32h' .. h32 .. ','
       nbytes = 0
       h32 = ''
-      numinit = numinit + 1
+      numwords = numwords + 1
     end
   end
 end
@@ -77,6 +71,7 @@ out  :close()
 --out_l:close()
 --out_h:close()
 
-print('code size: ' .. numinit .. ' 32bits words')
-code_size_bytes = numinit * 4
+code_size_bytes = numwords * 4
+print('code size: ' .. numwords .. ' 32bits words (' 
+      .. code_size_bytes .. ' bytes)')
 meminit = meminit .. 'pad(uninitialized)}'

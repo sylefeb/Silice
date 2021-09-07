@@ -11,8 +11,7 @@ _start:
    li sp,0x1000
    j done
 cpu1:   
-   li sp,0x0f00 # leaves 256 bytes for CPU0 ...
-                # not a lot
+   li sp,0x0f00 # leaves 256 bytes for CPU0
 done:   
    call main
    tail exit

@@ -3,7 +3,7 @@
 // Fun with RISC-V!
 // RV32I cpu, see README.md
 //
-// NOTE: running at 70 MHz while validating ~55 MHz
+// NOTE: running at 80 MHz while validating ~60 MHz
 //       in case of trouble change PLL choice below
 //       (plls/icestick_XX)
 //
@@ -11,7 +11,7 @@
 
 // Clocks
 $$if ICESTICK then
-import('../../common/plls/icestick_70.v')
+import('../../common/plls/icestick_80.v')
 $$elseif FOMU then
 import('../../common/plls/fomu_20.v')
 $$elseif ICEBREAKER then
@@ -325,7 +325,7 @@ $$if PMOD then
 // based on the FPGA frequency and target audio frequency.
 // The audio frequency is likely to not be perfectly matched.
 //
-$$  base_freq_mhz      = 70  -- FPGA frequency
+$$  base_freq_mhz      = 80  -- FPGA frequency
 $$  audio_freq_khz     = 44.1 -- Audio frequency (target)
 $$  base_cycle_period  = 1000/base_freq_mhz
 $$  target_audio_cycle_period = 1000000/audio_freq_khz

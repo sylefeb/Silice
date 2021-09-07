@@ -6,38 +6,41 @@
 #define OLED_DTA   (1<<10)
 #define DELAY      (1<<18)
 
-// OLED 4x version ( < 70 MHz)
-// static inline void wait() { asm volatile ("nop; nop; nop; "); } // 60,70 MHz
-// OLED 8x version (>= 70 MHz)
 static inline void wait() { asm volatile ("nop; nop; nop; nop; nop; nop; nop;"); }
 
 #define WAIT wait()
 
-void oled_init()
+#define OLED_666 0
+#define OLED_565 1
+
+void oled_init_mode(int mode)
 {
   register int i;
   // reset high
   *(OLED_RST) = 0;
   // wait > 100 msec
-  for (i=0;i<DELAY;i++) {  }
+  for (i=0;i<DELAY;i++) { asm volatile ("nop;"); }
   // reset low
   *(OLED_RST) = 1;
   // wait > 300us
-  for (i=0;i<DELAY;i++) {  }
+  for (i=0;i<DELAY;i++) { asm volatile ("nop;"); }
   // reset high
   *(OLED_RST) = 0;
   // wait > 300 msec
-  for (i=0;i<DELAY;i++) {  }
+  for (i=0;i<DELAY;i++) { asm volatile ("nop;"); }
   // send screen on
   *(OLED) = OLED_CMD | 0xAF;
   // wait > 300 msec
-  for (i=0;i<DELAY;i++) {  }
-  
-  // select auto horiz. increment, 666 RGB 
+  for (i=0;i<DELAY;i++) { asm volatile ("nop;"); }
+  // select auto horiz. increment, RGB mode
   *(OLED) = OLED_CMD | 0xA0;
   WAIT;
-  *(OLED) = OLED_DTA | 0xA0;
-  WAIT;
+  if (mode == OLED_666) {
+    *(OLED) = OLED_DTA | 0xA0;
+  } else {
+    *(OLED) = OLED_DTA | 0x20;    
+  }
+    WAIT;
   // unlock
   *(OLED) = OLED_CMD | 0xFD;
   WAIT;
@@ -50,6 +53,12 @@ void oled_init()
   WAIT;
   // done!
 }
+
+void oled_init()
+{
+  oled_init_mode(OLED_666);
+}
+
 
 void oled_fullscreen()
 {
@@ -79,7 +88,13 @@ static inline void oled_pix(unsigned char r,unsigned char g,unsigned char b)
     *(OLED) = OLED_DTA | g;
     WAIT;
     *(OLED) = OLED_DTA | r;
-    // WAIT;
+}
+
+static inline void oled_pix_565(unsigned char b5g3,unsigned char g3r5)
+{
+    *(OLED) = OLED_DTA | b5g3;
+    WAIT;
+    *(OLED) = OLED_DTA | g3r5;
 }
 
 static inline void oled_comp(unsigned char c)
