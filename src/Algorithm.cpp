@@ -4838,7 +4838,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
       if (A != m_InstancedBlueprints.end()) {
         Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
         if (alg == nullptr) {
-          reportError(async->getSourceInterval(), -1, "called instance '%s' is not an algorithm", async->IDENTIFIER()->getText());
+          reportError(async->getSourceInterval(), -1, "called instance '%s' is not an algorithm", async->IDENTIFIER()->getText().c_str());
         } else {
           // if parameters are given, check, otherwise we allow call without parameters (bindings may exist)
           if (!async->callParamList()->expression_0().empty()) {
@@ -4862,7 +4862,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
       if (A != m_InstancedBlueprints.end()) { // algorithm?
         Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
         if (alg == nullptr) {
-          reportError(async->getSourceInterval(), -1, "called instance '%s' is not an algorithm", async->IDENTIFIER()->getText());
+          reportError(async->getSourceInterval(), -1, "called instance '%s' is not an algorithm", async->IDENTIFIER()->getText().c_str());
         } else {
           // if parameters are given, check, otherwise we allow call without parameters (bindings may exist)
           if (!sync->callParamList()->expression_0().empty()) {
@@ -4900,7 +4900,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
       if (A != m_InstancedBlueprints.end()) { // algorithm?
         Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
         if (alg == nullptr) {
-          reportError(async->getSourceInterval(), -1, "joined instance '%s' is not an algorithm", async->IDENTIFIER()->getText());
+          reportError(async->getSourceInterval(), -1, "joined instance '%s' is not an algorithm", async->IDENTIFIER()->getText().c_str());
         } else {
           // if parameters are given, check, otherwise we allow call without parameters (bindings may exist)
           if (!join->callParamList()->expression_0().empty()) {

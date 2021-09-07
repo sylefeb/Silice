@@ -99,7 +99,7 @@ int RISCVSynthesizer::memorySize(siliceParser::RiscvContext *riscv) const
     for (auto m : riscv->riscvModifiers()->riscvModifier()) {
       if (m->IDENTIFIER()->getText() == "mem") {
         if (m->NUMBER() == nullptr) {
-          reportError(riscv->getSourceInterval(), -1, "[RISCV] memory size should be a number, got '%s'.", m->STRING()->getText());
+          reportError(riscv->getSourceInterval(), -1, "[RISCV] memory size should be a number, got '%s'.", m->STRING()->getText().c_str());
         } else {
           int sz = atoi(m->NUMBER()->getText().c_str());
           if (sz <= 0 || (sz % 4) != 0) {
