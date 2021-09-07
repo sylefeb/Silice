@@ -1,6 +1,6 @@
 
 // fixed point setup
-#define FP     6
+#define FP     8
 #define IP     (FP+3)
 #define CUTOFF (4<<FP)
 
@@ -78,13 +78,14 @@ void main_loop(int who)
 #else
 
 #define MASK   ((1<<(IP+1))-1)
+#define CLAMP  ((1<<(IP-1))-1)
 
   int offs = 0;
   while (1) {
-    int j_f =  - 64;
+    int j_f =  - 64*2;
     int pix = who;
     for (int j = 0 ; j < 128 ; ++j) {
-      int i_f = - 128 + offs;
+      int i_f = - 128*3 + offs;
       for (int i = who ; i < 128 ; i += 2/*two cores*/) {
         int x_f  = i_f;
         int y_f  = j_f;
@@ -92,11 +93,19 @@ void main_loop(int who)
         int it_r = 0;
         int it_b = 0;
         for ( ; n<16 ; n++,it_r+=2,it_b+=8) {
-          int a_f = x_f & MASK;
-          int b_f = y_f & MASK;
+#define REMAP(X,A) A = X<0?-X:X; A = A<=CLAMP?A:CLAMP;
+          //int a_f = x_f & MASK;
+          //int b_f = y_f & MASK;
+          int a_f;
+          REMAP(x_f,a_f);
+          int b_f;
+          REMAP(y_f,b_f);
           int u_f = sq[a_f];
           int v_f = sq[b_f];
-          int c_f = (x_f+y_f) & MASK;
+          //int c_f = (x_f+y_f) & MASK;
+          int tmp = (x_f+y_f);
+          int c_f;
+          REMAP(tmp,c_f);
           int s_f = sq[c_f];
           int w_f = s_f - u_f - v_f;
           y_f     = w_f + j_f;
@@ -118,7 +127,6 @@ void main_loop(int who)
       j_f += 1;
     } 
     ++offs;
-    //offs += (1<<8);
   }
 #endif
   
@@ -171,7 +179,7 @@ void main()
 
   FILE *f = fopen("squares.h","w");
   fprintf(f,"unsigned short sq[] = {");
-  for (int s = 0; s < (1<<(IP+1)) ; ++s) {
+  for (int s = 0; s < (1<<(IP-1)) ; ++s) {
     if (s>0) fprintf(f,",");
     fprintf(f,"%d",sq[s]);
   }
