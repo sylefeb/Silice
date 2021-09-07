@@ -1,10 +1,10 @@
-platforms = {'unknown','linux'}
+platforms = {'unknown-elf','linux-elf','unknown-gnu','linux-gnu'}
 
 function set_toolchain_names(platform)
-  gcc = 'riscv64-' .. platform .. '-elf-gcc'
-  as  = 'riscv64-' .. platform .. '-elf-as'
-  ld  = 'riscv64-' .. platform .. '-elf-ld'
-  oc  = 'riscv64-' .. platform .. '-elf-objcopy'
+  gcc = 'riscv64-' .. platform .. '-gcc'
+  as  = 'riscv64-' .. platform .. '-as'
+  ld  = 'riscv64-' .. platform .. '-ld'
+  oc  = 'riscv64-' .. platform .. '-objcopy'
 end
 
 -- =========================================================================
