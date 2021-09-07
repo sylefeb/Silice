@@ -80,23 +80,22 @@ void main_loop(int who)
 #define MASK   ((1<<(IP+1))-1)
 //#define CLAMP  ((1<<(IP-1))-1)
 
+  //int x_c = 128;
+	//int y_c = -16;
   int offs = 0;
   while (1) {
-
-    int x_c = -256;
-  	int y_c =  16;
 
     int j_f = -128; // - 64*2;
     int pix = who;
     for (int j = 0 ; j < 128 ; ++j) {
-      int i_f = -128; // - 128*3 + offs;
+      int i_f = -128 + offs; // - 128*3 + offs;
       for (int i = who ; i < 128 ; i += 2/*two cores*/) {
         int x_f  = i_f;
         int y_f  = j_f;
         int n    = 0;
         int it_r = 0;
         int it_b = 0;
-        for ( ; n<16 ; n++,it_r+=2,it_b+=8) {
+        for ( ; n<32 ; n++,it_r+=2,it_b+=8) {
 //#define REMAP(X,A) A = X<0?-X:X; A = A<=CLAMP?A:CLAMP;
           int a_f = x_f & MASK;
           int b_f = y_f & MASK;
@@ -112,8 +111,8 @@ void main_loop(int who)
 //          REMAP(tmp,c_f);
           int s_f = sq[c_f];
           int w_f = s_f - u_f - v_f;
-          y_f     = w_f + j_f;
-          x_f     = u_f - v_f + i_f;
+          x_f     = u_f - v_f + i_f;//+ x_c; //+ i_f;
+          y_f     = w_f       + j_f;//+ y_c; // + j_f;
           if (u_f + v_f > CUTOFF) {
             break;
           }
@@ -122,6 +121,7 @@ void main_loop(int who)
         while (pix > synch) { }
         // send pixel
         oled_pix_565(it_b,it_r);
+        asm volatile ("nop;");
         // advance two pixels (meanwhile OLED completes)
         pix += 2;
         i_f += 2;
@@ -129,8 +129,10 @@ void main_loop(int who)
         ++synch;
       }
       j_f += 1;
-    } 
-    ++offs;
+    }
+
+    ++ offs;
+    
   }
 #endif
   
