@@ -147,7 +147,7 @@ void main_sound()
   while (1) {
     cy = TIME;
     if (cy < cy_last) { cy_last = cy; } // counter may wrap around
-    if (cy > cy_last + 1876 ) {
+    if (cy > cy_last + 1641 ) {
       //  60MHz => 1407
       //  70MHz => 1641
       //  80MHz => 1876
