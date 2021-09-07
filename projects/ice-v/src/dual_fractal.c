@@ -79,8 +79,6 @@ void main_loop(int who)
 
 #define MASK   ((1<<(IP+1))-1)
 
-  unsigned char zm[] = {1,1,1,1, 1,1,1,1};
-
   int offs = 0;
   while (1) {
     int j_f =  - 64;
@@ -113,11 +111,11 @@ void main_loop(int who)
         oled_pix_565(it_b,it_r);
         // advance two pixels (meanwhile OLED completes)
         pix += 2;
-        i_f += zm[offs&7] <<1 ;
+        i_f += 2;
         // advance lock
         ++synch;
       }
-      j_f += zm[offs&7];
+      j_f += 1;
     } 
     ++offs;
     //offs += (1<<8);
