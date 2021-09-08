@@ -1,5 +1,7 @@
 // ========== Real time Julia fractal on the ice-v-dual
-// mul trick from http://cowlark.com/2018-05-26-bogomandel/index.html
+// mul trick from: http://cowlark.com/2018-05-26-bogomandel/index.html
+// see also the great notes on Mandlebrot by reenigne:
+// https://github.com/reenigne/reenigne/blob/master/8088/mandel/mandel.txt
 //
 // CPU0 computes even pixels, CPU1 odd pixels
 // They are synchronized through synch
