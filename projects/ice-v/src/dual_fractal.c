@@ -52,10 +52,10 @@ void main_loop(int who)
     int pix = who;
     for (int j = 0 ; j < 128 ; ++j) {
       int i_f = -64;
-      for (int i = who ; i < 128 ; i += 2/*two cores*/) {
+      for (int i = who ; i < 128 ; i += 2/*each core advances two pixels*/) {
         int x_f  = i_f;
         int y_f  = j_f;
-        int clr=0; int clr8=16;
+        int clr=0; int clr8=32;
         for ( ; clr<24 ; clr++,clr8+=8) {
           int a_f = x_f & MASK;
           int b_f = y_f & MASK;
@@ -72,7 +72,6 @@ void main_loop(int who)
         }
         // wait on lock
         while (pix > synch) { }
-        // send pixel
         oled_pix_565(clr8,clr);
         // asm volatile ("nop;");
         // advance two pixels (meanwhile OLED completes)
