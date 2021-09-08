@@ -73,7 +73,6 @@ void main_loop(int who)
         // wait on lock
         while (pix > synch) { }
         oled_pix_565(clr8,clr);
-        // asm volatile ("nop;");
         // advance two pixels (meanwhile OLED completes)
         pix += 2;
         i_f += 2;
