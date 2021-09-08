@@ -81,17 +81,15 @@ void main_loop(int who)
 #define CLAMP  ((1<<(IP-1))-1)
 #define NEG    ((1<<(IP+1))  )
 
-int zm[] = {1,2,3,4,5,6,7,8,8,7,6,5,4,3,2,1};
-
   //int x_c = 128;
 	//int y_c = -16;
-  int offs = 0;
+  int zm = 16; int zd =-1;
   while (1) {
 
     int j_f = -128; // - 64*2;
     int pix = who;
     for (int j = 0 ; j < 128 ; ++j) {
-      int i_f = -128*4 + offs; // - 128*3 + offs;
+      int i_f = -128*4; // - 128*3 + offs;
       for (int i = who ; i < 128 ; i += 2/*two cores*/) {
         int x_f  = i_f;
         int y_f  = j_f;
@@ -127,14 +125,14 @@ int zm[] = {1,2,3,4,5,6,7,8,8,7,6,5,4,3,2,1};
         // asm volatile ("nop;");
         // advance two pixels (meanwhile OLED completes)
         pix += 2;
-        i_f += zm[offs&15] <<1;
+        i_f += zm + zm;
         // advance lock
         ++synch;
       }
-      j_f += zm[offs&15];
+      j_f += zm;
     }
-
-    ++ offs;
+    zm = zm + zd;
+    if (zm == 1 || zm == 16) { zd = -zd; }
     
   }
 #endif
