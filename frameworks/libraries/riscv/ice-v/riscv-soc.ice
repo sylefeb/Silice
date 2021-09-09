@@ -46,6 +46,7 @@ $$end
     uint1 io_write <:  (memio.addr[$external$,1]    &  wen);
     uint1 io_read  <:: (prev_mem_addr[$external$,1] & ~prev_mem_rw);
     $io_select$
+    $on_accessed$
     // ---- memory access
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;

@@ -70,7 +70,10 @@ namespace Silice
     /// \brief gather module information from parsed grammar
     void        gather(siliceParser::RiscvContext *riscv);
     /// \brief gather information about type in declaration
-    void        gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo);
+    void        gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo) const;
+
+    /// \brief returns true if output is an access trigger (to an input or output)
+    bool        isAccessTrigger(siliceParser::OutputContext *output,std::string& _accessed) const;
 
   public:
 

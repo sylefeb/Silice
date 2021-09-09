@@ -37,7 +37,7 @@ using namespace Silice::Utils;
 
 // -------------------------------------------------
 
-void RISCVSynthesizer::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo)
+void RISCVSynthesizer::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo) const
 {
   if (type->TYPE() != nullptr) {
     splitType(type->TYPE()->getText(), _nfo);
@@ -176,6 +176,28 @@ static string normalizePath(const string& _path)
 
 // -------------------------------------------------
 
+bool RISCVSynthesizer::isAccessTrigger(siliceParser::OutputContext *output, std::string& _accessed) const
+{
+  sl_assert(output->declarationVar()->IDENTIFIER() != nullptr);
+  string oname = output->declarationVar()->IDENTIFIER()->getText();
+  if (oname.substr(0, 3) != "on_") {
+    return false;
+  }
+  string vname = oname.substr(3);
+  // is there an input/output with this name?
+  bool istrigger = isInput(vname) || isOutput(vname) || isInOut(vname);
+  if (istrigger) {
+    _accessed = vname;
+  } else {
+    warn(Standard, output->getSourceInterval(),-1,
+      "variable '%s' starts with 'on_' which is indicates an access trigger,\n             but no corresponding input or output was found.",
+      oname.c_str());
+  }
+  return istrigger;
+}
+
+// -------------------------------------------------
+
 string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) const
 {
   
@@ -232,7 +254,29 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
   string io_select;
   string io_reads  = "32b0";
   string io_writes;
+  string on_accessed;
+  // build index
+  std::map<string, int> io2idx;
   int idx = 0;
+  for (auto io : riscv->inOutList()->inOrOut()) {
+    auto input  = dynamic_cast<siliceParser::InputContext *>   (io->input());
+    auto output = dynamic_cast<siliceParser::OutputContext *>  (io->output());
+    auto inout  = dynamic_cast<siliceParser::InoutContext *>   (io->inout());
+    string name;
+    if (input) {
+      name = input->IDENTIFIER()->getText();
+    } else if (output) {
+      sl_assert(output->declarationVar()->IDENTIFIER() != nullptr);
+      name = output->declarationVar()->IDENTIFIER()->getText();
+    } else if (inout) {
+      name = inout->IDENTIFIER()->getText();
+    } else {
+      reportError(inout->getSourceInterval(), -1, "[RISC-V] only inputs / outputs are support");
+    }
+    io2idx.insert(make_pair(name, idx++));
+  }
+  // write code
+  idx = 0;
   for (auto io : riscv->inOutList()->inOrOut()) {
     auto input  = dynamic_cast<siliceParser::InputContext *>   (io->input());
     auto output = dynamic_cast<siliceParser::OutputContext *>  (io->output());
@@ -240,36 +284,61 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
     io_select   = io_select + "uint1 ior_" + std::to_string(idx) + " <:: prev_mem_addr[" + std::to_string(idx) + ",1]; ";
     io_select   = io_select + "uint1 iow_" + std::to_string(idx) + " <:  memio.addr[" + std::to_string(idx) + ",1]; ";
     string v;
+    t_type_nfo type_nfo;
     if (input) {
+      gatherTypeNfo(input->type(), type_nfo);
       v         = input->IDENTIFIER()->getText();
       io_reads  = io_reads  + " | (ior_" + std::to_string(idx) + " ? " + v + " : 32b0)";
       io_decl   = io_decl + "input ";
     } else if (output) {
       sl_assert(output->declarationVar()->IDENTIFIER() != nullptr);
-      v         = output->declarationVar()->IDENTIFIER()->getText();
-      io_writes = io_writes + v + " = iow_" + std::to_string(idx) + " ? memio.wdata : " + v + "; ";
-      io_decl   = io_decl + "output ";
+      gatherTypeNfo(output->declarationVar()->type(), type_nfo);
+      v = output->declarationVar()->IDENTIFIER()->getText();
+      string accessed;
+      if (!isAccessTrigger(output, accessed)) {
+        // standard output
+        io_writes   = io_writes + v + " = iow_" + std::to_string(idx) + " ? memio.wdata : " + v + "; ";
+      } else {
+        // access trigger
+        sl_assert(io2idx.count(accessed) != 0);
+        if (type_nfo.width != 1) {
+          reportError(output->getSourceInterval(), -1,
+            "[RISC-V] access trigger '%s' should be a uint1", v.c_str());
+        }
+        int accessed_idx = io2idx.at(accessed);
+        if (isInput(accessed)) {
+          on_accessed = on_accessed + v + " = io_read  & ior_" + std::to_string(accessed_idx) + "; ";
+        } else if (isOutput(accessed)) {
+          on_accessed = on_accessed + v + " = io_write & iow_" + std::to_string(accessed_idx) + "; ";
+        } else {
+          // TODO
+          reportError(output->getSourceInterval(), -1, "[RISC-V] inout not yet supported");
+        }
+      }
+      io_decl = io_decl + "output ";
     } else if (inout) {
+      splitType(inout->TYPE()->getText(), type_nfo);
       v         = inout->IDENTIFIER()->getText();
       // TODO
-      reportError(inout->getSourceInterval(), -1, "inout not yet supported");
+      reportError(inout->getSourceInterval(), -1, "[RISC-V] inout not yet supported");
     } else {
       // TODO error message, actual checks!
-      reportError(inout->getSourceInterval(), -1, "[RISC-V] only 32bits input / output are support");
+      reportError(inout->getSourceInterval(), -1, "[RISC-V] only inputs / outputs are support");
     }
-    io_decl = io_decl + "uint32 " + v + ',';
+    io_decl = io_decl + "uint" + std::to_string(type_nfo.width) + " " + v + ',';
     ++ idx;
   }
   ostringstream code;
   code << "$$dofile('" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-compile.lua');" << nxl;
-  code << "$$addrW     = " << 1+justHigherPow2(memorySize(riscv)/4) << nxl;
-  code << "$$memsz     = " << memorySize(riscv)/4 << nxl;
-  code << "$$meminit   = data_bram" << nxl;
-  code << "$$external  = " << justHigherPow2(memorySize(riscv))-2 << nxl;
-  code << "$$io_decl   = [[" << io_decl << "]]" << nxl;
-  code << "$$io_select = [[" << io_select << "]]" << nxl;
-  code << "$$io_reads  = [[" << io_reads << "]]" << nxl;
-  code << "$$io_writes = [[" << io_writes << "]]" << nxl;
+  code << "$$addrW       = " << 1+justHigherPow2(memorySize(riscv)/4) << nxl;
+  code << "$$memsz       = " << memorySize(riscv)/4 << nxl;
+  code << "$$meminit     = data_bram" << nxl;
+  code << "$$external    = " << justHigherPow2(memorySize(riscv))-2 << nxl;
+  code << "$$io_decl     = [[" << io_decl << "]]" << nxl;
+  code << "$$io_select   = [[" << io_select << "]]" << nxl;
+  code << "$$io_reads    = [[" << io_reads << "]]" << nxl;
+  code << "$$io_writes   = [[" << io_writes << "]]" << nxl;
+  code << "$$on_accessed = [[" << on_accessed << "]]" << nxl;
   code << "$$algorithm_name = '" << riscv->IDENTIFIER()->getText() << "'" << nxl;
   code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + coreName(riscv) + "/riscv-soc.ice\");" << nxl;
   return code.str();
