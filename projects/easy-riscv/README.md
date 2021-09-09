@@ -50,6 +50,11 @@ The [project source code](main.ice) shows of a few additional possibilities rega
 
 Plug your favorite board, open a command line in this folder and type `make <board name>`.
 
+There are subdirectories containing more advanced examples:
+- Adding special outputs telling when an input/output is accessed in [on_accessed](main.ice)
+- Selecting the ice-v-dual CPU in [select_core](select_core/with_ice-v-dual.ice)
+- Driving an OLED/LCD small screen from the CPU in [oled](oled/main.ice)
+
 ## RISC-V cores
 
 Currently Silice uses the [ice-v](../ice-v/README.md) RISC-V core (small and simple). The plan is of course to make this configurable. Many options are planned, from using other cores to enabling access to external memory.

@@ -45,8 +45,4 @@ $$error('[oled] please specify driver, either ST7789 or SSD1351 or SSD1331\n    
 
 $$ end
 
-$$if not OLED then
-$$error('no OLED support according to framework')
-$$end
-
 // ------------------------- 

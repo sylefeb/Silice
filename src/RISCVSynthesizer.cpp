@@ -28,6 +28,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "Utils.h"
 
 #include <LibSL.h>
+#include <filesystem>
 
 // -------------------------------------------------
 
@@ -379,11 +380,14 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
       silicefile << generateSiliceCode(riscv);
     }
     // compute stack start
-    int stack_start = 1 << justHigherPow2(memorySize(riscv));
+    int stack_start = (1 << justHigherPow2(memorySize(riscv)));
     // get stack size
     int stack_size = stackSize(riscv);
     // get core name
     std::string core = coreName(riscv);
+    // get source file path
+    std::string srcfile = Utils::getTokenSourceFileAndLine(Utils::getToken(riscv->RISCV()->getSourceInterval())).first;
+    std::string path = std::filesystem::absolute(srcfile).remove_filename().string();
     // compile Silice source
     c_tempfile = normalizePath(c_tempfile);
     s_tempfile = normalizePath(s_tempfile);
@@ -394,6 +398,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
       + "-o " + m_Name + ".v "
       + "--export " + m_Name + " "
       + s_tempfile + " "
+      + "-D PATH=\"\\\"" + normalizePath(path) + "\\\"\" "
       + "-D SRC=\"\\\"" + c_tempfile + "\\\"\" "
       + "-D CRT0=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + core + "/crt0.s" + "\\\"\" "
       + "-D LD_CONFIG=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + core + "/config_c.ld" + "\\\"\" "

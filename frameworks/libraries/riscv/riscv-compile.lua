@@ -36,9 +36,13 @@ end
 
 function compile(file)
   print('********************* compiling from      ' .. file)
+  print('********************* include path        ' .. PATH)
   local cmd
   cmd =  gcc .. ' '
-      .. '-fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -c -o code.o '
+	    .. '-I' .. PATH .. ' '
+      .. '-fno-builtin -fno-unroll-loops -O1 -fno-pic '
+			.. '-march=rv32i -mabi=ilp32 '
+			.. '-c -o code.o '
       .. SRC
   os.execute(cmd)
   cmd =  as .. ' '
@@ -49,7 +53,8 @@ function compile(file)
       .. CRT0
   os.execute(cmd)
   cmd =  ld .. ' '
-      .. '-m elf32lriscv -b elf32-littleriscv -T' .. LD_CONFIG .. ' --no-relax -o code.elf code.o'
+      .. '-m elf32lriscv -b elf32-littleriscv -T' .. LD_CONFIG 
+			.. ' --no-relax -o code.elf code.o'
   os.execute(cmd)
   cmd =  oc .. ' '
       .. '-O verilog code.elf code.hex'
@@ -71,7 +76,6 @@ function to_BRAM()
   all_data_bram = {}
   word = ''
   init_data_bytes = 0
-  local prev_addr = -1
   local out       = assert(io.open(path .. '/data.bin', "wb"))
   local in_asm    = io.open(findfile('code.hex'), 'r')
   if not in_asm then
@@ -81,13 +85,8 @@ function to_BRAM()
   in_asm:close()
   for str in string.gmatch(code, "([^ \r\n]+)") do
     if string.sub(str,1,1) == '@' then
-      addr = tonumber(string.sub(str,2), 16)
-      if prev_addr < 0 then
-        print('first addr = ' .. addr)
-        prev_addr = addr
-      end
-      print('addr delta = ' .. addr - prev_addr)
-      delta = addr - prev_addr
+      addr  = tonumber(string.sub(str,2), 16)
+      delta = addr - init_data_bytes
       for i=1,delta do
         -- pad with zeros
         word     = '00' .. word;
@@ -98,9 +97,7 @@ function to_BRAM()
         all_data_hex[1+#all_data_hex] = '8h' .. 0 .. ','
         out:write(string.pack('B', 0 ))
         init_data_bytes = init_data_bytes + 1
-        prev_addr       = prev_addr + 1
       end
-      prev_addr = addr
     else 
       word     = str .. word;
       if #word == 8 then 
@@ -110,7 +107,6 @@ function to_BRAM()
       all_data_hex[1+#all_data_hex] = '8h' .. str .. ','
       out:write(string.pack('B', tonumber(str,16) ))
       init_data_bytes = init_data_bytes + 1
-      prev_addr       = prev_addr + 1
     end
   end
 
