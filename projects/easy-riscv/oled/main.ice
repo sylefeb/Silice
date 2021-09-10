@@ -5,8 +5,16 @@ import('../../common/plls/icestick_60.v')
 $$end
 
 // include OLED/LCD controller
-// expects a 128x128 SSD1351 OLED/LCD screen
-$include('../../ice-v/SOCs/ice-v-oled.ice')
+$$if ULX3S then
+$$oled_width  = 240
+$$oled_height = 320
+$$ST7789      = 1
+$$else
+$$oled_width  = 128
+$$oled_height = 128
+$$SSD1351     = 1
+$$end
+$include('../../common/oled.ice')
 
 riscv cpu_drawer(output uint1  oled_rst,
                  output uint32 oled,
@@ -14,15 +22,19 @@ riscv cpu_drawer(output uint1  oled_rst,
                 ) <mem=4096> = compile({
 
   // =============== firmware in C language ===========================
-  #include "oled_ssd1351.h" // of course we can!
+$$if ULX3S then
+  #include "oled_st7789.h"  // of course we can #include !
+$$else
+  #include "oled_ssd1351.h"
+$$end
   // C main
   void main() { 
     oled_init();
     oled_fullscreen();
     int offs = 0;
     while (1) {
-      for (int j = 0; j < 128 ; j ++) {
-        for (int i = 0; i < 128 ; i ++) {
+      for (int j = 0; j < $oled_height$ ; j ++) {
+        for (int i = 0; i < $oled_width$ ; i ++) {
           oled_pix((i + offs)&63,j&63,0);          
         }
       }
@@ -36,7 +48,15 @@ riscv cpu_drawer(output uint1  oled_rst,
 // now we are creating the hardware hosting the CPU
 algorithm main(
   output uint8 leds,
+$$if OLED then
+  output uint1 oled_clk,
+  output uint1 oled_mosi,
+  output uint1 oled_dc,
+  output uint1 oled_resn,
+  output uint1 oled_csn(0),
+$$else	
   inout  uint8 pmod
+$$end	
 $$if ICESTICK then    
   ) <@cpu_clock> {
   // PLL
@@ -57,7 +77,7 @@ $$end
   uint1 displ_dta_or_cmd <: cpu0.oled[10,1];
   uint8 displ_byte       <: cpu0.oled[0,8];
 $$if not SIMULATION then	
-  oled displ(
+  oled_send displ(
     enable          <: displ_en,
     data_or_command <: displ_dta_or_cmd,
     byte            <: displ_byte,
@@ -66,10 +86,17 @@ $$end
   always {
     leds = cpu0.oled[0,5];
 
-$$if not SIMULATION then	
+$$if not SIMULATION then
+$$if PMOD then	
     // PMOD output
     pmod.oenable = 8b11111111; // all out
-    pmod.o = {4b0,displ.oled_din,displ.oled_clk,displ.oled_dc,~cpu0.oled_rst};
+    pmod.o = {4b0,displ.oled_mosi,displ.oled_clk,displ.oled_dc,~cpu0.oled_rst};
+$$else
+		oled_mosi = displ.oled_mosi;
+    oled_clk  = displ.oled_clk;
+		oled_dc   = displ.oled_dc;
+		oled_resn = ~cpu0.oled_rst;
+$$end		
 $$else
     __display("%b %b %d (%b)",cpu0.on_oled,cpu0.oled[10,1],cpu0.oled[0,8],cpu0.oled_rst);		
 $$end
