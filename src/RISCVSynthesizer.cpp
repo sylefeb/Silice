@@ -137,8 +137,8 @@ int RISCVSynthesizer::stackSize(siliceParser::RiscvContext *riscv) const
       }
     }
   }
-  // optional, return 0 if not found
-  return 0;
+  // optional, return default size if not found
+  return 128;
 }
 
 // -------------------------------------------------
@@ -355,6 +355,12 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     // table initializer with instructions
     sl_assert(false); // TODO
   } else {
+    // get core name
+    std::string core = coreName(riscv);
+    // compute stack start
+    int stack_start = memorySize(riscv);
+    // get stack size
+    int stack_size = stackSize(riscv);
     // compile from inline source
     sl_assert(riscv->riscvInstructions()->cblock() != nullptr);
     string ccode = cblockToString(riscv->riscvInstructions()->cblock());
@@ -379,29 +385,35 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
       ofstream silicefile(s_tempfile);
       silicefile << generateSiliceCode(riscv);
     }
-    // compute stack start
-    int stack_start = (1 << justHigherPow2(memorySize(riscv)));
-    // get stack size
-    int stack_size = stackSize(riscv);
-    // get core name
-    std::string core = coreName(riscv);
+    // generate linker script
+    string l_tempfile;
+    {
+      l_tempfile = std::tmpnam(nullptr);
+      l_tempfile = l_tempfile + ".ld";
+      // produce source code
+      ofstream linkerscript(l_tempfile);
+      int mem_size = memorySize(riscv) - stack_size;
+      if (mem_size <= 0) {
+        reportError(riscv->riscvModifiers()->getSourceInterval(), -1, "[RISC-V] memory size cannot fit stack (stack size is %d bytes, change with stack=SIZE)",stack_size);
+      }
+      linkerscript << "MEM_SIZE = " + std::to_string(mem_size) + ";\n"
+        << Utils::fileToString((CONFIG.keyValues()["libraries_path"] + "/riscv/" + core + "/config_c.ld").c_str());
+    }
     // get source file path
     std::string srcfile = Utils::getTokenSourceFileAndLine(Utils::getToken(riscv->RISCV()->getSourceInterval())).first;
     std::string path = std::filesystem::absolute(srcfile).remove_filename().string();
     // compile Silice source
-    c_tempfile = normalizePath(c_tempfile);
-    s_tempfile = normalizePath(s_tempfile);
     string exe = string(LibSL::System::Application::executablePath());
     string cmd =
       normalizePath(exe)
       + "/silice "
       + "-o " + m_Name + ".v "
       + "--export " + m_Name + " "
-      + s_tempfile + " "
+      + normalizePath(s_tempfile) + " "
       + "-D PATH=\"\\\"" + normalizePath(path) + "\\\"\" "
-      + "-D SRC=\"\\\"" + c_tempfile + "\\\"\" "
+      + "-D SRC=\"\\\"" + normalizePath(c_tempfile) + "\\\"\" "
       + "-D CRT0=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + core + "/crt0.s" + "\\\"\" "
-      + "-D LD_CONFIG=\"\\\"" + normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + core + "/config_c.ld" + "\\\"\" "
+      + "-D LD_CONFIG=\"\\\"" + normalizePath(l_tempfile) + "\\\"\" "
       + "-D STACK_START=" + std::to_string(stack_start) + " "
       + "-D STACK_SIZE=" + std::to_string(stack_size) + " "
       + "--framework " + normalizePath(CONFIG.keyValues()["frameworks_dir"]) + "/boards/bare/bare.v "

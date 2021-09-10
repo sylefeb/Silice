@@ -37,6 +37,7 @@ end
 function compile(file)
   print('********************* compiling from      ' .. file)
   print('********************* include path        ' .. PATH)
+  print('********************* linker script       ' .. LD_CONFIG)
   local cmd
   cmd =  gcc .. ' '
 	    .. '-I' .. PATH .. ' '
