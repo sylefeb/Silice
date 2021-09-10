@@ -1,7 +1,7 @@
 
 // instantiate a RISC-V RV32I processor ; yup, that is that easy!
 //               vvvvvvvvvvvvvvvvvv our CPU outputs one uint32 value
-riscv cpu_blinky(output uint32 leds) <mem=$128+16$> = compile({
+riscv cpu_blinky(output uint32 leds) <mem=256> = compile({
                                   //  ^^^^^^^ memory size in bytes
   // =============== firmware in C language ===========================
   // The code below is actual C-code, not Silice code
