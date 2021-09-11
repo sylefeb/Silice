@@ -1,10 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
 
-$$if ICESTICK then
-import('../../common/plls/icestick_60.v')
-$$end
-
-// include OLED/LCD controller
+// ===== screen CONFIGURATION, adjust to your setups
 $$if ULX3S then
 $$oled_width  = 240
 $$oled_height = 320
@@ -14,15 +10,23 @@ $$oled_width  = 128
 $$oled_height = 128
 $$SSD1351     = 1
 $$end
-$include('../../common/oled.ice')
 
+// include SPI drivers
+$include('../../common/spi.ice')
+
+// import PLLs (clock)
+$$if ICESTICK then
+import('../../common/plls/icestick_60.v')
+$$end
+
+// CPU declaration
 riscv cpu_drawer(output uint1  oled_rst,
                  output uint32 oled,
                  output uint1  on_oled,
                 ) <mem=4096> = compile({
 
   // =============== firmware in C language ===========================
-$$if ULX3S then
+$$if ST7789 then
   #include "oled_st7789.h"  // of course we can #include !
 $$else
   #include "oled_ssd1351.h"
@@ -77,7 +81,11 @@ $$end
   uint1 displ_dta_or_cmd <: cpu0.oled[10,1];
   uint8 displ_byte       <: cpu0.oled[0,8];
 $$if not SIMULATION then	
-  oled_send displ(
+$$if ST7789 then
+  spi_mode3_send displ(
+$$else
+  spi_mode0_send displ(
+$$end
     enable          <: displ_en,
     data_or_command <: displ_dta_or_cmd,
     byte            <: displ_byte,
@@ -90,11 +98,11 @@ $$if not SIMULATION then
 $$if PMOD then	
     // PMOD output
     pmod.oenable = 8b11111111; // all out
-    pmod.o = {4b0,displ.oled_mosi,displ.oled_clk,displ.oled_dc,~cpu0.oled_rst};
+    pmod.o = {4b0,displ.oled_mosi,displ.spi_clk,displ.spi_dc,~cpu0.spi_rst};
 $$else
-		oled_mosi = displ.oled_mosi;
-    oled_clk  = displ.oled_clk;
-		oled_dc   = displ.oled_dc;
+		oled_mosi = displ.spi_mosi;
+    oled_clk  = displ.spi_clk;
+		oled_dc   = displ.spi_dc;
 		oled_resn = ~cpu0.oled_rst;
 $$end		
 $$else

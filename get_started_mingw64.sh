@@ -12,7 +12,7 @@ then
 	exit
 fi
 
-pacman -S --noconfirm --needed unzip wget make python3 python-pip ${MINGW_PACKAGE_PREFIX}-riscv64-unknown-elf-toolchain ${MINGW_PACKAGE_PREFIX}-iverilog ${MINGW_PACKAGE_PREFIX}-gtkwave ${MINGW_PACKAGE_PREFIX}-verilator ${MINGW_PACKAGE_PREFIX}-nextpnr ${MINGW_PACKAGE_PREFIX}-dfu-util ${MINGW_PACKAGE_PREFIX}-icestorm ${MINGW_PACKAGE_PREFIX}-prjtrellis ${MINGW_PACKAGE_PREFIX}-openFPGALoader
+pacman -S --noconfirm --needed unzip wget make python3 python-pip ${MINGW_PACKAGE_PREFIX}-riscv64-unknown-elf-toolchain ${MINGW_PACKAGE_PREFIX}-iverilog ${MINGW_PACKAGE_PREFIX}-gtkwave ${MINGW_PACKAGE_PREFIX}-verilator ${MINGW_PACKAGE_PREFIX}-nextpnr  ${MINGW_PACKAGE_PREFIX}-icestorm ${MINGW_PACKAGE_PREFIX}-prjtrellis ${MINGW_PACKAGE_PREFIX}-openFPGALoader
 
 wget -c https://github.com/sylefeb/fpga-binutils/releases/download/v20210818/fpga-binutils-64.zip
 

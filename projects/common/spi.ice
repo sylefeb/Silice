@@ -1,0 +1,59 @@
+// SL 2021-09-11
+// SPI send for e.g. OLED/LCD screens
+
+// MIT license, see LICENSE_MIT in Silice repo root
+
+algorithm spi_mode0_send(
+  input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
+  output  uint1 spi_clk,  output  uint1 spi_mosi,        output uint1 spi_dc,
+) <autorun> {
+
+  uint2 osc        = 1;
+  uint1 dc         = 0;
+  uint8 sending    = 0;
+  uint8 busy       = 0;
+  
+  always {
+    spi_dc  =  dc;
+    osc     =  busy[0,1] ? {osc[0,1],osc[1,1]} : 2b1;
+    spi_clk =  busy[0,1] && (osc[0,1]); // SPI Mode 0
+    if (enable) {
+      dc        = data_or_command;
+      sending   = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],
+                    byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
+      busy      = 8b11111111;
+    } else {
+      spi_mosi  = sending[0,1];
+      sending   = osc[0,1] ? {1b0,sending[1,7]} : sending;
+      busy      = osc[0,1] ? {1b0,   busy[1,7]} : busy;
+    }
+  }
+}
+
+
+algorithm spi_mode3_send(
+  input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
+  output  uint1 spi_clk,  output  uint1 spi_mosi,        output uint1 spi_dc,
+) <autorun> {
+
+  uint2 osc        = 1;
+  uint1 dc         = 0;
+  uint9 sending    = 0;
+  uint9 busy       = 0;
+  
+  always {
+    spi_dc  =  dc;
+    osc     =  busy[0,1] ? {osc[0,1],osc[1,1]} : 2b1;
+    spi_clk =  ~busy[0,1] || (osc[1,1]); // SPI Mode 3
+    if (enable) {
+      dc        = data_or_command;
+      sending   = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],
+                    byte[4,1],byte[5,1],byte[6,1],byte[7,1],1b0};
+      busy      = 9b111111111;
+    } else {
+      spi_mosi  = sending[0,1];
+      sending   = osc[1,1] ? {1b0,sending[1,8]} : sending;
+      busy      = osc[1,1] ? {1b0,   busy[1,8]} : busy;
+    }
+  }
+}

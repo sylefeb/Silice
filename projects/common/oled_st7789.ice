@@ -38,7 +38,7 @@ algorithm oled_send(
     oled_clk =  (!(sending>1)) || (osc[1,1]); // SPI Mode 3
     if (enable) {
       dc         = data_or_command;
-      oled_dc    =  dc;
+      oled_dc    = dc;
       sending    = {1b1,
         byte[0,1],byte[1,1],byte[2,1],byte[3,1],
         byte[4,1],byte[5,1],byte[6,1],byte[7,1],1b0};
