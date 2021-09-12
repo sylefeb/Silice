@@ -9,8 +9,8 @@ algorithm main(output uint8 leds)
 
   a = 0;
   while (i < 8 + 3) { // the while will stop too early
-  
-	// NOTE: always assign trickling for stage 0?
+
+        // NOTE: always assign trickling for stage 0?
     // NOTE: write to trickling and set value at the end (last stage)?
     {
       pi = i;
@@ -24,10 +24,10 @@ algorithm main(output uint8 leds)
       o[pi*8,8] = b;
     }
 
-    i = i + 1;   
-    
+    i = i + 1;
+
   }
- 
+
   $display("%x",o);
- 
+
 }

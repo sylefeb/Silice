@@ -10,7 +10,7 @@ algorithm main(output uint8 leds)
   uint64 o = 0;
 
   while (i < 8+2) {
-  
+
     {
       pipeline_i = i;
       a          = i + 1;
@@ -21,17 +21,17 @@ algorithm main(output uint8 leds)
         b = a + 10;
         $display("[1] %d",pipeline_i);
       }
-    } -> {    
+    } -> {
       if (pipeline_ready >= 2) {
         o[pipeline_i*8,8] = b;
         $display("[2] [%d] = %h",pipeline_i,b);
       }
     }
 
-    i = i + 1;   
+    i = i + 1;
     pipeline_ready = pipeline_ready + 1;
-    
+
   }
-  
+
   $display("%h",o);
 }

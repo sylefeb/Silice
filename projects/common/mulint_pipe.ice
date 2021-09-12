@@ -34,7 +34,7 @@ algorithm mulpip(
         case 2b01: { sum23 = m0 << 2; }
         case 2b11: { sum23 = (m0 << 2) + (m0 << 3); }
       }
-    // } -> {  
+    // } -> {
       switch (m1[4,2]) {
         case 2b00: { }
         case 2b10: { sum45 = m0 << 5; }
