@@ -16,10 +16,18 @@ algorithm frame_drawer(
 ) <autorun> {
 ```
 
-The first line is the SDRAM interface that we will use to read/write from the main memory. `sdram_clock` and `sdram_reset` and respectively the SDRAM clock (100 MHz) and reset signal. Next, we can output a single bit `fbuffer` value, which selects the framebuffer currently shown on screen (we use double-buffering). In this project, we never swap and always draw to the visible framebuffer -- expect some flickering!
-Finally, `audio_l` and `audio_r` are the audio pins. For more details on audio please refer to the [streaming audio project](../audio_sdcard_streamer/).
+The first line is the SDRAM interface that we will use to read/write
+from the main memory. `sdram_clock` and `sdram_reset` and respectively
+the SDRAM clock (100 MHz) and reset signal. Next, we can output a
+single bit `fbuffer` value, which selects the framebuffer currently
+shown on screen (we use double-buffering). In this project, we never
+swap and always draw to the visible framebuffer -- expect some
+flickering!  Finally, `audio_l` and `audio_r` are the audio pins. For
+more details on audio please refer to the [streaming audio
+project](../audio_sdcard_streamer/).
 
-We will now add components to our design. Note that these correspond to files included at the top:
+We will now add components to our design. Note that these correspond
+to files included at the top:
 ```c
 $include('../common/video_sdram_main.ice')
 $include('../common/audio_pwm.ice')

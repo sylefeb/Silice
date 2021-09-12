@@ -58,10 +58,6 @@ For projects that do not have a README, please refer to [building the examples](
   - [pipelined sort](pipeline_sort/README.md) (detailed code walkthrough) 
   - [model synthesis / wave function collapse](vga_wfc/vga_wfc_basic.ice)
 
-## Detailed tutorials
-
-Some of the projects have more detailed explanations and walk-throughs:
-
 ## Building the examples
 
 All examples are in the *projects* directory. 

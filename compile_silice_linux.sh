@@ -18,7 +18,7 @@ mkdir build-silice
 cd build-silice
 
 cmake -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles" ../..
-make -j16 install
+make -j$(nproc) install
 
 cd ..
 
@@ -26,7 +26,7 @@ cd ..
 
 echo " "
 echo " "
-echo "==================================" 
+echo "=================================="
 echo "Please compile and install:"
 echo "- yosys"
 echo "- trellis, icestorm, nextpnr"
@@ -34,4 +34,4 @@ echo "- verilator"
 echo "- icarus verilog"
 echo " "
 echo "See also GetStarted_Linux.md"
-echo "==================================" 
+echo "=================================="

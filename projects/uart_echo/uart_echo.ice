@@ -38,7 +38,7 @@ algorithm main(
       // send echo
       uo.data_in       = ui.data_out; // uart_sender copies the data when starting so we can change it at any time
       uo.data_in_ready = ~uo.busy;
-      send_asap        = uo.busy;  
+      send_asap        = uo.busy;
     } else {
       // wait for data
       send_asap = ui.data_out_ready;

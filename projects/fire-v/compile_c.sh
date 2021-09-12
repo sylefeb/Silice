@@ -21,7 +21,7 @@ elif [ "$2" == "--nolibc" -o "$3" == "--nolibc" ]; then
     CPU=0
   fi
 else
-  CPU=${2:-0}  
+  CPU=${2:-0}
 fi
 
 echo "Compiling for CPU $CPU"
