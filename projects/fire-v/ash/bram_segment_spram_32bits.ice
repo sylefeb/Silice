@@ -16,7 +16,7 @@ A bram override is provided: after booting from the bram segments,
 it can be used to exchange data between co-processors and CPU.
 Co-processors write through the override, while the CPU reads only.
 
-*/ 
+*/
 
 $$if not bram_depth then
 $$ if SIMULATION then
@@ -37,32 +37,32 @@ algorithm bram_segment_spram_32bits(
   rv32i_ram_provider     pram,               // provided ram interface
   input uint26           predicted_addr,     // next predicted address
   input uint1            predicted_correct,  // was the prediction correct?
-  // 
+  //
   input uint1            bram_override_we,   // bram override: write enable
   input uint$bram_depth$ bram_override_addr, // bram override: write address
   input uint32           bram_override_data, // bram override: data to be written
 ) <autorun> {
 
   simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { file("data.img"), pad(uninitialized) };
-  
+
   uint14 sp0_addr(0);
   uint16 sp0_data_in(0);
   uint1  sp0_wenable(0);
   uint4  sp0_wmask(0);
   uint16 sp0_data_out(0);
-  
+
   uint14 sp1_addr(0);
   uint16 sp1_data_in(0);
   uint1  sp1_wenable(0);
   uint4  sp1_wmask(0);
   uint16 sp1_data_out(0);
-  
+
 $$if VERILATOR then
   simulation_spram spram0(
 $$else
   ice40_spram spram0(
-    clock    <: clock, 
-$$end  
+    clock    <: clock,
+$$end
     addr     <: sp0_addr,
     data_in  <: sp0_data_in,
     wenable  <: sp0_wenable,
@@ -75,7 +75,7 @@ $$if VERILATOR then
 $$else
   ice40_spram spram1(
     clock    <: clock,
-$$end  
+$$end
     addr     <: sp1_addr,
     data_in  <: sp1_data_in,
     wenable  <: sp1_wenable,
@@ -83,9 +83,9 @@ $$end
     data_out :> sp1_data_out
   );
 
-  // track when address is in bram region and onto which entry   
+  // track when address is in bram region and onto which entry
   uint1  in_bram            <:  pram.addr [16,1];
-  
+
   uint1  not_mapped         <:: ~pram.addr[31,1]; // Note: memory mapped addresses flagged by bit 31
   uint14 predicted          <:: predicted_addr[2,14];
 
@@ -149,5 +149,5 @@ $$end
     wait_one            = pram.in_valid & ((~predicted_correct & ~pram.rw) | ~not_mapped /*| (~in_bram & ~pram.rw)*/);
 
   }
- 
+
 }

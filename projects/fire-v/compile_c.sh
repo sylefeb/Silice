@@ -26,7 +26,7 @@ elif [ "$2" == "--nolibc" -o "$3" == "--nolibc" ]; then
     CPU=0
   fi
 else
-  CPU=${2:-0}  
+  CPU=${2:-0}
 fi
 
 echo "Compiling for CPU $CPU"
@@ -47,4 +47,4 @@ $ARCH-elf-objcopy -O verilog build/code.elf build/code$CPU.hex
 
 # uncomment to see the actual code, usefull for debugging
 # $ARCH-elf-objcopy.exe -O binary build/code.elf build/code.bin
-# $ARCH-elf-objdump.exe -D -b binary -m riscv build/code.bin 
+# $ARCH-elf-objdump.exe -D -b binary -m riscv build/code.bin
