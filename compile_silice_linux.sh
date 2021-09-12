@@ -18,7 +18,7 @@ mkdir build-silice
 cd build-silice
 
 cmake -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles" ../..
-make -j16 install
+make -j$(nproc) install
 
 cd ..
 
