@@ -26,15 +26,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 `define ORANGECRAB 1
+$$ORANGECRAB = 1
+$$HARDWARE = 1
+$$NUM_LEDS = 3
+
 `default_nettype none
-$$ORANGECRAB=1
-$$HARDWARE=1
-$$NUM_LEDS=3
 
 module top(
-  input  CLK, // 38.8 MHz
   // bare
-  output [2:0] LED
+  output [2:0] LED,
+  // feather
+`ifdef FEATHER
+  inout [13:0] G,
+  inout [5:0]  A,
+`endif
+  // clock
+  input  CLK // 38.8 MHz
   );
 
 // input/output wires
@@ -69,10 +76,20 @@ wire   run_main;
 assign run_main = 1'b1;
 
 M_main __main(
-  .clock         (CLK),
   .reset         (RST_q[0]),
   .in_run        (run_main),
-  .out_leds      (__main_out_leds)
+  .out_leds      (__main_out_leds),
+`ifdef FEATHER
+  .inout_G       (G),
+  .inout_A       (A),
+  .out_sck       (SCK),
+  .out_mosi      (MOSI),
+  .in_miso       (MISO),
+  .out_sda       (SDA),
+  .out_scl       (SCL),
+  .out_rst       (RST),
+`endif
+  .clock         (CLK)
 );
 
 endmodule
