@@ -12,7 +12,7 @@ algorithm spi_mode0_send(
   uint1 dc         = 0;
   uint8 sending    = 0;
   uint8 busy       = 0;
-  
+
   always {
     spi_dc  =  dc;
     osc     =  busy[0,1] ? {osc[0,1],osc[1,1]} : 2b1;
@@ -40,7 +40,7 @@ algorithm spi_mode3_send(
   uint1 dc         = 0;
   uint9 sending    = 0;
   uint9 busy       = 0;
-  
+
   always {
     spi_dc  =  dc;
     osc     =  busy[0,1] ? {osc[0,1],osc[1,1]} : 2b1;

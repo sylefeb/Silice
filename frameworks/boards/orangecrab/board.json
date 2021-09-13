@@ -4,9 +4,9 @@
     {
       "name"      : "r2_0",
       "framework" : "orangecrab.v",
-      "pins"      : [ 
+      "pins"      : [
         {"set"    : "basic"},
-        {"set"    : "feather", "define" : "FEATHER"}
+        {"set"    : "feather", "define" : "FEATHER=1"}
       ],
       "builders": [
         {
@@ -15,7 +15,10 @@
           "tool": "trellis",
           "tool_options": [
             {
-                "nextpnr_options": ["--25k", "--freq 38.8", "--package CSFBGA285", "--timing-allow-fail"],
+                "nextpnr_options": ["--25k", "--freq 38.8",
+                                    "--package CSFBGA285",
+                                    "--timing-allow-fail",
+                                    "--lpf-allow-unconstrained"],
                 "pnr": "next"
             }
           ],
@@ -32,7 +35,7 @@
           "command" : "orangecrab.sh",
           "description": "Custom shell scripts using yosys and nextpnr"
         }
-      ]    
+      ]
     }
   ],
   "pins": {

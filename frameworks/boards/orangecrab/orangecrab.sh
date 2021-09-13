@@ -1,7 +1,7 @@
 #!/bin/bash
 
 case "$(uname -s)" in
-MINGW*|CYGWIN*) 
+MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
 BUILD_DIR=`cygpath $BUILD_DIR`
 FRAMEWORKS_DIR=`cygpath $FRAMEWORKS_DIR`
@@ -35,7 +35,9 @@ silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}
 
 yosys -p 'synth_ecp5 -abc9 -json build.json' build.v
 
-nextpnr-ecp5 --25k --package CSFBGA285 --json build.json --textcfg build.config --lpf $BOARD_DIR/pinout.lpf --timing-allow-fail --freq 38.8
+nextpnr-ecp5 --25k --package CSFBGA285 --json build.json --textcfg build.config\
+             --lpf $BOARD_DIR/pinout.lpf --timing-allow-fail --freq 38.8\
+             --lpf-allow-unconstrained
 
 ecppack --freq 38.8 --compress build.config build.bit
 

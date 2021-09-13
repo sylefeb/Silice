@@ -5,21 +5,21 @@ List contributors with: git shortlog -n -s -- <filename>
 
 MIT license
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so, 
+the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (header_2_M)
@@ -80,21 +80,21 @@ module top(
 `ifdef VGA
   output PMOD1, // r0
   output PMOD2, // r1
-  output PMOD3, // r2 
+  output PMOD3, // r2
   output PMOD4, // r3
   output PMOD8, // r4
   output PMOD9, // r5
-  
+
   output TR10, // g0
   output TR9,  // g1
-  output TR8,  // g2 
+  output TR8,  // g2
   output TR7,  // g3
   output TR6,  // g4
   output TR5,  // g5
-  
+
   output BR10, // b0
   output BR9,  // b1
-  output BR8,  // b2 
+  output BR8,  // b2
   output BR7,  // b3
   output BR6,  // b4
   output BR5,  // b5
@@ -203,7 +203,7 @@ M_main __main(
 `endif
 `ifdef SPIFLASH
   .out_sf_clk (FLASH_CLK),
-  .out_sf_csn (FLASH_CSN), 
+  .out_sf_csn (FLASH_CSN),
   .out_sf_mosi(FLASH_MOSI),
   .in_sf_miso (FLASH_MISO),
 `endif
