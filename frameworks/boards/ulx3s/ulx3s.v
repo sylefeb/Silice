@@ -5,21 +5,21 @@ List contributors with: git shortlog -n -s -- <filename>
 
 MIT license
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so, 
+the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (header_2_M)
@@ -52,49 +52,50 @@ module top(
   output [1:0]  sdram_ba,
   output [12:0] sdram_a,
   inout  [15:0] sdram_d,
-`endif  
+`endif
 `ifdef AUDIO
   // audio jack
   output [3:0] audio_l,
   output [3:0] audio_r,
-`endif  
-`ifdef OLED  
+`endif
+`ifdef OLED
   // oled
   output  oled_clk,
   output  oled_mosi,
   output  oled_dc,
   output  oled_resn,
   output  oled_csn,
-`endif  
+`endif
 `ifdef SDCARD
   // sdcard
   output  sd_clk,
   output  sd_csn,
   output  sd_mosi,
   input   sd_miso,
-`endif  
+  output  wifi_en,
+`endif
 `ifdef GPIO
   // gpio
   output [27:0] gp,
   input  [27:0] gn,
-`endif  
+`endif
 `ifdef VGA
   // vga
   output [27:0] gp,
   input  [27:0] gn,
-`endif  
+`endif
 `ifdef HDMI
   // hdmi
   output [3:0]  gpdi_dp, // {clock,R,G,B}
   // output [3:0]  gpdi_dn, // not used explicitely, using true differential with LVCMOS33D (see lpf file)
-`endif  
+`endif
 `ifdef US2_PS2
   // us2 connector for PS/2 peripheral
   input  usb_fpga_bd_dp,
   input  usb_fpga_bd_dn,
   output usb_fpga_pu_dp,
   output usb_fpga_pu_dn,
-`endif 
+`endif
 `ifdef UART
   // uart
   output  ftdi_rxd,
@@ -185,7 +186,7 @@ M_main __main(
   .reset         (RST_q[0]),
   .in_run        (run_main),
   .out_leds      (__main_out_leds),
-`ifdef BUTTONS  
+`ifdef BUTTONS
   .in_btns       (btns),
 `endif
 `ifdef SDRAM
@@ -199,28 +200,28 @@ M_main __main(
   .out_sdram_ras (__main_out_sdram_ras),
   .out_sdram_ba  (__main_out_sdram_ba),
   .out_sdram_a   (__main_out_sdram_a),
-`endif  
+`endif
 `ifdef US2_PS2
   .in_us2_bd_dp(usb_fpga_bd_dp),
   .in_us2_bd_dn(usb_fpga_bd_dn),
-`endif  
+`endif
 `ifdef SDCARD
   .out_sd_csn    (__main_sd_csn),
   .out_sd_clk    (__main_sd_clk),
   .out_sd_mosi   (__main_sd_mosi),
   .in_sd_miso    (sd_miso),
-`endif  
+`endif
 `ifdef AUDIO
   .out_audio_l  (__main_out_audio_l),
   .out_audio_r  (__main_out_audio_r),
-`endif  
+`endif
 `ifdef OLED
   .out_oled_clk (__main_oled_clk),
   .out_oled_mosi(__main_oled_mosi),
   .out_oled_dc  (__main_oled_dc),
   .out_oled_resn(__main_oled_resn),
   .out_oled_csn (__main_oled_csn),
-`endif 
+`endif
 `ifdef GPIO
 `ifdef UART2
   .out_gp       (gp[27:1]),
@@ -230,19 +231,19 @@ M_main __main(
 `else
   .out_gp       (gp),
   .in_gn        (gn),
-`endif  
-`endif  
+`endif
+`endif
 `ifdef UART
   .out_uart_tx  (__main_out_uart_rx),
   .in_uart_rx   (ftdi_txd),
-`endif  
+`endif
 `ifdef VGA
   .out_video_hs (__main_out_vga_hs),
   .out_video_vs (__main_out_vga_vs),
   .out_video_r  (__main_out_vga_r),
   .out_video_g  (__main_out_vga_g),
-  .out_video_b  (__main_out_vga_b),  
-`endif  
+  .out_video_b  (__main_out_vga_b),
+`endif
 `ifdef HDMI
   .out_gpdi_dp  (__main_out_gpdi_dp),
 `endif
@@ -266,7 +267,7 @@ assign sdram_a       = __main_out_sdram_a;
 `ifdef AUDIO
 assign audio_l       = __main_out_audio_l;
 assign audio_r       = __main_out_audio_r;
-`endif  
+`endif
 
 `ifdef VGA
 assign gp[0]         = __main_out_vga_vs;
@@ -295,6 +296,7 @@ assign gp[19]        = __main_out_vga_b[5];
 assign sd_clk        = __main_sd_clk;
 assign sd_csn        = __main_sd_csn;
 assign sd_mosi       = __main_sd_mosi;
+assign wifi_en       = 1'b0;
 `endif
 
 `ifdef OLED
@@ -307,7 +309,7 @@ assign oled_csn      = __main_oled_csn;
 
 `ifdef UART
 assign ftdi_rxd      = __main_out_uart_rx;
-`endif  
+`endif
 
 `ifdef HDMI
 assign gpdi_dp       = __main_out_gpdi_dp;
@@ -316,6 +318,6 @@ assign gpdi_dp       = __main_out_gpdi_dp;
 `ifdef US2_PS2
 assign usb_fpga_pu_dp = 1;
 assign usb_fpga_pu_dn = 1;
-`endif 
+`endif
 
 endmodule
