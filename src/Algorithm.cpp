@@ -5177,6 +5177,9 @@ t_type_nfo Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block
   } catch (...) {
     reportError(bitaccess->getSourceInterval(), -1, "the width has to be a simple number or the widthof() of a fully determined VIO");
   }
+  if (w <= 0) {
+    reportError(bitaccess->getSourceInterval(), -1, "width has to be greater than zero");
+  }
   tn.width = w;
   return tn;
 }
