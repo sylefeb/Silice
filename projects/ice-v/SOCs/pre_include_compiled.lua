@@ -21,6 +21,7 @@ nbytes = 0
 h32 = ''
 meminit = '{'
 numwords = 0
+local first_line = true
 local word = ''
 local written = 0
 local out   = assert(io.open(path .. '/data.img', "wb"))
@@ -34,20 +35,24 @@ local out   = assert(io.open(path .. '/data.img', "wb"))
 
 for str in string.gmatch(code, "([^ \r\n]+)") do
   if string.sub(str,1,1) == '@' then
-    addr = tonumber(string.sub(str,2), 16)
-    print('addr delta = ' .. addr - written)
-    delta = addr - written
-    for i=1,delta do
-      -- pad with zeros
-      word     = '00' .. word;
-      if #word == 8 then 
-        meminit = meminit .. '32h' .. word .. ','
-        word = ''
-        numwords = numwords + 1
+    if not first_line then -- we ignore global offset to code, allowing for the
+                           -- BRAM/SPRAM trick where the bootsector is offset
+                           -- in RAM (icebreaker) ; likely not portable...
+      addr = tonumber(string.sub(str,2), 16)
+      print('addr delta = ' .. addr - written)
+      delta = addr - written
+      for i=1,delta do
+        -- pad with zeros
+        word     = '00' .. word;
+        if #word == 8 then
+          meminit = meminit .. '32h' .. word .. ','
+          word = ''
+          numwords = numwords + 1
+        end
+        out:write(string.pack('B', 0 ))
       end
-      out:write(string.pack('B', 0 ))      
     end
-  else 
+  else
     h32 = str .. h32
     out:write(string.pack('B', tonumber(str,16) ))
     if nbytes < 2 then
@@ -65,6 +70,7 @@ for str in string.gmatch(code, "([^ \r\n]+)") do
       numwords = numwords + 1
     end
   end
+  first_line = false
 end
 
 out  :close()
