@@ -508,7 +508,7 @@ std::string Algorithm::gatherValue(siliceParser::ValueContext* ival)
 
 // -------------------------------------------------
 
-void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current, bool no_init)
+void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current)
 {
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
@@ -519,7 +519,7 @@ void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current
   if (sub != nullptr) {
     sub->varnames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
   }
-  if (!no_init && !_var.do_not_initialize && !_var.init_at_startup) {
+  if (!_var.do_not_initialize && !_var.init_at_startup) {
     // add to block initialization set
     _current->initialized_vars.insert(make_pair(_var.name, (int)m_Vars.size() - 1));
     _current->no_skip = true; // mark block as cannot skip to honor var initializations
@@ -1933,10 +1933,10 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         reportError(type->getSourceInterval(), (int)type->getStart()->getLine(), "'sameas' in subroutine declaration cannot be refering to a group or interface");
       }
       // init values
-      var.do_not_initialize = true;
       var.init_values.resize(max(var.table_size, 1), "0");
+      var.do_not_initialize = true;
       // insert var
-      insertVar(var, _current, true /*no init*/);
+      insertVar(var, _current);
       // record in subroutine
       nfo->vios.insert(std::make_pair(ioname, var.name));
       // add to allowed read/write list
@@ -2154,7 +2154,8 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       var.table_size = get<1>(tws);
       var.init_values.resize(var.table_size > 0 ? var.table_size : 1, "0");
       var.access     = e_InternalFlipFlop;
-      insertVar(var, _current, true /*no init*/);
+      var.do_not_initialize = true;
+      insertVar(var, _current);
     }
   }
   // done
@@ -2518,7 +2519,8 @@ void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* al
         var.table_size     = 0;
         var.type_nfo       = typenfo;
         var.init_values.push_back("0");
-        insertVar(var, always, true /*no init*/);
+        var.do_not_initialize = true;
+        insertVar(var, always);
       }
     }
     alws = alws->alwaysAssignedList();

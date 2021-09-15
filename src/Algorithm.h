@@ -636,7 +636,7 @@ private:
     /// \brief gather a value
     std::string gatherValue(siliceParser::ValueContext* ival);
     /// \brief insert a variable in the data-structures (lower level than addVar, use to insert any var), return the index in m_Vars of the inserted var
-    void insertVar(const t_var_nfo &_var, t_combinational_block *_current, bool no_init = false);
+    void insertVar(const t_var_nfo &_var, t_combinational_block *_current);
     /// \brief add a variable from its definition (_var may be modified with an updated name)
     void addVar(t_var_nfo& _var, t_combinational_block *_current, antlr4::misc::Interval interval = antlr4::misc::Interval::INVALID);
     /// \brief check if an identifier is available
