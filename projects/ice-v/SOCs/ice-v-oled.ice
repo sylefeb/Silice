@@ -6,7 +6,7 @@
 
 $$if OLED_SLOW then
 
-// version clock / 8 (freq >= 70 MHz)
+// version clock / 4 (freq >= 70 MHz)
 algorithm oled(
   input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
   output  uint1 oled_clk, output  uint1 oled_din,        output uint1 oled_dc,
@@ -37,7 +37,7 @@ algorithm oled(
 
 $$else 
 
-// version clock / 4 (freq < 70 MHz)
+// version clock / 2 (freq < 70 MHz)
 algorithm oled(
   input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
   output  uint1 oled_clk, output  uint1 oled_din,        output uint1 oled_dc,
