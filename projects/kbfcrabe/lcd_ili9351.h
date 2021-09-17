@@ -1,4 +1,6 @@
-// MIT license, see LICENSE_MIT in Silice repo root
+// Uses GPL code from Adafruit (see in-source comments)
+// Otherwise MIT license, see LICENSE_MIT in Silice repo root
+
 
 #define CMD   (1<< 9)
 #define DTA   (1<<10)
@@ -12,7 +14,7 @@ typedef unsigned char uint8_t;
 
 void screen_init()
 {
-  // From Adafruit_ILI9341
+  // ================== From Adafruit_ILI9341 -- under GPL license
   #define ILI9341_PWCTR1     0xC0     ///< Power Control 1
   #define ILI9341_PWCTR2     0xC1     ///< Power Control 2
   #define ILI9341_VMCTR1     0xC5     ///< VCOM Control 1
@@ -27,7 +29,6 @@ void screen_init()
   #define ILI9341_SLPOUT     0x11     ///< Sleep Out
   #define ILI9341_GMCTRP1    0xE0     ///< Positive Gamma Correction
   #define ILI9341_GMCTRN1    0xE1     ///< Negative Gamma Correction
-
   uint8_t initcmd[] = {
     0x01, 0,
     0xEF, 3, 0x03, 0x80, 0x02,
@@ -56,6 +57,7 @@ void screen_init()
     ILI9341_DISPON  , 0,                // Display on
     0x00                                // End of list
   };
+  // =======================================================
 
   // reset high
   screen_rst(1);

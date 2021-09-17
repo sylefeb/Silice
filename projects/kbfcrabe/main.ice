@@ -1,4 +1,5 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// lcd_ili9351.h currently uses GPL code from Adafruit
 
 $$if not ORANGECRAB and not SIMULATION then
 $$error([[this project is specific to the OrangeCrab mounted
