@@ -62,6 +62,8 @@ DISPLAY             : '$display' | '__display' ;
 
 DISPLWRITE          : '__write' ;
 
+FINISH              : '__finish' ;
+
 TOSIGNED            : '__signed' ;
 
 TOUNSIGNED          : '__unsigned' ;
@@ -372,6 +374,8 @@ whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 
 display             : (DISPLAY | DISPLWRITE) '(' STRING ( ',' callParamList )? ')';
 
+finish              : FINISH '(' ')';
+
 instruction         : assignment 
                     | syncExec
                     | asyncExec
@@ -381,6 +385,7 @@ instruction         : assignment
                     | returnFrom
                     | breakLoop
                     | display
+                    | finish
                     | assert_
                     | assume
                     | restrict
