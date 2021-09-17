@@ -6961,16 +6961,17 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
 {
   // follow the chain
   out << "// pipeline" << nxl;
-  const t_combinational_block *current = block_before->pipeline_next()->next;
-  const t_combinational_block *after   = block_before->pipeline_next()->after;
-  const t_pipeline_nfo        *pip     = current->context.pipeline->pipeline;
+  const t_combinational_block *current   = block_before->pipeline_next()->next;
+  const t_combinational_block *after     = block_before->pipeline_next()->after;
+  const t_pipeline_nfo        *pip       = current->context.pipeline->pipeline;
   sl_assert(pip != nullptr);
+  t_vio_dependencies depds_before_stages = _dependencies;
   while (true) {
     sl_assert(pip == current->context.pipeline->pipeline);
     // write stage
     int stage = current->context.pipeline->stage_id;
     out << "// -------- stage " << stage << nxl;
-    t_vio_dependencies deps = _dependencies;
+    t_vio_dependencies deps = depds_before_stages;
     // write code
     if (current != after) { // this is the more complex case of multiple blocks in stage
       writeStatelessBlockGraph(prefix, out, ictx, current, after, _q, deps, _ff_usage, _post_dependencies, _lines); // NOTE: q will not be changed since this is a combinational block
@@ -6988,6 +6989,8 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
         out << ';' << nxl;
       }
     }
+    // merge dependencies
+    mergeDependenciesInto(deps, _dependencies);
     // advance
     if (current->pipeline_next()) {
       after   = current->pipeline_next()->after;
