@@ -100,8 +100,8 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     /// algorithm
     std::string name = alg->IDENTIFIER()->getText();
     std::cerr << "parsing algorithm " << name << nxl;
-    bool autorun = (name == "main");
-    bool onehot = false;
+    bool autorun = (name == "main"); // main always autoruns
+    bool onehot  = false;
     std::string formalDepth = "";
     std::string formalTimeout = "";
     std::vector<std::string> formalModes{};

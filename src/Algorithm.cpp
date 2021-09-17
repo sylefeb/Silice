@@ -6018,7 +6018,7 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
     init_cond = "";
   } else if (v.init_at_startup || v.do_not_initialize) {
     init_cond = "";
-  } else if (!hasNoFSM()) {
+  } else if (!isNotCallable()) {
     init_cond = reset + (" | ~" ALG_INPUT "_" ALG_RUN);
   } else {
     init_cond = reset;
@@ -6238,7 +6238,7 @@ void Algorithm::writeCombinationalAlwaysPre(
     const auto &ia = m_InstancedBlueprints.at(iaiordr);
     Algorithm *alg = dynamic_cast<Algorithm*>(ia.blueprint.raw());
     if (alg != nullptr) {
-      if (!alg->hasNoFSM()) {
+      if (!alg->isNotCallable()) {
         out << ia.instance_prefix + "_" ALG_RUN " = 1;" << nxl;
       }
     }

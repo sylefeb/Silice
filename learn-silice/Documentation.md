@@ -1259,7 +1259,7 @@ declaration). This is a comma separated list of any of the following:
 
 -   **Autorun.** Adding the `autorun` keyword will ask the compiler to
     run the algorithm upon instantiation, without waiting for an
-    explicit call.
+    explicit call. Autorun algorithms cannot be called.
 
 -   **Internal clock.** Adding a `@ID` specifies the use of an
     internally generated clock signal. It is then expected that the
