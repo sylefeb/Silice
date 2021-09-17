@@ -6001,8 +6001,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     const auto &ia = m_InstancedBlueprints.at(iaiordr);
     Algorithm *alg = dynamic_cast<Algorithm*>(ia.blueprint.raw());
     if (alg != nullptr) {
-      // check for call on purely combinational
-      if (!alg->hasNoFSM()) {
+      if (!alg->isNotCallable()) {
         out << "reg  " << ia.instance_prefix + "_" ALG_RUN << " = 0;" << nxl;
       }
     }
@@ -6090,10 +6089,15 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
   }
   if (!hasNoFSM()) {
-    std::string init_cond = reset + (" | ~" ALG_INPUT "_" ALG_RUN);
+    std::string init_cond;
+    if (!isNotCallable()) {
+      init_cond = reset + (" | ~" ALG_INPUT "_" ALG_RUN);
+    } else {
+      init_cond = reset;
+    }
     // state machine index
     out << FF_Q << prefix << ALG_IDX " <= " << reset << " ? " << toFSMState(terminationState()) << " : ";
-    if (m_AutoRun) {
+    if (m_AutoRun) { // NOTE: same as isNotCallable() since hasNoFSM() is false
         out << "( ~" << prefix << ALG_AUTORUN << " ? " << toFSMState(entryState());
     } else {
         out << "( ~" << ALG_INPUT "_" ALG_RUN << " ? " << toFSMState(entryState());
@@ -6143,7 +6147,11 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       std::string silice_position = file + ":" + std::to_string(line);
 
       const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
-      const std::string condition = "(" + inState + " && !" + reset + " && " + ALG_INPUT "_" ALG_RUN + " && !$initstate)";
+      std::string condition = "(" + inState + " && !" + reset;
+      if (!isNotCallable()) {
+        condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
+      }
+      condition = condition + " && !$initstate)";
 
       out << "assert(!" << condition << " || $past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << "); //%" << silice_position << nxl;
     }
@@ -6157,7 +6165,11 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     std::string silice_position = file + ":" + std::to_string(line);
 
     const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
-    const std::string condition = "(" + inState + " && !" + reset + " && " + ALG_INPUT "_" ALG_RUN + " && !$initstate)";
+    std::string condition = "(" + inState + " && !" + reset;
+    if (!isNotCallable()) {
+      condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
+    }
+    condition = condition + " && !$initstate)";
 
     out << (chk.isAssumption ? "assume" : "assert") << "(!" << condition
         << " || $stable(" << rewriteExpression(prefix, (chk.isAssumption ? chk.ctx.assume_ctx->expression_0() : chk.ctx.assert_ctx->expression_0()), 0, nullptr, FF_Q, true, _deps, _ff_usage) << ")); //%" << silice_position << nxl;
@@ -6167,7 +6179,12 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)chk.ctx->getStart()->getLine());
     std::string silice_position = file + ":" + std::to_string(line);
 
-    const std::string condition = "(!" + reset + " && " + ALG_INPUT "_" ALG_RUN " && !$initstate)";
+    std::string condition = "(!" + reset;
+    if (!isNotCallable()) {
+      condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
+    }
+    condition = condition + " && !$initstate)";
+
     out << "assume(!" << condition << " || $stable(" << encapsulateIdentifier(chk.varName, true, ALG_INPUT "_" + chk.varName, "") << ")); //%" << silice_position << nxl;
   }
 
@@ -7366,8 +7383,10 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   for (const auto &v : m_InOuts) {
     out << string(ALG_INOUT) << '_' << v.name << ',' << nxl;
   }
-  if (!hasNoFSM() || m_TopMost /*keep for glue convenience*/) {
+  if (!isNotCallable() || m_TopMost /*keep for glue convenience*/) {
     out << ALG_INPUT << "_" << ALG_RUN << ',' << nxl;
+  }
+  if (!hasNoFSM() || m_TopMost /*keep for glue convenience*/) {
     out << ALG_OUTPUT << "_" << ALG_DONE << ',' << nxl;
   }
   if (requiresReset() || m_TopMost /*keep for glue convenience*/) {
@@ -7389,8 +7408,10 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     sl_assert(v.table_size == 0);
     writeVerilogDeclaration(out, ictx, "inout", v, string(ALG_INOUT) + "_" + v.name);
   }
-  if (!hasNoFSM() || m_TopMost) {
+  if (!isNotCallable() || m_TopMost) {
     out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
+  }
+  if (!hasNoFSM() || m_TopMost) {
     out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ';' << nxl;
   }
   if (requiresReset() || m_TopMost) {
@@ -7584,7 +7605,9 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
         // done
         out << '.' << ALG_OUTPUT << '_' << ALG_DONE
           << '(' << WIRE << nfo.instance_prefix << '_' << ALG_DONE << ')';
-        out << ',' << nxl;
+      }
+      if (!alg->isNotCallable()) {
+        if (!first) { out << ',' << nxl; } first = false;
         // run
         out << '.' << ALG_INPUT << '_' << ALG_RUN
           << '(' << nfo.instance_prefix << '_' << ALG_RUN << ')';
@@ -7704,12 +7727,19 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   // correctly setup the formal stuff:
   //   - reset on the initial state
   //   - always assume that the algorithm is either running or finished
+
   out << "`ifdef FORMAL" << nxl
-      << "initial begin" << nxl
-      << "assume(" << ALG_RESET << ");" << nxl
-      << "end" << nxl
-      << "assume property($initstate || (" << ALG_INPUT << "_" << ALG_RUN << " || " << ALG_OUTPUT << "_" << ALG_DONE << "));" << nxl
-      << "`endif" << nxl;
+    << "initial begin" << nxl
+    << "assume(" << ALG_RESET << ");" << nxl
+    << "end" << nxl;
+  if (!hasNoFSM()) {
+    if (!isNotCallable()) {
+      out << "assume property($initstate || (" << ALG_INPUT << "_" << ALG_RUN << " || " << ALG_OUTPUT << "_" << ALG_DONE << "));" << nxl;
+    } else {
+      out << "assume property($initstate || (" << ALG_OUTPUT << "_" << ALG_DONE << "));" << nxl;
+    }
+  }
+  out << "`endif" << nxl;
 
   // combinational
   out << "always @* begin" << nxl;
