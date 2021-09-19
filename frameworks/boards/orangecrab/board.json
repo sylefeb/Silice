@@ -15,7 +15,8 @@
           "tool": "trellis",
           "tool_options": [
             {
-                "nextpnr_options": ["--25k", "--freq 38.8",
+								"yosys_synth_options": ["-abc9","-nowidelut"],
+                "nextpnr_options": ["--25k", "--freq 38.8", "-r",
                                     "--package CSFBGA285",
                                     "--timing-allow-fail",
                                     "--lpf-allow-unconstrained"],

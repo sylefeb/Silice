@@ -9,9 +9,9 @@ Include RISC-V processors and their firmware in a few lines of code in your Sili
 This example is a complete RISC-V blinky (the CPU counts and outputs the counter
 onto the LEDs):
 ```c
-riscv cpu_blinky(output uint32 leds) <mem=256> = compile({
+riscv cpu_blinky(output uint32 leds) <mem=256> {
   // ========= start of firmware C-code
-  void main() { 
+  void main() {
     int i = 0;
     while (1) { // until the end of times
       leds(i);  // output to leds
@@ -20,7 +20,7 @@ riscv cpu_blinky(output uint32 leds) <mem=256> = compile({
     }
   }
   // ========= end of firmware C-code
-})
+}
 
 algorithm main(output uint8 leds)
 {
@@ -38,7 +38,7 @@ For some examples see for instance the [fire-v graphics demos](../fire-v/README.
 
 The reason it works so well is because Silice makes it easy to reuse components and combine them. However, including a RISC-V processor in a design requires a few other things, such as external C-code compilation and embedding of the result into BRAM. None of that is hard, but doing it over and over can become tedious.
 
-But worry not, Silice RISC-V integration makes this process entirely trivial! As you can see in the above example and this [project source code](main.ice),  you can now declare a RISC-V processor *and* its C-language firmware *directly into your Silice source code*. Silice takes care fo everything else! 
+But worry not, Silice RISC-V integration makes this process entirely trivial! As you can see in the above example and this [project source code](main.ice),  you can now declare a RISC-V processor *and* its C-language firmware *directly into your Silice source code*. Silice takes care fo everything else!
 
 > **Note:** The firmware C code does not have to be inlined in the Silice source code, it can also be included as an external file.
 
@@ -62,7 +62,7 @@ Currently Silice uses the [ice-v](../ice-v/README.md) RISC-V core (small and sim
 ## Behind the scene
 
 Have a look in the [frameworks/libraries/riscv](../../frameworks/libraries/riscv) folder. There you will find the SOC template as well as the Lua pre-processor
-script calling *gcc*. Silice produces the RISC-V instructions from the C 
+script calling *gcc*. Silice produces the RISC-V instructions from the C
 firmware code and embeds the machine code into the SOC, calling itself to produce
-the Verilog code of the softcore. This code is then added to the design being 
+the Verilog code of the softcore. This code is then added to the design being
 compiled in the first place.

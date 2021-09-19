@@ -23,7 +23,7 @@ $$ print('t1l_cycles = ' .. t1l_cycles)
 $$ print('res_cycles = ' .. res_cycles)
 
 // A Risc-V CPU generating the color pattern
-riscv cpu_fun(output uint24 clr) <mem=512> = compile({
+riscv cpu_fun(output uint24 clr) <mem=512> {
   // ====== C firmware ======
   void wait() {
     for (int w = 0; w < 5000 ; ++w) { asm volatile ("nop;"); }
@@ -36,9 +36,9 @@ riscv cpu_fun(output uint24 clr) <mem=512> = compile({
     for (int i = 255; i >= 0 ; --i) { // 255 => 0
       clr(i<<shift);
       wait();
-    } 
+    }
   }
-  void main() {   
+  void main() {
     while (1) {
       // pulse red
       pulse(8);
@@ -46,37 +46,37 @@ riscv cpu_fun(output uint24 clr) <mem=512> = compile({
       pulse(16);
       // pulse blue
       pulse(0);
-      
+
     }
   }
   // =========================
-})
+}
 
 // The hardware implements the LED driver
 algorithm main(output uint8 leds,inout uint8 pmod)
 {
   cpu_fun cpu0;   // instantiates our CPU
-  
+
   uint10 cnt(0);  // counter for generating the control signal
   uint1  ctrl(0); // control signal state
 
   uint24 send_clr(0);
-  
-  always_after {  
-    leds         = 0;   
+
+  always_after {
+    leds         = 0;
     pmod.oenable = 8b11111111;
-    pmod.o       = {7b0,ctrl}; // output on PMOD pin 1    
+    pmod.o       = {7b0,ctrl}; // output on PMOD pin 1
   }
 
-  // We take it easy (#FPGAFriday) and use Silice FSM capability 
+  // We take it easy (#FPGAFriday) and use Silice FSM capability
   // to implement the NeoPixel driver (single LED, just getting started)
-  while (1) { 
+  while (1) {
     uint5 i  = 0;
     // pull color from CPU
     send_clr = cpu0.clr;
     // send the 24 bits
     while (i != 24) {
-      
+
       uint10 th <:: send_clr[23,1] ? $t1h_cycles-2$ : $t0h_cycles-2$;
       //                                        ^^^              ^^^
       // this accounts for the two cycles entering and exiting a while
@@ -84,14 +84,14 @@ algorithm main(output uint8 leds,inout uint8 pmod)
       //                                        ^^^              ^^^
       // this accounts for the two cycles entering and exiting a while and
       // the additional cycle it takes to loop back in the main loop
-      
+
       // generates a '1'
       ctrl = 1;
       cnt  = 0;
       while (cnt != th) {
         cnt  = cnt + 1;
       }
-      
+
       // generates a '0'
       ctrl = 0;
       cnt  = 0;
@@ -105,11 +105,11 @@ algorithm main(output uint8 leds,inout uint8 pmod)
       i        = i + 1;
     }
     // send reset
-    ctrl = 0; 
+    ctrl = 0;
     cnt  = 0;
     while (cnt != $res_cycles$) {
       cnt  = cnt + 1;
-    }   
+    }
   }
-  
+
 }

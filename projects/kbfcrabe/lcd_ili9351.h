@@ -53,35 +53,6 @@ void screen_init()
   // done!
 }
 
-void screen_fullscreen()
-{
-  // set col addr
-  screen(CMD | 0x2A);
-  WAIT;
-  screen(DTA |    0);
-  WAIT;
-  screen(DTA |    0);
-  WAIT;
-  screen(DTA |    0);
-  WAIT;
-  screen(DTA | 0xF0); // 240
-  WAIT;
-  // set row addr
-  screen(CMD | 0x2B);
-  WAIT;
-  screen(DTA |    0);
-  WAIT;
-  screen(DTA |    0);
-  WAIT;
-  screen(DTA | 0x01); // 0x140 == 320
-  WAIT;
-  screen(DTA | 0x40);
-  WAIT;
-  // initiate write
-  screen(CMD | 0x2c);
-  WAIT;
-}
-
 void screen_rect(int left,int right,int bottom,int top)
 {
   // set col addr
@@ -111,7 +82,12 @@ void screen_rect(int left,int right,int bottom,int top)
   WAIT;
 }
 
-static inline void pix(unsigned char r,unsigned char g,unsigned char b)
+void screen_fullscreen()
+{
+  screen_rect(0,240,0,320);
+}
+
+static inline void screen_pix(unsigned char r,unsigned char g,unsigned char b)
 {
     screen(DTA | r);
     WAIT;
@@ -121,11 +97,12 @@ static inline void pix(unsigned char r,unsigned char g,unsigned char b)
     // WAIT;
 }
 
-void clear(unsigned char c)
+void screen_clear(unsigned char c)
 {
   for (int v=0;v<240;v++) {
     for (int u=0;u<320;u++) {
-      pix(c,c,c);
+      screen_pix(c,c,c);
+      WAIT;
     }
   }
 }

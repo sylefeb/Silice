@@ -20,7 +20,7 @@ algorithm spi_mode0_send(
     spi_dc  =  dc;
     osc     =  busy[0,1] ? {osc[0,1],osc[1,1]} : 2b1;
     spi_clk =  busy[0,1] && (osc[0,1]); // SPI Mode 0
-    ready   =  ~busy[1,1];
+    ready   =  ~busy[0,1];
     if (enable) {
 $$if SIMULATION then
       if (busy[0,1]) { __display("[SPI ERROR] still sending"); }

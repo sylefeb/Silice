@@ -465,13 +465,10 @@ cblock_chunks       : ( ~( '{' | '}' )) + ;
 cblock_items        : cblock | cblock_chunks;
 cblock              : '{' cblock_items * '}' ;
 
-riscvInstructions   : initList
-                    | COMPILE '(' cblock ')' ;
-
 riscvModifier       : IDENTIFIER '=' (STRING | NUMBER);
 riscvModifiers      : '<' riscvModifier (',' riscvModifier)* '>' ;
 
-riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? '=' riscvInstructions ;
+riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? ('=' initList | cblock) ;
 
 /* -- Overall structure -- */
 

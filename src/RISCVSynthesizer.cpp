@@ -370,9 +370,9 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
 {
   m_Name = riscv->IDENTIFIER()->getText();
   gather(riscv);
-  if (riscv->riscvInstructions()->initList() != nullptr) {
+  if (riscv->initList() != nullptr) {
     // table initializer with instructions
-    sl_assert(false); // TODO
+    reportError(riscv->initList()->getSourceInterval(), -1, "[RISC-V] init with instructions not yet supported");
   } else {
     // get core name
     std::string core = coreName(riscv);
@@ -381,8 +381,9 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     // get stack size
     int stack_size = stackSize(riscv);
     // compile from inline source
-    sl_assert(riscv->riscvInstructions()->cblock() != nullptr);
-    string ccode = cblockToString(riscv->riscvInstructions()->cblock());
+    siliceParser::CblockContext *cblock = riscv->cblock();
+    sl_assert(cblock != nullptr);
+    string ccode = cblockToString(cblock);
     ccode = ccode.substr(1, ccode.size() - 2); // skip braces
     // write code to temp file
     string c_tempfile;
