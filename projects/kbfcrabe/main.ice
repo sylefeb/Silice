@@ -23,7 +23,6 @@ riscv cpu_drawer(output uint1  screen_rst,
                  output uint1  on_screen,
                  output uint32 rgb,
                  output uint1  on_rgb,
-                 input  uint1  rgb_ready,
                  output uint32 leds,
                  output uint1  on_leds
                 ) <
@@ -54,17 +53,17 @@ riscv cpu_drawer(output uint1  screen_rst,
   void draw_fire()
   {
     while (1) {
-      //leds(0); // uncomment to measure loop cycles in simulation
       for (int u=0;u<320;u++) {
         unsigned char *col = tbl + u;
         for (int v=0;v<240;++v) {
+          // palette lookup
           int clr  = ((*col)>>2)&31;
           col     += 320;
           int *ptr = (int*)(pal) + clr;
-          // screen_pix(*ptr++,*ptr++,*ptr++);
+          // send to screen
           rgb(*ptr);
           // insert a delay to wait for SPI completion
-          asm volatile ("nop; nop; nop; nop; nop; nop; nop;");
+          asm volatile ("nop; nop; nop; nop; nop;");
         }
       }
     }
@@ -75,24 +74,26 @@ riscv cpu_drawer(output uint1  screen_rst,
   {
     int rng  = 31421;  // random number generator seed
     while (1) {
+$$if SIMULATION then
+      leds(0); // used to measure loop cycles in simulation
+$$end
       // move up
       unsigned char *below   = tbl;
       unsigned char *current = tbl + 320;
-      for (int v=320;v<240*320;v++) {
+      for ( ; current < tbl + 240*320 ; ++current ) {
         int clr = 0;
         if ((*below) > 1) {
           clr = (*below)-(rng&1);
         }
-        rng = ((rng<<5) ^ 6927) + ((rng>>5) ^ v);
+        rng = (rng<<3) + ((rng>>3) ^ (int)current);
         *(current + (rng&3)) = clr; // NOTE: table padding avoids
                                     //       out of bounds access
         ++ below;
-        ++ current;
       }
       // keep the heat on
       unsigned char *ptr = tbl;
       for (int v=0;v<320;v++) {
-        rng = ((rng<<5) ^ 6927) ^ (rng>>5);
+        rng = (rng<<5) + ((rng>>5) ^ (int)ptr);
         (*ptr++) = 120 + (rng&7);
       }
     }
@@ -101,8 +102,10 @@ riscv cpu_drawer(output uint1  screen_rst,
   //_ C main
   void main() {
     if (cpu_id() == 0) {
+$$if not SIMULATION then
       screen_init();
       screen_rect(0,240, 0,320);
+$$end
       draw_fire();
     } else {
       update_fire();
@@ -141,10 +144,10 @@ $$if SIMULATION then
   uint32 prev(0);
 $$end
 
-  // sending a full pixel
-  uint24 pix_data = uninitialized;
-  uint3  pix_sending(3b000);
-  uint1  pix_wait(0);
+  // interface for sending a full pixel
+  uint24 pix_data = uninitialized; // RGB 24bits to send
+  uint3  pix_sending(3b000);       // sending? (111 => 011 => 001 => 000 done)
+  uint1  pix_wait(0);              // wait before sending?
   uint1  pix_send_ready  <:: displ.ready & ~pix_wait; // can we send?
   //                         ^^^ SPI ready  ^^^ did not send just before
   // We have to check we did not send on cycle before as it takes one cycle
@@ -163,8 +166,8 @@ $$end
 
   always {
     leds          = cpu.leds;
-    // CPU requests RGB write
     if (cpu.on_rgb) {
+      // CPU requests RGB write
 $$if SIMULATION then
       if (pix_sending[0,1]) {
         __display("[ERROR] still sending previous pixel");
@@ -205,10 +208,11 @@ $$if not SIMULATION then
     sck       = displ.spi_clk;
 $$else
     if (cpu.on_leds) {
+      //__write("%x ",cpu.leds[0,8]);
       __display("%d] elapsed: %d cycles",cpu.leds,cycle - prev);
       prev = cycle;
     }
-    // if (cycle == 128) { __finish(); }
+    // if (cycle == 1000000) { __finish(); }
     cycle     = cycle + 1;
 $$end
   }
