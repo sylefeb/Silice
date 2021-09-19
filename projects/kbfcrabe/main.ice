@@ -178,7 +178,7 @@ $$end
       // initiate sending RGB
       pix_sending = 3b111;
     } else {
-      // if we send the next pixel, shift to next RGB component
+      // if we can send, shift to next RGB component
       pix_data    = pix_send_ready ? pix_data>>8    : pix_data;
       pix_sending = pix_send_ready ? pix_sending>>1 : pix_sending;
     }

@@ -228,7 +228,7 @@ if (cpu.on_rgb) {
   // initiate sending RGB
   pix_sending = 3b111;
 } else {
-  // if we send the next pixel, shift to next RGB component
+  // if we can send, shift to next RGB component
   pix_data    = pix_send_ready ? pix_data>>8    : pix_data;
   pix_sending = pix_send_ready ? pix_sending>>1 : pix_sending;
 }
@@ -242,7 +242,7 @@ set to `3b111`. This variable indicates at which step we are within the three
 bytes send sequence. It is shifted every time a next byte is sent, along side
 `pix_data`:
 ```c
-// if we send the next pixel, shift to next RGB component
+// if we can send, shift to next RGB component
 pix_data    = pix_send_ready ? pix_data>>8    : pix_data;
 pix_sending = pix_send_ready ? pix_sending>>1 : pix_sending;
 ```
@@ -255,8 +255,9 @@ uint1  pix_send_ready  <:: displ.ready & ~pix_wait;
 Here, `displ.ready` is the SPI controller indicating that it can accept the next
 byte. However, we also need this `pix_wait` variable. This is due to a subtlety:
 when we send an input to the SPI controller, it will still report ready at the
-next cycle (`displ.ready`=1). This is due to the latencies in crossing registered
-outputs. After than that, ready will be low again. So `pix_wait` simply makes
+next cycle (`displ.ready`=1). This is due to the latencies in crossing
+[registered outputs](../../learn-silice/AlgoInOuts.md).
+After than that, ready will be low again. So `pix_wait` simply makes
 sure we do not try to send again at the next cycle, despite `displ.ready`=1.
 
 Before concluding let's have a quick look at the SPI driver instantiation:
@@ -282,12 +283,12 @@ Let's have a closer look at `displ_en`:
 uint1 displ_en         <:: pix_sending[0,1] ? pix_send_ready
                                             : cpu.on_screen;
 ```
-What is says is that if we are sending a RGB pixel
+What this says is that if we are sending a RGB pixel
 (because the CPU called `rgb(.)`) then enable is tracking `pix_send_ready`,
 otherwise we take orders directly from the CPU, tracking when `screen` is
 written with `cpu.on_screen`.
 
-Final important details, when is the SPI driver actually outputting to the FPGA
+But when is the SPI driver actually outputting to the FPGA
 pins? This is done here:
 ```c
   G.oenable = 14b11111111111111;
@@ -312,24 +313,25 @@ pins? This is done here:
 ```
 where `G` refers to the feather connector GPIO pins and `A` to its so-called
 *analog* pins (that's just their name, they are digital pins in our setup).
-This pins are bidirectional so we first set them all as output `G.oenable = 14b11111111111111;` and then give them a value. The important ones are:
+These pins are bidirectional so we first set them all as output `G.oenable = 14b11111111111111;` and then give them a value. The important ones are:
 - `/*10:  lcd_dc*/ displ.spi_dc,` which reflects `displ_dta_or_cmd`,
 - `/* 9:  lcd_cs*/ 1b0,`, `/* 6: stmp_cs*/ 1b1,` and `/* 5: card_cs*/ 1b1,`. The
-SPI pins are shared between the devices, and chip select (`cs`) pins allow to
-activate/deactivate the chips. Here we only select the LCD (active low) with
-`/* 9:  lcd_cs*/ 1b0`. How do I know this? From the
-[featherwing keyboard doc](https://www.solder.party/docs/keyboard-featherwing/rev1/)
+SPI pins are shared between different peripherals, and the chip select (`cs`)
+pins allow to activate/deactivate them. Here we only select the LCD (active low)
+with `/* 9:  lcd_cs*/ 1b0`. How do I know this? From the
+[featherwing keyboard doc](
+https://www.solder.party/docs/keyboard-featherwing/rev1/)
 of course!
-- `A.o = {5b0,cpu.screen_rst};`, this drive the RST pin through the bridge we
-made during hardware setup. This is driven by the CPU through `cpu.screen_rst`
-during initialization, see [lcd_ili9351.h](lcd_ili9351.h),
+- `A.o = {5b0,cpu.screen_rst};` this drive the RST pin through the bridge with
+A0 we made during hardware setup. This is driven by the CPU through
+`cpu.screen_rst` during initialization, see [lcd_ili9351.h](lcd_ili9351.h),
 function `screen_init`.
 
 ## Conclusion
 
-And that's all! Quite a complete overview but hopefully you got a sense on how
-simple it is to design hardware around RISC-V cores with Silice, including
-some dual core fancyness!
+And that's all! Hopefully you got a sense on how simple it is to design hardware
+around RISC-V cores with Silice, including some dual core fanciness.
+Now it's your turn to experiment and hack, nothing can break!
 
 > **Note:** Feedback is most welcome, please let me know what you thought about
-this!
+this write up.
