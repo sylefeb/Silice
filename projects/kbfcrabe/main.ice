@@ -26,7 +26,7 @@ riscv cpu_drawer(output uint1  screen_rst,
                  output uint32 leds,
                  output uint1  on_leds
                 ) <
-                  mem=98304, // we allocate a big chunk for the framebuffer
+                  mem=98304, // we allocate a big chunk (framebuffer+code)
                   core="ice-v-dual", // dual core please
                   ICEV_FAST_SHIFT=1, // fast shifts (barrel shifter)
                   O=3        // compile with -O3

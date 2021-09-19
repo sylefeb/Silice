@@ -1,11 +1,15 @@
-# OrangeCrab Doom-fire on the Featherwing Keyboard
+# Doom-fire on the OrangeCrab + Featherwing Keyboard
 
 ## TL;DR
 
-Implement a full-screen Doom fire effect on the OrangeCrab+Featherwing-keyboard,
-using [Silice RISC-V integration](../easy_riscv/README.md) and
-the [dual core Ice-V](../ice-v/IceVDual.md). Discusses hardware setup and the
-implementation in Silice (hardware) and C (firmware).
+Learn how to implement a full-screen Doom fire effect on the
+OrangeCrab+Featherwing-keyboard,
+using [Silice RISC-V integration](../easy_riscv/README.md) and the
+[dual core Ice-V](../ice-v/IceVDual.md) (RV32I). These explanations
+discuss the hardware setup and the implementation in Silice (FPGA hardware)
+and C (firmware). Everything you need to start hacking!
+
+<center><img src="doom-fire.jpg" width=400></center>
 
 ## Overview
 
@@ -24,8 +28,11 @@ some Doom-fire fun!
 I won't spend too much time of the Doom-fire algorithm itself, for this please
 refer to the excellent write up
 by [Fabien Sanglard](https://fabiensanglard.net/doom_fire_psx/). Instead I'll
-focus on explaining everything around it! We are designing our own hardware,
+focus on explaining everything around it! We are designing our own hardware (*),
 after all.
+
+> (*) *By hardware I mean the FPGA part of it, not the physical device itself.
+We're lucky to have this covered by @GregDavill and @arturo182 already ;)*
 
 The project uses Silice RISC-V integration: we are going to create a hardware
 framework around a RISC-V softcore, the [Ice-V dual](../ice-v/IceVDual.md).
@@ -39,12 +46,12 @@ the CPU side. Indeed, every frame the framebuffer is updated by reading
 previous pixels values and applying a small change to them. Roughly: we move up,
 dim and randomly offset previous pixels to create the flame effect.
 Thus we'll be using a good chunk of BRAM to store the framebuffer
-(the OrangeCrag ECP5 25F has plenty). This will be stored into the CPU RAM.
+(the OrangeCrag ECP5 25F has plenty). This will be stored within the CPU RAM.
 
 While we update the framebuffer each frame, we also want to send its content
-towards the LCD screen. Things become interesting here. The LCD driver uses the
-SPI protocol. With a [simple SPI controller](../common/spi.ice), it will take
-roughly 16 cycles to send a single byte to the LCD.
+towards the LCD screen. Things become more challenging here. The LCD driver uses
+the SPI protocol. With a [simple SPI controller](../common/spi.ice), it will
+take roughly 16 cycles to send a single byte to the LCD.
 We have to send three (RGB) per pixel. So just that, at full frame, means at
 best `320*240*16*3` cycles per frame. Assuming a design running at a good
 100MHz, that's ~34 milliseconds
@@ -53,26 +60,27 @@ because we lookup a color in a table, we are toping at ~40 milliseconds (25 FPS)
 only sending the framebuffer.
 
 > **Note:** we could move the palette lookup to hardware, but let's keep things
-simple for this tutorial!
+simple for this project!
 
-Unfortunately, we also have to update the framebuffer for the fire effect. This
+But wait, we also have to update the framebuffer for the fire effect. This
 also takes ~40 milliseconds (3.9 million cycles, at four cycles per
-instruction, hence ~13 instructions per pixel). On a single core we'd be down to
-roughly 12 FPS. Way too slow for a nice effect.
+instruction, hence ~13 instructions per pixel). So now we're looking at 40 msec
+for sending the framebuffer to the LCD and 40 msec for updating it.
+On a single core we'd be down to roughly 12 FPS. Way too slow for a nice effect.
 
 But we have two cores!! So let's make CPU0 in charge of sending the framebuffer
-and CPU1 in charge of the update for the first effect. No real need to sync them
-as one writes to the framebuffer while the other one reads from it. Since the computations are balanced (~40 milliseconds both sides, that is no accident of course) we're in a good situation where the update rate matches the display rate.
+and CPU1 in charge of the update of the fire effect. No real need to sync them
+as one *writes* to the framebuffer while the other one *reads* from it. Since the computations are balanced (~40 milliseconds both sides, that is no accident of course) we're in a good situation where the update rate matches the display rate.
 
 ## Hardware setup
 
-Solder pins on the OrangeCrab feather connector (**important:** see note below
-before), being careful to have them on the right side (the one allowing
-connecting it to the keyboard!). Please don't laugh, I did get this wrong the
-first time (to my defense I did not know about the keyboard yet).
+Solder pins on the OrangeCrab feather connector being careful to have them on
+the right side (the one allowing connecting it to the keyboard!). Please don't
+laugh, I did get this wrong the first time (to my defense I did not know about
+the keyboard yet... still...).
 
 > **Important:** Do not solder the RST pin, leave it empty as on the image
-below (left most pin is removed). The reason is explained later.
+below (left most pin is removed, see red arrow). The reason is explained later.
 
 <center><img src="orangecrab_pins.jpg" width=400></center>
 
@@ -83,19 +91,23 @@ connectors.
 
 <center>
 <img src="bridge_closeup_1.jpg" width=300>
-&nbsp;&nbsp;&nbsp;
+<br>
 <img src="bridge_closeup_2.jpg" width=300>
 </center>
 
-Why do we have to do this? On the Featherwing, the RST pin is connected to the
-reset of most components, and has to be used (I has too at least!) to properly
-initialize e.g. the screen.
-
+Why do we have to do this? On the featherwing keyboard, the RST pin is connected to the
+reset of most components, and has to be used to properly initialize them, the
+screen in particular.
 Problem is, on the OrangeCrab the RST pin is the FPGA reset. It can be
 controlled from the FPGA design but pulling it low (reset is active low) resets
-the FPGA itself ; thus everything immediately stops and we are stuck.
-So instead, we do not use RST from the OrangeCrab, and bridge its A0 pin that we
-can control freely to the RST of the Featherwing. A simple bypass!
+the FPGA *itself* ; thus everything immediately stops and we are stuck.
+
+> **Note:** Alright, that's my understanding at least. Please let me know
+if I got this wrong!
+
+So instead, we do not use RST from the OrangeCrab, and bridge the A0 pin
+from the OrangeCrab to the keyboard RST. A simple bypass! Now we can control
+the featherwing keyboard RST independently, using A0.
 
 ## FPGA design
 
@@ -112,7 +124,7 @@ riscv cpu_drawer(output uint1  screen_rst,
                  output uint32 leds,
                  output uint1  on_leds
                 ) <
-                  mem=98304, // we allocate a big chunk for the framebuffer
+                  mem=98304, // we allocate a big chunk (framebuffer+code)
                   core="ice-v-dual", // dual core please
                   ICEV_FAST_SHIFT=1, // fast shifts (barrel shifter)
                   O=3        // compile with -O3
@@ -128,7 +140,7 @@ keyboard, but one thing at a time!).
 
 Let us start from the bottom of the list, the LEDs outputs.
 We have one output called `leds` and one called `on_leds`.
-Both are tightly related, in fact, `on_leds` will pulse high whenever the CPU
+Both are tightly related ; in fact, `on_leds` will pulse high whenever the CPU
 writes to `leds`. So every time you see an input or output
 `foo` and another one called `on_foo`, the same mechanism is automatically
 created. This is the case for instance with `screen` / `on_screen`
@@ -137,20 +149,22 @@ and `rgb` / `on_rgb`.
 How does the CPU writes to these outputs? Silice automatically generates C code
 so that the firmware can call e.g. `leds(0x42)` to write `0x42` onto the output.
 The hardware sees this update as soon as the instruction is executed, and
-`on_leds` pulses exactly one cycle to indicate an update from the CPU.
+`on_leds` pulses exactly one cycle to indicate a write from the CPU. Convenient!
 
 Here is a quick overview of what each set of outputs do:
-- `screen_rst` / `screen` / `on_screen` direct interface to the SPI controller
-for the LCD. This is used by the CPU for initialization, see in particular [lcd_ili9351.h](lcd_ili9351.h).
-- `rgb` / `on_rgb` allows the CPU to write a RGB pixel (24 bits) and forget
-about it while the hardware takes care of sending the three bytes. This avoids
+- `screen_rst` / `screen` / `on_screen` : direct interface to the SPI controller
+for the LCD. This is used by the CPU for initialization, see
+[lcd_ili9351.h](lcd_ili9351.h)
+- `rgb` / `on_rgb` : allows the CPU to write a RGB pixel (24 bits) and forget
+about it while the hardware takes care of sending the three bytes. This reduces
 CPU delays (recall each CPU instruction is 4 cycles).
-- `leds` / `on_leds` output on the board LEDs, also used in simulation to count
-cycles between two `on_leds`pulses.
+- `leds` / `on_leds` : outputs to the board LEDs, also used in simulation to count
+cycles between two `on_leds` pulses.
 
-After the output we see the following lines in between `<` `>`:
-- `mem=98304,` this requests some amount of RAM for the CPU (in bytes),
-- `core="ice-v-dual",` this asks for the *ice-v-dual* softcore,
+After the output we see the following lines in between `<` ... `>`
+- `mem=98304,` this requests some amount of RAM for the CPU (in bytes), enough
+for the framebuffer, code and stack (but most of it is framebuffer),
+- `core="ice-v-dual",` this requests the ice-v-*dual* softcore,
 - `ICEV_FAST_SHIFT=1,` specific to the ice-v softcores, we ask for a fast shift
 (barrel shifter) that uses more LUTs but operates in one cycle,
 - `O=3`, asks for `-O3` compilation level for the firmware (default is `-O1`)
@@ -160,27 +174,25 @@ After the output we see the following lines in between `<` `>`:
 The firmware code is well summarized by the C main function (putting in
 parenthesis the outputs used by each part):
 ```c
-  //_ C main
+  // firmware C main
   void main() {
-    if (cpu_id() == 0) {
+    if (cpu_id() == 0) { // === CPU 0
       screen_init(); // init the LCD screen (screen_rst/screen)
       screen_rect(0,240, 0,320); // sets full-screen (screen_rst/screen)
       draw_fire();   // draws from framebuffer (rgb)
-    } else {
+    } else {             // === CPU 1
       update_fire(); // updates the framebuffer
     }
   }
 ```
 Simple, isn't it? Note the call to `cpu_id()` to identify the core ; this is
-specific to the Ice-V dual. Also note that only CPU0 outputs to the hardware ;
-both could of course but that would require synchronization (or careful
+specific to the Ice-V dual. Also note that only CPU0 outputs to the hardware.
+Both could, of course, but that would require synchronization (or careful
 orchestration).
 
-The pixel are actually written by these lines:
+The pixels are actually written by these lines:
 ```c
   // palette lookup
-  int clr  = ((*col)>>2)&31;
-  col     += 320;
   int *ptr = (int*)(pal) + clr;
   // send to screen
   rgb(*ptr);
@@ -188,7 +200,7 @@ The pixel are actually written by these lines:
   asm volatile ("nop; nop; nop; nop; nop;");
 ```
 
-The most important part is `rgb(*ptr);` which send the 24bit RGB value to the
+The most important part is `rgb(*ptr);` which sends the 24bit RGB value to the
 hardware. What's with all the `nop`s? (a `nop` is an instruction that does
 nothing but waste cycles). Well, recall it takes time to write
 the pixels to SPI, and our loop is actually too fast! So we have to make the CPU
@@ -319,4 +331,5 @@ And that's all! Quite a complete overview but hopefully you got a sense on how
 simple it is to design hardware around RISC-V cores with Silice, including
 some dual core fancyness!
 
-> **Note:** Feedback is most welcome, please let me know what you thought!
+> **Note:** Feedback is most welcome, please let me know what you thought about
+this!
