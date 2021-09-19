@@ -38,12 +38,20 @@ function compile(file)
   print('********************* compiling from      ' .. file)
   print('********************* include path        ' .. PATH)
   print('********************* linker script       ' .. LD_CONFIG)
+  print('********************* optimization level  -O' .. O)
   local cmd
   cmd =  gcc .. ' '
 	    .. '-I' .. PATH .. ' '
-      .. '-fno-builtin -fno-unroll-loops -O1 -fno-pic '
+      .. '-fno-builtin -fno-unroll-loops -O' .. O .. ' -fno-pic '
 			.. '-march=rv32i -mabi=ilp32 '
 			.. '-c -o code.o '
+      .. SRC
+  os.execute(cmd)
+  cmd =  gcc .. ' '
+	    .. '-I' .. PATH .. ' '
+      .. '-fno-builtin -fno-unroll-loops -O' .. O .. ' -fno-pic '
+			.. '-march=rv32i -mabi=ilp32 '
+			.. '-fverbose-asm -S -o code.s '
       .. SRC
   os.execute(cmd)
   cmd =  as .. ' '
@@ -120,6 +128,8 @@ end
 -- =========================================================================
 
 -- print('source file = ' .. SRC)
+
+if not O then O=1 end
 
 find_toolchain()
 

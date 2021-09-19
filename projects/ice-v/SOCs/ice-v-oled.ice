@@ -4,6 +4,8 @@
 
 // MIT license, see LICENSE_MIT in Silice repo root
 
+// TODO: use common/spi.ice when revised/ready
+
 $$if OLED_SLOW then
 
 // version clock / 4 (freq >= 70 MHz)
@@ -26,6 +28,7 @@ algorithm oled(
       sending    = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],
                     byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
       busy       = 8b11111111;
+			osc        = 1;
     } else {
       oled_din   = sending[0,1];
       sending    = osc[0,1] ? {1b0,sending[1,7]} : sending;
@@ -57,6 +60,7 @@ algorithm oled(
       sending    = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],
                     byte[4,1],byte[5,1],byte[6,1],byte[7,1]};
       busy       = 8b11111111;
+			osc        = 1;
     } else {
       oled_din   = sending[0,1];
       sending    = osc[0,1] ? {1b0,sending[1,7]} : sending;

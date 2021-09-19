@@ -6,6 +6,10 @@
 //
 // MIT license, see LICENSE_MIT in Silice repo root
 
+$$if ICEV_FAST_SHIFT then
+$$print("Ice-V-dual configured for fast shift (barrel shifter)")
+$$end
+
 // --------------------------------------------------
 // Processor
 // --------------------------------------------------
@@ -35,11 +39,11 @@ $$NOP=0x13
 $$if not Boot then Boot = 0 end
 
 // bitfield for easier decoding of instructions
-bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, 
+bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
 
 // --------------------------------------------------
-// execute: decoder + ALU 
+// execute: decoder + ALU
 // - decodes instructions
 // - performs all integer computations
 // - similar to ice-v, adds cpu_id and revised shifter
@@ -49,14 +53,14 @@ algorithm execute(
   input  uint32 instr,   input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
   input  uint1  trigger, input   uint1  cpu_id,
-  // outputs all information the processor needs to decide what to do next 
-  output uint3  op,    output uint5  write_rd, output  uint1  no_rd, 
-  output uint1  jump,  output uint1  load,     output  uint1  store,  
+  // outputs all information the processor needs to decide what to do next
+  output uint3  op,    output uint5  write_rd, output  uint1  no_rd,
+  output uint1  jump,  output uint1  load,     output  uint1  store,
   output int32  val,   output uint1  storeVal, output  uint1  working(0),
   output uint32 n,     output uint1  storeAddr, // next address adder
   output uint1  intop, output int32  r,         // integer operations
 ) {
-  uint5        shamt(0); // shifter status 
+  uint5        shamt(0); // shifter status
   uint$cycleW$ cycle(0); // cycle counter
 
   // ==== decode immediates
@@ -79,9 +83,9 @@ algorithm execute(
 
   // ==== select next address adder first input
   int32 addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
-  // ==== select ALU second input 
+  // ==== select ALU second input
   int32 b         <: regOrImm ? (xb) : imm_i;
-    
+
   // ==== allows to do subtraction and all comparisons with a single adder
   // trick from femtorv32/swapforth/J1
   int33 a_minus_b <: {1b1,~b} + {1b0,xa} + 33b1;
@@ -96,22 +100,23 @@ algorithm execute(
                   |  (store  ? imm_s : 32b0);
   // ==== set decoder outputs depending on incoming instructions
   // load/store?
-  load         := opcode == 5b00000;   store        := opcode == 5b01000;   
+  load         := opcode == 5b00000;   store        := opcode == 5b01000;
   // operator for load/store           // register to write to?
-  op           := Rtype(instr).op;     write_rd     := Rtype(instr).rd;    
+  op           := Rtype(instr).op;     write_rd     := Rtype(instr).rd;
   // do we have to write a result to a register?
   no_rd        := branch  | store  | (Rtype(instr).rd == 5b0);
   // integer operations                // store next address?
-  intop        := (IntImm | IntReg);   storeAddr    := AUIPC;  
-  // value to store directly       
-  val          := LUI ? imm_u : {cycle,cpu_id}; 
+  intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
+  // value to store directly
+  val          := LUI ? imm_u : {cycle,cpu_id};
   // store value?
-  storeVal     := LUI     | Cycles;   
-  
+  storeVal     := LUI     | Cycles;
+
   always {
     uint1 j(0); // temp variables for and comparator
 
     // ====================== ALU
+$$if not ICEV_FAST_SHIFT then
     // are we still shifting?
     uint1 shiting <:: (shamt != 0);
     // shift (one bit per clock)
@@ -125,11 +130,12 @@ algorithm execute(
         // decrease shift size
         shamt = shamt - 1;
         // shift one bit
-        r     = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]} 
+        r     = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]}
                         : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
       }
     }
     working = (shamt != 0);
+$$end
 $$if VERBOSE then
     if (working) {
       __display("[cycle %d] ALU shifting",cycle);
@@ -140,14 +146,19 @@ $$end
       case 3b000: { r = sub ? a_minus_b : xa + b; }            // ADD / SUB
       case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
       case 3b100: { r = xa ^ b; } case 3b110: { r = xa | b;   }// XOR / OR
+$$if not ICEV_FAST_SHIFT then
       case 3b001: { }             case 3b101: { }              // SLLI/SRLI/SRAI
+$$else
+      case 3b001: { r = (xa <<< b[0,5]); }
+      case 3b101: { r = Rtype(instr).sign ? (xa >>> b[0,5]) : (xa >> b[0,5]); }
+$$end
       case 3b111: { r = xa & b; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
-    } 
+    }
 
     // ====================== Comparator for branching
     switch (op[1,2]) {
-      case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/ 
+      case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/
       case 2b11:  { j = a_lt_b_u;} /*BLTU*/ default:   { j = 1bx; }
     }
     jump = (JAL | JALR) | (branch & (j ^ op[0,1]));
@@ -155,17 +166,17 @@ $$end
 
     // ====================== Next address adder
     n = addr_a + addr_imm;
-  
+
     // ==== increment cycle counter
-    cycle = cycle + 1; 
+    cycle = cycle + 1;
 
   }
-  
+
 }
 
 // --------------------------------------------------
 // Dual Risc-V RV32I CPU
-// 
+//
 // ---- interleaved CPU stages ----
 // F:     instruction fetched
 // T:     trigger ALU+decode
@@ -208,7 +219,7 @@ algorithm rv32i_cpu(bram_port mem) {
   int32  xb    <:: (stage[0,1]^stage[1,1]) ? xregsB_0.rdata : xregsB_1.rdata;
   execute exec(instr <: instr,pc <: pc, xa <: xa, xb <: xb);
 
-$$if VERBOSE then         
+$$if VERBOSE then
   uint32 cycle(0);
 $$end
 
@@ -218,7 +229,7 @@ $$end
                     | (exec.storeVal  ? exec.val            : 32b0)
                     | (exec.load      ? loaded              : 32b0)
                     | (exec.intop     ? exec.r              : 32b0);
-                    
+
   // The 'always_before' block is applied at the start of every cycle.
   // This is a good place to set default values, which also indicates
   // to Silice that some variables (e.g. xregsA.wdata) are fully set
@@ -237,7 +248,7 @@ $$end
     mem.wdata      = stage[1,1] ? (xregsB_0.rdata << {exec.n[0,2],3b000})
                                 : (xregsB_1.rdata << {exec.n[0,2],3b000});
     // maintain write enable low (pulses high when needed)
-    mem.wenable    = 4b0000; 
+    mem.wenable    = 4b0000;
     // maintain alu trigger low
     exec.trigger   = 0;
     // maintain register wenable low
@@ -247,14 +258,14 @@ $$end
 
     // dual state machine
     // four states: F, T, LS1, LS2/commit
-$$if VERBOSE then         
+$$if VERBOSE then
     __display("[cycle %d] ====== stage:%b reset:%b pc_0:%h pc_1:%h",cycle,stage,reset,pc_0,pc_1);
 $$end
 
   if ( ~ stage[0,1] ) { // even stage
 
       // one CPU on F, one CPU on LS1
-      
+
       // F
 $$if KILL0 then
       instr_0 = $NOP$;
@@ -273,13 +284,13 @@ $$end
 
 $$if VERBOSE then
       if (~stage[1,1]) {
-$$if CPU0 then        
+$$if CPU0 then
         __display("[cycle %d] (0) F instr_0:%h (@%h)",cycle,instr_0,pc_0<<2);
-$$end        
+$$end
       } else {
-$$if CPU1 then        
+$$if CPU1 then
         __display("[cycle %d] (1) F instr_1:%h (@%h)",cycle,instr_1,pc_1<<2);
-$$end        
+$$end
       }
 $$end
 
@@ -287,31 +298,31 @@ $$end
       // memory address from which to load/store
       mem.addr = ~exec.working ? (exec.n >> 2) : mem.addr;
       // no need to know which CPU, since we only read from exec
-      if (exec.store) {   
+      if (exec.store) {
         // == Store (enabled if exec.store == 1)
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
         mem.wenable = ( { { 2{exec.op[0,2]==2b10} },
-                                               exec.op[0,1] | exec.op[1,1], 1b1 
+                                               exec.op[0,1] | exec.op[1,1], 1b1
                         } ) << exec.n[0,2];
       }
 
-$$if VERBOSE then  
+$$if VERBOSE then
      if (exec.load | exec.store) {
         if (stage[1,1]) {
-$$if CPU0 then        
+$$if CPU0 then
           __display("[cycle %d] (0) LS1 @%h = %h (wen:%b)",cycle,mem.addr,mem.wdata,mem.wenable);
-$$end        
+$$end
         } else {
-$$if CPU1 then        
+$$if CPU1 then
           __display("[cycle %d] (1) LS1 @%h = %h (wen:%b)",cycle,mem.addr,mem.wdata,mem.wenable);
-$$end        
+$$end
         }
       }
-$$end          
+$$end
 
     } else { // stage odd
-      
+
       // one CPU on T, one CPU on LS2/commit
 
       // T
@@ -322,13 +333,13 @@ $$end
 
 $$if VERBOSE then
       if (~stage[1,1]) {
-$$if CPU0 then        
+$$if CPU0 then
         __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
           instr,pc,
           xregsA_0.addr,xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
-$$end          
+$$end
       } else {
-$$if CPU1 then        
+$$if CPU1 then
         __display("[cycle %d] (1) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
           instr,pc,
           xregsA_1.addr,xregsA_1.rdata,xregsB_1.addr,xregsB_1.rdata);
@@ -342,19 +353,19 @@ $$end
       xregsA_0.wenable =  stage[1,1] ? ~exec.no_rd : 0;
       xregsA_1.wenable = ~stage[1,1] ? ~exec.no_rd : 0;
 
-$$if VERBOSE then         
-$$if CPU0 then        
+$$if VERBOSE then
+$$if CPU0 then
       if (xregsA_0.wenable) {
         __display("[cycle %d] (0) LS2/C xr[%d]=%h",
           cycle,exec.write_rd,write_back);
       }
 $$end
-$$if CPU1 then        
+$$if CPU1 then
       if (xregsA_1.wenable) {
         __display("[cycle %d] (1) LS2/C xr[%d]=%h",
           cycle,exec.write_rd,write_back);
       }
-$$end      
+$$end
 $$end
       // prepare instruction fetch
       mem.addr = exec.jump ? (exec.n >> 2) : next_pc;
@@ -363,16 +374,16 @@ $$end
 
     // advance states unless stuck in ALU or reset is high
     stage = (exec.working | reset) ? stage : stage + 1;
-$$if VERBOSE then               
+$$if VERBOSE then
     if (reset) { __display("[cycle %d] reset",cycle); }
 $$end
 
     // write back data to both register BRAMs
-    xregsA_0.wdata   = write_back;      xregsB_0.wdata   = write_back;     
-    xregsA_1.wdata   = write_back;      xregsB_1.wdata   = write_back;     
+    xregsA_0.wdata   = write_back;      xregsB_0.wdata   = write_back;
+    xregsA_1.wdata   = write_back;      xregsB_1.wdata   = write_back;
     // xregsB written when xregsA is
-    xregsB_0.wenable = xregsA_0.wenable; 
-    xregsB_1.wenable = xregsA_1.wenable; 
+    xregsB_0.wenable = xregsA_0.wenable;
+    xregsB_1.wenable = xregsA_1.wenable;
     // write to write_rd, else track instruction register
     xregsA_0.addr    = xregsA_0.wenable ? exec.write_rd : Rtype(instr_0).rs1;
     xregsB_0.addr    = xregsA_0.wenable ? exec.write_rd : Rtype(instr_0).rs2;

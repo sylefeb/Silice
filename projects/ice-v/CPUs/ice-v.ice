@@ -4,12 +4,16 @@
 //
 // MIT license, see LICENSE_MIT in Silice repo root
 
+$$if ICEV_FAST_SHIFT then
+$$print("Ice-V configured for fast shift (barrel shifter)")
+$$end
+
 // --------------------------------------------------
 // Processor
 // --------------------------------------------------
 
 // bitfield for easier decoding of instructions
-bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2, 
+bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
 
 // --------------------------------------------------
@@ -21,10 +25,10 @@ algorithm execute(
   // instruction, program counter and registers
   input  uint32 instr, input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
-  input  uint1  trigger, 
-  // outputs all information the processor needs to decide what to do next 
-  output uint3  op,    output uint5  write_rd, output  uint1  no_rd, 
-  output uint1  jump,  output uint1  load,     output  uint1  store,  
+  input  uint1  trigger,
+  // outputs all information the processor needs to decide what to do next
+  output uint3  op,    output uint5  write_rd, output  uint1  no_rd,
+  output uint1  jump,  output uint1  load,     output  uint1  store,
   output int32  val,   output uint1  storeVal, output  uint1  working(0),
   output uint32 n,     output uint1  storeAddr, // next address adder
   output uint1  intop, output int32  r,         // integer operations
@@ -51,9 +55,9 @@ algorithm execute(
 
   // ==== select next address adder first input
   int32 addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
-  // ==== select ALU second input 
+  // ==== select ALU second input
   int32 b         <: regOrImm ? (xb) : imm_i;
-    
+
   // ==== allows to do subtraction and all comparisons with a single adder
   // trick from femtorv32/swapforth/J1
   int33 a_minus_b <: {1b1,~b} + {1b0,xa} + 33b1;
@@ -68,29 +72,29 @@ algorithm execute(
                   |  (store  ? imm_s : 32b0);
   // ==== set decoder outputs depending on incoming instructions
   // load/store?
-  load         := opcode == 5b00000;   store        := opcode == 5b01000;   
+  load         := opcode == 5b00000;   store        := opcode == 5b01000;
   // operator for load/store           // register to write to?
-  op           := Rtype(instr).op;     write_rd     := Rtype(instr).rd;    
+  op           := Rtype(instr).op;     write_rd     := Rtype(instr).rd;
   // do we have to write a result to a register?
   no_rd        := branch  | store  | (Rtype(instr).rd == 5b0);
   // integer operations                // store next address?
-  intop        := (IntImm | IntReg);   storeAddr    := AUIPC;  
+  intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
   // value to store directly           // store value?
-  val          := LUI ? imm_u : cycle; storeVal     := LUI     | Cycles;   
+  val          := LUI ? imm_u : cycle; storeVal     := LUI     | Cycles;
   // ==== increment cycle counter
-  cycle        := cycle + 1; 
-  
+  cycle        := cycle + 1;
+
   always {
     int32 shift(0);  uint1 j(0); // temp variables for shifter and comparator
-
     // ====================== ALU
+$$if not ICEV_FAST_SHIFT then
     // shift (one bit per clock)
     if (working) {
       // decrease shift size
       shamt = shamt - 1;
       // shift one bit
-      shift = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]} 
-                          : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};      
+      shift = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]}
+                          : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
     } else {
       // start shifting?
       shamt = ((aluShift & trigger) ? __unsigned(b[0,5]) : 0);
@@ -99,20 +103,25 @@ algorithm execute(
     }
     // are we still shifting?
     working = (shamt != 0);
-
+$$end
     // all ALU operations
     switch (op) {
       case 3b000: { r = sub ? a_minus_b : xa + b; }            // ADD / SUB
       case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
       case 3b100: { r = xa ^ b; } case 3b110: { r = xa | b;   }// XOR / OR
+$$if not ICEV_FAST_SHIFT then
       case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
+$$else
+      case 3b001: { r = (xa <<< b[0,5]); }
+      case 3b101: { r = Rtype(instr).sign ? (xa >>> b[0,5]) : (xa >> b[0,5]); }
+$$end
       case 3b111: { r = xa & b; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
-    }      
+    }
 
     // ====================== Comparator for branching
     switch (op[1,2]) {
-      case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/ 
+      case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/
       case 2b11:  { j = a_lt_b_u;} /*BLTU*/ default:   { j = 1bx; }
     }
     jump = (JAL | JALR) | (branch & (j ^ op[0,1]));
@@ -122,7 +131,7 @@ algorithm execute(
     n = addr_a + addr_imm;
 
   }
-  
+
 }
 
 // --------------------------------------------------
@@ -165,7 +174,7 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
     // what to write on a store (used when exec.store == 1)
     mem.wdata      = xregsB.rdata << {exec.n[0,2],3b000};
     // maintain write enable low (pulses high when needed)
-    mem.wenable    = 4b0000; 
+    mem.wenable    = 4b0000;
     // maintain alu trigger low
     exec.trigger   = 0;
     // maintain register wenable low
@@ -174,7 +183,7 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
   }
 
   // the 'always_after' block is executed at the end of every cycle
-  always_after { 
+  always_after {
     // what do we write in register? (pc, alu or val, load is handled separately)
     // 'or trick' from femtorv32
     int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
@@ -183,9 +192,9 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
                       | (exec.load      ? loaded              : 32b0)
                       | (exec.intop     ? exec.r              : 32b0);
     // write back data to both register BRAMs
-    xregsA.wdata   = write_back;      xregsB.wdata   = write_back;     
+    xregsA.wdata   = write_back;      xregsB.wdata   = write_back;
     // xregsB written when xregsA is
-    xregsB.wenable = xregsA.wenable; 
+    xregsB.wenable = xregsA.wenable;
     // write to write_rd, else track instruction register
     xregsA.addr    = xregsA.wenable ? exec.write_rd : Rtype(instr).rs1;
     xregsB.addr    = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
@@ -205,29 +214,29 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
     while (1) { // decode + ALU refresh during the cycle entering the loop
 
       // this operations loop allows to wait for ALU when needed
-      // it is built such that no cycles are wasted    
+      // it is built such that no cycles are wasted
 
-      // load/store?        
-      if (exec.load | exec.store) {   
+      // load/store?
+      if (exec.load | exec.store) {
         // memory address from which to load/store
         mem.addr   = exec.n >> 2;
         // == Store (enabled if exec.store == 1)
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
         mem.wenable = ({4{exec.store}} & { { 2{exec.op[0,2]==2b10} },
-                                               exec.op[0,1] | exec.op[1,1], 1b1 
+                                               exec.op[0,1] | exec.op[1,1], 1b1
                                         } ) << exec.n[0,2];
 
 ++: // wait for data transaction
 
         // == Load (enabled if exec.load == 1)
         // commit result
-        xregsA.wenable = ~exec.no_rd;        
+        xregsA.wenable = ~exec.no_rd;
         // restore address to program counter
         mem.addr       = next_pc;
         // exit the operations loop
         break;
-        //  instruction read from BRAM and write to register 
+        //  instruction read from BRAM and write to register
         //  occurs as we jump back to loop start
 
       } else {
@@ -238,8 +247,8 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
         // ALU done?
         if (exec.working == 0) {
           // yes: all is correct, stop here
-          break; 
-          //  instruction read from BRAM and write to register 
+          break;
+          //  instruction read from BRAM and write to register
           //  occurs as we jump back to loop start
         }
       }

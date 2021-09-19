@@ -164,6 +164,25 @@ std::string RISCVSynthesizer::coreName(siliceParser::RiscvContext *riscv) const
 
 // -------------------------------------------------
 
+std::string RISCVSynthesizer::defines(siliceParser::RiscvContext *riscv) const
+{
+  std::string defs;
+  if (riscv->riscvModifiers() != nullptr) {
+    for (auto m : riscv->riscvModifiers()->riscvModifier()) {
+      if (m->NUMBER() != nullptr) {
+        defs += "-D " + m->IDENTIFIER()->getText() + "=" + m->NUMBER()->getText() + " ";
+      } else {
+        string str = m->STRING()->getText();
+        str = str.substr(1, str.length() - 2); // remove '"' and '"'
+        defs += "-D " + m->IDENTIFIER()->getText() + "=\"\\\"" + str + "\\\"\" ";
+      }
+    }
+  }
+  return defs;
+}
+
+// -------------------------------------------------
+
 static string normalizePath(const string& _path)
 {
   string str = _path;
@@ -402,6 +421,8 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     // get source file path
     std::string srcfile = Utils::getTokenSourceFileAndLine(Utils::getToken(riscv->RISCV()->getSourceInterval())).first;
     std::string path = std::filesystem::absolute(srcfile).remove_filename().string();
+    // get defines from modifiers
+    std::string defs = defines(riscv);
     // compile Silice source
     string exe = string(LibSL::System::Application::executablePath());
     string cmd =
@@ -416,6 +437,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
       + "-D LD_CONFIG=\"\\\"" + normalizePath(l_tempfile) + "\\\"\" "
       + "-D STACK_START=" + std::to_string(stack_start) + " "
       + "-D STACK_SIZE=" + std::to_string(stack_size) + " "
+      + defs + " "
       + "--framework " + normalizePath(CONFIG.keyValues()["frameworks_dir"]) + "/boards/bare/bare.v "
       ;
     system(cmd.c_str());

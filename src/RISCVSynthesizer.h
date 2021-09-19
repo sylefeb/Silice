@@ -66,6 +66,8 @@ namespace Silice
     int         stackSize(siliceParser::RiscvContext *riscv) const;
     /// \brief returns the user-given core name (if any, default core selection otherwise)
     std::string coreName(siliceParser::RiscvContext *riscv) const;
+    /// \brief returns user-defines from modifiers
+    std::string defines(siliceParser::RiscvContext *riscv) const;
 
     /// \brief gather module information from parsed grammar
     void        gather(siliceParser::RiscvContext *riscv);
