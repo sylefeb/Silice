@@ -98,7 +98,7 @@ $$if not SIMULATION then
 $$if PMOD then
     // PMOD output
     pmod.oenable = 8b11111111; // all out
-    pmod.o = {4b0,displ.oled_mosi,displ.spi_clk,displ.spi_dc,~cpu0.spi_rst};
+    pmod.o = {4b0,displ.spi_mosi,displ.spi_clk,displ.spi_dc,~cpu0.oled_rst};
 $$else
 		oled_mosi = displ.spi_mosi;
     oled_clk  = displ.spi_clk;

@@ -34,7 +34,7 @@ riscv cpu_drawer(output uint1  screen_rst,
                 > {
 
   // =============== firmware in C language ===========================
-  #include "lcd_ili9351.h"
+  #include "lcd_ili9351.h" // include LCD screen driver
 
   //_ framebuffer
   unsigned char tbl[320*240 + 8/*padding*/];
@@ -50,10 +50,11 @@ riscv cpu_drawer(output uint1  screen_rst,
     0,0xbc,0xa4,0x24, 0,0xbc,0xac,0x2c, 0,0xb4,0xac,0x2c, 0,0xb4,0xb4,0x2c,
     0,0xcc,0xcc,0x6c, 0,0xdc,0xdc,0x9c, 0,0xec,0xec,0xc4, 0,0xef,0xef,0xef};
 
-  void draw_fire() // draws fire onto the LCD
+  //_ draws fire onto the LCD
+  void draw_fire()
   {
     while (1) {
-      //leds(2);
+      //leds(0); // uncomment to measure loop cycles in simulation
       for (int u=0;u<320;u++) {
         unsigned char *col = tbl + u;
         for (int v=0;v<240;++v) {
@@ -66,15 +67,14 @@ riscv cpu_drawer(output uint1  screen_rst,
           asm volatile ("nop; nop; nop; nop; nop; nop; nop;");
         }
       }
-      //leds(3);
     }
   }
 
-  void update_fire() // update the fire framebuffer
+  //_ update the fire framebuffer
+  void update_fire()
   {
     int rng  = 31421;  // random number generator seed
     while (1) {
-      //leds(0);
       // move up
       unsigned char *below   = tbl;
       unsigned char *current = tbl + 320;
@@ -84,8 +84,8 @@ riscv cpu_drawer(output uint1  screen_rst,
           clr = (*below)-(rng&1);
         }
         rng = ((rng<<5) ^ 6927) + ((rng>>5) ^ v);
-        *(current + (rng&3)) = clr; // NOTE: there padding to the table
-                                    // to avoid out of bounds access
+        *(current + (rng&3)) = clr; // NOTE: table padding avoids
+                                    //       out of bounds access
         ++ below;
         ++ current;
       }
@@ -95,7 +95,6 @@ riscv cpu_drawer(output uint1  screen_rst,
         rng = ((rng<<5) ^ 6927) ^ (rng>>5);
         (*ptr++) = 120 + (rng&7);
       }
-      //leds(1);
     }
   }
 

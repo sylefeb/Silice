@@ -27,9 +27,7 @@ riscv cpu_blinky(output uint32 leds) <mem=1024,
   void main() {
     if (cpu_id() == 0) { cpu0_main(); } else { cpu1_main(); }
   }
-
   // =============== end of firmware ==================================
-  // ==================================================================
 }
 
 // now we are creating the hardware hosting the CPU
