@@ -18,13 +18,13 @@ import('../common/plls/orangecrab_100.v')
 $$end
 
 // CPU declaration
-riscv cpu_drawer(output uint1  screen_rst,
-                 output uint32 screen,
-                 output uint1  on_screen,
-                 output uint32 rgb,
-                 output uint1  on_rgb,
-                 output uint32 leds,
-                 output uint1  on_leds
+riscv cpu_drawer(output uint1  screen_rst, // screen reset
+                 output uint32 screen,     // screen command/data
+                 output uint1  on_screen,  // pulses high when CPU writes screen
+                 output uint32 rgb,        // send a pixel (RGB 24 bits)
+                 output uint1  on_rgb,     // pulses high when CPU writes rgb
+                 output uint32 leds,       // set on-board LEDs
+                 output uint1  on_leds     // pulses high when CPU writes leds
                 ) <
                   mem=98304, // we allocate a big chunk (framebuffer+code)
                   core="ice-v-dual", // dual core please
