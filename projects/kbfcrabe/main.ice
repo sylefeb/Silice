@@ -145,7 +145,7 @@ $$if SIMULATION then
 $$end
 
   // interface for sending a full pixel
-  uint24 pix_data = uninitialized; // RGB 24bits to send
+  uint24 pix_data(0);              // RGB 24bits to send
   uint3  pix_sending(3b000);       // sending? (111 => 011 => 001 => 000 done)
   uint1  pix_wait(0);              // wait before sending?
   uint1  pix_send_ready  <:: displ.ready & ~pix_wait; // can we send?
@@ -208,11 +208,14 @@ $$if not SIMULATION then
     sck       = displ.spi_clk;
 $$else
     if (cpu.on_leds) {
-      //__write("%x ",cpu.leds[0,8]);
       __display("%d] elapsed: %d cycles",cpu.leds,cycle - prev);
       prev = cycle;
     }
-    // if (cycle == 1000000) { __finish(); }
+$$if VERILATOR then
+    if (cycle == 80000000) { __finish(); }
+$$elseif ICARUS then
+    if (cycle == 1024) { __finish(); }
+$$end
     cycle     = cycle + 1;
 $$end
   }

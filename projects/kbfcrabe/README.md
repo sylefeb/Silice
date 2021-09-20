@@ -255,10 +255,12 @@ uint1  pix_send_ready  <:: displ.ready & ~pix_wait;
 Here, `displ.ready` is the SPI controller indicating that it can accept the next
 byte. However, we also need this `pix_wait` variable. This is due to a subtlety:
 when we send an input to the SPI controller, it will still report ready at the
-next cycle (`displ.ready`=1). This is due to the latencies in crossing
+next cycle (`displ.ready`=1) ; see timing diagram below. This is due to the latencies in crossing
 [registered outputs](../../learn-silice/AlgoInOuts.md).
-After than that, ready will be low again. So `pix_wait` simply makes
+After that point, ready will be low again. So `pix_wait` simply makes
 sure we do not try to send again at the next cycle, despite `displ.ready`=1.
+
+<center><img src="enable_ready.png" width=800></center>
 
 Before concluding let's have a quick look at the SPI driver instantiation:
 ```c
