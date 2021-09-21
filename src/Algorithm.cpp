@@ -3397,10 +3397,6 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
   const t_combinational_block *current = block;
   const t_combinational_block *last_state = block;
   while (true) {
-    if (current->no_skip) {
-      // no skip, stop here
-      return last_state;
-    }
     if (!current->instructions.empty()) {
       bool stop = true;
       if (current->instructions.size() == 1) {
@@ -3436,6 +3432,10 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
       return last_state;
     } else {
       current = current->next()->next;
+    }
+    if (current->no_skip) {
+      // no skip, stop here
+      return last_state;
     }
     if (current->is_state) {
       last_state = current;
