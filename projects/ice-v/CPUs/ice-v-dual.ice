@@ -242,7 +242,7 @@ $$end
       case 2b00:{ loaded = {{24{(~exec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
       case 2b01:{ loaded = {{16{(~exec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
       case 2b10:{ loaded = aligned;   }
-      default:  { loaded = {32{1bx}}; } // don't care (does not occur)
+      default:  { loaded = {32{1bx}}; } // don't care
     }
     // what to write on a store (used when exec.store == 1)
     mem.wdata      = stage[1,1] ? (xregsB_0.rdata << {exec.n[0,2],3b000})

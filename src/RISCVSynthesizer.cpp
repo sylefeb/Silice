@@ -303,7 +303,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
     auto inout  = dynamic_cast<siliceParser::InoutContext *>   (io->inout());
     io_select   = io_select + "uint1 ior_" + std::to_string(idx) + " <:: prev_mem_addr[" + std::to_string(idx) + ",1]; ";
     io_select   = io_select + "uint1 iow_" + std::to_string(idx) + " <:  memio.addr[" + std::to_string(idx) + ",1]; ";
-    string v;
+    string v, init;
     t_type_nfo type_nfo;
     if (input) {
       gatherTypeNfo(input->type(), type_nfo);
@@ -335,6 +335,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
           reportError(output->getSourceInterval(), -1, "[RISC-V] inout not yet supported");
         }
       }
+      init = "(0)";
       io_decl = io_decl + "output ";
     } else if (inout) {
       splitType(inout->TYPE()->getText(), type_nfo);
@@ -345,7 +346,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
       // TODO error message, actual checks!
       reportError(inout->getSourceInterval(), -1, "[RISC-V] only inputs / outputs are support");
     }
-    io_decl = io_decl + "uint" + std::to_string(type_nfo.width) + " " + v + ',';
+    io_decl = io_decl + "uint" + std::to_string(type_nfo.width) + " " + v + init + ',';
     ++ idx;
   }
   ostringstream code;
