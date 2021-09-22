@@ -29,7 +29,7 @@ algorithm spiflash_rom(
   output! uint8  rdata,
   output  uint1  busy(1),
   // QSPI flash
-  output  uint1  sf_csn,
+  output  uint1  sf_csn(1),
   output  uint1  sf_clk,
   inout   uint1  sf_io0,
   inout   uint1  sf_io1,
@@ -37,7 +37,10 @@ algorithm spiflash_rom(
   inout   uint1  sf_io3,
 ) <autorun> {
 
-  uint1 trigger(0);
+  uint1  trigger(0);
+  uint1  init(1);
+  uint24 raddr(24b000100010001000000000000); //_ 38h (QPI enable)
+
   spiflash_qspi spiflash(
     trigger <: trigger,
     clk     :> sf_clk,
@@ -47,48 +50,31 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
-  // ===== init: enter QPI
-  //_ 8h38 is 8b00111000 (enter QPI)
-  // send command
-  spiflash.qspi           = 0; // not qpi yet
-  // send command two bits at a time
-  spiflash.send           = 8b00000000;
-  //                             ^   ^
-  spiflash.send_else_read = 1; // sending
-  sf_csn                  = 0;
-++:  /*needed*/                         // we trigger spiflash commuincation
-  trigger                 = 1; // maintain until done
-  () = wait4();
-  spiflash.send           = 8b00010001;
-  () = wait4();
-  spiflash.send           = 8b00010000;
-  () = wait4();
-  spiflash.send           = 8b00000000;
-  () = wait4();
-  // done
-  sf_csn                  = 1;
-  trigger                 = 0;
-  spiflash.qspi           = 1; // qspi enabled
-++:
-  busy = 0;
+  // ===== init: will send enter QPI through the same
+  //             orders than the normal read command
 
   // answer requests
   while (1) {
-    if (in_ready) {
+    if (in_ready || init) {
+      busy                    = 1;
+      raddr                   = ~init ? addr : raddr;
+      spiflash.qspi           = ~init; // not qpi if in init
       // send command
-      spiflash.send           = 8hEB;
+      spiflash.send           = init ? 8h00 : 8hEB;
       spiflash.send_else_read = 1; // sending
       sf_csn                  = 0;
 ++:
       trigger                 = 1;
       () = wait4();
       // send address
-      spiflash.send           = addr[16,8];
+      spiflash.send           = raddr[16,8];
       () = wait4();
-      spiflash.send           = addr[ 8,8];
+      spiflash.send           = raddr[ 8,8];
       () = wait4();
-      spiflash.send           = addr[ 0,8];
+      spiflash.send           = raddr[ 0,8];
       () = wait4();
+      sf_csn                  =  init;
+      trigger                 = ~init;
       // send dummy
       spiflash.send           = 8h00;
 ++:
@@ -99,6 +85,8 @@ algorithm spiflash_rom(
       rdata                   = spiflash.read;
       sf_csn                  = 1;
       trigger                 = 0;
+      init                    = 0;
+      busy                    = 0;
     }
   }
 
