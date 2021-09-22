@@ -108,10 +108,9 @@ $$if SIMULATION then
 $$end
   }
 
-  () = wait16();
   spiflash.send_else_read = 1; // sending
-
   sf_csn  = 0;
+	
 //++:
 /*
   spiflash.send    = 8hAB; // command
@@ -187,7 +186,7 @@ $$if SIMULATION then
 $$end
   }
 
-  () = wait16();
+  // () = wait16();
 
   // send command
   sf_csn                  = 0;
@@ -197,7 +196,7 @@ $$end
   //_ 8h38 is 8b00111000 (enter QPI)
   //  we send this over qspi, two bits at a time to initialize the read
   spiflash.send           = 8b00000000; // what to sent is set one cycle before
-++:                                     // we trigger spiflash commuincation
+++:  /*needed*/                         // we trigger spiflash commuincation
   trigger                 = 1; // maintain until done
   () = wait3();           // wait 3 cycles, we send 1 cycle in advance
   spiflash.send           = 8b00010001;
@@ -212,7 +211,6 @@ $$end
 ++:
 ++:
   sf_csn                  = 0;
-++:
 ++:
   trigger                 = 1;
   spiflash.qspi           = 1; // enable qspi
