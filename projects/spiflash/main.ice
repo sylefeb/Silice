@@ -148,10 +148,9 @@ $$end
   bram uint8 data[256] = uninitialized;
 
   uint1 trigger(0);
-  uint9 iter(0);
 
-$$STANDARD = 1
-$$QSPI     = nil
+$$STANDARD = nil
+$$QSPI     = 1
 
 $$if STANDARD then
 
@@ -254,12 +253,16 @@ $$end
   );
 
   always {
-    sf_csn   = reset;
+    // sf_csn   = reset;
     uo.data_in_ready = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
   }
+
+  () = wait16();
+  sf_csn  = 0;
+
   // send command
   spiflash.qspi           = 0; // not qspi
   spiflash.send_else_read = 1; // sending
@@ -293,19 +296,27 @@ $$end
   spiflash.send           = 8h00;
   () = wait4();
 
-  // read (finally ...)
+  // read some
+  data.wenable            = 1;
   spiflash.send_else_read = 0;
   () = wait4();
-  // stream to uart
-  while (iter != 255) {
+  while (data.addr != 255) {
+    data.wdata = spiflash.read;
+    data.addr  = data.addr + 1;
+    ()         = wait4();
+  }
+  // output to UART
+  data.wenable = 0;
+  data.addr    = 1;
+  while (data.addr != 255) {
 $$if SIMULATION then
-    __display("cycle %d] read %x",cycle,spiflash.read);
-    if (iter == 4) { __finish(); }
+    __display("cycle %d] read %x",cycle,data.rdata);
+    if (data.addr == 4) { __finish(); }
 $$end
-    uo.data_in       = spiflash.read;
+    uo.data_in       = data.rdata;
     uo.data_in_ready = 1;
-    iter             = iter + 1;
-    ()               = wait4();
+    data.addr        = data.addr + 1;
+    while (uo.busy) { }
   }
 
 $$end
