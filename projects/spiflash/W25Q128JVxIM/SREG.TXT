@@ -1,0 +1,2 @@
+/* Contents of Memory Array starting from address 0.  This is a standard Verilog readmemh format. */
+0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 1 0

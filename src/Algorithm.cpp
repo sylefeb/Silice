@@ -7679,14 +7679,23 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     if (m_VIOToBlueprintInOutsBound.count(io.name) == 0) {
       int width = atoi(varBitWidth(io, ictx).c_str());
       // output used?
-      if (m_Vars.at(m_VarNames.at(io.name + "_o")).access != e_NotAccessed) {
+      if ( m_Vars.at(m_VarNames.at(io.name + "_o")).access       != e_NotAccessed 
+        || m_Vars.at(m_VarNames.at(io.name + "_oenable")).access != e_NotAccessed) {
         // write bit by bit ternary assignment
         for (int b = 0; b < width; ++b) {
           out << "assign " << ALG_INOUT << "_" << io.name << "[" << std::to_string(b) << "] = ";
           t_vio_dependencies _1, _2, _3;
-          out << rewriteIdentifier("_", io.name + "_oenable", "[" + std::to_string(b) + "]", nullptr, -1, FF_D, true, _1, ff_input_bindings_usage);
+          if (m_Vars.at(m_VarNames.at(io.name + "_oenable")).access != e_NotAccessed) {
+            out << rewriteIdentifier("_", io.name + "_oenable", "[" + std::to_string(b) + "]", nullptr, -1, FF_D, true, _1, ff_input_bindings_usage);
+          } else {
+            out << "1'b0";
+          }
           out << " ? ";
-          out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, -1, FF_D, true, _1, ff_input_bindings_usage);
+          if (m_Vars.at(m_VarNames.at(io.name + "_o")).access != e_NotAccessed) {
+            out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, -1, FF_D, true, _1, ff_input_bindings_usage);
+          } else {
+            out << "1'b0";
+          }
           out << " : 1'bz;" << nxl;
         }
       } else {
