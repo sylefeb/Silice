@@ -12,12 +12,12 @@ algorithm spiflash_std(
   input  uint1 send_else_read,
   output uint8 read,
   output uint1 clk,
-  output uint1 io0,
-  input  uint1 io1,
-  //inout  uint1 io0,
-  //inout  uint1 io1,
-  //inout  uint1 io2,
-  //inout  uint1 io3,
+  //output uint1 io0,
+  //input  uint1 io1,
+  inout  uint1 io0,
+  inout  uint1 io1,
+  inout  uint1 io2,
+  inout  uint1 io3,
 ) {
   uint2 osc(0);
   uint1 dc(0);
@@ -25,9 +25,9 @@ algorithm spiflash_std(
   uint8 busy(0);
 
   always {
-    //io0.oenable = 1;  io1.oenable = send_else_read; // DO, DI
-    //io2.oenable = 1;  io2.o       = 1;
-    //io3.oenable = 1;  io3.o       = 1;
+    io0.oenable = 1;  io1.oenable = 0; // DO, DI
+    io2.oenable = 1;  io2.o       = 1;
+    io3.oenable = 1;  io3.o       = 1;
     osc     = trigger ? {osc[0,1],osc[1,1]} : 2b10;
     clk     = trigger & osc[0,1]; // SPI Mode 0
     sending   = busy[0,1] ? (osc[0,1] ? {sending[0,7],1b0} : sending) : (
@@ -36,10 +36,9 @@ algorithm spiflash_std(
     busy      = busy[0,1] ? (osc[0,1] ? {1b0,   busy[1,7]} : busy) : (
                 trigger   ? 8b11111111
                           : busy );
-    read      = (osc[0,1] ? {read[0,7],/*io1.i*/io1} : read);
+    read      = (osc[0,1] ? {read[0,7],io1.i/*io1*/} : read);
 
-    io0 /*io0.o*/     = /*~send_else_read |*/ sending[7,1];
-    //                  ^^^^^ required? RECHECK
+    /*io0*/ io0.o = sending[7,1];
 
   }
 }
@@ -167,12 +166,12 @@ $$end
   spiflash_std spiflash(
     trigger <: trigger,
     clk :>  sf_clk,
-    io0 :>  sf_mosi,
-    io1 <:  sf_miso,
-    //io0 <:> sf_io0,
-    //io1 <:> sf_io1,
-    //io2 <:> sf_io2,
-    //io3 <:> sf_io3,
+    //io0 :>  sf_mosi,
+    //io1 <:  sf_miso,
+    io0 <:> sf_io0,
+    io1 <:> sf_io1,
+    io2 <:> sf_io2,
+    io3 <:> sf_io3,
   );
 
   always {
