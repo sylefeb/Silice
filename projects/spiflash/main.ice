@@ -188,44 +188,55 @@ $$end
   }
 
   () = wait16();
-$$if SIMULATION then
-  cycle_start = cycle;
-$$end
 
   // send command
   sf_csn                  = 0;
   spiflash.qspi           = 0; // not qspi
   spiflash.send_else_read = 1; // sending
   //_ 8hEB is 8b11101011
+  //_ 8h38 is 8b00111000 (enter QPI)
   //  we send this over qspi, two bits at a time to initialize the read
-  spiflash.send           = 8b00010001; // what to sent is set one cycle before
+  spiflash.send           = 8b00000000; // what to sent is set one cycle before
 ++:                                     // we trigger spiflash commuincation
   trigger                 = 1; // maintain until done
   () = wait3();           // wait 3 cycles, we send 1 cycle in advance
-  spiflash.send           = 8b00010000;
-  () = wait4();
-  spiflash.send           = 8b00010000;
-  () = wait4();
   spiflash.send           = 8b00010001;
   () = wait4();
+  spiflash.send           = 8b00010000;
+  () = wait4();
+  spiflash.send           = 8b00000000;
+  () = wait4();
 
+  sf_csn                  = 1;
+  trigger                 = 0;
+++:
+++:
+  sf_csn                  = 0;
+++:
+++:
+  trigger                 = 1;
+  spiflash.qspi           = 1; // enable qspi
+
+$$if SIMULATION then
+  cycle_start = cycle;
+$$end
+  // send command
+  spiflash.send           = 8hEB;
+  () = wait4();
   // send address
   spiflash.send           = 8h00;
-  spiflash.qspi           = 1; // enable qspi
   () = wait4();
   spiflash.send           = 8h00;
   () = wait4();
   spiflash.send           = 8h00;
-  () = wait4();
-  // send mode
-  spiflash.send           = 8b00000000;
   () = wait4();
   // send dummy
   spiflash.send           = 8h00;
-  () = wait4();
-  spiflash.send           = 8h00;
-  () = wait4();
-
+//  () = wait4();
+//  () = wait4();
+++:
+++:
+++:
   // read some
   spiflash.send_else_read = 0;
   data.wenable            = 1;
@@ -233,7 +244,7 @@ $$end
 $$if SIMULATION then
   __display("took %d cycles, read %x",cycle - cycle_start,spiflash.read);
 $$end
-  while (data.addr != 64) {
+  while (data.addr != 8) {
     data.wdata = spiflash.read;
     data.addr  = data.addr + 1;
     ()         = wait4();
@@ -279,7 +290,7 @@ $$end
   // output to UART
   data.wenable = 0;
   data.addr    = 1;
-  while (data.addr != 64) {
+  while (data.addr != 8) {
 $$if SIMULATION then
     __display("cycle %d] read %x",cycle,data.rdata);
 $$end
