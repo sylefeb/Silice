@@ -5,21 +5,21 @@ List contributors with: git shortlog -n -s -- <filename>
 
 MIT license
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so, 
+the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (header_2_M)
@@ -59,17 +59,17 @@ module top(
   output P1A2, // r1
   output P1A3, // r2
   output P1A4, // r3
-  
+
   output P1A7,   // b0
   output P1A8,   // b1
   output P1A9,   // b2
   output P1A10,  // b3
-  
+
   output P1B1,  // g0
   output P1B2,  // g1
   output P1B3,  // g2
   output P1B4,  // g3
-  
+
   output P1B7, // hs
   output P1B8,  // vs
 `endif
@@ -97,6 +97,14 @@ module top(
   output FLASH_IO2,
   output FLASH_IO3,
 `endif
+`ifdef QSPIFLASH
+  output FLASH_SCK,
+  output FLASH_SSB,
+  inout  FLASH_IO0,
+  inout  FLASH_IO1,
+  inout  FLASH_IO2,
+  inout  FLASH_IO3,
+`endif
   input  CLK
   );
 
@@ -118,7 +126,7 @@ wire [5:0] __main_out_vga_b;
 `ifdef PMOD
 `error_cannot_use_both_VGA_and_PMOD_same_pins
 `endif
-`endif  
+`endif
 
 `ifdef OLED
 wire __main_oled_clk;
@@ -138,7 +146,7 @@ wire __main_oled_dc;
 wire __main_out_sf_clk;
 wire __main_out_sf_csn;
 wire __main_out_sf_mosi;
-`endif  
+`endif
 
 reg ready = 0;
 reg [31:0] RST_d;
@@ -191,9 +199,17 @@ M_main __main(
 `endif
 `ifdef SPIFLASH
   .out_sf_clk(__main_out_sf_clk),
-  .out_sf_csn(__main_out_sf_csn), 
+  .out_sf_csn(__main_out_sf_csn),
   .out_sf_mosi(__main_out_sf_mosi),
   .in_sf_miso(FLASH_IO1),
+`endif
+`ifdef QSPIFLASH
+  .out_sf_clk(FLASH_SCK),
+  .out_sf_csn(FLASH_SSB),
+  .inout_sf_io0(FLASH_IO0),
+  .inout_sf_io1(FLASH_IO1),
+  .inout_sf_io2(FLASH_IO2),
+  .inout_sf_io3(FLASH_IO3),
 `endif
   .in_run(run_main)
 );

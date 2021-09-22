@@ -1,7 +1,7 @@
 #!/bin/bash
 
 case "$(uname -s)" in
-MINGW*|CYGWIN*) 
+MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
 BUILD_DIR=`cygpath $BUILD_DIR`
 FRAMEWORKS_DIR=`cygpath $FRAMEWORKS_DIR`
@@ -36,4 +36,7 @@ silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}
 iverilog -o build -pfileline=1 build.v
 vvp build -fst
 
-gtkwave icarus.fst
+echo "===================================="
+echo "Visualize the simulation trace with:"
+echo "    gtkwave BUILD_icarus/icarus.fst"
+echo "===================================="

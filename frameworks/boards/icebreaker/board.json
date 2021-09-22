@@ -4,14 +4,15 @@
     {
       "name"      : "configurable",
       "framework" : "icebreaker.v",
-      "pins"      : [         
+      "pins"      : [
         {"set"    : "basic"},
         {"set"    : "buttons", "define" : "BUTTONS=1"},
         {"set"    : "uart", "define" : "UART=1"},
         {"set"    : "vga", "define" : "VGA=1"},
         {"set"    : "oled", "define" : "OLED=1"},
         {"set"    : "pmod", "define" : "PMOD=1"},
-        {"set"    : "spiflash", "define" : "SPIFLASH=1"}
+        {"set"    : "spiflash", "define" : "SPIFLASH=1"},
+        {"set"    : "qspiflash", "define" : "QSPIFLASH=1"}
       ],
       "builders": [
         {
@@ -34,7 +35,7 @@
           "command" : "icebreaker.sh",
           "description": "Custom shell scripts using yosys and nextpnr"
         }
-      ]    
+      ]
     }
   ],
   "pins": {
@@ -44,7 +45,7 @@
           "type": "uint5",
           "io": "output"
         }
-    ],    
+    ],
     "buttons": [
       {
         "name": "btns",
@@ -145,7 +146,39 @@
         "name" : "sf_miso",
         "type" : "uint1",
         "io"   : "input"
-      }      
+      }
+    ],
+    "qspiflash": [
+      {
+        "name" : "sf_clk",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_csn",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_io0",
+        "type" : "uint1",
+        "io"   : "input_output"
+      },
+      {
+        "name" : "sf_io1",
+        "type" : "uint1",
+        "io"   : "input_output"
+      },
+      {
+        "name" : "sf_io2",
+        "type" : "uint1",
+        "io"   : "input_output"
+      },
+      {
+        "name" : "sf_io3",
+        "type" : "uint1",
+        "io"   : "input_output"
+      }
     ]
   }
 }

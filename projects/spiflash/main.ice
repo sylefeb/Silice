@@ -1,16 +1,23 @@
-
+$$if ICARUS then
 append('W25Q128JVxIM/W25Q128JVxIM.v')
 import('simul_spiflash.v')
+$$end
+
+$$uart_in_clock_freq_mhz = 12
+$include('../common/uart.ice')
 
 algorithm spiflash_std(
   input  uint8 send,
   input  uint1 trigger,
+  input  uint1 send_else_read,
   output uint8 read,
   output uint1 clk,
-  inout  uint1 io0,
-  inout  uint1 io1,
-  inout  uint1 io2,
-  inout  uint1 io3,
+  output uint1 io0,
+  input  uint1 io1,
+  //inout  uint1 io0,
+  //inout  uint1 io1,
+  //inout  uint1 io2,
+  //inout  uint1 io3,
 ) {
   uint2 osc(0);
   uint1 dc(0);
@@ -18,9 +25,9 @@ algorithm spiflash_std(
   uint8 busy(0);
 
   always {
-    io0.oenable = 1;  io1.oenable = 0; // DO, DI
-    io2.oenable = 0;  io2.o       = 1;
-    io3.oenable = 1;  io3.o       = 1;
+    //io0.oenable = 1;  io1.oenable = send_else_read; // DO, DI
+    //io2.oenable = 1;  io2.o       = 1;
+    //io3.oenable = 1;  io3.o       = 1;
     osc     = trigger ? {osc[0,1],osc[1,1]} : 2b10;
     clk     = trigger & osc[0,1]; // SPI Mode 0
     sending   = busy[0,1] ? (osc[0,1] ? {sending[0,7],1b0} : sending) : (
@@ -29,9 +36,10 @@ algorithm spiflash_std(
     busy      = busy[0,1] ? (osc[0,1] ? {1b0,   busy[1,7]} : busy) : (
                 trigger   ? 8b11111111
                           : busy );
-    read      = (osc[0,1] ? {read[0,7],io1.i} : read);
+    read      = (osc[0,1] ? {read[0,7],/*io1.i*/io1} : read);
 
-    io0.o     = sending[7,1];
+    io0 /*io0.o*/     = /*~send_else_read |*/ sending[7,1];
+    //                  ^^^^^ required? RECHECK
 
   }
 }
@@ -90,47 +98,109 @@ circuitry wait4() // waits exactly 4 cycles
   uint2 n = 0; while (n != 2) { n = n + 1; }
 }
 
-algorithm main(output uint8 leds)
+circuitry wait8() // waits exactly 8 cycles
+{
+  uint3 n = 0; while (n != 6) { n = n + 1; }
+}
+
+algorithm main(
+  output uint8 leds,
+$$if QSPIFLASH then
+  output uint1 sf_clk,
+  output uint1 sf_csn,
+  inout  uint1 sf_io0,
+  inout  uint1 sf_io1,
+  inout  uint1 sf_io2,
+  inout  uint1 sf_io3,
+$$end
+$$if SPIFLASH then
+  output uint1 sf_clk,
+  output uint1 sf_csn,
+  output uint1 sf_mosi,
+  input  uint1 sf_miso,
+$$end
+$$if UART then
+  output uint1 uart_tx,
+  input  uint1 uart_rx,
+$$end
+  )
 {
 
-  uint1 csn(1);
-  uint1 clk(0);
-  uint1 io0(0);
-  uint1 io1(0);
-  uint1 io2(0);
-  uint1 io3(0);
+$$if SIMULATION then
+  uint1 sf_csn(1);
+  uint1 sf_clk(0);
+  uint1 sf_io0(0);
+  uint1 sf_io1(0);
+  uint1 sf_io2(0);
+  uint1 sf_io3(0);
+$$if ICARUS then
+  simul_spiflash simu(
+    CSn <:  sf_csn,
+    CLK <:  sf_clk,
+    IO0 <:> sf_io0,
+    IO1 <:> sf_io1,
+    IO2 <:> sf_io2,
+    IO3 <:> sf_io3,
+  );
+$$end
+  uint32 cycle(0);
+$$end
+
+  bram uint8 data[256] = uninitialized;
 
   uint1 trigger(0);
+  uint9 iter(0);
 
-  simul_spiflash simu(
-    CSn <:  csn,
-    CLK <:  clk,
-    IO0 <:> io0,
-    IO1 <:> io1,
-    IO2 <:> io2,
-    IO3 <:> io3,
-  );
-
-  uint32 iter(0);
-
-$$STANDARD = nil
-$$QSPI     = 1
+$$STANDARD = 1
+$$QSPI     = nil
 
 $$if STANDARD then
 
+  uart_out uo;
+$$if UART then
+  uart_sender usend(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
+$$end
+
   spiflash_std spiflash(
     trigger <: trigger,
-    clk :>  clk,
-    io0 <:> io0,
-    io1 <:> io1,
-    io2 <:> io2,
-    io3 <:> io3,
+    clk :>  sf_clk,
+    io0 :>  sf_mosi,
+    io1 <:  sf_miso,
+    //io0 <:> sf_io0,
+    //io1 <:> sf_io1,
+    //io2 <:> sf_io2,
+    //io3 <:> sf_io3,
   );
 
   always {
-    csn   = reset;
+    // sf_csn           = reset;
+    uo.data_in_ready = 0;
+$$if SIMULATION then
+    cycle            = cycle + 1;
+$$end
   }
 
+  () = wait16();
+  spiflash.send_else_read = 1; // sending
+
+  sf_csn  = 0;
+//++:
+/*
+  spiflash.send    = 8hAB; // command
+  trigger = 1;             // maintain until done
+  () = wait16();
+  trigger = 0;
+++:
+  sf_csn  = 1;
+++:
+() = wait16();
+  sf_csn  = 0;
+++:
+*/
+//++:
   spiflash.send    = 8h03; // command
   trigger = 1;             // maintain until done
   () = wait16();
@@ -140,29 +210,56 @@ $$if STANDARD then
   () = wait16();
   spiflash.send    = 8h00; // addr 2
   () = wait16();
-  // read
+  spiflash.send_else_read = 0; // reading
+  // read some
+  data.wenable     = 1;
   () = wait16();
-  __display("read %x",spiflash.read);
-  // read
-  () = wait16();
-  __display("read %x",spiflash.read);
-  trigger = 0;             // done
+  while (data.addr != 255) {
+    data.wdata       = spiflash.read;
+    data.addr        = data.addr + 1;
+    ()               = wait16();
+  }
+  // output to UART
+  data.wenable = 0;
+  data.addr    = 1;
+  while (data.addr != 255) {
+$$if SIMULATION then
+    __display("cycle %d] read %x",cycle,data.rdata);
+    if (data.addr == 4) { __finish(); }
+$$end
+    uo.data_in       = data.rdata;
+    uo.data_in_ready = 1;
+    data.addr        = data.addr + 1;
+    while (uo.busy) { }
+  }
 
 $$end
 
 $$if QSPI then
 
+  uart_out uo;
+$$if UART then
+  uart_sender usend(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
+$$end
+
   spiflash_qspi spiflash(
     trigger <: trigger,
-    clk :>  clk,
-    io0 <:> io0,
-    io1 <:> io1,
-    io2 <:> io2,
-    io3 <:> io3,
+    clk :>  sf_clk,
+    io0 <:> sf_io0,
+    io1 <:> sf_io1,
+    io2 <:> sf_io2,
+    io3 <:> sf_io3,
   );
 
   always {
-    csn   = reset;
+    sf_csn   = reset;
+    uo.data_in_ready = 0;
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
   }
   // send command
   spiflash.qspi           = 0; // not qspi
@@ -196,18 +293,21 @@ $$if QSPI then
   () = wait4();
   spiflash.send           = 8h00;
   () = wait4();
+
   // read (finally ...)
   spiflash.send_else_read = 0;
   () = wait4();
-  __display("read: %x",spiflash.read);
-  () = wait4();
-  __display("read: %x",spiflash.read);
-  () = wait4();
-  __display("read: %x",spiflash.read);
-
-++:
-
-  trigger                 = 0;
+  // stream to uart
+  while (iter != 255) {
+$$if SIMULATION then
+    __display("cycle %d] read %x",cycle,spiflash.read);
+    if (iter == 4) { __finish(); }
+$$end
+    uo.data_in       = spiflash.read;
+    uo.data_in_ready = 1;
+    iter             = iter + 1;
+    ()               = wait4();
+  }
 
 $$end
 

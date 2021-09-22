@@ -15,12 +15,14 @@ algorithm main(output uint8 leds)
       pi = i;
       a  = a + 1;
     } -> {
+			__display("A [%d] = %d (e = %d)",pi,b,e);
       b  = a + 10;
       e ^= pi;
     } -> {
+      __display("B [%d] = %d (e = %d)",pi,b,e);
       c  = a + 2;
+      __display("C [%d] = %d (e = %d)",pi,b,e);
     } -> {
-      __display("[%d] = %d (e = %d)",pi,b,e);
       o[pi*8,8] = b;
     }
 
