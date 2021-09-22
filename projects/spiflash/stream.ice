@@ -48,16 +48,17 @@ algorithm spiflash_rom(
   );
 
   // ===== init: enter QPI
-  // send command
-  sf_csn                  = 0;
-  spiflash.qspi           = 0; // not qspi
-  spiflash.send_else_read = 1; // sending
   //_ 8h38 is 8b00111000 (enter QPI)
-  //  we send this over qspi, two bits at a time to initialize the read
-  spiflash.send           = 8b00000000; // what to sent is set one cycle before
+  // send command
+  spiflash.qspi           = 0; // not qpi yet
+  // send command two bits at a time
+  spiflash.send           = 8b00000000;
+  //                             ^   ^
+  spiflash.send_else_read = 1; // sending
+  sf_csn                  = 0;
 ++:  /*needed*/                         // we trigger spiflash commuincation
   trigger                 = 1; // maintain until done
-  () = wait3();           // wait 3 cycles, we send 1 cycle in advance
+  () = wait4();
   spiflash.send           = 8b00010001;
   () = wait4();
   spiflash.send           = 8b00010000;
@@ -74,12 +75,12 @@ algorithm spiflash_rom(
   // answer requests
   while (1) {
     if (in_ready) {
-      spiflash.send_else_read = 1;
+      // send command
+      spiflash.send           = 8hEB;
+      spiflash.send_else_read = 1; // sending
       sf_csn                  = 0;
 ++:
       trigger                 = 1;
-      // send command
-      spiflash.send           = 8hEB;
       () = wait4();
       // send address
       spiflash.send           = addr[16,8];
