@@ -1,4 +1,5 @@
 $$if ICARUS then
+// download W25Q128JVxIM from winbond Verilog models
 append('W25Q128JVxIM/W25Q128JVxIM.v')
 import('simul_spiflash.v')
 $$end
@@ -50,12 +51,12 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
-  // ===== init: will send enter QPI through the same
+  // ===== init: sends "enter QPI" through the same
   //             orders than the normal read command
 
   // answer requests
   while (1) {
-    if (in_ready || init) {
+    if (in_ready || init) { // takes 24 cycles exactly
       busy                    = 1;
       raddr                   = ~init ? addr : raddr;
       spiflash.qspi           = ~init; // not qpi if in init
@@ -164,7 +165,6 @@ $$end
     sf_rom.in_ready = 1;
     sf_rom.addr     = data.addr;
     ()              = wait24();
-// ++:
     __display("read %x",sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
     data.addr       = data.addr + 1;
