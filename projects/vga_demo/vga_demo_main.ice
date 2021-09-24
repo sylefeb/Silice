@@ -16,7 +16,7 @@ $$if MOJO then
 import('../common/plls/mojo_100_25.v')
 $$end
 
-$$if ICEBREAKER then
+$$if ICEBREAKER or ICEBITSY then
 // Clock
 import('../common/plls/icebrkr_25.v')
 $$end
@@ -111,7 +111,7 @@ $$elseif ICESTICK then
     clock_out :> video_clock,
     lock      :> pll_lock
   );
-$$elseif ICEBREAKER then
+$$elseif ICEBREAKER or ICEBITSY then
   // --- clock
   pll clk_gen (
     clock_in  <: clock,

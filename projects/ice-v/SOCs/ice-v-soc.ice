@@ -10,7 +10,7 @@ $$if ICESTICK then
 import('../../common/plls/icestick_60.v')
 $$elseif FOMU then
 import('../../common/plls/fomu_20.v')
-$$elseif ICEBREAKER then
+$$elseif ICEBREAKER or ICEBITSY then
 import('../../common/plls/icebrkr_25.v')
 $$end
 

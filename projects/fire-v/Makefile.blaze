@@ -1,4 +1,4 @@
- 
+
 .DEFAULT: blaze.ice
 		silice-make.py -s blaze.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@) $(ARGS)
 
@@ -8,9 +8,11 @@ ulx3s: blaze.ice
 icebreaker: blaze.ice
 	silice-make.py -s blaze.ice -b $@ -p basic,vga,spiflash -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
 
+icebitsy: blaze.ice
+	silice-make.py -s blaze.ice -b $@ -p basic,vga,spiflash -o BUILD_$(subst :,_,$@) $(ARGS)
+
 verilator: blaze.ice
 		silice-make.py -s blaze.ice -b $@ -p basic,vga -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
 
 clean:
 	rm -rf BUILD_*
- 

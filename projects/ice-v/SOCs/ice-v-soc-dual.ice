@@ -14,7 +14,7 @@ $$if ICESTICK then
 import('../../common/plls/icestick_70.v')
 $$elseif FOMU then
 import('../../common/plls/fomu_20.v')
-$$elseif ICEBREAKER then
+$$elseif ICEBREAKER or ICEBITSY then
 import('../../common/plls/icebrkr_25.v')
 $$end
 
@@ -23,11 +23,11 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 // pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_compiled.lua')
 
-$$if (ICEBREAKER or SIMULATION) then
+$$if (ICEBREAKER or ICEBITSY or SIMULATION) then
 $$  USE_SPRAM = 1
 $$end
 
-$$if (ICEBREAKER or SIMULATION) then
+$$if (ICEBREAKER or ICEBITSY or SIMULATION) then
 $$  periph   = 17       -- bit indicating a peripheral is addressed
 $$  addrW    = 18       -- additional bits for memory mapping
 $$  Boot     = 65536//4 -- NOTE: address in 32bits words
@@ -104,7 +104,7 @@ $$else
 ) {
 $$end
 
-$$if (ICEBREAKER or SIMULATION) and USE_SPRAM then
+$$if (ICEBREAKER or ICEBITSY or SIMULATION) and USE_SPRAM then
   uint14 sp0_addr(0);    uint4  sp0_wmask(0);    uint1  sp0_wenable(0);
   uint16 sp0_data_in(0); uint16 sp0_data_out(0);
   uint14 sp1_addr(0);    uint4  sp1_wmask(0);    uint1  sp1_wenable(0);

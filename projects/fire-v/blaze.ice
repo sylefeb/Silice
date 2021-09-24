@@ -14,11 +14,11 @@ $$if SIMULATION then
 $$verbose = nil
 $$end
 
-$$if not ((ICEBREAKER and VGA and SPIFLASH) or (VERILATOR and VGA)) then
+$$if not (((ICEBREAKER or ICEBITSY) and VGA and SPIFLASH) or (VERILATOR and VGA)) then
 $$error('Sorry, Blaze is currently not supported on this board.')
 $$end
 
-$$if ICEBREAKER then
+$$if ICEBREAKER or ICEBITSY then
 import('../common/plls/icebrkr_50.v')
 import('../common/ice40_half_clock.v')
 import('../common/ice40_spram.v')
@@ -117,7 +117,7 @@ $$if SPIFLASH then
   output uint1             sf_mosi,
   input  uint1             sf_miso,
 $$end  
-$$if ICEBREAKER then
+$$if ICEBREAKER or ICEBITSY then
 ) <@vga_clock,!fast_reset> {
 
   uint1 fast_clock = uninitialized;

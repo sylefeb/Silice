@@ -1,0 +1,93 @@
+# From https://raw.githubusercontent.com/icebreaker-fpga/icebreaker-verilog-examples/main/icebitsy/icebitsy1-pmod.pcf
+# Defining pins for the iCEBreaker-bitsy
+# using the PMOD breakout adapter board
+
+# 12 MHz clock
+set_io -nowarn CLK        35
+set_frequency CLK 12
+
+# USB
+set_io -nowarn USB_P      42
+set_io -nowarn USB_N      38
+set_io -nowarn USB_DET    37
+
+# RS232 - pin 0 and 1 on the bitsy1
+set_io -nowarn RX         47
+set_io -nowarn TX         44
+
+# LEDs and Button
+set_io -nowarn BTN_N       2
+set_io -nowarn LEDR_N     25
+set_io -nowarn LEDG_N      6
+
+# RGB LED Driver
+set_io -nowarn LED_RED_N  39
+set_io -nowarn LED_GRN_N  40
+set_io -nowarn LED_BLU_N  41
+set_io -nowarn LED_RGB[0] 39
+set_io -nowarn LED_RGB[1] 40
+set_io -nowarn LED_RGB[2] 41
+
+# SPI Flash
+set_io -nowarn FLASH_SCK  15
+set_io -nowarn FLASH_CS   16
+set_io -nowarn FLASH_IO0  14
+set_io -nowarn FLASH_IO1  17
+set_io -nowarn FLASH_IO2  18
+set_io -nowarn FLASH_IO3  19
+
+# Pmod 1
+set_io -nowarn P1_1       47
+set_io -nowarn P1_2       48
+set_io -nowarn P1_3        4
+set_io -nowarn P1_4        9
+set_io -nowarn P1_7       44
+set_io -nowarn P1_8       45
+set_io -nowarn P1_9        3
+set_io -nowarn P1_10      10
+
+# Pmod 2
+set_io -nowarn P2_1       43
+set_io -nowarn P2_2       32
+set_io -nowarn P2_3       26
+set_io -nowarn P2_4       28
+set_io -nowarn P2_7       36
+set_io -nowarn P2_8       31
+set_io -nowarn P2_9       27
+set_io -nowarn P2_10      34
+
+# Pmod 3
+set_io -nowarn P3_1       23
+set_io -nowarn P3_2       12
+set_io -nowarn P3_3       13
+set_io -nowarn P3_4       11
+set_io -nowarn P3_7       25
+set_io -nowarn P3_8       21
+set_io -nowarn P3_9       20
+set_io -nowarn P3_10      46
+
+# Pins
+set_io -nowarn P0         47
+set_io -nowarn P1         44
+set_io -nowarn P2         48
+set_io -nowarn P3         45
+set_io -nowarn P4          4
+set_io -nowarn P5          3
+set_io -nowarn P6          9
+set_io -nowarn P7         10
+set_io -nowarn P8         11
+set_io -nowarn P9         12
+set_io -nowarn P10        21
+set_io -nowarn P11        13
+set_io -nowarn P12        20
+set_io -nowarn P13        25
+set_io -nowarn P14        23
+set_io -nowarn P15        27
+set_io -nowarn P16        26
+set_io -nowarn P17        28
+set_io -nowarn P18        31
+set_io -nowarn P19        32
+set_io -nowarn P20        34
+set_io -nowarn P21        36
+set_io -nowarn P22        43
+set_io -nowarn P23        46
