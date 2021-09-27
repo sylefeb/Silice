@@ -59,7 +59,7 @@ When designing with Silice your code describes circuits. If not done already, it
 
 GitHub repository: <https://github.com/sylefeb/Silice/>
 
-  
+
 
 # A first example
 
@@ -74,7 +74,7 @@ Perhaps the most natural version for a programmer not used to FPGAs
 would be:
 
 ``` c
-algorithm main(input uint1 button,output uint1 led) {  
+algorithm main(input uint1 button,output uint1 led) {
   while (1) {
     led = button;
   }
@@ -85,7 +85,7 @@ This sets `led` to the value of `button` every clock cycle. However, we
 could instead specify a *always assignment* between led and button:
 
 ``` c
-algorithm main(input uint1 button,output uint1 led) {  
+algorithm main(input uint1 button,output uint1 led) {
   led := button;
 }
 ```
@@ -95,13 +95,13 @@ convenient feature is that the always assignment can be overridden
 at some clock steps, for instance:
 
 ``` c
-algorithm main(input uint1 button,output uint1 led) {  
+algorithm main(input uint1 button,output uint1 led) {
   led := 0;
   while (1) {
     if (button == 1) {
       led = 1;
     }
-  }  
+  }
 }
 ```
 
@@ -114,7 +114,7 @@ specific event (e.g. producing a pulse).
 This first example has an interesting subtlety. The `button` input, if it comes directly from an onboard button, is likely *asynchronous*. This means it can change at anytime, even during a clock cycle. That could lead to trouble with the logic that depends on it. To be safe, a better approach is to *register* the input button, this can be achieved as follows:
 
 ``` c
-algorithm main(input uint1 button,output uint1 led) {  
+algorithm main(input uint1 button,output uint1 led) {
   led ::= button;
 }
 ```
@@ -216,7 +216,7 @@ Similarly, the padding can be uninitialized:
 first part of the table will be initialized, the state of the other
 values will be unknown.
 
-Tables can also be initialized from file content, but only for specific bit-widths (currently 8 bits and 32 bits). 
+Tables can also be initialized from file content, but only for specific bit-widths (currently 8 bits and 32 bits).
 
 Example: `int32 tbl[256] = {file("data.img"), pad(0)};`
 
@@ -249,17 +249,6 @@ table.addr    = 2; // third entry
 ++:                // wait on clock
 a = table.rdata;   // now a == 44
 ```
-
-Finally, an advanced option lets you indicate that the BRAM inputs need
-not be latched:
-
-``` c
-bram int8 table<input!>[4] = uninitialized;
-```
-
-This is used to minimize a design size ; however the caller has to
-ensure values are all properly present at the right cycle when
-reading/writing.
 
 The rules for initializers of BRAMs are the same as for tables.
 
@@ -367,8 +356,8 @@ There are two other versions of the binding operators:
 
 Normally, the bound inputs are tracking the value of the bound VIO as changed during the current clock cycle. Therefore, the
 tracking algorithm/module immediately gets new values (in other words,
-there is a direct connection). 
-This, however, produces deeper circuits and can reduce the max frequency of a design. These operators allow to bind the value as it was at the cycle start (positive clock edge). 
+there is a direct connection).
+This, however, produces deeper circuits and can reduce the max frequency of a design. These operators allow to bind the value as it was at the cycle start (positive clock edge).
 This introduces a one cycle latency before the algorithm/module sees the change, but makes the resulting circuit less deep. See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
 
 > **Note:** when a VIO is bound both to an algorithm input and and algorithm output (making a direct connection between two instantiated algorithms), then using `<::` or `<:` will result in the same behavior, which is controlled by the use of `output` or `output!` on the algorithm driving the output. This will be clarified in the future, see [issue #49](https://github.com/sylefeb/Silice/issues/49).
@@ -404,7 +393,7 @@ algorithm writer(
     data  = ...;
     write = 1; // pulses high on next rising clock
   }
-  
+
 }
 ```
 
@@ -427,7 +416,7 @@ algorithm adder(
   uint8 a = 1;
   uint8 b = 2;
   uint9 a_plus_b <: a + b;
-  
+
   a = 15;
   b = 3;
   o = a_plus_b; // line 11
@@ -492,7 +481,7 @@ algorithm sdramctrl(
     output  busy,       // controller is busy when high
     input   in_valid,   // pulse high to initiate a read/write
     output  out_valid   // pulses high when data from read is
-}    
+}
 ) {
   // ..
 ```
@@ -514,7 +503,7 @@ A group can be passed in a call if the algorithm describes an anonymous interfac
 
 ## Anonymous interfaces
 
-Interfaces can be declared for a group during algorithm definition.  
+Interfaces can be declared for a group during algorithm definition.
 
 ```c
 group point {
@@ -548,8 +537,8 @@ Anonymous interfaces allow groups to be given as parameters during calls.
 
 ## Named interfaces
 
-Named interfaces are ways to describe what inputs and outputs an algorithm expects, without knowing in advance the exact specification of these fields (e.g. their widths). 
-Besides making algorithm IO description more compact, this provides genericity. 
+Named interfaces are ways to describe what inputs and outputs an algorithm expects, without knowing in advance the exact specification of these fields (e.g. their widths).
+Besides making algorithm IO description more compact, this provides genericity.
 
 Named interfaces **have** to be bound to a group
 (Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>) or an interface upon algorithm instantiation. They cannot be used to pass a group in a call. The binding does not have to be complete: it is possible to bind to an interface a group having **more** (not less) members than the interface.
@@ -684,7 +673,7 @@ Silice has convenient intrinsics:
 
 # Algorithms
 
-Algorithms are the main elements of a Silice design. An algorithm is a 
+Algorithms are the main elements of a Silice design. An algorithm is a
 specification of a circuit implementation. Thus, like modules in
 Verilog, algorithms have to be instanced before being used. Each
 instance becomes an actual physical layout on the final design. An
@@ -762,7 +751,9 @@ loops: a cycle in the described circuitry (that is generally bad).
 Silice detects such cases and will issue an error (see also
 Section <a href="#combloops" data-reference-type="ref" data-reference="combloops">4.6</a>).
 
-> **Note:** Silice combinational loop detection is not perfect yet. Such a problem would typically result in simulation hanging (unable to stabilize the circuit) with Verilator issuing a `UNOPTFLAT` warning.
+> **Note:** Silice combinational loop detection is not perfect yet.
+Such a problem would typically result in simulation hanging (unable to stabilize
+the circuit) with Verilator issuing a `UNOPTFLAT` warning.
 
 #### *Declarations.*
 
@@ -774,7 +765,7 @@ algorithm main(output uint8 led)
 {
   uint8 r = 0;
   adder ad1;
-  
+
   // ... btw this is a comment
 }
 ```
@@ -787,7 +778,7 @@ In terms of hardware, these are the wires connecting instanced and
 parent algorithms. Instantiation uses the following syntax:
 
 ``` verilog
-MOD_ALG ID<@CLOCK,!RESET> (
+MOD_ALG ID<@CLOCK,!RESET,...> (
 BINDINGS
 (<:auto:>)
 );
@@ -802,6 +793,15 @@ specifies a clock signal, `!RESET` a reset signal, where `CLOCK` and
 optional, and if none is specified the brackets `<>` can be skipped.
 When none are specified the parent `clock` and `reset` are used for the
 instance.
+
+Other possible modifiers are:
+- `reginputs`, applies only to non-callable algorithms (algorithms that have an
+`<autostart>` modifier or only consist of always blocks and/or always
+assignments). This modifier requests inputs accessed with the dot syntax
+to be registered, e.g. there will be a one cycle latency between their
+assignment and when the instanced algorithm sees the change. Please refer to the
+[notes on algorithms calls, bindings and timings](AlgoInOuts.md) for details.
+
 
 Each binding is defined as: `ID_left OP ID_right` where `ID_left` is the
 identifier of an instance input or output, `OP` a binding operator
@@ -991,9 +991,9 @@ algorithm main(output uint8 led)
       counter = counter + 1;
     }
   }
-    
+
   led := a;
-  
+
   while(1) {
     () <- wait <- ();
     () <- shift_led <- ();
@@ -1005,12 +1005,12 @@ algorithm main(output uint8 led)
 variables given read/write permission can be manipulated. This mitigates
 the fact that a subroutine may directly manipulate variables in the
 parent algorithm. The format for the permissions is a comma separated
-list using keywords `reads`, `writes`, `readwrites`  
+list using keywords `reads`, `writes`, `readwrites`
 *Why subroutines?* There is a fundamental difference between a
 subroutine and an algorithm called from a host: the subroutine never
 executes in parallel, while a child algorithm could. However, if this
 parallelism is not necessary, subroutines offer a simple mechanism to
-repeat internal tasks.  
+repeat internal tasks.
  
 
 *Global subroutines* Subroutines may be declared outside of an
@@ -1094,7 +1094,11 @@ instantiation from an algorithm:
 (sd) = writeData(sd,myaddr,abyte);
 ```
 
-> **Note:** currently circuitry instantiation can only be made on VIO identifiers (no expressions, no bit-select or part-select). This restriction will be removed at some point. In the meantime bound expressions provide a work around, first defining a bound expression with an identifier then giving it to the circuitry (these can be defined in a block around the circuit instantiation).
+> **Note:** currently circuitry instantiation can only be made on VIO identifiers
+(no expressions, no bit-select or part-select). This restriction will be removed
+at some point. In the meantime bound expressions provide a work around, first
+defining a bound expression with an identifier then giving it to the circuitry
+(these can be defined in a block around the circuit instantiation).
 
 ## Combinational loops
 
@@ -1131,7 +1135,7 @@ On its own, this expression is perfectly fine: for each variable Silice
 tracks to versions, the value at the cycle start and the value being modified (corresponding to a hardware flip-flip DQ pair). So `a = a + 1` in fact means
 *a*<sub>current</sub> = *a*<sub>previous</sub> + 1. In fact, the code describes the circuit to update *a*<sub>previous</sub> from *a*<sub>current</sub>.
 
-The problem here comes from the prior assignment to *a*, `a = b + 1`. 
+The problem here comes from the prior assignment to *a*, `a = b + 1`.
 This already sets a new value for *a*<sub>current</sub>, and thus the next expression
 `a = a + 1` would have to use this new value. This now leads to
 *a*<sub>current</sub> = *a*<sub>current</sub> + 1
@@ -1183,7 +1187,7 @@ algorithm main(output uint8 led)
 }
 ```
 
-These assignments are always performed, before anything else in the algorithm. 
+These assignments are always performed, before anything else in the algorithm.
 They are order dependent. For instance:
 
 ``` c
@@ -1303,14 +1307,14 @@ architecture and vendor toolchain.
 # Execution flow and cycle utilization rules
 
 Upon compilation, Silice breaks down the code into a finite state
-machine (FSM). Each state corresponds to a circuit that updates the variables 
-within a single cycle, and selects the next state. 
+machine (FSM). Each state corresponds to a circuit that updates the variables
+within a single cycle, and selects the next state.
 We next call these circuits *combinational chains*.
 
-Silice attempts to form the longest combinational chains, or equivalently 
-to minimize the number of states in the FSM. That is because going from one 
-state to the next requires one clock cycle, delaying further computations. 
-Of course, longer combinational chains also lead to reduced clock frequency, 
+Silice attempts to form the longest combinational chains, or equivalently
+to minimize the number of states in the FSM. That is because going from one
+state to the next requires one clock cycle, delaying further computations.
+Of course, longer combinational chains also lead to reduced clock frequency,
 so there is a tradeoff. This is why Silice lets you explicitly specify
 where to cut a combinational chain using the step operator `++:`
 
@@ -1343,8 +1347,8 @@ and maintain code[3]. Yet, they are a fundamental low-level operation
 and Silice is happy to expose them for your enjoyment!
 
 `goto` always requires one cycle to ’jump’: this is a change of state in
-the FSM. Entering a `while` takes one cycle and then, if the block inside is 
-a single combinational chain, it takes exactly one cycle per iteration. 
+the FSM. Entering a `while` takes one cycle and then, if the block inside is
+a single combinational chain, it takes exactly one cycle per iteration.
 Exiting a `while` takes one cycle ; however when chaining
 loops only one cycle is required to enter the next loop. So the first
 loop takes one cycle to enter, any additional loop afterwards adds a single cycle
@@ -1362,7 +1366,7 @@ When the `if-then-else` contains additional control flow (e.g. a
 subroutine call, a `while`, a `++:`, a `goto`, etc.) it is automatically
 split into several states. It then takes one cycle to exit the ’if’ or
 ’else’ part and resume operations. If only the ’if’ or the ’else’
-requires additional states while the other is a one-cycle block (possibly empty), 
+requires additional states while the other is a one-cycle block (possibly empty),
 an additional state is still required to ’jump’
 to what comes after the `if-then-else`. So in general this will cost one
 cycle. However, in cases where this next state already exists, for
@@ -1376,7 +1380,7 @@ while(...) {
   if (condition) {
     ...
 ++:
-    ...    
+    ...
   }
   a = b + 1; // line 7
 }
@@ -1395,7 +1399,7 @@ while(...) {
   if (condition) {
     ...
 ++:
-    ...    
+    ...
     a = b + 1;
   } else {
     a = b + 1;
@@ -1418,9 +1422,9 @@ switch( <EXPR> ) {
   case <CONST>: {  /* code for this case */    }
   case <CONST>: {  /* code for this case */    }
   default:      {  /* code for default case */ }
-}  
+}
 ```
-where `<EXPR>` is an expression and `<CONST>` are constants. 
+where `<EXPR>` is an expression and `<CONST>` are constants.
 
 There is also a onehot version:
 ``` c
@@ -1430,11 +1434,11 @@ switch( <IDENTFIER> ) {
   ...
   case <W-1>: {  /* code for this case */    }
   default:    {  /* code for default case */ }
-}  
+}
 ```
 where `<IDENTFIER>` is a variable of width `W` and each case is activated for
 the corresponding bit of `<IDENTFIER>` being set to `1`, with all other bits set to `0`.
-The `default` is only mandatory if not all bits are tested, and otherwise 
+The `default` is only mandatory if not all bits are tested, and otherwise
 only necessary if `<IDENTFIER>` may be zero (not having a default while `<IDENTFIER>`
 may be zero leads to undefined behaviors).
 
