@@ -1254,12 +1254,12 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
     for (auto m : alg->bpModifiers()->bpModifier()) {
       if (m->sclock() != nullptr) {
         nfo.instance_clock = m->sclock()->IDENTIFIER()->getText();
-      }
-      if (m->sreset() != nullptr) {
+      } else if (m->sreset() != nullptr) {
         nfo.instance_reset = m->sreset()->IDENTIFIER()->getText();
-      }
-      if (m->sautorun() != nullptr) {
-        reportError(m->sautorun()->AUTORUN()->getSymbol(), (int)m->sautorun()->getStart()->getLine(), "autorun not allowed when instantiating algorithms" );
+      } else if (m->sreginput() != nullptr) {
+        nfo.instance_reginput = true;
+      } else {
+        reportError(m->getSourceInterval(), -1, "modifier not allowed when instantiating algorithms" );
       }
     }
   }
@@ -7561,13 +7561,13 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
         }
       } else {
         // input is not bound and assigned in logic, a specific flip-flop is created for this
-        if (nfo.blueprint->isNotCallable()) {
+        if (nfo.blueprint->isNotCallable() && !nfo.instance_reginput) {
           // the instance is never called, we bind to D
           out << FF_D << nfo.instance_prefix << "_" << is.name;
           // add to usage
           updateFFUsage(e_D, true, ff_input_bindings_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
         } else {
-          // the instance is only called, we bind to Q
+          // the instance is only called or registered input were required, we bind to Q
           out << FF_Q << nfo.instance_prefix << "_" << is.name;
           // add to usage
           updateFFUsage(e_Q, true, ff_input_bindings_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);

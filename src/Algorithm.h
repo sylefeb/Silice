@@ -231,6 +231,7 @@ private:
       bool                       autobind;
       std::string                instance_clock;
       std::string                instance_reset;
+      bool                       instance_reginput = false;
       std::unordered_map<std::string, std::pair<std::string, e_FFUsage> > boundinputs;
     } t_instanced_nfo;
 

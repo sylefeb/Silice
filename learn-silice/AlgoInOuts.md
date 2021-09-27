@@ -101,7 +101,7 @@ At this stage you might be wondering why we don't always use case B, since it pr
 
 So that's the first catch, what is the second one? Well, combinational loops! As we directly connect `cycle` and `value` in `main`, we now have to be very careful that `cycle` never depends in any way to a change in `value`, otherwise we create a loop in the circuit. This quickly becomes impractical -- nevertheless case B is definitely possible and useful in specific cases (but in terms of Silice you might consider using a `circuitry` instead).
 
-Now, what use are the other cases? Case A is the standard setup in Silice, with inputs directly connected and outputs registered on a flip-flop. Case D is the opposite with inputs registered on a flip-flop and outputs directly connected. Case C is the most conservative, with both inputs and outputs registered on flip-flops. Let's have a second look at time diagrams for each four cases to understand the implications. This time we fix the frequency, and consider how much time the algorithm has to perform its operations, and how much time remains before the clock cycle ends. 
+Now, what use are the other cases? Case A is the standard setup in Silice, with inputs directly connected and outputs registered on a flip-flop. Case D is the opposite with inputs registered on a flip-flop and outputs directly connected. Case C is the most conservative, with both inputs and outputs registered on flip-flops. Let's have a second look at time diagrams for each four cases to understand the implications. This time we fix the frequency, and consider how much time the algorithm has to perform its operations, and how much time remains before the clock cycle ends.
 
 In the figure below the blue segment represents the algorithm's circuit and the time it takes. The left endpoint is when inputs change, the right endpoint when outputs are available at the other end of the circuit. The arrows represent latencies added by `<::` and `output` (through flip-flops). Note that if the blue segment would ever cross a clock raising edge, the results would be incorrect as the signal would not have propagated through the circuit: a lower frequency would have to be used.
 
@@ -118,23 +118,23 @@ How to choose? Well there is not strict rule here, all these cases can be useful
 
 ### Inputs controlled from parent, outputs from instance?
 
-There is currently an asymmetry in the fact that the behavior of outputs are controlled in the algorithm definition (`output` or `output!`), while the behavior of the inputs is controlled at instantiation time (`<:` or `<::`). This reflects the fact that input flip-flops are indeed in the parent, while output flip-flops are indeed in the instance. 
+There is currently an asymmetry in the fact that the behavior of outputs are controlled in the algorithm definition (`output` or `output!`), while the behavior of the inputs is controlled at instantiation time (`<:` or `<::`). This reflects the fact that input flip-flops are indeed in the parent, while output flip-flops are indeed in the instance.
 
 > **Note:** This asymmetry is considered an issue and will likely be resolved in the future, see [issue #125](https://github.com/sylefeb/Silice/issues/125).
 
 In any case an algorithm may of course force register its inputs, as explained next.
 
-### Registering inputs 
+### Registering inputs
 
 There are (many) cases where the inputs are actual wires from the outside, and are thus asynchronous signals. In such cases, the inputs have to be registered before being used (otherwise they can change mid-cycle, wreaking havoc in the logic in most cases...).
 
 ```c
 algorithm Algo(input uint8 i, output uint8 v)
 {
-  uint8 ri = 0;  
-  
+  uint8 ri = 0;
+
   ri ::= i; // note the use of :: before the equal sign, this makes ri track i with a one cycle latencly
-  
+
   always { v = ri; }
 }
 ```
@@ -144,8 +144,8 @@ or equivalently:
 ```c
 algorithm Algo(input  uint8 i, output uint8 v)
 {
-  uint8 ri = 0;  
-  
+  uint8 ri = 0;
+
   always_before { v  = ri; } // always done first
   always_after  { ri = i;  } // always done last
 }
@@ -153,8 +153,8 @@ algorithm Algo(input  uint8 i, output uint8 v)
 
 ### What about the 'dot' syntax and calls?
 
-The behavior depends on whether the algorithm is an instance of an *auto-start* algorithm. An auto-start algorithm does not have to be called (and calling it is an error) as it either uses `<autorun>` or is composed only of always blocks and/or always assignments. 
+The behavior depends on whether the algorithm is an instance of an *auto-start* algorithm. An auto-start algorithm does not have to be called (and calling it is an error) as it either uses `<autorun>` or is composed only of always blocks and/or always assignments.
 
-On an auto-start algorithm, the 'dot' syntax always writes inputs directly (no delay) and reads outputs as defined by the use of `output` or `output!`. 
+On an auto-start algorithm, the 'dot' syntax always writes inputs directly (no delay) and reads outputs as defined by the use of `output` or `output!` in the instanced algorithm. The input behavior can be overridden by using the `<reginputs>` modifier on the instance, in which case all inputs specified with the dot syntax are now registered.
 
 On an algorithm that has to be called, the 'dot' syntax write on inputs with a one cycle latency (as with `<::`). The `() <- alg <- ()` call behaves similarly to case C above, with one cycle before the algorithm starts, and one cycle between the time it stops and outputs are read. Both inputs and outputs are registered.

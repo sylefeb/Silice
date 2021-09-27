@@ -176,12 +176,13 @@ sclock              :  '@' IDENTIFIER ;
 sreset              :  '!' IDENTIFIER ;
 sautorun            :  AUTORUN ;
 sonehot             :  ONEHOT ;
+sreginput           :  'reginputs' ;
 sstacksz            :  'stack:' NUMBER ; // deprecated
 sformdepth          :  '#depth' '=' NUMBER ;
 sformtimeout        :  '#timeout' '=' NUMBER ;
 sformmode           :  '#mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
 
-bpModifier          : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode ;
+bpModifier          : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode | sreginput ;
 bpModifiers         : '<' bpModifier (',' bpModifier)* '>' ;
 
 pad                 : PAD '(' (value | UNINITIALIZED) ')' ;
