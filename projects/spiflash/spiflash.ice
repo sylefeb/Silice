@@ -28,9 +28,9 @@ algorithm spiflash_std(
     busy      = busy[0,1] ? (osc[0,1] ? {1b0,   busy[1,7]} : busy) : (
                 trigger   ? 8b11111111
                           : busy );
-    read      = (osc[0,1] ? {read[0,7],io1.i/*io1*/} : read);
+    read      = (osc[0,1] ? {read[0,7],io1.i} : read);
 
-    /*io0*/ io0.o = sending[7,1];
+    io0.o = sending[7,1];
 
   }
 }
@@ -82,7 +82,7 @@ circuitry wait4() // waits exactly 4 cycles
 algorithm spiflash_rom(
   input   uint1  in_ready,
   input   uint24 addr,
-  output! uint8  rdata,
+  output  uint8  rdata,
   output  uint1  busy(1),
   // QSPI flash
   output  uint1  sf_csn(1),
