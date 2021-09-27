@@ -108,7 +108,7 @@ algorithm spiflash_rom(
 
   // looks like this delay is required before startup
   {
-    uint8 n = 0; while (n != 255) { n = n + 1; }
+    uint9 n(0); while (n != 511) { n = n + 1; }
   }
 
   // ===== init: sends "enter QPI" through the same
