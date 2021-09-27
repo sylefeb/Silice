@@ -118,15 +118,20 @@ How to choose? Well there is not strict rule here, all these cases can be useful
 
 ### Inputs controlled from parent, outputs from instance?
 
-There is currently an asymmetry in the fact that the behavior of outputs are controlled in the algorithm definition (`output` or `output!`), while the behavior of the inputs is controlled at instantiation time (`<:` or `<::`). This reflects the fact that input flip-flops are indeed in the parent, while output flip-flops are indeed in the instance.
-
-> **Note:** This asymmetry is considered an issue and will likely be resolved in the future, see [issue #125](https://github.com/sylefeb/Silice/issues/125).
+There is an asymmetry in the fact that the behavior of outputs are controlled in
+the algorithm definition (`output` or `output!`), while the behavior of the
+inputs is controlled at instantiation time (`<:` or `<::`). This reflects the
+fact that input flip-flops are indeed in the parent, while output flip-flops
+are indeed in the instance.
 
 In any case an algorithm may of course force register its inputs, as explained next.
 
 ### Registering inputs
 
-There are (many) cases where the inputs are actual wires from the outside, and are thus asynchronous signals. In such cases, the inputs have to be registered before being used (otherwise they can change mid-cycle, wreaking havoc in the logic in most cases...).
+There are (many) cases where the inputs are actual wires from the outside, and
+are thus asynchronous signals. In such cases, the inputs have to be registered
+before being used (otherwise they can change mid-cycle, wreaking havoc in the
+logic in most cases...).
 
 ```c
 algorithm Algo(input uint8 i, output uint8 v)
@@ -153,8 +158,24 @@ algorithm Algo(input  uint8 i, output uint8 v)
 
 ### What about the 'dot' syntax and calls?
 
-The behavior depends on whether the algorithm is an instance of an *auto-start* algorithm. An auto-start algorithm does not have to be called (and calling it is an error) as it either uses `<autorun>` or is composed only of always blocks and/or always assignments.
+The behavior depends on whether the algorithm is an instance of a *non-callable*
+algorithm. A non-callable algorithm does not have to be called (and calling it
+is an error) as it either uses `<autorun>` or is composed only of always blocks
+and/or always assignments.
 
-On an auto-start algorithm, the 'dot' syntax always writes inputs directly (no delay) and reads outputs as defined by the use of `output` or `output!` in the instanced algorithm. The input behavior can be overridden by using the `<reginputs>` modifier on the instance, in which case all inputs specified with the dot syntax are now registered.
+On a non-callable algorithm, the 'dot' syntax always writes inputs directly
+(no delay) and reads outputs as defined by the use of `output` or `output!` in
+the instanced algorithm. The input behavior can be overridden by using
+the `<reginputs>` modifier on the instance, in which case all inputs specified
+with the dot syntax are now registered.
 
-On an algorithm that has to be called, the 'dot' syntax write on inputs with a one cycle latency (as with `<::`). The `() <- alg <- ()` call behaves similarly to case C above, with one cycle before the algorithm starts, and one cycle between the time it stops and outputs are read. Both inputs and outputs are registered.
+On an algorithm that has to be called, the 'dot' syntax write on inputs with a
+one cycle latency (as with `<::`). The `() <- alg <- ()` call behaves similarly
+to case C above, with one cycle before the algorithm starts, and one cycle
+between the time it stops and outputs are read. Both inputs and outputs
+are registered.
+
+> **Note**: Registering inputs imply that flip-flops are created for the
+inputs in the parent algorithm. However, a non-registered input may still lead
+to a flip-flop depending on its usage, so that it can preserve its value
+across different cycles. This is determined by the compiler.
