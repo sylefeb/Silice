@@ -3064,7 +3064,7 @@ void Algorithm::parseCallParams(
     reportError(params->getSourceInterval(), -1,
       "incorrect %s parameters in call to algorithm '%s', last correct match was parameter '%s'",
       input_else_output ? "input" : "output", sub->name.c_str(),
-      expected_params.empty() ? "" : expected_params[_matches.size() - 1].c_str());
+      (_matches.size() - 1) >= expected_params.size() ? "" : expected_params[_matches.size() - 1].c_str());
   }
   if (input_else_output) {
     sl_assert(_matches.size() == sub->inputs.size());
