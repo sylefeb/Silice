@@ -106,6 +106,72 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
+  uint9 wait(511);
+	uint3 stage(0);
+	uint3 after(1);
+  uint3 three(0);
+  always {
+		switch (stage)
+		{
+			case 0: {
+  			stage = wait == 0 ? after : 0; // NOTE == 0 could be reduced
+        wait  = wait - 1;
+			}
+		  case 1: {
+        raddr                   = ~init ? addr : raddr;
+        three                   = 3b100;
+        spiflash.qspi           = ~init; // not qpi if in init
+        // send command
+        spiflash.send           = init ? 8h00 : 8hEB;
+        spiflash.send_else_read = 1; // sending
+        // start sending?
+				if (in_ready || init) {
+					busy                    = 1;
+					sf_csn                  = 0;
+					stage = 2;
+				}
+			}
+      case 2: {
+        trigger                 = 1;
+				wait  = 2; //_ 4 cycles
+        after = 3;
+				stage = 0;
+      }
+      case 3: {
+        spiflash.send           = raddr[16,8];
+        raddr                   = raddr << 8;
+				stage = 0; // wait
+				wait  = 2; //_ 4 cycles
+        after = three[0,1] ? 4 : 3;
+        three = three >> 1;
+      }
+      case 4: {
+        sf_csn                  =  init;
+        trigger                 = ~init;
+        // send dummy
+        spiflash.send           = 8h00;
+				stage = 0; // wait
+				wait  = 1; //_ 3 cycles
+        after = 5;
+      }
+      case 5: {
+        spiflash.send_else_read = 0;
+				stage = 0; // wait
+				wait  = 2; //_ 4 cycles
+        after = 6;
+      }
+      case 6: {
+        rdata                   = spiflash.read;
+        sf_csn                  = 1;
+        trigger                 = 0;
+        init                    = 0;
+        busy                    = 0;
+				stage = 1;
+      }
+		}
+	}
+
+/*
   // looks like this delay is required before startup
   {
     uint9 n(0); while (n != 511) { n = n + 1; }
@@ -150,5 +216,6 @@ algorithm spiflash_rom(
       busy                    = 0;
     }
   }
+*/
 
 }
