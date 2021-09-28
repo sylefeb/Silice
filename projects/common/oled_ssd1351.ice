@@ -75,9 +75,9 @@ algorithm oled(
   {
     uint32 count = 0;
 $$if SIMULATION then
-    while (count < $oled_send_delay$) {
+    while (count != $oled_send_delay$) {
 $$else
-    while (count < delay) { 
+    while (count != delay) {
 $$end
       count = count + 1;
     }   

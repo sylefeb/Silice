@@ -17,39 +17,9 @@ group oledio {
 
 // ------------------------- 
 
+$include("spi.ice")
+
 $$oled_send_delay = 8*2
-
-algorithm oled_send(
-  input!  uint1 enable,
-  input!  uint1 data_or_command,
-  input!  uint8 byte,
-  output  uint1 oled_clk,
-  output  uint1 oled_mosi,
-  output  uint1 oled_dc,
-) <autorun> {
-
-  uint2  osc        = 1;
-  uint1  dc         = 0;
-  uint10 sending    = 0;
-  
-  always {
-    oled_dc  =  dc;
-    osc      =  (sending>1) ? {osc[0,1],osc[1,1]} : 1;
-    oled_clk =  (!(sending>1)) || (osc[1,1]); // SPI Mode 3
-    if (enable) {
-      dc         = data_or_command;
-      oled_dc    = dc;
-      sending    = {1b1,
-        byte[0,1],byte[1,1],byte[2,1],byte[3,1],
-        byte[4,1],byte[5,1],byte[6,1],byte[7,1],1b0};
-    } else {
-      oled_mosi = sending[0,1];
-      if (osc[1,1]) {
-        sending   = {1b0,sending[1,9]};
-      }
-    }
-  }
-}
 
 // ------------------------- 
 
@@ -75,9 +45,9 @@ algorithm oled(
   {
     uint24 count = 0;
 $$if SIMULATION then
-    while (count < $oled_send_delay$) {
+    while (count != $oled_send_delay$) {
 $$else
-    while (count < delay) { 
+    while (count != delay) {
 $$end
       count = count + 1;
     }   
@@ -87,14 +57,14 @@ $$end
   uint1 data_or_command = 0;
   uint8 byte            = 0;
 
-  oled_send sender(
+  spi_mode3_send sender(
     enable          <:: enable,
     data_or_command <:: data_or_command,
     byte            <:: byte,
-    oled_clk  :> oled_clk,
-    oled_mosi :> oled_mosi,
-    oled_dc   :> oled_dc
-  );  
+    spi_clk         :> oled_clk,
+    spi_mosi        :> oled_mosi,
+    spi_dc          :> oled_dc
+  );
 
   subroutine sendCommand(input uint8 val,
     writes enable,writes data_or_command,writes byte,calls wait)

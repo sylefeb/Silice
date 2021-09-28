@@ -9,7 +9,7 @@ $$ ST7789=1
 $$ oled_width   = 240
 $$ oled_height  = 320
 //               vvvvv set to false if the screen uses the CS pin
-$$ st7789_no_cs = false
+$$ st7789_no_cs = nil
 //                   vvvvv set to true to rotate view 90 degrees
 $$ st7789_transpose = true
 
@@ -19,7 +19,7 @@ $$ st7789_transpose = true
 
 $include('../common/oled.ice')
 
-$$if not OLED then
+$$if not OLED and not SIMULATION then
 $$error('This project requires an OLED screen')
 $$end
 
@@ -27,12 +27,22 @@ $$end
 
 algorithm main(
   output uint$NUM_LEDS$ leds,
+$$if OLED then
   output uint1 oled_clk,
   output uint1 oled_mosi,
   output uint1 oled_dc,
   output uint1 oled_resn,
   output uint1 oled_csn,
+$$end
 ) {
+
+$$if not OLED then
+  uint1 oled_clk(0);
+  uint1 oled_mosi(0);
+  uint1 oled_dc(0);
+  uint1 oled_resn(0);
+  uint1 oled_csn(0);
+$$end
 
   oledio io;
   oled   display(
@@ -80,12 +90,15 @@ algorithm main(
         io.next_pixel = 1;
         while (io.ready == 0) { } // wait ack
         u = u + 1;
+
+$$if SIMULATION then
+      __finish();
+$$end
       }
       v = v + 1;
     }
     
     frame = frame + 1;
-   
   }
 
 }
