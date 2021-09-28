@@ -3395,6 +3395,10 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
 {
   sl_assert(block->is_state);
   const t_combinational_block *current = block;
+  if (current->no_skip) {
+    // no skip, stop here
+    return current;
+  }
   const t_combinational_block *last_state = block;
   while (true) {
     if (!current->instructions.empty()) {
