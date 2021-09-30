@@ -97,6 +97,10 @@ algorithm spiflash_rom(
   uint1  init(1);
   uint24 raddr(24b000100010001000000000000); //_ 38h (QPI enable)
 
+$$if SIMULATION then
+  uint32 cycle(0);
+$$end
+
   spiflash_qspi spiflash(
     trigger <: trigger,
     clk     :> sf_clk,
@@ -126,6 +130,9 @@ algorithm spiflash_rom(
         spiflash.send_else_read = 1; // sending
         // start sending?
 				if (in_ready || init) {
+$$if SIMULATION then
+          __display("%d] SPIFLASH start @%h",cycle,raddr);
+$$end
 					busy                    = 1;
 					sf_csn                  = 0;
 					stage = 2;
@@ -161,6 +168,9 @@ algorithm spiflash_rom(
         after = 6;
       }
       case 6: {
+$$if SIMULATION then
+        __display("%d] SPIFLASH done.",cycle);
+$$end
         rdata                   = spiflash.read;
         sf_csn                  = 1;
         trigger                 = 0;
@@ -169,6 +179,9 @@ algorithm spiflash_rom(
 				stage = 1;
       }
 		}
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
 	}
 
 /*
