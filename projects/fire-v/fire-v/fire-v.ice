@@ -1,8 +1,8 @@
 // SL 2020-12-02 @sylefeb
-// ------------------------- 
+// -------------------------
 // The Fire-V core - RV32I CPU
-// ------------------------- 
-// 
+// -------------------------
+//
 // Note: rdinstret and rdcycle are limited to 32 bits
 //       rdtime reports user_data instead of time
 //
@@ -27,28 +27,28 @@ algorithm rv32i_cpu(
   output uint26  predicted_addr,    // next predicted address
   output uint1   predicted_correct, // was the prediction correct?
 ) <autorun> {
-  
+
   // does not have to be simple_dualport_bram, but results in a smaller design
   simple_dualport_bram int32 xregsA[32] = {0,pad(uninitialized)};
   simple_dualport_bram int32 xregsB[32] = {0,pad(uninitialized)};
-  
+
   uint1  instr_ready(0);
-$$if SIMULATION then  
+$$if SIMULATION then
   uint1  halt(0);
 $$end
   uint5  write_rd    = uninitialized;
-  uint1  jump        = uninitialized;  
+  uint1  jump        = uninitialized;
   uint1  branch      = uninitialized;
 
   uint3  csr         = uninitialized;
-  uint3  aluOp       = uninitialized;  
+  uint3  aluOp       = uninitialized;
   uint1  sub         = uninitialized;
   uint1  signedShift = uninitialized;
 $$if FIREV_MULDIV then
   uint1  muldiv      = uninitialized;
 $$end
   uint1  dry_resume(0);
-  
+
   uint32 instr(0);
   uint26 pc(0);
   uint32 next_instr(0);
@@ -59,25 +59,25 @@ $$end
 
   uint1 pcOrReg     = uninitialized;
   uint1 regOrImm    = uninitialized;
-  
+
   uint1 load_store  = uninitialized;
   uint1 store       = uninitialized;
   uint3 loadStoreOp = uninitialized;
   uint1 rd_enable   = uninitialized;
-  
+
   uint1 saved_store       = uninitialized;
   uint3 saved_loadStoreOp = uninitialized;
   uint1 saved_rd_enable   = uninitialized;
-  
+
   uint32 refetch_addr = uninitialized;
   uint1  refetch_rw(0);
-  
+
   int32 aluA        = uninitialized;
   int32 aluB        = uninitialized;
   int32 imm         = uninitialized;
   int32 regA        = uninitialized;
   int32 regB        = uninitialized;
-  
+
   decode dec(
     instr       <: instr,
     pc          <: pc,
@@ -93,7 +93,7 @@ $$end
     sub         :> sub,
 $$if FIREV_MULDIV then
     muldiv      :> muldiv,
-$$end    
+$$end
     signedShift :> signedShift,
     pcOrReg     :> pcOrReg,
     regOrImm    :> regOrImm,
@@ -103,8 +103,8 @@ $$end
     aluB        :> aluB,
     imm         :> imm,
   );
- 
-  uint3  funct3 <:: Btype(instr).funct3; 
+
+  uint3  funct3 <:: Btype(instr).funct3;
   uint1  branch_or_jump = uninitialized;
 
   int32  alu_out     = uninitialized;
@@ -117,16 +117,16 @@ $$end
     pcOrReg     <: pcOrReg,
     regOrImm    <: regOrImm,
     aluOp       <: aluOp,
-    sub         <: sub,    
+    sub         <: sub,
     signedShift <: signedShift,
 $$if FIREV_MULDIV then
     muldiv      <: muldiv,
-$$end    
+$$end
     csr         <: csr,
     cycle      <:: cycle,
-$$if not FIREV_NO_INSTRET then    
+$$if not FIREV_NO_INSTRET then
     instret    <:: instret,
-$$end    
+$$end
     user_data  <:  user_data,
     r           :> alu_out,
     ra         <:: regA,
@@ -139,7 +139,7 @@ $$end
   );
 
   uint32 cycle(0);
-$$if not FIREV_NO_INSTRET then     
+$$if not FIREV_NO_INSTRET then
   uint32 instret(0);
 $$end
 
@@ -156,14 +156,14 @@ $$end
   uint4  state   = uninitialized;
 
   // maintain ram in_valid low (pulses high when needed)
-  ram.in_valid    := 0; 
-  
+  ram.in_valid    := 0;
+
   always {
 $$if FIREV_MULDIV then
     uint1 alu_wait <:: alu.aluPleaseWait;
 $$else
     uint1 alu_wait <:: 0; // never wait ALU in RV32I
-$$end  
+$$end
 
     state = {
                     refetch                         & (ram.done | start),
@@ -175,11 +175,11 @@ $$if SIMULATION then
     if (halt) {
       state = 0;
     }
-$$end                  
+$$end
 
 $$if verbose then
     if (ram.done) {
-      __display("**** ram done (cycle %d) **** ram.data_out @%h = %h",cycle,ram.addr,ram.data_out);        
+      __display("**** ram done (cycle %d) **** ram.data_out @%h = %h",cycle,ram.addr,ram.data_out);
     }
 $$end
 
@@ -212,7 +212,7 @@ $$end
         next_pc           = start ? boot_at : next_pc;
         if (start & ~reset) {
           __display("CPU RESET %d (@%h) start:%b",state,next_pc,start);
-        }        
+        }
         start             = reset;
         ram.rw            = refetch_rw;
         ram.in_valid      = ~reset;
@@ -220,14 +220,14 @@ $$end
         wait_next_instr   = ~do_load_store;
 
       }
-    
+
       case $state_LOAD_STORE$: {
 $$if verbose then
         __display("----------- STATE 4: load / store ------------- (cycle %d)",cycle);
-$$end        
+$$end
         do_load_store   = 0;
         // data with memory access
-        if (~saved_store) { 
+        if (~saved_store) {
           // finalize load
           uint32 tmp = uninitialized;
           switch ( saved_loadStoreOp[0,2] ) {
@@ -238,17 +238,17 @@ $$end
               tmp = { {16{(~saved_loadStoreOp[2,1])&ram.data_out[15,1]}},ram.data_out[ 0,16]};
             }
             case 2b10: { // LW
-              tmp = ram.data_out;  
+              tmp = ram.data_out;
             }
             default: { tmp = 0; }
-          }            
+          }
           // write result to register
           xregsA.wenable1 = saved_rd_enable;
           xregsB.wenable1 = saved_rd_enable;
           xregsA.wdata1   = tmp;
           xregsB.wdata1   = tmp;
         }
-        
+
         // be optimistic: request next-next instruction
         ram.addr       = next_pc_p4;
         // register conflict?
@@ -264,7 +264,7 @@ $$end
           instr_ready     = 0;
 $$if verbose then
           __display("****** register conflict *******");
-$$end          
+$$end
         } else {
           commit_decode     = 1;
         }
@@ -275,9 +275,9 @@ $$end
       } // case 4
 
       case $state_ALU_FETCH$: {
-$$if verbose then      
+$$if verbose then
       __display("----------- STATE 2 : ALU / fetch ------------- (cycle %d)",cycle);
-$$end      
+$$end
         // Note: ALU for previous (if any) is running ...
         wait_next_instr   = 0;
         // record next instruction
@@ -292,17 +292,24 @@ $$end
         ram.in_valid      = 1;
         ram.rw            = 0;
       }
-      
+
       case $state_COMMIT$: {
-$$if verbose then     
+$$if verbose then
         __display("----------- STATE 1 : commit / decode ------------- (cycle %d) [alu_wait %b]",cycle,alu_wait);
         if (~instr_ready) {
           __display("========> [next instruction] load_store %b branch_or_jump %b",load_store,branch_or_jump);
         } else {
-           __display("========> [ALU done <<%h>> (%d since)] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d regA:%d regB:%d",instr,cycle-cycle_last_retired,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB,regA,regB);
+          __display("========> [ALU done <<%h>> (%d since)] pc %h alu_out %h load_store:%b store:%b branch_or_jump:%b rd_enable:%b write_rd:%d aluA:%d aluB:%d regA:%d regB:%d",instr,cycle-cycle_last_retired,pc,alu_out,load_store,store,branch_or_jump,rd_enable,write_rd,aluA,aluB,regA,regB);
           cycle_last_retired = cycle;
         }
-$$end        
+$$end
+$$if profile then
+        if (instr_ready) {
+          __display("(%d) %h %h",cycle-cycle_last_retired,pc[0,16],instr);
+          //__display("%d",cycle-cycle_last_retired);
+          cycle_last_retired = cycle;
+        }
+$$end
         commit_decode = 0;
         // Note: nothing received from memory
 $$if SIMULATION then
@@ -316,13 +323,13 @@ $$end
         saved_loadStoreOp = loadStoreOp;
         saved_rd_enable   = rd_enable;
         // need to refetch from RAM next?
-        refetch           = instr_ready & (branch_or_jump | load_store); // ask to fetch from the new address (cannot do it now, memory is busy with prefetch)        
+        refetch           = instr_ready & (branch_or_jump | load_store); // ask to fetch from the new address (cannot do it now, memory is busy with prefetch)
         refetch_addr      = alu_out;
         refetch_rw        = load_store & store;
 
 $$if FIREV_MULDIV then
         dry_resume        = (muldiv & aluOp[2,1]);
-$$end        
+$$end
 
 $$if verbose then
 if (refetch) {
@@ -335,7 +342,7 @@ $$end
         // attempt to predict read ...
         predicted_addr    = refetch ? alu_out[0,26] : next_pc_p8;
         predicted_correct = 1;
-        
+
         // wait for next instr?
         wait_next_instr = (~refetch & ~do_load_store) | ~instr_ready;
 
@@ -376,16 +383,16 @@ $$end
         pc      = next_pc;
         next_pc = (branch_or_jump & instr_ready) ? refetch_addr : next_pc_p4;
         regA    = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
-        regB    = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;   
-$$if not FIREV_NO_INSTRET then    
+        regB    = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;
+$$if not FIREV_NO_INSTRET then
        if (instr_ready) {
          instret = instret + 1;
        }
-$$end       
+$$end
        instr_ready       = 1;
       }
     } // switch
-        
+
     cycle           = cycle + 1;
 
   } // while
@@ -406,11 +413,11 @@ algorithm decode(
   output uint1   store,
   output uint3   loadStoreOp,
   output uint3   aluOp,
-  output uint1   sub,  
+  output uint1   sub,
   output uint1   signedShift,
 $$if FIREV_MULDIV then
   output uint1   muldiv,
-$$end  
+$$end
   output uint1   pcOrReg,
   output uint1   regOrImm,
   output uint3   csr,
@@ -436,9 +443,9 @@ $$end
             1b0
             };
   int32 imm_s  <:: {{20{instr[31,1]}},Stype(instr).imm11_5,Stype(instr).imm4_0};
-  
+
   uint5 opcode <:: instr[ 2, 5];
-  
+
   uint1 AUIPC  <:: opcode == 5b00101;
   uint1 LUI    <:: opcode == 5b01101;
   uint1 JAL    <:: opcode == 5b11011;
@@ -461,17 +468,17 @@ $$end
   sub          := (IntReg & Rtype(instr).sub);
 $$if FIREV_MULDIV then
   muldiv       := (IntReg & Rtype(instr).muldiv);
-$$end  
+$$end
   signedShift  := IntImm & instr[30,1]; /*SRLI/SRAI*/
 
   loadStoreOp  := Itype(instr).funct3;
 
-  csr          := {CSR,instr[20,2]}; // we grab only the bits for 
+  csr          := {CSR,instr[20,2]}; // we grab only the bits for
                // low bits of rdcycle (0xc00), rdtime (0xc01), instret (0xc02)
 
   write_rd     := Rtype(instr).rd;
-  rd_enable    := (write_rd != 0) & ~no_rd;  
-  
+  rd_enable    := (write_rd != 0) & ~no_rd;
+
   pcOrReg      := (AUIPC | JAL | Branch);
 
 $$if FIREV_MUX_A_DECODER then
@@ -479,8 +486,8 @@ $$if FIREV_MUX_A_DECODER then
 $$else
   aluA         := (LUI) ? 0 : regA;
 $$end
-  
-$$if not FIREV_MUX_B_DECODER then    
+
+$$if not FIREV_MUX_B_DECODER then
   aluB         := regB;
 $$end
 
@@ -517,7 +524,7 @@ $$end
        }
      }
 
-$$if FIREV_MUX_B_DECODER then    
+$$if FIREV_MUX_B_DECODER then
      aluB = regOrImm ? (regB) : imm;
 $$end
 
@@ -543,9 +550,9 @@ $$end
   input   uint1  signedShift,
   input   uint3  csr,
   input   uint32 cycle,
-$$if not FIREV_NO_INSTRET then      
+$$if not FIREV_NO_INSTRET then
   input   uint32 instret,
-$$end  
+$$end
   input   uint32 user_data,
   output  int32  r,
   input   int32  ra,
@@ -556,19 +563,19 @@ $$end
   output  uint1  j,
   output  int32  w,
 ) {
-  
+
   // 3 cases
   // reg +/- reg (intops)
   // reg +/- imm (intops)
   // pc  + imm   (else)
-  
-$$if FIREV_MUX_A_DECODER then      
+
+$$if FIREV_MUX_A_DECODER then
   int32 a <: xa;
 $$else
   int32 a <: pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
 $$end
-  
-$$if FIREV_MUX_B_DECODER then      
+
+$$if FIREV_MUX_B_DECODER then
   int32 b <: xb;
 $$else
   int32 b <: regOrImm ? (xb) : imm;
@@ -584,15 +591,15 @@ $$if FIREV_MULDIV then
   uint1 dividing(0);
 $$end
 
-  always { // this part of the algorithm is executed every clock  
+  always { // this part of the algorithm is executed every clock
     switch ({aluOp}) {
       case 3b000: { // ADD / SUB
-$$if FIREV_MERGE_ADD_SUB then      
+$$if FIREV_MERGE_ADD_SUB then
         r = a + (sub ? -b : b); // smaller, slower...
-$$else        
+$$else
         r = sub ? (a - b) : (a + b);
-$$end        
-      }     
+$$end
+      }
       case 3b010: { // SLTI
         if (__signed(xa)   < __signed(b)) { r = 32b1; } else { r = 32b0; }
       }
@@ -611,9 +618,9 @@ $$end
       switch (csr[0,2]) {
         case 2b00: { r = cycle;     }
         case 2b01: { r = user_data; }
-$$if not FIREV_NO_INSTRET then    
+$$if not FIREV_NO_INSTRET then
         case 2b10: { r = instret;   }
-$$end      
+$$end
         default:   { r = {32{1bx}}; }
       }
     }
@@ -644,7 +651,7 @@ $$if FIREV_MULDIV then
         }
         default:   { r = {32{1bx}}; }
       }
-    } 
+    }
 $$end
 
     switch (funct3) {
