@@ -33,8 +33,8 @@ fi
 
 echo "Compiling for CPU $CPU"
 
-$ARCH-gcc -O3 -ffunction-sections -fdata-sections -fno-pic -fno-builtin -fverbose-asm -march=$riscarch -mabi=ilp32 -DBLAZE -S $1 -o build/code.s
-$ARCH-gcc -O3 -ffunction-sections -fdata-sections -fno-pic -fno-builtin -march=$riscarch -mabi=ilp32 -DBLAZE -c -o build/code.o $1
+$ARCH-gcc -O3 -ffunction-sections -fdata-sections -fno-pic -fno-builtin -fverbose-asm -fno-unroll-loops -march=$riscarch -mabi=ilp32 -DBLAZE -S $1 -o build/code.s
+$ARCH-gcc -O3 -ffunction-sections -fdata-sections -fno-pic -fno-builtin -fno-unroll-loops -march=$riscarch -mabi=ilp32 -DBLAZE -c -o build/code.o $1
 
 $ARCH-as -march=$riscarch -mabi=ilp32 -o build/div.o smoke/mylibc/div.s
 $ARCH-as -march=$riscarch -mabi=ilp32 -o crt0.o smoke/crt0.s

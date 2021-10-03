@@ -242,6 +242,7 @@ $$end
             }
             default: { tmp = 0; }
           }
+          // __display("LOADED %h @%h",tmp,ram.addr);
           // write result to register
           xregsA.wenable1 = saved_rd_enable;
           xregsB.wenable1 = saved_rd_enable;
@@ -305,7 +306,7 @@ $$if verbose then
 $$end
 $$if profile then
         if (instr_ready) {
-          __display("(%d) %h %h",cycle-cycle_last_retired,pc[0,16],instr);
+          __display("(%d) %h %h",cycle-cycle_last_retired,pc,instr);
           //__display("%d",cycle-cycle_last_retired);
           cycle_last_retired = cycle;
         }
@@ -328,7 +329,7 @@ $$end
         refetch_rw        = load_store & store;
 
 $$if FIREV_MULDIV then
-        dry_resume        = (muldiv & aluOp[2,1]);
+        dry_resume        = (muldiv & aluOp[2,1]); // on a div
 $$end
 
 $$if verbose then
@@ -384,6 +385,11 @@ $$end
         next_pc = (branch_or_jump & instr_ready) ? refetch_addr : next_pc_p4;
         regA    = ((xregsA.addr0 == xregsA.addr1) & xregsA.wenable1) ? xregsA.wdata1 : xregsA.rdata0;
         regB    = ((xregsB.addr0 == xregsB.addr1) & xregsB.wenable1) ? xregsB.wdata1 : xregsB.rdata0;
+$$if verbose then
+        if (dry_resume) {
+          __display("  [dry_resume] next_instr is %h",next_instr);
+        }
+$$end
 $$if not FIREV_NO_INSTRET then
        if (instr_ready) {
          instret = instret + 1;
@@ -391,6 +397,18 @@ $$if not FIREV_NO_INSTRET then
 $$end
        instr_ready       = 1;
       }
+
+$$if FIREV_MULDIV then
+      default: {
+        if (alu_wait) {
+          // __display("predicted_addr %h",next_pc_p4);
+          // when waiting ALU hold pedicted addr to pc+4 to
+          // prepare dry_resume after wait
+          predicted_addr = next_pc_p4;
+        }
+      }
+$$end
+
     } // switch
 
     cycle           = cycle + 1;
@@ -589,6 +607,7 @@ $$if FIREV_MULDIV then
     iden <:: div_d,
   );
   uint1 dividing(0);
+  uint1 div_done(0);
 $$end
 
   always { // this part of the algorithm is executed every clock
@@ -630,24 +649,30 @@ $$if FIREV_MULDIV then
     div_d    = b;
     dividing = dividing & muldiv & aluOp[2,1];
     if (muldiv) {
+      //__display("cycle %d] dividing:%b aluPleaseWait:%b isdone(div):%b",cycle,dividing,aluPleaseWait,isdone(div));
       switch ({aluOp}) {
         case 3b000: { // MUL
           //__display("MULTIPLICATION %d * %d",a,b);
           r        = a * b;
         }
         case 3b100: { // DIV
-          if (~aluPleaseWait && ~dividing) {
-            //__display("trigger");
+          if (~aluPleaseWait & ~dividing) {
+            //__display("cycle %d] DIVISION trigger",cycle);
             aluPleaseWait = 1;
+            dividing      = 1;
             div <- ();
           } else {
-            //if (isdone(div)) {
-              //__display("DIVISION %d / %d = %d",a,b,div.ret);
-            //}
+            if (isdone(div) & ~div_done) {
+              //__display("cycle %d] DIVISION %d / %d = %d",cycle,a,b,div.ret);
+              div_done    = 1;
+              dividing    = 1;
+            } else {
+              div_done    = 0;
+              dividing    = 0;
+            }
             aluPleaseWait = ~ isdone(div);
           }
           r        = div.ret;
-          dividing = 1;
         }
         default:   { r = {32{1bx}}; }
       }

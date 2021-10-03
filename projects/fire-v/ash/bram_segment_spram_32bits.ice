@@ -6,9 +6,16 @@
 
 Dedicated memory for the IceBreaker Ice40 with SPRAM
 
-Implements a memory space with:
-- 0x00000 to 0x0FFFF mapped to SPRAM
-- 0x10000 to 0x17FFF mapped to bram (boot)
+  Implements a memory space with:
+
+if SPRAM_128K is *not* set then
+  - 0x00000 to 0x0FFFF mapped to SPRAM (0-1)
+  - 0x20000 to 0x27FFF mapped to bram (boot)
+
+if SPRAM_128K is set then
+  - 0x00000 to 0x0FFFF mapped to SPRAM (0-1)
+  - 0x10000 to 0x1FFFF mapped to SPRAM (2-3)
+  - 0x20000 to 0x27FFF mapped to bram (boot)
 
 Two sprams are used, spram0 for bits 0-15, spram1 for bits 16-31
 
@@ -57,6 +64,20 @@ algorithm bram_segment_spram_32bits(
   uint4  sp1_wmask(0);
   uint16 sp1_data_out(0);
 
+$$if SPRAM_128K then
+  uint14 sp2_addr(0);
+  uint16 sp2_data_in(0);
+  uint1  sp2_wenable(0);
+  uint4  sp2_wmask(0);
+  uint16 sp2_data_out(0);
+
+  uint14 sp3_addr(0);
+  uint16 sp3_data_in(0);
+  uint1  sp3_wenable(0);
+  uint4  sp3_wmask(0);
+  uint16 sp3_data_out(0);
+$$end
+
 $$if VERILATOR then
   simulation_spram spram0(
 $$else
@@ -83,8 +104,41 @@ $$end
     data_out :> sp1_data_out
   );
 
+$$if SPRAM_128K then
+
+$$if VERILATOR then
+  simulation_spram spram2(
+$$else
+  ice40_spram spram2(
+    clock    <: clock,
+$$end
+    addr     <: sp2_addr,
+    data_in  <: sp2_data_in,
+    wenable  <: sp2_wenable,
+    wmask    <: sp2_wmask,
+    data_out :> sp2_data_out
+  );
+
+$$if VERILATOR then
+  simulation_spram spram3(
+$$else
+  ice40_spram spram3(
+    clock    <: clock,
+$$end
+    addr     <: sp3_addr,
+    data_in  <: sp3_data_in,
+    wenable  <: sp3_wenable,
+    wmask    <: sp3_wmask,
+    data_out :> sp3_data_out
+  );
+
+$$end
+
   // track when address is in bram region and onto which entry
-  uint1  in_bram            <:  pram.addr [16,1];
+  uint1  in_bram            <:  pram.addr [17,1];
+$$if SPRAM_128K then
+  uint1  in_spram_2         <:  pram.addr [16,1];
+$$end
 
   uint1  not_mapped         <:: ~pram.addr[31,1]; // Note: memory mapped addresses flagged by bit 31
   uint14 predicted          <:: predicted_addr[2,14];
@@ -112,7 +166,15 @@ $$end
     // result
     pram.data_out       = in_bram
                         ? (mem.rdata0                  >> {pram.addr[0,2],3b000})
+$$if SPRAM_128K then
+                        : (in_spram_2
+                           ? ({sp3_data_out,sp2_data_out} >> {pram.addr[0,2],3b000})
+                           : ({sp1_data_out,sp0_data_out} >> {pram.addr[0,2],3b000})
+                          )
+                        ;
+$$else
                         : ({sp1_data_out,sp0_data_out} >> {pram.addr[0,2],3b000});
+$$end
     pram.done           = (/*in_bram &*/ predicted_correct & pram.in_valid) | (pram.rw & pram.in_valid) | wait_one;
 
     // access bram
@@ -126,10 +188,25 @@ $$end
     sp1_addr            = addr;
     sp0_data_in         = pram.data_in[ 0,16];
     sp1_data_in         = pram.data_in[16,16];
+$$if SPRAM_128K then
+    sp0_wenable         = pram.rw & pram.in_valid & ~in_bram & ~in_spram_2 & not_mapped;
+    sp1_wenable         = pram.rw & pram.in_valid & ~in_bram & ~in_spram_2 & not_mapped;
+$$else
     sp0_wenable         = pram.rw & pram.in_valid & ~in_bram & not_mapped;
     sp1_wenable         = pram.rw & pram.in_valid & ~in_bram & not_mapped;
+$$end
     sp0_wmask           = {pram.wmask[1,1],pram.wmask[1,1],pram.wmask[0,1],pram.wmask[0,1]};
     sp1_wmask           = {pram.wmask[3,1],pram.wmask[3,1],pram.wmask[2,1],pram.wmask[2,1]};
+$$if SPRAM_128K then
+    sp2_addr            = addr;
+    sp3_addr            = addr;
+    sp2_data_in         = pram.data_in[ 0,16];
+    sp3_data_in         = pram.data_in[16,16];
+    sp2_wenable         = pram.rw & pram.in_valid & ~in_bram & in_spram_2 & not_mapped;
+    sp3_wenable         = pram.rw & pram.in_valid & ~in_bram & in_spram_2 & not_mapped;
+    sp2_wmask           = {pram.wmask[1,1],pram.wmask[1,1],pram.wmask[0,1],pram.wmask[0,1]};
+    sp3_wmask           = {pram.wmask[3,1],pram.wmask[3,1],pram.wmask[2,1],pram.wmask[2,1]};
+$$end
 
 $$if verbose then
    if (wait_one) {

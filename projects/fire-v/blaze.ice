@@ -209,7 +209,7 @@ $$end
   );
 
   uint1  cpu_reset      = 1;
-  uint26 cpu_start_addr(26h0010000); // NOTE: this starts in the boot sector
+  uint26 cpu_start_addr(26h0020000); // NOTE: this starts in the boot sector
   
   // cpu 
   rv32i_cpu cpu<!cpu_reset>(

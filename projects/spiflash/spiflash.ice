@@ -131,7 +131,7 @@ $$end
         // start sending?
 				if (in_ready || init) {
 $$if SIMULATION then
-          __display("%d] SPIFLASH start @%h",cycle,raddr);
+          // __display("%d] SPIFLASH start @%h",cycle,raddr);
 $$end
 					busy                    = 1;
 					sf_csn                  = 0;
@@ -169,7 +169,7 @@ $$end
       }
       case 6: {
 $$if SIMULATION then
-        __display("%d] SPIFLASH done.",cycle);
+        // __display("%d] SPIFLASH done.",cycle);
 $$end
         rdata                   = spiflash.read;
         sf_csn                  = 1;

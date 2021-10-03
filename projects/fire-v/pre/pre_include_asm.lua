@@ -3,9 +3,9 @@
 
 if not path then
   path,_1,_2 = string.match(findfile('Makefile'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
-	if path == '' then 
-	  path = '.'
-	end
+  if path == '' then 
+    path = '.'
+  end
   print('********************* firmware written to     ' .. path .. '/data.img')
   print('********************* compiled code read from ' .. path .. '/build/code*.hex')
 end
@@ -14,7 +14,8 @@ all_data_hex   = {}
 all_data_bram = {}
 word = ''
 init_data_bytes = 0
-local prev_addr = -1
+local first = 1
+local addr_offs = 0
 
 local out = assert(io.open(path .. '/data.img', "wb"))
 for cpu=0,1 do
@@ -31,12 +32,14 @@ for cpu=0,1 do
   for str in string.gmatch(code, "([^ \r\n]+)") do
     if string.sub(str,1,1) == '@' then
       addr = tonumber(string.sub(str,2), 16)
-      if prev_addr < 0 then
-        print('first addr = ' .. addr)
-        prev_addr = addr
+      if first == 1 then
+        addr_offs = addr;
       end
-      print('addr delta = ' .. addr - prev_addr)
-      delta = addr - prev_addr
+			print('addr      ' .. addr)
+			print('addr_offs ' .. addr_offs)
+			print('bytes     ' .. init_data_bytes)
+      delta = addr - addr_offs - init_data_bytes
+			print('padding ' .. delta)
       for i=1,delta do
         -- pad with zeros
         word     = '00' .. word;
@@ -47,9 +50,7 @@ for cpu=0,1 do
         all_data_hex[1+#all_data_hex] = '8h' .. 0 .. ','
         out:write(string.pack('B', 0 ))
         init_data_bytes = init_data_bytes + 1
-        prev_addr       = prev_addr + 1
       end
-      prev_addr = addr
     else 
       word     = str .. word;
       if #word == 8 then 
@@ -59,8 +60,8 @@ for cpu=0,1 do
       all_data_hex[1+#all_data_hex] = '8h' .. str .. ','
       out:write(string.pack('B', tonumber(str,16) ))
       init_data_bytes = init_data_bytes + 1
-      prev_addr       = prev_addr + 1
     end
+    first = 0
   end
 
 end
