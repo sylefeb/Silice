@@ -647,36 +647,39 @@ $$end
 $$if FIREV_MULDIV then
     div_n    = a;
     div_d    = b;
-    dividing = dividing & muldiv & aluOp[2,1];
     if (muldiv) {
       //__display("cycle %d] dividing:%b aluPleaseWait:%b isdone(div):%b",cycle,dividing,aluPleaseWait,isdone(div));
       switch ({aluOp}) {
         case 3b000: { // MUL
           //__display("MULTIPLICATION %d * %d",a,b);
           r        = a * b;
+					dividing = 0; // NOTE: required for hrdwr to work? highly suspicious.
         }
         case 3b100: { // DIV
           if (~aluPleaseWait & ~dividing) {
-            //__display("cycle %d] DIVISION trigger",cycle);
+            // __display("cycle %d] DIVISION trigger",cycle);
             aluPleaseWait = 1;
             dividing      = 1;
             div <- ();
           } else {
             if (isdone(div) & ~div_done) {
-              //__display("cycle %d] DIVISION %d / %d = %d",cycle,a,b,div.ret);
+              // __display("cycle %d] DIVISION %d / %d = %d",cycle,a,b,div.ret);
               div_done    = 1;
               dividing    = 1;
             } else {
+              // if (isdone(div)) { __display("cycle %d] DIVISION done",cycle); }
               div_done    = 0;
               dividing    = 0;
             }
-            aluPleaseWait = ~ isdone(div);
+            aluPleaseWait = ~isdone(div);
           }
           r        = div.ret;
         }
         default:   { r = {32{1bx}}; }
       }
-    }
+    } else {
+		  dividing = 0;
+		}
 $$end
 
     switch (funct3) {
