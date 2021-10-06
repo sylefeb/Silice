@@ -78,7 +78,7 @@ $$if SPRAM_128K then
   uint16 sp3_data_out(0);
 $$end
 
-$$if VERILATOR then
+$$if SIMULATION then
   simulation_spram spram0(
 $$else
   ice40_spram spram0(
@@ -91,7 +91,7 @@ $$end
     data_out :> sp0_data_out
   );
 
-$$if VERILATOR then
+$$if SIMULATION then
   simulation_spram spram1(
 $$else
   ice40_spram spram1(
@@ -106,7 +106,7 @@ $$end
 
 $$if SPRAM_128K then
 
-$$if VERILATOR then
+$$if SIMULATION then
   simulation_spram spram2(
 $$else
   ice40_spram spram2(
@@ -119,7 +119,7 @@ $$end
     data_out :> sp2_data_out
   );
 
-$$if VERILATOR then
+$$if SIMULATION then
   simulation_spram spram3(
 $$else
   ice40_spram spram3(
