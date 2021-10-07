@@ -110,7 +110,7 @@ $$end
     io3    <:> sf_io3,
   );
 
-  uint9 wait(511);
+  uint10 wait(1023);
 	uint3 stage(0);
 	uint3 after(1);
   uint3 three(0);
