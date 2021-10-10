@@ -123,7 +123,9 @@ $$if FIREV_MULDIV then
     muldiv      <: muldiv,
 $$end
     csr         <: csr,
+$$if not FIREV_NO_RDCYCLE then
     cycle      <:: cycle,
+$$end
 $$if not FIREV_NO_INSTRET then
     instret    <:: instret,
 $$end
@@ -138,7 +140,9 @@ $$end
     w          :>  wreg,
   );
 
+$$if not FIREV_NO_RDCYCLE then
   uint32 cycle(0);
+$$end
 $$if not FIREV_NO_INSTRET then
   uint32 instret(0);
 $$end
@@ -410,9 +414,9 @@ $$if FIREV_MULDIV then
 $$end
 
     } // switch
-
+$$if not FIREV_NO_RDCYCLE then
     cycle           = cycle + 1;
-
+$$end
   } // while
 }
 
@@ -567,7 +571,9 @@ $$end
   input   uint1  regOrImm,
   input   uint1  signedShift,
   input   uint3  csr,
+$$if not FIREV_NO_RDCYCLE then
   input   uint32 cycle,
+$$end
 $$if not FIREV_NO_INSTRET then
   input   uint32 instret,
 $$end
@@ -635,7 +641,9 @@ $$end
 
     if (csr[2,1]) {
       switch (csr[0,2]) {
+$$if not FIREV_NO_RDCYCLE then
         case 2b00: { r = cycle;     }
+$$end
         case 2b01: { r = user_data; }
 $$if not FIREV_NO_INSTRET then
         case 2b10: { r = instret;   }
