@@ -91,7 +91,7 @@ $$end
         while (io.ready == 0) { } // wait ack
         u = u + 1;
 
-$$if SIMULATION then
+$$if ICARUS then
       __finish();
 $$end
       }

@@ -25,13 +25,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 (header_2_M)
 
 */
-// Sylvain Lefebvre 2019-09-26
+// Sylvain Lefebvre 2021-10-11
 
 #pragma once
 
 #include "verilated.h"
 
 #include <vector>
+#include <functional>
 
 #include "LibSL/Image/Image.h"
 #include "LibSL/Image/ImageFormat_TGA.h"
@@ -40,39 +41,51 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "display.h"
 
 /// \brief Isolates the implementation to simplify build
-class VgaChip : public DisplayChip
+class SPIScreen : public DisplayChip
 {
+public:
+
+  enum e_Driver {ST7789};
+
 private:
 
   LibSL::Image::ImageRGBA m_framebuffer;
+  bool                    m_framebuffer_changed = false;
 
-  int m_color_depth  = 0;
+  e_Driver                m_driver;
+  vluint8_t               m_prev_clk;
 
-  int m_h_res        = 0;
-  int m_h_bck_porch  = 0;
-  int m_v_res        = 0;
-  int m_v_bck_porch  = 0;
+  int                     m_reading = 0;
+  bool                    m_dc = false;
+  int                     m_byte = 0;
+  int                     m_step = 0;
 
-  int m_h_coord = 0;
-  int m_v_coord = 0;
+  int                     m_x_start = 0;
+  int                     m_x_end   = 0;
+  int                     m_y_start = 0;
+  int                     m_y_end   = 0;
 
-  vluint8_t m_prev_clk = 0;
+  int                     m_x_cur   = 0;
+  int                     m_y_cur   = 0;
 
-  bool m_framebuffer_changed = false;
+  std::function<void()> m_command;
 
-  void set640x480();
+  void cmd_idle();
+  void cmd_row_start_end();
+  void cmd_col_start_end();
+  void cmd_write_ram();
 
 public:
 
-  VgaChip(int color_depth);
-  ~VgaChip();
+  SPIScreen(e_Driver driver,int width,int height);
+  ~SPIScreen();
 
-  void eval(vluint8_t  clk,
-            vluint8_t  vs,
-            vluint8_t  hs,
-            vluint8_t  red,
-            vluint8_t  green,
-            vluint8_t  blue);
+  void eval(vluint8_t clk,
+            vluint8_t mosi,
+            vluint8_t dc,
+            vluint8_t cs,
+            vluint8_t resn
+            );
 
   LibSL::Image::ImageRGBA& framebuffer() override { return m_framebuffer; }
 

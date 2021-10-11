@@ -25,21 +25,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 (header_2_M)
 
 */
-// SL 2019-09-23
+// SL 2021-10-11
 
 #include "Vtop.h"
-#include "VgaChip.h"
+#include "SPIScreen.h"
 #include "display.h"
 
 // ----------------------------------------------------------------------------
 
-Vtop    *g_VgaTest = nullptr; // design
-VgaChip *g_VgaChip = nullptr; // VGA simulation
+Vtop      *g_Design = nullptr; // design
+SPIScreen *g_Screen = nullptr; // SPI screen simulation
 
 // ----------------------------------------------------------------------------
 
 unsigned int g_MainTime = 0;
-
 double sc_time_stamp()
 {
   return g_MainTime;
@@ -55,14 +54,14 @@ void step()
   }
 
   // update clock
-  g_VgaTest->clk = 1 - g_VgaTest->clk;
+  g_Design->clk = 1 - g_Design->clk;
   // evaluate design
-  g_VgaTest->eval();
-  // evaluate VGA
-  g_VgaChip->eval(
-      g_VgaTest->video_clock,
-      g_VgaTest->video_vs,g_VgaTest->video_hs,
-      g_VgaTest->video_r, g_VgaTest->video_g,g_VgaTest->video_b);
+  g_Design->eval();
+  // evaluate screen
+  g_Screen->eval(
+      g_Design->oled_clk,
+      g_Design->oled_mosi, g_Design->oled_dc,
+      g_Design->oled_csn,  g_Design->oled_resn);
   // increment time
   g_MainTime ++;
 }
@@ -74,21 +73,22 @@ int main(int argc,char **argv)
   // Verilated::commandArgs(argc,argv);
 
   // instantiate design
-  g_VgaTest = new Vtop();
-  g_VgaTest->clk = 0;
+  g_Design = new Vtop();
+  g_Design->clk = 0;
 
   // we need to step simulation until we get
   // the parameters set from design signals
-  do {
-    g_VgaTest->clk = 1 - g_VgaTest->clk;
-    g_VgaTest->eval();
-  } while ((int)g_VgaTest->video_color_depth == 0);
+  // TODO get screen driver, width, height
+  //do {
+  //  g_Design->clk = 1 - g_Design->clk;
+  //  g_Design->eval();
+  //} while ((int)g_Design->video_color_depth == 0);
 
-  // instantiate the VGA chip
-  g_VgaChip = new VgaChip((int)g_VgaTest->video_color_depth);
+  // instantiate the screen
+  g_Screen = new SPIScreen(SPIScreen::ST7789,320,240);
 
-  // enter VGA display loop
-  display_loop(g_VgaChip);
+  // enter display loop
+  display_loop(g_Screen);
 
   return 0;
 }

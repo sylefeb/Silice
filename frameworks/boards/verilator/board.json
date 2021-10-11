@@ -4,10 +4,11 @@
     {
       "name"      : "configurable",
       "framework" : "verilator.v",
-      "pins"      : [ 
+      "pins"      : [
         {"set"    : "basic"},
-        {"set"    : "vga", "define" : "VGA=1"}, 
-        {"set"    : "sdram", "define" : "SDRAM=1"} 
+        {"set"    : "vga", "define" : "VGA=1"},
+        {"set"    : "oled", "define" : "OLED=1"},
+        {"set"    : "sdram", "define" : "SDRAM=1"}
       ],
       "builders": [
         {
@@ -50,6 +51,33 @@
       {
         "name": "vga_b",
         "type": "uint6",
+        "io": "output"
+      }
+    ],
+    "oled": [
+      {
+        "name": "oled_clk",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "oled_mosi",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "oled_csn",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "oled_resn",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "oled_dc",
+        "type": "uint1",
         "io": "output"
       }
     ],
@@ -114,6 +142,6 @@
         "type": "uint1",
         "io": "output"
       }
-    ]     
+    ]
   }
 }

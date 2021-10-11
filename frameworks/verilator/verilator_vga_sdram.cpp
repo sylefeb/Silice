@@ -5,21 +5,21 @@ List contributors with: git shortlog -n -s -- <filename>
 
 MIT license
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so, 
+the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (header_2_M)
@@ -29,7 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "Vtop.h"
 #include "VgaChip.h"
-#include "vga_display.h"
+#include "display.h"
 #include "sdr_sdram.h"
 
 // ----------------------------------------------------------------------------
@@ -53,7 +53,7 @@ void step()
 {
   static vluint64_t sdram_dq    = 0; // SDRAM dq bus status
   static vluint8_t  prev_vga_vs = 0; // previous VGA vs synch status
-  
+
   if (Verilated::gotFinish()) {
     exit(0); // verilog request termination
   }
@@ -79,7 +79,7 @@ void step()
       g_SDRAM->save(str,4*8192*1024*2,0);
     }
   }
-  prev_vga_vs = g_VgaTest->video_vs;  
+  prev_vga_vs = g_VgaTest->video_vs;
   // evaluate VGA
   g_VgaChip->eval(
       g_VgaTest->video_clock,
@@ -120,11 +120,11 @@ int main(int argc,char **argv)
   } else if ((int)g_VgaTest->sdram_word_width == 64) {
     sdram_flags |= FLAG_DATA_WIDTH_64;
   }
-  g_SDRAM = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL); 
+  g_SDRAM = new SDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL);
                                                              //"sdram.txt");
 
   // enter VGA display loop
-  vga_display_loop();
+  display_loop(g_VgaChip);
 
   return 0;
 }

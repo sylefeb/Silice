@@ -25,56 +25,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 (header_2_M)
 
 */
-// Sylvain Lefebvre 2019-09-26
-
+// Sylvain Lefebvre 2021-06-12
 #pragma once
 
-#include "verilated.h"
-
-#include <vector>
-
 #include "LibSL/Image/Image.h"
-#include "LibSL/Image/ImageFormat_TGA.h"
-#include "LibSL/Math/Vertex.h"
 
-#include "display.h"
-
-/// \brief Isolates the implementation to simplify build
-class VgaChip : public DisplayChip
-{
-private:
-
-  LibSL::Image::ImageRGBA m_framebuffer;
-
-  int m_color_depth  = 0;
-
-  int m_h_res        = 0;
-  int m_h_bck_porch  = 0;
-  int m_v_res        = 0;
-  int m_v_bck_porch  = 0;
-
-  int m_h_coord = 0;
-  int m_v_coord = 0;
-
-  vluint8_t m_prev_clk = 0;
-
-  bool m_framebuffer_changed = false;
-
-  void set640x480();
-
+class DisplayChip {
 public:
-
-  VgaChip(int color_depth);
-  ~VgaChip();
-
-  void eval(vluint8_t  clk,
-            vluint8_t  vs,
-            vluint8_t  hs,
-            vluint8_t  red,
-            vluint8_t  green,
-            vluint8_t  blue);
-
-  LibSL::Image::ImageRGBA& framebuffer() override { return m_framebuffer; }
-
-  bool framebufferChanged() override;
+  virtual LibSL::Image::ImageRGBA& framebuffer() = 0;
+  virtual bool framebufferChanged() = 0;
 };
+
+void display_loop(DisplayChip *chip);
