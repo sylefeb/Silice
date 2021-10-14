@@ -68,6 +68,8 @@ private:
   int                     m_x_cur   = 0;
   int                     m_y_cur   = 0;
 
+  LibSL::Math::v4b        m_rgb;
+
   std::function<void()> m_command;
 
   void cmd_idle();
