@@ -178,6 +178,7 @@ void SPIScreen::cmd_write_ram()
       m_rgb[1] = m_rgb[1] | (m_byte & 7);
       m_rgb[2] = (m_byte >> 3);
     }
+    fprintf(stdout,"565 byte %x\n",m_byte);
     if (m_step == 2) {
       m_rgb[0] <<= 2;      m_rgb[1] <<= 2;      m_rgb[2] <<= 2;
       fprintf(stdout,"565 %d x %d, y %d rgb:%d,%d,%d\n",
