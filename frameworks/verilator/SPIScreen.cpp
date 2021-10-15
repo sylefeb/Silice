@@ -151,20 +151,20 @@ void SPIScreen::cmd_write_ram()
   }
   if (0) {
     // 6-6-6
-    fprintf(stdout,"666 %d x %d, y %d\n",m_step,m_x_cur,m_y_cur);
+    //fprintf(stdout,"666 %d x %d, y %d\n",m_step,m_x_cur,m_y_cur);
     m_rgb[m_step - 1] = m_byte<<2;
     if (m_step == 3) {
-      m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(m_x_cur,m_y_cur) = m_rgb;
+      m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(m_y_cur,m_x_cur) = m_rgb;
     }
     m_framebuffer_changed = true;
     m_step = m_step + 1;
     if (m_step > 3) {
       m_step = 1;
       ++ m_x_cur;
-      if (m_x_cur == m_x_end) {
+      if (m_x_cur > m_x_end) {
         m_x_cur = 0;
         ++ m_y_cur;
-        if (m_y_cur == m_y_end) {
+        if (m_y_cur > m_y_end) {
           m_y_cur = 0;
         }
       }
@@ -178,11 +178,11 @@ void SPIScreen::cmd_write_ram()
       m_rgb[1] = m_rgb[1] | (m_byte & 7);
       m_rgb[2] = (m_byte >> 3);
     }
-    fprintf(stdout,"565 byte %x\n",m_byte);
+    //fprintf(stdout,"565 byte %x\n",m_byte);
     if (m_step == 2) {
       m_rgb[0] <<= 2;      m_rgb[1] <<= 2;      m_rgb[2] <<= 2;
-      fprintf(stdout,"565 %d x %d, y %d rgb:%d,%d,%d\n",
-              m_step,m_x_cur,m_y_cur,(int)m_rgb[0],(int)m_rgb[1],(int)m_rgb[2]);
+      fprintf(stdout,"565 x %d, y %d rgb:%d,%d,%d\n",
+              m_x_cur,m_y_cur,(int)m_rgb[0],(int)m_rgb[1],(int)m_rgb[2]);
       m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(m_y_cur,m_x_cur) = m_rgb;
     }
     m_framebuffer_changed = true;
@@ -190,10 +190,10 @@ void SPIScreen::cmd_write_ram()
     if (m_step > 2) {
       m_step = 1;
       ++ m_x_cur;
-      if (m_x_cur == m_x_end) {
+      if (m_x_cur > m_x_end) {
         m_x_cur = 0;
         ++ m_y_cur;
-        if (m_y_cur == m_y_end) {
+        if (m_y_cur > m_y_end) {
           m_y_cur = 0;
         }
       }
