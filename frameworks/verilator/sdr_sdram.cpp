@@ -883,7 +883,7 @@ void SDRAM::eval
                     if (a10)
                     {
                         if (dbg_on)
-                            log_size += sprintf(log_buf + log_size, "Precharge all banks @ %llu ps\n", ts);
+                            log_size += sprintf(log_buf + log_size, "Precharge all banks @ %lu ps\n", ts);
 
                         if (ap_bank[0] || ap_bank[1] || ap_bank[2] || ap_bank[3])
                         {
