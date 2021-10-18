@@ -58,6 +58,16 @@ if [[ ! -z "${NO_BUILD}" ]]; then
   exit
 fi
 
+# check Verilator support for -Wno-TIMESCALEMOD
+RET=$((verilator -Wno-TIMESCALEMOD) 2>&1)
+OPT="-Wno-TIMESCALEMOD"
+if [[ $RET == *"Unknown warning"* ]]; then
+  echo "disabling $OPT"
+  OPT=""
+else
+  echo "using $OPT"
+fi
+
 rm -rf $BUILD_DIR/obj_dir
 
 cd $BUILD_DIR
@@ -100,7 +110,7 @@ fi
 
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat -Wno-TIMESCALEMOD --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/ -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI" $LDFLAGS
+verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/ -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI" $LDFLAGS
 cd obj_dir
 $MAKE -f Vtop.mk -j$(nproc)
 cd ..
