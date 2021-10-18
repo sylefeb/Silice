@@ -64,7 +64,7 @@ out:close()
 
 -- also generates a header with first terrain for inclusion in simulation
 local out = assert(io.open(path .. '/terrains.h', "wb"))
-out:write('unsigned char terrains[]={')
+out:write('const unsigned char terrains[]={')
 out:write(c_hex)
 out:write('0x00};')
 out:close()
