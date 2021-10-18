@@ -56,7 +56,7 @@
 // Constructor
 SDRAM::SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *logfile)
 {
-    // memory size 
+    // memory size
     int s       = (int)1 << (log2_rows + log2_cols);
     // SDRAM capacity initialized
     bus_mask    =  flags & (DATA_MSB | DATA_MSW | DATA_MSL);
@@ -124,7 +124,7 @@ SDRAM::SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *lo
         case 0x1E : read_byte_priv = &SDRAM::read_byte_i_be_64; break;
         case 0x1F : read_byte_priv = &SDRAM::read_byte_i_be_64; break;
     }
-    
+
     // debug mode
     if (logfile)
     {
@@ -148,16 +148,16 @@ SDRAM::SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *lo
         log_size = 0;
         dbg_on   = 0;
     }
-    
+
     // special flags
     mem_flags   = flags;
-    
+
     // mode register cleared
     cas_lat     = 0;
     bst_len_rd  = (int)0;
     bst_len_wr  = (int)0;
     bst_type    = (vluint8_t)0;
-    
+
     // internal variables cleared
     prev_clk    = (vluint8_t)0;
     for (int i = 0; i < CMD_PIPE_DEPTH; i++)
@@ -195,7 +195,7 @@ SDRAM::SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *lo
         if (flags & DATA_MSL) mem_array_6[i] = new vluint8_t[s];
         if (flags & DATA_MSL) mem_array_7[i] = new vluint8_t[s];
     }
-    
+
     if (flags & FLAG_RANDOM_FILLED)
     {
         // fill the arrays with random numbers
@@ -256,7 +256,7 @@ SDRAM::~SDRAM()
 void SDRAM::load(const char *name, vluint32_t size, vluint32_t addr)
 {
     FILE *fh;
-    
+
     fh = fopen(name, "rb");
     if (fh)
     {
@@ -265,12 +265,12 @@ void SDRAM::load(const char *name, vluint32_t size, vluint32_t addr)
         int        row_pos;  // Row position (0 to num_rows - 1)
         int        bank_nr;  // Bank number (0 to 3)
         int        idx;      // Array index (0 to num_cols * num_rows - 1)
-        
+
         // Row size computation based on data bus width
         row_size = (int)1 << (bit_cols + bus_log2);
         // Allocate one full row
         row_buf = new vluint8_t[row_size];
-        
+
         // Row position
         row_pos = (int)addr >> (bit_cols + bus_log2);
         // Banks layout
@@ -287,14 +287,14 @@ void SDRAM::load(const char *name, vluint32_t size, vluint32_t addr)
             row_pos = row_pos & (num_rows - 1);
         }
         idx = row_pos << bit_cols;
-        
+
         printf("Starting row : %d, starting bank : %d\n", row_pos, bank_nr);
-        printf("Loading 0x%08lX bytes @ 0x%08lX from binary file \"%s\"...", size, addr, name);
+        printf("Loading 0x%08X bytes @ 0x%08X from binary file \"%s\"...", size, addr, name);
         for (int i = 0; i < (int)size; i += row_size)
         {
             // Read one full row from the binary file
             fread((void *)row_buf, row_size, 1, fh);
-            
+
             // Here, we take care of the endianness
             if (mem_flags & FLAG_BIG_ENDIAN)
             {
@@ -356,13 +356,13 @@ void SDRAM::load(const char *name, vluint32_t size, vluint32_t addr)
                     idx++;
                 }
             }
-            
+
             // Compute next row's address
             if (mem_flags & FLAG_BANK_INTERLEAVING)
             {
                 // Increment bank number
                 bank_nr = (bank_nr + 1) & (SDRAM_NUM_BANKS - 1);
-                
+
                 // Bank #3 -> bank #0
                 if (!bank_nr)
                 {
@@ -382,7 +382,7 @@ void SDRAM::load(const char *name, vluint32_t size, vluint32_t addr)
             {
                 // Increment row position
                 row_pos = (row_pos + 1) & ((int)num_rows - 1);
-                
+
                 // Last row in a bank
                 if (!row_pos)
                 {
@@ -397,7 +397,7 @@ void SDRAM::load(const char *name, vluint32_t size, vluint32_t addr)
             }
         }
         printf("OK\n");
-        
+
         delete[] row_buf;
     }
     else
@@ -410,7 +410,7 @@ void SDRAM::load(const char *name, vluint32_t size, vluint32_t addr)
 void SDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
 {
     FILE *fh;
-    
+
     fh = fopen(name, "wb");
     if (fh)
     {
@@ -419,12 +419,12 @@ void SDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
         int        row_pos;  // Row position (0 to num_rows - 1)
         int        bank_nr;  // Bank number (0 to 3)
         int        idx;      // Array index (0 to num_cols * num_rows - 1)
-        
+
         // Row size computation based on data bus width
         row_size = (int)1 << (bit_cols + bus_log2);
         // Allocate one full row
         row_buf = new vluint8_t[row_size];
-        
+
         // Row position
         row_pos = (int)addr >> (bus_log2 + bit_cols);
         // Banks layout
@@ -441,8 +441,8 @@ void SDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
             row_pos = row_pos & (num_rows - 1);
         }
         idx = row_pos << bit_cols;
-        
-        printf("Saving 0x%08lX bytes @ 0x%08lX to binary file \"%s\"...", size, addr, name);
+
+        printf("Saving 0x%08X bytes @ 0x%08X to binary file \"%s\"...", size, addr, name);
         for (int i = 0; i < (int)size; i += row_size)
         {
             // Here, we take care of the endianness
@@ -506,13 +506,13 @@ void SDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
                     idx++;
                 }
             }
-            
+
             // Compute next row's address
             if (mem_flags & FLAG_BANK_INTERLEAVING)
             {
                 // Increment bank number
                 bank_nr = (bank_nr + 1) & (SDRAM_NUM_BANKS - 1);
-                
+
                 // Bank #3 -> bank #0
                 if (!bank_nr)
                 {
@@ -532,7 +532,7 @@ void SDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
             {
                 // Increment row position
                 row_pos = (row_pos + 1) & ((int)num_rows - 1);
-                
+
                 // Last row in a bank
                 if (!row_pos)
                 {
@@ -545,12 +545,12 @@ void SDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
                     }
                 }
             }
-            
+
             // Write one full row to the binary file
             fwrite((void *)row_buf, row_size, 1, fh);
         }
         printf("OK\n");
-        
+
         delete[] row_buf;
         fclose(fh);
     }
@@ -657,12 +657,12 @@ void SDRAM::eval
             vluint8_t  cmd;
             vluint8_t  a10;
 
-            // Decode SDRAM command            
+            // Decode SDRAM command
             if (!cs_n)
                 cmd = (ras_n << 2) | (cas_n << 1) | we_n;
             else
                 cmd = CMD_NOP;
-                
+
             // A[10] wire
             a10 = (vluint8_t)((addr >> 10) & 1);
             // Mask out extra bits
@@ -692,7 +692,7 @@ void SDRAM::eval
             // DQM pipeline
             dqm_pipe[0] = dqm_pipe[1];
             dqm_pipe[1] = dqm;
-            
+
             // Process SDRAM command (immediate)
             switch (cmd)
             {
@@ -701,10 +701,10 @@ void SDRAM::eval
                 {
                     if (dbg_on)
                     {
-                        printf("Load Std Mode Register @ %llu ps\n", ts);
-                        log_size += sprintf(log_buf + log_size, "Load Std Mode Register @ %llu ps\n", ts);
+                        printf("Load Std Mode Register @ %lu ps\n", ts);
+                        log_size += sprintf(log_buf + log_size, "Load Std Mode Register @ %lu ps\n", ts);
                     }
-                        
+
                     // CAS latency
                     switch((addr >> 4) & 7)
                     {
@@ -738,7 +738,7 @@ void SDRAM::eval
                             cas_lat = (int)0; // This disables pipelined commands
                         }
                     }
-                    
+
                     // Burst length
                     switch (addr & 7)
                     {
@@ -802,7 +802,7 @@ void SDRAM::eval
                             bst_len_rd = (int)0; // This will disable burst read
                         }
                     }
-                    
+
                     // Burst type
                     if (addr & 8)
                     {
@@ -822,7 +822,7 @@ void SDRAM::eval
                         }
                         bst_type = (vluint8_t)0;
                     }
-                    
+
                     // Write burst
                     if (addr & 0x200)
                     {
@@ -865,13 +865,13 @@ void SDRAM::eval
                 case CMD_REF:
                 {
                     if (dbg_on)
-                        log_size += sprintf(log_buf + log_size, "Auto Refresh @ %llu ps\n", ts);
-                    
+                        log_size += sprintf(log_buf + log_size, "Auto Refresh @ %lu ps\n", ts);
+
                     for (int i = 0; i < SDRAM_NUM_BANKS; i++)
                     {
                         if (!row_pre[i])
                         {
-                            printf("ERROR @ %llu ps : All banks must be Precharge before Auto Refresh\n", ts);
+                            printf("ERROR @ %lu ps : All banks must be Precharge before Auto Refresh\n", ts);
                             break;
                         }
                     }
@@ -884,13 +884,13 @@ void SDRAM::eval
                     {
                         if (dbg_on)
                             log_size += sprintf(log_buf + log_size, "Precharge all banks @ %llu ps\n", ts);
-                        
+
                         if (ap_bank[0] || ap_bank[1] || ap_bank[2] || ap_bank[3])
                         {
-                            printf("ERROR @ %llu ps : at least one bank is auto-precharged !\n", ts);
+                            printf("ERROR @ %lu ps : at least one bank is auto-precharged !\n", ts);
                             break;
                         }
-                        
+
                         // Precharge all banks
                         for (int i = 0; i < SDRAM_NUM_BANKS; i++)
                         {
@@ -901,23 +901,23 @@ void SDRAM::eval
                     else
                     {
                         if (dbg_on)
-                            log_size += sprintf(log_buf + log_size, "Precharge bank #%d @ %llu ps\n", ba, ts);
-                            
+                            log_size += sprintf(log_buf + log_size, "Precharge bank #%d @ %lu ps\n", ba, ts);
+
                         if (ap_bank[ba])
                         {
-                            printf("ERROR @ %llu ps : cannot apply a precharge to auto-precharged bank %d !\n", ts, ba);
+                            printf("ERROR @ %lu ps : cannot apply a precharge to auto-precharged bank %d !\n", ts, ba);
                             break;
                         }
-                        
+
                         // Precharge one bank
                         row_act[ba] = 0;
                         row_pre[ba] = 1;
                     }
-                    
+
                     // Terminate a WRITE immediately
                     if ((a10) || (bank == (int)ba))
                         bst_ctr_wr = 0;
-                    
+
                     // CAS latency pipeline for READ
                     if (cas_lat)
                     {
@@ -925,7 +925,7 @@ void SDRAM::eval
                         bap_pipe[cas_lat] = ba;
                         a10_pipe[cas_lat] = a10;
                     }
-                    
+
                     break;
                 }
                 // 011 : Activate
@@ -933,20 +933,20 @@ void SDRAM::eval
                 {
                     // Mask out extra bits
                     addr &= (num_rows - 1);
-                    
+
                     if (dbg_on)
-                        log_size += sprintf(log_buf + log_size, "Activate bank #%d, row #%d @ %llu ps\n", ba, addr, ts);
-                            
+                        log_size += sprintf(log_buf + log_size, "Activate bank #%d, row #%d @ %lu ps\n", ba, addr, ts);
+
                     if (row_act[ba])
                     {
-                        printf("ERROR @ %llu ps : bank %d already active !\n", ts, ba);
+                        printf("ERROR @ %lu ps : bank %d already active !\n", ts, ba);
                         break;
                     }
-                       
+
                     row_act[ba]  = 1;
                     row_pre[ba]  = 0;
                     row_addr[ba] = (int)addr << bit_cols;
-                    
+
                     break;
                 }
                 // 100 : Write
@@ -954,16 +954,16 @@ void SDRAM::eval
                 {
                     // Mask out extra bits
                     addr &= (mask_cols >> bus_log2);
-                    
+
                     if (dbg_on)
-                        log_size += sprintf(log_buf + log_size, "Write bank #%d, col #%d @ %llu ps\n", ba, addr, ts);
-                    
+                        log_size += sprintf(log_buf + log_size, "Write bank #%d, col #%d @ %lu ps\n", ba, addr, ts);
+
                     if (!row_act[ba])
                     {
-                        printf("ERROR @ %llu ps : bank %d is not activated for WRITE !\n", ts, ba);
+                        printf("ERROR @ %lu ps : bank %d is not activated for WRITE !\n", ts, ba);
                         break;
                     }
-                       
+
                     // Latch command right away
                     cmd_pipe[0] = CMD_WR;
                     col_pipe[0] = (int)addr;
@@ -971,7 +971,7 @@ void SDRAM::eval
 
                     // Auto-precharge
                     ap_bank[ba] = a10;
-                    
+
                     break;
                 }
                 // 101 : Read
@@ -979,16 +979,16 @@ void SDRAM::eval
                 {
                     // Mask out extra bits
                     addr &= (mask_cols >> bus_log2);
-                    
+
                     if (dbg_on)
-                        log_size += sprintf(log_buf + log_size, "Read bank #%d, col #%d @ %llu ps\n", ba, addr, ts);
-                    
+                        log_size += sprintf(log_buf + log_size, "Read bank #%d, col #%d @ %lu ps\n", ba, addr, ts);
+
                     if (!row_act[ba])
                     {
-                        printf("ERROR @ %llu ps : bank %d is not activated for READ !\n", ts, ba);
+                        printf("ERROR @ %lu ps : bank %d is not activated for READ !\n", ts, ba);
                         break;
                     }
-                       
+
                     // CAS latency pipeline
                     if (cas_lat)
                     {
@@ -996,27 +996,27 @@ void SDRAM::eval
                         col_pipe[cas_lat] = (int)addr;
                         ba_pipe[cas_lat]  = ba;
                     }
-                    
+
                     // Auto-precharge
                     ap_bank[ba] = a10;
-                    
+
                     break;
                 }
                 // 110 : Burst stop
                 case CMD_BST:
                 {
                     if (dbg_on)
-                        log_size += sprintf(log_buf + log_size, "Burst Stop bank #%d @ %llu ps\n", ba, ts);
-                        
+                        log_size += sprintf(log_buf + log_size, "Burst Stop bank #%d @ %lu ps\n", ba, ts);
+
                     if (ap_bank[ba])
                     {
-                        printf("ERROR @ %llu ps : cannot apply a burst stop to auto-precharged bank %d !\n", ts, ba);
+                        printf("ERROR @ %lu ps : cannot apply a burst stop to auto-precharged bank %d !\n", ts, ba);
                         break;
                     }
-                        
+
                     // Terminate a WRITE immediately
                     bst_ctr_wr = (vluint16_t)0;
-                    
+
                     // CAS latency for READ
                     if (cas_lat)
                     {
@@ -1027,7 +1027,7 @@ void SDRAM::eval
                 // 111 : No operation
                 default: ;
             }
-            
+
             // Process SDRAM command (pipelined)
             switch (cmd_pipe[0])
             {
@@ -1047,7 +1047,7 @@ void SDRAM::eval
                     col        = col_pipe[0] & (bst_len_wr - 1);
                     bst_ctr_rd = (int)0;
                     bst_ctr_wr = bst_len_wr;
-                    
+
                     if (dbg_on)
                     {
                         if (mem_flags & FLAG_BANK_INTERLEAVING)
@@ -1055,7 +1055,7 @@ void SDRAM::eval
                         else
                             fprintf(fh_log, "%08X : ", (row_addr[bank] + (bank << (bit_rows + bit_cols)) + col_pipe[0]) << bus_log2);
                     }
-                    
+
                     break;
                 }
                 // 101 : Read
@@ -1067,14 +1067,14 @@ void SDRAM::eval
                         if (log_size && fh_log) fprintf(fh_log, "%s", log_buf);
                         log_size = 0;
                     }
-                        
+
                     // Bank, row and column addresses in memory array
                     bank       = (int)ba_pipe[0];
                     row        = row_addr[bank] + (col_pipe[0] & ~(bst_len_rd - 1));
                     col        = col_pipe[0] & (bst_len_rd - 1);
                     bst_ctr_rd = bst_len_rd;
                     bst_ctr_wr = (int)0;
-                    
+
                     if (dbg_on)
                     {
                         if (mem_flags & FLAG_BANK_INTERLEAVING)
@@ -1082,7 +1082,7 @@ void SDRAM::eval
                         else
                             fprintf(fh_log, "%08X : ", (row_addr[bank] + (bank << (bit_rows + bit_cols)) + col_pipe[0]) << bus_log2);
                     }
-                    
+
                     break;
                 }
                 // 110 : Burst stop
@@ -1094,7 +1094,7 @@ void SDRAM::eval
                 // 111 : No operation
                 default: ;
             }
-            
+
             // Write to memory
             if (bst_ctr_wr)
             {
@@ -1182,12 +1182,12 @@ void SDRAM::eval
                 {
                     mem_array_0[bank][row + col] = (vluint8_t)dq_in;
                     if (dbg_on) fprintf(fh_log, "%02X ", mem_array_0[bank][row + col]);
-                }                    
-                
+                }
+
                 // Burst counter (only sequential burst supported)
                 col = (col + 1) & (bst_len_wr - 1);
                 bst_ctr_wr--;
-                
+
                 // End of burst
                 if (bst_ctr_wr == (int)0)
                 {
@@ -1210,12 +1210,12 @@ void SDRAM::eval
                     }
                 }
             }
-            
+
             // Read from memory
             if (bst_ctr_rd)
             {
                 vluint8_t dq_tmp[8];
-                
+
                 dq_tmp[7] = (vluint8_t)0x00;
                 dq_tmp[6] = (vluint8_t)0x00;
                 dq_tmp[5] = (vluint8_t)0x00;
@@ -1224,7 +1224,7 @@ void SDRAM::eval
                 dq_tmp[2] = (vluint8_t)0x00;
                 dq_tmp[1] = (vluint8_t)0x00;
                 dq_tmp[0] = (vluint8_t)0x00;
-                
+
                 // Read MSL (if present)
                 if (mem_flags & DATA_MSL)
                 {
@@ -1265,7 +1265,7 @@ void SDRAM::eval
                         if (dbg_on) fprintf(fh_log, "%02X", dq_tmp[4]);
                     }
                 }
-                
+
                 // Read MSW (if present)
                 if (mem_flags & DATA_MSW)
                 {
@@ -1288,7 +1288,7 @@ void SDRAM::eval
                         if (dbg_on) fprintf(fh_log, "%02X", dq_tmp[2]);
                     }
                 }
-                
+
                 // Read MSB (if present)
                 if (mem_flags & DATA_MSB)
                 {
@@ -1313,7 +1313,7 @@ void SDRAM::eval
                     dq_tmp[0] = mem_array_0[bank][row + col];
                     if (dbg_on) fprintf(fh_log, "%02X ", dq_tmp[0]);
                 }
-                
+
                 dq_out = ((vluint64_t)dq_tmp[0]      )
                        | ((vluint64_t)dq_tmp[1] << 8 )
                        | ((vluint64_t)dq_tmp[2] << 16)
@@ -1322,11 +1322,11 @@ void SDRAM::eval
                        | ((vluint64_t)dq_tmp[5] << 40)
                        | ((vluint64_t)dq_tmp[6] << 48)
                        | ((vluint64_t)dq_tmp[7] << 56);
-                
+
                 // Burst counter (only sequential supported)
                 col = (col + 1) & (bst_len_rd - 1);
                 bst_ctr_rd--;
-                
+
                 // End of burst
                 if (bst_ctr_rd == (int)0)
                 {
@@ -1350,7 +1350,7 @@ void SDRAM::eval
                 }
             }
         }
-        
+
         if ((bst_ctr_wr == (int)0) && (bst_ctr_rd == (int)0) && (log_size != (int)0))
         {
             if (log_buf) {
@@ -1358,7 +1358,7 @@ void SDRAM::eval
             }
             log_size = 0;
         }
-        
+
         // For edge detection
         prev_clk = clk;
     }
@@ -1374,7 +1374,7 @@ vluint8_t SDRAM::read_byte_i_be_8(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> bit_cols;
     idx     = (int)((addr & mask_cols) | ((addr & mask_rows) >> SDRAM_BIT_BANKS));
 
@@ -1386,7 +1386,7 @@ vluint8_t SDRAM::read_byte_i_be_16(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + 1);
     idx     = (int)((addr & mask_cols) | ((addr & mask_rows) >> SDRAM_BIT_BANKS)) >> 1;
 
@@ -1401,7 +1401,7 @@ vluint8_t SDRAM::read_byte_i_be_32(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + 2);
     idx     = (int)((addr & mask_cols) | ((addr & mask_rows) >> SDRAM_BIT_BANKS)) >> 2;
 
@@ -1420,7 +1420,7 @@ vluint8_t SDRAM::read_byte_i_be_64(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + 3);
     idx     = (int)((addr & mask_cols) | ((addr & mask_rows) >> SDRAM_BIT_BANKS)) >> 3;
 
@@ -1443,7 +1443,7 @@ vluint8_t SDRAM::read_byte_i_le_8(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> bit_cols;
     idx     = (int)((addr & mask_cols) | ((addr & mask_rows) >> SDRAM_BIT_BANKS));
 
@@ -1455,7 +1455,7 @@ vluint8_t SDRAM::read_byte_i_le_16(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + 1);
     idx     = (int)((addr & mask_cols) | ((addr & mask_rows) >> SDRAM_BIT_BANKS)) >> 1;
 
@@ -1470,7 +1470,7 @@ vluint8_t SDRAM::read_byte_i_le_32(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + 2);
     idx     = (int)((addr & mask_cols) | ((addr & mask_rows) >> SDRAM_BIT_BANKS)) >> 2;
 
@@ -1489,7 +1489,7 @@ vluint8_t SDRAM::read_byte_i_le_64(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + 3);
     idx     = (int)((addr & mask_cols) | ((addr & mask_rows) >> SDRAM_BIT_BANKS)) >> 3;
 
@@ -1512,7 +1512,7 @@ vluint8_t SDRAM::read_byte_c_be_8(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + bit_rows);
     idx     = (int)(addr & (mask_cols | mask_rows));
 
@@ -1524,7 +1524,7 @@ vluint8_t SDRAM::read_byte_c_be_16(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + bit_rows + 1);
     idx     = (int)(addr & (mask_cols | mask_rows)) >> 1;
 
@@ -1539,7 +1539,7 @@ vluint8_t SDRAM::read_byte_c_be_32(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + bit_rows + 2);
     idx     = (int)(addr & (mask_cols | mask_rows)) >> 2;
 
@@ -1558,7 +1558,7 @@ vluint8_t SDRAM::read_byte_c_be_64(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + bit_rows + 3);
     idx     = (int)(addr & (mask_cols | mask_rows)) >> 3;
 
@@ -1581,7 +1581,7 @@ vluint8_t SDRAM::read_byte_c_le_8(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + bit_rows);
     idx     = (int)(addr & (mask_cols | mask_rows));
 
@@ -1593,7 +1593,7 @@ vluint8_t SDRAM::read_byte_c_le_16(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + bit_rows + 1);
     idx     = (int)(addr & (mask_cols | mask_rows)) >> 1;
 
@@ -1608,7 +1608,7 @@ vluint8_t SDRAM::read_byte_c_le_32(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + bit_rows + 2);
     idx     = (int)(addr & (mask_cols | mask_rows)) >> 2;
 
@@ -1627,7 +1627,7 @@ vluint8_t SDRAM::read_byte_c_le_64(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
-    
+
     bank_nr = (int)(addr & mask_bank) >> (bit_cols + bit_rows + 3);
     idx     = (int)(addr & (mask_cols | mask_rows)) >> 3;
 
