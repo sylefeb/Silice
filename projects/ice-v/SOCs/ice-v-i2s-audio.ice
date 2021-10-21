@@ -1,0 +1,72 @@
+// SL 2020-06-12 @sylefeb
+//
+// The Ice-V-dual, compact RV32I dual core CPU
+// See README.md and IceVDual.md
+//
+// NOTE: running at 70 MHz while validating ~60 MHz
+//       in case of trouble change PLL choice below
+//       (plls/icestick_XX)
+//
+// MIT license, see LICENSE_MIT in Silice repo root
+//
+// Sends 16 bits words to the audio chip (PCM5102)
+// See also projects/i2s_audio/README.md
+//
+// We use the pre-processor to compute counters
+// based on the FPGA frequency and target audio frequency.
+// The audio frequency is likely to not be perfectly matched.
+//
+
+$$  base_freq_mhz      = 70  -- FPGA frequency
+$$  audio_freq_khz     = 44.1 -- Audio frequency (target)
+$$  base_cycle_period  = 1000/base_freq_mhz
+$$  target_audio_cycle_period = 1000000/audio_freq_khz
+$$  bit_hperiod_count  = math.floor(0.5 + (target_audio_cycle_period / base_cycle_period) / 64 / 2)
+$$  true_audio_cycle_period = bit_hperiod_count * 64 * 2 * base_cycle_period
+// Print out the periods and the effective audio frequency
+$$  print('main clock cycle period    : ' .. base_cycle_period .. ' nsec')
+$$  print('audio cycle period         : ' .. true_audio_cycle_period .. ' nsec')
+$$  print('audio effective freq       : ' .. 1000000 / true_audio_cycle_period .. ' kHz')
+$$  print('half period counter        : ' .. bit_hperiod_count)
+
+algorithm audio_pcm_i2s(
+  input  int8   sample,
+  output uint4  i2s // {i2s_lck,i2s_din,i2s_bck,i2s_sck}
+) {
+
+  uint1  i2s_bck(1); // serial clock (32 periods per audio half period)
+  uint1  i2s_lck(1); // audio clock (low: right, high: left)
+
+  uint8  data(0);    // data being sent, shifted through i2s_din
+  uint5  count(0);   // counter for generating the serial bit clock
+                     // NOTE: width may require adjustment on other base freqs.
+  uint5  mod32(1);   // modulo 32, for audio clock
+
+  always {
+
+    // track expressions for serial bit clock, edge, negedge, all bits sent
+    uint1 edge      <:: (count == $bit_hperiod_count-1$);
+    uint1 negedge   <:: edge &  i2s_bck;
+    uint1 allsent   <:: mod32 == 0;
+
+    // output i2s signals
+    i2s = {i2s_lck,data[7,1],i2s_bck,1b0};
+
+    // shift data out on negative edge
+    data = negedge ? (
+                       allsent ? sample         // next audio sample
+                               : (data << 1))   // shift next bit (MSB first)
+                   : data;
+    // NOTE: as we send 8 bits only, the remaining 24 bits are zeros
+
+    // update I2S clocks
+    i2s_bck = edge                ? ~i2s_bck : i2s_bck;
+    i2s_lck = (negedge & allsent) ? ~i2s_lck : i2s_lck;
+
+    // update counter and modulo
+    count   = edge    ? 0         : count + 1;
+    mod32   = negedge ? mod32 + 1 : mod32;
+
+  }
+
+}

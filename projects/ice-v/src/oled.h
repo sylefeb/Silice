@@ -38,9 +38,9 @@ void oled_init_mode(int mode)
   if (mode == OLED_666) {
     *(OLED) = OLED_DTA | 0xA0;
   } else {
-    *(OLED) = OLED_DTA | 0x20;    
+    *(OLED) = OLED_DTA | 0x20;
   }
-    WAIT;
+  WAIT;
   // unlock
   *(OLED) = OLED_CMD | 0xFD;
   WAIT;
@@ -59,7 +59,6 @@ void oled_init()
   oled_init_mode(OLED_666);
 }
 
-
 void oled_fullscreen()
 {
   // set col addr
@@ -74,7 +73,7 @@ void oled_fullscreen()
   WAIT;
   *(OLED) = OLED_DTA |    0;
   WAIT;
-  *(OLED) = OLED_DTA |  127;  
+  *(OLED) = OLED_DTA |  127;
   WAIT;
   // initiate write
   *(OLED) = OLED_CMD | 0x5c;
@@ -108,6 +107,6 @@ void oled_clear(unsigned char c)
     for (int u=0;u<128;u++) {
       oled_pix(c,c,c);
       WAIT;
-    }  
+    }
   }
 }

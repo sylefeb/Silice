@@ -1,6 +1,6 @@
 // SL 2021-07-30 @sylefeb
 //
-// Fun with RISC-V! dual RV32I cpu, see README.md
+// Compact dual core RV32I cpu, see IceVDual.md
 //
 // NOTE: please get familiar with the ice-v first.
 //

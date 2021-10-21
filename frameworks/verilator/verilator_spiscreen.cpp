@@ -78,14 +78,29 @@ int main(int argc,char **argv)
 
   // we need to step simulation until we get
   // the parameters set from design signals
-  // TODO get screen driver, width, height
-  //do {
-  //  g_Design->clk = 1 - g_Design->clk;
-  //  g_Design->eval();
-  //} while ((int)g_Design->video_color_depth == 0);
+  do {
+    g_Design->clk = 1 - g_Design->clk;
+    g_Design->eval();
+  } while ((int)g_Design->spiscreen_driver == 0);
+
+  if (g_Design->spiscreen_driver == SPIScreen::SSD1351) {
+    fprintf(stdout,"SPIScreen SSD1351, %dx%d\n",g_Design->spiscreen_width,
+                                                g_Design->spiscreen_height);
+  } else if (g_Design->spiscreen_driver == SPIScreen::ST7789) {
+    fprintf(stdout,"SPIScreen ST7789, %dx%d\n",g_Design->spiscreen_width,
+                                               g_Design->spiscreen_height);
+  } else {
+    fprintf(stdout,"Unknown SPIScreen driver, known values are:\n");
+    fprintf(stdout,"   - [%d] SSD1351 \n",SPIScreen::SSD1351);
+    fprintf(stdout,"   - [%d] ST7789  \n",SPIScreen::ST7789);
+    exit(-1);
+  }
 
   // instantiate the screen
-  g_Screen = new SPIScreen(SPIScreen::ST7789,320,240);
+  g_Screen = new SPIScreen(
+      (SPIScreen::e_Driver)g_Design->spiscreen_driver,
+      g_Design->spiscreen_width,
+      g_Design->spiscreen_height);
 
   // enter display loop
   display_loop(g_Screen);

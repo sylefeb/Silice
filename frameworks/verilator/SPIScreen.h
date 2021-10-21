@@ -45,7 +45,7 @@ class SPIScreen : public DisplayChip
 {
 public:
 
-  enum e_Driver {ST7789};
+  enum e_Driver {Unknown=0,SSD1351=1,ST7789=2};
 
 private:
 
@@ -69,12 +69,19 @@ private:
   int                     m_y_cur   = 0;
 
   LibSL::Math::v4b        m_rgb;
+  bool                    m_color_666_else_565 = false;
 
-  std::function<void()> m_command;
+  std::function<void()>   m_command;
 
-  void cmd_idle();
-  void cmd_row_start_end();
-  void cmd_col_start_end();
+  void set_idle();
+
+  void cmd_idle_SSD1351();
+  void cmd_mode_SSD1351();
+
+  void cmd_idle_ST7789();
+  void cmd_mode_ST7789();
+
+  void cmd_start_end(int *p_start,int *p_end,int nbytes);
   void cmd_write_ram();
 
 public:

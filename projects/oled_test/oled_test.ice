@@ -2,20 +2,20 @@
 // MIT license, see LICENSE_MIT in Silice repo root
 
 // vvvvvvvvvvvvv select screen driver below
-$$ -- SSD1331=1
+$$ -- SSD1331=1 -- NOTE: not yet correctly supported
 $$ -- SSD1351=1
 $$ ST7789=1
-//               vvvvv adjust to your screen
-$$ oled_width   = 240
-$$ oled_height  = 320
-//               vvvvv set to false if the screen uses the CS pin
+//                vvv adjust to your screen
+$$ oled_width   = 320
+$$ oled_height  = 240
+//                vvv set to false if the screen uses the CS pin
 $$ st7789_no_cs = nil
-//                   vvvvv set to true to rotate view 90 degrees
+//                    vvvv set to true to rotate view 90 degrees
 $$ st7789_transpose = true
 
 // default configured for https://www.waveshare.com/wiki/2inch_LCD_Module
 
-// ------------------------- 
+// -------------------------
 
 $include('../common/oled.ice')
 
@@ -23,7 +23,7 @@ $$if not OLED and not SIMULATION then
 $$error('This project requires an OLED screen')
 $$end
 
-// ------------------------- 
+// -------------------------
 
 algorithm main(
   output uint$NUM_LEDS$ leds,
@@ -33,6 +33,15 @@ $$if OLED then
   output uint1 oled_dc,
   output uint1 oled_resn,
   output uint1 oled_csn,
+$$if VERILATOR then
+$$if ST7789 then
+  output uint2  spiscreen_driver(2/*ST7789*/),
+$$else
+  output uint2  spiscreen_driver(1/*SSD1351*/),
+$$end
+  output uint10 spiscreen_width($oled_height$),
+  output uint10 spiscreen_height($oled_width$),
+$$end
 $$end
 ) {
 
@@ -61,13 +70,13 @@ $$end
   // maintain low (pulses high when sending)
   io.start_rect := 0;
   io.next_pixel := 0;
-  
+
   while (1) {
-  
+
     uint10 u     = uninitialized;
     uint10 v     = uninitialized;
 
-    // wait for controller to be ready  
+    // wait for controller to be ready
     while (io.ready == 0) { }
 
      // draw window
@@ -97,10 +106,10 @@ $$end
       }
       v = v + 1;
     }
-    
+
     frame = frame + 1;
   }
 
 }
 
-// ------------------------- 
+// -------------------------

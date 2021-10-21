@@ -1,14 +1,15 @@
 # The Ice-V-dual: a compact dual-core RISC-V RV32I implementation in Silice
 
 The Ice-V-dual is a dual core version of the [Ice-V](README.md). It contains *two*
-RV32I cores that work independently but share the RAM (code + data). Like 
-the Ice-V it is specialized to run from BRAM. 
+RV32I cores that work independently but share the RAM (code + data). Like
+the Ice-V it is specialized to run from BRAM.
 
-With its SoC it uses ~1220 LUTs on the IceStick and validates at ~55 MHz. 
-Each core is 4 cycles per instruction but for shifts (shifts are done one bit per cycle, both cores wait if one does ALU shifts - this is only to save LUTs, otherwise shifts could be one cycle). Cores retire instructions with a 2 cycles delay between them. 
+With its SoC it uses ~1220 LUTs on the IceStick and validates at ~55 MHz.
+Each core is 4 cycles per instruction but for shifts (shifts are done one bit per cycle, both cores wait if one does ALU shifts - this is only to save LUTs, otherwise shifts could be one cycle). Cores retire instructions with a 2 cycles delay between them.
 `rdcycle` is supported with a 31 bits counter, the LSB of `rdcycle` returns the CPU id.
 
-The processor source code is there: [ice-v-dual.ice](CPUs/ice-v-dual.ice).
+The processor source code is in [ice-v-dual.ice](CPUs/ice-v-dual.ice), the SOC source code is in [ice-v-dual.ice](SOCs/ice-v-soc-dual.ice). Also
+note that the Ice-V is available in [Silice RISC-V integration](../easy-riscv/README.md).
 
 The following Section explains the processor design and how going from the [single core Ice-V](README.md) to the dual core version is actually relatively simple!
 
@@ -22,7 +23,7 @@ If you only want to test the demos, jump directly to the [running the design and
 ## How is this possible?
 
 It would seem that two CPUs should use twice the resources as one? Well not quite.
-If we look carefully at the execution pattern of the Ice-V there are times where 
+If we look carefully at the execution pattern of the Ice-V there are times where
 parts of the logic is not used. This opens an interesting opportunity: could
 we squeeze a second CPU (let's call it a second *core*) and use this logic when its free?
 
@@ -45,7 +46,7 @@ if the instruction is *not* a load-store).
 We get a clean, simple 4-cycles sequence: `F`, `T`, `LS1`, `LS2/C`.
 The main resources used by the CPU are the BRAM (storing code+data), the registers
 (in a separate BRAM, we'll simply refer to it as the 'registers' to avoid confusion),
-the decoder+ALU. If we are to have two cores in a small design, they can at best 
+the decoder+ALU. If we are to have two cores in a small design, they can at best
 share the BRAM and the decoder+ALU. They need their own registers anyway (so
 that execution context is independent).
 
@@ -57,7 +58,7 @@ accessed. This happens in between the steps as the clock ticks (accessed resourc
 
 (this cycles indefinitely).
 
-Obviously, a second core could not be aligned with the same pattern. However, if 
+Obviously, a second core could not be aligned with the same pattern. However, if
 we simply shift two cycles, we get this:
 
 | *core 0* |..|(bram+regW) | `F` | (regsR) | `T` | (d+ALU) | `LS1` | (bram) | `LS2/C` | .. |
@@ -84,7 +85,7 @@ indicated by the most significant bit of *stage*. This makes for a very simple f
   int32  xb    <:: (stage[0,1]^stage[1,1]) ? xregsB_0.rdata : xregsB_1.rdata;
   execute exec(instr <: instr,pc <: pc, xa <: xa, xb <: xb);
 ```
-This selects which inputs go into the decoder+ALU (grouped in the `execute` algorithm) based on the value of `stage` (same as in table above). The instruction, program counters and register values are being selected. Note that  the decoder+ALU outputs have to be valid for both `LS1` and `LS2/C`, so their inputs are selected at the cycles before. 
+This selects which inputs go into the decoder+ALU (grouped in the `execute` algorithm) based on the value of `stage` (same as in table above). The instruction, program counters and register values are being selected. Note that  the decoder+ALU outputs have to be valid for both `LS1` and `LS2/C`, so their inputs are selected at the cycles before.
 
 One complication is that the ALU, in order to save LUTs, is implementing a serial shifter (one bit is shifted at each cycle). A consequence is that we have to wait for the ALU in such cases. Due to the careful interleaving of both cores, we have little choice but to pause both. But where can we safely do that? It turns out the ideal place is during the `F` / `LS1` stages. First, it takes one cycle for the ALU to indicate it is busy, so that could not really be done during `T` / `LS2/C`. Second, the waiting core is then in the `LS1` stage, while the other core is stuck at `F` with the correct instruction in front of it. Upon resuming, everything will happen as if no pause had ocurred!
 
@@ -148,10 +149,10 @@ make icestick -f Makefile.dual
 
 For compiling for the ice-v-dual on IceBreaker, plug-in the board and type in (note that the compilation script is in a different folder):
 ```
-./compile/icebreaker/compile_c_native_dual.sh src/dual_demo.c
+./compile/icebreaker/compile_c_dual.sh src/dual_demo.c
 make icebreaker -f Makefile.dual
 ```
-Note how much slower that is? This is because the FPGA fabric of the UP5K ice40 (the FPGA on the IceBreaker) is much slower, so we are limited to ~25 MHz while the IceStick runs at ~60MHz (and often higher). In exchange, the UP5K has SPRAM that we can use to our advantage! When compiling for the IceBreaker the SOC includes 64K of SPRAM (leaving another 64K for future extension) from which code can be executed. Because SPRAM cannot be initialized, the code has to be loaded there from SPIFLASH, a memory on the FPGA board that is relatively slow to read from but that can store a few megabytes. This is done by a [bootloader](src/icebreaker/boot_spiflash.c). 
+Note how much slower that is? This is because the FPGA fabric of the UP5K ice40 (the FPGA on the IceBreaker) is much slower, so we are limited to ~25 MHz while the IceStick runs at ~60MHz (and often higher). In exchange, the UP5K has SPRAM that we can use to our advantage! When compiling for the IceBreaker the SOC includes 64K of SPRAM (leaving another 64K for future extension) from which code can be executed. Because SPRAM cannot be initialized, the code has to be loaded there from SPIFLASH, a memory on the FPGA board that is relatively slow to read from but that can store a few megabytes. This is done by a [bootloader](src/icebreaker/boot_spiflash.c).
 
 But let's go through the full process. First, we generate the ice-v-dual hardware with the bootlader (plug-in the icebreaker before):
 ```
@@ -162,7 +163,7 @@ After this we compile a demo but this time we don't rebuild the hardware -- ther
 
 First, we compile the demo:
 ```
-./compile/icebreaker/compile_c_dual.sh src/dual_demo.c
+./compile/icebreaker/compile_c_spiflash_dual.sh src/dual_demo.c
 ```
 Then, we upload it to SPIFLASH (plug-in the icebreaker):
 ```
@@ -171,5 +172,4 @@ make spiflash
 
 As soon as this is done the demo starts. While this particular demo is still quite small, we could load a much bigger code that would enjoy the full 64KB space!
 
-> **Note:** The `src/` directory contains many example to play with. Experiment! Nothing can break. 
-
+> **Note:** The `src/` directory contains many example to play with. Experiment! Nothing can break.

@@ -1,13 +1,42 @@
 // SL 2020-06-12 @sylefeb
 //
-// Fun with RISC-V!
-// RV32I cpu, see README.md
+// The Ice-V-dual, compact RV32I dual core CPU
+// See README.md and IceVDual.md
 //
 // NOTE: running at 70 MHz while validating ~60 MHz
 //       in case of trouble change PLL choice below
 //       (plls/icestick_XX)
 //
 // MIT license, see LICENSE_MIT in Silice repo root
+
+// ==================================================
+//
+//  This SOC embbeds the Ice-V-dual into a small
+//  system with access to LEDs, SPIflash, and (on the
+//  ice40 UP5K) SPRAM, as well as (through PMOD connectors)
+//  a SPI screen (128x128, SSD1351) and audio I2S (PCM5102).
+//
+//  It has been tested with the IceStick (HX1K),
+//  IceBreaker, Fomu and IceBitsy (UP5K) boards.
+//
+//  Build and program with:
+//  - make <board> -f Makefile.dual (SPIscreen + audio)
+//
+//  The firmware has to be compiled *before*, externally
+//  using either:
+//  - compile/icestick/compile_c_dual.sh (IceStick HX1K)
+//  - compile/icebreaker/compile_c_dual.sh (UP5K boards)
+//
+//  For the UP5K board a variant exists to compile a
+//  boot loader for the design and then compile code
+//  for SPIflash:
+//  - compile/icebreaker/compile_boot_dual.sh (bootloader)
+//  - compile/icebreaker/compile_c_spiflash_dual.sh (firmware)
+//  See IceVDual.md#running-the-design-and-demos for details
+//
+// The SOC can be simulated using Verilator
+//
+// ==================================================
 
 // Clocks
 $$if ICESTICK then
@@ -18,35 +47,41 @@ $$elseif ICEBREAKER or ICEBITSY then
 import('../../common/plls/icebrkr_25.v')
 $$end
 
+// Configures a BRAM template having write mask
 $$config['bram_wmask_byte_wenable_width'] = 'data'
 
-// pre-compilation script, embeds compiled code within a string
+// Pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_compiled.lua')
 
+// Use SPRAM on UP5K boards
 $$if (ICEBREAKER or ICEBITSY or SIMULATION) then
 $$  USE_SPRAM = 1
 $$end
 
 $$if (ICEBREAKER or ICEBITSY or SIMULATION) then
+// UP5K configuration
 $$  periph   = 17       -- bit indicating a peripheral is addressed
 $$  addrW    = 18       -- additional bits for memory mapping
-$$  Boot     = 65536//4 -- NOTE: address in 32bits words
+$$  Boot     = 65536//4 -- boot address in 32bits words
 $$  if USE_SPRAM and not SIMULATION then
 import('../../common/ice40_spram.v')
 $$  end
 $$else
+// HX1K configuration (IceStick)
 $$  periph   = 11    -- bit indicating a peripheral is addressed
 $$  addrW    = 12    -- additional bits for memory mapping
-$$  Boot     = 0
+$$  Boot     = 0     -- boot at address zero
 $$end
 $$print('===========> address bus width: ' .. addrW)
 
+// How much BRAM do we allocate (CPU RAM, incl. code)
 $$bramSize = 1024
-
+// Verify this is addressable
 $$if bramSize > 1<<(addrW-1) then
 $$  error("RAM is not fully addressable")
 $$end
 
+// Allows to load image in SPRAM for simulation
 $$if SIMULATION then
 $$  SPRAM_INIT_FILE = nil -- '"../spram_h.img"'
 $$  SPRAM_POSTFIX = '_h'
@@ -56,7 +91,7 @@ $$  SPRAM_POSTFIX = '_l'
 $include('../../common/simulation_spram.ice')
 $$end
 
-// include the processor
+// Include the processor!
 $include('../CPUs/ice-v-dual.ice')
 
 // --------------------------------------------------
@@ -79,6 +114,11 @@ $$if OLED then
   output uint1 oled_dc,
   output uint1 oled_resn,
   output uint1 oled_csn(0),
+$$if VERILATOR then
+  output uint2  spiscreen_driver(1/*SSD1351*/),
+  output uint10 spiscreen_width(128),
+  output uint10 spiscreen_height(128),
+$$end
 $$end
 $$if PMOD then
   inout  uint8 pmod,
@@ -91,15 +131,15 @@ $$if SPIFLASH then
   output uint1 sf_csn,
   output uint1 sf_mosi,
   input  uint1 sf_miso,
-$$end  
-$$if not SIMULATION then    
+$$end
+$$if not SIMULATION then
   ) <@cpu_clock> {
-  // clock  
+  // clock
   uint1 cpu_clock  = uninitialized;
   pll clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
-  ); 
+  );
 $$else
 ) {
 $$end
@@ -114,8 +154,8 @@ $$  if SIMULATION then
   simulation_spram_h spram0(
 $$  else
   ice40_spram spram0(
-    clock    <: cpu_clock, 
-$$  end  
+    clock    <: cpu_clock,
+$$  end
     addr     <: sp0_addr,
     data_in  <: sp0_data_in,
     wenable  <: sp0_wenable,
@@ -127,7 +167,7 @@ $$  if SIMULATION then
 $$  else
   ice40_spram spram1(
     clock    <: cpu_clock,
-$$  end  
+$$  end
     addr     <: sp1_addr,
     data_in  <: sp1_data_in,
     wenable  <: sp1_wenable,
@@ -172,10 +212,10 @@ $$end
 $$if SIMULATION then
    uint32 cycle(0);
 $$end
-	 
+
   // ram
   // - intermediate interface to perform memory mapping
-  bram_io memio;  
+  bram_io memio;
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
   bram uint32 mem<"bram_wmask_byte">[$bramSize$] = $meminit$;
 
@@ -185,7 +225,7 @@ $$end
   // io mapping
   always {
     uint1 in_periph <: memio.addr[$periph$,1];
-    uint4 mem_wmask <: memio.wenable & {4{~in_periph}}; 
+    uint4 mem_wmask <: memio.wenable & {4{~in_periph}};
 		//                                     ^^^^^^^ no write if in peripheral addresses
 	  // ---- memory access
 $$if USE_SPRAM then
@@ -200,7 +240,7 @@ $$if USE_SPRAM then
     sp1_wmask     = {mem_wmask[3,1],mem_wmask[3,1],mem_wmask[2,1],mem_wmask[2,1]};
     sp0_wenable   = (~in_bram) & (~in_periph) & (mem_wmask != 0);
     sp1_wenable   = (~in_bram) & (~in_periph) & (mem_wmask != 0);
-    memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) 
+    memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1])
                   ? {28b0,reg_btns,reg_miso} // ^^^^^^^^^^^^^^^^^^ SPI flash
                   : (prev_in_bram ? mem.rdata : {sp1_data_out,sp0_data_out});
     prev_mem_addr = memio.addr;
@@ -214,10 +254,10 @@ $$if VERBOSE then
         __display("[cycle %d] SPRAM read @%h",cycle,sp0_addr<<2);
       }
     }
-$$end    
+$$end
 $$else
 $$  if SPIFLASH or SIMULATION then
-    memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1]) 
+    memio.rdata   = (prev_mem_addr[$periph$,1] & prev_mem_addr[4,1])
                   ? {28b0,reg_btns,reg_miso} : mem.rdata; // ^^^^^^ SPI flash
 		prev_mem_addr = memio.addr;
 $$  else
@@ -237,10 +277,11 @@ $$if PMOD then
 $$end
 $$if SPIFLASH then
     reg_miso      = sf_miso; // register flash miso
-$$if BUTTONS then    
+$$if BUTTONS then
     reg_btns      = btns;    // register buttons
-$$end    
 $$end
+$$end
+
     // ---- memory mapping to peripherals: writes
     if (memio.wenable[0,1] & memio.addr[$periph$,1]) {
       uint5 select <: memio.addr[0,5];
@@ -257,7 +298,7 @@ $$if OLED or PMOD then
           displ_en =  mem.wdata[9,1] | mem.wdata[10,1];
 $$end
 $$if SIMULATION then
-          __display("[cycle %d] OLED: %b", cycle, memio.wdata[0,8]);
+          // __display("[cycle %d] OLED: %b", cycle, memio.wdata[0,8]);
 $$end
         }
         case 2: {
@@ -295,8 +336,7 @@ $$if SIMULATION then
 $$end
   }
 
-
-$$if SIMULATION then
+$$if ICARUS then
   // stop after some cycles
 	while (cycle < 256) { }
 $$else
@@ -309,75 +349,14 @@ $$end
 // --------------------------------------------------
 
 $$if OLED or PMOD then
-
 $$OLED_SLOW = 1
 $include('ice-v-oled.ice')
-
 $$end
 
 // --------------------------------------------------
 
 $$if PMOD then
-
-// Sends 16 bits words to the audio chip (PCM5102)
-//
-// we use the pre-processor to compute counters
-// based on the FPGA frequency and target audio frequency.
-// The audio frequency is likely to not be perfectly matched.
-//
-$$  base_freq_mhz      = 70  -- FPGA frequency
-$$  audio_freq_khz     = 44.1 -- Audio frequency (target)
-$$  base_cycle_period  = 1000/base_freq_mhz
-$$  target_audio_cycle_period = 1000000/audio_freq_khz
-$$  bit_hperiod_count  = math.floor(0.5 + (target_audio_cycle_period / base_cycle_period) / 64 / 2)
-$$  true_audio_cycle_period = bit_hperiod_count * 64 * 2 * base_cycle_period
-// Print out the periods and the effective audio frequency
-$$  print('main clock cycle period    : ' .. base_cycle_period .. ' nsec')
-$$  print('audio cycle period         : ' .. true_audio_cycle_period .. ' nsec')
-$$  print('audio effective freq       : ' .. 1000000 / true_audio_cycle_period .. ' kHz')
-$$  print('half period counter        : ' .. bit_hperiod_count)
-algorithm audio_pcm_i2s(
-  input  int8   sample,
-  output uint4  i2s // {i2s_lck,i2s_din,i2s_bck,i2s_sck}
-) {
-
-  uint1  i2s_bck(1); // serial clock (32 periods per audio half period)
-  uint1  i2s_lck(1); // audio clock (low: right, high: left)
-  
-  uint8  data(0);    // data being sent, shifted through i2s_din
-  uint5  count(0);   // counter for generating the serial bit clock
-                     // NOTE: width may require adjustment on other base freqs.
-  uint5  mod32(1);   // modulo 32, for audio clock
-  
-  always {
-    
-    // track expressions for serial bit clock, edge, negedge, all bits sent
-    uint1 edge      <:: (count == $bit_hperiod_count-1$);
-    uint1 negedge   <:: edge &  i2s_bck;
-    uint1 allsent   <:: mod32 == 0;
-  
-    // output i2s signals
-    i2s = {i2s_lck,data[7,1],i2s_bck,1b0};
-
-    // shift data out on negative edge
-    data = negedge ? ( 
-                       allsent ? sample         // next audio sample
-                               : (data << 1))   // shift next bit (MSB first)
-                   : data;
-    // NOTE: as we send 8 bits only, the remaining 24 bits are zeros            
-    
-    // update I2S clocks
-    i2s_bck = edge                ? ~i2s_bck : i2s_bck;
-    i2s_lck = (negedge & allsent) ? ~i2s_lck : i2s_lck;
-    
-    // update counter and modulo
-    count   = edge    ? 0         : count + 1;
-    mod32   = negedge ? mod32 + 1 : mod32;
-    
-  }
-
-}
-
+$include('ice-v-i2s-audio.ice')
 $$end
 
 // --------------------------------------------------

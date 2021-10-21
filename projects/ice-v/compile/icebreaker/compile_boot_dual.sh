@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./compile/icebreaker/compile_c_native_dual.sh src/icebreaker/boot_spiflash.c
+./compile/icebreaker/compile_c_dual.sh src/icebreaker/boot_spiflash.c

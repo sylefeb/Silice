@@ -67,6 +67,9 @@ module top(
   output oled_dc,
   output oled_csn,
   output oled_resn,
+  output [1:0] spiscreen_driver,
+  output [9:0] spiscreen_width,
+  output [9:0] spiscreen_height,
   // basic
   input        clk,
   output [7:0] leds
@@ -156,6 +159,9 @@ M_main __main(
   .out_oled_dc(oled_dc),
   .out_oled_csn(oled_csn),
   .out_oled_resn(oled_resn),
+  .out_spiscreen_driver(spiscreen_driver),
+  .out_spiscreen_width(spiscreen_width),
+  .out_spiscreen_height(spiscreen_height),
 `endif
   .in_run(run_main),
   .out_done(done_main)

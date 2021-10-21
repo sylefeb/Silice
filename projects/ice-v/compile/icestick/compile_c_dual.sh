@@ -7,7 +7,7 @@ source ../../tools/bash/find_riscv.sh
 
 echo "using $ARCH"
 
-OPT_LEVEL=${2:-1}  
+OPT_LEVEL=${2:-1}
 
 $ARCH-gcc -DICESTICK -O$OPT_LEVEL -fstack-reuse=none -fno-builtin -fno-unroll-loops -fno-pic -march=rv32i -mabi=ilp32 -fverbose-asm -S $1 -o compile/build/code.s
 $ARCH-gcc -DICESTICK -O$OPT_LEVEL -fstack-reuse=none -fno-builtin -fno-unroll-loops -fno-pic -march=rv32i -mabi=ilp32 -c -o compile/build/code.o $1
@@ -20,4 +20,4 @@ $ARCH-objcopy -O verilog compile/build/code.elf compile/build/code.hex
 
 # uncomment to see the actual code, usefull for debugging
 # $ARCH-objcopy.exe -O binary compile/build/code.elf compile/build/code.bin
-# $ARCH-objdump.exe -D -b binary -m riscv compile/build/code.bin 
+# $ARCH-objdump.exe -D -b binary -m riscv compile/build/code.bin

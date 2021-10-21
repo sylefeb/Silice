@@ -12,10 +12,10 @@ $ARCH-gcc -DICEBREAKER -fstack-reuse=none -fno-builtin -fno-unroll-loops -O1 -fn
 
 $ARCH-as -march=rv32i -mabi=ilp32 -o crt0.o compile/icebreaker/crt0_dual.s
 
-$ARCH-ld -m elf32lriscv -b elf32-littleriscv -Tcompile/icebreaker/config_native_dual.ld --no-relax -o compile/build/code.elf compile/build/code.o
+$ARCH-ld -m elf32lriscv -b elf32-littleriscv -Tcompile/icebreaker/config_c_dual.ld --no-relax -o compile/build/code.elf compile/build/code.o
 
 $ARCH-objcopy -O verilog compile/build/code.elf compile/build/code.hex
 
 # uncomment to see the actual code, usefull for debugging
 # $ARCH-objcopy.exe -O binary compile/build/code.elf compile/build/code.bin
-# $ARCH-objdump.exe -D -b binary -m riscv compile/build/code.bin 
+# $ARCH-objdump.exe -D -b binary -m riscv compile/build/code.bin
