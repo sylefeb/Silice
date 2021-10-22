@@ -18,11 +18,11 @@ $$if SIMULATION then
 $$VERBOSE = nil
 $$end
 
-$$CPU0  = 1   -- set to nil to disable debug output for CPU0
-$$KILL0 = nil -- set to 1 to disable CPU0
+$$CORE0 = 1   -- set to nil to disable debug output for core 0
+$$KILL0 = nil -- set to 1 to disable core 0
 
-$$CPU1  = 1   -- set to nil to disable debug output for CPU1
-$$KILL1 = nil -- set to 1 to disable CPU1
+$$CORE1  = 1  -- set to nil to disable debug output for core 1
+$$KILL1 = nil -- set to 1 to disable core 1
 
 $$if ICE_V_RV32E then
 $$ print("Ice-V configured for RV32E")
@@ -46,13 +46,13 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
 // execute: decoder + ALU
 // - decodes instructions
 // - performs all integer computations
-// - similar to ice-v, adds cpu_id and revised shifter
+// - similar to ice-v, adds core_id and revised shifter
 
 algorithm execute(
   // instruction, program counter and registers
   input  uint32 instr,   input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
-  input  uint1  trigger, input   uint1  cpu_id,
+  input  uint1  trigger, input   uint1  core_id,
   // outputs all information the processor needs to decide what to do next
   output uint3  op,    output uint5  write_rd, output  uint1  no_rd,
   output uint1  jump,  output uint1  load,     output  uint1  store,
@@ -108,7 +108,7 @@ algorithm execute(
   // integer operations                // store next address?
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
   // value to store directly
-  val          := LUI ? imm_u : {cycle,cpu_id};
+  val          := LUI ? imm_u : {cycle,core_id};
   // store value?
   storeVal     := LUI     | Cycles;
 
@@ -230,11 +230,7 @@ $$end
                     | (exec.load      ? loaded              : 32b0)
                     | (exec.intop     ? exec.r              : 32b0);
 
-  // The 'always_before' block is applied at the start of every cycle.
-  // This is a good place to set default values, which also indicates
-  // to Silice that some variables (e.g. xregsA.wdata) are fully set
-  // every cycle, enabling further optimizations.
-  // Default values are overriden from within the algorithm loop.
+  // always block, done every cycle
   always {
     // decodes values loaded from memory (used when exec.load == 1)
     uint32 aligned <: mem.rdata >> {exec.n[0,2],3b000};
@@ -262,9 +258,9 @@ $$if VERBOSE then
     __display("[cycle %d] ====== stage:%b reset:%b pc_0:%h pc_1:%h",cycle,stage,reset,pc_0,pc_1);
 $$end
 
-  if ( ~ stage[0,1] ) { // even stage
+    if ( ~ stage[0,1] ) { // even stage
 
-      // one CPU on F, one CPU on LS1
+      // one core on F, one core on LS1
 
       // F
 $$if KILL0 then
@@ -284,11 +280,11 @@ $$end
 
 $$if VERBOSE then
       if (~stage[1,1]) {
-$$if CPU0 then
+$$if CORE0 then
         __display("[cycle %d] (0) F instr_0:%h (@%h)",cycle,instr_0,pc_0<<2);
 $$end
       } else {
-$$if CPU1 then
+$$if CORE1 then
         __display("[cycle %d] (1) F instr_1:%h (@%h)",cycle,instr_1,pc_1<<2);
 $$end
       }
@@ -297,7 +293,7 @@ $$end
       // LS1
       // memory address from which to load/store
       mem.addr = ~exec.working ? (exec.n >> 2) : mem.addr;
-      // no need to know which CPU, since we only read from exec
+      // no need to know which core, since we only read from exec
       if (exec.store) {
         // == Store (enabled if exec.store == 1)
         // build write mask depending on SB, SH, SW
@@ -310,11 +306,11 @@ $$end
 $$if VERBOSE then
      if (exec.load | exec.store) {
         if (stage[1,1]) {
-$$if CPU0 then
+$$if CORE0 then
           __display("[cycle %d] (0) LS1 @%h = %h (wen:%b)",cycle,mem.addr,mem.wdata,mem.wenable);
 $$end
         } else {
-$$if CPU1 then
+$$if CORE1 then
           __display("[cycle %d] (1) LS1 @%h = %h (wen:%b)",cycle,mem.addr,mem.wdata,mem.wenable);
 $$end
         }
@@ -323,23 +319,23 @@ $$end
 
     } else { // stage odd
 
-      // one CPU on T, one CPU on LS2/commit
+      // one core on T, one core on LS2/commit
 
       // T
-      // triggers exec for the CPU which has been selected at F cycle before
+      // triggers exec for the core which has been selected at F cycle before
       // registers are now in for it
       exec.trigger = 1;
-      exec.cpu_id  = stage[1,1];
+      exec.core_id = stage[1,1];
 
 $$if VERBOSE then
       if (~stage[1,1]) {
-$$if CPU0 then
+$$if CORE0 then
         __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
           instr,pc,
           xregsA_0.addr,xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
 $$end
       } else {
-$$if CPU1 then
+$$if CORE1 then
         __display("[cycle %d] (1) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
           instr,pc,
           xregsA_1.addr,xregsA_1.rdata,xregsB_1.addr,xregsB_1.rdata);
@@ -354,13 +350,13 @@ $$end
       xregsA_1.wenable = ~stage[1,1] ? ~exec.no_rd : 0;
 
 $$if VERBOSE then
-$$if CPU0 then
+$$if CORE0 then
       if (xregsA_0.wenable) {
         __display("[cycle %d] (0) LS2/C xr[%d]=%h",
           cycle,exec.write_rd,write_back);
       }
 $$end
-$$if CPU1 then
+$$if CORE1 then
       if (xregsA_1.wenable) {
         __display("[cycle %d] (1) LS2/C xr[%d]=%h",
           cycle,exec.write_rd,write_back);
