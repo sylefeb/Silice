@@ -1,4 +1,4 @@
-static inline int cpu_id() 
+static inline int core_id()
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));

@@ -6,18 +6,18 @@ riscv cpu_blinky(output uint32 leds) <mem=1024,
                                       core="ice-v-dual",
 //                                    ^^^^^^^ choice of core
                                       stack=32
-//                                    ^^^^^^^ stack size in bytes (required by core)
+//                                    ^^^^^^^ stack size in bytes (for core)
                                      > {
   // =============== firmware in C language ===========================
-  // cpu0 main
-  void cpu0_main() {
+  // core0 main
+  void core0_main() {
     int i = 0;
     while (1) { // until the end of times
       leds(--i);
     }
   }
-  // cpu1 main
-  void cpu1_main() {
+  // core1 main
+  void core1_main() {
     int i = 0;
     while (1) { // until the end of times
       leds(++i);
@@ -25,7 +25,7 @@ riscv cpu_blinky(output uint32 leds) <mem=1024,
   }
   // C main
   void main() {
-    if (cpu_id() == 0) { cpu0_main(); } else { cpu1_main(); }
+    if (core_id() == 0) { core0_main(); } else { core1_main(); }
   }
   // =============== end of firmware ==================================
 }
