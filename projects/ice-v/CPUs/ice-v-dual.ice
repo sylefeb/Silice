@@ -21,7 +21,7 @@ $$end
 $$CORE0 = 1   -- set to nil to disable debug output for core 0
 $$KILL0 = nil -- set to 1 to disable core 0
 
-$$CORE1  = 1  -- set to nil to disable debug output for core 1
+$$CORE1 = 1   -- set to nil to disable debug output for core 1
 $$KILL1 = nil -- set to 1 to disable core 1
 
 $$if ICE_V_RV32E then

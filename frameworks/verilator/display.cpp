@@ -96,8 +96,8 @@ void display_loop(DisplayChip *chip)
   char *argv[1] = {NULL};
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_RGBA | GLUT_SINGLE);
-  glutInitWindowSize(g_Chip->framebuffer().w(),
-                     g_Chip->framebuffer().h());
+  glutInitWindowSize(2*g_Chip->framebuffer().w(),
+                     2*g_Chip->framebuffer().h());
   glutCreateWindow("Silice verilator framework");
   glutDisplayFunc(render);
   // prepare texture
