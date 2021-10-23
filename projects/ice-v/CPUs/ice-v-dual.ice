@@ -223,7 +223,7 @@ $$if VERBOSE then
   uint32 cycle(0);
 $$end
 
-  // what do we write in register? (pc, alu or val, load is handled separately)
+  // what do we write in register? (pc, alu, val or load)
   int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
                     | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
                     | (exec.storeVal  ? exec.val            : 32b0)
@@ -299,7 +299,7 @@ $$end
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
         mem.wenable = ( { { 2{exec.op[0,2]==2b10} },
-                                               exec.op[0,1] | exec.op[1,1], 1b1
+                          exec.op[0,1] | exec.op[1,1], 1b1
                         } ) << exec.n[0,2];
       }
 
