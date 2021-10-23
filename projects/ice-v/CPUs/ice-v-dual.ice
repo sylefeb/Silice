@@ -207,7 +207,7 @@ algorithm rv32i_cpu(bram_port mem) {
   uint$addrW$ pc_0($Boot-1$);
   uint$addrW$ pc_1($Boot-1$);
   // next program counter
-  uint$addrW$ next_pc <:: (stage[1,1] ? pc_0 : pc_1) + 1;
+  uint$addrW$ pc_plus1 <:: (stage[1,1] ? pc_0 : pc_1) + 1;
 
   // value that has been loaded from memory
   int32 loaded = uninitialized;
@@ -224,7 +224,7 @@ $$if VERBOSE then
 $$end
 
   // what do we write in register? (pc, alu, val or load)
-  int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
+  int32 write_back <: (exec.jump      ? (pc_plus1<<2)       : 32b0)
                     | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
                     | (exec.storeVal  ? exec.val            : 32b0)
                     | (exec.load      ? loaded              : 32b0)
@@ -364,7 +364,7 @@ $$if CORE1 then
 $$end
 $$end
       // prepare instruction fetch
-      mem.addr = exec.jump ? (exec.n >> 2) : next_pc;
+      mem.addr = exec.jump ? (exec.n >> 2) : pc_plus1;
 
     }
 
