@@ -3,31 +3,31 @@
 #include "oled.h"
 #include "spiflash.c"
 
-inline unsigned int time() 
+inline unsigned int time()
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
    return cycles>>1;
 }
 
-inline unsigned int cpu_id() 
+inline unsigned int core_id()
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
    return cycles&1;
 }
 
-void main() 
+void main()
 {
-  int o   = 0;  
+  int o   = 0;
   int s   = 0;
   int dir = 1;
   unsigned int cy_last = time();
 
-  if (cpu_id() == 0) {
+  if (core_id() == 0) {
 
     spiflash_init();
-    spiflash_read_begin(0);	
+    spiflash_read_begin(0);
     while (1) {
       unsigned int cy = time();
       if (cy < cy_last) { cy_last = cy; } // counter may wrap around
@@ -45,7 +45,7 @@ void main()
 
     oled_init();
     oled_fullscreen();
-    
+
     while (1) {
       o += 4;
       for (int v=0;v<128;v++) {
@@ -53,8 +53,8 @@ void main()
           oled_pix(u+o,v,0);
           WAIT;
         }
-      }	
-    }    
+      }
+    }
 
     while (1) { }
   }

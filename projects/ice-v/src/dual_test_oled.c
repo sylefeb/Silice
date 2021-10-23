@@ -2,7 +2,7 @@
 
 #include "oled.h"
 
-static inline int cpu_id() 
+static inline int core_id()
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
@@ -20,7 +20,7 @@ void main_oled()
       for (register int u=0;u<128;u++) {
         oled_pix(u+o,v+o,0);
         WAIT;
-      }  
+      }
     }
   }
 }
@@ -40,10 +40,10 @@ void main_leds()
   }
 }
 
-void main() 
+void main()
 {
 
-  if (cpu_id() == 1) {
+  if (core_id() == 1) {
 
     // core 1 draws screen
     main_oled();
@@ -56,4 +56,3 @@ void main()
   }
 
 }
-

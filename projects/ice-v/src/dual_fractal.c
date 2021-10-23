@@ -20,7 +20,7 @@ volatile int synch;
 #include "dual_fractal_table.h"
 
 // ==== returns the CPU ID
-static inline int cpu_id()
+static inline int core_id()
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
@@ -99,7 +99,7 @@ void main()
 
   synch = 0;
 
-  if (cpu_id() == 0) {
+  if (core_id() == 0) {
     main_loop(0);
   } else {
     main_loop(1);
