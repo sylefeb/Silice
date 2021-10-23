@@ -45,7 +45,7 @@ class SPIScreen : public DisplayChip
 {
 public:
 
-  enum e_Driver {Unknown=0,SSD1351=1,ST7789=2};
+  enum e_Driver {Unknown=0,SSD1351=1,ST7789=2,ILI9351=3};
 
 private:
 
@@ -78,8 +78,8 @@ private:
   void cmd_idle_SSD1351();
   void cmd_mode_SSD1351();
 
-  void cmd_idle_ST7789();
-  void cmd_mode_ST7789();
+  void cmd_idle_ST7789_ILI9351();
+  void cmd_mode_ST7789_ILI9351();
 
   void cmd_start_end(int *p_start,int *p_end,int nbytes);
   void cmd_write_ram();
