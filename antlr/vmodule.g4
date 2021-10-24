@@ -29,6 +29,8 @@ grammar vmodule;
 fragment LETTER     : [a-zA-Z_] ;
 fragment DIGIT      : [0-9] ;
 
+WRE                 : 'wire';
+
 REG                 : 'reg';
 
 INP                 : 'input';
@@ -55,7 +57,9 @@ ATTRIBUTES          : '(*' ~[*)]* '*)' -> skip ;
 
 /* ======== Parser ======== */
 
-mod                 : REG? | REG? '[' first=NUMBER ':' second=NUMBER ']' ;
+regOrWire           : REG | WRE ;
+
+mod                 : regOrWire? | regOrWire? '[' first=NUMBER ':' second=NUMBER ']' ;
 
 input               : INP mod IDENTIFIER ;
 

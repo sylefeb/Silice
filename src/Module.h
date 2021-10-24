@@ -79,7 +79,6 @@ namespace Silice
         if (io->input()) {
           t_inout_nfo nfo;
           nfo.name = io->input()->IDENTIFIER()->getText();
-          // nfo.reg = (io->input()->mod()->REG() != nullptr);
           nfo.do_not_initialize = true;
           nfo.type_nfo.base_type = UInt; // TODO signed?
           if (io->input()->mod()->first != nullptr) {
@@ -94,7 +93,6 @@ namespace Silice
         } else if (io->output()) {
           t_output_nfo nfo;
           nfo.name = io->output()->IDENTIFIER()->getText();
-          // nfo.reg = (io->output()->mod()->REG() != nullptr);
           nfo.do_not_initialize = true;
           nfo.type_nfo.base_type = UInt; // TODO signed?
           if (io->output()->mod()->first != nullptr) {
@@ -109,7 +107,6 @@ namespace Silice
         } else if (io->inout()) {
           t_inout_nfo nfo;
           nfo.name = io->inout()->IDENTIFIER()->getText();
-          // nfo.reg = (io->inout()->mod()->REG() != nullptr);
           nfo.do_not_initialize = true;
           nfo.type_nfo.base_type = UInt; // TODO signed?
           if (io->inout()->mod()->first != nullptr) {
