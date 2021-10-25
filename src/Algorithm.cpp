@@ -1474,6 +1474,7 @@ std::string Algorithm::rewriteExpression(
         if (atom->WIDTHOF() != nullptr) {
           recurse = false;
           std::string vio = atom->base->getText() + (atom->member != nullptr ? "_" + atom->member->getText() : "");
+          vio = translateVIOName(vio, bctx);
           std::string wo  = resolveWidthOf(vio, atom->getSourceInterval());
           result = result + "(" + wo + ")";
         } else if (atom->DONE() != nullptr) {
