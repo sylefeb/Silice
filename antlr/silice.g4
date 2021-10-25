@@ -205,7 +205,7 @@ declarationMemory      : (BRAM | BROM | DUALBRAM | SIMPLEDUALBRAM) TYPE name=IDE
 declarationInstance    : blueprint=IDENTIFIER name=IDENTIFIER bpModifiers? ( '(' bpBindingList ')' ) ? ;
 declaration            : declarationVar | declarationInstance | declarationTable | declarationMemory | declarationWire;
 
-bpBinding              : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
+bpBinding              : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrAccess | AUTO;
 bpBindingList          : bpBinding ',' bpBindingList | bpBinding | ;
 
 /* -- io lists -- */
@@ -319,6 +319,7 @@ tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;
 access              : (ioAccess | tableAccess | bitAccess | bitfieldAccess) ; 
 
 idOrIoAccess        : (ioAccess | IDENTIFIER) ;
+idOrAccess          : (  access | IDENTIFIER) ;
 
 /* -- Assignments -- */
                     

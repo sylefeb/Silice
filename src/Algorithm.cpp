@@ -1069,8 +1069,8 @@ void Algorithm::getBindings(
         if (bindings->bpBinding()->right->IDENTIFIER() != nullptr) {
           nfo.right = bindings->bpBinding()->right->IDENTIFIER()->getText();
         } else {
-          sl_assert(bindings->bpBinding()->right->ioAccess() != nullptr);
-          nfo.right = bindings->bpBinding()->right->ioAccess();
+          sl_assert(bindings->bpBinding()->right->access() != nullptr);
+          nfo.right = bindings->bpBinding()->right->access();
         }
         nfo.line = (int)bindings->bpBinding()->getStart()->getLine();
         if (bindings->bpBinding()->LDEFINE() != nullptr) {
@@ -2980,7 +2980,7 @@ bool Algorithm::matchCallParams(
       // check if a member matches
       for (auto member : getGroupMembers(*std::get<const t_group_definition *>(given_params[g].what))) {
         if (memberPostfix(expected_params[i]) == member) {
-          // match with the indentifier
+          // match with the identifier
           t_call_param matched;
           matched.expression = given_params[g].expression;
           matched.what       = base + "_" + member;
@@ -3972,7 +3972,7 @@ std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_
   if (std::holds_alternative<std::string>(bnd.right)) {
     return translateVIOName(std::get<std::string>(bnd.right), bctx);
   } else {
-    return determineAccessedVar(std::get<siliceParser::IoAccessContext*>(bnd.right), bctx);
+    return determineAccessedVar(std::get<siliceParser::AccessContext*>(bnd.right), bctx);
   }
 }
 
@@ -4698,7 +4698,7 @@ void Algorithm::analyzeInstancedBlueprintInputs()
     for (const auto& b : ib.second.bindings) {
       if (b.dir == e_Left || b.dir == e_LeftQ) { // setting input
         // input is bound directly
-        ib.second.boundinputs.insert(make_pair(b.left, make_pair(bindingRightIdentifier(b),b.dir == e_LeftQ ? e_Q : e_D)));
+        ib.second.boundinputs.insert(make_pair(b.left, make_pair(b.right,b.dir == e_LeftQ ? e_Q : e_D)));
       }
     }
   }
@@ -6270,7 +6270,7 @@ void Algorithm::writeCombinationalAlwaysPre(
     }
   }
   // instanced blueprints output bindings with wires
-  // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
+  // NOTE: could this be done with assignments (see Algorithm::writeAsModule) ?
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &ia = m_InstancedBlueprints.at(iaiordr);
     for (auto b : ia.bindings) {
@@ -6279,11 +6279,21 @@ void Algorithm::writeCombinationalAlwaysPre(
           // bound to variable, the variable is replaced by the output wire
           auto usage = m_Vars.at(m_VarNames.at(bindingRightIdentifier(b))).usage;
           sl_assert(usage == e_Bound);
+          // check that this is not a partial binding
+          // NOTE: currently not supported, this requires a different mechanism
+          //       as vio bound to outputs are effectively rewritten to be a wire
+          if (std::holds_alternative<siliceParser::AccessContext*>(b.right)) {
+            auto access = std::get<siliceParser::AccessContext*>(b.right);
+            if (access->ioAccess() == nullptr) { // ioAccess is the only one supported
+              reportError(access->getSourceInterval(), -1, "binding an output to a partial variable (bit select, bitfield, table entry) is currently unsupported");
+            }
+          }
         } else if (m_OutputNames.find(bindingRightIdentifier(b)) != m_OutputNames.end()) {
           // bound to an algorithm output
           auto usage = m_Outputs.at(m_OutputNames.at(bindingRightIdentifier(b))).usage;
           if (usage == e_FlipFlop) {
             // the output is a flip-flop, copy from the wire
+            sl_assert(std::holds_alternative<std::string>(b.right));
             out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << nxl;
           }
           // else, the output is replaced by the wire
@@ -7546,13 +7556,26 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
       if (nfo.boundinputs.count(is.name) > 0) {
         // input is bound, directly map bound VIO
         t_vio_dependencies _;
-        out << rewriteIdentifier("_", nfo.boundinputs.at(is.name).first, "", nullptr, nfo.instance_line,
-          nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
-          nfo.boundinputs.at(is.name).second == e_Q ? e_Q : e_D
-        );
+        if (std::holds_alternative<std::string>(nfo.boundinputs.at(is.name).first)) {
+          std:string bndid = std::get<std::string>(nfo.boundinputs.at(is.name).first);
+          out << rewriteIdentifier("_", bndid, "", nullptr, nfo.instance_line,
+            nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
+            nfo.boundinputs.at(is.name).second == e_Q ? e_Q : e_D
+          );
+        } else {
+          writeAccess("_", out, false, std::get<siliceParser::AccessContext*>(nfo.boundinputs.at(is.name).first),
+            -1, nullptr,
+            nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, _, ff_input_bindings_usage
+          );
+        }
         // check whether the bound variable is a wire or another bound var, in which case <:: does not make sense
         if (nfo.boundinputs.at(is.name).second == e_Q) {
-          std::string bid = nfo.boundinputs.at(is.name).first;
+          std::string bid;
+          if (std::holds_alternative<std::string>(nfo.boundinputs.at(is.name).first)) {
+            bid = std::get<std::string>(nfo.boundinputs.at(is.name).first);
+          } else {
+            bid = determineAccessedVar(std::get<siliceParser::AccessContext*>(nfo.boundinputs.at(is.name).first),nullptr);
+          }
           const auto &vio = m_VIOBoundToBlueprintOutputs.find(bid);
           bool bound_wire_input = false;
           if (vio != m_VIOBoundToBlueprintOutputs.end()) {

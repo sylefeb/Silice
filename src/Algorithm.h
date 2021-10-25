@@ -211,13 +211,16 @@ private:
     /// \brief enum binding direction
     enum e_BindingDir { e_Left, e_LeftQ, e_Right, e_BiDir, e_Auto, e_AutoQ };
 
+    /// \brief binding point, identifier or access
+    typedef std::variant<std::string, siliceParser::AccessContext*> t_binding_point;
+
     /// \brief records info about variable bindings
     typedef struct
     {
-      std::string                    left;
-      std::variant<std::string, siliceParser::IoAccessContext*> right;
-      e_BindingDir dir;
-      int          line;      // for error reporting
+      std::string     left;
+      t_binding_point right;
+      e_BindingDir    dir;
+      int             line;      // for error reporting
     } t_binding_nfo;
 
     /// \brief info about an instanced algorithm
@@ -232,7 +235,7 @@ private:
       std::string                instance_clock;
       std::string                instance_reset;
       bool                       instance_reginput = false;
-      std::unordered_map<std::string, std::pair<std::string, e_FFUsage> > boundinputs;
+      std::unordered_map<std::string, std::pair<t_binding_point, e_FFUsage> > boundinputs;
     } t_instanced_nfo;
 
     /// \brief instanced blueprints
@@ -243,7 +246,7 @@ private:
     /// 
     /// a group identifier
     /// expression is always the source expression (even if a group)
-    typedef struct s_call_param  {
+    typedef struct {
       antlr4::tree::ParseTree  *expression = nullptr;
       std::variant<
         std::monostate,                     // empty
@@ -443,7 +446,7 @@ private:
     t_SubroutinesCallerReturnStates                                 m_SubroutinesCallerReturnStates;
 
     /// \brief combinational block context
-    typedef struct s_combinational_block_context  {
+    typedef struct {
       t_subroutine_nfo            *subroutine   = nullptr; // if block belongs to a subroutine
       t_pipeline_stage_nfo        *pipeline     = nullptr; // if block belongs to a pipeline
       const t_combinational_block *parent_scope = nullptr; // parent block in scope
