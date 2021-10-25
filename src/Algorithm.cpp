@@ -5422,21 +5422,13 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
       reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
         "cannot write to algorithm output '%s', instance '%s'", member.c_str(), base.c_str());
     }
-    if (!assigning && !A->second.blueprint->isOutput(member)) {
-      reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
-        "cannot read from algorithm input '%s', instance '%s'", member.c_str(), base.c_str());
-    }
     if (A->second.blueprint->isInput(member)) {
+      // algorithm input
       if (A->second.boundinputs.count(member) > 0) {
         reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
         "cannot access bound input '%s' on instance '%s'", member.c_str(), base.c_str());
       }
-      if (assigning) {
-        out << FF_D; // algorithm input
-      } else {
-        sl_assert(false); // cannot read from input
-      }
-      out << A->second.instance_prefix << "_" << member << suffix;
+      out << FF_D << A->second.instance_prefix << "_" << member << suffix;
       return A->second.blueprint->determineVIOTypeWidthAndTableSize(translateVIOName(member, bctx), ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
     } else if (A->second.blueprint->isOutput(member)) {
       out << WIRE << A->second.instance_prefix << "_" << member << suffix;
