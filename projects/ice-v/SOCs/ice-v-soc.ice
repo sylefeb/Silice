@@ -44,6 +44,11 @@ $$if OLED then
   output uint1 oled_dc,
   output uint1 oled_resn,
   output uint1 oled_csn(0),
+$$if VERILATOR then
+  output uint2  spiscreen_driver(1/*SSD1351*/),
+  output uint10 spiscreen_width(128),
+  output uint10 spiscreen_height(128),
+$$end
 $$end
 $$if PMOD then
   inout  uint8 pmod,
@@ -53,15 +58,15 @@ $$if SPIFLASH then
   output uint1 sf_csn,
   output uint1 sf_mosi,
   input  uint1 sf_miso,
-$$end  
-$$if not SIMULATION then    
+$$end
+$$if not SIMULATION then
   ) <@cpu_clock> {
-  // clock  
+  // clock
   uint1 cpu_clock  = uninitialized;
   pll clk_gen (
     clock_in  <: clock,
     clock_out :> cpu_clock
-  ); 
+  );
 $$else
 ) {
 $$end
@@ -104,7 +109,7 @@ $$end
 
   // ram
   // - intermediate interface to perform memory mapping
-  bram_io memio;  
+  bram_io memio;
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
   bram uint32 mem<"bram_wmask_byte">[1536] = $meminit$;
 
@@ -114,11 +119,11 @@ $$end
   // io mapping
   always {
 	  // ---- memory access
-    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}}; 
+    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
 $$if SPIFLASH or SIMULATION then
     memio.rdata = (prev_mem_addr[11,1] & prev_mem_addr[4,1]/* & ~prev_mem_rw*/) ? {31b0,reg_miso} : mem.rdata;
-$$if SMIULATION then		
+$$if SMIULATION then
     if ( prev_mem_addr[11,1] & prev_mem_addr[4,1] & ~prev_mem_rw ) { __display("[cycle %d] SPI read: %d",cycle,memio.rdata); }
 $$end
 		prev_mem_addr = memio.addr;
@@ -136,7 +141,7 @@ $$if PMOD then
     pmod.oenable = 8b11111111; // pmod all output
     pmod.o       = {audio.i2s,oled_mosi,oled_clk,oled_dc,oled_resn}; // pmod pins
 $$end
-$$if SPIFLASH then    
+$$if SPIFLASH then
     reg_miso     = sf_miso; // register flash miso
 $$end
     // ---- memory mapping to peripherals: writes
@@ -218,18 +223,18 @@ algorithm audio_pcm_i2s(
   uint1  i2s_bck(1); // serial clock (32 periods per audio half period)
   uint1  i2s_lck(1); // audio clock (low: right, high: left)
   uint1  i2s_din(0); // bit being sent
-  
+
   uint16 data(0);    // data being sent, shifted through i2s_din
   uint4  count(0);   // counter for generating the serial bit clock
                      // NOTE: width may require adjustment on other base freqs.
   uint32 mod32(1);   // modulo 32, for audio clock
-  
+
   always {
-    
+
     // track expressions for posedge and negedge of serial bit clock
     uint1 negedge <:: (count == 0);
     uint1 posedge <:: (count == $bit_hperiod_count$);
-  
+
     // output i2s signals
     i2s = {i2s_lck,i2s_din,i2s_bck,i2s_sck};
 
@@ -244,18 +249,18 @@ algorithm audio_pcm_i2s(
         data = data << 1;
       }
     }
-    
+
     // data out (MSB first)
-    i2s_din = data[15,1];   
+    i2s_din = data[15,1];
 
     // update I2S clocks
     i2s_bck = (negedge | posedge)    ? ~i2s_bck : i2s_bck;
     i2s_lck = (negedge & mod32[0,1]) ? ~i2s_lck : i2s_lck;
-    
+
     // update counter and modulo
     count   = (count == $bit_hperiod_count*2-1$) ? 0 : count + 1;
     mod32   = negedge ? {mod32[0,1],mod32[1,31]} : mod32;
-    
+
   }
 
 }

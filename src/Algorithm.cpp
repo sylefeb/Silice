@@ -5101,7 +5101,7 @@ t_type_nfo Algorithm::determineIOAccessTypeAndWidth(const t_combinational_block_
   if (A != m_InstancedBlueprints.end()) {
     if (!A->second.blueprint->isInput(member) && !A->second.blueprint->isOutput(member)) {
       reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
-        "'%s' is neither an input not an output, instance '%s'", member.c_str(), base.c_str());
+        "'%s' is neither an input nor an output, instance '%s'", member.c_str(), base.c_str());
     }
     if (A->second.blueprint->isInput(member)) {
       if (A->second.boundinputs.count(member) > 0) {
@@ -5411,7 +5411,7 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
   if (A != m_InstancedBlueprints.end()) {
     if (!A->second.blueprint->isInput(member) && !A->second.blueprint->isOutput(member)) {
       reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
-        "'%s' is neither an input not an output, instance '%s'", member.c_str(), base.c_str());
+        "'%s' is neither an input nor an output, instance '%s'", member.c_str(), base.c_str());
     }
     if (assigning && !A->second.blueprint->isInput(member)) {
       reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),

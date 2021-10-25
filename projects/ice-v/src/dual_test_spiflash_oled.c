@@ -3,7 +3,7 @@
 #include "oled.h"
 #include "spiflash.c"
 
-inline unsigned int cpu_id() 
+inline unsigned int core_id()
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
@@ -22,7 +22,7 @@ void main_oled_spiflash()
 
   while (1) {
 
-    spiflash_read_begin(offs);	
+    spiflash_read_begin(offs);
     for (register int v=0;v<128;v++) {
       for (register int u=0;u<128;u++) {
         unsigned char r = spiflash_read_next();
@@ -46,17 +46,17 @@ void main_nop()
 
 }
 
-void main() 
+void main()
 {
 
-  if (cpu_id() == 1) {
+  if (core_id() == 1) {
 
     main_oled_spiflash();
 
   } else {
 
     main_nop();
-    
+
   }
-	
+
 }

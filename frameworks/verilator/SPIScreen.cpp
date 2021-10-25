@@ -51,8 +51,11 @@ void SPIScreen::set_idle()
 {
   switch (m_driver)
   {
-    case SSD1351: m_command = std::bind( &cmd_idle_SSD1351, this ); break;
-    case ST7789:  m_command = std::bind( &cmd_idle_ST7789 , this ); break;
+    case SSD1351:
+      m_command   = std::bind( &cmd_idle_SSD1351, this );        break;
+    case ILI9351:
+    case ST7789:
+      m_command   = std::bind( &cmd_idle_ST7789_ILI9351, this ); break;
     default: {
       fprintf(stderr,"SPIScreen error, unknown driver mode %d\n",m_driver);
       exit(-1);
@@ -128,7 +131,7 @@ void SPIScreen::cmd_mode_SSD1351()
 
 // ----------------------------------------------------------------------------
 
-void SPIScreen::cmd_idle_ST7789()
+void SPIScreen::cmd_idle_ST7789_ILI9351()
 {
   m_step = 0;
   if (!m_dc) {
@@ -144,7 +147,7 @@ void SPIScreen::cmd_idle_ST7789()
         m_command = std::bind( &cmd_write_ram, this );
         break;
       case 0x3A:
-        m_command = std::bind( &cmd_mode_ST7789, this );
+        m_command = std::bind( &cmd_mode_ST7789_ILI9351, this );
       default:
         break;
     }
@@ -153,7 +156,7 @@ void SPIScreen::cmd_idle_ST7789()
 
 // ----------------------------------------------------------------------------
 
-void SPIScreen::cmd_mode_ST7789()
+void SPIScreen::cmd_mode_ST7789_ILI9351()
 {
   m_color_666_else_565 = ((m_byte>>4) & 7) == 6;
   set_idle();
@@ -199,11 +202,11 @@ void SPIScreen::cmd_write_ram()
   if (m_color_666_else_565) {
     // 6-6-6
     // fprintf(stdout,"666 %d x %d, y %d\n",m_step,m_x_cur,m_y_cur);
-    m_rgb[2 - (m_step - 1)] = m_byte<<2;
+    m_rgb[(m_step - 1)] = m_byte;
     if (m_step == 3) {
-      m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(m_y_cur,m_x_cur) = m_rgb;
+      m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(
+                                  m_y_cur,m_framebuffer.h()-1-m_x_cur) = m_rgb;
     }
-    m_framebuffer_changed = true;
     m_step = m_step + 1;
     if (m_step > 3) {
       m_step = 1;
@@ -213,26 +216,27 @@ void SPIScreen::cmd_write_ram()
         ++ m_y_cur;
         if (m_y_cur > m_y_end) {
           m_y_cur = 0;
+          m_framebuffer_changed = true;
         }
       }
     }
   } else {
     // 5-6-5
     if (m_step == 1) {
-      m_rgb[0] = (m_byte & 31);
-      m_rgb[1] = (m_byte >> 5);
-    } else {
-      m_rgb[1] = m_rgb[1] | (m_byte & 7);
+      m_rgb[1] = (m_byte & 7);
       m_rgb[2] = (m_byte >> 3);
+    } else {
+      m_rgb[1] = m_rgb[1] | ((m_byte >> 5) << 3);
+      m_rgb[0] = (m_byte & 31);
     }
     //fprintf(stdout,"565 byte %x\n",m_byte);
     if (m_step == 2) {
-      m_rgb[0] <<= 2;      m_rgb[1] <<= 2;      m_rgb[2] <<= 2;
+      m_rgb[0] <<= 3;      m_rgb[1] <<= 2;      m_rgb[2] <<= 3;
       //fprintf(stdout,"565 x %d, y %d rgb:%d,%d,%d\n",
       //        m_x_cur,m_y_cur,(int)m_rgb[0],(int)m_rgb[1],(int)m_rgb[2]);
-      m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(m_y_cur,m_x_cur) = m_rgb;
+      m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(
+                                  m_y_cur,m_framebuffer.h()-1-m_x_cur) = m_rgb;
     }
-    m_framebuffer_changed = true;
     m_step = m_step + 1;
     if (m_step > 2) {
       m_step = 1;
@@ -242,6 +246,7 @@ void SPIScreen::cmd_write_ram()
         ++ m_y_cur;
         if (m_y_cur > m_y_end) {
           m_y_cur = 0;
+          m_framebuffer_changed = true;
         }
       }
     }

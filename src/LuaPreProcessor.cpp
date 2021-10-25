@@ -29,6 +29,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 // -------------------------------------------------
 #include "LuaPreProcessor.h"
 #include "Config.h"
+#include "Utils.h"
 // -------------------------------------------------
 
 #include <iostream>
@@ -532,6 +533,11 @@ int lua_rshift(int n, int s)
   return n >> s;
 }
 
+int lua_clog2(int w)
+{
+  return Utils::justHigherPow2(w);
+}
+
 // -------------------------------------------------
 
 static void bindScript(lua_State *L)
@@ -557,6 +563,7 @@ static void bindScript(lua_State *L)
       luabind::def("get_palette_as_table", &lua_get_palette_as_table_simple),
       luabind::def("save_table_as_image", &lua_save_table_as_image),
       luabind::def("save_table_as_image_with_palette", &lua_save_table_as_image_with_palette),
+      luabind::def("clog2",         &lua_clog2),
       luabind::def("lshift",        &lua_lshift),
       luabind::def("rshift",        &lua_rshift)
     ];

@@ -5,10 +5,6 @@ $$error([[this project is specific to the OrangeCrab mounted
 $$               on a FeatherWing Keyboard from @solderparty]])
 $$end
 
-// ===== screen CONFIGURATION, adjust to your setups
-$$screen_width  = 240
-$$screen_height = 320
-
 // include SPI controller
 $include('../common/spi.ice')
 
@@ -101,11 +97,9 @@ $$end
 
   //_ C main
   void main() {
-    if (cpu_id() == 0) {
-$$if not SIMULATION then
+    if (core_id() == 0) {
       screen_init();
-      screen_rect(0,240, 0,320);
-$$end
+      screen_rect(0,239, 0,319);
       draw_fire();
     } else {
       update_fire();
@@ -119,6 +113,14 @@ $$end
 algorithm main(
   output uint8  leds,
 $$if SIMULATION then
+  output uint1  oled_clk,
+  output uint1  oled_mosi,
+  output uint1  oled_dc,
+  output uint1  oled_resn,
+  output uint1  oled_csn(0),
+  output uint2  spiscreen_driver(3/*ILI9351*/),
+  output uint10 spiscreen_width(320),
+  output uint10 spiscreen_height(240),
 ) {
 $$else
   inout  uint14 G,
@@ -211,11 +213,11 @@ $$else
       __display("%d] elapsed: %d cycles",cpu.leds,cycle - prev);
       prev = cycle;
     }
-$$if VERILATOR then
-    if (cycle == 80000000) { __finish(); }
-$$elseif ICARUS then
-    if (cycle == 1024) { __finish(); }
-$$end
+    oled_clk  = displ.spi_clk;
+    oled_mosi = displ.spi_mosi;
+    oled_dc   = displ.spi_dc;
+    oled_resn = cpu.screen_rst;
+    oled_csn  = 0;
     cycle     = cycle + 1;
 $$end
   }

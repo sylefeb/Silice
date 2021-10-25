@@ -89,10 +89,14 @@ int main(int argc,char **argv)
   } else if (g_Design->spiscreen_driver == SPIScreen::ST7789) {
     fprintf(stdout,"SPIScreen ST7789, %dx%d\n",g_Design->spiscreen_width,
                                                g_Design->spiscreen_height);
+  } else if (g_Design->spiscreen_driver == SPIScreen::ILI9351) {
+    fprintf(stdout,"SPIScreen ILI9351, %dx%d\n",g_Design->spiscreen_width,
+                                                g_Design->spiscreen_height);
   } else {
     fprintf(stdout,"Unknown SPIScreen driver, known values are:\n");
-    fprintf(stdout,"   - [%d] SSD1351 \n",SPIScreen::SSD1351);
-    fprintf(stdout,"   - [%d] ST7789  \n",SPIScreen::ST7789);
+    fprintf(stdout,"   - [%d] SSD1351\n",SPIScreen::SSD1351);
+    fprintf(stdout,"   - [%d] ST7789\n", SPIScreen::ST7789);
+    fprintf(stdout,"   - [%d] ILI9351\n",SPIScreen::ILI9351);
     exit(-1);
   }
 

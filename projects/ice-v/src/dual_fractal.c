@@ -20,7 +20,7 @@ volatile int synch;
 #include "dual_fractal_table.h"
 
 // ==== returns the CPU ID
-static inline int cpu_id() 
+static inline int core_id()
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
@@ -29,7 +29,7 @@ static inline int cpu_id()
 
 // ==== main render loop, runs on each core
 
-void main_loop(int who)  
+void main_loop(int who)
 {
   if (who == 0) {
     oled_init_mode(OLED_565);
@@ -45,8 +45,8 @@ void main_loop(int who)
 #define YCmin  10
 #define YCmax  (YCmin+40)
 
-	int x_c = XCmin; int x_c_i = 1;
-  int y_c = YCmin; int y_c_i = 3;
+	int x_c = (XCmin+XCmax)>>1; int x_c_i = 1;
+  int y_c = (YCmin+YCmax)>>1; int y_c_i = 3;
 
   while (1) {
 
@@ -88,18 +88,18 @@ void main_loop(int who)
     if (x_c < XCmin || x_c > XCmax) { x_c_i = - x_c_i; }
     y_c += y_c_i;
     if (y_c < YCmin || y_c > YCmax) { y_c_i = - y_c_i; }
-    
+
   }
 }
 
 // ==== main calls the render loop for each CPU
 
-void main() 
+void main()
 {
 
   synch = 0;
 
-  if (cpu_id() == 0) {
+  if (core_id() == 0) {
     main_loop(0);
   } else {
     main_loop(1);
@@ -126,7 +126,7 @@ void main()
   for (int s = 0; s < (1<<(IP+1)) ; ++s) {
     int q = s;
     if (s >= (1<<IP)) {
-      // negative part, we make it so after 'and-ing' the 
+      // negative part, we make it so after 'and-ing' the
       // negative value with (1<<(IP+1))-1 we get the correct square
       q = (1<<(IP+1))-1-s;
     }
