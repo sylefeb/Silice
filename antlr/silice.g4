@@ -341,14 +341,13 @@ asyncExec           : IDENTIFIER LARROW '(' callParamList ')' ;
 joinExec            : '(' callParamList ')' LARROW IDENTIFIER ;
 syncExec            : joinExec LARROW '(' callParamList ')' ;
 
-/* -- Circuitry instanciation -- */
+/* -- Circuitry instantiation -- */
 
-// TODO: allow passing ioAccess as well ( idOrIoAccess )
-identifierList      : IDENTIFIER ',' identifierList 
-                    | IDENTIFIER 
-                    | ;
+idOrIoAccessList    : idOrIoAccess ',' idOrIoAccessList
+                    | idOrIoAccess
+                    ;
 
-circuitryInst       : '(' outs=identifierList ')' '=' IDENTIFIER '(' ins=identifierList ')';
+circuitryInst       : '(' outs=idOrIoAccessList ')' '=' IDENTIFIER '(' ins=idOrIoAccessList ')';
 
 /* -- Control flow -- */
 

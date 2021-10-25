@@ -3076,15 +3076,20 @@ void Algorithm::parseCallParams(
 // -------------------------------------------------
 
 void Algorithm::getIdentifiers(
-  siliceParser::IdentifierListContext*    idents, 
+  siliceParser::IdOrIoAccessListContext*  idents,
   vector<string>&                        _vec_params,
   const t_combinational_block_context*    bctx) const
 {
   // go through indentifier list
-  while (idents->IDENTIFIER() != nullptr) {
-    std::string var = idents->IDENTIFIER()->getText();
+  while (idents->idOrIoAccess() != nullptr) {
+    std::string var;
+    if (idents->idOrIoAccess()->IDENTIFIER() != nullptr) {
+      var = idents->idOrIoAccess()->IDENTIFIER()->getText();
+    } else {
+      var = determineAccessedVar(idents->idOrIoAccess()->ioAccess(), bctx);
+    }
     _vec_params.push_back(var);
-    idents = idents->identifierList();
+    idents = idents->idOrIoAccessList();
     if (idents == nullptr) return;
   }
 }
