@@ -13,5 +13,5 @@ subroutine readNextAligned(
 
 algorithm main(output uint$NUM_LEDS$ leds) 
 {
-
+  __display("works");
 }

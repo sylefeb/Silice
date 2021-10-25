@@ -3999,7 +3999,7 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
       return base + "_" + member;
     } else {
       reportError(access->getSourceInterval(), (int)access->getStart()->getLine(),
-        "cannot find access base.member '%s.%s'", base.c_str(), member.c_str());
+        "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
     }
   }
   return "";
@@ -4810,6 +4810,9 @@ void Algorithm::checkPermissions()
     checkPermissions(i.instr, &m_AlwaysPost);
   }
   for (const auto &b : m_Blocks) {
+    if (b->state_id == -1) {
+      continue; // skip unreachable blocks
+    }
     for (const auto &i : b->instructions) {
       checkPermissions(i.instr,b);
     }
@@ -4971,6 +4974,9 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx)
   }
   // check blocks
   for (const auto &b : m_Blocks) {
+    if (b->state_id == -1) {
+      continue; // skip unreachable blocks
+    }
     for (const auto &i : b->instructions) {
       checkExpressions(ictx, i.instr, b);
     }
@@ -7554,7 +7560,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
         // input is bound, directly map bound VIO
         t_vio_dependencies _;
         if (std::holds_alternative<std::string>(nfo.boundinputs.at(is.name).first)) {
-          std:string bndid = std::get<std::string>(nfo.boundinputs.at(is.name).first);
+          std::string bndid = std::get<std::string>(nfo.boundinputs.at(is.name).first);
           out << rewriteIdentifier("_", bndid, "", nullptr, nfo.instance_line,
             nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
             nfo.boundinputs.at(is.name).second == e_Q ? e_Q : e_D
