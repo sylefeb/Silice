@@ -5178,6 +5178,8 @@ t_type_nfo Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block
     tn = determineIdentifierTypeAndWidth(bctx, bitaccess->IDENTIFIER(), bitaccess->getSourceInterval(), (int)bitaccess->getStart()->getLine());
   } else if (bitaccess->tableAccess() != nullptr) {
     tn = determineTableAccessTypeAndWidth(bctx, bitaccess->tableAccess());
+  } else if (bitaccess->bitfieldAccess() != nullptr) {
+    tn = determineBitfieldAccessTypeAndWidth(bctx, bitaccess->bitfieldAccess());
   } else {
     tn = determineIOAccessTypeAndWidth(bctx, bitaccess->ioAccess());
   }
@@ -5469,7 +5471,6 @@ void Algorithm::writeTableAccess(
     if (get<1>(tws) == 0) {
       reportError(tblaccess->ioAccess()->IDENTIFIER().back()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
-    // out << "[" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ']';
   } else {
     sl_assert(tblaccess->IDENTIFIER() != nullptr);
     std::string vname = tblaccess->IDENTIFIER()->getText();
@@ -5479,13 +5480,14 @@ void Algorithm::writeTableAccess(
     if (get<1>(tws) == 0) {
       reportError(tblaccess->IDENTIFIER()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
-    // out << "[" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ']';
   }
 }
 
 // -------------------------------------------------
 
-void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitfieldAccessContext* bfaccess, 
+void Algorithm::writeBitfieldAccess(
+  std::string prefix, std::ostream& out, bool assigning,
+  siliceParser::BitfieldAccessContext* bfaccess, std::string suffix,
   int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
@@ -5500,7 +5502,7 @@ void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool 
   if (ow.first.base_type == Int) {
     out << "$signed(";
   }
-  std::string suffix = "[" + std::to_string(ow.second) + "+:" + std::to_string(ow.first.width) + "]";
+  suffix = "[" + std::to_string(ow.second) + "+:" + std::to_string(ow.first.width) + "]" + suffix;
   if (bfaccess->tableAccess() != nullptr) {
     writeTableAccess(prefix, out, assigning, bfaccess->tableAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
   } else if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
@@ -5528,6 +5530,8 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
     writeIOAccess(prefix, out, assigning, bitaccess->ioAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
   } else if (bitaccess->tableAccess() != nullptr) {
     writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
+  } else if (bitaccess->bitfieldAccess() != nullptr) {
+    writeBitfieldAccess(prefix, out, assigning, bitaccess->bitfieldAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
   } else {
     sl_assert(bitaccess->IDENTIFIER() != nullptr);
     out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), suffix, bctx,
@@ -5559,7 +5563,7 @@ void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assignin
   } else if (access->bitAccess() != nullptr) {
     writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, bctx, ff, dependencies, _ff_usage);
   } else if (access->bitfieldAccess() != nullptr) {
-    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), __id, bctx, ff, dependencies, _ff_usage);
+    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), "", __id, bctx, ff, dependencies, _ff_usage);
   }
 }
 

@@ -314,7 +314,7 @@ atom                : CONSTANT
 
 bitfieldAccess      : field=IDENTIFIER '(' (idOrIoAccess | tableAccess) ')' '.' member=IDENTIFIER ;
 ioAccess            : base=IDENTIFIER ('.' IDENTIFIER)+ ;
-bitAccess           : (ioAccess | tableAccess | IDENTIFIER) '[' first=expression_0 ',' num=constValue ']' ;
+bitAccess           : (ioAccess | tableAccess | bitfieldAccess | IDENTIFIER) '[' first=expression_0 ',' num=constValue ']' ;
 tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;
 access              : (ioAccess | tableAccess | bitAccess | bitfieldAccess) ; 
 
@@ -476,4 +476,3 @@ riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? ('=' in
 topList       :  (algorithm | riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
 
 root                : topList EOF ;
- 
