@@ -24,8 +24,8 @@ algorithm main(output uint8 leds)
   grp g;
   foo ff;
   bar bb;
-// ++:  
-  // (leds) <- ff <- (g);
+++:  
+  (leds) <- ff <- (g);
 ++:  
   (g) <- bb <- (16);
 }
