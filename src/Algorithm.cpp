@@ -4020,7 +4020,7 @@ std::string Algorithm::determineAccessedVar(siliceParser::BitfieldAccessContext*
 
 // -------------------------------------------------
 
-std::string Algorithm::determineAccessedVar(siliceParser::BitAccessContext* access,const t_combinational_block_context* bctx) const
+std::string Algorithm::determineAccessedVar(siliceParser::PartSelectContext* access,const t_combinational_block_context* bctx) const
 {
   if (access->ioAccess() != nullptr) {
     return determineAccessedVar(access->ioAccess(), bctx);
@@ -4051,8 +4051,8 @@ std::string Algorithm::determineAccessedVar(siliceParser::AccessContext* access,
     return determineAccessedVar(access->ioAccess(), bctx);
   } else if (access->tableAccess() != nullptr) {
     return determineAccessedVar(access->tableAccess(), bctx);
-  } else if (access->bitAccess() != nullptr) {
-    return determineAccessedVar(access->bitAccess(), bctx);
+  } else if (access->partSelect() != nullptr) {
+    return determineAccessedVar(access->partSelect(), bctx);
   } else if (access->bitfieldAccess() != nullptr) {
     return determineAccessedVar(access->bitfieldAccess(), bctx);
   }
@@ -4117,8 +4117,8 @@ void Algorithm::determineVIOAccess(
         if (assign->access() != nullptr) {
           if (assign->access()->tableAccess() != nullptr) {
             determineVIOAccess(assign->access()->tableAccess()->expression_0(), vios, bctx, _read, _written);
-          } else if (assign->access()->bitAccess() != nullptr) {
-            determineVIOAccess(assign->access()->bitAccess()->expression_0(), vios, bctx, _read, _written);
+          } else if (assign->access()->partSelect() != nullptr) {
+            determineVIOAccess(assign->access()->partSelect()->expression_0(), vios, bctx, _read, _written);
             // This is a bit access. We assume it is partial (could be checked if const).
             // Thus the variable is likely only partially written and to be safe we tag
             // it as 'read' since other bits are likely read later in the execution flow.
@@ -4162,8 +4162,8 @@ void Algorithm::determineVIOAccess(
         if (alw->access() != nullptr) {
           if (alw->access()->tableAccess() != nullptr) {
             determineVIOAccess(alw->access()->tableAccess()->expression_0(), vios, bctx, _read, _written);
-          } else if (alw->access()->bitAccess() != nullptr) {
-            determineVIOAccess(alw->access()->bitAccess()->expression_0(), vios, bctx, _read, _written);
+          } else if (alw->access()->partSelect() != nullptr) {
+            determineVIOAccess(alw->access()->partSelect()->expression_0(), vios, bctx, _read, _written);
           }
         }
         recurse = false;
@@ -4239,8 +4239,8 @@ void Algorithm::determineVIOAccess(
           if (access != nullptr) {
             if (access->tableAccess() != nullptr) {
               determineVIOAccess(access->tableAccess()->expression_0(), vios, bctx, _read, _written);
-            } else if (access->bitAccess() != nullptr) {
-              determineVIOAccess(access->bitAccess()->expression_0(), vios, bctx, _read, _written);
+            } else if (access->partSelect() != nullptr) {
+              determineVIOAccess(access->partSelect()->expression_0(), vios, bctx, _read, _written);
             }
           }
         }
@@ -5176,29 +5176,29 @@ t_type_nfo Algorithm::determineBitfieldAccessTypeAndWidth(const t_combinational_
 
 // -------------------------------------------------
 
-t_type_nfo Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitAccessContext *bitaccess) const
+t_type_nfo Algorithm::determinePartSelectTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::PartSelectContext *partsel) const
 {
-  sl_assert(bitaccess != nullptr);
+  sl_assert(partsel != nullptr);
   // accessed item
   t_type_nfo tn;
-  if (bitaccess->IDENTIFIER() != nullptr) {
-    tn = determineIdentifierTypeAndWidth(bctx, bitaccess->IDENTIFIER(), bitaccess->getSourceInterval(), (int)bitaccess->getStart()->getLine());
-  } else if (bitaccess->tableAccess() != nullptr) {
-    tn = determineTableAccessTypeAndWidth(bctx, bitaccess->tableAccess());
-  } else if (bitaccess->bitfieldAccess() != nullptr) {
-    tn = determineBitfieldAccessTypeAndWidth(bctx, bitaccess->bitfieldAccess());
+  if (partsel->IDENTIFIER() != nullptr) {
+    tn = determineIdentifierTypeAndWidth(bctx, partsel->IDENTIFIER(), partsel->getSourceInterval(), (int)partsel->getStart()->getLine());
+  } else if (partsel->tableAccess() != nullptr) {
+    tn = determineTableAccessTypeAndWidth(bctx, partsel->tableAccess());
+  } else if (partsel->bitfieldAccess() != nullptr) {
+    tn = determineBitfieldAccessTypeAndWidth(bctx, partsel->bitfieldAccess());
   } else {
-    tn = determineIOAccessTypeAndWidth(bctx, bitaccess->ioAccess());
+    tn = determineIOAccessTypeAndWidth(bctx, partsel->ioAccess());
   }
   // const width
   int w = -1;
   try {
-    w = std::stoi(gatherConstValue(bitaccess->num));
+    w = std::stoi(gatherConstValue(partsel->num));
   } catch (...) {
-    reportError(bitaccess->getSourceInterval(), -1, "the width has to be a simple number or the widthof() of a fully determined VIO");
+    reportError(partsel->getSourceInterval(), -1, "the width has to be a simple number or the widthof() of a fully determined VIO");
   }
   if (w <= 0) {
-    reportError(bitaccess->getSourceInterval(), -1, "width has to be greater than zero");
+    reportError(partsel->getSourceInterval(), -1, "width has to be greater than zero");
   }
   tn.width = w;
   return tn;
@@ -5226,8 +5226,8 @@ t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_co
       return determineIOAccessTypeAndWidth(bctx, access->ioAccess());
     } else if (access->tableAccess() != nullptr) {
       return determineTableAccessTypeAndWidth(bctx, access->tableAccess());
-    } else if (access->bitAccess() != nullptr) {
-      return determineBitAccessTypeAndWidth(bctx, access->bitAccess());
+    } else if (access->partSelect() != nullptr) {
+      return determinePartSelectTypeAndWidth(bctx, access->partSelect());
     } else if (access->bitfieldAccess() != nullptr) {
       return determineBitfieldAccessTypeAndWidth(bctx, access->bitfieldAccess());
     }
@@ -5527,24 +5527,24 @@ void Algorithm::writeBitfieldAccess(
 
 // -------------------------------------------------
 
-void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitAccessContext* bitaccess, 
+void Algorithm::writePartSelect(std::string prefix, std::ostream& out, bool assigning, siliceParser::PartSelectContext* partsel, 
   int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   /// TODO: check access validity
-  std::string suffix = "[" + rewriteExpression(prefix, bitaccess->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) + "+:" + gatherConstValue(bitaccess->num) + "]";
-  if (bitaccess->ioAccess() != nullptr) {
-    writeIOAccess(prefix, out, assigning, bitaccess->ioAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
-  } else if (bitaccess->tableAccess() != nullptr) {
-    writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
-  } else if (bitaccess->bitfieldAccess() != nullptr) {
-    writeBitfieldAccess(prefix, out, assigning, bitaccess->bitfieldAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
+  std::string suffix = "[" + rewriteExpression(prefix, partsel->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) + "+:" + gatherConstValue(partsel->num) + "]";
+  if (partsel->ioAccess() != nullptr) {
+    writeIOAccess(prefix, out, assigning, partsel->ioAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
+  } else if (partsel->tableAccess() != nullptr) {
+    writeTableAccess(prefix, out, assigning, partsel->tableAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
+  } else if (partsel->bitfieldAccess() != nullptr) {
+    writeBitfieldAccess(prefix, out, assigning, partsel->bitfieldAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
   } else {
-    sl_assert(bitaccess->IDENTIFIER() != nullptr);
-    out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), suffix, bctx,
-      bitaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
+    sl_assert(partsel->IDENTIFIER() != nullptr);
+    out << rewriteIdentifier(prefix, partsel->IDENTIFIER()->getText(), suffix, bctx,
+      partsel->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
   }
-  // out << '[' << rewriteExpression(prefix, bitaccess->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) << "+:" << gatherConstValue(bitaccess->num) << ']';
+  // out << '[' << rewriteExpression(prefix, partsel->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) << "+:" << gatherConstValue(partsel->num) << ']';
   if (assigning) {
     // This is a bit access. We assume it is partial (could be checked if const).
     // Thus the variable is likely only partially written and to be safe we tag
@@ -5552,7 +5552,7 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
     // This is a conservative assumption. A bit-per-bit analysis could be envisioned, 
     // but for lack of it we have no other choice here to avoid generating wrong code.
     // See also issue #54.
-    std::string var = determineAccessedVar(bitaccess, bctx);
+    std::string var = determineAccessedVar(partsel, bctx);
     updateFFUsage(e_Q, true, _ff_usage.ff_usage[var]);
   }
 }
@@ -5567,8 +5567,8 @@ void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assignin
     writeIOAccess(prefix, out, assigning, access->ioAccess(), "", __id, bctx, ff, dependencies, _ff_usage);
   } else if (access->tableAccess() != nullptr) {
     writeTableAccess(prefix, out, assigning, access->tableAccess(), "", __id, bctx, ff, dependencies, _ff_usage);
-  } else if (access->bitAccess() != nullptr) {
-    writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, bctx, ff, dependencies, _ff_usage);
+  } else if (access->partSelect() != nullptr) {
+    writePartSelect(prefix, out, assigning, access->partSelect(), __id, bctx, ff, dependencies, _ff_usage);
   } else if (access->bitfieldAccess() != nullptr) {
     writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), "", __id, bctx, ff, dependencies, _ff_usage);
   }

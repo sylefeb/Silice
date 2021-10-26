@@ -314,9 +314,9 @@ atom                : CONSTANT
 
 bitfieldAccess      : field=IDENTIFIER '(' (idOrIoAccess | tableAccess) ')' '.' member=IDENTIFIER ;
 ioAccess            : base=IDENTIFIER ('.' IDENTIFIER)+ ;
-bitAccess           : (ioAccess | tableAccess | bitfieldAccess | IDENTIFIER) '[' first=expression_0 ',' num=constValue ']' ;
+partSelect          : (ioAccess | tableAccess | bitfieldAccess | IDENTIFIER) '[' first=expression_0 ',' num=constValue ']' ;
 tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;
-access              : (ioAccess | tableAccess | bitAccess | bitfieldAccess) ; 
+access              : (ioAccess | tableAccess | partSelect | bitfieldAccess) ; 
 
 idOrIoAccess        : (ioAccess | IDENTIFIER) ;
 idOrAccess          : (  access | IDENTIFIER) ;
