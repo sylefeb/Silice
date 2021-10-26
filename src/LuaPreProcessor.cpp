@@ -269,7 +269,7 @@ static void lua_write_palette_in_table(lua_State* L, std::string str, int compon
   uchar* ptr = nfo->colormap;
   ForIndex(idx, 256) {
       uint32_t v = 0;
-      if (idx < nfo->colormap_size) {
+      if ((uint)idx < nfo->colormap_size) {
         ForIndex(c, 3) {
           v = (v << component_depth) | ((*(uint8_t *)(ptr++) >> (8 - component_depth)) & ((1 << component_depth) - 1));
         }
@@ -318,7 +318,7 @@ static luabind::object lua_get_palette_as_table(lua_State* L, std::string str, i
   uchar* ptr = nfo->colormap;
   ForIndex(idx, 256) {
     uint32_t v = 0;
-    if (idx < nfo->colormap_size) {
+    if ((uint)idx < nfo->colormap_size) {
       ForIndex(c, 3) {
         v = (v << component_depth) | ((*(uint8_t *)(ptr++) >> (8 - component_depth)) & ((1 << component_depth) - 1));
       }

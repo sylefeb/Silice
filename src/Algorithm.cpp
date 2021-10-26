@@ -5494,7 +5494,7 @@ void Algorithm::writeTableAccess(
 
 void Algorithm::writeBitfieldAccess(
   std::string prefix, std::ostream& out, bool assigning,
-  siliceParser::BitfieldAccessContext* bfaccess, std::string suffix,
+  siliceParser::BitfieldAccessContext* bfaccess, std::pair<std::string, std::string> range,
   int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
@@ -5509,7 +5509,16 @@ void Algorithm::writeBitfieldAccess(
   if (ow.first.base_type == Int) {
     out << "$signed(";
   }
-  suffix = "[" + std::to_string(ow.second) + "+:" + std::to_string(ow.first.width) + "]" + suffix;
+  // create range
+  /// TODO: bound checks on constant expr
+  std::pair<std::string, std::string> new_range;
+  new_range.first  = std::to_string(ow.second);
+  new_range.second = std::to_string(ow.first.width);
+  if (!range.first.empty()) {
+    new_range.first  = "((" + range.first + ")+(" + new_range.first + "))";
+    new_range.second = range.second;
+  }
+  std::string suffix = "[" + new_range.first + "+:" + new_range.second + "]";
   if (bfaccess->tableAccess() != nullptr) {
     writeTableAccess(prefix, out, assigning, bfaccess->tableAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
   } else if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
@@ -5531,22 +5540,24 @@ void Algorithm::writePartSelect(std::string prefix, std::ostream& out, bool assi
   int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
-  /// TODO: check access validity
-  std::string suffix = "[" + rewriteExpression(prefix, partsel->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) + "+:" + gatherConstValue(partsel->num) + "]";
+  /// TODO: bound checks on constant expr
+  std::pair<std::string, std::string> range;
+  range.first  = rewriteExpression(prefix, partsel->first, __id, bctx, FF_Q, true, dependencies, _ff_usage);
+  range.second = gatherConstValue(partsel->num);
   if (partsel->ioAccess() != nullptr) {
-    writeIOAccess(prefix, out, assigning, partsel->ioAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
+    writeIOAccess(prefix, out, assigning, partsel->ioAccess(), '[' + range.first + "+:" + range.second + ']', __id, bctx, ff, dependencies, _ff_usage);
   } else if (partsel->tableAccess() != nullptr) {
-    writeTableAccess(prefix, out, assigning, partsel->tableAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
+    writeTableAccess(prefix, out, assigning, partsel->tableAccess(), '[' + range.first + "+:" + range.second + ']', __id, bctx, ff, dependencies, _ff_usage);
   } else if (partsel->bitfieldAccess() != nullptr) {
-    writeBitfieldAccess(prefix, out, assigning, partsel->bitfieldAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
+    writeBitfieldAccess(prefix, out, assigning, partsel->bitfieldAccess(), range, __id, bctx, ff, dependencies, _ff_usage);
   } else {
     sl_assert(partsel->IDENTIFIER() != nullptr);
-    out << rewriteIdentifier(prefix, partsel->IDENTIFIER()->getText(), suffix, bctx,
+    out << rewriteIdentifier(prefix, partsel->IDENTIFIER()->getText(), '[' + range.first + "+:" + range.second + ']', bctx,
       partsel->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
   }
   // out << '[' << rewriteExpression(prefix, partsel->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) << "+:" << gatherConstValue(partsel->num) << ']';
   if (assigning) {
-    // This is a bit access. We assume it is partial (could be checked if const).
+    // This is a part-select access. We assume it is partial (could be checked if const).
     // Thus the variable is likely only partially written and to be safe we tag
     // it as Q since other bits are likely read later in the execution flow.
     // This is a conservative assumption. A bit-per-bit analysis could be envisioned, 
@@ -5570,7 +5581,7 @@ void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assignin
   } else if (access->partSelect() != nullptr) {
     writePartSelect(prefix, out, assigning, access->partSelect(), __id, bctx, ff, dependencies, _ff_usage);
   } else if (access->bitfieldAccess() != nullptr) {
-    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), "", __id, bctx, ff, dependencies, _ff_usage);
+    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), std::make_pair("",""), __id, bctx, ff, dependencies, _ff_usage);
   }
 }
 
