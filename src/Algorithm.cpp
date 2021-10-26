@@ -1069,8 +1069,8 @@ void Algorithm::getBindings(
         if (bindings->bpBinding()->right->IDENTIFIER() != nullptr) {
           nfo.right = bindings->bpBinding()->right->IDENTIFIER()->getText();
         } else {
-          sl_assert(bindings->bpBinding()->right->ioAccess() != nullptr);
-          nfo.right = bindings->bpBinding()->right->ioAccess();
+          sl_assert(bindings->bpBinding()->right->access() != nullptr);
+          nfo.right = bindings->bpBinding()->right->access();
         }
         nfo.line = (int)bindings->bpBinding()->getStart()->getLine();
         if (bindings->bpBinding()->LDEFINE() != nullptr) {
@@ -1474,6 +1474,7 @@ std::string Algorithm::rewriteExpression(
         if (atom->WIDTHOF() != nullptr) {
           recurse = false;
           std::string vio = atom->base->getText() + (atom->member != nullptr ? "_" + atom->member->getText() : "");
+          vio = translateVIOName(vio, bctx);
           std::string wo  = resolveWidthOf(vio, atom->getSourceInterval());
           result = result + "(" + wo + ")";
         } else if (atom->DONE() != nullptr) {
@@ -2980,7 +2981,7 @@ bool Algorithm::matchCallParams(
       // check if a member matches
       for (auto member : getGroupMembers(*std::get<const t_group_definition *>(given_params[g].what))) {
         if (memberPostfix(expected_params[i]) == member) {
-          // match with the indentifier
+          // match with the identifier
           t_call_param matched;
           matched.expression = given_params[g].expression;
           matched.what       = base + "_" + member;
@@ -3076,15 +3077,20 @@ void Algorithm::parseCallParams(
 // -------------------------------------------------
 
 void Algorithm::getIdentifiers(
-  siliceParser::IdentifierListContext*    idents, 
+  siliceParser::IdOrIoAccessListContext*  idents,
   vector<string>&                        _vec_params,
   const t_combinational_block_context*    bctx) const
 {
   // go through indentifier list
-  while (idents->IDENTIFIER() != nullptr) {
-    std::string var = idents->IDENTIFIER()->getText();
+  while (idents->idOrIoAccess() != nullptr) {
+    std::string var;
+    if (idents->idOrIoAccess()->IDENTIFIER() != nullptr) {
+      var = idents->idOrIoAccess()->IDENTIFIER()->getText();
+    } else {
+      var = determineAccessedVar(idents->idOrIoAccess()->ioAccess(), bctx);
+    }
     _vec_params.push_back(var);
-    idents = idents->identifierList();
+    idents = idents->idOrIoAccessList();
     if (idents == nullptr) return;
   }
 }
@@ -3967,7 +3973,7 @@ std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_
   if (std::holds_alternative<std::string>(bnd.right)) {
     return translateVIOName(std::get<std::string>(bnd.right), bctx);
   } else {
-    return determineAccessedVar(std::get<siliceParser::IoAccessContext*>(bnd.right), bctx);
+    return determineAccessedVar(std::get<siliceParser::AccessContext*>(bnd.right), bctx);
   }
 }
 
@@ -3993,7 +3999,7 @@ std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* acces
       return base + "_" + member;
     } else {
       reportError(access->getSourceInterval(), (int)access->getStart()->getLine(),
-        "cannot find access base.member '%s.%s'", base.c_str(), member.c_str());
+        "cannot find accessed base.member '%s.%s'", base.c_str(), member.c_str());
     }
   }
   return "";
@@ -4693,7 +4699,7 @@ void Algorithm::analyzeInstancedBlueprintInputs()
     for (const auto& b : ib.second.bindings) {
       if (b.dir == e_Left || b.dir == e_LeftQ) { // setting input
         // input is bound directly
-        ib.second.boundinputs.insert(make_pair(b.left, make_pair(bindingRightIdentifier(b),b.dir == e_LeftQ ? e_Q : e_D)));
+        ib.second.boundinputs.insert(make_pair(b.left, make_pair(b.right,b.dir == e_LeftQ ? e_Q : e_D)));
       }
     }
   }
@@ -4804,6 +4810,9 @@ void Algorithm::checkPermissions()
     checkPermissions(i.instr, &m_AlwaysPost);
   }
   for (const auto &b : m_Blocks) {
+    if (b->state_id == -1) {
+      continue; // skip unreachable blocks
+    }
     for (const auto &i : b->instructions) {
       checkPermissions(i.instr,b);
     }
@@ -4965,6 +4974,9 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx)
   }
   // check blocks
   for (const auto &b : m_Blocks) {
+    if (b->state_id == -1) {
+      continue; // skip unreachable blocks
+    }
     for (const auto &i : b->instructions) {
       checkExpressions(ictx, i.instr, b);
     }
@@ -5173,6 +5185,8 @@ t_type_nfo Algorithm::determineBitAccessTypeAndWidth(const t_combinational_block
     tn = determineIdentifierTypeAndWidth(bctx, bitaccess->IDENTIFIER(), bitaccess->getSourceInterval(), (int)bitaccess->getStart()->getLine());
   } else if (bitaccess->tableAccess() != nullptr) {
     tn = determineTableAccessTypeAndWidth(bctx, bitaccess->tableAccess());
+  } else if (bitaccess->bitfieldAccess() != nullptr) {
+    tn = determineBitfieldAccessTypeAndWidth(bctx, bitaccess->bitfieldAccess());
   } else {
     tn = determineIOAccessTypeAndWidth(bctx, bitaccess->ioAccess());
   }
@@ -5417,21 +5431,13 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
       reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
         "cannot write to algorithm output '%s', instance '%s'", member.c_str(), base.c_str());
     }
-    if (!assigning && !A->second.blueprint->isOutput(member)) {
-      reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
-        "cannot read from algorithm input '%s', instance '%s'", member.c_str(), base.c_str());
-    }
     if (A->second.blueprint->isInput(member)) {
+      // algorithm input
       if (A->second.boundinputs.count(member) > 0) {
         reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
         "cannot access bound input '%s' on instance '%s'", member.c_str(), base.c_str());
       }
-      if (assigning) {
-        out << FF_D; // algorithm input
-      } else {
-        sl_assert(false); // cannot read from input
-      }
-      out << A->second.instance_prefix << "_" << member << suffix;
+      out << FF_D << A->second.instance_prefix << "_" << member << suffix;
       return A->second.blueprint->determineVIOTypeWidthAndTableSize(translateVIOName(member, bctx), ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
     } else if (A->second.blueprint->isOutput(member)) {
       out << WIRE << A->second.instance_prefix << "_" << member << suffix;
@@ -5472,7 +5478,6 @@ void Algorithm::writeTableAccess(
     if (get<1>(tws) == 0) {
       reportError(tblaccess->ioAccess()->IDENTIFIER().back()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
-    // out << "[" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ']';
   } else {
     sl_assert(tblaccess->IDENTIFIER() != nullptr);
     std::string vname = tblaccess->IDENTIFIER()->getText();
@@ -5482,13 +5487,14 @@ void Algorithm::writeTableAccess(
     if (get<1>(tws) == 0) {
       reportError(tblaccess->IDENTIFIER()->getSymbol(), (int)tblaccess->getStart()->getLine(), "trying to access a non table as a table");
     }
-    // out << "[" << rewriteExpression(prefix, tblaccess->expression_0(), __id, bctx, FF_Q, true, dependencies, _ff_usage) << ']';
   }
 }
 
 // -------------------------------------------------
 
-void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitfieldAccessContext* bfaccess, 
+void Algorithm::writeBitfieldAccess(
+  std::string prefix, std::ostream& out, bool assigning,
+  siliceParser::BitfieldAccessContext* bfaccess, std::string suffix,
   int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
@@ -5503,7 +5509,7 @@ void Algorithm::writeBitfieldAccess(std::string prefix, std::ostream& out, bool 
   if (ow.first.base_type == Int) {
     out << "$signed(";
   }
-  std::string suffix = "[" + std::to_string(ow.second) + "+:" + std::to_string(ow.first.width) + "]";
+  suffix = "[" + std::to_string(ow.second) + "+:" + std::to_string(ow.first.width) + "]" + suffix;
   if (bfaccess->tableAccess() != nullptr) {
     writeTableAccess(prefix, out, assigning, bfaccess->tableAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
   } else if (bfaccess->idOrIoAccess()->ioAccess() != nullptr) {
@@ -5531,6 +5537,8 @@ void Algorithm::writeBitAccess(std::string prefix, std::ostream& out, bool assig
     writeIOAccess(prefix, out, assigning, bitaccess->ioAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
   } else if (bitaccess->tableAccess() != nullptr) {
     writeTableAccess(prefix, out, assigning, bitaccess->tableAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
+  } else if (bitaccess->bitfieldAccess() != nullptr) {
+    writeBitfieldAccess(prefix, out, assigning, bitaccess->bitfieldAccess(), suffix, __id, bctx, ff, dependencies, _ff_usage);
   } else {
     sl_assert(bitaccess->IDENTIFIER() != nullptr);
     out << rewriteIdentifier(prefix, bitaccess->IDENTIFIER()->getText(), suffix, bctx,
@@ -5562,7 +5570,7 @@ void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assignin
   } else if (access->bitAccess() != nullptr) {
     writeBitAccess(prefix, out, assigning, access->bitAccess(), __id, bctx, ff, dependencies, _ff_usage);
   } else if (access->bitfieldAccess() != nullptr) {
-    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), __id, bctx, ff, dependencies, _ff_usage);
+    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), "", __id, bctx, ff, dependencies, _ff_usage);
   }
 }
 
@@ -6265,7 +6273,7 @@ void Algorithm::writeCombinationalAlwaysPre(
     }
   }
   // instanced blueprints output bindings with wires
-  // NOTE: could this be done with assignements (see Algorithm::writeAsModule) ?
+  // NOTE: could this be done with assignments (see Algorithm::writeAsModule) ?
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &ia = m_InstancedBlueprints.at(iaiordr);
     for (auto b : ia.bindings) {
@@ -6274,11 +6282,21 @@ void Algorithm::writeCombinationalAlwaysPre(
           // bound to variable, the variable is replaced by the output wire
           auto usage = m_Vars.at(m_VarNames.at(bindingRightIdentifier(b))).usage;
           sl_assert(usage == e_Bound);
+          // check that this is not a partial binding
+          // NOTE: currently not supported, this requires a different mechanism
+          //       as vio bound to outputs are effectively rewritten to be a wire
+          if (std::holds_alternative<siliceParser::AccessContext*>(b.right)) {
+            auto access = std::get<siliceParser::AccessContext*>(b.right);
+            if (access->ioAccess() == nullptr) { // ioAccess is the only one supported
+              reportError(access->getSourceInterval(), -1, "binding an output to a partial variable (bit select, bitfield, table entry) is currently unsupported");
+            }
+          }
         } else if (m_OutputNames.find(bindingRightIdentifier(b)) != m_OutputNames.end()) {
           // bound to an algorithm output
           auto usage = m_Outputs.at(m_OutputNames.at(bindingRightIdentifier(b))).usage;
           if (usage == e_FlipFlop) {
             // the output is a flip-flop, copy from the wire
+            sl_assert(std::holds_alternative<std::string>(b.right));
             out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << nxl;
           }
           // else, the output is replaced by the wire
@@ -7541,13 +7559,26 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
       if (nfo.boundinputs.count(is.name) > 0) {
         // input is bound, directly map bound VIO
         t_vio_dependencies _;
-        out << rewriteIdentifier("_", nfo.boundinputs.at(is.name).first, "", nullptr, nfo.instance_line,
-          nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
-          nfo.boundinputs.at(is.name).second == e_Q ? e_Q : e_D
-        );
+        if (std::holds_alternative<std::string>(nfo.boundinputs.at(is.name).first)) {
+          std::string bndid = std::get<std::string>(nfo.boundinputs.at(is.name).first);
+          out << rewriteIdentifier("_", bndid, "", nullptr, nfo.instance_line,
+            nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
+            nfo.boundinputs.at(is.name).second == e_Q ? e_Q : e_D
+          );
+        } else {
+          writeAccess("_", out, false, std::get<siliceParser::AccessContext*>(nfo.boundinputs.at(is.name).first),
+            -1, nullptr,
+            nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, _, ff_input_bindings_usage
+          );
+        }
         // check whether the bound variable is a wire or another bound var, in which case <:: does not make sense
         if (nfo.boundinputs.at(is.name).second == e_Q) {
-          std::string bid = nfo.boundinputs.at(is.name).first;
+          std::string bid;
+          if (std::holds_alternative<std::string>(nfo.boundinputs.at(is.name).first)) {
+            bid = std::get<std::string>(nfo.boundinputs.at(is.name).first);
+          } else {
+            bid = determineAccessedVar(std::get<siliceParser::AccessContext*>(nfo.boundinputs.at(is.name).first),nullptr);
+          }
           const auto &vio = m_VIOBoundToBlueprintOutputs.find(bid);
           bool bound_wire_input = false;
           if (vio != m_VIOBoundToBlueprintOutputs.end()) {

@@ -205,7 +205,7 @@ declarationMemory      : (BRAM | BROM | DUALBRAM | SIMPLEDUALBRAM) TYPE name=IDE
 declarationInstance    : blueprint=IDENTIFIER name=IDENTIFIER bpModifiers? ( '(' bpBindingList ')' ) ? ;
 declaration            : declarationVar | declarationInstance | declarationTable | declarationMemory | declarationWire;
 
-bpBinding              : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrIoAccess | AUTO;
+bpBinding              : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrAccess | AUTO;
 bpBindingList          : bpBinding ',' bpBindingList | bpBinding | ;
 
 /* -- io lists -- */
@@ -314,11 +314,12 @@ atom                : CONSTANT
 
 bitfieldAccess      : field=IDENTIFIER '(' (idOrIoAccess | tableAccess) ')' '.' member=IDENTIFIER ;
 ioAccess            : base=IDENTIFIER ('.' IDENTIFIER)+ ;
-bitAccess           : (ioAccess | tableAccess | IDENTIFIER) '[' first=expression_0 ',' num=constValue ']' ;
+bitAccess           : (ioAccess | tableAccess | bitfieldAccess | IDENTIFIER) '[' first=expression_0 ',' num=constValue ']' ;
 tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;
 access              : (ioAccess | tableAccess | bitAccess | bitfieldAccess) ; 
 
 idOrIoAccess        : (ioAccess | IDENTIFIER) ;
+idOrAccess          : (  access | IDENTIFIER) ;
 
 /* -- Assignments -- */
                     
@@ -341,14 +342,13 @@ asyncExec           : IDENTIFIER LARROW '(' callParamList ')' ;
 joinExec            : '(' callParamList ')' LARROW IDENTIFIER ;
 syncExec            : joinExec LARROW '(' callParamList ')' ;
 
-/* -- Circuitry instanciation -- */
+/* -- Circuitry instantiation -- */
 
-// TODO: allow passing ioAccess as well ( idOrIoAccess )
-identifierList      : IDENTIFIER ',' identifierList 
-                    | IDENTIFIER 
-                    | ;
+idOrIoAccessList    : idOrIoAccess ',' idOrIoAccessList
+                    | idOrIoAccess
+                    ;
 
-circuitryInst       : '(' outs=identifierList ')' '=' IDENTIFIER '(' ins=identifierList ')';
+circuitryInst       : '(' outs=idOrIoAccessList ')' '=' IDENTIFIER '(' ins=idOrIoAccessList ')';
 
 /* -- Control flow -- */
 
@@ -476,4 +476,3 @@ riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? ('=' in
 topList       :  (algorithm | riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
 
 root                : topList EOF ;
- 
