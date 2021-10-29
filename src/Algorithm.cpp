@@ -5608,6 +5608,11 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
   // write access
   if (access) {
     // table, output or bits
+    if (isInput(determineAccessedVar(access, bctx))) {
+      reportError(a.instr->getSourceInterval(), -1,
+        "cannot assign a value to an input of the algorithm, input '%s'",
+        determineAccessedVar(access, bctx).c_str());
+    }
     writeAccess(prefix, out, true, access, a.__id, bctx, ff, dependencies, _ff_usage);
   } else {
     sl_assert(identifier != nullptr);
