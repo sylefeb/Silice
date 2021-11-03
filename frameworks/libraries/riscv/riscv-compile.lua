@@ -38,24 +38,25 @@ function compile(file)
   print('********************* compiling from      ' .. file)
   print('********************* include path        ' .. PATH)
   print('********************* linker script       ' .. LD_CONFIG)
+  print('********************* architecture        ' .. arch)
   print('********************* optimization level  -O' .. O)
   local cmd
   cmd =  gcc .. ' '
 	    .. '-I' .. PATH .. ' '
       .. '-fno-builtin -fno-unroll-loops -O' .. O .. ' -fno-pic '
-			.. '-march=rv32i -mabi=ilp32 '
+			.. '-march=' .. arch .. ' -mabi=ilp32 '
 			.. '-c -o code.o '
       .. SRC
   os.execute(cmd)
   cmd =  gcc .. ' '
 	    .. '-I' .. PATH .. ' '
       .. '-fno-builtin -fno-unroll-loops -O' .. O .. ' -fno-pic '
-			.. '-march=rv32i -mabi=ilp32 '
+			.. '-march=' .. arch .. ' -mabi=ilp32 '
 			.. '-fverbose-asm -S -o code.s '
       .. SRC
   os.execute(cmd)
   cmd =  as .. ' '
-      .. '-march=rv32i -mabi=ilp32 '
+      .. '-march=' .. arch .. ' -mabi=ilp32 '
       .. '--defsym STACK_START=' .. STACK_START .. ' '
       .. '--defsym STACK_SIZE=' .. STACK_SIZE .. ' '
       .. '-o crt0.o '

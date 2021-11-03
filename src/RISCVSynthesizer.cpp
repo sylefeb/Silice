@@ -164,6 +164,27 @@ std::string RISCVSynthesizer::coreName(siliceParser::RiscvContext *riscv) const
 
 // -------------------------------------------------
 
+std::string RISCVSynthesizer::archName(siliceParser::RiscvContext *riscv) const
+{
+  if (riscv->riscvModifiers() != nullptr) {
+    for (auto m : riscv->riscvModifiers()->riscvModifier()) {
+      if (m->IDENTIFIER()->getText() == "arch") {
+        if (m->STRING() == nullptr) {
+          reportError(riscv->getSourceInterval(), -1, "[RISCV] arch name should be a string.");
+        } else {
+          string arch = m->STRING()->getText();
+          arch = arch.substr(1, arch.length() - 2); // remove '"' and '"'
+          return arch;
+        }
+      }
+    }
+  }
+  // optional, returns default if not found
+  return "rv32i";
+}
+
+// -------------------------------------------------
+
 std::string RISCVSynthesizer::defines(siliceParser::RiscvContext *riscv) const
 {
   std::string defs;
@@ -350,17 +371,18 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
     ++ idx;
   }
   ostringstream code;
-  code << "$$dofile('" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-compile.lua');" << nxl;
   code << "$$addrW       = " << 1+justHigherPow2(memorySize(riscv)/4) << nxl;
   code << "$$memsz       = " << memorySize(riscv)/4 << nxl;
-  code << "$$meminit     = data_bram" << nxl;
   code << "$$external    = " << justHigherPow2(memorySize(riscv))-2 << nxl;
+  code << "$$arch        = '" << archName(riscv) << '\'' << nxl;
+  code << "$$algorithm_name = '" << riscv->IDENTIFIER()->getText() << "'" << nxl;
+  code << "$$dofile('" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-compile.lua');" << nxl;
+  code << "$$meminit     = data_bram" << nxl;
   code << "$$io_decl     = [[" << io_decl << "]]" << nxl;
   code << "$$io_select   = [[" << io_select << "]]" << nxl;
   code << "$$io_reads    = [[" << io_reads << "]]" << nxl;
   code << "$$io_writes   = [[" << io_writes << "]]" << nxl;
   code << "$$on_accessed = [[" << on_accessed << "]]" << nxl;
-  code << "$$algorithm_name = '" << riscv->IDENTIFIER()->getText() << "'" << nxl;
   code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + coreName(riscv) + "/riscv-soc.ice\");" << nxl;
   return code.str();
 }

@@ -21,17 +21,24 @@ $$end
 $$CORE0 = 1   -- set to nil to disable debug output for core 0
 $$KILL0 = nil -- set to 1 to disable core 0
 
-$$CORE1 = 1   -- set to nil to disable debug output for core 1
-$$KILL1 = nil -- set to 1 to disable core 1
+$$CORE1 = nil -- set to nil to disable debug output for core 1
+$$KILL1 = 1   -- set to 1 to disable core 1
 
-$$if ICE_V_RV32E then
-$$ print("Ice-V configured for RV32E")
+$$if ICEV_RV32E then
+$$ print("Ice-V-dual configured for RV32E")
 $$ Nregs  = 16
 $$ cycleW = 32
 $$else
-$$ print("Ice-V configured for RV32I")
+$$ print("Ice-V-dual configured for RV32I")
 $$ Nregs  = 32
 $$ cycleW = 32
+$$end
+
+$$if ICEV_MULDIV then
+$$ print("Ice-V-dual configured with mul and div (*not* full RV32IM)")
+$$div_width  = 32
+$$div_signed = 1
+$include('../../common/divint_std.ice')
 $$end
 
 $$NOP=0x13
@@ -39,8 +46,8 @@ $$NOP=0x13
 $$if not Boot then Boot = 0 end
 
 // bitfield for easier decoding of instructions
-bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
-                 uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
+bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
+                 uint5 rs2,     uint5 rs1,  uint3 op, uint5 rd, uint7 opcode}
 
 // --------------------------------------------------
 // execute: decoder + ALU
@@ -57,8 +64,11 @@ algorithm execute(
   output uint3  op,    output uint5  write_rd, output  uint1  no_rd,
   output uint1  jump,  output uint1  load,     output  uint1  store,
   output int32  val,   output uint1  storeVal, output  uint1  working(0),
-  output uint32 n,     output uint1  storeAddr, // next address adder
+  output uint$addrW+2$ n,     output uint1  storeAddr, // next address adder
   output uint1  intop, output int32  r,         // integer operations
+$$if ICEV_USERDATA then
+  input  uint32 user_data
+$$end
 ) {
   uint5        shamt(0); // shifter status
   uint$cycleW$ cycle(0); // cycle counter
@@ -75,27 +85,35 @@ algorithm execute(
   uint1 AUIPC     <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
   uint1 JAL       <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
   uint1 IntImm    <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
-  uint1 Cycles    <: opcode == 5b11100;  uint1 branch <: opcode == 5b11000;
+  uint1 CSR       <: opcode == 5b11100;  uint1 branch <: opcode == 5b11000;
   uint1 regOrImm  <: IntReg  | branch;                    // reg or imm in ALU?
   uint1 pcOrReg   <: AUIPC   | JAL    | branch;           // pc or reg in addr?
   uint1 sub       <: IntReg  & Rtype(instr).sign;         // subtract
   uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
+$$if ICEV_MULDIV then
+  uint1 muldiv    <: IntReg & Rtype(instr).muldiv;        // mul or div
+  div32 div<reginputs>;
+  uint1 dividing(0);
+  uint1 div_done(0);
+$$end
+
+  int32 ra(0); int32 rb(0);
 
   // ==== select next address adder first input
-  int32 addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
+  int$addrW+3$ addr_a <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
   // ==== select ALU second input
   int32 b         <: regOrImm ? (xb) : imm_i;
 
   // ==== allows to do subtraction and all comparisons with a single adder
   // trick from femtorv32/swapforth/J1
-  int33 a_minus_b <: {1b1,~b} + {1b0,xa} + 33b1;
-  uint1 a_lt_b    <: (xa[31,1] ^ b[31,1]) ? xa[31,1] : a_minus_b[32,1];
+  int33 a_minus_b <: {1b1,~rb} + {1b0,ra} + 33b1;
+  uint1 a_lt_b    <: (ra[31,1] ^ rb[31,1]) ? ra[31,1] : a_minus_b[32,1];
   uint1 a_lt_b_u  <: a_minus_b[32,1];
   uint1 a_eq_b    <: a_minus_b[0,32] == 0;
 
   // ==== select immediate for the next address computation
   // 'or trick' from femtorv32
-  int32 addr_imm  <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+  int$addrW+3$ addr_imm <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
                   |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
                   |  (store  ? imm_s : 32b0);
   // ==== set decoder outputs depending on incoming instructions
@@ -108,9 +126,15 @@ algorithm execute(
   // integer operations                // store next address?
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
   // value to store directly
-  val          := LUI ? imm_u : {cycle,core_id};
+$$if ICEV_USERDATA then
+  val          :=    (LUI                ? imm_u                 : {32{1b0}})
+                |  ( (CSR &~instr[20,1]) ? {cycle[0,31],core_id} : {32{1b0}})
+                |  ( (CSR & instr[20,1]) ? user_data             : {32{1b0}});
+$$else
+  val          := LUI ? imm_u : {cycle[0,31],core_id};
+$$end
   // store value?
-  storeVal     := LUI     | Cycles;
+  storeVal     := LUI | CSR;
 
   always {
     uint1 j(0); // temp variables for and comparator
@@ -136,25 +160,65 @@ $$if not ICEV_FAST_SHIFT then
     }
     working = (shamt != 0);
 $$end
-$$if VERBOSE then
-    if (working) {
-      __display("[cycle %d] ALU shifting",cycle);
-    }
-$$end
     // all ALU operations
     switch (op) {
-      case 3b000: { r = sub ? a_minus_b : xa + b; }            // ADD / SUB
-      case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
-      case 3b100: { r = xa ^ b; } case 3b110: { r = xa | b;   }// XOR / OR
+      case 3b000: { r = sub ? a_minus_b : ra + rb; }            // ADD / SUB
+      case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; } // SLTI / SLTU
+      case 3b100: { r = ra ^ rb;} case 3b110: { r = ra | rb;  } // XOR / OR
 $$if not ICEV_FAST_SHIFT then
       case 3b001: { }             case 3b101: { }              // SLLI/SRLI/SRAI
 $$else
-      case 3b001: { r = (xa <<< b[0,5]); }
-      case 3b101: { r = Rtype(instr).sign ? (xa >>> b[0,5]) : (xa >> b[0,5]); }
+      case 3b001: { r = (ra <<< rb[0,5]); }
+      case 3b101: { r = Rtype(instr).sign ? (ra >>> rb[0,5]) : (ra >> rb[0,5]); }
 $$end
-      case 3b111: { r = xa & b; }     // AND
+      case 3b111: { r = ra & rb; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
     }
+
+$$if ICEV_MULDIV then
+    // mul div
+    div.inum = xa;
+    div.iden = xb;
+    if (muldiv) {
+      //__display("[cycle %d] dividing:%b working:%b isdone(div):%b",cycle,dividing,working,isdone(div));
+      switch ({op}) {
+        case 3b000: { // MUL
+          //__display("MULTIPLICATION %d * %d",xa,xb);
+          r        = ra * rb;
+					dividing = 0; // NOTE: required for hrdwr to work? highly suspicious.
+        }
+        case 3b100: { // DIV
+          if (~working & ~dividing) {
+             //__display("[cycle %d] DIVISION trigger",cycle);
+            working       = 1;
+            dividing      = 1;
+            div <- ();
+          } else {
+            if (isdone(div) & ~div_done) {
+              //__display("[cycle %d] DIVISION %d / %d = %d",cycle,xa,xb,div.ret);
+              div_done    = 1;
+              dividing    = 1;
+            } else {
+              //if (isdone(div)) { __display("[cycle %d] DIVISION done",cycle); }
+              div_done    = 0;
+              dividing    = 0;
+            }
+            working = ~isdone(div);
+          }
+          r        = div.ret;
+        }
+        default:   { r = {32{1bx}}; }
+      }
+    } else {
+		  dividing = 0;
+		}
+$$end
+
+$$if VERBOSE then
+    if (working) {
+      __display("[cycle %d] ALU busy",cycle);
+    }
+$$end
 
     // ====================== Comparator for branching
     switch (op[1,2]) {
@@ -169,6 +233,8 @@ $$end
 
     // ==== increment cycle counter
     cycle = cycle + 1;
+
+    ra = xa; rb = b;
 
   }
 
@@ -190,7 +256,12 @@ $$end
 //  x    1    x    0    // stage == 3  4b11
 // ---------------------------------
 
-algorithm rv32i_cpu(bram_port mem) {
+algorithm rv32i_cpu(
+  bram_port    mem,
+$$if ICEV_USERDATA then
+  input uint32 user_data
+$$end
+) {
 
   // register files, two BRAMs to fetch two registers at once
   bram int32 xregsA_0[$Nregs$]={pad(0)}; bram int32 xregsB_0[$Nregs$]={pad(0)};
@@ -240,6 +311,9 @@ $$end
       case 2b10:{ loaded = aligned;   }
       default:  { loaded = {32{1bx}}; } // don't care
     }
+$$if ICEV_USERDATA then
+    exec.user_data = user_data;
+$$end
     // what to write on a store (used when exec.store == 1)
     mem.wdata      = stage[1,1] ? (xregsB_0.rdata << {exec.n[0,2],3b000})
                                 : (xregsB_1.rdata << {exec.n[0,2],3b000});

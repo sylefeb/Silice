@@ -66,6 +66,8 @@ namespace Silice
     int         stackSize(siliceParser::RiscvContext *riscv) const;
     /// \brief returns the user-given core name (if any, default core selection otherwise)
     std::string coreName(siliceParser::RiscvContext *riscv) const;
+    /// \brief returns the user-given architecture variant (defaults to rv32i otherwise)
+    std::string archName(siliceParser::RiscvContext *riscv) const;
     /// \brief returns user-defines from modifiers
     std::string defines(siliceParser::RiscvContext *riscv) const;
 

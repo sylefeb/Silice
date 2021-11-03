@@ -12,6 +12,7 @@
 $include('risc-v.ice')
 
 $$if FIREV_MULDIV then
+$$ print("Fire-V configured with mul and div (*not* full RV32IM)")
 $$div_width  = 32
 $$div_signed = 1
 $include('../../common/divint_std.ice')
