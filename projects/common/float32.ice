@@ -100,16 +100,14 @@ algorithm classify(
     output  uint1   qNAN,
     output  uint1   ZERO
 ) <autorun,reginputs> {
-    // CHECK FOR 8hff
+    // CHECK FOR 8hff ( signals INF/NAN )
     uint1   expFF <:: &fp32(a).exponent;
     uint1   NAN <:: expFF & a[22,1];
 
-    always {
-        INF = expFF & ~a[22,1];
-        sNAN = NAN & a[21,1];
-        qNAN = NAN & ~a[21,1];
-        ZERO = ~|( fp32(a).exponent );
-    }
+    INF := expFF & ~a[22,1];
+    sNAN := NAN & a[21,1];
+    qNAN := NAN & ~a[21,1];
+    ZERO := ~|( fp32(a).exponent );
 }
 
 // NORMALISE A 48 BIT MANTISSA SO THAT THE MSB IS ONE, FOR ADDSUB ALSO DECREMENT THE EXPONENT FOR EACH SHIFT LEFT
@@ -133,8 +131,6 @@ algorithm clz48(
     }
 }
 algorithm donormalise24_adjustexp(
-    input   uint1   start,
-    output  uint1   busy(0),
     input   int10   exp,
     input   uint48  bitstream,
     output  int10   newexp,
@@ -143,31 +139,17 @@ algorithm donormalise24_adjustexp(
     // COUNT LEADING ZEROS
     clz48 CLZ48( bitstream <: bitstream );
     uint48  temporary <:: bitstream << CLZ48.count;
-    always {
-        if( start ) {
-            busy = 1;
-            normalised = temporary[23,24];
-            newexp = exp - CLZ48.count;
-            busy = 0;
-        }
-    }
+    normalised := temporary[23,24];
+    newexp := exp - CLZ48.count;
 }
 algorithm donormalise24(
-    input   uint1   start,
-    output  uint1   busy(0),
     input   uint48  bitstream,
     output  uint24  normalised
 ) <autorun,reginputs> {
     // COUNT LEADING ZEROS
     clz48 CLZ48( bitstream <: bitstream );
     uint48  temporary <:: bitstream << CLZ48.count;
-    always {
-        if( start ) {
-            busy = 1;
-            normalised = temporary[23,24];
-            busy = 0;
-        }
-    }
+    normalised := temporary[23,24];
 }
 
 // ROUND 23 BIT FRACTION FROM NORMALISED FRACTION USING NEXT TRAILING BIT
@@ -216,24 +198,23 @@ algorithm inttofloat(
     output  uint7   flags,
     output  uint32  result
 ) <autorun,reginputs> {
-    // CHECK FOR 24, 16 OR 8 LEADING ZEROS, CONTINUE COUNTING FROM THERE
+    // COUNT LEADING ZEROS
     clz32 CLZ32( bitstream <: number );
     uint1   sign <:: dounsigned ? 0 : a[31,1];
     uint32  number <:: dounsigned ? a : ( a[31,1] ? -a : a );
-    uint32  fraction <:: NX ? number >> ( 8 - CLZ32.zeros ) : ( CLZ32.zeros > 8 ) ? number << ( CLZ32.zeros - 8 ) : number;
+    uint23  fraction <:: NX ? number >> ( 8 - CLZ32.zeros ) : ( CLZ32.zeros == 8 ) ? number : number << ( CLZ32.zeros - 8 );
     int10   exponent <:: 158 - CLZ32.zeros;
-    uint1   OF = uninitialised; uint1 UF = uninitialised; uint1 NX = uninitialised;
+    uint1   OF = uninitialised; uint1 UF = uninitialised;
+    uint1   NX <:: ( CLZ32.zeros < 8 );
 
     docombinecomponents32 COMBINE( sign <: sign, exp <: exponent, fraction <: fraction );
 
-    flags := { 4b0, OF, UF, NX };
+    flags := { 4b0, OF, UF, NX }; OF := 0; UF := 0;
 
     always {
-        OF = 0; UF = 0; NX = 0;
         if( ~|number ) {
             result = 0;
         } else {
-            NX = ( CLZ32.zeros < 8 );
             OF = COMBINE.OF; UF = COMBINE.UF; result = COMBINE.f32;
         }
     }
@@ -382,7 +363,7 @@ algorithm floataddsub(
     // COMBINE TO FINAL float32
     docombinecomponents32 COMBINE( sign <: ADDSUB.resultsign, exp <: ROUND.newexponent, fraction <: ROUND.roundfraction );
 
-    NORMALISE.start := 0; flags := { IF, NN, NV, 1b0, OF, UF, 1b0 };
+    flags := { IF, NN, NV, 1b0, OF, UF, 1b0 };
     while(1) {
         if( start ) {
             busy = 1;
@@ -394,8 +375,7 @@ algorithm floataddsub(
                     if( ~|ADDSUB.resultfraction ) {
                         result = 0;
                     } else {
-                        NORMALISE.start = 1; while( NORMALISE.busy ) {}
-                        ++:
+                        ++: ++: ++: // ALLOW FOR NORMALISATION AND COMBINING OF FINAL RESULT
                         OF = COMBINE.OF; UF = COMBINE.UF; result = COMBINE.f32;
                     }
                 }
@@ -500,19 +480,26 @@ algorithm dofloatdivide(
     uint6   bit(63);
     uint2   normalshift <:: ( quotient[48,1] + quotient[49,1] );
 
-    busy := start | ( ~&bit ) | ( |quotient[48,2] );
-    while(1) {
+    busy := start | ( bit != 63 ) | ( quotient[48,2] != 0 );
+
+    always {
         // FIND QUOTIENT AND ENSURE 48 BIT FRACTION ( ie BITS 48 and 49 clear )
-        if( start ) {
-            bit = 49; quotient = 0; remainder = 0;
-            while( busy ) {
-                remainder = __unsigned(temporary) - ( bitresult ? __unsigned(sigB) : 0 );
-                quotient[bit,1] = bitresult;
-                bit = bit - 1;
-            }
+        if( ~&bit ) {
+            remainder = __unsigned(temporary) - ( bitresult ? __unsigned(sigB) : 0 );
+            quotient[bit,1] = bitresult;
+            bit = bit - 1;
+        } else {
             quotient = quotient >> normalshift;
         }
     }
+
+    while(1) {
+        if( start ) {
+            bit = 49; quotient = 0; remainder = 0;
+        }
+    }
+
+    if( ~reset ) { bit = 63; quotient = 0; }
 }
 algorithm prepdivide(
     input   uint32  a,
@@ -563,7 +550,7 @@ algorithm floatdivide(
     // COMBINE TO FINAL float32
     docombinecomponents32 COMBINE( sign <: PREP.quotientsign, exp <: ROUND.newexponent, fraction <: ROUND.roundfraction );
 
-    DODIVIDE.start := 0; NORMALISE.start := 0; flags := { IF, NN, 1b0, B.ZERO, OF, UF, 1b0};
+    DODIVIDE.start := 0; flags := { IF, NN, 1b0, B.ZERO, OF, UF, 1b0};
     while(1) {
         if( start ) {
             busy = 1;
@@ -571,8 +558,6 @@ algorithm floatdivide(
             switch( { IF | NN, A.ZERO | B.ZERO } ) {
                 case 2b00: {
                     DODIVIDE.start = 1; while( DODIVIDE.busy ) {}
-                    NORMALISE.start = 1; while( NORMALISE.busy ) {}
-                    ++:
                     OF = COMBINE.OF; UF = COMBINE.UF; result = COMBINE.f32;
                 }
                 case 2b01: { result = ( A.ZERO & B.ZERO ) ? 32hffc00000 : ( B.ZERO ) ? { PREP.quotientsign, 31h7f800000 } : { PREP.quotientsign, 31b0 }; }
@@ -620,17 +605,23 @@ algorithm dofloatsqrt(
     uint6   i(47);
 
     busy := start | ( i != 47 );
+
+    always {
+        if( i != 47 ) {
+            ac = { test_res[49,1] ? ac[0,47] : test_res[0,47], x[46,2] };
+            squareroot = { squareroot[0,47], ~test_res[49,1] };
+            x = { x[0,46], 2b00 };
+            i = i + 1;
+        }
+    }
+
     while(1) {
         if( start ) {
             i = 0; squareroot = 0; ac = start_ac; x = start_x;
-            while( busy ) {
-                ac = { test_res[49,1] ? ac[0,47] : test_res[0,47], x[46,2] };
-                squareroot = { squareroot[0,47], ~test_res[49,1] };
-                x = { x[0,46], 2b00 };
-                i = i + 1;
-            }
         }
     }
+
+    if( ~reset ) { i = 0; }
 }
 algorithm prepsqrt(
     input   uint32  a,
@@ -680,18 +671,13 @@ algorithm floatsqrt(
         if( start ) {
             busy = 1;
             OF = 0; UF = 0;
-            switch( { A.INF | NN, A.ZERO } ) {
+            switch( { A.INF | NN, A.ZERO | fp32( a ).sign } ) {
                 case 2b00: {
-                    if( fp32( a ).sign ) {
-                        // DETECT NEGATIVE -> qNAN
-                        result = 32hffc00000;
-                    } else {
-                        // STEPS: SETUP -> DOSQRT -> NORMALISE -> ROUND -> ADJUSTEXP -> COMBINE
-                        DOSQRT.start = 1; while( DOSQRT.busy ) {}
-                        OF = COMBINE.OF; UF = COMBINE.UF; result = COMBINE.f32;
-                    }
+                    // STEPS: SETUP -> DOSQRT -> NORMALISE -> ROUND -> ADJUSTEXP -> COMBINE
+                    DOSQRT.start = 1; while( DOSQRT.busy ) {}
+                    OF = COMBINE.OF; UF = COMBINE.UF; result = COMBINE.f32;
                 }
-                // DETECT sNAN, qNAN, -INF, -0 -> qNAN AND  INF -> INF, 0 -> 0
+                // DETECT sNAN, qNAN, -INF, -x -> qNAN AND  INF -> INF, 0 -> 0
                 default: { result = fp32( a ).sign ? 32hffc00000 : a; }
             }
             busy = 0;
