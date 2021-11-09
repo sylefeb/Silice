@@ -21,8 +21,8 @@ $$end
 $$CORE0 = 1   -- set to nil to disable debug output for core 0
 $$KILL0 = nil -- set to 1 to disable core 0
 
-$$CORE1 = nil -- set to nil to disable debug output for core 1
-$$KILL1 = 1   -- set to 1 to disable core 1
+$$CORE1 = 1   -- set to nil to disable debug output for core 1
+$$KILL1 = nil -- set to 1 to disable core 1
 
 $$if ICEV_RV32E then
 $$ print("Ice-V-dual configured for RV32E")
