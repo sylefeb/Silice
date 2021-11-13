@@ -1,5 +1,6 @@
 // SL 2020-08
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 // vvvvvvvvvvvvv select screen driver below
 $$ -- SSD1331=1
@@ -13,7 +14,7 @@ $$ st7789_no_cs = true
 //                   vvvvv set to true to rotate view 90 degrees
 $$ st7789_transpose = true
 
-// ------------------------- 
+// -------------------------
 
 $include('../common/oled.ice')
 
@@ -21,7 +22,7 @@ $$if not ULX3S then
 $$error('only tested on ULX3S, small changes likely required to main input/outputs for other boards')
 $$end
 
-// ------------------------- 
+// -------------------------
 
 algorithm text_display(
   input   uint10 pix_x,
@@ -31,12 +32,12 @@ algorithm text_display(
   input   uint6  letter,
 ) <autorun> {
 
-  // ---------- font  
+  // ---------- font
 $include('../common/font.ice')
 $$if letter_w ~= 8 or letter_h ~= 8 then
   error('expects a 8x8 font')
 $$end
-  
+
   // ---------- text display
 
   uint6  text_i   = 0;
@@ -54,11 +55,11 @@ $$end
     text_i   = pix_x >> 3;
     letter_j = pix_y & 7;
     text_j   = pix_y >> 3;
-    
+
     if (text_i < 32 && text_j < 32) {
       letter_addr = text_i + (text_j*$oled_width>>3$);
-++:      
-      addr        = letter_i + ( letter_j << 3) 
+++:
+      addr        = letter_i + ( letter_j << 3)
                              + (letter << 6);
       white       = letters[ addr ];
     } else {
@@ -66,10 +67,10 @@ $$end
     }
 
   }
-  
+
 }
 
-// ------------------------- 
+// -------------------------
 
 algorithm main(
 $$if ULX3S then
@@ -100,7 +101,7 @@ $$end
 
   uint11 str_x    = 0;
   uint10 str_y    = 0;
-  
+
   // ---------- string
   uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN SILICE# A LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL #";
 
@@ -155,7 +156,7 @@ $$end
   io.next_pixel := 0;
 
   txt.wenable1  := 1;
-    
+
   // fill buffer with spaces
   {
     uint11 next = 0;
@@ -166,12 +167,12 @@ $$end
       next      = next + 1; // next
     }
   }
-  
-	// write text in buffer    
+
+	// write text in buffer
   str_y = 0;
   () <- print_string <- ();
 
-  // wait for controller to be ready  
+  // wait for controller to be ready
   while (io.ready == 0) { }
 
   // setup draw window
@@ -196,16 +197,16 @@ $$end
         io.color      = white ? 18h3ffff : 0;
         io.next_pixel = 1;
         while (io.ready == 0) { }
-        
+
         u = u + 1;
       }
       v = v + 1;
     }
-    
+
     frame = frame + 1;
-   
+
   }
 
 }
 
-// ------------------------- 
+// -------------------------

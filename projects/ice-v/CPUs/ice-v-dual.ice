@@ -4,6 +4,7 @@
 //
 // NOTE: please get familiar with the ice-v first.
 //
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 $$if ICEV_FAST_SHIFT then

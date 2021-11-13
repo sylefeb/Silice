@@ -12,6 +12,7 @@ http://www.rjhcoding.com/avrc-sd-interface-1.php
 http://www.dejazzer.com/ee379/lecture_notes/lec12_sd_card.pdf
 http://chlazza.nfshost.com/sdcardinfo.html
 
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 */
@@ -95,7 +96,7 @@ unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
     register int answer = 0xff;
 
     while (
-          (wait && (answer&(1<<(len-1)))) || (!wait && n < len)) {        
+          (wait && (answer&(1<<(len-1)))) || (!wait && n < len)) {
         sdcard_read_step_H();
         sdcard_read_step_L();
     }
@@ -132,7 +133,7 @@ unsigned char sdcard_start_sector(int sector)
     sdcard_send((sector>> 8)&255);
     sdcard_send((sector    )&255);
     sdcard_send(cmd17[5]);
-    sdcard_unselect();  
+    sdcard_unselect();
     return sdcard_get(8,1);
 }
 
@@ -174,12 +175,12 @@ void sdcard_init()
     sdcard_preinit();
     sdcard_cmd(cmd0);
     status = sdcard_get(8,1);
-    sdcard_ponder();    
+    sdcard_ponder();
     if (status != 0xff) {
         break;
     }
-    pause(10000000); 
-  }  
+    pause(10000000);
+  }
   sdcard_cmd(cmd8);
   status = sdcard_get(40,1);
   sdcard_ponder();
@@ -189,7 +190,7 @@ void sdcard_init()
     sdcard_ponder();
     sdcard_cmd(acmd41);
     status = sdcard_get(8,1);
-    sdcard_ponder();    
+    sdcard_ponder();
     if (status == 0) {
       break;
     }

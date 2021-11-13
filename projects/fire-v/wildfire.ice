@@ -5,10 +5,12 @@
 //  - fast code memory (from 26h2000000 to BRAM size)
 //  - hardware accelerated triangle rasterizer (why not?)
 //  - overclocks up to 160 MHz on the ULX3S
-// 
+//
 // Test on: ULX3S, Verilator, Icarus
 //
-// ------------------------- 
+// -------------------------
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 $$if SIMULATION then
@@ -64,7 +66,7 @@ $include('ash/sdram_ram_32bits.ice')
 $include('ash/bram_segment_ram_32bits.ice')
 $include('flame/flame.ice')
 
-// ------------------------- 
+// -------------------------
 
 algorithm frame_drawer(
   sdram_user     sd,  // main
@@ -74,12 +76,12 @@ algorithm frame_drawer(
   input   uint1  vsync,
   output  uint1  fbuffer = 0,
   output  uint8  leds,
-$$if SDCARD then  
+$$if SDCARD then
   output! uint1  sd_clk,
   output! uint1  sd_csn,
   output! uint1  sd_mosi,
   input   uint1  sd_miso,
-$$end  
+$$end
   simple_dualport_bram_port1 palette,
 ) <autorun> {
 
@@ -93,7 +95,7 @@ $$end
   uint26 predicted_addr    = uninitialized;
   uint1  predicted_correct = uninitialized;
 
-  // basic cache  
+  // basic cache
   rv32i_ram_io mem;
   uint26 cache_start = 26h2000000;
   bram_segment_ram_32bits cache(
@@ -108,7 +110,7 @@ $$end
   uint26 cpu_start_addr(26h2000000);
   uint32 user_data(0);
 
-  // cpu 
+  // cpu
   rv32i_cpu cpu<!cpu_reset>(
     boot_at           <:  cpu_start_addr,
     predicted_addr    :>  predicted_addr,
@@ -156,12 +158,12 @@ $$end
   triangle_in      := 0;
 
   while (1) {
-  
+
     cpu_reset = 0;
-$$if SDCARD then    
+$$if SDCARD then
     user_data = {{28{1b0}},reg_miso,1b0,vsync,drawing};
     reg_miso  = sd_miso;
-$$else    
+$$else
     user_data = {{28{1b0}},1b0,1b0,vsync,drawing};
 $$end
 
@@ -183,15 +185,15 @@ $$end
               __display("swap buffers");
               fbuffer = ~fbuffer;
             }
-$$if SDCARD then    
+$$if SDCARD then
             case 2b10: {
               // SDCARD
               __display("SDCARD %b",mem.data_in[0,3]);
               sd_clk  = mem.data_in[0,1];
               sd_mosi = mem.data_in[1,1];
               sd_csn  = mem.data_in[2,1];
-            }           
-$$end            
+            }
+$$end
             default: { }
           }
         }
@@ -203,13 +205,13 @@ $$end
             case 2:  { v2.x = mem.data_in[0,10]; v2.y = mem.data_in[10,10]; /*v2.z = mem.data_in[20,10];*/ }
             case 3: { ei0 = mem.data_in; color = mem.data_in[24,8]; }
             case 4: { ei1 = mem.data_in; }
-            case 5: { ei2 = mem.data_in; 
-                      ystart = v0.y; 
-                      ystop  = v2.y; 
+            case 5: { ei2 = mem.data_in;
+                      ystart = v0.y;
+                      ystop  = v2.y;
                       triangle_in = 1;
 $$if SIMULATION then
 //                               __display("new triangle (color %d), cycle %d, %d,%d %d,%d %d,%d",color,cycle,x0,y0,x1,y1,x2,y2);
-$$end                               
+$$end
                               }
             default: { }
           }
@@ -220,9 +222,9 @@ $$end
 
 $$if SIMULATION then
     cycle = cycle + 1;
-$$end    
+$$end
 
   }
 }
 
-// ------------------------- 
+// -------------------------

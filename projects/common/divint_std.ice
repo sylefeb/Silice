@@ -3,6 +3,7 @@
 // define: div_width    for the division bit width
 // define: div_unsigned if unsigned, for a more compact result
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $$if not div_width then
 $$error('please provide the bit width by defining the preprocessor var div_width')
@@ -22,9 +23,9 @@ algorithm div$div_width$(
 {
   uint$div_width+1$ ac = uninitialized;
   uint$div_width+1$ diff <:: ac - den;
-  
+
   uint$div_width_pow2+1$ i = 0;
-  
+
 $$if not div_unsigned then
   uint1           inum_neg <:: inum[$div_width-1$,1];
   uint1           iden_neg <:: iden[$div_width-1$,1];
@@ -42,7 +43,7 @@ $$if FORMAL then
   // (*) x/0 = error
   #assume(iden != 0);
 $$end
- 
+
   ac  = {{$div_width-1${1b0}},num[$div_width-1$,1]};
   ret = {num[0,$div_width-1$],1b0};
   while (i != $div_width$) {

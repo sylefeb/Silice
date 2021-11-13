@@ -1,4 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// @sylefeb 2021
+// https://github.com/sylefeb/Silice
 
 #include "oled.h"
 
@@ -50,7 +52,7 @@ void draw_fire()
   for (int v=0;v<128;v++) {
     for (int u=0;u<128;u++) {
       int clr  = tbl[(u>>2) + ((v>>2)<<5)]>>1;
-      int clr3 = (clr<<1)+clr;      
+      int clr3 = (clr<<1)+clr;
       unsigned char *ptr = pal + clr3;
       oled_pix(*ptr++,*ptr++,*ptr++);
     }
@@ -77,19 +79,19 @@ void update_fire()
   }
 }
 
-void main() 
+void main()
 {
   *(LEDS) = 7;
-  
+
   oled_init();
   oled_fullscreen();
   for (int v=0;v<32;v++) {
-    for (int u=0;u<32;u++) {      
+    for (int u=0;u<32;u++) {
       tbl[u+(v<<5)] = (v == 0) ? 63 : 0;
     }
   }
- 
-  int time = 0; 
+
+  int time = 0;
   while (1) {
     draw_fire();
     update_fire();
@@ -106,5 +108,5 @@ void main()
         tbl[u] = 63;
       }
     }
-  }   
+  }
 }

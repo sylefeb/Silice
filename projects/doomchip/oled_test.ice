@@ -1,12 +1,13 @@
 // SL 2020-05
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 import('../common/de10nano_clk_100_25.v')
 import('../common/reset_conditioner.v')
 
 $include('../common/oled.ice')
 
-// ------------------------- 
+// -------------------------
 
 $$wad = 'doom1.wad'
 $$level = 'E1M2'
@@ -14,7 +15,7 @@ $$dofile('pre_wad.lua')
 
 $$dofile('pre_do_doomhead.lua')
 
-// ------------------------- 
+// -------------------------
 
 algorithm main(
   output! uint1  sdram_cle,
@@ -38,7 +39,7 @@ algorithm main(
   output! uint1  oled_clk,
   output! uint1  oled_cs,
   output! uint1  oled_dc,
-  output! uint1  oled_rst,  
+  output! uint1  oled_rst,
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
   output! uint$color_depth$ video_b,
@@ -58,7 +59,7 @@ $$  end
   uint3  frame = 0;
   uint3  count = 0;
   uint32 nfo   = 0;
-  
+
   uint12 rand = 3137;
 
   uint1 video_reset = 0;
@@ -81,7 +82,7 @@ $$  end
     rcclk <: video_clock,
     in    <: reset,
     out   :> video_reset
-  );  
+  );
   // --- SDRAM clean reset
   reset_conditioner sdram_rstcond (
     rcclk <: sdram_clock,
@@ -104,13 +105,13 @@ $$  end
   io.next_pixel := 0;
 
   while (1) {
-  
+
     uint8  u     = uninitialized;
     uint8  v     = uninitialized;
 
-    // wait for controller to be ready  
-    while (io.ready == 0) { }  
-    
+    // wait for controller to be ready
+    while (io.ready == 0) { }
+
     // draw frame
     nfo           = doomface_nfo[frame];
     io.x_start    = 0;
@@ -118,7 +119,7 @@ $$  end
     io.y_start    = 0;
     io.y_end      = (nfo[24,8]<<2)-1;
     io.start_rect = 1;
-    while (io.ready == 0) { } 
+    while (io.ready == 0) { }
 
     doomhead.addr = nfo[0,16];
     v = 0;
@@ -134,19 +135,19 @@ $$  end
           // send pixel x4
           io.color      = palette[doomhead.rdata];
           io.next_pixel = 1;
-          while (io.ready == 0) { } 
-          
+          while (io.ready == 0) { }
+
           io.next_pixel = 1;
-          while (io.ready == 0) { } 
-          
+          while (io.ready == 0) { }
+
           io.next_pixel = 1;
-          while (io.ready == 0) { } 
-          
+          while (io.ready == 0) { }
+
           io.next_pixel = 1;
-          while (io.ready == 0) { } 
-          
+          while (io.ready == 0) { }
+
           u = u + 1;
-          doomhead.addr = doomhead.addr + 1;      
+          doomhead.addr = doomhead.addr + 1;
         }
         repeat = repeat + 1;
       }
@@ -166,9 +167,9 @@ $$  end
       }
     }
     count = count + 1;
-    
+
   }
-  
+
 }
 
-// ------------------------- 
+// -------------------------

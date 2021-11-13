@@ -1,6 +1,8 @@
 // SL 2020-07-13
 // Wave function collapse / Model synthesis (with image output)
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2020
 
 $$if DE10NANO or SIMULATION then
 $$Nlog = 3
@@ -38,30 +40,30 @@ $$for i=1,L do
       ({$L${right[$i-1$,1]}} & $L$b$Rleft[i]$)
 $$if i < L then
     |
-$$end      
+$$end
 $$end
     ) & (
 $$for i=1,L do
       ({$L${left[$i-1$,1]}} & $L$b$Rright[i]$)
 $$if i < L then
     |
-$$end      
+$$end
 $$end
     ) & (
 $$for i=1,L do
       ({$L${bottom[$i-1$,1]}} & $L$b$Rtop[i]$)
 $$if i < L then
     |
-$$end      
+$$end
 $$end
     ) & (
 $$for i=1,L do
       ({$L${top[$i-1$,1]}} & $L$b$Rbottom[i]$)
 $$if i < L then
     |
-$$end      
 $$end
-    )    
+$$end
+    )
     ;
     nstable = (newsite != site);
   }
@@ -119,7 +121,7 @@ $$print('choice reducer has ' .. L_pow2 .. ' levels')
 $$nr = 0
 $$for lvl=L_pow2-1,0,-1 do
 $$  for i=0,(1<<lvl)-1 do
-  uint5 keep_$lvl$_$2*i$_$2*i+1$ := 
+  uint5 keep_$lvl$_$2*i$_$2*i+1$ :=
 $$    if lvl == L_pow2-1 then
 $$      if 2*i < L then
 $$        if 2*i+1 < L then
@@ -157,8 +159,8 @@ $$end
 $$for i=1,N*N do
   uint$L$ new_grid_$i-1$ = uninitialized;
   uint1   nstable_$i-1$  = uninitialized;
-$$end    
-  
+$$end
+
   // all rule-processors
 $$for i=1,N*N do
 $$ l,r,t,b = neighbors(i-1)
@@ -171,7 +173,7 @@ $$ l,r,t,b = neighbors(i-1)
     newsite :>  new_grid_$i-1$,
     nstable :>  nstable_$i-1$
   );
-$$end  
+$$end
 
   // algorithm for choosing a label
   uint$L$ site   = uninitialized;
@@ -185,15 +187,15 @@ $$end
   uint$N*N$ nstable_reduce := {
 $$for i=0,N*N-2 do
           nstable_$i$,
-$$end        
+$$end
           nstable_$N*N-1$
           };
-		  
+
   // next entry to be collapsed
   uint16 next = 0;
   // random
   uint16 rand = 0;
-    
+
   // grid updates
 $$for i=1,N*N do
   grid_$i-1$ := new_grid_$i-1$;
@@ -205,27 +207,27 @@ $$end
 
   // while not fully resolved ...
   while (next < $N*N$) {
-    
+
     // choose
     {
       switch (next) {
         default: { site = 0; }
 $$for i=1,N*N do
         case $i-1$: { site = grid_$i-1$; }
-$$end      
+$$end
       }
 ++: // wait for choice to be made, then store
       switch (next) {
         default: {  }
 $$for i=1,N*N do
         case $i-1$: { grid_$i-1$ = choice; }
-$$end      
+$$end
       }
     }
-    
+
     // wait propagate
     while (nstable_reduce) { }
-            
+
     // display the grid
     __display("-----");
 $$for j=1,N do
@@ -236,11 +238,11 @@ $$end
         grid_$(N-1)+(j-1)*N$
     );
 $$end
-    
+
     rand = rand * 31421 + 6927;
     next = next + 1;
   }
-  
+
   // write to output
   next = 0;
   while (next < $N*N$) {
@@ -249,13 +251,13 @@ $$end
       default: {  }
 $$for i=1,N*N do
         case $i-1$: { data = grid_$i-1$; }
-$$end      
-    }    
+$$end
+    }
     next = next + 1;
   }
-  
-  __display("wfc done");  
-  
+
+  __display("wfc done");
+
 }
 
 // -------------------------
@@ -267,7 +269,7 @@ algorithm frame_display(
   input   uint1  pix_vblank,
 $$if not SIMULATION then
   input   uint$NUM_BTNS$ btns,
-$$end  
+$$end
   output! uint$color_depth$ pix_r,
   output! uint$color_depth$ pix_g,
   output! uint$color_depth$ pix_b
@@ -284,7 +286,7 @@ $$end
   uint16         iter     = 0;
 $$if not SIMULATION then
   uint$NUM_BTNS$ reg_btns = 0;
-$$end  
+$$end
 
   wfc wfc1(
     addr :> result.addr1,
@@ -292,8 +294,8 @@ $$end
     seed <: iter
   );
 
-  pix_r := 0; pix_g := 0; pix_b := 0;  
-  
+  pix_r := 0; pix_g := 0; pix_b := 0;
+
 $$if not SIMULATION then
   reg_btns ::= btns;
 $$end
@@ -302,11 +304,11 @@ $$end
 
   result.addr0 = 0;
 
-  // ---- display result  
-  while (1) {   
+  // ---- display result
+  while (1) {
 	  uint8   tile = 0;
 	  while (pix_vblank == 0) {
-      if (pix_active) {      
+      if (pix_active) {
         // set rgb data
         pix_b = pix_x > 15 ? tiles.rdata[ 0,6] : 0;
         pix_g = pix_x > 15 ? tiles.rdata[ 6,6] : 0;
@@ -339,21 +341,21 @@ $$if not SIMULATION then
     if (reg_btns[1,1] != 0) {
 $$else
     if (1) {
-$$end    
+$$end
       while (1) {
-        
+
         () <- wfc1 <- ();
 
         iter = iter + 1;
-        
+
         if (result.rdata0 != 0) {
           break;
         }
       }
     }
-    
+
     // wait for sync
-    while (pix_vblank == 1) {} 
+    while (pix_vblank == 1) {}
   }
 
 }

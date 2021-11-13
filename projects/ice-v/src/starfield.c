@@ -1,4 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// @sylefeb 2021
+// https://github.com/sylefeb/Silice
 
 #include "oled.h"
 
@@ -16,11 +18,11 @@ void starfield(int time)
       } else {
         oled_pix(0,0,0);
       }
-    }  
+    }
   }
 }
 
-void main() 
+void main()
 {
   *(LEDS) = 5;
 
@@ -30,5 +32,5 @@ void main()
   while (1) {
     starfield(time);
     -- time;
-  }   
+  }
 }

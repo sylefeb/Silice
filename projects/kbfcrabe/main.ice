@@ -1,4 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2021
 
 $$if not ORANGECRAB and not SIMULATION then
 $$error([[this project is specific to the OrangeCrab mounted

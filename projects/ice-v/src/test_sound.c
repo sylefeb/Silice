@@ -1,15 +1,17 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// @sylefeb 2021
+// https://github.com/sylefeb/Silice
 
 #include "config.h"
 
-inline long time() 
+inline long time()
 {
    int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
    return cycles;
 }
 
-void main() 
+void main()
 {
   volatile int i = 0;
 
@@ -29,7 +31,7 @@ void main()
         dir = -dir;
       }
     }
-    
+
   }
-  
+
 }

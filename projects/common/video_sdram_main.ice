@@ -1,10 +1,11 @@
 // SL 2019-10
 
 // Options
-// -- 
+// --
 // -- mode_640_480
 //
 
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 $$if not SDRAM_r512_w64 then
@@ -24,11 +25,11 @@ $$if mode_640_480 then
 $$  FB_row_size        = 640//sdram_read_bytes
 $$  FB_row_stride_pow2 = 10
 $$else
-$$  FB_row_size        = 320//sdram_read_bytes  
+$$  FB_row_size        = 320//sdram_read_bytes
 $$  FB_row_stride_pow2 = 9
 $$end
 
-// ------------------------- 
+// -------------------------
 
 $$if ICARUS then
   // SDRAM simulator
@@ -49,14 +50,14 @@ $$end
 // Reset
 $include('clean_reset.ice')
 
-// ------------------------- 
+// -------------------------
 
 $$if ICARUS or VERILATOR then
 // PLL for simulation
 /*
 NOTE: sdram_clock cannot use a normal output as this would mean sampling
       a register tracking clock using clock itself; this lead to a race
-	  condition, see https://stackoverflow.com/questions/58563770/unexpected-simulation-behavior-in-iverilog-on-flip-flop-replicating-clock-signal	  
+	  condition, see https://stackoverflow.com/questions/58563770/unexpected-simulation-behavior-in-iverilog-on-flip-flop-replicating-clock-signal
 */
 algorithm pll(
   output  uint1 video_clock,
@@ -65,21 +66,21 @@ algorithm pll(
 ) <autorun> {
   uint3 counter = 0;
   uint8 trigger = 8b11111111;
-  
+
   sdram_clock   := clock;
-  
+
   compute_clock := ~counter[0,1]; // x2 slower
 
   video_clock   := counter[1,1]; // x4 slower
-  
-  while (1) {	  
+
+  while (1) {
     counter = counter + 1;
 	  trigger = trigger >> 1;
   }
 }
 $$end
 
-// ------------------------- 
+// -------------------------
 
 // TODO add back Mojov3
 
@@ -105,7 +106,7 @@ $include('sdcard.ice')
 $include('sdcard_streamer.ice')
 $$end
 
-// ------------------------- 
+// -------------------------
 
 // SDRAM controller
 $include('sdram_interfaces.ice')
@@ -120,12 +121,12 @@ $$Nway = 4
 $include('sdram_arbitrers.ice')
 $include('sdram_utils.ice')
 
-// ------------------------- 
+// -------------------------
 
 // video sdram framework
 $include('video_sdram.ice')
 
-// ------------------------- 
+// -------------------------
 
 $$if init_data_bytes then
 
@@ -160,7 +161,7 @@ algorithm init_data(
 
   leds = 1;
 
-  // wait for sdcard controller to be ready  
+  // wait for sdcard controller to be ready
   while (stream.ready == 0)    { }
 
   leds = 2;
@@ -176,9 +177,9 @@ algorithm init_data(
       // write to sdram
       sd.data_in      = stream.data;
       sd.addr         = {1b1,1b0,24b0} | to_read;
-      sd.in_valid     = 1; // go ahead!      
+      sd.in_valid     = 1; // go ahead!
       // -> wait for sdram to be done
-      while (!sd.done) { }     
+      while (!sd.done) { }
 
       // next
       to_read = to_read + 1;
@@ -211,7 +212,7 @@ $data_hex$
   __display("loading %d bytes from sdcard (simulation)",$init_data_bytes$);
   while (to_read < $init_data_bytes$) {
     sdcard_data.addr = to_read;
-++:    
+++:
     data            = sdcard_data.rdata;
 
     // write to sdram
@@ -226,13 +227,13 @@ $data_hex$
   }
   __display("loading %d bytes from sdcard ===> done",$init_data_bytes$);
 
-  ready = 1;  
+  ready = 1;
 }
 
 $$end
 $$end
 
-// ------------------------- 
+// -------------------------
 
 algorithm main(
   output uint8 leds,
@@ -267,9 +268,9 @@ $$if SDCARD then
   output! uint1 sd_clk,
   output! uint1 sd_mosi,
   output! uint1 sd_csn,
-  input   uint1 sd_miso,  
-$$end  
-$$if VGA then  
+  input   uint1 sd_miso,
+$$end
+$$if VGA then
   // VGA
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
@@ -288,7 +289,7 @@ $$if ULX3S then
 $$else
 $$  error('no HDMI support')
 $$end
-$$end  
+$$end
 ) <@sdram_clock,!sdram_reset> {
 
   uint1 video_reset   = 0;
@@ -338,7 +339,7 @@ $$if not fast_compute then
     clkout2  :> sdram_clock, // controller
     clkout3  :> sdram_clk,   // chip
     locked   :> pll_lock
-  ); 
+  );
 $$else
   $$print('ULX3S at 160 MHz SDRAM, 160 MHz compute')
   pll_160_25_160_160ph60 clk_gen(
@@ -348,7 +349,7 @@ $$else
     clkout2  :> sdram_clock, // controller
     clkout3  :> sdram_clk,   // chip
     locked   :> pll_lock
-  ); 
+  );
 $$end
 $$end
 
@@ -429,7 +430,7 @@ $$if SDRAM_r128_w8 then
   sdram_r128w8_io sdm;
   sdram_controller_autoprecharge_r128_w8  memory<@sdram_clock,!sdram_reset>(
   // sdram_controller_r128_w8 memory<@sdram_clock,!sdram_reset>(
-$$end    
+$$end
     sd         <:> sdm,
   $$if VERILATOR then
     dq_i       <: sdram_dq_i,
@@ -464,14 +465,14 @@ $$end
   simple_dualport_bram uint24 palette[] = {
     // palette from pre-processor table
 $$  for i=0,255 do
-$$if palette then    
+$$if palette then
   $palette[1+i]$,
-$$else  
+$$else
   $(i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)$,
 $$  end
 $$end
-  };  
-  
+  };
+
   // --- Display
   uint1 row_busy = 0;
   frame_display display<@video_clock,!video_reset>(
@@ -490,7 +491,7 @@ $$end
   );
 
   uint1 onscreen_fbuffer = 0;
-  
+
   // --- Frame buffer row updater
   frame_buffer_row_updater fbrupd<@sdram_clock,!sdram_reset>(
     pixaddr0   :> fbr0.addr1,
@@ -506,9 +507,9 @@ $$end
   );
 
   // --- Init from SDCARD
-$$if not fast_compute and not frame_drawer_at_sdram_speed then  
+$$if not fast_compute and not frame_drawer_at_sdram_speed then
   sameas(sdm) sdh;
-  
+
   sdram_half_speed_access sdaccess<@sdram_clock,!sdram_reset>(
     sd      <:> sdi,
     sdh     <:> sdh,
@@ -521,11 +522,11 @@ $$if SDRAM_r512_w64 then
 $$ error('not yet implemented')
 $$end
   init_data init<@compute_clock,!compute_reset>(
-$$if not fast_compute and not frame_drawer_at_sdram_speed then  
+$$if not fast_compute and not frame_drawer_at_sdram_speed then
     sd    <:> sdh,
 $$else
     sd    <:> sdi,
-$$end    
+$$end
     ready  :> data_ready,
     <:auto:>
   );
@@ -548,9 +549,9 @@ $$end
 $$if frame_drawer_at_sdram_speed then
 $$print('** using frame_drawer_at_sdram_speed')
   frame_drawer drawer<@sdram_clock,!frame_drawer_reset>(
-$$else  
+$$else
   frame_drawer drawer<@compute_clock,!frame_drawer_reset>(
-$$end  
+$$end
     vsync       <:  video_vblank,
     sd          <:> sdd,
     fbuffer     :>  onscreen_fbuffer,
@@ -569,9 +570,9 @@ __display("SDI INVALID %b @%h",sdi.in_valid,sdi.addr);
 __display("SDI DONE %b",sdi.done);
     }
   }
- 
+
   // ---------- let's go (all modules autorun)
- 
+
 $$if HARDWARE then
   while (1) { }
 $$else
@@ -584,13 +585,13 @@ $$if verbose then
 $$else
   while (1) {
 $$end
-$$end    
+$$end
     while (video_vblank == 1) { }
 	  while (video_vblank == 0) { }
-    frame = frame + 1;    
+    frame = frame + 1;
   }
 $$end
 
 }
 
-// ------------------------- 
+// -------------------------

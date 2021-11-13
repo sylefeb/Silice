@@ -1,4 +1,6 @@
 // ---------------------------------------------------
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 algorithm keypad(
@@ -8,8 +10,8 @@ algorithm keypad(
 ) <autorun> {
   uint2 col = 0;
   kpadC     = 4b1111;
-  while (1) {    
-    pressed[{col,2b00},4] = ~kpadR;    
+  while (1) {
+    pressed[{col,2b00},4] = ~kpadR;
     // next
     col   = (col + 1);
     kpadC = ~(1 << col);

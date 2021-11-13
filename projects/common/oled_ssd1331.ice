@@ -1,8 +1,9 @@
 // SL 2020-07
-// ------------------------- 
+// -------------------------
 // OLED RGB screen driver (SSD1331)
-// ------------------------- 
+// -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 group oledio {
   uint9  x_start = 0,
@@ -12,10 +13,10 @@ group oledio {
   uint18 color       = 0,
   uint1  start_rect  = 0,
   uint1  next_pixel  = 0,
-  uint1  ready   = 0 
+  uint1  ready   = 0
 }
 
-// ------------------------- 
+// -------------------------
 
 $$oled_send_delay = 8*2
 
@@ -51,7 +52,7 @@ algorithm oled_send(
   }
 }
 
-// ------------------------- 
+// -------------------------
 
 algorithm oled(
   output uint1 oled_clk,
@@ -80,7 +81,7 @@ $$else
     while (count != delay) {
 $$end
       count = count + 1;
-    }   
+    }
   }
 
   uint1 enable          = 0;
@@ -93,14 +94,14 @@ $$end
     oled_clk        :> oled_clk,
     oled_mosi       :> oled_mosi,
     oled_dc         :> oled_dc,
-  );  
+  );
 
   subroutine sendCommand(input uint8 val,
     writes enable,writes data_or_command,writes byte,calls wait)
   {
     data_or_command = 0;
     byte            = val;
-    enable          = 1;    
+    enable          = 1;
     () <- wait <- ($oled_send_delay-4$);
   }
 
@@ -109,10 +110,10 @@ $$end
   {
     data_or_command = 1;
     byte            = val;
-    enable          = 1;    
+    enable          = 1;
     () <- wait <- ($oled_send_delay-4$);
   }
-  
+
 uint8  SET_COLUMN_ADDRESS              = 8h15;
 uint8  SET_ROW_ADDRESS                 = 8h75;
 uint8  SET_CONTRAST_A                  = 8h81;
@@ -156,22 +157,22 @@ uint8  ACTIVE_SCROLLING                = 8h2F;
 
   // always enabled
   oled_csn := 0;
-  
+
   //---------------
   // Intializing
   //---------------
 
   enable  := 0;
   io.ready = 0;
-  
+
   // reset high
   oled_resn = 1;
-  () <- wait <- (2500000); // 100 msec @25Mhz  
+  () <- wait <- (2500000); // 100 msec @25Mhz
   // reset low
   oled_resn = 0;
-  () <- wait <- (2500000); // 100 msec @25Mhz  
+  () <- wait <- (2500000); // 100 msec @25Mhz
   // reset high
-  oled_resn = 1;      
+  oled_resn = 1;
   () <- wait <- (2500000); // 100 msec
 /*
   () <- sendCommand <- (DISPLAY_OFF);              //Display Off
@@ -190,16 +191,16 @@ uint8  ACTIVE_SCROLLING                = 8h2F;
   () <- sendCommand <- (SET_PRECHARGE_SPEED_C);    //Set Second Pre-change Speed For ColorC
   () <- sendCommand <- (8h64);                     //100
   () <- sendCommand <- (SET_REMAP);                //set remap & data format
-  () <- sendCommand <- (8h72);                     //8h72              
+  () <- sendCommand <- (8h72);                     //8h72
   () <- sendCommand <- (SET_DISPLAY_START_LINE);   //Set display Start Line
   () <- sendCommand <- (8h0);
   () <- sendCommand <- (SET_DISPLAY_OFFSET);       //Set display offset
   () <- sendCommand <- (8h0);
   () <- sendCommand <- (NORMAL_DISPLAY);           //Set display mode
   () <- sendCommand <- (SET_MULTIPLEX_RATIO);      //Set multiplex ratio
-  () <- sendCommand <- (8h3F);                     
+  () <- sendCommand <- (8h3F);
   () <- sendCommand <- (SET_MASTER_CONFIGURE);     //Set master configuration
-  () <- sendCommand <- (8h8E);                     
+  () <- sendCommand <- (8h8E);
   () <- sendCommand <- (POWER_SAVE_MODE);          //Set Power Save Mode
   () <- sendCommand <- (8h00);                     //8h00
   () <- sendCommand <- (PHASE_PERIOD_ADJUSTMENT);  //phase 1 and 2 period adjustment
@@ -209,7 +210,7 @@ uint8  ACTIVE_SCROLLING                = 8h2F;
   () <- sendCommand <- (SET_PRECHARGE_VOLTAGE);    //Set Pre-Change Level
   () <- sendCommand <- (8h3A);
   () <- sendCommand <- (SET_V_VOLTAGE);            //Set vcomH
-  () <- sendCommand <- (8h3E);                    
+  () <- sendCommand <- (8h3E);
   () <- sendCommand <- (DEACTIVE_SCROLLING);       //disable scrolling
   () <- sendCommand <- (NORMAL_BRIGHTNESS_DISPLAY_ON);    //set display on
 */
@@ -219,7 +220,7 @@ uint8  ACTIVE_SCROLLING                = 8h2F;
   () <- sendCommand <- (SET_DISPLAY_OFFSET);       //Set display offset
   () <- sendCommand <- (8h0);
   () <- sendCommand <- (DEACTIVE_SCROLLING);       //disable scrolling
-  // select auto horiz. increment, 666 RGB 
+  // select auto horiz. increment, 666 RGB
   () <- sendCommand <- (8ha0);
   () <- sendData    <- (8b10100000);
   () <- sendCommand <- (NORMAL_DISPLAY);           //Set display mode
@@ -229,15 +230,15 @@ uint8  ACTIVE_SCROLLING                = 8h2F;
   // 300 msec @100Mhz
   () <- wait <- (7500000);
 
-  
-  // select auto horiz. increment, 666 RGB 
+
+  // select auto horiz. increment, 666 RGB
   //() <- sendCommand <- (8ha0);
   //() <- sendData    <- (8b10100000);
-  
+
   // unlock
   //() <- sendCommand <- (8hfd);
   //() <- sendData    <- (8hb1);
-  
+
   // set vertical scroll to 0
   //() <- sendCommand <- (8ha2);
   //() <- sendData    <- (8h00);
@@ -245,7 +246,7 @@ uint8  ACTIVE_SCROLLING                = 8h2F;
   //() <- sendCommand <- (ENTIRE_DISPLAY_ON);
   //() <- sendData    <- (8b10100100);
 
-  // select auto horiz. increment, 666 RGB 
+  // select auto horiz. increment, 666 RGB
   //() <- sendCommand <- (8ha0);
   //() <- sendData    <- (8b10100000);
 
@@ -259,7 +260,7 @@ uint8  ACTIVE_SCROLLING                = 8h2F;
 
   //---------------
   // Init done!
-  //--------------  
+  //--------------
 
   // ready to accept commands
   io.ready = 1;
@@ -295,4 +296,4 @@ uint8  ACTIVE_SCROLLING                = 8h2F;
 
 }
 
-// ------------------------- 
+// -------------------------

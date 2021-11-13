@@ -1,8 +1,9 @@
 // SL 2020-07
-// ------------------------- 
+// -------------------------
 // OLED RGB screen driver (ST7789)
-// ------------------------- 
+// -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 group oledio {
   uint9  x_start     = 0,
@@ -12,16 +13,16 @@ group oledio {
   uint18 color       = 0,
   uint1  start_rect  = 0,
   uint1  next_pixel  = 0,
-  uint1  ready       = 0 
+  uint1  ready       = 0
 }
 
-// ------------------------- 
+// -------------------------
 
 $include("spi.ice")
 
 $$oled_send_delay = 8*2
 
-// ------------------------- 
+// -------------------------
 
 algorithm oled(
   output uint1 oled_clk,
@@ -50,7 +51,7 @@ $$else
     while (count != delay) {
 $$end
       count = count + 1;
-    }   
+    }
   }
 
   uint1 enable          = 0;
@@ -80,11 +81,11 @@ $$end
   {
     data_or_command = 1;
     byte            = val;
-    enable          = 1;    
+    enable          = 1;
     () <- wait <- ($oled_send_delay-4$);
   }
 $$if st7789_no_cs then
-  oled_csn := 1; // backlight 
+  oled_csn := 1; // backlight
 $$else
   oled_csn := 0; // enable chip
 $$end
@@ -107,7 +108,7 @@ $$end
   oled_resn = 1;
   // wait
   () <- wait        <- (2000000); // 80 msec @25Mhz
-  
+
   // software reset
   () <- sendCommand <- (8h01);
   // wait
@@ -117,7 +118,7 @@ $$end
   () <- sendCommand <- (8h11);
   // wait
   () <- wait        <- (3000000); // 120 msec @25Mhz
-  
+
   // colmod
   () <- sendCommand <- (8h3A);
   () <- sendData    <- (8b01100110);
@@ -126,7 +127,7 @@ $$end
   // madctl
   () <- sendCommand <- (8h36);
   //                      MY MX MV ML RGB MH - -
-$$if st7789_transpose then  
+$$if st7789_transpose then
   () <- sendData    <- (8b00100000);
 $$else
   () <- sendData    <- (8b00000000);
@@ -141,17 +142,17 @@ $$end
   () <- sendCommand <- (8h13);
   () <- wait        <- (300000); // 12 msec @25Mhz
 
-  // brightness  
+  // brightness
   () <- sendCommand <- (8h51);
   () <- sendData    <- (8d255);
-  
+
   // display on
   () <- sendCommand <- (8h29);
   () <- wait        <- (4500000); // 180 msec @25Mhz
-  
+
   //---------------
   // Init done!
-  //--------------  
+  //--------------
 
   // ready to accept commands
   io.ready = 1;
@@ -190,4 +191,4 @@ $$end
 
 }
 
-// ------------------------- 
+// -------------------------

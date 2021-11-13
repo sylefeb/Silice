@@ -1,9 +1,10 @@
 // SL 2020-05
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $include('../common/lcd.ice')
 
-// ------------------------- 
+// -------------------------
 
 algorithm lcd_status(
   output uint1  lcd_rs,
@@ -28,12 +29,12 @@ algorithm lcd_status(
   uint8  msg1 [17] = "DooM-chip   $level$";
   uint8  chars[]   = "XYZA";
   uint26 counter   = 1;
-  
+
   subroutine printMessage(
     readwrites  io,
     reads msg1
   ) {
-    uint8 i = 0;  
+    uint8 i = 0;
     while (msg1[i] != 0) {
       while (io.ready == 0) { }
       io.data   = msg1[i];
@@ -41,7 +42,7 @@ algorithm lcd_status(
       i         = i + 1;
     }
   }
-  
+
   subroutine printNumber(
     readwrites   io,
     input uint16 v
@@ -56,14 +57,14 @@ algorithm lcd_status(
       } else {
         io.data  = 97 + (h-10);
       }
-      io.print = 1;   
+      io.print = 1;
       n = n + 4;
     }
   }
-  
+
   uint8  i   = 0;
   uint24 cnt = 0;
-  
+
   io.print  := 0;
   io.setrow := 0;
 
@@ -75,28 +76,28 @@ algorithm lcd_status(
   () <- printMessage <- ();
 
   while (1) {
-    
+
     // row 1
     while (io.ready == 0) { }
     io.data   = 1;
     io.setrow = 1;
-    
-    // X    
-    () <- printNumber <- (posx);    
+
+    // X
+    () <- printNumber <- (posx);
     // Y
     () <- printNumber <- (posy);
     // Z
     () <- printNumber <- (posz);
     // Angle
     () <- printNumber <- (posa);
-    
+
     // wait some
     cnt = 1;
     while (cnt != 0) {
       cnt = cnt + 1;
     }
-    
+
   }
 }
 
-// ------------------------- 
+// -------------------------

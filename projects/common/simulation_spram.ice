@@ -1,4 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 
 $$config['simple_dualport_bram_wmask_half_bytes_wenable1_width'] = 'data'
 
@@ -14,7 +16,7 @@ algorithm simulation_spram$SPRAM_POSTFIX$(
   output! uint16 data_out
 ) {
   simple_dualport_bram uint16 mem<"simple_dualport_bram_wmask_half_bytes">[16384]
-$$if SPRAM_INIT_FILE then  
+$$if SPRAM_INIT_FILE then
    = {file($SPRAM_INIT_FILE$),pad(uninitialized)};
 $$else
    = uninitialized;

@@ -1,3 +1,5 @@
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 #include "../mylibc/mylibc.h"

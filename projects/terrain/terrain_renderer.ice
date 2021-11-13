@@ -4,8 +4,9 @@
 //
 // Tested on: Verilator, IceBreaker
 //
-// ------------------------- 
+// -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 //////////////////////////////////////////////////////////////////////////////
 // Linear interpolator
@@ -22,22 +23,22 @@ algorithm interpolator(
 ) <autorun> {
   always {
     v = ( (b * i) + (a * (255 - i)) ) >> 8;
-  }  
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////
 // Voxel Space terrain renderer
 //
-// In terms of principle this is similar but not quite exactly the same as the 
+// In terms of principle this is similar but not quite exactly the same as the
 // Voxel Space engine from Novalogic (remember the game Comanche game?)
 // see e.g. https://github.com/s-macke/VoxelSpace
-// 
-// The key difference lies in the in interpolation that takes place for height 
+//
+// The key difference lies in the in interpolation that takes place for height
 // and color, and the dithering scheme for colors
 //
 // The other 'small' difference lies in the fact that the implementation is
 // now entirely in hardware!
-// 
+//
 //////////////////////////////////////////////////////////////////////////////
 
 // pre-processor definitions
@@ -52,14 +53,14 @@ $$z_num_step     = 256           -- number of z-step (view distance)
 $$end
 $$z_step_init    = z_step        -- distance of first z-step
 
-// ------------------------- 
+// -------------------------
 
 // include division, 48 bits wide, unsigned
 $$div_width    = 48
 $$div_unsigned = 1
 $include('../common/divint_std.ice')
 
-// ------------------------- 
+// -------------------------
 
 algorithm terrain_renderer(
     fb_user        fb,
@@ -97,7 +98,7 @@ algorithm terrain_renderer(
     v :> interp_v
   );
 
-  // 8x8 matrix for dithering  
+  // 8x8 matrix for dithering
   // https://en.wikipedia.org/wiki/Ordered_dithering
   uint6 bayer_8x8[64] = {
     0, 32, 8, 40, 2, 34, 10, 42,
@@ -108,9 +109,9 @@ algorithm terrain_renderer(
     51, 19, 59, 27, 49, 17, 57, 25,
     15, 47, 7, 39, 13, 45, 5, 37,
     63, 31, 55, 23, 61, 29, 53, 21
-  }; 
+  };
 
-  // 1/n table for vertical interpolation  
+  // 1/n table for vertical interpolation
   bram uint10 inv_n[128]={
     0, // 0: unused
 $$for n=1,127 do
@@ -128,14 +129,14 @@ $$end
     inum <:: one,
     iden <:: z,
   );
-  
+
   fb.in_valid    := 0;
   y_last.wenable := 0;
   y_last.addr    := x;
   c_last.wenable := 0;
   c_last.addr    := x;
 
-  while (1) {    
+  while (1) {
     uint9 iz   = 0;
     // init z stepping
     z          = $z_step_init$;
@@ -151,7 +152,7 @@ $$end
       l_x   = v_x - (z);
       l_y   = v_y + (z);
       r_x   = v_x + (z);
-      r_y   = v_y + (z);      
+      r_y   = v_y + (z);
       // generate sampling increment along z-iso
       dx    = ((r_x - l_x) * $one_over_width$) >>> $fp$;
       // division to obtain inv_z (could be in parallel for next z-step ... complexity / gain not favorable)
@@ -166,30 +167,30 @@ $$end
         int24  hmap     = uninitialized;  // height
         uint10 v_interp = uninitialized;  // vert. interpolation (dithering)
         // vars for interpolation
-        uint16 h00(0); uint16 h10(0); 
+        uint16 h00(0); uint16 h10(0);
         uint16 h11(0); uint16 h01(0);
         uint8  hv0(0); uint8  hv1(0);
-        // sample next elevations, with texture interpolation  
+        // sample next elevations, with texture interpolation
         // interleaves access and interpolator computations
         map_raddr  = {l_y[$fp$,7],l_x[$fp$,7]};
-  ++:          
+  ++:
         h00        = map_rdata;
         map_raddr  = {l_y[$fp$,7],l_x[$fp$,7]+7b1};
-  ++:          
+  ++:
         h10        = map_rdata;
         interp_a   = h00[0,8];  // trigger interpolation
         interp_b   = h10[0,8];
         interp_i   = l_x[$fp-8$,8];
   // NOTE: The following performs a full bi-linear interpolation
   //       however, with the simple x-aligned traversal we don't need
-  //       to fully interpolate heights. 
+  //       to fully interpolate heights.
   //       This will become necessary later.
-  //    map_raddr  = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};        
-  // ++:       
+  //    map_raddr  = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
+  // ++:
   //    hv0        = interp_v;
   //    h11        = map_rdata;
   //    map_raddr  = {l_y[$fp$,7]+7b1,l_x[$fp$,7]};
-  // ++:          
+  // ++:
   //    h01        = map_rdata;
   //    interp_a   = h01[0,8]; // trigger second interpolation
   //    interp_b   = h11[0,8];
@@ -199,7 +200,7 @@ $$end
   //    interp_b   = hv1;
   //    interp_i   = l_y[$fp-8$,8];
   //
-  ++:   // NOTE: this cycle could be saved by sampling at the end,      
+  ++:   // NOTE: this cycle could be saved by sampling at the end,
         //        at the expense of an incorrect first row
         //
         // get elevation from interpolator
@@ -226,10 +227,10 @@ $$end
         y_screen       = (iz == $z_num_step-1$) ? -1 : (((y_ground < 0) ? 0 : ((y_ground > 199) ? 199 : y_ground)));
         //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
         // fill column
-        while (y_last.rdata != 0 && y > y_screen) { 
+        while (y_last.rdata != 0 && y > y_screen) {
           //                        ^^^^^^^ gt is needed as y_screen might be 'above' (below on screen)
-          //   ^^^^^^^^^^^^^^^^^^ 
-          //   avoids sky on top row if already touched by terrain                      
+          //   ^^^^^^^^^^^^^^^^^^
+          //   avoids sky on top row if already touched by terrain
           //
           // color dithering
           uint8 clr(0); uint1 l_or_r(0); uint1 t_or_b(0);
@@ -244,7 +245,7 @@ $$end
           //     hide top ^^^^^^         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           fb.wmask    = 1 << x[0,2];
           fb.in_valid = write_en;
-          fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 8bpp    x>>2 + y*80          
+          fb.addr     = (x >> 2) + (y << 6) + (y << 4);  //  320 x 200, 8bpp    x>>2 + y*80
           // update v interpolator
           v_interp    = write_en ? v_interp + inv_n.rdata : v_interp;
           // next
@@ -270,7 +271,7 @@ $$end
     } // z-steps
 
     // button inputs
-    // NOTE: moving by less (or non-multiples) of fp_scl 
+    // NOTE: moving by less (or non-multiples) of fp_scl
     //       will require offseting the interpolators
     switch ({~btns[2,1],btns[1,1],btns[0,1]}) {
       case 1: { v_x = v_x - $fp_scl // 2$; }
@@ -282,4 +283,3 @@ $$end
 
   }
 }
-

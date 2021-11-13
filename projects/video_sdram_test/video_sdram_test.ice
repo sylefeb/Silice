@@ -1,5 +1,7 @@
-// ------------------------- 
+// -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2020
 
 // debug palette
 $$palette = {}
@@ -12,7 +14,7 @@ $$SDRAM_r512_w64 = true
 
 $include('../common/video_sdram_main.ice')
 
-// ------------------------- 
+// -------------------------
 
 algorithm frame_drawer(
   output uint8 leds,
@@ -31,29 +33,29 @@ algorithm frame_drawer(
 
   uint16 shift = 0;
   uint1  vsync_filtered = 0;
-  
+
   subroutine clear(
     readwrites sdh,
     input   uint1 buffer
   ) {
     uint10 pix_x   = 0;
     uint9  pix_y   = 0;
-    	
-    pix_y = 0;  
+
+    pix_y = 0;
     while (pix_y != 480) {
       pix_x  = 0;
-$$if SDRAM_r512_w64 then 
+$$if SDRAM_r512_w64 then
       while (pix_x != $640//8$) {
 $$else
       while (pix_x != 640) {
-$$end        
+$$end
         // write to sdram
         sdh.data_in    = 0;
-$$if SDRAM_r512_w64 then 
+$$if SDRAM_r512_w64 then
         sdh.addr       = {1b0,buffer,24b0} | (pix_x<<3) | (pix_y << 10);
 $$else
         sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 10);
-$$end        
+$$end
         sdh.in_valid   = 1; // go ahead!
         while (!sdh.done) { }
         pix_x = pix_x + 1;
@@ -71,7 +73,7 @@ $$end
     uint9  pix_y   = 0;
     uint8  pix_palidx = 0;
 
-    pix_y = 0;  
+    pix_y = 0;
     while (pix_y != 480) {
       pix_x  = 0;
       while (pix_x != 640) {
@@ -81,15 +83,15 @@ $$if SDRAM_r512_w64 then
         sdh.data_in[{pix_x[0,3],3b000},8] = pix_palidx;
         if ((pix_x & 7) == 7) {
           // write to sdram
-          sdh.addr       = {1b0,buffer,24b0} | (pix_x[3,7]<<3) | (pix_y << 10); 
-          sdh.in_valid = 1; // go ahead!        
+          sdh.addr       = {1b0,buffer,24b0} | (pix_x[3,7]<<3) | (pix_y << 10);
+          sdh.in_valid = 1; // go ahead!
           while (!sdh.done) { }
         }
 $$else
         // write to sdram
-        sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 10); 
+        sdh.addr       = {1b0,buffer,24b0} | (pix_x) | (pix_y << 10);
         sdh.data_in    = pix_palidx;
-        sdh.in_valid = 1; // go ahead!        
+        sdh.in_valid = 1; // go ahead!
         while (!sdh.done) { }
 $$end
         pix_x = pix_x + 1;
@@ -97,7 +99,7 @@ $$end
       pix_y = pix_y + 1;
     }
   }
-  
+
   vsync_filtered ::= vsync;
 
   leds := 0;
@@ -108,7 +110,7 @@ $$end
   // clear SDRAM buffers
   //() <- clear <- (0);
   //() <- clear <- (1);
-  
+
   //() <- bands <- (0);
   //() <- bands <- (1);
 
@@ -116,10 +118,10 @@ $$end
 
     // draw a frame
     () <- bands <- (~fbuffer);
-  
-    // increment shift    
+
+    // increment shift
     shift = (shift == 639) ? 0 : shift+1;
-    
+
     // wait for frame to end
     while (vsync_filtered == 0) {}
 
@@ -127,7 +129,7 @@ $$end
     fbuffer = ~fbuffer;
 
   }
-  
+
 }
 
-// ------------------------- 
+// -------------------------

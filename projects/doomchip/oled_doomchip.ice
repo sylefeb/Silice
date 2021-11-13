@@ -1,6 +1,7 @@
 // SL 2020-04-28
 // DoomChip, OLED wrapper
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $$if ULX3S then
 // vvvvvvvvvvvvv select screen driver below
@@ -57,7 +58,7 @@ $$if ULX3S then
 import('../common/plls/ulx3s_50_25_100.v')
 $$end
 
-// ------------------------- 
+// -------------------------
 
 $$if ICARUS or VERILATOR then
 // PLL for simulation
@@ -67,11 +68,11 @@ algorithm pll(
 ) <autorun>
 {
   uint3 counter = 0;
-  
+
   oled_clock    := clock;
   compute_clock := counter[1,1]; // x4 slower
-  
-  while (1) {	  
+
+  while (1) {
     counter = counter + 1;
   }
 }
@@ -98,7 +99,7 @@ algorithm oled_pixel_writer(
     input   ready
   },
 ) <autorun> {
-  
+
   uint$3*color_depth$ palette[] = {
 $$if palette_666 then
 $$  for i=1,256 do
@@ -110,7 +111,7 @@ $$    for i=0,256/4-1 do
 $$    end
 $$    for i=0,256/4-1 do
         $math.floor(lshift(i*color_max/(256/4-1),color_depth))$,
-$$    end  
+$$    end
 $$    for i=0,256/4-1 do
         $math.floor(lshift(i*color_max/(256/4-1),2*color_depth))$,
 $$    end
@@ -119,7 +120,7 @@ $$    for i=0,256/4-1 do v = i*color_max/(256/4-1)
 $$    end
 $$end
   };
-    
+
   simple_dualport_bram uint8 col_buffer[$doomchip_height*2$] = uninitialized;
   uint10 drawer_offset = 0; // offset of column being drawn
   uint10 xfer_offset   = $doomchip_height$; // offset of column being transfered
@@ -128,14 +129,14 @@ $$end
   uint10 last_drawn    = -1;
   uint10 draw_col      = 0;
   uint1  done          = 0;
-  
+
   col_buffer.wenable1 := 1; // write on port1, read on port0
   // column that can be drawn
   colio.draw_col      := draw_col;
   // maintain low, pulses high
   displio.start_rect  := 0;
   displio.next_pixel  := 0;
-  
+
   always {
     if (colio.write) {
       // write in bram
@@ -146,9 +147,9 @@ $$end
       last_drawn = draw_col;
       // __display("done received (draw_col: %d)",draw_col);
       done = 1;
-    }   
+    }
   }
-  
+
   // prepare viewport
   while (displio.ready == 0) { }
   displio.x_start    = 0;
@@ -156,7 +157,7 @@ $$end
   displio.y_start    = 0;
   displio.y_end      = $oled_height-1$;
   displio.start_rect = 1;
-  
+
   while (1) {
     // continue with transfer if not done
     if (xfer_count < $doomchip_height$) {
@@ -164,7 +165,7 @@ $$end
       while (displio.ready == 0) { }
       displio.color      = palette[col_buffer.rdata0];
       displio.next_pixel = 1;
-      // next      
+      // next
       xfer_count      = xfer_count + 1;
       if (xfer_count < $doomchip_height$) {
         col_buffer.addr0 = xfer_offset + xfer_count;
@@ -172,24 +173,24 @@ $$end
         // done
         // __display("xfer %d done (count %d)",xfer_col,xfer_count);
         xfer_col         = (draw_col == 0) ? 0 : xfer_col+1;
-        draw_col         = (draw_col == $doomchip_width$) ? 0 : draw_col+1; 
+        draw_col         = (draw_col == $doomchip_width$) ? 0 : draw_col+1;
         xfer_offset      = (xfer_offset   == 0) ? $doomchip_height$ : 0;
         drawer_offset    = (drawer_offset == 0) ? $doomchip_height$ : 0;
-        col_buffer.addr0 = xfer_offset; // position for restart        
+        col_buffer.addr0 = xfer_offset; // position for restart
         if (draw_col == $doomchip_width$) {
           // frame done
           draw_col = 0;
         }
         // __display("next: xfer %d, draw %d",xfer_col,draw_col);
       }
-    } else {    
+    } else {
       if (done) {
         done = 0;
         // __display("column %d drawn",draw_col);
         // __display(" -> starting xfer %d",xfer_col);
         // starts xfer
-        xfer_count    = 0; 
-      }    
+        xfer_count    = 0;
+      }
     }
   }
 }
@@ -204,21 +205,21 @@ algorithm main(
   output  uint1 oled_mosi,
   output  uint1 oled_dc,
   output  uint1 oled_resn,
-  output  uint1 oled_csn,  
+  output  uint1 oled_csn,
   output  uint1 sd_clk,
   output  uint1 sd_mosi,
   output  uint1 sd_csn,
-  input   uint1 sd_miso  
+  input   uint1 sd_miso
 ) <@compute_clock> {
 
   column_io colio;
-  
+
   uint1  vsync = 1;
 $$if SIMULATION then
   uint32 iter  = 0;
 $$end
 
-  // clocking  
+  // clocking
 $$if ULX3S then
   uint1 oled_clock    = 0;
   uint1 compute_clock = 0;
@@ -230,7 +231,7 @@ $$if ULX3S then
     clkout1  :> unused_clock,  // compute_clock,
     clkout2  :> oled_clock,
     locked   :> pll_lock
-  ); 
+  );
 $$end
 $$if SIMULATION then
   uint1 oled_clock    = 0;
@@ -238,10 +239,10 @@ $$if SIMULATION then
   pll clk_gen<@clock>(
     oled_clock    :> oled_clock,
     compute_clock :> compute_clock,
-  );   
+  );
 $$end
 
-  doomchip doom( 
+  doomchip doom(
     colio <:> colio,
     vsync <: vsync,
     <:auto:> // used to bind parameters across the different boards
@@ -262,7 +263,7 @@ $$end
     colio   <:> colio,
     displio <:> displio,
   );
-   
+
 $$if SIMULATION then
   while (iter < 4000000) { iter = iter + 1; }
 $$else

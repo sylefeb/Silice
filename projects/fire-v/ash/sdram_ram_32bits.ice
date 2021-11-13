@@ -1,4 +1,5 @@
 // SL 2020-12-02 @sylefeb
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 // -------------------------
 

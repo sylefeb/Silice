@@ -1,5 +1,6 @@
 // SL 2021-01-22 @sylefeb
 
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 int costbl[256] = {127,127,127,127,126,126,126,125,125,124,123,122,122,121,120,118,117,116,115,113,112,111,109,107,106,104,102,100,98,96,94,92,90,88,85,83,81,78,76,73,71,68,65,63,60,57,54,51,49,46,43,40,37,34,31,28,25,22,19,16,12,9,6,3,0,-3,-6,-9,-12,-16,-19,-22,-25,-28,-31,-34,-37,-40,-43,-46,-49,-51,-54,-57,-60,-63,-65,-68,-71,-73,-76,-78,-81,-83,-85,-88,-90,-92,-94,-96,-98,-100,-102,-104,-106,-107,-109,-111,-112,-113,-115,-116,-117,-118,-120,-121,-122,-122,-123,-124,-125,-125,-126,-126,-126,-127,-127,-127,-127,-127,-127,-127,-126,-126,-126,-125,-125,-124,-123,-122,-122,-121,-120,-118,-117,-116,-115,-113,-112,-111,-109,-107,-106,-104,-102,-100,-98,-96,-94,-92,-90,-88,-85,-83,-81,-78,-76,-73,-71,-68,-65,-63,-60,-57,-54,-51,-49,-46,-43,-40,-37,-34,-31,-28,-25,-22,-19,-16,-12,-9,-6,-3,0,3,6,9,12,16,19,22,25,28,31,34,37,40,43,46,49,51,54,57,60,63,65,68,71,73,76,78,81,83,85,88,90,92,94,96,98,100,102,104,106,107,109,111,112,113,115,116,117,118,120,121,122,122,123,124,125,125,126,126,126,127,127,127};
@@ -17,7 +18,7 @@ int fxsin(int angle)
 void rotX(int *M, int angle)
 {
   M[0] = 128; M[1] =            0; M[2] =   0;
-  M[3] =   0; M[4] = fxcos(angle); M[5] = - fxsin(angle); 
+  M[3] =   0; M[4] = fxcos(angle); M[5] = - fxsin(angle);
   M[6] =   0; M[7] = fxsin(angle); M[8] =   fxcos(angle);
 }
 
@@ -30,8 +31,8 @@ void rotY(int *M, int angle)
 
 void rotZ(int *M, int angle)
 {
-  M[0] = fxcos(angle); M[1] = -fxsin(angle); M[2] =   0; 
-  M[3] = fxsin(angle); M[4] =  fxcos(angle); M[5] =   0; 
+  M[0] = fxcos(angle); M[1] = -fxsin(angle); M[2] =   0;
+  M[3] = fxsin(angle); M[4] =  fxcos(angle); M[5] =   0;
   M[6] =            0; M[7] =             0; M[8] = 128;
 }
 
@@ -41,7 +42,7 @@ void scale(int *M,int sc)
   M[3] =  0; M[4] = sc; M[5] = 0;
   M[6] =  0; M[7] =  0; M[8] = sc;
 }
- 
+
 void scale3(int *M,int sx,int sy,int sz)
 {
   M[0] = sx; M[1] =  0; M[2] = 0;
@@ -102,11 +103,11 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
   int e_incr1 = (py2-py1 == 0) ? 0xFFFFF : ((px2-px1)<<10) / (py2-py1);
   int e_incr2 = (py2-py0 == 0) ? 0xFFFFF : ((px2-px0)<<10) / (py2-py0);
 
-  if ((e_incr0 == 0xFFFFF && e_incr1 == 0xFFFFF) 
-   || (e_incr0 == 0xFFFFF && e_incr2 == 0xFFFFF) 
+  if ((e_incr0 == 0xFFFFF && e_incr1 == 0xFFFFF)
+   || (e_incr0 == 0xFFFFF && e_incr2 == 0xFFFFF)
    || (e_incr1 == 0xFFFFF && e_incr2 == 0xFFFFF)) {
     // flat triangle
-    return; 
+    return;
   }
 
   // wait for any pending draw to complete
@@ -124,12 +125,12 @@ void draw_triangle(char color,char shade,int px0,int py0,int px1,int py1,int px2
 void clear(char color,int xm,int ym,int xM,int yM)
 {
   draw_triangle(color,0,
-    xm<<5,  ym<<5, 
-    xM<<5,  ym<<5, 
+    xm<<5,  ym<<5,
+    xM<<5,  ym<<5,
     xM<<5,  yM<<5
     );
   draw_triangle(color,0,
-    xm<<5,  ym<<5, 
+    xm<<5,  ym<<5,
     xM<<5,  yM<<5,
     xm<<5,  yM<<5
     );

@@ -1,4 +1,7 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
+
 #include "fonts/FCUBEF2.h"
 #include "../mylibc/mylibc.h"
 
@@ -98,7 +101,7 @@ void main()
   char b   = 31;
   char c   = 0;
   int time = 0;
-  
+
   // pause(1000000);
   //fb_cleanup();
 
@@ -107,7 +110,7 @@ void main()
   clear(8, 0,0,SCRW,SCRH);
 
   while(1) {
-    
+
     clear(8, 0,0,SCRW,SCRH);
 
     scroll();
@@ -130,12 +133,12 @@ void main()
           draw_triangle(
             t<6 ? 64 : (t<12 ? 128 : 0),
             15,
-            trpts[idx[t+0]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+0]+1] + ((SCRH/2 + posy)<<5), 
-            trpts[idx[t+1]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+1]+1] + ((SCRH/2 + posy)<<5), 
-            trpts[idx[t+2]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+2]+1] + ((SCRH/2 + posy)<<5) 
+            trpts[idx[t+0]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+0]+1] + ((SCRH/2 + posy)<<5),
+            trpts[idx[t+1]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+1]+1] + ((SCRH/2 + posy)<<5),
+            trpts[idx[t+2]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+2]+1] + ((SCRH/2 + posy)<<5)
             );
         }
-      }    
+      }
     }
 
     swap_buffers(1);

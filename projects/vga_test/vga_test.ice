@@ -1,5 +1,7 @@
 // -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2019
 
 // VGA driver
 $include('../common/vga.ice')
@@ -49,11 +51,11 @@ algorithm pll(
 {
   uint3 counter = 0;
   uint8 trigger = 8b11111111;
-  
+
   video_clock   := counter[1,1]; // x4 slower (25 MHz)
   video_reset   := (trigger > 0);
-  
-  always {	  
+
+  always {
     counter = counter + 1;
 	  trigger = trigger >> 1;
   }
@@ -74,7 +76,7 @@ algorithm frame_display(
   // by default r,g,b are set to zero
   pix_red   := 0;
   pix_green := 0;
-  pix_blue  := 0; 
+  pix_blue  := 0;
   // ---------- show time!
   while (1) {
 	  // display frame
@@ -83,8 +85,8 @@ algorithm frame_display(
         pix_blue  = pix_x[4,$color_depth$];
         pix_green = pix_y[4,$color_depth$];
         pix_red   = pix_x[1,$color_depth$];
-      }      
-    }    
+      }
+    }
     while (pix_vblank == 1) {} // wait for sync
   }
 }
@@ -96,7 +98,7 @@ algorithm main(
 $$if SIMULATION then
   output  uint1 video_clock,
 $$end
-$$if VGA then  
+$$if VGA then
   // VGA
   output! uint$color_depth$ video_r,
   output! uint$color_depth$ video_g,
@@ -104,13 +106,13 @@ $$if VGA then
   output  uint1 video_hs,
   output  uint1 video_vs
 $$end
-) 
+)
 $$if not ULX3S then
-<@video_clock,!video_reset> 
+<@video_clock,!video_reset>
 $$end
 {
   uint1 video_reset = 0;
-  
+
 $$if HARDWARE then
   uint1 video_clock = 0;
 $$if MOJO then
@@ -145,7 +147,7 @@ $$elseif DE10NANO then
     outclk_1  :> video_clock,
     locked    :> pll_lock,
     rst       <: reset
-  ); 
+  );
 $$elseif ULX3S then
   // --- clock
   uint1 sdram_clock = 0;
@@ -155,7 +157,7 @@ $$elseif ULX3S then
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,
     locked   :> pll_lock
-  ); 
+  );
 $$elseif ECPIX5 then
   // --- clock
   uint1 sdram_clock = 0;
@@ -165,7 +167,7 @@ $$elseif ECPIX5 then
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,
     locked   :> pll_lock
-  ); 
+  );
 $$end
   // --- video reset
   clean_reset vga_rstcond<@video_clock,!reset> (
@@ -176,7 +178,7 @@ $$else
   pll clockgen<@clock,!reset>(
     video_clock   :> video_clock,
     video_reset   :> video_reset,
-  );  
+  );
 $$end
 
   uint1  active = 0;
@@ -219,7 +221,7 @@ $$else
   // forever
   while (1) {
 $$end
-  
+
     while (vblank == 1) { }
 	  $display("vblank off");
     while (vblank == 0) { }

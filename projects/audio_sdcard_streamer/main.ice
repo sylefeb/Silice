@@ -1,21 +1,22 @@
-// MIT license, see LICENSE_MIT in Silice repo root
 // SL 2020-07 @sylefeb
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
 
 $$if not ULX3S then
 $$error('only tested on ULX3S, changes required for other boards')
 $$end
 
-// ------------------------- 
+// -------------------------
 
 $include('../common/sdcard.ice')
 $include('../common/sdcard_streamer.ice')
 
-// ------------------------- 
+// -------------------------
 
 $$base_freq  = 25000000
 $$track_freq =    44100
 
-// ------------------------- 
+// -------------------------
 
 // This is a nice trick to 'interpolate' through a 4-bits only DAC
 // I got this from emard: https://github.com/emard/ulx3s-misc/blob/master/examples/audio/hdl/dacpwm.v
@@ -25,15 +26,15 @@ algorithm audio_pwm(
   output uint4 audio_l,
   output uint4 audio_r,
 ) <autorun> {
-  
+
   uint4  counter        = 0;
   uint4  dac_low       := wave[4,4];   // tracks higher bits
   uint4  dac_high      := dac_low + 1; // same plus on (we interpolate between dac_low and dac_high)
   uint4  pwm_threshold := wave[0,4];   // threshold for pwm ratio, using lower bits
                                        //   threshold == 0 => always low, threshold == 15 almost always high
-  
+
   always {
-  
+
     if (counter < pwm_threshold) {
       audio_l = dac_high;
       audio_r = dac_high;
@@ -41,13 +42,13 @@ algorithm audio_pwm(
       audio_l = dac_low;
       audio_r = dac_low;
     }
-  
+
     counter = counter + 1;
-  
+
   }
 }
 
-// ------------------------- 
+// -------------------------
 
 algorithm main(
   output uint8 leds,
@@ -69,7 +70,7 @@ algorithm main(
   );
 
   // tracker to convert to unsigned
-  uint8 wave := {~stream.data[7,1],stream.data[0,7]}; // NOTE: a nice trick, flipping the sign 
+  uint8 wave := {~stream.data[7,1],stream.data[0,7]}; // NOTE: a nice trick, flipping the sign
                                                       // bit to remap [-128,127] to [0,255]
   // pwm output
   audio_pwm pwm(
@@ -80,33 +81,33 @@ algorithm main(
 
   // maintain low (pulses high when requesting next byte)
   stream.next   := 0;
-  
-  // wait for sdcard controller to be ready  
+
+  // wait for sdcard controller to be ready
   while (stream.ready == 0)    { }
 
   // stream music track!
   {
     uint23 to_read = 0;
     while (1) {
-      
+
       uint16 wait = 1;
-      
+
       // request next
-      stream.next     = 1;  
-      
+      stream.next     = 1;
+
       // wait for data
-      while (stream.ready == 0) { 
+      while (stream.ready == 0) {
         wait = wait + 1;  // count cycles
       }
 
       // wait some more (until sampling rate is correct
-      while (wait < $base_freq // track_freq$) { 
+      while (wait < $base_freq // track_freq$) {
         wait = wait + 1;  // count cycles
       }
-      
+
       // leds for fun
       leds    = (wave > 230 ? 8h11 : 0) | (wave > 192 ? 8h22 : 0) | (wave > 140 ? 8h44 : 0) | (wave > 130 ? 8h88 : 0);
-      
+
       // next
       to_read = to_read + 1;
     }
@@ -114,4 +115,4 @@ algorithm main(
 
 }
 
-// ------------------------- 
+// -------------------------

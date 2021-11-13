@@ -1,10 +1,12 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 
 #include "code.h"
 
 volatile unsigned char* const LEDS        = (unsigned char*)0x90000000;
 
-void main() 
+void main()
 {
   *LEDS=128;
   unsigned char *dst = (unsigned char *)0x30000;

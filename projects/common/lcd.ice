@@ -1,11 +1,12 @@
 // SL 2020-05, GB 2021-06
-// ------------------------- 
+// -------------------------
 // LCD1602 driver
-// ------------------------- 
+// -------------------------
 // Specification document: https://www.openhacks.com/uploadsproductos/eone-1602a1.pdf
 // Initialization: http://web.alfredstate.edu/faculty/weimandn/lcd/lcd_initialization/lcd_initialization_index.html
 // -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $$if LCD_4BITS ~= 1 and LCD_4BITS ~= 0 then
 $$error('Please define the LCD_4BITS variable to 1 if you need to control the LCD display on a 4 bits bus, otherwise 0 to control the LCD display on a 8 bits wide bus')

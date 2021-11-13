@@ -1,5 +1,6 @@
 // SL 2020-04-28
 // DoomChip, HDMI wrapper
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 //
 // NOTE: there is tearing currently (unrestricted frame rate)
@@ -10,7 +11,7 @@ $$  HAS_COMPUTE_CLOCK    = true
 $$else
 $$  error('only tested on ULX3S, other boards will require changes')
 $$end
- 
+
 // -------------------------
 
 group column_io {
@@ -22,7 +23,7 @@ group column_io {
   uint1  done      = 0, // done drawing column
 }
 
-$$doomchip_width  = 320 
+$$doomchip_width  = 320
 $$doomchip_height = 200
 
 $include('doomchip.ice')
@@ -54,8 +55,8 @@ $$end
   output uint8  leds,
 ) <autorun> {
 
-  column_io colio;  
-  doomchip doom( 
+  column_io colio;
+  doomchip doom(
     colio <:> colio,
     vsync <: vsync,
     <:auto:> // used to bind parameters across the different boards
@@ -72,7 +73,7 @@ $$end
     sd      <:> sdh,
     fbuffer  :> fbuffer,
   );
-  
+
   while (1) { }
-  
+
 }

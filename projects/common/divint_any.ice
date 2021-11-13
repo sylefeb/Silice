@@ -1,6 +1,7 @@
 // Sylvain Lefebvre; simple parallel division; 2019-10-09
 // any width version; see divint.ice for more info
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 // Returns largest positive/negative int on div by zero
 //
@@ -34,7 +35,7 @@ algorithm mul_cmp$div_width$_$i$(
    input   uint$div_width$ num,
    input   uint$div_width$ den,
    output! uint1 beq)
-<autorun>   
+<autorun>
 {
   uint$div_width+1$ nk = 0;
   always {
@@ -58,9 +59,9 @@ $$end
 
   uint1 num_neg = 0;
   uint1 den_neg = 0;
-  
+
   uint$div_width$ num = 0;
-  uint$div_width$ den = 0; 
+  uint$div_width$ den = 0;
 
   uint$div_width$ concat = 0;
 
@@ -68,7 +69,7 @@ $$end
 $$prev = 0
 $$K={}
 $$for i = 0,div_width-2 do
-$$if (i % (2^div_shrink)) == 0 then 
+$$if (i % (2^div_shrink)) == 0 then
 $$prev = i
 $$K[i] = i
   mul_cmp$div_width$_$i$ mc$i$(num <:: reminder, den <:: den, beq :> r$i$);
@@ -133,13 +134,13 @@ $$end
   ret      = 0;
 
   while (reminder >= den) {
-  
+
     // perform assignment based on occurring case
-    
+
     // produce a vector from the comparators
     // it has a one-hot pattern like 0...010...0
 $$concat='{'
-$$for i = 0,div_width-3 do 
+$$for i = 0,div_width-3 do
 $$  concat = concat..'!r'..(div_width-2-i)..'&&r'..(div_width-2-i-1)..',' end
 $$concat=concat..'1b0}'
     concat = $concat$;
@@ -153,7 +154,7 @@ $$ s=s..'0'
         ret      = ret      + (1<<$K[div_width-2-c]$);
         reminder = reminder - (den << $K[div_width-2-c]$);
       }
-$$end      
+$$end
 // last case where 'concat' becomes all 0s
 $$ s='' .. (div_width) .. 'b'
 $$ for i = 0,div_width-1 do s=s..'0' end

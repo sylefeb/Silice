@@ -1,6 +1,7 @@
 // SL 2020-04-19
 // Copper bars, AMIGA style!
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $include('vga_demo_main.ice')
 
@@ -23,9 +24,9 @@ $$end
   };
 
   uint$color_depth$ v = 0;
-  uint6 frame  = 0;  
+  uint6 frame  = 0;
   int9  pos[4] = {0,0,0,0};
-  
+
   pix_r := 0; pix_g := 0; pix_b := 0;
   // ---------- show time!
   while (1) {
@@ -42,14 +43,14 @@ $$end
           }
         }
       }
-    }    
+    }
     // prepare next
-    frame = frame + 1;    
+    frame = frame + 1;
     4x {
       pos[__id] = $240 - 127$ + (wave[(frame + (__id << 3)) & 63] << 1);
     }
     // wait for sync
-    while (pix_vblank == 1) {} 
+    while (pix_vblank == 1) {}
   }
 }
 

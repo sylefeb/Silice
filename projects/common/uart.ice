@@ -1,6 +1,7 @@
 // @sylefeb, 2020-10-08, simple UART in Silice
 //
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 // UART config
 
@@ -46,7 +47,7 @@ algorithm uart_sender(
   io_uart_out  io,
   output uint1 uart_tx = 0
 ) <autorun> {
-  
+
   uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds)$;
   uint10 counter       = 0;
   uint11 transmit      = 0;
@@ -96,7 +97,7 @@ algorithm uart_receiver(
   io_uart_in  io,
   input uint1 uart_rx
 ) <autorun> {
-  
+
   uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds)$;
   uint10 half_interval = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds / 2)$;
   uint10 counter       = 0;
@@ -106,7 +107,7 @@ algorithm uart_receiver(
 
   uint1  latched_rx    = 0;
 
-  always {     
+  always {
 
     io.data_out_ready = 0; // maintain low
 

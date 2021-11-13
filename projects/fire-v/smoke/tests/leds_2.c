@@ -1,7 +1,9 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 
 //#include "../mylibc/mylibc.h"
-long time() 
+long time()
 {
    int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
@@ -9,16 +11,16 @@ long time()
 }
 
 void pause(int cycles)
-{ 
+{
   long tm_start = time();
   while (time() - tm_start < cycles) { }
 }
 
-void main() 
+void main()
 {
   while (1) {
     int iter = 0;
-    while (++iter < 8) {  
+    while (++iter < 8) {
       *(volatile unsigned char*)0x90000000 = 0xaa;
       pause(25000000);
       *(volatile unsigned char*)0x90000000 = 0x55;

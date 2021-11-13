@@ -1,20 +1,22 @@
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 #include "../mylibc/mylibc.h"
 
 void pause(int cycles)
-{ 
+{
   long tm_start = time();
   while (time() - tm_start < cycles) { }
 }
 
-void main() 
+void main()
 {
   pause(20000000);
-    
-  // draw screen 
+
+  // draw screen
   int offset = 0;
-  while (1) { 
+  while (1) {
     // *(volatile unsigned char*)LEDS = (j&1) ? 0xaa : 0x55;
     *(volatile unsigned char*)LEDS = offset;
     for (int j = 0 ; j < 200 ; j++) {

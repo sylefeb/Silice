@@ -5,6 +5,7 @@
 // - "DooM black book" by Fabien Sanglard
 // - "DooM unofficial specs" http://www.gamers.org/dhs/helpdocs/dmsp1666.html
 //
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 $$print('---< written in Silice by @sylefeb >---')
@@ -20,7 +21,7 @@ $$ -- COL_MAJOR = 1
 $include('../common/video_sdram_main.ice')
 
 // fixed point precisions
-$$FPl = 48 
+$$FPl = 48
 $$FPw = 24
 $$FPm = 12
 
@@ -66,7 +67,7 @@ circuitry spriteSelect(input angle,input frame,output sprite,output mirror)
 // ---------------------------------------------------
 
 circuitry writePixel(
-  inout  sd,  
+  inout  sd,
   input  fbuffer,
   input  pi,
   input  pj,
@@ -75,7 +76,7 @@ circuitry writePixel(
   while (1) {
     if (sd.busy == 0) { // not busy?
       sd.data_in    = pixpal;
-$$if not COL_MAJOR then        
+$$if not COL_MAJOR then
       sd.addr       = {~fbuffer,21b0} | (pi >> 2) | (pj << 8);
 $$else
       sd.addr       = {~fbuffer,21b0} | ((pi >> 2) << 8) | (pj);
@@ -137,10 +138,10 @@ algorithm frame_drawer(
     readwrites     sprites_data,
     readwrites     sprites_colptrs,
     readwrites     sd,
-    reads          fbuffer,    
+    reads          fbuffer,
     input uint8    sp,
     input uint1    mr,
-    input int16    screenx,    
+    input int16    screenx,
     input int16    screeny,
     input int$FPw$ dist
   ) {
@@ -155,13 +156,13 @@ algorithm frame_drawer(
 
     int10    v_post  = 0;
     int10    n_post  = 0;
-    
+
     uint9    pi  = 0;
     uint9    pj  = 0;
     uint8    pal = 0;
 
-    uint16   x_ext = 0;    
-    uint16   y_ext = 0;    
+    uint16   x_ext = 0;
+    uint16   y_ext = 0;
     int10    x_last    = 0;
 
     uint10    u       = 0;
@@ -171,14 +172,14 @@ algorithm frame_drawer(
     uint$FPw$ v_accum = 0;
 
     int10    y_first   = 0;
-    int10    y_last    = 0;   
+    int10    y_last    = 0;
 
     uint8    pix = 17;
 
     int$FPw$ inv_dist = 0;
-    
+
     (inv_dist) <- div <- ($(1<<(FPm*2 - 1))-1$,dist);
-    
+
     // read sprite info
     sprites_header   .addr = sp;
     sprites_colstarts.addr = sp;
@@ -187,17 +188,17 @@ algorithm frame_drawer(
     sprt_h  = sprites_header.rdata[32,16];
     sprt_lo = screenx - sprites_header.rdata[16,16];
     sprt_to = screeny - sprites_header.rdata[ 0,16];
-    
+
     // sprite w extent
     x_ext   = (sprt_w * inv_dist) >> $FPm-1$;
     y_ext   = (sprt_h * inv_dist) >> $FPm-1$;
-    
+
     // screen bounds
     y_first = screeny - (y_ext);
     y_last  = screeny;
     c       = screenx - (x_ext>>1);
     x_last  = c + x_ext;
-    
+
     u_accum = 0;
     while (c < x_last) {
 
@@ -217,9 +218,9 @@ algorithm frame_drawer(
       cur_v   = -1;
       n_post  =  0;
       while (r <= y_last && sprites_data.rdata != 255) {
-        
+
         v    = v_accum >> $FPm$;
-        while (cur_v < v) { 
+        while (cur_v < v) {
           if (n_post == 0) {
             // read next post
             v_post            = sprites_data.rdata; // != 255
@@ -227,7 +228,7 @@ algorithm frame_drawer(
   ++:
             // num in post
             n_post            = sprites_data.rdata;
-            sprites_data.addr = sprites_data.addr + 2; // skip one              
+            sprites_data.addr = sprites_data.addr + 2; // skip one
           }
           if (cur_v >= v_post) {
             n_post = n_post - 1;
@@ -240,20 +241,20 @@ algorithm frame_drawer(
           }
           cur_v = cur_v + 1;
         }
-        
+
         if (v >= v_post && n_post != 0) {
           pix  = sprites_data.rdata;
           (sd) = writePixel(sd,fbuffer,c,r,pix);
         }
-        
+
         v_accum = v_accum + dist;
         r = r + 1;
       }
-      
+
       u_accum = u_accum + dist;
       c = c + 1;
     }
-    
+
     return;
   }
 
@@ -267,24 +268,24 @@ algorithm frame_drawer(
 
   uint23 count = 0;
   uint5     n  = 0;
-  
+
   uint12    angle  = 3042;
   uint$FPw$ distv  = $4<<FPm$;
 
   uint10    poss[6]  = {30,95,150,197,230,285};
   uint$FPw$ dists[6] = {$(4<<FPm)-512$,$(4<<FPm)+233$,$(4<<FPm)-1050$,$(4<<FPm)+800$,$(4<<FPm)-574$,$(4<<FPm)+798$};
   uint12    angls[6] = {3042,3042,3042,3042,3042,3042};
-  
+
   div$FPw$ div;
-  
+
   vsync_filtered ::= vsync;
 
   sd.in_valid := 0; // maintain low (pulses high when needed)
-  
+
   sd.rw = 1;        // sdram write
 
   fbuffer = 0;
-  
+
 $$if not SIMULATION then
     // wait before start
     n = 1;
@@ -295,12 +296,12 @@ $$if not SIMULATION then
       }
       n = n + 1;
     }
-$$end  
-  
+$$end
+
   while (1) {
 
     () <- clearScreen <- ();
-    
+
     // draw sprite
     n = 0;
     while (n < 6) {
@@ -322,13 +323,13 @@ $$end
       }
       n = n + 1;
     }
-    
+
     // prepare next
     frame = frame + 1;
-    
+
     // wait for frame to end
     while (vsync_filtered == 0) {}
-    
+
     // swap buffers
     fbuffer = ~fbuffer;
 

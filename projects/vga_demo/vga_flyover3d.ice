@@ -1,6 +1,7 @@
 // SL 2020-04-22
 // Flying over 3D planes
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $include('vga_demo_main.ice')
 
@@ -21,14 +22,14 @@ algorithm frame_display(
   output! uint$color_depth$ pix_b
 ) <autorun> {
 
-  uint$div_width$ inv_y     = 0;  
-  uint$div_width$ cur_inv_y = 0;  
+  uint$div_width$ inv_y     = 0;
+  uint$div_width$ cur_inv_y = 0;
 
   uint9 offs_y = 0;
   uint8 u      = 0;
   uint8 v      = 0;
   uint15 maxv  = 22000;
-  
+
   uint16 pos_u  = 0;
   uint16 pos_v  = 0;
 
@@ -40,7 +41,7 @@ algorithm frame_display(
   );
 
   pix_r  := 0; pix_g := 0; pix_b := 0;
-  
+
   // ---------- show time!
   while (1) {
 
@@ -48,7 +49,7 @@ algorithm frame_display(
 	  while (pix_vblank == 0) {
 
       if (pix_active) {
-      
+
         if (pix_y < 240) {
           offs_y = $240 + 32$ - pix_y;
           floor  = 0;
@@ -56,9 +57,9 @@ algorithm frame_display(
           offs_y = pix_y - $240 - 32$;
           floor  = 1;
         }
-        
+
         if (offs_y >= $32 + 3$ && offs_y < 200) {
-        
+
           if (pix_x == 0) {
             // read result from previous
             cur_inv_y = inv_y;
@@ -76,7 +77,7 @@ algorithm frame_display(
 
           u = pos_u + ((pix_x - 320) * cur_inv_y) >> 8;
           v = pos_v + cur_inv_y[0,6];
-          
+
           if (u[5,1] ^ v[5,1]) {
             if (u[4,1] ^ v[4,1]) {
               pix_r = lum;
@@ -101,18 +102,18 @@ algorithm frame_display(
                 pix_b = lum[1,6];
               }
             }
-          }          
+          }
         }
-      
+
       }
-        
+
     }
-    // prepare next    
+    // prepare next
     pos_u = pos_u + 1024;
-    pos_v = pos_v + 3; 
-    
+    pos_v = pos_v + 3;
+
     // wait for sync
-    while (pix_vblank == 1) {} 
+    while (pix_vblank == 1) {}
   }
 
 }

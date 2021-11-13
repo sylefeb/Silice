@@ -6,11 +6,12 @@
 //  - optional WARMBOOT on ice40
 //  - [ulx3s] validates at ~100 MHz with a 32KB BRAM
 //  - [ulx3s] overclocks up to 200 MHz on the ULX3S
-// 
+//
 // Tested on: ULX3S, Verilator, Icarus
 //
-// ------------------------- 
+// -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $$if SIMULATION then
 $$verbose = nil
@@ -43,7 +44,7 @@ $include('ash/bram_ram_32bits.ice')
 
 $include('../common/clean_reset.ice')
 
-// ------------------------- 
+// -------------------------
 
 algorithm main(
   output uint$NUM_LEDS$ leds,
@@ -58,7 +59,7 @@ $$if SPIFLASH then
   output uint1   sf_csn,
   output uint1   sf_mosi,
   input  uint1   sf_miso,
-$$end  
+$$end
 $$if ULX3S then
 ) <@sys_clock,!sys_reset> {
   uint1 sys_clock = uninitialized;
@@ -104,7 +105,7 @@ $$end
   uint26 cpu_start_addr(26h0000000); // NOTE: the BRAM ignores the high part of the address
                                      //       but for bit 32 (mapped memory)
 
-  // cpu 
+  // cpu
   rv32i_cpu cpu<!cpu_reset>(
     boot_at          <:  cpu_start_addr,
     user_data        <:  user_data,
@@ -122,7 +123,7 @@ $$end
   // sdcard
   uint1  reg_miso(0);
 
-$$if SIMULATION then  
+$$if SIMULATION then
   uint32 iter = 0;
   while (iter != 48) {
     iter = iter + 1;
@@ -134,7 +135,7 @@ $$end
 $$if SDCARD then
     user_data[3,1] = reg_miso;
     reg_miso       = sd_miso;
-$$elseif SPIFLASH then    
+$$elseif SPIFLASH then
     user_data[3,1] = reg_miso;
     reg_miso       = sf_miso;
 $$end
@@ -144,7 +145,7 @@ $$end
 $$if SDCARD or SPIFLASH then
       if (~mem.addr[3,1]) {
         leds = mem.data_in[0,8];
-$$  if SIMULATION then            
+$$  if SIMULATION then
         __display("[iter %d] LEDs = %b",iter,leds);
 $$  end
 $$if WARMBOOT then
@@ -160,7 +161,7 @@ $$  elseif SPIFLASH then
         sf_clk  = mem.data_in[0,1];
         sf_mosi = mem.data_in[1,1];
         sf_csn  = mem.data_in[2,1];
-$$  end      
+$$  end
 $$  if SIMULATION then
         __display("[iter %d] SPI (flash/SD) = %b",iter,mem.data_in[0,3]);
 $$  end
@@ -173,4 +174,4 @@ $$end
   }
 }
 
-// ------------------------- 
+// -------------------------

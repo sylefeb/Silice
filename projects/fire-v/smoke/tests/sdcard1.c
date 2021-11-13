@@ -1,3 +1,5 @@
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 volatile unsigned char* const LEDS        = (unsigned char*)0x90000000;
@@ -10,14 +12,14 @@ const unsigned char acmd41[] = {0x69,0x40,0x00,0x00,0x00,0x01};
 const unsigned char cmd16[]  = {0x50,0x00,0x00,0x02,0x00,0x15};
 const unsigned char cmd17[]  = {0x51,0x00,0x00,0x00,0x00,0x55};
 
-long time() 
+long time()
 {
    int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
    return cycles;
 }
 
-long userdata() 
+long userdata()
 {
   int id;
   asm volatile ("rdtime %0" : "=r"(id));
@@ -25,7 +27,7 @@ long userdata()
 }
 
 void pause(int cycles)
-{ 
+{
   long tm_start = time();
   while (time() - tm_start < cycles) { }
 }
@@ -93,7 +95,7 @@ unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
     register int answer = 0xff;
 
     while (
-          (wait && (answer&(1<<(len-1)))) || (!wait && n < len)) {        
+          (wait && (answer&(1<<(len-1)))) || (!wait && n < len)) {
         sdcard_read_step_H();
         sdcard_read_step_L();
     }
@@ -119,7 +121,7 @@ void sdcard_cmd(const unsigned char *cmd)
     for (int i=0;i<6;i++) {
         sdcard_send(cmd[i]);
     }
-    sdcard_unselect();    
+    sdcard_unselect();
 }
 
 void sdcard_init()
@@ -162,9 +164,9 @@ void main()
 #else
 
   for (int k=0;k<4;k++) {
-    pause(10000000); 
+    pause(10000000);
     *LEDS = 255;
-    pause(10000000); 
+    pause(10000000);
     *LEDS = 0;
   }
 
@@ -182,11 +184,11 @@ void main()
         break;
     }
     *LEDS = 255;
-    pause(10000000); 
+    pause(10000000);
   }
 
   *LEDS = 4;
-  
+
   sdcard_cmd(cmd8);
   *LEDS = 0;
   status = sdcard_get(40,1);
@@ -235,7 +237,7 @@ void main()
     sdcard_read(8,1);
 
     // wait for vsync
-    while ((userdata()&2) == 0) {  }    
+    while ((userdata()&2) == 0) {  }
     // swap buffers
     *(LEDS+4) = 1;
     fbuffer = 1-fbuffer;

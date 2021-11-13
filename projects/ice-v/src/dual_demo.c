@@ -1,14 +1,15 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2021
 
 // == to test on desktop: use following command line to produce tmp.html,
 //    open in firefox to see a preview of the rendering
 // gcc tests/c/dual_demo.c ; ./a.exe > tmp.html
 
 // == Music track has to be upload to SPIflash at offset 1 MB
-//   The track length (in bytes) can be set below, see marker [1] 
+//   The track length (in bytes) can be set below, see marker [1]
 //   PCM 8 bit signed, raw no header
 // iceprog -o 1M track.raw
-
-// MIT license, see LICENSE_MIT in Silice repo root
 
 #ifndef __riscv
 #define EMUL
@@ -19,7 +20,7 @@
 #include "oled.h"
 #include "spiflash.c"
 
-static inline unsigned int rdcycle() 
+static inline unsigned int rdcycle()
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
@@ -35,15 +36,15 @@ static inline unsigned int rdcycle()
 unsigned int rdcycle() { return 1; }
 int oled_x = 0;
 int oled_y = 0;
-void oled_init() 
+void oled_init()
 {
   printf("<html><body style=\"background-color: #000000;\">\n");
 }
-void oled_fullscreen() 
+void oled_fullscreen()
 {
 
 }
-void oled_pix(unsigned char r,unsigned char g,unsigned char b) 
+void oled_pix(unsigned char r,unsigned char g,unsigned char b)
 {
   printf("<circle cx=\"%d\" cy=\"%d\" r=\"1.0\" stroke=\"none\" fill=\"rgb(%d,%d,%d)\" />\n",oled_x,oled_y,(r&63)*4,(g&63)*4,(b&63)*4);
   ++ oled_x;
@@ -146,9 +147,9 @@ void main_oled()
 #endif
 
   while (1) {
-    
+
 #ifdef EMUL
-  printf("<svg height=\"128\" width=\"128\" viewBox=\"0 0 128 128\">\n");  
+  printf("<svg height=\"128\" width=\"128\" viewBox=\"0 0 128 128\">\n");
 #endif
 
     // for each line
@@ -165,7 +166,7 @@ void main_oled()
       // result from division
       cur_inv_y = inv_y;
       // lighting
-      register int clip  = (cur_inv_y>>4) > 70 ? 1 : 0;      
+      register int clip  = (cur_inv_y>>4) > 70 ? 1 : 0;
       register int front = 60 + (frame_flash>>2) - (cur_inv_y>>4);
       register int back  = ( (cur_inv_y>>4) - 70 + frame_flash );
       front = front < 0 ? 0 : front;
@@ -174,7 +175,7 @@ void main_oled()
       lum   = lum > 63 ? 63 : lum;
 
       // start divide for next line
-      numerator = maxv; 
+      numerator = maxv;
       inv_y     = 0;    // when done, inv_y = maxv / offs_y
       offs_y_2  = offs_y<<1;
       offs_y_4  = offs_y<<2;
@@ -185,7 +186,7 @@ void main_oled()
         u = pos_u + ((x - 64) * cur_inv_y) >> 6;
         v = pos_v + cur_inv_y;
 
-        // step division 
+        // step division
         // (indeed, we divide by subtracting multiples of the denominator)
 
 #define STEP_DIV \
@@ -236,11 +237,11 @@ void main_oled()
         STEP_DIV;
       }
 
-    } 
+    }
 
     // prepare next frame
     pos_u = pos_u + 1024;
-    pos_v = pos_v + 3; 
+    pos_v = pos_v + 3;
 
 #ifdef EMUL
     printf("</svg><br>&nbsp;<br>&nbsp;<br>\n");
@@ -252,7 +253,7 @@ void main_oled()
     frame_flash += 16;
 #else
     frame_flash = flash>>3;
-#endif    
+#endif
 
   }
 }
@@ -266,4 +267,3 @@ void main()
   }
 
 }
-

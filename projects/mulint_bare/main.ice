@@ -1,4 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2021
 
 // integer multiplication
 $$mul_width = 24
@@ -9,10 +11,10 @@ algorithm main(output uint$NUM_LEDS$ leds = 0)
   int$mul_width$  m0      = -170;
   int$mul_width$  m1      =  121;
   int$mul_width$  result  =  0;
-  
+
   mul$mul_width$ mul0;
-  
+
   (result) <- mul0 <- (m0,m1);
 
-  $display("%d * %d = %d",m0,m1,result);  
+  $display("%d * %d = %d",m0,m1,result);
 }

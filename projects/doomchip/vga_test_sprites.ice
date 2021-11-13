@@ -5,6 +5,7 @@
 // - "DooM black book" by Fabien Sanglard
 // - "DooM unofficial specs" http://www.gamers.org/dhs/helpdocs/dmsp1666.html
 //
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 $$print('---< written in Silice by @sylefeb >---')
@@ -20,7 +21,7 @@ $$COL_MAJOR = 1
 $include('../common/video_sdram_main.ice')
 
 // fixed point precisions
-$$FPl = 48 
+$$FPl = 48
 $$FPw = 24
 $$FPm = 12
 
@@ -63,7 +64,7 @@ circuitry spriteWalk(input angle,input frame,output sprite,output mirror)
 // ---------------------------------------------------
 
 circuitry writePixel(
-  inout  sd,  
+  inout  sd,
   input  fbuffer,
   input  pi,
   input  pj,
@@ -72,7 +73,7 @@ circuitry writePixel(
   while (1) {
     if (sd.busy == 0) { // not busy?
       sd.data_in    = pixpal;
-$$if not COL_MAJOR then        
+$$if not COL_MAJOR then
       sd.addr       = {~fbuffer,21b0} | (pi >> 2) | (pj << 8);
 $$else
       sd.addr       = {~fbuffer,21b0} | ((pi >> 2) << 8) | (pj);
@@ -122,7 +123,7 @@ algorithm frame_drawer(
       i = i + 1;
     }
     return;
-  } 
+  }
 
   // draws a scaled sprite
   subroutine drawSprite(
@@ -131,7 +132,7 @@ algorithm frame_drawer(
     readwrites     sprites_data,
     readwrites     sprites_colptrs,
     readwrites     sd,
-    reads          fbuffer,    
+    reads          fbuffer,
     input uint8    sp,
     input uint1    mr,
     input int16    screenx,
@@ -146,15 +147,15 @@ algorithm frame_drawer(
     int10    j       = 0;
     int10    c       = 0;
     int10    r       = 0;
-    
+
     uint9  pi  = 0;
     uint9  pj  = 0;
     uint8  pal = 0;
-    
+
     int$FPw$ y_accum   = 0;
     int10    y_last    = 0;
     int10    y_cur     = 0;
-    
+
     int$FPw$ x_accum   = 0;
     int10    x_last    = 0;
     int10    x_cur     = 0;
@@ -172,11 +173,11 @@ algorithm frame_drawer(
     x_last  = 0;
     x_cur   = 0;
     while (c < sprt_w) { // for each column
-    
-      x_cur = (x_accum >> 8);      
-      
+
+      x_cur = (x_accum >> 8);
+
       while (x_last <= x_cur) {
-      
+
         // retrieve column pointer
         if (mr) {
           sprites_colptrs.addr = sprites_colstarts.rdata + sprt_w - 1 - c;
@@ -184,18 +185,18 @@ algorithm frame_drawer(
           sprites_colptrs.addr = sprites_colstarts.rdata + c;
         }
   ++:
-        sprites_data.addr = sprites_colptrs.rdata;      
+        sprites_data.addr = sprites_colptrs.rdata;
   ++:
         // init first post
-        j                 = sprites_data.rdata;      
+        j                 = sprites_data.rdata;
         if (j != 255) {
           sprites_data.addr = sprites_data.addr + 1;
   ++:
           // num in post
           i                 = sprites_data.rdata;
-          sprites_data.addr = sprites_data.addr + 2; // skip one      
+          sprites_data.addr = sprites_data.addr + 2; // skip one
           // draw the column
-          r       = 0;        
+          r       = 0;
           y_accum = 0;
           y_last  = 0;
           // go ahead
@@ -234,17 +235,17 @@ algorithm frame_drawer(
             y_accum = y_accum + scale;
           }
         }
-        
+
         x_last = x_last + 1;
       }
-      
+
       // next column
-      c = c + 1;     
+      c = c + 1;
       x_accum = x_accum + scale;
     }
     return;
   }
-  
+
   uint1    vsync_filtered = 0;
 
   uint12   angle   = 0;
@@ -256,32 +257,32 @@ algorithm frame_drawer(
   vsync_filtered ::= vsync;
 
   sd.in_valid := 0; // maintain low (pulses high when needed)
-  
+
   sd.rw = 1;        // sdram write
 
   fbuffer = 0;
-  
+
   while (1) {
-    
+
     () <- clearScreen <- ();
-    
+
     // select sprite
     (sprt,mirr) = spriteWalk(angle,frame);
-    
+
     // draw sprite
     () <- drawSprite <- (sprt,mirr,100,100,1<<8);
     () <- drawSprite <- (sprt,mirr,200,100,1<<8);
-    
+
     // prepare next
     frame = frame + 1;
     if (frame >= 4) {
       frame = 0;
       angle = angle + 256;
     }
-    
+
     // wait for frame to end
     while (vsync_filtered == 0) {}
-    
+
     // swap buffers
     fbuffer = ~fbuffer;
   }

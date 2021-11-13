@@ -1,3 +1,6 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2021
 // ========== Real time Julia fractal on the ice-v-dual
 // mul trick from: http://cowlark.com/2018-05-26-bogomandel/index.html
 // see also the great notes on Mandlebrot by reenigne:
