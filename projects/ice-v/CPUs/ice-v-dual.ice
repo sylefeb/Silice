@@ -97,12 +97,16 @@ $$if ICEV_MULDIV then
   uint1 div_done(0);
 $$end
 
-  int32 ra(0); int32 rb(0);
-
   // ==== select next address adder first input
   int$addrW+3$ addr_a <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
   // ==== select ALU second input
-  int32 b         <: regOrImm ? (xb) : imm_i;
+  int32 b             <: regOrImm ? (xb) : imm_i;
+
+$$if ICEV_ALU_LATCH then
+  int32 ra(0);    int32 rb(0);
+$$else
+  int32 ra <: xa; int32 rb <: b;
+$$end
 
   // ==== allows to do subtraction and all comparisons with a single adder
   // trick from femtorv32/swapforth/J1
@@ -234,8 +238,10 @@ $$end
     // ==== increment cycle counter
     cycle = cycle + 1;
 
+$$if ICEV_ALU_LATCH then
+    // ==== latch xa and b (fmax relief)
     ra = xa; rb = b;
-
+$$end
   }
 
 }
