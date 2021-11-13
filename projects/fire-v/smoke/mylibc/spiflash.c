@@ -7,6 +7,7 @@ I went through the trouble of equalizing all delays to have a clean
 spiflash clock period, but maybe that was not necessary.
 These delays are tunned to the Fire-V and likely not portable.
 
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 */
@@ -57,7 +58,7 @@ void spiflash_send(int indata)
 unsigned char spiflash_read()
 {
     register int ud;
-    register int n = 0; 
+    register int n = 0;
     register int answer = 0xff;
     spiflash_read_step_L();
     while (n < 8) {
@@ -96,7 +97,7 @@ void spiflash_read_begin(int addr)
   spiflash_send(0x03);
   spiflash_send((addr>>16)&255);
   spiflash_send((addr>> 8)&255);
-  spiflash_send((addr    )&255); 
+  spiflash_send((addr    )&255);
 }
 
 unsigned char spiflash_read_next()
@@ -128,12 +129,12 @@ void spiflash_erase4KB(int addr)
   spiflash_select();
   spiflash_send(0x06); // enable write
   spiflash_unselect();
-  
+
   spiflash_select();
   spiflash_send(0x20);
   spiflash_send((addr>>16)&255);
   spiflash_send((addr>> 8)&255);
-  spiflash_send((addr    )&255); 
+  spiflash_send((addr    )&255);
 	spiflash_unselect();
 }
 
@@ -147,7 +148,7 @@ void spiflash_write_begin(int addr)
   spiflash_send(0x02);
   spiflash_send((addr>>16)&255);
   spiflash_send((addr>> 8)&255);
-  spiflash_send((addr    )&255);   
+  spiflash_send((addr    )&255);
 }
 
 void spiflash_write_next(unsigned char v)

@@ -1,9 +1,10 @@
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2021
 
 // == to test on desktop: use following command line to produce tmp.html,
 //    open in firefox to see a preview of the rendering
 // gcc tests/c/dual_lotus.c ; ./a.exe > tmp.html
-
-// MIT license, see LICENSE_MIT in Silice repo root
 
 #ifndef __riscv
 #define EMUL
@@ -14,7 +15,7 @@
 #include "oled.h"
 #include "spiflash.c"
 
-static inline unsigned int rdcycle() 
+static inline unsigned int rdcycle()
 {
    unsigned int cycles;
    asm volatile ("rdcycle %0" : "=r"(cycles));
@@ -30,15 +31,15 @@ static inline unsigned int rdcycle()
 unsigned int rdcycle() { return 1; }
 int oled_x = 0;
 int oled_y = 0;
-void oled_init() 
+void oled_init()
 {
   printf("<html><body style=\"background-color: #000000;\">\n");
 }
-void oled_fullscreen() 
+void oled_fullscreen()
 {
 
 }
-void oled_pix(unsigned char r,unsigned char g,unsigned char b) 
+void oled_pix(unsigned char r,unsigned char g,unsigned char b)
 {
   printf("<circle cx=\"%d\" cy=\"%d\" r=\"1.0\" stroke=\"none\" fill=\"rgb(%d,%d,%d)\" />\n",oled_x,127-oled_y,(r&63)*4,(g&63)*4,(b&63)*4);
   ++ oled_x;
@@ -205,9 +206,9 @@ void main_oled()
   int bdir    = 3;
 
   while (1) {
-    
+
 #ifdef EMUL
-  printf("<svg height=\"128\" width=\"128\" viewBox=\"0 0 128 128\">\n");  
+  printf("<svg height=\"128\" width=\"128\" viewBox=\"0 0 128 128\">\n");
 #endif
 
     int horizon = 32<<8;
@@ -216,7 +217,7 @@ void main_oled()
     for (register int y=127;y>=0;--y) {
 
       offs_y = y - (horizon>>8) + 8;
-      
+
       if (y < (horizon>>8)) {
         floor  = 0;
       } else {
@@ -227,11 +228,11 @@ void main_oled()
       cur_inv_y = inv_y;
 
       horizon += (cur_inv_y*bump)>>8;
-      
+
       register int clip  = ((cur_inv_y>>4) > 70 || floor == 0) ? 1 : 0;
 
       // start divide for next line
-      numerator = maxv; 
+      numerator = maxv;
       inv_y     = 0;    // when done, inv_y = maxv / offs_y
       offs_y_2  = offs_y<<1;
       offs_y_4  = offs_y<<2;
@@ -244,7 +245,7 @@ void main_oled()
       register int u_incr = cur_inv_y;
 
       for (register int x=0;x<128;x++) {
-        
+
         register int r,g,b;
         if (y == 127) {
           r=g=b=0;
@@ -260,23 +261,23 @@ void main_oled()
           if (band) {
             r = g = b = 63;
           } else if (road == 1) {
-            if (v&64) { 
-              r=4; g=7; b=5; 
+            if (v&64) {
+              r=4; g=7; b=5;
             } else {
-              r=7;  g=7; b=6; 
-            }           
+              r=7;  g=7; b=6;
+            }
           } else {
-            if (v&64) { 
-              r=8;  g=20; b=0; 
+            if (v&64) {
+              r=8;  g=20; b=0;
             } else {
-              r=7; g=15; b=0; 
+              r=7; g=15; b=0;
             }
           }
         }
-        
+
         oled_pix(r,g,b);
 
-        // step division 
+        // step division
         // (indeed, we divide by subtracting multiples of the denominator)
 
 #define STEP_DIV \
@@ -297,14 +298,14 @@ void main_oled()
         STEP_DIV;
         STEP_DIV;
         STEP_DIV;
-        
+
         u += u_incr;
       }
 
-    } 
+    }
 
     // prepare next frame
-    pos_v = pos_v + 32; 
+    pos_v = pos_v + 32;
 
 #ifdef EMUL
     printf("</svg><br>&nbsp;<br>&nbsp;<br>\n");
@@ -343,4 +344,3 @@ void main()
   }
 
 }
-

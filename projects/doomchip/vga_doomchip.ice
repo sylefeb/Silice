@@ -1,5 +1,6 @@
 // SL 2020-04-28
 // DoomChip, VGA wrapper
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 //
 // NOTE: there is tearing currently (unrestricted frame rate)
@@ -16,7 +17,7 @@ group column_io {
   uint1  done      = 0, // done drawing column
 }
 
-$$doomchip_width  = 320 
+$$doomchip_width  = 320
 $$doomchip_height = 200
 
 $include('doomchip.ice')
@@ -44,12 +45,12 @@ algorithm frame_drawer(
   output uint1  fbuffer,
 $$if ULX3S or DE10NANO then
   input  uint7 btns,
-$$end  
+$$end
   output uint8 leds,
 ) <autorun> {
 
   column_io colio;
-  doomchip doom( 
+  doomchip doom(
     colio <:> colio,
     vsync <: vsync,
     <:auto:> // used to bind parameters across the different boards
@@ -66,7 +67,7 @@ $$end
     sd      <:> sdh,
     fbuffer  :> fbuffer,
   );
-  
+
   while (1) { }
-  
+
 }

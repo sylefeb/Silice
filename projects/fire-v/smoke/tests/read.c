@@ -1,3 +1,5 @@
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 unsigned char* const FRAMEBUFFER = (unsigned char*)0x4000000;
@@ -6,7 +8,7 @@ unsigned int test  = 0xffaa2211;
 unsigned int foo   = 0x00000000;
 unsigned int space = 0x00000000;
 
-void main() 
+void main()
 {
 
   // *(FRAMEBUFFER) = *(((unsigned char*)&test) + 1);

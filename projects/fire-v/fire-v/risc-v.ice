@@ -2,11 +2,12 @@
 // Risc-V helpers
 // @sylefeb
 // --------------------------------------------------
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 // --------------------------------------------------
 
 // bitfields for easier decoding of instructions ; these
-// define views on a uint32, that are used upon 
+// define views on a uint32, that are used upon
 // access, avoiding hard coded values in part-selects
 bitfield Itype {
   uint12 imm,

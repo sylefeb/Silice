@@ -6,6 +6,7 @@
 // TODO: return twice as wide!
 //
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 // Compute log2 of of mul_width
 $$mul_width_pow2=0

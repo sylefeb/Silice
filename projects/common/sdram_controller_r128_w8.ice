@@ -6,7 +6,7 @@
 // - writes single bytes
 // - reads bursts of 8 x 16 bits
 //
-// if using directly the controller: 
+// if using directly the controller:
 //  - reads (16x8 bits) have to align with 128 bits boundaries (16 bytes)
 //  - writes   (8 bits) do not have this restriction
 //
@@ -34,6 +34,7 @@
 // ====================================================
 
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $$if not SDRAM_COLUMNS_WIDTH then
 $$ if ULX3S then
@@ -79,7 +80,7 @@ circuitry command(
 
 algorithm sdram_controller_r128_w8(
         // sdram pins
-        // => we use immediate (combinational) outputs as these are registered 
+        // => we use immediate (combinational) outputs as these are registered
         //    explicitely using dedicqted primitives when available / implemented
         output! uint1   sdram_cle,
         output! uint1   sdram_cs,
@@ -99,9 +100,9 @@ $$else
 $$end
         // interface
         sdram_provider sd,
-$$if SIMULATION then        
+$$if SIMULATION then
         output uint1 error,
-$$end        
+$$end
 ) <autorun>
 {
 
@@ -174,7 +175,7 @@ $$end
 $$end
 
   uint4  cmd = 7;
-  
+
   uint4  row_open    = 0;
   uint13 row_addr[4] = uninitialized;
 
@@ -193,20 +194,20 @@ $$ cmd_precharge_delay = 3
 $$ print('SDRAM configured for 100 MHz (default)')
 
   uint10 refresh_count = -1;
-  
+
   // waits for incount + 4 cycles
   subroutine wait(input uint16 incount)
   {
     uint17 count = uninitialized;
     count = incount;
     while (count > 0) {
-      count = count - 1;      
+      count = count - 1;
     }
   }
-  
-$$if SIMULATION then        
+
+$$if SIMULATION then
   error := 0;
-$$end        
+$$end
 
   sdram_cle := 1;
 $$if not ULX3S_IO then
@@ -217,16 +218,16 @@ $$if not ULX3S_IO then
   sdram_dqm := reg_sdram_dqm;
   sdram_ba  := reg_sdram_ba;
   sdram_a   := reg_sdram_a;
-$$if VERILATOR then  
+$$if VERILATOR then
   dq_o      := reg_dq_o;
   dq_en     := reg_dq_en;
-$$end  
+$$end
 $$end
 
   sd.done := 0;
-  
+
   always { // always block tracks in_valid
-  
+
     cmd = CMD_NOP;
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
     if (sd.in_valid) {
@@ -236,12 +237,12 @@ $$end
       col       = sd.addr[                      1, $SDRAM_COLUMNS_WIDTH$];
       byte      = sd.addr[ 0, 1];
       data      = sd.data_in;
-      do_rw     = sd.rw;    
+      do_rw     = sd.rw;
       // -> signal work to do
       work_todo = 1;
     }
   }
-  
+
   // wait after powerup
   reg_sdram_a  = 0;
   reg_sdram_ba = 0;
@@ -250,27 +251,27 @@ $$end
 
   // precharge all
   cmd      = CMD_PRECHARGE;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
+  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
   reg_sdram_a  = {2b0,1b1,10b0};
   () <- wait <- ($cmd_precharge_delay-3$);
-  
+
   // load mod reg
   cmd      = CMD_LOAD_MODE_REG;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
+  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
   reg_sdram_ba = 0;
   reg_sdram_a  = {3b000, 1b1, 2b00, 3b011/*CAS*/, 1b0, 3b011 /*burst x8*/};
   () <- wait <- (0);
-  
+
   while (1) {
 
     // precharge?
     if (refresh_count == 0 || (work_todo && row_open[bank,1] == 1 && row_addr[bank] != row)) {
       reg_sdram_ba = bank;
       cmd          = CMD_PRECHARGE;
-      (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);      
+      (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
       reg_sdram_a  = {2b0,refresh_count == 0/*all*/,10b0};
       row_open     = (refresh_count == 0) ? 0 : row_open;
-      () <- wait <- ($cmd_precharge_delay-3$);    
+      () <- wait <- ($cmd_precharge_delay-3$);
     }
 
     // refresh?
@@ -280,13 +281,13 @@ $$end
       // wait
       () <- wait <- ($refresh_wait-3$);
       // -> reset count
-      refresh_count = $refresh_cycles$;  
-    }    
-    
+      refresh_count = $refresh_cycles$;
+    }
+
     refresh_count = refresh_count - 1;
 
     if (work_todo) {
-      work_todo    = 0;        
+      work_todo    = 0;
       reg_sdram_ba = bank;
       if (row_open[bank,1] == 0 || row_addr[bank] != row) {
         // -> activate next
@@ -341,7 +342,7 @@ $$end
           }
         }
       }
-      
+
 ++: // enforce tRP
 ++:
 ++:

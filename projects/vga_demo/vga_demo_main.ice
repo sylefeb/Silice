@@ -2,6 +2,7 @@
 // Main file for all vga demo projects
 // -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 // VGA driver
 $include('../common/vga.ice')
@@ -51,11 +52,11 @@ algorithm pll(
 {
   uint3 counter = 0;
   uint8 trigger = 8b11111111;
-  
+
   video_clock   := counter[1,1]; // x4 slower (25 MHz)
   video_reset   := (trigger > 0);
-  
-  always {	  
+
+  always {
     counter = counter + 1;
 	  trigger = trigger >> 1;
   }
@@ -77,9 +78,9 @@ $$end
 $$if SIMULATION then
   output  uint1             video_clock,
 $$end
-) 
+)
 $$if not ULX3S then
-<@video_clock,!video_reset> 
+<@video_clock,!video_reset>
 $$end
 {
   uint1 video_reset = 0;
@@ -127,7 +128,7 @@ $$elseif DE10NANO then
     outclk_0 :> sdram_clock,
     outclk_1 :> video_clock,
     locked   :> pll_lock
-  ); 
+  );
 $$elseif ECPIX5 then
   // --- clock
   uint1 sdram_clock = 0;
@@ -137,7 +138,7 @@ $$elseif ECPIX5 then
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,
     locked   :> pll_lock
-  ); 
+  );
 $$end
   // --- video reset
   clean_reset vga_rstcond<@video_clock,!reset>(
@@ -148,7 +149,7 @@ $$else
   pll clockgen<@clock,!reset>(
     video_clock   :> video_clock,
     video_reset   :> video_reset,
-  );  
+  );
 $$end
 
   uint1  active = 0;
@@ -185,7 +186,7 @@ $$else
   // forever
   while (1) {
 $$end
-  
+
     while (vblank == 1) { }
 	  $display("vblank off");
     while (vblank == 0) { }

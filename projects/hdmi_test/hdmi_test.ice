@@ -1,5 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
-// -------------------------
+// @sylefeb 2019
+// https://github.com/sylefeb/Silice
 
 // HDMI driver
 $include('../common/hdmi.ice')
@@ -28,7 +29,7 @@ algorithm main(
   uint8  r      = 0; // (input)  the red value of the active pixel
   uint8  g      = 0; // (input) the green value of the active pixel
   uint8  b      = 0; // (input) the blue value of the active pixel
-  
+
   hdmi video(
     x       :> x,
     y       :> y,
@@ -39,19 +40,19 @@ algorithm main(
     green   <: g,
     blue    <: b
   );
-  
+
 $$if SIMULATION then
   uint4 count = 0;
 $$end
 
   leds = 0;
 $$if SIMULATION then
-  while (count < 8) { 
+  while (count < 8) {
     count = count + 1;
-$$else  
-  while (1) { 
+$$else
+  while (1) {
 $$end
-  
+
     leds = x;
 
     if (active) {
@@ -59,9 +60,9 @@ $$end
       g = y;
       b = (x+y);
     }
-    
+
   }
-  
+
 }
 
 // ----------------------------------------------------

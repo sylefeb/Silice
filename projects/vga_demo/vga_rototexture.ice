@@ -1,6 +1,7 @@
 // SL 2020-04-22
 // A rotating texture using BRAM
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $include('vga_demo_main.ice')
 
@@ -32,7 +33,7 @@ algorithm frame_display(
   int20  deltau_y = 0;
   int20  deltav_x = 0;
   int20  deltav_y = 0;
-  
+
   brom uint18 tbl[$32*32$] = {
 $$write_image_in_table('tile.tga',6)
   };
@@ -42,13 +43,13 @@ $$for i=0,255 do
     $math.floor(511.0 * math.cos(2*math.pi*i/255))$,
 $$end
   };
-  
-  pix_r := 0; pix_g := 0; pix_b := 0;  
+
+  pix_r := 0; pix_g := 0; pix_b := 0;
   // ---------- show time!
   while (1) {
 	  // display frame
 	  while (pix_vblank == 0) {
-      if (pix_active) {      
+      if (pix_active) {
         pix_b = tbl.rdata[0,6];
         pix_g = tbl.rdata[6,6];
         pix_r = tbl.rdata[12,6];
@@ -73,7 +74,7 @@ $$end
     // prepare next (we are in vblank, there is time)
     cosine.addr = frame;
     frame       = frame + 1;
-++:    
+++:
     angle       = ((512+cosine.rdata) >> 2);
     cosine.addr = angle;
 ++: // sine bram access
@@ -93,9 +94,9 @@ $$end
     u        = corneru;
     v        = cornerv;
     // wait for sync
-    while (pix_vblank == 1) {} 
+    while (pix_vblank == 1) {}
   }
-  
+
 }
 
 // -------------------------

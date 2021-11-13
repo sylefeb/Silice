@@ -1,4 +1,5 @@
 // SL 12-2020
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 // This is a nice trick to 'interpolate' through a 4-bits only DAC
@@ -11,7 +12,7 @@ algorithm audio_pwm(
   input  uint8 wave,
   output uint4 audio,
 ) <autorun> {
-  
+
   uint4  counter        = 0;
   uint4  dac_low       := wave[4,4];   // tracks higher bits
   uint4  dac_high      := dac_low + 1; // same plus on (we interpolate between dac_low and dac_high)

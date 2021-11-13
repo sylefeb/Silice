@@ -2,6 +2,7 @@
 //
 // Generic RV32I SOC
 //
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
@@ -30,13 +31,13 @@ $$end
 
   // ram
   // - intermediate interface to perform memory mapping
-  bram_io memio;  
+  bram_io memio;
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
   bram uint32 mem<"bram_wmask_byte">[$memsz$] = {$meminit$ pad(uninitialized)};
   // - for IO mapping, need to record prev. cycle addr and rw
   uint$addrW$ prev_mem_addr(0);
   uint1       prev_mem_rw(0);
-  
+
   // cpu
   rv32i_cpu cpu( mem <:> memio );
 
@@ -46,17 +47,17 @@ $$end
     uint1 io_write <:  (memio.addr[$external$,1]    &  wen);
     uint1 io_read  <:: (prev_mem_addr[$external$,1] & ~prev_mem_rw);
     $io_select$
-    $on_accessed$    
+    $on_accessed$
     // ---- memory access
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
-    mem.wenable   = memio.wenable & {4{~memio.addr[$external$,1]}}; 
+    mem.wenable   = memio.wenable & {4{~memio.addr[$external$,1]}};
     //                                ^^^^^^^ no BRAM write if in IO addresses
     // ---- memory mapping to IO reads
     memio.rdata = (~io_read ? mem.rdata : ($io_reads$));
-$$if verbose then		
-    if (io_read) { 
-      __display("[cycle %d] IO read @%b = %d",cycle,prev_mem_addr,memio.rdata); 
+$$if verbose then
+    if (io_read) {
+      __display("[cycle %d] IO read @%b = %d",cycle,prev_mem_addr,memio.rdata);
     }
 $$end
     // ---- record addr and rw for next cycle
@@ -66,7 +67,7 @@ $$end
     if (io_write) {
       $io_writes$
 $$if verbose then
-      __display("[cycle %d] IO write @%b = %d",cycle,memio.addr,memio.wdata); 
+      __display("[cycle %d] IO write @%b = %d",cycle,memio.addr,memio.wdata);
 $$end
     }
 $$if verbose then

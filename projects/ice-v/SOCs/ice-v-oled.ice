@@ -2,6 +2,7 @@
 // produces a quarter freq clock with one bit traveling a four bit ring
 // data is sent one main clock cycle before the OLED clock raises
 
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 // TODO: use common/spi.ice when revised/ready
@@ -18,7 +19,7 @@ algorithm oled(
   uint1 dc         = 0;
   uint8 sending    = 0;
   uint8 busy       = 0;
-  
+
   always {
     oled_dc  =  dc;
     osc      =  busy[0,1] ?  {osc[0,3],osc[3,1]} : 4b0001;
@@ -38,7 +39,7 @@ algorithm oled(
 
 }
 
-$$else 
+$$else
 
 // version clock / 2 (freq < 70 MHz)
 algorithm oled(
@@ -50,7 +51,7 @@ algorithm oled(
   uint1 dc         = 0;
   uint8 sending    = 0;
   uint8 busy       = 0;
-  
+
   always {
     oled_dc  =  dc;
     osc      =  busy[0,1] ? {osc[0,1],osc[1,1]} : 2b1;

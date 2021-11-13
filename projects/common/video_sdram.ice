@@ -1,8 +1,9 @@
 // SL 2019-10
 //
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
-// ------------------------- 
+// -------------------------
 
 // 320x200 or 640x480
 //
@@ -10,7 +11,7 @@
 // we divide by 2 down to 320x240
 // we draw rows 1 to 200 (as opposed to 0 to 199)
 // the first row (0) is used to pre-load row 1
-// 
+//
 algorithm frame_display(
   input   uint11   video_x,
   input   uint10   video_y,
@@ -32,7 +33,7 @@ algorithm frame_display(
   uint10 pix_a  = 0;
   uint24 color  = 0;
 
-$$if SDRAM_r128_w8 then      
+$$if SDRAM_r128_w8 then
 $$if mode_640_480 then
   uint10 sub_a <: {(video_x+1d1)      & 4d15,3b000};
 $$else
@@ -40,7 +41,7 @@ $$else
 $$end
 $$end
 
-$$if SDRAM_r512_w64 then      
+$$if SDRAM_r512_w64 then
 $$if mode_640_480 then
   uint10 sub_a <: {(video_x+1d1)      & 6d63,3b000};
 $$else
@@ -59,12 +60,12 @@ $$end
   row_busy = 1; // initally reading from row 1
 
   while (1) {
-    
+
     pixaddr0 = 0;
     pixaddr1 = 0;
-  
+
     if (video_active) {
-    
+
       // display
 	    // -> screen row 0 is skipped as we preload row 0, we draw rows 1-200
 	    //    the row loader loads row   0 for display in screen row   1
@@ -82,7 +83,7 @@ $$end
         }
         // read color from previous
         color    = palette.rdata0;
-$$if HDMI then        
+$$if HDMI then
         video_r  = color[ 0,8];
         video_g  = color[ 8,8];
         video_b  = color[16,8];
@@ -90,7 +91,7 @@ $$else
         video_r  = color[ 0,8] >> $8-color_depth$;
         video_g  = color[ 8,8] >> $8-color_depth$;
         video_b  = color[16,8] >> $8-color_depth$;
-$$end        
+$$end
       }
       if (video_x == 639) { // end of row
 $$if mode_640_480 then
@@ -101,14 +102,14 @@ $$else
         if (sub_j == 2) {
           sub_j = 0;
           pix_j = (pix_j == 201) ? 201 : pix_j + 1;
-        }		
-$$end        
+        }
+$$end
         if (video_y == 479) {
           // end of frame
           sub_j = 0;
-          pix_j = 0;          
+          pix_j = 0;
         }
-      }      
+      }
       row_busy = ~(pix_j[0,1]);
 
       // prepare next read
@@ -116,13 +117,13 @@ $$if mode_640_480 then
       pix_a = (video_x != 638 && video_x != 639) ? (video_x+2)        : 0;
 $$else
       pix_a = (video_x != 638 && video_x != 639) ? ((video_x+2) >> 1) : 0;
-$$end      
+$$end
       // __display("x %d, pix_a %d",video_x,pix_a);
-$$if SDRAM_r128_w8 then      
+$$if SDRAM_r128_w8 then
       pixaddr0 = pix_a>>4;
       pixaddr1 = pix_a>>4;
 $$end
-$$if SDRAM_r512_w64 then      
+$$if SDRAM_r512_w64 then
       pixaddr0 = pix_a>>6;
       pixaddr1 = pix_a>>6;
 $$end
@@ -133,7 +134,7 @@ $$end
 
 }
 
-// ------------------------- 
+// -------------------------
 
 algorithm frame_buffer_row_updater(
   sdram_user       sd,
@@ -157,11 +158,11 @@ algorithm frame_buffer_row_updater(
   uint1  fbuffer_filtered  = 0;
 
   sd.in_valid       := 0; // maintain low (pulses high when needed)
-  
+
   row_busy_filtered ::= row_busy;
   vsync_filtered    ::= vsync;
   fbuffer_filtered  ::= fbuffer;
-  
+
   always {
     // writing/reading on buffers
     if (row_busy_filtered) {
@@ -170,10 +171,10 @@ algorithm frame_buffer_row_updater(
     } else {
       pixwenable0 = 0; // read  0
       pixwenable1 = 1; // write 1
-    }  
+    }
   }
-  
-  working = 0;  // not working  
+
+  working = 0;  // not working
   sd.rw   = 0;  // read
 
   while(1) {
@@ -182,7 +183,7 @@ algorithm frame_buffer_row_updater(
     working = 0;
 
     // wait during vsync or while the busy row is the working row
-    while (vsync_filtered || (working_row == row_busy_filtered)) { 
+    while (vsync_filtered || (working_row == row_busy_filtered)) {
 		  if (vsync_filtered) { // vsync implies restarting the row counter
 			  row         = 0;
 			  working_row = 0;
@@ -194,28 +195,28 @@ algorithm frame_buffer_row_updater(
     // working_row (in which we write) is now != busy_row (which is read for display)
 
     // read row from SDRAM into frame row buffer
-    //    
+    //
     // NOTE: here we assume this can be done fast enough such that row_busy
-    //       will not change mid-course ... will this be true? 
+    //       will not change mid-course ... will this be true?
     //       in any case the display cannot wait, so apart from error
-    //       detection there is no need for a sync mechanism    
+    //       detection there is no need for a sync mechanism
     count = 0;
     while (count < $FB_row_size$) { // we read 16/64 bytes at once
-	
+
       // address to read from (count + row * 320)
-$$if SDRAM_r128_w8 then      
-      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<4) | (row << $FB_row_stride_pow2$); 
+$$if SDRAM_r128_w8 then
+      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<4) | (row << $FB_row_stride_pow2$);
 $$end
 $$if SDRAM_r512_w64 then
-      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<6) | (row << $FB_row_stride_pow2$); 
+      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<6) | (row << $FB_row_stride_pow2$);
 $$end
-      sd.in_valid  = 1;             // go ahead!      
+      sd.in_valid  = 1;             // go ahead!
       while (sd.done == 0) { }      // wait for value
       // __display("<read %x>",sd.data_out);
       pixdata0_w   = sd.data_out;   // data to write
       pixaddr0     = count;         // address to write
       pixdata1_w   = sd.data_out;   // data to write
-      pixaddr1     = count;         // address to write        
+      pixaddr1     = count;         // address to write
       // next
       count        = count + 1;
 
@@ -227,13 +228,13 @@ $$if mode_640_480 then
 	  if (row != 479) {
 $$else
 	  if (row != 199) {
-$$end      
+$$end
       row = row + 1;
-	  } else {    
+	  } else {
       row = 0;
     }
   }
 
 }
 
-// ------------------------- 
+// -------------------------

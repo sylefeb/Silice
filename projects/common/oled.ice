@@ -1,11 +1,12 @@
 // SL 2020-07
 // OLED display library for Silice
-// ------------------------- 
+// -------------------------
 // ST7789 options
 // st7789_no_cs     => true if CS is always grounded and CS pin used or backlight
 // st7789_transpose => true to transpose column/rows
-// ------------------------- 
+// -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $$ if ST7789 then
 
@@ -45,4 +46,4 @@ $$error('[oled] please specify driver, either ST7789 or SSD1351 or SSD1331\n    
 
 $$ end
 
-// ------------------------- 
+// -------------------------

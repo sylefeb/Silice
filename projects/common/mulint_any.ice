@@ -4,6 +4,7 @@
 // with small combinational chains
 //
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 // find out power of 2 just larger than mul_width
 $$mul_width_pow2=0
@@ -32,14 +33,14 @@ $$end
   uint$mul_width$ m1 = 0;
   uint1 m0_neg = 0;
   uint1 m1_neg = 0;
-  
+
   if (im0 < 0) {
     m0_neg = 1;
     m0 = - im0;
   } else {
     m0 = im0;
   }
-  
+
   if (im1 < 0) {
     m1_neg = 1;
     m1 = - im1;
@@ -85,7 +86,6 @@ $$end
     ret = - sum_1_0;
   } else {
     ret = sum_1_0;
-  }  
+  }
 
 }
-

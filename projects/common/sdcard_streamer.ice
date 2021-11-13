@@ -1,6 +1,7 @@
 // SL @sylefeb 2020-09
-// ------------------------- 
+// -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 group streamio {
   uint1 next  = 0,
@@ -41,12 +42,12 @@ algorithm sdcard_streamer(
     // bram port
     store   <:> sdbuffer,
   );
-  
+
   // Global pointer in data
   uint32 ptr     = 0;
   uint1  do_next = 0;
-  
-  // Maintain low  
+
+  // Maintain low
   sdcio.read_sector := 0;
 
   always {
@@ -61,7 +62,7 @@ algorithm sdcard_streamer(
 
   // read sector 0
   sdcio.addr_sector = 0;
-  sdcio.read_sector = 1; 
+  sdcio.read_sector = 1;
   // wait for sector 0
   while (sdcio.ready == 0) { }
 
@@ -82,19 +83,19 @@ algorithm sdcard_streamer(
       sdcio.addr_sector = ptr[9,23] + 1;
       sdcio.read_sector = 1;
     }
-    
+
     if (do_next                              // client requested next byte
     && (ptr[9,23] + 1 == sdcio.addr_sector)  // reading next sector
     ) {
       do_next = 0;
       sdbuffer.addr0 = read_offset + ptr[0,9];
-++:      
+++:
       stream.data    = sdbuffer.rdata0;
       ptr            = ptr + 1;
       stream.ready   = 1;
     }
   }
-  
+
 }
 
-// ------------------------- 
+// -------------------------

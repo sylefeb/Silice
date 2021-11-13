@@ -1,11 +1,13 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2021
 
 volatile unsigned int* const WARMBOOT = (unsigned int*)0x90000000;
 volatile unsigned int* const SPIFLASH = (unsigned int*)0x90000008;
 
 #define NUM_DESIGNS 8 // number of designs in package
 
-long time() 
+long time()
 {
   int cycles;
   asm volatile ("rdcycle %0" : "=r"(cycles));
@@ -13,7 +15,7 @@ long time()
 }
 
 void pause(int cycles)
-{ 
+{
   long tm_start = time();
   while (time() - tm_start < cycles) { }
 }
@@ -52,8 +54,8 @@ void no_patch(int dst_addr,unsigned char *buf) { }
 
 int next_bitstream_addr;
 
-void patch_vector(int dst_addr,unsigned char *buf) 
-{ 
+void patch_vector(int dst_addr,unsigned char *buf)
+{
   if (dst_addr == 0) {
     // three bytes per vector (24 bits)
     // reset   at buf[ 9],buf[10],buf[11]
@@ -77,20 +79,19 @@ void main()
 	*((unsigned char*)(&next_bitstream_addr) + 1) = spiflash_read_next();
 	*((unsigned char*)(&next_bitstream_addr) + 0) = spiflash_read_next();
 	spiflash_read_end();
-	
+
 	// update it
 	if (next_bitstream_addr < (104250 + (NUM_DESIGNS-1)*104090)) {
 		next_bitstream_addr = next_bitstream_addr + 104090;
 	} else {
 		next_bitstream_addr = 104250;
 	}
-	
+
   // copy back
-  spiflash_copy_patch_4KB(0x100000,0x000000,patch_vector); 
-	
-  // reboot to slot 1  
+  spiflash_copy_patch_4KB(0x100000,0x000000,patch_vector);
+
+  // reboot to slot 1
 	while (1) {
 		*WARMBOOT = (1<<9) | 1;
 	}
 }
-

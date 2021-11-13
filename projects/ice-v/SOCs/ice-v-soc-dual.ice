@@ -7,6 +7,7 @@
 //       in case of trouble change PLL choice below
 //       (plls/icestick_XX)
 //
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 // ==================================================

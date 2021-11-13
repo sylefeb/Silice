@@ -4,6 +4,7 @@
 // with small combinational chains
 //
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 algorithm mul(input uint8 m0,input uint8 m1,output! uint8 ret)
 {
@@ -44,4 +45,3 @@ algorithm mul(input uint8 m0,input uint8 m1,output! uint8 ret)
   sum4567 = sum45 + sum67;
   ret = sum0123 + sum4567;
 }
-

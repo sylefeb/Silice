@@ -1,4 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2021
 
 #include "../spiflash.c"
 #include "../config.h"

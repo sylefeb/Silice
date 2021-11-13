@@ -7,7 +7,7 @@
 //
 // This is meant as a tutorial controller
 //
-// For easier compatiblity the input address is in 
+// For easier compatiblity the input address is in
 // byte addresss but the lower bit is ignored.
 //
 // Thus accesses must be aligned on 16 bits.
@@ -34,6 +34,7 @@
 // ====================================================
 
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $$if not SDRAM_COLUMNS_WIDTH then
 $$ if ULX3S then
@@ -66,7 +67,7 @@ $$end
 
 // -----------------------------------------------------------
 
-// this tiny circuitry is repeated every time we need to decompose 
+// this tiny circuitry is repeated every time we need to decompose
 // the command into the pin assignments
 circuitry command(
   output sdram_cs,output sdram_ras,output sdram_cas,output sdram_we,input cmd)
@@ -81,7 +82,7 @@ circuitry command(
 
 algorithm sdram_controller_autoprecharge_r16_w16(
         // sdram pins
-        // => we use immediate (combinational) outputs as these are registered 
+        // => we use immediate (combinational) outputs as these are registered
         //    explicitely using dedicated primitives when available / implemented
         output! uint1   sdram_cle,
         output! uint1   sdram_cs,
@@ -101,9 +102,9 @@ $$else
 $$end
         // interface
         sdram_provider sd,
-$$if SIMULATION then        
+$$if SIMULATION then
         output uint1 error,
-$$end        
+$$end
 ) <autorun>
 {
 
@@ -182,7 +183,7 @@ $$end
 $$end
 
   uint4  cmd = 7;
-  
+
   uint1  work_todo   = 0;
   uint13 row         = 0;
   uint2  bank        = 0;
@@ -197,20 +198,20 @@ $$ cmd_precharge_delay = 3
 $$ print('SDRAM r16w16 configured for 100 MHz (default)')
 
   uint10 refresh_count = -1;
-  
+
   // waits for incount + 4 cycles
   subroutine wait(input uint16 incount)
   {
     uint16 count = uninitialized;
     count = incount;
     while (count > 0) {
-      count = count - 1;      
+      count = count - 1;
     }
   }
-  
-$$if SIMULATION then        
+
+$$if SIMULATION then
   error := 0;
-$$end        
+$$end
 
   sdram_cle := 1;    // always enabled
   sdram_dqm := 2b00; // dqm (byte mask) is not used in this controller
@@ -221,13 +222,13 @@ $$if not ULX3S_IO then
   sdram_we  := reg_sdram_we;
   sdram_ba  := reg_sdram_ba;
   sdram_a   := reg_sdram_a;
-$$if VERILATOR then  
+$$if VERILATOR then
   dq_o      := reg_dq_o;
   dq_en     := reg_dq_en;
-$$end  
 $$end
-  
-  always { // always block is executed at every cycle before anything else  
+$$end
+
+  always { // always block is executed at every cycle before anything else
     // keep done low, pulse high when done
     sd.done = 0;
     // defaults to NOP command
@@ -240,7 +241,7 @@ $$end
       row       = sd.addr[$SDRAM_COLUMNS_WIDTH+1$, 13];
       col       = sd.addr[                      1, $SDRAM_COLUMNS_WIDTH$];
       data      = sd.data_in;
-      do_rw     = sd.rw;    
+      do_rw     = sd.rw;
       // -> signal work to do
       work_todo = 1;
     }
@@ -254,18 +255,18 @@ $$end
 
   // precharge all
   cmd      = CMD_PRECHARGE;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
+  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
   reg_sdram_a  = {2b0,1b1,10b0};
   () <- wait <- ($math.max(0,cmd_precharge_delay-4)$);
 
   // load mod reg
   cmd      = CMD_LOAD_MODE_REG;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
+  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
   reg_sdram_ba = 0;
   reg_sdram_a  = {3b000, 1b1, 2b00, 3b011/*CAS*/, 1b0, 3b000 /*no burst*/};
 ++: // tMRD
 
-  // init done, start answering requests  
+  // init done, start answering requests
   while (1) {
 
     // refresh?
@@ -277,7 +278,7 @@ $$end
       // wait
       () <- wait <- ($refresh_wait-4$);
       // -> reset count
-      refresh_count = $refresh_cycles$;  
+      refresh_count = $refresh_cycles$;
 
     } else {
 
@@ -287,7 +288,7 @@ $$end
       // any pending request?
       if (work_todo) {
         work_todo = 0;
-        
+
         // first, activate the row of the bank
         reg_sdram_ba = bank;
         reg_sdram_a  = row;
@@ -296,7 +297,7 @@ $$end
 $$for i=1,cmd_active_delay do
 ++:
 $$end
-        
+
         // write or read?
         if (do_rw) {
           // __display("<sdram: write %x>",data);
@@ -314,7 +315,7 @@ $$end
           cmd         = CMD_READ;
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           reg_dq_en       = 0;
-          reg_sdram_a     = {2b0, 1b1/*auto-precharge*/, col};          
+          reg_sdram_a     = {2b0, 1b1/*auto-precharge*/, col};
 ++:       // wait CAS cycles + 1 input latency
 ++:
 ++:
@@ -330,7 +331,7 @@ $$end
           sd.data_out = dq_i;
           sd.done     = 1;
         }
-        
+
 ++: // enforce tRP
 ++:
 ++:

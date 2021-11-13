@@ -7,6 +7,7 @@
 //       rdtime reports user_data instead of time
 //
 // --------------------------------------------------
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 $include('risc-v.ice')

@@ -293,7 +293,7 @@ expression_10        : expression_10 (
                     | unaryExpression ;
 
 unaryExpression     : (
-                    '-' | '!' | '~&' | '~|' | '&' | '|' | '^~'| '~^' | '~'
+                    '-' | '!' | '~&' | '~|' | '&' | '|' | '^' | '^~'| '~^' | '~'
 					) atom | atom ;
 
 concatenation       : '{' (NUMBER concatenation | expression_0 (',' expression_0)*) '}';

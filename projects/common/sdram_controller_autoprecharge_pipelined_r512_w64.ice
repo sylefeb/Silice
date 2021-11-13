@@ -6,11 +6,11 @@
 // - writes           4 x 16 bits
 // - reads bursts of 32 x 16 bits
 //
-// if using directly the controller: 
+// if using directly the controller:
 //  - writes have to aligned with 64 bits boundaries (8 bytes)
 //  - reads have to be aligned with 512 bits boundaries (64 bytes)
 
-// NOTE: A misaligned read will have the first bytes correct until 
+// NOTE: A misaligned read will have the first bytes correct until
 //       reaching the 64 bytes boundary after which it wraps around
 //       Keeping that in mind, misalgined reads are possible.
 
@@ -18,6 +18,7 @@
 // This is assuming a 32 MB chip, larger chips will be partially used
 
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $$ SDRAM_COLUMNS_WIDTH =  9
 
@@ -49,7 +50,7 @@ $$ read_burst_length = 8
 
 algorithm sdram_controller_autoprecharge_pipelined_r512_w64(
     // sdram pins
-    // => we use immediate (combinational) outputs as these are registered 
+    // => we use immediate (combinational) outputs as these are registered
     //    explicitely using dedicated primitives when available / implemented
     output! uint1   sdram_cle,
     output! uint1   sdram_cs,
@@ -69,9 +70,9 @@ $$else
 $$end
     // interface
     sdram_provider sd,
-$$if SIMULATION then        
+$$if SIMULATION then
     output uint1 error,
-$$end        
+$$end
 ) <autorun>
 {
 
@@ -132,7 +133,7 @@ $$end
 $$end
 
   uint4  cmd          = uninitialized;
-  
+
   uint1   work_todo(0);
   uint1   working(0);
   uint13  row         = uninitialized;
@@ -166,14 +167,14 @@ $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_
     uint16 count = uninitialized;
     count = incount;
     while (count != 0) {
-      count = count - 1;      
+      count = count - 1;
     }
   }
-  
+
 $$if SIMULATION then
   uint32 cycle(0);
   error := 0;
-$$end        
+$$end
 
   sdram_cle := 1;
 $$if not ULX3S_IO then
@@ -184,16 +185,16 @@ $$if not ULX3S_IO then
   sdram_dqm := reg_sdram_dqm;
   sdram_ba  := reg_sdram_ba;
   sdram_a   := reg_sdram_a;
-$$if VERILATOR then  
+$$if VERILATOR then
   dq_o      := reg_dq_o;
   dq_en     := reg_dq_en;
-$$end  
+$$end
 $$end
 
   sd.done := 0;
-  
+
   // always set NOP as default command, before anything else
-  always_before { 
+  always_before {
     cmd = CMD_NOP;
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
     refresh_count = refresh_delay[0,1] ? $refresh_cycles$ : (refresh_count - 1);
@@ -204,24 +205,24 @@ $$end
   // (introduces a one cycle latency but beneficial to timing)
   always_after {
     if (sd.in_valid) {
-$$if SIMULATION then            
+$$if SIMULATION then
       // __display("[cycle %d] ---------- in_valid rw:%b data:%h",cycle,sd.rw,sd.data_in);
       //if ( sd.rw) { if (sd.addr[0,3] != 0) { __display("[cycle %d] WARNING SDRAM misaligned write!",cycle); } }
       //if (~sd.rw) { if (sd.addr[0,6] != 0) { __display("[cycle %d] WARNING SDRAM misaligned read!",cycle); } }
 $$end
       // copy inputs
-      col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$]; 
+      col       = sd.addr[                      3, $SDRAM_COLUMNS_WIDTH$];
       //                                       ^^^ 3: 1 due to 16 width + 2 due to four banks with interleaved addrs
       row       = sd.addr[$SDRAM_COLUMNS_WIDTH+3$, 13];
       wmask     = sd.wmask;
       data      = sd.data_in;
-      do_rw     = sd.rw;    
+      do_rw     = sd.rw;
       // note there is work todo
       work_todo = 1;
     }
 
     refresh_delay   = (refresh_delay>>1);
-    refresh_trigger = (refresh_trigger>>1);    
+    refresh_trigger = (refresh_trigger>>1);
     if (needs_refresh & ~working) {
       refresh_delay   = 10b1111111111;
       refresh_trigger = 3b100;
@@ -231,7 +232,7 @@ $$end
       working   = 1;
       work_todo = 0;
       // prepare read/write sequence
-      burst         = 
+      burst         =
 $$if ULX3S then
               9b100000000;
 $$elseif ICARUS then
@@ -258,18 +259,18 @@ $$end
 
   // precharge all
   cmd          = CMD_PRECHARGE;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
+  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
   reg_sdram_a  = {2b0,1b1,10b0};
   () <- wait <- ($math.max(0,cmd_precharge_delay-4)$);
 
   // load mod reg
   cmd          = CMD_LOAD_MODE_REG;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);  
+  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
   reg_sdram_ba = 0;
   reg_sdram_a  = {3b000, 1b1/*single write*/, 2b00, 3b011/*CAS*/, 1b0, 3b011 /*burst=8x*/ };
 ++: // tMRC
 
-  // init done, start answering requests  
+  // init done, start answering requests
   while (1) {
 
     // sdram pins for read/write
@@ -291,7 +292,7 @@ $$end
         // opmodulo controls when Read or Write are sent
         // actmodulo controls when Activate are sent
         // Write sequence is
-        // AC0 ___ WR0 ___ AC1 ___ WR1 ___ AC2 __ WR2 __ ...        
+        // AC0 ___ WR0 ___ AC1 ___ WR1 ___ AC2 __ WR2 __ ...
         // Read sequence is
         // AC0 ___ RD0 ___ ___ ___ ___ BR0 BR1 BR2 BR3 BR4 ....
         //         <-------------------> ...   AC1 ___ RD1 ___ ....
@@ -313,7 +314,7 @@ $$end
             cmd           = (stage[2,1] | ~working) ? CMD_NOP : (do_rw ? CMD_WRITE : CMD_READ);
             opmodulo      = do_rw ? 8b00001000 : 8b10000000;
             actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
-            stage         = stage + 1;             
+            stage         = stage + 1;
             data          = data  >> 16;
             wmask         = wmask >> 2;
           }
@@ -324,17 +325,17 @@ $$end
           }
         }
     }
-    
+
     // issue command
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-    
+
     // burst data in
-    { 
-          
+    {
+
       switch ({~working,read_cnt[0,3],read_cnt[3,2]}) {
-$$for i = 0,31 do            
+$$for i = 0,31 do
         case $i$: {sd.data_out[$i*16$,16] = dq_i;}
-$$end            
+$$end
         default: {}
       }
 
@@ -345,7 +346,7 @@ $$if SIMULATION then
         // if (sd.done) {
         //     __display("[cycle %d] done:%b rw:%b stage:%b data_out:%h",cycle,sd.done,do_rw,stage[0,2],sd.data_out);
         // }
-$$end          
+$$end
         // break;
       }
 

@@ -1,5 +1,6 @@
 // SL 2020-07
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 // vvvvvvvvvvvvv select screen driver below
 $$ -- SSD1331=1 -- NOTE: not yet correctly supported

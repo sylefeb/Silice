@@ -1,8 +1,9 @@
 // SL 2020-07
-// ------------------------- 
+// -------------------------
 // OLED RGB screen driver (SSD1351)
-// ------------------------- 
+// -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 group oledio {
   uint9  x_start = 0,
@@ -12,10 +13,10 @@ group oledio {
   uint18 color       = 0,
   uint1  start_rect  = 0,
   uint1  next_pixel  = 0,
-  uint1  ready   = 0 
+  uint1  ready   = 0
 }
 
-// ------------------------- 
+// -------------------------
 
 $$oled_send_delay = 8*2
 
@@ -31,7 +32,7 @@ algorithm oled_send(
   uint2  osc        = 1;
   uint1  dc         = 0;
   uint9  sending    = 0;
-  
+
   always {
     oled_dc  =  dc;
     osc      =  (sending>1) ? {osc[0,1],osc[1,1]} : 1;
@@ -51,7 +52,7 @@ algorithm oled_send(
   }
 }
 
-// ------------------------- 
+// -------------------------
 
 algorithm oled(
   output uint1 oled_clk,
@@ -80,7 +81,7 @@ $$else
     while (count != delay) {
 $$end
       count = count + 1;
-    }   
+    }
   }
 
   uint1 enable          = 0;
@@ -93,14 +94,14 @@ $$end
     oled_clk  :> oled_clk,
     oled_mosi :> oled_mosi,
     oled_dc   :> oled_dc,
-  );  
+  );
 
   subroutine sendCommand(input uint8 val,
     writes enable,writes data_or_command,writes byte,calls wait)
   {
     data_or_command = 0;
     byte            = val;
-    enable          = 1;    
+    enable          = 1;
     () <- wait <- ($oled_send_delay-4$);
   }
 
@@ -109,31 +110,31 @@ $$end
   {
     data_or_command = 1;
     byte            = val;
-    enable          = 1;    
+    enable          = 1;
     () <- wait <- ($oled_send_delay-4$);
   }
-  
+
   // always enabled
   oled_csn := 0;
-  
+
   //---------------
   // Intializing
   //---------------
 
   enable  := 0; // pulses high when needed
   io.ready = 0;
-  
+
   // reset high
   oled_resn = 1;
-  () <- wait <- (2500000); // 100 msec @25Mhz  
+  () <- wait <- (2500000); // 100 msec @25Mhz
   // reset low
-  oled_resn = 0;  
+  oled_resn = 0;
   // wait some
   () <- wait <- (2500000);
   // reset high
   oled_resn = 1;
-  
-  // 300 msec @100Mhz  
+
+  // 300 msec @100Mhz
   () <- wait <- (7500000);
 
   // send screen-on command
@@ -141,21 +142,21 @@ $$end
   // 300 msec @100Mhz
   () <- wait <- (7500000);
 
-  // select auto horiz. increment, 666 RGB 
+  // select auto horiz. increment, 666 RGB
   () <- sendCommand <- (8ha0);
   () <- sendData    <- (8b10100000);
-  
+
   // unlock
   () <- sendCommand <- (8hfd);
   () <- sendData    <- (8hb1);
-  
+
   // set vertical scroll to 0
   () <- sendCommand <- (8ha2);
   () <- sendData    <- (8h00);
-  
+
   //---------------
   // Init done!
-  //--------------  
+  //--------------
 
   // ready to accept commands
   io.ready = 1;
@@ -189,4 +190,4 @@ $$end
 
 }
 
-// ------------------------- 
+// -------------------------

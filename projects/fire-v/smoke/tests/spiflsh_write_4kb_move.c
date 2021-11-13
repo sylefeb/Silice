@@ -1,9 +1,11 @@
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 volatile unsigned char* const LEDS     = (unsigned char*)0x90000000;
 volatile unsigned int*  const SPIFLASH = (unsigned int* )0x90000008;
 
-long time() 
+long time()
 {
   int cycles;
   asm volatile ("rdcycle %0" : "=r"(cycles));
@@ -11,7 +13,7 @@ long time()
 }
 
 void pause(int cycles)
-{ 
+{
   long tm_start = time();
   while (time() - tm_start < cycles) { }
 }
@@ -46,11 +48,11 @@ void main()
   spiflash_init();
 
   *LEDS = 31;
-  
+
   // copy to a free location
   spiflash_copy4KB(0x000000,0x100000);
   // copy back
-  spiflash_copy4KB(0x100000,0x000000); 
-  
+  spiflash_copy4KB(0x100000,0x000000);
+
   *LEDS = 0;
 }

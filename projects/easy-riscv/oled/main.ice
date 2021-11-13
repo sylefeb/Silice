@@ -1,3 +1,5 @@
+// @sylefeb 2021
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 // ===== screen CONFIGURATION, adjust to your setups

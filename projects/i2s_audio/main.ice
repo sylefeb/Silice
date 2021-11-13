@@ -1,5 +1,6 @@
 // SL 2021-07-20
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 // First we use the pre-processor to compute counters
 // based on the FPGA frequency and target audio frequency.
@@ -29,7 +30,7 @@ algorithm main(
   inout  uint8 pmod, // we use a PMOD with inout pins
 ) {
 
-  // the sound wave period is stored in a BROM  
+  // the sound wave period is stored in a BROM
   brom int16 wave[] = {
 $$for i=1,num_samples do
     $math.floor(1024.0 * math.cos(2*math.pi*i/num_samples))$,
@@ -38,20 +39,20 @@ $$end
 
   uint1  i2s_bck(1); // serial clock (32 periods per audio half period)
   uint1  i2s_lck(1); // audio clock (low: right, high: left)
-  
+
   uint16 data(0);    // data being sent, shifted through i2s_din
   uint4  count(0);   // counter for generating the serial bit clock
                      // NOTE: width may require adjustment on other base freqs.
   uint5  mod32(1);   // modulo 32, for audio clock
-  
+
   always {
-    
+
     // track expressions for posedge and negedge of serial bit clock
     uint1 edge      <:: (count == $bit_hperiod_count-1$);
     uint1 negedge   <:: edge &  i2s_bck;
     uint1 posedge   <:: edge & ~i2s_bck;
     uint1 allsent   <:: mod32 == 0;
-   
+
     // setup pmod as all outputs
     pmod.oenable = 8b11111111;
     // output i2s signals
@@ -69,14 +70,14 @@ $$end
         data = data << 1;
       }
     }
-    
+
     // update I2S clocks
     i2s_bck = edge                ? ~i2s_bck : i2s_bck;
     i2s_lck = (negedge & allsent) ? ~i2s_lck : i2s_lck;
-    
+
     // update counter and modulo
     count   = edge    ? 0 : count + 1;
     mod32   = negedge ? mod32 + 1 : mod32;
-    
+
   }
 }

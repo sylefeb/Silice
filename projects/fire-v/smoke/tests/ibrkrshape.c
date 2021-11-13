@@ -1,4 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 
 #include "../mylibc/mylibc.h"
 
@@ -12,7 +14,7 @@ int  sorted[NTRIS]; // key<<16 | id   (64K triangles max ... anyway)
 
 void init_sort()
 {
-  for (int i = 0; i < NTRIS ; i++) {    
+  for (int i = 0; i < NTRIS ; i++) {
     sorted[i] = i;
   }
 }
@@ -23,7 +25,7 @@ void init_sort()
 void update_sort()
 {
   unsigned int *trpts = (unsigned int *)0x10004;
-  for (int i = 0; i < NTRIS ; i++) {    
+  for (int i = 0; i < NTRIS ; i++) {
     int t  = sorted[i]&65535;
     int t3 = t + (t<<1); // t*3
     int z0 = (trpts[idx[t3+0]]>>20)&1023;
@@ -63,7 +65,7 @@ void transform_points(const int *M)
   }
 }
 
-inline long my_userdata() 
+inline long my_userdata()
 {
   int id;
   asm volatile ("rdtime %0" : "=r"(id));
@@ -71,22 +73,22 @@ inline long my_userdata()
 }
 
 inline void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
-{ 
+{
   register int px0 = p0 & 1023;
   register int px1 = p1 & 1023;
   register int px2 = p2 & 1023;
   register int py0 = (p0>>10) & 1023;
   register int py1 = (p1>>10) & 1023;
   register int py2 = (p2>>10) & 1023;
-  
+
   // front facing?
   register int d10x  = px1 - px0;
   register int d10y  = py1 - py0;
   register int d20x  = px2 - px0;
   register int d20y  = py2 - py0;
-  register int cross = d10x*d20y - d10y*d20x;  
+  register int cross = d10x*d20y - d10y*d20x;
   if (cross <= 0) return;
-  
+
   int color    = (cross*inv_area[t])>>13;
   if (color > 14) color = 14;
 
@@ -106,7 +108,7 @@ inline void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int
     tmp = py2; py2 = py1; py1 = tmp;
     tmp = px2; px2 = px1; px1 = tmp;
   }
-  
+
   *(TRIANGLE+11) = NVERTS; // reinit write address, skip all transformed vertices
   *(TRIANGLE+14) = ((px1-px0)&65535) | ((py1-py0)<<16);
   *(TRIANGLE+15) = ((px2-px1)&65535) | ((py2-py1)<<16);
@@ -137,7 +139,7 @@ void main()
   char b     = 60;
   char c     = 64;
   int  frame = 0;
-  
+
   *LEDS = 0;
 
   int posy = 0;
@@ -148,7 +150,7 @@ void main()
   unsigned int *trpts = (unsigned int *)0x10004;
 
   while(1) {
-    
+
     clear(15, 0,0,SCRW,SCRH);
 
     ///////////////////////// update matrices
@@ -173,7 +175,7 @@ void main()
 
     ///////////////////////// draw
     //int tm_tris_start = time();
-    for (int i = 0; i < NTRIS ; i++) {    
+    for (int i = 0; i < NTRIS ; i++) {
       int t  = sorted[i]&65535;
       int t3 = t + (t<<1);
       draw_triangle_raw(t,trpts[idx[t3+0]],trpts[idx[t3+1]],trpts[idx[t3+2]]);
@@ -183,7 +185,7 @@ void main()
     //set_cursor(4,0);
 
     // wait for any pending draw to complete
-    while ((my_userdata()&1) == 1) {  }     
+    while ((my_userdata()&1) == 1) {  }
     // wait for vblank
     // while ((my_userdata()&2) == 0) {  }
     // swap buffers
@@ -192,9 +194,9 @@ void main()
 
     ///////////////////////// next
     ++frame;
-  
+
     // pause(200000);
-    
+
   }
 
 }

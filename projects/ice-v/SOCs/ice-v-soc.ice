@@ -3,6 +3,7 @@
 // Fun with RISC-V!
 // RV32I cpu, see README.md
 //
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 // Clocks

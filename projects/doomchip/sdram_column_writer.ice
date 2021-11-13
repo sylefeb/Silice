@@ -1,5 +1,6 @@
 // SL 2020-04-28
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 // -------------------------
 
 algorithm sdram_column_writer(
@@ -10,25 +11,25 @@ algorithm sdram_column_writer(
     input   write,
     input   done,
   },
-  sdram_user   sd,  
+  sdram_user   sd,
   output uint1 fbuffer,
 ) <autorun> {
-  
+
   simple_dualport_bram uint8 col_buffer[$doomchip_height*2$] = uninitialized;
   uint10 drawer_offset = 0; // offset of column being drawn
   uint10 xfer_offset   = $doomchip_height$; // offset of column being transfered
   uint10 xfer_count    = $doomchip_height$; // transfer count
   uint10 xfer_col      = $doomchip_width-1$; // column being transfered
   uint10 last_drawn    = -1;
-  uint10 draw_col      = 0;  
+  uint10 draw_col      = 0;
   uint1  done          = 0;
-  
+
   sd.rw               := 1; // write to SDRAM
   sd.in_valid         := 0; // maintain low, pulses high
   col_buffer.wenable1 := 1; // write on port1, read  on port0
   // column that can be drawn
   colio.draw_col      := draw_col;
-  
+
   always {
     if (colio.write) {
       // write in bram
@@ -39,9 +40,9 @@ algorithm sdram_column_writer(
       last_drawn = draw_col;
       // __display("done received (draw_col: %d)",draw_col);
       done = 1;
-    }   
+    }
   }
-  
+
   fbuffer = 0;
   while (1) {
     // continue with transfer if not done
@@ -52,7 +53,7 @@ algorithm sdram_column_writer(
       sd.in_valid     = 1; // go ahead!
       // wait for sdram to be done
       while (sd.done == 0) { }
-      // next      
+      // next
       xfer_count      = xfer_count + 1;
       if (xfer_count < $doomchip_height$) {
         col_buffer.addr0 = xfer_offset + xfer_count;
@@ -60,10 +61,10 @@ algorithm sdram_column_writer(
         // done
         // __display("xfer %d done (count %d)",xfer_col,xfer_count);
         xfer_col         = (draw_col == 0) ? 0 : xfer_col+1;
-        draw_col         = (draw_col == $doomchip_width$) ? 0 : draw_col+1; 
+        draw_col         = (draw_col == $doomchip_width$) ? 0 : draw_col+1;
         xfer_offset      = (xfer_offset   == 0) ? $doomchip_height$ : 0;
         drawer_offset    = (drawer_offset == 0) ? $doomchip_height$ : 0;
-        col_buffer.addr0 = xfer_offset; // position for restart        
+        col_buffer.addr0 = xfer_offset; // position for restart
         if (draw_col == $doomchip_width$) {
           // frame done
           draw_col = 0;
@@ -73,17 +74,17 @@ algorithm sdram_column_writer(
         }
         // __display(" -> next: xfer %d, draw %d",xfer_col,draw_col);
       }
-    } else {    
+    } else {
       if (done) {
         done = 0;
         // __display("column %d drawn",draw_col);
         // __display(" -> starting xfer %d",xfer_col);
         // starts xfer
-        xfer_count    = 0; 
-      }    
+        xfer_count    = 0;
+      }
     }
   }
-  
+
 }
 
 // -------------------------

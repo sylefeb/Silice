@@ -1,6 +1,8 @@
 // SL 2020-07-13
 // Wave function collapse / Model synthesis (with image output)
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2020
 
 $$if DE10NANO or SIMULATION then
 $$N = 8
@@ -39,30 +41,30 @@ $$for i=1,L do
       ({$L${right[$i-1$,1]}} & $L$b$Rleft[i]$)
 $$if i < L then
     |
-$$end      
+$$end
 $$end
     ) & (
 $$for i=1,L do
       ({$L${left[$i-1$,1]}} & $L$b$Rright[i]$)
 $$if i < L then
     |
-$$end      
+$$end
 $$end
     ) & (
 $$for i=1,L do
       ({$L${bottom[$i-1$,1]}} & $L$b$Rtop[i]$)
 $$if i < L then
     |
-$$end      
+$$end
 $$end
     ) & (
 $$for i=1,L do
       ({$L${top[$i-1$,1]}} & $L$b$Rbottom[i]$)
 $$if i < L then
     |
-$$end      
 $$end
-    )    
+$$end
+    )
     ;
     nstable = (newsite != site);
   }
@@ -113,7 +115,7 @@ $$print('choice reducer has ' .. L_pow2 .. ' levels')
 $$nr = 0
 $$for lvl=L_pow2-1,0,-1 do
 $$  for i=0,(1<<lvl)-1 do
-  uint5 keep_$lvl$_$2*i$_$2*i+1$ := 
+  uint5 keep_$lvl$_$2*i$_$2*i+1$ :=
 $$    if lvl == L_pow2-1 then
 $$      if 2*i < L then
 $$        if 2*i+1 < L then
@@ -151,15 +153,15 @@ algorithm wfc(
 $$for j=0,(N+2)-1 do
 $$for i=0,(N+2)-1 do
   uint$L$ grid_$i$_$j$ = uninitialized;
-$$end    
 $$end
-  // variables bound to rule processor outputs 
+$$end
+  // variables bound to rule processor outputs
 $$for j=1,N do
 $$for i=1,N do
   uint$L$ new_grid_$i$_$j$ = uninitialized;
   uint1   nstable_$i$_$j$  = uninitialized;
 $$end
-$$end   
+$$end
   // all rule-processors
 $$for j=1,N do
 $$for i=1,N do
@@ -173,8 +175,8 @@ $$ l,r,t,b = neighbors(i,j)
     newsite :>  new_grid_$i$_$j$,
     nstable :>  nstable_$i$_$j$
   );
-$$end  
-$$end  
+$$end
+$$end
 
   // algorithm for choosing a label
   uint$L$ site   = uninitialized;
@@ -189,9 +191,9 @@ $$end
 $$for i=1,N do
 $$for j=1,N do
             nstable_$i$_$j$ $((i==N and j==N) and '' or ',')$
-$$end        
 $$end
-          };		  
+$$end
+          };
   // next entry to be collapsed
   uint8  next_i = 0;
   uint16 next_j = 0;
@@ -199,7 +201,7 @@ $$end
   // local address in grid
   uint16 local = 0;
   // random
-  uint16 rand = 0;    
+  uint16 rand = 0;
   // grid updates
   uint1  update_en = 0;
 $$for j=1,N do
@@ -224,11 +226,11 @@ $$end
       switch (local) {
         default: {  }
 $$for j=0,N+1 do
-$$for i=0,N+1 do    
+$$for i=0,N+1 do
         case $i + j*G$: { grid_$i$_$j$ = data_in; }
-$$end      
-$$end      
-      }    
+$$end
+$$end
+      }
       next_i = next_i + 1;
       local  = next_i + next_j;
       addr   = local  + offset;
@@ -251,10 +253,10 @@ $$end
   );
 $$end
 
-  // while not fully resolved ...  
+  // while not fully resolved ...
   next = 0;
   while (next < $N*N$) {
-    
+
     // choose
     {
       switch (next) {
@@ -263,11 +265,11 @@ $$nxt = 0
 $$for j=1,N do
 $$for i=1,N do
         case $nxt$: { site = grid_$i$_$j$; }
-$$nxt = nxt + 1        
+$$nxt = nxt + 1
 $$end
 $$end
       }
-      
+
 ++: // wait for choice to be made, then store
 
       switch (next) {
@@ -276,12 +278,12 @@ $$nxt = 0
 $$for j=1,N do
 $$for i=1,N do
         case $nxt$: { grid_$i$_$j$ = choice; }
-$$nxt = nxt + 1        
+$$nxt = nxt + 1
 $$end
 $$end
       }
     }
-    
+
     // wait propagate
     while (nstable_reduce) { }
 
@@ -306,25 +308,25 @@ $$end
   while (next_j < $(N+2)*G$) {
     next_i = 0;
     while (next_i < $N+2$) {
-      local = next_i + next_j;    
+      local = next_i + next_j;
       addr  = local + offset;
       we    = 1;
       switch (local) {
         default: { we = 0; }
 $$for j=1,N do
-$$for i=1,N do    
+$$for i=1,N do
         case $i + j*G$: { data_out = grid_$i$_$j$; }
-$$end      
-$$end      
-      }    
+$$end
+$$end
+      }
       next_i = next_i + 1;
     }
     next_j = next_j + $G$;
   }
   we = 0;
 
-  __display("wfc done");  
-  
+  __display("wfc done");
+
 }
 
 // -------------------------
@@ -336,7 +338,7 @@ algorithm frame_display(
   input   uint1  pix_vblank,
 $$if not SIMULATION then
   input   uint$NUM_BTNS$ btns,
-$$end  
+$$end
   output! uint$color_depth$ pix_r,
   output! uint$color_depth$ pix_g,
   output! uint$color_depth$ pix_b
@@ -366,31 +368,31 @@ $$end
     seed     <: iter
   );
 
-  uint1 in_domain := (pix_x >= $16$  && pix_y >= $16$ 
+  uint1 in_domain := (pix_x >= $16$  && pix_y >= $16$
                    && pix_x < $(G-1)*16$ && pix_y < $(G-1)*16$);
 
-  pix_r := 0; pix_g := 0; pix_b := 0;  
-  
+  pix_r := 0; pix_g := 0; pix_b := 0;
+
   domain.wenable0 = 0;
 
-  // ---- display domain  
-  while (1) { 
-  
+  // ---- display domain
+  while (1) {
+
 	  uint8   tile       = 0;
     uint16  domain_row = 0;
     domain.addr0       = 0; // restart domain scanning
-    
+
 	  while (pix_vblank == 0) {
-      
+
       if (pix_active) {
         if (pix_x == 639) {
           if ((pix_y&15) == 15) {
             // next row
             domain_row   = domain_row + $G$;
-            domain.addr0 = domain_row; 
+            domain.addr0 = domain_row;
           } else {
             // reset to start of row
-            domain.addr0 = domain_row; 
+            domain.addr0 = domain_row;
           }
         } else {
           if ((pix_x&15) == 13) { // move to next site
@@ -401,7 +403,7 @@ $$end
             }
           }
         }
-        
+
         // set rgb data
         pix_b = in_domain ? tiles.rdata[ 0,6] : 0;
         pix_g = in_domain ? tiles.rdata[ 6,6] : 0;
@@ -429,15 +431,15 @@ $$if not SIMULATION then
     if (btns[1,1] != 0) {
 $$else
     if (1) {
-$$end    
+$$end
       while (1) {
-        
+
         uint8  next_tile_j = 0;
-        uint16 offset_row = 0;        
+        uint16 offset_row = 0;
         while (next_tile_j < $T$) {
           uint8 next_tile_i = 0;
           offset   = offset_row;
-          while (next_tile_i < $T$) {    
+          while (next_tile_i < $T$) {
             __display("*** tile %d,%d ***",next_tile_i,next_tile_j);
             () <- wfc1 <- ();
             iter = iter + 1;
@@ -447,16 +449,16 @@ $$end
           offset_row  = offset_row + $(N)*G$;
           next_tile_j = next_tile_j + 1;
         }
-        
+
         if (domain.rdata0 != 0) {
           break;
         }
-        
+
       }
     }
-    
+
     // wait for sync
-    while (pix_vblank == 1) {} 
+    while (pix_vblank == 1) {}
   }
 
 }

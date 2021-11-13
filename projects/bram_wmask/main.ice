@@ -1,3 +1,5 @@
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
@@ -15,6 +17,6 @@ algorithm main(output uint$NUM_LEDS$ leds)
   mem.wdata1   = 32h12345678;
 ++:
 ++:
-  __display("mem.rdata0 = %h",mem.rdata0);  
+  __display("mem.rdata0 = %h",mem.rdata0);
   leds = mem.rdata0[0,8]|mem.rdata0[8,8]|mem.rdata0[16,8]|mem.rdata0[24,8];
 }

@@ -1,5 +1,6 @@
 // Sylvain Lefebvre; simple parallel division; 2019-10-09
 // 16 bit version; see divint.ice for more info
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 $$div_width=16

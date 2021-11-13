@@ -1,6 +1,7 @@
 // SL 2020-04-23
 // Roto-rubber-bar, old-school classic!
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $include('vga_demo_main.ice')
 
@@ -23,7 +24,7 @@ $$end
   };
 
   uint7  frame = 0;
-  
+
   uint10 pos0 = 320;
   uint10 pos1 = 160;
   uint10 pos2 = 240;
@@ -33,7 +34,7 @@ $$end
   uint10 bar1 = 160;
   uint10 bar2 = 240;
   uint10 bar3 = 480;
-  
+
   pix_r  := 0; pix_g := 0; pix_b := 0;
 
   // ---------- show time!
@@ -72,7 +73,7 @@ $$end
     pos2  = $320-128$ + wave[(frame + 64)&127];
     pos3  = $320-128$ + wave[(frame + 96)&127];
     // wait for sync
-    while (pix_vblank == 1) {} 
+    while (pix_vblank == 1) {}
   }
 
 }

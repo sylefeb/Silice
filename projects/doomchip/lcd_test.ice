@@ -1,12 +1,13 @@
 // SL 2020-05
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 import('../common/de10nano_clk_100_25.v')
 import('../common/reset_conditioner.v')
 
 $include('lcd.ice')
 
-// ------------------------- 
+// -------------------------
 
 algorithm main(
   output! uint1  sdram_cle,
@@ -53,7 +54,7 @@ algorithm main(
     rcclk <: video_clock,
     in    <: reset,
     out   :> video_reset
-  );  
+  );
   // --- SDRAM clean reset
   reset_conditioner sdram_rstcond (
     rcclk <: sdram_clock,
@@ -65,20 +66,20 @@ algorithm main(
   uint8  msg2[17] = "E1M1            ";
   uint8  msg3[17] = "interactive mode";
   uint26 counter  = 1;
-  
+
   subroutine printMessage(
     readwrites  io,
     input uint8 msg[17]
   ) {
-    uint8 i = 0;  
+    uint8 i = 0;
     while (msg[i] != 0) {
       while (io.ready == 0) { }
       io.data   = msg[i];
       io.print  = 1;
       i         = i + 1;
-    }  
+    }
   }
-  
+
   lcdio io;
   lcd   display(
     lcd_rs :> lcd_rs,
@@ -89,29 +90,29 @@ algorithm main(
   );
 
   led      := 0;
-  
+
   io.print  := 0;
   io.setrow := 0;
 
   () <- printMessage <- (msg1);
 
   while (1) {
-    
+
     while (io.ready == 0) { }
     io.data   = 1;
     io.setrow = 1;
-    
+
     () <- printMessage <- (msg2);
 
     counter = 1;
     while (counter != 0) {
       counter = counter + 1;
     }
-    
+
     while (io.ready == 0) { }
     io.data   = 1;
     io.setrow = 1;
-    
+
     () <- printMessage <- (msg3);
 
     counter = 1;
@@ -122,4 +123,4 @@ algorithm main(
   }
 }
 
-// ------------------------- 
+// -------------------------

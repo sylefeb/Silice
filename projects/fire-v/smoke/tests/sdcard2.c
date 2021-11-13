@@ -1,3 +1,5 @@
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 #include "../mylibc/mylibc.h"
@@ -14,9 +16,9 @@ void fb_cleanup()
 void main()
 {
 /*  for (int k=0;k<4;k++) {
-    pause(10000000); 
+    pause(10000000);
     *LEDS = 255;
-    pause(10000000); 
+    pause(10000000);
     *LEDS = 0;
   }
 */

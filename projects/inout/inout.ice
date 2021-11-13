@@ -1,4 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2021
 
 algorithm main(
   output uint$NUM_LEDS$ leds(0),

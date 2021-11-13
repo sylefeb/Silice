@@ -1,9 +1,10 @@
 // SL 2020-12-02 @sylefeb
-// ------------------------- 
+// -------------------------
 // Flame: a hardware rasterizer for Fire-V
-// ------------------------- 
+// -------------------------
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
-// ------------------------- 
+// -------------------------
 /*
 
  - parameter: FLAME_BLAZE=1 if on Blaze, nil otherwise (Wildfire)
@@ -15,7 +16,7 @@ group vertex
   int16 x = uninitialized, int16 y = uninitialized, int16 z = uninitialized
 }
 
-group transform 
+group transform
 {
   int8 m00 = 127, int8 m01 = 0,   int8 m02 = 0,
   int8 m10 = 0,   int8 m11 = 127, int8 m12 = 0,
@@ -49,7 +50,7 @@ $$end
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
- 
+
     if (prepare[1,1]) {
       last_y  = __signed(y0) - 1;
       xi_full = x0 << 10;
@@ -69,9 +70,9 @@ $$end
   }
 }
 
-// ------------------------- 
+// -------------------------
 
-algorithm ram_writer_wildfire( 
+algorithm ram_writer_wildfire(
   sdram_user     sd,
   input  uint1   fbuffer,
   input  uint1   start,
@@ -99,9 +100,9 @@ algorithm ram_writer_wildfire(
   }
 }
 
-// ------------------------- 
+// -------------------------
 
-algorithm ram_writer_blaze( 
+algorithm ram_writer_blaze(
   sdram_user     sd,
   input  uint1   fbuffer,
   input  uint1   start,
@@ -130,7 +131,7 @@ algorithm ram_writer_blaze(
   }
 }
 
-// ------------------------- 
+// -------------------------
 
 algorithm flame_rasterizer(
   sdram_user    sd,
@@ -151,7 +152,7 @@ algorithm flame_rasterizer(
 $$if SIMULATION then
    uint24 cycle = 0;
 $$end
-  
+
   uint10  xi0 = uninitialized;
   uint10  xi1 = uninitialized;
   uint10  xi2 = uninitialized;
@@ -235,7 +236,7 @@ $$end
 
   always {
 
-    if (drawing & ~wait_done) {      
+    if (drawing & ~wait_done) {
       if (span_x[10,1]) {
         // find the span bounds, start drawing
         uint10 first  = uninitialized;
@@ -246,11 +247,11 @@ $$end
           case 3b001: { first = xi1; second = xi2; }
           case 3b010: { first = xi0; second = xi2; }
           case 3b100: { first = xi0; second = xi1; }
-          case 3b000: { 
+          case 3b000: {
             if (xi0 == xi1) {
-              first = xi0; second = xi2; 
+              first = xi0; second = xi2;
             } else {
-              first = xi0; second = xi1; 
+              first = xi0; second = xi1;
             }
           }
           default:    { nop = 1; }
@@ -306,13 +307,13 @@ $$end
     }
 $$if SIMULATION then
     cycle = cycle + 1;
-$$end    
+$$end
 
   }
 
 }
 
-// ------------------------- 
+// -------------------------
 
 algorithm flame_transform(
   input  transform t,
@@ -338,4 +339,4 @@ algorithm flame_transform(
 
 }
 
-// ------------------------- 
+// -------------------------

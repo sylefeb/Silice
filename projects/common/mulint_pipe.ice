@@ -4,6 +4,7 @@
 // with small combinational chains
 //
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 algorithm mulpip(
   input  uint8 m0,

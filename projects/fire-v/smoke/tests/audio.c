@@ -1,4 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 
 #include "../mylibc/mylibc.h"
 
@@ -46,7 +48,7 @@ void silent(int start,int length)
       tm_prev = time();
       ++ count;
     }
-  }    
+  }
 }
 
 void clear_screen(int jstart)
@@ -59,12 +61,12 @@ void clear_screen(int jstart)
 }
 
 void pause(int cycles)
-{ 
+{
   long tm_start = time();
   while (time() - tm_start < cycles) { }
 }
 
-void main() 
+void main()
 {
   int wave_table[14] = {
     0     , 34296, // hi left
@@ -130,12 +132,12 @@ void main()
     talk  (wave_table[12],wave_table[13]);
 
   } else {
-    
+
     clear_screen(100);
     silent(wave_table[0],wave_table[1]);
     talk  (wave_table[2],wave_table[3]);
     talk  (wave_table[4],wave_table[5]);
-    
+
     set_cursor(80,150);
     printf("And ");
     pause(10000000);

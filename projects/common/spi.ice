@@ -1,6 +1,7 @@
 // SL 2021-09-11
 // SPI send for e.g. OLED/LCD screens
 
+// https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
 // TODO: revise with improved SPI

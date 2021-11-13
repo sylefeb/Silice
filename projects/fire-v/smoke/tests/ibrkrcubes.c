@@ -1,4 +1,6 @@
 // MIT license, see LICENSE_MIT in Silice repo root
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
 
 #include "../mylibc/mylibc.h"
 
@@ -31,7 +33,7 @@ int idx[12*3] = {
 void transform(const int *M,int p)
 {
   // keeping precision (<<5) for better shading
-  trpts[p+0] = (pts[p+0]*M[0] + pts[p+1]*M[1] + pts[p+2]*M[2]) >> 2; 
+  trpts[p+0] = (pts[p+0]*M[0] + pts[p+1]*M[1] + pts[p+2]*M[2]) >> 2;
   trpts[p+1] = (pts[p+0]*M[3] + pts[p+1]*M[4] + pts[p+2]*M[5]) >> 2;
   trpts[p+2] = (pts[p+0]*M[6] + pts[p+1]*M[7] + pts[p+2]*M[8]) >> 2;
 }
@@ -50,13 +52,13 @@ void main()
   char b   = 31;
   char c   = 0;
   int time = 0;
-  
+
   int fbuffer = 0;
-  
+
   // clear(0,0,0,SCRW,SCRH);
-  
+
   while(1) {
-    
+
     clear(15,0,0,SCRW,SCRH);
 
     int posy = 0;
@@ -72,7 +74,7 @@ void main()
     mulM(Ra,Rz,Ry);
     int M[9];
     mulM(M,Ra,Rx);
-    
+
     transform_points(M);
 
     for (posy = -60; posy <= 60 ; posy += 60) {
@@ -81,27 +83,27 @@ void main()
           draw_triangle(
             t<6 ? 64 : (t<12 ? 128 : 0),
             17,
-            trpts[idx[t+0]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+0]+1] + ((SCRH/2 + posy)<<5) - (fbuffer<<4), 
-            trpts[idx[t+1]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+1]+1] + ((SCRH/2 + posy)<<5) - (fbuffer<<4), 
-            trpts[idx[t+2]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+2]+1] + ((SCRH/2 + posy)<<5) - (fbuffer<<4) 
+            trpts[idx[t+0]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+0]+1] + ((SCRH/2 + posy)<<5) - (fbuffer<<4),
+            trpts[idx[t+1]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+1]+1] + ((SCRH/2 + posy)<<5) - (fbuffer<<4),
+            trpts[idx[t+2]+0] + ((SCRW/2 + posx)<<5), trpts[idx[t+2]+1] + ((SCRH/2 + posy)<<5) - (fbuffer<<4)
             );
         }
       }
     }
 
     ++time;
-   
+
     // wait for any pending draw to complete
     while ((userdata()&1) == 1) {  }
     // wait for vblank
     while ((userdata()&2) == 0) {  }
     // swap buffers
     *(LEDS+4) = 1;
-   
+
     fbuffer = 1 - fbuffer;
-   
+
     // pause(200000);
-    
+
   }
 
 }

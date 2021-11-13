@@ -2,8 +2,10 @@
 //
 // A simple test for SDRAM controllers (ULX3S / simulation)
 //
-// ------------------------- 
+// -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2020
 
 $$TEST_r512w64            = true
 $$TEST_r128w8             = false
@@ -54,7 +56,7 @@ $$end
 
 $include('../common/clean_reset.ice')
 
-// ------------------------- 
+// -------------------------
 
 algorithm main(
   output uint$NUM_LEDS$ leds,
@@ -85,7 +87,7 @@ $$else
   inout  uint16 sdram_dq,
 $$end
 $$end
-) 
+)
 $$if ULX3S then
 <@sdram_clock,!rst>
 $$end
@@ -95,7 +97,7 @@ $$if not ICARUS then
 uint1 rst = uninitialized;
 clean_reset rstcond<@sdram_clock,!reset> (
   out   :> rst
-);  
+);
 $$end
 
 uint16 iter = 0;
@@ -130,27 +132,27 @@ simul_sdram simul(
 $$end
 
   // SDRAM interface
-$$if TEST_r128w8 then  
+$$if TEST_r128w8 then
   sdram_r128w8_io sio;
 $$end
-$$if TEST_r16w16 then  
+$$if TEST_r16w16 then
   sdram_r16w16_io sio;
 $$end
-$$if TEST_r512w64 then  
+$$if TEST_r512w64 then
   sdram_r512w64_io sio;
 $$end
   // algorithm
-$$if TEST_r128w8 then  
+$$if TEST_r128w8 then
 $$  if TEST_with_autoprecharge then
   sdram_controller_autoprecharge_r128_w8 sdram(
 $$  else
   sdram_controller_r128_w8 sdram(
-$$  end  
+$$  end
 $$end
-$$if TEST_r16w16 then  
+$$if TEST_r16w16 then
   sdram_controller_autoprecharge_r16_w16 sdram(
 $$end
-$$if TEST_r512w64 then  
+$$if TEST_r512w64 then
   sdram_controller_autoprecharge_pipelined_r512_w64 sdram(
 $$end
     sd        <:> sio,
@@ -195,7 +197,7 @@ $$if ULX3S then
     clkout2  :> sdram_clock, // controller
     clkout3  :> sdram_clk,   // chip
     locked   :> pll_lock
-  ); 
+  );
 $$end
 
   // maintain low (pulses when ready, see below)
@@ -229,7 +231,7 @@ $$if false then
     sio.addr     = iter;
     sio.data_in  = 64h8877665544332211;
     sio.wmask    = 8b10101010;
-    sio.in_valid = 1; 
+    sio.in_valid = 1;
     while (!sio.done) { }
     iter         = iter + 8;
   }
@@ -250,23 +252,23 @@ $$if true then
     count  = 0;
     while (count < $TEST_SIZE$) {
       // write to sdram
-  $$if TEST_r128w8 or TEST_r16w16 then  
+  $$if TEST_r128w8 or TEST_r16w16 then
       sio.data_in    = count[0,8];
   $$else
       sio.data_in    = 64h1122aabbccddeeff ^ count ^ (count<<32);
-  $$end      
+  $$end
       sio.addr       = count;
       sio.in_valid   = 1; // go ahead!
       while (!sio.done) { }
       if (~pass[0,1]) {
         leds = count[16,8];
-        $$if SIMULATION then    
+        $$if SIMULATION then
         if (count < 128 || count > $TEST_SIZE-128$) {
           __display("write [%x] = %x",count,sio.data_in);
-        }      
+        }
         $$end
       } else {
-$$if TEST_r128w8 or TEST_r16w16 then  
+$$if TEST_r128w8 or TEST_r16w16 then
         if (sio.data_out[0,8] != count[0,8]) {
           leds = 8b00010001;
           __display("ERROR AT %h",count);
@@ -277,19 +279,19 @@ $$else
           __display("ERROR AT %h",count);
         }
 $$end
-        $$if SIMULATION then    
+        $$if SIMULATION then
         if (count < 128 || count >= $TEST_SIZE-128$) {
           __display("read  [%x] = %x",count,sio.data_out);
         }
         $$end
       }
-  $$if TEST_r128w8 then  
+  $$if TEST_r128w8 then
       count = count + (pass ? 16 : 1);
   $$end
-  $$if TEST_r16w16 then  
+  $$if TEST_r16w16 then
       count = count + 2;
   $$end
-  $$if TEST_r512w64 then  
+  $$if TEST_r512w64 then
       count = count + (pass ? 64 : 8);
   $$end
     }

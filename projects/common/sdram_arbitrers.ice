@@ -3,11 +3,12 @@
 //
 // SDRAM arbitrer
 
-// ------------------------- 
+// -------------------------
 // N-way arbitrer for SDRAM
 // sd0 has highest priority, then sd1, then ...
 
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
 
 $$if not Nway then
 $$  Nway = 3
@@ -16,24 +17,24 @@ $$end
 algorithm sdram_arbitrer_$Nway$way(
 $$for i=0,Nway-1 do
   sdram_provider sd$i$,
-$$end  
+$$end
   sdram_user     sd
 ) {
-	
+
 $$for i=0,Nway-1 do
   sameas(sd$i$) buffered_sd$i$;
-$$end  
-  
+$$end
+
   uint$Nway$ working   = 0;
   uint$Nway$ in_valids = uninitialized;
 
 $$for i=0,Nway-1 do
   sd$i$.done      := 0; // pulses high when ready
-$$end  
+$$end
   sd .in_valid    := 0; // pulses high when ready
-  
+
   always {
-    
+
     in_valids = {
 $$for i=Nway-1,0,-1 do
         buffered_sd$i$.in_valid
@@ -55,11 +56,11 @@ $$for i=0,Nway-1 do
       buffered_sd$i$.wmask      = sd$i$.wmask;
       buffered_sd$i$.in_valid   = 1;
     }
-$$end    
+$$end
     // check if operations terminated
     switch (working) {
 $$for i=0,Nway-1 do
-      case $1<<i$ : { 
+      case $1<<i$ : {
         if (sd.done == 1) {
           // done
           sd$i$.data_out          = sd.rw ? sd$i$.data_out : sd.data_out; // update data on read
@@ -68,8 +69,8 @@ $$for i=0,Nway-1 do
           buffered_sd$i$.in_valid = 0;
         }
       }
-$$end    
-      default: { 
+$$end
+      default: {
             switch (in_valids) {
 $$for i=0,Nway-1 do
               case $1<<i$: {
@@ -79,7 +80,7 @@ $$for i=0,Nway-1 do
                 sd.wmask    = buffered_sd$i$.wmask;
                 sd.in_valid = 1;
                 working     = $1<<i$; // wait for done
-              }            
+              }
 $$end
               default: { }
             }
