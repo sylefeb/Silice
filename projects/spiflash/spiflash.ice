@@ -99,10 +99,6 @@ algorithm spiflash_rom(
   uint1  init(1);
   uint24 raddr(24b000100010001000000000000); //_ 38h (QPI enable)
 
-$$if SIMULATION then
-  uint32 cycle(0);
-$$end
-
   spiflash_qspi spiflash(
     trigger <: trigger,
     clk     :> sf_clk,
@@ -113,10 +109,10 @@ $$end
   );
 
   uint11 wait(2047);
-	uint3  stage(0);
-	uint3  start_stage(0);
-	uint3  after(1);
   uint3  three(0);
+	uint3  stage(0);
+	uint3  after(1);
+  uint1  cmd_done(0);
   always {
 		switch (stage)
 		{
@@ -126,126 +122,56 @@ $$end
 			}
 		  case 1: {
         three                   = 3b100;
-        spiflash.qspi           = 0;    // not in qpi on init
-        spiflash.send           = 8h00; // command is in raddr
-        spiflash.send_else_read = 1;    // sending
-				busy                    = 1;
-				sf_csn                  = 0;
-				stage                   = 3;
-				start_stage             = 2;
-			}
-		  case 2: {
-        three                   = 3b100;
-				raddr                   = addr; // record address
-        spiflash.send           = 8hEB; // send command
-        spiflash.send_else_read = 1; // sending
+				raddr                   = spiflash.qspi ? addr : raddr; // record address
+        spiflash.send           = spiflash.qspi ? 8hEB : 8h00;  // command
+        spiflash.send_else_read = 1;                            // sending
+        // trigger                 = cmd_done; // trigger here if command sent
         // start sending?
-				if (in_ready) {
-$$if SIMULATION then
-          //__display("%d] SPIFLASH start @%h [first]",cycle,raddr);
-          rdata = 255; // tag not ready
-$$end
+				if (in_ready | ~spiflash.qspi) {
 					busy                  = 1;
 					sf_csn                = 0;
-					stage                 = 3;
-					start_stage           = 2;
+					stage                 = cmd_done ? 3 : 2;
+          cmd_done              = spiflash.qspi;
 				}
 			}
-      case 3: {
+      case 2: {
         trigger                 = 1;
 				wait                    = 2; //_ 4 cycles
-        after                   = 4;
+        after                   = 3;
 				stage                   = 0;
       }
-      case 4: {
+      case 3: {
+        trigger                 = 1;
         spiflash.send           = raddr[16,8];
         raddr                   = raddr << 8;
 				stage                   = 0; // wait
 				wait                    = 2; //_ 4 cycles
-        after                   = three[0,1] ? 5 : 4;
+        after                   = three[0,1] ? 4 : 3;
         three                   = three >> 1;
       }
-      case 5: {
+      case 4: {
         sf_csn                  = ~spiflash.qspi; // not sending anything if in init
         trigger                 =  spiflash.qspi;
         // send dummy
-        spiflash.send           = 8b00000000; //8h00;
+        spiflash.send           = 8b00100000; // requests continuous read
 				stage                   = 0; // wait
 				wait                    = 1; //_ 3 cycles
-        after                   = 6;
+        after                   = 5;
       }
-      case 6: {
+      case 5: {
         spiflash.send_else_read = 0;
 				stage                   = 0; // wait
 				wait                    = 2; //_ 4 cycles
-        after                   = 7;
+        after                   = 6;
       }
-      case 7: {
-$$if SIMULATION then
-        //__display("%d] SPIFLASH done. addr[10,1]=%b",cycle,addr[10,1]);
-$$end
-$$if SIMULATION then
-        rdata                   = ~addr[10,1] ? (addr[0,8] | 8d128) : 0;
-$$else
+      case 6: {
         rdata                   = spiflash.read;
-$$end
         sf_csn                  = 1;
         trigger                 = 0;
         busy                    = 0;
         spiflash.qspi           = 1; // qpi activated after first command
-				stage                   = start_stage; // return to start stage
+				stage                   = 1; // return to start stage
       }
 		}
-$$if SIMULATION then
-    cycle = cycle + 1;
-$$end
 	}
-
-/*
-  // looks like this delay is required before startup
-  {
-    uint9 n(0); while (n != 511) { n = n + 1; }
-  }
-
-  // ===== init: sends "enter QPI" through the same
-  //             orders than the normal read command
-
-  // answer requests
-  while (1) {
-    if (in_ready || init) { // takes 24 cycles exactly
-      busy                    = 1;
-      raddr                   = ~init ? addr : raddr;
-      spiflash.qspi           = ~init; // not qpi if in init
-      // send command
-      spiflash.send           = init ? 8h00 : 8hEB;
-      spiflash.send_else_read = 1; // sending
-      sf_csn                  = 0;
-++:
-      trigger                 = 1;
-      () = wait4();
-      // send address
-      spiflash.send           = raddr[16,8];
-      () = wait4();
-      spiflash.send           = raddr[ 8,8];
-      () = wait4();
-      spiflash.send           = raddr[ 0,8];
-      () = wait4();
-      sf_csn                  =  init;
-      trigger                 = ~init;
-      // send dummy
-      spiflash.send           = 8h00;
-++:
-++:
-++:
-      spiflash.send_else_read = 0;
-      () = wait4();
-      rdata                   = spiflash.read;
-      sf_csn                  = 1;
-      trigger                 = 0;
-      init                    = 0;
-      busy                    = 0;
-    }
-  }
-*/
-
 }
