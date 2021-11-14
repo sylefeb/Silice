@@ -346,6 +346,7 @@ syncExec            : joinExec LARROW '(' callParamList ')' ;
 
 idOrIoAccessList    : idOrIoAccess ',' idOrIoAccessList
                     | idOrIoAccess
+                    |
                     ;
 
 circuitryInst       : '(' outs=idOrIoAccessList ')' '=' IDENTIFIER '(' ins=idOrIoAccessList ')';
