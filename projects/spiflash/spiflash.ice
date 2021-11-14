@@ -74,10 +74,12 @@ algorithm spiflash_qspi(
   }
 }
 
+/*
 circuitry wait4() // waits exactly 4 cycles
 {
   uint2 n = 0; while (n != 2) { n = n + 1; }
 }
+*/
 
 algorithm spiflash_rom(
   input   uint1  in_ready,
@@ -110,73 +112,88 @@ $$end
     io3    <:> sf_io3,
   );
 
-  uint10 wait(1023);
-	uint3 stage(0);
-	uint3 after(1);
-  uint3 three(0);
+  uint11 wait(2047);
+	uint3  stage(0);
+	uint3  start_stage(0);
+	uint3  after(1);
+  uint3  three(0);
   always {
 		switch (stage)
 		{
 			case 0: {
-  			stage = wait == 0 ? after : 0; // NOTE == 0 could be reduced
+  			stage = wait == 0 ? after : 0; // NOTE == 0 could be reduced (initial wait is wide)
         wait  = wait - 1;
 			}
 		  case 1: {
-        raddr                   = ~init ? addr : raddr;
         three                   = 3b100;
-        spiflash.qspi           = ~init; // not qpi if in init
-        // send command
-        spiflash.send           = init ? 8h00 : 8hEB;
+        spiflash.qspi           = 0;    // not in qpi on init
+        spiflash.send           = 8h00; // command is in raddr
+        spiflash.send_else_read = 1;    // sending
+				busy                    = 1;
+				sf_csn                  = 0;
+				stage                   = 3;
+				start_stage             = 2;
+			}
+		  case 2: {
+        three                   = 3b100;
+				raddr                   = addr; // record address
+        spiflash.send           = 8hEB; // send command
         spiflash.send_else_read = 1; // sending
         // start sending?
-				if (in_ready || init) {
+				if (in_ready) {
 $$if SIMULATION then
-          // __display("%d] SPIFLASH start @%h",cycle,raddr);
+          //__display("%d] SPIFLASH start @%h [first]",cycle,raddr);
+          rdata = 255; // tag not ready
 $$end
-					busy                    = 1;
-					sf_csn                  = 0;
-					stage = 2;
+					busy                  = 1;
+					sf_csn                = 0;
+					stage                 = 3;
+					start_stage           = 2;
 				}
 			}
-      case 2: {
-        trigger                 = 1;
-				wait  = 2; //_ 4 cycles
-        after = 3;
-				stage = 0;
-      }
       case 3: {
-        spiflash.send           = raddr[16,8];
-        raddr                   = raddr << 8;
-				stage = 0; // wait
-				wait  = 2; //_ 4 cycles
-        after = three[0,1] ? 4 : 3;
-        three = three >> 1;
+        trigger                 = 1;
+				wait                    = 2; //_ 4 cycles
+        after                   = 4;
+				stage                   = 0;
       }
       case 4: {
-        sf_csn                  =  init;
-        trigger                 = ~init;
-        // send dummy
-        spiflash.send           = 8h00;
-				stage = 0; // wait
-				wait  = 1; //_ 3 cycles
-        after = 5;
+        spiflash.send           = raddr[16,8];
+        raddr                   = raddr << 8;
+				stage                   = 0; // wait
+				wait                    = 2; //_ 4 cycles
+        after                   = three[0,1] ? 5 : 4;
+        three                   = three >> 1;
       }
       case 5: {
-        spiflash.send_else_read = 0;
-				stage = 0; // wait
-				wait  = 2; //_ 4 cycles
-        after = 6;
+        sf_csn                  = ~spiflash.qspi; // not sending anything if in init
+        trigger                 =  spiflash.qspi;
+        // send dummy
+        spiflash.send           = 8b00000000; //8h00;
+				stage                   = 0; // wait
+				wait                    = 1; //_ 3 cycles
+        after                   = 6;
       }
       case 6: {
+        spiflash.send_else_read = 0;
+				stage                   = 0; // wait
+				wait                    = 2; //_ 4 cycles
+        after                   = 7;
+      }
+      case 7: {
 $$if SIMULATION then
-        // __display("%d] SPIFLASH done.",cycle);
+        //__display("%d] SPIFLASH done. addr[10,1]=%b",cycle,addr[10,1]);
 $$end
+$$if SIMULATION then
+        rdata                   = ~addr[10,1] ? (addr[0,8] | 8d128) : 0;
+$$else
         rdata                   = spiflash.read;
+$$end
         sf_csn                  = 1;
         trigger                 = 0;
-        init                    = 0;
         busy                    = 0;
-				stage = 1;
+        spiflash.qspi           = 1; // qpi activated after first command
+				stage                   = start_stage; // return to start stage
       }
 		}
 $$if SIMULATION then
