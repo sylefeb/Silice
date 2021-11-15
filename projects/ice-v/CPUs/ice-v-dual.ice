@@ -119,8 +119,8 @@ $$end
   // ==== select immediate for the next address computation
   // 'or trick' from femtorv32
   int$addrW+3$ addr_imm <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
-                  |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
-                  |  (store  ? imm_s : 32b0);
+                        |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
+                        |  (store  ? imm_s : 32b0);
   // ==== set decoder outputs depending on incoming instructions
   // load/store?
   load         := opcode == 5b00000;   store        := opcode == 5b01000;
@@ -132,9 +132,9 @@ $$end
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
   // value to store directly
 $$if ICEV_USERDATA then
-  val          :=    (LUI                ? imm_u                 : {32{1b0}})
-                |  ( (CSR &~instr[20,1]) ? {cycle[0,31],core_id} : {32{1b0}})
-                |  ( (CSR & instr[20,1]) ? user_data             : {32{1b0}});
+  val          :=    (LUI                ? imm_u                 : 32b0)
+                |  ( (CSR &~instr[20,1]) ? {cycle[0,31],core_id} : 32b0)
+                |  ( (CSR & instr[20,1]) ? user_data             : 32b0);
 $$else
   val          := LUI ? imm_u : {cycle[0,31],core_id};
 $$end
