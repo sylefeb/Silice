@@ -1,11 +1,13 @@
+// @sylefeb 2021
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+
 algorithm spiflash_std(
   input  uint8 send,
   input  uint1 trigger,
   input  uint1 send_else_read,
   output uint8 read,
   output uint1 clk,
-  //output uint1 io0,
-  //input  uint1 io1,
   inout  uint1 io0,
   inout  uint1 io1,
   inout  uint1 io2,
@@ -73,13 +75,6 @@ algorithm spiflash_qspi(
     io3.o     = busy == 2b01 ? sending[3,1] : sending[7,1];
   }
 }
-
-/*
-circuitry wait4() // waits exactly 4 cycles
-{
-  uint2 n = 0; while (n != 2) { n = n + 1; }
-}
-*/
 
 algorithm spiflash_rom(
   input   uint1  in_ready,
