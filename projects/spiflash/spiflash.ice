@@ -103,7 +103,7 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
-  uint11 wait(2047);
+  uint10 wait(1023);
   uint3  three(0);
 	uint3  stage(0);
 	uint3  after(1);
