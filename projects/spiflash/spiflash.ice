@@ -118,14 +118,13 @@ algorithm spiflash_rom(
 		  case 1: {
         three                   = 3b100;
 				raddr                   = spiflash.qspi ? addr : raddr; // record address
-        spiflash.send           = spiflash.qspi ? 8hEB : 8h00;  // command
+        spiflash.send           = 8hEB & {8{spiflash.qspi}};    // spiflash.qspi ? 8hEB : 8h00;  // command
         spiflash.send_else_read = 1;                            // sending
-        // trigger                 = cmd_done; // trigger here if command sent
         // start sending?
 				if (in_ready | ~spiflash.qspi) {
 					busy                  = 1;
 					sf_csn                = 0;
-					stage                 = cmd_done ? 3 : 2;
+					stage                 = 2b10 | cmd_done;
           cmd_done              = spiflash.qspi;
 				}
 			}
