@@ -105,41 +105,51 @@ algorithm spiflash_rom(
 
   uint10 wait(1023);
   uint3  three(0);
-	uint3  stage(0);
-	uint3  after(1);
+  uint3  stage(0);
+  uint3  after(1);
   uint1  cmd_done(0);
+$$if ICARUS then
+  uint32 cycle(0);
+$$end  
   always {
-		switch (stage)
-		{
-			case 0: {
-  			stage = wait == 0 ? after : 0; // NOTE == 0 could be reduced (initial wait is wide)
+    switch (stage)
+    {
+      case 0: {
+$$if ICARUS then
+        // this is necessary for icarus as spiflash.qspi is otherwise 1bz
+        spiflash.qspi = reset ? 0 : spiflash.qspi;
+$$end
+        stage = wait == 0 ? after : 0; // NOTE == 0 could be reduced (initial wait is wide)
         wait  = wait - 1;
-			}
-		  case 1: {
+      }
+      case 1: {
         three                   = 3b100;
-				raddr                   = spiflash.qspi ? addr : raddr; // record address
+        raddr                   = spiflash.qspi ? addr : raddr; // record address
         spiflash.send           = 8hEB & {8{spiflash.qspi}};    // spiflash.qspi ? 8hEB : 8h00;  // command
         spiflash.send_else_read = 1;                            // sending
         // start sending?
-				if (in_ready | ~spiflash.qspi) {
-					busy                  = 1;
-					sf_csn                = 0;
-					stage                 = 2b10 | cmd_done;
+        if (in_ready | ~spiflash.qspi) {
+          __display("[%d] spiflash [1] qspi:%d cmd_done:%b",cycle,spiflash.qspi,cmd_done);
+          busy                  = 1;
+          sf_csn                = 0;
+          stage                 = 2b10 | cmd_done;
           cmd_done              = spiflash.qspi;
-				}
-			}
+        }
+      }
       case 2: {
+        __display("[%d] spiflash [2] qspi:%d cmd_done:%b",cycle,spiflash.qspi,cmd_done);
         trigger                 = 1;
-				wait                    = 2; //_ 4 cycles
+        wait                    = 2; //_ 4 cycles
         after                   = 3;
-				stage                   = 0;
+        stage                   = 0;
       }
       case 3: {
+        __display("[%d] spiflash [3] qspi:%d cmd_done:%b",cycle,spiflash.qspi,cmd_done);
         trigger                 = 1;
         spiflash.send           = raddr[16,8];
         raddr                   = raddr << 8;
-				stage                   = 0; // wait
-				wait                    = 2; //_ 4 cycles
+        stage                   = 0; // wait
+        wait                    = 2; //_ 4 cycles
         after                   = three[0,1] ? 4 : 3;
         three                   = three >> 1;
       }
@@ -148,14 +158,14 @@ algorithm spiflash_rom(
         trigger                 =  spiflash.qspi;
         // send dummy
         spiflash.send           = 8b00100000; // requests continuous read
-				stage                   = 0; // wait
-				wait                    = 1; //_ 3 cycles
+        stage                   = 0; // wait
+        wait                    = 1; //_ 3 cycles
         after                   = 5;
       }
       case 5: {
         spiflash.send_else_read = 0;
-				stage                   = 0; // wait
-				wait                    = 2; //_ 4 cycles
+        stage                   = 0; // wait
+        wait                    = 2; //_ 4 cycles
         after                   = 6;
       }
       case 6: {
@@ -164,8 +174,9 @@ algorithm spiflash_rom(
         trigger                 = 0;
         busy                    = 0;
         spiflash.qspi           = 1; // qpi activated after first command
-				stage                   = 1; // return to start stage
+        stage                   = 1; // return to start stage
       }
-		}
-	}
+    }
+    cycle = cycle + 1;
+  }
 }

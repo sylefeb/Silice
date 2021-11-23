@@ -9,14 +9,9 @@ $include('../common/uart.ice')
 
 $include('spiflash.ice')
 
-circuitry wait3() // waits exactly 3 cycles
+circuitry wait20() // waits exactly 20 cycles
 {
-  uint2 n = 0; while (n != 1) { n = n + 1; }
-}
-
-circuitry wait24() // waits exactly 24 cycles
-{
-  uint5 n = 0; while (n != 22) { n = n + 1; }
+  uint5 n = 0; while (n != 18) { n = n + 1; }
 }
 
 algorithm main(
@@ -80,7 +75,7 @@ spiflash_rom sf_rom(
     sf_rom.in_ready  = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    if (cycle == 4096) {
+    if (cycle == 1500) {
       __finish();
     }
 $$end
@@ -93,7 +88,7 @@ $$end
   while (data.addr != 64) {
     sf_rom.in_ready = 1;
     sf_rom.addr     = data.addr;
-    ()              = wait24();
+    ()              = wait20();
     __display("read %x",sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
     data.addr       = data.addr + 1;
