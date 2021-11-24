@@ -9,6 +9,8 @@ using [Silice RISC-V integration](../easy_riscv/README.md) and the
 discuss the hardware setup and the implementation in Silice (FPGA hardware)
 and C (firmware). Everything you need to start hacking!
 
+> **Don't have the hardware?** Simply run `make verilator` from a shell in this directory for simulation.
+
 <center><img src="doom-fire.jpg" width=400></center>
 
 ## Overview
