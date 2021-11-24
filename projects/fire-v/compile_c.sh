@@ -9,7 +9,7 @@ echo "using $ARCH"
 
 if [ -z "$2" ]; then
   echo "Adding mylibc"
-  $ARCH-gcc -w -O2 -fno-pic -march=rv32i -mabi=ilp32 -c smoke/mylibc/mylibc.c -o build/mylibc.o
+  $ARCH-gcc -w -O2 -fno-pic -fno-stack-protector -march=rv32i -mabi=ilp32 -c smoke/mylibc/mylibc.c -o build/mylibc.o
   OBJECTS="build/code.o build/div.o build/mylibc.o"
   CPU=0
 elif [ "$2" == "--nolibc" -o "$3" == "--nolibc" ]; then
@@ -26,8 +26,8 @@ fi
 
 echo "Compiling for CPU $CPU"
 
-$ARCH-gcc -fno-unroll-loops -O2 -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
-$ARCH-gcc -fno-unroll-loops -O2 -fno-pic -march=rv32i -mabi=ilp32 -c -o build/code.o $1
+$ARCH-gcc -fno-unroll-loops -O2 -fno-pic -fno-stack-protector -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
+$ARCH-gcc -fno-unroll-loops -O2 -fno-pic -fno-stack-protector -march=rv32i -mabi=ilp32 -c -o build/code.o $1
 
 $ARCH-as -march=rv32i -mabi=ilp32 -o build/div.o smoke/mylibc/div.s
 $ARCH-as -march=rv32i -mabi=ilp32 -o crt0.o smoke/crt0.s
@@ -42,4 +42,4 @@ $ARCH-objcopy -O verilog build/code.elf build/code$CPU.hex
 
 # uncomment to see the actual code, usefull for debugging
 # $ARCH-objcopy.exe -O binary build/code.elf build/code.bin
-# $ARCH-objdump.exe -D -b binary -m riscv build/code.bin 
+# $ARCH-objdump.exe -D -b binary -m riscv build/code.bin

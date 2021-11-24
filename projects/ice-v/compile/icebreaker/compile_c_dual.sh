@@ -7,8 +7,8 @@ source ../../tools/bash/find_riscv.sh
 
 echo "using $ARCH"
 
-$ARCH-gcc -DICEBREAKER -fstack-reuse=none -fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o compile/build/code.s
-$ARCH-gcc -DICEBREAKER -fstack-reuse=none -fno-builtin -fno-unroll-loops -O1 -fno-pic -march=rv32i -mabi=ilp32 -c -o compile/build/code.o $1
+$ARCH-gcc -DICEBREAKER -fstack-reuse=none -fno-builtin -fno-unroll-loops -O1 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o compile/build/code.s
+$ARCH-gcc -DICEBREAKER -fstack-reuse=none -fno-builtin -fno-unroll-loops -O1 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -c -o compile/build/code.o $1
 
 $ARCH-as -march=rv32i -mabi=ilp32 -o crt0.o compile/icebreaker/crt0_dual.s
 

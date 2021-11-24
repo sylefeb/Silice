@@ -7,7 +7,7 @@ source ../../tools/bash/find_riscv.sh
 
 echo "using $ARCH"
 
-$ARCH-gcc -w -O2 -fno-pic -DMYLIBC_SMALL -march=rv32i -mabi=ilp32 -c smoke/boot/boot_sdcard.c -o build/boot.o
+$ARCH-gcc -w -O2 -fno-pic -fno-stack-protector -DMYLIBC_SMALL -march=rv32i -mabi=ilp32 -c smoke/boot/boot_sdcard.c -o build/boot.o
 
 $ARCH-as -march=rv32i -mabi=ilp32 -o crt0.o smoke/crt0_boot.s
 
@@ -22,4 +22,4 @@ $ARCH-objcopy -O verilog build/code.elf build/code$CPU.hex
 
 # uncomment to see the actual code, usefull for debugging
 # $ARCH-objcopy.exe -O binary build/code.elf build/code.bin
-# $ARCH-objdump.exe -D -b binary -m riscv build/code.bin 
+# $ARCH-objdump.exe -D -b binary -m riscv build/code.bin
