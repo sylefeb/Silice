@@ -43,14 +43,14 @@ function compile(file)
   local cmd
   cmd =  gcc .. ' '
 	    .. '-I' .. PATH .. ' '
-      .. '-fno-builtin -fno-unroll-loops -O' .. O .. ' -fno-pic '
+      .. '-fno-builtin -fno-stack-protector -fno-unroll-loops -O' .. O .. ' -fno-pic '
 			.. '-march=' .. arch .. ' -mabi=ilp32 '
 			.. '-c -o code.o '
       .. SRC
   os.execute(cmd)
   cmd =  gcc .. ' '
 	    .. '-I' .. PATH .. ' '
-      .. '-fno-builtin -fno-unroll-loops -O' .. O .. ' -fno-pic '
+      .. '-fno-builtin -fno-stack-protector -fno-unroll-loops -O' .. O .. ' -fno-pic '
 			.. '-march=' .. arch .. ' -mabi=ilp32 '
 			.. '-fverbose-asm -S -o code.s '
       .. SRC

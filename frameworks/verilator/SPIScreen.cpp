@@ -52,10 +52,10 @@ void SPIScreen::set_idle()
   switch (m_driver)
   {
     case SSD1351:
-      m_command   = std::bind( &cmd_idle_SSD1351, this );        break;
+      m_command   = std::bind( &SPIScreen::cmd_idle_SSD1351, this );        break;
     case ILI9351:
     case ST7789:
-      m_command   = std::bind( &cmd_idle_ST7789_ILI9351, this ); break;
+      m_command   = std::bind( &SPIScreen::cmd_idle_ST7789_ILI9351, this ); break;
     default: {
       fprintf(stderr,"SPIScreen error, unknown driver mode %d\n",m_driver);
       exit(-1);
@@ -104,16 +104,16 @@ void SPIScreen::cmd_idle_SSD1351()
     fprintf(stdout,"command: %x\n", m_byte);
     switch (m_byte) {
       case 0x15:
-        m_command = std::bind( &cmd_start_end, this, &m_x_start, &m_x_end, 1);
+        m_command = std::bind( &SPIScreen::cmd_start_end, this, &m_x_start, &m_x_end, 1);
         break;
       case 0x75:
-        m_command = std::bind( &cmd_start_end, this, &m_y_start, &m_y_end, 1);
+        m_command = std::bind( &SPIScreen::cmd_start_end, this, &m_y_start, &m_y_end, 1);
         break;
       case 0x5C:
-        m_command = std::bind( &cmd_write_ram, this );
+        m_command = std::bind( &SPIScreen::cmd_write_ram, this );
         break;
       case 0xA0:
-        m_command = std::bind( &cmd_mode_SSD1351, this );
+        m_command = std::bind( &SPIScreen::cmd_mode_SSD1351, this );
         break;
       default:
         break;
@@ -138,16 +138,16 @@ void SPIScreen::cmd_idle_ST7789_ILI9351()
     fprintf(stdout,"command: %x\n", m_byte);
     switch (m_byte) {
       case 0x2A:
-        m_command = std::bind( &cmd_start_end, this, &m_x_start, &m_x_end, 2);
+        m_command = std::bind( &SPIScreen::cmd_start_end, this, &m_x_start, &m_x_end, 2);
         break;
       case 0x2B:
-        m_command = std::bind( &cmd_start_end, this, &m_y_start, &m_y_end, 2);
+        m_command = std::bind( &SPIScreen::cmd_start_end, this, &m_y_start, &m_y_end, 2);
         break;
       case 0x2C:
-        m_command = std::bind( &cmd_write_ram, this );
+        m_command = std::bind( &SPIScreen::cmd_write_ram, this );
         break;
       case 0x3A:
-        m_command = std::bind( &cmd_mode_ST7789_ILI9351, this );
+        m_command = std::bind( &SPIScreen::cmd_mode_ST7789_ILI9351, this );
       default:
         break;
     }

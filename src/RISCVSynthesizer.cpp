@@ -394,8 +394,9 @@ std::string RISCVSynthesizer::tempFileName()
   static int cnt = 0;
   static std::string key;
   if (key.empty()) {
+    srand(time(NULL));
     for (int i = 0 ; i < 16 ; ++i) {
-      key += (char)((int)'a'+i);
+      key += (char)((int)'a'+(rand()%26));
     }
   }
   std::string tmp = std::filesystem::temp_directory_path().string()
