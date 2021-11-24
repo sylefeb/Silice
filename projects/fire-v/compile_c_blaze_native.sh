@@ -16,7 +16,7 @@ echo "targetting $riscarch"
 
 if [ -z "$2" ]; then
   echo "Adding mylibc"
-  $ARCH-gcc -w -O3 -ffunction-sections -fdata-sections -fno-pic -fno-builtin -fno-unroll-loops -march=$riscarch -mabi=ilp32 -c -DBLAZE -DMYLIBC_SMALL smoke/mylibc/mylibc.c -o build/mylibc.o
+  $ARCH-gcc -w -O3 -ffunction-sections -fdata-sections -fno-stack-protector -fno-pic -fno-builtin -fno-unroll-loops -march=$riscarch -mabi=ilp32 -c -DBLAZE -DMYLIBC_SMALL smoke/mylibc/mylibc.c -o build/mylibc.o
   OBJECTS="build/code.o build/div.o build/mylibc.o"
   CPU=0
 elif [ "$2" == "--nolibc" -o "$3" == "--nolibc" ]; then
@@ -41,8 +41,8 @@ fi
 
 echo "Using $CRT0"
 
-$ARCH-gcc -O3 -ffunction-sections -fdata-sections -fno-pic -fno-builtin -fverbose-asm -fno-unroll-loops -march=$riscarch -mabi=ilp32 -DBLAZE  -S $1 -o build/code.s
-$ARCH-gcc -O3 -ffunction-sections -fdata-sections -fno-pic -fno-builtin -fno-unroll-loops -march=$riscarch -mabi=ilp32 -DBLAZE  -c -o build/code.o $1
+$ARCH-gcc -O3 -ffunction-sections -fdata-sections -fno-stack-protector -fno-pic -fno-builtin -fverbose-asm -fno-unroll-loops -march=$riscarch -mabi=ilp32 -DBLAZE  -S $1 -o build/code.s
+$ARCH-gcc -O3 -ffunction-sections -fdata-sections -fno-stack-protector -fno-pic -fno-builtin -fno-unroll-loops -march=$riscarch -mabi=ilp32 -DBLAZE  -c -o build/code.o $1
 
 $ARCH-as -march=$riscarch -mabi=ilp32 -o build/div.o smoke/mylibc/div.s
 $ARCH-as -march=$riscarch -mabi=ilp32 -o crt0.o $CRT0
