@@ -79,6 +79,9 @@ namespace Silice
     /// \brief returns true if output is an access trigger (to an input or output)
     bool        isAccessTrigger(siliceParser::OutputContext *output,std::string& _accessed) const;
 
+    /// \brief returns a temporary filename (within temporary directory)
+    std::string tempFileName();
+
   public:
 
     RISCVSynthesizer(siliceParser::RiscvContext *riscv);

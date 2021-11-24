@@ -53,7 +53,7 @@ void RISCVSynthesizer::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo
 void RISCVSynthesizer::gather(siliceParser::RiscvContext *riscv)
 {
   siliceParser::InOutListContext *list = riscv->inOutList();
-  for (auto io : list->inOrOut()) {  
+  for (auto io : list->inOrOut()) {
     if (io->input()) {
       t_inout_nfo nfo;
       nfo.name               = io->input()->IDENTIFIER()->getText();
@@ -241,7 +241,7 @@ bool RISCVSynthesizer::isAccessTrigger(siliceParser::OutputContext *output, std:
 
 string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) const
 {
-  
+
   // NOTE TODO: error checking for width and non supported IO types, additional error reporting
 
   ostringstream header;
@@ -258,7 +258,7 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
     if (input) {
       header << "volatile int *__ptr__" << input->IDENTIFIER()->getText() << addr << ';' << nxl;
       // getter
-      header << "static inline int " << input->IDENTIFIER()->getText() << "() { " 
+      header << "static inline int " << input->IDENTIFIER()->getText() << "() { "
              << "return *__ptr__" << input->IDENTIFIER()->getText() << "; }" << nxl;
     } else if (output) {
       sl_assert(output->declarationVar()->IDENTIFIER() != nullptr);
@@ -389,6 +389,22 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
 
 // -------------------------------------------------
 
+std::string RISCVSynthesizer::tempFileName()
+{
+  static int cnt = 0;
+  static std::string key;
+  if (key.empty()) {
+    for (int i = 0 ; i < 16 ; ++i) {
+      key += (char)((int)'a'+i);
+    }
+  }
+  std::string tmp = std::filesystem::temp_directory_path().string()
+                  + "/" + key + std::to_string(cnt++);
+  return tmp;
+}
+
+// -------------------------------------------------
+
 RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
 {
   m_Name = riscv->IDENTIFIER()->getText();
@@ -411,7 +427,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     // write code to temp file
     string c_tempfile;
     {
-      c_tempfile = std::tmpnam(nullptr);
+      c_tempfile = tempFileName();
       c_tempfile = c_tempfile + ".c";
       ofstream codefile(c_tempfile);
       // append code header
@@ -422,7 +438,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     // generate Silice source
     string s_tempfile;
     {
-      s_tempfile = std::tmpnam(nullptr);
+      s_tempfile = tempFileName();
       s_tempfile = s_tempfile + ".ice";
       // produce source code
       ofstream silicefile(s_tempfile);
@@ -431,7 +447,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     // generate linker script
     string l_tempfile;
     {
-      l_tempfile = std::tmpnam(nullptr);
+      l_tempfile = tempFileName();
       l_tempfile = l_tempfile + ".ld";
       // produce source code
       ofstream linkerscript(l_tempfile);
