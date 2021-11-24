@@ -1,6 +1,6 @@
 # RISC-V / Silice integration demo
 
-> **Note:** This feature is currently being developed. This is an early preview and things are subject to change. Please let me know what you think, feedback is most welcome.
+> **Note:** This feature is still being refined. Please let me know what you think, feedback is most welcome!
 
 ## TL;DR
 
@@ -42,7 +42,7 @@ But worry not, Silice RISC-V integration makes this process entirely trivial! As
 
 > **Note:** The firmware C code does not have to be inlined in the Silice source code, it can also be included as an external file.
 
-In addition inputs and outputs can be specified in a straightforward manner. See `output uint32 leds` in the `cpu_blinky` declaration above? This automatically generates the C-function `void leds(unsigned int)` that the firmware uses to set `leds` in the hardware design. The same is possible for inputs; for instance declaring `input int32 a` would similarly create a function `int a()` that would allow the CPU to read the value of `a` from the hardware.
+In addition inputs and outputs can be specified in a straightforward manner. See `output uint32 leds` in the `cpu_blinky` declaration above? This automatically generates the C-function `void leds(unsigned int)` that the firmware uses to set `leds` in the hardware design. The same is possible for inputs; for instance declaring `input int32 a` would similarly create a function `int a()` that would allow the CPU to read the value of `a` from the hardware. You can also request a special output that will pulse whenever a given output is written (or a given input is read). See the [on_accessed example](./on_accessed/main.ice) for more details.
 
 The [project source code](main.ice) shows of a few additional possibilities regarding interactions with the pre-processor; see comments therein. More elaborate examples will follow, stay tuned!
 
@@ -51,9 +51,11 @@ The [project source code](main.ice) shows of a few additional possibilities rega
 Plug your favorite board, open a command line in this folder and type `make <board name>`.
 
 There are subdirectories containing more advanced examples:
-- Adding special outputs telling when an input/output is accessed in [on_accessed](main.ice)
 - Selecting the ice-v-dual CPU in [select_core](select_core/with_ice-v-dual.ice)
+- Adding special outputs telling when an input/output is accessed in [on_accessed](main.ice)
 - Driving an OLED/LCD small screen from the CPU in [oled](oled/main.ice)
+
+The repo contains larger projects using RISCV integration, such as the [Doom fire](../kbfcrabe/README.md).
 
 ## RISC-V cores
 
