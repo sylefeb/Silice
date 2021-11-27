@@ -10,7 +10,7 @@ riscv cpu_test(
     input  uint32 i,
     output uint1  on_i,
     )
-<mem=256> {
+<mem=512> {
   // =============== firmware in C language ===========================
   // C-function, wait for a while
 $$if SIMULATION then  -- even C-code can be changed by the Silice pre-processor!
