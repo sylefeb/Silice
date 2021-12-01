@@ -115,20 +115,6 @@ riscv cpu(output uint32 uart,output uint1 on_uart)
     }
   }
 
-  void core0_main()
-  {
-	  // clear fire buffer
-    for (int v=0;v<32;v++) {
-      for (int u=0;u<32;u++) {
-        tbl[u+(v<<5)] = (v == 0) ? 63 : 0;
-      }
-    }
-		// update it forever
-    while (1) {
-      update_fire();
-    }
-  }
-
   static inline int time()
   {
     int cycles;
@@ -140,6 +126,25 @@ riscv cpu(output uint32 uart,output uint1 on_uart)
   {
     long tm_start = time();
     while (time() - tm_start < cycles) { }
+  }
+
+  void core0_main()
+  {
+	  // clear fire buffer
+    for (int v=0;v<32;v++) {
+      for (int u=0;u<32;u++) {
+        tbl[u+(v<<5)] = (v == 0) ? 63 : 0;
+      }
+    }
+		// update it forever
+    while (1) {
+      update_fire();
+			pause(2000*32*32);
+			// ^^^^^^^^^^^^^^ we wait so that frames 
+      // remain coherent (sending over uart is slow,
+	    // we'd otherwise be generating many frames in 
+			// between sending two characters)
+    }
   }
 
   void putchar(int c)
