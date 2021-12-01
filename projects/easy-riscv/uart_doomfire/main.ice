@@ -12,6 +12,7 @@ import('../../common/plls/icebrkr_25.v')
 $$end
 
 // include UART
+$$uart_bauds             = 921600
 $$uart_in_clock_freq_mhz = 25
 $include('../../projects/common/uart.ice')
 
@@ -58,7 +59,7 @@ riscv cpu(output uint32 uart,output uint1 on_uart)
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
   };
 
-  unsigned char *pal[] = {
+  const char *pal[] = {
     "4","4","4",
     "28","4","4",
     "44","12","4",
@@ -101,7 +102,9 @@ riscv cpu(output uint32 uart,output uint1 on_uart)
       for (int u=0;u<32;u++) {
         int below = tbl[(u) + ((v-1)<<5)];
         int clr   = 0;
-        if (below > 3) {
+        if (below > 7) {
+          clr = below-1-(rng&7);
+        } else if (below > 3) {
           clr = below-1-(rng&3);
         } else if (below > 1) {
           clr = below-(rng&1);
@@ -114,15 +117,15 @@ riscv cpu(output uint32 uart,output uint1 on_uart)
 
   void core0_main()
   {
+	  // clear fire buffer
     for (int v=0;v<32;v++) {
       for (int u=0;u<32;u++) {
         tbl[u+(v<<5)] = (v == 0) ? 63 : 0;
       }
     }
-    int time = 0;
+		// update it forever
     while (1) {
       update_fire();
-      ++ time;
     }
   }
 
@@ -142,7 +145,7 @@ riscv cpu(output uint32 uart,output uint1 on_uart)
   void putchar(int c)
   {
     uart(c);
-    pause(5000);
+    pause(625);
   }
 
   static inline void print_string(const char* s)
@@ -171,23 +174,21 @@ riscv cpu(output uint32 uart,output uint1 on_uart)
 
   void core1_main()
   {
+		printf("\\033[48;2;0;0;0m"); // black color
+	  printf("\\033[2J");  // clear screen
     // send fire framebuffer to UART
     while (1) {
-      printf("\\033[H");
-      for (int v=31;v>=0;--v) {
+      printf("\\033[H"); // cursor at 0,0
+      for (int v=20;v>=0;--v) {
         for (int u=0;u<32;++u) {
-          int clr  = tbl[u + (v<<5)]>>1;
-          // int clr3 = (clr<<1)+clr;
-          // unsigned char **ptr = pal + clr3;
-          // printf("\\033[48;2;%s;%s;%sm ",ptr[0],ptr[1],ptr[2]);
-          putchar(" _.:-=+ox*X#%@8BG"[(clr>>1) & 15]);
+          int clr  = (tbl[u + (v<<5)]>>1)&31;
+          int clr3 = (clr<<1)+clr;
+          const char **ptr = pal + clr3;
+          printf("\\033[48;2;%s;%s;%sm ",ptr[0],ptr[1],ptr[2]); // colored space
         }
-        printf("\\n\\r");
+        printf("\\033[48;2;0;0;0m\\n\\r"); // next line
       }
     }
-//    while (1) {
-//      printf("\\033[48;2;0;255;0mHello world\\n");
-//    }
   }
 
   // C main
