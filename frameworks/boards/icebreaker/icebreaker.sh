@@ -39,7 +39,7 @@ rm build*
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
 yosys -p "synth_ice40 -dsp -json build.json -abc9 -device u" build.v
-nextpnr-ice40 --up5k --freq 12 --package sg48 --json build.json --pcf $BOARD_DIR/icebreaker.pcf --asc build.asc
+nextpnr-ice40 --up5k --freq 12 --package sg48 --json build.json --pcf $BOARD_DIR/icebreaker.pcf --asc build.asc -r
 
 icepack -s build.asc build.bin
 iceprog build.bin
