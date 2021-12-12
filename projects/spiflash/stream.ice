@@ -7,7 +7,7 @@ $$end
 $$uart_in_clock_freq_mhz = 12
 $include('../common/uart.ice')
 
-$include('spiflash.ice')
+$include('spiflash2.ice')
 
 circuitry wait20() // waits exactly 20 cycles
 {

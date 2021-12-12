@@ -5,7 +5,7 @@ module sb_io(
   );
 
   SB_IO #(
-    .PIN_TYPE(5'b0101_00)
+    .PIN_TYPE(6'b0101_00)
     //                ^^ ignored (input)
     //           ^^^^ registered output
   ) sbio (

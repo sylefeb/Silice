@@ -2,6 +2,8 @@
 // MIT license, see LICENSE_MIT in Silice repo root
 // https://github.com/sylefeb/Silice
 
+import('ddr_clock.v')
+
 algorithm spiflash_qspi(
   input  uint8 send,
   input  uint1 trigger,
@@ -14,10 +16,12 @@ algorithm spiflash_qspi(
   inout  uint1 io2,
   inout  uint1 io3,
 ) {
-  uint2 osc(0);
   uint1 dc(0);
   uint8 sending(0);
-  uint2 busy(0);
+  uint1 osc(0);
+  uint1 enable(0);
+
+  ddr_clock ddr(clock <: clock, enable <:: enable, ddr_clock :> clk);
 
   always {
 
@@ -26,19 +30,15 @@ algorithm spiflash_qspi(
     io2.oenable = send_else_read & qspi;
     io3.oenable = send_else_read & qspi;
 
-    osc       = trigger ? {osc[0,1],osc[1,1]} : 2b10;
-    clk       = trigger & osc[0,1]; // SPI Mode 0
-
-    busy      =  busy[0,1] ? (osc[0,1] ? {1b0,   busy[1,1]} : busy) : (
-                 trigger   ? 8b11
-                           : busy );
-    sending   = ~busy[0,1] ? send : sending;
-    read      = (osc[0,1] ? {read[0,4],io3.i,io2.i,io1.i,io0.i} : read);
-
-    io0.o     = busy == 2b01 ? sending[0,1] : sending[4,1];
-    io1.o     = busy == 2b01 ? sending[1,1] : sending[5,1];
-    io2.o     = busy == 2b01 ? sending[2,1] : sending[6,1];
-    io3.o     = busy == 2b01 ? sending[3,1] : sending[7,1];
+    read      = {read[0,4],io3.i,io2.i,io1.i,io0.i};
+    io0.o     = ~osc ? sending[0,1] : sending[4,1];
+    io1.o     = ~osc ? sending[1,1] : sending[5,1];
+    io2.o     = ~osc ? sending[2,1] : sending[6,1];
+    io3.o     = ~osc ? sending[3,1] : sending[7,1];
+    
+    sending   = (~osc | ~enable) ? send : sending;
+    osc       = ~trigger ? 1b0 : ~osc;
+    enable    = trigger;
   }
 }
 
@@ -95,7 +95,7 @@ $$end
         sendvec = (init == 2b01 ? {8hEB,addr} : 24h0)
                 | (init == 2b00 ? {addr,8h00} : 24h0)
                 | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0);
-               //                 ^^^^^^^^^^ produces 38h when not in QPI
+               //                ^^^^^^^^^^ produces 38h when not in QPI
         spiflash.send_else_read = 1; // sending
         // start sending?
         if (in_ready | init[1,1]) {
@@ -109,13 +109,13 @@ $$end
       }
       case 2: {
 $$if ICARUS then
-        __display("[%d] spiflash [3] qspi:%d init:%b send:%b",cycle,spiflash.qspi,init,sendvec[24,8]);
+        __display("[%d] spiflash [2] qspi:%d init:%b send:%b",cycle,spiflash.qspi,init,sendvec[24,8]);
 $$end
         spiflash.trigger        = 1;
         spiflash.send           = sendvec[24,8];
         sendvec                 = sendvec << 8;
         stage                   = 0; // wait
-        wait                    = 2; //_ 4 cycles
+        wait                    = 0; //_ 2 cycles
         after                   = four[0,1] ? 3 : 2;
         four                    = four >> 1;
       }
@@ -131,7 +131,7 @@ $$end
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
-        wait                    = 2; //_ 4 cycles
+        wait                    = 0; //_ 2 cycles
         after                   = 5;
       }
       case 5: {
