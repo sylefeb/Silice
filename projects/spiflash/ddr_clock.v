@@ -17,7 +17,7 @@ module ddr_clock(
 
 `ifdef ICEBREAKER
   SB_IO #(
-    .PIN_TYPE(6'b10000_00)
+    .PIN_TYPE(6'b0100_00)
     //                 ^^ ignored (input)
     //           ^^^^^ DDR output
   ) sbio (
@@ -25,7 +25,7 @@ module ddr_clock(
       .D_OUT_0(1'b0),
       .D_OUT_1(enable),
       .OUTPUT_CLK(clock)
-  );  
+  );
 `endif
 
 endmodule
