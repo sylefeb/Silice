@@ -35,7 +35,7 @@ algorithm spiflash_qspi(
     io1.o     = ~osc ? sending[1,1] : sending[5,1];
     io2.o     = ~osc ? sending[2,1] : sending[6,1];
     io3.o     = ~osc ? sending[3,1] : sending[7,1];
-    
+
     sending   = (~osc | ~enable) ? send : sending;
     osc       = ~trigger ? 1b0 : ~osc;
     enable    = trigger;
@@ -71,7 +71,7 @@ algorithm spiflash_rom(
   uint3  stage(0);
   uint3  after(1);
   uint2  init(2b11);
-$$if ICARUS then
+$$if SIMULATION then
   uint32 cycle(0);
 $$end
   always {
@@ -99,8 +99,8 @@ $$end
         spiflash.send_else_read = 1; // sending
         // start sending?
         if (in_ready | init[1,1]) {
-$$if ICARUS then
-          __display("[%d] spiflash [1] qspi:%d init:%b",cycle,spiflash.qspi,init);
+$$if SIMULATION then
+          __display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
 $$end
           busy                  = 1;
           sf_csn                = 0;
@@ -135,15 +135,22 @@ $$end
         after                   = 5;
       }
       case 5: {
+$$if SIMULATION then
+        rdata                   = cycle[0,8]; // DEBUG
+$$else
         rdata                   = spiflash.read;
+$$end
         sf_csn                  = 1;
         spiflash.trigger        = 0;
         busy                    = 0;
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
+$$if SIMULATION then
+          __display("[%d](%d) spiflash [5] DONE",cycle,cycle>>1);
+$$end
       }
     }
-$$if ICARUS then
+$$if SIMULATION then
     cycle = cycle + 1;
 $$end
   }
