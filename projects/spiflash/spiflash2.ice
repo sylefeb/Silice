@@ -4,6 +4,12 @@
 
 import('ddr_clock.v')
 
+$$if VERILATOR then
+import('../common/verilator_data.v') // this is a feature supported by Silice
+                                     // verilator framework to access raw data
+                                     // stored in a 'data.raw' file
+$$end
+
 algorithm spiflash_qspi(
   input  uint8 send,
   input  uint1 trigger,
@@ -73,6 +79,9 @@ algorithm spiflash_rom(
   uint2  init(2b11);
 $$if SIMULATION then
   uint32 cycle(0);
+$$if VERILATOR then
+  verilator_data vdta(clock <: clock);
+$$end
 $$end
   always {
 
@@ -101,6 +110,9 @@ $$end
         if (in_ready | init[1,1]) {
 $$if SIMULATION then
           __display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
+$$if VERILATOR then
+          vdta.addr = addr;
+$$end
 $$end
           busy                  = 1;
           sf_csn                = 0;
@@ -136,7 +148,11 @@ $$end
       }
       case 5: {
 $$if SIMULATION then
+$$if VERILATOR then
+        rdata                   = vdta.data;  // from 'data.raw'
+$$else
         rdata                   = cycle[0,8]; // DEBUG
+$$end
 $$else
         rdata                   = spiflash.read;
 $$end
@@ -146,7 +162,7 @@ $$end
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
 $$if SIMULATION then
-          __display("[%d](%d) spiflash [5] DONE",cycle,cycle>>1);
+          __display("[%d](%d) spiflash [5] DONE (%d)",cycle,cycle>>1,rdata);
 $$end
       }
     }

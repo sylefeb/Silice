@@ -82,35 +82,35 @@ if [[ -z "${VGA}" ]] && [[ -z "${SDRAM}" ]] && [[ -z "${OLED}" ]]; then
 # basic framework
 LDFLAGS=""
 VERILATOR_LIB="verilator_bare"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_bare.cpp"
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_bare.cpp $VERILATOR_LIB_DIR/verilator_data.cpp"
 else
 if [[ -z "${SDRAM}" ]]; then
 if [[ -z "${OLED}" ]]; then
 # VGA only
 VERILATOR_LIB="verilator_vga"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
 else
 # SPIscreen only
 VERILATOR_LIB="verilator_spiscreen"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_spiscreen.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/SPIScreen.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_spiscreen.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/SPIScreen.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
 fi
 else
 if [[ -z "${VGA}" ]]; then
 # SDRAM only
 LDFLAGS=""
 VERILATOR_LIB="verilator_sdram"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_sdram.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_sdram.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
 else
 # VGA and SDRAM
 VERILATOR_LIB="verilator_vga_sdram"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga_sdram.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga_sdram.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
 fi
 fi
 fi
 
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/ -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI" $LDFLAGS
+verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe  $VERILATOR_LIB_SRC -CFLAGS "-O3 -I$SILICE_DIR/../frameworks/verilator/ -I$SILICE_DIR/../src/libs/LibSL-small/src/ -I$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/ -DNO_SHLWAPI -include $SILICE_DIR/../frameworks/verilator/verilator_data.h" $LDFLAGS
 cd obj_dir
 $MAKE -f Vtop.mk -j$(nproc)
 cd ..
