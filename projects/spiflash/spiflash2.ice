@@ -109,7 +109,7 @@ $$end
         // start sending?
         if (in_ready | init[1,1]) {
 $$if SIMULATION then
-          __display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
+          //__display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
 $$if VERILATOR then
           vdta.addr = addr;
 $$end
@@ -121,7 +121,7 @@ $$end
       }
       case 2: {
 $$if ICARUS then
-        __display("[%d] spiflash [2] qspi:%d init:%b send:%b",cycle,spiflash.qspi,init,sendvec[24,8]);
+        //__display("[%d] spiflash [2] qspi:%d init:%b send:%b",cycle,spiflash.qspi,init,sendvec[24,8]);
 $$end
         spiflash.trigger        = 1;
         spiflash.send           = sendvec[24,8];
@@ -162,7 +162,7 @@ $$end
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
 $$if SIMULATION then
-          __display("[%d](%d) spiflash [5] DONE (%d)",cycle,cycle>>1,rdata);
+          //__display("[%d](%d) spiflash [5] DONE (%d)",cycle,cycle>>1,rdata);
 $$end
       }
     }
