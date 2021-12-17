@@ -226,13 +226,13 @@ void SPIScreen::cmd_write_ram()
       m_rgb[1] = (m_byte & 7);
       m_rgb[2] = (m_byte >> 3);
     } else {
-      m_rgb[1] = m_rgb[1] | ((m_byte >> 5) << 3);
+      m_rgb[1] = (m_rgb[1] << 3) | (m_byte >> 5);
       m_rgb[0] = (m_byte & 31);
     }
     if (m_step == 2) {
-      m_rgb[0] <<= 3;      m_rgb[1] <<= 2;      m_rgb[2] <<= 3;
-      // fprintf(stdout,"565 x %d, y %d rgb:%d,%d,%d\n",
+      //fprintf(stdout,"565 x %d, y %d rgb:%x,%x,%x\n",
       //        m_x_cur,m_y_cur,(int)m_rgb[0],(int)m_rgb[1],(int)m_rgb[2]);
+      m_rgb[0] <<= 3;      m_rgb[1] <<= 2;      m_rgb[2] <<= 3;
       m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(
                                   m_y_cur,m_framebuffer.h()-1-m_x_cur) = m_rgb;
     }
