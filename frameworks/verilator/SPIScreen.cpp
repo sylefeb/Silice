@@ -230,6 +230,10 @@ void SPIScreen::cmd_write_ram()
       m_rgb[0] = (m_byte & 31);
     }
     if (m_step == 2) {
+      if (1) {
+        // bgr
+        std::swap(m_rgb[0],m_rgb[2]);
+      }
       //fprintf(stdout,"565 x %d, y %d rgb:%x,%x,%x\n",
       //        m_x_cur,m_y_cur,(int)m_rgb[0],(int)m_rgb[1],(int)m_rgb[2]);
       m_rgb[0] <<= 3;      m_rgb[1] <<= 2;      m_rgb[2] <<= 3;
