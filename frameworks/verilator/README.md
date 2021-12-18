@@ -10,7 +10,7 @@ In particular 3. works great to simulate boards such as the `ULX3S` or `de10-nan
 
 Both 2. and 3. open a window showing the simulation output. This is achieved with `glut` and `OpenGL`, so freeglut has to be installed on the system (packages are often called `freeglut3` and `freeglut3-dev`, on MinGW it is simply `freeglut`).
 
-For more details on how the graphical output is performed see comments in [VgaChip.cpp](VgaChip.cpp) and [vga_display.cpp](vga_display.cpp).
+For more details on how the graphical output is performed see comments in [VgaChip.cpp](VgaChip.cpp) and [display.cpp](display.cpp).
 
 To see how this gets compiled from Silice to Verilog and then Verilator see the bash script [verilator.sh](../boards/verilator/verilator.sh).
 
