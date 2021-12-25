@@ -2220,7 +2220,7 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
     if (_current->context.subroutine) {
       // verify the call is allowed
       if (_current->context.subroutine->allowed_calls.count(S->first) == 0) {
-        reportError(sync->getSourceInterval(), -1, 
+        reportError(sync->getSourceInterval(), -1,
           "subroutine '%s' calls other subroutine '%s' without permssion\n\
                             add 'calls %s' to declaration if that was intended.",
           _current->context.subroutine->name.c_str(),
