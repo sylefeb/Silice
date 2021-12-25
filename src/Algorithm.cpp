@@ -1878,6 +1878,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
           "cannot find subroutine '%s' declared called by subroutine '%s'",
           P->IDENTIFIER()->getText().c_str(), nfo->name.c_str());
       }
+      nfo->allowed_calls.insert(P->IDENTIFIER()->getText());
       // add all inputs/outputs
       for (auto ins : S->second->inputs) {
         nfo->allowed_writes.insert(S->second->vios.at(ins));
@@ -2215,6 +2216,17 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
   // are we calling a subroutine?
   auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
   if (S != m_Subroutines.end()) {
+    // are we in a subroutine?
+    if (_current->context.subroutine) {
+      // verify the call is allowed
+      if (_current->context.subroutine->allowed_calls.count(S->first) == 0) {
+        reportError(sync->getSourceInterval(), -1, 
+          "subroutine '%s' calls other subroutine '%s' without permssion\n\
+                            add 'calls %s' to declaration if that was intended.",
+          _current->context.subroutine->name.c_str(),
+          S->first.c_str(), S->first.c_str());
+      }
+    }
     // yes! create a new block, call subroutine
     t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, sync->getSourceInterval());
     // has to be a state to return to

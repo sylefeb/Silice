@@ -275,6 +275,7 @@ private:
       t_combinational_block                          *top_block;
       std::unordered_set<std::string>                 allowed_reads;
       std::unordered_set<std::string>                 allowed_writes;
+      std::unordered_set<std::string>                 allowed_calls;
       std::unordered_map<std::string, std::string>    vios;     // [subroutine space => translated var name in host]
       std::vector<std::string>                        inputs;   // ordered list of input names (subroutine space)
       std::vector<std::string>                        outputs;  // ordered list of output names (subroutine space)

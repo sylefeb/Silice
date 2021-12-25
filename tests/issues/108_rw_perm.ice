@@ -6,7 +6,9 @@ algorithm main(output uint5 leds) {
       leds = pattern;
    }
 
-   subroutine out_led_inverted(input uint5 pattern, calls out_led) {
+   subroutine out_led_inverted(input uint5 pattern,
+//                               calls out_led // uncomment to fix
+    ) {
       () <- out_led <- (~pattern);
    }
 
