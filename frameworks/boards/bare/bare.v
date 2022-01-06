@@ -54,10 +54,10 @@ module top(
   input        clock
 );
 
-reg ready = 0;
+reg [2:0] ready = 3'b100;
 
 always @(posedge clock) begin
-  ready <= 1;
+  ready <= ready >> 1;
 end
 
 wire run_main;
@@ -65,7 +65,7 @@ assign run_main = 1'b1;
 
 M_main __main(
   .clock(clock),
-  .reset(~ready),
+  .reset(~ready[0]),
   .out_leds(out_leds),
 `ifdef VGA
   .out_video_clock(out_video_clock),
