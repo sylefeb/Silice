@@ -107,7 +107,7 @@ $$if VGA then
   output  uint1 video_vs
 $$end
 )
-$$if not ULX3S then
+$$if not ULX3S and not BARE then
 <@video_clock,!video_reset>
 $$end
 {
@@ -173,7 +173,7 @@ $$end
   clean_reset vga_rstcond<@video_clock,!reset> (
     out :> video_reset
   );
-$$else
+$$elseif not BARE then
   // --- simulation pll
   pll clockgen<@clock,!reset>(
     video_clock   :> video_clock,
@@ -214,7 +214,7 @@ $$if MOJO then
   spi_channel := 4bzzzz;
 $$end
 
-$$if SIMULATION then
+$$if ICARUS then
   // we count a number of frames and stop
   while (frame < 8) {
 $$else

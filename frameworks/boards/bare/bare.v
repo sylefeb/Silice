@@ -26,6 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 `define BARE 1
+`define COLOR_DEPTH       6
 
 $$SIMULATION=1
 $$BARE=1
@@ -35,8 +36,20 @@ $$config['dualport_bram_wenable0_width'] = 'data'
 $$config['dualport_bram_wenable1_width'] = 'data'
 $$config['simple_dualport_bram_wenable0_width'] = 'data'
 $$config['simple_dualport_bram_wenable1_width'] = 'data'
+$$color_depth = 6
+$$color_max   = 63
 
 module top(
+`ifdef VGA
+  // VGA
+  output out_video_clock,
+  output reg [`COLOR_DEPTH-1:0] out_video_r,
+  output reg [`COLOR_DEPTH-1:0] out_video_g,
+  output reg [`COLOR_DEPTH-1:0] out_video_b,
+  output out_video_hs,
+  output out_video_vs,
+`endif
+  // basic
   output [7:0] out_leds,
   input        clock
 );
@@ -54,6 +67,14 @@ M_main __main(
   .clock(clock),
   .reset(~ready),
   .out_leds(out_leds),
+`ifdef VGA
+  .out_video_clock(out_video_clock),
+  .out_video_r(out_video_r),
+  .out_video_g(out_video_g),
+  .out_video_b(out_video_b),
+  .out_video_hs(out_video_hs),
+  .out_video_vs(out_video_vs),
+`endif
   .in_run(run_main)
 );
 

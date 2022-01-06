@@ -18,6 +18,7 @@ algorithm main(output uint$NUM_LEDS$ leds = 0)
   result  := mul.ret;
   mul.im0 := m0;
   mul.im1 := m1;
+	leds    := result[0,8];
 
   // not using a loop for easier understanding
   // each ++ let a cycle pass, after 5 cycles

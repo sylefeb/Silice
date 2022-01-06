@@ -79,7 +79,7 @@ $$if SIMULATION then
   output  uint1             video_clock,
 $$end
 )
-$$if not ULX3S then
+$$if not ULX3S and not BARE then
 <@video_clock,!video_reset>
 $$end
 {
@@ -144,7 +144,7 @@ $$end
   clean_reset vga_rstcond<@video_clock,!reset>(
     out   :> video_reset
   );
-$$else
+$$elseif not BARE then
   // --- simulation pll
   pll clockgen<@clock,!reset>(
     video_clock   :> video_clock,
