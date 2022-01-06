@@ -6550,7 +6550,11 @@ void Algorithm::writeCombinationalStates(
   // initiate termination sequence
   // -> termination state
   {
-    out << toFSMState(terminationState()) << ": begin // end of " << m_Name << nxl;
+    if (!m_OneHot) {
+      out << toFSMState(terminationState()) << ": begin // end of " << nxl;
+    } else {
+      out << FF_Q << prefix << ALG_IDX << '[' << terminationState() << "]: begin // end of " << nxl;
+    }
     out << "end" << nxl;
   }
   // default: internal error, should never happen
