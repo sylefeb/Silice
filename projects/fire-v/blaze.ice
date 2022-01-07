@@ -15,7 +15,7 @@ $$if SIMULATION then
 $$verbose = nil
 $$end
 
-$$if not (((ICEBREAKER or ICEBITSY) and VGA and SPIFLASH) or (VERILATOR and VGA)) then
+$$if not (((ICEBREAKER or ICEBITSY) and VGA and SPIFLASH) or (VERILATOR and VGA) or (BARE and VGA)) then
 $$error('Sorry, Blaze is currently not supported on this board.')
 $$end
 
@@ -29,7 +29,7 @@ $$FIREV_MUX_A_DECODER = 1
 $$FIREV_MUX_B_DECODER = 1
 $$end
 
-$$if VERILATOR then
+$$if SIMULATION then
 $include('../common/simulation_spram.ice')
 $$end
 
@@ -96,20 +96,20 @@ $include('../common/clean_reset.ice')
 
 // -------------------------
 
-$$if VERILATOR then
+$$if SIMULATION then
 import('../common/passthrough.v')
 $$end
 
 // -------------------------
 
 algorithm main(
-  output uint$NUM_LEDS$    leds,
-  output uint$color_depth$ video_r,
-  output uint$color_depth$ video_g,
-  output uint$color_depth$ video_b,
-  output uint1             video_hs,
-  output uint1             video_vs,
-$$if VERILATOR then
+  output  uint$NUM_LEDS$    leds,
+  output! uint$color_depth$ video_r,
+  output! uint$color_depth$ video_g,
+  output! uint$color_depth$ video_b,
+  output  uint1             video_hs,
+  output  uint1             video_vs,
+$$if SIMULATION then
   output uint1             video_clock,
 $$end
 $$if SPIFLASH then
@@ -227,7 +227,7 @@ $$end
   uint10 pix_x(0);
   uint10 pix_y(0);
 
-$$if VERILATOR then
+$$if SIMULATION then
   vga vga_driver(
 $$else
   vga vga_driver<@vga_clock>(
@@ -263,7 +263,7 @@ $$end
   uint1  fb0_wenable(0);
   uint8  fb0_wmask(0);
   uint16 fb0_data_out(0);
-$$if VERILATOR then
+$$if SIMULATION then
   simulation_spram frame0(
 $$else
   ice40_spram frame0(
@@ -280,7 +280,7 @@ $$end
   uint1  fb1_wenable(0);
   uint8  fb1_wmask(0);
   uint16 fb1_data_out(0);
-$$if VERILATOR then
+$$if SIMULATION then
   simulation_spram frame1(
 $$else
   ice40_spram frame1(
@@ -345,12 +345,9 @@ $$end
   uint1 do_div1(0);
   uint1 do_div2(0);
 
-
 $$if SIMULATION then
+  passthrough psclk(inv <: clock, outv :> video_clock);
   uint32 iter = 0;
-$$end
-$$if VERILATOR then
-  video_clock    := clock;
 $$end
 
   video_r        := (active) ? palette.rdata[ 2, 6] : 0;
