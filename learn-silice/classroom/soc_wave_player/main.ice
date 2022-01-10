@@ -35,7 +35,7 @@ group bram_io
 }
 
 algorithm main(
-  output uint5 leds,
+  output uint8 leds,
   output uint1 oled_clk,
   output uint1 oled_mosi,
   output uint1 oled_dc,
@@ -57,10 +57,10 @@ $$if UART then
   input  uint1 uart_rx,
 $$end
 $$if SDCARD then
-  output uint1  sd_clk,
-  output uint1  sd_csn,
-  output uint1  sd_mosi,
-  input  uint1  sd_miso,
+  output! uint1  sd_clk,
+  output! uint1  sd_csn,
+  output! uint1  sd_mosi,
+  input   uint1  sd_miso,
 $$end
 ) {
 
@@ -110,6 +110,7 @@ $$end
 
 $$if SIMULATION then
    uint32 cycle(0);
+   uint32 prev_cycle(0);
 $$end
 
   // ram
@@ -123,23 +124,30 @@ $$end
 
   // io mapping
   always {
+    uint1 memmap_r <: memio.addr[$memmap_bit$,1] & ~memio.wenable[0,1];
 	  // ---- memory access
     mem.wenable = memio.wenable & {4{~memio.addr[$memmap_bit$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
-    memio.rdata   = (prev_mem_addr[$memmap_bit$,1] & prev_mem_addr[4,1] & ~prev_mem_rw)
-                  ? {31b0,reg_sf_miso} // read from SPI-flash
-                  : mem.rdata;
-    mem.wdata     = memio.wdata;
-    mem.addr      = memio.addr;
+    memio.rdata   = // read data is either SPIflash, sdcard or memory
+       ((memmap_r & memio.addr[4,1]) ? {31b0,reg_sf_miso} : 32b0)
+     | ((memmap_r & memio.addr[5,1]) ? {31b0,reg_sd_miso} : 32b0)
+     | (~memmap_r                    ? mem.rdata          : 32b0);
+$$if SIMULATION then
+   if (memmap_r & memio.addr[5,1]) {
+     __display("SDCARD read =================================");
+   }
+$$end
+    mem.wdata        = memio.wdata;
+    mem.addr         = memio.addr;
 		// ---- peripherals
-    displ_en    = 0; // maintain display enable low
-    reg_sf_miso = sf_miso; // register flash miso
-    reg_sd_miso = sd_miso; // register sdcard miso
+    displ_en         = 0; // maintain display enable low
+    reg_sf_miso      = sf_miso; // register flash miso
+    reg_sd_miso      = sd_miso; // register sdcard miso
     uo.data_in_ready = 0; // maintain uart trigger low
     // ---- memory mapping to peripherals: writes
     if (prev_mem_rw & prev_mem_addr[$memmap_bit$,1]) {
       /// LEDs
-      leds         = prev_mem_addr[0,1] ? prev_wdata[0,5] : leds;
+      leds         = prev_mem_addr[0,1] ? prev_wdata[0,8] : leds;
       /// display
       // -> send command/data
       displ_en     = (prev_wdata[9,1] | prev_wdata[10,1]) & prev_mem_addr[1,1];
@@ -159,6 +167,7 @@ $$end
 $$if SIMULATION then
       if (prev_mem_addr[0,1]) {
         __display("[cycle %d] LEDs: %b",cycle,leds);
+        if (leds == 255) { __finish(); }
       }
       //if (prev_mem_addr[1,1]) {
       //  __display("[cycle %d] display en: %b",cycle,prev_wdata[9,2]);
@@ -173,7 +182,8 @@ $$if SIMULATION then
         __display("[cycle %d] SPI write %b",cycle,prev_wdata[0,3]);
       }
       if (prev_mem_addr[5,1]) {
-        __display("[cycle %d] sdcard %b",cycle,prev_wdata[0,3]);
+        __display("[cycle %d] sdcard %b (elapsed %d)",cycle,prev_wdata[0,3],cycle - prev_cycle);
+        prev_cycle = cycle;
       }
 $$end
     }
