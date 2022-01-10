@@ -24,7 +24,7 @@ const unsigned char acmd41[] = {0x69,0x40,0x00,0x00,0x00,0x01};
 const unsigned char cmd16[]  = {0x50,0x00,0x00,0x02,0x00,0x15};
 const unsigned char cmd17[]  = {0x51,0x00,0x00,0x00,0x00,0x55};
 
-#define DELAY() asm volatile ("addi t0,zero,1; 0: addi t0,t0,-1; bne t0,zero,0b;");
+#define SDC_DELAY() asm volatile ("addi t0,zero,1; 0: addi t0,t0,-1; bne t0,zero,0b;");
 
 void sdcard_select()
 {
@@ -39,7 +39,7 @@ void sdcard_ponder()
   for (int i = 0; i < 16 ; i++) {
       *SDCARD = 4 | 2 | clk;
       clk     = 1 - clk;
-      DELAY();
+      SDC_DELAY();
   }
 }
 
@@ -54,7 +54,7 @@ void sdcard_unselect()
     *SDCARD     = (mosi<<1) | clk;\
     clk         = 1-clk;\
     asm volatile ("nop; nop; nop; addi t0,zero,3; 0: addi t0,t0,-1; bne t0,zero,0b;");\
-    DELAY()
+    SDC_DELAY()
 
     /*asm volatile ("nop");*/
 
@@ -79,13 +79,13 @@ void sdcard_send(int indata)
     asm volatile ("rdtime %0" : "=r"(ud));\
     answer      = (answer << 1) | ((ud>>3)&1);\
     asm volatile ("addi t0,zero,2; 0: addi t0,t0,-1; bne t0,zero,0b;");\
-    DELAY()
+    SDC_DELAY()
 
 #define sdcard_read_step_H() \
     *SDCARD     = 3;\
     n ++;\
     asm volatile ("addi t0,zero,5; 0: addi t0,t0,-1; bne t0,zero,0b;");\
-    DELAY()
+    SDC_DELAY()
 
 unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
 {
@@ -162,7 +162,7 @@ void sdcard_preinit()
     for (int i = 0; i < 160 ; i++) {
       *SDCARD = 4 | 2 | clk;
       clk     = 1 - clk;
-      DELAY();
+      SDC_DELAY();
     }
   }
   *SDCARD = 4 | 2;

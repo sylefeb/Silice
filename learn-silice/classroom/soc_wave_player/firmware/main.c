@@ -4,6 +4,7 @@ volatile int* const LEDS     = (int*)0x2004; // 0010000000000100
 volatile int* const OLED     = (int*)0x2008; // 0010000000001000
 volatile int* const OLED_RST = (int*)0x2010; // 0010000000010000
 volatile int* const UART     = (int*)0x2020; // 0010000000100000
+volatile int* const SDCARD   = (int*)0x2020; // 0010000001000000
 
 static inline unsigned int rdcycle()
 {
@@ -21,7 +22,7 @@ static inline void pause(int ncycles)
 #include "oled.h"
 #include "printf.c"
 #include "mul.c"
-// #include "sdcard.c"
+#include "sdcard.c"
 
 void main()
 {

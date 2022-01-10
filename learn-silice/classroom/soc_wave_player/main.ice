@@ -55,6 +55,12 @@ $$if UART then
   output uint1 uart_tx,
   input  uint1 uart_rx,
 $$end
+$$if SDCARD then
+  output uint1  sd_clk,
+  output uint1  sd_csn,
+  output uint1  sd_mosi,
+  input  uint1  sd_miso,
+$$end
 ) {
 
   uint1 displ_en = uninitialized;
@@ -76,6 +82,15 @@ $$if not SPIFLASH then
   uint1       sf_csn(0);
   uint1       sf_mosi(0);
   uint1       sf_miso(0);
+$$end
+
+  // SDCARD
+  uint1        reg_sd_miso(0);
+$$if not SDCARD then
+  uint1  sd_clk(0);
+  uint1  sd_csn(0);
+  uint1  sd_mosi(0);
+  uint1  sd_miso(0);
 $$end
 
   // UART
@@ -118,15 +133,16 @@ $$end
 		// ---- peripherals
     displ_en    = 0; // maintain display enable low
     reg_sf_miso = sf_miso; // register flash miso
+    reg_sd_miso = sd_miso; // register sdcard miso
     uo.data_in  = prev_wdata[ 0,8]; // uart byte
     // ---- memory mapping to peripherals: writes
     if (prev_mem_rw & prev_mem_addr[11,1]) {
       /// LEDs
       leds         = prev_mem_addr[0,1] ? prev_wdata[0,5] : leds;
       /// display
-      // command
+      // -> send command/data
       displ_en     = (prev_wdata[9,1] | prev_wdata[10,1]) & prev_mem_addr[1,1];
-      // reset
+      // -> reset
       oled_resn    = ~ (prev_wdata[0,1] & prev_mem_addr[2,1]);
       /// uart
       uo.data_in_ready = ~uo.busy & prev_mem_addr[3,1];
@@ -134,17 +150,29 @@ $$end
 			sf_clk  = prev_mem_addr[4,1] ? prev_wdata[0,1] : sf_clk;
 			sf_mosi = prev_mem_addr[4,1] ? prev_wdata[1,1] : sf_mosi;
 			sf_csn  = prev_mem_addr[4,1] ? prev_wdata[2,1] : sf_csn;
+      /// sdcard
+      sd_clk  = prev_mem_addr[5,1] ? prev_wdata[0,1] : sd_clk;
+      sd_mosi = prev_mem_addr[5,1] ? prev_wdata[1,1] : sd_mosi;
+      sd_csn  = prev_mem_addr[5,1] ? prev_wdata[2,1] : sd_csn;
 $$if SIMULATION then
       if (prev_mem_addr[0,1]) {
-        __display("[cycle %d] LEDs: %b",cycle,leds); }
+        __display("[cycle %d] LEDs: %b",cycle,leds);
+      }
       //if (prev_mem_addr[1,1]) {
-      //  __display("[cycle %d] display en: %b",cycle,prev_wdata[9,2]);   }
+      //  __display("[cycle %d] display en: %b",cycle,prev_wdata[9,2]);
+      //}
       if (prev_mem_addr[2,1]) {
-        __display("[cycle %d] display resn: %b",cycle,prev_wdata[0,1]); }
+        __display("[cycle %d] display resn: %b",cycle,prev_wdata[0,1]);
+      }
       if (prev_mem_addr[3,1]) { // printf via UART
-        __write("%c",prev_wdata[0,8]); }
+        __write("%c",prev_wdata[0,8]);
+      }
       if (prev_mem_addr[4,1]) {
-        __display("[cycle %d] SPI write %b",cycle,prev_wdata[0,3]); }
+        __display("[cycle %d] SPI write %b",cycle,prev_wdata[0,3]);
+      }
+      if (prev_mem_addr[5,1]) {
+        __display("[cycle %d] sdcard %b",cycle,prev_wdata[0,3]);
+      }
 $$end
     }
 		prev_mem_addr = memio.addr;
