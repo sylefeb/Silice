@@ -35,7 +35,7 @@ void display_putchar(int c)
   if (c >= 32) {
     for (int j=0;j<8;j++) {
       for (int i=0;i<5;i++) {
-        framebuffer[ 127 - (cursor_y + j) + ((cursor_x+i)<<7) ]
+        framebuffer[ (cursor_y + j) + ((cursor_x+i)<<7) ]
             = (font[c-32][i] & (1<<j)) ? front_color : back_color;
       }
     }

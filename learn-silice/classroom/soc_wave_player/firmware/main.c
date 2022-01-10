@@ -39,8 +39,6 @@ void main()
   // install putchar handler for printf
   f_putchar = dual_putchar;
 
-	//int i = 0;
-
   oled_init();
   oled_fullscreen();
 
