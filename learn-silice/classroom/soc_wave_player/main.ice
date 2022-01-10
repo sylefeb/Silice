@@ -11,6 +11,8 @@ $$dofile('pre_include_compiled.lua')
 
 $$addrW = 12
 
+$$config['bram_wmask_byte_wenable_width'] = 'data'
+
 // includes the processor
 $include('../../../projects/ice-v/CPUs/ice-v.ice')
 // includes the SPIscreen driver
@@ -49,8 +51,8 @@ $$end
 ) {
 
   uint1 displ_en = uninitialized;
-  uint1 displ_dta_or_cmd <: memio.wdata[10,1];
-  uint8 displ_byte       <: memio.wdata[0,8];
+  uint1 displ_dta_or_cmd <: prev_wdata[10,1];
+  uint8 displ_byte       <: prev_wdata[0,8];
   oled display(
     enable          <: displ_en,
     data_or_command <: displ_dta_or_cmd,
@@ -128,11 +130,7 @@ $$end
 		prev_mem_rw   = memio.wenable[0,1];
     prev_wdata    = memio.wdata;
 $$if SIMULATION then
-    if (cycle == 2048) {
-      __finish();
-    }
     cycle = cycle + 1;
-
 $$end
   }
 
