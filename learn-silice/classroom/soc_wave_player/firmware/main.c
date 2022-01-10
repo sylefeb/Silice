@@ -1,6 +1,10 @@
 // @sylefeb 2022-01-10
 
 volatile int* const LEDS     = (int*)0x2004;
+volatile int* const OLED     = (int*)0x2008;
+volatile int* const OLED_RST = (int*)0x2010;
+
+#include "oled.h"
 
 static inline unsigned int rdcycle()
 {
@@ -9,7 +13,7 @@ static inline unsigned int rdcycle()
    return cycles;
 }
 
-static inline void wait(int ncycles)
+static inline void sleep(int ncycles)
 {
   unsigned int start = rdcycle();
   while ( rdcycle() - start < ncycles ) { }
@@ -18,9 +22,14 @@ static inline void wait(int ncycles)
 void main()
 {
 	int i = 0;
+
+  oled_init();
+  oled_fullscreen();
+  oled_clear(63);
+
 	while (1) {
 		*LEDS = i;
 		++i;
-    wait(1000000);
+    sleep(1000000);
 	}
 }

@@ -40,10 +40,12 @@ $$if VERILATOR then
   output uint10 spiscreen_width(128),
   output uint10 spiscreen_height(128),
 $$end
+$$if SPIFLASH then
   output uint1 sf_clk,
   output uint1 sf_csn,
   output uint1 sf_mosi,
   input  uint1 sf_miso,
+$$end
 ) {
 
   uint1 displ_en = uninitialized;
@@ -60,6 +62,12 @@ $$end
 
   // spiflash
   uint1       reg_miso(0);
+$$if not SPIFLASH then
+  uint1       sf_clk(0);
+  uint1       sf_csn(0);
+  uint1       sf_mosi(0);
+  uint1       sf_miso(0);
+$$end
 
 	// for memory mapping, record prev. cycle access
 	uint$addrW$ prev_mem_addr(0);
@@ -74,7 +82,7 @@ $$end
   // - intermediate interface to perform memory mapping
   bram_io memio;
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
-  bram uint32 mem<"bram_wmask_byte">[1536] = $meminit$;
+  bram uint32 mem<"bram_wmask_byte">[2048] = $meminit$;
 
   // cpu
   rv32i_cpu cpu( mem <:> memio );
