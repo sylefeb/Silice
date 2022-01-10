@@ -104,6 +104,11 @@ module top(
 `ifdef UART2
   // uart2
 `endif
+`ifdef SPIFLASH
+  output flash_csn,
+  output flash_mosi,
+  input  flash_miso,
+`endif
   input  clk_25mhz
   );
 
@@ -237,6 +242,12 @@ M_main __main(
   .out_uart_tx  (__main_out_uart_rx),
   .in_uart_rx   (ftdi_txd),
 `endif
+`ifdef SPIFLASH
+  .out_sf_clk(__main_flash_clk),
+  .out_sf_csn(flash_csn),
+  .out_sf_mosi(flash_mosi),
+  .in_sf_miso(flash_miso),
+`endif
 `ifdef VGA
   .out_video_hs (__main_out_vga_hs),
   .out_video_vs (__main_out_vga_vs),
@@ -313,6 +324,13 @@ assign ftdi_rxd      = __main_out_uart_rx;
 
 `ifdef HDMI
 assign gpdi_dp       = __main_out_gpdi_dp;
+`endif
+
+`ifdef SPIFLASH
+wire __main_flash_clk;
+USRMCLK usrmclk_flash(
+          .USRMCLKI(__main_flash_clk),
+          .USRMCLKTS(1'b0));
 `endif
 
 `ifdef US2_PS2
