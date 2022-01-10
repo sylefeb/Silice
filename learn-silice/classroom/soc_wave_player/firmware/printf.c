@@ -1,17 +1,13 @@
 // -----------------------------------------------------
-// UART printf
+// printf
 // -----------------------------------------------------
 
-void putchar(int c)
-{
-  *UART = c;
-  pause(10000);
-}
+void (*f_putchar)(int);
 
 static inline void print_string(const char* s)
 {
    for (const char* p = s; *p; ++p) {
-      putchar(*p);
+      f_putchar(*p);
    }
 }
 
@@ -20,7 +16,7 @@ static inline void print_dec(int val)
    char buffer[255];
    char *p = buffer;
    if (val < 0) {
-      putchar('-');
+      f_putchar('-');
       print_dec(-val);
       return;
    }
@@ -30,14 +26,14 @@ static inline void print_dec(int val)
       val    = q;
    }
    while (p != buffer) {
-      putchar('0' + *(--p));
+      f_putchar('0' + *(--p));
    }
 }
 
 static inline void print_hex_digits(unsigned int val, int nbdigits)
 {
    for (int i = (4*nbdigits)-4; i >= 0; i -= 4) {
-      putchar("0123456789ABCDEF"[(val >> i) & 15]);
+      f_putchar("0123456789ABCDEF"[(val >> i) & 15]);
    }
 }
 
@@ -57,10 +53,10 @@ static inline int printf(const char *fmt,...)
       if (*fmt=='s')      print_string(va_arg(ap,char *));
       else if (*fmt=='x') print_hex(va_arg(ap,int));
       else if (*fmt=='d') print_dec(va_arg(ap,int));
-      else if (*fmt=='c') putchar(va_arg(ap,int));
-      else                putchar(*fmt);
+      else if (*fmt=='c') f_putchar(va_arg(ap,int));
+      else                f_putchar(*fmt);
     } else {
-      putchar(*fmt);
+      f_putchar(*fmt);
     }
   }
   va_end(ap);

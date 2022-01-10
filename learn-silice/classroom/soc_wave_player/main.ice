@@ -9,7 +9,8 @@
 // pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_compiled.lua')
 
-$$addrW = 12
+$$addrW      = 14
+$$memmap_bit = addrW-1
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
 
@@ -115,7 +116,7 @@ $$end
   // - intermediate interface to perform memory mapping
   bram_io memio;
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
-  bram uint32 mem<"bram_wmask_byte">[2048] = $meminit$;
+  bram uint32 mem<"bram_wmask_byte">[$1<<(addrW-1)$] = $meminit$;
 
   // cpu
   rv32i_cpu cpu( mem <:> memio );
@@ -123,9 +124,9 @@ $$end
   // io mapping
   always {
 	  // ---- memory access
-    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}};
+    mem.wenable = memio.wenable & {4{~memio.addr[$memmap_bit$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
-    memio.rdata   = (prev_mem_addr[11,1] & prev_mem_addr[4,1] & ~prev_mem_rw)
+    memio.rdata   = (prev_mem_addr[$memmap_bit$,1] & prev_mem_addr[4,1] & ~prev_mem_rw)
                   ? {31b0,reg_sf_miso} // read from SPI-flash
                   : mem.rdata;
     mem.wdata     = memio.wdata;
@@ -134,9 +135,9 @@ $$end
     displ_en    = 0; // maintain display enable low
     reg_sf_miso = sf_miso; // register flash miso
     reg_sd_miso = sd_miso; // register sdcard miso
-    uo.data_in  = prev_wdata[ 0,8]; // uart byte
+    uo.data_in_ready = 0; // maintain uart trigger low
     // ---- memory mapping to peripherals: writes
-    if (prev_mem_rw & prev_mem_addr[11,1]) {
+    if (prev_mem_rw & prev_mem_addr[$memmap_bit$,1]) {
       /// LEDs
       leds         = prev_mem_addr[0,1] ? prev_wdata[0,5] : leds;
       /// display
@@ -146,6 +147,7 @@ $$end
       oled_resn    = ~ (prev_wdata[0,1] & prev_mem_addr[2,1]);
       /// uart
       uo.data_in_ready = ~uo.busy & prev_mem_addr[3,1];
+      uo.data_in       =  uo.data_in_ready ? prev_wdata[ 0,8] : uo.data_in;
       /// SPIflash
 			sf_clk  = prev_mem_addr[4,1] ? prev_wdata[0,1] : sf_clk;
 			sf_mosi = prev_mem_addr[4,1] ? prev_wdata[1,1] : sf_mosi;
