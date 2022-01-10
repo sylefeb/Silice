@@ -7,7 +7,6 @@ if not path then
 	if path == '' then
 	  path = '.'
 	end
-  print('********************* firmware written to     ' .. path .. '/compile/build/code.img')
   print('********************* compiled code read from ' .. path .. '/compile/build/code*.hex')
 end
 

@@ -17,6 +17,9 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 $include('../../../projects/ice-v/CPUs/ice-v.ice')
 // includes the SPIscreen driver
 $include('../../../projects/ice-v/SOCs/ice-v-oled.ice')
+// includes the UART controller
+$$uart_in_clock_freq_mhz = 25
+$include('../../../projects/common/uart.ice')
 
 // --------------------------------------------------
 // SOC
@@ -48,6 +51,10 @@ $$if SPIFLASH then
   output uint1 sf_mosi,
   input  uint1 sf_miso,
 $$end
+$$if UART then
+  output uint1 uart_tx,
+  input  uint1 uart_rx,
+$$end
 ) {
 
   uint1 displ_en = uninitialized;
@@ -63,12 +70,21 @@ $$end
   );
 
   // spiflash
-  uint1       reg_miso(0);
+  uint1       reg_sf_miso(0);
 $$if not SPIFLASH then
   uint1       sf_clk(0);
   uint1       sf_csn(0);
   uint1       sf_mosi(0);
   uint1       sf_miso(0);
+$$end
+
+  // UART
+  uart_out uo;
+$$if UART then
+  uart_sender usend<reginputs>(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
 $$end
 
 	// for memory mapping, record prev. cycle access
@@ -95,13 +111,14 @@ $$end
     mem.wenable = memio.wenable & {4{~memio.addr[11,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
     memio.rdata   = (prev_mem_addr[11,1] & prev_mem_addr[4,1] & ~prev_mem_rw)
-                  ? {31b0,reg_miso} // read from SPI-flash
+                  ? {31b0,reg_sf_miso} // read from SPI-flash
                   : mem.rdata;
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
 		// ---- peripherals
-    displ_en  = 0; // maintain display enable low
-    reg_miso  = sf_miso; // register flash miso
+    displ_en    = 0; // maintain display enable low
+    reg_sf_miso = sf_miso; // register flash miso
+    uo.data_in  = prev_wdata[ 0,8]; // uart byte
     // ---- memory mapping to peripherals: writes
     if (prev_mem_rw & prev_mem_addr[11,1]) {
       /// LEDs
@@ -111,6 +128,8 @@ $$end
       displ_en     = (prev_wdata[9,1] | prev_wdata[10,1]) & prev_mem_addr[1,1];
       // reset
       oled_resn    = ~ (prev_wdata[0,1] & prev_mem_addr[2,1]);
+      /// uart
+      uo.data_in_ready = ~uo.busy & prev_mem_addr[3,1];
       /// SPIflash
 			sf_clk  = prev_mem_addr[4,1] ? prev_wdata[0,1] : sf_clk;
 			sf_mosi = prev_mem_addr[4,1] ? prev_wdata[1,1] : sf_mosi;
@@ -122,6 +141,8 @@ $$if SIMULATION then
       //  __display("[cycle %d] display en: %b",cycle,prev_wdata[9,2]);   }
       if (prev_mem_addr[2,1]) {
         __display("[cycle %d] display resn: %b",cycle,prev_wdata[0,1]); }
+      if (prev_mem_addr[3,1]) { // printf via UART
+        __write("%c",prev_wdata[0,8]); }
       if (prev_mem_addr[4,1]) {
         __display("[cycle %d] SPI write %b",cycle,prev_wdata[0,3]); }
 $$end
