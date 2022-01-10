@@ -1,7 +1,7 @@
 
 .DEFAULT: main.ice
 	./compile/compile_c.sh firmware/main.c
-	silice-make.py -s main.ice -b $@ -p basic,oled,spiflash,uart -o BUILD_$(subst :,_,$@) $(ARGS)
+	silice-make.py -s main.ice -b $@ -p basic,oled,spiflash,uart,sdcard -o BUILD_$(subst :,_,$@) $(ARGS)
 
 verilator: main.ice
 	rm -rf BUILD_*

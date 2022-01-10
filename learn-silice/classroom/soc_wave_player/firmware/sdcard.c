@@ -156,9 +156,9 @@ unsigned char *sdcard_copy_sector(int sector,unsigned char *dst)
 void sdcard_preinit()
 {
   *SDCARD = 4 | 2;
-  pause(10000000); // 0.1 sec @100MHz
+  pause(2500000); // 0.1 sec @25MHz
   {
-    register int clk = 0;
+    int clk = 0;
     for (int i = 0; i < 160 ; i++) {
       *SDCARD = 4 | 2 | clk;
       clk     = 1 - clk;

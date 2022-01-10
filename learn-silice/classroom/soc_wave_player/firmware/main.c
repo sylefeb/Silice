@@ -43,22 +43,33 @@ void main()
   oled_fullscreen();
 
   display_set_cursor(0,0);
+  display_set_front_back_color(255,0);
+  printf("Hello world!\n");
+  display_set_front_back_color(0,255);
+  printf("from the SOC\n");
+  display_refresh();
+
+  *LEDS = 1;
+
+  sdcard_init();
+
+  *LEDS = 2;
+
   while (1) {
-    display_set_front_back_color(255,0);
-    printf("Hello world!\n");
-    display_set_front_back_color(0,255);
-    printf("from the SOC\n");
+    display_set_cursor(0,0);
+    *LEDS = 4;
+    unsigned char data[512];
+    sdcard_copy_sector(1,data);
+    *LEDS = 8;
+    printf("---- sdcard content, sector 1 ----\n");
+    for (int i=0;i<32;i++) {
+      unsigned char by = data[i];
+      f_putchar("0123456789ABCDEF"[(by >> 4)&15]);
+      f_putchar("0123456789ABCDEF"[(by >> 0)&15]);
+      f_putchar(' ');
+      if ((i&15) == 15) { printf("\n"); }
+    }
     display_refresh();
   }
 
-  // sdcard_init();
-
-/*
-	while (1) {
-		*LEDS = i;
-		++i;
-    oled_clear(i);
-    pause(1000000);
-	}
-*/
 }
