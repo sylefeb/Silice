@@ -25,11 +25,11 @@ void main()
 
   oled_init();
   oled_fullscreen();
-  oled_clear(63);
 
 	while (1) {
 		*LEDS = i;
 		++i;
+    oled_clear(i);
     sleep(1000000);
 	}
 }

@@ -105,7 +105,7 @@ $$end
     // ---- memory mapping to peripherals: writes
     if (prev_mem_rw & prev_mem_addr[11,1]) {
       /// LEDs
-      leds      = mem.wdata[0,5] & {5{prev_mem_addr[0,1]}};
+      leds         = prev_mem_addr[0,1] ? prev_wdata[0,5] : leds;
       /// display
       // command
       displ_en     = (prev_wdata[9,1] | prev_wdata[10,1]) & prev_mem_addr[1,1];
@@ -118,8 +118,8 @@ $$end
 $$if SIMULATION then
       if (prev_mem_addr[0,1]) {
         __display("[cycle %d] LEDs: %b",cycle,leds); }
-      if (prev_mem_addr[1,1]) {
-        __display("[cycle %d] display en: %b",cycle,prev_wdata[9,2]);   }
+      //if (prev_mem_addr[1,1]) {
+      //  __display("[cycle %d] display en: %b",cycle,prev_wdata[9,2]);   }
       if (prev_mem_addr[2,1]) {
         __display("[cycle %d] display resn: %b",cycle,prev_wdata[0,1]); }
       if (prev_mem_addr[4,1]) {
