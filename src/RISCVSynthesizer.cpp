@@ -55,10 +55,13 @@ void RISCVSynthesizer::gather(siliceParser::RiscvContext *riscv)
   siliceParser::InOutListContext *list = riscv->inOutList();
   for (auto io : list->inOrOut()) {
     if (io->input()) {
+      if (io->input()->declarationVar()->IDENTIFIER() == nullptr) {
+        reportError(io->getSourceInterval(), -1, "[RISCV] table inputs are not supported");
+      }
       t_inout_nfo nfo;
-      nfo.name               = io->input()->IDENTIFIER()->getText();
+      nfo.name = io->input()->declarationVar()->IDENTIFIER()->getText();
       nfo.do_not_initialize  = true;
-      gatherTypeNfo(io->input()->type(), nfo.type_nfo);
+      gatherTypeNfo(io->input()->declarationVar()->type(), nfo.type_nfo);
       m_Inputs.emplace_back(nfo);
       m_InputNames.insert(make_pair(nfo.name, (int)m_Inputs.size() - 1));
     } else if (io->output()) {
@@ -256,10 +259,11 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
     auto inout  = dynamic_cast<siliceParser::InoutContext *>   (io->inout());
     string addr = string("=(int*)0x") + string(sprint("%x", ptr_base | ptr_next));
     if (input) {
-      header << "volatile int *__ptr__" << input->IDENTIFIER()->getText() << addr << ';' << nxl;
+      sl_assert(input->declarationVar()->IDENTIFIER() != nullptr);
+      header << "volatile int *__ptr__" << input->declarationVar()->IDENTIFIER()->getText() << addr << ';' << nxl;
       // getter
-      header << "static inline int " << input->IDENTIFIER()->getText() << "() { "
-             << "return *__ptr__" << input->IDENTIFIER()->getText() << "; }" << nxl;
+      header << "static inline int " << input->declarationVar()->IDENTIFIER()->getText() << "() { "
+             << "return *__ptr__" << input->declarationVar()->IDENTIFIER()->getText() << "; }" << nxl;
     } else if (output) {
       sl_assert(output->declarationVar()->IDENTIFIER() != nullptr);
       header << "volatile int *__ptr__" << output->declarationVar()->IDENTIFIER()->getText() << addr << ';' << nxl;
@@ -305,7 +309,8 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
     auto inout  = dynamic_cast<siliceParser::InoutContext *>   (io->inout());
     string name;
     if (input) {
-      name = input->IDENTIFIER()->getText();
+      sl_assert(input->declarationVar()->IDENTIFIER() != nullptr);
+      name = input->declarationVar()->IDENTIFIER()->getText();
     } else if (output) {
       sl_assert(output->declarationVar()->IDENTIFIER() != nullptr);
       name = output->declarationVar()->IDENTIFIER()->getText();
@@ -327,8 +332,9 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
     string v, init;
     t_type_nfo type_nfo;
     if (input) {
-      gatherTypeNfo(input->type(), type_nfo);
-      v         = input->IDENTIFIER()->getText();
+      sl_assert(input->declarationVar()->IDENTIFIER() != nullptr);
+      gatherTypeNfo(input->declarationVar()->type(), type_nfo);
+      v         = input->declarationVar()->IDENTIFIER()->getText();
       io_reads  = io_reads  + " | (ior_" + std::to_string(idx) + " ? " + v + " : 32b0)";
       io_decl   = io_decl + "input ";
     } else if (output) {

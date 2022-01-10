@@ -86,12 +86,12 @@ void VgaChip::eval(
         blue  << (8-m_color_depth),
         255);
       if (x == m_h_res - 1 && y == m_v_res - 1) {
-          // save image
-          saveImage("last_frame.tga",&m_framebuffer);
-          // static int cnt = 0;
-          // char str[256];
-          // snprintf(str,256,"frame_%04d.tga",cnt++);
-          // saveImage(str,&m_framebuffer);
+        // save image
+        saveImage("last_frame.tga",&m_framebuffer);
+        // static int cnt = 0;
+        // char str[256];
+        // snprintf(str,256,"frame_%04d.tga",cnt++);
+        // saveImage(str,&m_framebuffer);
       }
     }
     // update horizontal coordinate

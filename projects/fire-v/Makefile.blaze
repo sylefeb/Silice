@@ -1,6 +1,6 @@
 
 .DEFAULT: blaze.ice
-		silice-make.py -s blaze.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@) $(ARGS)
+		silice-make.py -s blaze.ice -b $@ -p basic,vga -o BUILD_$(subst :,_,$@) $(ARGS)
 
 ulx3s: blaze.ice
 		silice-make.py -s blaze.ice -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@) -t shell $(ARGS)

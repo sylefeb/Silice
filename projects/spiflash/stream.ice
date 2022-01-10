@@ -7,11 +7,12 @@ $$end
 $$uart_in_clock_freq_mhz = 12
 $include('../common/uart.ice')
 
-$include('spiflash.ice')
+$include('spiflash2.ice')
 
-circuitry wait20() // waits exactly 20 cycles
+$$K = 18
+circuitry wait() // waits 2+K cycles
 {
-  uint5 n = 0; while (n != 18) { n = n + 1; }
+  uint5 n = 0; while (n != $K$) { n = n + 1; }
 }
 
 algorithm main(
@@ -88,7 +89,7 @@ $$end
   while (data.addr != 64) {
     sf_rom.in_ready = 1;
     sf_rom.addr     = data.addr;
-    ()              = wait20();
+    ()              = wait();
     __display("read %x",sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
     data.addr       = data.addr + 1;

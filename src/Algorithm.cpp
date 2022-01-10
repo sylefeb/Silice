@@ -1878,6 +1878,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
           "cannot find subroutine '%s' declared called by subroutine '%s'",
           P->IDENTIFIER()->getText().c_str(), nfo->name.c_str());
       }
+      nfo->allowed_calls.insert(P->IDENTIFIER()->getText());
       // add all inputs/outputs
       for (auto ins : S->second->inputs) {
         nfo->allowed_writes.insert(S->second->vios.at(ins));
@@ -1893,14 +1894,13 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       int tbl_size = 0;
       if (P->input() != nullptr) {
         in_or_out = "i";
-        ioname = P->input()->IDENTIFIER()->getText();
-        type   = P->input()->type();
-        if (P->input()->NUMBER() != nullptr) {
+        if (P->input()->declarationTable() != nullptr) {
           reportError(P->getSourceInterval(), (int)P->getStart()->getLine(),
             "subroutine '%s' input '%s', tables as input are not yet supported",
             nfo->name.c_str(), ioname.c_str());
-          tbl_size = atoi(P->input()->NUMBER()->getText().c_str());
         }
+        ioname = P->input()->declarationVar()->IDENTIFIER()->getText();
+        type = P->input()->declarationVar()->type();
         nfo->inputs.push_back(ioname);
       } else {
         in_or_out = "o";
@@ -2216,6 +2216,17 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
   // are we calling a subroutine?
   auto S = m_Subroutines.find(sync->joinExec()->IDENTIFIER()->getText());
   if (S != m_Subroutines.end()) {
+    // are we in a subroutine?
+    if (_current->context.subroutine) {
+      // verify the call is allowed
+      if (_current->context.subroutine->allowed_calls.count(S->first) == 0) {
+        reportError(sync->getSourceInterval(), -1,
+          "subroutine '%s' calls other subroutine '%s' without permssion\n\
+                            add 'calls %s' to declaration if that was intended.",
+          _current->context.subroutine->name.c_str(),
+          S->first.c_str(), S->first.c_str());
+      }
+    }
     // yes! create a new block, call subroutine
     t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, sync->getSourceInterval());
     // has to be a state to return to
@@ -2579,21 +2590,22 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
 
 void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _io, t_combinational_block *_current, t_gather_context *_context)
 {
-  _io.name = input->IDENTIFIER()->getText();
-  _io.table_size = 0;
-  _io.source_interval = input->IDENTIFIER()->getSourceInterval();
-  // type
-  std::string is_group;
-  gatherTypeNfo(input->type(), _io.type_nfo, _current, _context, is_group);
-  if (_io.type_nfo.base_type == Parameterized) {
-    reportError(input->getSourceInterval(), -1, "input '%s': using 'sameas' is not yet supported", _io.name.c_str());
-  }
-  if (input->NUMBER() != nullptr) {
+  if (input->declarationVar() != nullptr) {
+    _io.source_interval = input->declarationVar()->IDENTIFIER()->getSourceInterval();
+    std::string is_group;
+    gatherVarNfo(input->declarationVar(), _io, true, _current, _context, is_group);
+    if (_io.type_nfo.base_type == Parameterized) {
+      reportError(input->getSourceInterval(), -1, "input '%s': 'sameas' on a group/interface as input are not yet supported", _io.name.c_str());
+    }
+    if (!_io.init_at_startup && !_io.init_values.empty()) {
+      reportError(input->getSourceInterval(), -1, "input '%s': only startup initialization values are possible on inputs", _io.name.c_str());
+    }
+  } else if (input->declarationTable() != nullptr) {
     reportError(input->getSourceInterval(), -1, "input '%s': tables as input are not yet supported", _io.name.c_str());
-    _io.table_size = atoi(input->NUMBER()->getText().c_str());
+    // gatherTableNfo(input->declarationTable(), _io);
+  } else {
+    sl_assert(false);
   }
-  _io.init_values.resize(max(_io.table_size, 1), "0");
-  _io.nolatch = (input->nolatch != nullptr);
 }
 
 // -------------------------------------------------
@@ -2719,7 +2731,6 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
         t_inout_nfo inp;
         var_nfo_copy(inp, V->second);
         inp.name = grpre + "_" + V->second.name;
-        inp.nolatch = (io->nolatch != nullptr);
         m_InOuts.emplace_back(inp);
         m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
       } else if (io->is_output != nullptr) {
@@ -2777,8 +2788,20 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
     vnfo.type_nfo.base_type = Parameterized;
     vnfo.type_nfo.width     = 0;
     vnfo.table_size         = 0;
-    vnfo.do_not_initialize  = false;
     vnfo.source_interval    = itrf->IDENTIFIER()[1]->getSourceInterval();
+    if (io->declarationVarInitCstr() != nullptr) {
+      if (io->declarationVarInitCstr()->value() != nullptr) {
+        vnfo.init_values.push_back("0");
+        vnfo.init_values[0] = gatherValue(io->declarationVarInitCstr()->value());
+      } else {
+        if (io->declarationVarInitCstr()->UNINITIALIZED() != nullptr) {
+          vnfo.do_not_initialize = true;
+        }
+      }
+      vnfo.init_at_startup = true;
+    } else {
+      vnfo.do_not_initialize = false;
+    }
     if (vars.count(vnfo.name)) {
       reportError(io->IDENTIFIER()->getSymbol(), (int)io->getStart()->getLine(),
         "entry '%s' declared twice in interface definition '%s'",
@@ -2793,11 +2816,15 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
       m_Inputs.emplace_back(inp);
       m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
       m_Parameterized.push_back(inp.name);
+      if (inp.init_at_startup) {
+        reportError(io->IDENTIFIER()->getSymbol(), (int)io->getStart()->getLine(),
+          "input startup initializers have no effect in interface definition,\n         the initialization value comes from the group (member '%s' of '%s')",
+          vnfo.name.c_str(), itrf->defid->getText().c_str());
+      }
     } else if (io->is_inout != nullptr) {
       t_inout_nfo inp;
       var_nfo_copy(inp, vnfo);
       inp.name              = grpre + "_" + vnfo.name;
-      inp.nolatch           = (io->nolatch != nullptr);
       m_InOuts.emplace_back(inp);
       m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
       m_Parameterized.push_back(inp.name);
@@ -5991,8 +6018,13 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &ia = m_InstancedBlueprints.at(iaiordr);
     for (const auto &is : ia.blueprint->inputs()) {
-      if (ia.boundinputs.count(is.name) == 0) {
-        writeVerilogDeclaration(out, ictx, "reg", is, string(FF_D) + ia.instance_prefix + '_' + is.name + ',' + string(FF_Q) + ia.instance_prefix + '_' + is.name);
+      if (ia.boundinputs.count(is.name) == 0) { // input is not bound
+        sl_assert(is.table_size == 0); // cannot be an array
+        std::string init;
+        if (is.init_at_startup && !is.init_values.empty()) {
+          init = " = " + is.init_values[0];
+        }
+        writeVerilogDeclaration(out, ictx, "reg", is, string(FF_D) + ia.instance_prefix + '_' + is.name + init + ',' + string(FF_Q) + ia.instance_prefix + '_' + is.name + init);
       }
     }
   }
@@ -6518,7 +6550,11 @@ void Algorithm::writeCombinationalStates(
   // initiate termination sequence
   // -> termination state
   {
-    out << toFSMState(terminationState()) << ": begin // end of " << m_Name << nxl;
+    if (!m_OneHot) {
+      out << toFSMState(terminationState()) << ": begin // end of " << nxl;
+    } else {
+      out << FF_Q << prefix << ALG_IDX << '[' << terminationState() << "]: begin // end of " << nxl;
+    }
     out << "end" << nxl;
   }
   // default: internal error, should never happen

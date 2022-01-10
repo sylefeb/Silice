@@ -84,7 +84,6 @@ namespace Silice
     /// \brief typedef to distinguish vars from ios
     class t_inout_nfo : public t_var_nfo {
     public:
-      bool nolatch = false;
     };
 
     /// \brief specialized info class for outputs

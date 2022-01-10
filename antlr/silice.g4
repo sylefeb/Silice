@@ -210,7 +210,7 @@ bpBindingList          : bpBinding ',' bpBindingList | bpBinding | ;
 
 /* -- io lists -- */
 
-io                  : ( (is_input='input' nolatch='!'? ) | (is_output='output' combinational='!'?) | is_inout='inout' ) IDENTIFIER ;
+io                  : ( (is_input='input' nolatch='!'? ) | (is_output='output' combinational='!'?) | is_inout='inout' ) IDENTIFIER declarationVarInitCstr? ;
 
 ioList              : io (',' io)* ','? | ;
 
@@ -408,8 +408,8 @@ pipeline            : block ('->' block) +;
 
 inout               : 'inout' TYPE IDENTIFIER 
                     | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
-input               : 'input' nolatch='!'? type IDENTIFIER
-                    | 'input' nolatch='!'? type IDENTIFIER '[' NUMBER ']';
+input               : 'input' nolatch='!'? declarationVar
+                    | 'input' nolatch='!'? declarationTable;
 output              : 'output' combinational='!'? declarationVar
                     | 'output' combinational='!'? declarationTable ; 
 outputs             : 'input' OUTPUTS '(' alg=IDENTIFIER ')' grp=IDENTIFIER ;

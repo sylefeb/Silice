@@ -176,7 +176,7 @@ $$if SIMULATION then
 $$end
   }
 
-$$if SIMULATION then
+$$if SIMULATION and not BARE then
   cpu <- ();
 	while (cycle < 2048) { }
 $$else
