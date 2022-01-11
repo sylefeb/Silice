@@ -57,9 +57,9 @@ $$if UART then
   input  uint1 uart_rx,
 $$end
 $$if SDCARD then
-  output! uint1  sd_clk,
-  output! uint1  sd_csn,
-  output! uint1  sd_mosi,
+  output  uint1  sd_clk,
+  output  uint1  sd_csn,
+  output  uint1  sd_mosi,
   input   uint1  sd_miso,
 $$end
 ) {
@@ -134,12 +134,13 @@ $$end
      | (~memmap_r                    ? mem.rdata          : 32b0);
 $$if SIMULATION then
    if (memmap_r & memio.addr[5,1]) {
-     __display("SDCARD read =================================");
+     // __display("[cycle %d] SDCARD read %b",cycle,reg_sd_miso);
    }
 $$end
     mem.wdata        = memio.wdata;
     mem.addr         = memio.addr;
 		// ---- peripherals
+    // leds             = {8{4b0,sd_miso,sd_csn,sd_mosi,sd_clk}};
     displ_en         = 0; // maintain display enable low
     reg_sf_miso      = sf_miso; // register flash miso
     reg_sd_miso      = sd_miso; // register sdcard miso
@@ -182,7 +183,7 @@ $$if SIMULATION then
         __display("[cycle %d] SPI write %b",cycle,prev_wdata[0,3]);
       }
       if (prev_mem_addr[5,1]) {
-        __display("[cycle %d] sdcard %b (elapsed %d)",cycle,prev_wdata[0,3],cycle - prev_cycle);
+        //__display("[cycle %d] sdcard %b (elapsed %d)",cycle,prev_wdata[0,3],cycle - prev_cycle);
         prev_cycle = cycle;
       }
 $$end

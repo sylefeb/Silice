@@ -34,24 +34,28 @@ void dual_putchar(int c)
   pause(10000);
 }
 
+unsigned char data[512];
+
 void main()
 {
   // install putchar handler for printf
-  f_putchar = dual_putchar;
+  f_putchar = display_putchar;
 
   oled_init();
   oled_fullscreen();
+  oled_clear(0);
 
   display_set_cursor(0,0);
   display_set_front_back_color(255,0);
+  printf("init ...\n");
+  display_refresh();
 
   sdcard_init();
-  int s = 0;
+  int s = 1;
   while (1) {
     display_set_cursor(0,0);
-    unsigned char data[512];
-    sdcard_copy_sector(++s,data);
-    printf("sector 0\n");
+    sdcard_copy_sector(s,data);
+    printf("sector %d\n",s);
     for (int i=0;i<32;i++) {
       unsigned char by = data[i];
       f_putchar("0123456789ABCDEF"[(by >> 4)&15]);
@@ -60,6 +64,7 @@ void main()
       if ((i&7) == 7) { printf("\n"); }
     }
     display_refresh();
+    ++s;
   }
 
 }
