@@ -7,12 +7,12 @@ if not path then
 	if path == '' then
 	  path = '.'
 	end
-  print('********************* compiled code read from ' .. path .. '/compile/build/code*.hex')
+  print('********************* compiled code read from ' .. path .. '/firmware/code*.hex')
 end
 
-local in_asm = io.open(findfile('./compile/build/code.hex'), 'r')
+local in_asm = io.open(findfile('./firmware/code.hex'), 'r')
 if not in_asm then
-  error('please compile code first using the compile_c.sh scripts')
+  error('please compile code first using the Makefile in ./firmware')
 end
 
 meminit = '{' -- exposed to the outside for BRAM initializ

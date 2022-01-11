@@ -9,6 +9,9 @@
 // pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_compiled.lua')
 
+// Setup memory
+// - we allocate 2^(addrW-1) uint32
+// - the topmost bit is used to indicate peripheral access
 $$addrW      = 14
 $$memmap_bit = addrW-1
 
@@ -41,6 +44,9 @@ algorithm main(
   output uint1 oled_dc,
   output uint1 oled_resn,
   output uint1 oled_csn(0),
+$$if BUTTONS then
+  input  uint7 btns,
+$$end
 $$if VERILATOR then
   output uint2  spiscreen_driver(1/*SSD1351*/),
   output uint10 spiscreen_width(128),
@@ -103,6 +109,12 @@ $$if UART then
   );
 $$end
 
+  // Buttons
+  uint7 reg_btns(0);
+$$if not BUTTONS then
+  uint7 btns(0);
+$$end
+
 	// for memory mapping, record prev. cycle access
 	uint$addrW$ prev_mem_addr(0);
 	uint1       prev_mem_rw(0);
@@ -144,6 +156,7 @@ $$end
     displ_en         = 0; // maintain display enable low
     reg_sf_miso      = sf_miso; // register flash miso
     reg_sd_miso      = sd_miso; // register sdcard miso
+    reg_btns         = btns;    // register buttons
     uo.data_in_ready = 0; // maintain uart trigger low
     // ---- memory mapping to peripherals: writes
     if (prev_mem_rw & prev_mem_addr[$memmap_bit$,1]) {

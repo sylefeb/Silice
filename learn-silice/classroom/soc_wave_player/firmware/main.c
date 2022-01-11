@@ -50,5 +50,4 @@ void main()
   printf("Hello world!\n");
   display_refresh();
 
-
 }

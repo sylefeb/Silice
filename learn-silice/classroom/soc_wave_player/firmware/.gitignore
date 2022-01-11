@@ -1,1 +1,3 @@
 *.o
+*.elf
+fat_io_lib/
