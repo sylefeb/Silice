@@ -137,7 +137,6 @@ unsigned char *sdcard_copy_sector(int sector,unsigned char *dst)
 {
   unsigned char status = sdcard_start_sector(sector);
   if (status != 0) {
-    *LEDS = 255;
     return dst;
   } else {
     sdcard_get(1,1); // start token

@@ -64,7 +64,7 @@ void main()
       if ((i&7) == 7) { printf("\n"); }
     }
     display_refresh();
-    // ++s;
+    ++s;
   }
 
 }
