@@ -36,6 +36,8 @@ void dual_putchar(int c)
 
 void main()
 {
+  *LEDS = 4;
+
   // install putchar handler for printf
   f_putchar = display_putchar;
 

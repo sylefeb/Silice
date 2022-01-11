@@ -12,7 +12,7 @@ $$dofile('pre_include_compiled.lua')
 // Setup memory
 // - we allocate 2^(addrW-1) uint32
 // - the topmost bit is used to indicate peripheral access
-$$addrW      = 14
+$$addrW      = 15
 $$memmap_bit = addrW-1
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
@@ -144,11 +144,6 @@ $$end
        ((memmap_r & prev_mem_addr[4,1]) ? {31b0,reg_sf_miso} : 32b0)
      | ((memmap_r & prev_mem_addr[5,1]) ? {31b0,reg_sd_miso} : 32b0)
      | (~memmap_r                       ? mem.rdata          : 32b0);
-$$if SIMULATION then
-   if (memmap_r & memio.addr[5,1]) {
-     // __display("[cycle %d] SDCARD read %b",cycle,reg_sd_miso);
-   }
-$$end
     mem.wdata        = memio.wdata;
     mem.addr         = memio.addr;
 		// ---- peripherals
