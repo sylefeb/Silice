@@ -9,3 +9,7 @@ This project targets the [ULX3S board](https://radiona.org/ulx3s/) with a [SSD13
 ## Exercises
 
 - Add a memory mapping to buttons.
+
+## Credits
+
+- Uses the absolutely excellent FAT32 lib by @ultraembedded https://github.com/ultraembedded/fat_io_lib (included as a sumbodule, see README and LICENSE in [firmware/fat_io_lib](firmware/fat_io_lib).

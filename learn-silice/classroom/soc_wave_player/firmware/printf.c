@@ -4,14 +4,14 @@
 
 void (*f_putchar)(int);
 
-static inline void print_string(const char* s)
+void print_string(const char* s)
 {
    for (const char* p = s; *p; ++p) {
       f_putchar(*p);
    }
 }
 
-static inline void print_dec(int val)
+void print_dec(int val)
 {
    char buffer[255];
    char *p = buffer;
@@ -30,21 +30,21 @@ static inline void print_dec(int val)
    }
 }
 
-static inline void print_hex_digits(unsigned int val, int nbdigits)
+void print_hex_digits(unsigned int val, int nbdigits)
 {
    for (int i = (4*nbdigits)-4; i >= 0; i -= 4) {
       f_putchar("0123456789ABCDEF"[(val >> i) & 15]);
    }
 }
 
-static inline void print_hex(unsigned int val)
+void print_hex(unsigned int val)
 {
    print_hex_digits(val, 8);
 }
 
 #include <stdarg.h>
 
-static inline int printf(const char *fmt,...)
+int printf(const char *fmt,...)
 {
   va_list ap;
   for (va_start(ap, fmt);*fmt;fmt++) {

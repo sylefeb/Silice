@@ -197,3 +197,26 @@ void sdcard_init()
   sdcard_get(8,1);
   sdcard_ponder();
 }
+
+int sdcard_readsector(
+  long unsigned int start_block,
+  unsigned char *buffer,
+  long unsigned int sector_count)
+{
+  if (sector_count == 0) {
+    return 0;
+  }
+  while (sector_count--) {
+    buffer = sdcard_copy_sector(start_block++,buffer);
+  }
+  return 1;
+}
+
+int sdcard_writesector(
+  long unsigned int start_block,
+  unsigned char *buffer,
+  long unsigned int sector_count)
+{
+  // ignore
+  return 0;
+}

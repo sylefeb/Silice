@@ -1,6 +1,6 @@
 
 .DEFAULT: main.ice
-	make -C firmware
+	make -C firmware -f Makefile.fat_io_lib
 	silice-make.py -s main.ice -b $@ -p basic,oled,spiflash,uart,sdcard,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
 
 verilator: main.ice

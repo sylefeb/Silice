@@ -21,8 +21,6 @@ static inline void pause(int ncycles)
 #include "sdcard.c"
 #include "display.c"
 
-#include "fat_io_lib/src/fat_filelib.h"
-
 void uart_putchar(int c)
 {
   *UART = c;
@@ -51,16 +49,7 @@ void main()
 
   display_set_cursor(0,0);
   display_set_front_back_color(255,0);
-  printf("FAT working?\n");
+  printf("Hello world!\n");
   display_refresh();
-
-  // Initialise File IO Library
-  fl_init();
-  // Attach media access functions to library
-  while (fl_attach_media(sdcard_readsector, sdcard_writesector) != FAT_INIT_OK) {
-    // try again, we need this
-  }
-  // List the root directory
-  fl_listdirectory("/");
 
 }
