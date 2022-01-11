@@ -51,7 +51,7 @@ void main()
   display_refresh();
 
   sdcard_init();
-  int s = 1;
+  int s = 0;
   while (1) {
     display_set_cursor(0,0);
     sdcard_copy_sector(s,data);
@@ -64,7 +64,7 @@ void main()
       if ((i&7) == 7) { printf("\n"); }
     }
     display_refresh();
-    ++s;
+    // ++s;
   }
 
 }

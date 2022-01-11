@@ -124,14 +124,14 @@ $$end
 
   // io mapping
   always {
-    uint1 memmap_r <: memio.addr[$memmap_bit$,1] & ~memio.wenable[0,1];
+    uint1 memmap_r <:: prev_mem_addr[$memmap_bit$,1] & ~prev_mem_rw;
 	  // ---- memory access
     mem.wenable = memio.wenable & {4{~memio.addr[$memmap_bit$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
     memio.rdata   = // read data is either SPIflash, sdcard or memory
-       ((memmap_r & memio.addr[4,1]) ? {31b0,reg_sf_miso} : 32b0)
-     | ((memmap_r & memio.addr[5,1]) ? {31b0,reg_sd_miso} : 32b0)
-     | (~memmap_r                    ? mem.rdata          : 32b0);
+       ((memmap_r & prev_mem_addr[4,1]) ? {31b0,reg_sf_miso} : 32b0)
+     | ((memmap_r & prev_mem_addr[5,1]) ? {31b0,reg_sd_miso} : 32b0)
+     | (~memmap_r                       ? mem.rdata          : 32b0);
 $$if SIMULATION then
    if (memmap_r & memio.addr[5,1]) {
      // __display("[cycle %d] SDCARD read %b",cycle,reg_sd_miso);
