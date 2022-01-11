@@ -56,7 +56,7 @@ void main()
     display_set_cursor(0,0);
     sdcard_copy_sector(s,data);
     printf("sector %d\n",s);
-    for (int i=0;i<32;i++) {
+    for (int i=0;i<96;i++) {
       unsigned char by = data[i];
       f_putchar("0123456789ABCDEF"[(by >> 4)&15]);
       f_putchar("0123456789ABCDEF"[(by >> 0)&15]);

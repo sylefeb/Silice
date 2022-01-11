@@ -4,4 +4,4 @@ This project targets the [ULX3S board](https://radiona.org/ulx3s/) with a [SSD13
 
 ## Testing
 
-- sdcard: `./compile/compile_c.sh firmware/main.c`, then `make ulx3s`
+- sdcard: `./compile/compile_c.sh firmware/test_sdcard.c`, then `make ulx3s`
