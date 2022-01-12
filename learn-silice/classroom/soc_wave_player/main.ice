@@ -1,12 +1,18 @@
 // SL 2022-01-10 @sylefeb
 //
 // Learning Silice
-// Meant to be used on a ULX3S board
+//
+// A simple but feature complete SOC:
+// display, UART, sdcard, SPIflash, buttons
+//
+// Meant to be used on a ULX3S board with SSD1351 SPIscreen
+// See README for instructions and exercises
 //
 // https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
-// pre-compilation script, embeds compiled code within a string
+// Pre-compilation script, embeds compiled code within a string
+// - Code has to be compiled into firmware/code.hex before
 $$dofile('pre_include_compiled.lua')
 
 // Setup memory
@@ -15,13 +21,14 @@ $$dofile('pre_include_compiled.lua')
 $$addrW      = 15
 $$memmap_bit = addrW-1
 
+// Configure BRAM (needed for write mask)
 $$config['bram_wmask_byte_wenable_width'] = 'data'
 
-// includes the processor
+// Includes the processor
 $include('../../../projects/ice-v/CPUs/ice-v.ice')
-// includes the SPIscreen driver
+// Includes the SPIscreen driver
 $include('../../../projects/ice-v/SOCs/ice-v-oled.ice')
-// includes the UART controller
+// Includes the UART controller
 $$uart_in_clock_freq_mhz = 25
 $include('../../../projects/common/uart.ice')
 
@@ -29,14 +36,18 @@ $include('../../../projects/common/uart.ice')
 // SOC
 // --------------------------------------------------
 
+// Memory interface between SOC and CPU
 group bram_io
 {
-  uint4       wenable(0),
-  uint32      wdata(0),
-  uint32      rdata(0),
-  uint$addrW$ addr(0),    // boot address
+  uint4       wenable(0), // write enable mask (xxxx, 0:nop, 1:write)
+  uint32      wdata(0),   // data to write
+  uint32      rdata(0),   // data read from memory
+  uint$addrW$ addr(0),    // address, init is boot address
 }
 
+// The SOC starts here
+// - some input/outputs do not exist in simulation and
+//   are therefore enclosed in pre-processor conditions
 algorithm main(
   output uint8 leds,
   output uint1 oled_clk,
@@ -48,6 +59,7 @@ $$if BUTTONS then
   input  uint7 btns,
 $$end
 $$if VERILATOR then
+  // configuration for SPIscreen simulation
   output uint2  spiscreen_driver(1/*SSD1351*/),
   output uint10 spiscreen_width(128),
   output uint10 spiscreen_height(128),
@@ -70,11 +82,10 @@ $$if SDCARD then
 $$end
 ) {
 
-  uint1 displ_en = uninitialized;
+  // SPIscreen (OLED) controller chip
   uint1 displ_dta_or_cmd <: prev_wdata[10,1];
   uint8 displ_byte       <: prev_wdata[0,8];
   oled display(
-    enable          <: displ_en,
     data_or_command <: displ_dta_or_cmd,
     byte            <: displ_byte,
     oled_din        :> oled_mosi,
@@ -82,127 +93,152 @@ $$end
     oled_dc         :> oled_dc,
   );
 
-  // spiflash
+  // spiflash miso register
+  // -> avoid readin a pin directly in design as it is asynchronous
+  //    we always track it in a register which updates on clock posedge
   uint1       reg_sf_miso(0);
 $$if not SPIFLASH then
+  // for simulation ('fake' inputs/outputs)
   uint1       sf_clk(0);
   uint1       sf_csn(0);
   uint1       sf_mosi(0);
   uint1       sf_miso(0);
 $$end
 
-  // SDCARD
+  // SDCARD miso register
   uint1        reg_sd_miso(0);
 $$if not SDCARD then
+  // for simulation ('fake' inputs/outputs)
   uint1  sd_clk(0);
   uint1  sd_csn(0);
   uint1  sd_mosi(0);
   uint1  sd_miso(0);
 $$end
 
-  // UART
+  // UART transmit interface
   uart_out uo;
 $$if UART then
+  // UART transmit chip
   uart_sender usend<reginputs>(
     io      <:> uo,
     uart_tx :>  uart_tx
   );
 $$end
 
-  // Buttons
+  // buttons inputs register
+  // -> also an asynchronous signal, so we register it
   uint7 reg_btns(0);
 $$if not BUTTONS then
   uint7 btns(0);
 $$end
 
-	// for memory mapping, record prev. cycle access
+	// for peripherals memory mapping, record previous cycle CPU access
 	uint$addrW$ prev_mem_addr(0);
 	uint1       prev_mem_rw(0);
   uint32      prev_wdata(0);
 
 $$if SIMULATION then
+   // these only exist in simulation for debugging purposes
    uint32 cycle(0);
    uint32 prev_cycle(0);
 $$end
 
-  // ram
-  // - intermediate interface to perform memory mapping
+  // RAM
+  // Instantiate the memory interface
   bram_io memio;
-  // - uses template "bram_wmask_byte", that turns wenable into a byte mask
+  // Instantiate a BRAM holding the system's RAM
+  // -> uses template "bram_wmask_byte", that turns wenable into a byte mask
   bram uint32 mem<"bram_wmask_byte">[$1<<(addrW-1)$] = $meminit$;
 
-  // cpu
+  // Instantiate our CPU!
   rv32i_cpu cpu( mem <:> memio );
 
-  // io mapping
+  // --- SOC logic, the always block is always active
   always {
+    // track whether the CPU is reading a memory mapped peripheral
     uint1 memmap_r <:: prev_mem_addr[$memmap_bit$,1] & ~prev_mem_rw;
+    //             ^^^ track values at cycle start
+    // track memory mapped peripherals access
+    uint1 leds_access            <:: prev_mem_addr[0,1];
+    uint1 display_en_access      <:: prev_mem_addr[1,1];
+    uint1 display_reset_access   <:: prev_mem_addr[2,1];
+    uint1 uart_access            <:: prev_mem_addr[3,1];
+    uint1 sf_access              <:: prev_mem_addr[4,1];
+    uint1 sd_access              <:: prev_mem_addr[5,1];
 	  // ---- memory access
+    // BRAM wenable update following wenable from CPU<->SOC interface
     mem.wenable = memio.wenable & {4{~memio.addr[$memmap_bit$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
+    // data sent to the CPU
     memio.rdata   = // read data is either SPIflash, sdcard or memory
-       ((memmap_r & prev_mem_addr[4,1]) ? {31b0,reg_sf_miso} : 32b0)
-     | ((memmap_r & prev_mem_addr[5,1]) ? {31b0,reg_sd_miso} : 32b0)
-     | (~memmap_r                       ? mem.rdata          : 32b0);
+       ((memmap_r & sf_access) ? {31b0,reg_sf_miso} : 32b0)
+     | ((memmap_r & sd_access) ? {31b0,reg_sd_miso} : 32b0)
+     | (~memmap_r              ? mem.rdata          : 32b0);
     mem.wdata        = memio.wdata;
     mem.addr         = memio.addr;
 		// ---- peripherals
-    // leds             = {8{4b0,sd_miso,sd_csn,sd_mosi,sd_clk}};
-    displ_en         = 0; // maintain display enable low
+    display.enable   = 0;       // maintain display enable low (pulses on use)
+    uo.data_in_ready = 0;       // maintain uart trigger low (pulses on use)
     reg_sf_miso      = sf_miso; // register flash miso
     reg_sd_miso      = sd_miso; // register sdcard miso
     reg_btns         = btns;    // register buttons
-    uo.data_in_ready = 0; // maintain uart trigger low
     // ---- memory mapping to peripherals: writes
     if (prev_mem_rw & prev_mem_addr[$memmap_bit$,1]) {
       /// LEDs
-      leds         = prev_mem_addr[0,1] ? prev_wdata[0,8] : leds;
+      leds           = leds_access ? prev_wdata[0,8] : leds;
       /// display
-      // -> send command/data
-      displ_en     = (prev_wdata[9,1] | prev_wdata[10,1]) & prev_mem_addr[1,1];
-      // -> reset
-      oled_resn    = ~ (prev_wdata[0,1] & prev_mem_addr[2,1]);
+      // -> whether to send command or data
+      display.enable = display_en_access & (prev_wdata[9,1] | prev_wdata[10,1]);
+      // -> SPIscreen reset
+      oled_resn      = ~ (display_reset_access & prev_wdata[0,1]);
       /// uart
-      uo.data_in_ready = ~uo.busy & prev_mem_addr[3,1];
+      uo.data_in_ready = ~uo.busy & uart_access;
       uo.data_in       =  uo.data_in_ready ? prev_wdata[ 0,8] : uo.data_in;
-      /// SPIflash
-			sf_clk  = prev_mem_addr[4,1] ? prev_wdata[0,1] : sf_clk;
-			sf_mosi = prev_mem_addr[4,1] ? prev_wdata[1,1] : sf_mosi;
-			sf_csn  = prev_mem_addr[4,1] ? prev_wdata[2,1] : sf_csn;
-      /// sdcard
-      sd_clk  = prev_mem_addr[5,1] ? prev_wdata[0,1] : sd_clk;
-      sd_mosi = prev_mem_addr[5,1] ? prev_wdata[1,1] : sd_mosi;
-      sd_csn  = prev_mem_addr[5,1] ? prev_wdata[2,1] : sd_csn;
+      /// SPIflash output pins
+			sf_clk  = sf_access ? prev_wdata[0,1] : sf_clk;
+			sf_mosi = sf_access ? prev_wdata[1,1] : sf_mosi;
+			sf_csn  = sf_access ? prev_wdata[2,1] : sf_csn;
+      /// sdcard output pins
+      sd_clk  = sd_access ? prev_wdata[0,1] : sd_clk;
+      sd_mosi = sd_access ? prev_wdata[1,1] : sd_mosi;
+      sd_csn  = sd_access ? prev_wdata[2,1] : sd_csn;
 $$if SIMULATION then
-      if (prev_mem_addr[0,1]) {
+      // Simulation debug output, very convenient during development!
+      if (leds_access) {
         __display("[cycle %d] LEDs: %b",cycle,leds);
-        if (leds == 255) { __finish(); }
+        if (leds == 255) { __finish(); }// special LED value stops simulation
+                                        // convenient to interrupt from firmware
       }
-      //if (prev_mem_addr[1,1]) {
+      //if (display_en_access) { // commented to avoid clutter
       //  __display("[cycle %d] display en: %b",cycle,prev_wdata[9,2]);
       //}
-      if (prev_mem_addr[2,1]) {
+      if (display_reset_access) {
         __display("[cycle %d] display resn: %b",cycle,prev_wdata[0,1]);
       }
-      if (prev_mem_addr[3,1]) { // printf via UART
+      if (uart_access) { // printf via UART
         __write("%c",prev_wdata[0,8]);
       }
-      if (prev_mem_addr[4,1]) {
+      if (sf_access) {
         __display("[cycle %d] SPI write %b",cycle,prev_wdata[0,3]);
       }
-      if (prev_mem_addr[5,1]) {
+      if (sd_access) {
         //__display("[cycle %d] sdcard %b (elapsed %d)",cycle,prev_wdata[0,3],cycle - prev_cycle);
         prev_cycle = cycle;
       }
 $$end
     }
+
+    // record current access for next cycle memory mapping checks
 		prev_mem_addr = memio.addr;
 		prev_mem_rw   = memio.wenable[0,1];
     prev_wdata    = memio.wdata;
+
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
-  }
+  } // end of always block
+
+  // --- algorithm part
 
   // run the CPU (never returns)
   () <- cpu <- ();
