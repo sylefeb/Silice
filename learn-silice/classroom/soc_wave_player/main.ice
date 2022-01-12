@@ -30,6 +30,7 @@ $include('../../../projects/ice-v/CPUs/ice-v.ice')
 $include('../../../projects/ice-v/SOCs/ice-v-oled.ice')
 // Includes the UART controller
 $$uart_in_clock_freq_mhz = 25
+$$uart_bauds             = 115200
 $include('../../../projects/common/uart.ice')
 
 // --------------------------------------------------
