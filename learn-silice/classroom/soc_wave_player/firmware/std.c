@@ -1,30 +1,12 @@
 #include <stddef.h>
 
-static inline unsigned int rdcycle()
-{
-   unsigned int cycles;
-   asm volatile ("rdcycle %0" : "=r"(cycles));
-   return cycles;
-}
-
-static inline void pause(int ncycles)
-{
-  unsigned int start = rdcycle();
-  while ( rdcycle() - start < ncycles ) { }
-}
+#include "config.h"
+#include "std.h"
 
 void uart_putchar(int c)
 {
   *UART = c;
   pause(10000);
-}
-
-void display_putchar(int c);
-
-void dual_putchar(int c)
-{
-  display_putchar(c);
-  uart_putchar(c);
 }
 
 // slow implementation, just because we need it

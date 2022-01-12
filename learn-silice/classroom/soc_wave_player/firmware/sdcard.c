@@ -2,10 +2,12 @@
 SL - 2020-01-24
 
 SDCARD bit-banging from RV32I CPU
+(revised for Ice-V from Fire-V implementation)
 
 I went through the trouble of equalizing all delays to have a clean
 sdcard clock period, but maybe that was not necessary.
-These delays are tunned to the Fire-V and likely not portable.
+
+These delays are tunned to the Ice-V and likely not portable.
 
 Useful Links
 http://www.rjhcoding.com/avrc-sd-interface-1.php
@@ -16,6 +18,9 @@ http://chlazza.nfshost.com/sdcardinfo.html
 // MIT license, see LICENSE_MIT in Silice repo root
 
 */
+
+#include "config.h"
+#include "std.h"
 
 const unsigned char cmd0[]   = {0x40,0x00,0x00,0x00,0x00,0x95};
 const unsigned char cmd8[]   = {0x48,0x00,0x00,0x01,0xAA,0x87};
@@ -133,7 +138,7 @@ unsigned char sdcard_start_sector(int sector)
     return sdcard_get(8,1);
 }
 
-unsigned char *sdcard_copy_sector(int sector,unsigned char *dst)
+unsigned char *sdcard_read_sector(int sector,unsigned char *dst)
 {
   unsigned char status = sdcard_start_sector(sector);
   if (status != 0) {
@@ -207,7 +212,7 @@ int sdcard_readsector(
     return 0;
   }
   while (sector_count--) {
-    buffer = sdcard_copy_sector(start_block++,buffer);
+    buffer = sdcard_read_sector(start_block++,buffer);
   }
   return 1;
 }

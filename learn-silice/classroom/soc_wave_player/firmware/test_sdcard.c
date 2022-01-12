@@ -1,12 +1,13 @@
 // @sylefeb 2022-01-10
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice/
 
 #include "config.h"
-#include "std.c"
+#include "sdcard.h"
+#include "std.h"
 #include "oled.h"
-#include "printf.c"
-#include "mul.c"
-#include "sdcard.c"
-#include "display.c"
+#include "display.h"
+#include "printf.h"
 
 unsigned char data[512];
 
@@ -28,7 +29,7 @@ void main()
   int s = 0;
   while (1) {
     display_set_cursor(0,0);
-    sdcard_copy_sector(s,data);
+    sdcard_read_sector(s,data);
     printf("sector %d\n",s);
     for (int i=0;i<96;i++) {
       unsigned char by = data[i];

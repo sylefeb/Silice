@@ -1,11 +1,22 @@
+// @sylefeb 2022
 // MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice/
 
 #pragma once
 
-void           sdcard_init();
-unsigned char  sdcard_start_sector(int sector);
-unsigned char *sdcard_copy_sector(int sector,unsigned char *dst);
+// --- basic functions, call sdcard_init then use sdcard_read_sector ---
 
-void           sdcard_cmd(const unsigned char *cmd);
-unsigned char  sdcard_get(unsigned char len,unsigned char wait);
- 
+void           sdcard_init();
+unsigned char *sdcard_read_sector(int sector,unsigned char *dst);
+
+// --- fat_io_lib sdcard implementation ---
+
+int sdcard_readsector(
+  long unsigned int start_block,
+  unsigned char *buffer,
+  long unsigned int sector_count);
+
+int sdcard_writesector( // not implemented
+  long unsigned int start_block,
+  unsigned char *buffer,
+  long unsigned int sector_count);

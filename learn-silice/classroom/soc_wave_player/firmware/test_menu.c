@@ -1,12 +1,13 @@
 // @sylefeb 2022-01-10
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice/
 
 #include "config.h"
-#include "std.c"
+#include "sdcard.h"
+#include "std.h"
 #include "oled.h"
-#include "printf.c"
-#include "mul.c"
-#include "sdcard.c"
-#include "display.c"
+#include "display.h"
+#include "printf.h"
 
 #define N_ITEMS 5
 

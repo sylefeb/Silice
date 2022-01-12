@@ -1,5 +1,9 @@
 
 #include "tama_mini02_font.h"
+#include "config.h"
+#include "oled.h"
+#include "display.h"
+#include "std.h"
 
 int cursor_x;
 int cursor_y;
@@ -9,13 +13,13 @@ unsigned char back_color;
 
 unsigned char framebuffer[128*128];
 
-static inline void display_set_cursor(int x,int y)
+void display_set_cursor(int x,int y)
 {
   cursor_x = x;
   cursor_y = y;
 }
 
-static inline void display_set_front_back_color(unsigned char f,unsigned char b)
+void display_set_front_back_color(unsigned char f,unsigned char b)
 {
   front_color = f;
   back_color = b;
@@ -50,13 +54,19 @@ void display_putchar(int c)
   }
 }
 
-static inline void display_refresh()
+void display_refresh()
 {
   unsigned char *ptr = framebuffer;
   for (int i=0;i<128*128;i++) {
     unsigned char c = *ptr;
     ++ ptr;
     oled_pix(c,c,c);
-    WAIT;
+    oled_wait();
   }
+}
+
+void dual_putchar(int c)
+{
+  display_putchar(c);
+  uart_putchar(c);
 }
