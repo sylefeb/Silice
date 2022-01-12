@@ -11,7 +11,7 @@ a minimum before programming the board.
 
 ## How to use
 
-- `make ulx3s FIRMWARE=<firmware>` where firmware is a C file (without extension)
+> `make ulx3s FIRMWARE=<firmware>` where firmware is a C file (without extension)
 located in the `./firmware directory`.
 
 For the board: `make ulx3s FIRMWARE=test_menu` (plug the ULX3S first).
