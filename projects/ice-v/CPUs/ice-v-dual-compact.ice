@@ -49,10 +49,10 @@ algorithm execute( // ================================== execute: decoder + ALU
                   : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
     } } working = (shamt != 0);
     switch (op) { // all ALU operations
-      case 3b000: { r = sub ? a_minus_b : ra + rb; }            // ADD / SUB
-      case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; } // SLTI / SLTU
-      case 3b100: { r = ra ^ rb;} case 3b110: { r = ra | rb;  } // XOR / OR
-      case 3b001: { }             case 3b101: { }               // SLLI/SRLI/SRAI
+      case 3b000: { r = sub ? a_minus_b : ra + rb; }           // ADD / SUB
+      case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
+      case 3b100: { r = ra ^ rb;} case 3b110: { r = ra | rb;  }// XOR / OR
+      case 3b001: { }             case 3b101: { }              // SLLI/SRLI/SRAI
       case 3b111: { r = ra & rb; } default:   { r = {32{1bx}};} }
     switch (op[1,2]) { // comparator for branching
       case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/
@@ -67,8 +67,8 @@ algorithm rv32i_cpu(bram_port mem) { // ================= dual Risc-V RV32I CPU
   bram int32  rA_1[32]={pad(0)}; bram int32 rB_1[32]={pad(0)};
   uint32      instr_0(32h13);  uint32 instr_1(32h13); // current instruction x2
   uint2       stage(3);         // CPU dual stages (see IceVDual.md)
-  uint$addrW$ pc_0($Boot-1$);  uint$addrW$ pc_1($Boot-1$);// program counters x2
-  uint$addrW$ pc_plus1 <:: (stage[1,1] ? pc_0 : pc_1) + 1;// next program counter
+  uint$addrW$ pc_0($Boot-1$);  uint$addrW$ pc_1($Boot-1$);//program counters x2
+  uint$addrW$ pc_plus1 <:: (stage[1,1] ? pc_0 : pc_1) + 1;//next program counter
   int32 loaded = uninitialized; // value that has been loaded from memory
   // decoder + ALU, executes the instruction and tells the processor what to do
   uint32 instr <:: (stage[0,1]^stage[1,1]) ? instr_0    : instr_1;
@@ -84,27 +84,26 @@ algorithm rv32i_cpu(bram_port mem) { // ================= dual Risc-V RV32I CPU
     // decodes values loaded from memory (used when exec.load == 1)
     uint32 aligned <: mem.rdata >> {exec.n[0,2],3b000};
     switch ( exec.op[0,2] ) { // LB / LBU, LH / LHU, LW
-      case 2b00:{ loaded = {{24{(~exec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
-      case 2b01:{ loaded = {{16{(~exec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
-      case 2b10:{ loaded = aligned; } default: { loaded = {32{1bx}}; } }
+      case 2b00:{loaded = {{24{(~exec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
+      case 2b01:{loaded = {{16{(~exec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
+      case 2b10:{loaded = aligned; } default: { loaded = {32{1bx}}; } }
     // what to write on a store (used when exec.store == 1)
     mem.wdata = (stage[1,1] ? rB_0.rdata : rB_1.rdata) << {exec.n[0,2],3b000};
     // maintain low what pulses when needed
     mem.wenable = 4b0000; exec.trigger = 0; rA_0.wenable = 0; rA_1.wenable = 0;
     // dual state machine, four states: F, T, LS1, LS2/commit
     if ( ~ stage[0,1] ) { // even stage -- one core on F, one core on LS1
-      instr_0 = ~stage[1,1] ? mem.rdata : instr_0;         // vvvvvvvvv F
+      instr_0 = ~stage[1,1] ? mem.rdata : instr_0;         // vvvvvvv F
       pc_0    = ~stage[1,1] ? mem.addr  : pc_0;
       instr_1 =  stage[1,1] ? mem.rdata : instr_1;
       pc_1    =  stage[1,1] ? mem.addr  : pc_1;
-      mem.addr = ~exec.working ? (exec.n >> 2) : mem.addr; // vvvvvvvvv LS1
+      mem.addr = ~exec.working ? (exec.n >> 2) : mem.addr; // vvvvvvv LS1
       if (exec.store) { // no need to know which core, we only read from exec
         mem.wenable = ( { { 2{exec.op[0,2]==2b10} }, // mask for SB, SH, SW
-                          exec.op[0,1] | exec.op[1,1], 1b1
-                        } ) << exec.n[0,2]; }
+                          exec.op[0,1] | exec.op[1,1], 1b1 } ) << exec.n[0,2]; }
     } else { // stage odd -- one core on T, one core on LS2/commit
-      exec.trigger = 1; exec.core_id = stage[1,1];         // vvvvvvvvv T
-      rA_0.wenable =  stage[1,1] ? ~exec.no_rd : 0;        // vvvvvvvvv LS2/commit
+      exec.trigger = 1; exec.core_id = stage[1,1];         // vvvvvvv T
+      rA_0.wenable =  stage[1,1] ? ~exec.no_rd : 0;        // vvvvvvv LS2/commit
       rA_1.wenable = ~stage[1,1] ? ~exec.no_rd : 0;
       mem.addr = exec.jump ? (exec.n >> 2) : pc_plus1;  // next instr. fetch
     }
