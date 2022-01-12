@@ -3,7 +3,6 @@
 // https://github.com/sylefeb/Silice/
 
 #include "config.h"
-#include "sdcard.h"
 #include "std.h"
 #include "oled.h"
 #include "display.h"
@@ -25,8 +24,6 @@ void main()
 
   // install putchar handler for printf
   f_putchar = display_putchar;
-
-  sdcard_init();
 
   oled_init();
   oled_fullscreen();
