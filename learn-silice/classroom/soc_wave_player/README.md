@@ -26,11 +26,12 @@ For simulation: `make verilator FIRMWARE=test_menu`.
 see [`void fl_listdirectory(const char *path)`](firmware/fat_io_lib/src/fat_filelib.c).
 - Add the ULX3S audio output to the SOC (*), memory map it, add `sound.c` to firmware.
 Write a `test_audio.c` firmware playing a few tones.
-- Play tracks from the sdcard! Encode the tracks as uncompressed wave file, PCM mono 8 bits at (for instance) 11.025KHz (use e.g. Audacity, "export", "other uncompressed formats", "raw", "unsigned 8 bits PCM"). Of these 8 bits, send only the top four to the audio outputs.
+- Play tracks from the sdcard! Encode the tracks as uncompressed wave file, PCM mono 8 bits at (for instance) 11.025KHz (use e.g. Audacity, "export", "other uncompressed formats", "raw", "unsigned 8 bits PCM"). Of these 8 bits, send only the top four to the audio outputs. From the firmware, read wave file bytes at the proper frequency
+and apply their values to the `audio_l` and `audio_r` outputs.
 - We'll recognize the music, but sound quality will be terrible. To improve, implement a hardware audio PWM
 ([what's the idea?](https://electronics.stackexchange.com/questions/239442/audio-using-pwm-what-is-the-principle-behind-it)).
-- Make it look good.
-- (advanced) Add visual effects to the player, synched with music.
+- Make it sound and look good.
+- *(Advanced)* Add visual effects to the player, synched with music.
 
 > **(*)** Adding the audio implies modifying the [Makefile](Makefile) to add
 `audio` to the list of peripherals (after `...,buttons`),
