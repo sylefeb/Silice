@@ -4,6 +4,10 @@ AS   = $(ARCH)-as
 LD   = $(ARCH)-ld
 OBJS = sdcard.o div.o std.o config.o oled.o display.o printf.o mul.o crt0.o
 
+test_img : test_img.o $(OBJS) fat_io_lib.o
+		$(LD) -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld --no-relax -o code.elf $^
+		$(ARCH)-objcopy -O verilog code.elf code.hex
+
 test_fat32 : test_fat32.o $(OBJS) fat_io_lib.o
 		$(LD) -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld --no-relax -o code.elf $^
 		$(ARCH)-objcopy -O verilog code.elf code.hex

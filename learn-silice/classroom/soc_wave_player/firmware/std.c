@@ -33,7 +33,7 @@ void *memcpy(void *dst,const void *src,size_t sz)
 size_t strlen(const char *str)
 {
   size_t l=0;
-  while (*str) {++l;}
+  while (*(str++)) {++l;}
   return l;
 }
 
