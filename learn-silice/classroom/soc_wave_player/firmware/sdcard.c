@@ -95,9 +95,9 @@ unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
         sdcard_read_step_H();
         sdcard_read_step_L();
         wait_more = wait && (answer&(1<<(len-1)));
-        //if (wait_more && ((iter++&15)==0)) {
-         // sdcard_while_loading_callback();
-        //}
+        if (wait_more && ((iter++&127)==0)) {
+          sdcard_while_loading_callback();
+        }
     }
     return answer;
 }
