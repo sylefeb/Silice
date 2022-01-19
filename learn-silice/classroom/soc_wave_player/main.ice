@@ -33,8 +33,6 @@ $$uart_in_clock_freq_mhz = 25
 $$uart_bauds             = 115200
 $include('../../../projects/common/uart.ice')
 
-import('../../../projects/common/out1_ff_ulx3s.v')
-
 // --------------------------------------------------
 // SOC
 // --------------------------------------------------
@@ -94,14 +92,10 @@ $$end
   oled display(
     data_or_command <: displ_dta_or_cmd,
     byte            <: displ_byte,
-    oled_din        :> internal_oled_mosi,
-    oled_clk        :> internal_oled_clk,
-    oled_dc         :> internal_oled_dc,
+    oled_din        :> oled_mosi,
+    oled_clk        :> oled_clk,
+    oled_dc         :> oled_dc,
   );
-
-  out1_ff_ulx3s off_oled_mosi (clock <: clock, pin :> oled_mosi , d <: internal_oled_mosi );
-  out1_ff_ulx3s off_oled_clk  (clock <: clock, pin :> oled_clk  , d <: internal_oled_clk  );
-  out1_ff_ulx3s off_oled_dc   (clock <: clock, pin :> oled_dc   , d <: internal_oled_dc   );
 
   // spiflash miso register
   // -> avoid readin a pin directly in design as it is asynchronous
