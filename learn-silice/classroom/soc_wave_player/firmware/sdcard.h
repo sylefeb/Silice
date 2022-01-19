@@ -8,6 +8,8 @@
 
 void           sdcard_init();
 unsigned char *sdcard_read_sector(int sector,unsigned char *dst);
+unsigned char  sdcard_start_sector(int sector);
+unsigned char  sdcard_get(unsigned char len,unsigned char wait);
 
 // --- fat_io_lib sdcard implementation ---
 

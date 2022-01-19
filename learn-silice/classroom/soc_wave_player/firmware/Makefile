@@ -12,6 +12,10 @@ test_fat32 : test_fat32.o $(OBJS) fat_io_lib.o
 		$(LD) -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld --no-relax -o code.elf $^
 		$(ARCH)-objcopy -O verilog code.elf code.hex
 
+test_fl_stream : test_fl_stream.o $(OBJS) fat_io_lib.o
+		$(LD) -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld --no-relax -o code.elf $^
+		$(ARCH)-objcopy -O verilog code.elf code.hex
+
 test_sdcard : test_sdcard.o $(OBJS)
 		$(LD) -m elf32lriscv -b elf32-littleriscv -Tconfig_c.ld --no-relax -o code.elf $^
 		$(ARCH)-objcopy -O verilog code.elf code.hex
