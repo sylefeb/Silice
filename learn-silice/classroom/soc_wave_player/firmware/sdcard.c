@@ -4,11 +4,6 @@ SL - 2020-01-24
 SDCARD bit-banging from RV32I CPU
 (revised for Ice-V from Fire-V implementation)
 
-I went through the trouble of equalizing all delays to have a clean
-sdcard clock period, but maybe that was not necessary.
-
-These delays are tunned to the Ice-V and likely not portable.
-
 Useful Links
 http://www.rjhcoding.com/avrc-sd-interface-1.php
 http://www.dejazzer.com/ee379/lecture_notes/lec12_sd_card.pdf
@@ -29,7 +24,9 @@ const unsigned char acmd41[] = {0x69,0x40,0x00,0x00,0x00,0x01};
 const unsigned char cmd16[]  = {0x50,0x00,0x00,0x02,0x00,0x15};
 const unsigned char cmd17[]  = {0x51,0x00,0x00,0x00,0x00,0x55};
 
-#define SD_DELAY() asm volatile ("nop;");
+void (*sdcard_while_loading_callback)();
+
+void sdcard_idle() { }
 
 void sdcard_select()
 {
@@ -44,7 +41,7 @@ void sdcard_ponder()
   for (int i = 0; i < 16 ; i++) {
       *SDCARD = 4 | 2 | clk;
       clk     = 1 - clk;
-      SD_DELAY();
+      asm volatile ("nop;");
   }
 }
 
@@ -57,37 +54,33 @@ void sdcard_unselect()
     mosi        = (data >> 7)&1;\
     data        = data << clk;\
     *SDCARD     = (mosi<<1) | clk;\
-    clk         = 1-clk;\
-    asm volatile ("nop; nop; nop; nop;");\
-    SD_DELAY()
+    clk         = 1-clk;
 
 void sdcard_send(int indata)
 {
   int clk  = 0;
   int mosi = 0;
   int data = indata;
-  sdcard_send_step(data); asm volatile ("nop;nop;"); sdcard_send_step(data);
-  sdcard_send_step(data); asm volatile ("nop;nop;"); sdcard_send_step(data);
-  sdcard_send_step(data); asm volatile ("nop;nop;"); sdcard_send_step(data);
-  sdcard_send_step(data); asm volatile ("nop;nop;"); sdcard_send_step(data);
-  sdcard_send_step(data); asm volatile ("nop;nop;"); sdcard_send_step(data);
-  sdcard_send_step(data); asm volatile ("nop;nop;"); sdcard_send_step(data);
-  sdcard_send_step(data); asm volatile ("nop;nop;"); sdcard_send_step(data);
-  sdcard_send_step(data); asm volatile ("nop;nop;"); sdcard_send_step(data);
+  sdcard_send_step(data); sdcard_send_step(data);
+  sdcard_send_step(data); sdcard_send_step(data);
+  sdcard_send_step(data); sdcard_send_step(data);
+  sdcard_send_step(data); sdcard_send_step(data);
+  sdcard_send_step(data); sdcard_send_step(data);
+  sdcard_send_step(data); sdcard_send_step(data);
+  sdcard_send_step(data); sdcard_send_step(data);
+  sdcard_send_step(data); sdcard_send_step(data);
   *SDCARD = 2; // mosi = 1
+  sdcard_while_loading_callback();
 }
 
 #define sdcard_read_step_L() \
     *SDCARD     = 2;\
     ud          = *SDCARD;\
-    answer      = (answer << 1) | (ud);\
-    SD_DELAY()
+    answer      = (answer << 1) | (ud);
 
 #define sdcard_read_step_H() \
     *SDCARD     = 3;\
-    n ++;\
-    asm volatile ("nop; nop; nop; nop; nop; nop;");\
-    SD_DELAY()
+    n ++;
 
 unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
 {
@@ -96,10 +89,15 @@ unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
     int ud;
     int n = 0;
     int answer = 0xff;
-    while (
-          (wait && (answer&(1<<(len-1)))) || (!wait && n < len)) {
+    int wait_more = wait;
+    int iter = 0;
+    while (wait_more || (!wait && n < len)) {
         sdcard_read_step_H();
         sdcard_read_step_L();
+        wait_more = wait && (answer&(1<<(len-1)));
+        //if (wait_more && ((iter++&15)==0)) {
+         // sdcard_while_loading_callback();
+        //}
     }
     return answer;
 }
@@ -163,8 +161,6 @@ void sdcard_preinit()
     for (int i = 0; i < 160 ; i++) {
       *SDCARD = 4 | 2 | clk;
       clk     = 1 - clk;
-      asm volatile ("nop; nop; nop;");
-      SD_DELAY();
     }
   }
   *SDCARD = 4 | 2;
@@ -173,6 +169,7 @@ void sdcard_preinit()
 void sdcard_init()
 {
   unsigned char status;
+  sdcard_while_loading_callback = sdcard_idle;
   while (1) {
     sdcard_preinit();
     sdcard_cmd(cmd0);
