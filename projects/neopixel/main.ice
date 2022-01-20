@@ -12,7 +12,7 @@ $$end
 // RES 55.0us
 
 // NOTE: this code drives 20 LEDs, change the number below
-$$ NUM_LEDS = 20
+$$ NUM_PIXS = 20
 
 $$ t0h_cycles          = 5  -- 416 nsec
 $$ t0l_cycles          = 10 -- 833 nsec
@@ -35,27 +35,49 @@ riscv cpu_fun(
   void wait() {
     for (int w = 0; w < 5000 ; ++w) { asm volatile ("nop;"); }
   }
-  void pulse() {
-    for (int i = 0; i <= 255 ; ++i) {  // 0 => 255
-      for (int l=0;l<$NUM_LEDS$;l++) {
-        int sh = (l&3) == 3 ? 0 : ((l&3)<<3);
-        clr(((i+l<<2)&255)<<sh);
-        id(l);
-      }
-      wait();
-    }
-    for (int i = 255; i >= 0 ; --i) { // 255 => 0
-      for (int l=0;l<$NUM_LEDS$;l++) {
-        int sh = (l&3) == 3 ? 0 : ((l&3)<<3);
-        clr(((i+l<<2)&255)<<sh);
-        id(l);
-      }
-      wait();
-    }
-  }
+  typedef struct {
+    unsigned char r;
+    unsigned char g;
+    unsigned char b;
+    int  dir;
+    int  intens;
+  } t_rgb;
+  t_rgb colors[$NUM_PIXS$];
   void main() {
     leds(0);
-    while (1) { pulse(); }
+    int rng  = 31421;
+    for (int l = 0; l < $NUM_PIXS$ ; l++) {
+      rng = ((rng<<5) ^ 6927) + (rng ^ l);
+      rng = ((rng) ^ 31421) + (l);
+      colors[l].intens = rng & 255;
+      rng = ((rng<<5) ^ 6927) + (rng ^ l);
+      rng = ((rng) ^ 31421) + (l);
+      colors[l].r = rng;
+      rng = ((rng<<5) ^ 6927) + (rng ^ l);
+      rng = ((rng) ^ 31421) + (l);
+      colors[l].g = rng;
+      rng = ((rng<<5) ^ 6927) + (rng ^ l);
+      rng = ((rng) ^ 31421) + (l);
+      colors[l].b = rng;
+      colors[l].dir = rng < 0 ? -1 : 1;
+    }
+    while (1) {
+      for (int l = 0;  l < $NUM_PIXS$ ; l++) {
+        int i = colors[l].intens;
+        int r = (colors[l].r * i) >> 8;
+        int g = (colors[l].g * i) >> 8;
+        int b = (colors[l].b * i) >> 8;
+        clr( r | (g<<8) | (b<<16) );
+        id ( l );
+        colors[l].intens += colors[l].dir;
+        if (colors[l].intens < 0) {
+          colors[l].intens = 0; colors[l].dir = -colors[l].dir;
+        } else if (colors[l].intens > 255) {
+          colors[l].intens = 255; colors[l].dir = -colors[l].dir;
+        }
+      }
+      wait();
+    }
   }
   // =========================
 }
@@ -69,7 +91,7 @@ algorithm main(output uint8 leds,inout uint8 pmod)
   uint1  ctrl(0); // control signal state
 
   uint24 send_clr(0);
-  simple_dualport_bram uint24 colors[$NUM_LEDS$] = {pad(0)};
+  simple_dualport_bram uint24 colors[$NUM_PIXS$] = {pad(0)};
 
   always_after {
     leds            = cpu0.leds[16,5];
@@ -85,7 +107,7 @@ algorithm main(output uint8 leds,inout uint8 pmod)
   while (1) {
     uint5 led_id = 0;
     colors.addr0 = led_id;
-    while (led_id != $NUM_LEDS$) {
+    while (led_id != $NUM_PIXS$) {
       uint5 i      = 0;
       // color to be sent
       send_clr     = colors.rdata0;
