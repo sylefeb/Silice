@@ -34,6 +34,20 @@ $$uart_bauds             = 115200
 $include('../../../projects/common/uart.ice')
 
 // --------------------------------------------------
+// PWM
+// --------------------------------------------------
+
+algorithm pwm(
+  input  uint8 audio_in,
+  output uint4 audio_out) <autorun>
+{
+  always {
+    // simple passthrough   // EXERCISE: implement the actual PWM
+    audio_out = audio_in[4,4];
+  }
+}
+
+// --------------------------------------------------
 // SOC
 // --------------------------------------------------
 
@@ -140,6 +154,8 @@ $$if not BUTTONS then
   uint7 btns(0);
 $$end
 
+  // audio PWM
+  pwm audiopwm;
   // audio bypass for simulation
 $$if not AUDIO then
   uint4 audio_l(0);
@@ -179,7 +195,7 @@ $$end
     uint1 uart_access            <:: prev_mem_addr[3,1];
     uint1 sf_access              <:: prev_mem_addr[4,1];
     uint1 sd_access              <:: prev_mem_addr[5,1];
-    // uint1 button_access ... // EXERCISE
+    // uint1 button_access ... // EXERCISE implement buttons
     uint1 audio_access           <:: prev_mem_addr[7,1];
 	  // ---- memory access
     // BRAM wenable update following wenable from CPU<->SOC interface
@@ -198,6 +214,8 @@ $$end
     reg_sf_miso      = sf_miso; // register flash miso
     reg_sd_miso      = sd_miso; // register sdcard miso
     reg_btns         = btns;    // register buttons
+    audio_l          = audiopwm.audio_out;
+    audio_r          = audiopwm.audio_out;
     // ---- memory mapping to peripherals: writes
     if (prev_mem_rw & prev_mem_addr[$memmap_bit$,1]) {
       /// LEDs
@@ -219,8 +237,7 @@ $$end
       sd_mosi = sd_access ? prev_wdata[1,1] : sd_mosi;
       sd_csn  = sd_access ? prev_wdata[2,1] : sd_csn;
       /// audio
-      audio_l = audio_access ? prev_wdata[0,4] : audio_l;
-      audio_r = audio_access ? prev_wdata[0,4] : audio_r;
+      if (audio_access) { audiopwm.audio_in = prev_wdata[0,8]; }
 $$if SIMULATION then
       // Simulation debug output, very convenient during development!
       if (leds_access) {
