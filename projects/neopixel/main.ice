@@ -1,5 +1,5 @@
 
-$$if not ICESTICK then
+$$if not ICESTICK and not SIMULATION then
 $$ error("This is assuming the 12 MHz clock of the IceStick, please adjust")
 $$end
 
@@ -15,7 +15,7 @@ $$ t0h_cycles          = 5  -- 416 nsec
 $$ t0l_cycles          = 10 -- 833 nsec
 $$ t1h_cycles          = 10 -- 833 nsec
 $$ t1l_cycles          = 5  -- 416 nsec
-$$ res_cycles          = 700
+$$ res_cycles          = 800
 $$ print('t0h_cycles = ' .. t0h_cycles)
 $$ print('t0l_cycles = ' .. t0l_cycles)
 $$ print('t1h_cycles = ' .. t1h_cycles)
@@ -23,10 +23,11 @@ $$ print('t1l_cycles = ' .. t1l_cycles)
 $$ print('res_cycles = ' .. res_cycles)
 
 // A Risc-V CPU generating the color pattern
-riscv cpu_fun(output uint24 clr) <mem=512> {
+riscv cpu_fun(output uint24 clr,output uint32 leds) <mem=1024> {
   // ====== C firmware ======
+  int l;
   void wait() {
-    for (int w = 0; w < 5000 ; ++w) { asm volatile ("nop;"); }
+    for (int w = 0; w < 5000 ; ++w) { leds(++l); asm volatile ("nop;"); }
   }
   void pulse(int shift) {
     for (int i = 0; i <= 255 ; ++i) {  // 0 => 255
@@ -39,6 +40,7 @@ riscv cpu_fun(output uint24 clr) <mem=512> {
     }
   }
   void main() {
+    l = 0;
     while (1) {
       // pulse red
       pulse(8);
@@ -46,7 +48,6 @@ riscv cpu_fun(output uint24 clr) <mem=512> {
       pulse(16);
       // pulse blue
       pulse(0);
-
     }
   }
   // =========================
@@ -63,9 +64,10 @@ algorithm main(output uint8 leds,inout uint8 pmod)
   uint24 send_clr(0);
 
   always_after {
-    leds         = 0;
+    leds         = cpu0.leds[16,5];
     pmod.oenable = 8b11111111;
-    pmod.o       = {7b0,ctrl}; // output on PMOD pin 1
+    pmod.o       = {8{ctrl}}; // output on PMOD pins
+    // __display("%b",leds);
   }
 
   // We take it easy (#FPGAFriday) and use Silice FSM capability
