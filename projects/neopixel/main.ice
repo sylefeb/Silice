@@ -30,50 +30,63 @@ riscv cpu_fun(
   output uint24 clr,
   output uint8  id,
   output uint1  on_id,
-  output uint32 leds) <mem=1024> {
+  output uint32 leds) <mem=2048> {
   // ====== C firmware ======
   void wait() {
     for (int w = 0; w < 5000 ; ++w) { asm volatile ("nop;"); }
   }
+  unsigned int __mulsi3 (unsigned int a, unsigned int b)
+  { // from https://raw.githubusercontent.com/gcc-mirror/gcc/master/libgcc/config/epiphany/mulsi3.c
+    // function is under GPLv3 license, see link above
+    unsigned int r = 0;
+    while (a) {
+        if (a & 1) { r += b; }
+        a >>= 1; b <<= 1;
+    }
+    return r;
+  }
   typedef struct {
-    unsigned char r;
-    unsigned char g;
-    unsigned char b;
+    int  r;
+    int  g;
+    int  b;
     int  dir;
     int  intens;
   } t_rgb;
   t_rgb colors[$NUM_PIXS$];
   void main() {
     leds(0);
+    // choose random colors
     int rng  = 31421;
     for (int l = 0; l < $NUM_PIXS$ ; l++) {
       rng = ((rng<<5) ^ 6927) + (rng ^ l);
       rng = ((rng) ^ 31421) + (l);
-      colors[l].intens = rng & 255;
+      colors[l].intens = rng & 63;
       rng = ((rng<<5) ^ 6927) + (rng ^ l);
       rng = ((rng) ^ 31421) + (l);
-      colors[l].r = rng;
+      colors[l].r = rng & 255;
       rng = ((rng<<5) ^ 6927) + (rng ^ l);
       rng = ((rng) ^ 31421) + (l);
-      colors[l].g = rng;
+      colors[l].g = rng & 255;
       rng = ((rng<<5) ^ 6927) + (rng ^ l);
       rng = ((rng) ^ 31421) + (l);
-      colors[l].b = rng;
+      colors[l].b = rng & 255;
+      rng = ((rng<<5) ^ 6927) + (rng ^ l);
+      rng = ((rng) ^ 31421) + (l);
       colors[l].dir = rng < 0 ? -1 : 1;
     }
     while (1) {
       for (int l = 0;  l < $NUM_PIXS$ ; l++) {
         int i = colors[l].intens;
-        int r = (colors[l].r * i) >> 8;
-        int g = (colors[l].g * i) >> 8;
-        int b = (colors[l].b * i) >> 8;
+        int r = ((colors[l].r * i) >> 8);
+        int g = ((colors[l].g * i) >> 8);
+        int b = ((colors[l].b * i) >> 8);
         clr( r | (g<<8) | (b<<16) );
         id ( l );
         colors[l].intens += colors[l].dir;
         if (colors[l].intens < 0) {
           colors[l].intens = 0; colors[l].dir = -colors[l].dir;
-        } else if (colors[l].intens > 255) {
-          colors[l].intens = 255; colors[l].dir = -colors[l].dir;
+        } else if (colors[l].intens > 64) {
+          colors[l].intens = 64; colors[l].dir = -colors[l].dir;
         }
       }
       wait();
