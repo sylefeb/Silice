@@ -59,6 +59,10 @@ algorithm main(
 $$if BUTTONS then
   input  uint7 btns,
 $$end
+$$if AUDIO then
+  output uint4 audio_l,
+  output uint4 audio_r,
+$$end
 $$if VERILATOR then
   // configuration for SPIscreen simulation
   output uint2  spiscreen_driver(1/*SSD1351*/),
@@ -136,6 +140,12 @@ $$if not BUTTONS then
   uint7 btns(0);
 $$end
 
+  // audio bypass for simulation
+$$if not AUDIO then
+  uint4 audio_l(0);
+  uint4 audio_r(0);
+$$end
+
 	// for peripherals memory mapping, record previous cycle CPU access
 	uint$addrW$ prev_mem_addr(0);
 	uint1       prev_mem_rw(0);
@@ -169,6 +179,8 @@ $$end
     uint1 uart_access            <:: prev_mem_addr[3,1];
     uint1 sf_access              <:: prev_mem_addr[4,1];
     uint1 sd_access              <:: prev_mem_addr[5,1];
+    // uint1 button_access ... // EXERCISE
+    uint1 audio_access           <:: prev_mem_addr[7,1];
 	  // ---- memory access
     // BRAM wenable update following wenable from CPU<->SOC interface
     mem.wenable = memio.wenable & {4{~memio.addr[$memmap_bit$,1]}};
@@ -206,6 +218,9 @@ $$end
       sd_clk  = sd_access ? prev_wdata[0,1] : sd_clk;
       sd_mosi = sd_access ? prev_wdata[1,1] : sd_mosi;
       sd_csn  = sd_access ? prev_wdata[2,1] : sd_csn;
+      /// audio
+      audio_l = audio_access ? prev_wdata[0,4] : audio_l;
+      audio_r = audio_access ? prev_wdata[0,4] : audio_r;
 $$if SIMULATION then
       // Simulation debug output, very convenient during development!
       if (leds_access) {

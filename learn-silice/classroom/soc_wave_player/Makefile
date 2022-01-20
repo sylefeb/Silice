@@ -2,7 +2,7 @@ FIRMWARE ?= test_hello_world
 
 .DEFAULT: main.ice
 	make -C firmware $(FIRMWARE)
-	silice-make.py -s main.ice -b $@ -p basic,oled,spiflash,uart,sdcard,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
+	silice-make.py -s main.ice -b $@ -p basic,oled,spiflash,uart,sdcard,buttons,audio -o BUILD_$(subst :,_,$@) $(ARGS)
 
 verilator: main.ice
 	make -C firmware $(FIRMWARE)
