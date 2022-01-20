@@ -22,10 +22,10 @@ void callback()
 {
   int elapsed = rdcycle() - last_tm; // NOTE: beware of 2^32 wrap around on rdcycle
   if (elapsed > 3125) {
-    if (elapsed > max_elapsed) { max_elapsed = elapsed; }
+    // if (elapsed > max_elapsed) { max_elapsed = elapsed; }
     if (current_sample < 1024 && do_streaming) {
       // send next audio sample
-      int smpl = buffer[current_sample++];
+      unsigned char smpl = buffer[current_sample++];
       *AUDIO = smpl;
       *LEDS  = smpl;
     }
@@ -72,7 +72,7 @@ void main()
     display_refresh();
     // install callback
     sdcard_while_loading_callback = callback;
-    max_elapsed = 0;
+    max_elapsed  = 0;
     // read data (use 512 bytes reads to avoid extra copies inside fat_io_lib)
     buffer_swap  = 0;
     do_streaming = 0;

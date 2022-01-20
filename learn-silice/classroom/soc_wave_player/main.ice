@@ -41,9 +41,15 @@ algorithm pwm(
   input  uint8 audio_in,
   output uint4 audio_out) <autorun>
 {
+  uint4 counter(0);
   always {
+    uint4 low  <: audio_in[4,4];
+    uint4 high <: audio_in[4,4] + 1;
+    uint4 frac <: audio_in[0,4];
+
     // simple passthrough   // EXERCISE: implement the actual PWM
-    audio_out = audio_in[4,4];
+    audio_out = counter < frac ? low : high;
+    counter   = counter + 1;
   }
 }
 
