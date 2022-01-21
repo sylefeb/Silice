@@ -118,6 +118,7 @@ algorithm main(output uint8 leds,inout uint8 pmod)
   // We take it easy (#FPGAFriday) and use Silice FSM capability
   // to implement the NeoPixel driver (single LED, just getting started)
   while (1) {
+    // iterate through the LEDs and set their color
     uint5 led_id = 0;
     colors.addr0 = led_id;
     while (led_id != $NUM_PIXS$) {
