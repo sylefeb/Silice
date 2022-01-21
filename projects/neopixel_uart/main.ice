@@ -77,6 +77,7 @@ algorithm main(
         switch (receive_step) {
           case 0:  { id_from_uart  = ui.data_out; clr_from_uart = 0; }
           default: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
+          // default: { clr_from_uart = { ui.data_out,clr_from_uart[8,16]}; }
         }
         receive_step = receive_step + 1;
       }
