@@ -47,20 +47,27 @@ void main()
     printf("playing.       \n");
     display_refresh();
     // plays the entire file
+    int max_cycles = 0;
     while (1) {
       // read directly in hardware buffer
       int *addr = (int*)(*AUDIO);
-      display_set_cursor(0,0);
-      printf("buffer: %x  \n",addr);
-      display_refresh();
       // (use 512 bytes reads to avoid extra copies inside fat_io_lib)
       int sz = fl_fread(addr,1,512,f);
       if (sz < 512) break; // reached end of file
       // wait for buffer swap
+      int start_tm = rdcycle();
       while (addr == (int*)(*AUDIO)) { }
+      int elapsed = rdcycle() - start_tm;
+      if (elapsed > max_cycles) {
+        max_cycles = elapsed;
+      }
     }
     // close
     fl_fclose(f);
+
+    printf("max cycles: %d  \n",max_cycles);
+    display_refresh();
+
   }
 
 }

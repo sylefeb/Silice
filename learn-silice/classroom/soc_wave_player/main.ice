@@ -176,20 +176,20 @@ $$end
 
 $$if not Question_Streaming then
   // audio streaming
-  $$PERIOD = 3125
-  // we allocated 2x 512 samples
-  simple_dualport_bram uint32 audio_buffer[1024] = {pad(0)};
-  uint1  audio_buffer_write(0);  // buffer to which we write
+  $$PERIOD = 3124
+  // we allocated 2x 512 8bit samples
+  simple_dualport_bram uint8 audio_buffer[1024] = {pad(0)};
+  uint1  audio_buffer_select(0); // buffer to which we write
   uint10 audio_buffer_sample(0); // sample being played
   uint12 audio_counter(0);
-  uint10 audio_buffer_start_waddr <:: audio_buffer_write ? 512 : 0;
-  uint10 audio_buffer_start_raddr <:: audio_buffer_write ?   0 : 512;
+  uint10 audio_buffer_start_waddr <:: audio_buffer_select ? 512 : 0;
+  uint10 audio_buffer_start_raddr <:: audio_buffer_select ?   0 : 512;
   uint32 audio_addr_cpu           <:: 32h18000 | {22b0,audio_buffer_start_waddr};
 $$end
 
 	// for peripherals memory mapping, record previous cycle CPU access
 	uint$addrW$ prev_mem_addr(0);
-	uint1       prev_mem_rw(0);
+	uint4       prev_mem_rw(0);
   uint32      prev_wdata(0);
 
 $$if SIMULATION then
@@ -211,10 +211,10 @@ $$end
   // --- SOC logic, the always block is always active
   always {
     // track whether the CPU is reading a memory mapped peripheral
-    uint1 memmap_r <:: prev_mem_addr[$memmap_bit$,1] & ~prev_mem_rw;
+    uint1 memmap_r <:: prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw == 4b0);
     //             ^^^ track values at cycle start
     // track memory mapped peripherals access
-    uint1 audio_access           <:: prev_mem_addr[13,1];
+    uint1 audio_access           <:: prev_mem_addr[$memmap_bit-1$,1];
     uint1 leds_access            <:: prev_mem_addr[ 0,1] & ~audio_access;
     uint1 display_en_access      <:: prev_mem_addr[ 1,1] & ~audio_access;
     uint1 display_reset_access   <:: prev_mem_addr[ 2,1] & ~audio_access;
@@ -251,6 +251,10 @@ $$end
     audio_r            = audiopwm.audio_out;
 $$if not Question_Streaming then
     audiopwm.audio_in   = audio_buffer.rdata0; // feed current sample to PWM
+    audio_buffer_select = audio_buffer_sample[9,1]    // if == 512, done reading
+        ? ~audio_buffer_select : audio_buffer_select; // swap buffers
+    audio_buffer.addr0  = audio_buffer_start_raddr | {1b0,audio_buffer_sample[0,9]};
+    audio_buffer.wenable1 = 0; // maintain write port low (pulses on CPU write)
     audio_buffer_sample =
           audio_buffer_sample[9,1] ? 0 : ( // reset counter if done
               audio_counter != $PERIOD$
@@ -258,19 +262,15 @@ $$if not Question_Streaming then
             : (audio_buffer_sample+1) // go to next sample
           );
     audio_counter       = (audio_counter == $PERIOD$) ? 0 : (audio_counter+1);
-    audio_buffer_write  = audio_buffer_sample[9,1]  // if == 512, done reading
-        ? ~audio_buffer_write : audio_buffer_write; // swap buffers
-    audio_buffer.addr0  = audio_buffer_start_raddr | {1b0,audio_buffer_sample[0,9]};
-    audio_buffer.wenable1 = 0; // maintain write port low (pulses on CPU write)
 $$if SIMULATION then
     if (audio_counter == 0) {
-      //__display("[cycle %d] sample %d wbuffer %b",
-      //  cycle,audio_buffer_sample,audio_buffer_write);
+    //  __display("[cycle %d] sample %d wbuffer %b cpuaddr @%x",
+    //    cycle,audio_buffer_sample,audio_buffer_select,audio_addr_cpu);
     }
 $$end
 $$end
     // ---- memory mapping to peripherals: writes
-    if (prev_mem_rw & prev_mem_addr[$memmap_bit$,1]) {
+    if ((prev_mem_rw != 4b0) & prev_mem_addr[$memmap_bit$,1]) {
       /// LEDs
       leds           = leds_access ? prev_wdata[0,8] : leds;
       /// display
@@ -293,16 +293,22 @@ $$end
 $$if Question_Streaming then
       if (audio_access) { audiopwm.audio_in = prev_wdata[0,8]; }
 $$else
-      audio_buffer.wdata1 = prev_wdata; // sample to be written
-      audio_buffer.addr1  = audio_buffer_start_waddr | {1b0,prev_mem_addr[0,9]};
-      // ^^^^^ where to write is ^^^^^ base address and LSB of access addr ^^^^^
+      { // block for locally declaring 'which' below
+        uint2 which <:: prev_mem_rw[1,2] | {2{prev_mem_rw[3,1]}};
+        //    ^^^^^ produces 0,1,2,3 based on write mask
+        audio_buffer.wdata1   = prev_wdata >> {which,3b0};
+        //       ^^^ sample to be written ^^ (shift due to 32bits addressing)
+        audio_buffer.addr1    = audio_buffer_start_waddr
+                              | {prev_mem_addr[0,7],2b0}//addr from CPU (32bits)
+                              | which; // sample address
+      }
       audio_buffer.wenable1 = audio_access; // write sample
 $$end
 
 $$if SIMULATION then
       // Simulation debug output, very convenient during development!
       if (leds_access) {
-        __display("[cycle %d] LEDs: %b",cycle,leds);
+        __display("[cycle %d] LEDs: %b (%d)",cycle,leds,prev_wdata);
         if (leds == 255) { __finish(); }// special LED value stops simulation
                                         // convenient to interrupt from firmware
       }
@@ -314,8 +320,8 @@ $$if SIMULATION then
       }
       if (audio_access) {
 $$if not Question_Streaming then
-        __display("[cycle %d] audio sample %x, written @%x",
-            cycle,audio_buffer.wdata1,audio_buffer.addr1);
+        __display("[cycle %d] audio sample %x, written @%x wenable:%b",
+            cycle,audio_buffer.wdata1,audio_buffer.addr1,prev_mem_rw);
 $$end
       }
 $$end
@@ -323,7 +329,7 @@ $$end
 
     // record current access for next cycle memory mapping checks
 		prev_mem_addr = memio.addr;
-		prev_mem_rw   = memio.wenable[0,1];
+		prev_mem_rw   = memio.wenable;
     prev_wdata    = memio.wdata;
 
 $$if SIMULATION then
