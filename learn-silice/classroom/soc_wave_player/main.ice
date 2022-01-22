@@ -41,6 +41,11 @@ algorithm pwm(
   input  uint8 audio_in,
   output uint4 audio_out) <autorun>
 {
+$$if Question_PWM then
+  always {
+    audio_out = audio_in[4,4];
+  }
+$$else
   uint4 counter(0);
   always {
     uint4 low  <: audio_in[4,4];
@@ -51,6 +56,7 @@ algorithm pwm(
     audio_out = counter < frac ? low : high;
     counter   = counter + 1;
   }
+$$end
 }
 
 // --------------------------------------------------
@@ -168,6 +174,19 @@ $$if not AUDIO then
   uint4 audio_r(0);
 $$end
 
+$$if not Question_Streaming then
+  // audio streaming
+  $$PERIOD = 3125
+  // we allocated 2x 512 samples
+  simple_dualport_bram uint32 audio_buffer[1024] = {pad(0)};
+  uint1  audio_buffer_write(0);  // buffer to which we write
+  uint10 audio_buffer_sample(0); // sample being played
+  uint12 audio_counter(0);
+  uint10 audio_buffer_start_waddr <:: audio_buffer_write ? 512 : 0;
+  uint10 audio_buffer_start_raddr <:: audio_buffer_write ?   0 : 512;
+  uint32 audio_addr_cpu           <:: 32h18000 | {22b0,audio_buffer_start_waddr};
+$$end
+
 	// for peripherals memory mapping, record previous cycle CPU access
 	uint$addrW$ prev_mem_addr(0);
 	uint1       prev_mem_rw(0);
@@ -195,33 +214,61 @@ $$end
     uint1 memmap_r <:: prev_mem_addr[$memmap_bit$,1] & ~prev_mem_rw;
     //             ^^^ track values at cycle start
     // track memory mapped peripherals access
-    uint1 leds_access            <:: prev_mem_addr[0,1];
-    uint1 display_en_access      <:: prev_mem_addr[1,1];
-    uint1 display_reset_access   <:: prev_mem_addr[2,1];
-    uint1 uart_access            <:: prev_mem_addr[3,1];
-    uint1 sf_access              <:: prev_mem_addr[4,1];
-    uint1 sd_access              <:: prev_mem_addr[5,1];
-    // uint1 button_access ... // EXERCISE implement buttons
-    uint1 audio_access           <:: prev_mem_addr[7,1];
+    uint1 audio_access           <:: prev_mem_addr[13,1];
+    uint1 leds_access            <:: prev_mem_addr[ 0,1] & ~audio_access;
+    uint1 display_en_access      <:: prev_mem_addr[ 1,1] & ~audio_access;
+    uint1 display_reset_access   <:: prev_mem_addr[ 2,1] & ~audio_access;
+    uint1 uart_access            <:: prev_mem_addr[ 3,1] & ~audio_access;
+    uint1 sf_access              <:: prev_mem_addr[ 4,1] & ~audio_access;
+    uint1 sd_access              <:: prev_mem_addr[ 5,1] & ~audio_access;
+$$if not Question_Buttons then
+    uint1 button_access          <:: prev_mem_addr[6,1] & ~audio_access;
+$$end
 	  // ---- memory access
     // BRAM wenable update following wenable from CPU<->SOC interface
     mem.wenable = memio.wenable & {4{~memio.addr[$memmap_bit$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
     // data sent to the CPU
     memio.rdata   = // read data is either SPIflash, sdcard or memory
-       ((memmap_r & sf_access) ? {31b0,reg_sf_miso} : 32b0)
-     | ((memmap_r & sd_access) ? {31b0,reg_sd_miso} : 32b0)
-     | (~memmap_r              ? mem.rdata          : 32b0);
+       ((memmap_r & sf_access)     ? {31b0,reg_sf_miso} : 32b0)
+     | ((memmap_r & sd_access)     ? {31b0,reg_sd_miso} : 32b0)
+$$if not Question_Buttons then
+     | ((memmap_r & button_access) ? {31b0,   reg_btns} : 32b0)
+$$end
+$$if not Question_Streaming then
+     | ((memmap_r & audio_access)  ? audio_addr_cpu     : 32b0)
+$$end
+     | (~memmap_r                  ? mem.rdata          : 32b0);
     mem.wdata        = memio.wdata;
     mem.addr         = memio.addr;
 		// ---- peripherals
-    display.enable   = 0;       // maintain display enable low (pulses on use)
-    uo.data_in_ready = 0;       // maintain uart trigger low (pulses on use)
-    reg_sf_miso      = sf_miso; // register flash miso
-    reg_sd_miso      = sd_miso; // register sdcard miso
-    reg_btns         = btns;    // register buttons
-    audio_l          = audiopwm.audio_out;
-    audio_r          = audiopwm.audio_out;
+    display.enable     = 0;       // maintain display enable low (pulses on use)
+    uo.data_in_ready   = 0;       // maintain uart trigger low (pulses on use)
+    reg_sf_miso        = sf_miso; // register flash miso
+    reg_sd_miso        = sd_miso; // register sdcard miso
+    reg_btns           = btns;    // register buttons
+    audio_l            = audiopwm.audio_out;
+    audio_r            = audiopwm.audio_out;
+$$if not Question_Streaming then
+    audiopwm.audio_in   = audio_buffer.rdata0; // feed current sample to PWM
+    audio_buffer_sample =
+          audio_buffer_sample[9,1] ? 0 : ( // reset counter if done
+              audio_counter != $PERIOD$
+            ? audio_buffer_sample     // stay on sample if delay not elapsed
+            : (audio_buffer_sample+1) // go to next sample
+          );
+    audio_counter       = (audio_counter == $PERIOD$) ? 0 : (audio_counter+1);
+    audio_buffer_write  = audio_buffer_sample[9,1]  // if == 512, done reading
+        ? ~audio_buffer_write : audio_buffer_write; // swap buffers
+    audio_buffer.addr0  = audio_buffer_start_raddr | {1b0,audio_buffer_sample[0,9]};
+    audio_buffer.wenable1 = 0; // maintain write port low (pulses on CPU write)
+$$if SIMULATION then
+    if (audio_counter == 0) {
+      //__display("[cycle %d] sample %d wbuffer %b",
+      //  cycle,audio_buffer_sample,audio_buffer_write);
+    }
+$$end
+$$end
     // ---- memory mapping to peripherals: writes
     if (prev_mem_rw & prev_mem_addr[$memmap_bit$,1]) {
       /// LEDs
@@ -243,7 +290,15 @@ $$end
       sd_mosi = sd_access ? prev_wdata[1,1] : sd_mosi;
       sd_csn  = sd_access ? prev_wdata[2,1] : sd_csn;
       /// audio
+$$if Question_Streaming then
       if (audio_access) { audiopwm.audio_in = prev_wdata[0,8]; }
+$$else
+      audio_buffer.wdata1 = prev_wdata; // sample to be written
+      audio_buffer.addr1  = audio_buffer_start_waddr | {1b0,prev_mem_addr[0,9]};
+      // ^^^^^ where to write is ^^^^^ base address and LSB of access addr ^^^^^
+      audio_buffer.wenable1 = audio_access; // write sample
+$$end
+
 $$if SIMULATION then
       // Simulation debug output, very convenient during development!
       if (leds_access) {
@@ -251,21 +306,17 @@ $$if SIMULATION then
         if (leds == 255) { __finish(); }// special LED value stops simulation
                                         // convenient to interrupt from firmware
       }
-      //if (display_en_access) { // commented to avoid clutter
-      //  __display("[cycle %d] display en: %b",cycle,prev_wdata[9,2]);
-      //}
-      if (display_reset_access) {
-        __display("[cycle %d] display resn: %b",cycle,prev_wdata[0,1]);
-      }
       if (uart_access) { // printf via UART
         __write("%c",prev_wdata[0,8]);
       }
       if (sf_access) {
         __display("[cycle %d] SPI write %b",cycle,prev_wdata[0,3]);
       }
-      if (sd_access) {
-        //__display("[cycle %d] sdcard %b (elapsed %d)",cycle,prev_wdata[0,3],cycle - prev_cycle);
-        prev_cycle = cycle;
+      if (audio_access) {
+$$if not Question_Streaming then
+        __display("[cycle %d] audio sample %x, written @%x",
+            cycle,audio_buffer.wdata1,audio_buffer.addr1);
+$$end
       }
 $$end
     }
@@ -278,6 +329,7 @@ $$end
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
+
   } // end of always block
 
   // --- algorithm part
