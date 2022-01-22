@@ -46,4 +46,4 @@ nextpnr-ecp5 --85k --package CABGA381 --freq 25 --json build.json --textcfg buil
 
 ecppack --compress --svf-rowsize 100000 --svf build.svf build.config build.bit
 
-openFPGALoader -b ulx3s build.bit
+openFPGALoader -f -b ulx3s build.bit

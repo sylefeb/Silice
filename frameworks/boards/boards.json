@@ -47,6 +47,9 @@
     },
     {
       "name" : "bare"
+    },
+    {
+      "name" : "minimal"
     }
   ]
 }

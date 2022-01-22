@@ -1,3 +1,6 @@
 [submodule "src/libs/LibSL-small"]
 	path = src/libs/LibSL-small
 	url = https://github.com/sylefeb/LibSL-small.git
+[submodule "learn-silice/classroom/soc_wave_player/firmware/fat_io_lib"]
+	path = learn-silice/classroom/soc_wave_player/firmware/fat_io_lib
+	url = https://github.com/ultraembedded/fat_io_lib
