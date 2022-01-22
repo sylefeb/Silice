@@ -4,11 +4,12 @@ This classroom project targets the [ULX3S board](https://radiona.org/ulx3s/) wit
 
 > **Warning**: Double check the SPIscreen connection to the board, in particular the GND/VCC wires!
 
-> **Warning:**  When playing with audio, beware that the generate sounds can be loud and very high pitched (especially when debugging!). Always reset volume to a minimum before programming the board.
+> **Warning:**  When playing with audio, beware that the generated sounds can be loud and very high pitched (especially when debugging!). Always reset volume to a minimum before programming the board.
 
 ## How to use
 
-> `make ulx3s FIRMWARE=<firmware>` where firmware is a C file (without extension) located in the `./firmware directory`.
+> `make ulx3s FIRMWARE=<firmware>` where firmware is a C file (without extension) located in the `./firmware directory`. All files in `firmware` that start with `test_*` can be used to generate a firmware.
+
 
 For the board: `make ulx3s FIRMWARE=test_menu` (plug the ULX3S first).
 
@@ -31,11 +32,6 @@ Encode the tracks as uncompressed wave file, PCM mono **unsigned** 8 bits at 8KH
 
 > To test: save the music on the sdcard as `music.raw` and run `make ulx3s FIRMWARE=test_audio_stream_hrdw`
 
-#### Firmwares
-
-All files in `firmware` that start with `test_` can be used to generate a firmware
-in the design with `make ulx3s FIRMWARE=test_*`.
-
 ## Exercises
 
 > **Note:** This section is work in progress. In `main.ice` exercises are identified by `$$if Question_*` which selects either the question of its answer. Later a script will allow to generate the file without the answers.
@@ -46,7 +42,7 @@ in the design with `make ulx3s FIRMWARE=test_*`.
 - Add the ULX3S audio output to the SOC (*), memory map it, add `sound.c` to firmware.
 Write a `test_audio.c` firmware playing a few tones.
 - (`Question_Streaming`) Implement hardware support for audio streaming, and play tracks from the sdcard! (see `test_audio_stream_hrdw` for the firmware).
-- (`Question_PWM`) To improve sound quality implement a hardware audio PWM ([what's the idea?](https://electronics.stackexchange.com/questions/239442/audio-using-pwm-what-is-the-principle-behind-it)).
+- (`Question_PWM`) To improve sound quality implement a hardware audio PWM ([what's the idea?](https://electronics.stackexchange.com/questions/239442/audio-using-pwm-what-is-the-principle-behind-it)). Note that I got best results with the PWM between 0 and 1 on the 4 bits audio output (hence using a single bit of the DAC, and considering all 8 sample bits as fractional part).
 - Use FAT32 to display file names in menu, see [`void fl_listdirectory(const char *path)`](firmware/fat_io_lib/src/fat_filelib.c).
 - Make it sound and look good.
 - Use 16 bits audio samples (beware that export will most likely be signed PCM, which will need adjustment hardware side).

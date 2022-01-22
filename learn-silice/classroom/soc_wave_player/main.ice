@@ -43,16 +43,15 @@ algorithm pwm(
 {
 $$if Question_PWM then
   always {
+    // simple passthrough: implement the actual PWM
     audio_out = audio_in[4,4];
   }
 $$else
-  uint4 counter(0);
+  uint8 counter(0);
   always {
-    uint4 low  <: audio_in[4,4];
-    uint4 high <: audio_in[4,4] + 1;
-    uint4 frac <: audio_in[0,4];
-
-    // simple passthrough   // EXERCISE: implement the actual PWM
+    uint4 low  <: 4b0;
+    uint4 high <: 4b1;
+    uint8 frac <: audio_in[0,8];
     audio_out = counter < frac ? low : high;
     counter   = counter + 1;
   }
@@ -247,13 +246,14 @@ $$end
     reg_sf_miso        = sf_miso; // register flash miso
     reg_sd_miso        = sd_miso; // register sdcard miso
     reg_btns           = btns;    // register buttons
-    audio_l            = audiopwm.audio_out;
+    audio_l            = audiopwm.audio_out; // feed PWM output to on-board DAC
     audio_r            = audiopwm.audio_out;
 $$if not Question_Streaming then
     audiopwm.audio_in   = audio_buffer.rdata0; // feed current sample to PWM
     audio_buffer_select = audio_buffer_sample[9,1]    // if == 512, done reading
         ? ~audio_buffer_select : audio_buffer_select; // swap buffers
-    audio_buffer.addr0  = audio_buffer_start_raddr | {1b0,audio_buffer_sample[0,9]};
+    audio_buffer.addr0  = audio_buffer_start_raddr         // start addr
+                        | {1b0,audio_buffer_sample[0,9]};  // current sample
     audio_buffer.wenable1 = 0; // maintain write port low (pulses on CPU write)
     audio_buffer_sample =
           audio_buffer_sample[9,1] ? 0 : ( // reset counter if done

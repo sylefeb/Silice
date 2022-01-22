@@ -36,18 +36,22 @@ void main()
     // try again, we need this
   }
   printf("done.\n");
-  display_set_cursor(0,0);
+  display_refresh();
 
   // open the file
   FL_FILE *f = fl_fopen("/music.raw","rb");
   if (f == NULL) {
     printf("file not found.\n");
-    display_refresh();
   } else {
-    printf("playing.       \n");
+    display_set_front_back_color(0,255);
+    printf("music file found.\n");
     display_refresh();
+    display_set_front_back_color(255,0);
+    printf("playing ... ");
+    display_refresh();
+    int leds = 1;
+    int dir  = 0;
     // plays the entire file
-    int max_cycles = 0;
     while (1) {
       // read directly in hardware buffer
       int *addr = (int*)(*AUDIO);
@@ -55,18 +59,18 @@ void main()
       int sz = fl_fread(addr,1,512,f);
       if (sz < 512) break; // reached end of file
       // wait for buffer swap
-      int start_tm = rdcycle();
       while (addr == (int*)(*AUDIO)) { }
-      int elapsed = rdcycle() - start_tm;
-      if (elapsed > max_cycles) {
-        max_cycles = elapsed;
+      // light show!
+      if (leds == 128 || leds == 1) { dir = 1-dir; }
+      if (dir) {
+        leds = leds << 1;
+      } else {
+        leds = leds >> 1;
       }
+      *LEDS = leds;
     }
     // close
     fl_fclose(f);
-
-    printf("max cycles: %d  \n",max_cycles);
-    display_refresh();
 
   }
 
