@@ -23,8 +23,17 @@ For projects that do not have a README, please refer to [building the examples](
   - [buttons_and_leds](buttons_and_leds/buttons_and_leds.ice)
   - [using inout](inout/README.md)
   - [UART echo](uart_echo/uart_echo.ice)
+- RISC-V CPUs, tiny and small
+  - [The ice-v and ice-v-dual](ice-v/README.md), single and dual core processors in ~100 lines of Silice! (detailed code walkthrough)
+  - [fire-v + graphics](fire-v/README.md) (detailed code walkthrough)
+- Easy RISC-V integration
+  - [Basic examples and tutorial](https://github.com/sylefeb/Silice/tree/draft/projects/easy-riscv/README.md)
+  - [Doom fire on the Orangecrab+Featherwing keyboard (also in simulation)](https://github.com/sylefeb/Silice/tree/draft/projects/kbfcrabe)
+  - [Neopixel example](https://github.com/sylefeb/Silice/tree/draft/projects/neopixel)
+  - [Driving Neopixels from UART](https://github.com/sylefeb/Silice/tree/draft/projects/neopixel_uart)
 - Audio
-  - [streaming audio from sdcard](audio_sdcard_streamer/README.md) (detailed code walkthrough)  
+  - [hardware streaming audio from sdcard](audio_sdcard_streamer/README.md) (detailed code walkthrough)  
+  - [streaming audio from sdcard, with FAT32 and hardware sound buffers](../learn-silice/learn-silice/classroom/soc_wave_player/README.md) (detailed code walkthrough) 
   - [I2S PCM audio](i2s_audio/README.md) (detailed code walkthrough)
 - Graphics
   - [HDMI tutorial](hdmi_test/README.md) (detailed code walkthrough)
@@ -45,10 +54,9 @@ For projects that do not have a README, please refer to [building the examples](
   - [SDRAM test utility](sdram_memtest/sdram_memtest.ice)
   - [bram interface](bram_interface/main.ice)
   - [bram write mask](bram_wmask/main.ice)
-- RISC-V
-  - [The ice-v and ice-v-dual](ice-v/README.md) (detailed code walkthrough)
-  - [fire-v + graphics](fire-v/README.md) (detailed code walkthrough)
-- dynamic configuration (ice40)
+- Verilog
+  - [Exporting to Verilog](verilog-export/README.md) (detailed tutorial)
+- Dynamic configuration (ice40)
   - [ice40-warmboot](ice40-warmboot/README.md) (detailed explanations)
   - [ice40-dynboot](ice40-dynboot/README.md) (detailed explanations)
 - Arithmetic
