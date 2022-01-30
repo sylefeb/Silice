@@ -42,3 +42,6 @@ Performs a pipelined division over 16 bits, with a 16 cycles latency.
 [cycle  32]                 ... = 1336
 [cycle  33]                 ... = 1252
 ```
+
+## Links
+- @WillFlux Verilog [division tutorial](https://projectf.io/posts/division-in-verilog/)
