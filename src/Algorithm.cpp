@@ -5728,7 +5728,7 @@ void Algorithm::writeCover(std::string prefix,
 
 void Algorithm::writeWireAssignements(
   std::string prefix, std::ostream &out,  
-  t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const
+  t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, bool first_pass) const
 {
   for (const auto &a : m_WireAssignments) {
     auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.second.instr);
@@ -5747,36 +5747,23 @@ void Algorithm::writeWireAssignements(
       continue;
     }
     // type of assignment
-    bool d_or_q = (alw->ALWSASSIGNDBL() == nullptr && alw->LDEFINEDBL() == nullptr);
+    bool d_else_q = (alw->ALWSASSIGNDBL() == nullptr && alw->LDEFINEDBL() == nullptr);
     out << "assign ";
     writeAssignement(prefix, out, a.second, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &a.second.block->context,
-      d_or_q ? FF_D : FF_Q,
+      d_else_q ? FF_D : FF_Q,
       _dependencies, _ff_usage);    
     // update dependencies
     t_vio_dependencies no_dependencies = _dependencies;
     updateAndCheckDependencies(_dependencies, a.second.instr, &a.second.block->context);
-    // run check on dependencies
-    for (const auto &dep : _dependencies.dependencies.at(var)) {
-      // is this dependency a wire?
-      auto W = m_WireAssignmentNames.find(dep);
-      if (W != m_WireAssignmentNames.end()) {
-        const auto &wa = m_WireAssignments[W->second].second;
-        auto w_alw    = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wa.instr);
-        bool w_d_or_q = (w_alw->ALWSASSIGNDBL() == nullptr && w_alw->LDEFINEDBL() == nullptr);
-        if (d_or_q ^ w_d_or_q) {
-          // indicates we are mixing <: and <::, which is in fact useful
-          // issue a warning still?
-        }
-      }
-      // update usage of dependencies to q if q is used
-      if (!d_or_q) {
+    // update usage of dependencies to q if q is used
+    if (!d_else_q) {
+      for (const auto &dep : _dependencies.dependencies.at(var)) {
         updateFFUsage(e_Q, true, _ff_usage.ff_usage[dep]);
       }
-    }
-    if (!d_or_q) {
       // ignore dependencies if reading from Q: we can ignore them safely
-      // as the wire does not contribute to create combinational cycles
+      // as the wire does not contribute to creating combinational cycles
       _dependencies = no_dependencies;
+      /// TODO FIXME really, what if one of the dependecies was a <:, input or bound wire?
     }
   }
   out << nxl;
@@ -7623,7 +7610,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
             nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, _, ff_input_bindings_usage
           );
         }
-        // check whether the bound variable is a wire or another bound var, in which case <:: does not make sense
+        // check whether the bound variable is a wire, an input, or another bound var, in which case <:: does not make sense
         if (nfo.boundinputs.at(is.name).second == e_Q) {
           std::string bid;
           if (std::holds_alternative<std::string>(nfo.boundinputs.at(is.name).first)) {
@@ -7801,7 +7788,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
 
   // wire assignments
   // NOTE: wires also produce D usage that is to be considered as an input binding
-  writeWireAssignements("_", out, always_dependencies, ff_input_bindings_usage);
+  writeWireAssignements("_", out, always_dependencies, ff_input_bindings_usage, first_pass);
 
   // split the input bindings usage into pre / post
   // Q are considered read at cycle start ('top' of the cycle circuit)

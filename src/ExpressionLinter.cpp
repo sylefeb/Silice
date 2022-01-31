@@ -108,6 +108,53 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
   if (alwasg->ALWSASSIGNDBL() != nullptr) {
      warn(Deprecation, alwasg->getSourceInterval(), -1, "use of deprecated syntax ::=, please use <:: instead.");
   }
+  bool d_else_q = (alwasg->ALWSASSIGNDBL() == nullptr && alwasg->LDEFINEDBL() == nullptr);
+  if (!d_else_q) {
+    // determine assigned var
+    std::string var = m_Host->translateVIOName(alwasg->IDENTIFIER()->getText(), &wire_assign.block->context);
+    // check dependencies
+    std::vector<std::string> vars;
+    allVars(alwasg->expression_0(), &wire_assign.block->context, vars);
+    // verify everything is legit
+    for (const auto &dep : vars) {
+      // is this dependency a wire?
+      auto W = m_Host->m_WireAssignmentNames.find(dep);
+      if (W != m_Host->m_WireAssignmentNames.end()) {
+        const auto &wa = m_Host->m_WireAssignments[W->second].second;
+        auto w_alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wa.instr);
+        bool w_d_else_q = (w_alw->ALWSASSIGNDBL() == nullptr && w_alw->LDEFINEDBL() == nullptr);
+        if (w_d_else_q) {
+          // demoting from <:: to <: is ok (works as expected, as <:: is taken into account before)
+          // however the opposite (from <: to <::) will not work as expected for non-expert users
+          // so we issue a deprecation warning and require the cast syntax to be used ":var"
+          warn(/*Deprecation*/Standard, alwasg->getSourceInterval(), -1,
+            "Tracker '%s' was defined with <: and is used in tracker '%s' defined with <::\n"
+            "             This has no effect on '%s', double check meaning.\n",
+            // "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
+            dep.c_str(), var.c_str(), dep.c_str());
+        }
+      }
+      // is this a bound wire?
+      const auto &vio = m_Host->m_VIOBoundToBlueprintOutputs.find(dep);
+      bool bound_wire_input = false;
+      if (vio != m_Host->m_VIOBoundToBlueprintOutputs.end()) {
+        /// TODO dep name is already converted to internal here, recover original for messahe
+        warn(/*Deprecation*/Standard, alwasg->getSourceInterval(), -1,
+          "'%s' is bound to an instance but is used in tracker '%s' defined with <::\n"
+          "             This has no effect on '%s', double check meaning.\n",
+          // "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
+          dep.c_str(), var.c_str(), dep.c_str());
+      }
+      // is this an input?
+      if (m_Host->isInput(dep)) {
+        warn(/*Deprecation*/Standard, alwasg->getSourceInterval(), -1,
+          "Input '%s' is used in tracker '%s' defined with <::\n"
+          "             This has no effect on '%s', double check meaning.\n",
+          // "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
+          dep.c_str(), var.c_str(), dep.c_str());
+      }
+    }
+  }
 }
 
 // -------------------------------------------------
@@ -436,6 +483,31 @@ void ExpressionLinter::typeNfo(
     }
   } else {
     throw Fatal("internal error [%s, %d] '%s'", __FILE__, __LINE__,expr->getText().c_str());
+  }
+}
+
+// -------------------------------------------------
+
+void ExpressionLinter::allVars(
+  antlr4::tree::ParseTree                        *expr,
+  const Algorithm::t_combinational_block_context *bctx,
+  std::vector<std::string>&                      _vars) const
+{
+  auto term   = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
+  auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
+  if (term) {
+    if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
+      // auto nfo = m_Host->determineIdentifierTypeAndWidth(bctx, term, term->getSourceInterval(), (int)term->getSymbol()->getLine());
+      // resolveParameterized(term->getText(), bctx, nfo);
+      _vars.push_back(m_Host->translateVIOName(term->getText(), bctx));
+    }
+  } else if (access) {
+    // ask host to determine access type
+    _vars.push_back(m_Host->determineAccessedVar(access, bctx));
+  } else {
+    for (auto c : expr->children) {
+      allVars(c, bctx, _vars);
+    }
   }
 }
 
