@@ -109,6 +109,7 @@ module top(
   output flash_mosi,
   input  flash_miso,
 `endif
+  output wifi_gpio0,
   input  clk_25mhz
   );
 
@@ -337,5 +338,7 @@ USRMCLK usrmclk_flash(
 assign usb_fpga_pu_dp = 1;
 assign usb_fpga_pu_dn = 1;
 `endif
+
+assign wifi_gpio0 = 1'b1; // see https://github.com/sylefeb/Silice/issues/207
 
 endmodule
