@@ -87,7 +87,8 @@ void ExpressionLinter::lintAssignment(
     }
     if (lvalue_nfo.width < rvalue_nfo.width) {
       if (m_WarnAssignWidth) {
-         warn(Standard, expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", rvalue_nfo.width, lvalue_nfo.width);
+         warn(Standard, expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", 
+           rvalue_nfo.width, lvalue_nfo.width);
       }
     }
   }
@@ -113,12 +114,13 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
     // determine assigned var
     std::string var = m_Host->translateVIOName(alwasg->IDENTIFIER()->getText(), &wire_assign.block->context);
     // check dependencies
-    std::vector<std::string> vars;
+    std::vector<std::pair<bool,std::string> > vars;
     allVars(alwasg->expression_0(), &wire_assign.block->context, vars);
     // verify everything is legit
     for (const auto &dep : vars) {
+      if (dep.first) { continue; } // user as indicated intention, skip
       // is this dependency a wire?
-      auto W = m_Host->m_WireAssignmentNames.find(dep);
+      auto W = m_Host->m_WireAssignmentNames.find(dep.second);
       if (W != m_Host->m_WireAssignmentNames.end()) {
         const auto &wa = m_Host->m_WireAssignments[W->second].second;
         auto w_alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wa.instr);
@@ -131,11 +133,11 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
             "Tracker '%s' was defined with <: and is used in tracker '%s' defined with <::\n"
             "             This has no effect on '%s', double check meaning.\n",
             // "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
-            dep.c_str(), var.c_str(), dep.c_str());
+            dep.second.c_str(), var.c_str(), dep.second.c_str());
         }
       }
       // is this a bound wire?
-      const auto &vio = m_Host->m_VIOBoundToBlueprintOutputs.find(dep);
+      const auto &vio = m_Host->m_VIOBoundToBlueprintOutputs.find(dep.second);
       bool bound_wire_input = false;
       if (vio != m_Host->m_VIOBoundToBlueprintOutputs.end()) {
         /// TODO dep name is already converted to internal here, recover original for messahe
@@ -143,15 +145,15 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
           "'%s' is bound to an instance but is used in tracker '%s' defined with <::\n"
           "             This has no effect on '%s', double check meaning.\n",
           // "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
-          dep.c_str(), var.c_str(), dep.c_str());
+          dep.second.c_str(), var.c_str(), dep.second.c_str());
       }
       // is this an input?
-      if (m_Host->isInput(dep)) {
+      if (m_Host->isInput(dep.second)) {
         warn(/*Deprecation*/Standard, alwasg->getSourceInterval(), -1,
           "Input '%s' is used in tracker '%s' defined with <::\n"
           "             This has no effect on '%s', double check meaning.\n",
           // "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
-          dep.c_str(), var.c_str(), dep.c_str());
+          dep.second.c_str(), var.c_str(), dep.second.c_str());
       }
     }
   }
@@ -360,6 +362,7 @@ void ExpressionLinter::typeNfo(
   auto unary  = dynamic_cast<siliceParser::UnaryExpressionContext*>(expr);
   auto concat = dynamic_cast<siliceParser::ConcatenationContext*>(expr);
   auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
+  auto cmbcast= dynamic_cast<siliceParser::CombcastContext*>(expr);
   auto expr0  = dynamic_cast<siliceParser::Expression_0Context*>(expr);
   auto expr1  = dynamic_cast<siliceParser::Expression_1Context*>(expr);
   auto expr2  = dynamic_cast<siliceParser::Expression_2Context*>(expr);
@@ -445,10 +448,10 @@ void ExpressionLinter::typeNfo(
       }
     } else {
       t_type_nfo nfo;
-       // recurse on concatenation
+      // recurse on concatenation
       typeNfo(concat->concatenation(), bctx, nfo);
       // get number
-      int num    = std::stoi(concat->NUMBER()->getText());
+      int num = std::stoi(concat->NUMBER()->getText());
       _nfo.width = nfo.width * num;
       tns.push_back(nfo);
     }
@@ -459,6 +462,10 @@ void ExpressionLinter::typeNfo(
     for (auto tn : tns) {
       _nfo.width += tn.width;
     }
+  } else if (cmbcast) {
+    sl_assert(expr->children.size() == 2);
+    // recurse
+    typeNfo(child<1>(expr), bctx, _nfo);
   } else if (expr0 || expr1 || expr2 || expr3 || expr4 || expr5
           || expr6 || expr7 || expr8 || expr9 || expr10) {
     if (expr->children.size() == 1) {
@@ -490,23 +497,32 @@ void ExpressionLinter::typeNfo(
 
 void ExpressionLinter::allVars(
   antlr4::tree::ParseTree                        *expr,
-  const Algorithm::t_combinational_block_context *bctx,
-  std::vector<std::string>&                      _vars) const
+  const Algorithm::t_combinational_block_context *bctx,  
+  std::vector<std::pair<bool,std::string> >&     _vars,
+  bool                                            comb_cast) const
 {
+  if (expr == nullptr) return;
   auto term   = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
   auto access = dynamic_cast<siliceParser::AccessContext*>(expr);
-  if (term) {
+  auto cmbcast= dynamic_cast<siliceParser::CombcastContext*>(expr);
+  bool recurs = true;
+  if (access) {
+    // ask host to determine accessed var
+    _vars.push_back(make_pair(comb_cast, m_Host->determineAccessedVar(access, bctx)));
+    recurs = false;
+  } else if (term) {
     if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-      // auto nfo = m_Host->determineIdentifierTypeAndWidth(bctx, term, term->getSourceInterval(), (int)term->getSymbol()->getLine());
-      // resolveParameterized(term->getText(), bctx, nfo);
-      _vars.push_back(m_Host->translateVIOName(term->getText(), bctx));
+      _vars.push_back(make_pair(comb_cast, m_Host->translateVIOName(term->getText(), bctx)));
     }
-  } else if (access) {
-    // ask host to determine access type
-    _vars.push_back(m_Host->determineAccessedVar(access, bctx));
-  } else {
+    recurs = false;
+  } else if (cmbcast) {
+    /// TODO check combcast makes sense here
+    allVars(child<1>(expr), bctx, _vars, true);
+    recurs = false;
+  }
+  if (recurs) {
     for (auto c : expr->children) {
-      allVars(c, bctx, _vars);
+      allVars(c, bctx, _vars, comb_cast);
     }
   }
 }

@@ -298,11 +298,14 @@ unaryExpression     : (
 
 concatenation       : '{' (NUMBER concatenation | expression_0 (',' expression_0)*) '}';
 
+combcast            : ':' (access | IDENTIFIER) | ;
+
 atom                : CONSTANT 
                     | NUMBER 
                     | IDENTIFIER 
                     | REPEATID
                     | access
+                    | combcast
                     | '(' expression_0 ')'
                     | TOSIGNED '(' expression_0 ')'
                     | TOUNSIGNED '(' expression_0 ')'

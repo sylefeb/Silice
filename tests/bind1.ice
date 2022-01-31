@@ -14,7 +14,7 @@ algorithm main(input uint8 tmp,output uint8 leds)
 	
 	uint16 test1 <:: tmp;
 	uint16 test3 <:  tmp;
-	uint16 test2 <:: test3 + f.cnt;
+	uint16 test2 <:: test3 + :f.cnt;
 	
 	// bla bla1(a <:: test1); // error: ok
 	
