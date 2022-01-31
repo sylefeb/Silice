@@ -129,11 +129,11 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
           // demoting from <:: to <: is ok (works as expected, as <:: is taken into account before)
           // however the opposite (from <: to <::) will not work as expected for non-expert users
           // so we issue a deprecation warning and require the cast syntax to be used ":var"
-          warn(/*Deprecation*/Standard, alwasg->getSourceInterval(), -1,
+          warn(Deprecation, alwasg->getSourceInterval(), -1,
             "Tracker '%s' was defined with <: and is used in tracker '%s' defined with <::\n"
-            "             This has no effect on '%s', double check meaning.\n",
-            // "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
-            dep.second.c_str(), var.c_str(), dep.second.c_str());
+            "             This has no effect on '%s'.\n"
+            "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
+            dep.second.c_str(), var.c_str(), dep.second.c_str(), dep.second.c_str(), dep.second.c_str());
         }
       }
       // is this a bound wire?
@@ -141,19 +141,19 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
       bool bound_wire_input = false;
       if (vio != m_Host->m_VIOBoundToBlueprintOutputs.end()) {
         /// TODO dep name is already converted to internal here, recover original for messahe
-        warn(/*Deprecation*/Standard, alwasg->getSourceInterval(), -1,
+        warn(Deprecation, alwasg->getSourceInterval(), -1,
           "'%s' is bound to an instance but is used in tracker '%s' defined with <::\n"
-          "             This has no effect on '%s', double check meaning.\n",
-          // "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
-          dep.second.c_str(), var.c_str(), dep.second.c_str());
+          "             This has no effect on '%s'.\n"
+          "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
+          dep.second.c_str(), var.c_str(), dep.second.c_str(), dep.second.c_str(), dep.second.c_str());
       }
       // is this an input?
       if (m_Host->isInput(dep.second)) {
-        warn(/*Deprecation*/Standard, alwasg->getSourceInterval(), -1,
+        warn(Deprecation, alwasg->getSourceInterval(), -1,
           "Input '%s' is used in tracker '%s' defined with <::\n"
-          "             This has no effect on '%s', double check meaning.\n",
-          // "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
-          dep.second.c_str(), var.c_str(), dep.second.c_str());
+          "             This has no effect on '%s'.\n"
+          "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
+          dep.second.c_str(), var.c_str(), dep.second.c_str(), dep.second.c_str(), dep.second.c_str());
       }
     }
   }

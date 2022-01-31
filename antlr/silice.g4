@@ -298,7 +298,7 @@ unaryExpression     : (
 
 concatenation       : '{' (NUMBER concatenation | expression_0 (',' expression_0)*) '}';
 
-combcast            : ':' (access | IDENTIFIER) | ;
+combcast            : ':' (access | IDENTIFIER);
 
 atom                : CONSTANT 
                     | NUMBER 

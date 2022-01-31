@@ -1492,6 +1492,13 @@ std::string Algorithm::rewriteExpression(
             }
           }
         }
+      } else {
+        // combcast?
+        auto comcast = dynamic_cast<siliceParser::CombcastContext *>(expr);
+        if (comcast) {
+          recurse = false;
+          result = result + rewriteExpression(prefix, expr->children[1], __id, bctx, ff, read_access, dependencies, _ff_usage);
+        }
       }
       // recurse?
       if (recurse) {
