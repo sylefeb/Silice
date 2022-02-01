@@ -5074,10 +5074,10 @@ void Algorithm::optimize()
     m_Optimized = true;
     // generate states
     generateStates();
-    // determine which VIO are bound
-    determineBlueprintBoundVIO();
     // resolve inouts
     resolveInOuts();
+    // determine which VIO are bound
+    determineBlueprintBoundVIO();
     // check var access permissions
     checkPermissions();
     // analyze variables access
