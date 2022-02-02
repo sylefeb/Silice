@@ -1,4 +1,5 @@
 *.ice text eol=lf
+*.g4 text eol=lf
 *.v text eol=lf
 *.sh text eol=lf
 *.txt text eol=lf
