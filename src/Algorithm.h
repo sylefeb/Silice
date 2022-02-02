@@ -708,6 +708,8 @@ private:
     bool isIdentifier(antlr4::tree::ParseTree *expr, std::string& _identifier) const;
     /// \brief returns true if an expression is an access
     bool isAccess(antlr4::tree::ParseTree *expr, siliceParser::AccessContext*& _access) const;
+    /// \brief returns true if an expression is an constant (does not perform collapsing yet)
+    bool isConst(antlr4::tree::ParseTree *expr, std::string& _const) const;
     /// \brief split current block (state present) or continue current with the next instruction list
     t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a break from loop

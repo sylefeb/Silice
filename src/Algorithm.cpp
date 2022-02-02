@@ -479,23 +479,6 @@ std::string Algorithm::gatherBitfieldValue(siliceParser::InitBitfieldContext* if
 
 // -------------------------------------------------
 
-std::string Algorithm::gatherConstValue(siliceParser::ConstValueContext* ival) const
-{
-  if (ival->CONSTANT() != nullptr) {
-    return rewriteConstant(ival->CONSTANT()->getText());
-  } else if (ival->NUMBER() != nullptr) {
-    std::string sign = ival->minus != nullptr ? "-" : "";
-    return sign + ival->NUMBER()->getText();
-  } else if (ival->WIDTHOF() != nullptr) {
-    return resolveWidthOf(ival->IDENTIFIER()->getText(), ival->getSourceInterval());
-  } else {
-    sl_assert(false);
-    return "";
-  }
-}
-
-// -------------------------------------------------
-
 std::string Algorithm::gatherValue(siliceParser::ValueContext* ival)
 {
   if (ival->constValue() != nullptr) {
@@ -1567,6 +1550,59 @@ bool Algorithm::isAccess(antlr4::tree::ParseTree *expr, siliceParser::AccessCont
     }
   }
   return false;
+}
+
+// -------------------------------------------------
+
+bool Algorithm::isConst(antlr4::tree::ParseTree *expr, std::string& _const) const
+{
+  if (expr->children.empty()) {
+    auto atom = dynamic_cast<siliceParser::AtomContext*>(expr);
+    if (atom) {
+      if (atom->NUMBER()) {
+        _const = atom->getText();
+        return true;
+      } else if (atom->CONSTANT()) {
+        _const = rewriteConstant(atom->getText());
+        return true;
+      } else if (atom->WIDTHOF()) {
+        std::string vio = atom->base->getText() + (atom->member != nullptr ? "_" + atom->member->getText() : "");
+        _const = resolveWidthOf(vio, atom->getSourceInterval());
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  } else {
+    // recurse
+    /// TODO: const expr 'flattening' (can remain an expression but flattened)
+    if (expr->children.size() == 1) {
+      return isConst(expr->children.front(), _const);
+    } else {
+      return false;
+    }
+  }
+  return false;
+}
+
+// -------------------------------------------------
+
+std::string Algorithm::gatherConstValue(siliceParser::ConstValueContext* ival) const
+{
+  if (ival->CONSTANT() != nullptr) {
+    return rewriteConstant(ival->CONSTANT()->getText());
+  } else if (ival->NUMBER() != nullptr) {
+    std::string sign = ival->minus != nullptr ? "-" : "";
+    return sign + ival->NUMBER()->getText();
+  } else if (ival->WIDTHOF() != nullptr) {
+    std::string vio = ival->base->getText() + (ival->member != nullptr ? "_" + ival->member->getText() : "");
+    return resolveWidthOf(vio, ival->getSourceInterval());
+  } else {
+    sl_assert(false);
+    return "";
+  }
 }
 
 // -------------------------------------------------

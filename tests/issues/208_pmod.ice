@@ -26,6 +26,6 @@ algorithm main(output uint5 leds, inout uint8 pmod) {
 
    while (1) {
       () <- a <- ();
-      __display("%d",v);
+      __display("%d",pmod.o);
    }
 }

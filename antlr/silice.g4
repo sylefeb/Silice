@@ -1,22 +1,22 @@
 /*
 
     Silice FPGA language and compiler
-    Copyright 2019, (C) Sylvain Lefebvre and contributors 
+    Copyright 2019, (C) Sylvain Lefebvre and contributors
 
     List contributors with: git shortlog -n -s -- <filename>
 
     GPLv3 license, see LICENSE_GPLv3 in Silice repo root
 
-This program is free software: you can redistribute it and/or modify it 
-under the terms of the GNU General Public License as published by the 
-Free Software Foundation, either version 3 of the License, or (at your option) 
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT 
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with 
+You should have received a copy of the GNU General Public License along with
 this program.  If not, see <https://www.gnu.org/licenses/>.
 
 (header_2_G)
@@ -44,6 +44,7 @@ ONEHOT              : 'onehot' ;
 SWITCH              : 'switch' ;
 
 READ                : 'reads' ;
+WRITE               : 'writes' ;
 WRITE               : 'writes' ;
 READWRITE           : 'readwrites' ;
 CALLS               : 'calls' ;
@@ -168,7 +169,7 @@ ERROR_CHAR          : . ; // catch-all to move lexer errors to parser
 
 /* -- Declarations, init and bindings -- */
 
-constValue          : minus='-'? NUMBER | CONSTANT | WIDTHOF '(' IDENTIFIER ')';
+constValue          : minus='-'? NUMBER | CONSTANT | (WIDTHOF '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')');
 
 value               : constValue | initBitfield ;
 
@@ -300,9 +301,9 @@ concatenation       : '{' (NUMBER concatenation | expression_0 (',' expression_0
 
 combcast            : ':' (access | IDENTIFIER);
 
-atom                : CONSTANT 
-                    | NUMBER 
-                    | IDENTIFIER 
+atom                : CONSTANT
+                    | NUMBER
+                    | IDENTIFIER
                     | REPEATID
                     | access
                     | combcast
@@ -319,13 +320,13 @@ bitfieldAccess      : field=IDENTIFIER '(' (idOrIoAccess | tableAccess) ')' '.' 
 ioAccess            : base=IDENTIFIER ('.' IDENTIFIER)+ ;
 partSelect          : (ioAccess | tableAccess | bitfieldAccess | IDENTIFIER) '[' first=expression_0 ',' num=constValue ']' ;
 tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;
-access              : (ioAccess | tableAccess | partSelect | bitfieldAccess) ; 
+access              : (ioAccess | tableAccess | partSelect | bitfieldAccess) ;
 
 idOrIoAccess        : (ioAccess | IDENTIFIER) ;
 idOrAccess          : (  access | IDENTIFIER) ;
 
 /* -- Assignments -- */
-                    
+
 assignment          : IDENTIFIER  ('=' | OUTASSIGN) expression_0
                     | access      ('=' | OUTASSIGN) expression_0 ;
 
@@ -381,7 +382,7 @@ display             : (DISPLAY | DISPLWRITE) '(' STRING ( ',' callParamList )? '
 
 finish              : FINISH '(' ')';
 
-instruction         : assignment 
+instruction         : assignment
                     | syncExec
                     | asyncExec
                     | joinExec
@@ -409,12 +410,12 @@ pipeline            : block ('->' block) +;
 
 /* -- Inputs/outputs -- */
 
-inout               : 'inout' TYPE IDENTIFIER 
+inout               : 'inout' TYPE IDENTIFIER
                     | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
 input               : 'input' nolatch='!'? declarationVar
                     | 'input' nolatch='!'? declarationTable;
 output              : 'output' combinational='!'? declarationVar
-                    | 'output' combinational='!'? declarationTable ; 
+                    | 'output' combinational='!'? declarationTable ;
 outputs             : 'input' OUTPUTS '(' alg=IDENTIFIER ')' grp=IDENTIFIER ;
 inOrOut             :  input | output | inout | ioDef | outputs ;
 inOutList           :  inOrOut (',' inOrOut)* ','? | ;
@@ -423,9 +424,9 @@ inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 
 declarationList     : declaration ';' declarationList | ;
 
-instructionList     : 
+instructionList     :
                       (
-                        (instruction ';') + 
+                        (instruction ';') +
                       | block
                       | repeatBlock
                       | state
@@ -434,17 +435,17 @@ instructionList     :
                       | whileLoop
                       | switchCase
                       | pipeline
-                      ) instructionList 
+                      ) instructionList
                       | ;
 
 subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 					  | input | output ;
-                    
+
 subroutineParamList : subroutineParam (',' subroutineParam)* ','? | ;
 subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList (RETURN ';')? '}' ;
-                    
+
 declAndInstrList    : (declaration ';' | subroutine | stableinput ';' ) *
-                      alwaysPre = alwaysAssignedList 
+                      alwaysPre = alwaysAssignedList
                       alwaysBlock?
                       alwaysAfterBlock?
                       instructionList
