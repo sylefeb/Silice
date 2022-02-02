@@ -45,7 +45,6 @@ SWITCH              : 'switch' ;
 
 READ                : 'reads' ;
 WRITE               : 'writes' ;
-WRITE               : 'writes' ;
 READWRITE           : 'readwrites' ;
 CALLS               : 'calls' ;
 
