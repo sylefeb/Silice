@@ -953,6 +953,8 @@ private:
     t_type_nfo determineTableAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::TableAccessContext *tblaccess) const;
     /// \brief determines access type/width
     t_type_nfo determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const;
+    /// \brief determines access bit range
+    std::pair<std::string, std::string> determineAccessBitRange(const t_combinational_block_context *bctx, siliceParser::AccessContext *access) const;
     /// \brief writes a call to an algorithm
     void writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_instanced_nfo& a, siliceParser::CallParamListContext *plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes reading back the results of an algorithm

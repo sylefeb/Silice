@@ -5311,6 +5311,13 @@ t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_co
 
 // -------------------------------------------------
 
+std::pair<std::string, std::string> Algorithm::determineAccessBitRange(const t_combinational_block_context *bctx, siliceParser::AccessContext *access) const
+{
+  return make_pair("", "");
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_instanced_nfo& a, siliceParser::CallParamListContext* plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
   // check an algorithm is called
