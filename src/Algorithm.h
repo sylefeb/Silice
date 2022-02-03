@@ -693,7 +693,9 @@ private:
     std::string tricklingVIOName(std::string vio, const t_pipeline_stage_nfo *nfo) const;
     /// \brief translate a variable name using subroutine/pipeline info
     std::string translateVIOName(std::string vio, const t_combinational_block_context *bctx) const;
-    /// \brief Ecanpsulates the identifier in whatever is required after rewrite
+    /// \brief returns a string representing the bond variable
+    std::string rewriteBinding(std::string var, const t_combinational_block_context *bctx) const;
+    /// \brief encapsulates the identifier in whatever is required after rewrite
     std::string encapsulateIdentifier(std::string var, bool read_access, std::string rewritten, std::string suffix) const;
     /// \brief returns the rewritten indentifier, taking into account bindings, inputs/outputs, custom clocks and resets
     std::string rewriteIdentifier(
@@ -953,8 +955,10 @@ private:
     t_type_nfo determineTableAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::TableAccessContext *tblaccess) const;
     /// \brief determines access type/width
     t_type_nfo determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const;
-    /// \brief determines access bit range
-    std::pair<std::string, std::string> determineAccessBitRange(const t_combinational_block_context *bctx, siliceParser::AccessContext *access) const;
+    /// \brief determines access on a const bit range (returns -1,-1 if not applicable)
+    v2i determineAccessConstBitRange(siliceParser::AccessContext *access, const t_combinational_block_context *bctx) const;
+    v2i determineAccessConstBitRange(siliceParser::BitfieldAccessContext *access, const t_combinational_block_context *bctx, v2i range) const;
+    v2i determineAccessConstBitRange(siliceParser::PartSelectContext *access, const t_combinational_block_context *bctx) const;
     /// \brief writes a call to an algorithm
     void writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_instanced_nfo& a, siliceParser::CallParamListContext *plist, const t_combinational_block_context *bctx, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes reading back the results of an algorithm

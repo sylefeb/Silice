@@ -1293,6 +1293,79 @@ std::string Algorithm::translateVIOName(
 
 // -------------------------------------------------
 
+static pair<string, v2i> splitBinding(std::string str)
+{
+  string wire, offset, width;
+  v2i    range;
+  istringstream  stream(str);
+  getline(stream, wire, ',');
+  getline(stream, offset, ',');
+  getline(stream, width, ',');
+  range[0] = stoi(offset);
+  range[1] = stoi(width);
+  return make_pair(wire, range);
+}
+
+static void splitBitBindings(std::string str, vector<pair<string, v2i> >& _bit_bindings)
+{
+  istringstream  stream(str);
+  string s;
+  while (getline(stream, s, ';')) {
+    if (s.empty()) continue;
+    _bit_bindings.push_back(splitBinding(s));
+  }
+}
+
+
+std::string Algorithm::rewriteBinding(std::string var, const t_combinational_block_context *bctx) const
+{
+  auto w = m_VIOBoundToBlueprintOutputs.at(var);
+  sl_assert(!w.empty());
+  if (w[0] == ';') {
+    vector<pair<string, v2i> > bit_bindings;
+    splitBitBindings(w, bit_bindings);
+    // get var width
+    string bw = resolveWidthOf(var, antlr4::misc::Interval::INVALID);
+    int ibw;
+    try {
+      ibw = stoi(bw);
+    } catch (...) {
+      reportError(nullptr, -1, "cannot determine width of bound variable '%s' (width string is '%s')", var.c_str(),bw.c_str());
+    }
+    // now we iterate bit by bit
+    string concat;
+    ForIndex(bit, ibw) {
+      // find which range covers it, there should one at most
+      pair<string, v2i> which;
+      int which_bit = -1;
+      for (auto r : bit_bindings) {
+        if (bit >= r.second[0] && bit <= r.second[0] + r.second[1] - 1) {
+          if (which.first.empty()) {
+            which = r;
+            which_bit = bit - r.second[0];
+            /// NOTE, TODO here we are assuming checks on widths have been performed already
+            ///            for the source of the binding, not yet implemented ...
+          } else {
+            reportError(nullptr, -1, "bit %d of variable '%s' is bound to multiple outputs", bit, var.c_str());
+          }
+        }
+      }
+      string sep = concat.empty() ? "}" : ",";
+      if (which.first.empty()) {
+        concat = "1'b0" + sep + concat;
+      } else {
+        concat = which.first + "[" + to_string(which_bit) + "+:1]" + sep + concat;
+      }
+    }
+    concat = "{" + concat;
+    return concat;
+  } else {
+    return w;
+  }
+}
+
+// -------------------------------------------------
+
 std::string Algorithm::encapsulateIdentifier(std::string var, bool read_access, std::string rewritten, std::string suffix) const
 {
   return rewritten + suffix;
@@ -1315,12 +1388,12 @@ std::string Algorithm::rewriteIdentifier(
     if (m_VIOBoundToBlueprintOutputs.find(var) == m_VIOBoundToBlueprintOutputs.end()) {
       reportError(nullptr, (int)line, "custom reset signal has to be bound to a module output");
     }
-    return m_VIOBoundToBlueprintOutputs.at(var);
+    return rewriteBinding(var, bctx);
   } else if (var == m_Clock) { // cannot be ALG_CLOCK
     if (m_VIOBoundToBlueprintOutputs.find(var) == m_VIOBoundToBlueprintOutputs.end()) {
       reportError(nullptr, (int)line, "custom clock signal has to be bound to a module output");
     }
-    return m_VIOBoundToBlueprintOutputs.at(var);
+    return rewriteBinding(var, bctx);
   } else {
     // vio? translate
     var = translateVIOName(var, bctx);
@@ -1351,7 +1424,7 @@ std::string Algorithm::rewriteIdentifier(
         return encapsulateIdentifier(var, read_access, ff + prefix + var, suffix);
       } else if (usage == e_Bound) {
         // bound
-        return encapsulateIdentifier(var, read_access, m_VIOBoundToBlueprintOutputs.at(var), suffix);
+        return encapsulateIdentifier(var, read_access, rewriteBinding(var, bctx), suffix);
       } else {
         reportError(nullptr, (int)line, "internal error [%s, %d]", __FILE__, __LINE__);
       }
@@ -1364,7 +1437,7 @@ std::string Algorithm::rewriteIdentifier(
         // bound to an output?
         auto Bo = m_VIOBoundToBlueprintOutputs.find(var);
         if (Bo != m_VIOBoundToBlueprintOutputs.end()) {
-          return encapsulateIdentifier(var, read_access, Bo->second, suffix);
+          return encapsulateIdentifier(var, read_access, rewriteBinding(var, bctx), suffix);
         }
         reportError(nullptr, (int)line, "internal error [%s, %d]", __FILE__, __LINE__);
       } else {
@@ -1573,6 +1646,16 @@ bool Algorithm::isConst(antlr4::tree::ParseTree *expr, std::string& _const) cons
         return false;
       }
     } else {
+      auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
+      if (term) {
+        if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
+          _const = rewriteConstant(term->getText());
+          return true;
+        } else if (term->getSymbol()->getType() == siliceParser::NUMBER) {
+          _const = term->getText();
+          return true;
+        }
+      }
       return false;
     }
   } else {
@@ -4715,12 +4798,28 @@ void Algorithm::determineBlueprintBoundVIO()
   for (const auto& ib : m_InstancedBlueprints) {
     for (const auto& b : ib.second.bindings) {
       if (b.dir == e_Right) {
-        // check not already bound
-        if (m_VIOBoundToBlueprintOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToBlueprintOutputs.end()) {
-          reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another instance", bindingRightIdentifier(b).c_str());
-        }
         // record wire name for this output
-        m_VIOBoundToBlueprintOutputs[bindingRightIdentifier(b)] = WIRE + ib.second.instance_prefix + "_" + b.left;
+        string wire = WIRE + ib.second.instance_prefix + "_" + b.left;
+        // -> is there a part access?
+        bool part_access = false;
+        if (!std::holds_alternative<std::string>(b.right)) {
+          /// NOTE we assume ranges can be resolved as integers, error otherwise
+          auto range = determineAccessConstBitRange(std::get<siliceParser::AccessContext*>(b.right), nullptr);
+          if (range[0] > -1) {
+            // yes, part access on bound var
+            part_access = true;
+            // add to the list
+            m_VIOBoundToBlueprintOutputs[bindingRightIdentifier(b)] += ";" + wire + "," + std::to_string(range[0]) + "," + std::to_string(range[1]);
+          }
+        }
+        if (!part_access) {
+          // check not already bound
+          if (m_VIOBoundToBlueprintOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToBlueprintOutputs.end()) {
+            reportError(nullptr, (int)b.line, "vio '%s' is already bound as the output of another instance", bindingRightIdentifier(b).c_str());
+          }
+          // store
+          m_VIOBoundToBlueprintOutputs[bindingRightIdentifier(b)] = wire;
+        }
       } else if (b.dir == e_BiDir) {
         // check not already bound
         if (m_VIOBoundToBlueprintOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToBlueprintOutputs.end()) {
@@ -5105,7 +5204,7 @@ void Algorithm::resolveInOuts()
 void Algorithm::optimize()
 {
   if (!m_Optimized) {
-    // NOTE: recalls the algorithm is optimize, as it can be used by multiple instances
+    // NOTE: recalls the algorithm is optimized, as it can be used by multiple instances
     // this paves the ways to having different optimizations for different instances
     m_Optimized = true;
     // generate states
@@ -5311,9 +5410,71 @@ t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_co
 
 // -------------------------------------------------
 
-std::pair<std::string, std::string> Algorithm::determineAccessBitRange(const t_combinational_block_context *bctx, siliceParser::AccessContext *access) const
+v2i Algorithm::determineAccessConstBitRange(
+  siliceParser::AccessContext         *access,
+  const t_combinational_block_context *bctx) const
 {
-  return make_pair("", "");
+  if (access->partSelect() != nullptr) {
+    return determineAccessConstBitRange(access->partSelect(), bctx);
+  } else if (access->bitfieldAccess() != nullptr) {
+    return determineAccessConstBitRange(access->bitfieldAccess(), bctx, v2i(-1));
+  } else {
+    return v2i(-1); // non applicable
+  }
+  return v2i(-1); // non applicable
+}
+
+// -------------------------------------------------
+
+v2i Algorithm::determineAccessConstBitRange(
+  siliceParser::BitfieldAccessContext *access,
+  const t_combinational_block_context *bctx,
+  v2i                                  range) const
+{
+  auto F = m_KnownBitFields.find(access->field->getText());
+  if (F == m_KnownBitFields.end()) {
+    reportError(
+      access->getSourceInterval(), (int)access->getStart()->getLine(),
+      "unknown bitfield '%s'", access->field->getText().c_str());
+  }
+  verifyMemberBitfield(access->member->getText(), F->second, (int)access->getStart()->getLine());
+  pair<t_type_nfo, int> ow = bitfieldMemberTypeAndOffset(F->second, access->member->getText());
+  v2i new_range;
+  new_range[0] = ow.second;
+  new_range[1] = ow.first.width;
+  if (range[0] > -1) {
+    new_range[0] = new_range[0] + range[0];
+    new_range[1] = range[1];
+  }
+  return new_range;
+}
+
+// -------------------------------------------------
+
+v2i Algorithm::determineAccessConstBitRange(
+  siliceParser::PartSelectContext     *access,
+  const t_combinational_block_context *bctx) const
+{
+  v2i range;
+  string offset;
+  bool ok = isConst(access->first, offset);
+  if (!ok) {
+    return v2i(-1); // non applicable
+  }
+  string width = gatherConstValue(access->num);
+  try {
+    range[0] = std::stoi(offset);
+    range[1] = std::stoi(width);
+  } catch (...) {
+    reportError(access->getSourceInterval(), -1,"cannot resolve part select bit range in binding");
+  }
+  if (access->tableAccess() != nullptr) {
+    return v2i(-1); // non applicable
+  } else if (access->bitfieldAccess() != nullptr) {
+    return determineAccessConstBitRange(access->bitfieldAccess(), bctx, range);
+  } else {
+    return range;
+  }
 }
 
 // -------------------------------------------------
@@ -5658,7 +5819,7 @@ void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assignin
   } else if (access->partSelect() != nullptr) {
     writePartSelect(prefix, out, assigning, access->partSelect(), __id, bctx, ff, dependencies, _ff_usage);
   } else if (access->bitfieldAccess() != nullptr) {
-    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), std::make_pair("",""), __id, bctx, ff, dependencies, _ff_usage);
+    writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), std::make_pair("", ""), __id, bctx, ff, dependencies, _ff_usage);
   }
 }
 
@@ -6367,13 +6528,11 @@ void Algorithm::writeCombinationalAlwaysPre(
           // bound to variable, the variable is replaced by the output wire
           auto usage = m_Vars.at(m_VarNames.at(bindingRightIdentifier(b))).usage;
           sl_assert(usage == e_Bound);
-          // check that this is not a partial binding
-          // NOTE: currently not supported, this requires a different mechanism
-          //       as vio bound to outputs are effectively rewritten to be a wire
+          // check that this is not a table member binding
           if (std::holds_alternative<siliceParser::AccessContext*>(b.right)) {
             auto access = std::get<siliceParser::AccessContext*>(b.right);
-            if (access->ioAccess() == nullptr) { // ioAccess is the only one supported
-              reportError(access->getSourceInterval(), -1, "binding an output to a partial variable (bit select, bitfield, table entry) is currently unsupported");
+            if (access->tableAccess() != nullptr) { // tableAccess is the only one not supported
+              reportError(access->getSourceInterval(), -1, "binding an output to a table entry is currently unsupported");
             }
           }
         } else if (m_OutputNames.find(bindingRightIdentifier(b)) != m_OutputNames.end()) {
