@@ -58,3 +58,22 @@ std::tuple<t_type_nfo, int> Blueprint::determineVIOTypeWidthAndTableSize(std::st
 }
 
 // -------------------------------------------------
+
+std::string Blueprint::resolveWidthOf(std::string vio, antlr4::misc::Interval interval) const
+{
+  if (isInput(vio)) {
+    auto tn = input(vio).type_nfo;
+    return std::to_string(tn.width);
+  } else if (isOutput(vio)) {
+    auto tn = output(vio).type_nfo;
+    return std::to_string(tn.width);
+  } else if (isInOut(vio)) {
+    auto tn = inout(vio).type_nfo;
+    return std::to_string(tn.width);
+  } else {
+    reportError(interval, -1, "variable '%s' not yet declared", vio.c_str());
+    return "";
+  }
+}
+
+// -------------------------------------------------

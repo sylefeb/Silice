@@ -622,7 +622,7 @@ private:
     /// \brief rewrites a constant
     std::string rewriteConstant(std::string cst) const;
     /// \brief returns a string representing the widthof value
-    std::string resolveWidthOf(std::string vio, antlr4::misc::Interval interval) const;
+    std::string resolveWidthOf(std::string vio, antlr4::misc::Interval interval) const override;
     /// \brief adds a combinational block to the list of blocks, performs book keeping
     template<class T_Block = t_combinational_block>
     t_combinational_block *addBlock(std::string name, const t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, antlr4::misc::Interval interval = antlr4::misc::Interval::INVALID);

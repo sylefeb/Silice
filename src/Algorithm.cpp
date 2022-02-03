@@ -1293,6 +1293,7 @@ std::string Algorithm::translateVIOName(
 
 // -------------------------------------------------
 
+// utility: splits a single binding string into its wire and range
 static pair<string, v2i> splitBinding(std::string str)
 {
   string wire, offset, width;
@@ -1306,6 +1307,7 @@ static pair<string, v2i> splitBinding(std::string str)
   return make_pair(wire, range);
 }
 
+// utility: splits a binding string into its constituants
 static void splitBitBindings(std::string str, vector<pair<string, v2i> >& _bit_bindings)
 {
   istringstream  stream(str);
@@ -1315,7 +1317,6 @@ static void splitBitBindings(std::string str, vector<pair<string, v2i> >& _bit_b
     _bit_bindings.push_back(splitBinding(s));
   }
 }
-
 
 std::string Algorithm::rewriteBinding(std::string var, const t_combinational_block_context *bctx) const
 {
@@ -1343,8 +1344,6 @@ std::string Algorithm::rewriteBinding(std::string var, const t_combinational_blo
           if (which.first.empty()) {
             which = r;
             which_bit = bit - r.second[0];
-            /// NOTE, TODO here we are assuming checks on widths have been performed already
-            ///            for the source of the binding, not yet implemented ...
           } else {
             reportError(nullptr, -1, "bit %d of variable '%s' is bound to multiple outputs", bit, var.c_str());
           }
@@ -4804,10 +4803,38 @@ void Algorithm::determineBlueprintBoundVIO()
         bool part_access = false;
         if (!std::holds_alternative<std::string>(b.right)) {
           /// NOTE we assume ranges can be resolved as integers, error otherwise
-          auto range = determineAccessConstBitRange(std::get<siliceParser::AccessContext*>(b.right), nullptr);
+          auto access = std::get<siliceParser::AccessContext*>(b.right);
+          auto range  = determineAccessConstBitRange(access, nullptr);
           if (range[0] > -1) {
             // yes, part access on bound var
             part_access = true;
+            // check width of output vs range width
+            // -> get output width
+            string obw = ib.second.blueprint->resolveWidthOf(b.left, access->getSourceInterval());
+            int iobw;
+            try {
+              iobw = stoi(obw);
+            } catch (...) {
+              reportError(access->getSourceInterval(), -1, "cannot determine width of bound output '%s' (width string is '%s')", b.left.c_str(), obw.c_str());
+            }
+            // -> checks
+            if (range[1] > iobw) {
+              reportError(access->getSourceInterval(), -1, "bound vio '%s' width is larger than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
+            } else if (range[1] < iobw) {
+              reportError(access->getSourceInterval(), -1, "bound vio '%s' selected width is smaller than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
+            }
+            // -> get bound var width
+            string bbw = resolveWidthOf(bindingRightIdentifier(b), access->getSourceInterval());
+            int ibbw;
+            try {
+              ibbw = stoi(bbw);
+            } catch (...) {
+              reportError(access->getSourceInterval(), -1, "cannot determine width of bound vio '%s' (width string is '%s')", bindingRightIdentifier(b).c_str(), bbw.c_str());
+            }
+            // -> checks
+            if (range[0] + range[1] > ibbw) {
+              reportError(access->getSourceInterval(), -1, "bit select is out of bounds on vio '%s'", bindingRightIdentifier(b).c_str());
+            }
             // add to the list
             m_VIOBoundToBlueprintOutputs[bindingRightIdentifier(b)] += ";" + wire + "," + std::to_string(range[0]) + "," + std::to_string(range[1]);
           }

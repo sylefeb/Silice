@@ -42,16 +42,16 @@ algorithm main(output uint8 leds)
   uint8  i = 0;
   uint8  cycle = 0;
 
-  div16 div0;
+  div$div_width$ div0;
 
   always_after { cycle = cycle + 1; }
 
   div0.num = 20043;
   div0.den = 1;
-  while (i != 32) {
-    if (i[4,1]) { // i >= 16
+  while (i != $div_width*2$) {
+    if (i[$div_width_pow2$,1]) {
       __display("[cycle %d]                 ... =",cycle,div0.ret);
-    } else {      // i < 16
+    } else {
       __display("[cycle %d] %d / %d = ...",cycle,div0.num,div0.den);
       div0.den = div0.den + 1;
     }

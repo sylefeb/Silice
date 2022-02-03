@@ -123,7 +123,8 @@ namespace Silice
     virtual const std::unordered_map<std::string, int >& inOutNames()  const = 0;
     /// \brief determines vio bit width and (if applicable) table size
     virtual std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const;
-
+    /// \brief determines vio bit width
+    virtual std::string resolveWidthOf(std::string vio, antlr4::misc::Interval interval) const;
     /// \brief returns the name of the module
     virtual std::string moduleName(std::string blueprint_name,std::string instance_name) const = 0;
     /// \brief returns the name of an input port from its internal name
