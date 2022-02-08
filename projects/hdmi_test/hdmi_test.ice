@@ -20,6 +20,9 @@ algorithm main(
   output uint8  leds,
   // video
   output! uint4 gpdi_dp,
+$$if ICARUS then
+  output! uint4 gpdi_dn(0),
+$$end
 ) {
 
   uint10 x      = 0; // (output) the active pixel x coordinate
@@ -42,12 +45,12 @@ algorithm main(
   );
 
 $$if SIMULATION then
-  uint4 count = 0;
+  uint10 count = 0;
 $$end
 
   leds = 0;
 $$if SIMULATION then
-  while (count < 8) {
+  while (count < 256) {
     count = count + 1;
 $$else
   while (1) {
