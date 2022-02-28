@@ -477,10 +477,8 @@ algorithmBlock      : 'algorithm' bpModifiers? '{' algorithmBlockContent '}' ;
 
 unitBlocks          :   (declaration ';' | stableinput ';' ) *
                         alwaysPre = alwaysAssignedList
-                        (
-                          (alwaysBeforeBlock? algorithmBlock? alwaysAfterBlock?)
-                        | (alwaysBlock)
-                        )
+                        alwaysBlock?
+                        alwaysBeforeBlock? algorithmBlock? alwaysAfterBlock?
                         ;
 
 

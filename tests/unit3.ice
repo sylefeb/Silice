@@ -1,11 +1,15 @@
-// units can have a always_before/algorithm/always_after block sequence
+// units can use the := syntax
+// goes before anything else
 unit main(output uint8 leds)
 {
   uint24 count = 100;
+  uint8  test(0);
+
+  test := count[1,8];
 
   always_before {
     if (count == 132) { __finish(); }
-    __display("count = %d",count);
+    __display("count = %d test=%d",count,test);
   }
 
   algorithm {

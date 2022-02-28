@@ -400,7 +400,7 @@ std::string RISCVSynthesizer::tempFileName()
   static int cnt = 0;
   static std::string key;
   if (key.empty()) {
-    srand(time(NULL));
+    srand((unsigned int)time(NULL));
     for (int i = 0 ; i < 16 ; ++i) {
       key += (char)((int)'a'+(rand()%26));
     }

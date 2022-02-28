@@ -1,4 +1,4 @@
-// units can have a always_before/algorithm/always_after block sequence
+// units always_before/algorithm/always_after are optional
 unit main(output uint8 leds)
 {
   uint24 count = 100;
@@ -6,12 +6,7 @@ unit main(output uint8 leds)
   always_before {
     if (count == 132) { __finish(); }
     __display("count = %d",count);
-  }
-
-  algorithm {
-    while (1) {
-      count = count + 1;
-    }
+    count = count + 1;
   }
 
   always_after {

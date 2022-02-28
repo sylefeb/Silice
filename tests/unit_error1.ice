@@ -1,10 +1,9 @@
-// units can have a always_before/algorithm/always_after block sequence
+// units cannot mix an always block with always_before/algorithm/always_after
 unit main(output uint8 leds)
 {
   uint24 count = 100;
 
-  always_before {
-    if (count == 132) { __finish(); }
+  always { // error: cannot have always, together with always_before/algorithm/always_after
     __display("count = %d",count);
   }
 

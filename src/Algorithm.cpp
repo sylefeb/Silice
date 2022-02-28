@@ -3376,7 +3376,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
       if (unitbody->alwaysBeforeBlock() != nullptr || unitbody->alwaysAfterBlock() != nullptr) {
       reportError(unitbody->alwaysBlock()->ALWAYS()->getSymbol(),
         (int)unitbody->alwaysBlock()->getStart()->getLine(),
-        "Use either always_before/always_after or an always block, not both.");
+        "Use either always_before/algorithm/always_after or a single always block.");
       }
       gather(unitbody->alwaysBlock(), &m_AlwaysPre, _context);
       if (!isStateLessGraph(&m_AlwaysPre)) {
@@ -3426,24 +3426,33 @@ Algorithm::t_combinational_block *Algorithm::gather(
       }
     }
     // gather algorithm content
+    _current->source_interval = algblock->getSourceInterval();
     _current = gather(algblock->algorithmBlockContent(), _current, _context);
     recurse  = false;
   } else if (algcontent)   {
-    // gather declarations
-    for (auto d : algcontent->declaration()) {
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, false);
-    }
     // add global subroutines now (reparse them as if defined in this algorithm)
     for (const auto &s : m_KnownSubroutines) {
       gatherSubroutine(s.second, _current, _context);
     }
+    // make a new block for the algorithm
+    t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, algcontent->getSourceInterval());
+    _current->next(newblock);
+    // gather declarations
+    for (auto d : algcontent->declaration()) {
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), newblock, _context, false);
+    }
     // gather local subroutines
     for (auto s : algcontent->subroutine()) {
-      gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), _current, _context);
+      gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), newblock, _context);
     }
+    // gather instructions
+    t_combinational_block *after     = gather(algcontent->instructionList(), newblock, _context);
+    // produce next block
+    t_combinational_block *nextblock = addBlock(generateBlockName(), _current, nullptr, algcontent->getSourceInterval());
+    after->next(nextblock);
+    // set next block as current
+    _current = nextblock;
     // recurse on instruction list
-    _current->source_interval = algcontent->instructionList()->getSourceInterval();
-    _current = gather(algcontent->instructionList(), _current, _context);
     recurse  = false;
   } else if (decl)         { gatherDeclaration(decl, _current, _context, true);  recurse = false;
   } else if (ifelse)       { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
