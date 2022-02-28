@@ -3354,8 +3354,8 @@ Algorithm::t_combinational_block *Algorithm::gather(
       }
     }
     // deprecation on algorithms with always blocks
-    if ( algbody->alwaysBlock() != nullptr 
-      || algbody->alwaysBeforeBlock() != nullptr 
+    if ( algbody->alwaysBlock() != nullptr
+      || algbody->alwaysBeforeBlock() != nullptr
       || algbody->alwaysAfterBlock() != nullptr) {
       warn(Deprecation, algbody->getSourceInterval(), -1,
         "Use a 'unit' instead of always blocks in an algorithm.");
@@ -3380,7 +3380,9 @@ Algorithm::t_combinational_block *Algorithm::gather(
     m_AlwaysPost.context.parent_scope = _current;
     // gather always block if defined
     if (unitbody->alwaysBlock() != nullptr) {
-      if (unitbody->alwaysBeforeBlock() != nullptr || unitbody->alwaysAfterBlock() != nullptr) {
+      if (unitbody->alwaysBeforeBlock() != nullptr
+      || unitbody->algorithmBlock() != nullptr
+      || unitbody->alwaysAfterBlock() != nullptr) {
       reportError(unitbody->alwaysBlock()->ALWAYS()->getSymbol(),
         (int)unitbody->alwaysBlock()->getStart()->getLine(),
         "Use either always_before/algorithm/always_after or a single always block.");
