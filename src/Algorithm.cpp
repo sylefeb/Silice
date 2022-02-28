@@ -703,7 +703,7 @@ void Algorithm::gatherInitListFromFile(int width, siliceParser::InitListContext 
 {
   sl_assert(ilist->file() != nullptr);
   // check variable width
-  if (width != 8 && width != 32 && width != 16) {
+  if (width != 8 && width != 16 && width != 32) {
     reportError(ilist->file()->getSourceInterval(), -1, "can only read int8/uint8, int16/uint16 and int32/uint32 from files");
   }
   // get filename
