@@ -70,7 +70,8 @@ TOUNSIGNED          : '__unsigned' ;
 
 DONE                : 'isdone' ;
 
-ALWAYS              : 'always' | 'always_before' ;
+ALWAYS              : 'always';
+ALWAYS_BEFORE       : 'always_before';
 ALWAYS_AFTER        : 'always_after' ;
 
 BRAM                : 'bram' ;
@@ -400,8 +401,9 @@ instruction         : assignment
                     | cover
                     ;
 
-alwaysBlock         : ALWAYS       block;
-alwaysAfterBlock    : ALWAYS_AFTER block;
+alwaysBlock         : ALWAYS        block;
+alwaysBeforeBlock   : ALWAYS_BEFORE block;
+alwaysAfterBlock    : ALWAYS_AFTER  block;
 
 repeatBlock         : REPEATCNT '{' instructionList '}' ;
 
@@ -446,6 +448,7 @@ subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = 
 declAndInstrList    : (declaration ';' | subroutine | stableinput ';' ) *
                       alwaysPre = alwaysAssignedList
                       alwaysBlock?
+                      alwaysBeforeBlock?
                       alwaysAfterBlock?
                       instructionList
 					  ;
@@ -464,6 +467,25 @@ circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' block ;
 
 algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' bpModifiers? '{' declAndInstrList '}' ;
 
+algorithmBlockContent : (declaration ';' | subroutine ) *
+                        instructionList
+					  ;
+
+algorithmBlock      : 'algorithm' bpModifiers? '{' algorithmBlockContent '}' ;
+
+/* -- Unit -- */
+
+unitBlocks          :   (declaration ';' | stableinput ';' ) *
+                        alwaysPre = alwaysAssignedList
+                        (
+                          (alwaysBeforeBlock? algorithmBlock? alwaysAfterBlock?)
+                        | (alwaysBlock)
+                        )
+                        ;
+
+
+unit                : 'unit' HASH? IDENTIFIER '(' inOutList ')' bpModifiers? '{' unitBlocks '}' ;
+
 /* -- RISC-V -- */
 
 cblock_chunks       : ( ~( '{' | '}' )) + ;
@@ -477,6 +499,6 @@ riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? ('=' in
 
 /* -- Overall structure -- */
 
-topList       :  (algorithm | riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
+topList       :  (unit | algorithm |riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
 
 root                : topList EOF ;

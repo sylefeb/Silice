@@ -3263,6 +3263,9 @@ Algorithm::t_combinational_block *Algorithm::gather(
   }
 
   auto algbody      = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
+  auto unitbody     = dynamic_cast<siliceParser::UnitBlocksContext*>(tree);
+  auto algblock     = dynamic_cast<siliceParser::AlgorithmBlockContext*>(tree);
+  auto algcontent   = dynamic_cast<siliceParser::AlgorithmBlockContentContext*>(tree);
   auto decl         = dynamic_cast<siliceParser::DeclarationContext*>(tree);
   auto ilist        = dynamic_cast<siliceParser::InstructionListContext*>(tree);
   auto ifelse       = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
@@ -3314,12 +3317,26 @@ Algorithm::t_combinational_block *Algorithm::gather(
     m_AlwaysPre.source_interval = algbody->alwaysPre->getSourceInterval();
     m_AlwaysPre.context.parent_scope = _current;
     // gather always block if defined
+    if (algbody->alwaysBlock() != nullptr
+      && algbody->alwaysBeforeBlock() != nullptr) {
+      reportError(algbody->alwaysBlock()->ALWAYS()->getSymbol(),
+        (int)algbody->alwaysBlock()->getStart()->getLine(),
+        "Use either an always_before or an always block, not both. They are synonym in this context.");
+    }
     if (algbody->alwaysBlock() != nullptr) {
-      gather(algbody->alwaysBlock(),&m_AlwaysPre,_context);
+      gather(algbody->alwaysBlock(), &m_AlwaysPre, _context);
       if (!isStateLessGraph(&m_AlwaysPre)) {
         reportError(algbody->alwaysBlock()->ALWAYS()->getSymbol(),
           (int)algbody->alwaysBlock()->getStart()->getLine(),
-          "always_before (always) block can only be a one-cycle block");
+          "always block can only be a one-cycle block");
+      }
+    }
+    if (algbody->alwaysBeforeBlock() != nullptr) {
+      gather(algbody->alwaysBeforeBlock(), &m_AlwaysPre, _context);
+      if (!isStateLessGraph(&m_AlwaysPre)) {
+        reportError(algbody->alwaysBeforeBlock()->ALWAYS_BEFORE()->getSymbol(),
+          (int)algbody->alwaysBeforeBlock()->getStart()->getLine(),
+          "always_before block can only be a one-cycle block");
       }
     }
     m_AlwaysPost.context.parent_scope = _current;
@@ -3331,10 +3348,102 @@ Algorithm::t_combinational_block *Algorithm::gather(
           (int)algbody->alwaysAfterBlock()->getStart()->getLine(),
           "always_after block can only be a one-cycle block");
       }
+      if (algbody->alwaysBlock() != nullptr) {
+        warn(Deprecation, algbody->alwaysBlock()->getSourceInterval(), -1,
+          "Use 'always_before' instead of 'always' in conjunction with 'always_after'");
+      }
     }
     // recurse on instruction list
     _current->source_interval = algbody->instructionList()->getSourceInterval();
     _current = gather(algbody->instructionList(), _current, _context);
+    recurse  = false;
+  } else if (unitbody)     {
+    // gather declarations
+    for (auto d : unitbody->declaration()) {
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, false);
+    }
+    // gather stableinput checks
+    for (auto s : unitbody->stableinput()) {
+      gatherStableinputCheck(s, _current, _context);
+    }
+    // gather always assigned
+    gatherAlwaysAssigned(unitbody->alwaysPre, &m_AlwaysPre);
+    m_AlwaysPre.source_interval = unitbody->alwaysPre->getSourceInterval();
+    m_AlwaysPre.context.parent_scope = _current;
+    m_AlwaysPost.context.parent_scope = _current;
+    // gather always block if defined
+    if (unitbody->alwaysBlock() != nullptr) {
+      if (unitbody->alwaysBeforeBlock() != nullptr || unitbody->alwaysAfterBlock() != nullptr) {
+      reportError(unitbody->alwaysBlock()->ALWAYS()->getSymbol(),
+        (int)unitbody->alwaysBlock()->getStart()->getLine(),
+        "Use either always_before/always_after or an always block, not both.");
+      }
+      gather(unitbody->alwaysBlock(), &m_AlwaysPre, _context);
+      if (!isStateLessGraph(&m_AlwaysPre)) {
+        reportError(unitbody->alwaysBlock()->ALWAYS()->getSymbol(),
+          (int)unitbody->alwaysBlock()->getStart()->getLine(),
+          "always block can only be a one-cycle block");
+      }
+    } else {
+      // always before?
+      if (unitbody->alwaysBeforeBlock() != nullptr) {
+        gather(unitbody->alwaysBeforeBlock(), &m_AlwaysPre, _context);
+        if (!isStateLessGraph(&m_AlwaysPre)) {
+          reportError(unitbody->alwaysBeforeBlock()->ALWAYS_BEFORE()->getSymbol(),
+            (int)unitbody->alwaysBeforeBlock()->getStart()->getLine(),
+            "always_before block can only be a one-cycle block");
+        }
+      }
+      // always after?
+      if (unitbody->alwaysAfterBlock() != nullptr) {
+        gather(unitbody->alwaysAfterBlock(), &m_AlwaysPost, _context);
+        m_AlwaysPost.source_interval = unitbody->alwaysAfterBlock()->getSourceInterval();
+        if (!isStateLessGraph(&m_AlwaysPost)) {
+          reportError(unitbody->alwaysAfterBlock()->ALWAYS_AFTER()->getSymbol(),
+            (int)unitbody->alwaysAfterBlock()->getStart()->getLine(),
+            "always_after block can only be a one-cycle block");
+        }
+      }
+      // algorithm?
+      if (unitbody->algorithmBlock() != nullptr) {
+        _current->source_interval = unitbody->algorithmBlock()->getSourceInterval();
+        _current = gather(unitbody->algorithmBlock(), _current, _context);
+      }
+    }
+    recurse  = false;
+  } else if (algblock)     {
+    // unit algorithm block
+    if (algblock->bpModifiers()) {
+      for (auto m : algblock->bpModifiers()->bpModifier()) {
+        if (m->sautorun() != nullptr) {
+          m_AutoRun = true;
+        } else if (m->sonehot() != nullptr) {
+          m_OneHot = true;
+        } else {
+          reportError(m->getSourceInterval(),-1,
+            "Modifier is not applicable on a unit algorithm block, apply it to the parent unit.");
+        }
+      }
+    }
+    // gather algorithm content
+    _current = gather(algblock->algorithmBlockContent(), _current, _context);
+    recurse  = false;
+  } else if (algcontent)   {
+    // gather declarations
+    for (auto d : algcontent->declaration()) {
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, false);
+    }
+    // add global subroutines now (reparse them as if defined in this algorithm)
+    for (const auto &s : m_KnownSubroutines) {
+      gatherSubroutine(s.second, _current, _context);
+    }
+    // gather local subroutines
+    for (auto s : algcontent->subroutine()) {
+      gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), _current, _context);
+    }
+    // recurse on instruction list
+    _current->source_interval = algcontent->instructionList()->getSourceInterval();
+    _current = gather(algcontent->instructionList(), _current, _context);
     recurse  = false;
   } else if (decl)         { gatherDeclaration(decl, _current, _context, true);  recurse = false;
   } else if (ifelse)       { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
@@ -4939,7 +5048,7 @@ Algorithm::Algorithm(
 
 // -------------------------------------------------
 
-void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *declAndInstr)
+void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *body)
 {
   // gather elements from source code
   t_combinational_block *main = addBlock("_top", nullptr);
@@ -4953,8 +5062,8 @@ void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::Pars
   // gather input and outputs
   gatherIOs(inout, main, &context);
 
-  // semantic pass
-  gather(declAndInstr, main, &context);
+  // gather content
+  gather(body, main, &context);
 
   // resolve forward refs
   resolveForwardJumpRefs();
