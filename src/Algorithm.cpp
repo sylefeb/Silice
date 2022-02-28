@@ -3353,6 +3353,13 @@ Algorithm::t_combinational_block *Algorithm::gather(
           "Use 'always_before' instead of 'always' in conjunction with 'always_after'");
       }
     }
+    // deprecation on algorithms with always blocks
+    if ( algbody->alwaysBlock() != nullptr 
+      || algbody->alwaysBeforeBlock() != nullptr 
+      || algbody->alwaysAfterBlock() != nullptr) {
+      warn(Deprecation, algbody->getSourceInterval(), -1,
+        "Use a 'unit' instead of always blocks in an algorithm.");
+    }
     // recurse on instruction list
     _current->source_interval = algbody->instructionList()->getSourceInterval();
     _current = gather(algbody->instructionList(), _current, _context);

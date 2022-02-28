@@ -37,7 +37,7 @@ group bram_io
   uint$addrW$ addr(0),    // boot address
 }
 
-algorithm main( // I guess this is the SOC :-D
+unit main( // I guess this is the SOC :-D
   output uint5 leds,
 $$if OLED then
   output uint1 oled_clk,
@@ -118,7 +118,7 @@ $$end
   rv32i_cpu cpu( mem <:> memio );
 
   // io mapping
-  always {
+  always_before {
 	  // ---- memory access
     mem.wenable = memio.wenable & {4{~memio.addr[11,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
@@ -176,13 +176,15 @@ $$if SIMULATION then
 $$end
   }
 
+  algorithm {
 $$if SIMULATION and not BARE then
-  cpu <- ();
-	while (cycle < 2048) { }
+    cpu <- ();
+	  while (cycle < 2048) { }
 $$else
-  // run the CPU
-  () <- cpu <- ();
+    // run the CPU
+    () <- cpu <- ();
 $$end
+  }
 
 }
 

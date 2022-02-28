@@ -22,7 +22,7 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
 // - decodes instructions
 // - performs all integer computations
 
-algorithm execute(
+unit execute(
   // instruction, program counter and registers
   input  uint32 instr, input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
@@ -138,7 +138,7 @@ $$end
 // --------------------------------------------------
 // The Risc-V RV32I CPU itself
 
-algorithm rv32i_cpu(bram_port mem) <onehot> {
+unit rv32i_cpu(bram_port mem) {
 
   // register file, uses two BRAMs to fetch two registers at once
   bram int32 xregsA[32] = {pad(0)}; bram int32 xregsB[32] = {pad(0)};
@@ -183,6 +183,63 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
     xregsA.wenable = 0;
   }
 
+  algorithm <onehot> {
+    // =========== CPU runs forever
+    while (1) {
+
+      // data is now available
+      instr           = mem.rdata;
+      pc              = mem.addr;
+
+  ++: // wait for register read (BRAM takes one cycle)
+
+      exec.trigger    = 1;
+
+      while (1) { // decode + ALU refresh during the cycle entering the loop
+
+        // this operations loop allows to wait for ALU when needed
+        // it is built such that no cycles are wasted
+
+        // load/store?
+        if (exec.load | exec.store) {
+          // memory address from which to load/store
+          mem.addr   = exec.n >> 2;
+          // == Store (enabled if exec.store == 1)
+          // build write mask depending on SB, SH, SW
+          // assumes aligned, e.g. SW => next_addr[0,2] == 2
+          mem.wenable = ({4{exec.store}} & { { 2{exec.op[0,2]==2b10} },
+                                                exec.op[0,1] | exec.op[1,1], 1b1
+                                          } ) << exec.n[0,2];
+
+  ++: // wait for data transaction
+
+          // == Load (enabled if exec.load == 1)
+          // commit result
+          xregsA.wenable = ~exec.no_rd;
+          // restore address to program counter
+          mem.addr       = next_pc;
+          // exit the operations loop
+          break;
+          //  instruction read from BRAM and write to register
+          //  occurs as we jump back to loop start
+
+        } else {
+          // commit result
+          xregsA.wenable = ~exec.no_rd;
+          // next instruction address
+          mem.addr       = exec.jump ? (exec.n >> 2) : next_pc;
+          // ALU done?
+          if (exec.working == 0) {
+            // yes: all is correct, stop here
+            break;
+            //  instruction read from BRAM and write to register
+            //  occurs as we jump back to loop start
+          }
+        }
+      }
+    }
+  }
+
   // the 'always_after' block is executed at the end of every cycle
   always_after {
     // what do we write in register? (pc, alu or val, load is handled separately)
@@ -199,60 +256,5 @@ algorithm rv32i_cpu(bram_port mem) <onehot> {
     // write to write_rd, else track instruction register
     xregsA.addr    = xregsA.wenable ? exec.write_rd : Rtype(instr).rs1;
     xregsB.addr    = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
-  }
-
-  // =========== CPU runs forever
-  while (1) {
-
-    // data is now available
-    instr           = mem.rdata;
-    pc              = mem.addr;
-
-++: // wait for register read (BRAM takes one cycle)
-
-    exec.trigger    = 1;
-
-    while (1) { // decode + ALU refresh during the cycle entering the loop
-
-      // this operations loop allows to wait for ALU when needed
-      // it is built such that no cycles are wasted
-
-      // load/store?
-      if (exec.load | exec.store) {
-        // memory address from which to load/store
-        mem.addr   = exec.n >> 2;
-        // == Store (enabled if exec.store == 1)
-        // build write mask depending on SB, SH, SW
-        // assumes aligned, e.g. SW => next_addr[0,2] == 2
-        mem.wenable = ({4{exec.store}} & { { 2{exec.op[0,2]==2b10} },
-                                               exec.op[0,1] | exec.op[1,1], 1b1
-                                        } ) << exec.n[0,2];
-
-++: // wait for data transaction
-
-        // == Load (enabled if exec.load == 1)
-        // commit result
-        xregsA.wenable = ~exec.no_rd;
-        // restore address to program counter
-        mem.addr       = next_pc;
-        // exit the operations loop
-        break;
-        //  instruction read from BRAM and write to register
-        //  occurs as we jump back to loop start
-
-      } else {
-        // commit result
-        xregsA.wenable = ~exec.no_rd;
-        // next instruction address
-        mem.addr       = exec.jump ? (exec.n >> 2) : next_pc;
-        // ALU done?
-        if (exec.working == 0) {
-          // yes: all is correct, stop here
-          break;
-          //  instruction read from BRAM and write to register
-          //  occurs as we jump back to loop start
-        }
-      }
-    }
   }
 }
