@@ -1,22 +1,22 @@
 /*
 
     Silice FPGA language and compiler
-    Copyright 2019, (C) Sylvain Lefebvre and contributors 
+    Copyright 2019, (C) Sylvain Lefebvre and contributors
 
     List contributors with: git shortlog -n -s -- <filename>
 
     GPLv3 license, see LICENSE_GPLv3 in Silice repo root
 
-This program is free software: you can redistribute it and/or modify it 
-under the terms of the GNU General Public License as published by the 
-Free Software Foundation, either version 3 of the License, or (at your option) 
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT 
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with 
+You should have received a copy of the GNU General Public License along with
 this program.  If not, see <https://www.gnu.org/licenses/>.
 
 (header_2_G)
@@ -297,7 +297,7 @@ void Algorithm::resolveInstancedBlueprintBindingDirections(t_instanced_nfo& _bp)
       else if (_bp.blueprint->isInOut(b.left)) {
         b.dir = e_BiDir;
       } else {
-        
+
         // group members is not used by algorithm, we allow this for flexibility,
         // in particular in conjunction with interfaces
         continue;
@@ -353,9 +353,9 @@ bool Algorithm::isGroupVIO(std::string var) const
 
 template<class T_Block>
 Algorithm::t_combinational_block *Algorithm::addBlock(
-  std::string name, 
-  const t_combinational_block* parent, 
-  const t_combinational_block_context *bctx, 
+  std::string name,
+  const t_combinational_block* parent,
+  const t_combinational_block_context *bctx,
   antlr4::misc::Interval interval)
 {
   auto B = m_State2Block.find(name);
@@ -766,7 +766,7 @@ void Algorithm::readInitList(D* decl,T& var)
       var.do_not_initialize = true;
     } else {
       reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "table has no initializer, use '= uninitialized' if you really don't want to initialize it.");
-    }    
+    }
   }
   var.init_values.clear();
   if (!var.do_not_initialize) {
@@ -1023,7 +1023,7 @@ void Algorithm::getBindings(
           }
         }
         // check if this binds an instance (e.g. through 'outputs()')
-        if ((bindings->bpBinding()->LDEFINE() != nullptr || bindings->bpBinding()->LDEFINEDBL() != nullptr) 
+        if ((bindings->bpBinding()->LDEFINE() != nullptr || bindings->bpBinding()->LDEFINEDBL() != nullptr)
           && bindings->bpBinding()->right->IDENTIFIER() != nullptr) {
           auto I = m_InstancedBlueprints.find(bindings->bpBinding()->right->getText());
           if (I != m_InstancedBlueprints.end()) {
@@ -1215,13 +1215,13 @@ void Algorithm::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo,
 // -------------------------------------------------
 
 void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceContext* alg, t_combinational_block *_current, t_gather_context *_context)
-{  
+{
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
     sub = _current->context.subroutine;
   }
   if (sub != nullptr) {
-    reportError(alg->getSourceInterval(), (int)alg->name->getLine(), "subroutine '%s': algorithms cannot be instanced within subroutines", sub->name.c_str()); 
+    reportError(alg->getSourceInterval(), (int)alg->name->getLine(), "subroutine '%s': algorithms cannot be instanced within subroutines", sub->name.c_str());
   }
   // check for duplicates
   if (!isIdentifierAvailable(alg->name->getText())) {
@@ -1260,7 +1260,7 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
 // -------------------------------------------------
 
 std::string Algorithm::translateVIOName(
-  std::string                          vio, 
+  std::string                          vio,
   const t_combinational_block_context *bctx) const
 {
   if (bctx != nullptr) {
@@ -1487,8 +1487,8 @@ std::string Algorithm::resolveWidthOf(std::string vio, antlr4::misc::Interval in
 // -------------------------------------------------
 
 std::string Algorithm::rewriteExpression(
-  std::string prefix, antlr4::tree::ParseTree *expr, 
-  int __id, const t_combinational_block_context *bctx, 
+  std::string prefix, antlr4::tree::ParseTree *expr,
+  int __id, const t_combinational_block_context *bctx,
   std::string ff, bool read_access,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
@@ -1912,7 +1912,7 @@ int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decll
 // -------------------------------------------------
 
 bool Algorithm::isIdentifierAvailable(std::string name) const
-{  
+{
   if (m_Subroutines.count(name) > 0) {
     return false;
   }
@@ -2012,7 +2012,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         nfo->allowed_reads.insert(S->second->vios.at(outs));
       }
     } else if (P->input() != nullptr || P->output() != nullptr) {
-      // input or output?      
+      // input or output?
       std::string in_or_out;
       std::string ioname;
       siliceParser::TypeContext *type = nullptr;
@@ -2175,7 +2175,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       }
     }
     // check no output is written from two stages
-    std::unordered_set<std::string> o_read, o_written; 
+    std::unordered_set<std::string> o_read, o_written;
     determineVIOAccess(b, m_OutputNames, &_current->context, o_read, o_written);
     for (auto ow : o_written) {
       if (written_outputs.count(ow) > 0) {
@@ -2694,7 +2694,7 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
   // block scope
   // -> attempt to locate variable in parent scope
   for (auto V : all) {
-    if (isInputOrOutput(V) || isInOut(V)) { 
+    if (isInputOrOutput(V) || isInOut(V)) {
       continue;   // ignore input/output/inout
     }
     const t_combinational_block *visiting = _current;
@@ -3073,7 +3073,7 @@ static std::string memberPrefix(std::string name)
 
 void Algorithm::getCallParams(
   siliceParser::CallParamListContext    *params,
-  std::vector<t_call_param>&            _inparams, 
+  std::vector<t_call_param>&            _inparams,
   const t_combinational_block_context   *bctx
 ) const
 {
@@ -3106,7 +3106,7 @@ void Algorithm::getCallParams(
 // -------------------------------------------------
 
 bool Algorithm::matchCallParams(
-  const std::vector<t_call_param>&     given_params, 
+  const std::vector<t_call_param>&     given_params,
   const std::vector<std::string>&      expected_params,
   const t_combinational_block_context* bctx,
   std::vector<t_call_param>&          _matches) const
@@ -3250,8 +3250,8 @@ void Algorithm::getIdentifiers(
 // -------------------------------------------------
 
 Algorithm::t_combinational_block *Algorithm::gather(
-  antlr4::tree::ParseTree *tree, 
-  t_combinational_block   *_current, 
+  antlr4::tree::ParseTree *tree,
+  t_combinational_block   *_current,
   t_gather_context        *_context)
 {
   if (tree == nullptr) {
@@ -3612,9 +3612,9 @@ int Algorithm::maxState() const
 
 int Algorithm::entryState() const
 {
-  /// TODO: fastforward, but not so simple, can lead to trouble with var inits, 
+  /// TODO: fastforward, but not so simple, can lead to trouble with var inits,
   // for instance if the entry state becomes the first in a loop
-  // fastForward(m_Blocks.front())->state_id 
+  // fastForward(m_Blocks.front())->state_id
   return 0;
 }
 
@@ -4046,7 +4046,7 @@ void Algorithm::combineFFUsageInto(const t_combinational_block *debug_block, con
     } else {
       set<string> tmp;
       set_intersection(
-        d_in_all.begin(), d_in_all.end(), 
+        d_in_all.begin(), d_in_all.end(),
         d_in_br.begin(), d_in_br.end(),
         std::inserter(tmp, tmp.begin()));
       d_in_all = tmp;
@@ -4383,7 +4383,7 @@ void Algorithm::determineVIOAccess(
             // This is a bit access. We assume it is partial (could be checked if const).
             // Thus the variable is likely only partially written and to be safe we tag
             // it as 'read' since other bits are likely read later in the execution flow.
-            // This is a conservative assumption. A bit-per-bit analysis could be envisioned, 
+            // This is a conservative assumption. A bit-per-bit analysis could be envisioned,
             // but for lack of it we have no other choice here to avoid generating wrong code.
             // See also issue #54.
             if (!var.empty() && vios.find(var) != vios.end()) {
@@ -4652,7 +4652,7 @@ void Algorithm::determineAccess(t_combinational_block *block)
 // -------------------------------------------------
 
 template<typename T_nfo>
-void Algorithm::updateAccessFromBinding(const t_binding_nfo &b, 
+void Algorithm::updateAccessFromBinding(const t_binding_nfo &b,
   const std::unordered_map<std::string, int >& names, std::vector< T_nfo >& _nfos)
 {
   if (names.find(bindingRightIdentifier(b)) != names.end()) {
@@ -4713,7 +4713,7 @@ void Algorithm::determineAccessForWires(
         }
       }
     }
-  }  
+  }
   // gather wires
   // -> these are bound expressions, accessed only if the corresp. variable is used
   unordered_set<std::string> processed;
@@ -4729,7 +4729,7 @@ void Algorithm::determineAccessForWires(
       for (auto v : in_read) {
         // insert in global set
         _global_in_read.insert(v);
-        // check if this used a new wire?          
+        // check if this used a new wire?
         if (all_wires.count(v) > 0 && processed.count(v) == 0) {
           // promote as accessed
           m_Vars.at(m_VarNames.at(v)).access = (e_Access)(m_Vars.at(m_VarNames.at(v)).access | e_ReadOnly);
@@ -4822,8 +4822,8 @@ void Algorithm::determineAccess(
 void Algorithm::determineUsage()
 {
 
-  // NOTE The notion of block here ignores combinational chains. For this reason this is only a 
-  //      coarse pass, and a second, finer analysis is performed through the two-passes write (see writeAsModule). 
+  // NOTE The notion of block here ignores combinational chains. For this reason this is only a
+  //      coarse pass, and a second, finer analysis is performed through the two-passes write (see writeAsModule).
   //      This pass is still useful to detect (in particular) consts.
 
   // determine variables access
@@ -5025,7 +5025,7 @@ Algorithm::Algorithm(
 )
   : m_Name(name), m_hasHash(hasHash), m_Clock(clock), m_Reset(reset), m_FormalDepth(formalDepth), m_FormalTimeout(formalTimeout), m_FormalModes(modes),
     m_AutoRun(autorun), m_OneHot(onehot), m_KnownBlueprints(known_blueprints),
-    m_KnownSubroutines(known_subroutines), m_KnownCircuitries(known_circuitries), 
+    m_KnownSubroutines(known_subroutines), m_KnownCircuitries(known_circuitries),
     m_KnownGroups(known_groups), m_KnownInterfaces(known_interfaces), m_KnownBitFields(known_bitfield)
 {
     // eliminate any duplicate mode
@@ -5150,7 +5150,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
   } else if (assign) {
     ExpressionLinter linter(this,ictx);
     linter.lintAssignment(assign->access(),assign->IDENTIFIER(), assign->expression_0(), &_current->context);
-  } else if (alwasg) { 
+  } else if (alwasg) {
     ExpressionLinter linter(this,ictx);
     linter.lintAssignment(alwasg->access(), alwasg->IDENTIFIER(), alwasg->expression_0(), &_current->context);
   } else if (async) {
@@ -5782,7 +5782,7 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
 // -------------------------------------------------
 
 std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
-  std::string prefix, std::ostream& out, bool assigning, 
+  std::string prefix, std::ostream& out, bool assigning,
   siliceParser::IoAccessContext* ioaccess, std::string suffix,
   int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
@@ -5910,7 +5910,7 @@ void Algorithm::writeBitfieldAccess(
 
 // -------------------------------------------------
 
-void Algorithm::writePartSelect(std::string prefix, std::ostream& out, bool assigning, siliceParser::PartSelectContext* partsel, 
+void Algorithm::writePartSelect(std::string prefix, std::ostream& out, bool assigning, siliceParser::PartSelectContext* partsel,
   int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
@@ -5934,7 +5934,7 @@ void Algorithm::writePartSelect(std::string prefix, std::ostream& out, bool assi
     // This is a part-select access. We assume it is partial (could be checked if const).
     // Thus the variable is likely only partially written and to be safe we tag
     // it as Q since other bits are likely read later in the execution flow.
-    // This is a conservative assumption. A bit-per-bit analysis could be envisioned, 
+    // This is a conservative assumption. A bit-per-bit analysis could be envisioned,
     // but for lack of it we have no other choice here to avoid generating wrong code.
     // See also issue #54.
     std::string var = determineAccessedVar(partsel, bctx);
@@ -5944,7 +5944,7 @@ void Algorithm::writePartSelect(std::string prefix, std::ostream& out, bool assi
 
 // -------------------------------------------------
 
-void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, 
+void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access,
   int __id, const t_combinational_block_context* bctx, string ff,
   const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
@@ -6001,7 +6001,7 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
   out << " = " + rewriteExpression(prefix, expression_0, a.__id, bctx, ff, true, dependencies, _ff_usage);
   out << ';' << nxl;
 
-} 
+}
 
 // -------------------------------------------------
 
@@ -6074,7 +6074,7 @@ void Algorithm::writeCover(std::string prefix,
 // -------------------------------------------------
 
 void Algorithm::writeWireAssignements(
-  std::string prefix, std::ostream &out,  
+  std::string prefix, std::ostream &out,
   t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, bool first_pass) const
 {
   for (const auto &a : m_WireAssignments) {
@@ -6098,7 +6098,7 @@ void Algorithm::writeWireAssignements(
     out << "assign ";
     writeAssignement(prefix, out, a.second, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &a.second.block->context,
       d_else_q ? FF_D : FF_Q,
-      _dependencies, _ff_usage);    
+      _dependencies, _ff_usage);
     // update dependencies
     t_vio_dependencies no_dependencies = _dependencies;
     updateAndCheckDependencies(_dependencies, a.second.instr, &a.second.block->context);
@@ -6306,7 +6306,7 @@ void Algorithm::writeWireDeclarations(std::string prefix, std::ostream& out, con
     if ((v.usage == e_Bound && v.access == e_ReadWriteBinded) || v.usage == e_Wire) {
       // skip if not used
       if (v.access == e_NotAccessed) {
-        continue; 
+        continue;
       }
       if (v.table_size == 0) {
         writeVerilogDeclaration(out, ictx, "wire", v, string(WIRE) + prefix + v.name);
@@ -6503,9 +6503,9 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     // sub-states indices
     for (auto b : m_Blocks) {
       if (b->num_sub_states > 1) {
-        out << FF_Q << prefix << b->block_name << '_' << ALG_IDX " <= (" << init_cond << ") ? " 
+        out << FF_Q << prefix << b->block_name << '_' << ALG_IDX " <= (" << init_cond << ") ? "
           << " 0 "
-          << " : " 
+          << " : "
           << FF_D << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
       }
     }
@@ -6731,9 +6731,9 @@ void Algorithm::pushState(const t_combinational_block* b, std::queue<size_t>& _q
 // -------------------------------------------------
 
 void Algorithm::writeCombinationalStates(
-  std::string prefix, std::ostream &out, 
-  const t_instantiation_context& ictx, 
-  const t_vio_dependencies&      always_dependencies, 
+  std::string prefix, std::ostream &out,
+  const t_instantiation_context& ictx,
+  const t_vio_dependencies&      always_dependencies,
   t_vio_ff_usage&                _ff_usage,
   t_vio_dependencies&            _post_dependencies) const
 {
@@ -6820,7 +6820,7 @@ void Algorithm::writeCombinationalStates(
           }
           out << nxl;
         }
-#endif        
+#endif
         // keep going
         std::set<t_combinational_block *> leaves;
         findNonCombinationalLeaves(cur, leaves);
@@ -6835,7 +6835,7 @@ void Algorithm::writeCombinationalStates(
         }
       }
       sl_assert(sanity == b->num_sub_states);
-      // closing sub-state local FSM      
+      // closing sub-state local FSM
       out << "default: begin end" << nxl; // -> should never be reached
       out << "endcase" << nxl;
     } else {
@@ -7113,13 +7113,13 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
 // -------------------------------------------------
 
 void Algorithm::writeStatelessBlockGraph(
-  std::string prefix, std::ostream& out, 
-  const t_instantiation_context &ictx, 
-  const t_combinational_block* block, 
-  const t_combinational_block* stop_at, 
-  std::queue<size_t>& _q, 
-  t_vio_dependencies& _dependencies, 
-  t_vio_ff_usage&     _ff_usage, 
+  std::string prefix, std::ostream& out,
+  const t_instantiation_context &ictx,
+  const t_combinational_block* block,
+  const t_combinational_block* stop_at,
+  std::queue<size_t>& _q,
+  t_vio_dependencies& _dependencies,
+  t_vio_ff_usage&     _ff_usage,
   t_vio_dependencies& _post_dependencies,
   std::set<v2i> &_lines) const
 {
@@ -7145,7 +7145,7 @@ void Algorithm::writeStatelessBlockGraph(
   while (true) {
     // write current block
     writeBlock(prefix, out, ictx, current, _dependencies, _ff_usage, _lines);
-    // merge 
+    // merge
     // goto next in chain
     if (current->next()) {
       current = current->next()->next;
@@ -7160,7 +7160,7 @@ void Algorithm::writeStatelessBlockGraph(
         }
       }
       // recurse if
-      t_vio_dependencies depds_if = _dependencies; 
+      t_vio_dependencies depds_if = _dependencies;
       usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
       writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back(), _post_dependencies, _lines);
       out << "end else begin" << nxl;
@@ -7344,7 +7344,7 @@ void Algorithm::writeStatelessBlockGraph(
     } else if (current->pipeline_next()) {
       // write pipeline
       current = writeStatelessPipeline(prefix, out, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
-    } else { 
+    } else {
       // necessary as m_AlwaysPre/m_AlwaysPost reaches this
       if (block != &m_AlwaysPre && block != &m_AlwaysPost) {
         if (!hasNoFSM()) {
@@ -7382,9 +7382,9 @@ void Algorithm::writeStatelessBlockGraph(
 
 const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   std::string prefix, std::ostream& out, const t_instantiation_context &ictx,
-  const t_combinational_block* block_before, 
-  std::queue<size_t>& _q, 
-  t_vio_dependencies& _dependencies, 
+  const t_combinational_block* block_before,
+  std::queue<size_t>& _q,
+  t_vio_dependencies& _dependencies,
   t_vio_ff_usage&     _ff_usage,
   t_vio_dependencies& _post_dependencies,
   std::set<v2i>&      _lines) const
@@ -7613,9 +7613,9 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
       auto tk = getToken(m_Blocks.front()->source_interval);
       if (tk) {
         std::pair<std::string, int> fl = getTokenSourceFileAndLine(tk);
-        freport 
-          << (ictx.instance_name.empty() ? "__main" : ictx.instance_name) << " " 
-          << (ictx.local_instance_name.empty() ? "main" : ictx.local_instance_name) << " " 
+        freport
+          << (ictx.instance_name.empty() ? "__main" : ictx.instance_name) << " "
+          << (ictx.local_instance_name.empty() ? "main" : ictx.local_instance_name) << " "
           << m_Name << " " << fl.first << " "
           << (m_FormalDepth.empty() ? "30" : m_FormalDepth) << " "
           << (m_FormalTimeout.empty() ? "120" : m_FormalTimeout) << " ";
@@ -7657,7 +7657,7 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
           } else {
             // check if combinational output can be turned into a temporary
             if (m_OutputNames.count(v.first)) {
-              if ( m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop 
+              if ( m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop
                 && m_Outputs.at(m_OutputNames.at(v.first)).combinational) {
                 m_Outputs.at(m_OutputNames.at(v.first)).usage = e_Temporary;
               }
@@ -7829,12 +7829,12 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   // assign algorithm clock to output clock
   {
     t_vio_dependencies _1, _2;
-    out << "assign out_" ALG_CLOCK << " = " 
+    out << "assign out_" ALG_CLOCK << " = "
       << rewriteIdentifier("_", m_Clock, "", nullptr, -1, FF_Q, true, _1, ff_input_bindings_usage)
       << ';' << nxl;
   }
 
-  // blueprint instantiations (1/2) 
+  // blueprint instantiations (1/2)
   // -> required wires to hold outputs
   for (const auto& bpiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &nfo = m_InstancedBlueprints.at(bpiordr);
@@ -7926,7 +7926,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = 0;" << nxl;
   }
 
-  // blueprint instantiations (2/2) 
+  // blueprint instantiations (2/2)
   for (const auto& ibiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &nfo = m_InstancedBlueprints.at(ibiordr);
     // module name
@@ -8044,7 +8044,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
       if (!first) { out << ',' << nxl; } first = false;
       out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage) << ")";
     }
-    // end of instantiation      
+    // end of instantiation
     out << ");" << nxl;
   }
   out << nxl;
@@ -8088,7 +8088,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
         out << nxl;
       }
     }
-    // end of instantiation      
+    // end of instantiation
     out << ");" << nxl;
   }
   out << nxl;
@@ -8098,7 +8098,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     if (m_VIOToBlueprintInOutsBound.count(io.name) == 0) {
       int width = atoi(varBitWidth(io, ictx).c_str());
       // output used?
-      if ( m_Vars.at(m_VarNames.at(io.name + "_o")).access       != e_NotAccessed 
+      if ( m_Vars.at(m_VarNames.at(io.name + "_o")).access       != e_NotAccessed
         || m_Vars.at(m_VarNames.at(io.name + "_oenable")).access != e_NotAccessed) {
         // write bit by bit ternary assignment
         for (int b = 0; b < width; ++b) {
@@ -8118,7 +8118,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
           out << " : 1'bz;" << nxl;
         }
       } else {
-        out << "assign " << ALG_INOUT << "_" << io.name << " = {" << width << "{1'bz}};" << nxl; 
+        out << "assign " << ALG_INOUT << "_" << io.name << " = {" << width << "{1'bz}};" << nxl;
       }
       // assign wire if used
       if (m_Vars.at(m_VarNames.at(io.name + "_i")).access != e_NotAccessed) {
@@ -8143,9 +8143,9 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   for (auto &v : ff_input_bindings_usage.ff_usage) {
     if (v.second & e_D) {
       post_ff_usage.back().ff_usage[v.first] = e_D;
-    } 
+    }
     if (v.second & e_Q) {
-      _ff_usage.ff_usage[v.first] = e_Q; 
+      _ff_usage.ff_usage[v.first] = e_Q;
     }
     //else {
     //  reportError(nullptr, -1, "internal error, input bindings usage case");
@@ -8239,7 +8239,7 @@ void Algorithm::outputFSMGraph(std::string dotFile) const
     //cerr << b->end_action_name() << nxl;
     std::vector< t_combinational_block * > children;
     b->getChildren(children);
-    //for (auto c : children) {      
+    //for (auto c : children) {
     //  cerr << "   CHILD " << c->block_name << " state_id = " << c->state_id << nxl;
     //}
     std::set<t_combinational_block*> leaves;
@@ -8333,7 +8333,7 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
 // -------------------------------------------------
 
 void Algorithm::enableReporting(std::string reportname)
-{ 
+{
   m_ReportBaseName = reportname;
   for (auto bp : m_InstancedBlueprints) {
     Algorithm *alg = dynamic_cast<Algorithm*>(bp.second.blueprint.raw());
