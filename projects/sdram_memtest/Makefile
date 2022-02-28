@@ -1,9 +1,9 @@
 
-.DEFAULT: sdram_memtest.ice
-		silice-make.py -s sdram_memtest.ice -b $@ -p basic,sdram -o BUILD_$(subst :,_,$@) $(ARGS)
-    
-icarus: sdram_memtest.ice
-		silice-make.py -s sdram_memtest.ice -b $@ -p basic -o BUILD_$(subst :,_,$@)
+.DEFAULT: sdram_memtest.si
+		silice-make.py -s sdram_memtest.si -b $@ -p basic,sdram -o BUILD_$(subst :,_,$@) $(ARGS)
+
+icarus: sdram_memtest.si
+		silice-make.py -s sdram_memtest.si -b $@ -p basic -o BUILD_$(subst :,_,$@)
 
 clean:
 	rm -rf BUILD_*

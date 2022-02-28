@@ -1,7 +1,7 @@
 
-sdram_controller.v: export_controller.ice
+sdram_controller.v: export_controller.si
 		# export the controller to verilog
-		silice export_controller.ice --output sdram_controller.v \
+		silice export_controller.si --output sdram_controller.v \
 			--export sdram_controller_autoprecharge_r16_w16 \
 			--frameworks_dir ../../frameworks/ \
 			--framework ../../frameworks/boards/bare/bare.v \

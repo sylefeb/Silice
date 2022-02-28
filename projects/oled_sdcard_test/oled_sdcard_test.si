@@ -1,0 +1,296 @@
+// SL 2020-07 @sylefeb
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+
+// vvvvvvvvvvvvv select screen driver below
+$$ -- SSD1351=1
+$$ ST7789=1
+//               vvvvv adjust to your screen
+$$ oled_width   = 240
+$$ oled_height  = 320
+//               vvvvv set to false if the screen uses the CS pin
+$$ st7789_no_cs = false
+
+// default configured for https://www.waveshare.com/wiki/2inch_LCD_Module
+
+$include('../common/oled.si')
+
+$$if not ULX3S and not ICARUS then
+$$error('only tested on ULX3S, small changes likely required to main input/outputs for other boards')
+$$end
+
+// -------------------------
+
+$include('../common/sdcard.si')
+
+// -------------------------
+
+algorithm text_display(
+  input   uint10 pix_x,
+  input   uint10 pix_y,
+  output  uint1  white,
+  simple_dualport_bram_port0 letter,
+) <autorun> {
+
+  // ---------- font
+$include('../common/font.si')
+$$if letter_w ~= 8 or letter_h ~= 8 then
+  error('expects a 8x8 font')
+$$end
+
+  // ---------- text display
+
+  uint6  text_i   = 0;
+  uint6  text_j   = 0;
+  uint4  letter_i = 0;
+  uint5  letter_j = 0;
+  uint12 addr     = 0;
+
+  // ---------- show time!
+
+  while (1) {
+
+    // text
+    letter_i = pix_x & 7;
+    text_i   = pix_x >> 3;
+    letter_j = pix_y & 7;
+    text_j   = pix_y >> 3;
+
+    if (text_i < 32 && text_j < 32) {
+      letter.addr0 = text_i + (text_j*$oled_width>>3$);
+++:
+      addr         = letter_i + ( letter_j << 3)
+                              + (letter.rdata0 << 6);
+      white        = letters[ addr ];
+    } else {
+      white    = 0;
+    }
+
+  }
+
+}
+
+// -------------------------
+
+algorithm main(
+  output  uint8 leds,
+  input   uint7 btns,
+  output  uint1 oled_clk,
+  output  uint1 oled_mosi,
+  output  uint1 oled_dc,
+  output  uint1 oled_resn,
+  output  uint1 oled_csn,
+  output  uint1 sd_clk,
+  output  uint1 sd_mosi,
+  output  uint1 sd_csn,
+  input   uint1 sd_miso
+) {
+
+  oledio io;
+  oled   display(
+    oled_clk  :> oled_clk,
+    oled_mosi :> oled_mosi,
+    oled_dc   :> oled_dc,
+    oled_resn :> oled_resn,
+    oled_csn  :> oled_csn,
+    io       <:> io
+  );
+
+  // Read buffer
+  simple_dualport_bram uint8 sdbuffer[512] = uninitialized;
+
+  sdcardio sdcio;
+  sdcard sd(
+    // pins
+    sd_clk      :> sd_clk,
+    sd_mosi     :> sd_mosi,
+    sd_csn      :> sd_csn,
+    sd_miso     <: sd_miso,
+    // io
+    io          <:> sdcio,
+    // bram port
+    store       <:> sdbuffer
+  );
+
+  // Text buffer
+  simple_dualport_bram uint6 txt[$(oled_width*oled_height)>>6$] = uninitialized;
+
+  uint11 str_x    = 0;
+  uint10 str_y    = 0;
+
+  // ---------- string
+  uint8  str[] = "SECTOR ";
+
+  // --------- print string
+  subroutine print_string(
+	  reads      str,
+	  readwrites str_x,
+	  readwrites str_y,
+    writes     txt,
+	  ) {
+    uint10 col  = 0;
+    uint8  lttr = 0;
+    uint6  offs = 0;
+    // print line
+    while (str[col] != 0) {
+      if (str[col] == 35) {
+        str_y = str_y + 1;
+        offs  = 0;
+      } else {
+        switch (str[col]) {
+          case 32: {lttr = 36;}
+          case 45: {lttr = 37;}
+          default: {lttr = str[col] - 55;}
+        }
+        txt.addr1   = offs + str_x + (str_y*$oled_width>>3$);
+        txt.wdata1  = lttr[0,6];
+        offs        = offs + 1;
+      }
+      col       = col + 1;
+    }
+    str_x = str_x + col;
+  }
+
+  // --------- print hex number
+  subroutine print_hex(
+    input uint8 hex,
+	  readwrites   str_x,
+	  readwrites   str_y,
+    writes       txt,
+	  ) {
+    uint8  v    = 0;
+    int4   offs = 0;
+    v           = hex;
+    // print line
+    offs = 1;
+    while (offs >= 0) {
+      txt.addr1   = offs + str_x + (str_y*$oled_width>>3$);
+      txt.wdata1  = v&15;
+      v           = v >> 4;
+      offs        = offs - 1;
+    }
+    str_x = str_x + 2;
+  }
+
+  // --------- display
+  uint10 u     = 0;
+  uint10 v     = 0;
+  uint1  white = 0;
+  text_display text(
+    pix_x  <: u,
+    pix_y  <: v,
+    white  :> white,
+    letter <:> txt // port0
+  );
+
+  uint7  btns_latch = 0;
+
+  btns_latch       ::= btns;
+  sdcio.read_sector := 0;
+
+  // maintain low (pulses high when sending)
+  io.start_rect := 0;
+  io.next_pixel := 0;
+  // writes to txt
+  txt.wenable1  := 1;
+
+  leds           = 0;
+
+  // fill buffer with spaces
+  {
+    uint11 next = 0;
+    txt.wdata1   = 36; // data to write
+    next         = 0;
+    while (next < 1024) {
+      txt.addr1 = next;     // address to write
+      next      = next + 1; // next
+    }
+  }
+
+  leds           = 1;
+
+  // wait for oled controller to be ready
+  while (io.ready == 0) { }
+
+  leds           = 2;
+
+  // setup draw window
+  io.x_start = 0;
+  io.x_end   = $oled_width-1$;
+  io.y_start = 0;
+  io.y_end   = $oled_height-1$;
+  io.start_rect = 1;
+  while (io.ready == 0) { }
+
+  leds           = 4;
+
+  // wait for sdcard
+  while (sdcio.ready == 0) { }
+  // read first sector
+  sdcio.addr_sector = 0;
+  sdcio.read_sector = 1;
+
+  leds           = 8;
+
+  while (1) {
+
+    // refresh (framebuffer style, even though the OLED
+    // screen could support random access ...
+    v = 0;
+    while (v < $oled_height$) {
+      u = 0;
+      while (u < $oled_width$) {
+        // wait for text module to refresh given new u,video_b
+        // (NOTE: a cycle could be saved by working one delayed)
+++:
+        io.color      = white ? 18h3ffff : 0;
+        io.next_pixel = 1;
+        while (io.ready == 0) { }
+
+        u = u + 1;
+      }
+      v = v + 1;
+    }
+
+    // wait for sdcard
+    while (sdcio.ready == 0) { }
+
+    // write data on screen
+    str_x = 0;
+    str_y = 0;
+    () <- print_string <- ();
+
+    () <- print_hex    <- (sdcio.addr_sector[8,8]);
+    () <- print_hex    <- (sdcio.addr_sector[0,8]);
+    str_x = 0;
+    str_y = 2;
+    sdbuffer.addr0 = 0;
+    {
+      uint8 l = 0;
+      while (l < 20) {
+        v = 0;
+        while (v < $15$) {
+          () <- print_hex <- (sdbuffer.rdata0);
+          sdbuffer.addr0 = sdbuffer.addr0 + 1;
+          v = v + 1;
+        }
+        l     = l     + 1;
+        str_y = str_y + 1;
+      }
+    }
+
+    // update sector addr
+    if (btns_latch[1,1]) {
+      sdcio.addr_sector = sdcio.addr_sector + 1;
+    } else { if (btns_latch[2,1]) {
+        sdcio.addr_sector = (sdcio.addr_sector == 0) ? 0 : sdcio.addr_sector - 1;
+      }
+    }
+    // read sector
+    sdcio.read_sector = 1;
+
+  }
+
+}
+
+// -------------------------

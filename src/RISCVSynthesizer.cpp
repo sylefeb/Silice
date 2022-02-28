@@ -389,7 +389,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
   code << "$$io_reads    = [[" << io_reads << "]]" << nxl;
   code << "$$io_writes   = [[" << io_writes << "]]" << nxl;
   code << "$$on_accessed = [[" << on_accessed << "]]" << nxl;
-  code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + coreName(riscv) + "/riscv-soc.ice\");" << nxl;
+  code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + coreName(riscv) + "/riscv-soc.si\");" << nxl;
   return code.str();
 }
 
@@ -446,7 +446,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     string s_tempfile;
     {
       s_tempfile = tempFileName();
-      s_tempfile = s_tempfile + ".ice";
+      s_tempfile = s_tempfile + ".si";
       // produce source code
       ofstream silicefile(s_tempfile);
       silicefile << generateSiliceCode(riscv);
