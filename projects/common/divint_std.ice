@@ -22,18 +22,18 @@ algorithm div$div_width$(
   output int$div_width$ ret = 0)
 {
   uint$div_width+1$ ac = uninitialized;
-  uint$div_width+1$ diff <:: ac - den;
+  uint$div_width+1$ diff <:: ac - :den;
 
   uint$div_width_pow2+1$ i = 0;
 
 $$if not div_unsigned then
-  uint1           inum_neg <:: inum[$div_width-1$,1];
-  uint1           iden_neg <:: iden[$div_width-1$,1];
-  uint$div_width$ num      <:: inum_neg ? -inum : inum;
-  uint$div_width$ den      <:: iden_neg ? -iden : iden;
+  uint1           inum_neg <: inum[$div_width-1$,1];
+  uint1           iden_neg <: iden[$div_width-1$,1];
+  uint$div_width$ num      <: inum_neg ? -inum : inum;
+  uint$div_width$ den      <: iden_neg ? -iden : iden;
 $$else
-  uint$div_width$ num  <:: inum;
-  uint$div_width$ den  <:: iden;
+  uint$div_width$ num  <: inum;
+  uint$div_width$ den  <: iden;
 $$end
 
 $$if FORMAL then
