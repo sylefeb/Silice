@@ -788,7 +788,7 @@ private:
     void parseCallParams(siliceParser::CallParamListContext *params, const t_subroutine_nfo *sub, bool input_else_output, const t_combinational_block_context *bctx, std::vector<t_call_param> &_matches) const;
     /// \brief extract the ordered list of identifiers
     void getIdentifiers(siliceParser::IdOrIoAccessListContext* idents, std::vector<std::string>& _vec_params, const t_combinational_block_context* bctx) const;
-    /// \brief sematic parsing, first discovery pass
+    /// \brief parsing, first discovery pass
     t_combinational_block *gather(antlr4::tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context);
     /// \brief resolves forward references for jumps
     void resolveForwardJumpRefs();
@@ -917,11 +917,12 @@ private:
     /// \brief destructor
     virtual ~Algorithm();
 
-    /// \brief sets the input parsed tree
-    void gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *declAndInstr);
+    /// \brief gather from the input parsed tree
+    void gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *body);
 
     /// \brief resolve instanced blueprint refs
     void resolveInstancedBlueprintRefs(const std::unordered_map<std::string, AutoPtr<Blueprint> >& blueprints);
+
     /// \brief resolve inouts
     void resolveInOuts();
 

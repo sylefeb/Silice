@@ -87,6 +87,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
   auto intrface = dynamic_cast<siliceParser::IntrfaceContext *>(tree);
   auto bitfield = dynamic_cast<siliceParser::BitfieldContext*>(tree);
   auto riscv    = dynamic_cast<siliceParser::RiscvContext *>(tree);
+  auto unit     = dynamic_cast<siliceParser::UnitContext *>(tree);
 
   if (toplist) {
 
@@ -95,10 +96,21 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
       gatherAll(c);
     }
 
-  } else if (alg) {
+  } else if (alg || unit) {
 
-    /// algorithm
-    std::string name = alg->IDENTIFIER()->getText();
+    /// algorithm or unit
+    std::string name;
+    bool hasHash;
+    siliceParser::BpModifiersContext *mods = nullptr;
+    if (alg) {
+      name    = alg->IDENTIFIER()->getText();
+      hasHash = alg->HASH() != nullptr;
+      mods    = alg->bpModifiers();
+    } else {
+      name    = unit->IDENTIFIER()->getText();
+      hasHash = unit->HASH() != nullptr;
+      mods    = unit->bpModifiers();
+    }
     std::cerr << "parsing algorithm " << name << nxl;
     bool autorun = (name == "main"); // main always autoruns
     bool onehot  = false;
@@ -107,9 +119,8 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     std::vector<std::string> formalModes{};
     std::string clock = ALG_CLOCK;
     std::string reset = ALG_RESET;
-    bool hasHash = alg->HASH() != nullptr;
-    if (alg->bpModifiers() != nullptr) {
-      for (auto m : alg->bpModifiers()->bpModifier()) {
+    if (mods != nullptr) {
+      for (auto m : mods->bpModifier()) {
         if (m->sclock() != nullptr) {
           clock = m->sclock()->IDENTIFIER()->getText();
         }
@@ -117,9 +128,17 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
           reset = m->sreset()->IDENTIFIER()->getText();
         }
         if (m->sautorun() != nullptr) {
+          if (unit) {
+            throw Fatal("Unit cannot use the 'autorun' modifier, apply it to the internal algorithm block (line %d).",
+              (int)m->sautorun()->getStart()->getLine());
+          }
           autorun = true;
         }
         if (m->sonehot() != nullptr) {
+          if (unit) {
+            throw Fatal("Unit cannot use the 'onehot' modifier, apply it to the internal algorithm block (line %d).",
+              (int)m->sonehot()->getStart()->getLine());
+          }
           onehot = true;
         }
         if (m->sstacksz() != nullptr) {
@@ -152,9 +171,13 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
       m_Blueprints, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
     );
     if (m_Blueprints.find(name) != m_Blueprints.end()) {
-      throw Fatal("an algorithm or module with the same name already exists (line %d)!", (int)alg->getStart()->getLine());
+      throw Fatal("a unit, algorithm or module with the same name already exists (line %d)!", (int)alg->getStart()->getLine());
     }
-    algorithm->gather(alg->inOutList(), alg->declAndInstrList());
+    if (alg) {
+      algorithm->gather(alg->inOutList(), alg->declAndInstrList());
+    } else {
+      algorithm->gather(unit->inOutList(), unit->unitBlocks());
+    }
     m_Blueprints.insert(std::make_pair(name, algorithm));
     m_BlueprintsInDeclOrder.push_back(name);
 
