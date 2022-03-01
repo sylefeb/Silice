@@ -671,6 +671,9 @@ Silice has convenient intrinsics:
 -   `__display(format_string,value0,value1,...)` maps to Verilog
     `$display` allowing text output during simulation.
 
+-   `__write(format_string,value0,value1,...)` maps to Verilog
+    `$write` allowing text output during simulation without a new line being started.
+
 # Algorithms
 
 Algorithms are the main elements of a Silice design. An algorithm is a
