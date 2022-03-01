@@ -1656,12 +1656,8 @@ at <https://github.com/sylefeb/Silice/blob/master/GetStarted.md>.
 
 ## VGA emulation
 
-Silice comes with a tool called `silicehe` for *Silice hardware
-emulation*. This tool will read the output of the `icarus_vga` simulator
-(the fst file storing signals) and produce a sequence of images from the
-stored VGA signals.
-
-Simply call it with the fst file as the second argument.
+Silice verilator framework supports VGA display out of the box. For instance
+see the [VGA demos project](../projects/vga_demo/README.md).
 
 [1] http://iverilog.icarus.com/
 
