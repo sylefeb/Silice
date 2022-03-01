@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 case "$(uname -s)" in
 MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
@@ -55,7 +57,9 @@ if [[ ! -z "${NO_BUILD}" ]]; then
 fi
 
 # check Verilator support for -Wno-TIMESCALEMOD
+set +e
 RET=$((verilator -Wno-TIMESCALEMOD) 2>&1)
+set -e
 OPT="-Wno-TIMESCALEMOD"
 if [[ $RET == *"Unknown warning"* ]]; then
   echo "disabling $OPT"
