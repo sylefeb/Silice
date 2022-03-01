@@ -136,7 +136,7 @@ $$end
 
 // -------------------------
 
-algorithm frame_buffer_row_updater(
+unit frame_buffer_row_updater(
   sdram_user       sd,
   output! uint10   pixaddr0,
   output! uint$sdram_read_width$ pixdata0_w,
@@ -148,7 +148,7 @@ algorithm frame_buffer_row_updater(
   input   uint1    vsync,
   output  uint1    working,
   input   uint1    fbuffer
-) <autorun> {
+) {
   // frame update counters
   uint9  count             = 0;
   uint9  row               = 0; // 0 .. 200 (0 loads 1, but 0 is not displayed, we display 1 - 200)
@@ -163,7 +163,7 @@ algorithm frame_buffer_row_updater(
   vsync_filtered    ::= vsync;
   fbuffer_filtered  ::= fbuffer;
 
-  always {
+  always_before {
     // writing/reading on buffers
     if (row_busy_filtered) {
       pixwenable0 = 1; // write 0
@@ -174,65 +174,69 @@ algorithm frame_buffer_row_updater(
     }
   }
 
-  working = 0;  // not working
-  sd.rw   = 0;  // read
+  algorithm <autorun> {
 
-  while(1) {
+    working = 0;  // not working
+    sd.rw   = 0;  // read
 
-    // not working for now
-    working = 0;
+    while(1) {
 
-    // wait during vsync or while the busy row is the working row
-    while (vsync_filtered || (working_row == row_busy_filtered)) {
-		  if (vsync_filtered) { // vsync implies restarting the row counter
-			  row         = 0;
-			  working_row = 0;
-		  }
-	  }
+      // not working for now
+      working = 0;
 
-    // working again!
-	  working = 1;
-    // working_row (in which we write) is now != busy_row (which is read for display)
+      // wait during vsync or while the busy row is the working row
+      while (vsync_filtered || (working_row == row_busy_filtered)) {
+        if (vsync_filtered) { // vsync implies restarting the row counter
+          row         = 0;
+          working_row = 0;
+        }
+      }
 
-    // read row from SDRAM into frame row buffer
-    //
-    // NOTE: here we assume this can be done fast enough such that row_busy
-    //       will not change mid-course ... will this be true?
-    //       in any case the display cannot wait, so apart from error
-    //       detection there is no need for a sync mechanism
-    count = 0;
-    while (count < $FB_row_size$) { // we read 16/64 bytes at once
+      // working again!
+      working = 1;
+      // working_row (in which we write) is now != busy_row (which is read for display)
 
-      // address to read from (count + row * 320)
-$$if SDRAM_r128_w8 then
-      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<4) | (row << $FB_row_stride_pow2$);
-$$end
-$$if SDRAM_r512_w64 then
-      sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<6) | (row << $FB_row_stride_pow2$);
-$$end
-      sd.in_valid  = 1;             // go ahead!
-      while (sd.done == 0) { }      // wait for value
-      // __display("<read %x>",sd.data_out);
-      pixdata0_w   = sd.data_out;   // data to write
-      pixaddr0     = count;         // address to write
-      pixdata1_w   = sd.data_out;   // data to write
-      pixaddr1     = count;         // address to write
-      // next
-      count        = count + 1;
+      // read row from SDRAM into frame row buffer
+      //
+      // NOTE: here we assume this can be done fast enough such that row_busy
+      //       will not change mid-course ... will this be true?
+      //       in any case the display cannot wait, so apart from error
+      //       detection there is no need for a sync mechanism
+      count = 0;
+      while (count < $FB_row_size$) { // we read 16/64 bytes at once
 
+        // address to read from (count + row * 320)
+  $$if SDRAM_r128_w8 then
+        sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<4) | (row << $FB_row_stride_pow2$);
+  $$end
+  $$if SDRAM_r512_w64 then
+        sd.addr      = {1b0,fbuffer_filtered,24b0} | (count<<6) | (row << $FB_row_stride_pow2$);
+  $$end
+        sd.in_valid  = 1;             // go ahead!
+        while (sd.done == 0) { }      // wait for value
+        // __display("<read %x>",sd.data_out);
+        pixdata0_w   = sd.data_out;   // data to write
+        pixaddr0     = count;         // address to write
+        pixdata1_w   = sd.data_out;   // data to write
+        pixaddr1     = count;         // address to write
+        // next
+        count        = count + 1;
+
+      }
+
+      // change working row
+      working_row = ~working_row;
+  $$if mode_640_480 then
+      if (row != 479) {
+  $$else
+      if (row != 199) {
+  $$end
+        row = row + 1;
+      } else {
+        row = 0;
+      }
     }
 
-    // change working row
-    working_row = ~working_row;
-$$if mode_640_480 then
-	  if (row != 479) {
-$$else
-	  if (row != 199) {
-$$end
-      row = row + 1;
-	  } else {
-      row = 0;
-    }
   }
 
 }

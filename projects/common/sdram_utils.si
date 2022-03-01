@@ -10,10 +10,10 @@
 
 // wrapper for sdram from design running half-speed clock
 // the wrapper runs full speed, the provided interface at half-speed
-algorithm sdram_half_speed_access(
+unit sdram_half_speed_access(
   sdram_provider sdh,
   sdram_user     sd,
-) <autorun> {
+) {
 
   uint1 half_clock(0);
   uint2 done(0);
@@ -56,10 +56,10 @@ algorithm sdram_half_speed_access(
 // -----------------------------------------------------------
 
 // implements a simplified byte memory interface
-algorithm sdram_byte_readcache(
+unit sdram_byte_readcache(
   sdram_provider sdb,
   sdram_user     sdr,
-) <autorun> {
+) {
 
   // cached reads
   sameas(sdr.data_out) cached = uninitialized;

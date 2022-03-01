@@ -4,14 +4,14 @@
 // https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
-algorithm vga(
+unit vga(
   output uint1  vga_hs,
   output uint1  vga_vs,
   output uint1  active,
   output uint1  vblank,
   output uint10 vga_x,
   output uint10 vga_y
-) <autorun> {
+) {
 
 // we use the pre-processor to compute some bounds
 $$H_FRT_PORCH = 16

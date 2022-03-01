@@ -7,10 +7,10 @@ $$if not SDRAM_r512_w64 then
 $$  error('[sdram_ram_32bits] expecting the r512w64 controller')
 $$end
 
-algorithm sdram_ram_32bits(
+unit sdram_ram_32bits(
   rv32i_ram_provider r32,
   sdram_user         sdr
-) <autorun> {
+) {
 
   always {
     r32.data_out  = sdr.data_out >> {r32.addr[2,1],5b00000};

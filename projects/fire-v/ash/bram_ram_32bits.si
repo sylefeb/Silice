@@ -14,12 +14,12 @@ $$ bram_size  = 1<<bram_depth
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 
-algorithm bram_ram_32bits(
+unit bram_ram_32bits(
   rv32i_ram_provider pram,              // provided ram interface
   input uint26       predicted_addr,    // next predicted address
   input uint1        predicted_correct, // was the prediction correct?
   input uint32       data_override,     // data used as an override by memory mapper
-) <autorun> {
+) {
 
   simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { file("data.img"), pad(uninitialized) };
 

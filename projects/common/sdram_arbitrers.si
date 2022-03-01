@@ -14,7 +14,7 @@ $$if not Nway then
 $$  Nway = 3
 $$end
 
-algorithm sdram_arbitrer_$Nway$way(
+unit sdram_arbitrer_$Nway$way(
 $$for i=0,Nway-1 do
   sdram_provider sd$i$,
 $$end

@@ -41,7 +41,7 @@ $$if bram_depth > 14 then error('bram larger than spram') end
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 
-algorithm bram_segment_spram_32bits(
+unit bram_segment_spram_32bits(
   rv32i_ram_provider     pram,               // provided ram interface
   input uint26           predicted_addr,     // next predicted address
   input uint1            predicted_correct,  // was the prediction correct?
@@ -49,7 +49,7 @@ algorithm bram_segment_spram_32bits(
   input uint1            bram_override_we,   // bram override: write enable
   input uint$bram_depth$ bram_override_addr, // bram override: write address
   input uint32           bram_override_data, // bram override: data to be written
-) <autorun> {
+) {
 
   simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { file("data.img"), pad(uninitialized) };
 

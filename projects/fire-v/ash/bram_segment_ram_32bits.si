@@ -11,13 +11,13 @@ $$ print('##### code size: ' .. code_size_bytes .. ' BRAM capacity: ' .. 4*bram_
 
 $$config['simple_dualport_bram_wmask_byte_wenable1_width'] = 'data'
 
-algorithm bram_segment_ram_32bits(
+unit bram_segment_ram_32bits(
   rv32i_ram_provider pram,              // provided ram interface
   rv32i_ram_user     uram,              // used ram interface
   input uint26       cache_start,       // where the cache is located
   input uint26       predicted_addr,    // next predicted address
   input uint1        predicted_correct, // was the prediction correct?
-) <autorun> {
+) {
 
   // track when address is in cache region and onto which entry
   uint1  in_cache               <:    (pram.addr  [$2+bram_depth$,$26-2-bram_depth$])
@@ -26,8 +26,8 @@ algorithm bram_segment_ram_32bits(
 
   simple_dualport_bram uint32 mem<"simple_dualport_bram_wmask_byte">[$bram_size$] = { file("data.img"), pad(uninitialized) };
 
-  uint1 not_mapped           <:: ~pram.addr[31,1]; // Note: memory mapped addresses use the top most bits
-  uint$bram_depth$ predicted <:: predicted_addr[2,$bram_depth$];
+  uint1 not_mapped           <: ~pram.addr[31,1]; // Note: memory mapped addresses use the top most bits
+  uint$bram_depth$ predicted <: predicted_addr[2,$bram_depth$];
 
   uint1 wait_one(0);
 

@@ -48,7 +48,7 @@ circuitry command(
 $$ burst_config      = '3b011'
 $$ read_burst_length = 8
 
-algorithm sdram_controller_autoprecharge_pipelined_r512_w64(
+unit sdram_controller_autoprecharge_pipelined_r512_w64(
     // sdram pins
     // => we use immediate (combinational) outputs as these are registered
     //    explicitely using dedicated primitives when available / implemented
@@ -73,8 +73,7 @@ $$end
 $$if SIMULATION then
     output uint1 error,
 $$end
-) <autorun>
-{
+) {
 
   // SDRAM commands
   uint4 CMD_UNSELECTED    = 4b1000;
@@ -161,16 +160,6 @@ $$ print('SDRAM configured for 100 MHz (default), burst length: ' .. read_burst_
   uint1  reading   = uninitialized;
   int9   burst     = uninitialized;
 
-  // waits for incount + 4 cycles
-  subroutine wait(input uint16 incount)
-  {
-    uint16 count = uninitialized;
-    count = incount;
-    while (count != 0) {
-      count = count - 1;
-    }
-  }
-
 $$if SIMULATION then
   uint32 cycle(0);
   error := 0;
@@ -199,6 +188,124 @@ $$end
     (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
     refresh_count = refresh_delay[0,1] ? $refresh_cycles$ : (refresh_count - 1);
     // __display("[cycle %d] needs_refresh:%b refreshing:%b work_todo:%b working:%b ",cycle,needs_refresh,refreshing,work_todo,working);
+  }
+
+  algorithm <autorun> {
+
+    // waits for incount + 4 cycles
+    subroutine wait(input uint16 incount)
+    {
+      uint16 count = uninitialized;
+      count = incount;
+      while (count != 0) {
+        count = count - 1;
+      }
+    }
+
+$$if HARDWARE then
+    // wait after powerup
+    () <- wait <- (65535); // ~0.5 msec at 100MHz
+$$end
+
+    // precharge all
+    cmd          = CMD_PRECHARGE;
+    (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+    reg_sdram_a  = {2b0,1b1,10b0};
+    () <- wait <- ($math.max(0,cmd_precharge_delay-4)$);
+
+    // load mod reg
+    cmd          = CMD_LOAD_MODE_REG;
+    (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+    reg_sdram_ba = 0;
+    reg_sdram_a  = {3b000, 1b1/*single write*/, 2b00, 3b011/*CAS*/, 1b0, 3b011 /*burst=8x*/ };
+  ++: // tMRC
+
+    // init done, start answering requests
+    while (1) {
+
+      // sdram pins for read/write
+      reg_sdram_ba  = stage;
+      reg_sdram_dqm = do_rw          ? ~wmask[0,2] : 2b00;
+      reg_dq_o      = opmodulo[0,1]  ? data        : reg_dq_o;
+      reg_dq_en     = opmodulo[0,1]  ? do_rw       : reg_dq_en;
+      reg_sdram_a   = actmodulo[0,1] ? row         : {2b0, 1b1/*auto-precharge*/, col};
+
+      if (refresh_delay[0,1]) { // refresh
+
+        // __display("[cycle %d] refresh %b  %b",cycle,needs_refresh,refresh_delay);
+        // refresh
+        cmd             = refresh_trigger[0,1] ? CMD_REFRESH : CMD_NOP;
+
+      } else { // read/write pipeline sequence
+
+          // burst controls time before burst read starts
+          // opmodulo controls when Read or Write are sent
+          // actmodulo controls when Activate are sent
+          // Write sequence is
+          // AC0 ___ WR0 ___ AC1 ___ WR1 ___ AC2 __ WR2 __ ...
+          // Read sequence is
+          // AC0 ___ RD0 ___ ___ ___ ___ BR0 BR1 BR2 BR3 BR4 ....
+          //         <-------------------> ...   AC1 ___ RD1 ___ ....
+          //    depends on CAS + ff on IO path
+
+          switch ({opmodulo[0,1],actmodulo[0,1]}) {
+            case 2b01: {
+              // __display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
+              cmd          = (stage[2,1] | ~working) ? CMD_NOP : CMD_ACTIVE;
+              actmodulo    = do_rw ? 8b00001000 : 8b10000000;
+              opmodulo     = {opmodulo[0,1],opmodulo[1,7]};
+            }
+            case 2b10: {
+              // if (do_rw) {
+              //   __display("[cycle %d] WR stage %d",cycle,stage);
+              // } else {
+              //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
+              // }
+              cmd           = (stage[2,1] | ~working) ? CMD_NOP : (do_rw ? CMD_WRITE : CMD_READ);
+              opmodulo      = do_rw ? 8b00001000 : 8b10000000;
+              actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
+              stage         = stage + 1;
+              data          = data  >> 16;
+              wmask         = wmask >> 2;
+            }
+            default: {
+              // __display("[cycle %d] ___ stage %d, din %h",cycle,stage,dq_i);
+              opmodulo  = {opmodulo [0,1],opmodulo [1,7]};
+              actmodulo = {actmodulo[0,1],actmodulo[1,7]};
+            }
+          }
+      }
+
+      // issue command
+      (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+
+      // burst data in
+      {
+
+        switch ({~working,read_cnt[0,3],read_cnt[3,2]}) {
+$$for i = 0,31 do
+          case $i$: {sd.data_out[$i*16$,16] = dq_i;}
+$$end
+          default: {}
+        }
+
+        if ((do_rw & stage[2,1]) | (read_cnt == 31)) {
+          sd.done   = working;
+          working   = 0;
+$$if SIMULATION then
+          // if (sd.done) {
+          //     __display("[cycle %d] done:%b rw:%b stage:%b data_out:%h",cycle,sd.done,do_rw,stage[0,2],sd.data_out);
+          // }
+$$end
+          // break;
+        }
+
+        read_cnt  = burst[0,1] ? (read_cnt + 1) : read_cnt;
+        burst     = burst >>> 1;
+
+      }
+
+    }
   }
 
   // always track incoming requests, after everything else
@@ -252,110 +359,6 @@ $$if SIMULATION then
 $$end
   }
 
-$$if HARDWARE then
-  // wait after powerup
-  () <- wait <- (65535); // ~0.5 msec at 100MHz
-$$end
-
-  // precharge all
-  cmd          = CMD_PRECHARGE;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-  reg_sdram_a  = {2b0,1b1,10b0};
-  () <- wait <- ($math.max(0,cmd_precharge_delay-4)$);
-
-  // load mod reg
-  cmd          = CMD_LOAD_MODE_REG;
-  (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-  reg_sdram_ba = 0;
-  reg_sdram_a  = {3b000, 1b1/*single write*/, 2b00, 3b011/*CAS*/, 1b0, 3b011 /*burst=8x*/ };
-++: // tMRC
-
-  // init done, start answering requests
-  while (1) {
-
-    // sdram pins for read/write
-    reg_sdram_ba  = stage;
-    reg_sdram_dqm = do_rw          ? ~wmask[0,2] : 2b00;
-    reg_dq_o      = opmodulo[0,1]  ? data        : reg_dq_o;
-    reg_dq_en     = opmodulo[0,1]  ? do_rw       : reg_dq_en;
-    reg_sdram_a   = actmodulo[0,1] ? row         : {2b0, 1b1/*auto-precharge*/, col};
-
-    if (refresh_delay[0,1]) { // refresh
-
-      // __display("[cycle %d] refresh %b  %b",cycle,needs_refresh,refresh_delay);
-      // refresh
-      cmd             = refresh_trigger[0,1] ? CMD_REFRESH : CMD_NOP;
-
-    } else { // read/write pipeline sequence
-
-        // burst controls time before burst read starts
-        // opmodulo controls when Read or Write are sent
-        // actmodulo controls when Activate are sent
-        // Write sequence is
-        // AC0 ___ WR0 ___ AC1 ___ WR1 ___ AC2 __ WR2 __ ...
-        // Read sequence is
-        // AC0 ___ RD0 ___ ___ ___ ___ BR0 BR1 BR2 BR3 BR4 ....
-        //         <-------------------> ...   AC1 ___ RD1 ___ ....
-        //    depends on CAS + ff on IO path
-
-        switch ({opmodulo[0,1],actmodulo[0,1]}) {
-          case 2b01: {
-            // __display("[cycle %d] ACT stage %d, din %h",cycle,stage,dq_i);
-            cmd          = (stage[2,1] | ~working) ? CMD_NOP : CMD_ACTIVE;
-            actmodulo    = do_rw ? 8b00001000 : 8b10000000;
-            opmodulo     = {opmodulo[0,1],opmodulo[1,7]};
-          }
-          case 2b10: {
-            // if (do_rw) {
-            //   __display("[cycle %d] WR stage %d",cycle,stage);
-            // } else {
-            //   __display("[cycle %d] RD stage %d, din %h",cycle,stage,dq_i);
-            // }
-            cmd           = (stage[2,1] | ~working) ? CMD_NOP : (do_rw ? CMD_WRITE : CMD_READ);
-            opmodulo      = do_rw ? 8b00001000 : 8b10000000;
-            actmodulo     = {actmodulo[0,1],actmodulo[1,7]};
-            stage         = stage + 1;
-            data          = data  >> 16;
-            wmask         = wmask >> 2;
-          }
-          default: {
-            // __display("[cycle %d] ___ stage %d, din %h",cycle,stage,dq_i);
-            opmodulo  = {opmodulo [0,1],opmodulo [1,7]};
-            actmodulo = {actmodulo[0,1],actmodulo[1,7]};
-          }
-        }
-    }
-
-    // issue command
-    (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-
-    // burst data in
-    {
-
-      switch ({~working,read_cnt[0,3],read_cnt[3,2]}) {
-$$for i = 0,31 do
-        case $i$: {sd.data_out[$i*16$,16] = dq_i;}
-$$end
-        default: {}
-      }
-
-      if ((do_rw & stage[2,1]) | (read_cnt == 31)) {
-        sd.done   = working;
-        working   = 0;
-$$if SIMULATION then
-        // if (sd.done) {
-        //     __display("[cycle %d] done:%b rw:%b stage:%b data_out:%h",cycle,sd.done,do_rw,stage[0,2],sd.data_out);
-        // }
-$$end
-        // break;
-      }
-
-      read_cnt  = burst[0,1] ? (read_cnt + 1) : read_cnt;
-      burst     = burst >>> 1;
-
-    }
-
-  }
 }
 
 // -----------------------------------------------------------

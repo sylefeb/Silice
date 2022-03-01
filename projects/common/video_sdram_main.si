@@ -235,7 +235,7 @@ $$end
 
 // -------------------------
 
-algorithm main(
+unit main(
   output uint8 leds,
 $$if not ICARUS then
   // SDRAM
@@ -532,16 +532,16 @@ $$end
   );
 
 $$  if frame_drawer_at_sdram_speed then
-  uint1 frame_drawer_reset <:: sdram_reset || (~data_ready);
+  uint1 frame_drawer_reset <: sdram_reset || (~data_ready);
 $$  else
-  uint1 frame_drawer_reset <:: compute_reset || (~data_ready);
+  uint1 frame_drawer_reset <: compute_reset || (~data_ready);
 $$  end
 
 $$else
 $$  if frame_drawer_at_sdram_speed then
-  uint1 frame_drawer_reset <:: sdram_reset;
+  uint1 frame_drawer_reset <: sdram_reset;
 $$  else
-  uint1 frame_drawer_reset <:: compute_reset;
+  uint1 frame_drawer_reset <: compute_reset;
 $$  end
 $$end
 
@@ -562,35 +562,36 @@ $$end
 
   uint8 frame       = 0;
 
-  always {
+  always_before {
     if (sdi.in_valid) {
-__display("SDI INVALID %b @%h",sdi.in_valid,sdi.addr);
+      __display("SDI INVALID %b @%h",sdi.in_valid,sdi.addr);
     }
     if (sdi.done) {
-__display("SDI DONE %b",sdi.done);
+      __display("SDI DONE %b",sdi.done);
     }
   }
 
   // ---------- let's go (all modules autorun)
-
+  algorithm <autorun> {
 $$if HARDWARE then
-  while (1) { }
+    while (1) { }
 $$else
-  // we count a number of frames and stop
+    // we count a number of frames and stop
 $$if ICARUS then
-  while (frame < 2) {
+    while (frame < 2) {
 $$else
-$$if verbose then
-  while (frame < 4) {
-$$else
-  while (1) {
+  $$if verbose then
+    while (frame < 4) {
+  $$else
+    while (1) {
+  $$end
 $$end
+      while (video_vblank == 1) { }
+      while (video_vblank == 0) { }
+      frame = frame + 1;
+    }
 $$end
-    while (video_vblank == 1) { }
-	  while (video_vblank == 0) { }
-    frame = frame + 1;
   }
-$$end
 
 }
 

@@ -24,7 +24,7 @@ group transform
   int16 tx = 0,   int16 ty = 0,
 }
 
-algorithm edge_walk(
+unit edge_walk(
   input  uint10  y,
   input  uint10 x0,
   input  uint10 y0,
@@ -34,13 +34,13 @@ algorithm edge_walk(
   input  uint2  prepare,
   output uint10 xi,
   output uint1  intersects
-) <autorun> {
+) {
 $$if SIMULATION then
   uint16 cycle = 0;
   uint16 cycle_last = 0;
 $$end
 
-  uint1  in_edge  <:: ((y0 <= y && y1 >= y) || (y1 <= y && y0 >= y)) && (y0 != y1);
+  uint1  in_edge  <: ((y0 <= y && y1 >= y) || (y1 <= y && y0 >= y)) && (y0 != y1);
   int10  last_y     = uninitialized;
   int20  xi_full    = uninitialized;
 
@@ -72,7 +72,7 @@ $$end
 
 // -------------------------
 
-algorithm ram_writer_wildfire(
+unit ram_writer_wildfire(
   sdram_user     sd,
   input  uint1   fbuffer,
   input  uint1   start,
@@ -82,9 +82,9 @@ algorithm ram_writer_wildfire(
   input  uint10  x,
   input  uint10  y,
   output uint1   done
-) <autorun> {
+) {
 
-  uint19 addr <:: {x[3,7],3b000} + (y << 10);
+  uint19 addr <: {x[3,7],3b000} + (y << 10);
 
   always {
     sd.rw = 1;
@@ -102,7 +102,7 @@ algorithm ram_writer_wildfire(
 
 // -------------------------
 
-algorithm ram_writer_blaze(
+unit ram_writer_blaze(
   sdram_user     sd,
   input  uint1   fbuffer,
   input  uint1   start,
@@ -112,7 +112,7 @@ algorithm ram_writer_blaze(
   input  uint10  x,
   input  uint10  y,
   output uint1   done
-) <autorun> {
+) {
 
   //  320 x 200, 4bpp    x>>2 + y*80
   uint14 addr <:: x[3,7] + (y << 5) + (y << 3) + (~fbuffer ? 0 : 8000);
@@ -133,7 +133,7 @@ algorithm ram_writer_blaze(
 
 // -------------------------
 
-algorithm flame_rasterizer(
+unit flame_rasterizer(
   sdram_user    sd,
   input  uint1  fbuffer,
   input  vertex v0, // uses 10 bits precision
@@ -147,7 +147,7 @@ algorithm flame_rasterizer(
   input  uint8  color,
   input  uint1  triangle_in,
   output uint1  drawing=0,
-) <autorun> {
+) {
 
 $$if SIMULATION then
    uint24 cycle = 0;
@@ -315,7 +315,7 @@ $$end
 
 // -------------------------
 
-algorithm flame_transform(
+unit flame_transform(
   input  transform t,
   input  vertex    v, // uses 10.6 bits precision
   output vertex    tv // uses 10.6 bits precision
