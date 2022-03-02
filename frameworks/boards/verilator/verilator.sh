@@ -117,7 +117,7 @@ fi
 
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe $VERILATOR_LIB_SRC -CFLAGS "-include" -CFLAGS "../verilator_data.h" -CFLAGS "-I$SILICE_DIR/../frameworks/verilator/" -CFLAGS "-I../"  -CFLAGS "-I../LibSL/" -CFLAGS "-DNO_SHLWAPI" $LDFLAGS
+verilator -Wno-fatal -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe $VERILATOR_LIB_SRC -CFLAGS "-include" -CFLAGS "../verilator_data.h" -CFLAGS "-I$SILICE_DIR/../frameworks/verilator/" -CFLAGS "-I../"  -CFLAGS "-I../LibSL/" -CFLAGS "-DNO_SHLWAPI" $LDFLAGS
 cd obj_dir
 
 $MAKE -f Vtop.mk -j$(nproc)

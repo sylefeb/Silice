@@ -357,7 +357,7 @@ by braces. Example:
   int6  i = 6b111000;
   int2  j = 2b10;
   int10 k = 0;
-  k := {j,i,2b11};
+  k = {j,i,2b11};
 ```
 
 Here c is obtained by concatenating a,b and the constant 2b11 to form a
@@ -368,7 +368,7 @@ Bits can also be replicated with a syntax similar to Verilog:
 ``` c
   uint2  a = 2b10;
   uint9  c = 0;
-  c := { 1b0, {8{a[1,1]}} };
+  c = { 1b0, {8{a[1,1]}} };
 ```
 
 Here the last eight bits of variable c are set to the second bit of a.
@@ -384,7 +384,7 @@ modules:
 
 The bound sides have to be VIO identifiers. To bind expressions you can
 use expression tracking (see
-Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:exprtrack">3.6.6</a>).
+Section <a href="#bound-expressions" data-reference-type="ref" data-reference="bound-expressions">Bound expressions</a>).
 
 Bound VIOs are connected and immediately track each others values. A
 good way to think of this is as a physical wire between IC pins, where
@@ -420,7 +420,7 @@ hence *binding the variable* and the expression. This is done during the
 variable declaration, using either the *&lt;:* or *&lt;::* binding
 operators. Example:
 
-``` c
+```c
 algorithm adder(
   output uint9 o,
   // ...
@@ -440,15 +440,36 @@ changes to the expression *a+b*. Note that the variable *a\_plus\_b*
 becomes read only (in Verilog terms, this is now a wire). We call *o* an
 expression tracker.
 
-The second operator, *&lt;::* tracks the expression using the values of
-the variables *as they where at the previous clock rising edge*. If used
+The second operator, `<::` tracks the expression with a one cycle latency. Thus, its value is the value of the expression at the previous cycle. If used
 in this example, o would be assigned 1+2.
 
-Bound expression can refer to other bound expressions, however *&lt;:*
-and *&lt;::* cannot be mixed. (They could be in technical terms, but
-this was found to quickly lead to confusion).
+> The `<::` operator is *very important*: it allows to relax timing constraints (reach higher frequency), by accepting a one cycle latency. As a general rule, using delayed operator (indicated by `::`) is recommended whenever possible.
 
+Bound expressions can refer to other bound expressions. Note that when mixing  `<:` and `<::` the second operator (`<::`) will not change the behavior of the first tracker. Silice will issue a warning in that situation, which can be silenced by adding a `:` in front of the first tracker, example:
 
+```c
+  uint9 a_plus_b        <:  a + b;
+  uint9 c_plus_a_plus_b <:: c + a_plus_b;
+```
+
+The warning says:
+```
+[deprecated] (E:/cygwin64/home/sylefeb/Silice/tests/doc1.si, line    8)
+             Tracker 'a_plus_b' was defined with <: and is used in tracker 'c_plus_a_plus_b' defined with <::
+             This has no effect on 'a_plus_b'.
+             Double check meaning and use ':a_plus_b' instead of just 'a_plus_b' to confirm.
+```
+
+> It is *deprecation* warning since Silice previously accepted this syntax silently.
+
+To fix this warning we indicate explicitly that we understand the behavior, adding `:` in front of `a_plus_b`:
+
+```c
+  uint9 a_plus_b        <:  a + b;
+  uint9 c_plus_a_plus_b <:: c + :a_plus_b;
+```
+
+To be clear, what happens now is that the value of `c_plus_a_plus_b` is using the immediate value of `a_plus_b` and the delayed value of `c` (from previous cycle).
 
 # Units and algorithms
 
