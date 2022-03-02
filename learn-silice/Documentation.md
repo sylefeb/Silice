@@ -401,15 +401,14 @@ The bidirectional binding is reserved for two use cases:
 
 There are two other versions of the binding operators:
 
--   `<::` binds right to left, using value *at latest clock rising edge*,
+-   `<::` binds right to left, introducing a one cycle latency in the input value change,
 
--   `<::>` binds an IO group, using value *at latest clock rising edge for    inputs*.
+-   `<::>` binds an IO group, introducing a one cycle latency in the inputs value change.
 
-Normally, the bound inputs are tracking the value of the bound VIO as changed during the current clock cycle. Therefore, the
-tracking unit/module immediately gets new values (in other words,
-there is a direct connection).
-This, however, produces deeper circuits and can reduce the max frequency of a design. These operators allow to bind the value as it was at the cycle start (positive clock edge).
-This introduces a one cycle latency before the unit/module sees the change, but makes the resulting circuit less deep. See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
+> The `<::` operators are *very important*: they allow to relax timing constraints (reach higher frequencies), by accepting a one cycle latency. As a general rule, using delayed operators (indicated by `::`) is recommended whenever possible.
+
+Normally, the bound inputs are tracking the value of the bound VIO as it is changed during the current clock cycle. Therefore, the tracking unit/module immediately gets new values (in other words, there is a direct connection).
+This, however, produces deeper circuits and can reduce the max frequency of a design. The delayed operators (indicated by `::`) allow to bind the value with a one cycle latency, placing a register (flip-flop) in between. This makes the resulting circuit less deep. See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
 
 > **Note:** when a VIO is bound both to an instanced unit input and an instanced unit output (making a direct connection between two instantiated units), then using `<::` or `<:` will result in the same behavior, which is controlled by the use of `output` or `output!` on the algorithm driving the output. Silice will issue a warning if using `<::` in that case.
 
@@ -443,7 +442,7 @@ expression tracker.
 The second operator, `<::` tracks the expression with a one cycle latency. Thus, its value is the value of the expression at the previous cycle. If used
 in this example, o would be assigned 1+2.
 
-> The `<::` operator is *very important*: it allows to relax timing constraints (reach higher frequency), by accepting a one cycle latency. As a general rule, using delayed operator (indicated by `::`) is recommended whenever possible.
+> The `<::` operator is *very important*: it allows to relax timing constraints (reach higher frequencies), by accepting a one cycle latency. As a general rule, using delayed operators (indicated by `::`) is recommended whenever possible.
 
 Bound expressions can refer to other bound expressions. Note that when mixing  `<:` and `<::` the second operator (`<::`) will not change the behavior of the first tracker. Silice will issue a warning in that situation, which can be silenced by adding a `:` in front of the first tracker, example:
 
@@ -460,7 +459,7 @@ The warning says:
              Double check meaning and use ':a_plus_b' instead of just 'a_plus_b' to confirm.
 ```
 
-> It is *deprecation* warning since Silice previously accepted this syntax silently.
+> It is a *deprecation* warning since Silice previously accepted this syntax silently.
 
 To fix this warning we indicate explicitly that we understand the behavior, adding `:` in front of `a_plus_b`:
 
@@ -469,7 +468,7 @@ To fix this warning we indicate explicitly that we understand the behavior, addi
   uint9 c_plus_a_plus_b <:: c + :a_plus_b;
 ```
 
-To be clear, what happens now is that the value of `c_plus_a_plus_b` is using the immediate value of `a_plus_b` and the delayed value of `c` (from previous cycle).
+What happens now is that the value of `c_plus_a_plus_b` is using the immediate value of `a_plus_b` and the delayed value of `c` (from previous cycle).
 
 # Units and algorithms
 
