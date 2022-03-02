@@ -66,7 +66,7 @@ GitHub repository: <https://github.com/sylefeb/Silice/>
 This first example assumes two signals: a `button` input (high when
 pressed) and a `led` output, each one bit.
 
-The *main* algorithm – the one expected as top level – simply asks the
+The *main* unit – the one expected as top level – simply asks the
 led to turn on when the button is pressed. We will consider several
 versions – all working – to demonstrate basic features of Silice.
 
@@ -111,7 +111,7 @@ was minimal), but it shows the principle: `led` is always assigned
 useful to maintain an output to a value that must change only on some
 specific event (e.g. producing a pulse).
 
-This first example has an interesting subtlety. The `button` input, if it comes directly from an onboard button, is likely *asynchronous*. This means it can change at anytime, even during a clock cycle. That could lead to trouble with the logic that depends on it. To be safe, a better approach is to *register* the input button, this can be achieved as follows:
+This first example has an interesting subtlety. The `button` input, when it comes directly from an onboard button, is *asynchronous*. This means it can change at anytime, even during a clock cycle. That could lead to trouble with the logic that depends on it. To be safe, a better approach is to *register* the input button, this can be achieved as follows:
 
 ``` c
 algorithm main(input uint1 button,output uint1 led) {
@@ -121,19 +121,68 @@ algorithm main(input uint1 button,output uint1 led) {
 
 Using the `::=` syntax introduces a one cycle latency and inserts a flip-flop between the asynchronous input and whatever comes after. This won't change our results in this toy example but is generally important.
 
+Finally, in all examples above we declared the unit as an algorithm. This is in fact a shortcut for the full syntax:
+
+``` c
+unit main(input uint1 button,output uint1 led) {
+  algorithm {
+    while (1) {
+      led = button;
+    }
+  }
+}
+```
+
+Units can contain other types of blocks in addition to an algorithm: *always* blocks. For instance, we could rewrite our example *without* an algorithm:
+
+``` c
+unit main(input uint1 button,output uint1 led) {
+  always {
+    led = button;
+  }
+}
+```
+This describes a stateless circuit, that always assigns `button` to `led`.
+
+We can also combine algorithms and always blocks:
+
+``` c
+unit main(input uint1 button,output uint1 leds) {
+
+  uint1 reg_button = 0;
+
+  always_before {
+    led = 0;
+  }
+
+  algorithm {
+    while (1) { if (reg_button) { led = 1; } }
+  }
+
+  always_after {
+    reg_button = button;
+  }
+
+}
+```
+
+This last version demonstrates all blocks: the `always_before` block is always assigning `0` to `led`, every cycle *before*  the current algorithm step ; the `algorithm` block runs an infinite loop assigning `1` to `led` if `reg_button` is set ; the `always_after` block tracks the asynchronous `button` input into a variable, with a one cycle latency since it is the last thing done every cycle *after* the current algorithm step.
+
 # Terminology
 
 Some terminology we use next:
 
--   **VIO**: a Variable, Input or Output.
+-   **unit**: The basic building block of a Silice design.
+-   **algorithm**: The part of a unit that describes an algorithm.
 -   **One-cycle block**: A block of operations that require a single
     cycle (no loops, breaks, etc.).
--   **Host hardware framework**: The Verilog glue to the hardware meant
-    to run the design. This can also be a glue to Icarus[1] or
-    Verilator[2], both frameworks are provided.
 -   **Combinational loop**: A circuit where a cyclic
     dependency exists. These lead to unstable hardware synthesis and
     have to be avoided.
+-   **VIO**: A Variable, Input or Output.
+-   **Host hardware framework**: The Verilog glue to the hardware meant
+    to run the design. This can also be a glue to Icarus[1] or
+    Verilator[2], both frameworks are provided.
 
 # Basic language constructs
 
@@ -163,7 +212,7 @@ for decimal. If the value does not fit the bit width, it is clamped.
 
 Variables are declared with the following pattern:
 
--   `TYPE ID = VALUE;` initializes the variable with value on algorithm
+-   `TYPE ID = VALUE;` initializes the variable with value on unit
     start / reset.
 
 -   `TYPE ID(VALUE);` initializes the variable with value on *power-up*
@@ -324,7 +373,7 @@ Here the last eight bits of variable c are set to the second bit of a.
 
 ### Bindings
 
-Silice defines operators for bindings the input/output of algorithms and
+Silice defines operators for bindings the input/output of units and
 modules:
 
 -   `<:` binds right to left,
@@ -337,7 +386,7 @@ Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:
 
 Bound VIOs are connected and immediately track each others values. A
 good way to think of this is as a physical wire between IC pins, where
-each VIO is a pin. Bindings are specified when instantiating algorithms
+each VIO is a pin. Bindings are specified when instantiating units
 and modules.
 
 The bidirectional binding is reserved for two use cases:
@@ -355,12 +404,12 @@ There are two other versions of the binding operators:
 -   `<::>` binds an IO group, using value *at latest clock rising edge for    inputs*.
 
 Normally, the bound inputs are tracking the value of the bound VIO as changed during the current clock cycle. Therefore, the
-tracking algorithm/module immediately gets new values (in other words,
+tracking unit/module immediately gets new values (in other words,
 there is a direct connection).
 This, however, produces deeper circuits and can reduce the max frequency of a design. These operators allow to bind the value as it was at the cycle start (positive clock edge).
-This introduces a one cycle latency before the algorithm/module sees the change, but makes the resulting circuit less deep. See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
+This introduces a one cycle latency before the unit/module sees the change, but makes the resulting circuit less deep. See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
 
-> **Note:** when a VIO is bound both to an algorithm input and and algorithm output (making a direct connection between two instantiated algorithms), then using `<::` or `<:` will result in the same behavior, which is controlled by the use of `output` or `output!` on the algorithm driving the output. This will be clarified in the future, see [issue #49](https://github.com/sylefeb/Silice/issues/49).
+> **Note:** when a VIO is bound both to an instanced unit input and an instanced unit output (making a direct connection between two instantiated units), then using `<::` or `<:` will result in the same behavior, which is controlled by the use of `output` or `output!` on the algorithm driving the output. Silice will issue a warning if using `<::` in that case.
 
 
 ### Always assign
@@ -674,31 +723,41 @@ Silice has convenient intrinsics:
 -   `__write(format_string,value0,value1,...)` maps to Verilog
     `$write` allowing text output during simulation without a new line being started.
 
-# Algorithms
+# Units and algorithms
 
-Algorithms are the main elements of a Silice design. An algorithm is a
-specification of a circuit implementation. Thus, like modules in
-Verilog, algorithms have to be instanced before being used. Each
-instance becomes an actual physical layout on the final design. An
-algorithm can instance other algorithms and Verilog modules.
+Units and algorithms are the main elements of a Silice design.
+A unit is not an actual piece of hardware but rather a specification,
+a *blueprint* of a circuit implementation.
+Thus, units have to be *instanced* before being used. Each instance
+will be allocated physical resources on the hardware implementation,
+using logical cells in an FPGA grid or transistors in an ASIC. Instances
+are physically connected to other instances and IO pins around them.
 
-Instanced algorithms *always run in parallel*. However they can be
-called synchronously (implying a wait state in the caller). They may run
-forever and start automatically. Each may be driven from a specific
+A unit may be instanced several times, for example creating several CPUs within a same design. A unit can instance other units: [a small computer unit](../projects/ice-v/SOCs/ice-v-soc.si) would instance a memory, a CPU, a video signal generator and describe how they are connected together. When a unit is instanced, all its sub-units are also instanced.
+
+Instanced units *always run in parallel*: they are pieces of hardware that are always powered on and active. Each unit be driven from a specific
 clock and reset signal.
 
-#### main (entry point).
+A unit can contain different types of hardware descriptions: *always* blocks and an *algorithm*. All are optional.
 
-The top level algorithm is called *main* and has to be defined. It is
-automatically instanced by the *host hardware framework*, see
+### Algorithms overview
+
+
+
+### Always blocks overview
+
+
+### main (design 'entry point').
+
+The top level unit is called *main*, and has to be defined in a standalone design. It is automatically instanced by the *host hardware framework*, see
 Section <a href="#sec:host" data-reference-type="ref" data-reference="sec:host">8</a>.
 
-## Declaration
+## Unit declaration
 
-An algorithm is declared as follows:
+A unit is declared as follows:
 
 ``` verilog
-algorithm ID (
+unit ID (
 input TYPE ID
 ...
 output TYPE ID
@@ -707,9 +766,15 @@ output! TYPE ID
 ...
 ) <MODS> {
   DECLARATIONS
-  SUBROUTINES
   ALWAYS_ASSIGNMENTS
-  ALWAYS_BLOCK
+  (ALWAYS_BEFORE_BLOCK ALGORITHM ALWAYS_AFTER_BLOCK) | (ALWAYS_BLOCK)
+}
+```
+
+The algorithm block is declared as:
+``` verilog
+algorithm <MODS> {
+  SUBROUTINES
   INSTRUCTIONS
 }
 ```
