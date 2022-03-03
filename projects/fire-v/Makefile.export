@@ -1,0 +1,28 @@
+
+sdram_controller.v: fire-v/fire-v.si
+		silice fire-v/fire-v.si --output fire-v-export.v \
+			--export rv32i_cpu \
+			--frameworks_dir ../../frameworks/ \
+			--framework ../../frameworks/boards/bare/bare.v \
+      -P RAM_IN_VALID_SIGNED=0 \
+      -P RAM_IN_VALID_WIDTH=1 \
+      -P RAM_IN_VALID_INIT=0 \
+      -P RAM_DATA_OUT_SIGNED=1 \
+      -P RAM_DATA_OUT_WIDTH=32 \
+      -P RAM_DATA_IN_SIGNED=1 \
+      -P RAM_DATA_IN_WIDTH=32 \
+      -P RAM_DATA_IN_INIT=0 \
+      -P RAM_DONE_SIGNED=0 \
+      -P RAM_DONE_WIDTH=1 \
+      -P RAM_RW_SIGNED=0 \
+      -P RAM_RW_WIDTH=1 \
+      -P RAM_RW_INIT=0 \
+      -P RAM_WMASK_SIGNED=0 \
+      -P RAM_WMASK_WIDTH=4 \
+      -P RAM_WMASK_INIT=0 \
+      -P RAM_ADDR_SIGNED=0 \
+      -P RAM_ADDR_WIDTH=26 \
+      -P RAM_ADDR_INIT=0
+
+		# clean up compiler log files
+		rm fire-v-export.v.*
