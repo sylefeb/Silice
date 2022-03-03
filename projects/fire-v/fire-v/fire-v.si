@@ -19,15 +19,18 @@ $$div_signed = 1
 $include('../../common/divint_std.si')
 $$end
 
+$$if not addrW then addrW=26 end
+$$print('FireV: Using ' .. addrW .. ' bits address bus')
+
 // --------------------------------------------------
 // The Risc-V RV32I CPU
 
 unit rv32i_cpu(
-  input uint26   boot_at,
-  input uint32   user_data,
-  rv32i_ram_user ram,
-  output uint26  predicted_addr,    // next predicted address
-  output uint1   predicted_correct, // was the prediction correct?
+  input uint$addrW$   boot_at,
+  input uint32        user_data,
+  rv32i_ram_user      ram,
+  output uint$addrW$  predicted_addr,    // next predicted address
+  output uint1        predicted_correct, // was the prediction correct?
 ) {
 
   // does not have to be simple_dualport_bram, but results in a smaller design
@@ -51,13 +54,13 @@ $$if FIREV_MULDIV then
 $$end
   uint1  dry_resume(0);
 
-  uint32 instr(0);
-  uint26 pc(0);
-  uint32 next_instr(0);
-  uint26 next_pc(0);
+  uint32      instr(0);
+  uint$addrW$ pc(0);
+  uint32      next_instr(0);
+  uint$addrW$ next_pc(0);
 
-  uint26 next_pc_p4 <:: next_pc + 4;
-  uint26 next_pc_p8 <:: next_pc + 8;
+  uint$addrW$ next_pc_p4 <:: next_pc + 4;
+  uint$addrW$ next_pc_p8 <:: next_pc + 8;
 
   uint1 pcOrReg     = uninitialized;
   uint1 regOrImm    = uninitialized;
@@ -67,9 +70,10 @@ $$end
   uint3 loadStoreOp = uninitialized;
   uint1 rd_enable   = uninitialized;
 
-  uint1 saved_store       = uninitialized;
-  uint3 saved_loadStoreOp = uninitialized;
-  uint1 saved_rd_enable   = uninitialized;
+  uint1 saved_store          = uninitialized;
+  uint3 saved_loadStoreOp    = uninitialized;
+  uint2 saved_loadStoreAlign = uninitialized;
+  uint1 saved_rd_enable      = uninitialized;
 
   uint32 refetch_addr = uninitialized;
   uint1  refetch_rw(0);
@@ -149,7 +153,7 @@ $$if not FIREV_NO_INSTRET then
   uint32 instret(0);
 $$end
 
-$$if SIMULATION then
+$$if verbose then
   uint32 cycle_last_retired(0);
 $$end
 
@@ -216,9 +220,11 @@ $$end
         ram.addr          = start ? boot_at : refetch_addr;
         // cold start?
         next_pc           = start ? boot_at : next_pc;
+$$if verbose then
         if (start & ~reset) {
           __display("CPU RESET %d (@%h) start:%b",state,next_pc,start);
         }
+$$end
         start             = reset;
         ram.rw            = refetch_rw;
         ram.in_valid      = ~reset;
@@ -234,14 +240,17 @@ $$end
         do_load_store   = 0;
         // data with memory access
         if (~saved_store) {
+          uint5 offset  <:: {saved_loadStoreAlign,3b000};
+          uint5 signB   <:: offset | 5b00111;
+          uint5 signH   <:: offset | 5b01111;
           // finalize load
           uint32 tmp = uninitialized;
           switch ( saved_loadStoreOp[0,2] ) {
             case 2b00: { // LB / LBU
-              tmp = { {24{(~saved_loadStoreOp[2,1])&ram.data_out[ 7,1]}},ram.data_out[ 0,8]};
+              tmp = { {24{(~saved_loadStoreOp[2,1])&ram.data_out[signB,1]}},ram.data_out[offset,8]};
             }
             case 2b01: { // LH / LHU
-              tmp = { {16{(~saved_loadStoreOp[2,1])&ram.data_out[15,1]}},ram.data_out[ 0,16]};
+              tmp = { {16{(~saved_loadStoreOp[2,1])&ram.data_out[signH,1]}},ram.data_out[offset,16]};
             }
             case 2b10: { // LW
               tmp = ram.data_out;
@@ -325,10 +334,11 @@ $$if SIMULATION then
 $$end
         // commit previous instruction
         // load store next?
-        do_load_store     = instr_ready & load_store;
-        saved_store       = store;
-        saved_loadStoreOp = loadStoreOp;
-        saved_rd_enable   = rd_enable;
+        do_load_store        = instr_ready & load_store;
+        saved_store          = store;
+        saved_loadStoreOp    = loadStoreOp;
+        saved_loadStoreAlign = alu_out[0,2];
+        saved_rd_enable      = rd_enable;
         // need to refetch from RAM next?
         refetch           = instr_ready & (branch_or_jump | load_store); // ask to fetch from the new address (cannot do it now, memory is busy with prefetch)
         refetch_addr      = alu_out;
@@ -347,7 +357,7 @@ if (dry_resume) {
 }
 $$end
         // attempt to predict read ...
-        predicted_addr    = refetch ? alu_out[0,26] : next_pc_p8;
+        predicted_addr    = refetch ? alu_out[0,$addrW$] : next_pc_p8;
         predicted_correct = 1;
 
         // wait for next instr?
@@ -427,7 +437,7 @@ $$end
 
 unit decode(
   input  uint32  instr,
-  input  uint26  pc,
+  input  uint$addrW$  pc,
   input  int32   regA,
   input  int32   regB,
   output uint5   write_rd,
@@ -506,7 +516,7 @@ $$end
   pcOrReg      := (AUIPC | JAL | Branch);
 
 $$if FIREV_MUX_A_DECODER then
-  aluA         := (LUI) ? 0 : ((AUIPC | JAL | Branch) ? __signed({6b0,pc[0,26]}) : regA);
+  aluA         := (LUI) ? 0 : ((AUIPC | JAL | Branch) ? __signed({1b0,pc[0,$addrW$]}) : regA);
 $$else
   aluA         := (LUI) ? 0 : regA;
 $$end
@@ -559,7 +569,7 @@ $$end
 // Performs integer computations
 
 unit intops(
-  input   uint26 pc,
+  input   uint$addrW$ pc,
   input   int32  xa,
   input   int32  xb,
   input   int32  imm,
@@ -598,7 +608,7 @@ $$end
 $$if FIREV_MUX_A_DECODER then
   int32 a <: xa;
 $$else
-  int32 a <: pcOrReg  ? __signed({6b0,pc[0,26]}) : xa;
+  int32 a <: pcOrReg  ? __signed({1b0,pc[0,$addrW$]}) : xa;
 $$end
 
 $$if FIREV_MUX_B_DECODER then
