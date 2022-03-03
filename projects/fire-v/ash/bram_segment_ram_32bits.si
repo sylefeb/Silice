@@ -51,8 +51,8 @@ $$if verbose then
 $$end
     // access cache
     pram.data_out       = uram.done
-                        ? (uram.data_out >> {pram.addr[0,2],3b000})
-                        : (mem.rdata0    >> {pram.addr[0,2],3b000});
+                        ? (uram.data_out)
+                        : (mem.rdata0   );
     pram.done           = (predicted_correct & pram.in_valid & in_cache) | wait_one | (pram.rw & in_cache) | uram.done;
     //if (pram.done) {
     //  __display("#### done cycle %d pred:%b wait:%b uram:%b",cycle,predicted_correct & pram.in_valid & in_cache,wait_one,uram.done);

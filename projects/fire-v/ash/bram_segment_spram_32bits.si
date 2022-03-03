@@ -166,15 +166,15 @@ $$end
 
     // result
     pram.data_out       = in_bram
-                        ? (mem.rdata0                  >> {pram.addr[0,2],3b000})
+                        ? (mem.rdata0)
 $$if SPRAM_128K then
                         : (in_spram_2
-                           ? ({sp3_data_out,sp2_data_out} >> {pram.addr[0,2],3b000})
-                           : ({sp1_data_out,sp0_data_out} >> {pram.addr[0,2],3b000})
+                           ? ({sp3_data_out,sp2_data_out})
+                           : ({sp1_data_out,sp0_data_out})
                           )
                         ;
 $$else
-                        : ({sp1_data_out,sp0_data_out} >> {pram.addr[0,2],3b000});
+                        : ({sp1_data_out,sp0_data_out});
 $$end
     pram.done           = (/*in_bram &*/ predicted_correct & pram.in_valid) | (pram.rw & pram.in_valid) | wait_one;
 

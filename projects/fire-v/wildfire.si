@@ -178,7 +178,7 @@ $$end
         case 4b0010: {
           switch (mem.addr[2,2]) {
             case 2b00: {
-              __display("LEDs = %h",mem.data_in[0,8]);
+              __display("LEDs = %h,%c",mem.data_in[0,8],mem.data_in[0,8]);
               leds = mem.data_in[0,8];
             }
             case 2b01: {
