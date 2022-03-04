@@ -1,5 +1,7 @@
 {
 	"name": "silice",
+	"foldingStartMarker": "\\{\\s*$",
+	"foldingStopMarker": "^\\s*\\}",
 	"patterns": [
 		{
 			"include": "#elements"
@@ -10,35 +12,33 @@
 			"patterns": [
 				{
 					"name": "keyword",
-					"match": "algorithm|output|input|if|else|while|autorun|auto|onehot|\\+\\+:|brom|bram|dualport_bram|case|circuitry|switch|default|break|always|always_before|always_after|unit|__display|__write|__signed|__unsigned|bitfield|interface"
+					"match": "(?<![a-zA-Z_1-9])(algorithm|output|input|inout|autorun|auto|onehot|\\+\\+:|brom|bram|dualport_bram|circuitry|__display|__finish|__write|__signed|__unsigned|bitfield|interface)(?![a-zA-Z_1-9])|\\$include"
 				}, 
 				{
-					"name": "keyword",
-					"match": "(@[a-zA-Z_][a-zA-Z0-9_]+)|(![a-zA-Z_][a-zA-Z0-9_]+)"
-				},        
+					"name": "keyword.control.untitled",
+					"match": "(?<![a-zA-Z_1-9])(if|else|while|\\+\\+:|case|switch|default|break|always_before|always_after|always)(?![a-zA-Z_1-9])"
+				}, 
 				{
-					"name": "markup.underline",
-					"match": "uint[0-9]+|int[0-9]+|uint|int"
-				},        
-				{
-					"match": "(\\W+)([[:digit:]]+[h|b|d][[:digit:]]+)",
-          "captures": {
-            "2": {
-							"name": "constant.numeric"
-						}
-          }
+					"name": "keyword.operators",
+					"match": "==|!=|!|&|\\||\\+|\\-"
 				},
 				{
-					"match": "(\\W+)([[:digit:]]+)",
-          "captures": {
-            "2": {
-							"name": "constant.numeric"
-						}
-          }
+					"name": "storage.type",
+					"match": "(?<![a-zA-Z_1-9])(uint[0-9]+|int[0-9]+|uint|int|brom|bram|dualport_bram)(?![a-zA-Z_1-9])"
 				},
 				{
-					"name": "string",
-					"match": "\".*\""
+					"name": "constant.numeric",
+					"match": "(?<![a-zA-Z_1-9])(([0-9]+[b|h|d][0-9]+)|(?<=\\$)[b|h|d][0-9]+|[0-9]+[b|h|d](?=\\$)|(?<=\\$)[b|h|d](?=\\$))(?![a-zA-Z_1-9])"
+				},
+				{
+					"name": "string.quoted.double",
+					"begin": "\"",
+					"end": "\""
+				},
+				{
+					"name": "string.quoted.simple",
+					"begin": "'",
+					"end": "'"
 				},
 				{
 					"name": "meta.preprocessor.string",
@@ -46,23 +46,29 @@
 				},
 				{
 					"name": "meta.preprocessor.numeric",
-					"match": "\\$.*?\\$"
+					"begin": "(?<!\\$)\\$(?!include\\()",
+					"end": "\\$"
 				},
  				{
 					"name": "markup.bold",
-					"match": "(<\\-)|(<:>)|(<:)|(:>)|(<::>)|(<::)|(::>)"
+					"match": "(<\\-)|(<:>)|(<::>)|(<::)|(::>)|(<:)|(:>)|::=|:=|="
 				},
  				{
 					"name": "markup.inline.raw",
 					"match": "uninitialized"
 				},
 				{
-					"name": "comment",
-					"match": "/\\*.*\\*/"
+					"name": "comment.block",
+					"begin": "\\/\\*",
+					"end": "\\*\\/"
 				},
 				{
-					"name": "comment",
+					"name": "comment.line",
 					"match": "//.*"
+				},
+				{
+					"name": "constant.numeric",
+					"match": "(?<![a-zA-Z_1-9])[[:digit:]]+(?![a-zA-Z_1-9])"
 				}
 			]
 		}
