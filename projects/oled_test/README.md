@@ -1,6 +1,6 @@
 # OLED/LCD controller library test
 
-[OLED/LCD controller library](../common/oled.ice).
+[OLED/LCD controller library](../common/oled.si).
 
 Tested on:
 - the ULX3S

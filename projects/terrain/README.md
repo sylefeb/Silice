@@ -1,6 +1,6 @@
 # Tiny terrain renderer on ice40 UP5K
 
-This project is a recreation in FPGA hardware of the classic Novalogic Voxel Space terrain renderer featured in games such as [Comanche](https://en.wikipedia.org/wiki/Comanche_(video_game_series)). 
+This project is a recreation in FPGA hardware of the classic Novalogic Voxel Space terrain renderer featured in games such as [Comanche](https://en.wikipedia.org/wiki/Comanche_(video_game_series)).
 
 It was developed and tested on an [IceBreaker board](https://1bitsquared.com/collections/fpga/products/icebreaker) with a Digilent VGA PMOD.
 
@@ -27,8 +27,8 @@ In addition to Silice, a RISC-V compilation environment is needed, see [Getting 
 
 ### **Design files**
 
-- [`main.ice`](main.ice) is the main framework.
-- [`terrain_renderer.ice`](terrain_renderer.ice) is the hardware renderer.
+- [`main.si`](main.si) is the main framework.
+- [`terrain_renderer.si`](terrain_renderer.si) is the hardware renderer.
 - [`firmware.c`](firmware.c) is the RISC-V firmware code.
 
 Each file is commented, but I recommend reading through this first.
@@ -42,7 +42,7 @@ renderer. The [github repo by s-macke](https://github.com/s-macke/VoxelSpace) gi
 
 ### **First, some memory considerations**
 
-A first challenge in fitting this on an UP5K is the limited memory. A terrain renderer typically uses a large amount of memory to store the terrain data: elevation and color map. 
+A first challenge in fitting this on an UP5K is the limited memory. A terrain renderer typically uses a large amount of memory to store the terrain data: elevation and color map.
 
 Our UP5K FPGA features two types of specialized memories: BRAM ([Block RAM](https://www.nandland.com/articles/block-ram-in-fpga.html)) and SPRAM (Single Port RAM). These are very fast, returning a value in a single clock cycle, but they are also in limited supply: we have 128 kilobytes in four SPRAMs (each 32 kilobytes), plus 120 kilobits (*bits* not *bytes*) of dual-port BRAM. That's not much. In contrast, a single map of the original Comanche game is 2 *Mega*bytes (color + height), and a 320x200 framebuffer is already 64 kilobytes (320 x 200 x 8 bits for a 256 colors palette).
 
@@ -63,7 +63,7 @@ This also fits nicely in four SPRAMs:
 - SPRAM C, 32KB, interleaved height + color data (16bits per pixel)
 - SPRAM D, 32KB, free!
 
-In Silice, creating the SPRAMs first requires to include a Verilog module instantiating the vendor-specific primitive (we are looking at [main.ice](main.ice)):
+In Silice, creating the SPRAMs first requires to include a Verilog module instantiating the vendor-specific primitive (we are looking at [main.si](main.si)):
 ```c
 import('../common/ice40_spram.v')
 ```
@@ -134,7 +134,7 @@ This last one has some of its inputs using bound expressions (with the `<::` syn
 
 ### **Algorithm overview**
 
-The design for the renderer is in [`terrain_renderer.ice`](terrain_renderer.ice).
+The design for the renderer is in [`terrain_renderer.si`](terrain_renderer.si).
 
 This demo implements the simplest form of the algorithm, which renderers a viewpoint
 aligned with the y-axis. This means we are looking along y, and that the screen x-axis is aligned with x-spans of the terrain data.
@@ -150,11 +150,11 @@ The view is renderer front to back in a sequence of *z-steps*. Each z-step trave
 The z-steps are produced in the loops:
 ```c
 while (iz != $z_num_step$) {
-  ... 
+  ...
   // go through screen columns
   x = 0;
   while (x != 320) {
-    ... 
+    ...
   }
 }
 ```
@@ -169,7 +169,7 @@ The animation below reveals the z-steps, drawn one after the other from front to
 The vertical spans are written in the loop:
 ```c
 // fill column
-while (y_last.rdata != 0 && y > y_screen) { 
+while (y_last.rdata != 0 && y > y_screen) {
   ...
 }
 ```
@@ -188,7 +188,7 @@ Colors are recorded along the z-step for dithering. More on this below, but firs
 
 The design generates a 640x480 VGA signal, fed into the VGA PMOD which implements a 6 bits Digital to Analog Converter (DAC). While the DAC is 6 bits, we have an 8 bits RGB palette internally, so if you have a better DAC, you can get the full color depth.
 
-The VGA signal is created using the VGA controller provided with Silice: [`../common/vga.ice`](../common/vga.ice).
+The VGA signal is created using the VGA controller provided with Silice: [`../common/vga.si`](../common/vga.si).
 
 As the VGA signal is produced, the VGA module gives us screen coordinates and expects a RGB color in return. We will store our framebuffer in SPRAMs, and thus have to access the memory as the VGA signal is produced (e.g. we'll be *racing the beam*).
 
@@ -198,24 +198,24 @@ As discussed earlier, we will use a single 320x200 8 bits framebuffer stored acr
 
 The ice40 SPRAMs are 16 bits wide. This means that we read 16 bits at once at a given address. As we read two SPRAMs simultaneously we get 32 bits, or four 8 bits pixels. This is great, because it means that we will not have to read often from the framebuffer as the VGA signal is produced. It gets even better: our VGA signal has a 640 pixels horizontal resolution, while we want to output only 320 pixels horizontally. So we only have to read once in the SPRAMs to cover 8 screen pixels. That is one read every 8 clock cycles. During the seven other cycles the SPRAMs are free. Why does it matter? Well we also have to write the rendered image into the framebuffer!
 
-The table below shows what happens every eight cycles. On cycle 7 we read (R) four pixels. Every two other cycles we shift (>>) the read values to obtain the next pixel. 
+The table below shows what happens every eight cycles. On cycle 7 we read (R) four pixels. Every two other cycles we shift (>>) the read values to obtain the next pixel.
 | 7 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
 |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | R |   |>> |   |>> |   |>> |   |R  |   |>> |   |>> |   |>> |   | R |
 
-It is important to understand why we read on cycle 7: the SPRAM takes one cycle to retrieve the data. If we ask for pixel 0 on cycle 0 it is already too late! We need to be one cycle in advance. 
+It is important to understand why we read on cycle 7: the SPRAM takes one cycle to retrieve the data. If we ask for pixel 0 on cycle 0 it is already too late! We need to be one cycle in advance.
 
-How do we implement this in practice? 
+How do we implement this in practice?
 
-In [`main.ice`](main.ice) we have two variables controlling the synchronization: `frame_fetch_sync` and  `next_pixel`.
+In [`main.si`](main.si) we have two variables controlling the synchronization: `frame_fetch_sync` and  `next_pixel`.
 
-`frame_fetch_sync` is a `uint8` initialized to `1` and is updated each cycle as 
+`frame_fetch_sync` is a `uint8` initialized to `1` and is updated each cycle as
 ```c
 frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,7]};
-``` 
+```
 in the `always_after`, at the end of each cycle.
 
-`next_pixel` is a `uint2` initialized to `1` and is updated each cycle as 
+`next_pixel` is a `uint2` initialized to `1` and is updated each cycle as
 ```c
 next_pixel = {next_pixel[0,1],next_pixel[1,1]};
 ```
@@ -228,15 +228,15 @@ always_before {
 
     // Updates the four pixels, either getting data from spram or shifting them to go to the next one.
     // This is controlled through the frame_fetch_sync (8 modulo) and next_pixel (2 modulo).
-    // As we render 320x200 4bpp, there are 8 clock cycles of the 640x480 clock for four frame pixels.   
+    // As we render 320x200 4bpp, there are 8 clock cycles of the 640x480 clock for four frame pixels.
     // Note that the read from SPRAM is prepared on the cycle before, when frame_fetch_sync[1,1] == 1
     four_pixs = frame_fetch_sync[0,1]
-              ? {fb1_data_out[12,4],fb0_data_out[12,4], fb1_data_out[8,4],fb0_data_out[8,4], 
+              ? {fb1_data_out[12,4],fb0_data_out[12,4], fb1_data_out[8,4],fb0_data_out[8,4],
                  fb1_data_out[ 4,4],fb0_data_out[ 4,4], fb1_data_out[0,4],fb0_data_out[0,4]}
-              : (next_pixel[0,1] ? (four_pixs >> 8) : four_pixs);      
+              : (next_pixel[0,1] ? (four_pixs >> 8) : four_pixs);
 
     // query palette, pixel will be shown next cycle
-    palette.addr0 = four_pixs[0,8];  
+    palette.addr0 = four_pixs[0,8];
 
   }
 ```
@@ -279,7 +279,7 @@ algorithm interpolator(
 ) <autorun> {
   always {
     v = ( (b * i) + (a * (255 - i)) ) >> 8;
-  }  
+  }
 }
 ```
 
@@ -287,13 +287,13 @@ This takes 8 bits values `a` and `b` and another 8 bit interpolator `i`. It outp
 
 The actual interpolation of elevation is done here:
 ```c
-  // sample next elevations, with texture interpolation  
+  // sample next elevations, with texture interpolation
   // interleaves access and interpolator computations
   map_raddr  = {l_y[$fp$,7],l_x[$fp$,7]};
-++:          
+++:
   h00        = map_rdata;
   map_raddr  = {l_y[$fp$,7],l_x[$fp$,7]+7b1};
-++:          
+++:
   h10        = map_rdata;
   interp_a   = h00[0,8];  // trigger interpolation
   interp_b   = h10[0,8];
@@ -301,7 +301,7 @@ The actual interpolation of elevation is done here:
   map_raddr  = {l_y[$fp$,7]+7b1,l_x[$fp$,7]+7b1};
 ```
 
-Remember that `map_raddr` is bound to the SPRAM for the terrain map. So when we set an address there we are getting ready to retrieve a value from the map. Then we use Silice `++:` operator to wait one cycle, and get the value from `map_rdata` into `h00`. This is our first value to interpolate from. We then retrieve the second value in `h10` in a similar manner, using the coordinates with +1 in x: `{l_y[$fp$,7],l_x[$fp$,7]+7b1}` (this is a concatenation of y,x that produces an address in row (x) major order). Now we are ready to call the interpolator that is bound to `interp_a` , `interp_b` and `interp_i`: 
+Remember that `map_raddr` is bound to the SPRAM for the terrain map. So when we set an address there we are getting ready to retrieve a value from the map. Then we use Silice `++:` operator to wait one cycle, and get the value from `map_rdata` into `h00`. This is our first value to interpolate from. We then retrieve the second value in `h10` in a similar manner, using the coordinates with +1 in x: `{l_y[$fp$,7],l_x[$fp$,7]+7b1}` (this is a concatenation of y,x that produces an address in row (x) major order). Now we are ready to call the interpolator that is bound to `interp_a` , `interp_b` and `interp_i`:
 ```c
   interp_a   = h00[0,8];  // trigger interpolation
   interp_b   = h10[0,8];
@@ -318,7 +318,7 @@ Much better! But what about the colors?
 
 ### **Interpolating indexed colors?**
 
-Interpolating z-heights is relatively simple, but what about colors? If we were using true RGB pixels that would be exactly the same. But that is a huge luxury that we can't really afford, can we? (plus, even if we could, I very much prefer 8 bits palette graphics! yeah I know, nostalgia). 
+Interpolating z-heights is relatively simple, but what about colors? If we were using true RGB pixels that would be exactly the same. But that is a huge luxury that we can't really afford, can we? (plus, even if we could, I very much prefer 8 bits palette graphics! yeah I know, nostalgia).
 
 The reason we cannot easily interpolate colors is because each value we retrieve from the map is an 8 bits index in a 256 entries color map. Interpolating the indices makes no sense, see for yourself, here is the color palette:
 
@@ -328,7 +328,7 @@ The reason we cannot easily interpolate colors is because each value we retrieve
 
 As it lacks any order, selecting a color in between two others makes little sense. Of course, a palette can be carefully designed to support interpolation (*Doom 1994* does [amazing palette tricks](https://fabiensanglard.net/gebbdoom/) for lighting), but here that is not the case.
 
-So what can we do? Well, we can rely on a different kind of interpolation, called *dithering*. You are likely already very familiar with dithering -- well at least your eyes are! -- because this is the technique used by printed newspapers and inkjet printers. The idea is to give the illusion of a gradient even though only few colors are available. This works by interleaving point spreads of the different colors, such that locally the proportion (as seen in a small neighborhood) give the correct average. Dithering and stippling are huge topics on their own, but here we will be using a simple old-shool technique, specifically [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering) with a Bayer matrix. 
+So what can we do? Well, we can rely on a different kind of interpolation, called *dithering*. You are likely already very familiar with dithering -- well at least your eyes are! -- because this is the technique used by printed newspapers and inkjet printers. The idea is to give the illusion of a gradient even though only few colors are available. This works by interleaving point spreads of the different colors, such that locally the proportion (as seen in a small neighborhood) give the correct average. Dithering and stippling are huge topics on their own, but here we will be using a simple old-shool technique, specifically [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering) with a Bayer matrix.
 
 These are fancy names to describe a simple idea: instead of *computing* an intermediate value between `a` and `b` based on `i` (e.g. `(a+b)/2` if `i` is 127) we will *select* either `a` or `b` with a probability based on `i` (e.g. for `i == 127` -- half way -- we will select  `a` or `b` with equal probability, while `i == 0` will always select `a`).
 
@@ -338,13 +338,13 @@ Dithering is very effective, see for yourself!
   <img width="400" src="all_interp.png">
 </p>
 
-Now there is one complication here. As we walk along the x-axis we can easily select between the two colors (corresponding to the two maps pixels `h00` and `h10` we are in-between). However, vertically (on-screen) we need to interpolate between the previous color along the z-step and the current color that has been selected by dithering. 
+Now there is one complication here. As we walk along the x-axis we can easily select between the two colors (corresponding to the two maps pixels `h00` and `h10` we are in-between). However, vertically (on-screen) we need to interpolate between the previous color along the z-step and the current color that has been selected by dithering.
 That is why we have a second array (in BRAM) `c_last` storing colors from the previous z-step. And this is it! We now have a nicely smooth terrain, with the cool old-school dithering touch.
 
 The dithering Bayer matrix is stored in code:
 
 ```c
-  // 8x8 matrix for dithering  
+  // 8x8 matrix for dithering
   // https://en.wikipedia.org/wiki/Ordered_dithering
   uint6 bayer_8x8[64] = {
     0, 32, 8, 40, 2, 34, 10, 42,
@@ -355,7 +355,7 @@ The dithering Bayer matrix is stored in code:
     51, 19, 59, 27, 49, 17, 57, 25,
     15, 47, 7, 39, 13, 45, 5, 37,
     63, 31, 55, 23, 61, 29, 53, 21
-  }; 
+  };
 ```
 
 It is accessed first choosing between x-axis colors:
@@ -388,9 +388,9 @@ Almost done! That's quite a few details for such a small piece of code ;)
 
 So what's left? Well, the SPRAMs are great, but contrary to BRAMs they cannot be initialized from the FPGA configuration bitstream. So, how are we going to put the height map and color data there in the first place?
 
-Here I went a bit overboard by adding a complete RISC-V CPU to the design just to do that. I know, total overkill but that is so easy! Silice comes with a choice of RISC-V implementations and here I used the [fire-v](../fire-v/README.md), just because it was ready, simple and does fit the hardware (*Note:* I am working on a compatible version of the [ice-v](../ice-v/README.md) which is much smaller and would be enough here). 
+Here I went a bit overboard by adding a complete RISC-V CPU to the design just to do that. I know, total overkill but that is so easy! Silice comes with a choice of RISC-V implementations and here I used the [fire-v](../fire-v/README.md), just because it was ready, simple and does fit the hardware (*Note:* I am working on a compatible version of the [ice-v](../ice-v/README.md) which is much smaller and would be enough here).
 
-Silice makes the integration very easy. First, we instantiate the ram interface between memory and CPU (we are looking again at [`main.ice`](main.ice)):
+Silice makes the integration very easy. First, we instantiate the ram interface between memory and CPU (we are looking again at [`main.si`](main.si)):
 ```c
 rv32i_ram_io mem;
 ```
@@ -409,7 +409,7 @@ We then instantiate the CPU:
 ```c
   uint1  cpu_reset      = 1;         // CPU reset (pull low to run)
   uint26 cpu_start_addr(26h0000000); // starts at the first code address
-  // instantiate CPU 
+  // instantiate CPU
   rv32i_cpu cpu<!cpu_reset>(
     boot_at          <:  cpu_start_addr,
     user_data        <:  user_data,
@@ -421,21 +421,21 @@ We then instantiate the CPU:
 
 The `user_data` input to the CPU is a simple hack to allow the firmware to read 32 bits of 'design state' through the `rdtime` instruction, which is hijacked for this purpose.
 
-The BRAM size [defaults](../fire-v/ash/bram_ram_32bits.ice) to 2048 x 32bits words (8K bytes). That is enough for our [small firmware](firmware.c) that only copies data from SPIFlash to SPRAM. 
+The BRAM size [defaults](../fire-v/ash/bram_ram_32bits.si) to 2048 x 32bits words (8K bytes). That is enough for our [small firmware](firmware.c) that only copies data from SPIFlash to SPRAM.
 
-But wait!? How does the firmware code end up in the BRAM? This is done first by the pre-compiler script [`pre_include_asm.lua`](../fire-v/pre/pre_include_asm.lua) which generates a raw file from the [compiled code](compile.sh). Then the [memory algorithm](../fire-v/ash/bram_ram_32bits.ice) automatically includes this data in the BRAM, initializing it with `... = { file("data.img"), pad(uninitialized) };`.
+But wait!? How does the firmware code end up in the BRAM? This is done first by the pre-compiler script [`pre_include_asm.lua`](../fire-v/pre/pre_include_asm.lua) which generates a raw file from the [compiled code](compile.sh). Then the [memory algorithm](../fire-v/ash/bram_ram_32bits.si) automatically includes this data in the BRAM, initializing it with `... = { file("data.img"), pad(uninitialized) };`.
 
-Final details! How exactly does the CPU code access SPIFlash and SPRAM? This is done through simple memory mapping in [`main.ice`](main.ice). Precisely here:
+Final details! How exactly does the CPU code access SPIFlash and SPRAM? This is done through simple memory mapping in [`main.si`](main.si). Precisely here:
 
 ```c
 if (mem.in_valid & mem.rw) {
     switch (mem.addr[27,4]) {
     // ...
-        case 2b10: { // CPU spiflash bit-banging              
+        case 2b10: { // CPU spiflash bit-banging
             sf_clk  = mem.data_in[0,1];
             sf_mosi = mem.data_in[1,1];
-            sf_csn  = mem.data_in[2,1];              
-        }        
+            sf_csn  = mem.data_in[2,1];
+        }
    // ...
         case 4b0001: { // CPU writes to SPRAM, this is how map data is sent!
           map_write  = 1;

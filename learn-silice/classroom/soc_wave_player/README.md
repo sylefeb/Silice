@@ -34,7 +34,7 @@ Encode the tracks as uncompressed wave file, PCM mono **unsigned** 8 bits at 8KH
 
 ## Exercises
 
-> **Note:** This section is work in progress. In `main.ice` exercises are identified by `$$if Question_*` which selects either the question of its answer. Later a script will allow to generate the file without the answers.
+> **Note:** This section is work in progress. In `main.si` exercises are identified by `$$if Question_*` which selects either the question of its answer. Later a script will allow to generate the file without the answers.
 
 > **Note:** The firmware to use for streaming audio from the sdcard is `test_audio_stream_hrdw`.
 

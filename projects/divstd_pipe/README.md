@@ -4,7 +4,7 @@ Run with `make verilator`
 
 Performs a pipelined division over 16 bits, with a 16 cycles latency.
 
-[Source code](main.ice).
+[Source code](main.si).
 
 ## Output:
 

@@ -47,7 +47,7 @@ You will see a list of sorted entries, such as:
 
 ## Walkthrough the code
 
-Now, let's have a look at [main.ice](main.ice).
+Now, let's have a look at [main.si](main.si).
 
 The algorithm is built around a main while loop:
 ```c

@@ -1,6 +1,6 @@
 # Silice HDMI tutorial
 
-This project showcases the [Silice HDMI implementation](../common/hdmi.ice). It details an example using the HDMI controller and then dives into the HDMI controller implementation itself.
+This project showcases the [Silice HDMI implementation](../common/hdmi.si). It details an example using the HDMI controller and then dives into the HDMI controller implementation itself.
 
 The example outputs an on-screen pattern through a 640x480 HDMI signal, with a pixel clock of 25 MHz. The design assumes the base clock is 25 MHz, which is the case for instance on the ULX3S.
 
@@ -27,7 +27,7 @@ The main algorithm first declares a number of variables that allow us to interac
 ```
 
 It then instantiates the HDMI controller and binds these variables to it. Note the syntax `:>` indicating an output (e.g. `x`,`y`) and `<:` indicating an input (`r`,`g`,`b`).
-From this point on, the variables are bound to the HDMI controller and directly driven by its internal state. 
+From this point on, the variables are bound to the HDMI controller and directly driven by its internal state.
 
 ```c
   hdmi video(
@@ -43,7 +43,7 @@ From this point on, the variables are bound to the HDMI controller and directly 
 ```
 
 The controller forms the HDMI signal, which is output on the pins `gpdi_dp` and `gpdi_dn`. The HDMI protocol uses a 4 bits signal (RGBC: red, green, blue, pixel clock), but this signal is sent to the screen through two sets of pins (for a total of eight pins): four positive and four negative. The corresponding positive and negative bits form pairs, called *differential pairs*. This is done to strongly improve the signal quality and integrity. Thus, `gpdi_dp` encodes the signals on four bits and `gpdi_dn` are their negated counterpart: `gpdi_dn = ~gpdi_dp`.
-However, you might have noticed that `gpdi_dn` are not in the design! Why? 
+However, you might have noticed that `gpdi_dn` are not in the design! Why?
 On the ULX3S (ECP5) it turns out there is a way to configure the pins so that the differential pair (and its negative side in particular) is done automatically. This is configured in the [pin configuration file](../../frameworks/boards/ulx3s/ulx3s.lpf), asking for a `LVCMOS33D` pin type.
 On the MojoV3 (Spartan6) this is done from the [Verilog glue](https://github.com/sylefeb/Silice/blob/f8f5581587c6a5c7f91214739b85783db973a765/frameworks/boards/mojov3/mojov3.v#L120) in the board framework, instantiating OBUFDS primitives which are wired to a pair of [TMDS pins](https://github.com/sylefeb/Silice/blob/f8f5581587c6a5c7f91214739b85783db973a765/frameworks/boards/mojov3/mojov3.ucf#L67).
 
@@ -52,14 +52,14 @@ Now we are ready to draw on screen! We enter an infinite loop, that computes `r`
 The example draws simple red-green ramp along x/y as well as blue diagonals, with the following code:
 
 ```c
-  while (1) { 
+  while (1) {
     if (active) {
       r = x;
       g = y;
       b = (x+y);
-    }    
+    }
   }
-```  
+```
 
 Feel free to experiment with this (it *is* fun), and please share your images and animations!
 And if you need some inspiration, be sure to check out the [VGA demos](../vga_demo/) that rely on a similar framework but with a VGA output.
@@ -68,21 +68,21 @@ And if you need some inspiration, be sure to check out the [VGA demos](../vga_de
 
 If you are only interested in using the HDMI controller, you can skip this. If you'd like to learn more about HDMI, keep reading!
 
-Let's have a look inside the HDMI controller, [hdmi.ice](../common/hdmi.ice).
+Let's have a look inside the HDMI controller, [hdmi.si](../common/hdmi.si).
 The controller uses three different algorithms:
 - `tmds_encoder` takes a byte and transforms it into a 10 bit TMDS encoded signal,
 - `hdmi_ddr_shifter` takes all three R,G,B TMDS encoded signals, and shifts them into the output pins, two at a time,
 - `hdmi` is the main algorithm that implements the controller and uses the other two algorithms.
 
-The overall flow is as follows: three TMDS encoders receive the 8-bits RGB colors, turn them into three 10 bits vectors, that are then shifted (serialized) 
+The overall flow is as follows: three TMDS encoders receive the 8-bits RGB colors, turn them into three 10 bits vectors, that are then shifted (serialized)
 and output to the three corresponding HDMI differential pairs. The last (fourth) pair carries the pixel clock for synchronization.
 
-I will not detail the TMDS encoder -- the important thing to keep in mind is that it encodes a byte into ten bits to be sent. 
+I will not detail the TMDS encoder -- the important thing to keep in mind is that it encodes a byte into ten bits to be sent.
 The goal of this encoder is to obtain a very stable and reliable high speed serial communication (see also links below).
 
-The HDMI controller assumes that the base clock is 25 MHz. For a 640x480 8-bits RGB signal we need a 25 MHz pixel clock, so that matches the base clock. 
-Each byte (RGB) is however encoded onto ten bits by the TMDS encoder, so we have to send 10 bits at each pixel clock on each component's differential pair. 
-This means we have to send the bits at ten times the pixel clock: 250 MHz. 
+The HDMI controller assumes that the base clock is 25 MHz. For a 640x480 8-bits RGB signal we need a 25 MHz pixel clock, so that matches the base clock.
+Each byte (RGB) is however encoded onto ten bits by the TMDS encoder, so we have to send 10 bits at each pixel clock on each component's differential pair.
+This means we have to send the bits at ten times the pixel clock: 250 MHz.
 
 This starts to be a fairly high frequency. To reduce the pressure on the place and route, we instead use a 125 MHz clock and output the ten bits over five clock cycles. How is that possible? We use a [DDR output](https://en.wikipedia.org/wiki/Double_data_rate), that outputs one bit on the clock's positive edge, and another bit on the clock's negative edge. This requires a vendor specific primitive, that is however very commonly used and available.
 
@@ -120,7 +120,7 @@ Where `tmds_red`, `tmds_green` and `tmds_blue` are each 10 bits output by three 
 
 Note how `crgb_pos` and `crgb_neg` are both 8 bits. Each encode the (respectively) positive and negative side of the RGBC differential pairs for **two** cycles of a 250 MHz clock. The [`hdmi_ddr_crgb.v`](../common/hdmi_ddr_crgb.v) module (in Verilog) takes care of instantiating the four specialized DDR output cells, defined in [`ddr.v`](../common/ddr.v), that output the four signals at twice the 125 MHz clock. For the ULX3S, the specialized DDR cell is called `ODDRX1F`.
 
-Finally, the `always` block<sup>[1](#footnote1)</sup> of the `hdmi` algorithm updates the various internal states: 
+Finally, the `always` block<sup>[1](#footnote1)</sup> of the `hdmi` algorithm updates the various internal states:
 - The internal pixel coordinates counters `cntx`,`cnty`.
 - The `hsync`, `vsync` states (based on pixel coordinates)
 - The `active` state (coordinate within drawable screen area)

@@ -1,6 +1,6 @@
 # The Fire-V RV32I core
 
-Source code: [fire-v.ice](../fire-v/fire-v.ice).
+Source code: [fire-v.si](../fire-v/fire-v.si).
 
 **Note:** *The code is still rough, Needs cleanup and comment.*
 
@@ -26,7 +26,7 @@ The processor is organized in a main loop with four main states:
 
 ```c
 always {
-  
+
   switch (case_select) {
 
     case 8: { /* refetch */  }
@@ -40,7 +40,7 @@ always {
     default: { /*wait*/ }
 
   }
-  
+
 }
 ```
 
@@ -48,7 +48,7 @@ Let's see how the processor operates under various scenarios.
 
 ### Ideal case
 
-The Fire-V executes a coherent flow of instructions as follows, assuming the memory controller is capable of sending a prefetch instruction in two cycles (which is the case of the [BRAM fast-mem segment](../ash/bram_segment_ram_32bits.ice)).
+The Fire-V executes a coherent flow of instructions as follows, assuming the memory controller is capable of sending a prefetch instruction in two cycles (which is the case of the [BRAM fast-mem segment](../ash/bram_segment_ram_32bits.si)).
 
 Each column is a cycle, time goes left to right:
 |  ALU / fetch    | commit / decode  | ALU / fetch      | commit / decode |
@@ -82,7 +82,7 @@ On a jump, the next instruction prediction is incorrect and breaks the execution
 | In: Regs `i+1`         |                 |       | In: `instr j`    | In: Regs `j`    | In: `instr j+1`  | In: Regs `j+1`  |
 |                        | fetch `j`       |       |                  |                 |                  |                 |
 | decode `i+1`           |                 |       | ALU `-`          | decode `j`      | ALU `j`          | decode `j+1`    |
-| commit `i` **(jump!)** |                 |       |                  | commit `-`      |                  | commit `j`      |  
+| commit `i` **(jump!)** |                 |       |                  | commit `-`      |                  | commit `j`      |
 | setup regW `i`         |                 |       | setup regR `j`   | setup regW `-`  | setup regR `j+1` | setup regW `j`  |
 | setup ALU `i+1`        |                 |       | fetch `j+1`      | setup ALU `j`   | fetch `j+2`      | setup ALU `j+1` |
 | predict `j`            | predict `j+1`   |       | predict `j+2`    |                 | predict `j+3`    |                 |

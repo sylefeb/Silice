@@ -8,7 +8,7 @@ With its SoC it uses ~1240 LUTs on the IceStick and validates at ~55 MHz.
 Each core is 4 cycles per instruction but for shifts (shifts are done one bit per cycle, both cores wait if one does ALU shifts - this is only to save LUTs, otherwise shifts could be one cycle). Cores retire instructions with a 2 cycles delay between them.
 `rdcycle` is supported with a 31 bits counter, the LSB of `rdcycle` returns the CPU id.
 
-The processor source code is in [ice-v-dual.ice](CPUs/ice-v-dual.ice), the SOC source code is in [ice-v-dual.ice](SOCs/ice-v-soc-dual.ice). Also
+The processor source code is in [ice-v-dual.si](CPUs/ice-v-dual.si), the SOC source code is in [ice-v-dual.si](SOCs/ice-v-soc-dual.si). Also
 note that the Ice-V is available in [Silice RISC-V integration](../easy-riscv/README.md).
 
 The following Section explains the processor design and how going from the [single core Ice-V](README.md) to the dual core version is actually relatively simple!

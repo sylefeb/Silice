@@ -1677,7 +1677,7 @@ $$dofile('some_lua_code.lua')
 ## Includes
 
 The preprocessor is also in charge of including other Silice source code
-files, using the syntax `$include(’source.ice’)`. This loads the entire
+files, using the syntax `$include(’source.si’)`. This loads the entire
 file (and recursively its own included files) into the preprocessor
 execution context.
 

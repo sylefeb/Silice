@@ -5,7 +5,7 @@ Let's dive into the framework's GPU called *Flame*.
 **Note:** This is work in progress, for now I focus on the overview, will expand with a code walkthrough soon.
 **Note:** The code is still very rough, I will polish, cleanup and comment.
 
-Source code: [flame.ice](../flame/flame.ice) (hardware) and [flame.c](../smoke/mylibc/flame.c) (software).
+Source code: [flame.si](../flame/flame.si) (hardware) and [flame.c](../smoke/mylibc/flame.c) (software).
 
 ## Overview
 
@@ -28,10 +28,10 @@ And that's it for the core principles!
 
 ## Hardware design walkthrough
 
-**TODO** 
+**TODO**
 
 ## CPU side
 
 It is interesting to look at the interplay between Fire-V (the CPU) and Flame (the GPU). The CPU has a few things to do, in particular computing the edge increments, but then it is free to do something else while the triangle is being rasterized. The support code is in [flame.c](../smoke/mylibc/flame.c).
 
-**TODO** 
+**TODO**

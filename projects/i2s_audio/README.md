@@ -21,7 +21,7 @@ You should hear a pure [sinusoidal 366 Hz tone](https://szynalski.com/tone#366.2
 
 ## Source code
 
-Everything is in [main.ice](main.ice), the source code is commented.
+Everything is in [main.si](main.si), the source code is commented.
 
 ## Links
 
