@@ -395,23 +395,6 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
 
 // -------------------------------------------------
 
-std::string RISCVSynthesizer::tempFileName()
-{
-  static int cnt = 0;
-  static std::string key;
-  if (key.empty()) {
-    srand((unsigned int)time(NULL));
-    for (int i = 0 ; i < 16 ; ++i) {
-      key += (char)((int)'a'+(rand()%26));
-    }
-  }
-  std::string tmp = std::filesystem::temp_directory_path().string()
-                  + "/" + key + std::to_string(cnt++);
-  return tmp;
-}
-
-// -------------------------------------------------
-
 RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
 {
   m_Name = riscv->IDENTIFIER()->getText();
@@ -434,7 +417,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     // write code to temp file
     string c_tempfile;
     {
-      c_tempfile = tempFileName();
+      c_tempfile = Utils::tempFileName();
       c_tempfile = c_tempfile + ".c";
       ofstream codefile(c_tempfile);
       // append code header

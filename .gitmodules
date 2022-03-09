@@ -4,3 +4,6 @@
 [submodule "learn-silice/classroom/soc_wave_player/firmware/fat_io_lib"]
 	path = learn-silice/classroom/soc_wave_player/firmware/fat_io_lib
 	url = https://github.com/ultraembedded/fat_io_lib
+[submodule "python/pybind11"]
+	path = python/pybind11
+	url = git@github.com:pybind/pybind11.git

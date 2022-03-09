@@ -7,7 +7,7 @@ INCLUDE_DIRECTORIES(
   ${PROJECT_SOURCE_DIR}/src/libs
   ${PROJECT_SOURCE_DIR}/src/libs/tclap/include
   ${PROJECT_SOURCE_DIR}/src/libs/LibSL-small/src
-  ${PROJECT_SOURCE_DIR}/src/libs/LibSL-small/src/LibSL  
+  ${PROJECT_SOURCE_DIR}/src/libs/LibSL-small/src/LibSL
   ${PROJECT_SOURCE_DIR}/src/libs/lua/src
   ${PROJECT_SOURCE_DIR}/src/libs/luabind-deboostified/
   ${PROJECT_SOURCE_DIR}/antlr/antlr4-cpp-runtime-4.7.2-source/runtime/src
@@ -21,13 +21,6 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-# think antlr does stuff that isn't permitted in Clang under newer C++ standard
-# => latest Silice requires c++ 17, we'll have to look into this
-# set(CMAKE_CXX_STANDARD 14)
-endif()
-
 if (WIN32)
 SET(ANTLR_COMPILER ${PROJECT_SOURCE_DIR}/antlr/compile.bat)
 else ()
@@ -35,10 +28,10 @@ SET(ANTLR_COMPILER ${PROJECT_SOURCE_DIR}/antlr/compile.sh)
 endif()
 
 add_custom_command(
-  OUTPUT 
-	${PROJECT_SOURCE_DIR}/antlr/siliceParser.cpp 
+  OUTPUT
+	${PROJECT_SOURCE_DIR}/antlr/siliceParser.cpp
 	${PROJECT_SOURCE_DIR}/antlr/siliceParser.h
-	${PROJECT_SOURCE_DIR}/antlr/siliceLexer.cpp 
+	${PROJECT_SOURCE_DIR}/antlr/siliceLexer.cpp
 	${PROJECT_SOURCE_DIR}/antlr/siliceLexer.h
   COMMAND ${ANTLR_COMPILER} silice
   MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/antlr/silice.g4
@@ -46,10 +39,10 @@ add_custom_command(
 )
 
 add_custom_command(
-  OUTPUT 
-	${PROJECT_SOURCE_DIR}/antlr/vmoduleParser.cpp 
+  OUTPUT
+	${PROJECT_SOURCE_DIR}/antlr/vmoduleParser.cpp
 	${PROJECT_SOURCE_DIR}/antlr/vmoduleParser.h
-	${PROJECT_SOURCE_DIR}/antlr/vmoduleLexer.cpp 
+	${PROJECT_SOURCE_DIR}/antlr/vmoduleLexer.cpp
 	${PROJECT_SOURCE_DIR}/antlr/vmoduleLexer.h
   COMMAND ${ANTLR_COMPILER} vmodule
   MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/antlr/vmodule.g4
@@ -57,18 +50,17 @@ add_custom_command(
 )
 
 add_custom_command(
-  OUTPUT 
-	${PROJECT_SOURCE_DIR}/antlr/lppParser.cpp 
+  OUTPUT
+	${PROJECT_SOURCE_DIR}/antlr/lppParser.cpp
 	${PROJECT_SOURCE_DIR}/antlr/lppParser.h
-	${PROJECT_SOURCE_DIR}/antlr/lppLexer.cpp 
+	${PROJECT_SOURCE_DIR}/antlr/lppLexer.cpp
 	${PROJECT_SOURCE_DIR}/antlr/lppLexer.h
   COMMAND ${ANTLR_COMPILER} lpp
   MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/antlr/lpp.g4
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/antlr/
 )
 
-ADD_EXECUTABLE(silice
-  src/silice.cpp
+set(SILICE_CORE
   src/Algorithm.cpp
   src/Algorithm.h
   src/Module.h
@@ -120,7 +112,27 @@ add_subdirectory(antlr/antlr4-cpp-runtime-4.7.2-source)
 add_subdirectory(src/libs/lua)
 add_subdirectory(src/libs/luabind-deboostified)
 
-target_link_libraries(silice antlr4_static lua luabind)
+# libsilice
+
+add_library(libsilice STATIC ${SILICE_CORE})
+
+# silice executable
+
+add_executable(silice src/silice.cpp)
+# set_target_properties(silice PROPERTIES OUTPUT_NAME "silice")
+target_link_libraries(silice libsilice antlr4_static lua luabind)
+if(WIN32)
+target_link_libraries(silice shlwapi)
+endif(WIN32)
+
+install(TARGETS silice RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
+install(TARGETS libsilice ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
+install(TARGETS lua ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
+install(TARGETS lua ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
+install(TARGETS luabind ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
+install(TARGETS antlr4_static ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
+
+# compiler checks
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8)
@@ -129,9 +141,3 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_link_libraries(silice stdc++fs)
   endif()
 endif()
-
-if(WIN32)
-target_link_libraries(silice shlwapi)
-endif(WIN32)
-
-INSTALL(TARGETS silice RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
