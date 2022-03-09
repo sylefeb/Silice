@@ -31,7 +31,7 @@ namespace py = pybind11;
 
 std::string compile(std::string source);
 
-PYBIND11_MODULE(silice, m) {
+PYBIND11_MODULE(_silice, m) {
     m.doc() = "Silice python plugin";
     m.def("compile", &compile, "Compile a source file to Verilog and returns the code.");
 }
@@ -73,7 +73,6 @@ std::string compile(std::string sourceFile)
     std::cerr << "error: " << err.what() << "\n";
     return "";
   }
-
 }
 
 // ------------------------------------------------------------

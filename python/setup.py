@@ -13,7 +13,7 @@ setuptools.setup(
     author_email='sylvain.lefebvre@inria.fr',
     description='Silice python module',
     ext_modules=[
-    cmake_build_extension.CMakeExtension(name="Silice")
+    cmake_build_extension.CMakeExtension(name="_silice")
     ],
     cmdclass=dict(
         build_ext=cmake_build_extension.BuildExtension,
