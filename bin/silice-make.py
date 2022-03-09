@@ -96,7 +96,7 @@ if args.list_boards:
             print(colored("[ok]", 'green'))
         else:
             print(colored("[not found]", 'yellow'))
-        with open(board_path) as json_file:            
+        with open(board_path) as json_file:
             board_def = json.load(json_file)
             # list all variants
             for variant in board_def['variants']:
@@ -261,7 +261,7 @@ elif target_builder['builder'] == 'edalize':
             else:
                 if 'define' in variant_pin_sets[pin_set]:
                     defines[pin_set] = variant_pin_sets[pin_set]['define']
-    # prepare edam structure                    
+    # prepare edam structure
     edam = {'name' : 'build',
             'files': files,
             'tool_options': {tool: target_builder["tool_options"][0]},
@@ -269,7 +269,7 @@ elif target_builder['builder'] == 'edalize':
             }
 
     # check and adapt behavior
-    # reprogram imply to bypass build
+    # reprogram implies to bypass build
     if args.reprogram:
         args.no_build = True
         args.no_program = False
@@ -286,7 +286,7 @@ elif target_builder['builder'] == 'edalize':
 
         except KeyError as e:
             pass # when bitstream is not in board.json try anyway
-    # no build imply no program
+    # no build implies no program
     elif args.no_build:
         args.no_program = True
 
@@ -311,7 +311,7 @@ elif target_builder['builder'] == 'edalize':
         backend = get_edatool(tool)(edam=edam, work_root=out_dir)
         backend.configure()
         backend.build()
-    
+
     if not args.no_program:
         try:
             print(colored('programming device ... ','white', attrs=['bold']))
