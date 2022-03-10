@@ -452,7 +452,6 @@ void SiliceCompiler::write(
     m_Context->bind();
     // write cmd line defines
     for (auto d : m_Context->defines) {
-      std::cerr << "DEFINE " << d << '\n';
       auto eq = d.find('=');
       if (eq != std::string::npos) {
         _out << "`define " << d.substr(0, eq) << " " << d.substr(eq + 1) << nxl;

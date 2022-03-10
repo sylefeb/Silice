@@ -1124,7 +1124,7 @@ private:
     /// \brief returns the name of an inout port from its internal name
     std::string inoutPortName(std::string name)  const override { return std::string(ALG_INOUT) + '_' + name; }
     /// \brief returns the name of the module
-    std::string moduleName(std::string blueprint_name, std::string instance_name) const override { return "M_" + blueprint_name + '_' + instance_name; }
+    std::string moduleName(std::string blueprint_name, std::string instance_name) const override { return "M_" + blueprint_name + (instance_name.empty()?"":('_' + instance_name)); }
     /// \brief returns true of the 'combinational' boolean is properly setup for outputs
     bool hasOutputCombinationalInfo() const override { return true; }
 

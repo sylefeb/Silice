@@ -161,6 +161,19 @@ public:
     return oss.str();
   }
 
+  std::string unitCompiledName(std::string unit)
+  {
+    auto blueprints = compiler.getBlueprints();
+    auto B = blueprints.find(unit);
+    if (B == blueprints.end()) {
+      /// TODO: issue error
+      std::cerr << "Cannot find unit " << unit << std::endl;
+      return "";
+    } else {
+      return "M_" + B->first;
+    }
+  }
+
 };
 
 // ------------------------------------------------------------
@@ -177,6 +190,7 @@ PYBIND11_MODULE(_silice, m) {
             .def("listUnitInOuts", &SiliceFile::listUnitInOuts)
             .def("vioType", &SiliceFile::vioType)
             .def("write", &SiliceFile::write)
+            .def("unitCompiledName", &SiliceFile::unitCompiledName)
             ;
 }
 
