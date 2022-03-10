@@ -424,8 +424,23 @@ void SiliceCompiler::parse(
 // -------------------------------------------------
 
 void SiliceCompiler::write(
-  std::string                     to_export,
+  std::string to_export,
   const std::vector<std::string>& export_params)
+{
+  // check parser has been called
+  if (m_Context.isNull()) {
+    throw Fatal("[SiliceCompiler::write] please run parse before calling write");
+  }
+  std::ofstream out(m_Context->fresult);
+  write(to_export, export_params, out);
+}
+
+// -------------------------------------------------
+
+void SiliceCompiler::write(
+  std::string                     to_export,
+  const std::vector<std::string>& export_params,
+  std::ostream&                   _out)
 {
   // check parser has been called
   if (m_Context.isNull()) {
@@ -435,30 +450,29 @@ void SiliceCompiler::write(
   try {
     // bind context
     m_Context->bind();
-    // generate the output
-    std::ofstream out(m_Context->fresult);
     // write cmd line defines
     for (auto d : m_Context->defines) {
+      std::cerr << "DEFINE " << d << '\n';
       auto eq = d.find('=');
       if (eq != std::string::npos) {
-        out << "`define " << d.substr(0, eq) << " " << d.substr(eq + 1) << nxl;
+        _out << "`define " << d.substr(0, eq) << " " << d.substr(eq + 1) << nxl;
       }
     }
     // write framework (top) module
-    out << m_Context->framework_verilog;
+    _out << m_Context->framework_verilog;
     // write includes
     for (auto fname : m_AppendsInDeclOrder) {
-      out << Utils::fileToString(fname.c_str()) << nxl;
+      _out << Utils::fileToString(fname.c_str()) << nxl;
     }
     // write 'global' blueprints
     for (auto miordr : m_BlueprintsInDeclOrder) {
       Module *mod = dynamic_cast<Module*>(m_Blueprints.at(miordr).raw());
       if (mod != nullptr) {
-        mod->writeModule(out);
+        mod->writeModule(_out);
       }
       RISCVSynthesizer *rv = dynamic_cast<RISCVSynthesizer*>(m_Blueprints.at(miordr).raw());
       if (rv != nullptr) {
-        rv->writeCompiled(out);
+        rv->writeCompiled(_out);
       }
     }
     // which algorithm to export?
@@ -482,7 +496,7 @@ void SiliceCompiler::write(
           }
         }
         // write algorithm (recurses from there)
-        alg->writeAsModule("", out, ictx);
+        alg->writeAsModule("", _out, ictx);
       }
     } else {
       warn(Standard, antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s'", to_export.c_str());
@@ -493,7 +507,7 @@ void SiliceCompiler::write(
       if (alg != nullptr) {
         if (alg->isFormal()) {
           alg->enableReporting(m_Context->fresult);
-          alg->writeAsModule("formal_" + algname + "$", out);
+          alg->writeAsModule("formal_" + algname + "$", _out);
         }
       }
     }

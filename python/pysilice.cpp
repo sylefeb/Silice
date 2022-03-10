@@ -153,6 +153,14 @@ public:
     }
   }
 
+  std::string write(std::string unit)
+  {
+    std::vector<std::string> export_params;
+    std::ostringstream oss;
+    compiler.write(unit,export_params,oss);
+    return oss.str();
+  }
+
 };
 
 // ------------------------------------------------------------
@@ -168,6 +176,7 @@ PYBIND11_MODULE(_silice, m) {
             .def("listUnitOutputs", &SiliceFile::listUnitOutputs)
             .def("listUnitInOuts", &SiliceFile::listUnitInOuts)
             .def("vioType", &SiliceFile::vioType)
+            .def("write", &SiliceFile::write)
             ;
 }
 

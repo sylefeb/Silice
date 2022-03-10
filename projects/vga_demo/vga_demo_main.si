@@ -45,11 +45,10 @@ $$end
 // -------------------------
 
 $$if SIMULATION then
-algorithm pll(
+unit pll(
   output  uint1 video_clock,
   output  uint1 video_reset,
-) <autorun>
-{
+) {
   uint3 counter = 0;
   uint8 trigger = 8b11111111;
 

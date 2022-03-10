@@ -31,11 +31,10 @@ $$end
 
 // use pre-processor to generate all comparators
 $$for i = 0,div_width-2 do
-algorithm mul_cmp$div_width$_$i$(
+unit mul_cmp$div_width$_$i$(
    input   uint$div_width$ num,
    input   uint$div_width$ den,
    output! uint1 beq)
-<autorun>
 {
   uint$div_width+1$ nk = 0;
   always {
