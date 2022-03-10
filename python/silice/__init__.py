@@ -1,1 +1,1 @@
-"""Silice package root"""
+from .silice import *

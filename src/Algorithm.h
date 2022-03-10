@@ -614,7 +614,7 @@ private:
     /// \brief checks whether an identifier is a VIO
     bool isVIO(std::string var) const;
     /// \brief returns a VIO definition
-    t_var_nfo getVIODefinition(std::string var, bool &_found) const;
+    t_var_nfo getVIODefinition(std::string var, bool &_found) const override;
     /// \brief variant of above (historical reasons, TODO: cleanup)
     bool getVIONfo(std::string vio, t_var_nfo &_nfo) const;
     /// \brief checks whether an identifier is a group VIO

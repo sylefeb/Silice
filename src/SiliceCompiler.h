@@ -49,7 +49,6 @@ namespace Silice {
   {
   private:
 
-    std::vector<std::string>                                           m_Paths;
     std::unordered_map<std::string, AutoPtr<Blueprint> >               m_Blueprints;
     std::vector<std::string>                                           m_BlueprintsInDeclOrder;
     std::unordered_map<std::string, siliceParser::SubroutineContext* > m_Subroutines;
@@ -131,9 +130,38 @@ namespace Silice {
       void reportMissingToken(antlr4::Parser *parser) override;
     };
 
+    /// \brief class storing the parsing context
+    class ParsingContext
+    {
+      public:
+        std::string                          fresult;
+        std::string                          framework_verilog;
+        std::vector<std::string>             defines;
+        AutoPtr<LuaPreProcessor>             lpp;
+        AutoPtr<LexerErrorListener>          lexerErrorListener;
+        AutoPtr<ParserErrorListener>         parserErrorListener;
+        AutoPtr<antlr4::ANTLRFileStream>     input;
+        AutoPtr<siliceLexer>                 lexer;
+        AutoPtr<antlr4::CommonTokenStream>   tokens;
+        AutoPtr<siliceParser>                parser;
+        std::shared_ptr<ParserErrorHandler>  err_handler;
+
+        ParsingContext(
+          std::string              fresult_,
+          AutoPtr<LuaPreProcessor> lpp_,
+          std::string              preprocessed,
+          std::string              framework_verilog_,
+          const std::vector<std::string>& defines_);
+        ~ParsingContext();
+        void bind();
+        void unbind();
+    };
+
+    AutoPtr<ParsingContext> m_Context;
+
   public:
 
-    /// \brief runs the compiler
+    /// \brief runs the compiler (calls parse and write)
     void run(
       std::string fsource,
       std::string fresult,
@@ -142,6 +170,23 @@ namespace Silice {
       const std::vector<std::string>& defines,
       std::string to_export,
       const std::vector<std::string>& export_params);
+
+    /// \brief parses a design
+    void parse(
+      std::string fsource,
+      std::string fresult,
+      std::string fframework,
+      std::string frameworks_dir,
+      const std::vector<std::string>& defines);
+
+    /// \brief write a design for synthesis
+    void write(
+      std::string to_export,
+      const std::vector<std::string>& export_params);
+
+    /// \brief get the list of blueprints (after parsing)
+    const std::unordered_map<std::string, AutoPtr<Blueprint> > getBlueprints() const
+      { return m_Blueprints; }
 
   };
 

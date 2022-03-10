@@ -1,5 +1,3 @@
 /*
-
-This file has to remain empty, this is used by Silice RISC-V integration
-
+[Bare framework] Leave empty, this is used when exporting to verilog
 */

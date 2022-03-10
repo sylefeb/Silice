@@ -15,6 +15,12 @@ link_directories(
   ${PROJECT_SOURCE_DIR}/../lib/
 )
 
+if(EXISTS "${PROJECT_SOURCE_DIR}/../lib/liblibsilice.a")
+  message(STATUS "found Silice library")
+else()
+  message(FATAL_ERROR "\n====================================\nCannot find ${PROJECT_SOURCE_DIR}/../lib/liblibsilice.a\nPlease compile Silice first (make install).\n====================================\n")
+endif()
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:4194304")
 endif()

@@ -1125,12 +1125,11 @@ Algorithm::t_var_nfo Algorithm::getVIODefinition(std::string var,bool& _found) c
 {
   t_var_nfo def;
   _found = true;
-  if (findVIO(var, m_VarNames, m_Vars, def))       return def;
-  if (findVIO(var, m_InputNames, m_Inputs, def))   return def;
-  if (findVIO(var, m_OutputNames, m_Outputs, def)) return def;
-  if (findVIO(var, m_InOutNames, m_InOuts, def))   return def;
-  _found = false;
-  return def;
+  if (findVIO(var, m_VarNames, m_Vars, def)) {
+    return def;
+  } else {
+    return Blueprint::getVIODefinition(var, _found);
+  }
 }
 
 // -------------------------------------------------
