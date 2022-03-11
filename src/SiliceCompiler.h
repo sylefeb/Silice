@@ -181,8 +181,9 @@ namespace Silice {
 
     /// \brief write a design for synthesis in the output stream
     void write(
-      std::string to_export,
+      std::string    to_export,
       const std::vector<std::string>& export_params,
+      std::string    postfix,
       std::ostream& _out);
 
     /// \brief write a design for synthesis

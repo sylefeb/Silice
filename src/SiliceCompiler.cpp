@@ -432,7 +432,7 @@ void SiliceCompiler::write(
     throw Fatal("[SiliceCompiler::write] please run parse before calling write");
   }
   std::ofstream out(m_Context->fresult);
-  write(to_export, export_params, out);
+  write(to_export, export_params, "", out);
 }
 
 // -------------------------------------------------
@@ -440,6 +440,7 @@ void SiliceCompiler::write(
 void SiliceCompiler::write(
   std::string                     to_export,
   const std::vector<std::string>& export_params,
+  std::string                     postfix,
   std::ostream&                   _out)
 {
   // check parser has been called
@@ -495,7 +496,7 @@ void SiliceCompiler::write(
           }
         }
         // write algorithm (recurses from there)
-        alg->writeAsModule("", _out, ictx);
+        alg->writeAsModule(postfix, _out, ictx);
       }
     } else {
       warn(Standard, antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s'", to_export.c_str());

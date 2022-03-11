@@ -81,21 +81,18 @@ class Design(Module):
         # Add a blinker from Silice
         import silice
 
-        f = silice.Design(
-          "../projects/blinky/blinky.si",
-          ["NUM_LEDS=5"]
-          )
-        u = f.getUnit("main")
-        i = u.instantiate()
+        f = silice.Design("chaser.si")
+        u = f.getUnit("chaser")
+
+        i = u.instantiate([ ["m_bits","uint5","1"] ])
         platform.add_source(i.sourceFile())
 
         leds = platform.request_all("user_led")
         self.specials += Instance(
             i.moduleName(),
-            i_clock    = ClockSignal("sys"),
-            i_reset    = ResetSignal("sys"),
-            i_in_run   = Constant(1,1),
-            o_out_leds = leds
+            i_clock      = ClockSignal("sys"),
+            i_reset      = ResetSignal("sys"),
+            o_out_m_bits = leds
         )
 
 

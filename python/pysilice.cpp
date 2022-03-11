@@ -86,7 +86,7 @@ public:
     _export_defs.push_back(name+"_INIT=" + std::get<2>(ex));
   }
 
-  Instance instantiate(const std::vector<std::tuple<std::string,std::string,std::string> >& export_params)
+  Instance instantiate(const std::vector<std::tuple<std::string,std::string,std::string> >& export_params,std::string postfix)
   {
     if (m_Compiler.isNull()) {
       throw Fatal("invalid Unit");
@@ -116,21 +116,23 @@ public:
     if (not_ok) {
       throw Fatal("unit needs additional parameterized io definitions.");
     }
-    for (auto ex : export_defs) {
-      std::cerr << ex << '\n';
-    }
     // write the output
-    m_Compiler->write(m_Name,export_defs,f);
+    m_Compiler->write(m_Name,export_defs,postfix,f);
     // done
     f.close();
     // return instance
-    return Instance("M_" + m_Name, tmp);
+    return Instance("M_" + m_Name + (postfix.empty() ? "" : ("_" + postfix)), tmp);
+  }
+
+  Instance instantiate(const std::vector<std::tuple<std::string,std::string,std::string> >& export_params)
+  {
+    return instantiate(export_params,"");
   }
 
   Instance instantiate()
   {
     std::vector<std::tuple<std::string,std::string,std::string> > export_params;
-    return instantiate(export_params);
+    return instantiate(export_params,"");
   }
 
   std::vector<std::string> listInputs()
@@ -278,6 +280,7 @@ PYBIND11_MODULE(_silice, m) {
 //          .def(py::init<std::string,std::string>())
             .def("instantiate", static_cast<Instance (Unit::*)()>(&Unit::instantiate))
             .def("instantiate", static_cast<Instance (Unit::*)(const std::vector<std::tuple<std::string,std::string,std::string>>&)>(&Unit::instantiate))
+            .def("instantiate", static_cast<Instance (Unit::*)(const std::vector<std::tuple<std::string,std::string,std::string>>&,std::string)>(&Unit::instantiate))
             .def("listInputs", &Unit::listInputs)
             .def("listOutputs", &Unit::listOutputs)
             .def("listInOuts", &Unit::listInOuts)
