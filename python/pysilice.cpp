@@ -37,6 +37,16 @@ using namespace Silice;
 
 // ------------------------------------------------------------
 
+static std::string g_SiliceRootPath;
+
+void setSiliceRootPath(std::string path)
+{
+  g_SiliceRootPath = std::filesystem::path(path).remove_filename().string();
+  std::cerr << "########## SILICE ROOT PATH: " << g_SiliceRootPath << std::endl;
+}
+
+// ------------------------------------------------------------
+
 class Instance
 {
 private:
@@ -171,7 +181,7 @@ public:
     return names;
   }
 
-  std::pair<bool,int> getVioType(std::string unit,std::string vio)
+  std::pair<bool,int> getVioType(std::string vio)
   {
     bool found = false;
     auto nfo = m_Blueprint->getVIODefinition(vio,found);
@@ -201,17 +211,21 @@ private:
       std::string tmp_out = Utils::tempFileName();
       std::vector<std::string> export_params;
       m_Compiler = AutoPtr<SiliceCompiler>(new SiliceCompiler());
+      std::vector<std::string> defs = defines;
+      defs.push_back("HARDWARE=1");
       m_Compiler->parse(
         filename,
         tmp_out,
-        std::filesystem::absolute("../frameworks/boards/bare/bare.v").string(),
-        std::filesystem::absolute("../frameworks/").string(),
-        defines
+        std::filesystem::absolute(g_SiliceRootPath + "/frameworks/boards/bare/bare.v").string(),
+        std::filesystem::absolute(g_SiliceRootPath + "/frameworks/").string(),
+        defs
       );
     } catch (Fatal& err) {
       std::cerr << Console::red << "error: " << err.message() << Console::gray << "\n";
+      throw;
     } catch (std::exception& err) {
       std::cerr << "error: " << err.what() << "\n";
+      throw;
     }
   }
 
@@ -270,6 +284,7 @@ public:
 
 PYBIND11_MODULE(_silice, m) {
     m.doc() = "Silice python plugin";
+    m.def("setSiliceRootPath",&setSiliceRootPath);
     py::class_<Design>(m, "Design")
             .def(py::init<const std::string &,const std::vector<std::string>&>())
             .def(py::init<const std::string &>())

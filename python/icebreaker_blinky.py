@@ -80,20 +80,21 @@ class Design(Module):
 
         # Add a blinker from Silice
         import silice
+        import silice.migen
 
-        f = silice.Design("chaser.si")
-        u = f.getUnit("chaser")
-
-        i = u.instantiate([ ["m_bits","uint5","1"] ])
-        platform.add_source(i.sourceFile())
-
+        f = silice.Design("../projects/blinky/blinky.si",
+                         ["NUM_LEDS=5"])
         leds = platform.request_all("user_led")
-        self.specials += Instance(
-            i.moduleName(),
-            i_clock      = ClockSignal("sys"),
-            i_reset      = ResetSignal("sys"),
-            o_out_m_bits = leds
-        )
+        u = f.getUnit("main")
+        inst = silice.migen.instantiate(u)
+        platform.add_source(inst.verilog_source)
+        self.submodules.inst = inst
+        self.comb += inst.clock.eq(ClockSignal("sys"))
+        self.comb += inst.reset.eq(ResetSignal("sys"))
+        self.comb += inst.run  .eq(Constant(1,1))
+        self.comb += leds      .eq(inst.leds)
+
+        # os.exit(-1)
 
 
 # Build --------------------------------------------------------------------------------------------
@@ -113,6 +114,7 @@ def main():
     )
 
     soc.finalize()
+
     platform.build(soc)
 
 if __name__ == "__main__":
