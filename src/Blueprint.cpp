@@ -85,7 +85,7 @@ std::tuple<t_type_nfo, int> Blueprint::determineVIOTypeWidthAndTableSize(std::st
 
 // -------------------------------------------------
 
-std::string Blueprint::resolveWidthOf(std::string vio, antlr4::misc::Interval interval) const
+std::string Blueprint::resolveWidthOf(std::string vio, const t_instantiation_context &ictx, antlr4::misc::Interval interval) const
 {
   if (isInput(vio)) {
     auto tn = input(vio).type_nfo;

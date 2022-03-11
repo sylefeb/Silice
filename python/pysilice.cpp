@@ -70,7 +70,23 @@ public:
   Unit(std::string name, AutoPtr<Blueprint> bp, AutoPtr<SiliceCompiler> compiler)
     : m_Name(name), m_Blueprint(bp), m_Compiler(compiler) {}
 
-  Instance instantiate(const std::vector<std::string>& export_params)
+  void splitExportParameter(
+    std::tuple<std::string,std::string,std::string>& ex,
+    std::vector<std::string>&                       _export_defs)
+  {
+    std::string name = std::get<0>(ex);
+    std::transform(name.begin(), name.end(), name.begin(),
+      [](unsigned char c) -> unsigned char { return std::toupper(c); });
+    // split type
+    t_type_nfo type_nfo;
+    splitType(std::get<1>(ex), type_nfo);
+    // add strings
+    _export_defs.push_back(name+"_WIDTH=" + std::to_string(type_nfo.width));
+    _export_defs.push_back(name+"_SIGNED=" + (type_nfo.base_type == Int ? "1" : "0" ));
+    _export_defs.push_back(name+"_INIT=" + std::get<2>(ex));
+  }
+
+  Instance instantiate(const std::vector<std::tuple<std::string,std::string,std::string> >& export_params)
   {
     if (m_Compiler.isNull()) {
       throw Fatal("invalid Unit");
@@ -78,7 +94,34 @@ public:
     // write to temp file
     std::string tmp = Utils::tempFileName() + ".v";
     std::ofstream f(tmp);
-    m_Compiler->write(m_Name,export_params,f);
+    // paramterized definitions
+    std::vector<std::string> export_defs;
+    for (auto ex : export_params) {
+      splitExportParameter(ex,export_defs);
+    }
+    // verify we have all
+    auto prmd = listParameterized();
+    std::set<std::string> needed;
+    needed.insert(prmd.begin(),prmd.end());
+    std::set<std::string> given;
+    for (auto ex : export_params) { given.insert(std::get<0>(ex)); }
+    bool not_ok = false;
+    for (auto n : needed) {
+      if (given.count(n) == 0) {
+        std::string msg = "unit needs definition for parameterized io '" + n + "'\n";
+        std::cerr << Console::red << msg << Console::gray;
+        not_ok = true;
+      }
+    }
+    if (not_ok) {
+      throw Fatal("unit needs additional parameterized io definitions.");
+    }
+    for (auto ex : export_defs) {
+      std::cerr << ex << '\n';
+    }
+    // write the output
+    m_Compiler->write(m_Name,export_defs,f);
+    // done
     f.close();
     // return instance
     return Instance("M_" + m_Name, tmp);
@@ -86,11 +129,11 @@ public:
 
   Instance instantiate()
   {
-    std::vector<std::string> export_params;
+    std::vector<std::tuple<std::string,std::string,std::string> > export_params;
     return instantiate(export_params);
   }
 
-  std::vector<std::string> listInputs(const std::string& name)
+  std::vector<std::string> listInputs()
   {
     std::vector<std::string> names;
     for (auto i : m_Blueprint->inputs()) {
@@ -99,7 +142,7 @@ public:
     return names;
   }
 
-  std::vector<std::string> listOutputs(const std::string& name)
+  std::vector<std::string> listOutputs()
   {
     std::vector<std::string> names;
     for (auto o : m_Blueprint->outputs()) {
@@ -108,11 +151,20 @@ public:
     return names;
   }
 
-  std::vector<std::string> listInOuts(const std::string& name)
+  std::vector<std::string> listInOuts()
   {
     std::vector<std::string> names;
     for (auto i : m_Blueprint->inOuts()) {
       names.push_back(i.name);
+    }
+    return names;
+  }
+
+  std::vector<std::string> listParameterized()
+  {
+    std::vector<std::string> names;
+    for (auto p : m_Blueprint->parameterized()) {
+      names.push_back(p);
     }
     return names;
   }
@@ -163,6 +215,12 @@ private:
 
 public:
 
+  Design(const std::string& fname)
+  {
+    std::vector<std::string> defines;
+    parse(fname,defines);
+  }
+
   Design(const std::string& fname,const std::vector<std::string>& defines)
   {
     parse(fname,defines);
@@ -212,16 +270,18 @@ PYBIND11_MODULE(_silice, m) {
     m.doc() = "Silice python plugin";
     py::class_<Design>(m, "Design")
             .def(py::init<const std::string &,const std::vector<std::string>&>())
+            .def(py::init<const std::string &>())
             .def("listUnits", &Design::listUnits)
             .def("getUnit", &Design::getUnit)
             ;
     py::class_<Unit>(m, "Unit")
 //          .def(py::init<std::string,std::string>())
             .def("instantiate", static_cast<Instance (Unit::*)()>(&Unit::instantiate))
-            .def("instantiate", static_cast<Instance (Unit::*)(const std::vector<std::string>&)>(&Unit::instantiate))
+            .def("instantiate", static_cast<Instance (Unit::*)(const std::vector<std::tuple<std::string,std::string,std::string>>&)>(&Unit::instantiate))
             .def("listInputs", &Unit::listInputs)
             .def("listOutputs", &Unit::listOutputs)
             .def("listInOuts", &Unit::listInOuts)
+            .def("listParameterized", &Unit::listParameterized)
             .def("getVioType", &Unit::getVioType)
             ;
     py::class_<Instance>(m, "Instance")
