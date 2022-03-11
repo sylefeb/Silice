@@ -18,10 +18,9 @@
 # at: https://github.com/icebreaker-fpga/icebreaker-litex-examples
 
 #
-# Modified by @sylefeb for python Silice demo
+# Heavily modified by @sylefeb for python Silice demo
 #
 
-import os
 import argparse
 
 from migen import *
@@ -33,10 +32,6 @@ from litex.soc.cores.clock import iCE40PLL
 from litex.soc.integration.soc_core import *
 from litex.soc.integration.builder import *
 from litex.soc.cores.video import VideoDVIPHY
-from litex.soc.cores.led import LedChaser
-
-kB = 1024
-mB = 1024*kB
 
 # CRG ----------------------------------------------------------------------------------------------
 
@@ -67,9 +62,9 @@ class _CRG(Module):
         self.specials += AsyncResetSynchronizer(self.cd_sys, ~por_done | ~pll.locked)
         platform.add_period_constraint(self.cd_sys.clk, 1e9/sys_clk_freq)
 
-# BasicSoC ------------------------------------------------------------------------------------------
+# Design ------------------------------------------------------------------------------------------
 
-class BasicSoC(Module):
+class Design(Module):
     def __init__(self,
                  platform,
                  sys_clk_freq,
@@ -83,20 +78,20 @@ class BasicSoC(Module):
         platform.add_extension(icebreaker.dvi_pmod)
         self.submodules.videophy = VideoDVIPHY(platform.request("dvi"), clock_domain="sys")
 
+        # Add a blinker from Silice
         import silice
 
-        f = silice.SiliceFile(
+        f = silice.Design(
           "../projects/blinky/blinky.si",
           ["NUM_LEDS=5"]
           )
-
-        v = silice.unit_source(f,"main")
-        platform.add_source(v)
+        u = f.getUnit("main")
+        i = u.instantiate()
+        platform.add_source(i.sourceFile())
 
         leds = platform.request_all("user_led")
-
         self.specials += Instance(
-            f.unitCompiledName("main"),
+            i.moduleName(),
             i_clock    = ClockSignal("sys"),
             i_reset    = ResetSignal("sys"),
             i_in_run   = Constant(1,1),
@@ -114,14 +109,13 @@ def main():
     platform = icebreaker.Platform()
     platform.add_extension(icebreaker.break_off_pmod)
 
-    soc = BasicSoC(
+    soc = Design(
         platform,
         sys_clk_freq = int(float(25e6)),
         **soc_core_argdict(args)
     )
 
     soc.finalize()
-
     platform.build(soc)
 
 if __name__ == "__main__":
