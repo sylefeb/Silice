@@ -22,6 +22,7 @@
 #
 
 import argparse
+from time import clock_getres
 
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
@@ -32,6 +33,11 @@ from litex.soc.cores.clock import iCE40PLL
 from litex.soc.integration.soc_core import *
 from litex.soc.integration.builder import *
 from litex.soc.cores.video import VideoDVIPHY
+
+## NOTE: This is to find the silice package located in the parent directory ...
+##       Yes, a better way to do this is required
+import os, sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # CRG ----------------------------------------------------------------------------------------------
 
@@ -82,19 +88,18 @@ class Design(Module):
         import silice
         import silice.migen
 
-        f = silice.Design("../projects/blinky/blinky.si",
+        f = silice.Design("../../projects/blinky/blinky.si",
                          ["NUM_LEDS=5"])
         leds = platform.request_all("user_led")
-        u = f.getUnit("main")
-        inst = silice.migen.instantiate(u)
+        inst = silice.migen.instantiate(
+            f.getUnit("main"),
+            clock = ClockSignal("sys"),
+            reset = ResetSignal("sys"),
+            run   = Constant(1,1),
+            leds  = leds
+        )
+        self.specials += inst
         platform.add_source(inst.verilog_source)
-        self.submodules.inst = inst
-        self.comb += inst.clock.eq(ClockSignal("sys"))
-        self.comb += inst.reset.eq(ResetSignal("sys"))
-        self.comb += inst.run  .eq(Constant(1,1))
-        self.comb += leds      .eq(inst.leds)
-
-        # os.exit(-1)
 
 
 # Build --------------------------------------------------------------------------------------------
