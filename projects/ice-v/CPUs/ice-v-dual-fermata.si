@@ -313,11 +313,9 @@ $$end
   uint1 o_mem_select <:: ~ stage[1,1];
   sameas(mem0.rdata)     i_mem_rdata(0);
   sameas(mem0.addr)      i_mem_addr(0);
-  sameas(mem0.addr)      o_mem_addr(0);
   sameas(mem0.wdata)     o_mem_wdata(0);
   sameas(mem0.wenable)   o_mem_wenable(0);
-  sameas(mem0.req_valid) o_mem_req_valid(0);
-  // track received data and pending requests
+  // track received and pending requests
   uint1                  reqmem0_instr(0);
   uint1                  reqmem1_instr(0);
   uint1                  reqmem0_load(0);
@@ -349,7 +347,6 @@ $$end
     // maintain request valid low
     mem0.req_valid  = 0;
     mem1.req_valid  = 0;
-    o_mem_req_valid = 0;
     if (i_mem_select) {
       __display("[cycle %d] IN  memory MEM 1, reqmem_done:%d, reqmem_instr|load: %b|%b",cycle,reqmem1_done,reqmem1_instr,reqmem1_load);
     } else {
@@ -426,13 +423,16 @@ $$end
 
       // LS1
       // memory address from which to load/store
-      o_mem_addr      = (exec.n >> 2);
-      o_mem_req_valid = ~exec.working;
-      // load in progress
       if (o_mem_select) {
-        reqmem1_load = ~exec.working ? 1 : reqmem1_load;
+        mem1.addr       = ~exec.working & ~reqmem1_instr ? (exec.n >> 2)
+                                                         : mem1.addr;
+        mem1.req_valid  = ~exec.working & ~reqmem1_instr;
+        reqmem1_load    = ~exec.working & ~reqmem1_instr ? 1 : reqmem1_load;
       } else {
-        reqmem0_load = ~exec.working ? 1 : reqmem0_load;
+        mem0.addr       = ~exec.working & ~reqmem0_instr ? (exec.n >> 2)
+                                                         : mem0.addr;
+        mem0.req_valid  = ~exec.working & ~reqmem0_instr;
+        reqmem0_load    = ~exec.working & ~reqmem0_instr ? 1 : reqmem0_load;
       }
 
       // no need to know which core, since we only read from exec
@@ -449,11 +449,11 @@ $$if VERBOSE then
      if (exec.load | exec.store) {
         if (stage[1,1]) {
 $$if CORE0 then
-          __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,o_mem_req_valid,o_mem_addr,o_mem_wdata,o_mem_wenable);
+          __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem0.req_valid,mem1.addr,o_mem_wdata,o_mem_wenable);
 $$end
         } else {
 $$if CORE1 then
-          __display("[cycle %d] (1) LS1(%b) @%h = %h (wen:%b)",cycle,o_mem_req_valid,o_mem_addr,o_mem_wdata,o_mem_wenable);
+          __display("[cycle %d] (1) LS1(%b) @%h = %h (wen:%b)",cycle,mem1.req_valid,mem1.addr,o_mem_wdata,o_mem_wenable);
 $$end
         }
       }
@@ -511,13 +511,17 @@ $$if CORE1 then
 $$end
 $$end
       // prepare instruction fetch
-      o_mem_addr      = exec.jump ? (exec.n >> 2) : pc_plus1;
-      o_mem_req_valid = ~exec.working;
       // instruction fetch in progress
       if (o_mem_select) {
-        reqmem1_instr = ~exec.working ? 1 : reqmem1_instr;
+        mem1.addr       = ~reqmem1_load ? (exec.jump ? (exec.n >> 2) : pc_plus1)
+                                        : mem1.addr;
+        reqmem1_instr   = ~exec.working & ~reqmem1_load ? 1 : reqmem1_instr;
+        mem1.req_valid  = ~exec.working & ~reqmem1_load;
       } else {
-        reqmem0_instr = ~exec.working ? 1 : reqmem0_instr;
+        mem0.addr       = ~reqmem0_load ? (exec.jump ? (exec.n >> 2) : pc_plus1)
+                                        : mem0.addr;
+        reqmem0_instr   = ~exec.working & ~reqmem0_load ? 1 : reqmem0_instr;
+        mem0.req_valid  = ~exec.working & ~reqmem0_load;
       }
 
     }
@@ -541,16 +545,12 @@ $$end
     xregsB_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs2;
     // write to selected memory
     if (o_mem_select) {
-      mem1.addr      = o_mem_addr;
       mem1.wdata     = o_mem_wdata;
       mem1.wenable   = o_mem_wenable;
-      mem1.req_valid = o_mem_req_valid;
       __display("[cycle %d] OUT memory MEM 1 @%h",cycle,mem1.addr);
     } else {
-      mem0.addr      = o_mem_addr;
       mem0.wdata     = o_mem_wdata;
       mem0.wenable   = o_mem_wenable;
-      mem0.req_valid = o_mem_req_valid;
       __display("[cycle %d] OUT memory MEM 0 @%h",cycle,mem0.addr);
     }
     __display("[cycle %d] mem0 @%h(%b)w:%b mem1 @%h(%b)w:%b",cycle,mem0.addr,mem0.req_valid,mem0.wenable,mem1.addr,mem1.req_valid,mem1.wenable);

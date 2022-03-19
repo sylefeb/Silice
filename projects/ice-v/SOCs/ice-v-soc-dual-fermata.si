@@ -75,7 +75,7 @@ $$end
     mem1.wenable    = {4{mem1io.req_valid}} & mem1io.wenable;
     mem1.wdata      = mem1io.wdata;
     mem1.addr       = mem1io.req_valid ? mem1io.addr : mem1.addr;
-    mem1io.done     = done1;
+    mem1io.done     = 0; // done1; ///////////////// TEST
     done1           = mem1io.req_valid;
     //__display("===== MEM 1 ===== @%h (%h)",mem1.addr,mem1.rdata);
 
