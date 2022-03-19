@@ -1,0 +1,112 @@
+// SL 2022-03-16 @sylefeb
+
+// Configures a BRAM template having write mask
+$$config['bram_wmask_byte_wenable_width'] = 'data'
+
+// Pre-compilation script, embeds compiled code within a string
+$$dofile('pre_include_compiled.lua')
+
+$$periph   = 11    -- bit indicating a peripheral is addressed
+$$addrW    = 12    -- additional bits for memory mapping
+$$Boot     = 0     -- boot at address zero
+$$print('===========> address bus width: ' .. addrW)
+
+// How much BRAM do we allocate (CPU RAM, incl. code)
+$$bramSize = 1024
+// Verify this is addressable
+$$if bramSize > 1<<(addrW-1) then
+$$  error("RAM is not fully addressable")
+$$end
+
+// Include the processor
+$include('../CPUs/ice-v-dual-fermata.si')
+
+// --------------------------------------------------
+// SOC
+// --------------------------------------------------
+
+group ram_io {
+  uint$addrW$ addr(0),
+  uint4       wenable(0),
+  uint32      wdata(0),
+  uint32      rdata(0),
+  uint1       req_valid(0),
+  uint1       done(0),
+}
+
+unit main( // I guess this is the SOC :-D
+  output uint5 leds,
+) {
+
+$$if SIMULATION then
+   uint32 cycle(0);
+$$end
+
+  // rams
+  // - intermediate interface to perform memory mapping
+  ram_io mem0io;
+  ram_io mem1io;
+  uint1  done0(0);
+  uint1  done1(0);
+
+  // - uses template "bram_wmask_byte", that turns wenable into a byte mask
+  bram uint32 mem0<"bram_wmask_byte">[$bramSize$] = $meminit$;
+  bram uint32 mem1<"bram_wmask_byte">[$bramSize$] = $meminit$;
+
+  // cpu
+  icev_dual_fermata cpu(
+    mem0 <:> mem0io,
+    mem1 <:> mem1io
+  );
+
+  // io mapping
+  always_before {
+	  // ---- memory access
+    // ram 0
+    mem0io.rdata    = mem0.rdata;
+    mem0.wenable    = {4{mem0io.req_valid}} & mem0io.wenable;
+    mem0.wdata      = mem0io.wdata;
+    mem0.addr       = mem0io.req_valid ? mem0io.addr : mem0.addr;
+    mem0io.done     = done0;
+    done0           = mem0io.req_valid;
+    //__display("===== MEM 0 ===== @%h (%h)",mem0.addr,mem0.rdata);
+    // ram 1
+    mem1io.rdata    = mem1.rdata;
+    mem1.wenable    = {4{mem1io.req_valid}} & mem1io.wenable;
+    mem1.wdata      = mem1io.wdata;
+    mem1.addr       = mem1io.req_valid ? mem1io.addr : mem1.addr;
+    mem1io.done     = done1;
+    done1           = mem1io.req_valid;
+    //__display("===== MEM 1 ===== @%h (%h)",mem1.addr,mem1.rdata);
+
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
+  }
+
+  algorithm <autorun> {
+$$if SIMULATION then
+    // stop after some cycles
+	  while (cycle < 256) { }
+$$else
+    // CPU is running
+    while (1) { }
+$$end
+  }
+
+}
+
+// --------------------------------------------------
+
+$$if OLED or PMOD then
+$$OLED_SLOW = 1
+$include('ice-v-oled.si')
+$$end
+
+// --------------------------------------------------
+
+$$if PMOD then
+$include('ice-v-i2s-audio.si')
+$$end
+
+// --------------------------------------------------
