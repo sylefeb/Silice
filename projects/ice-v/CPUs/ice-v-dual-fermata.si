@@ -440,7 +440,7 @@ $$end
         //                ^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         //                |               |
         //         ignore if ALU holds    |
-        //                        ignore if waiting for instr or load
+        //                        ignore if waiting for instr or load/store
         //
         mem1.addr       = do_load_store ? (exec.n >> 2) : mem1.addr;
         reqmem1_ldst    = do_load_store ? 1 : reqmem1_ldst;
@@ -514,7 +514,7 @@ $$end
       xregsA_1.wenable = ~stage[1,1] ? (~exec.no_rd & ~reqmem1_instr) : 0;
       //                                              ^^^^^^^^^^^^^^
       //                                 ignore if waiting for an instruction
-      // load done
+      // load/store done
       if (i_mem_select) {
         reqmem1_ldst   = ~reqmem1_done & reqmem1_ldst;
       } else {

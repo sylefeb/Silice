@@ -19,9 +19,12 @@ $$  error("RAM is not fully addressable")
 $$end
 
 $$master_freq = 50
+
+$$if ICEBREAKER or ICEBITSY then
 // Import the PLL
 import('../common/plls/icebrkr_$master_freq$.v')
 import('../common/ice40_half_clock.v')
+$$end
 
 // Include the processor
 $include('../CPUs/ice-v-dual-fermata.si')
@@ -46,12 +49,12 @@ group ram_io {
 
 unit memory(
   ram_io io {
-    input  addr,
-    input  wenable,
-    input  wdata,
-    output rdata,
-    input  req_valid,
-    output done
+    input   addr,
+    input   wenable,
+    input   wdata,
+    output! rdata,
+    input   req_valid,
+    output! done
   }
 ) {
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
@@ -68,12 +71,64 @@ unit memory(
 }
 
 // --------------------------------------------------
+// PLL for simulation
+// --------------------------------------------------
+
+$$if SIMULATION then
+algorithm pll(
+  output! uint1 fast_clock,
+  output  uint1 cpu_clock,
+) <autorun> {
+  uint3 counter(0);
+  fast_clock := clock;
+  cpu_clock  := ~counter[0,1]; // x2 slower
+  always { counter = counter + 1; }
+}
+$$end
+
+// --------------------------------------------------
 // SOC
 // --------------------------------------------------
 
 unit main( // I guess this is the SOC :-D
   output uint5 leds,
+$$if QSPIFLASH then
+  output  uint1 sf_clk,
+  output  uint1 sf_csn,
+  inout   uint1 sf_io0,
+  inout   uint1 sf_io1,
+  inout   uint1 sf_io2,
+  inout   uint1 sf_io3,
+$$end
+// clocking (pll) and reset
+$$if ICEBREAKER or ICEBITSY then
+) <@cpu_clock,!fast_reset> {
+  uint1 fast_clock = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> fast_clock,
+  );
+  uint1 cpu_clock  = uninitialized;
+  ice40_half_clock hc(
+    clock_in  <: fast_clock,
+    clock_out :> cpu_clock,
+  );
+  uint1 fast_reset = uninitialized;
+  clean_reset rst<@fast_clock,!reset>(
+    out :> fast_reset
+  );
+$$elseif SIMULATION then
+ ) <@cpu_clock> {
+  uint1 cpu_clock  = uninitialized;
+  uint1 fast_clock = uninitialized;
+  pll clkgen<@clock,!reset>(
+    cpu_clock  :> cpu_clock,
+    fast_clock :> fast_clock
+  );
+  uint1 fast_reset <: reset;
+$$else
 ) {
+$$end
 
 $$if SIMULATION then
    uint32 cycle(0);
@@ -87,13 +142,27 @@ $$end
   memory mem0(io <:> mem0io);
   memory mem1(io <:> mem1io);
 
+  // spiflash
+  spiflash_rom sf <@fast_clock,!fast_reset, reginputs> (
+    sf_clk :>  sf_clk,
+    sf_csn :>  sf_csn,
+    sf_io0 <:> sf_io0,
+    sf_io1 <:> sf_io1,
+    sf_io2 <:> sf_io2,
+    sf_io3 <:> sf_io3,
+  );
+$$if SIMULATION then
+  // for simulation, create dummy vars
+  uint1 sf_csn(1); uint1 sf_clk(0); uint1 sf_io0(0);
+  uint1 sf_io1(0); uint1 sf_io2(0); uint1 sf_io3(0);
+$$end
+
   // cpu
   icev_dual_fermata cpu(
     mem0 <:> mem0io,
     mem1 <:> mem1io
   );
 
-  // io mapping
   always_before {
 $$if SIMULATION then
     cycle = cycle + 1;
