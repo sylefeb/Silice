@@ -6,8 +6,8 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 // Pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_compiled.lua')
 
-$$periph   = 11    -- bit indicating a peripheral is addressed
-$$addrW    = 12    -- additional bits for memory mapping
+$$periph   = 23    -- bit indicating a peripheral is addressed
+$$addrW    = 24    -- additional bits for memory mapping
 $$Boot     = 0     -- boot at address zero
 $$print('===========> address bus width: ' .. addrW)
 
@@ -18,11 +18,21 @@ $$if bramSize > 1<<(addrW-1) then
 $$  error("RAM is not fully addressable")
 $$end
 
+$$master_freq = 50
+// Import the PLL
+import('../common/plls/icebrkr_$master_freq$.v')
+import('../common/ice40_half_clock.v')
+
 // Include the processor
 $include('../CPUs/ice-v-dual-fermata.si')
+// Include SPI
+$include('../spiflash/spiflash2.si')
+// Include UART
+$$uart_in_clock_freq_mhz = master_freq//2
+$include('../common/uart.si')
 
 // --------------------------------------------------
-// SOC
+// RAM
 // --------------------------------------------------
 
 group ram_io {
@@ -33,6 +43,33 @@ group ram_io {
   uint1       req_valid(0),
   uint1       done(0),
 }
+
+unit memory(
+  ram_io io {
+    input  addr,
+    input  wenable,
+    input  wdata,
+    output rdata,
+    input  req_valid,
+    output done
+  }
+) {
+  // - uses template "bram_wmask_byte", that turns wenable into a byte mask
+  bram uint32 mem<"bram_wmask_byte">[$bramSize$] = $meminit$;
+  uint1  done(0);
+  always {
+    io.rdata    = mem.rdata;
+    mem.wenable = {4{io.req_valid}} & io.wenable;
+    mem.wdata   = io.wdata;
+    mem.addr    = io.req_valid ? io.addr : mem.addr;
+    io.done     = done;
+    done        = io.req_valid;
+  }
+}
+
+// --------------------------------------------------
+// SOC
+// --------------------------------------------------
 
 unit main( // I guess this is the SOC :-D
   output uint5 leds,
@@ -46,15 +83,9 @@ $$end
   // - intermediate interface to perform memory mapping
   ram_io mem0io;
   ram_io mem1io;
-  uint1  done0(0);
-  uint1  done1(0);
-  uint4  delay1(0);
 
-  uint1  req1_wait(0);
-
-  // - uses template "bram_wmask_byte", that turns wenable into a byte mask
-  bram uint32 mem0<"bram_wmask_byte">[$bramSize$] = $meminit$;
-  bram uint32 mem1<"bram_wmask_byte">[$bramSize$] = $meminit$;
+  memory mem0(io <:> mem0io);
+  memory mem1(io <:> mem1io);
 
   // cpu
   icev_dual_fermata cpu(
@@ -64,27 +95,6 @@ $$end
 
   // io mapping
   always_before {
-	  // ---- memory access
-    // ram 0
-    mem0io.rdata    = mem0.rdata;
-    mem0.wenable    = {4{mem0io.req_valid}} & mem0io.wenable;
-    mem0.wdata      = mem0io.wdata;
-    mem0.addr       = mem0io.req_valid ? mem0io.addr : mem0.addr;
-    mem0io.done     = done0;
-    done0           = mem0io.req_valid;
-    //__display("===== MEM 0 ===== @%h (%h)",mem0.addr,mem0.rdata);
-    // ram 1
-    mem1io.rdata    = mem1.rdata;
-    mem1.wenable    = {4{mem1io.req_valid}} & mem1io.wenable;
-    mem1.wdata      = mem1io.wdata;
-    mem1.addr       = mem1io.req_valid ? mem1io.addr : mem1.addr;
-    mem1io.done     = done1;
-    //done1           = mem1io.req_valid;
-    done1           = (req1_wait & delay1[3,1]) ? 1 : 0;    ///////////////// TEST
-    delay1          = (req1_wait & delay1[3,1]) ? 0 : (delay1 + 1);
-    req1_wait       = mem1io.req_valid ? 1 : (done1 ? 0 : req1_wait);
-    //__display("===== MEM 1 ===== @%h (%h)  done:%b delay:%b wait:%b",mem1.addr,mem1.rdata,done1,delay1,req1_wait);
-
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end

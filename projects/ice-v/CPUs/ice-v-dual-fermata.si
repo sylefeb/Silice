@@ -319,8 +319,8 @@ $$end
   // track received and pending requests
   uint1                  reqmem0_instr(0);
   uint1                  reqmem1_instr(0);
-  uint1                  reqmem0_load(0);
-  uint1                  reqmem1_load(0);
+  uint1                  reqmem0_ldst(0);
+  uint1                  reqmem1_ldst(0);
   uint1                  reqmem0_was_done(0);
   uint1                  reqmem1_was_done(0);
     // did we receive new data?
@@ -342,7 +342,7 @@ $$end
   always {
     uint32 aligned(0);
 $$if VERBOSE then
-    __display("\\n[cycle %d] ---------------- stage: %b ----- exec.working:%b mem0.done:%b(%b) mem1.done:%b(%d)",cycle,stage,exec.working,mem0.done,reqmem0_done,mem1.done,reqmem1_done);
+    __display("\\n[cycle %d] ---------------- stage: %b ----- exec.working:%b mem0.done:%b(%b)=%h mem1.done:%b(%d)=%h",cycle,stage,exec.working,mem0.done,reqmem0_done,mem0.rdata,mem1.done,reqmem1_done,mem1.rdata);
 $$end
     // read from selected memory
     i_mem_rdata     = i_mem_select ? mem1.rdata : mem0.rdata;
@@ -352,9 +352,9 @@ $$end
     mem1.req_valid  = 0;
 $$if VERBOSE then
     if (i_mem_select) {
-      __display("[cycle %d] IN  memory MEM 1, reqmem_done:%d, instr|load: %b|%b",cycle,reqmem1_done,reqmem1_instr,reqmem1_load);
+      __display("[cycle %d] IN  memory MEM 1, reqmem_done:%d, instr|load: %b|%b",cycle,reqmem1_done,reqmem1_instr,reqmem1_ldst);
     } else {
-      __display("[cycle %d] IN  memory MEM 0, reqmem_done:%d, instr|load: %b|%b",cycle,reqmem0_done,reqmem0_instr,reqmem0_load);
+      __display("[cycle %d] IN  memory MEM 0, reqmem_done:%d, instr|load: %b|%b",cycle,reqmem0_done,reqmem0_instr,reqmem0_ldst);
     }
 $$end
     // decodes values loaded from memory (used when exec.load == 1)
@@ -435,22 +435,22 @@ $$end
       // LS1
       // memory address from which to load/store
       if (o_mem_select) {
-        uint1 do_load(0);
-        do_load         = ~exec.working & ~reqmem1_instr & ~reqmem1_load & (exec.load | exec.store);
+        uint1 do_load_store(0);
+        do_load_store   = ~exec.working & ~reqmem1_instr & ~reqmem1_ldst & (exec.load | exec.store);
         //                ^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         //                |               |
         //         ignore if ALU holds    |
         //                        ignore if waiting for instr or load
         //
-        mem1.addr       = do_load ? (exec.n >> 2) : mem1.addr;
-        reqmem1_load    = do_load ? 1 : reqmem1_load;
-        mem1.req_valid  = do_load;
+        mem1.addr       = do_load_store ? (exec.n >> 2) : mem1.addr;
+        reqmem1_ldst    = do_load_store ? 1 : reqmem1_ldst;
+        mem1.req_valid  = do_load_store;
       } else {
-        uint1 do_load(0);
-        do_load         = ~exec.working & ~reqmem0_instr & ~reqmem0_load & (exec.load | exec.store);
-        mem0.addr       = do_load ? (exec.n >> 2) : mem0.addr;
-        reqmem0_load    = do_load ? 1 : reqmem0_load;
-        mem0.req_valid  = do_load;
+        uint1 do_load_store(0);
+        do_load_store   = ~exec.working & ~reqmem0_instr & ~reqmem0_ldst & (exec.load | exec.store);
+        mem0.addr       = do_load_store ? (exec.n >> 2) : mem0.addr;
+        reqmem0_ldst    = do_load_store ? 1 : reqmem0_ldst;
+        mem0.req_valid  = do_load_store;
       }
 
       // no need to know which core, since we only read from exec
@@ -516,9 +516,9 @@ $$end
       //                                 ignore if waiting for an instruction
       // load done
       if (i_mem_select) {
-        reqmem1_load   = ~reqmem1_done & reqmem1_load;
+        reqmem1_ldst   = ~reqmem1_done & reqmem1_ldst;
       } else {
-        reqmem0_load   = ~reqmem0_done & reqmem1_load;
+        reqmem0_ldst   = ~reqmem0_done & reqmem0_ldst;
       }
 $$if VERBOSE then
 $$if CORE0 then
@@ -538,14 +538,14 @@ $$end
       // instruction fetch in progress
       if (o_mem_select) {
         uint1 do_fetch(0);
-        do_fetch        = ~exec.working & ~reqmem1_load & ~reqmem1_instr;
+        do_fetch        = ~exec.working & ~reqmem1_ldst & ~reqmem1_instr;
         mem1.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
                                    : mem1.addr;
         reqmem1_instr   = do_fetch ? 1 : reqmem1_instr;
         mem1.req_valid  = do_fetch;
       } else {
         uint1 do_fetch(0);
-        do_fetch        = ~exec.working & ~reqmem0_load & ~reqmem0_instr;
+        do_fetch        = ~exec.working & ~reqmem0_ldst & ~reqmem0_instr;
         mem0.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
                                    : mem0.addr;
         reqmem0_instr   = do_fetch ? 1 : reqmem0_instr;
