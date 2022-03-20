@@ -48,6 +48,9 @@ $$end
   ram_io mem1io;
   uint1  done0(0);
   uint1  done1(0);
+  uint4  delay1(0);
+
+  uint1  req1_wait(0);
 
   // - uses template "bram_wmask_byte", that turns wenable into a byte mask
   bram uint32 mem0<"bram_wmask_byte">[$bramSize$] = $meminit$;
@@ -75,9 +78,12 @@ $$end
     mem1.wenable    = {4{mem1io.req_valid}} & mem1io.wenable;
     mem1.wdata      = mem1io.wdata;
     mem1.addr       = mem1io.req_valid ? mem1io.addr : mem1.addr;
-    mem1io.done     = 0; // done1; ///////////////// TEST
-    done1           = mem1io.req_valid;
-    //__display("===== MEM 1 ===== @%h (%h)",mem1.addr,mem1.rdata);
+    mem1io.done     = done1;
+    //done1           = mem1io.req_valid;
+    done1           = (req1_wait & delay1[3,1]) ? 1 : 0;    ///////////////// TEST
+    delay1          = (req1_wait & delay1[3,1]) ? 0 : (delay1 + 1);
+    req1_wait       = mem1io.req_valid ? 1 : (done1 ? 0 : req1_wait);
+    //__display("===== MEM 1 ===== @%h (%h)  done:%b delay:%b wait:%b",mem1.addr,mem1.rdata,done1,delay1,req1_wait);
 
 $$if SIMULATION then
     cycle = cycle + 1;
@@ -87,7 +93,7 @@ $$end
   algorithm <autorun> {
 $$if SIMULATION then
     // stop after some cycles
-	  while (cycle < 256) { }
+	  while (cycle < 1024) { }
 $$else
     // CPU is running
     while (1) { }
