@@ -8,7 +8,6 @@
 
 import os
 import argparse
-import sys
 
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
@@ -33,16 +32,6 @@ from litex.soc.integration.soc import SoCRegion
 from litex.soc.cores.hyperbus import HyperRAM
 
 from litex.soc.interconnect import stream
-
-from migen.fhdl.verilog import convert
-from migen.fhdl.tools import *
-from migen.fhdl.namer import build_namespace
-from migen.fhdl.conv_output import ConvOutput
-
-## NOTE: This is to find the silice package located in the parent directory ...
-##       Yes, a better way to do this is required
-import os, sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # CRG ----------------------------------------------------------------------------------------------
 

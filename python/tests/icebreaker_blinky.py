@@ -34,11 +34,6 @@ from litex.soc.integration.soc_core import *
 from litex.soc.integration.builder import *
 from litex.soc.cores.video import VideoDVIPHY
 
-## NOTE: This is to find the silice package located in the parent directory ...
-##       Yes, a better way to do this is required
-import os, sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 # CRG ----------------------------------------------------------------------------------------------
 
 class _CRG(Module):
