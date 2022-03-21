@@ -30,6 +30,12 @@ $$uart_in_clock_freq_mhz = master_freq//2
 $include('../common/uart.si')
 $include('../common/clean_reset.si')
 
+$$if ICARUS then
+// download W25Q128JVxIM from winbond Verilog models
+append('../spiflash/W25Q128JVxIM/W25Q128JVxIM.v')
+import('../spiflash/simul_spiflash.v')
+$$end
+
 // --------------------------------------------------
 // RAM
 // --------------------------------------------------
@@ -77,9 +83,9 @@ unit spiflash_memory(
     input   addr,
     input   wenable,
     input   wdata,
-    output! rdata,
+    output  rdata,
     input   req_valid,
-    output! done,
+    output  done,
   },
   output  uint1 init(1), // goes low when SPIflash ctrl is ready
   output  uint1 sf_clk,
@@ -175,6 +181,12 @@ $$if SIMULATION then
   // for simulation, create dummy spiflash io pads
   uint1 sf_csn(1); uint1 sf_clk(0); uint1 sf_io0(0);
   uint1 sf_io1(0); uint1 sf_io2(0); uint1 sf_io3(0);
+$$if ICARUS then
+  simul_spiflash simu(
+    CSn <:  sf_csn, CLK <:  sf_clk, IO0 <:> sf_io0,
+    IO1 <:> sf_io1, IO2 <:> sf_io2, IO3 <:> sf_io3,
+  );
+$$end
 $$end
 
   // rams
@@ -196,9 +208,9 @@ $$end
 
   always {
 
-   leds = mem0io.addr[11,1] & mem0io.req_valid ? mem0io.wdata : leds;
-    // leds = mem1io.addr[11,1] & mem1io.req_valid ? mem1io.wdata : leds;
-    //leds = mem1io.addr[0,5];
+    // leds = mem0io.addr[11,1] & mem0io.req_valid ? mem0io.wdata : leds;
+    leds = mem1io.addr[11,1] & mem1io.req_valid ? mem1io.wdata : leds;
+    // leds = mem1io.addr[0,5];
     // leds = {5{mem1io.req_valid}};
     // leds[0,1] = mem1.init;
 

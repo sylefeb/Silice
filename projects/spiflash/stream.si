@@ -7,10 +7,14 @@ $$end
 $$uart_in_clock_freq_mhz = 12
 $include('../common/uart.si')
 
-$$nBytes = 1
+$$nBytes = 4
 $include('spiflash2x.si')
 
+$$if nBytes == 1 then
 $$K = 18
+$$else
+$$K = 18 + (nBytes-1)*2
+$$end
 circuitry wait() // waits 2+K cycles
 {
   uint5 n = 0; while (n != $K$) { n = n + 1; }
@@ -53,7 +57,7 @@ $$end
   uint32 cycle(0);
 $$end
 
-  bram uint8 data[256] = uninitialized;
+  bram uint$8*nBytes$ data[256] = uninitialized;
 
   uart_out uo;
 $$if UART then
@@ -77,9 +81,9 @@ spiflash_rom sf_rom(
     sf_rom.in_ready  = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    if (cycle == 1500) {
-      __finish();
-    }
+    //if (cycle == 1500) {
+    //  __finish();
+    //}
 $$end
   }
 
@@ -89,7 +93,7 @@ $$end
   data.wenable            = 1;
   while (data.addr != 64) {
     sf_rom.in_ready = 1;
-    sf_rom.addr     = data.addr;
+    sf_rom.addr     = {4b0001,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
     ()              = wait();
     __display("read %x",sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
@@ -100,10 +104,18 @@ $$end
   data.wenable = 0;
   data.addr    = 1;
   while (data.addr != 64) {
-    uo.data_in       = data.rdata;
-    uo.data_in_ready = 1;
+    uint32 dta = 0;
+    uint3  n   = 0;
+    dta = data.rdata;
+    while (n != $nBytes$) {
+      uo.data_in       = dta[0,8];
+      uo.data_in_ready = 1;
+      __display("sending %h",dta[0,8]);
+      dta              = dta >> 8;
+      while (uo.busy) { }
+      n = n + 1;
+    }
     data.addr        = data.addr + 1;
-    while (uo.busy) { }
   }
 
 }

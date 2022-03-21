@@ -331,12 +331,7 @@ $$if VERBOSE then
   uint32 cycle(0);
 $$end
 
-  // what do we write in register? (pc, alu, val or load)
-  int32 write_back <: (exec.jump      ? (pc_plus1<<2)       : 32b0)
-                    | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
-                    | (exec.storeVal  ? exec.val            : 32b0)
-                    | (exec.load      ? loaded              : 32b0)
-                    | (exec.intop     ? exec.r              : 32b0);
+  int32 write_back(0);
 
   // always block, done every cycle
   always {
@@ -365,6 +360,12 @@ $$end
       case 2b10:{ loaded = aligned;   }
       default:  { loaded = {32{1bx}}; } // don't care
     }
+    // what do we write in register? (pc, alu, val or load)
+    write_back =      (exec.jump      ? (pc_plus1<<2)       : 32b0)
+                    | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
+                    | (exec.storeVal  ? exec.val            : 32b0)
+                    | (exec.load      ? loaded              : 32b0)
+                    | (exec.intop     ? exec.r              : 32b0);
 $$if ICEV_USERDATA then
     exec.user_data = user_data;
 $$end
