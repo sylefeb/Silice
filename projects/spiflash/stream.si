@@ -7,6 +7,7 @@ $$end
 $$uart_in_clock_freq_mhz = 12
 $include('../common/uart.si')
 
+$$nBytes = 1
 $include('spiflash2.si')
 
 $$K = 18

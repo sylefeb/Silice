@@ -10,6 +10,10 @@ import('../common/verilator_data.v') // this is a feature supported by Silice
                                      // stored in a 'data.raw' file
 $$end
 
+$$if not nBytes then
+$$ nBytes = 1
+$$end
+
 algorithm spiflash_qspi(
   input  uint8 send,
   input  uint1 trigger,
@@ -51,7 +55,7 @@ algorithm spiflash_qspi(
 algorithm spiflash_rom(
   input   uint1  in_ready,
   input   uint24 addr,
-  output  uint8  rdata,
+  output  uint$nBytes*8$ rdata,
   output  uint1  busy(1),
   // QSPI flash
   output  uint1  sf_csn(1),
@@ -77,6 +81,9 @@ algorithm spiflash_rom(
   uint3  stage(0);
   uint3  after(1);
   uint2  init(2b11);
+$$if nBytes > 1 then
+  uint$nBytes$ rdata_done(0);
+$$end
 $$if SIMULATION then
   uint32 cycle(0);
 $$if VERILATOR then
@@ -106,6 +113,9 @@ $$end
                 | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0);
                //                ^^^^^^^^^^ produces 38h when not in QPI
         spiflash.send_else_read = 1; // sending
+$$if nBytes > 1 then
+        rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
+$$end
         // start sending?
         if (in_ready | init[1,1]) {
 $$if SIMULATION then
@@ -147,22 +157,44 @@ $$end
         after                   = 5;
       }
       case 5: {
-$$if SIMULATION then
-$$if VERILATOR then
+$$if nBytes == 1 then
+  $$if SIMULATION then
+  $$if VERILATOR then
         rdata                   = vdta.data;  // from 'data.raw'
-$$else
+  $$else
         rdata                   = cycle[0,8]; // DEBUG
-$$end
-$$else
+  $$end
+  $$else
         rdata                   = spiflash.read;
-$$end
+  $$end
         sf_csn                  = 1;
         spiflash.trigger        = 0;
         busy                    = 0;
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
-$$if SIMULATION then
+  $$if SIMULATION then
           //__display("[%d](%d) spiflash [5] DONE (%d)",cycle,cycle>>1,rdata);
+  $$end
+$$else
+  $$if SIMULATION then
+  $$if VERILATOR then
+        rdata                   = (rdata<<8) | vdta.data;  // from 'data.raw'
+        vdta.addr               = rdata_done[0,1] ? vdta.addr : vdta.addr + 1;
+  $$else
+        rdata                   = (rdata<<8) | cycle[0,8]; // DEBUG
+  $$end
+  $$else
+        rdata                   = (rdata<<8) | spiflash.read;
+  $$end
+        sf_csn                  =  rdata_done[0,1];
+        spiflash.trigger        = ~rdata_done[0,1];
+        busy                    = ~rdata_done[0,1];
+        init                    = {1b0,init[1,1]};
+        stage                   = rdata_done[0,1] ? 1 : 5; // return to start stage when done
+        rdata_done              = rdata_done >> 1;
+  $$if SIMULATION then
+          //__display("[%d](%d) spiflash [5] DONE (%d)",cycle,cycle>>1,rdata);
+  $$end
 $$end
       }
     }
