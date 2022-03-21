@@ -76,11 +76,7 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
-$$if SIMULATION then
-  uint10 wait(16);
-$$else
   uint10 wait(1023);
-$$end
   uint4  four(0);
   uint3  stage(0);
   uint3  after(1);
@@ -155,6 +151,7 @@ $$end
         wait                    = 1; //_ 3 cycles
         after                   = 4;
       }
+$$if nBytes == 1 then
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
@@ -162,12 +159,11 @@ $$end
         after                   = 5;
       }
       case 5: {
-$$if nBytes == 1 then
   $$if SIMULATION then
   $$if VERILATOR then
         rdata                   = vdta.data;  // from 'data.raw'
   $$else
-        rdata                   = cycle[0,8]; // DEBUG
+        rdata                   = spiflash.read; // cycle[0,8]; // DEBUG
   $$end
   $$else
         rdata                   = spiflash.read;
@@ -177,13 +173,26 @@ $$if nBytes == 1 then
         busy                    = 0;
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
+$$if SIMULATION then
+      //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
+$$end
+      }
 $$else
+      case 4: {
+        spiflash.send_else_read = 0;
+        stage                   = 0; // wait
+        wait                    = 0; //_ 2 cycles
+        after                   = 5;
+      }
+      case 5: {
   $$if SIMULATION then
   $$if VERILATOR then
         rdata                   = {vdta.data[0,8],rdata[8,$(nBytes-1)*8$]};  // from 'data.raw'
         vdta.addr               = rdata_done[0,1] ? vdta.addr : (vdta.addr + 1);
   $$else
-        rdata                   = {cycle[0,8],    rdata[8,$(nBytes-1)*8$]}; // DEBUG
+        // rdata                   = {cycle[0,8],    rdata[8,$(nBytes-1)*8$]}; // DEBUG
+        __display("[%d] read %h",cycle,spiflash.read);
+        rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
   $$end
   $$else
         rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
@@ -192,13 +201,15 @@ $$else
         spiflash.trigger        = ~rdata_done[0,1];
         busy                    = ~rdata_done[0,1];
         init                    = {1b0,init[1,1]};
-        stage                   = rdata_done[0,1] ? 1 : 5; // return to start stage when done
+        wait                    = 0; //_ 2 cycles
+        stage                   = rdata_done[0,1] ? 1 : 0;  // return to start stage when done
+        after                   = 5; // otherwise keep reading
         rdata_done              = rdata_done >> 1;
-$$end
 $$if SIMULATION then
       //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
 $$end
       }
+$$end
     }
 $$if SIMULATION then
     cycle = cycle + 1;

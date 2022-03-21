@@ -1,8 +1,5 @@
 // SL 2022-03-16 @sylefeb
 
-// Configures a BRAM template having write mask
-$$config['bram_wmask_byte_wenable_width'] = 'data'
-
 // Pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_compiled.lua')
 
@@ -11,13 +8,10 @@ $$addrW    = 24    -- additional bits for memory mapping
 $$Boot     = 0     -- boot at address zero
 $$print('===========> address bus width: ' .. addrW)
 
-// How much BRAM do we allocate (CPU RAM, incl. code)
-$$bramSize = 1024
-// Verify this is addressable
-$$if bramSize > 1<<(addrW-1) then
-$$  error("RAM is not fully addressable")
-$$end
+// How much BRAM do we allocate
+$$bramSize    = 1024
 
+// Main design frequency
 $$master_freq = 50
 
 $$if ICEBREAKER or ICEBITSY then
@@ -28,26 +22,30 @@ $$end
 
 // Include the processor
 $include('../CPUs/ice-v-dual-fermata.si')
-// Include SPI
+// Include the SPIflash controller
 $$nBytes = 4 -- fetches 32 bits words
 $include('../spiflash/spiflash2x.si')
-// Include UART
+// Include the UART controller
 $$uart_in_clock_freq_mhz = master_freq//2
 $include('../common/uart.si')
+$include('../common/clean_reset.si')
 
 // --------------------------------------------------
 // RAM
 // --------------------------------------------------
 
+// This group holds the signals for the 32-bits RAM ios
 group ram_io {
-  uint$addrW$ addr(0),
-  uint4       wenable(0),
-  uint32      wdata(0),
-  uint32      rdata(0),
-  uint1       req_valid(0),
-  uint1       done(0),
+  uint$addrW$ addr(0),     // addr to read from / write to
+  uint4       wenable(0),  // write enable mask (one bit per byte)
+  uint32      wdata(0),    // 4-bytes to write
+  uint32      rdata(0),    // 4-bytes read from memory
+  uint1       req_valid(0),// memory request ready (pulse)
+  uint1       done(0),     // memory request done (pulse)
 }
 
+// --------------
+// BRAM implementation of a RAM
 unit bram_memory(
   ram_io io {
     input   addr,
@@ -58,7 +56,8 @@ unit bram_memory(
     output! done
   }
 ) {
-  // - uses template "bram_wmask_byte", that turns wenable into a byte mask
+  // uses template "bram_wmask_byte", that turns wenable into a byte mask
+  $$config['bram_wmask_byte_wenable_width'] = 'data'
   bram uint32 mem<"bram_wmask_byte">[$bramSize$] = $meminit$;
   uint1  done(0);
   always {
@@ -71,6 +70,8 @@ unit bram_memory(
   }
 }
 
+// --------------
+// SPIflash implementation of a RAM (read-only)
 unit spiflash_memory(
   ram_io io {
     input   addr,
@@ -80,7 +81,7 @@ unit spiflash_memory(
     input   req_valid,
     output! done,
   },
-  output  uint1 init(1),
+  output  uint1 init(1), // goes low when SPIflash ctrl is ready
   output  uint1 sf_clk,
   output  uint1 sf_csn,
   inout   uint1 sf_io0,
@@ -101,7 +102,8 @@ unit spiflash_memory(
   always {
     init        = sf.busy & init;
     io.rdata    = sf.rdata;
-    sf.addr     = io.req_valid ? {io.addr,2b00} : sf.addr;
+    sf.addr     = io.req_valid ? {4b0001,io.addr[0,18],2b00} : sf.addr;
+    //                                 ^ offset SPIflash addresses by 1MB
     sf.in_ready = io.req_valid;
     io.done     = was_busy & ~sf.busy;
     was_busy    = sf.busy;
@@ -152,7 +154,7 @@ $$if ICEBREAKER or ICEBITSY then
     clock_out :> clock1x,
   );
   uint1 rst = uninitialized;
-  clean_reset crst<@fast_clock,!reset>(
+  clean_reset crst<@clock2x,!reset>(
     out :> rst
   );
 $$elseif SIMULATION then
@@ -169,7 +171,7 @@ $$else
 $$end
 
 $$if SIMULATION then
-   uint32 cycle(0);
+  uint32 cycle(0);
   // for simulation, create dummy spiflash io pads
   uint1 sf_csn(1); uint1 sf_clk(0); uint1 sf_io0(0);
   uint1 sf_io1(0); uint1 sf_io2(0); uint1 sf_io3(0);
@@ -192,19 +194,23 @@ $$end
     mem1 <:> mem1io
   );
 
-  always_before {
-$$if SIMULATION then
-    cycle = cycle + 1;
-$$end
-  }
+  always {
 
-  algorithm <autorun> {
+   leds = mem0io.addr[11,1] & mem0io.req_valid ? mem0io.wdata : leds;
+    // leds = mem1io.addr[11,1] & mem1io.req_valid ? mem1io.wdata : leds;
+    //leds = mem1io.addr[0,5];
+    // leds = {5{mem1io.req_valid}};
+    // leds[0,1] = mem1.init;
+
 $$if SIMULATION then
-    // stop after some cycles
-	  while (cycle < 1024) { }
-$$else
-    // CPU is running
-    while (1) { }
+    if (mem0io.addr[11,1] & mem0io.req_valid) {
+      __display("[cycle %d] LEDS (0) = %h",cycle,mem0io.wdata);
+    }
+    if (mem1io.addr[11,1] & mem1io.req_valid) {
+      __display("[cycle %d] LEDS (1) = %h",cycle,mem1io.wdata);
+    }
+    if (cycle == 4096) { __finish(); }
+    cycle = cycle + 1;
 $$end
   }
 
