@@ -76,7 +76,11 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
+$$if SIMULATION then
+  uint10 wait(16);
+$$else
   uint10 wait(1023);
+$$end
   uint4  four(0);
   uint3  stage(0);
   uint3  after(1);
@@ -122,6 +126,7 @@ $$if SIMULATION then
           //__display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
 $$if VERILATOR then
           vdta.addr = addr;
+          //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
 $$end
 $$end
           busy                  = 1;
@@ -172,19 +177,16 @@ $$if nBytes == 1 then
         busy                    = 0;
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
-  $$if SIMULATION then
-          //__display("[%d](%d) spiflash [5] DONE (%d)",cycle,cycle>>1,rdata);
-  $$end
 $$else
   $$if SIMULATION then
   $$if VERILATOR then
-        rdata                   = (rdata<<8) | vdta.data;  // from 'data.raw'
-        vdta.addr               = rdata_done[0,1] ? vdta.addr : vdta.addr + 1;
+        rdata                   = {vdta.data[0,8],rdata[8,$(nBytes-1)*8$]};  // from 'data.raw'
+        vdta.addr               = rdata_done[0,1] ? vdta.addr : (vdta.addr + 1);
   $$else
-        rdata                   = (rdata<<8) | cycle[0,8]; // DEBUG
+        rdata                   = {cycle[0,8],    rdata[8,$(nBytes-1)*8$]}; // DEBUG
   $$end
   $$else
-        rdata                   = (rdata<<8) | spiflash.read;
+        rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
   $$end
         sf_csn                  =  rdata_done[0,1];
         spiflash.trigger        = ~rdata_done[0,1];
@@ -192,9 +194,9 @@ $$else
         init                    = {1b0,init[1,1]};
         stage                   = rdata_done[0,1] ? 1 : 5; // return to start stage when done
         rdata_done              = rdata_done >> 1;
-  $$if SIMULATION then
-          //__display("[%d](%d) spiflash [5] DONE (%d)",cycle,cycle>>1,rdata);
-  $$end
+$$end
+$$if SIMULATION then
+      //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
 $$end
       }
     }
