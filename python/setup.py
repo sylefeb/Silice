@@ -5,12 +5,17 @@ import shutil
 from pathlib import Path
 
 def add_asset_directory(dir):
-    shutil.copytree('../{}'.format(dir),'./silice/{}'.format(dir))
+    try:
+        shutil.copytree('../{}'.format(dir),'./silice/{}'.format(dir))
+    except:
+        print("files already copied")
     datadir = Path(__file__).parent / 'silice/{}'.format(dir)
     return [str(p.relative_to(Path(__file__).parent / 'silice')) for p in datadir.rglob('*')]
 
+# Add the content of 'frameworks' as package files
 files = add_asset_directory('frameworks')
 
+# Setup
 setuptools.setup(
     name='silice',
     version='0.1',
@@ -32,4 +37,5 @@ setuptools.setup(
     include_package_data=True,
 )
 
+# Cleanup the local copy of framework files
 shutil.rmtree('./silice/frameworks')
