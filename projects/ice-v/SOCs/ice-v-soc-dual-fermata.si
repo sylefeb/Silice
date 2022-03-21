@@ -29,7 +29,8 @@ $$end
 // Include the processor
 $include('../CPUs/ice-v-dual-fermata.si')
 // Include SPI
-$include('../spiflash/spiflash2.si')
+$$nBytes = 4 -- fetches 32 bits words
+$include('../spiflash/spiflash2x.si')
 // Include UART
 $$uart_in_clock_freq_mhz = master_freq//2
 $include('../common/uart.si')
@@ -47,7 +48,7 @@ group ram_io {
   uint1       done(0),
 }
 
-unit memory(
+unit bram_memory(
   ram_io io {
     input   addr,
     input   wenable,
@@ -70,18 +71,55 @@ unit memory(
   }
 }
 
+unit spiflash_memory(
+  ram_io io {
+    input   addr,
+    input   wenable,
+    input   wdata,
+    output! rdata,
+    input   req_valid,
+    output! done,
+  },
+  output  uint1 init(1),
+  output  uint1 sf_clk,
+  output  uint1 sf_csn,
+  inout   uint1 sf_io0,
+  inout   uint1 sf_io1,
+  inout   uint1 sf_io2,
+  inout   uint1 sf_io3,
+) {
+  // spiflash
+  spiflash_rom sf<reginputs> (
+    sf_clk :>  sf_clk,
+    sf_csn :>  sf_csn,
+    sf_io0 <:> sf_io0,
+    sf_io1 <:> sf_io1,
+    sf_io2 <:> sf_io2,
+    sf_io3 <:> sf_io3,
+  );
+  uint1  was_busy(0);
+  always {
+    init        = sf.busy & init;
+    io.rdata    = sf.rdata;
+    sf.addr     = io.req_valid ? {io.addr,2b00} : sf.addr;
+    sf.in_ready = io.req_valid;
+    io.done     = was_busy & ~sf.busy;
+    was_busy    = sf.busy;
+  }
+}
+
 // --------------------------------------------------
 // PLL for simulation
 // --------------------------------------------------
 
 $$if SIMULATION then
 algorithm pll(
-  output! uint1 fast_clock,
-  output  uint1 cpu_clock,
+  output! uint1 clock2x,
+  output  uint1 clock1x,
 ) <autorun> {
-  uint3 counter(0);
-  fast_clock := clock;
-  cpu_clock  := ~counter[0,1]; // x2 slower
+  uint2 counter(0);
+  clock2x := clock;
+  clock1x := ~counter[0,1]; // x2 slower
   always { counter = counter + 1; }
 }
 $$end
@@ -102,63 +140,54 @@ $$if QSPIFLASH then
 $$end
 // clocking (pll) and reset
 $$if ICEBREAKER or ICEBITSY then
-) <@cpu_clock,!fast_reset> {
-  uint1 fast_clock = uninitialized;
+) <@clock1x,!rst> {
+  uint1 clock2x = uninitialized;
   pll pllgen(
     clock_in  <: clock,
-    clock_out :> fast_clock,
+    clock_out :> clock2x,
   );
-  uint1 cpu_clock  = uninitialized;
+  uint1 clock1x  = uninitialized;
   ice40_half_clock hc(
-    clock_in  <: fast_clock,
-    clock_out :> cpu_clock,
+    clock_in  <: clock2x,
+    clock_out :> clock1x,
   );
-  uint1 fast_reset = uninitialized;
-  clean_reset rst<@fast_clock,!reset>(
-    out :> fast_reset
+  uint1 rst = uninitialized;
+  clean_reset crst<@fast_clock,!reset>(
+    out :> rst
   );
 $$elseif SIMULATION then
- ) <@cpu_clock> {
-  uint1 cpu_clock  = uninitialized;
-  uint1 fast_clock = uninitialized;
+ ) <@clock1x> {
+  uint1 clock1x = uninitialized;
+  uint1 clock2x = uninitialized;
   pll clkgen<@clock,!reset>(
-    cpu_clock  :> cpu_clock,
-    fast_clock :> fast_clock
+    clock1x :> clock1x,
+    clock2x :> clock2x
   );
-  uint1 fast_reset <: reset;
+  uint1 rst <: reset;
 $$else
 ) {
 $$end
 
 $$if SIMULATION then
    uint32 cycle(0);
-$$end
-
-  // rams
-  // - intermediate interface to perform memory mapping
-  ram_io mem0io;
-  ram_io mem1io;
-
-  memory mem0(io <:> mem0io);
-  memory mem1(io <:> mem1io);
-
-  // spiflash
-  spiflash_rom sf <@fast_clock,!fast_reset, reginputs> (
-    sf_clk :>  sf_clk,
-    sf_csn :>  sf_csn,
-    sf_io0 <:> sf_io0,
-    sf_io1 <:> sf_io1,
-    sf_io2 <:> sf_io2,
-    sf_io3 <:> sf_io3,
-  );
-$$if SIMULATION then
-  // for simulation, create dummy vars
+  // for simulation, create dummy spiflash io pads
   uint1 sf_csn(1); uint1 sf_clk(0); uint1 sf_io0(0);
   uint1 sf_io1(0); uint1 sf_io2(0); uint1 sf_io3(0);
 $$end
 
+  // rams
+  // -> bram
+  ram_io mem0io;
+  bram_memory mem0(io <:> mem0io);
+  // -> spiflash
+  ram_io mem1io;
+  spiflash_memory mem1(io <:> mem1io,
+    sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
+    sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3);
+
   // cpu
-  icev_dual_fermata cpu(
+  uint1 cpu_rst <: mem1.init;
+  icev_dual_fermata cpu<!cpu_rst>(
     mem0 <:> mem0io,
     mem1 <:> mem1io
   );
