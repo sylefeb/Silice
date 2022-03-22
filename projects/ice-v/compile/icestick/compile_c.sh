@@ -18,4 +18,4 @@ $ARCH-objcopy -O verilog compile/build/code.elf compile/build/code.hex
 
 $ARCH-objcopy.exe -O binary compile/build/code.elf compile/build/code.bin
 # uncomment to see the actual code, usefull for debugging
-# $ARCH-objdump.exe -D -b binary -m riscv compile/build/code.bin
+$ARCH-objdump.exe -D -b binary -m riscv compile/build/code.bin

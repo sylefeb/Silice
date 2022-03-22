@@ -26,7 +26,7 @@ $include('../CPUs/ice-v-dual-fermata.si')
 $$nBytes = 4 -- fetches 32 bits words
 $include('../spiflash/spiflash2x.si')
 // Include the UART controller
-$$uart_in_clock_freq_mhz = master_freq//2
+$$uart_in_clock_freq_mhz = 12 -- master_freq//2
 $include('../common/uart.si')
 $include('../common/clean_reset.si')
 
@@ -76,6 +76,16 @@ unit bram_memory(
   }
 }
 
+$$if nBytes == 1 then
+$$K = 18
+$$else
+$$K = 18 + (nBytes-1)*2
+$$end
+circuitry wait() // waits 2+K cycles
+{
+  uint5 n = 0; while (n != $K$) { n = n + 1; }
+}
+
 // --------------
 // SPIflash implementation of a RAM (read-only)
 unit spiflash_memory(
@@ -94,9 +104,19 @@ unit spiflash_memory(
   inout   uint1 sf_io1,
   inout   uint1 sf_io2,
   inout   uint1 sf_io3,
+  output  uint1 uart_tx,
 ) {
+
+  uart_out    uo;
+$$if UART then
+  uart_sender usend(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
+$$end
+
   // spiflash
-  spiflash_rom sf<reginputs> (
+  spiflash_rom sf(
     sf_clk :>  sf_clk,
     sf_csn :>  sf_csn,
     sf_io0 <:> sf_io0,
@@ -104,6 +124,7 @@ unit spiflash_memory(
     sf_io2 <:> sf_io2,
     sf_io3 <:> sf_io3,
   );
+/*
   uint1  was_busy(0);
   always {
     init        = sf.busy & init;
@@ -114,6 +135,49 @@ unit spiflash_memory(
     io.done     = was_busy & ~sf.busy;
     was_busy    = sf.busy;
   }
+*/
+  io.done          := 0;
+  sf.in_ready      := 0;
+  uo.data_in_ready := 0;
+  always_before {
+    init        = sf.busy & init;
+  }
+  algorithm <autorun> {
+
+    subroutine transmit(input uint32 data,readwrites uo)
+    {
+      uint32 tmp(0);
+      uint3 n = 0;
+      tmp     = data;
+      __display("transmit: %h",data);
+      while (~n[2,1]) {
+        uo.data_in       = tmp[0,8];
+        tmp              = tmp >> 8;
+        uo.data_in_ready = 1;
+        n                = n + 1;
+        while (uo.busy) {}
+      }
+    }
+
+    while (1) {
+      //__display("MEM SPIFLASH req:%b done:%b busy:%b",io.req_valid,io.done,sf.busy);
+      if (io.req_valid) {
+        sf.addr     = {16b0,io.addr[0,8]}; // {4b0001,io.addr[0,18],2b00};
+        // transmit address
+        () <- transmit <- (sf.addr);
+        // request data from spiflash
+        sf.in_ready = 1;
+        // while (sf.busy) { } // wait
+        () = wait();
+        // transmit data
+        () <- transmit <- (sf.rdata);
+        // done
+        io.rdata = sf.rdata;
+        io.done  = 1;
+      }
+    }
+  }
+
 }
 
 // --------------------------------------------------
@@ -146,7 +210,12 @@ $$if QSPIFLASH then
   inout   uint1 sf_io2,
   inout   uint1 sf_io3,
 $$end
+$$if UART then
+  output uint1 uart_tx,
+  input  uint1 uart_rx,
+$$end
 // clocking (pll) and reset
+/*
 $$if ICEBREAKER or ICEBITSY then
 ) <@clock1x,!rst> {
   uint1 clock2x = uninitialized;
@@ -160,7 +229,7 @@ $$if ICEBREAKER or ICEBITSY then
     clock_out :> clock1x,
   );
   uint1 rst = uninitialized;
-  clean_reset crst<@clock2x,!reset>(
+  clean_reset crst<@clock1x,!reset>(
     out :> rst
   );
 $$elseif SIMULATION then
@@ -175,12 +244,15 @@ $$elseif SIMULATION then
 $$else
 ) {
 $$end
+*/
+) {
 
 $$if SIMULATION then
   uint32 cycle(0);
   // for simulation, create dummy spiflash io pads
   uint1 sf_csn(1); uint1 sf_clk(0); uint1 sf_io0(0);
   uint1 sf_io1(0); uint1 sf_io2(0); uint1 sf_io3(0);
+  uint1 uart_tx(0);
 $$if ICARUS then
   simul_spiflash simu(
     CSn <:  sf_csn, CLK <:  sf_clk, IO0 <:> sf_io0,
@@ -189,15 +261,39 @@ $$if ICARUS then
 $$end
 $$end
 
+  ram_io mem1io;
+  spiflash_memory mem1(io <:> mem1io,
+    sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
+    sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
+    uart_tx :> uart_tx);
+
+  mem1io.req_valid := 0;
+
+  algorithm <autorun> {
+    uint9 n = 0;
+    while (mem1.init) { }
+    mem1io.addr = 0;
+    while (n != 64) {
+      mem1io.req_valid = 1;
+      while (!mem1io.done) {}
+      n = n + 1;
+      mem1io.addr = mem1io.addr + 1;
+    }
+
+  }
+
+/*
   // rams
   // -> bram
   ram_io mem0io;
   bram_memory mem0(io <:> mem0io);
   // -> spiflash
   ram_io mem1io;
+  //bram_memory mem1(io <:> mem1io);
   spiflash_memory mem1(io <:> mem1io,
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
-    sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3);
+    sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
+    uart_tx :> uart_tx);
 
   // cpu
   uint1 cpu_rst <: mem1.init;
@@ -209,7 +305,14 @@ $$end
   always {
 
     // leds = mem0io.addr[11,1] & mem0io.req_valid ? mem0io.wdata : leds;
-    leds = mem1io.addr[11,1] & mem1io.req_valid ? mem1io.wdata : leds;
+
+    leds = {
+      mem1.init,
+      2b00,
+      mem1io.addr[11,1] & mem1io.req_valid ? ~leds[1,1] : leds[1,1],
+      mem0io.addr[11,1] & mem0io.req_valid ? ~leds[0,1] : leds[0,1]
+    };
+
     // leds = mem1io.addr[0,5];
     // leds = {5{mem1io.req_valid}};
     // leds[0,1] = mem1.init;
@@ -225,20 +328,7 @@ $$if SIMULATION then
     cycle = cycle + 1;
 $$end
   }
-
+*/
 }
-
-// --------------------------------------------------
-
-$$if OLED or PMOD then
-$$OLED_SLOW = 1
-$include('ice-v-oled.si')
-$$end
-
-// --------------------------------------------------
-
-$$if PMOD then
-$include('ice-v-i2s-audio.si')
-$$end
 
 // --------------------------------------------------
