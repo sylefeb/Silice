@@ -7,16 +7,15 @@ module sb_io_inout(
   );
 
   SB_IO #(
-    .PIN_TYPE(6'b1010_00)
+    .PIN_TYPE(6'b1010_01)
     //                ^^ input, not registered
-    //           ^^^^ output + enable, not registered
+    //           ^^^^ output + enable registered
   ) sbio (
       .PACKAGE_PIN(pin),
 			.OUTPUT_ENABLE(oe),
       .D_OUT_0(out),
-			.D_IN_1(in),
-      .OUTPUT_CLK(clock),
-      .INPUT_CLK(clock)
+			.D_IN_0(in),
+      .OUTPUT_CLK(clock)
   );
 
 endmodule
