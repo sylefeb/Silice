@@ -1,6 +1,11 @@
 // @sylefeb 2021
 // MIT license, see LICENSE_MIT in Silice repo root
 // https://github.com/sylefeb/Silice
+//
+// ========================================================
+// IMPORTANT: on the ice40, use icepack -s
+// ========================================================
+//
 
 import('ddr_clock.v')
 
@@ -10,7 +15,8 @@ import('../common/verilator_data.v') // this is a feature supported by Silice
                                      // stored in a 'data.raw' file
 $$end
 
-$$if ICEBREAKER then
+$$if ICEBREAKER or ICEBITSY or FOMU then
+$$ICE40 = 1
 import('../common/ice40_sb_io_inout.v')
 import('../common/ice40_sb_io.v')
 $$end
@@ -38,43 +44,34 @@ algorithm spiflash_qspi(
   uint1 enable(0);
   ddr_clock ddr(clock <: clock, enable <:: enable, ddr_clock :> clk);
 
-$$if not ICEBREAKER then
-  uint1 d_o0(0);
-  uint1 d_o1(0);
-  uint1 d_o2(0);
-  uint1 d_o3(0);
-  uint1 d_e0(0);
-  uint1 d_e1(0);
-  uint1 d_e2(0);
-  uint1 d_e3(0);
-
+$$if not ICE40 then
+  uint1 d_o0(0); uint1 d_o1(0); uint1 d_o2(0); uint1 d_o3(0);
+  uint1 d_e0(0); uint1 d_e1(0); uint1 d_e2(0); uint1 d_e3(0);
   always {
-
-    io0.oenable = d_e0;
-    io1.oenable = d_e1;
-    io2.oenable = d_e2;
-    io3.oenable = d_e3;
+    // simulates registered IO
+    io0.oenable = d_e0; io1.oenable = d_e1;
+    io2.oenable = d_e2; io3.oenable = d_e3;
+    // output enable on ios
     d_e0 = send_else_read;
     d_e1 = send_else_read & qspi;
     d_e2 = send_else_read & qspi;
     d_e3 = send_else_read & qspi;
-
+    // read current
     read      = {read[0,4],io3.i,io2.i,io1.i,io0.i};
-
-    io0.o = d_o0;
-    io1.o = d_o1;
-    io2.o = d_o2;
-    io3.o = d_o3;
+    // simulates registered ios
+    io0.o = d_o0;  io1.o = d_o1;  io2.o = d_o2; io3.o = d_o3;
+    // update outputs
     d_o0 = ~osc ? sending[0,1] : sending[4,1];
     d_o1 = ~osc ? sending[1,1] : sending[5,1];
     d_o2 = ~osc ? sending[2,1] : sending[6,1];
     d_o3 = ~osc ? sending[3,1] : sending[7,1];
-
+    // start/keep sending?
     sending   = (~osc | ~enable) ? send : sending;
     osc       = ~trigger ? 1b0 : ~osc;
     enable    = trigger;
   }
 $$else
+  // setup registered tristate ios
   uint1 io0__oe(0); uint1 io0__o(0); uint1 io0__i(0);
   uint1 io1__oe(0); uint1 io1__o(0); uint1 io1__i(0);
   uint1 io2__oe(0); uint1 io2__o(0); uint1 io2__i(0);
@@ -83,27 +80,28 @@ $$else
   sb_io_inout sb_io1(clock <: clock, oe <: io1__oe, in :> io1__i, out <: io1__o, pin <:> io1);
   sb_io_inout sb_io2(clock <: clock, oe <: io2__oe, in :> io2__i, out <: io2__o, pin <:> io2);
   sb_io_inout sb_io3(clock <: clock, oe <: io3__oe, in :> io3__i, out <: io3__o, pin <:> io3);
-
   always {
+    // output enable on ios
     io0__oe = send_else_read;
     io1__oe = send_else_read & qspi;
     io2__oe = send_else_read & qspi;
     io3__oe = send_else_read & qspi;
-
+    // read current
     read      = {read[0,4],io3__i,io2__i,io1__i,io0__i};
+    // update outputs
     io0__o    = ~osc ? sending[0,1] : sending[4,1];
     io1__o    = ~osc ? sending[1,1] : sending[5,1];
     io2__o    = ~osc ? sending[2,1] : sending[6,1];
     io3__o    = ~osc ? sending[3,1] : sending[7,1];
-
+    // start/keep sending?
     sending   = (~osc | ~enable) ? send : sending;
     osc       = ~trigger ? 1b0 : ~osc;
-
     enable    = trigger;
   }
 $$end
-
 }
+
+// -------------------------------------------------------------
 
 algorithm spiflash_rom(
   input   uint1  in_ready,
@@ -144,13 +142,13 @@ $$if VERILATOR then
   verilator_data vdta(clock <: clock);
 $$end
 $$end
-$$if ICEBREAKER then
+$$if ICE40 then
     sb_io sb_csn(clock <: clock, out <:: csn_delayed, pin :> sf_csn);
 $$end
   always {
 
     spiflash.qspi = ~init[1,1]; // qpi activated after first command
-$$if not ICEBREAKER then
+$$if not ICE40 then
     sf_csn        = csn_delayed;
 $$end
 
@@ -215,7 +213,7 @@ $$if nBytes == 1 then
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
-        wait                    = 1; //_ 2 cycles
+        wait                    = 1; //_ 3 cycles (one extra due to registered ios)
         after                   = 5;
       }
       case 5: {
@@ -241,7 +239,7 @@ $$else
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
-        wait                    = 1; //_ 2 cycles
+        wait                    = 1; //_ 3 cycles  (one extra due to registered ios)
         after                   = 5;
       }
       case 5: {
@@ -276,3 +274,5 @@ $$if SIMULATION then
 $$end
   }
 }
+
+// -------------------------------------------------------------

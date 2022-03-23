@@ -1,6 +1,6 @@
 
 .DEFAULT: stream.si
-		silice-make.py -s stream.si -b $@ -p basic,qspiflash,uart -o BUILD_$(subst :,_,$@) $(ARGS)
+		silice-make.py -s stream.si -b $@ -p basic,qspiflash,uart -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
 
 test: test.si
 		silice-make.py -s test.si -b icebreaker -p basic,qspiflash,uart -o BUILD_icebreaker -t shell

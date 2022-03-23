@@ -19,7 +19,6 @@ $$if ICEBREAKER or ICEBITSY then
 // Import the PLL
 import('../common/plls/icebrkr_$master_freq$.v')
 import('../common/ice40_half_clock.v')
-import('../Silice/projects/common/ice40_sb_io.v')
 $$end
 
 // Include the processor

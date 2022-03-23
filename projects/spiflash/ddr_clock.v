@@ -24,8 +24,7 @@ reg renable;
   end
 
   SB_IO #(
-    .PIN_TYPE(6'b0100_00) // not registered
-    //.PIN_TYPE(6'b1100_00) // registered
+    .PIN_TYPE(6'b0100_00)
   ) sbio (
       .PACKAGE_PIN(ddr_clock),
       .D_OUT_0(1'b0),
