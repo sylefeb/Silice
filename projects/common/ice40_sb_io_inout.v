@@ -3,11 +3,11 @@ module sb_io_inout(
 	input        oe,
   input        out,
 	output       in,
-  output       pin
+  inout        pin
   );
 
   SB_IO #(
-    .PIN_TYPE(6'b1101_01)
+    .PIN_TYPE(6'b1010_01)
     //                ^^ input, not registered
     //           ^^^^ output + enable registered
   ) sbio (
