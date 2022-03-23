@@ -81,9 +81,9 @@ spiflash_rom sf_rom(
     sf_rom.in_ready  = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    //if (cycle == 1500) {
-    //  __finish();
-    //}
+    if (cycle == 1150) {
+      __finish();
+    }
 $$end
   }
 

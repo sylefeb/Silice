@@ -7,14 +7,14 @@ module sb_io_inout(
   );
 
   SB_IO #(
-    .PIN_TYPE(6'b1010_00)
-    //                ^^ input, registered ddr
-    //           ^^^^ output + enable registered
+    // .PIN_TYPE(6'b1010_00) // not registered
+    .PIN_TYPE(6'b1101_00) // registered
   ) sbio (
       .PACKAGE_PIN(pin),
 			.OUTPUT_ENABLE(oe),
       .D_OUT_0(out),
-			.D_IN_1(in), // sample on negedge
+      .D_OUT_1(out),
+			.D_IN_1(in),
       .OUTPUT_CLK(clock),
       .INPUT_CLK(clock)
   );
