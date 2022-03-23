@@ -37,6 +37,7 @@ algorithm spiflash_qspi(
 
   ddr_clock ddr(clock <: clock, enable <:: enable, ddr_clock :> clk);
 
+$$if not ICEBREAKER then
   always {
     io0.oenable = send_else_read;
     io1.oenable = send_else_read & qspi;
@@ -53,15 +54,15 @@ algorithm spiflash_qspi(
     osc       = ~trigger ? 1b0 : ~osc;
     enable    = trigger;
   }
-/*
-  uint1 io0__oe(0); uint1 io0__o(0); uint1 io0__i(0); 
-  uint1 io1__oe(0); uint1 io1__o(0); uint1 io1__i(0); 
-  uint1 io2__oe(0); uint1 io2__o(0); uint1 io2__i(0); 
-  uint1 io3__oe(0); uint1 io3__o(0); uint1 io3__i(0); 
+$$else
+  uint1 io0__oe(0); uint1 io0__o(0); uint1 io0__i(0);
+  uint1 io1__oe(0); uint1 io1__o(0); uint1 io1__i(0);
+  uint1 io2__oe(0); uint1 io2__o(0); uint1 io2__i(0);
+  uint1 io3__oe(0); uint1 io3__o(0); uint1 io3__i(0);
   sb_io_inout sb_io0(clock <: clock, oe <: io0__oe, in :> io0__i, out <: io0__o, pin <:> io0);
   sb_io_inout sb_io1(clock <: clock, oe <: io1__oe, in :> io1__i, out <: io1__o, pin <:> io1);
   sb_io_inout sb_io2(clock <: clock, oe <: io2__oe, in :> io2__i, out <: io2__o, pin <:> io2);
-  sb_io_inout sb_io3(clock <: clock, oe <: io3__oe, in :> io3__i, out <: io3__o, pin <:> io3);  
+  sb_io_inout sb_io3(clock <: clock, oe <: io3__oe, in :> io3__i, out <: io3__o, pin <:> io3);
   always {
     io0__oe = send_else_read;
     io1__oe = send_else_read & qspi;
@@ -78,7 +79,7 @@ algorithm spiflash_qspi(
     osc       = ~trigger ? 1b0 : ~osc;
     enable    = trigger;
   }
-*/
+$$end
 
 }
 
