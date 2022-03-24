@@ -9,13 +9,13 @@ _start:
    andi a5,a5,1
    bnez a5,cpu1
    # cpu 0 only
-   li sp,4092 # end of RAM
+   li sp,65532 # end of SPRAM
 hang:
    j hang # DISABLED for now
    # j done
 cpu1:
    # cpu 1 only
-   li sp,3580 # leaves 512 bytes for CPU0
+   li sp,61436 # leaves 4096 bytes for CPU0
    # from https://github.com/YosysHQ/picorv32/blob/master/picosoc/start.s
    # copy data section
    la a0, _sidata

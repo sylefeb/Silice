@@ -11,10 +11,16 @@ $$bramSize    = 1024
 // Main design frequency
 $$master_freq = 50
 
-$$if ICEBREAKER or ICEBITSY then
+$$if ICEBREAKER or ICEBITSY or FOMU then
+$$UP5K = 1
 // Import the PLL
 import('../common/plls/icebrkr_$master_freq$.v')
 import('../common/ice40_half_clock.v')
+import('../../common/ice40_spram.v')
+$$elseif SIMULATION then
+$include('../../common/simulation_spram.si')
+$$else
+$$error('uho, this SOC is for simulation or UP5K only')
 $$end
 
 // Include the processor
@@ -24,7 +30,7 @@ $$ICEV_USERDATA   = nil
 $include('../CPUs/ice-v-dual-fermata.si')
 
 // Include the UART controller
-$$uart_in_clock_freq_mhz = 12 -- master_freq//2
+$$uart_in_clock_freq_mhz = master_freq//2
 $include('../common/uart.si')
 $include('../common/clean_reset.si')
 
@@ -79,6 +85,47 @@ unit bram_memory(ram_provider io) {
 }
 
 // --------------
+// SPRAM implementation of a RAM
+$$if UP5K or SIMULATION then
+unit spram_memory(ram_provider io) {
+  uint14 sp0_addr(0);    uint4  sp0_wmask(0);    uint1  sp0_wenable(0);
+  uint16 sp0_data_in(0); uint16 sp0_data_out(0);
+  uint14 sp1_addr(0);    uint4  sp1_wmask(0);    uint1  sp1_wenable(0);
+  uint16 sp1_data_in(0); uint16 sp1_data_out(0);
+$$if SIMULATION then
+  simulation_spram spram0(
+$$else
+  ice40_spram      spram0(clock    <: clock,
+$$end
+    addr    <: sp0_addr,    data_in <: sp0_data_in, data_out :> sp0_data_out,
+    wenable <: sp0_wenable, wmask   <: sp0_wmask,
+  );
+$$if SIMULATION then
+  simulation_spram spram1(
+$$else
+  ice40_spram      spram1(clock    <: clock,
+$$end
+    addr    <: sp1_addr,    data_in <: sp1_data_in, data_out :> sp1_data_out,
+    wenable <: sp1_wenable, wmask   <: sp1_wmask,
+  );
+  uint1  done(0);
+  always {
+    sp0_data_in   = io.wdata[ 0,16];
+    sp1_data_in   = io.wdata[16,16];
+    sp0_addr      = io.addr[0,14];
+    sp1_addr      = io.addr[0,14];
+    sp0_wmask     = {io.wenable[1,1],io.wenable[1,1],io.wenable[0,1],io.wenable[0,1]};
+    sp1_wmask     = {io.wenable[3,1],io.wenable[3,1],io.wenable[2,1],io.wenable[2,1]};
+    sp0_wenable   = io.req_valid & (io.wenable != 0);
+    sp1_wenable   = io.req_valid & (io.wenable != 0);
+    io.rdata      = {sp1_data_out,sp0_data_out};
+    io.done       = done;
+    done          = io.req_valid;
+  }
+}
+$$end
+
+// --------------
 // SPIflash implementation of a ROM
 unit spiflash_memory(
   ram_provider io,
@@ -104,82 +151,6 @@ unit spiflash_memory(
     io.done     = was_busy & ~sf.busy;
     was_busy    = sf.busy;
   }
-}
-
-// --------------
-// Debug SPIflash implementation of a ROM
-// Transmits addr and read 32 bits words over UART
-
-unit spiflash_memory_uart_debug(
-  ram_provider io,
-  output  uint1 init(1), // goes low when SPIflash ctrl is ready
-  output  uint1 sf_clk,
-  output  uint1 sf_csn,
-  inout   uint1 sf_io0,
-  inout   uint1 sf_io1,
-  inout   uint1 sf_io2,
-  inout   uint1 sf_io3,
-  output  uint1 uart_tx,
-) {
-
-  uart_out    uo;
-$$if UART then
-  uart_sender usend(
-    io      <:> uo,
-    uart_tx :>  uart_tx
-  );
-$$end
-
-  // spiflash
-  spiflash_rom sf(
-    sf_clk :>  sf_clk,
-    sf_csn :>  sf_csn,
-    sf_io0 <:> sf_io0,
-    sf_io1 <:> sf_io1,
-    sf_io2 <:> sf_io2,
-    sf_io3 <:> sf_io3,
-  );
-
-  io.done          := 0;
-  sf.in_ready      := 0;
-  uo.data_in_ready := 0;
-  always_before {
-    init        = sf.busy & init;
-  }
-  algorithm <autorun> {
-
-    subroutine transmit(input uint32 data,readwrites uo)
-    {
-      uint32 tmp(0);
-      uint3 n = 0;
-      tmp     = data;
-      __display("transmit: %h",data);
-      while (~n[2,1]) {
-        uo.data_in       = tmp[24,8];
-        tmp              = tmp << 8;
-        uo.data_in_ready = 1;
-        n                = n + 1;
-        while (uo.busy) {}
-      }
-    }
-
-    while (1) {
-      if (io.req_valid) {
-        sf.addr     = {4b0001,io.addr[0,18],2b00};
-        // transmit address
-        () <- transmit <- (sf.addr);
-        // request data from spiflash
-        sf.in_ready = 1;
-        while (sf.busy) { } // wait
-        // transmit data
-        () <- transmit <- (sf.rdata);
-        // done
-        io.rdata = sf.rdata;
-        io.done  = 1;
-      }
-    }
-  }
-
 }
 
 // --------------
@@ -224,14 +195,11 @@ unit composite_memory(
     // -> send next, 0 has higher priority
     if (rom.done) {
       rom_busy       = 0;
-      __display("========================== ROM done client:%b, pending: %b|%b",
-        rom_client,rom0_req_valid,rom1_req_valid);
     }
     // -> capture requests (will be dealt with asap)
     rom0_req_valid = io0.req_valid ? ~io0_in_ram_now : rom0_req_valid;
     rom1_req_valid = io1.req_valid ? ~io1_in_ram_now : rom1_req_valid;
     if (rom0_req_valid & ~rom_busy) {
-      __display("========================== io0 ROM request");
       rom.addr       = io0.addr;
       rom.req_valid  = 1;
       rom0_req_valid = 0;
@@ -239,7 +207,6 @@ unit composite_memory(
       rom_client     = 0;
     } else {
       if (rom1_req_valid & ~rom_busy) {
-        __display("========================== io1 ROM request");
         rom.addr       = io1.addr;
         rom.req_valid  = 1;
         rom1_req_valid = 0;
@@ -288,7 +255,6 @@ $$if UART then
   input  uint1 uart_rx,
 $$end
 // clocking (pll) and reset
-/*
 $$if ICEBREAKER or ICEBITSY then
 ) <@clock1x,!rst> {
   uint1 clock2x = uninitialized;
@@ -317,8 +283,6 @@ $$elseif SIMULATION then
 $$else
 ) {
 $$end
-*/
-) {
 
 $$if SIMULATION then
   uint32 cycle(0);
@@ -337,15 +301,14 @@ $$end
   // ---- memory
   // -> bram
   ram_io ram;
-  bram_memory mem0(io <:> ram);
+  // bram_memory mem0(io <:> ram);
+  spram_memory mem0(io <:> ram);
   // -> spiflash
   ram_io rom;
   spiflash_memory mem1(io <:> rom,
-  // spiflash_memory_uart_debug mem1(io <:> rom,
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
     sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
   );
-  // uart_tx :> uart_tx);
   uint1 sys_rst <: mem1.init; // system reset when spiflash is ready
   // -> composite
   ram_io mem0io;
