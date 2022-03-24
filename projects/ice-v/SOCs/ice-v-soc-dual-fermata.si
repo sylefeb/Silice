@@ -325,7 +325,11 @@ $$end
 
   always {
 
-    leds = mem1io.addr[$periph$,1] & mem1io.req_valid ? mem1io.wdata : leds;
+    leds = mem1io.addr[$periph$,1] & mem1io.req_valid
+         ? mem1io.wdata
+         : mem0io.addr[$periph$,1] & mem0io.req_valid
+         ? mem0io.wdata
+         : leds;
 
 $$if SIMULATION then
     if (mem0io.addr[$periph$,1] & mem0io.req_valid) {

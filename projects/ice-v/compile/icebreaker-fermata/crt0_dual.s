@@ -10,9 +10,7 @@ _start:
    bnez a5,cpu1
    # cpu 0 only
    li sp,65532 # end of SPRAM
-hang:
-   j hang # DISABLED for now
-   # j done
+   j done
 cpu1:
    # cpu 1 only
    li sp,61436 # leaves 4096 bytes for CPU0
