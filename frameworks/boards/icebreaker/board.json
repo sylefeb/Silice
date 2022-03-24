@@ -21,6 +21,7 @@
           "tool": "icestorm",
           "tool_options": [
             {
+                "icepack_options": ["-s"],
                 "yosys_synth_options": ["-dsp","-abc9","-device u"],
                 "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "--timing-allow-fail"],
                 "pnr": "next"
