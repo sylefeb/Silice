@@ -40,10 +40,10 @@ void main_core1()
 void main()
 {
   if (core_id()) {
-    go = 1;
+    go = 1;            // sync core 0
     main_core1();
   } else {
-    while (go == 0) {}
+    while (go == 0) {} // wait for core 1
     main_core0();
   }
 }
