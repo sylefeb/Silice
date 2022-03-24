@@ -3,10 +3,9 @@
 // Pre-compilation script, embeds compiled code within a string
 $$dofile('pre_include_compiled.lua')
 
-
-$$periph   = 23    -- bit indicating a peripheral is addressed
-$$addrW    = 24    -- additional bits for memory mapping
-$$Boot     = 0     -- boot at address zero
+$$addrW    = 24      -- additional bits for memory mapping
+$$periph   = addrW-1 -- bit indicating a peripheral is addressed
+$$Boot     = 0       -- boot at address zero
 $$print('===========> address bus width: ' .. addrW)
 
 // How much BRAM do we allocate
@@ -22,6 +21,9 @@ import('../common/ice40_half_clock.v')
 $$end
 
 // Include the processor
+$$ICEV_FAST_SHIFT = nil
+$$ICEV_MULDIV     = nil
+$$ICEV_USERDATA   = nil
 $include('../CPUs/ice-v-dual-fermata.si')
 
 // Include the UART controller
@@ -53,18 +55,27 @@ group ram_io {
   uint1       done(0),     // memory request done (pulse)
 }
 
+interface ram_provider {
+  input   addr,
+  input   wenable,
+  input   wdata,
+  output! rdata,
+  input   req_valid,
+  output! done
+}
+
+interface ram_user {
+  output  addr,
+  output  wenable,
+  output  wdata,
+  input   rdata,
+  output  req_valid,
+  input   done
+}
+
 // --------------
 // BRAM implementation of a RAM
-unit bram_memory(
-  ram_io io {
-    input   addr,
-    input   wenable,
-    input   wdata,
-    output! rdata,
-    input   req_valid,
-    output! done
-  }
-) {
+unit bram_memory(ram_provider io) {
   // uses template "bram_wmask_byte", that turns wenable into a byte mask
   $$config['bram_wmask_byte_wenable_width'] = 'data'
   bram uint32 mem<"bram_wmask_byte">[$bramSize$] = $meminit$;
@@ -79,27 +90,40 @@ unit bram_memory(
   }
 }
 
-$$if nBytes == 1 then
-$$K = 18
-$$else
-$$K = 18 + (nBytes-1)*2
-$$end
-circuitry wait() // waits 2+K cycles
-{
-  uint5 n = 0; while (n != $K$) { n = n + 1; }
+// --------------
+// SPIflash implementation of a ROM
+unit spiflash_memory(
+  ram_provider io,
+  output  uint1 init(1), // goes low when SPIflash ctrl is ready
+  output  uint1 sf_clk,  output  uint1 sf_csn,
+  inout   uint1 sf_io0,  inout   uint1 sf_io1,
+  inout   uint1 sf_io2,  inout   uint1 sf_io3,
+) {
+  // spiflash rom
+  spiflash_rom sf(
+    sf_clk :>  sf_clk,   sf_csn :>  sf_csn,
+    sf_io0 <:> sf_io0,   sf_io1 <:> sf_io1,
+    sf_io2 <:> sf_io2,   sf_io3 <:> sf_io3,
+  );
+  // logic
+  uint1  was_busy(0);
+  always {
+    init        = sf.busy & init;
+    io.rdata    = sf.rdata;
+    sf.addr     = io.req_valid ? {4b0001,io.addr[0,18],2b00} : sf.addr;
+    //                                 ^ offset SPIflash addresses by 1MB
+    sf.in_ready = io.req_valid;
+    io.done     = was_busy & ~sf.busy;
+    was_busy    = sf.busy;
+  }
 }
 
 // --------------
-// SPIflash implementation of a RAM (read-only)
-unit spiflash_memory(
-  ram_io io {
-    input   addr,
-    input   wenable,
-    input   wdata,
-    output  rdata,
-    input   req_valid,
-    output  done,
-  },
+// Debug SPIflash implementation of a ROM
+// Transmits addr and read 32 bits words over UART
+
+unit spiflash_memory_uart_debug(
+  ram_provider io,
   output  uint1 init(1), // goes low when SPIflash ctrl is ready
   output  uint1 sf_clk,
   output  uint1 sf_csn,
@@ -127,18 +151,7 @@ $$end
     sf_io2 <:> sf_io2,
     sf_io3 <:> sf_io3,
   );
-/*
-  uint1  was_busy(0);
-  always {
-    init        = sf.busy & init;
-    io.rdata    = sf.rdata;
-    sf.addr     = io.req_valid ? {4b0001,io.addr[0,18],2b00} : sf.addr;
-    //                                 ^ offset SPIflash addresses by 1MB
-    sf.in_ready = io.req_valid;
-    io.done     = was_busy & ~sf.busy;
-    was_busy    = sf.busy;
-  }
-*/
+
   io.done          := 0;
   sf.in_ready      := 0;
   uo.data_in_ready := 0;
@@ -169,8 +182,7 @@ $$end
         () <- transmit <- (sf.addr);
         // request data from spiflash
         sf.in_ready = 1;
-        // while (sf.busy) { } // wait
-        () = wait();
+        while (sf.busy) { } // wait
         // transmit data
         () <- transmit <- (sf.rdata);
         // done
@@ -180,6 +192,77 @@ $$end
     }
   }
 
+}
+
+// --------------
+// Implementation of a composite RAM
+// - ROM mapped from 0x100000 (1MB)
+// - RAM is assumed to be BRAM (1-cycle latency)
+// - ROM is assumed slow
+// - expects io0 and io1 to be well behaved:
+//   + do not request access again before receiving done
+//   + maintain request data while not fullfilled
+unit composite_memory(
+  icev_ram_user ram,
+  icev_ram_user rom,
+  ram_provider  io0,
+  ram_provider  io1
+) {
+  uint1            rom0_req_valid(0);
+  uint1            rom1_req_valid(0);
+  uint1            rom_busy(0);
+  uint1            rom_client(0);
+  always {
+    uint1 io0_in_ram_now <: ~io0.addr[18,1]; //_ from 0x100000 (1MB)
+    uint1 io1_in_ram_now <: ~io1.addr[18,1];
+    uint1 io0_was_in_ram(0);
+    uint1 io1_was_in_ram(0);
+    /// RAM access
+    // NOTE: assumes io0 and io1 cannot concurrently access RAM, true on the ice-v
+    ram.addr       = io0_in_ram_now ? io0.addr    : io1.addr;
+    ram.wenable    = io0_in_ram_now ? io0.wenable : io1.wenable;
+    ram.wdata      = io0_in_ram_now ? io0.wdata   : io1.wdata;
+    ram.req_valid  = (io0_in_ram_now & io0.req_valid) | (io1_in_ram_now & io1.req_valid);
+    // ROM access (may be concurrent, io0/io1 can overlap requests)
+    // -> maintain requests low
+    rom.req_valid  = 0;
+    // -> get results
+    io0.rdata = ( rom.done & ~io0_was_in_ram) ? rom.rdata
+              : ((ram.done &  io0_was_in_ram) ? ram.rdata : io0.rdata);
+    io1.rdata = ( rom.done & ~io1_was_in_ram) ? rom.rdata
+              : ((ram.done &  io1_was_in_ram) ? ram.rdata : io1.rdata);
+    io0.done  =  (rom.done & ~rom_client) | (ram.done & io0_was_in_ram);
+    io1.done  =  (rom.done &  rom_client) | (ram.done & io1_was_in_ram);
+    // -> send next, 0 has higher priority
+    if (rom.done) {
+      rom_busy       = 0;
+      __display("========================== ROM done client:%b, pending: %b|%b",
+        rom_client,rom0_req_valid,rom1_req_valid);
+    }
+    // -> capture requests (will be dealt with asap)
+    rom0_req_valid = io0.req_valid ? ~io0_in_ram_now : rom0_req_valid;
+    rom1_req_valid = io1.req_valid ? ~io1_in_ram_now : rom1_req_valid;
+    if (rom0_req_valid & ~rom_busy) {
+      __display("========================== io0 ROM request");
+      rom.addr       = io0.addr;
+      rom.req_valid  = 1;
+      rom0_req_valid = 0;
+      rom_busy       = 1;
+      rom_client     = 0;
+    } else {
+      if (rom1_req_valid & ~rom_busy) {
+        __display("========================== io1 ROM request");
+        rom.addr       = io1.addr;
+        rom.req_valid  = 1;
+        rom1_req_valid = 0;
+        rom_busy       = 1;
+        rom_client     = 1;
+      }
+    }
+    // record who was accessing what at the previous cycle
+    io0_was_in_ram = io0_in_ram_now;
+    io1_was_in_ram = io1_in_ram_now;
+  }
 }
 
 // --------------------------------------------------
@@ -263,43 +346,26 @@ $$if ICARUS then
 $$end
 $$end
 
-/*
-  ram_io mem1io;
-  spiflash_memory mem1(io <:> mem1io,
-    sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
-    sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
-    uart_tx :> uart_tx);
-  mem1io.req_valid := 0;
-  algorithm <autorun> {
-    uint9 n = 0;
-    while (mem1.init) { }
-    mem1io.addr = 0;
-    while (n != 64) {
-      mem1io.req_valid = 1;
-      while (!mem1io.done) {}
-      n = n + 1;
-      mem1io.addr = mem1io.addr + 1;
-    }
-  }
-*/
-
-  // rams
+  // ---- memory
   // -> bram
-  ram_io mem0io;
-  bram_memory mem0(io <:> mem0io);
+  ram_io ram;
+  bram_memory mem0(io <:> ram);
   // -> spiflash
-  ram_io mem1io;
-  spiflash_memory mem1(io <:> mem1io,
+  ram_io rom;
+  spiflash_memory mem1(io <:> rom,
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
-    sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
-    uart_tx :> uart_tx);
-
-  // cpu
-  uint1 cpu_rst <: mem1.init;
-  icev_dual_fermata cpu<!cpu_rst>(
-    mem0 <:> mem0io,
-    mem1 <:> mem1io
+    sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3);
+  uint1 sys_rst <: mem1.init; // system reset when spiflash is ready
+  // -> composite
+  ram_io mem0io;
+  ram_io mem1io;
+  composite_memory mem<!sys_rst>(
+    ram <:> ram,    rom <:> rom,
+    io0 <:> mem0io, io1 <:> mem1io,
   );
+
+  // ---- cpu
+  icev_dual_fermata cpu<!sys_rst>( mem0 <:> mem0io, mem1 <:> mem1io );
 
   always {
 
@@ -309,10 +375,6 @@ $$end
       mem1io.addr[11,1] & mem1io.req_valid ? mem1io.wdata[0,1] : leds[1,1],
       mem0io.addr[11,1] & mem0io.req_valid ? mem0io.wdata[0,1] : leds[0,1]
     };
-
-    // leds = mem1io.addr[0,5];
-    // leds = {5{mem1io.req_valid}};
-    // leds[0,1] = mem1.init;
 
 $$if SIMULATION then
     if (mem0io.addr[11,1] & mem0io.req_valid) {
