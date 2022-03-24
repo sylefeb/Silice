@@ -248,7 +248,7 @@ $$end
 }
 
 // --------------------------------------------------
-// Dual Risc-V RV32I CPU
+// Dual Risc-V RV32I CPU with dual memory interface
 //
 // ---- interleaved CPU stages ----
 // F:     instruction fetched
@@ -294,8 +294,8 @@ $$end
   uint2  stage(0);
 
   // program counters
-  uint$addrW$ pc_0($Boot-1$);
-  uint$addrW$ pc_1($Boot-1$);
+  uint$addrW$ pc_0($Boot//4-1$);
+  uint$addrW$ pc_1($Boot//4-1$);
   // next program counter
   uint$addrW$ pc_plus1 <:: (stage[1,1] ? pc_0 : pc_1) + 1;
 

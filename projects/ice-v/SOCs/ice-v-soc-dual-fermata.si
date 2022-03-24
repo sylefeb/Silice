@@ -1,11 +1,8 @@
 // SL 2022-03-16 @sylefeb
 
-// Pre-compilation script, embeds compiled code within a string
-$$dofile('pre_include_compiled.lua')
-
-$$addrW    = 24      -- additional bits for memory mapping
-$$periph   = addrW-1 -- bit indicating a peripheral is addressed
-$$Boot     = 0       -- boot at address zero
+$$addrW    = 20         -- additional bits for memory mapping
+$$periph   = addrW-1    -- bit indicating a peripheral is addressed
+$$Boot     = 0x100000   -- boot at 1MB (spiflash)
 $$print('===========> address bus width: ' .. addrW)
 
 // How much BRAM do we allocate
@@ -64,21 +61,12 @@ interface ram_provider {
   output! done
 }
 
-interface ram_user {
-  output  addr,
-  output  wenable,
-  output  wdata,
-  input   rdata,
-  output  req_valid,
-  input   done
-}
-
 // --------------
 // BRAM implementation of a RAM
 unit bram_memory(ram_provider io) {
   // uses template "bram_wmask_byte", that turns wenable into a byte mask
   $$config['bram_wmask_byte_wenable_width'] = 'data'
-  bram uint32 mem<"bram_wmask_byte">[$bramSize$] = $meminit$;
+  bram uint32 mem<"bram_wmask_byte">[$bramSize$] = uninitialized; // meminit;
   uint1  done(0);
   always {
     io.rdata    = mem.rdata;
@@ -353,8 +341,11 @@ $$end
   // -> spiflash
   ram_io rom;
   spiflash_memory mem1(io <:> rom,
+  // spiflash_memory_uart_debug mem1(io <:> rom,
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
-    sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3);
+    sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
+  );
+  // uart_tx :> uart_tx);
   uint1 sys_rst <: mem1.init; // system reset when spiflash is ready
   // -> composite
   ram_io mem0io;
@@ -369,21 +360,16 @@ $$end
 
   always {
 
-    leds = {
-      mem1.init,
-      2b00,
-      mem1io.addr[11,1] & mem1io.req_valid ? mem1io.wdata[0,1] : leds[1,1],
-      mem0io.addr[11,1] & mem0io.req_valid ? mem0io.wdata[0,1] : leds[0,1]
-    };
+    leds = mem1io.addr[$periph$,1] & mem1io.req_valid ? mem1io.wdata : leds;
 
 $$if SIMULATION then
-    if (mem0io.addr[11,1] & mem0io.req_valid) {
+    if (mem0io.addr[$periph$,1] & mem0io.req_valid) {
       __display("[cycle %d] LEDS (0) = %h",cycle,mem0io.wdata);
     }
-    if (mem1io.addr[11,1] & mem1io.req_valid) {
+    if (mem1io.addr[$periph$,1] & mem1io.req_valid) {
       __display("[cycle %d] LEDS (1) = %h",cycle,mem1io.wdata);
     }
-    if (cycle == 4096) { __finish(); }
+    if (cycle == 16000) { __finish(); }
     cycle = cycle + 1;
 $$end
   }

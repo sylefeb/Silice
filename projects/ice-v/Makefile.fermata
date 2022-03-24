@@ -8,8 +8,7 @@ verilator: SOCs/ice-v-soc-dual-fermata.si
 		silice-make.py -s SOCs/ice-v-soc-dual-fermata.si -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
 
 icarus: SOCs/ice-v-soc-dual-fermata.si
-		echo "@00100000" > ./BUILD_icarus/MEM.TXT
-		tail -n +2 ./compile/build/code.hex >> ./BUILD_icarus/MEM.TXT
+		cp ./compile/build/code.hex ./BUILD_icarus/MEM.TXT
 		silice-make.py -s SOCs/ice-v-soc-dual-fermata.si -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
 
 clean:
