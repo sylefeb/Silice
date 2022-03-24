@@ -300,26 +300,28 @@ $$end
 
   // ---- memory
   // -> bram
-  ram_io ram;
-  // bram_memory mem0(io <:> ram);
-  spram_memory mem0(io <:> ram);
+  ram_io spram;
+  spram_memory mem0(io <:> spram);
   // -> spiflash
-  ram_io rom;
-  spiflash_memory mem1(io <:> rom,
+  ram_io spflash;
+  spiflash_memory mem1(io <:> spflash,
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
     sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
   );
   uint1 sys_rst <: mem1.init; // system reset when spiflash is ready
-  // -> composite
+
+  // ---- composite memory
   ram_io mem0io;
   ram_io mem1io;
   composite_memory mem<!sys_rst>(
-    ram <:> ram,    rom <:> rom,
+    ram <:> spram,  rom <:> spflash,
     io0 <:> mem0io, io1 <:> mem1io,
   );
-
   // ---- cpu
-  icev_dual_fermata cpu<!sys_rst>( mem0 <:> mem0io, mem1 <:> mem1io );
+  icev_dual_fermata cpu<!sys_rst>(
+    mem0 <:> mem0io,
+    mem1 <:> mem1io
+  );
 
   always {
 
