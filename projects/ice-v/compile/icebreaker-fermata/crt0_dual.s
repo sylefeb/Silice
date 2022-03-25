@@ -10,8 +10,8 @@ _start:
    bnez a5,cpu1
    # cpu 0 only
    li sp,65528    # end of SPRAM
-   li a0,65532    # mutex location
-   sw zero, 0(a0) # clear mutex
+   li a0,65532    # barrier location
+   sw zero, 0(a0) # lower barrier (core0 waits for core1 while it copies into ram)
    j wait
 cpu1:
    # cpu 1 only
@@ -38,17 +38,17 @@ cpu1:
    addi a0, a0, 4
    blt a0, a1, loop_init_bss
    end_init_bss:
-   # set mutex
-   li a0,65532    # mutex location
+   # raise barrier
+   li a0,65532 # barrier location
    li a1, 1
-   sw a1, 0(a0) # set
+   sw a1, 0(a0)
    # init done
-   call main
+   call main   # let's roll! (core1)
    tail exit
 wait:
-   lw  a1, 0(a0) # read mutex
-   beq a1, zero, wait
-   call main
+   lw  a1, 0(a0) # read barrier state
+   beq a1, zero, wait # if still low, wait
+   call main   # let's roll! (core0)
    tail exit
 
 .global exit
