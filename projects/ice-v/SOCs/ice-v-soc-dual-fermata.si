@@ -121,6 +121,7 @@ $$end
     io.rdata      = {sp1_data_out,sp0_data_out};
     io.done       = done;
     done          = io.req_valid;
+    // __display("spram @%h, req_valid:%b, rdata:%h wdata:%h, wmask:%b",io.addr,io.req_valid,{sp1_data_out,sp0_data_out},io.wdata,io.wenable);
   }
 }
 $$end
@@ -128,14 +129,14 @@ $$end
 // --------------
 // SPIflash implementation of a ROM
 unit spiflash_memory(
-  ram_provider io,
+  ram_provider io,       input   uint1 clock2x,
   output  uint1 init(1), // goes low when SPIflash ctrl is ready
   output  uint1 sf_clk,  output  uint1 sf_csn,
   inout   uint1 sf_io0,  inout   uint1 sf_io1,
   inout   uint1 sf_io2,  inout   uint1 sf_io3,
 ) {
   // spiflash rom
-  spiflash_rom sf(
+  spiflash_rom sf/*<@clock2x,reginputs>*/(
     sf_clk :>  sf_clk,   sf_csn :>  sf_csn,
     sf_io0 <:> sf_io0,   sf_io1 <:> sf_io1,
     sf_io2 <:> sf_io2,   sf_io3 <:> sf_io3,
@@ -161,27 +162,32 @@ unit spiflash_memory(
 // - expects io0 and io1 to be well behaved:
 //   + do not request access again before receiving done
 //   + maintain request data while not fullfilled
+//   + two MSB are either 10 (periph) 01 (FLASH) or 00 (RAM)
 unit composite_memory(
   icev_ram_user ram,
   icev_ram_user rom,
   ram_provider  io0,
-  ram_provider  io1
+  ram_provider  io1,
 ) {
   uint1            rom0_req_valid(0);
   uint1            rom1_req_valid(0);
   uint1            rom_busy(0);
   uint1            rom_client(0);
   always {
-    uint1 io0_in_ram_now <: ~io0.addr[18,1]; //_ from 0x100000 (1MB)
-    uint1 io1_in_ram_now <: ~io1.addr[18,1];
+    uint1 io0_periph     <:  io0.addr[$periph$,1];
+    uint1 io1_periph     <:  io1.addr[$periph$,1];
+    uint1 io0_in_ram_now <:  ~io0.addr[18,1]; //_ from 0x100000 (1MB)
+    uint1 io1_in_ram_now <:  ~io1.addr[18,1];
+
     uint1 io0_was_in_ram(0);
     uint1 io1_was_in_ram(0);
     /// RAM access
     // NOTE: assumes io0 and io1 cannot concurrently access RAM, true on the ice-v
-    ram.addr       = io0_in_ram_now ? io0.addr    : io1.addr;
-    ram.wenable    = io0_in_ram_now ? io0.wenable : io1.wenable;
-    ram.wdata      = io0_in_ram_now ? io0.wdata   : io1.wdata;
-    ram.req_valid  = (io0_in_ram_now & io0.req_valid) | (io1_in_ram_now & io1.req_valid);
+    ram.addr       = (io0_in_ram_now & io0.req_valid) ? io0.addr    : io1.addr;
+    ram.wenable    = (io0_in_ram_now & io0.req_valid) ? io0.wenable : io1.wenable;
+    ram.wdata      = (io0_in_ram_now & io0.req_valid) ? io0.wdata   : io1.wdata;
+    ram.req_valid  = (io0_in_ram_now & io0.req_valid & ~io0_periph)
+                   | (io1_in_ram_now & io1.req_valid & ~io1_periph);
     // ROM access (may be concurrent, io0/io1 can overlap requests)
     // -> maintain requests low
     rom.req_valid  = 0;
@@ -304,7 +310,7 @@ $$end
   spram_memory mem0(io <:> spram);
   // -> spiflash
   ram_io spflash;
-  spiflash_memory mem1(io <:> spflash,
+  spiflash_memory mem1(io <:> spflash,clock2x <: clock2x,
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
     sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
   );
@@ -338,7 +344,7 @@ $$if SIMULATION then
     if (mem1io.addr[$periph$,1] & mem1io.req_valid) {
       __display("[cycle %d] LEDS (1) = %h",cycle,mem1io.wdata);
     }
-    if (cycle == 16000) { __finish(); }
+    if (cycle == 64000) { __finish(); }
     cycle = cycle + 1;
 $$end
   }

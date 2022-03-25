@@ -7,6 +7,9 @@
 volatile int go  = 0;
 volatile int red = 0;
 
+#define DELAY 65536
+//#define DELAY 7
+
 static inline int core_id()
 {
    unsigned int cycles;
@@ -14,17 +17,17 @@ static inline int core_id()
    return cycles&1;
 }
 
-__attribute__((section(".data"))) void main_core0()
+__attribute__((section(".data"))) void red_blink()
 {
   while (1) {
     red = 16;
-    for (int i=0;i<65536*2;i++) { }
+    for (int i=0;i<DELAY*2;i++) { asm volatile ("nop;"); }
     red = 0;
-    for (int i=0;i<65536*2;i++) { }
+    for (int i=0;i<DELAY*2;i++) { asm volatile ("nop;"); }
   }
 }
 
-void main_core1()
+__attribute__((section(".data"))) void greens()
 {
   int l = 1;
   while (1) {
@@ -33,7 +36,7 @@ void main_core1()
       l = 1;
     }
     *LEDS = l | red;
-    for (int i=0;i<65536;i++) { }
+    for (int i=0;i<DELAY;i++) { asm volatile ("nop;"); }
   }
 }
 
@@ -41,9 +44,9 @@ void main()
 {
   if (core_id()) {
     go = 1;            // sync core 0
-    main_core1();
+    red_blink();
   } else {
     while (go == 0) {} // wait for core 1
-    main_core0();
+    greens();
   }
 }
