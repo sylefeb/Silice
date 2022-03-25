@@ -16,4 +16,4 @@ $ARCH-objcopy -O verilog $DST/code.elf $DST/code.hex
 $ARCH-objcopy -O binary  $DST/code.elf $DST/code.bin
 
 # uncomment to see the actual code, usefull for debugging
-$ARCH-objdump.exe -D -b binary -m riscv $DST/code.bin
+$ARCH-objdump.exe -D -m riscv $DST/code.elf

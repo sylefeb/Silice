@@ -14,7 +14,7 @@ static inline int core_id()
    return cycles&1;
 }
 
-void main_core0()
+__attribute__((section(".data"))) void main_core0()
 {
   while (1) {
     red = 16;
