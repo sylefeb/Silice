@@ -9,11 +9,13 @@ _start:
    andi a5,a5,1
    bnez a5,cpu1
    # cpu 0 only
-   li sp,65532 # end of SPRAM
-   j done
+   li sp,65528    # end of SPRAM
+   li a0,65532    # mutex location
+   sw zero, 0(a0) # clear mutex
+   j wait
 cpu1:
    # cpu 1 only
-   li sp,61436 # leaves 4096 bytes for CPU0
+   li sp,61432 # leaves 4096 bytes for CPU0
    # from https://github.com/YosysHQ/picorv32/blob/master/picosoc/start.s
    # copy data section
    la a0, _sidata
@@ -36,8 +38,16 @@ cpu1:
    addi a0, a0, 4
    blt a0, a1, loop_init_bss
    end_init_bss:
+   # set mutex
+   li a0,65532    # mutex location
+   li a1, 1
+   sw a1, 0(a0) # set
    # init done
-done:
+   call main
+   tail exit
+wait:
+   lw  a1, 0(a0) # read mutex
+   beq a1, zero, wait
    call main
    tail exit
 

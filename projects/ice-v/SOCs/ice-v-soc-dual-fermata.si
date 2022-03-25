@@ -88,16 +88,17 @@ unit bram_memory(ram_provider io) {
 // SPRAM implementation of a RAM
 $$if UP5K or SIMULATION then
 unit spram_memory(ram_provider io) {
-  uint14 sp0_addr(0);    uint4  sp0_wmask(0);    uint1  sp0_wenable(0);
+  uint14 sp_addr(0);
+  uint4  sp0_wmask(0);   uint1  sp0_wenable(0);
   uint16 sp0_data_in(0); uint16 sp0_data_out(0);
-  uint14 sp1_addr(0);    uint4  sp1_wmask(0);    uint1  sp1_wenable(0);
+  uint4  sp1_wmask(0);   uint1  sp1_wenable(0);
   uint16 sp1_data_in(0); uint16 sp1_data_out(0);
 $$if SIMULATION then
   simulation_spram spram0(
 $$else
   ice40_spram      spram0(clock    <: clock,
 $$end
-    addr    <: sp0_addr,    data_in <: sp0_data_in, data_out :> sp0_data_out,
+    addr    <: sp_addr,     data_in <: sp0_data_in, data_out :> sp0_data_out,
     wenable <: sp0_wenable, wmask   <: sp0_wmask,
   );
 $$if SIMULATION then
@@ -105,23 +106,22 @@ $$if SIMULATION then
 $$else
   ice40_spram      spram1(clock    <: clock,
 $$end
-    addr    <: sp1_addr,    data_in <: sp1_data_in, data_out :> sp1_data_out,
+    addr    <: sp_addr,     data_in <: sp1_data_in, data_out :> sp1_data_out,
     wenable <: sp1_wenable, wmask   <: sp1_wmask,
   );
   uint1  done(0);
   always {
     sp0_data_in   = io.wdata[ 0,16];
     sp1_data_in   = io.wdata[16,16];
-    sp0_addr      = io.addr[0,14];
-    sp1_addr      = io.addr[0,14];
+    sp_addr       = io.req_valid ? io.addr[0,14] : sp_addr;
     sp0_wmask     = {io.wenable[1,1],io.wenable[1,1],io.wenable[0,1],io.wenable[0,1]};
     sp1_wmask     = {io.wenable[3,1],io.wenable[3,1],io.wenable[2,1],io.wenable[2,1]};
-    sp0_wenable   = io.req_valid & (io.wenable != 0);
-    sp1_wenable   = io.req_valid & (io.wenable != 0);
+    sp0_wenable   = io.req_valid & (io.wenable != 4b0000);
+    sp1_wenable   = io.req_valid & (io.wenable != 4b0000);
     io.rdata      = {sp1_data_out,sp0_data_out};
     io.done       = done;
     done          = io.req_valid;
-    // __display("spram @%h, req_valid:%b, rdata:%h wdata:%h, wmask:%b",io.addr,io.req_valid,{sp1_data_out,sp0_data_out},io.wdata,io.wenable);
+    __display("spram @%h, req_valid:%b, rdata:%h wdata:%h, wmask:%b",io.addr,io.req_valid,{sp1_data_out,sp0_data_out},io.wdata,io.wenable);
   }
 }
 $$end
@@ -129,14 +129,14 @@ $$end
 // --------------
 // SPIflash implementation of a ROM
 unit spiflash_memory(
-  ram_provider io,       input   uint1 clock2x,
+  ram_provider io,
   output  uint1 init(1), // goes low when SPIflash ctrl is ready
   output  uint1 sf_clk,  output  uint1 sf_csn,
   inout   uint1 sf_io0,  inout   uint1 sf_io1,
   inout   uint1 sf_io2,  inout   uint1 sf_io3,
 ) {
   // spiflash rom
-  spiflash_rom sf/*<@clock2x,reginputs>*/(
+  spiflash_rom sf(
     sf_clk :>  sf_clk,   sf_csn :>  sf_csn,
     sf_io0 <:> sf_io0,   sf_io1 <:> sf_io1,
     sf_io2 <:> sf_io2,   sf_io3 <:> sf_io3,
@@ -260,6 +260,7 @@ $$if UART then
   output uint1 uart_tx,
   input  uint1 uart_rx,
 $$end
+/*
 // clocking (pll) and reset
 $$if ICEBREAKER or ICEBITSY then
 ) <@clock1x,!rst> {
@@ -289,6 +290,8 @@ $$elseif SIMULATION then
 $$else
 ) {
 $$end
+*/
+) {
 
 $$if SIMULATION then
   uint32 cycle(0);
@@ -310,7 +313,7 @@ $$end
   spram_memory mem0(io <:> spram);
   // -> spiflash
   ram_io spflash;
-  spiflash_memory mem1(io <:> spflash,clock2x <: clock2x,
+  spiflash_memory mem1(io <:> spflash,
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
     sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
   );

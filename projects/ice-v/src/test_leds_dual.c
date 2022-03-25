@@ -4,7 +4,6 @@
 
 #include "config.h"
 
-volatile int go  = 0;
 volatile int red = 0;
 
 #define DELAY 65536
@@ -43,10 +42,8 @@ __attribute__((section(".data"))) void greens()
 void main()
 {
   if (core_id()) {
-    go = 1;            // sync core 0
     red_blink();
   } else {
-    while (go == 0) {} // wait for core 1
     greens();
   }
 }
