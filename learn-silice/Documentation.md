@@ -474,18 +474,18 @@ What happens now is that the value of `c_plus_a_plus_b` is using the immediate v
 
 Units and algorithms are the main elements of a Silice design.
 A unit is not an actual piece of hardware but rather a specification,
-a *blueprint* of a circuit implementation.
-Thus, units have to be *instanced* before being used. Each instance
+a blueprint of a circuit implementation.
+Thus, units have to be *instantiated* before being used. Each instance
 will be allocated physical resources on the hardware implementation,
 using logical cells in an FPGA grid or transistors in an ASIC. Instances
-are physically connected to other instances and IO pins around them.
+are physically connected to other instances and IO pins by wires.
 
-A unit may be instanced several times, for example creating several CPUs within a same design. A unit can instance other units: [a small computer unit](../projects/ice-v/SOCs/ice-v-soc.si) would instance a memory, a CPU, a video signal generator and describe how they are connected together. When a unit is instanced, all its sub-units are also instanced.
+A unit may be instantiated several times, for example creating several CPUs within a same design. A unit can instantiate other units: [a small computer unit](../projects/ice-v/SOCs/ice-v-soc.si) would instantiate a memory, a CPU, a video signal generator and describe how they are connected together. When a unit is instantiated, all its sub-units are also instantiated.  In the following, we call the unit containing sub-units the *parent* of the sub-unit.
 
-Instanced units *always run in parallel*: they are pieces of hardware that are always powered on and active. Each unit be driven from a specific
+Instantiated units *always run in parallel*: they are pieces of hardware that are always powered on and active. Each unit be driven from a specific
 clock and reset signal.
 
-A unit can contain different types of hardware descriptions: a single `always` blocks, or an `algorithm` and its accompanying (optional) `always_before` and `always_after` block.
+A unit can contain different types of hardware descriptions: a single `always` block, or an `algorithm` and its accompanying (optional) `always_before` and `always_after` blocks.
 
 A unit containing only an algorithm block can be optionally directly declared as an algorithm, that is:
 ```verilog
@@ -506,7 +506,7 @@ algorithm foo( ... )
 
 ### main (design 'entry point').
 
-The top level unit is called *main*, and has to be defined in a standalone design. It is automatically instanced by the *host hardware framework*, see
+The top level unit is called *main*, and has to be defined in a standalone design. It is automatically instantiated by the *host hardware framework*, see
 Section <a href="#sec:host" data-reference-type="ref" data-reference="sec:host">8</a>.
 
 ## Unit declaration
@@ -515,37 +515,34 @@ A unit is declared as follows:
 
 ```verilog
 unit ID (
-input TYPE ID
-...
-output TYPE ID
-...
-output! TYPE ID
+(input | output | output! | inout) TYPE ID,
 ...
 ) <MODS> {
   DECLARATIONS
   ALWAYS_ASSIGNMENTS
-  (ALWAYS_BEFORE_BLOCK ALGORITHM ALWAYS_AFTER_BLOCK) | (ALWAYS_BLOCK)
+  (ALWAYS_BEFORE_BLOCK ALGORITHM ALWAYS_AFTER_BLOCK) or (ALWAYS_BLOCK)
 }
 ```
 
 The algorithm block is declared as:
 ``` verilog
 algorithm <MODS> {
+  DECLARATIONS
   SUBROUTINES
   INSTRUCTIONS
 }
 ```
 
 Most elements are optional: the number of inputs and outputs can vary,
-the modifiers may be empty (in which case the `’<>’` is not necessary)
-and declarations, bindings and instructions may all be empty.
+the modifiers may be empty (in which case the `’<>’` is not necessary),
+declarations and instructions may all be empty.
 
 Here is a simple example:
 
 ``` c
-algorithm adder(intput uint8 a,intput uint8 b,output uint8 v)
+unit adder(input uint8 a,input uint8 b,output uint8 v)
 {
-  v = a + b;
+  v := a + b;
 }
 ```
 
@@ -556,29 +553,26 @@ Let us now discuss each element of the declaration.
 Inputs and outputs may be declared in any order, however the order
 matters when calling the algorithms (parameters are given in the order
 of inputs, results are read back in the order of outputs). Input and
-outputs can be single variables or tables. A third type `inout` exists
-for compatibility with Verilog modules, however these can only be passed
-and bound to imported modules (i.e. they cannot be used in expressions
-and instructions for now).
+outputs can be single variables or tables. A third type `inout` exists, which represent tristate variables. These are groups with members `.oenable` (enables the output), `.o` for the output and `.i` for the input. See [this example project](../projects/inout/README.md) for details.
 
-Note that there are two types of output: `output` and `output!`. These
-distinguish between a standard and an immediate output (exclamation
-mark). A standard output sees its value updated at the next clock cycle.
-An immediate output ensures that callers sees the results within the
-same cycle. This can be for instance important when implementing a video
+Note that there are two types of outputs: `output` and `output!`. These
+distinguish between a *registered* and an *immediate* output (with exclamation
+mark). This is a very important distinction when outputs are bound, but makes no difference when algorithms are called.
+
+When using a registered output, the parent will only see the value updated at the next clock cycle. In contrast, an immediate output is a direct connection and ensures that the parent sees the results immediately, within the same cycle. This can be for instance important when implementing a video
 driver; e.g. a HDMI module generates a pixel coordinate on its output
 and expects to see the corresponding color on its input within the same
 clock cycle (even though a better design would allow a one-cycle
 latency). In such a scenario the algorithm outputting the color to the
 HDMI driver will input the coordinate and use `output!` for the color.
-However, using only `output!` will in some cases result in combinational
-loops: a cycle in the described circuitry (that is generally bad).
-Silice detects such cases and will issue an error (see also
-Section <a href="#combloops" data-reference-type="ref" data-reference="combloops">4.6</a>).
+However, using only `output!` has drawbacks. It tends to generate deeper circuits with lower maximum frequency. Oftentimes, paying one in latency
+allow to reach higher frequencies and is well worth it.
+Using `output!` may also result in combinational loops: a cycle in the described circuitry (that is generally bad). Silice detects such cases and issues an error (see also Section <a href="#combloops" data-reference-type="ref" data-reference="combloops">4.6</a>).
+
+This is an important topic, and while this can be put aside when starting, mastering hardware design requires a deep understanding of the effect of registered inputs/outputs. Please refer to the [notes on algorithms calls, bindings and timings](AlgoInOuts.md) for more details.
 
 > **Note:** Silice combinational loop detection is not perfect yet.
-Such a problem would typically result in simulation hanging (unable to stabilize
-the circuit) with Verilator issuing a `UNOPTFLAT` warning.
+Such a problem would typically result in simulation hanging (unable to stabilize the circuit) with Verilator issuing a `UNOPTFLAT` warning.
 
 #### *Declarations.*
 
@@ -595,18 +589,18 @@ algorithm main(output uint8 led)
 }
 ```
 
-#### Always assign
+#### *Always assign.*
 
-Silice defines operators for always assignment of VIOs. An always
-assignment is performed regardless of the execution state. It happens
-before anything else and can be overridden from the algorithm. Always
-assignments are order dependent between them.
-The left side of the assignment has to be a VIO identifier, while the right side may be an expression.
+Silice defines operators for *always assignment* of VIOs. An always
+assignment is performed regardless of the execution state. It is applied
+before any other logic and thus can be overridden from the always blocks and algorithm. Always assignments are order *dependent* between them.
+The left side of the assignment has to be a VIO identifier, while the right side may be any expression. There are two variants:
 
--   `:=` assign right to left at each rising clock,
+-   `:=` always assign.
 
--   `::=` assign right to left with a one clock cycle delay (two stages
-    flip-flop for e.g. clock domain crossing).
+-   `::=` *registered* always assign.
+
+The registered version introduces a register in between the right expression and the left VIO, and hence a one cycle latency to the assignment. This is convenient (and important) when assigning from an asynchronous input (e.g. an input pin) or when crossing clock domains.
 
 Always assignments are specified just after variable declarations
 and algorithms/modules instantiations. A typical use case is to make
@@ -623,32 +617,32 @@ algorithm writer(
   // ...
   if (do_write) {
     data  = ...;
-    write = 1; // pulses high on next rising clock
+    write = 1; // pulses high on next clock cycle
   }
 
 }
 ```
 
-> **Note:** the assignment is performed before anything else. If the value of the expression in the right hand side is later changing (during the clock cycle), this will not change the value of the left hand side.
+> **Note:** The assignment is applied before any other logic. Thus, if the value of the expression in the right hand side is later changing (during the same clock cycle), this will not change the value of the left hand side. To track a value use an *expression tracker*.
 
-> **Note:** If the right hand side of a `:=` contains an asynchronous input, the always assignement will not register it. The always assignment tracks the input value immediately as it changes. To register an input use `::=` instead.
+> **Note:** It is highly recommended to register all asynchronous inputs using a variable that is always assigned the input with the registered always assignment `::=`.
+
+> **Note:** (advanced) An always assignment is in itself asynchronous, thus it can be used to pass around asynchronous inputs or clocks.
 
 ## Instantiation
 
-Algorithms and modules can be instanced from within a parent algorithm.
-Optionally parameters can be *bound* to the parent algorithm variables.
-In terms of hardware, these are the wires connecting instanced and
-parent algorithms. Instantiation uses the following syntax:
+Units and imported modules can be instantiated from within a parent unit.
+Optionally parameters can be *bound* to the parent unit variables (VIOs).
+Instantiation uses the following syntax:
 
 ``` verilog
-MOD_ALG ID<@CLOCK,!RESET,...> (
+UNIT_NAME ID<@CLOCK,!RESET,...> (
 BINDINGS
 (<:auto:>)
 );
 ```
 
-where `MOD_ALG` is the name of the module/algorithm, `ID` an identifier
-for the instance, and `BINDINGS` a comma separated list of bindings
+where `UNIT_NAME` is the name of the unit to instantiate, `ID` a name identifier for the instance, and `BINDINGS` a comma separated list of bindings
 between the instance inputs/outputs and the parent algorithm variables.
 The bindings are optional and may be partial. `@CLOCK` optionally
 specifies a clock signal, `!RESET` a reset signal, where `CLOCK` and
@@ -658,12 +652,9 @@ When none are specified the parent `clock` and `reset` are used for the
 instance.
 
 Other possible modifiers are:
-- `reginputs`, applies only to non-callable algorithms (algorithms that have an
-`<autostart>` modifier or only consist of always blocks and/or always
-assignments). This modifier requests inputs accessed with the dot syntax
+- `reginputs`, applies only to non-callable units (units without an algorithm, or units which algorithm have an `<autostart>` modifier). This modifier requests inputs accessed with the dot syntax
 to be registered, e.g. there will be a one cycle latency between their
-assignment and when the instanced algorithm sees the change. Please refer to the
-[notes on algorithms calls, bindings and timings](AlgoInOuts.md) for details.
+assignment and when the instanced algorithm sees the change. Please refer to the [notes on algorithms calls, bindings and timings](AlgoInOuts.md) for details.
 
 
 Each binding is defined as: `ID_left OP ID_right` where `ID_left` is the
@@ -671,12 +662,8 @@ identifier of an instance input or output, `OP` a binding operator
 (Section <a href="#sec:bindings" data-reference-type="ref" data-reference="sec:bindings">3.6.4</a>)
 and `ID_right` a variable identifier.
 
-Note that only identifiers are allowed in bindings: access to tables and
-swizzling are not allowed. This can be alleviated using expression trackers, see
-Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:exprtrack">3.6.6</a>.
-
 Combined with `autorun` such bindings allow to instantiate and
-immediately run an algorithm to drive some of the parent algorithm
+immediately run a unit to drive some of the parent unit
 variables. Here is an example:
 
 ``` c
@@ -685,16 +672,16 @@ algorithm blink(output int1 b_fast,output int1 b_slow) <autorun>
   uint20 counter = 0;
   while (1) {
     counter = counter + 1;
-      if (counter[0,8] == 0) {
-        b_fast = !b_fast;
-      }
-      if (counter == 0) {
-        b_slow = !b_slow;
-      }
+    if (counter[0,8] == 0) {
+      b_fast = !b_fast;
+    }
+    if (counter == 0) {
+      b_slow = !b_slow;
+    }
   }
 }
 
-algorithm main(output int8 led)
+unit main(output int8 leds)
 {
   int1 a = 0;
   int1 b = 0;
@@ -703,11 +690,11 @@ algorithm main(output int8 led)
     b_fast :> b
   );
 
-  led := 0;      // turn off all eight LEDs
-  led[0,1] := a; // first LED  always assigned first bit (slow blink)
-  led[1,1] := b; // second LED always assigned second bit (faster blink)
+  leds := 0;      // turn off all eight LEDs
+  leds[0,1] := a; // first LED  always assigned first bit (slow blink)
+  leds[1,1] := b; // second LED always assigned second bit (faster blink)
 
-  while (1) { } // inifinite loop, blink runs in parallel
+  always { __display("leds = %b",leds); }    // forever, blink runs in parallel
 }
 ```
 
