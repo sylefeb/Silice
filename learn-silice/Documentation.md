@@ -383,8 +383,8 @@ modules:
 -   `<:>` binds both ways.
 
 The bound sides have to be VIO identifiers. To bind expressions you can
-use expression tracking (see
-Section <a href="#bound-expressions" data-reference-type="ref" data-reference="bound-expressions">Bound expressions</a>).
+use expression trackers (see
+Section <a href="#expression-trackers" data-reference-type="ref" data-reference="expression-trackers">Expression trackers</a>).
 
 Bound VIOs are connected and immediately track each others values. A
 good way to think of this is as a physical wire between IC pins, where
@@ -412,7 +412,7 @@ This, however, produces deeper circuits and can reduce the max frequency of a de
 
 > **Note:** when a VIO is bound both to an instanced unit input and an instanced unit output (making a direct connection between two instantiated units), then using `<::` or `<:` will result in the same behavior, which is controlled by the use of `output` or `output!` on the algorithm driving the output. Silice will issue a warning if using `<::` in that case.
 
-### Bound expressions
+### Expression trackers
 
 Variables can be defined to constantly track the value of an expression,
 hence *binding the variable* and the expression. This is done during the
@@ -444,7 +444,7 @@ in this example, o would be assigned 1+2.
 
 > The `<::` operator is *very important*: it allows to relax timing constraints (reach higher frequencies), by accepting a one cycle latency. As a general rule, using delayed operators (indicated by `::`) is recommended whenever possible.
 
-Bound expressions can refer to other bound expressions. Note that when mixing  `<:` and `<::` the second operator (`<::`) will not change the behavior of the first tracker. Silice will issue a warning in that situation, which can be silenced by adding a `:` in front of the first tracker, example:
+Expression trackers can refer to other trackers. Note that when mixing  `<:` and `<::` the second operator (`<::`) will not change the behavior of the first tracker. Silice will issue a warning in that situation, which can be silenced by adding a `:` in front of the first tracker, example:
 
 ```c
   uint9 a_plus_b        <:  a + b;
@@ -629,7 +629,7 @@ algorithm writer(
 }
 ```
 
-> **Note:** the assignment is performed before anything else. If the value of the expression in the right hand side is later changing (during the clock cycle), this will not change the value of the left hand side. To achieve this use *bound expressions* (see next).
+> **Note:** the assignment is performed before anything else. If the value of the expression in the right hand side is later changing (during the clock cycle), this will not change the value of the left hand side.
 
 > **Note:** If the right hand side of a `:=` contains an asynchronous input, the always assignement will not register it. The always assignment tracks the input value immediately as it changes. To register an input use `::=` instead.
 
@@ -672,8 +672,7 @@ identifier of an instance input or output, `OP` a binding operator
 and `ID_right` a variable identifier.
 
 Note that only identifiers are allowed in bindings: access to tables and
-swizzling are not allowed. This can be alleviated using bound
-expressions, see
+swizzling are not allowed. This can be alleviated using expression trackers, see
 Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:exprtrack">3.6.6</a>.
 
 Combined with `autorun` such bindings allow to instantiate and
@@ -729,7 +728,7 @@ infinite loop (runs as long as there is power).
 The constraint, however, is that `a` and `b` are necessary. This is due
 to the fact that we cannot directly bind `led[0,1]` and `led[1,1]` to
 the instance of `blink`. Only identifiers can be specified during
-bindings. This can be alleviated by using bound expressions (see
+bindings. This can be alleviated by using expression trackers (see
 Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:exprtrack">3.6.6</a>).
 
 #### Automatic binding.
@@ -959,8 +958,8 @@ instantiation from an algorithm:
 
 > **Note:** currently circuitry instantiation can only be made on VIO identifiers
 (no expressions, no bit-select or part-select). This restriction will be removed
-at some point. In the meantime bound expressions provide a work around, first
-defining a bound expression with an identifier then giving it to the circuitry
+at some point. In the meantime expression trackers provide a work around, first
+defining a tracker with an identifier then giving it to the circuitry
 (these can be defined in a block around the circuit instantiation).
 
 ## Combinational loops
@@ -1033,7 +1032,7 @@ use the operators defined in
 Section <a href="#sec:contassign" data-reference-type="ref" data-reference="sec:contassign">3.6.5</a>.
 Always assignments allow to follow the value of an expression in a
 variable, output, or instanced algorithm input or output. Contrary to
-bound expressions
+expression trackers
 (Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:exprtrack">3.6.6</a>),
 the assigned values can be changed during a cycle.
 

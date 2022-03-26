@@ -55,10 +55,8 @@ below `0` indicates core 0 and `1` indicates core 1.
 | i+3   | 3 (2b11)   |  .  |  1  |   .   |   0     |
 
 Each core expects data from memory at stages `F` (next instruction is expected)
-and stage `LS2/C` (on `LS2`, result from a load).
-
-Our goal is to allow the stages to run freely, but do nothing when the last requested
-memory transaction is not yet available.
+and stage `LS2/C` (on `LS2`, result from a load). Our goal is to allow the stages
+to run freely, but do nothing when the last requested memory transaction is not yet available.
 
 First, we need to ensure the cores do not miss new data coming in. To this end
 we create a set of variables and trackers:
@@ -66,9 +64,8 @@ we create a set of variables and trackers:
   // did we receive new data?
   uint1                  reqmem0_was_done(0);
   uint1                  reqmem1_was_done(0);
-  uint1 reqmem0_done <:: reqmem0_was_done | :mem0.done;
+  uint1 reqmem0_done <:: reqmem0_was_done | :mem0.done; // combines current with past
   uint1 reqmem1_done <:: reqmem1_was_done | :mem1.done;
-  // ...
   // ...
   // (near the end)
   reqmem0_was_done = mem0.req_valid ? 0 : (mem0.done|reqmem0_was_done);
