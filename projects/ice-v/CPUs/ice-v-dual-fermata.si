@@ -265,12 +265,12 @@ $$end
 
 // interface for ram user
 interface icev_ram_user {
-  output!  addr,
-  output!  wenable,
-  output!  wdata,
-  input    rdata,
-  output!  req_valid,
-  input    done,
+  output!  addr,      // memory address
+  output!  wenable,   // write enable
+  output!  wdata,     // data to be written
+  input    rdata,     // data read from memory
+  output!  req_valid, // pulses high when request is valid
+  input    done,      // pulses high when request is completed
 }
 
 algorithm icev_dual_fermata(
@@ -321,9 +321,9 @@ $$end
   uint1                  reqmem1_instr(0);
   uint1                  reqmem0_ldst(0);
   uint1                  reqmem1_ldst(0);
+  // did we receive new data?
   uint1                  reqmem0_was_done(0);
   uint1                  reqmem1_was_done(0);
-    // did we receive new data?
   uint1 reqmem0_done <:: reqmem0_was_done | :mem0.done;
   uint1 reqmem1_done <:: reqmem1_was_done | :mem1.done;
 
