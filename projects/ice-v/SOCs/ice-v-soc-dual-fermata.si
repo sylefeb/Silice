@@ -143,7 +143,7 @@ unit spiflash_memory(
   );
   // logic
   uint1  was_busy(0);
-  uint1  sf_is_busy(1);
+  uint1  sf_is_busy(1);    // for clock domain crossing
   always {
     init        = sf_is_busy & init;
     io.rdata    = sf.rdata;
@@ -152,7 +152,7 @@ unit spiflash_memory(
     sf.in_ready = io.req_valid;
     io.done     = was_busy & ~sf_is_busy;
     was_busy    = sf_is_busy;
-    sf_is_busy  = sf.busy;
+    sf_is_busy  = sf.busy; // get busy status from spiflash (clock domain crossing)
   }
 }
 
