@@ -667,56 +667,36 @@ immediately run a unit to drive some of the parent unit
 variables. Here is an example:
 
 ``` c
-algorithm blink(output int1 b_fast,output int1 b_slow) <autorun>
+algorithm blink(output int1 fast,output int1 slow) <autorun>
 {
   uint20 counter = 0;
   while (1) {
     counter = counter + 1;
     if (counter[0,8] == 0) {
-      b_fast = !b_fast;
+      fast = ~fast;
     }
     if (counter == 0) {
-      b_slow = !b_slow;
+      slow = ~slow;
     }
   }
 }
 
 unit main(output int8 leds)
 {
-  int1 a = 0;
-  int1 b = 0;
-  blink b0(
-    b_slow :> a,
-    b_fast :> b
+  blink b(
+    slow :> leds[0,1],
+    fast :> leds[1,1]
   );
 
-  leds := 0;      // turn off all eight LEDs
-  leds[0,1] := a; // first LED  always assigned first bit (slow blink)
-  leds[1,1] := b; // second LED always assigned second bit (faster blink)
-
-  always { __display("leds = %b",leds); }    // forever, blink runs in parallel
+  always { __display("leds = %b",leds[0,2]); }    // forever, blink runs in parallel
 }
 ```
 
-This example reveals some interesting possibilities, and a constraint.
-As algorithm `blink` is instanced as `b0`, it starts running immediately
-(due to the `autorun` modifier in the declaration of `blink`). Hence,
-the variables `a` and `b` are immediately reflecting the `b_slow` and
-`b_fast` outputs of `b0`. The always assignment to `led` then use `a`
-and `b` to output to the `led` 8-bit variable, which we assume is
-physically connected to LEDs. The first assignment sets `led` to zero,
-and then its two first bits to `a` and `b`. As the always assignments
-are order dependent, this behaves properly with the two first bits
-always assigned at each clock cycle. Since all updates in `main` are
-done through bindings and always assignments, and because *algorithms
-run in parallel*, there is nothing else to do, and `main` enters an
-infinite loop (runs as long as there is power).
-
-The constraint, however, is that `a` and `b` are necessary. This is due
-to the fact that we cannot directly bind `led[0,1]` and `led[1,1]` to
-the instance of `blink`. Only identifiers can be specified during
-bindings. This can be alleviated by using expression trackers (see
-Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:exprtrack">3.6.6</a>).
+In this example, algorithm `blink` is instanced as `b` in the main unit. It starts running immediately due to the `autorun` modifier in the declaration of `blink`.
+The lower bits of `leds` are bound to the `slow` and `fast` outputs of `b`.
+The main unit contains only an `always` block that runs forever. `__display` is used only in simulation and prints the value of `leds`.
+Since all updates in `main` are done through bindings and always assignments,
+and because *units run in parallel*, there is nothing else to do and `main` runs forever (as long as there is power).
 
 #### Automatic binding.
 
@@ -726,11 +706,11 @@ having the same name and binds them directly. While this is convenient
 when many bindings are repeated and passed around, it is recommended to
 use groups for brevity and make all bindings explicit.
 
-> **Note** automatic binding can be convenient, but is discouraged as it relies a name matching and changes can introduce silent errors. When a large number of inputs/outputs have to be bound, consider using groups and interfaces.
+> **Note:** Automatic binding can be convenient, but is discouraged as it relies a name matching and changes can introduce silent errors. When a large number of inputs/outputs have to be bound, consider using groups and interfaces.
 
 #### Direct access to inputs and outputs.
 
-The inputs and outputs of instanced algorithms, when not bound, can be
+The inputs and outputs of instanced units *that are not bound*, can be
 directly accessed using a ’dot’ notation. Outputs can be read and inputs
 written to. Example:
 
@@ -743,11 +723,13 @@ algorithm algo(input uint8 i,output uint o)
 algorithm main(output uint8 led)
 {
   algo a;
-  a.i = 131;
+  a.i = 131; // dot syntax access to input i of a
   () <- a <- (); // this is a call without explicit inputs/outputs
-  led = a.o;
+  led = a.o; // dot syntax access to output o of a
 }
 ```
+
+> **Note:** The dot syntax defaults to non registered inputs. This can be controlled by using the `<reginputs>` modifier when instantiating the unit.
 
 ## Call
 

@@ -7949,7 +7949,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
     } else if (v.usage == e_Temporary) {
         out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << FF_TMP << "_" << v.name << ';' << nxl;
     } else if (v.usage == e_Bound) {
-        out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << m_VIOBoundToBlueprintOutputs.at(v.name) << ';' << nxl;
+        out << "assign " << ALG_OUTPUT << "_" << v.name << " = " << rewriteBinding(v.name, nullptr, ictx) << ';' << nxl;
     } else {
       throw Fatal("internal error (output assignments)");
     }
