@@ -55,6 +55,7 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
 // - decodes instructions
 // - performs all integer computations
 // - similar to ice-v, adds core_id and revised shifter
+// NOTE: same as ice-v dual, merge?
 
 algorithm execute(
   // instruction, program counter and registers
@@ -249,7 +250,7 @@ $$end
 
 // --------------------------------------------------
 // Dual Risc-V RV32I CPU with dual memory interface
-//
+// Ice-V dual fermata
 // ---- interleaved CPU stages ----
 // F:     instruction fetched
 // T:     trigger ALU+decode

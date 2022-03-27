@@ -129,28 +129,30 @@ $$end
 // --------------
 // SPIflash implementation of a ROM
 unit spiflash_memory(
-  ram_provider io,
+  ram_provider io, input uint1 clock2x,
   output  uint1 init(1), // goes low when SPIflash ctrl is ready
   output  uint1 sf_clk,  output  uint1 sf_csn,
   inout   uint1 sf_io0,  inout   uint1 sf_io1,
   inout   uint1 sf_io2,  inout   uint1 sf_io3,
 ) {
   // spiflash rom
-  spiflash_rom sf(
+  spiflash_rom sf<reginputs,@clock2x>(
     sf_clk :>  sf_clk,   sf_csn :>  sf_csn,
     sf_io0 <:> sf_io0,   sf_io1 <:> sf_io1,
     sf_io2 <:> sf_io2,   sf_io3 <:> sf_io3,
   );
   // logic
   uint1  was_busy(0);
+  uint1  sf_is_busy(1);
   always {
-    init        = sf.busy & init;
+    init        = sf_is_busy & init;
     io.rdata    = sf.rdata;
     sf.addr     = io.req_valid ? {4b0001,io.addr[0,18],2b00} : sf.addr;
     //                                 ^ offset SPIflash addresses by 1MB
     sf.in_ready = io.req_valid;
-    io.done     = was_busy & ~sf.busy;
-    was_busy    = sf.busy;
+    io.done     = was_busy & ~sf_is_busy;
+    was_busy    = sf_is_busy;
+    sf_is_busy  = sf.busy;
   }
 }
 
@@ -260,7 +262,6 @@ $$if UART then
   output uint1 uart_tx,
   input  uint1 uart_rx,
 $$end
-/*
 // clocking (pll) and reset
 $$if ICEBREAKER or ICEBITSY then
 ) <@clock1x,!rst> {
@@ -290,8 +291,6 @@ $$elseif SIMULATION then
 $$else
 ) {
 $$end
-*/
-) {
 
 $$if SIMULATION then
   uint32 cycle(0);
@@ -313,7 +312,7 @@ $$end
   spram_memory mem0(io <:> spram);
   // -> spiflash
   ram_io spflash;
-  spiflash_memory mem1(io <:> spflash,
+  spiflash_memory mem1(io <:> spflash, clock2x <: clock2x,
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
     sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
   );
@@ -326,6 +325,7 @@ $$end
     ram <:> spram,  rom <:> spflash,
     io0 <:> mem0io, io1 <:> mem1io,
   );
+
   // ---- cpu
   icev_dual_fermata cpu<!sys_rst>(
     mem0 <:> mem0io,

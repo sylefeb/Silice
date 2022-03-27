@@ -72,4 +72,13 @@ we create a set of variables and trackers:
   reqmem1_was_done = mem1.req_valid ? 0 : (mem1.done|reqmem1_was_done);
 ```
 
+## Memory controller
+
+...
+
+
+## Linker script and startup
+
+...
+
 > **To be continued**

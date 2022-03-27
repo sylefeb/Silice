@@ -16,7 +16,7 @@ static inline int core_id()
    return cycles&1;
 }
 
-__attribute__((section(".data"))) void red_blink()
+/*__attribute__((section(".data")))*/ void red_blink()
 {
   while (1) {
     red = 16;
@@ -26,7 +26,7 @@ __attribute__((section(".data"))) void red_blink()
   }
 }
 
-__attribute__((section(".data"))) void greens()
+/*__attribute__((section(".data")))*/ void greens()
 {
   int l = 1;
   while (1) {
