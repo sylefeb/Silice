@@ -177,7 +177,7 @@ $$end
         // start sending?
         if (in_ready | init[1,1]) {
 $$if SIMULATION then
-          __display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
+          //__display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
 $$if VERILATOR then
           vdta.addr = addr;
           //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
@@ -249,7 +249,7 @@ $$else
         vdta.addr               = rdata_done[0,1] ? vdta.addr : (vdta.addr + 1);
   $$else
         // rdata                   = {cycle[0,8],    rdata[8,$(nBytes-1)*8$]}; // DEBUG
-        __display("[%d] read %h",cycle,spiflash.read);
+        //__display("[%d] read %h",cycle,spiflash.read);
         rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
   $$end
   $$else
@@ -264,7 +264,7 @@ $$else
         after                   = 5; // otherwise keep reading
         rdata_done              = rdata_done >> 1;
 $$if SIMULATION then
-        __display("[%d] spiflash [5] (%h) busy:%b",cycle,rdata,busy);
+        //__display("[%d] spiflash [5] (%h) busy:%b",cycle,rdata,busy);
 $$end
       }
 $$end
