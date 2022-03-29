@@ -44,7 +44,7 @@ $$nBytes = 4 -- fetches 32 bits words
 $include('../spiflash/spiflash2x.si')
 
 // Include the VGA controller
-$$VGA_VA_END = 398
+$$VGA_VA_END = 400
 $include('../common/vga.si')
 
 // --------------------------------------------------
@@ -71,7 +71,7 @@ interface ram_provider {
 }
 
 // --------------
-// BRAM implementation of a RAM
+// BRAM implementation of a RAM (not used, kept as an example)
 unit bram_memory(ram_provider io) {
   // uses template "bram_wmask_byte", that turns wenable into a byte mask
   $$config['bram_wmask_byte_wenable_width'] = 'data'
@@ -99,37 +99,49 @@ unit framebuffer_memory(
 ) {
   // framebuffer, 1 bit per pixel, 320x200
   $$config['bram_wmask_byte_wenable_width'] = 'data'
-  bram uint32 mem<"bram_wmask_byte">[$320*200//32$] = {pad(32b10101010101010101010101010101010)};
-  //                      ^^ Lua integer div
-  uint32 fetch_synch(32b1);
+  bram uint32 mem<"bram_wmask_byte">[$320*200//32$] = {pad(32haaaaaaaa)};
+  //                                         ^^ Lua integer div
+  uint64 fetch_synch(64b1);
   uint32 pixels(0);      // 32 pixels
   uint1  done(0);        // indicates io request was done
   uint1  pending_req(0); // indicates a valid request is pending
-  uint1  req_valid <:: pending_req | :io.req_valid;
+  uint1  pix_fetched(0); // indicates a pixel was fetch at prev cycle.
+  uint1  req_valid <:: pending_req | :io.req_valid; // incoming request?
+  uint11 fetch <: 1 + v.vga_x[6,4] + (v.vga_y[1,8] << 3)
+                /*            ^^ */+ (v.vga_y[1,8] << 1);
+                //           x/64             ^^ half res, x10 x(8 + 2)
   // VGA driver
   vga v(vga_hs :> video_hs,vga_vs :> video_vs);
-
   always {
     // prepare fetch when required
-    mem.addr    = fetch_synch[31,1] // fetch as data is needed next cycle
-                ? v.vga_x[5,4] + (v.vga_y[1,8] << 3) + (v.vga_y[1,8] << 1)
-                //       ^^ /32           ^^ half res, x10 x(8 + 2)
-                : io.addr;
-    mem.wenable = fetch_synch[31,1] ? 4b0 : ({4{req_valid}} & io.wenable);
+    mem.addr    = fetch_synch[63,1] // fetch as data is needed next cycle
+                ? (fetch == 2000 ? 0 : fetch)
+                : io.addr[0,widthof(mem.addr)];
+    mem.wenable = fetch_synch[63,1] ? 4b0 : ({4{req_valid}} & io.wenable);
+    mem.wdata   = io.wdata;
     io.done     = done;
-    done        = ~fetch_synch[31,1] & req_valid;
-    pending_req =  fetch_synch[31,1] & req_valid;
+    done        = ~fetch_synch[63,1] & req_valid;
+    //if (mem.wenable != 4b0) {
+    //  __display("VRAM writting %h @%h (%b) done:%b",io.wdata,io.addr[0,widthof(mem.addr)],io.wenable,done);
+    //}
+    pending_req = fetch_synch[63,1] & req_valid;
     // update pixels
-    pixels      = fetch_synch[0,1]  // fetch was prepared cycle before
-                ? mem.rdata         // all 32 pixels
-                : pixels>>1;        // next pixel
+    pixels      = pix_fetched      // fetch was prepared cycle before
+                ? mem.rdata        // all 32 pixels
+                : (v.vga_x[0,1] ? (pixels>>1) : pixels); // next pixel
+                // ^^^^^^^ on odd pixels, vga runs 640 we genere 320 pixels
+    pix_fetched = fetch_synch[63,1] & v.active; // we did fetch a pixel
     // video output
     video_r     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
     video_g     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
     video_b     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
-    // __display("%b %d,%d %b",v.active,v.vga_x,v.vga_y,fetch_synch);
     // rotate sync bit
-    fetch_synch = v.active ? {fetch_synch[0,31],fetch_synch[31,1]} : 32b1;
+    if (fetch_synch[63,1]) {
+    //  __display("%b %d,%d %b @%h",v.active,v.vga_x,v.vga_y,fetch_synch, mem.addr);
+    }
+    fetch_synch = ~v.active
+                ? 64b1
+                : {fetch_synch[0,63],fetch_synch[63,1]};
   }
 }
 
@@ -266,14 +278,26 @@ unit composite_memory(
                    | (io1_in_ram_now & io1.req_valid);
     ram_client     = (io0_in_ram_now & io0.req_valid) ? 0 : 1;
     /// VRAM access
-    //if (io0_in_vrm_now) { __display("core 0 in VRAM"); }
-    //if (io1_in_vrm_now) { __display("core 1 in VRAM"); }
-    vrm.addr       = (io0_in_vrm_now & io0.req_valid) ? io0.addr    : io1.addr;
-    vrm.wenable    = (io0_in_vrm_now & io0.req_valid) ? io0.wenable : io1.wenable;
-    vrm.wdata      = (io0_in_vrm_now & io0.req_valid) ? io0.wdata   : io1.wdata;
+    vrm.addr       = (io0_in_vrm_now & io0.req_valid) ? io0.addr
+                   : (io1_in_vrm_now & io1.req_valid) ? io1.addr
+                   : vrm.addr;
+    vrm.wenable    = (io0_in_vrm_now & io0.req_valid) ? io0.wenable
+                   : (io1_in_vrm_now & io1.req_valid) ? io1.wenable
+                   : vrm.wenable;
+    vrm.wdata      = (io0_in_vrm_now & io0.req_valid) ? io0.wdata
+                   : (io1_in_vrm_now & io1.req_valid) ? io1.wdata
+                   : vrm.wdata;
     vrm.req_valid  = (io0_in_vrm_now & io0.req_valid)
                    | (io1_in_vrm_now & io1.req_valid);
-    vrm_client     = (io0_in_vrm_now & io0.req_valid) ? 0 : 1;
+    vrm_client     = (io0_in_vrm_now & io0.req_valid) ? 0
+                   : (io1_in_vrm_now & io1.req_valid) ? 1
+                   : vrm_client;
+    //if (vrm.req_valid) {
+    //  __display("core %b|%b req VRAM mask:%b wdata:%h",
+    //            io0_in_vrm_now,io1_in_vrm_now,
+    //            vrm.wenable,vrm.wdata
+    //            );
+    //}
     // ROM access (may be concurrent, io0/io1 can overlap requests)
     // -> maintain requests low
     rom.req_valid  = 0;
