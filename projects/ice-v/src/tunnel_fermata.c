@@ -6,8 +6,8 @@
 
 #include "tunnel.h" // see pre_tunnel.cc, run it first
 
-// Bayer 8x8 matrix, each row repeated 4 times for efficiency
-int bayer_8x8[64*4] = { // non const, ends up in RAM
+// Bayer 8x8 matrix, each row repeated 4 times for efficiency when drawing 32 pixel blocks
+int bayer_8x8[8*8*4] = { // non const, ends up in RAM
   0, 32, 8, 40, 2, 34, 10, 42, 0, 32, 8, 40, 2, 34, 10, 42, 0, 32, 8, 40, 2, 34, 10, 42, 0, 32, 8, 40, 2, 34, 10, 42,
   48, 16, 56, 24, 50, 18, 58, 26, 48, 16, 56, 24, 50, 18, 58, 26, 48, 16, 56, 24, 50, 18, 58, 26, 48, 16, 56, 24, 50, 18, 58, 26,
   12, 44, 4, 36, 14, 46, 6, 38, 12, 44, 4, 36, 14, 46, 6, 38, 12, 44, 4, 36, 14, 46, 6, 38, 12, 44, 4, 36, 14, 46, 6, 38,
@@ -25,21 +25,43 @@ static inline int core_id()
    return cycles&1;
 }
 
-unsigned char texture[128*128]; // 16KB, we can afford it!
-
-__attribute__((section(".data"))) void vram_fill(int core)
+__attribute__((section(".data"))) void draw_tunnel(int core)
 {
-  unsigned int frame = 0;
-  for (int j = 0; j < 128; ++j) {
-    for (int i = 0; i < 128; ++i) {
-      texture[i+(j<<7)] = (i^j)&63;
-    }
-  }
+  unsigned int shadow[10];
+  unsigned int bayer_binary[8];
+  unsigned int adv = 0;
+  int opacity = 0; int opacity_dir = 1;
   while (1) {
-    volatile int *VRAM             = core ? (volatile int *)0x80fa0
-                                          : (volatile int *)0x80000;
-    const unsigned int *tunnel_ptr = core ? (tunnel + 160*100)
-                                          :  tunnel;
+    // fill pointers
+    volatile int *VRAM              = core ? (volatile int *)0x80fa0
+                                           : (volatile int *)0x80000;
+    const unsigned int *tunnel_ptr  = core ? (tunnel + 160*100)
+                                           : tunnel;
+    const unsigned int *overlay_ptr = core ? (overlay + 10*100)
+                                           : overlay;
+    // reset shadow
+    for (int i=0 ; i < 10 ; ++i) { shadow[i] = 0; }
+    // bayer matrix for overlay transparency
+    {
+      const unsigned int *bayer_ptr = bayer_8x8;
+      for (int j=0 ; j < 8 ; ++j) {
+        unsigned int mask = 0;
+        for (int i=0 ; i < 32 ; ++i) {
+          mask |= opacity > *(bayer_ptr++) ? (1<<i) : 0;
+        }
+        bayer_binary[j] = mask;
+      }
+      // update opacity
+      if (opacity > 128) {
+        opacity     = 128;
+        opacity_dir = -1;
+      } else if (opacity < -128) {
+        opacity     = -128;
+        opacity_dir = 1;
+      }
+      opacity += opacity_dir;
+    }
+    // draw frame
     for (int j=0 ; j < 100 ; ++j) {
       for (int i=0 ; i < 10 ; ++i) {
         unsigned int *bayer_ptr = bayer_8x8 + ((j&7)<<5);
@@ -59,8 +81,8 @@ __attribute__((section(".data"))) void vram_fill(int core)
           } \
           ba0 = *(bayer_ptr++);\
           ba1 = *(bayer_ptr++);\
-          cl0 = texture[(uv0 + frame)&16383];\
-          cl1 = texture[(uv1 + frame)&16383];\
+          cl0 = texture[(uv0 + adv)&16383];\
+          cl1 = texture[(uv1 + adv)&16383];\
           pixels = pixels | (cl0 > ba0 + drk ? pix : 0);\
           pix  <<= 1;\
           pixels = pixels | (cl1 > ba1 + drk ? pix : 0);\
@@ -71,19 +93,22 @@ __attribute__((section(".data"))) void vram_fill(int core)
         TUNNEL_TWO_PIX(1); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0);
         TUNNEL_TWO_PIX(1); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0);
 
-        *(VRAM++) = pixels;
+        unsigned int overlay = *(overlay_ptr++);
+        unsigned int mask    = bayer_binary[j&7];
+        *(VRAM++)            = (pixels & ~(shadow[i]&mask)) | (overlay&mask);
+        shadow[i]            = overlay;
       }
     }
-    frame += 2;
+    adv += 2 + (1<<7);
   }
 }
 
 void main()
 {
   if (core_id()) {
-    vram_fill(1);
+    draw_tunnel(1);
   } else {
-    vram_fill(0);
+    draw_tunnel(0);
   }
   while (1) {} // hang
 }
