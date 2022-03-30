@@ -292,11 +292,6 @@ unit composite_memory(
     vrm_client     = (io0_in_vrm_now & io0.req_valid) ? 0
                    : (io1_in_vrm_now & io1.req_valid) ? 1
                    : vrm_client;
-    //if (vrm.req_valid) {
-    //  __display("core %b|%b req VRAM mask:%b wdata:%h",
-    //            io0_in_vrm_now,io1_in_vrm_now,
-    //            vrm.wenable,vrm.wdata
-    //            );
     //}
     // ROM access (may be concurrent, io0/io1 can overlap requests)
     // -> maintain requests low
@@ -323,6 +318,11 @@ unit composite_memory(
         rom_client     = 1;
       }
     }
+    // log
+    //if (ram.req_valid) { __display("core %b|%b req RAM",io0_in_ram_now,io1_in_ram_now); }
+    //if (vrm.req_valid) { __display("core %b|%b req VRAM",io0_in_vrm_now,io1_in_vrm_now); }
+    //if (rom.req_valid) { __display("core %b|%b req ROM",~rom_client,rom_client); }
+
   }
 }
 
@@ -414,7 +414,12 @@ $$end
   spram_memory mem0(io <:> spram);
   // -> spiflash
   ram_io spflash;
-  spiflash_memory mem1(io <:> spflash, clock2x <: clock2x,
+  spiflash_memory mem1(io <:> spflash,
+  $$if SIMULATION then
+    clock2x <: clock2x, // use clock1x for clearer logs
+  $$else
+    clock2x <: clock2x,
+  $$end
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
     sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
   );

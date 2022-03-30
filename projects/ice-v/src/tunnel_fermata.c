@@ -25,39 +25,65 @@ static inline int core_id()
    return cycles&1;
 }
 
-__attribute__((section(".data"))) void vram_fill()
+unsigned char texture[128*128]; // 16KB, we can afford it!
+
+__attribute__((section(".data"))) void vram_fill(int core)
 {
   unsigned int frame = 0;
+  for (int j = 0; j < 128; ++j) {
+    for (int i = 0; i < 128; ++i) {
+      texture[i+(j<<7)] = (i^j)&63;
+    }
+  }
   while (1) {
-    volatile int *VRAM = (volatile int *)0x80000;
-    const unsigned int *tunnel_ptr = tunnel;
-    for (int j=0 ; j < 200 ; ++j) {
+    volatile int *VRAM             = core ? (volatile int *)0x80fa0
+                                          : (volatile int *)0x80000;
+    const unsigned int *tunnel_ptr = core ? (tunnel + 160*100)
+                                          :  tunnel;
+    for (int j=0 ; j < 100 ; ++j) {
       for (int i=0 ; i < 10 ; ++i) {
-        unsigned int pixels = 0;
         unsigned int *bayer_ptr = bayer_8x8 + ((j&7)<<5);
-        for (unsigned int p=0,pix=1 ; p < 32 ; ++p, pix<<=1) {
-          unsigned int t   = *tunnel_ptr++;
-          unsigned int u   = (t &  65535);  // angle
-          unsigned int v   = (t >> 16);     // dist
-          unsigned int clr = ((u + frame) ^ (v - frame)) & 63;
-          int          bay = *(bayer_ptr++);
-          int          drk = v < 80 ? 80 - v : 0; // TODO pre-comp in table
-          bay              = bay + drk;
-          pixels = pixels | (clr > bay ? pix : 0);
-        }
+
+        register unsigned int pixels = 0;
+        register unsigned int pix    = 1;
+        register unsigned int t,d,uv0,uv1,drk,ba0,ba1,cl0,cl1;
+
+#define TUNNEL_TWO_PIX(shade) \
+          /* table content for 2 pixels */ \
+          t   = *tunnel_ptr++; \
+          uv0 = t;           \
+          uv1 = (t>>16);     \
+          if (shade) { \
+            d   = (uv0 & 127);   /* dist */\
+            drk = d > 63 ? (d-63) : 0; /* darkening*/\
+          } \
+          ba0 = *(bayer_ptr++);\
+          ba1 = *(bayer_ptr++);\
+          cl0 = texture[(uv0 + frame)&16383];\
+          cl1 = texture[(uv1 + frame)&16383];\
+          pixels = pixels | (cl0 > ba0 + drk ? pix : 0);\
+          pix  <<= 1;\
+          pixels = pixels | (cl1 > ba1 + drk ? pix : 0);\
+          pix  <<= 1;
+
+        TUNNEL_TWO_PIX(1); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0);
+        TUNNEL_TWO_PIX(1); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0);
+        TUNNEL_TWO_PIX(1); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0);
+        TUNNEL_TWO_PIX(1); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0); TUNNEL_TWO_PIX(0);
+
         *(VRAM++) = pixels;
       }
     }
-    ++ frame;
+    frame += 2;
   }
 }
 
 void main()
 {
   if (core_id()) {
-
+    vram_fill(1);
   } else {
-    vram_fill();
+    vram_fill(0);
   }
   while (1) {} // hang
 }
