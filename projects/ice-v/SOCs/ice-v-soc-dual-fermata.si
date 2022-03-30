@@ -23,7 +23,7 @@ $$error('uho, this SOC is for simulation or UP5K only')
 $$end
 
 // Include the processor
-$$ICEV_FAST_SHIFT = nil
+$$ICEV_FAST_SHIFT = 1
 $$ICEV_MULDIV     = nil
 $$ICEV_USERDATA   = nil
 $include('../CPUs/ice-v-dual-fermata.si')
@@ -111,31 +111,31 @@ unit framebuffer_memory(
   vga v(vga_hs :> video_hs,vga_vs :> video_vs);
   always {
     // prepare fetch when required
-    mem.addr    = fetch_synch[63,1] // fetch as data is needed next cycle
+    mem.addr    = fetch_synch[62,1] // fetch as data is needed next cycle
                 ? (fetch == 2000 ? 0 : fetch)
                 : io.addr[0,widthof(mem.addr)];
-    mem.wenable = fetch_synch[63,1] ? 4b0 : ({4{req_valid}} & io.wenable);
+    mem.wenable = fetch_synch[62,1] ? 4b0 : ({4{req_valid}} & io.wenable);
     mem.wdata   = io.wdata;
     io.done     = done;
-    done        = ~fetch_synch[63,1] & req_valid;
+    done        = ~fetch_synch[62,1] & req_valid;
     //if (mem.wenable != 4b0) {
     //  __display("VRAM writting %h @%h (%b) done:%b",io.wdata,io.addr[0,widthof(mem.addr)],io.wenable,done);
     //}
-    pending_req = fetch_synch[63,1] & req_valid;
+    pending_req = fetch_synch[62,1] & req_valid;
+    // video output
+    video_r     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
+    video_g     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
+    video_b     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
     // update pixels
     pixels      = pix_fetched      // fetch was prepared cycle before
                 ? mem.rdata        // all 32 pixels
                 : (v.vga_x[0,1] ? (pixels>>1) : pixels); // next pixel
                 // ^^^^^^^ on odd pixels, vga runs 640 we genere 320 pixels
-    pix_fetched = fetch_synch[63,1] & v.active; // we did fetch a pixel
-    // video output
-    video_r     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
-    video_g     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
-    video_b     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
+    pix_fetched = fetch_synch[62,1] & v.active; // we did fetch a pixel
     // rotate sync bit
-    if (fetch_synch[63,1]) {
+    //if (fetch_synch[63,1]) {
     //  __display("%b %d,%d %b @%h",v.active,v.vga_x,v.vga_y,fetch_synch, mem.addr);
-    }
+    //}
     fetch_synch = ~v.active
                 ? 64b1
                 : {fetch_synch[0,63],fetch_synch[63,1]};
