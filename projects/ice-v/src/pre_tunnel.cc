@@ -17,6 +17,8 @@ g++ pre_tunnel.cc -o pre_tunnel
 using namespace std;
 
 #include "tunnel_text.h"
+#include "tunnel_text2.h"
+#include "tunnel_text3.h"
 #include "tunnel_map.h"
 
 int main(int argc, const char **argv)
@@ -52,13 +54,45 @@ int main(int argc, const char **argv)
     f << '\n';
   }
   f << "};\n";
-  f << "const unsigned int overlay[] = {\n";
+  f << "const unsigned int overlay1[] = {\n";
   for (int y = 0; y < h; ++y) {
     for (int x = 0; x < w; x+=32) {
       unsigned int pixels = 0;
       for (int i = 0 ; i < 32 ; ++i) {
         unsigned char pixel[3];
         HEADER_PIXEL(tunnel_text_data,pixel);
+        if (pixel[0]) {
+          pixels |= (1 << i);
+        }
+      }
+      f << hex << "0x" << (unsigned int)pixels << ',';
+    }
+    f << '\n';
+  }
+  f << "};\n";
+  f << "const unsigned int overlay2[] = {\n";
+  for (int y = 0; y < h; ++y) {
+    for (int x = 0; x < w; x+=32) {
+      unsigned int pixels = 0;
+      for (int i = 0 ; i < 32 ; ++i) {
+        unsigned char pixel[3];
+        HEADER_PIXEL(tunnel_text2_data,pixel);
+        if (pixel[0]) {
+          pixels |= (1 << i);
+        }
+      }
+      f << hex << "0x" << (unsigned int)pixels << ',';
+    }
+    f << '\n';
+  }
+  f << "};\n";
+  f << "const unsigned int overlay3[] = {\n";
+  for (int y = 0; y < h; ++y) {
+    for (int x = 0; x < w; x+=32) {
+      unsigned int pixels = 0;
+      for (int i = 0 ; i < 32 ; ++i) {
+        unsigned char pixel[3];
+        HEADER_PIXEL(tunnel_text3_data,pixel);
         if (pixel[0]) {
           pixels |= (1 << i);
         }

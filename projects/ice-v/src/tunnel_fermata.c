@@ -31,14 +31,20 @@ __attribute__((section(".data"))) void draw_tunnel(int core)
   unsigned int bayer_binary[8];
   unsigned int adv = 0;
   int opacity = 0; int opacity_dir = 1;
+  int overlay = 0;
   while (1) {
     // fill pointers
     volatile int *VRAM              = core ? (volatile int *)0x80fa0
                                            : (volatile int *)0x80000;
     const unsigned int *tunnel_ptr  = core ? (tunnel + 160*100)
                                            : tunnel;
-    const unsigned int *overlay_ptr = core ? (overlay + 10*100)
-                                           : overlay;
+    const unsigned int *overlay_ptr;
+    switch (overlay) {
+      case  1: overlay_ptr = core ? (overlay2 + 10*100) : overlay2; break;
+      case  2: overlay_ptr = core ? (overlay3 + 10*100) : overlay3; break;
+      default: overlay_ptr = core ? (overlay1 + 10*100) : overlay1; break;
+    }
+
     // reset shadow
     for (int i=0 ; i < 10 ; ++i) { shadow[i] = 0; }
     // bayer matrix for overlay transparency
@@ -52,12 +58,16 @@ __attribute__((section(".data"))) void draw_tunnel(int core)
         bayer_binary[j] = mask;
       }
       // update opacity
-      if (opacity > 128) {
-        opacity     = 128;
+      if (opacity > 64) {
+        opacity     = 64;
         opacity_dir = -1;
-      } else if (opacity < -128) {
-        opacity     = -128;
+      } else if (opacity <= 0) {
+        opacity     = 0;
         opacity_dir = 1;
+        overlay     = overlay + 1;
+        if (overlay == 3) {
+          overlay = 0;
+        }
       }
       opacity += opacity_dir;
     }
