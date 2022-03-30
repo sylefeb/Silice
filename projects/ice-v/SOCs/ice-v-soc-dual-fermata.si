@@ -394,13 +394,27 @@ $$else
 ) {
 $$end
 
+$$if SIMULATION then
+  uint32 cycle(0);
+  // for simulation, create dummy spiflash io pads
+  uint1 sf_csn(1); uint1 sf_clk(0); uint1 sf_io0(0);
+  uint1 sf_io1(0); uint1 sf_io2(0); uint1 sf_io3(0);
+  uint1 uart_tx(0);
+$$if ICARUS then
+  simul_spiflash simu(
+    CSn <:  sf_csn, CLK <:  sf_clk, IO0 <:> sf_io0,
+    IO1 <:> sf_io1, IO2 <:> sf_io2, IO3 <:> sf_io3,
+  );
+$$end
+$$end
+
   // ---- memory
   // -> bram
   ram_io spram;
   spram_memory mem0(io <:> spram);
   // -> spiflash
   ram_io spflash;
-  spiflash_memory mem1(io <:> spflash, clock2x <: clock1x, /////// DEBUG
+  spiflash_memory mem1(io <:> spflash, clock2x <: clock2x,
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
     sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
   );
