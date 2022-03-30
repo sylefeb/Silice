@@ -31,7 +31,7 @@ __attribute__((section(".data"))) void draw_tunnel(int core)
   unsigned int bayer_binary[8];
   unsigned int adv = 0;
   int opacity = 0; int opacity_dir = 1;
-  int overlay = 0;
+  int overlay = 1;
   while (1) {
     // fill pointers
     volatile int *VRAM              = core ? (volatile int *)0x80fa0
