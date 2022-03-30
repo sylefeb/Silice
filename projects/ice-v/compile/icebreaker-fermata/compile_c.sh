@@ -10,7 +10,7 @@ echo "using $ARCH"
 BASE=./compile/icebreaker-fermata
 DST=./compile/build
 
-$ARCH-gcc -DICEBREAKER_FERMATA -fstack-reuse=none -fno-builtin -fno-unroll-loops -O1 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -T$BASE/config_c.ld -ffreestanding -nostdlib -o $DST/code.elf $BASE/crt0_dual.s $1
+$ARCH-gcc -DICEBREAKER_FERMATA -fstack-reuse=none -fno-builtin -fno-unroll-loops -O3 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -T$BASE/config_c.ld -ffreestanding -nostdlib -o $DST/code.elf $BASE/crt0_dual.s $1
 
 $ARCH-objcopy -O verilog $DST/code.elf $DST/code.hex
 $ARCH-objcopy -O binary  $DST/code.elf $DST/code.bin

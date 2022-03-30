@@ -262,6 +262,17 @@ $$end
 //  x    0    x    1    // stage == 1  4b01
 //  1    x    0    x    // stage == 2  4b10
 //  x    1    x    0    // stage == 3  4b11
+//
+// At each cycle two states are active:
+// cycle i    F(0) + LS1  (1)
+// cycle i+1  T(0) + LS2/C(1)
+// cycle i+2  F(1) + LS1  (0)
+// cycle i+3  T(1) + LS2/C(0)
+// ...          ^          ^ active core
+//
+// RAM requests occur on
+// - LS1   in case of load/store
+// - LS2/C to fetch next instruction
 // ---------------------------------
 
 // interface for ram user

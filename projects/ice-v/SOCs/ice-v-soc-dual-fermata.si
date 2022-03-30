@@ -28,11 +28,6 @@ $$ICEV_MULDIV     = nil
 $$ICEV_USERDATA   = nil
 $include('../CPUs/ice-v-dual-fermata.si')
 
-// Include the UART controller
-$$uart_in_clock_freq_mhz = master_freq//2
-$include('../common/uart.si')
-$include('../common/clean_reset.si')
-
 $$if ICARUS then
 // download W25Q128JVxIM from winbond Verilog models
 append('../spiflash/W25Q128JVxIM/W25Q128JVxIM.v')
@@ -46,6 +41,8 @@ $include('../spiflash/spiflash2x.si')
 // Include the VGA controller
 $$VGA_VA_END = 400
 $include('../common/vga.si')
+// Include clean reset (delayed reset)
+$include('../common/clean_reset.si')
 
 // --------------------------------------------------
 // RAM
@@ -231,8 +228,11 @@ unit spiflash_memory(
 //   + do not request access again before receiving done
 //   + maintain request data while not fullfilled
 //   + two MSB are either 10 (periph) 01 (FLASH) or 00 (RAM)
-//   + io0 and io1 do not access ram concurrently (always true on ice-v
-//     as ram answers in one cycle)
+//   + io0 and io1 do not access ram concurrently, always true on ice-v
+//     as ram answers in one cycle
+//   + io0 and io1 do not access vram concurrently, true on ice-v
+//     as vram answers in one cycle, and **assuming that instructions are never
+//     executed from vram**
 //
 unit composite_memory(
   icev_ram_user ram,
@@ -356,10 +356,6 @@ $$if QSPIFLASH then
   inout   uint1 sf_io2,
   inout   uint1 sf_io3,
 $$end
-$$if UART then
-  output  uint1 uart_tx,
-  input   uint1 uart_rx,
-$$end
   output  uint$color_depth$ video_r,
   output  uint$color_depth$ video_g,
   output  uint$color_depth$ video_b,
@@ -396,20 +392,6 @@ $$elseif SIMULATION then
   uint1 rst <: reset;
 $$else
 ) {
-$$end
-
-$$if SIMULATION then
-  uint32 cycle(0);
-  // for simulation, create dummy spiflash io pads
-  uint1 sf_csn(1); uint1 sf_clk(0); uint1 sf_io0(0);
-  uint1 sf_io1(0); uint1 sf_io2(0); uint1 sf_io3(0);
-  uint1 uart_tx(0);
-$$if ICARUS then
-  simul_spiflash simu(
-    CSn <:  sf_csn, CLK <:  sf_clk, IO0 <:> sf_io0,
-    IO1 <:> sf_io1, IO2 <:> sf_io2, IO3 <:> sf_io3,
-  );
-$$end
 $$end
 
   // ---- memory

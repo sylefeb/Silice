@@ -13,9 +13,14 @@ static inline int core_id()
 
 __attribute__((section(".data"))) void vram_fill()
 {
+  int frame = 0;
   volatile int *VRAM = (volatile int *)0x80000;
-  for (int i=0;i<10*200;++i) {
-    *(VRAM+i) = (i << 16) | i;
+  while (1) {
+    for (int i=0;i<10*200;++i) {
+      int f = frame + i;
+      *(VRAM+i) = (f << 16) | f;
+    }
+    ++ frame;
   }
   //*(VRAM+8) = 0xf0f00ff0;
 }

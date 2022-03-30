@@ -1,6 +1,6 @@
 
 .DEFAULT: SOCs/ice-v-soc-dual-fermata.si
-		silice-make.py -s SOCs/ice-v-soc-dual-fermata.si -b $@ -p basic,qspiflash,uart,vga -o BUILD_$(subst :,_,$@) $(ARGS)
+		silice-make.py -s SOCs/ice-v-soc-dual-fermata.si -b $@ -p basic,qspiflash,vga -o BUILD_$(subst :,_,$@) $(ARGS)
 
 verilator: SOCs/ice-v-soc-dual-fermata.si
 		truncate -s 1M one_meg.raw
