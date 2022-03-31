@@ -22,8 +22,8 @@ It might seem that having two memory interfaces means the cores are in different
 Let's dive into the details!
 
 > The ice-v fermata souce code is in [CPUs/ice-v-dual-fermata.si](CPUs/ice-v-dual-fermata.si).
-The demo SOC source code is in [SOCs/ice-v-soc-dual-fermata.si](CPUs/ice-v-soc-dual-fermata.si) ;
-the SOC is designed for the Icebreaker and simulation with Verilator. See [running the demo](#running-the-demo) below.
+The demo SOC source code is in [SOCs/ice-v-soc-dual-fermata.si](SOCs/ice-v-soc-dual-fermata.si) ;
+the SOC is designed for the [icebreaker](https://1bitsquared.com/products/icebreaker) and simulation with Verilator. See [running the demo](#running-the-demo) below.
 
 > The processor code is stable but not final, as it needs a bit of cleanup and optimization.
 
@@ -34,7 +34,7 @@ For simulation, in a shell in this directory type:
 make verilator -f Makefile.fermata
 ```
 
-To run on the icebreaker you will need a VGA PMOD. After pluggin the PMOD to
+To run on the icebreaker you will need a VGA PMOD. After pluging the PMOD to
 the board and the VGA cable to a screen, connect the board to the computer through USB and run:
 
 ```
