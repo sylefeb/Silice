@@ -44,6 +44,12 @@ make icebreaker -f Makefile.fermata
 For details on the compilation process, please take a look
 at [Makefile.fermata](Makefile.fermata).
 
+The demo reproduces an old-school tunnel effect, which requires large
+pre-computed tables stored in ROM. It uses both cores for faster drawing,
+since all rendering occurs from the CPU cores directly into VRAM.
+
+The main source code is [./src/tunnel_fermata.c](./src/tunnel_fermata.c)
+
 ## Memory interface
 
 Since we are using a more elaborate memory, we need to define its interface.
