@@ -25,26 +25,29 @@ static inline int core_id()
    return cycles&1;
 }
 
+unsigned int adv = 0;
+int opacity = 1; int opacity_dir = 1;
+int overlay = 0;
+
 __attribute__((section(".data"))) void draw_tunnel(int core)
 {
   unsigned int shadow[10];
   unsigned int bayer_binary[8];
-  unsigned int adv = 0;
-  int opacity = 1; int opacity_dir = 1;
-  int overlay = 0;
+  // render loop
   while (1) {
     // fill pointers
-    volatile int *VRAM              = core ? (volatile int *)0x80fa0
+    volatile int *VRAM              = core ? (volatile int *)0x80028
                                            : (volatile int *)0x80000;
-    const unsigned int *tunnel_ptr  = core ? (tunnel + 160*100)
+    const unsigned int *tunnel_ptr  = core ? (tunnel + 160)
                                            : tunnel;
     const unsigned int *overlay_ptr;
+    // text overlay choice
     switch (overlay) {
-      case  1: overlay_ptr = core ? (overlay2 + 10*100) : overlay2; break;
-      case  2: overlay_ptr = core ? (overlay3 + 10*100) : overlay3; break;
-      default: overlay_ptr = core ? (overlay1 + 10*100) : overlay1; break;
+      case  1: overlay_ptr = core ? (overlay3 + 10) : overlay3; break;
+      case  2: overlay_ptr = core ? (overlay4 + 10) : overlay4; break;
+      case  3: overlay_ptr = core ? (overlay2 + 10) : overlay2; break;
+      default: overlay_ptr = core ? (overlay1 + 10) : overlay1; break;
     }
-
     // reset shadow
     for (int i=0 ; i < 10 ; ++i) { shadow[i] = 0; }
     // bayer matrix for overlay transparency
@@ -57,25 +60,28 @@ __attribute__((section(".data"))) void draw_tunnel(int core)
         }
         bayer_binary[j] = mask;
       }
-      // update opacity
-      if (opacity > 64) {
+    }
+    // update opacity
+    if (core) {
+      // only core1 to avoid desync
+      opacity += opacity_dir;
+      if (opacity > 150) {
         opacity     = 64;
-        opacity_dir = -1;
+        opacity_dir = -2;
       } else if (opacity <= 0) {
         opacity     = 0;
-        opacity_dir = 1;
+        opacity_dir = 2;
         overlay     = overlay + 1;
-        if (overlay == 3) {
+        if (overlay == 4) {
           overlay = 0;
         }
       }
-      opacity += opacity_dir;
     }
-    // draw frame
-    for (int j=0 ; j < 100 ; ++j) {
-      for (int i=0 ; i < 10 ; ++i) {
-        unsigned int *bayer_ptr = bayer_8x8 + ((j&7)<<5);
 
+    // draw frame, core0 on even lines, core1 on odd lines
+    for (int j=core ; j < 200 ; j+=2) {
+      for (int i=0 ; i < 10 ; ++i) {
+        unsigned int *bayer_ptr      = bayer_8x8 + ((j&7)<<5);
         register unsigned int pixels = 0;
         register unsigned int pix    = 1;
         register unsigned int t,d,uv0,uv1,drk,ba0,ba1,cl0,cl1;
@@ -108,9 +114,14 @@ __attribute__((section(".data"))) void draw_tunnel(int core)
         *(VRAM++)            = (pixels & ~(shadow[i]&mask)) | (overlay&mask);
         shadow[i]            = overlay;
       }
+      // skip next line
+      overlay_ptr += 10;
+      VRAM        += 10;
+      tunnel_ptr  += 160;
     }
-    adv += 2 + (1<<7);
-  }
+    // advance to next frame
+    adv += core ? (2 + (1<<7)) : 0; // only core1 to avoid desync
+  } // end of render loop
 }
 
 void main()

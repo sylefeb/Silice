@@ -19,12 +19,34 @@ using namespace std;
 #include "tunnel_text.h"
 #include "tunnel_text2.h"
 #include "tunnel_text3.h"
+#include "tunnel_text4.h"
 #include "tunnel_map.h"
+
+const int w = 320;
+const int h = 200;
+
+void addOverlay(ofstream& f,string name, const char *data)
+{
+  f << "const unsigned int " << name << "[] = {\n";
+  for (int y = 0; y < h; ++y) {
+    for (int x = 0; x < w; x+=32) {
+      unsigned int pixels = 0;
+      for (int i = 0 ; i < 32 ; ++i) {
+        unsigned char pixel[3];
+        HEADER_PIXEL(data,pixel);
+        if (pixel[0]) {
+          pixels |= (1 << i);
+        }
+      }
+      f << hex << "0x" << (unsigned int)pixels << ',';
+    }
+    f << '\n';
+  }
+  f << "};\n";
+}
 
 int main(int argc, const char **argv)
 {
-  const int w = 320;
-  const int h = 200;
   ofstream f("tunnel.h");
 
   const double scale = 128.0;
@@ -54,54 +76,12 @@ int main(int argc, const char **argv)
     f << '\n';
   }
   f << "};\n";
-  f << "const unsigned int overlay1[] = {\n";
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; x+=32) {
-      unsigned int pixels = 0;
-      for (int i = 0 ; i < 32 ; ++i) {
-        unsigned char pixel[3];
-        HEADER_PIXEL(tunnel_text_data,pixel);
-        if (pixel[0]) {
-          pixels |= (1 << i);
-        }
-      }
-      f << hex << "0x" << (unsigned int)pixels << ',';
-    }
-    f << '\n';
-  }
-  f << "};\n";
-  f << "const unsigned int overlay2[] = {\n";
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; x+=32) {
-      unsigned int pixels = 0;
-      for (int i = 0 ; i < 32 ; ++i) {
-        unsigned char pixel[3];
-        HEADER_PIXEL(tunnel_text2_data,pixel);
-        if (pixel[0]) {
-          pixels |= (1 << i);
-        }
-      }
-      f << hex << "0x" << (unsigned int)pixels << ',';
-    }
-    f << '\n';
-  }
-  f << "};\n";
-  f << "const unsigned int overlay3[] = {\n";
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; x+=32) {
-      unsigned int pixels = 0;
-      for (int i = 0 ; i < 32 ; ++i) {
-        unsigned char pixel[3];
-        HEADER_PIXEL(tunnel_text3_data,pixel);
-        if (pixel[0]) {
-          pixels |= (1 << i);
-        }
-      }
-      f << hex << "0x" << (unsigned int)pixels << ',';
-    }
-    f << '\n';
-  }
-  f << "};\n";
+
+  addOverlay(f,"overlay1",tunnel_text_data);
+  addOverlay(f,"overlay2",tunnel_text2_data);
+  addOverlay(f,"overlay3",tunnel_text3_data);
+  addOverlay(f,"overlay4",tunnel_text4_data);
+
   f << "unsigned char texture[] = {\n";
   for (int y = 0; y < 128; ++y) {
     for (int x = 0; x < 128; ++x) {

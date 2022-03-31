@@ -1,7 +1,8 @@
 // SL 2022-03-16 @sylefeb
 
-$$addrW    = 20         -- additional bits for memory mapping
-$$Boot     = 0x100000   -- boot at 1MB (spiflash)
+// Address space and boot configuration
+$$addrW    = 20         -- allow for 1MB ROM addressing
+$$Boot     = 0x100000   -- boot at 1MB (SPIflash ROM)
 $$print('===========> address bus width: ' .. addrW)
 
 // How much BRAM do we allocate
@@ -12,11 +13,12 @@ $$master_freq = 50
 
 $$if ICEBREAKER or ICEBITSY or FOMU then
 $$UP5K = 1
-// Import the PLL
+// Import hardware modules
 import('../common/plls/icebrkr_$master_freq$.v')
 import('../common/ice40_half_clock.v')
 import('../../common/ice40_spram.v')
 $$elseif SIMULATION then
+// Import SPRAM simulation
 $include('../../common/simulation_spram.si')
 $$else
 $$error('uho, this SOC is for simulation or UP5K only')
@@ -58,6 +60,7 @@ group ram_io {
   uint1       done(0),     // memory request done (pulse)
 }
 
+// memory provider interface (user interface defined in processor source)
 interface ram_provider {
   input   addr,
   input   wenable,
@@ -132,10 +135,10 @@ unit framebuffer_memory(
                 : (v.vga_x[0,1] ? (pixels>>1) : pixels); // next pixel
                 // ^^^^^^^ on odd pixels, vga runs 640 we genere 320 pixels
     pix_fetched = fetch_synch[62,1] & v.active; // we did fetch a pixel
-    // rotate sync bit
     //if (fetch_synch[63,1]) {
     //  __display("%b %d,%d %b @%h",v.active,v.vga_x,v.vga_y,fetch_synch, mem.addr);
     //}
+    // rotate sync bit
     fetch_synch = ~v.active
                 ? 64b1
                 : {fetch_synch[0,63],fetch_synch[63,1]};
@@ -449,7 +452,6 @@ $$end
     leds = 8b0;
 
 $$if SIMULATION then
-    // if (cycle == 64000) { __finish(); }
     cycle       = cycle + 1;
     video_clock = clock1x;
 $$end
