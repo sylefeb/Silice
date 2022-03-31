@@ -420,9 +420,9 @@ $$else
       instr_1 = stage[1,1] & reqmem1_done & reqmem1_instr ? i_mem_rdata : instr_1;
       pc_1    = stage[1,1] & reqmem1_done & reqmem1_instr ? i_mem_addr  : pc_1;
 $$end
-      // instruction fetch done
+      // instruction fetch done?
       if (i_mem_select) {
-        instr_trigger   =  reqmem1_done | reqmem1_instr;
+        instr_trigger   =  reqmem1_done | reqmem1_instr; // trigger ALU only once
         //                                ^^^^^^^^^^^^^^
         //                           required if ALU holds: stage repeats
         reqmem1_instr   = ~reqmem1_done & reqmem1_instr;
@@ -527,7 +527,7 @@ $$end
       xregsA_1.wenable = ~stage[1,1] ? (~exec.no_rd & ~reqmem1_instr) : 0;
       //                                              ^^^^^^^^^^^^^^
       //                                 ignore if waiting for an instruction
-      // load/store done
+      // load/store done?
       if (i_mem_select) {
         reqmem1_ldst   = ~reqmem1_done & reqmem1_ldst;
       } else {

@@ -4,18 +4,18 @@
 
 _start:
    # load a different stack start
-   # depending on which CPU is running
+   # depending on which core is running
    rdcycle a5
    andi a5,a5,1
-   bnez a5,cpu1
-   # cpu 0 only
+   bnez a5,core1
+   # core 0 only
    li sp,65528    # end of SPRAM
    li a0,65532    # barrier location
    sw zero, 0(a0) # lower barrier (core0 waits for core1 while it copies into ram)
    j wait
-cpu1:
-   # cpu 1 only
-   li sp,61432 # leaves 4096 bytes for CPU0
+core1:
+   # core 1 only
+   li sp,61432 # leaves 4096 bytes for core0
    # from https://github.com/YosysHQ/picorv32/blob/master/picosoc/start.s
    # copy data section
    la a0, _sidata
