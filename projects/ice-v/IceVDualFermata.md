@@ -3,9 +3,9 @@
 
 The Ice-V-dual *fermata* is a dual memory interface version of the [Ice-V dual](IceVDual.md). This means both cores can independently access memory, so if one is waiting the other is free to proceed (e.g. one core waiting for slow SPIflash while the other keeps executing from BRAM).
 
-> *Fermata* is a musical term that refer to the prolongation of a note. This is what the ice-v fermata does, prolongating instructions while memory is busy. However, the *tempo* never stops and the internal state of the processor keeps going.
+> *Fermata* is a musical term that refers to the prolongation of a note. This is what the ice-v fermata does, prolongating instructions while memory is busy. However, the *tempo* never stops and the internal state of the processor keeps going.
 
-The ice-v dual was designed around BRAM, assuming that memory can answer to a request in a single cycle. It therefore never waits for memory. The problem of course is that more complex memories have latency, and require pauses while data is being loaded.
+The original ice-v dual was designed around BRAM, assuming that memory can answer to a request in a single cycle. It therefore never waits for memory. The problem of course is that more complex memories have latency, and require pauses while data is being fetched.
 
 While the original ice-v dual would not pause on memory accesses, it could pause on a busy ALU. Because the same ALU is shared between the cores this implies pausing *both* cores, interrupting the tempo: the processor state is no longer refreshed. This means that both cores are frozen until the ALU is done, as if time had ceased to pass.
 
