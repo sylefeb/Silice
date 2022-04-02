@@ -25,7 +25,7 @@ reg renable;
 
   SB_IO #(
     .PIN_TYPE(6'b0100_00)
-  ) sbio (
+  ) sbio_clk (
       .PACKAGE_PIN(ddr_clock),
       .D_OUT_0(1'b0),
       .D_OUT_1(renable),

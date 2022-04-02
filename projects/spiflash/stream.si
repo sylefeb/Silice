@@ -4,11 +4,21 @@ append('W25Q128JVxIM/W25Q128JVxIM.v')
 import('simul_spiflash.v')
 $$end
 
-$$uart_in_clock_freq_mhz = 12
+$$master_freq = 12
+
+$$if ICEBREAKER then
+$$master_freq = 100
+// Import hardware modules
+import('../common/plls/icebrkr_$master_freq$.v')
+import('../common/ice40_half_quarter_clock.v')
+import('../../common/ice40_spram.v')
+$$end
+
+$$uart_in_clock_freq_mhz = master_freq//4
 $include('../common/uart.si')
 
 $$nBytes = 4
-$include('spiflash2x.si')
+$include('spiflash4x.si')
 
 $$if nBytes == 1 then
 $$K = 18
@@ -19,6 +29,28 @@ circuitry wait() // waits 2+K cycles
 {
   uint5 n = 0; while (n != $K$) { n = n + 1; }
 }
+
+// --------------------------------------------------
+// PLL for simulation
+// --------------------------------------------------
+
+$$if SIMULATION then
+algorithm pll(
+  output! uint1 clock4x,
+  output  uint1 clock2x,
+  output  uint1 clock1x,
+) <autorun> {
+  uint2 counter(0);
+  clock4x := clock;
+  clock2x := ~counter[0,1]; // x2 slower
+  clock1x := ~counter[1,1]; // x4 slower
+  always { counter = counter + 1; }
+}
+$$end
+
+// --------------------------------------------------
+// main design unit
+// --------------------------------------------------
 
 algorithm main(
   output uint8 leds,
@@ -34,8 +66,34 @@ $$if UART then
   output uint1 uart_tx,
   input  uint1 uart_rx,
 $$end
-  )
-{
+$$if ICEBREAKER or ICEBITSY then
+) <@clock1x> {
+  uint1 clock2x = uninitialized;
+  uint1 clock4x = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock4x,
+  );
+  uint1 clock1x  = uninitialized;
+  ice40_half_quarter_clock hc(
+    clock_in  <: clock4x,
+    clock_h   :> clock2x,
+    clock_q   :> clock1x,
+  );
+$$elseif SIMULATION then
+ ) <@clock1x> {
+  uint1 clock1x = uninitialized;
+  uint1 clock2x = uninitialized;
+  uint1 clock4x = uninitialized;
+  pll clkgen<@clock,!reset>(
+    clock1x :> clock1x,
+    clock2x :> clock2x,
+    clock4x :> clock4x
+  );
+  uint1 rst <: reset;
+$$else
+) {
+$$end
 
 $$if SIMULATION then
   uint1 sf_csn(1);
@@ -67,13 +125,15 @@ $$if UART then
   );
 $$end
 
-spiflash_rom sf_rom(
-    sf_clk :>  sf_clk,
-    sf_csn :>  sf_csn,
-    sf_io0 <:> sf_io0,
-    sf_io1 <:> sf_io1,
-    sf_io2 <:> sf_io2,
-    sf_io3 <:> sf_io3,
+spiflash_rom sf_rom<reginputs,@clock2x>
+  (
+    sf_clk  :>  sf_clk,
+    sf_csn  :>  sf_csn,
+    sf_io0  <:> sf_io0,
+    sf_io1  <:> sf_io1,
+    sf_io2  <:> sf_io2,
+    sf_io3  <:> sf_io3,
+    clkspi  <: clock4x
   );
 
   always {
