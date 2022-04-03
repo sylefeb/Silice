@@ -204,8 +204,7 @@ $$end
 // --------------
 // SPIflash implementation of a ROM
 unit spiflash_memory(
-  ram_provider_reg io,
-  output  uint5 leds,
+  ram_provider  io,
   input   uint1 clock2x,
   input   uint1 clock4x,
   output  uint1 init(1), // goes low when SPIflash ctrl is ready
@@ -224,7 +223,6 @@ unit spiflash_memory(
   uint1  was_busy(0);
   uint1  sf_is_busy(1);    // for clock domain crossing
   always {
-    leds        = {sf.busy,3b0,io.req_valid};
     init        = sf_is_busy & init;
     io.rdata    = sf.rdata;
     sf.addr     = io.req_valid ? {4b0001,io.addr[0,18],2b00} : sf.addr;
@@ -242,7 +240,7 @@ unit spiflash_memory(
 // Transmits addr and read 32 bits words over UART
 
 unit spiflash_memory_uart_debug(
-  ram_provider io,
+  ram_provider_reg io,
   input   uint1 clock2x,
   input   uint1 clock4x,
   output  uint1 init(1), // goes low when SPIflash ctrl is ready
@@ -526,8 +524,8 @@ $$end
   spram_memory mem0(io <:> spram);
   // -> spiflash
   ram_io spflash;
-  // spiflash_memory mem1(leds :> leds,
-  spiflash_memory_uart_debug mem1(uart_tx :> uart_tx,
+  spiflash_memory mem1(
+  // spiflash_memory_uart_debug mem1(uart_tx :> uart_tx,
     io <:> spflash,
     clock4x <: clock4x,
     clock2x <: clock2x,
@@ -557,7 +555,7 @@ $$end
 
   always {
 
-    // leds = 8b0;
+    leds = 8b0;
 
 $$if SIMULATION then
     cycle       = cycle + 1;
