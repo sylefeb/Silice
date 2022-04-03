@@ -10,11 +10,14 @@ always @(posedge clock_in) begin
   qh <= qh + 1;
 end
 
+// BEL selection from @tnt ice40-playground
+(* BEL="X13/Y0/gb" *)
 SB_GB gbq(
     .USER_SIGNAL_TO_GLOBAL_BUFFER(qh[1]),
 		.GLOBAL_BUFFER_OUTPUT(clock_q)
 );
 
+(* BEL="X12/Y0/gb" *)
 SB_GB gbh(
     .USER_SIGNAL_TO_GLOBAL_BUFFER(qh[0]),
 		.GLOBAL_BUFFER_OUTPUT(clock_h)

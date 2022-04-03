@@ -9,13 +9,13 @@ $$print('===========> address bus width: ' .. addrW)
 $$bramSize    = 1024
 
 // Main design frequency
-$$master_freq = 50
+$$master_freq = 100
 
 $$if ICEBREAKER or ICEBITSY or FOMU then
 $$UP5K = 1
 // Import hardware modules
 import('../common/plls/icebrkr_$master_freq$.v')
-import('../common/ice40_half_clock.v')
+import('../common/ice40_half_quarter_clock.v')
 import('../../common/ice40_spram.v')
 $$elseif SIMULATION then
 // Import SPRAM simulation
@@ -38,12 +38,17 @@ $$end
 
 // Include the SPIflash controller
 $$nBytes = 4 -- fetches 32 bits words
-$include('../spiflash/spiflash2x.si')
+$include('../spiflash/spiflash4x.si')
 
 // Include the VGA controller
 $$VGA_VA_END = 400
 $include('../common/vga.si')
 // Include clean reset (delayed reset)
+$include('../common/clean_reset.si')
+
+// Include the UART controller
+$$uart_in_clock_freq_mhz = master_freq//4
+$include('../common/uart.si')
 $include('../common/clean_reset.si')
 
 // --------------------------------------------------
@@ -68,6 +73,15 @@ interface ram_provider {
   output! rdata,
   input   req_valid,
   output! done
+}
+
+interface ram_provider_reg {
+  input   addr,
+  input   wenable,
+  input   wdata,
+  output  rdata,
+  input   req_valid,
+  output  done
 }
 
 // --------------
@@ -190,7 +204,10 @@ $$end
 // --------------
 // SPIflash implementation of a ROM
 unit spiflash_memory(
-  ram_provider io, input uint1 clock2x,
+  ram_provider_reg io,
+  output  uint5 leds,
+  input   uint1 clock2x,
+  input   uint1 clock4x,
   output  uint1 init(1), // goes low when SPIflash ctrl is ready
   output  uint1 sf_clk,  output  uint1 sf_csn,
   inout   uint1 sf_io0,  inout   uint1 sf_io1,
@@ -201,11 +218,13 @@ unit spiflash_memory(
     sf_clk :>  sf_clk,   sf_csn :>  sf_csn,
     sf_io0 <:> sf_io0,   sf_io1 <:> sf_io1,
     sf_io2 <:> sf_io2,   sf_io3 <:> sf_io3,
+    clkspi <: clock4x
   );
   // logic
   uint1  was_busy(0);
   uint1  sf_is_busy(1);    // for clock domain crossing
   always {
+    leds        = {sf.busy,3b0,io.req_valid};
     init        = sf_is_busy & init;
     io.rdata    = sf.rdata;
     sf.addr     = io.req_valid ? {4b0001,io.addr[0,18],2b00} : sf.addr;
@@ -213,6 +232,88 @@ unit spiflash_memory(
     sf.in_ready = io.req_valid;
     io.done     = was_busy & ~sf_is_busy;
     was_busy    = sf_is_busy;
+    sf_is_busy  = sf.busy; // get busy status from spiflash (clock domain crossing)
+  }
+}
+
+
+// --------------
+// Debug SPIflash implementation of a ROM
+// Transmits addr and read 32 bits words over UART
+
+unit spiflash_memory_uart_debug(
+  ram_provider io,
+  input   uint1 clock2x,
+  input   uint1 clock4x,
+  output  uint1 init(1), // goes low when SPIflash ctrl is ready
+  output  uint1 sf_clk,
+  output  uint1 sf_csn,
+  inout   uint1 sf_io0,
+  inout   uint1 sf_io1,
+  inout   uint1 sf_io2,
+  inout   uint1 sf_io3,
+  output  uint1 uart_tx,
+) {
+
+  uart_out    uo;
+$$if UART then
+  uart_sender usend(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
+$$end
+
+  // spiflash
+  spiflash_rom sf<reginputs,@clock2x>(
+    sf_clk :>  sf_clk, sf_csn :>  sf_csn,
+    sf_io0 <:> sf_io0, sf_io1 <:> sf_io1,
+    sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
+    clkspi <: clock4x
+  );
+
+  uint1  sf_is_busy(1);    // for clock domain crossing
+
+  io.done          := 0;
+  sf.in_ready      := 0;
+  uo.data_in_ready := 0;
+
+  always_before {
+    init        = sf_is_busy & init;
+  }
+
+  algorithm <autorun> {
+    subroutine transmit(input uint32 data,readwrites uo)
+    {
+      uint32 tmp(0);
+      uint3 n = 0;
+      tmp     = data;
+      __display("transmit: %h",data);
+      while (~n[2,1]) {
+        uo.data_in       = tmp[24,8];
+        tmp              = tmp << 8;
+        uo.data_in_ready = 1;
+        n                = n + 1;
+        while (uo.busy) {}
+      }
+    }
+    while (1) {
+      if (io.req_valid) {
+        sf.addr     = {4b0001,io.addr[0,18],2b00};
+        // transmit address
+        () <- transmit <- (sf.addr);
+        // request data from spiflash
+        sf.in_ready = 1;
+        while (sf_is_busy) { } // wait
+        // transmit data
+        () <- transmit <- (sf.rdata);
+        // done
+        io.rdata = sf.rdata;
+        io.done  = 1;
+      }
+    }
+  }
+
+  always_after{
     sf_is_busy  = sf.busy; // get busy status from spiflash (clock domain crossing)
   }
 }
@@ -295,7 +396,6 @@ unit composite_memory(
     vrm_client     = (io0_in_vrm_now & io0.req_valid) ? 0
                    : (io1_in_vrm_now & io1.req_valid) ? 1
                    : vrm_client;
-    //}
     // ROM access (may be concurrent, io0/io1 can overlap requests)
     // -> maintain requests low
     rom.req_valid  = 0;
@@ -325,7 +425,6 @@ unit composite_memory(
     //if (ram.req_valid) { __display("core %b|%b req RAM",io0_in_ram_now,io1_in_ram_now); }
     //if (vrm.req_valid) { __display("core %b|%b req VRAM",io0_in_vrm_now,io1_in_vrm_now); }
     //if (rom.req_valid) { __display("core %b|%b req ROM",~rom_client,rom_client); }
-
   }
 }
 
@@ -335,12 +434,14 @@ unit composite_memory(
 
 $$if SIMULATION then
 algorithm pll(
-  output! uint1 clock2x,
+  output! uint1 clock4x,
+  output  uint1 clock2x,
   output  uint1 clock1x,
 ) <autorun> {
   uint2 counter(0);
-  clock2x := clock;
-  clock1x := ~counter[0,1]; // x2 slower
+  clock4x := clock;
+  clock2x := ~counter[0,1]; // x2 slower
+  clock1x := ~counter[1,1]; // x4 slower
   always { counter = counter + 1; }
 }
 $$end
@@ -359,6 +460,10 @@ $$if QSPIFLASH then
   inout   uint1 sf_io2,
   inout   uint1 sf_io3,
 $$end
+$$if UART then
+  output  uint1 uart_tx,
+  input   uint1 uart_rx,
+$$end
   output  uint$color_depth$ video_r,
   output  uint$color_depth$ video_g,
   output  uint$color_depth$ video_b,
@@ -369,30 +474,34 @@ $$if SIMULATION then
 $$end
 // clocking (pll) and reset
 $$if ICEBREAKER or ICEBITSY then
-) <@clock1x,!rst> {
-  uint1 clock2x = uninitialized;
+) <@clock1x> {
+  uint1 clock4x = uninitialized;
   pll pllgen(
     clock_in  <: clock,
-    clock_out :> clock2x,
+    clock_out :> clock4x,
   );
   uint1 clock1x  = uninitialized;
-  ice40_half_clock hc(
-    clock_in  <: clock2x,
-    clock_out :> clock1x,
+  uint1 clock2x  = uninitialized;
+  ice40_half_quarter_clock hc(
+    clock_in  <: clock4x,
+    clock_h   :> clock2x,
+    clock_q   :> clock1x,
   );
-  uint1 rst = uninitialized;
-  clean_reset crst<@clock1x,!reset>(
-    out :> rst
-  );
+  //uint1 rst = uninitialized;
+  //clean_reset crst<@clock1x,!reset>(
+  //  out :> rst
+  //);
 $$elseif SIMULATION then
  ) <@clock1x> {
   uint1 clock1x = uninitialized;
   uint1 clock2x = uninitialized;
+  uint1 clock4x = uninitialized;
   pll clkgen<@clock,!reset>(
     clock1x :> clock1x,
-    clock2x :> clock2x
+    clock2x :> clock2x,
+    clock4x :> clock4x
   );
-  uint1 rst <: reset;
+  //uint1 rst <: reset;
 $$else
 ) {
 $$end
@@ -417,12 +526,11 @@ $$end
   spram_memory mem0(io <:> spram);
   // -> spiflash
   ram_io spflash;
-  spiflash_memory mem1(io <:> spflash,
-  $$if SIMULATION then
-    clock2x <: clock2x, // use clock1x for clearer logs
-  $$else
+  // spiflash_memory mem1(leds :> leds,
+  spiflash_memory_uart_debug mem1(uart_tx :> uart_tx,
+    io <:> spflash,
+    clock4x <: clock4x,
     clock2x <: clock2x,
-  $$end
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
     sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
   );
@@ -449,11 +557,16 @@ $$end
 
   always {
 
-    leds = 8b0;
+    // leds = 8b0;
 
 $$if SIMULATION then
     cycle       = cycle + 1;
     video_clock = clock1x;
+$$if ICARUS then
+    if (cycle == 16000) {
+      __finish();
+    }
+$$end
 $$end
   }
 

@@ -81,18 +81,17 @@ $$else
   sb_io_inout sb_io2(clock <: clock, oe <: io2__oe, in :> io2__i, out <: io2__o, pin <:> io2);
   sb_io_inout sb_io3(clock <: clock, oe <: io3__oe, in :> io3__i, out <: io3__o, pin <:> io3);
   always {
+    uint4 to_send <:: osc ? sending[4,4] : sending[0,4];
     // output enable on ios
-    io0__oe = send_else_read;
-    io1__oe = send_else_read & qspi;
-    io2__oe = send_else_read & qspi;
-    io3__oe = send_else_read & qspi;
+    io0__oe   = send_else_read;
+    io1__oe   = send_else_read & qspi;
+    io2__oe   = send_else_read & qspi;
+    io3__oe   = send_else_read & qspi;
     // read current
     read      = {read[0,4],io3__i,io2__i,io1__i,io0__i};
     // update outputs
-    io0__o    = ~osc ? sending[0,1] : sending[4,1];
-    io1__o    = ~osc ? sending[1,1] : sending[5,1];
-    io2__o    = ~osc ? sending[2,1] : sending[6,1];
-    io3__o    = ~osc ? sending[3,1] : sending[7,1];
+    io0__o    = to_send[0,1];  io1__o = to_send[1,1];
+    io2__o    = to_send[2,1];  io3__o = to_send[3,1];
     // start/keep sending?
     sending   = (~osc | ~enable) ? send : sending;
     osc       = ~trigger ? 1b0 : ~osc;
@@ -177,7 +176,7 @@ $$end
         // start sending?
         if (in_ready | init[1,1]) {
 $$if SIMULATION then
-          //__display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
+          __display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
 $$if VERILATOR then
           vdta.addr = addr;
           //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
@@ -264,7 +263,9 @@ $$else
         after                   = 5; // otherwise keep reading
         rdata_done              = rdata_done >> 1;
 $$if SIMULATION then
-        //__display("[%d] spiflash [5] (%h) busy:%b",cycle,rdata,busy);
+        if (rdata_done[0,1]) {
+          __display("[%d] spiflash [5] DONE (%h) busy:%b",cycle,rdata,busy);
+        }
 $$end
       }
 $$end

@@ -1,8 +1,8 @@
 // SL 2021-12-12
 // produces an inverted clock of same frequency through DDR primitives
 module ddr_clock(
-        input      clock,
-        input      enable,
+        input  clock,
+        input  enable,
         output reg ddr_clock
     );
 
@@ -20,11 +20,11 @@ reg renable;
 
 `ifdef ICEBREAKER
   always @(posedge clock) begin
-    renable   <= enable;
+    renable <= enable;
   end
 
   SB_IO #(
-    .PIN_TYPE(6'b0100_00)
+    .PIN_TYPE(6'b0100_11)
   ) sbio_clk (
       .PACKAGE_PIN(ddr_clock),
       .D_OUT_0(1'b0),

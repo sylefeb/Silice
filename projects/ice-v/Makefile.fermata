@@ -3,8 +3,8 @@ icebreaker: SOCs/ice-v-soc-dual-fermata.si
 		./src/pre_tunnel
 		mv tunnel.h ./src/
 		./compile/icebreaker-fermata/compile_c.sh src/tunnel_fermata.c > code.txt
-		silice-make.py -s SOCs/ice-v-soc-dual-fermata.si -b $@ -p basic,qspiflash,vga -o BUILD_$(subst :,_,$@) $(ARGS)
-		iceprog -o 1M ./compile/build/code.bin
+		silice-make.py -s SOCs/ice-v-soc-dual-fermata.si -b $@ -p basic,qspiflash,vga,uart -o BUILD_$(subst :,_,$@) $(ARGS)
+		# iceprog -o 1M ./compile/build/code.bin
 
 verilator: SOCs/ice-v-soc-dual-fermata.si
 		g++ ./src/pre_tunnel.cc -o ./src/pre_tunnel

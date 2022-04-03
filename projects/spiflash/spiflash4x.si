@@ -5,6 +5,7 @@
 // ========================================================
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
+// Highly recommanded watch: https://www.youtube.com/watch?v=mitAhMOt3zI&t=1400s
 //
 
 import('ddr_clock.v')
@@ -32,13 +33,14 @@ algorithm spiflash_qspi(
   input  uint1 qspi,
   output uint8 read,
   output uint1 clk,
+  output uint1 csn,
   inout  uint1 io0,
   inout  uint1 io1,
   inout  uint1 io2,
   inout  uint1 io3,
 ) {
   uint1 dc(0);
-  uint8 sending(0);
+  uint4 sending(0);
   uint1 osc(0);
 
   uint1 enable(0);
@@ -47,6 +49,7 @@ algorithm spiflash_qspi(
 $$if not ICE40 then
   uint1 d_o0(0); uint1 d_o1(0); uint1 d_o2(0); uint1 d_o3(0);
   uint1 d_e0(0); uint1 d_e1(0); uint1 d_e2(0); uint1 d_e3(0);
+  uint1 d_csn(1);
   always {
     // simulates registered IO
     io0.oenable = d_e0; io1.oenable = d_e1;
@@ -59,43 +62,36 @@ $$if not ICE40 then
     // read current
     read      = {read[0,4],io3.i,io2.i,io1.i,io0.i};
     // simulates registered ios
-    io0.o = d_o0;  io1.o = d_o1;  io2.o = d_o2; io3.o = d_o3;
+    io0.o = d_o0;  io1.o = d_o1;  io2.o = d_o2;  io3.o = d_o3;
     // update outputs
-    d_o0 = ~osc ? sending[0,1] : sending[4,1];
-    d_o1 = ~osc ? sending[1,1] : sending[5,1];
-    d_o2 = ~osc ? sending[2,1] : sending[6,1];
-    d_o3 = ~osc ? sending[3,1] : sending[7,1];
+    d_o0 = sending[0,1];  d_o1 = sending[1,1];
+    d_o2 = sending[2,1];  d_o3 = sending[3,1];
     // start/keep sending?
-    sending   = (~osc | ~enable) ? send : sending;
-    osc       = ~trigger ? 1b0 : ~osc;
+    sending   = osc ? send[4,4] : send[0,4];
+    osc       = ~osc;
     enable    = trigger;
+    csn       = d_csn;
+    d_csn     = ~enable;
   }
 $$else
   // setup registered tristate ios
-  uint1 io0__oe(0); uint1 io0__o(0); uint1 io0__i(0);
-  uint1 io1__oe(0); uint1 io1__o(0); uint1 io1__i(0);
-  uint1 io2__oe(0); uint1 io2__o(0); uint1 io2__i(0);
-  uint1 io3__oe(0); uint1 io3__o(0); uint1 io3__i(0);
-  sb_io_inout sb_io0(clock <: clock, oe <: io0__oe, in :> io0__i, out <: io0__o, pin <:> io0);
-  sb_io_inout sb_io1(clock <: clock, oe <: io1__oe, in :> io1__i, out <: io1__o, pin <:> io1);
-  sb_io_inout sb_io2(clock <: clock, oe <: io2__oe, in :> io2__i, out <: io2__o, pin <:> io2);
-  sb_io_inout sb_io3(clock <: clock, oe <: io3__oe, in :> io3__i, out <: io3__o, pin <:> io3);
+  uint4 io_oe(0); uint4 io_i(0); uint4 io_o(0);
+  sb_io_inout sb_io0(clock <: clock, oe <: io_oe[0,1], in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout sb_io1(clock <: clock, oe <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout sb_io2(clock <: clock, oe <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout sb_io3(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  uint1 nenable <:: ~ enable;
+  sb_io       sb_csn(clock <: clock, out <: nenable, pin :> csn);
   always {
     // output enable on ios
-    io0__oe = send_else_read;
-    io1__oe = send_else_read & qspi;
-    io2__oe = send_else_read & qspi;
-    io3__oe = send_else_read & qspi;
+    io_oe    = {{3{send_else_read & qspi}},send_else_read};
     // read current
-    read      = {read[0,4],io3__i,io2__i,io1__i,io0__i};
+    read      = {read[0,4],io_i};
     // update outputs
-    io0__o    = ~osc ? sending[0,1] : sending[4,1];
-    io1__o    = ~osc ? sending[1,1] : sending[5,1];
-    io2__o    = ~osc ? sending[2,1] : sending[6,1];
-    io3__o    = ~osc ? sending[3,1] : sending[7,1];
+    io_o      = sending;
     // start/keep sending?
-    sending   = (~osc | ~enable) ? send : sending;
-    osc       = ~trigger ? 1b0 : ~osc;
+    sending   = osc ? send[4,4] : send[0,4];
+    osc       = ~osc;
     enable    = trigger;
   }
 $$end
@@ -121,8 +117,9 @@ algorithm spiflash_rom(
 
   uint32 sendvec(0); //_ 38h (QPI enable)
 
-  spiflash_qspi spiflash<@clkspi>(
+  spiflash_qspi spiflash<reginputs,@clkspi>(
     clk     :> sf_clk,
+    csn     :> sf_csn,
     io0    <:> sf_io0,
     io1    <:> sf_io1,
     io2    <:> sf_io2,
@@ -134,7 +131,6 @@ algorithm spiflash_rom(
   uint3  stage(0);
   uint3  after(1);
   uint2  init(2b11);
-  uint1  csn_delayed(1);
 $$if nBytes > 1 then
   uint$nBytes$ rdata_done(0);
 $$end
@@ -145,14 +141,10 @@ $$if VERILATOR then
 $$end
 $$end
 $$if ICE40 then
-    sb_io sb_csn(clock <: clkspi, out <:: csn_delayed, pin :> sf_csn);
 $$end
   always {
 
     spiflash.qspi = ~init[1,1]; // qpi activated after first command
-$$if not ICE40 then
-    sf_csn        = csn_delayed;
-$$end
 
     switch (stage)
     {
@@ -179,14 +171,13 @@ $$end
         // start sending?
         if (in_ready | init[1,1]) {
 $$if SIMULATION then
-          //__display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
+          __display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
 $$if VERILATOR then
           vdta.addr = addr;
           //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
 $$end
 $$end
           busy                  = 1;
-          csn_delayed           = 0;
           stage                 = 2;
         }
       }
@@ -201,19 +192,18 @@ $$end
         four                    = four >> 1;
       }
       case 3: {
-        csn_delayed             =  init[1,1]; // not sending anything if in init
-        spiflash.trigger        = ~init[1,1];
         // send dummy
+        spiflash.trigger        = ~init[1,1];
         spiflash.send           = 8b00100000; // requests continuous read
-        stage                   = 4; // wait
+        stage                   = 4;
       }
-$$if nBytes == 1 then
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
-        wait                    = 0; //_ 2 cycles (one extra due to registered ios)
+        wait                    = 1; //_ 2 cycles (one extra due to registered ios)
         after                   = 5;
       }
+$$if nBytes == 1 then
       case 5: {
   $$if SIMULATION then
   $$if VERILATOR then
@@ -224,7 +214,6 @@ $$if nBytes == 1 then
   $$else
         rdata                   = spiflash.read;
   $$end
-        csn_delayed             = 1;
         spiflash.trigger        = 0;
         busy                    = 0;
         init                    = {1b0,init[1,1]};
@@ -234,12 +223,6 @@ $$if SIMULATION then
 $$end
       }
 $$else
-      case 4: {
-        spiflash.send_else_read = 0;
-        stage                   = 0; // wait
-        wait                    = 0; //_ 2 cycles  (one extra due to registered ios)
-        after                   = 5;
-      }
       case 5: {
   $$if SIMULATION then
   $$if VERILATOR then
@@ -253,7 +236,6 @@ $$else
   $$else
         rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
   $$end
-        csn_delayed             =  rdata_done[0,1];
         spiflash.trigger        = ~rdata_done[0,1];
         busy                    = ~rdata_done[0,1];
         init                    = {1b0,init[1,1]};
@@ -262,7 +244,9 @@ $$else
         after                   = 5; // otherwise keep reading
         rdata_done              = rdata_done >> 1;
 $$if SIMULATION then
-        //__display("[%d] spiflash [5] (%h) busy:%b",cycle,rdata,busy);
+        if (rdata_done[0,1]) {
+          __display("[%d] spiflash [5] DONE (%h) busy:%b",cycle,rdata,busy);
+        }
 $$end
       }
 $$end

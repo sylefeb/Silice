@@ -1,3 +1,18 @@
+// --------------------------------------------------
+// @sylefeb 2021
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// --------------------------------------------------
+//
+// SPI flash controller test
+//
+// outputs on UART
+// reads 64 4x8bits from SPIflash address 1MB
+//
+// ========================================================
+// IMPORTANT: on the ice40, use icepack -s
+// ========================================================
+
 $$if ICARUS then
 // download W25Q128JVxIM from winbond Verilog models
 append('W25Q128JVxIM/W25Q128JVxIM.v')
@@ -148,9 +163,10 @@ $$end
   }
 
   while (sf_rom.busy) { }
+  ()              = wait();
 
   // read some
-  data.wenable            = 1;
+  data.wenable      = 1;
   while (data.addr != 64) {
     sf_rom.in_ready = 1;
     sf_rom.addr     = {4b0001,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
