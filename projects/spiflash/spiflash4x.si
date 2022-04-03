@@ -82,11 +82,13 @@ $$else
   sb_io_inout sb_io3(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
   uint1 nenable <:: ~ enable;
   sb_io       sb_csn(clock <: clock, out <: nenable, pin :> csn);
+  uint4 delay(0);
   always {
     // output enable on ios
     io_oe    = {{3{send_else_read & qspi}},send_else_read};
     // read current
-    read      = {read[0,4],io_i};
+    read      = {read[0,4],delay};
+    delay     = io_i;
     // update outputs
     io_o      = sending;
     // start/keep sending?
