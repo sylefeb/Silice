@@ -11,6 +11,10 @@
 
 import('ddr_clock.v')
 
+$$if SIMULATION then
+$$  VERBOSE = 1
+$$end
+
 $$if VERILATOR then
 import('../common/verilator_data.v') // this is a feature supported by Silice
                                      // verilator framework to access raw data
@@ -21,6 +25,11 @@ $$if ICEBREAKER or ICEBITSY or FOMU then
 $$ICE40 = 1
 import('../common/ice40_sb_io_inout.v')
 import('../common/ice40_sb_io.v')
+$$end
+
+$$if not ICE40 and not SIMULATION then
+$$error('The SPIflash x4 controller is currently only for the ice40 FPGA\n'
+$$    ..'It should be possible to port it to other FPGAs with some efforts.')
 $$end
 
 $$if not nBytes then
@@ -48,6 +57,9 @@ algorithm spiflash_qspi(
   ddr_clock ddr(clock <: clock, enable <:: enable, ddr_clock :> clk);
 
 $$if not ICE40 then
+  // NOTE: This is used for simulation ; it is somewhat convoluted
+  // so as to simulated registered IO delays. Works best with Icarus and
+  // vendor model, see stream.si in projects/spiflash
   uint1 d_o0(0);  uint1 d_o1(0);  uint1 d_o2(0);  uint1 d_o3(0);
   uint1 d_e0(0);  uint1 d_e1(0);  uint1 d_e2(0);  uint1 d_e3(0);
   uint1 d_csn(1);
@@ -131,7 +143,7 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
-  uint10 wait(1023);
+  uint10 wait(0);
   uint4  four(0);
   uint3  stage(0);
   uint3  after(1);
@@ -160,8 +172,8 @@ $$if ICARUS then
         spiflash.trigger = reset ? 0 : spiflash.trigger;
         spiflash.send    = 0;
 $$end
-        stage = wait == 0 ? after : 0; // NOTE == 0 could be reduced (initial wait is wide)
-        wait  = wait - 1;
+        stage = wait[9,1] ? after : 0; // counts up to 512 and goes to after
+        wait  = wait + 1;
       }
       case 1: {
         four    = {init[0,1],~init[0,1],2b00};
@@ -175,21 +187,17 @@ $$if nBytes > 1 then
 $$end
         // start sending?
         if (in_ready | init[1,1]) {
-$$if SIMULATION then
-          //__display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
 $$if VERILATOR then
           vdta.addr = addr;
-          //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
 $$end
+$$if VERBOSE then
+          __display("[%d] spiflash START (@%h)",cycle,addr);
 $$end
           busy                  = 1;
           stage                 = 2;
         }
       }
       case 2: {
-$$if ICARUS then
-        //__display("[%d] spiflash [2] qspi:%d init:%b send:%b",cycle,spiflash.qspi,init,sendvec[24,8]);
-$$end
         spiflash.trigger        = 1;
         spiflash.send           = sendvec[24,8];
         sendvec                 = sendvec << 8;
@@ -205,17 +213,13 @@ $$end
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
-        wait                    = 1; //_ 2 cycles (one extra due to registered ios)
+        wait                    = 511; //_ 3 cycles (one extra due to registered ios)
         after                   = 5;
       }
 $$if nBytes == 1 then
       case 5: {
-  $$if SIMULATION then
   $$if VERILATOR then
         rdata                   = vdta.data;  // from 'data.raw'
-  $$else
-        rdata                   = spiflash.read; // cycle[0,8]; // DEBUG
-  $$end
   $$else
         rdata                   = spiflash.read;
   $$end
@@ -223,35 +227,24 @@ $$if nBytes == 1 then
         busy                    = 0;
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
-$$if SIMULATION then
-      //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
-$$end
       }
 $$else
       case 5: {
-  $$if SIMULATION then
   $$if VERILATOR then
         rdata                   = {vdta.data[0,8],rdata[8,$(nBytes-1)*8$]};  // from 'data.raw'
         vdta.addr               = rdata_done[0,1] ? vdta.addr : (vdta.addr + 1);
   $$else
-        // rdata                   = {cycle[0,8],    rdata[8,$(nBytes-1)*8$]}; // DEBUG
-        //__display("[%d] read %h",cycle,spiflash.read);
         rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
   $$end
-  $$else
-        rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
-  $$end
-        spiflash.trigger        = /*rdata_done[0,1] | rdata_done[1,1] | rdata_done[2,1]*/~rdata_done[3,1] ? 0 : spiflash.trigger;
-        busy                    = rdata_done[0,1] ? 0 : busy;
+        spiflash.trigger        = ~rdata_done[3,1] ? 0 : spiflash.trigger;
+        busy                    = rdata_done[0,1]  ? 0 : busy;
         init                    = {1b0,init[1,1]};
-        wait                    = 0; //_ 2 cycles
         stage                   = rdata_done[0,1] ? 1 : 5;  // return to start stage when done
-        after                   = 5; // otherwise keep reading
         rdata_done              = rdata_done >> 1;
-$$if SIMULATION then
-        //if (rdata_done[0,1]) {
-        //  __display("[%d] spiflash [5] DONE (%h) busy:%b done:%b",cycle,rdata,busy,rdata_done);
-        //}
+$$if VERBOSE then
+        if (~busy) {
+          __display("[%d] spiflash DONE (%h)",cycle,rdata);
+        }
 $$end
       }
 $$end

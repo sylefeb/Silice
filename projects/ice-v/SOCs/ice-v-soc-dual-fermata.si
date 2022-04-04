@@ -221,16 +221,18 @@ unit spiflash_memory(
   );
   // logic
   uint1  was_busy(0);
-  uint1  sf_is_busy(1);    // for clock domain crossing
+  uint1  sf_is_busy(1); // for clock domain crossing
+  uint32 sf_rdata(0);   // for clock domain crossing
   always {
     init        = sf_is_busy & init;
-    io.rdata    = sf.rdata;
+    io.rdata    = sf_rdata;
     sf.addr     = io.req_valid ? {4b0001,io.addr[0,18],2b00} : sf.addr;
     //                                 ^ offset SPIflash addresses by 1MB
     sf.in_ready = io.req_valid;
     io.done     = was_busy & ~sf_is_busy;
     was_busy    = sf_is_busy;
-    sf_is_busy  = sf.busy; // get busy status from spiflash (clock domain crossing)
+    sf_is_busy  = sf.busy; // get status from spiflash (clock domain crossing)
+    sf_rdata    = sf.rdata;
   }
 }
 
