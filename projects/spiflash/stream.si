@@ -35,11 +35,7 @@ $include('../common/uart.si')
 $$nBytes = 4
 $include('spiflash4x.si')
 
-$$if nBytes == 1 then
-$$K = 18
-$$else
-$$K = 18 + (nBytes-1)*2
-$$end
+$$K = 5
 circuitry wait() // waits 2+K cycles
 {
   uint5 n = 0; while (n != $K$) { n = n + 1; }
@@ -171,7 +167,8 @@ $$end
     sf_rom.in_ready = 1;
     sf_rom.addr     = {4b0001,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
     ()              = wait();
-    __display("read %x",sf_rom.rdata);
+    //while (sf_rom.busy) { }
+    __display("read @%h = %x",sf_rom.addr,sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
     data.addr       = data.addr + 1;
   }

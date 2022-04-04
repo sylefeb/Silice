@@ -5,6 +5,7 @@
 // ========================================================
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
+//
 // Highly recommanded watch: https://www.youtube.com/watch?v=mitAhMOt3zI&t=1400s
 //
 
@@ -47,9 +48,10 @@ algorithm spiflash_qspi(
   ddr_clock ddr(clock <: clock, enable <:: enable, ddr_clock :> clk);
 
 $$if not ICE40 then
-  uint1 d_o0(0); uint1 d_o1(0); uint1 d_o2(0); uint1 d_o3(0);
-  uint1 d_e0(0); uint1 d_e1(0); uint1 d_e2(0); uint1 d_e3(0);
+  uint1 d_o0(0);  uint1 d_o1(0);  uint1 d_o2(0);  uint1 d_o3(0);
+  uint1 d_e0(0);  uint1 d_e1(0);  uint1 d_e2(0);  uint1 d_e3(0);
   uint1 d_csn(1);
+  uint4 delay(4);
   always {
     // simulates registered IO
     io0.oenable = d_e0; io1.oenable = d_e1;
@@ -60,9 +62,10 @@ $$if not ICE40 then
     d_e2 = send_else_read & qspi;
     d_e3 = send_else_read & qspi;
     // read current
-    read      = {read[0,4],io3.i,io2.i,io1.i,io0.i};
+    read      = {read[0,4],delay};
     // simulates registered ios
-    io0.o = d_o0;  io1.o = d_o1;  io2.o = d_o2;  io3.o = d_o3;
+    io0.o = d_o0;   io1.o = d_o1;   io2.o = d_o2;   io3.o = d_o3;
+    delay = {io3.i,io2.i,io1.i,io0.i};
     // update outputs
     d_o0 = sending[0,1];  d_o1 = sending[1,1];
     d_o2 = sending[2,1];  d_o3 = sending[3,1];
@@ -173,7 +176,7 @@ $$end
         // start sending?
         if (in_ready | init[1,1]) {
 $$if SIMULATION then
-          __display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
+          //__display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
 $$if VERILATOR then
           vdta.addr = addr;
           //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
@@ -238,17 +241,17 @@ $$else
   $$else
         rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
   $$end
-        spiflash.trigger        = ~rdata_done[0,1];
-        busy                    = ~rdata_done[0,1];
+        spiflash.trigger        = /*rdata_done[0,1] | rdata_done[1,1] | rdata_done[2,1]*/~rdata_done[3,1] ? 0 : spiflash.trigger;
+        busy                    = rdata_done[0,1] ? 0 : busy;
         init                    = {1b0,init[1,1]};
         wait                    = 0; //_ 2 cycles
         stage                   = rdata_done[0,1] ? 1 : 5;  // return to start stage when done
         after                   = 5; // otherwise keep reading
         rdata_done              = rdata_done >> 1;
 $$if SIMULATION then
-        if (rdata_done[0,1]) {
-          __display("[%d] spiflash [5] DONE (%h) busy:%b",cycle,rdata,busy);
-        }
+        //if (rdata_done[0,1]) {
+        //  __display("[%d] spiflash [5] DONE (%h) busy:%b done:%b",cycle,rdata,busy,rdata_done);
+        //}
 $$end
       }
 $$end
