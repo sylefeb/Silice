@@ -6,8 +6,12 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 //
-// Highly recommanded watch: https://www.youtube.com/watch?v=mitAhMOt3zI&t=1400s
+// Highly recommanded watch on timing analysis for SPIflash on ice40:
+//   https://www.youtube.com/watch?v=mitAhMOt3zI&t=1400s
 //
+// For a (likely much more stable/reliable!) Verilog SPIflash 100MHz
+// SPIflash controller also see smunaut (@tnt) repos:
+//   https://github.com/no2fpga/no2qpimem/blob/master/rtl/qpi_phy_ice40_4x.v
 
 import('ddr_clock.v')
 
