@@ -1259,7 +1259,7 @@ where `<EXPR>` is an expression and `<CONST>` are constants.
 
 There is also a onehot version:
 ``` c
-switch( <IDENTFIER> ) {
+onehot( <IDENTFIER> ) {
   case 0: {  /* code for this case */    }
   case 1: {  /* code for this case */    }
   ...
