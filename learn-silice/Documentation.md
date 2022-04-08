@@ -837,6 +837,8 @@ variables given read/write permission can be manipulated. This mitigates
 the fact that a subroutine may directly manipulate variables in the
 parent algorithm. The format for the permissions is a comma separated
 list using keywords `reads`, `writes`, `readwrites`
+
+
 *Why subroutines?* There is a fundamental difference between a
 subroutine and an algorithm called from a host: the subroutine never
 executes in parallel, while a child algorithm could. However, if this
@@ -844,7 +846,7 @@ parallelism is not necessary, subroutines offer a simple mechanism to
 repeat internal tasks.
  
 
-*Global subroutines* Subroutines may be declared outside of an
+*Global subroutines.* Subroutines may be declared outside of an
 algorithm. Such subroutines are called *global* and may be called from
 any algorithm. This is convenient to share subroutines across
 algorithms. If a global subroutine requests access to parent algorithm
@@ -1292,11 +1294,10 @@ to jump to the subroutine initial state, and one cycle to jump back.
 
 # Pipelines
 
-**TODO:** describe syntax
+> **To be written.** In the meantime please refer to these projects:
+ [pipeline_sort](../projects/pipeline_sort/README.md) (has detailed explanations) and [divstd_pipe](../projects/divstd_pipe/README.md).
 
 # Advanced language constructs
-
-
 
 ## Groups
 
@@ -1318,17 +1319,17 @@ group sdram_32b_io
 }
 ```
 
-Note that group declarations are made *outside* of algorithms.
+Note that group declarations are made *outside* of algorithms. Group members
+can also use power-up initializers, e.g. `uint24 addr(0), ...`
 
-A group variable can be declared directly:
+A group variable can then be declared directly:
 
 ``` c
 sdram_32b_io sd; // init values are defined in the group declaration
 ```
 
 To pass a group variable to an algorithm, we need to define an interface
-(see also
-Section <a href="#sec:interfaces" data-reference-type="ref" data-reference="sec:interfaces">3.8</a>).
+(see also [interfaces](#anonymous-interfaces)).
 This will further specify which group members are input and outputs:
 
 ``` c
@@ -1357,7 +1358,7 @@ sdramctrl memory(
 );
 ```
 
-The `<::>` operator can also be used in the binding of an interface (see Section <a href="#sec:bindings" data-reference-type="ref" data-reference="sec:bindings">3.6.4</a>).
+The `<::>` operator can also be used in the binding of an interface (see also [bindings](#bindings)).
 
 A group can be passed in a call if the algorithm describes an anonymous interface. If the interface has both inputs and outputs, the group can appear both as an input and an output in the call.
 
@@ -1403,11 +1404,9 @@ Named interfaces are ways to describe what inputs and outputs an algorithm expec
 Besides making algorithm IO description more compact, this provides genericity.
 
 Named interfaces **have** to be bound to a group
-(Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>) or an interface upon algorithm instantiation. They cannot be used to pass a group in a call. The binding does not have to be complete: it is possible to bind to an interface a group having **more** (not less) members than the interface.
+(see [named interfaces](#named-interfaces)) or an interface upon algorithm instantiation. They cannot be used to pass a group in a call. The binding does not have to be complete: it is possible to bind to an interface a group having **more** (not less) members than the interface.
 
-Reusing the example of
-Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>
-we can define a named interface ahead of time:
+Reusing the example [above](#groups) we can define a named interface ahead of time:
 
 ``` c
 interface sdram_provider {
