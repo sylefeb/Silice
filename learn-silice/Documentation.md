@@ -1701,37 +1701,35 @@ The framework instantiates the *main* algorithm. The resulting file can
 then be processed by the vendor or open source FPGA toolchain (often
 accompanied by a hardware constraint file).
 
-Silice comes with the following host hardware frameworks:
+Silice comes with [many host hardware frameworks](../frameworks/boards/), some examples:
 
--   **mojo\_basic** : framework to compile for the Alchitry Mojo 3 FPGA
+-   **mojov3** : framework to compile for the Alchitry Mojo 3 FPGA
     board.
 
--   **mojo\_hdmi\_sdram** : framework to compile for the Alchitry Mojo 3
-    FPGA board equipped with the HDMI shield.
+-   **icestick** : framework for the icestick board.
 
--   **icestick** : framework for the Lattice ice40 icestick board.
+-   **icebreaker** : framework for the icebreaker board.
 
--   **verilator\_bare** : framework for use with the *verilator*
+-   **ulx3s** : framework for the ULX3S board.
+
+-   **de10nano** : framework for the de10-nano board.
+
+-   **verilator** : framework for use with the *verilator*
     hardware simulator
 
--   **verilator\_sdram\_vga** : framework for use with the *verilator*
-    hardware simulator, with VGA and SDRAM emulation
+-   **icarus** : framework for use with the *icarus* hardware
+    simulator
 
--   **icarus\_bare** : framework for use with the *icarus*
+For practical usage examples please refer to the [*Getting started* guide](../GetStarted.md).
 
--   **icarus\_vga** : framework for use with the *icarus* hardware
-    simulator, with vga emulation
+New frameworks for additional boards [can be easily created](../frameworks/boards/README.md).
 
-For practical usage examples please refer to the *Getting started* guide
-at <https://github.com/sylefeb/Silice/blob/master/GetStarted.md>.
+## VGA and OLED simulation
 
-## VGA emulation
-
-Silice verilator framework supports VGA display out of the box. For instance
-see the [VGA demos project](../projects/vga_demo/README.md).
+The Silice verilator framework supports VGA and OLED display out of the box. For instance see the [VGA demos project](../projects/vga_demo/README.md).
 
 [1] http://iverilog.icarus.com/
 
 [2] https://www.veripool.org/wiki/verilator
 
-[3] See the famous Dijkstra’s paper about this 
+[3] See the famous Dijkstra’s paper about this.
