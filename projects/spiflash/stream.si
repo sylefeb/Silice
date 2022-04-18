@@ -13,6 +13,8 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 
+$$spi4x = nil
+
 $$if ICARUS then
 // download W25Q128JVxIM from winbond Verilog models
 append('W25Q128JVxIM/W25Q128JVxIM.v')
@@ -22,24 +24,27 @@ $$end
 $$master_freq = 12
 
 $$if ICEBREAKER then
-$$master_freq = 100
+$$if spi4x then
+  $$master_freq = 100
+$$else
+  $$master_freq = 50
+$$end
 // Import hardware modules
 import('../common/plls/icebrkr_$master_freq$.v')
 import('../common/ice40_half_quarter_clock.v')
 import('../../common/ice40_spram.v')
 $$end
 
-$$uart_in_clock_freq_mhz = master_freq//4
-$include('../common/uart.si')
-
 $$nBytes = 4
-$include('spiflash4x.si')
 
-$$K = 5
-circuitry wait() // waits 2+K cycles
-{
-  uint5 n = 0; while (n != $K$) { n = n + 1; }
-}
+$$if spi4x then
+  $include('spiflash4x.si')
+  $$uart_in_clock_freq_mhz = master_freq//4
+$$else
+  $include('spiflash2x.si')
+  $$uart_in_clock_freq_mhz = master_freq//2
+$$end
+$include('../common/uart.si')
 
 // --------------------------------------------------
 // PLL for simulation
@@ -144,7 +149,9 @@ spiflash_rom sf_rom<reginputs,@clock2x>
     sf_io1  <:> sf_io1,
     sf_io2  <:> sf_io2,
     sf_io3  <:> sf_io3,
+$$if spi4x then
     clkspi  <: clock4x
+$$end
   );
 
   always {
@@ -152,22 +159,20 @@ spiflash_rom sf_rom<reginputs,@clock2x>
     sf_rom.in_ready  = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    if (cycle == 1150) {
+    if (cycle == 500) {
       __finish();
     }
 $$end
   }
 
   while (sf_rom.busy) { }
-  ()              = wait();
 
   // read some
   data.wenable      = 1;
   while (data.addr != 64) {
     sf_rom.in_ready = 1;
     sf_rom.addr     = {4b0001,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
-    ()              = wait();
-    //while (sf_rom.busy) { }
+    while (sf_rom.busy) { }
     __display("read @%h = %x",sf_rom.addr,sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
     data.addr       = data.addr + 1;

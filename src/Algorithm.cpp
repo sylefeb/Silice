@@ -305,8 +305,8 @@ void Algorithm::resolveInstancedBlueprintBindingDirections(t_instanced_nfo& _bp)
         b.dir = e_BiDir;
       } else {
 
-        // group members is not used by algorithm, we allow this for flexibility,
-        // in particular in conjunction with interfaces
+        // group member is not used by the algorithm, we allow this for flexibility,
+        // in particular in conjunction with interfaces (partial binding)
         continue;
 
         //reportError(nullptr, b.line, "cannot determine binding direction for '%s <:> %s', binding to algorithm instance '%s'",
@@ -632,6 +632,7 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
   t_var_nfo var;
   std::string is_group;
   gatherVarNfo(decl, var, false, _current, _context, is_group);
+  // check if var is a group
   if (!is_group.empty()) {
     if (decl->declarationVarInitSet() != nullptr || decl->declarationVarInitCstr() != nullptr || decl->ATTRIBS() != nullptr) {
       reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "variable is declared as 'sameas' a group or interface, it cannot have initializers.");

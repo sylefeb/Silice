@@ -238,9 +238,8 @@ unit spiflash_memory(
 
 
 // --------------
-// Debug SPIflash implementation of a ROM
-// Transmits addr and read 32 bits words over UART
-
+// Debug for SPIflash implementation of a ROM
+// Transmits addr and read (32 bits words) over UART every access
 unit spiflash_memory_uart_debug(
   ram_provider_reg io,
   input   uint1 clock2x,

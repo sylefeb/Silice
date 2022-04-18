@@ -126,7 +126,7 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
-  uint10 wait(1023);
+  uint10 wait(0);
   uint4  four(0);
   uint3  stage(0);
   uint3  after(1);
@@ -160,8 +160,8 @@ $$if ICARUS then
         spiflash.trigger = reset ? 0 : spiflash.trigger;
         spiflash.send    = 0;
 $$end
-        stage = wait == 0 ? after : 0; // NOTE == 0 could be reduced (initial wait is wide)
-        wait  = wait - 1;
+        stage = wait[9,1] ? after : 0; // counts up to 512 and goes to after
+        wait  = wait + 1;
       }
       case 1: {
         four    = {init[0,1],~init[0,1],2b00};
@@ -195,7 +195,7 @@ $$end
         spiflash.send           = sendvec[24,8];
         sendvec                 = sendvec << 8;
         stage                   = 0; // wait
-        wait                    = 0; //_ 2 cycles
+        wait                    = 512; //_ 2 cycles
         after                   = four[0,1] ? 3 : 2;
         four                    = four >> 1;
       }
@@ -205,16 +205,16 @@ $$end
         // send dummy
         spiflash.send           = 8b00100000; // requests continuous read
         stage                   = 0; // wait
-        wait                    = 1; //_ 3 cycles
+        wait                    = 511; //_ 3 cycles
         after                   = 4;
       }
-$$if nBytes == 1 then
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
-        wait                    = 1; //_ 3 cycles (one extra due to registered ios)
+        wait                    = 511; //_ 3 cycles (one extra due to registered ios)
         after                   = 5;
       }
+$$if nBytes == 1 then
       case 5: {
   $$if SIMULATION then
   $$if VERILATOR then
@@ -231,16 +231,10 @@ $$if nBytes == 1 then
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
 $$if SIMULATION then
-      //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
+        __display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
 $$end
       }
 $$else
-      case 4: {
-        spiflash.send_else_read = 0;
-        stage                   = 0; // wait
-        wait                    = 1; //_ 3 cycles  (one extra due to registered ios)
-        after                   = 5;
-      }
       case 5: {
   $$if SIMULATION then
   $$if VERILATOR then
@@ -258,7 +252,7 @@ $$else
         spiflash.trigger        = ~rdata_done[0,1];
         busy                    = ~rdata_done[0,1];
         init                    = {1b0,init[1,1]};
-        wait                    = 0; //_ 2 cycles
+        wait                    = 512; //_ 2 cycles
         stage                   = rdata_done[0,1] ? 1 : 0;  // return to start stage when done
         after                   = 5; // otherwise keep reading
         rdata_done              = rdata_done >> 1;
