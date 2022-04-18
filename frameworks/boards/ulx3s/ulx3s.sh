@@ -1,7 +1,7 @@
 #!/bin/bash
 
 case "$(uname -s)" in
-MINGW*|CYGWIN*) 
+MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
 BUILD_DIR=`cygpath $BUILD_DIR`
 FRAMEWORKS_DIR=`cygpath $FRAMEWORKS_DIR`
@@ -46,4 +46,4 @@ nextpnr-ecp5 --85k --package CABGA381 --freq 25 --json build.json --textcfg buil
 
 ecppack --compress --svf-rowsize 100000 --svf build.svf build.config build.bit
 
-openFPGALoader -f -b ulx3s build.bit
+openFPGALoader -b ulx3s build.bit

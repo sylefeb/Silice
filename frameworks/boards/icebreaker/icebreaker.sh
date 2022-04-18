@@ -36,7 +36,9 @@ fi
 
 cd $BUILD_DIR
 
+set +e
 rm build*
+set -e
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
