@@ -9,8 +9,8 @@
 // Highly recommanded watch on timing analysis for SPIflash on ice40:
 //   https://www.youtube.com/watch?v=mitAhMOt3zI&t=1400s
 //
-// For a (likely much more stable/reliable!) Verilog SPIflash 100MHz
-// SPIflash controller also see smunaut (@tnt) repos:
+// For a (more stable/reliable) Verilog SPIflash 100MHz
+// controller also see smunaut (@tnt) repos:
 //   https://github.com/no2fpga/no2qpimem/blob/master/rtl/qpi_phy_ice40_4x.v
 
 import('ddr_clock.v')
@@ -231,6 +231,11 @@ $$if nBytes == 1 then
         busy                    = 0;
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
+$$if VERBOSE then
+        if (~busy) {
+          __display("[%d] spiflash DONE (%h)",cycle,rdata);
+        }
+$$end
       }
 $$else
       case 5: {
