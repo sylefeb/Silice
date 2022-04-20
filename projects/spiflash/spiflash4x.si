@@ -195,7 +195,7 @@ $$if VERILATOR then
           vdta.addr = addr;
 $$end
 $$if VERBOSE then
-          __display("[%d] spiflash START (@%h)",cycle,addr);
+          //__display("[%d] spiflash START (@%h)",cycle,addr);
 $$end
           busy                  = 1;
           stage                 = 2;
@@ -233,7 +233,7 @@ $$if nBytes == 1 then
         stage                   = 1; // return to start stage
 $$if VERBOSE then
         if (~busy) {
-          __display("[%d] spiflash DONE (%h)",cycle,rdata);
+          //__display("[%d] spiflash DONE (%h)",cycle,rdata);
         }
 $$end
       }
@@ -252,7 +252,7 @@ $$else
         rdata_done              = rdata_done >> 1;
 $$if VERBOSE then
         if (~busy) {
-          __display("[%d] spiflash DONE (%h)",cycle,rdata);
+          //__display("[%d] spiflash DONE (%h)",cycle,rdata);
         }
 $$end
       }

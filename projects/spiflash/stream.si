@@ -13,7 +13,7 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 
-$$spi4x = nil
+$$spi4x = 1
 
 $$if ICARUS then
 // download W25Q128JVxIM from winbond Verilog models
@@ -59,7 +59,7 @@ algorithm pll(
   uint2 counter(0);
   clock4x := clock;
   clock2x := ~counter[0,1]; // x2 slower
-  clock1x := ~counter[1,1]; // x4 slower
+  clock1x :=  counter[1,1]; // x4 slower
   always { counter = counter + 1; }
 }
 $$end

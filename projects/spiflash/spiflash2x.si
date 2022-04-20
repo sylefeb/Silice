@@ -176,7 +176,7 @@ $$end
         // start sending?
         if (in_ready | init[1,1]) {
 $$if SIMULATION then
-          __display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
+          //__display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
 $$if VERILATOR then
           vdta.addr = addr;
           //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
@@ -216,12 +216,8 @@ $$end
       }
 $$if nBytes == 1 then
       case 5: {
-  $$if SIMULATION then
   $$if VERILATOR then
         rdata                   = vdta.data;  // from 'data.raw'
-  $$else
-        rdata                   = spiflash.read; // cycle[0,8]; // DEBUG
-  $$end
   $$else
         rdata                   = spiflash.read;
   $$end
@@ -231,7 +227,7 @@ $$if nBytes == 1 then
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
 $$if SIMULATION then
-        __display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
+        //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
 $$end
       }
 $$else
@@ -258,7 +254,7 @@ $$else
         rdata_done              = rdata_done >> 1;
 $$if SIMULATION then
         if (rdata_done[0,1]) {
-          __display("[%d] spiflash [5] DONE (%h) busy:%b",cycle,rdata,busy);
+          //__display("[%d] spiflash [5] DONE (%h) busy:%b",cycle,rdata,busy);
         }
 $$end
       }
