@@ -26,7 +26,7 @@
         "tool": "trellis",
         "tool_options": [
           {
-              "yosys_synth_options": ["-abc9"],
+              "yosys_synth_options": ["-abc9 -top top"],
               "nextpnr_options": ["--85k", "--freq 25", "--package CABGA381", "--timing-allow-fail"],
               "pnr": "next"
           }
