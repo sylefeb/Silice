@@ -6,7 +6,7 @@ We will both discuss how to use the controller and give some details on the cont
 
 But first, let's run this project in simulation!
 
-**Note:** I am absolutely not an expert in memory controllers, I am just learning, playing and sharing :) There is surely much to improve here. Please let me know your thoughts!
+**Note:** This design is meant for simulation, where it outputs text in the console, but does nothing useful when run in hardware.
 
 ## Testing
 
