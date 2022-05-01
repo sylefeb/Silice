@@ -1,7 +1,7 @@
 module ice40_half_quarter_clock(
 	input  clock_in,
 	output clock_h,
-	output clock_q,
+	output clock_q
 	);
 
 reg [1:0] qh;
