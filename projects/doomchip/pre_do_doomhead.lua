@@ -73,6 +73,6 @@ code:write('};')
 code:close()
 
 -- now load file into string
-local code = assert(io.open(path .. 'doomhead.ice', 'r'))
+local code = assert(io.open(path .. 'doomhead.si', 'r'))
 doomhead = code:read("*all")
 code:close()
