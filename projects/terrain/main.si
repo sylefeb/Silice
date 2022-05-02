@@ -86,7 +86,7 @@ $include('terrain_renderer.si')
 // -------------------------
 
 // top level algorithm
-algorithm main(
+unit main(
   output  uint$NUM_LEDS$    leds,
   output  uint$color_depth$ video_r,
   output  uint$color_depth$ video_g,
@@ -219,7 +219,7 @@ $$end
   uint14 map_waddr(0);
   uint16 map_data(0);
   uint14 map_raddr(0);
-  uint14 map_addr    <:: map_write ? map_waddr : map_raddr;
+  uint14 map_addr    <:: map_write ? map_waddr : :map_raddr;
   uint1  map_wenable <:: map_write;
   uint4  map_wmask   <:: 4b1111;
   uint16 map_data_out(0);
@@ -346,75 +346,77 @@ $$end
 
   }
 
+  algorithm {
+  $$if ICARUS then
+    while (iter != 2000000) { // in siumlation we limit the number of cycles
+      iter = iter + 1;
+  $$else
+    while (1) {
+  $$end
+
+      cpu_reset = 0; // CPU runs!
+
+      // update CPU user data (reported to firmware though rdtime hook)
+      user_data[0,7] = {r_btns,reg_miso,pix_write,vblank,1b0};
+  $$if SPIFLASH then
+      reg_miso       = sf_miso; // register miso input
+  $$end
+
+      if (fb.in_valid) { // renderer wants to write (write_en ensures this is always legal)
+        pix_waddr = fb.addr;
+        pix_mask  = fb.wmask;
+        pix_data  = fb.data_in;
+        pix_write = 1;
+      }
+
+      if (mem.in_valid & mem.rw) {
+        switch (mem.addr[27,4]) {
+          case 4b1000: { // CPU writes to palette
+            palette.addr1    = mem.addr[2,8];
+            palette.wdata1   = mem.data_in[0,24];
+            palette.wenable1 = 1;
+            sky_pal_id       = mem.data_in[24,1] ? mem.addr[2,8] : sky_pal_id;
+          }
+          case 4b0010: {
+            switch (mem.addr[2,2]) {
+              case 2b00: { // CPU writes to LEDs
+                __display("LEDs = %h",mem.data_in[0,8]);
+                leds = mem.data_in[0,8];
+              }
+              case 2b01: { /* ignored (swap buffer) */ }
+              case 2b10: { // CPU spiflash bit-banging
+  $$if SPIFLASH then
+                sf_clk  = mem.data_in[0,1];
+                sf_mosi = mem.data_in[1,1];
+                sf_csn  = mem.data_in[2,1];
+  $$end
+              }
+              case 2b11: { // CPU writes to framebuffer
+                pix_waddr = mem.addr[ 4,14];
+                pix_mask  = mem.addr[18, 4];
+                pix_data  = mem.data_in;
+                pix_write = 1;
+              }
+              default: { }
+            }
+          }
+          case 4b0001: { // CPU writes to SPRAM, this is how map data is sent!
+            map_write  = 1;
+            map_data   = mem.data_in[ 0,16];
+            map_waddr  = mem.data_in[16,14];
+          }
+          default: { }
+        }
+      }
+    } // while
+  } // algorithm
+
   always_after   {
     // updates synchronization variables
     frame_fetch_sync = {frame_fetch_sync[0,1],frame_fetch_sync[1,7]};
     next_pixel       = {next_pixel[0,1],next_pixel[1,1]};
   }
 
-$$if ICARUS then
-  while (iter != 2000000) { // in siumlation we limit the number of cycles
-    iter = iter + 1;
-$$else
-  while (1) {
-$$end
-
-    cpu_reset = 0; // CPU runs!
-
-    // update CPU user data (reported to firmware though rdtime hook)
-    user_data[0,7] = {r_btns,reg_miso,pix_write,vblank,1b0};
-$$if SPIFLASH then
-    reg_miso       = sf_miso; // register miso input
-$$end
-
-    if (fb.in_valid) { // renderer wants to write (write_en ensures this is always legal)
-      pix_waddr = fb.addr;
-      pix_mask  = fb.wmask;
-      pix_data  = fb.data_in;
-      pix_write = 1;
-    }
-
-    if (mem.in_valid & mem.rw) {
-      switch (mem.addr[27,4]) {
-        case 4b1000: { // CPU writes to palette
-          palette.addr1    = mem.addr[2,8];
-          palette.wdata1   = mem.data_in[0,24];
-          palette.wenable1 = 1;
-          sky_pal_id       = mem.data_in[24,1] ? mem.addr[2,8] : sky_pal_id;
-        }
-        case 4b0010: {
-          switch (mem.addr[2,2]) {
-            case 2b00: { // CPU writes to LEDs
-              __display("LEDs = %h",mem.data_in[0,8]);
-              leds = mem.data_in[0,8];
-            }
-            case 2b01: { /* ignored (swap buffer) */ }
-            case 2b10: { // CPU spiflash bit-banging
-$$if SPIFLASH then
-              sf_clk  = mem.data_in[0,1];
-              sf_mosi = mem.data_in[1,1];
-              sf_csn  = mem.data_in[2,1];
-$$end
-            }
-            case 2b11: { // CPU writes to framebuffer
-              pix_waddr = mem.addr[ 4,14];
-              pix_mask  = mem.addr[18, 4];
-              pix_data  = mem.data_in;
-              pix_write = 1;
-            }
-            default: { }
-          }
-        }
-        case 4b0001: { // CPU writes to SPRAM, this is how map data is sent!
-          map_write  = 1;
-          map_data   = mem.data_in[ 0,16];
-          map_waddr  = mem.data_in[16,14];
-        }
-        default: { }
-      }
-    }
-
-  }
 }
 
 // -------------------------

@@ -7768,14 +7768,6 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
 
   t_vio_ff_usage ff_input_bindings_usage;
 
-  // write context parameters as defines
-  if (!ictx.parameters.empty()) {
-    for (auto p : ictx.parameters) {
-      out << "`define " << p.first << ' ' << p.second << '\n';
-    }
-    out << '\n';
-  }
-
   // write memory modules
   for (const auto& mem : m_Memories) {
     writeModuleMemory(ictx.instance_name, out, mem);
