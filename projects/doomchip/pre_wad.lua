@@ -24,7 +24,7 @@ function decode_patch_lump(name)
       img[j][i] = -1 -- transparent
     end
   end
-  local lo = string.unpack('H',in_patch:read(2))  
+  local lo = string.unpack('H',in_patch:read(2))
   local to = string.unpack('H',in_patch:read(2))
   local colptrs={}
   for i=1,pw do
@@ -102,7 +102,7 @@ function extract_lump(name,dir,optional)
   end
   name = name:upper()
   -- get script path
-  local path,_1,_2 = string.match(findfile('vga_doomchip.ice'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+  local path,_1,_2 = string.match(findfile('vga_doomchip.si'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
   if path == '' then path = '.' end
   -- open wad
   local in_wad = assert(io.open(findfile(wad), 'rb'))
@@ -152,7 +152,7 @@ for l=1,nlumps do
   if string.match(name,'E%dM%d') then
     print('level ' .. name)
     level_prefix = name
-  end  
+  end
   if lump_level[name] then
     name = level_prefix .. '_' .. name
   end
@@ -239,4 +239,3 @@ end
 in_pal:close()
 
 -- error('stop')
-

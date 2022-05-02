@@ -33,7 +33,7 @@ function shrink_tex(img)
   local w = #img[1]
   local h = #img
   local shi = {}
-  for j = 1,h//2 do 
+  for j = 1,h//2 do
     shi[j] = {}
     for i = 1,w//2 do
       shi[j][i] = img[j*2][i*2]
@@ -45,7 +45,7 @@ end
 function update_palette(img,pal)
   local w = #img[1]
   local h = #img
-  for j = 1,h do 
+  for j = 1,h do
     for i = 1,w do
       local clr  = pal[1+img[j][i]]
       local pidx = inv_palette[clr]
@@ -60,7 +60,7 @@ end
 
 -- -------------------------------------
 -- get script path
-path,_1,_2 = string.match(findfile('vga_doomchip.ice'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+path,_1,_2 = string.match(findfile('vga_doomchip.si'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
 
 -- -------------------------------------
 -- parse pnames
@@ -75,7 +75,7 @@ in_pnames:close()
 
 -- -------------------------------------
 -- parse texture defs
--- 
+--
 function parse_textures(texdeflump)
   local in_texdefs = io.open(findfile('lumps/' .. texdeflump), 'rb')
   if in_texdefs == nil then
@@ -123,7 +123,7 @@ function parse_textures(texdeflump)
         print('     y:  ' .. y)
       end
       in_texdefs:read(2) -- skip
-      in_texdefs:read(2) -- skip    
+      in_texdefs:read(2) -- skip
       if pname then
         print('   loading patch ' .. pname)
         local pimg = decode_patch_lump(path .. 'lumps/patches/' .. pname:upper() .. '.lump')
@@ -139,7 +139,7 @@ function parse_textures(texdeflump)
              end
           end
         end
-        print('   copied.')    
+        print('   copied.')
       else
         error('cannot find patch ' .. pid)
       end
@@ -158,13 +158,13 @@ function parse_textures(texdeflump)
       end
     end
     textures_opacity[name] = opaque
-    -- save  
+    -- save
     print('saving ' .. name .. ' ...')
     save_table_as_image_with_palette(imgcur,palette,path .. 'textures/assembled/' .. name:upper() .. '.tga')
     print('         ... done.')
 
     if opaque == 0 and uses_255 == 1 then
-      print('WARNING: transparent marker used in texture')    
+      print('WARNING: transparent marker used in texture')
     end
   end
 end
@@ -195,7 +195,7 @@ for tex,nfo in pairs(texture_ids) do
   max_usage = math.max(max_usage,nfo.used)
 end
 -- auto reduction
-repeat 
+repeat
   num_reduced = 0
   texture_bits = 0
   texture_shrink = {}
@@ -203,8 +203,8 @@ repeat
     if tex ~= 'F_SKY1' then -- skip sky entirely
       texture_shrink[tex] = default_shrink -- default
       local is_switch = (tex:sub(1,3) == 'SW1' or tex:sub(1,3) == 'SW2')
-      if      nfo.used < shrink_below_usage 
-          and math.max(nfo.texw,nfo.texh) >= shrink_min_res 
+      if      nfo.used < shrink_below_usage
+          and math.max(nfo.texw,nfo.texh) >= shrink_min_res
           and (not is_switch or reduce_switches)
         then
         texture_shrink[tex] = 1+default_shrink -- shrink it in half
@@ -222,12 +222,12 @@ repeat
       print('giving up')
       break
     end
-    print('restart -- current texture bits: ' .. texture_bits 
+    print('restart -- current texture bits: ' .. texture_bits
        .. ' budget: ' .. memory_budget_bits
        .. ' res cutoff ' .. shrink_min_res)
   end
 until texture_bits < memory_budget_bits
-print('texture bits: ' .. texture_bits 
+print('texture bits: ' .. texture_bits
        .. ' budget: ' .. memory_budget_bits
        .. ' num reduced: ' .. num_reduced .. '/' .. num_textures)
 
@@ -236,7 +236,7 @@ print('texture bits: ' .. texture_bits
 -- -------------------------------------
 -- produce code for the texture chip
 print('generating texture chip code')
-local code = assert(io.open(path .. 'texturechip.ice', 'w'))
+local code = assert(io.open(path .. 'texturechip.si', 'w'))
 code:write([[algorithm texturechip(
   input  uint8 texid,
   input  int9  iiu,
@@ -274,7 +274,7 @@ for tex,nfo in pairs(texture_ids) do
       texdata = shrink_tex(shrink_tex(texdata))
     elseif texture_shrink[tex] == 1 then
       texdata = shrink_tex(texdata)
-    end  
+    end
     local texw = #texdata[1]
     local texh = #texdata
     texture_start_addr_table[tex] = texture_start_addr
@@ -303,7 +303,7 @@ end
 
 -- addressing
 code:write('  switch (texid) {\n')
-code:write('    default : { }\n')  
+code:write('    default : { }\n')
 for tex,nfo in pairs(texture_ids) do
   if tex ~= 'F_SKY1' then -- skip sky entirely
     -- load texture
@@ -319,7 +319,7 @@ for tex,nfo in pairs(texture_ids) do
       texdata = shrink_tex(shrink_tex(texdata))
     elseif texture_shrink[tex] == 1 then
       texdata = shrink_tex(texdata)
-    end  
+    end
     local texw = #texdata[1]
     local texh = #texdata
     local texw_pow2,texw_perfect = texture_dim_pow2(texw)
@@ -399,7 +399,7 @@ code:write('  }\n') -- switch
 
 -- wait for texture data
 code:write('++:\n')
- 
+
 -- defaut is non transparent
 code:write('  opac = 1;')
 -- read and return data
@@ -407,8 +407,8 @@ if ALL_IN_ONE then
   error('not implemented!')
 else
   code:write('  switch (texid) {\n')
-  code:write('    default : { palidx = 255; }\n')  
-  code:write('    case 0  : { palidx = 94; }\n')  
+  code:write('    default : { palidx = 255; }\n')
+  code:write('    case 0  : { palidx = 94; }\n')
   for tex,nfo in pairs(texture_ids) do
     code:write('    case ' .. (nfo.id) .. ': {\n')
     if tex == 'F_SKY1' then -- special case for sky
@@ -421,7 +421,7 @@ else
     end
     code:write('    }\n')
   end
-  code:write('  }\n') 
+  code:write('  }\n')
 end
 
 code:write('}\n')
@@ -431,49 +431,49 @@ code:write('}\n')
 code:write('circuitry is_switch_on(input texid,output is)\n')
 code:write('{\n')
 code:write('  switch (texid) {\n')
-code:write('    default : { is = 0; }\n')  
+code:write('    default : { is = 0; }\n')
 for id,name in pairs(switch_on_ids) do
-  code:write('    case ' .. id .. '  : { is = 1; }\n')  
+  code:write('    case ' .. id .. '  : { is = 1; }\n')
 end
-code:write('  }\n') 
+code:write('  }\n')
 code:write('}\n')
 -- switch OFF
 code:write('circuitry is_switch_off(input texid,output is)\n')
 code:write('{\n')
 code:write('  switch (texid) {\n')
-code:write('    default : { is = 0; }\n')  
+code:write('    default : { is = 0; }\n')
 for id,name in pairs(switch_off_ids) do
-  code:write('    case ' .. id .. '  : { is = 1; }\n')  
+  code:write('    case ' .. id .. '  : { is = 1; }\n')
 end
-code:write('  }\n') 
+code:write('  }\n')
 code:write('}\n')
 -- switch ON or OFF
 code:write('circuitry is_switch(input texid,output is)\n')
 code:write('{\n')
 code:write('  switch (texid) {\n')
-code:write('    default : { is = 0; }\n')  
+code:write('    default : { is = 0; }\n')
 for id,name in pairs(switch_on_ids) do
-  code:write('    case ' .. id .. '  : { is = 1; }\n')  
+  code:write('    case ' .. id .. '  : { is = 1; }\n')
 end
 for id,name in pairs(switch_off_ids) do
-  code:write('    case ' .. id .. '  : { is = 1; }\n')  
+  code:write('    case ' .. id .. '  : { is = 1; }\n')
 end
-code:write('  }\n') 
+code:write('  }\n')
 code:write('}\n')
 
 -- circuit to know if a texture is transparent
 code:write('circuitry is_opaque(input texid,output is)\n')
 code:write('{\n')
 code:write('  switch (texid) {\n')
-code:write('    default : { is = 1; }\n')  
+code:write('    default : { is = 1; }\n')
 for name,opaque in pairs(textures_opacity) do
   if opaque == 0 then
     if texture_ids[name] then
-      code:write('    case ' .. texture_ids[name].id .. '  : { is = 0; }\n')  
+      code:write('    case ' .. texture_ids[name].id .. '  : { is = 0; }\n')
     end
   end
 end
-code:write('  }\n') 
+code:write('  }\n')
 code:write('}\n')
 code:write('// stored ' .. texture_start_addr .. ' texture bytes (' .. texture_start_addr*8 .. ' bits) \n')
 
@@ -490,7 +490,7 @@ colormap = colormap .. '};\n'
 code:close()
 
 -- now load file into string
-local code = assert(io.open(path .. 'texturechip.ice', 'r'))
+local code = assert(io.open(path .. 'texturechip.si', 'r'))
 texturechip = code:read("*all")
 code:close()
 
