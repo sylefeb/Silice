@@ -15,12 +15,12 @@
 // Maps to DSP blocks.
 //////////////////////////////////////////////////////////////////////////////
 
-algorithm interpolator(
+unit interpolator(
   input  uint8 a,
   input  uint8 b,
   input  uint8 i,
   output uint8 v
-) <autorun> {
+) {
   always {
     v = ( (b * i) + (a * (255 - i)) ) >> 8;
   }

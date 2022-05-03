@@ -51,7 +51,7 @@ module top(
   output sdram_rasn,
   output [1:0]  sdram_ba,
   output [12:0] sdram_a,
-  inout  [15:0] sdram_d,
+  inout  [15:0] sdram_dq,
 `endif
 `ifdef AUDIO
   // audio jack
@@ -196,7 +196,7 @@ M_main __main(
   .in_btns       (btns),
 `endif
 `ifdef SDRAM
-  .inout_sdram_dq(sdram_d),
+  .inout_sdram_dq(sdram_dq),
   .out_sdram_clk (__main_out_sdram_clk),
   .out_sdram_cle (__main_out_sdram_cle),
   .out_sdram_dqm (__main_out_sdram_dqm),

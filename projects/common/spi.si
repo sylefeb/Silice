@@ -6,11 +6,11 @@
 
 // TODO: revise with improved SPI
 
-algorithm spi_mode0_send(
+unit spi_mode0_send(
   input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
   output  uint1 spi_clk,  output  uint1 spi_mosi,        output uint1 spi_dc,
   output  uint1 ready
-) <autorun> {
+) {
 
   uint2 osc        = 1;
   uint1 dc         = 0;
@@ -40,11 +40,11 @@ $$end
 }
 
 
-algorithm spi_mode3_send(
+unit spi_mode3_send(
   input   uint1 enable,   input   uint1 data_or_command, input  uint8 byte,
   output  uint1 spi_clk,  output  uint1 spi_mosi,        output uint1 spi_dc,
   output  uint1 ready
-) <autorun> {
+) {
 
   uint2 osc        = 1;
   uint1 dc         = 0;

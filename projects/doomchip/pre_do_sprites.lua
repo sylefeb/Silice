@@ -35,14 +35,14 @@ for _,sprite_frame in ipairs(sprites_frames) do
 
   extract_lump(sprite_id .. sprite_frame,'sprites/')
   sprite_lump = 'lumps/sprites/' .. sprite_id .. sprite_frame .. '.lump'
-  
+
   local in_sprite = assert(io.open(findfile(sprite_lump), 'rb'))
   local sz = fsize(in_sprite)
   -- read sprite header
   local sprt_w  = string.unpack('H',in_sprite:read(2))
   local sprt_h  = string.unpack('H',in_sprite:read(2))
   local sprt_lo = string.unpack('h',in_sprite:read(2))
-  local sprt_to = string.unpack('h',in_sprite:read(2))  
+  local sprt_to = string.unpack('h',in_sprite:read(2))
   print('sprite is ' .. sprt_w .. 'x' .. sprt_h .. ' pixels\n')
   -- read sprite column pointers
   local sprt_cols={}
@@ -54,7 +54,7 @@ for _,sprite_frame in ipairs(sprites_frames) do
   for d = 1,sz - 2*4 - sprt_w*4 do
     sprt_data[d] = string.unpack('B',in_sprite:read(1))
   end
-   
+
   sprites[id] = {
     sprt_w=sprt_w, sprt_h=sprt_h, sprt_lo=sprt_lo, sprt_to=sprt_to,
     sprt_col_start = sprite_col_start,
@@ -70,7 +70,7 @@ for _,sprite_frame in ipairs(sprites_frames) do
 end
 
 print('generating sprite brom code')
-local code = assert(io.open(path .. 'spritebrom.ice', 'w'))
+local code = assert(io.open(path .. 'spritebrom.si', 'w'))
 
 sprite_bytes = 0
 
@@ -90,7 +90,7 @@ code:write('  brom uint16 sprites_colstarts[] = {\n')
 for _,s in ipairs(sprites) do
   code:write('16h' .. string.format("%04x",s.sprt_col_start):sub(-4) .. ',')
   sprite_bytes = sprite_bytes + 2;
-end 
+end
 code:write('};\n')
 
 code:write('  brom uint16 sprites_colptrs[] = {\n')
@@ -99,7 +99,7 @@ for _,s in ipairs(sprites) do
     code:write('16h' .. string.format("%04x",ptr):sub(-4) .. ',')
     sprite_bytes = sprite_bytes + 2;
   end
-end 
+end
 code:write('};\n')
 
 code:write('  brom uint8 sprites_data[] = {\n')
@@ -108,7 +108,7 @@ for _,s in ipairs(sprites) do
     code:write('8h' .. string.format("%02x",ptr):sub(-2) .. ',')
     sprite_bytes = sprite_bytes + 1;
   end
-end 
+end
 code:write('};\n')
 
 code:write('// stored ' .. sprite_bytes .. ' sprite bytes (' .. sprite_bytes*8 .. ' bits) \n')
@@ -118,7 +118,6 @@ code:close()
 print('stored ' .. sprite_bytes .. ' sprite bytes (' .. sprite_bytes*8 .. ' bits) \n')
 
 -- now load file into string
-local code = assert(io.open(path .. 'spritebrom.ice', 'r'))
+local code = assert(io.open(path .. 'spritebrom.si', 'r'))
 spritebrom = code:read("*all")
 code:close()
-
