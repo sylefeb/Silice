@@ -411,8 +411,8 @@ pipeline            : block ('->' block) +;
 
 /* -- Inputs/outputs -- */
 
-inout               : 'inout' TYPE IDENTIFIER
-                    | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
+inout               : 'inout' declarationVar
+                    | 'inout' declarationTable;
 input               : 'input' nolatch='!'? declarationVar
                     | 'input' nolatch='!'? declarationTable;
 output              : 'output' combinational='!'? declarationVar
@@ -497,6 +497,6 @@ riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? ('=' in
 
 /* -- Overall structure -- */
 
-topList       :  (unit | algorithm |riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
+topList             :  (unit | algorithm |riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
 
 root                : topList EOF ;

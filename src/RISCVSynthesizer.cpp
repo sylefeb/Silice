@@ -77,9 +77,9 @@ void RISCVSynthesizer::gather(siliceParser::RiscvContext *riscv)
       }
     } else if (io->inout()) {
       t_inout_nfo nfo;
-      nfo.name = io->inout()->IDENTIFIER()->getText();
+      nfo.name = io->inout()->declarationVar()->IDENTIFIER()->getText();
       nfo.do_not_initialize = true;
-      splitType(io->inout()->TYPE()->getText(), nfo.type_nfo);
+      gatherTypeNfo(io->inout()->declarationVar()->type(), nfo.type_nfo);
       m_InOuts.emplace_back(nfo);
       m_InOutNames.insert(make_pair(nfo.name, (int)m_InOuts.size() - 1));
     } else {
@@ -271,13 +271,13 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
       header << "static inline void " << output->declarationVar()->IDENTIFIER()->getText() << "(int v) { "
         << "*__ptr__" << output->declarationVar()->IDENTIFIER()->getText() << "=v; }" << nxl;
     } else if (inout) {
-      header << "volatile int *__ptr__" << inout->IDENTIFIER()->getText() << addr << ';' << nxl;
+      header << "volatile int *__ptr__" << inout->declarationVar()->IDENTIFIER()->getText() << addr << ';' << nxl;
       // getter
-      header << "static inline int " << inout->IDENTIFIER()->getText() << "() { "
-        << "return *__ptr__" << inout->IDENTIFIER()->getText() << "; }" << nxl;
+      header << "static inline int " << inout->declarationVar()->IDENTIFIER()->getText() << "() { "
+        << "return *__ptr__" << inout->declarationVar()->IDENTIFIER()->getText() << "; }" << nxl;
       // setter
-      header << "static inline void " << inout->IDENTIFIER()->getText() << "(int v) { "
-        << "*__ptr__" << inout->IDENTIFIER()->getText() << "=v; }" << nxl;
+      header << "static inline void " << inout->declarationVar()->IDENTIFIER()->getText() << "(int v) { "
+        << "*__ptr__" << inout->declarationVar()->IDENTIFIER()->getText() << "=v; }" << nxl;
     } else {
       sl_assert(false); // RISC-V supports only input/output/inout   TODO error message
     }
@@ -315,7 +315,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
       sl_assert(output->declarationVar()->IDENTIFIER() != nullptr);
       name = output->declarationVar()->IDENTIFIER()->getText();
     } else if (inout) {
-      name = inout->IDENTIFIER()->getText();
+      name = inout->declarationVar()->IDENTIFIER()->getText();
     } else {
       reportError(inout->getSourceInterval(), -1, "[RISC-V] only inputs / outputs are support");
     }
@@ -365,8 +365,8 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
       init = "(0)";
       io_decl = io_decl + "output ";
     } else if (inout) {
-      splitType(inout->TYPE()->getText(), type_nfo);
-      v         = inout->IDENTIFIER()->getText();
+      gatherTypeNfo(inout->declarationVar()->type(), type_nfo);
+      v         = inout->declarationVar()->IDENTIFIER()->getText();
       // TODO
       reportError(inout->getSourceInterval(), -1, "[RISC-V] inout not yet supported");
     } else {
