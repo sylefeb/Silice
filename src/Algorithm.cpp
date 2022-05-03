@@ -1000,7 +1000,7 @@ void Algorithm::getBindings(
   if (bindings == nullptr) return;
   while (bindings != nullptr) {
     if (bindings->bpBinding() != nullptr) {
-      if (bindings->bpBinding()->AUTO() != nullptr) {
+      if (bindings->bpBinding()->AUTOBIND() != nullptr) {
         _autobind = true;
       } else {
         // check if this is a group binding
@@ -1191,7 +1191,7 @@ void Algorithm::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo,
 {
   if (type->TYPE() != nullptr) {
     splitType(type->TYPE()->getText(), _nfo);
-  } else {
+  } else if (type->SAMEAS() != nullptr) {
     // find base
     std::string base = type->base->getText() + (type->member != nullptr ? "_" + type->member->getText() : "");
     base = translateVIOName(base, &_current->context);
@@ -1216,6 +1216,12 @@ void Algorithm::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo,
           "no known definition for '%s' (sameas can only be applied to interfaces, groups and simple variables)", type->base->getText().c_str());
       }
     }
+  } else if (type->AUTO() != nullptr) {
+    _nfo.base_type = Parameterized;
+    _nfo.same_as   = "";
+    _nfo.width     = 0;
+  } else {
+    sl_assert(false);
   }
 }
 
@@ -3043,6 +3049,9 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
       }
       m_Inputs.emplace_back(io);
       m_InputNames.insert(make_pair(io.name, (int)m_Inputs.size() - 1));
+      if (io.type_nfo.base_type == Parameterized) {
+        m_Parameterized.push_back(io.name);
+      }
     } else if (output) {
       t_output_nfo io;
       gatherOutputNfo(output, io, _current, _context);
@@ -3052,6 +3061,9 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
       }
       m_Outputs.emplace_back(io);
       m_OutputNames.insert(make_pair(io.name, (int)m_Outputs.size() - 1));
+      if (io.type_nfo.base_type == Parameterized) {
+        m_Parameterized.push_back(io.name);
+      }
     } else if (inout) {
       t_inout_nfo io;
       gatherInoutNfo(inout, io, _current, _context);
@@ -3061,6 +3073,9 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
       }
       m_InOuts.emplace_back(io);
       m_InOutNames.insert(make_pair(io.name, (int)m_InOuts.size() - 1));
+      if (io.type_nfo.base_type == Parameterized) {
+        m_Parameterized.push_back(io.name);
+      }
     } else if (iodef) {
       gatherIoDef(iodef,_current,_context);
     } else if (allouts) {
