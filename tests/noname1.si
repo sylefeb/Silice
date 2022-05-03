@@ -1,0 +1,16 @@
+algorithm test(
+  input  auto      a,
+  output sameas(a) b,
+  input  sameas(a) c,
+) {
+  b := a + c;
+}
+
+algorithm main(output int8 leds)
+{
+  uint4 w <: 0;
+  test _(a <: w,  b :> leds, c <: w);
+  uint4 w2 <: 5;
+  sameas(leds) tmp;
+  test _(a <: w2, b :> tmp, c <: w);
+}

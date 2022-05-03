@@ -1237,13 +1237,20 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
     reportError(alg->getSourceInterval(), (int)alg->name->getLine(), "subroutine '%s': algorithms cannot be instanced within subroutines", sub->name.c_str());
   }
   // check for duplicates
-  if (!isIdentifierAvailable(alg->name->getText())) {
-    reportError(alg->getSourceInterval(), (int)alg->getStart()->getLine(), "algorithm instance '%s': this name is already used by a prior declaration", alg->name->getText().c_str());
+  if (alg->name != nullptr) {
+    if (!isIdentifierAvailable(alg->name->getText())) {
+      reportError(alg->getSourceInterval(), (int)alg->getStart()->getLine(), "algorithm instance '%s': this name is already used by a prior declaration", alg->name->getText().c_str());
+    }
   }
   // gather
   t_instanced_nfo nfo;
   nfo.blueprint_name = alg->blueprint->getText();
-  nfo.instance_name  = alg->name->getText();
+  if (alg->name != nullptr) {
+    nfo.instance_name = alg->name->getText();
+  } else {
+    static int count = 0;
+    nfo.instance_name = nfo.blueprint_name + "_unnamed_" + std::to_string(count++);
+  }
   nfo.instance_clock = m_Clock;
   nfo.instance_reset = m_Reset;
   if (alg->bpModifiers() != nullptr) {
@@ -1259,10 +1266,10 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
       }
     }
   }
-  nfo.instance_prefix = "_" + alg->name->getText();
+  nfo.instance_prefix = "_" + nfo.instance_name;
   nfo.instance_line   = (int)alg->getStart()->getLine();
   if (m_InstancedBlueprints.find(nfo.instance_name) != m_InstancedBlueprints.end()) {
-    reportError(alg->name, (int)alg->name->getLine(), "an instance of the same name already exists");
+    reportError(alg->getSourceInterval(), -1, "an instance of the same name already exists");
   }
   nfo.autobind = false;
   getBindings(alg->bpBindingList(), nfo.bindings, nfo.autobind);

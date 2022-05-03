@@ -146,6 +146,8 @@ HASH                : '#';
 
 IDENTIFIER          : LETTER+ (DIGIT|LETTERU)* ;
 
+NONAME              : '_';
+
 CONSTANT            : '-'? DIGIT+ ('b'|'h'|'d') (DIGIT|[a-fA-Fxz])+ ;
 
 REPEATID            : '__id' ;
@@ -204,7 +206,7 @@ declarationVarInitCstr : '(' (value | UNINITIALIZED) ')';
 declarationVar         : type IDENTIFIER ( declarationVarInitSet | declarationVarInitCstr )? ATTRIBS? ;
 declarationTable       : type IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationMemory      : (BRAM | BROM | DUALBRAM | SIMPLEDUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
-declarationInstance    : blueprint=IDENTIFIER name=IDENTIFIER bpModifiers? ( '(' bpBindingList ')' ) ? ;
+declarationInstance    : blueprint=IDENTIFIER (name=IDENTIFIER | NONAME) bpModifiers? ( '(' bpBindingList ')' ) ? ;
 declaration            : declarationVar | declarationInstance | declarationTable | declarationMemory | declarationWire;
 
 bpBinding              : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrAccess | AUTOBIND;
