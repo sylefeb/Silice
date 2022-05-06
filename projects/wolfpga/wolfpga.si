@@ -2,8 +2,9 @@
 // Wolf3D!
 //
 // References:
-// "Wolfenstein 3D black book" by Fabien Sanglard
-// https://github.com/id-Software/wolf3d/blob/master/WOLFSRC/WL_DR_A.ASM
+//  - "Wolfenstein 3D black book" by Fabien Sanglard
+//  - https://github.com/id-Software/wolf3d/blob/master/WOLFSRC/WL_DR_A.ASM
+//  - https://lodev.org/cgtutor/raycasting.html
 //
 // MIT license, see LICENSE_MIT in Silice repo root
 // https://github.com/sylefeb/Silice
@@ -23,17 +24,17 @@ $$  g = math.floor(g / 2)
 $$  b = math.floor(b / 2)
 $$  palette[64 + i] = r + g*256 + b*256*256;
 $$end
-
+// include the SDRAM framebuffer framework
 $include('../common/video_sdram_main.si')
-
+// fixed point configuration
 $$FPw = 30
 $$FPf = 12
 $$FPm = 12
-
+// hardware division
 $$div_width    = 20
 $$div_unsigned = 1
 $include('../common/divint_any.si')
-
+// some defines
 $$Deg90  =  900
 $$Deg180 = 1800
 $$Deg270 = 2700
@@ -41,6 +42,7 @@ $$Deg360 = 3600
 
 // -------------------------
 
+// bitfield for encoding column drawing parameters
 bitfield DrawColumn
 {
   uint9  height,
@@ -51,15 +53,19 @@ bitfield DrawColumn
 
 // -------------------------
 
+//
+// This algorithm draws columns in the framebuffer as they are sent
+// by the raycaster. This happens in parallel.
+//
 algorithm columns_drawer(
-  // sdram
+  // sdram interface
   sdram_user    sd,
   // reading from column bram
   output uint9  addr,
   input  uint18 rdata, // NOTE, TODO: allow to use bitfield name (DrawColumn)
   // how many columns have been written
   input  uint9  num_in_cols,
-  // how many collumns have been drawn
+  // how many columns have been drawn
   output uint9  num_drawn_cols,
   // vsynch
   input  uint1  vsync,  // vsynch
@@ -75,12 +81,12 @@ algorithm columns_drawer(
   uint20 v_tex       = 0;
   uint20 v_tex_incr  = 0;
 
-  // texture data
+  // texture data (in BRAM)
   brom uint8 texture[] = {
 $$write_image_in_table(texfile)
   };
 
-  // table for vertical interpolation
+  // table for vertical interpolation (in BRAM)
   brom int20 hscr_inv[512]={
     1, // 0: unused
 $$for hscr=1,511 do
@@ -91,10 +97,11 @@ $$end
   sd.in_valid := 0; // maintain low (pulses high when needed)
   sd.rw       := 1; // writing to sdram
 
-  while (1) {
+  while (1) { // forever
 
     addr           = 0;
     num_drawn_cols = 0;
+    // draw columns that are ready in the buffer
     while (num_drawn_cols < num_in_cols) {
 
       if (DrawColumn(rdata).height < 100) {
@@ -102,7 +109,7 @@ $$end
       } else {
         h = 99;
       }
-
+      // read 1/h from lookup table
       hscr_inv.addr = DrawColumn(rdata).height & 511;
       v_tex = $lshift(32,13)$;
   ++:
@@ -174,6 +181,11 @@ $$end
 
 // -------------------------
 
+//
+// This algorithm is instantiated by the framebuffer framework and is responsible
+// for drawing the frame. It implements the raycaster in a DDA wolfenstein-style
+// algorithm, traversing the level 2D map until hitting a block.
+//
 algorithm frame_drawer(
   sdram_user    sd,
   input  uint1  sdram_clock,
@@ -185,9 +197,16 @@ algorithm frame_drawer(
 
   uint1  vsync_filtered = 0;
 
+  // Buffer containing columns to be drawn (BRAM)
+  // - columns heights and texturing parameters are computed in this loop
+  //   during ray-traversal, then stored in the table
+  // - the algorithm columns_drawer (above), draws columns in the framebuffer
+  //   as quickly as possible
+  // This allows ray-traversal to be in parallel of column drawing
+  simple_dualport_bram uint18 columns<@clock,@sdram_clock>[320] = uninitialized;
+
   // NOTE, TODO: cannot yet declare the bram with the bitfield
   // bram DrawColumn columns[320] = {};
-  simple_dualport_bram uint18 columns<@clock,@sdram_clock>[320] = uninitialized;
 
   // ray-cast columns counter
   uint9 c       = 0;
@@ -231,7 +250,7 @@ $$for i=0,2047 do
 $$end
   };
 
-  // level definition
+  // level map (BRAM)
   brom uint3 level[$16*16$] = {
    1,1,1,1,1,1,4,1,4,1,1,2,1,1,1,1,
    1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,4,
@@ -251,6 +270,7 @@ $$end
    1,1,1,1,1,1,4,1,4,1,4,1,1,1,1,1,
   };
 
+  // all variables
   int$FPw$ posx_f  = $lshift(2,FPf)$;
   int$FPw$ posy_f  = $lshift(2,FPf)$;
   int16    posa    = 0;
@@ -283,6 +303,7 @@ $$end
 
   uint1  dir_y = 0;
 
+  // instantiate divider
   div$div_width$ div;
 
   uint3     hit         = 0;
@@ -291,13 +312,11 @@ $$end
   int16     viewangle   = 0;
   int16     colangle    = 0;
 
-  vsync_filtered ::= vsync;
+  vsync_filtered ::= vsync; // register vsync (across clock domain)
+  leds           := 0;      // maintain LEDS off
 
-  leds := 0;
-
-  fbuffer = 0;
-
-  columns.wenable1 = 1; // write on port 0
+  fbuffer          = 0;  // use frame buffer 0 first
+  columns.wenable1 = 1;  // write on port 0
 
   while (1) {
 
@@ -327,7 +346,7 @@ $$end
       fracy_dw_m = (posy_f) & $lshift(1,FPm)-1$;
       fracy_up_m = $lshift(1,FPm)-1$ - fracy_dw_m;
 ++:
-
+      // setup raycasting
       colangle   = posa + c;
       while (colangle < __signed(0)) {
         colangle = colangle + 3600;
@@ -423,7 +442,6 @@ $$end
         if (v_or_h == 0) {
           // check for a hit on vertical edges
           level.addr = (mapx&15) + (((mapytest)&15)<<4);
-          // hit = level[(mapx&15) + (((mapytest)&15)<<4)];
 ++:
           hit = level.rdata;
           if (hit != 0) {
@@ -439,7 +457,6 @@ $$end
         } else {
           // check for a hit on horizontal edges
           level.addr = ((mapxtest)&15) + ((mapy&15)<<4);
-          // hit = level[((mapxtest)&15) + ((mapy&15)<<4)];
 ++:
           hit = level.rdata;
           if (hit != 0) {
