@@ -1,7 +1,7 @@
 %YAML 1.2
 ---
 name: Silice
-file_extensions: [ice, lpp]
+file_extensions: [si, lpp]
 scope: source.c
 
 contexts:

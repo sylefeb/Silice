@@ -1,10 +1,10 @@
 
-blinky1: blinky1.ice
-	silice-make.py --no_program -s blinky1.ice -b icebreaker -p basic,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
+blinky1: blinky1.si
+	silice-make.py --no_program -s blinky1.si -b icebreaker -p basic,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
 	cp BUILD_blinky1/build.bin blinky1.bin
 
-blinky2: blinky2.ice
-	silice-make.py --no_program -s blinky2.ice -b icebreaker -p basic,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
+blinky2: blinky2.si
+	silice-make.py --no_program -s blinky2.si -b icebreaker -p basic,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
 	cp BUILD_blinky2/build.bin blinky2.bin
 
 program: blinky1 blinky2

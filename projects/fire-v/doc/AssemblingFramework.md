@@ -29,13 +29,13 @@ project](../audio_sdcard_streamer/).
 We will now add components to our design. Note that these correspond
 to files included at the top:
 ```c
-$include('../common/video_sdram_main.ice')
-$include('../common/audio_pwm.ice')
+$include('../common/video_sdram_main.si')
+$include('../common/audio_pwm.si')
 $$Nway = 2
-$include('../common/sdram_arbitrers.ice')
-$include('ram-ice-v.ice')
-$include('sdram_ram_32bits.ice')
-$include('basic_cache_ram_32bits.ice')
+$include('../common/sdram_arbitrers.si')
+$include('ram-ice-v.si')
+$include('sdram_ram_32bits.si')
+$include('basic_cache_ram_32bits.si')
 ```
 
 First, we use a special adapter to lower the frequency at which we talk to the SDRAM. It runs at 100MHz in the framework, while our CPUs will run at 50MHz.
@@ -87,7 +87,7 @@ We know have two 32-bits memory interfaces, one for each CPUs. Almost there, but
   uint26 cache0_start = 26h2000000;
   uint26 cache1_start = 26h2010000;
   rv32i_ram_io cram0;
-  rv32i_ram_io cram1;  
+  rv32i_ram_io cram1;
   basic_cache_ram_32bits cache0(
     pram <:> cram0,
     uram <:> ram0,
@@ -100,7 +100,7 @@ We know have two 32-bits memory interfaces, one for each CPUs. Almost there, but
   );
 ```
 
-Note the start addresses specified for the caches. They only cover some number of addresses from this initial location (size configured in [basic_cache_ram_32bits.ice](basic_cache_ram_32bits.ice)).
+Note the start addresses specified for the caches. They only cover some number of addresses from this initial location (size configured in [basic_cache_ram_32bits.si](basic_cache_ram_32bits.si)).
 
 And now let's create our two RV32I CPUs!
 
@@ -155,7 +155,7 @@ The `:=` syntax means `fbuffer` is always set to this value, at every cycle.
 And finally the main program:
 
 ```c
-  always {  
+  always {
     cpu0_enable = 1;
     cpu1_enable = 1;
     if (ram0.in_valid && ram0.rw && ram0.addr[26,2] == 2b11) {

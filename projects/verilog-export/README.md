@@ -2,7 +2,7 @@
 
 This tutorial demonstrates how to export a Silice written design towards a Verilog module that can be reused *from a Verilog design*.
 
-The tutorial considers a relatively advanced case, which is to export one of Silice SDRAM controller for the ULX3S board, [sdram_controller_autoprecharge_r16_w16](../common/sdram_controller_autoprecharge_r16_w16.ice). In many cases exporting is much simpler, but the goal of this tutorial is to give all details for even the most advanced cases.
+The tutorial considers a relatively advanced case, which is to export one of Silice SDRAM controller for the ULX3S board, [sdram_controller_autoprecharge_r16_w16](../common/sdram_controller_autoprecharge_r16_w16.si). In many cases exporting is much simpler, but the goal of this tutorial is to give all details for even the most advanced cases.
 
 If you want to learn all the gritty details of the SDRAM controller, please refer to my [SDRAM tutorial](../sdram_test/README.md). This is completely optional, in this tutorial we assume the controller is a black box we just want to use.
 
@@ -20,22 +20,22 @@ A 16 bits value has just been written to SDRAM and read back, from Verilog, usin
 
 ## Exporting to Verilog
 
-Our goal is to export Silice code so that we can use the controller in a Verilog design. The first thing we need to do is to write a small Silice code for exporting the design. This is in [export_controller.ice](export_controller.ice) which reads as:
+Our goal is to export Silice code so that we can use the controller in a Verilog design. The first thing we need to do is to write a small Silice code for exporting the design. This is in [export_controller.si](export_controller.si) which reads as:
 
 ```c
 // we indicate that we want the controller synthesized for the ULX3S
-// this is normally done by the framework, but for export we use 
+// this is normally done by the framework, but for export we use
 // the empty 'bare' framework
-$$ULX3S = 1 
+$$ULX3S = 1
 // we include the controller and required interfaces
-$include('../common/sdram_interfaces.ice')
-$include('../common/sdram_controller_autoprecharge_r16_w16.ice')
+$include('../common/sdram_interfaces.si')
+$include('../common/sdram_controller_autoprecharge_r16_w16.si')
 ```
 
 Then, in the [Makefile](Makefile) we call Silice directly using the `--export` command line parameter to indicate we want to export `sdram_controller_autoprecharge_r16_w16` using the `bare` framework:
 
 ```
-silice export_controller.ice --output sdram_controller.v  \
+silice export_controller.si --output sdram_controller.v  \
   --export sdram_controller_autoprecharge_r16_w16         \
   --frameworks_dir ../../frameworks/                      \
   --framework ../../frameworks/boards/bare/bare.v         \
@@ -68,11 +68,11 @@ This will output the result to `sdram_controller.v`. However, the command in the
   -P SD_ADDR_INIT=0 \
 ```
 
-Why is that? The SDRAM controller uses an interface, in this case defined in [`sdram_interfaces.ice`](../common/sdram_interfaces.ice) (see `sdram_provider`). Such interfaces are generic, and the actual signal width, signedness and initial value is determined at compilation time by Silice, based on how the controller is used. Because we are exporting the module, Silice cannot determine these, and we have to specify everything on the command line. 
+Why is that? The SDRAM controller uses an interface, in this case defined in [`sdram_interfaces.si`](../common/sdram_interfaces.si) (see `sdram_provider`). Such interfaces are generic, and the actual signal width, signedness and initial value is determined at compilation time by Silice, based on how the controller is used. Because we are exporting the module, Silice cannot determine these, and we have to specify everything on the command line.
 
 > **Note:** If the exported algorithm is not using an interface, these additional parameters are not required.
 
-How do we know the name of these parameters? Let's open [sdram_controller_autoprecharge_r16_w16.ice](../common/sdram_controller_autoprecharge_r16_w16.ice) and look at the algorithm declaration. We can see the algorithm is expecting a `sdram_provider sd` parameter. The definition of `sdram_provider` in [`sdram_interfaces.ice`](../common/sdram_interfaces.ice) is as follows:
+How do we know the name of these parameters? Let's open [sdram_controller_autoprecharge_r16_w16.si](../common/sdram_controller_autoprecharge_r16_w16.si) and look at the algorithm declaration. We can see the algorithm is expecting a `sdram_provider sd` parameter. The definition of `sdram_provider` in [`sdram_interfaces.si`](../common/sdram_interfaces.si) is as follows:
 ```c
 // interface for provider
 interface sdram_provider {
@@ -90,7 +90,7 @@ Have another look at the parameters in the [Makefile](Makefile), this is exactly
 
 ## Using the exported module
 
-So now we have produced a `sdram_controller.v` file that we can use in a Verilog design. In this project our test design is in [`sdram_example.v`](sdram_example.v) and does a very simple test: it writes a 16 bits value to SDRAM at address 0x00, reads it back and displays the 8 LSB on the LEDs. 
+So now we have produced a `sdram_controller.v` file that we can use in a Verilog design. In this project our test design is in [`sdram_example.v`](sdram_example.v) and does a very simple test: it writes a 16 bits value to SDRAM at address 0x00, reads it back and displays the 8 LSB on the LEDs.
 
 How to we bind our Verilog code to the Silice exported module?
 This done with this piece of Verilog code:
@@ -111,7 +111,7 @@ M_sdram_controller_autoprecharge_r16_w16 sdram_controller(
   .in_sd_rw       (sd_rw),
   .in_sd_data_in  (sd_data_in),
   .in_sd_in_valid (sd_in_valid),
-  .in_sd_wmask    (sd_wmask),	
+  .in_sd_wmask    (sd_wmask),
   .out_sd_done    (sd_done),
   .out_sd_data_out(sd_data_out),
   .out_sdram_cle  (sdram_cke),
@@ -150,13 +150,13 @@ always @(posedge clk_design) begin
   // - state == 0 & sd_done, increment to 1
   // - state == 1, read from SDRAM @addr = 0
   // - state == 1 & sd_done, increment to 2
-  // - state == 2, stay there 
-  state       <= reset ? 0 : (state != 2 ? 
-                             (sd_done ? state + 1 : state) 
+  // - state == 2, stay there
+  state       <= reset ? 0 : (state != 2 ?
+                             (sd_done ? state + 1 : state)
                            : state);
   // write to SDRAM when not in reset and state == 0
   sd_rw       <= ~reset && (state == 0);
-  // tell the controller the state is valid when 
+  // tell the controller the state is valid when
   // writting (state == 0) or reading (state == 1)
   sd_in_valid <= ~reset && (state == 0 || state == 1);
   // we always store TEST_VALUE

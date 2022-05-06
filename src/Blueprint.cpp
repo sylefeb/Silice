@@ -36,6 +36,32 @@ using namespace Silice::Utils;
 
 // -------------------------------------------------
 
+// templated helper to search for vios definitions
+template <typename T>
+bool findVIO(std::string vio, std::unordered_map<std::string, int> names, std::vector<T> vars, Blueprint::t_var_nfo& _def)
+{
+  auto V = names.find(vio);
+  if (V != names.end()) {
+    _def = vars[V->second];
+    return true;
+  }
+  return false;
+}
+
+// -------------------------------------------------
+
+Blueprint::t_var_nfo Blueprint::getVIODefinition(std::string var, bool& _found) const
+{
+  t_var_nfo def;
+  _found = true;
+  if (findVIO(var, inputNames(),  inputs(),  def)) return def;
+  if (findVIO(var, outputNames(), outputs(), def)) return def;
+  if (findVIO(var, inOutNames(),  inOuts(),  def)) return def;
+  _found = false;
+  return def;
+}
+// -------------------------------------------------
+
 std::tuple<t_type_nfo, int> Blueprint::determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const
 {
   t_type_nfo tn;
@@ -55,6 +81,25 @@ std::tuple<t_type_nfo, int> Blueprint::determineVIOTypeWidthAndTableSize(std::st
     reportError(interval, line, "variable '%s' not yet declared", vname.c_str());
   }
   return std::make_tuple(tn, table_size);
+}
+
+// -------------------------------------------------
+
+std::string Blueprint::resolveWidthOf(std::string vio, const t_instantiation_context &ictx, antlr4::misc::Interval interval) const
+{
+  if (isInput(vio)) {
+    auto tn = input(vio).type_nfo;
+    return std::to_string(tn.width);
+  } else if (isOutput(vio)) {
+    auto tn = output(vio).type_nfo;
+    return std::to_string(tn.width);
+  } else if (isInOut(vio)) {
+    auto tn = inout(vio).type_nfo;
+    return std::to_string(tn.width);
+  } else {
+    reportError(interval, -1, "variable '%s' not yet declared", vio.c_str());
+    return "";
+  }
 }
 
 // -------------------------------------------------

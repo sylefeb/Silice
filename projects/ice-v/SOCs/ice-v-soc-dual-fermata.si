@@ -1,0 +1,574 @@
+// SL 2022-03-16 @sylefeb
+
+// Address space and boot configuration
+$$addrW    = 20         -- allow for 1MB ROM addressing
+$$Boot     = 0x100000   -- boot at 1MB (SPIflash ROM)
+$$print('===========> address bus width: ' .. addrW)
+
+// How much BRAM do we allocate
+$$bramSize    = 1024
+
+// Main design frequency
+$$master_freq = 100
+
+$$if ICEBREAKER or ICEBITSY or FOMU then
+$$UP5K = 1
+// Import hardware modules
+import('../common/plls/icebrkr_$master_freq$.v')
+import('../common/ice40_half_quarter_clock.v')
+import('../../common/ice40_spram.v')
+$$elseif SIMULATION then
+// Import SPRAM simulation
+$include('../../common/simulation_spram.si')
+$$else
+$$error('uho, this SOC is for simulation or UP5K only')
+$$end
+
+// Include the processor
+$$ICEV_FAST_SHIFT = 1
+$$ICEV_MULDIV     = nil
+$$ICEV_USERDATA   = nil
+$include('../CPUs/ice-v-dual-fermata.si')
+
+$$if ICARUS then
+// download W25Q128JVxIM from winbond Verilog models
+append('../spiflash/W25Q128JVxIM/W25Q128JVxIM.v')
+import('../spiflash/simul_spiflash.v')
+$$end
+
+// Include the SPIflash controller
+$$nBytes = 4 -- fetches 32 bits words
+$include('../spiflash/spiflash4x.si')
+
+// Include the VGA controller
+$$VGA_VA_END = 400
+$include('../common/vga.si')
+// Include clean reset (delayed reset)
+$include('../common/clean_reset.si')
+
+// Include the UART controller
+$$uart_in_clock_freq_mhz = master_freq//4
+$include('../common/uart.si')
+$include('../common/clean_reset.si')
+
+// --------------------------------------------------
+// RAM
+// --------------------------------------------------
+
+// This group holds the signals for the 32-bits RAM ios
+group ram_io {
+  uint$addrW$ addr(0),     // addr to read from / write to
+  uint4       wenable(0),  // write enable mask (one bit per byte)
+  uint32      wdata(0),    // 4-bytes to write
+  uint32      rdata(0),    // 4-bytes read from memory
+  uint1       req_valid(0),// memory request ready (pulse)
+  uint1       done(0),     // memory request done (pulse)
+}
+
+// memory provider interface (user interface defined in processor source)
+interface ram_provider {
+  input   addr,
+  input   wenable,
+  input   wdata,
+  output! rdata,
+  input   req_valid,
+  output! done
+}
+
+interface ram_provider_reg {
+  input   addr,
+  input   wenable,
+  input   wdata,
+  output  rdata,
+  input   req_valid,
+  output  done
+}
+
+// --------------
+// BRAM implementation of a RAM (not used, kept as an example)
+unit bram_memory(ram_provider io) {
+  // uses template "bram_wmask_byte", that turns wenable into a byte mask
+  $$config['bram_wmask_byte_wenable_width'] = 'data'
+  bram uint32 mem<"bram_wmask_byte">[$bramSize$] = uninitialized; // meminit;
+  uint1  done(0);
+  always {
+    io.rdata    = mem.rdata;
+    mem.wenable = {4{io.req_valid}} & io.wenable;
+    mem.wdata   = io.wdata;
+    mem.addr    = io.req_valid ? io.addr : mem.addr;
+    io.done     = done;
+    done        = io.req_valid;
+  }
+}
+
+// --------------
+// BRAM implementation of a framebuffer
+unit framebuffer_memory(
+  ram_provider io,
+  output uint$color_depth$ video_r,
+  output uint$color_depth$ video_g,
+  output uint$color_depth$ video_b,
+  output uint1             video_hs,
+  output uint1             video_vs,
+) {
+  // framebuffer, 1 bit per pixel, 320x200
+  $$config['bram_wmask_byte_wenable_width'] = 'data'
+  bram uint32 mem<"bram_wmask_byte">[$320*200//32$] = {pad(32haaaaaaaa)};
+  //                                         ^^ Lua integer div
+  uint64 fetch_synch(64b1);
+  uint32 pixels(0);      // 32 pixels
+  uint1  done(0);        // indicates io request was done
+  uint1  pending_req(0); // indicates a valid request is pending
+  uint1  pix_fetched(0); // indicates a pixel was fetch at prev cycle.
+  uint1  req_valid <:: pending_req | :io.req_valid; // incoming request?
+  uint11 fetch <: 1 + v.vga_x[6,4] + (v.vga_y[1,8] << 3)
+                /*            ^^ */+ (v.vga_y[1,8] << 1);
+                //           x/64             ^^ half res, x10 x(8 + 2)
+  // VGA driver
+  vga v(vga_hs :> video_hs,vga_vs :> video_vs);
+  always {
+    // prepare fetch when required
+    mem.addr    = fetch_synch[62,1] // fetch as data is needed next cycle
+                ? (fetch == 2000 ? 0 : fetch)
+                : io.addr[0,widthof(mem.addr)];
+    mem.wenable = fetch_synch[62,1] ? 4b0 : ({4{req_valid}} & io.wenable);
+    mem.wdata   = io.wdata;
+    io.done     = done;
+    done        = ~fetch_synch[62,1] & req_valid;
+    //if (mem.wenable != 4b0) {
+    //  __display("VRAM writting %h @%h (%b) done:%b",io.wdata,io.addr[0,widthof(mem.addr)],io.wenable,done);
+    //}
+    pending_req = fetch_synch[62,1] & req_valid;
+    // video output
+    video_r     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
+    video_g     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
+    video_b     = v.active ? (pixels[0,1] ? 255 : 0) : 0;
+    // update pixels
+    pixels      = pix_fetched      // fetch was prepared cycle before
+                ? mem.rdata        // all 32 pixels
+                : (v.vga_x[0,1] ? (pixels>>1) : pixels); // next pixel
+                // ^^^^^^^ on odd pixels, vga runs 640 we genere 320 pixels
+    pix_fetched = fetch_synch[62,1] & v.active; // we did fetch a pixel
+    //if (fetch_synch[63,1]) {
+    //  __display("%b %d,%d %b @%h",v.active,v.vga_x,v.vga_y,fetch_synch, mem.addr);
+    //}
+    // rotate sync bit
+    fetch_synch = ~v.active
+                ? 64b1
+                : {fetch_synch[0,63],fetch_synch[63,1]};
+  }
+}
+
+// --------------
+// SPRAM implementation of a RAM
+$$if UP5K or SIMULATION then
+unit spram_memory(ram_provider io) {
+  uint14 sp_addr(0);
+  uint4  sp0_wmask(0);   uint1  sp0_wenable(0);
+  uint16 sp0_data_in(0); uint16 sp0_data_out(0);
+  uint4  sp1_wmask(0);   uint1  sp1_wenable(0);
+  uint16 sp1_data_in(0); uint16 sp1_data_out(0);
+$$if SIMULATION then
+  simulation_spram spram0(
+$$else
+  ice40_spram      spram0(clock    <: clock,
+$$end
+    addr    <: sp_addr,     data_in <: sp0_data_in, data_out :> sp0_data_out,
+    wenable <: sp0_wenable, wmask   <: sp0_wmask,
+  );
+$$if SIMULATION then
+  simulation_spram spram1(
+$$else
+  ice40_spram      spram1(clock    <: clock,
+$$end
+    addr    <: sp_addr,     data_in <: sp1_data_in, data_out :> sp1_data_out,
+    wenable <: sp1_wenable, wmask   <: sp1_wmask,
+  );
+  uint1  done(0);
+  always {
+    sp0_data_in   = io.wdata[ 0,16];
+    sp1_data_in   = io.wdata[16,16];
+    sp_addr       = io.req_valid ? io.addr[0,14] : sp_addr;
+    sp0_wmask     = {io.wenable[1,1],io.wenable[1,1],io.wenable[0,1],io.wenable[0,1]};
+    sp1_wmask     = {io.wenable[3,1],io.wenable[3,1],io.wenable[2,1],io.wenable[2,1]};
+    sp0_wenable   = io.req_valid & (io.wenable != 4b0000);
+    sp1_wenable   = io.req_valid & (io.wenable != 4b0000);
+    io.rdata      = {sp1_data_out,sp0_data_out};
+    io.done       = done;
+    done          = io.req_valid;
+    //__display("spram @%h, req_valid:%b, rdata:%h wdata:%h, wmask:%b",io.addr,io.req_valid,{sp1_data_out,sp0_data_out},io.wdata,io.wenable);
+  }
+}
+$$end
+
+// --------------
+// SPIflash implementation of a ROM
+unit spiflash_memory(
+  ram_provider  io,
+  input   uint1 clock2x,
+  input   uint1 clock4x,
+  output  uint1 init(1), // goes low when SPIflash ctrl is ready
+  output  uint1 sf_clk,  output  uint1 sf_csn,
+  inout   uint1 sf_io0,  inout   uint1 sf_io1,
+  inout   uint1 sf_io2,  inout   uint1 sf_io3,
+) {
+  // spiflash rom
+  spiflash_rom sf<reginputs,@clock2x>(
+    sf_clk :>  sf_clk,   sf_csn :>  sf_csn,
+    sf_io0 <:> sf_io0,   sf_io1 <:> sf_io1,
+    sf_io2 <:> sf_io2,   sf_io3 <:> sf_io3,
+    clkspi <: clock4x
+  );
+  // logic
+  uint1  was_busy(0);
+  uint1  sf_is_busy(1); // for clock domain crossing
+  uint32 sf_rdata(0);   // for clock domain crossing
+  always {
+    init        = sf_is_busy & init;
+    io.rdata    = sf_rdata;
+    sf.addr     = io.req_valid ? {4b0001,io.addr[0,18],2b00} : sf.addr;
+    //                                 ^ offset SPIflash addresses by 1MB
+    sf.in_ready = io.req_valid;
+    io.done     = was_busy & ~sf_is_busy;
+    was_busy    = sf_is_busy;
+    sf_is_busy  = sf.busy; // get status from spiflash (clock domain crossing)
+    sf_rdata    = sf.rdata;
+  }
+}
+
+
+// --------------
+// Debug for SPIflash implementation of a ROM
+// Transmits addr and read (32 bits words) over UART every access
+unit spiflash_memory_uart_debug(
+  ram_provider_reg io,
+  input   uint1 clock2x,
+  input   uint1 clock4x,
+  output  uint1 init(1), // goes low when SPIflash ctrl is ready
+  output  uint1 sf_clk,
+  output  uint1 sf_csn,
+  inout   uint1 sf_io0,
+  inout   uint1 sf_io1,
+  inout   uint1 sf_io2,
+  inout   uint1 sf_io3,
+  output  uint1 uart_tx,
+) {
+
+  uart_out    uo;
+$$if UART then
+  uart_sender usend(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
+$$end
+
+  // spiflash
+  spiflash_rom sf<reginputs,@clock2x>(
+    sf_clk :>  sf_clk, sf_csn :>  sf_csn,
+    sf_io0 <:> sf_io0, sf_io1 <:> sf_io1,
+    sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
+    clkspi <: clock4x
+  );
+
+  uint1  sf_is_busy(1);    // for clock domain crossing
+
+  io.done          := 0;
+  sf.in_ready      := 0;
+  uo.data_in_ready := 0;
+
+  always_before {
+    init        = sf_is_busy & init;
+  }
+
+  algorithm <autorun> {
+    subroutine transmit(input uint32 data,readwrites uo)
+    {
+      uint32 tmp(0);
+      uint3 n = 0;
+      tmp     = data;
+      __display("transmit: %h",data);
+      while (~n[2,1]) {
+        uo.data_in       = tmp[24,8];
+        tmp              = tmp << 8;
+        uo.data_in_ready = 1;
+        n                = n + 1;
+        while (uo.busy) {}
+      }
+    }
+    while (1) {
+      if (io.req_valid) {
+        sf.addr     = {4b0001,io.addr[0,18],2b00};
+        // transmit address
+        () <- transmit <- (sf.addr);
+        // request data from spiflash
+        sf.in_ready = 1;
+        while (sf_is_busy) { } // wait
+        // transmit data
+        () <- transmit <- (sf.rdata);
+        // done
+        io.rdata = sf.rdata;
+        io.done  = 1;
+      }
+    }
+  }
+
+  always_after{
+    sf_is_busy  = sf.busy; // get busy status from spiflash (clock domain crossing)
+  }
+}
+
+// --------------
+// Implementation of a composite RAM
+// - [0x000000 - 0x07ffff] RAM
+// - [0x080000 - 0x0fffff] VRAM
+// - [0x100000 -         ] ROM
+// (byte addresses)
+//
+// - RAM  is assumed to be BRAM (1-cycle latency)
+// - VRAM is assumed to be BRAM (1-cycle latency)
+// - ROM  is assumed slow
+// - expects io0 and io1 to be well behaved:
+//   + do not request access again before receiving done
+//   + maintain request data while not fullfilled
+//   + two MSB are either 10 (periph) 01 (FLASH) or 00 (RAM)
+//   + io0 and io1 do not access ram concurrently, always true on ice-v
+//     as ram answers in one cycle
+//   + io0 and io1 do not access vram concurrently, true on ice-v
+//     as vram answers in one cycle, and **assuming that instructions are never
+//     executed from vram**
+//
+unit composite_memory(
+  icev_ram_user ram,
+  icev_ram_user vrm,
+  icev_ram_user rom,
+  ram_provider  io0,
+  ram_provider  io1,
+) {
+  uint1            ram_client(0);
+  uint1            vrm_client(0);
+  uint1            rom0_req_valid(0);
+  uint1            rom1_req_valid(0);
+  uint1            rom_busy(0);
+  uint1            rom_client(0);
+  always {
+    uint1 io0_in_rom_now <: io0.addr[17,2] == 2b10;
+    uint1 io1_in_rom_now <: io1.addr[17,2] == 2b10;
+    uint1 io0_in_ram_now <: io0.addr[17,2] == 2b00;
+    uint1 io1_in_ram_now <: io1.addr[17,2] == 2b00;
+    uint1 io0_in_vrm_now <: io0.addr[17,2] == 2b01;
+    uint1 io1_in_vrm_now <: io1.addr[17,2] == 2b01;
+
+    /// get request results
+    io0.rdata = (rom.done & rom_client == 0) ? rom.rdata
+              : (ram.done & ram_client == 0) ? ram.rdata
+              : (vrm.done & vrm_client == 0) ? vrm.rdata
+              : io0.rdata;
+    io1.rdata = (rom.done & rom_client == 1) ? rom.rdata
+              : (ram.done & ram_client == 1) ? ram.rdata
+              : (vrm.done & vrm_client == 1) ? vrm.rdata
+              : io1.rdata;
+    io0.done  = (rom.done & rom_client == 0)
+              | (ram.done & ram_client == 0)
+              | (vrm.done & vrm_client == 0);
+    io1.done  = (rom.done & rom_client == 1)
+              | (ram.done & ram_client == 1)
+              | (vrm.done & vrm_client == 1);
+    /// RAM access
+    ram.addr       = (io0_in_ram_now & io0.req_valid) ? io0.addr    : io1.addr;
+    ram.wenable    = (io0_in_ram_now & io0.req_valid) ? io0.wenable : io1.wenable;
+    ram.wdata      = (io0_in_ram_now & io0.req_valid) ? io0.wdata   : io1.wdata;
+    ram.req_valid  = (io0_in_ram_now & io0.req_valid)
+                   | (io1_in_ram_now & io1.req_valid);
+    ram_client     = (io0_in_ram_now & io0.req_valid) ? 0 : 1;
+    /// VRAM access
+    vrm.addr       = (io0_in_vrm_now & io0.req_valid) ? io0.addr
+                   : (io1_in_vrm_now & io1.req_valid) ? io1.addr
+                   : vrm.addr;
+    vrm.wenable    = (io0_in_vrm_now & io0.req_valid) ? io0.wenable
+                   : (io1_in_vrm_now & io1.req_valid) ? io1.wenable
+                   : vrm.wenable;
+    vrm.wdata      = (io0_in_vrm_now & io0.req_valid) ? io0.wdata
+                   : (io1_in_vrm_now & io1.req_valid) ? io1.wdata
+                   : vrm.wdata;
+    vrm.req_valid  = (io0_in_vrm_now & io0.req_valid)
+                   | (io1_in_vrm_now & io1.req_valid);
+    vrm_client     = (io0_in_vrm_now & io0.req_valid) ? 0
+                   : (io1_in_vrm_now & io1.req_valid) ? 1
+                   : vrm_client;
+    // ROM access (may be concurrent, io0/io1 can overlap requests)
+    // -> maintain requests low
+    rom.req_valid  = 0;
+    // -> send next, 0 has higher priority
+    if (rom.done) {
+      rom_busy     = 0;
+    }
+    // -> capture requests (will be dealt with asap)
+    rom0_req_valid = io0.req_valid ? io0_in_rom_now : rom0_req_valid;
+    rom1_req_valid = io1.req_valid ? io1_in_rom_now : rom1_req_valid;
+    if (rom0_req_valid & ~rom_busy) {
+      rom.addr       = io0.addr;
+      rom.req_valid  = 1;
+      rom0_req_valid = 0;
+      rom_busy       = 1;
+      rom_client     = 0;
+    } else {
+      if (rom1_req_valid & ~rom_busy) {
+        rom.addr       = io1.addr;
+        rom.req_valid  = 1;
+        rom1_req_valid = 0;
+        rom_busy       = 1;
+        rom_client     = 1;
+      }
+    }
+    // log
+    //if (ram.req_valid) { __display("core %b|%b req RAM",io0_in_ram_now,io1_in_ram_now); }
+    //if (vrm.req_valid) { __display("core %b|%b req VRAM",io0_in_vrm_now,io1_in_vrm_now); }
+    //if (rom.req_valid) { __display("core %b|%b req ROM",~rom_client,rom_client); }
+  }
+}
+
+// --------------------------------------------------
+// PLL for simulation
+// --------------------------------------------------
+
+$$if SIMULATION then
+algorithm pll(
+  output! uint1 clock4x,
+  output  uint1 clock2x,
+  output  uint1 clock1x,
+) <autorun> {
+  uint2 counter(0);
+  clock4x := clock;
+  clock2x := ~counter[0,1]; // x2 slower
+  clock1x := ~counter[1,1]; // x4 slower
+  always { counter = counter + 1; }
+}
+$$end
+
+// --------------------------------------------------
+// SOC
+// --------------------------------------------------
+
+unit main( // I guess this is the SOC :-D
+  output uint5 leds,
+$$if QSPIFLASH then
+  output  uint1 sf_clk,
+  output  uint1 sf_csn,
+  inout   uint1 sf_io0,
+  inout   uint1 sf_io1,
+  inout   uint1 sf_io2,
+  inout   uint1 sf_io3,
+$$end
+$$if UART then
+  output  uint1 uart_tx,
+  input   uint1 uart_rx,
+$$end
+  output  uint$color_depth$ video_r,
+  output  uint$color_depth$ video_g,
+  output  uint$color_depth$ video_b,
+  output  uint1             video_hs,
+  output  uint1             video_vs,
+$$if SIMULATION then
+  output! uint1             video_clock,
+$$end
+// clocking (pll) and reset
+$$if ICEBREAKER or ICEBITSY then
+) <@clock1x> {
+  uint1 clock4x = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock4x,
+  );
+  uint1 clock1x  = uninitialized;
+  uint1 clock2x  = uninitialized;
+  ice40_half_quarter_clock hc(
+    clock_in  <: clock4x,
+    clock_h   :> clock2x,
+    clock_q   :> clock1x,
+  );
+  //uint1 rst = uninitialized;
+  //clean_reset crst<@clock1x,!reset>(
+  //  out :> rst
+  //);
+$$elseif SIMULATION then
+ ) <@clock1x> {
+  uint1 clock1x = uninitialized;
+  uint1 clock2x = uninitialized;
+  uint1 clock4x = uninitialized;
+  pll clkgen<@clock,!reset>(
+    clock1x :> clock1x,
+    clock2x :> clock2x,
+    clock4x :> clock4x
+  );
+  //uint1 rst <: reset;
+$$else
+) {
+$$end
+
+$$if SIMULATION then
+  uint32 cycle(0);
+  // for simulation, create dummy spiflash io pads
+  uint1 sf_csn(1); uint1 sf_clk(0); uint1 sf_io0(0);
+  uint1 sf_io1(0); uint1 sf_io2(0); uint1 sf_io3(0);
+  uint1 uart_tx(0);
+$$if ICARUS then
+  simul_spiflash simu(
+    CSn <:  sf_csn, CLK <:  sf_clk, IO0 <:> sf_io0,
+    IO1 <:> sf_io1, IO2 <:> sf_io2, IO3 <:> sf_io3,
+  );
+$$end
+$$end
+
+  // ---- memory
+  // -> bram
+  ram_io spram;
+  spram_memory mem0(io <:> spram);
+  // -> spiflash
+  ram_io spflash;
+  spiflash_memory mem1(
+  // spiflash_memory_uart_debug mem1(uart_tx :> uart_tx,
+    io <:> spflash,
+    clock4x <: clock4x,
+    clock2x <: clock2x,
+    sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
+    sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
+  );
+  uint1 sys_rst <: mem1.init; // system reset when spiflash is ready
+  // -> framebuffer
+  ram_io fbuffer;
+  framebuffer_memory mem2(io <:> fbuffer,
+    video_r  :> video_r,  video_g  :> video_g,  video_b :> video_b,
+    video_hs :> video_hs, video_vs :> video_vs
+  );
+  // ---- composite memory
+  ram_io mem0io;
+  ram_io mem1io;
+  composite_memory mem<!sys_rst>(
+    ram <:> spram,  vrm <:> fbuffer,  rom <:> spflash,
+    io0 <:> mem0io, io1 <:> mem1io,
+  );
+
+  // ---- cpu
+  icev_dual_fermata cpu<!sys_rst>(
+    mem0 <:> mem0io,
+    mem1 <:> mem1io
+  );
+
+  always {
+
+    leds = 8b0;
+
+$$if SIMULATION then
+    cycle       = cycle + 1;
+    video_clock = clock1x;
+$$if ICARUS then
+    if (cycle == 16000) {
+      __finish();
+    }
+$$end
+$$end
+  }
+
+}
+
+// --------------------------------------------------

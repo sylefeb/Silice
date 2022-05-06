@@ -4,20 +4,27 @@ The Ice-V-dual is a dual core version of the [Ice-V](README.md). It contains *tw
 RV32I cores that work independently but share the RAM (code + data). Like
 the Ice-V it is specialized to run from BRAM.
 
-With its SoC it uses ~1220 LUTs on the IceStick and validates at ~55 MHz.
+With its SoC it uses ~1240 LUTs on the IceStick and validates at ~55 MHz.
 Each core is 4 cycles per instruction but for shifts (shifts are done one bit per cycle, both cores wait if one does ALU shifts - this is only to save LUTs, otherwise shifts could be one cycle). Cores retire instructions with a 2 cycles delay between them.
 `rdcycle` is supported with a 31 bits counter, the LSB of `rdcycle` returns the CPU id.
 
-The processor source code is in [ice-v-dual.ice](CPUs/ice-v-dual.ice), the SOC source code is in [ice-v-dual.ice](SOCs/ice-v-soc-dual.ice). Also
+The processor source code is in [ice-v-dual.si](CPUs/ice-v-dual.si), the SOC source code is in [ice-v-dual.si](SOCs/ice-v-soc-dual.si). Also
 note that the Ice-V is available in [Silice RISC-V integration](../easy-riscv/README.md).
 
 The following Section explains the processor design and how going from the [single core Ice-V](README.md) to the dual core version is actually relatively simple!
 
-If you only want to test the demos, jump directly to the [running the design and demos](#running-the-design-and-demos) Section.
+> If you only want to test the demos, jump directly to the [running the design and demos](#running-the-design-and-demos) Section.
 
+> I made a talk about the Ice-V dual which you can [watch here](https://www.youtube.com/watch?v=fr4Dst1fQrk&t=6647s).
+
+<center><i>One CPU controls the screen while the other controls the LEDs</i></center>
 <p align="center">
   <img src="ice-v-dual-demo.png"><br>
-<center><i>One CPU controls the screen while the other controls the LEDs</i></center>
+</p>
+
+<center><i>The entire dual core processor code</i></center>
+<p align="center">
+  <img src="ice-v-dual-120.png">
 </p>
 
 ## How is this possible?

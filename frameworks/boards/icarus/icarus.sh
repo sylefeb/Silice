@@ -29,7 +29,7 @@ esac
 
 cd $BUILD_DIR
 
-rm build* icarus.fst icarus.fst.hier
+rm build* trace.fst trace.fst.hier
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
@@ -38,5 +38,5 @@ vvp build -fst
 
 echo "===================================="
 echo "Visualize the simulation trace with:"
-echo "    gtkwave BUILD_icarus/icarus.fst"
+echo "    gtkwave BUILD_icarus/trace.fst"
 echo "===================================="

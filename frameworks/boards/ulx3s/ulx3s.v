@@ -51,7 +51,7 @@ module top(
   output sdram_rasn,
   output [1:0]  sdram_ba,
   output [12:0] sdram_a,
-  inout  [15:0] sdram_d,
+  inout  [15:0] sdram_dq,
 `endif
 `ifdef AUDIO
   // audio jack
@@ -104,6 +104,12 @@ module top(
 `ifdef UART2
   // uart2
 `endif
+`ifdef SPIFLASH
+  output flash_csn,
+  output flash_mosi,
+  input  flash_miso,
+`endif
+  output wifi_gpio0,
   input  clk_25mhz
   );
 
@@ -190,7 +196,7 @@ M_main __main(
   .in_btns       (btns),
 `endif
 `ifdef SDRAM
-  .inout_sdram_dq(sdram_d),
+  .inout_sdram_dq(sdram_dq),
   .out_sdram_clk (__main_out_sdram_clk),
   .out_sdram_cle (__main_out_sdram_cle),
   .out_sdram_dqm (__main_out_sdram_dqm),
@@ -236,6 +242,12 @@ M_main __main(
 `ifdef UART
   .out_uart_tx  (__main_out_uart_rx),
   .in_uart_rx   (ftdi_txd),
+`endif
+`ifdef SPIFLASH
+  .out_sf_clk(__main_flash_clk),
+  .out_sf_csn(flash_csn),
+  .out_sf_mosi(flash_mosi),
+  .in_sf_miso(flash_miso),
 `endif
 `ifdef VGA
   .out_video_hs (__main_out_vga_hs),
@@ -315,9 +327,18 @@ assign ftdi_rxd      = __main_out_uart_rx;
 assign gpdi_dp       = __main_out_gpdi_dp;
 `endif
 
+`ifdef SPIFLASH
+wire __main_flash_clk;
+USRMCLK usrmclk_flash(
+          .USRMCLKI(__main_flash_clk),
+          .USRMCLKTS(1'b0));
+`endif
+
 `ifdef US2_PS2
 assign usb_fpga_pu_dp = 1;
 assign usb_fpga_pu_dn = 1;
 `endif
+
+assign wifi_gpio0 = 1'b1; // see https://github.com/sylefeb/Silice/issues/207
 
 endmodule

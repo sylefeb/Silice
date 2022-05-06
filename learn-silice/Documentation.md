@@ -10,8 +10,8 @@ When designing with Silice your code describes circuits. If not done already, it
 -   [A first example](#a-first-example)
 -   [Terminology](#terminology)
 -   [Basic language constructs](#basic-language-constructs)
-    -   [Types](#sec:types)
-    -   [Constants](#sec:csts)
+    -   [Types](#types)
+    -   [Constants](#constants)
     -   [Variables](#variables)
     -   [Tables](#tables)
     -   [Block RAMs / ROMs](#block-rams-roms)
@@ -63,15 +63,14 @@ GitHub repository: <https://github.com/sylefeb/Silice/>
 
 # A first example
 
-This first example assumes two signals: a `button` input (high when
+As a brief overview, let us consider a simple first example. It assumes two input/output signals: a `button` input (high when
 pressed) and a `led` output, each one bit.
 
-The *main* algorithm – the one expected as top level – simply asks the
+The *main* unit – the one expected as top level – simply asks the
 led to turn on when the button is pressed. We will consider several
 versions – all working – to demonstrate basic features of Silice.
 
-Perhaps the most natural version for a programmer not used to FPGAs
-would be:
+Perhaps the most natural version for a programmer would be:
 
 ``` c
 algorithm main(input uint1 button,output uint1 led) {
@@ -89,9 +88,8 @@ algorithm main(input uint1 button,output uint1 led) {
   led := button;
 }
 ```
-
-This makes `led` constantly track the value of `button`. A very
-convenient feature is that the always assignment can be overridden
+This makes `led` constantly track the value of `button`.
+A very convenient feature is that the always assignment can be overridden
 at some clock steps, for instance:
 
 ``` c
@@ -111,7 +109,7 @@ was minimal), but it shows the principle: `led` is always assigned
 useful to maintain an output to a value that must change only on some
 specific event (e.g. producing a pulse).
 
-This first example has an interesting subtlety. The `button` input, if it comes directly from an onboard button, is likely *asynchronous*. This means it can change at anytime, even during a clock cycle. That could lead to trouble with the logic that depends on it. To be safe, a better approach is to *register* the input button, this can be achieved as follows:
+This first example has an interesting subtlety. The `button` input, when it comes directly from an onboard button, is *asynchronous*. This means it can change at anytime, even during a clock cycle. That could lead to trouble with the logic that depends on it. To be safe, a better approach is to *register* the input button, this can be achieved as follows:
 
 ``` c
 algorithm main(input uint1 button,output uint1 led) {
@@ -121,19 +119,68 @@ algorithm main(input uint1 button,output uint1 led) {
 
 Using the `::=` syntax introduces a one cycle latency and inserts a flip-flop between the asynchronous input and whatever comes after. This won't change our results in this toy example but is generally important.
 
+Finally, in all examples above we declared the unit as an algorithm. This is in fact a shortcut for the full syntax:
+
+``` c
+unit main(input uint1 button,output uint1 led) {
+  algorithm {
+    while (1) {
+      led = button;
+    }
+  }
+}
+```
+
+Units can contain other types of blocks in addition to an algorithm: *always* blocks. For instance, we could rewrite our example *without* an algorithm:
+
+``` c
+unit main(input uint1 button,output uint1 led) {
+  always {
+    led = button;
+  }
+}
+```
+This describes a stateless circuit, that always assigns `button` to `led`.
+
+We can also combine algorithms and always blocks:
+
+``` c
+unit main(input uint1 button,output uint1 leds) {
+
+  uint1 reg_button = 0;
+
+  always_before {
+    led = 0;
+  }
+
+  algorithm {
+    while (1) { if (reg_button) { led = 1; } }
+  }
+
+  always_after {
+    reg_button = button;
+  }
+
+}
+```
+
+This last version demonstrates all blocks: the `always_before` block is always assigning `0` to `led`, every cycle *before*  the current algorithm step ; the `algorithm` block runs an infinite loop assigning `1` to `led` if `reg_button` is set ; the `always_after` block tracks the asynchronous `button` input into a variable, with a one cycle latency since it is the last thing done every cycle *after* the current algorithm step.
+
 # Terminology
 
 Some terminology we use next:
 
--   **VIO**: a Variable, Input or Output.
+-   **unit**: The basic building block of a Silice design.
+-   **algorithm**: The part of a unit that describes an algorithm.
 -   **One-cycle block**: A block of operations that require a single
     cycle (no loops, breaks, etc.).
--   **Host hardware framework**: The Verilog glue to the hardware meant
-    to run the design. This can also be a glue to Icarus[1] or
-    Verilator[2], both frameworks are provided.
 -   **Combinational loop**: A circuit where a cyclic
     dependency exists. These lead to unstable hardware synthesis and
     have to be avoided.
+-   **VIO**: A Variable, Input or Output.
+-   **Host hardware framework**: The Verilog glue to the hardware meant
+    to run the design. This can also be a glue to Icarus[1] or
+    Verilator[2], both frameworks are provided.
 
 # Basic language constructs
 
@@ -141,9 +188,11 @@ Some terminology we use next:
 
 Silice supports signed and unsigned integers with a specified bit width:
 
--   `int`N with N the bit-width, e.g. `int8`: signed integer.
+- `int`N with N the bit-width, e.g. `int5`: signed integer.
 
--   `uint`N with N the bit-width, e.g. `uint8`: unsigned integer.
+- `uint`N with N the bit-width, e.g. `uint11`: unsigned integer.
+
+Since this is hardware design, there is no overhead in using arbitrary widths (as opposed to only 8, 16, 32). In fact it is best to use as little as possible for your purpose since it minimizes the hardware logic size.
 
 ## Constants
 
@@ -159,21 +208,23 @@ or can be given with a specified bit width and base:
 Supported base identifiers are: `b` for binary, `h` for hexadecimal, `d`
 for decimal. If the value does not fit the bit width, it is clamped.
 
+It is recommended to always specify the size of your constants, as this helps hardware synthesis and can avoid some ambiguities leading to unexpected behaviors.
+
 ## Variables
 
 Variables are declared with the following pattern:
 
--   `TYPE ID = VALUE;` initializes the variable with value on algorithm
+-   `TYPE ID = VALUE;` initializes the variable with VALUE on unit
     start / reset.
 
--   `TYPE ID(VALUE);` initializes the variable with value on *power-up*
-    (when the FPGA is configured).
+-   `TYPE ID(VALUE);` initializes the variable with VALUE on *power-up*
+    (when the FPGA is turned on or configured).
 
-where `TYPE` is a type definition
-(Section <a href="#sec:types" data-reference-type="ref" data-reference="sec:types">3.1</a>),
+Above, `TYPE` is a type definition
+(Section <a href="#types" data-reference-type="ref" data-reference="types">Types</a>),
 `ID` a variable identifier (starting with a letter followed by
 alphanumeric or underscores) and `VALUE` a constant
-(Section <a href="#sec:csts" data-reference-type="ref" data-reference="sec:csts">3.2</a>).
+(Section <a href="#constants" data-reference-type="ref" data-reference="constants">Constants</a>).
 
 The initializer is mandatory, and is always a simple constant (no
 expressions), or the special value `uninitialized`. The later indicates
@@ -216,7 +267,7 @@ Similarly, the padding can be uninitialized:
 first part of the table will be initialized, the state of the other
 values will be unknown.
 
-Tables can also be initialized from file content, but only for specific bit-widths (currently 8 bits and 32 bits).
+Tables can also be initialized from file content, but only for specific bit-widths (currently 8 bits, 16 bits and 32 bits).
 
 Example: `int32 tbl[256] = {file("data.img"), pad(0)};`
 
@@ -306,7 +357,7 @@ by braces. Example:
   int6  i = 6b111000;
   int2  j = 2b10;
   int10 k = 0;
-  k := {j,i,2b11};
+  k = {j,i,2b11};
 ```
 
 Here c is obtained by concatenating a,b and the constant 2b11 to form a
@@ -317,14 +368,14 @@ Bits can also be replicated with a syntax similar to Verilog:
 ``` c
   uint2  a = 2b10;
   uint9  c = 0;
-  c := { 1b0, {8{a[1,1]}} };
+  c = { 1b0, {8{a[1,1]}} };
 ```
 
 Here the last eight bits of variable c are set to the second bit of a.
 
 ### Bindings
 
-Silice defines operators for bindings the input/output of algorithms and
+Silice defines operators for bindings the input/output of units and
 modules:
 
 -   `<:` binds right to left,
@@ -332,12 +383,12 @@ modules:
 -   `<:>` binds both ways.
 
 The bound sides have to be VIO identifiers. To bind expressions you can
-use expression tracking (see
-Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:exprtrack">3.6.6</a>).
+use expression trackers (see
+Section <a href="#expression-trackers" data-reference-type="ref" data-reference="expression-trackers">Expression trackers</a>).
 
 Bound VIOs are connected and immediately track each others values. A
 good way to think of this is as a physical wire between IC pins, where
-each VIO is a pin. Bindings are specified when instantiating algorithms
+each VIO is a pin. Bindings are specified when instantiating units
 and modules.
 
 The bidirectional binding is reserved for two use cases:
@@ -350,65 +401,25 @@ The bidirectional binding is reserved for two use cases:
 
 There are two other versions of the binding operators:
 
--   `<::` binds right to left, using value *at latest clock rising edge*,
+-   `<::` binds right to left, introducing a one cycle latency in the input value change,
 
--   `<::>` binds an IO group, using value *at latest clock rising edge for    inputs*.
+-   `<::>` binds an IO group, introducing a one cycle latency in the inputs value change.
 
-Normally, the bound inputs are tracking the value of the bound VIO as changed during the current clock cycle. Therefore, the
-tracking algorithm/module immediately gets new values (in other words,
-there is a direct connection).
-This, however, produces deeper circuits and can reduce the max frequency of a design. These operators allow to bind the value as it was at the cycle start (positive clock edge).
-This introduces a one cycle latency before the algorithm/module sees the change, but makes the resulting circuit less deep. See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
+> The `<::` operators are *very important*: they allow to relax timing constraints (reach higher frequencies), by accepting a one cycle latency. As a general rule, using delayed operators (indicated by `::`) is recommended whenever possible.
 
-> **Note:** when a VIO is bound both to an algorithm input and and algorithm output (making a direct connection between two instantiated algorithms), then using `<::` or `<:` will result in the same behavior, which is controlled by the use of `output` or `output!` on the algorithm driving the output. This will be clarified in the future, see [issue #49](https://github.com/sylefeb/Silice/issues/49).
+Normally, the bound inputs are tracking the value of the bound VIO as it is changed during the current clock cycle. Therefore, the tracking unit/module immediately gets new values (in other words, there is a direct connection).
+This, however, produces deeper circuits and can reduce the max frequency of a design. The delayed operators (indicated by `::`) allow to bind the value with a one cycle latency, placing a register (flip-flop) in between. This makes the resulting circuit less deep. See also the [notes on algorithms calls, bindings and timings](AlgoInOuts.md).
 
+> **Note:** when a VIO is bound both to an instanced unit input and an instanced unit output (making a direct connection between two instantiated units), then using `<::` or `<:` will result in the same behavior, which is controlled by the use of `output` or `output!` on the algorithm driving the output. Silice will issue a warning if using `<::` in that case.
 
-### Always assign
-
-Silice defines operators for always assignment of VIOs. An always
-assignment is performed regardless of the execution state. It happens
-before anything else and can be overridden from the algorithm. Always
-assignments are order dependent between them.
-The left side of the assignment has to be a VIO identifier, while the right side may be an expression.
-
--   `:=` assign right to left at each rising clock,
-
--   `::=` assign right to left with a one clock cycle delay (two stages
-    flip-flop for e.g. clock domain crossing).
-
-Always assignments are specified just after variable declarations
-and algorithms/modules instantiations. A typical use case is to make
-something pulse high, for instance:
-
-``` c
-algorithm writer(
-  output uint1 write, // pulse high to write
-  output uint8 data,  // byte to write
-  // ...
-) {
-
-  write := 0; // maintain low with always assign
-  // ...
-  if (do_write) {
-    data  = ...;
-    write = 1; // pulses high on next rising clock
-  }
-
-}
-```
-
-> **Note:** the assignment is performed before anything else. If the value of the expression in the right hand side is later changing (during the clock cycle), this will not change the value of the left hand side. To achieve this use *bound expressions* (see next).
-
-> **Note:** If the right hand side of a `:=` contains an asynchronous input, the always assignement will not register it. The always assignment tracks the input value immediately as it changes. To register an input use `::=` instead.
-
-### Bound expressions
+### Expression trackers
 
 Variables can be defined to constantly track the value of an expression,
 hence *binding the variable* and the expression. This is done during the
 variable declaration, using either the *&lt;:* or *&lt;::* binding
 operators. Example:
 
-``` c
+```c
 algorithm adder(
   output uint9 o,
   // ...
@@ -428,299 +439,110 @@ changes to the expression *a+b*. Note that the variable *a\_plus\_b*
 becomes read only (in Verilog terms, this is now a wire). We call *o* an
 expression tracker.
 
-The second operator, *&lt;::* tracks the expression using the values of
-the variables *as they where at the previous clock rising edge*. If used
+The second operator, `<::` tracks the expression with a one cycle latency. Thus, its value is the value of the expression at the previous cycle. If used
 in this example, o would be assigned 1+2.
 
-Bound expression can refer to other bound expressions, however *&lt;:*
-and *&lt;::* cannot be mixed. (They could be in technical terms, but
-this was found to quickly lead to confusion).
+> The `<::` operator is *very important*: it allows to relax timing constraints (reach higher frequencies), by accepting a one cycle latency. As a general rule, using delayed operators (indicated by `::`) is recommended whenever possible.
 
-## Groups
-
-Often, we want to pass around variables that form conceptual groups,
-like the interface to a controller or a 2D point. Silice has a specific mechanism to
-help with that. A group is declared as:
-
-``` c
-// SDRAM interface
-group sdram_32b_io
-{
-  uint24 addr       = 0,
-  uint1  rw         = 0,
-  uint32 data_in    = 0,
-  uint32 data_out   = 0,
-  uint1  busy       = 1,
-  uint1  in_valid   = 0,
-  uint1  out_valid  = 0
-}
-```
-
-Note that group declarations are made *outside* of algorithms.
-
-A group variable can be declared directly:
-
-``` c
-sdram_32b_io sd; // init values are defined in the group declaration
-```
-
-To pass a group variable to an algorithm, we need to define an interface
-(see also
-Section <a href="#sec:interfaces" data-reference-type="ref" data-reference="sec:interfaces">3.8</a>).
-This will further specify which group members are input and outputs:
-
-``` c
-algorithm sdramctrl(
-  // ..
-  // anonymous interface
-  sdram_provider sd {
-    input   addr,       // address to read/write
-    input   rw,         // 1 = write, 0 = read
-    input   data_in,    // data from a read
-    output  data_out,   // data for a write
-    output  busy,       // controller is busy when high
-    input   in_valid,   // pulse high to initiate a read/write
-    output  out_valid   // pulses high when data from read is
-}
-) {
-  // ..
-```
-
-Binding to the algorithm is then a single line ; in the parent:
-
-``` c
-sdramctrl memory(
-  sd <:> sd,
-  // ..
-);
-```
-
-The `<::>` operator can also be used in the binding of an interface (see Section <a href="#sec:bindings" data-reference-type="ref" data-reference="sec:bindings">3.6.4</a>).
-
-A group can be passed in a call if the algorithm describes an anonymous interface. If the interface has both inputs and outputs, the group can appear both as an input and an output in the call.
-
-> **Note:** A group cannot contain tables nor other groups.
-
-## Anonymous interfaces
-
-Interfaces can be declared for a group during algorithm definition.
+Expression trackers can refer to other trackers. Note that when mixing  `<:` and `<::` the second operator (`<::`) will not change the behavior of the first tracker. Silice will issue a warning in that situation, which can be silenced by adding a `:` in front of the first tracker, example:
 
 ```c
-group point {
-  int16 x = 0,
-  int16 y = 0
-}
-
-algorithm foo(
-  point p0 {
-    input x,
-    input y,
-  },
-  point p1 {
-    input x,
-    input y,
-  }
-) {
-  // ..
+  uint9 a_plus_b        <:  a + b;
+  uint9 c_plus_a_plus_b <:: c + a_plus_b;
 ```
 
-To simplify the above, and when group members are all bound either as inputs or outputs, as simpler syntax exists:
+The warning says:
+```
+[deprecated] (E:/cygwin64/home/sylefeb/Silice/tests/doc1.si, line    8)
+             Tracker 'a_plus_b' was defined with <: and is used in tracker 'c_plus_a_plus_b' defined with <::
+             This has no effect on 'a_plus_b'.
+             Double check meaning and use ':a_plus_b' instead of just 'a_plus_b' to confirm.
+```
+
+> It is a *deprecation* warning since Silice previously accepted this syntax silently.
+
+To fix this warning we indicate explicitly that we understand the behavior, adding `:` in front of `a_plus_b`:
+
 ```c
-algorithm foo(
-  input point p0,
-  input point p1
-) {
-  // ..
+  uint9 a_plus_b        <:  a + b;
+  uint9 c_plus_a_plus_b <:: c + :a_plus_b;
 ```
 
-Anonymous interfaces allow groups to be given as parameters during calls.
+What happens now is that the value of `c_plus_a_plus_b` is using the immediate value of `a_plus_b` and the delayed value of `c` (from previous cycle).
 
-## Named interfaces
+# Units and algorithms
 
-Named interfaces are ways to describe what inputs and outputs an algorithm expects, without knowing in advance the exact specification of these fields (e.g. their widths).
-Besides making algorithm IO description more compact, this provides genericity.
+Units and algorithms are the main elements of a Silice design.
+A unit is not an actual piece of hardware but rather a specification,
+a blueprint of a circuit implementation.
+Thus, units have to be *instantiated* before being used. Each instance
+will be allocated physical resources on the hardware implementation,
+using logical cells in an FPGA grid or transistors in an ASIC. Instances
+are physically connected to other instances and IO pins by wires.
 
-Named interfaces **have** to be bound to a group
-(Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>) or an interface upon algorithm instantiation. They cannot be used to pass a group in a call. The binding does not have to be complete: it is possible to bind to an interface a group having **more** (not less) members than the interface.
+A unit may be instantiated several times, for example creating several CPUs within a same design. A unit can instantiate other units: [a small computer unit](../projects/ice-v/SOCs/ice-v-soc.si) would instantiate a memory, a CPU, a video signal generator and describe how they are connected together. When a unit is instantiated, all its sub-units are also instantiated.  In the following, we call the unit containing sub-units the *parent* of the sub-unit.
 
-Reusing the example of
-Section <a href="#sec:groups" data-reference-type="ref" data-reference="sec:groups">3.7</a>
-we can define a named interface ahead of time:
-
-``` c
-interface sdram_provider {
-  input   addr,       // address to read/write
-  input   rw,         // 1 = write, 0 = read
-  input   data_in,    // data from a read
-  output  data_out,   // data for a write
-  output  busy,       // controller is busy when high
-  input   in_valid,   // pulse high to initiate a read/write
-  output  out_valid   // pulses high when data from read is
-}
-```
-
-And then the sdram controller algorithm declaration simply becomes:
-
-``` c
-  algorithm sdramctrl(
-    // interface
-    sdram_provider sd,
-    // ..
-  ) {
-    // ..
-```
-
-Note than the algorithm is now using a named interface, it does not
-know in advance the width of the signals in the interface. This is
-determined at binding time, when a group is bound to the interface.
-Interfaces can be bound to other interfaces, the information is
-propagated when a group is bound at the top level.
-
-For instance, we may define another group as follows, which uses 8 bits
-instead of 32 bits:
-
-``` c
-  // SDRAM interface
-  group sdram_8b_io
-  {
-    uint24 addr       = 0,
-    uint1  rw         = 0,
-    uint8  data_in    = 0,
-    uint8  data_out   = 0,
-    uint1  busy       = 1,
-    uint1  in_valid   = 0,
-    uint1  out_valid  = 0
-  }
-```
-
-This group can be bound to the `sdramctrl` controller, which now will
-receive 8 bits signals for `data_in`/`data_out`.
-
-The `sdramctrl` controller can adjust to this change, using `sameas` and
-`widthof`. The first, `sameas`, allows to declare a variable the same as
-another:
-
-``` c
-sameas(sd.data_in) tmp;
-```
-
-The second, `widthof`, returns the width of a signal:
-
-``` c
-while (i < (widthof(sd.data_in) >> 3)) {
-  // ...
-}
-```
-
-> **Note:** In the future Silice will provide compile time checks, for instance verifying the width of a signal is a specific value.
-
-
-## Bitfields
-
-There are many cases where we pack multiple data in a larger variable,
-for instance:
-
-``` c
-  uint32 data = 32hffff1234;
-  // ..
-  left  = data[ 0,16];
-  right = data[16,16];
-```
-
-The hard coded values make this type of code quite hard to read and
-difficult to maintain. To cope with that, Silice defines bitfields. A
-bitfield is first declared:
-
-``` c
-bitfield Node {
-  uint16 right,
-  uint16 left
-}
-```
-
-Note that the first entry in the list is mapped to the higher bits of
-the field.
-
-This can then be used during access, to unpack the data:
-
-``` c
-left  = Node(data).left;
-right = Node(data).right;
-```
-
-There is no overhead to the mechanism, and different bitfield can be
-used on a same variable depending on the context (e.g. instruction
-decoding).
-
-The bitfield can also be used to initialize the wider variable:
-
-``` c
-uint32 data = Node(left=16hffff,right=16h1234);
-```
-
-## Intrinsics
-
-Silice has convenient intrinsics:
-
--   `__signed(exp)` indicates the expression is signed (Verilog
-    `$signed`)
-
--   `__unsigned(exp)` indicates the expression is unsigned (Verilog
-    `$unsigned`)
-
--   `__display(format_string,value0,value1,...)` maps to Verilog
-    `$display` allowing text output during simulation.
-
-# Algorithms
-
-Algorithms are the main elements of a Silice design. An algorithm is a
-specification of a circuit implementation. Thus, like modules in
-Verilog, algorithms have to be instanced before being used. Each
-instance becomes an actual physical layout on the final design. An
-algorithm can instance other algorithms and Verilog modules.
-
-Instanced algorithms *always run in parallel*. However they can be
-called synchronously (implying a wait state in the caller). They may run
-forever and start automatically. Each may be driven from a specific
+Instantiated units *always run in parallel*: they are pieces of hardware that are always powered on and active. Each unit be driven from a specific
 clock and reset signal.
 
-#### main (entry point).
+A unit can contain different types of hardware descriptions: a single `always` block, or an `algorithm` and its accompanying (optional) `always_before` and `always_after` blocks.
 
-The top level algorithm is called *main* and has to be defined. It is
-automatically instanced by the *host hardware framework*, see
+A unit containing only an algorithm block can be optionally directly declared as an algorithm, that is:
+```verilog
+unit foo( ... )
+{
+  algorithm {
+    ...
+  }
+}
+```
+can equivalently be declared as:
+```verilog
+algorithm foo( ... )
+{
+  ...
+}
+```
+
+### main (design 'entry point').
+
+The top level unit is called *main*, and has to be defined in a standalone design. It is automatically instantiated by the *host hardware framework*, see
 Section <a href="#sec:host" data-reference-type="ref" data-reference="sec:host">8</a>.
 
-## Declaration
+## Unit declaration
 
-An algorithm is declared as follows:
+A unit is declared as follows:
 
-``` verilog
-algorithm ID (
-input TYPE ID
-...
-output TYPE ID
-...
-output! TYPE ID
+```verilog
+unit ID (
+(input | output | output! | inout) TYPE ID,
 ...
 ) <MODS> {
   DECLARATIONS
-  SUBROUTINES
   ALWAYS_ASSIGNMENTS
-  ALWAYS_BLOCK
+  (ALWAYS_BEFORE_BLOCK ALGORITHM ALWAYS_AFTER_BLOCK) or (ALWAYS_BLOCK)
+}
+```
+
+The algorithm block is declared as:
+``` verilog
+algorithm <MODS> {
+  DECLARATIONS
+  SUBROUTINES
   INSTRUCTIONS
 }
 ```
 
 Most elements are optional: the number of inputs and outputs can vary,
-the modifiers may be empty (in which case the `’<>’` is not necessary)
-and declarations, bindings and instructions may all be empty.
+the modifiers may be empty (in which case the `’<>’` is not necessary),
+declarations and instructions may all be empty.
 
 Here is a simple example:
 
 ``` c
-algorithm adder(intput uint8 a,intput uint8 b,output uint8 v)
+unit adder(input uint8 a,input uint8 b,output uint8 v)
 {
-  v = a + b;
+  v := a + b;
 }
 ```
 
@@ -731,29 +553,26 @@ Let us now discuss each element of the declaration.
 Inputs and outputs may be declared in any order, however the order
 matters when calling the algorithms (parameters are given in the order
 of inputs, results are read back in the order of outputs). Input and
-outputs can be single variables or tables. A third type `inout` exists
-for compatibility with Verilog modules, however these can only be passed
-and bound to imported modules (i.e. they cannot be used in expressions
-and instructions for now).
+outputs can be single variables or tables. A third type `inout` exists, which represent tristate variables. These are groups with members `.oenable` (enables the output), `.o` for the output and `.i` for the input. See [this example project](../projects/inout/README.md) for details.
 
-Note that there are two types of output: `output` and `output!`. These
-distinguish between a standard and an immediate output (exclamation
-mark). A standard output sees its value updated at the next clock cycle.
-An immediate output ensures that callers sees the results within the
-same cycle. This can be for instance important when implementing a video
+Note that there are two types of outputs: `output` and `output!`. These
+distinguish between a *registered* and an *immediate* output (with exclamation
+mark). This is a very important distinction when outputs are bound, but makes no difference when algorithms are called.
+
+When using a registered output, the parent will only see the value updated at the next clock cycle. In contrast, an immediate output is a direct connection and ensures that the parent sees the results immediately, within the same cycle. This can be for instance important when implementing a video
 driver; e.g. a HDMI module generates a pixel coordinate on its output
 and expects to see the corresponding color on its input within the same
 clock cycle (even though a better design would allow a one-cycle
 latency). In such a scenario the algorithm outputting the color to the
 HDMI driver will input the coordinate and use `output!` for the color.
-However, using only `output!` will in some cases result in combinational
-loops: a cycle in the described circuitry (that is generally bad).
-Silice detects such cases and will issue an error (see also
-Section <a href="#combloops" data-reference-type="ref" data-reference="combloops">4.6</a>).
+However, using only `output!` has drawbacks. It tends to generate deeper circuits with lower maximum frequency. Oftentimes, paying one in latency
+allow to reach higher frequencies and is well worth it.
+Using `output!` may also result in combinational loops: a cycle in the described circuitry (that is generally bad). Silice detects such cases and issues an error (see also Section <a href="#combloops" data-reference-type="ref" data-reference="combloops">4.6</a>).
+
+This is an important topic, and while this can be put aside when starting, mastering hardware design requires a deep understanding of the effect of registered inputs/outputs. Please refer to the [notes on algorithms calls, bindings and timings](AlgoInOuts.md) for more details.
 
 > **Note:** Silice combinational loop detection is not perfect yet.
-Such a problem would typically result in simulation hanging (unable to stabilize
-the circuit) with Verilator issuing a `UNOPTFLAT` warning.
+Such a problem would typically result in simulation hanging (unable to stabilize the circuit) with Verilator issuing a `UNOPTFLAT` warning.
 
 #### *Declarations.*
 
@@ -770,22 +589,60 @@ algorithm main(output uint8 led)
 }
 ```
 
+#### *Always assign.*
+
+Silice defines operators for *always assignment* of VIOs. An always
+assignment is performed regardless of the execution state. It is applied
+before any other logic and thus can be overridden from the always blocks and algorithm. Always assignments are order *dependent* between them.
+The left side of the assignment has to be a VIO identifier, while the right side may be any expression. There are two variants:
+
+-   `:=` always assign.
+
+-   `::=` *registered* always assign.
+
+The registered version introduces a register in between the right expression and the left VIO, and hence a one cycle latency to the assignment. This is convenient (and important) when assigning from an asynchronous input (e.g. an input pin) or when crossing clock domains.
+
+Always assignments are specified just after variable declarations
+and algorithms/modules instantiations. A typical use case is to make
+something pulse high, for instance:
+
+``` c
+algorithm writer(
+  output uint1 write, // pulse high to write
+  output uint8 data,  // byte to write
+  // ...
+) {
+
+  write := 0; // maintain low with always assign
+  // ...
+  if (do_write) {
+    data  = ...;
+    write = 1; // pulses high on next clock cycle
+  }
+
+}
+```
+
+> **Note:** The assignment is applied before any other logic. Thus, if the value of the expression in the right hand side is later changing (during the same clock cycle), this will not change the value of the left hand side. To track a value use an *expression tracker*.
+
+> **Note:** It is highly recommended to register all asynchronous inputs using a variable that is always assigned the input with the registered always assignment `::=`.
+
+> **Note:** (advanced) An always assignment is in itself asynchronous, thus it can be used to pass around asynchronous inputs or clocks.
+
 ## Instantiation
 
-Algorithms and modules can be instanced from within a parent algorithm.
-Optionally parameters can be *bound* to the parent algorithm variables.
-In terms of hardware, these are the wires connecting instanced and
-parent algorithms. Instantiation uses the following syntax:
+Units and imported modules can be instantiated from within a parent unit.
+Optionally parameters can be *bound* to the parent unit variables (VIOs).
+Instantiation uses the following syntax:
 
 ``` verilog
-MOD_ALG ID<@CLOCK,!RESET,...> (
+UNIT_NAME ID<@CLOCK,!RESET,...> (
 BINDINGS
 (<:auto:>)
 );
 ```
 
-where `MOD_ALG` is the name of the module/algorithm, `ID` an identifier
-for the instance, and `BINDINGS` a comma separated list of bindings
+where `UNIT_NAME` is the name of the unit to instantiate, `ID` a name identifier for the instance, and `BINDINGS` a comma separated list of bindings
 between the instance inputs/outputs and the parent algorithm variables.
 The bindings are optional and may be partial. `@CLOCK` optionally
 specifies a clock signal, `!RESET` a reset signal, where `CLOCK` and
@@ -795,12 +652,9 @@ When none are specified the parent `clock` and `reset` are used for the
 instance.
 
 Other possible modifiers are:
-- `reginputs`, applies only to non-callable algorithms (algorithms that have an
-`<autostart>` modifier or only consist of always blocks and/or always
-assignments). This modifier requests inputs accessed with the dot syntax
+- `reginputs`, applies only to non-callable units (units without an algorithm, or units which algorithm have an `<autostart>` modifier). This modifier requests inputs accessed with the dot syntax
 to be registered, e.g. there will be a one cycle latency between their
-assignment and when the instanced algorithm sees the change. Please refer to the
-[notes on algorithms calls, bindings and timings](AlgoInOuts.md) for details.
+assignment and when the instanced algorithm sees the change. Please refer to the [notes on algorithms calls, bindings and timings](AlgoInOuts.md) for details.
 
 
 Each binding is defined as: `ID_left OP ID_right` where `ID_left` is the
@@ -808,66 +662,41 @@ identifier of an instance input or output, `OP` a binding operator
 (Section <a href="#sec:bindings" data-reference-type="ref" data-reference="sec:bindings">3.6.4</a>)
 and `ID_right` a variable identifier.
 
-Note that only identifiers are allowed in bindings: access to tables and
-swizzling are not allowed. This can be alleviated using bound
-expressions, see
-Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:exprtrack">3.6.6</a>.
-
 Combined with `autorun` such bindings allow to instantiate and
-immediately run an algorithm to drive some of the parent algorithm
+immediately run a unit to drive some of the parent unit
 variables. Here is an example:
 
 ``` c
-algorithm blink(output int1 b_fast,output int1 b_slow) <autorun>
+algorithm blink(output int1 fast,output int1 slow) <autorun>
 {
   uint20 counter = 0;
   while (1) {
     counter = counter + 1;
-      if (counter[0,8] == 0) {
-        b_fast = !b_fast;
-      }
-      if (counter == 0) {
-        b_slow = !b_slow;
-      }
+    if (counter[0,8] == 0) {
+      fast = ~fast;
+    }
+    if (counter == 0) {
+      slow = ~slow;
+    }
   }
 }
 
-algorithm main(output int8 led)
+unit main(output int8 leds)
 {
-  int1 a = 0;
-  int1 b = 0;
-  blink b0(
-    b_slow :> a,
-    b_fast :> b
+  blink b(
+    slow :> leds[0,1],
+    fast :> leds[1,1]
   );
 
-  led := 0;      // turn off all eight LEDs
-  led[0,1] := a; // first LED  always assigned first bit (slow blink)
-  led[1,1] := b; // second LED always assigned second bit (faster blink)
-
-  while (1) { } // inifinite loop, blink runs in parallel
+  always { __display("leds = %b",leds[0,2]); }    // forever, blink runs in parallel
 }
 ```
 
-This example reveals some interesting possibilities, and a constraint.
-As algorithm `blink` is instanced as `b0`, it starts running immediately
-(due to the `autorun` modifier in the declaration of `blink`). Hence,
-the variables `a` and `b` are immediately reflecting the `b_slow` and
-`b_fast` outputs of `b0`. The always assignment to `led` then use `a`
-and `b` to output to the `led` 8-bit variable, which we assume is
-physically connected to LEDs. The first assignment sets `led` to zero,
-and then its two first bits to `a` and `b`. As the always assignments
-are order dependent, this behaves properly with the two first bits
-always assigned at each clock cycle. Since all updates in `main` are
-done through bindings and always assignments, and because *algorithms
-run in parallel*, there is nothing else to do, and `main` enters an
-infinite loop (runs as long as there is power).
-
-The constraint, however, is that `a` and `b` are necessary. This is due
-to the fact that we cannot directly bind `led[0,1]` and `led[1,1]` to
-the instance of `blink`. Only identifiers can be specified during
-bindings. This can be alleviated by using bound expressions (see
-Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:exprtrack">3.6.6</a>).
+In this example, algorithm `blink` is instanced as `b` in the main unit. It starts running immediately due to the `autorun` modifier in the declaration of `blink`.
+The lower bits of `leds` are bound to the `slow` and `fast` outputs of `b`.
+The main unit contains only an `always` block that runs forever. `__display` is used only in simulation and prints the value of `leds`.
+Since all updates in `main` are done through bindings and always assignments,
+and because *units run in parallel*, there is nothing else to do and `main` runs forever (as long as there is power).
 
 #### Automatic binding.
 
@@ -877,11 +706,11 @@ having the same name and binds them directly. While this is convenient
 when many bindings are repeated and passed around, it is recommended to
 use groups for brevity and make all bindings explicit.
 
-> **Note** automatic binding can be convenient, but is discouraged as it relies a name matching and changes can introduce silent errors. When a large number of inputs/outputs have to be bound, consider using groups and interfaces.
+> **Note:** Automatic binding can be convenient, but is discouraged as it relies a name matching and changes can introduce silent errors. When a large number of inputs/outputs have to be bound, consider using groups and interfaces.
 
 #### Direct access to inputs and outputs.
 
-The inputs and outputs of instanced algorithms, when not bound, can be
+The inputs and outputs of instanced units *that are not bound*, can be
 directly accessed using a ’dot’ notation. Outputs can be read and inputs
 written to. Example:
 
@@ -894,11 +723,13 @@ algorithm algo(input uint8 i,output uint o)
 algorithm main(output uint8 led)
 {
   algo a;
-  a.i = 131;
+  a.i = 131; // dot syntax access to input i of a
   () <- a <- (); // this is a call without explicit inputs/outputs
-  led = a.o;
+  led = a.o; // dot syntax access to output o of a
 }
 ```
+
+> **Note:** The dot syntax defaults to non registered inputs. This can be controlled by using the `<reginputs>` modifier when instantiating the unit.
 
 ## Call
 
@@ -1006,6 +837,8 @@ variables given read/write permission can be manipulated. This mitigates
 the fact that a subroutine may directly manipulate variables in the
 parent algorithm. The format for the permissions is a comma separated
 list using keywords `reads`, `writes`, `readwrites`
+
+
 *Why subroutines?* There is a fundamental difference between a
 subroutine and an algorithm called from a host: the subroutine never
 executes in parallel, while a child algorithm could. However, if this
@@ -1013,7 +846,7 @@ parallelism is not necessary, subroutines offer a simple mechanism to
 repeat internal tasks.
  
 
-*Global subroutines* Subroutines may be declared outside of an
+*Global subroutines.* Subroutines may be declared outside of an
 algorithm. Such subroutines are called *global* and may be called from
 any algorithm. This is convenient to share subroutines across
 algorithms. If a global subroutine requests access to parent algorithm
@@ -1096,8 +929,8 @@ instantiation from an algorithm:
 
 > **Note:** currently circuitry instantiation can only be made on VIO identifiers
 (no expressions, no bit-select or part-select). This restriction will be removed
-at some point. In the meantime bound expressions provide a work around, first
-defining a bound expression with an identifier then giving it to the circuitry
+at some point. In the meantime expression trackers provide a work around, first
+defining a tracker with an identifier then giving it to the circuitry
 (these can be defined in a block around the circuit instantiation).
 
 ## Combinational loops
@@ -1170,7 +1003,7 @@ use the operators defined in
 Section <a href="#sec:contassign" data-reference-type="ref" data-reference="sec:contassign">3.6.5</a>.
 Always assignments allow to follow the value of an expression in a
 variable, output, or instanced algorithm input or output. Contrary to
-bound expressions
+expression trackers
 (Section <a href="#sec:exprtrack" data-reference-type="ref" data-reference="sec:exprtrack">3.6.6</a>),
 the assigned values can be changed during a cycle.
 
@@ -1428,7 +1261,7 @@ where `<EXPR>` is an expression and `<CONST>` are constants.
 
 There is also a onehot version:
 ``` c
-switch( <IDENTFIER> ) {
+onehot( <IDENTFIER> ) {
   case 0: {  /* code for this case */    }
   case 1: {  /* code for this case */    }
   ...
@@ -1457,9 +1290,250 @@ to jump to the subroutine initial state, and one cycle to jump back.
 
 > **Note:** Keep in mind that algorithms can also autorun and have their inputs/outputs bound to variables. Algorithms may also contain an `always_before` or `always_after` blocks that are always running.
 
-## Pipelining
 
-**TODO:** describe syntax
+
+# Pipelines
+
+> **To be written.** In the meantime please refer to these projects:
+ [pipeline_sort](../projects/pipeline_sort/README.md) (has detailed explanations) and [divstd_pipe](../projects/divstd_pipe/README.md).
+
+# Advanced language constructs
+
+## Groups
+
+Often, we want to pass around variables that form conceptual groups,
+like the interface to a controller or a 2D point. Silice has a specific mechanism to
+help with that. A group is declared as:
+
+``` c
+// SDRAM interface
+group sdram_32b_io
+{
+  uint24 addr       = 0,
+  uint1  rw         = 0,
+  uint32 data_in    = 0,
+  uint32 data_out   = 0,
+  uint1  busy       = 1,
+  uint1  in_valid   = 0,
+  uint1  out_valid  = 0
+}
+```
+
+Note that group declarations are made *outside* of algorithms. Group members
+can also use power-up initializers, e.g. `uint24 addr(0), ...`
+
+A group variable can then be declared directly:
+
+``` c
+sdram_32b_io sd; // init values are defined in the group declaration
+```
+
+To pass a group variable to an algorithm, we need to define an interface
+(see also [interfaces](#anonymous-interfaces)).
+This will further specify which group members are input and outputs:
+
+``` c
+algorithm sdramctrl(
+  // ..
+  // anonymous interface
+  sdram_provider sd {
+    input   addr,       // address to read/write
+    input   rw,         // 1 = write, 0 = read
+    input   data_in,    // data from a read
+    output  data_out,   // data for a write
+    output  busy,       // controller is busy when high
+    input   in_valid,   // pulse high to initiate a read/write
+    output  out_valid   // pulses high when data from read is
+}
+) {
+  // ..
+```
+
+Binding to the algorithm is then a single line ; in the parent:
+
+``` c
+sdramctrl memory(
+  sd <:> sd,
+  // ..
+);
+```
+
+The `<::>` operator can also be used in the binding of an interface (see also [bindings](#bindings)).
+
+A group can be passed in a call if the algorithm describes an anonymous interface. If the interface has both inputs and outputs, the group can appear both as an input and an output in the call.
+
+> **Note:** A group cannot contain tables nor other groups.
+
+## Anonymous interfaces
+
+Interfaces can be declared for a group during algorithm definition.
+
+```c
+group point {
+  int16 x = 0,
+  int16 y = 0
+}
+
+algorithm foo(
+  point p0 {
+    input x,
+    input y,
+  },
+  point p1 {
+    input x,
+    input y,
+  }
+) {
+  // ..
+```
+
+To simplify the above, and when group members are all bound either as inputs or outputs, as simpler syntax exists:
+```c
+algorithm foo(
+  input point p0,
+  input point p1
+) {
+  // ..
+```
+
+Anonymous interfaces allow groups to be given as parameters during calls.
+
+## Named interfaces
+
+Named interfaces are ways to describe what inputs and outputs an algorithm expects, without knowing in advance the exact specification of these fields (e.g. their widths).
+Besides making algorithm IO description more compact, this provides genericity.
+
+Named interfaces **have** to be bound to a group
+(see [named interfaces](#named-interfaces)) or an interface upon algorithm instantiation. They cannot be used to pass a group in a call. The binding does not have to be complete: it is possible to bind to an interface a group having **more** (not less) members than the interface.
+
+Reusing the example [above](#groups) we can define a named interface ahead of time:
+
+``` c
+interface sdram_provider {
+  input   addr,       // address to read/write
+  input   rw,         // 1 = write, 0 = read
+  input   data_in,    // data from a read
+  output  data_out,   // data for a write
+  output  busy,       // controller is busy when high
+  input   in_valid,   // pulse high to initiate a read/write
+  output  out_valid   // pulses high when data from read is
+}
+```
+
+And then the sdram controller algorithm declaration simply becomes:
+
+``` c
+  algorithm sdramctrl(
+    // interface
+    sdram_provider sd,
+    // ..
+  ) {
+    // ..
+```
+
+Note than the algorithm is now using a named interface, it does not
+know in advance the width of the signals in the interface. This is
+determined at binding time, when a group is bound to the interface.
+Interfaces can be bound to other interfaces, the information is
+propagated when a group is bound at the top level.
+
+For instance, we may define another group as follows, which uses 8 bits
+instead of 32 bits:
+
+``` c
+  // SDRAM interface
+  group sdram_8b_io
+  {
+    uint24 addr       = 0,
+    uint1  rw         = 0,
+    uint8  data_in    = 0,
+    uint8  data_out   = 0,
+    uint1  busy       = 1,
+    uint1  in_valid   = 0,
+    uint1  out_valid  = 0
+  }
+```
+
+This group can be bound to the `sdramctrl` controller, which now will
+receive 8 bits signals for `data_in`/`data_out`.
+
+The `sdramctrl` controller can adjust to this change, using `sameas` and
+`widthof`. The first, `sameas`, allows to declare a variable the same as
+another:
+
+``` c
+sameas(sd.data_in) tmp;
+```
+
+The second, `widthof`, returns the width of a signal:
+
+``` c
+while (i < (widthof(sd.data_in) >> 3)) {
+  // ...
+}
+```
+
+> **Note:** In the future Silice will provide compile time checks, for instance verifying the width of a signal is a specific value.
+
+
+## Bitfields
+
+There are many cases where we pack multiple data in a larger variable,
+for instance:
+
+``` c
+  uint32 data = 32hffff1234;
+  // ..
+  left  = data[ 0,16];
+  right = data[16,16];
+```
+
+The hard coded values make this type of code quite hard to read and
+difficult to maintain. To cope with that, Silice defines bitfields. A
+bitfield is first declared:
+
+``` c
+bitfield Node {
+  uint16 right,
+  uint16 left
+}
+```
+
+Note that the first entry in the list is mapped to the higher bits of
+the field.
+
+This can then be used during access, to unpack the data:
+
+``` c
+left  = Node(data).left;
+right = Node(data).right;
+```
+
+There is no overhead to the mechanism, and different bitfield can be
+used on a same variable depending on the context (e.g. instruction
+decoding).
+
+The bitfield can also be used to initialize the wider variable:
+
+``` c
+uint32 data = Node(left=16hffff,right=16h1234);
+```
+
+## Intrinsics
+
+Silice has convenient intrinsics:
+
+-   `__signed(exp)` indicates the expression is signed (Verilog
+    `$signed`)
+
+-   `__unsigned(exp)` indicates the expression is unsigned (Verilog
+    `$unsigned`)
+
+-   `__display(format_string,value0,value1,...)` maps to Verilog
+    `$display` allowing text output during simulation.
+
+-   `__write(format_string,value0,value1,...)` maps to Verilog
+    `$write` allowing text output during simulation without a new line being started.
 
 # Lua preprocessor
 
@@ -1570,7 +1644,7 @@ $$dofile('some_lua_code.lua')
 ## Includes
 
 The preprocessor is also in charge of including other Silice source code
-files, using the syntax `$include(’source.ice’)`. This loads the entire
+files, using the syntax `$include(’source.si’)`. This loads the entire
 file (and recursively its own included files) into the preprocessor
 execution context.
 
@@ -1627,41 +1701,35 @@ The framework instantiates the *main* algorithm. The resulting file can
 then be processed by the vendor or open source FPGA toolchain (often
 accompanied by a hardware constraint file).
 
-Silice comes with the following host hardware frameworks:
+Silice comes with [many host hardware frameworks](../frameworks/boards/), some examples:
 
--   **mojo\_basic** : framework to compile for the Alchitry Mojo 3 FPGA
+-   **mojov3** : framework to compile for the Alchitry Mojo 3 FPGA
     board.
 
--   **mojo\_hdmi\_sdram** : framework to compile for the Alchitry Mojo 3
-    FPGA board equipped with the HDMI shield.
+-   **icestick** : framework for the icestick board.
 
--   **icestick** : framework for the Lattice ice40 icestick board.
+-   **icebreaker** : framework for the icebreaker board.
 
--   **verilator\_bare** : framework for use with the *verilator*
+-   **ulx3s** : framework for the ULX3S board.
+
+-   **de10nano** : framework for the de10-nano board.
+
+-   **verilator** : framework for use with the *verilator*
     hardware simulator
 
--   **verilator\_sdram\_vga** : framework for use with the *verilator*
-    hardware simulator, with VGA and SDRAM emulation
+-   **icarus** : framework for use with the *icarus* hardware
+    simulator
 
--   **icarus\_bare** : framework for use with the *icarus*
+For practical usage examples please refer to the [*Getting started* guide](../GetStarted.md).
 
--   **icarus\_vga** : framework for use with the *icarus* hardware
-    simulator, with vga emulation
+New frameworks for additional boards [can be easily created](../frameworks/boards/README.md).
 
-For practical usage examples please refer to the *Getting started* guide
-at <https://github.com/sylefeb/Silice/blob/master/GetStarted.md>.
+## VGA and OLED simulation
 
-## VGA emulation
-
-Silice comes with a tool called `silicehe` for *Silice hardware
-emulation*. This tool will read the output of the `icarus_vga` simulator
-(the fst file storing signals) and produce a sequence of images from the
-stored VGA signals.
-
-Simply call it with the fst file as the second argument.
+The Silice verilator framework supports VGA and OLED display out of the box. For instance see the [VGA demos project](../projects/vga_demo/README.md).
 
 [1] http://iverilog.icarus.com/
 
 [2] https://www.veripool.org/wiki/verilator
 
-[3] See the famous Dijkstra’s paper about this 
+[3] See the famous Dijkstra’s paper about this.

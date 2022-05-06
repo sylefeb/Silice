@@ -4,8 +4,9 @@
     {
       "name"      : "configurable",
       "framework" : "bare.v",
-      "pins"      : [ 
-        {"set"    : "basic"}
+      "pins"      : [
+        {"set"    : "basic"},
+        {"set"    : "vga", "define" : "VGA=1"}
       ],
       "builders": [
         {
@@ -13,7 +14,7 @@
           "command" : "bare.sh",
           "description": "Custom shell script"
         }
-      ]    
+      ]
     }
   ],
   "pins": {
@@ -21,6 +22,33 @@
       {
         "name": "leds",
         "type": "uint5",
+        "io": "output"
+      }
+    ],
+    "vga": [
+      {
+        "name": "vga_hs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_vs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "vga_r",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_g",
+        "type": "uint6",
+        "io": "output"
+      },
+      {
+        "name": "vga_b",
+        "type": "uint6",
         "io": "output"
       }
     ]

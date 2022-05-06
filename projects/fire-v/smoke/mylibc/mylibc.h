@@ -1,5 +1,5 @@
 #pragma once
- 
+
 // MIT license, see LICENSE_MIT in Silice repo root
 
 // special addresses
@@ -21,7 +21,7 @@ int    puts(const char* s);
 int    printf(const char *fmt,...);
 
 // memory and strings
-void*  memcpy(void *dest, const void *src, size_t n); 
+void*  memcpy(void *dest, const void *src, size_t n);
 int    strcmp(const char *p1, const char *p2);
 
 // user data (goes through CPU)

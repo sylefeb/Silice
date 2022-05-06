@@ -1,0 +1,21 @@
+// units algorithm can declare and use subroutines
+unit main(output uint8 leds)
+{
+  uint24 count = 0;
+
+  always_before {
+    __display("count = %d",count);
+    if (count == 15) { __finish(); }
+  }
+
+  algorithm {
+    subroutine inc(input uint24 a,output uint24 b)
+    {
+      b = a + 1;
+    }
+    while (1) {
+      (count) <- inc <- (count);
+    }
+  }
+
+}

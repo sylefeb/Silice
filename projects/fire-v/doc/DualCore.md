@@ -1,9 +1,9 @@
 **Note**: This content is outdated but kept while updating the main README.
 
 The three main designs are:
-- [video_rv32i.ice](video_rv32i.ice): a single processor design.
-- [video_dual_rv32i.ice](video_dual_rv32i.ice): a dual processor design with audio.
-- [testbench_rv32i.ice](testbench_rv32i.ice): the processor in isolation with only access to LEDs, this is mostly used for debugging and LUT counting.
+- [video_rv32i.si](video_rv32i.si): a single processor design.
+- [video_dual_rv32i.si](video_dual_rv32i.si): a dual processor design with audio.
+- [testbench_rv32i.si](testbench_rv32i.si): the processor in isolation with only access to LEDs, this is mostly used for debugging and LUT counting.
 
 This comes with a minimalist (and quite horrible) 'libc' providing the basics such as printf and a few low level functions. And yes, *you compile code for these CPUs directly from gcc*, one of the many things that makes RISC-V great!
 
@@ -27,7 +27,7 @@ The board is programmed, but you also have to write the (just produced) file `sd
 
 **Important:** The sdcard image has to be written raw, for instance using `Win32DiskImager` on Windows. Beware that all previous data will be lost.
 
-**Known issues:** 
+**Known issues:**
 - The sdcard sometimes fails to initialize. If this happens, try a reset (press 'PWR'). Next, try to carefully remove and re-insert the card after 1-2 seconds. Another option is to flash the board with `fujprog -j flash BUILD_ulx3s/built.bin`, usually the sdcard works fine on power up.
 - If you update the sdcard image, reset won't reload it properly, you'll have to power cycle the board (or reprogram it). Fixing this asap!
 
@@ -55,11 +55,11 @@ make verilator
 ```
 See images output in `BUILD_verilator/`.
 
-If I got this right, the CPU currently gets a score of 4.975 cycles per instruction with video active and a 16KB cache (configured in [basic_cache_ram_32bits](basic_cache_ram_32bits.ice)).
+If I got this right, the CPU currently gets a score of 4.975 cycles per instruction with video active and a 16KB cache (configured in [basic_cache_ram_32bits](basic_cache_ram_32bits.si)).
 
 ## Overall architecture
 
-I rely on the Silice graphics framework (the same one [used by the Doom-chip](../doomchip/)), primarily defined in [video_sdram_main.ice](../common/video_sdram_main.ice) and [video_sdram.ice](../common/video_sdram.ice). It essentially implements a 320x200 8-bit palette framebuffer in SDRAM, with the possibility to load data from an sdcard at startup.
+I rely on the Silice graphics framework (the same one [used by the Doom-chip](../doomchip/)), primarily defined in [video_sdram_main.si](../common/video_sdram_main.si) and [video_sdram.si](../common/video_sdram.si). It essentially implements a 320x200 8-bit palette framebuffer in SDRAM, with the possibility to load data from an sdcard at startup.
 
 The graphics framework is targeting boards with HDMI/VGA and SDRAM. This is typically the ULX3S or the de10nano with a [MiSTer](https://github.com/MiSTer-devel/Main_MiSTer/wiki) setup.
 
@@ -81,7 +81,7 @@ Where will the CPU code endup? This is specified in `config_cpu0.ld` and `config
 
 ### Architecture diagram
 
-Here is a diagram of the architecture with the main modules. 
+Here is a diagram of the architecture with the main modules.
 
 <img src="inferno-arch.png">
 
@@ -89,9 +89,9 @@ The CPUs run at 50 MHz, while the external SDRAM interface runs at 100MHz and th
 
 The reason for the 128 burst reads in the main SDRAM controller is to allow for higher efficiency when the framebuffer memory is read during screen refresh. The 8-bit write makes it simpler to write data for individual pixels in the framebuffer. In the future I'll make this configurable, and allow for variable width reads/writes. For now, this means the read/write interface has to be adapted for the 32 bits CPUs, which is the role of the `32 bits RAM interface` components.
 
-The main SDRAM controller runs at 100MHz in the framework, while our CPUs runs at 50MHz. Therefore I created a clock-domain adaptor for half-speed access, `SDRAM half speed interface`. 
+The main SDRAM controller runs at 100MHz in the framework, while our CPUs runs at 50MHz. Therefore I created a clock-domain adaptor for half-speed access, `SDRAM half speed interface`.
 
-The SDRAM is shared throughout the design. The first 3-way arbiter shares between framebuffer, sdcard streamer and the custom design. The framebuffer, which is always active, gets top priority (in case of simultaneous request, it gets precedence). 
+The SDRAM is shared throughout the design. The first 3-way arbiter shares between framebuffer, sdcard streamer and the custom design. The framebuffer, which is always active, gets top priority (in case of simultaneous request, it gets precedence).
 
 The audio PWMs are here to smooth out the rough 4-bits DAC output. Read more about this in the [audio streaming tutorial](../audio_sdcard_streamer/).
 
@@ -120,13 +120,13 @@ Finally, `audio_l` and `audio_r` are the audio pins. For more details on audio p
 
 We will now add components to our design. Note that these correspond to files included at the top:
 ```c
-$include('../common/video_sdram_main.ice')
-$include('../common/audio_pwm.ice')
+$include('../common/video_sdram_main.si')
+$include('../common/audio_pwm.si')
 $$Nway = 2
-$include('../common/sdram_arbitrers.ice')
-$include('ram-ice-v.ice')
-$include('sdram_ram_32bits.ice')
-$include('basic_cache_ram_32bits.ice')
+$include('../common/sdram_arbitrers.si')
+$include('ram-ice-v.si')
+$include('sdram_ram_32bits.si')
+$include('basic_cache_ram_32bits.si')
 ```
 
 First, we use a special adapter to lower the frequency at which we talk to the SDRAM. It runs at 100MHz in the framework, while our CPUs will run at 50MHz.
@@ -178,7 +178,7 @@ We know have two 32-bits memory interfaces, one for each CPUs. Almost there, but
   uint26 cache0_start = 26h2000000;
   uint26 cache1_start = 26h2010000;
   rv32i_ram_io cram0;
-  rv32i_ram_io cram1;  
+  rv32i_ram_io cram1;
   basic_cache_ram_32bits cache0(
     pram <:> cram0,
     uram <:> ram0,
@@ -191,7 +191,7 @@ We know have two 32-bits memory interfaces, one for each CPUs. Almost there, but
   );
 ```
 
-Note the start addresses specified for the caches. They only cover some number of addresses from this initial location (size configured in [basic_cache_ram_32bits.ice](basic_cache_ram_32bits.ice)).
+Note the start addresses specified for the caches. They only cover some number of addresses from this initial location (size configured in [basic_cache_ram_32bits.si](basic_cache_ram_32bits.si)).
 
 And now let's create our two RV32I CPUs!
 
@@ -246,7 +246,7 @@ The `:=` syntax means `fbuffer` is always set to this value, at every cycle.
 And finally the main program:
 
 ```c
-  always {  
+  always {
     cpu0_enable = 1;
     cpu1_enable = 1;
     if (ram0.in_valid && ram0.rw && ram0.addr[26,2] == 2b11) {
@@ -266,23 +266,23 @@ This is it!
 
 ## The instruction 'cache'
 
-The core issue with fitting the design in a full framework built around SDRAM is that the bandwidth is shared, and somewhat pressured by the framebuffer. This is particularly a problem when fetching instructions, as each could take many cycles (10+) to become available. To mitigate this, I created a small component, [basic_cache_ram_32bits.ice](basic_cache_ram_32bits.ice) which sits between the CPU and the SDRAM interface. It implements a naive cache mechanism where read and writes are remembered in a memory space covering the program instructions and stack. Accesses outside of the cached space are safe, but slow. 
+The core issue with fitting the design in a full framework built around SDRAM is that the bandwidth is shared, and somewhat pressured by the framebuffer. This is particularly a problem when fetching instructions, as each could take many cycles (10+) to become available. To mitigate this, I created a small component, [basic_cache_ram_32bits.si](basic_cache_ram_32bits.si) which sits between the CPU and the SDRAM interface. It implements a naive cache mechanism where read and writes are remembered in a memory space covering the program instructions and stack. Accesses outside of the cached space are safe, but slow.
 
 The best cache performance is achieved for continuous (serial) accesses, with the next value returned in two cycles if in cache. The worst case is a cache miss during framebuffer operation ... latency goes up to tens of cycles.
 
 ## The RiscV processor
 
-This is a RV32I design. It is quite straightforward and is meant to remain simple and easy to modify / hack. Its most 'advanced' feature is that it tries to optimistically fetch the next instruction, before being done with the current one. Together with the instruction cache, this allows many instructions to execute in only 2 cycles. 
+This is a RV32I design. It is quite straightforward and is meant to remain simple and easy to modify / hack. Its most 'advanced' feature is that it tries to optimistically fetch the next instruction, before being done with the current one. Together with the instruction cache, this allows many instructions to execute in only 2 cycles.
 
 The design is not optimized for compactness. For a smaller design please checkout the original [ice-v](../projects/ice-v) which implements an RV32I fitting on an IceStick! (~1182 LUTs with OLED controller).
 
-My [RISC-V RV32I CPU](https://riscv.org/wp-content/uploads/2017/05/riscv-spec-v2.2.pdf) is a standard design, with an instruction decoder and an ALU orchestrated in the main loop. Let's  focus on the main processor loop (see full code in [ram-ice-v.ice](ram-ice-v.ice)):
+My [RISC-V RV32I CPU](https://riscv.org/wp-content/uploads/2017/05/riscv-spec-v2.2.pdf) is a standard design, with an instruction decoder and an ALU orchestrated in the main loop. Let's  focus on the main processor loop (see full code in [ram-ice-v.si](ram-ice-v.si)):
 
 ```c
 while (!halt) {
   // ...
   switch (case_select) {
-    
+
     case 4: { /* LOAD/STORE done */  }
 
     case 2: { /* next instruction available (after jump or LOAD/STORE) */ exec = true;  }
@@ -298,9 +298,9 @@ while (!halt) {
   }
 }
 ```
-The CPU boots by requesting the first instruction and waiting. It lands in `case 2` when the instruction is available. This triggers `exec`, which immediately starts execution of the instruction by triggering the decoder and ALU. These run in parallel, and take two cycles. This will land us in `case 1` when decoder and ALU completed. 
+The CPU boots by requesting the first instruction and waiting. It lands in `case 2` when the instruction is available. This triggers `exec`, which immediately starts execution of the instruction by triggering the decoder and ALU. These run in parallel, and take two cycles. This will land us in `case 1` when decoder and ALU completed.
 
-In `case 1` we check the instruction result, update registers and do either of three things: 
+In `case 1` we check the instruction result, update registers and do either of three things:
 1. If the instructions jumps, we request the instruction at the jump address and wait. This will land us back to `case 2` when the instruction is available.
 2. If the instruction is a LOAD/STORE, we start the memory request and wait. This will land us in `case 4` when data is available. `case 4` updates the registers and requests the next instruction, landing us back again in `case 2`.
 3. If the instruction is neither a jump nor a LOAD/STORE, we update the registers and request the next (neighboring) instruction. This will land us back to `case 2` when the instruction is available.

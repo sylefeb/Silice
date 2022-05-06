@@ -10,11 +10,11 @@ In particular 3. works great to simulate boards such as the `ULX3S` or `de10-nan
 
 Both 2. and 3. open a window showing the simulation output. This is achieved with `glut` and `OpenGL`, so freeglut has to be installed on the system (packages are often called `freeglut3` and `freeglut3-dev`, on MinGW it is simply `freeglut`).
 
-For more details on how the graphical output is performed see comments in [VgaChip.cpp](VgaChip.cpp) and [vga_display.cpp](vga_display.cpp).
+For more details on how the graphical output is performed see comments in [VgaChip.cpp](VgaChip.cpp) and [display.cpp](display.cpp).
 
 To see how this gets compiled from Silice to Verilog and then Verilator see the bash script [verilator.sh](../boards/verilator/verilator.sh).
 
-Here is an example of [`projects/vga_demo/vga_flyover3d.ice`](../../projects/vga_demo/README.md) (simulation runs much slower than hardware, where this demo is otherwise perfectly smooth).
+Here is an example of [`projects/vga_demo/vga_flyover3d.si`](../../projects/vga_demo/README.md) (simulation runs much slower than hardware, where this demo is otherwise perfectly smooth).
 
 <p align="center">
   <img width="500" src="flyover_simul.gif">
@@ -36,4 +36,3 @@ To learn more about graphical simulation of Verilator outputs, I recommend the f
 ## Credits
 
 - The SDRAM c++ simulation code ([sdr_sdram.cpp](sdr_sdram.cpp)/[sdr_sdram.h](sdr_sdram.h)) is from https://github.com/fredrequin/fpga_1943
-

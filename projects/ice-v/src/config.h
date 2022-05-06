@@ -8,3 +8,7 @@
 #ifdef ICEBREAKER
 #include "icebreaker/config.h"
 #endif
+
+#ifdef ICEBREAKER_FERMATA
+#include "icebreaker-fermata/config.h"
+#endif

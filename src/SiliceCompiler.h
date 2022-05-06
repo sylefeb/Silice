@@ -1,22 +1,22 @@
 /*
 
     Silice FPGA language and compiler
-    Copyright 2019, (C) Sylvain Lefebvre and contributors 
+    Copyright 2019, (C) Sylvain Lefebvre and contributors
 
     List contributors with: git shortlog -n -s -- <filename>
 
     GPLv3 license, see LICENSE_GPLv3 in Silice repo root
 
-This program is free software: you can redistribute it and/or modify it 
-under the terms of the GNU General Public License as published by the 
-Free Software Foundation, either version 3 of the License, or (at your option) 
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT 
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with 
+You should have received a copy of the GNU General Public License along with
 this program.  If not, see <https://www.gnu.org/licenses/>.
 
 (header_2_G)
@@ -49,7 +49,6 @@ namespace Silice {
   {
   private:
 
-    std::vector<std::string>                                           m_Paths;
     std::unordered_map<std::string, AutoPtr<Blueprint> >               m_Blueprints;
     std::vector<std::string>                                           m_BlueprintsInDeclOrder;
     std::unordered_map<std::string, siliceParser::SubroutineContext* > m_Subroutines;
@@ -60,7 +59,7 @@ namespace Silice {
     std::unordered_set<std::string>                                    m_Appends;
     std::vector<std::string>                                           m_AppendsInDeclOrder;
 
-    const std::vector<std::string> c_DefaultLibraries = { "memory_ports.ice" };
+    const std::vector<std::string> c_DefaultLibraries = { "memory_ports.si" };
 
     /// \brief finds a file by checking throughout paths known to be used by the source code
     std::string findFile(std::string fname) const;
@@ -131,17 +130,70 @@ namespace Silice {
       void reportMissingToken(antlr4::Parser *parser) override;
     };
 
+    /// \brief class storing the parsing context
+    class ParsingContext
+    {
+      public:
+        std::string                          fresult;
+        std::string                          framework_verilog;
+        std::vector<std::string>             defines;
+        AutoPtr<LuaPreProcessor>             lpp;
+        AutoPtr<LexerErrorListener>          lexerErrorListener;
+        AutoPtr<ParserErrorListener>         parserErrorListener;
+        AutoPtr<antlr4::ANTLRFileStream>     input;
+        AutoPtr<siliceLexer>                 lexer;
+        AutoPtr<antlr4::CommonTokenStream>   tokens;
+        AutoPtr<siliceParser>                parser;
+        std::shared_ptr<ParserErrorHandler>  err_handler;
+
+        ParsingContext(
+          std::string              fresult_,
+          AutoPtr<LuaPreProcessor> lpp_,
+          std::string              preprocessed,
+          std::string              framework_verilog_,
+          const std::vector<std::string>& defines_);
+        ~ParsingContext();
+        void bind();
+        void unbind();
+    };
+
+    AutoPtr<ParsingContext> m_Context;
+
   public:
 
-    /// \brief runs the compiler
+    /// \brief runs the compiler (calls parse and write)
     void run(
       std::string fsource,
       std::string fresult,
       std::string fframework,
       std::string frameworks_dir,
-      const std::vector<std::string>& defines,      
+      const std::vector<std::string>& defines,
       std::string to_export,
       const std::vector<std::string>& export_params);
+
+    /// \brief parses a design
+    void parse(
+      std::string fsource,
+      std::string fresult,
+      std::string fframework,
+      std::string frameworks_dir,
+      const std::vector<std::string>& defines);
+
+    /// \brief write a design for synthesis in the output stream
+    void write(
+      std::string    to_export,
+      const std::vector<std::string>& export_params,
+      std::string    postfix,
+      std::ostream& _out);
+
+    /// \brief write a design for synthesis
+    void write(
+      std::string to_export,
+      const std::vector<std::string>& export_params);
+
+    /// \brief get the list of blueprints (after parsing)
+    const std::unordered_map<std::string, AutoPtr<Blueprint> > getBlueprints() const
+      { return m_Blueprints; }
 
   };
 

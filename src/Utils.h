@@ -62,6 +62,8 @@ namespace Silice
     std::string extractCodeBetweenTokens(std::string file, int stk, int etk);
     /// \brief loads the content of file into a string
     std::string fileToString(const char* file);
+    /// \brief returns a temporary filename (within temporary directory)
+    std::string tempFileName();
 
     // -------------------------------------------------
 

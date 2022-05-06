@@ -21,7 +21,9 @@ void scroll()
   const char *str = curr;
   int cursor_x = 0;
   int screen_end = 0;
+  *LEDS = 1;
   while (*str) {
+    *LEDS = *str;
     int lpos = font_FCUBEF2_ascii[(*str)];
     if (lpos > -1) {
       int w            = font_FCUBEF2_width[(*str)];

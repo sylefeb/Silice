@@ -16,7 +16,7 @@ The DooM-chip is a great example of what the Lua pre-processor has to offer. Ind
 
 ## Where's All the Data?
 
-For obvious copyright reasons you have to provide your own Doom WAD file: for instance `doom1.wad`, to be placed in this directory. During compilation the data will be automatically extracted and processed. You can select the level in the header of [doomchip.ice](doomchip.ice) (see the "ExMy" string).
+For obvious copyright reasons you have to provide your own Doom WAD file: for instance `doom1.wad`, to be placed in this directory. During compilation the data will be automatically extracted and processed. You can select the level in the header of [doomchip.si](doomchip.si) (see the "ExMy" string).
 
 The DooM-chip also works with WAD files from the [freedoom project](https://freedoom.github.io/).
 
@@ -40,7 +40,7 @@ Done! (takes ~ 0.5 hour)
 
 The default is a ST7789 240x240 screen ; these are inexpensive (~ $6) and some models plug directly into the OLED connector of the ULX3S (you'll have to solder the connector if not present, it is located just below the ECP5).
 
-The OLED library supports also an SSD1351 driver, and other resolutions, but you'll have to edit the source code to customize for that: see configuration at the top of [oled_doomchip.ice](oled_doomchip.ice).
+The OLED library supports also an SSD1351 driver, and other resolutions, but you'll have to edit the source code to customize for that: see configuration at the top of [oled_doomchip.si](oled_doomchip.si).
 
 Plug the board to USB and launch ```make ulx3s-oled```
 

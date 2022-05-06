@@ -1,0 +1,32 @@
+// SL 2020-10-25
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+
+$$if not __CLEAN_RESET then
+$$  __CLEAN_RESET = 1
+
+$$if not clean_reset_width then
+$$  clean_reset_width=4
+$$end
+
+unit clean_reset(
+  output uint1 out(1)
+) {
+  uint$clean_reset_width$ trigger( $(1<<clean_reset_width)-1$ );
+  always {
+    out     = trigger[0,1];
+    trigger = trigger >> 1;
+  }
+}
+
+unit clean_reset_counter(
+  output uint1 out(1)
+) {
+  uint$clean_reset_width+1$ counter( 0 );
+  always {
+    out     = ~counter[$clean_reset_width-1$,1];
+    counter = ~counter[$clean_reset_width-1$,1] ? counter + 1 : counter;
+  }
+}
+
+$$end

@@ -1,0 +1,199 @@
+// --------------------------------------------------
+// @sylefeb 2021
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// --------------------------------------------------
+//
+// SPI flash controller test
+//
+// outputs on UART
+// reads 64 4x8bits from SPIflash address 1MB
+//
+// ========================================================
+// IMPORTANT: on the ice40, use icepack -s
+// ========================================================
+
+$$spi4x = 1
+
+$$if ICARUS then
+// download W25Q128JVxIM from winbond Verilog models
+append('W25Q128JVxIM/W25Q128JVxIM.v')
+import('simul_spiflash.v')
+$$end
+
+$$master_freq = 12
+
+$$if ICEBREAKER then
+$$if spi4x then
+  $$master_freq = 100
+$$else
+  $$master_freq = 50
+$$end
+// Import hardware modules
+import('../common/plls/icebrkr_$master_freq$.v')
+import('../common/ice40_half_quarter_clock.v')
+import('../../common/ice40_spram.v')
+$$end
+
+$$nBytes = 4
+
+$$if spi4x then
+  $include('spiflash4x.si')
+  $$uart_in_clock_freq_mhz = master_freq//4
+$$else
+  $include('spiflash2x.si')
+  $$uart_in_clock_freq_mhz = master_freq//2
+$$end
+$include('../common/uart.si')
+
+// --------------------------------------------------
+// PLL for simulation
+// --------------------------------------------------
+
+$$if SIMULATION then
+algorithm pll(
+  output! uint1 clock4x,
+  output  uint1 clock2x,
+  output  uint1 clock1x,
+) <autorun> {
+  uint2 counter(0);
+  clock4x := clock;
+  clock2x := ~counter[0,1]; // x2 slower
+  clock1x :=  counter[1,1]; // x4 slower
+  always { counter = counter + 1; }
+}
+$$end
+
+// --------------------------------------------------
+// main design unit
+// --------------------------------------------------
+
+algorithm main(
+  output uint8 leds,
+$$if QSPIFLASH then
+  output uint1 sf_clk,
+  output uint1 sf_csn,
+  inout  uint1 sf_io0,
+  inout  uint1 sf_io1,
+  inout  uint1 sf_io2,
+  inout  uint1 sf_io3,
+$$end
+$$if UART then
+  output uint1 uart_tx,
+  input  uint1 uart_rx,
+$$end
+$$if ICEBREAKER or ICEBITSY then
+) <@clock1x> {
+  uint1 clock2x = uninitialized;
+  uint1 clock4x = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock4x,
+  );
+  uint1 clock1x  = uninitialized;
+  ice40_half_quarter_clock hc(
+    clock_in  <: clock4x,
+    clock_h   :> clock2x,
+    clock_q   :> clock1x,
+  );
+$$elseif SIMULATION then
+ ) <@clock1x> {
+  uint1 clock1x = uninitialized;
+  uint1 clock2x = uninitialized;
+  uint1 clock4x = uninitialized;
+  pll clkgen<@clock,!reset>(
+    clock1x :> clock1x,
+    clock2x :> clock2x,
+    clock4x :> clock4x
+  );
+  uint1 rst <: reset;
+$$else
+) {
+$$end
+
+$$if SIMULATION then
+  uint1 sf_csn(1);
+  uint1 sf_clk(0);
+  uint1 sf_io0(0);
+  uint1 sf_io1(0);
+  uint1 sf_io2(0);
+  uint1 sf_io3(0);
+$$if ICARUS then
+  simul_spiflash simu(
+    CSn <:  sf_csn,
+    CLK <:  sf_clk,
+    IO0 <:> sf_io0,
+    IO1 <:> sf_io1,
+    IO2 <:> sf_io2,
+    IO3 <:> sf_io3,
+  );
+$$end
+  uint32 cycle(0);
+$$end
+
+  bram uint$8*nBytes$ data[256] = uninitialized;
+
+  uart_out uo;
+$$if UART then
+  uart_sender usend(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
+$$end
+
+spiflash_rom sf_rom<reginputs,@clock2x>
+  (
+    sf_clk  :>  sf_clk,
+    sf_csn  :>  sf_csn,
+    sf_io0  <:> sf_io0,
+    sf_io1  <:> sf_io1,
+    sf_io2  <:> sf_io2,
+    sf_io3  <:> sf_io3,
+$$if spi4x then
+    clkspi  <: clock4x
+$$end
+  );
+
+  always {
+    uo.data_in_ready = 0;
+    sf_rom.in_ready  = 0;
+$$if SIMULATION then
+    cycle = cycle + 1;
+    if (cycle == 500) {
+      __finish();
+    }
+$$end
+  }
+
+  while (sf_rom.busy) { }
+
+  // read some
+  data.wenable      = 1;
+  while (data.addr != 64) {
+    sf_rom.in_ready = 1;
+    sf_rom.addr     = {4b0001,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
+    while (sf_rom.busy) { }
+    __display("read @%h = %x",sf_rom.addr,sf_rom.rdata);
+    data.wdata      = sf_rom.rdata;
+    data.addr       = data.addr + 1;
+  }
+
+  // output to UART
+  data.wenable = 0;
+  data.addr    = 1;
+  while (data.addr != 64) {
+    uint32 dta = 0;
+    uint3  n   = 0;
+    dta = data.rdata;
+    while (n != $nBytes$) {
+      uo.data_in       = dta[0,8];
+      uo.data_in_ready = 1;
+      __display("sending %h",dta[0,8]);
+      dta              = dta >> 8;
+      while (uo.busy) { }
+      n = n + 1;
+    }
+    data.addr        = data.addr + 1;
+  }
+
+}

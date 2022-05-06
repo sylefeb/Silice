@@ -96,6 +96,8 @@ else()
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g ${MY_CXX_WARNING_FLAGS}")
 endif()
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # Compiler-specific C++11 activation.
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
     execute_process(

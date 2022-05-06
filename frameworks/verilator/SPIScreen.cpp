@@ -101,7 +101,7 @@ void SPIScreen::cmd_idle_SSD1351()
 {
   m_step = 0;
   if (!m_dc) {
-    fprintf(stdout,"command: %x\n", m_byte);
+    // fprintf(stdout,"command: %x\n", m_byte);
     switch (m_byte) {
       case 0x15:
         m_command = std::bind( &SPIScreen::cmd_start_end, this, &m_x_start, &m_x_end, 1);
@@ -135,7 +135,7 @@ void SPIScreen::cmd_idle_ST7789_ILI9351()
 {
   m_step = 0;
   if (!m_dc) {
-    fprintf(stdout,"command: %x\n", m_byte);
+    // fprintf(stdout,"command: %x\n", m_byte);
     switch (m_byte) {
       case 0x2A:
         m_command = std::bind( &SPIScreen::cmd_start_end, this, &m_x_start, &m_x_end, 2);
@@ -180,7 +180,7 @@ void SPIScreen::cmd_start_end(int *p_start,int *p_end,int nbytes)
     *p_end    = m_byte << 8;
   } else {
     *p_end   |= m_byte;
-    fprintf(stdout,"start_end: %d => %d\n", *p_start, *p_end);
+    // fprintf(stdout,"start_end: %d => %d\n", *p_start, *p_end);
     set_idle();
   }
   m_step = m_step + 1;
@@ -205,7 +205,7 @@ void SPIScreen::cmd_write_ram()
     if (m_step == 3) {
       // fprintf(stdout,"666 x %d, y %d\n",m_x_cur,m_y_cur);
       m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(
-                                  m_y_cur,m_framebuffer.h()-1-m_x_cur) = m_rgb;
+                                  m_y_cur,m_x_cur) = m_rgb;
     }
     m_step = m_step + 1;
     if (m_step > 3) {
@@ -226,15 +226,19 @@ void SPIScreen::cmd_write_ram()
       m_rgb[1] = (m_byte & 7);
       m_rgb[2] = (m_byte >> 3);
     } else {
-      m_rgb[1] = m_rgb[1] | ((m_byte >> 5) << 3);
+      m_rgb[1] = (m_rgb[1] << 3) | (m_byte >> 5);
       m_rgb[0] = (m_byte & 31);
     }
     if (m_step == 2) {
-      m_rgb[0] <<= 3;      m_rgb[1] <<= 2;      m_rgb[2] <<= 3;
-      // fprintf(stdout,"565 x %d, y %d rgb:%d,%d,%d\n",
+      if (1) {
+        // bgr
+        std::swap(m_rgb[0],m_rgb[2]);
+      }
+      //fprintf(stdout,"565 x %d, y %d rgb:%x,%x,%x\n",
       //        m_x_cur,m_y_cur,(int)m_rgb[0],(int)m_rgb[1],(int)m_rgb[2]);
+      m_rgb[0] <<= 3;      m_rgb[1] <<= 2;      m_rgb[2] <<= 3;
       m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(
-                                  m_y_cur,m_framebuffer.h()-1-m_x_cur) = m_rgb;
+                                  m_y_cur,m_x_cur) = m_rgb;
     }
     m_step = m_step + 1;
     if (m_step > 2) {

@@ -1,22 +1,22 @@
 /*
 
     Silice FPGA language and compiler
-    Copyright 2019, (C) Sylvain Lefebvre and contributors 
+    Copyright 2019, (C) Sylvain Lefebvre and contributors
 
     List contributors with: git shortlog -n -s -- <filename>
 
     GPLv3 license, see LICENSE_GPLv3 in Silice repo root
 
-This program is free software: you can redistribute it and/or modify it 
-under the terms of the GNU General Public License as published by the 
-Free Software Foundation, either version 3 of the License, or (at your option) 
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT 
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with 
+You should have received a copy of the GNU General Public License along with
 this program.  If not, see <https://www.gnu.org/licenses/>.
 
 (header_2_G)
@@ -54,16 +54,18 @@ std::string SiliceCompiler::findFile(std::string fname) const
   if (LibSL::System::File::exists(fname.c_str())) {
     return fname;
   }
-  for (auto path : m_Paths) {
-    tmp_fname = path + "/" + extractFileName(fname);
-    if (LibSL::System::File::exists(tmp_fname.c_str())) {
-      return tmp_fname;
+  if (!m_Context.isNull()) {
+    for (auto path : m_Context->lpp->searchPaths()) {
+      tmp_fname = path + "/" + extractFileName(fname);
+      if (LibSL::System::File::exists(tmp_fname.c_str())) {
+        return tmp_fname;
+      }
     }
-  }
-  for (auto path : m_Paths) {
-    tmp_fname = path + "/" + fname;
-    if (LibSL::System::File::exists(tmp_fname.c_str())) {
-      return tmp_fname;
+    for (auto path : m_Context->lpp->searchPaths()) {
+      tmp_fname = path + "/" + fname;
+      if (LibSL::System::File::exists(tmp_fname.c_str())) {
+        return tmp_fname;
+      }
     }
   }
   return fname;
@@ -87,6 +89,7 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
   auto intrface = dynamic_cast<siliceParser::IntrfaceContext *>(tree);
   auto bitfield = dynamic_cast<siliceParser::BitfieldContext*>(tree);
   auto riscv    = dynamic_cast<siliceParser::RiscvContext *>(tree);
+  auto unit     = dynamic_cast<siliceParser::UnitContext *>(tree);
 
   if (toplist) {
 
@@ -95,10 +98,21 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
       gatherAll(c);
     }
 
-  } else if (alg) {
+  } else if (alg || unit) {
 
-    /// algorithm
-    std::string name = alg->IDENTIFIER()->getText();
+    /// algorithm or unit
+    std::string name;
+    bool hasHash;
+    siliceParser::BpModifiersContext *mods = nullptr;
+    if (alg) {
+      name    = alg->IDENTIFIER()->getText();
+      hasHash = alg->HASH() != nullptr;
+      mods    = alg->bpModifiers();
+    } else {
+      name    = unit->IDENTIFIER()->getText();
+      hasHash = unit->HASH() != nullptr;
+      mods    = unit->bpModifiers();
+    }
     std::cerr << "parsing algorithm " << name << nxl;
     bool autorun = (name == "main"); // main always autoruns
     bool onehot  = false;
@@ -107,9 +121,8 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
     std::vector<std::string> formalModes{};
     std::string clock = ALG_CLOCK;
     std::string reset = ALG_RESET;
-    bool hasHash = alg->HASH() != nullptr;
-    if (alg->bpModifiers() != nullptr) {
-      for (auto m : alg->bpModifiers()->bpModifier()) {
+    if (mods != nullptr) {
+      for (auto m : mods->bpModifier()) {
         if (m->sclock() != nullptr) {
           clock = m->sclock()->IDENTIFIER()->getText();
         }
@@ -117,9 +130,17 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
           reset = m->sreset()->IDENTIFIER()->getText();
         }
         if (m->sautorun() != nullptr) {
+          if (unit) {
+            throw Fatal("Unit cannot use the 'autorun' modifier, apply it to the internal algorithm block (line %d).",
+              (int)m->sautorun()->getStart()->getLine());
+          }
           autorun = true;
         }
         if (m->sonehot() != nullptr) {
+          if (unit) {
+            throw Fatal("Unit cannot use the 'onehot' modifier, apply it to the internal algorithm block (line %d).",
+              (int)m->sonehot()->getStart()->getLine());
+          }
           onehot = true;
         }
         if (m->sstacksz() != nullptr) {
@@ -152,9 +173,13 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
       m_Blueprints, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
     );
     if (m_Blueprints.find(name) != m_Blueprints.end()) {
-      throw Fatal("an algorithm or module with the same name already exists (line %d)!", (int)alg->getStart()->getLine());
+      throw Fatal("a unit, algorithm or module with the same name already exists (line %d)!", (int)alg->getStart()->getLine());
     }
-    algorithm->gather(alg->inOutList(), alg->declAndInstrList());
+    if (alg) {
+      algorithm->gather(alg->inOutList(), alg->declAndInstrList());
+    } else {
+      algorithm->gather(unit->inOutList(), unit->unitBlocks());
+    }
     m_Blueprints.insert(std::make_pair(name, algorithm));
     m_BlueprintsInDeclOrder.push_back(name);
 
@@ -251,7 +276,7 @@ void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp,
   if (fframework.empty())
     return;
 
-  // gather 
+  // gather
   // - pre-processor header (all lines starting with $$)
   // - verilog code (all other lines)
   std::ifstream infile(fframework);
@@ -270,15 +295,64 @@ void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp,
 
 // -------------------------------------------------
 
-void SiliceCompiler::run(
+SiliceCompiler::ParsingContext::ParsingContext(
+  std::string              fresult_,
+  AutoPtr<LuaPreProcessor> lpp_,
+  std::string              preprocessed,
+  std::string              framework_verilog_,
+  const std::vector<std::string>& defines_)
+{
+  fresult = fresult_;
+  framework_verilog = framework_verilog_;
+  defines = defines_;
+  lpp = lpp_;
+  // initiate parsing
+  lexerErrorListener  = AutoPtr<LexerErrorListener>(new LexerErrorListener(*lpp));
+  parserErrorListener = AutoPtr<ParserErrorListener>(new ParserErrorListener(*lpp));
+  input  = AutoPtr<antlr4::ANTLRFileStream>(new antlr4::ANTLRFileStream(preprocessed));
+  lexer  = AutoPtr<siliceLexer>(new siliceLexer(input.raw()));
+  tokens = AutoPtr<antlr4::CommonTokenStream>(new antlr4::CommonTokenStream(lexer.raw()));
+  parser = AutoPtr<siliceParser>(new siliceParser(tokens.raw()));
+  err_handler = std::make_shared<ParserErrorHandler>();
+  parser->setErrorHandler(err_handler);
+  lexer->removeErrorListeners();
+  lexer->addErrorListener(lexerErrorListener.raw());
+  parser->removeErrorListeners();
+  parser->addErrorListener(parserErrorListener.raw());
+}
+
+void SiliceCompiler::ParsingContext::bind()
+{
+  Utils::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser->getInputStream()));
+  Utils::setLuaPreProcessor(lpp.raw());
+  Algorithm::setLuaPreProcessor(lpp.raw());
+}
+
+void SiliceCompiler::ParsingContext::unbind()
+{
+  Utils::setTokenStream(nullptr);
+  Utils::setLuaPreProcessor(nullptr);
+  Algorithm::setLuaPreProcessor(nullptr);
+}
+
+SiliceCompiler::ParsingContext::~ParsingContext()
+{
+
+}
+
+// -------------------------------------------------
+
+void SiliceCompiler::parse(
   std::string fsource,
   std::string fresult,
   std::string fframework,
   std::string frameworks_dir,
-  const std::vector<std::string>& defines,
-  std::string to_export,
-  const std::vector<std::string>& export_params)
+  const std::vector<std::string>& defines)
 {
+  // check for double call
+  if (!m_Context.isNull()) {
+    throw Fatal("[SiliceCompiler::parse] cannot parse a second time");
+  }
   // determine frameworks dir if needed
   if (frameworks_dir.empty()) {
     frameworks_dir = std::string(LibSL::System::Application::executablePath()) + "../frameworks/";
@@ -305,40 +379,25 @@ void SiliceCompiler::run(
   CONFIG.keyValues()["frameworks_dir"] = frameworks_dir;
   CONFIG.keyValues()["templates_path"] = frameworks_dir + "/templates";
   CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
-  // preprocessor
-  LuaPreProcessor lpp;
-  lpp.enableFilesReport(fresult + ".files.log");
-  std::string preprocessed = std::string(fsource) + ".lpp";
-  lpp.run(fsource, c_DefaultLibraries, header, preprocessed);
   // display config
   CONFIG.print();
-  // extract paths
-  m_Paths = lpp.searchPaths();
-  // parse the preprocessed source
+  // run preprocessor
+  AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor());
+  lpp->enableFilesReport(fresult + ".files.log");
+  std::string preprocessed = std::string(fsource) + ".lpp";
+  lpp->run(fsource, c_DefaultLibraries, header, preprocessed);
+  // parse the preprocessed source, if succeeded
   if (LibSL::System::File::exists(preprocessed.c_str())) {
-    // initiate parsing
-    LexerErrorListener          lexerErrorListener(lpp);
-    ParserErrorListener         parserErrorListener(lpp);
-    antlr4::ANTLRFileStream     input(preprocessed);
-    siliceLexer                 lexer(&input);
-    antlr4::CommonTokenStream   tokens(&lexer);
-    siliceParser                parser(&tokens);
-
-    auto err_handler = std::make_shared<ParserErrorHandler>();
-    parser.setErrorHandler(err_handler);
-    lexer.removeErrorListeners();
-    lexer.addErrorListener(&lexerErrorListener);
-    parser.removeErrorListeners();
-    parser.addErrorListener(&parserErrorListener);
-
-    Utils::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()));
-    Utils::setLuaPreProcessor(&lpp);
-    Algorithm::setLuaPreProcessor(&lpp);
 
     try {
 
+      // create parsing context
+      m_Context = AutoPtr<ParsingContext>(new ParsingContext(
+        fresult, lpp, preprocessed, framework_verilog, defines));
+      m_Context->bind();
+
       // analyze
-      gatherAll(parser.topList());
+      gatherAll(m_Context->parser->topList());
 
       // resolve refs between algorithms and blueprints
       for (const auto& bp : m_Blueprints) {
@@ -348,86 +407,136 @@ void SiliceCompiler::run(
         }
       }
 
-      // generate the output
-      {
-        std::ofstream out(fresult);
-        // write cmd line defines
-        for (auto d : defines) {
-          auto eq = d.find('=');
-          if (eq != std::string::npos) {
-            out << "`define " << d.substr(0,eq) << " " << d.substr(eq+1) << nxl;
-          }
-        }
-        // write framework (top) module
-        out << framework_verilog;
-        // write includes
-        for (auto fname : m_AppendsInDeclOrder) {
-          out << Utils::fileToString(fname.c_str()) << nxl;
-        }
-        // write 'global' blueprints
-        for (auto miordr : m_BlueprintsInDeclOrder) {
-          Module *mod = dynamic_cast<Module*>(m_Blueprints.at(miordr).raw());
-          if (mod != nullptr) {
-            mod->writeModule(out);
-          }
-          RISCVSynthesizer *rv = dynamic_cast<RISCVSynthesizer*>(m_Blueprints.at(miordr).raw());
-          if (rv != nullptr) {
-            rv->writeCompiled(out);
-          }
-        }
+      // done
+      m_Context->unbind();
 
-        if (to_export.empty()) {
-          to_export = "main"; // export main by default
-        }
-        if (m_Blueprints.count(to_export) > 0) {
-          Algorithm *alg = dynamic_cast<Algorithm*>(m_Blueprints[to_export].raw());
-          if (alg == nullptr) {
-            reportError(antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s'", to_export.c_str());
-          } else {
-            Algorithm::t_instantiation_context ictx;
-            // ask for reports
-            alg->enableReporting(fresult);
-            // add instantiation parameters to context
-            for (auto p : export_params) {
-              auto eq = p.find('=');
-              if (eq != std::string::npos) {
-                ictx.parameters[ p.substr(0, eq) ] = p.substr(eq + 1);
-              }
-            }
-            // write algorithm (recurses from there)
-            alg->writeAsModule("", out, ictx);
-          }
-        } else {
-          warn(Standard, antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s'", to_export.c_str());
-        }
-
-        // write formal unit tests
-        for (auto const &[algname, bp] : m_Blueprints) {
-          Algorithm *alg = dynamic_cast<Algorithm*>(bp.raw());
-          if (alg != nullptr) {
-            if (alg->isFormal()) {
-              alg->enableReporting(fresult);
-              alg->writeAsModule("formal_" + algname + "$", out);
-            }
-          }
-        }
-      }
-    
     } catch (LanguageError& le) {
 
-      ReportError err(lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(parser.getInputStream()), le.token(), le.interval(), le.message());
-      throw Fatal("Silice compiler stopped");
+      ReportError err(*m_Context->lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(m_Context->parser->getInputStream()), le.token(), le.interval(), le.message());
+      m_Context->unbind();
+      throw Fatal("[SiliceCompiler] parser stopped");
 
     }
 
-    Utils::setTokenStream(nullptr);
-    Utils::setLuaPreProcessor(nullptr);
-    Algorithm::setLuaPreProcessor(nullptr);
+  }
+}
 
-  } else {
-    throw Fatal("cannot open source file '%s'", fsource.c_str());
+// -------------------------------------------------
+
+void SiliceCompiler::write(
+  std::string to_export,
+  const std::vector<std::string>& export_params)
+{
+  // check parser has been called
+  if (m_Context.isNull()) {
+    throw Fatal("[SiliceCompiler::write] please run parse before calling write");
+  }
+  std::ofstream out(m_Context->fresult);
+  write(to_export, export_params, "", out);
+}
+
+// -------------------------------------------------
+
+void SiliceCompiler::write(
+  std::string                     to_export,
+  const std::vector<std::string>& export_params,
+  std::string                     postfix,
+  std::ostream&                   _out)
+{
+  // check parser has been called
+  if (m_Context.isNull()) {
+    throw Fatal("[SiliceCompiler::write] please run parse before calling write");
+  }
+  // generte output
+  try {
+    // bind context
+    m_Context->bind();
+    // write cmd line defines
+    for (auto d : m_Context->defines) {
+      auto eq = d.find('=');
+      if (eq != std::string::npos) {
+        _out << "`define " << d.substr(0, eq) << " " << d.substr(eq + 1) << nxl;
+      }
+    }
+    // write framework (top) module
+    _out << m_Context->framework_verilog;
+    // write includes
+    for (auto fname : m_AppendsInDeclOrder) {
+      _out << Utils::fileToString(fname.c_str()) << nxl;
+    }
+    // write 'global' blueprints
+    for (auto miordr : m_BlueprintsInDeclOrder) {
+      Module *mod = dynamic_cast<Module*>(m_Blueprints.at(miordr).raw());
+      if (mod != nullptr) {
+        mod->writeModule(_out);
+      }
+      RISCVSynthesizer *rv = dynamic_cast<RISCVSynthesizer*>(m_Blueprints.at(miordr).raw());
+      if (rv != nullptr) {
+        rv->writeCompiled(_out);
+      }
+    }
+    // which algorithm to export?
+    if (to_export.empty()) {
+      to_export = "main"; // export main by default
+    }
+    // find algorithm to export
+    if (m_Blueprints.count(to_export) > 0) {
+      Algorithm *alg = dynamic_cast<Algorithm*>(m_Blueprints[to_export].raw());
+      if (alg == nullptr) {
+        reportError(antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s'", to_export.c_str());
+      } else {
+        Algorithm::t_instantiation_context ictx;
+        // ask for reports
+        alg->enableReporting(m_Context->fresult);
+        // add instantiation parameters to context
+        for (auto p : export_params) {
+          auto eq = p.find('=');
+          if (eq != std::string::npos) {
+            ictx.parameters[ p.substr(0, eq) ] = p.substr(eq + 1);
+          }
+        }
+        // write algorithm (recurses from there)
+        alg->writeAsModule(postfix, _out, ictx);
+      }
+    } else {
+      warn(Standard, antlr4::misc::Interval::INVALID, -1, "could not find algorithm '%s'", to_export.c_str());
+    }
+    // write formal unit tests
+    for (auto const &[algname, bp] : m_Blueprints) {
+      Algorithm *alg = dynamic_cast<Algorithm*>(bp.raw());
+      if (alg != nullptr) {
+        if (alg->isFormal()) {
+          alg->enableReporting(m_Context->fresult);
+          alg->writeAsModule("formal_" + algname + "$", _out);
+        }
+      }
+    }
+    // done
+    m_Context->unbind();
+
+  } catch (LanguageError& le) {
+
+    ReportError err(*m_Context->lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(m_Context->parser->getInputStream()), le.token(), le.interval(), le.message());
+    m_Context->unbind();
+    throw Fatal("[SiliceCompiler] writer stopped");
+
   }
 
+}
+
+// -------------------------------------------------
+
+void SiliceCompiler::run(
+  std::string fsource,
+  std::string fresult,
+  std::string fframework,
+  std::string frameworks_dir,
+  const std::vector<std::string>& defines,
+  std::string to_export,
+  const std::vector<std::string>& export_params)
+{
+  parse(fsource, fresult, fframework, frameworks_dir, defines);
+  write(to_export, export_params);
 }
 
 // -------------------------------------------------
@@ -454,7 +563,7 @@ void SiliceCompiler::ReportError::printReport(std::pair<std::string, int> where,
 {
   std::cerr << Console::bold << Console::white << "----------<<<<< error >>>>>----------" << nxl << nxl;
   if (where.second > -1) {
-    std::cerr 
+    std::cerr
       << "=> file: " << where.first << nxl
       << "=> line: " << where.second << nxl
       << Console::normal << nxl;
@@ -578,8 +687,8 @@ int SiliceCompiler::ReportError::lineFromInterval(antlr4::TokenStream *tk_stream
 
 // -------------------------------------------------
 
-SiliceCompiler::ReportError::ReportError(const LuaPreProcessor& lpp, 
-  int line, antlr4::TokenStream* tk_stream, 
+SiliceCompiler::ReportError::ReportError(const LuaPreProcessor& lpp,
+  int line, antlr4::TokenStream* tk_stream,
   antlr4::Token *offender, antlr4::misc::Interval interval, std::string msg)
 {
   msg += prepareMessage(tk_stream,offender,interval);

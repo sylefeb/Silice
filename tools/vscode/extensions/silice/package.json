@@ -14,7 +14,7 @@
         "languages": [{
             "id": "silice",
             "aliases": ["silice", "silice"],
-            "extensions": [".ice"],
+            "extensions": [".si"],
             "configuration": "./language-configuration.json"
         }],
         "grammars": [{

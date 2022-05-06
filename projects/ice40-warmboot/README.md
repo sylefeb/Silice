@@ -22,7 +22,7 @@ Plug the icebreaker, then from a command line in this directory:
 
 When the ice40 FPGA starts it loads its configuration from SPI flash. The cool thing is that multiple bitstreams can be stored in SPI (four by default but [@juanmard found a way to extend that](https://twitter.com/juanmard/status/1388217639655313409)) *and your design can dynamically ask for a reboot, loading another bitstream*.
 
-This is huge! 
+This is huge!
 
 So for instance you can pack several demos together and switch when pressing a button. I feel this opens the door to many tricks in the future, only scratching the surface here.
 
@@ -30,7 +30,7 @@ So for instance you can pack several demos together and switch when pressing a b
 
 At first I was a bit confused, but this really is simple. Let's learn by practice!
 
-In this demo we create two different blinker designs. The first, [blinky1.ice](blinky1.ice) blinks the red LED. The second, [blinky2.ice](blinky2.ice) blinks the green LEDs. 
+In this demo we create two different blinker designs. The first, [blinky1.si](blinky1.si) blinks the red LED. The second, [blinky2.si](blinky2.si) blinks the green LEDs.
 
 Both are compiled independently as usual, see the [Makefile](Makefile). This obtains two bitstreams, `blinky1.bin` and `blinky2.bin`. You can program the board with one or the other and get the expected blinking effect.
 
@@ -43,7 +43,7 @@ module ice40_warmboot(
 	input boot,
 	input [1:0] slot
 	);
-  SB_WARMBOOT wb( 
+  SB_WARMBOOT wb(
       .BOOT(boot),
       .S0(slot[0]),
       .S1(slot[1])
@@ -59,7 +59,7 @@ Here is how we use `ice40_warmboot` (`blinky1`):
 uint1  boot(0);
 uint2  slot(0);
 ice40_warmboot wb(boot <: boot,slot <: slot);
-  	
+
 slot     := 2b01; // go to blinky2
 ```
 
@@ -77,7 +77,7 @@ boot    := boot | (pressed & ~rbtns[0,1]); // set high on release
 pressed := rbtns[0,1]; // pressed tracks button 1
 ```
 
-Because the buttons are asynchronous we first register them with `::=` in `rbtns`. Then we implement a small filter that will set `boot` to high (and keep it there -- that is important) when button 1 is *released*. 
+Because the buttons are asynchronous we first register them with `::=` in `rbtns`. Then we implement a small filter that will set `boot` to high (and keep it there -- that is important) when button 1 is *released*.
 
 Now, we only have to synthesize both bitstreams and pack the files together with `icemulti` (takes care of creating the header table):
 ```
@@ -86,11 +86,11 @@ icemulti blinky1.bin blinky2.bin -o multi.bin
 
 This will work only up to four bitstreams with the default `icemulti`, but @juanmard generalized the process! Check the links down below.
 
-> **Note:** `icemulti` also allows to select which of the four bitstreams is loaded after a reset, using the `-pN` options (with N the image to use upon reset). 
+> **Note:** `icemulti` also allows to select which of the four bitstreams is loaded after a reset, using the `-pN` options (with N the image to use upon reset).
 
 > **Note:** @juanmard suggests the following approach: place a bootloader with SB_WARMBOOT in this reset-selected image (e.g. a menu) which then jumps to the user-choosen image. This image does not need to jump back, a reset will do the trick. So the loaded bitsteams *do not even have to be specially written!*
 
-> **Note:** Technically the reset-selected bitstream could be a fifth one, but this is currently not supported by `icemulti` (@juanmard version does support this, and more). 
+> **Note:** Technically the reset-selected bitstream could be a fifth one, but this is currently not supported by `icemulti` (@juanmard version does support this, and more).
 
 And finally, we can program the icebreaker and test!
 ```

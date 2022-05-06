@@ -1,0 +1,269 @@
+// @sylefeb 2021
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+//
+// ========================================================
+// IMPORTANT: on the ice40, use icepack -s
+// ========================================================
+//
+
+import('ddr_clock.v')
+
+$$if VERILATOR then
+import('../common/verilator_data.v') // this is a feature supported by Silice
+                                     // verilator framework to access raw data
+                                     // stored in a 'data.raw' file
+$$end
+
+$$if ICEBREAKER or ICEBITSY or FOMU then
+$$ICE40 = 1
+import('../common/ice40_sb_io_inout.v')
+import('../common/ice40_sb_io.v')
+$$end
+
+$$if not nBytes then
+$$ nBytes = 1
+$$end
+
+algorithm spiflash_qspi(
+  input  uint8 send,
+  input  uint1 trigger,
+  input  uint1 send_else_read,
+  input  uint1 qspi,
+  output uint8 read,
+  output uint1 clk,
+  inout  uint1 io0,
+  inout  uint1 io1,
+  inout  uint1 io2,
+  inout  uint1 io3,
+) {
+  uint1 dc(0);
+  uint8 sending(0);
+  uint1 osc(0);
+
+  uint1 enable(0);
+  ddr_clock ddr(clock <: clock, enable <:: enable, ddr_clock :> clk);
+
+$$if not ICE40 then
+  uint1 d_o0(0); uint1 d_o1(0); uint1 d_o2(0); uint1 d_o3(0);
+  uint1 d_e0(0); uint1 d_e1(0); uint1 d_e2(0); uint1 d_e3(0);
+  always {
+    // simulates registered IO
+    io0.oenable = d_e0; io1.oenable = d_e1;
+    io2.oenable = d_e2; io3.oenable = d_e3;
+    // output enable on ios
+    d_e0 = send_else_read;
+    d_e1 = send_else_read & qspi;
+    d_e2 = send_else_read & qspi;
+    d_e3 = send_else_read & qspi;
+    // read current
+    read      = {read[0,4],io3.i,io2.i,io1.i,io0.i};
+    // simulates registered ios
+    io0.o = d_o0;  io1.o = d_o1;  io2.o = d_o2; io3.o = d_o3;
+    // update outputs
+    d_o0 = ~osc ? sending[0,1] : sending[4,1];
+    d_o1 = ~osc ? sending[1,1] : sending[5,1];
+    d_o2 = ~osc ? sending[2,1] : sending[6,1];
+    d_o3 = ~osc ? sending[3,1] : sending[7,1];
+    // start/keep sending?
+    sending   = (~osc | ~enable) ? send : sending;
+    osc       = ~trigger ? 1b0 : ~osc;
+    enable    = trigger;
+  }
+$$else
+  // setup registered tristate ios
+  uint1 io0__oe(0); uint1 io0__o(0); uint1 io0__i(0);
+  uint1 io1__oe(0); uint1 io1__o(0); uint1 io1__i(0);
+  uint1 io2__oe(0); uint1 io2__o(0); uint1 io2__i(0);
+  uint1 io3__oe(0); uint1 io3__o(0); uint1 io3__i(0);
+  sb_io_inout sb_io0(clock <: clock, oe <: io0__oe, in :> io0__i, out <: io0__o, pin <:> io0);
+  sb_io_inout sb_io1(clock <: clock, oe <: io1__oe, in :> io1__i, out <: io1__o, pin <:> io1);
+  sb_io_inout sb_io2(clock <: clock, oe <: io2__oe, in :> io2__i, out <: io2__o, pin <:> io2);
+  sb_io_inout sb_io3(clock <: clock, oe <: io3__oe, in :> io3__i, out <: io3__o, pin <:> io3);
+  always {
+    uint4 to_send <:: osc ? sending[4,4] : sending[0,4];
+    // output enable on ios
+    io0__oe   = send_else_read;
+    io1__oe   = send_else_read & qspi;
+    io2__oe   = send_else_read & qspi;
+    io3__oe   = send_else_read & qspi;
+    // read current
+    read      = {read[0,4],io3__i,io2__i,io1__i,io0__i};
+    // update outputs
+    io0__o    = to_send[0,1];  io1__o = to_send[1,1];
+    io2__o    = to_send[2,1];  io3__o = to_send[3,1];
+    // start/keep sending?
+    sending   = (~osc | ~enable) ? send : sending;
+    osc       = ~trigger ? 1b0 : ~osc;
+    enable    = trigger;
+  }
+$$end
+}
+
+// -------------------------------------------------------------
+
+algorithm spiflash_rom(
+  input   uint1  in_ready,
+  input   uint24 addr,
+  output  uint$nBytes*8$ rdata,
+  output  uint1  busy(1),
+  // QSPI flash
+  output  uint1  sf_csn(1),
+  output  uint1  sf_clk,
+  inout   uint1  sf_io0,
+  inout   uint1  sf_io1,
+  inout   uint1  sf_io2,
+  inout   uint1  sf_io3,
+) <autorun> {
+
+  uint32 sendvec(0); //_ 38h (QPI enable)
+
+  spiflash_qspi spiflash(
+    clk     :> sf_clk,
+    io0    <:> sf_io0,
+    io1    <:> sf_io1,
+    io2    <:> sf_io2,
+    io3    <:> sf_io3,
+  );
+
+  uint10 wait(0);
+  uint4  four(0);
+  uint3  stage(0);
+  uint3  after(1);
+  uint2  init(2b11);
+  uint1  csn_delayed(1);
+$$if nBytes > 1 then
+  uint$nBytes$ rdata_done(0);
+$$end
+$$if SIMULATION then
+  uint32 cycle(0);
+$$if VERILATOR then
+  verilator_data vdta(clock <: clock);
+$$end
+$$end
+$$if ICE40 then
+    sb_io sb_csn(clock <: clock, out <:: csn_delayed, pin :> sf_csn);
+$$end
+  always {
+
+    spiflash.qspi = ~init[1,1]; // qpi activated after first command
+$$if not ICE40 then
+    sf_csn        = csn_delayed;
+$$end
+
+    switch (stage)
+    {
+      case 0: {
+$$if ICARUS then
+        // this is necessary for icarus as spiflash.qspi is otherwise 1bz
+        spiflash.qspi    = reset ? 0 : spiflash.qspi;
+        spiflash.trigger = reset ? 0 : spiflash.trigger;
+        spiflash.send    = 0;
+$$end
+        stage = wait[9,1] ? after : 0; // counts up to 512 and goes to after
+        wait  = wait + 1;
+      }
+      case 1: {
+        four    = {init[0,1],~init[0,1],2b00};
+        sendvec = (init == 2b01 ? {8hEB,addr} : 24h0)
+                | (init == 2b00 ? {addr,8h00} : 24h0)
+                | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0);
+               //                ^^^^^^^^^^ produces 38h when not in QPI
+        spiflash.send_else_read = 1; // sending
+$$if nBytes > 1 then
+        rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
+$$end
+        // start sending?
+        if (in_ready | init[1,1]) {
+$$if SIMULATION then
+          //__display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
+$$if VERILATOR then
+          vdta.addr = addr;
+          //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
+$$end
+$$end
+          busy                  = 1;
+          csn_delayed           = 0;
+          stage                 = 2;
+        }
+      }
+      case 2: {
+$$if ICARUS then
+        //__display("[%d] spiflash [2] qspi:%d init:%b send:%b",cycle,spiflash.qspi,init,sendvec[24,8]);
+$$end
+        spiflash.trigger        = 1;
+        spiflash.send           = sendvec[24,8];
+        sendvec                 = sendvec << 8;
+        stage                   = 0; // wait
+        wait                    = 512; //_ 2 cycles
+        after                   = four[0,1] ? 3 : 2;
+        four                    = four >> 1;
+      }
+      case 3: {
+        csn_delayed             =  init[1,1]; // not sending anything if in init
+        spiflash.trigger        = ~init[1,1];
+        // send dummy
+        spiflash.send           = 8b00100000; // requests continuous read
+        stage                   = 0; // wait
+        wait                    = 511; //_ 3 cycles
+        after                   = 4;
+      }
+      case 4: {
+        spiflash.send_else_read = 0;
+        stage                   = 0; // wait
+        wait                    = 511; //_ 3 cycles (one extra due to registered ios)
+        after                   = 5;
+      }
+$$if nBytes == 1 then
+      case 5: {
+  $$if VERILATOR then
+        rdata                   = vdta.data;  // from 'data.raw'
+  $$else
+        rdata                   = spiflash.read;
+  $$end
+        csn_delayed             = 1;
+        spiflash.trigger        = 0;
+        busy                    = 0;
+        init                    = {1b0,init[1,1]};
+        stage                   = 1; // return to start stage
+$$if SIMULATION then
+        //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
+$$end
+      }
+$$else
+      case 5: {
+  $$if SIMULATION then
+  $$if VERILATOR then
+        rdata                   = {vdta.data[0,8],rdata[8,$(nBytes-1)*8$]};  // from 'data.raw'
+        vdta.addr               = rdata_done[0,1] ? vdta.addr : (vdta.addr + 1);
+  $$else
+        // rdata                   = {cycle[0,8],    rdata[8,$(nBytes-1)*8$]}; // DEBUG
+        //__display("[%d] read %h",cycle,spiflash.read);
+        rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
+  $$end
+  $$else
+        rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
+  $$end
+        csn_delayed             =  rdata_done[0,1];
+        spiflash.trigger        = ~rdata_done[0,1];
+        busy                    = ~rdata_done[0,1];
+        init                    = {1b0,init[1,1]};
+        wait                    = 512; //_ 2 cycles
+        stage                   = rdata_done[0,1] ? 1 : 0;  // return to start stage when done
+        after                   = 5; // otherwise keep reading
+        rdata_done              = rdata_done >> 1;
+$$if SIMULATION then
+        if (rdata_done[0,1]) {
+          //__display("[%d] spiflash [5] DONE (%h) busy:%b",cycle,rdata,busy);
+        }
+$$end
+      }
+$$end
+    }
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
+  }
+}
+
+// -------------------------------------------------------------

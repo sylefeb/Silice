@@ -1,4 +1,6 @@
 *.ice text eol=lf
+*.si text eol=lf
+*.g4 text eol=lf
 *.v text eol=lf
 *.sh text eol=lf
 *.txt text eol=lf
@@ -7,6 +9,7 @@
 *.h text eol=lf
 *.cpp text eol=lf
 *.hpp text eol=lf
+*.py text eol=lf
 *.ucf text eol=lf
 *.pcf text eol=lf
 *.raw binary

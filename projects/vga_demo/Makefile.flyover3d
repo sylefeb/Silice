@@ -1,6 +1,6 @@
 
-.DEFAULT: vga_flyover3d.ice
-		silice-make.py -s vga_flyover3d.ice -b $@ -p basic,vga -o BUILD_$(subst :,_,$@) $(ARGS)
+.DEFAULT: vga_flyover3d.si
+		silice-make.py -s vga_flyover3d.si -b $@ -p basic,vga -o BUILD_$(subst :,_,$@) $(ARGS)
 
 clean:
 	rm -rf BUILD_*

@@ -97,6 +97,14 @@ namespace Silice
     /// \brief resolves a parameterized VIO knowing the instantiation context
     void resolveParameterized(std::string idnt, const Algorithm::t_combinational_block_context *bctx, t_type_nfo &_nfo) const;
 
+    /// \brief gathers all vars involved in an expression and whether
+    ///        they are cast to track D (_vars is not cleared)
+    void allVars(
+      antlr4::tree::ParseTree                        *expr,
+      const Algorithm::t_combinational_block_context *bctx,
+      std::vector<std::pair<bool,std::string> >&     _vars,
+      bool                                            comb_cast=false) const;
+
   public:
 
     ExpressionLinter(const Algorithm *host, const Algorithm::t_instantiation_context& ictx) : m_Host(host), m_Ictx(ictx) { }

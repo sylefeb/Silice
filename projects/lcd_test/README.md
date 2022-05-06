@@ -1,6 +1,6 @@
 # LCD controller test
 
-The controller is available [here](../common/lcd.ice).
+The controller is available [here](../common/lcd.si).
 
 Tested on the iCEstick (`make icestick`).
 

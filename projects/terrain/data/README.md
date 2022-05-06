@@ -4,7 +4,7 @@ Each map is made of two files (replace N in the filenames by the map id, e.g. fr
 - `colorN.tga`: A 128x128 256 color palette image, where only the 16 first colors are used. I typically obtain this with an image editor, reducing the number of colors down to 16.
 - `heightN.tga`: A 128x128 8bits grayscale height map.
 
-Then, edit the [spiflash script](../make_spiflash.ice) to adjust the variable `num_terrains` to the number of maps. The table `terrain_sky_id` contains the palette index of the sky for each map. Finally edit [the firmware](../firmware.c) and adjust `NUM_MAPS` to the number of maps.
+Then, edit the [spiflash script](../make_spiflash.si) to adjust the variable `num_terrains` to the number of maps. The table `terrain_sky_id` contains the palette index of the sky for each map. Finally edit [the firmware](../firmware.c) and adjust `NUM_MAPS` to the number of maps.
 
 Launch [`build.sh`](../build.sh) in the parent directory to rebuild the spiflash image, design, and to upload to the FPGA board.
 

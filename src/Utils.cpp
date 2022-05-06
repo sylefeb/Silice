@@ -28,7 +28,9 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "LuaPreProcessor.h"
 
-using namespace LibSL; 
+#include <filesystem>
+
+using namespace LibSL;
 using namespace Silice;
 
 // -------------------------------------------------
@@ -205,6 +207,23 @@ Utils::LanguageError::LanguageError(int line, antlr4::Token *tk, antlr4::misc::I
     va_start(args, msg);
     vsprintf_s(m_Message, e_MessageBufferSize, msg, args);
     va_end(args);
+}
+
+// -------------------------------------------------
+
+std::string Utils::tempFileName()
+{
+  static int cnt = 0;
+  static std::string key;
+  if (key.empty()) {
+    srand((unsigned int)time(NULL));
+    for (int i = 0 ; i < 16 ; ++i) {
+      key += (char)((int)'a'+(rand()%26));
+    }
+  }
+  std::string tmp = std::filesystem::temp_directory_path().string()
+                  + "/" + key + std::to_string(cnt++);
+  return tmp;
 }
 
 // -------------------------------------------------

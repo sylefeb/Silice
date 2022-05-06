@@ -6,17 +6,18 @@
       "framework" : "ulx3s.v",
       "pins": [
         {"set"    : "basic"},
-        {"set"    : "buttons","define" : "BUTTONS=1"},
-        {"set"    : "vga",    "define" : "VGA=1"},
-        {"set"    : "oled",   "define" : "OLED=1"},
-        {"set"    : "sdram",  "define" : "SDRAM=1"},
-        {"set"    : "sdcard", "define" : "SDCARD=1"},
-        {"set"    : "hdmi",   "define" : "HDMI=1"},
-        {"set"    : "gpio",   "define" : "GPIO=1"},
-        {"set"    : "audio",  "define" : "AUDIO=1"},
-        {"set"    : "uart",   "define" : "UART=1"},
-        {"set"    : "uart2",  "define" : "UART2=1"},
-        {"set"    : "us2_ps2","define" : "US2_PS2=1"}
+        {"set"    : "buttons", "define" : "BUTTONS=1"},
+        {"set"    : "vga",     "define" : "VGA=1"},
+        {"set"    : "oled",    "define" : "OLED=1"},
+        {"set"    : "sdram",   "define" : "SDRAM=1"},
+        {"set"    : "sdcard",  "define" : "SDCARD=1"},
+        {"set"    : "hdmi",    "define" : "HDMI=1"},
+        {"set"    : "gpio",    "define" : "GPIO=1"},
+        {"set"    : "audio",   "define" : "AUDIO=1"},
+        {"set"    : "uart",    "define" : "UART=1"},
+        {"set"    : "uart2",   "define" : "UART2=1"},
+        {"set"    : "spiflash","define" : "SPIFLASH=1"},
+        {"set"    : "us2_ps2", "define" : "US2_PS2=1"}
       ],
       "builders": [
       {
@@ -25,7 +26,7 @@
         "tool": "trellis",
         "tool_options": [
           {
-              "yosys_synth_options": ["-abc9"],
+              "yosys_synth_options": ["-abc9 -top top"],
               "nextpnr_options": ["--85k", "--freq 25", "--package CABGA381", "--timing-allow-fail"],
               "pnr": "next"
           }
@@ -336,6 +337,28 @@
         "name": "uart2_rx",
         "type": "uint1",
         "io"  : "input"
+      }
+    ],
+    "spiflash": [
+      {
+        "name" : "sf_clk",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_csn",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_mosi",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_miso",
+        "type" : "uint1",
+        "io"   : "input"
       }
     ],
     "us2_ps2": [
