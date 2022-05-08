@@ -6,4 +6,4 @@
 	url = https://github.com/ultraembedded/fat_io_lib
 [submodule "python/pybind11"]
 	path = python/pybind11
-	url = git@github.com:pybind/pybind11.git
+	url = https://github.com/pybind/pybind11.git

@@ -4,9 +4,11 @@
 ---
 **Quick links:**
 - To setup Silice, see the [getting started](GetStarted.md) guide.
-- To start designing hardware, see [learn Silice](learn-silice/README.md).
 - To see what can be done with Silice, checkout the [example projects](projects/README.md) (all are available in this repo).
+- To start designing hardware, see [learn Silice](learn-silice/README.md).
 - Watch the introduction video on [programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube).
+- Watch the [video on the IceV-dual](https://www.youtube.com/watch?v=fr4Dst1fQrk&t=6647s), a dual core RV32I riscv processor [included in this repo](projects/ice-v/IceVDual.md).
+- Browse the slides and watch the video on the [doomchip-onice](https://www.antexel.com/doomchip_onice_rc3/), a GPU for Doom 1993 written in Silice.
 - Browse through the [reference documentation](learn-silice/Documentation.md).
 - Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
 - Refer to the [optimization guidelines](learn-silice/Guidelines.md) for fine tuning your Silice designs.
@@ -16,6 +18,8 @@
 **Important:** Silice is in alpha stages and under active development [read more](#project-status-alpha-release).
 
 **Important:** To enjoy the latest features please use the *draft* branch. [Read more about development branches](#development-branches).
+
+> **Note:** In a recent update the default file extension switched from `.ice` to `.si` to avoid overlapping with existing tools (see [#206](https://github.com/sylefeb/Silice/issues/206)). This will only impact designs including code provided with Silice (e.g. from [projects/common/](projects/common/)). Simply change the extension of any included file to be `.si`. Silice also has to be recompiled as it looks for files from [frameworks/libraries/](frameworks/libraries/) which changed extension as well. I recommend using `.si` from now on, but Silice is otherwise happy to compile files with any extension.
 
 ---
 
