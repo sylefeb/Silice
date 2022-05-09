@@ -16,9 +16,14 @@ $$end
 $$config['bram_wmask_byte_wenable_width'] = 'data'
 
 // pre-compilation script, embeds compiled code within a string
+$$data_addr = 4096
 $$dofile('pre_include_compiled.lua')
 
 $$addrW = 12
+// ^^^^^^^^^ 12 bits addressing
+// - 10 bits for actuall address
+// - bit 10 for ram/rom addresses (0: ram, 1: rom)
+// - bit 11 for peripherals
 
 // include the processor
 $include('../CPUs/ice-v-conveyor.si')
@@ -106,10 +111,10 @@ $$if SIMULATION then
    uint32 cycle(0);
 $$end
 
+  // intermediate interfaces to perform memory mappings
   // ram
-  // - intermediate interfaces to perform memory mapping on the RAM
   bram_io memio;
-  bram uint32 mem<"bram_wmask_byte">[512] = uninitialized;
+  bram uint32 mem<"bram_wmask_byte">[512] = $datainit$;
   // rom (code)
   bram_io romio;
   bram uint32 rom<"bram_wmask_byte">[1024] = $meminit$;
@@ -153,7 +158,7 @@ $$end
     // ---- memory mapping to peripherals: writes
 $$if SIMULATION then
     if (memio.wenable != 0) {
-      //__display("MEM WRITE @%x(%b) = %x",memio.addr,memio.addr,memio.wdata);
+    //  __display("MEM WRITE @%x(%b) = %x",memio.addr,memio.addr,memio.wdata);
     }
 $$end
     if (memio.wenable != 0 & memio.addr[11,1]) {
@@ -188,7 +193,7 @@ $$end
 
   algorithm {
 $$if SIMULATION and not BARE then
-	  //while (cycle < 4096) { }
+	  // while (cycle < 16384) { }
     while (1) { }
 $$else
     while (1) { }

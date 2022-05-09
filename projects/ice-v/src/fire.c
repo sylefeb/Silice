@@ -53,13 +53,13 @@ void draw_fire()
     for (int u=0;u<128;u++) {
       int clr  = tbl[(u>>2) + ((v>>2)<<5)]>>1;
       int clr3 = (clr<<1)+clr;
-      unsigned char *ptr = pal + clr3;
+      const unsigned char *ptr = pal + clr3;
       oled_pix(*ptr++,*ptr++,*ptr++);
     }
   }
 }
 
-int rng  = 31421;
+int rng = 31421;
 
 void update_fire()
 {
