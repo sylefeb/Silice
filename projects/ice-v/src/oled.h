@@ -8,7 +8,11 @@
 #define OLED_DTA   (1<<10)
 #define DELAY      (1<<18)
 
+#ifdef ICESTICK_CONVEYOR
+static inline void wait() { for (int i=0;i<16;++i) { asm volatile ("nop;"); } }
+#else
 static inline void wait() { asm volatile ("nop; nop; nop; nop; nop; nop; nop;"); }
+#endif
 
 #define WAIT wait()
 

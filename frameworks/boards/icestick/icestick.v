@@ -34,10 +34,10 @@ $$VGA=1
 $$color_depth=6
 $$color_max  =63
 $$config['bram_wenable_width'] = '1'
-$$config['dualport_bram_wenable0_width'] = 'data'
-$$config['dualport_bram_wenable1_width'] = 'data'
-$$config['simple_dualport_bram_wenable0_width'] = 'data'
-$$config['simple_dualport_bram_wenable1_width'] = 'data'
+$$config['dualport_bram_wenable0_width'] = '1'
+$$config['dualport_bram_wenable1_width'] = '1'
+$$config['simple_dualport_bram_wenable0_width'] = '1'
+$$config['simple_dualport_bram_wenable1_width'] = '1'
 
 module top(
   output D1,
