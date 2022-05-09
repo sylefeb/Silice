@@ -18,6 +18,7 @@ void starfield(int time)
       } else {
         oled_pix(0,0,0);
       }
+      WAIT;
     }
   }
 }
