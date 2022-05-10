@@ -8,7 +8,7 @@
 
 // Clocks
 $$if ICESTICK then
-import('../../common/plls/icestick_70.v')
+import('../../common/plls/icestick_65.v')
 $$elseif ICEBREAKER or ICEBITSY then
 import('../../common/plls/icebrkr_20.v')
 $$end
