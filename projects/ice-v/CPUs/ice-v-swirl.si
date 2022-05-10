@@ -364,11 +364,14 @@ unit decode_and_ALU(
   int32 addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
   // ==== select ALU second input
   int32 b         <: regOrImm ? (xb) : imm_i;
+  // ==== latch a and b on arithmetic op
+  // int32 ra(0);    int32 rb(0);
+  int32 ra <: xa; int32 rb <: b;
 
   // ==== allows to do subtraction and all comparisons with a single adder
   // trick from femtorv32/swapforth/J1
-  int33 a_minus_b <: {1b1,~b} + {1b0,xa} + 33b1;
-  uint1 a_lt_b    <: (xa[31,1] ^ b[31,1]) ? xa[31,1] : a_minus_b[32,1];
+  int33 a_minus_b <: {1b1,~rb} + {1b0,ra} + 33b1;
+  uint1 a_lt_b    <: (ra[31,1] ^ rb[31,1]) ? ra[31,1] : a_minus_b[32,1];
   uint1 a_lt_b_u  <: a_minus_b[32,1];
   uint1 a_eq_b    <: a_minus_b[0,32] == 0;
 
