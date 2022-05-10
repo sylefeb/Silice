@@ -11,7 +11,7 @@
 
 // set to 1 to have a barrel shifter (one cycle shift)
 // set to nil for one bit shift per cycle (saves LUTs)
-$$CPU_ONE_CYCLE_SHIFT = 1
+$$ICEV_FAST_SHIFT = 1
 // set to 1 for a copious amount of debug output in simulation
 $$DEBUG = nil
 
@@ -56,7 +56,6 @@ $$print("\n\n====== ice-v swirl (pipeline, data bypass, rdcycle) ======\n")
 //                   store (valid then bubble) or not (bubble then valid)
 //   - stage 3: no hazards
 //   - stage 4: no hazards
-//
 //
 // --------------------------------------------------
 // The CPU
@@ -394,7 +393,7 @@ unit decode_and_ALU(
   always {
     int32 shift(0);  uint1 j(0); // temp variables for shifter and comparator
     // ====================== ALU
-$$if not CPU_ONE_CYCLE_SHIFT then
+$$if not ICEV_FAST_SHIFT then
     // shift (one bit per clock)
     if (working) {
       // decrease shift size
@@ -416,7 +415,7 @@ $$end
       case 3b000: { r = sub ? a_minus_b : xa + b; }            // ADD / SUB
       case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
       case 3b100: { r = xa ^ b; } case 3b110: { r = xa | b;   }// XOR / OR
-$$if not CPU_ONE_CYCLE_SHIFT then
+$$if not ICEV_FAST_SHIFT then
       case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
 $$else
       case 3b001: { r = (xa <<< b[0,5]); }

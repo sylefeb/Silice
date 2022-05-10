@@ -75,7 +75,7 @@ interface ram_provider {
   output! done
 }
 
-interface ram_provider_reg {
+interface ram_provider_reg { // version with registered outputs (fmax relax)
   input   addr,
   input   wenable,
   input   wdata,

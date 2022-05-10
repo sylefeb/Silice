@@ -47,6 +47,7 @@ $$print("\n\n====== ice-v conveyor (pipeline, no bypass, no rdcycle) ======\n")
 //
 // There is a little bit of additional complexity due to the ALU since
 // shifts are performed one cycle at a time to save LUTs (see alu_was_working).
+//
 // --------------------------------------------------
 unit rv32i_cpu(bram_port mem,bram_port rom) {
 
@@ -324,7 +325,7 @@ unit decode_and_ALU(
   always {
     int32 shift(0);  uint1 j(0); // temp variables for shifter and comparator
     // ====================== ALU
-$$if not CPU_ONE_CYCLE_SHIFT then
+$$if not ICEV_FAST_SHIFT then
     // shift (one bit per clock)
     if (working) {
       // decrease shift size
@@ -346,7 +347,7 @@ $$end
       case 3b000: { r = sub ? a_minus_b : xa + b; }            // ADD / SUB
       case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
       case 3b100: { r = xa ^ b; } case 3b110: { r = xa | b;   }// XOR / OR
-$$if not CPU_ONE_CYCLE_SHIFT then
+$$if not ICEV_FAST_SHIFT then
       case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
 $$else
       case 3b001: { r = (xa <<< b[0,5]); }
