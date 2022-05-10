@@ -24,6 +24,7 @@ $$print("\n\n====== ice-v conveyor (pipeline, no bypass, no rdcycle) ======\n")
 //
 // Overview
 // --------
+//
 // The principle of the conveyor is to forbid instructions
 // that might produce data hazards to enter the pipeline.
 // Bubbles ('do nothing') are introduced into the pipeline until the
@@ -46,7 +47,8 @@ $$print("\n\n====== ice-v conveyor (pipeline, no bypass, no rdcycle) ======\n")
 // On a jump the entire pipeline is flushed (see refetch and refetch_addr).
 //
 // There is a little bit of additional complexity due to the ALU since
-// shifts are performed one cycle at a time to save LUTs (see alu_was_working).
+// shifts are performed one cycle at a time to save LUTs. When the ALU 
+// is busy the entire pipeline holds (see exec.working and alu_was_working).
 //
 // --------------------------------------------------
 unit rv32i_cpu(bram_port mem,bram_port rom) {
@@ -105,10 +107,10 @@ $$if DEBUG then
          __display("[1]   *** data hazard! ***");
 $$end
          bubble = ~alu_was_working[0,1];
-         //        ^^^ after ALU wait the instruction conflicts with self so:
-         //            - we consider there is no conflict upon resuming
-         //            - to make it correct we have to add 2 cycles after ALU
-         //           (in case there was indeed a conflict between ALU and next)
+         //        ^^^ after ALU is done the instruction conflicts with self so:
+         //   - we consider there is no conflict upon resuming
+         //   - to make it correct we have to add 2 cycles after ALU
+         //   (in case there was indeed a conflict between ALU and next instrs.)
       }
       // fetch next, or refetch
       rom.addr         = refetch ? refetch_addr

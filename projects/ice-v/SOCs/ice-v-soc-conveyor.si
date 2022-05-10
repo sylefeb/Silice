@@ -1,7 +1,6 @@
-// SL 2020-06-12 @sylefeb
+// SL 2022-05 @sylefeb
 //
-// Fun with RISC-V!
-// RV32I cpu, see README.md
+// Pipelined RV32I cpu, see ../CPUs/ice-v-conveyor.si for notes
 //
 // https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
