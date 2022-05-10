@@ -92,10 +92,10 @@ $$end
       uint1 branch <: opcode == 5b11000;
       uint1 has_rd <: ~(store | branch) & ~reset;
       // capture pc, instr in pipeline
-      pc       =                         (exec.working ? pc    : rom.addr );
-      instr    = reset ? 32h13 /*nop*/ : (exec.working ? instr : rom.rdata);
-      //         ^^^ on reset, nop        ^^^^^^^^^^^^ hold if ALU is busy
-      // insert a bubble on a refetch, ALU busy or data hazard
+      pc       = (exec.working ? pc    : rom.addr );
+      instr    = (exec.working ? instr : rom.rdata);
+      //          ^^^^^^^^^^^^ hold if ALU is busy
+      // insert a bubble on reset, a refetch, ALU busy or data hazard
       bubble   = reset ? 1 : (refetch | exec.working | alu_was_working[2,1] | alu_was_working[1,1]);
       // detect data hazard (register conflict)
       if (          written_regs[Rtype(rom.rdata).rs1,1]
@@ -265,11 +265,11 @@ unit decode_and_ALU(
   // trigger: pulsed high when the decoder + ALU should start
   input  uint1  trigger,
   // outputs all information the processor needs to decide what to do next
-  output uint3  op,    output uint5  write_rd, output  uint1  no_rd,
-  output uint1  jump,  output uint1  load,     output  uint1  store,
-  output int32  val,   output uint1  storeVal, output  uint1  working(0),
-  output uint32 n,     output uint1  storeAddr, // next address adder
-  output uint1  intop, output int32  r,         // integer operations
+  output uint3  op,       output uint5  write_rd, output  uint1  no_rd,
+  output uint1  jump,     output uint1  load,     output  uint1  store,
+  output int32  val,      output uint1  storeVal, output  uint1  working(0),
+  output uint$addrW+2$ n, output uint1  storeAddr, // next address adder
+  output uint1  intop,    output int32  r,         // integer operations
 ) {
   uint5  shamt(0);  uint32 cycle(0); // shifter status and cycle counter
 
@@ -292,7 +292,7 @@ unit decode_and_ALU(
   uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
 
   // ==== select next address adder first input
-  int32 addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
+  int$addrW+3$ addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
   // ==== select ALU second input
   int32 b         <: regOrImm ? (xb) : imm_i;
 
@@ -305,7 +305,7 @@ unit decode_and_ALU(
 
   // ==== select immediate for the next address computation
   // 'or trick' from femtorv32
-  int32 addr_imm  <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+  int$addrW+3$ addr_imm  <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
                   |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
                   |  (store  ? imm_s : 32b0);
   // ==== set decoder outputs depending on incoming instructions

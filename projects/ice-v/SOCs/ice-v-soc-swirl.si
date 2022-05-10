@@ -8,7 +8,7 @@
 
 // Clocks
 $$if ICEBREAKER or ICEBITSY then
-import('../../common/plls/icebrkr_20.v')
+import('../../common/plls/icebrkr_23.v')
 $$elseif not SIMULATION then
 $$error('This SOC is for the UP5K (icebreaker, icebitsy).')
 $$end
@@ -75,10 +75,7 @@ $$if OLED or PMOD then
   uint1 displ_en = uninitialized;
   uint1 displ_dta_or_cmd <: memio.wdata[10,1];
   uint8 displ_byte       <: memio.wdata[0,8];
-  oled display(
-    enable          <: displ_en,
-    data_or_command <: displ_dta_or_cmd,
-    byte            <: displ_byte,
+  oled display<reginputs>(
     oled_din        :> oled_mosi,
     oled_clk        :> oled_clk,
     oled_dc         :> oled_dc,
@@ -183,6 +180,15 @@ $$if SIMULATION then
 			}
 $$end
     }
+    
+    // display
+$$if OLED or PMOD then
+    display.enable          = displ_en;
+    display.data_or_command = displ_dta_or_cmd;
+    display.byte            = displ_byte;
+$$end
+
+    
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end

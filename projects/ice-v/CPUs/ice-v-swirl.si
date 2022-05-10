@@ -69,26 +69,25 @@ unit rv32i_cpu(bram_port mem,bram_port rom) {
   // value that has been loaded from memory
   int32         loaded(0);
   // stage 1 => stage 2
-  uint$addrW$   pc(0);            uint32        instr(32h13);
+  uint$addrW$   pc(0);            uint32 instr(0);
   // stage 2 => stage 3
   int32         xb(0);
   // stage 3 => stage 4
-  int32         write_back(0);
-  uint1         no_rd(0);         uint1         jump(0);
-  uint1         load(0);          uint$addrW+2$ alu_n(0);
-  uint3         op(0);            uint5         rd(0);
+  int32         alu_r(0);         int32  alu_val(0);   uint1  no_rd(0);
+  uint1         jump(0);          uint1  load(0);      uint1  intop(0);
+  uint$addrW+2$ alu_n(0);         uint1  storeAddr(0); uint1  storeVal(0);
+  uint3         op(0);            uint5  rd(0);
   // pipeline control signals
-  uint1         hold(0);          uint1         prev_hold(0);
-  uint1         bubble(0);        uint1         refetch(0);
-  uint$addrW$   refetch_addr(0);  uint1         alu_was_working(0);
-  uint1         stage3_bubble(0);
+  uint1         hold(0);          uint1  prev_hold(0); uint1  bubble(0);          
+  uint$addrW$   refetch_addr(0);  uint1  refetch(0);   uint1  stage3_bubble(0);
+  uint1         alu_was_working(0);    
 
   // what to write in ALU register inputs
   uint1 xa_keep(0);  uint1 xa_regR(0);  uint1 xa_regW(0);  uint1 xa_regW_prev(0);
   uint1 xb_keep(0);  uint1 xb_regR(0);  uint1 xb_regW(0);  uint1 xb_regW_prev(0);
 
   // decoder + ALU, executes the instruction and tells processor what to do
-  decode_and_ALU exec;
+  decode_and_ALU exec<reginputs>;
   int32 reg_ex_xa(0); int32 reg_ex_xb(0);
 
 $$if SIMULATION then
@@ -109,7 +108,7 @@ $$end
       // ==== stage 1
       // capture pc, instr in pipeline
       pc       = (exec.working | hold) ? pc    : rom.addr;
-      instr    = (exec.working | hold) ? instr : reset ? 32h13 /*nop*/ : rom.rdata;
+      instr    = (exec.working | hold) ? instr : rom.rdata;
       //         ^^^^^^^^^^^^ hold if ALU is busy
       // insert a bubble on a refetch or ALU busy
       bubble   = refetch | exec.working;
@@ -229,19 +228,20 @@ $$end
                           exec.op[0,1] | exec.op[1,1], 1b1
                         } ) << exec.n[0,2];
       }
-      // write back
-      write_back = (exec.jump      ? ((pc+1)<<2)         : 32b0)
-                 | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
-                 | (exec.storeVal  ? exec.val            : 32b0)
-                 | (exec.intop     ? exec.r              : 32b0);
       // status from decoder to trickle down the pipeline
       no_rd    = exec.no_rd | bubble;
       //                      ^^^^ disables data hazard in stage 2 on a bubble
       rd       = exec.write_rd;
       jump     = exec.jump & ~bubble;
       load     = exec.load;
-      alu_n    = exec.n[0,$addrW+2$];
+      intop    = exec.intop;
+      alu_n    = exec.n;
+      alu_r    = exec.r;
+      alu_val  = exec.val;
       op       = exec.op;
+      storeAddr= exec.storeAddr;
+      storeVal = exec.storeVal;
+      
 $$if DEBUG then
       __display("[3]   rd %d no_rd %b",rd,no_rd);
       __display("[3]   alu_r %x alu_n @%x alu_jump %b",exec.r,exec.n,exec.jump);
@@ -262,7 +262,11 @@ $$end
       // register write back
       xregsA.wenable1  = ~no_rd & ~bubble & ~refetch;
       xregsA.addr1     = rd;
-      xregsA.wdata1    = load ? loaded : write_back;
+      xregsA.wdata1    = (jump      ? ((pc+1)<<2)        : 32b0)
+                       | (storeAddr ? alu_n              : 32b0)
+                       | (storeVal  ? alu_val            : 32b0)
+                       | (load      ? loaded             : 32b0)
+                       | (intop     ? alu_r              : 32b0);
 $$if DEBUG then
       __display("[4] instr: %x @%x (bubble:%b)",instr,pc<<2,bubble);
 $$end
@@ -325,6 +329,13 @@ $$end
 // decoder + ALU
 // - decodes instructions
 // - performs all integer computations
+//
+// Note: In the ice-v-swirl we setup the decoder+ALU with
+// registered inputs (<reginputs>) and use non registered
+// (immediate) outputs. This is better as stage 2 has a 
+// fairly large multiplexer due to data hazards bypass.
+// See also ../../learn-silice/AlgoInOuts.md
+//
 // --------------------------------------------------
 
 unit decode_and_ALU(
@@ -333,11 +344,11 @@ unit decode_and_ALU(
   // trigger: pulsed high when the decoder + ALU should start
   input  uint1  trigger, 
   // outputs all information the processor needs to decide what to do next
-  output uint3  op,    output uint5  write_rd, output  uint1  no_rd,
-  output uint1  jump,  output uint1  load,     output  uint1  store,
-  output int32  val,   output uint1  storeVal, output  uint1  working(0),
-  output uint$addrW+2$ n(0),  output uint1  storeAddr, // next address adder
-  output uint1  intop, output int32  r,         // integer operations
+  output! uint3  op,    output! uint5  write_rd, output!  uint1  no_rd,
+  output! uint1  jump,  output! uint1  load,     output!  uint1  store,
+  output! int32  val,   output! uint1  storeVal, output!  uint1  working(0),
+  output! uint$addrW+2$ n(0),  output! uint1  storeAddr, // next address adder
+  output! uint1  intop, output! int32  r,         // integer operations
 ) {
   uint5  shamt(0); // shifter status
   uint32 cycle(0); // cycle counter
