@@ -4,7 +4,7 @@
 MEMORY
 {
     ROM (rx)   : ORIGIN = 0x00000000, LENGTH = 0x01000  /* 4 KB */
-    RAM (xrw)  : ORIGIN = 0x00001000, LENGTH = 0x00800  /* 2 KB */
+    RAM (xrw)  : ORIGIN = 0x00001000, LENGTH = 0x01000  /* 4 KB */
 }
 
 SECTIONS {

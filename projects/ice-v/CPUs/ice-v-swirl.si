@@ -329,17 +329,18 @@ $$end
 
 unit decode_and_ALU(
   // instruction, program counter and registers
-  input  uint32 instr, input  uint$addrW$ pc, input int32 xa, input int32 xb,
+  input  uint32 instr,   input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
-  input  uint1  trigger,
+  input  uint1  trigger, 
   // outputs all information the processor needs to decide what to do next
   output uint3  op,    output uint5  write_rd, output  uint1  no_rd,
   output uint1  jump,  output uint1  load,     output  uint1  store,
   output int32  val,   output uint1  storeVal, output  uint1  working(0),
-  output uint32 n,     output uint1  storeAddr, // next address adder
+  output uint$addrW+2$ n(0),  output uint1  storeAddr, // next address adder
   output uint1  intop, output int32  r,         // integer operations
 ) {
-  uint5  shamt(0);  uint32 cycle(0); // shifter status and cycle counter
+  uint5  shamt(0); // shifter status
+  uint32 cycle(0); // cycle counter
 
   // ==== decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
@@ -353,32 +354,29 @@ unit decode_and_ALU(
   uint1 AUIPC     <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
   uint1 JAL       <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
   uint1 IntImm    <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
-  uint1 Cycles    <: opcode == 5b11100;  uint1 branch <: opcode == 5b11000;
+  uint1 CSR       <: opcode == 5b11100;  uint1 branch <: opcode == 5b11000;
   uint1 regOrImm  <: IntReg  | branch;                    // reg or imm in ALU?
   uint1 pcOrReg   <: AUIPC   | JAL    | branch;           // pc or reg in addr?
   uint1 sub       <: IntReg  & Rtype(instr).sign;         // subtract
   uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
 
   // ==== select next address adder first input
-  int32 addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
+  int$addrW+3$ addr_a <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
   // ==== select ALU second input
-  int32 b         <: regOrImm ? (xb) : imm_i;
-  // ==== latch a and b on arithmetic op
-  // int32 ra(0);    int32 rb(0);
-  int32 ra <: xa; int32 rb <: b;
+  int32 b             <: regOrImm ? (xb) : imm_i;
 
   // ==== allows to do subtraction and all comparisons with a single adder
   // trick from femtorv32/swapforth/J1
-  int33 a_minus_b <: {1b1,~rb} + {1b0,ra} + 33b1;
-  uint1 a_lt_b    <: (ra[31,1] ^ rb[31,1]) ? ra[31,1] : a_minus_b[32,1];
+  int33 a_minus_b <: {1b1,~b} + {1b0,xa} + 33b1;
+  uint1 a_lt_b    <: (xa[31,1] ^ b[31,1]) ? xa[31,1] : a_minus_b[32,1];
   uint1 a_lt_b_u  <: a_minus_b[32,1];
   uint1 a_eq_b    <: a_minus_b[0,32] == 0;
 
   // ==== select immediate for the next address computation
   // 'or trick' from femtorv32
-  int32 addr_imm  <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
-                  |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
-                  |  (store  ? imm_s : 32b0);
+  int$addrW+3$ addr_imm <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+                        |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
+                        |  (store  ? imm_s : 32b0);
   // ==== set decoder outputs depending on incoming instructions
   // load/store?
   load         := opcode == 5b00000;   store        := opcode == 5b01000;
@@ -388,38 +386,42 @@ unit decode_and_ALU(
   no_rd        := branch  | store  | (Rtype(instr).rd == 5b0);
   // integer operations                // store next address?
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
-  // value to store directly           // store value?
-  val          := LUI ? imm_u : cycle; storeVal     := LUI     | Cycles;
-  // ==== increment cycle counter
-  cycle        := cycle + 1;
+  // value to store directly
+  val          := LUI ? imm_u : cycle;
+  // store value?
+  storeVal     := LUI | CSR;
 
   always {
-    int32 shift(0);  uint1 j(0); // temp variables for shifter and comparator
+    uint1 j(0); // temp variables for and comparator
+
     // ====================== ALU
 $$if not ICEV_FAST_SHIFT then
-    // shift (one bit per clock)
-    if (working) {
-      // decrease shift size
-      shamt = shamt - 1;
-      // shift one bit
-      shift = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]}
-                          : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
-    } else {
-      // start shifting?
-      shamt = ((aluShift & trigger) ? __unsigned(b[0,5]) : 0);
-      // store value to be shifted
-      shift = xa;
-    }
     // are we still shifting?
+    uint1 shiting <:: (shamt != 0);
+    // shift (one bit per clock)
+    if (trigger) {
+      // start shifting?
+      shamt  = aluShift ? __unsigned(b[0,5]) : 0;
+      // store value to be shifted
+      r      = xa;
+    } else {
+      if (shiting) {
+        // decrease shift size
+        shamt = shamt - 1;
+        // shift one bit
+        r     = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]}
+                        : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
+      }
+    }
     working = (shamt != 0);
 $$end
     // all ALU operations
     switch (op) {
-      case 3b000: { r = sub ? a_minus_b : xa + b; }            // ADD / SUB
-      case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; }// SLTI / SLTU
-      case 3b100: { r = xa ^ b; } case 3b110: { r = xa | b;   }// XOR / OR
+      case 3b000: { r = sub ? a_minus_b : xa + b; }             // ADD / SUB
+      case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; } // SLTI / SLTU
+      case 3b100: { r = xa ^ b; } case 3b110: { r = xa | b;  }  // XOR / OR
 $$if not ICEV_FAST_SHIFT then
-      case 3b001: { r = shift;  } case 3b101: { r = shift;    }// SLLI/SRLI/SRAI
+      case 3b001: { }             case 3b101: { }              // SLLI/SRLI/SRAI
 $$else
       case 3b001: { r = (xa <<< b[0,5]); }
       case 3b101: { r = Rtype(instr).sign ? (xa >>> b[0,5]) : (xa >> b[0,5]); }
@@ -427,9 +429,13 @@ $$end
       case 3b111: { r = xa & b; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
     }
+
 $$if DEBUG then
-    __display("[alu] %x xa=%x xb=%x b=%x r=%x (op:%b)",instr,xa,xb,b,r,op);
+    if (working) {
+      __display("[cycle %d] ALU busy",cycle);
+    }
 $$end
+
     // ====================== Comparator for branching
     switch (op[1,2]) {
       case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/
@@ -440,6 +446,10 @@ $$end
 
     // ====================== Next address adder
     n = addr_a + addr_imm;
+
+    // ==== increment cycle counter
+    cycle = cycle + 1;
+
   }
 
 }

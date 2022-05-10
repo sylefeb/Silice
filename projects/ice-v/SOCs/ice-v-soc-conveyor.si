@@ -10,7 +10,7 @@
 $$if ICESTICK then
 import('../../common/plls/icestick_70.v')
 $$elseif ICEBREAKER or ICEBITSY then
-import('../../common/plls/icebrkr_25.v')
+import('../../common/plls/icebrkr_20.v')
 $$end
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'

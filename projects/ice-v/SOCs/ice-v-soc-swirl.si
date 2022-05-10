@@ -110,7 +110,7 @@ $$end
   // ram
   // - intermediate interfaces to perform memory mapping on the RAM
   bram_io memio;
-  bram uint32 mem<"bram_wmask_byte">[512]  = $datainit$;
+  bram uint32 mem<"bram_wmask_byte">[1024] = $datainit$;
   // rom (code)
   bram_io romio;
   bram uint32 rom<"bram_wmask_byte">[1024] = $meminit$;
