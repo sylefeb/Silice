@@ -1,0 +1,6 @@
+
+.DEFAULT: SOCs/ice-v-soc-swirl.si
+		silice-make.py -s SOCs/ice-v-soc-swirl.si -b $@ -p basic,oled -o BUILD_$(subst :,_,$@) $(ARGS)
+
+clean:
+	rm -rf BUILD_*

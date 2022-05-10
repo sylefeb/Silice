@@ -82,7 +82,6 @@ void update_fire()
 void main()
 {
   *(LEDS) = 7;
-
   oled_init();
   oled_fullscreen();
   for (int v=0;v<32;v++) {
@@ -90,11 +89,10 @@ void main()
       tbl[u+(v<<5)] = (v == 0) ? 63 : 0;
     }
   }
-
   int time = 0;
   while (1) {
-    draw_fire();
     update_fire();
+    draw_fire();
     ++ time;
     if ((time&63) == 0) {
       // turn off

@@ -16,3 +16,7 @@
 #ifdef ICEBREAKER_FERMATA
 #include "icebreaker-fermata/config.h"
 #endif
+
+#ifdef ICEBREAKER_SWIRL
+#include "icebreaker-swirl/config.h"
+#endif

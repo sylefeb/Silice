@@ -97,6 +97,3 @@ print('dara size: ' .. datanumwords .. ' 32bits words ('
       .. data_size_bytes .. ' bytes)')
 meminit  = meminit  .. 'pad(uninitialized)}'
 datainit = datainit .. 'pad(uninitialized)}'
-
-print(meminit)
-print(datainit)
