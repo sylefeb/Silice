@@ -1,6 +1,6 @@
 // SL 2022-05-04 @sylefeb
 //
-// An attempt at a pipelined RISC-V
+// A first pipelined RISC-V
 //
 // https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
@@ -13,41 +13,51 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
 // Processor
 // --------------------------------------------------
 // Risc-V RV32I pipelined CPU
-$$print("\n\n====== ice-v conveyor (pipeline, no bypass, no rdcycle) ======\n")
+$$print("\n\n====== ice-v conveyor (pipeline, no bypass, 24b rdcycle) ======\n")
 //
-// Four stage CPU
-// --------------
+// Four stages CPU
+// ---------------
 // - stage 1, in: instruction, setup: reg read A,B reg write bit, next fetch
 // - stage 2, in: reg A,B,     setup: ALU+decode (trigger)
 // - stage 3, in: ALU done,    setup: load/store, read ALU output
 // - stage 4, in: ALU + load,  setup: reg write, refetch if jump
 //
+// Compiling a demo
+// ----------------
+//
+// To plug a SPI-screen see ../SPIscreen.md
+// From a shell in the parent directory:
+// - icestick:
+//   ./compile/icestick/conveyor/compile_c.sh src/fire.c
+//   make icestick -f Makefile.conveyor
+// - simulation:
+//   ./compile/icestick/conveyor/compile_c.sh src/fire.c
+//   make verilator -f Makefile.conveyor
+//
 // Overview
 // --------
 //
-// The principle of the conveyor is to forbid instructions
-// that might produce data hazards to enter the pipeline.
-// Bubbles ('do nothing') are introduced into the pipeline until the
-// instruction can safely enter. Another way to see this is as
-// a barrier at the entry of the pipeline/conveyor.
+// The principle of the conveyor is to forbid instructions that might produce
+// data hazards to enter the pipeline. Bubbles ('do nothing') are introduced
+// into the pipeline until the instruction can safely enter. Another way to see
+// this is as a barrier at the entry of the pipeline.
 //
-// To easily determine which instructions can enter, a scratchpad
-// with one bit per register is used (written_regs below).
-// Every time an instruction enters, the bit of the written register (rd)
-// is set (written_regs_ins). Every time an instruction exits (stage 4)
-// the bit is cleared (written_regs_del).
+// To easily determine which instructions can enter, a scratchpad with one bit
+// per register is used (written_regs below). Every time an instruction enters,
+// the bit of the written register (rd) is set (written_regs_ins). Every time
+// an instruction exits (stage 4)  the bit is cleared (written_regs_del).
 //
-// When an instruction wants to enter, the scratchpad is checked and
-// in case of potential conflict the instruction is stopped until the
-// bit clears. As we record a single bit in the scratchpad, we also
-// prevent entry if an instruction writting the same register is already
-// present. The check is kept simple and is sometime too conservative
-// (e.g. does not detect that rs2 is indeed used).
+// When an instruction wants to enter, the scratchpad is checked and in case of
+// potential conflict the instruction is stopped until the bit clears. As we
+// record a single bit in the scratchpad, we also prevent entry if an
+// instruction writting the same register is already present. The check is kept
+// simple and is sometime too conservative (e.g. does not detect whether rs2 is
+// indeed used).
 //
 // On a jump the entire pipeline is flushed (see refetch and refetch_addr).
 //
 // There is a little bit of additional complexity due to the ALU since
-// shifts are performed one cycle at a time to save LUTs. When the ALU 
+// shifts are performed one cycle at a time to save LUTs. When the ALU
 // is busy the entire pipeline holds (see exec.working and alu_was_working).
 //
 // --------------------------------------------------
@@ -120,8 +130,6 @@ $$end
       written_regs_ins = {31b0,has_rd & ~bubble} << Rtype(rom.rdata).rd;
 $$if DEBUG then
       __display("[1] instr: %x @%x (bubble:%b refetch:%b alu:%b alu_was:%b)",instr,pc<<2,bubble,refetch,exec.working,alu_was_working);
-      //__display("[1]   rom.addr: @%x",rom.addr<<2);
-      //__display("[1]   regs: rs1 %x rs2 %x wrd %x",Rtype(rom.rdata).rs1,Rtype(rom.rdata).rs2,Rtype(rom.rdata).rd);
 $$end
       // remember ALU was just busy
       alu_was_working ^= exec.working ? 3b100 : (alu_was_working>>1);
@@ -136,7 +144,6 @@ $$end
       instr        = bubble ? exec.instr : instr;
 $$if DEBUG then
       __display("[2] instr: %x @%x (bubble:%b)",instr,pc<<2,bubble);
-      // if (exec.working) { __display("[ALU] busy (r=%x)",exec.r); }
 $$end
 $$if SIMULATION then
       // for correct PC display, otherwise not required
@@ -149,9 +156,6 @@ $$end
       exec.trigger = ~bubble; // trigger ALU if not in bubble
       // capture xb in pipeline (store)
       xb           = xregsB.rdata0;
-$$if SIMULATION then
-      //__display("[2]   reg values: rs1=%x rs2=%x",xregsA.rdata0,xregsB.rdata0);
-$$end
 
     } -> { // ==== stage 3
 
@@ -185,9 +189,6 @@ $$end
       load     = exec.load;
       alu_n    = exec.n[0,$addrW+2$];
       op       = exec.op;
-$$if SIMULATION then
-      //__display("[3] alu_n @%x wenable:%b (wdata:%x), write_back %x",exec.n,mem.wenable,mem.wdata,write_back);
-$$end
 
     } -> { // ==== stage 4
 
@@ -200,21 +201,16 @@ $$end
         case 2b10:{ loaded = aligned;   }
         default:  { loaded = {32{1bx}}; } // don't care
       }
-
       // register write back (canceled on bubble and refetch)
       xregsA.wenable1  = ~no_rd & ~bubble & ~refetch;
       xregsA.addr1     = rd;
       xregsA.wdata1    = load ? loaded : write_back;
 $$if DEBUG then
-      __display("[4] instr: %x @%x (bubble:%b refetch:%b), loaded:%x, alu_n:%x",instr,pc<<2,bubble,refetch,loaded,alu_n);
-$$end
-$$if SIMULATION then
+      __display("[4] instr: %x @%x (bubble:%b refetch:%b), loaded:%x, alu_n:%x",
+          instr,pc<<2,bubble,refetch,loaded,alu_n);
       if (~bubble & ~refetch) {
-        //__display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b)",
-        //  instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1);
-        //if (load & ~bubble) {
-        //  __display("      mem.addr @%x (=%x)",alu_n,mem.rdata);
-        //}
+        __display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b)",
+          instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1);
       }
 $$end
       // clear register write bit
@@ -223,9 +219,13 @@ $$end
       refetch          = jump & ~refetch;
       //                 ^^^^^^^^ reset refetch if done at prev cycle
       refetch_addr     = alu_n>>2;
+
     }
 
+    // ==== outside of pipeline
+
     // update register write bits
+    // this is done from two variables written during stages 1 and 4
     written_regs =( refetch
                   ? 0 // on a refetch, we reset the set of written regs
                   : (written_regs & ~written_regs_del) | written_regs_ins
@@ -235,19 +235,13 @@ $$if DEBUG then
     __display("-- %b ",written_regs_del);
     __display("=  %b ",written_regs);
 $$end
-    // register writes
+    // register reads (outside of pipeline instr is seen as written in stage 1)
     xregsA.addr0    = Rtype(instr).rs1;
     xregsB.addr0    = Rtype(instr).rs2;
     // register bank B follows A writes
     xregsB.wenable1 = xregsA.wenable1;
     xregsB.wdata1   = xregsA.wdata1;
     xregsB.addr1    = xregsA.addr1;
-$$if SIMULATION then
-      if (mem.wenable != 0) {
-      //  __display("[*]   mem.addr @%x store:%b %x",mem.addr,mem.wenable,mem.wdata);
-      }
-$$end
-
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
@@ -259,6 +253,7 @@ $$end
 // decoder + ALU
 // - decodes instructions
 // - performs all integer computations
+// - same as most other ice-v variants
 // --------------------------------------------------
 
 unit decode_and_ALU(
@@ -273,7 +268,7 @@ unit decode_and_ALU(
   output uint$addrW+2$ n, output uint1  storeAddr, // next address adder
   output uint1  intop,    output int32  r,         // integer operations
 ) {
-  uint5  shamt(0);  uint32 cycle(0); // shifter status and cycle counter
+  uint5  shamt(0);  uint24 cycle(0); // shifter status and cycle counter
 
   // ==== decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
@@ -322,7 +317,7 @@ unit decode_and_ALU(
   // value to store directly           // store value?
   val          := LUI ? imm_u : cycle; storeVal     := LUI     | Cycles;
   // ==== increment cycle counter
-  // cycle        := cycle + 1;
+  cycle        := cycle + 1;
 
   always {
     int32 shift(0);  uint1 j(0); // temp variables for shifter and comparator
