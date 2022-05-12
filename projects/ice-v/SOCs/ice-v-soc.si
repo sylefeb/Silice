@@ -13,6 +13,7 @@ $$elseif FOMU then
 import('../../common/plls/fomu_20.v')
 $$elseif ICEBREAKER or ICEBITSY then
 import('../../common/plls/icebrkr_25.v')
+$$ICEV_FAST_SHIFT = 1
 $$end
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
