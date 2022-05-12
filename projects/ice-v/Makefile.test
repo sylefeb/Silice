@@ -1,14 +1,14 @@
 
 icebreaker: SOCs/ice-v-soc-dual.si
-	./compile/icebreaker/compile_boot_dual.sh
+	./compile/icebreaker/dual/compile_c.sh src/icebreaker/boot_spiflash.c
 	silice-make.py -s SOCs/ice-v-soc-dual.si -b $@ -p basic,pmod,spiflash,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
 
 icestick: SOCs/ice-v-soc.si
-	./compile/icestick/compile_c.sh src/test_leds.c
+	./compile/icestick/ice-v/compile_c.sh src/test_leds.c
 	silice-make.py -s SOCs/ice-v-soc.si -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
 
 icestick2: SOCs/ice-v-soc-dual.si
-	./compile/icestick/compile_c_dual.sh src/dual_test_oled.c
+	./compile/icestick/dual/compile_c.sh src/dual_test_oled.c
 	silice-make.py -s SOCs/ice-v-soc-dual.si -b icestick -p basic,pmod,spiflash -o BUILD_$(subst :,_,$@) $(ARGS)
 
 clean:

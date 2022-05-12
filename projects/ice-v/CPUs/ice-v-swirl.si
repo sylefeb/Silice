@@ -115,7 +115,6 @@ unit rv32i_cpu(bram_port mem,bram_port rom) {
 
   // decoder + ALU, executes the instruction and tells processor what to do
   decode_and_ALU exec<reginputs>;
-  int32 reg_ex_xa(0); int32 reg_ex_xb(0);
 
 $$if SIMULATION then
   uint32 cycle(0);
@@ -298,16 +297,14 @@ $$end
 
     // set decoder+ALU inputs
     // (out of pipeline to get up-to-date value of xregsA.wdata1 from stage 4)
-    reg_ex_xa = xa_keep      ? reg_ex_xa     : 32b0
+    exec.xa   = xa_keep      ? exec.xa       : 32b0
               | xa_regR      ? xregsA.rdata0 : 32b0
               | xa_regW      ? xregsA.wdata1 : 32b0
               | xa_regW_prev ? xregsB.wdata1 : 32b0;
-    exec.xa   = reg_ex_xa;
-    reg_ex_xb = xb_keep      ? reg_ex_xb     : 32b0
+    exec.xb   = xb_keep      ? exec.xb       : 32b0
               | xb_regR      ? xregsB.rdata0 : 32b0
               | xb_regW      ? xregsA.wdata1 : 32b0
               | xb_regW_prev ? xregsB.wdata1 : 32b0;
-    exec.xb   = reg_ex_xb;
     // what to write on a store
     mem.wdata = (xb_regW ? xregsA.wdata1 : xb) << {exec.n[0,2],3b000};
     //                                     ^^---------\

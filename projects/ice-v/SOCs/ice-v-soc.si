@@ -178,7 +178,7 @@ $$end
   }
 
   algorithm {
-$$if SIMULATION and not BARE then
+$$if SIMULATION and not BARE and not OLED then
     cpu <- ();
 	  while (cycle < 2048) { }
 $$else
