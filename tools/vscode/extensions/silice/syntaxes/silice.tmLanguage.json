@@ -12,7 +12,7 @@
 			"patterns": [
 				{
 					"name": "keyword",
-					"match": "(?<![a-zA-Z_1-9])(algorithm|output|input|inout|autorun|auto|onehot|\\+\\+:|brom|bram|dualport_bram|circuitry|__display|__finish|__write|__signed|__unsigned|bitfield|interface)(?![a-zA-Z_1-9])|\\$include"
+					"match": "(?<![a-zA-Z_1-9])(unit|algorithm|output|input|inout|autorun|auto|onehot|\\+\\+:|brom|bram|dualport_bram|circuitry|__display|__finish|__write|__signed|__unsigned|bitfield|interface)(?![a-zA-Z_1-9])|\\$include"
 				}, 
 				{
 					"name": "keyword.control.untitled",
