@@ -17,4 +17,5 @@ $ARCH-gcc -DICESTICK_CONVEYOR -fstack-reuse=none -fno-builtin -O3 -fno-stack-pro
 $ARCH-objcopy -O verilog $DST/code.elf $DST/code.hex
 
 # uncomment to see the actual code, useful for debugging
+# $ARCH-objcopy.exe -O binary $DST/code.elf $DST/code.bin
 # $ARCH-objdump.exe -D -m riscv $DST/code.elf

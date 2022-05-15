@@ -17,4 +17,5 @@ $ARCH-gcc -DICEBREAKER_SWIRL -fstack-reuse=none -fno-builtin -O3 -fno-stack-prot
 $ARCH-objcopy -O verilog $DST/code.elf $DST/code.hex
 
 # uncomment to see the actual code, useful for debugging
+# $ARCH-objcopy.exe -O binary $DST/code.elf $DST/code.bin
 # $ARCH-objdump.exe -D -m riscv $DST/code.elf
