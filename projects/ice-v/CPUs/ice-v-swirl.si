@@ -13,13 +13,16 @@ $$ICEV_FAST_SHIFT = 1
 $$DEBUG = nil
 // --------------------------------------------------
 // bitfield for easier decoding of instructions
+$$if not ICEV_RTYPE then
 bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
+$$ICEV_RTYPE = 1								 
+$$end
 // --------------------------------------------------
 // Processor
 // --------------------------------------------------
 // Risc-V RV32I pipelined CPU
-$$print("\n\n====== ice-v swirl (pipeline, data bypass, rdcycle) ======\n")
+$$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 //
 // Four stages pipeline
 // --------------------
@@ -85,7 +88,7 @@ $$print("\n\n====== ice-v swirl (pipeline, data bypass, rdcycle) ======\n")
 // --------------------------------------------------
 // The CPU
 // --------------------------------------------------
-unit rv32i_cpu(bram_port mem,bram_port rom) {
+unit rv32i_cpu_swirl(bram_port mem,bram_port rom) {
 
   // register file, uses two BRAMs to fetch two registers at once
   simple_dualport_bram int32 xregsA[32] = {pad(0)};
@@ -114,7 +117,7 @@ unit rv32i_cpu(bram_port mem,bram_port rom) {
   uint1 xb_keep(0);  uint1 xb_regR(0);  uint1 xb_regW(0);  uint1 xb_regW_prev(0);
 
   // decoder + ALU, executes the instruction and tells processor what to do
-  decode_and_ALU exec<reginputs>;
+  decode_and_ALU_swirl exec<reginputs>;
 
 $$if SIMULATION then
   uint32 cycle(0);
@@ -289,6 +292,12 @@ $$if DEBUG then
           instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1);
       }
 $$end
+$$if ICEV_VERILATOR_TRACE then
+      if (~bubble & ~refetch & ~reset) {
+				uint32 foo <:: instr; // HACK to capture instr
+				__verilog("\\$c32(\\"cpu_retires(3,\\",_q___pip_819_3_pc<<2,\\",\\",_q___pip_819_3_instr,\\",\\",_q___pip_819_3_instr[7+:5],\\",\\",_t_xregsA_wdata1,\\");\\");");
+			}
+$$end
       // signal a jump if needed (flushes pipeline and jumps)
       refetch          = jump & ~refetch;
       //                 ^^^^^^^^ reset refetch if done at prev cycle
@@ -340,7 +349,7 @@ $$end
 //
 // --------------------------------------------------
 
-unit decode_and_ALU(
+unit decode_and_ALU_swirl(
   // instruction, program counter and registers
   input  uint32 instr,   input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start

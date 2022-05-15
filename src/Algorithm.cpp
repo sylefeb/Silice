@@ -3341,6 +3341,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto jump         = dynamic_cast<siliceParser::JumpContext*>(tree);
   auto assign       = dynamic_cast<siliceParser::AssignmentContext*>(tree);
   auto display      = dynamic_cast<siliceParser::DisplayContext *>(tree);
+  auto inline_v     = dynamic_cast<siliceParser::Inline_vContext *>(tree);
   auto finish       = dynamic_cast<siliceParser::FinishContext *>(tree);
   auto async        = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
   auto join         = dynamic_cast<siliceParser::JoinExecContext*>(tree);
@@ -3545,6 +3546,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (async)        { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));    recurse = false;
   } else if (assign)       { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));   recurse = false;
   } else if (display)      { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id));  recurse = false;
+  } else if (inline_v)     { _current->instructions.push_back(t_instr_nfo(inline_v, _current, _context->__id)); recurse = false;
   } else if (finish)       { _current->instructions.push_back(t_instr_nfo(finish, _current, _context->__id));   recurse = false;
   } else if (assert_)      { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false;
   } else if (assume)       { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false;
@@ -7178,6 +7180,14 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
           }
         }
         out << ");" << nxl;
+      }
+    } {
+      auto inline_v = dynamic_cast<siliceParser::Inline_vContext *>(a.instr);
+      if (inline_v) {
+        auto raw = inline_v->STRING()->getText();
+        raw = raw.substr(1, raw.length() - 2);
+        raw.erase(std::remove(raw.begin(), raw.end(), '\\'), raw.end());
+        out << raw << nxl;
       }
     } {
       auto finish = dynamic_cast<siliceParser::FinishContext *>(a.instr);

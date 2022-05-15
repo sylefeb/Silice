@@ -17,7 +17,7 @@ $$end
   while (1) {         // if hardware, run forever
     cnt  = cnt + 1; // increase cnt (loops back to zero after overflow)
 $$if SIMULATION and not BARE then
-		if (cnt == 64) { __finish(); }
+		if (cnt == 64) { __finish(); } else { __display("LEDs: %b",leds); }
 $$end
   }
 

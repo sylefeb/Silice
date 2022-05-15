@@ -20,4 +20,4 @@ $ARCH-ld -m elf32lriscv -b elf32-littleriscv -T$BASE/config_c.ld --no-relax -o $
 $ARCH-objcopy -O verilog $DST/code.elf $DST/code.hex
 
 # uncomment to see the actual code, useful for debugging
-# $ARCH-objdump.exe -D -b binary -m riscv $DST/code.bin
+$ARCH-objdump.exe -D -b binary -m riscv $DST/code.bin

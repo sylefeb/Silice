@@ -110,7 +110,7 @@ $$end
   //  uses template "bram_wmask_byte", that turns wenable into a byte mask
 
   // cpu
-  rv32i_cpu cpu( mem <:> memio, rom <:> romio );
+  rv32i_cpu_swirl cpu( mem <:> memio, rom <:> romio );
 
   // io mapping
   always_before {
