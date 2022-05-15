@@ -385,7 +385,7 @@ whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 
 display             : (DISPLAY | DISPLWRITE) '(' STRING ( ',' callParamList )? ')';
 
-inline_v            : INLINE_V '(' STRING ')';
+inline_v            : INLINE_V '(' STRING ( ',' callParamList )? ')';
 
 finish              : FINISH '(' ')';
 

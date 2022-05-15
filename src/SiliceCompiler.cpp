@@ -541,17 +541,6 @@ void SiliceCompiler::run(
 
 // -------------------------------------------------
 
-void SiliceCompiler::ReportError::split(const std::string& s, char delim, std::vector<std::string>& elems) const
-{
-  std::stringstream ss(s);
-  std::string item;
-  while (getline(ss, item, delim)) {
-    elems.push_back(item);
-  }
-}
-
-// -------------------------------------------------
-
 static int numLinesIn(std::string l)
 {
   return (int)std::count(l.begin(), l.end(), '\n');

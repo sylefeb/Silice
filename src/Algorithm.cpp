@@ -7184,11 +7184,34 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
     } {
       auto inline_v = dynamic_cast<siliceParser::Inline_vContext *>(a.instr);
       if (inline_v) {
+        // get raw string
         auto raw = inline_v->STRING()->getText();
-        raw = raw.substr(1, raw.length() - 2);
-        raw.erase(std::remove(raw.begin(), raw.end(), '\\'), raw.end());
-        out << raw << nxl;
+        raw      = raw.substr(1, raw.length() - 2);
+        raw.erase(std::remove(raw.begin(), raw.end(), '\\'), raw.end()); // this is getting rid of escape sequences
+        // split it wrt to '%'
+        vector<string> chunks;
+        split(raw, '%', chunks);
+        // get params
+        std::vector<t_call_param> params;
+        getCallParams(inline_v->callParamList(), params, &block->context);
+        // output
+        int ip = 0;
+        for (auto c : chunks) {
+          out << c;
+          if (ip < params.size()) {
+            auto p = params[ip];
+            if (std::holds_alternative<std::string>(p.what)) {
+              out << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, inline_v->getStart()->getLine(), FF_Q, true, _dependencies, _ff_usage);
+            } else {
+              out << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+            }
+            ++ip;
+          } else if (ip > params.size()) {
+            reportError(inline_v->getSourceInterval(),-1,"no enough parameters given compared to the number of '%%' in the string");
+          }
+        }
       }
+      out << nxl;
     } {
       auto finish = dynamic_cast<siliceParser::FinishContext *>(a.instr);
       if (finish) {

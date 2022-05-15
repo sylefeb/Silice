@@ -161,6 +161,13 @@ unit rv32i_cpu(bram_port mem) {
     instr <:: instr, pc <:: pc, xa <: xregsA.rdata, xb <: xregsB.rdata
   );
 
+  // what do we write in register? (pc, alu or val, load is handled separately)
+  int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
+                    | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
+                    | (exec.storeVal  ? exec.val            : 32b0)
+                    | (exec.load      ? loaded              : 32b0)
+                    | (exec.intop     ? exec.r              : 32b0);
+
   // The 'always_before' block is applied at the start of every cycle.
   // This is a good place to set default values, which also indicates
   // to Silice that some variables (e.g. xregsA.wdata) are fully set
@@ -223,7 +230,8 @@ unit rv32i_cpu(bram_port mem) {
           mem.addr       = next_pc;
           // exit the operations loop
 $$if ICEV_VERILATOR_TRACE then
-					__verilog("\\$c32(\\"cpu_retires(1,\\",_q_pc<<2,\\",\\",_q_instr,\\",\\",_w_exec_write_rd,\\",\\",_w___block_16_write_back,\\");\\");");
+					__verilog("\\$c32(\\"cpu_retires(1,\\",%,\\",\\",%,\\",\\",%,\\",\\",%,\\");\\");",
+                    pc<<2,instr,exec.write_rd,write_back);
 $$end
           break;
           //  instruction read from BRAM and write to register
@@ -238,7 +246,8 @@ $$end
           if (exec.working == 0) {
             // yes: all is correct, stop here
 $$if ICEV_VERILATOR_TRACE then
-					__verilog("\\$c32(\\"cpu_retires(1,\\",_q_pc<<2,\\",\\",_q_instr,\\",\\",_w_exec_write_rd,\\",\\",_w___block_16_write_back,\\");\\");");
+					__verilog("\\$c32(\\"cpu_retires(1,\\",%,\\",\\",%,\\",\\",%,\\",\\",%,\\");\\");",
+                    pc<<2,instr,exec.write_rd,write_back);
 $$end
             break;
             //  instruction read from BRAM and write to register
@@ -251,13 +260,6 @@ $$end
 
   // the 'always_after' block is executed at the end of every cycle
   always_after {
-    // what do we write in register? (pc, alu or val, load is handled separately)
-    // 'or trick' from femtorv32
-    int32 write_back <: (exec.jump      ? (next_pc<<2)        : 32b0)
-                      | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
-                      | (exec.storeVal  ? exec.val            : 32b0)
-                      | (exec.load      ? loaded              : 32b0)
-                      | (exec.intop     ? exec.r              : 32b0);
     // write back data to both register BRAMs
     xregsA.wdata   = write_back;      xregsB.wdata   = write_back;
     // xregsB written when xregsA is

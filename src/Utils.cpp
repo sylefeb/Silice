@@ -217,13 +217,24 @@ std::string Utils::tempFileName()
   static std::string key;
   if (key.empty()) {
     srand((unsigned int)time(NULL));
-    for (int i = 0 ; i < 16 ; ++i) {
-      key += (char)((int)'a'+(rand()%26));
+    for (int i = 0; i < 16; ++i) {
+      key += (char)((int)'a' + (rand() % 26));
     }
   }
   std::string tmp = std::filesystem::temp_directory_path().string()
-                  + "/" + key + std::to_string(cnt++);
+    + "/" + key + std::to_string(cnt++);
   return tmp;
+}
+
+// -------------------------------------------------
+
+void Utils::split(const std::string& s, char delim, std::vector<std::string>& elems)
+{
+  std::stringstream ss(s);
+  std::string item;
+  while (getline(ss, item, delim)) {
+    elems.push_back(item);
+  }
 }
 
 // -------------------------------------------------
