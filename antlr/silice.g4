@@ -68,6 +68,8 @@ TOSIGNED            : '__signed' ;
 
 TOUNSIGNED          : '__unsigned' ;
 
+INLINE_V            : '__verilog' ;
+
 DONE                : 'isdone' ;
 
 ALWAYS              : 'always';
@@ -164,7 +166,7 @@ NEXT                : '++:' ;
 
 ATTRIBS             : '(*' ~[\r\n]* '*)' ;
 
-STRING              : '"' ~[\r\n"]* '"' ; // '; // antlr-mode is broken and does not handle literal `"` in selectors
+STRING              : '"' (~[\r\n"] | '\\"')* '"' ; // '; // antlr-mode is broken and does not handle literal `"` in selectors
 
 ERROR_CHAR          : . ; // catch-all to move lexer errors to parser
 
@@ -383,6 +385,8 @@ whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 
 display             : (DISPLAY | DISPLWRITE) '(' STRING ( ',' callParamList )? ')';
 
+inline_v            : INLINE_V '(' STRING ')';
+
 finish              : FINISH '(' ')';
 
 instruction         : assignment
@@ -402,6 +406,7 @@ instruction         : assignment
                     | assumestable
                     | assertstable
                     | cover
+                    | inline_v
                     ;
 
 alwaysBlock         : ALWAYS        block;
