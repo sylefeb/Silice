@@ -12,6 +12,8 @@ unit main(output uint8 leds)
         } -> {
             sameas(a) t <: a;
             __display("[1] t = %d",t);
+        } -> {
+            __display("[2] a = %d",a);
         }
         counter = counter + 1;
     }

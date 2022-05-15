@@ -7575,10 +7575,15 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     // trickle vars: start
     for (auto tv : pip->trickling_vios) {
       if (stage == tv.second[0]) {
+        // capture the var in the pipeline
         std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
         out << rewriteIdentifier(prefix, tricklingdst, "", &current->context, ictx, -1, FF_D, true, deps, _ff_usage) << " = ";
         out << rewriteIdentifier(prefix, tv.first, "", &current->context, ictx, -1, FF_D, true, deps, _ff_usage);
         out << ';' << nxl;
+      } else if (stage < tv.second[1]) {
+        // mark var ff as needed (Q side) for next stages
+        std::string trickling = translateVIOName(tv.first, &current->context);
+        updateFFUsage(e_Q, true, _ff_usage.ff_usage[trickling]);
       }
     }
     // merge dependencies
