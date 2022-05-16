@@ -10,12 +10,8 @@ echo "using $ARCH"
 BASE=./compile/icestick/ice-v
 DST=./compile/build
 
-$ARCH-gcc -DICESTICK -fno-builtin -fno-unroll-loops -O1 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -S $1 -o $DST/code.s
-$ARCH-gcc -DICESTICK -fno-builtin -fno-unroll-loops -O1 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -c -o $DST/code.o $1
-
 $ARCH-as -march=rv32i -mabi=ilp32 -o crt0.o $BASE/crt0.s
-
-$ARCH-ld -m elf32lriscv -b elf32-littleriscv -T$BASE/config_c.ld --no-relax -o $DST/code.elf $DST/code.o
+$ARCH-gcc -DICESTICK -nostartfiles -fno-builtin -fno-unroll-loops -O3 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -T $BASE/config_c.ld -o $DST/code.elf $1 crt0.o -lm
 
 $ARCH-objcopy -O verilog $DST/code.elf $DST/code.hex
 
