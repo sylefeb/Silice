@@ -13,7 +13,7 @@ BASE=./compile/icebreaker/conveyor
 DST=./compile/build
 
 # we use ICESTICK below since there is nothing specially done for the icebreaker
-$ARCH-gcc -DICESTICK_CONVEYOR -fstack-reuse=none -fno-builtin -O3 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -T$BASE/config_c.ld -ffreestanding -nostdlib -o $DST/code.elf $BASE/crt0.s $1
+$ARCH-gcc -DICESTICK_CONVEYOR -nostartfiles -fstack-reuse=none -fno-builtin -O3 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -T$BASE/config_c.ld -o $DST/code.elf $BASE/crt0.s $1 -lm
 
 $ARCH-objcopy -O verilog $DST/code.elf $DST/code.hex
 
