@@ -135,7 +135,7 @@ $$if DEBUG then
       __display("[1] instr: %x @%x (bubble:%b refetch:%b alu:%b alu_was:%b)",instr,pc<<2,bubble,refetch,exec.working,alu_was_working);
 $$end
       // remember ALU was just busy
-      alu_was_working ^= exec.working ? 3b100 : (alu_was_working>>1);
+      alu_was_working v= exec.working ? 3b100 : (alu_was_working>>1);
       //             ^^^^ 'out of pipeline' assignment, alu_was_working is not
       //          captured in pipeline so that stage 3 sees this at next cycle
 

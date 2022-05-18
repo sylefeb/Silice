@@ -152,7 +152,7 @@ $$if DEBUG then
       __display("[1] instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b alu:%b rs1 %d rs2 %d)",cycle,instr,pc<<2,bubble,reset,refetch,hold,exec.working,xregsA.addr0,xregsB.addr0);
 $$end
       // remember ALU was just busy
-      alu_was_working ^= exec.working;
+      alu_was_working v= exec.working;
 
     } -> { // ==== stage 2
       // for data hazard detection

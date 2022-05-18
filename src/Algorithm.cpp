@@ -4714,8 +4714,13 @@ void Algorithm::determineOutOfPipelineAssignments(
       if (!var.empty()) {
         var = translateVIOName(var, bctx);
         if (!var.empty() && vios.find(var) != vios.end()) {
-          if (assign->OUTASSIGN() != nullptr) {
+          if (assign->OUTASSIGN_AFTER() != nullptr) {
             _ex_written.insert(var);
+          } else if (assign->OUTASSIGN_BEFORE() != nullptr) {
+            reportError(assign->OUTASSIGN_BEFORE()->getSourceInterval(),-1,
+              "Assignment out of pipeline before (^=) is not yet supported.\n"
+              "Please consider assignment out of pipeline after (v=) instead."
+            );
           } else {
             _not_ex_written.insert(var);
           }
@@ -6148,11 +6153,16 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
   // verify type of assignement
   auto assign = dynamic_cast<siliceParser::AssignmentContext *>(a.instr);
   if (assign) {
-    if (assign->OUTASSIGN() != nullptr) {
+    if (assign->OUTASSIGN_AFTER() != nullptr) {
       // check in pipeline
       if (bctx->pipeline == nullptr) {
         reportError(a.instr->getSourceInterval(), -1,"cannot use outside of pipeline assign (^=) if not inside a pipeline");
       }
+    } else if (assign->OUTASSIGN_BEFORE() != nullptr) {
+      reportError(assign->OUTASSIGN_BEFORE()->getSourceInterval(), -1,
+        "Assignment out of pipeline before (^=) is not yet supported.\n"
+        "Please consider assignment out of pipeline after (v=) instead."
+      );
     }
   }
   // write access
