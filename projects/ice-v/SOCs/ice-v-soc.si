@@ -150,7 +150,7 @@ $$end
     if (/*memio.wenable[0,1] &*/ memio.addr[11,1]) {
       leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
 $$if SIMULATION then
-      if (memio.addr[0,1]) { __display("[cycle %d] LEDs: %b",cycle,leds); }
+      if (memio.addr[0,1]) { __display("[cycle %d] LEDs: %b (%d)",cycle,leds,mem.wdata); }
 $$end
 $$if OLED or PMOD then
       // command
@@ -179,7 +179,7 @@ $$end
 
   algorithm {
 $$if SIMULATION and not BARE and not OLED then
-	  while (cycle < 2048) { }
+	  while (cycle < 16384) { }
 $$else
 		while (1) { }
 $$end

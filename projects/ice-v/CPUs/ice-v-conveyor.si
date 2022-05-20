@@ -135,7 +135,7 @@ $$if DEBUG then
       __display("[1] instr: %x @%x (bubble:%b refetch:%b alu:%b alu_was:%b)",instr,pc<<2,bubble,refetch,exec.working,alu_was_working);
 $$end
       // remember ALU was just busy
-      alu_was_working ^= exec.working ? 3b100 : (alu_was_working>>1);
+      alu_was_working v= exec.working ? 3b100 : (alu_was_working>>1);
       //             ^^^^ 'out of pipeline' assignment, alu_was_working is not
       //          captured in pipeline so that stage 3 sees this at next cycle
 
@@ -217,10 +217,10 @@ $$if DEBUG then
       }
 $$end
 $$if ICEV_VERILATOR_TRACE then
+      // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
       if (~bubble & ~refetch & ~reset) {
-				uint32 foo1 <:: instr; // HACK to capture instr				
-				uint32 foo2 <:: pc;    // HACK to capture pc
-				__verilog("\\$c32(\\"cpu_retires(2,\\",_q___pip_449_3_pc<<2,\\",\\",_q___pip_449_3_instr,\\",\\",_q___pip_449_3_instr[7+:5],\\",\\",_t_xregsA_wdata1,\\");\\");");
+				__verilog("\\$c32(\\"cpu_retires(2,\\",%,\\",\\",%,\\",\\",%,\\",\\",%,\\");\\");",
+          pc<<2,instr,Rtype(instr).rd,xregsA.wdata1);
 			}
 $$end
       // clear register write bit

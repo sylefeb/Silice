@@ -64,6 +64,8 @@ namespace Silice
     std::string fileToString(const char* file);
     /// \brief returns a temporary filename (within temporary directory)
     std::string tempFileName();
+    /// \brief splits a string with a delimiter
+    void split(const std::string& s, char delim, std::vector<std::string>& elems);
 
     // -------------------------------------------------
 

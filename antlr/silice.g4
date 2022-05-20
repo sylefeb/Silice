@@ -142,7 +142,8 @@ AUTO                : 'auto' ;
 ALWSASSIGNDBL       : '::=' ;
 ALWSASSIGN          : ':=' ;
 
-OUTASSIGN           : '^=' ;
+OUTASSIGN_BEFORE    : '^=' ;
+OUTASSIGN_AFTER     : 'v=' ;
 
 HASH                : '#';
 
@@ -332,8 +333,8 @@ idOrAccess          : (  access | IDENTIFIER) ;
 
 /* -- Assignments -- */
 
-assignment          : IDENTIFIER  ('=' | OUTASSIGN) expression_0
-                    | access      ('=' | OUTASSIGN) expression_0 ;
+assignment          : IDENTIFIER  ('=' | OUTASSIGN_BEFORE | OUTASSIGN_AFTER) expression_0
+                    | access      ('=' | OUTASSIGN_BEFORE | OUTASSIGN_AFTER) expression_0 ;
 
 alwaysAssigned      : IDENTIFIER   (ALWSASSIGN    | LDEFINE   ) expression_0
                     | access        ALWSASSIGN                  expression_0
@@ -385,7 +386,7 @@ whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
 
 display             : (DISPLAY | DISPLWRITE) '(' STRING ( ',' callParamList )? ')';
 
-inline_v            : INLINE_V '(' STRING ')';
+inline_v            : INLINE_V '(' STRING ( ',' callParamList )? ')';
 
 finish              : FINISH '(' ')';
 

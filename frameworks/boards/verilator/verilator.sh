@@ -121,7 +121,7 @@ if test -f "$1.cpp"; then
 	VERILATOR_LIB="verilator_custom"
 	VERILATOR_LIB_SRC="$1.cpp $VERILATOR_LIB_DIR/verilator_data.cpp"
 	if test -f "$1.h"; then
-		cp "$1.h" custom.h 
+		cp "$1.h" custom.h
 	else
 		touch custom.h
 	fi
