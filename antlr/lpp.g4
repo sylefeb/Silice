@@ -52,7 +52,9 @@ FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/')* '\'' ;
 
 /* ======== Parser ======== */
 
-lualine     : DOUBLE_DOLLAR code=ANY;
+anylualine  : (ANY | '\\')* ;
+
+lualine     : DOUBLE_DOLLAR code=anylualine ;
 
 luacode     : DOLLAR code=ANY? DOLLAR | DOUBLE_DOLLAR ;
 

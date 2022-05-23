@@ -1,0 +1,6 @@
+
+icebreaker: stream.si
+		silice-make.py -s stream.si -b $@ -p basic,qspiflash,uart -o BUILD_$(subst :,_,$@) $(ARGS)
+
+clean:
+	rm -rf BUILD_*
