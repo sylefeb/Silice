@@ -187,9 +187,9 @@ $$else
 $$end
 
     while (vblank == 1) { }
-	  $display("vblank off");
+	  __display("vblank off");
     while (vblank == 0) { }
-    $display("vblank on");
+    __display("vblank on");
     frame = frame + 1;
 
   }

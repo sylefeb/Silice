@@ -1,22 +1,22 @@
 /*
 
     Silice FPGA language and compiler
-    Copyright 2019, (C) Sylvain Lefebvre and contributors 
+    Copyright 2019, (C) Sylvain Lefebvre and contributors
 
     List contributors with: git shortlog -n -s -- <filename>
 
     GPLv3 license, see LICENSE_GPLv3 in Silice repo root
 
-This program is free software: you can redistribute it and/or modify it 
-under the terms of the GNU General Public License as published by the 
-Free Software Foundation, either version 3 of the License, or (at your option) 
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT 
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with 
+You should have received a copy of the GNU General Public License along with
 this program.  If not, see <https://www.gnu.org/licenses/>.
 
 (header_2_G)
@@ -39,6 +39,11 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <filesystem>
 
 #include <LibSL/LibSL.h>
+
+#ifndef EOF
+#define EOF -1
+#endif
+#include <LibSL/CppHelpers/BasicParser.h>
 
 using namespace std;
 using namespace antlr4;
@@ -423,7 +428,7 @@ void lua_save_table_as_image(lua_State *L, luabind::object tbl, std::string fnam
 
 // -------------------------------------------------
 
-void lua_save_table_as_image_with_palette(lua_State *L, 
+void lua_save_table_as_image_with_palette(lua_State *L,
   luabind::object tbl, luabind::object palette, std::string fname)
 {
   try {
@@ -610,53 +615,146 @@ void LuaPreProcessor::enableFilesReport(std::string fname)
 
 // -------------------------------------------------
 
-std::string LuaPreProcessor::processCode(
+std::string LuaPreProcessor::assembleSource(
   std::string parent_path,
   std::string src_file,
-  std::unordered_set<std::string> alreadyIncluded)
+  std::unordered_set<std::string> alreadyIncluded,
+  int& _output_line_count)
 {
-  cerr << "preprocessing " << src_file << '.' << "\n";
+  cerr << "assembling source " << src_file << '.' << "\n";
   if (!LibSL::System::File::exists(src_file.c_str())) {
     throw Fatal("cannot find source file '%s'", src_file.c_str());
   }
   if (alreadyIncluded.find(src_file) != alreadyIncluded.end()) {
     throw Fatal("source file '%s' already included (cyclic dependency)", src_file.c_str());
   }
-
   // generate a report with all the loaded files
   if (!m_FilesReportName.empty()) {
     std::ofstream freport(m_FilesReportName, std::ios_base::app);
     freport << std::filesystem::absolute(src_file).string() << '\n';
   }
-
   // add to already included
   alreadyIncluded.insert(src_file);
-
   // extract path
   std::string fpath = robustExtractPath(src_file);
   if (fpath == src_file) {
     fpath = ".";
   }
   std::string path = fpath;
-
+  // add to search paths
   m_SearchPaths.push_back(path);
-
+  // add to list of files
   m_Files.emplace_back(std::filesystem::absolute(src_file).string());
   int src_file_id = (int)m_Files.size() - 1;
+  // parse, recurse on includes and read code
+  LibSL::BasicParser::FileStream fs(src_file.c_str());
+  LibSL::BasicParser::Parser<LibSL::BasicParser::FileStream> parser(fs,false);
+  std::string code = "";
+  int src_line = 0;
+  while (!parser.eof()) {
+    char next = parser.readChar(false);
+    if (next == '$') {
+      std::string w = parser.readString("(\n");
+      if (w == "$include") {
+        parser.readChar(true); // skip (
+        auto next = parser.readChar();
+        if (next != '"' && next != '\'') {
+          // TODO: improve error report
+          throw Fatal("parse error in include");
+        }
+        std::string fname = parser.readString("\"'");
+        bool ok = parser.reachChar(')');
+        if (!ok) {
+          // TODO: improve error report
+          throw Fatal("parse error in include");
+        }
+        // find file
+        fname = findFile(path, fname);
+        fname = findFile(fname);
+        // recurse
+        code += assembleSource(path + "/", fname, alreadyIncluded, _output_line_count);
+      } else {
+        code += " " + w;
+      }
+    } else if (IS_EOL(next)) {
+      // code += " // " + std::to_string(_output_line_count) + " " + src_file + "::" + std::to_string(src_line);
+      code += parser.readChar();
+      m_SourceFilesLineRemapping.push_back(v3i(_output_line_count, src_file_id, src_line));
+      ++ src_line;
+      ++ _output_line_count;
+    } else {
+      std::string w = parser.readString();
+      code += " " + w;
+    }
+  }
+  return code;
+}
 
-  ANTLRFileStream   input(src_file);
+// -------------------------------------------------
+
+void LuaPreProcessor::decomposeSource(const std::string& incode)
+{
+  LibSL::BasicParser::BufferStream bs(incode.c_str(),incode.size());
+  LibSL::BasicParser::Parser<LibSL::BasicParser::BufferStream> parser(bs, false);
+  std::string code = "";
+  int src_line = 0;
+  while (!parser.eof()) {
+    char next = parser.readChar(false);
+    if (IS_EOL(next)) {
+      parser.readChar();
+    } else if (next == '/') {
+      parser.readChar();
+      next = parser.readChar();
+      if (next == '/') {
+        // comment, advance until next end of line
+        parser.reachChar('\n');
+      } else if (next == '*') {
+        // block comment, find the end
+        while (!parser.eof()) {
+          parser.reachChar('*');
+          next = parser.readChar();
+          if (next == '/') {
+            break;
+          }
+        }
+        if (parser.eof()) {
+          // TODO: improve error report
+          throw Fatal("parser error: reached end of file while parsing block comment");
+        }
+      }
+    } else {
+      std::string w = parser.readString(" \t\r/*");
+      if (w == "unit") {
+        std::string name = parser.readString("( \t\r");
+        LIBSL_TRACE;
+      } else if (w == "algorithm") {
+        std::string name = parser.readString("( \t\r");
+        LIBSL_TRACE;
+      }
+    }
+  }
+}
+
+// -------------------------------------------------
+
+std::string LuaPreProcessor::prepareCode(std::string header, const std::string& incode)
+{
+  cerr << "preprocessing " << "\n";
+
+  ANTLRInputStream  input(incode);
   lppLexer          lexer(&input);
   CommonTokenStream tokens(&lexer);
   lppParser         parser(&tokens);
 
-  std::string code = "";
+  std::string code = header;
+
+  int header_offset = numLinesIn(header);
 
   for (auto l : parser.root()->line()) {
-    
+
     // pre-process
     if (l->lualine() != nullptr) {
 
-      // code += l->lualine()->code->getText() + "\n";
       if (auto code_ = l->lualine()->code) {
         code += code_->getText() + "\n";
       } else {
@@ -678,21 +776,13 @@ std::string LuaPreProcessor::processCode(
           code += "' .. (" + luacode->code->getText() + ") .. '";
         }
       }
-      code += "\\n'," + std::to_string(src_line-1) + "," + std::to_string(src_file_id) + ")\n";
+      code += "\\n'," + std::to_string(header_offset + src_line-1) + "," + std::to_string(0) + ")\n";
 
     } else if (l->siliceincl() != nullptr) {
-      std::string filename = l->siliceincl()->filename->getText();
-      std::regex  lfname_regex(".*['\\\"](.*)['\\\"].*");
-      std::smatch matches;
-      if (std::regex_match(filename, matches, lfname_regex)) {
-        std::string fname = matches.str(1).c_str();
-        fname             = findFile(path, fname);
-        fname             = findFile(fname);
-        // recurse
-        code += "\n" + processCode(path + "/",fname, alreadyIncluded) + "\n";
-      } else {
-        throw Fatal("cannot split filename '%s'", filename.c_str());
-      }
+
+      cerr << l->siliceincl()->filename->getText() << '\n';
+      sl_assert(false); // there should not be any after assembly
+
     }
   }
 
@@ -746,9 +836,9 @@ std::string fileAbsolutePath(std::string f)
 // -------------------------------------------------
 
 void LuaPreProcessor::run(
-  std::string src_file, 
-  const std::vector<std::string>& defaultLibraries, 
-  std::string lua_header_code, 
+  std::string src_file,
+  const std::vector<std::string>& defaultLibraries,
+  std::string lua_header_code,
   std::string dst_file)
 {
   lua_State *L = luaL_newstate();
@@ -767,19 +857,36 @@ void LuaPreProcessor::run(
   // add current directory to search dirs
   m_SearchPaths.push_back(getCurrentPath());
   m_SearchPaths.push_back(extractPath(fileAbsolutePath(src_file)));
+
   // get code
   std::unordered_set<std::string> inclusions;
   // start with header
-  std::string code = lua_header_code;
+  std::string code = "";
   // add default libs to source
+  int output_line_count = 0;
   for (auto l : defaultLibraries) {
     std::string libfile = CONFIG.keyValues()["libraries_path"] + "/" + l;
     libfile = findFile(libfile);
-    code = code + "\n" + processCode(CONFIG.keyValues()["libraries_path"], libfile, inclusions);
+    code += assembleSource(CONFIG.keyValues()["libraries_path"], libfile, inclusions, output_line_count);
   }
   // parse main file
-  code = code + "\n" + processCode("", src_file, inclusions);
+  code += assembleSource("", src_file, inclusions, output_line_count);
 
+  {
+    ofstream dbg("dbg1.si");
+    dbg << code;
+  }
+
+  decomposeSource(code);
+
+  code = prepareCode(lua_header_code,code);
+
+  {
+    ofstream dbg("dbg2.si");
+    dbg << code;
+  }
+
+#if 1
   m_CurOutputLine = 0;
 
   load_config_into_lua(L);
@@ -812,29 +919,38 @@ void LuaPreProcessor::run(
   g_LuaPreProcessors.erase(L);
 
   lua_close(L);
+#endif
+}
 
+// -------------------------------------------------
+
+std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore_search(int line_after, const std::vector<LibSL::Math::v3i>& remap) const
+{
+  if (line_after < 0) {
+    return std::make_pair("", -1);
+  }
+  // locate line
+  int l = 0, r = (int)remap.size()-1;
+  while (l < r) {
+    int m = (l + r) / 2;
+    if (remap[m][0] < line_after) {
+      l = m+1;
+    } else if (remap[m][0] > line_after) {
+      r = m;
+    } else {
+      return std::make_pair(m_Files[remap[m][1]], remap[m][2]);
+    }
+  }
+  return std::make_pair(m_Files[remap[l][1]], remap[l][2]);
 }
 
 // -------------------------------------------------
 
 std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore(int line_after) const
 {
-  if (line_after < 0) {
-    return std::make_pair("", -1);
-  }
-  // locate line
-  int l = 0, r = (int)m_FileLineRemapping.size()-1;
-  while (l < r) {
-    int m = (l + r) / 2;
-    if (m_FileLineRemapping[m][0] < line_after) {
-      l = m+1;
-    } else if (m_FileLineRemapping[m][0] > line_after) {
-      r = m;
-    } else {
-      return std::make_pair(m_Files[m_FileLineRemapping[m][1]], m_FileLineRemapping[m][2]);
-    }
-  }
-  return std::make_pair(m_Files[m_FileLineRemapping[l][1]], m_FileLineRemapping[l][2]);
+  auto prepro = lineAfterToFileAndLineBefore_search(line_after, m_FileLineRemapping);
+  // NOTE: prepro.first is not used as this refers to the intermediate assembled file
+  return lineAfterToFileAndLineBefore_search(prepro.second, m_SourceFilesLineRemapping);
 }
 
 // -------------------------------------------------

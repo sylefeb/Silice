@@ -14,17 +14,17 @@ algorithm main(output uint8 leds)
     {
       pipeline_i = i;
       a          = i + 1;
-      $display("-----");
-      $display("[0] %d",pipeline_i);
+      __display("-----");
+      __display("[0] %d",pipeline_i);
     } -> {
       if (pipeline_ready >= 1) {
         b = a + 10;
-        $display("[1] %d",pipeline_i);
+        __display("[1] %d",pipeline_i);
       }
     } -> {
       if (pipeline_ready >= 2) {
         o[pipeline_i*8,8] = b;
-        $display("[2] [%d] = %h",pipeline_i,b);
+        __display("[2] [%d] = %h",pipeline_i,b);
       }
     }
 
@@ -33,5 +33,5 @@ algorithm main(output uint8 leds)
 
   }
 
-  $display("%h",o);
+  __display("%h",o);
 }

@@ -6,13 +6,12 @@ algorithm main()
   uint8 res = 0;
 
   switch (num) {
-  
+
   case 0:  { res = 42; }
   case 1:  { res = 43; }
   default: { res = 64; }
-  
+
   }
 
-  $display("res = %d",res);
+  __display("res = %d",res);
 }
-

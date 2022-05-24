@@ -1035,23 +1035,7 @@ void Algorithm::getBindings(
           && bindings->bpBinding()->right->IDENTIFIER() != nullptr) {
           auto I = m_InstancedBlueprints.find(bindings->bpBinding()->right->getText());
           if (I != m_InstancedBlueprints.end()) {
-            auto B = m_KnownBlueprints.find(I->second.blueprint_name);
-            if (B != m_KnownBlueprints.end()) {
-              for (const auto &o : B->second->outputs()) {
-                string member = o.name;
-                t_binding_nfo nfo;
-                nfo.left = bindings->bpBinding()->left->getText() + "_" + member;
-                nfo.right = I->second.instance_prefix + "_" + member;
-                nfo.line = (int)bindings->bpBinding()->getStart()->getLine();
-                nfo.dir = (bindings->bpBinding()->LDEFINE() != nullptr) ? e_Left : e_LeftQ;
-                _vec_bindings.push_back(nfo);
-              }
-            } else {
-              reportError(nullptr, (int)I->second.instance_line, "instanced algorithm '%s' not yet declared or unknown", I->second.blueprint_name.c_str());
-            }
-            // skip to next
-            bindings = bindings->bpBindingList();
-            continue;
+            reportError(bindings->bpBinding()->getSourceInterval(), -1, "direct binding of an instanced algorithm ('%s') no longer supported", I->second.blueprint_name.c_str());
           }
         }
         // standard binding
@@ -2031,6 +2015,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       } else {
         auto I = m_InstancedBlueprints.find(P->IDENTIFIER()->getText());
         if (I != m_InstancedBlueprints.end()) {
+          // NOTE: use of m_KnownBlueprints will become a problem for generic code generation
           auto B = m_KnownBlueprints.find(I->second.blueprint_name);
           if (B != m_KnownBlueprints.end()) {
             // add all inputs/outputs
@@ -3024,34 +3009,6 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
 
 // -------------------------------------------------
 
-void Algorithm::gatherAllOutputsNfo(siliceParser::OutputsContext *allouts, t_combinational_block *_current, t_gather_context *_context)
-{
-  // find algorithm (has to be known / declared before)
-  auto I = m_KnownBlueprints.find(allouts->alg->getText());
-  if (I == m_KnownBlueprints.end()) {
-    reportError(allouts->alg, (int)allouts->getStart()->getLine(),
-      "instance '%s' not yet declared or unknown", allouts->alg->getText().c_str());
-  }
-  // group prefix
-  string grpre = allouts->grp->getText();
-  m_VIOGroups.insert(make_pair(grpre, I->second.raw()));
-  // get member list from interface
-  for (const auto& o : I->second->outputs()) {
-    if (o.type_nfo.base_type == Parameterized) {
-      reportError(allouts->alg, (int)allouts->getStart()->getLine(),
-        "using 'outputs(%s)' when one output is generic (sameas or interface) is not supported", allouts->alg->getText().c_str());
-    }
-    // create input
-    t_inout_nfo inp;
-    var_nfo_copy(inp, o);
-    inp.name = grpre + "_" + o.name;
-    m_Inputs.emplace_back(inp);
-    m_InputNames.insert(make_pair(inp.name, (int)m_Inputs.size() - 1));
-  }
-}
-
-// -------------------------------------------------
-
 void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational_block *_current, t_gather_context *_context)
 {
   if (inout == nullptr) {
@@ -3104,7 +3061,7 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
     } else if (iodef) {
       gatherIoDef(iodef,_current,_context);
     } else if (allouts) {
-      gatherAllOutputsNfo(allouts, _current, _context);
+      reportError(nullptr,line,"'outputs' is no longer supported (here used on '%s')", allouts->alg->getText().c_str());
     } else {
       // symbol, ignore
     }
@@ -7970,7 +7927,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
       local_ictx.parameters[str_signed] = typeString(varType(bnfo,ictx));
     }
     // -> write instance
-    local_ictx.instance_name = ictx.instance_name + "_" + nfo.instance_name;
+    local_ictx.instance_name       = ictx.instance_name + "_" + nfo.instance_name;
     local_ictx.local_instance_name = nfo.instance_name;
     nfo.blueprint->writeAsModule(out, local_ictx, first_pass);
   }

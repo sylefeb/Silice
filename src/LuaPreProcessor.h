@@ -35,12 +35,20 @@ namespace Silice {
 
   // -------------------------------------------------
 
-  /// \brief LUA based Pre-processor 
+  /// \brief LUA based Pre-processor
   class LuaPreProcessor
   {
   private:
 
-    std::string processCode(std::string parent_path, std::string src_file, std::unordered_set<std::string> alreadyIncluded);
+    /// \brief Assembles the code into a single file, removing includes
+    std::string assembleSource(std::string parent_path, std::string src_file, std::unordered_set<std::string> alreadyIncluded,int& _output_line_count);
+    ///  \brief Decomposes the source into blueprints
+    void decomposeSource(const std::string& incode);
+
+    /// \brief Prepare the code to be processed with Lua
+    std::string prepareCode(std::string header,const std::string& incode);
+
+    /// \brief Finds an included file, testing all search paths
     std::string findFile(std::string path, std::string fname) const;
 
     std::vector<std::string>           m_SearchPaths;
@@ -48,6 +56,7 @@ namespace Silice {
 
     int                                m_CurOutputLine = 0;
     std::vector<std::string>           m_Files;
+    std::vector<LibSL::Math::v3i>      m_SourceFilesLineRemapping;
     std::vector<LibSL::Math::v3i>      m_FileLineRemapping; // [0] is line after, [1] is file id, [2] is line before
 
     std::string                        m_FilesReportName;   // if empty, no files report, otherwise name of the report
@@ -65,6 +74,7 @@ namespace Silice {
 
     std::string findFile(std::string fname) const;
 
+    std::pair<std::string, int> lineAfterToFileAndLineBefore_search(int line_after,const std::vector<LibSL::Math::v3i>& remap) const;
     std::pair<std::string, int> lineAfterToFileAndLineBefore(int line_after) const;
 
     void addingLines(int num, int src_line, int src_file);

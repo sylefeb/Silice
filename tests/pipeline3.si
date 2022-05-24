@@ -28,6 +28,6 @@ algorithm main(output uint8 leds)
 
   }
 
-  $display("%x",o);
+  __display("%x",o);
 
 }

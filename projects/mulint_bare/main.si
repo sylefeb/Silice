@@ -16,5 +16,5 @@ algorithm main(output uint$NUM_LEDS$ leds = 0)
 
   (result) <- mul0 <- (m0,m1);
 
-  $display("%d * %d = %d",m0,m1,result);
+  __display("%d * %d = %d",m0,m1,result);
 }

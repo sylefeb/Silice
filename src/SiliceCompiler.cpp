@@ -173,7 +173,8 @@ void SiliceCompiler::gatherAll(antlr4::tree::ParseTree* tree)
       m_Blueprints, m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
     );
     if (m_Blueprints.find(name) != m_Blueprints.end()) {
-      throw Fatal("a unit, algorithm or module with the same name already exists (line %d)!", (int)alg->getStart()->getLine());
+      throw Fatal("a unit, algorithm or module with the same name already exists! (line %d, '%s')", 
+        alg ? (int)alg->getStart()->getLine() : (int)unit->getStart()->getLine(),name.c_str());
     }
     if (alg) {
       algorithm->gather(alg->inOutList(), alg->declAndInstrList());
