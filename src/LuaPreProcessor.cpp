@@ -739,8 +739,7 @@ void jumpOverComment(t_Parser& parser)
 class LuaCodePath
 {
 private:
-  int  m_NestLevel = 0;
-  bool m_IfSide    = false;
+  std::vector<bool> m_IfSide;
 public:
   LuaCodePath() {}
   void update(t_Parser& parser)
@@ -759,25 +758,20 @@ public:
         if (w == "--") { // line ends on comment
           return;
         } else if (w == "if") {
-          if (m_NestLevel == 0) {
-            m_IfSide = true;
-          }
-          ++m_NestLevel;
+          m_IfSide.push_back(true);
         } else if (w == "for" || w == "while") {
-          if (m_NestLevel == 0) {
-            m_IfSide = true;
-          }
-          ++m_NestLevel;
+          m_IfSide.push_back(m_IfSide.back());
         } else if (w == "end") {
-          --m_NestLevel;
+          m_IfSide.pop_back();
         } else if (w == "else" || w == "elseif") {
-          m_IfSide = false;
+          m_IfSide.pop_back();
+          m_IfSide.push_back(false);
         }
       }
     }
   }
-  bool consider() const { return m_IfSide || (m_NestLevel == 0); }
-  int  nestLevel() const { return m_NestLevel; }
+  bool consider() const { if (m_IfSide.empty()) return true; else m_IfSide.back(); }
+  int  nestLevel() const { return (int)m_IfSide.size(); }
 };
 
 // -------------------------------------------------
@@ -812,12 +806,14 @@ void jumpOverNestedBlocks(t_Parser& parser, LuaCodePath& lcp, char c_in, char c_
       parser.readChar();
       if (lcp.consider()) {
         ++inside;
+        cerr << "INSIDE ++ " << inside << endl;
       }
     } else if (next == c_out) {
       // exiting a block
       parser.readChar();
       if (lcp.consider()) {
         --inside;
+        cerr << "INSIDE -- " << inside << endl;
       }
       if (inside == 0) {
         // just exited
