@@ -692,44 +692,182 @@ std::string LuaPreProcessor::assembleSource(
 
 // -------------------------------------------------
 
-void LuaPreProcessor::decomposeSource(const std::string& incode)
+class BufferStream : public LibSL::BasicParser::BufferStream
 {
-  LibSL::BasicParser::BufferStream bs(incode.c_str(),incode.size());
-  LibSL::BasicParser::Parser<LibSL::BasicParser::BufferStream> parser(bs, false);
-  std::string code = "";
-  int src_line = 0;
+public:
+  BufferStream(const char *buffer, uint sz) : LibSL::BasicParser::BufferStream(buffer, sz) { }
+  int& pos() { return m_Pos; }
+};
+
+typedef LibSL::BasicParser::Parser<LibSL::BasicParser::BufferStream> t_Parser;
+
+// -------------------------------------------------
+
+void jumpOverComment(t_Parser& parser)
+{
+  parser.readChar();
+  int next = parser.readChar();
+  if (next == '/') {
+    // comment, advance until next end of line
+    parser.reachChar('\n');
+  } else if (next == '*') {
+    // block comment, find the end
+    while (!parser.eof()) {
+      parser.reachChar('*');
+      next = parser.readChar();
+      if (next == '/') {
+        break;
+      }
+    }
+    if (parser.eof()) {
+      // TODO: improve error report
+      throw Fatal("[parser] Reached end of file while parsing comment block");
+    }
+  }
+}
+
+// -------------------------------------------------
+
+/// \brief This class tracks how the preprocessor code selects
+/// parts of the Silice code in the source file. We need to determine this
+/// so we only count braces / spaces in one code path. This assumes
+/// Lua if/then/else/elseif are only appearing in lua lines ($$),
+/// which may not be strictly true but very likely to cover 99% of
+/// cases (as using in between $...$ inserts requires advanced trickery.
+/// Documentation should specify this.
+/// This is also only considering Lua line comments, not the multiline version.
+class LuaCodePath
+{
+private:
+  int  m_NestLevel = 0;
+  bool m_IfSide    = false;
+public:
+  LuaCodePath() {}
+  void update(t_Parser& parser)
+  {
+    while (!parser.eof()) {
+      int next = parser.readChar(false);
+      if (IS_EOL(next)) {
+        parser.readChar();
+        return; // reached end of lua line
+      } else if (next == '"' || next == '\'') {
+        parser.readChar();
+        // skip over string
+        parser.reachChar(next);
+      } else {
+        std::string w = parser.readString(" \t\r\n\'\"");
+        if (w == "--") { // line ends on comment
+          return;
+        } else if (w == "if") {
+          if (m_NestLevel == 0) {
+            m_IfSide = true;
+          }
+          ++m_NestLevel;
+        } else if (w == "for" || w == "while") {
+          ++m_NestLevel;
+        } else if (w == "end") {
+          --m_NestLevel;
+        } else if (w == "else" || w == "elseif") {
+          m_IfSide = false;
+        }
+      }
+    }
+  }
+  bool consider() const { return m_IfSide || (m_NestLevel == 0); }
+};
+
+// -------------------------------------------------
+
+void processLuaLine(t_Parser& parser, LuaCodePath& lcp)
+{
+  parser.readChar();
+  int next = parser.readChar();
+  if (next == '$') {
+    // -> update the status
+    lcp.update(parser);
+  }
+}
+
+// -------------------------------------------------
+
+void jumpOverNestedBlocks(t_Parser& parser, LuaCodePath& lcp, char c_in, char c_out)
+{
+  int  inside = 0;
   while (!parser.eof()) {
-    char next = parser.readChar(false);
+    int next = parser.readChar(false);
     if (IS_EOL(next)) {
       parser.readChar();
     } else if (next == '/') {
+      // might be a comment, jump over it
+      jumpOverComment(parser);
+    } else if (next == '$') {
+      // might be a Lua line
+      processLuaLine(parser, lcp);
+    } else if (next == c_in) {
+      // entering a block
       parser.readChar();
-      next = parser.readChar();
-      if (next == '/') {
-        // comment, advance until next end of line
-        parser.reachChar('\n');
-      } else if (next == '*') {
-        // block comment, find the end
-        while (!parser.eof()) {
-          parser.reachChar('*');
-          next = parser.readChar();
-          if (next == '/') {
-            break;
-          }
-        }
-        if (parser.eof()) {
-          // TODO: improve error report
-          throw Fatal("parser error: reached end of file while parsing block comment");
-        }
+      if (lcp.consider()) {
+        ++inside;
+      }
+    } else if (next == c_out) {
+      // exiting a block
+      parser.readChar();
+      if (lcp.consider()) {
+        --inside;
+      }
+      if (inside == 0) {
+        // just exited
+        return;
       }
     } else {
+      parser.readChar();
+    }
+  }
+  throw Fatal("[parser] Reached end of file while skipping blocks. Are %c %c unbalanced?",
+               c_in,c_out);
+}
+
+// -------------------------------------------------
+
+void jumpOverUnit(t_Parser& parser, LuaCodePath& lcp)
+{
+  jumpOverNestedBlocks(parser, lcp, '(', ')');
+  jumpOverNestedBlocks(parser, lcp, '{', '}');
+}
+
+// -------------------------------------------------
+
+void LuaPreProcessor::decomposeSource(const std::string& incode)
+{
+  BufferStream bs(incode.c_str(),incode.size());
+  t_Parser     parser(bs, false);
+  LuaCodePath  lcp;
+
+  std::string code = "";
+  int src_line = 0;
+  while (!parser.eof()) {
+    int next = parser.readChar(false);
+    if (IS_EOL(next)) {
+      parser.readChar();
+    } else if (next == '/') {
+      // might be a comment, jump over it
+      jumpOverComment(parser);
+    } else if (next == '$') {
+      // might be a Lua line
+      processLuaLine(parser, lcp);
+    } else {
+      int before = bs.pos();
       std::string w = parser.readString(" \t\r/*");
       if (w == "unit") {
         std::string name = parser.readString("( \t\r");
-        LIBSL_TRACE;
+        cerr << "unit " << name << " starts at pos " << before << endl;
+        jumpOverUnit(parser,lcp);
+        cerr << "unit       ... ends at pos " << bs.pos() << endl;
       } else if (w == "algorithm") {
         std::string name = parser.readString("( \t\r");
-        LIBSL_TRACE;
+        cerr << "algorithm " << name << " starts at pos " << before << endl;
+        jumpOverUnit(parser,lcp);
+        cerr << "           ... ends at pos " << bs.pos() << endl;
       }
     }
   }
