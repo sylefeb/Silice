@@ -757,11 +757,17 @@ public:
         std::string w = parser.readString(" \t\r\n\'\"");
         if (w == "--") { // line ends on comment
           return;
-        } else if (w == "if") {
-          m_IfSide.push_back(true);
-        } else if (w == "for" || w == "while") {
-          m_IfSide.push_back(m_IfSide.back());
+        } else if (w == "if" || w == "for" || w == "while" || w == "function") {
+          if (m_IfSide.empty()) {
+            m_IfSide.push_back(true);
+          } else {
+            m_IfSide.push_back(m_IfSide.back());
+          }
         } else if (w == "end") {
+          if (m_IfSide.empty()) {
+            // TODO: better message!
+            throw Fatal("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.");
+          }
           m_IfSide.pop_back();
         } else if (w == "else" || w == "elseif") {
           m_IfSide.pop_back();
@@ -770,7 +776,7 @@ public:
       }
     }
   }
-  bool consider() const { if (m_IfSide.empty()) return true; else m_IfSide.back(); }
+  bool consider() const { if (m_IfSide.empty()) return true; else return m_IfSide.back(); }
   int  nestLevel() const { return (int)m_IfSide.size(); }
 };
 
@@ -779,8 +785,9 @@ public:
 void processLuaLine(t_Parser& parser, LuaCodePath& lcp)
 {
   parser.readChar();
-  int next = parser.readChar();
+  int next = parser.readChar(false);
   if (next == '$') {
+    parser.readChar();
     // -> update the status
     lcp.update(parser);
   }
@@ -788,11 +795,18 @@ void processLuaLine(t_Parser& parser, LuaCodePath& lcp)
 
 // -------------------------------------------------
 
-void jumpOverNestedBlocks(t_Parser& parser, LuaCodePath& lcp, char c_in, char c_out)
+void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp, char c_in, char c_out)
 {
   int  inside = 0;
   while (!parser.eof()) {
     int next = parser.readChar(false);
+
+    /* {
+      int before = bs.pos();
+      cerr << parser.readString() << '\n';
+      bs.pos() = before;
+    }*/
+
     if (IS_EOL(next)) {
       parser.readChar();
     } else if (next == '/') {
@@ -806,14 +820,14 @@ void jumpOverNestedBlocks(t_Parser& parser, LuaCodePath& lcp, char c_in, char c_
       parser.readChar();
       if (lcp.consider()) {
         ++inside;
-        cerr << "INSIDE ++ " << inside << endl;
+        //cerr << "INSIDE ++ " << inside << endl;
       }
     } else if (next == c_out) {
       // exiting a block
       parser.readChar();
       if (lcp.consider()) {
         --inside;
-        cerr << "INSIDE -- " << inside << endl;
+        //cerr << "INSIDE -- " << inside << endl;
       }
       if (inside == 0) {
         // just exited
@@ -829,11 +843,11 @@ void jumpOverNestedBlocks(t_Parser& parser, LuaCodePath& lcp, char c_in, char c_
 
 // -------------------------------------------------
 
-void jumpOverUnit(t_Parser& parser, LuaCodePath& lcp)
+void jumpOverUnit(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp)
 {
   int nlvl_before = lcp.nestLevel();
-  jumpOverNestedBlocks(parser, lcp, '(', ')');
-  jumpOverNestedBlocks(parser, lcp, '{', '}');
+  jumpOverNestedBlocks(parser, bs, lcp, '(', ')');
+  jumpOverNestedBlocks(parser, bs, lcp, '{', '}');
   int nlvl_after  = lcp.nestLevel();
   if (nlvl_before != nlvl_after) {
     throw Fatal("[parser] Pre-processor directives are spliting the unit, this is not supported:\n"
@@ -845,7 +859,7 @@ void jumpOverUnit(t_Parser& parser, LuaCodePath& lcp)
 
 void LuaPreProcessor::decomposeSource(const std::string& incode)
 {
-  BufferStream bs(incode.c_str(),incode.size());
+  BufferStream bs(incode.c_str(),(uint)incode.size());
   t_Parser     parser(bs, false);
   LuaCodePath  lcp;
   std::map<string, v2i> units;
@@ -865,16 +879,11 @@ void LuaPreProcessor::decomposeSource(const std::string& incode)
     } else {
       int before = bs.pos();
       std::string w = parser.readString(" \t\r/*");
-      if (w == "unit") {
+      if (w == "unit" || w == "algorithm") {
         std::string name = parser.readString("( \t\r");
         cerr << name << '\n';
-        jumpOverUnit(parser,lcp);
-        int after   = bs.pos();
-        units[name] = v2i(before, after);
-      } else if (w == "algorithm") {
-        std::string name = parser.readString("( \t\r");
-        cerr << name << '\n';
-        jumpOverUnit(parser,lcp);
+        LuaCodePath lcp_unit;
+        jumpOverUnit(parser,bs, lcp_unit);
         int after   = bs.pos();
         units[name] = v2i(before, after);
       }
