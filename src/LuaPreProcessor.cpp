@@ -764,6 +764,9 @@ public:
           }
           ++m_NestLevel;
         } else if (w == "for" || w == "while") {
+          if (m_NestLevel == 0) {
+            m_IfSide = true;
+          }
           ++m_NestLevel;
         } else if (w == "end") {
           --m_NestLevel;
@@ -774,6 +777,7 @@ public:
     }
   }
   bool consider() const { return m_IfSide || (m_NestLevel == 0); }
+  int  nestLevel() const { return m_NestLevel; }
 };
 
 // -------------------------------------------------
@@ -831,8 +835,14 @@ void jumpOverNestedBlocks(t_Parser& parser, LuaCodePath& lcp, char c_in, char c_
 
 void jumpOverUnit(t_Parser& parser, LuaCodePath& lcp)
 {
+  int nlvl_before = lcp.nestLevel();
   jumpOverNestedBlocks(parser, lcp, '(', ')');
   jumpOverNestedBlocks(parser, lcp, '{', '}');
+  int nlvl_after  = lcp.nestLevel();
+  if (nlvl_before != nlvl_after) {
+    throw Fatal("[parser] Pre-processor directives are spliting the unit, this is not supported:\n"
+                "         A unit has to be entirely contained within if-then-else directives");
+  }
 }
 
 // -------------------------------------------------
@@ -842,6 +852,7 @@ void LuaPreProcessor::decomposeSource(const std::string& incode)
   BufferStream bs(incode.c_str(),incode.size());
   t_Parser     parser(bs, false);
   LuaCodePath  lcp;
+  std::map<string, v2i> units;
 
   std::string code = "";
   int src_line = 0;
@@ -860,14 +871,16 @@ void LuaPreProcessor::decomposeSource(const std::string& incode)
       std::string w = parser.readString(" \t\r/*");
       if (w == "unit") {
         std::string name = parser.readString("( \t\r");
-        cerr << "unit " << name << " starts at pos " << before << endl;
+        cerr << name << '\n';
         jumpOverUnit(parser,lcp);
-        cerr << "unit       ... ends at pos " << bs.pos() << endl;
+        int after   = bs.pos();
+        units[name] = v2i(before, after);
       } else if (w == "algorithm") {
         std::string name = parser.readString("( \t\r");
-        cerr << "algorithm " << name << " starts at pos " << before << endl;
+        cerr << name << '\n';
         jumpOverUnit(parser,lcp);
-        cerr << "           ... ends at pos " << bs.pos() << endl;
+        int after   = bs.pos();
+        units[name] = v2i(before, after);
       }
     }
   }
