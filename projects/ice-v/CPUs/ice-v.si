@@ -231,7 +231,7 @@ unit rv32i_cpu(bram_port mem) {
           // exit the operations loop
 $$if ICEV_VERILATOR_TRACE then
           // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
-					__verilog("\\$c32(\\"cpu_retires(1,\\",%,\\",\\",%,\\",\\",%,\\",\\",%,\\");\\");",
+					__verilog("\$c32(\"cpu_retires(1,\",%,\",\",%,\",\",%,\",\",%,\");\");",
                     pc<<2,instr,exec.write_rd,write_back);
 $$end
           break;
@@ -248,7 +248,7 @@ $$end
             // yes: all is correct, stop here
 $$if ICEV_VERILATOR_TRACE then
           // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
-					__verilog("\\$c32(\\"cpu_retires(1,\\",%,\\",\\",%,\\",\\",%,\\",\\",%,\\");\\");",
+					__verilog("\$c32(\"cpu_retires(1,\",%,\",\",%,\",\",%,\",\",%,\");\");",
                     pc<<2,instr,exec.write_rd,write_back);
 $$end
             break;

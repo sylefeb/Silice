@@ -770,6 +770,10 @@ public:
           }
           m_IfSide.pop_back();
         } else if (w == "else" || w == "elseif") {
+          if (m_IfSide.empty()) {
+            // TODO: better message!
+            throw Fatal("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.");
+          }
           m_IfSide.pop_back();
           m_IfSide.push_back(false);
         }
@@ -795,18 +799,11 @@ void processLuaLine(t_Parser& parser, LuaCodePath& lcp)
 
 // -------------------------------------------------
 
-void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp, char c_in, char c_out)
+void jumpOverNestedBlocks(t_Parser& parser, LuaCodePath& lcp, char c_in, char c_out)
 {
   int  inside = 0;
   while (!parser.eof()) {
     int next = parser.readChar(false);
-
-    /* {
-      int before = bs.pos();
-      cerr << parser.readString() << '\n';
-      bs.pos() = before;
-    }*/
-
     if (IS_EOL(next)) {
       parser.readChar();
     } else if (next == '/') {
@@ -820,14 +817,12 @@ void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp, 
       parser.readChar();
       if (lcp.consider()) {
         ++inside;
-        //cerr << "INSIDE ++ " << inside << endl;
       }
     } else if (next == c_out) {
       // exiting a block
       parser.readChar();
       if (lcp.consider()) {
         --inside;
-        //cerr << "INSIDE -- " << inside << endl;
       }
       if (inside == 0) {
         // just exited
@@ -843,11 +838,11 @@ void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp, 
 
 // -------------------------------------------------
 
-void jumpOverUnit(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp)
+void jumpOverUnit(t_Parser& parser, LuaCodePath& lcp)
 {
   int nlvl_before = lcp.nestLevel();
-  jumpOverNestedBlocks(parser, bs, lcp, '(', ')');
-  jumpOverNestedBlocks(parser, bs, lcp, '{', '}');
+  jumpOverNestedBlocks(parser, lcp, '(', ')');
+  jumpOverNestedBlocks(parser, lcp, '{', '}');
   int nlvl_after  = lcp.nestLevel();
   if (nlvl_before != nlvl_after) {
     throw Fatal("[parser] Pre-processor directives are spliting the unit, this is not supported:\n"
@@ -865,7 +860,6 @@ void LuaPreProcessor::decomposeSource(const std::string& incode)
   std::map<string, v2i> units;
 
   std::string code = "";
-  int src_line = 0;
   while (!parser.eof()) {
     int next = parser.readChar(false);
     if (IS_EOL(next)) {
@@ -883,7 +877,7 @@ void LuaPreProcessor::decomposeSource(const std::string& incode)
         std::string name = parser.readString("( \t\r");
         cerr << name << '\n';
         LuaCodePath lcp_unit;
-        jumpOverUnit(parser,bs, lcp_unit);
+        jumpOverUnit(parser,lcp_unit);
         int after   = bs.pos();
         units[name] = v2i(before, after);
       }
@@ -893,6 +887,73 @@ void LuaPreProcessor::decomposeSource(const std::string& incode)
 
 // -------------------------------------------------
 
+std::string LuaPreProcessor::prepareCode(std::string header, const std::string& incode)
+{
+  cerr << "preprocessing " << "\n";
+
+  std::string code  = header;
+  int header_offset = numLinesIn(header);
+
+  BufferStream bs(incode.c_str(), (uint)incode.size());
+  t_Parser     parser(bs, false);
+
+  std::string current;
+  int src_line = 0;
+  while (!parser.eof()) {
+    int next = parser.readChar(false);
+    if (IS_EOL(next)) {
+      // -> emit current
+      if (!current.empty()) {
+        code += "output('";
+        code += current;
+        code += "\\n'," + std::to_string(header_offset + src_line - 1) + "," + std::to_string(0) + ")\n";
+      }
+      current = "";
+      parser.readChar();
+      ++ src_line;
+    } else if (next == '\\') {
+      // escape sequence
+      parser.readChar();
+      char ch = parser.readChar();
+      if (ch == '"') {
+        current += "\\";
+      }
+      current += ch;
+    } else if (next == '$') {
+      // Lua line or insertion?
+      parser.readChar();
+      next = parser.readChar(false);
+      if (next == '$') {
+        // read line
+        parser.readChar();
+        std::string lualine = parser.readString("\n");
+        code += lualine + "\n";
+      } else {
+        // read until next $
+        std::string luacode = parser.readString("$");
+        parser.readChar(); // skip $
+        current += "' .. (" + luacode + ") .. '";
+        if (incode[bs.pos()] == ' ') {
+          current += " ";
+        }
+      }
+    } else {
+      current += luaProtectString(parser.readString("\\\n$ "));
+      if (incode[bs.pos()] == ' ') {
+        current += " ";
+      }
+    }
+  }
+  if (!current.empty()) {
+    // -> emit current
+    code += "output('";
+    code += current;
+    code += "\\n'," + std::to_string(header_offset + src_line - 1) + "," + std::to_string(0) + ")\n";
+  }
+  return code;
+}
+
+#if 0
 std::string LuaPreProcessor::prepareCode(std::string header, const std::string& incode)
 {
   cerr << "preprocessing " << "\n";
@@ -944,6 +1005,7 @@ std::string LuaPreProcessor::prepareCode(std::string header, const std::string& 
 
   return code;
 }
+#endif
 
 // -------------------------------------------------
 
@@ -1038,7 +1100,7 @@ void LuaPreProcessor::run(
   code = prepareCode(lua_header_code,code);
 
   {
-    ofstream dbg("dbg2.si");
+    ofstream dbg("dbg2.lua");
     dbg << code;
   }
 
@@ -1066,7 +1128,7 @@ void LuaPreProcessor::run(
       cerr << errmsg << "\n";
     }
     cerr << Console::gray;
-    throw Fatal("the preprocessor was interrupted");
+     throw Fatal("the preprocessor was interrupted");
   }
   load_config_from_lua(L);
 
