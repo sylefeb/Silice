@@ -24,9 +24,6 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 // -------------------------------------------------
 //                                ... hardcoding ...
 // -------------------------------------------------
-#include "lppLexer.h"
-#include "lppParser.h"
-// -------------------------------------------------
 #include "LuaPreProcessor.h"
 #include "Config.h"
 #include "Utils.h"
@@ -952,60 +949,6 @@ std::string LuaPreProcessor::prepareCode(std::string header, const std::string& 
   }
   return code;
 }
-
-#if 0
-std::string LuaPreProcessor::prepareCode(std::string header, const std::string& incode)
-{
-  cerr << "preprocessing " << "\n";
-
-  ANTLRInputStream  input(incode);
-  lppLexer          lexer(&input);
-  CommonTokenStream tokens(&lexer);
-  lppParser         parser(&tokens);
-
-  std::string code = header;
-
-  int header_offset = numLinesIn(header);
-
-  for (auto l : parser.root()->line()) {
-
-    // pre-process
-    if (l->lualine() != nullptr) {
-
-      if (auto code_ = l->lualine()->code) {
-        code += code_->getText() + "\n";
-      } else {
-        code += "\n";
-      }
-
-    } else if (l->siliceline() != nullptr) {
-
-      int src_line = (int)l->getStart()->getLine();
-
-      code += "output('";
-      for (auto c : l->siliceline()->children) {
-        auto silcode = dynamic_cast<lppParser::SilicecodeContext*>(c);
-        auto luacode = dynamic_cast<lppParser::LuacodeContext*>(c);
-        if (silcode) {
-          code += luaProtectString(silcode->getText());
-        }
-        if (luacode && luacode->code) {
-          code += "' .. (" + luacode->code->getText() + ") .. '";
-        }
-      }
-      code += "\\n'," + std::to_string(header_offset + src_line-1) + "," + std::to_string(0) + ")\n";
-
-    } else if (l->siliceincl() != nullptr) {
-
-      cerr << l->siliceincl()->filename->getText() << '\n';
-      sl_assert(false); // there should not be any after assembly
-
-    }
-  }
-
-  return code;
-}
-#endif
 
 // -------------------------------------------------
 

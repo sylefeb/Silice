@@ -28,6 +28,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <string>
 #include <unordered_set>
+#include <map>
 
 #include <LibSL/Math/Vertex.h>
 
