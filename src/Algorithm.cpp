@@ -2017,20 +2017,38 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         }
       }
     } else if (P->CALLS() != nullptr) {
-      // find subroutine being called
-      auto S = m_Subroutines.find(P->IDENTIFIER()->getText());
-      if (S == m_Subroutines.end()) {
-        reportError(P->IDENTIFIER()->getSymbol(), (int)P->getStart()->getLine(),
-          "cannot find subroutine '%s' declared called by subroutine '%s'",
-          P->IDENTIFIER()->getText().c_str(), nfo->name.c_str());
-      }
+      // find subroutine or blueprint being called
       nfo->allowed_calls.insert(P->IDENTIFIER()->getText());
-      // add all inputs/outputs
-      for (auto ins : S->second->inputs) {
-        nfo->allowed_writes.insert(S->second->vios.at(ins));
-      }
-      for (auto outs : S->second->outputs) {
-        nfo->allowed_reads.insert(S->second->vios.at(outs));
+      auto S = m_Subroutines.find(P->IDENTIFIER()->getText());
+      if (S != m_Subroutines.end()) {
+        // add all inputs/outputs
+        for (auto ins : S->second->inputs) {
+          nfo->allowed_writes.insert(S->second->vios.at(ins));
+        }
+        for (auto outs : S->second->outputs) {
+          nfo->allowed_reads.insert(S->second->vios.at(outs));
+        }
+      } else {
+        auto I = m_InstancedBlueprints.find(P->IDENTIFIER()->getText());
+        if (I != m_InstancedBlueprints.end()) {
+          auto B = m_KnownBlueprints.find(I->second.blueprint_name);
+          if (B != m_KnownBlueprints.end()) {
+            // add all inputs/outputs
+            for (auto ins : B->second->inputs()) {
+              nfo->allowed_writes.insert(I->second.instance_prefix + "_" + ins.name);
+            }
+            for (auto outs : B->second->outputs()) {
+              nfo->allowed_reads.insert(I->second.instance_prefix + "_" + outs.name);
+            }
+          } else {
+            reportError(P->IDENTIFIER()->getSymbol(), (int)P->getStart()->getLine(),
+              "unit '%s' declared called by subroutine '%s' not yet declared or unknown", P->IDENTIFIER()->getText().c_str(), nfo->name.c_str());
+          }
+        } else {
+          reportError(P->IDENTIFIER()->getSymbol(), (int)P->getStart()->getLine(),
+            "cannot find subroutine or unit '%s' declared called by subroutine '%s'",
+            P->IDENTIFIER()->getText().c_str(), nfo->name.c_str());
+        }
       }
     } else if (P->input() != nullptr || P->output() != nullptr) {
       // input or output?
@@ -3323,6 +3341,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto jump         = dynamic_cast<siliceParser::JumpContext*>(tree);
   auto assign       = dynamic_cast<siliceParser::AssignmentContext*>(tree);
   auto display      = dynamic_cast<siliceParser::DisplayContext *>(tree);
+  auto inline_v     = dynamic_cast<siliceParser::Inline_vContext *>(tree);
   auto finish       = dynamic_cast<siliceParser::FinishContext *>(tree);
   auto async        = dynamic_cast<siliceParser::AsyncExecContext*>(tree);
   auto join         = dynamic_cast<siliceParser::JoinExecContext*>(tree);
@@ -3527,6 +3546,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (async)        { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));    recurse = false;
   } else if (assign)       { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));   recurse = false;
   } else if (display)      { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id));  recurse = false;
+  } else if (inline_v)     { _current->instructions.push_back(t_instr_nfo(inline_v, _current, _context->__id)); recurse = false;
   } else if (finish)       { _current->instructions.push_back(t_instr_nfo(finish, _current, _context->__id));   recurse = false;
   } else if (assert_)      { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false;
   } else if (assume)       { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false;
@@ -4519,6 +4539,31 @@ void Algorithm::determineVIOAccess(
             }
           }
         }
+        // calling a blueprint?
+        auto B = m_InstancedBlueprints.find(sync->joinExec()->IDENTIFIER()->getText());
+        if (B != m_InstancedBlueprints.end()) {
+          // if params are empty we skip, otherwise we mark the input as written
+          auto plist = sync->callParamList();
+          if (!plist->expression_0().empty()) {
+            // inputs
+            for (const auto& i : B->second.blueprint->inputs()) {
+              string var = B->second.instance_prefix + "_" + i.name;
+              if (vios.find(var) != vios.end()) {
+                _written.insert(var);
+              } else {
+                // is it a group? (in a call)
+                auto G = m_VIOGroups.find(var);
+                if (G != m_VIOGroups.end()) {
+                  // add all members
+                  for (auto mbr : getGroupMembers(G->second)) {
+                    std::string name = var + "_" + mbr;
+                    _written.insert(name);
+                  }
+                }
+              }
+            }
+          }
+        }
         // do not blindly recurse otherwise the child 'join' is reached
         recurse = false;
         // detect reads on parameters
@@ -4527,6 +4572,39 @@ void Algorithm::determineVIOAccess(
             // skip join, taken into account in return block
             continue;
           }
+          determineVIOAccess(c, vios, bctx, _read, _written);
+        }
+      }
+    } {
+      auto async = dynamic_cast<siliceParser::AsyncExecContext*>(node);
+      if (async) {
+        // retrieve called a blueprint (cannot be a subroutine as these do not support async calls)
+        auto B = m_InstancedBlueprints.find(async->IDENTIFIER()->getText());
+        if (B != m_InstancedBlueprints.end()) {
+          // if params are empty we skip, otherwise we mark the input as written
+          auto plist = async->callParamList();
+          if (!plist->expression_0().empty()) {
+            // inputs
+            for (const auto& i : B->second.blueprint->inputs()) {
+              string var = B->second.instance_prefix + "_" + i.name;
+              if (vios.find(var) != vios.end()) {
+                _written.insert(var);
+              } else {
+                // is it a group? (in a call)
+                auto G = m_VIOGroups.find(var);
+                if (G != m_VIOGroups.end()) {
+                  // add all members
+                  for (auto mbr : getGroupMembers(G->second)) {
+                    std::string name = var + "_" + mbr;
+                    _written.insert(name);
+                  }
+                }
+              }
+            }
+          }
+        }
+        // detect reads on parameters
+        for (auto c : node->children) {
           determineVIOAccess(c, vios, bctx, _read, _written);
         }
       }
@@ -4636,8 +4714,13 @@ void Algorithm::determineOutOfPipelineAssignments(
       if (!var.empty()) {
         var = translateVIOName(var, bctx);
         if (!var.empty() && vios.find(var) != vios.end()) {
-          if (assign->OUTASSIGN() != nullptr) {
+          if (assign->OUTASSIGN_AFTER() != nullptr) {
             _ex_written.insert(var);
+          } else if (assign->OUTASSIGN_BEFORE() != nullptr) {
+            reportError(assign->OUTASSIGN_BEFORE()->getSourceInterval(),-1,
+              "Assignment out of pipeline before (^=) is not yet supported.\n"
+              "Please consider assignment out of pipeline after (v=) instead."
+            );
           } else {
             _not_ex_written.insert(var);
           }
@@ -4826,7 +4909,7 @@ void Algorithm::determineAccess(
   determineAccess(&m_AlwaysPre);
   determineAccess(&m_AlwaysPost);
   // determine variable access due to instances
-  // bindings are considered as belonging to the always pre block
+  // -> bindings are considered as belonging to the always pre block
   std::vector<t_binding_nfo> all_bindings;
   for (const auto& bp : m_InstancedBlueprints) {
     all_bindings.insert(all_bindings.end(), bp.second.bindings.begin(), bp.second.bindings.end());
@@ -4836,6 +4919,18 @@ void Algorithm::determineAccess(
     updateAccessFromBinding(b, m_VarNames, m_Vars);
     // outputs
     updateAccessFromBinding(b, m_OutputNames, m_Outputs);
+  }
+  // -> non bound inputs are read
+  for (const auto& bp : m_InstancedBlueprints) {
+    for (const auto &is : bp.second.blueprint->inputs()) {
+      if (bp.second.boundinputs.count(is.name) == 0) {
+        std::string v = bp.second.instance_prefix + "_" + is.name;
+        // add to always block dependency
+        m_AlwaysPost.in_vars_read.insert(v);
+        // set global access
+        m_Vars[m_VarNames[v]].access = (e_Access)(m_Vars[m_VarNames[v]].access | e_ReadOnly);
+      }
+    }
   }
   // determine variable access due to instances clocks and reset
   for (const auto& bp : m_InstancedBlueprints) {
@@ -4918,7 +5013,7 @@ void Algorithm::determineUsage()
   std::unordered_set<std::string> global_out_written;
   determineAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = false;
+  const bool report = false; // true;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
@@ -5172,20 +5267,36 @@ void Algorithm::resolveInstancedBlueprintRefs(const std::unordered_map<std::stri
         nfo.second.instance_name.c_str());
     }
     nfo.second.blueprint = A->second;
+    // resolve any automatic directional bindings
+    resolveInstancedBlueprintBindingDirections(nfo.second);
+    // perform autobind
+    if (nfo.second.autobind) {
+      autobindInstancedBlueprint(nfo.second);
+    }
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::createInstancedBlueprintsInputOutputVars()
+{
+  for (auto& nfo : m_InstancedBlueprints) {
+    // create vars for non bound inputs, these are used with the 'dot' access syntax and allow access pattern analysis
+    for (const auto& i : nfo.second.blueprint->inputs()) {
+      if (nfo.second.boundinputs.count(i.name) == 0) {
+        t_var_nfo vnfo = i;
+        vnfo.name = nfo.second.instance_prefix + "_" + i.name;
+        addVar(vnfo, m_Blocks.front());
+      }
+    }
     // create vars for outputs, these are used with the 'dot' access syntax and allow access pattern analysis
     for (const auto& o : nfo.second.blueprint->outputs()) {
       t_var_nfo vnfo = o;
       vnfo.name = nfo.second.instance_prefix + "_" + o.name;
       addVar(vnfo, m_Blocks.front());
       m_Vars.at(m_VarNames.at(vnfo.name)).access = e_WriteBinded;
-      m_Vars.at(m_VarNames.at(vnfo.name)).usage  = e_Bound;
+      m_Vars.at(m_VarNames.at(vnfo.name)).usage = e_Bound;
       m_VIOBoundToBlueprintOutputs[vnfo.name] = WIRE + nfo.second.instance_prefix + "_" + o.name;
-    }
-    // resolve any automatic directional bindings
-    resolveInstancedBlueprintBindingDirections(nfo.second);
-    // perform autobind
-    if (nfo.second.autobind) {
-      autobindInstancedBlueprint(nfo.second);
     }
   }
 }
@@ -5436,12 +5547,14 @@ void Algorithm::optimize()
     resolveInOuts();
     // determine which VIO are bound
     determineBlueprintBoundVIO();
+    // analyze instances inputs
+    analyzeInstancedBlueprintInputs();
+    // create vars for instanced blueprint inputs/outputs
+    createInstancedBlueprintsInputOutputVars();
     // check var access permissions
     checkPermissions();
     // analyze variables access
     determineUsage();
-    // analyze instances inputs
-    analyzeInstancedBlueprintInputs();
   }
 }
 
@@ -5736,7 +5849,8 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
         "algorithm instance '%s' cannot be called with parameters as its input '%s' is bound",
           a.instance_name.c_str(), ins.name.c_str());
       }
-      out << FF_D << a.instance_prefix << "_" << ins.name; // NOTE: we are certain a flip-flop is produced as the algorithm is bound to the 'Q' side
+      // out << FF_D << a.instance_prefix << "_" << ins.name; // NOTE: we are certain a flip-flop is produced as the algorithm is bound to the 'Q' side
+      out << rewriteIdentifier(prefix, a.instance_prefix + "_" + ins.name, "", bctx, ictx, (int)plist->getStart()->getLine(), FF_D, false, dependencies, _ff_usage);
       if (std::holds_alternative<std::string>(matches[p].what)) {
         out << " = " << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), "", bctx, ictx, (int)plist->getStart()->getLine(), FF_Q, true, dependencies, _ff_usage);
       } else {
@@ -5898,7 +6012,8 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
         reportError(ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine(),
         "cannot access bound input '%s' on instance '%s'", member.c_str(), base.c_str());
       }
-      out << FF_D << A->second.instance_prefix << "_" << member << suffix;
+      out << rewriteIdentifier(prefix, A->second.instance_prefix + "_" + member, suffix, bctx, ictx, (int)ioaccess->getStart()->getLine(), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
+      // out << FF_D << A->second.instance_prefix << "_" << member << suffix;
       return A->second.blueprint->determineVIOTypeWidthAndTableSize(member, ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
     } else if (A->second.blueprint->isOutput(member)) {
       out << WIRE << A->second.instance_prefix << "_" << member << suffix;
@@ -6059,11 +6174,16 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
   // verify type of assignement
   auto assign = dynamic_cast<siliceParser::AssignmentContext *>(a.instr);
   if (assign) {
-    if (assign->OUTASSIGN() != nullptr) {
+    if (assign->OUTASSIGN_AFTER() != nullptr) {
       // check in pipeline
       if (bctx->pipeline == nullptr) {
         reportError(a.instr->getSourceInterval(), -1,"cannot use outside of pipeline assign (^=) if not inside a pipeline");
       }
+    } else if (assign->OUTASSIGN_BEFORE() != nullptr) {
+      reportError(assign->OUTASSIGN_BEFORE()->getSourceInterval(), -1,
+        "Assignment out of pipeline before (^=) is not yet supported.\n"
+        "Please consider assignment out of pipeline after (v=) instead."
+      );
     }
   }
   // write access
@@ -6442,20 +6562,6 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     writeVerilogDeclaration(out, ictx, "reg", v, string(FF_D) + prefix + v.name + init);
     writeVerilogDeclaration(out, ictx, "reg", v, string(FF_Q) + prefix + v.name + init);
   }
-  // flip-flops for algorithm inputs that are not bound
-  for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
-    const auto &ia = m_InstancedBlueprints.at(iaiordr);
-    for (const auto &is : ia.blueprint->inputs()) {
-      if (ia.boundinputs.count(is.name) == 0) { // input is not bound
-        sl_assert(is.table_size == 0); // cannot be an array
-        std::string init;
-        if (is.init_at_startup && !is.init_values.empty()) {
-          init = " = " + is.init_values[0];
-        }
-        writeVerilogDeclaration(out, ictx, "reg", is, string(FF_D) + ia.instance_prefix + '_' + is.name + init + ',' + string(FF_Q) + ia.instance_prefix + '_' + is.name + init);
-      }
-    }
-  }
   // state machine index
   if (!hasNoFSM()) {
     if (!m_OneHot) {
@@ -6613,16 +6719,6 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       }
     }
   }
-  // update instanced blueprints input flip-flops
-  for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
-    const auto &ia = m_InstancedBlueprints.at(iaiordr);
-    for (const auto &is : ia.blueprint->inputs()) {
-      if (ia.boundinputs.count(is.name) == 0) {
-        writeVarFlipFlopUpdate(ia.instance_prefix + '_', "", out, ictx, is);
-      }
-    }
-  }
-
   if (!hasNoFSM()) {
     for (const auto &chk : m_PastChecks) {
       auto B = m_State2Block.find(chk.targeted_state);
@@ -6710,15 +6806,6 @@ void Algorithm::writeCombinationalAlwaysPre(
     if (v.usage != e_FlipFlop) continue;
     writeVarFlipFlopCombinationalUpdate(prefix, out, v);
   }
-  for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
-    const auto &ia = m_InstancedBlueprints.at(iaiordr);
-    for (const auto &is : ia.blueprint->inputs()) {
-      if (ia.boundinputs.count(is.name) == 0) {
-        writeVarFlipFlopCombinationalUpdate(ia.instance_prefix + '_', out, is);
-      }
-    }
-  }
-
   if (!hasNoFSM()) {
     // state machine index
     out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << nxl;
@@ -7126,6 +7213,37 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
         out << ");" << nxl;
       }
     } {
+      auto inline_v = dynamic_cast<siliceParser::Inline_vContext *>(a.instr);
+      if (inline_v) {
+        // get raw string
+        auto raw = inline_v->STRING()->getText();
+        raw      = raw.substr(1, raw.length() - 2);
+        raw.erase(std::remove(raw.begin(), raw.end(), '\\'), raw.end()); // this is getting rid of escape sequences
+        // split it wrt to '%'
+        vector<string> chunks;
+        split(raw, '%', chunks);
+        // get params
+        std::vector<t_call_param> params;
+        getCallParams(inline_v->callParamList(), params, &block->context);
+        // output
+        int ip = 0;
+        for (auto c : chunks) {
+          out << c;
+          if (ip < params.size()) {
+            auto p = params[ip];
+            if (std::holds_alternative<std::string>(p.what)) {
+              out << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, inline_v->getStart()->getLine(), FF_Q, true, _dependencies, _ff_usage);
+            } else {
+              out << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+            }
+            ++ip;
+          } else if (ip > params.size()) {
+            reportError(inline_v->getSourceInterval(),-1,"no enough parameters given compared to the number of '%%' in the string");
+          }
+        }
+      }
+      out << nxl;
+    } {
       auto finish = dynamic_cast<siliceParser::FinishContext *>(a.instr);
       if (finish) {
         out << "$finish();" << nxl;
@@ -7511,10 +7629,15 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     // trickle vars: start
     for (auto tv : pip->trickling_vios) {
       if (stage == tv.second[0]) {
+        // capture the var in the pipeline
         std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
         out << rewriteIdentifier(prefix, tricklingdst, "", &current->context, ictx, -1, FF_D, true, deps, _ff_usage) << " = ";
         out << rewriteIdentifier(prefix, tv.first, "", &current->context, ictx, -1, FF_D, true, deps, _ff_usage);
         out << ';' << nxl;
+      } else if (stage < tv.second[1]) {
+        // mark var ff as needed (Q side) for next stages
+        std::string trickling = translateVIOName(tv.first, &current->context);
+        updateFFUsage(e_Q, true, _ff_usage.ff_usage[trickling]);
       }
     }
     // merge dependencies
@@ -7712,10 +7835,10 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
       if (tk) {
         std::pair<std::string, int> fl = getTokenSourceFileAndLine(tk);
         freport
-          << (ictx.instance_name.empty() ? "__main" : ictx.instance_name) << " "
-          << (ictx.local_instance_name.empty() ? "main" : ictx.local_instance_name) << " "
+          << (ictx.instance_name.empty()       ? "__main" : ictx.instance_name) << " "
+          << (ictx.local_instance_name.empty() ? "main"   : ictx.local_instance_name) << " "
           << m_Name << " " << fl.first << " "
-          << (m_FormalDepth.empty() ? "30" : m_FormalDepth) << " "
+          << (m_FormalDepth.empty()   ? "30"  : m_FormalDepth) << " "
           << (m_FormalTimeout.empty() ? "120" : m_FormalTimeout) << " ";
         auto end = m_FormalModes.size();
         for (size_t i{0}; i < end - 1; ++i) {
@@ -8077,17 +8200,16 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
           }
         }
       } else {
+        auto vname = nfo.instance_prefix + "_" + is.name;
         // input is not bound and assigned in logic, a specific flip-flop is created for this
         if (nfo.blueprint->isNotCallable() && !nfo.instance_reginput) {
           // the instance is never called, we bind to D
-          out << FF_D << nfo.instance_prefix << "_" << is.name;
-          // add to usage
-          updateFFUsage(e_D, true, ff_input_bindings_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
+          t_vio_dependencies _;
+          out << rewriteIdentifier("_", vname, "", nullptr, ictx, nfo.instance_line, FF_D, true, _, ff_input_bindings_usage);
         } else {
           // the instance is only called or registered input were required, we bind to Q
-          out << FF_Q << nfo.instance_prefix << "_" << is.name;
-          // add to usage
-          updateFFUsage(e_Q, true, ff_input_bindings_usage.ff_usage[nfo.instance_prefix + "_" + is.name]);
+          t_vio_dependencies _;
+          out << rewriteIdentifier("_", vname, "", nullptr, ictx, nfo.instance_line, FF_Q, true, _, ff_input_bindings_usage);
         }
       }
       out << ')';

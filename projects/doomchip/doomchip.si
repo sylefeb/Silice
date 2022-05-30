@@ -375,6 +375,7 @@ $$end
      readwrites   colio,
      readwrites   depthBuffer,
      readwrites   colormap,
+     calls        textures,
      output uint1 texopac,
      input  uint10 pi, input  uint10 pj,
      input  int16 tu,  input  int16 tv,

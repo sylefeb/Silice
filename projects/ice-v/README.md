@@ -25,27 +25,28 @@ and their associated pages below.
 The Ice-V project contains the following CPUs (and corresponding SOCs/demos):
 - The [IceV](IceV.md)
     - RV32I CPU
-    - ~300 lines of commented code (~100 lines compacted)
     - fits easily on the HX1K/icestick (~1000 LUTs with its SOC)
+    - ~300 lines of commented code (~100 lines compacted)
     - validates at around 65 MHz on the icestick
     - load/store in 4 cycles, instructions in 3 cycles but for shifts which
       additionally take one cycle per shifted bit (to save LUTs)
     - 32 bits `rdcycle`
 - The [IceV dual](IceVDual.md)
-    - two RV32I cores!
-    - each instruction takes exactly 4 cycles, cores are interleaved so one instruction
-    is executed every two cycles (core0, core1, core0, core1, ...)
-    - ~450 lines of commented code (~120 lines compacted)
+    - two RV32I cores for little more LUTs!
     - fits on the HX1K/icestick (~1240 LUTs with its SOC)
+    - each instruction takes exactly 4 cycles, cores are interleaved: one instruction
+    executes every 2 cycles (core 0, core 1, core 0, ...)
+    - ~450 lines of commented code (~120 lines compacted)
     - validates at around 60 MHz on the icestick
     - 32 bits `rdcycle`, optional support for mul, div
     - features a 'road racing' and 'fractal' demo
     - used in the [doomchip-onice](https://www.antexel.com/doomchip_onice_rc3/)!
 - The [IceV dual fermata](IceVDualFermata.md)
     - same as the IceV dual, but with a more general memory interface
-    - cores have independent memory interfaces
     - targeted at the UP5K/icebreaker (~2800 LUTs with its SOC)
-    - a core can keep going while the other is waiting for a memory fetch
+    - cores have independent memory interfaces
+    - RAM (SPRAM, 128KB), ROM (SPIflash), framebuffer (320x200, 1bpp)
+    - a core can keep going while the other is waiting on a memory fetch
     - features a cool tunnel demo
 - The [IceV conveyor](CPUs/ice-v-conveyor.si)
     - single RV32I core, but pipelined! (no data bypass, so far from full pipeline speed)

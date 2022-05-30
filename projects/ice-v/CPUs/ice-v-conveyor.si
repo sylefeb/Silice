@@ -7,13 +7,16 @@
 $$DEBUG = nil
 // --------------------------------------------------
 // bitfield for easier decoding of instructions
+$$if not ICEV_RTYPE then
 bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
+$$ICEV_RTYPE = 1
+$$end
 // --------------------------------------------------
 // Processor
 // --------------------------------------------------
 // Risc-V RV32I pipelined CPU
-$$print("\n\n====== ice-v conveyor (pipeline, no bypass, 24b rdcycle) ======\n")
+$$print("====== ice-v conveyor (pipeline, no bypass, 24b rdcycle) ======")
 //
 // Four stages CPU
 // ---------------
@@ -61,7 +64,7 @@ $$print("\n\n====== ice-v conveyor (pipeline, no bypass, 24b rdcycle) ======\n")
 // is busy the entire pipeline holds (see exec.working and alu_was_working).
 //
 // --------------------------------------------------
-unit rv32i_cpu(bram_port mem,bram_port rom) {
+unit rv32i_cpu_conveyor(bram_port mem,bram_port rom) {
 
   // register file, uses two BRAMs to fetch two registers at once
   simple_dualport_bram int32 xregsA[32] = {pad(0)};
@@ -82,7 +85,7 @@ unit rv32i_cpu(bram_port mem,bram_port rom) {
   uint1         bubble(0);       uint1   refetch(0);
   uint$addrW$   refetch_addr(0); uint3   alu_was_working(0);
   // decoder + ALU, executes the instruction and tells processor what to do
-  decode_and_ALU exec; // unit is defined after the CPU
+  decode_and_ALU_conveyor exec; // unit is defined after the CPU
 $$if SIMULATION then
   uint32 cycle(0); // cycle counter for simulation
 $$end
@@ -132,7 +135,7 @@ $$if DEBUG then
       __display("[1] instr: %x @%x (bubble:%b refetch:%b alu:%b alu_was:%b)",instr,pc<<2,bubble,refetch,exec.working,alu_was_working);
 $$end
       // remember ALU was just busy
-      alu_was_working ^= exec.working ? 3b100 : (alu_was_working>>1);
+      alu_was_working v= exec.working ? 3b100 : (alu_was_working>>1);
       //             ^^^^ 'out of pipeline' assignment, alu_was_working is not
       //          captured in pipeline so that stage 3 sees this at next cycle
 
@@ -213,6 +216,13 @@ $$if DEBUG then
           instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1);
       }
 $$end
+$$if ICEV_VERILATOR_TRACE then
+      // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
+      if (~bubble & ~refetch & ~reset) {
+				__verilog("\\$c32(\\"cpu_retires(2,\\",%,\\",\\",%,\\",\\",%,\\",\\",%,\\");\\");",
+          pc<<2,instr,Rtype(instr).rd,xregsA.wdata1);
+			}
+$$end
       // clear register write bit
       written_regs_del = {31b0,~bubble & ~no_rd & ~refetch} << rd;
       // signal a jump if needed (flushes pipeline and jumps)
@@ -256,7 +266,7 @@ $$end
 // - same as most other ice-v variants
 // --------------------------------------------------
 
-unit decode_and_ALU(
+unit decode_and_ALU_conveyor(
   // instruction, program counter and registers
   input  uint32 instr, input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start

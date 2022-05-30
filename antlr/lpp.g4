@@ -36,6 +36,8 @@ DISPLAY             : WHITESPACE* '$display' ~[\r\n]* ;
 INCLUDE             : WHITESPACE* '$include' ;
 //                    ^^^^^^^^^^^ why tho???
 
+NO_DOLLAR           : '\\$';
+BSLASH              : '\\';
 DOLLAR              : '$';
 DOUBLE_DOLLAR       : WHITESPACE* '$$';
 //                    ^^^^^^^^^^^ why tho???
@@ -44,19 +46,23 @@ WHITESPACE          : (' ' | '\t') -> skip ;
 
 NEWLINE             : ('\r'? '\n' | '\r') ;
 
-ANY                 : ~[\r\n$]+ ;
+ANY                 : ~[\r\n$\\]+ ;
 
 FILENAME            : '\'' (DIGIT|LETTERU|'.'|'/')* '\'' ;
 
 /* ======== Parser ======== */
 
-lualine     : DOUBLE_DOLLAR code=ANY;
+anylualine  : (ANY | '\\')* ;
+
+lualine     : DOUBLE_DOLLAR code=anylualine ;
 
 luacode     : DOLLAR code=ANY? DOLLAR | DOUBLE_DOLLAR ;
 
 siliceincl  : INCLUDE filename=ANY; 
 
-silicecode  : ANY | DISPLAY;
+any         : (ANY | NO_DOLLAR | BSLASH)+;
+
+silicecode  : any | DISPLAY;
 
 siliceline  : silicecode? (luacode silicecode?) * ;
 

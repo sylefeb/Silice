@@ -11,6 +11,7 @@ SECTIONS {
         *(.text)
         *(.sdata)
         *(.srodata)
+        *(.srodata.*)
         *(.rodata)
         *(.rodata.str1.4)
         *(.data)

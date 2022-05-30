@@ -9,6 +9,7 @@ BUILD_DIR=`cygpath $BUILD_DIR`
 FRAMEWORKS_DIR=`cygpath $FRAMEWORKS_DIR`
 FRAMEWORK_FILE=`cygpath $FRAMEWORK_FILE`
 BOARD_DIR=`cygpath $BOARD_DIR`
+SRC_FILE=`cygpath $1`
 ;;
 *)
 esac
@@ -115,9 +116,22 @@ fi
 fi
 fi
 
+if test -f "$1.cpp"; then
+	echo ">>>>>> custom verilator framework detected <<<<<<"
+	VERILATOR_LIB="verilator_custom"
+	VERILATOR_LIB_SRC="$1.cpp $VERILATOR_LIB_DIR/verilator_data.cpp"
+	if test -f "$1.h"; then
+		cp "$1.h" custom.h
+	else
+		touch custom.h
+	fi
+else
+	touch custom.h
+fi
+
 echo "using verilator framework $VERILATOR_LIB"
 
-verilator -Wno-fatal -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe $VERILATOR_LIB_SRC -CFLAGS "-include" -CFLAGS "../verilator_data.h" -CFLAGS "-I$SILICE_DIR/../frameworks/verilator/" -CFLAGS "-I../"  -CFLAGS "-I../LibSL/" -CFLAGS "-DNO_SHLWAPI" $LDFLAGS
+verilator -Wno-fatal -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe $VERILATOR_LIB_SRC -CFLAGS "-include" -CFLAGS "../verilator_data.h" -CFLAGS "-include" -CFLAGS "custom.h" -CFLAGS "-I$SILICE_DIR/../frameworks/verilator/" -CFLAGS "-I../"  -CFLAGS "-I../LibSL/" -CFLAGS "-DNO_SHLWAPI" $LDFLAGS
 cd obj_dir
 
 $MAKE -f Vtop.mk -j$(nproc)

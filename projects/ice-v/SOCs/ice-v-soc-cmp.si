@@ -1,0 +1,138 @@
+// SL 2022-05-13 @sylefeb
+//
+// Test SOCs for comparing CPU outputs
+//
+// Compile with conveyor or swirl script
+//
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+
+$$if not VERILATOR then
+$$error('This is a dev SOC for Verilator only')
+$$end
+
+$$config['bram_wmask_byte_wenable_width'] = 'data'
+
+// pre-compilation script, embeds compiled code within a string
+$$data_addr = 4096
+$$dofile('pre_include_compiled.lua')
+
+$$addrW = 12
+
+// include the processors
+$$ICEV_VERILATOR_TRACE=1
+$include('../CPUs/ice-v.si')
+$include('../CPUs/ice-v-conveyor.si')
+$include('../CPUs/ice-v-swirl.si')
+
+// --------------------------------------------------
+// SOC
+// --------------------------------------------------
+
+group bram_io
+{
+  uint4       wenable(0),
+  uint32      wdata(0),
+  uint32      rdata(0),
+  uint$addrW$ addr(0),    // boot address
+}
+
+// --------------------------------------------------
+
+unit cpu1_bench()
+{
+  // ram
+  bram_io memio;
+  bram uint32 mem<"bram_wmask_byte">[1024] = $datainit$;
+  bram uint32 rom<"bram_wmask_byte">[1024] = $meminit$;
+
+  sameas(memio.addr) prev_mem_addr(0);
+
+  // cpu
+  rv32i_cpu cpu( mem <:> memio );
+
+  // io mapping
+  always {
+	  // RAM access
+    mem.wenable   = memio.wenable & {4{~memio.addr[11,1]}};
+		//                              ^^^^^^^ no BRAM write if in peripherals
+    memio.rdata   = prev_mem_addr[10,1] ? mem.rdata : rom.rdata;
+    mem.wdata     = memio.wdata;
+    mem.addr      = memio.addr;
+    rom.addr      = memio.addr;
+    prev_mem_addr = memio.addr;
+  }
+}
+
+// --------------------------------------------------
+
+unit cpu2_bench()
+{
+  // ram
+  bram_io memio;
+  bram uint32 mem<"bram_wmask_byte">[1024] = $datainit$;
+
+  // rom (code)
+  bram_io romio;
+  bram uint32 rom<"bram_wmask_byte">[1024] = $meminit$;
+
+  // cpu
+  rv32i_cpu_conveyor cpu( mem <:> memio, rom <:> romio );
+
+  // io mapping
+  always {
+	  // RAM access
+    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}};
+		//                            ^^^^^^^ no BRAM write if in peripherals
+    memio.rdata   = mem.rdata;
+    mem.wdata     = memio.wdata;
+    mem.addr      = memio.addr;
+    // ROM access
+    rom.addr      = romio.addr;
+    romio.rdata   = rom.rdata;
+  }
+}
+
+// --------------------------------------------------
+
+unit cpu3_bench()
+{
+  // ram
+  bram_io memio;
+  bram uint32 mem<"bram_wmask_byte">[1024] = $datainit$;
+
+  // rom (code)
+  bram_io romio;
+  bram uint32 rom<"bram_wmask_byte">[1024] = $meminit$;
+
+  // cpu
+  rv32i_cpu_swirl cpu( mem <:> memio, rom <:> romio );
+
+  // io mapping
+  always {
+	  // RAM access
+    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}};
+		//                            ^^^^^^^ no BRAM write if in peripherals
+    memio.rdata   = mem.rdata;
+    mem.wdata     = memio.wdata;
+    mem.addr      = memio.addr;
+    // ROM access
+    rom.addr      = romio.addr;
+    romio.rdata   = rom.rdata;
+  }
+}
+
+// --------------------------------------------------
+
+unit main(output uint8 leds) {
+
+  // cpus
+  cpu1_bench _();
+  cpu2_bench _();
+	cpu3_bench _();
+
+  always { }
+
+}
+
+// --------------------------------------------------

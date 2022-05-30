@@ -891,6 +891,8 @@ private:
     void autobindInstancedBlueprint(t_instanced_nfo& _bp);
     /// \brief resove e_Auto binding directions
     void resolveInstancedBlueprintBindingDirections(t_instanced_nfo& _bp);
+    ///  \brief adds variables for non bound instanced blueprint inputs and outputs
+    void createInstancedBlueprintsInputOutputVars();
     /// \brief returns true if the algorithm does not have an FSM
     bool hasNoFSM() const;
     /// \brief returns true if the algorithm does not call subroutines
