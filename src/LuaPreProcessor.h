@@ -44,10 +44,10 @@ namespace Silice {
     /// \brief Assembles the code into a single file, removing includes
     std::string assembleSource(std::string parent_path, std::string src_file, std::unordered_set<std::string> alreadyIncluded,int& _output_line_count);
     ///  \brief Decomposes the source into blueprints
-    void decomposeSource(const std::string& incode);
+    void decomposeSource(const std::string& incode, std::map<int, std::pair<std::string, int> >& _units);
 
     /// \brief Prepare the code to be processed with Lua
-    std::string prepareCode(std::string header,const std::string& incode);
+    std::string prepareCode(std::string header,const std::string& incode, const std::map<int, std::pair<std::string, int> >& units);
 
     /// \brief Finds an included file, testing all search paths
     std::string findFile(std::string path, std::string fname) const;
@@ -59,7 +59,6 @@ namespace Silice {
     std::vector<std::string>           m_Files;
     std::vector<LibSL::Math::v3i>      m_SourceFilesLineRemapping;
     std::vector<LibSL::Math::v3i>      m_FileLineRemapping; // [0] is line after, [1] is file id, [2] is line before
-
     std::string                        m_FilesReportName;   // if empty, no files report, otherwise name of the report
 
   public:

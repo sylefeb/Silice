@@ -791,35 +791,49 @@ void processLuaLine(t_Parser& parser, LuaCodePath& lcp)
     parser.readChar();
     // -> update the status
     lcp.update(parser);
+  } else {
+    // -> skip over Lua insert
+    parser.reachChar('$');
   }
 }
 
 // -------------------------------------------------
 
-void jumpOverNestedBlocks(t_Parser& parser, LuaCodePath& lcp, char c_in, char c_out)
+void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs,LuaCodePath& lcp, char c_in, char c_out)
 {
   int  inside = 0;
   while (!parser.eof()) {
     int next = parser.readChar(false);
+
+    {
+      int tmp = bs.pos();
+      cerr << parser.readString() << "\n";
+      bs.pos() = tmp;
+    }
+
     if (IS_EOL(next)) {
       parser.readChar();
+    } else if (next == '$') { // NOTE: before '$' to avoid issues with Lua int div //
+      // might be a Lua line
+      processLuaLine(parser, lcp);
     } else if (next == '/') {
       // might be a comment, jump over it
       jumpOverComment(parser);
-    } else if (next == '$') {
-      // might be a Lua line
-      processLuaLine(parser, lcp);
     } else if (next == c_in) {
       // entering a block
       parser.readChar();
       if (lcp.consider()) {
+        cerr << "==================== ++ (";
         ++inside;
+        cerr << inside << ")\n";
       }
     } else if (next == c_out) {
       // exiting a block
       parser.readChar();
       if (lcp.consider()) {
+        cerr << "==================== -- (";
         --inside;
+        cerr << inside << ")\n";
       }
       if (inside == 0) {
         // just exited
@@ -835,11 +849,11 @@ void jumpOverNestedBlocks(t_Parser& parser, LuaCodePath& lcp, char c_in, char c_
 
 // -------------------------------------------------
 
-void jumpOverUnit(t_Parser& parser, LuaCodePath& lcp)
+void jumpOverUnit(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp)
 {
   int nlvl_before = lcp.nestLevel();
-  jumpOverNestedBlocks(parser, lcp, '(', ')');
-  jumpOverNestedBlocks(parser, lcp, '{', '}');
+  jumpOverNestedBlocks(parser,bs, lcp, '(', ')');
+  jumpOverNestedBlocks(parser,bs, lcp, '{', '}');
   int nlvl_after  = lcp.nestLevel();
   if (nlvl_before != nlvl_after) {
     throw Fatal("[parser] Pre-processor directives are spliting the unit, this is not supported:\n"
@@ -849,7 +863,9 @@ void jumpOverUnit(t_Parser& parser, LuaCodePath& lcp)
 
 // -------------------------------------------------
 
-void LuaPreProcessor::decomposeSource(const std::string& incode)
+void LuaPreProcessor::decomposeSource(
+  const std::string& incode,
+  std::map<int, std::pair<std::string, int> >& _units)
 {
   BufferStream bs(incode.c_str(),(uint)incode.size());
   t_Parser     parser(bs, false);
@@ -861,12 +877,12 @@ void LuaPreProcessor::decomposeSource(const std::string& incode)
     int next = parser.readChar(false);
     if (IS_EOL(next)) {
       parser.readChar();
-    } else if (next == '/') {
-      // might be a comment, jump over it
-      jumpOverComment(parser);
     } else if (next == '$') {
       // might be a Lua line
       processLuaLine(parser, lcp);
+    } else if (next == '/') {
+      // might be a comment, jump over it
+      jumpOverComment(parser);
     } else {
       int before = bs.pos();
       std::string w = parser.readString(" \t\r/*");
@@ -874,9 +890,9 @@ void LuaPreProcessor::decomposeSource(const std::string& incode)
         std::string name = parser.readString("( \t\r");
         cerr << name << '\n';
         LuaCodePath lcp_unit;
-        jumpOverUnit(parser,lcp_unit);
+        jumpOverUnit(parser,bs,lcp_unit);
         int after   = bs.pos();
-        units[name] = v2i(before, after);
+        _units[before] = std::make_pair(name, after);
       }
     }
   }
@@ -884,7 +900,39 @@ void LuaPreProcessor::decomposeSource(const std::string& incode)
 
 // -------------------------------------------------
 
-std::string LuaPreProcessor::prepareCode(std::string header, const std::string& incode)
+std::string nameToLua(std::string str)
+{
+  BufferStream bs(str.c_str(), (uint)str.size());
+  t_Parser     parser(bs, false);
+  std::string  result;
+  bool         close = false;
+  while (!parser.eof()) {
+    int next = parser.readChar(false);
+    if (IS_EOL(next)) {
+      sl_assert(false);
+    } else if (next == '$') {
+      // read until next $
+      parser.readChar();
+      std::string luacode = parser.readString("$");
+      parser.readChar(); // skip $
+      result += " .. (" + luacode + ") .. ";
+      close = true;
+    } else {
+      result += std::string("\'") + parser.readString("$") + std::string("\'");
+    }
+  }
+  if (close) {
+    return result;
+  } else {
+    return result;
+  }
+}
+
+// -------------------------------------------------
+
+std::string LuaPreProcessor::prepareCode(
+  std::string header, const std::string& incode,
+  const std::map<int, std::pair<std::string, int> >& units)
 {
   cerr << "preprocessing " << "\n";
 
@@ -896,16 +944,38 @@ std::string LuaPreProcessor::prepareCode(std::string header, const std::string& 
 
   std::string current;
   int src_line = 0;
+  int unit_end = -1;
   while (!parser.eof()) {
+
     int next = parser.readChar(false);
+
+    {
+      auto F = units.find(bs.pos());
+      if (F != units.end()) {
+        // just at the unit start
+        sl_assert(unit_end == -1);
+        // -> emit current
+        if (!current.empty()) {
+          code += "output('";
+          code += current;
+          code += "\\n'," + std::to_string(header_offset + src_line - 1) + "," + std::to_string(0) + ")\n";
+          current = "";
+        }
+        // write function header
+        code += "-- =================================>>> unit " + F->second.first + "\n";
+        code += "_G[" + nameToLua(F->second.first) + "] = function()\n";
+        unit_end = F->second.second;
+      }
+    }
+
     if (IS_EOL(next)) {
       // -> emit current
       if (!current.empty()) {
         code += "output('";
         code += current;
         code += "\\n'," + std::to_string(header_offset + src_line - 1) + "," + std::to_string(0) + ")\n";
+        current = "";
       }
-      current = "";
       parser.readChar();
       ++ src_line;
     } else if (next == '\\') {
@@ -940,13 +1010,39 @@ std::string LuaPreProcessor::prepareCode(std::string header, const std::string& 
         current += " ";
       }
     }
+
+    if (unit_end == bs.pos()) {
+      // -> emit current
+      if (!current.empty()) {
+        code += "output('";
+        code += current;
+        code += "\\n'," + std::to_string(header_offset + src_line - 1) + "," + std::to_string(0) + ")\n";
+        current = "";
+      }
+      // write function footer
+      code += "end\n";
+      code += "-- -----------------------------------\n";
+      unit_end = -1;
+    }
+
   }
+  // -> emit last
   if (!current.empty()) {
-    // -> emit current
     code += "output('";
     code += current;
     code += "\\n'," + std::to_string(header_offset + src_line - 1) + "," + std::to_string(0) + ")\n";
+    current = "";
   }
+
+  ////////////////// TEST
+  //for (auto u : units) {
+  //  code += "if _G[" + nameToLua(u.second.first) + "] then\n";
+  //  code += "_G[" + nameToLua(u.second.first) + "]()\n";
+  //  code += "end\n";
+  //}
+  ///////////////////////
+
+
   return code;
 }
 
@@ -1038,9 +1134,10 @@ void LuaPreProcessor::run(
     dbg << code;
   }
 
-  decomposeSource(code);
+  std::map<int, std::pair<std::string, int> > units;
+  decomposeSource(code, units);
 
-  code = prepareCode(lua_header_code,code);
+  code = prepareCode(lua_header_code,code,units);
 
   {
     ofstream dbg("dbg2.lua");
