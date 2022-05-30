@@ -134,7 +134,8 @@ RDEFINE             : ':>' ;
 BDEFINE             : '<:>';
 LDEFINEDBL          : '<::' ;
 BDEFINEDBL          : '<::>';
-AUTO                : '<:auto:>' ;
+AUTOBIND            : '<:auto:>' ;
+AUTO                : 'auto' ;
 
 ALWSASSIGNDBL       : '::=' ;
 ALWSASSIGN          : ':=' ;
@@ -144,6 +145,8 @@ OUTASSIGN           : '^=' ;
 HASH                : '#';
 
 IDENTIFIER          : LETTER+ (DIGIT|LETTERU)* ;
+
+NONAME              : '_';
 
 CONSTANT            : '-'? DIGIT+ ('b'|'h'|'d') (DIGIT|[a-fA-Fxz])+ ;
 
@@ -196,17 +199,17 @@ memClocks           : (clk0=sclock ',' clk1=sclock) ;
 memModifier         : memClocks | memNoInputLatch | memDelayed | STRING;
 memModifiers        : '<' memModifier (',' memModifier)* ','? '>' ;
 
-type                   : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')') ;
+type                   : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')') | AUTO;
 declarationWire        : type alwaysAssigned;
 declarationVarInitSet  : '=' (value | UNINITIALIZED) ;
 declarationVarInitCstr : '(' (value | UNINITIALIZED) ')';
 declarationVar         : type IDENTIFIER ( declarationVarInitSet | declarationVarInitCstr )? ATTRIBS? ;
 declarationTable       : type IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationMemory      : (BRAM | BROM | DUALBRAM | SIMPLEDUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
-declarationInstance    : blueprint=IDENTIFIER name=IDENTIFIER bpModifiers? ( '(' bpBindingList ')' ) ? ;
+declarationInstance    : blueprint=IDENTIFIER (name=IDENTIFIER | NONAME) bpModifiers? ( '(' bpBindingList ')' ) ? ;
 declaration            : declarationVar | declarationInstance | declarationTable | declarationMemory | declarationWire;
 
-bpBinding              : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrAccess | AUTO;
+bpBinding              : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrAccess | AUTOBIND;
 bpBindingList          : bpBinding ',' bpBindingList | bpBinding | ;
 
 /* -- io lists -- */
@@ -411,8 +414,8 @@ pipeline            : block ('->' block) +;
 
 /* -- Inputs/outputs -- */
 
-inout               : 'inout' TYPE IDENTIFIER
-                    | 'inout' TYPE IDENTIFIER '[' NUMBER ']';
+inout               : 'inout' declarationVar
+                    | 'inout' declarationTable;
 input               : 'input' nolatch='!'? declarationVar
                     | 'input' nolatch='!'? declarationTable;
 output              : 'output' combinational='!'? declarationVar
@@ -497,6 +500,6 @@ riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? ('=' in
 
 /* -- Overall structure -- */
 
-topList       :  (unit | algorithm |riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
+topList             :  (unit | algorithm |riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
 
 root                : topList EOF ;

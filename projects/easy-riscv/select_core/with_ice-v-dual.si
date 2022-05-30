@@ -31,23 +31,25 @@ riscv cpu_blinky(output uint32 leds) <mem=1024,
 }
 
 // now we are creating the hardware hosting the CPU
-algorithm main(output uint8 leds)
+unit main(output uint8 leds)
 {
   cpu_blinky cpu0;    // instantiates our CPU as defined above
 
-  always {
+  always_before {
     leds = cpu0.leds;	// sets the hardware LEDs to the CPU output
   }
 
-$$if SIMULATION then
-  // run only 256 cycles in simulation
-  {
-    uint32 iter(0);
-    while (iter != 256) { __display("[cycle %d] leds %d",iter,leds);
-                         iter = iter + 1; }
+  algorithm {
+  $$if SIMULATION then
+    // run only 256 cycles in simulation
+    {
+      uint32 iter(0);
+      while (iter != 256) { __display("[cycle %d] leds %d",iter,leds);
+                          iter = iter + 1; }
+    }
+  $$else
+    // run forever in hardware
+    while (1) { }
+  $$end
   }
-$$else
-  // run forever in hardware
-  while (1) { }
-$$end
 }

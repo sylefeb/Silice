@@ -34,10 +34,10 @@ $$NUM_BTNS=3
 $$color_depth=6
 $$color_max  =63
 $$config['bram_wenable_width'] = '1'
-$$config['dualport_bram_wenable0_width'] = 'data'
-$$config['dualport_bram_wenable1_width'] = 'data'
-$$config['simple_dualport_bram_wenable0_width'] = 'data'
-$$config['simple_dualport_bram_wenable1_width'] = 'data'
+$$config['dualport_bram_wenable0_width'] = '1'
+$$config['dualport_bram_wenable1_width'] = '1'
+$$config['simple_dualport_bram_wenable0_width'] = '1'
+$$config['simple_dualport_bram_wenable1_width'] = '1'
 
 module top(
   output LED1,
@@ -148,11 +148,11 @@ wire __main_out_sf_mosi;
 `endif
 
 reg ready = 0;
-reg [31:0] RST_d;
-reg [31:0] RST_q;
+reg [23:0] RST_d;
+reg [23:0] RST_q;
 
 always @* begin
-  RST_d = RST_q >> 1;
+  RST_d = RST_q[23] ? RST_q : RST_q + 1;
 end
 
 always @(posedge design_clk) begin
@@ -160,7 +160,7 @@ always @(posedge design_clk) begin
     RST_q <= RST_d;
   end else begin
     ready <= 1;
-    RST_q <= 32'b111111111111111111111111111111;
+    RST_q <= 0;
   end
 end
 
@@ -170,7 +170,7 @@ assign run_main = 1'b1;
 M_main __main(
   .clock(CLK),
   .out_clock(design_clk),
-  .reset(RST_q[0]),
+  .reset(~RST_q[23]),
   .out_leds(__main_leds),
 `ifdef BUTTONS
   .in_btns({BTN3,BTN2,BTN1}),

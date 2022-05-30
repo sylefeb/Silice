@@ -1,5 +1,9 @@
 // SL 2022-03-16 @sylefeb
 
+// ========================================================
+// IMPORTANT: on the ice40, use icepack -s
+// ========================================================
+
 // Address space and boot configuration
 $$addrW    = 20         -- allow for 1MB ROM addressing
 $$Boot     = 0x100000   -- boot at 1MB (SPIflash ROM)
@@ -26,6 +30,7 @@ $$end
 
 // Include the processor
 $$ICEV_FAST_SHIFT = 1
+$$ICEV_ALU_LATCH  = 1
 $$ICEV_MULDIV     = nil
 $$ICEV_USERDATA   = nil
 $include('../CPUs/ice-v-dual-fermata.si')
@@ -75,7 +80,7 @@ interface ram_provider {
   output! done
 }
 
-interface ram_provider_reg {
+interface ram_provider_reg { // version with registered outputs (fmax relax)
   input   addr,
   input   wenable,
   input   wdata,

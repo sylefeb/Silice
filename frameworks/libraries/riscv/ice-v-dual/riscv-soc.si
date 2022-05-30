@@ -22,7 +22,9 @@ group bram_io
   uint$addrW$ addr(0),    // boot address
 }
 
-algorithm $algorithm_name$($io_decl$) <autorun>
+// --------------------------------------------------
+
+unit $algorithm_name$($io_decl$)
 {
 
 $$if verbose then

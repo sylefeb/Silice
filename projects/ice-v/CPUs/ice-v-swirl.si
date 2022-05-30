@@ -1,0 +1,458 @@
+// SL 2022-05-04 @sylefeb
+//
+// Another pipelined RISC-V CPU
+//
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+// --------------------------------------------------
+// === Options
+// set to 1 to have a barrel shifter (one cycle shift)
+// set to nil for one bit shift per cycle (saves LUTs)
+$$ICEV_FAST_SHIFT = 1
+// set to 1 for a copious amount of debug output in simulation
+$$DEBUG = nil
+// --------------------------------------------------
+// bitfield for easier decoding of instructions
+bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
+                 uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
+// --------------------------------------------------
+// Processor
+// --------------------------------------------------
+// Risc-V RV32I pipelined CPU
+$$print("\n\n====== ice-v swirl (pipeline, data bypass, rdcycle) ======\n")
+//
+// Four stages pipeline
+// --------------------
+// Stage 1, in: instruction, setup: reg read A,B reg write bit, next fetch
+//   => [registers read] =>
+// Stage 2, in: reg A,B,     setup: ALU+decode (trigger)
+//   => [decode+ALU performed] =>
+// Stage 3, in: ALU done,    setup: load/store, read ALU output
+//   => [load/store performed] =>
+// Stage 4, in: ALU + load,  setup: reg write, refetch if jump
+//   => [register written] =>
+//
+// Compiling a demo
+// ----------------
+//
+// To plug a SPI-screen see ../SPIscreen.md
+// From a shell in the parent directory:
+// - icebreaker:
+//   ./compile/icebreaker/swirl/compile_c.sh src/fire.c
+//   make icebreaker -f Makefile.swirl
+// - simulation:
+//   ./compile/icebreaker/swirl/compile_c.sh src/fire.c
+//   make verilator -f Makefile.swirl
+//
+//
+// Overview
+// --------
+//
+// The CPU has four stages, which deviates a bit from the typical five stages
+// design. I have no specific reason for this apart from this being the most
+// natural evolution of prior IceV version.
+//
+// The pipeline implements bypasses on data hazards, such that it does not have
+// to insert bubbles ('do nothing') in case of potential trouble (see also the
+// ice-v-conveyor is this directory). Hazards occur under three major scenarios
+// described below.
+//
+// On a jump the entire pipeline is flushed (see refetch and refetch_addr).
+//
+// There is a little bit of additional complexity due to the ALU since
+// shifts are performed one cycle at a time to save LUTs. When the ALU
+// is busy the entire pipeline holds (see exec.working and alu_was_working).
+//
+// ------------------------
+// Data hazards, at cycle i
+// ------------------------
+//
+// Note: registers are only written at stage 4
+//
+//  input register value: given as input to the stage
+//  setup register value: set by stage as input to next stage
+//
+// Data hazards are all detected at stage 2:
+// a) input register value incorrect
+//    due to [write at i-1] => mux
+// b) setup register value incorrect, ALU and store
+//    due to [write at i  ] => mux
+// c) instruction in stage 3 /will/ invalidate a setup register
+//    due to [write at i+1] => hold
+//    - holds and inserts a bubble so that ALU skips one cycle
+//    - will mux on a case b at i+1
+//
+// --------------------------------------------------
+// The CPU
+// --------------------------------------------------
+unit rv32i_cpu(bram_port mem,bram_port rom) {
+
+  // register file, uses two BRAMs to fetch two registers at once
+  simple_dualport_bram int32 xregsA[32] = {pad(0)};
+  simple_dualport_bram int32 xregsB[32] = {pad(0)};
+  // ^^^^^^^^^^^^^ dualport so that we can read/write simultaneously
+  // however read/write on same address returns old value
+
+  // value that has been loaded from memory
+  int32         loaded(0);
+  // stage 1 => stage 2
+  uint$addrW$   pc(0);            uint32 instr(0);
+  // stage 2 => stage 3
+  int32         xb(0);
+  // stage 3 => stage 4
+  int32         alu_r(0);         int32  alu_val(0);   uint1  no_rd(0);
+  uint1         jump(0);          uint1  load(0);      uint1  intop(0);
+  uint$addrW+2$ alu_n(0);         uint1  storeAddr(0); uint1  storeVal(0);
+  uint3         op(0);            uint5  rd(0);
+  // pipeline control signals
+  uint1         hold(0);          uint1  prev_hold(0); uint1  bubble(0);
+  uint$addrW$   refetch_addr(0);  uint1  refetch(0);   uint1  stage3_bubble(0);
+  uint1         alu_was_working(0);
+
+  // what to write in ALU register inputs
+  uint1 xa_keep(0);  uint1 xa_regR(0);  uint1 xa_regW(0);  uint1 xa_regW_prev(0);
+  uint1 xb_keep(0);  uint1 xb_regR(0);  uint1 xb_regW(0);  uint1 xb_regW_prev(0);
+
+  // decoder + ALU, executes the instruction and tells processor what to do
+  decode_and_ALU exec<reginputs>;
+  int32 reg_ex_xa(0); int32 reg_ex_xb(0);
+
+$$if SIMULATION then
+  uint32 cycle(0);
+$$end
+
+  always {
+
+    // tracks whether a register was written cycle before
+    uint1 reg_was_written(0);
+    reg_was_written  = xregsA.wenable1;
+    // maintain register wenable low (pulsed when necessary)
+    xregsA.wenable1  = 0;
+    // maintain memory write low
+    mem.wenable      = 0;
+
+    // CPU pipeline
+
+    { // ==== stage 1
+      // capture pc, instr in pipeline
+      pc       = (exec.working | hold) ? pc    : rom.addr;
+      instr    = (exec.working | hold) ? instr : rom.rdata;
+      //         ^^^^^^^^^^^^^^^^^^^^^ hold if ALU is busy or hazard (c)
+      // insert a bubble on a refetch or ALU busy
+      bubble   = refetch | exec.working;
+      // setup register read
+      xregsA.addr0    = Rtype(instr).rs1;
+      xregsB.addr0    = Rtype(instr).rs2;
+      // fetch next
+      rom.addr        = refetch ? refetch_addr
+                                : (~bubble & ~reset) ? pc[0,$addrW$] + 1
+                                                     : pc;
+$$if DEBUG then
+      __display("[1] instr: %x @%x (bubble:%b refetch:%b hold:%b alu:%b rs1 %d rs2 %d)",instr,pc<<2,bubble,refetch,hold,exec.working,xregsA.addr0,xregsB.addr0);
+      __display("[1] regs:  rs1 %d rs2 %d rd %x",Rtype(instr).rs1,Rtype(instr).rs2,Rtype(instr).rd);
+$$end
+      // remember ALU was just busy
+      alu_was_working ^= exec.working;
+
+    } -> { // ==== stage 2
+      // for data hazard detection
+      uint1 has_rs2(0); uint1 store(0);
+      // give instruction, pc and registers to decoder+ALU
+      instr        = (exec.working | hold) ? exec.instr : instr;
+      pc           = (exec.working | hold) ? exec.pc    : pc;
+      exec.instr   = instr;
+      exec.pc      = pc;
+      // [data hazards]
+      store     = (Rtype(instr).opcode[2,5] == 5b01000); // store
+      has_rs2   = (Rtype(instr).opcode[2,5] == 5b01100)  // intreg
+                | (Rtype(instr).opcode[2,5] == 5b11000)  // branch
+                | store;
+      xa_regR = 1; xa_regW = 0; xa_regW_prev = 0; xa_keep = 0;
+      xb_regR = 1; xb_regW = 0; xb_regW_prev = 0; xb_keep = 0;
+      // [data hazards] (c)
+      // instruction in stage 3 will write on a register used now
+      // (checks with exec.rd and exec.write_rd as seen in stage 3)
+      prev_hold = hold;
+      if (~hold) {
+        uint1     rs1_eq_rd(0);
+        uint1     rs2_eq_rd(0);
+        rs1_eq_rd =  Rtype(instr).rs1 == exec.write_rd;
+        rs2_eq_rd = (Rtype(instr).rs2 == exec.write_rd) & has_rs2;
+        hold      = (rs1_eq_rd|rs2_eq_rd) & ~exec.no_rd
+                  // all the conditions below mean there is in fact no hazard
+                  & ~stage3_bubble & ~jump & ~reset & ~refetch & ~exec.working;
+      } else {
+        xa_regR = 0; xa_regW = 0; xa_regW_prev = 0; xa_keep = 1;
+        xb_regR = 0; xb_regW = 0; xb_regW_prev = 0; xb_keep = 1;
+        hold    = 0;
+      }
+      // update bubble
+      bubble   = bubble | refetch | exec.working | hold;
+$$if DEBUG then
+      __display("[2] instr: %x @%x (bubble %b)",instr,pc<<2,bubble);
+$$end
+$$if DEBUG then
+      if (hold) {
+        __display("[2] *** data hazard (c) *** rs1[%d] rs2[%d](%b) rd(stage3)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,has_rs2,exec.write_rd);
+      } else {
+        __display("[2] rs1[%d] rs2[%d](%b) rd(stage3)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,has_rs2,exec.write_rd);
+      }
+$$end
+      // [data hazards] (a)
+      // instruction in stage 3 wrote on input registers
+      if (Rtype(instr).rs1 == xregsA.addr1 & reg_was_written) {
+$$if DEBUG then
+        __display("[2] *** data hazard (a) on rs1 *** rs1[%d] rs2[%d] rd_was[%d]",Rtype(instr).rs1,Rtype(instr).rs2,xregsA.addr1);
+$$end
+        xa_regR = 0; xa_regW = 0; xa_regW_prev = 1; xa_keep = 0;
+      }
+      if (Rtype(instr).rs2 == xregsA.addr1 & reg_was_written & has_rs2) {
+$$if DEBUG then
+        __display("[2] *** data hazard (a) on rs2 *** rs1[%d] rs2[%d] rd_was[%d]",Rtype(instr).rs1,Rtype(instr).rs2,xregsA.addr1);
+$$end
+        xb_regR = 0; xb_regW = 0; xb_regW_prev = 1; xb_keep = 0;
+      }
+      // [data hazards] (b)
+      // instruction in stage 4 writes on a register used now
+      // (checks with rd and write_rd from stage 4)
+      if (~no_rd &  Rtype(instr).rs1 == rd) {
+$$if DEBUG then
+        __display("[2] *** data hazard (b) on rs1 *** rs1[%d] rs2[%d] rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,rd);
+$$end
+        xa_regR = 0; xa_regW = 1; xa_regW_prev = 0; xa_keep = 0;
+      }
+      if (~no_rd & (Rtype(instr).rs2 == rd) & has_rs2) {
+$$if DEBUG then
+        __display("[2] *** data hazard (b) on rs2 *** rs1[%d] rs2[%d] rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,rd);
+$$end
+        xb_regR = 0; xb_regW = 1; xb_regW_prev = 0; xb_keep = 0;
+      }
+      // trigger ALU if not in bubble
+      exec.trigger  = ~bubble;
+      // track whether next is in a bubble
+      stage3_bubble = bubble;
+$$if DEBUG then
+      __display("[2]   reg values: rs1=%x rs2=%x",xregsA.rdata0,xregsB.rdata0);
+$$end
+
+    } -> { // ==== stage 3
+      // start a bubble on refetch or ALU busy
+      bubble   = (bubble & ~alu_was_working) | refetch | exec.working;
+$$if DEBUG then
+      __display("[3] instr: %x @%x (bubble:%b)",instr,pc<<2,bubble);
+$$end
+      // memory address from which to load/store
+      mem.addr  = (exec.n >> 2);
+      if (exec.store & ~bubble & ~jump) {
+        //                              ^^^^^ if stage 4 jumps, cancel store
+        // build write mask depending on SB, SH, SW
+        // assumes aligned, e.g. SW => next_addr[0,2] == 2
+        mem.wenable = ( { { 2{exec.op[0,2]==2b10} },
+                          exec.op[0,1] | exec.op[1,1], 1b1
+                        } ) << exec.n[0,2];
+      }
+      // status from decoder to trickle down the pipeline
+      no_rd    = exec.no_rd | bubble;
+      //                      ^^^^ disables data hazard in stage 2 on a bubble
+      rd       = exec.write_rd;
+      jump     = exec.jump & ~bubble;
+      load     = exec.load;
+      intop    = exec.intop;
+      alu_n    = exec.n;
+      alu_r    = exec.r;
+      alu_val  = exec.val;
+      op       = exec.op;
+      storeAddr= exec.storeAddr;
+      storeVal = exec.storeVal;
+
+    } -> { // ==== stage 4
+      // decodes values loaded from memory (if any)
+      uint32 aligned(0);
+      aligned = mem.rdata >> {alu_n[0,2],3b000};
+      switch ( op[0,2] ) { // LB / LBU, LH / LHU, LW
+        case 2b00:{ loaded = {{24{(~op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
+        case 2b01:{ loaded = {{16{(~op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
+        case 2b10:{ loaded = aligned;   }
+        default:  { loaded = {32{1bx}}; } // don't care
+      }
+      // register write back
+      xregsA.wenable1  = ~no_rd & ~bubble & ~refetch;
+      xregsA.addr1     = rd;
+      xregsA.wdata1    = (jump      ? ((pc+1)<<2)        : 32b0)
+                       | (storeAddr ? alu_n              : 32b0)
+                       | (storeVal  ? alu_val            : 32b0)
+                       | (load      ? loaded             : 32b0)
+                       | (intop     ? alu_r              : 32b0);
+$$if DEBUG then
+      __display("[4] instr: %x @%x (bubble:%b)",instr,pc<<2,bubble);
+      if (~bubble & ~refetch) {
+        __display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b)",
+          instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1);
+      }
+$$end
+      // signal a jump if needed (flushes pipeline and jumps)
+      refetch          = jump & ~refetch;
+      //                 ^^^^^^^^ reset refetch if done at prev cycle
+      refetch_addr     = alu_n>>2;
+    }
+
+    // set decoder+ALU inputs
+    // (out of pipeline to get up-to-date value of xregsA.wdata1 from stage 4)
+    reg_ex_xa = xa_keep      ? reg_ex_xa     : 32b0
+              | xa_regR      ? xregsA.rdata0 : 32b0
+              | xa_regW      ? xregsA.wdata1 : 32b0
+              | xa_regW_prev ? xregsB.wdata1 : 32b0;
+    exec.xa   = reg_ex_xa;
+    reg_ex_xb = xb_keep      ? reg_ex_xb     : 32b0
+              | xb_regR      ? xregsB.rdata0 : 32b0
+              | xb_regW      ? xregsA.wdata1 : 32b0
+              | xb_regW_prev ? xregsB.wdata1 : 32b0;
+    exec.xb   = reg_ex_xb;
+    // what to write on a store
+    mem.wdata = (xb_regW ? xregsA.wdata1 : xb) << {exec.n[0,2],3b000};
+    //                                     ^^---------\
+    // capture xb from stage 2 so that stage 3 assign above sees the correct value
+    xb        = exec.xb;
+    // register bank B follows A writes
+    xregsB.wenable1 = xregsA.wenable1;
+    xregsB.wdata1   = xregsA.wdata1;
+    xregsB.addr1    = xregsA.addr1;
+$$if DEBUG then
+    __display("exec.xa = %x exec.xb = %x mem.wdata = %x",exec.xa,exec.xb,mem.wdata);
+    __display("xa_keep %b xa_regR %b xa_regW %b xa_regW_prev %b",xa_keep,xa_regR,xa_regW,xa_regW_prev);
+    __display("xb_keep %b xb_regR %b xb_regW %b xb_regW_prev %b",xb_keep,xb_regR,xb_regW,xb_regW_prev);
+$$end
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
+
+  }
+
+}
+
+// --------------------------------------------------
+// decoder + ALU
+// - decodes instructions
+// - performs all integer computations
+//
+// Note: In the ice-v-swirl we setup the decoder+ALU with
+// registered inputs (<reginputs>) and use non registered
+// (immediate) outputs. This is better as stage 2 has a
+// fairly large multiplexer due to data hazards bypass.
+// See also ../../learn-silice/AlgoInOuts.md
+//
+// --------------------------------------------------
+
+unit decode_and_ALU(
+  // instruction, program counter and registers
+  input  uint32 instr,   input  uint$addrW$ pc, input int32 xa, input int32 xb,
+  // trigger: pulsed high when the decoder + ALU should start
+  input  uint1  trigger,
+  // outputs all information the processor needs to decide what to do next
+  output! uint3  op,    output! uint5  write_rd, output!  uint1  no_rd,
+  output! uint1  jump,  output! uint1  load,     output!  uint1  store,
+  output! int32  val,   output! uint1  storeVal, output!  uint1  working(0),
+  output! uint$addrW+2$ n(0),  output! uint1  storeAddr, // next address adder
+  output! uint1  intop, output! int32  r,         // integer operations
+) {
+  uint5  shamt(0); // shifter status
+  uint32 cycle(0); // cycle counter
+  // ==== decode immediates
+  int32 imm_u  <: {instr[12,20],12b0};
+  int32 imm_j  <: {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
+  int32 imm_i  <: {{20{instr[31,1]}},instr[20,12]};
+  int32 imm_b  <: {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
+  int32 imm_s  <: {{20{instr[31,1]}},instr[25,7],instr[7,5]};
+  // ==== decode opcode
+  uint5 opcode    <: instr[ 2, 5];
+  uint1 AUIPC     <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
+  uint1 JAL       <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
+  uint1 IntImm    <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
+  uint1 CSR       <: opcode == 5b11100;  uint1 branch <: opcode == 5b11000;
+  uint1 regOrImm  <: IntReg  | branch;                    // reg or imm in ALU?
+  uint1 pcOrReg   <: AUIPC   | JAL    | branch;           // pc or reg in addr?
+  uint1 sub       <: IntReg  & Rtype(instr).sign;         // subtract
+  uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
+  // ==== select next address adder first input
+  int$addrW+3$ addr_a <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
+  // ==== select ALU second input
+  int32 b             <: regOrImm ? (xb) : imm_i;
+  // ==== allows to do subtraction and all comparisons with a single adder
+  // trick from femtorv32/swapforth/J1
+  int33 a_minus_b <: {1b1,~b} + {1b0,xa} + 33b1;
+  uint1 a_lt_b    <: (xa[31,1] ^ b[31,1]) ? xa[31,1] : a_minus_b[32,1];
+  uint1 a_lt_b_u  <: a_minus_b[32,1];
+  uint1 a_eq_b    <: a_minus_b[0,32] == 0;
+  // ==== select immediate for the next address computation
+  // 'or trick' from femtorv32
+  int$addrW+3$ addr_imm <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+                        |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
+                        |  (store  ? imm_s : 32b0);
+  // ==== set decoder outputs depending on incoming instructions
+  // load/store?
+  load         := opcode == 5b00000;   store        := opcode == 5b01000;
+  // operator for load/store           // register to write to?
+  op           := Rtype(instr).op;     write_rd     := Rtype(instr).rd;
+  // do we have to write a result to a register?
+  no_rd        := branch  | store  | (Rtype(instr).rd == 5b0);
+  // integer operations                // store next address?
+  intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
+  // value to store directly
+  val          := LUI ? imm_u : cycle;
+  // store value?
+  storeVal     := LUI | CSR;
+
+  always {
+    uint1 j(0); // temp variables for and comparator
+    // ====================== ALU
+$$if not ICEV_FAST_SHIFT then
+    // are we still shifting?
+    uint1 shiting <:: (shamt != 0);
+    // shift (one bit per clock)
+    if (trigger) {
+      // start shifting?
+      shamt  = aluShift ? __unsigned(b[0,5]) : 0;
+      // store value to be shifted
+      r      = xa;
+    } else {
+      if (shiting) {
+        // decrease shift size
+        shamt = shamt - 1;
+        // shift one bit
+        r     = op[2,1] ? (Rtype(instr).sign ? {r[31,1],r[1,31]}
+                        : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
+      }
+    }
+    working = (shamt != 0);
+$$end
+    // all ALU operations
+    switch (op) {
+      case 3b000: { r = sub ? a_minus_b : xa + b; }             // ADD / SUB
+      case 3b010: { r = a_lt_b; } case 3b011: { r = a_lt_b_u; } // SLTI / SLTU
+      case 3b100: { r = xa ^ b; } case 3b110: { r = xa | b;  }  // XOR / OR
+$$if not ICEV_FAST_SHIFT then
+      case 3b001: { }             case 3b101: { }              // SLLI/SRLI/SRAI
+$$else
+      case 3b001: { r = (xa <<< b[0,5]); }
+      case 3b101: { r = Rtype(instr).sign ? (xa >>> b[0,5]) : (xa >> b[0,5]); }
+$$end
+      case 3b111: { r = xa & b; }     // AND
+      default:    { r = {32{1bx}}; }  // don't care
+    }
+    // ====================== Comparator for branching
+    switch (op[1,2]) {
+      case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/
+      case 2b11:  { j = a_lt_b_u;} /*BLTU*/ default:   { j = 1bx; }
+    }
+    jump = (JAL | JALR) | (branch & (j ^ op[0,1]));
+    //                                   ^^^^^^^ negates comparator result
+    // ====================== Next address adder
+    n = addr_a + addr_imm;
+    // ==== increment cycle counter
+    cycle = cycle + 1;
+
+  }
+
+}
+
+// --------------------------------------------------

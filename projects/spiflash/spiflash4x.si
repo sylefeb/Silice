@@ -141,7 +141,7 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
-  uint10 wait(0);
+  uint11 wait(0);
   uint4  four(0);
   uint3  stage(0);
   uint3  after(1);
@@ -168,7 +168,7 @@ $$if ICARUS then
         spiflash.trigger = reset ? 0 : spiflash.trigger;
         spiflash.send    = 0;
 $$end
-        stage = wait[9,1] ? after : 0; // counts up to 512 and goes to after
+        stage = wait[10,1] ? after : 0; // counts up to 1024 and goes to after
         wait  = wait + 1;
       }
       case 1: {
@@ -209,7 +209,7 @@ $$end
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
-        wait                    = 511; //_ 3 cycles (one extra due to registered ios)
+        wait                    = 1023; //_ 3 cycles (one extra due to registered ios)
         after                   = 5;
       }
 $$if nBytes == 1 then

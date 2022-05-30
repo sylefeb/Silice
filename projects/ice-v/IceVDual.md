@@ -150,27 +150,27 @@ On the IceStick the instructions are embedded into the design, in BRAM initializ
 
 For compiling and synthesizing the design open a prompt in the `ice-v` directory. For compiling for the ice-v-dual on IceStick, plug-in the board and type in:
 ```
-./compile/icestick/compile_c_dual.sh src/dual_demo.c
+./compile/icestick/dual/compile_c.sh src/dual_demo.c
 make icestick -f Makefile.dual
 ```
 
 For compiling for the ice-v-dual on IceBreaker, plug-in the board and type in (note that the compilation script is in a different folder):
 ```
-./compile/icebreaker/compile_c_dual.sh src/dual_demo.c
+./compile/icebreaker/dual/compile_c.sh src/dual_demo.c
 make icebreaker -f Makefile.dual
 ```
 Note how much slower that is? This is because the FPGA fabric of the UP5K ice40 (the FPGA on the IceBreaker) is much slower, so we are limited to ~25 MHz while the IceStick runs at ~60MHz (and often higher). In exchange, the UP5K has SPRAM that we can use to our advantage! When compiling for the IceBreaker the SOC includes 64K of SPRAM (leaving another 64K for future extension) from which code can be executed. Because SPRAM cannot be initialized, the code has to be loaded there from SPIFLASH, a memory on the FPGA board that is relatively slow to read from but that can store a few megabytes. This is done by a [bootloader](src/icebreaker/boot_spiflash.c).
 
-But let's go through the full process. First, we generate the ice-v-dual hardware with the bootlader (plug-in the icebreaker before):
+But let's go through the full process. First, we generate the ice-v-dual hardware with the compiled bootlader (plug-in the icebreaker before):
 ```
-./compile/icebreaker/compile_boot_dual.sh
+./compile/icebreaker/dual/compile_c.sh src/icebreaker/boot_spiflash.c
 make icebreaker -f Makefile.dual
 ```
 After this we compile a demo but this time we don't rebuild the hardware -- there is no need, the bootloader is already there to load code on startup. Instead, we will upload the complied code to SPIFLASH.
 
-First, we compile the demo:
+First, we compile the demo (note the use of a different script):
 ```
-./compile/icebreaker/compile_c_spiflash_dual.sh src/dual_demo.c
+./compile/icebreaker/dual/compile_c_ext.sh src/dual_demo.c
 ```
 Then, we upload it to SPIFLASH (plug-in the icebreaker):
 ```

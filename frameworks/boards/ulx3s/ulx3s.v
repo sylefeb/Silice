@@ -33,7 +33,7 @@ $$NUM_LEDS = 8
 $$NUM_BTNS = 7
 $$color_depth = 6
 $$color_max   = 63
-$$config['dualport_bram_supported'] = 'no'
+$$config['dualport_bram_supported'] = 'yes'
 
 module top(
   // basic

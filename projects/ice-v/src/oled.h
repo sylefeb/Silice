@@ -6,9 +6,14 @@
 
 #define OLED_CMD   (1<< 9)
 #define OLED_DTA   (1<<10)
-#define DELAY      (1<<18)
 
+#if defined(ICESTICK_CONVEYOR) | defined(ICEBREAKER_SWIRL)
+#define DELAY      (1<<18)
+static inline void wait() { for (int i=0;i<16;++i) { asm volatile ("nop;"); } }
+#else
+#define DELAY      (1<<18)
 static inline void wait() { asm volatile ("nop; nop; nop; nop; nop; nop; nop;"); }
+#endif
 
 #define WAIT wait()
 

@@ -112,7 +112,7 @@ $$end
 }
 
 // now we are creating the hardware hosting the CPU
-algorithm main(
+unit main(
   output uint8  leds,
 $$if SIMULATION then
   output uint1  oled_clk,
@@ -152,16 +152,16 @@ $$end
   uint24 pix_data(0);              // RGB 24bits to send
   uint3  pix_sending(3b000);       // sending? (111 => 011 => 001 => 000 done)
   uint1  pix_wait(0);              // wait before sending?
-  uint1  pix_send_ready  <:: displ.ready & ~pix_wait; // can we send?
+  uint1  pix_send_ready  <:: :displ.ready & ~pix_wait; // can we send?
   //                         ^^^ SPI ready  ^^^ did not send just before
   // We have to check we did not send on cycle before as it takes one cycle
   // for the SPI controller to lower displ.ready after a disp.enable
 
   // screen driver
-  uint1 displ_en         <:: pix_sending[0,1] ? pix_send_ready
-                                              : cpu.on_screen;
-  uint1 displ_dta_or_cmd <:: pix_sending[0,1] ? 1b1           : cpu.screen[10,1];
-  uint8 displ_byte       <:: pix_sending[0,1] ? pix_data[0,8] : cpu.screen[0,8];
+  uint1 displ_en         <:: pix_sending[0,1] ?  pix_send_ready
+                                              : :cpu.on_screen;
+  uint1 displ_dta_or_cmd <:: pix_sending[0,1] ? 1b1           : :cpu.screen[10,1];
+  uint8 displ_byte       <:: pix_sending[0,1] ? pix_data[0,8] : :cpu.screen[0,8];
   spi_mode3_send displ(
     enable          <: displ_en,
     data_or_command <: displ_dta_or_cmd,

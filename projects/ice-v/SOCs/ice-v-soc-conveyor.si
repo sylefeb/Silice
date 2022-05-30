@@ -1,0 +1,173 @@
+// SL 2022-05 @sylefeb
+//
+// Pipelined RV32I cpu, see ../CPUs/ice-v-conveyor.si for notes
+//
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+
+// Clocks
+$$if ICESTICK then
+import('../../common/plls/icestick_60.v')
+$$elseif ICEBREAKER or ICEBITSY then
+import('../../common/plls/icebrkr_25.v')
+$$end
+
+$$config['bram_wmask_byte_wenable_width'] = 'data'
+
+// pre-compilation script, embeds compiled code within a string
+$$data_addr = 4096
+$$dofile('pre_include_compiled.lua')
+
+$$addrW = 12
+// ^^^^^^^^^ 12 bits addressing
+// - 10 bits for actuall address
+// - bit 10 for ram/rom addresses (0: ram, 1: rom)
+// - bit 11 for peripherals
+
+// include the processor
+$include('../CPUs/ice-v-conveyor.si')
+
+// --------------------------------------------------
+// SOC
+// --------------------------------------------------
+
+group bram_io
+{
+  uint4       wenable(0),
+  uint32      wdata(0),
+  uint32      rdata(0),
+  uint$addrW$ addr(0),    // boot address
+}
+
+unit main( // I guess this is the SOC :-D
+  output uint5 leds,
+$$if OLED then
+  output uint1 oled_clk,
+  output uint1 oled_mosi,
+  output uint1 oled_dc,
+  output uint1 oled_resn,
+  output uint1 oled_csn(0),
+$$if VERILATOR then
+  output uint2  spiscreen_driver(1/*SSD1351*/),
+  output uint10 spiscreen_width(128),
+  output uint10 spiscreen_height(128),
+$$end
+$$end
+$$if PMOD then
+  inout  uint8 pmod,
+$$end
+$$if not SIMULATION then
+  ) <@cpu_clock> {
+  // clock
+  uint1 cpu_clock  = uninitialized;
+  pll clk_gen (
+    clock_in  <: clock,
+    clock_out :> cpu_clock
+  );
+$$else
+  ) {
+$$end
+
+$$if OLED or PMOD then
+  uint1 displ_en = uninitialized;
+  uint1 displ_dta_or_cmd <: memio.wdata[10,1];
+  uint8 displ_byte       <: memio.wdata[0,8];
+  oled display(
+    enable          <: displ_en,
+    data_or_command <: displ_dta_or_cmd,
+    byte            <: displ_byte,
+    oled_din        :> oled_mosi,
+    oled_clk        :> oled_clk,
+    oled_dc         :> oled_dc,
+  );
+$$end
+
+$$if PMOD then
+	// oled pins
+	uint1 oled_clk(0); uint1 oled_mosi(0); uint1 oled_dc(0); uint1 oled_resn(0);
+$$end
+
+$$if SIMULATION then
+   uint32 cycle(0);
+$$end
+
+  // intermediate interfaces to perform memory mappings
+  // ram
+  bram_io memio;
+  bram uint32 mem<"bram_wmask_byte">[512] = $datainit$;
+  // rom (code)
+  bram_io romio;
+  bram uint32 rom<"bram_wmask_byte">[1024] = $meminit$;
+  //               ^^^^^^^^^^^^^^^
+  //  uses template "bram_wmask_byte", that turns wenable into a byte mask
+
+  // cpu
+  rv32i_cpu cpu( mem <:> memio, rom <:> romio );
+
+  // io mapping
+  always_before {
+	  // ---- RAM / peripherals access
+    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}};
+		//                            ^^^^^^^ no BRAM write if in peripheral addresses
+    memio.rdata   = mem.rdata;
+    mem.wdata     = memio.wdata;
+    mem.addr      = memio.addr;
+    // ---- ROM
+    rom.addr      = romio.addr;
+    romio.rdata   = rom.rdata;
+		// ---- peripherals
+$$if OLED or PMOD then
+    displ_en = 0; // maintain display enable low
+$$end
+$$if PMOD then
+    pmod.oenable = 8b11111111; // pmod all output
+    pmod.o       = {4b0,oled_mosi,oled_clk,oled_dc,oled_resn}; // pmod pins
+$$end
+    // ---- memory mapping to peripherals: writes
+$$if SIMULATION then
+    if (memio.wenable != 0) {
+    //  __display("MEM WRITE @%x(%b) = %x",memio.addr,memio.addr,memio.wdata);
+    }
+$$end
+    if (memio.wenable != 0 & memio.addr[11,1]) {
+      leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
+$$if SIMULATION then
+      if (memio.addr[0,1]) { __display("[cycle %d] LEDs: %b",cycle,leds); }
+$$end
+$$if OLED or PMOD then
+      // command
+      displ_en     = (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];
+      // reset
+      oled_resn    = ~ (mem.wdata[0,1] & memio.addr[2,1]);
+$$end
+$$if SIMULATION then
+      if (memio.addr[4,1]) {
+			  __display("[cycle %d] SPI write %b",cycle,mem.wdata[0,3]);
+			}
+$$end
+    }
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
+  }
+
+  algorithm {
+$$if SIMULATION and not BARE then
+	  // while (cycle < 50000) { }
+    while (1) { }
+$$else
+    while (1) { }
+$$end
+  }
+
+}
+
+// --------------------------------------------------
+
+$$if OLED or PMOD then
+
+$include('../ice-v/SOCs/ice-v-oled.si')
+
+$$end
+
+// --------------------------------------------------

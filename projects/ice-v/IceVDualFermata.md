@@ -1,6 +1,10 @@
 # The Ice-V-dual *fermata*
 *dual-core, dual-memory interface RISC-V RV32I*
 
+<p align="center">
+  <img src="ice-v-fermata-tunnel.png" width="500px"><br>
+</p>
+
 The Ice-V-dual *fermata* is a dual memory interface version of the [Ice-V dual](IceVDual.md). This means both cores can independently access memory, so if one is waiting the other is free to proceed (e.g. one core waiting for slow SPIflash while the other keeps executing from BRAM).
 
 > *Fermata* is a musical term that refers to the prolongation of a note. This is what the ice-v fermata does, prolongating instructions while memory is busy. However, the *tempo* never stops and the internal state of the processor keeps going.
@@ -31,24 +35,30 @@ the SOC is designed for the [icebreaker](https://1bitsquared.com/products/icebre
 
 For simulation, in a shell in this directory type:
 ```
-make verilator -f Makefile.fermata
+make verilator -f Makefile.fermata_demo
 ```
 
-To run on the icebreaker you will need a VGA PMOD. After pluging the PMOD to
+To run on the icebreaker you will need a VGA PMOD. After plugging the PMOD to
 the board and the VGA cable to a screen, connect the board to the computer through USB and run:
 
 ```
-make icebreaker -f Makefile.fermata
+make icebreaker -f Makefile.fermata_demo
 ```
 
 For details on the compilation process, please take a look
-at [Makefile.fermata](Makefile.fermata).
+at [Makefile.fermata_demo](Makefile.fermata_demo).
 
 The demo reproduces an old-school tunnel effect, which requires large
 pre-computed tables stored in ROM. It uses both cores for faster drawing,
 since all rendering occurs from the CPU cores directly into VRAM.
 
 The main source code is [./src/tunnel_fermata.c](./src/tunnel_fermata.c)
+
+> **Warning:** Once SPIflash enters the QPI mode, it might become impossible to program the board with iceprog. **Do not panic** (I did ;) ) you can recover by adding a jumper on the CRESET pins (may not be soldered, simply add a two pin header). Place a jumper, program, remove the jumper and you are back to normal.
+
+<p align="center">
+  <img src="icebreaker-creset.png" width="400px"><br>
+</p>
 
 ## Memory interface
 

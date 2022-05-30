@@ -1000,7 +1000,7 @@ void Algorithm::getBindings(
   if (bindings == nullptr) return;
   while (bindings != nullptr) {
     if (bindings->bpBinding() != nullptr) {
-      if (bindings->bpBinding()->AUTO() != nullptr) {
+      if (bindings->bpBinding()->AUTOBIND() != nullptr) {
         _autobind = true;
       } else {
         // check if this is a group binding
@@ -1191,7 +1191,7 @@ void Algorithm::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo,
 {
   if (type->TYPE() != nullptr) {
     splitType(type->TYPE()->getText(), _nfo);
-  } else {
+  } else if (type->SAMEAS() != nullptr) {
     // find base
     std::string base = type->base->getText() + (type->member != nullptr ? "_" + type->member->getText() : "");
     base = translateVIOName(base, &_current->context);
@@ -1216,6 +1216,12 @@ void Algorithm::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo,
           "no known definition for '%s' (sameas can only be applied to interfaces, groups and simple variables)", type->base->getText().c_str());
       }
     }
+  } else if (type->AUTO() != nullptr) {
+    _nfo.base_type = Parameterized;
+    _nfo.same_as   = "";
+    _nfo.width     = 0;
+  } else {
+    sl_assert(false);
   }
 }
 
@@ -1231,13 +1237,20 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
     reportError(alg->getSourceInterval(), (int)alg->name->getLine(), "subroutine '%s': algorithms cannot be instanced within subroutines", sub->name.c_str());
   }
   // check for duplicates
-  if (!isIdentifierAvailable(alg->name->getText())) {
-    reportError(alg->getSourceInterval(), (int)alg->getStart()->getLine(), "algorithm instance '%s': this name is already used by a prior declaration", alg->name->getText().c_str());
+  if (alg->name != nullptr) {
+    if (!isIdentifierAvailable(alg->name->getText())) {
+      reportError(alg->getSourceInterval(), (int)alg->getStart()->getLine(), "algorithm instance '%s': this name is already used by a prior declaration", alg->name->getText().c_str());
+    }
   }
   // gather
   t_instanced_nfo nfo;
   nfo.blueprint_name = alg->blueprint->getText();
-  nfo.instance_name  = alg->name->getText();
+  if (alg->name != nullptr) {
+    nfo.instance_name = alg->name->getText();
+  } else {
+    static int count = 0;
+    nfo.instance_name = nfo.blueprint_name + "_unnamed_" + std::to_string(count++);
+  }
   nfo.instance_clock = m_Clock;
   nfo.instance_reset = m_Reset;
   if (alg->bpModifiers() != nullptr) {
@@ -1253,10 +1266,10 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
       }
     }
   }
-  nfo.instance_prefix = "_" + alg->name->getText();
+  nfo.instance_prefix = "_" + nfo.instance_name;
   nfo.instance_line   = (int)alg->getStart()->getLine();
   if (m_InstancedBlueprints.find(nfo.instance_name) != m_InstancedBlueprints.end()) {
-    reportError(alg->name, (int)alg->name->getLine(), "an instance of the same name already exists");
+    reportError(alg->getSourceInterval(), -1, "an instance of the same name already exists");
   }
   nfo.autobind = false;
   getBindings(alg->bpBindingList(), nfo.bindings, nfo.autobind);
@@ -2727,8 +2740,8 @@ void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _i
     _io.source_interval = input->declarationVar()->IDENTIFIER()->getSourceInterval();
     std::string is_group;
     gatherVarNfo(input->declarationVar(), _io, true, _current, _context, is_group);
-    if (_io.type_nfo.base_type == Parameterized) {
-      reportError(input->getSourceInterval(), -1, "input '%s': 'sameas' on a group/interface as input are not yet supported", _io.name.c_str());
+    if (_io.type_nfo.base_type == Parameterized && !is_group.empty()) {
+      reportError(input->getSourceInterval(), -1, "input '%s': 'sameas' on group/interface inputs is not yet supported", _io.name.c_str());
     }
     if (!_io.init_at_startup && !_io.init_values.empty()) {
       reportError(input->getSourceInterval(), -1, "input '%s': only startup initialization values are possible on inputs", _io.name.c_str());
@@ -2749,8 +2762,8 @@ void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nf
     _io.source_interval = output->declarationVar()->IDENTIFIER()->getSourceInterval();
     std::string is_group;
     gatherVarNfo(output->declarationVar(), _io, true, _current, _context, is_group);
-    if (_io.type_nfo.base_type == Parameterized) {
-      reportError(output->getSourceInterval(), -1, "output '%s': 'sameas' on a group/interface as output are not yet supported", _io.name.c_str());
+    if (_io.type_nfo.base_type == Parameterized && !is_group.empty()) {
+      reportError(output->getSourceInterval(), -1, "output '%s': 'sameas' on group/interface outputs is not yet supported", _io.name.c_str());
     }
   } else if (output->declarationTable() != nullptr) {
     reportError(output->getSourceInterval(), -1, "output '%s': tables as output are not yet supported", _io.name.c_str());
@@ -2763,8 +2776,25 @@ void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nf
 
 // -------------------------------------------------
 
-void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io)
+void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io, t_combinational_block *_current, t_gather_context *_context)
 {
+  if (inout->declarationVar() != nullptr) {
+    _io.source_interval = inout->declarationVar()->IDENTIFIER()->getSourceInterval();
+    std::string is_group;
+    gatherVarNfo(inout->declarationVar(), _io, true, _current, _context, is_group);
+    if (_io.type_nfo.base_type == Parameterized && !is_group.empty()) {
+      reportError(inout->getSourceInterval(), -1, "inout '%s': 'sameas' on group/interface inouts is not yet supported", _io.name.c_str());
+    }
+    if (!_io.init_values.empty()) {
+      reportError(inout->getSourceInterval(), -1, "inout '%s': initialization values are not possible on inouts", _io.name.c_str());
+    }
+  } else if (inout->declarationTable() != nullptr) {
+    reportError(inout->getSourceInterval(), -1, "inout '%s': tables as inout are not supported", _io.name.c_str());
+  } else {
+    sl_assert(false);
+  }
+
+/*
   _io.source_interval = inout->IDENTIFIER()->getSourceInterval();
   _io.name = inout->IDENTIFIER()->getText();
   _io.table_size = 0;
@@ -2774,6 +2804,7 @@ void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _
     _io.table_size = atoi(inout->NUMBER()->getText().c_str());
   }
   _io.init_values.resize(max(_io.table_size, 1), "0");
+*/
 }
 
 // -------------------------------------------------
@@ -3025,6 +3056,9 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
       }
       m_Inputs.emplace_back(io);
       m_InputNames.insert(make_pair(io.name, (int)m_Inputs.size() - 1));
+      if (io.type_nfo.base_type == Parameterized) {
+        m_Parameterized.push_back(io.name);
+      }
     } else if (output) {
       t_output_nfo io;
       gatherOutputNfo(output, io, _current, _context);
@@ -3034,15 +3068,21 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
       }
       m_Outputs.emplace_back(io);
       m_OutputNames.insert(make_pair(io.name, (int)m_Outputs.size() - 1));
+      if (io.type_nfo.base_type == Parameterized) {
+        m_Parameterized.push_back(io.name);
+      }
     } else if (inout) {
       t_inout_nfo io;
-      gatherInoutNfo(inout, io);
+      gatherInoutNfo(inout, io, _current, _context);
       getVIODefinition(io.name, found);
       if (found) {
         reportError(nullptr, line, "inout '%s': this name is already used by a previous definition", io.name.c_str());
       }
       m_InOuts.emplace_back(io);
       m_InOutNames.insert(make_pair(io.name, (int)m_InOuts.size() - 1));
+      if (io.type_nfo.base_type == Parameterized) {
+        m_Parameterized.push_back(io.name);
+      }
     } else if (iodef) {
       gatherIoDef(iodef,_current,_context);
     } else if (allouts) {
@@ -5859,10 +5899,10 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
         "cannot access bound input '%s' on instance '%s'", member.c_str(), base.c_str());
       }
       out << FF_D << A->second.instance_prefix << "_" << member << suffix;
-      return A->second.blueprint->determineVIOTypeWidthAndTableSize(translateVIOName(member, bctx), ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
+      return A->second.blueprint->determineVIOTypeWidthAndTableSize(member, ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
     } else if (A->second.blueprint->isOutput(member)) {
       out << WIRE << A->second.instance_prefix << "_" << member << suffix;
-      return A->second.blueprint->determineVIOTypeWidthAndTableSize(translateVIOName(member, bctx), ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
+      return A->second.blueprint->determineVIOTypeWidthAndTableSize(member, ioaccess->getSourceInterval(), (int)ioaccess->getStart()->getLine());
     } else {
       sl_assert(false);
     }
@@ -6270,7 +6310,9 @@ e_Type Algorithm::varType(const t_var_nfo &v, const t_instantiation_context &ict
   if (v.type_nfo.base_type == Parameterized) {
     bool ok = false;
     t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
-    sl_assert(ok);
+    if (!ok) {
+      reportError(nullptr, -1, "cannot determine type of '%s' during instantiation of algorithm '%s', input or output not bound?", v.name.c_str(), m_Name.c_str());
+    }
     string str;
     if (base.type_nfo.base_type == Parameterized) {
       str = base.name;
@@ -7788,14 +7830,6 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   out << nxl;
 
   t_vio_ff_usage ff_input_bindings_usage;
-
-  // write context parameters as defines
-  if (!ictx.parameters.empty()) {
-    for (auto p : ictx.parameters) {
-      out << "`define " << p.first << ' ' << p.second << '\n';
-    }
-    out << '\n';
-  }
 
   // write memory modules
   for (const auto& mem : m_Memories) {

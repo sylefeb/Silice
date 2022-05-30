@@ -56,7 +56,7 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
 // - performs all integer computations
 // - similar to ice-v, adds core_id and revised shifter
 
-algorithm execute(
+unit execute(
   // instruction, program counter and registers
   input  uint32 instr,   input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
@@ -263,7 +263,7 @@ $$end
 //  x    1    x    0    // stage == 3  4b11
 // ---------------------------------
 
-algorithm rv32i_cpu(
+unit rv32i_cpu(
   bram_port    mem,
 $$if ICEV_USERDATA then
   input uint32 user_data
@@ -293,8 +293,8 @@ $$end
   // decoder + ALU, executes the instruction and tells the processor what to do
   uint32 instr <:: (stage[0,1]^stage[1,1]) ? instr_0 : instr_1;
   uint32 pc    <:: (stage[0,1]^stage[1,1]) ? pc_0    : pc_1;
-  int32  xa    <:: (stage[0,1]^stage[1,1]) ? xregsA_0.rdata : xregsA_1.rdata;
-  int32  xb    <:: (stage[0,1]^stage[1,1]) ? xregsB_0.rdata : xregsB_1.rdata;
+  int32  xa    <:: (stage[0,1]^stage[1,1]) ? :xregsA_0.rdata : :xregsA_1.rdata;
+  int32  xb    <:: (stage[0,1]^stage[1,1]) ? :xregsB_0.rdata : :xregsB_1.rdata;
   execute exec(instr <: instr,pc <: pc, xa <: xa, xb <: xb);
 
 $$if VERBOSE then

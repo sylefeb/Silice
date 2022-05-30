@@ -52,7 +52,7 @@ $$end
 }
 
 // now we are creating the hardware hosting the CPU
-algorithm main(
+unit main(
   output uint8 leds,
 $$if OLED then
   output uint1 oled_clk,
@@ -62,6 +62,11 @@ $$if OLED then
   output uint1 oled_csn(0),
 $$else
   inout  uint8 pmod
+$$end
+$$if VERILATOR then
+  output uint2  spiscreen_driver(1/*SSD1351*/),
+  output uint10 spiscreen_width(320),
+  output uint10 spiscreen_height(240),
 $$end
 $$if ICESTICK then
   ) <@cpu_clock> {
@@ -82,7 +87,6 @@ $$end
   uint1 displ_en         <: cpu0.on_oled;
   uint1 displ_dta_or_cmd <: cpu0.oled[10,1];
   uint8 displ_byte       <: cpu0.oled[0,8];
-$$if not SIMULATION then
 $$if ST7789 then
   spi_mode3_send displ(
 $$else
@@ -92,11 +96,10 @@ $$end
     data_or_command <: displ_dta_or_cmd,
     byte            <: displ_byte,
   );
-$$end
+
   always {
     leds = cpu0.oled[0,5];
 
-$$if not SIMULATION then
 $$if PMOD then
     // PMOD output
     pmod.oenable = 8b11111111; // all out
@@ -107,9 +110,7 @@ $$else
 		oled_dc   = displ.spi_dc;
 		oled_resn = ~cpu0.oled_rst;
 $$end
-$$else
-    __display("%b %b %d (%b)",cpu0.on_oled,cpu0.oled[10,1],cpu0.oled[0,8],cpu0.oled_rst);
-$$end
+
   }
 
 }

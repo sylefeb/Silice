@@ -766,7 +766,7 @@ private:
     /// \brief gather info about an output
     void gatherOutputNfo(siliceParser::OutputContext* input, t_output_nfo& _io, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather info about an inout
-    void gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io);
+    void gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather infos about an io definition (group/interface)
     void gatherIoDef(siliceParser::IoDefContext *iod, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather infos about outputs of an algorithm

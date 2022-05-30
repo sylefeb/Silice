@@ -25,7 +25,7 @@ in_pal:close()
 
 -- -------------------------------------
 -- get script path
-path,_1,_2 = string.match(findfile('vga_doomchip.ice'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
+path,_1,_2 = string.match(findfile('vga_doomchip.si'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
 
 doomhead_lumps = {
 'STFST01',
@@ -36,7 +36,7 @@ doomhead_lumps = {
 -- -------------------------------------
 -- produce the doomhead brom
 print('generating doomhead brom code')
-local code = assert(io.open(path .. 'doomhead.ice', 'w'))
+local code = assert(io.open(path .. 'doomhead.si', 'w'))
 local doomface_start = 0
 doomface_nfo = {}
 code:write('brom uint8 doomhead[] = {\n')
@@ -66,13 +66,13 @@ for _,nfo in ipairs(doomface_nfo) do
       .. string.format("%02x",nfo.width):sub(-2)  -- 8 bits
       .. string.format("%04x",nfo.start):sub(-4)  -- 16 bits
   code:write(bin .. ',')
-end      
+end
 code:write('};')
 
 -- done
 code:close()
 
 -- now load file into string
-local code = assert(io.open(path .. 'doomhead.ice', 'r'))
+local code = assert(io.open(path .. 'doomhead.si', 'r'))
 doomhead = code:read("*all")
 code:close()
