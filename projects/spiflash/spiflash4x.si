@@ -157,14 +157,18 @@ $$end
 $$end
   always {
 
+$$if not ICARUS then
     spiflash.qspi = ~init[1,1]; // qpi activated after first command
+$$else
+    // this is necessary for icarus as spiflash.qspi is otherwise 1bz
+    spiflash.qspi = reset ? 0 : ~init[1,1];
+$$end
 
     switch (stage)
     {
       case 0: {
 $$if ICARUS then
         // this is necessary for icarus as spiflash.qspi is otherwise 1bz
-        spiflash.qspi    = reset ? 0 : spiflash.qspi;
         spiflash.trigger = reset ? 0 : spiflash.trigger;
         spiflash.send    = 0;
 $$end

@@ -121,7 +121,7 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
-  uint10 wait(0);
+  uint11 wait(0);
   uint4  four(0);
   uint3  stage(0);
   uint3  after(1);
@@ -137,18 +137,22 @@ $$end
 $$end
   always {
 
+$$if not ICARUS then
     spiflash.qspi = ~init[1,1]; // qpi activated after first command
+$$else
+    // this is necessary for icarus as spiflash.qspi is otherwise 1bz
+    spiflash.qspi = reset ? 0 : ~init[1,1];
+$$end
 
     switch (stage)
     {
       case 0: {
 $$if ICARUS then
         // this is necessary for icarus as spiflash.qspi is otherwise 1bz
-        spiflash.qspi    = reset ? 0 : spiflash.qspi;
         spiflash.trigger = reset ? 0 : spiflash.trigger;
         spiflash.send    = 0;
 $$end
-        stage = wait[9,1] ? after : 0; // counts up to 512 and goes to after
+        stage = wait[10,1] ? after : 0; // counts up to 1024 and goes to after
         wait  = wait + 1;
       }
       case 1: {
@@ -182,7 +186,7 @@ $$end
         spiflash.send           = sendvec[24,8];
         sendvec                 = sendvec << 8;
         stage                   = 0; // wait
-        wait                    = 512; //_ 2 cycles
+        wait                    = 1024; //_ 2 cycles
         after                   = four[0,1] ? 3 : 2;
         four                    = four >> 1;
       }
@@ -191,13 +195,13 @@ $$end
         // send dummy
         spiflash.send           = 8b00100000; // requests continuous read
         stage                   = 0; // wait
-        wait                    = 511; //_ 3 cycles
+        wait                    = 1023; //_ 3 cycles
         after                   = 4;
       }
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
-        wait                    = 510; //_ 4 cycles (one extra due to registered ios)
+        wait                    = 1021; //_ 4 cycles (one extra due to registered ios)
         after                   = 5;
       }
 $$if nBytes == 1 then
@@ -232,7 +236,7 @@ $$else
         spiflash.trigger        = ~rdata_done[0,1];
         busy                    = ~rdata_done[0,1];
         init                    = {1b0,init[1,1]};
-        wait                    = 512; //_ 2 cycles
+        wait                    = 1024; //_ 2 cycles
         stage                   = rdata_done[0,1] ? 1 : 0;  // return to start stage when done
         after                   = 5; // otherwise keep reading
         rdata_done              = rdata_done >> 1;

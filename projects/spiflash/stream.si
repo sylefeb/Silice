@@ -13,7 +13,7 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 
-$$spi4x = nil
+$$spi4x = 1
 $$spi2x = nil
 
 $$nBytes = 1
@@ -32,15 +32,14 @@ $$master_freq = 12
 
 $$if ICEBREAKER then
 $$if spi4x then
+  import('../common/ice40_half_quarter_clock.v')
   $$master_freq = 100
 $$elseif spi2x then
+  import('../common/ice40_half_clock.v')
   $$master_freq = 50
-$$else
-  $$master_freq = 25
 $$end
 // Import hardware modules
 import('../common/plls/icebrkr_$master_freq$.v')
-import('../common/ice40_half_quarter_clock.v')
 import('../../common/ice40_spram.v')
 $$end
 
@@ -50,9 +49,6 @@ $$if spi4x then
 $$elseif spi2x then
   $include('spiflash2x.si')
   $$uart_in_clock_freq_mhz = master_freq//2
-$$else
-  $include('spiflash.si')
-  $$uart_in_clock_freq_mhz = master_freq
 $$end
 $include('../common/uart.si')
 
@@ -92,8 +88,9 @@ $$if UART then
   output uint1 uart_tx,
   input  uint1 uart_rx,
 $$end
-$$if ICEBREAKER or ICEBITSY then
 ) <@clock1x> {
+$$if ICEBREAKER or ICEBITSY then
+$$if spi4x then
   uint1 clock2x = uninitialized;
   uint1 clock4x = uninitialized;
   pll pllgen(
@@ -106,8 +103,21 @@ $$if ICEBREAKER or ICEBITSY then
     clock_h   :> clock2x,
     clock_q   :> clock1x,
   );
+$$elseif spi2x then
+  uint1 clock2x = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock2x,
+  );
+  uint1 clock1x  = uninitialized;
+  ice40_half_clock hc(
+    clock_in  <: clock2x,
+    clock_out :> clock1x,
+  );
+$$else
+$$ error('Either spi2x or spi4x has to be set')
+$$end
 $$elseif SIMULATION then
- ) <@clock1x> {
   uint1 clock1x = uninitialized;
   uint1 clock2x = uninitialized;
   uint1 clock4x = uninitialized;
@@ -117,8 +127,6 @@ $$elseif SIMULATION then
     clock4x :> clock4x
   );
   uint1 rst <: reset;
-$$else
-) {
 $$end
 
 $$if SIMULATION then
@@ -151,11 +159,7 @@ $$if UART then
   );
 $$end
 
-$$if spi1x then
-spiflash_rom sf_rom<reginputs>
-$$else
-spiflash_rom sf_rom<reginputs,@clock2x>
-$$end
+  spiflash_rom sf_rom<reginputs,@clock2x>
   (
     sf_clk  :>  sf_clk,
     sf_csn  :>  sf_csn,
@@ -173,7 +177,7 @@ $$end
     sf_rom.in_ready  = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    if (cycle == 1400) {
+    if (cycle == 600) {
       __finish();
     }
 $$end
