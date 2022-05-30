@@ -805,13 +805,17 @@ void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs,LuaCodePath& lcp, c
   while (!parser.eof()) {
     int next = parser.readChar(false);
 
-    {
+    /* {
       int tmp = bs.pos();
       cerr << parser.readString() << "\n";
       bs.pos() = tmp;
-    }
+    } */
 
     if (IS_EOL(next)) {
+      parser.readChar();
+    } else if (next == '\\') {
+      // escape sequence, skip \ and next
+      parser.readChar();
       parser.readChar();
     } else if (next == '$') { // NOTE: before '$' to avoid issues with Lua int div //
       // might be a Lua line
@@ -823,17 +827,17 @@ void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs,LuaCodePath& lcp, c
       // entering a block
       parser.readChar();
       if (lcp.consider()) {
-        cerr << "==================== ++ (";
+        //cerr << "==================== ++ (";
         ++inside;
-        cerr << inside << ")\n";
+        //cerr << inside << ")\n";
       }
     } else if (next == c_out) {
       // exiting a block
       parser.readChar();
       if (lcp.consider()) {
-        cerr << "==================== -- (";
+        //cerr << "==================== -- (";
         --inside;
-        cerr << inside << ")\n";
+        //cerr << inside << ")\n";
       }
       if (inside == 0) {
         // just exited
