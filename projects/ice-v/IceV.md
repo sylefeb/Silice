@@ -71,8 +71,8 @@ LEDs: 00001
 Optionally you can plug a small SPI-screen (I used [this one](https://www.waveshare.com/1.5inch-rgb-oled-module.htm), 128x128 RGB with SSD1351 driver).
 
 Two different pinouts are supported. The first, shown next, uses all five wires
-of the OLED/LCD:
-| IceStick        | OLED      |
+of the SPI-screen:
+| IceStick        | SPI-screen|
 |-----------------|-----------|
 | PMOD1  (pin 78) | rst       |
 | PMOD7  (pin 87) | dc        |
@@ -84,7 +84,7 @@ of the OLED/LCD:
 
 The second, recommended pinout uses only four wires of the OLED/LCD interface,
 leaving room for a second peripheral (such as a sound chip!). The pinout then is:
-| IceStick        | OLED      |
+| IceStick        | SPI-screen|
 |-----------------|-----------|
 | PMOD1  (pin 78) | rst       |
 | PMOD2  (pin 79) | dc        |
