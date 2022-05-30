@@ -64,27 +64,21 @@ $$if not ICE40 then
   // NOTE: This is used for simulation ; it is somewhat convoluted
   // so as to simulated registered IO delays. Works best with Icarus and
   // vendor model, see stream.si in projects/spiflash
-  uint1 d_o0(0);  uint1 d_o1(0);  uint1 d_o2(0);  uint1 d_o3(0);
-  uint1 d_e0(0);  uint1 d_e1(0);  uint1 d_e2(0);  uint1 d_e3(0);
   uint1 d_csn(1);
   uint4 delay(4);
   always {
-    // simulates registered IO
-    io0.oenable = d_e0; io1.oenable = d_e1;
-    io2.oenable = d_e2; io3.oenable = d_e3;
     // output enable on ios
-    d_e0 = send_else_read;
-    d_e1 = send_else_read & qspi;
-    d_e2 = send_else_read & qspi;
-    d_e3 = send_else_read & qspi;
+    io0.oenable = send_else_read;
+    io1.oenable = send_else_read & qspi;
+    io2.oenable = send_else_read & qspi;
+    io3.oenable = send_else_read & qspi;
     // read current
-    read      = {read[0,4],delay};
-    // simulates registered ios
-    io0.o = d_o0;   io1.o = d_o1;   io2.o = d_o2;   io3.o = d_o3;
+    read  = {read[0,4],delay};
+    // simulates registered input
     delay = {io3.i,io2.i,io1.i,io0.i};
     // update outputs
-    d_o0 = sending[0,1];  d_o1 = sending[1,1];
-    d_o2 = sending[2,1];  d_o3 = sending[3,1];
+    io0.o = sending[0,1];  io1.o = sending[1,1];
+    io2.o = sending[2,1];  io3.o = sending[3,1];
     // start/keep sending?
     sending   = osc ? send[4,4] : send[0,4];
     osc       = ~osc;
@@ -104,7 +98,7 @@ $$else
   uint4 delay(0);
   always {
     // output enable on ios
-    io_oe    = {{3{send_else_read & qspi}},send_else_read};
+    io_oe     = {{3{send_else_read & qspi}},send_else_read};
     // read current
     read      = {read[0,4],delay};
     delay     = io_i;
@@ -160,8 +154,6 @@ $$if SIMULATION then
 $$if VERILATOR then
   verilator_data vdta(clock <: clock);
 $$end
-$$end
-$$if ICE40 then
 $$end
   always {
 

@@ -852,7 +852,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     mem.mem_type = SIMPLEDUALBRAM;
     memid = "simple_dualport_bram";
   } else {
-    reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration");
+    reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error (memory declaration 1)");
   }
   // check if supported
   auto C = CONFIG.keyValues().find(memid + "_supported");
@@ -885,7 +885,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
   case BROM:     members = c_BROMmembers; break;
   case DUALBRAM: members = c_DualPortBRAMmembers; break;
   case SIMPLEDUALBRAM: members = c_SimpleDualPortBRAMmembers; break;
-  default: reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error, memory declaration"); break;
+  default: reportError(decl->getSourceInterval(), (int)decl->getStart()->getLine(), "internal error (memory declaration 2)"); break;
   }
   // modifiers
   if (decl->memModifiers() != nullptr) {
@@ -2502,7 +2502,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
       ins .push_back(io->IDENTIFIER()->getText());
       outs.push_back(io->IDENTIFIER()->getText());
     } else {
-      reportError(C->second->IDENTIFIER()->getSymbol(), (int)C->second->getStart()->getLine(), "internal error, gatherCircuitryInst");
+      reportError(C->second->IDENTIFIER()->getSymbol(), (int)C->second->getStart()->getLine(), "internal error (gatherCircuitryInst)");
     }
   }
   // -> get identifiers
@@ -4814,21 +4814,42 @@ void Algorithm::determineAccess(
   }
   // determine access to memory variables
   for (auto& mem : m_Memories) {
-    for (auto& inv : mem.in_vars) {
+    for (auto& inv : mem.in_vars) { // input to memory
       // add to always block dependency
       m_AlwaysPost.in_vars_read.insert(inv);
       // set global access
-      m_Vars[m_VarNames[inv]].access = (e_Access)(m_Vars[m_VarNames[inv]].access | e_ReadOnly);
+      m_Vars[m_VarNames.at(inv)].access = (e_Access)(m_Vars[m_VarNames.at(inv)].access | e_ReadOnly);
     }
-    for (auto& ouv : mem.out_vars) {
+    for (auto& ouv : mem.out_vars) { // output from memory
       // add to always block dependency
       m_AlwaysPre.out_vars_written.insert(ouv);
       // -> check prior access
-      if (m_Vars[m_VarNames[ouv]].access & e_WriteOnly) {
+      if (m_Vars[m_VarNames.at(ouv)].access & e_WriteOnly) {
         reportError(nullptr, mem.line, "cannot write to variable '%s' bound to a memory output", ouv.c_str());
       }
       // set global access
-      m_Vars[m_VarNames[ouv]].access = (e_Access)(m_Vars[m_VarNames[ouv]].access | e_WriteBinded);
+      m_Vars[m_VarNames.at(ouv)].access = (e_Access)(m_Vars[m_VarNames.at(ouv)].access | e_WriteBinded);
+    }
+  }
+  // determine access to inout variables
+  for (const auto& io : m_InOuts) {
+    if (m_VIOToBlueprintInOutsBound.count(io.name) == 0) {
+      // inout io is possibly used in this algorithm as it is not bound to any blueprint
+      bool is_input = true; // expects first in c_InOutmembers to be the input
+      for (auto m : c_InOutmembers) {
+        string vname = io.name + "_" + m;
+        if (is_input) {
+          // nothing to do, special wire
+          is_input = false;
+        } else {
+          auto& v = m_Vars[m_VarNames.at(vname)];
+          if (v.access != e_NotAccessed) {
+            // if it is accessed, a tri-state is produced and it is globally read
+            _global_in_read.insert(vname);
+            v.access = (e_Access)(v.access | e_ReadOnly);
+          }
+        }
+      }
     }
   }
   // determine variable access for wires
@@ -4864,7 +4885,7 @@ void Algorithm::determineUsage()
       switch (v.usage) {
       case e_Wire:  if (report) std::cerr << v.name << " => wire (by def)" << nxl; break;
       case e_Bound: if (report) std::cerr << v.name << " => write-binded (by def)" << nxl; break;
-      default: throw Fatal("internal error");
+      default: throw Fatal("internal error (usage)");
       }
       continue; // usage is fixed by definition
     }
@@ -5344,14 +5365,14 @@ void Algorithm::resolveInOuts()
       // generate vars
       t_var_nfo v;
       var_nfo_copy(v, io);
-      bool is_input = true;
+      bool is_input = true; // expects first in c_InOutmembers to be the input
       for (auto m : c_InOutmembers) {
         v.name = io.name + "_" + m;
         if (is_input) {
-          v.usage = e_Wire;
+          v.usage  = e_Wire;
           is_input = false;
         } else {
-          v.usage = io.usage;
+          v.usage  = io.usage;
         }
         addVar(v, m_Blocks.front());
       }
@@ -7516,7 +7537,7 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(std::string instance_nam
   case BROM:           members = c_BROMmembers; memid = "brom"; break;
   case DUALBRAM:       members = c_DualPortBRAMmembers; memid = "dualport_bram"; break;
   case SIMPLEDUALBRAM: members = c_SimpleDualPortBRAMmembers; memid = "simple_dualport_bram";  break;
-  default: reportError(nullptr, -1, "internal error, memory type"); break;
+  default: reportError(nullptr, -1, "internal error (memory type)"); break;
   }
   _replacements["MODULE"] = memoryModuleName(instance_name,bram);
   _replacements["NAME"]   = bram.name;
@@ -8152,13 +8173,13 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
           out << "assign " << ALG_INOUT << "_" << io.name << "[" << std::to_string(b) << "] = ";
           t_vio_dependencies _1, _2, _3;
           if (m_Vars.at(m_VarNames.at(io.name + "_oenable")).access != e_NotAccessed) {
-            out << rewriteIdentifier("_", io.name + "_oenable", "[" + std::to_string(b) + "]", nullptr, ictx, -1, FF_D, true, _1, ff_input_bindings_usage);
+            out << rewriteIdentifier("_", io.name + "_oenable", "[" + std::to_string(b) + "]", nullptr, ictx, -1, FF_Q, true, _1, ff_input_bindings_usage);
           } else {
             out << "1'b0";
           }
           out << " ? ";
           if (m_Vars.at(m_VarNames.at(io.name + "_o")).access != e_NotAccessed) {
-            out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, ictx, -1, FF_D, true, _1, ff_input_bindings_usage);
+            out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, ictx, -1, FF_Q, true, _1, ff_input_bindings_usage);
           } else {
             out << "1'b0";
           }

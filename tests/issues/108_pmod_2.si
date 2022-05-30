@@ -1,0 +1,8 @@
+algorithm main(output uint5 leds, inout uint8 pmod) {
+   uint3 ctr = 4;
+   uint1 pmod_bit1 = uninitialized;
+
+   pmod.oenable := 8b11111111;
+   // pmod.o        = 8b11111111; // does not work, behavior after alg is done is undefined
+   pmod.o       := 8b11111111; // works fine
+}

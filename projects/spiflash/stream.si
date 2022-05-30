@@ -13,7 +13,14 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 
-$$spi4x = 1
+$$spi4x = nil
+$$spi2x = nil
+
+$$nBytes = 1
+
+$$if not spi4x and not spi2x and nBytes ~= 1 then
+$$ error('single speed SPIflash controller supports only byte access')
+$$end
 
 $$if ICARUS then
 // download W25Q128JVxIM from winbond Verilog models
@@ -26,8 +33,10 @@ $$master_freq = 12
 $$if ICEBREAKER then
 $$if spi4x then
   $$master_freq = 100
-$$else
+$$elseif spi2x then
   $$master_freq = 50
+$$else
+  $$master_freq = 25
 $$end
 // Import hardware modules
 import('../common/plls/icebrkr_$master_freq$.v')
@@ -35,14 +44,15 @@ import('../common/ice40_half_quarter_clock.v')
 import('../../common/ice40_spram.v')
 $$end
 
-$$nBytes = 4
-
 $$if spi4x then
   $include('spiflash4x.si')
   $$uart_in_clock_freq_mhz = master_freq//4
-$$else
+$$elseif spi2x then
   $include('spiflash2x.si')
   $$uart_in_clock_freq_mhz = master_freq//2
+$$else
+  $include('spiflash.si')
+  $$uart_in_clock_freq_mhz = master_freq
 $$end
 $include('../common/uart.si')
 
@@ -141,7 +151,11 @@ $$if UART then
   );
 $$end
 
+$$if spi1x then
+spiflash_rom sf_rom<reginputs>
+$$else
 spiflash_rom sf_rom<reginputs,@clock2x>
+$$end
   (
     sf_clk  :>  sf_clk,
     sf_csn  :>  sf_csn,
@@ -159,7 +173,7 @@ $$end
     sf_rom.in_ready  = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    if (cycle == 500) {
+    if (cycle == 1400) {
       __finish();
     }
 $$end
@@ -171,7 +185,7 @@ $$end
   data.wenable      = 1;
   while (data.addr != 64) {
     sf_rom.in_ready = 1;
-    sf_rom.addr     = {4b0001,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
+    sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
     while (sf_rom.busy) { }
     __display("read @%h = %x",sf_rom.addr,sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
