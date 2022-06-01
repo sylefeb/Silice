@@ -47,7 +47,7 @@ algorithm spiflash_qspi(
 
 $$if not ICE40 then
   uint1 d_csn(1);
-  uint4 delay(0);
+  uint4 read_reg(0);
   always {
     // output enable on ios
     io0.oenable = send_else_read;
@@ -55,8 +55,8 @@ $$if not ICE40 then
     io2.oenable = send_else_read & qspi;
     io3.oenable = send_else_read & qspi;
     // read current
-    read      = {read[0,4],delay};
-    delay     = {io3.i,io2.i,io1.i,io0.i};
+    read      = {read[0,4],read_reg};
+    read_reg  = {io3.i,io2.i,io1.i,io0.i};
     // update outputs
     io0.o = ~osc ? sending[0,1] : sending[4,1];
     io1.o = ~osc ? sending[1,1] : sending[5,1];
@@ -78,14 +78,15 @@ $$else
   sb_io_inout sb_io3(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
   uint1 nenable <:: ~ enable;
   sb_io sb_csn(clock <: clock, out <: nenable, pin :> csn);
+  uint4 read_reg(0);
   always {
-    uint4 to_send <:: osc ? sending[4,4] : sending[0,4];
     // output enable on ios
     io_oe     = {{3{send_else_read & qspi}},send_else_read};
     // read current
-    read      = {read[0,4],io_i};
+    read      = {read[0,4],read_reg};
+    read_reg  = io_i;
     // update outputs
-    io_o      = to_send;
+    io_o      = ~osc ? sending[0,4] : sending [4,4];
     // start/keep sending?
     sending   = (~osc | ~enable) ? send : sending;
     osc       = ~trigger ? 1b0 : ~osc;
@@ -168,7 +169,7 @@ $$end
         // start sending?
         if (in_ready | init[1,1]) {
 $$if SIMULATION then
-          //__display("[%d](%d) spiflash [1] START qspi:%d init:%b",cycle,cycle>>1,spiflash.qspi,init);
+          __display("[%d](%d) spiflash [1] START @%x qspi:%d init:%b",cycle,cycle>>1,addr,spiflash.qspi,init);
 $$if VERILATOR then
           vdta.addr = addr;
           //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
@@ -201,7 +202,7 @@ $$end
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
-        wait                    = 1021; //_ 4 cycles (one extra due to registered ios)
+        wait                    = 1022; //_ 4 cycles (one extra due to registered ios)
         after                   = 5;
       }
 $$if nBytes == 1 then

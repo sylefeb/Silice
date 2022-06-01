@@ -13,8 +13,8 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 
-$$spi4x = 1
-$$spi2x = nil
+$$spi4x  = nil
+$$spi2x  = 1
 
 $$nBytes = 1
 
@@ -187,7 +187,8 @@ $$end
 
   // read some
   data.wenable      = 1;
-  while (data.addr != 64) {
+  data.addr         = 0;
+  while (data.addr != 6) {
     sf_rom.in_ready = 1;
     sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
     while (sf_rom.busy) { }
@@ -199,7 +200,7 @@ $$end
   // output to UART
   data.wenable = 0;
   data.addr    = 1;
-  while (data.addr != 64) {
+  while (data.addr != 7) {
     uint32 dta = 0;
     uint3  n   = 0;
     dta = data.rdata;
