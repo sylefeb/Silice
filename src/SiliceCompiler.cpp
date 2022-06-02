@@ -303,21 +303,21 @@ SiliceCompiler::ParsingContext::ParsingContext(
   std::string              framework_verilog_,
   const std::vector<std::string>& defines_)
 {
-  fresult = fresult_;
+  fresult           = fresult_;
   framework_verilog = framework_verilog_;
-  defines = defines_;
-  lpp = lpp_;
+  defines           = defines_;
+  lpp               = lpp_;
   // initiate parsing
   lexerErrorListener  = AutoPtr<LexerErrorListener>(new LexerErrorListener(*lpp));
   parserErrorListener = AutoPtr<ParserErrorListener>(new ParserErrorListener(*lpp));
-  input  = AutoPtr<antlr4::ANTLRFileStream>(new antlr4::ANTLRFileStream(preprocessed));
-  lexer  = AutoPtr<siliceLexer>(new siliceLexer(input.raw()));
-  tokens = AutoPtr<antlr4::CommonTokenStream>(new antlr4::CommonTokenStream(lexer.raw()));
-  parser = AutoPtr<siliceParser>(new siliceParser(tokens.raw()));
-  err_handler = std::make_shared<ParserErrorHandler>();
+  input               = AutoPtr<antlr4::ANTLRFileStream>(new antlr4::ANTLRFileStream(preprocessed));
+  lexer               = AutoPtr<siliceLexer>(new siliceLexer(input.raw()));
+  tokens              = AutoPtr<antlr4::CommonTokenStream>(new antlr4::CommonTokenStream(lexer.raw()));
+  parser              = AutoPtr<siliceParser>(new siliceParser(tokens.raw()));
+  err_handler         = std::make_shared<ParserErrorHandler>();
   parser->setErrorHandler(err_handler);
-  lexer->removeErrorListeners();
-  lexer->addErrorListener(lexerErrorListener.raw());
+  lexer ->removeErrorListeners();
+  lexer ->addErrorListener(lexerErrorListener.raw());
   parser->removeErrorListeners();
   parser->addErrorListener(parserErrorListener.raw());
 }
@@ -386,7 +386,11 @@ void SiliceCompiler::parse(
   AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor());
   lpp->enableFilesReport(fresult + ".files.log");
   std::string preprocessed = std::string(fsource) + ".lpp";
-  lpp->run(fsource, c_DefaultLibraries, header, preprocessed);
+  lpp->generateBody(fsource, c_DefaultLibraries, header, preprocessed);
+
+  /// DEBUG TEST ***********************************************************************************
+  lpp->generateUnitSource("main", std::string(fsource) + ".main.lpp");
+
   // parse the preprocessed source, if succeeded
   if (LibSL::System::File::exists(preprocessed.c_str())) {
 

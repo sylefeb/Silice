@@ -32,6 +32,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <LibSL/Math/Vertex.h>
 
+struct lua_State;
+
 namespace Silice {
 
   // -------------------------------------------------
@@ -52,6 +54,9 @@ namespace Silice {
     /// \brief Finds an included file, testing all search paths
     std::string findFile(std::string path, std::string fname) const;
 
+    lua_State                         *m_LuaState = nullptr;
+    std::map<int, std::pair<std::string, int> > m_Units;
+
     std::vector<std::string>           m_SearchPaths;
     std::map<std::string, std::string> m_Definitions;
 
@@ -61,12 +66,17 @@ namespace Silice {
     std::vector<LibSL::Math::v3i>      m_FileLineRemapping; // [0] is line after, [1] is file id, [2] is line before
     std::string                        m_FilesReportName;   // if empty, no files report, otherwise name of the report
 
+    void createLuaContext();
+    void destroyLuaContext();
+    void executeLuaString(std::string lua_code, std::string dst_file);
+
   public:
 
     LuaPreProcessor();
     virtual ~LuaPreProcessor();
 
-    void run(std::string src_file, const std::vector<std::string> &defaultLibraries, std::string lua_header_code, std::string dst_file);
+    void generateBody(std::string src_file, const std::vector<std::string> &defaultLibraries, std::string lua_header_code, std::string dst_file);
+    void generateUnitSource(std::string unit, std::string dst_file);
 
     std::vector<std::string> searchPaths() const { return m_SearchPaths; }
 

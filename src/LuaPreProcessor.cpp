@@ -103,7 +103,7 @@ LuaPreProcessor::LuaPreProcessor()
 
 LuaPreProcessor::~LuaPreProcessor()
 {
-
+  destroyLuaContext();
 }
 
 // -------------------------------------------------
@@ -1038,15 +1038,6 @@ std::string LuaPreProcessor::prepareCode(
     current = "";
   }
 
-  ////////////////// TEST
-  //for (auto u : units) {
-  //  code += "if _G[" + nameToLua(u.second.first) + "] then\n";
-  //  code += "_G[" + nameToLua(u.second.first) + "]()\n";
-  //  code += "end\n";
-  //}
-  ///////////////////////
-
-
   return code;
 }
 
@@ -1096,25 +1087,12 @@ std::string fileAbsolutePath(std::string f)
 
 // -------------------------------------------------
 
-void LuaPreProcessor::run(
+void LuaPreProcessor::generateBody(
   std::string src_file,
   const std::vector<std::string>& defaultLibraries,
   std::string lua_header_code,
   std::string dst_file)
 {
-  lua_State *L = luaL_newstate();
-
-  g_LuaOutputs.insert(std::make_pair(L, ofstream(dst_file)));
-  g_LuaPreProcessors.insert(std::make_pair(L, this));
-
-  // bind intrisics
-  bindScript(L);
-
-  // bind definitions
-  for (auto dv : m_Definitions) {
-    luabind::globals(L)[dv.first] = dv.second;
-  }
-
   // add current directory to search dirs
   m_SearchPaths.push_back(getCurrentPath());
   m_SearchPaths.push_back(extractPath(fileAbsolutePath(src_file)));
@@ -1122,47 +1100,84 @@ void LuaPreProcessor::run(
   // get code
   std::unordered_set<std::string> inclusions;
   // start with header
-  std::string code = "";
+  std::string source_code = "";
   // add default libs to source
   int output_line_count = 0;
   for (auto l : defaultLibraries) {
     std::string libfile = CONFIG.keyValues()["libraries_path"] + "/" + l;
     libfile = findFile(libfile);
-    code += assembleSource(CONFIG.keyValues()["libraries_path"], libfile, inclusions, output_line_count);
+    source_code += assembleSource(CONFIG.keyValues()["libraries_path"], libfile, inclusions, output_line_count);
   }
   // parse main file
-  code += assembleSource("", src_file, inclusions, output_line_count);
+  source_code += assembleSource("", src_file, inclusions, output_line_count);
 
   {
     ofstream dbg("dbg1.si");
-    dbg << code;
+    dbg << source_code;
   }
-
-  std::map<int, std::pair<std::string, int> > units;
-  decomposeSource(code, units);
-
-  code = prepareCode(lua_header_code,code,units);
+  // decompose the soure into body and units
+  decomposeSource(source_code, m_Units);
+  // prepare the Lua code, with units as functions
+  std::string lua_code = prepareCode(lua_header_code, source_code, m_Units);
 
   {
     ofstream dbg("dbg2.lua");
-    dbg << code;
+    dbg << lua_code;
   }
 
-#if 1
+  // create Lua context
+  createLuaContext();
+  // execute body (Lua context also contains all unit functions)
+  executeLuaString(lua_code, dst_file);
+
+}
+
+// -------------------------------------------------
+
+void LuaPreProcessor::generateUnitSource(std::string unit, std::string dst_file)
+{
+  std::string lua_code = "_G['" + unit + "']()\n";
+  executeLuaString(lua_code, dst_file);
+}
+
+// -------------------------------------------------
+
+void LuaPreProcessor::createLuaContext()
+{
   m_CurOutputLine = 0;
 
-  load_config_into_lua(L);
-  int ret = luaL_dostring(L, code.c_str());
+  m_LuaState = luaL_newstate();
+  g_LuaPreProcessors.insert(std::make_pair(m_LuaState, this));
+
+  // bind intrisics
+  bindScript(m_LuaState);
+
+  // bind definitions
+  for (auto dv : m_Definitions) {
+    luabind::globals(m_LuaState)[dv.first] = dv.second;
+  }
+
+  load_config_into_lua(m_LuaState);
+}
+
+// -------------------------------------------------
+
+void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_file)
+{
+  // prepare output
+  g_LuaOutputs.insert(std::make_pair(m_LuaState, ofstream(dst_file)));
+  // execute
+  int ret = luaL_dostring(m_LuaState, lua_code.c_str());
   if (ret) {
     char str[4096];
     int errline = -1;
-    std::string errmsg = lua_tostring(L, -1);
+    std::string errmsg = lua_tostring(m_LuaState, -1);
     snprintf(str, 4049, "[[LUA]exit] %s", errmsg.c_str());
     std::regex  lnum_regex(".*\\:([[:digit:]]+)\\:(.*)");
     std::smatch matches;
     if (std::regex_match(errmsg, matches, lnum_regex)) {
       errline = atoi(matches.str(1).c_str());
-      errmsg  = matches.str(2).c_str();
+      errmsg = matches.str(2).c_str();
     }
     cerr << "[preprocessor] ";
     cerr << Console::yellow;
@@ -1172,16 +1187,24 @@ void LuaPreProcessor::run(
       cerr << errmsg << "\n";
     }
     cerr << Console::gray;
-     throw Fatal("the preprocessor was interrupted");
+    throw Fatal("the preprocessor was interrupted");
   }
-  load_config_from_lua(L);
+  // reload config
+  load_config_from_lua(m_LuaState);
+  // close output
+  g_LuaOutputs.at(m_LuaState).close();
+  g_LuaOutputs.erase(m_LuaState);
+}
 
-  g_LuaOutputs.at(L).close();
-  g_LuaOutputs.erase(L);
-  g_LuaPreProcessors.erase(L);
+// -------------------------------------------------
 
-  lua_close(L);
-#endif
+void LuaPreProcessor::destroyLuaContext()
+{
+  if (m_LuaState != nullptr) {
+    g_LuaPreProcessors.erase(m_LuaState);
+    lua_close(m_LuaState);
+    m_LuaState = nullptr;
+  }
 }
 
 // -------------------------------------------------

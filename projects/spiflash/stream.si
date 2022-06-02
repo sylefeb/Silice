@@ -13,7 +13,14 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 
-$$spi4x = 1
+$$spi4x  = nil
+$$spi2x  = 1
+
+$$nBytes = 1
+
+$$if not spi4x and not spi2x and nBytes ~= 1 then
+$$ error('single speed SPIflash controller supports only byte access')
+$$end
 
 $$if ICARUS then
 // download W25Q128JVxIM from winbond Verilog models
@@ -25,22 +32,21 @@ $$master_freq = 12
 
 $$if ICEBREAKER then
 $$if spi4x then
+  import('../common/ice40_half_quarter_clock.v')
   $$master_freq = 100
-$$else
+$$elseif spi2x then
+  import('../common/ice40_half_clock.v')
   $$master_freq = 50
 $$end
 // Import hardware modules
 import('../common/plls/icebrkr_$master_freq$.v')
-import('../common/ice40_half_quarter_clock.v')
 import('../../common/ice40_spram.v')
 $$end
-
-$$nBytes = 4
 
 $$if spi4x then
   $include('spiflash4x.si')
   $$uart_in_clock_freq_mhz = master_freq//4
-$$else
+$$elseif spi2x then
   $include('spiflash2x.si')
   $$uart_in_clock_freq_mhz = master_freq//2
 $$end
@@ -82,8 +88,9 @@ $$if UART then
   output uint1 uart_tx,
   input  uint1 uart_rx,
 $$end
-$$if ICEBREAKER or ICEBITSY then
 ) <@clock1x> {
+$$if ICEBREAKER or ICEBITSY then
+$$if spi4x then
   uint1 clock2x = uninitialized;
   uint1 clock4x = uninitialized;
   pll pllgen(
@@ -96,8 +103,21 @@ $$if ICEBREAKER or ICEBITSY then
     clock_h   :> clock2x,
     clock_q   :> clock1x,
   );
+$$elseif spi2x then
+  uint1 clock2x = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock2x,
+  );
+  uint1 clock1x  = uninitialized;
+  ice40_half_clock hc(
+    clock_in  <: clock2x,
+    clock_out :> clock1x,
+  );
+$$else
+$$ error('Either spi2x or spi4x has to be set')
+$$end
 $$elseif SIMULATION then
- ) <@clock1x> {
   uint1 clock1x = uninitialized;
   uint1 clock2x = uninitialized;
   uint1 clock4x = uninitialized;
@@ -107,8 +127,6 @@ $$elseif SIMULATION then
     clock4x :> clock4x
   );
   uint1 rst <: reset;
-$$else
-) {
 $$end
 
 $$if SIMULATION then
@@ -141,7 +159,7 @@ $$if UART then
   );
 $$end
 
-spiflash_rom sf_rom<reginputs,@clock2x>
+  spiflash_rom sf_rom<reginputs,@clock2x>
   (
     sf_clk  :>  sf_clk,
     sf_csn  :>  sf_csn,
@@ -159,7 +177,7 @@ $$end
     sf_rom.in_ready  = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    if (cycle == 500) {
+    if (cycle == 600) {
       __finish();
     }
 $$end
@@ -169,9 +187,10 @@ $$end
 
   // read some
   data.wenable      = 1;
-  while (data.addr != 64) {
+  data.addr         = 0;
+  while (data.addr != 6) {
     sf_rom.in_ready = 1;
-    sf_rom.addr     = {4b0001,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
+    sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
     while (sf_rom.busy) { }
     __display("read @%h = %x",sf_rom.addr,sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
@@ -181,7 +200,7 @@ $$end
   // output to UART
   data.wenable = 0;
   data.addr    = 1;
-  while (data.addr != 64) {
+  while (data.addr != 7) {
     uint32 dta = 0;
     uint3  n   = 0;
     dta = data.rdata;

@@ -1,6 +1,6 @@
 # Ice-V projects: exploring RISC-V implementations in Silice
 
-> **Goal**: Exploring how to design RISC-V processor in Silice, trying to make:
+> **Goal**: Exploring how to design RISC-V processors in Silice, with a focus on:
 > - simple designs (easy to read source code with explanations, easy to hack)
 > - compact designs (fit on small FPGAs, e.g. HX1K (icestick) and UP5K (icebreaker))
 > - adventurous designs (dual core, pipelined, etc.)

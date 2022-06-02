@@ -16,11 +16,7 @@ $$DEBUG           = nil
 $$if not ICEV_RTYPE then
 bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
-<<<<<<< HEAD
 $$ICEV_RTYPE = 1
-=======
-$$ICEV_RTYPE = 1
->>>>>>> dfdfa90faa165d770d9a73b4c4a0ee8f690db13e
 $$end
 // --------------------------------------------------
 // Processor
