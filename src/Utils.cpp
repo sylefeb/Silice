@@ -133,9 +133,23 @@ void Utils::setTokenStream(antlr4::TokenStream *tks)
 
 // -------------------------------------------------
 
+antlr4::TokenStream * Utils::getTokenStream()
+{
+  return s_TokenStream;
+}
+
+// -------------------------------------------------
+
 void Utils::setLuaPreProcessor(LuaPreProcessor *lpp)
 {
   s_LuaPreProcessor = lpp;
+}
+
+// -------------------------------------------------
+
+LuaPreProcessor *Utils::getLuaPreProcessor()
+{
+  return s_LuaPreProcessor;
 }
 
 // -------------------------------------------------

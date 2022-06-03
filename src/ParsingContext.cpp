@@ -70,20 +70,33 @@ ParsingContext::ParsingContext(
 
 // -------------------------------------------------
 
+typedef struct {
+  antlr4::TokenStream *stream;
+  LuaPreProcessor     *lpp;
+} context_rec;
+
+std::vector<context_rec> s_context_stack;
+
 void ParsingContext::bind()
 {
+  // push previous
+  context_rec rec;
+  rec.stream = Utils::getTokenStream();
+  rec.lpp    = Utils::getLuaPreProcessor();
+  s_context_stack.push_back(rec);
+  // set new
   Utils::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser->getInputStream()));
   Utils::setLuaPreProcessor(lpp.raw());
   Algorithm::setLuaPreProcessor(lpp.raw());
 }
 
-// -------------------------------------------------
-
 void ParsingContext::unbind()
 {
-  Utils::setTokenStream(nullptr);
-  Utils::setLuaPreProcessor(nullptr);
-  Algorithm::setLuaPreProcessor(nullptr);
+  // pop previous
+  Utils::setTokenStream(s_context_stack.back().stream);
+  Utils::setLuaPreProcessor(s_context_stack.back().lpp);
+  Algorithm::setLuaPreProcessor(s_context_stack.back().lpp);
+  s_context_stack.pop_back();
 }
 
 // -------------------------------------------------

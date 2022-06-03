@@ -4938,7 +4938,7 @@ void Algorithm::determineUsage()
   std::unordered_set<std::string> global_out_written;
   determineAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = true;
+  const bool report = false;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
@@ -7837,7 +7837,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, std::ostream &out, const
 
     // output VIO report (if enabled)
     if (!m_ReportBaseName.empty()) {
-//      outputVIOReport(ictx);
+      outputVIOReport(ictx);
     }
 
   }
@@ -7918,7 +7918,9 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
       // write unit
       compiler->writeUnit(cbp, local_ictx, out, first_pass);
     } else {
+      nfo.blueprint_parsing_context->bind();
       nfo.blueprint->writeAsModule(compiler, out, local_ictx, first_pass);
+      nfo.blueprint_parsing_context->unbind();
     }
     // resolve any automatic directional bindings
     resolveInstancedBlueprintBindingDirections(nfo);
