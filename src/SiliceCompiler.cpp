@@ -550,10 +550,10 @@ void SiliceCompiler::run(
 {
   // begin parsing
   beginParsing(fsource, fresult, fframework, frameworks_dir, defines);
-
   // create output stream
   std::ofstream out(m_BodyContext->fresult);
-
+  // write body
+  writeBody(out);
   // which algorithm to export?
   if (to_export.empty()) {
     to_export = "main"; // export main by default
@@ -569,7 +569,7 @@ void SiliceCompiler::run(
   // parse and write top unit
   auto bp = parseUnit(to_export);
   bp.second->setAsTopMost();
-  ictx.instance_name = to_export;
+  ictx.instance_name = "";
   // -> first pass
   writeUnit(bp, ictx, out, true);
   // -> second pass
