@@ -32,6 +32,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "ExpressionLinter.h"
 #include "LuaPreProcessor.h"
 #include "Utils.h"
+#include "SiliceCompiler.h"
 
 #include <cctype>
 
@@ -4937,7 +4938,7 @@ void Algorithm::determineUsage()
   std::unordered_set<std::string> global_out_written;
   determineAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = false; // true;
+  const bool report = true;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
@@ -5176,27 +5177,6 @@ void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::Pars
   // determine return states for subroutine calls
   analyzeSubroutineCalls();
 
-}
-
-// -------------------------------------------------
-
-void Algorithm::resolveInstancedBlueprintRefs(const std::unordered_map<std::string, AutoPtr<Blueprint> >& blueprints)
-{
-  for (auto& nfo : m_InstancedBlueprints) {
-    const auto& A = blueprints.find(nfo.second.blueprint_name);
-    if (A == blueprints.end()) {
-      reportError(nullptr, nfo.second.instance_line, "algorithm '%s' not found, instance '%s'",
-        nfo.second.blueprint_name.c_str(),
-        nfo.second.instance_name.c_str());
-    }
-    nfo.second.blueprint = A->second;
-    // resolve any automatic directional bindings
-    resolveInstancedBlueprintBindingDirections(nfo.second);
-    // perform autobind
-    if (nfo.second.autobind) {
-      autobindInstancedBlueprint(nfo.second);
-    }
-  }
 }
 
 // -------------------------------------------------
@@ -7740,18 +7720,8 @@ void Algorithm::writeModuleMemory(std::string instance_name, std::ostream& out, 
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(std::string top_instance_name, std::ostream &out)
+void Algorithm::setAsTopMost()
 {
-  t_instantiation_context ictx; // empty instantiation context
-  writeAsModule(top_instance_name, out, ictx);
-}
-
-// -------------------------------------------------
-
-void Algorithm::writeAsModule(std::string top_instance_name, std::ostream &out, const t_instantiation_context &pre_ictx)
-{
-  t_instantiation_context ictx = pre_ictx;
-  ictx.instance_name = top_instance_name;
   m_TopMost = true; // this is the topmost
   if (!m_ReportBaseName.empty() && !m_hasHash) {
     // create report files, will delete if existing
@@ -7759,14 +7729,15 @@ void Algorithm::writeAsModule(std::string top_instance_name, std::ostream &out, 
     std::ofstream freport_v(vioReportName());
     std::ofstream freport_f(fsmReportName());
   }
-  writeAsModule(out, ictx, true);
-  writeAsModule(out, ictx, false);
 }
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass)
+void Algorithm::writeAsModule(SiliceCompiler *compiler, std::ostream &out, const t_instantiation_context &ictx, bool first_pass)
 {
+  // instantiate all blueprints
+  instantiateBlueprints(compiler, out, ictx, first_pass);
+
   if (first_pass) {
 
     /// first pass
@@ -7803,7 +7774,7 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
     {
       t_vio_ff_usage ff_usage;
       std::ofstream null;
-      writeAsModule(null, ictx, ff_usage, first_pass);
+      writeAsModule(compiler, null, ictx, ff_usage, first_pass);
 
       // update usage based on first pass
       for (const auto &v : ff_usage.ff_usage) {
@@ -7862,11 +7833,11 @@ void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &
     m_ReportingEnabled = false;
 
     t_vio_ff_usage ff_usage;
-    writeAsModule(out, ictx, ff_usage, first_pass);
+    writeAsModule(compiler, out, ictx, ff_usage, first_pass);
 
     // output VIO report (if enabled)
     if (!m_ReportBaseName.empty()) {
-      outputVIOReport(ictx);
+//      outputVIOReport(ictx);
     }
 
   }
@@ -7899,7 +7870,68 @@ bool Algorithm::getVIONfo(std::string vio, t_var_nfo& _nfo) const
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool first_pass) const
+void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, const t_instantiation_context& ictx,bool first_pass)
+{
+  // write instantiated blueprints
+  for (auto &iaiordr : m_InstancedBlueprintsInDeclOrder) {
+    auto &nfo = m_InstancedBlueprints.at(iaiordr);
+    auto gbp  = compiler->isStaticBlueprint(nfo.blueprint_name);
+    if (!gbp.isNull()) {
+      // this is a static blueprint, no instantiation needed
+      nfo.blueprint = gbp;
+      continue;
+    }
+    // create local context
+    t_instantiation_context local_ictx;
+    // parameters for parameterized variables
+    // -> we use all bindings as we do not know yet which are parameterized
+    ForIndex(i, nfo.bindings.size()) {
+      const auto &b     = nfo.bindings[i];
+      std::string var   = b.left;
+      std::string bound = bindingRightIdentifier(b);
+      if (bound == "clock" || bound == "reset") {
+        continue; /// ////////////////////////////////////////// TODO
+      }
+      t_var_nfo bnfo;
+      if (!getVIONfo(bound, bnfo)) {
+        reportError(nullptr, nfo.instance_line, "cannot determine binding source type for binding between '%s' and '%s', instance '%s'",
+          var.c_str(), bound.c_str(), nfo.instance_name.c_str());
+      }
+      // resolve parameter value
+      std::transform(var.begin(), var.end(), var.begin(),
+        [](unsigned char c) -> unsigned char { return std::toupper(c); });
+      string str_width = var + "_WIDTH";
+      string str_init = var + "_INIT";
+      string str_signed = var + "_SIGNED";
+      local_ictx.parameters[str_width] = varBitWidth(bnfo, ictx);
+      local_ictx.parameters[str_init] = varInitValue(bnfo, ictx);
+      local_ictx.parameters[str_signed] = typeString(varType(bnfo, ictx));
+    }
+    // instance context
+    local_ictx.instance_name       = ictx.instance_name + "_" + nfo.instance_name;
+    local_ictx.local_instance_name = nfo.instance_name;
+    // parse unit (if not already known)
+    if (nfo.blueprint.isNull()) {
+      auto cbp = compiler->parseUnit(nfo.blueprint_name);
+      nfo.blueprint_parsing_context = cbp.first; // NOTE: the context has to stay alive until we are done
+      nfo.blueprint = cbp.second;
+      // write unit
+      compiler->writeUnit(cbp, local_ictx, out, first_pass);
+    } else {
+      nfo.blueprint->writeAsModule(compiler, out, local_ictx, first_pass);
+    }
+    // resolve any automatic directional bindings
+    resolveInstancedBlueprintBindingDirections(nfo);
+    // perform autobind
+    if (nfo.autobind) {
+      autobindInstancedBlueprint(nfo);
+    }
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool first_pass) const
 {
   out << nxl;
 
@@ -7908,43 +7940,6 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   // write memory modules
   for (const auto& mem : m_Memories) {
     writeModuleMemory(ictx.instance_name, out, mem);
-  }
-
-  // write instantiated blueprints
-  for (const auto &iaiordr : m_InstancedBlueprintsInDeclOrder) {
-    const auto &nfo = m_InstancedBlueprints.at(iaiordr);
-    // -> create local context
-    t_instantiation_context local_ictx;
-    // parameters for parameterized variables
-    ForIndex(i, nfo.blueprint->parameterized().size()) {
-      string var = nfo.blueprint->parameterized()[i];
-      // find binding
-      bool found = false;
-      const auto &b = findBindingTo(var, nfo.bindings, found);
-      if (!found) {
-        reportError(nullptr, nfo.instance_line, "interface '%s' of instance '%s' is not bound, interfaces have to be bound using the <:> binding operator",
-          memberPrefix(var).c_str(), nfo.instance_name.c_str());
-      }
-      std::string bound = bindingRightIdentifier(b);
-      t_var_nfo bnfo;
-      if (!getVIONfo(bound, bnfo)) {
-        reportError(nullptr, nfo.instance_line, "cannot determine binding source type for binding between generic '%s' and '%s', instance '%s'",
-          var.c_str(), bound.c_str(), nfo.instance_name.c_str());
-      }
-      // resolve parameter value
-      std::transform(var.begin(), var.end(), var.begin(),
-        [](unsigned char c) -> unsigned char { return std::toupper(c); });
-      string str_width  = var + "_WIDTH";
-      string str_init   = var + "_INIT";
-      string str_signed = var + "_SIGNED";
-      local_ictx.parameters[str_width ] = varBitWidth(bnfo,ictx);
-      local_ictx.parameters[str_init  ] = varInitValue(bnfo,ictx);
-      local_ictx.parameters[str_signed] = typeString(varType(bnfo,ictx));
-    }
-    // -> write instance
-    local_ictx.instance_name       = ictx.instance_name + "_" + nfo.instance_name;
-    local_ictx.local_instance_name = nfo.instance_name;
-    nfo.blueprint->writeAsModule(out, local_ictx, first_pass);
   }
 
   // module header

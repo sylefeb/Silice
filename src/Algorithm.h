@@ -35,6 +35,7 @@ See GitHub Issues section for open/known issues.
 
 #include "TypesAndConsts.h"
 #include "Blueprint.h"
+#include "ParsingContext.h"
 
 #include <string>
 #include <iostream>
@@ -77,6 +78,7 @@ namespace Silice
 
   class LuaPreProcessor;
   class Module;
+  class SiliceCompiler;
 
   // -------------------------------------------------
 
@@ -227,12 +229,13 @@ private:
       std::string                instance_name;
       std::string                instance_prefix;
       int                        instance_line; // error reporting
-      AutoPtr<Blueprint>         blueprint;
       std::vector<t_binding_nfo> bindings;
       bool                       autobind;
       std::string                instance_clock;
       std::string                instance_reset;
       bool                       instance_reginput = false;
+      AutoPtr<ParsingContext>    blueprint_parsing_context;
+      AutoPtr<Blueprint>         blueprint;
       std::unordered_map<std::string, std::pair<t_binding_point, e_FFUsage> > boundinputs;
     } t_instanced_nfo;
 
@@ -889,6 +892,8 @@ private:
     void autobindInstancedBlueprint(t_instanced_nfo& _bp);
     /// \brief resove e_Auto binding directions
     void resolveInstancedBlueprintBindingDirections(t_instanced_nfo& _bp);
+    /// \brief resolve inouts
+    void resolveInOuts();
     ///  \brief adds variables for non bound instanced blueprint inputs and outputs
     void createInstancedBlueprintsInputOutputVars();
     /// \brief returns true if the algorithm does not have an FSM
@@ -919,12 +924,6 @@ private:
 
     /// \brief gather from the input parsed tree
     void gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *body);
-
-    /// \brief resolve instanced blueprint refs
-    void resolveInstancedBlueprintRefs(const std::unordered_map<std::string, AutoPtr<Blueprint> >& blueprints);
-
-    /// \brief resolve inouts
-    void resolveInOuts();
 
   private:
 
@@ -1062,8 +1061,10 @@ private:
     std::string memoryModuleName(std::string instance_name, const t_mem_nfo &bram) const;
     /// \brief prepare replacements for a memory module template
     void prepareModuleMemoryTemplateReplacements(std::string instance_name, const t_mem_nfo& bram, std::unordered_map<std::string, std::string>& _replacements) const;
+    /// \brief instanciate instanciated blueprints
+    void instantiateBlueprints(SiliceCompiler *compiler, std::ostream& out, const t_instantiation_context& ictx, bool first_pass);
     /// \brief writes the algorithm as a Verilog module, calls the version above twice in a two pass optimization process
-    void writeAsModule(std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage, bool do_lint) const;
+    void writeAsModule(SiliceCompiler *compiler, std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage, bool do_lint) const;
     /// \brief outputs a report on the VIOs in the algorithm
     void outputVIOReport(const t_instantiation_context &ictx) const;
 
@@ -1087,18 +1088,15 @@ private:
       s_LuaPreProcessor = lpp;
     }
 
-    /// \brief writes the algorithm as the top-most Verilog module, recurses through instanced blueprints
-    void writeAsModule(std::string top_instance_name, std::ostream &out);
-    /// \brief same as above, with a pre-existing instantiation context (used for exports)
-    void writeAsModule(std::string top_instance_name, std::ostream &out, const t_instantiation_context &pre_ictx);
-
     /// \brief check whether an algorithm is used for formal verification or not
     bool isFormal() { return m_hasHash; }
 
     /// === implements Blueprint
 
+    /// \brief sets as a top module in the output stream
+    void setAsTopMost() override;
     /// \brief writes the algorithm as a Verilog module, recurses through instanced blueprints
-    void writeAsModule(std::ostream& out, const t_instantiation_context& ictx, bool first_pass);
+    void writeAsModule(SiliceCompiler *compiler, std::ostream& out, const t_instantiation_context& ictx, bool first_pass);
     /// \brief inputs
     const std::vector<t_inout_nfo>& inputs()         const override { return m_Inputs; }
     /// \brief outputs

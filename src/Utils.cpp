@@ -238,3 +238,10 @@ void Utils::split(const std::string& s, char delim, std::vector<std::string>& el
 }
 
 // -------------------------------------------------
+
+int Utils::numLinesIn(std::string l)
+{
+  return (int)std::count(l.begin(), l.end(), '\n');
+}
+
+// -------------------------------------------------

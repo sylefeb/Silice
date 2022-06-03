@@ -64,13 +64,6 @@ extern "C" {
 
 // -------------------------------------------------
 
-static int numLinesIn(std::string l)
-{
-  return (int)std::count(l.begin(), l.end(), '\n');
-}
-
-// -------------------------------------------------
-
 static void load_config_into_lua(lua_State *L)
 {
   luabind::object table = luabind::newtable(L);
@@ -149,7 +142,7 @@ static void lua_output(lua_State *L,std::string str,int src_line, int src_file)
   if (P == g_LuaPreProcessors.end()) {
     throw Fatal("[preprocessor] internal error");
   }
-  P->second->addingLines(numLinesIn(str), src_line, src_file);
+  P->second->addingLines(Utils::numLinesIn(str), src_line, src_file);
   g_LuaOutputs[L] << str;
 }
 
@@ -941,7 +934,7 @@ std::string LuaPreProcessor::prepareCode(
   cerr << "preprocessing " << "\n";
 
   std::string code  = header;
-  int header_offset = numLinesIn(header);
+  int header_offset = Utils::numLinesIn(header);
 
   BufferStream bs(incode.c_str(), (uint)incode.size());
   t_Parser     parser(bs, false);

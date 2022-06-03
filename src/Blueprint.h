@@ -36,6 +36,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 namespace Silice
 {
 
+  class SiliceCompiler;
+
   class Blueprint
   {
   private:
@@ -99,8 +101,10 @@ namespace Silice
       std::unordered_map<std::string, std::string> parameters;
     } t_instantiation_context;
 
+    /// \brief sets as a top module in the output stream
+    virtual void setAsTopMost() { }
     /// \brief writes the blueprint as a Verilog module
-    virtual void writeAsModule(std::ostream& out, const t_instantiation_context& ictx, bool first_pass) = 0;
+    virtual void writeAsModule(SiliceCompiler *compiler, std::ostream& out, const t_instantiation_context& ictx, bool first_pass) = 0;
     /// \brief returns true if the blueprint requires a reset
     virtual bool requiresReset() const = 0;
     /// \brief returns true if the blueprint requires a clock

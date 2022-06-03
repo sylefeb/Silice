@@ -66,6 +66,8 @@ namespace Silice
     std::string tempFileName();
     /// \brief splits a string with a delimiter
     void split(const std::string& s, char delim, std::vector<std::string>& elems);
+    /// \brief returns the number of lines in string l
+    int  numLinesIn(std::string l);
 
     // -------------------------------------------------
 

@@ -58,6 +58,10 @@ set(SILICE_CORE
   src/LuaPreProcessor.cpp
   src/SiliceCompiler.cpp
   src/SiliceCompiler.h
+  src/ParsingContext.cpp
+  src/ParsingContext.h
+  src/ParsingErrors.cpp
+  src/ParsingErrors.h
   src/Config.h
   src/Config.cpp
   src/VerilogTemplate.h
