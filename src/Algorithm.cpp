@@ -2001,40 +2001,8 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
         }
       }
     } else if (P->CALLS() != nullptr) {
-      // find subroutine or blueprint being called
+      // add to list, check is in checkPermissions
       nfo->allowed_calls.insert(P->IDENTIFIER()->getText());
-      auto S = m_Subroutines.find(P->IDENTIFIER()->getText());
-      if (S != m_Subroutines.end()) {
-        // add all inputs/outputs
-        for (auto ins : S->second->inputs) {
-          nfo->allowed_writes.insert(S->second->vios.at(ins));
-        }
-        for (auto outs : S->second->outputs) {
-          nfo->allowed_reads.insert(S->second->vios.at(outs));
-        }
-      } else {
-        auto I = m_InstancedBlueprints.find(P->IDENTIFIER()->getText());
-        if (I != m_InstancedBlueprints.end()) {
-          // NOTE: use of m_KnownBlueprints will become a problem for generic code generation
-          auto B = m_KnownBlueprints.find(I->second.blueprint_name);
-          if (B != m_KnownBlueprints.end()) {
-            // add all inputs/outputs
-            for (auto ins : B->second->inputs()) {
-              nfo->allowed_writes.insert(I->second.instance_prefix + "_" + ins.name);
-            }
-            for (auto outs : B->second->outputs()) {
-              nfo->allowed_reads.insert(I->second.instance_prefix + "_" + outs.name);
-            }
-          } else {
-            reportError(P->IDENTIFIER()->getSymbol(), (int)P->getStart()->getLine(),
-              "unit '%s' declared called by subroutine '%s' not yet declared or unknown", P->IDENTIFIER()->getText().c_str(), nfo->name.c_str());
-          }
-        } else {
-          reportError(P->IDENTIFIER()->getSymbol(), (int)P->getStart()->getLine(),
-            "cannot find subroutine or unit '%s' declared called by subroutine '%s'",
-            P->IDENTIFIER()->getText().c_str(), nfo->name.c_str());
-        }
-      }
     } else if (P->input() != nullptr || P->output() != nullptr) {
       // input or output?
       std::string in_or_out;
@@ -2703,7 +2671,6 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
   // in subroutine
   std::unordered_set<std::string> insub;
   if (_current->context.subroutine != nullptr) {
-    // now verify all permissions are granted
     for (auto R : read) {
       if (_current->context.subroutine->allowed_reads.count(R) == 0) {
         reportError(node->getSourceInterval(), -1, "variable '%s' is read by subroutine '%s' without explicit permission", R.c_str(), _current->context.subroutine->name.c_str());
@@ -5155,7 +5122,6 @@ Algorithm::Algorithm(
   std::string name, bool hasHash,
   std::string clock, std::string reset,
   bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes,
-  const std::unordered_map<std::string, AutoPtr<Blueprint> >&              known_blueprints,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
   const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
@@ -5163,7 +5129,7 @@ Algorithm::Algorithm(
   const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield
 )
   : m_Name(name), m_hasHash(hasHash), m_Clock(clock), m_Reset(reset), m_FormalDepth(formalDepth), m_FormalTimeout(formalTimeout), m_FormalModes(modes),
-    m_AutoRun(autorun), m_OneHot(onehot), m_KnownBlueprints(known_blueprints),
+    m_AutoRun(autorun), m_OneHot(onehot),
     m_KnownSubroutines(known_subroutines), m_KnownCircuitries(known_circuitries),
     m_KnownGroups(known_groups), m_KnownInterfaces(known_interfaces), m_KnownBitFields(known_bitfield)
 {
@@ -5262,6 +5228,34 @@ void Algorithm::createInstancedBlueprintsInputOutputVars()
 
 void Algorithm::checkPermissions()
 {
+  // start by adding ins/outs of calls in subroutines
+  for (auto& sub : m_Subroutines) {
+    // -> check instance allowed calls ins/outs
+    for (auto called : sub.second->allowed_calls) {
+      auto S = m_Subroutines.find(called);
+      if (S != m_Subroutines.end()) {
+        for (auto ins : S->second->inputs) {
+          sub.second->allowed_writes.insert(S->second->vios.at(ins));
+        }
+        for (auto outs : S->second->outputs) {
+          sub.second->allowed_reads.insert(S->second->vios.at(outs));
+        }
+      } else {
+        auto I = m_InstancedBlueprints.find(called);
+        if (I != m_InstancedBlueprints.end()) {
+          for (auto ins : I->second.blueprint->inputs()) {
+            sub.second->allowed_writes.insert(I->second.instance_prefix + "_" + ins.name);
+          }
+          for (auto outs : I->second.blueprint->outputs()) {
+            sub.second->allowed_reads.insert(I->second.instance_prefix + "_" + outs.name);
+          }
+        } else {
+          reportError(antlr4::misc::Interval::INVALID, -1,
+            "unknown unit or subroutine '%s' declared called by subroutine '%s'", called.c_str(), sub.second->name.c_str());
+        }
+      }
+    }
+  }
   // check permissions on all instructions of all blocks
   for (const auto &i : m_AlwaysPre.instructions) {
     checkPermissions(i.instr, &m_AlwaysPre);

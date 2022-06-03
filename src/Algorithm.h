@@ -115,8 +115,6 @@ namespace Silice
     /// \brief all the modes the algorithm is supposed to be verified in
     std::vector<std::string> m_FormalModes{};
 
-    /// \brief Set of known blueprints
-    const std::unordered_map<std::string, AutoPtr<Blueprint> >& m_KnownBlueprints;
     /// \brief Set of known subroutines
     const std::unordered_map<std::string, siliceParser::SubroutineContext*>& m_KnownSubroutines;
     /// \brief Set of known circuitries
@@ -911,7 +909,6 @@ private:
       std::string name, bool hasHash,
       std::string clock, std::string reset,
       bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes,
-      const std::unordered_map<std::string, AutoPtr<Blueprint> >&              known_blueprints,
       const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
       const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
       const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,

@@ -152,6 +152,7 @@ namespace Silice {
           std::string              framework_verilog_,
           const std::vector<std::string>& defines_);
         ~ParsingContext();
+
         void bind();
         void unbind();
     };
