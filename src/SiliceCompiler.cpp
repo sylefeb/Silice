@@ -356,10 +356,18 @@ void SiliceCompiler::beginParsing(
   CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
   // display config
   CONFIG.print();
-  // run preprocessor
+
+  // create the preprocessor
   AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor());
   lpp->enableFilesReport(fresult + ".files.log");
   std::string preprocessed = std::string(fsource) + ".lpp";
+
+  // create parsing context
+  m_BodyContext = AutoPtr<ParsingContext>(new ParsingContext(
+    fresult, lpp, framework_verilog, defines));
+  m_BodyContext->bind();
+
+  // run preprocessor
   lpp->generateBody(fsource, c_DefaultLibraries, header, preprocessed);
 
   // parse the preprocessed source, if succeeded
@@ -367,18 +375,12 @@ void SiliceCompiler::beginParsing(
 
     try {
 
-      // create parsing context
-      m_BodyContext = AutoPtr<ParsingContext>(new ParsingContext(
-        fresult, lpp, preprocessed, framework_verilog, defines));
-      m_BodyContext->bind();
-
       // analyze
-      gatherBody(m_BodyContext->parser->topList());
+      gatherBody(m_BodyContext->parse(preprocessed));
 
     } catch (LanguageError& le) {
 
       ReportError err(*m_BodyContext->lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(m_BodyContext->parser->getInputStream()), le.token(), le.interval(), le.message());
-      m_BodyContext->unbind();
       throw Fatal("[SiliceCompiler] parser stopped");
 
     }
@@ -390,8 +392,9 @@ void SiliceCompiler::beginParsing(
 
 void SiliceCompiler::endParsing()
 {
-  // done
+  // unbind context
   m_BodyContext->unbind();
+  // done
   m_BodyContext = AutoPtr<ParsingContext>();
 }
 
@@ -402,18 +405,19 @@ std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> >
 {
   std::string preprocessed = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
 
-  m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed);
-
   // create parsing context
   AutoPtr<ParsingContext> context(new ParsingContext(
-    m_BodyContext->fresult, m_BodyContext->lpp, preprocessed,
+    m_BodyContext->fresult, m_BodyContext->lpp,
     m_BodyContext->framework_verilog, m_BodyContext->defines));
 
   // bind local context
   context->bind();
 
+  // pre-process unit
+  m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed);
+
   // gather the unit
-  auto bp = gatherUnit(context->parser->topList());
+  auto bp = gatherUnit(context->parse(preprocessed));
 
   // done
   context->unbind();

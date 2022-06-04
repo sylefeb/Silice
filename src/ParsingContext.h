@@ -30,10 +30,15 @@ namespace Silice {
 
   // -------------------------------------------------
 
-/// \brief class storing the parsing context
+  /// \brief class storing the parsing context
   class ParsingContext
   {
+  private:
+
+    static std::vector <ParsingContext*> s_ActiveContext;
+
   public:
+
     std::string                          fresult;
     std::string                          framework_verilog;
     std::vector<std::string>             defines;
@@ -45,14 +50,21 @@ namespace Silice {
     AutoPtr<antlr4::CommonTokenStream>   tokens;
     AutoPtr<siliceParser>                parser;
     std::shared_ptr<ParserErrorHandler>  err_handler;
+    std::vector<LibSL::Math::v3i>        lineRemapping; // [0] is line after, [1] is file id, [2] is line before
 
     ParsingContext(
       std::string              fresult_,
       AutoPtr<LuaPreProcessor> lpp_,
-      std::string              preprocessed,
       std::string              framework_verilog_,
       const std::vector<std::string>& defines_);
+
+    antlr4::tree::ParseTree* parse(std::string preprocessed);
+
     ~ParsingContext();
+
+    static ParsingContext *activeContext() {
+      if (s_ActiveContext.empty()) return nullptr; else return s_ActiveContext.back();
+    }
 
     void bind();
     void unbind();

@@ -25,6 +25,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 //                                ... hardcoding ...
 // -------------------------------------------------
 #include "LuaPreProcessor.h"
+#include "ParsingContext.h"
 #include "Config.h"
 #include "Utils.h"
 // -------------------------------------------------
@@ -150,7 +151,7 @@ static void lua_output(lua_State *L,std::string str,int src_line, int src_file)
 
 void LuaPreProcessor::addingLines(int num, int src_line,int src_file)
 {
-  m_FileLineRemapping.push_back(v3i(m_CurOutputLine, src_file, src_line));
+  ParsingContext::activeContext()->lineRemapping.push_back(v3i(m_CurOutputLine, src_file, src_line));
   m_CurOutputLine += num;
 }
 
@@ -934,7 +935,6 @@ std::string LuaPreProcessor::prepareCode(
   cerr << "preprocessing " << "\n";
 
   std::string code  = header;
-  int header_offset = Utils::numLinesIn(header);
 
   BufferStream bs(incode.c_str(), (uint)incode.size());
   t_Parser     parser(bs, false);
@@ -955,7 +955,7 @@ std::string LuaPreProcessor::prepareCode(
         if (!current.empty()) {
           code += "output('";
           code += current;
-          code += "\\n'," + std::to_string(header_offset + src_line - 1) + "," + std::to_string(0) + ")\n";
+          code += "\\n'," + std::to_string(src_line) + "," + std::to_string(0) + ")\n";
           current = "";
         }
         // write function header
@@ -970,7 +970,7 @@ std::string LuaPreProcessor::prepareCode(
       if (!current.empty()) {
         code += "output('";
         code += current;
-        code += "\\n'," + std::to_string(header_offset + src_line - 1) + "," + std::to_string(0) + ")\n";
+        code += "\\n'," + std::to_string(src_line) + "," + std::to_string(0) + ")\n";
         current = "";
       }
       parser.readChar();
@@ -1013,7 +1013,7 @@ std::string LuaPreProcessor::prepareCode(
       if (!current.empty()) {
         code += "output('";
         code += current;
-        code += "\\n'," + std::to_string(header_offset + src_line - 1) + "," + std::to_string(0) + ")\n";
+        code += "\\n'," + std::to_string(src_line) + "," + std::to_string(0) + ")\n";
         current = "";
       }
       // write function footer
@@ -1027,7 +1027,7 @@ std::string LuaPreProcessor::prepareCode(
   if (!current.empty()) {
     code += "output('";
     code += current;
-    code += "\\n'," + std::to_string(header_offset + src_line - 1) + "," + std::to_string(0) + ")\n";
+    code += "\\n'," + std::to_string(src_line) + "," + std::to_string(0) + ")\n";
     current = "";
   }
 
@@ -1137,8 +1137,6 @@ void LuaPreProcessor::generateUnitSource(std::string unit, std::string dst_file)
 
 void LuaPreProcessor::createLuaContext()
 {
-  m_CurOutputLine = 0;
-
   m_LuaState = luaL_newstate();
   g_LuaPreProcessors.insert(std::make_pair(m_LuaState, this));
 
@@ -1157,6 +1155,8 @@ void LuaPreProcessor::createLuaContext()
 
 void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_file)
 {
+  // reset line counter
+  m_CurOutputLine = 0;
   // prepare output
   g_LuaOutputs.insert(std::make_pair(m_LuaState, ofstream(dst_file)));
   // execute
@@ -1226,8 +1226,8 @@ std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore_search
 
 std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore(int line_after) const
 {
-  auto prepro = lineAfterToFileAndLineBefore_search(line_after, m_FileLineRemapping);
-  // NOTE: prepro.first is not used as this refers to the intermediate assembled file
+  auto prepro = lineAfterToFileAndLineBefore_search(line_after, ParsingContext::activeContext()->lineRemapping);
+  // NOTE: prepro.first is not used as this refers to the intermediate file
   return lineAfterToFileAndLineBefore_search(prepro.second, m_SourceFilesLineRemapping);
 }
 
