@@ -465,8 +465,7 @@ private:
     public:
       size_t                              id;                   // internal block id
       std::string                         block_name;           // internal block name (state name from source when applicable)
-      antlr4::misc::Interval              source_interval = antlr4::misc::Interval::INVALID; // block source interval
-      antlr4::tree::ParseTree            *root = nullptr;       // root of the parse tree where the var is declared
+      Utils::t_source_loc                 srcloc;               // localization in source code
       bool                                is_state = false;     // true if block has to be a state, false otherwise
       bool                                is_sub_state = false; // true if block is a sub state in a linear seauence
       bool                                could_be_sub = false; // whether could be made a sub-state
@@ -629,7 +628,7 @@ private:
     std::string resolveWidthOf(std::string vio, const t_instantiation_context &ictx, const Utils::t_source_loc& srcloc) const override;
     /// \brief adds a combinational block to the list of blocks, performs book keeping
     template<class T_Block = t_combinational_block>
-    t_combinational_block *addBlock(std::string name, const t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, antlr4::misc::Interval interval = antlr4::misc::Interval::INVALID);
+    t_combinational_block *addBlock(std::string name, const t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, const Utils::t_source_loc& srcloc = Utils::nowhere);
     /// \brief resets the block name generator
     void resetBlockName();
     /// \brief generate the next block name
@@ -945,9 +944,9 @@ private:
     /// \brief write a verilog wire/reg declaration, possibly parameterized
     void writeVerilogDeclaration(std::ostream &out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const;
     /// \brief determines identifier bit width and (if applicable) table size
-    std::tuple<t_type_nfo, int> determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, const t_source_loc& srloc) const;
+    std::tuple<t_type_nfo, int> determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, const Utils::t_source_loc& srloc) const;
     /// \brief determines identifier type and width
-    t_type_nfo determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, const t_source_loc& srloc) const;
+    t_type_nfo determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, const Utils::t_source_loc& srloc) const;
     /// \brief determines bitfield access bit width
     t_type_nfo determineBitfieldAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitfieldAccessContext *ioaccess) const;
     /// \brief determines IO access bit width

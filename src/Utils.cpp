@@ -39,6 +39,8 @@ using namespace Silice;
 static antlr4::TokenStream *s_TokenStream = nullptr;
 static LuaPreProcessor     *s_LuaPreProcessor = nullptr;
 
+Utils::t_source_loc nowhere;
+
 // -------------------------------------------------
 
 void Utils::reportError(const t_source_loc& srcloc, const char *msg, ...)

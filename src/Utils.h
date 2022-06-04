@@ -43,6 +43,8 @@ namespace Silice
       antlr4::tree::ParseTree  *root = nullptr; // root of the parse tree where the var is declared
     } t_source_loc;
 
+    extern t_source_loc nowhere;
+
     // -------------------------------------------------
 
     /// \brief return next higher power of two covering n
