@@ -32,6 +32,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <LibSL/Math/Vertex.h>
 
+#include "Blueprint.h"
+
 struct lua_State;
 
 namespace Silice {
@@ -67,15 +69,16 @@ namespace Silice {
 
     void createLuaContext();
     void destroyLuaContext();
-    void executeLuaString(std::string lua_code, std::string dst_file);
+    void executeLuaString(std::string lua_code, std::string dst_file, const Blueprint::t_instantiation_context& ictx);
 
   public:
 
     LuaPreProcessor();
     virtual ~LuaPreProcessor();
 
-    void generateBody(std::string src_file, const std::vector<std::string> &defaultLibraries, std::string lua_header_code, std::string dst_file);
-    void generateUnitSource(std::string unit, std::string dst_file);
+    void generateBody(std::string src_file, const std::vector<std::string> &defaultLibraries,
+                      const Blueprint::t_instantiation_context& ictx, std::string lua_header_code, std::string dst_file);
+    void generateUnitSource(std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx);
 
     std::vector<std::string> searchPaths() const { return m_SearchPaths; }
 

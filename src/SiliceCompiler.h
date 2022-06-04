@@ -93,7 +93,8 @@ namespace Silice {
       std::string fresult,
       std::string fframework,
       std::string frameworks_dir,
-      const std::vector<std::string>& defines);
+      const std::vector<std::string>& defines,
+      const Blueprint::t_instantiation_context& ictx);
 
     /// \brief end parsing
     void endParsing();
@@ -116,12 +117,12 @@ namespace Silice {
     /// \brief writes a unit in the output stream
     void writeUnit(
       std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > parsed,
-      const Algorithm::t_instantiation_context& ictx,
+      const Blueprint::t_instantiation_context& ictx,
       std::ostream&                            _out,
       bool                                      first_pass);
 
     /// \brief parses a specific unit
-    std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > parseUnit(std::string to_parse);
+    std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx);
 
     /// \brief returns the static blueprint for 'unit', otherwise null
     AutoPtr<Blueprint> isStaticBlueprint(std::string unit);

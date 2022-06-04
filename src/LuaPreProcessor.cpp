@@ -132,8 +132,9 @@ std::string LuaPreProcessor::findFile(std::string fname) const
 
 // -------------------------------------------------
 
-std::map<lua_State*, std::ofstream>    g_LuaOutputs;
-std::map<lua_State*, LuaPreProcessor*> g_LuaPreProcessors;
+std::map<lua_State*, std::ofstream>                      g_LuaOutputs;
+std::map<lua_State*, Blueprint::t_instantiation_context> g_LuaInstCtx;
+std::map<lua_State*, LuaPreProcessor*>                   g_LuaPreProcessors;
 
 // -------------------------------------------------
 
@@ -167,6 +168,44 @@ static void lua_preproc_error(lua_State *L, std::string str)
 static void lua_print(lua_State *L, std::string str)
 {
   cerr << "[preprocessor] " << Console::white << str << Console::gray << "\n";
+}
+
+// -------------------------------------------------
+
+int lua_widthof(lua_State *L, std::string var)
+{
+  auto C = g_LuaInstCtx.find(L);
+  if (C == g_LuaInstCtx.end()) {
+    throw Fatal("[widthof] internal error");
+  }
+  std::transform(var.begin(), var.end(), var.begin(),
+    [](unsigned char c) -> unsigned char { return std::toupper(c); });
+  var = var + "_WIDTH";
+  if (C->second.parameters.count(var) == 0) {
+    throw Fatal("[preprocessor] widthof, cannot find io '%s' in instantiation context",var.c_str());
+  } else {
+    return atoi(C->second.parameters.at(var).c_str());
+  }
+  return 0;
+}
+
+// -------------------------------------------------
+
+bool lua_signed(lua_State *L, std::string var)
+{
+  auto C = g_LuaInstCtx.find(L);
+  if (C == g_LuaInstCtx.end()) {
+    throw Fatal("[signed] internal error");
+  }
+  std::transform(var.begin(), var.end(), var.begin(),
+    [](unsigned char c) -> unsigned char { return std::toupper(c); });
+  var = var + "_WIDTH";
+  if (C->second.parameters.count(var) == 0) {
+    throw Fatal("[preprocessor] signed, cannot find io '%s' in instantiation context", var.c_str());
+  } else {
+    return C->second.parameters.at(var) == "signed";
+  }
+  return false;
 }
 
 // -------------------------------------------------
@@ -561,7 +600,9 @@ static void bindScript(lua_State *L)
       luabind::def("save_table_as_image_with_palette", &lua_save_table_as_image_with_palette),
       luabind::def("clog2",         &lua_clog2),
       luabind::def("lshift",        &lua_lshift),
-      luabind::def("rshift",        &lua_rshift)
+      luabind::def("rshift",        &lua_rshift),
+      luabind::def("widthof",       &lua_widthof),
+      luabind::def("signed",        &lua_signed)
     ];
 }
 
@@ -1083,6 +1124,7 @@ std::string fileAbsolutePath(std::string f)
 void LuaPreProcessor::generateBody(
   std::string src_file,
   const std::vector<std::string>& defaultLibraries,
+  const Blueprint::t_instantiation_context& ictx,
   std::string lua_header_code,
   std::string dst_file)
 {
@@ -1121,16 +1163,16 @@ void LuaPreProcessor::generateBody(
   // create Lua context
   createLuaContext();
   // execute body (Lua context also contains all unit functions)
-  executeLuaString(lua_code, dst_file);
+  executeLuaString(lua_code, dst_file, ictx);
 
 }
 
 // -------------------------------------------------
 
-void LuaPreProcessor::generateUnitSource(std::string unit, std::string dst_file)
+void LuaPreProcessor::generateUnitSource(std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx)
 {
   std::string lua_code = "_G['" + unit + "']()\n";
-  executeLuaString(lua_code, dst_file);
+  executeLuaString(lua_code, dst_file, ictx);
 }
 
 // -------------------------------------------------
@@ -1153,10 +1195,12 @@ void LuaPreProcessor::createLuaContext()
 
 // -------------------------------------------------
 
-void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_file)
+void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_file, const Blueprint::t_instantiation_context& ictx)
 {
   // reset line counter
   m_CurOutputLine = 0;
+  // prepare instantiation context
+  g_LuaInstCtx.insert(std::make_pair(m_LuaState, ictx));
   // prepare output
   g_LuaOutputs.insert(std::make_pair(m_LuaState, ofstream(dst_file)));
   // execute
@@ -1187,6 +1231,7 @@ void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_fil
   // close output
   g_LuaOutputs.at(m_LuaState).close();
   g_LuaOutputs.erase(m_LuaState);
+  g_LuaInstCtx.erase(m_LuaState);
 }
 
 // -------------------------------------------------

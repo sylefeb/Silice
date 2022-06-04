@@ -7912,7 +7912,7 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
     local_ictx.local_instance_name = nfo.instance_name;
     // parse unit (if not already known)
     if (nfo.blueprint.isNull()) {
-      auto cbp = compiler->parseUnit(nfo.blueprint_name);
+      auto cbp = compiler->parseUnit(nfo.blueprint_name, local_ictx);
       nfo.blueprint_parsing_context = cbp.first; // NOTE: the context has to stay alive until we are done
       nfo.blueprint = cbp.second;
       // write unit

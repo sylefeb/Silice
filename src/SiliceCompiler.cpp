@@ -329,7 +329,8 @@ void SiliceCompiler::beginParsing(
   std::string fresult,
   std::string fframework,
   std::string frameworks_dir,
-  const std::vector<std::string>& defines)
+  const std::vector<std::string>& defines,
+  const Blueprint::t_instantiation_context& ictx)
 {
   // check for double call
   if (!m_BodyContext.isNull()) {
@@ -368,7 +369,7 @@ void SiliceCompiler::beginParsing(
   m_BodyContext->bind();
 
   // run preprocessor
-  lpp->generateBody(fsource, c_DefaultLibraries, header, preprocessed);
+  lpp->generateBody(fsource, c_DefaultLibraries, ictx, header, preprocessed);
 
   // parse the preprocessed source, if succeeded
   if (LibSL::System::File::exists(preprocessed.c_str())) {
@@ -401,7 +402,7 @@ void SiliceCompiler::endParsing()
 // -------------------------------------------------
 
 std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> >
-  SiliceCompiler::parseUnit(std::string to_parse)
+  SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx)
 {
   std::string preprocessed = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
 
@@ -414,7 +415,7 @@ std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> >
   context->bind();
 
   // pre-process unit
-  m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed);
+  m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed, ictx);
 
   // gather the unit
   auto bp = gatherUnit(context->parse(preprocessed));
@@ -465,7 +466,7 @@ void SiliceCompiler::writeBody(std::ostream& _out)
 #if 0
     // write formal unit tests
     for (auto const &[algname, bp] : m_Blueprints) {
-      Algorithm::t_instantiation_context ictx;
+      Blueprint::t_instantiation_context ictx;
       Algorithm *alg = dynamic_cast<Algorithm*>(bp.raw());
       if (alg != nullptr) {
         if (alg->isFormal()) {
@@ -494,7 +495,7 @@ void SiliceCompiler::writeBody(std::ostream& _out)
 
 void SiliceCompiler::writeUnit(
   std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > parsed,
-  const Algorithm::t_instantiation_context&                ictx,
+  const Blueprint::t_instantiation_context&                ictx,
   std::ostream&                                           _out,
   bool                                                     pass)
 {
@@ -524,7 +525,7 @@ void SiliceCompiler::writeUnit(
 
     ReportError err(*m_BodyContext->lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(m_BodyContext->parser->getInputStream()), le.token(), le.interval(), le.message());
     parsed.first->unbind();
-    throw Fatal("[SiliceCompiler] writer stopped");
+     throw Fatal("[SiliceCompiler] writer stopped");
 
   }
 
@@ -552,8 +553,16 @@ void SiliceCompiler::run(
   std::string to_export,
   const std::vector<std::string>& export_params)
 {
+  // create top instantiation context
+  Blueprint::t_instantiation_context ictx;
+  for (auto p : export_params) {
+    auto eq = p.find('=');
+    if (eq != std::string::npos) {
+      ictx.parameters[p.substr(0, eq)] = p.substr(eq + 1);
+    }
+  }
   // begin parsing
-  beginParsing(fsource, fresult, fframework, frameworks_dir, defines);
+  beginParsing(fsource, fresult, fframework, frameworks_dir, defines, ictx);
   // create output stream
   std::ofstream out(m_BodyContext->fresult);
   // write body
@@ -562,16 +571,8 @@ void SiliceCompiler::run(
   if (to_export.empty()) {
     to_export = "main"; // export main by default
   }
-  // create top instantiation context
-  Algorithm::t_instantiation_context ictx;
-  for (auto p : export_params) {
-    auto eq = p.find('=');
-    if (eq != std::string::npos) {
-      ictx.parameters[p.substr(0, eq)] = p.substr(eq + 1);
-    }
-  }
   // parse and write top unit
-  auto bp = parseUnit(to_export);
+  auto bp = parseUnit(to_export, ictx);
   bp.second->setAsTopMost();
   ictx.instance_name = "";
   // -> first pass
