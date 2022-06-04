@@ -511,7 +511,7 @@ void SiliceCompiler::writeUnit(
     // cast to algorithm
     Algorithm *alg = dynamic_cast<Algorithm*>(parsed.second.raw());
     if (alg == nullptr) {
-      reportError(antlr4::misc::Interval::INVALID, -1, "unit cannot be exported");
+      reportError(t_source_loc(), "unit cannot be exported");
     } else {
       // ask for reports
       alg->enableReporting(m_BodyContext->fresult);
