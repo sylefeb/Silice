@@ -79,11 +79,11 @@ namespace Silice {
     ParserErrorListener(const LuaPreProcessor &pp) : m_PreProcessor(pp) {}
     virtual void syntaxError(
       antlr4::Recognizer* recognizer,
-      antlr4::Token* tk,
+      antlr4::Token*      tk,
       size_t              line,
       size_t              charPositionInLine,
-      const std::string& msg,
-      std::exception_ptr e) override;
+      const std::string&  msg,
+      std::exception_ptr  e) override;
   };
 
   // -------------------------------------------------

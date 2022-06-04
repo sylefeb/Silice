@@ -37,6 +37,8 @@ See GitHub Issues section for open/known issues.
 #include "Blueprint.h"
 #include "ParsingContext.h"
 
+#include "Utils.h"
+
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -150,7 +152,7 @@ private:
       bool        no_input_latch    = false;
       bool        delayed           = false;
       std::string custom_template;
-      int         line              = -1;
+      Utils::t_source_loc      srcloc;
       std::vector<std::string> clocks;
       std::vector<std::string> in_vars;
       std::vector<std::string> out_vars;
@@ -220,7 +222,7 @@ private:
       std::string     left;
       t_binding_point right;
       e_BindingDir    dir;
-      int             line;      // for error reporting
+      Utils::t_source_loc srcloc;
     } t_binding_nfo;
 
     /// \brief info about an instanced algorithm
@@ -228,7 +230,7 @@ private:
       std::string                blueprint_name;
       std::string                instance_name;
       std::string                instance_prefix;
-      int                        instance_line; // error reporting
+      Utils::t_source_loc        srcloc;
       std::vector<t_binding_nfo> bindings;
       bool                       autobind;
       std::string                instance_clock;
@@ -390,11 +392,11 @@ private:
     class end_action_wait : public t_end_action
     {
     public:
-      int                           line;
+      Utils::t_source_loc           srcloc;
       std::string                   algo_instance_name;
       t_combinational_block        *waiting;
       t_combinational_block        *next;
-      end_action_wait(int line_, std::string algo_name_, t_combinational_block *waiting_, t_combinational_block *next_) : line(line_), algo_instance_name(algo_name_), waiting(waiting_), next(next_) {}
+      end_action_wait(Utils::t_source_loc srcloc_, std::string algo_name_, t_combinational_block *waiting_, t_combinational_block *next_) : srcloc(srcloc_), algo_instance_name(algo_name_), waiting(waiting_), next(next_) {}
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(waiting); _ch.push_back(next); }
       std::string name() const override { return "end_action_wait";}
     };
@@ -464,6 +466,7 @@ private:
       size_t                              id;                   // internal block id
       std::string                         block_name;           // internal block name (state name from source when applicable)
       antlr4::misc::Interval              source_interval = antlr4::misc::Interval::INVALID; // block source interval
+      antlr4::tree::ParseTree            *root = nullptr;       // root of the parse tree where the var is declared
       bool                                is_state = false;     // true if block has to be a state, false otherwise
       bool                                is_sub_state = false; // true if block is a sub state in a linear seauence
       bool                                could_be_sub = false; // whether could be made a sub-state
@@ -502,9 +505,9 @@ private:
       }
       const end_action_switch_case* switch_case() const { return dynamic_cast<const end_action_switch_case*>(end_action); }
 
-      void wait(int line, std::string algo_name, t_combinational_block *waiting, t_combinational_block *next)
+      void wait(Utils::t_source_loc srcloc, std::string algo_name, t_combinational_block *waiting, t_combinational_block *next)
       {
-        swap_end(new end_action_wait(line, algo_name, waiting, next));
+        swap_end(new end_action_wait(srcloc, algo_name, waiting, next));
       }
       const end_action_wait *wait() const { return dynamic_cast<const end_action_wait*>(end_action); }
 
@@ -623,7 +626,7 @@ private:
     /// \brief rewrites a constant
     std::string rewriteConstant(std::string cst) const;
     /// \brief returns a string representing the widthof value
-    std::string resolveWidthOf(std::string vio, const t_instantiation_context &ictx, antlr4::misc::Interval interval) const override;
+    std::string resolveWidthOf(std::string vio, const t_instantiation_context &ictx, const Utils::t_source_loc& srcloc) const override;
     /// \brief adds a combinational block to the list of blocks, performs book keeping
     template<class T_Block = t_combinational_block>
     t_combinational_block *addBlock(std::string name, const t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, antlr4::misc::Interval interval = antlr4::misc::Interval::INVALID);
@@ -644,7 +647,7 @@ private:
     /// \brief insert a variable in the data-structures (lower level than addVar, use to insert any var), return the index in m_Vars of the inserted var
     void insertVar(const t_var_nfo &_var, t_combinational_block *_current);
     /// \brief add a variable from its definition (_var may be modified with an updated name)
-    void addVar(t_var_nfo& _var, t_combinational_block *_current, antlr4::misc::Interval interval = antlr4::misc::Interval::INVALID);
+    void addVar(t_var_nfo& _var, t_combinational_block *_current, const Utils::t_source_loc& srcloc);
     /// \brief check if an identifier is available
     bool isIdentifierAvailable(std::string name) const;
     /// \brief gather type nfo
@@ -702,7 +705,7 @@ private:
     std::string rewriteIdentifier(
       std::string prefix, std::string var, std::string suffix,
       const t_combinational_block_context *bctx, const t_instantiation_context& ictx,
-      size_t line,
+      const Utils::t_source_loc& srcloc,
       std::string ff, bool read_access,
       const t_vio_dependencies &dependencies,
       t_vio_ff_usage &_ff_usage, e_FFUsage ff_force = e_None) const;
@@ -809,15 +812,15 @@ private:
     /// \brief fast-forward to the next non empty state
     const t_combinational_block *fastForward(const t_combinational_block *block) const;
     /// \brief verify member in group
-    void verifyMemberGroup(std::string member, siliceParser::GroupContext* group, int line) const;
+    void verifyMemberGroup(std::string member, siliceParser::GroupContext* group) const;
     /// \brief verify member in interface
-    void verifyMemberInterface(std::string member, siliceParser::IntrfaceContext *intrface, int line) const;
+    void verifyMemberInterface(std::string member, siliceParser::IntrfaceContext *intrface) const;
     /// \brief verify member in group definition
-    void verifyMemberGroup(std::string member, const t_group_definition& gd, int line) const;
+    void verifyMemberGroup(std::string member, const t_group_definition& gd) const;
     /// \brief get the list of members within a group
     std::vector<std::string> getGroupMembers(const t_group_definition &gd) const;
     /// \brief verify member in bitfield
-    void verifyMemberBitfield(std::string member, siliceParser::BitfieldContext* group, int line) const;
+    void verifyMemberBitfield(std::string member, siliceParser::BitfieldContext* group) const;
     /// \brief run optimizations
     void optimize();
     ///\brief Runs the linter on the algorithm, at instantiation time
@@ -942,9 +945,9 @@ private:
     /// \brief write a verilog wire/reg declaration, possibly parameterized
     void writeVerilogDeclaration(std::ostream &out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const;
     /// \brief determines identifier bit width and (if applicable) table size
-    std::tuple<t_type_nfo, int> determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, antlr4::misc::Interval interval, int line) const;
+    std::tuple<t_type_nfo, int> determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, const t_source_loc& srloc) const;
     /// \brief determines identifier type and width
-    t_type_nfo determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, antlr4::misc::Interval interval, int line) const;
+    t_type_nfo determineIdentifierTypeAndWidth(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, const t_source_loc& srloc) const;
     /// \brief determines bitfield access bit width
     t_type_nfo determineBitfieldAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::BitfieldAccessContext *ioaccess) const;
     /// \brief determines IO access bit width
@@ -1118,7 +1121,7 @@ private:
     /// \brief returns true if the blueprint requires a clock
     bool requiresClock() const override { return true; }
     /// \brief determines vio bit width and (if applicable) table size
-    std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const override;
+    std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, const Utils::t_source_loc& srcloc) const override;
     /// \brief returns the name of an input port from its internal name
     std::string inputPortName(std::string name)  const override { return std::string(ALG_INPUT) + '_' + name; }
     /// \brief returns the name of an output port from its internal name

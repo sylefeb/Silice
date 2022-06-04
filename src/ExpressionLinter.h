@@ -144,7 +144,7 @@ namespace Silice
     void lintBinding(
       std::string                                     msg,
       Algorithm::e_BindingDir                         dir,
-      int                                             line,
+      const Utils::t_source_loc&                      srcloc,
       const t_type_nfo                               &left,
       const t_type_nfo                               &right
       ) const;

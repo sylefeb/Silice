@@ -42,7 +42,8 @@ using namespace Silice::Utils;
 
 // -------------------------------------------------
 
-std::vector<ParsingContext*> ParsingContext::s_ActiveContext;
+std::vector<ParsingContext*>                        ParsingContext::s_ActiveContext;
+std::map<antlr4::tree::ParseTree*, ParsingContext*> ParsingContext::s_Root2Context;
 
 typedef struct {
   antlr4::TokenStream *stream;
@@ -86,7 +87,10 @@ antlr4::tree::ParseTree* ParsingContext::parse(std::string preprocessed)
   Utils::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser->getInputStream()));
   s_context_stack.back().stream = dynamic_cast<antlr4::TokenStream*>(parser->getInputStream());
   // return parsed tree
-  return parser->topList();
+  root = parser->topList();
+  sl_assert(Utils::root(root) == root);
+  s_Root2Context.insert(std::make_pair(root, this));
+  return root;
 }
 
 // -------------------------------------------------
@@ -122,7 +126,7 @@ void ParsingContext::unbind()
 
 ParsingContext::~ParsingContext()
 {
-
+  s_Root2Context.erase(root);
 }
 
 // -------------------------------------------------

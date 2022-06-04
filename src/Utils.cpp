@@ -27,6 +27,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <LibSL.h>
 
 #include "LuaPreProcessor.h"
+#include "ParsingContext.h"
 
 #include <filesystem>
 
@@ -40,7 +41,7 @@ static LuaPreProcessor     *s_LuaPreProcessor = nullptr;
 
 // -------------------------------------------------
 
-void Utils::reportError(antlr4::Token *what, int line, const char *msg, ...)
+void Utils::reportError(const t_source_loc& srcloc, const char *msg, ...)
 {
   const int messageBufferSize = 4096;
   char message[messageBufferSize];
@@ -50,27 +51,12 @@ void Utils::reportError(antlr4::Token *what, int line, const char *msg, ...)
   vsprintf_s(message, messageBufferSize, msg, args);
   va_end(args);
 
-  throw LanguageError(line, what, antlr4::misc::Interval::INVALID, "%s", message);
+  throw LanguageError(nullptr, srcloc, "%s", message);
 }
 
 // -------------------------------------------------
 
-void Utils::reportError(antlr4::misc::Interval interval, int line, const char *msg, ...)
-{
-  const int messageBufferSize = 4096;
-  char message[messageBufferSize];
-
-  va_list args;
-  va_start(args, msg);
-  vsprintf_s(message, messageBufferSize, msg, args);
-  va_end(args);
-
-  throw LanguageError(line, nullptr, interval, "%s", message);
-}
-
-// -------------------------------------------------
-
-void Utils::warn(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...)
+void Utils::warn(e_WarningType type, const t_source_loc& srcloc, const char *msg, ...)
 {
   const int messageBufferSize = 4096;
   char message[messageBufferSize];
@@ -84,9 +70,17 @@ void Utils::warn(e_WarningType type, antlr4::misc::Interval interval, int line, 
   case Standard:    std::cerr << Console::yellow << "[warning]    " << Console::gray; break;
   case Deprecation: std::cerr << Console::cyan << "[deprecated] " << Console::gray; break;
   }
-  if (line > -1) {
-  } else if (s_TokenStream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
-    antlr4::Token *tk = s_TokenStream->get(interval.a);
+  antlr4::TokenStream *tks = s_TokenStream;
+  ParsingContext *pctx = nullptr;
+  if (srcloc.root) {
+    pctx = ParsingContext::rootContext(Utils::root(srcloc.root));
+  }
+  if (pctx) {
+    tks = pctx->parser->getTokenStream();
+  }
+  int line = -1;
+  if (tks != nullptr && !(srcloc.interval == antlr4::misc::Interval::INVALID)) {
+    antlr4::Token *tk = tks->get(srcloc.interval.a);
     line = (int)tk->getLine();
   }
   if (s_LuaPreProcessor != nullptr) {
@@ -101,10 +95,18 @@ void Utils::warn(e_WarningType type, antlr4::misc::Interval interval, int line, 
 
 // -------------------------------------------------
 
-antlr4::Token *Utils::getToken(antlr4::misc::Interval interval, bool last_else_first)
+antlr4::Token *Utils::getToken(antlr4::tree::ParseTree *node, antlr4::misc::Interval interval, bool last_else_first)
 {
-  if (s_TokenStream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
-    antlr4::Token *tk = s_TokenStream->get(last_else_first ? interval.b : interval.a);
+  antlr4::TokenStream *tks = s_TokenStream;
+  ParsingContext *pctx = nullptr;
+  if (node) {
+    pctx = ParsingContext::rootContext(Utils::root(node));
+  }
+  if (pctx) {
+    tks = pctx->parser->getTokenStream();
+  }
+  if (tks != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
+    antlr4::Token *tk = tks->get(last_else_first ? interval.b : interval.a);
     return tk;
   } else {
     return nullptr;
@@ -212,11 +214,10 @@ std::string Utils::fileToString(const char* file)
 
 // -------------------------------------------------
 
-Utils::LanguageError::LanguageError(int line, antlr4::Token *tk, antlr4::misc::Interval interval, const char *msg, ...)
+Utils::LanguageError::LanguageError(antlr4::Token *tk, const t_source_loc& srcloc, const char *msg, ...)
 {
-    m_Line = line;
     m_Token = tk;
-    m_Interval = interval;
+    m_SrcLoc = srcloc;
     va_list args;
     va_start(args, msg);
     vsprintf_s(m_Message, e_MessageBufferSize, msg, args);
@@ -256,6 +257,36 @@ void Utils::split(const std::string& s, char delim, std::vector<std::string>& el
 int Utils::numLinesIn(std::string l)
 {
   return (int)std::count(l.begin(), l.end(), '\n');
+}
+
+// -------------------------------------------------
+
+antlr4::tree::ParseTree *Utils::root(antlr4::tree::ParseTree *node)
+{
+  while (node->parent != nullptr) {
+    node = node->parent;
+  }
+  return node;
+}
+
+// -------------------------------------------------
+
+Utils::t_source_loc Utils::sourceloc(antlr4::tree::ParseTree *node)
+{
+  t_source_loc sl;
+  sl.root = Utils::root(node);
+  sl.interval = node->getSourceInterval();
+  return sl;
+}
+
+// -------------------------------------------------
+
+Utils::t_source_loc Utils::sourceloc(antlr4::tree::ParseTree *root, antlr4::misc::Interval interval)
+{
+  t_source_loc sl;
+  sl.root = root;
+  sl.interval = interval;
+  return sl;
 }
 
 // -------------------------------------------------

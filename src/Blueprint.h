@@ -32,6 +32,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "siliceParser.h"
 
 #include "TypesAndConsts.h"
+#include "Utils.h"
 
 namespace Silice
 {
@@ -80,7 +81,7 @@ namespace Silice
       e_Access     access            = e_NotAccessed;
       e_VarUsage   usage             = e_Undetermined;
       std::string  attribs;
-      antlr4::misc::Interval source_interval;
+      Utils::t_source_loc srcloc;
     };
 
     /// \brief typedef to distinguish vars from ios
@@ -128,9 +129,9 @@ namespace Silice
     /// \brief returns a VIO definition
     virtual t_var_nfo getVIODefinition(std::string var, bool &_found) const;
     /// \brief determines vio bit width and (if applicable) table size
-    virtual std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const;
+    virtual std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, const Utils::t_source_loc& srcloc) const;
     /// \brief determines vio bit width
-    virtual std::string resolveWidthOf(std::string vio, const t_instantiation_context& ictx, antlr4::misc::Interval interval) const;
+    virtual std::string resolveWidthOf(std::string vio, const t_instantiation_context& ictx, const Utils::t_source_loc& srcloc) const;
     /// \brief returns the name of the module
     virtual std::string moduleName(std::string blueprint_name,std::string instance_name) const = 0;
     /// \brief returns the name of an input port from its internal name

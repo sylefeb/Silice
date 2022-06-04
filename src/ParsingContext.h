@@ -35,7 +35,11 @@ namespace Silice {
   {
   private:
 
-    static std::vector <ParsingContext*> s_ActiveContext;
+    // stack of active contexts during code generation
+    static std::vector<ParsingContext*>                       s_ActiveContext;
+    // records which root was produced by which context parse() call
+    // this is used to find the context and token stream, when localizing tokens in source
+    static std::map<antlr4::tree::ParseTree*,ParsingContext*> s_Root2Context;
 
   public:
 
@@ -49,6 +53,7 @@ namespace Silice {
     AutoPtr<siliceLexer>                 lexer;
     AutoPtr<antlr4::CommonTokenStream>   tokens;
     AutoPtr<siliceParser>                parser;
+    antlr4::tree::ParseTree             *root = nullptr;
     std::shared_ptr<ParserErrorHandler>  err_handler;
     std::vector<LibSL::Math::v3i>        lineRemapping; // [0] is line after, [1] is file id, [2] is line before
 
@@ -64,6 +69,9 @@ namespace Silice {
 
     static ParsingContext *activeContext() {
       if (s_ActiveContext.empty()) return nullptr; else return s_ActiveContext.back();
+    }
+    static ParsingContext *rootContext(antlr4::tree::ParseTree *root) {
+      return s_Root2Context.at(root);
     }
 
     void bind();

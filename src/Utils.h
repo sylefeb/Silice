@@ -30,24 +30,31 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 namespace Silice
 {
   class LuaPreProcessor;
+  class ParsingContext;
 
   namespace Utils
   {
 
     // -------------------------------------------------
 
+    /// \brief source location for error reporting
+    typedef struct {
+      antlr4::misc::Interval    interval = antlr4::misc::Interval::INVALID; // block source interval
+      antlr4::tree::ParseTree  *root = nullptr; // root of the parse tree where the var is declared
+    } t_source_loc;
+
+    // -------------------------------------------------
+
     /// \brief return next higher power of two covering n
     int  justHigherPow2(int n);
-    /// \brief report an error using token or line number
-    void reportError(antlr4::Token *what, int line, const char *msg, ...);
-    /// \brief report an error using source interval or line number
-    void reportError(antlr4::misc::Interval interval, int line, const char *msg, ...);
+    /// \brief report an error using source tree node
+    void reportError(const t_source_loc& srcloc, const char *msg, ...);
     /// \brief types of warnings
     enum e_WarningType { Standard, Deprecation };
     /// \brief issues a warning
-    void warn(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...);
+    void warn(e_WarningType type, const t_source_loc& srcloc, const char *msg, ...);
     /// \brief get a token from a source interval (helper)
-    antlr4::Token *getToken(antlr4::misc::Interval interval, bool last_else_first = false);
+    antlr4::Token *getToken(antlr4::tree::ParseTree *node, antlr4::misc::Interval interval, bool last_else_first = false);
     /// \brief returns the source file and line for the given token (helper)
     std::pair<std::string, int> getTokenSourceFileAndLine(antlr4::Token *tk);
     /// \brief Token stream for warning reporting, optionally set
@@ -72,6 +79,11 @@ namespace Silice
     void split(const std::string& s, char delim, std::vector<std::string>& elems);
     /// \brief returns the number of lines in string l
     int  numLinesIn(std::string l);
+    /// \brief go up to the root
+    antlr4::tree::ParseTree *root(antlr4::tree::ParseTree *node);
+    /// \brief build a source localizer
+    t_source_loc sourceloc(antlr4::tree::ParseTree *node);
+    t_source_loc sourceloc(antlr4::tree::ParseTree *root, antlr4::misc::Interval interval);
 
     // -------------------------------------------------
 
@@ -80,21 +92,19 @@ namespace Silice
     public:
       enum { e_MessageBufferSize = 4096 };
     private:
-      int            m_Line = -1;
-      antlr4::Token *m_Token = nullptr;
-      antlr4::misc::Interval  m_Interval;
-      char           m_Message[e_MessageBufferSize];
+      antlr4::Token           *m_Token = nullptr;
+      t_source_loc             m_SrcLoc;
+      char                     m_Message[e_MessageBufferSize];
       LanguageError() { m_Message[0] = '\0'; }
     public:
-      LanguageError(int line, antlr4::Token *tk, antlr4::misc::Interval interval, const char *msg, ...)
+      LanguageError(antlr4::Token *tk, const t_source_loc& srcloc, const char *msg, ...)
 #if !defined(_WIN32) && !defined(_WIN64)
         __attribute__((format(printf, 5, 6)))
 #endif
       ;
-      int line() const { return m_Line; }
       const char *message()  const { return (m_Message); }
       antlr4::Token *token() { return m_Token; }
-      antlr4::misc::Interval  interval() { return m_Interval; }
+      const t_source_loc& srcloc() { return m_SrcLoc; }
     };
 
   };

@@ -215,7 +215,7 @@ void ExpressionLinter::lintReadback(
 void ExpressionLinter::lintBinding(
   std::string                                     msg,
   Algorithm::e_BindingDir                         dir,
-  int                                             line,
+  const t_source_loc&                             srcloc,
   const t_type_nfo                               &left,
   const t_type_nfo                               &right
 ) const
@@ -225,10 +225,10 @@ void ExpressionLinter::lintBinding(
     return; // skip if parameterized
   }
   if (left.base_type != right.base_type) {
-     warn(Standard, antlr4::misc::Interval::INVALID, line, "%s, bindings have inconsistent signedness", msg.c_str());
+     warn(Standard, srcloc, "%s, bindings have inconsistent signedness", msg.c_str());
   }
   if (left.width != right.width) {
-     warn(Standard, antlr4::misc::Interval::INVALID, line, "%s, bindings have inconsistent bit-widths", msg.c_str());
+     warn(Standard, srcloc, "%s, bindings have inconsistent bit-widths", msg.c_str());
   }
 }
 
