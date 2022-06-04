@@ -39,7 +39,7 @@ using namespace Silice;
 static antlr4::TokenStream *s_TokenStream = nullptr;
 static LuaPreProcessor     *s_LuaPreProcessor = nullptr;
 
-Utils::t_source_loc nowhere;
+static Utils::t_source_loc nowhere;
 
 // -------------------------------------------------
 
@@ -218,12 +218,11 @@ std::string Utils::fileToString(const char* file)
 
 Utils::LanguageError::LanguageError(antlr4::Token *tk, const t_source_loc& srcloc, const char *msg, ...)
 {
-    m_Token = tk;
-    m_SrcLoc = srcloc;
-    va_list args;
-    va_start(args, msg);
-    vsprintf_s(m_Message, e_MessageBufferSize, msg, args);
-    va_end(args);
+  m_SrcLoc = srcloc;
+  va_list args;
+  va_start(args, msg);
+  vsprintf_s(m_Message, e_MessageBufferSize, msg, args);
+  va_end(args);
 }
 
 // -------------------------------------------------

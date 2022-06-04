@@ -62,7 +62,7 @@ Blueprint::t_var_nfo Blueprint::getVIODefinition(std::string var, bool& _found) 
 }
 // -------------------------------------------------
 
-std::tuple<t_type_nfo, int> Blueprint::determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const
+std::tuple<t_type_nfo, int> Blueprint::determineVIOTypeWidthAndTableSize(std::string vname, const t_source_loc& srcloc) const
 {
   t_type_nfo tn;
   tn.base_type = Int;
@@ -78,14 +78,14 @@ std::tuple<t_type_nfo, int> Blueprint::determineVIOTypeWidthAndTableSize(std::st
     tn = inout(vname).type_nfo;
     table_size = inout(vname).table_size;
   } else {
-    reportError(interval, line, "variable '%s' not yet declared", vname.c_str());
+    reportError(srcloc, "variable '%s' not yet declared", vname.c_str());
   }
   return std::make_tuple(tn, table_size);
 }
 
 // -------------------------------------------------
 
-std::string Blueprint::resolveWidthOf(std::string vio, const t_instantiation_context &ictx, antlr4::misc::Interval interval) const
+std::string Blueprint::resolveWidthOf(std::string vio, const t_instantiation_context &ictx, const t_source_loc& srcloc) const
 {
   if (isInput(vio)) {
     auto tn = input(vio).type_nfo;
@@ -97,7 +97,7 @@ std::string Blueprint::resolveWidthOf(std::string vio, const t_instantiation_con
     auto tn = inout(vio).type_nfo;
     return std::to_string(tn.width);
   } else {
-    reportError(interval, -1, "variable '%s' not yet declared", vio.c_str());
+    reportError(srcloc, "variable '%s' not yet declared", vio.c_str());
     return "";
   }
 }

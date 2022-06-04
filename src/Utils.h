@@ -43,7 +43,7 @@ namespace Silice
       antlr4::tree::ParseTree  *root = nullptr; // root of the parse tree where the var is declared
     } t_source_loc;
 
-    extern t_source_loc nowhere;
+    static t_source_loc nowhere;
 
     // -------------------------------------------------
 
@@ -94,7 +94,6 @@ namespace Silice
     public:
       enum { e_MessageBufferSize = 4096 };
     private:
-      antlr4::Token           *m_Token = nullptr;
       t_source_loc             m_SrcLoc;
       char                     m_Message[e_MessageBufferSize];
       LanguageError() { m_Message[0] = '\0'; }
@@ -105,7 +104,6 @@ namespace Silice
 #endif
       ;
       const char *message()  const { return (m_Message); }
-      antlr4::Token *token() { return m_Token; }
       const t_source_loc& srcloc() { return m_SrcLoc; }
     };
 

@@ -381,7 +381,7 @@ void SiliceCompiler::beginParsing(
 
     } catch (LanguageError& le) {
 
-      ReportError err(*m_BodyContext->lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(m_BodyContext->parser->getInputStream()), le.token(), le.interval(), le.message());
+      ReportError err(*m_BodyContext->lpp, -1, dynamic_cast<antlr4::TokenStream*>(m_BodyContext->parser->getInputStream()), nullptr, le.srcloc().interval, le.message());
       throw Fatal("[SiliceCompiler] parser stopped");
 
     }
@@ -483,7 +483,7 @@ void SiliceCompiler::writeBody(std::ostream& _out)
 
   } catch (LanguageError& le) {
 
-    ReportError err(*m_BodyContext->lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(m_BodyContext->parser->getInputStream()), le.token(), le.interval(), le.message());
+    ReportError err(*m_BodyContext->lpp, -1, dynamic_cast<antlr4::TokenStream*>(m_BodyContext->parser->getInputStream()), nullptr, le.srcloc().interval, le.message());
     m_BodyContext->unbind();
     throw Fatal("[SiliceCompiler] writer stopped");
 
@@ -523,7 +523,7 @@ void SiliceCompiler::writeUnit(
 
   } catch (LanguageError& le) {
 
-    ReportError err(*m_BodyContext->lpp, le.line(), dynamic_cast<antlr4::TokenStream*>(m_BodyContext->parser->getInputStream()), le.token(), le.interval(), le.message());
+    ReportError err(*m_BodyContext->lpp, -1, ParsingContext::rootContext(le.srcloc().root)->parser->getTokenStream(), nullptr, le.srcloc().interval, le.message());
     parsed.first->unbind();
      throw Fatal("[SiliceCompiler] writer stopped");
 
