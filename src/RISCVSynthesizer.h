@@ -55,7 +55,7 @@ namespace Silice
     std::unordered_map<std::string, int > m_InOutNames;
 
     /// \brief extracts C code
-    std::string cblockToString(siliceParser::CblockContext *cblock) const;
+    std::string cblockToString(siliceParser::RiscvContext *riscv,siliceParser::CblockContext *cblock) const;
     /// \brief generates the C header for compilation
     std::string generateCHeader(siliceParser::RiscvContext *riscv) const;
     /// \brief generates the Silice codde for compilation

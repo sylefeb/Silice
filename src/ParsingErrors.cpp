@@ -115,7 +115,7 @@ std::string ReportError::extractCodeAroundToken(std::string file, antlr4::Token*
   }
   _offset = (int)first_tk->getStartIndex();
   // now extract from file
-  return extractCodeBetweenTokens(file, (int)first_tk->getTokenIndex(), (int)last_tk->getTokenIndex());
+  return extractCodeBetweenTokens(file, tk_stream, (int)first_tk->getTokenIndex(), (int)last_tk->getTokenIndex());
 }
 
 // -------------------------------------------------
@@ -135,7 +135,7 @@ std::string ReportError::prepareMessage(antlr4::TokenStream* tk_stream, antlr4::
       if (interval.a > interval.b) {
         std::swap(interval.a, interval.b);
       }
-      codeline = extractCodeBetweenTokens(file, (int)interval.a, (int)interval.b);
+      codeline = extractCodeBetweenTokens(file, tk_stream, (int)interval.a, (int)interval.b);
       offset = (int)tk_stream->get(interval.a)->getStartIndex();
     }
     msg += codeline;

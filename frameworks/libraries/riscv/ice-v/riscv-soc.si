@@ -76,11 +76,6 @@ $$if verbose then
 $$end
   }
 
-  algorithm <autorun> {
-    // run the CPU
-    () <- cpu <- ();
-  }
-
 }
 
 // --------------------------------------------------

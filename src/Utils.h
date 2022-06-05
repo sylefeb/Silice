@@ -72,7 +72,7 @@ namespace Silice
     /// \brief get the pre-processor
     LuaPreProcessor *getLuaPreProcessor();
     /// \brief extracts a piece of source code in between given tokens
-    std::string extractCodeBetweenTokens(std::string file, int stk, int etk);
+    std::string extractCodeBetweenTokens(std::string file, antlr4::TokenStream* tk_stream, int stk, int etk);
     /// \brief loads the content of file into a string
     std::string fileToString(const char* file);
     /// \brief returns a temporary filename (within temporary directory)

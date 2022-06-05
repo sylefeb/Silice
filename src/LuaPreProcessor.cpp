@@ -932,6 +932,8 @@ void LuaPreProcessor::decomposeSource(
         jumpOverUnit(parser,bs,lcp_unit);
         int after   = bs.pos();
         _units[before] = std::make_pair(name, after);
+      } else if (w.empty()) {
+        parser.readChar();
       }
     }
   }
@@ -944,7 +946,7 @@ std::string nameToLua(std::string str)
   BufferStream bs(str.c_str(), (uint)str.size());
   t_Parser     parser(bs, false);
   std::string  result;
-  bool         close = false;
+  bool         first = true;
   while (!parser.eof()) {
     int next = parser.readChar(false);
     if (IS_EOL(next)) {
@@ -954,17 +956,20 @@ std::string nameToLua(std::string str)
       parser.readChar();
       std::string luacode = parser.readString("$");
       parser.readChar(); // skip $
-      result += " .. (" + luacode + ") .. ";
-      close = true;
+      if (!first) {
+        result += "..";
+      }
+      result += "(" + luacode + ")";
+      first = false;
     } else {
+      if (!first) {
+        result += "..";
+      }
       result += std::string("\'") + parser.readString("$") + std::string("\'");
+      first = false;
     }
   }
-  if (close) {
-    return result;
-  } else {
-    return result;
-  }
+  return result;
 }
 
 // -------------------------------------------------
@@ -1203,6 +1208,13 @@ void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_fil
   g_LuaInstCtx.insert(std::make_pair(m_LuaState, ictx));
   // prepare output
   g_LuaOutputs.insert(std::make_pair(m_LuaState, ofstream(dst_file)));
+
+  {
+    static int cnt = 0;
+    ofstream dbg("dbg_lua_" + std::to_string(++cnt) + ".lua");
+    dbg << lua_code;
+  }
+
   // execute
   int ret = luaL_dostring(m_LuaState, lua_code.c_str());
   if (ret) {

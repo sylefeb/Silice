@@ -7,14 +7,17 @@ $$ print('width of b is ' .. widthof('b'))
   always {
     b = {
 $$ for i=0,widthof('a')-2 do
-     1,
+     1b1,
 $$end
-     1};
+     1b1};
   }
 }
 
-algorithm main(output uint8 leds)
+unit main(output uint8 leds)
 {
-  uint8 a(0);
-  test _(a <: a, b :> leds);
+  uint4 a1(0);
+  uint6 a2(0);
+  test _(a <: a1, b :> leds);
+  test _(a <: a2, b :> a1);
+  algorithm { __display("leds: %d",leds); }
 }

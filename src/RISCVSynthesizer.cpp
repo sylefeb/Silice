@@ -90,9 +90,11 @@ void RISCVSynthesizer::gather(siliceParser::RiscvContext *riscv)
 
 // -------------------------------------------------
 
-std::string RISCVSynthesizer::cblockToString(siliceParser::CblockContext *cblock) const
+std::string RISCVSynthesizer::cblockToString(siliceParser::RiscvContext *riscv,siliceParser::CblockContext *cblock) const
 {
-  return extractCodeBetweenTokens("", (int)cblock->getSourceInterval().a, (int)cblock->getSourceInterval().b);
+  return extractCodeBetweenTokens(
+    "", ParsingContext::rootContext(riscv)->parser->getTokenStream(),
+    (int)cblock->getSourceInterval().a, (int)cblock->getSourceInterval().b);
 }
 
 // -------------------------------------------------
@@ -382,14 +384,14 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
   code << "$$external    = " << justHigherPow2(memorySize(riscv))-2 << nxl;
   code << "$$arch        = '" << archName(riscv) << '\'' << nxl;
   code << "$$algorithm_name = '" << riscv->IDENTIFIER()->getText() << "'" << nxl;
-  code << "$$dofile('" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-compile.lua');" << nxl;
+  code << "$$dofile('" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-compile.lua')" << nxl;
   code << "$$meminit     = data_bram" << nxl;
   code << "$$io_decl     = [[" << io_decl << "]]" << nxl;
   code << "$$io_select   = [[" << io_select << "]]" << nxl;
   code << "$$io_reads    = [[" << io_reads << "]]" << nxl;
   code << "$$io_writes   = [[" << io_writes << "]]" << nxl;
   code << "$$on_accessed = [[" << on_accessed << "]]" << nxl;
-  code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + coreName(riscv) + "/riscv-soc.si\");" << nxl;
+  code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + coreName(riscv) + "/riscv-soc.si\")" << nxl;
   return code.str();
 }
 
@@ -412,7 +414,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     // compile from inline source
     siliceParser::CblockContext *cblock = riscv->cblock();
     sl_assert(cblock != nullptr);
-    string ccode = cblockToString(cblock);
+    string ccode = cblockToString(riscv,cblock);
     ccode = ccode.substr(1, ccode.size() - 2); // skip braces
     // write code to temp file
     string c_tempfile;

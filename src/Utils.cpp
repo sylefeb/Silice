@@ -174,13 +174,13 @@ int Utils::justHigherPow2(int n)
 
 // -------------------------------------------------
 
-std::string Utils::extractCodeBetweenTokens(std::string file, int stk, int etk)
+std::string Utils::extractCodeBetweenTokens(std::string file, antlr4::TokenStream* tk_stream, int stk, int etk)
 {
   if (file.empty()) {
-    file = s_TokenStream->getTokenSource()->getInputStream()->getSourceName();
+    file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
   }
-  int sidx = (int)s_TokenStream->get(stk)->getStartIndex();
-  int eidx = (int)s_TokenStream->get(etk)->getStopIndex();
+  int sidx = (int)tk_stream->get(stk)->getStartIndex();
+  int eidx = (int)tk_stream->get(etk)->getStopIndex();
   FILE *f = NULL;
   fopen_s(&f, file.c_str(), "rb");
   if (f) {
@@ -192,7 +192,7 @@ std::string Utils::extractCodeBetweenTokens(std::string file, int stk, int etk)
     fclose(f);
     return std::string(buffer.raw());
   }
-  return s_TokenStream->getText(s_TokenStream->get(stk), s_TokenStream->get(etk));
+  return tk_stream->getText(tk_stream->get(stk), tk_stream->get(etk));
 }
 
 // -------------------------------------------------
