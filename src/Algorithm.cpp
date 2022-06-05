@@ -192,6 +192,7 @@ void Algorithm::autobindInstancedBlueprint(t_instanced_nfo& _bp)
   }
   // -> for each algorithm inputs
   for (auto io : _bp.blueprint->inputs()) {
+    cerr << io.name << nxl;
     if (defined.find(io.name) == defined.end()) {
       // not bound, check if host algorithm has an input with same name
       if (m_InputNames.find(io.name) != m_InputNames.end()) {
@@ -7835,6 +7836,41 @@ bool Algorithm::getVIONfo(std::string vio, t_var_nfo& _nfo) const
 
 // -------------------------------------------------
 
+void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const
+{
+  // clear
+  _local_ictx.parameters.clear();
+  // parameters for parameterized variables
+  // -> we use all bindings as we do not know yet which are parameterized
+  ForIndex(i, nfo.bindings.size()) {
+    const auto &b = nfo.bindings[i];
+    std::string var = b.left;
+    std::string bound = bindingRightIdentifier(b);
+    if (bound == "clock" || bound == "reset") {
+      continue; /// ////////////////////////////////////////// TODO
+    }
+    t_var_nfo bnfo;
+    if (!getVIONfo(bound, bnfo)) {
+      reportError(nfo.srcloc, "cannot determine binding source type for binding between '%s' and '%s', instance '%s'",
+        var.c_str(), bound.c_str(), nfo.instance_name.c_str());
+    }
+    // resolve parameter value
+    std::transform(var.begin(), var.end(), var.begin(),
+      [](unsigned char c) -> unsigned char { return std::toupper(c); });
+    string str_width = var + "_WIDTH";
+    string str_init = var + "_INIT";
+    string str_signed = var + "_SIGNED";
+    _local_ictx.parameters[str_width] = varBitWidth(bnfo, ictx);
+    _local_ictx.parameters[str_init] = varInitValue(bnfo, ictx);
+    _local_ictx.parameters[str_signed] = typeString(varType(bnfo, ictx));
+  }
+  // instance context
+  _local_ictx.instance_name = ictx.instance_name + "_" + nfo.instance_name;
+  _local_ictx.local_instance_name = nfo.instance_name;
+}
+
+// -------------------------------------------------
+
 void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, const t_instantiation_context& ictx,bool first_pass)
 {
   // write instantiated blueprints
@@ -7846,52 +7882,38 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
       nfo.blueprint = gbp;
       continue;
     }
-    // create local context
-    t_instantiation_context local_ictx;
-    // parameters for parameterized variables
-    // -> we use all bindings as we do not know yet which are parameterized
-    ForIndex(i, nfo.bindings.size()) {
-      const auto &b     = nfo.bindings[i];
-      std::string var   = b.left;
-      std::string bound = bindingRightIdentifier(b);
-      if (bound == "clock" || bound == "reset") {
-        continue; /// ////////////////////////////////////////// TODO
-      }
-      t_var_nfo bnfo;
-      if (!getVIONfo(bound, bnfo)) {
-        reportError(nfo.srcloc, "cannot determine binding source type for binding between '%s' and '%s', instance '%s'",
-          var.c_str(), bound.c_str(), nfo.instance_name.c_str());
-      }
-      // resolve parameter value
-      std::transform(var.begin(), var.end(), var.begin(),
-        [](unsigned char c) -> unsigned char { return std::toupper(c); });
-      string str_width = var + "_WIDTH";
-      string str_init = var + "_INIT";
-      string str_signed = var + "_SIGNED";
-      local_ictx.parameters[str_width] = varBitWidth(bnfo, ictx);
-      local_ictx.parameters[str_init] = varInitValue(bnfo, ictx);
-      local_ictx.parameters[str_signed] = typeString(varType(bnfo, ictx));
-    }
-    // instance context
-    local_ictx.instance_name       = ictx.instance_name + "_" + nfo.instance_name;
-    local_ictx.local_instance_name = nfo.instance_name;
     // parse unit (if not already known)
-    if (nfo.blueprint.isNull()) {
+    if (first_pass) {
+      sl_assert(nfo.blueprint.isNull());
+      // create local context with what we know
+      // NOTE: if <:auto:> is used, we only get parameterized info for the explicit bindings at this stage
+      //       the pre-processor will not be able to use widthof/signed on implicit bindings
+      t_instantiation_context local_ictx;
+      makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
+      // parse the unit
       auto cbp = compiler->parseUnit(nfo.blueprint_name, local_ictx);
       nfo.blueprint_parsing_context = cbp.first; // NOTE: the context has to stay alive until we are done
       nfo.blueprint = cbp.second;
+      // resolve any automatic directional bindings
+      resolveInstancedBlueprintBindingDirections(nfo);
+      // perform autobind
+      if (nfo.autobind) {
+        autobindInstancedBlueprint(nfo);
+      }
+      // update the instantiation context with what we discovered
+      // NOTE: if <:auto:> was used, we now have all the info to properly fill in the parameterized info
+      makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
       // write unit
       compiler->writeUnit(cbp, local_ictx, out, first_pass);
     } else {
+      sl_assert(!nfo.blueprint.isNull());
       nfo.blueprint_parsing_context->bind();
+      // create local context
+      t_instantiation_context local_ictx;
+      makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
+      // write as module
       nfo.blueprint->writeAsModule(compiler, out, local_ictx, first_pass);
       nfo.blueprint_parsing_context->unbind();
-    }
-    // resolve any automatic directional bindings
-    resolveInstancedBlueprintBindingDirections(nfo);
-    // perform autobind
-    if (nfo.autobind) {
-      autobindInstancedBlueprint(nfo);
     }
   }
 }
