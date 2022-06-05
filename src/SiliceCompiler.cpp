@@ -99,8 +99,13 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
     }
 
   } else if (alg || unit) {
-
-    throw Fatal("pre-processor error: a unit remains in the source body");
+    std::string name;
+    if (alg) {
+      name = alg->IDENTIFIER()->getText();
+    } else {
+      name = unit->IDENTIFIER()->getText();
+    }
+    throw Fatal("pre-processor error: a unit remains in the source body (%s)",name.c_str());
 
   } else if (circuit) {
 
