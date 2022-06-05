@@ -53,7 +53,8 @@ void Utils::reportError(const t_source_loc& srcloc, const char *msg, ...)
   vsprintf_s(message, messageBufferSize, msg, args);
   va_end(args);
 
-  throw LanguageError(nullptr, srcloc, "%s", message);
+  auto pctx = ParsingContext::rootContext(srcloc.root);
+  throw ReportError(*pctx->lpp, -1, pctx->parser->getTokenStream(), nullptr, srcloc.interval, message);
 }
 
 // -------------------------------------------------
@@ -212,17 +213,6 @@ std::string Utils::fileToString(const char* file)
       break;
   }
   return strstream.str();
-}
-
-// -------------------------------------------------
-
-Utils::LanguageError::LanguageError(antlr4::Token *tk, const t_source_loc& srcloc, const char *msg, ...)
-{
-  m_SrcLoc = srcloc;
-  va_list args;
-  va_start(args, msg);
-  vsprintf_s(m_Message, e_MessageBufferSize, msg, args);
-  va_end(args);
 }
 
 // -------------------------------------------------

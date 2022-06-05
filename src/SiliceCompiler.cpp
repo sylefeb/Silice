@@ -379,9 +379,8 @@ void SiliceCompiler::beginParsing(
       // analyze
       gatherBody(m_BodyContext->parse(preprocessed));
 
-    } catch (LanguageError& le) {
+    } catch (ReportError&) {
 
-      ReportError err(*m_BodyContext->lpp, -1, dynamic_cast<antlr4::TokenStream*>(m_BodyContext->parser->getInputStream()), nullptr, le.srcloc().interval, le.message());
       throw Fatal("[SiliceCompiler] parser stopped");
 
     }
@@ -404,26 +403,35 @@ void SiliceCompiler::endParsing()
 std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> >
   SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx)
 {
-  std::string preprocessed = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
+  try {
 
-  // create parsing context
-  AutoPtr<ParsingContext> context(new ParsingContext(
-    m_BodyContext->fresult, m_BodyContext->lpp,
-    m_BodyContext->framework_verilog, m_BodyContext->defines));
+    std::string preprocessed = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
 
-  // bind local context
-  context->bind();
+    // create parsing context
+    AutoPtr<ParsingContext> context(new ParsingContext(
+      m_BodyContext->fresult, m_BodyContext->lpp,
+      m_BodyContext->framework_verilog, m_BodyContext->defines));
 
-  // pre-process unit
-  m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed, ictx);
+    // bind local context
+    context->bind();
 
-  // gather the unit
-  auto bp = gatherUnit(context->parse(preprocessed));
+    // pre-process unit
+    m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed, ictx);
 
-  // done
-  context->unbind();
+    // gather the unit
+    auto bp = gatherUnit(context->parse(preprocessed));
 
-  return std::make_pair(context,bp);
+    // done
+    context->unbind();
+
+    return std::make_pair(context, bp);
+
+  } catch (ReportError&) {
+
+    m_BodyContext->unbind();
+    throw Fatal("[SiliceCompiler] writer stopped");
+
+  }
 }
 
 // -------------------------------------------------
@@ -481,9 +489,8 @@ void SiliceCompiler::writeBody(std::ostream& _out)
     // done
     m_BodyContext->unbind();
 
-  } catch (LanguageError& le) {
+  } catch (ReportError&) {
 
-    ReportError err(*m_BodyContext->lpp, -1, dynamic_cast<antlr4::TokenStream*>(m_BodyContext->parser->getInputStream()), nullptr, le.srcloc().interval, le.message());
     m_BodyContext->unbind();
     throw Fatal("[SiliceCompiler] writer stopped");
 
@@ -521,11 +528,10 @@ void SiliceCompiler::writeUnit(
     // unbind context
     parsed.first->unbind();
 
-  } catch (LanguageError& le) {
+  } catch (ReportError&) {
 
-    ReportError err(*m_BodyContext->lpp, -1, ParsingContext::rootContext(le.srcloc().root)->parser->getTokenStream(), nullptr, le.srcloc().interval, le.message());
     parsed.first->unbind();
-     throw Fatal("[SiliceCompiler] writer stopped");
+    throw Fatal("[SiliceCompiler] writer stopped");
 
   }
 
@@ -579,10 +585,8 @@ void SiliceCompiler::run(
   writeUnit(bp, ictx, out, true);
   // -> second pass
   writeUnit(bp, ictx, out, false);
-
   // stop parsing
   endParsing();
-
 }
 
 // -------------------------------------------------

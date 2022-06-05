@@ -89,24 +89,6 @@ namespace Silice
 
     // -------------------------------------------------
 
-    class LanguageError
-    {
-    public:
-      enum { e_MessageBufferSize = 4096 };
-    private:
-      t_source_loc             m_SrcLoc;
-      char                     m_Message[e_MessageBufferSize];
-      LanguageError() { m_Message[0] = '\0'; }
-    public:
-      LanguageError(antlr4::Token *tk, const t_source_loc& srcloc, const char *msg, ...)
-#if !defined(_WIN32) && !defined(_WIN64)
-        __attribute__((format(printf, 5, 6)))
-#endif
-      ;
-      const char *message()  const { return (m_Message); }
-      const t_source_loc& srcloc() { return m_SrcLoc; }
-    };
-
   };
 
 };
