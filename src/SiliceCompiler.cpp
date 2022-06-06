@@ -99,13 +99,20 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
     }
 
   } else if (alg || unit) {
+
+    /// static unit
+    // NOTE: the only way this can happen is if a unit is produced (written)
+    //       from the Lua pre-processor and concatenated as a string.
     std::string name;
     if (alg) {
       name = alg->IDENTIFIER()->getText();
     } else {
       name = unit->IDENTIFIER()->getText();
     }
-    throw Fatal("pre-processor error: a unit remains in the source body (%s)",name.c_str());
+    std::cerr << "parsing static unit " << name << nxl;
+    auto bp = gatherUnit(tree);
+    m_Blueprints.insert(std::make_pair(name, bp));
+    m_BlueprintsInDeclOrder.push_back(name);
 
   } else if (circuit) {
 
@@ -195,6 +202,95 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
 
 AutoPtr<Blueprint> SiliceCompiler::gatherUnit(antlr4::tree::ParseTree* tree)
 {
+  auto alg = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
+  auto unit = dynamic_cast<siliceParser::UnitContext *>(tree);
+  sl_assert(alg || unit);
+  /// algorithm or unit
+  std::string name;
+  bool hasHash;
+  siliceParser::BpModifiersContext *mods = nullptr;
+  if (alg) {
+    name = alg->IDENTIFIER()->getText();
+    hasHash = alg->HASH() != nullptr;
+    mods = alg->bpModifiers();
+  } else {
+    name = unit->IDENTIFIER()->getText();
+    hasHash = unit->HASH() != nullptr;
+    mods = unit->bpModifiers();
+  }
+  std::cerr << "parsing algorithm " << name << nxl;
+  bool autorun = (name == "main"); // main always autoruns
+  bool onehot = false;
+  std::string formalDepth = "";
+  std::string formalTimeout = "";
+  std::vector<std::string> formalModes{};
+  std::string clock = ALG_CLOCK;
+  std::string reset = ALG_RESET;
+  if (mods != nullptr) {
+    for (auto m : mods->bpModifier()) {
+      if (m->sclock() != nullptr) {
+        clock = m->sclock()->IDENTIFIER()->getText();
+      }
+      if (m->sreset() != nullptr) {
+        reset = m->sreset()->IDENTIFIER()->getText();
+      }
+      if (m->sautorun() != nullptr) {
+        if (unit) {
+          throw Fatal("Unit cannot use the 'autorun' modifier, apply it to the internal algorithm block (line %d).",
+            (int)m->sautorun()->getStart()->getLine());
+        }
+        autorun = true;
+      }
+      if (m->sonehot() != nullptr) {
+        if (unit) {
+          throw Fatal("Unit cannot use the 'onehot' modifier, apply it to the internal algorithm block (line %d).",
+            (int)m->sonehot()->getStart()->getLine());
+        }
+        onehot = true;
+      }
+      if (m->sstacksz() != nullptr) {
+        // deprecated, ignore
+      }
+      if (m->sformdepth() != nullptr) {
+        formalDepth = m->sformdepth()->NUMBER()->getText();
+      }
+      if (m->sformtimeout() != nullptr) {
+        formalTimeout = m->sformtimeout()->NUMBER()->getText();
+      }
+      if (m->sformmode() != nullptr) {
+        for (auto i : m->sformmode()->IDENTIFIER()) {
+          std::string mode = i->getText();
+          if (mode != "bmc" && mode != "tind" && mode != "cover") {
+            throw Fatal("Unknown formal mode '%s' (line %d).", mode.c_str(), (int)m->sformmode()->getStart()->getLine());
+          }
+          formalModes.push_back(mode);
+        }
+      }
+    }
+  }
+  if (formalModes.empty()) {
+    // default to a simple BMC if no mode is specified
+    formalModes.push_back("bmc");
+  }
+
+  AutoPtr<Algorithm> algorithm(new Algorithm(
+    name, hasHash, clock, reset, autorun, onehot, formalDepth, formalTimeout, formalModes,
+    m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
+  );
+
+  if (alg) {
+    algorithm->gather(alg->inOutList(), alg->declAndInstrList());
+  } else {
+    algorithm->gather(unit->inOutList(), unit->unitBlocks());
+  }
+
+  return AutoPtr<Blueprint>(algorithm);
+}
+
+// -------------------------------------------------
+
+AutoPtr<Blueprint> SiliceCompiler::findAndGatherUnit(antlr4::tree::ParseTree* tree)
+{
   if (tree == nullptr) {
     return AutoPtr<Blueprint>();
   }
@@ -207,7 +303,7 @@ AutoPtr<Blueprint> SiliceCompiler::gatherUnit(antlr4::tree::ParseTree* tree)
 
     // keep going
     for (auto c : tree->children) {
-      auto bp = gatherUnit(c);
+      auto bp = findAndGatherUnit(c);
       if (!bp.isNull()) {
         return bp; // source contains a single unit, so we return as soon as found
       }
@@ -215,86 +311,7 @@ AutoPtr<Blueprint> SiliceCompiler::gatherUnit(antlr4::tree::ParseTree* tree)
 
   } else if (alg || unit) {
 
-    /// algorithm or unit
-    std::string name;
-    bool hasHash;
-    siliceParser::BpModifiersContext *mods = nullptr;
-    if (alg) {
-      name = alg->IDENTIFIER()->getText();
-      hasHash = alg->HASH() != nullptr;
-      mods = alg->bpModifiers();
-    } else {
-      name = unit->IDENTIFIER()->getText();
-      hasHash = unit->HASH() != nullptr;
-      mods = unit->bpModifiers();
-    }
-    std::cerr << "parsing algorithm " << name << nxl;
-    bool autorun = (name == "main"); // main always autoruns
-    bool onehot = false;
-    std::string formalDepth = "";
-    std::string formalTimeout = "";
-    std::vector<std::string> formalModes{};
-    std::string clock = ALG_CLOCK;
-    std::string reset = ALG_RESET;
-    if (mods != nullptr) {
-      for (auto m : mods->bpModifier()) {
-        if (m->sclock() != nullptr) {
-          clock = m->sclock()->IDENTIFIER()->getText();
-        }
-        if (m->sreset() != nullptr) {
-          reset = m->sreset()->IDENTIFIER()->getText();
-        }
-        if (m->sautorun() != nullptr) {
-          if (unit) {
-            throw Fatal("Unit cannot use the 'autorun' modifier, apply it to the internal algorithm block (line %d).",
-              (int)m->sautorun()->getStart()->getLine());
-          }
-          autorun = true;
-        }
-        if (m->sonehot() != nullptr) {
-          if (unit) {
-            throw Fatal("Unit cannot use the 'onehot' modifier, apply it to the internal algorithm block (line %d).",
-              (int)m->sonehot()->getStart()->getLine());
-          }
-          onehot = true;
-        }
-        if (m->sstacksz() != nullptr) {
-          // deprecated, ignore
-        }
-        if (m->sformdepth() != nullptr) {
-          formalDepth = m->sformdepth()->NUMBER()->getText();
-        }
-        if (m->sformtimeout() != nullptr) {
-          formalTimeout = m->sformtimeout()->NUMBER()->getText();
-        }
-        if (m->sformmode() != nullptr) {
-          for (auto i : m->sformmode()->IDENTIFIER()) {
-            std::string mode = i->getText();
-            if (mode != "bmc" && mode != "tind" && mode != "cover") {
-              throw Fatal("Unknown formal mode '%s' (line %d).", mode.c_str(), (int)m->sformmode()->getStart()->getLine());
-            }
-            formalModes.push_back(mode);
-          }
-        }
-      }
-    }
-    if (formalModes.empty()) {
-      // default to a simple BMC if no mode is specified
-      formalModes.push_back("bmc");
-    }
-
-    AutoPtr<Algorithm> algorithm(new Algorithm(
-      name, hasHash, clock, reset, autorun, onehot, formalDepth, formalTimeout, formalModes,
-      m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
-    );
-
-    if (alg) {
-      algorithm->gather(alg->inOutList(), alg->declAndInstrList());
-    } else {
-      algorithm->gather(unit->inOutList(), unit->unitBlocks());
-    }
-
-    return AutoPtr<Blueprint>(algorithm);
+    return gatherUnit(tree);
 
   }
 
@@ -424,7 +441,7 @@ std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> >
     m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed, ictx);
 
     // gather the unit
-    auto bp = gatherUnit(context->parse(preprocessed));
+    auto bp = findAndGatherUnit(context->parse(preprocessed));
 
     // done
     context->unbind();
@@ -441,7 +458,7 @@ std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> >
 
 // -------------------------------------------------
 
-void SiliceCompiler::writeBody(std::ostream& _out)
+void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiation_context& ictx)
 {
   // check parser is active
   if (m_BodyContext.isNull()) {
@@ -475,6 +492,11 @@ void SiliceCompiler::writeBody(std::ostream& _out)
       if (rv != nullptr) {
         rv->writeCompiled(_out);
       }
+      Algorithm *alg = dynamic_cast<Algorithm*>(m_Blueprints.at(miordr).raw());
+      if (alg != nullptr) {
+        writeUnit(std::make_pair(m_BodyContext, m_Blueprints.at(miordr)), ictx, _out, true);
+        writeUnit(std::make_pair(m_BodyContext, m_Blueprints.at(miordr)), ictx, _out, false);
+      }
     }
 #if 0
     // write formal unit tests
@@ -485,8 +507,8 @@ void SiliceCompiler::writeBody(std::ostream& _out)
         if (alg->isFormal()) {
           alg->enableReporting(m_BodyContext->fresult);
           /// TODO: parse unit, ...
-          alg->writeUnit("formal_" + algname + "$", ictx, _out, true);
-          alg->writeUnit("formal_" + algname + "$", ictx, _out, false);
+          writeUnit("formal_" + algname + "$", ictx, _out, true);
+          writeUnit("formal_" + algname + "$", ictx, _out, false);
         }
       }
     }
@@ -577,7 +599,7 @@ void SiliceCompiler::run(
   // create output stream
   std::ofstream out(m_BodyContext->fresult);
   // write body
-  writeBody(out);
+  writeBody(out, ictx);
   // which algorithm to export?
   if (to_export.empty()) {
     to_export = "main"; // export main by default

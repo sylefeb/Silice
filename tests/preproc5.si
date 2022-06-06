@@ -1,0 +1,9 @@
+
+$$ str = 'unit test(output uint8 v) { v := 8b10101010; }'
+
+$str$
+
+unit main(output uint8 leds)
+{
+  test _(v :> leds);
+}

@@ -1208,13 +1208,6 @@ void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_fil
   g_LuaInstCtx.insert(std::make_pair(m_LuaState, ictx));
   // prepare output
   g_LuaOutputs.insert(std::make_pair(m_LuaState, ofstream(dst_file)));
-
-  {
-    static int cnt = 0;
-    ofstream dbg("dbg_lua_" + std::to_string(++cnt) + ".lua");
-    dbg << lua_code;
-  }
-
   // execute
   int ret = luaL_dostring(m_LuaState, lua_code.c_str());
   if (ret) {

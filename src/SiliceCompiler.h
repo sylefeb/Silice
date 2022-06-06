@@ -28,9 +28,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 /// TODO on new pre-processor approach
 
 - clock/reset in Algorithm::instantiateBlueprints
-- RISCVSynthesizer
 - formal unit tests
-
 
 */
 
@@ -83,6 +81,8 @@ namespace Silice {
     void prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog);
     /// \brief gather a unit from the parsed tree
     AutoPtr<Blueprint> gatherUnit(antlr4::tree::ParseTree* tree);
+    /// \brief find and gather a unit from the parsed tree
+    AutoPtr<Blueprint> findAndGatherUnit(antlr4::tree::ParseTree* tree);
 
     /// \brief body parsing context
     AutoPtr<ParsingContext> m_BodyContext;
@@ -112,7 +112,7 @@ namespace Silice {
       const std::vector<std::string>& export_params);
 
     /// \brief writes the design body in the output stream
-    void writeBody(std::ostream& _out);
+    void writeBody(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
 
     /// \brief writes a unit in the output stream
     void writeUnit(

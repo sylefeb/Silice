@@ -1,0 +1,47 @@
+/*
+
+There is a crucial difference between using a local of global var
+when using defines in the pre-processor ; in particular using global
+vars (the default) will lead to confusion as the last value of the var
+will be used when instantiating the units. Instead, using a local var
+ensures the value **at declaration time** is being used.
+
+*/
+$$ i=0 -- will be ignored as overridden below (i=3)
+$$ -- local i=0 -- using a local for both fixes the issue
+unit test0(
+   input   auto  i,
+   output! uint1 o)
+{
+  $$print('Test0 i=' .. i)
+  always {
+    o  = (i >> $i$) + $widthof('i')$;
+  }
+}
+
+$$ i=3
+$$ -- local i=3
+unit test3(
+   input   auto  i,
+   output! uint1 o)
+{
+  $$print('Test3 i=' .. i)
+  always {
+    o  = (i >> $i$) + $widthof('i')$;
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint8  i0(0);
+  uint9  i1(0);
+  uint10 i2(0);
+  uint11 i3(0);
+
+  test3 t0(i <: i3);
+  test0 t1(i <: i0);
+  test3 t2(i <: i2);
+  test0 t3(i <: i1);
+
+  algorithm {}
+}

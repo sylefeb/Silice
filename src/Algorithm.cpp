@@ -192,7 +192,6 @@ void Algorithm::autobindInstancedBlueprint(t_instanced_nfo& _bp)
   }
   // -> for each algorithm inputs
   for (auto io : _bp.blueprint->inputs()) {
-    cerr << io.name << nxl;
     if (defined.find(io.name) == defined.end()) {
       // not bound, check if host algorithm has an input with same name
       if (m_InputNames.find(io.name) != m_InputNames.end()) {
@@ -8086,7 +8085,11 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   for (const auto& ibiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &nfo = m_InstancedBlueprints.at(ibiordr);
     // module name
-    out << nfo.blueprint->moduleName(nfo.blueprint_name, ictx.instance_name + '_' + nfo.instance_name) << ' ';
+    if (compiler->isStaticBlueprint(nfo.blueprint_name).isNull()) {
+      out << nfo.blueprint->moduleName(nfo.blueprint_name, ictx.instance_name + '_' + nfo.instance_name) << ' ';
+    } else {
+      out << nfo.blueprint->moduleName(nfo.blueprint_name, "") << ' ';
+    }
     // instance name
     out << nfo.instance_name << ' ';
     // ports
