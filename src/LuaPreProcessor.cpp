@@ -1032,6 +1032,9 @@ std::string LuaPreProcessor::prepareCode(
         current += "\\";
       }
       current += ch;
+    } else if (next == '/') {
+      // might be a comment, jump over it
+      jumpOverComment(parser);
     } else if (next == '$') {
       // Lua line or insertion?
       parser.readChar();

@@ -897,7 +897,7 @@ private:
     /// \brief resolve inouts
     void resolveInOuts();
     ///  \brief adds variables for non bound instanced blueprint inputs and outputs
-    void createInstancedBlueprintsInputOutputVars();
+    void createInstancedBlueprintInputOutputVars(t_instanced_nfo& _bp);
     /// \brief returns true if the algorithm does not have an FSM
     bool hasNoFSM() const;
     /// \brief returns true if the algorithm does not call subroutines

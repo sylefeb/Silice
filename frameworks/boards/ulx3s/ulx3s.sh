@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 case "$(uname -s)" in
 MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`

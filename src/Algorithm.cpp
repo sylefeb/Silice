@@ -5146,26 +5146,24 @@ void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::Pars
 
 // -------------------------------------------------
 
-void Algorithm::createInstancedBlueprintsInputOutputVars()
+void Algorithm::createInstancedBlueprintInputOutputVars(t_instanced_nfo& _bp)
 {
-  for (auto& nfo : m_InstancedBlueprints) {
-    // create vars for non bound inputs, these are used with the 'dot' access syntax and allow access pattern analysis
-    for (const auto& i : nfo.second.blueprint->inputs()) {
-      if (nfo.second.boundinputs.count(i.name) == 0) {
-        t_var_nfo vnfo = i;
-        vnfo.name = nfo.second.instance_prefix + "_" + i.name;
-        addVar(vnfo, m_Blocks.front(), t_source_loc());
-      }
-    }
-    // create vars for outputs, these are used with the 'dot' access syntax and allow access pattern analysis
-    for (const auto& o : nfo.second.blueprint->outputs()) {
-      t_var_nfo vnfo = o;
-      vnfo.name = nfo.second.instance_prefix + "_" + o.name;
+  // create vars for non bound inputs, these are used with the 'dot' access syntax and allow access pattern analysis
+  for (const auto& i : _bp.blueprint->inputs()) {
+    if (_bp.boundinputs.count(i.name) == 0) {
+      t_var_nfo vnfo = i;
+      vnfo.name = _bp.instance_prefix + "_" + i.name;
       addVar(vnfo, m_Blocks.front(), t_source_loc());
-      m_Vars.at(m_VarNames.at(vnfo.name)).access = e_WriteBinded;
-      m_Vars.at(m_VarNames.at(vnfo.name)).usage = e_Bound;
-      m_VIOBoundToBlueprintOutputs[vnfo.name] = WIRE + nfo.second.instance_prefix + "_" + o.name;
     }
+  }
+  // create vars for outputs, these are used with the 'dot' access syntax and allow access pattern analysis
+  for (const auto& o : _bp.blueprint->outputs()) {
+    t_var_nfo vnfo = o;
+    vnfo.name = _bp.instance_prefix + "_" + o.name;
+    addVar(vnfo, m_Blocks.front(), t_source_loc());
+    m_Vars.at(m_VarNames.at(vnfo.name)).access = e_WriteBinded;
+    m_Vars.at(m_VarNames.at(vnfo.name)).usage = e_Bound;
+    m_VIOBoundToBlueprintOutputs[vnfo.name] = WIRE + _bp.instance_prefix + "_" + o.name;
   }
 }
 
@@ -5445,8 +5443,6 @@ void Algorithm::optimize()
     determineBlueprintBoundVIO();
     // analyze instances inputs
     analyzeInstancedBlueprintInputs();
-    // create vars for instanced blueprint inputs/outputs
-    createInstancedBlueprintsInputOutputVars();
     // check var access permissions
     checkPermissions();
     // analyze variables access
@@ -7861,18 +7857,24 @@ void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, co
     }
     t_var_nfo bnfo;
     if (!getVIONfo(bound, bnfo)) {
-      reportError(nfo.srcloc, "cannot determine binding source type for binding between '%s' and '%s', instance '%s'",
-        var.c_str(), bound.c_str(), nfo.instance_name.c_str());
+      continue; // NOTE: This is fine, we might be missing a binding that will be later resolved.
+                //       Later (when writing the output) this is strictly asserted.
+                //       This will only be an issue if the bound var is actually a paramterized var,
+                //       however tdesigner is expected to worry about instantiation order in such cases.
+    }
+    if (bnfo.table_size != 0) {
+      // parameterized vars cannot be tables
+      continue;
     }
     // resolve parameter value
     std::transform(var.begin(), var.end(), var.begin(),
       [](unsigned char c) -> unsigned char { return std::toupper(c); });
-    string str_width = var + "_WIDTH";
-    string str_init = var + "_INIT";
+    string str_width  = var + "_WIDTH";
+    string str_init   = var + "_INIT";
     string str_signed = var + "_SIGNED";
-    _local_ictx.parameters[str_width] = varBitWidth(bnfo, ictx);
-    _local_ictx.parameters[str_init] = varInitValue(bnfo, ictx);
+    _local_ictx.parameters[str_width]  = varBitWidth(bnfo, ictx);
     _local_ictx.parameters[str_signed] = typeString(varType(bnfo, ictx));
+    _local_ictx.parameters[str_init]   = varInitValue(bnfo, ictx);
   }
   // instance context
   _local_ictx.instance_name = ictx.instance_name + "_" + nfo.instance_name;
@@ -7895,6 +7897,7 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
     // parse unit (if not already known)
     if (first_pass) {
       sl_assert(nfo.blueprint.isNull());
+      cerr << "instantiating unit '" << nfo.blueprint_name << "' as '" << nfo.instance_name << "'\n";
       // create local context with what we know
       // NOTE: if <:auto:> is used, we only get parameterized info for the explicit bindings at this stage
       //       the pre-processor will not be able to use widthof/signed on implicit bindings
@@ -7909,6 +7912,8 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
       } catch (Fatal&) {
         reportError(nfo.srcloc, "could not instantiate unit '%s'", nfo.blueprint_name.c_str());
       }
+      // create vars for instanced blueprint inputs/outputs
+      createInstancedBlueprintInputOutputVars(nfo);
       // resolve any automatic directional bindings
       resolveInstancedBlueprintBindingDirections(nfo);
       // perform autobind
