@@ -741,7 +741,7 @@ void jumpOverComment(t_Parser& parser)
   int next = parser.readChar();
   if (next == '/') {
     // comment, advance until next end of line
-    parser.reachChar('\n');
+    parser.readString("\n");
   } else if (next == '*') {
     // block comment, find the end
     while (!parser.eof()) {
