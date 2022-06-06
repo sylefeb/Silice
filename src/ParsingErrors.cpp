@@ -23,6 +23,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "ParsingErrors.h"
+#include "ParsingContext.h"
 #include "Utils.h"
 #include "Config.h"
 
@@ -170,7 +171,7 @@ int ReportError::lineFromInterval(antlr4::TokenStream *tk_stream, antlr4::misc::
 
 // -------------------------------------------------
 
-ReportError::ReportError(const LuaPreProcessor& lpp,
+ReportError::ReportError(ParsingContext *pctx,
   int line, antlr4::TokenStream* tk_stream,
   antlr4::Token *offender, antlr4::misc::Interval interval, std::string msg)
 {
@@ -178,7 +179,10 @@ ReportError::ReportError(const LuaPreProcessor& lpp,
   if (line == -1) {
     line = lineFromInterval(tk_stream, interval);
   }
-  printReport(lpp.lineAfterToFileAndLineBefore((int)line), msg);
+  if (pctx == nullptr) {
+    pctx = ParsingContext::activeContext();
+  }
+  printReport(pctx->lpp->lineAfterToFileAndLineBefore(pctx, (int)line), msg);
 }
 
 // -------------------------------------------------
@@ -190,7 +194,7 @@ void LexerErrorListener::syntaxError(
   size_t charPositionInLine,
   const std::string& msg, std::exception_ptr e)
 {
-  ReportError err(m_PreProcessor, (int)line, nullptr, nullptr, antlr4::misc::Interval(), msg);
+  ReportError err(nullptr, (int)line, nullptr, nullptr, antlr4::misc::Interval(), msg);
   throw Fatal("[lexical error]");
 }
 
@@ -204,7 +208,7 @@ void ParserErrorListener::syntaxError(
   const std::string&  msg,
   std::exception_ptr  e)
 {
-  ReportError err(m_PreProcessor, (int)line, dynamic_cast<antlr4::TokenStream*>(recognizer->getInputStream()), tk, antlr4::misc::Interval::INVALID, msg);
+  ReportError err(nullptr, (int)line, dynamic_cast<antlr4::TokenStream*>(recognizer->getInputStream()), tk, antlr4::misc::Interval::INVALID, msg);
   throw Fatal("[syntax error]");
 }
 

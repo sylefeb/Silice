@@ -6118,7 +6118,9 @@ void Algorithm::writeAssert(std::string prefix,
                             const t_vio_dependencies &dependencies,
                             t_vio_ff_usage &_ff_usage) const
 {
-  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)expression_0->getStart()->getLine());
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(
+    ParsingContext::rootContext(a.instr),
+    (int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
   out << "assert(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
@@ -6136,7 +6138,9 @@ void Algorithm::writeAssume(std::string prefix,
                             const t_vio_dependencies &dependencies,
                             t_vio_ff_usage &_ff_usage) const
 {
-  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)expression_0->getStart()->getLine());
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(
+    ParsingContext::rootContext(a.instr),
+    (int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
   out << "assume(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
@@ -6154,7 +6158,9 @@ void Algorithm::writeRestrict(std::string prefix,
                               const t_vio_dependencies &dependencies,
                               t_vio_ff_usage &_ff_usage) const
 {
-  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)expression_0->getStart()->getLine());
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(
+    ParsingContext::rootContext(a.instr),
+    (int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
   out << "restrict(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, true, dependencies, _ff_usage) << ")); //%" << silice_position << nxl;
@@ -6172,7 +6178,9 @@ void Algorithm::writeCover(std::string prefix,
                            const t_vio_dependencies &dependencies,
                            t_vio_ff_usage &_ff_usage) const
 {
-  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)expression_0->getStart()->getLine());
+  auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(
+    ParsingContext::rootContext(a.instr),
+    (int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
   out << "cover(" << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, true, dependencies, _ff_usage) << "); //%" << silice_position << nxl;
@@ -6622,17 +6630,16 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
         reportError(sourceloc(chk.ctx), "State named %s not found", chk.targeted_state.c_str());
       if (!B->second->is_state)
         reportError(sourceloc(chk.ctx), "State named %s does not exist", chk.targeted_state.c_str());
-
-      auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)chk.ctx->getStart()->getLine());
+      auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(
+        ParsingContext::rootContext(chk.ctx),
+        (int)chk.ctx->getStart()->getLine());
       std::string silice_position = file + ":" + std::to_string(line);
-
       const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
       std::string condition = "(" + inState + " && !" + reset;
       if (!isNotCallable()) {
         condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
       }
       condition = condition + " && !$initstate)";
-
       out << "assert(!" << condition << " || $past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << "); //%" << silice_position << nxl;
     }
   }
@@ -6640,31 +6647,35 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
   for (const auto &chk : m_StableChecks) {
     t_vio_dependencies _deps;
     t_vio_ff_usage _ff_usage;
-
-    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)(chk.isAssumption ? chk.ctx.assume_ctx->getStart() : chk.ctx.assert_ctx->getStart())->getLine());
-    std::string silice_position = file + ":" + std::to_string(line);
-
+    std::string silice_position;
+    if (chk.isAssumption) {
+      auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(
+        ParsingContext::rootContext(chk.ctx.assume_ctx), (int)chk.ctx.assume_ctx->getStart()->getLine());
+      silice_position = file + ":" + std::to_string(line);
+    } else {
+      auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(
+        ParsingContext::rootContext(chk.ctx.assert_ctx), (int)chk.ctx.assert_ctx->getStart()->getLine());
+      silice_position = file + ":" + std::to_string(line);
+    }
     const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
     std::string condition = "(" + inState + " && !" + reset;
     if (!isNotCallable()) {
       condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
     }
     condition = condition + " && !$initstate)";
-
     out << (chk.isAssumption ? "assume" : "assert") << "(!" << condition
         << " || $stable(" << rewriteExpression(prefix, (chk.isAssumption ? chk.ctx.assume_ctx->expression_0() : chk.ctx.assert_ctx->expression_0()), 0, nullptr, ictx, FF_Q, true, _deps, _ff_usage) << ")); //%" << silice_position << nxl;
   }
 
   for (auto const &chk : m_StableInputChecks) {
-    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore((int)chk.ctx->getStart()->getLine());
+    auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(
+      ParsingContext::rootContext(chk.ctx), (int)chk.ctx->getStart()->getLine());
     std::string silice_position = file + ":" + std::to_string(line);
-
     std::string condition = "(!" + reset;
     if (!isNotCallable()) {
       condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
     }
     condition = condition + " && !$initstate)";
-
     out << "assume(!" << condition << " || $stable(" << encapsulateIdentifier(chk.varName, true, ALG_INPUT "_" + chk.varName, "") << ")); //%" << silice_position << nxl;
   }
 
@@ -6985,8 +6996,8 @@ v2i Algorithm::instructionLines(antlr4::tree::ParseTree *instr, const t_instanti
   auto tk_start = getToken(instr, instr->getSourceInterval(), false);
   auto tk_end   = getToken(instr, instr->getSourceInterval(), true);
   if (tk_start && tk_end) {
-    std::pair<std::string, int> fl_start = getTokenSourceFileAndLine(tk_start);
-    std::pair<std::string, int> fl_end = getTokenSourceFileAndLine(tk_end);
+    std::pair<std::string, int> fl_start = getTokenSourceFileAndLine(instr, tk_start);
+    std::pair<std::string, int> fl_end = getTokenSourceFileAndLine(instr, tk_end);
     return v2i(fl_start.second, fl_end.second);
   }
   return v2i(-1);
@@ -7720,7 +7731,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, std::ostream &out, const
       sl_assert(!m_Blocks.empty());
       auto tk = getToken(m_Blocks.front()->srcloc.root, m_Blocks.front()->srcloc.interval);
       if (tk) {
-        std::pair<std::string, int> fl = getTokenSourceFileAndLine(tk);
+        std::pair<std::string, int> fl = getTokenSourceFileAndLine(m_Blocks.front()->srcloc.root, tk);
         freport
           << (ictx.instance_name.empty()       ? "__main" : ictx.instance_name) << " "
           << (ictx.local_instance_name.empty() ? "main"   : ictx.local_instance_name) << " "
@@ -7890,9 +7901,14 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
       t_instantiation_context local_ictx;
       makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
       // parse the unit
-      auto cbp = compiler->parseUnit(nfo.blueprint_name, local_ictx);
-      nfo.blueprint_parsing_context = cbp.first; // NOTE: the context has to stay alive until we are done
-      nfo.blueprint = cbp.second;
+      std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > cbp;
+      try {
+        cbp = compiler->parseUnit(nfo.blueprint_name, local_ictx);
+        nfo.blueprint_parsing_context = cbp.first; // NOTE: the context has to stay alive until we are done
+        nfo.blueprint = cbp.second;
+      } catch (Fatal&) {
+        reportError(nfo.srcloc, "could not instantiate unit '%s'", nfo.blueprint_name.c_str());
+      }
       // resolve any automatic directional bindings
       resolveInstancedBlueprintBindingDirections(nfo);
       // perform autobind
@@ -8425,7 +8441,7 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
     std::string tk_text = v.name;
     int         tk_line = -1;
     if (tk) {
-      std::pair<std::string, int> fl = getTokenSourceFileAndLine(tk);
+      std::pair<std::string, int> fl = getTokenSourceFileAndLine(v.srcloc.root, tk);
       tk_text = tk->getText();
       tk_line = fl.second;
     }
@@ -8451,7 +8467,7 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
     std::string tk_text = v.name;
     int         tk_line = -1;
     if (tk) {
-      std::pair<std::string, int> fl = getTokenSourceFileAndLine(tk);
+      std::pair<std::string, int> fl = getTokenSourceFileAndLine(v.srcloc.root, tk);
       tk_text = tk->getText();
       tk_line = fl.second;
     }
@@ -8476,7 +8492,7 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
     std::string tk_text = v.name;
     int         tk_line = -1;
     if (tk) {
-      std::pair<std::string, int> fl = getTokenSourceFileAndLine(tk);
+      std::pair<std::string, int> fl = getTokenSourceFileAndLine(v.srcloc.root, tk);
       tk_text = tk->getText();
       tk_line = fl.second;
     }

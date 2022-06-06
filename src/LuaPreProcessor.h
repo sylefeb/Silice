@@ -58,6 +58,7 @@ namespace Silice {
 
     lua_State                         *m_LuaState = nullptr;
     std::map<int, std::pair<std::string, int> > m_Units;
+    std::set<std::string>              m_FormalUnits;
 
     std::vector<std::string>           m_SearchPaths;
     std::map<std::string, std::string> m_Definitions;
@@ -87,12 +88,14 @@ namespace Silice {
     std::string findFile(std::string fname) const;
 
     std::pair<std::string, int> lineAfterToFileAndLineBefore_search(int line_after,const std::vector<LibSL::Math::v3i>& remap) const;
-    std::pair<std::string, int> lineAfterToFileAndLineBefore(int line_after) const;
+    std::pair<std::string, int> lineAfterToFileAndLineBefore(ParsingContext *pctx,int line_after) const;
 
     void addingLines(int num, int src_line, int src_file);
 
     void enableFilesReport(std::string fname);
 
+    /// \brief returns the list of formal unit names
+    const std::set<std::string>& formalUnits() { return m_FormalUnits; }
   };
 
   // -------------------------------------------------

@@ -54,7 +54,7 @@ void Utils::reportError(const t_source_loc& srcloc, const char *msg, ...)
   va_end(args);
 
   auto pctx = ParsingContext::rootContext(srcloc.root);
-  throw ReportError(*pctx->lpp, -1, pctx->parser->getTokenStream(), nullptr, srcloc.interval, message);
+  throw ReportError(pctx, -1, pctx->parser->getTokenStream(), nullptr, srcloc.interval, message);
 }
 
 // -------------------------------------------------
@@ -87,7 +87,7 @@ void Utils::warn(e_WarningType type, const t_source_loc& srcloc, const char *msg
     line = (int)tk->getLine();
   }
   if (s_LuaPreProcessor != nullptr) {
-    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
+    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(pctx,line);
     std::cerr << "(" << Console::white << fl.first << Console::gray << ", line " << sprint("%4d", fl.second) << ") ";
   } else {
     std::cerr << "(" << line << ") ";
@@ -118,11 +118,15 @@ antlr4::Token *Utils::getToken(antlr4::tree::ParseTree *node, antlr4::misc::Inte
 
 // -------------------------------------------------
 
-std::pair<std::string, int> Utils::getTokenSourceFileAndLine(antlr4::Token *tk)
+std::pair<std::string, int> Utils::getTokenSourceFileAndLine(antlr4::tree::ParseTree *node, antlr4::Token *tk)
 {
+  ParsingContext *pctx = nullptr;
+  if (node) {
+    pctx = ParsingContext::rootContext(Utils::root(node));
+  }
   int line = (int)tk->getLine();
   if (s_LuaPreProcessor != nullptr) {
-    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
+    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(pctx,line);
     return fl;
   } else {
     return std::make_pair("", line);

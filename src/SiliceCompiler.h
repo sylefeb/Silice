@@ -95,9 +95,13 @@ namespace Silice {
       std::string frameworks_dir,
       const std::vector<std::string>& defines,
       const Blueprint::t_instantiation_context& ictx);
-
     /// \brief end parsing
     void endParsing();
+
+    /// \brief writes the design body in the output stream
+    void writeBody(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
+    /// \brief writes the formal tests in the output stream
+    void writeFormalTests(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
 
   public:
 
@@ -111,9 +115,6 @@ namespace Silice {
       std::string to_export,
       const std::vector<std::string>& export_params);
 
-    /// \brief writes the design body in the output stream
-    void writeBody(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
-
     /// \brief writes a unit in the output stream
     void writeUnit(
       std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > parsed,
@@ -125,12 +126,7 @@ namespace Silice {
     std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx);
 
     /// \brief returns the static blueprint for 'unit', otherwise null
-    AutoPtr<Blueprint> isStaticBlueprint(std::string unit);
-
-    /// \brief get the list of blueprints (after parsing)
-    const std::unordered_map<std::string, AutoPtr<Blueprint> > getBlueprints() const
-      { return m_Blueprints; }
-
+    AutoPtr<Blueprint> isStaticBlueprint(std::string bpname);
   };
 
   // -------------------------------------------------

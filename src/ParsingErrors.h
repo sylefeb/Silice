@@ -46,7 +46,7 @@ namespace Silice {
 
   public:
 
-    ReportError(const LuaPreProcessor& lpp, int line, antlr4::TokenStream* tk_stream,
+    ReportError(ParsingContext *pctx, int line, antlr4::TokenStream* tk_stream,
       antlr4::Token *offender, antlr4::misc::Interval tk_interval, std::string msg);
 
   };

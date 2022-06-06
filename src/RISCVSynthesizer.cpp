@@ -451,7 +451,9 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
         << Utils::fileToString((CONFIG.keyValues()["libraries_path"] + "/riscv/" + core + "/config_c.ld").c_str());
     }
     // get source file path
-    std::string srcfile = Utils::getTokenSourceFileAndLine(Utils::getToken(riscv->RISCV(),riscv->RISCV()->getSourceInterval())).first;
+    std::string srcfile = Utils::getTokenSourceFileAndLine(
+      riscv, Utils::getToken(riscv->RISCV(),riscv->RISCV()->getSourceInterval())
+    ).first;
     std::string path = std::filesystem::absolute(srcfile).remove_filename().string();
     // get defines from modifiers
     std::string defs = defines(riscv);

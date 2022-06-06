@@ -925,9 +925,12 @@ void LuaPreProcessor::decomposeSource(
     } else {
       int before = bs.pos();
       std::string w = parser.readString(" \t\r/*");
-      if (w == "unit" || w == "algorithm") {
+      if (w == "unit" || w == "algorithm" || w == "algorithm#") {
         std::string name = parser.readString("( \t\r");
-        cerr << name << '\n';
+        cerr << "functionalizing unit " << name << '\n';
+        if (w == "algorithm#") {
+          m_FormalUnits.insert(name);
+        }
         LuaCodePath lcp_unit;
         jumpOverUnit(parser,bs,lcp_unit);
         int after   = bs.pos();
@@ -1274,9 +1277,9 @@ std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore_search
 
 // -------------------------------------------------
 
-std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore(int line_after) const
+std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore(ParsingContext *pctx, int line_after) const
 {
-  auto prepro = lineAfterToFileAndLineBefore_search(line_after, ParsingContext::activeContext()->lineRemapping);
+  auto prepro = lineAfterToFileAndLineBefore_search(line_after, pctx->lineRemapping);
   // NOTE: prepro.first is not used as this refers to the intermediate file
   return lineAfterToFileAndLineBefore_search(prepro.second, m_SourceFilesLineRemapping);
 }

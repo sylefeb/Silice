@@ -58,7 +58,7 @@ namespace Silice
     /// \brief get a token from a source interval (helper)
     antlr4::Token *getToken(antlr4::tree::ParseTree *node, antlr4::misc::Interval interval, bool last_else_first = false);
     /// \brief returns the source file and line for the given token (helper)
-    std::pair<std::string, int> getTokenSourceFileAndLine(antlr4::Token *tk);
+    std::pair<std::string, int> getTokenSourceFileAndLine(antlr4::tree::ParseTree *node, antlr4::Token *tk);
     /// \brief Token stream for warning reporting, optionally set
     static antlr4::TokenStream *s_TokenStream;
     /// \brief Pre-processor, optionally set

@@ -67,11 +67,12 @@ namespace Silice {
 
     ~ParsingContext();
 
+    static ParsingContext *rootContext(antlr4::tree::ParseTree *node) {
+      return s_Root2Context.at(Utils::root(node));
+    }
+
     static ParsingContext *activeContext() {
       if (s_ActiveContext.empty()) return nullptr; else return s_ActiveContext.back();
-    }
-    static ParsingContext *rootContext(antlr4::tree::ParseTree *root) {
-      return s_Root2Context.at(Utils::root(root));
     }
 
     void bind();

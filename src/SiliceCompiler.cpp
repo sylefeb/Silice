@@ -109,7 +109,7 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
     } else {
       name = unit->IDENTIFIER()->getText();
     }
-    std::cerr << "parsing static unit " << name << nxl;
+    std::cerr << "found static unit " << name << nxl;
     auto bp = gatherUnit(tree);
     m_Blueprints.insert(std::make_pair(name, bp));
     m_BlueprintsInDeclOrder.push_back(name);
@@ -423,37 +423,29 @@ void SiliceCompiler::endParsing()
 // -------------------------------------------------
 
 std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> >
-  SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx)
+SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx)
 {
-  try {
+  std::string preprocessed = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
 
-    std::string preprocessed = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
+  // create parsing context
+  AutoPtr<ParsingContext> context(new ParsingContext(
+    m_BodyContext->fresult, m_BodyContext->lpp,
+    m_BodyContext->framework_verilog, m_BodyContext->defines));
 
-    // create parsing context
-    AutoPtr<ParsingContext> context(new ParsingContext(
-      m_BodyContext->fresult, m_BodyContext->lpp,
-      m_BodyContext->framework_verilog, m_BodyContext->defines));
+  // bind local context
+  context->bind();
 
-    // bind local context
-    context->bind();
+  // pre-process unit
+  m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed, ictx);
 
-    // pre-process unit
-    m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed, ictx);
+  // gather the unit
+  auto bp = findAndGatherUnit(context->parse(preprocessed));
 
-    // gather the unit
-    auto bp = findAndGatherUnit(context->parse(preprocessed));
+  // done
+  context->unbind();
 
-    // done
-    context->unbind();
+  return std::make_pair(context, bp);
 
-    return std::make_pair(context, bp);
-
-  } catch (ReportError&) {
-
-    m_BodyContext->unbind();
-    throw Fatal("[SiliceCompiler] writer stopped");
-
-  }
 }
 
 // -------------------------------------------------
@@ -482,37 +474,25 @@ void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiat
       _out << Utils::fileToString(fname.c_str()) << nxl;
     }
 
-    // write 'global' blueprints
+    // write static blueprints
     for (auto miordr : m_BlueprintsInDeclOrder) {
       Module *mod = dynamic_cast<Module*>(m_Blueprints.at(miordr).raw());
+      // Verilog modules
       if (mod != nullptr) {
         mod->writeModule(_out);
       }
+      // RISCV modules
       RISCVSynthesizer *rv = dynamic_cast<RISCVSynthesizer*>(m_Blueprints.at(miordr).raw());
       if (rv != nullptr) {
         rv->writeCompiled(_out);
       }
+      // static units
       Algorithm *alg = dynamic_cast<Algorithm*>(m_Blueprints.at(miordr).raw());
       if (alg != nullptr) {
         writeUnit(std::make_pair(m_BodyContext, m_Blueprints.at(miordr)), ictx, _out, true);
         writeUnit(std::make_pair(m_BodyContext, m_Blueprints.at(miordr)), ictx, _out, false);
       }
     }
-#if 0
-    // write formal unit tests
-    for (auto const &[algname, bp] : m_Blueprints) {
-      Blueprint::t_instantiation_context ictx;
-      Algorithm *alg = dynamic_cast<Algorithm*>(bp.raw());
-      if (alg != nullptr) {
-        if (alg->isFormal()) {
-          alg->enableReporting(m_BodyContext->fresult);
-          /// TODO: parse unit, ...
-          writeUnit("formal_" + algname + "$", ictx, _out, true);
-          writeUnit("formal_" + algname + "$", ictx, _out, false);
-        }
-      }
-    }
-#endif
     // done
     m_BodyContext->unbind();
 
@@ -523,6 +503,24 @@ void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiat
 
   }
 
+}
+
+// -------------------------------------------------
+
+void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_instantiation_context& ictx)
+{
+  // write formal unit tests
+  for (auto name : m_BodyContext->lpp->formalUnits()) {
+    // parse and write unit
+    auto bp = parseUnit(name, ictx);
+    bp.second->setAsTopMost();
+    Blueprint::t_instantiation_context local_ictx = ictx;
+    local_ictx.instance_name = "formal_" + name + "$";
+    // -> first pass
+    writeUnit(bp, local_ictx, _out, true);
+    // -> second pass
+    writeUnit(bp, local_ictx, _out, false);
+  }
 }
 
 // -------------------------------------------------
@@ -566,10 +564,10 @@ void SiliceCompiler::writeUnit(
 
 // -------------------------------------------------
 
-AutoPtr<Blueprint> SiliceCompiler::isStaticBlueprint(std::string unit)
+AutoPtr<Blueprint> SiliceCompiler::isStaticBlueprint(std::string bpname)
 {
-  if (m_Blueprints.count(unit) > 0) {
-    return m_Blueprints.at(unit);
+  if (m_Blueprints.count(bpname) != 0) {
+    return m_Blueprints.at(bpname);
   } else {
     return AutoPtr<Blueprint>();
   }
@@ -586,34 +584,45 @@ void SiliceCompiler::run(
   std::string to_export,
   const std::vector<std::string>& export_params)
 {
-  // create top instantiation context
-  Blueprint::t_instantiation_context ictx;
-  for (auto p : export_params) {
-    auto eq = p.find('=');
-    if (eq != std::string::npos) {
-      ictx.parameters[p.substr(0, eq)] = p.substr(eq + 1);
+  try {
+
+    // create top instantiation context
+    Blueprint::t_instantiation_context ictx;
+    for (auto p : export_params) {
+      auto eq = p.find('=');
+      if (eq != std::string::npos) {
+        ictx.parameters[p.substr(0, eq)] = p.substr(eq + 1);
+      }
     }
+    // begin parsing
+    beginParsing(fsource, fresult, fframework, frameworks_dir, defines, ictx);
+    // create output stream
+    std::ofstream out(m_BodyContext->fresult);
+    // write body
+    writeBody(out, ictx);
+    // write any formal test
+    writeFormalTests(out, ictx);
+    // which algorithm to export?
+    if (to_export.empty()) {
+      to_export = "main"; // export main by default
+    }
+    // parse and write top unit
+    auto bp = parseUnit(to_export, ictx);
+    bp.second->setAsTopMost();
+    ictx.instance_name = "";
+    // -> first pass
+    writeUnit(bp, ictx, out, true);
+    // -> second pass
+    writeUnit(bp, ictx, out, false);
+    // stop parsing
+    endParsing();
+
+  } catch (ReportError&) {
+
+    m_BodyContext->unbind();
+    throw Fatal("[SiliceCompiler] writer stopped");
+
   }
-  // begin parsing
-  beginParsing(fsource, fresult, fframework, frameworks_dir, defines, ictx);
-  // create output stream
-  std::ofstream out(m_BodyContext->fresult);
-  // write body
-  writeBody(out, ictx);
-  // which algorithm to export?
-  if (to_export.empty()) {
-    to_export = "main"; // export main by default
-  }
-  // parse and write top unit
-  auto bp = parseUnit(to_export, ictx);
-  bp.second->setAsTopMost();
-  ictx.instance_name = "";
-  // -> first pass
-  writeUnit(bp, ictx, out, true);
-  // -> second pass
-  writeUnit(bp, ictx, out, false);
-  // stop parsing
-  endParsing();
 }
 
 // -------------------------------------------------
