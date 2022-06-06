@@ -7888,29 +7888,31 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
   // write instantiated blueprints
   for (auto &iaiordr : m_InstancedBlueprintsInDeclOrder) {
     auto &nfo = m_InstancedBlueprints.at(iaiordr);
-    auto gbp  = compiler->isStaticBlueprint(nfo.blueprint_name);
-    if (!gbp.isNull()) {
-      // this is a static blueprint, no instantiation needed
-      nfo.blueprint = gbp;
-      continue;
-    }
-    // parse unit (if not already known)
-    if (first_pass) {
+    if (first_pass) { /// first pass
+      // generate or find blueprint
       sl_assert(nfo.blueprint.isNull());
-      cerr << "instantiating unit '" << nfo.blueprint_name << "' as '" << nfo.instance_name << "'\n";
-      // create local context with what we know
-      // NOTE: if <:auto:> is used, we only get parameterized info for the explicit bindings at this stage
-      //       the pre-processor will not be able to use widthof/signed on implicit bindings
-      t_instantiation_context local_ictx;
-      makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
-      // parse the unit
+      // parsing context and blueprint
       std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > cbp;
-      try {
-        cbp = compiler->parseUnit(nfo.blueprint_name, local_ictx);
-        nfo.blueprint_parsing_context = cbp.first; // NOTE: the context has to stay alive until we are done
-        nfo.blueprint = cbp.second;
-      } catch (Fatal&) {
-        reportError(nfo.srcloc, "could not instantiate unit '%s'", nfo.blueprint_name.c_str());
+      // check whether blueprint is static
+      auto gbp = compiler->isStaticBlueprint(nfo.blueprint_name);
+      if (!gbp.isNull()) {
+        // this is a static blueprint, no instantiation needed
+        nfo.blueprint = gbp;
+      } else {
+        // create local context with what we know
+        // NOTE: if <:auto:> is used, we only get parameterized info for the explicit bindings at this stage
+        //       the pre-processor will not be able to use widthof/signed on implicit bindings
+        t_instantiation_context local_ictx;
+        makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
+        cerr << "instantiating unit '" << nfo.blueprint_name << "' as '" << nfo.instance_name << "'\n";
+        // parse the unit
+        try {
+          cbp = compiler->parseUnit(nfo.blueprint_name, local_ictx);
+          nfo.blueprint_parsing_context = cbp.first; // NOTE: the context has to stay alive until we are done
+          nfo.blueprint = cbp.second;
+        } catch (Fatal&) {
+          reportError(nfo.srcloc, "could not instantiate unit '%s'", nfo.blueprint_name.c_str());
+        }
       }
       // create vars for instanced blueprint inputs/outputs
       createInstancedBlueprintInputOutputVars(nfo);
@@ -7920,20 +7922,26 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
       if (nfo.autobind) {
         autobindInstancedBlueprint(nfo);
       }
-      // update the instantiation context with what we discovered
-      // NOTE: if <:auto:> was used, we now have all the info to properly fill in the parameterized info
-      makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
-      // write unit
-      compiler->writeUnit(cbp, local_ictx, out, first_pass);
-    } else {
+      // write the unit if non static
+      if (!cbp.second.isNull()) {
+        // update the instantiation context with what we discovered
+        // NOTE: if <:auto:> was used, we now have all the info to properly fill in the parameterized info
+        t_instantiation_context local_ictx;
+        makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
+        // write unit
+        compiler->writeUnit(cbp, local_ictx, out, first_pass);
+      }
+    } else { /// second pass
       sl_assert(!nfo.blueprint.isNull());
-      nfo.blueprint_parsing_context->bind();
-      // create local context
-      t_instantiation_context local_ictx;
-      makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
-      // write as module
-      nfo.blueprint->writeAsModule(compiler, out, local_ictx, first_pass);
-      nfo.blueprint_parsing_context->unbind();
+      if (!nfo.blueprint_parsing_context.isNull()) { // second pass
+        nfo.blueprint_parsing_context->bind();
+        // create local context
+        t_instantiation_context local_ictx;
+        makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
+        // write as module
+        nfo.blueprint->writeAsModule(compiler, out, local_ictx, first_pass);
+        nfo.blueprint_parsing_context->unbind();
+      }
     }
   }
 }

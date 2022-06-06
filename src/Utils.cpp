@@ -123,6 +123,8 @@ std::pair<std::string, int> Utils::getTokenSourceFileAndLine(antlr4::tree::Parse
   ParsingContext *pctx = nullptr;
   if (node) {
     pctx = ParsingContext::rootContext(Utils::root(node));
+  } else {
+    pctx = ParsingContext::activeContext();
   }
   int line = (int)tk->getLine();
   if (s_LuaPreProcessor != nullptr) {
