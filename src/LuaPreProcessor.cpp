@@ -1051,7 +1051,7 @@ std::string LuaPreProcessor::prepareCode(
         }
       }
     } else {
-      current += luaProtectString(parser.readString("\\\n$ "));
+      current += luaProtectString(parser.readString("\\\r\n$ "));
       if (incode[bs.pos()] == ' ') {
         current += " ";
       }

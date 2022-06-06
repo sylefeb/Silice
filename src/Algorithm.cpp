@@ -6248,7 +6248,7 @@ std::string Algorithm::varBitRange(const t_var_nfo& v,const t_instantiation_cont
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
       str = str + "_WIDTH";
       if (ictx.parameters.count(str) == 0) {
-        reportError(v.srcloc, "cannot find value of '%s' during instantiation of algorithm '%s'", str.c_str(), m_Name.c_str());
+        reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), m_Name.c_str());
       }
       str = ictx.parameters.at(str) + "-1"; // NOTE: this should always be a legal value, and never a reference
     } else {
@@ -6306,7 +6306,7 @@ std::string Algorithm::varInitValue(const t_var_nfo &v,const t_instantiation_con
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
       str = str + "_INIT";
       if (ictx.parameters.count(str) == 0) {
-        reportError(v.srcloc, "cannot find value of '%s' during instantiation of algorithm '%s'", str.c_str(), m_Name.c_str());
+        reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), m_Name.c_str());
       }
       str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
     } else {
@@ -6335,7 +6335,7 @@ e_Type Algorithm::varType(const t_var_nfo &v, const t_instantiation_context &ict
     bool ok = false;
     t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
     if (!ok) {
-      reportError(v.srcloc, "cannot determine type of '%s' during instantiation of algorithm '%s', input or output not bound?", v.name.c_str(), m_Name.c_str());
+      reportError(v.srcloc, "cannot determine type of '%s' during instantiation of unit '%s', input or output not bound?", v.name.c_str(), m_Name.c_str());
     }
     string str;
     if (base.type_nfo.base_type == Parameterized) {
@@ -6344,7 +6344,7 @@ e_Type Algorithm::varType(const t_var_nfo &v, const t_instantiation_context &ict
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
       str = str + "_SIGNED";
       if (ictx.parameters.count(str) == 0) {
-        reportError(v.srcloc, "cannot find value of '%s' during instantiation of algorithm '%s'", str.c_str(), m_Name.c_str());
+        reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), m_Name.c_str());
       }
       str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
       return (str == "signed") ? Int : UInt;
@@ -7352,7 +7352,7 @@ void Algorithm::writeStatelessBlockGraph(
           if (found) {
             string wdth = varBitWidth(def, ictx);
             if (!is_number(wdth)) {
-              reportError(def.srcloc, "cannot find width of '%s' during instantiation of algorithm '%s'", def.name.c_str(), m_Name.c_str());
+              reportError(def.srcloc, "cannot find width of '%s' during instantiation of unit '%s'", def.name.c_str(), m_Name.c_str());
             }
             int width = atoi(wdth.c_str());
             if (current->switch_case()->case_blocks.size() != width) {
@@ -8272,7 +8272,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     if (m_VIOToBlueprintInOutsBound.count(io.name) == 0) {
       string wdth = varBitWidth(io, ictx).c_str();
       if (!is_number(wdth)) {
-        reportError(io.srcloc, "cannot find width of '%s' during instantiation of algorithm '%s'", io.name.c_str(), m_Name.c_str());
+        reportError(io.srcloc, "cannot find width of '%s' during instantiation of unit '%s'", io.name.c_str(), m_Name.c_str());
       }
       int width = atoi(wdth.c_str());
       // output used?
