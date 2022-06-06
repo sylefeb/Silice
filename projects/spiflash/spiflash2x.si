@@ -169,7 +169,7 @@ $$end
         // start sending?
         if (in_ready | init[1,1]) {
 $$if SIMULATION then
-          __display("[%d](%d) spiflash [1] START @%x qspi:%d init:%b",cycle,cycle>>1,addr,spiflash.qspi,init);
+          //__display("[%d](%d) spiflash [1] START @%x qspi:%d init:%b",cycle,cycle>>1,addr,spiflash.qspi,init);
 $$if VERILATOR then
           vdta.addr = addr;
           //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
