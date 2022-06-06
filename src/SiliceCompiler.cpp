@@ -383,7 +383,7 @@ void SiliceCompiler::beginParsing(
   // create the preprocessor
   AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor());
   lpp->enableFilesReport(fresult + ".files.log");
-  std::string preprocessed = std::string(fsource) + ".lpp";
+  std::string preprocessed = std::string(fresult) + ".lpp";
 
   // create parsing context
   m_BodyContext = AutoPtr<ParsingContext>(new ParsingContext(

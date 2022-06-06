@@ -55,7 +55,7 @@ namespace Silice {
     AutoPtr<siliceParser>                parser;
     antlr4::tree::ParseTree             *root = nullptr;
     std::shared_ptr<ParserErrorHandler>  err_handler;
-    std::vector<LibSL::Math::v3i>        lineRemapping; // [0] is line after, [1] is file id, [2] is line before
+    std::vector<LibSL::Math::v3i>        lineRemapping; // [0] is line in output, [1] is source file id, [2] is line in source
 
     ParsingContext(
       std::string              fresult_,

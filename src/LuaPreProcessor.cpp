@@ -729,26 +729,35 @@ class BufferStream : public LibSL::BasicParser::BufferStream
 public:
   BufferStream(const char *buffer, uint sz) : LibSL::BasicParser::BufferStream(buffer, sz) { }
   int& pos() { return m_Pos; }
+  const char *buffer() const { return m_Buffer; }
 };
 
 typedef LibSL::BasicParser::Parser<LibSL::BasicParser::BufferStream> t_Parser;
 
 // -------------------------------------------------
 
-void jumpOverComment(t_Parser& parser)
+int jumpOverComment(t_Parser& parser, BufferStream& bs)
 {
   parser.readChar();
   int next = parser.readChar();
   if (next == '/') {
     // comment, advance until next end of line
     parser.readString("\n");
+    return 0;
   } else if (next == '*') {
     // block comment, find the end
+    int pos = bs.pos();
     while (!parser.eof()) {
       parser.reachChar('*');
       next = parser.readChar();
       if (next == '/') {
-        break;
+        int numlines = 0;
+        for (int i = pos; i < bs.pos(); ++i) {
+          if (bs.buffer()[i] == '\n') {
+            ++numlines;
+          }
+        }
+        return numlines;
       }
     }
     if (parser.eof()) {
@@ -756,6 +765,7 @@ void jumpOverComment(t_Parser& parser)
       throw Fatal("[parser] Reached end of file while parsing comment block");
     }
   }
+  return 0;
 }
 
 // -------------------------------------------------
@@ -857,7 +867,7 @@ void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs,LuaCodePath& lcp, c
       processLuaLine(parser, lcp);
     } else if (next == '/') {
       // might be a comment, jump over it
-      jumpOverComment(parser);
+      jumpOverComment(parser, bs);
     } else if (next == c_in) {
       // entering a block
       parser.readChar();
@@ -921,7 +931,7 @@ void LuaPreProcessor::decomposeSource(
       processLuaLine(parser, lcp);
     } else if (next == '/') {
       // might be a comment, jump over it
-      jumpOverComment(parser);
+      jumpOverComment(parser, bs);
     } else {
       int before = bs.pos();
       std::string w = parser.readString(" \t\r/*");
@@ -983,7 +993,7 @@ std::string LuaPreProcessor::prepareCode(
 {
   cerr << "preprocessing " << "\n";
 
-  std::string code  = header;
+  std::string code = header;
 
   BufferStream bs(incode.c_str(), (uint)incode.size());
   t_Parser     parser(bs, false);
@@ -1034,7 +1044,7 @@ std::string LuaPreProcessor::prepareCode(
       current += ch;
     } else if (next == '/') {
       // might be a comment, jump over it
-      jumpOverComment(parser);
+      src_line += jumpOverComment(parser, bs);
     } else if (next == '$') {
       // Lua line or insertion?
       parser.readChar();
@@ -1158,16 +1168,17 @@ void LuaPreProcessor::generateBody(
   source_code += assembleSource("", src_file, inclusions, output_line_count);
 
   {
-    ofstream dbg("dbg1.si");
+    ofstream dbg(extractFileName(fileAbsolutePath(src_file) + ".pre.si"));
     dbg << source_code;
   }
+
   // decompose the soure into body and units
   decomposeSource(source_code, m_Units);
   // prepare the Lua code, with units as functions
   std::string lua_code = prepareCode(lua_header_code, source_code, m_Units);
 
   {
-    ofstream dbg("dbg2.lua");
+    ofstream dbg(extractFileName(fileAbsolutePath(src_file) + ".pre.lua"));
     dbg << lua_code;
   }
 
