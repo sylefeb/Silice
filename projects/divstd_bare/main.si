@@ -1,18 +1,16 @@
 
 // integer division
-$$div_width=16
-$$div_unsigned=nil
-$include('../common/divint_std.si')
+$include('../common/divint_std_auto.si')
 
 algorithm main(output uint8 leds)
 {
-  int16  num    = 20043;
-  int16  den    = -41;
+  int16  num    =   20043;
+  int16  den    = - 41;
   int16  result = 0;
 
-  div16 div0;
+  div div0(inum <: num, iden <: den, ret :> result);
 
-  (result) <- div0 <- (num,den);
+  () <- div0 <- ();
 
   __display("%d / %d = %d",num,den,result);
 

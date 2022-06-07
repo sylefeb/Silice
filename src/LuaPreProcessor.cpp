@@ -199,7 +199,7 @@ bool lua_signed(lua_State *L, std::string var)
   }
   std::transform(var.begin(), var.end(), var.begin(),
     [](unsigned char c) -> unsigned char { return std::toupper(c); });
-  var = var + "_WIDTH";
+  var = var + "_SIGNED";
   if (C->second.parameters.count(var) == 0) {
     throw Fatal("[preprocessor] signed, cannot find io '%s' in instantiation context", var.c_str());
   } else {
@@ -739,13 +739,14 @@ typedef LibSL::BasicParser::Parser<LibSL::BasicParser::BufferStream> t_Parser;
 int jumpOverComment(t_Parser& parser, BufferStream& bs)
 {
   parser.readChar();
-  int next = parser.readChar();
+  int next = parser.readChar(false);
   if (next == '/') {
     // comment, advance until next end of line
     parser.readString("\n");
     return 0;
   } else if (next == '*') {
     // block comment, find the end
+    parser.readChar();
     int pos = bs.pos();
     while (!parser.eof()) {
       parser.reachChar('*');
@@ -764,8 +765,33 @@ int jumpOverComment(t_Parser& parser, BufferStream& bs)
       // TODO: improve error report
       throw Fatal("[parser] Reached end of file while parsing comment block");
     }
+  } else {
+    return -1; // not a comment
   }
   return 0;
+}
+
+// -------------------------------------------------
+
+std::string jumpOverString(t_Parser& parser, BufferStream& bs)
+{
+  std::string str;
+  parser.readChar();
+  while (!parser.eof()) {
+    std::string chunk = parser.readString("\"\\");
+    int next = parser.readChar();
+    if (next == '\\') {         // escape sequence
+      str += chunk;
+      str += next;              // add backslash
+      str += parser.readChar(); // add whatever is afte
+    } else if (next == '"') {
+      return str + chunk;
+    } else {
+      str += chunk;
+    }
+  }
+  // TODO: improve error report
+  throw Fatal("[parser] Reached end of file while parsing string");
 }
 
 // -------------------------------------------------
@@ -868,6 +894,9 @@ void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs,LuaCodePath& lcp, c
     } else if (next == '/') {
       // might be a comment, jump over it
       jumpOverComment(parser, bs);
+    } else if (next == '"') {
+      // string
+      jumpOverString(parser, bs);
     } else if (next == c_in) {
       // entering a block
       parser.readChar();
@@ -1038,13 +1067,20 @@ std::string LuaPreProcessor::prepareCode(
       // escape sequence
       parser.readChar();
       char ch = parser.readChar();
-      if (ch == '"') {
-        current += "\\";
-      }
+      current += "\\";
       current += ch;
     } else if (next == '/') {
       // might be a comment, jump over it
-      src_line += jumpOverComment(parser, bs);
+      int r = jumpOverComment(parser, bs);
+      if (r >= 0) {
+        src_line += r;
+      } else {
+        current += next;
+      }
+    } else if (next == '"') {
+      // string
+      std::string str = jumpOverString(parser,bs);
+      current += "\"" + str + "\"";
     } else if (next == '$') {
       // Lua line or insertion?
       parser.readChar();
@@ -1064,7 +1100,7 @@ std::string LuaPreProcessor::prepareCode(
         }
       }
     } else {
-      current += luaProtectString(parser.readString("\\\r\n$ "));
+      current += luaProtectString(parser.readString("\\\r\n$ \""));
       if (incode[bs.pos()] == ' ') {
         current += " ";
       }

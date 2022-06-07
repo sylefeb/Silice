@@ -1,32 +1,32 @@
 // A more standard division, compact, 1 cycle per bit
 // see also https://projectf.io/posts/division-in-verilog/
-// define: div_width    for the division bit width
-// define: div_unsigned if unsigned, for a more compact result
+//
+// Uses parameterized inputs and instantation-time pre-processor
+//
 // MIT license, see LICENSE_MIT in Silice repo root
 // https://github.com/sylefeb/Silice
 
-$$if not div_width then
-$$error('please provide the bit width by defining the preprocessor var div_width')
-$$end
-
-$$div_width_pow2 = clog2(div_width)
-
-algorithm div$div_width$(
-  input  int$div_width$ inum,
-  input  int$div_width$ iden,
-  output int$div_width$ ret = 0)
+algorithm div(
+  input  auto         inum,
+  //     ^^^^ determined at instantiation time
+  input  sameas(inum) iden,
+  output sameas(inum) ret = 0)
 {
-  uint$div_width+1$ ac = uninitialized;
+  // get division width from input, at instantiation time
+$$local div_width = widthof('inum')
+
+  uint$div_width+1$ ac       = uninitialized;
+  uint$clog2(div_width)+1$ i = 0;
   uint$div_width+1$ diff <:: ac - :den;
 
-  uint$div_width_pow2+1$ i = 0;
-
-$$if not div_unsigned then
+$$if signed('inum') then
+  // signed division
   uint1           inum_neg <: inum[$div_width-1$,1];
   uint1           iden_neg <: iden[$div_width-1$,1];
   uint$div_width$ num      <: inum_neg ? -inum : inum;
   uint$div_width$ den      <: iden_neg ? -iden : iden;
 $$else
+  // unsigned division
   uint$div_width$ num  <: inum;
   uint$div_width$ den  <: iden;
 $$end
@@ -51,7 +51,7 @@ $$end
     }
     i = i + 1;
   }
-$$if not div_unsigned then
+$$if signed('inum') then
   ret = ((inum_neg) ^ (iden_neg)) ? -ret : ret;
 $$end
 }

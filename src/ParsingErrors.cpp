@@ -209,7 +209,7 @@ void ParserErrorListener::syntaxError(
   std::exception_ptr  e)
 {
   ReportError err(nullptr, (int)line, dynamic_cast<antlr4::TokenStream*>(recognizer->getInputStream()), tk, antlr4::misc::Interval::INVALID, msg);
-  throw Fatal("[syntax error]");
+   throw Fatal("[syntax error]");
 }
 
 // -------------------------------------------------
