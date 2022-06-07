@@ -142,7 +142,8 @@ static void lua_output(lua_State *L,std::string str,int src_line, int src_file)
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[preprocessor] internal error");
+    lua_pushliteral(L, "[preprocessor] internal error");
+    lua_error(L);
   }
   P->second->addingLines(Utils::numLinesIn(str), src_line, src_file);
   g_LuaOutputs[L] << str;
@@ -176,15 +177,18 @@ int lua_widthof(lua_State *L, std::string var)
 {
   auto C = g_LuaInstCtx.find(L);
   if (C == g_LuaInstCtx.end()) {
-    throw Fatal("[widthof] internal error");
+    lua_pushliteral(L, "[widthof] internal error");
+    lua_error(L);
   }
-  std::transform(var.begin(), var.end(), var.begin(),
+  std::string key = var;
+  std::transform(key.begin(), key.end(), key.begin(),
     [](unsigned char c) -> unsigned char { return std::toupper(c); });
-  var = var + "_WIDTH";
-  if (C->second.parameters.count(var) == 0) {
-    throw Fatal("[preprocessor] widthof, cannot find io '%s' in instantiation context",var.c_str());
+  key = key + "_WIDTH";
+  if (C->second.parameters.count(key) == 0) {
+    lua_pushfstring(L, "[preprocessor] widthof, cannot find io '%s' in instantiation context",var.c_str());
+    lua_error(L);
   } else {
-    return atoi(C->second.parameters.at(var).c_str());
+    return atoi(C->second.parameters.at(key).c_str());
   }
   return 0;
 }
@@ -195,15 +199,18 @@ bool lua_signed(lua_State *L, std::string var)
 {
   auto C = g_LuaInstCtx.find(L);
   if (C == g_LuaInstCtx.end()) {
-    throw Fatal("[signed] internal error");
+    lua_pushliteral(L, "[signed] internal error");
+    lua_error(L);
   }
-  std::transform(var.begin(), var.end(), var.begin(),
+  std::string key = var;
+  std::transform(key.begin(), key.end(), key.begin(),
     [](unsigned char c) -> unsigned char { return std::toupper(c); });
-  var = var + "_SIGNED";
-  if (C->second.parameters.count(var) == 0) {
-    throw Fatal("[preprocessor] signed, cannot find io '%s' in instantiation context", var.c_str());
+  key = key + "_SIGNED";
+  if (C->second.parameters.count(key) == 0) {
+    lua_pushfstring(L, "[preprocessor] signed, cannot find io '%s' in instantiation context", var.c_str());
+    lua_error(L);
   } else {
-    return C->second.parameters.at(var) == "signed";
+    return C->second.parameters.at(key) == "signed";
   }
   return false;
 }
@@ -214,7 +221,8 @@ void lua_dofile(lua_State *L, std::string str)
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[preprocessor] internal error");
+    lua_pushliteral(L, "[preprocessor] internal error");
+    lua_error(L);
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
@@ -230,7 +238,8 @@ std::string lua_findfile(lua_State *L, std::string str)
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[findfile] internal error");
+    lua_pushliteral(L, "[findfile] internal error");
+    lua_error(L);
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
@@ -243,16 +252,19 @@ static void lua_write_image_in_table(lua_State* L, std::string str,int component
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[write_image_in_table] internal error");
+    lua_pushliteral(L, "[write_image_in_table] internal error");
+    lua_error(L);
   }
   if (component_depth < 0 || component_depth > 8) {
-    throw Fatal("[write_image_in_table] component depth can only in ]0,8]");
+    lua_pushliteral(L, "[write_image_in_table] component depth can only in ]0,8]");
+    lua_error(L);
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
   t_image_nfo     *nfo   = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
-    throw Fatal("[write_image_in_table] cannot load image file '%s'",fname.c_str());
+    lua_pushfstring(L, "[write_image_in_table] cannot load image file '%s'",fname.c_str());
+    lua_error(L);
   }
   int    nc  = nfo->depth/8;
   uchar* ptr = nfo->pixels;
@@ -281,25 +293,31 @@ static void lua_write_palette_in_table(lua_State* L, std::string str, int compon
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[write_palette_in_table] internal error");
+    lua_pushliteral(L, "[write_palette_in_table] internal error");
+    lua_error(L);
   }
   if (component_depth < 0 || component_depth > 8) {
-    throw Fatal("[write_palette_in_table] component depth can only in ]0,8]");
+    lua_pushliteral(L, "[write_palette_in_table] component depth can only in ]0,8]");
+    lua_error(L);
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
   t_image_nfo     *nfo   = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
-    throw Fatal("[write_palette_in_table] cannot load image file '%s'", fname.c_str());
+    lua_pushfstring(L, "[write_palette_in_table] cannot load image file '%s'", fname.c_str());
+    lua_error(L);
   }
   if (nfo->colormap == NULL) {
-    throw Fatal("[write_palette_in_table] image file '%s' has no palette", fname.c_str());
+    lua_pushfstring(L, "[write_palette_in_table] image file '%s' has no palette", fname.c_str());
+    lua_error(L);
   }
   if (nfo->depth != 8) {
-    throw Fatal("[write_palette_in_table] image file '%s' palette is not 8 bits", fname.c_str());
+    lua_pushfstring(L, "[write_palette_in_table] image file '%s' palette is not 8 bits", fname.c_str());
+    lua_error(L);
   }
   if (nfo->colormap_chans != 3) {
-    throw Fatal("[write_palette_in_table] image file '%s' palette is not RGB", fname.c_str());
+    lua_pushfstring(L, "[write_palette_in_table] image file '%s' palette is not RGB", fname.c_str());
+    lua_error(L);
   }
   uchar* ptr = nfo->colormap;
   ForIndex(idx, 256) {
@@ -329,25 +347,31 @@ static luabind::object lua_get_palette_as_table(lua_State* L, std::string str, i
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[get_palette_as_table] internal error");
+    lua_pushliteral(L, "[get_palette_as_table] internal error");
+    lua_error(L);
   }
   if (component_depth < 0 || component_depth > 8) {
-    throw Fatal("[get_palette_as_table] component depth can only be in ]0,8]");
+    lua_pushliteral(L, "[get_palette_as_table] component depth can only be in ]0,8]");
+    lua_error(L);
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
   t_image_nfo     *nfo   = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
-    throw Fatal("[get_palette_as_table] cannot load image file '%s'", fname.c_str());
+    lua_pushfstring(L, "[get_palette_as_table] cannot load image file '%s'", fname.c_str());
+    lua_error(L);
   }
   if (nfo->colormap == NULL) {
-    throw Fatal("[get_palette_as_table] image file '%s' has no palette", fname.c_str());
+    lua_pushfstring(L, "[get_palette_as_table] image file '%s' has no palette", fname.c_str());
+    lua_error(L);
   }
   if (nfo->depth != 8) {
-    throw Fatal("[get_palette_as_table] image file '%s' palette is not 8 bits", fname.c_str());
+    lua_pushfstring(L, "[get_palette_as_table] image file '%s' palette is not 8 bits", fname.c_str());
+    lua_error(L);
   }
   if (nfo->colormap_chans != 3) {
-    throw Fatal("[write_palette_in_table] image file '%s' palette is not RGB", fname.c_str());
+    lua_pushfstring(L, "[write_palette_in_table] image file '%s' palette is not RGB", fname.c_str());
+    lua_error(L);
   }
   luabind::object ltbl = luabind::newtable(L);
   uchar* ptr = nfo->colormap;
@@ -379,16 +403,19 @@ static luabind::object lua_get_image_as_table(lua_State* L, std::string str, int
 {
   auto P = g_LuaPreProcessors.find(L);
   if (P == g_LuaPreProcessors.end()) {
-    throw Fatal("[get_image_as_table] internal error");
+    lua_pushliteral(L, "[get_image_as_table] internal error");
+    lua_error(L);
   }
   if (component_depth < 0 || component_depth > 8) {
-    throw Fatal("[get_image_as_table] component depth can only be in ]0,8]");
+    lua_pushliteral(L, "[get_image_as_table] component depth can only be in ]0,8]");
+    lua_error(L);
   }
   LuaPreProcessor *lpp   = P->second;
   std::string      fname = lpp->findFile(str);
   t_image_nfo     *nfo = ReadTGAFile(fname.c_str());
   if (nfo == NULL) {
-    throw Fatal("[get_image_as_table] cannot load image file '%s'", fname.c_str());
+    lua_pushfstring(L, "[get_image_as_table] cannot load image file '%s'", fname.c_str());
+    lua_error(L);
   }
   luabind::object rows = luabind::newtable(L);
   int    nc = nfo->depth / 8;
@@ -431,7 +458,8 @@ void lua_save_table_as_image(lua_State *L, luabind::object tbl, std::string fnam
         ++ncol;
       }
       if (w != 0 && w != ncol) {
-        throw Fatal("[save_table_as_image] row %d does not have the same size as previous", j);
+        lua_pushfstring(L, "[save_table_as_image] row %d does not have the same size as previous", j);
+        lua_error(L);
       }
       w = ncol;
       ++h;
@@ -471,7 +499,8 @@ void lua_save_table_as_image_with_palette(lua_State *L,
         ++ncol;
       }
       if (w != 0 && w != ncol) {
-        throw Fatal("[save_table_as_image_with_palette] row %d does not have the same size as previous", j);
+        lua_pushfstring(L, "[save_table_as_image_with_palette] row %d does not have the same size as previous", j);
+        lua_error(L);
       }
       w = ncol;
       ++h;
@@ -496,12 +525,14 @@ void lua_save_table_as_image_with_palette(lua_State *L,
     for (luabind::iterator p(palette), end; p != end; p++) {
       uint clr = luabind::object_cast_nothrow<uint>(*p, 0);
       if (i == 256) {
-        throw Fatal("[save_table_as_image_with_palette] palette has too many entries (expects 256)");
+        lua_pushliteral(L, "[save_table_as_image_with_palette] palette has too many entries (expects 256)");
+        lua_error(L);
       }
       pal[i++] = (clr >> 16) | (((clr >> 8) & 255) << 8) | ((clr & 255) << 16);
     }
     if (i < 256) {
-      throw Fatal("[save_table_as_image_with_palette] palette is missing entries (expects 256)");
+      lua_pushliteral(L, "[save_table_as_image_with_palette] palette is missing entries (expects 256)");
+      lua_error(L);
     }
     // save
 #pragma pack(push, 1)
@@ -529,7 +560,8 @@ void lua_save_table_as_image_with_palette(lua_State *L,
     FILE *f = NULL;
     fopen_s(&f, fname.c_str(), "wb");
     if (f == NULL) {
-      throw Fatal("sorry, cannot write file '%s'", fname.c_str());
+      lua_pushfstring(L, "sorry, cannot write file '%s'", fname.c_str());
+      lua_error(L);
     }
     struct tga_header_t hd;
     hd.id_length = 0;
