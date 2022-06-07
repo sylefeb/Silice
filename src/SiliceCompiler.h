@@ -28,7 +28,10 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 /// TODO on new pre-processor approach
 
 - clock/reset in Algorithm::instantiateBlueprints
-- formal unit tests
+- if inputs/outputs are not parametric, override context
+  (otherwise widthof/signed return info from the binding)
+- provide a way to fill the context without a binding, e.g.
+  div div0< iden:uint16 , ... >
 
 */
 
