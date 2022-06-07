@@ -1,6 +1,8 @@
+$$w = 7
+
 unit test3(
-   input   auto  i,
-   output  uint7 o)
+   input   auto    i,
+   output  uint$w$ o)
 {
   $$print('i:' .. widthof('i') .. ' o:' .. widthof('o'))
   always {

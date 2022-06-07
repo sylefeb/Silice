@@ -425,7 +425,8 @@ void SiliceCompiler::endParsing()
 std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> >
 SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx)
 {
-  std::string preprocessed = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
+  std::string preprocessed_io = std::string(m_BodyContext->fresult) + "." + to_parse + ".io.lpp";
+  std::string preprocessed    = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
 
   // create parsing context
   AutoPtr<ParsingContext> context(new ParsingContext(
@@ -434,6 +435,9 @@ SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t_instantiation
 
   // bind local context
   context->bind();
+
+  // pre-process unit IOs (done first to gather intel on parameterized vs static ios
+  m_BodyContext->lpp->generateUnitIOSource(to_parse, preprocessed_io, ictx);
 
   // pre-process unit
   m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed, ictx);

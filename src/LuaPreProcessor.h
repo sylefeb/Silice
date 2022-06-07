@@ -45,19 +45,28 @@ namespace Silice {
   {
   private:
 
+    /// \brief records where a unit is located in the input stream
+    typedef struct {
+      int start;
+      int end;
+      int io_start;
+      int io_end;
+    } t_unit_loc;
+
     /// \brief Assembles the code into a single file, removing includes
     std::string assembleSource(std::string parent_path, std::string src_file, std::unordered_set<std::string> alreadyIncluded,int& _output_line_count);
     ///  \brief Decomposes the source into blueprints
-    void decomposeSource(const std::string& incode, std::map<int, std::pair<std::string, int> >& _units);
+    void decomposeSource(const std::string& incode, std::map<int, std::pair<std::string, t_unit_loc> >& _units);
 
     /// \brief Prepare the code to be processed with Lua
-    std::string prepareCode(std::string header,const std::string& incode, const std::map<int, std::pair<std::string, int> >& units);
+    std::string prepareCode(std::string header,const std::string& incode, const std::map<int, std::pair<std::string, t_unit_loc> >& units);
 
     /// \brief Finds an included file, testing all search paths
     std::string findFile(std::string path, std::string fname) const;
 
     lua_State                         *m_LuaState = nullptr;
-    std::map<int, std::pair<std::string, int> > m_Units;
+
+    std::map<int, std::pair<std::string, t_unit_loc> > m_Units;
     std::set<std::string>              m_FormalUnits;
 
     std::vector<std::string>           m_SearchPaths;
@@ -76,9 +85,12 @@ namespace Silice {
 
     LuaPreProcessor();
     virtual ~LuaPreProcessor();
-
+    /// \brief generates the body source code in file dst_file
     void generateBody(std::string src_file, const std::vector<std::string> &defaultLibraries,
                       const Blueprint::t_instantiation_context& ictx, std::string lua_header_code, std::string dst_file);
+    /// \brief generates a unit IO source code (the part defining unit ios) in dst_file
+    void generateUnitIOSource(std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx);
+    /// \brief generates a unit source code in dst_file
     void generateUnitSource(std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx);
 
     std::vector<std::string> searchPaths() const { return m_SearchPaths; }

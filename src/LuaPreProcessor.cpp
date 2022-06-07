@@ -814,7 +814,7 @@ std::string jumpOverString(t_Parser& parser, BufferStream& bs)
     int next = parser.readChar();
     if (next == '\\') {         // escape sequence
       str += chunk;
-      str += next;              // add backslash
+      str += "\\\\";            // add backslash
       str += parser.readChar(); // add whatever is afte
     } else if (next == '"') {
       return str + chunk;
@@ -959,15 +959,23 @@ void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs,LuaCodePath& lcp, c
 
 // -------------------------------------------------
 
-void jumpOverUnit(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp)
+void jumpOverUnit(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp, int& _io_start,int& _io_end)
 {
   int nlvl_before = lcp.nestLevel();
+  parser.skipSpaces();
+  _io_start = bs.pos();
   jumpOverNestedBlocks(parser,bs, lcp, '(', ')');
+  int nlvl_after_io = lcp.nestLevel();
+  if (nlvl_before != nlvl_after_io) {
+    throw Fatal("[parser] Pre-processor directives are spliting the unit io definitions, this is not supported:\n"
+                "                A unit io definition has to be entirely contained within if-then-else directives");
+  }
+  _io_end   = bs.pos();
   jumpOverNestedBlocks(parser,bs, lcp, '{', '}');
   int nlvl_after  = lcp.nestLevel();
   if (nlvl_before != nlvl_after) {
     throw Fatal("[parser] Pre-processor directives are spliting the unit, this is not supported:\n"
-                "         A unit has to be entirely contained within if-then-else directives");
+                "                A unit has to be entirely contained within if-then-else directives");
   }
 }
 
@@ -975,7 +983,7 @@ void jumpOverUnit(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp)
 
 void LuaPreProcessor::decomposeSource(
   const std::string& incode,
-  std::map<int, std::pair<std::string, int> >& _units)
+  std::map<int, std::pair<std::string, t_unit_loc> >& _units)
 {
   BufferStream bs(incode.c_str(),(uint)incode.size());
   t_Parser     parser(bs, false);
@@ -1003,9 +1011,40 @@ void LuaPreProcessor::decomposeSource(
           m_FormalUnits.insert(name);
         }
         LuaCodePath lcp_unit;
-        jumpOverUnit(parser,bs,lcp_unit);
-        int after   = bs.pos();
-        _units[before] = std::make_pair(name, after);
+        t_unit_loc  loc;
+        loc.start = before;
+        jumpOverUnit(parser,bs,lcp_unit,loc.io_start,loc.io_end);
+        loc.end   = bs.pos();
+        _units[before] = std::make_pair(name, loc);
+
+        //////////////// TEST
+        /*{
+          std::string ios;
+          for (int i = loc.io_start+1; i < loc.io_end-1; ++i) {
+            ios += bs.buffer()[i];
+          }
+          cerr << ios << endl;
+
+          auto lexerErrorListener = AutoPtr<LexerErrorListener>(new LexerErrorListener(*this));
+          auto           parserErrorListener = AutoPtr<ParserErrorListener>(new ParserErrorListener(*this));
+          auto input = AutoPtr<antlr4::ANTLRInputStream>(new antlr4::ANTLRInputStream(ios));
+          auto lexer = AutoPtr<siliceLexer>(new siliceLexer(input.raw()));
+          auto tokens = AutoPtr<antlr4::CommonTokenStream>(new antlr4::CommonTokenStream(lexer.raw()));
+          auto parser = AutoPtr<siliceParser>(new siliceParser(tokens.raw()));
+          auto err_handler = std::make_shared<ParserErrorHandler>();
+          parser->setErrorHandler(err_handler);
+          lexer->removeErrorListeners();
+          lexer->addErrorListener(lexerErrorListener.raw());
+          parser->removeErrorListeners();
+          parser->addErrorListener(parserErrorListener.raw());
+          // return parsed tree
+          auto root = parser->inOutList();
+          for (auto io : root->inOrOut()) {
+            if (io->input())  { cerr << io->input()->declarationVar()->IDENTIFIER()->getText() << '\n'; }
+            if (io->output()) { cerr << io->output()->declarationVar()->IDENTIFIER()->getText() << '\n'; }
+          }
+        }*/
+
       } else if (w.empty()) {
         parser.readChar();
       }
@@ -1048,53 +1087,25 @@ std::string nameToLua(std::string str)
 
 // -------------------------------------------------
 
-std::string LuaPreProcessor::prepareCode(
-  std::string header, const std::string& incode,
-  const std::map<int, std::pair<std::string, int> >& units)
+std::string luaCodeSplit(std::string incode,int& _src_line)
 {
-  cerr << "preprocessing " << "\n";
-
-  std::string code = header;
-
+  if (incode.empty()) return "";
   BufferStream bs(incode.c_str(), (uint)incode.size());
   t_Parser     parser(bs, false);
-
-  std::string current;
-  int src_line = 0;
-  int unit_end = -1;
+  std::string  code;
+  std::string  current;
   while (!parser.eof()) {
-
     int next = parser.readChar(false);
-
-    {
-      auto F = units.find(bs.pos());
-      if (F != units.end()) {
-        // just at the unit start
-        sl_assert(unit_end == -1);
-        // -> emit current
-        if (!current.empty()) {
-          code += "output('";
-          code += current;
-          code += "\\n'," + std::to_string(src_line) + "," + std::to_string(0) + ")\n";
-          current = "";
-        }
-        // write function header
-        code += "-- =================================>>> unit " + F->second.first + "\n";
-        code += "_G[" + nameToLua(F->second.first) + "] = function()\n";
-        unit_end = F->second.second;
-      }
-    }
-
     if (IS_EOL(next)) {
       // -> emit current
       if (!current.empty()) {
         code += "output('";
         code += current;
-        code += "\\n'," + std::to_string(src_line) + "," + std::to_string(0) + ")\n";
+        code += "\\n'," + std::to_string(_src_line) + "," + std::to_string(0) + ")\n";
         current = "";
       }
       parser.readChar();
-      ++ src_line;
+      ++_src_line;
     } else if (next == '\\') {
       // escape sequence
       parser.readChar();
@@ -1105,13 +1116,13 @@ std::string LuaPreProcessor::prepareCode(
       // might be a comment, jump over it
       int r = jumpOverComment(parser, bs);
       if (r >= 0) {
-        src_line += r;
+        _src_line += r;
       } else {
         current += next;
       }
     } else if (next == '"') {
       // string
-      std::string str = jumpOverString(parser,bs);
+      std::string str = jumpOverString(parser, bs);
       current += "\"" + str + "\"";
     } else if (next == '$') {
       // Lua line or insertion?
@@ -1137,30 +1148,54 @@ std::string LuaPreProcessor::prepareCode(
         current += " ";
       }
     }
-
-    if (unit_end == bs.pos()) {
-      // -> emit current
-      if (!current.empty()) {
-        code += "output('";
-        code += current;
-        code += "\\n'," + std::to_string(src_line) + "," + std::to_string(0) + ")\n";
-        current = "";
-      }
-      // write function footer
-      code += "end\n";
-      code += "-- -----------------------------------\n";
-      unit_end = -1;
-    }
-
   }
   // -> emit last
   if (!current.empty()) {
     code += "output('";
     code += current;
-    code += "\\n'," + std::to_string(src_line) + "," + std::to_string(0) + ")\n";
+    code += "\\n'," + std::to_string(_src_line) + "," + std::to_string(0) + ")\n";
     current = "";
   }
+  return code;
+}
 
+// -------------------------------------------------
+
+std::string LuaPreProcessor::prepareCode(
+  std::string header, const std::string& incode,
+  const std::map<int, std::pair<std::string, t_unit_loc> >& units)
+{
+  cerr << "preprocessing " << "\n";
+  std::string code = header;
+  int src_line = 0;
+  int prev = 0;
+  for (auto u : m_Units) {
+    std::string before = incode.substr(prev, u.second.second.start - prev);
+    code += luaCodeSplit(before, src_line);
+    // write input/output function
+    code += "-- =================================>>> unit IO " + u.second.first + "\n";
+    code += "_G[ '__io__' .. " + nameToLua(u.second.first) + "] = function()\n";
+    std::string ios;
+    for (int i = u.second.second.io_start + 1/*skip (*/; i < u.second.second.io_end - 1/*skip )*/; ++i) {
+      ios += incode[i];
+    }
+    int io_src_line = src_line;
+    code += luaCodeSplit(ios, io_src_line);
+    code += "end\n";
+    // write unit function
+    code += "-- =================================>>> unit " + u.second.first + "\n";
+    code += "_G[" + nameToLua(u.second.first) + "] = function()\n";
+    std::string unit;
+    for (int i = u.second.second.start; i < u.second.second.end; ++i) {
+      unit += incode[i];
+    }
+    code += luaCodeSplit(unit, src_line);
+    code += "end\n";
+    code += "-- -----------------------------------\n";
+    prev = u.second.second.end;
+  }
+  std::string last = incode.substr(prev);
+  code += luaCodeSplit(last, src_line);
   return code;
 }
 
@@ -1259,7 +1294,17 @@ void LuaPreProcessor::generateBody(
 
 // -------------------------------------------------
 
-void LuaPreProcessor::generateUnitSource(std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx)
+void LuaPreProcessor::generateUnitIOSource(
+  std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx)
+{
+  std::string lua_code = "_G['__io__" + unit + "']()\n";
+  executeLuaString(lua_code, dst_file, ictx);
+}
+
+// -------------------------------------------------
+
+void LuaPreProcessor::generateUnitSource(
+  std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx)
 {
   std::string lua_code = "_G['" + unit + "']()\n";
   executeLuaString(lua_code, dst_file, ictx);
