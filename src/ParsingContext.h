@@ -43,19 +43,20 @@ namespace Silice {
 
   public:
 
+    AutoPtr<antlr4::ANTLRFileStream>     input;
+    AutoPtr<siliceLexer>                 lexer;
+    AutoPtr<antlr4::CommonTokenStream>   tokens;
+    AutoPtr<siliceParser>                parser;
+    antlr4::tree::ParseTree             *root = nullptr;
+    std::vector<LibSL::Math::v3i>        lineRemapping; // [0] is line in output, [1] is source file id, [2] is line in source
+
     std::string                          fresult;
     std::string                          framework_verilog;
     std::vector<std::string>             defines;
     AutoPtr<LuaPreProcessor>             lpp;
     AutoPtr<LexerErrorListener>          lexerErrorListener;
     AutoPtr<ParserErrorListener>         parserErrorListener;
-    AutoPtr<antlr4::ANTLRFileStream>     input;
-    AutoPtr<siliceLexer>                 lexer;
-    AutoPtr<antlr4::CommonTokenStream>   tokens;
-    AutoPtr<siliceParser>                parser;
-    antlr4::tree::ParseTree             *root = nullptr;
     std::shared_ptr<ParserErrorHandler>  err_handler;
-    std::vector<LibSL::Math::v3i>        lineRemapping; // [0] is line in output, [1] is source file id, [2] is line in source
 
     ParsingContext(
       std::string              fresult_,
@@ -78,6 +79,14 @@ namespace Silice {
     void bind();
     void unbind();
   };
+
+  // -------------------------------------------------
+
+  /// \brief contains info about a parsed unit and its parsing context
+  typedef struct {
+    AutoPtr<ParsingContext> body_parser;
+    AutoPtr<Blueprint>      unit;
+  } t_parsed_unit;
 
   // -------------------------------------------------
 

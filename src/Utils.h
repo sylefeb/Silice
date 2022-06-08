@@ -59,18 +59,6 @@ namespace Silice
     antlr4::Token *getToken(antlr4::tree::ParseTree *node, antlr4::misc::Interval interval, bool last_else_first = false);
     /// \brief returns the source file and line for the given token (helper)
     std::pair<std::string, int> getTokenSourceFileAndLine(antlr4::tree::ParseTree *node, antlr4::Token *tk);
-    /// \brief Token stream for warning reporting, optionally set
-    static antlr4::TokenStream *s_TokenStream;
-    /// \brief Pre-processor, optionally set
-    static LuaPreProcessor *s_LuaPreProcessor;
-    /// \brief set the token stream
-    void setTokenStream(antlr4::TokenStream *tks);
-    /// \brief get the token stream
-    antlr4::TokenStream *getTokenStream();
-    /// \brief set the pre-processor
-    void setLuaPreProcessor(LuaPreProcessor *lpp);
-    /// \brief get the pre-processor
-    LuaPreProcessor *getLuaPreProcessor();
     /// \brief extracts a piece of source code in between given tokens
     std::string extractCodeBetweenTokens(std::string file, antlr4::TokenStream* tk_stream, int stk, int etk);
     /// \brief loads the content of file into a string

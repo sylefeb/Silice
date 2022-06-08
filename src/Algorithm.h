@@ -227,17 +227,17 @@ private:
 
     /// \brief info about an instanced algorithm
     typedef struct s_instanced_nfo  {
-      std::string                blueprint_name;
-      std::string                instance_name;
-      std::string                instance_prefix;
-      Utils::t_source_loc        srcloc;
-      std::vector<t_binding_nfo> bindings;
-      bool                       autobind;
-      std::string                instance_clock;
-      std::string                instance_reset;
-      bool                       instance_reginput = false;
-      AutoPtr<ParsingContext>    blueprint_parsing_context;
-      AutoPtr<Blueprint>         blueprint;
+      std::string                   blueprint_name;
+      std::string                   instance_name;
+      std::string                   instance_prefix;
+      Utils::t_source_loc           srcloc;
+      std::vector<t_binding_nfo>    bindings;
+      bool                          autobind;
+      std::string                   instance_clock;
+      std::string                   instance_reset;
+      bool                          instance_reginput = false;
+      AutoPtr<Blueprint>            blueprint;
+      t_parsed_unit                 parsed_unit;
       std::unordered_map<std::string, std::pair<t_binding_point, e_FFUsage> > boundinputs;
     } t_instanced_nfo;
 

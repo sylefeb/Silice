@@ -384,6 +384,7 @@ void SiliceCompiler::beginParsing(
   AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor());
   lpp->enableFilesReport(fresult + ".files.log");
   std::string preprocessed = std::string(fresult) + ".lpp";
+  Algorithm::setLuaPreProcessor(lpp.raw());
 
   // create parsing context
   m_BodyContext = AutoPtr<ParsingContext>(new ParsingContext(
@@ -409,7 +410,6 @@ void SiliceCompiler::beginParsing(
   }
 }
 
-
 // -------------------------------------------------
 
 void SiliceCompiler::endParsing()
@@ -418,12 +418,12 @@ void SiliceCompiler::endParsing()
   m_BodyContext->unbind();
   // done
   m_BodyContext = AutoPtr<ParsingContext>();
+  Algorithm::setLuaPreProcessor(nullptr);
 }
 
 // -------------------------------------------------
 
-std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> >
-SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx)
+t_parsed_unit SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx)
 {
   std::string preprocessed_io = std::string(m_BodyContext->fresult) + "." + to_parse + ".io.lpp";
   std::string preprocessed    = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
@@ -448,7 +448,10 @@ SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t_instantiation
   // done
   context->unbind();
 
-  return std::make_pair(context, bp);
+  t_parsed_unit parsed;
+  parsed.body_parser = context;
+  parsed.unit = bp;
+  return parsed;
 
 }
 
@@ -493,8 +496,11 @@ void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiat
       // static units
       Algorithm *alg = dynamic_cast<Algorithm*>(m_Blueprints.at(miordr).raw());
       if (alg != nullptr) {
-        writeUnit(std::make_pair(m_BodyContext, m_Blueprints.at(miordr)), ictx, _out, true);
-        writeUnit(std::make_pair(m_BodyContext, m_Blueprints.at(miordr)), ictx, _out, false);
+        t_parsed_unit pu;
+        pu.body_parser = m_BodyContext;
+        pu.unit        = m_Blueprints.at(miordr);
+        writeUnit(pu, ictx, _out, true);
+        writeUnit(pu, ictx, _out, false);
       }
     }
     // done
@@ -517,7 +523,7 @@ void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_ins
   for (auto name : m_BodyContext->lpp->formalUnits()) {
     // parse and write unit
     auto bp = parseUnit(name, ictx);
-    bp.second->setAsTopMost();
+    bp.unit->setAsTopMost();
     Blueprint::t_instantiation_context local_ictx = ictx;
     local_ictx.instance_name = "formal_" + name + "$";
     // -> first pass
@@ -530,7 +536,7 @@ void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_ins
 // -------------------------------------------------
 
 void SiliceCompiler::writeUnit(
-  std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > parsed,
+  t_parsed_unit                                            parsed,
   const Blueprint::t_instantiation_context&                ictx,
   std::ostream&                                           _out,
   bool                                                     pass)
@@ -543,9 +549,9 @@ void SiliceCompiler::writeUnit(
   try {
 
     // bind context
-    parsed.first->bind();
+    parsed.body_parser->bind();
     // cast to algorithm
-    Algorithm *alg = dynamic_cast<Algorithm*>(parsed.second.raw());
+    Algorithm *alg = dynamic_cast<Algorithm*>(parsed.unit.raw());
     if (alg == nullptr) {
       reportError(t_source_loc(), "unit cannot be exported");
     } else {
@@ -555,11 +561,11 @@ void SiliceCompiler::writeUnit(
       alg->writeAsModule(this, _out, ictx, pass);
     }
     // unbind context
-    parsed.first->unbind();
+    parsed.body_parser->unbind();
 
   } catch (ReportError&) {
 
-    parsed.first->unbind();
+    parsed.body_parser->unbind();
     throw Fatal("[SiliceCompiler] writer stopped");
 
   }
@@ -612,7 +618,7 @@ void SiliceCompiler::run(
     }
     // parse and write top unit
     auto bp = parseUnit(to_export, ictx);
-    bp.second->setAsTopMost();
+    bp.unit->setAsTopMost();
     ictx.instance_name = "";
     // -> first pass
     writeUnit(bp, ictx, out, true);

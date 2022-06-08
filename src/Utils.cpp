@@ -36,9 +36,6 @@ using namespace Silice;
 
 // -------------------------------------------------
 
-static antlr4::TokenStream *s_TokenStream = nullptr;
-static LuaPreProcessor     *s_LuaPreProcessor = nullptr;
-
 static Utils::t_source_loc nowhere;
 
 // -------------------------------------------------
@@ -73,7 +70,7 @@ void Utils::warn(e_WarningType type, const t_source_loc& srcloc, const char *msg
   case Standard:    std::cerr << Console::yellow << "[warning]    " << Console::gray; break;
   case Deprecation: std::cerr << Console::cyan << "[deprecated] " << Console::gray; break;
   }
-  antlr4::TokenStream *tks = s_TokenStream;
+  antlr4::TokenStream *tks = nullptr;
   ParsingContext *pctx = nullptr;
   if (srcloc.root) {
     pctx = ParsingContext::rootContext(Utils::root(srcloc.root));
@@ -86,8 +83,8 @@ void Utils::warn(e_WarningType type, const t_source_loc& srcloc, const char *msg
     antlr4::Token *tk = tks->get(srcloc.interval.a);
     line = (int)tk->getLine();
   }
-  if (s_LuaPreProcessor != nullptr) {
-    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(pctx,line);
+  if (pctx != nullptr) {
+    auto fl = pctx->lpp->lineAfterToFileAndLineBefore(pctx,line);
     std::cerr << "(" << Console::white << fl.first << Console::gray << ", line " << sprint("%4d", fl.second) << ") ";
   } else {
     std::cerr << "(" << line << ") ";
@@ -100,7 +97,7 @@ void Utils::warn(e_WarningType type, const t_source_loc& srcloc, const char *msg
 
 antlr4::Token *Utils::getToken(antlr4::tree::ParseTree *node, antlr4::misc::Interval interval, bool last_else_first)
 {
-  antlr4::TokenStream *tks = s_TokenStream;
+  antlr4::TokenStream *tks = nullptr;
   ParsingContext *pctx = nullptr;
   if (node) {
     pctx = ParsingContext::rootContext(Utils::root(node));
@@ -127,40 +124,12 @@ std::pair<std::string, int> Utils::getTokenSourceFileAndLine(antlr4::tree::Parse
     pctx = ParsingContext::activeContext();
   }
   int line = (int)tk->getLine();
-  if (s_LuaPreProcessor != nullptr) {
-    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(pctx,line);
+  if (pctx != nullptr) {
+    auto fl = pctx->lpp->lineAfterToFileAndLineBefore(pctx,line);
     return fl;
   } else {
     return std::make_pair("", line);
   }
-}
-
-// -------------------------------------------------
-
-void Utils::setTokenStream(antlr4::TokenStream *tks)
-{
-  s_TokenStream = tks;
-}
-
-// -------------------------------------------------
-
-antlr4::TokenStream * Utils::getTokenStream()
-{
-  return s_TokenStream;
-}
-
-// -------------------------------------------------
-
-void Utils::setLuaPreProcessor(LuaPreProcessor *lpp)
-{
-  s_LuaPreProcessor = lpp;
-}
-
-// -------------------------------------------------
-
-LuaPreProcessor *Utils::getLuaPreProcessor()
-{
-  return s_LuaPreProcessor;
 }
 
 // -------------------------------------------------

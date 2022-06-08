@@ -60,10 +60,13 @@ ParsingContext::ParsingContext(
   std::string              framework_verilog_,
   const std::vector<std::string>& defines_)
 {
-  fresult           = fresult_;
-  framework_verilog = framework_verilog_;
-  defines           = defines_;
-  lpp               = lpp_;
+  fresult             = fresult_;
+  framework_verilog   = framework_verilog_;
+  defines             = defines_;
+  lpp                 = lpp_;
+  lexerErrorListener  = AutoPtr<LexerErrorListener>(new LexerErrorListener(*lpp));
+  parserErrorListener = AutoPtr<ParserErrorListener>(new ParserErrorListener(*lpp));
+  err_handler         = std::make_shared<ParserErrorHandler>();
 }
 
 // -------------------------------------------------
@@ -71,20 +74,16 @@ ParsingContext::ParsingContext(
 antlr4::tree::ParseTree* ParsingContext::parse(std::string preprocessed)
 {
   // initiate parsing
-  lexerErrorListener = AutoPtr<LexerErrorListener>(new LexerErrorListener(*lpp));
-  parserErrorListener = AutoPtr<ParserErrorListener>(new ParserErrorListener(*lpp));
-  input = AutoPtr<antlr4::ANTLRFileStream>(new antlr4::ANTLRFileStream(preprocessed));
-  lexer = AutoPtr<siliceLexer>(new siliceLexer(input.raw()));
+  input  = AutoPtr<antlr4::ANTLRFileStream>(new antlr4::ANTLRFileStream(preprocessed));
+  lexer  = AutoPtr<siliceLexer>(new siliceLexer(input.raw()));
   tokens = AutoPtr<antlr4::CommonTokenStream>(new antlr4::CommonTokenStream(lexer.raw()));
   parser = AutoPtr<siliceParser>(new siliceParser(tokens.raw()));
-  err_handler = std::make_shared<ParserErrorHandler>();
   parser->setErrorHandler(err_handler);
   lexer->removeErrorListeners();
   lexer->addErrorListener(lexerErrorListener.raw());
   parser->removeErrorListeners();
   parser->addErrorListener(parserErrorListener.raw());
-  // update stream binding
-  Utils::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser->getInputStream()));
+  // update stream on stack
   s_context_stack.back().stream = dynamic_cast<antlr4::TokenStream*>(parser->getInputStream());
   // return parsed tree
   root = parser->topList();
@@ -97,27 +96,22 @@ antlr4::tree::ParseTree* ParsingContext::parse(std::string preprocessed)
 
 void ParsingContext::bind()
 {
-  // push previous
+  // push current
   context_rec rec;
-  rec.stream = Utils::getTokenStream();
-  rec.lpp    = Utils::getLuaPreProcessor();
-  s_context_stack.push_back(rec);
-  // set new
   if (!parser.isNull()) {
-    Utils::setTokenStream(dynamic_cast<antlr4::TokenStream*>(parser->getInputStream()));
+    rec.stream = dynamic_cast<antlr4::TokenStream*>(parser->getInputStream());
+  } else {
+    rec.stream = nullptr;
   }
-  Utils::setLuaPreProcessor(lpp.raw());
-  Algorithm::setLuaPreProcessor(lpp.raw());
+  rec.lpp    = lpp.raw();
+  s_context_stack.push_back(rec);
   // set as active
   s_ActiveContext.push_back(this);
 }
 
 void ParsingContext::unbind()
 {
-  // pop previous
-  Utils::setTokenStream(s_context_stack.back().stream);
-  Utils::setLuaPreProcessor(s_context_stack.back().lpp);
-  Algorithm::setLuaPreProcessor(s_context_stack.back().lpp);
+  // pop
   s_context_stack.pop_back();
   s_ActiveContext.pop_back();
 }

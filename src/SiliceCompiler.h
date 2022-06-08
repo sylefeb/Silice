@@ -120,13 +120,13 @@ namespace Silice {
 
     /// \brief writes a unit in the output stream
     void writeUnit(
-      std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > parsed,
+      t_parsed_unit                             parsed,
       const Blueprint::t_instantiation_context& ictx,
       std::ostream&                            _out,
       bool                                      first_pass);
 
     /// \brief parses a specific unit
-    std::pair< AutoPtr<ParsingContext>, AutoPtr<Blueprint> > parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx);
+    t_parsed_unit parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx);
 
     /// \brief returns the static blueprint for 'unit', otherwise null
     AutoPtr<Blueprint> isStaticBlueprint(std::string bpname);
