@@ -88,6 +88,7 @@ namespace Silice {
 
   /// \brief contains info about a parsed unit and its parsing context
   typedef struct {
+    std::string             parsed_unit;
     AutoPtr<ParsingContext> ios_parser;
     AutoPtr<ParsingContext> body_parser;
     AutoPtr<Blueprint>      unit;

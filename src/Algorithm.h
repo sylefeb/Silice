@@ -1067,6 +1067,8 @@ private:
     std::string memoryModuleName(std::string instance_name, const t_mem_nfo &bram) const;
     /// \brief prepare replacements for a memory module template
     void prepareModuleMemoryTemplateReplacements(std::string instance_name, const t_mem_nfo& bram, std::unordered_map<std::string, std::string>& _replacements) const;
+    /// \brief adds a vio from an algorithm to an instantiation context
+    void addToInstantiationContext(const Algorithm *alg,std::string var, const t_var_nfo& bnfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const;
     /// \brief makes an instantiation context for a blueprint
     void makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const;
     /// \brief instanciate instanciated blueprints

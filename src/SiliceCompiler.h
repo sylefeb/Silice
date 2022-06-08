@@ -27,9 +27,6 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 /// TODO on new pre-processor approach
 
-- clock/reset in Algorithm::instantiateBlueprints
-- if inputs/outputs are not parametric, override context
-  (otherwise widthof/signed return info from the binding)
 - provide a way to fill the context without a binding, e.g.
   div div0< iden:uint16 , ... >
 
@@ -118,13 +115,15 @@ namespace Silice {
 
     /// \brief writes a unit in the output stream
     void writeUnit(
-      t_parsed_unit                             parsed,
+      const t_parsed_unit&                      parsed,
       const Blueprint::t_instantiation_context& ictx,
       std::ostream&                            _out,
       bool                                      first_pass);
 
-    /// \brief parses a specific unit
-    t_parsed_unit parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx);
+    /// \brief parses a specific unit ios
+    t_parsed_unit parseUnitIOs(std::string to_parse);
+    /// \brief parses a unit body (call after parseUnitIOs);
+    void          parseUnitBody(t_parsed_unit& _parsed, const Blueprint::t_instantiation_context& ictx);
 
     /// \brief returns the static blueprint for 'unit', otherwise null
     AutoPtr<Blueprint> isStaticBlueprint(std::string bpname);

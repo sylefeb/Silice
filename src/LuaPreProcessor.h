@@ -79,7 +79,7 @@ namespace Silice {
 
     void createLuaContext();
     void destroyLuaContext();
-    void executeLuaString(std::string lua_code, std::string dst_file, const Blueprint::t_instantiation_context& ictx);
+    void executeLuaString(std::string lua_code, std::string dst_file, bool has_ictx, const Blueprint::t_instantiation_context& ictx);
 
   public:
 
@@ -89,7 +89,7 @@ namespace Silice {
     void generateBody(std::string src_file, const std::vector<std::string> &defaultLibraries,
                       const Blueprint::t_instantiation_context& ictx, std::string lua_header_code, std::string dst_file);
     /// \brief generates a unit IO source code (the part defining unit ios) in dst_file
-    void generateUnitIOSource(std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx);
+    void generateUnitIOSource(std::string unit, std::string dst_file);
     /// \brief generates a unit source code in dst_file
     void generateUnitSource(std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx);
 

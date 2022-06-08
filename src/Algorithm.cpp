@@ -7852,39 +7852,65 @@ bool Algorithm::getVIONfo(std::string vio, t_var_nfo& _nfo) const
 
 // -------------------------------------------------
 
+void Algorithm::addToInstantiationContext(const Algorithm *alg, std::string var, const t_var_nfo& bnfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const
+{
+  // resolve parameter value
+  std::transform(var.begin(), var.end(), var.begin(),
+    [](unsigned char c) -> unsigned char { return std::toupper(c); });
+  string str_width  = var  + "_WIDTH";
+  string str_init   = var   + "_INIT";
+  string str_signed = var + "_SIGNED";
+  _local_ictx.parameters[str_width]  = alg->varBitWidth(bnfo, ictx);
+  _local_ictx.parameters[str_init]   = alg->varInitValue(bnfo, ictx);
+  _local_ictx.parameters[str_signed] = alg->typeString(alg->varType(bnfo, ictx));
+}
+
+// -------------------------------------------------
+
 void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const
 {
-  // clear
-  _local_ictx.parameters.clear();
+  _local_ictx = ictx;
   // parameters for parameterized variables
-  // -> we use all bindings as we do not know yet which are parameterized
-  ForIndex(i, nfo.bindings.size()) {
-    const auto &b = nfo.bindings[i];
-    std::string var = b.left;
-    std::string bound = bindingRightIdentifier(b);
-    if (bound == "clock" || bound == "reset") {
-      continue; /// ////////////////////////////////////////// TODO
+  ForIndex(i, nfo.blueprint->parameterized().size()) {
+    string var = nfo.blueprint->parameterized()[i];
+    // find binding
+    bool found    = false;
+    const auto &b = findBindingTo(var, nfo.bindings, found);
+    if (!found) {
+      reportError(nfo.srcloc, "interface '%s' of instance '%s' is not bound, interfaces have to be bound using the <:> binding operator",
+        memberPrefix(var).c_str(), nfo.instance_name.c_str());
     }
+    std::string bound = bindingRightIdentifier(b);
     t_var_nfo bnfo;
     if (!getVIONfo(bound, bnfo)) {
       continue; // NOTE: This is fine, we might be missing a binding that will be later resolved.
                 //       Later (when writing the output) this is strictly asserted.
                 //       This will only be an issue if the bound var is actually a paramterized var,
-                //       however tdesigner is expected to worry about instantiation order in such cases.
+                //       however the designer is expected to worry about instantiation order in such cases.
     }
     if (bnfo.table_size != 0) {
       // parameterized vars cannot be tables
       continue;
     }
-    // resolve parameter value
-    std::transform(var.begin(), var.end(), var.begin(),
-      [](unsigned char c) -> unsigned char { return std::toupper(c); });
-    string str_width  = var + "_WIDTH";
-    string str_init   = var + "_INIT";
-    string str_signed = var + "_SIGNED";
-    _local_ictx.parameters[str_width]  = varBitWidth(bnfo, ictx);
-    _local_ictx.parameters[str_signed] = typeString(varType(bnfo, ictx));
-    _local_ictx.parameters[str_init]   = varInitValue(bnfo, ictx);
+    // add to context
+    addToInstantiationContext(this, var, bnfo, _local_ictx, _local_ictx);
+  }
+  // parameters of non-parameterized ios (for pre-processor widthof/signed)
+  Algorithm *alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
+  for (auto io : nfo.blueprint->inputs()) {
+    if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+      addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+    }
+  }
+  for (auto io : nfo.blueprint->outputs()) {
+    if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+      addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+    }
+  }
+  for (auto io : nfo.blueprint->inOuts()) {
+    if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+      addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+    }
   }
   // instance context
   _local_ictx.instance_name = ictx.instance_name + "_" + nfo.instance_name;
@@ -7901,23 +7927,16 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
     if (first_pass) { /// first pass
       // generate or find blueprint
       sl_assert(nfo.blueprint.isNull());
-      // parsing context and blueprint
-      t_parsed_unit cbp;
       // check whether blueprint is static
       auto gbp = compiler->isStaticBlueprint(nfo.blueprint_name);
       if (!gbp.isNull()) {
         // this is a static blueprint, no instantiation needed
         nfo.blueprint = gbp;
       } else {
-        // create local context with what we know
-        // NOTE: if <:auto:> is used, we only get parameterized info for the explicit bindings at this stage
-        //       the pre-processor will not be able to use widthof/signed on implicit bindings
-        t_instantiation_context local_ictx;
-        makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
         cerr << "instantiating unit '" << nfo.blueprint_name << "' as '" << nfo.instance_name << "'\n";
-        // parse the unit
+        // parse the unit ios
         try {
-          cbp = compiler->parseUnit(nfo.blueprint_name, local_ictx);
+          auto cbp = compiler->parseUnitIOs(nfo.blueprint_name);
           nfo.parsed_unit = cbp;
           nfo.blueprint   = cbp.unit;
         } catch (Fatal&) {
@@ -7932,14 +7951,15 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
       if (nfo.autobind) {
         autobindInstancedBlueprint(nfo);
       }
-      // write the unit if non static
-      if (!nfo.parsed_unit.unit.isNull()) { // first pass
-        // update the instantiation context with what we discovered
-        // NOTE: if <:auto:> was used, we now have all the info to properly fill in the parameterized info
+      // finish the unit if non static
+      if (!nfo.parsed_unit.unit.isNull()) {
+        // update the instantiation context now that we have the unit ios
         t_instantiation_context local_ictx;
         makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
-        // write unit
-        compiler->writeUnit(cbp, local_ictx, out, first_pass);
+        // parse the unit body
+        compiler->parseUnitBody(nfo.parsed_unit, local_ictx);
+        // write the unit, first pass
+        compiler->writeUnit(nfo.parsed_unit, local_ictx, out, first_pass);
       }
     } else { /// second pass
       sl_assert(!nfo.blueprint.isNull());

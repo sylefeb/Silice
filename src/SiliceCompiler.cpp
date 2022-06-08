@@ -399,60 +399,68 @@ void SiliceCompiler::endParsing()
 
 // -------------------------------------------------
 
-t_parsed_unit SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t_instantiation_context& ictx)
+t_parsed_unit SiliceCompiler::parseUnitIOs(std::string to_parse)
 {
-  std::string preprocessed_io = std::string(m_BodyContext->fresult) + "." + to_parse + ".io.lpp";
-  std::string preprocessed    = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
+  t_parsed_unit parsed;
+
+  parsed.parsed_unit = to_parse;
+  std::string preprocessed_io = std::string(m_BodyContext->fresult) + "." + parsed.parsed_unit + ".io.lpp";
 
   // create parsing contexts
-  AutoPtr<ParsingContext> ios_parser(new ParsingContext(
+  parsed.ios_parser = AutoPtr<ParsingContext>(new ParsingContext(
     m_BodyContext->fresult, m_BodyContext->lpp,
     m_BodyContext->framework_verilog, m_BodyContext->defines));
-  AutoPtr<ParsingContext> body_parser(new ParsingContext(
-    m_BodyContext->fresult, m_BodyContext->lpp,
-    m_BodyContext->framework_verilog, m_BodyContext->defines));
+
   // unit
-  AutoPtr<Algorithm> unit(new Algorithm(m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields));
+  auto alg    = AutoPtr<Algorithm>(new Algorithm(m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields));
+  parsed.unit = AutoPtr<Blueprint>(alg);
 
   { /// parse the ios
     // bind local context
-    ios_parser->bind();
+    parsed.ios_parser->bind();
     // pre-process unit IOs (done first to gather intel on parameterized vs static ios
-    m_BodyContext->lpp->generateUnitIOSource(to_parse, preprocessed_io, ictx);
+    m_BodyContext->lpp->generateUnitIOSource(parsed.parsed_unit, preprocessed_io);
     // gather the unit
-    ios_parser->prepareParser(preprocessed_io);
-    auto ios_root = ios_parser->parser->rootInOutList();
-    ios_parser->setRoot(ios_root);
+    parsed.ios_parser->prepareParser(preprocessed_io);
+    auto ios_root = parsed.ios_parser->parser->rootInOutList();
+    parsed.ios_parser->setRoot(ios_root);
     // gather IOs
-    unit->gatherIOs(ios_root->inOutList());
+    alg->gatherIOs(ios_root->inOutList());
     // done
-    ios_parser->unbind();
+    parsed.ios_parser->unbind();
   }
 
-  { /// parse the body
-    // bind local context
-    body_parser->bind();
-    // pre-process unit
-    m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed, ictx);
-    // gather the unit
-    body_parser->prepareParser(preprocessed);
-    auto body_root = body_parser->parser->rootUnit();
-    body_parser->setRoot(body_root);
-    if (body_root->unit()) {
-      gatherUnitBody(unit,body_root->unit());
-    } else {
-      gatherUnitBody(unit,body_root->algorithm());
-    }
-    // done
-    body_parser->unbind();
-  }
-
-  t_parsed_unit parsed;
-  parsed.ios_parser  = ios_parser;
-  parsed.body_parser = body_parser;
-  parsed.unit = AutoPtr<Blueprint>(unit);
   return parsed;
+}
 
+// -------------------------------------------------
+
+void SiliceCompiler::parseUnitBody(t_parsed_unit& _parsed, const Blueprint::t_instantiation_context& ictx)
+{
+  std::string preprocessed = std::string(m_BodyContext->fresult) + "." + _parsed.parsed_unit + ".lpp";
+
+  // create parsing context
+  _parsed.body_parser = AutoPtr< ParsingContext>(new ParsingContext(
+    m_BodyContext->fresult, m_BodyContext->lpp,
+    m_BodyContext->framework_verilog, m_BodyContext->defines));
+
+  /// parse the body
+  // bind local context
+  _parsed.body_parser->bind();
+  // pre-process unit
+  m_BodyContext->lpp->generateUnitSource(_parsed.parsed_unit, preprocessed, ictx);
+  // gather the unit
+  _parsed.body_parser->prepareParser(preprocessed);
+  auto body_root = _parsed.body_parser->parser->rootUnit();
+  _parsed.body_parser->setRoot(body_root);
+  auto alg = AutoPtr<Algorithm>(_parsed.unit);
+  if (body_root->unit()) {
+    gatherUnitBody(alg, body_root->unit());
+  } else {
+    gatherUnitBody(alg, body_root->algorithm());
+  }
+  // done
+  _parsed.body_parser->unbind();
 }
 
 // -------------------------------------------------
@@ -522,7 +530,8 @@ void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_ins
   // write formal unit tests
   for (auto name : m_BodyContext->lpp->formalUnits()) {
     // parse and write unit
-    auto bp = parseUnit(name, ictx);
+    auto bp = parseUnitIOs(name);
+    parseUnitBody(bp, ictx);
     bp.unit->setAsTopMost();
     Blueprint::t_instantiation_context local_ictx = ictx;
     local_ictx.instance_name = "formal_" + name + "$";
@@ -536,7 +545,7 @@ void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_ins
 // -------------------------------------------------
 
 void SiliceCompiler::writeUnit(
-  t_parsed_unit                                            parsed,
+  const t_parsed_unit&                                     parsed,
   const Blueprint::t_instantiation_context&                ictx,
   std::ostream&                                           _out,
   bool                                                     pass)
@@ -617,7 +626,8 @@ void SiliceCompiler::run(
       to_export = "main"; // export main by default
     }
     // parse and write top unit
-    auto bp = parseUnit(to_export, ictx);
+    auto bp = parseUnitIOs(to_export);
+    parseUnitBody(bp, ictx);
     bp.unit->setAsTopMost();
     ictx.instance_name = "";
     // -> first pass
