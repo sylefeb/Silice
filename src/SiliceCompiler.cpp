@@ -272,6 +272,9 @@ void SiliceCompiler::gatherUnitBody(AutoPtr<Algorithm> unit, antlr4::tree::Parse
           formalModes.push_back(mode);
         }
       }
+      if (m->sspecialize() != nullptr) {
+        throw Fatal("The specialization modifier is only relevant during instantiation");
+      }
     }
   }
   if (formalModes.empty()) {

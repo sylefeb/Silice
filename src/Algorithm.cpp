@@ -1242,8 +1242,20 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
         nfo.instance_reset = m->sreset()->IDENTIFIER()->getText();
       } else if (m->sreginput() != nullptr) {
         nfo.instance_reginput = true;
+      } else if (m->sspecialize() != nullptr) {
+        std::string var = m->sspecialize()->IDENTIFIER()->getText();
+        t_type_nfo tn;
+        splitType(m->sspecialize()->TYPE()->getText(), tn);
+        std::transform(var.begin(), var.end(), var.begin(),
+          [](unsigned char c) -> unsigned char { return std::toupper(c); });
+        string str_width = var + "_WIDTH";
+        string str_init = var + "_INIT";
+        string str_signed = var + "_SIGNED";
+        nfo.specializations.parameters[str_width] = std::to_string(tn.width);
+        nfo.specializations.parameters[str_init] = "";
+        nfo.specializations.parameters[str_signed] = tn.base_type == Int ? "signed" : "";
       } else {
-        reportError(sourceloc(m), "modifier not allowed when instantiating algorithms" );
+        reportError(sourceloc(m), "modifier not allowed during instantiation" );
       }
     }
   }
@@ -5179,6 +5191,45 @@ void Algorithm::createInstancedBlueprintInputOutputVars(t_instanced_nfo& _bp)
 
 // -------------------------------------------------
 
+template<typename T_nfo>
+void Algorithm::resolveTypeFromBlueprint(const t_instanced_nfo& bp, const t_instantiation_context &ictx, t_var_nfo& vnfo, T_nfo& ref)
+{
+  vnfo.type_nfo.base_type = bp.blueprint->varType(ref, ictx);
+  vnfo.type_nfo.width     = atoi(bp.blueprint->varBitWidth(ref, ictx).c_str());
+  vnfo.type_nfo.same_as   = "";
+  sl_assert(vnfo.table_size == 0);
+  std::string init = bp.blueprint->varInitValue(ref, ictx);
+  if (!init.empty()) {
+    vnfo.init_values.clear();
+    vnfo.init_values.push_back(init);
+  }
+}
+
+void Algorithm::resolveInstancedBlueprintInputOutputVarTypes(const t_instanced_nfo& bp, const t_instantiation_context &ictx)
+{
+  for (const auto& i : bp.blueprint->inputs()) {
+    if (bp.boundinputs.count(i.name) == 0) {
+      // not bound
+      std::string name = bp.instance_prefix + "_" + i.name;
+      auto& vnfo       = m_Vars.at(m_VarNames.at(name));
+      if (vnfo.type_nfo.base_type == Parameterized) {
+        // parameterized: has to be resolved
+        resolveTypeFromBlueprint(bp, ictx, vnfo, i);
+      }
+    }
+  }
+  for (const auto& o : bp.blueprint->outputs()) {
+    std::string name = bp.instance_prefix + "_" + o.name;
+    auto& vnfo       = m_Vars.at(m_VarNames.at(name));
+    if (vnfo.type_nfo.base_type == Parameterized) {
+      // parameterized: has to be resolved
+      resolveTypeFromBlueprint(bp, ictx, vnfo, o);
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::checkPermissions()
 {
   // start by adding ins/outs of calls in subroutines
@@ -6239,131 +6290,6 @@ void Algorithm::writeWireAssignements(
 
 // -------------------------------------------------
 
-std::string Algorithm::varBitRange(const t_var_nfo& v,const t_instantiation_context &ictx) const
-{
-  if (v.type_nfo.base_type == Parameterized) {
-    bool ok = false;
-    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as,ok);
-    if (!ok) {
-      reportError(v.srcloc, "cannot find definition of '%s' ('%s')", v.type_nfo.same_as.empty() ? v.name.c_str() : v.type_nfo.same_as.c_str(), v.name.c_str());
-    }
-    string str;
-    if (base.type_nfo.base_type == Parameterized) {
-      str = base.name;
-      std::transform(str.begin(), str.end(), str.begin(),
-        [](unsigned char c) -> unsigned char { return std::toupper(c); });
-      str = str + "_WIDTH";
-      if (ictx.parameters.count(str) == 0) {
-        reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), m_Name.c_str());
-      }
-      str = ictx.parameters.at(str) + "-1"; // NOTE: this should always be a legal value, and never a reference
-    } else {
-      str = std::to_string(base.type_nfo.width-1);
-    }
-    return "[" + str + ":0]";
-  } else {
-    return "[" + std::to_string(v.type_nfo.width - 1) + ":0]";
-  }
-}
-
-// -------------------------------------------------
-
-std::string Algorithm::varBitWidth(const t_var_nfo &v, const t_instantiation_context &ictx) const
-{
-  if (v.type_nfo.base_type == Parameterized) {
-    bool ok = false;
-    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
-    if (!ok) {
-      reportError(v.srcloc, "cannot find definition of '%s' ('%s')", v.type_nfo.same_as.empty() ? v.name.c_str() : v.type_nfo.same_as.c_str(), v.name.c_str());
-    }
-    string str;
-    if (base.type_nfo.base_type == Parameterized) {
-      str = base.name;
-      std::transform(str.begin(), str.end(), str.begin(),
-        [](unsigned char c) -> unsigned char { return std::toupper(c); });
-      str = str + "_WIDTH";
-      if (ictx.parameters.count(str) == 0) {
-        return str;
-      } else {
-        str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
-      }
-    } else {
-      str = std::to_string(base.type_nfo.width);
-    }
-    return str;
-  } else {
-    return std::to_string(v.type_nfo.width);
-  }
-}
-
-// -------------------------------------------------
-
-std::string Algorithm::varInitValue(const t_var_nfo &v,const t_instantiation_context &ictx) const
-{
-  sl_assert(v.table_size == 0);
-  if (v.type_nfo.base_type == Parameterized) {
-    bool ok = false;
-    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
-    sl_assert(ok);
-    string str;
-    if (base.type_nfo.base_type == Parameterized) {
-      str = base.name;
-      std::transform(str.begin(), str.end(), str.begin(),
-        [](unsigned char c) -> unsigned char { return std::toupper(c); });
-      str = str + "_INIT";
-      if (ictx.parameters.count(str) == 0) {
-        reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), m_Name.c_str());
-      }
-      str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
-    } else {
-      if (base.init_values.empty()) {
-        str = "0";
-      } else {
-        str = base.init_values[0];
-      }
-    }
-    return str;
-  } else {
-    sl_assert(!v.init_values.empty() || v.do_not_initialize);
-    if (v.init_values.empty()) {
-      return "";
-    } else {
-      return v.init_values[0];
-    }
-  }
-}
-
-// -------------------------------------------------
-
-e_Type Algorithm::varType(const t_var_nfo &v, const t_instantiation_context &ictx) const
-{
-  if (v.type_nfo.base_type == Parameterized) {
-    bool ok = false;
-    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
-    if (!ok) {
-      reportError(v.srcloc, "cannot determine type of '%s' during instantiation of unit '%s', input or output not bound?", v.name.c_str(), m_Name.c_str());
-    }
-    string str;
-    if (base.type_nfo.base_type == Parameterized) {
-      str = base.name;
-      std::transform(str.begin(), str.end(), str.begin(),
-        [](unsigned char c) -> unsigned char { return std::toupper(c); });
-      str = str + "_SIGNED";
-      if (ictx.parameters.count(str) == 0) {
-        reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), m_Name.c_str());
-      }
-      str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
-      return (str == "signed") ? Int : UInt;
-    } else {
-      return base.type_nfo.base_type;
-    }
-  } else {
-    return v.type_nfo.base_type;
-  }
-}
-
-// -------------------------------------------------
-
 void Algorithm::writeVerilogDeclaration(std::ostream &out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const
 {
   out << base << " " << typeString(varType(v,ictx)) << " " << varBitRange(v,ictx) << " " << postfix << ';' << nxl;
@@ -6371,12 +6297,9 @@ void Algorithm::writeVerilogDeclaration(std::ostream &out, const t_instantiation
 
 // -------------------------------------------------
 
-std::string Algorithm::typeString(e_Type type) const
+void Algorithm::writeVerilogDeclaration(const Blueprint *bp, std::ostream &out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const
 {
-  if (type == Int) {
-    return "signed";
-  }
-  return "";
+  out << base << " " << typeString(bp->varType(v, ictx)) << " " << bp->varBitRange(v, ictx) << " " << postfix << ';' << nxl;
 }
 
 // -------------------------------------------------
@@ -7852,6 +7775,21 @@ bool Algorithm::getVIONfo(std::string vio, t_var_nfo& _nfo) const
 
 // -------------------------------------------------
 
+bool Algorithm::varIsInInstantiationContext(std::string var, const t_instantiation_context& ictx) const
+{
+  // resolve parameter value
+  std::transform(var.begin(), var.end(), var.begin(),
+    [](unsigned char c) -> unsigned char { return std::toupper(c); });
+  string str_width = var + "_WIDTH";
+  string str_init = var + "_INIT";
+  string str_signed = var + "_SIGNED";
+  return ( ictx.parameters.count(str_width)  != 0
+        && ictx.parameters.count(str_init)   != 0
+        && ictx.parameters.count(str_signed) != 0 );
+}
+
+// -------------------------------------------------
+
 void Algorithm::addToInstantiationContext(const Algorithm *alg, std::string var, const t_var_nfo& bnfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const
 {
   // resolve parameter value
@@ -7862,7 +7800,7 @@ void Algorithm::addToInstantiationContext(const Algorithm *alg, std::string var,
   string str_signed = var + "_SIGNED";
   _local_ictx.parameters[str_width]  = alg->varBitWidth(bnfo, ictx);
   _local_ictx.parameters[str_init]   = alg->varInitValue(bnfo, ictx);
-  _local_ictx.parameters[str_signed] = alg->typeString(alg->varType(bnfo, ictx));
+  _local_ictx.parameters[str_signed] = typeString(alg->varType(bnfo, ictx));
 }
 
 // -------------------------------------------------
@@ -7873,27 +7811,36 @@ void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, co
   // parameters for parameterized variables
   ForIndex(i, nfo.blueprint->parameterized().size()) {
     string var = nfo.blueprint->parameterized()[i];
-    // find binding
-    bool found    = false;
-    const auto &b = findBindingTo(var, nfo.bindings, found);
-    if (!found) {
-      reportError(nfo.srcloc, "interface '%s' of instance '%s' is not bound, interfaces have to be bound using the <:> binding operator",
-        memberPrefix(var).c_str(), nfo.instance_name.c_str());
-    }
-    std::string bound = bindingRightIdentifier(b);
-    t_var_nfo bnfo;
-    if (!getVIONfo(bound, bnfo)) {
-      continue; // NOTE: This is fine, we might be missing a binding that will be later resolved.
-                //       Later (when writing the output) this is strictly asserted.
-                //       This will only be an issue if the bound var is actually a paramterized var,
-                //       however the designer is expected to worry about instantiation order in such cases.
-    }
-    if (bnfo.table_size != 0) {
-      // parameterized vars cannot be tables
+    if (varIsInInstantiationContext(var, nfo.specializations)) {
+      // var has been specialized explicitly already
       continue;
     }
-    // add to context
-    addToInstantiationContext(this, var, bnfo, _local_ictx, _local_ictx);
+    bool found = false;
+    auto io_nfo = nfo.blueprint->getVIODefinition(var, found);
+    sl_assert(found);
+    if (io_nfo.type_nfo.same_as.empty()) {
+      // a binding is needed to parameterize this io, find it
+      found = false;
+      const auto &b = findBindingTo(var, nfo.bindings, found);
+      if (!found) {
+        reportError(nfo.srcloc, "io '%s' of instance '%s' is not bound nor specialized, cannot automatically determine it",
+          var.c_str(), nfo.instance_name.c_str());
+      }
+      std::string bound = bindingRightIdentifier(b);
+      t_var_nfo bnfo;
+      if (!getVIONfo(bound, bnfo)) {
+        continue; // NOTE: This is fine, we might be missing a binding that will be later resolved.
+                  //       Later (when writing the output) this is strictly asserted.
+                  //       This will only be an issue if the bound var is actually a paramterized var,
+                  //       however the designer is expected to worry about instantiation order in such cases.
+      }
+      if (bnfo.table_size != 0) {
+        // parameterized vars cannot be tables
+        continue;
+      }
+      // add to context
+      addToInstantiationContext(this, var, bnfo, _local_ictx, _local_ictx);
+    }
   }
   // parameters of non-parameterized ios (for pre-processor widthof/signed)
   Algorithm *alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
@@ -7953,9 +7900,15 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
       }
       // finish the unit if non static
       if (!nfo.parsed_unit.unit.isNull()) {
+        // instantiation context
+        t_instantiation_context local_ictx = ictx;
+        local_ictx.parameters.insert(nfo.specializations.parameters.begin(), nfo.specializations.parameters.end());
         // update the instantiation context now that we have the unit ios
-        t_instantiation_context local_ictx;
-        makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
+        makeBlueprintInstantiationContext(nfo, local_ictx, local_ictx);
+        // record the specializations
+        nfo.specializations = local_ictx;
+        // resolve instanced blueprint inputs/outputs var types
+        resolveInstancedBlueprintInputOutputVarTypes(nfo, local_ictx);
         // parse the unit body
         compiler->parseUnitBody(nfo.parsed_unit, local_ictx);
         // write the unit, first pass
@@ -7964,11 +7917,15 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
     } else { /// second pass
       sl_assert(!nfo.blueprint.isNull());
       if (!nfo.parsed_unit.unit.isNull()) { // second pass on non-static
+        // instantiation context
+        t_instantiation_context local_ictx = ictx;
+        local_ictx.parameters.insert(nfo.specializations.parameters.begin(), nfo.specializations.parameters.end());
         // create local context
-        t_instantiation_context local_ictx;
-        makeBlueprintInstantiationContext(nfo, ictx, local_ictx);
+        makeBlueprintInstantiationContext(nfo, local_ictx, local_ictx);
+        // record the specializations
+        nfo.specializations = local_ictx;
         // write as module
-        nfo.blueprint->writeAsModule(compiler, out, local_ictx, first_pass);
+        nfo.blueprint->writeAsModule(compiler, out, nfo.specializations, first_pass);
       }
     }
   }
@@ -8053,25 +8010,9 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     // output wires
     for (const auto& os : nfo.blueprint->outputs()) {
       sl_assert(os.table_size == 0);
-      // is the output parameterized?
-      if (os.type_nfo.base_type == Parameterized) {
-        // find binding
-        bool found        = false;
-        const auto& b     = findBindingTo(os.name, nfo.bindings, found);
-        if (!found) {
-          reportError(nfo.srcloc, "interface '%s' of instance '%s' is not bound, interfaces have to be bound using the <:> binding operator",
-            memberPrefix(os.name).c_str(), nfo.instance_name.c_str());
-        }
-        std::string bound = bindingRightIdentifier(b);
-        t_var_nfo bnfo;
-        if (!getVIONfo(bound, bnfo)) {
-          reportError(nfo.srcloc, "cannot determine binding source type for binding between '%s' and '%s', instance '%s'",
-            os.name.c_str(), bound.c_str(), nfo.instance_name.c_str());
-        }
-        writeVerilogDeclaration(out, ictx, "wire", bnfo, std::string(WIRE) + nfo.instance_prefix + '_' + os.name);
-      } else {
-        writeVerilogDeclaration(out, ictx, "wire", os, std::string(WIRE) + nfo.instance_prefix + '_' + os.name);
-      }
+      // this uses the instantiated blueprint to determine the type of the wire,
+      // since everything is determined by this point
+      writeVerilogDeclaration(nfo.blueprint.raw(), out, nfo.specializations, "wire", os, std::string(WIRE) + nfo.instance_prefix + '_' + os.name);
     }
     // algorithm specific
     Algorithm *alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());

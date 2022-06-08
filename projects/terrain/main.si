@@ -105,9 +105,10 @@ $$end
 $$if NUM_BTNS then
   input   uint$NUM_BTNS$    btns,
 $$end
+)
 $$if ICEBREAKER then
 // on the IceBreaker we generate a clock from a PLL
-) <@vga_clock,!fast_reset> {
+<@vga_clock,!fast_reset> {
 
   uint1 fast_clock = uninitialized;
   pll pllgen(
@@ -126,7 +127,7 @@ $$if ICEBREAKER then
     out :> fast_reset
   );
 $$else
-) {
+{
 $$end
 
 $$if not NUM_BTNS then

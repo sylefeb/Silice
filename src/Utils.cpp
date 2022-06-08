@@ -50,7 +50,12 @@ void Utils::reportError(const t_source_loc& srcloc, const char *msg, ...)
   vsprintf_s(message, messageBufferSize, msg, args);
   va_end(args);
 
-  auto pctx = ParsingContext::rootContext(srcloc.root);
+  ParsingContext *pctx = nullptr;
+  if (srcloc.root) {
+    pctx = ParsingContext::rootContext(srcloc.root);
+  } else {
+    pctx = ParsingContext::activeContext();
+  }
   throw ReportError(pctx, -1, pctx->parser->getTokenStream(), nullptr, srcloc.interval, message);
 }
 

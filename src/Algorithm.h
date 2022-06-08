@@ -238,6 +238,7 @@ private:
       bool                          instance_reginput = false;
       AutoPtr<Blueprint>            blueprint;
       t_parsed_unit                 parsed_unit;
+      t_instantiation_context       specializations;
       std::unordered_map<std::string, std::pair<t_binding_point, e_FFUsage> > boundinputs;
     } t_instanced_nfo;
 
@@ -896,6 +897,11 @@ private:
     void resolveInOuts();
     ///  \brief adds variables for non bound instanced blueprint inputs and outputs
     void createInstancedBlueprintInputOutputVars(t_instanced_nfo& _bp);
+    /// \brief resolves the type of a var from an instanced blueprint
+    template<typename T_nfo>
+    void resolveTypeFromBlueprint(const t_instanced_nfo& bp, const t_instantiation_context &ictx, t_var_nfo& vnfo, T_nfo& ref);
+    ///  \brief resolves all blueprint parameterized ios, fixing their true type
+    void resolveInstancedBlueprintInputOutputVarTypes(const t_instanced_nfo& bp, const t_instantiation_context &ictx);
     /// \brief returns true if the algorithm does not have an FSM
     bool hasNoFSM() const;
     /// \brief returns true if the algorithm does not call subroutines
@@ -933,20 +939,12 @@ private:
 
   private:
 
-    /// \brief returns variable bit range for verilog declaration
-    std::string varBitRange(const t_var_nfo& v, const t_instantiation_context &ictx) const;
-    /// \brief returns a variable bit width for verilog use
-    std::string varBitWidth(const t_var_nfo &v, const t_instantiation_context &ictx) const;
-    /// \brief returns a variable init value for verilog use (non-tables only)
-    std::string varInitValue(const t_var_nfo &v, const t_instantiation_context &ictx) const;
-    /// \brief returns the base type of a variable
-    e_Type      varType     (const t_var_nfo& v, const t_instantiation_context &ictx) const;
-    /// \brief returns a type dependent string for resource declaration
-    std::string typeString(e_Type type) const;
     /// \brief finds the root of a same_as chain
     std::string findSameAsRoot(std::string vio, const t_combinational_block_context *bctx) const;
     /// \brief write a verilog wire/reg declaration, possibly parameterized
     void writeVerilogDeclaration(std::ostream &out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const;
+    /// \brief write a verilog wire/reg declaration for a blueprint io, possibly parameterized
+    void writeVerilogDeclaration(const Blueprint *bp,std::ostream &out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const;
     /// \brief determines identifier bit width and (if applicable) table size
     std::tuple<t_type_nfo, int> determineIdentifierTypeWidthAndTableSize(const t_combinational_block_context *bctx, antlr4::tree::TerminalNode *identifier, const Utils::t_source_loc& srloc) const;
     /// \brief determines identifier type and width
@@ -1067,6 +1065,8 @@ private:
     std::string memoryModuleName(std::string instance_name, const t_mem_nfo &bram) const;
     /// \brief prepare replacements for a memory module template
     void prepareModuleMemoryTemplateReplacements(std::string instance_name, const t_mem_nfo& bram, std::unordered_map<std::string, std::string>& _replacements) const;
+    /// \brief checks whether a var is in the instantiation context
+    bool varIsInInstantiationContext(std::string var, const t_instantiation_context& ictx) const;
     /// \brief adds a vio from an algorithm to an instantiation context
     void addToInstantiationContext(const Algorithm *alg,std::string var, const t_var_nfo& bnfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const;
     /// \brief makes an instantiation context for a blueprint
@@ -1089,9 +1089,6 @@ private:
     /// \brief ExpressionLinter is a friend
     friend class ExpressionLinter;
 
-    /// \brief return the algorithm name
-    std::string name() const { return m_Name; }
-
     /// \brief set the pre-processor
     static void setLuaPreProcessor(LuaPreProcessor *lpp)
     {
@@ -1103,6 +1100,8 @@ private:
 
     /// === implements Blueprint
 
+    /// \brief returns the blueprint name
+    std::string name() const override { return m_Name; }
     /// \brief sets as a top module in the output stream
     void setAsTopMost() override;
     /// \brief writes the algorithm as a Verilog module, recurses through instanced blueprints

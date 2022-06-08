@@ -88,6 +88,8 @@ namespace Silice
 
     /// === implements Blueprint
 
+    /// \brief returns the blueprint name
+    std::string name() const override { return m_Name; }
     /// \brief writes the algorithm as a Verilog module, recurses through instanced blueprints
     void writeAsModule(SiliceCompiler *compiler, std::ostream& out, const t_instantiation_context& ictx, bool first_pass) { }
     /// \brief inputs

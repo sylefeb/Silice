@@ -102,6 +102,8 @@ namespace Silice
       std::unordered_map<std::string, std::string> parameters;
     } t_instantiation_context;
 
+    /// \brief returns the blueprint name
+    virtual std::string name() const = 0;
     /// \brief sets as a top module in the output stream
     virtual void setAsTopMost() { }
     /// \brief writes the blueprint as a Verilog module
@@ -140,6 +142,16 @@ namespace Silice
     virtual std::string outputPortName(std::string name) const { return name; }
     /// \brief returns the name of an inout port from its internal name
     virtual std::string inoutPortName(std::string name)  const { return name; }
+    /// \brief returns variable bit range for verilog declaration
+    virtual std::string varBitRange(const t_var_nfo& v, const t_instantiation_context &ictx) const;
+    /// \brief returns a variable bit width for verilog use
+    virtual std::string varBitWidth(const t_var_nfo &v, const t_instantiation_context &ictx) const;
+    /// \brief returns a variable init value for verilog use (non-tables only)
+    virtual std::string varInitValue(const t_var_nfo &v, const t_instantiation_context &ictx) const;
+    /// \brief returns the base type of a variable
+    virtual e_Type      varType(const t_var_nfo& v, const t_instantiation_context &ictx) const;
+    /// \brief returns a type dependent string for resource declaration
+    virtual std::string typeString(e_Type type) const;
 
     /// \brief returns true of the 'combinational' boolean is properly setup for outputs
     virtual bool hasOutputCombinationalInfo() const = 0;

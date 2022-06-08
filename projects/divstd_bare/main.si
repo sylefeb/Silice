@@ -8,9 +8,9 @@ algorithm main(output uint8 leds)
   int16  den    = - 41;
   int16  result = 0;
 
-  div div0(inum <: num, iden <: den, ret :> result);
+  div div0<inum:int16>;
 
-  () <- div0 <- ();
+  (result) <- div0 <- (num,den);
 
   __display("%d / %d = %d",num,den,result);
 

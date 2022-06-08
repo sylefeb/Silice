@@ -188,8 +188,9 @@ sstacksz            :  'stack:' NUMBER ; // deprecated
 sformdepth          :  '#depth' '=' NUMBER ;
 sformtimeout        :  '#timeout' '=' NUMBER ;
 sformmode           :  '#mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
+sspecialize         :  IDENTIFIER ':' TYPE ;
 
-bpModifier          : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode | sreginput ;
+bpModifier          : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode | sreginput | sspecialize;
 bpModifiers         : '<' bpModifier (',' bpModifier)* '>' ;
 
 pad                 : PAD '(' (value | UNINITIALIZED) ')' ;
