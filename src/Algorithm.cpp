@@ -553,7 +553,7 @@ void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, const U
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire, t_combinational_block *_current)
 {
   t_var_nfo nfo;
   // checks
@@ -566,7 +566,7 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
   nfo.usage = e_Wire;
   // get type
   std::string is_group;
-  gatherTypeNfo(wire->type(), nfo.type_nfo, _current, _context, is_group);
+  gatherTypeNfo(wire->type(), nfo.type_nfo, _current, is_group);
   if (!is_group.empty()) {
     reportError(sourceloc(wire), "'sameas' wire declaration cannot be refering to a group or interface");
   }
@@ -579,12 +579,12 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
 
 // -------------------------------------------------
 
-void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init, t_combinational_block *_current, t_gather_context *_context, std::string &_is_group)
+void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init, const t_combinational_block *_current, std::string &_is_group)
 {
   _nfo.name = decl->IDENTIFIER()->getText();
   _nfo.table_size = 0;
   // get type
-  gatherTypeNfo(decl->type(), _nfo.type_nfo, _current, _context, _is_group);
+  gatherTypeNfo(decl->type(), _nfo.type_nfo, _current, _is_group);
   if (!_is_group.empty()) {
     return;
   } else {
@@ -627,12 +627,12 @@ void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nf
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current)
 {
   // gather variable
   t_var_nfo var;
   std::string is_group;
-  gatherVarNfo(decl, var, false, _current, _context, is_group);
+  gatherVarNfo(decl, var, false, _current, is_group);
   // check if var is a group
   if (!is_group.empty()) {
     if (decl->declarationVarInitSet() != nullptr || decl->declarationVarInitCstr() != nullptr || decl->ATTRIBS() != nullptr) {
@@ -666,13 +666,13 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
 
 // -------------------------------------------------
 
-void Algorithm::gatherTableNfo(siliceParser::DeclarationTableContext *decl, t_var_nfo &_nfo, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherTableNfo(siliceParser::DeclarationTableContext *decl, t_var_nfo &_nfo, t_combinational_block *_current)
 {
   _nfo.name = decl->IDENTIFIER()->getText();
   _nfo.table_size = 0;
   // get type
   std::string is_group;
-  gatherTypeNfo(decl->type(), _nfo.type_nfo, _current, _context, is_group);
+  gatherTypeNfo(decl->type(), _nfo.type_nfo, _current, is_group);
   if (!is_group.empty()) {
     reportError(sourceloc(decl->type()), "'sameas' in table declarations are not yet supported");
   }
@@ -690,10 +690,10 @@ void Algorithm::gatherTableNfo(siliceParser::DeclarationTableContext *decl, t_va
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext *decl, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherDeclarationTable(siliceParser::DeclarationTableContext *decl, t_combinational_block *_current)
 {
   t_var_nfo var;
-  gatherTableNfo(decl, var, _current, _context);
+  gatherTableNfo(decl, var, _current);
   addVar(var, _current, sourceloc(decl, decl->IDENTIFIER()->getSourceInterval()));
 }
 
@@ -823,7 +823,7 @@ void Algorithm::readInitList(D* decl,T& var)
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* decl, t_combinational_block *_current)
 {
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
@@ -1066,7 +1066,7 @@ void Algorithm::getBindings(
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationInstanceContext* grp, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationInstanceContext* grp, t_combinational_block *_current)
 {
   // check for duplicates
   if (!isIdentifierAvailable(grp->name->getText())) {
@@ -1080,7 +1080,7 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationInstanceContext*
       // create group variables
       t_var_nfo vnfo;
       std::string is_group;
-      gatherVarNfo(v->declarationVar(), vnfo, false, _current, _context, is_group);
+      gatherVarNfo(v->declarationVar(), vnfo, false, _current, is_group);
       if (vnfo.type_nfo.base_type == Parameterized) {
         reportError(sourceloc(v), "group '%s': group member declarations cannot use 'sameas'", grp->name->getText().c_str());
       }
@@ -1166,7 +1166,7 @@ std::string Algorithm::findSameAsRoot(std::string vio, const t_combinational_blo
 
 // -------------------------------------------------
 
-void Algorithm::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo, t_combinational_block *_current, t_gather_context *_context, string &_is_group)
+void Algorithm::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo, const t_combinational_block *_current, string &_is_group)
 {
   if (type->TYPE() != nullptr) {
     splitType(type->TYPE()->getText(), _nfo);
@@ -1206,7 +1206,7 @@ void Algorithm::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo,
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceContext* alg, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceContext* alg, t_combinational_block *_current)
 {
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
@@ -1709,7 +1709,7 @@ Algorithm::t_combinational_block *Algorithm::gatherBlock(siliceParser::BlockCont
   t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(block));
   _current->next(newblock);
   // gather declarations in new block
-  gatherDeclarationList(block->declarationList(), newblock, _context, true);
+  gatherDeclarationList(block->declarationList(), newblock, true);
   // gather instructions in new block
   t_combinational_block *after     = gather(block->instructionList(), newblock, _context);
   // produce next block
@@ -1786,7 +1786,7 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, bool var_group_table_only)
+void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, bool var_group_table_only)
 {
   auto declvar   = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
   auto declwire  = dynamic_cast<siliceParser::DeclarationWireContext *>(decl->declarationWire());
@@ -1804,17 +1804,17 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
       }
     }
   }
-  if (declvar)        { gatherDeclarationVar(declvar, _current, _context); }
-  else if (declwire)  { gatherDeclarationWire(declwire, _current, _context); }
-  else if (decltbl)   { gatherDeclarationTable(decltbl, _current, _context); }
-  else if (declmem)   { gatherDeclarationMemory(declmem, _current, _context); }
+  if (declvar)        { gatherDeclarationVar(declvar, _current); }
+  else if (declwire)  { gatherDeclarationWire(declwire, _current); }
+  else if (decltbl)   { gatherDeclarationTable(decltbl, _current); }
+  else if (declmem)   { gatherDeclarationMemory(declmem, _current); }
   else if (instance) {
     std::string name = instance->blueprint->getText();
     if (m_KnownGroups.find(name) != m_KnownGroups.end()) {
-      gatherDeclarationGroup(instance, _current, _context);
+      gatherDeclarationGroup(instance, _current);
     } else {
       sl_assert(!var_group_table_only);
-      gatherDeclarationInstance(instance, _current, _context);
+      gatherDeclarationInstance(instance, _current);
     }
   }
 }
@@ -1892,7 +1892,7 @@ void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_
 
 //-------------------------------------------------
 
-int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context* _context,bool var_group_table_only)
+int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, bool var_group_table_only)
 {
   if (decllist == nullptr) {
     return 0;
@@ -1901,7 +1901,7 @@ int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decll
   siliceParser::DeclarationListContext *cur_decllist = decllist;
   while (cur_decllist->declaration() != nullptr) {
     siliceParser::DeclarationContext* decl = cur_decllist->declaration();
-    gatherDeclaration(decl, _current, _context, var_group_table_only);
+    gatherDeclaration(decl, _current, var_group_table_only);
     cur_decllist = cur_decllist->declarationList();
     ++num;
   }
@@ -1956,7 +1956,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   subb->context.subroutine    = nfo;
   nfo->top_block              = subb;
   // subroutine local declarations
-  int numdecl = gatherDeclarationList(sub->declarationList(), subb, _context, true);
+  int numdecl = gatherDeclarationList(sub->declarationList(), subb, true);
   // cross ref between block and subroutine
   // gather inputs/outputs and access constraints
   sl_assert(sub->subroutineParamList() != nullptr);
@@ -2040,7 +2040,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       // get type
       sl_assert(type != nullptr);
       std::string is_group;
-      gatherTypeNfo(type, var.type_nfo, _current, _context, is_group);
+      gatherTypeNfo(type, var.type_nfo, _current, is_group);
       if (!is_group.empty()) {
         reportError(sourceloc(type), "'sameas' in subroutine declaration cannot be refering to a group or interface");
       }
@@ -2698,12 +2698,12 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
 
 // -------------------------------------------------
 
-void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _io, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherInputNfo(siliceParser::InputContext* input, t_inout_nfo& _io, const t_combinational_block *_current)
 {
   if (input->declarationVar() != nullptr) {
     _io.srcloc = sourceloc(input->declarationVar()->IDENTIFIER());
     std::string is_group;
-    gatherVarNfo(input->declarationVar(), _io, true, _current, _context, is_group);
+    gatherVarNfo(input->declarationVar(), _io, true, _current, is_group);
     if (_io.type_nfo.base_type == Parameterized && !is_group.empty()) {
       reportError(sourceloc(input), "input '%s': 'sameas' on group/interface inputs is not yet supported", _io.name.c_str());
     }
@@ -2720,12 +2720,12 @@ void Algorithm::gatherInputNfo(siliceParser::InputContext* input,t_inout_nfo& _i
 
 // -------------------------------------------------
 
-void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nfo& _io, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nfo& _io, const t_combinational_block *_current)
 {
   if (output->declarationVar() != nullptr) {
     _io.srcloc = sourceloc(output->declarationVar()->IDENTIFIER());
     std::string is_group;
-    gatherVarNfo(output->declarationVar(), _io, true, _current, _context, is_group);
+    gatherVarNfo(output->declarationVar(), _io, true, _current, is_group);
     if (_io.type_nfo.base_type == Parameterized && !is_group.empty()) {
       reportError(sourceloc(output), "output '%s': 'sameas' on group/interface outputs is not yet supported", _io.name.c_str());
     }
@@ -2740,12 +2740,12 @@ void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nf
 
 // -------------------------------------------------
 
-void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _io, const t_combinational_block *_current)
 {
   if (inout->declarationVar() != nullptr) {
     _io.srcloc = sourceloc(inout->declarationVar()->IDENTIFIER());
     std::string is_group;
-    gatherVarNfo(inout->declarationVar(), _io, true, _current, _context, is_group);
+    gatherVarNfo(inout->declarationVar(), _io, true, _current, is_group);
     if (_io.type_nfo.base_type == Parameterized && !is_group.empty()) {
       reportError(sourceloc(inout), "inout '%s': 'sameas' on group/interface inouts is not yet supported", _io.name.c_str());
     }
@@ -2761,10 +2761,10 @@ void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _
 
 // -------------------------------------------------
 
-void Algorithm::gatherIoDef(siliceParser::IoDefContext *iod, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherIoDef(siliceParser::IoDefContext *iod, const t_combinational_block *_current)
 {
   if (iod->ioList() != nullptr || iod->INPUT() != nullptr || iod->OUTPUT() != nullptr) {
-    gatherIoGroup(iod,_current,_context);
+    gatherIoGroup(iod,_current);
   } else {
     gatherIoInterface(iod);
   }
@@ -2790,7 +2790,7 @@ void var_nfo_copy(T& _dst,const Algorithm::t_var_nfo &src)
 
 // -------------------------------------------------
 
-void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, const t_combinational_block *_current)
 {
   // find group declaration
   auto G = m_KnownGroups.find(iog->defid->getText());
@@ -2811,7 +2811,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, t_combinational_b
   for (auto v : G->second->varList()->var()) {
     t_var_nfo vnfo;
     std::string is_group;
-    gatherVarNfo(v->declarationVar(), vnfo, false, _current, _context,is_group);
+    gatherVarNfo(v->declarationVar(), vnfo, false, _current, is_group);
     vnfo.srcloc = sourceloc(iog->IDENTIFIER()[1]);
     // sameas?
     if (vnfo.type_nfo.base_type == Parameterized) {
@@ -2958,11 +2958,13 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
 
 // -------------------------------------------------
 
-void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
 {
+  t_combinational_block empty;
   if (inout == nullptr) {
     return;
   }
+  // go through io list
   for (auto io : inout->inOrOut()) {
     bool found;
     t_source_loc srcloc = sourceloc(io);
@@ -2973,7 +2975,7 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
     auto allouts     = dynamic_cast<siliceParser::OutputsContext *>(io->outputs());
     if (input) {
       t_inout_nfo io;
-      gatherInputNfo(input, io, _current, _context);
+      gatherInputNfo(input, io, &empty);
       getVIODefinition(io.name, found);
       if (found) {
         reportError(srcloc, "input '%s': this name is already used by a previous definition", io.name.c_str());
@@ -2985,7 +2987,7 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
       }
     } else if (output) {
       t_output_nfo io;
-      gatherOutputNfo(output, io, _current, _context);
+      gatherOutputNfo(output, io, &empty);
       getVIODefinition(io.name, found);
       if (found) {
         reportError(srcloc, "output '%s': this name is already used by a previous definition", io.name.c_str());
@@ -2997,7 +2999,7 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
       }
     } else if (inout) {
       t_inout_nfo io;
-      gatherInoutNfo(inout, io, _current, _context);
+      gatherInoutNfo(inout, io, &empty);
       getVIODefinition(io.name, found);
       if (found) {
         reportError(srcloc, "inout '%s': this name is already used by a previous definition", io.name.c_str());
@@ -3008,7 +3010,7 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout, t_combinational
         m_Parameterized.push_back(io.name);
       }
     } else if (iodef) {
-      gatherIoDef(iodef,_current,_context);
+      gatherIoDef(iodef, &empty);
     } else if (allouts) {
       reportError(srcloc,"'outputs' is no longer supported (here used on '%s')", allouts->alg->getText().c_str());
     } else {
@@ -3271,7 +3273,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   if (algbody) {
     // gather declarations
     for (auto d : algbody->declaration()) {
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, false);
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, false);
     }
     // add global subroutines now (reparse them as if defined in this algorithm)
     for (const auto &s : m_KnownSubroutines) {
@@ -3336,7 +3338,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (unitbody)     {
     // gather declarations
     for (auto d : unitbody->declaration()) {
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, false);
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, false);
     }
     // gather stableinput checks
     for (auto s : unitbody->stableinput()) {
@@ -3413,7 +3415,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current->next(newblock);
     // gather declarations
     for (auto d : algcontent->declaration()) {
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), newblock, _context, false);
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), newblock, false);
     }
     // gather local subroutines
     for (auto s : algcontent->subroutine()) {
@@ -3428,7 +3430,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current = nextblock;
     // recurse on instruction list
     recurse  = false;
-  } else if (decl)         { gatherDeclaration(decl, _current, _context, true);  recurse = false;
+  } else if (decl)         { gatherDeclaration(decl, _current, true);                      recurse = false;
   } else if (ifelse)       { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
   } else if (ifthen)       { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
   } else if (switchC)      { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
@@ -5085,20 +5087,32 @@ void Algorithm::analyzeInstancedBlueprintInputs()
 // -------------------------------------------------
 
 Algorithm::Algorithm(
-  std::string name, bool hasHash,
-  std::string clock, std::string reset,
-  bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes,
   const std::unordered_map<std::string, siliceParser::SubroutineContext*>& known_subroutines,
   const std::unordered_map<std::string, siliceParser::CircuitryContext*>&  known_circuitries,
   const std::unordered_map<std::string, siliceParser::GroupContext*>&      known_groups,
   const std::unordered_map<std::string, siliceParser::IntrfaceContext *>&  known_interfaces,
   const std::unordered_map<std::string, siliceParser::BitfieldContext*>&   known_bitfield
-)
-  : m_Name(name), m_hasHash(hasHash), m_Clock(clock), m_Reset(reset), m_FormalDepth(formalDepth), m_FormalTimeout(formalTimeout), m_FormalModes(modes),
-    m_AutoRun(autorun), m_OneHot(onehot),
-    m_KnownSubroutines(known_subroutines), m_KnownCircuitries(known_circuitries),
+) : m_KnownSubroutines(known_subroutines), m_KnownCircuitries(known_circuitries),
     m_KnownGroups(known_groups), m_KnownInterfaces(known_interfaces), m_KnownBitFields(known_bitfield)
+{ }
+
+// -------------------------------------------------
+
+void Algorithm::init(
+  std::string name, bool hasHash,
+  std::string clock, std::string reset,
+  bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes
+)
 {
+  m_Name = name;
+  m_hasHash = hasHash;
+  m_Clock = clock;
+  m_Reset = reset;
+  m_FormalDepth = formalDepth;
+  m_FormalTimeout = formalTimeout;
+  m_FormalModes = modes;
+  m_AutoRun = autorun;
+  m_OneHot = onehot;
   // eliminate any duplicate mode
   std::unique(std::begin(m_FormalModes), std::end(m_FormalModes));
   // order modes so that they are always performed in the same order:
@@ -5109,7 +5123,6 @@ Algorithm::Algorithm(
             // - is a bmc (runs first)
             // - is a temporal induction compared to a cover (temporal induction runs first)
             { return (m1 == "bmc") || (m1 == "tind" && m2 == "cover"); });
-
   // init with empty always blocks
   m_AlwaysPre.id = -1;
   m_AlwaysPre .block_name = "_always_pre";
@@ -5119,7 +5132,7 @@ Algorithm::Algorithm(
 
 // -------------------------------------------------
 
-void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::ParseTree *body)
+void Algorithm::gatherBody(antlr4::tree::ParseTree *body)
 {
   // gather elements from source code
   t_combinational_block *main = addBlock("_top", nullptr);
@@ -5129,9 +5142,6 @@ void Algorithm::gather(siliceParser::InOutListContext *inout, antlr4::tree::Pars
   t_gather_context context;
   context.__id = -1;
   context.break_to = nullptr;
-
-  // gather input and outputs
-  gatherIOs(inout, main, &context);
 
   // gather content
   gather(body, main, &context);

@@ -105,14 +105,19 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
     // NOTE: the only way this can happen is if a unit is produced (written)
     //       from the Lua pre-processor and concatenated as a string.
     std::string name;
+    siliceParser::InOutListContext* inout;
     if (alg) {
       name = alg->IDENTIFIER()->getText();
+      inout = alg->inOutList();
     } else {
       name = unit->IDENTIFIER()->getText();
+      inout = unit->inOutList();
     }
     std::cerr << "found static unit " << name << nxl;
-    auto bp = gatherUnit(tree);
-    m_Blueprints.insert(std::make_pair(name, bp));
+    AutoPtr<Algorithm> unit(new Algorithm(m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields));
+    unit->gatherIOs(inout);
+    gatherUnitBody(unit,tree);
+    m_Blueprints.insert(std::make_pair(name, unit));
     m_BlueprintsInDeclOrder.push_back(name);
 
   } else if (circuit) {
@@ -201,23 +206,23 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
 
 // -------------------------------------------------
 
-AutoPtr<Blueprint> SiliceCompiler::gatherUnit(antlr4::tree::ParseTree* tree)
+void SiliceCompiler::gatherUnitBody(AutoPtr<Algorithm> unit, antlr4::tree::ParseTree* tree)
 {
-  auto alg  = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
-  auto unit = dynamic_cast<siliceParser::UnitContext *>(tree);
-  sl_assert(alg || unit);
+  auto a = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
+  auto u = dynamic_cast<siliceParser::UnitContext *>(tree);
+  sl_assert(a || u);
   /// algorithm or unit
   std::string name;
   bool hasHash;
   siliceParser::BpModifiersContext *mods = nullptr;
-  if (alg) {
-    name = alg->IDENTIFIER()->getText();
-    hasHash = alg->HASH() != nullptr;
-    mods = alg->bpModifiers();
+  if (a) {
+    name    = a->IDENTIFIER()->getText();
+    hasHash = a->HASH() != nullptr;
+    mods    = a->bpModifiers();
   } else {
-    name = unit->IDENTIFIER()->getText();
-    hasHash = unit->HASH() != nullptr;
-    mods = unit->bpModifiers();
+    name    = u->IDENTIFIER()->getText();
+    hasHash = u->HASH() != nullptr;
+    mods    = u->bpModifiers();
   }
   std::cerr << "parsing algorithm " << name << nxl;
   bool autorun = (name == "main"); // main always autoruns
@@ -236,14 +241,14 @@ AutoPtr<Blueprint> SiliceCompiler::gatherUnit(antlr4::tree::ParseTree* tree)
         reset = m->sreset()->IDENTIFIER()->getText();
       }
       if (m->sautorun() != nullptr) {
-        if (unit) {
+        if (u) {
           throw Fatal("Unit cannot use the 'autorun' modifier, apply it to the internal algorithm block (line %d).",
             (int)m->sautorun()->getStart()->getLine());
         }
         autorun = true;
       }
       if (m->sonehot() != nullptr) {
-        if (unit) {
+        if (u) {
           throw Fatal("Unit cannot use the 'onehot' modifier, apply it to the internal algorithm block (line %d).",
             (int)m->sonehot()->getStart()->getLine());
         }
@@ -274,18 +279,16 @@ AutoPtr<Blueprint> SiliceCompiler::gatherUnit(antlr4::tree::ParseTree* tree)
     formalModes.push_back("bmc");
   }
 
-  AutoPtr<Algorithm> algorithm(new Algorithm(
-    name, hasHash, clock, reset, autorun, onehot, formalDepth, formalTimeout, formalModes,
-    m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields)
+  unit->init(
+    name, hasHash, clock, reset, autorun, onehot, formalDepth, formalTimeout, formalModes
   );
 
-  if (alg) {
-    algorithm->gather(alg->inOutList(), alg->declAndInstrList());
+  if (a) {
+    unit->gatherBody(a->declAndInstrList());
   } else {
-    algorithm->gather(unit->inOutList(), unit->unitBlocks());
+    unit->gatherBody(u->unitBlocks());
   }
 
-  return AutoPtr<Blueprint>(algorithm);
 }
 
 // -------------------------------------------------
@@ -409,7 +412,7 @@ t_parsed_unit SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t
     m_BodyContext->fresult, m_BodyContext->lpp,
     m_BodyContext->framework_verilog, m_BodyContext->defines));
   // unit
-  AutoPtr<Blueprint> bp;
+  AutoPtr<Algorithm> unit(new Algorithm(m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields));
 
   { /// parse the ios
     // bind local context
@@ -420,16 +423,8 @@ t_parsed_unit SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t
     ios_parser->prepareParser(preprocessed_io);
     auto ios_root = ios_parser->parser->rootInOutList();
     ios_parser->setRoot(ios_root);
-    /// TODO
-
-    /// TEST ========================
-    for (auto io : ios_root->inOutList()->inOrOut()) {
-      if (io->input())  { std::cerr << io->input()->declarationVar()->IDENTIFIER()->getText() << '\n'; }
-      if (io->output()) { std::cerr << io->output()->declarationVar()->IDENTIFIER()->getText() << '\n'; }
-      if (io->ioDef())  { std::cerr << io->ioDef()->defid->getText() << '\n'; }
-    }
-    /// =============================
-
+    // gather IOs
+    unit->gatherIOs(ios_root->inOutList());
     // done
     ios_parser->unbind();
   }
@@ -444,17 +439,18 @@ t_parsed_unit SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t
     auto body_root = body_parser->parser->rootUnit();
     body_parser->setRoot(body_root);
     if (body_root->unit()) {
-      bp = gatherUnit(body_root->unit());
+      gatherUnitBody(unit,body_root->unit());
     } else {
-      bp = gatherUnit(body_root->algorithm());
+      gatherUnitBody(unit,body_root->algorithm());
     }
     // done
     body_parser->unbind();
   }
 
   t_parsed_unit parsed;
+  parsed.ios_parser  = ios_parser;
   parsed.body_parser = body_parser;
-  parsed.unit = bp;
+  parsed.unit = AutoPtr<Blueprint>(unit);
   return parsed;
 
 }
