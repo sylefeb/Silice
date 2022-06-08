@@ -9,15 +9,12 @@
 algorithm div(
   input  auto         inum,
   //     ^^^^ determined at instantiation time
+  //     vvvv sameas as whatever inum is
   input  sameas(inum) iden,
   output sameas(inum) ret = 0)
 {
   // get division width from input, at instantiation time
 $$local div_width = widthof('inum')
-$$assert(widthof('iden') == widthof('inum'),
-$$       '[div] The width of numerator and denominator should be same')
-$$assert(widthof('iden') == widthof('ret'),
-$$       '[div] The width of numerator and result should be same')
 
   uint$div_width+1$ ac       = uninitialized;
   uint$clog2(div_width)+1$ i = 0;
