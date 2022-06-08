@@ -79,6 +79,7 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
     return;
   }
 
+  auto root     = dynamic_cast<siliceParser::RootContext*>(tree);
   auto toplist  = dynamic_cast<siliceParser::TopListContext*>(tree);
   auto alg      = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
   auto riscv    = dynamic_cast<siliceParser::RiscvContext *>(tree);
@@ -91,7 +92,7 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
   auto intrface = dynamic_cast<siliceParser::IntrfaceContext *>(tree);
   auto bitfield = dynamic_cast<siliceParser::BitfieldContext*>(tree);
 
-  if (toplist) {
+  if (toplist || root) {
 
     // keep going
     for (auto c : tree->children) {
@@ -202,7 +203,7 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
 
 AutoPtr<Blueprint> SiliceCompiler::gatherUnit(antlr4::tree::ParseTree* tree)
 {
-  auto alg = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
+  auto alg  = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
   auto unit = dynamic_cast<siliceParser::UnitContext *>(tree);
   sl_assert(alg || unit);
   /// algorithm or unit
@@ -289,37 +290,6 @@ AutoPtr<Blueprint> SiliceCompiler::gatherUnit(antlr4::tree::ParseTree* tree)
 
 // -------------------------------------------------
 
-AutoPtr<Blueprint> SiliceCompiler::findAndGatherUnit(antlr4::tree::ParseTree* tree)
-{
-  if (tree == nullptr) {
-    return AutoPtr<Blueprint>();
-  }
-
-  auto toplist = dynamic_cast<siliceParser::TopListContext*>(tree);
-  auto alg     = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
-  auto unit    = dynamic_cast<siliceParser::UnitContext *>(tree);
-
-  if (toplist) {
-
-    // keep going
-    for (auto c : tree->children) {
-      auto bp = findAndGatherUnit(c);
-      if (!bp.isNull()) {
-        return bp; // source contains a single unit, so we return as soon as found
-      }
-    }
-
-  } else if (alg || unit) {
-
-    return gatherUnit(tree);
-
-  }
-
-  return AutoPtr<Blueprint>();
-}
-
-// -------------------------------------------------
-
 void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog)
 {
   // if we don't have a framework (as for the formal board),
@@ -386,7 +356,7 @@ void SiliceCompiler::beginParsing(
   std::string preprocessed = std::string(fresult) + ".lpp";
   Algorithm::setLuaPreProcessor(lpp.raw());
 
-  // create parsing context
+  // create parsing context for the design body
   m_BodyContext = AutoPtr<ParsingContext>(new ParsingContext(
     fresult, lpp, framework_verilog, defines));
   m_BodyContext->bind();
@@ -400,7 +370,10 @@ void SiliceCompiler::beginParsing(
     try {
 
       // analyze
-      gatherBody(m_BodyContext->parse(preprocessed));
+      m_BodyContext->prepareParser(preprocessed);
+      auto root = m_BodyContext->parser->root();
+      m_BodyContext->setRoot(root);
+      gatherBody(root);
 
     } catch (ReportError&) {
 
@@ -428,28 +401,59 @@ t_parsed_unit SiliceCompiler::parseUnit(std::string to_parse, const Blueprint::t
   std::string preprocessed_io = std::string(m_BodyContext->fresult) + "." + to_parse + ".io.lpp";
   std::string preprocessed    = std::string(m_BodyContext->fresult) + "." + to_parse + ".lpp";
 
-  // create parsing context
-  AutoPtr<ParsingContext> context(new ParsingContext(
+  // create parsing contexts
+  AutoPtr<ParsingContext> ios_parser(new ParsingContext(
     m_BodyContext->fresult, m_BodyContext->lpp,
     m_BodyContext->framework_verilog, m_BodyContext->defines));
+  AutoPtr<ParsingContext> body_parser(new ParsingContext(
+    m_BodyContext->fresult, m_BodyContext->lpp,
+    m_BodyContext->framework_verilog, m_BodyContext->defines));
+  // unit
+  AutoPtr<Blueprint> bp;
 
-  // bind local context
-  context->bind();
+  { /// parse the ios
+    // bind local context
+    ios_parser->bind();
+    // pre-process unit IOs (done first to gather intel on parameterized vs static ios
+    m_BodyContext->lpp->generateUnitIOSource(to_parse, preprocessed_io, ictx);
+    // gather the unit
+    ios_parser->prepareParser(preprocessed_io);
+    auto ios_root = ios_parser->parser->rootInOutList();
+    ios_parser->setRoot(ios_root);
+    /// TODO
 
-  // pre-process unit IOs (done first to gather intel on parameterized vs static ios
-  m_BodyContext->lpp->generateUnitIOSource(to_parse, preprocessed_io, ictx);
+    /// TEST ========================
+    for (auto io : ios_root->inOutList()->inOrOut()) {
+      if (io->input())  { std::cerr << io->input()->declarationVar()->IDENTIFIER()->getText() << '\n'; }
+      if (io->output()) { std::cerr << io->output()->declarationVar()->IDENTIFIER()->getText() << '\n'; }
+      if (io->ioDef())  { std::cerr << io->ioDef()->defid->getText() << '\n'; }
+    }
+    /// =============================
 
-  // pre-process unit
-  m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed, ictx);
+    // done
+    ios_parser->unbind();
+  }
 
-  // gather the unit
-  auto bp = findAndGatherUnit(context->parse(preprocessed));
-
-  // done
-  context->unbind();
+  { /// parse the body
+    // bind local context
+    body_parser->bind();
+    // pre-process unit
+    m_BodyContext->lpp->generateUnitSource(to_parse, preprocessed, ictx);
+    // gather the unit
+    body_parser->prepareParser(preprocessed);
+    auto body_root = body_parser->parser->rootUnit();
+    body_parser->setRoot(body_root);
+    if (body_root->unit()) {
+      bp = gatherUnit(body_root->unit());
+    } else {
+      bp = gatherUnit(body_root->algorithm());
+    }
+    // done
+    body_parser->unbind();
+  }
 
   t_parsed_unit parsed;
-  parsed.body_parser = context;
+  parsed.body_parser = body_parser;
   parsed.unit = bp;
   return parsed;
 

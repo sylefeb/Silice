@@ -40,6 +40,8 @@ namespace Silice {
     // records which root was produced by which context parse() call
     // this is used to find the context and token stream, when localizing tokens in source
     static std::map<antlr4::tree::ParseTree*,ParsingContext*> s_Root2Context;
+    // parsed tree root
+    antlr4::tree::ParseTree             *root = nullptr;
 
   public:
 
@@ -47,7 +49,6 @@ namespace Silice {
     AutoPtr<siliceLexer>                 lexer;
     AutoPtr<antlr4::CommonTokenStream>   tokens;
     AutoPtr<siliceParser>                parser;
-    antlr4::tree::ParseTree             *root = nullptr;
     std::vector<LibSL::Math::v3i>        lineRemapping; // [0] is line in output, [1] is source file id, [2] is line in source
 
     std::string                          fresult;
@@ -64,7 +65,10 @@ namespace Silice {
       std::string              framework_verilog_,
       const std::vector<std::string>& defines_);
 
-    antlr4::tree::ParseTree* parse(std::string preprocessed);
+    void prepareParser(std::string preprocessed);
+
+    void setRoot(antlr4::tree::ParseTree* root_);
+    antlr4::tree::ParseTree *getRoot() { return root; }
 
     ~ParsingContext();
 

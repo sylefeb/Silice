@@ -1016,35 +1016,6 @@ void LuaPreProcessor::decomposeSource(
         jumpOverUnit(parser,bs,lcp_unit,loc.io_start,loc.io_end);
         loc.end   = bs.pos();
         _units[before] = std::make_pair(name, loc);
-
-        //////////////// TEST
-        /*{
-          std::string ios;
-          for (int i = loc.io_start+1; i < loc.io_end-1; ++i) {
-            ios += bs.buffer()[i];
-          }
-          cerr << ios << endl;
-
-          auto lexerErrorListener = AutoPtr<LexerErrorListener>(new LexerErrorListener(*this));
-          auto           parserErrorListener = AutoPtr<ParserErrorListener>(new ParserErrorListener(*this));
-          auto input = AutoPtr<antlr4::ANTLRInputStream>(new antlr4::ANTLRInputStream(ios));
-          auto lexer = AutoPtr<siliceLexer>(new siliceLexer(input.raw()));
-          auto tokens = AutoPtr<antlr4::CommonTokenStream>(new antlr4::CommonTokenStream(lexer.raw()));
-          auto parser = AutoPtr<siliceParser>(new siliceParser(tokens.raw()));
-          auto err_handler = std::make_shared<ParserErrorHandler>();
-          parser->setErrorHandler(err_handler);
-          lexer->removeErrorListeners();
-          lexer->addErrorListener(lexerErrorListener.raw());
-          parser->removeErrorListeners();
-          parser->addErrorListener(parserErrorListener.raw());
-          // return parsed tree
-          auto root = parser->inOutList();
-          for (auto io : root->inOrOut()) {
-            if (io->input())  { cerr << io->input()->declarationVar()->IDENTIFIER()->getText() << '\n'; }
-            if (io->output()) { cerr << io->output()->declarationVar()->IDENTIFIER()->getText() << '\n'; }
-          }
-        }*/
-
       } else if (w.empty()) {
         parser.readChar();
       }

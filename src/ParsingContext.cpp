@@ -71,11 +71,11 @@ ParsingContext::ParsingContext(
 
 // -------------------------------------------------
 
-antlr4::tree::ParseTree* ParsingContext::parse(std::string preprocessed)
+void ParsingContext::prepareParser(std::string preprocessed)
 {
   // initiate parsing
-  input  = AutoPtr<antlr4::ANTLRFileStream>(new antlr4::ANTLRFileStream(preprocessed));
-  lexer  = AutoPtr<siliceLexer>(new siliceLexer(input.raw()));
+  input = AutoPtr<antlr4::ANTLRFileStream>(new antlr4::ANTLRFileStream(preprocessed));
+  lexer = AutoPtr<siliceLexer>(new siliceLexer(input.raw()));
   tokens = AutoPtr<antlr4::CommonTokenStream>(new antlr4::CommonTokenStream(lexer.raw()));
   parser = AutoPtr<siliceParser>(new siliceParser(tokens.raw()));
   parser->setErrorHandler(err_handler);
@@ -85,11 +85,15 @@ antlr4::tree::ParseTree* ParsingContext::parse(std::string preprocessed)
   parser->addErrorListener(parserErrorListener.raw());
   // update stream on stack
   s_context_stack.back().stream = dynamic_cast<antlr4::TokenStream*>(parser->getInputStream());
-  // return parsed tree
-  root = parser->topList();
-  sl_assert(Utils::root(root) == root);
+}
+
+// -------------------------------------------------
+
+void ParsingContext::setRoot(antlr4::tree::ParseTree* root_)
+{
+  sl_assert(Utils::root(root_) == root_);
+  root = root_;
   s_Root2Context.insert(std::make_pair(root, this));
-  return root;
 }
 
 // -------------------------------------------------

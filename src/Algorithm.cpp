@@ -5099,16 +5099,16 @@ Algorithm::Algorithm(
     m_KnownSubroutines(known_subroutines), m_KnownCircuitries(known_circuitries),
     m_KnownGroups(known_groups), m_KnownInterfaces(known_interfaces), m_KnownBitFields(known_bitfield)
 {
-    // eliminate any duplicate mode
-    std::unique(std::begin(m_FormalModes), std::end(m_FormalModes));
-    // order modes so that they are always performed in the same order:
-    //  bmc --> temporal induction --> cover
-    std::sort(std::begin(m_FormalModes), std::end(m_FormalModes),
-              [] (std::string const &m1, std::string const &m2)
-              // a mode is less than another one if it either:
-              // - is a bmc (runs first)
-              // - is a temporal induction compared to a cover (temporal induction runs first)
-              { return (m1 == "bmc") || (m1 == "tind" && m2 == "cover"); });
+  // eliminate any duplicate mode
+  std::unique(std::begin(m_FormalModes), std::end(m_FormalModes));
+  // order modes so that they are always performed in the same order:
+  //  bmc --> temporal induction --> cover
+  std::sort(std::begin(m_FormalModes), std::end(m_FormalModes),
+            [] (std::string const &m1, std::string const &m2)
+            // a mode is less than another one if it either:
+            // - is a bmc (runs first)
+            // - is a temporal induction compared to a cover (temporal induction runs first)
+            { return (m1 == "bmc") || (m1 == "tind" && m2 == "cover"); });
 
   // init with empty always blocks
   m_AlwaysPre.id = -1;

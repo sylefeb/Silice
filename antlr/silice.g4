@@ -513,3 +513,7 @@ topList             :  (unit | algorithm  | riscv     | importv | appendv
                     | ;
 
 root                : topList EOF ;
+
+rootInOutList       : inOutList EOF ;
+
+rootUnit            : (unit | algorithm) EOF ;

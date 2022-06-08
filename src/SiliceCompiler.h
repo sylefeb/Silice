@@ -84,8 +84,6 @@ namespace Silice {
     void prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog);
     /// \brief gather a unit from the parsed tree
     AutoPtr<Blueprint> gatherUnit(antlr4::tree::ParseTree* tree);
-    /// \brief find and gather a unit from the parsed tree
-    AutoPtr<Blueprint> findAndGatherUnit(antlr4::tree::ParseTree* tree);
 
     /// \brief body parsing context
     AutoPtr<ParsingContext> m_BodyContext;

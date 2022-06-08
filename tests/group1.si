@@ -14,7 +14,7 @@ algorithm foo(
   tin.c = tin.a;
 }
 
-algorithm alg(
+algorithm main(
   output uint8 led,
   test t0 {
     input a,
@@ -26,7 +26,7 @@ algorithm alg(
   foo f(tin <:> t0);
 
   test bla;
-  
+
   bla.b = 5;
 
   t0.a = 10;
