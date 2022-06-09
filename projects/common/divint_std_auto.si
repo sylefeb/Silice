@@ -14,7 +14,7 @@ algorithm div(
   output sameas(inum) ret = 0)
 {
   // get division width from input, at instantiation time
-$$local div_width = widthof('inum')
+$$div_width = widthof('inum')
 
   uint$div_width+1$ ac       = uninitialized;
   uint$clog2(div_width)+1$ i = 0;
