@@ -127,6 +127,7 @@ algorithm spiflash_rom(
   uint3  stage(0);
   uint3  after(1);
   uint2  init(2b11);
+  uint1  accept_in(0);
 $$if nBytes > 1 then
   uint$nBytes$ rdata_done(0);
 $$end
@@ -144,6 +145,7 @@ $$else
     // this is necessary for icarus as spiflash.qspi is otherwise 1bz
     spiflash.qspi = reset ? 0 : ~init[1,1];
 $$end
+    accept_in = 0;
 
     switch (stage)
     {
@@ -156,29 +158,7 @@ $$end
         stage = wait[10,1] ? after : 0; // counts up to 1024 and goes to after
         wait  = wait + 1;
       }
-      case 1: {
-        four    = {init[0,1],~init[0,1],2b00};
-        sendvec = (init == 2b01 ? {8hEB,addr} : 24h0)
-                | (init == 2b00 ? {addr,8h00} : 24h0)
-                | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0);
-               //                ^^^^^^^^^^ produces 38h when not in QPI
-        spiflash.send_else_read = 1; // sending
-$$if nBytes > 1 then
-        rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
-$$end
-        // start sending?
-        if (in_ready | init[1,1]) {
-$$if SIMULATION then
-          //__display("[%d](%d) spiflash [1] START @%x qspi:%d init:%b",cycle,cycle>>1,addr,spiflash.qspi,init);
-$$if VERILATOR then
-          vdta.addr = addr;
-          //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
-$$end
-$$end
-          busy                  = 1;
-          stage                 = 2;
-        }
-      }
+      case 1: { accept_in = 1; }
       case 2: {
 $$if ICARUS then
         //__display("[%d] spiflash [2] qspi:%d init:%b send:%b",cycle,spiflash.qspi,init,sendvec[24,8]);
@@ -216,6 +196,7 @@ $$if nBytes == 1 then
         busy                    = 0;
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
+        accept_in               = 1; // accept an input immediately
 $$if SIMULATION then
         //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
 $$end
@@ -248,7 +229,30 @@ $$if SIMULATION then
 $$end
       }
 $$end
+    } // switch
+
+    // start sending?
+    if ((in_ready | init[1,1]) & accept_in) {
+      four    = {init[0,1],~init[0,1],2b00};
+      sendvec = (init == 2b01 ? {8hEB,addr} : 24h0)
+              | (init == 2b00 ? {addr,8h00} : 24h0)
+              | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0);
+              //                ^^^^^^^^^^ produces 38h when not in QPI
+      spiflash.send_else_read = 1; // sending
+  $$if nBytes > 1 then
+      rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
+  $$end
+  $$if SIMULATION then
+      //__display("[%d](%d) spiflash [1] START @%x qspi:%d init:%b",cycle,cycle>>1,addr,spiflash.qspi,init);
+  $$if VERILATOR then
+      vdta.addr = addr;
+      //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
+  $$end
+  $$end
+      busy                  = 1;
+      stage                 = 2;
     }
+
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
