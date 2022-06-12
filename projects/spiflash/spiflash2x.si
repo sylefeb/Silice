@@ -221,6 +221,7 @@ $$else
         wait                    = 1024; //_ 2 cycles
         stage                   = rdata_done[0,1] ? 1 : 0;  // return to start stage when done
         after                   = 5; // otherwise keep reading
+        accept_in               = rdata_done[0,1];
         rdata_done              = rdata_done >> 1;
 $$if SIMULATION then
         if (rdata_done[0,1]) {

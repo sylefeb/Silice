@@ -13,8 +13,8 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 
-$$spi4x  = nil
-$$spi2x  = 1
+$$spi4x  = 1
+$$spi2x  = nil
 
 $$nBytes = 1
 
@@ -37,6 +37,8 @@ $$if spi4x then
 $$elseif spi2x then
   import('../common/ice40_half_clock.v')
   $$master_freq = 50
+$$else
+  $$error('define either spi2x or spi4x')
 $$end
 // Import hardware modules
 import('../common/plls/icebrkr_$master_freq$.v')
