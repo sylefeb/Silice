@@ -476,9 +476,10 @@ $$end
 $$if SIMULATION then
   output! uint1             video_clock,
 $$end
+)
 // clocking (pll) and reset
 $$if ICEBREAKER or ICEBITSY then
-) <@clock1x> {
+<@clock1x> {
   uint1 clock4x = uninitialized;
   pll pllgen(
     clock_in  <: clock,
@@ -496,7 +497,7 @@ $$if ICEBREAKER or ICEBITSY then
   //  out :> rst
   //);
 $$elseif SIMULATION then
- ) <@clock1x> {
+<@clock1x> {
   uint1 clock1x = uninitialized;
   uint1 clock2x = uninitialized;
   uint1 clock4x = uninitialized;
@@ -507,7 +508,7 @@ $$elseif SIMULATION then
   );
   //uint1 rst <: reset;
 $$else
-) {
+{
 $$end
 
 $$if SIMULATION then
