@@ -16,11 +16,12 @@ import('../common/verilator_data.v') // this is a feature supported by Silice
 $$end
 
 $$if ICEBREAKER or ICEBITSY or FOMU then
-$$ICE40 = 1
+$$ local ICE40 = 1
 import('../common/ice40_sb_io_inout.v')
 import('../common/ice40_sb_io.v')
 $$end
 
+$$local nBytes
 $$if not nBytes then
 $$ nBytes = 1
 $$end
@@ -198,20 +199,15 @@ $$if nBytes == 1 then
         stage                   = 1; // return to start stage
         accept_in               = 1; // accept an input immediately
 $$if SIMULATION then
+        //__display("[%d] spiflash DONE (%h)",cycle>>1,rdata);
         //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
 $$end
       }
 $$else
       case 5: {
-  $$if SIMULATION then
   $$if VERILATOR then
         rdata                   = {vdta.data[0,8],rdata[8,$(nBytes-1)*8$]};  // from 'data.raw'
         vdta.addr               = rdata_done[0,1] ? vdta.addr : (vdta.addr + 1);
-  $$else
-        // rdata                   = {cycle[0,8],    rdata[8,$(nBytes-1)*8$]}; // DEBUG
-        //__display("[%d] read %h",cycle,spiflash.read);
-        rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
-  $$end
   $$else
         rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
   $$end
@@ -244,6 +240,7 @@ $$end
       rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
   $$end
   $$if SIMULATION then
+      //__display("[%d] spiflash START (@%h)",cycle>>1,addr);
       //__display("[%d](%d) spiflash [1] START @%x qspi:%d init:%b",cycle,cycle>>1,addr,spiflash.qspi,init);
   $$if VERILATOR then
       vdta.addr = addr;

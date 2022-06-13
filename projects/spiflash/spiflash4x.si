@@ -15,10 +15,6 @@
 
 import('ddr_clock.v')
 
-$$if SIMULATION then
-$$  VERBOSE = 1
-$$end
-
 $$if VERILATOR then
 import('../common/verilator_data.v') // this is a feature supported by Silice
                                      // verilator framework to access raw data
@@ -26,7 +22,7 @@ import('../common/verilator_data.v') // this is a feature supported by Silice
 $$end
 
 $$if ICEBREAKER or ICEBITSY or FOMU then
-$$ICE40 = 1
+$$ local ICE40 = 1
 import('../common/ice40_sb_io_inout.v')
 import('../common/ice40_sb_io.v')
 $$end
@@ -36,6 +32,7 @@ $$error('The SPIflash x4 controller is currently only for the ice40 FPGA\n'
 $$    ..'It should be possible to port it to other FPGAs with some efforts.')
 $$end
 
+$$local nBytes
 $$if not nBytes then
 $$ nBytes = 1
 $$end
@@ -210,10 +207,8 @@ $$if nBytes == 1 then
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
         accept_in               = 1;
-$$if VERBOSE then
-        if (~busy) {
-          //__display("[%d] spiflash DONE (%h)",cycle,rdata);
-        }
+$$if SIMULATION then
+        //__display("[%d] spiflash DONE (%h)",cycle>>2,rdata);
 $$end
       }
 $$else
@@ -230,7 +225,7 @@ $$else
         stage                   = rdata_done[0,1] ? 1 : 5;  // return to start stage when done
         accept_in               = rdata_done[0,1];
         rdata_done              = rdata_done >> 1;
-$$if VERBOSE then
+$$if SIMULATION then
         if (~busy) {
           //__display("[%d] spiflash DONE (%h)",cycle,rdata);
         }
@@ -253,8 +248,8 @@ $$end
 $$if VERILATOR then
       vdta.addr = addr;
 $$end
-$$if VERBOSE then
-      //__display("[%d] spiflash START (@%h)",cycle,addr);
+$$if SIMULATION then
+      //__display("[%d] spiflash START (@%h)",cycle>>2,addr);
 $$end
       busy                  = 1;
       stage                 = 2;
