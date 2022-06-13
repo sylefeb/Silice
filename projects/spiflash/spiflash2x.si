@@ -15,8 +15,9 @@ import('../common/verilator_data.v') // this is a feature supported by Silice
                                      // stored in a 'data.raw' file
 $$end
 
+$$local ICE40
 $$if ICEBREAKER or ICEBITSY or FOMU then
-$$ local ICE40 = 1
+$$ ICE40 = 1
 import('../common/ice40_sb_io_inout.v')
 import('../common/ice40_sb_io.v')
 $$end
