@@ -127,8 +127,6 @@ algorithm spiflash_rom(
   input   uint1  clkspi
 ) <autorun> {
 
-  uint32 sendvec(0); //_ 38h (QPI enable)
-
   spiflash_qspi spiflash<reginputs,@clkspi>(
     clk     :> sf_clk,
     csn     :> sf_csn,
@@ -138,8 +136,9 @@ algorithm spiflash_rom(
     io3    <:> sf_io3,
   );
 
+  uint40 sendvec(0); //_ 38h (QPI enable)
   uint11 wait(0);
-  uint4  four(0);
+  uint5  five(0);
   uint3  stage(0);
   uint3  after(1);
   uint2  init(2b11);
@@ -169,25 +168,18 @@ $$end
       case 0: {
 $$if ICARUS then
         // this is necessary for icarus as spiflash.qspi is otherwise 1bz
-        spiflash.trigger = reset ? 0 : spiflash.trigger;
-        spiflash.send    = 0;
+        if (reset) { spiflash.trigger = 0; spiflash.send = 0; }
 $$end
         stage = wait[10,1] ? after : 0; // counts up to 1024 and goes to after
         wait  = wait + 1;
       }
       case 1: { accept_in = 1; }
       case 2: {
-        spiflash.trigger        = 1;
-        spiflash.send           = sendvec[24,8];
+        spiflash.trigger        = ~five[0,1] | ~init[1,1];
+        spiflash.send           = sendvec[32,8];
         sendvec                 = sendvec << 8;
-        stage                   = four[0,1] ? 3 : 2;
-        four                    = four >> 1;
-      }
-      case 3: {
-        // send dummy
-        spiflash.trigger        = ~init[1,1];
-        spiflash.send           = 8b00100000; // requests continuous read
-        stage                   = 4;
+        stage                   = five[0,1] ? 4 : 2;
+        five                    = five >> 1;
       }
       case 4: {
         spiflash.send_else_read = 0;
@@ -236,11 +228,11 @@ $$end
 
     // start sending?
     if ((in_ready | init[1,1]) & accept_in) {
-      four    = {init[0,1],~init[0,1],2b00};
-      sendvec = (init == 2b01 ? {8hEB,addr} : 24h0)
-              | (init == 2b00 ? {addr,8h00} : 24h0)
-              | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0);
-              //                ^^^^^^^^^^ produces 38h when not in QPI
+      five    = {init[0,1],~init[0,1],3b00}; // init 2b11=>5b10000, 2b01=>5b10000, 5b00=>4b01000
+      sendvec = (init == 2b01 ? {8hEB,addr,8b00100000} : 38h0)
+              | (~init[0,1]   ? {addr,8b00100000,8h00} : 38h0)
+              | (init[1,1]    ? {32b00000000000100010001000000000000,8b0} : 38h0);
+              //                 ^^^^^^^^^^ produces 38h when not in QPI
       spiflash.send_else_read = 1; // sending
 $$if nBytes > 1 then
       rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
