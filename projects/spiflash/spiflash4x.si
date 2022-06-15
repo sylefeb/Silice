@@ -137,6 +137,18 @@ algorithm spiflash_rom(
   );
 
   uint40 sendvec(0); //_ 38h (QPI enable)
+  uint$4+3+nBytes$ trigger(0); // 4 for steps with 3 cycles wait
+$$trig_post_0 = '0'
+$$trig_post_1 = '0'
+$$for i=1,nBytes-1 do
+$$  trig_post_0 = '0' .. trig_post_0
+$$  trig_post_1 = '1' .. trig_post_1
+$$end
+$$trig_post_0 = '' .. nBytes .. 'b' .. trig_post_0
+$$trig_post_1 = '' .. nBytes .. 'b' .. trig_post_1
+$$trig_post_x = '' .. nBytes .. 'b'
+$$for i=1,4+3+nBytes do trig_post_x = trig_post_x .. 'x' end
+$$print('######################## ' .. trig_post_0 .. ' ' .. trig_post_1)
   uint11 wait(0);
   uint5  five(0);
   uint3  stage(0);
@@ -173,28 +185,30 @@ $$end
         stage = wait[10,1] ? after : 0; // counts up to 1024 and goes to after
         wait  = wait + 1;
       }
-      case 1: { accept_in = 1; }
+      case 1: { // idle, wait for something to do
+        accept_in = 1;
+      }
       case 2: {
-        spiflash.trigger        = ~five[0,1] | ~init[1,1];
+        // move sendvec
         spiflash.send           = sendvec[32,8];
         sendvec                 = sendvec << 8;
-        stage                   = five[0,1] ? 4 : 2;
+        // send required number of bytes
+        stage                   = five[0,1] ? 3 : 2;
         five                    = five >> 1;
       }
-      case 4: {
-        spiflash.send_else_read = 0;
-        stage                   = 0; // wait
+      case 3: {
+        spiflash.send_else_read = 0;    // stop sending
+        stage                   = 0;    // wait
         wait                    = 1023; //_ 3 cycles (one extra due to registered ios)
-        after                   = 5;
+        after                   = 4;    // conitnue to reading
       }
 $$if nBytes == 1 then
-      case 5: {
+      case 4: {
   $$if VERILATOR then
         rdata                   = vdta.data;  // from 'data.raw'
   $$else
         rdata                   = spiflash.read;
   $$end
-        spiflash.trigger        = 0;
         busy                    = 0;
         init                    = {1b0,init[1,1]};
         stage                   = 1; // return to start stage
@@ -204,18 +218,17 @@ $$if SIMULATION then
 $$end
       }
 $$else
-      case 5: {
+      case 4: {
   $$if VERILATOR then
         rdata                   = {vdta.data[0,8],rdata[8,$(nBytes-1)*8$]};  // from 'data.raw'
         vdta.addr               = rdata_done[0,1] ? vdta.addr : (vdta.addr + 1);
   $$else
         rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
   $$end
-        spiflash.trigger        = ~rdata_done[3,1] ? 0 : spiflash.trigger;
-        busy                    = rdata_done[0,1]  ? 0 : busy;
+        busy                    = ~rdata_done[0,1];
         init                    = {1b0,init[1,1]};
-        stage                   = rdata_done[0,1] ? 1 : 5;  // return to start stage when done
-        accept_in               = rdata_done[0,1];
+        stage                   = rdata_done[0,1] ? 1 : 4;  // return to start stage when done
+        accept_in               = rdata_done[0,1]; // we can immediately resume
         rdata_done              = rdata_done >> 1;
 $$if SIMULATION then
         if (~busy) {
@@ -226,13 +239,33 @@ $$end
 $$end
     } // stage
 
+    // move trigger
+    spiflash.trigger        = trigger[$4+3+nBytes-1$,1];
+    trigger                 = trigger << 1;
+
     // start sending?
     if ((in_ready | init[1,1]) & accept_in) {
-      five    = {init[0,1],~init[0,1],3b00}; // init 2b11=>5b10000, 2b01=>5b10000, 5b00=>4b01000
-      sendvec = (init == 2b01 ? {8hEB,addr,8b00100000} : 38h0)
-              | (~init[0,1]   ? {addr,8b00100000,8h00} : 38h0)
-              | (init[1,1]    ? {32b00000000000100010001000000000000,8b0} : 38h0);
-              //                 ^^^^^^^^^^ produces 38h when not in QPI
+      five    = {init[0,1],~init[0,1],3b00}; // init 2b11=>5b10000, 2b01=>5b10000, 2b00=>4b01000
+      switch (init) {
+        case 2b11: {
+          sendvec = {32b00000000000100010001000000000000,8b0};
+          //                 ^^^^^^^^^^ produces 38h when not in QPI
+          trigger = {4b1111,3b000,$trig_post_0$};
+        }
+        case 2b01: {
+          sendvec = {8hEB,addr,8b00100000};
+          trigger = {4b1111,3b111,$trig_post_1$};
+        }
+        case 2b00: {
+          sendvec = {addr,8b00100000,8h00};
+          trigger = { 3b111,3b111,$trig_post_1$,1b0};
+        }
+        default: {
+          // explicit don't care to help synthesis
+          sendvec = 40bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+          trigger = $trig_post_x$;
+        }
+      }
       spiflash.send_else_read = 1; // sending
 $$if nBytes > 1 then
       rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
