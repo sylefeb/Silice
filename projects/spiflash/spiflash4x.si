@@ -138,6 +138,7 @@ algorithm spiflash_rom(
 
   uint40 sendvec(0); //_ 38h (QPI enable)
   uint$4+3+nBytes$ trigger(0); // 4 for steps with 3 cycles wait
+  // prepare trigger bit vectors using the preprocessor
 $$trig_post_0 = '0'
 $$trig_post_1 = '0'
 $$for i=1,nBytes-1 do
@@ -146,9 +147,6 @@ $$  trig_post_1 = '1' .. trig_post_1
 $$end
 $$trig_post_0 = '' .. nBytes .. 'b' .. trig_post_0
 $$trig_post_1 = '' .. nBytes .. 'b' .. trig_post_1
-$$trig_post_x = '' .. (4+3+nBytes) .. 'b'
-$$for i=1,4+3+nBytes do trig_post_x = trig_post_x .. 'x' end
-$$print('######################## ' .. trig_post_0 .. ' ' .. trig_post_1)
   uint11 wait(0);
   uint5  five(0);
   uint3  stage(0);
@@ -252,28 +250,6 @@ $$end
       trigger = ( init[1,1] ? {4b1111,3b000,$trig_post_0$}              : 0)
               | (init==2b01 ? {4b1111,3b111,$trig_post_1$}              : 0)
               | (~init[0,1] ? { 3b111,3b111,$trig_post_1$,1b0}          : 0);
-/*
-      switch (init) {
-        case 2b11: {
-          sendvec = {32b00000000000100010001000000000000,8b0};
-          //                 ^^^^^^^^^^ produces 38h when not in QPI
-          trigger = {4b1111,3b000,$trig_post_0$};
-        }
-        case 2b01: {
-          sendvec = {8hEB,addr,8b00100000};
-          trigger = {4b1111,3b111,$trig_post_1$};
-        }
-        case 2b00: {
-          sendvec = {addr,8b00100000,8h00};
-          trigger = { 3b111,3b111,$trig_post_1$,1b0};
-        }
-        default: {
-          // explicit don't care to help synthesis
-          sendvec = 40bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-          trigger = $trig_post_x$;
-        }
-      }
-*/
       spiflash.send_else_read = 1; // sending
 $$if nBytes > 1 then
       rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
