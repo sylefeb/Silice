@@ -146,7 +146,7 @@ $$  trig_post_1 = '1' .. trig_post_1
 $$end
 $$trig_post_0 = '' .. nBytes .. 'b' .. trig_post_0
 $$trig_post_1 = '' .. nBytes .. 'b' .. trig_post_1
-$$trig_post_x = '' .. nBytes .. 'b'
+$$trig_post_x = '' .. (4+3+nBytes) .. 'b'
 $$for i=1,4+3+nBytes do trig_post_x = trig_post_x .. 'x' end
 $$print('######################## ' .. trig_post_0 .. ' ' .. trig_post_1)
   uint11 wait(0);
@@ -246,6 +246,13 @@ $$end
     // start sending?
     if ((in_ready | init[1,1]) & accept_in) {
       five    = {init[0,1],~init[0,1],3b00}; // init 2b11=>5b10000, 2b01=>5b10000, 2b00=>4b01000
+      sendvec = ( init[1,1] ? {32b00000000000100010001000000000000,8b0} : 0)
+              | (init==2b01 ? {8hEB,addr,8b00100000}                    : 0)
+              | (~init[0,1] ? {addr,8b00100000,8h00}                    : 0);
+      trigger = ( init[1,1] ? {4b1111,3b000,$trig_post_0$}              : 0)
+              | (init==2b01 ? {4b1111,3b111,$trig_post_1$}              : 0)
+              | (~init[0,1] ? { 3b111,3b111,$trig_post_1$,1b0}          : 0);
+/*
       switch (init) {
         case 2b11: {
           sendvec = {32b00000000000100010001000000000000,8b0};
@@ -266,6 +273,7 @@ $$end
           trigger = $trig_post_x$;
         }
       }
+*/
       spiflash.send_else_read = 1; // sending
 $$if nBytes > 1 then
       rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
