@@ -33,7 +33,6 @@ $$error('The SPIflash x4 controller is currently only for the ice40 FPGA\n'
 $$    ..'It should be possible to port it to other FPGAs with some efforts.')
 $$end
 
-$$local nBytes
 $$if not nBytes then
 $$ nBytes = 1
 $$end

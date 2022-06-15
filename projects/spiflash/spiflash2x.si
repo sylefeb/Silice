@@ -22,7 +22,6 @@ import('../common/ice40_sb_io_inout.v')
 import('../common/ice40_sb_io.v')
 $$end
 
-$$local nBytes
 $$if not nBytes then
 $$ nBytes = 1
 $$end
@@ -200,7 +199,7 @@ $$if nBytes == 1 then
         stage                   = 1; // return to start stage
         accept_in               = 1; // accept an input immediately
 $$if SIMULATION then
-        //__display("[%d] spiflash DONE (%h)",cycle>>1,rdata);
+        //__display("[%d|%d] spiflash DONE (%h)",cycle>>1,cycle,rdata);
         //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
 $$end
       }
@@ -241,7 +240,7 @@ $$end
       rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
   $$end
   $$if SIMULATION then
-      //__display("[%d] spiflash START (@%h)",cycle>>1,addr);
+      //__display("[%d|%d] spiflash START (@%h)",cycle>>1,cycle,addr);
       //__display("[%d](%d) spiflash [1] START @%x qspi:%d init:%b",cycle,cycle>>1,addr,spiflash.qspi,init);
   $$if VERILATOR then
       vdta.addr = addr;

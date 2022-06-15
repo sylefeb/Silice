@@ -16,7 +16,7 @@
 $$spi4x  = 1
 $$spi2x  = nil
 
-$$nBytes = 1
+$$nBytes = 4
 
 $$if not spi4x and not spi2x and nBytes ~= 1 then
 $$ error('single speed SPIflash controller supports only byte access')
@@ -190,7 +190,7 @@ $$end
   // read some
   data.wenable      = 1;
   data.addr         = 0;
-  while (data.addr != 6) {
+  while (data.addr != 32) {
     sf_rom.in_ready = 1;
     sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
     while (sf_rom.busy) { }
@@ -202,7 +202,7 @@ $$end
   // output to UART
   data.wenable = 0;
   data.addr    = 1;
-  while (data.addr != 7) {
+  while (data.addr != 33) {
     uint32 dta = 0;
     uint3  n   = 0;
     dta = data.rdata;
