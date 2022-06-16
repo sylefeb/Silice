@@ -198,7 +198,7 @@ $$end
         spiflash.send_else_read = 0;    // stop sending
         stage                   = 0;    // wait
         wait                    = 1023; //_ 3 cycles (one extra due to registered ios)
-        after                   = 4;    // conitnue to reading
+        after                   = 4;    // continue to read
       }
 $$if nBytes == 1 then
       case 4: {
