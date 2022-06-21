@@ -6,9 +6,8 @@ module ddr_clock(
         output reg ddr_clock
     );
 
-reg renable;
-
 `ifdef ICARUS
+  reg renable;
   always @(posedge clock) begin
     ddr_clock <= 0;
     renable   <= enable;
@@ -19,16 +18,13 @@ reg renable;
 `endif
 
 `ifdef ICEBREAKER
-  always @(posedge clock) begin
-    renable <= enable;
-  end
-
   SB_IO #(
-    .PIN_TYPE(6'b0100_11)
+    .PIN_TYPE(6'b1100_11)
   ) sbio_clk (
       .PACKAGE_PIN(ddr_clock),
       .D_OUT_0(1'b0),
-      .D_OUT_1(renable),
+      .D_OUT_1(1'b1),
+      .OUTPUT_ENABLE(enable),
       .OUTPUT_CLK(clock)
   );
 `endif

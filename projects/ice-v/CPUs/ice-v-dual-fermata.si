@@ -349,7 +349,9 @@ $$end
   always {
     uint32 aligned(0);
 $$if VERBOSE then
-    //__display("\\n[cycle %d] ---------------- stage: %b ----- exec.working:%b mem0.done:%b(%b)=%h(@%h) mem1.done:%b(%d)=%h(@%h)",cycle,stage,exec.working,mem0.done,reqmem0_done,mem0.rdata,mem0.addr,mem1.done,reqmem1_done,mem1.rdata,mem1.addr);
+    if (~reset) {
+      __display("\n[cycle %d] ---------------- stage: %b ----- exec.working:%b mem0.done:%b(%b)=%h(@%h) mem1.done:%b(%d)=%h(@%h)",cycle,stage,exec.working,mem0.done,reqmem0_done,mem0.rdata,mem0.addr,mem1.done,reqmem1_done,mem1.rdata,mem1.addr);
+    }
 $$end
     // read from selected memory
     i_mem_rdata     = i_mem_select ? mem1.rdata : mem0.rdata;
