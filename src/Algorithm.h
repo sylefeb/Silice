@@ -36,6 +36,7 @@ See GitHub Issues section for open/known issues.
 #include "TypesAndConsts.h"
 #include "Blueprint.h"
 
+#include <list>
 #include <string>
 #include <iostream>
 #include <fstream>
