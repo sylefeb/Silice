@@ -39,6 +39,7 @@ See GitHub Issues section for open/known issues.
 
 #include "Utils.h"
 
+#include <list>
 #include <string>
 #include <iostream>
 #include <fstream>
