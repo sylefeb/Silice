@@ -56,6 +56,11 @@ module top(
   input  lcd_mode,
   input  lcd_fmark,
 `endif
+`ifdef PSRAM
+  inout  [3:0] ram_io,
+  output       ram_clk,
+  output       ram_cs_n,
+`endif
   input  clk_in
   );
 
@@ -104,6 +109,14 @@ M_main __main(
   .out_lcd_rst_n(lcd_rst_n),
   .in_lcd_mode(lcd_mode),
   .in_lcd_fmark(lcd_fmark),
+`endif
+`ifdef PSRAM
+  .inout_ram_io0(ram_io[0]),
+  .inout_ram_io1(ram_io[1]),
+  .inout_ram_io2(ram_io[2]),
+  .inout_ram_io3(ram_io[3]),
+  .out_ram_clk(ram_clk),
+  .out_ram_csn(ram_cs_n),
 `endif
   .in_run(run_main)
 );

@@ -356,7 +356,9 @@ syncExec            : joinExec LARROW '(' callParamList ')' ;
 /* -- Circuitry instantiation -- */
 
 idOrIoAccessList    : idOrIoAccess ',' idOrIoAccessList
+                    | constValue   ',' idOrIoAccessList
                     | idOrIoAccess
+                    | constValue
                     |
                     ;
 

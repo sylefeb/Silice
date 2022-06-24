@@ -17,7 +17,7 @@ module ddr_clock(
   end
 `endif
 
-`ifdef ICEBREAKER
+`ifdef ICE40
   SB_IO #(
     .PIN_TYPE(6'b1100_11)
   ) sbio_clk (

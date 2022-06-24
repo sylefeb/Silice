@@ -1,7 +1,8 @@
 #
 # MCH2022 Badge - proto v4
 #
-# https://github.com/badgeteam/mch2022-firmware-ice40/blob/master/projects/_common/data/mch2022-proto4.pcf
+# Source: https://github.com/badgeteam/mch2022-firmware-ice40/blob/master/projects/_common/data/mch2022-proto4.pcf
+# Licence info: https://github.com/badgeteam/mch2022-firmware-ice40/blob/master/LICENSE
 
 # Oscillator input (12 MHz)
 set_io clk_in 35

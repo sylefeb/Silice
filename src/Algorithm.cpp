@@ -2465,6 +2465,49 @@ void Algorithm::findNonCombinationalLeaves(const t_combinational_block *head, st
 
 // -------------------------------------------------
 
+void Algorithm::getIdentifiers(
+  siliceParser::IdOrIoAccessListContext*  idents,
+  vector<string>&                        _vec_params,
+  t_combinational_block*                 _current)
+{
+  // go through indentifier list
+  while (idents != nullptr) {
+    std::string var;
+    if (idents->idOrIoAccess() != nullptr) {
+      if (idents->idOrIoAccess()->IDENTIFIER() != nullptr) {
+        var = idents->idOrIoAccess()->IDENTIFIER()->getText();
+      } else {
+        var = determineAccessedVar(idents->idOrIoAccess()->ioAccess(), &_current->context);
+      }
+    } else if (idents->constValue() != nullptr) {
+      if (idents->constValue()->CONSTANT() == nullptr) {
+        reportError(sourceloc(idents, idents->getSourceInterval()), "constants in circuitry instantiations have to be sized (e.g. 8h00)");
+      }
+      // get the constant
+      std::string cst = gatherConstValue(idents->constValue());
+      t_type_nfo cnfo;
+      constantTypeInfo(idents->constValue()->getText(), cnfo);
+      // create a dummy var
+      static int count = 0;
+      t_var_nfo vnfo;
+      vnfo.type_nfo = cnfo;
+      vnfo.do_not_initialize = false;
+      vnfo.init_at_startup = true;
+      vnfo.init_values.push_back(cst);
+      vnfo.name = "circ_" + std::to_string(count++);
+      addVar(vnfo, _current, sourceloc(idents, idents->getSourceInterval()));
+      // use this var
+      var = vnfo.name;
+    } else {
+      break;
+    }
+    _vec_params.push_back(var);
+    idents = idents->idOrIoAccessList();
+  }
+}
+
+// -------------------------------------------------
+
 Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::CircuitryInstContext* ci, t_combinational_block* _current, t_gather_context* _context)
 {
   // find circuitry in known circuitries
@@ -2497,8 +2540,8 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   }
   // -> get identifiers
   vector<string> ins_idents, outs_idents;
-  getIdentifiers(ci->ins, ins_idents, nullptr);
-  getIdentifiers(ci->outs, outs_idents, nullptr);
+  getIdentifiers(ci->ins, ins_idents, _current);
+  getIdentifiers(ci->outs, outs_idents, _current);
   // -> checks
   if (ins.size() != ins_idents.size()) {
     reportError(sourceloc(ci->IDENTIFIER()), "Incorrect number of inputs in circuitry instanciation (circuitry '%s')", name.c_str());
@@ -3209,27 +3252,6 @@ void Algorithm::parseCallParams(
     sl_assert(_matches.size() == sub->inputs.size());
   } else {
     sl_assert(_matches.size() == sub->outputs.size());
-  }
-}
-
-// -------------------------------------------------
-
-void Algorithm::getIdentifiers(
-  siliceParser::IdOrIoAccessListContext*  idents,
-  vector<string>&                        _vec_params,
-  const t_combinational_block_context*    bctx) const
-{
-  // go through indentifier list
-  while (idents->idOrIoAccess() != nullptr) {
-    std::string var;
-    if (idents->idOrIoAccess()->IDENTIFIER() != nullptr) {
-      var = idents->idOrIoAccess()->IDENTIFIER()->getText();
-    } else {
-      var = determineAccessedVar(idents->idOrIoAccess()->ioAccess(), bctx);
-    }
-    _vec_params.push_back(var);
-    idents = idents->idOrIoAccessList();
-    if (idents == nullptr) return;
   }
 }
 
