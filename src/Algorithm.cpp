@@ -5008,7 +5008,7 @@ void Algorithm::determineUsage()
 
 // -------------------------------------------------
 
-void Algorithm::determineBlueprintBoundVIO()
+void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
 {
   // find out vio bound to a blueprint output
   for (const auto& ib : m_InstancedBlueprints) {
@@ -5027,7 +5027,7 @@ void Algorithm::determineBlueprintBoundVIO()
             part_access = true;
             // check width of output vs range width
             // -> get output width
-            string obw = ib.second.blueprint->resolveWidthOf(b.left, t_instantiation_context(), sourceloc(access));
+            string obw = ib.second.blueprint->resolveWidthOf(b.left, ictx, sourceloc(access));
             int iobw;
             try {
               iobw = stoi(obw);
@@ -5041,7 +5041,7 @@ void Algorithm::determineBlueprintBoundVIO()
               reportError(sourceloc(access), "bound vio '%s' selected width is smaller than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
             }
             // -> get bound var width
-            string bbw = resolveWidthOf(bindingRightIdentifier(b), t_instantiation_context(), sourceloc(access));
+            string bbw = resolveWidthOf(bindingRightIdentifier(b), ictx, sourceloc(access));
             int ibbw;
             try {
               ibbw = stoi(bbw);
@@ -5512,7 +5512,7 @@ void Algorithm::resolveInOuts()
 
 // -------------------------------------------------
 
-void Algorithm::optimize()
+void Algorithm::optimize(const t_instantiation_context& ictx)
 {
   if (!m_Optimized) {
     // NOTE: recalls the algorithm is optimized, as it can be used by multiple instances
@@ -5523,7 +5523,7 @@ void Algorithm::optimize()
     // resolve inouts
     resolveInOuts();
     // determine which VIO are bound
-    determineBlueprintBoundVIO();
+    determineBlueprintBoundVIO(ictx);
     // analyze instances inputs
     analyzeInstancedBlueprintInputs();
     // check var access permissions
@@ -7670,7 +7670,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, std::ostream &out, const
     /// first pass
 
     // optimize
-    optimize();
+    optimize(ictx);
     // lint upon instantiation
     lint(ictx);
 

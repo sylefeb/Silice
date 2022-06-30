@@ -821,7 +821,7 @@ private:
     /// \brief verify member in bitfield
     void verifyMemberBitfield(std::string member, siliceParser::BitfieldContext* group) const;
     /// \brief run optimizations
-    void optimize();
+    void optimize(const t_instantiation_context& ictx);
     ///\brief Runs the linter on the algorithm, at instantiation time
     void lint(const t_instantiation_context &ictx);
 
@@ -885,7 +885,7 @@ private:
     /// \brief analyze variables access and classifies variables
     void determineUsage();
     /// \brief determines the list of bound VIO
-    void determineBlueprintBoundVIO();
+    void determineBlueprintBoundVIO(const t_instantiation_context& ictx);
     /// \brief analyze the subroutine calls
     void analyzeSubroutineCalls();
     /// \brief analyze usage of inputs of instanced blueprints
