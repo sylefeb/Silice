@@ -98,9 +98,9 @@ algorithm uart_receiver(
   input uint1 uart_rx
 ) <autorun> {
 
-  uint10 interval      = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds)$;
-  uint10 half_interval = $math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds / 2)$;
-  uint10 counter       = 0;
+  uint10 half_interval($math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds / 2)$);
+  int10  counter(0);
+  uint1  edge(0);
 
   uint10 receiving     = 0;
   uint10 received      = 0;
@@ -115,14 +115,16 @@ algorithm uart_receiver(
       if (latched_rx == 0) {
         // start receiving
         receiving = 10b1111111111; // expecting 10 bits: start - data x8 - stop
-        received  =  0;
+        received  = 0;
+        edge      = 0;
         counter   = half_interval; // wait half-period
       }
     } else {
-      if (counter == 0) { // right in the middle
-        received  = {latched_rx,received[1,9]}; // read uart rx
-        receiving = receiving >> 1;
-        counter   = interval;
+      if (counter[9,1]) { // half period elapsed
+        received  = ~edge ? {latched_rx,received[1,9]} : received; // read uart rx
+        receiving = ~edge ? receiving >> 1 : receiving;
+        edge      = ~edge;
+        counter   = half_interval;
         if (receiving[0,1] == 0) {
           // done
           io.data_out       = received[1,8];

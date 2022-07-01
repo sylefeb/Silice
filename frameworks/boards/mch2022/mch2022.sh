@@ -43,7 +43,7 @@ set -e
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
 yosys -p "synth_ice40 -dsp -json build.json -abc9 -device u -top top" build.v
-nextpnr-ice40 --up5k --freq 12 --package sg48 --json build.json --pcf $BOARD_DIR/mch2022.pcf --asc build.asc -r
+nextpnr-ice40 --up5k --freq 12 --package sg48 --json build.json --pcf $BOARD_DIR/mch2022.pcf --asc build.asc -r --timing-allow-fail
 
 icepack -s build.asc build.bin
 
