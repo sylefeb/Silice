@@ -5447,7 +5447,6 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
             ExpressionLinter linter(this,ictx);
             const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(outs))];
             linter.lintReadback(outs, matches[p++], info.type_nfo, &_current->context);
-            ++p;
           }
         }
       }
