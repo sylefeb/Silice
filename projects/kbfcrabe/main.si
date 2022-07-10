@@ -123,7 +123,6 @@ $$if SIMULATION then
   output uint2  spiscreen_driver(3/*ILI9351*/),
   output uint10 spiscreen_width(320),
   output uint10 spiscreen_height(240),
-) {
 $$else
   inout  uint14 G,
   inout  uint6  A,
@@ -132,8 +131,14 @@ $$else
   output uint1  scl,
   output uint1  mosi,
   input  uint1  miso,
-// PLL
-) <@fast_clock> {
+$$end
+)
+$$if not SIMULATION then
+<@fast_clock>
+$$end
+{
+
+$$if not SIMULATION then
   uint1 fast_clock(0);
   pll main_pll(
     clkin   <: clock,

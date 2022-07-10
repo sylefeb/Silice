@@ -111,6 +111,13 @@ So instead, we do not use RST from the OrangeCrab, and bridge the A0 pin
 from the OrangeCrab to the keyboard RST. A simple bypass! Now we can control
 the featherwing keyboard RST independently, using A0.
 
+## Running the demo
+
+Plug the board while pressing the button (enters programming mode). Then from a shell in this directory:
+```
+make orangecrab
+```
+
 ## FPGA design
 
 Time to look at the Silice design! The design is in two parts, the RISC-V
