@@ -100,7 +100,7 @@ algorithm main(
         wait = wait + 1;  // count cycles
       }
 
-      // wait some more (until sampling rate is correct
+      // wait some more (until sampling rate is correct)
       while (wait < $base_freq // track_freq$) {
         wait = wait + 1;  // count cycles
       }

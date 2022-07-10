@@ -1,5 +1,5 @@
 
-sdram_controller.v: fire-v/fire-v.si
+firev.v: fire-v/fire-v.si
 		silice fire-v/fire-v.si --output export-verilog/firev.v \
 			--export rv32i_cpu \
 			--frameworks_dir ../../frameworks/ \

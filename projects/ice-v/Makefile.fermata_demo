@@ -6,6 +6,9 @@ icebreaker: SOCs/ice-v-soc-dual-fermata.si
 		silice-make.py -s SOCs/ice-v-soc-dual-fermata.si -b $@ -p basic,qspiflash,vga,uart -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
 		iceprog -o 1M ./compile/build/code.bin
 
+icebreaker-no-code: SOCs/ice-v-soc-dual-fermata.si
+		silice-make.py -s SOCs/ice-v-soc-dual-fermata.si -b icebreaker -p basic,qspiflash,vga,uart -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
+
 verilator: SOCs/ice-v-soc-dual-fermata.si
 		g++ ./src/pre_tunnel.cc -o ./src/pre_tunnel
 		./src/pre_tunnel

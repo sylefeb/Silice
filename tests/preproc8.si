@@ -1,0 +1,19 @@
+unit test3(
+   input   auto    i,
+   output  sameas(i) o)
+{
+  $$print('********* i:' .. widthof('i') .. ' o:' .. widthof('o'))
+  always {
+    o = i + 1;
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint8  a(0);
+  uint4  b(0);
+
+  test3 t0(i <: a,o :> b);
+
+  algorithm {}
+}

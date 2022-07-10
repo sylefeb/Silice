@@ -1,0 +1,24 @@
+unit foo(input uint1 p,output uint1 q)
+{
+  always {
+    q = p;
+  }
+}
+
+unit test(input auto a,output sameas(a) b)
+{
+  foo _(p <: a[0,1], q :> b[0,1]);
+  //                      ^^^^^^ error due to sameas
+}
+
+unit main(output uint8 leds)
+{
+  uint8 v(15);
+  uint8 w(15);
+  test bla(a <: v, b :> w);
+
+  always {
+    //__display("b : %d");
+    __finish();
+  }
+}

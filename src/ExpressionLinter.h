@@ -48,7 +48,7 @@ namespace Silice
     const Algorithm *m_Host;
 
     /// \brief Instantiation context for parameterized VIOs
-    const Algorithm::t_instantiation_context& m_Ictx;
+    const Blueprint::t_instantiation_context& m_Ictx;
 
     /// \brief Does the Linter warn about width mismatches in assignments? (there are very frequent)
     bool m_WarnAssignWidth = false;
@@ -107,7 +107,7 @@ namespace Silice
 
   public:
 
-    ExpressionLinter(const Algorithm *host, const Algorithm::t_instantiation_context& ictx) : m_Host(host), m_Ictx(ictx) { }
+    ExpressionLinter(const Algorithm *host, const Blueprint::t_instantiation_context& ictx) : m_Host(host), m_Ictx(ictx) { }
 
     /// \brief Lint an expression
     void lint(
@@ -144,7 +144,7 @@ namespace Silice
     void lintBinding(
       std::string                                     msg,
       Algorithm::e_BindingDir                         dir,
-      int                                             line,
+      const Utils::t_source_loc&                      srcloc,
       const t_type_nfo                               &left,
       const t_type_nfo                               &right
       ) const;

@@ -1,0 +1,58 @@
+// A more standard division, compact, 1 cycle per bit
+// see also https://projectf.io/posts/division-in-verilog/
+//
+// Uses parameterized inputs and instantation-time pre-processor
+//
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+
+algorithm div(
+  input  auto         inum,
+  //     ^^^^ determined at instantiation time
+  //     vvvv sameas as whatever inum is
+  input  sameas(inum) iden,
+  output sameas(inum) ret = 0)
+{
+  // get division width from input, at instantiation time
+$$div_width = widthof('inum')
+
+  uint$div_width+1$ ac       = uninitialized;
+  uint$clog2(div_width)+1$ i = 0;
+  uint$div_width+1$ diff <:: ac - :den;
+
+$$if signed('inum') then
+  // signed division
+  uint1           inum_neg <: inum[$div_width-1$,1];
+  uint1           iden_neg <: iden[$div_width-1$,1];
+  uint$div_width$ num      <: inum_neg ? -inum : inum;
+  uint$div_width$ den      <: iden_neg ? -iden : iden;
+$$else
+  // unsigned division
+  uint$div_width$ num  <: inum;
+  uint$div_width$ den  <: iden;
+$$end
+
+$$if FORMAL then
+  #stableinput(inum);
+  #stableinput(iden);
+  // Preconditions:
+  // (*) x/0 = error
+  #assume(iden != 0);
+$$end
+
+  ac  = {{$div_width-1${1b0}},num[$div_width-1$,1]};
+  ret = {num[0,$div_width-1$],1b0};
+  while (i != $div_width$) {
+    if (diff[$div_width$,1] == 0) { // positive
+      ac  = {diff[0,$div_width-1$],ret[$div_width-1$,1]};
+      ret = {ret [0,$div_width-1$],1b1};
+    } else {
+      ac  = {ac  [0,$div_width-1$],ret[$div_width-1$,1]};
+      ret = {ret [0,$div_width-1$],1b0};
+    }
+    i = i + 1;
+  }
+$$if signed('inum') then
+  ret = ((inum_neg) ^ (iden_neg)) ? -ret : ret;
+$$end
+}

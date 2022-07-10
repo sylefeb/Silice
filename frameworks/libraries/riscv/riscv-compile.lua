@@ -1,16 +1,17 @@
-platforms = {'unknown-elf','linux-elf','unknown-gnu','linux-gnu'}
+platforms = {'64-unknown-elf','64-linux-elf','64-unknown-gnu','64-linux-gnu',
+             '32-unknown-elf','32-linux-elf','32-unknown-gnu','32-linux-gnu'}
 
 function set_toolchain_names(platform)
-  gcc = 'riscv64-' .. platform .. '-gcc'
-  as  = 'riscv64-' .. platform .. '-as'
-  ld  = 'riscv64-' .. platform .. '-ld'
-  oc  = 'riscv64-' .. platform .. '-objcopy'
+  gcc = 'riscv' .. platform .. '-gcc'
+  as  = 'riscv' .. platform .. '-as'
+  ld  = 'riscv' .. platform .. '-ld'
+  oc  = 'riscv' .. platform .. '-objcopy'
 end
 
 -- =========================================================================
 
 function find_toolchain()
-  for _,p in pairs(platforms) do    
+  for _,p in pairs(platforms) do
     set_toolchain_names(p)
     if test_toolchain() then
       return true
@@ -20,7 +21,7 @@ function find_toolchain()
 end
 
 -- =========================================================================
- 
+
 function test_toolchain()
   local h  = io.popen(gcc .. ' --version','r')
   local r  = h:read('*all')
@@ -63,7 +64,7 @@ function compile(file)
       .. CRT0
   os.execute(cmd)
   cmd =  ld .. ' '
-      .. '-m elf32lriscv -b elf32-littleriscv -T' .. LD_CONFIG 
+      .. '-m elf32lriscv -b elf32-littleriscv -T' .. LD_CONFIG
 			.. ' --no-relax -o code.elf code.o'
   os.execute(cmd)
   cmd =  oc .. ' '
@@ -76,7 +77,7 @@ end
 function to_BRAM()
   if not path then
     path,_1,_2 = string.match(findfile('code.hex'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
-    if path == '' then 
+    if path == '' then
       path = '.'
     end
     print('********************* firmware written to     ' .. path .. '/code.bin')
@@ -100,7 +101,7 @@ function to_BRAM()
       for i=1,delta do
         -- pad with zeros
         word     = '00' .. word;
-        if #word == 8 then 
+        if #word == 8 then
           all_data_bram[1+#all_data_bram] = '32h' .. word .. ','
           word = ''
         end
@@ -108,9 +109,9 @@ function to_BRAM()
         out:write(string.pack('B', 0 ))
         init_data_bytes = init_data_bytes + 1
       end
-    else 
+    else
       word     = str .. word;
-      if #word == 8 then 
+      if #word == 8 then
         all_data_bram[1+#all_data_bram] = '32h' .. word .. ','
         word = ''
       end

@@ -5,13 +5,13 @@ algorithm alg1(
 ) <autorun> {
 
   while (1) {
-  $display("[1] b=%d c=%d",b,c);
+  __display("[1] b=%d c=%d",b,c);
     if (c == 1) {
       b = 1;
     }
   }
 
-   
+
 }
 
 algorithm alg2(
@@ -20,18 +20,18 @@ algorithm alg2(
 ) <autorun> {
 
   while (1) {
-  $display("[2] b=%d c=%d",b,c);
+  __display("[2] b=%d c=%d",b,c);
     if (b == 0) {
       c = 1;
     }
   }
- 
+
 }
 
 algorithm main( ) {
 
 uint1  b = 1; // errr, this is totally ignored, right? becomes a wire (output of a1)
-uint1  c = 0; 
+uint1  c = 0;
 uint8  i = 0;
 
 alg1 a1(

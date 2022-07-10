@@ -12,18 +12,18 @@ algorithm main()
   uint8 d = 0;
 
   test tst;
-  
+
   subroutine sub(reads d,readwrites c) {
     uint2 ivar = 1;
 	ivar = ivar + c;
 	c = d + ivar;
     return;
   }
-  
+
   b := 3;    // this means b will always be _d_b in rvalues
              //  and we cannot write b = b + 1 anymore
 			 // comment to resolve [3]
-  
+
 // ++: // uncomment to resolve [1]
   b = a + 1;
   c = b + 2;
@@ -34,7 +34,7 @@ algorithm main()
   c = b;
   d = a;
   if (a == 2) {
-    $display("a == 2");  
+    __display("a == 2");
   }
 // ++: // uncomment to resolve [2]
   d = d + 1; /// [2] should trigger an error

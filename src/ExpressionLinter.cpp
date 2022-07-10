@@ -58,7 +58,7 @@ void ExpressionLinter::lintAssignment(
     typeNfo(access, bctx, lvalue_nfo);
   } else {
     sl_assert(identifier != nullptr);
-    lvalue_nfo = m_Host->determineIdentifierTypeAndWidth(bctx, identifier, identifier->getSourceInterval(), (int)identifier->getSymbol()->getLine());
+    lvalue_nfo = m_Host->determineIdentifierTypeAndWidth(bctx, identifier, sourceloc(identifier));
   }
   t_type_nfo rvalue_nfo;
   typeNfo(expr, bctx, rvalue_nfo);
@@ -75,19 +75,19 @@ void ExpressionLinter::lintAssignment(
         vio = m_Host->translateVIOName(identifier->getText(), bctx);
       }
       if (m_Host->m_WireAssignmentNames.count(vio) != 0) {
-        reportError(access != nullptr ? access->getSourceInterval() : identifier->getSourceInterval(), -1,
+        reportError(access != nullptr ? sourceloc(access) : sourceloc(identifier),
           "cannot assign to an expression tracker (read only)");
       }
     }
     // warnings
     if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
       if (rvalue_nfo.base_type == Int) {
-         warn(Standard, expr->getSourceInterval(), -1, "assigning signed expression to unsigned lvalue");
+         warn(Standard, sourceloc(expr), "assigning signed expression to unsigned lvalue");
       }
     }
     if (lvalue_nfo.width < rvalue_nfo.width) {
       if (m_WarnAssignWidth) {
-         warn(Standard, expr->getSourceInterval(), -1, "assigning %d bits wide expression to %d bits wide lvalue", 
+         warn(Standard, sourceloc(expr), "assigning %d bits wide expression to %d bits wide lvalue",
            rvalue_nfo.width, lvalue_nfo.width);
       }
     }
@@ -104,10 +104,10 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
   lintAssignment(nullptr, alwasg->IDENTIFIER(), alwasg->expression_0(), &wire_assign.block->context, true);
   // check for deprecated symbols
   if (alwasg->ALWSASSIGN() != nullptr) {
-     warn(Deprecation, alwasg->getSourceInterval(), -1, "use of deprecated syntax :=, please use <: instead.");
+     warn(Deprecation, sourceloc(alwasg), "use of deprecated syntax :=, please use <: instead.");
   }
   if (alwasg->ALWSASSIGNDBL() != nullptr) {
-     warn(Deprecation, alwasg->getSourceInterval(), -1, "use of deprecated syntax ::=, please use <:: instead.");
+     warn(Deprecation, sourceloc(alwasg), "use of deprecated syntax ::=, please use <:: instead.");
   }
   bool d_else_q = (alwasg->ALWSASSIGNDBL() == nullptr && alwasg->LDEFINEDBL() == nullptr);
   if (!d_else_q) {
@@ -129,7 +129,7 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
           // demoting from <:: to <: is ok (works as expected, as <:: is taken into account before)
           // however the opposite (from <: to <::) will not work as expected for non-expert users
           // so we issue a deprecation warning and require the cast syntax to be used ":var"
-          warn(Deprecation, alwasg->getSourceInterval(), -1,
+          warn(Deprecation, sourceloc(alwasg),
             "Tracker '%s' was defined with <: and is used in tracker '%s' defined with <::\n"
             "             This has no effect on '%s'.\n"
             "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
@@ -141,7 +141,7 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
       bool bound_wire_input = false;
       if (vio != m_Host->m_VIOBoundToBlueprintOutputs.end()) {
         /// TODO dep name is already converted to internal here, recover original for messahe
-        warn(Deprecation, alwasg->getSourceInterval(), -1,
+        warn(Deprecation, sourceloc(alwasg),
           "'%s' is bound to an instance but is used in tracker '%s' defined with <::\n"
           "             This has no effect on '%s'.\n"
           "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
@@ -149,7 +149,7 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
       }
       // is this an input?
       if (m_Host->isInput(dep.second)) {
-        warn(Deprecation, alwasg->getSourceInterval(), -1,
+        warn(Deprecation, sourceloc(alwasg),
           "Input '%s' is used in tracker '%s' defined with <::\n"
           "             This has no effect on '%s'.\n"
           "             Double check meaning and use ':%s' instead of just '%s' to confirm.\n",
@@ -177,11 +177,11 @@ void ExpressionLinter::lintInputParameter(
   // check
   if (param.base_type != rvalue_nfo.base_type) {
     if (rvalue_nfo.base_type == Int) {
-       warn(Standard, inp.expression->getSourceInterval(), -1, "parameter '%s': assigning signed expression to unsigned lvalue", name.c_str());
+       warn(Standard, sourceloc(inp.expression), "parameter '%s': assigning signed expression to unsigned lvalue", name.c_str());
     }
   }
   if (param.width < rvalue_nfo.width) {
-     warn(Standard, inp.expression->getSourceInterval(), -1, "parameter '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, param.width);
+     warn(Standard, sourceloc(inp.expression), "parameter '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, param.width);
   }
 }
 
@@ -197,16 +197,16 @@ void ExpressionLinter::lintReadback(
   if (std::holds_alternative<siliceParser::AccessContext*>(outp.what)) {
     typeNfo(std::get<siliceParser::AccessContext *>(outp.what), bctx, lvalue_nfo);
   } else if (std::holds_alternative<std::string>(outp.what)) {
-    lvalue_nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(m_Host->translateVIOName(std::get<std::string>(outp.what), bctx), outp.expression->getSourceInterval(), -1));
+    lvalue_nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(m_Host->translateVIOName(std::get<std::string>(outp.what), bctx), sourceloc(outp.expression)));
   }
   // check
   if (lvalue_nfo.base_type != rvalue_nfo.base_type) {
     if (rvalue_nfo.base_type == Int) {
-       warn(Standard, outp.expression->getSourceInterval(), -1, "output '%s': assigning signed expression to unsigned lvalue", name.c_str());
+       warn(Standard, sourceloc(outp.expression), "output '%s': assigning signed expression to unsigned lvalue", name.c_str());
     }
   }
   if (lvalue_nfo.width < rvalue_nfo.width) {
-     warn(Standard, outp.expression->getSourceInterval(), -1, "output '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, lvalue_nfo.width);
+     warn(Standard, sourceloc(outp.expression), "output '%s': assigning %d bits wide expression to %d bits wide lvalue", name.c_str(), rvalue_nfo.width, lvalue_nfo.width);
   }
 }
 
@@ -215,7 +215,7 @@ void ExpressionLinter::lintReadback(
 void ExpressionLinter::lintBinding(
   std::string                                     msg,
   Algorithm::e_BindingDir                         dir,
-  int                                             line,
+  const t_source_loc&                             srcloc,
   const t_type_nfo                               &left,
   const t_type_nfo                               &right
 ) const
@@ -225,10 +225,10 @@ void ExpressionLinter::lintBinding(
     return; // skip if parameterized
   }
   if (left.base_type != right.base_type) {
-     warn(Standard, antlr4::misc::Interval::INVALID, line, "%s, bindings have inconsistent signedness", msg.c_str());
+     warn(Standard, srcloc, "%s, bindings have inconsistent signedness", msg.c_str());
   }
   if (left.width != right.width) {
-     warn(Standard, antlr4::misc::Interval::INVALID, line, "%s, bindings have inconsistent bit-widths", msg.c_str());
+     warn(Standard, srcloc, "%s, bindings have inconsistent bit-widths", msg.c_str());
   }
 }
 
@@ -250,10 +250,10 @@ void ExpressionLinter::checkConcatenation(
   t_type_nfo t0 = tns.front();
   ForIndex(t, tns.size()) {
     if (tns[t].base_type != t0.base_type) {
-       warn(Standard, expr->getSourceInterval(), -1, "signedness of expressions differs in concatenation");
+       warn(Standard, sourceloc(expr), "signedness of expressions differs in concatenation");
     }
     if (tns[t].width == -1) {
-      reportError(expr->getSourceInterval(), -1, "concatenation contains expression of unkown bit-width");
+      reportError(sourceloc(expr), "concatenation contains expression of unkown bit-width");
     }
   }
 }
@@ -266,10 +266,10 @@ void ExpressionLinter::checkTernary(
   const t_type_nfo& nfo_b
 ) const {
   if (nfo_a.width != nfo_b.width) {
-     warn(Standard, expr->getSourceInterval(), -1, "width of expressions differ in ternary return values");
+     warn(Standard, sourceloc(expr), "width of expressions differ in ternary return values");
   }
   if (nfo_a.base_type != nfo_b.base_type) {
-     warn(Standard, expr->getSourceInterval(), -1, "signedness of expressions differ in ternary return values");
+     warn(Standard, sourceloc(expr), "signedness of expressions differ in ternary return values");
   }
 }
 
@@ -304,13 +304,13 @@ void ExpressionLinter::checkAndApplyOperator(
     _nfo.width     = nfo_a.width + nfo_b.width;
   } else if (op == ">>") {
     if (nfo_a.base_type == Int) {
-       warn(Standard, expr->getSourceInterval(), -1, "unsigned shift used on signed value");
+       warn(Standard, sourceloc(expr), "unsigned shift used on signed value");
     }
     _nfo.base_type = UInt; // force unsigned
     _nfo.width     = nfo_a.width;
   } else if (op == "<<") {
     if (nfo_a.base_type == Int) {
-       warn(Standard, expr->getSourceInterval(), -1, "unsigned shift used on signed value");
+       warn(Standard, sourceloc(expr), "unsigned shift used on signed value");
     }
     _nfo.base_type = UInt; // force unsigned
     _nfo.width     = nfo_a.width;
@@ -318,7 +318,7 @@ void ExpressionLinter::checkAndApplyOperator(
        op == "==" || op == "===" || op == "!=" || op == "!=="
     || op == "<"  || op == ">"   || op == "<=" || op == ">=") {
     if (nfo_a.base_type != nfo_b.base_type) {
-       warn(Standard, expr->getSourceInterval(), -1, "mixed signedness in comparison");
+       warn(Standard, sourceloc(expr), "mixed signedness in comparison");
     }
     _nfo.base_type = UInt;
     _nfo.width     = 1;
@@ -381,7 +381,7 @@ void ExpressionLinter::typeNfo(
       _nfo.base_type = UInt;
       _nfo.width     = -1; // undetermined (NOTE: verilog default to 32 bits ...)
     } else if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
-      _nfo = m_Host->determineIdentifierTypeAndWidth(bctx, term, term->getSourceInterval(), (int)term->getSymbol()->getLine());
+      _nfo = m_Host->determineIdentifierTypeAndWidth(bctx, term, sourceloc(term));
       resolveParameterized(term->getText(), bctx, _nfo);
     } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
       _nfo.base_type = UInt;
@@ -555,7 +555,7 @@ void ExpressionLinter::typeNfo(
   const Algorithm::t_combinational_block_context *bctx,
   t_type_nfo& _nfo) const
 {
-  _nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(m_Host->translateVIOName(idnt, bctx), antlr4::misc::Interval::INVALID , -1));
+  _nfo = std::get<0>(m_Host->determineVIOTypeWidthAndTableSize(m_Host->translateVIOName(idnt, bctx), t_source_loc()));
   resolveParameterized(idnt, bctx, _nfo);
 }
 

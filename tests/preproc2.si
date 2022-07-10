@@ -1,0 +1,23 @@
+algorithm test(
+  input  auto a,
+  output auto b
+) {
+$$ print('width of a is ' .. widthof('a'))
+$$ print('width of b is ' .. widthof('b'))
+  always {
+    b = {
+$$ for i=0,widthof('a')-2 do
+     1b1,
+$$end
+     1b1};
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint4 a1(0);
+  uint6 a2(0);
+  test _(a <: a1, b :> leds);
+  test _(a <: a2, b :> a1);
+  algorithm { __display("leds: %d",leds); }
+}

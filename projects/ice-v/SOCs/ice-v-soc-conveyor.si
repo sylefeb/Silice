@@ -56,8 +56,9 @@ $$end
 $$if PMOD then
   inout  uint8 pmod,
 $$end
+)
 $$if not SIMULATION then
-  ) <@cpu_clock> {
+  <@cpu_clock> {
   // clock
   uint1 cpu_clock  = uninitialized;
   pll clk_gen (
@@ -65,7 +66,7 @@ $$if not SIMULATION then
     clock_out :> cpu_clock
   );
 $$else
-  ) {
+  {
 $$end
 
 $$if OLED or PMOD then

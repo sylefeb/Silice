@@ -22,6 +22,16 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 (header_2_G)
 */
 #pragma once
+
+/*
+
+/// TODO on new pre-processor approach
+
+- provide a way to fill the context without a binding, e.g.
+  div div0< iden:uint16 , ... >
+
+*/
+
 // -------------------------------------------------
 //                                ... hardcoding ...
 // -------------------------------------------------
@@ -29,6 +39,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "Algorithm.h"
 #include "Module.h"
 #include "LuaPreProcessor.h"
+#include "ParsingContext.h"
+#include "ParsingErrors.h"
 
 // -------------------------------------------------
 
@@ -63,100 +75,31 @@ namespace Silice {
 
     /// \brief finds a file by checking throughout paths known to be used by the source code
     std::string findFile(std::string fname) const;
-    /// \brief gathers all constructs from the source code file
-    void gatherAll(antlr4::tree::ParseTree* tree);
+    /// \brief gathers all body constructs from the source code file
+    void gatherBody(antlr4::tree::ParseTree* tree);
     /// \brief prepare the hardware fraemwork before compilation
     void prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog);
+    /// \brief gather a unit body from the parsed tree
+    void gatherUnitBody(AutoPtr<Algorithm> unit,antlr4::tree::ParseTree* tree);
 
-  private:
+    /// \brief body parsing context
+    AutoPtr<ParsingContext> m_BodyContext;
 
-    /// \brief class for error reporting from ANTL status
-    class ReportError
-    {
-    private:
+    /// \brief begin parsing
+    void beginParsing(
+      std::string fsource,
+      std::string fresult,
+      std::string fframework,
+      std::string frameworks_dir,
+      const std::vector<std::string>& defines,
+      const Blueprint::t_instantiation_context& ictx);
+    /// \brief end parsing
+    void endParsing();
 
-      void        printReport(std::pair<std::string, int> where, std::string msg) const;
-      int         lineFromInterval(antlr4::TokenStream *tk_stream, antlr4::misc::Interval interval) const;
-      std::string extractCodeAroundToken(std::string file, antlr4::Token *tk, antlr4::TokenStream *tk_stream, int &_offset) const;
-      std::string prepareMessage(antlr4::TokenStream* tk_stream, antlr4::Token *offender, antlr4::misc::Interval tk_interval) const;
-
-    public:
-
-      ReportError(const LuaPreProcessor& lpp, int line, antlr4::TokenStream* tk_stream,
-        antlr4::Token *offender, antlr4::misc::Interval tk_interval, std::string msg);
-
-    };
-
-    /// \brief class for ANTLR lexer error reporting
-    class LexerErrorListener : public antlr4::BaseErrorListener
-    {
-    private:
-      const LuaPreProcessor &m_PreProcessor;
-    public:
-      LexerErrorListener(const LuaPreProcessor &pp) : m_PreProcessor(pp) {}
-      virtual void syntaxError(
-        antlr4::Recognizer* recognizer,
-        antlr4::Token* tk,
-        size_t line,
-        size_t charPositionInLine,
-        const std::string& msg, std::exception_ptr e) override;
-    };
-
-    /// \brief class for ANTLR parsing error reporting
-    class ParserErrorListener : public antlr4::BaseErrorListener
-    {
-    private:
-      const LuaPreProcessor &m_PreProcessor;
-    public:
-      ParserErrorListener(const LuaPreProcessor &pp) : m_PreProcessor(pp) {}
-      virtual void syntaxError(
-        antlr4::Recognizer* recognizer,
-        antlr4::Token* tk,
-        size_t              line,
-        size_t              charPositionInLine,
-        const std::string& msg,
-        std::exception_ptr e) override;
-    };
-
-    /// \brief class for ANTLR error handling strategy
-    class ParserErrorHandler : public antlr4::DefaultErrorStrategy
-    {
-    protected:
-      void reportNoViableAlternative(antlr4::Parser *parser, antlr4::NoViableAltException const &ex) override;
-      void reportInputMismatch(antlr4::Parser *parser, antlr4::InputMismatchException const &ex) override;
-      void reportFailedPredicate(antlr4::Parser *parser, antlr4::FailedPredicateException const &ex) override;
-      void reportUnwantedToken(antlr4::Parser *parser) override;
-      void reportMissingToken(antlr4::Parser *parser) override;
-    };
-
-    /// \brief class storing the parsing context
-    class ParsingContext
-    {
-      public:
-        std::string                          fresult;
-        std::string                          framework_verilog;
-        std::vector<std::string>             defines;
-        AutoPtr<LuaPreProcessor>             lpp;
-        AutoPtr<LexerErrorListener>          lexerErrorListener;
-        AutoPtr<ParserErrorListener>         parserErrorListener;
-        AutoPtr<antlr4::ANTLRFileStream>     input;
-        AutoPtr<siliceLexer>                 lexer;
-        AutoPtr<antlr4::CommonTokenStream>   tokens;
-        AutoPtr<siliceParser>                parser;
-        std::shared_ptr<ParserErrorHandler>  err_handler;
-
-        ParsingContext(
-          std::string              fresult_,
-          AutoPtr<LuaPreProcessor> lpp_,
-          std::string              preprocessed,
-          std::string              framework_verilog_,
-          const std::vector<std::string>& defines_);
-        ~ParsingContext();
-        void bind();
-        void unbind();
-    };
-
-    AutoPtr<ParsingContext> m_Context;
+    /// \brief writes the design body in the output stream
+    void writeBody(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
+    /// \brief writes the formal tests in the output stream
+    void writeFormalTests(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
 
   public:
 
@@ -170,30 +113,20 @@ namespace Silice {
       std::string to_export,
       const std::vector<std::string>& export_params);
 
-    /// \brief parses a design
-    void parse(
-      std::string fsource,
-      std::string fresult,
-      std::string fframework,
-      std::string frameworks_dir,
-      const std::vector<std::string>& defines);
+    /// \brief writes a unit in the output stream
+    void writeUnit(
+      const t_parsed_unit&                      parsed,
+      const Blueprint::t_instantiation_context& ictx,
+      std::ostream&                            _out,
+      bool                                      first_pass);
 
-    /// \brief write a design for synthesis in the output stream
-    void write(
-      std::string    to_export,
-      const std::vector<std::string>& export_params,
-      std::string    postfix,
-      std::ostream& _out);
+    /// \brief parses a specific unit ios
+    t_parsed_unit parseUnitIOs(std::string to_parse);
+    /// \brief parses a unit body (call after parseUnitIOs);
+    void          parseUnitBody(t_parsed_unit& _parsed, const Blueprint::t_instantiation_context& ictx);
 
-    /// \brief write a design for synthesis
-    void write(
-      std::string to_export,
-      const std::vector<std::string>& export_params);
-
-    /// \brief get the list of blueprints (after parsing)
-    const std::unordered_map<std::string, AutoPtr<Blueprint> > getBlueprints() const
-      { return m_Blueprints; }
-
+    /// \brief returns the static blueprint for 'unit', otherwise null
+    AutoPtr<Blueprint> isStaticBlueprint(std::string bpname);
   };
 
   // -------------------------------------------------

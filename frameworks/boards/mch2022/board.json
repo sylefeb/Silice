@@ -1,0 +1,30 @@
+{
+  "name": "mch2022",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "mch2022.v",
+      "pins"      : [
+        {"set"    : "basic"},
+        {"set"    : "uart", "define" : "UART=1"},
+        {"set"    : "lcd", "define" : "LCD=1"},
+        {"set"    : "pmod", "define" : "PMOD=1"},
+        {"set"    : "psram", "define" : "PSRAM=1"}
+      ],
+      "builders": [
+        {
+          "builder" : "shell",
+          "command" : "mch2022.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        }
+      ]
+    }
+  ],
+  "pins": {
+    "basic": [ ],
+    "uart": [ ],
+    "lcd": [ ],
+    "pmod": [ ],
+    "psram": [ ]
+  }
+}

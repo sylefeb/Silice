@@ -13,7 +13,7 @@ module sb_io_inout(
       .PACKAGE_PIN(pin),
 			.OUTPUT_ENABLE(oe),
       .D_OUT_0(out),
-      .D_OUT_1(out),
+      //.D_OUT_1(out),
 			.D_IN_1(in),
       .OUTPUT_CLK(clock),
       .INPUT_CLK(clock)

@@ -4,7 +4,7 @@ input                  [%ADDR_WIDTH%-1:0] in_%NAME%_addr,
 output reg %DATA_TYPE% [%DATA_WIDTH%-1:0] out_%NAME%_rdata,
 input                                   %CLOCK%
 );
-reg %DATA_TYPE% [%DATA_WIDTH%-1:0] buffer[%DATA_SIZE%-1:0];
+(* no_rw_check *) reg %DATA_TYPE% [%DATA_WIDTH%-1:0] buffer[%DATA_SIZE%-1:0];
 always @(posedge %CLOCK%) begin
    out_%NAME%_rdata <= buffer[in_%NAME%_addr];
 end

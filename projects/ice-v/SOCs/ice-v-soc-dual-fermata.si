@@ -209,8 +209,7 @@ $$end
 // --------------
 // SPIflash implementation of a ROM
 unit spiflash_memory(
-  ram_provider  io,
-  input   uint1 clock2x,
+  ram_provider_reg io,
   input   uint1 clock4x,
   output  uint1 init(1), // goes low when SPIflash ctrl is ready
   output  uint1 sf_clk,  output  uint1 sf_csn,
@@ -218,26 +217,22 @@ unit spiflash_memory(
   inout   uint1 sf_io2,  inout   uint1 sf_io3,
 ) {
   // spiflash rom
-  spiflash_rom sf<reginputs,@clock2x>(
+  spiflash_rom sf(
     sf_clk :>  sf_clk,   sf_csn :>  sf_csn,
     sf_io0 <:> sf_io0,   sf_io1 <:> sf_io1,
     sf_io2 <:> sf_io2,   sf_io3 <:> sf_io3,
     clkspi <: clock4x
   );
   // logic
-  uint1  was_busy(0);
-  uint1  sf_is_busy(1); // for clock domain crossing
-  uint32 sf_rdata(0);   // for clock domain crossing
+  uint1  was_busy(1);
   always {
-    init        = sf_is_busy & init;
-    io.rdata    = sf_rdata;
+    init        = (reset | sf.busy) & init;
+    io.rdata    = sf.rdata;
     sf.addr     = io.req_valid ? {4b0001,io.addr[0,18],2b00} : sf.addr;
     //                                 ^ offset SPIflash addresses by 1MB
     sf.in_ready = io.req_valid;
-    io.done     = was_busy & ~sf_is_busy;
-    was_busy    = sf_is_busy;
-    sf_is_busy  = sf.busy; // get status from spiflash (clock domain crossing)
-    sf_rdata    = sf.rdata;
+    io.done     = was_busy & ~sf.busy;
+    was_busy    = sf.busy | io.req_valid;
   }
 }
 
@@ -247,7 +242,6 @@ unit spiflash_memory(
 // Transmits addr and read (32 bits words) over UART every access
 unit spiflash_memory_uart_debug(
   ram_provider_reg io,
-  input   uint1 clock2x,
   input   uint1 clock4x,
   output  uint1 init(1), // goes low when SPIflash ctrl is ready
   output  uint1 sf_clk,
@@ -268,21 +262,22 @@ $$if UART then
 $$end
 
   // spiflash
-  spiflash_rom sf<reginputs,@clock2x>(
+  spiflash_rom sf(
     sf_clk :>  sf_clk, sf_csn :>  sf_csn,
     sf_io0 <:> sf_io0, sf_io1 <:> sf_io1,
     sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
     clkspi <: clock4x
   );
 
-  uint1  sf_is_busy(1);    // for clock domain crossing
+  uint1 req_received(0);
 
   io.done          := 0;
   sf.in_ready      := 0;
   uo.data_in_ready := 0;
 
   always_before {
-    init        = sf_is_busy & init;
+    init         = (reset | sf.busy) & init;
+    req_received = req_received | io.req_valid;
   }
 
   algorithm <autorun> {
@@ -300,14 +295,19 @@ $$end
         while (uo.busy) {}
       }
     }
+
+    () <- transmit <- (32hcaffee42);
+
     while (1) {
-      if (io.req_valid) {
-        sf.addr     = {4b0001,io.addr[0,18],2b00};
+      if (req_received) {
+        req_received = 0;
+        sf.addr      = {4b0001,io.addr[0,18],2b00};
         // transmit address
         () <- transmit <- (sf.addr);
         // request data from spiflash
         sf.in_ready = 1;
-        while (sf_is_busy) { } // wait
+++:
+        while (sf.busy) { } // wait
         // transmit data
         () <- transmit <- (sf.rdata);
         // done
@@ -315,10 +315,7 @@ $$end
         io.done  = 1;
       }
     }
-  }
 
-  always_after{
-    sf_is_busy  = sf.busy; // get busy status from spiflash (clock domain crossing)
   }
 }
 
@@ -329,8 +326,8 @@ $$end
 // - [0x100000 -         ] ROM
 // (byte addresses)
 //
-// - RAM  is assumed to be BRAM (1-cycle latency)
-// - VRAM is assumed to be BRAM (1-cycle latency)
+// - RAM  is assumed to be BRAM/SPRAM (1-cycle latency)
+// - VRAM is assumed to be BRAM/SPRAM (1-cycle latency)
 // - ROM  is assumed slow
 // - expects io0 and io1 to be well behaved:
 //   + do not request access again before receiving done
@@ -355,6 +352,7 @@ unit composite_memory(
   uint1            rom1_req_valid(0);
   uint1            rom_busy(0);
   uint1            rom_client(0);
+  //uint32 cycle(0);
   always {
     uint1 io0_in_rom_now <: io0.addr[17,2] == 2b10;
     uint1 io1_in_rom_now <: io1.addr[17,2] == 2b10;
@@ -405,6 +403,7 @@ unit composite_memory(
     rom.req_valid  = 0;
     // -> send next, 0 has higher priority
     if (rom.done) {
+      // __display("[%d] ROM DONE <<<<<<<<<<<<<<<<<<<<<<<<<<",cycle);
       rom_busy     = 0;
     }
     // -> capture requests (will be dealt with asap)
@@ -426,9 +425,10 @@ unit composite_memory(
       }
     }
     // log
-    //if (ram.req_valid) { __display("core %b|%b req RAM",io0_in_ram_now,io1_in_ram_now); }
-    //if (vrm.req_valid) { __display("core %b|%b req VRAM",io0_in_vrm_now,io1_in_vrm_now); }
-    //if (rom.req_valid) { __display("core %b|%b req ROM",~rom_client,rom_client); }
+    //if (ram.req_valid) { __display("core %b|%b req RAM  @%x",io0_in_ram_now,io1_in_ram_now,ram.addr); }
+    //if (vrm.req_valid) { __display("core %b|%b req VRAM @%x",io0_in_vrm_now,io1_in_vrm_now,vrm.addr); }
+    //if (rom.req_valid) { __display("core %b|%b req ROM  @%x",~rom_client,rom_client,rom.addr); }
+    //cycle = cycle + 1;
   }
 }
 
@@ -476,9 +476,10 @@ $$end
 $$if SIMULATION then
   output! uint1             video_clock,
 $$end
+)
 // clocking (pll) and reset
 $$if ICEBREAKER or ICEBITSY then
-) <@clock1x> {
+<@clock1x> {
   uint1 clock4x = uninitialized;
   pll pllgen(
     clock_in  <: clock,
@@ -496,7 +497,7 @@ $$if ICEBREAKER or ICEBITSY then
   //  out :> rst
   //);
 $$elseif SIMULATION then
- ) <@clock1x> {
+<@clock1x> {
   uint1 clock1x = uninitialized;
   uint1 clock2x = uninitialized;
   uint1 clock4x = uninitialized;
@@ -507,7 +508,7 @@ $$elseif SIMULATION then
   );
   //uint1 rst <: reset;
 $$else
-) {
+{
 $$end
 
 $$if SIMULATION then
@@ -534,7 +535,6 @@ $$end
   // spiflash_memory_uart_debug mem1(uart_tx :> uart_tx,
     io <:> spflash,
     clock4x <: clock4x,
-    clock2x <: clock2x,
     sf_clk :>  sf_clk, sf_csn :>  sf_csn, sf_io0 <:> sf_io0,
     sf_io1 <:> sf_io1, sf_io2 <:> sf_io2, sf_io3 <:> sf_io3,
   );
@@ -560,8 +560,13 @@ $$end
   );
 
   always {
+    uint1 dbg1(0);
+    uint1 dbg2(0);
 
-    leds = 8b0;
+    leds = {dbg1,1b0,dbg2,2b0};
+
+    dbg1 = dbg1 | (~sys_rst & spflash.req_valid);
+    dbg2 = dbg2 | (~sys_rst & spflash.done);
 
 $$if SIMULATION then
     cycle       = cycle + 1;
@@ -571,6 +576,7 @@ $$if ICARUS then
       __finish();
     }
 $$end
+    //if (cycle == 1100) { __finish(); }
 $$end
   }
 

@@ -43,7 +43,7 @@ void RISCVSynthesizer::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo
   if (type->TYPE() != nullptr) {
     splitType(type->TYPE()->getText(), _nfo);
   } else {
-    reportError(type->getSourceInterval(), (int)type->getStart()->getLine(), "[RISCV] complex types are not yet supported");
+    reportError(sourceloc(type), "[RISCV] complex types are not yet supported");
   }
 }
 
@@ -56,7 +56,7 @@ void RISCVSynthesizer::gather(siliceParser::RiscvContext *riscv)
   for (auto io : list->inOrOut()) {
     if (io->input()) {
       if (io->input()->declarationVar()->IDENTIFIER() == nullptr) {
-        reportError(io->getSourceInterval(), -1, "[RISCV] table inputs are not supported");
+        reportError(sourceloc(io), "[RISCV] table inputs are not supported");
       }
       t_inout_nfo nfo;
       nfo.name = io->input()->declarationVar()->IDENTIFIER()->getText();
@@ -66,7 +66,7 @@ void RISCVSynthesizer::gather(siliceParser::RiscvContext *riscv)
       m_InputNames.insert(make_pair(nfo.name, (int)m_Inputs.size() - 1));
     } else if (io->output()) {
       if (io->output()->declarationVar()->IDENTIFIER() == nullptr) {
-        reportError(io->getSourceInterval(), -1, "[RISCV] table outputs are not supported");
+        reportError(sourceloc(io), "[RISCV] table outputs are not supported");
       } else {
         t_output_nfo nfo;
         nfo.name = io->output()->declarationVar()->IDENTIFIER()->getText();
@@ -83,16 +83,18 @@ void RISCVSynthesizer::gather(siliceParser::RiscvContext *riscv)
       m_InOuts.emplace_back(nfo);
       m_InOutNames.insert(make_pair(nfo.name, (int)m_InOuts.size() - 1));
     } else {
-      reportError(io->getSourceInterval(), -1, "[RISCV] io type '%s' not supported");
+      reportError(sourceloc(io), "[RISCV] io type '%s' not supported");
     }
   }
 }
 
 // -------------------------------------------------
 
-std::string RISCVSynthesizer::cblockToString(siliceParser::CblockContext *cblock) const
+std::string RISCVSynthesizer::cblockToString(siliceParser::RiscvContext *riscv,siliceParser::CblockContext *cblock) const
 {
-  return extractCodeBetweenTokens("", (int)cblock->getSourceInterval().a, (int)cblock->getSourceInterval().b);
+  return extractCodeBetweenTokens(
+    "", ParsingContext::rootContext(riscv)->parser->getTokenStream(),
+    (int)cblock->getSourceInterval().a, (int)cblock->getSourceInterval().b);
 }
 
 // -------------------------------------------------
@@ -103,11 +105,11 @@ int RISCVSynthesizer::memorySize(siliceParser::RiscvContext *riscv) const
     for (auto m : riscv->riscvModifiers()->riscvModifier()) {
       if (m->IDENTIFIER()->getText() == "mem") {
         if (m->NUMBER() == nullptr) {
-          reportError(riscv->getSourceInterval(), -1, "[RISCV] memory size should be a number, got '%s'.", m->STRING()->getText().c_str());
+          reportError(sourceloc(riscv), "[RISCV] memory size should be a number, got '%s'.", m->STRING()->getText().c_str());
         } else {
           int sz = atoi(m->NUMBER()->getText().c_str());
           if (sz <= 0 || (sz % 4) != 0) {
-            reportError(riscv->getSourceInterval(), -1, "[RISCV] memory size (in bytes) should be > 0 and multiple of four (got %d).", sz);
+            reportError(sourceloc(riscv), "[RISCV] memory size (in bytes) should be > 0 and multiple of four (got %d).", sz);
           }
           return sz;
           break;
@@ -116,7 +118,7 @@ int RISCVSynthesizer::memorySize(siliceParser::RiscvContext *riscv) const
     }
   }
   // memory size is mandatory, issue an error if not found
-  reportError(riscv->getSourceInterval(), -1, "[RISCV] no memory size specified, please use a modifier e.g. <mem=1024>");
+  reportError(sourceloc(riscv), "[RISCV] no memory size specified, please use a modifier e.g. <mem=1024>");
   return 0;
 }
 
@@ -128,11 +130,11 @@ int RISCVSynthesizer::stackSize(siliceParser::RiscvContext *riscv) const
     for (auto m : riscv->riscvModifiers()->riscvModifier()) {
       if (m->IDENTIFIER()->getText() == "stack") {
         if (m->NUMBER() == nullptr) {
-          reportError(riscv->getSourceInterval(), -1, "[RISCV] stack size should be a number.");
+          reportError(sourceloc(riscv), "[RISCV] stack size should be a number.");
         } else {
           int sz = atoi(m->NUMBER()->getText().c_str());
           if (sz <= 0 || (sz % 4) != 0) {
-            reportError(riscv->getSourceInterval(), -1, "[RISCV] stack size (in bytes) should be > 0 and multiple of four (got %d).", sz);
+            reportError(sourceloc(riscv), "[RISCV] stack size (in bytes) should be > 0 and multiple of four (got %d).", sz);
           }
           return sz;
           break;
@@ -152,7 +154,7 @@ std::string RISCVSynthesizer::coreName(siliceParser::RiscvContext *riscv) const
     for (auto m : riscv->riscvModifiers()->riscvModifier()) {
       if (m->IDENTIFIER()->getText() == "core") {
         if (m->STRING() == nullptr) {
-          reportError(riscv->getSourceInterval(), -1, "[RISCV] core name should be a string.");
+          reportError(sourceloc(riscv), "[RISCV] core name should be a string.");
         } else {
           string core = m->STRING()->getText();
           core = core.substr(1, core.length() - 2); // remove '"' and '"'
@@ -173,7 +175,7 @@ std::string RISCVSynthesizer::archName(siliceParser::RiscvContext *riscv) const
     for (auto m : riscv->riscvModifiers()->riscvModifier()) {
       if (m->IDENTIFIER()->getText() == "arch") {
         if (m->STRING() == nullptr) {
-          reportError(riscv->getSourceInterval(), -1, "[RISCV] arch name should be a string.");
+          reportError(sourceloc(riscv), "[RISCV] arch name should be a string.");
         } else {
           string arch = m->STRING()->getText();
           arch = arch.substr(1, arch.length() - 2); // remove '"' and '"'
@@ -233,7 +235,7 @@ bool RISCVSynthesizer::isAccessTrigger(siliceParser::OutputContext *output, std:
   if (istrigger) {
     _accessed = vname;
   } else {
-    warn(Standard, output->getSourceInterval(),-1,
+    warn(Standard, sourceloc(output),
       "variable '%s' starts with 'on_' which is indicates an access trigger,\n             but no corresponding input or output was found.",
       oname.c_str());
   }
@@ -283,7 +285,7 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
     }
     ptr_next = ptr_next << 1;
     if (ptr_next >= ptr_base) {
-      reportError(riscv->getSourceInterval(), -1, "[RISCV] address bust not wide enough for the number of input/outputs (one bit per IO is required)");
+      reportError(sourceloc(riscv), "[RISCV] address bust not wide enough for the number of input/outputs (one bit per IO is required)");
     }
   }
   // concatenate core specific header
@@ -317,7 +319,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
     } else if (inout) {
       name = inout->declarationVar()->IDENTIFIER()->getText();
     } else {
-      reportError(inout->getSourceInterval(), -1, "[RISC-V] only inputs / outputs are support");
+      reportError(sourceloc(inout), "[RISC-V] only inputs / outputs are support");
     }
     io2idx.insert(make_pair(name, idx++));
   }
@@ -349,7 +351,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
         // access trigger
         sl_assert(io2idx.count(accessed) != 0);
         if (type_nfo.width != 1) {
-          reportError(output->getSourceInterval(), -1,
+          reportError(sourceloc(output),
             "[RISC-V] access trigger '%s' should be a uint1", v.c_str());
         }
         int accessed_idx = io2idx.at(accessed);
@@ -359,7 +361,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
           on_accessed = on_accessed + v + " = io_write & iow_" + std::to_string(accessed_idx) + "; ";
         } else {
           // TODO
-          reportError(output->getSourceInterval(), -1, "[RISC-V] inout not yet supported");
+          reportError(sourceloc(output), "[RISC-V] inout not yet supported");
         }
       }
       init = "(0)";
@@ -368,10 +370,10 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
       gatherTypeNfo(inout->declarationVar()->type(), type_nfo);
       v         = inout->declarationVar()->IDENTIFIER()->getText();
       // TODO
-      reportError(inout->getSourceInterval(), -1, "[RISC-V] inout not yet supported");
+      reportError(sourceloc(inout), "[RISC-V] inout not yet supported");
     } else {
       // TODO error message, actual checks!
-      reportError(inout->getSourceInterval(), -1, "[RISC-V] only inputs / outputs are support");
+      reportError(sourceloc(inout), "[RISC-V] only inputs / outputs are support");
     }
     io_decl = io_decl + "uint" + std::to_string(type_nfo.width) + " " + v + init + ',';
     ++ idx;
@@ -382,14 +384,14 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
   code << "$$external    = " << justHigherPow2(memorySize(riscv))-2 << nxl;
   code << "$$arch        = '" << archName(riscv) << '\'' << nxl;
   code << "$$algorithm_name = '" << riscv->IDENTIFIER()->getText() << "'" << nxl;
-  code << "$$dofile('" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-compile.lua');" << nxl;
+  code << "$$dofile('" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-compile.lua')" << nxl;
   code << "$$meminit     = data_bram" << nxl;
   code << "$$io_decl     = [[" << io_decl << "]]" << nxl;
   code << "$$io_select   = [[" << io_select << "]]" << nxl;
   code << "$$io_reads    = [[" << io_reads << "]]" << nxl;
   code << "$$io_writes   = [[" << io_writes << "]]" << nxl;
   code << "$$on_accessed = [[" << on_accessed << "]]" << nxl;
-  code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + coreName(riscv) + "/riscv-soc.si\");" << nxl;
+  code << "$include(\"" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/" + coreName(riscv) + "/riscv-soc.si\")" << nxl;
   return code.str();
 }
 
@@ -401,7 +403,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
   gather(riscv);
   if (riscv->initList() != nullptr) {
     // table initializer with instructions
-    reportError(riscv->initList()->getSourceInterval(), -1, "[RISC-V] init with instructions not yet supported");
+    reportError(sourceloc(riscv->initList()), "[RISC-V] init with instructions not yet supported");
   } else {
     // get core name
     std::string core = coreName(riscv);
@@ -412,7 +414,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     // compile from inline source
     siliceParser::CblockContext *cblock = riscv->cblock();
     sl_assert(cblock != nullptr);
-    string ccode = cblockToString(cblock);
+    string ccode = cblockToString(riscv,cblock);
     ccode = ccode.substr(1, ccode.size() - 2); // skip braces
     // write code to temp file
     string c_tempfile;
@@ -443,13 +445,15 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
       ofstream linkerscript(l_tempfile);
       int mem_size = memorySize(riscv) - stack_size;
       if (mem_size <= 0) {
-        reportError(riscv->riscvModifiers()->getSourceInterval(), -1, "[RISC-V] memory size cannot fit stack (stack size is %d bytes, change with stack=SIZE)",stack_size);
+        reportError(sourceloc(riscv->riscvModifiers()), "[RISC-V] memory size cannot fit stack (stack size is %d bytes, change with stack=SIZE)",stack_size);
       }
       linkerscript << "MEM_SIZE = " + std::to_string(mem_size) + ";\n"
         << Utils::fileToString((CONFIG.keyValues()["libraries_path"] + "/riscv/" + core + "/config_c.ld").c_str());
     }
     // get source file path
-    std::string srcfile = Utils::getTokenSourceFileAndLine(Utils::getToken(riscv->RISCV()->getSourceInterval())).first;
+    std::string srcfile = Utils::getTokenSourceFileAndLine(
+      riscv, Utils::getToken(riscv->RISCV(),riscv->RISCV()->getSourceInterval())
+    ).first;
     std::string path = std::filesystem::absolute(srcfile).remove_filename().string();
     // get defines from modifiers
     std::string defs = defines(riscv);

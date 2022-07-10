@@ -1,21 +1,23 @@
 
 // integer division
-$$div_width=16
-$$div_unsigned=nil
-$include('../common/divint_std.si')
+$include('../common/divint_std_auto.si')
 
 algorithm main(output uint8 leds)
 {
-  int16  num    = 20043;
-  int16  den    = -41;
-  int16  result = 0;
+  // manually specify the width
+  div divA<inum:int16>;
 
-  div16 div0;
+  // or use bindings
+  uint8  num = 231;
+  uint8  den = 10;
+  div divB(inum <: num, iden <: den);
 
-  (result) <- div0 <- (num,den);
-
-  __display("%d / %d = %d",num,den,result);
-
-  leds = result[0,8];
-
+  // trigger the divisions
+  divA  <- (20043,-41);
+  divB  <- ();
+  // join with A (B will be done too, takes less time)
+  () <- divA;
+  // display results
+  __display("division A: %d / %d = %d", divA.inum, divA.iden, divA.ret);
+  __display("division B: %d / %d = %d", num,       den,       divB.ret);
 }

@@ -9,12 +9,7 @@ $$if not div_width then
 $$error('please provide the bit width by defining the preprocessor var div_width')
 $$end
 
-$$div_width_pow2=0
-$$tmp = div_width
-$$while tmp > 1 do
-$$  div_width_pow2 = div_width_pow2 + 1
-$$  tmp = (tmp/2)
-$$end
+$$div_width_pow2 = clog2(div_width)
 
 algorithm div$div_width$(
   input  int$div_width$ inum,

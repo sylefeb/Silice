@@ -32,9 +32,12 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "siliceParser.h"
 
 #include "TypesAndConsts.h"
+#include "Utils.h"
 
 namespace Silice
 {
+
+  class SiliceCompiler;
 
   class Blueprint
   {
@@ -78,7 +81,7 @@ namespace Silice
       e_Access     access            = e_NotAccessed;
       e_VarUsage   usage             = e_Undetermined;
       std::string  attribs;
-      antlr4::misc::Interval source_interval;
+      Utils::t_source_loc srcloc;
     };
 
     /// \brief typedef to distinguish vars from ios
@@ -99,8 +102,12 @@ namespace Silice
       std::unordered_map<std::string, std::string> parameters;
     } t_instantiation_context;
 
+    /// \brief returns the blueprint name
+    virtual std::string name() const = 0;
+    /// \brief sets as a top module in the output stream
+    virtual void setAsTopMost() { }
     /// \brief writes the blueprint as a Verilog module
-    virtual void writeAsModule(std::ostream& out, const t_instantiation_context& ictx, bool first_pass) = 0;
+    virtual void writeAsModule(SiliceCompiler *compiler, std::ostream& out, const t_instantiation_context& ictx, bool first_pass) = 0;
     /// \brief returns true if the blueprint requires a reset
     virtual bool requiresReset() const = 0;
     /// \brief returns true if the blueprint requires a clock
@@ -124,9 +131,9 @@ namespace Silice
     /// \brief returns a VIO definition
     virtual t_var_nfo getVIODefinition(std::string var, bool &_found) const;
     /// \brief determines vio bit width and (if applicable) table size
-    virtual std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const;
+    virtual std::tuple<t_type_nfo, int> determineVIOTypeWidthAndTableSize(std::string vname, const Utils::t_source_loc& srcloc) const;
     /// \brief determines vio bit width
-    virtual std::string resolveWidthOf(std::string vio, const t_instantiation_context& ictx, antlr4::misc::Interval interval) const;
+    virtual std::string resolveWidthOf(std::string vio, const t_instantiation_context& ictx, const Utils::t_source_loc& srcloc) const;
     /// \brief returns the name of the module
     virtual std::string moduleName(std::string blueprint_name,std::string instance_name) const = 0;
     /// \brief returns the name of an input port from its internal name
@@ -135,6 +142,16 @@ namespace Silice
     virtual std::string outputPortName(std::string name) const { return name; }
     /// \brief returns the name of an inout port from its internal name
     virtual std::string inoutPortName(std::string name)  const { return name; }
+    /// \brief returns variable bit range for verilog declaration
+    virtual std::string varBitRange(const t_var_nfo& v, const t_instantiation_context &ictx) const;
+    /// \brief returns a variable bit width for verilog use
+    virtual std::string varBitWidth(const t_var_nfo &v, const t_instantiation_context &ictx) const;
+    /// \brief returns a variable init value for verilog use (non-tables only)
+    virtual std::string varInitValue(const t_var_nfo &v, const t_instantiation_context &ictx) const;
+    /// \brief returns the base type of a variable
+    virtual e_Type      varType(const t_var_nfo& v, const t_instantiation_context &ictx) const;
+    /// \brief returns a type dependent string for resource declaration
+    virtual std::string typeString(e_Type type) const;
 
     /// \brief returns true of the 'combinational' boolean is properly setup for outputs
     virtual bool hasOutputCombinationalInfo() const = 0;

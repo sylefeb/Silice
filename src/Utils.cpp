@@ -27,6 +27,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <LibSL.h>
 
 #include "LuaPreProcessor.h"
+#include "ParsingContext.h"
 
 #include <filesystem>
 
@@ -35,12 +36,11 @@ using namespace Silice;
 
 // -------------------------------------------------
 
-static antlr4::TokenStream *s_TokenStream = nullptr;
-static LuaPreProcessor     *s_LuaPreProcessor = nullptr;
+static Utils::t_source_loc nowhere;
 
 // -------------------------------------------------
 
-void Utils::reportError(antlr4::Token *what, int line, const char *msg, ...)
+void Utils::reportError(const t_source_loc& srcloc, const char *msg, ...)
 {
   const int messageBufferSize = 4096;
   char message[messageBufferSize];
@@ -50,27 +50,18 @@ void Utils::reportError(antlr4::Token *what, int line, const char *msg, ...)
   vsprintf_s(message, messageBufferSize, msg, args);
   va_end(args);
 
-  throw LanguageError(line, what, antlr4::misc::Interval::INVALID, "%s", message);
+  ParsingContext *pctx = nullptr;
+  if (srcloc.root) {
+    pctx = ParsingContext::rootContext(srcloc.root);
+  } else {
+    pctx = ParsingContext::activeContext();
+  }
+  throw ReportError(pctx, -1, pctx->parser->getTokenStream(), nullptr, srcloc.interval, message);
 }
 
 // -------------------------------------------------
 
-void Utils::reportError(antlr4::misc::Interval interval, int line, const char *msg, ...)
-{
-  const int messageBufferSize = 4096;
-  char message[messageBufferSize];
-
-  va_list args;
-  va_start(args, msg);
-  vsprintf_s(message, messageBufferSize, msg, args);
-  va_end(args);
-
-  throw LanguageError(line, nullptr, interval, "%s", message);
-}
-
-// -------------------------------------------------
-
-void Utils::warn(e_WarningType type, antlr4::misc::Interval interval, int line, const char *msg, ...)
+void Utils::warn(e_WarningType type, const t_source_loc& srcloc, const char *msg, ...)
 {
   const int messageBufferSize = 4096;
   char message[messageBufferSize];
@@ -84,13 +75,21 @@ void Utils::warn(e_WarningType type, antlr4::misc::Interval interval, int line, 
   case Standard:    std::cerr << Console::yellow << "[warning]    " << Console::gray; break;
   case Deprecation: std::cerr << Console::cyan << "[deprecated] " << Console::gray; break;
   }
-  if (line > -1) {
-  } else if (s_TokenStream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
-    antlr4::Token *tk = s_TokenStream->get(interval.a);
+  antlr4::TokenStream *tks = nullptr;
+  ParsingContext *pctx = nullptr;
+  if (srcloc.root) {
+    pctx = ParsingContext::rootContext(Utils::root(srcloc.root));
+  }
+  if (pctx) {
+    tks = pctx->parser->getTokenStream();
+  }
+  int line = -1;
+  if (tks != nullptr && !(srcloc.interval == antlr4::misc::Interval::INVALID)) {
+    antlr4::Token *tk = tks->get(srcloc.interval.a);
     line = (int)tk->getLine();
   }
-  if (s_LuaPreProcessor != nullptr) {
-    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
+  if (pctx != nullptr) {
+    auto fl = pctx->lpp->lineAfterToFileAndLineBefore(pctx,line);
     std::cerr << "(" << Console::white << fl.first << Console::gray << ", line " << sprint("%4d", fl.second) << ") ";
   } else {
     std::cerr << "(" << line << ") ";
@@ -101,10 +100,18 @@ void Utils::warn(e_WarningType type, antlr4::misc::Interval interval, int line, 
 
 // -------------------------------------------------
 
-antlr4::Token *Utils::getToken(antlr4::misc::Interval interval, bool last_else_first)
+antlr4::Token *Utils::getToken(antlr4::tree::ParseTree *node, antlr4::misc::Interval interval, bool last_else_first)
 {
-  if (s_TokenStream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
-    antlr4::Token *tk = s_TokenStream->get(last_else_first ? interval.b : interval.a);
+  antlr4::TokenStream *tks = nullptr;
+  ParsingContext *pctx = nullptr;
+  if (node) {
+    pctx = ParsingContext::rootContext(Utils::root(node));
+  }
+  if (pctx) {
+    tks = pctx->parser->getTokenStream();
+  }
+  if (tks != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
+    antlr4::Token *tk = tks->get(last_else_first ? interval.b : interval.a);
     return tk;
   } else {
     return nullptr;
@@ -113,29 +120,21 @@ antlr4::Token *Utils::getToken(antlr4::misc::Interval interval, bool last_else_f
 
 // -------------------------------------------------
 
-std::pair<std::string, int> Utils::getTokenSourceFileAndLine(antlr4::Token *tk)
+std::pair<std::string, int> Utils::getTokenSourceFileAndLine(antlr4::tree::ParseTree *node, antlr4::Token *tk)
 {
+  ParsingContext *pctx = nullptr;
+  if (node) {
+    pctx = ParsingContext::rootContext(Utils::root(node));
+  } else {
+    pctx = ParsingContext::activeContext();
+  }
   int line = (int)tk->getLine();
-  if (s_LuaPreProcessor != nullptr) {
-    auto fl = s_LuaPreProcessor->lineAfterToFileAndLineBefore(line);
+  if (pctx != nullptr) {
+    auto fl = pctx->lpp->lineAfterToFileAndLineBefore(pctx,line);
     return fl;
   } else {
     return std::make_pair("", line);
   }
-}
-
-// -------------------------------------------------
-
-void Utils::setTokenStream(antlr4::TokenStream *tks)
-{
-  s_TokenStream = tks;
-}
-
-// -------------------------------------------------
-
-void Utils::setLuaPreProcessor(LuaPreProcessor *lpp)
-{
-  s_LuaPreProcessor = lpp;
 }
 
 // -------------------------------------------------
@@ -156,13 +155,13 @@ int Utils::justHigherPow2(int n)
 
 // -------------------------------------------------
 
-std::string Utils::extractCodeBetweenTokens(std::string file, int stk, int etk)
+std::string Utils::extractCodeBetweenTokens(std::string file, antlr4::TokenStream* tk_stream, int stk, int etk)
 {
   if (file.empty()) {
-    file = s_TokenStream->getTokenSource()->getInputStream()->getSourceName();
+    file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
   }
-  int sidx = (int)s_TokenStream->get(stk)->getStartIndex();
-  int eidx = (int)s_TokenStream->get(etk)->getStopIndex();
+  int sidx = (int)tk_stream->get(stk)->getStartIndex();
+  int eidx = (int)tk_stream->get(etk)->getStopIndex();
   FILE *f = NULL;
   fopen_s(&f, file.c_str(), "rb");
   if (f) {
@@ -174,7 +173,7 @@ std::string Utils::extractCodeBetweenTokens(std::string file, int stk, int etk)
     fclose(f);
     return std::string(buffer.raw());
   }
-  return s_TokenStream->getText(s_TokenStream->get(stk), s_TokenStream->get(etk));
+  return tk_stream->getText(tk_stream->get(stk), tk_stream->get(etk));
 }
 
 // -------------------------------------------------
@@ -194,19 +193,6 @@ std::string Utils::fileToString(const char* file)
       break;
   }
   return strstream.str();
-}
-
-// -------------------------------------------------
-
-Utils::LanguageError::LanguageError(int line, antlr4::Token *tk, antlr4::misc::Interval interval, const char *msg, ...)
-{
-    m_Line = line;
-    m_Token = tk;
-    m_Interval = interval;
-    va_list args;
-    va_start(args, msg);
-    vsprintf_s(m_Message, e_MessageBufferSize, msg, args);
-    va_end(args);
 }
 
 // -------------------------------------------------
@@ -235,6 +221,43 @@ void Utils::split(const std::string& s, char delim, std::vector<std::string>& el
   while (getline(ss, item, delim)) {
     elems.push_back(item);
   }
+}
+
+// -------------------------------------------------
+
+int Utils::numLinesIn(std::string l)
+{
+  return (int)std::count(l.begin(), l.end(), '\n');
+}
+
+// -------------------------------------------------
+
+antlr4::tree::ParseTree *Utils::root(antlr4::tree::ParseTree *node)
+{
+  while (node->parent != nullptr) {
+    node = node->parent;
+  }
+  return node;
+}
+
+// -------------------------------------------------
+
+Utils::t_source_loc Utils::sourceloc(antlr4::tree::ParseTree *node)
+{
+  t_source_loc sl;
+  sl.root = Utils::root(node);
+  sl.interval = node->getSourceInterval();
+  return sl;
+}
+
+// -------------------------------------------------
+
+Utils::t_source_loc Utils::sourceloc(antlr4::tree::ParseTree *root, antlr4::misc::Interval interval)
+{
+  t_source_loc sl;
+  sl.root = root;
+  sl.interval = interval;
+  return sl;
 }
 
 // -------------------------------------------------

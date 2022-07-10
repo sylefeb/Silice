@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 case "$(uname -s)" in
 MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
@@ -29,7 +31,10 @@ esac
 
 cd $BUILD_DIR
 
+set +e
 rm build*
+set -e
+
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
 if [[ ! -z "${NO_BUILD}" ]]; then

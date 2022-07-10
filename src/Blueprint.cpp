@@ -62,7 +62,7 @@ Blueprint::t_var_nfo Blueprint::getVIODefinition(std::string var, bool& _found) 
 }
 // -------------------------------------------------
 
-std::tuple<t_type_nfo, int> Blueprint::determineVIOTypeWidthAndTableSize(std::string vname, antlr4::misc::Interval interval, int line) const
+std::tuple<t_type_nfo, int> Blueprint::determineVIOTypeWidthAndTableSize(std::string vname, const t_source_loc& srcloc) const
 {
   t_type_nfo tn;
   tn.base_type = Int;
@@ -78,14 +78,14 @@ std::tuple<t_type_nfo, int> Blueprint::determineVIOTypeWidthAndTableSize(std::st
     tn = inout(vname).type_nfo;
     table_size = inout(vname).table_size;
   } else {
-    reportError(interval, line, "variable '%s' not yet declared", vname.c_str());
+    reportError(srcloc, "variable '%s' not yet declared", vname.c_str());
   }
   return std::make_tuple(tn, table_size);
 }
 
 // -------------------------------------------------
 
-std::string Blueprint::resolveWidthOf(std::string vio, const t_instantiation_context &ictx, antlr4::misc::Interval interval) const
+std::string Blueprint::resolveWidthOf(std::string vio, const t_instantiation_context &ictx, const t_source_loc& srcloc) const
 {
   if (isInput(vio)) {
     auto tn = input(vio).type_nfo;
@@ -97,8 +97,143 @@ std::string Blueprint::resolveWidthOf(std::string vio, const t_instantiation_con
     auto tn = inout(vio).type_nfo;
     return std::to_string(tn.width);
   } else {
-    reportError(interval, -1, "variable '%s' not yet declared", vio.c_str());
+    reportError(srcloc, "variable '%s' not yet declared", vio.c_str());
     return "";
+  }
+}
+
+// -------------------------------------------------
+
+std::string Blueprint::typeString(e_Type type) const
+{
+  if (type == Int) {
+    return "signed";
+  }
+  return "";
+}
+
+// -------------------------------------------------
+
+std::string Blueprint::varBitRange(const t_var_nfo& v, const t_instantiation_context &ictx) const
+{
+  if (v.type_nfo.base_type == Parameterized) {
+    bool ok = false;
+    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
+    if (!ok) {
+      reportError(v.srcloc, "cannot find definition of '%s' ('%s')", v.type_nfo.same_as.empty() ? v.name.c_str() : v.type_nfo.same_as.c_str(), v.name.c_str());
+    }
+    std::string str;
+    if (base.type_nfo.base_type == Parameterized) {
+      str = base.name;
+      std::transform(str.begin(), str.end(), str.begin(),
+        [](unsigned char c) -> unsigned char { return std::toupper(c); });
+      str = str + "_WIDTH";
+      if (ictx.parameters.count(str) == 0) {
+        reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), name().c_str());
+      }
+      str = ictx.parameters.at(str) + "-1"; // NOTE: this should always be a legal value, and never a reference
+    } else {
+      str = std::to_string(base.type_nfo.width - 1);
+    }
+    return "[" + str + ":0]";
+  } else {
+    return "[" + std::to_string(v.type_nfo.width - 1) + ":0]";
+  }
+}
+
+// -------------------------------------------------
+
+std::string Blueprint::varBitWidth(const t_var_nfo &v, const t_instantiation_context &ictx) const
+{
+  if (v.type_nfo.base_type == Parameterized) {
+    bool ok = false;
+    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
+    if (!ok) {
+      reportError(v.srcloc, "cannot find definition of '%s' ('%s')", v.type_nfo.same_as.empty() ? v.name.c_str() : v.type_nfo.same_as.c_str(), v.name.c_str());
+    }
+    std::string str;
+    if (base.type_nfo.base_type == Parameterized) {
+      str = base.name;
+      std::transform(str.begin(), str.end(), str.begin(),
+        [](unsigned char c) -> unsigned char { return std::toupper(c); });
+      str = str + "_WIDTH";
+      if (ictx.parameters.count(str) == 0) {
+        return str;
+      } else {
+        str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
+      }
+    } else {
+      str = std::to_string(base.type_nfo.width);
+    }
+    return str;
+  } else {
+    return std::to_string(v.type_nfo.width);
+  }
+}
+
+// -------------------------------------------------
+
+std::string Blueprint::varInitValue(const t_var_nfo &v, const t_instantiation_context &ictx) const
+{
+  sl_assert(v.table_size == 0);
+  if (v.type_nfo.base_type == Parameterized) {
+    bool ok = false;
+    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
+    sl_assert(ok);
+    std::string str;
+    if (base.type_nfo.base_type == Parameterized) {
+      str = base.name;
+      std::transform(str.begin(), str.end(), str.begin(),
+        [](unsigned char c) -> unsigned char { return std::toupper(c); });
+      str = str + "_INIT";
+      if (ictx.parameters.count(str) == 0) {
+        reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), name().c_str());
+      }
+      str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
+    } else {
+      if (base.init_values.empty()) {
+        str = "0";
+      } else {
+        str = base.init_values[0];
+      }
+    }
+    return str;
+  } else {
+    sl_assert(!v.init_values.empty() || v.do_not_initialize);
+    if (v.init_values.empty()) {
+      return "";
+    } else {
+      return v.init_values[0];
+    }
+  }
+}
+
+// -------------------------------------------------
+
+e_Type Blueprint::varType(const t_var_nfo &v, const t_instantiation_context &ictx) const
+{
+  if (v.type_nfo.base_type == Parameterized) {
+    bool ok = false;
+    t_var_nfo base = getVIODefinition(v.type_nfo.same_as.empty() ? v.name : v.type_nfo.same_as, ok);
+    if (!ok) {
+      reportError(v.srcloc, "cannot determine type of '%s' during instantiation of unit '%s', input or output not bound?", v.name.c_str(), name().c_str());
+    }
+    std::string str;
+    if (base.type_nfo.base_type == Parameterized) {
+      str = base.name;
+      std::transform(str.begin(), str.end(), str.begin(),
+        [](unsigned char c) -> unsigned char { return std::toupper(c); });
+      str = str + "_SIGNED";
+      if (ictx.parameters.count(str) == 0) {
+        reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), name().c_str());
+      }
+      str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
+      return (str == "signed") ? Int : UInt;
+    } else {
+      return base.type_nfo.base_type;
+    }
+  } else {
+    return v.type_nfo.base_type;
   }
 }
 

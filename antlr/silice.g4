@@ -188,8 +188,9 @@ sstacksz            :  'stack:' NUMBER ; // deprecated
 sformdepth          :  '#depth' '=' NUMBER ;
 sformtimeout        :  '#timeout' '=' NUMBER ;
 sformmode           :  '#mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
+sspecialize         :  IDENTIFIER ':' TYPE ;
 
-bpModifier          : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode | sreginput ;
+bpModifier          : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode | sreginput | sspecialize;
 bpModifiers         : '<' bpModifier (',' bpModifier)* '>' ;
 
 pad                 : PAD '(' (value | UNINITIALIZED) ')' ;
@@ -355,7 +356,9 @@ syncExec            : joinExec LARROW '(' callParamList ')' ;
 /* -- Circuitry instantiation -- */
 
 idOrIoAccessList    : idOrIoAccess ',' idOrIoAccessList
+                    | constValue   ',' idOrIoAccessList
                     | idOrIoAccess
+                    | constValue
                     |
                     ;
 
@@ -506,6 +509,14 @@ riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? ('=' in
 
 /* -- Overall structure -- */
 
-topList             :  (unit | algorithm |riscv | importv | appendv | subroutine | circuitry | group | bitfield | intrface) topList | ;
+topList             :  (unit | algorithm  | riscv     | importv | appendv
+                             | subroutine | circuitry | group   | bitfield
+                             | intrface
+                       ) topList
+                    | ;
 
 root                : topList EOF ;
+
+rootInOutList       : inOutList EOF ;
+
+rootUnit            : (unit | algorithm) EOF ;

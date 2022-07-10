@@ -1,0 +1,18 @@
+algorithm a1(input uint8 i,output uint8 o)
+{
+  o = i;
+}
+
+algorithm main(output uint8 leds)
+{
+  a1 a;
+  
+  subroutine s(input uint8 i,output uint8 o,calls a)
+  //                                        ^^^^^ allows sub to call instance a
+  {
+    (o) <- a <- (i);
+  }
+
+  (leds) <- s <- (8);
+
+}

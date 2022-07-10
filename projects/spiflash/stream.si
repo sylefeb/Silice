@@ -13,10 +13,10 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 
-$$spi4x  = nil
-$$spi2x  = 1
+$$spi4x  = 1
+$$spi2x  = nil
 
-$$nBytes = 1
+$$nBytes = 4
 
 $$if not spi4x and not spi2x and nBytes ~= 1 then
 $$ error('single speed SPIflash controller supports only byte access')
@@ -33,10 +33,12 @@ $$master_freq = 12
 $$if ICEBREAKER then
 $$if spi4x then
   import('../common/ice40_half_quarter_clock.v')
-  $$master_freq = 100
+  $$master_freq = 100 --------------------------------------
 $$elseif spi2x then
   import('../common/ice40_half_clock.v')
   $$master_freq = 50
+$$else
+  $$error('define either spi2x or spi4x')
 $$end
 // Import hardware modules
 import('../common/plls/icebrkr_$master_freq$.v')
@@ -59,13 +61,13 @@ $include('../common/uart.si')
 $$if SIMULATION then
 algorithm pll(
   output! uint1 clock4x,
-  output  uint1 clock2x,
-  output  uint1 clock1x,
+  output! uint1 clock2x,
+  output! uint1 clock1x,
 ) <autorun> {
   uint2 counter(0);
   clock4x := clock;
-  clock2x := ~counter[0,1]; // x2 slower
-  clock1x :=  counter[1,1]; // x4 slower
+  clock2x := counter[0,1]; // x2 slower
+  clock1x := counter[1,1]; // x4 slower
   always { counter = counter + 1; }
 }
 $$end
@@ -159,7 +161,11 @@ $$if UART then
   );
 $$end
 
+$$if spi4x then
+  spiflash_rom sf_rom<reginputs>
+$$else
   spiflash_rom sf_rom<reginputs,@clock2x>
+$$end
   (
     sf_clk  :>  sf_clk,
     sf_csn  :>  sf_csn,
@@ -177,20 +183,22 @@ $$end
     sf_rom.in_ready  = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    if (cycle == 600) {
+    if (cycle == 1200) {
       __finish();
     }
 $$end
   }
 
   while (sf_rom.busy) { }
-
+  __display("init done =====================");
   // read some
   data.wenable      = 1;
   data.addr         = 0;
-  while (data.addr != 6) {
+  while (~data.addr[5,1]) {
     sf_rom.in_ready = 1;
     sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
+    //sf_rom.addr     = {4b0000,12b0,data.addr[0,8] };
+++:
     while (sf_rom.busy) { }
     __display("read @%h = %x",sf_rom.addr,sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
@@ -200,7 +208,7 @@ $$end
   // output to UART
   data.wenable = 0;
   data.addr    = 1;
-  while (data.addr != 7) {
+  while (data.addr != 33) {
     uint32 dta = 0;
     uint3  n   = 0;
     dta = data.rdata;

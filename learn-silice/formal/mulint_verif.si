@@ -1,6 +1,6 @@
 $$FORMAL = 1
 
-$$mul_width = 8
+$$local mul_width = 8
 $include('../../projects/common/mulint_any.si')
 $$INPUT="int" .. mul_width
 $$OUTPUT="int" .. (mul_width*2)
@@ -8,8 +8,8 @@ $$MULT="mul" .. mul_width
 
 $$max_int=mul_width .. "b0" .. string.rep("1", mul_width - 1)
 
-$$mul_width = 16
-$include('../common/mulint_any.si')
+$$local mul_width = 16
+$include('../../projects/common/mulint_any.si')
 $$INPUT2="int" .. mul_width
 $$OUTPUT2="int" .. (mul_width*2)
 $$MULT2="mul" .. mul_width

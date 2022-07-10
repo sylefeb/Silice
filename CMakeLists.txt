@@ -50,17 +50,6 @@ add_custom_command(
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/antlr/
 )
 
-add_custom_command(
-  OUTPUT
-	${PROJECT_SOURCE_DIR}/antlr/lppParser.cpp
-	${PROJECT_SOURCE_DIR}/antlr/lppParser.h
-	${PROJECT_SOURCE_DIR}/antlr/lppLexer.cpp
-	${PROJECT_SOURCE_DIR}/antlr/lppLexer.h
-  COMMAND ${ANTLR_COMPILER} lpp
-  MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/antlr/lpp.g4
-  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/antlr/
-)
-
 set(SILICE_CORE
   src/Algorithm.cpp
   src/Algorithm.h
@@ -69,6 +58,10 @@ set(SILICE_CORE
   src/LuaPreProcessor.cpp
   src/SiliceCompiler.cpp
   src/SiliceCompiler.h
+  src/ParsingContext.cpp
+  src/ParsingContext.h
+  src/ParsingErrors.cpp
+  src/ParsingErrors.h
   src/Config.h
   src/Config.cpp
   src/VerilogTemplate.h
@@ -92,10 +85,6 @@ set(SILICE_CORE
   antlr/vmoduleParser.h
   antlr/vmoduleLexer.cpp
   antlr/vmoduleLexer.h
-  antlr/lppParser.cpp
-  antlr/lppParser.h
-  antlr/lppLexer.cpp
-  antlr/lppLexer.h
   src/libs/LibSL-small/src/LibSL/System/System.cpp
   src/libs/LibSL-small/src/LibSL/CppHelpers/CppHelpers.cpp
   src/libs/LibSL-small/src/LibSL/StlHelpers/StlHelpers.cpp

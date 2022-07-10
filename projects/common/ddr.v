@@ -23,7 +23,7 @@ ODDR2 #(
     .C1(~clock),
     .CE(1),
     .S(0),
-    .R(0)     
+    .R(0)
   );
 
 `else
@@ -43,7 +43,16 @@ ODDRX1F mddr
 
 `ifdef ICARUS
 
-assign out_pin = twice[0];
+reg ddr_out;
+assign out_pin = ddr_out;
+
+always @(posedge clock) begin
+  ddr_out <= twice[0];
+end
+
+always @(negedge clock) begin
+  ddr_out <= twice[1];
+end
 
 `endif
 

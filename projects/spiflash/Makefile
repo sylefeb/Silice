@@ -1,6 +1,6 @@
 
 .DEFAULT: stream.si
-		silice-make.py -s stream.si -b $@ -p basic,qspiflash,uart -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
+		silice-make.py -s stream.si -b $@ -p basic,qspiflash,uart -o BUILD_$(subst :,_,$@) $(ARGS)
 
 icarus: stream.si
 		mkdir -p BUILD_$(subst :,_,$@)

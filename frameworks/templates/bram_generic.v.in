@@ -6,7 +6,7 @@ input                  [%ADDR_WIDTH%-1:0]    in_%NAME%_addr,
 output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]    out_%NAME%_rdata,
 input                                      %CLOCK%
 );
-reg %DATA_TYPE% [%DATA_WIDTH%-1:0] buffer[%DATA_SIZE%-1:0];
+(* no_rw_check *) reg %DATA_TYPE% [%DATA_WIDTH%-1:0] buffer[%DATA_SIZE%-1:0];
 always @(posedge %CLOCK%) begin
   if (in_%NAME%_wenable) begin
     buffer[in_%NAME%_addr] <= in_%NAME%_wdata;

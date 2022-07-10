@@ -11,7 +11,7 @@ output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]     out_%NAME%_rdata1,
 input      %CLOCK%0,
 input      %CLOCK%1
 );
-reg %DATA_TYPE% [%DATA_WIDTH%-1:0] buffer[%DATA_SIZE%-1:0];
+(* no_rw_check *) reg %DATA_TYPE% [%DATA_WIDTH%-1:0] buffer[%DATA_SIZE%-1:0];
 always @(posedge %CLOCK%0) begin
   if (in_%NAME%_wenable0) begin
     buffer[in_%NAME%_addr0] <= in_%NAME%_wdata0;

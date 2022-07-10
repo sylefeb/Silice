@@ -1,13 +1,13 @@
 // Sylvain Lefebvre; simple parallel division; 2019-10-09
 //
 // 2019-10-12 Seems like I reinvented the division algorithm in:
-//   Novel Methods of Integer Multiplication and Division 
+//   Novel Methods of Integer Multiplication and Division
 //   1983 (!) https://archive.org/details/byte-magazine-1983-06/page/n363
 //   see also http://techref.massmind.org/techref/method/math/muldiv.htm
 // but with multiply-compare done in parallel :-)
 //
 // 231 / 17
-// 
+//
 // 1*17=1 2*17=34 4*17=68 8*17=136 16*17=272 32*17=544 64*17=1088
 //      0       0       0        0         1         1          1
 // ret = 8
@@ -153,7 +153,7 @@ algorithm main(
   output int1 spi_miso,
   output int1 avr_rx,
   output int4 spi_channel,
-  output int8 led 
+  output int8 led
 ) {
 
   uint8 num = 231;
@@ -161,32 +161,31 @@ algorithm main(
   uint8 res = 0;
 
   div div0;
-  
+
   spi_miso    := 1bz;
   avr_rx      := 1bz;
   spi_channel := 4bzzzz;
-  
+
   num = 171;
   den = 23;
   (res) <- div0 <- (num,den);
-  $display("%d / %d = %d",num,den,res);
+  __display("%d / %d = %d",num,den,res);
 
   num = 194;
   den = 97;
   (res) <- div0 <- (num,den);
-  $display("%d / %d = %d",num,den,res);
+  __display("%d / %d = %d",num,den,res);
 
   num = 193;
   den = 97;
   (res) <- div0 <- (num,den);
-  $display("%d / %d = %d",num,den,res);
+  __display("%d / %d = %d",num,den,res);
 
   num = 231;
   den = 17;
   (res) <- div0 <- (num,den);
-  $display("%d / %d = %d",num,den,res);
+  __display("%d / %d = %d",num,den,res);
 
   led = res;
 
 }
-

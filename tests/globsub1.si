@@ -10,5 +10,5 @@ algorithm main()
 
   (a) <- inc <- (a);
 
-  $display("a = %d",a);
+  __display("a = %d",a);
 }
