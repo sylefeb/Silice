@@ -1357,18 +1357,18 @@ void LuaPreProcessor::destroyLuaContext()
 
 // -------------------------------------------------
 
-std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore_search(int line_after, const std::vector<LibSL::Math::v3i>& remap) const
+std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore_search(int line, const std::vector<LibSL::Math::v3i>& remap) const
 {
-  if (line_after < 0) {
+  if (line < 0) {
     return std::make_pair("", -1);
   }
   // locate line
   int l = 0, r = (int)remap.size()-1;
   while (l < r) {
     int m = (l + r) / 2;
-    if (remap[m][0] < line_after) {
+    if (remap[m][0] < line) {
       l = m+1;
-    } else if (remap[m][0] > line_after) {
+    } else if (remap[m][0] > line) {
       r = m;
     } else {
       return std::make_pair(m_Files[remap[m][1]], remap[m][2]);
@@ -1379,9 +1379,9 @@ std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore_search
 
 // -------------------------------------------------
 
-std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore(ParsingContext *pctx, int line_after) const
+std::pair<std::string, int> LuaPreProcessor::lineAfterToFileAndLineBefore(ParsingContext *pctx, int line) const
 {
-  auto prepro = lineAfterToFileAndLineBefore_search(line_after, pctx->lineRemapping);
+  auto prepro = lineAfterToFileAndLineBefore_search(line, pctx->lineRemapping);
   // NOTE: prepro.first is not used as this refers to the intermediate file
   return lineAfterToFileAndLineBefore_search(prepro.second, m_SourceFilesLineRemapping);
 }

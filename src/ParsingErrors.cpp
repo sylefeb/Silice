@@ -49,7 +49,7 @@ void ReportError::printReport(std::pair<std::string, int> where, std::string msg
   if (where.second > -1) {
     std::cerr
       << "=> file: " << where.first << nxl
-      << "=> line: " << where.second << nxl
+      << "=> line: " << where.second+1 << nxl
       << Console::normal << nxl;
   }
   std::vector<std::string> items;
@@ -177,7 +177,7 @@ ReportError::ReportError(ParsingContext *pctx,
 {
   msg += prepareMessage(tk_stream, offender, interval);
   if (line == -1) {
-    line = lineFromInterval(tk_stream, interval);
+    line = lineFromInterval(tk_stream, interval)-1;
   }
   if (pctx == nullptr) {
     pctx = ParsingContext::activeContext();
@@ -194,7 +194,7 @@ void LexerErrorListener::syntaxError(
   size_t charPositionInLine,
   const std::string& msg, std::exception_ptr e)
 {
-  ReportError err(nullptr, (int)line, nullptr, nullptr, antlr4::misc::Interval(), msg);
+  ReportError err(nullptr, (int)line-1, nullptr, nullptr, antlr4::misc::Interval(), msg);
   throw Fatal("[lexical error]");
 }
 
@@ -208,7 +208,7 @@ void ParserErrorListener::syntaxError(
   const std::string&  msg,
   std::exception_ptr  e)
 {
-  ReportError err(nullptr, (int)line, dynamic_cast<antlr4::TokenStream*>(recognizer->getInputStream()), tk, antlr4::misc::Interval::INVALID, msg);
+  ReportError err(nullptr, (int)line-1, dynamic_cast<antlr4::TokenStream*>(recognizer->getInputStream()), tk, antlr4::misc::Interval::INVALID, msg);
    throw Fatal("[syntax error]");
 }
 
