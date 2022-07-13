@@ -61,6 +61,13 @@ module top(
   output       ram_clk,
   output       ram_cs_n,
 `endif
+`ifdef ESPSPI
+  input  spi_mosi,
+  output spi_miso,
+  input  spi_clk,
+  input  spi_cs_n,
+  output irq_n,
+`endif
   input  clk_in
   );
 
@@ -117,6 +124,13 @@ M_main __main(
   .inout_ram_io3(ram_io[3]),
   .out_ram_clk(ram_clk),
   .out_ram_csn(ram_cs_n),
+`endif
+`ifdef ESPSPI
+  .in_espspi_mosi(spi_mosi),
+  .out_espspi_miso(spi_miso),
+  .in_espspi_clk(spi_clk),
+  .in_espspi_cs_n(spi_cs_n),
+  .out_espirq_n(irq_n),
 `endif
   .in_run(run_main)
 );
