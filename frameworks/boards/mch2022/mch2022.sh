@@ -47,7 +47,9 @@ nextpnr-ice40 --up5k --freq 12 --package sg48 --json build.json --pcf $BOARD_DIR
 
 icepack -s build.asc build.bin
 
-echo "===================================="
+echo "========================================================="
 echo "Upload the bitstream with:"
-echo "    uart_fpga.py BUILD_mch2022/build.bin"
-echo "===================================="
+echo "    webusb_fpga.py BUILD_mch2022/build.bin"
+echo ""
+echo "(available at https://github.com/badgeteam/mch2022-tools)"
+echo "========================================================="
