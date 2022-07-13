@@ -78,11 +78,11 @@ module top(
 wire design_clk;
 
 reg ready = 0;
-reg [16:0] RST_d;
-reg [16:0] RST_q;
+reg [15:0] RST_d;
+reg [15:0] RST_q;
 
 always @* begin
-  RST_d = RST_q[16] ? RST_q : RST_q + 1;
+  RST_d = RST_q[15] ? RST_q : RST_q + 1;
 end
 
 always @(posedge design_clk) begin
@@ -102,7 +102,7 @@ assign run_main = 1'b1;
 M_main __main(
   .clock(clk_in),
   .out_clock(design_clk),
-  .reset(~RST_q[23]),
+  .reset(~RST_q[15]),
   .out_leds(__main_leds),
 `ifdef UART
   .out_uart_tx(uart_tx),
