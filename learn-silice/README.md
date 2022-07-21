@@ -64,7 +64,7 @@ If you have an FPGA you can replace `verilator` by the name of your board. Plug 
 Let's do a first design! This is the hello world of FPGA. Most boards have LEDs connected to the FPGA, if only for debugging. So the hello world consists in making these LEDs blink. Here's one possible Silice version:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t1.si&syntax=c) -->
-<!-- The below code snippet is automatically added from ./tutorial/step1.si -->
+<!-- The below code snippet is automatically added from ./tutorial/t1.si -->
 ```c
 unit main(output uint8 leds)
 //               ^^^^^ assumes 8 LEDs on board, will work in any case
@@ -129,7 +129,7 @@ Of course your design may contain other units beyond main, and main can *instant
 Here is an example where a second unit generates a bit pattern that is then applied to the LEDs:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t2.si&syntax=c) -->
-<!-- The below code snippet is automatically added from ./tutorial/step2.si -->
+<!-- The below code snippet is automatically added from ./tutorial/t2.si -->
 ```c
 // create a unit producing a 'rotating' bit pattern
 unit rotate(output uint8 o)
@@ -189,7 +189,7 @@ Designing hardware often means carefully orchestrating what happens at every cyc
 So let's modify our example from T2 to report the value of `o` at each cycle, within both the parent unit (`main`) and the instantiated unit (`rotate`).
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t3.si&syntax=c) -->
-<!-- The below code snippet is automatically added from ./tutorial/step3.si -->
+<!-- The below code snippet is automatically added from ./tutorial/t3.si -->
 ```c
 unit rotate(output uint8 o)
 {
@@ -257,7 +257,7 @@ Alright, we've seen how to use outputs and how to register them ... or not.
 
 What about inputs? Of course we also have a similar capability. Let's create another toy example, only for simulation:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t4.si&syntax=c) -->
-<!-- The below code snippet is automatically added from ./tutorial/step4.si -->
+<!-- The below code snippet is automatically added from ./tutorial/t4.si -->
 ```c
 unit eq(input uint8 i,output uint8 o)
 {
