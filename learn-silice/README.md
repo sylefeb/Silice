@@ -1,41 +1,66 @@
 # Learn FPGA programming with Silice
 
-Want to learn how to design hardware with Silice? This is the right place! Before we dive into tutorials, a few pointers:
-- I recommend that you first [watch the introduction video on programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube).
-- Silice has a [reference documentation](Documentation.md) you might want to browse through after taking these first steps.
-- Additional information is linked from the [advanced topics](Advanced.md) page.
-- Feel free to ask questions about the language syntax in this [github issue](https://github.com/sylefeb/Silice/issues/108).
+> This tutorial covers the basics with many code snippets. It is a hands on approach to learning Silice.
 
-## What do you need?
+Quick pointers:
+- Silice [reference documentation](Documentation.md).
+- [Advanced topics](Advanced.md) page.
+- Have a question about the language syntax? [Ask it here](https://github.com/sylefeb/Silice/issues/108).
 
-These tutorials work with the following boards: IceStick, IceBreaker, ULX3S (and many other boards with minimal changes).
+## Which FPGA to choose?
 
-The IceStick and IceBreaker are great first options. The IceStick is small (1280 LUTs) but can still host many cool projects (all Silice [VGA demos](../projects/vga_demo) as well as Silice [tiny Ice-V RISC-V processor](../projects/ice-v) work on it!). The IceBreaker is ~5 times larger (5280 LUTs) and offers a lot more connectivity. The ULX3S is great for both simple and advanced projects.
+> You don't really need an FPGA to start learning Silice, because everything can be simulated. However, it is more fun to run things on actual hardware!
 
-The first tutorial requires only the boards, while others explore using a few peripherals: UART, OLED screen, VGA / HDMI, SDRAM. 
+There are many great options, and I mention below those which are best supported by Silice's framework. However this is a continuously expanding list! Whichever board you choose, *I strongly recommend a board with an FPGA well supported by the open source tool chain*. These are typically Lattice FPGAs: ice40 HX1K to HX8K, UP5K and the ECP5 family. Other FPGAs start being supported too (Gowin, Xilinx Artix-7) but setup may be a bit more difficult. However things are evolving quickly, the community is working hard!
 
-## Start learning!
+As a beginner, the [IceStick](https://www.latticesemi.com/icestick) and [IceBreaker](https://1bitsquared.com/products/icebreaker) are great first options, with a preference to the *ICeBreaker* for more flexibility.
 
-We will cover the following topics, each introducing new concepts of Silice and some fun peripherals. The first tutorial dives into many fundamentals of Silice, through six different versions of *blinky*. Read it first!
+The *IceStick* is small and inexpensive (1280 LUTs) but can still host many cool projects (checkout Silice [tiny Ice-V RISC-V processors](../projects/ice-v) and accompanying demos).
 
-1. [Blinky](blinky/README.md) explores variants of the *hello world* of FPGA with Silice. Provides an introduction to many basic elements of Silice. Read first!
-1. (*coming soon*) Simulating your designs.
-1. (*coming soon*) UART communication.
-1. (*coming soon*) OLED screens.
-1. (*coming soon*) VGA.
-1. (*coming soon*) SDRAM.
+The *IceBreaker* is ~5 times larger (5280 LUTs) and offers a lot more connectivity, with many useful PMODs (modules that plug into the board connectors), for instance for VGA output. More generally, all boards featuring the similar UP5K ice40 FPGA and PMODs are great choices.
 
-## Do more!
+The [ULX3S](https://radiona.org/ulx3s/) is great for both simple and advanced projects. It features a more powerful ECP5 FPGA, and plenty of peripherals and connectivity.
 
-The following demos are compatible with the IceStick and IceBreaker:
-- [Ice-V RV32I RISC-V processor](../projects/ice-v/README.md)
-- [VGA demos](../projects/vga_demo/README.md)
+## FPGA hardware design 101
 
-The terrain demo was designed for the IceBreaker:
-- [Terrain](../projects/terrain/README.md)
+The most important thing to remember, as you enter these tutorials, is that the code we write describes a *hardware design*. This is <ins>not</ins> code that will be *executed*. This is code that gets turned into an actual circuitry, composed of FPGA blocks configured and connected together to produce the circuit we described. This is illustrated below, where each block is a configurable FPGA lookup table (LUT) and blue connections are configurable routes between these blocks. In this example all blocks are *synchronous*: they only update their outputs from the inputs when the clock raises. Such blocks are implementing so-called *flip-flops*.
 
-The HDMI framework for the ULX3S:
-- [HDMI framework](../projects/hdmi_test/README.md)
+<p align="center">
+  <img src="figures/gates.png">
+</p>
 
-The DooM-chip demo revisits the Doom render loop in hardware (ULX3S):
-- [The DooM-chip](../projects/doomchip/README.md)
+> If you want to more explanations about this, please refer my talk about the Doomchip-onice ([slide](https://www.antexel.com/doomchip_onice_rc3/#/13),[video](https://youtu.be/2ZAIIDXoBis?t=483)). Also checkout my [FPGA gate simulator page](https://github.com/sylefeb/silixel).
+
+From the illustration we can guess a few things:
+- The circuit uses FPGA blocks (or LUTs for Lookup Up Tables), so there is a notion of how big it will become. Complex designs may not fit on smaller FPGAs. This *resource usage* is fun (and often important) to optimize, an activity often called *LUT golfing*.
+- The routes can have different lengths. Because this is a circuit, and a configurable one at that, the signal takes actual time to propagate along the routes. This leads to delays. For instance, say that our longest route needs $50$ *nanoseconds* to propagate the signal. Our circuit will not be able to run faster than $\frac{1000}{50} = 20$ MHz. This longest route is called the *critical path*. [Nextpnr](https://github.com/YosysHQ/nextpnr) (the tool that maps the circuit to the FPGA) will tell us this max frequency, or *fmax*.
+
+> This is not only about the routes, the LUTs can be configured as *asynchronous* in which case they constantly update their outputs when the inputs change. In such case, the delay is the sum of routes and LUTs to traverse.
+
+Finally, something to remember, especially if you have a background in programming on CPU: *There is no concept of "not doing something"*. *Everything* you describe becomes a circuit and takes space on the FPGA. On CPU we tend to write thing like:
+```c
+  if (condition) {
+    do_something(); // could be always done, skip for faster exec
+  }
+```
+The intent here is to skip the execution of `do_something()` when `condition` is false. However, if `do_something` can be always done anyway, on an FPGA doing the test will be *less efficient*: it will add LUTs and route delays *in addition* to the `do_something` circuit.
+
+It takes time and practice to get used to that, but it is also a fun mindset, and a refreshing experience.
+
+## Tutorial, step by step
+
+To run these examples, enter the [`tutorial`](./tutorial) directory, and run (here for step1):
+```
+make verilator file=step1.si
+```
+If you have an FPGA you can replace `verilator` by the name of your board. Plug the board first and it will be programmed automatically in most cases.
+
+> Simulated designs run forever, hit CTRL-C to stop them.
+
+### Step 1: a simple blinker
+
+Let's do a first design! This is the hello world of FPGA. Most boards have LEDs connected to the FPGA, if only for debugging. So the hello world consists in making these LEDs blink.
+
+In Silice we'll do:
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/setp1.si) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
