@@ -12,7 +12,7 @@ unit main(output uint8 leds)
 {
   rotate r; // instantiate the unit
   always {
-    leds = r.o;
+    leds = r.o;  // assign the output to leds
     __display("leds:%b",leds); // print leds
   }
 }

@@ -124,7 +124,7 @@ And this is it, we already have seen quite a few concepts!
 
 Of course your design may contain other units beyond main, and main can *instantiate* other units. Indeed, a unit describes a circuit blueprint, but it has to be explicitly instantiated before being used (only main is automatically instantiated).
 
-Here is an example where a second unit generates a pattern that is then applied to the LEDs:
+Here is an example where a second unit generates a bit pattern that is then applied to the LEDs:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step2.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/step2.si -->
@@ -158,8 +158,8 @@ Let's walk through this example:
 - `bits = {bits[0,1],bits[1,7]};` creates the rotating pattern. Here's how: `bits[0,1]` is the lowest bit, `bits[1,7]` are the seven other bits, and `{..,..,..}` concatenates into a different bit vectors. So in effect this moves bit `0` to bit `7` and shifts all other bits right. Handy! (All bit operators are directly inherited from Verilog).
 
 Now let's move to main:
-- `rotate r;` *instantiates* the unit rotate, naming the instance `r`.
-- `leds = r.o;` assigns the output of `r` to `leds`. This is using the *dot syntax* where we refer to outputs and inputs of an instance using `.<name>`.
+- `rotate r;` *instantiates* the unit `rotate`, naming the instance `r`.
+- `leds = r.o;` assigns the output `o` of `r` to `leds`. This is using the *dot syntax* where we refer to outputs and inputs of an instance using `<instance name>.<io name>`
 - `__display` is printing leds in simulation.
 
 What is the result of this exactly? Let's run in simulation: enter the [`tutorial`](./tutorial) directory and run `make verilator file=step2.si`. Hit CTRL-C to stop the output.
@@ -176,15 +176,15 @@ leds:01000000
 leds:00100000
 ```
 
-Indeed, that's a rotating bit pattern!
+Indeed, that's a rotating bit pattern! In hardware LEDs would light up in sequence, however this would likely be too fast to notice, we'd have to slow this down.
 
-Alright, we again saw some very important concepts: unit instantiation, binding and some bit manipulation. Now we need to explain something excruciatingly important: registered outputs and latencies.
+Alright, we again saw some very important concepts: unit instantiation, dot syntax for outputs and some bit manipulation. Now we need to explain something excruciatingly important: registered outputs and latencies.
 
-## Step 3: the clock, the cycles, and the registered outputs
+## Step 3: cycles and outputs
 
 Designing hardware often means carefully orchestrating what happens at every cycle. Therefore, it is important to understand how information flows through your design, and in particular in between parent and instantiated units.
 
-So let's modify our example from step 2 to report the cycle at which every operation is performed:
+So let's modify our example from step 2 to report the value of `o` at each cycle, within both the parent unit (`main`) and the instantiated unit (`rotate`).
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step3.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/step3.si -->
@@ -216,7 +216,7 @@ unit main(output uint8 leds)
 
 Change log from step 2:
 - We add a 32-bits `cycle` variable in both units, incremented at the end
-of the always block `cycle = cycle + 1`. These will be perfectly in synch
+of the always blocks `cycle = cycle + 1`. Both will be perfectly in synch
 since the entire design starts precisely on the same initial clock cycle.
 - We print the value of `cycle` alongside the value of `o` in unit `rotate`
 and alongside the value of `r.o` in `main`.
@@ -224,24 +224,15 @@ and alongside the value of `r.o` in `main`.
 Here is the output for three cycles:
 ```
 [     53057] o   :10000000
-[     53057] leds:00000001
+[     53057] r.o :00000001
 [     53058] o   :01000000
-[     53058] leds:10000000
+[     53058] r.o :10000000
 [     53059] o   :00100000
-[     53059] leds:01000000
+[     53059] r.o :01000000
 ```
-Look very carefully. See how the value of `o` in `rotate` is in advance by one cycle
-compared to the value of `r.o`? That's because by default unit outputs are
-*registered*. This means that whatever change occurs in the instantiated unit,
-the parent will only see the change *at the next cycle*.
+A careful look reveals that the value of `o` in `rotate` is in advance by one cycle compared to the value of `r.o`. That's because by default unit outputs are *registered*. This means that whatever change occurs in the instantiated unit, the parent will only see the change *at the next cycle*.
 
-Why would we do that? Remember [the introduction](#fpga-hardware-design-101) and
-how we talked about delay in propagating changes through the routes and
-asynchronous gates? If nothing was ever registered, by instantiating units we
-would end up creating very long critical paths, resulting in slow designs. So
-typically we want to register outputs, or inputs, or even both. And sometimes
-none of them. All of that is possible in Silice. For instance, let's switch
-to an immediate output using the `output!` syntax on all outputs:
+Why would we do that? Remember [the introduction](#fpga-hardware-design-101) and how we talked about delays in propagating changes through the routes and asynchronous gates? If nothing was ever registered, by instantiating units we would end up creating very long critical paths, resulting in slow designs. So typically we want to register outputs, or inputs, or even both. And sometimes none of them. All of that is possible in Silice. For instance, let's switch to an immediate output using the `output!` syntax:
 ```c
 unit rotate(output! uint8 o) ...
 //                ^ note the exclamation mark
@@ -250,16 +241,76 @@ unit rotate(output! uint8 o) ...
 Now the output is:
 ```
 [     53057] o   :10000000
-[     53057] leds:10000000
+[     53057] r.o :10000000
 [     53058] o   :01000000
-[     53058] leds:01000000
+[     53058] r.o :01000000
 [     53059] o   :00100000
-[     53059] leds:00100000
+[     53059] r.o :00100000
 ```
-See how `leds` now immediately reflects `o`? That's because there is no register
-in the path anymore.
+See how `r.o` now immediately reflects `o`? That's because there is no register in the path anymore.
 
-Alright, we've seen how to bind outputs and how to register them.
-How about inputs?
+Alright, we've seen how to use outputs and how to register them ... or not.
 
-## Step 5: inputs
+## Step 4: cycles, inputs and outputs
+
+What about inputs? Of course we also have a similar capability. Let's create another toy example, only for simulation:
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step4.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+As by now we are getting familiar with the syntax, I'll focus on the most important parts:
+- The unit `eq` defines an input `input uint8 i`, and assigns it unchanged to its output: `o = i;`.
+- The main unit instantiates `eq` naming it `e`, sets the current `cycle` value to `e.i` and prints the value of `e.o` at each cycle.
+- As I got tired of hitting CTRL-C (I am very lazy :-) ) I added this line `if (cycle == 8) { __finish(); }` to stop simulation after 8 cycles. This only works in simulation.
+
+Here is the simulation output:
+```
+[         0] e.o:  0
+[         1] e.o:  0
+[         2] e.o:  1
+[         3] e.o:  2
+[         4] e.o:  3
+[         5] e.o:  4
+[         6] e.o:  5
+[         7] e.o:  6
+```
+Ignore cycle 0 for now. We are getting a one cycle latency, and this is because the output are registered by default, but inputs *are not*.
+
+What happens during the first cycle? We are seeing the initial value of the output, before it is set. It defaults to zero, but we could change it using `output uint8 o(111)`. Now we would obtain:
+
+```
+[         0] e.o:111
+[         1] e.o:  0
+```
+
+What if we want to register the inputs? The we use an instance modifier, changing the instantiation for:
+```c
+eq e<reginputs>;
+//   ^^^^^^^^^ all inputs are now registered
+```
+
+Here is the new simulation output:
+```
+[         0] e.o:  0
+[         1] e.o:  0
+[         2] e.o:  0
+[         3] e.o:  1
+[         4] e.o:  2
+[         5] e.o:  3
+[         6] e.o:  4
+[         7] e.o:  5
+```
+Ignoring cycles 0 and 1, we now see a *two* cycles latency. This is due to both inputs and outputs being registered.
+
+What if we use neither register inputs not registered outputs? Let's try! We remove `<reginputs>` and use `output!`.
+Here is the new simulation output:
+```
+[         0] e.o:  0
+[         1] e.o:  1
+[         2] e.o:  2
+[         3] e.o:  3
+[         4] e.o:  4
+[         5] e.o:  5
+[         6] e.o:  6
+[         7] e.o:  7
+```
+No latency anymore, `e.o` immediately reflects the assignment of `e.i`.
