@@ -63,4 +63,22 @@ Let's do a first design! This is the hello world of FPGA. Most boards have LEDs 
 
 In Silice we'll do:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step1.si) -->
+<!-- The below code snippet is automatically added from ./tutorial/step1.si -->
+```si
+unit main(output uint8 leds)
+//               ^^^^^ assumes 8 LEDs on board, will work in any case
+{
+  uint24 counter(0);
+  //  ^^ 24 bits ^
+  //             | initialized at configuration time
+  always {
+    leds    = counter[16,8];
+    //                ^^^^^ from bit 16, take 8 bits
+    // (simulation only) display leds as a vector of bits
+    __display("leds:%b",leds);
+    // increment the counter
+    counter = counter + 1;
+  }
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
