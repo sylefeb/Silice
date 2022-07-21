@@ -1,4 +1,4 @@
-unit rotate(output! uint8 o)
+unit rotate(output uint8 o)
 {
   uint32 cycle(0); // count cycles
   uint8 bits(8b1);
@@ -10,7 +10,7 @@ unit rotate(output! uint8 o)
   }
 }
 // main unit
-unit main(output! uint8 leds)
+unit main(output uint8 leds)
 {
   uint32 cycle(0); // count cycles
   rotate _(o :> leds);
