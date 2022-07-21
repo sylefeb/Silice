@@ -171,7 +171,7 @@ So let's modify our example from step 2 to report the cycle at which every opera
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 Change log from step 2:
-- We add a 32-bits `cycle` variable in both unit, incremented at the end
+- We add a 32-bits `cycle` variable in both units, incremented at the end
 of the always block `cycle = cycle + 1`. These will be perfectly in synch
 since the entire design starts precisely on the same initial clock cycle.
 - We print the value of `cycle` alongside the value of `o` in unit `rotate`
@@ -197,7 +197,7 @@ asynchronous gates? If nothing was ever registered, by instantiating units we
 would end up creating very long critical paths, resulting in slow designs. So
 typically we want to register outputs, or inputs, or even both. And sometimes
 none of them. All of that is possible in Silice. For instance, let's switch
-to an immediate output using the `output!` syntax on our outputs:
+to an immediate output using the `output!` syntax on all outputs:
 ```c
 unit rotate(output! uint8 o) ...
 //                ^ note the exclamation mark
