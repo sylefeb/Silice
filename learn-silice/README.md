@@ -64,7 +64,7 @@ Let's do a first design! This is the hello world of FPGA. Most boards have LEDs 
 In Silice we'll do:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step1.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/step1.si -->
-```si
+```c
 unit main(output uint8 leds)
 //               ^^^^^ assumes 8 LEDs on board, will work in any case
 {
