@@ -143,7 +143,7 @@ unit main(output uint8 leds)
 {
   rotate r; // instantiate the unit
   always {
-    leds = r.o;
+    leds = r.o;  // assign the output to leds
     __display("leds:%b",leds); // print leds
   }
 }
@@ -195,7 +195,7 @@ unit rotate(output uint8 o)
   uint8 bits(8b1);
   always {
     o    = bits;
-    __display("[%d] o :%b",cycle,o); // print o at cycle
+    __display("[%d] o :%b",cycle,o); // print cycle and o
     bits = {bits[0,1],bits[1,7]};
     cycle = cycle + 1; // increment cycle counter
   }
@@ -206,8 +206,8 @@ unit main(output uint8 leds)
   uint32 cycle(0); // count cycles
   rotate r;
   always {
-    __display("[%d] leds:%b",cycle,r.o); // print leds at cycles
-    leds = r.o;
+    __display("[%d] r.o:%b",cycle,r.o); // print cycle and r.o
+    leds  = r.o;
     cycle = cycle + 1; // increment cycle counter
   }
 }
@@ -255,6 +255,29 @@ Alright, we've seen how to use outputs and how to register them ... or not.
 
 What about inputs? Of course we also have a similar capability. Let's create another toy example, only for simulation:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step4.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/step4.si -->
+```c
+unit eq(input uint8 i,output uint8 o)
+{
+  uint32 cycle(0);
+  always {
+    o     = i;
+    cycle = cycle + 1;
+  }
+}
+// main unit
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  eq e; // instantiates eq as e
+  always {
+    e.i  = cycle; // set e input
+    __display("[%d] e.o:%d",cycle,e.o); // print e output
+    cycle = cycle + 1;
+    if (cycle == 8) { __finish(); } // stop after 8 cycles
+  }
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 As by now we are getting familiar with the syntax, I'll focus on the most important parts:
