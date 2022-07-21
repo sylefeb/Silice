@@ -189,7 +189,7 @@ So let's modify our example from step 2 to report the cycle at which every opera
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step3.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/step3.si -->
 ```c
-unit rotate(output! uint8 o)
+unit rotate(output uint8 o)
 {
   uint32 cycle(0); // count cycles
   uint8 bits(8b1);
@@ -201,7 +201,7 @@ unit rotate(output! uint8 o)
   }
 }
 // main unit
-unit main(output! uint8 leds)
+unit main(output uint8 leds)
 {
   uint32 cycle(0); // count cycles
   rotate _(o :> leds);
