@@ -158,10 +158,8 @@ Let's walk through this example:
 - `bits = {bits[0,1],bits[1,7]};` creates the rotating pattern. Here's how: `bits[0,1]` is the lowest bit, `bits[1,7]` are the seven other bits, and `{..,..,..}` concatenates into a different bit vectors. So in effect this moves bit `0` to bit `7` and shifts all other bits right. Handy! (All bit operators are directly inherited from Verilog).
 
 Now let's move to main:
-- `rotate _(o :> leds);` *instantiates* the unit rotate. In this case the instantiation is anonymous ; `_` could have been an identifier, but means *don't care* here because we never need to refer to the instance. That is because we directly *bind* the output `o` to `leds` using the `:>` operator. This way, `leds` tracks the value of the output `o` from the instance.
-
-> Of course we can also bind inputs, but we need to introduce another concept before that.
-
+- `rotate r;` *instantiates* the unit rotate, naming the instance `r`.
+- `leds = r.o;` assigns the output of `r` to `leds`. This is using the *dot syntax* where we refer to outputs and inputs of an instance using `.<name>`.
 - `__display` is printing leds in simulation.
 
 What is the result of this exactly? Let's run in simulation: enter the [`tutorial`](./tutorial) directory and run `make verilator file=step2.si`. Hit CTRL-C to stop the output.
@@ -220,7 +218,7 @@ Change log from step 2:
 of the always block `cycle = cycle + 1`. These will be perfectly in synch
 since the entire design starts precisely on the same initial clock cycle.
 - We print the value of `cycle` alongside the value of `o` in unit `rotate`
-and alongside the value of `leds` in `main`.
+and alongside the value of `r.o` in `main`.
 
 Here is the output for three cycles:
 ```
@@ -231,8 +229,8 @@ Here is the output for three cycles:
 [     53059] o   :00100000
 [     53059] leds:01000000
 ```
-Look very carefully. See how the value of `o` is in advance by one cycle
-compared to the value of `leds`? That's because by default unit outputs are
+Look very carefully. See how the value of `o` in `rotate` is in advance by one cycle
+compared to the value of `r.o`? That's because by default unit outputs are
 *registered*. This means that whatever change occurs in the instantiated unit,
 the parent will only see the change *at the next cycle*.
 

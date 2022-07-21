@@ -10,9 +10,9 @@ unit rotate(output uint8 o)
 // main unit
 unit main(output uint8 leds)
 {
-  rotate _(o :> leds); // instantiate the unit
-  //         ^^ bind leds to the output
+  rotate r; // instantiate the unit
   always {
+    leds = r.o;
     __display("leds:%b",leds); // print leds
   }
 }
