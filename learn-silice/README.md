@@ -62,5 +62,5 @@ If you have an FPGA you can replace `verilator` by the name of your board. Plug 
 Let's do a first design! This is the hello world of FPGA. Most boards have LEDs connected to the FPGA, if only for debugging. So the hello world consists in making these LEDs blink.
 
 In Silice we'll do:
-<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/setp1.si) -->
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step1.si) -->
 <!-- MARKDOWN-AUTO-DOCS:END -->
