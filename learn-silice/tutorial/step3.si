@@ -1,0 +1,21 @@
+unit rotate(output! uint8 o)
+{
+  uint32 cycle(0); // count cycles
+  uint8 bits(8b1);
+  always {
+    o    = bits;
+    __display("[%d] o :%b",cycle,o); // print o at cycle
+    bits = {bits[0,1],bits[1,7]};
+    cycle = cycle + 1; // increment cycle counter
+  }
+}
+// main unit
+unit main(output! uint8 leds)
+{
+  uint32 cycle(0); // count cycles
+  rotate _(o :> leds);
+  always {
+    __display("[%d] leds:%b",cycle,leds); // print leds at cycle
+    cycle = cycle + 1; // increment cycle counter
+  }
+}
