@@ -141,9 +141,9 @@ unit rotate(output uint8 o)
 // main unit
 unit main(output uint8 leds)
 {
-  rotate _(o :> leds); // instantiate the unit
-  //         ^^ bind leds to the output
+  rotate r; // instantiate the unit
   always {
+    leds = r.o;
     __display("leds:%b",leds); // print leds
   }
 }
@@ -204,9 +204,10 @@ unit rotate(output uint8 o)
 unit main(output uint8 leds)
 {
   uint32 cycle(0); // count cycles
-  rotate _(o :> leds);
+  rotate r;
   always {
-    __display("[%d] leds:%b",cycle,leds); // print leds at cycle
+    __display("[%d] leds:%b",cycle,r.o); // print leds at cycles
+    leds = r.o;
     cycle = cycle + 1; // increment cycle counter
   }
 }
