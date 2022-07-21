@@ -5025,32 +5025,52 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
           if (range[0] > -1) {
             // yes, part access on bound var
             part_access = true;
+            // attempt to find vios
+            bool lfound = false;
+            t_var_nfo ldef = ib.second.blueprint->getVIODefinition(b.left,lfound);
+            if (!lfound) {
+              reportError(sourceloc(access), "cannot find bound output '%s'", b.left.c_str());
+            }
+            bool rfound = false;
+            t_var_nfo rdef = getVIODefinition(bindingRightIdentifier(b), rfound);
+            if (!rfound) {
+              reportError(sourceloc(access), "cannot find bound vio '%s'", bindingRightIdentifier(b).c_str());
+            }
             // check width of output vs range width
-            // -> get output width
-            string obw = ib.second.blueprint->resolveWidthOf(b.left, ictx, sourceloc(access));
-            int iobw;
-            try {
-              iobw = stoi(obw);
-            } catch (...) {
-              reportError(sourceloc(access), "cannot determine width of bound output '%s' (width string is '%s')", b.left.c_str(), obw.c_str());
+            // -> get output width if possible
+            {
+              int iobw = -1;
+              string obw = ib.second.blueprint->resolveWidthOf(b.left, ictx, sourceloc(access));
+              try {
+                iobw = stoi(obw);
+              } catch (...) {
+                iobw = -1;
+                if (ldef.type_nfo.base_type != Parameterized) { // can happen if parameterized
+                  reportError(sourceloc(access), "cannot determine width of bound output '%s' (width string is '%s')", b.left.c_str(), obw.c_str());
+                }
+              }
+              // -> checks
+              if (iobw > -1) {
+                if (range[1] > iobw) {
+                  reportError(sourceloc(access), "bound vio '%s' width is larger than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
+                } else if (range[1] < iobw) {
+                  reportError(sourceloc(access), "bound vio '%s' selected width is smaller than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
+                }
+              }
             }
-            // -> checks
-            if (range[1] > iobw) {
-              reportError(sourceloc(access), "bound vio '%s' width is larger than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
-            } else if (range[1] < iobw) {
-              reportError(sourceloc(access), "bound vio '%s' selected width is smaller than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
-            }
-            // -> get bound var width
-            string bbw = resolveWidthOf(bindingRightIdentifier(b), ictx, sourceloc(access));
-            int ibbw;
-            try {
-              ibbw = stoi(bbw);
-            } catch (...) {
-              reportError(sourceloc(access), "cannot determine width of bound vio '%s' (width string is '%s')", bindingRightIdentifier(b).c_str(), bbw.c_str());
-            }
-            // -> checks
-            if (range[0] + range[1] > ibbw) {
-              reportError(sourceloc(access), "bit select is out of bounds on vio '%s'", bindingRightIdentifier(b).c_str());
+            // -> get bound var width (should always succeed)
+            {
+              int ibbw = -1;
+              string bbw = resolveWidthOf(bindingRightIdentifier(b), ictx, sourceloc(access));
+              try {
+                ibbw = stoi(bbw);
+              } catch (...) {
+                reportError(sourceloc(access), "cannot determine width of bound vio '%s' (width string is '%s')", bindingRightIdentifier(b).c_str(), bbw.c_str());
+              }
+              // -> checks
+              if (range[0] + range[1] > ibbw) {
+                reportError(sourceloc(access), "bit select is out of bounds on vio '%s'", bindingRightIdentifier(b).c_str());
+              }
             }
             // add to the list
             m_VIOBoundToBlueprintOutputs[bindingRightIdentifier(b)] += ";" + wire + "," + std::to_string(range[0]) + "," + std::to_string(range[1]);
