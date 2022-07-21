@@ -71,8 +71,8 @@ unit main(output uint8 leds)
   //  ^^ 24 bits ^
   //             | initialized at configuration time
   always {
-    leds    = counter[16,8];
-    //                ^^^^^ from bit 16, take 8 bits
+    leds    = counter[0,8];
+    //                ^^^ from bit 0, take 8 bits
     // (simulation only) display leds as a vector of bits
     __display("leds:%b",leds);
     // increment the counter
@@ -127,6 +127,27 @@ Of course your design may contain other units beyond main, and main can *instant
 Here is an example where a second unit generates a pattern that is then applied to the LEDs:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step2.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/step2.si -->
+```c
+// create a unit producing a 'rotating' bit pattern
+unit rotate(output uint8 o)
+{
+  uint8 bits(8b1);
+  always {
+    o    = bits;
+    bits = {bits[0,1],bits[1,7]};
+  }
+}
+// main unit
+unit main(output uint8 leds)
+{
+  rotate _(o :> leds); // instantiate the unit
+  //         ^^ bind leds to the output
+  always {
+    __display("leds:%b",leds); // print leds
+  }
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 Let's walk through this example:
@@ -168,6 +189,30 @@ Designing hardware often means carefully orchestrating what happens at every cyc
 So let's modify our example from step 2 to report the cycle at which every operation is performed:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step3.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/step3.si -->
+```c
+unit rotate(output! uint8 o)
+{
+  uint32 cycle(0); // count cycles
+  uint8 bits(8b1);
+  always {
+    o    = bits;
+    __display("[%d] o :%b",cycle,o); // print o at cycle
+    bits = {bits[0,1],bits[1,7]};
+    cycle = cycle + 1; // increment cycle counter
+  }
+}
+// main unit
+unit main(output! uint8 leds)
+{
+  uint32 cycle(0); // count cycles
+  rotate _(o :> leds);
+  always {
+    __display("[%d] leds:%b",cycle,leds); // print leds at cycle
+    cycle = cycle + 1; // increment cycle counter
+  }
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 Change log from step 2:
