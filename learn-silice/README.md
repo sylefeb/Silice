@@ -47,21 +47,23 @@ The intent here is to skip the execution of `do_something()` when `condition` is
 
 It takes time and practice to get used to that, but it is also a fun mindset, and a refreshing experience.
 
-## Tutorial, step by step
+## Tutorial
 
-To run these examples, enter the [`tutorial`](./tutorial) directory, and run (here for step1):
+This tutorial is meant to be done linearly, starting from T1 below. It gradually introduces concepts of Silice (many are general to hardware design) through toy examples.
+
+To run these examples, enter the [`tutorial`](./tutorial) directory, and run (here for T1):
 ```
-make verilator file=step1.si
+make verilator file=t1.si
 ```
-If you have an FPGA you can replace `verilator` by the name of your board. Plug the board first and it will be programmed automatically in most cases.
+If you have an FPGA you can replace `verilator` by the name of your board. Plug the board first and it will be programmed automatically in most cases (a few toy examples are meant for simulation only).
 
 > Simulated designs run forever, hit CTRL-C to stop them.
 
-### Step 1: a simple blinker
+### T1: a simple blinker
 
 Let's do a first design! This is the hello world of FPGA. Most boards have LEDs connected to the FPGA, if only for debugging. So the hello world consists in making these LEDs blink. Here's one possible Silice version:
 
-<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step1.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t1.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/step1.si -->
 ```c
 unit main(output uint8 leds)
@@ -82,7 +84,7 @@ unit main(output uint8 leds)
 ```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
-To run it in simulation, enter the [`tutorial`](./tutorial) directory and run `make verilator file=step1.si`. Hit CTRL-C to stop the output.
+To run it in simulation, enter the [`tutorial`](./tutorial) directory and run `make verilator file=t1.si`. Hit CTRL-C to stop the output.
 
 You'll see this (looping forever):
 ```
@@ -120,13 +122,13 @@ And this is it, we already have seen quite a few concepts!
 
 > **Exercise**: change `counter[0,8]` to slow down the LEDs pattern.
 
-### Step 2: a second unit
+### T2: a second unit
 
 Of course your design may contain other units beyond main, and main can *instantiate* other units. Indeed, a unit describes a circuit blueprint, but it has to be explicitly instantiated before being used (only main is automatically instantiated).
 
 Here is an example where a second unit generates a bit pattern that is then applied to the LEDs:
 
-<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step2.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t2.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/step2.si -->
 ```c
 // create a unit producing a 'rotating' bit pattern
@@ -162,7 +164,7 @@ Now let's move to main:
 - `leds = r.o;` assigns the output `o` of `r` to `leds`. This is using the *dot syntax* where we refer to outputs and inputs of an instance using `<instance name>.<io name>`
 - `__display` is printing leds in simulation.
 
-What is the result of this exactly? Let's run in simulation: enter the [`tutorial`](./tutorial) directory and run `make verilator file=step2.si`. Hit CTRL-C to stop the output.
+What is the result of this exactly? Let's run in simulation: enter the [`tutorial`](./tutorial) directory and run `make verilator file=t2.si`. Hit CTRL-C to stop the output.
 
 We get this:
 ```
@@ -180,13 +182,13 @@ Indeed, that's a rotating bit pattern! In hardware LEDs would light up in sequen
 
 Alright, we again saw some very important concepts: unit instantiation, dot syntax for outputs and some bit manipulation. Now we need to explain something excruciatingly important: registered outputs and latencies.
 
-## Step 3: cycles and outputs
+## T3: cycles and outputs
 
 Designing hardware often means carefully orchestrating what happens at every cycle. Therefore, it is important to understand how information flows through your design, and in particular in between parent and instantiated units.
 
-So let's modify our example from step 2 to report the value of `o` at each cycle, within both the parent unit (`main`) and the instantiated unit (`rotate`).
+So let's modify our example from T2 to report the value of `o` at each cycle, within both the parent unit (`main`) and the instantiated unit (`rotate`).
 
-<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step3.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t3.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/step3.si -->
 ```c
 unit rotate(output uint8 o)
@@ -214,7 +216,7 @@ unit main(output uint8 leds)
 ```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
-Change log from step 2:
+Change log from T2:
 - We add a 32-bits `cycle` variable in both units, incremented at the end
 of the always blocks `cycle = cycle + 1`. Both will be perfectly in synch
 since the entire design starts precisely on the same initial clock cycle.
@@ -251,10 +253,10 @@ See how `r.o` now immediately reflects `o`? That's because there is no register 
 
 Alright, we've seen how to use outputs and how to register them ... or not.
 
-## Step 4: cycles, inputs and outputs
+## T4: cycles, inputs and outputs
 
 What about inputs? Of course we also have a similar capability. Let's create another toy example, only for simulation:
-<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/step4.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t4.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/step4.si -->
 ```c
 unit eq(input uint8 i,output uint8 o)
