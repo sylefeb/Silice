@@ -14,13 +14,15 @@ Quick pointers:
 
 There are many great options, and I mention below those which are best supported by Silice's framework. However this is a continuously expanding list! Whichever board you choose, *I strongly recommend a board with an FPGA well supported by the open source tool chain*. These are typically Lattice FPGAs: ice40 HX1K to HX8K, UP5K and the ECP5 family. Other FPGAs start being supported too (Gowin, Xilinx Artix-7) but setup may be a bit more difficult. However things are evolving quickly, the community is working hard!
 
-As a beginner, the [IceStick](https://www.latticesemi.com/icestick) and [IceBreaker](https://1bitsquared.com/products/icebreaker) are great first options, with a preference to the *ICeBreaker* for more flexibility.
+As a beginner, the [IceStick](https://www.latticesemi.com/icestick) and [IceBreaker](https://1bitsquared.com/products/icebreaker) are great first options, with a preference to the *IceBreaker* for more flexibility.
 
-The *IceStick* is small and inexpensive (1280 LUTs) but can still host many cool projects (checkout Silice [tiny Ice-V RISC-V processors](../projects/ice-v) and accompanying demos).
+The *IceStick* is inexpensive and features a fast but small (1280 LUTs) FPGA. It can still host many cool projects (checkout Silice [tiny Ice-V RISC-V processors](../projects/ice-v) and accompanying demos).
 
-The *IceBreaker* is ~5 times larger (5280 LUTs) and offers a lot more connectivity, with many useful PMODs (modules that plug into the board connectors), for instance for VGA output. More generally, all boards featuring the similar UP5K ice40 FPGA and PMODs are great choices.
+> What's a LUT anyway? Well that is a great question, answered in the [next section](#fpga-hardware-design-101) :)
 
-The [ULX3S](https://radiona.org/ulx3s/) is great for both simple and advanced projects. It features a more powerful ECP5 FPGA, and plenty of peripherals and connectivity.
+The *IceBreaker*'s FPGA is ~5 times larger (5280 LUTs), the board features buttons and more connectivity, supports dual PMODs (modules that plug into the board connectors), for instance for VGA output. More generally, all boards featuring the similar UP5K ice40 FPGA and PMODs are great choices.
+
+The [ULX3S](https://radiona.org/ulx3s/) is great for both simple and advanced projects. It features a more powerful ECP5 FPGA, and plenty of peripherals and connectivity. Other ECP5 boards are the [ECPIX-5](https://shop.lambdaconcept.com/home/46-ecpix-5.html) (tons of PMODs!) and the [OrangeCrab](https://github.com/orangecrab-fpga/orangecrab-hardware) (feather format).
 
 ## FPGA hardware design 101
 
@@ -33,10 +35,10 @@ The most important thing to remember, as you enter these tutorials, is that the 
 > If you want to more explanations about this, please refer my talk about the Doomchip-onice ([slide](https://www.antexel.com/doomchip_onice_rc3/#/13),[video](https://youtu.be/2ZAIIDXoBis?t=483)). Also checkout my [FPGA gate simulator page](https://github.com/sylefeb/silixel).
 
 From the illustration we can guess a few things:
-- The circuit uses FPGA blocks (or LUTs for Lookup Up Tables), so there is a notion of how big it will become. Complex designs may not fit on smaller FPGAs. This *resource usage* is fun (and often important) to optimize, an activity often called *LUT golfing*.
-- The routes can have different lengths. Because this is a circuit, and a configurable one at that, the signal takes actual time to propagate along the routes. This leads to delays. For instance, say that our longest route needs $50$ *nanoseconds* to propagate the signal. Our circuit will not be able to run faster than $\frac{1000}{50} = 20$ MHz. This longest route is called the *critical path*. [Nextpnr](https://github.com/YosysHQ/nextpnr) (the tool that maps the circuit to the FPGA) will tell us this max frequency, or *fmax*.
+- The circuit uses FPGA blocks (or LUTs for Lookup Up Tables), so there is a notion of how big it will become. Complex designs may not fit on smaller FPGAs. This *resource usage* is fun and often important to optimize, an activity often called *LUT golfing*.
+- The routes can have different lengths. Because this is a circuit, and a configurable one at that, the signal takes actual time to propagate along the routes. This leads to delays. For instance, say that our longest route needs $50$ *nanoseconds* to propagate the signal. Our circuit will not be able to run faster than $\frac{1000}{50} = 20$ MHz. This longest route is called the *critical path*. [Nextpnr](https://github.com/YosysHQ/nextpnr) (the tool that maps the circuit to the FPGA) will tell us this max frequency, or *fmax* as well as the critical path.
 
-> This is not only about the routes, the LUTs can be configured as *asynchronous* in which case they constantly update their outputs when the inputs change. In such case, the delay is the sum of routes and LUTs to traverse. This is very typical: a design contains many synchronous (flip-flop) and asynchronous (*combinational*) gates.
+> This is not only about the routes, the LUTs can be configured as *asynchronous* in which case they constantly update their outputs when the inputs change. In such case, the delay is the sum of route delays and LUT traversal delays. This is very typical: a design contains many synchronous (flip-flop) and asynchronous (*combinational*) gates.
 
 Finally, something to remember, especially if you have a background in programming on CPU: *There is no concept of "not doing something"*. *Everything* you describe becomes a circuit and takes space on the FPGA. On CPU we tend to write thing like:
 ```c
@@ -183,7 +185,7 @@ Indeed, that's a rotating bit pattern! In hardware LEDs would light up in sequen
 
 Alright, we again saw some very important concepts: unit instantiation, dot syntax for outputs and some bit manipulation. Now we need to explain something excruciatingly important: registered outputs and latencies.
 
-## T3: cycles and outputs
+### T3: cycles and outputs
 
 Designing hardware often means carefully orchestrating what happens at every cycle. Therefore, it is important to understand how information flows through your design, and in particular in between parent and instantiated units.
 
@@ -254,7 +256,7 @@ See how `r.o` now immediately reflects `o`? That's because there is no register 
 
 Alright, we've seen how to use outputs and how to register them ... or not.
 
-## T4: cycles, inputs and outputs
+### T4: cycles, inputs and outputs
 
 What about inputs? Of course we also have a similar capability. Let's create another toy example, only for simulation:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t4.si&syntax=c) -->
@@ -286,7 +288,7 @@ unit main(output uint8 leds)
 As by now we are getting familiar with the syntax, I'll focus on the most important parts:
 - The unit `eq` defines an input `input uint8 i`, and assigns it unchanged to its output: `o = i;`.
 - The main unit instantiates `eq` naming it `e`, sets the current `cycle` value to `e.i` and prints the value of `e.o` at each cycle.
-- As I got tired of hitting CTRL-C (I am very lazy :-) ) I added this line `if (cycle == 8) { __finish(); }` to stop simulation after 8 cycles. This only works in simulation.
+- As I got tired of hitting CTRL-C (I am very lazy :) ) I added this line `if (cycle == 8) { __finish(); }` to stop simulation after 8 cycles. This only works in simulation.
 
 Here is the simulation output:
 ```
@@ -341,10 +343,14 @@ Here is the new simulation output:
 ```
 No latency anymore, `e.o` immediately reflects the assignment of `e.i`.
 
-## T5: bindings
+### T5: bindings
 
 > To be written
 
-## T6: algorithms 101
+### T6: algorithms 101
+
+> To be written
+
+### T7: 1 clock, 2 clocks, 3 clocks
 
 > To be written
