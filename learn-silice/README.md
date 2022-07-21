@@ -4,8 +4,9 @@
 
 Quick pointers:
 - Silice [reference documentation](Documentation.md).
-- [Advanced topics](Advanced.md) page.
+- Learn by [looking at example designs](../projects/README.md).
 - Have a question about the language syntax? [Ask it here](https://github.com/sylefeb/Silice/issues/108).
+- [Advanced topics](Advanced.md) page.
 
 ## Which FPGA to choose?
 
@@ -339,3 +340,11 @@ Here is the new simulation output:
 [         7] e.o:  7
 ```
 No latency anymore, `e.o` immediately reflects the assignment of `e.i`.
+
+## T5: bindings
+
+> To be written
+
+## T6: algorithms 101
+
+> To be written

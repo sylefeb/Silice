@@ -19,7 +19,8 @@ A few projects rely on some external hardware (typical low cost peripherals: OLE
 For projects that do not have a README, please refer to [building the examples](#building-the-examples) below.
 
 - LEDs and basics
-  - [blinky](blinky/README.md) (detailed code walkthrough)
+  - [simple blinky](blinky/README.md) (detailed code walkthrough)
+  - [blinky galore](blinky/README.md) explores variants of the *hello world* of FPGA with Silice.
   - [buttons_and_leds](buttons_and_leds/buttons_and_leds.si)
   - [using inout](inout/README.md)
   - [UART echo](uart_echo/uart_echo.si)
