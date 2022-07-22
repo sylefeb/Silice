@@ -268,10 +268,8 @@ What about inputs? Of course we also have a similar capability. Let's create ano
 ```c
 unit eq(input uint8 i,output uint8 o)
 {
-  uint32 cycle(0);
   always {
     o     = i;
-    cycle = cycle + 1;
   }
 }
 // main unit
@@ -359,10 +357,8 @@ T4 with bindings:
 ```c
 unit eq(input uint8 i,output uint8 o)
 {
-  uint32 cycle(0);
   always {
     o     = i;
-    cycle = cycle + 1;
   }
 }
 // main unit
@@ -458,6 +454,30 @@ input by one. Then, we will chain three instances to increment by three.
 
 Here's the resulting design:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t6.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t6.si -->
+```c
+unit inc(input uint8 i,output! uint8 o)
+{ //    unregistered output ^^
+  always {
+    o     = i + 1;
+  }
+}
+// main unit
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  // instantiate three inc and chain them together
+  inc i0(i <:: cycle);
+  inc i1(i <:  i0.o);
+  inc i2(i <:  i1.o);
+  always {
+    leds = i2.o;
+    __display("[%d] leds:%d",cycle,leds); // print leds
+    cycle = cycle + 1;
+    if (cycle == 8) { __finish(); } // stop after 8 cycles
+  }
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 Here is the result:
