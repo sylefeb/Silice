@@ -14,10 +14,9 @@ unit main(output uint8 leds)
   inc i2(i <:  i1.o);
   always {
     leds = i2.o;
-    // i0.i = i2.o; // terrible
+    i0.i = i2.o; // terrible
     __display("[%d] leds:%d",cycle,leds); // print leds
     cycle = cycle + 1;
-    i0.i  = cycle;
     if (cycle == 8) { __finish(); } // stop after 8 cycles
   }
 }

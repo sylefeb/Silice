@@ -832,6 +832,8 @@ private:
 
     /// \brief update and check variable dependencies for an instruction
     void updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context* bctx) const;
+    ///  \brief compute closure on dependencies
+    void dependencyClosure(t_vio_dependencies& _depds) const;
     /// \brief merge variable dependencies
     void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
     /// \brief update flip-flop usage

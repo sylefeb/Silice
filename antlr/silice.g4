@@ -218,7 +218,7 @@ bpBindingList          : bpBinding ',' bpBindingList | bpBinding | ;
 
 /* -- io lists -- */
 
-io                  : ( (is_input='input' nolatch='!'? ) | (is_output='output' combinational='!'?) | is_inout='inout' ) IDENTIFIER declarationVarInitCstr? ;
+io                  : ( (is_input='input' nolatch='!'? ) | (is_output='output' combinational='!'? combinational_nocheck='(!)'?) | is_inout='inout' ) IDENTIFIER declarationVarInitCstr? ;
 
 ioList              : io (',' io)* ','? | ;
 
@@ -237,7 +237,7 @@ intrface            : INTERFACE IDENTIFIER '{' ioList '}' ;
 
 /* -- io definition (from group or interface) -- */
 
-ioDef               : (INPUT | (OUTPUT combinational='!'?))? defid=IDENTIFIER groupname=IDENTIFIER ('{' ioList '}')? ;
+ioDef               : (INPUT | (OUTPUT combinational='!'? combinational_nocheck='(!)'?))? defid=IDENTIFIER groupname=IDENTIFIER ('{' ioList '}')? ;
 
 /* -- bitfields -- */
 
@@ -427,8 +427,8 @@ inout               : 'inout' declarationVar
                     | 'inout' declarationTable;
 input               : 'input' nolatch='!'? declarationVar
                     | 'input' nolatch='!'? declarationTable;
-output              : 'output' combinational='!'? declarationVar
-                    | 'output' combinational='!'? declarationTable ;
+output              : 'output' combinational='!'? combinational_nocheck='(!)'? declarationVar
+                    | 'output' combinational='!'? combinational_nocheck='(!)'? declarationTable ;
 outputs             : 'input' OUTPUTS '(' alg=IDENTIFIER ')' grp=IDENTIFIER ;
 inOrOut             :  input | output | inout | ioDef | outputs ;
 inOutList           :  inOrOut (',' inOrOut)* ','? | ;

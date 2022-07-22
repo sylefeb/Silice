@@ -1,0 +1,16 @@
+unit foo(input uint8 i)
+{
+
+}
+
+unit main(output uint8 leds)
+{
+  uint8 a(0);
+
+  foo f(i <: a);
+
+  always {
+    // a = 10;
+    a[0,4] = 10; // fine, was triggering false positive
+  }
+}
