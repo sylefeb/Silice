@@ -2,7 +2,7 @@ name: embed-code
 on:
   push:
     branches:
-      - main
+      - master
       - wip
       - draft
 
