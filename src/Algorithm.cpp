@@ -2790,7 +2790,8 @@ void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nf
   } else {
     sl_assert(false);
   }
-  _io.combinational = (output->combinational != nullptr);
+  _io.combinational         = (output->combinational != nullptr) || (output->combinational_nocheck != nullptr);
+  _io.combinational_nocheck = (output->combinational_nocheck != nullptr);
 }
 
 // -------------------------------------------------
@@ -2908,7 +2909,8 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, const t_combinati
         t_output_nfo oup;
         var_nfo_copy(oup, V->second);
         oup.name = grpre + "_" + V->second.name;
-        oup.combinational = (io->combinational != nullptr);
+        oup.combinational         = (io->combinational != nullptr || io->combinational_nocheck != nullptr);
+        oup.combinational_nocheck = (io->combinational_nocheck != nullptr);
         m_Outputs.emplace_back(oup);
         m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
       }
@@ -2930,7 +2932,8 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, const t_combinati
         t_output_nfo oup;
         var_nfo_copy(oup, v.second);
         oup.name = grpre + "_" + v.second.name;
-        oup.combinational = (iog->combinational != nullptr);
+        oup.combinational         = (iog->combinational != nullptr || iog->combinational_nocheck != nullptr);
+        oup.combinational_nocheck = (iog->combinational_nocheck != nullptr);
         m_Outputs.emplace_back(oup);
         m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
       }
@@ -3002,8 +3005,9 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
     } else if (io->is_output != nullptr) {
       t_output_nfo oup;
       var_nfo_copy(oup, vnfo);
-      oup.name              = grpre + "_" + vnfo.name;
-      oup.combinational     = (io->combinational != nullptr);
+      oup.name                  = grpre + "_" + vnfo.name;
+      oup.combinational         = (io->combinational != nullptr) || (io->combinational_nocheck != nullptr);
+      oup.combinational_nocheck = (io->combinational_nocheck != nullptr);
       m_Outputs.emplace_back(oup);
       m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
       m_Parameterized.push_back(oup.name);
@@ -3932,7 +3936,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
         // find out if other is a combinational output
         for (const auto &bp : m_InstancedBlueprints) {
             for (auto os : bp.second.blueprint->outputs()) {
-              if (os.combinational) {
+              if (os.combinational && !os.combinational_nocheck) {
                 string vname = bp.second.instance_prefix + "_" + os.name;
                 auto F = _depds.dependencies.find(vname);
                 if (F != _depds.dependencies.end()) {
@@ -8275,7 +8279,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
         unreg_inputs.push_back(bindingRightIdentifier(b));
       } else if (b.dir == e_Right) {
         bound_outputs.insert(b.left);
-        if (nfo.blueprint->output(b.left).combinational) {
+        if (nfo.blueprint->output(b.left).combinational && !nfo.blueprint->output(b.left).combinational_nocheck) {
           // unregistered output, possible dependency
           unreg_outputs.push_back(bindingRightIdentifier(b));
         }
@@ -8294,7 +8298,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
       if (bound_outputs.count(os.name) > 0) {
         continue;
       }
-      if (nfo.blueprint->output(os.name).combinational) {
+      if (nfo.blueprint->output(os.name).combinational && !nfo.blueprint->output(os.name).combinational_nocheck) {
         auto vname = nfo.instance_prefix + "_" + os.name;
         unreg_outputs.push_back(vname);
       }
