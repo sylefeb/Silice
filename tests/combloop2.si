@@ -28,7 +28,7 @@ algorithm alg2(
 
 }
 
-algorithm main( ) {
+algorithm main(output uint8 leds) {
 
 uint1  b = 1; // errr, this is totally ignored, right? becomes a wire (output of a1)
 uint1  c = 0;
