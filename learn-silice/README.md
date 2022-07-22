@@ -488,7 +488,8 @@ cycle when we read `i2.o`.
 ___
 ### T7: algorithms 101
 
-> To be written
+Alright, we got all the basics for units, let's now talk about a big feature of
+Silice, the algorithms.
 
 
 ___
