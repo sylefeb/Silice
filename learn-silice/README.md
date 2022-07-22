@@ -355,6 +355,32 @@ bigger constructs. *Bindings* are perfect for this; here is an example of rewrit
 T4 with bindings:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t5.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t5.si -->
+```c
+unit eq(input uint8 i,output uint8 o)
+{
+  uint32 cycle(0);
+  always {
+    o     = i;
+    cycle = cycle + 1;
+  }
+}
+// main unit
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  // instantiates eq as e, binds cycle to input, leds to output
+  eq _( // we do not need to name the instance, '_' means anonymous
+    i <: cycle, // i tracks cycle
+    o :> leds   // leds tracks o
+  );
+  always {
+    __display("[%d] leds:%d",cycle,leds); // print leds
+    cycle = cycle + 1;
+    if (cycle == 8) { __finish(); } // stop after 8 cycles
+  }
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 Note that we are now instantiating `eq` as follows:
