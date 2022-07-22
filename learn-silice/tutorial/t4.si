@@ -1,9 +1,7 @@
 unit eq(input uint8 i,output uint8 o)
 {
-  uint32 cycle(0);
   always {
     o     = i;
-    cycle = cycle + 1;
   }
 }
 // main unit

@@ -450,12 +450,48 @@ Overall in Silice, the use of the double colon `::` indicates introducing a 1 cy
 end of the previous cycle.
 
 ___
-### T6: algorithms 101
+### T6: bindings and chains
+
+An interesting possibility with bindings is to chain several units together.
+In this toy example we will define a unit `inc` that simply increments its
+input by one. Then, we will chain three instances to increment by three.
+
+Here's the resulting design:
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t6.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+Here is the result:
+```
+[         0] leds:  3
+[         1] leds:  4
+[         2] leds:  5
+[         3] leds:  6
+[         4] leds:  7
+[         5] leds:  8
+[         6] leds:  9
+[         7] leds: 10
+```
+Indeed, we get `cycle + 3` in `leds`!
+
+Note how we use both the dot syntax and bindings to chain the three instances:
+```c
+  // instantiate three inc and chain them together
+  inc i0(i <:: cycle);
+  inc i1(i <:  i0.o);
+  inc i2(i <:  i1.o);
+```
+Also note that we register the input to the first instance (`i <:: cycle`) and
+then use an unregistered output in `inc` with `output! uint8 o`. This way, the information
+propagates immediately through the entire chain, giving us cycle + 3 at the next
+cycle when we read `i2.o`.
+
+___
+### T7: algorithms 101
 
 > To be written
 
 
 ___
-### T7: 1 clock, 2 clocks, 3 clocks
+### T8: clock and clocks
 
 > To be written
