@@ -52,7 +52,7 @@ It takes time and practice to get used to that, but it is also a fun mindset, an
 
 ## Tutorial
 
-This tutorial is meant to be done linearly, starting from T1 below. It gradually introduces concepts of Silice (many are general to hardware design) through toy examples.
+This tutorial is meant to be done linearly, starting from T1 below. It gradually introduces concepts of Silice (many are general to hardware design) through toy examples. Each entry covers one specific concept, so they remain short and compact to read.
 
 To run these examples, enter the [`tutorial`](./tutorial) directory, and run (here for T1):
 ```
@@ -62,6 +62,7 @@ If you have an FPGA you can replace `verilator` by the name of your board. Plug 
 
 > Simulated designs run forever, hit CTRL-C to stop them.
 
+___
 ### T1: a simple blinker
 
 Let's do a first design! This is the hello world of FPGA. Most boards have LEDs connected to the FPGA, if only for debugging. So the hello world consists in making these LEDs blink. Here's one possible Silice version:
@@ -125,6 +126,7 @@ And this is it, we already have seen quite a few concepts!
 
 > **Exercise**: change `counter[0,8]` to slow down the LEDs pattern.
 
+___
 ### T2: a second unit
 
 Of course your design may contain other units beyond main, and main can *instantiate* other units. Indeed, a unit describes a circuit blueprint, but it has to be explicitly instantiated before being used (only main is automatically instantiated).
@@ -185,6 +187,7 @@ Indeed, that's a rotating bit pattern! In hardware LEDs would light up in sequen
 
 Alright, we again saw some very important concepts: unit instantiation, dot syntax for outputs and some bit manipulation. Now we need to explain something excruciatingly important: registered outputs and latencies.
 
+___
 ### T3: cycles and outputs
 
 Designing hardware often means carefully orchestrating what happens at every cycle. Therefore, it is important to understand how information flows through your design, and in particular in between parent and instantiated units.
@@ -256,6 +259,7 @@ See how `r.o` now immediately reflects `o`? That's because there is no register 
 
 Alright, we've seen how to use outputs and how to register them ... or not.
 
+___
 ### T4: cycles, inputs and outputs
 
 What about inputs? Of course we also have a similar capability. Let's create another toy example, only for simulation:
@@ -343,14 +347,89 @@ Here is the new simulation output:
 ```
 No latency anymore, `e.o` immediately reflects the assignment of `e.i`.
 
+___
 ### T5: bindings
 
-> To be written
+So far we used the dot syntax to refer to the inputs and outputs of an instantiated unit . However, sometimes we just want to plug the units together to form
+bigger constructs. *Bindings* are perfect for this; here is an example of rewriting
+T4 with bindings:
 
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t5.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+Note that we are now instantiating `eq` as follows:
+```c
+  eq _( // we do not need to name the instance, '_' means anonymous
+    i <: cycle, // i tracks cycle
+    o :> leds   // leds tracks o
+  );
+```
+What happens here, is that the variable `cycle` is *bound* to the input `i`
+while `leds` is bound to the output `o`. Any change to `cycle` is seen by
+the instance of `eq`, and the instance drives `leds` (which can no longer be assigned
+in `main`). Thanks to this, we do not even need to name the instance, since
+we never refer to it anymore. Thus, we use an anonymous instantiation which is
+indicated by the underscore in `eq _( ... );`.
+
+Here is the output:
+```
+[         0] leds:  0
+[         1] leds:  1
+[         2] leds:  2
+[         3] leds:  3
+[         4] leds:  4
+[         5] leds:  5
+[         6] leds:  6
+[         7] leds:  7
+```
+
+There's something interesting going on here: we are using a registered output
+in `eq`, yet the value of `leds` is that of the cycle, seemingly without latency. Why?
+This is due to the meaning of the `<:` binding operator on the input. It means
+*bind the input of the variable `cycle` as it is <ins>at the end of the cycle</ins>*. Thus,
+at a given cycle `c` the input to `eq` is already `cycle = c + 1`. The output is
+registered so we get the output `leds = c + 1` at cycle `c + 1`. That is why the values
+match.
+
+Now, maybe we want the value that `cycle` had at the start of the cycle (equivalently the value `cycle` had at the end of the previous cycle). We can do that!
+We use the `<::` binding operator instead of `<:`
+
+```c
+  eq _( // we do not need to name the instance, '_' means anonymous
+    i <:: cycle, // i tracks cycle (registered)
+    o :>  leds   // leds tracks o
+  );
+```
+
+Now we get this:
+```c
+[         0] leds:  0
+[         1] leds:  0
+[         2] leds:  1
+[         3] leds:  2
+[         4] leds:  3
+[         5] leds:  4
+[         6] leds:  5
+[         7] leds:  6
+```
+
+Back to having a latency between the value of `leds` and `cycle`. Indeed, at
+cycle `c` the input to `eq` now sees `cycle = c`, before it is incremented.
+The output being registered we get the output `leds = c` at cycle `c + 1`.
+
+> Using the binding operator `<:` means that the input is <ins>not</ins> registered,
+while using `<::` asks for a registered input. You can choose `<:` or `<::` independently for each binding point.
+
+Overall in Silice, the use of the double colon `::` indicates introducing a 1 cycle latency through a register, which is equivalent to getting the value from the
+end of the previous cycle.
+
+___
 ### T6: algorithms 101
 
 > To be written
 
+
+___
 ### T7: 1 clock, 2 clocks, 3 clocks
 
 > To be written
