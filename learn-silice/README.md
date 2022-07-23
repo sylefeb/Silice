@@ -120,7 +120,7 @@ Let's first walk through this example:
 
 > Another, more powerful way to simulate is to output a full trace (wave) of the simulated design which records the status of all variables, every clock cycle, for the entire simulation. But that's a topic for later!
 
-- `counter = counter + 1;`: We increment the counter every clock cycle.
+- `counter = counter + 1;` We increment the counter every clock cycle.
 
 And this is it, we already have seen quite a few concepts!
 
