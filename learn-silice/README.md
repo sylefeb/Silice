@@ -312,7 +312,7 @@ What happens during the first cycle? We are seeing the initial value of the outp
 [         1] e.o:  0
 ```
 
-What if we want to register the inputs? The we use an instance modifier, changing the instantiation for:
+What if we want to register the inputs? We can use an instance modifier, changing the instantiation for:
 ```c
 eq e<reginputs>;
 //   ^^^^^^^^^ all inputs are now registered
@@ -331,7 +331,7 @@ Here is the new simulation output:
 ```
 Ignoring cycles 0 and 1, we now see a *two* cycles latency. This is due to both inputs and outputs being registered.
 
-What if we use neither register inputs not registered outputs? Let's try! We remove `<reginputs>` and use `output!`.
+What if we use neither registered inputs nor registered outputs? Let's try! We remove `<reginputs>` and use `output!`.
 Here is the new simulation output:
 ```
 [         0] e.o:  0
@@ -436,7 +436,7 @@ Now we get this:
 ```
 
 Back to having a latency between the value of `leds` and `cycle`. Indeed, at
-cycle `c` the input to `eq` now sees `cycle = c`, before it is incremented.
+cycle `c` the input to `eq` now sees `cycle = c`, before `cycle` is incremented.
 The output being registered we get the output `leds = c` at cycle `c + 1`.
 
 > Using the binding operator `<:` means that the input is <ins>not</ins> registered,
@@ -543,7 +543,7 @@ will generate an error:
 ```
 
 Why is that? Remember we are describing a circuit. Here, when we set `a = b` we
-are closing a loop from `a` to `b` through the instance of `inc`.
+are closing a loop from `b` to `a` through the instance of `inc`.
 Indeed, the input is not registered (`<:`); neither is the output (`output!`).
 When we set `a = b` we directly connect `o` to `i` in the instance.
 
@@ -609,7 +609,7 @@ Here for instance, we are displaying a first message when the algorithm is launc
 Then, we wait for the next cycle with the `++:` step operator, and print another
 message: `__display("Hello world, from a second cycle");`.
 
-We again skip on cycle (`++:`) and enter a loop: `while ( n != 8 ) { ... }`.
+We again skip one cycle (`++:`) and enter a loop: `while ( n != 8 ) { ... }`.
 Note that `n` was declared at the start of the algorithm as `uint8 n = 0;`.
 The `= 0` means that it will be initialized each time the algorithm starts, so it
 equals `0` when we reach the loop.
