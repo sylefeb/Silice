@@ -506,12 +506,37 @@ propagates immediately through the entire chain, giving us cycle + 3 at the next
 cycle when we read `i2.o`.
 
 ___
-### T7: do not cross the streams
+### T7: do *not* cross the streams
 
-There's one thing to be beware of when using *un*registered inputs and outputs.
+There's one thing to be careful with when combining *un*registered inputs and outputs.
 Let's consider the following:
 
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t7.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
 
+If you try to run this example (`make verilator file=t7.si` in `./tutorial`), Silice
+will generate an error:
+
+```diff
+ ----------<<<<< error >>>>>----------
+ => file: ./Silice/learn-silice/tutorial/t7.si
+ => line: 14
+
+ a = b
+-^^^^^ variable assignement leads to a combinational cycle through instantiated unit (variable: 'a')
+```
+
+Why is that? Remember we are describing a circuit. Here, when we set `a = b` we
+are closing a loop from `a` to `b` through the instance of `inc`.
+Indeed, the input is not registered (`<:`); neither is the output (`output!`).
+When we set `a = b` we directly connect `o` to `i` in the instance.
+
+This produces a loop through an asynchronous circuit, also called a *combinational cycle*.
+When this happens, the logic applied in `inc` would start to run free, seemingly
+as fast as possible but in fact quickly producing *random results*. This is
+generally not ok, and Silice issues an error when such configurations are produced.
+
+> This is *generally* not ok, unless you truly want a random result. Combinational loops are one way to form ring oscillators and get randomness in circuits. Yes, there's a way to disable the check in Silice ;)
 
 ___
 ### T8: algorithms 101
@@ -520,7 +545,7 @@ Alright, we got all the basics for units, let's now talk about a big feature of
 Silice, the algorithms.
 
 Silice lets you write algorithms within your units, enabling to reason with a
-more standard imperative programming flow. Here is an example in simulation:
+more standard imperative programming flow. Just to get our feet wet, here is an example in simulation (we'll do example in hardware very soon):
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t8.si&syntax=c) -->
 <!-- MARKDOWN-AUTO-DOCS:END -->
@@ -540,7 +565,30 @@ Hello world, from a second cycle
 - build.v:187: Verilog $finish
 ```
 
+The unit starts as usual (`unit main(output uint8 leds) { ... }`) but then contains
+an algorithm block: `algorithm { ... }`.
+
+Contrary the always blocks, algorithm blocks may contain *multi-cycle constructs*.
+
+Here for instance, we are displaying a first message when the algorithm is launched
+(the `main` algorithm automatically starts): `__display("Hello world, from a first cycle");`.
+
+Then, we wait for the next cycle with the `++:` step operator, and print another
+message: `__display("Hello world, from a second cycle");`.
+
+We again skip on cycle (`++:`) and enter a loop: `while ( n != 8 ) { ... }`.
+Note that `n` was declared at the start of the algorithm as `uint8 n = 0;`.
+The `= 0` means that it will be initialized each time the algorithm starts, so it
+equals `0` when we reach the loop.
+
+The loop then prints a message and increments `n`. And we get the expected output!
+
 ___
-### T9: clock and clocks
+### T10: always and algorithms
+
+> To be written
+
+___
+### Tx: clock and clocks
 
 > To be written
