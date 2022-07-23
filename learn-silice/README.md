@@ -512,6 +512,22 @@ There's one thing to be careful with when combining *un*registered inputs and ou
 Let's consider the following:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t7.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t7.si -->
+```c
+unit inc(input uint8 i,output! uint8 o)
+{ //    unregistered output ^^
+  always { o = i + 1; }
+}
+// main unit
+unit main(output uint8 leds)
+{
+  uint8 a(0); uint8 b(0);
+  inc _( i <: a, o :> b );
+  always {
+    a = b;
+  }
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 If you try to run this example (`make verilator file=t7.si` in `./tutorial`), Silice
@@ -548,6 +564,23 @@ Silice lets you write algorithms within your units, enabling to reason with a
 more standard imperative programming flow. Just to get our feet wet, here is an example in simulation (we'll do example in hardware very soon):
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t8.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t8.si -->
+```c
+unit main(output uint8 leds)
+{
+  algorithm {
+    uint8 n = 0; // a variable
+    __display("Hello world, from a first cycle");
+  ++:
+    __display("Hello world, from a second cycle");
+  ++:
+    while ( n != 8 ) {
+      __display(" - hello world from loop iteration %d",n);
+      n = n + 1;
+    }
+  }
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 Running this with `make verilator file=t8.si` we get:
