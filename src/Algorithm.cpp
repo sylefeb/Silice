@@ -3868,17 +3868,25 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   if (instr == nullptr) {
     return;
   }
-  // record which vars were written before
-  std::unordered_set<std::string> written_before;
-  for (const auto &d : _depds.dependencies) {
-    written_before.insert(d.first);
-  }
   // determine VIOs accesses for instruction
   std::unordered_set<std::string> read;
   std::unordered_set<std::string> written;
   determineVIOAccess(instr, m_VarNames, bctx, read, written);
   determineVIOAccess(instr, m_InputNames, bctx, read, written);
   determineVIOAccess(instr, m_OutputNames, bctx, read, written);
+  // update and check
+  updateAndCheckDependencies(_depds, sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)), read, written, bctx);
+}
+
+// -------------------------------------------------
+
+void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_source_loc& sloc, const std::unordered_set<std::string> & read, const std::unordered_set<std::string> & written, const t_combinational_block_context * bctx) const
+{
+  // record which vars were written before
+  std::unordered_set<std::string> written_before;
+  for (const auto &d : _depds.dependencies) {
+    written_before.insert(d.first);
+  }
   // update written vars dependencies
   std::unordered_set<std::string> all_read;
   for (const auto& r : read) {
@@ -3888,7 +3896,6 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   // update dependencies of written vars
   /// NOTE: a current limitation is the we might miss dependencies on partial writes
   for (const auto& w : written) {
-    // _depds.dependencies[w].insert(all_read.begin(), all_read.end()); // NOTE: within a same cycle we accumulate dependencies
     _depds.dependencies[w] = all_read;
   }
   // depedency closure
@@ -3896,8 +3903,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
 
   /// DEBUG
   if (0) {
-    std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << nxl;
-    std::cerr << "written: ";
+    std::cerr << "---- " << "written: ";
     for (auto w : written) {
       std::cerr << w << ' ';
     }
@@ -3927,28 +3933,42 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
         } else {
           msg += "Consider inserting a sequential split with '++:'";
         }
-        reportError(sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)),
-          msg.c_str(), w.c_str());
+        reportError(sloc,msg.c_str(), w.c_str());
       }
       // check if any one of the combinational outputs the var depends on, depends on this same var (cycle!)
       for (auto other : d) {
         if (other == w) continue; // skip self
         // find out if other is a combinational output
         for (const auto &bp : m_InstancedBlueprints) {
-            for (auto os : bp.second.blueprint->outputs()) {
-              if (os.combinational && !os.combinational_nocheck) {
-                string vname = bp.second.instance_prefix + "_" + os.name;
-                auto F = _depds.dependencies.find(vname);
-                if (F != _depds.dependencies.end()) {
-                  if (F->second.count(w)) {
-                    // yes: this would produce a combinational cycle, error!
-                    string msg = "variable assignement leads to a combinational cycle through instantiated inputs (variable: '%s')\n\n";
-                    reportError(sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)),
-                      msg.c_str(), w.c_str());
-                  }
+          for (auto os : bp.second.blueprint->outputs()) {
+            if (os.combinational && !os.combinational_nocheck) {
+              string vname = bp.second.instance_prefix + "_" + os.name;
+              auto F = _depds.dependencies.find(vname);
+              if (F != _depds.dependencies.end()) {
+                if (F->second.count(w)) {
+                  // yes: this would produce a combinational cycle, error!
+                  string msg = "variable assignement leads to a combinational cycle through instantiated unit (variable: '%s')\n\n";
+                  reportError(sloc,msg.c_str(), w.c_str());
                 }
               }
             }
+          }
+        }
+        // find out if other is bound to a combinational output
+        if (m_VIOBoundToBlueprintOutputs.count(other) > 0) {
+          // bound to output, but is this a combinational output?
+          for (const auto &bp : m_InstancedBlueprints) {
+            bool found = false;
+            const auto &bnd = findBindingRight(other, bp.second.bindings, found);
+            if (found && bnd.dir == e_Right) {
+              if (bp.second.blueprint->output(bnd.left).combinational
+                && !bp.second.blueprint->output(bnd.left).combinational_nocheck) {
+                string msg = "variable assignement leads to a combinational cycle through instantiated unit (variable: '%s')\n\n";
+                reportError(sloc, msg.c_str(), w.c_str());
+              }
+            }
+          }
+
         }
       }
     }
@@ -3959,7 +3979,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
           if (m_Vars.at(m_VarNames.at(d)).usage == e_Wire) { // is it a wire?
             if (_depds.dependencies.at(d).count(w)) { // depends on written var?
               // yes: this would produce a combinational cycle, error!
-              reportError(sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)),
+              reportError(sloc,
                 "variable assignement leads to a combinational cycle through variable bound to expression\n\n(variable: '%s', through '%s').",
                 w.c_str(), d.c_str());
             }
@@ -3989,7 +4009,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
               }
               if (!wire_assign) {
                 // no: leads to problematic case (ambiguity in final value), error!
-                reportError(sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)),
+                reportError(sloc,
                   "variable assignement changes the value of a <: tracked expression that was assigned before\n\n(variable: '%s', through tracker '%s' assigned before to '%s').",
                   w.c_str(), wire.c_str(), d.first.c_str());
               }
@@ -7804,11 +7824,26 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, std::ostream &out, const
 
 // -------------------------------------------------
 
-const Algorithm::t_binding_nfo &Algorithm::findBindingTo(std::string var, const std::vector<t_binding_nfo> &bndgs, bool& _found) const
+const Algorithm::t_binding_nfo &Algorithm::findBindingLeft(std::string left, const std::vector<t_binding_nfo> &bndgs, bool& _found) const
 {
   _found = false;
   for (const auto &b : bndgs) {
-    if (b.left == var) {
+    if (b.left == left) {
+      _found = true;
+      return b;
+    }
+  }
+  static t_binding_nfo foo;
+  return foo;
+}
+
+// -------------------------------------------------
+
+const Algorithm::t_binding_nfo &Algorithm::findBindingRight(std::string right, const std::vector<t_binding_nfo> &bndgs, bool& _found) const
+{
+  _found = false;
+  for (const auto &b : bndgs) {
+    if (bindingRightIdentifier(b) == right) {
       _found = true;
       return b;
     }
@@ -7874,7 +7909,7 @@ void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, co
     if (io_nfo.type_nfo.same_as.empty()) {
       // a binding is needed to parameterize this io, find it
       found = false;
-      const auto &b = findBindingTo(var, nfo.bindings, found);
+      const auto &b = findBindingLeft(var, nfo.bindings, found);
       if (!found) {
         reportError(nfo.srcloc, "io '%s' of instance '%s' is not bound nor specialized, cannot automatically determine it",
           var.c_str(), nfo.instance_name.c_str());
@@ -8258,7 +8293,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   }
   out << nxl;
 
-  // determine always dependencies due to blueprint bindings
+  // determine always dependencies on unregistered inputs/outputs due to blueprint bindings
   t_vio_dependencies always_dependencies;
   for (const auto& ibiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &nfo = m_InstancedBlueprints.at(ibiordr);
@@ -8267,51 +8302,47 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
       continue;
     }
     // find out sets of combinational inputs and outputs
-    vector<string> unreg_inputs;
-    vector<string> unreg_outputs;
-    set<string>    bound_outputs;
+    unordered_set<string> unreg_input_bindings;  // bindings to unreg input
+    unordered_set<string> unreg_output_bindings; // bindings to unreg output
     for (const auto &b : nfo.bindings) {
       if (b.dir == e_LeftQ) {
         // registered input, skip
         continue;
       } else if (b.dir == e_Left) {
         // unregistered input, possible dependency
-        unreg_inputs.push_back(bindingRightIdentifier(b));
+        unreg_input_bindings.insert(bindingRightIdentifier(b));
       } else if (b.dir == e_Right) {
-        bound_outputs.insert(b.left);
         if (nfo.blueprint->output(b.left).combinational && !nfo.blueprint->output(b.left).combinational_nocheck) {
           // unregistered output, possible dependency
-          unreg_outputs.push_back(bindingRightIdentifier(b));
+          unreg_output_bindings.insert(bindingRightIdentifier(b));
         }
       }
     }
-    // add to the list of inputs all unbounded one (dot syntax)
+    // add to the list of inputs all unbounded one (dot syntax) NOTE: we already checked inputs are not registered
     for (const auto &is : nfo.blueprint->inputs()) {
-      if (nfo.boundinputs.count(is.name) == 0) {
-        // input is not bound
-        auto vname = nfo.instance_prefix + "_" + is.name;
-        unreg_inputs.push_back(vname);
-      }
+      auto vname = nfo.instance_prefix + "_" + is.name;
+      unreg_input_bindings.insert(vname);
     }
     // add to the list of outputs all unbounded one that are combinational
     for (const auto &os : nfo.blueprint->outputs()) {
-      if (bound_outputs.count(os.name) > 0) {
-        continue;
-      }
       if (nfo.blueprint->output(os.name).combinational && !nfo.blueprint->output(os.name).combinational_nocheck) {
         auto vname = nfo.instance_prefix + "_" + os.name;
-        unreg_outputs.push_back(vname);
+        unreg_output_bindings.insert(vname);
       }
     }
-    // now, all unregistered outputs depend on all unregistered inputs
-    for (const auto& uo : unreg_outputs) {
-      for (const auto& ui : unreg_inputs) {
-        always_dependencies.dependencies[uo].insert(ui);
+    // update dependencies and run checks
+    updateAndCheckDependencies(always_dependencies, nfo.srcloc, unreg_input_bindings, unreg_output_bindings, nullptr);
+    // since we are only dealing with combinational connections (not registered) we perform
+    // an additional check at this stage: no vio should depend on self, or this is for sure a cycle
+    // (with registered vios a first dependency is ok since this is on the Q side of the flip-flop)
+    for (const auto& d : always_dependencies.dependencies) {
+      if (d.second.count(d.first) > 0) {
+        // yes: this would produce a combinational cycle, error!
+        string msg = "bindings leads to a combinational cycle (variable: '%s')\n\n";
+        reportError(nfo.srcloc, msg.c_str(), d.first.c_str());
       }
     }
   }
-  // dependency closure: propagate dependencies
-  dependencyClosure(always_dependencies);
 
   /// DEBUG
   if (0) {

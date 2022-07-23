@@ -1,0 +1,14 @@
+unit main(output uint8 leds)
+{
+  algorithm {
+    uint8 n = 0; // a variable
+    __display("Hello world, from a first cycle");
+  ++:
+    __display("Hello world, from a second cycle");
+  ++:
+    while ( n != 8 ) {
+      __display(" - hello world from loop iteration %d",n);
+      n = n + 1;
+    }
+  }
+}

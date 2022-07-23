@@ -506,14 +506,41 @@ propagates immediately through the entire chain, giving us cycle + 3 at the next
 cycle when we read `i2.o`.
 
 ___
-### T7: algorithms 101
+### T7: do not cross the streams
+
+There's one thing to be beware of when using *un*registered inputs and outputs.
+Let's consider the following:
+
+
+
+___
+### T8: algorithms 101
 
 Alright, we got all the basics for units, let's now talk about a big feature of
 Silice, the algorithms.
 
-> To be written
+Silice lets you write algorithms within your units, enabling to reason with a
+more standard imperative programming flow. Here is an example in simulation:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t8.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+Running this with `make verilator file=t8.si` we get:
+```
+Hello world, from a first cycle
+Hello world, from a second cycle
+- hello world from loop iteration   0
+- hello world from loop iteration   1
+- hello world from loop iteration   2
+- hello world from loop iteration   3
+- hello world from loop iteration   4
+- hello world from loop iteration   5
+- hello world from loop iteration   6
+- hello world from loop iteration   7
+- build.v:187: Verilog $finish
+```
 
 ___
-### T8: clock and clocks
+### T9: clock and clocks
 
 > To be written
