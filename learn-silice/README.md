@@ -561,7 +561,7 @@ Alright, we got all the basics for units, let's now talk about a big feature of
 Silice, the algorithms.
 
 Silice lets you write algorithms within your units, enabling to reason with a
-more standard imperative programming flow. Just to get our feet wet, here is an example in simulation (we'll do example in hardware very soon):
+more standard imperative programming flow. Just to get our feet wet, here is an example in simulation:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t8.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/t8.si -->
