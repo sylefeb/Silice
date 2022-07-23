@@ -617,7 +617,7 @@ equals `0` when we reach the loop.
 The loop then prints a message and increments `n`. And we get the expected output!
 
 ___
-### T10: always and algorithms
+### T9: always and algorithms
 
 > To be written
 
