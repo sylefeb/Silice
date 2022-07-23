@@ -3938,17 +3938,19 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_
       // check if any one of the combinational outputs the var depends on, depends on this same var (cycle!)
       for (auto other : d) {
         if (other == w) continue; // skip self
-        // find out if other is a combinational output
+        // find out if other is a combinational output dot syntax
         for (const auto &bp : m_InstancedBlueprints) {
           for (auto os : bp.second.blueprint->outputs()) {
             if (os.combinational && !os.combinational_nocheck) {
               string vname = bp.second.instance_prefix + "_" + os.name;
-              auto F = _depds.dependencies.find(vname);
-              if (F != _depds.dependencies.end()) {
-                if (F->second.count(w)) {
-                  // yes: this would produce a combinational cycle, error!
-                  string msg = "variable assignement leads to a combinational cycle through instantiated unit (variable: '%s')\n\n";
-                  reportError(sloc,msg.c_str(), w.c_str());
+              if (other == vname) {
+                auto F = _depds.dependencies.find(vname);
+                if (F != _depds.dependencies.end()) {
+                  if (F->second.count(w)) {
+                    // yes: this would produce a combinational cycle, error!
+                    string msg = "variable assignement leads to a combinational cycle through instantiated unit (variable: '%s')\n\n";
+                    reportError(sloc, msg.c_str(), w.c_str());
+                  }
                 }
               }
             }
