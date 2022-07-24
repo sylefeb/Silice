@@ -748,7 +748,10 @@ Quick walkthrough:
 - The `always_before` block always assigns `leds` to be the pattern currently read by the BRAM: `leds = patterns.rdata`.
 - The `algorithm` block waits for a delay with a loop doing nothing (`while ( ~ n[21,1] ) { n = n + 1; }`) and then increments `patterns.addr`. The increment is using a ternary `. ? . : .` construct to reset the BRAM address to 0 when the last entry (16) has been reached.
 
-Here is the result on the ULX3S:
+Note that we are using an `always_before` block but no `always_after` block,
+all are optional.
+
+Here is the result on the ULX3S (plug your board and in `tutorials` run `make <board> file=t10.si`):
 
 <center><img src="figures/t10.gif"/></center>
 
