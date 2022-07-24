@@ -617,9 +617,51 @@ equals `0` when we reach the loop.
 The loop then prints a message and increments `n`. And we get the expected output!
 
 ___
-### T9: always and algorithms
+### T9: arrays and BRAMs
+
+So far we have not discussed arrays. Arrays in hardware designs are very important
+as they constitute memories where things can be stored: a command queue, a set
+of registers in a processor, an L1 cache.
+
+In Silice you can declare and use arrays like this:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t9.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+Such an array is implemented with logic: internally the circuit produces
+one register per table entry, and then generates a selection circuitry
+that selects where to read/write from the index. That's ok for very small
+array, but this quickly this circuitry becomes large and slow.
+
+To circumvent this, FPGAs include specialized memory, called *BRAM*. A BRAM being
+a memory it needs a bit of time to retrieve data. However, FPGA BRAMs are *very*
+fast, so you can retrieve from or write to an address in only one cycle.
+
+Here is the same example using a BRAM:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t9_2.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+
+___
+### Tx: always and algorithms
+
+A feature of Silice that is extremely convenient is that you can combine
+algorithm and always blocks. The general structure of a unit is to have three
+blocks: an `always_before` block, an `algorithm` block, and an `always_after` block.
+The *before* and *after* of the always blocks are with respect to the algorithm:
+this defines whether the block happens before anything in the algorithm, or
+after anything in the algorithm. This is also why there is a single `always` block
+when no algorithm is used.
+
+What can you do with this? A typical case is to have the always block receive requests
+while the algorithm processes them. Another is to have the algorithm
+setup a sequence that is performed by the always block.
 
 > To be written
+
+___
+### Tx: calls and autorun
 
 ___
 ### Tx: clock and clocks

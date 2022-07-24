@@ -974,9 +974,9 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     }
     addVar(v, _current, sourceloc(decl, decl->IDENTIFIER()->getSourceInterval()));
     if (m.is_input) {
-      mem.in_vars.push_back(v.name);
+      mem.in_vars.push_back(make_pair(m.name,v.name));
     } else {
-      mem.out_vars.push_back(v.name);
+      mem.out_vars.push_back(make_pair(m.name, v.name));
       m_VIOBoundToBlueprintOutputs[v.name] = WIRE "_mem_" + v.name;
     }
   }
@@ -4911,19 +4911,19 @@ void Algorithm::determineAccess(
   for (auto& mem : m_Memories) {
     for (auto& inv : mem.in_vars) { // input to memory
       // add to always block dependency
-      m_AlwaysPost.in_vars_read.insert(inv);
+      m_AlwaysPost.in_vars_read.insert(inv.second);
       // set global access
-      m_Vars[m_VarNames.at(inv)].access = (e_Access)(m_Vars[m_VarNames.at(inv)].access | e_ReadOnly);
+      m_Vars[m_VarNames.at(inv.second)].access = (e_Access)(m_Vars[m_VarNames.at(inv.second)].access | e_ReadOnly);
     }
     for (auto& ouv : mem.out_vars) { // output from memory
       // add to always block dependency
-      m_AlwaysPre.out_vars_written.insert(ouv);
+      m_AlwaysPre.out_vars_written.insert(ouv.second);
       // -> check prior access
-      if (m_Vars[m_VarNames.at(ouv)].access & e_WriteOnly) {
-        reportError(mem.srcloc, "cannot write to variable '%s' bound to a memory output", ouv.c_str());
+      if (m_Vars[m_VarNames.at(ouv.second)].access & e_WriteOnly) {
+        reportError(mem.srcloc, "cannot write to variable '%s' bound to a memory output", ouv.second.c_str());
       }
       // set global access
-      m_Vars[m_VarNames.at(ouv)].access = (e_Access)(m_Vars[m_VarNames.at(ouv)].access | e_WriteBinded);
+      m_Vars[m_VarNames.at(ouv.second)].access = (e_Access)(m_Vars[m_VarNames.at(ouv.second)].access | e_WriteBinded);
     }
   }
   // determine access to inout variables
@@ -7616,7 +7616,6 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(std::string instance_nam
   default: reportError(t_source_loc(), "internal error (memory type)"); break;
   }
   _replacements["MODULE"] = memoryModuleName(instance_name,bram);
-  _replacements["NAME"]   = bram.name;
   for (const auto& m : members) {
     string nameup = m.name;
     std::transform(nameup.begin(), nameup.end(), nameup.begin(),
@@ -7669,7 +7668,6 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(std::string instance_nam
     initial << "end" << nxl;
   }
   _replacements["INITIAL"] = initial.str();
-  _replacements["CLOCK"]   = ALG_CLOCK;
 }
 
 // -------------------------------------------------
@@ -8118,7 +8116,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   for (const auto& mem : m_Memories) {
     // output wires
     for (const auto& ouv : mem.out_vars) {
-      const auto& os = m_Vars[m_VarNames.at(ouv)];
+      const auto& os = m_Vars[m_VarNames.at(ouv.second)];
       writeVerilogDeclaration(out, ictx, "wire", os, std::string(WIRE) + "_mem_" + os.name);
     }
   }
@@ -8367,31 +8365,31 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     if (mem.clocks.empty()) {
       if (mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) {
         t_vio_dependencies _1,_2;
-        out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, ff_input_bindings_usage) << ")," << nxl;
-        out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, ff_input_bindings_usage) << ")," << nxl;
+        out << ".clock0(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, ff_input_bindings_usage) << ")," << nxl;
+        out << ".clock1(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, ff_input_bindings_usage) << ")," << nxl;
       } else {
         t_vio_dependencies _;
-        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _, ff_input_bindings_usage) << ")," << nxl;
+        out << ".clock("  << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _, ff_input_bindings_usage) << ")," << nxl;
       }
     } else {
       sl_assert((mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) && mem.clocks.size() == 2);
       std::string clk0 = mem.clocks[0];
       std::string clk1 = mem.clocks[1];
       t_vio_dependencies _1, _2;
-      out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", clk0, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, ff_input_bindings_usage) << ")," << nxl;
-      out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", clk1, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, ff_input_bindings_usage) << ")," << nxl;
+      out << ".clock0(" << rewriteIdentifier("_", clk0, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, ff_input_bindings_usage) << ")," << nxl;
+      out << ".clock1(" << rewriteIdentifier("_", clk1, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, ff_input_bindings_usage) << ")," << nxl;
     }
     // inputs
     for (const auto& inv : mem.in_vars) {
       t_vio_dependencies _;
-      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, "", nullptr, ictx, mem.srcloc, mem.delayed ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
+      out << '.' << ALG_INPUT << '_' << inv.first << '(' << rewriteIdentifier("_", inv.second, "", nullptr, ictx, mem.srcloc, mem.delayed ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
         mem.delayed ? e_Q : e_D
       ) << ")," << nxl;
     }
     // output wires
     int num = (int)mem.out_vars.size();
     for (const auto& ouv : mem.out_vars) {
-      out << '.' << ALG_OUTPUT << '_' << ouv << '(' << WIRE << "_mem_" << ouv << ')';
+      out << '.' << ALG_OUTPUT << '_' << ouv.first << '(' << WIRE << "_mem_" << ouv.second << ')';
       if (num-- > 1) {
         out << ',' << nxl;
       } else {

@@ -155,8 +155,8 @@ private:
       std::string custom_template;
       Utils::t_source_loc      srcloc;
       std::vector<std::string> clocks;
-      std::vector<std::string> in_vars;
-      std::vector<std::string> out_vars;
+      std::vector<std::pair<std::string, std::string> > in_vars;  // member name, vio name
+      std::vector<std::pair<std::string, std::string> > out_vars; // member name, vio name
       std::vector<std::string> init_values;
       std::vector<std::string> members;
     };
