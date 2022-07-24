@@ -626,6 +626,19 @@ of registers in a processor, an L1 cache.
 In Silice you can declare and use arrays like this:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t9.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t9.si -->
+```c
+  unit main(output uint8 leds) {
+    algorithm {
+      uint8 table[8] = {0,1,2,3,4,5,6,7};
+      uint8 n = 0;
+      while (n != 8) {
+        __display("[%d] = %d",n,table[n]);
+        n = n + 1;
+      }
+    }
+  }
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 Such an array is implemented with logic: internally the circuit produces
@@ -640,6 +653,21 @@ fast, so you can retrieve from or write to an address in only one cycle.
 Here is the same example using a BRAM:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t9_2.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t9_2.si -->
+```c
+  unit main(output uint8 leds) {
+    algorithm {
+      bram uint8 table[8] = {0,1,2,3,4,5,6,7};
+      uint8 n = 0;
+      table.addr = n;
+      while (n != 8) {
+        __display("[%d] = %d",n,table.rdata);
+        n = n + 1;
+        table.addr = n;
+      }
+    }
+  }
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 
