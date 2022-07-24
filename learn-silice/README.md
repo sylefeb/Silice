@@ -58,9 +58,12 @@ To run these examples, enter the [`tutorial`](./tutorial) directory, and run (he
 ```
 make verilator file=t1.si
 ```
-If you have an FPGA you can replace `verilator` by the name of your board. Plug the board first and it will be programmed automatically in most cases (a few toy examples are meant for simulation only).
+If you have an FPGA you could replace `verilator` by the name of your board. Plug the board first and it will be programmed automatically in most cases (a few toy examples are meant for simulation only).
 
-> Simulated designs run forever, hit CTRL-C to stop them.
+> Most of the initial entries of the tutorial use simulation so that we can print
+> in the console using `__display`, a simulation only printf. (On a FPGA, if you want a printf you have to build hardware for it :), for instance sending to UART or a screen ).
+
+> In the first entries, simulated designs run forever, hit CTRL-C to stop them.
 
 ___
 ### T1: a simple blinker
@@ -124,7 +127,7 @@ Let's first walk through this example:
 
 And this is it, we already have seen quite a few concepts!
 
-> **Exercise**: change `counter[0,8]` to slow down the LEDs pattern.
+> **Exercise**: change `counter[0,8]` to slow down the LEDs pattern (hint: use higher bits of the counter).
 
 ___
 ### T2: a second unit
@@ -162,11 +165,11 @@ Let's walk through this example:
 - `uint8 bits(8b1)` is an 8 bit internal variable initialized at configuration time with `8b1` which is a fancy way to say `1`, showing explicitly sized constants and binary basis (`b` for binary, `h` for hex and `d` for decimal). While unimportant in this case, sizing constants is good practice (and critical in some cases).
 - `always{ ... }` means we are doing these operations at every cycle, always and forever.
 - `o = bits;` assigns the output.
-- `bits = {bits[0,1],bits[1,7]};` creates the rotating pattern. Here's how: `bits[0,1]` is the lowest bit, `bits[1,7]` are the seven other bits, and `{..,..,..}` concatenates into a different bit vectors. So in effect this moves bit `0` to bit `7` and shifts all other bits right. Handy! (All bit operators are directly inherited from Verilog).
+- `bits = {bits[0,1],bits[1,7]}` creates the rotating pattern. Here's how: `bits[0,1]` is the lowest bit, `bits[1,7]` are the seven other bits, and `{..,..,..}` concatenates into a different bit vectors. So in effect this moves bit `0` to bit `7` and shifts all other bits right. Handy! (All bit operators are directly inherited from Verilog).
 
 Now let's move to main:
-- `rotate r;` *instantiates* the unit `rotate`, naming the instance `r`.
-- `leds = r.o;` assigns the output `o` of `r` to `leds`. This is using the *dot syntax* where we refer to outputs and inputs of an instance using `<instance name>.<io name>`
+- `rotate r` *instantiates* the unit `rotate`, naming the instance `r`.
+- `leds = r.o` assigns the output `o` of `r` to `leds`. This is using the *dot syntax* where we refer to outputs and inputs of an instance using `<instance name>` `.` `<io name>`
 - `__display` is printing leds in simulation.
 
 What is the result of this exactly? Let's run in simulation: enter the [`tutorial`](./tutorial) directory and run `make verilator file=t2.si`. Hit CTRL-C to stop the output.
@@ -560,8 +563,9 @@ ___
 Alright, we got all the basics for units, let's now talk about a big feature of
 Silice, the algorithms.
 
-Silice lets you write algorithms within your units, enabling to reason with a
-more standard imperative programming flow. Just to get our feet wet, here is an example in simulation:
+Silice lets you write algorithms within your units, allowing to use a more
+standard imperative programming flow. Just to get our feet wet, here is an
+example in simulation:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t8.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/t8.si -->
@@ -615,6 +619,15 @@ The `= 0` means that it will be initialized each time the algorithm starts, so i
 equals `0` when we reach the loop.
 
 The loop then prints a message and increments `n`. And we get the expected output!
+We'll come back to algorithms later, but need a few more ingredients before.
+
+> Algorithms are great for prototyping and for simpler, less critical parts of a design.
+> Internally they get turned into finite state machines with multiplexers on the
+> manipulated variables. Thus, their cost in size (number of LUTs) and max
+> frequency is typically more than a carefully optimized unit using only an always block.
+> Nevertheless, algorithms can go a long > way, for an extreme example see
+> the [Doomchip project](../projects/doomchip/README.md),which reimplements the
+> Doom 1993 render loop using Silice algorithms.
 
 ___
 ### T9: arrays and BRAMs
@@ -670,26 +683,58 @@ Here is the same example using a BRAM:
 ```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
+Let's detail what is going on in this example.
+First, note the `bram` key word in front of the table declaration. This is for
+a 'simple' BRAM, as other types exist (most importantly *dual port* BRAMs).
+
+The table is now automatically stored into a BRAM by Silice, and initialized
+to the selected content. By the way, if you prefer *not* to initialize the BRAM
+you may write `= uninitialized` or, to initialize to a single value write `= {pad(8haa)}`.
+You can also load from file using `= {file("data.raw"),pad(uninitialized)}` which loads
+from file and then considers the rest as uninitialized. Very common approach to
+initialize, e.g. boot code for processor, or palettes for graphics.
+
+Alright, the BRAM is declared, how do we access it? Since there is a one cycle
+latency, the syntax is not just `table[n]`. Instead, we first need to tell which
+address we are accessing, writing it to the `addr` member of the BRAM: `table.addr = n`.
+Then, at the next cycle we will get the read value into `table.rdata`. Of course,
+you have to watch out for the one cycle delay that is necessary for the BRAM to
+fetch the data. This is why, in the loop, we set `table.addr = n` *after* incrementing
+`n = n + 1`. The loop takes exactly one cycle (see [Silice documentation](Documentation.md#execution-flow-and-cycle-utilization-rules)), so every iteration we get the next value.
 
 ___
-### Tx: always and algorithms
+### T10: BRAMs, algorithms and always
 
-A feature of Silice that is extremely convenient is that you can combine
-algorithm and always blocks. The general structure of a unit is to have three
-blocks: an `always_before` block, an `algorithm` block, and an `always_after` block.
+Ok, let's do a design for hardware using algorithms and BRAMs, and another cool feature.
+
+Silice lets you combine algorithm and always blocks. The general structure
+of a unit is to have three blocks: an `always_before` block, an `algorithm` block,
+and an `always_after` block.
 The *before* and *after* of the always blocks are with respect to the algorithm:
-this defines whether the block happens before anything in the algorithm, or
-after anything in the algorithm. This is also why there is a single `always` block
+this defines whether the block happens *before* anything in the algorithm, or
+*after* anything in the algorithm. This is also why there is a single `always` block
 when no algorithm is used.
 
-What can you do with this? A typical case is to have the always block receive requests
-while the algorithm processes them. Another is to have the algorithm
-setup a sequence that is performed by the always block.
+Let's use this to produce interesting LED patterns, with the following:
 
-> To be written
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t10.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+Quick walkthrough:
+- `bram uint5 patterns[] = { ... }` creates a BRAM and initializes it with a sequence of 5 bits entries (one bit per LED). The sequence produces a back and forth LED pattern.
+- The `always_before` block always assigns `leds` to be the pattern currently read by the BRAM: `leds = patterns.rdata`.
+- The `algorithm` block waits for a delay with a loop doing nothing (`while ( ~ n[21,1] ) { n = n + 1; }`) and then increments `patterns.addr`. The increment is using a ternary `. ? . : .` construct to reset the BRAM address to 0 when the last entry (16) has been reached.
+
+Here is the result on the ULX3S:
+
+<center><img src="figures/t10.gif"/></center>
+
+> That will run well on any board having 5+ LEDs (e.g. *IceStick*, *IceBreaker*, *ULX3S*, etc ). Timing will vary depending on base clock.
 
 ___
 ### Tx: calls and autorun
+
+> To be written
 
 ___
 ### Tx: clock and clocks

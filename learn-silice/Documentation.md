@@ -38,8 +38,8 @@ When designing with Silice your code describes circuits. If not done already, it
     -   [Always blocks](#always-blocks)
     -   [Clock and reset](#clock-and-reset)
     -   [Modifiers](#modifiers)
--   [Execution flow and cycle utilization rules](#execflow)
-    -   [The step operator](#step)
+-   [Execution flow and cycle utilization rules](#execution-flow-and-cycle-utilization-rules)
+    -   [The step operator](#the-step-operator)
     -   [Control flow](#control-flow)
     -   [Cycle costs of calls to algorithms and
         subroutines](#cycle-costs-of-calls-to-algorithms-and-subroutines)
