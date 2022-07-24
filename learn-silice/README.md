@@ -718,6 +718,29 @@ when no algorithm is used.
 Let's use this to produce interesting LED patterns, with the following:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t10.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t10.si -->
+```c
+  unit main(output uint5 leds) {
+
+    bram uint5 patterns[] = { // BRAM with 17 patterns
+      5b00001, 5b00011, 5b00111, 5b01111, 5b11111, 5b11110,
+      5b11100, 5b11000, 5b10000, 5b11000, 5b11100, 5b11110,
+      5b11111, 5b01111, 5b00111, 5b00011, 5b00001,
+    };
+
+    always_before {
+      leds = patterns.rdata; // assign leds to the current BRAM value
+    }
+
+    algorithm {
+      while (1) { // forever
+        uint22 n = 0;
+        while ( ~ n[21,1] ) { n = n + 1; } // wait
+        patterns.addr = patterns.addr == 16 ? 0 : patterns.addr + 1;
+      }
+    }
+  }
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 Quick walkthrough:
