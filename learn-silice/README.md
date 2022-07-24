@@ -746,7 +746,7 @@ Let's use this to produce interesting LED patterns, with the following:
 Quick walkthrough:
 - `bram uint5 patterns[] = { ... }` creates a BRAM and initializes it with a sequence of 5 bits entries (one bit per LED). The sequence produces a back and forth LED pattern.
 - The `always_before` block always assigns `leds` to be the pattern currently read by the BRAM: `leds = patterns.rdata`.
-- The `algorithm` block waits for a delay with a loop doing nothing (`while ( ~ n[21,1] ) { n = n + 1; }`) and then increments `patterns.addr`. The increment is using a ternary `. ? . : .` construct to reset the BRAM address to 0 when the last entry (16) has been reached.
+- The `algorithm` block waits for a delay with a loop doing nothing (`while ( ~ n[21,1] ) { n = n + 1; }`) and then increments `patterns.addr`. The increment is using a [ternary conditional assignment](https://en.wikipedia.org/wiki/%3F:) (`= . ? . : . `) to reset the BRAM address to 0 when the last entry (16) has been reached. By the way, the initial address is always 0.
 
 Note that we are using an `always_before` block but no `always_after` block,
 all are optional.
