@@ -40,7 +40,7 @@ From the illustration we can guess a few things:
 
 > This is not only about the routes, the LUTs can be configured as *asynchronous* in which case they constantly update their outputs when the inputs change. In such case, the delay is the sum of route delays and LUT traversal delays. This is very typical: a design contains many synchronous (flip-flop) and asynchronous (*combinational*) gates.
 
-Finally, something to remember, especially if you have a background in programming on CPU: *There is no concept of "not doing something"*. *Everything* you describe becomes a circuit and takes space on the FPGA. On CPU we tend to write thing like:
+Finally, something to remember, especially if you have a background in programming on CPU: *There is no concept of "not doing something"*. *Everything* you describe becomes a circuit and takes space on the FPGA. On CPU we tend to write things like:
 ```c
   if (condition) {
     do_something(); // could be always done, skip for faster exec
@@ -52,16 +52,16 @@ It takes time and practice to get used to that, but it is also a fun mindset, an
 
 ## Tutorial
 
-This tutorial is meant to be done linearly, starting from T1 below. It gradually introduces concepts of Silice (many are general to hardware design) through toy examples. Each entry covers one specific concept, so they remain short and compact to read.
+This tutorial is meant to be done linearly, starting from entry T1 below. It gradually introduces concepts of Silice (many are general to hardware design) through toy examples. Each entry covers one specific concept, so they remain short and compact to read.
 
 To run these examples, enter the [`tutorial`](./tutorial) directory, and run (here for T1):
 ```
 make verilator file=t1.si
 ```
-If you have an FPGA you could replace `verilator` by the name of your board. Plug the board first and it will be programmed automatically in most cases (a few toy examples are meant for simulation only).
+If you have an FPGA you could replace `verilator` by the name of your board. Plug the board first and it will be programmed automatically in most cases.
 
 > Most of the initial entries of the tutorial use simulation so that we can print
-> in the console using `__display`, a simulation only printf. (On a FPGA, if you want a printf you have to build hardware for it :), for instance sending to UART or a screen ).
+> in the console using `__display`: a simulation only printf. (On a FPGA, if you want a printf you have to build hardware for it! for instance sending to UART or a screen ).
 
 > In the first entries, simulated designs run forever, hit CTRL-C to stop them.
 
@@ -105,9 +105,9 @@ leds:00000110
 ...
 ```
 
-On real hardware the LEDs will blink with the corresponding pattern. That will be too fast to see (it will appear as if all LEDs are on, with slightly different brightness), we'll fix that in a minute.
+On real hardware the LEDs will blink with the corresponding pattern. That will be too fast to see (it will appear as if all LEDs are on, with slightly different brightness), we'll fix that in a later entry.
 
-Let's first walk through this example:
+Let's walk through this example:
 - `unit main( )`: This defines the main circuit of the design. All Silice designs are meant to have a main circuit, which is instantiated automatically.
 - `output uint8 leds`: This means our circuit outputs an 8 bits signal called `leds`. This directly corresponds to eight pins going outside of the FPGA and driving actual LEDs on the board.
 
