@@ -773,6 +773,27 @@ The pre-generated PLLs can be found in [./projects/common/plls](../projects/comm
 So, let's see how can we use such a PLL in a Silice design:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t11.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t11.si -->
+```c
+import('../../projects/common/plls/icestick_25.v')
+
+unit main(output uint5 leds) <@cpu_clock>
+//                           ^^^^^^^^^^^ main will run with the new clock
+{
+  // generates a faster clock
+  uint1 cpu_clock  = uninitialized; // will be our new clock
+  // vvvv PLL instantiation
+  pll _( clock_in <: clock,      clock_out :> cpu_clock);
+  //     ^^^^^^^^^ old clock in  ^^^^^^^^^^^^^ new clock out
+
+  always { // a simple blinky
+    uint26 counter(0);
+    leds    = counter[21,5];
+    counter = counter + 1;
+  }
+
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 First, we *import* the Verilog module: `import( ... )`. This loads the Verilog source and turns the module inside into a Silice unit that we can use as any other unit.
