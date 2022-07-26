@@ -75,6 +75,14 @@ interface dualport_bram_ports {
 
 // simple dual port BRAM
 
+interface simple_dualport_bram_ports {
+  output(!) addr0,
+  input     rdata0,
+  output(!) addr1,
+  output(!) wenable1,
+  output(!) wdata1,
+}
+
 interface simple_dualport_bram_port0 {
   output(!) addr0,
   input     rdata0,
