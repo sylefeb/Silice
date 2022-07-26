@@ -758,11 +758,45 @@ Here is the result on the ULX3S (plug your board and in `tutorials` run `make <b
 > That will run well on any board having 5+ LEDs (e.g. *IceStick*, *IceBreaker*, *ULX3S*, etc ). Timing will vary depending on base clock.
 
 ___
-### Tx: calls and autorun
+### T11: a faster clock
 
-> To be written
+On real hardware you'll often want the FPGA to be clocked at a frequency that
+is different from the base frequency, for instance running 25 MHz when the
+base clock is 12 MHz.
+
+To achieve this you need to use what is called a *PLL* ([Phase-Locked Loop](https://en.wikipedia.org/wiki/Phase-locked_loop)). In terms of code, this means using a pre-defined *Verilog* module, which syntax varies between FPGAs.
+
+Silice comes with many PLL Verilog modules that I pre-generated using the dedicated tools (e.g. *icepll* and *ecppll*). These are command line tools that determine the FPGA-specific module parameters from a base frequency and a requested frequency.
+
+The pre-generated PLLs can be found in [./projects/common/plls](../projects/common/plls/). They are named after the target board and frequency, e.g. [icestick_25.v](../projects/common/plls/icestick_25.v) for the icestick at 25 MHz.
+
+So, let's see how can we use such a PLL in a Silice design:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t11.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+First, we *import* the Verilog module: `import( ... )`. This loads the Verilog source and turns the module inside into a Silice unit that we can use as any other unit.
+
+Then we instantiate the PLL to produce a new clock:
+```c
+  pll _( clock_in <: clock,      clock_out :> cpu_clock);
+```
+
+The PLL takes as input clock the default clock, which is always named `clock` in a unit. It generates a new clock which we bind to `cpu_clock`.
+
+> Note how the pll instance name is just `'_'`: this is an *anonymous* instance: we do not need to refer to it later, so we don't give it a name.
+
+Now, how do we tell Silice we want to use this clock for the `main` unit? This was done before, when we declared the unit and added the *modifier* `<@cpu_clock>`:
+
+```c
+unit main(output uint5 leds) <@cpu_clock> { ... }
+```
+
+Running the design with and without the modifier (comment or remove `<@cpu_clock>`), we see that it's twice as fast with it: The IceStick runs at 12 MHZ by default and the PLL makes the design go twice as fast at 25 MHz!
+
+> Is the sky the limit? Nope, because if you look at NextPNR's report, it tells us `Info: Max frequency for clock '__main._w_pll_unnamed_0_clock_out_$glb_clk': 178.76 MHz`. So we could run at up to 178 MHz but not faster or the design would glitch (well, in reality there is a bit of margin, and this even depends on operating temperature!).
 
 ___
-### Tx: clock and clocks
+### Tx: calls and autorun
 
 > To be written

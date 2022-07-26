@@ -1679,10 +1679,8 @@ Import is the most interesting way to inter-operate with Verilog. Once
 imported, all Verilog modules from the Verilog source file will be
 available for inclusion in algorithms.
 
-The modules are instantiated in a very similar way as algorithms, with
-bindings to variables. However, modules cannot be called like
-algorithms, and the ’dot’ syntax to read/write outputs and inputs is not
-available for modules.
+The modules are instantiated in a very similar way as units, with
+bindings to variables and dot syntax.
 
 ## Wrapping
 
