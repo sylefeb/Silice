@@ -13,8 +13,8 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 
-$$spi4x  = 1
-$$spi2x  = nil
+$$spi4x  = nil
+$$spi2x  = 1
 
 $$nBytes = 4
 
@@ -215,7 +215,7 @@ $$end
     while (n != $nBytes$) {
       uo.data_in       = dta[0,8];
       uo.data_in_ready = 1;
-      __display("sending %h",dta[0,8]);
+      // __display("sending %h",dta[0,8]);
       dta              = dta >> 8;
       while (uo.busy) { }
       n = n + 1;

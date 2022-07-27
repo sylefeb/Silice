@@ -26,7 +26,7 @@ $$if not nBytes then
 $$ nBytes = 1
 $$end
 
-algorithm spiflash_qspi(
+unit spiflash_qspi(
   input  uint8 send,
   input  uint1 trigger,
   input  uint1 send_else_read,
@@ -98,11 +98,12 @@ $$end
 
 // -------------------------------------------------------------
 
-algorithm spiflash_rom(
+unit spiflash_rom_core(
   input   uint1  in_ready,
   input   uint24 addr,
-  output  uint$nBytes*8$ rdata,
+  output  uint8  rdata,
   output  uint1  busy(1),
+  output  uint1  rdata_available(0),
   // QSPI flash
   output  uint1  sf_csn(1),
   output  uint1  sf_clk,
@@ -110,7 +111,7 @@ algorithm spiflash_rom(
   inout   uint1  sf_io1,
   inout   uint1  sf_io2,
   inout   uint1  sf_io3,
-) <autorun> {
+) {
 
   uint32 sendvec(0); //_ 38h (QPI enable)
 
@@ -129,9 +130,7 @@ algorithm spiflash_rom(
   uint3  after(1);
   uint2  init(2b11);
   uint1  accept_in(0);
-$$if nBytes > 1 then
-  uint$nBytes$ rdata_done(0);
-$$end
+  uint1  continue(0);
 $$if SIMULATION then
   uint32 cycle(0);
 $$if VERILATOR then
@@ -146,7 +145,10 @@ $$else
     // this is necessary for icarus as spiflash.qspi is otherwise 1bz
     spiflash.qspi = reset ? 0 : ~init[1,1];
 $$end
-    accept_in = 0;
+    accept_in       = 0;
+    rdata_available = 0;
+    // continue while in_ready stays high
+    continue = continue & in_ready;
 
     switch (stage)
     {
@@ -186,74 +188,93 @@ $$end
         wait                    = 1022; //_ 4 cycles (one extra due to registered ios)
         after                   = 5;
       }
-$$if nBytes == 1 then
       case 5: {
   $$if VERILATOR then
         rdata                   = vdta.data;  // from 'data.raw'
+        vdta.addr               = vdta.addr + 1;
   $$else
         rdata                   = spiflash.read;
   $$end
-        spiflash.trigger        = 0;
-        busy                    = 0;
-        init                    = {1b0,init[1,1]};
-        stage                   = 1; // return to start stage
-        accept_in               = 1; // accept an input immediately
-$$if SIMULATION then
-        //__display("[%d|%d] spiflash DONE (%h)",cycle>>1,cycle,rdata);
-        //__display("[%d](%d) spiflash [5] DONE (%h)",cycle,cycle>>1,rdata);
-$$end
-      }
-$$else
-      case 5: {
-  $$if VERILATOR then
-        rdata                   = {vdta.data[0,8],rdata[8,$(nBytes-1)*8$]};  // from 'data.raw'
-        vdta.addr               = rdata_done[0,1] ? vdta.addr : (vdta.addr + 1);
-  $$else
-        rdata                   = {spiflash.read, rdata[8,$(nBytes-1)*8$]};
-  $$end
-        spiflash.trigger        = ~rdata_done[0,1];
-        busy                    = ~rdata_done[0,1];
+        rdata_available         = 1;
+        spiflash.trigger        = continue;
+        busy                    = continue;
         init                    = {1b0,init[1,1]};
         wait                    = 1024; //_ 2 cycles
-        stage                   = rdata_done[0,1] ? 1 : 0;  // return to start stage when done
-        after                   = 5; // otherwise keep reading
-        accept_in               = rdata_done[0,1];
-        rdata_done              = rdata_done >> 1;
+        // return to start stage if no further reads, otherwise wait and ...
+        stage                   = ~continue ? 1 : 0;
+        after                   = 5; // ... keep reading
+        // accept an input immediately if no further reads
+        accept_in               = ~continue;
 $$if SIMULATION then
-        if (rdata_done[0,1]) {
-          //__display("[%d] spiflash [5] DONE (%h) busy:%b",cycle,rdata,busy);
-        }
+        //__display("[%d](%d) spiflash [5] (%x) in_ready:%b accept_in:%b",cycle,cycle>>1,rdata,in_ready,accept_in);
 $$end
       }
-$$end
     } // switch
 
     // start sending?
     if ((in_ready | init[1,1]) & accept_in) {
-      four    = {init[0,1],~init[0,1],2b00};
-      sendvec = (init == 2b01 ? {8hEB,addr} : 24h0)
-              | (init == 2b00 ? {addr,8h00} : 24h0)
-              | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0);
-              //                ^^^^^^^^^^ produces 38h when not in QPI
+      four     = {init[0,1],~init[0,1],2b00};
+      sendvec  = (init == 2b01 ? {8hEB,addr} : 24h0)
+               | (init == 2b00 ? {addr,8h00} : 24h0)
+               | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0);
+               //                ^^^^^^^^^^ produces 38h when not in QPI
       spiflash.send_else_read = 1; // sending
-  $$if nBytes > 1 then
-      rdata_done = init[1,1] ? 1 : $1<<(nBytes-1)$;
-  $$end
   $$if SIMULATION then
-      //__display("[%d|%d] spiflash START (@%h)",cycle>>1,cycle,addr);
       //__display("[%d](%d) spiflash [1] START @%x qspi:%d init:%b",cycle,cycle>>1,addr,spiflash.qspi,init);
   $$if VERILATOR then
       vdta.addr = addr;
       //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
   $$end
   $$end
-      busy                  = 1;
-      stage                 = 2;
+      busy     = 1; // now busy
+      stage    = 2;
+      continue = 1; // reset continue
     }
 
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
+  }
+}
+
+// -------------------------------------------------------------
+
+// implements the old interface atop the new one, for backward compatibility
+unit spiflash_rom(
+  input   uint1  in_ready,
+  input   uint24 addr,
+  output  uint$nBytes*8$ rdata,
+  output  uint1  busy(1),
+  // QSPI flash
+  output  uint1  sf_csn(1),
+  output  uint1  sf_clk,
+  inout   uint1  sf_io0,
+  inout   uint1  sf_io1,
+  inout   uint1  sf_io2,
+  inout   uint1  sf_io3,
+) {
+  uint$nBytes$  keep_reading(0);
+  uint1         core_busy(1);
+  sameas(rdata) core_rdata(0);
+  // instantiate spiflash_rom_core
+  spiflash_rom_core core(
+    in_ready <: keep_reading[0,1],
+    busy     :> core_busy,
+    rdata    :> core_rdata,
+    <:auto:> );
+
+  always {
+$$if ICARUS then
+    keep_reading = reset ? 0 : in_ready
+$$else
+    keep_reading = in_ready
+$$end
+                 ? {1b0,{$nBytes-1${1b1}}}
+                 : ( core.rdata_available ? (keep_reading >> 1) : keep_reading );
+    rdata        = core.rdata_available
+                 ? {core_rdata, rdata[8,$(nBytes-1)*8$]}
+                 : rdata;
+    busy         = keep_reading[0,1] | core_busy;
   }
 }
 
