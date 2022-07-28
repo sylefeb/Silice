@@ -30,7 +30,6 @@ unit spiflash_qspi(
   input  uint8 send,
   input  uint1 trigger,
   input  uint1 send_else_read,
-  input  uint1 qspi,
   output uint8 read,
   output uint1 clk,
   output uint1 csn(1),
@@ -52,9 +51,9 @@ $$if not ICE40 then
   always {
     // output enable on ios
     io0.oenable = send_else_read;
-    io1.oenable = send_else_read & qspi;
-    io2.oenable = send_else_read & qspi;
-    io3.oenable = send_else_read & qspi;
+    io1.oenable = send_else_read;
+    io2.oenable = send_else_read;
+    io3.oenable = send_else_read;
     // read current
     read      = {read[0,4],read_reg};
     read_reg  = {io3.i,io2.i,io1.i,io0.i};
@@ -82,7 +81,7 @@ $$else
   uint4 read_reg(0);
   always {
     // output enable on ios
-    io_oe     = {{3{send_else_read & qspi}},send_else_read};
+    io_oe     = {4{send_else_read}};
     // read current
     read      = {read[0,4],read_reg};
     read_reg  = io_i;
@@ -139,12 +138,6 @@ $$end
 $$end
   always {
 
-$$if not ICARUS then
-    spiflash.qspi = ~init[1,1]; // qpi activated after first command
-$$else
-    // this is necessary for icarus as spiflash.qspi is otherwise 1bz
-    spiflash.qspi = reset ? 0 : ~init[1,1];
-$$end
     accept_in       = 0;
     rdata_available = 0;
     // continue while in_ready stays high
@@ -154,7 +147,7 @@ $$end
     {
       case 0: {
 $$if ICARUS then
-        // this is necessary for icarus as spiflash.qspi is otherwise 1bz
+        // this is necessary for icarus as init is otherwise 1bz
         spiflash.trigger = reset ? 0 : spiflash.trigger;
         spiflash.send    = 0;
 $$end
@@ -164,7 +157,7 @@ $$end
       case 1: { accept_in = 1; }
       case 2: {
 $$if ICARUS then
-        //__display("[%d] spiflash [2] qspi:%d init:%b send:%b",cycle,spiflash.qspi,init,sendvec[24,8]);
+        //__display("[%d] spiflash [2] init:%b send:%b",cycle,init,sendvec[24,8]);
 $$end
         spiflash.trigger        = 1;
         spiflash.send           = sendvec[24,8];
@@ -220,7 +213,7 @@ $$end
                //                ^^^^^^^^^^ produces 38h when not in QPI
       spiflash.send_else_read = 1; // sending
   $$if SIMULATION then
-      //__display("[%d](%d) spiflash [1] START @%x qspi:%d init:%b",cycle,cycle>>1,addr,spiflash.qspi,init);
+      //__display("[%d](%d) spiflash [1] START @%x init:%b",cycle,cycle>>1,addr,init);
   $$if VERILATOR then
       vdta.addr = addr;
       //__display("[%d] spiflash, read @%h (%b) init:%b",cycle,addr,rdata_done,init);
