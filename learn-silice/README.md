@@ -778,9 +778,11 @@ unit k2000(output uint5 leds)
     5b11100, 5b11000, 5b10000, 5b11000, 5b11100, 5b11110,
     5b11111, 5b01111, 5b00111, 5b00011, 5b00001,
   };
+
   always_before {
     leds = patterns.rdata; // assign leds to the current BRAM value
   }
+
   algorithm <autorun> {
   //        ^^^^^^^^^ This is the important part: algorithm will run immediately
     while (1) { // forever
