@@ -1,4 +1,4 @@
-file ?= step1.si
+file ?= t1.si
 
 .DEFAULT: $(file)
 		silice-make.py -s $(file) -b $@ -p basic -o BUILD_$(subst :,_,$@)

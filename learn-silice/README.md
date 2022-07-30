@@ -758,7 +758,120 @@ Here is the result on the ULX3S (plug your board and in `tutorials` run `make <b
 > That will run well on any board having 5+ LEDs (e.g. *IceStick*, *IceBreaker*, *ULX3S*, etc ). Timing will vary depending on base clock.
 
 ___
-### T11: a faster clock
+### T11: algorithm autorun
+
+The algorithm in main always starts automatically, since it is the entry point
+of the design. However, algorithms in other units do not start automatically
+by default. To start them, we either have to choose *autostart* or *call* them.
+Let's first see autostart. We introduce calls in T12.
+
+Below, we take our LED pattern from T10 and move it to a different unit, `k2000`.
+We also adapt the design for simulation by removing the waiting loop.
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t11.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+We get the following result with `make verilator file=t11.si` (CTRL-C to stop):
+```
+leds 10000
+leds 11000
+leds 11100
+leds 11110
+leds 11111
+leds 01111
+leds 00111
+leds 00011
+leds 00001
+...
+```
+
+However, if you remove the `<autostart>` from unit's `k2000` algorithm nothing
+happens anymore. That is because the algorithm never starts. So adding
+`algorithm <autorun> { ... }` ensures that the algorithm is automatically triggered
+when the unit comes out of reset. In unit main `<autostart>` has no effect
+since the algorithm always automatically starts already.
+
+___
+### T12: algorithm calls
+
+Another way to run algorithm is to *call* them. This is a topic with several
+aspects so we'll come back to it, but let us start with a simple yet useful
+example:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t12.si&syntax=c) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+We get the following result with `make verilator file=t12.si` (CTRL-C to stop):
+```
+leds: 00001
+leds: 00010
+leds: 00100
+leds: 01000
+leds: 10000
+...
+leds: 10000
+leds: 01000
+leds: 00100
+leds: 00010
+leds: 00001
+...
+```
+
+Three algorithms are responsible for creating this pattern. First, `left` and
+`right` which respectively generate a 'left shift' and 'right shift' moving
+bit pattern. Let us take `left` for the example since `right` is almost the same.
+
+The algorithm in `left` does *not* autostart. It is a loop that continues
+until the left-most bit (Most Significant Bit, MSB) of `v` is 1:
+`while (~v[4,1]) { ... }`. But where is `v` defined? It is actually an
+output to the algorithm: `unit left(output uint5 v = 5b00001)`. This not
+only declares the output (which becomes a variable driving the output),
+it also gives it an initial value. Using `= 5b00001` means that the initial
+value is assigned to `v` everytime the unit algorithm starts.
+
+The third algorithm orchestrating the pattern is in main. It is a simple infinite
+loop calling first left, then right. Both are instantiated and given a name:
+
+```c
+left l; right r;
+```
+
+Then we can call left/right using the following syntax:
+
+```c
+() <- l <- (); // call l (blocking)
+```
+
+This syntax is a *synchronous* call; meaning that the calling algorithm is waiting
+for the called algorithm to complete. The call is in fact composed of two parts:
+```c
+l <- (); // starts algorithm in l
+() <- l; // joins (waits) the algorithm in l
+```
+Try to replace the line with these two, same result! But of course the calling
+algorithm could be doing something in between, in *parallel*.
+
+But wait, where's the output of `l` and `r` used? Here we are using the dot syntax
+in an `always_after` block:
+```c
+  // select leds pattern from running algorithm
+  leds = ~isdone(l) ? l.v // left is running
+       : ~isdone(r) ? r.v // right is running
+       : leds;            // none running, keep as is
+```
+This is using two nested [ternary conditional assignment](https://en.wikipedia.org/wiki/%3F:) (`= . ? . : . `)
+to choose between the output of `l` and `r`. The condition is simply that if the
+algorithm is not done (`~isdone(.)`) we read its output. The `always_after` block
+here allows to track the output of the running algorithms.
+
+Calling an algorithm takes one cycle before it starts and one cycle after it
+returns. For this reason there are pauses in the LED pattern, and for some cycles
+both `l` and `r` are done, in which case we simply hold the latest value of `leds`.
+
+> Of course it is also possible to [read the outputs of algorithms when they return from a call](Documentation.md#call). We will see that later.
+
+___
+### T13: a faster clock
 
 On real hardware you'll often want the FPGA to be clocked at a frequency that
 is different from the base frequency, for instance running 25 MHz when the
@@ -772,8 +885,8 @@ The pre-generated PLLs can be found in [./projects/common/plls](../projects/comm
 
 So, let's see how can we use such a PLL in a Silice design:
 
-<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t11.si&syntax=c) -->
-<!-- The below code snippet is automatically added from ./tutorial/t11.si -->
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t13.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t13.si -->
 ```c
 import('../../projects/common/plls/icestick_25.v')
 
@@ -818,6 +931,6 @@ Running the design with and without the modifier (comment or remove `<@cpu_clock
 > Is the sky the limit? Nope, because if you look at NextPNR's report, it tells us `Info: Max frequency for clock '__main._w_pll_unnamed_0_clock_out_$glb_clk': 178.76 MHz`. So we could run at up to 178 MHz but not faster or the design would glitch (well, in reality there is a bit of margin, and this even depends on operating temperature!).
 
 ___
-### Tx: calls and autorun
+### Tx: inouts
 
 > To be written
