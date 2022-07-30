@@ -17,7 +17,8 @@
         {"set"    : "uart",    "define" : "UART=1"},
         {"set"    : "uart2",   "define" : "UART2=1"},
         {"set"    : "spiflash","define" : "SPIFLASH=1"},
-        {"set"    : "us2_ps2", "define" : "US2_PS2=1"}
+        {"set"    : "us2_ps2", "define" : "US2_PS2=1"},
+        {"set"    : "i2c",     "define" : "I2C=1"}
       ],
       "builders": [
       {
@@ -57,7 +58,8 @@
         {"set"    : "audio",  "define" : "AUDIO=1"},
         {"set"    : "uart",   "define" : "UART=1"},
         {"set"    : "uart2",  "define" : "UART2=1"},
-        {"set"    : "us2_ps2","define" : "US2_PS2=1"}
+        {"set"    : "us2_ps2","define" : "US2_PS2=1"},
+        {"set"    : "i2c",    "define" : "I2C=1"}
       ],
       "builders": [
       {
@@ -97,7 +99,8 @@
         {"set"    : "audio",  "define" : "AUDIO=1"},
         {"set"    : "uart",   "define" : "UART=1"},
         {"set"    : "uart2",  "define" : "UART2=1"},
-        {"set"    : "us2_ps2","define" : "US2_PS2=1"}
+        {"set"    : "us2_ps2","define" : "US2_PS2=1"},
+        {"set"    : "i2c",    "define" : "I2C=1"}
       ],
       "builders": [
       {
@@ -137,7 +140,8 @@
         {"set"    : "audio",  "define" : "AUDIO=1"},
         {"set"    : "uart",   "define" : "UART=1"},
         {"set"    : "uart2",  "define" : "UART2=1"},
-        {"set"    : "us2_ps2","define" : "US2_PS2=1"}
+        {"set"    : "us2_ps2","define" : "US2_PS2=1"},
+        {"set"    : "i2c",    "define" : "I2C=1"}
       ],
       "builders": [
       {
@@ -371,6 +375,18 @@
         "name": "us2_bd_dn",
         "type": "uint1",
         "io"  : "input"
+      }
+    ],
+    "i2c": [
+      {
+        "name": "gpdi_sda",
+        "type": "uint1",
+        "io"  : "inout"
+      },
+      {
+        "name": "gpdi_scl",
+        "type": "uint1",
+        "io"  : "inout"
       }
     ],
     "vga": [

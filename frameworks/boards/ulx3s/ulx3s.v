@@ -109,6 +109,11 @@ module top(
   output flash_mosi,
   input  flash_miso,
 `endif
+`ifdef I2C
+  // i2c for rtc
+  inout gpdi_sda,
+  inout gpdi_scl,
+`endif
   output wifi_gpio0,
   input  clk_25mhz
   );
@@ -258,6 +263,10 @@ M_main __main(
 `endif
 `ifdef HDMI
   .out_gpdi_dp  (__main_out_gpdi_dp),
+`endif
+`ifdef I2C
+  .inout_gpdi_sda(gpdi_sda),
+  .inout_gpdi_scl(gpdi_scl),
 `endif
   .clock         (clk_25mhz)
 );
