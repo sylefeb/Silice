@@ -769,6 +769,33 @@ Below, we take our LED pattern from T10 and move it to a different unit, `k2000`
 We also adapt the design for simulation by removing the waiting loop.
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t11.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t11.si -->
+```c
+unit k2000(output uint5 leds)
+{
+  bram uint5 patterns[] = { // BRAM with 17 patterns
+    5b00001, 5b00011, 5b00111, 5b01111, 5b11111, 5b11110,
+    5b11100, 5b11000, 5b10000, 5b11000, 5b11100, 5b11110,
+    5b11111, 5b01111, 5b00111, 5b00011, 5b00001,
+  };
+  always_before {
+    leds = patterns.rdata; // assign leds to the current BRAM value
+  }
+  algorithm <autorun> {
+  //        ^^^^^^^^^ This is the important part: algorithm will run immediately
+    while (1) { // forever
+      patterns.addr = patterns.addr == 16 ? 0 : patterns.addr + 1;
+    }
+  }
+}
+
+unit main(output uint5 leds) {
+  k2000 _(leds :> leds);
+  always {
+    __display("leds %b",leds);
+  }
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 We get the following result with `make verilator file=t11.si` (CTRL-C to stop):
@@ -799,6 +826,43 @@ aspects so we'll come back to it, but let us start with a simple yet useful
 example:
 
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t12.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t12.si -->
+```c
+unit left(output uint5 v = 5b00001)
+{
+  algorithm {
+    while (~v[4,1]) { v   = v << 1; }
+  }
+}
+
+unit right(output uint5 v = 5b10000)
+{
+  algorithm {
+    while (~v[0,1]) { v   = v >> 1; }
+  }
+}
+
+unit main(output uint5 leds)
+{
+  left l; right r;
+
+  algorithm {
+    while (1) {
+      () <- l <- (); // call l (blocking)
+      () <- r <- (); // call r (blocking)
+    }
+  }
+
+  always_after {
+    // select leds pattern from running algorithm
+    leds = ~isdone(l) ? l.v // left is running
+         : ~isdone(r) ? r.v // right is running
+         : leds;            // none running, keep as is
+    __display("leds: %b",leds);
+  }
+
+}
+```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
 We get the following result with `make verilator file=t12.si` (CTRL-C to stop):
