@@ -34,6 +34,7 @@ $$color_max   = 63
 $$config['bram_wenable_width'] = '1'
 $$config['dualport_bram_wenable0_width'] = 'data'
 $$config['dualport_bram_wenable1_width'] = 'data'
+$$config['reg_init_zero'] = '1'
 
 `timescale 1ns / 1ps
 

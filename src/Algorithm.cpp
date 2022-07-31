@@ -6393,9 +6393,17 @@ void Algorithm::writeConstDeclarations(std::string prefix, std::ostream& out,con
         out << "assign " << FF_CST << prefix << v.name << " = " << varInitValue(v,ictx) << ';' << nxl;
       } else {
         sl_assert(v.type_nfo.base_type != Parameterized);
-        int width = v.type_nfo.width;
         ForIndex(i, v.init_values.size()) {
           out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = " << v.init_values[i] << ';' << nxl;
+        }
+      }
+    } else if (CONFIG.keyValues().count("reg_init_zero")) {
+      if (v.table_size == 0) {
+        out << "assign " << FF_CST << prefix << v.name << " = 0;" << nxl;
+      } else {
+        sl_assert(v.type_nfo.base_type != Parameterized);
+        ForIndex(i, v.init_values.size()) {
+          out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = 0;" << nxl;
         }
       }
     }
@@ -6451,6 +6459,8 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
       std::string init;
       if (v.init_at_startup && !v.init_values.empty()) {
         init = " = " + v.init_values[0];
+      } else if (CONFIG.keyValues().count("reg_init_zero")) {
+        init = " = 0";
       }
       writeVerilogDeclaration(out, ictx, "reg", v, string(FF_D) + prefix + v.name + init);
       writeVerilogDeclaration(out, ictx, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + init);
@@ -6466,6 +6476,8 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     std::string init;
     if (v.init_at_startup && !v.init_values.empty()) {
       init = " = " + v.init_values[0];
+    } else if (CONFIG.keyValues().count("reg_init_zero")) {
+      init = " = 0";
     }
     writeVerilogDeclaration(out, ictx, "reg", v, string(FF_D) + prefix + v.name + init);
     writeVerilogDeclaration(out, ictx, "reg", v, string(FF_Q) + prefix + v.name + init);

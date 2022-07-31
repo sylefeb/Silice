@@ -353,8 +353,6 @@ void SiliceCompiler::beginParsing(
   CONFIG.keyValues()["frameworks_dir"] = frameworks_dir;
   CONFIG.keyValues()["templates_path"] = frameworks_dir + "/templates";
   CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
-  // display config
-  CONFIG.print();
 
   // create the preprocessor
   AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor());
@@ -603,6 +601,7 @@ void SiliceCompiler::run(
   std::string fframework,
   std::string frameworks_dir,
   const std::vector<std::string>& defines,
+  const std::vector<std::string>& configs,
   std::string to_export,
   const std::vector<std::string>& export_params)
 {
@@ -618,6 +617,15 @@ void SiliceCompiler::run(
     }
     // begin parsing
     beginParsing(fsource, fresult, fframework, frameworks_dir, defines, ictx);
+    // apply command line config options
+    for (auto cfg : configs) {
+      auto eq = cfg.find('=');
+      if (eq != std::string::npos) {
+        CONFIG.keyValues()[cfg.substr(0, eq)] = cfg.substr(eq + 1);
+      }
+    }
+    // display config
+    CONFIG.print();
     // create output stream
     std::ofstream out(m_BodyContext->fresult);
     // write body
