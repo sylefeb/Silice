@@ -1,0 +1,18 @@
+// create a unit producing a 'rotating' bit pattern
+unit rotate(output uint8 o)
+{
+  uint8 bits(8b1);
+  always {
+    o    = bits;
+    bits = {bits[0,1],bits[1,7]};
+  }
+}
+// main unit
+unit main(output uint8 leds)
+{
+  rotate r; // instantiate the unit
+  always {
+    leds = r.o;  // assign the output to leds
+    __display("leds:%b",leds); // print leds
+  }
+}

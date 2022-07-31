@@ -4,7 +4,7 @@ algorithm bar(input uint8 i, output uint8 o)
   o = i;
 }
 
-algorithm main(input uint2 v)
+algorithm main(output uint8 leds,input uint2 v)
 {
   uint8 a = 8b10101010;
   uint8 b = 2;

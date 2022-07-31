@@ -1,0 +1,10 @@
+  unit main(output uint8 leds) {
+    algorithm {
+      uint8 table[8] = {0,1,2,3,4,5,6,7};
+      uint8 n = 0;
+      while (n != 8) {
+        __display("[%d] = %d",n,table[n]);
+        n = n + 1;
+      }
+    }
+  }

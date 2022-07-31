@@ -1,0 +1,17 @@
+name: embed-code
+on:
+  push:
+    branches:
+      - master
+      - wip
+      - draft
+
+jobs:
+  tuto-readme:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v2
+        - name: Markdown autodocs
+          uses: dineshsonachalam/markdown-autodocs@v1.0.4
+          with:
+            output_file_paths: '[./learn-silice/README.md]'

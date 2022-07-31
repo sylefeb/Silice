@@ -155,8 +155,8 @@ private:
       std::string custom_template;
       Utils::t_source_loc      srcloc;
       std::vector<std::string> clocks;
-      std::vector<std::string> in_vars;
-      std::vector<std::string> out_vars;
+      std::vector<std::pair<std::string, std::string> > in_vars;  // member name, vio name
+      std::vector<std::pair<std::string, std::string> > out_vars; // member name, vio name
       std::vector<std::string> init_values;
       std::vector<std::string> members;
     };
@@ -194,7 +194,7 @@ private:
     /// \brief all inout names, map contains index in m_InOuts
     std::unordered_map<std::string, int > m_InOutNames;
 
-    /// \brief VIO (variable-or-input-or-output) bound to module/algorithms outputs (wires) (vio name => wire name)
+    /// \brief VIO bound to blueprint outputs (wires) (vio name => wire name)
     std::unordered_map<std::string, std::string>  m_VIOBoundToBlueprintOutputs;
     /// \brief module/algorithms inouts bound to VIO (inout => vio name)
     std::unordered_map<std::string, std::string > m_BlueprintInOutsBoundToVIO;
@@ -830,8 +830,12 @@ private:
 
   private:
 
+    /// \brief update and check variable dependencies for sets of written and read vios
+    void updateAndCheckDependencies(t_vio_dependencies& _depds, const Utils::t_source_loc& sloc, const std::unordered_set<std::string>& read,const std::unordered_set<std::string>& written, const t_combinational_block_context* bctx) const;
     /// \brief update and check variable dependencies for an instruction
     void updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context* bctx) const;
+    ///  \brief compute closure on dependencies
+    void dependencyClosure(t_vio_dependencies& _depds) const;
     /// \brief merge variable dependencies
     void mergeDependenciesInto(const t_vio_dependencies& _depds0, t_vio_dependencies& _depds) const;
     /// \brief update flip-flop usage
@@ -910,7 +914,9 @@ private:
     /// \brief converts an internal state into a FSM state
     int  toFSMState(int state) const;
     /// \brief finds the binding to var
-    const t_binding_nfo &findBindingTo(std::string var, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
+    const t_binding_nfo &findBindingLeft(std::string left, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
+    /// \brief finds the binding on var
+    const t_binding_nfo &findBindingRight(std::string right, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
     /// \brief returns the line range of an instruction
     v2i instructionLines(antlr4::tree::ParseTree *instr, const t_instantiation_context &ictx) const;
 

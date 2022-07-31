@@ -1,0 +1,23 @@
+unit inc(input uint8 i,output! uint8 o)
+{ //    unregistered output ^^
+  always {
+    o     = i + 1;
+  }
+}
+// main unit
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  // instantiate three inc and chain them together
+  inc i0;
+  inc i1(i <:  i0.o);
+  inc i2(i <:  i1.o);
+  always {
+    leds = i2.o;
+    __display("[%d] leds:%d",cycle,leds); // print leds
+    cycle = cycle + 1;
+    i0.i  = cycle; // missed, or is it in fact ok?
+
+    if (cycle == 8) { __finish(); } // stop after 8 cycles
+  }
+}

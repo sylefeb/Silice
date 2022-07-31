@@ -974,9 +974,9 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     }
     addVar(v, _current, sourceloc(decl, decl->IDENTIFIER()->getSourceInterval()));
     if (m.is_input) {
-      mem.in_vars.push_back(v.name);
+      mem.in_vars.push_back(make_pair(m.name,v.name));
     } else {
-      mem.out_vars.push_back(v.name);
+      mem.out_vars.push_back(make_pair(m.name, v.name));
       m_VIOBoundToBlueprintOutputs[v.name] = WIRE "_mem_" + v.name;
     }
   }
@@ -2790,7 +2790,8 @@ void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nf
   } else {
     sl_assert(false);
   }
-  _io.combinational = (output->combinational != nullptr);
+  _io.combinational         = (output->combinational != nullptr) || (output->combinational_nocheck != nullptr);
+  _io.combinational_nocheck = (output->combinational_nocheck != nullptr);
 }
 
 // -------------------------------------------------
@@ -2908,7 +2909,8 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, const t_combinati
         t_output_nfo oup;
         var_nfo_copy(oup, V->second);
         oup.name = grpre + "_" + V->second.name;
-        oup.combinational = (io->combinational != nullptr);
+        oup.combinational         = (io->combinational != nullptr || io->combinational_nocheck != nullptr);
+        oup.combinational_nocheck = (io->combinational_nocheck != nullptr);
         m_Outputs.emplace_back(oup);
         m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
       }
@@ -2930,7 +2932,8 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, const t_combinati
         t_output_nfo oup;
         var_nfo_copy(oup, v.second);
         oup.name = grpre + "_" + v.second.name;
-        oup.combinational = (iog->combinational != nullptr);
+        oup.combinational         = (iog->combinational != nullptr || iog->combinational_nocheck != nullptr);
+        oup.combinational_nocheck = (iog->combinational_nocheck != nullptr);
         m_Outputs.emplace_back(oup);
         m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
       }
@@ -3002,8 +3005,9 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
     } else if (io->is_output != nullptr) {
       t_output_nfo oup;
       var_nfo_copy(oup, vnfo);
-      oup.name              = grpre + "_" + vnfo.name;
-      oup.combinational     = (io->combinational != nullptr);
+      oup.name                  = grpre + "_" + vnfo.name;
+      oup.combinational         = (io->combinational != nullptr) || (io->combinational_nocheck != nullptr);
+      oup.combinational_nocheck = (io->combinational_nocheck != nullptr);
       m_Outputs.emplace_back(oup);
       m_OutputNames.insert(make_pair(oup.name, (int)m_Outputs.size() - 1));
       m_Parameterized.push_back(oup.name);
@@ -3829,15 +3833,40 @@ bool Algorithm::isNotCallable() const
 
 // -------------------------------------------------
 
+void Algorithm::dependencyClosure(t_vio_dependencies& _depds) const
+{
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    set<std::string> written;
+    for (auto &d : _depds.dependencies) {
+      written.insert(d.first);
+    }
+    for (const auto& w : written) {
+      auto dw = _depds.dependencies.at(w); // copy
+      // for each of the variable w depends on
+      for (const auto &d : _depds.dependencies.at(w)) {
+        if (_depds.dependencies.count(d) != 0) {
+          for (const auto &d2 : _depds.dependencies.at(d)) {
+            // add their own dependences to w
+            if (dw.count(d2) == 0) {
+              dw.insert(d2);
+              changed = true;
+            }
+          }
+        }
+      }
+      _depds.dependencies.at(w) = dw;
+    }
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context *bctx) const
 {
   if (instr == nullptr) {
     return;
-  }
-  // record which vars were written before
-  std::unordered_set<std::string> written_before;
-  for (const auto &d : _depds.dependencies) {
-    written_before.insert(d.first);
   }
   // determine VIOs accesses for instruction
   std::unordered_set<std::string> read;
@@ -3845,76 +3874,36 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   determineVIOAccess(instr, m_VarNames, bctx, read, written);
   determineVIOAccess(instr, m_InputNames, bctx, read, written);
   determineVIOAccess(instr, m_OutputNames, bctx, read, written);
-  // for each written var, collapse dependencies
-  // -> union dependencies of all read vars
-  std::unordered_set<std::string> upstream;
+  // update and check
+  updateAndCheckDependencies(_depds, sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)), read, written, bctx);
+}
+
+// -------------------------------------------------
+
+void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_source_loc& sloc, const std::unordered_set<std::string> & read, const std::unordered_set<std::string> & written, const t_combinational_block_context * bctx) const
+{
+  // record which vars were written before
+  std::unordered_set<std::string> written_before;
+  for (const auto &d : _depds.dependencies) {
+    written_before.insert(d.first);
+  }
+  // update written vars dependencies
+  std::unordered_set<std::string> all_read;
   for (const auto& r : read) {
     // insert r in dependencies
-    upstream.insert(r);
-    // add its dependencies
-    auto D = _depds.dependencies.find(r);
-    if (D != _depds.dependencies.end()) {
-      for (auto d : D->second) {
-        upstream.insert(d);
-      }
-    }
+    all_read.insert(r);
   }
-  // -> replace dependencies of written vars
+  // update dependencies of written vars
+  /// NOTE: a current limitation is the we might miss dependencies on partial writes
   for (const auto& w : written) {
-    _depds.dependencies[w] = upstream;
+    _depds.dependencies[w] = all_read;
   }
-  // -> transport dependencies through algorithm combinational outputs
-  for (const auto &bp : m_InstancedBlueprints) {
-    // gather bindings potentially creating comb. cycles
-    unordered_set<string> i_bounds, o_bounds;
-    for (const auto &b : bp.second.bindings) {
-      if (b.dir == e_Left) { // NOTE: we ignore e_LeftQ as these cannot produce comb. cycles
-        // find right identifier
-        std::string i_bound = bindingRightIdentifier(b);
-        if (_depds.dependencies.count(i_bound) > 0) {
-          i_bounds.insert(i_bound);
-        }
-      } else if (b.dir == e_Right) {
-        const auto &O = bp.second.blueprint->outputNames().find(b.left);
-        if (O != bp.second.blueprint->outputNames().end()) {
-          if (bp.second.blueprint->outputs()[O->second].combinational) { // combinational output only
-            std::string o_bound = bindingRightIdentifier(b);
-            o_bounds.insert(o_bound);
-          }
-        }
-      }
-    }
-    // add all defaults combinational outputs (dot syntax)
-    for (const auto &o : bp.second.blueprint->outputs()) {
-      if (o.combinational) {
-        o_bounds.insert(bp.second.instance_prefix + "_" + o.name);
-      }
-    }
-    // dependency closure: anything depending on the output also depends on the inputs, and their dependencies
-    for (const auto &w : written) {
-      auto dw = _depds.dependencies.at(w); // copy
-      for (const auto &o : o_bounds) {
-        if (_depds.dependencies.at(w).count(o) > 0) {
-          // add all inputs as dependencies
-          dw.insert(i_bounds.begin(), i_bounds.end());
-          // as well as their own dependencies if written before
-          for (const auto &i : i_bounds) {
-            if (written_before.count(i) > 0) {
-              const auto &di = _depds.dependencies.at(i);
-              dw.insert(di.begin(), di.end());
-            }
-          }
-          break; // stop here since all are added anyway
-        }
-      }
-      _depds.dependencies.at(w) = dw;
-    }
-  }
+  // depedency closure
+  dependencyClosure(_depds);
 
   /// DEBUG
   if (0) {
-    std::cerr << "---- after line " << dynamic_cast<antlr4::ParserRuleContext*>(instr)->getStart()->getLine() << nxl;
-    std::cerr << "written: ";
+    std::cerr << "---- " << "written: ";
     for (auto w : written) {
       std::cerr << w << ' ';
     }
@@ -3932,11 +3921,11 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   // check if everything is legit
   // for each written variable
   for (const auto& w : written) {
-    // check if the variable was written before and depends on self
-    if (written_before.count(w) > 0) {
-      // yes: does it depend on itself?
-      const auto& d = _depds.dependencies.at(w);
-      if (d.count(w) > 0) {
+    // yes: does it depend on itself?
+    const auto& d = _depds.dependencies.at(w);
+    if (d.count(w) > 0) {
+      // check if the variable was written before and depends on self
+      if (written_before.count(w) > 0) {
         // yes: this would produce a combinational cycle, error!
         string msg = "variable assignement leads to a combinational cycle (variable: '%s')\n\n";
         if (bctx == &m_AlwaysPost.context) { // checks whether in always_after
@@ -3944,8 +3933,45 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
         } else {
           msg += "Consider inserting a sequential split with '++:'";
         }
-        reportError(sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)),
-          msg.c_str(),w.c_str());
+        reportError(sloc,msg.c_str(), w.c_str());
+      }
+      // check if any one of the combinational outputs the var depends on, depends on this same var (cycle!)
+      for (auto other : d) {
+        if (other == w) continue; // skip self
+        // find out if other is a combinational output dot syntax
+        for (const auto &bp : m_InstancedBlueprints) {
+          for (auto os : bp.second.blueprint->outputs()) {
+            if (os.combinational && !os.combinational_nocheck) {
+              string vname = bp.second.instance_prefix + "_" + os.name;
+              if (other == vname) {
+                auto F = _depds.dependencies.find(vname);
+                if (F != _depds.dependencies.end()) {
+                  if (F->second.count(w)) {
+                    // yes: this would produce a combinational cycle, error!
+                    string msg = "variable assignement leads to a combinational cycle through instantiated unit (variable: '%s')\n\n";
+                    reportError(sloc, msg.c_str(), w.c_str());
+                  }
+                }
+              }
+            }
+          }
+        }
+        // find out if other is bound to a combinational output
+        if (m_VIOBoundToBlueprintOutputs.count(other) > 0) {
+          // bound to output, but is this a combinational output?
+          for (const auto &bp : m_InstancedBlueprints) {
+            bool found = false;
+            const auto &bnd = findBindingRight(other, bp.second.bindings, found);
+            if (found && bnd.dir == e_Right) {
+              if (bp.second.blueprint->output(bnd.left).combinational
+                && !bp.second.blueprint->output(bnd.left).combinational_nocheck) {
+                string msg = "variable assignement leads to a combinational cycle through instantiated unit (variable: '%s')\n\n";
+                reportError(sloc, msg.c_str(), w.c_str());
+              }
+            }
+          }
+
+        }
       }
     }
     // check if the variable depends on a wire, that depends on the variable itself
@@ -3955,7 +3981,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
           if (m_Vars.at(m_VarNames.at(d)).usage == e_Wire) { // is it a wire?
             if (_depds.dependencies.at(d).count(w)) { // depends on written var?
               // yes: this would produce a combinational cycle, error!
-              reportError(sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)),
+              reportError(sloc,
                 "variable assignement leads to a combinational cycle through variable bound to expression\n\n(variable: '%s', through '%s').",
                 w.c_str(), d.c_str());
             }
@@ -3985,7 +4011,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
               }
               if (!wire_assign) {
                 // no: leads to problematic case (ambiguity in final value), error!
-                reportError(sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)),
+                reportError(sloc,
                   "variable assignement changes the value of a <: tracked expression that was assigned before\n\n(variable: '%s', through tracker '%s' assigned before to '%s').",
                   w.c_str(), wire.c_str(), d.first.c_str());
               }
@@ -4392,15 +4418,7 @@ void Algorithm::determineVIOAccess(
             determineVIOAccess(assign->access()->tableAccess()->expression_0(), vios, bctx, _read, _written);
           } else if (assign->access()->partSelect() != nullptr) {
             determineVIOAccess(assign->access()->partSelect()->expression_0(), vios, bctx, _read, _written);
-            // This is a bit access. We assume it is partial (could be checked if const).
-            // Thus the variable is likely only partially written and to be safe we tag
-            // it as 'read' since other bits are likely read later in the execution flow.
-            // This is a conservative assumption. A bit-per-bit analysis could be envisioned,
-            // but for lack of it we have no other choice here to avoid generating wrong code.
-            // See also issue #54.
-            if (!var.empty() && vios.find(var) != vios.end()) {
-              _read.insert(var);
-            }
+            /// NOTE: possible tag as a partial write, since this is a part select
           }
         }
         recurse = false;
@@ -4608,6 +4626,22 @@ void Algorithm::determineVIOAccess(
           }
         }
         recurse = false;
+      }
+    } {
+      auto atom = dynamic_cast<siliceParser::AtomContext *>(node);
+      if (atom) {
+        if (atom->WIDTHOF() != nullptr) {
+          // ignore widthof parameter, it is not read but 'examined' for its width
+          recurse = false;
+        }
+      }
+    } {
+      auto cstv = dynamic_cast<siliceParser::ConstValueContext *>(node);
+      if (cstv) {
+        if (cstv->WIDTHOF() != nullptr) {
+          // ignore widthof parameter, it is not read but 'examined' for its width
+          recurse = false;
+        }
       }
     }
     // recurse
@@ -4877,19 +4911,19 @@ void Algorithm::determineAccess(
   for (auto& mem : m_Memories) {
     for (auto& inv : mem.in_vars) { // input to memory
       // add to always block dependency
-      m_AlwaysPost.in_vars_read.insert(inv);
+      m_AlwaysPost.in_vars_read.insert(inv.second);
       // set global access
-      m_Vars[m_VarNames.at(inv)].access = (e_Access)(m_Vars[m_VarNames.at(inv)].access | e_ReadOnly);
+      m_Vars[m_VarNames.at(inv.second)].access = (e_Access)(m_Vars[m_VarNames.at(inv.second)].access | e_ReadOnly);
     }
     for (auto& ouv : mem.out_vars) { // output from memory
       // add to always block dependency
-      m_AlwaysPre.out_vars_written.insert(ouv);
+      m_AlwaysPre.out_vars_written.insert(ouv.second);
       // -> check prior access
-      if (m_Vars[m_VarNames.at(ouv)].access & e_WriteOnly) {
-        reportError(mem.srcloc, "cannot write to variable '%s' bound to a memory output", ouv.c_str());
+      if (m_Vars[m_VarNames.at(ouv.second)].access & e_WriteOnly) {
+        reportError(mem.srcloc, "cannot write to variable '%s' bound to a memory output", ouv.second.c_str());
       }
       // set global access
-      m_Vars[m_VarNames.at(ouv)].access = (e_Access)(m_Vars[m_VarNames.at(ouv)].access | e_WriteBinded);
+      m_Vars[m_VarNames.at(ouv.second)].access = (e_Access)(m_Vars[m_VarNames.at(ouv.second)].access | e_WriteBinded);
     }
   }
   // determine access to inout variables
@@ -5025,32 +5059,52 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
           if (range[0] > -1) {
             // yes, part access on bound var
             part_access = true;
+            // attempt to find vios
+            bool lfound = false;
+            t_var_nfo ldef = ib.second.blueprint->getVIODefinition(b.left,lfound);
+            if (!lfound) {
+              reportError(sourceloc(access), "cannot find bound output '%s'", b.left.c_str());
+            }
+            bool rfound = false;
+            t_var_nfo rdef = getVIODefinition(bindingRightIdentifier(b), rfound);
+            if (!rfound) {
+              reportError(sourceloc(access), "cannot find bound vio '%s'", bindingRightIdentifier(b).c_str());
+            }
             // check width of output vs range width
-            // -> get output width
-            string obw = ib.second.blueprint->resolveWidthOf(b.left, ictx, sourceloc(access));
-            int iobw;
-            try {
-              iobw = stoi(obw);
-            } catch (...) {
-              reportError(sourceloc(access), "cannot determine width of bound output '%s' (width string is '%s')", b.left.c_str(), obw.c_str());
+            // -> get output width if possible
+            {
+              int iobw = -1;
+              string obw = ib.second.blueprint->resolveWidthOf(b.left, ictx, sourceloc(access));
+              try {
+                iobw = stoi(obw);
+              } catch (...) {
+                iobw = -1;
+                if (ldef.type_nfo.base_type != Parameterized) { // can happen if parameterized
+                  reportError(sourceloc(access), "cannot determine width of bound output '%s' (width string is '%s')", b.left.c_str(), obw.c_str());
+                }
+              }
+              // -> checks
+              if (iobw > -1) {
+                if (range[1] > iobw) {
+                  reportError(sourceloc(access), "bound vio '%s' width is larger than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
+                } else if (range[1] < iobw) {
+                  reportError(sourceloc(access), "bound vio '%s' selected width is smaller than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
+                }
+              }
             }
-            // -> checks
-            if (range[1] > iobw) {
-              reportError(sourceloc(access), "bound vio '%s' width is larger than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
-            } else if (range[1] < iobw) {
-              reportError(sourceloc(access), "bound vio '%s' selected width is smaller than output '%s' width", bindingRightIdentifier(b).c_str(), b.left.c_str());
-            }
-            // -> get bound var width
-            string bbw = resolveWidthOf(bindingRightIdentifier(b), ictx, sourceloc(access));
-            int ibbw;
-            try {
-              ibbw = stoi(bbw);
-            } catch (...) {
-              reportError(sourceloc(access), "cannot determine width of bound vio '%s' (width string is '%s')", bindingRightIdentifier(b).c_str(), bbw.c_str());
-            }
-            // -> checks
-            if (range[0] + range[1] > ibbw) {
-              reportError(sourceloc(access), "bit select is out of bounds on vio '%s'", bindingRightIdentifier(b).c_str());
+            // -> get bound var width (should always succeed)
+            {
+              int ibbw = -1;
+              string bbw = resolveWidthOf(bindingRightIdentifier(b), ictx, sourceloc(access));
+              try {
+                ibbw = stoi(bbw);
+              } catch (...) {
+                reportError(sourceloc(access), "cannot determine width of bound vio '%s' (width string is '%s')", bindingRightIdentifier(b).c_str(), bbw.c_str());
+              }
+              // -> checks
+              if (range[0] + range[1] > ibbw) {
+                reportError(sourceloc(access), "bit select is out of bounds on vio '%s'", bindingRightIdentifier(b).c_str());
+              }
             }
             // add to the list
             m_VIOBoundToBlueprintOutputs[bindingRightIdentifier(b)] += ";" + wire + "," + std::to_string(range[0]) + "," + std::to_string(range[1]);
@@ -6339,9 +6393,17 @@ void Algorithm::writeConstDeclarations(std::string prefix, std::ostream& out,con
         out << "assign " << FF_CST << prefix << v.name << " = " << varInitValue(v,ictx) << ';' << nxl;
       } else {
         sl_assert(v.type_nfo.base_type != Parameterized);
-        int width = v.type_nfo.width;
         ForIndex(i, v.init_values.size()) {
           out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = " << v.init_values[i] << ';' << nxl;
+        }
+      }
+    } else if (CONFIG.keyValues().count("reg_init_zero")) {
+      if (v.table_size == 0) {
+        out << "assign " << FF_CST << prefix << v.name << " = 0;" << nxl;
+      } else {
+        sl_assert(v.type_nfo.base_type != Parameterized);
+        ForIndex(i, v.init_values.size()) {
+          out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = 0;" << nxl;
         }
       }
     }
@@ -6397,6 +6459,8 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
       std::string init;
       if (v.init_at_startup && !v.init_values.empty()) {
         init = " = " + v.init_values[0];
+      } else if (CONFIG.keyValues().count("reg_init_zero")) {
+        init = " = 0";
       }
       writeVerilogDeclaration(out, ictx, "reg", v, string(FF_D) + prefix + v.name + init);
       writeVerilogDeclaration(out, ictx, (v.attribs.empty() ? "" : (v.attribs + "\n")) + "reg", v, string(FF_Q) + prefix + v.name + init);
@@ -6412,6 +6476,8 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     std::string init;
     if (v.init_at_startup && !v.init_values.empty()) {
       init = " = " + v.init_values[0];
+    } else if (CONFIG.keyValues().count("reg_init_zero")) {
+      init = " = 0";
     }
     writeVerilogDeclaration(out, ictx, "reg", v, string(FF_D) + prefix + v.name + init);
     writeVerilogDeclaration(out, ictx, "reg", v, string(FF_Q) + prefix + v.name + init);
@@ -7562,7 +7628,6 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(std::string instance_nam
   default: reportError(t_source_loc(), "internal error (memory type)"); break;
   }
   _replacements["MODULE"] = memoryModuleName(instance_name,bram);
-  _replacements["NAME"]   = bram.name;
   for (const auto& m : members) {
     string nameup = m.name;
     std::transform(nameup.begin(), nameup.end(), nameup.begin(),
@@ -7615,7 +7680,6 @@ void Algorithm::prepareModuleMemoryTemplateReplacements(std::string instance_nam
     initial << "end" << nxl;
   }
   _replacements["INITIAL"] = initial.str();
-  _replacements["CLOCK"]   = ALG_CLOCK;
 }
 
 // -------------------------------------------------
@@ -7772,11 +7836,26 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, std::ostream &out, const
 
 // -------------------------------------------------
 
-const Algorithm::t_binding_nfo &Algorithm::findBindingTo(std::string var, const std::vector<t_binding_nfo> &bndgs, bool& _found) const
+const Algorithm::t_binding_nfo &Algorithm::findBindingLeft(std::string left, const std::vector<t_binding_nfo> &bndgs, bool& _found) const
 {
   _found = false;
   for (const auto &b : bndgs) {
-    if (b.left == var) {
+    if (b.left == left) {
+      _found = true;
+      return b;
+    }
+  }
+  static t_binding_nfo foo;
+  return foo;
+}
+
+// -------------------------------------------------
+
+const Algorithm::t_binding_nfo &Algorithm::findBindingRight(std::string right, const std::vector<t_binding_nfo> &bndgs, bool& _found) const
+{
+  _found = false;
+  for (const auto &b : bndgs) {
+    if (bindingRightIdentifier(b) == right) {
       _found = true;
       return b;
     }
@@ -7842,7 +7921,7 @@ void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, co
     if (io_nfo.type_nfo.same_as.empty()) {
       // a binding is needed to parameterize this io, find it
       found = false;
-      const auto &b = findBindingTo(var, nfo.bindings, found);
+      const auto &b = findBindingLeft(var, nfo.bindings, found);
       if (!found) {
         reportError(nfo.srcloc, "io '%s' of instance '%s' is not bound nor specialized, cannot automatically determine it",
           var.c_str(), nfo.instance_name.c_str());
@@ -8049,7 +8128,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   for (const auto& mem : m_Memories) {
     // output wires
     for (const auto& ouv : mem.out_vars) {
-      const auto& os = m_Vars[m_VarNames.at(ouv)];
+      const auto& os = m_Vars[m_VarNames.at(ouv.second)];
       writeVerilogDeclaration(out, ictx, "wire", os, std::string(WIRE) + "_mem_" + os.name);
     }
   }
@@ -8226,6 +8305,70 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   }
   out << nxl;
 
+  // determine always dependencies on unregistered inputs/outputs due to blueprint bindings
+  t_vio_dependencies always_dependencies;
+  for (const auto& ibiordr : m_InstancedBlueprintsInDeclOrder) {
+    const auto &nfo = m_InstancedBlueprints.at(ibiordr);
+    // no combinational dependencies if inputs are registered or instance is callable (inputs bound to Q)
+    if (!nfo.blueprint->isNotCallable() || nfo.instance_reginput) {
+      continue;
+    }
+    // find out sets of combinational inputs and outputs
+    unordered_set<string> unreg_input_bindings;  // bindings to unreg input
+    unordered_set<string> unreg_output_bindings; // bindings to unreg output
+    for (const auto &b : nfo.bindings) {
+      if (b.dir == e_LeftQ) {
+        // registered input, skip
+        continue;
+      } else if (b.dir == e_Left) {
+        // unregistered input, possible dependency
+        unreg_input_bindings.insert(bindingRightIdentifier(b));
+      } else if (b.dir == e_Right) {
+        if (nfo.blueprint->output(b.left).combinational && !nfo.blueprint->output(b.left).combinational_nocheck) {
+          // unregistered output, possible dependency
+          unreg_output_bindings.insert(bindingRightIdentifier(b));
+        }
+      }
+    }
+    // add to the list of inputs all unbounded one (dot syntax) NOTE: we already checked inputs are not registered
+    for (const auto &is : nfo.blueprint->inputs()) {
+      auto vname = nfo.instance_prefix + "_" + is.name;
+      unreg_input_bindings.insert(vname);
+    }
+    // add to the list of outputs all unbounded one that are combinational
+    for (const auto &os : nfo.blueprint->outputs()) {
+      if (nfo.blueprint->output(os.name).combinational && !nfo.blueprint->output(os.name).combinational_nocheck) {
+        auto vname = nfo.instance_prefix + "_" + os.name;
+        unreg_output_bindings.insert(vname);
+      }
+    }
+    // update dependencies and run checks
+    updateAndCheckDependencies(always_dependencies, nfo.srcloc, unreg_input_bindings, unreg_output_bindings, nullptr);
+    // since we are only dealing with combinational connections (not registered) we perform
+    // an additional check at this stage: no vio should depend on self, or this is for sure a cycle
+    // (with registered vios a first dependency is ok since this is on the Q side of the flip-flop)
+    for (const auto& d : always_dependencies.dependencies) {
+      if (d.second.count(d.first) > 0) {
+        // yes: this would produce a combinational cycle, error!
+        string msg = "bindings leads to a combinational cycle (variable: '%s')\n\n";
+        reportError(nfo.srcloc, msg.c_str(), d.first.c_str());
+      }
+    }
+  }
+
+  /// DEBUG
+  if (0) {
+    std::cerr << "---- always dependencies\n";
+    for (auto w : always_dependencies.dependencies) {
+      std::cerr << "var " << w.first << " depds on ";
+      for (auto r : w.second) {
+        std::cerr << r << ' ';
+      }
+      std::cerr << nxl;
+    }
+    std::cerr << nxl;
+  }
+
   // memory instantiations (2/2)
   for (const auto& mem : m_Memories) {
     // module
@@ -8234,31 +8377,31 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     if (mem.clocks.empty()) {
       if (mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) {
         t_vio_dependencies _1,_2;
-        out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, ff_input_bindings_usage) << ")," << nxl;
-        out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, ff_input_bindings_usage) << ")," << nxl;
+        out << ".clock0(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, ff_input_bindings_usage) << ")," << nxl;
+        out << ".clock1(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, ff_input_bindings_usage) << ")," << nxl;
       } else {
         t_vio_dependencies _;
-        out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _, ff_input_bindings_usage) << ")," << nxl;
+        out << ".clock("  << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _, ff_input_bindings_usage) << ")," << nxl;
       }
     } else {
       sl_assert((mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) && mem.clocks.size() == 2);
       std::string clk0 = mem.clocks[0];
       std::string clk1 = mem.clocks[1];
       t_vio_dependencies _1, _2;
-      out << '.' << ALG_CLOCK << "0(" << rewriteIdentifier("_", clk0, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, ff_input_bindings_usage) << ")," << nxl;
-      out << '.' << ALG_CLOCK << "1(" << rewriteIdentifier("_", clk1, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, ff_input_bindings_usage) << ")," << nxl;
+      out << ".clock0(" << rewriteIdentifier("_", clk0, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, ff_input_bindings_usage) << ")," << nxl;
+      out << ".clock1(" << rewriteIdentifier("_", clk1, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, ff_input_bindings_usage) << ")," << nxl;
     }
     // inputs
     for (const auto& inv : mem.in_vars) {
       t_vio_dependencies _;
-      out << '.' << ALG_INPUT << '_' << inv << '(' << rewriteIdentifier("_", inv, "", nullptr, ictx, mem.srcloc, mem.delayed ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
+      out << '.' << ALG_INPUT << '_' << inv.first << '(' << rewriteIdentifier("_", inv.second, "", nullptr, ictx, mem.srcloc, mem.delayed ? FF_Q : FF_D, true, _, ff_input_bindings_usage,
         mem.delayed ? e_Q : e_D
       ) << ")," << nxl;
     }
     // output wires
     int num = (int)mem.out_vars.size();
     for (const auto& ouv : mem.out_vars) {
-      out << '.' << ALG_OUTPUT << '_' << ouv << '(' << WIRE << "_mem_" << ouv << ')';
+      out << '.' << ALG_OUTPUT << '_' << ouv.first << '(' << WIRE << "_mem_" << ouv.second << ')';
       if (num-- > 1) {
         out << ',' << nxl;
       } else {
@@ -8309,7 +8452,6 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   }
 
   // track dependencies
-  t_vio_dependencies always_dependencies;
   t_vio_dependencies post_dependencies;
 
   // wire assignments

@@ -62,6 +62,8 @@ int main(int argc, char **argv)
     cmd.add(frameworks_dir);
     TCLAP::MultiArg<std::string> defines("D", "define", "specifies a define for the preprocessor, e.g. -D name=value\nthe define is added both to the Silice preprocessor and the Verilog framework header", false, "string");
     cmd.add(defines);
+    TCLAP::MultiArg<std::string> configs("C", "config", "specifies a config option, e.g. -C name=value", false, "string");
+    cmd.add(configs);
     TCLAP::ValueArg<std::string> toExport("", "export", "Name of the algorithm to export (ignores main when specified)", false, "", "string");
     cmd.add(toExport);
     TCLAP::MultiArg<std::string> exportParam("P", "export_param", "specifies an export parameter for algorithm instantiation, e.g. -P name=value", false, "string");
@@ -76,6 +78,7 @@ int main(int argc, char **argv)
       framework.getValue(),
       frameworks_dir.getValue(),
       defines.getValue(),
+      configs.getValue(),
       toExport.getValue(),
       exportParam.getValue());
 

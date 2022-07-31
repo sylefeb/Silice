@@ -9,11 +9,13 @@ $$  SPRAM_POSTFIX = ''
 $$end
 
 unit simulation_spram$SPRAM_POSTFIX$(
-  input   uint14 addr,
-  input   uint16 data_in,
-  input   uint4  wmask,
-  input   uint1  wenable,
-  output! uint16 data_out
+  input     uint14 addr,
+  input     uint16 data_in,
+  input     uint4  wmask,
+  input     uint1  wenable,
+  output(!) uint16 data_out
+  //    ^^^ A rare use of output! "no check", that indicates to Silice this
+  //    output should not be considered in checking combinational cycles.
 ) {
   simple_dualport_bram uint16 mem<"simple_dualport_bram_wmask_half_bytes">[16384]
 $$if SPRAM_INIT_FILE then

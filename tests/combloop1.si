@@ -26,7 +26,7 @@ algorithm alg2(
     
 }
 
-algorithm main( ) {
+algorithm main(output uint8 leds) {
 
 uint1  a = 0;
 uint1  b = 0;

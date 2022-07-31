@@ -1,0 +1,10 @@
+unit main(output uint8 leds)
+{
+  uint8 a(0);
+  uint16 b(0);
+
+  always {
+    a = 2;
+    a = b[4,widthof(a)] + 1; // fine, was triggering a false positive
+  }
+}

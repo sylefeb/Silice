@@ -93,6 +93,7 @@ namespace Silice
     class t_output_nfo : public t_var_nfo {
     public:
       bool combinational = false;
+      bool combinational_nocheck = false; // when true, this is ignored in combinational cycle checks (if combinational == true)
     };
 
     /// \brief information about instantiation

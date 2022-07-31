@@ -1,0 +1,15 @@
+unit main(output uint8 leds)
+//               ^^^^^ assumes 8 LEDs on board, will work in any case
+{
+  uint24 counter(0);
+  //  ^^ 24 bits ^
+  //             | initialized at configuration time
+  always {
+    leds    = counter[0,8];
+    //                ^^^ from bit 0, take 8 bits
+    // (simulation only) display leds as a vector of bits
+    __display("leds:%b",leds);
+    // increment the counter
+    counter = counter + 1;
+  }
+}

@@ -33,57 +33,65 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // single port BRAM
 
 interface bram_port {
-  output! addr,
-  output! wenable,
-  input   rdata,
-  output! wdata,
+  output(!) addr,
+  output(!) wenable,
+  input     rdata,
+  output(!) wdata,
 }
 
 // single port BROM
 
 interface brom_port {
-  output! addr,
-  input   rdata,
+  output(!) addr,
+  input     rdata,
 }
 
 // dual port BRAM
 
 interface dualport_bram_port0 {
-  output! addr0,
-  output! wenable0,
-  input   rdata0,
-  output! wdata0,
+  output(!) addr0,
+  output(!) wenable0,
+  input     rdata0,
+  output(!) wdata0,
 }
 
 interface dualport_bram_port1 {
-  output! addr1,
-  output! wenable1,
-  input   rdata1,
-  output! wdata1,
+  output(!) addr1,
+  output(!) wenable1,
+  input     rdata1,
+  output(!) wdata1,
 }
 
 interface dualport_bram_ports {
-  output! addr0,
-  output! wenable0,
-  input   rdata0,
-  output! wdata0,
-  output! addr1,
-  output! wenable1,
-  input   rdata1,
-  output! wdata1,
+  output(!) addr0,
+  output(!) wenable0,
+  input     rdata0,
+  output(!) wdata0,
+  output(!) addr1,
+  output(!) wenable1,
+  input     rdata1,
+  output(!) wdata1,
 }
 
 // simple dual port BRAM
 
+interface simple_dualport_bram_ports {
+  output(!) addr0,
+  input     rdata0,
+  output(!) addr1,
+  output(!) wenable1,
+  output(!) wdata1,
+}
+
 interface simple_dualport_bram_port0 {
-  output! addr0,
-  input   rdata0,
+  output(!) addr0,
+  input     rdata0,
 }
 
 interface simple_dualport_bram_port1 {
-  output! addr1,
-  output! wenable1,
-  output! wdata1,
+  output(!) addr1,
+  output(!) wenable1,
+  output(!) wdata1,
 }
 
 // ----------------------- end of memory_ports.si ----
