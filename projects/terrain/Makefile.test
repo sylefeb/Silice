@@ -1,0 +1,9 @@
+icebreaker: main.si
+	./compile.sh
+	silice-make.py -s main.si -b $@ -p basic,vga,spiflash,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
+
+verilator: main.si
+		silice-make.py -s main.si -b $@ -p basic,vga -o BUILD_$(subst :,_,$@) $(ARGS)
+
+clean:
+	rm -rf BUILD_*

@@ -38,8 +38,8 @@ When designing with Silice your code describes circuits. If not done already, it
     -   [Always blocks](#always-blocks)
     -   [Clock and reset](#clock-and-reset)
     -   [Modifiers](#modifiers)
--   [Execution flow and cycle utilization rules](#execflow)
-    -   [The step operator](#step)
+-   [Execution flow and cycle utilization rules](#execution-flow-and-cycle-utilization-rules)
+    -   [The step operator](#the-step-operator)
     -   [Control flow](#control-flow)
     -   [Cycle costs of calls to algorithms and
         subroutines](#cycle-costs-of-calls-to-algorithms-and-subroutines)
@@ -214,11 +214,11 @@ It is recommended to always specify the size of your constants, as this helps ha
 
 Variables are declared with the following pattern:
 
--   `TYPE ID = VALUE;` initializes the variable with VALUE on unit
-    start / reset.
+-   `TYPE ID = VALUE;` initializes the variable with VALUE when the unit
+    algorithm starts, or the unit comes out of reset if no algorithm is present.
 
--   `TYPE ID(VALUE);` initializes the variable with VALUE on *power-up*
-    (when the FPGA is turned on or configured).
+-   `TYPE ID(VALUE);` initializes the variable with VALUE on configuration
+    (every time the FPGA is configured, including power-up).
 
 Above, `TYPE` is a type definition
 (Section <a href="#types" data-reference-type="ref" data-reference="types">Types</a>),
@@ -281,7 +281,7 @@ Block RAMs are declared in a way similar to tables. Block RAMs map to
 special FPGA blocks and avoid using FPGA LUTs to store data. However,
 accessing a block RAM typically requires a one-cycle latency.
 
-> **Important:** Block RAMs are only initialized at *power-up* (when the FPGA is configured).
+> **Important:** Block RAMs are only initialized when the FPGA is configured.
 
 A block RAM variable has four members accessible with the ’dot’ syntax:
 - `addr` the address being accessed,
@@ -1078,8 +1078,8 @@ is functionally the same as
 a := 0;
 ```
 
-*Note:* variables changed in `always_after` blocks have to use power-up
-initialization only.
+*Note:* variables changed in `always_after` blocks have to use on configuration-time
+initialization only (e.g. `uint8 v(0)`).
 
 ## Clock and reset
 
@@ -1320,7 +1320,7 @@ group sdram_32b_io
 ```
 
 Note that group declarations are made *outside* of algorithms. Group members
-can also use power-up initializers, e.g. `uint24 addr(0), ...`
+can also use configuration initializers, e.g. `uint24 addr(0), ...`
 
 A group variable can then be declared directly:
 
@@ -1679,10 +1679,8 @@ Import is the most interesting way to inter-operate with Verilog. Once
 imported, all Verilog modules from the Verilog source file will be
 available for inclusion in algorithms.
 
-The modules are instantiated in a very similar way as algorithms, with
-bindings to variables. However, modules cannot be called like
-algorithms, and the ’dot’ syntax to read/write outputs and inputs is not
-available for modules.
+The modules are instantiated in a very similar way as units, with
+bindings to variables and dot syntax.
 
 ## Wrapping
 

@@ -1,0 +1,13 @@
+algorithm main(output uint5 leds, inout uint8 pmod)
+{
+
+  always {
+
+    pmod.oenable[0,1] = 1;
+    pmod.oenable[1,1] = 0;
+
+    pmod.o[0,1] = pmod.i[1,1];
+
+  }
+
+}

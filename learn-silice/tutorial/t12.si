@@ -1,0 +1,34 @@
+unit left(output uint5 v = 5b00001)
+{
+  algorithm {
+    while (~v[4,1]) { v   = v << 1; }
+  }
+}
+
+unit right(output uint5 v = 5b10000)
+{
+  algorithm {
+    while (~v[0,1]) { v   = v >> 1; }
+  }
+}
+
+unit main(output uint5 leds)
+{
+  left l; right r;
+
+  algorithm {
+    while (1) {
+      () <- l <- (); // call l (blocking)
+      () <- r <- (); // call r (blocking)
+    }
+  }
+
+  always_after {
+    // select leds pattern from running algorithm
+    leds = ~isdone(l) ? l.v // left is running
+         : ~isdone(r) ? r.v // right is running
+         : leds;            // none running, keep as is
+    __display("leds: %b",leds);
+  }
+
+}

@@ -40,7 +40,7 @@ From the illustration we can guess a few things:
 
 > This is not only about the routes, the LUTs can be configured as *asynchronous* in which case they constantly update their outputs when the inputs change. In such case, the delay is the sum of route delays and LUT traversal delays. This is very typical: a design contains many synchronous (flip-flop) and asynchronous (*combinational*) gates.
 
-Finally, something to remember, especially if you have a background in programming on CPU: *There is no concept of "not doing something"*. *Everything* you describe becomes a circuit and takes space on the FPGA. On CPU we tend to write thing like:
+Finally, something to remember, especially if you have a background in programming on CPU: *There is no concept of "not doing something"*. *Everything* you describe becomes a circuit and takes space on the FPGA. On CPU we tend to write things like:
 ```c
   if (condition) {
     do_something(); // could be always done, skip for faster exec
@@ -52,15 +52,18 @@ It takes time and practice to get used to that, but it is also a fun mindset, an
 
 ## Tutorial
 
-This tutorial is meant to be done linearly, starting from T1 below. It gradually introduces concepts of Silice (many are general to hardware design) through toy examples. Each entry covers one specific concept, so they remain short and compact to read.
+This tutorial is meant to be done linearly, starting from entry T1 below. It gradually introduces concepts of Silice (many are general to hardware design) through toy examples. Each entry covers one specific concept, so they remain short and compact to read.
 
 To run these examples, enter the [`tutorial`](./tutorial) directory, and run (here for T1):
 ```
 make verilator file=t1.si
 ```
-If you have an FPGA you can replace `verilator` by the name of your board. Plug the board first and it will be programmed automatically in most cases (a few toy examples are meant for simulation only).
+If you have an FPGA you could replace `verilator` by the name of your board. Plug the board first and it will be programmed automatically in most cases.
 
-> Simulated designs run forever, hit CTRL-C to stop them.
+> Most of the initial entries of the tutorial use simulation so that we can print
+> in the console using `__display`: a simulation only printf. (On a FPGA, if you want a printf you have to build hardware for it! for instance sending to UART or a screen ).
+
+> In the first entries, simulated designs run forever, hit CTRL-C to stop them.
 
 ___
 ### T1: a simple blinker
@@ -102,9 +105,9 @@ leds:00000110
 ...
 ```
 
-On real hardware the LEDs will blink with the corresponding pattern. That will be too fast to see (it will appear as if all LEDs are on, with slightly different brightness), we'll fix that in a minute.
+On real hardware the LEDs will blink with the corresponding pattern. That will be too fast to see (it will appear as if all LEDs are on, with slightly different brightness), we'll fix that in a later entry.
 
-Let's first walk through this example:
+Let's walk through this example:
 - `unit main( )`: This defines the main circuit of the design. All Silice designs are meant to have a main circuit, which is instantiated automatically.
 - `output uint8 leds`: This means our circuit outputs an 8 bits signal called `leds`. This directly corresponds to eight pins going outside of the FPGA and driving actual LEDs on the board.
 
@@ -120,11 +123,11 @@ Let's first walk through this example:
 
 > Another, more powerful way to simulate is to output a full trace (wave) of the simulated design which records the status of all variables, every clock cycle, for the entire simulation. But that's a topic for later!
 
-- `counter = counter + 1;`: We increment the counter every clock cycle.
+- `counter = counter + 1;` We increment the counter every clock cycle.
 
 And this is it, we already have seen quite a few concepts!
 
-> **Exercise**: change `counter[0,8]` to slow down the LEDs pattern.
+> **Exercise**: change `counter[0,8]` to slow down the LEDs pattern (hint: use higher bits of the counter).
 
 ___
 ### T2: a second unit
@@ -162,11 +165,11 @@ Let's walk through this example:
 - `uint8 bits(8b1)` is an 8 bit internal variable initialized at configuration time with `8b1` which is a fancy way to say `1`, showing explicitly sized constants and binary basis (`b` for binary, `h` for hex and `d` for decimal). While unimportant in this case, sizing constants is good practice (and critical in some cases).
 - `always{ ... }` means we are doing these operations at every cycle, always and forever.
 - `o = bits;` assigns the output.
-- `bits = {bits[0,1],bits[1,7]};` creates the rotating pattern. Here's how: `bits[0,1]` is the lowest bit, `bits[1,7]` are the seven other bits, and `{..,..,..}` concatenates into a different bit vectors. So in effect this moves bit `0` to bit `7` and shifts all other bits right. Handy! (All bit operators are directly inherited from Verilog).
+- `bits = {bits[0,1],bits[1,7]}` creates the rotating pattern. Here's how: `bits[0,1]` is the lowest bit, `bits[1,7]` are the seven other bits, and `{..,..,..}` concatenates into a different bit vectors. So in effect this moves bit `0` to bit `7` and shifts all other bits right. Handy! (All bit operators are directly inherited from Verilog).
 
 Now let's move to main:
-- `rotate r;` *instantiates* the unit `rotate`, naming the instance `r`.
-- `leds = r.o;` assigns the output `o` of `r` to `leds`. This is using the *dot syntax* where we refer to outputs and inputs of an instance using `<instance name>.<io name>`
+- `rotate r` *instantiates* the unit `rotate`, naming the instance `r`.
+- `leds = r.o` assigns the output `o` of `r` to `leds`. This is using the *dot syntax* where we refer to outputs and inputs of an instance using `<instance name>` `.` `<io name>`
 - `__display` is printing leds in simulation.
 
 What is the result of this exactly? Let's run in simulation: enter the [`tutorial`](./tutorial) directory and run `make verilator file=t2.si`. Hit CTRL-C to stop the output.
@@ -312,7 +315,7 @@ What happens during the first cycle? We are seeing the initial value of the outp
 [         1] e.o:  0
 ```
 
-What if we want to register the inputs? The we use an instance modifier, changing the instantiation for:
+What if we want to register the inputs? We can use an instance modifier, changing the instantiation for:
 ```c
 eq e<reginputs>;
 //   ^^^^^^^^^ all inputs are now registered
@@ -331,7 +334,7 @@ Here is the new simulation output:
 ```
 Ignoring cycles 0 and 1, we now see a *two* cycles latency. This is due to both inputs and outputs being registered.
 
-What if we use neither register inputs not registered outputs? Let's try! We remove `<reginputs>` and use `output!`.
+What if we use neither registered inputs nor registered outputs? Let's try! We remove `<reginputs>` and use `output!`.
 Here is the new simulation output:
 ```
 [         0] e.o:  0
@@ -436,7 +439,7 @@ Now we get this:
 ```
 
 Back to having a latency between the value of `leds` and `cycle`. Indeed, at
-cycle `c` the input to `eq` now sees `cycle = c`, before it is incremented.
+cycle `c` the input to `eq` now sees `cycle = c`, before `cycle` is incremented.
 The output being registered we get the output `leds = c` at cycle `c + 1`.
 
 > Using the binding operator `<:` means that the input is <ins>not</ins> registered,
@@ -506,13 +509,494 @@ propagates immediately through the entire chain, giving us cycle + 3 at the next
 cycle when we read `i2.o`.
 
 ___
-### T7: algorithms 101
+### T7: do *not* cross the streams
+
+There's one thing to be careful with when combining *un*registered inputs and outputs.
+Let's consider the following:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t7.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t7.si -->
+```c
+unit inc(input uint8 i,output! uint8 o)
+{ //    unregistered output ^^
+  always { o = i + 1; }
+}
+// main unit
+unit main(output uint8 leds)
+{
+  uint8 a(0); uint8 b(0);
+  inc _( i <: a, o :> b );
+  always {
+    a = b;
+  }
+}
+```
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+If you try to run this example (`make verilator file=t7.si` in `./tutorial`), Silice
+will generate an error:
+
+```diff
+ ----------<<<<< error >>>>>----------
+ => file: ./Silice/learn-silice/tutorial/t7.si
+ => line: 14
+
+ a = b
+-^^^^^ variable assignement leads to a combinational cycle through instantiated unit (variable: 'a')
+```
+
+Why is that? Remember we are describing a circuit. Here, when we set `a = b` we
+are closing a loop from `b` to `a` through the instance of `inc`.
+Indeed, the input is not registered (`<:`); neither is the output (`output!`).
+When we set `a = b` we directly connect `o` to `i` in the instance.
+
+This produces a loop through an asynchronous circuit, also called a *combinational cycle*.
+When this happens, the logic applied in `inc` would start to run free, seemingly
+as fast as possible but in fact quickly producing *random results*. This is
+generally not ok, and Silice issues an error when such configurations are produced.
+
+> This is *generally* not ok, unless you truly want a random result. Combinational loops are one way to form ring oscillators and get randomness in circuits. Yes, there's a way to disable the check in Silice ;)
+
+___
+### T8: algorithms 101
 
 Alright, we got all the basics for units, let's now talk about a big feature of
 Silice, the algorithms.
 
+Silice lets you write algorithms within your units, allowing to use a more
+standard imperative programming flow. Just to get our feet wet, here is an
+example in simulation:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t8.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t8.si -->
+```c
+unit main(output uint8 leds)
+{
+  algorithm {
+    uint8 n = 0; // a variable
+    __display("Hello world, from a first cycle");
+  ++:
+    __display("Hello world, from a second cycle");
+  ++:
+    while ( n != 8 ) {
+      __display(" - hello world from loop iteration %d",n);
+      n = n + 1;
+    }
+  }
+}
+```
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+Running this with `make verilator file=t8.si` we get:
+```
+Hello world, from a first cycle
+Hello world, from a second cycle
+- hello world from loop iteration   0
+- hello world from loop iteration   1
+- hello world from loop iteration   2
+- hello world from loop iteration   3
+- hello world from loop iteration   4
+- hello world from loop iteration   5
+- hello world from loop iteration   6
+- hello world from loop iteration   7
+- build.v:187: Verilog $finish
+```
+
+The unit starts as usual (`unit main(output uint8 leds) { ... }`) but then contains
+an algorithm block: `algorithm { ... }`.
+
+Contrary the always blocks, algorithm blocks may contain *multi-cycle constructs*.
+
+Here for instance, we are displaying a first message when the algorithm is launched
+(the `main` algorithm automatically starts): `__display("Hello world, from a first cycle");`.
+
+Then, we wait for the next cycle with the `++:` step operator, and print another
+message: `__display("Hello world, from a second cycle");`.
+
+We again skip one cycle (`++:`) and enter a loop: `while ( n != 8 ) { ... }`.
+Note that `n` was declared at the start of the algorithm as `uint8 n = 0;`.
+The `= 0` means that it will be initialized each time the algorithm starts, so it
+equals `0` when we reach the loop.
+
+The loop then prints a message and increments `n`. And we get the expected output!
+We'll come back to algorithms later, but need a few more ingredients before.
+
+> Algorithms are great for prototyping and for simpler, less critical parts of a design.
+> Internally they get turned into finite state machines with multiplexers on the
+> manipulated variables. Thus, their cost in size (number of LUTs) and max
+> frequency is typically more than a carefully optimized unit using only an always block.
+> Nevertheless, algorithms can go a long > way, for an extreme example see
+> the [Doomchip project](../projects/doomchip/README.md),which reimplements the
+> Doom 1993 render loop using Silice algorithms.
 
 ___
-### T8: clock and clocks
+### T9: arrays and BRAMs
+
+So far we have not discussed arrays. Arrays in hardware designs are very important
+as they constitute memories where things can be stored: a command queue, a set
+of registers in a processor, an L1 cache.
+
+In Silice you can declare and use arrays like this:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t9.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t9.si -->
+```c
+  unit main(output uint8 leds) {
+    algorithm {
+      uint8 table[8] = {0,1,2,3,4,5,6,7};
+      uint8 n = 0;
+      while (n != 8) {
+        __display("[%d] = %d",n,table[n]);
+        n = n + 1;
+      }
+    }
+  }
+```
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+Such an array is implemented with logic: internally the circuit produces
+one register per table entry, and then generates a selection circuitry
+that selects where to read/write from the index. That's ok for very small
+array, but this quickly this circuitry becomes large and slow.
+
+To circumvent this, FPGAs include specialized memory, called *BRAM*. A BRAM being
+a memory it needs a bit of time to retrieve data. However, FPGA BRAMs are *very*
+fast, so you can retrieve from or write to an address in only one cycle.
+
+Here is the same example using a BRAM:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t9_2.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t9_2.si -->
+```c
+  unit main(output uint8 leds) {
+    algorithm {
+      bram uint8 table[8] = {0,1,2,3,4,5,6,7};
+      uint8 n = 0;
+      table.addr = n;
+      while (n != 8) {
+        __display("[%d] = %d",n,table.rdata);
+        n = n + 1;
+        table.addr = n;
+      }
+    }
+  }
+```
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+Let's detail what is going on in this example.
+First, note the `bram` key word in front of the table declaration. This is for
+a 'simple' BRAM, as other types exist (most importantly *dual port* BRAMs).
+
+The table is now automatically stored into a BRAM by Silice, and initialized
+to the selected content. By the way, if you prefer *not* to initialize the BRAM
+you may write `= uninitialized` or, to initialize to a single value write `= {pad(8haa)}`.
+You can also load from file using `= {file("data.raw"),pad(uninitialized)}` which loads
+from file and then considers the rest as uninitialized. Very common approach to
+initialize, e.g. boot code for processor, or palettes for graphics.
+
+Alright, the BRAM is declared, how do we access it? Since there is a one cycle
+latency, the syntax is not just `table[n]`. Instead, we first need to tell which
+address we are accessing, writing it to the `addr` member of the BRAM: `table.addr = n`.
+Then, at the next cycle we will get the read value into `table.rdata`. Of course,
+you have to watch out for the one cycle delay that is necessary for the BRAM to
+fetch the data. This is why, in the loop, we set `table.addr = n` *after* incrementing
+`n = n + 1`. The loop takes exactly one cycle (see [Silice documentation](Documentation.md#execution-flow-and-cycle-utilization-rules)), so every iteration we get the next value.
+
+___
+### T10: BRAMs, algorithms and always
+
+Ok, let's do a design for hardware using algorithms and BRAMs, and another cool feature.
+
+Silice lets you combine algorithm and always blocks. The general structure
+of a unit is to have three blocks: an `always_before` block, an `algorithm` block,
+and an `always_after` block.
+The *before* and *after* of the always blocks are with respect to the algorithm:
+this defines whether the block happens *before* anything in the algorithm, or
+*after* anything in the algorithm. This is also why there is a single `always` block
+when no algorithm is used.
+
+Let's use this to produce interesting LED patterns, with the following:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t10.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t10.si -->
+```c
+  unit main(output uint5 leds) {
+
+    bram uint5 patterns[] = { // BRAM with 17 patterns
+      5b00001, 5b00011, 5b00111, 5b01111, 5b11111, 5b11110,
+      5b11100, 5b11000, 5b10000, 5b11000, 5b11100, 5b11110,
+      5b11111, 5b01111, 5b00111, 5b00011, 5b00001,
+    };
+
+    always_before {
+      leds = patterns.rdata; // assign leds to the current BRAM value
+    }
+
+    algorithm {
+      while (1) { // forever
+        uint22 n = 0;
+        while ( ~ n[21,1] ) { n = n + 1; } // wait
+        patterns.addr = patterns.addr == 16 ? 0 : patterns.addr + 1;
+      }
+    }
+  }
+```
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+Quick walkthrough:
+- `bram uint5 patterns[] = { ... }` creates a BRAM and initializes it with a sequence of 5 bits entries (one bit per LED). The sequence produces a back and forth LED pattern.
+- The `always_before` block always assigns `leds` to be the pattern currently read by the BRAM: `leds = patterns.rdata`.
+- The `algorithm` block waits for a delay with a loop doing nothing (`while ( ~ n[21,1] ) { n = n + 1; }`) and then increments `patterns.addr`. The increment is using a [ternary conditional assignment](https://en.wikipedia.org/wiki/%3F:) (`= . ? . : . `) to reset the BRAM address to 0 when the last entry (16) has been reached. By the way, the initial address is always 0.
+
+Note that we are using an `always_before` block but no `always_after` block,
+all are optional.
+
+Here is the result on the ULX3S (plug your board and in `tutorials` run `make <board> file=t10.si`):
+
+<center><img src="figures/t10.gif"/></center>
+
+> That will run well on any board having 5+ LEDs (e.g. *IceStick*, *IceBreaker*, *ULX3S*, etc ). Timing will vary depending on base clock.
+
+___
+### T11: algorithm autorun
+
+The algorithm in main always starts automatically, since it is the entry point
+of the design. However, algorithms in other units do not start automatically
+by default. To start them, we either have to choose *autostart* or *call* them.
+Let's first see autostart. We introduce calls in T12.
+
+Below, we take our LED pattern from T10 and move it to a different unit, `k2000`.
+We also adapt the design for simulation by removing the waiting loop.
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t11.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t11.si -->
+```c
+unit k2000(output uint5 leds)
+{
+  bram uint5 patterns[] = { // BRAM with 17 patterns
+    5b00001, 5b00011, 5b00111, 5b01111, 5b11111, 5b11110,
+    5b11100, 5b11000, 5b10000, 5b11000, 5b11100, 5b11110,
+    5b11111, 5b01111, 5b00111, 5b00011, 5b00001,
+  };
+
+  always_before {
+    leds = patterns.rdata; // assign leds to the current BRAM value
+  }
+
+  algorithm <autorun> {
+  //        ^^^^^^^^^ This is the important part: algorithm will run immediately
+    while (1) { // forever
+      patterns.addr = patterns.addr == 16 ? 0 : patterns.addr + 1;
+    }
+  }
+}
+
+unit main(output uint5 leds) {
+  k2000 _(leds :> leds);
+  always {
+    __display("leds %b",leds);
+  }
+}
+```
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+We get the following result with `make verilator file=t11.si` (CTRL-C to stop):
+```
+leds 10000
+leds 11000
+leds 11100
+leds 11110
+leds 11111
+leds 01111
+leds 00111
+leds 00011
+leds 00001
+...
+```
+
+However, if you remove the `<autostart>` from unit's `k2000` algorithm nothing
+happens anymore. That is because the algorithm never starts. So adding
+`algorithm <autorun> { ... }` ensures that the algorithm is automatically triggered
+when the unit comes out of reset. In unit main `<autostart>` has no effect
+since the algorithm always automatically starts already.
+
+___
+### T12: algorithm calls
+
+Another way to run algorithm is to *call* them. This is a topic with several
+aspects so we'll come back to it, but let us start with a simple yet useful
+example:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t12.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t12.si -->
+```c
+unit left(output uint5 v = 5b00001)
+{
+  algorithm {
+    while (~v[4,1]) { v   = v << 1; }
+  }
+}
+
+unit right(output uint5 v = 5b10000)
+{
+  algorithm {
+    while (~v[0,1]) { v   = v >> 1; }
+  }
+}
+
+unit main(output uint5 leds)
+{
+  left l; right r;
+
+  algorithm {
+    while (1) {
+      () <- l <- (); // call l (blocking)
+      () <- r <- (); // call r (blocking)
+    }
+  }
+
+  always_after {
+    // select leds pattern from running algorithm
+    leds = ~isdone(l) ? l.v // left is running
+         : ~isdone(r) ? r.v // right is running
+         : leds;            // none running, keep as is
+    __display("leds: %b",leds);
+  }
+
+}
+```
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+We get the following result with `make verilator file=t12.si` (CTRL-C to stop):
+```
+leds: 00001
+leds: 00010
+leds: 00100
+leds: 01000
+leds: 10000
+...
+leds: 10000
+leds: 01000
+leds: 00100
+leds: 00010
+leds: 00001
+...
+```
+
+Three algorithms are responsible for creating this pattern. First, `left` and
+`right` which respectively generate a 'left shift' and 'right shift' moving
+bit pattern. Let us take `left` for the example since `right` is almost the same.
+
+The algorithm in `left` does *not* autostart. It is a loop that continues
+until the left-most bit (Most Significant Bit, MSB) of `v` is 1:
+`while (~v[4,1]) { ... }`. But where is `v` defined? It is actually an
+output to the algorithm: `unit left(output uint5 v = 5b00001)`. This not
+only declares the output (which becomes a variable driving the output),
+it also gives it an initial value. Using `= 5b00001` means that the initial
+value is assigned to `v` everytime the unit algorithm starts.
+
+The third algorithm orchestrating the pattern is in main. It is a simple infinite
+loop calling first left, then right. Both are instantiated and given a name:
+
+```c
+left l; right r;
+```
+
+Then we can call left/right using the following syntax:
+
+```c
+() <- l <- (); // call l (blocking)
+```
+
+This syntax is a *synchronous* call; meaning that the calling algorithm is waiting
+for the called algorithm to complete. The call is in fact composed of two parts:
+```c
+l <- (); // starts algorithm in l
+() <- l; // joins (waits) the algorithm in l
+```
+Try to replace the line with these two, same result! But of course the calling
+algorithm could be doing something in between, in *parallel*.
+
+But wait, where's the output of `l` and `r` used? Here we are using the dot syntax
+in an `always_after` block:
+```c
+  // select leds pattern from running algorithm
+  leds = ~isdone(l) ? l.v // left is running
+       : ~isdone(r) ? r.v // right is running
+       : leds;            // none running, keep as is
+```
+This is using two nested [ternary conditional assignment](https://en.wikipedia.org/wiki/%3F:) (`= . ? . : . `)
+to choose between the output of `l` and `r`. The condition is simply that if the
+algorithm is not done (`~isdone(.)`) we read its output. The `always_after` block
+here allows to track the output of the running algorithms.
+
+Calling an algorithm takes one cycle before it starts and one cycle after it
+returns. For this reason there are pauses in the LED pattern, and for some cycles
+both `l` and `r` are done, in which case we simply hold the latest value of `leds`.
+
+> Of course it is also possible to [read the outputs of algorithms when they return from a call](Documentation.md#call). We will see that later.
+
+___
+### T13: a faster clock
+
+On real hardware you'll often want the FPGA to be clocked at a frequency that
+is different from the base frequency, for instance running 25 MHz when the
+base clock is 12 MHz.
+
+To achieve this you need to use what is called a *PLL* ([Phase-Locked Loop](https://en.wikipedia.org/wiki/Phase-locked_loop)). In terms of code, this means using a pre-defined *Verilog* module, which syntax varies between FPGAs.
+
+Silice comes with many PLL Verilog modules that I pre-generated using the dedicated tools (e.g. *icepll* and *ecppll*). These are command line tools that determine the FPGA-specific module parameters from a base frequency and a requested frequency.
+
+The pre-generated PLLs can be found in [./projects/common/plls](../projects/common/plls/). They are named after the target board and frequency, e.g. [icestick_25.v](../projects/common/plls/icestick_25.v) for the icestick at 25 MHz.
+
+So, let's see how can we use such a PLL in a Silice design:
+
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t13.si&syntax=c) -->
+<!-- The below code snippet is automatically added from ./tutorial/t13.si -->
+```c
+import('../../projects/common/plls/icestick_25.v')
+
+unit main(output uint5 leds) <@cpu_clock>
+//                           ^^^^^^^^^^^ main will run with the new clock
+{
+  // generates a faster clock
+  uint1 cpu_clock  = uninitialized; // will be our new clock
+  // vvvv PLL instantiation
+  pll _( clock_in <: clock,      clock_out :> cpu_clock);
+  //     ^^^^^^^^^ old clock in  ^^^^^^^^^^^^^ new clock out
+
+  always { // a simple blinky
+    uint26 counter(0);
+    leds    = counter[21,5];
+    counter = counter + 1;
+  }
+
+}
+```
+<!-- MARKDOWN-AUTO-DOCS:END -->
+
+First, we *import* the Verilog module: `import( ... )`. This loads the Verilog source and turns the module inside into a Silice unit that we can use as any other unit.
+
+Then we instantiate the PLL to produce a new clock:
+```c
+  pll _( clock_in <: clock,      clock_out :> cpu_clock);
+```
+
+The PLL takes as input clock the default clock, which is always named `clock` in a unit. It generates a new clock which we bind to `cpu_clock`.
+
+> Note how the pll instance name is just `'_'`: this is an *anonymous* instance: we do not need to refer to it later, so we don't give it a name.
+
+Now, how do we tell Silice we want to use this clock for the `main` unit? This was done before, when we declared the unit and added the *modifier* `<@cpu_clock>`:
+
+```c
+unit main(output uint5 leds) <@cpu_clock> { ... }
+```
+
+Running the design with and without the modifier (comment or remove `<@cpu_clock>`), we see that it's twice as fast with it: The IceStick runs at 12 MHz by default and the PLL makes the design go twice as fast at 25 MHz!
+
+> Is the sky the limit? Nope, because if you look at NextPNR's report, it tells us `Info: Max frequency for clock '__main._w_pll_unnamed_0_clock_out_$glb_clk': 178.76 MHz`. So we could run at up to 178 MHz but not faster or the design would glitch (well, in reality there is a bit of margin, and this even depends on operating temperature!).
+
+___
+### Tx: inouts
 
 > To be written

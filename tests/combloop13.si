@@ -1,0 +1,11 @@
+// main unit
+unit main(output uint8 leds)
+{
+  uint8 a(0); 
+	
+	uint8 wa <: a;
+	
+  always {  
+			a = wa + 1;
+	}
+}

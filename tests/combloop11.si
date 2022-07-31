@@ -1,0 +1,16 @@
+unit inc(input uint8 i,output! uint8 o)
+{ //    unregistered output ^^
+  always {
+    o     = i + 1;
+  }
+}
+// main unit
+unit main(output uint8 leds)
+{
+  uint8 a(0); uint8 b(0);
+  
+	inc i0(i <: a,o :> b);
+	inc i1(i <: b,o :> a);
+	
+  always {  }
+}

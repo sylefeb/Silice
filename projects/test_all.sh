@@ -12,7 +12,7 @@ for i in $dirs; do
             printf "%-30s" $config_trimed
             mkcmd="make -C $i -f $config_trimed ARGS=\"--no_build\"";
             cmd_out=`eval $mkcmd 2>&1`
-            has_err=$(echo $cmd_out | grep -i "error ");
+            has_err=$(echo $cmd_out | grep -i "error");
             if [ -z "$has_err" ];
             then
                 printf " [COMPILED]\n"

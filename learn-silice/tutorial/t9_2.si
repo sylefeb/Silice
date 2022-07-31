@@ -1,0 +1,12 @@
+  unit main(output uint8 leds) {
+    algorithm {
+      bram uint8 table[8] = {0,1,2,3,4,5,6,7};
+      uint8 n = 0;
+      table.addr = n;
+      while (n != 8) {
+        __display("[%d] = %d",n,table.rdata);
+        n = n + 1;
+        table.addr = n;
+      }
+    }
+  }
