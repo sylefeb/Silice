@@ -3,7 +3,11 @@
 module ddr_clock(
         input  clock,
         input  enable,
+`ifdef ICARUS
         output reg ddr_clock
+`else
+        output ddr_clock
+`endif
     );
 
 `ifdef ICARUS
