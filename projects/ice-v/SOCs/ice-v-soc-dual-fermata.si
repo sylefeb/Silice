@@ -72,12 +72,13 @@ group ram_io {
 
 // memory provider interface (user interface defined in processor source)
 interface ram_provider {
-  input   addr,
-  input   wenable,
-  input   wdata,
-  output! rdata,
-  input   req_valid,
-  output! done
+  input     addr,
+  input     wenable,
+  input     wdata,
+  output(!) rdata,
+  input     req_valid,
+  output(!) done
+  //    ^ ^ inform Silice to not worry about comb cycles through these
 }
 
 interface ram_provider_reg { // version with registered outputs (fmax relax)
@@ -560,13 +561,8 @@ $$end
   );
 
   always {
-    uint1 dbg1(0);
-    uint1 dbg2(0);
 
-    leds = {dbg1,1b0,dbg2,2b0};
-
-    dbg1 = dbg1 | (~sys_rst & spflash.req_valid);
-    dbg2 = dbg2 | (~sys_rst & spflash.done);
+    leds = 5b0;
 
 $$if SIMULATION then
     cycle       = cycle + 1;

@@ -3,18 +3,20 @@
 module ddr_clock(
         input  clock,
         input  enable,
-        output reg ddr_clock
+        output ddr_clock
     );
 
 `ifdef ICARUS
   reg renable;
+  reg rddr_clock;
   always @(posedge clock) begin
-    ddr_clock <= 0;
-    renable   <= enable;
+    rddr_clock <= 0;
+    renable    <= enable;
   end
   always @(negedge clock) begin
-    ddr_clock <= renable;
+    rddr_clock <= renable;
   end
+  assign ddr_clock = rddr_clock;
 `endif
 
 `ifdef ICE40

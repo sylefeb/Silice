@@ -1,0 +1,39 @@
+algorithm main(output uint8 leds)
+{
+  uint8  i  = 0;
+	uint8  a  = 0;
+	uint8  b  = 0;
+
+  while (i < 8) {
+
+    {
+
+      a  = a + 1;
+
+			__display("[0] a = %d b = %d\n",a,b);
+
+    } -> {
+
+			__display("[1] a = %d b = %d",a,b);
+
+    } -> {
+
+			__display("[2] a = %d b = %d",a,b);
+
+			b ^= a;
+
+    } -> {
+
+			__display("[3] a = %d b = %d",a,b);
+			
+    } -> {
+
+			__display("[4] a = %d b = %d",a,b);
+		
+		}
+
+    i = i + 1;
+
+  }
+
+}

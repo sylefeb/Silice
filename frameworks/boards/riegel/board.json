@@ -1,0 +1,38 @@
+{
+  "name": "riegel",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "riegel.v",
+      "pins"      : [
+        {"set"    : "basic"},
+        {"set"    : "ps2",      "define" : "PS2=1"},
+        {"set"    : "vga",      "define" : "VGA=1"},
+        {"set"    : "pmod",     "define" : "PMOD=1"},
+        {"set"    : "spiflash", "define" : "SPIFLASH=1"}
+      ],
+      "builders": [
+        {
+          "builder" : "edalize",
+          "description": "Build using Edalize",
+          "tool": "icestorm",
+          "tool_options": [
+            {
+                "yosys_synth_options": ["-abc9","-device hx","-top top"],
+                "nextpnr_options": ["--hx8k", "--freq 48", "--package bg121:4k", "--timing-allow-fail"],
+                "pnr": "next"
+            }
+          ],
+          "bitstream"  : "build.bin",
+          "constraints": [{"name": "riegel.pcf", "file_type": "PCF"}],
+          "program": [
+            {"cmd" : "cp", "args" : "build.bin build.dfu"},
+            {"cmd" : "dfu-suffix", "args" : "-v 16d0 -p 116d -a build.dfu"},
+            {"cmd" : "dfu-util", "args" : "-a 0 -D build.dfu"}
+          ]
+        }
+      ]
+    }
+  ],
+  "pins": {  }
+}

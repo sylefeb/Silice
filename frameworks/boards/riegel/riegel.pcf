@@ -1,0 +1,121 @@
+# From https://github.com/machdyne/riegel/blob/main/riegel_v3.pcf
+
+set_io CLK_48	L5
+
+set_io LED_A	H9
+
+# PMOD_A
+set_io PMOD_A1  J5
+set_io PMOD_A2  L1
+set_io PMOD_A3  J3
+set_io PMOD_A4  G3
+set_io PMOD_A7  L2
+set_io PMOD_A8  K5
+set_io PMOD_A9  H3
+set_io PMOD_A10 H7
+
+# PMOD_B
+set_io PMOD_B1  K2
+set_io PMOD_B2  J2
+set_io PMOD_B3  H2
+set_io PMOD_B4  G2
+set_io PMOD_B7  K1
+set_io PMOD_B8  J1
+set_io PMOD_B9  H1
+set_io PMOD_B10 G1
+
+#set_io UART_CTS  K2
+#set_io UART_RX   J2
+#set_io UART_TX   H2
+#set_io UART_RTS  G2
+
+# --
+
+# VGA
+set_io VGA_R   J4
+set_io VGA_G   L4
+set_io VGA_B   L3
+set_io VGA_HS  K4
+set_io VGA_VS  K3
+
+# PS/2
+set_io PS2_DAT	L7
+set_io PS2_CLK	L8
+
+# USB
+set_io USB_DP J8
+set_io USB_DP_PU J7
+set_io USB_DN K7
+
+# MMOD/SD SPI BUS
+set_io SPI_SS_FLASH  K10
+set_io SPI_SS_SD		K6
+set_io SPI_SCK       L10
+set_io SPI_MISO      J9
+set_io SPI_MOSI      K9
+set_io SD_CS 			K6
+
+# STATIC RAM
+set_io SRAM_A0		C1
+set_io SRAM_A1		D1
+set_io SRAM_A2		E1
+set_io SRAM_A3		C2
+set_io SRAM_A4		D2
+set_io SRAM_A5		C4
+set_io SRAM_A6		C3
+set_io SRAM_A7		C7
+set_io SRAM_A8		A7
+set_io SRAM_A9		A8
+set_io SRAM_A10	A9
+set_io SRAM_A11	A10
+set_io SRAM_A12	B7
+set_io SRAM_A13	B8
+set_io SRAM_A14	B6
+set_io SRAM_A15	B9
+set_io SRAM_A16	C8
+set_io SRAM_A17	C9
+
+set_io SRAM_D0		E3
+set_io SRAM_D1		F1
+set_io SRAM_D2		F2
+set_io SRAM_D3		F3
+set_io SRAM_D4		D7
+set_io SRAM_D5		E2
+set_io SRAM_D6		A11
+set_io SRAM_D7		F4
+set_io SRAM_D8		A2
+set_io SRAM_D9		A3
+set_io SRAM_D10	B3
+set_io SRAM_D11	A4
+set_io SRAM_D12	B4
+set_io SRAM_D13	B5
+set_io SRAM_D14	A5
+set_io SRAM_D15	A6
+
+set_io SRAM_CE		D3
+set_io SRAM_WE		D5
+set_io SRAM_OE		B1
+set_io SRAM_LB		A1
+set_io SRAM_UB		B2
+
+# OPI PSRAM
+set_io HRAM_ADQ0	J11
+set_io HRAM_ADQ1	G10
+set_io HRAM_ADQ2	G9
+set_io HRAM_ADQ3	H10
+set_io HRAM_ADQ4	F9
+set_io HRAM_ADQ5	K11
+set_io HRAM_ADQ6	J10
+set_io HRAM_ADQ7	G11
+set_io HRAM_DQ8	F10
+set_io HRAM_DQ9	E11
+set_io HRAM_DQ10	D11
+set_io HRAM_DQ11	C11
+set_io HRAM_DQ12	B11
+set_io HRAM_DQ13	E8
+set_io HRAM_DQ14	D9
+set_io HRAM_DQ15	H11
+set_io HRAM_DQS0	F11
+set_io HRAM_DQS1	E9
+set_io HRAM_CK		E10
+set_io HRAM_CE		D10

@@ -2181,22 +2181,27 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       }
       written_outputs.insert(ow);
     }
-    // check outside of pipeline assignments: not written to outside from two stages, not written using both = and ^=
-    std::unordered_set<std::string> ex_written, not_ex_written;
-    determineOutOfPipelineAssignments(b, m_VarNames, &_current->context, ex_written, not_ex_written);
+    // check outside of pipeline assignments: not written to outside from two stages, not written using both = and v= or ^=
+    std::unordered_set<std::string> ex_written, ex_written_before, ex_written_after, not_ex_written;
+    determineOutOfPipelineAssignments(b, m_VarNames, &_current->context, ex_written_before, ex_written_after, not_ex_written);
+    // record written outside and before for the stage
+    snfo->written_before = ex_written_before;
+    // merge both sets
+    ex_written.insert(ex_written_before.begin(), ex_written_before.end());
+    ex_written.insert(ex_written_after.begin(), ex_written_after.end());
     for (auto w : ex_written) {
       // not written to outside from two stages
       if (written_outside.count(w) > 0) {
-        reportError(sourceloc(b), "variable '%s' is assigned to outside of pipeline (^=) from two different stages", w.c_str());
+        reportError(sourceloc(b), "variable '%s' is assigned to outside of pipeline (v= or ^=) from two different stages", w.c_str());
       }
       written_outside.insert(w);
-      // not written with both = and ^= within same stage
+      // not written with both = and ^=/v= within same stage
       if (not_ex_written.count(w) != 0) {
-        reportError(sourceloc(b), "variable '%s' cannot be assigned with both ^= and =",w.c_str());
+        reportError(sourceloc(b), "variable '%s' cannot be assigned with both = and v= (or ^=)",w.c_str());
       }
       // not trickling before
       if (written_at.count(w) != 0) {
-        reportError(sourceloc(b), "variable '%s' is assigned to outside of pipeline (^=) while already trickling from a previous stage", w.c_str());
+        reportError(sourceloc(b), "variable '%s' is assigned to outside of pipeline (^= or v=) while already trickling from a previous stage", w.c_str());
       }
       // exclude var from written set (cancels trickling)
       written.erase(w);
@@ -4659,7 +4664,8 @@ void Algorithm::determineOutOfPipelineAssignments(
   antlr4::tree::ParseTree *node,
   const std::unordered_map<std::string, int> &vios,
   const t_combinational_block_context *bctx,
-  std::unordered_set<std::string> &_ex_written, std::unordered_set<std::string> &_not_ex_written) const
+  std::unordered_set<std::string> &_ex_written_before, std::unordered_set<std::string> &_ex_written_after,
+  std::unordered_set<std::string> &_not_ex_written) const
 {
   auto assign = dynamic_cast<siliceParser::AssignmentContext *>(node);
   if (assign) {
@@ -4675,12 +4681,9 @@ void Algorithm::determineOutOfPipelineAssignments(
         var = translateVIOName(var, bctx);
         if (!var.empty() && vios.find(var) != vios.end()) {
           if (assign->OUTASSIGN_AFTER() != nullptr) {
-            _ex_written.insert(var);
+            _ex_written_after.insert(var);
           } else if (assign->OUTASSIGN_BEFORE() != nullptr) {
-            reportError(sourceloc(assign->OUTASSIGN_BEFORE()),
-              "Assignment out of pipeline before (^=) is not yet supported.\n"
-              "Please consider assignment out of pipeline after (v=) instead."
-            );
+            _ex_written_before.insert(var);
           } else {
             _not_ex_written.insert(var);
           }
@@ -4689,7 +4692,7 @@ void Algorithm::determineOutOfPipelineAssignments(
   } else {
     // recurse
     for (auto c : node->children) {
-      determineOutOfPipelineAssignments(c, vios, bctx, _ex_written, _not_ex_written);
+      determineOutOfPipelineAssignments(c, vios, bctx, _ex_written_before,_ex_written_after, _not_ex_written);
     }
   }
 }
@@ -6208,10 +6211,10 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
         reportError(sourceloc(a.instr),"cannot use outside of pipeline assign (^=) if not inside a pipeline");
       }
     } else if (assign->OUTASSIGN_BEFORE() != nullptr) {
-      reportError(sourceloc(assign->OUTASSIGN_BEFORE()),
-        "Assignment out of pipeline before (^=) is not yet supported.\n"
-        "Please consider assignment out of pipeline after (v=) instead."
-      );
+      // check in pipeline
+      if (bctx->pipeline == nullptr) {
+        reportError(sourceloc(a.instr), "cannot use outside of pipeline assign (v=) if not inside a pipeline");
+      }
     }
   }
   // write access
@@ -7535,46 +7538,76 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   const t_pipeline_nfo        *pip       = current->context.pipeline->pipeline;
   sl_assert(pip != nullptr);
   t_vio_dependencies depds_before_stages = _dependencies;
+
+  // first, gather stages
+  const t_combinational_block *cur = current;
+  const t_combinational_block *aft = after;
+  typedef struct {
+    const t_combinational_block *current;
+    const t_combinational_block *after;
+  } t_stage;
+  std::vector< t_stage > stages;
   while (true) {
-    sl_assert(pip == current->context.pipeline->pipeline);
+    sl_assert(pip == cur->context.pipeline->pipeline);
+    stages.push_back({ cur,aft });
+    if (cur != aft) {
+      cur = aft;
+    }
+    if (cur->pipeline_next()) {
+      aft = cur->pipeline_next()->after;
+      cur = cur->pipeline_next()->next;
+    } else {
+      break; // done
+    }
+  }
+
+  // reverse stages
+  std::reverse(stages.begin(), stages.end());
+
+  for (auto st : stages) {
+    sl_assert(pip == st.current->context.pipeline->pipeline);
     // write stage
-    int stage = current->context.pipeline->stage_id;
+    int stage = st.current->context.pipeline->stage_id;
     out << "// -------- stage " << stage << nxl;
     t_vio_dependencies deps = depds_before_stages;
     // write code
-    if (current != after) { // this is the more complex case of multiple blocks in stage
-      writeStatelessBlockGraph(prefix, out, ictx, current, after, _q, deps, _ff_usage, _post_dependencies, _lines); // NOTE: q will not be changed since this is a combinational block
-      current = after;
+    if (st.current != st.after) { // this is the more complex case of multiple blocks in stage
+      writeStatelessBlockGraph(prefix, out, ictx, st.current, st.after, _q, deps, _ff_usage, _post_dependencies, _lines); // NOTE: q will not be changed since this is a combinational block
+      st.current = st.after;
     } else {
-      writeBlock(prefix, out, ictx, current, deps, _ff_usage, _lines);
+      writeBlock(prefix, out, ictx, st.current, deps, _ff_usage, _lines);
     }
     clearNoLatchFFUsage(_ff_usage);
+    // for vios written before, retain dependencies
+    for (const auto& d : deps.dependencies) {
+      if (st.current->context.pipeline->written_before.count(d.first)) {
+        depds_before_stages.dependencies[d.first].insert(d.second.begin(),d.second.end());
+      }
+    }
     // trickle vars: start
     for (auto tv : pip->trickling_vios) {
       if (stage == tv.second[0]) {
         // capture the var in the pipeline
         std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
-        out << rewriteIdentifier(prefix, tricklingdst, "", &current->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage) << " = ";
-        out << rewriteIdentifier(prefix, tv.first, "", &current->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
+        out << rewriteIdentifier(prefix, tricklingdst, "", &st.current->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage) << " = ";
+        out << rewriteIdentifier(prefix, tv.first, "", &st.current->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
         out << ';' << nxl;
       } else if (stage < tv.second[1]) {
         // mark var ff as needed (Q side) for next stages
-        std::string trickling = translateVIOName(tv.first, &current->context);
+        std::string trickling = translateVIOName(tv.first, &st.current->context);
         updateFFUsage(e_Q, true, _ff_usage.ff_usage[trickling]);
       }
     }
     // merge dependencies
     mergeDependenciesInto(deps, _dependencies);
-    // advance
-    if (current->pipeline_next()) {
-      after   = current->pipeline_next()->after;
-      current = current->pipeline_next()->next;
-    } else {
-      sl_assert(current->next() != nullptr);
-      return current->next()->next;
-    }
   }
-  return current;
+  // done (using front since stages are reverted
+  if (!stages.front().after->pipeline_next()) {
+    sl_assert(stages.front().after->next() != nullptr);
+    return stages.front().after->next()->next;
+  }
+  sl_assert(false);
+  return nullptr;
 }
 
 // -------------------------------------------------
