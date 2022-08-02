@@ -312,6 +312,7 @@ private:
     typedef struct s_pipeline_stage_nfo {
       t_pipeline_nfo *pipeline;
       int             stage_id;
+      std::unordered_set<std::string> written_before;
     } t_pipeline_stage_nfo;
 
     /// \brief vector of all pipelines
@@ -863,7 +864,8 @@ private:
       antlr4::tree::ParseTree *node,
       const std::unordered_map<std::string, int> &vios,
       const t_combinational_block_context *bctx,
-      std::unordered_set<std::string> &_ex_written,std::unordered_set<std::string> &_not_ex_written) const;
+      std::unordered_set<std::string> &_ex_written_before, std::unordered_set<std::string> &_ex_written_after,
+      std::unordered_set<std::string> &_not_ex_written) const;
     /// \brief updates access to vars due to a binding
     template<typename T_nfo>
     void updateAccessFromBinding(const t_binding_nfo& b, const std::unordered_map<std::string, int > &names, std::vector< T_nfo > &_nfos);
