@@ -82,32 +82,15 @@ initial begin
 `endif
 `ifdef CLOCK_25MHz
   // generate a 25 MHz clock
-  repeat(4) #20 clk = ~clk;
+  repeat(100) #20 clk = ~clk;
   rst_n = 1'b1;
   forever #20 clk = ~clk;
 `else
   // generate a 100 MHz clock
-  repeat(4) #5 clk = ~clk;
+  repeat(100) #5 clk = ~clk;
   rst_n = 1'b1;
   forever #5 clk = ~clk;
 `endif
-end
-
-reg ready = 0;
-reg [7:0] RST_d = 8'b11111111;
-reg [7:0] RST_q = 8'b11111111;
-
-always @* begin
-  RST_d = RST_q >> 1;
-end
-
-always @(posedge clk) begin
-  if (ready) begin
-    RST_q <= RST_d;
-  end else begin
-    ready <= 1;
-    RST_q <= 8'b11111111;
-  end
 end
 
 wire run_main;
@@ -116,7 +99,7 @@ wire done_main;
 
 M_main __main(
   .clock(clk),
-  .reset(RST_q[0]),
+  .reset(~rst_n),
   .out_leds(__main_leds),
 `ifdef VGA
   .out_video_clock(__main_video_clock),
@@ -145,7 +128,7 @@ M_main __main(
 );
 
 always @* begin
-  if (done_main && ~RST_d[0]) $finish;
+  if (done_main && ~rst_n) $finish;
 end
 
 endmodule
