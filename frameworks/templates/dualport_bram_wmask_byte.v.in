@@ -1,35 +1,35 @@
 // SL 2019, MIT license
 module %MODULE%(
-input      [%WENABLE0_WIDTH%-1:0]             in_%NAME%_wenable0,
-input      %DATA_TYPE% [%DATA_WIDTH%-1:0]     in_%NAME%_wdata0,
-input      [%ADDR0_WIDTH%-1:0]                in_%NAME%_addr0,
-input      [%WENABLE1_WIDTH%-1:0]             in_%NAME%_wenable1,
-input      [%DATA_WIDTH%-1:0]                 in_%NAME%_wdata1,
-input      [%ADDR1_WIDTH%-1:0]                in_%NAME%_addr1,
-output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]     out_%NAME%_rdata0,
-output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]     out_%NAME%_rdata1,
-input      %CLOCK%0,
-input      %CLOCK%1
+input      [%WENABLE0_WIDTH%-1:0]             in_wenable0,
+input      %DATA_TYPE% [%DATA_WIDTH%-1:0]     in_wdata0,
+input      [%ADDR0_WIDTH%-1:0]                in_addr0,
+input      [%WENABLE1_WIDTH%-1:0]             in_wenable1,
+input      [%DATA_WIDTH%-1:0]                 in_wdata1,
+input      [%ADDR1_WIDTH%-1:0]                in_addr1,
+output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]     out_rdata0,
+output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]     out_rdata1,
+input      clock0,
+input      clock1
 );
 (* no_rw_check *) reg %DATA_TYPE% [%DATA_WIDTH%-1:0] buffer[%DATA_SIZE%-1:0];
-always @(posedge %CLOCK%0) begin
-  out_%NAME%_rdata0 <= buffer[in_%NAME%_addr0];
+always @(posedge clock0) begin
+  out_rdata0 <= buffer[in_addr0];
 end
-always @(posedge %CLOCK%1) begin
-  out_%NAME%_rdata1 <= buffer[in_%NAME%_addr1];
+always @(posedge clock1) begin
+  out_rdata1 <= buffer[in_addr1];
 end
 integer i;
-always @(posedge %CLOCK%0) begin
+always @(posedge clock0) begin
   for (i = 0; i < (%DATA_WIDTH%)/8; i = i + 1) begin
-    if (in_%NAME%_wenable0[i]) begin
-      buffer[in_%NAME%_addr0][i*8+:8] <= in_%NAME%_wdata0[i*8+:8];
+    if (in_wenable0[i]) begin
+      buffer[in_addr0][i*8+:8] <= in_wdata0[i*8+:8];
     end
   end
 end
-always @(posedge %CLOCK%1) begin
+always @(posedge clock1) begin
   for (i = 0; i < (%DATA_WIDTH%)/8; i = i + 1) begin
-    if (in_%NAME%_wenable1[i]) begin
-      buffer[in_%NAME%_addr1][i*8+:8] <= in_%NAME%_wdata1[i*8+:8];
+    if (in_wenable1[i]) begin
+      buffer[in_addr1][i*8+:8] <= in_wdata1[i*8+:8];
     end
   end
 end
