@@ -47,8 +47,10 @@ When designing with Silice your code describes circuits. If not done already, it
 -   [Lua preprocessor](#lua-preprocessor)
     -   [Principle and syntax](#principle-and-syntax)
     -   [Includes](#includes)
-    -   [Pre-processor image and palette
-        functions](#pre-processor-image-and-palette-functions)
+    -   [Instantiation time preprocessor](#instantiation-time-preprocessor)
+    -   [Preprocessor constraints](#preprocessor-constraints)
+    -   [Preprocessor image and palette
+        functions](#preprocessor-image-and-palette-functions)
 -   [Interoperability with Verilog
     modules](#interoperability-with-verilog-modules)
     -   [Append](#append)
@@ -1562,7 +1564,7 @@ programming language.
 
 Preprocessor code is directly interleaved with Silice code. At any
 point, the source code can be escaped to the preprocessor by starting a
-line with $$. The full line is then considered as preprocessor Lua code.
+line with `$$`. The full line is then considered as preprocessor Lua code.
 
 The pre-processor sees Silice source lines as strings to be output.
 Thus, it outputs to the compiler any line that is met during the
@@ -1606,12 +1608,12 @@ b = a + 1;
 }
 ```
 
-Note that source code lines are either fully Silice, of fully
-preprocessor (starting with $$). A second syntax allows to use
-preprocessor variables directly in Silice source code, simply doing
-$`varname`$ with `varname` the variable from the preprocessor context.
-In fact, a full Lua expression can be used in between the $ signs; this
-expression is simply concatenated to the surrounding Silice code.
+Note that source code lines are either fully Silice, of fully preprocessor
+(starting with `$$`). A second syntax allows to use preprocessor variables
+directly in Silice source code, simply doing `$varname$` with *varname* the
+variable from the preprocessor context. In fact, a full Lua expression can be
+used in between the `$` signs; this expression is evaluated and concatenated as
+a string to the surrounding Silice code.
 
 Here is an example:
 
@@ -1646,11 +1648,83 @@ $$dofile('some_lua_code.lua')
 ## Includes
 
 The preprocessor is also in charge of including other Silice source code
-files, using the syntax `$include(’source.si’)`. This loads the entire
+files, using the syntax `$include('source.si')`. This loads the entire
 file (and recursively its own included files) into the preprocessor
 execution context.
 
-## Pre-processor image and palette functions
+## Instantiation time preprocessor
+
+The preprocessor is invoked every time a unit is instantiated. This allows to
+specialize the unit within its instantiation context. For instance:
+
+```c
+unit mirror(input auto i,output sameas(i) o)
+{
+  always {
+$$for n=0,widthof('i')-1 do
+    o[$n$,1] = i[$widthof('i')-1-n$,1];
+$$end
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint6  a(6b111000);
+  uint11 b(11b11101000011);
+  mirror m1(i <: a); // generates a unit for width 6
+  mirror m2(i <: b); // generates a unit for width 11
+  algorithm {
+    __display("m1: %b",m1.o);
+    __display("m2: %b",m2.o);
+  }
+}
+```
+
+Here we can see the use of `auto` and `sameas` in the declaration of unit
+`mirror`. This allows genericity, determining the types upon instantiation,
+from the instance bindings. The preprocessor can also access the width of the
+instantiated inputs and outputs by using `widthof`, giving the name of the
+input or output as a string. This is for instance used in this preprocessor loop:
+```$$for n=0,widthof('i')-1 do ...```
+
+## Preprocessor constraints
+
+There are a few constraints on the preprocessor. Unit declarations should not
+be split by preprocessor if-then-else directives. For instance:
+```c
+$$if BUTTONS then
+  unit main(output uint8 leds, input uint3 buttons) {
+$$else
+  unit main(output uint8 leds) {
+$$end
+  // ...
+}
+```
+will result in the following error:
+```diff
+functionalizing unit main
+- error: [parser] Pre-processor directives are unbalanced within the unit, this is not supported (please refer to the documentation, Documentation.md#preprocessor-constraints).
+```
+
+Instead do:
+```c
+unit main(
+  $$if BUTTONS then
+    output uint8 leds, input uint3 buttons
+  $$else
+    output uint8 leds
+  $$end
+) {
+  // ...
+}
+```
+
+Preprocessor if-then-else can freely be used between the `(` and `)` of the unit
+declaration, and between the `{` and `}` of the unit block.
+However there should not be any top level if-then-else enclosing and repeating
+these parentheses and braces.
+
+## Preprocessor image and palette functions
 
 The pre-processor has a number of function to facilitate the inclusion
 of images and palette data ; please refer to the example projects

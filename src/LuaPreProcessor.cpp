@@ -866,13 +866,13 @@ public:
         } else if (w == "end") {
           if (m_IfSide.empty()) {
             // TODO: better message!
-            throw Fatal("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.");
+            throw Fatal("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.\n       (please refer to the documentation, Documentation.md#preprocessor-constraints)");
           }
           m_IfSide.pop_back();
         } else if (w == "else" || w == "elseif") {
           if (m_IfSide.empty()) {
             // TODO: better message!
-            throw Fatal("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.");
+            throw Fatal("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.\n       (please refer to the documentation, Documentation.md#preprocessor-constraints)");
           }
           m_IfSide.pop_back();
           m_IfSide.push_back(false);
