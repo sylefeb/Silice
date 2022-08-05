@@ -1,0 +1,25 @@
+
+// This type of preprocessor construction no longer works
+
+$$if ICESTICK then
+//   algorithm main(output uint5 leds, inout uint8 pmod)
+$$else
+//   algorithm main(output uint5 leds)
+$$end
+//{
+//  while (1) {
+//  }
+//}
+
+// Instead use:
+
+algorithm main(
+$$if ICESTICK then
+  output uint5 leds, inout uint8 pmod
+$$else
+  output uint5 leds
+$$end
+) {
+  while (1) {
+  }
+}
