@@ -27,6 +27,11 @@ $$if ICESTICK then
 import('../common/plls/icestick_25.v')
 $$end
 
+$$if RIEGEL then
+// Clock
+import('../common/plls/riegel_25.v')
+$$end
+
 $$if DE10NANO then
 // Clock
 import('../common/plls/de10nano_100_25.v')
@@ -111,7 +116,7 @@ $$elseif ICESTICK then
     clock_out :> video_clock,
     lock      :> pll_lock
   );
-$$elseif ICEBREAKER or ICEBITSY then
+$$elseif ICEBREAKER or ICEBITSY or RIEGEL then
   // --- clock
   pll clk_gen (
     clock_in  <: clock,

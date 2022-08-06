@@ -21,6 +21,11 @@ $$if ICEBREAKER then
 import('../common/plls/icebrkr_25.v')
 $$end
 
+$$if RIEGEL then
+// Clock
+import('../common/plls/riegel_25.v')
+$$end
+
 $$if DE10NANO then
 // Clock
 import('../common/plls/de10nano_100_25.v')
@@ -92,7 +97,7 @@ $$end
   int12 rand_x = 0;
 
   // ---------- string
-  uint8  str[] = "   HELLO WORLD FROM FPGA #    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ICEBREAKER#-ULX3S#-DE10-NANO#-ECPIX-5";
+  uint8  str[] = "   HELLO WORLD FROM FPGA#    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ICEBREAKER#-ULX3S#-DE10-NANO#-ECPIX-5#-RIEGEL";
 
   // --------- print string
   subroutine print_string(
@@ -287,13 +292,7 @@ $$if MOJO then
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> video_clock
   );
-$$elseif ICESTICK then
-  // --- clock
-  pll clk_gen (
-    clock_in  <: clock,
-    clock_out :> video_clock
-  );
-$$elseif ICEBREAKER then
+$$elseif ICEBREAKER or ICESTICK or RIEGEL then
   // --- clock
   pll clk_gen (
     clock_in  <: clock,
