@@ -16,6 +16,8 @@
 $$spi4x  = nil
 $$spi2x  = 1
 
+$$SIM_FOMU = 1
+
 $$nBytes = 4
 
 $$if not spi4x and not spi2x and nBytes ~= 1 then
@@ -23,9 +25,15 @@ $$ error('single speed SPIflash controller supports only byte access')
 $$end
 
 $$if ICARUS then
+$$if not SIM_FOMU then
 // download W25Q128JVxIM from winbond Verilog models
 append('W25Q128JVxIM/W25Q128JVxIM.v')
-import('simul_spiflash.v')
+import('simul_spiflash_w.v')
+$$else
+// download MX25R1635F from macronix Verilog models
+append('MX25R1635F/MX25R1635F.v')
+import('simul_spiflash_m.v')
+$$end
 $$end
 
 $$master_freq = 12
@@ -183,14 +191,15 @@ $$end
     sf_rom.in_ready  = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    if (cycle == 1200) {
-      __finish();
-    }
+    //if (cycle == 1200) {
+    //  __finish();
+    //}
 $$end
   }
 
   while (sf_rom.busy) { }
   __display("init done =====================");
+
   // read some
   data.wenable      = 1;
   data.addr         = 0;
@@ -204,7 +213,7 @@ $$end
     data.wdata      = sf_rom.rdata;
     data.addr       = data.addr + 1;
   }
-
+/*
   // output to UART
   data.wenable = 0;
   data.addr    = 1;
@@ -222,5 +231,8 @@ $$end
     }
     data.addr        = data.addr + 1;
   }
-
+*/
+$$if SIMULATION then
+  __finish();
+$$end
 }

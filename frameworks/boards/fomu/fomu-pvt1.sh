@@ -3,7 +3,7 @@
 # credits: rob-ng15 -- see also https://github.com/rob-ng15/Silice-Playground
 
 case "$(uname -s)" in
-MINGW*|CYGWIN*) 
+MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
 BUILD_DIR=`cygpath $BUILD_DIR`
 FRAMEWORKS_DIR=`cygpath $FRAMEWORKS_DIR`
@@ -49,4 +49,10 @@ icetime -d up5k -mtr build.rpt build.asc
 
 cp build.bit build.dfu
 dfu-suffix -v 1209 -p 70b1 -a build.dfu
+
+if [[ ! -z "${NO_PROGRAM}" ]]; then
+  echo "Skipping prog."
+  exit
+fi
+
 dfu-util -D build.dfu

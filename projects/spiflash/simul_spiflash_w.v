@@ -1,5 +1,5 @@
 module simul_spiflash(
-  input CSn, 
+  input CSn,
 	input CLK,
   inout IO0,
   inout IO1,

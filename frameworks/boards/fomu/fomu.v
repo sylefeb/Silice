@@ -5,21 +5,21 @@ List contributors with: git shortlog -n -s -- <filename>
 
 MIT license
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so, 
+the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (header_2_M)
@@ -30,8 +30,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // see also https://github.com/rob-ng15/Silice-Playground/
 
 `define FOMU 1
+`define ICE40 1
 `default_nettype none
 $$FOMU     = 1
+$$ICE40    = 1
 $$HARDWARE = 1
 $$NUM_LEDS = 3
 
@@ -69,6 +71,15 @@ module top(
   output  sf_clk,
   output  sf_csn,
 `endif
+`ifdef QSPIFLASH
+  // QSPI
+  inout   sf_mosi,
+  inout   sf_miso,
+  inout   sf_io2,
+  inout   sf_io3,
+  output  sf_clk,
+  output  sf_csn,
+`endif
 `ifdef PADS
   // USER pads
   input   user_1,
@@ -88,7 +99,7 @@ module top(
 );
 
     wire __main_clk;
-    
+
 `ifdef USB
     wire __main_usb_dp;
     wire __main_usb_dn;
@@ -114,68 +125,46 @@ module top(
     assign sf_csn  = __main_sf_csn;
 `endif
 
-    // Connect to system clock (with buffering)
-    wire clk;
-    SB_GB clk_gb (
-        .USER_SIGNAL_TO_GLOBAL_BUFFER(clki),
-        .GLOBAL_BUFFER_OUTPUT(clk)
-    );
-
     wire [2:0] __main_leds;
 
 `ifdef OLED
 `ifdef PADS
 `error_cannot_use_both_PADS_and_OLED_not_enough_pins
 `endif
-    wire __main_oled_clk;
-    wire __main_oled_mosi;
     wire __main_oled_csn;
-    wire __main_oled_resn;
-    wire __main_oled_dc;
-
-    //assign user_1 = __main_oled_mosi;
-    //assign user_2 = __main_oled_clk;
-    //assign user_3 = __main_oled_resn;
-    //assign user_4 = __main_oled_dc;
-    
-   // flip-flop on outputs to ensure there is no routing delay 
-   SB_IO #(
-     .PIN_TYPE(5'b0101_00)
-   ) reliable_ios[3:0] (
-       .PACKAGE_PIN({user_1,user_2,user_3,user_4}),
-       .D_OUT_0({__main_oled_mosi, __main_oled_clk, __main_oled_resn, __main_oled_dc}),
-       .OUTPUT_CLK({4{__main_clk}})
-   );
-   
 `endif
 
-    reg [63:0] RST_d;
-    reg [63:0] RST_q;
+  // clock from design is used in case
+  // it relies on a PLL: in such cases
+  // we cannot use the clock fed into
+  // the PLL here
+  wire design_clk;
 
-    reg ready = 0;
+  reg ready = 0;
+  reg [15:0] RST_d;
+  reg [15:0] RST_q;
 
-    always @* begin
-    RST_d = RST_q >> 1;
-    end
+  always @* begin
+    RST_d = RST_q[15] ? RST_q : RST_q + 1;
+  end
 
-    always @(posedge clk) begin
+  always @(posedge design_clk) begin
     if (ready) begin
-        RST_q <= RST_d;
+      RST_q <= RST_d;
     end else begin
-        ready <= 1;
-        RST_q <= 64'b111111111111111111111111111111111111111111111111111111111111;
+      ready <= 1;
+      RST_q <= 0;
     end
-    end
+  end
 
     wire reset_main;
-    assign reset_main = RST_q[0];
     wire run_main;
     assign run_main = 1'b1;
 
     M_main __main(
-    .clock        (clk),
-    .out_clock    (__main_clk),
-    .reset        (RST_q[0]),
+    .clock        (clki),
+    .out_clock    (design_clk),
+    .reset        (~RST_q[15]),
     .out_leds     (__main_leds),
 `ifdef USB
     .out_usb_dp   (__main_usb_dp),
@@ -188,12 +177,20 @@ module top(
     .out_sf_clk  (__main_sf_clk),
     .out_sf_csn  (__main_sf_csn),
 `endif
+`ifdef QSPIFLASH
+    .out_sf_clk  (sf_clk),
+    .out_sf_csn  (sf_csn),
+    .inout_sf_io0(sf_mosi),
+    .inout_sf_io1(sf_miso),
+    .inout_sf_io2(sf_io2),
+    .inout_sf_io3(sf_io3),
+`endif
 `ifdef OLED
-    .out_oled_mosi(__main_oled_mosi),
-    .out_oled_clk (__main_oled_clk),
+    .out_oled_mosi(user_1),
+    .out_oled_clk (user_2),
     .out_oled_csn (__main_oled_csn),
-    .out_oled_dc  (__main_oled_dc),
-    .out_oled_resn(__main_oled_resn),
+    .out_oled_resn(user_3),
+    .out_oled_dc  (user_4),
 `endif
 `ifdef PADS
     .in_user_pads({user_4,user_3,user_2,user_1}),
