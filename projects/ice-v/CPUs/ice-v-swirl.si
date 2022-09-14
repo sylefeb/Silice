@@ -6,9 +6,14 @@
 // MIT license, see LICENSE_MIT in Silice repo root
 // --------------------------------------------------
 // === Options
+// ICEV_FAST_SHIFT
 // set to 1 to have a barrel shifter (one cycle shift)
 // set to nil for one bit shift per cycle (saves LUTs)
-$$ICEV_FAST_SHIFT = 1
+
+$$if ICEV_FAST_SHIFT then
+$$print("Ice-V-swirl configured for fast shift (barrel shifter)")
+$$end
+
 // set to 1 for a copious amount of debug output in simulation
 $$DEBUG           = nil
 // --------------------------------------------------

@@ -6,6 +6,10 @@
 // MIT license, see LICENSE_MIT in Silice repo root
 $$DEBUG = nil
 // --------------------------------------------------
+$$if ICEV_FAST_SHIFT then
+$$print("Ice-V-conveyor configured for fast shift (barrel shifter)")
+$$end
+// --------------------------------------------------
 // bitfield for easier decoding of instructions
 $$if not ICEV_RTYPE then
 bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
