@@ -82,8 +82,8 @@ void update_fire()
 void main()
 {
   *(LEDS) = 7;
-  //oled_init();
-  //oled_fullscreen();
+  oled_init();
+  oled_fullscreen();
   for (int v=0;v<32;v++) {
     for (int u=0;u<32;u++) {
       tbl[u+(v<<5)] = (v == 0) ? 63 : 0;

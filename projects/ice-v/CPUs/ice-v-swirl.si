@@ -276,15 +276,14 @@ $$end
       }
       // trigger ALU if not in bubble (used by multi-cycle shifts, div)
       exec.trigger  = ~bubble;
-       // track whether next is in a bubble, to avoid false-positive on case (c)
-      stage3_bubble = bubble;
 
     } -> { // ==== stage 3
       uint1 prev_bpred(0);
       // propagate bpred
       bpred        = exec.working ? prev_bpred : bpred;
       // start a bubble on refetch or ALU busy
-      bubble       = (bubble & ~alu_was_working) | refetch | exec.working;
+      bubble         = (bubble & ~alu_was_working) | refetch | exec.working;
+      stage3_bubble ^= bubble;
 $$if DEBUG_swirl then
       __display("[3] instr: %x @%x (bubble:%b bpred:%b)",instr,pc<<2,bubble,bpred);
 $$end
