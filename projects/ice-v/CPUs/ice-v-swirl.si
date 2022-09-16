@@ -14,6 +14,8 @@ $$if ICEV_FAST_SHIFT then
 $$print("Ice-V-swirl configured for fast shift (barrel shifter)")
 $$end
 
+$$ICEV_BRANCH_PRED      = 1
+
 // set to 1 for a copious amount of debug output in simulation
 $$DEBUG_swirl           = nil
 // --------------------------------------------------
@@ -141,11 +143,12 @@ $$end
     // CPU pipeline
 
     { // ==== stage 1
-
+$$if ICEV_BRANCH_PRED then
       uint1         JAL(0);
       int$addrW+3$  addr_a(0);
       int$addrW+3$  addr_imm(0);
       uint$addrW+2$ n(0);
+$$end
       // capture pc, instr in pipeline
       pc       = (exec.working | hold) ? pc    : rom.addr;
       instr    = (exec.working | hold) ? instr : rom.rdata;
@@ -156,13 +159,20 @@ $$end
       xregsA.addr0    = Rtype(instr).rs1;
       xregsB.addr0    = Rtype(instr).rs2;
       // fetch next
-      JAL             = 0; // instr[ 2, 5] == 5b11011;
+$$if ICEV_BRANCH_PRED then
+      JAL             = instr[ 2, 5] == 5b11011;
       bpred           = JAL & ~bubble & ~refetch & ~(hold|exec.working);
       addr_a          = __signed({1b0,pc[0,$addrW-1$],2b0});
       addr_imm        = {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
       n               = addr_a + addr_imm;
+$$end
       rom.addr        = refetch ? refetch_addr
-                                : (~bubble & ~reset) ? (bpred ? (n>>2) : (pc[0,$addrW$] + 1))
+                                : (~bubble & ~reset) ?
+$$if ICEV_BRANCH_PRED then
+                                          (bpred ? (n>>2) : (pc[0,$addrW$] + 1))
+$$else
+                                                             (pc[0,$addrW$] + 1)
+$$end
                                                      : pc;
 $$if DEBUG_swirl then
       __display("[1] %d instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b alu:%b rs1 %d rs2 %d)",
@@ -269,7 +279,7 @@ $$if DEBUG_swirl then
 $$end
       // memory address from which to load/store
       mem.addr  = (exec.n >> 2);
-      if (exec.store & ~bubble & (~jump|bpred)) {
+      if (exec.store & ~bubble & ((~jump)|bpred)) {
         //                        ^^^^^ if stage 4 jumps, cancel store
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
