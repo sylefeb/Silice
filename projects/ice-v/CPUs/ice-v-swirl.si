@@ -14,7 +14,7 @@ $$if ICEV_FAST_SHIFT then
 $$print("Ice-V-swirl configured for fast shift (barrel shifter)")
 $$end
 
-$$ICEV_BRANCH_PRED      = nil
+$$ICEV_BRANCH_PRED      = 1
 
 // set to 1 for a copious amount of debug output in simulation
 $$DEBUG_swirl           = nil
@@ -113,6 +113,8 @@ unit rv32i_cpu_swirl(bram_port mem,bram_port rom) {
   uint1         jump(0);          uint1  load(0);
   uint$addrW+2$ alu_n(0);         uint1  storeAddr(0); uint1  storeVal(0);
   uint1  intop(0);                uint3  op(0);        uint5  rd(0);
+  // stage 4 => stage 3
+  uint1         jumping(0);
   // pipeline control signals
   uint1         hold(0);            uint1 bubble(0);
   uint$addrW$   refetch_addr(0);    uint1 refetch(0);   uint1 stage3_bubble(0);
@@ -288,8 +290,8 @@ $$if DEBUG_swirl then
 $$end
       // memory address from which to load/store
       mem.addr  = (exec.n >> 2);
-      if (exec.store & ~bubble & ~(jump ^ prev_bpred)) {
-        //                         ^^^^^ if stage 4 jumps, cancel store
+      if (exec.store & ~bubble & ~jumping) {
+        //                        ^^^^^^ if stage 4 jumps, cancel store
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
         mem.wenable = ( { { 2{exec.op[0,2]==2b10} },
@@ -343,22 +345,23 @@ $$end
 $$if DEBUG_swirl then
       __display("[4] instr: %x @%x (bubble:%b jump:%b bpred:%b) reinstr:%d",instr,pc<<2,bubble,jump,bpred,reinstr);
       if (~bubble & ~refetch & ~reset) {
-        __display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b)",
-          instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1);
+        __display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b) reinstr:%d",
+          instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1,reinstr);
       }
 $$end
       // signal a jump if needed (flushes pipeline and jumps)
       refetch          = ( jump ^ bpred )  // jump prediction failed
                        & ~refetch & ~bubble;
       //                 ^^^^^^ reset refetch if done at prev cycle
+      jumping         ^= refetch;
       refetch_addr     = jump ? (alu_n>>2) : pcp1; // new address if jumping
 
 $$if DEBUG_swirl then
       if (bpred & ~refetch) {
-        __display("pc @%x branch predicted towards @%x (jump %b)",pc<<2,alu_n,jump);
+        __display("[4] pc @%x branch predicted towards @%x (jump %b)",pc<<2,alu_n,jump);
       }
       if (refetch) {
-        __display("REFETCH to @%x (jump %b bpred %b)",refetch_addr<<2,jump,bpred);
+        __display("[4] REFETCH to @%x (jump %b bpred %b)",refetch_addr<<2,jump,bpred);
       }
 $$end
     }
@@ -377,6 +380,11 @@ $$end
     mem.wdata = (xb_regW ? xregsA.wdata1 : xb) << {exec.n[0,2],3b000};
     //                                     ^^---------\
     // capture xb from stage 2 so that stage 3 assign above sees the correct value
+$$if DEBUG_swirl then
+    if (mem.wenable) {
+      __display("[3] store @%x = %x",mem.addr,mem.wdata);
+    }
+$$end
     xb        = exec.xb;
     // register bank B follows A writes
     xregsB.wenable1 = xregsA.wenable1;

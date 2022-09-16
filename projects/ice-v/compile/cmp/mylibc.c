@@ -71,14 +71,14 @@ char   get_draw_buffer() { return fbuffer; }
 
 inline long time()
 {
-   int cycles;
-   asm volatile ("rdcycle %0" : "=r"(cycles));
-   return cycles;
+  int cycles;
+  asm volatile ("rdcycle %0" : "=r"(cycles));
+  return cycles;
 }
 
 inline long insn()
 {
-   return *REINSTR;
+  return *REINSTR;
 }
 
 inline long userdata()

@@ -9,7 +9,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 echo $DIR
 export PATH=$PATH:$DIR/../../tools/fpga-binutils/mingw32/bin/
 
-#MAIN=$BASE/test.c # ../fire-v/smoke/dhrystone/dhry.c
+#MAIN=$BASE/test.c
 MAIN=../fire-v/smoke/dhrystone/dhry.c
 
 source ../../tools/bash/find_riscv.sh

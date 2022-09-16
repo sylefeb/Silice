@@ -43,8 +43,13 @@ int cycles      = 0;
 int cycles_last = 0;
 int num_retired_last[3] = {0,0,0};
 
+// cpu console output
+std::string cpu_stdout[3];
+
 // cpu names
 const char *cpu_names[3] = {"ice-v","conveyor","swirl"};
+
+// --------------------------------------------------
 
 // check that CPUs remain in synch, compute performance indicator
 void check_and_synch()
@@ -54,7 +59,7 @@ void check_and_synch()
 		if (retired[i].empty()) return;
 	}
   ++ num_retired_synch;
-#if 1
+#if 0
 	// verify coherence
 	if (retired[0].front() == retired[1].front()
 	&&  retired[0].front() == retired[2].front()) {
@@ -105,12 +110,18 @@ void check_and_synch()
 	}
 }
 
+// --------------------------------------------------
+
 // callback by each CPU when an instruction is retired
 void cpu_retires(int id,unsigned int pc,unsigned int instr,
                         unsigned int rd,unsigned int val)
 {
 	if (instr == 0 && id == 1) {
 		fprintf(stderr,"null instruction from cpu %d: halting",id);
+		for (int i=0;i<3;++i) {
+			fprintf(stderr,"\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< CPU %d >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",1+i);
+			fprintf(stderr,"%s\n",cpu_stdout[i].c_str());
+		}
 		exit (-1);
 	}
 	t_retired_instr ri;
@@ -119,21 +130,25 @@ void cpu_retires(int id,unsigned int pc,unsigned int instr,
 	retired[id-1].push_back(ri);
 	++ num_retired[id-1];
 	check_and_synch();
-
-	if (id == 1) {
-		static int cnt = 0;
-		// fprintf(stderr,"@%08x i:%08x r[%2d]=%08x\n",pc,instr,rd,val);
-		++ cnt;
-		// if (cnt > 2000) exit(-1);
-	}
-
 }
+
+// --------------------------------------------------
 
 // callback when the SOCs asks CPU reinstr count
 int cpu_reinstr(int id)
 {
 	return num_retired[id-1];
 }
+
+// --------------------------------------------------
+
+// callback when the SOCs prints a character in the console
+void cpu_putc(int id,int c)
+{
+  cpu_stdout[id-1] += (char)c;
+}
+
+// --------------------------------------------------
 
 // main, instantiate the design from Verilator and runs the clock
 int main(int argc,char **argv)

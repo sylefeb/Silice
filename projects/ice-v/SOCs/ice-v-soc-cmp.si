@@ -72,7 +72,7 @@ unit cpu1_bench()
     prev_mem_addr = memio.addr;
 
     if (mapped & memio.wenable) {
-      //__write("%c",memio.wdata[0,8]);
+      __verilog("$c32(\"cpu_putc(1,\",%,\");\");",memio.wdata[0,8]);
       if (memio.wdata == 32hFFFFFFFF) {__finish();}
     }
     reinstr = reinstr + 0; // TODO FIXME: Silice does not see the assignment below
@@ -117,7 +117,7 @@ unit cpu2_bench()
     prev_mem_addr = memio.addr;
 
     if (memio.addr[$addrW-1$,1] & memio.wenable) {
-      //__write("%c",memio.wdata[0,8]);
+      __verilog("$c32(\"cpu_putc(2,\",%,\");\");",memio.wdata[0,8]);
     }
     reinstr = reinstr + 0; // TODO FIXME: Silice does not see the assignment below
     __verilog("% = $c32(\"cpu_reinstr(2)\");",reinstr);
@@ -161,7 +161,7 @@ unit cpu3_bench()
     prev_mem_addr = memio.addr;
 
     if (memio.addr[$addrW-1$,1] & memio.wenable) {
-      __write("%c",memio.wdata[0,8]);
+      __verilog("$c32(\"cpu_putc(3,\",%,\");\");",memio.wdata[0,8]);
     }
     reinstr = reinstr + 0; // TODO FIXME: Silice does not see the assignment below
     __verilog("% = $c32(\"cpu_reinstr(3)\");",reinstr);
