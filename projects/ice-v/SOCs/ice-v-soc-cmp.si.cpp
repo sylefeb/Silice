@@ -37,6 +37,7 @@ bool operator==(const t_retired_instr& ri0,const t_retired_instr& ri1)
 std::list< t_retired_instr > retired[3];
 int num_retired[3]      = {0,0,0};
 int num_checks  = 0;
+int num_retired_synch   = 0;
 
 int cycles      = 0;
 int cycles_last = 0;
@@ -52,7 +53,8 @@ void check_and_synch()
 	for (int i = 0 ; i < 3 ; ++i) {
 		if (retired[i].empty()) return;
 	}
-#if 0
+  ++ num_retired_synch;
+#if 1
 	// verify coherence
 	if (retired[0].front() == retired[1].front()
 	&&  retired[0].front() == retired[2].front()) {
@@ -61,7 +63,7 @@ void check_and_synch()
 		}
 	} else {
 		// not good ...
-		fprintf(stderr,"\n>>>> [ERROR] CPUs have diverged <<<<\n");
+		fprintf(stderr,"\n>>>> [ERROR] CPUs have diverged <<<< (reinstr %d)\n",num_retired_synch);
 		// print
 		for (int i = 0 ; i < 3 ; ++i) {
 			const auto ri = retired[i].front();
@@ -117,14 +119,14 @@ void cpu_retires(int id,unsigned int pc,unsigned int instr,
 	retired[id-1].push_back(ri);
 	++ num_retired[id-1];
 	check_and_synch();
-/*
+
 	if (id == 1) {
 		static int cnt = 0;
-		fprintf(stderr,"@%08x i:%08x r[%2d]=%08x\n",pc,instr,rd,val);
+		// fprintf(stderr,"@%08x i:%08x r[%2d]=%08x\n",pc,instr,rd,val);
 		++ cnt;
-		if (cnt > 500) exit(-1);
+		// if (cnt > 500) exit(-1);
 	}
-*/
+
 }
 
 // callback when the SOCs asks CPU reinstr count
