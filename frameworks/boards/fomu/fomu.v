@@ -94,6 +94,11 @@ module top(
   output  user_3,
   output  user_4,
 `endif
+`ifdef UART
+  // UART
+  output  user_1,
+  input   user_2,
+`endif
   // 48MHz Clock Input
   input   clki
 );
@@ -170,6 +175,10 @@ module top(
     .out_usb_dp   (__main_usb_dp),
     .out_usb_dn   (__main_usb_dn),
     .out_usb_dp_pu(__main_usb_dp_pu),
+`endif
+`ifdef UART
+    .out_uart_tx  (user_1),
+    .in_uart_rx   (user_2),
 `endif
 `ifdef SPIFLASH
     .out_sf_mosi (__main_sf_mosi),
