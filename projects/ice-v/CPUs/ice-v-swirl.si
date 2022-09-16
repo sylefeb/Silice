@@ -14,10 +14,11 @@ $$if ICEV_FAST_SHIFT then
 $$print("Ice-V-swirl configured for fast shift (barrel shifter)")
 $$end
 
-$$ICEV_BRANCH_PRED      = 1
+$$ICEV_BRANCH_PRED      = nil
 
 // set to 1 for a copious amount of debug output in simulation
 $$DEBUG_swirl           = nil
+
 // --------------------------------------------------
 // bitfield for easier decoding of instructions
 $$if not ICEV_RTYPE then
@@ -109,9 +110,9 @@ unit rv32i_cpu_swirl(bram_port mem,bram_port rom) {
   int32         xb(0);
   // stage 3 => stage 4
   int32         alu_r(0);         int32  alu_val(0);   uint1  no_rd(0);
-  uint1         jump(0);          uint1  load(0);      uint1  intop(0);
+  uint1         jump(0);          uint1  load(0);
   uint$addrW+2$ alu_n(0);         uint1  storeAddr(0); uint1  storeVal(0);
-  uint3         op(0);            uint5  rd(0);
+  uint1  intop(0);                uint3  op(0);        uint5  rd(0);
   // pipeline control signals
   uint1         hold(0);            uint1 bubble(0);
   uint$addrW$   refetch_addr(0);    uint1 refetch(0);   uint1 stage3_bubble(0);
@@ -144,10 +145,9 @@ $$end
 
     { // ==== stage 1
 $$if ICEV_BRANCH_PRED then
-      uint1         JAL(0);
-      int$addrW+3$  addr_a(0);
-      int$addrW+3$  addr_imm(0);
-      uint$addrW+2$ n(0);
+      uint1         jinstr(0);  uint1 jal(0);             uint1 branch(0);
+      int$addrW+3$  addr_a(0);  int$addrW+3$ addr_imm(0);
+      uint$addrW+2$ bpred_n(0);
 $$end
       // capture pc, instr in pipeline
       pc       = (exec.working | hold) ? pc    : rom.addr;
@@ -160,31 +160,36 @@ $$end
       xregsB.addr0    = Rtype(instr).rs2;
       // fetch next
 $$if ICEV_BRANCH_PRED then
-      JAL             = instr[ 2, 5] == 5b11011;
-      bpred           = JAL & ~bubble & ~refetch & ~(hold|exec.working);
+      jinstr          = instr[ 4, 3] == 3b110;
+      jal             = instr[2,2]   == 2b11;
+      branch          = instr[2,2]   == 2b00;
+      bpred           = jinstr & (jal|branch);
       addr_a          = __signed({1b0,pc[0,$addrW-1$],2b0});
-      addr_imm        = {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
-      n               = addr_a + addr_imm;
+      addr_imm        = jal ? {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0}
+                            : {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
+      bpred_n         = addr_a + addr_imm;
 $$end
       rom.addr        = refetch ? refetch_addr
                                 : (~bubble & ~reset) ?
 $$if ICEV_BRANCH_PRED then
-                                          (bpred ? (n>>2) : (pc[0,$addrW$] + 1))
+                                    (bpred ? (bpred_n>>2) : (pc[0,$addrW$] + 1))
 $$else
-                                                             (pc[0,$addrW$] + 1)
+                                                            (pc[0,$addrW$] + 1)
 $$end
                                                      : pc;
 $$if DEBUG_swirl then
       __display("[1] %d instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b alu:%b rs1 %d rs2 %d)",
         cycle,instr,pc<<2,bubble,reset,refetch,hold,exec.working,xregsA.addr0,xregsB.addr0);
       if (bpred) {
-        __display("pc @%x following branch to @%x",pc<<2,rom.addr<<2);
+        __display("[1] pc @%x following branch to @%x",pc<<2,rom.addr<<2);
       }
 $$end
       // remember ALU was just busy
       alu_was_working v= exec.working;
 
     } -> { // ==== stage 2
+      // maintain bpred on bubbles
+      uint1 prev_bpred(0);
       // for data hazard detection
       uint1 has_rs2(0); uint1 store(0);
       // give instruction, pc and registers to decoder+ALU
@@ -192,8 +197,9 @@ $$end
       pc           = (exec.working | hold) ? exec.pc    : pc;
       exec.instr   = instr;
       exec.pc      = pc;
-      // cancel branch prediction pred on a hold
-      bpred        = bpred & ~hold;
+      // propagate bpred
+      bpred        = (exec.working | hold) ? prev_bpred : bpred;
+      prev_bpred   = bpred;
       // data hazards detection
       // -> we decode just enough from the instruction for detection
       store     = (Rtype(instr).opcode[2,5] == 5b01000); // store
@@ -224,9 +230,9 @@ $$end
         hold    = 0; // release the hold
       }
       // update bubble
-      bubble   = bubble | refetch | exec.working | hold;
+      bubble       = bubble | refetch | exec.working | hold;
 $$if DEBUG_swirl then
-      __display("[2] instr: %x @%x (bubble %b) rA:%x rB:%x",instr,pc<<2,bubble,xregsA.rdata0,xregsB.rdata0);
+      __display("[2] instr: %x @%x (bubble:%b bpred:%b) rA:%x rB:%x",instr,pc<<2,bubble,bpred,xregsA.rdata0,xregsB.rdata0);
 $$end
 $$if DEBUG_swirl then
       if (hold) {
@@ -272,15 +278,18 @@ $$end
       stage3_bubble = bubble;
 
     } -> { // ==== stage 3
+      uint1 prev_bpred(0);
+      // propagate bpred
+      bpred        = exec.working ? prev_bpred : bpred;
       // start a bubble on refetch or ALU busy
-      bubble   = (bubble & ~alu_was_working) | refetch | exec.working;
+      bubble       = (bubble & ~alu_was_working) | refetch | exec.working;
 $$if DEBUG_swirl then
-      __display("[3] instr: %x @%x (bubble:%b)",instr,pc<<2,bubble);
+      __display("[3] instr: %x @%x (bubble:%b bpred:%b)",instr,pc<<2,bubble,bpred);
 $$end
       // memory address from which to load/store
       mem.addr  = (exec.n >> 2);
-      if (exec.store & ~bubble & ((~jump)|bpred)) {
-        //                        ^^^^^ if stage 4 jumps, cancel store
+      if (exec.store & ~bubble & ~(jump ^ prev_bpred)) {
+        //                         ^^^^^ if stage 4 jumps, cancel store
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
         mem.wenable = ( { { 2{exec.op[0,2]==2b10} },
@@ -288,22 +297,25 @@ $$end
                         } ) << exec.n[0,2];
       }
       // decoder outputs to trickle down the pipeline towards stage 4
-      no_rd    = exec.no_rd | bubble;
+      no_rd      = exec.no_rd | bubble;
       //                      ^^^^ disables data hazard in stage 2 on a bubble
-      rd       = exec.write_rd;
-      jump     = exec.jump & ~bubble;
-      load     = exec.load;
-      intop    = exec.intop;
-      alu_n    = exec.n;
-      alu_r    = exec.r;
-      alu_val  = exec.val;
-      op       = exec.op;
-      storeAddr= exec.storeAddr;
-      storeVal = exec.storeVal;
+      rd         = exec.write_rd;
+      jump       = exec.jump & ~bubble;
+      load       = exec.load;
+      intop      = exec.intop;
+      alu_n      = exec.n;
+      alu_r      = exec.r;
+      alu_val    = exec.val;
+      op         = exec.op;
+      storeAddr  = exec.storeAddr;
+      storeVal   = exec.storeVal;
+      // track bpred
+      prev_bpred = bpred;
 
     } -> { // ==== stage 4
+      sameas(pc) pcp1 <:: pc + 1;
       // decodes values loaded from memory (if any)
-      int32         loaded(0);
+      int32  loaded(0);
       uint32 aligned(0);
       aligned = mem.rdata >> {alu_n[0,2],3b000};
       switch ( op[0,2] ) { // LB / LBU, LH / LHU, LW
@@ -315,7 +327,7 @@ $$end
       // register write back
       xregsA.wenable1  = ~no_rd & ~bubble & ~refetch;
       xregsA.addr1     = rd;
-      xregsA.wdata1    = (jump      ? ((pc+1)<<2)        : 32b0)
+      xregsA.wdata1    = (jump      ? ((pcp1)<<2)        : 32b0)
                        | (storeAddr ? alu_n              : 32b0)
                        | (storeVal  ? alu_val            : 32b0)
                        | (load      ? loaded             : 32b0)
@@ -329,20 +341,24 @@ $$if ICEV_VERILATOR_TRACE then
 			}
 $$end
 $$if DEBUG_swirl then
-      __display("[4] instr: %x @%x (bubble:%b)  reinstr:%d",instr,pc<<2,bubble,reinstr);
+      __display("[4] instr: %x @%x (bubble:%b jump:%b bpred:%b) reinstr:%d",instr,pc<<2,bubble,jump,bpred,reinstr);
       if (~bubble & ~refetch & ~reset) {
         __display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b)",
           instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1);
       }
 $$end
       // signal a jump if needed (flushes pipeline and jumps)
-      refetch          = jump & ~bpred & ~refetch;
-      //                 ^^^^^^^^ reset refetch if done at prev cycle
-      refetch_addr     = alu_n>>2; // new address if jumping
+      refetch          = ( jump ^ bpred )  // jump prediction failed
+                       & ~refetch & ~bubble;
+      //                 ^^^^^^ reset refetch if done at prev cycle
+      refetch_addr     = jump ? (alu_n>>2) : pcp1; // new address if jumping
 
 $$if DEBUG_swirl then
-      if (bpred & ~bubble) {
+      if (bpred & ~refetch) {
         __display("pc @%x branch predicted towards @%x (jump %b)",pc<<2,alu_n,jump);
+      }
+      if (refetch) {
+        __display("REFETCH to @%x (jump %b bpred %b)",refetch_addr<<2,jump,bpred);
       }
 $$end
     }
@@ -404,6 +420,7 @@ unit decode_and_ALU_swirl(
   output! int32  val,   output! uint1  storeVal, output!  uint1  working(0),
   output! uint$addrW+2$ n(0),  output! uint1  storeAddr, // next address adder
   output! uint1  intop, output! int32  r,         // integer operations
+  output! uint1  is_branch
 ) {
   uint5  shamt(0); // shifter status
   uint32 cycle(0); // cycle counter
@@ -451,6 +468,8 @@ unit decode_and_ALU_swirl(
   val          := LUI ? imm_u : cycle;
   // store value?
   storeVal     := LUI | CSR;
+  // branch instruction?
+  is_branch    := branch;
 
   always {
     uint1 j(0); // temp variables for and comparator

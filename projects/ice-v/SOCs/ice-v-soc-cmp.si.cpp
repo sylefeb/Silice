@@ -124,7 +124,7 @@ void cpu_retires(int id,unsigned int pc,unsigned int instr,
 		static int cnt = 0;
 		// fprintf(stderr,"@%08x i:%08x r[%2d]=%08x\n",pc,instr,rd,val);
 		++ cnt;
-		// if (cnt > 500) exit(-1);
+		// if (cnt > 2000) exit(-1);
 	}
 
 }
