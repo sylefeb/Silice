@@ -7,3 +7,6 @@
 [submodule "python/pybind11"]
 	path = python/pybind11
 	url = https://github.com/pybind/pybind11.git
+[submodule "projects/tinygpus"]
+	path = projects/tinygpus
+	url = https://github.com/sylefeb/tinygpus.git
