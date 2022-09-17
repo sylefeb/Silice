@@ -4,11 +4,13 @@
     {
       "name"      : "pvt1",
       "framework" : "fomu.v",
-      "pins"      : [ 
+      "pins"      : [
         {"set"    : "basic"},
         {"set"    : "usb",  "define" : "USB=1"},
+        {"set"    : "uart", "define" : "UART=1"},
         {"set"    : "pads", "define" : "PADS=1"},
         {"set"    : "spiflash", "define" : "SPIFLASH=1"},
+        {"set"    : "qspiflash", "define" : "QSPIFLASH=1"},
         {"set"    : "oled", "define" : "OLED=1"}
       ],
       "builders": [
@@ -17,12 +19,12 @@
           "command" : "fomu-pvt1.sh",
           "description": "Custom shell scripts using yosys and nextpnr"
         }
-      ]    
+      ]
     },
     {
       "name"      : "hacker",
       "framework" : "fomu.v",
-      "pins"      : [ 
+      "pins"      : [
         {"set"    : "basic"},
         {"set"    : "usb",  "define" : "USB=1"},
         {"set"    : "spiflash",  "define" : "SPIFLASH=1"},
@@ -35,7 +37,7 @@
           "command" : "fomu-hacker.sh",
           "description": "Custom shell scripts using yosys and nextpnr"
         }
-      ]    
+      ]
     }
   ],
   "pins": {
@@ -78,7 +80,7 @@
         "name": "sf_clk",
         "type": "uint1",
         "io": "output"
-      },      
+      },
       {
         "name": "sf_csn",
         "type": "uint1",
@@ -110,6 +112,18 @@
         "name": "oled_dc",
         "type": "uint1",
         "io": "output"
+      }
+    ],
+    "uart": [
+      {
+        "name": "uart_tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "uart_rx",
+        "type": "uint1",
+        "io"  : "input"
       }
     ],
     "pads": [

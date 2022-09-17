@@ -16,6 +16,8 @@
 $$spi4x  = nil
 $$spi2x  = 1
 
+$$SIM_FOMU = 1
+
 $$nBytes = 4
 
 $$if not spi4x and not spi2x and nBytes ~= 1 then
@@ -23,25 +25,36 @@ $$ error('single speed SPIflash controller supports only byte access')
 $$end
 
 $$if ICARUS then
+$$if not SIM_FOMU and not FOMU then
 // download W25Q128JVxIM from winbond Verilog models
 append('W25Q128JVxIM/W25Q128JVxIM.v')
-import('simul_spiflash.v')
+import('simul_spiflash_w.v')
+$$else
+// download MX25R1635F from macronix Verilog models
+append('MX25R1635F/MX25R1635F.v')
+import('simul_spiflash_m.v')
+$$end
 $$end
 
 $$master_freq = 12
 
-$$if ICEBREAKER then
+$$if ICE40 then
 $$if spi4x then
   import('../common/ice40_half_quarter_clock.v')
   $$master_freq = 100 --------------------------------------
 $$elseif spi2x then
   import('../common/ice40_half_clock.v')
-  $$master_freq = 50
 $$else
   $$error('define either spi2x or spi4x')
 $$end
 // Import hardware modules
+$$if not FOMU then
+$$master_freq = 50
 import('../common/plls/icebrkr_$master_freq$.v')
+$$else
+$$master_freq = 25
+import('../common/plls/fomu_$master_freq$.v')
+$$end
 import('../../common/ice40_spram.v')
 $$end
 
@@ -91,7 +104,7 @@ $$if UART then
   input  uint1 uart_rx,
 $$end
 ) <@clock1x> {
-$$if ICEBREAKER or ICEBITSY then
+$$if ICE40 then
 $$if spi4x then
   uint1 clock2x = uninitialized;
   uint1 clock4x = uninitialized;
@@ -183,20 +196,22 @@ $$end
     sf_rom.in_ready  = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    if (cycle == 1200) {
-      __finish();
-    }
+    //if (cycle == 1200) {
+    //  __finish();
+    //}
 $$end
   }
 
   while (sf_rom.busy) { }
   __display("init done =====================");
+
   // read some
   data.wenable      = 1;
   data.addr         = 0;
-  while (~data.addr[5,1]) {
+  while (~data.addr[7,1]) {
     sf_rom.in_ready = 1;
-    sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
+    sf_rom.addr     = 24h40000 + (data.addr[0,8] << 8d$clog2(nBytes)$);
+    //sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
     //sf_rom.addr     = {4b0000,12b0,data.addr[0,8] };
 ++:
     while (sf_rom.busy) { }
@@ -205,10 +220,15 @@ $$end
     data.addr       = data.addr + 1;
   }
 
+  // sentinel
+  uo.data_in       = 8hff;
+  uo.data_in_ready = 1;
+  while (uo.busy) { }
+
   // output to UART
   data.wenable = 0;
   data.addr    = 1;
-  while (data.addr != 33) {
+  while (data.addr != 129) {
     uint32 dta = 0;
     uint3  n   = 0;
     dta = data.rdata;
@@ -223,4 +243,7 @@ $$end
     data.addr        = data.addr + 1;
   }
 
+$$if SIMULATION then
+  __finish();
+$$end
 }
