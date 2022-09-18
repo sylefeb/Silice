@@ -150,7 +150,7 @@ $$if ICARUS then
         // this is necessary for icarus as init is otherwise 1bz
         spiflash.trigger = reset ? 0 : spiflash.trigger;
 $$end
-        stage = (~reset & wait[10,1]) ? after : 0; // counts up to 1024 and goes to after
+        stage = wait[10,1] ? after : 0; // counts up to 1024 and goes to after
         wait  = wait + 1;
       }
       case 1: { accept_in = 1; }
