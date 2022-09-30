@@ -43,7 +43,7 @@ When designing with Silice your code describes circuits. If not done already, it
     -   [Control flow](#control-flow)
     -   [Cycle costs of calls to algorithms and
         subroutines](#cycle-costs-of-calls-to-algorithms-and-subroutines)
-    -   [Pipelining](#pipelining)
+    -   [Pipelines](#pipelines)
 -   [Lua preprocessor](#lua-preprocessor)
     -   [Principle and syntax](#principle-and-syntax)
     -   [Includes](#includes)
@@ -1296,8 +1296,109 @@ to jump to the subroutine initial state, and one cycle to jump back.
 
 # Pipelines
 
-> **To be written.** In the meantime please refer to these projects:
- [pipeline_sort](../projects/pipeline_sort/README.md) (has detailed explanations) and [divstd_pipe](../projects/divstd_pipe/README.md).
+The pipeline syntax is:
+```c
+{
+  // stage 0
+  // ...
+} -> {
+  // stage 1
+  // ...
+} -> {
+  // final stage
+  // ...
+}
+```
+
+In essence, a pipeline is composed of one-cycle blocks that all run simultaneously,
+in parallel. If stages are independent and do not communicate through variables,
+their order does not matter.
+
+Of course the interesting part is how different stages *can* communicate ;
+and when they do their order indicates how data flows through the pipeline.
+Typically, each stage works on some data and passes its output to the next stage
+at the next cycle. Here is an example of a data stream A,B,C,D traversing a
+three stages pipeline just passing the data around:
+
+| cycle   |   i   |  i+1  |  i+2  |   i+3  |   i+4  |   i+5  |   i+6  |
+|---------|-------|-------|------ |--------|--------|--------|--------|
+| stage 0 |   A   |   B   |   C   |   D    |    .   |    .   |   .    |
+| stage 1 |   .   |   A   |   B   |   C    |    D   |    .   |   .    |
+| stage 2 |   .   |   .   |   A   |   B    |    C   |    D   |   .    |
+
+A dot (`.`) indicates that the stage is idle (it does not process useful data).
+
+There are a number of interesting observations to be made. The first data token
+(`A`) enters the pipeline at cycle `i` and exits it after cycle `i+2`. So there
+is a delay of three cycles -- corresponding to the three stages -- between `A`
+entering the pipeline and the corresponding result becoming available. This is
+called the *latency* of the pipeline.
+A second observation is that once `A` exits, then the results for `B`, `C` and
+`D` follow each at the next cycles. This is the main advantage of a pipeline:
+we pay in latency but then get new results at every next cycle (of course some
+pipelines may produce results at a different pace, but one each cycle is typical).
+Finally, consider the usage in terms of circuitry. When the pipeline is filled
+(see `i+2` and `i+3` above), all stages are active, so the circuitry of all
+stages is being fully utilized. This is much more efficient than having only one
+stage producing a useful result during a cycle.
+
+How do we tell Silice to pass data around in a pipeline? Well, in fact there is
+nothing special to do, simply assign a variable and it will be passed to the subsequent
+stages. Let's see a simple example:
+```c
+unit main(output uint8 leds)
+{
+  algorithm {
+    uint16 cycle=0; uint16 a=0; uint16 b=0;
+    while (cycle < 4) {
+      {      // stage 0
+        a = cycle;
+        __display("[stage 0] cycle %d, a = %d",cycle,a);
+      } -> { // stage 1
+        __display("[stage 1] cycle %d, a = %d",cycle,a);
+      } -> { // stage 2
+        __display("[stage 2] cycle %d, a = %d\n",cycle,a);
+      }
+      cycle = cycle + 1;
+    }
+  }
+}
+```
+
+The result is:
+```
+[stage 0] cycle     0, a =     0
+[stage 1] cycle     0, a =     0
+[stage 2] cycle     0, a =     0
+
+[stage 0] cycle     1, a =     1
+[stage 1] cycle     1, a =     0
+[stage 2] cycle     1, a =     0
+
+[stage 0] cycle     2, a =     2
+[stage 1] cycle     2, a =     1
+[stage 2] cycle     2, a =     0
+
+[stage 0] cycle     3, a =     3
+[stage 1] cycle     3, a =     2
+[stage 2] cycle     3, a =     1
+```
+See how each stage at a given cycle sees a different value of `a`? (E.g. at
+cycle 2, stage 0 reports `a=2`, stage 1 reports `a=1`, stage 2 reports `a=0`).
+That is because `a` is passed from one stage to the next at each cycle, so at
+any point in time there are three different `a`, one per stage
+In Silice terminology, `a` has been *captured* at stage 0 and *trickles down*
+the pipeline.
+
+By default, any variable assigned at a given stage immediately starts trickling
+down. In many cases nothing else is needed. But of course there are ways to
+control that behavior. In a pipeline, there are three
+special assignement operators:
+- The 'backward assign' operator `^=`
+- The 'forward assign' operator `v=`
+- The 'after pipeline' assign operator `vv=`
+
+> Several projects in the repo use pipelines and can provide a good practical introduction: [pipeline_sort](../projects/pipeline_sort/README.md) (has detailed explanations), [divstd_pipe](../projects/divstd_pipe/README.md) (uses the pre-processor to produce a pipeline for division when instantiated) and the [ice-v conveyor and swirl CPUs](../projects/ice-v/README.md).
 
 # Advanced language constructs
 

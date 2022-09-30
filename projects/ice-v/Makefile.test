@@ -11,5 +11,13 @@ icestick2: SOCs/ice-v-soc-dual.si
 	./compile/icestick/dual/compile_c.sh src/dual_test_oled.c
 	silice-make.py -s SOCs/ice-v-soc-dual.si -b icestick -p basic,pmod,spiflash -o BUILD_$(subst :,_,$@) $(ARGS)
 
+icestick3: SOCs/ice-v-soc-conveyor.si
+	./compile/icestick/conveyor/compile_c.sh src/test_leds.c
+	silice-make.py -s SOCs/ice-v-soc-conveyor.si -b icestick -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+
+icebreaker2: SOCs/ice-v-soc-swirl.si
+	./compile/icebreaker/swirl/compile_c.sh src/test_leds.c
+	silice-make.py -s SOCs/ice-v-soc-swirl.si -b icebreaker -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+
 clean:
 	rm -rf BUILD_*

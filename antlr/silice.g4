@@ -142,8 +142,9 @@ AUTO                : 'auto' ;
 ALWSASSIGNDBL       : '::=' ;
 ALWSASSIGN          : ':=' ;
 
-OUTASSIGN_BEFORE    : '^=' ;
-OUTASSIGN_AFTER     : 'v=' ;
+ASSIGN_BACKWARD     : '^=' ;
+ASSIGN_FORWARD      : 'v=' ;
+ASSIGN_AFTER        : 'vv=' ;
 
 HASH                : '#';
 
@@ -334,8 +335,8 @@ idOrAccess          : (  access | IDENTIFIER) ;
 
 /* -- Assignments -- */
 
-assignment          : IDENTIFIER  ('=' | OUTASSIGN_BEFORE | OUTASSIGN_AFTER) expression_0
-                    | access      ('=' | OUTASSIGN_BEFORE | OUTASSIGN_AFTER) expression_0 ;
+assignment          : IDENTIFIER  ('=' | ASSIGN_BACKWARD | ASSIGN_FORWARD | ASSIGN_AFTER) expression_0
+                    | access      ('=' | ASSIGN_BACKWARD | ASSIGN_FORWARD | ASSIGN_AFTER) expression_0 ;
 
 alwaysAssigned      : IDENTIFIER   (ALWSASSIGN    | LDEFINE   ) expression_0
                     | access        ALWSASSIGN                  expression_0

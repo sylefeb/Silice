@@ -187,7 +187,8 @@ $$if DEBUG_swirl then
       }
 $$end
       // remember ALU was just busy
-      alu_was_working v= exec.working;
+      alu_was_working vv= exec.working;
+      //              |-> assign after pipeline, stages will only see it next cycle
 
     } -> { // ==== stage 2
       // maintain bpred on bubbles
