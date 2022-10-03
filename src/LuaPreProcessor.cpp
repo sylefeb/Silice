@@ -1241,7 +1241,7 @@ void LuaPreProcessor::generateBody(
   // parse main file
   source_code += assembleSource("", src_file, inclusions, output_line_count);
 
-  {
+  if (0) {
     ofstream dbg(extractFileName(fileAbsolutePath(src_file) + ".pre.si"));
     dbg << source_code;
   }
@@ -1251,7 +1251,7 @@ void LuaPreProcessor::generateBody(
   // prepare the Lua code, with units as functions
   std::string lua_code = prepareCode(lua_header_code, source_code, m_Units);
 
-  {
+  if (0) {
     ofstream dbg(extractFileName(fileAbsolutePath(src_file) + ".pre.lua"));
     dbg << lua_code;
   }

@@ -1,35 +1,37 @@
 algorithm main(output uint8 leds)
 {
-  uint8  i  = 0;
-	uint8  a  = 0;
-	uint8  b  = 0;
+  uint8  i = 0;
+	uint8  a = 0;
+	uint8  b = 0;
+  uint8  c = 0;
 
   while (i < 8) {
 
     {
 
-      a  = a + 1;
+      a = a + 1;
 
-			__display("[0] a = %d b = %d\n",a,b);
-
-    } -> {
-
-			__display("[1] a = %d b = %d",a,b);
+			__display("[0] a = %d\tb = %d\tc = %d",a,b,c);
 
     } -> {
 
-			__display("[2] a = %d b = %d",a,b);
+			__display("[1] a = %d\tb = %d\tc = %d",a,b,c);
+
+    } -> {
 
 			b ^= a;
+      c v= a;
+
+			__display("[2] a = %d\tb = %d\tc = %d",a,b,c);
 
     } -> {
 
-			__display("[3] a = %d b = %d",a,b);
-			
+			__display("[3] a = %d\tb = %d\tc = %d",a,b,c);
+
     } -> {
 
-			__display("[4] a = %d b = %d",a,b);
-		
+			__display("[4] a = %d\tb = %d\tc = %d\n",a,b,c);
+
 		}
 
     i = i + 1;

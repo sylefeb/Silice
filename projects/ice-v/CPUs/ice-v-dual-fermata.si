@@ -8,7 +8,7 @@
 // MIT license, see LICENSE_MIT in Silice repo root
 
 $$if ICEV_FAST_SHIFT then
-$$print("Ice-V-dual configured for fast shift (barrel shifter)")
+$$print("Ice-V-dual-fermata configured for fast shift (barrel shifter)")
 $$end
 
 // --------------------------------------------------

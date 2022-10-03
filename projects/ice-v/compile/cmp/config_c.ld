@@ -3,8 +3,8 @@
 
 MEMORY
 {
-    ROM (rx)   : ORIGIN = 0x00000000, LENGTH = 0x01000  /* 4 KB */
-    RAM (xrw)  : ORIGIN = 0x00001000, LENGTH = 0x01000  /* 4 KB */
+    ROM (rx)   : ORIGIN = 0x00000000, LENGTH = 0x04000  /* 16 KB */
+    RAM (xrw)  : ORIGIN = 0x00004000, LENGTH = 0x04000  /* 16 KB */
 }
 
 SECTIONS {
@@ -30,7 +30,7 @@ SECTIONS {
         *(.sdata*)         /* .sdata* sections */
     } >RAM
 
-    /* Uninitialized data section */
+    /* Uninitialized data goes into RAM, mapped in a second BRAM  */
     .bss :
     {
         . = ALIGN(4);

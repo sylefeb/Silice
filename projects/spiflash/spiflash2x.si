@@ -149,7 +149,6 @@ $$end
 $$if ICARUS then
         // this is necessary for icarus as init is otherwise 1bz
         spiflash.trigger = reset ? 0 : spiflash.trigger;
-        spiflash.send    = 0;
 $$end
         stage = wait[10,1] ? after : 0; // counts up to 1024 and goes to after
         wait  = wait + 1;
@@ -170,9 +169,16 @@ $$end
       case 3: {
         spiflash.trigger        = ~init[1,1];
         // send dummy
+$$if not FOMU and not SIM_FOMU then
         spiflash.send           = 8b00100000; // requests continuous read
         stage                   = 0; // wait
         wait                    = 1023; //_ 3 cycles
+$$else
+        spiflash.send           = 8b10100101; // requests continuous read
+        stage                   = 0; // wait
+        wait                    = init[0,1] ? 1017 //_ 9 cycles
+                                            : 1019;
+$$end
         after                   = 4;
       }
       case 4: {
@@ -205,12 +211,22 @@ $$end
     } // switch
 
     // start sending?
+$$if not FOMU and not SIM_FOMU then
     if ((in_ready | init[1,1]) & accept_in) {
       four     = {init[0,1],~init[0,1],2b00};
       sendvec  = (init == 2b01 ? {8hEB,addr} : 24h0)
                | (init == 2b00 ? {addr,8h00} : 24h0)
                | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0);
-               //                ^^^^^^^^^^ produces 38h when not in QPI
+               //                ^^^^^^^^^^ produces 38h when not in QPI (qpi enable)
+$$else
+    if ((in_ready | init[0,1]) & accept_in) {
+      four     = {init[0,1],~init[0,1],2b00};
+      sendvec  = (init == 2b01 ? 32b00010001000100000001000000010001 : 24h0)
+               //                ^^^^^^^^^^ produces EBh when not in QPI
+               | (init == 2b00 ? {addr,8h00} : 24h0)
+               | (init[1,1]    ? 32b00010000000100000001000000010001 : 24h0);
+               //                ^^^^^^^^^^ produces ABh when not in QPI (wake up)
+$$end
       spiflash.send_else_read = 1; // sending
   $$if SIMULATION then
       //__display("[%d](%d) spiflash [1] START @%x init:%b",cycle,cycle>>1,addr,init);

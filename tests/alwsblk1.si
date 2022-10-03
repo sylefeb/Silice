@@ -1,15 +1,16 @@
-algorithm main(output uint8 v,input uint8 b)
+algorithm main(output uint8 leds)
 {
 
   uint8 a = 0;
+  uint8 b = 0;
 
-  v := b;
+  leds := b;
 
   always {
-    v = a;
+    leds = a;
     if (b == 0) {
-      v = 5;
+      leds = 5;
     }
   }
-  
+
 }

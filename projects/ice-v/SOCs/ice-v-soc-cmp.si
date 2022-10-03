@@ -14,12 +14,13 @@ $$end
 $$config['bram_wmask_byte_wenable_width'] = 'data'
 
 // pre-compilation script, embeds compiled code within a string
-$$data_addr = 4096
+$$data_addr = 16384 -- 4096
 $$dofile('pre_include_compiled.lua')
 
-$$addrW = 12
+$$addrW = 16
 
 // include the processors
+$$ICEV_FAST_SHIFT=1
 $$ICEV_VERILATOR_TRACE=1
 $include('../CPUs/ice-v.si')
 $include('../CPUs/ice-v-conveyor.si')
@@ -43,9 +44,12 @@ unit cpu1_bench()
 {
   // ram
   bram_io memio;
-  bram uint32 mem<"bram_wmask_byte">[1024] = $datainit$;
-  bram uint32 rom<"bram_wmask_byte">[1024] = $meminit$;
+  bram uint32 mem<"bram_wmask_byte">[4096] = $datainit$;
 
+  // rom (code)
+  bram uint32 rom<"bram_wmask_byte">[4096] = $meminit$;
+
+  // memory mapping
   sameas(memio.addr) prev_mem_addr(0);
 
   // cpu
@@ -53,14 +57,27 @@ unit cpu1_bench()
 
   // io mapping
   always {
+    uint32 reinstr(0);
+    uint1  mapped      <:: :memio.addr  [$addrW-1$,1];
+    uint1  prev_mapped <:: prev_mem_addr[$addrW-1$,1];
 	  // RAM access
-    mem.wenable   = memio.wenable & {4{~memio.addr[11,1]}};
+    mem.wenable   = memio.wenable & {4{~mapped}};
 		//                              ^^^^^^^ no BRAM write if in peripherals
-    memio.rdata   = prev_mem_addr[10,1] ? mem.rdata : rom.rdata;
+    memio.rdata   = prev_mapped         ? reinstr
+                  : prev_mem_addr[12,1] ? mem.rdata
+                  :                       rom.rdata;
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
     rom.addr      = memio.addr;
     prev_mem_addr = memio.addr;
+
+    if (mapped & memio.wenable) {
+      __verilog("$c32(\"cpu_putc(1,\",%,\");\");",memio.wdata[0,8]);
+      if (memio.wdata == 32hFFFFFFFF) {__finish();}
+    }
+    reinstr = reinstr + 0; // TODO FIXME: Silice does not see the assignment below
+    __verilog("% = $c32(\"cpu_reinstr(1)\");",reinstr);
+
   }
 }
 
@@ -70,26 +87,41 @@ unit cpu2_bench()
 {
   // ram
   bram_io memio;
-  bram uint32 mem<"bram_wmask_byte">[1024] = $datainit$;
+  bram uint32 mem<"bram_wmask_byte">[4096] = $datainit$;
 
   // rom (code)
   bram_io romio;
-  bram uint32 rom<"bram_wmask_byte">[1024] = $meminit$;
+  bram uint32 rom<"bram_wmask_byte">[4096] = $meminit$;
+
+  // memory mapping
+  sameas(memio.addr) prev_mem_addr(0);
 
   // cpu
   rv32i_cpu_conveyor cpu( mem <:> memio, rom <:> romio );
 
   // io mapping
   always {
+    uint32 reinstr(0);
+    uint1  mapped      <:: :memio.addr  [$addrW-1$,1];
+    uint1  prev_mapped <:: prev_mem_addr[$addrW-1$,1];
 	  // RAM access
-    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}};
+    mem.wenable = memio.wenable & {4{~memio.addr[$addrW-1$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripherals
-    memio.rdata   = mem.rdata;
+    memio.rdata   = prev_mapped ? reinstr : mem.rdata;
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
     // ROM access
     rom.addr      = romio.addr;
     romio.rdata   = rom.rdata;
+    // mapping
+    prev_mem_addr = memio.addr;
+
+    if (memio.addr[$addrW-1$,1] & memio.wenable) {
+      __verilog("$c32(\"cpu_putc(2,\",%,\");\");",memio.wdata[0,8]);
+    }
+    reinstr = reinstr + 0; // TODO FIXME: Silice does not see the assignment below
+    __verilog("% = $c32(\"cpu_reinstr(2)\");",reinstr);
+
   }
 }
 
@@ -99,26 +131,40 @@ unit cpu3_bench()
 {
   // ram
   bram_io memio;
-  bram uint32 mem<"bram_wmask_byte">[1024] = $datainit$;
+  bram uint32 mem<"bram_wmask_byte">[4096] = $datainit$;
 
   // rom (code)
   bram_io romio;
-  bram uint32 rom<"bram_wmask_byte">[1024] = $meminit$;
+  bram uint32 rom<"bram_wmask_byte">[4096] = $meminit$;
+
+  // memory mapping
+  sameas(memio.addr) prev_mem_addr(0);
 
   // cpu
   rv32i_cpu_swirl cpu( mem <:> memio, rom <:> romio );
 
   // io mapping
   always {
+    uint32 reinstr(0);
+    uint1  mapped      <:: :memio.addr  [$addrW-1$,1];
+    uint1  prev_mapped <:: prev_mem_addr[$addrW-1$,1];
 	  // RAM access
-    mem.wenable = memio.wenable & {4{~memio.addr[11,1]}};
+    mem.wenable = memio.wenable & {4{~memio.addr[$addrW-1$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripherals
-    memio.rdata   = mem.rdata;
+    memio.rdata   = prev_mapped ? reinstr : mem.rdata;
     mem.wdata     = memio.wdata;
     mem.addr      = memio.addr;
     // ROM access
     rom.addr      = romio.addr;
     romio.rdata   = rom.rdata;
+    // mapping
+    prev_mem_addr = memio.addr;
+
+    if (memio.addr[$addrW-1$,1] & memio.wenable) {
+      __verilog("$c32(\"cpu_putc(3,\",%,\");\");",memio.wdata[0,8]);
+    }
+    reinstr = reinstr + 0; // TODO FIXME: Silice does not see the assignment below
+    __verilog("% = $c32(\"cpu_reinstr(3)\");",reinstr);
   }
 }
 

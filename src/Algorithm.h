@@ -312,11 +312,19 @@ private:
     typedef struct s_pipeline_stage_nfo {
       t_pipeline_nfo *pipeline;
       int             stage_id;
-      std::unordered_set<std::string> written_before;
+      std::unordered_set<std::string> read;
+      std::unordered_set<std::string> written_backward;
+      std::unordered_set<std::string> written_forward;
     } t_pipeline_stage_nfo;
 
     /// \brief vector of all pipelines
     std::vector< t_pipeline_nfo* > m_Pipelines;
+
+    /// \brief struct describing the first and last block of a pipeline stage
+    typedef struct {
+      const Algorithm::t_combinational_block *first;
+      const Algorithm::t_combinational_block *last;
+    } t_pipeline_stage_range;
 
     /// \brief variable dependencies within combinational sequences
     class t_vio_dependencies {
@@ -454,9 +462,9 @@ private:
 
     /// \brief combinational block context
     typedef struct s_combinational_block_context {
-      t_subroutine_nfo            *subroutine   = nullptr; // if block belongs to a subroutine
-      t_pipeline_stage_nfo        *pipeline     = nullptr; // if block belongs to a pipeline
-      const t_combinational_block *parent_scope = nullptr; // parent block in scope
+      t_subroutine_nfo            *subroutine     = nullptr; // if block belongs to a subroutine
+      t_pipeline_stage_nfo        *pipeline_stage = nullptr; // if block belongs to a pipeline
+      const t_combinational_block *parent_scope   = nullptr; // parent block in scope
       std::unordered_map<std::string, std::string> vio_rewrites; // if the block contains vio rewrites
     } t_combinational_block_context;
 
@@ -860,11 +868,11 @@ private:
       const t_combinational_block_context        *bctx,
       std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const;
     /// \brief determine variables written outside of pipeline
-    void determineOutOfPipelineAssignments(
+    void determinePipelineSpecificAssignments(
       antlr4::tree::ParseTree *node,
       const std::unordered_map<std::string, int> &vios,
       const t_combinational_block_context *bctx,
-      std::unordered_set<std::string> &_ex_written_before, std::unordered_set<std::string> &_ex_written_after,
+      std::unordered_set<std::string> &_ex_written_backward, std::unordered_set<std::string> &_ex_written_forward, std::unordered_set<std::string> &_ex_written_after,
       std::unordered_set<std::string> &_not_ex_written) const;
     /// \brief updates access to vars due to a binding
     template<typename T_nfo>
@@ -1062,6 +1070,8 @@ private:
     void writeCombinationalStates(std::string prefix, std::ostream &out, const t_instantiation_context &ictx, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
     /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
     void writeStatelessBlockGraph(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
+    /// \brief order pipeline stages based on pipeline specific assignments
+    bool orderPipelineStages(std::vector< t_pipeline_stage_range >& _stages) const;
     /// \brief writes a stateless pipeline to the output, returns zhere to resume from
     const t_combinational_block *writeStatelessPipeline(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
     /// \brief writes a single block to the output

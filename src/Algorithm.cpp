@@ -378,13 +378,13 @@ Algorithm::t_combinational_block *Algorithm::addBlock(
   m_Blocks.back()->end_action           = nullptr;
   m_Blocks.back()->context.parent_scope = parent;
   if (bctx) {
-    m_Blocks.back()->context.subroutine   = bctx->subroutine;
-    m_Blocks.back()->context.pipeline     = bctx->pipeline;
-    m_Blocks.back()->context.vio_rewrites = bctx->vio_rewrites;
+    m_Blocks.back()->context.subroutine     = bctx->subroutine;
+    m_Blocks.back()->context.pipeline_stage = bctx->pipeline_stage;
+    m_Blocks.back()->context.vio_rewrites   = bctx->vio_rewrites;
   } else if (parent) {
-    m_Blocks.back()->context.subroutine   = parent->context.subroutine;
-    m_Blocks.back()->context.pipeline     = parent->context.pipeline;
-    m_Blocks.back()->context.vio_rewrites = parent->context.vio_rewrites;
+    m_Blocks.back()->context.subroutine     = parent->context.subroutine;
+    m_Blocks.back()->context.pipeline_stage = parent->context.pipeline_stage;
+    m_Blocks.back()->context.vio_rewrites   = parent->context.vio_rewrites;
   }
   m_Id2Block[next_id] = m_Blocks.back();
   m_State2Block[name] = m_Blocks.back();
@@ -1291,11 +1291,11 @@ std::string Algorithm::translateVIOName(
       }
     }
     // then pipeline stage
-    if (bctx->pipeline != nullptr) {
-      const auto& Vpip = bctx->pipeline->pipeline->trickling_vios.find(vio);
-      if (Vpip != bctx->pipeline->pipeline->trickling_vios.end()) {
-        if (bctx->pipeline->stage_id > Vpip->second[0]) {
-          vio = tricklingVIOName(vio, bctx->pipeline);
+    if (bctx->pipeline_stage != nullptr) {
+      const auto& Vpip = bctx->pipeline_stage->pipeline->trickling_vios.find(vio);
+      if (Vpip != bctx->pipeline_stage->pipeline->trickling_vios.end()) {
+        if (bctx->pipeline_stage->stage_id > Vpip->second[0]) {
+          vio = tricklingVIOName(vio, bctx->pipeline_stage);
         }
       }
     }
@@ -2126,10 +2126,13 @@ Pipelining rules
 - a variable bound to an output is never trickled
   => should necessarily be the case and these cannot be written!
 - inputs and outputs never trickle, outputs can be written from a single stage
+- ^=  writes variable backwards, so that *earlier* stages see the change immediately
+- v=  writes variable forward, so that *later* stages see the change immediately
+- vv= writes variable after pipeline (deferred assign)
 */
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
-  if (_current->context.pipeline != nullptr) {
+  if (_current->context.pipeline_stage != nullptr) {
     reportError(sourceloc(pip), "pipelines cannot be nested");
   }
   const t_subroutine_nfo *sub = _current->context.subroutine;
@@ -2143,7 +2146,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   // -> track read/written
   std::unordered_map<std::string,std::vector<int> > read_at, written_at;
   std::unordered_set<std::string> written_outputs;
-  std::unordered_set<std::string> written_outside;
+  std::unordered_set<std::string> written_special;
   // -> for each stage block
   t_combinational_block *prev = _current;
   // -> stage number
@@ -2166,10 +2169,10 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // gather read/written for block
     std::unordered_set<std::string> read, written;
     determineVIOAccess(b, m_VarNames,    &_current->context, read, written);
-    // check written vars (will start trickling) are not written  outside of pipeline before
+    // check written vars (will start trickling) are not written outside of pipeline before
     for (auto w : written) {
-      if (written_outside.count(w) != 0) {
-        reportError(sourceloc(b), "variable '%s' is assigned to outside of pipeline (^=) by an earlier stage", w.c_str());
+      if (written_special.count(w) != 0) {
+        reportError(sourceloc(b), "variable '%s' is assigned affter pipeline (vv=) by an earlier stage", w.c_str());
       }
     }
     // check no output is written from two stages
@@ -2181,27 +2184,43 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       }
       written_outputs.insert(ow);
     }
-    // check outside of pipeline assignments: not written to outside from two stages, not written using both = and v= or ^=
-    std::unordered_set<std::string> ex_written, ex_written_before, ex_written_after, not_ex_written;
-    determineOutOfPipelineAssignments(b, m_VarNames, &_current->context, ex_written_before, ex_written_after, not_ex_written);
-    // record written outside and before for the stage
-    snfo->written_before = ex_written_before;
-    // merge both sets
-    ex_written.insert(ex_written_before.begin(), ex_written_before.end());
+    // check pipeline specific assignments
+    std::unordered_set<std::string> ex_written, ex_written_backward, ex_written_forward, ex_written_after, not_ex_written;
+    determinePipelineSpecificAssignments(b, m_VarNames, &_current->context, ex_written_backward, ex_written_forward, ex_written_after, not_ex_written);
+    // record read and specially written vios
+    snfo->written_backward = ex_written_backward;
+    snfo->written_forward  = ex_written_forward;
+    snfo->read = read;
+    // report on read and written variables
+#if 1
+    for (auto r : read) {
+        std::cerr << "vio " << r << " read at stage " << stage << nxl;
+    }
+    for (auto w : ex_written_backward) {
+        std::cerr << "vio " << w << " written backward (^=) at stage " << stage << nxl;
+    }
+    for (auto w : ex_written_forward) {
+      std::cerr << "vio " << w << " written forward (v=) at stage " << stage << nxl;
+    }
+#endif
+    // merge written sets
+    ex_written.insert(ex_written_backward.begin(), ex_written_backward.end());
+    ex_written.insert(ex_written_forward.begin(), ex_written_forward.end());
     ex_written.insert(ex_written_after.begin(), ex_written_after.end());
+    // checks: not written using conflicting assignment operators
     for (auto w : ex_written) {
-      // not written to outside from two stages
-      if (written_outside.count(w) > 0) {
-        reportError(sourceloc(b), "variable '%s' is assigned to outside of pipeline (v= or ^=) from two different stages", w.c_str());
+      // check not written with pipeline specific assignment from two stages
+      if (written_special.count(w) > 0) {
+        reportError(sourceloc(b), "variable '%s' is using a pipeline specific assignment (^=,v=,vv=) from two different stages", w.c_str());
       }
-      written_outside.insert(w);
-      // not written with both = and ^=/v= within same stage
-      if (not_ex_written.count(w) != 0) {
-        reportError(sourceloc(b), "variable '%s' cannot be assigned with both = and v= (or ^=)",w.c_str());
+      written_special.insert(w);
+      // not written with both = and ^=/v=/vv= within same stage
+      if (not_ex_written.count(w) > 0) {
+        reportError(sourceloc(b), "variable '%s' cannot be assigned with both = and pipeline specific assignments (^=,v=,vv=)",w.c_str());
       }
       // not trickling before
       if (written_at.count(w) != 0) {
-        reportError(sourceloc(b), "variable '%s' is assigned to outside of pipeline (^= or v=) while already trickling from a previous stage", w.c_str());
+        reportError(sourceloc(b), "variable '%s' is assigned with a pipeline specific operator (^=,v=,vv=) while already trickling from a previous stage", w.c_str());
       }
       // exclude var from written set (cancels trickling)
       written.erase(w);
@@ -2245,20 +2264,6 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       // std::cerr << "vio " << w.first << " trickling" << nxl;
     }
   }
-  // report on read and written variables
-#if 0
-  for (auto r : read_at) {
-    for (auto s : r.second) {
-      std::cerr << "vio " << r.first << " read at stage " << s << nxl;
-    }
-  }
-  for (auto w : written_at) {
-    for (auto s : w.second) {
-      std::cerr << "vio " << w.first << " written at stage " << s;
-      std::cerr << nxl;
-    }
-  }
-#endif
   // create trickling variables
   for (auto tv : trickling_vios) {
     // the first stage it is written
@@ -4660,11 +4665,11 @@ void Algorithm::determineVIOAccess(
 
 // -------------------------------------------------
 
-void Algorithm::determineOutOfPipelineAssignments(
+void Algorithm::determinePipelineSpecificAssignments(
   antlr4::tree::ParseTree *node,
   const std::unordered_map<std::string, int> &vios,
   const t_combinational_block_context *bctx,
-  std::unordered_set<std::string> &_ex_written_before, std::unordered_set<std::string> &_ex_written_after,
+  std::unordered_set<std::string> &_ex_written_backward, std::unordered_set<std::string> &_ex_written_forward, std::unordered_set<std::string> &_ex_written_after,
   std::unordered_set<std::string> &_not_ex_written) const
 {
   auto assign = dynamic_cast<siliceParser::AssignmentContext *>(node);
@@ -4680,10 +4685,12 @@ void Algorithm::determineOutOfPipelineAssignments(
       if (!var.empty()) {
         var = translateVIOName(var, bctx);
         if (!var.empty() && vios.find(var) != vios.end()) {
-          if (assign->OUTASSIGN_AFTER() != nullptr) {
-            _ex_written_after.insert(var);
-          } else if (assign->OUTASSIGN_BEFORE() != nullptr) {
-            _ex_written_before.insert(var);
+          if (assign->ASSIGN_AFTER() != nullptr) {
+            _ex_written_after   .insert(var);
+          } else if (assign->ASSIGN_BACKWARD() != nullptr) {
+            _ex_written_backward.insert(var);
+          } else if (assign->ASSIGN_FORWARD() != nullptr) {
+            _ex_written_forward .insert(var);
           } else {
             _not_ex_written.insert(var);
           }
@@ -4692,7 +4699,7 @@ void Algorithm::determineOutOfPipelineAssignments(
   } else {
     // recurse
     for (auto c : node->children) {
-      determineOutOfPipelineAssignments(c, vios, bctx, _ex_written_before,_ex_written_after, _not_ex_written);
+      determinePipelineSpecificAssignments(c, vios, bctx, _ex_written_backward, _ex_written_forward, _ex_written_after, _not_ex_written);
     }
   }
 }
@@ -5908,7 +5915,7 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
       a.instance_name.c_str());
   }
   // check for pipeline
-  if (bctx->pipeline != nullptr) {
+  if (bctx->pipeline_stage != nullptr) {
     reportError(sourceloc(node),
       "cannot join algorithm instance from a pipeline");
   }
@@ -5959,7 +5966,7 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
 
 void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo *called, const t_combinational_block_context *bctx, const t_instantiation_context &ictx, siliceParser::CallParamListContext* plist, const t_vio_dependencies& dependencies, t_vio_ff_usage &_ff_usage) const
 {
-  if (bctx->pipeline != nullptr) {
+  if (bctx->pipeline_stage != nullptr) {
     reportError(sourceloc(node),
       "cannot call a subroutine from a pipeline");
   }
@@ -5984,7 +5991,7 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
 
 void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, const t_instantiation_context &ictx, siliceParser::CallParamListContext* plist, t_vio_ff_usage &_ff_usage) const
 {
-  if (bctx->pipeline != nullptr) {
+  if (bctx->pipeline_stage != nullptr) {
     reportError(sourceloc(node),
     "cannot join a subroutine from a pipeline");
   }
@@ -6205,15 +6212,20 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
   // verify type of assignement
   auto assign = dynamic_cast<siliceParser::AssignmentContext *>(a.instr);
   if (assign) {
-    if (assign->OUTASSIGN_AFTER() != nullptr) {
+    if (assign->ASSIGN_AFTER() != nullptr) {
       // check in pipeline
-      if (bctx->pipeline == nullptr) {
-        reportError(sourceloc(a.instr),"cannot use outside of pipeline assign (^=) if not inside a pipeline");
+      if (bctx->pipeline_stage == nullptr) {
+        reportError(sourceloc(a.instr),"cannot use 'after pipeline' assign (vv=) if not inside a pipeline");
       }
-    } else if (assign->OUTASSIGN_BEFORE() != nullptr) {
+    } else if (assign->ASSIGN_BACKWARD() != nullptr) {
       // check in pipeline
-      if (bctx->pipeline == nullptr) {
-        reportError(sourceloc(a.instr), "cannot use outside of pipeline assign (v=) if not inside a pipeline");
+      if (bctx->pipeline_stage == nullptr) {
+        reportError(sourceloc(a.instr), "cannot use 'backward assign' (^=) if not inside a pipeline");
+      }
+    } else if (assign->ASSIGN_FORWARD() != nullptr) {
+      // check in pipeline
+      if (bctx->pipeline_stage == nullptr) {
+        reportError(sourceloc(a.instr), "cannot use 'forward assign' (v=) if not inside a pipeline");
       }
     }
   }
@@ -7522,6 +7534,75 @@ void Algorithm::writeStatelessBlockGraph(
 
 // -------------------------------------------------
 
+bool Algorithm::orderPipelineStages(std::vector< t_pipeline_stage_range >& _stages) const
+{
+  // build constraints
+  map<int,vector<int> > cstrs;
+  for (int s = 0; s < (int)_stages.size(); ++s) {
+    // backward constraints
+    for (auto w : _stages[s].first->context.pipeline_stage->written_backward) {
+      for (int o = s - 1; o >= 0; --o) {
+        if (_stages[o].first->context.pipeline_stage->read.count(w)) {
+          cstrs[o].push_back(s); // s should be before o
+        }
+      }
+    }
+    // forward constraints
+    for (auto w : _stages[s].first->context.pipeline_stage->written_forward) {
+      for (int o = s + 1; o < (int)_stages.size(); ++o) {
+        if (_stages[o].first->context.pipeline_stage->read.count(w)) {
+          cstrs[o].push_back(s); // s should be before o
+        }
+      }
+    }
+  }
+
+#if 1
+  for (auto s : cstrs) {
+    cerr << "pipeline stage " << s.first << " has to be after stage(s) ";
+    for (auto c : s.second) {
+      cerr << c << ' ';
+    }
+    cerr << nxl;
+  }
+#endif
+
+  // now produce a valid order if possible
+  vector< t_pipeline_stage_range > valid_order;
+  set<int> not_selected;
+  for (int s = 0; s < (int)_stages.size(); ++s) {
+    not_selected.insert(s);
+  }
+  while (!not_selected.empty()) {
+    // find an unconstrained stage
+    bool found = false;
+    for (auto s : not_selected) {
+      bool free = true;
+      for (auto c : cstrs[s]) {
+        if (not_selected.count(c) > 0) {
+          free = false;
+          break;
+        }
+      }
+      if (free) {
+        cerr << "next pipeline stage: " << s << nxl;
+        valid_order.push_back(_stages[s]);
+        not_selected.erase(s);
+        found = true;
+        break;
+      }
+    }
+    // did we find one?
+    if (!found) {
+      return false;
+    }
+  }
+  _stages = valid_order;
+  return true;
+}
+
+// -------------------------------------------------
+
 const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   std::string prefix, std::ostream& out, const t_instantiation_context &ictx,
   const t_combinational_block* block_before,
@@ -7535,20 +7616,16 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   out << "// pipeline" << nxl;
   const t_combinational_block *current   = block_before->pipeline_next()->next;
   const t_combinational_block *after     = block_before->pipeline_next()->after;
-  const t_pipeline_nfo        *pip       = current->context.pipeline->pipeline;
+  const t_pipeline_nfo        *pip       = current->context.pipeline_stage->pipeline;
   sl_assert(pip != nullptr);
   t_vio_dependencies depds_before_stages = _dependencies;
 
   // first, gather stages
   const t_combinational_block *cur = current;
   const t_combinational_block *aft = after;
-  typedef struct {
-    const t_combinational_block *current;
-    const t_combinational_block *after;
-  } t_stage;
-  std::vector< t_stage > stages;
+  std::vector< t_pipeline_stage_range > stages;
   while (true) {
-    sl_assert(pip == cur->context.pipeline->pipeline);
+    sl_assert(pip == cur->context.pipeline_stage->pipeline);
     stages.push_back({ cur,aft });
     if (cur != aft) {
       cur = aft;
@@ -7560,28 +7637,36 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
       break; // done
     }
   }
+  // record last before reordering stages
+  auto pipeline_last = stages.back().last;
 
-  // reverse stages
-  std::reverse(stages.begin(), stages.end());
+  // order stages
+  bool success = orderPipelineStages(stages);
+  if (!success) {
+    reportError(block_before->pipeline_next()->next->srcloc,"cannot order pipeline stages due to conflicting operator requirements (^= v=)");
+  }
 
   for (auto st : stages) {
-    sl_assert(pip == st.current->context.pipeline->pipeline);
+    sl_assert(pip == st.first->context.pipeline_stage->pipeline);
     // write stage
-    int stage = st.current->context.pipeline->stage_id;
+    int stage = st.first->context.pipeline_stage->stage_id;
     out << "// -------- stage " << stage << nxl;
     t_vio_dependencies deps = depds_before_stages;
     // write code
-    if (st.current != st.after) { // this is the more complex case of multiple blocks in stage
-      writeStatelessBlockGraph(prefix, out, ictx, st.current, st.after, _q, deps, _ff_usage, _post_dependencies, _lines); // NOTE: q will not be changed since this is a combinational block
-      st.current = st.after;
+    if (st.first != st.last) { // this is the more complex case of multiple blocks in stage
+      writeStatelessBlockGraph(prefix, out, ictx, st.first, st.last, _q, deps, _ff_usage, _post_dependencies, _lines); // NOTE: q will not be changed since this is a combinational block
+      st.first = st.last;
     } else {
-      writeBlock(prefix, out, ictx, st.current, deps, _ff_usage, _lines);
+      writeBlock(prefix, out, ictx, st.first, deps, _ff_usage, _lines);
     }
     clearNoLatchFFUsage(_ff_usage);
-    // for vios written before, retain dependencies
+    // for vios written backward/forward, retain dependencies
     for (const auto& d : deps.dependencies) {
-      if (st.current->context.pipeline->written_before.count(d.first)) {
+      if (st.first->context.pipeline_stage->written_backward.count(d.first)) {
         depds_before_stages.dependencies[d.first].insert(d.second.begin(),d.second.end());
+      }
+      if (st.first->context.pipeline_stage->written_forward.count(d.first)) {
+        depds_before_stages.dependencies[d.first].insert(d.second.begin(), d.second.end());
       }
     }
     // trickle vars: start
@@ -7589,22 +7674,22 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
       if (stage == tv.second[0]) {
         // capture the var in the pipeline
         std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
-        out << rewriteIdentifier(prefix, tricklingdst, "", &st.current->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage) << " = ";
-        out << rewriteIdentifier(prefix, tv.first, "", &st.current->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
+        out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage) << " = ";
+        out << rewriteIdentifier(prefix, tv.first, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
         out << ';' << nxl;
       } else if (stage < tv.second[1]) {
         // mark var ff as needed (Q side) for next stages
-        std::string trickling = translateVIOName(tv.first, &st.current->context);
+        std::string trickling = translateVIOName(tv.first, &st.first->context);
         updateFFUsage(e_Q, true, _ff_usage.ff_usage[trickling]);
       }
     }
     // merge dependencies
     mergeDependenciesInto(deps, _dependencies);
   }
-  // done (using front since stages are reverted
-  if (!stages.front().after->pipeline_next()) {
-    sl_assert(stages.front().after->next() != nullptr);
-    return stages.front().after->next()->next;
+  // done
+  if (!pipeline_last->pipeline_next()) {
+    sl_assert(pipeline_last->next() != nullptr);
+    return pipeline_last->next()->next;
   }
   sl_assert(false);
   return nullptr;

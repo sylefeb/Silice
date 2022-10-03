@@ -77,6 +77,10 @@ int main(int argc,char **argv)
 {
   // Verilated::commandArgs(argc,argv);
 
+  // unbuffered stdout and stderr
+  setbuf(stdout, NULL);
+  setbuf(stderr, NULL);
+
   // instantiate design
   g_Design = new Vtop();
   g_Design->clk = 0;

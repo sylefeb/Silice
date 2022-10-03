@@ -23,6 +23,7 @@ $$dofile('pre_include_compiled.lua')
 $$addrW = 12
 
 // include the processor
+$$ICEV_FAST_SHIFT = 1
 $include('../CPUs/ice-v-swirl.si')
 
 // --------------------------------------------------

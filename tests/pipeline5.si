@@ -17,7 +17,7 @@ algorithm main(output uint8 leds)
     } -> {
 			__display("A [%d] = %d (e = %d)",pi,b,e);
       b  = a + 10;
-      e v= pi;
+      e vv= pi;
     } -> {
       __display("B [%d] = %d (e = %d)",pi,b,e);
       c  = a + 2;

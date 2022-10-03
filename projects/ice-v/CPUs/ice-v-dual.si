@@ -265,6 +265,10 @@ $$end
 
 unit rv32i_cpu(
   bram_port    mem,
+$$if ICEV_STALL then
+  // advanced feature to stall the CPU (rise only on even stage F/LS1)
+  input uint1  stall,
+$$end
 $$if ICEV_USERDATA then
   input uint32 user_data
 $$end
@@ -280,6 +284,13 @@ $$end
 
   // CPU dual stages
   uint2  stage(3);
+$$if ICEV_STALL then
+  // stalled status
+  uint1  stalled(0);
+$$else
+  // make these constant, removing the feature
+  uint1 stall <: 0; uint1 stalled <: 0;
+$$end
 
   // program counters
   uint$addrW$ pc_0($Boot-1$);
@@ -297,7 +308,7 @@ $$end
   int32  xb    <:: (stage[0,1]^stage[1,1]) ? :xregsB_0.rdata : :xregsB_1.rdata;
   execute exec(instr <: instr,pc <: pc, xa <: xa, xb <: xb);
 
-$$if VERBOSE then
+$$if SIMULATION then
   uint32 cycle(0);
 $$end
 
@@ -348,14 +359,14 @@ $$if KILL0 then
       instr_0 = $NOP$;
       pc_0    = 0;
 $$else
-      instr_0 = ~stage[1,1] ? mem.rdata : instr_0;
+      instr_0 = (~stage[1,1] & ~stalled) ? mem.rdata : instr_0;
       pc_0    = ~stage[1,1] ? mem.addr  : pc_0;
 $$end
 $$if KILL1 then
       instr_1 = $NOP$;
       pc_1    = 0;
 $$else
-      instr_1 = stage[1,1] ? mem.rdata : instr_1;
+      instr_1 = (stage[1,1] & ~stalled) ? mem.rdata : instr_1;
       pc_1    = stage[1,1] ? mem.addr  : pc_1;
 $$end
 
@@ -373,7 +384,7 @@ $$end
 
       // LS1
       // memory address from which to load/store
-      mem.addr = ~exec.working ? (exec.n >> 2) : mem.addr;
+      mem.addr = (~exec.working & ~stall) ? (exec.n >> 2) : mem.addr;
       // no need to know which core, since we only read from exec
       if (exec.store) {
         // == Store (enabled if exec.store == 1)
@@ -450,7 +461,12 @@ $$end
     }
 
     // advance states unless stuck in ALU or reset is high
-    stage = (exec.working | reset) ? stage : stage + 1;
+    stage   = (exec.working | reset | stall) ? stage : stage + 1;
+$$if ICEV_STALL then
+    // track CPU was stalled
+    stalled = stall;
+$$end
+
 $$if VERBOSE then
     if (reset) { __display("[cycle %d] reset",cycle); }
 $$end
@@ -467,7 +483,7 @@ $$end
     xregsA_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs1;
     xregsB_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs2;
 
-$$if VERBOSE then
+$$if SIMULATION then
     cycle = cycle + 1;
 $$end
 

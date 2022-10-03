@@ -95,5 +95,5 @@ print('code size: ' .. numwords .. ' 32bits words ('
 data_size_bytes = datanumwords * 4
 print('dara size: ' .. datanumwords .. ' 32bits words ('
       .. data_size_bytes .. ' bytes)')
-meminit  = meminit  .. 'pad(uninitialized)}'
-datainit = datainit .. 'pad(uninitialized)}'
+meminit  = meminit  .. 'pad(0)}'
+datainit = datainit .. 'pad(0)}'
