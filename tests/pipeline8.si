@@ -6,10 +6,8 @@ unit C(input uint8 i,output! uint8 o,output! uint1 last(0))
   algorithm {
     uint8 t(0);
     t = i;
-/*
   ++:
     t = t + 1;
-*/
     o = t;
     last = 1;
   }
@@ -21,12 +19,10 @@ unit B(input uint8 i,output! uint8 o,output! uint1 last(0))
   algorithm {
     uint8 t(0);
     t = i;
-/*
   ++:
     t = t + 1;
   ++:
     t = t + 1;
-*/
     o = t;
     last = 1;
   }
@@ -38,20 +34,12 @@ unit A(input uint8 i,output! uint8 o,output! uint1 last(0))
   algorithm {
     uint8 t(0);
     t = i;
-/*
   ++:
     t = t + 1;
   ++:
     t = t + 1;
   ++:
     t = t + 1;
-  ++:
-    t = t + 1;
-  ++:
-    t = t + 1;
-  ++:
-    t = t + 1;
-*/
     o = t;
     last = 1;
   }
