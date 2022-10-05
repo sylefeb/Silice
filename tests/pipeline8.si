@@ -1,0 +1,102 @@
+// mockup of multi-fsm pipeline
+
+unit C(input uint8 i,output! uint8 o,output! uint1 last(0))
+{
+  always_before{ last = 0; }
+  algorithm {
+    uint8 t(0);
+    t = i;
+/*
+  ++:
+    t = t + 1;
+*/
+    o = t;
+    last = 1;
+  }
+}
+
+unit B(input uint8 i,output! uint8 o,output! uint1 last(0))
+{
+  always_before{ last = 0; }
+  algorithm {
+    uint8 t(0);
+    t = i;
+/*
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+*/
+    o = t;
+    last = 1;
+  }
+}
+
+unit A(input uint8 i,output! uint8 o,output! uint1 last(0))
+{
+  always_before{ last = 0; }
+  algorithm {
+    uint8 t(0);
+    t = i;
+/*
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+*/
+    o = t;
+    last = 1;
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  A a; B b; C c;
+
+  algorithm {  while (1) {
+
+    {      // stage 0
+      uint1 not_first(0);
+      if (a.last | ~not_first) {
+        a.i = cycle;
+        a <- ();
+        not_first = 1;
+        __display("[cycle %d] A (a.i:%d)",cycle,a.i);
+      }
+
+    } -> { // stage 1
+
+      if (a.last) {
+        b.i = a.o;
+        b <- ();
+        __display("[cycle %d] B (b.i:%d)",cycle,b.i);
+      }
+
+    } -> { // stage 2
+
+      if (b.last) {
+        c.i = b.o;
+        c <- ();
+        __display("[cycle %d] C (c.i:%d)",cycle,c.i);
+      }
+
+    }
+
+    if (c.last) {
+      __display("[cycle %d] result:%d",cycle,c.o);
+    }
+
+    cycle = cycle + 1;
+    if (cycle == 40) { __finish(); }
+
+  } }
+}
