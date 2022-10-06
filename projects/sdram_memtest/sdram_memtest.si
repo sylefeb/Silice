@@ -52,7 +52,7 @@ $$if DE10NANO then
 import('../common/plls/de10nano_50_25_100_100ph180.v')
 $$end
 $$if DE2 then
-import('../common/plls/de2_50_25_100_100ph180.v')
+import('../common/plls/de2_25_100_100ph180.v')
 $$end
 
 $$if SIMULATION then
@@ -207,8 +207,8 @@ $$if ULX3S then
     locked   :> pll_lock
   );
 $$end
-$$if DE10NANO or DE2 then
-  $$print('de10nano/de2 at 50 MHz compute clock, 100 MHz SDRAM')
+$$if DE10NANO then
+  $$print('de10nano at 50 MHz compute clock, 100 MHz SDRAM')
   uint1 not_pll_lock = 0;
   pll_50_25_100_100ph180 clk_gen(
     refclk   <: clock,
@@ -220,7 +220,18 @@ $$if DE10NANO or DE2 then
     locked   :> pll_lock
   );
 $$end
-
+$$if DE2 then
+  $$print('de2, 100 MHz SDRAM')
+  uint1 not_pll_lock = 0;
+  pll clk_gen(
+    inclk0   <: clock,
+    c0       :> video_clock,
+    c1       :> sdram_clock, // controller
+    c2       :> sdram_clk,   // chip
+    locked   :> pll_lock
+  );
+  compute_clock := clock;
+$$end
 $$end
 
   // maintain low (pulses when ready, see below)
