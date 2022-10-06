@@ -10,7 +10,11 @@ $$  palette[1+i] = (i) | (((i<<1)&255)<<8) | (((i<<2)&255)<<16)
 $$end
 
 $$mode_640_480   = true
+$$if ULX3S then
 $$SDRAM_r512_w64 = true
+$$else
+$$SDRAM_r512_w64 = false
+$$end
 
 $include('../common/video_sdram_main.si')
 

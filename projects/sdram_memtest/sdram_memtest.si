@@ -8,8 +8,8 @@
 // @sylefeb 2020
 
 $$TEST_r512w64            = false
-$$TEST_r128w8             = false
-$$TEST_r16w16             = true
+$$TEST_r128w8             = true
+$$TEST_r16w16             = false
 
 $$TEST_with_autoprecharge = true
 
