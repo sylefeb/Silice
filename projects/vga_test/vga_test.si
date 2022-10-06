@@ -31,6 +31,11 @@ $$if DE10NANO then
 import('../common/plls/de10nano_100_25.v')
 $$end
 
+$$if DE2 then
+// Clock
+import('../common/plls/de2_25_100_100ph180.v')
+$$end
+
 $$if ULX3S then
 // Clock
 import('../common/plls/ulx3s_100_25.v')
@@ -100,7 +105,7 @@ algorithm frame_display(
 
 algorithm main(
   output! uint$NUM_LEDS$ leds,
-$$if SIMULATION then
+$$if SIMULATION or DE2 then
   output  uint1 video_clock,
 $$end
 $$if VGA then
@@ -119,7 +124,9 @@ $$end
   uint1 video_reset = 0;
 
 $$if HARDWARE then
+$$if not DE2 then
   uint1 video_clock = 0;
+$$end
 $$if MOJO then
   uint1 sdram_clock = 0;
   // --- clock
@@ -158,6 +165,14 @@ $$elseif DE10NANO then
     outclk_1  :> video_clock,
     locked    :> pll_lock,
     rst       <: reset
+  );
+$$elseif DE2 then
+  // --- clock
+  uint1 pll_lock = 0;
+  pll clk_gen(
+    inclk0    <: clock,
+    c0        :> video_clock,
+    locked    :> pll_lock,
   );
 $$elseif ULX3S then
   // --- clock

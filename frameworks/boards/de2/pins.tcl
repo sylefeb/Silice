@@ -46,7 +46,6 @@ set_location_assignment PIN_Y12   -to leds[26]
 
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to leds*
 
-
 #============================================================
 # SDRAM
 #============================================================
@@ -101,3 +100,51 @@ set_instance_assignment -name FAST_INPUT_REGISTER ON -to SDRAM_DQ[*]
 set_instance_assignment -name ALLOW_SYNCH_CTRL_USAGE OFF -to *|SDRAM_*
 set_instance_assignment -name FAST_OUTPUT_ENABLE_REGISTER ON -to SDRAM_DQML
 set_instance_assignment -name FAST_OUTPUT_ENABLE_REGISTER ON -to SDRAM_DQMH
+
+#============================================================
+# VGA
+#============================================================
+
+set_location_assignment PIN_C8  -to vga_r[0]
+set_location_assignment PIN_F10 -to vga_r[1]
+set_location_assignment PIN_G10 -to vga_r[2]
+set_location_assignment PIN_D9  -to vga_r[3]
+set_location_assignment PIN_C9  -to vga_r[4]
+set_location_assignment PIN_A8  -to vga_r[5]
+set_location_assignment PIN_H11 -to vga_r[6]
+set_location_assignment PIN_H12 -to vga_r[7]
+set_location_assignment PIN_F11 -to vga_r[8]
+set_location_assignment PIN_E10 -to vga_r[9]
+
+set_location_assignment PIN_B9  -to vga_g[0]
+set_location_assignment PIN_A9  -to vga_g[1]
+set_location_assignment PIN_C10 -to vga_g[2]
+set_location_assignment PIN_D10 -to vga_g[3]
+set_location_assignment PIN_B10 -to vga_g[4]
+set_location_assignment PIN_A10 -to vga_g[5]
+set_location_assignment PIN_G11 -to vga_g[6]
+set_location_assignment PIN_D11 -to vga_g[7]
+set_location_assignment PIN_E12 -to vga_g[8]
+set_location_assignment PIN_D12 -to vga_g[9]
+
+set_location_assignment PIN_J13 -to vga_b[0]
+set_location_assignment PIN_J14 -to vga_b[1]
+set_location_assignment PIN_F12 -to vga_b[2]
+set_location_assignment PIN_G12 -to vga_b[3]
+set_location_assignment PIN_J10 -to vga_b[4]
+set_location_assignment PIN_J11 -to vga_b[5]
+set_location_assignment PIN_C11 -to vga_b[6]
+set_location_assignment PIN_B11 -to vga_b[7]
+set_location_assignment PIN_C12 -to vga_b[8]
+set_location_assignment PIN_B12 -to vga_b[9]
+
+set_location_assignment PIN_A7  -to vga_hs
+set_location_assignment PIN_D8  -to vga_vs
+set_location_assignment PIN_D6  -to vga_blank
+set_location_assignment PIN_B7  -to vga_sync
+
+set_location_assignment PIN_AH27 -to vga_en
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to vga_en
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to vga_*
+set_instance_assignment -name CURRENT_STRENGTH_NEW 8MA -to vga_*
