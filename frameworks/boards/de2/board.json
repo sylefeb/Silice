@@ -19,7 +19,7 @@
         "tool_options": [
           {
             "family": "Cyclone II",
-            "device": "EPC2C35",
+            "device": "EP2C35F672C6",
             "cable" : "DE-SoC",
             "board_device_index" : 1
           }
