@@ -48,8 +48,11 @@ $$if ULX3S then
 import('../common/plls/ulx3s_50_25_100_100ph180.v')
 $$end
 
-$$if DE10NANO or DE2 then
+$$if DE10NANO then
 import('../common/plls/de10nano_50_25_100_100ph180.v')
+$$end
+$$if DE2 then
+import('../common/plls/de2_50_25_100_100ph180.v')
 $$end
 
 $$if SIMULATION then
