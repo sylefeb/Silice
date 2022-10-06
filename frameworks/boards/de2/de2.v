@@ -34,6 +34,7 @@ $$NUM_BTNS = 5
 $$config['dualport_bram_template'] = 'dualport_bram_altera.v.in'
 $$color_depth = 6
 $$color_max   = 63
+$$SDRAM_COLUMNS_WIDTH = 9
 
 module top(
     output [26:0] leds,
@@ -52,7 +53,7 @@ module top(
     output  SDRAM_nCAS,
     output  SDRAM_nRAS,
     output  [1:0] SDRAM_BA,
-    output  [12:0] SDRAM_A,
+    output  [11:0] SDRAM_A,
     inout   [15:0] SDRAM_DQ,
 `endif
 `ifdef VGA
@@ -189,7 +190,7 @@ assign  SDRAM_nWE    = __main_out_sdram_we;
 assign  SDRAM_nCAS   = __main_out_sdram_cas;
 assign  SDRAM_nRAS   = __main_out_sdram_ras;
 assign  SDRAM_BA     = __main_out_sdram_ba;
-assign  SDRAM_A      = __main_out_sdram_a;
+assign  SDRAM_A      = __main_out_sdram_a[11:0];
 `endif
 
 `ifdef VGA
