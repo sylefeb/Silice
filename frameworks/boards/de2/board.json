@@ -19,9 +19,7 @@
         "tool_options": [
           {
             "family": "Cyclone II",
-            "device": "EP2C35F672C6",
-            "cable" : "DE-SoC",
-            "board_device_index" : 1
+            "device": "EP2C35F672C6"
           }
         ],
         "toplevel" : "top",
@@ -31,7 +29,7 @@
           {"name": "pins.tcl", "file_type": "tclSource"}
         ],
         "program": [
-          {"cmd" : "quartus_pgm", "args" : "-m jtag -o \"p;build.sof@2\""}
+          {"cmd" : "quartus_pgm", "args" : "-m jtag -o \"p;build.sof@1\""}
         ]
       }
       ]
