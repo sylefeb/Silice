@@ -98,14 +98,6 @@ wire [1:0]  __main_out_sdram_ba;
 wire [12:0] __main_out_sdram_a;
 `endif
 
-`ifdef VGA
-wire        __main_out_vga_hs;
-wire        __main_out_vga_vs;
-wire [5:0]  __main_out_vga_r;
-wire [5:0]  __main_out_vga_g;
-wire [5:0]  __main_out_vga_b;
-`endif
-
 `ifdef UART
 wire        __main_out_uart_tx;
 `endif
@@ -162,11 +154,11 @@ M_main __main(
   .out_sdram_a(__main_out_sdram_a),
 `endif
 `ifdef VGA
-  .out_video_hs(__main_out_vga_hs),
-  .out_video_vs(__main_out_vga_vs),
-  .out_video_r(__main_out_vga_r),
-  .out_video_g(__main_out_vga_g),
-  .out_video_b(__main_out_vga_b),
+  .out_video_hs(vga_hs),
+  .out_video_vs(vga_vs),
+  .out_video_r(vga_r),
+  .out_video_g(vga_g),
+  .out_video_b(vga_b),
   .out_video_clock(vga_clock),
 `endif
 `ifdef UART
@@ -198,11 +190,6 @@ assign  SDRAM_A      = __main_out_sdram_a[11:0];
 `endif
 
 `ifdef VGA
-assign  vga_hs       = __main_out_vga_hs;
-assign  vga_vs       = __main_out_vga_vs;
-assign  vga_r        = __main_out_vga_r;
-assign  vga_g        = __main_out_vga_g;
-assign  vga_b        = __main_out_vga_b;
 assign  vga_blank    = 1'b1;
 assign  vga_synch    = 1'b0;
 `endif

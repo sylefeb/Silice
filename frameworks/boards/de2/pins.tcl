@@ -138,13 +138,9 @@ set_location_assignment PIN_B11 -to vga_b[7]
 set_location_assignment PIN_C12 -to vga_b[8]
 set_location_assignment PIN_B12 -to vga_b[9]
 
+set_location_assignment PIN_B8  -to vga_clock
+
+set_location_assignment PIN_D6  -to vga_blank
 set_location_assignment PIN_A7  -to vga_hs
 set_location_assignment PIN_D8  -to vga_vs
-set_location_assignment PIN_D6  -to vga_blank
 set_location_assignment PIN_B7  -to vga_sync
-
-set_location_assignment PIN_AH27 -to vga_en
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to vga_en
-
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to vga_*
-set_instance_assignment -name CURRENT_STRENGTH_NEW 8MA -to vga_*
