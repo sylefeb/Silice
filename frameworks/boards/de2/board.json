@@ -1,0 +1,39 @@
+{
+  "name": "de2",
+  "variants": [
+    {
+      "name": "configurable",
+      "framework" : "de2.v",
+      "pins": [
+        {"set"    : "basic"},
+        {"set"    : "buttons","define" : "BUTTONS=1"},
+        {"set"    : "vga",    "define" : "VGA=1"},
+        {"set"    : "sdram",  "define" : "SDRAM=1"},
+        {"set"    : "uart",   "define" : "UART=1"}
+      ],
+      "builders": [
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize",
+        "tool": "quartus",
+        "tool_options": [
+          {
+            "family": "Cyclone II",
+            "device": "EP2C35F672C6"
+          }
+        ],
+        "toplevel" : "top",
+        "bitstream"  : "build.sof",
+        "constraints": [
+          {"name": "build.sdc", "file_type": "SDC"},
+          {"name": "pins.tcl", "file_type": "tclSource"}
+        ],
+        "program": [
+          {"cmd" : "quartus_pgm", "args" : "-m jtag -o \"p;build.sof@1\""}
+        ]
+      }
+      ]
+    }
+  ],
+  "pins": { }
+}

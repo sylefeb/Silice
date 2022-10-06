@@ -27,9 +27,19 @@ $$if ICESTICK then
 import('../common/plls/icestick_25.v')
 $$end
 
+$$if RIEGEL then
+// Clock
+import('../common/plls/riegel_25.v')
+$$end
+
 $$if DE10NANO then
 // Clock
 import('../common/plls/de10nano_100_25.v')
+$$end
+
+$$if DE2 then
+// Clock
+import('../common/plls/de2_25_100_100ph180.v')
 $$end
 
 $$if ECPIX5 then
@@ -74,7 +84,7 @@ $$end
   output! uint$color_depth$ video_b,
   output  uint1             video_hs,
   output  uint1             video_vs,
-$$if SIMULATION then
+$$if SIMULATION or DE2 then
   output  uint1             video_clock,
 $$end
 )
@@ -85,7 +95,9 @@ $$end
   uint1 video_reset = 0;
 
 $$if HARDWARE then
+$$if not DE2 then
   uint1 video_clock = 0;
+$$end
 $$if MOJO then
   uint1 sdram_clock = 0;
   // --- clock
@@ -111,7 +123,7 @@ $$elseif ICESTICK then
     clock_out :> video_clock,
     lock      :> pll_lock
   );
-$$elseif ICEBREAKER or ICEBITSY then
+$$elseif ICEBREAKER or ICEBITSY or RIEGEL then
   // --- clock
   pll clk_gen (
     clock_in  <: clock,
@@ -127,6 +139,14 @@ $$elseif DE10NANO then
     outclk_0 :> sdram_clock,
     outclk_1 :> video_clock,
     locked   :> pll_lock
+  );
+$$elseif DE2 then
+  // --- clock
+  uint1 pll_lock = 0;
+  pll clk_gen(
+    inclk0    <: clock,
+    c0        :> video_clock,
+    locked    :> pll_lock,
   );
 $$elseif ECPIX5 then
   // --- clock
@@ -165,18 +185,27 @@ $$end
 	  vga_y  :> pix_y
   );
 
+  uint$color_depth$ r(0);
+  uint$color_depth$ g(0);
+  uint$color_depth$ b(0);
+
   frame_display display (
 	  pix_x      <: pix_x,
 	  pix_y      <: pix_y,
 	  pix_active <: active,
 	  pix_vblank <: vblank,
-	  pix_r      :> video_r,
-	  pix_g      :> video_g,
-	  pix_b      :> video_b,
+	  pix_r      :> r,
+	  pix_g      :> g,
+	  pix_b      :> b,
     <:auto:>
   );
 
   uint8 frame  = 0;
+
+  // boost colors if color depth is greater than 6 (demos were developped for 6 bits colors)
+  video_r := r << $math.max(0,color_depth-6)$;
+  video_g := g << $math.max(0,color_depth-6)$;
+  video_b := b << $math.max(0,color_depth-6)$;
 
 $$if ICARUS then
   // we count a number of frames and stop

@@ -33,7 +33,7 @@ The best is to start from an existing board using a same toolchain, copying and 
 
 As an example we will be adding the `ecpix5` from *LambdaConcept*. As the board is ECP5 based we will start from the `ulx3s`. The toolchain is yosys-nexpnr, either through edalize or with a shell script.
 
-After copying and renaming the folder and files, we start by updating `board.json`: board name (`ecpix5`), variant name (`85k`), Verilog framework (`ecpix5.v`). 
+After copying and renaming the folder and files, we start by updating `board.json`: board name (`ecpix5`), variant name (`85k`), Verilog framework (`ecpix5.v`).
 
 Then we update the pin groups. The board has [many cool features](http://docs.lambdaconcept.com/ecpix-5/) ; we will add pin groups later for all of these but for now let's focus on the bare minimum: LEDs (group `basic`) and serial communication (group `uart`). We remove everthing else for now, so we have:
 ```c
@@ -43,6 +43,9 @@ Then we update the pin groups. The board has [many cool features](http://docs.la
 ],
 ```
 We then update the list in the `"pins"` section. The board has 4 RGB LEDs so that will make for a 12 bit signal. We will also wire in the UART.
+
+> **Note:** the pin definitions in the json file are currently not used an not mandatory. There is a plan to use them, but that is likely to change.
+
 ```c
 "pins": {
   "basic": [
@@ -66,6 +69,7 @@ We then update the list in the `"pins"` section. The board has 4 RGB LEDs so tha
   ]
 }
 ```
+
 The board has so much more to offer - we are just getting started! (As you look at the files they'll likely have grown to include more pin definitions).
 
 Alright, that was the easy part. We now move to the `"builders"` section. To keep things simple in the tutorial we will only keep `edalize`. The things we have to update are the `package` and `freq` parameter. [nMigen](https://github.com/nmigen/nmigen) has definitions for the board so [we'll have a look there](https://github.com/nmigen/nmigen-boards/blob/master/nmigen_boards/ecpix5.py). From this, it seems we have to use `CABGA554` for package and a frequency of 100 MHz. (Another useful resource for board definitions is the [edalize blinky](https://github.com/fusesoc/blinky)). We also have to update the `--85k` parameter to be `--um5g-85k` (found this after nextpnr-ecp5 returned an error, and then looking at nextpnr-ecp5 options).
@@ -93,7 +97,7 @@ Next we have to consider how the board will be programed. I'd like to use [openF
 
 Now time to move on to the pin definitions. I could not find a `.lpf` file online so [I created one](ecpix5/ecpix5.lpf) from the documentation.
 
-The final step is to update the [Verilog framework](ecpix5/ecpix.v). This is the glue between the pin definitions in the lpf file and the Silice main module. 
+The final step is to update the [Verilog framework](ecpix5/ecpix.v). This is the glue between the pin definitions in the lpf file and the Silice main module.
 
 The header will be updated as:
 ```c

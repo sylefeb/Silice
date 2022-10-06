@@ -1,4 +1,4 @@
-module inout16_set(     
+module inout16_set(
   inout  [15:0] io_pin,
   input  [15:0] io_write,
   output [15:0] io_read,
@@ -8,10 +8,10 @@ module inout16_set(
 
 `ifdef DE10NANO
 
-  //altiobuf_bidir #(
-  //   .number_of_channels(16),
-  //   .enable_bus_hold("FALSE")
-  // ) iobuf(.datain(io_write), .dataout(io_read), .dataio(io_pin), .oe({16{io_write_enable}}));
+  altiobuf_bidir #(
+     .number_of_channels(16),
+     .enable_bus_hold("FALSE")
+  ) iobuf(.datain(io_write), .dataout(io_read), .dataio(io_pin), .oe({16{io_write_enable}}));
 
 `else
 
@@ -24,8 +24,8 @@ module inout16_set(
   end
 
   assign io_pin  = io_write_enable ? ff_write : 16'hZZ;
-  assign io_read = ff_read; 
-  
+  assign io_read = ff_read;
+
 `endif
 
 endmodule
