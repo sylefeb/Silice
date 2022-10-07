@@ -38,7 +38,7 @@ namespace Silice
     // -------------------------------------------------
 
     /// \brief source location for error reporting
-    typedef struct {
+    typedef struct s_source_loc  {
       antlr4::misc::Interval    interval = antlr4::misc::Interval::INVALID; // block source interval
       antlr4::tree::ParseTree  *root = nullptr; // root of the parse tree where the var is declared
     } t_source_loc;

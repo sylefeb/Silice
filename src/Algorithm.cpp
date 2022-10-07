@@ -361,15 +361,11 @@ bool Algorithm::isGroupVIO(std::string var) const
 
 template<class T_Block>
 Algorithm::t_combinational_block *Algorithm::addBlock(
-  std::string name,
-  const t_combinational_block* parent,
+  std::string                          name,
+  const t_combinational_block         *parent,
   const t_combinational_block_context *bctx,
   const t_source_loc& srcloc)
 {
-  auto B = m_State2Block.find(name);
-  if (B != m_State2Block.end()) {
-    reportError(srcloc, "state name '%s' already defined", name.c_str());
-  }
   size_t next_id = m_Blocks.size();
   m_Blocks.emplace_back(new T_Block());
   m_Blocks.back()->block_name           = name;
@@ -378,16 +374,25 @@ Algorithm::t_combinational_block *Algorithm::addBlock(
   m_Blocks.back()->end_action           = nullptr;
   m_Blocks.back()->context.parent_scope = parent;
   if (bctx) {
+    m_Blocks.back()->context.fsm            = bctx->fsm;
     m_Blocks.back()->context.subroutine     = bctx->subroutine;
     m_Blocks.back()->context.pipeline_stage = bctx->pipeline_stage;
     m_Blocks.back()->context.vio_rewrites   = bctx->vio_rewrites;
   } else if (parent) {
+    m_Blocks.back()->context.fsm            = parent->context.fsm;
     m_Blocks.back()->context.subroutine     = parent->context.subroutine;
     m_Blocks.back()->context.pipeline_stage = parent->context.pipeline_stage;
     m_Blocks.back()->context.vio_rewrites   = parent->context.vio_rewrites;
+  } else {
+    m_Blocks.back()->context.fsm            = &m_RootFSM;
   }
-  m_Id2Block[next_id] = m_Blocks.back();
-  m_State2Block[name] = m_Blocks.back();
+  if (m_Blocks.back()->context.fsm) {
+    m_Blocks.back()->context.fsm->id2Block[next_id] = m_Blocks.back();
+    if (m_Blocks.back()->context.fsm->state2Block.count(name)) {
+      reportError(srcloc, "state name '%s' already defined", name.c_str());
+    }
+    m_Blocks.back()->context.fsm->state2Block[name] = m_Blocks.back();
+  }
   return m_Blocks.back();
 }
 
@@ -2157,7 +2162,9 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     snfo->pipeline = nfo;
     snfo->stage_id = stage;
     // blocks
-    t_combinational_block_context ctx  = { _current->context.subroutine, snfo, _current->context.parent_scope, _current->context.vio_rewrites };
+    t_combinational_block_context ctx  = {
+      _current->context.fsm, _current->context.subroutine, snfo, 
+      _current->context.parent_scope, _current->context.vio_rewrites };
     t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, sourceloc(b));
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
     // check this is a combinational chain
@@ -2185,7 +2192,8 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     }
     // check pipeline specific assignments
     std::unordered_set<std::string> ex_written, ex_written_backward, ex_written_forward, ex_written_after, not_ex_written;
-    determinePipelineSpecificAssignments(b, m_VarNames, &_current->context, ex_written_backward, ex_written_forward, ex_written_after, not_ex_written);
+    determinePipelineSpecificAssignments(b, m_VarNames, &_current->context, 
+      ex_written_backward, ex_written_forward, ex_written_after, not_ex_written);
     // record read and specially written vios
     snfo->written_backward = ex_written_backward;
     snfo->written_forward  = ex_written_forward;
@@ -2300,14 +2308,14 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
 Algorithm::t_combinational_block* Algorithm::gatherJump(siliceParser::JumpContext* jump, t_combinational_block* _current, t_gather_context* _context)
 {
   std::string name = jump->IDENTIFIER()->getText();
-  auto B = m_State2Block.find(name);
-  if (B == m_State2Block.end()) {
+  auto B = _current->context.fsm->state2Block.find(name);
+  if (B == _current->context.fsm->state2Block.end()) {
     // forward reference
     _current->next(nullptr);
     t_forward_jump j;
     j.from = _current;
     j.jump = jump;
-    m_JumpForwardRefs[name].push_back(j);
+    _current->context.fsm->jumpForwardRefs[name].push_back(j);
   } else {
     _current->next(B->second);
     B->second->is_state = true; // destination has to be a state
@@ -3519,31 +3527,33 @@ Algorithm::t_combinational_block *Algorithm::gather(
 
 void Algorithm::resolveForwardJumpRefs()
 {
-  for (auto& refs : m_JumpForwardRefs) {
-    // get block by name
-    auto B = m_State2Block.find(refs.first);
-    if (B == m_State2Block.end()) {
-      std::string lines;
-      sl_assert(!refs.second.empty());
-      for (const auto& j : refs.second) {
-        lines += std::to_string(j.jump->getStart()->getLine()) + ",";
-      }
-      lines.pop_back(); // remove last comma
-      std::string msg = "cannot find state '"
-        + refs.first + "' (line"
-        + (refs.second.size() > 1 ? "s " : " ")
-        + lines + ")";
-      reportError(sourceloc(refs.second.front().jump),
-        "%s", msg.c_str());
-    } else {
-      for (auto& j : refs.second) {
-        if (dynamic_cast<siliceParser::JumpContext*>(j.jump)) {
-          // update jump
-          j.from->next(B->second);
-        } else {
-          sl_assert(false);
+  for (const auto& fsm : m_FSMs) {
+    for (auto& refs : fsm->jumpForwardRefs) {
+      // get block by name
+      auto B = fsm->state2Block.find(refs.first);
+      if (B == fsm->state2Block.end()) {
+        std::string lines;
+        sl_assert(!refs.second.empty());
+        for (const auto& j : refs.second) {
+          lines += std::to_string(j.jump->getStart()->getLine()) + ",";
         }
-        B->second->is_state = true; // destination has to be a state
+        lines.pop_back(); // remove last comma
+        std::string msg = "cannot find state '"
+          + refs.first + "' (line"
+          + (refs.second.size() > 1 ? "s " : " ")
+          + lines + ")";
+        reportError(sourceloc(refs.second.front().jump),
+          "%s", msg.c_str());
+      } else {
+        for (auto& j : refs.second) {
+          if (dynamic_cast<siliceParser::JumpContext*>(j.jump)) {
+            // update jump
+            j.from->next(B->second);
+          } else {
+            sl_assert(false);
+          }
+          B->second->is_state = true; // destination has to be a state
+        }
       }
     }
   }
@@ -3551,10 +3561,10 @@ void Algorithm::resolveForwardJumpRefs()
 
 // -------------------------------------------------
 
-void Algorithm::generateStates()
+void Algorithm::generateStates(t_fsm_nfo *fsm)
 {
   // generate state ids and determine sub-state chains
-  m_MaxState = 0;
+  fsm->maxState = 0;
   std::unordered_set< t_combinational_block * > visited;
   std::queue< t_combinational_block * > q;
   q.push(m_Blocks.front()); // start from main
@@ -3564,7 +3574,7 @@ void Algorithm::generateStates()
     // generate a state if needed
     if (cur->is_state) {
       sl_assert(cur->state_id == -1);
-      cur->state_id = m_MaxState++;
+      cur->state_id = fsm->maxState++;
       cur->parent_state_id = cur->state_id;
     }
     // recurse
@@ -3584,10 +3594,11 @@ void Algorithm::generateStates()
     }
   }
   // additional internal state
-  m_MaxState++;
+  fsm->maxState++;
   // report
   std::cerr << "algorithm " << m_Name
-    << " num states: " << m_MaxState;
+    << " fsm " << (int64_t)fsm
+    << " num states: " << fsm->maxState;
   if (hasNoFSM()) {
     std::cerr << " (no FSM)";
   }
@@ -3602,16 +3613,23 @@ void Algorithm::generateStates()
 
 // -------------------------------------------------
 
-int Algorithm::maxState() const
+std::string Algorithm::fsmIndex(const t_fsm_nfo *fsm) const
 {
-  return m_MaxState;
+  return "_idx_" + fsm->name;
 }
 
 // -------------------------------------------------
 
-int Algorithm::entryState() const
+int Algorithm::maxState(const t_fsm_nfo *fsm) const
 {
-  /// TODO: fastforward, but not so simple, can lead to trouble with var inits,
+  return fsm->maxState;
+}
+
+// -------------------------------------------------
+
+int Algorithm::entryState(const t_fsm_nfo *fsm) const
+{
+  /// TODO: fastforward is not so simple, can lead to trouble with var inits
   // for instance if the entry state becomes the first in a loop
   // fastForward(m_Blocks.front())->state_id
   return 0;
@@ -3619,9 +3637,9 @@ int Algorithm::entryState() const
 
 // -------------------------------------------------
 
-int Algorithm::terminationState() const
+int Algorithm::terminationState(const t_fsm_nfo *fsm) const
 {
-  return m_MaxState - 1;
+  return fsm->maxState - 1;
 }
 
 // -------------------------------------------------
@@ -3650,9 +3668,9 @@ int Algorithm::width(int val) const
 
 // -------------------------------------------------
 
-int Algorithm::stateWidth() const
+int Algorithm::stateWidth(const t_fsm_nfo *fsm) const
 {
-  return width(maxState());
+  return width(fsm->maxState);
 }
 
 // -------------------------------------------------
@@ -3744,7 +3762,7 @@ bool Algorithm::doesNotCallSubroutines() const
     return true;
   }
   // now we check whether there are subroutine calls
-  for (const auto &b : m_Blocks) { // NOTE: no need to consider m_AlwaysPre, it has to be comibinational
+  for (const auto &b : m_Blocks) { // NOTE: no need to consider m_AlwaysPre, it has to be combinational
     if (b->state_id == -1 && b->is_state) {
       continue; // block is never reached
     }
@@ -5179,7 +5197,7 @@ void Algorithm::init(
   m_AutoRun = autorun;
   m_OneHot = onehot;
   // eliminate any duplicate mode
-  std::unique(std::begin(m_FormalModes), std::end(m_FormalModes));
+  auto _ = std::unique(std::begin(m_FormalModes), std::end(m_FormalModes));
   // order modes so that they are always performed in the same order:
   //  bmc --> temporal induction --> cover
   std::sort(std::begin(m_FormalModes), std::end(m_FormalModes),
@@ -5193,6 +5211,9 @@ void Algorithm::init(
   m_AlwaysPre .block_name = "_always_pre";
   m_AlwaysPost.id = -1;
   m_AlwaysPost.block_name = "_always_post";
+  // root fsm
+  m_RootFSM.name = "fsm0";
+  m_FSMs.push_back(&m_RootFSM);
 }
 
 // -------------------------------------------------
@@ -5216,7 +5237,6 @@ void Algorithm::gatherBody(antlr4::tree::ParseTree *body)
 
   // determine return states for subroutine calls
   analyzeSubroutineCalls();
-
 }
 
 // -------------------------------------------------
@@ -5549,7 +5569,9 @@ void Algorithm::optimize(const t_instantiation_context& ictx)
     // this paves the ways to having different optimizations for different instances
     m_Optimized = true;
     // generate states
-    generateStates();
+    for (auto fsm : m_FSMs) {
+      generateStates(fsm);
+    }
     // resolve inouts
     resolveInOuts();
     // determine which VIO are bound
@@ -6467,9 +6489,9 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   // state machine index
   if (!hasNoFSM()) {
     if (!m_OneHot) {
-      out << "reg  [" << stateWidth() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << " = " << toFSMState(terminationState()) << ";" << nxl;
+      out << "reg  [" << stateWidth(&m_RootFSM) - 1 << ":0] " FF_D << prefix << fsmIndex(&m_RootFSM) << "," FF_Q << prefix << fsmIndex(&m_RootFSM) << " = " << toFSMState(terminationState(&m_RootFSM)) << ";" << nxl;
     } else {
-      out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << " = " << toFSMState(terminationState()) << ";" << nxl;
+      out << "reg  [" << maxState(&m_RootFSM) - 1 << ":0] " FF_D << prefix << fsmIndex(&m_RootFSM) << "," FF_Q << prefix << fsmIndex(&m_RootFSM) << " = " << toFSMState(terminationState(&m_RootFSM)) << ";" << nxl;
     }
     // autorun
     if (m_AutoRun) {
@@ -6586,13 +6608,13 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       init_cond = reset;
     }
     // state machine index
-    out << FF_Q << prefix << ALG_IDX " <= " << reset << " ? " << toFSMState(terminationState()) << " : ";
+    out << FF_Q << prefix << fsmIndex(&m_RootFSM) << " <= " << reset << " ? " << toFSMState(terminationState(&m_RootFSM)) << " : ";
     if (m_AutoRun) { // NOTE: same as isNotCallable() since hasNoFSM() is false
-        out << "( ~" << prefix << ALG_AUTORUN << " ? " << toFSMState(entryState());
+        out << "( ~" << prefix << ALG_AUTORUN << " ? " << toFSMState(entryState(&m_RootFSM));
     } else {
-        out << "( ~" << ALG_INPUT "_" ALG_RUN << " ? " << toFSMState(entryState());
+        out << "( ~" << ALG_INPUT "_" ALG_RUN << " ? " << toFSMState(entryState(&m_RootFSM));
     }
-    out << " : " << FF_D << prefix << ALG_IDX  << ");" << nxl;
+    out << " : " << FF_D << prefix << fsmIndex(&m_RootFSM) << ");" << nxl;
     if (m_AutoRun) {
       out << prefix << ALG_AUTORUN << " <= " << reset << " ? 0 : 1;" << nxl;
     }
@@ -6606,24 +6628,28 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       }
     }
   }
+
+  // formal
   if (!hasNoFSM()) {
     for (const auto &chk : m_PastChecks) {
-      auto B = m_State2Block.find(chk.targeted_state);
-      if (B == m_State2Block.end())
+      auto B = m_RootFSM.state2Block.find(chk.targeted_state);
+      if (B == m_RootFSM.state2Block.end()) {
         reportError(sourceloc(chk.ctx), "State named %s not found", chk.targeted_state.c_str());
-      if (!B->second->is_state)
+      }
+      if (!B->second->is_state) {
         reportError(sourceloc(chk.ctx), "State named %s does not exist", chk.targeted_state.c_str());
+      }
       auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(
         ParsingContext::rootContext(chk.ctx),
         (int)chk.ctx->getStart()->getLine());
       std::string silice_position = file + ":" + std::to_string(line);
-      const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
+      const std::string inState = chk.current_state ? "(" FF_Q + prefix + fsmIndex(&m_RootFSM) + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
       std::string condition = "(" + inState + " && !" + reset;
       if (!isNotCallable()) {
         condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
       }
       condition = condition + " && !$initstate)";
-      out << "assert(!" << condition << " || $past(" << FF_Q << prefix << ALG_IDX << ", " << chk.cycles_count << ") == " << B->second->state_id << "); //%" << silice_position << nxl;
+      out << "assert(!" << condition << " || $past(" << FF_Q << prefix << fsmIndex(&m_RootFSM) << ", " << chk.cycles_count << ") == " << B->second->state_id << "); //%" << silice_position << nxl;
     }
   }
 
@@ -6640,7 +6666,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
         ParsingContext::rootContext(chk.ctx.assert_ctx), (int)chk.ctx.assert_ctx->getStart()->getLine());
       silice_position = file + ":" + std::to_string(line);
     }
-    const std::string inState = chk.current_state ? "(" FF_Q + prefix + ALG_IDX + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
+    const std::string inState = chk.current_state ? "(" FF_Q + prefix + fsmIndex(&m_RootFSM) + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
     std::string condition = "(" + inState + " && !" + reset;
     if (!isNotCallable()) {
       condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
@@ -6698,7 +6724,7 @@ void Algorithm::writeCombinationalAlwaysPre(
   }
   if (!hasNoFSM()) {
     // state machine index
-    out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << nxl;
+    out << FF_D << prefix << fsmIndex(&m_RootFSM) << " = " FF_Q << prefix << fsmIndex(&m_RootFSM) << ';' << nxl;
     // caller ids for subroutines
     if (!doesNotCallSubroutines()) {
       out << FF_D << prefix << ALG_CALLER " = " FF_Q << prefix << ALG_CALLER ";" << nxl;
@@ -6796,20 +6822,21 @@ void Algorithm::pushState(const t_combinational_block* b, std::queue<size_t>& _q
 // -------------------------------------------------
 
 void Algorithm::writeCombinationalStates(
+  const t_fsm_nfo                  *fsm,
   std::string prefix, std::ostream &out,
-  const t_instantiation_context& ictx,
-  const t_vio_dependencies&      always_dependencies,
-  t_vio_ff_usage&                _ff_usage,
-  t_vio_dependencies&            _post_dependencies) const
+  const t_instantiation_context&    ictx,
+  const t_vio_dependencies&         always_dependencies,
+  t_vio_ff_usage&                   _ff_usage,
+  t_vio_dependencies&               _post_dependencies) const
 {
   vector<t_vio_ff_usage> ff_usages;
   unordered_set<size_t>  produced;
   queue<size_t>          q;
-  q.push(0); // starts at 0
+  q.push(entryState(fsm)); // starts at 0
   // states
   if (!m_OneHot) {
     out << "(* full_case *)" << nxl;
-    out << "case (" << FF_Q << prefix << ALG_IDX << ")" << nxl;
+    out << "case (" << FF_Q << prefix << fsmIndex(fsm) << ")" << nxl;
   } else {
     out << "(* parallel_case, full_case *)" << nxl;
     out << "case (1'b1)" << nxl;
@@ -6817,7 +6844,8 @@ void Algorithm::writeCombinationalStates(
   // go ahead!
   while (!q.empty()) {
     size_t bid = q.front();
-    const t_combinational_block *b = m_Id2Block.at(bid);
+    const t_combinational_block *b = fsm->id2Block.at(bid);
+    sl_assert(fsm == b->context.fsm);
     sl_assert(b->state_id > -1);
     q.pop();
     // done already?
@@ -6831,7 +6859,7 @@ void Algorithm::writeCombinationalStates(
     if (!m_OneHot) {
       out << toFSMState(b->state_id) << ": begin" << nxl;
     } else {
-      out << FF_Q << prefix << ALG_IDX << '[' << b->state_id << "]: begin" << nxl;
+      out << FF_Q << prefix << fsmIndex(fsm) << '[' << b->state_id << "]: begin" << nxl;
     }
     // track source code lines for reporting
     set<v2i> lines;
@@ -6878,16 +6906,16 @@ void Algorithm::writeCombinationalStates(
   // -> termination state
   {
     if (!m_OneHot) {
-      out << toFSMState(terminationState()) << ": begin // end of " << nxl;
+      out << toFSMState(terminationState(fsm)) << ": begin // end of " << nxl;
     } else {
-      out << FF_Q << prefix << ALG_IDX << '[' << terminationState() << "]: begin // end of " << nxl;
+      out << FF_Q << prefix << fsmIndex(fsm) << '[' << terminationState(fsm) << "]: begin // end of " << nxl;
     }
     out << "end" << nxl;
   }
   // default: internal error, should never happen
   {
     out << "default: begin " << nxl
-        << FF_D << prefix << ALG_IDX " = {" << stateWidth() << "{1'bx}};" << nxl
+        << FF_D << prefix << fsmIndex(fsm) << " = {" << stateWidth(fsm) << "{1'bx}};" << nxl
         << "`ifdef FORMAL" << nxl
         << "assume(0);" << nxl
         << "`endif" << nxl
@@ -7127,8 +7155,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
         if (hasNoFSM()) {
           reportError(sourceloc(ret), "cannot return from a stateless algorithm");
         }
-
-        out << FF_D << prefix << ALG_IDX << " = " << toFSMState(terminationState()) << ";" << nxl;
+        out << FF_D << prefix << fsmIndex(block->context.fsm) << " = " << toFSMState(terminationState(block->context.fsm)) << ";" << nxl;
       }
     }
     // update dependencies
@@ -7140,21 +7167,21 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
 
 void Algorithm::writeStatelessBlockGraph(
   std::string prefix, std::ostream& out,
-  const t_instantiation_context &ictx,
-  const t_combinational_block* block,
-  const t_combinational_block* stop_at,
-  std::queue<size_t>& _q,
-  t_vio_dependencies& _dependencies,
-  t_vio_ff_usage&     _ff_usage,
-  t_vio_dependencies& _post_dependencies,
-  std::set<v2i> &_lines) const
+  const t_instantiation_context&    ictx,
+  const t_combinational_block*      block,
+  const t_combinational_block*      stop_at,
+  std::queue<size_t>&              _q,
+  t_vio_dependencies&              _dependencies,
+  t_vio_ff_usage&                  _ff_usage,
+  t_vio_dependencies&              _post_dependencies,
+  std::set<v2i>&                   _lines) const
 {
   // recursive call?
   if (stop_at != nullptr) {
     // if called on a state, index state and stop there
     if (block->is_state) {
       // yes: index the state directly
-      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(block)->state_id) << ";" << nxl;
+      out << FF_D << prefix << fsmIndex(block->context.fsm) << " = " << toFSMState(fastForward(block)->state_id) << ";" << nxl;
       pushState(block, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
@@ -7280,7 +7307,7 @@ void Algorithm::writeStatelessBlockGraph(
       out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
       writeStatelessBlockGraph(prefix, out, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
       out << "end else begin" << nxl;
-      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->while_loop()->after)->state_id) << ";" << nxl;
+      out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fastForward(current->while_loop()->after)->state_id) << ";" << nxl;
       pushState(current->while_loop()->after, _q);
       out << "end" << nxl;
       mergeDependenciesInto(_dependencies, _post_dependencies);
@@ -7295,13 +7322,14 @@ void Algorithm::writeStatelessBlockGraph(
     } else if (current->return_from()) {
       // return to caller (goes to termination of algorithm is not set)
       sl_assert(current->context.subroutine != nullptr);
+      const t_fsm_nfo *fsm = current->context.fsm;
       auto RS = m_SubroutinesCallerReturnStates.find(current->context.subroutine->name);
       if (RS != m_SubroutinesCallerReturnStates.end()) {
         if (RS->second.size() > 1) {
           out << "case (" << FF_Q << prefix << ALG_CALLER << ") " << nxl;
           for (auto caller_return : RS->second) {
             out << width(m_SubroutineCallerNextId) << "'d" << caller_return.first << ": begin" << nxl;
-            out << "  " << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << nxl;
+            out << "  " << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << nxl;
             // if returning to a subroutine, restore caller id
             if (caller_return.second->context.subroutine != nullptr) {
               sl_assert(caller_return.second->context.subroutine->contains_calls);
@@ -7309,11 +7337,11 @@ void Algorithm::writeStatelessBlockGraph(
             }
             out << "end" << nxl;
           }
-          out << "default: begin " << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << "; end" << nxl;
+          out << "default: begin " << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << terminationState(fsm) << "; end" << nxl;
           out << "endcase" << nxl;
         } else {
           auto caller_return = *RS->second.begin();
-          out << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << nxl;
+          out << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << toFSMState(fastForward(caller_return.second)->state_id) << ';' << nxl;
           // if returning to a subroutine, restore caller id
           if (caller_return.second->context.subroutine != nullptr) {
             sl_assert(caller_return.second->context.subroutine->contains_calls);
@@ -7322,13 +7350,13 @@ void Algorithm::writeStatelessBlockGraph(
         }
       } else {
         // this subroutine is never called??
-        out << FF_D << prefix << ALG_IDX " = " << stateWidth() << "'d" << terminationState() << ';' << nxl;
+        out << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << terminationState(fsm) << ';' << nxl;
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
-      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << nxl;
+      out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << nxl;
       pushState(current->goto_and_return_to()->go_to, _q);
       // if in subroutine making nested calls, store callerid
       if (current->context.subroutine != nullptr) {
@@ -7354,12 +7382,12 @@ void Algorithm::writeStatelessBlockGraph(
         out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << nxl;
         // yes!
         // -> goto next
-        out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->wait()->next)->state_id) << ";" << nxl;
+        out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fastForward(current->wait()->next)->state_id) << ";" << nxl;
         pushState(current->wait()->next, _q);
         out << "end else begin" << nxl;
         // no!
         // -> wait
-        out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current->wait()->waiting)->state_id) << ";" << nxl;
+        out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fastForward(current->wait()->waiting)->state_id) << ";" << nxl;
         pushState(current->wait()->waiting, _q);
         out << "end" << nxl;
       }
@@ -7369,11 +7397,12 @@ void Algorithm::writeStatelessBlockGraph(
       // write pipeline
       current = writeStatelessPipeline(prefix, out, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
     } else {
-      // necessary as m_AlwaysPre/m_AlwaysPost reaches this
-      if (block != &m_AlwaysPre && block != &m_AlwaysPost) {
-        if (!hasNoFSM()) {
-          // no action, goto end
-          out << FF_D << prefix << ALG_IDX " = " << toFSMState(terminationState()) << ";" << nxl;
+      // no action
+      if (block->context.fsm) {
+        if (! (block->context.fsm == &m_RootFSM && hasNoFSM() ) ) { // special case for root fsm
+          // goto end
+          const t_fsm_nfo *fsm = current->context.fsm;
+          out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(terminationState(fsm)) << ";" << nxl;
         }
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
@@ -7382,7 +7411,7 @@ void Algorithm::writeStatelessBlockGraph(
     // check whether next is a state
     if (current->is_state) {
       // yes: index and stop
-      out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current)->state_id) << ";" << nxl;
+      out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fastForward(current)->state_id) << ";" << nxl;
       pushState(current, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
@@ -8153,9 +8182,9 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   if (!hasNoFSM()) {
     // track whenever algorithm reaches termination
     if (m_AutoRun) {
-      out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << toFSMState(terminationState()) << ") & _" << ALG_AUTORUN << ";" << nxl;
+      out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << fsmIndex(&m_RootFSM) << " == " << toFSMState(terminationState(&m_RootFSM)) << ") & _" << ALG_AUTORUN << ";" << nxl;
     } else {
-      out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << ALG_IDX << " == " << toFSMState(terminationState()) << ");" << nxl;
+      out << "assign " << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << fsmIndex(&m_RootFSM) << " == " << toFSMState(terminationState(&m_RootFSM)) << ");" << nxl;
     }
   } else if (m_TopMost) {
     // a top most always will never be done
@@ -8477,7 +8506,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   writeCombinationalAlwaysPre("_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
   if (!hasNoFSM()) {
     // write all states
-    writeCombinationalStates("_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
+    writeCombinationalStates(&m_RootFSM, "_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
   }
   // always after block
   {

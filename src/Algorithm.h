@@ -64,7 +64,6 @@ See GitHub Issues section for open/known issues.
 #define ALG_INPUT   "in"
 #define ALG_OUTPUT  "out"
 #define ALG_INOUT   "inout"
-#define ALG_IDX     "index"
 #define ALG_RUN     "run"
 #define ALG_AUTORUN "autorun"
 #define ALG_CALLER  "caller"
@@ -226,6 +225,29 @@ private:
       Utils::t_source_loc srcloc;
     } t_binding_nfo;
 
+    // forward definition of combinational blocks
+    class t_combinational_block;
+
+    /// \brief information about a forward jump
+    typedef struct {
+      t_combinational_block     *from;
+      antlr4::ParserRuleContext *jump;
+    } t_forward_jump;
+
+    /// \brief stores info about an FSM
+    typedef struct s_fsm_nfo {
+      /// \brief fsm name
+      std::string                                               name;
+      /// \brief state name to combinational block
+      std::unordered_map< std::string, t_combinational_block* > state2Block;
+      /// \brief id to combination block
+      std::unordered_map< size_t, t_combinational_block* >      id2Block;
+      /// \brief stores encountered forwards refs for later resolution
+      std::unordered_map< std::string, std::vector< t_forward_jump > > jumpForwardRefs;
+      /// \brief maximum state value of the algorithm
+      int                                                       maxState = -1;
+    } t_fsm_nfo;
+
     /// \brief info about an instanced algorithm
     typedef struct s_instanced_nfo  {
       std::string                   blueprint_name;
@@ -260,9 +282,6 @@ private:
         siliceParser::AccessContext*        // access
         > what;
     } t_call_param;
-
-    // forward definition
-    class t_combinational_block;
 
     /// \brief stores info for single instructions
     class t_instr_nfo {
@@ -316,6 +335,9 @@ private:
       std::unordered_set<std::string> written_backward;
       std::unordered_set<std::string> written_forward;
     } t_pipeline_stage_nfo;
+
+    /// \brief vector of all FSMs
+    std::vector< t_fsm_nfo* >      m_FSMs;
 
     /// \brief vector of all pipelines
     std::vector< t_pipeline_nfo* > m_Pipelines;
@@ -462,6 +484,7 @@ private:
 
     /// \brief combinational block context
     typedef struct s_combinational_block_context {
+      t_fsm_nfo                   *fsm            = nullptr; // FSM the block belongs to (never null, top blocks belong to m_RootFSM)
       t_subroutine_nfo            *subroutine     = nullptr; // if block belongs to a subroutine
       t_pipeline_stage_nfo        *pipeline_stage = nullptr; // if block belongs to a pipeline
       const t_combinational_block *parent_scope   = nullptr; // parent block in scope
@@ -551,12 +574,6 @@ private:
       t_combinational_block *break_to;
     } t_gather_context;
 
-    /// \brief information about a forward jump
-    typedef struct {
-      t_combinational_block     *from;
-      antlr4::ParserRuleContext *jump;
-    } t_forward_jump;
-
     /// \brief information about a past check ('#was_at(lbl, cycle_count)')
     typedef struct {
       std::string targeted_state;
@@ -584,23 +601,18 @@ private:
     /// \brief always blocks
     t_combinational_block                                             m_AlwaysPre;
     t_combinational_block                                             m_AlwaysPost;
+    /// \brief root FSM
+    t_fsm_nfo                                                         m_RootFSM;
     /// \brief wire assignments
     std::unordered_map<std::string, int>                              m_WireAssignmentNames;
     std::vector<std::pair<std::string,t_instr_nfo> >                  m_WireAssignments;
     /// \brief all combinational blocks
     std::list< t_combinational_block* >                               m_Blocks;
-    /// \brief state name to combinational block
-    std::unordered_map< std::string, t_combinational_block* >         m_State2Block;
-    /// \brief id to combination block
-    std::unordered_map< size_t, t_combinational_block* >              m_Id2Block;
-    /// \brief stores encountered forwards refs for later resolution
-    std::unordered_map< std::string, std::vector< t_forward_jump > >  m_JumpForwardRefs;
-    /// \brief maximum state value of the algorithm
-    int m_MaxState      = -1;
     /// \brief integer name of the next block
-    int m_NextBlockName = 1;
+    int                                                               m_NextBlockName = 1;
+
     /// \brief indicates whether this algorithm is the topmost in the design
-    bool m_TopMost      = false;
+    bool        m_TopMost      = false;
     /// \brief indicates whether a FSM report has to be generated and what the filename is (empty means none)
     std::string m_ReportBaseName;
     /// \brief internally set to true when the report has to be written
@@ -802,17 +814,19 @@ private:
     /// \brief resolves forward references for jumps
     void resolveForwardJumpRefs();
     /// \brief generates the states for the entire algorithm
-    void generateStates();
+    void generateStates(t_fsm_nfo *);
+    /// \brief returns the index name of the fsm
+    std::string fsmIndex(const t_fsm_nfo *) const;
     /// \brief returns the max state value of the algorithm
-    int maxState() const;
-    /// \brief returns the index of the entry state
-    int entryState() const;
+    int maxState(const t_fsm_nfo *) const;
+    /// \brief returns the index of the entry state of the algorithm
+    int entryState(const t_fsm_nfo *) const;
     /// \brief returns the index to jump to to intitate the termination sequence
-    int terminationState() const;
-    /// \brief returns the state bit-width required to encode up to max_state
-    int width(int max_state) const;
+    int terminationState(const t_fsm_nfo *) const;
+    /// \brief returns the bit-width required to encode val
+    int width(int val) const;
     /// \brief returns the state bit-width for the algorithm
-    int stateWidth() const;
+    int stateWidth(const t_fsm_nfo *) const;
     /// \brief fast-forward to the next non empty state
     const t_combinational_block *fastForward(const t_combinational_block *block) const;
     /// \brief verify member in group
@@ -1062,8 +1076,8 @@ private:
     void pushState(const t_combinational_block *b, std::queue<size_t> &_q) const;
     /// \brief writes combinational steps that are always performed /before/ the state machine
     void writeCombinationalAlwaysPre(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, t_vio_dependencies& _always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
-    /// \brief writes all states in the output
-    void writeCombinationalStates(std::string prefix, std::ostream &out, const t_instantiation_context &ictx, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
+    /// \brief writes all FSM states in the output
+    void writeCombinationalStates(const t_fsm_nfo *fsm, std::string prefix, std::ostream &out, const t_instantiation_context &ictx, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
     /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
     void writeStatelessBlockGraph(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
     /// \brief order pipeline stages based on pipeline specific assignments
