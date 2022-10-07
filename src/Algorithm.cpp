@@ -1254,6 +1254,9 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
         nfo.specializations.autos[str_width] = std::to_string(tn.width);
         nfo.specializations.autos[str_init] = "";
         nfo.specializations.autos[str_signed] = tn.base_type == Int ? "signed" : "";
+      } else if (m->sparam() != nullptr) {
+        std::string p = m->sparam()->IDENTIFIER()->getText();
+        nfo.specializations.params[p] = m->sparam()->NUMBER()->getText();
       } else {
         reportError(sourceloc(m), "modifier not allowed during instantiation" );
       }
@@ -8123,6 +8126,9 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
         for (auto spc : nfo.specializations.autos) {
           local_ictx.autos[spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
         }
+        for (auto spc : nfo.specializations.params) {
+          local_ictx.params[spc.first] = spc.second;
+        }
         // update the instantiation context now that we have the unit ios
         makeBlueprintInstantiationContext(nfo, local_ictx, local_ictx);
         // record the specializations
@@ -8141,6 +8147,9 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
         t_instantiation_context local_ictx = ictx;
         for (auto spc : nfo.specializations.autos) {
           local_ictx.autos[spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
+        }
+        for (auto spc : nfo.specializations.params) {
+          local_ictx.params[spc.first] = spc.second;
         }
         // create local context
         makeBlueprintInstantiationContext(nfo, local_ictx, local_ictx);
