@@ -1,15 +1,18 @@
-unit sum_N_first(output uint8 o(0)) // <- note the default value of 0
-{
-$$if N > 0 then
-  sum_N_first s<N=$N-1$>;    // recursive inclusion of the unit
-	always { o = s.o + $N$; }  // defines the output recursively
-$$end  
-}
-
+// main unit
 unit main(output uint8 leds)
 {
-  sum_N_first s<N=8>;       // paramtererized instantiation
+  nth_sum s<N=8>; // top of the recursive instantiation
+  //        ^ parameter (name=value), visible to the pre-processor
   algorithm {
      __display("%d\n",s.o); // show the result
   }
+}
+
+// recursively defined unit
+unit nth_sum(output uint8 o(0)) // <- note the default value of 0
+{
+$$if N > 0 then
+  nth_sum s<N=$N-1$>;        // recursive instantiation of the unit
+	always { o = s.o + $N$; }  // defines the output recursively
+$$end
 }

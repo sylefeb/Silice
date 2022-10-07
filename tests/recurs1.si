@@ -1,26 +1,26 @@
-algorithm sum_N_first(input uint8 i,output uint8 o)
+algorithm nth_sum(input uint8 i,output uint8 o)
 {
 $$if N > 0 then
-  sum_N_first s<N=$N-1$>; // recursive inclusion of the algorithm
+  nth_sum s<N=$N-1$>;  // recursive inclusion of the algorithm
   __display("calling %d\n",$N$);
-  (o) <- s <- (i+$N$);    // recurse call
+  (o) <- s <- (i+$N$); // recurse call
 $$else
-  o = i;                  // stopping case (recursion 'bottom')
-$$end  
+  o = i;               // stopping case (recursion 'bottom')
+$$end
 }
 
 unit main(output uint8 leds)
 {
-  sum_N_first s<N=8>;    // top of the resursive instantiation
+  nth_sum s<N=8>;        // top of the resursive instantiation
 
   algorithm {
- 
+
     uint8 n(0);
- 
+
     (n) <- s <- ();      // call
-    
+
      __display("%d\n",n);
- 
+
   }
 
 }

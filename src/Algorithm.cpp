@@ -6442,7 +6442,14 @@ void Algorithm::writeTempDeclarations(std::string prefix, std::ostream& out, con
   }
   for (const auto &v : m_Outputs) {
     if (v.usage != e_Temporary) continue;
-    writeVerilogDeclaration(out, ictx, "reg", v, string(FF_TMP) + prefix + v.name);
+    sl_assert(v.table_size == 0);
+    std::string init;
+    if (v.init_at_startup && !v.init_values.empty()) {
+      init = " = " + v.init_values[0];
+    } else if (CONFIG.keyValues().count("reg_init_zero")) {
+      init = " = 0";
+    }
+    writeVerilogDeclaration(out, ictx, "reg", v, string(FF_TMP) + prefix + v.name + init);
   }
 }
 
