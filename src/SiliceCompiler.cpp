@@ -612,7 +612,8 @@ void SiliceCompiler::run(
     for (auto p : export_params) {
       auto eq = p.find('=');
       if (eq != std::string::npos) {
-        ictx.autos[p.substr(0, eq)] = p.substr(eq + 1);
+        ictx.autos [p.substr(0, eq)] = p.substr(eq + 1); // NOTE TODO: we add to both without distinction but that might have 
+        ictx.params[p.substr(0, eq)] = p.substr(eq + 1); // side-effects compared to a std instantiation since autos are for types only ...
       }
     }
     // begin parsing
