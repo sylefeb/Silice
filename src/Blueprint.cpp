@@ -128,10 +128,10 @@ std::string Blueprint::varBitRange(const t_var_nfo& v, const t_instantiation_con
       std::transform(str.begin(), str.end(), str.begin(),
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
       str = str + "_WIDTH";
-      if (ictx.parameters.count(str) == 0) {
+      if (ictx.autos.count(str) == 0) {
         reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), name().c_str());
       }
-      str = ictx.parameters.at(str) + "-1"; // NOTE: this should always be a legal value, and never a reference
+      str = ictx.autos.at(str) + "-1"; // NOTE: this should always be a legal value, and never a reference
     } else {
       str = std::to_string(base.type_nfo.width - 1);
     }
@@ -157,10 +157,10 @@ std::string Blueprint::varBitWidth(const t_var_nfo &v, const t_instantiation_con
       std::transform(str.begin(), str.end(), str.begin(),
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
       str = str + "_WIDTH";
-      if (ictx.parameters.count(str) == 0) {
+      if (ictx.autos.count(str) == 0) {
         return str;
       } else {
-        str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
+        str = ictx.autos.at(str); // NOTE: this should always be a legal value, and never a reference
       }
     } else {
       str = std::to_string(base.type_nfo.width);
@@ -186,10 +186,10 @@ std::string Blueprint::varInitValue(const t_var_nfo &v, const t_instantiation_co
       std::transform(str.begin(), str.end(), str.begin(),
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
       str = str + "_INIT";
-      if (ictx.parameters.count(str) == 0) {
+      if (ictx.autos.count(str) == 0) {
         reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), name().c_str());
       }
-      str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
+      str = ictx.autos.at(str); // NOTE: this should always be a legal value, and never a reference
     } else {
       if (base.init_values.empty()) {
         str = "0";
@@ -224,10 +224,10 @@ e_Type Blueprint::varType(const t_var_nfo &v, const t_instantiation_context &ict
       std::transform(str.begin(), str.end(), str.begin(),
         [](unsigned char c) -> unsigned char { return std::toupper(c); });
       str = str + "_SIGNED";
-      if (ictx.parameters.count(str) == 0) {
+      if (ictx.autos.count(str) == 0) {
         reportError(v.srcloc, "cannot find value of '%s' during instantiation of unit '%s'", str.c_str(), name().c_str());
       }
-      str = ictx.parameters.at(str); // NOTE: this should always be a legal value, and never a reference
+      str = ictx.autos.at(str); // NOTE: this should always be a legal value, and never a reference
       return (str == "signed") ? Int : UInt;
     } else {
       return base.type_nfo.base_type;

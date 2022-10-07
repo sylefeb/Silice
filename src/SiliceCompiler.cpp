@@ -612,7 +612,7 @@ void SiliceCompiler::run(
     for (auto p : export_params) {
       auto eq = p.find('=');
       if (eq != std::string::npos) {
-        ictx.parameters[p.substr(0, eq)] = p.substr(eq + 1);
+        ictx.autos[p.substr(0, eq)] = p.substr(eq + 1);
       }
     }
     // begin parsing
