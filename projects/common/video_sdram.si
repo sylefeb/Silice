@@ -83,15 +83,9 @@ $$end
         }
         // read color from previous
         color    = palette.rdata0;
-$$if HDMI then
         video_r  = color[ 0,8];
         video_g  = color[ 8,8];
         video_b  = color[16,8];
-$$else
-        video_r  = color[ 0,8] >> $8-color_depth$;
-        video_g  = color[ 8,8] >> $8-color_depth$;
-        video_b  = color[16,8] >> $8-color_depth$;
-$$end
       }
       if (video_x == 639) { // end of row
 $$if mode_640_480 then

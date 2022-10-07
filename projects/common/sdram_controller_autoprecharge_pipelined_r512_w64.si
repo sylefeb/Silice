@@ -22,6 +22,10 @@
 
 $$ SDRAM_COLUMNS_WIDTH =  9
 
+$$if DE10NANO or DE2 then
+$$  print('** WARNING ** SDRAM controller r512_w64 does not work well on de10nano / de2 boards')
+$$end
+
 import('inout16_set.v')
 
 $$if ULX3S then
