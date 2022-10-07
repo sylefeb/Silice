@@ -1745,7 +1745,6 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
     }
     t_combinational_block *block = addBlock(name, _current, nullptr, sourceloc(ilist));
     block->is_state     = true;    // block explicitely required to be a state (may become a sub-state)
-    block->could_be_sub = false;   /// TODO command line option // no_skip; // could become a sub-state
     block->no_skip      = no_skip;
     _current->next(block);
     return block;
@@ -2136,7 +2135,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     reportError(sourceloc(pip), "pipelines cannot be nested");
   }
   const t_subroutine_nfo *sub = _current->context.subroutine;
-  t_pipeline_nfo   *nfo = new t_pipeline_nfo();
+  t_pipeline_nfo         *nfo = new t_pipeline_nfo();
   m_Pipelines.push_back(nfo);
   // name of the pipeline
   nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine());
@@ -2421,7 +2420,7 @@ bool Algorithm::isStateLessGraph(t_combinational_block *head) const
     if (cur == nullptr) { // tags a forward ref (jump), not stateless
       return false;
     }
-    if (cur->is_state || cur->is_sub_state) {
+    if (cur->is_state) {
       return false; // not stateless
     }
     // recurse
@@ -2458,7 +2457,7 @@ void Algorithm::findNonCombinationalLeaves(const t_combinational_block *head, st
     // test
     if (cur == nullptr) { // tags a forward ref (jump), not stateless
       _leaves.insert(cur);
-    } else if (cur->is_state || cur->is_sub_state) {
+    } else if (cur->is_state) {
       _leaves.insert(cur);
     } else {
       // recurse
@@ -3567,38 +3566,6 @@ void Algorithm::generateStates()
       sl_assert(cur->state_id == -1);
       cur->state_id = m_MaxState++;
       cur->parent_state_id = cur->state_id;
-      // potential sub-state chain root?
-      if (cur->next()) {
-        // explore sub-state chain
-        int num_sub_states = 0;
-        t_combinational_block *lcur = cur;
-        while (lcur) {
-          lcur->sub_state_id = num_sub_states++;
-          if (lcur != cur) {
-            sl_assert(lcur->state_id == -1);
-            lcur->is_state = false;
-            lcur->is_sub_state = true;
-          }
-          std::set<t_combinational_block*> leaves;
-          findNonCombinationalLeaves(lcur, leaves);
-          if (leaves.size() == 1) {
-            // grow sequence
-            lcur = *leaves.begin();
-            if (!lcur->could_be_sub) {
-              // but requires a true state
-              sl_assert(lcur->is_state);
-              break;
-            }
-          } else {
-            // the remainder is not a sequence
-            break;
-          }
-        }
-        if (num_sub_states > 1) {
-          cur->num_sub_states = num_sub_states;
-          std::cerr << "block " << cur->block_name << " has " << num_sub_states << " sub states" << nxl;
-        }
-      }
     }
     // recurse
     std::vector< t_combinational_block * > children;
@@ -6504,12 +6471,6 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     } else {
       out << "reg  [" << maxState() - 1 << ":0] " FF_D << prefix << ALG_IDX "," FF_Q << prefix << ALG_IDX << " = " << toFSMState(terminationState()) << ";" << nxl;
     }
-    // sub-state indices (one-hot)
-    for (auto b : m_Blocks) {
-      if (b->num_sub_states > 1) {
-        out << "reg  [" << width(b->num_sub_states) - 1 << ":0] " FF_D << prefix << b->block_name << '_' << ALG_IDX "," FF_Q << prefix << b->block_name << '_' << ALG_IDX << ";" << nxl;
-      }
-    }
     // autorun
     if (m_AutoRun) {
       out << "reg  " << prefix << ALG_AUTORUN << " = 0;" << nxl;
@@ -6635,15 +6596,6 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     if (m_AutoRun) {
       out << prefix << ALG_AUTORUN << " <= " << reset << " ? 0 : 1;" << nxl;
     }
-    // sub-states indices
-    for (auto b : m_Blocks) {
-      if (b->num_sub_states > 1) {
-        out << FF_Q << prefix << b->block_name << '_' << ALG_IDX " <= (" << init_cond << ") ? "
-          << " 0 "
-          << " : "
-          << FF_D << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
-      }
-    }
     // caller ids for subroutines
     if (!doesNotCallSubroutines()) {
       out << FF_Q << prefix << ALG_CALLER " <= " FF_D << prefix << ALG_CALLER ";" << nxl;
@@ -6747,12 +6699,6 @@ void Algorithm::writeCombinationalAlwaysPre(
   if (!hasNoFSM()) {
     // state machine index
     out << FF_D << prefix << ALG_IDX " = " FF_Q << prefix << ALG_IDX << ';' << nxl;
-    // sub-states indices
-    for (auto b : m_Blocks) {
-      if (b->num_sub_states > 1) {
-        out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " FF_Q << prefix << b->block_name << '_' << ALG_IDX << ';' << nxl;
-      }
-    }
     // caller ids for subroutines
     if (!doesNotCallSubroutines()) {
       out << FF_D << prefix << ALG_CALLER " = " FF_Q << prefix << ALG_CALLER ";" << nxl;
@@ -6889,95 +6835,25 @@ void Algorithm::writeCombinationalStates(
     }
     // track source code lines for reporting
     set<v2i> lines;
-    // if state contains sub-state
-    if (b->num_sub_states > 1) {
-      // by default stay in this state
-      out << FF_D << prefix << ALG_IDX << " = " << b->state_id << ';' << nxl;
-      // produce a local FSM for the sequence
-      // out << "(* parallel_case, full_case *)" << nxl;
-      // out << "case (1'b1)" << nxl;
-      out << "case (" << FF_Q << prefix << b->block_name << '_' << ALG_IDX << ")" << nxl;
-      const t_combinational_block *cur = b;
-      int sanity = 0;
-      while (cur) {
-        // write sub-state
-        // -> case value
-        //out << FF_Q << prefix << b->block_name << '_' << ALG_IDX << '[' << cur->sub_state_id << ']'
-        out << cur->sub_state_id
-          << ": begin" << nxl;
-        // -> track dependencies, starting with those of always block
-        t_vio_dependencies depds = always_dependencies;
-        // -> write block instructions
-        ff_usages.push_back(_ff_usage);
-        writeStatelessBlockGraph(prefix, out, ictx, cur, nullptr, q, depds, ff_usages.back(), _post_dependencies, lines);
-        clearNoLatchFFUsage(ff_usages.back());
-        // -> goto next
-        if (cur->sub_state_id == b->num_sub_states - 1) {
-          // -> if last, reinit local index
-          // out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << b->num_sub_states << "'b1";
-          out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << "0";
-        } else {
-          // -> next
-          /*out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << b->num_sub_states << "'b";
-          ForRangeReverse(i, b->num_sub_states - 1, 0) {
-            out << (i == (cur->sub_state_id + 1) ? '1' : '0');
-          }*/
-          out << FF_D << prefix << b->block_name << '_' << ALG_IDX " = " << cur->sub_state_id + 1;
-        }
-        out << ';' << nxl;
-        // -> close state
-        out << "end" << nxl;
+    // track dependencies, starting with those of always block
+    t_vio_dependencies depds = always_dependencies;
+    // write block instructions
+    ff_usages.push_back(_ff_usage);
+    writeStatelessBlockGraph(prefix, out, ictx, b, nullptr, q, depds, ff_usages.back(), _post_dependencies, lines);
+    clearNoLatchFFUsage(ff_usages.back());
 #if 0
-        /// DEBUG
-        for (auto ff : ff_usages.back().ff_usage) {
-          out << "// " << ff.first << " ";
-          if (ff.second & e_D) {
-            out << "D";
-          }
-          if (ff.second & e_Q) {
-            out << "Q";
-          }
-          out << nxl;
-        }
-#endif
-        // keep going
-        std::set<t_combinational_block *> leaves;
-        findNonCombinationalLeaves(cur, leaves);
-        ++sanity;
-        if (leaves.size() == 1) {
-          cur = *leaves.begin();
-          if (!cur->is_sub_state) {
-            break;
-          }
-        } else {
-          break;
-        }
+    /// DEBUG
+    for (auto ff : ff_usages.back().ff_usage) {
+      out << "// " << ff.first << " ";
+      if (ff.second & e_D) {
+        out << "D";
       }
-      sl_assert(sanity == b->num_sub_states);
-      // closing sub-state local FSM
-      out << "default: begin end" << nxl; // -> should never be reached
-      out << "endcase" << nxl;
-    } else {
-      // track dependencies, starting with those of always block
-      t_vio_dependencies depds = always_dependencies;
-      // write block instructions
-      ff_usages.push_back(_ff_usage);
-      writeStatelessBlockGraph(prefix, out, ictx, b, nullptr, q, depds, ff_usages.back(), _post_dependencies, lines);
-      clearNoLatchFFUsage(ff_usages.back());
-#if 0
-      /// DEBUG
-      for (auto ff : ff_usages.back().ff_usage) {
-        out << "// " << ff.first << " ";
-        if (ff.second & e_D) {
-          out << "D";
-        }
-        if (ff.second & e_Q) {
-          out << "Q";
-        }
-        out << nxl;
+      if (ff.second & e_Q) {
+        out << "Q";
       }
-#endif
+      out << nxl;
     }
+#endif
     // close state
     out << "end" << nxl;
     // FSM report
@@ -7275,17 +7151,11 @@ void Algorithm::writeStatelessBlockGraph(
 {
   // recursive call?
   if (stop_at != nullptr) {
-    sl_assert(!(block->is_state && block->is_sub_state));
     // if called on a state, index state and stop there
     if (block->is_state) {
       // yes: index the state directly
       out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(block)->state_id) << ";" << nxl;
       pushState(block, _q);
-      mergeDependenciesInto(_dependencies, _post_dependencies);
-      return;
-    }
-    // if called on a sub-state, do nothing but stop here
-    if (block->is_sub_state) {
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     }
@@ -7514,11 +7384,6 @@ void Algorithm::writeStatelessBlockGraph(
       // yes: index and stop
       out << FF_D << prefix << ALG_IDX " = " << toFSMState(fastForward(current)->state_id) << ";" << nxl;
       pushState(current, _q);
-      mergeDependenciesInto(_dependencies, _post_dependencies);
-      return;
-    }
-    // check whether next is a sub-state
-    if (current->is_sub_state) {
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     }

@@ -474,24 +474,20 @@ private:
     private:
       void swap_end(t_end_action *end) { if (end_action != nullptr) delete (end_action); end_action = end; }
     public:
-      size_t                              id;                   // internal block id
-      std::string                         block_name;           // internal block name (state name from source when applicable)
-      Utils::t_source_loc                 srcloc;               // localization in source code
-      bool                                is_state = false;     // true if block has to be a state, false otherwise
-      bool                                is_sub_state = false; // true if block is a sub state in a linear seauence
-      bool                                could_be_sub = false; // whether could be made a sub-state
-      bool                                no_skip = false;      // true the state cannot be skipped, even if empty
-      int                                 state_id = -1;        // state id, when assigned, -1 otherwise
-      int                                 parent_state_id = -1; // state id of the parent, -1 only if never reached
-      int                                 num_sub_states = 0;   // number of sub-states below if root of a sequence
-      int                                 sub_state_id = 0;     // sub-state id if is_sub_state
-      std::vector<t_instr_nfo>            instructions;         // list of instructions within block
-      t_end_action                       *end_action = nullptr; // end action to perform
-      t_combinational_block_context       context;              // block context: subroutine, parent, etc.
-      std::unordered_set<std::string>     declared_vios;        // vios declared by block
+      size_t                               id;                   // internal block id
+      std::string                          block_name;           // internal block name (state name from source when applicable)
+      Utils::t_source_loc                  srcloc;               // localization in source code
+      bool                                 is_state = false;     // true if block has to be a state, false otherwise
+      bool                                 no_skip = false;      // true the state cannot be skipped, even if empty
+      int                                  state_id = -1;        // state id, when assigned, -1 otherwise
+      int                                  parent_state_id = -1; // state id of the parent, -1 only if never reached
+      std::vector<t_instr_nfo>             instructions;         // list of instructions within block
+      t_end_action                        *end_action = nullptr; // end action to perform
+      t_combinational_block_context        context;              // block context: subroutine, parent, etc.
+      std::unordered_set<std::string>      declared_vios;        // vios declared by block
       std::unordered_map<std::string, int> initialized_vars;     // variables to initialize at block start
-      std::unordered_set<std::string>     in_vars_read;         // which variables are read from before
-      std::unordered_set<std::string>     out_vars_written;     // which variables have been written after
+      std::unordered_set<std::string>      in_vars_read;         // which variables are read from before
+      std::unordered_set<std::string>      out_vars_written;     // which variables have been written after
       ~t_combinational_block() { swap_end(nullptr); }
 
       std::string end_action_name() { if (end_action != nullptr) return end_action->name(); else return "<none>"; }
