@@ -8120,7 +8120,9 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
       if (!nfo.parsed_unit.unit.isNull()) {
         // instantiation context
         t_instantiation_context local_ictx = ictx;
-        local_ictx.parameters.insert(nfo.specializations.parameters.begin(), nfo.specializations.parameters.end());
+        for (auto spc : nfo.specializations.parameters) {
+          local_ictx.parameters[spc.first] = spc.second; // makes sure new specializarions overwrite any existing ones
+        }
         // update the instantiation context now that we have the unit ios
         makeBlueprintInstantiationContext(nfo, local_ictx, local_ictx);
         // record the specializations
