@@ -1,23 +1,25 @@
-algorithm inc(input uint8 i,output uint8 o)
+algorithm sum_N_first(input uint8 i,output uint8 o)
 {
-$$print('N = ' .. widthof('N'))
-$$if widthof('N') > 0 then
-  inc i1<N:uint$widthof('N')-1$>;
-  (o) <- i1 <- (i+1);
+$$if N > 0 then
+  sum_N_first s<N=$N-1$>; // recursive inclusion of the algorithm
+  __display("calling %d\n",$N$);
+  (o) <- s <- (i+$N$);    // recurse call
 $$else
-  o = i;  
+  o = i;                  // stopping case (recursion 'bottom')
 $$end  
 }
 
 unit main(output uint8 leds)
 {
-  inc i0<N:uint8>;
+  sum_N_first s<N=8>;    // top of the resursive instantiation
 
   algorithm {
  
-    (leds) <- i0 <- (5);
+    uint8 n(0);
+ 
+    (n) <- s <- ();      // call
     
-     __display("%d\n",leds);
+     __display("%d\n",n);
  
   }
 

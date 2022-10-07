@@ -195,6 +195,37 @@ int lua_widthof(lua_State *L, std::string var)
 
 // -------------------------------------------------
 
+static bool is_number(std::string s)
+{
+  for (int i = 0; i < s.length(); ++i) {
+    if (!isdigit(s[i])) { return false; }
+  }
+  return true;
+}
+
+// -------------------------------------------------
+
+static int lua_cindex(lua_State *L)
+{
+  auto C = g_LuaInstCtx.find(L);
+  if (C == g_LuaInstCtx.end()) {
+    return 0;
+  }
+  const char *name = lua_tostring(L, 2);
+  auto P = C->second.params.find(name);
+  if (P != C->second.params.end()) {
+    if (is_number(P->second)) {
+      luabind::detail::push_to_lua(L, std::stoi(P->second));
+    } else {
+      luabind::detail::push_to_lua(L, P->second);
+    }
+    return 1;
+  }
+  return 0;
+}
+
+// -------------------------------------------------
+
 bool lua_signed(lua_State *L, std::string var)
 {
   auto C = g_LuaInstCtx.find(L);
@@ -636,6 +667,15 @@ static void bindScript(lua_State *L)
       luabind::def("widthof",       &lua_widthof),
       luabind::def("signed",        &lua_signed)
     ];
+
+  // install an index hook
+  lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS);
+  lua_newtable(L);
+  lua_pushstring(L, "__index");
+  lua_pushcfunction(L, lua_cindex);
+  lua_settable(L, -3);
+  lua_setmetatable(L, -2);
+  lua_pop(L, 1);
 }
 
 // -------------------------------------------------
