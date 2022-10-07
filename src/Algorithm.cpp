@@ -1256,9 +1256,9 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
         string str_width = var + "_WIDTH";
         string str_init = var + "_INIT";
         string str_signed = var + "_SIGNED";
-        nfo.specializations.parameters[str_width] = std::to_string(tn.width);
-        nfo.specializations.parameters[str_init] = "";
-        nfo.specializations.parameters[str_signed] = tn.base_type == Int ? "signed" : "";
+        nfo.specializations.autos[str_width] = std::to_string(tn.width);
+        nfo.specializations.autos[str_init] = "";
+        nfo.specializations.autos[str_signed] = tn.base_type == Int ? "signed" : "";
       } else {
         reportError(sourceloc(m), "modifier not allowed during instantiation" );
       }
@@ -7895,9 +7895,9 @@ bool Algorithm::varIsInInstantiationContext(std::string var, const t_instantiati
   string str_width = var + "_WIDTH";
   string str_init = var + "_INIT";
   string str_signed = var + "_SIGNED";
-  return ( ictx.parameters.count(str_width)  != 0
-        && ictx.parameters.count(str_init)   != 0
-        && ictx.parameters.count(str_signed) != 0 );
+  return ( ictx.autos.count(str_width)  != 0
+        && ictx.autos.count(str_init)   != 0
+        && ictx.autos.count(str_signed) != 0 );
 }
 
 // -------------------------------------------------
@@ -7910,9 +7910,9 @@ void Algorithm::addToInstantiationContext(const Algorithm *alg, std::string var,
   string str_width  = var  + "_WIDTH";
   string str_init   = var   + "_INIT";
   string str_signed = var + "_SIGNED";
-  _local_ictx.parameters[str_width]  = alg->varBitWidth(bnfo, ictx);
-  _local_ictx.parameters[str_init]   = alg->varInitValue(bnfo, ictx);
-  _local_ictx.parameters[str_signed] = typeString(alg->varType(bnfo, ictx));
+  _local_ictx.autos[str_width]  = alg->varBitWidth(bnfo, ictx);
+  _local_ictx.autos[str_init]   = alg->varInitValue(bnfo, ictx);
+  _local_ictx.autos[str_signed] = typeString(alg->varType(bnfo, ictx));
 }
 
 // -------------------------------------------------
@@ -8014,7 +8014,9 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
       if (!nfo.parsed_unit.unit.isNull()) {
         // instantiation context
         t_instantiation_context local_ictx = ictx;
-        local_ictx.parameters.insert(nfo.specializations.parameters.begin(), nfo.specializations.parameters.end());
+        for (auto spc : nfo.specializations.autos) {
+          local_ictx.autos[spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
+        }
         // update the instantiation context now that we have the unit ios
         makeBlueprintInstantiationContext(nfo, local_ictx, local_ictx);
         // record the specializations
@@ -8031,7 +8033,9 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
       if (!nfo.parsed_unit.unit.isNull()) { // second pass on non-static
         // instantiation context
         t_instantiation_context local_ictx = ictx;
-        local_ictx.parameters.insert(nfo.specializations.parameters.begin(), nfo.specializations.parameters.end());
+        for (auto spc : nfo.specializations.autos) {
+          local_ictx.autos[spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
+        }
         // create local context
         makeBlueprintInstantiationContext(nfo, local_ictx, local_ictx);
         // record the specializations

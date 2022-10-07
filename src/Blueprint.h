@@ -100,7 +100,7 @@ namespace Silice
     typedef struct {
       std::string                                  instance_name;
       std::string                                  local_instance_name;
-      std::unordered_map<std::string, std::string> parameters;
+      std::unordered_map<std::string, std::string> autos;
     } t_instantiation_context;
 
     /// \brief returns the blueprint name

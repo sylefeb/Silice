@@ -184,11 +184,11 @@ int lua_widthof(lua_State *L, std::string var)
   std::transform(key.begin(), key.end(), key.begin(),
     [](unsigned char c) -> unsigned char { return std::toupper(c); });
   key = key + "_WIDTH";
-  if (C->second.parameters.count(key) == 0) {
+  if (C->second.autos.count(key) == 0) {
     lua_pushfstring(L, "[preprocessor] widthof, cannot find io '%s' in instantiation context",var.c_str());
     lua_error(L);
   } else {
-    return atoi(C->second.parameters.at(key).c_str());
+    return atoi(C->second.autos.at(key).c_str());
   }
   return 0;
 }
@@ -206,11 +206,11 @@ bool lua_signed(lua_State *L, std::string var)
   std::transform(key.begin(), key.end(), key.begin(),
     [](unsigned char c) -> unsigned char { return std::toupper(c); });
   key = key + "_SIGNED";
-  if (C->second.parameters.count(key) == 0) {
+  if (C->second.autos.count(key) == 0) {
     lua_pushfstring(L, "[preprocessor] signed, cannot find io '%s' in instantiation context", var.c_str());
     lua_error(L);
   } else {
-    return C->second.parameters.at(key) == "signed";
+    return C->second.autos.at(key) == "signed";
   }
   return false;
 }
