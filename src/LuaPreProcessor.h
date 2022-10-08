@@ -68,6 +68,7 @@ namespace Silice {
 
     std::map<int, std::pair<std::string, t_unit_loc> > m_Units;
     std::set<std::string>              m_FormalUnits;
+    std::set<std::string>              m_UnitsByName;
 
     std::vector<std::string>           m_SearchPaths;
     std::map<std::string, std::string> m_Definitions;
@@ -108,6 +109,10 @@ namespace Silice {
 
     /// \brief returns the list of formal unit names
     const std::set<std::string>& formalUnits() { return m_FormalUnits; }
+
+    /// \brief returns the list of all unit names
+    const std::set<std::string>& units()       { return m_UnitsByName; }
+
   };
 
   // -------------------------------------------------

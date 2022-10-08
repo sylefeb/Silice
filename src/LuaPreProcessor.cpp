@@ -1050,6 +1050,7 @@ void LuaPreProcessor::decomposeSource(
         if (w == "algorithm#") {
           m_FormalUnits.insert(name);
         }
+        m_UnitsByName.insert(name);
         LuaCodePath lcp_unit;
         t_unit_loc  loc;
         loc.start = before;

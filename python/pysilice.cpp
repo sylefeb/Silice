@@ -50,13 +50,19 @@ void setSiliceRootPath(std::string path)
 class Instance
 {
 private:
-  std::string m_ModuleName;
-  std::string m_SourceFile;
+  t_parsed_unit      m_Blueprint;
+  std::string        m_ModuleName;
+  std::string        m_SourceFile;
 public:
-  Instance(std::string mname,std::string sfile)
-    : m_ModuleName(mname), m_SourceFile(sfile)
+  Instance(std::string mname,std::string sfile,t_parsed_unit bp)
+    : m_ModuleName(mname), m_SourceFile(sfile), m_Blueprint(bp)
   {
 
+  }
+
+  int isCallable()
+  {
+    return !m_Blueprint.unit->isNotCallable();
   }
 
   const std::string& moduleName() const { return m_ModuleName; }
@@ -69,20 +75,31 @@ class Unit
 {
 private:
 
-  AutoPtr<SiliceCompiler> m_Compiler;
-  AutoPtr<Blueprint>      m_Blueprint;
-  std::string             m_Name;
+  AutoPtr<SiliceCompiler>       m_Compiler;
+  t_parsed_unit                 m_Blueprint;
+  std::string                   m_Name;
 
 public:
 
   Unit() {}
 
-  Unit(std::string name, AutoPtr<Blueprint> bp, AutoPtr<SiliceCompiler> compiler)
-    : m_Name(name), m_Blueprint(bp), m_Compiler(compiler) {}
+  Unit(std::string name, AutoPtr<SiliceCompiler> compiler)
+    : m_Name(name), m_Compiler(compiler)
+    {
+      // instantiate the unit
+      m_Blueprint.unit = m_Compiler->isStaticBlueprint(m_Name);
+      if (m_Blueprint.unit.isNull()) {
+        try {
+          m_Blueprint  = m_Compiler->parseUnitIOs(m_Name);
+        } catch (Fatal&) {
+          throw Fatal("could not instantiate unit '%s'", m_Name.c_str());
+        }
+      }
+    }
 
   void splitExportParameter(
     std::tuple<std::string,std::string,std::string>& ex,
-    std::vector<std::string>&                       _export_defs)
+    std::unordered_map<std::string,std::string>&    _export_defs)
   {
     std::string name = std::get<0>(ex);
     std::transform(name.begin(), name.end(), name.begin(),
@@ -91,9 +108,9 @@ public:
     t_type_nfo type_nfo;
     splitType(std::get<1>(ex), type_nfo);
     // add strings
-    _export_defs.push_back(name+"_WIDTH=" + std::to_string(type_nfo.width));
-    _export_defs.push_back(name+"_SIGNED=" + (type_nfo.base_type == Int ? "1" : "0" ));
-    _export_defs.push_back(name+"_INIT=" + std::get<2>(ex));
+    _export_defs.insert(std::make_pair(name+"_WIDTH",std::to_string(type_nfo.width)));
+    _export_defs.insert(std::make_pair(name+"_SIGNED",(type_nfo.base_type == Int ? "1" : "0" )));
+    _export_defs.insert(std::make_pair(name+"_INIT",std::get<2>(ex)));
   }
 
   Instance instantiate(const std::vector<std::tuple<std::string,std::string,std::string> >& export_params,std::string postfix)
@@ -103,11 +120,11 @@ public:
     }
     // write to temp file
     std::string tmp = Utils::tempFileName() + ".v";
-    std::ofstream f(tmp);
+    std::ofstream out(tmp);
     // paramterized definitions
-    std::vector<std::string> export_defs;
+    std::unordered_map<std::string,std::string> export_defs;
     for (auto ex : export_params) {
-      splitExportParameter(ex,export_defs);
+      splitExportParameter(ex, export_defs);
     }
     // verify we have all
     auto prmd = listParameterized();
@@ -126,12 +143,29 @@ public:
     if (not_ok) {
       throw Fatal("unit needs additional parameterized io definitions.");
     }
-    // write the output
-    m_Compiler->write(m_Name,export_defs,postfix,f);
-    // done
-    f.close();
+    // instantiation context
+    Blueprint::t_instantiation_context ictx;
+    for (auto exp : export_defs) {
+      ictx.autos[exp.first] = exp.second;
+    }
+    for (auto exp : export_defs) {
+      ictx.params[exp.first] = exp.second;
+    }
+    if ( ! m_Blueprint.ios_parser.isNull() ) {
+      // parse the unit body
+      m_Compiler->parseUnitBody(m_Blueprint, ictx);
+      // write the unit, first pass
+      m_Compiler->writeUnit(m_Blueprint, ictx, out, true);
+      // write the unit, second pass
+      m_Compiler->writeUnit(m_Blueprint, ictx, out, false);
+    } else {
+      // write the unit, first pass
+      m_Compiler->writeStaticUnit(m_Blueprint.unit, ictx, out, true);
+      // write the unit, second pass
+      m_Compiler->writeStaticUnit(m_Blueprint.unit, ictx, out, false);
+    }
     // return instance
-    return Instance("M_" + m_Name + (postfix.empty() ? "" : ("_" + postfix)), tmp);
+    return Instance("M_" + m_Name + (postfix.empty() ? "" : ("_" + postfix)), tmp, m_Blueprint);
   }
 
   Instance instantiate(const std::vector<std::tuple<std::string,std::string,std::string> >& export_params)
@@ -147,8 +181,10 @@ public:
 
   std::vector<std::string> listInputs()
   {
+    std::cerr << "listInputs\n";
     std::vector<std::string> names;
-    for (auto i : m_Blueprint->inputs()) {
+    for (auto i : m_Blueprint.unit->inputs()) {
+    std::cerr << "listInputs "  << i.name << "\n";
       names.push_back(i.name);
     }
     return names;
@@ -157,7 +193,7 @@ public:
   std::vector<std::string> listOutputs()
   {
     std::vector<std::string> names;
-    for (auto o : m_Blueprint->outputs()) {
+    for (auto o : m_Blueprint.unit->outputs()) {
       names.push_back(o.name);
     }
     return names;
@@ -166,7 +202,7 @@ public:
   std::vector<std::string> listInOuts()
   {
     std::vector<std::string> names;
-    for (auto i : m_Blueprint->inOuts()) {
+    for (auto i : m_Blueprint.unit->inOuts()) {
       names.push_back(i.name);
     }
     return names;
@@ -175,7 +211,7 @@ public:
   std::vector<std::string> listParameterized()
   {
     std::vector<std::string> names;
-    for (auto p : m_Blueprint->parameterized()) {
+    for (auto p : m_Blueprint.unit->parameterized()) {
       names.push_back(p);
     }
     return names;
@@ -184,7 +220,7 @@ public:
   std::pair<bool,int> getVioType(std::string vio)
   {
     bool found = false;
-    auto nfo = m_Blueprint->getVIODefinition(vio,found);
+    auto nfo = m_Blueprint.unit->getVIODefinition(vio,found);
     if (!found) {
       std::cerr << "Cannot find vio " << vio << std::endl;
       return std::make_pair(false,0);
@@ -195,6 +231,7 @@ public:
         );
     }
   }
+
 };
 
 // ------------------------------------------------------------
@@ -205,20 +242,21 @@ private:
 
   AutoPtr<SiliceCompiler> m_Compiler;
 
-  void parse(std::string filename,const std::vector<std::string>& defines)
+  void begin(std::string filename,const std::vector<std::string>& defines)
   {
     try {
       std::string tmp_out = Utils::tempFileName();
-      std::vector<std::string> export_params;
+      Blueprint::t_instantiation_context ictx;
       m_Compiler = AutoPtr<SiliceCompiler>(new SiliceCompiler());
       std::vector<std::string> defs = defines;
       defs.push_back("HARDWARE=1");
-      m_Compiler->parse(
+      m_Compiler->beginParsing(
         filename,
         tmp_out,
         std::filesystem::absolute(g_SiliceRootPath + "/frameworks/boards/bare/bare.v").string(),
         std::filesystem::absolute(g_SiliceRootPath + "/frameworks/").string(),
-        defs
+        defs,
+        ictx
       );
     } catch (Fatal& err) {
       std::cerr << Console::red << "error: " << err.message() << Console::gray << "\n";
@@ -234,45 +272,48 @@ public:
   Design(const std::string& fname)
   {
     std::vector<std::string> defines;
-    parse(fname,defines);
+    begin(fname,defines);
   }
 
   Design(const std::string& fname,const std::vector<std::string>& defines)
   {
-    parse(fname,defines);
+    begin(fname,defines);
   }
 
   std::vector<std::string> listUnits()
   {
+    std::unordered_set<std::string> units;
+    m_Compiler->getUnitNames(units);
     std::vector<std::string> names;
-    for (auto b : m_Compiler->getBlueprints()) {
-      names.push_back(b.first);
+    for (auto b : units) {
+      names.push_back(b);
     }
     return names;
   }
 
   Unit getUnit(std::string unit)
   {
-    auto blueprints = m_Compiler->getBlueprints();
-    auto B = blueprints.find(unit);
-    if (B == blueprints.end()) { /// TODO: issue error
+    std::unordered_set<std::string> units;
+    m_Compiler->getUnitNames(units);
+    auto B = units.find(unit);
+    if (B == units.end()) { /// TODO: issue error
       std::cerr << "Cannot find unit " << unit << std::endl;
       return Unit();
     } else {
-      return Unit(unit,B->second,m_Compiler);
+      return Unit(unit,m_Compiler);
     }
   }
 
   std::string unitCompiledName(std::string unit)
   {
-    auto blueprints = m_Compiler->getBlueprints();
-    auto B = blueprints.find(unit);
-    if (B == blueprints.end()) {
-      /// TODO: issue error
+    std::unordered_set<std::string> units;
+    m_Compiler->getUnitNames(units);
+    auto B = units.find(unit);
+    if (B == units.end()) { /// TODO: issue error
       std::cerr << "Cannot find unit " << unit << std::endl;
       return "";
     } else {
-      return "M_" + B->first;
+      return "M_" + unit;
     }
   }
 
@@ -303,9 +344,9 @@ PYBIND11_MODULE(_silice, m) {
             .def("getVioType", &Unit::getVioType)
             ;
     py::class_<Instance>(m, "Instance")
-//          .def(py::init<std::string,std::string>())
             .def("moduleName", &Instance::moduleName)
             .def("sourceFile", &Instance::sourceFile)
+            .def("isCallable", &Instance::isCallable)
             ;
 }
 
