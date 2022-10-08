@@ -33,7 +33,7 @@ setuptools.setup(
     long_description='',
     zip_safe=False,
     packages=setuptools.find_packages(),
-    package_data={'': ['*.dll','*.so',*files] },
+    package_data={'': ['*.dll','*.so','*.pyd','*.pyo','*.pyc',*files] },
     include_package_data=True,
 )
 

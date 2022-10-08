@@ -85,17 +85,6 @@ namespace Silice {
     /// \brief body parsing context
     AutoPtr<ParsingContext> m_BodyContext;
 
-    /// \brief begin parsing
-    void beginParsing(
-      std::string fsource,
-      std::string fresult,
-      std::string fframework,
-      std::string frameworks_dir,
-      const std::vector<std::string>& defines,
-      const Blueprint::t_instantiation_context& ictx);
-    /// \brief end parsing
-    void endParsing();
-
     /// \brief writes the design body in the output stream
     void writeBody(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
     /// \brief writes the formal tests in the output stream
@@ -121,6 +110,24 @@ namespace Silice {
       std::ostream&                            _out,
       bool                                      first_pass);
 
+    /// \brief writes a static unit in the output stream
+    void writeStaticUnit(
+      AutoPtr<Blueprint>                        bp,
+      const Blueprint::t_instantiation_context& ictx,
+      std::ostream&                            _out,
+      bool                                      first_pass);
+
+    /// \brief begin parsing
+    void beginParsing(
+      std::string fsource,
+      std::string fresult,
+      std::string fframework,
+      std::string frameworks_dir,
+      const std::vector<std::string>& defines,
+      const Blueprint::t_instantiation_context& ictx);
+    /// \brief end parsing
+    void endParsing();
+
     /// \brief parses a specific unit ios
     t_parsed_unit parseUnitIOs(std::string to_parse);
     /// \brief parses a unit body (call after parseUnitIOs);
@@ -128,6 +135,11 @@ namespace Silice {
 
     /// \brief returns the static blueprint for 'unit', otherwise null
     AutoPtr<Blueprint> isStaticBlueprint(std::string bpname);
+
+    
+    /// \brief returns all unit names
+    void getUnitNames(std::unordered_set<std::string>& _units);
+
   };
 
   // -------------------------------------------------

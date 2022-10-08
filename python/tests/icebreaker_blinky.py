@@ -22,7 +22,6 @@
 #
 
 import argparse
-from time import clock_getres
 
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
@@ -83,14 +82,14 @@ class Design(Module):
         import silice
         import silice.migen
 
-        f = silice.Design("../../projects/blinky/blinky.si",
+        d = silice.Design("../../projects/blinky/blinky.si",
                          ["NUM_LEDS=5"])
+        m = d.getUnit("main")
         leds = platform.request_all("user_led")
         inst = silice.migen.instantiate(
-            f.getUnit("main"),
+            m,
             clock = ClockSignal("sys"),
             reset = ResetSignal("sys"),
-            run   = Constant(1,1),
             leds  = leds
         )
         self.specials += inst
@@ -100,6 +99,7 @@ class Design(Module):
 # Build --------------------------------------------------------------------------------------------
 
 def main():
+
     parser = argparse.ArgumentParser()
     soc_core_args(parser)
     args = parser.parse_args()

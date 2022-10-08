@@ -3825,12 +3825,13 @@ bool Algorithm::requiresReset() const
 
 bool Algorithm::isNotCallable() const
 {
-  if (hasNoFSM()) {
+  if (m_AutoRun) {
     return true;
-  } else if (m_AutoRun) {
+  } else if (hasNoFSM()) {
     return true;
+  } else {
+    return false; // this algorithm has to be called
   }
-  return false; // this algorithm has to be called
 }
 
 // -------------------------------------------------

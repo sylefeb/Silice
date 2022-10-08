@@ -528,6 +528,9 @@ void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiat
 
 void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_instantiation_context& ictx)
 {
+  if (m_BodyContext.isNull()) {
+    throw Fatal("[SiliceCompiler::writeFormalTests] body context not ready");
+  }
   // write formal unit tests
   for (auto name : m_BodyContext->lpp->formalUnits()) {
     // parse and write unit
@@ -584,12 +587,41 @@ void SiliceCompiler::writeUnit(
 
 // -------------------------------------------------
 
+/// \brief writes a static unit in the output stream
+void SiliceCompiler::writeStaticUnit(
+  AutoPtr<Blueprint>                        bp,
+  const Blueprint::t_instantiation_context& ictx,
+  std::ostream&                            _out,
+  bool                                      first_pass)
+{
+  t_parsed_unit pu;
+  pu.body_parser = m_BodyContext;
+  pu.unit        = bp;
+  writeUnit(pu, ictx, _out, first_pass);
+}
+
+// -------------------------------------------------
+
 AutoPtr<Blueprint> SiliceCompiler::isStaticBlueprint(std::string bpname)
 {
   if (m_Blueprints.count(bpname) != 0) {
     return m_Blueprints.at(bpname);
   } else {
     return AutoPtr<Blueprint>();
+  }
+}
+
+// -------------------------------------------------
+
+void SiliceCompiler::getUnitNames(std::unordered_set<std::string>& _units)
+{
+  for (auto b : m_Blueprints) {
+    _units.insert(b.first);
+  }
+  if (!m_BodyContext.isNull()) {
+    for (auto name : m_BodyContext->lpp->units()) {
+      _units.insert(name);
+    }
   }
 }
 

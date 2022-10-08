@@ -6,7 +6,6 @@ def instantiate(unit,params=[],postfix="",**kwargs):
   inst    = unit.instantiate(params,postfix)
   minst   = mi.Instance(inst.moduleName())
   inputs  = unit.listInputs()
-  inputs.append("run")
   outputs = unit.listOutputs()
   inouts  = unit.listInOuts()
   for k, v in sorted(kwargs.items(), key=itemgetter(0)):
@@ -18,5 +17,8 @@ def instantiate(unit,params=[],postfix="",**kwargs):
       minst.items.append(mi.Instance.InOut("inout_{}".format(k), v))
     else:
       minst.items.append(mi.Instance.Input(k, v))
+  if inst.isCallable():
+    minst.items.append(mi.Instance.Input("in_run", mi.Constant(1,1) ))
+
   minst.verilog_source = inst.sourceFile()
   return minst
