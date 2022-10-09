@@ -154,6 +154,10 @@ set_location_assignment PIN_N23  -to btns[1]
 set_location_assignment PIN_P23  -to btns[2]
 set_location_assignment PIN_W26  -to btns[3]
 
+#============================================================
+# 7-segments displays
+#============================================================
+
 set_location_assignment  PIN_AF10 -to hex0[0]
 set_location_assignment  PIN_AB12 -to hex0[1]
 set_location_assignment  PIN_AC12 -to hex0[2]
