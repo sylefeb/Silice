@@ -238,6 +238,8 @@ private:
     typedef struct s_fsm_nfo {
       /// \brief fsm name
       std::string                                               name;
+      /// \brief first block of the fsm
+      t_combinational_block                                    *firstBlock = nullptr;
       /// \brief state name to combinational block
       std::unordered_map< std::string, t_combinational_block* > state2Block;
       /// \brief id to combination block
@@ -503,7 +505,6 @@ private:
       bool                                 is_state = false;     // true if block has to be a state, false otherwise
       bool                                 no_skip = false;      // true the state cannot be skipped, even if empty
       int                                  state_id = -1;        // state id, when assigned, -1 otherwise
-      int                                  parent_state_id = -1; // state id of the parent, -1 only if never reached
       std::vector<t_instr_nfo>             instructions;         // list of instructions within block
       t_end_action                        *end_action = nullptr; // end action to perform
       t_combinational_block_context        context;              // block context: subroutine, parent, etc.
@@ -760,7 +761,7 @@ private:
     /// \brief gather a join execution
     t_combinational_block *gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context);
     /// \brief tests whether a graph of block is stateless
-    bool isStateLessGraph(t_combinational_block *head) const;
+    bool isStateLessGraph(const t_combinational_block *head) const;
     /// \brief find all non-comibnation leaves from this block
     void findNonCombinationalLeaves(const t_combinational_block *head,std::set<t_combinational_block*>& _leaves) const;
     /// \brief gather an if-then-else
@@ -1073,7 +1074,7 @@ private:
     /// \brief writes flip-flop combinational value update for a variable
     void writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
     /// \brief add a state to the queue
-    void pushState(const t_combinational_block *b, std::queue<size_t> &_q) const;
+    void pushState(const t_fsm_nfo *fsm,const t_combinational_block *b, std::queue<size_t> &_q) const;
     /// \brief writes combinational steps that are always performed /before/ the state machine
     void writeCombinationalAlwaysPre(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, t_vio_dependencies& _always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
     /// \brief writes all FSM states in the output

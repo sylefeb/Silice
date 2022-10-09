@@ -2163,7 +2163,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     t_pipeline_stage_nfo *snfo = new t_pipeline_stage_nfo();
     // create a fsm for the pipeline stage
     t_fsm_nfo *fsm = new t_fsm_nfo;
-    fsm->name = "fsm_" + nfo->name;
+    fsm->name = "fsm_" + nfo->name + "_" + std::to_string(stage);
     m_FSMs.push_back(fsm);
     // add stage
     nfo ->stages.push_back(snfo);
@@ -2172,12 +2172,12 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // blocks
     t_combinational_block_context ctx  = {
       fsm, _current->context.subroutine, snfo, _current->context.parent_scope, _current->context.vio_rewrites };
+    // -> first stage block
     t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, sourceloc(b));
+    fsm->firstBlock                    = stage_start;
+    // -> gather the rest
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
-    // check this is a combinational chain
-    if (!isStateLessGraph(stage_start)) {
-      reportError(sourceloc(b),"pipeline stages have to be one-cycle only");
-    }
+    fsm->firstBlock->is_state          = ! isStateLessGraph(stage_start);
     // check VIO access
     // gather read/written for block
     std::unordered_set<std::string> read, written;
@@ -2209,6 +2209,9 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
 #if 1
     for (auto r : read) {
         std::cerr << "vio " << r << " read at stage " << stage << nxl;
+    }
+    for (auto w : written) {
+      std::cerr << "vio " << w << " written at stage " << stage << nxl;
     }
     for (auto w : ex_written_backward) {
         std::cerr << "vio " << w << " written backward (^=) at stage " << stage << nxl;
@@ -2421,10 +2424,10 @@ Algorithm::t_combinational_block *Algorithm::gatherJoinExec(siliceParser::JoinEx
 
 // -------------------------------------------------
 
-bool Algorithm::isStateLessGraph(t_combinational_block *head) const
+bool Algorithm::isStateLessGraph(const t_combinational_block *head) const
 {
-  std::queue< t_combinational_block* > q;
-  std::unordered_set< t_combinational_block* > visited;
+  std::queue< const t_combinational_block* > q;
+  std::unordered_set< const t_combinational_block* > visited;
 
   q.push(head);
   while (!q.empty()) {
@@ -2442,7 +2445,7 @@ bool Algorithm::isStateLessGraph(t_combinational_block *head) const
     std::vector< t_combinational_block* > children;
     cur->getChildren(children);
     for (auto c : children) {
-      if (visited.count(c) == 0) {
+      if (visited.count(c) == 0 && c->context.fsm == head->context.fsm) {
         q.push(c);
       }
     }
@@ -3574,15 +3577,16 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
   fsm->maxState = 0;
   std::unordered_set< t_combinational_block * > visited;
   std::queue< t_combinational_block * > q;
-  q.push(m_Blocks.front()); // start from main
+  sl_assert(fsm->firstBlock != nullptr);
+  q.push(fsm->firstBlock);
   while (!q.empty()) {
     auto cur = q.front();
     q.pop();
     // generate a state if needed
     if (cur->is_state) {
+      sl_assert(cur->context.fsm == fsm);
       sl_assert(cur->state_id == -1);
       cur->state_id = fsm->maxState++;
-      cur->parent_state_id = cur->state_id;
     }
     // recurse
     std::vector< t_combinational_block * > children;
@@ -3592,9 +3596,8 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
         // NOTE: anyone sees a good way to get rid of the const cast? (without rewriting fastForward)
         c = const_cast<t_combinational_block *>(fastForward(c));
       }
-      if (visited.find(c) == visited.end()) {
-        c->parent_state_id = cur->parent_state_id;
-        sl_assert(c->parent_state_id > -1);
+      if (visited.find(c) == visited.end() && c->context.fsm == fsm) {
+        //                           stay within the same fsm ^^^^ all states should be accessible from first
         visited.insert(c);
         q.push(c);
       }
@@ -3638,8 +3641,8 @@ int Algorithm::entryState(const t_fsm_nfo *fsm) const
 {
   /// TODO: fastforward is not so simple, can lead to trouble with var inits
   // for instance if the entry state becomes the first in a loop
-  // fastForward(m_Blocks.front())->state_id
-  return 0;
+  // fastForward(fsm->firstBlock)->state_id
+  return fsm->firstBlock->state_id;
 }
 
 // -------------------------------------------------
@@ -3692,6 +3695,7 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
   }
   const t_combinational_block *last_state = block;
   while (true) {
+    // check instructions
     if (!current->instructions.empty()) {
       bool stop = true;
       if (current->instructions.size() == 1) {
@@ -3723,15 +3727,20 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
       }
     }
     if (current->next() == nullptr) {
-      // not a simple jump, stop here
+      // not a simple next, stop here
       return last_state;
     } else {
       current = current->next()->next;
+    }
+    if (current->context.fsm != block->context.fsm) {
+      // different fsm, stop here
+      return last_state;
     }
     if (current->no_skip) {
       // no skip, stop here
       return last_state;
     }
+    // update last_state if on a state
     if (current->is_state) {
       last_state = current;
     }
@@ -5231,6 +5240,7 @@ void Algorithm::gatherBody(antlr4::tree::ParseTree *body)
   // gather elements from source code
   t_combinational_block *main = addBlock("_top", nullptr);
   main->is_state = true;
+  m_RootFSM.firstBlock = main;
 
   // context
   t_gather_context context;
@@ -6826,9 +6836,9 @@ void Algorithm::writeCombinationalAlwaysPre(
 
 // -------------------------------------------------
 
-void Algorithm::pushState(const t_combinational_block* b, std::queue<size_t>& _q) const
+void Algorithm::pushState(const t_fsm_nfo *fsm, const t_combinational_block* b, std::queue<size_t>& _q) const
 {
-  if (b->is_state) {
+  if (b->is_state && b->context.fsm == fsm) {
     size_t rn = fastForward(b)->id;
     _q.push(rn);
   }
@@ -6847,7 +6857,7 @@ void Algorithm::writeCombinationalStates(
   vector<t_vio_ff_usage> ff_usages;
   unordered_set<size_t>  produced;
   queue<size_t>          q;
-  q.push(entryState(fsm)); // starts at 0
+  q.push(fsm->firstBlock->id); // start
   // states
   if (!m_OneHot) {
     out << "(* full_case *)" << nxl;
@@ -7181,23 +7191,24 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
 // -------------------------------------------------
 
 void Algorithm::writeStatelessBlockGraph(
-  std::string prefix, std::ostream& out,
-  const t_instantiation_context&    ictx,
-  const t_combinational_block*      block,
-  const t_combinational_block*      stop_at,
-  std::queue<size_t>&              _q,
-  t_vio_dependencies&              _dependencies,
-  t_vio_ff_usage&                  _ff_usage,
-  t_vio_dependencies&              _post_dependencies,
-  std::set<v2i>&                   _lines) const
+  std::string prefix, std::ostream&  out,
+  const t_instantiation_context&     ictx,
+  const t_combinational_block*       block,
+  const t_combinational_block*       stop_at,
+  std::queue<size_t>&               _q,
+  t_vio_dependencies&               _dependencies,
+  t_vio_ff_usage&                   _ff_usage,
+  t_vio_dependencies&               _post_dependencies,
+  std::set<v2i>&                    _lines) const
 {
+  const t_fsm_nfo *fsm = block->context.fsm;
   // recursive call?
   if (stop_at != nullptr) {
     // if called on a state, index state and stop there
     if (block->is_state) {
       // yes: index the state directly
-      out << FF_D << prefix << fsmIndex(block->context.fsm) << " = " << toFSMState(fastForward(block)->state_id) << ";" << nxl;
-      pushState(block, _q);
+      out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fastForward(block)->state_id) << ";" << nxl;
+      pushState(fsm, block, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     }
@@ -7210,6 +7221,11 @@ void Algorithm::writeStatelessBlockGraph(
     // merge
     // goto next in chain
     if (current->next()) {
+      if (current->next()->next->context.fsm != fsm) {
+        // do not follow into a different fsm (this happens on last stage of a pipeline)
+        mergeDependenciesInto(_dependencies, _post_dependencies);
+        return;
+      }
       current = current->next()->next;
     } else if (current->if_then_else()) {
       vector<t_vio_ff_usage> usage_branches;
@@ -7323,7 +7339,7 @@ void Algorithm::writeStatelessBlockGraph(
       writeStatelessBlockGraph(prefix, out, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
       out << "end else begin" << nxl;
       out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fastForward(current->while_loop()->after)->state_id) << ";" << nxl;
-      pushState(current->while_loop()->after, _q);
+      pushState(fsm, current->while_loop()->after, _q);
       out << "end" << nxl;
       mergeDependenciesInto(_dependencies, _post_dependencies);
       // add to lines
@@ -7372,7 +7388,7 @@ void Algorithm::writeStatelessBlockGraph(
     } else if (current->goto_and_return_to()) {
       // goto subroutine
       out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << nxl;
-      pushState(current->goto_and_return_to()->go_to, _q);
+      pushState(fsm, current->goto_and_return_to()->go_to, _q);
       // if in subroutine making nested calls, store callerid
       if (current->context.subroutine != nullptr) {
         sl_assert(current->context.subroutine->contains_calls);
@@ -7382,7 +7398,7 @@ void Algorithm::writeStatelessBlockGraph(
       auto C = m_SubroutineCallerIds.find(current->goto_and_return_to());
       sl_assert(C != m_SubroutineCallerIds.end());
       out << FF_D << prefix << ALG_CALLER << " = " << C->second << ";" << nxl;
-      pushState(current->goto_and_return_to()->return_to, _q);
+      pushState(fsm, current->goto_and_return_to()->return_to, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     } else if (current->wait()) {
@@ -7398,23 +7414,27 @@ void Algorithm::writeStatelessBlockGraph(
         // yes!
         // -> goto next
         out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fastForward(current->wait()->next)->state_id) << ";" << nxl;
-        pushState(current->wait()->next, _q);
+        pushState(fsm, current->wait()->next, _q);
         out << "end else begin" << nxl;
         // no!
         // -> wait
         out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fastForward(current->wait()->waiting)->state_id) << ";" << nxl;
-        pushState(current->wait()->waiting, _q);
+        pushState(fsm, current->wait()->waiting, _q);
         out << "end" << nxl;
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     } else if (current->pipeline_next()) {
-      // write pipeline
+      if (current->pipeline_next()->next->context.pipeline_stage->stage_id > 0) {
+        // do not follow into different statges of a same pipeline (this happens after each stage but last of a pipeline)
+        mergeDependenciesInto(_dependencies, _post_dependencies);
+        return;
+      }
       current = writeStatelessPipeline(prefix, out, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
     } else {
       // no action
-      if (block->context.fsm) {
-        if (! (block->context.fsm == &m_RootFSM && hasNoFSM() ) ) { // special case for root fsm
+      if (fsm) {
+        if (! (fsm == &m_RootFSM && hasNoFSM() ) ) { // special case for root fsm
           // goto end
           const t_fsm_nfo *fsm = current->context.fsm;
           out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(terminationState(fsm)) << ";" << nxl;
@@ -7427,7 +7447,7 @@ void Algorithm::writeStatelessBlockGraph(
     if (current->is_state) {
       // yes: index and stop
       out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fastForward(current)->state_id) << ";" << nxl;
-      pushState(current, _q);
+      pushState(fsm, current, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     }
@@ -7562,8 +7582,13 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     out << "// -------- stage " << stage << nxl;
     t_vio_dependencies deps = depds_before_stages;
     // write code
+
     if (st.first != st.last) { // this is the more complex case of multiple blocks in stage
-      writeStatelessBlockGraph(prefix, out, ictx, st.first, st.last, _q, deps, _ff_usage, _post_dependencies, _lines); // NOTE: q will not be changed since this is a combinational block
+      if (isStateLessGraph(st.first)) {
+        writeStatelessBlockGraph(prefix, out, ictx, st.first, st.last, _q, deps, _ff_usage, _post_dependencies, _lines);
+      } else {
+        writeCombinationalStates(st.first->context.fsm, prefix, out, ictx, deps, _ff_usage, _post_dependencies);
+      }
       st.first = st.last;
     } else {
       writeBlock(prefix, out, ictx, st.first, deps, _ff_usage, _lines);
