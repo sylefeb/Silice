@@ -30,7 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 $$DE2 = 1
 $$HARDWARE = 1
 $$NUM_LEDS = 27
-$$NUM_BTNS = 5
+$$NUM_BTNS = 4
 $$config['dualport_bram_template'] = 'dualport_bram_altera.v.in'
 $$color_depth = 10
 $$color_max   = 1023
@@ -40,7 +40,7 @@ module top(
     output [26:0] leds,
 `ifdef BUTTONS
     // buttons
-    input  [4:0] btns,
+    input  [3:0] btns,
 `endif
 `ifdef SDRAM
     // sdram
@@ -82,6 +82,15 @@ module top(
     output  [3:0] kpadC,
     input   [3:0] kpadR,
 `endif
+    // hex
+    output [6:0] hex0,
+    output [6:0] hex1,
+    output [6:0] hex2,
+    output [6:0] hex3,
+    output [6:0] hex4,
+    output [6:0] hex5,
+    output [6:0] hex6,
+    output [6:0] hex7,
     // clock
     input clk
 );
@@ -204,5 +213,15 @@ assign uart2_tx      = __main_out_uart_tx;
 `ifdef KEYPAD
 assign  kpadC        = __main_out_kpadC;
 `endif
+
+assign hex0 = 7'b1111111;
+assign hex1 = 7'b1111111;
+assign hex2 = 7'b0000110; // E
+assign hex3 = 7'b1000110; // C
+assign hex4 = 7'b1001111; // I
+assign hex5 = 7'b1000111; // L
+assign hex6 = 7'b1001111; // I
+assign hex7 = 7'b0010010; // S
+//               ABCDEFG
 
 endmodule

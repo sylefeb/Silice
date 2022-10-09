@@ -4,8 +4,8 @@
 // https://github.com/sylefeb/Silice
 // @sylefeb 2020
 
-$$if DE10NANO or SIMULATION then
-$$Nlog = 3
+$$if DE10NANO or DE2 or SIMULATION then
+$$Nlog = 4
 $$else
 $$Nlog = 3
 $$end
@@ -338,7 +338,7 @@ $$end
       }
     }
 $$if not SIMULATION then
-    if (reg_btns[1,1] != 0) {
+    if (reg_btns[1,1]) {
 $$else
     if (1) {
 $$end
