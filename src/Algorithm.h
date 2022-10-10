@@ -239,7 +239,9 @@ private:
       /// \brief fsm name
       std::string                                               name;
       /// \brief first block of the fsm
-      t_combinational_block                                    *firstBlock = nullptr;
+      t_combinational_block                                    *firstBlock  = nullptr;
+      /// \brief parent block, in parent fsm (if any)
+      t_combinational_block                                    *parentBlock = nullptr;
       /// \brief state name to combinational block
       std::unordered_map< std::string, t_combinational_block* > state2Block;
       /// \brief id to combination block
@@ -505,6 +507,7 @@ private:
       bool                                 is_state = false;     // true if block has to be a state, false otherwise
       bool                                 no_skip = false;      // true the state cannot be skipped, even if empty
       int                                  state_id = -1;        // state id, when assigned, -1 otherwise
+      int                                  parent_state_id = -1; // parent state id (closest state before)
       std::vector<t_instr_nfo>             instructions;         // list of instructions within block
       t_end_action                        *end_action = nullptr; // end action to perform
       t_combinational_block_context        context;              // block context: subroutine, parent, etc.
@@ -818,6 +821,10 @@ private:
     void generateStates(t_fsm_nfo *);
     /// \brief returns the index name of the fsm
     std::string fsmIndex(const t_fsm_nfo *) const;
+    /// \brief returns whether the fsm is empty (no state)
+    bool fsmIsEmpty(const t_fsm_nfo *) const;
+    /// \brief returns the fsm parent trigger state (-1 if none)
+    int fsmParentTriggerState(const t_fsm_nfo *) const;
     /// \brief returns the max state value of the algorithm
     int maxState(const t_fsm_nfo *) const;
     /// \brief returns the index of the entry state of the algorithm
@@ -933,7 +940,7 @@ private:
     /// \brief returns true if the algorithm does not call subroutines
     bool doesNotCallSubroutines() const;
     /// \brief converts an internal state into a FSM state
-    int  toFSMState(int state) const;
+    int  toFSMState(const t_fsm_nfo *fsm, int state) const;
     /// \brief finds the binding to var
     const t_binding_nfo &findBindingLeft(std::string left, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
     /// \brief finds the binding on var
