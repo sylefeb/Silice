@@ -2178,7 +2178,9 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     fsm->parentBlock                   = _current;
     // -> gather the rest
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
-    fsm->firstBlock->is_state          = ! isStateLessGraph(stage_start);
+    /// TODO NOTE for now we make all stages FSMs, however this might become costly on 'simple' pipelines
+    ///           also beware of the change in behaviour if pipeline stages are now implicitely made idle
+    fsm->firstBlock->is_state          = true; //  !isStateLessGraph(stage_start);
     // check VIO access
     // gather read/written for block
     std::unordered_set<std::string> read, written;
@@ -3591,6 +3593,7 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
   while (!q.empty()) {
     auto cur = q.front();
     q.pop();
+    fsm->lastBlock = cur;
     // generate a state if needed
     if (cur->is_state) {
       sl_assert(cur->context.fsm == fsm);
@@ -3640,6 +3643,11 @@ std::string Algorithm::fsmIndex(const t_fsm_nfo *fsm) const
   return "_idx_" + fsm->name;
 }
 
+std::string Algorithm::fsmReady(const t_fsm_nfo *fsm) const
+{
+  return "_ready" + fsmIndex(fsm);
+}
+
 // -------------------------------------------------
 
 bool Algorithm::fsmIsEmpty(const t_fsm_nfo *fsm) const
@@ -3679,6 +3687,14 @@ int Algorithm::entryState(const t_fsm_nfo *fsm) const
 int Algorithm::terminationState(const t_fsm_nfo *fsm) const
 {
   return fsm->maxState - 1;
+}
+
+// -------------------------------------------------
+
+int Algorithm::lastPipelineStageState(const t_fsm_nfo *fsm) const
+{
+  sl_assert(fsm->lastBlock != nullptr);
+  return fsm->lastBlock->parent_state_id;
 }
 
 // -------------------------------------------------
@@ -6564,17 +6580,20 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   for (auto fsm : m_PipelineFSMs) {
     if (!fsmIsEmpty(fsm)) {
       out << "reg  [" << stateWidth(fsm) - 1 << ":0] " FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm))
-                                                << "," FF_Q << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ";" << nxl;
+                                                << "," FF_Q << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
+      out << "wire " << fsmReady(fsm) << " = "
+        <<     "(" << FF_D << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')'
+        << " || (" << FF_D << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
     }
   }
   // state machine caller id (subroutines)
   if (!doesNotCallSubroutines()) {
-    out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ";" << nxl;
+    out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ';' << nxl;
     // per-subroutine caller id backup (subroutine making nested calls)
     for (auto sub : m_Subroutines) {
       if (sub.second->contains_calls) {
         out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER 
-                                                                    << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ";" << nxl;
+                                                                    << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ';' << nxl;
       }
     }
   }
@@ -7278,6 +7297,7 @@ void Algorithm::writeStatelessBlockGraph(
     if (current->next()) {
       if (current->next()->next->context.fsm != fsm) {
         // do not follow into a different fsm (this happens on last stage of a pipeline)
+        out << "// end of last pipeline stage" << nxl;
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
       }
@@ -7481,7 +7501,7 @@ void Algorithm::writeStatelessBlockGraph(
       return;
     } else if (current->pipeline_next()) {
       if (current->pipeline_next()->next->context.pipeline_stage->stage_id > 0) {
-        // do not follow into different statges of a same pipeline (this happens after each stage but last of a pipeline)
+        // do not follow into different statges of a same pipeline (this happens after each stage > 0 but last of a pipeline)
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
       }

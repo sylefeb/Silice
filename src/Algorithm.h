@@ -240,6 +240,8 @@ private:
       std::string                                               name;
       /// \brief first block of the fsm
       t_combinational_block                                    *firstBlock  = nullptr;
+      /// \brief last block of the fsm
+      t_combinational_block                                    *lastBlock = nullptr;
       /// \brief parent block, in parent fsm (if any)
       t_combinational_block                                    *parentBlock = nullptr;
       /// \brief state name to combinational block
@@ -823,6 +825,8 @@ private:
     void generateStates(t_fsm_nfo *);
     /// \brief returns the index name of the fsm
     std::string fsmIndex(const t_fsm_nfo *) const;
+    /// \brief returns the ready name of the fsm
+    std::string fsmReady(const t_fsm_nfo *) const;
     /// \brief returns whether the fsm is empty (no state)
     bool fsmIsEmpty(const t_fsm_nfo *) const;
     /// \brief returns the fsm parent trigger state (-1 if none)
@@ -831,6 +835,8 @@ private:
     int maxState(const t_fsm_nfo *) const;
     /// \brief returns the index of the entry state of the algorithm
     int entryState(const t_fsm_nfo *) const;
+    /// \brief returns the index of the last state of the pipeline stage fsm (the one before termination)
+    int lastPipelineStageState(const t_fsm_nfo *) const;
     /// \brief returns the index to jump to to intitate the termination sequence
     int terminationState(const t_fsm_nfo *) const;
     /// \brief returns the bit-width required to encode val
