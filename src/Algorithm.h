@@ -336,10 +336,12 @@ private:
     /// \brief info about a pipeline stage
     typedef struct s_pipeline_stage_nfo {
       t_pipeline_nfo *pipeline;
+      t_fsm_nfo      *fsm;
       int             stage_id;
-      std::unordered_set<std::string> read;
-      std::unordered_set<std::string> written_backward;
-      std::unordered_set<std::string> written_forward;
+      std::unordered_set<std::string>               read;
+      std::unordered_set<std::string>               written_backward;
+      std::unordered_set<std::string>               written_forward;
+      std::unordered_map< std::string, std::string> vio_prev_name;
     } t_pipeline_stage_nfo;
 
     /// \brief vector of all pipeline FSMs
@@ -347,6 +349,7 @@ private:
 
     /// \brief vector of all pipelines
     std::vector< t_pipeline_nfo* > m_Pipelines;
+    std::unordered_map< std::string, t_pipeline_stage_nfo* > m_vio2PipelineStage;
 
     /// \brief struct describing the first and last block of a pipeline stage
     typedef struct {
@@ -1084,8 +1087,8 @@ private:
     void writeWireDeclarations(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const;
     /// \brief writes the flip-flop declarations
     void writeFlipFlopDeclarations(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const;
-    /// \brief writes the flip-flops
-    void writeFlipFlops(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const;
+    /// \brief writes the flip-flop updates
+    void writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const;
     /// \brief writes flip-flop combinational value update for a variable
     void writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
     /// \brief add a state to the queue

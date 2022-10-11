@@ -2159,16 +2159,17 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   // -> stage number
   int stage = 0;
   for (auto b : pip->block()) {
-    // stage info
-    t_pipeline_stage_nfo *snfo = new t_pipeline_stage_nfo();
     // create a fsm for the pipeline stage
     t_fsm_nfo *fsm = new t_fsm_nfo;
     fsm->name = "fsm_" + nfo->name + "_" + std::to_string(stage);
     m_PipelineFSMs.push_back(fsm);
-    // add stage
-    nfo ->stages.push_back(snfo);
+    // stage info
+    t_pipeline_stage_nfo *snfo = new t_pipeline_stage_nfo();
     snfo->pipeline = nfo;
+    snfo->fsm      = fsm;
     snfo->stage_id = stage;
+    // add stage
+    nfo->stages.push_back(snfo);
     // blocks
     t_combinational_block_context ctx  = {
       fsm, _current->context.subroutine, snfo, _current->context.parent_scope, _current->context.vio_rewrites };
@@ -2302,7 +2303,11 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       // -> add variable
       t_var_nfo var;
       var.name       = tricklingVIOName(tv,nfo,s);
-      var.pipeline_prev_name = pipeline_prev_name;
+      sl_assert(m_vio2PipelineStage.count(var.name) == 0);
+      m_vio2PipelineStage.insert(std::make_pair(var.name, nfo->stages[s]));
+      if (!pipeline_prev_name.empty()) {
+        nfo->stages[s]->vio_prev_name.insert(std::make_pair(var.name, pipeline_prev_name));
+      }
       pipeline_prev_name     = var.name;
       var.type_nfo   = get<0>(tws);
       var.table_size = get<1>(tws);
@@ -2867,7 +2872,6 @@ void var_nfo_copy(T& _dst,const Algorithm::t_var_nfo &src)
   _dst.table_size         = src.table_size;
   _dst.do_not_initialize  = src.do_not_initialize;
   _dst.init_at_startup    = src.init_at_startup;
-  _dst.pipeline_prev_name = src.pipeline_prev_name;
   _dst.access             = src.access;
   _dst.usage              = src.usage;
   _dst.attribs            = src.attribs;
@@ -3652,6 +3656,9 @@ std::string Algorithm::fsmReady(const t_fsm_nfo *fsm) const
 
 bool Algorithm::fsmIsEmpty(const t_fsm_nfo *fsm) const
 {
+  if (fsm == nullptr) {
+    return true;
+  }
   return isStateLessGraph(fsm->firstBlock);
 }
 
@@ -6581,9 +6588,9 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     if (!fsmIsEmpty(fsm)) {
       out << "reg  [" << stateWidth(fsm) - 1 << ":0] " FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm))
                                                 << "," FF_Q << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
-      out << "wire " << fsmReady(fsm) << " = "
-        <<     "(" << FF_D << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')'
-        << " || (" << FF_D << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
+      out << "wire " << fsmReady(fsm) << " = " 
+        <<     "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')'
+        << " || (" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
     }
   }
   // state machine caller id (subroutines)
@@ -6624,11 +6631,21 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
     init_cond = reset;
   }
   std::string d_var = FF_D + prefix + v.name;
-  if (!v.pipeline_prev_name.empty()) {
-    bool found = false;
-    auto pv    = getVIODefinition(v.pipeline_prev_name, found);
-    sl_assert(found);
-    d_var      = (pv.usage == e_Temporary) ? (FF_TMP + prefix + v.pipeline_prev_name) : (FF_D + prefix + v.pipeline_prev_name);
+  auto P = m_vio2PipelineStage.find(v.name);
+  if (P != m_vio2PipelineStage.end()) { // in pipeline?
+    auto V = P->second->vio_prev_name.find(v.name);
+    if (V != P->second->vio_prev_name.end()) {
+      auto prev_name = V->second;
+      bool found     = false;
+      auto pv        = getVIODefinition(prev_name, found);
+      sl_assert(found);
+      d_var          = (pv.usage == e_Temporary) ? (FF_TMP + prefix + prev_name) : (FF_D + prefix + prev_name);
+      auto fsm       = P->second->fsm;
+      if (!fsmIsEmpty(fsm)) {
+        d_var        = std::string("(") + FF_D + prefix + fsmIndex(fsm) + " == " + std::to_string(toFSMState(fsm,entryState(fsm))) 
+                     + " ? " + d_var + " : " + FF_D + prefix + v.name + ')';
+      }
+    }
   }
   if (v.table_size == 0) {
     // not a table
@@ -6653,7 +6670,7 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
 
 // -------------------------------------------------
 
-void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const
+void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const
 {
   // output flip-flop init and update on clock
   out << nxl;
@@ -6681,14 +6698,17 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     }
     reset = R->second;
   }
+  // vars
   for (const auto &v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
     writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
   }
+  // outputs
   for (const auto &v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
     writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
   }
+  // root fsm
   if (!hasNoFSM()) {
     std::string init_cond;
     if (!isNotCallable()) {
@@ -6707,16 +6727,6 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
     if (m_AutoRun) {
       out << prefix << ALG_AUTORUN << " <= " << reset << " ? 0 : 1;" << nxl;
     }
-    // state machines for pipelines
-    for (auto fsm : m_PipelineFSMs) {
-      if (!fsmIsEmpty(fsm)) {
-        sl_assert(fsm->parentBlock != nullptr);
-        out << FF_Q << prefix << fsmIndex(fsm) << " <= " << reset 
-          << " ? " << toFSMState(fsm,terminationState(fsm)) 
-          << " : " << FF_D << prefix << fsmIndex(fsm)
-          << ';' << nxl;
-      }
-    }
     // caller ids for subroutines
     if (!doesNotCallSubroutines()) {
       out << FF_Q << prefix << ALG_CALLER " <= " FF_D << prefix << ALG_CALLER ";" << nxl;
@@ -6725,6 +6735,17 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
           out << FF_Q << prefix << sub.second->name << "_" << ALG_CALLER " <= " FF_D << prefix << sub.second->name << "_" << ALG_CALLER ";" << nxl;
         }
       }
+    }
+  }
+
+  // state machines for pipelines
+  for (auto fsm : m_PipelineFSMs) {
+    if (!fsmIsEmpty(fsm)) {
+      sl_assert(fsm->parentBlock != nullptr);
+      out << FF_Q << prefix << fsmIndex(fsm) << " <= " << reset
+        << " ? " << toFSMState(fsm, terminationState(fsm))
+        << " : " << FF_D << prefix << fsmIndex(fsm)
+        << ';' << nxl;
     }
   }
 
@@ -8652,7 +8673,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   for (auto fsm : m_PipelineFSMs) {
     if (fsmIsEmpty(fsm)) { continue; }
     out << "if ((" << FF_D << "_" << fsmIndex(fsm->parentBlock->context.fsm) << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm)) << ")";
-    out << " && (" << FF_Q << "_" << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ")) ";
+    out << " && (" << fsmReady(fsm) << ")) ";
     out << "begin" << nxl;
     out << "   " << FF_D << "_" << fsmIndex(fsm) << " = " << toFSMState(fsm, entryState(fsm)) << ';' << nxl;
     out << "end" << nxl;
@@ -8681,8 +8702,8 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   }
 #endif
 
-  // flip-flops update
-  writeFlipFlops("_", out, ictx);
+  // flip-flop updates
+  writeFlipFlopUpdates("_", out, ictx);
 
   out << nxl;
 

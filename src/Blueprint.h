@@ -77,7 +77,6 @@ namespace Silice
       int          table_size        = 0; // 0: not a table, otherwise size
       bool         do_not_initialize = false;
       bool         init_at_startup   = false;
-      std::string  pipeline_prev_name; // if not empty, name of previous in pipeline trickling
       e_Access     access            = e_NotAccessed;
       e_VarUsage   usage             = e_Undetermined;
       std::string  attribs;
