@@ -340,8 +340,8 @@ private:
       std::unordered_set<std::string> written_forward;
     } t_pipeline_stage_nfo;
 
-    /// \brief vector of all FSMs
-    std::vector< t_fsm_nfo* >      m_FSMs;
+    /// \brief vector of all pipeline FSMs
+    std::vector< t_fsm_nfo* >      m_PipelineFSMs;
 
     /// \brief vector of all pipelines
     std::vector< t_pipeline_nfo* > m_Pipelines;
@@ -815,6 +815,8 @@ private:
     void getIdentifiers(siliceParser::IdOrIoAccessListContext* idents, std::vector<std::string>& _vec_params, t_combinational_block* _current);
     /// \brief parsing, first discovery pass
     t_combinational_block *gather(antlr4::tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief resolves forward references for jumps for a given fsm
+    void resolveForwardJumpRefs(const t_fsm_nfo *);
     /// \brief resolves forward references for jumps
     void resolveForwardJumpRefs();
     /// \brief generates the states for the entire algorithm

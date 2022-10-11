@@ -2164,7 +2164,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // create a fsm for the pipeline stage
     t_fsm_nfo *fsm = new t_fsm_nfo;
     fsm->name = "fsm_" + nfo->name + "_" + std::to_string(stage);
-    m_FSMs.push_back(fsm);
+    m_PipelineFSMs.push_back(fsm);
     // add stage
     nfo ->stages.push_back(snfo);
     snfo->pipeline = nfo;
@@ -3536,37 +3536,45 @@ Algorithm::t_combinational_block *Algorithm::gather(
 
 // -------------------------------------------------
 
-void Algorithm::resolveForwardJumpRefs()
+void Algorithm::resolveForwardJumpRefs(const t_fsm_nfo *fsm)
 {
-  for (const auto& fsm : m_FSMs) {
-    for (auto& refs : fsm->jumpForwardRefs) {
-      // get block by name
-      auto B = fsm->state2Block.find(refs.first);
-      if (B == fsm->state2Block.end()) {
-        std::string lines;
-        sl_assert(!refs.second.empty());
-        for (const auto& j : refs.second) {
-          lines += std::to_string(j.jump->getStart()->getLine()) + ",";
+  for (auto& refs : fsm->jumpForwardRefs) {
+    // get block by name
+    auto B = fsm->state2Block.find(refs.first);
+    if (B == fsm->state2Block.end()) {
+      std::string lines;
+      sl_assert(!refs.second.empty());
+      for (const auto& j : refs.second) {
+        lines += std::to_string(j.jump->getStart()->getLine()) + ",";
+      }
+      lines.pop_back(); // remove last comma
+      std::string msg = "cannot find state '"
+        + refs.first + "' (line"
+        + (refs.second.size() > 1 ? "s " : " ")
+        + lines + ")";
+      reportError(sourceloc(refs.second.front().jump),
+        "%s", msg.c_str());
+    } else {
+      for (auto& j : refs.second) {
+        if (dynamic_cast<siliceParser::JumpContext*>(j.jump)) {
+          // update jump
+          j.from->next(B->second);
+        } else {
+          sl_assert(false);
         }
-        lines.pop_back(); // remove last comma
-        std::string msg = "cannot find state '"
-          + refs.first + "' (line"
-          + (refs.second.size() > 1 ? "s " : " ")
-          + lines + ")";
-        reportError(sourceloc(refs.second.front().jump),
-          "%s", msg.c_str());
-      } else {
-        for (auto& j : refs.second) {
-          if (dynamic_cast<siliceParser::JumpContext*>(j.jump)) {
-            // update jump
-            j.from->next(B->second);
-          } else {
-            sl_assert(false);
-          }
-          B->second->is_state = true; // destination has to be a state
-        }
+        B->second->is_state = true; // destination has to be a state
       }
     }
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::resolveForwardJumpRefs()
+{
+  resolveForwardJumpRefs(&m_RootFSM);
+  for (const auto& fsm : m_PipelineFSMs) {
+    resolveForwardJumpRefs(fsm);
   }
 }
 
@@ -5255,7 +5263,6 @@ void Algorithm::init(
   m_AlwaysPost.block_name = "_always_post";
   // root fsm
   m_RootFSM.name = "fsm0";
-  m_FSMs.push_back(&m_RootFSM);
 }
 
 // -------------------------------------------------
@@ -5612,9 +5619,9 @@ void Algorithm::optimize(const t_instantiation_context& ictx)
     // this paves the ways to having different optimizations for different instances
     m_Optimized = true;
     // generate states
-    for (auto fsm : m_FSMs) {
-      if (fsm == &m_RootFSM || !fsmIsEmpty(fsm)) {
-        /// TODO  ^^^^^ get rid of special case as much as possible (may not be necessary here, to be checked)
+    generateStates(&m_RootFSM);
+    for (auto fsm : m_PipelineFSMs) {
+      if (!fsmIsEmpty(fsm)) {
         generateStates(fsm);
       }
     }
@@ -6554,10 +6561,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     }
   }
   // state machines for pipelines
-  for (auto fsm : m_FSMs) {
-    if (fsm == &m_RootFSM) {
-      continue; // root fsm is specially handled above
-    }
+  for (auto fsm : m_PipelineFSMs) {
     if (!fsmIsEmpty(fsm)) {
       out << "reg  [" << stateWidth(fsm) - 1 << ":0] " FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm))
                                                 << "," FF_Q << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ";" << nxl;
@@ -6685,10 +6689,7 @@ void Algorithm::writeFlipFlops(std::string prefix, std::ostream& out, const t_in
       out << prefix << ALG_AUTORUN << " <= " << reset << " ? 0 : 1;" << nxl;
     }
     // state machines for pipelines
-    for (auto fsm : m_FSMs) {
-      if (fsm == &m_RootFSM) {
-        continue; // root fsm is specially handled above
-      }
+    for (auto fsm : m_PipelineFSMs) {
       if (!fsmIsEmpty(fsm)) {
         sl_assert(fsm->parentBlock != nullptr);
         out << FF_Q << prefix << fsmIndex(fsm) << " <= " << reset 
@@ -8628,10 +8629,8 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   }
 
   // pipeline state machine triggers
-  for (auto fsm : m_FSMs) {
-    if (fsm == &m_RootFSM || fsmIsEmpty(fsm)) {
-      continue;
-    }
+  for (auto fsm : m_PipelineFSMs) {
+    if (fsmIsEmpty(fsm)) { continue; }
     out << "if ((" << FF_D << "_" << fsmIndex(fsm->parentBlock->context.fsm) << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm)) << ")";
     out << " && (" << FF_Q << "_" << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ")) ";
     out << "begin" << nxl;
