@@ -6749,12 +6749,19 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
   for (auto fsm : m_PipelineFSMs) {
     if (!fsmIsEmpty(fsm)) {
       sl_assert(fsm->parentBlock != nullptr);
-      out << FF_Q << prefix << fsmIndex(fsm) << " <= " << reset
-        << " ? " << toFSMState(fsm, terminationState(fsm))
-        << " : " << FF_D << prefix << fsmIndex(fsm)
-        << ';' << nxl;
-      out << FF_Q << prefix << fsmPipelineStageFull(fsm) << " <= " << reset << " ? 0 : "
-          << FF_D << prefix << fsmPipelineStageFull(fsm) << ';' << nxl;
+      if (!hasNoFSM()) {
+        out << FF_Q << prefix << fsmIndex(fsm) << " <= " << reset
+            << " ? " << toFSMState(fsm, terminationState(fsm))
+            << " : " << FF_D << prefix << fsmIndex(fsm)
+            << ';' << nxl;
+        out << FF_Q << prefix << fsmPipelineStageFull(fsm) << " <= " << reset << " ? 0 : "
+            << FF_D << prefix << fsmPipelineStageFull(fsm) << ';' << nxl;
+      } else {
+        out << FF_Q << prefix << fsmIndex(fsm) << " <= "
+            << FF_D << prefix << fsmIndex(fsm) << ';' << nxl;
+        out << FF_Q << prefix << fsmPipelineStageFull(fsm) << " <= "
+            << FF_D << prefix << fsmPipelineStageFull(fsm) << ';' << nxl;
+      }
     }
   }
 
@@ -7621,7 +7628,7 @@ bool Algorithm::orderPipelineStages(std::vector< t_pipeline_stage_range >& _stag
         }
       }
       if (free) {
-        cerr << "next pipeline stage: " << s << nxl;
+        // cerr << "next pipeline stage: " << s << nxl;
         valid_order.push_back(_stages[s]);
         not_selected.erase(s);
         found = true;
@@ -8685,20 +8692,27 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   for (auto fsm : m_PipelineFSMs) {
     if (fsmIsEmpty(fsm)) { continue; }
     // parent state active?
-    out << "if (" << FF_D << "_" << fsmIndex(fsm->parentBlock->context.fsm)
+    if (fsm->parentBlock->context.fsm != nullptr) {
+      out << "if (" << FF_D << "_" << fsmIndex(fsm->parentBlock->context.fsm)
         << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm)) << ") begin" << nxl;
+    }
     // stage full? (on last)
     out << "  if (" << FF_Q << "_" << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm));
     out << "  ) begin" << nxl;
     out << "   " << FF_D << "_" << fsmPipelineStageFull(fsm) << " = " << "1;" << nxl;
     out << "  end" << nxl;
-    out << "end" << nxl;
+    if (fsm->parentBlock->context.fsm != nullptr) {
+      out << "end" << nxl;
+    }
   }
-  for (auto fsm : m_PipelineFSMs) {
+  for (int p = (int)m_PipelineFSMs.size() - 1; p >= 0; --p) {
+    auto fsm = m_PipelineFSMs[p];
     if (fsmIsEmpty(fsm)) { continue; }
     // parent state active?
-    out << "if (" << FF_D << "_" << fsmIndex(fsm->parentBlock->context.fsm)
+    if (fsm->parentBlock->context.fsm != nullptr) {
+      out << "if (" << FF_D << "_" << fsmIndex(fsm->parentBlock->context.fsm)
         << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm)) << ") begin" << nxl;
+    }
     // start the fsm?
     out << "  if ( (" << fsmPipelineStageReady(fsm) << ") "; // ready
     int stage_id = fsm->firstBlock->context.pipeline_stage->stage_id;
@@ -8717,7 +8731,9 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
       out << "   " FF_D << "_" << fsmPipelineStageFull(fsm_prev) << " = 0;" << nxl;
     }
     out << "  end" << nxl;
-    out << "end" << nxl;
+    if (fsm->parentBlock->context.fsm != nullptr) {
+      out << "end" << nxl;
+    }
   }
 
   // end of combinational part
