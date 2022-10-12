@@ -828,8 +828,10 @@ private:
     void generateStates(t_fsm_nfo *);
     /// \brief returns the index name of the fsm
     std::string fsmIndex(const t_fsm_nfo *) const;
-    /// \brief returns the ready name of the fsm
-    std::string fsmReady(const t_fsm_nfo *) const;
+    /// \brief returns the 'ready' signal name of the fsm
+    std::string fsmPipelineStageReady(const t_fsm_nfo *) const;
+    /// \brief returns the 'full' signal name of the fsm
+    std::string fsmPipelineStageFull(const t_fsm_nfo *) const;
     /// \brief returns whether the fsm is empty (no state)
     bool fsmIsEmpty(const t_fsm_nfo *) const;
     /// \brief returns the fsm parent trigger state (-1 if none)

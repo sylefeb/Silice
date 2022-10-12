@@ -3647,9 +3647,14 @@ std::string Algorithm::fsmIndex(const t_fsm_nfo *fsm) const
   return "_idx_" + fsm->name;
 }
 
-std::string Algorithm::fsmReady(const t_fsm_nfo *fsm) const
+std::string Algorithm::fsmPipelineStageReady(const t_fsm_nfo *fsm) const
 {
   return "_ready" + fsmIndex(fsm);
+}
+
+std::string Algorithm::fsmPipelineStageFull(const t_fsm_nfo *fsm) const
+{
+  return "_full" + fsmIndex(fsm);
 }
 
 // -------------------------------------------------
@@ -6588,9 +6593,11 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     if (!fsmIsEmpty(fsm)) {
       out << "reg  [" << stateWidth(fsm) - 1 << ":0] " FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm))
                                                 << "," FF_Q << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
-      out << "wire " << fsmReady(fsm) << " = " 
+      out << "wire " << fsmPipelineStageReady(fsm) << " = "
         <<     "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')'
         << " || (" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
+      out << "reg  [0:0] " FF_D << prefix << fsmPipelineStageFull(fsm) << " = 0"
+                    << "," FF_Q << prefix << fsmPipelineStageFull(fsm) << " = 0;" << nxl;
     }
   }
   // state machine caller id (subroutines)
@@ -6746,6 +6753,8 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
         << " ? " << toFSMState(fsm, terminationState(fsm))
         << " : " << FF_D << prefix << fsmIndex(fsm)
         << ';' << nxl;
+      out << FF_Q << prefix << fsmPipelineStageFull(fsm) << " <= " << reset << " ? 0 : "
+          << FF_D << prefix << fsmPipelineStageFull(fsm) << ';' << nxl;
     }
   }
 
@@ -7026,9 +7035,9 @@ void Algorithm::writeCombinationalStates(
   // -> termination state
   {
     if (!m_OneHot) {
-      out << toFSMState(fsm,terminationState(fsm)) << ": begin // end of " << nxl;
+      out << toFSMState(fsm,terminationState(fsm)) << ": begin " << nxl;
     } else {
-      out << FF_Q << prefix << fsmIndex(fsm) << '[' << terminationState(fsm) << "]: begin // end of " << nxl;
+      out << FF_Q << prefix << fsmIndex(fsm) << '[' << terminationState(fsm) << "]: begin " << nxl;
     }
     out << "end" << nxl;
   }
@@ -7319,6 +7328,7 @@ void Algorithm::writeStatelessBlockGraph(
       if (current->next()->next->context.fsm != fsm) {
         // do not follow into a different fsm (this happens on last stage of a pipeline)
         out << "// end of last pipeline stage" << nxl;
+        out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
       }
@@ -7522,7 +7532,9 @@ void Algorithm::writeStatelessBlockGraph(
       return;
     } else if (current->pipeline_next()) {
       if (current->pipeline_next()->next->context.pipeline_stage->stage_id > 0) {
-        // do not follow into different statges of a same pipeline (this happens after each stage > 0 but last of a pipeline)
+        // do not follow into different stages of a same pipeline (this happens after each stage > 0 but last of a pipeline)
+        out << "// end of stage" << nxl;
+        out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
       }
@@ -7532,8 +7544,7 @@ void Algorithm::writeStatelessBlockGraph(
       if (fsm) {
         if (! (fsm == &m_RootFSM && hasNoFSM() ) ) { // special case for root fsm
           // goto end
-          const t_fsm_nfo *fsm = current->context.fsm;
-          out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,terminationState(fsm)) << ";" << nxl;
+          out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm,terminationState(fsm)) << ";" << nxl;
         }
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
@@ -8670,12 +8681,42 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   }
 
   // pipeline state machine triggers
+  // -> update full status
   for (auto fsm : m_PipelineFSMs) {
     if (fsmIsEmpty(fsm)) { continue; }
-    out << "if ((" << FF_D << "_" << fsmIndex(fsm->parentBlock->context.fsm) << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm)) << ")";
-    out << " && (" << fsmReady(fsm) << ")) ";
-    out << "begin" << nxl;
+    // parent state active?
+    out << "if (" << FF_D << "_" << fsmIndex(fsm->parentBlock->context.fsm)
+        << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm)) << ") begin" << nxl;
+    // stage full? (on last)
+    out << "  if (" << FF_Q << "_" << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm));
+    out << "  ) begin" << nxl;
+    out << "   " << FF_D << "_" << fsmPipelineStageFull(fsm) << " = " << "1;" << nxl;
+    out << "  end" << nxl;
+    out << "end" << nxl;
+  }
+  for (auto fsm : m_PipelineFSMs) {
+    if (fsmIsEmpty(fsm)) { continue; }
+    // parent state active?
+    out << "if (" << FF_D << "_" << fsmIndex(fsm->parentBlock->context.fsm)
+        << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm)) << ") begin" << nxl;
+    // start the fsm?
+    out << "  if ( (" << fsmPipelineStageReady(fsm) << ") "; // ready
+    int stage_id = fsm->firstBlock->context.pipeline_stage->stage_id;
+    int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
+    if (stage_id - 1 >= 0) { // previous full (something to do), first stage does not have this condition
+      auto fsm_prev = fsm->firstBlock->context.pipeline_stage->pipeline->stages[stage_id - 1]->fsm;
+      out << "   && (" << FF_D << "_" << fsmPipelineStageFull(fsm_prev) << ") "; 
+    }
+    if (stage_id != num_stages - 1) {
+      out << "   && (!" << FF_D << "_" << fsmPipelineStageFull(fsm) << ") "; // self not full
+    }
+    out << "  ) begin" << nxl;
     out << "   " << FF_D << "_" << fsmIndex(fsm) << " = " << toFSMState(fsm, entryState(fsm)) << ';' << nxl;
+    if (stage_id - 1 >= 0) {
+      auto fsm_prev = fsm->firstBlock->context.pipeline_stage->pipeline->stages[stage_id - 1]->fsm;
+      out << "   " FF_D << "_" << fsmPipelineStageFull(fsm_prev) << " = 0;" << nxl;
+    }
+    out << "  end" << nxl;
     out << "end" << nxl;
   }
 
