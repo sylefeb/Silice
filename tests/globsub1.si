@@ -4,7 +4,7 @@ subroutine inc(input uint8 i,output uint8 o)
   return;
 }
 
-algorithm main()
+algorithm main(output uint8 leds)
 {
   uint8 a = 0;
 

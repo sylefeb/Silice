@@ -3627,7 +3627,7 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
   fsm->maxState++;
   // report
   std::cerr << "algorithm " << m_Name
-    << " fsm " << (int64_t)fsm
+    << " fsm " << sprint("%x",(int64_t)fsm)
     << " num states: " << fsm->maxState;
   if (hasNoFSM()) {
     std::cerr << " (no FSM)";
@@ -4560,10 +4560,10 @@ void Algorithm::determineVIOAccess(
         // calling a blueprint?
         auto B = m_InstancedBlueprints.find(sync->joinExec()->IDENTIFIER()->getText());
         if (B != m_InstancedBlueprints.end()) {
-          // if params are empty we skip, otherwise we mark the input as written
+          // if params are empty we skip, otherwise we mark the inputs as written
           auto plist = sync->callParamList();
-          if (!plist->expression_0().empty()) {
-            // inputs
+          if (!plist->expression_0().empty() && !B->second.blueprint.isNull()) {
+            // inputs                            ^^^^^^^^^ this happens when determineVIOAccess is called during gather  TODO FIXME
             for (const auto& i : B->second.blueprint->inputs()) {
               string var = B->second.instance_prefix + "_" + i.name;
               if (vios.find(var) != vios.end()) {
@@ -4582,16 +4582,8 @@ void Algorithm::determineVIOAccess(
             }
           }
         }
-        // do not blindly recurse otherwise the child 'join' is reached
-        recurse = false;
-        // detect reads on parameters
-        for (auto c : node->children) {
-          if (dynamic_cast<siliceParser::JoinExecContext*>(c) != nullptr) {
-            // skip join, taken into account in return block
-            continue;
-          }
-          determineVIOAccess(c, vios, bctx, _read, _written);
-        }
+        // recurse
+        recurse = true;
       }
     } {
       auto async = dynamic_cast<siliceParser::AsyncExecContext*>(node);
@@ -4601,8 +4593,8 @@ void Algorithm::determineVIOAccess(
         if (B != m_InstancedBlueprints.end()) {
           // if params are empty we skip, otherwise we mark the input as written
           auto plist = async->callParamList();
-          if (!plist->expression_0().empty()) {
-            // inputs
+          if (!plist->expression_0().empty() && !B->second.blueprint.isNull()) {
+            // inputs                            ^^^^^^^^^ this happens when determineVIOAccess is called during gather  TODO FIXME
             for (const auto& i : B->second.blueprint->inputs()) {
               string var = B->second.instance_prefix + "_" + i.name;
               if (vios.find(var) != vios.end()) {
@@ -5986,10 +5978,10 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
       a.instance_name.c_str());
   }
   // check for pipeline
-  if (bctx->pipeline_stage != nullptr) {
+  /*if (bctx->pipeline_stage != nullptr) {
     reportError(sourceloc(node),
       "cannot join algorithm instance from a pipeline");
-  }
+  }*/
   // check for clock domain crossing
   if (a.instance_clock != m_Clock) {
     reportError(sourceloc(node),
@@ -6040,6 +6032,7 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
   if (bctx->pipeline_stage != nullptr) {
     reportError(sourceloc(node),
       "cannot call a subroutine from a pipeline");
+    // NOTE: why? because the subroutine belongs to the root fsm, not cannot jump to/from a pipeline fsm
   }
   // parse parameters
   std::vector<t_call_param> matches;
@@ -6062,10 +6055,10 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
 
 void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, std::ostream& out, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, const t_instantiation_context &ictx, siliceParser::CallParamListContext* plist, t_vio_ff_usage &_ff_usage) const
 {
-  if (bctx->pipeline_stage != nullptr) {
+  /*if (bctx->pipeline_stage != nullptr) {
     reportError(sourceloc(node),
     "cannot join a subroutine from a pipeline");
-  }
+  }*/
   // parse parameters
   std::vector<t_call_param> matches;
   parseCallParams(plist, called, false, bctx, matches);
@@ -7736,6 +7729,11 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
         out << rewriteIdentifier(prefix, tv.first, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
         out << ';' << nxl;
         if (!fsmIsEmpty(fsm)) {
+          out << "end else begin" << nxl;
+          out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
+          out << " = ";
+          out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_Q, true, deps, _ff_usage);
+          out << ';' << nxl;
           out << "end" << nxl;
         }
       } else if (stage < tv.second[1]) {

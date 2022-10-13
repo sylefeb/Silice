@@ -1,8 +1,9 @@
 algorithm main( 
-  input  uint1 btn,
-  output uint8 led
+  output uint8 leds
   )
 {
+
+  uint1 btn(0);
 
   subroutine inc(
     input  uint8 a,
@@ -34,5 +35,5 @@ algorithm main(
   {
     v = v + 1;
   }
-  led = v;
+  leds = v;
 }
