@@ -2454,6 +2454,9 @@ bool Algorithm::isStateLessGraph(const t_combinational_block *head) const
     std::vector< t_combinational_block* > children;
     cur->getChildren(children);
     for (auto c : children) {
+      if (c == nullptr) {
+        continue;
+      }
       if (visited.count(c) == 0 && c->context.fsm == head->context.fsm) {
         q.push(c);
       }
