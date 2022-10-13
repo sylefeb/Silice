@@ -3598,13 +3598,13 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
   while (!q.empty()) {
     auto cur = q.front();
     q.pop();
-    fsm->lastBlock = cur;
     // generate a state if needed
     if (cur->is_state) {
       sl_assert(cur->context.fsm == fsm);
       sl_assert(cur->state_id == -1);
       cur->state_id = fsm->maxState++;
       cur->parent_state_id = cur->state_id;
+      fsm->lastBlock = cur;
     }
     // recurse
     std::vector< t_combinational_block * > children;
@@ -6749,7 +6749,6 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
   // state machines for pipelines
   for (auto fsm : m_PipelineFSMs) {
     if (!fsmIsEmpty(fsm)) {
-      sl_assert(fsm->parentBlock != nullptr);
       if (!hasNoFSM()) {
         out << FF_Q << prefix << fsmIndex(fsm) << " <= " << reset
             << " ? " << toFSMState(fsm, terminationState(fsm))
@@ -8706,6 +8705,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   // -> update full status
   for (auto fsm : m_PipelineFSMs) {
     if (fsmIsEmpty(fsm)) { continue; }
+    sl_assert(fsm->parentBlock != nullptr);
     // parent state active?
     if (fsm->parentBlock->context.fsm != nullptr) {
       out << "if (" << FF_D << "_" << fsmIndex(fsm->parentBlock->context.fsm)
