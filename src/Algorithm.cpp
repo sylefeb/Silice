@@ -2181,7 +2181,8 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
     /// TODO NOTE for now we make all stages FSMs, however this might become costly on 'simple' pipelines
     ///           also beware of the change in behaviour if pipeline stages are now implicitely made idle
-    fsm->firstBlock->is_state          = true; //  !isStateLessGraph(stage_start);
+    fsm->firstBlock->is_state          = true;
+    // fsm->firstBlock->is_state          = !isStateLessGraph(stage_start);
     // check VIO access
     // gather read/written for block
     std::unordered_set<std::string> read, written;
@@ -6972,7 +6973,7 @@ void Algorithm::writeCombinationalStates(
   // states
   if (!m_OneHot) {
     out << "(* full_case *)" << nxl;
-    out << "case (" << FF_Q << prefix << fsmIndex(fsm) << ")" << nxl;
+    out << "case (" << FF_Q << prefix << fsmIndex(fsm) << ")" << nxl; /// TODO FIXME pipeline fsms are not onehot!!
   } else {
     out << "(* parallel_case, full_case *)" << nxl;
     out << "case (1'b1)" << nxl;
@@ -6992,7 +6993,7 @@ void Algorithm::writeCombinationalStates(
       continue;
     }
     // begin state
-    if (!m_OneHot) {
+    if (!m_OneHot) { /// TODO FIXME pipeline fsms are not onehot!!
       out << toFSMState(fsm,b->state_id) << ": begin" << nxl;
     } else {
       out << FF_Q << prefix << fsmIndex(fsm) << '[' << b->state_id << "]: begin" << nxl;
@@ -7041,7 +7042,7 @@ void Algorithm::writeCombinationalStates(
   // initiate termination sequence
   // -> termination state
   {
-    if (!m_OneHot) {
+    if (!m_OneHot) { /// TODO FIXME pipeline fsms are not onehot!!
       out << toFSMState(fsm,terminationState(fsm)) << ": begin " << nxl;
     } else {
       out << FF_Q << prefix << fsmIndex(fsm) << '[' << terminationState(fsm) << "]: begin " << nxl;
@@ -7335,7 +7336,9 @@ void Algorithm::writeStatelessBlockGraph(
       if (current->next()->next->context.fsm != fsm) {
         // do not follow into a different fsm (this happens on last stage of a pipeline)
         out << "// end of last pipeline stage" << nxl;
-        out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
+        if (!fsmIsEmpty(fsm)) {
+          out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
+        }
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
       }
@@ -7541,7 +7544,9 @@ void Algorithm::writeStatelessBlockGraph(
       if (current->pipeline_next()->next->context.pipeline_stage->stage_id > 0) {
         // do not follow into different stages of a same pipeline (this happens after each stage > 0 but last of a pipeline)
         out << "// end of stage" << nxl;
-        out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
+        if (!fsmIsEmpty(fsm)) {
+          out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
+        }
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
       }
@@ -7700,7 +7705,9 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
       if (fsmIsEmpty(st.first->context.fsm)) {
         writeStatelessBlockGraph(prefix, out, ictx, st.first, st.last, _q, deps, _ff_usage, _post_dependencies, _lines);
       } else {
-        writeCombinationalStates(st.first->context.fsm, prefix, out, ictx, deps, _ff_usage, _post_dependencies);
+        t_vio_dependencies always_deps = depds_before_stages;
+        writeCombinationalStates(st.first->context.fsm, prefix, out, ictx, always_deps, _ff_usage, deps);
+        mergeDependenciesInto(deps, _post_dependencies);
       }
       st.first = st.last;
     } else {
