@@ -7727,10 +7727,18 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     for (auto tv : pip->trickling_vios) {
       if (stage == tv.second[0]) {
         // capture the var in the pipeline
+        auto fsm = pip->stages[stage]->fsm;
+        if (!fsmIsEmpty(fsm)) { // capture trickling only on last fsm state
+          out << "if (" << FF_Q << "_" << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << "  ) begin" << nxl;
+        }
         std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
-        out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage) << " = ";
+        out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
+        out << " = ";
         out << rewriteIdentifier(prefix, tv.first, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
         out << ';' << nxl;
+        if (!fsmIsEmpty(fsm)) {
+          out << "end" << nxl;
+        }
       } else if (stage < tv.second[1]) {
         // mark var ff as needed (Q side) for next stages
         std::string trickling = translateVIOName(tv.first, &st.first->context);
