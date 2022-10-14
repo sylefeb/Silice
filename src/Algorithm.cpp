@@ -3470,7 +3470,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
         if (m->sautorun() != nullptr) {
           m_AutoRun = true;
         } else if (m->sonehot() != nullptr) {
-          m_OneHot = true;
+          m_RootFSM.oneHot = true;
         } else {
           reportError(sourceloc(m),
             "Modifier is not applicable on a unit algorithm block, apply it to the parent unit.");
@@ -3717,14 +3717,10 @@ int Algorithm::lastPipelineStageState(const t_fsm_nfo *fsm) const
 
 int  Algorithm::toFSMState(const t_fsm_nfo *fsm, int state) const
 {
-  if (fsm == &m_RootFSM) {
-    if (!m_OneHot) {
-      return state;
-    } else {
-      return 1 << state;
-    }
-  } else {
+  if (!fsm->oneHot) {
     return state;
+  } else {
+    return 1 << state;
   }
 }
 
@@ -5269,7 +5265,6 @@ void Algorithm::init(
   m_FormalTimeout = formalTimeout;
   m_FormalModes = modes;
   m_AutoRun = autorun;
-  m_OneHot = onehot;
   // eliminate any duplicate mode
   auto _ = std::unique(std::begin(m_FormalModes), std::end(m_FormalModes));
   // order modes so that they are always performed in the same order:
@@ -5286,7 +5281,8 @@ void Algorithm::init(
   m_AlwaysPost.id = -1;
   m_AlwaysPost.block_name = "_always_post";
   // root fsm
-  m_RootFSM.name = "fsm0";
+  m_RootFSM.name   = "fsm0";
+  m_RootFSM.oneHot = onehot;
 }
 
 // -------------------------------------------------
@@ -6573,7 +6569,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   }
   // root state machine index
   if (!hasNoFSM()) {
-    if (!m_OneHot) {
+    if (!m_RootFSM.oneHot) {
       out << "reg  [" << stateWidth(&m_RootFSM) - 1 << ":0] " FF_D << prefix << fsmIndex(&m_RootFSM) 
                                                        << "," FF_Q << prefix << fsmIndex(&m_RootFSM) << " = " << toFSMState(&m_RootFSM,terminationState(&m_RootFSM)) << ";" << nxl;
     } else {
@@ -6966,9 +6962,9 @@ void Algorithm::writeCombinationalStates(
   queue<size_t>          q;
   q.push(fsm->firstBlock->id); // start
   // states
-  if (!m_OneHot) {
+  if (!fsm->oneHot) {
     out << "(* full_case *)" << nxl;
-    out << "case (" << FF_Q << prefix << fsmIndex(fsm) << ")" << nxl; /// TODO FIXME pipeline fsms are not onehot!!
+    out << "case (" << FF_Q << prefix << fsmIndex(fsm) << ")" << nxl;
   } else {
     out << "(* parallel_case, full_case *)" << nxl;
     out << "case (1'b1)" << nxl;
@@ -6988,7 +6984,7 @@ void Algorithm::writeCombinationalStates(
       continue;
     }
     // begin state
-    if (!m_OneHot) { /// TODO FIXME pipeline fsms are not onehot!!
+    if (!fsm->oneHot) {
       out << toFSMState(fsm,b->state_id) << ": begin" << nxl;
     } else {
       out << FF_Q << prefix << fsmIndex(fsm) << '[' << b->state_id << "]: begin" << nxl;
@@ -7037,7 +7033,7 @@ void Algorithm::writeCombinationalStates(
   // initiate termination sequence
   // -> termination state
   {
-    if (!m_OneHot) { /// TODO FIXME pipeline fsms are not onehot!!
+    if (!fsm->oneHot) {
       out << toFSMState(fsm,terminationState(fsm)) << ": begin " << nxl;
     } else {
       out << FF_Q << prefix << fsmIndex(fsm) << '[' << terminationState(fsm) << "]: begin " << nxl;

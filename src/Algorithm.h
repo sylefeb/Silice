@@ -107,9 +107,6 @@ namespace Silice
     /// \brief whether algorithm autorun at startup
     bool m_AutoRun = false;
 
-    /// \brief whether algorithm uses onehot state encoding
-    bool m_OneHot = false;
-
     /// \brief specified depth to use for the formal verification
     std::string m_FormalDepth = "";
 
@@ -252,6 +249,8 @@ private:
       std::unordered_map< std::string, std::vector< t_forward_jump > > jumpForwardRefs;
       /// \brief maximum state value of the algorithm
       int                                                       maxState = -1;
+      /// \brief indicates whether the fsm uses one hot encoding
+      bool                                                      oneHot = false;
     } t_fsm_nfo;
 
     /// \brief info about an instanced algorithm
