@@ -103,6 +103,7 @@ $$end
 
     // CPU pipeline
 
+    { // pipeline is contained within this block
     { // ==== stage 1
 
       // we need to code whether a register will be written
@@ -235,6 +236,7 @@ $$end
       refetch_addr     = alu_n>>2;
 
     }
+    } // end of pipeline
 
     // ==== outside of pipeline
 

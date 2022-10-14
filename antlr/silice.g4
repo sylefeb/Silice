@@ -382,7 +382,7 @@ assumestable        : ASSUMESTABLE '(' expression_0 ')';
 stableinput         : STABLEINPUT '(' idOrIoAccess ')';
 cover               : COVER '(' expression_0 ')';
 
-block               : '{' declarationList instructionList '}';
+block               : '{' declarationList instructionSequence '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
 ifThenElse          : 'if' '(' expression_0 ')' if_block=block 'else' else_block=block ;
 switchCase          : (SWITCH | ONEHOT) '(' expression_0 ')' '{' caseBlock * '}' ;
@@ -419,9 +419,7 @@ alwaysBlock         : ALWAYS        block;
 alwaysBeforeBlock   : ALWAYS_BEFORE block;
 alwaysAfterBlock    : ALWAYS_AFTER  block;
 
-repeatBlock         : REPEATCNT '{' instructionList '}' ;
-
-pipeline            : block ('->' block) +;
+repeatBlock         : REPEATCNT '{' instructionSequence '}' ;
 
 /* -- Inputs/outputs -- */
 
@@ -449,22 +447,25 @@ instructionList     :
                       | ifThen
                       | whileLoop
                       | switchCase
-                      | pipeline
                       ) instructionList
                       | ;
+
+pipeline             : instructionList ('->' instructionList) +;
+
+instructionSequence  : pipeline | instructionList ;
 
 subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 					  | input | output ;
 
 subroutineParamList : subroutineParam (',' subroutineParam)* ','? | ;
-subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList (RETURN ';')? '}' ;
+subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionSequence (RETURN ';')? '}' ;
 
-declAndInstrList    : (declaration ';' | subroutine | stableinput ';' ) *
+declAndInstrSeq     : (declaration ';' | subroutine | stableinput ';' ) *
                       alwaysPre = alwaysAssignedList
                       alwaysBlock?
                       alwaysBeforeBlock?
                       alwaysAfterBlock?
-                      instructionList
+                      instructionSequence
 					  ;
 
 /* -- Import -- */
@@ -479,10 +480,10 @@ circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' block ;
 
 /* -- Algorithm -- */
 
-algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' bpModifiers? '{' declAndInstrList '}' ;
+algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' bpModifiers? '{' declAndInstrSeq '}' ;
 
 algorithmBlockContent : (declaration ';' | subroutine ) *
-                        instructionList
+                        instructionSequence
 					  ;
 
 algorithmBlock      : 'algorithm' bpModifiers? '{' algorithmBlockContent '}' ;

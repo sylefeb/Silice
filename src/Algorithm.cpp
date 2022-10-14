@@ -1731,7 +1731,7 @@ Algorithm::t_combinational_block *Algorithm::gatherBlock(siliceParser::BlockCont
   // gather declarations in new block
   gatherDeclarationList(block->declarationList(), newblock, true);
   // gather instructions in new block
-  t_combinational_block *after     = gather(block->instructionList(), newblock, _context);
+  t_combinational_block *after     = gather(block->instructionSequence(), newblock, _context);
   // produce next block
   t_combinational_block *nextblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(block));
   after->next(nextblock);
@@ -2081,7 +2081,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
     }
   }
   // parse the subroutine
-  t_combinational_block *sub_last = gather(sub->instructionList(), subb, _context);
+  t_combinational_block *sub_last = gather(sub->instructionSequence(), subb, _context);
   // add return from last
   sub_last->return_from(nfo->name,m_SubroutinesCallerReturnStates);
   // subroutine has to be a state
@@ -2158,7 +2158,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   t_combinational_block *prev = _current;
   // -> stage number
   int stage = 0;
-  for (auto b : pip->block()) {
+  for (auto b : pip->instructionList()) {
     // create a fsm for the pipeline stage
     t_fsm_nfo *fsm = new t_fsm_nfo;
     fsm->name = "fsm_" + nfo->name + "_" + std::to_string(stage);
@@ -2714,7 +2714,7 @@ Algorithm::t_combinational_block *Algorithm::gatherRepeatBlock(siliceParser::Rep
     }
     ForIndex(id, num) {
       _context->__id = id;
-      _current = gather(repeat->instructionList(), _current, _context);
+      _current = gather(repeat->instructionSequence(), _current, _context);
     }
     _context->__id = -1;
   }
@@ -3318,7 +3318,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current->srcloc = sourceloc(tree);
   }
 
-  auto algbody      = dynamic_cast<siliceParser::DeclAndInstrListContext*>(tree);
+  auto algbody      = dynamic_cast<siliceParser::DeclAndInstrSeqContext*>(tree);
   auto unitbody     = dynamic_cast<siliceParser::UnitBlocksContext*>(tree);
   auto algblock     = dynamic_cast<siliceParser::AlgorithmBlockContext*>(tree);
   auto algcontent   = dynamic_cast<siliceParser::AlgorithmBlockContentContext*>(tree);
@@ -3414,8 +3414,8 @@ Algorithm::t_combinational_block *Algorithm::gather(
         "Use a 'unit' instead of always blocks in an algorithm.");
     }
     // recurse on instruction list
-    _current->srcloc = sourceloc(algbody->instructionList());
-    _current = gather(algbody->instructionList(), _current, _context);
+    _current->srcloc = sourceloc(algbody->instructionSequence());
+    _current = gather(algbody->instructionSequence(), _current, _context);
     recurse  = false;
   } else if (unitbody)     {
     // gather declarations
@@ -3504,7 +3504,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
       gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), newblock, _context);
     }
     // gather instructions
-    t_combinational_block *after     = gather(algcontent->instructionList(), newblock, _context);
+    t_combinational_block *after     = gather(algcontent->instructionSequence(), newblock, _context);
     // produce next block
     t_combinational_block *nextblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(algcontent));
     after->next(nextblock);

@@ -287,7 +287,7 @@ void SiliceCompiler::gatherUnitBody(AutoPtr<Algorithm> unit, antlr4::tree::Parse
   );
 
   if (a) {
-    unit->gatherBody(a->declAndInstrList());
+    unit->gatherBody(a->declAndInstrSeq());
   } else {
     unit->gatherBody(u->unitBlocks());
   }
