@@ -2179,10 +2179,16 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     fsm->parentBlock                   = _current;
     // -> gather the rest
     t_combinational_block *stage_end   = gather(b, stage_start, _context);
-    /// TODO NOTE for now we make all stages FSMs, however this might become costly on 'simple' pipelines
-    ///           also beware of the change in behaviour if pipeline stages are now implicitely made idle
-    fsm->firstBlock->is_state          = true;
-    // fsm->firstBlock->is_state          = !isStateLessGraph(stage_start);
+    // -> check whether pipeline may contain fsms
+    if (_current->context.fsm == nullptr) {
+      // no, report an error if that is the case
+      if (!isStateLessGraph(stage_start)) {
+        reportError(sourceloc(pip), "pipelines in always blocks cannot contain multiple states (they can in algorithms)");
+      }
+      fsm->firstBlock->is_state = false;
+    } else {
+      fsm->firstBlock->is_state = true; // make them all FSMs
+    }
     // check VIO access
     // gather read/written for block
     std::unordered_set<std::string> read, written;
@@ -8731,7 +8737,9 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
     if (stage_id - 1 >= 0) { // previous full (something to do), first stage does not have this condition
       auto fsm_prev = fsm->firstBlock->context.pipeline_stage->pipeline->stages[stage_id - 1]->fsm;
-      out << "   && (" << FF_D << "_" << fsmPipelineStageFull(fsm_prev) << ") "; 
+      if (!fsmIsEmpty(fsm_prev)) {
+        out << "   && (" << FF_D << "_" << fsmPipelineStageFull(fsm_prev) << ") ";
+      }
     }
     if (stage_id != num_stages - 1) {
       out << "   && (!" << FF_D << "_" << fsmPipelineStageFull(fsm) << ") "; // self not full
@@ -8740,7 +8748,9 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     out << "   " << FF_D << "_" << fsmIndex(fsm) << " = " << toFSMState(fsm, entryState(fsm)) << ';' << nxl;
     if (stage_id - 1 >= 0) {
       auto fsm_prev = fsm->firstBlock->context.pipeline_stage->pipeline->stages[stage_id - 1]->fsm;
-      out << "   " FF_D << "_" << fsmPipelineStageFull(fsm_prev) << " = 0;" << nxl;
+      if (!fsmIsEmpty(fsm_prev)) {
+        out << "   " FF_D << "_" << fsmPipelineStageFull(fsm_prev) << " = 0;" << nxl;
+      }
     }
     out << "  end" << nxl;
     if (fsm->parentBlock->context.fsm != nullptr) {

@@ -1,0 +1,15 @@
+unit main(output uint8 leds)
+{
+
+  always {
+  
+    {
+    
+    } -> {
+    
+      ++: // forbidden here
+    
+    }
+  }
+
+}
