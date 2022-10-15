@@ -825,6 +825,8 @@ private:
     void resolveForwardJumpRefs();
     /// \brief generates the states for the entire algorithm
     void generateStates(t_fsm_nfo *);
+    /// \brief gets all the blocks belonging to the fsm
+    void fsmGetBlocks(t_fsm_nfo *fsm, std::unordered_set<t_combinational_block *>& _blocks) const;
     /// \brief returns the index name of the fsm
     std::string fsmIndex(const t_fsm_nfo *) const;
     /// \brief returns the 'ready' signal name of the fsm
@@ -907,6 +909,12 @@ private:
     /// \brief updates access to vars due to a binding
     template<typename T_nfo>
     void updateAccessFromBinding(const t_binding_nfo& b, const std::unordered_map<std::string, int > &names, std::vector< T_nfo > &_nfos);
+    /// \brief get all block instructions for analysis
+    void getAllBlockInstructions(t_combinational_block *block, std::vector<t_instr_nfo>& _instr) const;
+    /// \brief determine which VIO are accessed by a block
+    void determineBlockVIOAccess(t_combinational_block *block,
+      const std::unordered_map<std::string, int>& vios,
+      std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const;
     /// \brief determines variable access for an instruction
     void determineAccess(
       antlr4::tree::ParseTree             *instr,

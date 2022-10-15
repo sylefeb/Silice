@@ -2166,19 +2166,19 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // stage info
     t_pipeline_stage_nfo *snfo = new t_pipeline_stage_nfo();
     snfo->pipeline = nfo;
-    snfo->fsm      = fsm;
+    snfo->fsm = fsm;
     snfo->stage_id = stage;
     // add stage
     nfo->stages.push_back(snfo);
     // blocks
-    t_combinational_block_context ctx  = {
+    t_combinational_block_context ctx = {
       fsm, _current->context.subroutine, snfo, _current->context.parent_scope, _current->context.vio_rewrites };
     // -> first stage block
     t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, sourceloc(b));
-    fsm->firstBlock                    = stage_start;
-    fsm->parentBlock                   = _current;
+    fsm->firstBlock = stage_start;
+    fsm->parentBlock = _current;
     // -> gather the rest
-    t_combinational_block *stage_end   = gather(b, stage_start, _context);
+    t_combinational_block *stage_end = gather(b, stage_start, _context);
     // -> check whether pipeline may contain fsms
     if (_current->context.fsm == nullptr) {
       // no, report an error if that is the case
@@ -2189,10 +2189,15 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     } else {
       fsm->firstBlock->is_state = true; // make them all FSMs
     }
+    // get all fsm blocks for access analysis
+    std::unordered_set<t_combinational_block *> blocks;
+    fsmGetBlocks(fsm, blocks);
     // check VIO access
     // gather read/written for block
     std::unordered_set<std::string> read, written;
-    determineVIOAccess(b, m_VarNames,    &_current->context, read, written);
+    for (auto fsmb : blocks) {
+      determineBlockVIOAccess(fsmb, m_VarNames, read, written);
+    }
     // check written vars (will start trickling) are not written outside of pipeline before
     for (auto w : written) {
       if (written_special.count(w) != 0) {
@@ -2201,7 +2206,9 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     }
     // check no output is written from two stages
     std::unordered_set<std::string> o_read, o_written;
-    determineVIOAccess(b, m_OutputNames, &_current->context, o_read, o_written);
+    for (auto fsmb : blocks) {
+      determineBlockVIOAccess(fsmb, m_OutputNames, o_read, o_written);
+    }
     for (auto ow : o_written) {
       if (written_outputs.count(ow) > 0) {
         reportError(sourceloc(b), "output '%s' is written from two different pipeline stages", ow.c_str());
@@ -3652,6 +3659,29 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
 
 // -------------------------------------------------
 
+void Algorithm::fsmGetBlocks(t_fsm_nfo *fsm,std::unordered_set<t_combinational_block *>& _blocks) const
+{
+  sl_assert(fsm->firstBlock != nullptr);
+  std::queue< t_combinational_block * > q;
+  q.push(fsm->firstBlock);
+  while (!q.empty()) {
+    auto cur = q.front();
+    _blocks.insert(cur);
+    q.pop();
+    // recurse
+    std::vector< t_combinational_block * > children;
+    cur->getChildren(children);
+    for (auto c : children) {
+      if (_blocks.find(c) == _blocks.end() && c->context.fsm == fsm) {
+        //                           stay within the same fsm ^^^^ all states should be accessible from first
+        q.push(c);
+      }
+    }
+  }
+}
+
+// -------------------------------------------------
+
 std::string Algorithm::fsmIndex(const t_fsm_nfo *fsm) const
 {
   return "_idx_" + fsm->name;
@@ -4810,21 +4840,43 @@ void Algorithm::determineAccess(
 
 // -------------------------------------------------
 
+void Algorithm::getAllBlockInstructions(t_combinational_block *block, std::vector<t_instr_nfo>& _instrs) const
+{
+  _instrs = block->instructions;
+  if (block->if_then_else()) {
+    _instrs.push_back(block->if_then_else()->test);
+  }
+  if (block->switch_case()) {
+    _instrs.push_back(block->switch_case()->test);
+  }
+  if (block->while_loop()) {
+    _instrs.push_back(block->while_loop()->test);
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::determineBlockVIOAccess(
+  t_combinational_block                       *block,
+  const std::unordered_map<std::string, int>&  vios,
+  std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const
+{
+  std::vector<t_instr_nfo> instrs;
+  getAllBlockInstructions(block, instrs);
+  for (const auto& i : instrs) {
+    determineVIOAccess(i.instr, vios, &block->context, _read, _written);
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::determineAccess(t_combinational_block *block)
 {
   // determine variable access
   std::unordered_set<std::string> already_written;
-  std::vector<t_instr_nfo> instr = block->instructions;
-  if (block->if_then_else()) {
-    instr.push_back(block->if_then_else()->test);
-  }
-  if (block->switch_case()) {
-    instr.push_back(block->switch_case()->test);
-  }
-  if (block->while_loop()) {
-    instr.push_back(block->while_loop()->test);
-  }
-  for (const auto& i : instr) {
+  std::vector<t_instr_nfo>        instrs;
+  getAllBlockInstructions(block,instrs);
+  for (const auto& i : instrs) {
     determineAccess(i.instr, &block->context, already_written, block->in_vars_read, block->out_vars_written);
   }
 }
@@ -6869,6 +6921,12 @@ void Algorithm::writeCombinationalAlwaysPre(
       }
     }
   }
+  // D=Q on fsm indices and full to prevent latches
+  for (auto fsm : m_PipelineFSMs) {
+    if (fsmIsEmpty(fsm)) { continue; }
+    out << FF_D << "_" << fsmIndex(fsm) << " = " << FF_Q << "_" << fsmIndex(fsm) << ';' << nxl;
+    out << FF_D << "_" << fsmPipelineStageFull(fsm) << " = " << FF_Q << "_" << fsmPipelineStageFull(fsm) << ';' << nxl;
+  }
   // instanced algorithms run, maintain high
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &ia = m_InstancedBlueprints.at(iaiordr);
@@ -8683,7 +8741,9 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
 
   // combinational
   out << "always @* begin" << nxl;
+  // always pre block
   writeCombinationalAlwaysPre("_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
+  // write root fsm
   if (!hasNoFSM()) {
     // write all states
     writeCombinationalStates(&m_RootFSM, "_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
@@ -8723,6 +8783,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
       out << "end" << nxl;
     }
   }
+  // -> start stages?
   for (int p = (int)m_PipelineFSMs.size() - 1; p >= 0; --p) {
     auto fsm = m_PipelineFSMs[p];
     if (fsmIsEmpty(fsm)) { continue; }
