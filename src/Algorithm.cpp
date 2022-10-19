@@ -6653,6 +6653,10 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
                     << "," FF_Q << prefix << fsmPipelineStageFull(fsm) << " = 0;" << nxl;
     }
   }
+  if (!m_PipelineFSMs.empty()) {
+    out << "reg  [0:0] " FF_D << prefix << ALG_HOLD << " = 0;" << nxl;
+    //  << "," FF_Q << prefix << ALG_HOLD << " = 0;" << nxl;
+  }
   // state machine caller id (subroutines)
   if (!doesNotCallSubroutines()) {
     out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ';' << nxl;
@@ -6817,6 +6821,10 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
       }
     }
   }
+  //if (!m_PipelineFSMs.empty()) { // stage hold
+  //  out << FF_Q << prefix << ALG_HOLD << " <= "
+  //      << FF_D << prefix << ALG_HOLD << ';' << nxl;
+  //}
 
   // formal
   if (!hasNoFSM()) {
@@ -6930,6 +6938,10 @@ void Algorithm::writeCombinationalAlwaysPre(
     out << FF_D << "_" << fsmIndex(fsm) << " = " << FF_Q << "_" << fsmIndex(fsm) << ';' << nxl;
     out << FF_D << "_" << fsmPipelineStageFull(fsm) << " = " << FF_Q << "_" << fsmPipelineStageFull(fsm) << ';' << nxl;
   }
+  // pipeline hold to zero
+  if (!m_PipelineFSMs.empty()) {
+    out << FF_D << prefix << ALG_HOLD << " = 0;" << nxl;
+  }
   // instanced algorithms run, maintain high
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &ia = m_InstancedBlueprints.at(iaiordr);
@@ -6973,8 +6985,9 @@ void Algorithm::writeCombinationalAlwaysPre(
   // always before block
   std::queue<size_t> q;
   std::set<v2i> lines;
+  std::unordered_set<const t_pipeline_nfo *> pipes;
   ostringstream ostr; // write in a string as we might have to interleave temp init /before/ depending on ff_usage
-  writeStatelessBlockGraph(prefix, ostr, ictx, &m_AlwaysPre, nullptr, q, _always_dependencies, _ff_usage, _post_dependencies, lines);
+  writeStatelessBlockGraph(prefix, ostr, ictx, &m_AlwaysPre, nullptr, q, _always_dependencies, _ff_usage, _post_dependencies, lines, pipes);
   clearNoLatchFFUsage(_ff_usage);
   // reset any temp variables that could result in a latch being created
   // these are temp vars that have not been touched by m_AlwaysPre or only partially so
@@ -7058,12 +7071,50 @@ void Algorithm::writeCombinationalStates(
     }
     // track source code lines for reporting
     set<v2i> lines;
+    // track pipelines encountered for waiting logic
+    std::unordered_set<const t_pipeline_nfo*> pipes;
     // track dependencies, starting with those of always block
     t_vio_dependencies depds = always_dependencies;
     // write block instructions
     ff_usages.push_back(_ff_usage);
-    writeStatelessBlockGraph(prefix, out, ictx, b, nullptr, q, depds, ff_usages.back(), _post_dependencies, lines);
+    writeStatelessBlockGraph(prefix, out, ictx, b, nullptr, q, depds, ff_usages.back(), _post_dependencies, lines, pipes);
     clearNoLatchFFUsage(ff_usages.back());
+    if (!pipes.empty()) {
+      sl_assert(fsm == &m_RootFSM); // no pipeline nesting, check parent is root fsm
+      // pipelines were encountered
+      out << "// pipelines hold state until done" << nxl;
+      // conditions to hold
+      // - any pipeline stages not done
+      // - or any pipeline stage (but last) full
+      // - parent fsm state changing
+      out << "if (1'b0 " << nxl;
+      for (auto p : pipes) {
+        for (auto s : p->stages) {
+          if (fsmIsEmpty(s->fsm)) { continue; }
+          int stage_id   = s->stage_id;
+          int num_stages = p->stages.size();
+          out << " || (" << FF_Q << prefix << fsmIndex(s->fsm) << " != " << toFSMState(s->fsm, terminationState(s->fsm)) << ")" << nxl;
+          if (stage_id + 1 < num_stages) {
+            out << " || " << FF_Q << "_" << fsmPipelineStageFull(s->fsm) << nxl;
+          }
+        }
+      }
+      out << ") begin" << nxl;
+      out << "  if (";
+      if (!isNotCallable()) {
+        out << '(';
+        out << '~' << ALG_INPUT << '_' << ALG_RUN << " ? " << entryState(fsm) << " : ";
+        out << FF_D << prefix << fsmIndex(fsm);
+        out << ')';
+      } else {
+        out << FF_D << prefix << fsmIndex(fsm);
+      }
+      out << " != " << b->state_id << ") begin" << nxl;
+      out << "     " << FF_D << prefix << ALG_HOLD << " = 1;" << nxl;
+      out << "  end" << nxl;
+      out << "  " << FF_D << prefix << fsmIndex(fsm) << " = " << b->state_id << ';' << nxl;
+      out << "end" << nxl;
+    }
 #if 0
     /// DEBUG
     for (auto ff : ff_usages.back().ff_usage) {
@@ -7361,15 +7412,16 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
 // -------------------------------------------------
 
 void Algorithm::writeStatelessBlockGraph(
-  std::string prefix, std::ostream&  out,
-  const t_instantiation_context&     ictx,
-  const t_combinational_block*       block,
-  const t_combinational_block*       stop_at,
-  std::queue<size_t>&               _q,
-  t_vio_dependencies&               _dependencies,
-  t_vio_ff_usage&                   _ff_usage,
-  t_vio_dependencies&               _post_dependencies,
-  std::set<v2i>&                    _lines) const
+  std::string prefix, std::ostream&           out,
+  const t_instantiation_context&              ictx,
+  const t_combinational_block*                block,
+  const t_combinational_block*                stop_at,
+  std::queue<size_t>&                        _q,
+  t_vio_dependencies&                        _dependencies,
+  t_vio_ff_usage&                            _ff_usage,
+  t_vio_dependencies&                        _post_dependencies,
+  std::set<v2i>&                             _lines,
+  std::unordered_set<const t_pipeline_nfo*>& _pipes) const
 {
   const t_fsm_nfo *fsm = block->context.fsm;
   // recursive call?
@@ -7414,12 +7466,12 @@ void Algorithm::writeStatelessBlockGraph(
       // recurse if
       t_vio_dependencies depds_if = _dependencies;
       usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
-      writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back(), _post_dependencies, _lines);
+      writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back(), _post_dependencies, _lines, _pipes);
       out << "end else begin" << nxl;
       // recurse else
       t_vio_dependencies depds_else = _dependencies;
       usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
-      writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_branches.back(), _post_dependencies, _lines);
+      writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_branches.back(), _post_dependencies, _lines, _pipes);
       out << "end" << nxl;
       // merge dependencies
       mergeDependenciesInto(depds_if, _dependencies);
@@ -7469,7 +7521,7 @@ void Algorithm::writeStatelessBlockGraph(
         // recurse case
         t_vio_dependencies depds_case = depds_before_case;
         usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
-        writeStatelessBlockGraph(prefix, out, ictx, cb.second, current->switch_case()->after, _q, depds_case, usage_branches.back(), _post_dependencies, _lines);
+        writeStatelessBlockGraph(prefix, out, ictx, cb.second, current->switch_case()->after, _q, depds_case, usage_branches.back(), _post_dependencies, _lines, _pipes);
         // merge sets of written vars
         mergeDependenciesInto(depds_case, _dependencies);
         out << "  end" << nxl;
@@ -7510,7 +7562,7 @@ void Algorithm::writeStatelessBlockGraph(
     } else if (current->while_loop()) {
       // while
       out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
-      writeStatelessBlockGraph(prefix, out, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
+      writeStatelessBlockGraph(prefix, out, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage, _post_dependencies, _lines, _pipes);
       out << "end else begin" << nxl;
       out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->while_loop()->after)->state_id) << ";" << nxl;
       pushState(fsm, current->while_loop()->after, _q);
@@ -7608,7 +7660,7 @@ void Algorithm::writeStatelessBlockGraph(
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
       }
-      current = writeStatelessPipeline(prefix, out, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
+      current = writeStatelessPipeline(prefix, out, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines, _pipes);
     } else {
       // no action
       if (fsm) {
@@ -7716,7 +7768,8 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   t_vio_dependencies& _dependencies,
   t_vio_ff_usage&     _ff_usage,
   t_vio_dependencies& _post_dependencies,
-  std::set<v2i>&      _lines) const
+  std::set<v2i>&      _lines,
+  std::unordered_set<const t_pipeline_nfo*>& _pipes) const
 {
   // follow the chain
   out << "// pipeline" << nxl;
@@ -7724,6 +7777,8 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   const t_combinational_block *after     = block_before->pipeline_next()->after;
   const t_pipeline_nfo        *pip       = current->context.pipeline_stage->pipeline;
   sl_assert(pip != nullptr);
+  // record as encountered
+  _pipes.insert(pip);
   t_vio_dependencies depds_before_stages = _dependencies;
   // first, gather stages
   const t_combinational_block *cur = current;
@@ -7759,7 +7814,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     t_vio_dependencies deps = depds_before_stages;
     // write code
     if (fsmIsEmpty(st.first->context.fsm)) {
-      writeStatelessBlockGraph(prefix, out, ictx, st.first, st.last, _q, deps, _ff_usage, _post_dependencies, _lines);
+      writeStatelessBlockGraph(prefix, out, ictx, st.first, st.last, _q, deps, _ff_usage, _post_dependencies, _lines, _pipes);
     } else {
       t_vio_dependencies always_deps = depds_before_stages;
       writeCombinationalStates(st.first->context.fsm, prefix, out, ictx, always_deps, _ff_usage, deps);
@@ -8421,18 +8476,9 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     // conditions:
     // - termination state
     // - autorun not active (active low)
-    // - all pipeline stages done (ready + not full, but for last)
     out << "assign ";
-    out << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << fsmIndex(&m_RootFSM) << " == " << toFSMState(&m_RootFSM, terminationState(&m_RootFSM)) << ")";
-    for (auto fsm : m_PipelineFSMs) {
-      if (fsmIsEmpty(fsm)) { continue; }
-      int stage_id   = fsm->firstBlock->context.pipeline_stage->stage_id;
-      int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
-      out << " && " << fsmPipelineStageReady(fsm) << nxl;
-      if (stage_id + 1 < num_stages) {
-        out << " && ( ~ " << FF_Q << "_" << fsmPipelineStageFull(fsm) << ") " << nxl;
-      }
-    }
+    out << ALG_OUTPUT << "_" << ALG_DONE << " = (" << FF_Q << "_" << fsmIndex(&m_RootFSM);
+    out <<     " == " << toFSMState(&m_RootFSM, terminationState(&m_RootFSM)) << ")";
     if (m_AutoRun) {
       out << " && _" << ALG_AUTORUN;
     } else {
@@ -8774,20 +8820,34 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     }*/
     std::queue<size_t> q;
     std::set<v2i>      lines;
+    std::unordered_set<const t_pipeline_nfo *> pipes;
     t_vio_dependencies _; // unusued
-    writeStatelessBlockGraph("_", out, ictx, &m_AlwaysPost, nullptr, q, post_dependencies, _ff_usage, _, lines);
+    writeStatelessBlockGraph("_", out, ictx, &m_AlwaysPost, nullptr, q, post_dependencies, _ff_usage, _, lines, pipes);
     clearNoLatchFFUsage(_ff_usage);
   }
 
   // pipeline state machine triggers
+/*
+  ////////// DEBUG
+  out << "$display(\"-----------------\");" << nxl;
+  for (auto fsm : m_PipelineFSMs) {
+    if (fsmIsEmpty(fsm)) { continue; }
+    int stage_id = fsm->firstBlock->context.pipeline_stage->stage_id;
+    int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
+    out << "$display(\"[A] STAGE " << stage_id << " index %d\"," << FF_D << "_" << fsmIndex(fsm) << ");" << nxl;
+  }
+  ////////////////
+*/
   // -> update full status
   for (auto fsm : m_PipelineFSMs) {
     if (fsmIsEmpty(fsm)) { continue; }
     sl_assert(fsm->parentBlock != nullptr);
     // stage full? (on last)
-    out << "if (" << FF_Q << "_" << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm));
-    out << ") begin" << nxl;
+    out << "if (" << FF_Q << '_' << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm));
+    int stage_id = fsm->firstBlock->context.pipeline_stage->stage_id;
+    out << " ) begin" << nxl;
     out << "  " << FF_D << "_" << fsmPipelineStageFull(fsm) << " = " << "1;" << nxl;
+    // out << "$display(\"FULL " << stage_id << "\");" << nxl;
     out << "end" << nxl;
   }
   // -> start stages?
@@ -8799,7 +8859,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     // start the fsm?
     // conditions:
     // - ready
-    // (first stage ) - parent state active
+    // (first stage ) - parent state active and not on hold
     // (other stages) - previous full
     out << "if ( (" << fsmPipelineStageReady(fsm) << ") "; // ready
     // - self not full
@@ -8814,6 +8874,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
         out << ')';
         out << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm));
         out << ")" << nxl;
+        out << " && " << "~ " << FF_D << '_' << ALG_HOLD << nxl;
       }
     } else { // previous full (something to do), first stage does not have this condition
       auto fsm_prev = fsm->firstBlock->context.pipeline_stage->pipeline->stages[stage_id - 1]->fsm;
@@ -8832,8 +8893,19 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
         out << "   " FF_D << "_" << fsmPipelineStageFull(fsm_prev) << " = 0;" << nxl;
       }
     }
+    // out << "$display(\"START " << stage_id << "\");" << nxl;
     out << "  end" << nxl;
   }
+  /*
+  ////////// DEBUG
+  for (auto fsm : m_PipelineFSMs) {
+    if (fsmIsEmpty(fsm)) { continue; }
+    int stage_id = fsm->firstBlock->context.pipeline_stage->stage_id;
+    int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
+    out << "$display(\"[end] STAGE " << stage_id << " index %d\"," << FF_D << "_" << fsmIndex(fsm) << ");" << nxl;
+  }
+  ////////////////
+  */
 
   // end of combinational part
   out << "end" << nxl;

@@ -28,7 +28,8 @@ unit main(output uint8 leds)
      uint8 i = 0;
      while (i != 16) {
        __display("calling on %d",i);
-       () <- t <- (i);
+       // () <- t <- (i);
+       t <- (i);
        i = i + 1;       
      }
   }
