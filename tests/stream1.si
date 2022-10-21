@@ -3,7 +3,7 @@ unit test(input uint8 i,output uint8 o)
 {
   uint32 cycle(0);
   uint8 q(0);
-  
+
   algorithm {
     __display("[%d] i = %d",cycle,i);
     q = 110 + i;
@@ -14,7 +14,7 @@ unit test(input uint8 i,output uint8 o)
     o = q + 100;
     __display("[%d] o = %d",cycle,o);
   }
-  
+
   always_after {
     cycle = cycle + 1;
   }
@@ -23,15 +23,14 @@ unit test(input uint8 i,output uint8 o)
 unit main(output uint8 leds)
 {
   test t;
-  
+
   algorithm {
      uint8 i = 0;
      while (i != 16) {
        __display("calling on %d",i);
        // () <- t <- (i);
        t <- (i);
-       i = i + 1;       
+       i = i + 1;
      }
   }
 }
-

@@ -3613,16 +3613,17 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
   std::queue< t_combinational_block * > q;
   sl_assert(fsm->firstBlock != nullptr);
   q.push(fsm->firstBlock);
+  visited.insert(fsm->firstBlock);
   while (!q.empty()) {
     auto cur = q.front();
     q.pop();
     // generate a state if needed
-    if (cur->is_state) {
+    if (cur->is_state && cur->context.fsm == fsm) {
       sl_assert(cur->context.fsm == fsm);
-      sl_assert(cur->state_id == -1);
-      cur->state_id = fsm->maxState++;
+      sl_assert(cur->state_id    == -1);
+      cur->state_id        = fsm->maxState++;
       cur->parent_state_id = cur->state_id;
-      fsm->lastBlock = cur;
+      fsm->lastBlock       = cur;
     }
     // recurse
     std::vector< t_combinational_block * > children;
@@ -3632,12 +3633,14 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
         // NOTE: anyone sees a good way to get rid of the const cast? (without rewriting fastForward)
         c = const_cast<t_combinational_block *>(fastForward(c));
       }
-      if (visited.find(c) == visited.end() && c->context.fsm == fsm) {
-        //                           stay within the same fsm ^^^^ all states should be accessible from first
-        c->parent_state_id = cur->parent_state_id;
-        sl_assert(c->parent_state_id > -1);
-        visited.insert(c);
+      if (visited.find(c) == visited.end()) {
+        if (c->context.fsm == fsm) { // track parent state id
+          sl_assert(fsm->lastBlock != nullptr);
+          c->parent_state_id = fsm->lastBlock->state_id;
+          sl_assert(c->parent_state_id > -1);
+        }
         q.push(c);
+        visited.insert(c);
       }
     }
   }
@@ -3646,17 +3649,7 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
   // report
   std::cerr << "algorithm " << m_Name
     << " fsm " << sprint("%x",(int64_t)fsm)
-    << " num states: " << fsm->maxState;
-  if (hasNoFSM()) {
-    std::cerr << " (no FSM)";
-  }
-  if (!requiresReset()) {
-    std::cerr << " (no reset)";
-  }
-  if (doesNotCallSubroutines()) {
-    std::cerr << " (no subs)";
-  }
-  std::cerr << nxl;
+    << " num states: " << fsm->maxState << nxl;
 }
 
 // -------------------------------------------------
@@ -3668,14 +3661,16 @@ void Algorithm::fsmGetBlocks(t_fsm_nfo *fsm,std::unordered_set<t_combinational_b
   q.push(fsm->firstBlock);
   while (!q.empty()) {
     auto cur = q.front();
-    _blocks.insert(cur);
     q.pop();
+    // record
+    if (cur->context.fsm == fsm) {
+      _blocks.insert(cur);
+    }
     // recurse
     std::vector< t_combinational_block * > children;
     cur->getChildren(children);
     for (auto c : children) {
-      if (_blocks.find(c) == _blocks.end() && c->context.fsm == fsm) {
-        //                           stay within the same fsm ^^^^ all states should be accessible from first
+      if (_blocks.find(c) == _blocks.end()) {
         q.push(c);
       }
     }
@@ -3786,7 +3781,7 @@ int Algorithm::stateWidth(const t_fsm_nfo *fsm) const
 
 const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinational_block *block) const
 {
-  sl_assert(block->is_state);
+  // sl_assert(block->is_state);
   const t_combinational_block *current = block;
   if (current->no_skip) {
     // no skip, stop here
@@ -5700,6 +5695,18 @@ void Algorithm::optimize(const t_instantiation_context& ictx)
     m_Optimized = true;
     // generate states
     generateStates(&m_RootFSM);
+    // report
+    if (hasNoFSM()) {
+      std::cerr << " (no FSM)";
+    }
+    if (!requiresReset()) {
+      std::cerr << " (no reset)";
+    }
+    if (doesNotCallSubroutines()) {
+      std::cerr << " (no subs)";
+    }
+    std::cerr << nxl;
+    // generate pipeline fsms states
     for (auto fsm : m_PipelineFSMs) {
       if (!fsmIsEmpty(fsm)) {
         generateStates(fsm);
@@ -7186,6 +7193,45 @@ v2i Algorithm::instructionLines(antlr4::tree::ParseTree *instr, const t_instanti
 
 // -------------------------------------------------
 
+bool Algorithm::emptyUntilNextStates(const t_combinational_block *block) const
+{
+  std::queue< const t_combinational_block * > q;
+  q.push(block);
+  while (!q.empty()) {
+    auto cur = q.front();
+    q.pop();
+    // test
+    if (!blockIsEmpty(cur)) {
+      return false;
+    }
+    // recurse
+    std::vector< t_combinational_block * > children;
+    cur->getChildren(children);
+    for (auto c : children) {
+      if (  c->context.fsm == block->context.fsm // stay within fsm
+        && !c->is_state) { // explore reachable non-state blocks only
+        q.push(c);
+      }
+    }
+  }
+  return true;
+}
+
+// -------------------------------------------------
+
+bool Algorithm::blockIsEmpty(const t_combinational_block *block) const
+{
+  if (!block->initialized_vars.empty()) {
+    return false;
+  }
+  if (!block->instructions.empty()) {
+    return false;
+  }
+  return true;
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const
 {
   out << "// " << block->block_name;
@@ -7440,7 +7486,6 @@ void Algorithm::writeStatelessBlockGraph(
   while (true) {
     // write current block
     writeBlock(prefix, out, ictx, current, _dependencies, _ff_usage, _lines);
-    // merge
     // goto next in chain
     if (current->next()) {
       if (current->next()->next->context.fsm != fsm) {
@@ -7660,7 +7705,15 @@ void Algorithm::writeStatelessBlockGraph(
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
       }
-      current = writeStatelessPipeline(prefix, out, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines, _pipes);
+      auto prev = current;
+      current   = writeStatelessPipeline(prefix, out, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines, _pipes);
+      // if not in an always block, check that blocks between here and next states are empty
+      if (current->context.fsm != nullptr) {
+        if (!emptyUntilNextStates(current)) {
+          reportError(prev->srcloc, "in an algorithm, a pipeline has to be followed by a new cycle.\n"
+                                    "     please check meaning and split with ++: as appropriate");
+        }
+      }      
     } else {
       // no action
       if (fsm) {
@@ -8827,8 +8880,9 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   }
 
   // pipeline state machine triggers
-/*
+
   ////////// DEBUG
+  /*
   out << "$display(\"-----------------\");" << nxl;
   for (auto fsm : m_PipelineFSMs) {
     if (fsmIsEmpty(fsm)) { continue; }
@@ -8836,8 +8890,10 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
     out << "$display(\"[A] STAGE " << stage_id << " index %d\"," << FF_D << "_" << fsmIndex(fsm) << ");" << nxl;
   }
+  out << "$display(\"[A] HOLD: %b\"," << FF_D << "_" << ALG_HOLD << ");" << nxl;
+  */
   ////////////////
-*/
+
   // -> update full status
   for (auto fsm : m_PipelineFSMs) {
     if (fsmIsEmpty(fsm)) { continue; }
@@ -8896,16 +8952,19 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     // out << "$display(\"START " << stage_id << "\");" << nxl;
     out << "  end" << nxl;
   }
-  /*
+  
   ////////// DEBUG
+  /*
   for (auto fsm : m_PipelineFSMs) {
     if (fsmIsEmpty(fsm)) { continue; }
     int stage_id = fsm->firstBlock->context.pipeline_stage->stage_id;
     int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
     out << "$display(\"[end] STAGE " << stage_id << " index %d\"," << FF_D << "_" << fsmIndex(fsm) << ");" << nxl;
   }
-  ////////////////
+  out << "$display(\"[end] HOLD: %b\"," << FF_D << "_" << ALG_HOLD << ");" << nxl;
   */
+  ////////////////
+  
 
   // end of combinational part
   out << "end" << nxl;

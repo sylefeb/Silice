@@ -1113,6 +1113,10 @@ private:
     bool orderPipelineStages(std::vector< t_pipeline_stage_range >& _stages) const;
     /// \brief writes a stateless pipeline to the output, returns zhere to resume from
     const t_combinational_block *writeStatelessPipeline(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines, std::unordered_set<const t_pipeline_nfo*>& _pipes) const;
+    /// \brief returns whether the combinational chain until next state is empty, i.e. it will not produce code
+    bool emptyUntilNextStates(const t_combinational_block *block) const;
+    /// \brief returns whether the block is empty, i.e. writeBlock will not produce code
+    bool blockIsEmpty(const t_combinational_block *block) const;
     /// \brief writes a single block to the output
     void writeBlock(std::string prefix, std::ostream &out, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const;
     /// \brief writes variable inits
