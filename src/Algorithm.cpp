@@ -8890,7 +8890,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     int stage_id = fsm->firstBlock->context.pipeline_stage->stage_id;
     out << " ) begin" << nxl;
     out << "  " << FF_D << "_" << fsmPipelineStageFull(fsm) << " = " << "1;" << nxl;
-    out << "$display(\"FULL " << stage_id << "\");" << nxl;
+    // out << "$display(\"FULL " << stage_id << "\");" << nxl;
     out << "end" << nxl;
   }
   // -> start stages?
@@ -8933,7 +8933,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
         out << "   " FF_D << "_" << fsmPipelineStageFull(fsm_prev) << " = 0;" << nxl;
       }
     }
-    out << "$display(\"START " << stage_id << "\");" << nxl;
+    // out << "$display(\"START " << stage_id << "\");" << nxl;
     out << "  end" << nxl;
   }
   
