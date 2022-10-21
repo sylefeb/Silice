@@ -70,7 +70,6 @@ See GitHub Issues section for open/known issues.
 #define ALG_DONE    "done"
 #define ALG_CLOCK   "clock"
 #define ALG_RESET   "reset"
-#define ALG_HOLD    "_hold"
 
 // -------------------------------------------------
 

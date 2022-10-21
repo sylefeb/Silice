@@ -2177,7 +2177,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       fsm, _current->context.subroutine, snfo, _current->context.parent_scope, _current->context.vio_rewrites };
     // -> first stage block
     t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, sourceloc(b));
-    fsm->firstBlock = stage_start;
+    fsm->firstBlock  = stage_start;
     fsm->parentBlock = _current;
     // -> gather the rest
     t_combinational_block *stage_end = gather(b, stage_start, _context);
@@ -3607,39 +3607,51 @@ void Algorithm::resolveForwardJumpRefs()
 
 void Algorithm::generateStates(t_fsm_nfo *fsm)
 {
+  typedef struct {
+    t_combinational_block *block;
+    int                    parent_state_id;
+  } t_record;
+  t_record rec;
   // generate state ids and determine sub-state chains
   fsm->maxState = 0;
   std::unordered_set< t_combinational_block * > visited;
-  std::queue< t_combinational_block * > q;
+  std::queue< t_record > q;
   sl_assert(fsm->firstBlock != nullptr);
-  q.push(fsm->firstBlock);
+  rec.block = fsm->firstBlock;
+  rec.parent_state_id = -1;
+  q.push(rec);
   visited.insert(fsm->firstBlock);
   while (!q.empty()) {
     auto cur = q.front();
     q.pop();
     // generate a state if needed
-    if (cur->is_state && cur->context.fsm == fsm) {
-      sl_assert(cur->context.fsm == fsm);
-      sl_assert(cur->state_id    == -1);
-      cur->state_id        = fsm->maxState++;
-      cur->parent_state_id = cur->state_id;
-      fsm->lastBlock       = cur;
+    if (cur.block->is_state && cur.block->context.fsm == fsm) {
+      sl_assert(cur.block->context.fsm == fsm);
+      sl_assert(cur.block->state_id    == -1);
+      cur.block->state_id        = fsm->maxState++;
+      cur.block->parent_state_id = cur.block->state_id;
+      cur.parent_state_id        = cur.block->state_id;
+      fsm->lastBlock             = cur.block; /// TODO FIXME
     }
     // recurse
     std::vector< t_combinational_block * > children;
-    cur->getChildren(children);
+    cur.block->getChildren(children);
     for (auto c : children) {
       if (c->is_state) {
         // NOTE: anyone sees a good way to get rid of the const cast? (without rewriting fastForward)
         c = const_cast<t_combinational_block *>(fastForward(c));
       }
       if (visited.find(c) == visited.end()) {
-        if (c->context.fsm == fsm) { // track parent state id
+        // track parent state id
+        if (c->context.fsm == fsm) { 
           sl_assert(fsm->lastBlock != nullptr);
-          c->parent_state_id = fsm->lastBlock->state_id;
+          c->parent_state_id = cur.parent_state_id;
           sl_assert(c->parent_state_id > -1);
         }
-        q.push(c);
+        // push
+        rec.parent_state_id  = cur.parent_state_id;
+        rec.block = c;
+        q.push(rec);
         visited.insert(c);
       }
     }
@@ -6660,10 +6672,6 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
                     << "," FF_Q << prefix << fsmPipelineStageFull(fsm) << " = 0;" << nxl;
     }
   }
-  if (!m_PipelineFSMs.empty()) {
-    out << "reg  [0:0] " FF_D << prefix << ALG_HOLD << " = 0;" << nxl;
-    //  << "," FF_Q << prefix << ALG_HOLD << " = 0;" << nxl;
-  }
   // state machine caller id (subroutines)
   if (!doesNotCallSubroutines()) {
     out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << ALG_CALLER << "," FF_Q << prefix << ALG_CALLER << ';' << nxl;
@@ -6828,10 +6836,6 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
       }
     }
   }
-  //if (!m_PipelineFSMs.empty()) { // stage hold
-  //  out << FF_Q << prefix << ALG_HOLD << " <= "
-  //      << FF_D << prefix << ALG_HOLD << ';' << nxl;
-  //}
 
   // formal
   if (!hasNoFSM()) {
@@ -6944,10 +6948,6 @@ void Algorithm::writeCombinationalAlwaysPre(
     if (fsmIsEmpty(fsm)) { continue; }
     out << FF_D << "_" << fsmIndex(fsm) << " = " << FF_Q << "_" << fsmIndex(fsm) << ';' << nxl;
     out << FF_D << "_" << fsmPipelineStageFull(fsm) << " = " << FF_Q << "_" << fsmPipelineStageFull(fsm) << ';' << nxl;
-  }
-  // pipeline hold to zero
-  if (!m_PipelineFSMs.empty()) {
-    out << FF_D << prefix << ALG_HOLD << " = 0;" << nxl;
   }
   // instanced algorithms run, maintain high
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
@@ -7087,40 +7087,8 @@ void Algorithm::writeCombinationalStates(
     writeStatelessBlockGraph(prefix, out, ictx, b, nullptr, q, depds, ff_usages.back(), _post_dependencies, lines, pipes);
     clearNoLatchFFUsage(ff_usages.back());
     if (!pipes.empty()) {
-      sl_assert(fsm == &m_RootFSM); // no pipeline nesting, check parent is root fsm
       // pipelines were encountered
-      out << "// pipelines hold state until done" << nxl;
-      // conditions to hold
-      // - any pipeline stages not done
-      // - or any pipeline stage (but last) full
-      // - parent fsm state changing
-      out << "if (1'b0 " << nxl;
-      for (auto p : pipes) {
-        for (auto s : p->stages) {
-          if (fsmIsEmpty(s->fsm)) { continue; }
-          int stage_id   = s->stage_id;
-          int num_stages = p->stages.size();
-          out << " || (" << FF_Q << prefix << fsmIndex(s->fsm) << " != " << toFSMState(s->fsm, terminationState(s->fsm)) << ")" << nxl;
-          if (stage_id + 1 < num_stages) {
-            out << " || " << FF_Q << "_" << fsmPipelineStageFull(s->fsm) << nxl;
-          }
-        }
-      }
-      out << ") begin" << nxl;
-      out << "  if (";
-      if (!isNotCallable()) {
-        out << '(';
-        out << '~' << ALG_INPUT << '_' << ALG_RUN << " ? " << entryState(fsm) << " : ";
-        out << FF_D << prefix << fsmIndex(fsm);
-        out << ')';
-      } else {
-        out << FF_D << prefix << fsmIndex(fsm);
-      }
-      out << " != " << b->state_id << ") begin" << nxl;
-      out << "     " << FF_D << prefix << ALG_HOLD << " = 1;" << nxl;
-      out << "  end" << nxl;
-      out << "  " << FF_D << prefix << fsmIndex(fsm) << " = " << b->state_id << ';' << nxl;
-      out << "end" << nxl;
+      sl_assert(fsm == &m_RootFSM); // no pipeline nesting, check parent is root fsm
     }
 #if 0
     /// DEBUG
@@ -8890,7 +8858,6 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
     out << "$display(\"[A] STAGE " << stage_id << " index %d\"," << FF_D << "_" << fsmIndex(fsm) << ");" << nxl;
   }
-  out << "$display(\"[A] HOLD: %b\"," << FF_D << "_" << ALG_HOLD << ");" << nxl;
   */
   ////////////////
 
@@ -8903,7 +8870,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     int stage_id = fsm->firstBlock->context.pipeline_stage->stage_id;
     out << " ) begin" << nxl;
     out << "  " << FF_D << "_" << fsmPipelineStageFull(fsm) << " = " << "1;" << nxl;
-    // out << "$display(\"FULL " << stage_id << "\");" << nxl;
+    out << "$display(\"FULL " << stage_id << "\");" << nxl;
     out << "end" << nxl;
   }
   // -> start stages?
@@ -8930,7 +8897,6 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
         out << ')';
         out << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm));
         out << ")" << nxl;
-        out << " && " << "~ " << FF_D << '_' << ALG_HOLD << nxl;
       }
     } else { // previous full (something to do), first stage does not have this condition
       auto fsm_prev = fsm->firstBlock->context.pipeline_stage->pipeline->stages[stage_id - 1]->fsm;
@@ -8949,7 +8915,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
         out << "   " FF_D << "_" << fsmPipelineStageFull(fsm_prev) << " = 0;" << nxl;
       }
     }
-    // out << "$display(\"START " << stage_id << "\");" << nxl;
+    out << "$display(\"START " << stage_id << "\");" << nxl;
     out << "  end" << nxl;
   }
   
@@ -8961,7 +8927,6 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
     out << "$display(\"[end] STAGE " << stage_id << " index %d\"," << FF_D << "_" << fsmIndex(fsm) << ");" << nxl;
   }
-  out << "$display(\"[end] HOLD: %b\"," << FF_D << "_" << ALG_HOLD << ");" << nxl;
   */
   ////////////////
   
