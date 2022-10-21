@@ -1,0 +1,45 @@
+
+circuitry test(input a,output b)
+{
+
+  //sameas(a) i(0);
+  //i = a;
+  
+  ->
+
+  ->
+
+  ->
+  
+  //b = i;
+
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+
+  algorithm {  while (1) {
+
+    { // we make a pipeline inside this block
+
+      uint8 v(0);
+       
+      v = cycle;
+      __display("[cycle %d] ==== in:%d",cycle,v);
+      
+      -> 
+      
+      (v) = test(v);
+
+      -> 
+      
+       __display("[cycle %d] ==== result:%d",cycle,v);
+    
+    }
+
+    cycle = cycle + 1;
+    if (cycle == 40) { __finish(); }
+
+  } }
+}

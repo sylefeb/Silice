@@ -1,0 +1,38 @@
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+	uint32 t(0);
+	uint32 q(0);
+
+  algorithm {  while (1) {
+
+    {      // stage 0
+
+      t = q;
+      __display("[cycle %d] in ==== %d",cycle,q);
+      q = q + 1;
+			
+    } -> { // stage 1
+
+      uint4 i=0;
+      while (~i[3,1]) {
+        t = t + 1000;
+        i = i + 1;
+      }
+
+    } -> { // stage 2
+
+++:
+++:
+
+			__display("[cycle %d] 2_ ==== %d",cycle,t);
+			
+    }
+
+  } }
+	
+	always_after {
+    if (cycle == 100) { __finish(); }
+    cycle = cycle + 1;
+	}
+}

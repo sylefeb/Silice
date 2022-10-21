@@ -1,0 +1,71 @@
+// mockup of multi-fsm pipeline
+
+unit C(input uint8 i,output uint8 o)
+{
+  algorithm {
+    uint8 t(0);
+    t = i;
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+    o = t;
+  }
+}
+
+unit B(input uint8 i,output uint8 o)
+{
+  algorithm {
+    uint8 t(0);
+    t = i;
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+    o = t;
+  }
+}
+
+unit A(input uint8 i,output uint8 o)
+{
+  algorithm {
+    uint8 t(0);
+    t = i;
+  ++:
+    t = t + 1;
+    o = t;
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  A a; B b; C c;
+
+  algorithm {  while (1) {
+
+    { // we make a pipeline inside this block
+
+      uint8 v(0);
+       
+      __display("[cycle %d] call",cycle);
+      (v) <- a <- (cycle);
+      
+      -> 
+      
+      (v) <- b <- (v);
+
+      -> 
+      
+      (v) <- c <- (v);
+       __display("[cycle %d] ==== result:%d",cycle,v);
+    
+    }
+
+    cycle = cycle + 1;
+    if (cycle == 40) { __finish(); }
+
+  } }
+}

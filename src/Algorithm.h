@@ -833,6 +833,8 @@ private:
     std::string fsmPipelineStageReady(const t_fsm_nfo *) const;
     /// \brief returns the 'full' signal name of the fsm
     std::string fsmPipelineStageFull(const t_fsm_nfo *) const;
+    /// \brief returns an expression that evaluates to the fsm next state
+    std::string fsmNextState(std::string prefix, const t_fsm_nfo *) const;
     /// \brief returns whether the fsm is empty (no state)
     bool fsmIsEmpty(const t_fsm_nfo *) const;
     /// \brief returns the fsm parent trigger state (-1 if none)
@@ -1107,11 +1109,11 @@ private:
     /// \brief writes all FSM states in the output
     void writeCombinationalStates(const t_fsm_nfo *fsm, std::string prefix, std::ostream &out, const t_instantiation_context &ictx, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
     /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
-    void writeStatelessBlockGraph(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines, std::unordered_set<const t_pipeline_nfo*>& _pipes) const;
+    void writeStatelessBlockGraph(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines, std::ostream& out_pipes) const;
     /// \brief order pipeline stages based on pipeline specific assignments
     bool orderPipelineStages(std::vector< t_pipeline_stage_range >& _stages) const;
     /// \brief writes a stateless pipeline to the output, returns zhere to resume from
-    const t_combinational_block *writeStatelessPipeline(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines, std::unordered_set<const t_pipeline_nfo*>& _pipes) const;
+    const t_combinational_block *writeStatelessPipeline(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
     /// \brief returns whether the combinational chain until next state is empty, i.e. it will not produce code
     bool emptyUntilNextStates(const t_combinational_block *block) const;
     /// \brief returns whether the block is empty, i.e. writeBlock will not produce code

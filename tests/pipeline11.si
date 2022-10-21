@@ -1,0 +1,34 @@
+
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+
+  algorithm {  while (1) {
+
+    { // we make a pipeline inside this block
+
+      uint8 v(0);
+      uint8 a(0);
+       
+      v = cycle;
+      __display("[cycle %d] ==== in:%d",cycle,v);
+      
+      -> 
+      
+      {
+        uint8 a(0);
+        a = v;
+        v = a*a;
+      }
+
+      -> 
+      
+       __display("[cycle %d] ==== result:%d %d",cycle,a,v);
+    
+    }
+
+    cycle = cycle + 1;
+    if (cycle == 40) { __finish(); }
+
+  } }
+}
