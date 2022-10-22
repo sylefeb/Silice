@@ -512,6 +512,7 @@ private:
       bool                                 no_skip = false;      // true the state cannot be skipped, even if empty
       int                                  state_id = -1;        // state id, when assigned, -1 otherwise
       int                                  parent_state_id = -1; // parent state id (closest state before)
+      std::vector<t_instr_nfo>             declexprs;            // list of declaration expressions within block (typically bound exprs, aka wires)
       std::vector<t_instr_nfo>             instructions;         // list of instructions within block
       t_end_action                        *end_action = nullptr; // end action to perform
       t_combinational_block_context        context;              // block context: subroutine, parent, etc.

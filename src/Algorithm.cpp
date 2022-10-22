@@ -578,6 +578,7 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
   // add var
   addVar(nfo, _current, sourceloc(wire, wire->alwaysAssigned()->IDENTIFIER()->getSourceInterval()));
   // insert wire assignment
+  _current->declexprs  .push_back(t_instr_nfo(wire->alwaysAssigned(), _current, -1));
   m_WireAssignmentNames.insert( make_pair(nfo.name, (int)m_WireAssignments.size()) );
   m_WireAssignments    .push_back( make_pair(nfo.name, t_instr_nfo(wire->alwaysAssigned(), _current, -1)) );
 }
@@ -4884,8 +4885,12 @@ void Algorithm::determineBlockVIOAccess(
   const std::unordered_map<std::string, int>&  vios,
   std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const
 {
+  // gather instructions
   std::vector<t_instr_nfo> instrs;
   getAllBlockInstructions(block, instrs);
+  // gather declarations
+  instrs.insert(instrs.begin(), block->declexprs.begin(), block->declexprs.end() );
+  // determine access
   for (const auto& i : instrs) {
     determineVIOAccess(i.instr, vios, &block->context, _read, _written);
   }
