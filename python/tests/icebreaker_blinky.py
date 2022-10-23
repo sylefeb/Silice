@@ -84,7 +84,7 @@ class Design(Module):
 
         d = silice.Design("../../projects/blinky/blinky.si",
                          ["NUM_LEDS=5"])
-        m = d.getUnit("main")
+        m = d.getUnit("test")
         leds = platform.request_all("user_led")
         inst = silice.migen.instantiate(
             m,

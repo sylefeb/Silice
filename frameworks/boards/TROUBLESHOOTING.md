@@ -17,4 +17,6 @@ Under Windows + MinGW64, openFPGALoader is used by default by Silice programming
 
 If Edalize fails complaining about `quartus_sh`, make sure to have the bin directory of the correct version of Quartus in the path.
 
+For instance, for the de2 the default path would be `C:\altera\13.0sp1\quartus\bin64`, for the de10nano `C:\intelFPGA_lite\19.1\quartus\bin64`.
+
 If the build fails after that, it might be best to go into the directory `BUILD_de2` (or `BUILD_de10nano`) and open the Quartus project (`build.qpf`). This lets you manually build in Quartus and see what could be wrong (e.g. missing device install, etc.). Regarding programming, I found this [video helpful](https://www.youtube.com/watch?v=K1k1VIAUSqI).
