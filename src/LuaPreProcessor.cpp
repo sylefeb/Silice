@@ -737,6 +737,9 @@ std::string LuaPreProcessor::assembleSource(
         fname = findFile(fname);
         // recurse
         code += assembleSource(path + "/", fname, alreadyIncluded, _output_line_count);
+      } else if (w == "$display") {
+        // early Silice versions supported $display, we now issue an error and indicate the replacement
+        throw Fatal("$display is deprecated, please use __display instead (line %d).",1+src_line);
       } else {
         code += " " + w;
       }
