@@ -58,6 +58,8 @@ RETURN              : 'return' ;
 
 BREAK               : 'break' ;
 
+STALL               : 'stall' ;
+
 DISPLAY             : '$display' | '__display' ;
 
 DISPLWRITE          : '__write' ;
@@ -372,6 +374,7 @@ state               : state_name=IDENTIFIER ':' | NEXT ;
 jump                : GOTO IDENTIFIER ;
 returnFrom          : RETURN ;
 breakLoop           : BREAK ;
+stall               : STALL ;
 assert_             : ASSERT '(' expression_0 ')';
 // NOTE: keep the `_` here else it clashes with various keywords etc
 assume              : ASSUME '(' expression_0 ')';
@@ -403,6 +406,7 @@ instruction         : assignment
                     | circuitryInst
                     | returnFrom
                     | breakLoop
+                    | stall
                     | display
                     | finish
                     | assert_

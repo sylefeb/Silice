@@ -1,0 +1,48 @@
+
+unit test(input uint32 i)
+{
+  uint32 cycle(0);
+
+  algorithm {
+
+  { // describes a pipeline that starts at this state
+    __display("%d) 1 [%d]",cycle,i);
+  ->
+    __display("%d) 2 [%d]",cycle,i);
+  ->
+    __display("%d) 3 [%d]",cycle,i);
+  ->
+    __display("%d) 4 [%d]",cycle,i);
+  ->
+    __display("%d) 5 [%d]",cycle,i);
+  ->
+    __display("%d) 6 [%d] <=== last",cycle,i);
+  }
+  ++:
+  __display("%d) after pipeline start",cycle); // pipeline runs in parallel
+  }
+
+  always_after {
+    cycle = cycle + 1;
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+
+  test   t;
+
+  algorithm {
+
+    t <- (cycle);
+    __display("started on cycle %d",cycle);
+    while (!isdone(t)) { } // algorithm is not done until pipeline has finished
+    __display("done on cycle %d",cycle);
+
+  }
+
+  always_after {
+    cycle = cycle + 1;
+  }
+}

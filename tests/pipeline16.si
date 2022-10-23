@@ -2,7 +2,6 @@ unit main(output uint8 leds)
 {
   uint32 cycle(0);
   uint32 v(0);
-  // uint32 vb(0);
 
   algorithm {
     __display("********************************** %d",cycle);
@@ -11,8 +10,8 @@ unit main(output uint8 leds)
   }
 
   always_after {
-    cycle = cycle + 1;    
-    if (cycle == 100) { __display("======== tick %d",cycle); __finish(); }  
+    cycle = cycle + 1;
+    if (cycle == 100) { __display("======== tick %d",cycle); __finish(); }
   }
 
 }

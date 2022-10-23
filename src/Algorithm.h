@@ -834,6 +834,8 @@ private:
     std::string fsmPipelineStageReady(const t_fsm_nfo *) const;
     /// \brief returns the 'full' signal name of the fsm
     std::string fsmPipelineStageFull(const t_fsm_nfo *) const;
+    /// \brief returns the 'stall' signal name of the fsm
+    std::string fsmPipelineStageStall(const t_fsm_nfo *) const;
     /// \brief returns an expression that evaluates to the fsm next state
     std::string fsmNextState(std::string prefix, const t_fsm_nfo *) const;
     /// \brief returns whether the fsm is empty (no state)
