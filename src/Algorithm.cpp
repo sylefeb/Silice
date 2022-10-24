@@ -3618,7 +3618,7 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
   } t_record;
   t_record rec;
   // generate state ids and determine sub-state chains
-  fsm->maxState = 0;
+  fsm->maxState = 1; // we start at one, zero is termination state
   std::unordered_set< t_combinational_block * > visited;
   std::queue< t_record > q;
   sl_assert(fsm->firstBlock != nullptr);
@@ -3661,8 +3661,6 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
       }
     }
   }
-  // additional internal state
-  fsm->maxState++;
   // report
   std::cerr << "algorithm " << m_Name
     << " fsm " << sprint("%x",(int64_t)fsm)
@@ -3772,7 +3770,7 @@ int Algorithm::entryState(const t_fsm_nfo *fsm) const
 
 int Algorithm::terminationState(const t_fsm_nfo *fsm) const
 {
-  return fsm->maxState - 1;
+  return 0;
 }
 
 // -------------------------------------------------
@@ -3894,7 +3892,7 @@ bool Algorithm::hasNoFSM() const
     if (b->state_id == -1 && b->is_state) {
       continue; // block is never reached
     }
-    if (b->state_id > 0) { // block has a stateid
+    if (b->state_id > 1) { // block has a state_id beyond the first state
       return false;
     }
   }
@@ -6679,10 +6677,10 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   if (!hasNoFSM()) {
     if (!m_RootFSM.oneHot) {
       out << "reg  [" << stateWidth(&m_RootFSM) - 1 << ":0] " FF_D << prefix << fsmIndex(&m_RootFSM) 
-                                                       << "," FF_Q << prefix << fsmIndex(&m_RootFSM) << " = " << toFSMState(&m_RootFSM,terminationState(&m_RootFSM)) << ";" << nxl;
+                                                       << "," FF_Q << prefix << fsmIndex(&m_RootFSM) << ";" << nxl;
     } else {
       out << "reg  [" << maxState(&m_RootFSM) - 1 << ":0] " FF_D << prefix << fsmIndex(&m_RootFSM) 
-                                                     << "," FF_Q << prefix << fsmIndex(&m_RootFSM) << " = " << toFSMState(&m_RootFSM,terminationState(&m_RootFSM)) << ";" << nxl;
+                                                     << "," FF_Q << prefix << fsmIndex(&m_RootFSM) << ";" << nxl;
     }
     // autorun
     if (m_AutoRun) {
@@ -6692,8 +6690,8 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   // state machines for pipelines
   for (auto fsm : m_PipelineFSMs) {
     if (!fsmIsEmpty(fsm)) {
-      out << "reg  [" << stateWidth(fsm) - 1 << ":0] " FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm))
-                                                << "," FF_Q << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
+      out << "reg  [" << stateWidth(fsm) - 1 << ":0] " FF_D << prefix << fsmIndex(fsm)
+                                                << "," FF_Q << prefix << fsmIndex(fsm) << ';' << nxl;
       out << "wire " << fsmPipelineStageReady(fsm) << " = "
         <<     "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')'
         << " || (" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;

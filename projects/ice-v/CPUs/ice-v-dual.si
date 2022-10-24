@@ -267,7 +267,7 @@ unit rv32i_cpu(
   bram_port    mem,
 $$if ICEV_STALL then
   // advanced feature to stall the CPU (rise only on even stage F/LS1)
-  input uint1  stall,
+  input uint1  stall_cpu,
 $$end
 $$if ICEV_USERDATA then
   input uint32 user_data
@@ -289,7 +289,7 @@ $$if ICEV_STALL then
   uint1  stalled(0);
 $$else
   // make these constant, removing the feature
-  uint1 stall <: 0; uint1 stalled <: 0;
+  uint1 stall_cpu <: 0; uint1 stalled <: 0;
 $$end
 
   // program counters
@@ -384,7 +384,7 @@ $$end
 
       // LS1
       // memory address from which to load/store
-      mem.addr = (~exec.working & ~stall) ? (exec.n >> 2) : mem.addr;
+      mem.addr = (~exec.working & ~stall_cpu) ? (exec.n >> 2) : mem.addr;
       // no need to know which core, since we only read from exec
       if (exec.store) {
         // == Store (enabled if exec.store == 1)
@@ -461,10 +461,10 @@ $$end
     }
 
     // advance states unless stuck in ALU or reset is high
-    stage   = (exec.working | reset | stall) ? stage : stage + 1;
+    stage   = (exec.working | reset | stall_cpu) ? stage : stage + 1;
 $$if ICEV_STALL then
     // track CPU was stalled
-    stalled = stall;
+    stalled = stall_cpu;
 $$end
 
 $$if VERBOSE then

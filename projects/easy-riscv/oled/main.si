@@ -68,8 +68,9 @@ $$if VERILATOR then
   output uint10 spiscreen_width(320),
   output uint10 spiscreen_height(240),
 $$end
+)
 $$if ICESTICK then
-  ) <@cpu_clock> {
+ <@cpu_clock> {
   // PLL
   uint1 cpu_clock  = uninitialized;
   pll clk_gen (
@@ -77,7 +78,7 @@ $$if ICESTICK then
     clock_out :> cpu_clock
   );
 $$else
-) {
+{
 $$end
 
   // instantiates our CPU as defined above
