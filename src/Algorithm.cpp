@@ -2206,7 +2206,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // check written vars (will start trickling) are not written outside of pipeline before
     for (auto w : written) {
       if (written_special.count(w) != 0) {
-        reportError(sourceloc(b), "variable '%s' is assigned affter pipeline (vv=) by an earlier stage", w.c_str());
+        reportError(sourceloc(b), "variable '%s' is assigned using a pipeline operator (v=/^=/vv=) by an earlier stage", w.c_str());
       }
     }
     // check no output is written from two stages
@@ -7854,7 +7854,9 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   const t_combinational_block *after     = block_before->pipeline_next()->after;
   const t_pipeline_nfo        *pip       = current->context.pipeline_stage->pipeline;
   sl_assert(pip != nullptr);
-  t_vio_dependencies depds_before_stages = _dependencies;
+  // record dependencies
+  t_vio_dependencies depds_before_stage   = _dependencies;
+  t_vio_dependencies deps_before_pipeline = _dependencies;
   // first, gather stages
   const t_combinational_block *cur = current;
   const t_combinational_block *aft = after;
@@ -7874,19 +7876,28 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   }
   // record last before reordering stages
   auto pipeline_last = stages.back().last;
-
   // order stages
   bool success = orderPipelineStages(stages);
   if (!success) {
     reportError(block_before->pipeline_next()->next->srcloc,"cannot order pipeline stages due to conflicting operator requirements (^= v=)");
   }
-
+  std::unordered_map<std::string,int> written_forward_at;
   for (auto st : stages) {
     sl_assert(pip == st.first->context.pipeline_stage->pipeline);
     // write stage
     int stage = st.first->context.pipeline_stage->stage_id;
     out << "// -------- stage " << stage << nxl;
-    t_vio_dependencies deps = depds_before_stages;
+    t_vio_dependencies deps = depds_before_stage;
+    // reset dependencies for written forward vars if the current stage occurs before
+    for (auto wf : written_forward_at) {
+      if (stage < wf.second) {
+        if (deps_before_pipeline.dependencies.count(wf.first) == 0) {
+          deps.dependencies.erase(wf.first);
+        } else {
+          deps.dependencies[wf.first] = deps_before_pipeline.dependencies[wf.first];
+        }
+      }
+    }
     // write code
     if (fsmIsEmpty(st.first->context.fsm)) {
       std::ostringstream _;
@@ -7903,10 +7914,11 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     // for vios written backward/forward, retain dependencies
     for (const auto& d : deps.dependencies) {
       if (st.first->context.pipeline_stage->written_backward.count(d.first)) {
-        depds_before_stages.dependencies[d.first].insert(d.second.begin(),d.second.end());
+        depds_before_stage.dependencies[d.first].insert(d.second.begin(),d.second.end());
       }
       if (st.first->context.pipeline_stage->written_forward.count(d.first)) {
-        depds_before_stages.dependencies[d.first].insert(d.second.begin(), d.second.end());
+        written_forward_at[d.first] = stage;
+        depds_before_stage.dependencies[d.first].insert(d.second.begin(), d.second.end());
       }
     }
     // trickle vars: start
