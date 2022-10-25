@@ -21,7 +21,13 @@ unit test(input uint32 i)
 
     ->
 
-      __display("[2]",v);
+      if (v < 5) {
+        __display("[2] v is below 10: %d",v); // should not be reached
+      }
+
+    ->
+
+      __display("[3]",v);
 
     }
 

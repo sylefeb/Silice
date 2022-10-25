@@ -8954,7 +8954,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
       }
     }
     // out << "$display(\"START " << stage_id << "\");" << nxl;
-    out << "  end" << nxl;
+    out << "end" << nxl;
   }
 
   // end of combinational part
