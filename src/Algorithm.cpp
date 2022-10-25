@@ -7904,7 +7904,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
       writeStatelessBlockGraph(prefix, out, ictx, st.first, st.last, _q, deps, _ff_usage, _post_dependencies, _lines, _ /*no pipeline nesting, should not be used*/);
       sl_assert(_.str().empty());
     } else {
-      t_vio_dependencies always_deps = depds_before_stages;
+      t_vio_dependencies always_deps = deps;
       writeCombinationalStates(st.first->context.fsm, prefix, out, ictx, always_deps, _ff_usage, deps);
       mergeDependenciesInto(deps, _post_dependencies);
     }
