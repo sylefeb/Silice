@@ -1,0 +1,27 @@
+unit main(output uint8 leds)
+{
+  always {
+
+    uint16 a(0);
+    uint16 b(0);
+    uint16 c(0);
+
+    // stop after a number of cycles
+    if (a == 12) { __finish(); }
+
+     __display("=======");
+
+    // pipeline
+    {
+        a = a + 1;
+        __display("[stage 0] a=%d b=%d c=%d",a,b,c);
+    } -> {
+        b ^= a;
+        c v= a;
+        __display("[stage 1] b ^= %d  c v= %d",b,c);
+    } -> {
+        __display("[stage 2] a=%d b=%d c=%d",a,b,c);
+    }
+  }
+
+}
