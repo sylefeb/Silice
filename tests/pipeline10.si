@@ -64,8 +64,11 @@ unit main(output uint8 leds)
     
     }
 
-    cycle = cycle + 1;
-    if (cycle == 40) { __finish(); }
-
   } }
+
+  always_after {
+    cycle = cycle + 1;
+    if (cycle == 60) { __finish(); }
+  }
+
 }

@@ -6846,10 +6846,7 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
   for (auto fsm : m_PipelineFSMs) {
     if (!fsmIsEmpty(fsm)) {
       // next index might be overriden by stall ; stall can only appear on stage last state
-      std::string index_select = std::string("(") + FF_TMP + prefix + fsmPipelineStageStall(fsm) 
-        + " ? " + std::to_string(toFSMState(fsm, lastPipelineStageState(fsm))) 
-        + " : " + FF_D + prefix + fsmIndex(fsm)
-        + ")";
+      std::string index_select = FF_D + prefix + fsmIndex(fsm);
       if (!hasNoFSM()) {
         out << FF_Q << prefix << fsmIndex(fsm) << " <= ";
         out << reset
@@ -7171,9 +7168,11 @@ void Algorithm::writeCombinationalStates(
   }
   out << "endcase" << nxl;
   // write pipelines
-  out << "// ==== pipelines ====" << nxl;
-  out << pipes.str();
-  out << "// ===================" << nxl;
+  if (!pipes.str().empty()) {
+    out << "// ==== pipelines ====" << nxl;
+    out << pipes.str();
+    out << "// ===================" << nxl;
+  }
 }
 
 // -------------------------------------------------
@@ -7504,7 +7503,14 @@ void Algorithm::writeStatelessBlockGraph(
         // do not follow into a different fsm (this happens on last stage of a pipeline)
         out << "// end of last pipeline stage" << nxl;
         if (!fsmIsEmpty(fsm)) {
-          out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
+          // stage full
+          out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
+          // select next index (termination or stall)
+          sl_assert(current->parent_state_id == lastPipelineStageState(fsm));
+          std::string end_or_stall = FF_TMP + prefix + fsmPipelineStageStall(fsm)
+            + " ? " + std::to_string(toFSMState(fsm, current->parent_state_id))
+            + " : " + std::to_string(toFSMState(fsm, terminationState(fsm)));
+          out << FF_D << prefix << fsmIndex(fsm) << " = " << end_or_stall << ';' << nxl;
         }
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
@@ -7710,9 +7716,16 @@ void Algorithm::writeStatelessBlockGraph(
     } else if (current->pipeline_next()) {
       if (current->pipeline_next()->next->context.pipeline_stage->stage_id > 0) {
         // do not follow into different stages of a same pipeline (this happens after each stage > 0 but last of a pipeline)
-        out << "// end of stage" << nxl;
+        out << "// end of pipeline stage" << nxl;
         if (!fsmIsEmpty(fsm)) {
-          out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm, terminationState(fsm)) << ';' << nxl;
+          // stage full
+          out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
+          // select next index (termination or stall)
+          sl_assert(current->parent_state_id == lastPipelineStageState(fsm));
+          std::string end_or_stall = FF_TMP + prefix + fsmPipelineStageStall(fsm)
+            + " ? " + std::to_string(toFSMState(fsm, current->parent_state_id))
+            + " : " + std::to_string(toFSMState(fsm, terminationState(fsm)));
+          out << FF_D << prefix << fsmIndex(fsm) << " = " << end_or_stall << ';' << nxl;
         }
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
@@ -7897,6 +7910,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
       }
     }
     // trickle vars: start
+    out << "// --- trickling" << nxl;
     for (auto tv : pip->trickling_vios) {
       if (stage == tv.second[0]) {
         // capture the var in the pipeline
@@ -8886,13 +8900,6 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   }
   // always after block
   {
-    /*for (auto ff : post_dependencies.dependencies) {
-      cerr << "***********************" << ff.first << " - ";
-      for (auto d : ff.second) {
-        cerr << d << ',';
-      }
-      cerr << std::endl;
-    }*/
     std::queue<size_t> q;
     std::set<v2i>      lines;
     std::unordered_set<const t_pipeline_nfo *> pipes;
@@ -8902,31 +8909,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   }
 
   // pipeline state machine triggers
-
-  ////////// DEBUG
-  /*
-  out << "$display(\"-----------------\");" << nxl;
-  for (auto fsm : m_PipelineFSMs) {
-    if (fsmIsEmpty(fsm)) { continue; }
-    int stage_id = fsm->firstBlock->context.pipeline_stage->stage_id;
-    int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
-    out << "$display(\"[A] STAGE " << stage_id << " index %d\"," << FF_D << "_" << fsmIndex(fsm) << ");" << nxl;
-  }
-  */
-  ////////////////
-
-  // -> update full status
-  for (auto fsm : m_PipelineFSMs) {
-    if (fsmIsEmpty(fsm)) { continue; }
-    sl_assert(fsm->parentBlock != nullptr);
-    // stage full? (on last)
-    out << "if (" << FF_Q << '_' << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm));
-    out << " ) begin" << nxl;
-    out << "  " << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
-    // out << "$display(\"FULL " << stage_id << "\");" << nxl;
-    out << "end" << nxl;
-  }
-  // -> start stages?
+  out << "// pipeline stage triggers" << nxl;
   for (int p = (int)m_PipelineFSMs.size() - 1; p >= 0; --p) {
     auto fsm = m_PipelineFSMs[p];
     if (fsmIsEmpty(fsm)) { continue; }
@@ -8973,18 +8956,6 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
     // out << "$display(\"START " << stage_id << "\");" << nxl;
     out << "  end" << nxl;
   }
-  
-  ////////// DEBUG
-  /*
-  for (auto fsm : m_PipelineFSMs) {
-    if (fsmIsEmpty(fsm)) { continue; }
-    int stage_id = fsm->firstBlock->context.pipeline_stage->stage_id;
-    int num_stages = fsm->firstBlock->context.pipeline_stage->pipeline->stages.size();
-    out << "$display(\"[end] STAGE " << stage_id << " index %d\"," << FF_D << "_" << fsmIndex(fsm) << ");" << nxl;
-  }
-  */
-  ////////////////
-  
 
   // end of combinational part
   out << "end" << nxl;
