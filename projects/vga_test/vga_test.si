@@ -3,6 +3,9 @@
 // https://github.com/sylefeb/Silice
 // @sylefeb 2019
 
+$$VGA_800_600  = 1
+$$VGA_1024_768 = nil
+
 // VGA driver
 $include('../common/vga.si')
 
@@ -43,7 +46,13 @@ $$end
 
 $$if ECPIX5 then
 // Clock
-import('../common/plls/ecpix5_100_25.v')
+$$if VGA_1024_768 then
+import('../common/plls/ecpix5_65.v')
+$$elseif VGA_800_600 then
+import('../common/plls/ecpix5_36.v')
+$$else
+import('../common/plls/ecpix5_25.v')
+$$end
 $$end
 
 $$if HARDWARE then
@@ -130,7 +139,7 @@ $$end
 $$if MOJO then
   uint1 sdram_clock = 0;
   // --- clock
-  pll_100_25 clk_gen (
+  pll clk_gen (
     CLK_IN1  <: clock,
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> video_clock
@@ -159,7 +168,7 @@ $$elseif DE10NANO then
   // --- clock
   uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
-  pll_100_25 clk_gen(
+  pll clk_gen(
     refclk    <: clock,
     outclk_0  :> sdram_clock,
     outclk_1  :> video_clock,
@@ -178,7 +187,7 @@ $$elseif ULX3S then
   // --- clock
   uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
-  pll_100_25 clk_gen(
+  pll clk_gen(
     clkin    <: clock,
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,
@@ -186,12 +195,10 @@ $$elseif ULX3S then
   );
 $$elseif ECPIX5 then
   // --- clock
-  uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
-  pll_100_25 clk_gen(
+  pll clk_gen(
     clkin    <: clock,
-    clkout0  :> sdram_clock,
-    clkout1  :> video_clock,
+    clkout0  :> video_clock,
     locked   :> pll_lock
   );
 $$end

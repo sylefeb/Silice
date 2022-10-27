@@ -287,7 +287,7 @@ $$if HARDWARE and not ULX3S then
 $$if MOJO then
   uint1 sdram_clock = 0;
   // --- clock
-  pll_100_25 clk_gen (
+  pll clk_gen (
     CLK_IN1  <: clock,
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> video_clock
@@ -302,7 +302,7 @@ $$elseif DE10NANO then
   // --- clock
   uint1 sdram_clock = 0;
   uint1 pll_lock    = 0;
-  pll_100_25 clk_gen(
+  pll clk_gen(
     refclk   <: clock,
     rst      <: reset,
     outclk_0 :> sdram_clock,
@@ -313,7 +313,7 @@ $$elseif ECPIX5 then
   // --- clock
   uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
-  pll_100_25 clk_gen(
+  pll clk_gen(
     clkin    <: clock,
     clkout0  :> sdram_clock,
     clkout1  :> video_clock,

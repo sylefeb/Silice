@@ -1,12 +1,12 @@
 // file: clk_100_25.v
-// 
+//
 // (c) Copyright 2008 - 2011 Xilinx, Inc. All rights reserved.
-// 
+//
 // This file contains confidential and proprietary information
 // of Xilinx, Inc. and is protected under U.S. and
 // international copyright and other intellectual property
 // laws.
-// 
+//
 // DISCLAIMER
 // This disclaimer is not a license and does not grant any
 // rights to the materials distributed herewith. Except as
@@ -28,7 +28,7 @@
 // by a third party) even if such damage or loss was
 // reasonably foreseeable or Xilinx had been advised of the
 // possibility of the same.
-// 
+//
 // CRITICAL APPLICATIONS
 // Xilinx products are not designed or intended to be fail-
 // safe, or for use in any application requiring fail-safe
@@ -42,10 +42,10 @@
 // liability of any use of Xilinx products in Critical
 // Applications, subject only to applicable laws and
 // regulations governing limitations on product liability.
-// 
+//
 // THIS COPYRIGHT NOTICE AND DISCLAIMER MUST BE RETAINED AS
 // PART OF THIS FILE AT ALL TIMES.
-// 
+//
 //----------------------------------------------------------------------------
 // User entered comments
 //----------------------------------------------------------------------------
@@ -66,7 +66,7 @@
 `timescale 1ps/1ps
 
 (* CORE_GENERATION_INFO = "clk_100_25,clk_wiz_v3_6,{component_name=clk_100_25,use_phase_alignment=true,use_min_o_jitter=false,use_max_i_jitter=false,use_dyn_phase_shift=false,use_inclk_switchover=false,use_dyn_reconfig=false,feedback_source=FDBK_AUTO,primtype_sel=DCM_SP,num_out_clk=2,clkin1_period=20.0,clkin2_period=20.0,use_power_down=false,use_reset=false,use_locked=false,use_inclk_stopped=false,use_status=false,use_freeze=false,use_clk_valid=false,feedback_type=SINGLE,clock_mgr_type=AUTO,manual_override=false}" *)
-module pll_100_25
+module pll
  (// Clock in ports
   input         CLK_IN1,
   // Clock out ports
