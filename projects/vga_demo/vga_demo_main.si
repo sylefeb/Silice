@@ -175,9 +175,10 @@ $$end
   uint1  vblank = 0;
   uint10 pix_x  = 0;
   uint10 pix_y  = 0;
+  uint1  vga_hs = 0;
 
   vga vga_driver (
-    vga_hs :> video_hs,
+    vga_hs :> vga_hs,
 	  vga_vs :> video_vs,
 	  active :> active,
 	  vblank :> vblank,
@@ -206,6 +207,7 @@ $$end
   video_r := r << $math.max(0,color_depth-6)$;
   video_g := g << $math.max(0,color_depth-6)$;
   video_b := b << $math.max(0,color_depth-6)$;
+  video_hs := vga_hs;
 
 $$if ICARUS then
   // we count a number of frames and stop
