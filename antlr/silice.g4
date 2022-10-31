@@ -417,6 +417,7 @@ instruction         : assignment
                     | assertstable
                     | cover
                     | inline_v
+                    | declaration
                     ;
 
 alwaysBlock         : ALWAYS        block;

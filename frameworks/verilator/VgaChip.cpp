@@ -34,7 +34,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 VgaChip::VgaChip(int color_depth)
 {
   m_color_depth = color_depth;
-  set640x480();
 }
 
 // ----------------------------------------------------------------------------
@@ -46,6 +45,57 @@ void VgaChip::set640x480()
   m_h_bck_porch  = 48;
   m_v_res        = 480;
   m_v_bck_porch  = 33;
+}
+
+// ----------------------------------------------------------------------------
+
+void VgaChip::set800x600()
+{
+  m_framebuffer  = LibSL::Image::ImageRGBA(800,600);
+  m_h_res        = 800;
+  m_h_bck_porch  = 128;
+  m_v_res        = 600;
+  m_v_bck_porch  = 22;
+}
+
+// ----------------------------------------------------------------------------
+
+void VgaChip::set1024x768()
+{
+  m_framebuffer  = LibSL::Image::ImageRGBA(1024,768);
+  m_h_res        = 1024;
+  m_h_bck_porch  = 160;
+  m_v_res        = 768;
+  m_v_bck_porch  = 29;
+}
+
+// ----------------------------------------------------------------------------
+
+void VgaChip::set1920x1080()
+{
+  m_framebuffer  = LibSL::Image::ImageRGBA(1920,1080);
+  m_h_res        = 1920;
+  m_h_bck_porch  = 328;
+  m_v_res        = 1080;
+  m_v_bck_porch  = 32;
+}
+
+// ----------------------------------------------------------------------------
+
+void VgaChip::setResolution(int w,int h)
+{
+  if (w == 1920 && h == 1080) {
+    set1920x1080();
+  } else if (w == 1024 && h == 768) {
+    set1024x768();
+  } else if (w == 800 && h == 600) {
+    set800x600();
+  } else if (w == 640 && h == 480) {
+    set640x480();
+  } else {
+    fprintf(stderr,"[set_vga_resolution] error, resolution is not supported\n");
+    exit (-1);
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -65,6 +115,9 @@ void VgaChip::eval(
             vluint8_t  green,
             vluint8_t  blue)
 {
+  if (!ready()) {
+    return;
+  }
   if (clk && !m_prev_clk) {
     // horizontal synch
     if (!hs) {

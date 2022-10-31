@@ -7,8 +7,8 @@
 // VGA driver
 $include('../common/vga.si')
 
-$$if VGA_1024_768 or VGA_800_600 then
-$$  if not ECPIX5 then
+$$if VGA_1920_1080 or VGA_1024_768 or VGA_800_600 then
+$$  if not ECPIX5 and not SIMULATION and not DE10NANO then
 $$    error('Higher resolution VGA support only for ecpix5 (missing plls)')
 $$  end
 $$end
@@ -40,7 +40,11 @@ $$end
 
 $$if DE10NANO then
 // Clock
-import('../common/plls/de10nano_100_25.v')
+$$if VGA_1920_1080 then
+import('../common/plls/de10nano_173.v')
+$$else
+import('../common/plls/de10nano_25.v')
+$$end
 $$end
 
 $$if DE2 then
@@ -52,6 +56,8 @@ $$if ECPIX5 then
 // Clock
 $$if VGA_1024_768 then
 import('../common/plls/ecpix5_65.v')
+$$elseif VGA_1920_1080 then
+import('../common/plls/ecpix5_173.v')
 $$elseif VGA_800_600 then
 import('../common/plls/ecpix5_36.v')
 $$else
@@ -143,13 +149,11 @@ $$elseif ICEBREAKER or ICEBITSY or RIEGEL then
   );
 $$elseif DE10NANO then
   // --- clock
-  uint1 sdram_clock = 0;
   uint1 pll_lock    = 0;
   pll clk_gen(
     refclk   <: clock,
     rst      <: reset,
-    outclk_0 :> sdram_clock,
-    outclk_1 :> video_clock,
+    outclk_0 :> video_clock,
     locked   :> pll_lock
   );
 $$elseif DE2 then
@@ -186,10 +190,11 @@ $$end
   uint10 pix_x  = 0;
   uint10 pix_y  = 0;
   uint1  vga_hs = 0;
+  uint1  vga_vs = 0;
 
   vga vga_driver (
     vga_hs :> vga_hs,
-	  vga_vs :> video_vs,
+	  vga_vs :> vga_vs,
 	  active :> active,
 	  vblank :> vblank,
 	  vga_x  :> pix_x,
@@ -214,10 +219,11 @@ $$end
   uint8 frame  = 0;
 
   // boost colors if color depth is greater than 6 (demos were developped for 6 bits colors)
-  video_r := r << $math.max(0,color_depth-6)$;
-  video_g := g << $math.max(0,color_depth-6)$;
-  video_b := b << $math.max(0,color_depth-6)$;
+  video_r  := r << $math.max(0,color_depth-6)$;
+  video_g  := g << $math.max(0,color_depth-6)$;
+  video_b  := b << $math.max(0,color_depth-6)$;
   video_hs := vga_hs;
+  video_vs := vga_vs;
 
 $$if ICARUS then
   // we count a number of frames and stop

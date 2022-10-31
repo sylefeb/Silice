@@ -3,8 +3,9 @@
 // https://github.com/sylefeb/Silice
 // @sylefeb 2019
 
-$$VGA_800_600  = 1
-$$VGA_1024_768 = nil
+$$VGA_800_600   = nil
+$$VGA_1024_768  = nil
+$$VGA_1920_1080 = 1
 
 // VGA driver
 $include('../common/vga.si')
@@ -31,7 +32,11 @@ $$end
 
 $$if DE10NANO then
 // Clock
-import('../common/plls/de10nano_100_25.v')
+$$if VGA_1920_1080 then
+import('../common/plls/de10nano_173.v')
+$$else
+import('../common/plls/de10nano_25.v')
+$$end
 $$end
 
 $$if DE2 then
@@ -48,6 +53,8 @@ $$if ECPIX5 then
 // Clock
 $$if VGA_1024_768 then
 import('../common/plls/ecpix5_65.v')
+$$elseif VGA_1920_1080 then
+import('../common/plls/ecpix5_173.v')
 $$elseif VGA_800_600 then
 import('../common/plls/ecpix5_36.v')
 $$else
@@ -71,7 +78,7 @@ algorithm pll(
   uint3 counter = 0;
   uint8 trigger = 8b11111111;
 
-  video_clock   := counter[1,1]; // x4 slower (25 MHz)
+  video_clock   := counter[1,1]; // x4 slower
   video_reset   := (trigger > 0);
 
   always {
@@ -101,8 +108,8 @@ algorithm frame_display(
 	  // display frame
 	  while (pix_vblank == 0) {
       if (pix_active) {
-        pix_blue  = 0;
-        pix_green = {pix_y[3,$color_depth-3$],3b000};
+        pix_blue  = {pix_y[3,$color_depth-3$],3b000};
+        pix_green = 0;
         pix_red   = {pix_x[3,$color_depth-3$],3b000};
       }
     }
@@ -166,12 +173,10 @@ $$elseif RIEGEL then
   );
 $$elseif DE10NANO then
   // --- clock
-  uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
   pll clk_gen(
     refclk    <: clock,
-    outclk_0  :> sdram_clock,
-    outclk_1  :> video_clock,
+    outclk_0  :> video_clock,
     locked    :> pll_lock,
     rst       <: reset
   );

@@ -9,13 +9,13 @@ unit vga(
   output uint1  vga_vs,
   output uint1  active,
   output uint1  vblank,
-  output uint11 vga_x,
+  output uint12 vga_x,
   output uint11 vga_y
 ) {
 
 // we use the pre-processor to compute some bounds
 $$if VGA_1024_768 then
-// 1024x768@60 (65MHz)
+//_ 1024x768@60 (65MHz pixel clock)
 $$  H_FRT_PORCH = 24
 $$  H_SYNCH     = 136
 $$  H_BCK_PORCH = 160
@@ -26,7 +26,7 @@ $$  V_SYNCH     = 6
 $$  V_BCK_PORCH = 29
 $$  V_RES       = 768
 $$elseif VGA_800_600 then
-// 800x600@56 (36MHz)
+//_ 800x600@56 (36MHz pixel clock)
 $$  H_FRT_PORCH = 24
 $$  H_SYNCH     = 72
 $$  H_BCK_PORCH = 128
@@ -36,8 +36,19 @@ $$  V_FRT_PORCH = 1
 $$  V_SYNCH     = 2
 $$  V_BCK_PORCH = 22
 $$  V_RES       = 600
+$$elseif VGA_1920_1080 then
+//_ 1920x1080@60 (173MHz pixel clock)
+$$  H_FRT_PORCH = 128
+$$  H_SYNCH     = 200
+$$  H_BCK_PORCH = 328
+$$  H_RES       = 1920
+//
+$$  V_FRT_PORCH = 3
+$$  V_SYNCH     = 5
+$$  V_BCK_PORCH = 32
+$$  V_RES       = 1080
 $$else
-// default to 640x480@60 (25MHz)
+//_ default to 640x480@60 (25MHz pixel clock)
 $$  H_FRT_PORCH = 16
 $$  H_SYNCH     = 96
 $$  H_BCK_PORCH = 48
@@ -64,10 +75,10 @@ $$VS_END   = V_FRT_PORCH + V_SYNCH
 $$VA_START = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH
 $$V_END    = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH + V_RES
 
-  uint11 xcount(0);
+  uint12 xcount(0);
   uint11 ycount(0);
 
-  uint11 pix_x     <:: (xcount - $HA_START$);
+  uint12 pix_x     <:: (xcount - $HA_START$);
   uint11 pix_y     <:: (ycount - $VA_START$);
 
   uint1  active_h  <:: (xcount >= $HA_START$ && xcount < $H_END$);
@@ -95,6 +106,18 @@ $$V_END    = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH + V_RES
     } else {
       xcount = xcount + 1;
 	  }
+
+$$if SIMULATION then
+$$if VGA_1024_768 then
+    __verilog("$c32(\"set_vga_resolution(1024,768);\");");
+$$elseif VGA_800_600 then
+    __verilog("$c32(\"set_vga_resolution(800,600);\");");
+$$elseif VGA_1920_1080 then
+    __verilog("$c32(\"set_vga_resolution(1920,1080);\");");
+$$else
+    __verilog("$c32(\"set_vga_resolution(640,480);\");");
+$$end
+$$end
   }
 
 }

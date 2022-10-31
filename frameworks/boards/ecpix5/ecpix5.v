@@ -5,21 +5,21 @@ List contributors with: git shortlog -n -s -- <filename>
 
 MIT license
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so, 
+the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (header_2_M)
@@ -32,7 +32,7 @@ $$HARDWARE = 1
 $$NUM_LEDS = 12
 $$color_depth=6
 $$color_max  =63
-$$config['dualport_bram_supported'] = 'no'
+$$config['dualport_bram_supported'] = 'yes'
 `default_nettype none
 
 module top(
@@ -48,17 +48,17 @@ module top(
   output P0A2, // r1
   output P0A3, // r2
   output P0A4, // r3
-  
+
   output P0A7,   // b0
   output P0A8,   // b1
   output P0A9,   // b2
   output P0A10,  // b3
-  
+
   output P1A1,  // g0
   output P1A2,  // g1
   output P1A3,  // g2
   output P1A4,  // g3
-  
+
   output P1A7,  // hs
   output P1A8,  // vs
 `endif
@@ -92,7 +92,7 @@ wire __main_out_vga_v0;
 wire [5:0] __main_out_vga_r;
 wire [5:0] __main_out_vga_g;
 wire [5:0] __main_out_vga_b;
-`endif  
+`endif
 
 wire run_main;
 assign run_main = 1'b1;
@@ -104,7 +104,7 @@ M_main __main(
 `ifdef UART
   .out_uart_tx  (uart_tx),
   .in_uart_rx   (uart_rx),
-`endif  
+`endif
 `ifdef VGA
   .out_video_hs(__main_out_vga_hs),
   .out_video_vs(__main_out_vga_vs),
@@ -138,4 +138,3 @@ assign P1A8  = __main_out_vga_vs;
 `endif
 
 endmodule
-

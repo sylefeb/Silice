@@ -47,6 +47,19 @@ double sc_time_stamp()
 
 // ----------------------------------------------------------------------------
 
+int g_Width  = 0;
+int g_Height = 0;
+
+// callback to set vga resolution
+void set_vga_resolution(int w,int h)
+{
+  fprintf(stderr,"[set_vga_resolution] %dx%d\n",w,h);
+  g_Width  = w;
+  g_Height = h;
+}
+
+// ----------------------------------------------------------------------------
+
 // steps the simulation
 void step()
 {
@@ -90,6 +103,13 @@ int main(int argc,char **argv)
 
   // instantiate the VGA chip
   g_VgaChip = new VgaChip((int)g_VgaTest->video_color_depth);
+
+  // set resolution
+  if (g_Width == 0) {
+    fprintf(stderr,"error, no resolution information was received"
+                   "(set_vga_resolution not called from design)\n");
+  }
+  g_VgaChip->setResolution(g_Width,g_Height);
 
   // enter VGA display loop
   display_loop(g_VgaChip);

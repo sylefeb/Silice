@@ -1815,12 +1815,12 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
   auto declmem   = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
   if (var_group_table_only) {
     if (declmem) {
-      reportError(sourceloc(declmem->IDENTIFIER()),"cannot declare a memory here");
+      reportError(sourceloc(declmem->IDENTIFIER()),"memories have to be instantiated before any instructions");
     }
     if (instance) {
       std::string name = instance->blueprint->getText();
       if (m_KnownGroups.find(name) == m_KnownGroups.end()) {
-        reportError(sourceloc(instance),"cannot instantiate here");
+        reportError(sourceloc(instance),"units have to be instantiated before any instructions");
       }
     }
   }

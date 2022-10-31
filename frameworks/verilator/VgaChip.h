@@ -61,6 +61,9 @@ private:
   bool m_framebuffer_changed = false;
 
   void set640x480();
+  void set800x600();
+  void set1024x768();
+  void set1920x1080();
 
 public:
 
@@ -77,4 +80,8 @@ public:
   LibSL::Image::ImageRGBA& framebuffer() override { return m_framebuffer; }
 
   bool framebufferChanged() override;
+  bool ready() override { return m_h_res != 0; }
+
+  void setResolution(int w,int h);
+
 };
