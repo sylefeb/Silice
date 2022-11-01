@@ -2031,8 +2031,8 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, _current, nullptr, sourceloc(sub));
   subb->context.subroutine    = nfo;
   nfo->top_block              = subb;
-  // subroutine local declarations
-  int allowed = dVAR | dTABLE;
+  // subroutine local preamble
+  int allowed = dVAR | dTABLE | dWIRE;
   int numdecl = gatherDeclarationList(sub->declarationList(), subb, _context, (e_DeclType)allowed);
   // cross ref between block and subroutine
   // gather inputs/outputs and access constraints
