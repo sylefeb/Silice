@@ -358,6 +358,7 @@ private:
 
     /// \brief vector of all pipelines
     std::vector< t_pipeline_nfo* > m_Pipelines;
+    /// \brief mapping between vio names and pipeline stages
     std::unordered_map< std::string, t_pipeline_stage_nfo* > m_vio2PipelineStage;
 
     /// \brief struct describing the first and last block of a pipeline stage
@@ -687,6 +688,8 @@ private:
     void addVar(t_var_nfo& _var, t_combinational_block *_current, const Utils::t_source_loc& srcloc);
     /// \brief check if an identifier is available
     bool isIdentifierAvailable(std::string name) const;
+    /// \brief returns the name of a delayed assignment temporary variable
+    std::string delayedName(siliceParser::AlwaysAssignedContext* alw) const;
     /// \brief returns the name of a temporary from the expression and its context
     std::string temporaryName(siliceParser::Expression_0Context *expr, const t_combinational_block *_current, int __id) const;
     /// \brief create a temporary for an expression

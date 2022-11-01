@@ -361,7 +361,6 @@ syncExec            : joinExec LARROW '(' callParamList ')' ;
 /* -- Circuitry instantiation -- */
 
 circuitryInst       : '(' outs=callParamList ')' '='  IDENTIFIER '('      ins=callParamList ')'; /// TODO: expression_0
-// instOrExecPipeline  : '(' outs=idOrIoAccessList ')' '->' IDENTIFIER '->' '(' ins=idOrIoAccessList ')'; /// TODO: expression_0
 
 /* -- Control flow -- */
 

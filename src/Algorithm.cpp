@@ -2206,7 +2206,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   t_pipeline_nfo         *nfo = new t_pipeline_nfo();
   m_Pipelines.push_back(nfo);
   // name of the pipeline
-  nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine());
+  nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine()) + std::to_string(m_Pipelines.size());
   // add a block for after pipeline
   t_combinational_block *after = addBlock(generateBlockName(), _current);
   // go through the pipeline
@@ -2787,6 +2787,7 @@ std::string Algorithm::temporaryName(siliceParser::Expression_0Context *expr, co
 {
   return "temp_" + std::to_string(expr->getStart()->getLine())
     + "_" + std::to_string(expr->getStart()->getCharPositionInLine())
+    + "_" + std::to_string(m_Temporaries.size())
     + (__id >= 0 ? "_" + std::to_string(__id) : "");
 }
 
@@ -2815,6 +2816,14 @@ void Algorithm::makeTemporary(siliceParser::Expression_0Context *expr, t_combina
 
 // -------------------------------------------------
 
+std::string Algorithm::delayedName(siliceParser::AlwaysAssignedContext* alw) const
+{
+  // (using pos in file as a UID, ok since cannot be in circuitry)
+  return "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always)
 {
   while (alws) {
@@ -2829,7 +2838,7 @@ void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* al
       if (alw->ALWSASSIGNDBL() != nullptr) {
         // insert variable
         t_var_nfo var;
-        var.name = "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
+        var.name = delayedName(alw);
         t_type_nfo typenfo = determineAccessTypeAndWidth(nullptr, alw->access(), alw->IDENTIFIER());
         var.table_size     = 0;
         var.type_nfo       = typenfo;
@@ -4688,7 +4697,7 @@ void Algorithm::determineVIOAccess(
         }
         if (alw->ALWSASSIGNDBL() != nullptr) { // delayed flip-flop
           // update temp var usage
-          std::string tmpvar = "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
+          std::string tmpvar = delayedName(alw);
           if (vios.find(tmpvar) != vios.end()) {
             _read.insert(tmpvar);
             _written.insert(tmpvar);
@@ -7429,11 +7438,11 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
           if (alw->ALWSASSIGNDBL() != nullptr) {
             std::ostringstream ostr;
             writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
-            // modify assignement to insert temporary var
+            // modify assignement to insert temporary var 
             std::size_t pos = ostr.str().find('=');
             std::string lvalue = ostr.str().substr(0, pos - 1);
             std::string rvalue = ostr.str().substr(pos + 1);
-            std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
+            std::string tmpvar = "_" + delayedName(alw);
             out << lvalue << " = " << FF_D << tmpvar << ';' << nxl;
             out << FF_D << tmpvar << " = " << rvalue; // rvalue includes the line end ";\n"
           } else {

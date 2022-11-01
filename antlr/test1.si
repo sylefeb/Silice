@@ -1,25 +1,25 @@
 
-riscv cpu_blinky(output uint32 leds) <mem=512> = compile({
-  // =============== firmware in C language ===============
-
-  void next(int *v) { ++(*v); }
-
-  void wait() { for (volatile int w = 0 ; w < 1000000 ; ++w) {} }
-
-  void main() {
-    int i = 0;
-    while (1) {
-      leds(i);
-      wait();
-      inc(&i);
-    }
-  }
-  
-  // =============== end of firmware ===================== 
-})
-
-algorithm main(output uint8 leds)
+circuitry circ(input a,input b,output c)
 {
-  cpu_blinky cpu0;
-  leds   := cpu0.leds;
+  c = a;
+->
+  c = c + 1;
+->
+  c = c + 1;
+}
+
+unit main(output uint8 leds)
+{
+  algorithm {
+
+    uint8 a(0);
+
+		a = 1;
+
+    (a) = circ(a,a+1);
+    (a) = circ(a,a+1);
+
+    a = 5;
+
+	}
 }
