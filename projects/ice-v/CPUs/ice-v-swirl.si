@@ -316,7 +316,7 @@ $$end
       prev_bpred = bpred;
 
     } -> { // ==== stage 4
-      sameas(pc) pcp1 <:: pc + 1;
+      sameas(pc) pcp1 = pc + 1;
       // decodes values loaded from memory (if any)
       int32  loaded(0);
       uint32 aligned(0);

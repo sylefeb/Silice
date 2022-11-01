@@ -211,7 +211,8 @@ type                   : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFI
 declarationWire        : type alwaysAssigned;
 declarationVarInitSet  : '=' (value | UNINITIALIZED) ;
 declarationVarInitCstr : '(' (value | UNINITIALIZED) ')';
-declarationVar         : type IDENTIFIER ( declarationVarInitSet | declarationVarInitCstr )? ATTRIBS? ;
+declarationVarInitExpr : '=' expression_0 ;
+declarationVar         : type IDENTIFIER ( declarationVarInitSet | declarationVarInitCstr | declarationVarInitExpr )? ATTRIBS? ;
 declarationTable       : type IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationMemory      : (BRAM | BROM | DUALBRAM | SIMPLEDUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationInstance    : blueprint=IDENTIFIER (name=IDENTIFIER | NONAME) bpModifiers? ( '(' bpBindingList ')' ) ? ;

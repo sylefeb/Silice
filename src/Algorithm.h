@@ -92,6 +92,9 @@ namespace Silice
     /// \brief memory types
     enum e_MemType { UNDEF, BRAM, SIMPLEDUALBRAM, DUALBRAM, BROM };
 
+    /// \brief declaration types (used to check for permission during syntax parsing, combined as bitfield)
+    enum e_DeclType { dWIRE=1, dVAR=2, dTABLE=4, dMEMORY=8, dGROUP=16, dINSTANCE=32, dVARNOEXPR = 64};
+
     /// \brief algorithm name
     std::string m_Name;
 
@@ -129,7 +132,7 @@ namespace Silice
 
 public:
 
-    /// \brief enum for flip-flop usage
+    /// \brief enum for flip-flop usage (combined as bitfield)
     enum e_FFUsage {
       e_None = 0, e_D = 1, e_Q = 2, e_DQ = 3,
       e_Latch = 4, e_LatchD = 5, e_LatchQ = 6, e_LatchDQ = 7,
@@ -204,6 +207,10 @@ private:
     std::vector< t_var_nfo >              m_Vars;
     /// \brief all var names, map contains index in m_Vars
     std::unordered_map<std::string, int > m_VarNames;
+    /// \brief expression catchers are variables that get assigned when an
+    ///        expression is reached; these are used for temporaries and initializers
+    ///        NOTE: there can be only one catcher for a same expression
+    std::unordered_map<siliceParser::Expression_0Context *, std::string > m_ExpressionCatchers;
     /// \brief all temporaries initialized with expressions
     /// their types are dermined upon instantations by determineTemporaries
     std::unordered_map<siliceParser::Expression_0Context *, std::pair<std::string, const t_combinational_block *> > m_Temporaries;
@@ -689,9 +696,11 @@ private:
     /// \brief gather wire declaration
     void gatherDeclarationWire(siliceParser::DeclarationWireContext* decl, t_combinational_block *_current);
     /// \brief gather variable nfo
-    void gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init, const t_combinational_block *_current, std::string& _is_group);
+    ///  returns the name of the group in _is_group if the variable is a group
+    ///  returns the initializing expression in _expr is the variable is initialized with an expression
+    void gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init, const t_combinational_block *_current, std::string& _is_group, siliceParser::Expression_0Context* &_expr);
     /// \brief gather variable declaration
-    void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current);
+    void gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current, t_gather_context *_context, bool disallow_expr_init);
     /// \brief gather all values from an init list
     void gatherInitList(siliceParser::InitListContext* ilist, std::vector<std::string>& _values_str);
     /// \brief gather all values from a file
@@ -758,9 +767,9 @@ private:
     /// \brief gather a while block
     t_combinational_block *gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather declaration
-    void gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, bool var_group_table_only);
+    void gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed);
     /// \brief gather declaration list, returns number of gathered declarations
-    int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, bool var_group_table_only);
+    int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed);
     /// \brief gather a subroutine
     t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a pipeline

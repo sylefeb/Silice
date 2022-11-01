@@ -590,10 +590,17 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
 
 // -------------------------------------------------
 
-void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nfo &_nfo, bool default_no_init, const t_combinational_block *_current, std::string &_is_group)
+void Algorithm::gatherVarNfo(
+  siliceParser::DeclarationVarContext *decl, 
+  t_var_nfo&                          _nfo, 
+  bool                                 default_no_init, 
+  const t_combinational_block        *_current, 
+  std::string&                        _is_group,
+  siliceParser::Expression_0Context*& _expr)
 {
   _nfo.name = decl->IDENTIFIER()->getText();
   _nfo.table_size = 0;
+  _expr = nullptr;
   // get type
   gatherTypeNfo(decl->type(), _nfo.type_nfo, _current, _is_group);
   if (!_is_group.empty()) {
@@ -624,6 +631,9 @@ void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nf
         }
       }
       _nfo.init_at_startup = true;
+    } else if (decl->declarationVarInitExpr()) {
+      _expr = decl->declarationVarInitExpr()->expression_0();
+      _nfo.do_not_initialize = true; // this will be done through an expression catcher
     } else {
       if (!default_no_init) {
         reportError(sourceloc(decl), "variable has no initializer, use '= uninitialized' if you really don't want to initialize it.");
@@ -638,15 +648,17 @@ void Algorithm::gatherVarNfo(siliceParser::DeclarationVarContext *decl, t_var_nf
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current)
+void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, t_combinational_block *_current, t_gather_context *_context, bool disallow_expr_init)
 {
   // gather variable
   t_var_nfo var;
   std::string is_group;
-  gatherVarNfo(decl, var, false, _current, is_group);
+  siliceParser::Expression_0Context* init_expr;
+  gatherVarNfo(decl, var, false, _current, is_group, init_expr);
   // check if var is a group
   if (!is_group.empty()) {
-    if (decl->declarationVarInitSet() != nullptr || decl->declarationVarInitCstr() != nullptr || decl->ATTRIBS() != nullptr) {
+    if ( decl->declarationVarInitSet() != nullptr || decl->declarationVarInitCstr() != nullptr 
+      || decl->declarationVarInitExpr() != nullptr || decl->ATTRIBS() != nullptr) {
       reportError(sourceloc(decl), "variable is declared as 'sameas' a group or interface, it cannot have initializers.");
     }
     // find group (should be here, according to gatherTypeNfo)
@@ -671,7 +683,18 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
       addVar(vnfo, _current, sourceloc(decl, decl->IDENTIFIER()->getSourceInterval()));
     }
   } else {
+    // add var
     addVar(var, _current, sourceloc(decl, decl->IDENTIFIER()->getSourceInterval()));
+    // if any initialization expression exists, add as a catcher
+    if (init_expr != nullptr) {
+      if (disallow_expr_init) {
+        reportError(sourceloc(decl), "variables can only use expression initializers in an algorithm body.");
+      } else {
+        m_ExpressionCatchers.insert(std::make_pair(init_expr, var.name));
+        // insert a custom assignment instruction for this catcher
+        _current->instructions.push_back(t_instr_nfo(init_expr, _current, _context->__id));
+      }
+    }
   }
 }
 
@@ -1091,7 +1114,13 @@ void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationInstanceContext*
       // create group variables
       t_var_nfo vnfo;
       std::string is_group;
-      gatherVarNfo(v->declarationVar(), vnfo, false, _current, is_group);
+      siliceParser::Expression_0Context* init_expr;
+      gatherVarNfo(v->declarationVar(), vnfo, false, _current, is_group, init_expr);
+      // if any initialization expression exists, report an error
+      if (init_expr != nullptr) {
+        reportError(sourceloc(v), "group '%s': group member declarations cannot use expressions as initializers", grp->name->getText().c_str());
+      }
+      // check for parameterized members
       if (vnfo.type_nfo.base_type == Parameterized) {
         reportError(sourceloc(v), "group '%s': group member declarations cannot use 'sameas'", grp->name->getText().c_str());
       }
@@ -1735,7 +1764,8 @@ Algorithm::t_combinational_block *Algorithm::gatherBlock(siliceParser::BlockCont
   t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(block));
   _current->next(newblock);
   // gather declarations in new block
-  gatherDeclarationList(block->declarationList(), newblock, true);
+  int allowed = dVAR | dTABLE;
+  gatherDeclarationList(block->declarationList(), newblock, _context, (e_DeclType)allowed);
   // gather instructions in new block
   t_combinational_block *after     = gather(block->instructionSequence(), newblock, _context);
   // produce next block
@@ -1811,25 +1841,47 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, bool var_group_table_only)
+void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed)
 {
   auto declvar   = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
   auto declwire  = dynamic_cast<siliceParser::DeclarationWireContext *>(decl->declarationWire());
   auto decltbl   = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
   auto instance  = dynamic_cast<siliceParser::DeclarationInstanceContext*>(decl->declarationInstance());
   auto declmem   = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
-  if (var_group_table_only) {
-    if (declmem) {
-      reportError(sourceloc(declmem->IDENTIFIER()),"memories have to be instantiated before any instructions");
+  // check permissions
+  if (declvar) {
+    if (!(allowed & dVAR) && !(allowed & dVARNOEXPR)) {
+      reportError(sourceloc(declvar->IDENTIFIER()), "variables cannot be declared here");
     }
-    if (instance) {
-      std::string name = instance->blueprint->getText();
-      if (m_KnownGroups.find(name) == m_KnownGroups.end()) {
-        reportError(sourceloc(instance),"units have to be instantiated before any instructions");
+  } else if (declwire) {
+    if (!(allowed & dWIRE)) {
+      reportError(sourceloc(declwire), 
+        "expression trackers may only be declared in the unit body, or in the algorithm preamble\n"
+        "<new> declarations with initializers are allowed, e.g. uint8 b = a + 8d16;\n"
+      );
+    }
+  } else if (decltbl) {
+    if (!(allowed & dTABLE)) {
+      reportError(sourceloc(decltbl->IDENTIFIER()), "tables cannot be declared here");
+    }
+  } else if (declmem) {
+    if (!(allowed & dMEMORY)) {
+      reportError(sourceloc(declmem->IDENTIFIER()), "memories have to be instantiated in the unit body, or in the algorithm preamble");
+    }
+  } else if (instance) {
+    std::string name = instance->blueprint->getText();
+    if (m_KnownGroups.find(name) == m_KnownGroups.end()) { // not a group
+      if (!(allowed & dINSTANCE)) {
+        reportError(sourceloc(instance), "units have to be instantiated in the unit body, or in the algorithm preamble");
+      }
+    } else {
+      if (!(allowed & dGROUP)) {
+        reportError(sourceloc(instance), "groups cannot be defined here");
       }
     }
   }
-  if (declvar)        { gatherDeclarationVar(declvar, _current); }
+  // gather
+  if (declvar)        { gatherDeclarationVar(declvar, _current, _context, (allowed & dVARNOEXPR)); }
   else if (declwire)  { gatherDeclarationWire(declwire, _current); }
   else if (decltbl)   { gatherDeclarationTable(decltbl, _current); }
   else if (declmem)   { gatherDeclarationMemory(declmem, _current); }
@@ -1838,7 +1890,6 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
     if (m_KnownGroups.find(name) != m_KnownGroups.end()) {
       gatherDeclarationGroup(instance, _current);
     } else {
-      sl_assert(!var_group_table_only);
       gatherDeclarationInstance(instance, _current);
     }
   }
@@ -1917,7 +1968,7 @@ void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_
 
 //-------------------------------------------------
 
-int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, bool var_group_table_only)
+int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed)
 {
   if (decllist == nullptr) {
     return 0;
@@ -1926,7 +1977,7 @@ int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decll
   siliceParser::DeclarationListContext *cur_decllist = decllist;
   while (cur_decllist->declaration() != nullptr) {
     siliceParser::DeclarationContext* decl = cur_decllist->declaration();
-    gatherDeclaration(decl, _current, var_group_table_only);
+    gatherDeclaration(decl, _current, _context, allowed);
     cur_decllist = cur_decllist->declarationList();
     ++num;
   }
@@ -1981,7 +2032,8 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   subb->context.subroutine    = nfo;
   nfo->top_block              = subb;
   // subroutine local declarations
-  int numdecl = gatherDeclarationList(sub->declarationList(), subb, true);
+  int allowed = dVAR | dTABLE;
+  int numdecl = gatherDeclarationList(sub->declarationList(), subb, _context, (e_DeclType)allowed);
   // cross ref between block and subroutine
   // gather inputs/outputs and access constraints
   sl_assert(sub->subroutineParamList() != nullptr);
@@ -2752,9 +2804,11 @@ void Algorithm::makeTemporary(siliceParser::Expression_0Context *expr, t_combina
   var.init_at_startup  = false;
   var.do_not_initialize = true;
   insertVar(var, _current);
-  // insert in temporaries
+  // insert as an expression catcher
   int idx = m_VarNames.at(var.name);
-  m_Temporaries.insert(std::make_pair(expr,std::make_pair(var.name,_current)));
+  m_ExpressionCatchers.insert(std::make_pair(expr,var.name));
+  // insert as a temporary (type will be determined by determineTemporaries)
+  m_Temporaries.insert(std::make_pair(expr, std::make_pair(var.name, _current)));
   // insert a custom assignment instruction for this temporary
   _current->instructions.push_back(t_instr_nfo(expr,_current,_context->__id));
 }
@@ -2841,12 +2895,16 @@ void Algorithm::gatherInputNfo(siliceParser::InputContext* input, t_inout_nfo& _
   if (input->declarationVar() != nullptr) {
     _io.srcloc = sourceloc(input->declarationVar()->IDENTIFIER());
     std::string is_group;
-    gatherVarNfo(input->declarationVar(), _io, true, _current, is_group);
+    siliceParser::Expression_0Context* init_expr;
+    gatherVarNfo(input->declarationVar(), _io, true, _current, is_group, init_expr);
     if (_io.type_nfo.base_type == Parameterized && !is_group.empty()) {
       reportError(sourceloc(input), "input '%s': 'sameas' on group/interface inputs is not yet supported", _io.name.c_str());
     }
     if (!_io.init_at_startup && !_io.init_values.empty()) {
       reportError(sourceloc(input), "input '%s': only startup initialization values are possible on inputs", _io.name.c_str());
+    }
+    if (init_expr != nullptr) {
+      reportError(sourceloc(input), "input '%s': cannot use an expression for initialization on an input", _io.name.c_str());
     }
   } else if (input->declarationTable() != nullptr) {
     reportError(sourceloc(input), "input '%s': tables as input are not yet supported", _io.name.c_str());
@@ -2863,9 +2921,13 @@ void Algorithm::gatherOutputNfo(siliceParser::OutputContext* output, t_output_nf
   if (output->declarationVar() != nullptr) {
     _io.srcloc = sourceloc(output->declarationVar()->IDENTIFIER());
     std::string is_group;
-    gatherVarNfo(output->declarationVar(), _io, true, _current, is_group);
+    siliceParser::Expression_0Context* init_expr;
+    gatherVarNfo(output->declarationVar(), _io, true, _current, is_group, init_expr);
     if (_io.type_nfo.base_type == Parameterized && !is_group.empty()) {
       reportError(sourceloc(output), "output '%s': 'sameas' on group/interface outputs is not yet supported", _io.name.c_str());
+    }
+    if (init_expr != nullptr) {
+      reportError(sourceloc(output), "output '%s': cannot use an expression for initialization on an output", _io.name.c_str());
     }
   } else if (output->declarationTable() != nullptr) {
     reportError(sourceloc(output), "output '%s': tables as output are not yet supported", _io.name.c_str());
@@ -2884,12 +2946,16 @@ void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _
   if (inout->declarationVar() != nullptr) {
     _io.srcloc = sourceloc(inout->declarationVar()->IDENTIFIER());
     std::string is_group;
-    gatherVarNfo(inout->declarationVar(), _io, true, _current, is_group);
+    siliceParser::Expression_0Context* init_expr;
+    gatherVarNfo(inout->declarationVar(), _io, true, _current, is_group, init_expr);
     if (_io.type_nfo.base_type == Parameterized && !is_group.empty()) {
       reportError(sourceloc(inout), "inout '%s': 'sameas' on group/interface inouts is not yet supported", _io.name.c_str());
     }
     if (!_io.init_values.empty()) {
       reportError(sourceloc(inout), "inout '%s': initialization values are not possible on inouts", _io.name.c_str());
+    }
+    if (init_expr != nullptr) {
+      reportError(sourceloc(inout), "inout '%s': cannot use an expression for initialization on an inout", _io.name.c_str());
     }
   } else if (inout->declarationTable() != nullptr) {
     reportError(sourceloc(inout), "inout '%s': tables as inout are not supported", _io.name.c_str());
@@ -2949,13 +3015,19 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, const t_combinati
   for (auto v : G->second->varList()->var()) {
     t_var_nfo vnfo;
     std::string is_group;
-    gatherVarNfo(v->declarationVar(), vnfo, false, _current, is_group);
+    siliceParser::Expression_0Context* init_expr;
+    gatherVarNfo(v->declarationVar(), vnfo, false, _current, is_group, init_expr);
     vnfo.srcloc = sourceloc(iog->IDENTIFIER()[1]);
+    if (init_expr != nullptr) {
+      reportError(sourceloc(v->declarationVar()->IDENTIFIER()),
+        "entry '%s': cannot use an expression for initialization in a io group",
+        vnfo.name.c_str());
+    }
     // sameas?
     if (vnfo.type_nfo.base_type == Parameterized) {
       reportError(sourceloc(v->declarationVar()->IDENTIFIER()),
         "entry '%s': 'sameas' not allowed in group",
-        vnfo.name.c_str(), iog->defid->getText().c_str());
+        vnfo.name.c_str());
     }
     // duplicates?
     if (vars.count(vnfo.name)) {
@@ -3394,7 +3466,8 @@ Algorithm::t_combinational_block *Algorithm::gather(
   if (algbody) {
     // gather declarations
     for (auto d : algbody->declaration()) {
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, false);
+      int allowed = dWIRE | dVARNOEXPR | dTABLE | dMEMORY | dGROUP | dINSTANCE;
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, (e_DeclType)allowed);
     }
     // add global subroutines now (reparse them as if defined in this algorithm)
     for (const auto &s : m_KnownSubroutines) {
@@ -3459,7 +3532,8 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (unitbody)     {
     // gather declarations
     for (auto d : unitbody->declaration()) {
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, false);
+      int allowed = dWIRE | dVARNOEXPR | dTABLE | dMEMORY | dGROUP | dINSTANCE;
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, (e_DeclType)allowed);
     }
     // gather stableinput checks
     for (auto s : unitbody->stableinput()) {
@@ -3536,7 +3610,8 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current->next(newblock);
     // gather declarations
     for (auto d : algcontent->declaration()) {
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), newblock, false);
+      int allowed = dWIRE | dVARNOEXPR | dTABLE | dMEMORY | dGROUP | dINSTANCE;
+      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), newblock, _context, (e_DeclType)allowed);
     }
     // gather local subroutines
     for (auto s : algcontent->subroutine()) {
@@ -3551,7 +3626,10 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current = nextblock;
     // recurse on instruction list
     recurse  = false;
-  } else if (decl)         { gatherDeclaration(decl, _current, true);                      recurse = false;
+  } else if (decl)         { 
+    int allowed = dVAR | dTABLE;
+    gatherDeclaration(decl, _current, _context, (e_DeclType)allowed);
+    recurse = false;
   } else if (ifelse)       { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
   } else if (ifthen)       { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
   } else if (switchC)      { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
@@ -4409,7 +4487,9 @@ void Algorithm::verifyMemberBitfield(std::string member, siliceParser::BitfieldC
   for (auto v : field->varList()->var()) {
     if (v->declarationVar()->IDENTIFIER()->getText() == member) {
       // verify there is no initializer
-      if (v->declarationVar()->declarationVarInitSet() != nullptr || v->declarationVar()->declarationVarInitCstr() != nullptr) {
+      if ( v->declarationVar()->declarationVarInitSet() != nullptr 
+        || v->declarationVar()->declarationVarInitCstr() != nullptr
+        || v->declarationVar()->declarationVarInitExpr() != nullptr) {
         reportError(sourceloc(v),
           "bitfield members should not be given initial values (field '%s', member '%s')",
           field->IDENTIFIER()->getText().c_str(), member.c_str());
@@ -4629,12 +4709,12 @@ void Algorithm::determineVIOAccess(
     } {
       auto expr = dynamic_cast<siliceParser::Expression_0Context *>(node);
       if (expr) {
-        // try to retrieve temporary var if it exists for this expression
-        auto T = m_Temporaries.find(expr);
-        if (T == m_Temporaries.end()) {
+        // try to retrieve expression catcher var if it exists for this expression
+        auto C = m_ExpressionCatchers.find(expr);
+        if (C == m_ExpressionCatchers.end()) {
           // no: nothing to do
         } else {
-          string var = T->second.first;
+          string var = C->second;
           // tag it as written
           var = translateVIOName(var, bctx);
           if (vios.find(var) != vios.end()) {
@@ -7364,20 +7444,27 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
     } {
         auto expr = dynamic_cast<siliceParser::Expression_0Context *>(a.instr);
         if (expr) {
-          // retrieve temporary var
-          string var = temporaryName(expr, block, a.__id);
-          // check it exists
-          if (m_VarNames.count(var) == 0) {
-            reportError(sourceloc(expr), "internal error, temporary for expression not found");
+          // try to retrieve expression catcher var if it exists for this expression
+          auto C = m_ExpressionCatchers.find(expr);
+          if (C == m_ExpressionCatchers.end()) {
+            // not found
+            reportError(sourceloc(expr), "internal error, variable for expression catcher not found (1)");
+          } else {
+            std::string var = C->second;
+            // check it exists
+            if (m_VarNames.count(var) == 0) {
+              reportError(sourceloc(expr), "internal error, variable for expression catcher not found (2)");
+            }
+            // check var type is defined
+            if ( m_Vars.at(m_VarNames.at(var)).type_nfo.width == 0
+              && m_Vars.at(m_VarNames.at(var)).type_nfo.same_as.empty()) {
+              reportError(sourceloc(expr), "internal error, temporary type for expression not determined");
+            }
+            // assign expression to temporary
+            out << rewriteIdentifier(prefix, var, "", &block->context, ictx, sourceloc(expr), FF_D, false, _dependencies, _ff_usage);
+            out << " = " + rewriteExpression(prefix, expr, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+            out << ';' << nxl;
           }
-          // check var type is defined
-          if (m_Vars.at(m_VarNames.at(var)).type_nfo.width == 0) {
-            reportError(sourceloc(expr), "internal error, temporary type for expression not determined");
-          }
-          // assign expression to temporary
-          out << rewriteIdentifier(prefix, var, "", &block->context, ictx, sourceloc(expr), FF_D, false, _dependencies, _ff_usage);
-          out << " = " + rewriteExpression(prefix, expr, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
-          out << ';' << nxl;
         }
     } {
       auto assert = dynamic_cast<siliceParser::Assert_Context *>(a.instr);

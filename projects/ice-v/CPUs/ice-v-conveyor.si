@@ -107,10 +107,10 @@ $$end
     { // ==== stage 1
 
       // we need to code whether a register will be written
-      uint5 opcode <: Rtype(rom.rdata).opcode[2,5];
-      uint1 store  <: opcode == 5b01000;
-      uint1 branch <: opcode == 5b11000;
-      uint1 has_rd <: ~(store | branch) & ~reset;
+      uint5 opcode = Rtype(rom.rdata).opcode[2,5];
+      uint1 store  = opcode == 5b01000;
+      uint1 branch = opcode == 5b11000;
+      uint1 has_rd = ~(store | branch) & ~reset;
       // capture pc, instr in pipeline
       pc       = (exec.working ? pc    : rom.addr );
       instr    = (exec.working ? instr : rom.rdata);
